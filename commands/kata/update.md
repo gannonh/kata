@@ -26,8 +26,8 @@ fi
 
 | Installation | VERSION Path | Install Flag | Cache Path |
 |-------------|--------------|--------------|------------|
-| Local | `./.claude/kata/VERSION` | (no flag) | `./.claude/cache/kata-update-check.json` |
-| Global | `~/.claude/kata/VERSION` | `--global` | `~/.claude/cache/kata-update-check.json` |
+| Local | `./.claude/kata/VERSION` | (no flag) | `./.claude/kata/cache/update-check.json` |
+| Global | `~/.claude/kata/VERSION` | `--global` | `~/.claude/kata/cache/update-check.json` |
 
 Store the installation type for use in subsequent steps.
 
@@ -187,12 +187,12 @@ Clear the update cache so statusline indicator disappears:
 
 **For local installation:**
 ```bash
-rm -f ./.claude/cache/kata-update-check.json
+rm -f ./.claude/kata/cache/update-check.json
 ```
 
 **For global installation:**
 ```bash
-rm -f ~/.claude/cache/kata-update-check.json
+rm -f ~/.claude/kata/cache/update-check.json
 ```
 </step>
 
