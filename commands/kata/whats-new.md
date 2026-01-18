@@ -12,13 +12,20 @@ Shows version comparison, changelog entries for missed versions, and update inst
 <process>
 
 <step name="get_installed_version">
-Read installed version from VERSION file:
+Detect local vs global installation and read VERSION file:
 
 ```bash
-cat ~/.claude/kata/VERSION 2>/dev/null
+# Check for local installation first
+if [ -f ./.claude/kata/VERSION ]; then
+  cat ./.claude/kata/VERSION
+elif [ -f ~/.claude/kata/VERSION ]; then
+  cat ~/.claude/kata/VERSION
+else
+  echo "not_found"
+fi
 ```
 
-**If VERSION file missing:**
+**If VERSION file missing (output is "not_found"):**
 ```
 ## Kata What's New
 
@@ -26,12 +33,16 @@ cat ~/.claude/kata/VERSION 2>/dev/null
 
 Your installation doesn't include version tracking.
 
-**To fix:** `npx @gannonh/kata --global`
+**To fix:**
+- Local install: `npx @gannonh/kata --local`
+- Global install: `npx @gannonh/kata --global`
 
 This will reinstall with version tracking enabled.
 ```
 
 STOP here if no VERSION file.
+
+Store whether this is a local or global installation for use in later steps.
 </step>
 
 <step name="fetch_remote_changelog">
@@ -42,9 +53,14 @@ Use WebFetch tool with:
 - Prompt: "Extract all version entries with their dates and changes. Return in Keep-a-Changelog format."
 
 **If fetch fails:**
-Fall back to local changelog:
+Fall back to local changelog based on installation type:
 ```bash
-cat ~/.claude/kata/CHANGELOG.md 2>/dev/null
+# Check local installation first
+if [ -f ./.claude/kata/CHANGELOG.md ]; then
+  cat ./.claude/kata/CHANGELOG.md
+elif [ -f ~/.claude/kata/CHANGELOG.md ]; then
+  cat ~/.claude/kata/CHANGELOG.md
+fi
 ```
 
 Note to user: "Couldn't check for updates (offline or GitHub unavailable). Showing local changelog."
@@ -107,7 +123,9 @@ You're on the latest version.
 
 [View full changelog](https://github.com/gannonh/kata/blob/main/CHANGELOG.md)
 
-**To update:** `npx @gannonh/kata --global`
+**To update:**
+- Local install: `npx @gannonh/kata --local`
+- Global install: `npx @gannonh/kata --global`
 ```
 
 **Breaking changes:** Surface prominently with **BREAKING:** prefix in the output.
