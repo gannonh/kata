@@ -11,9 +11,41 @@ Provides a better update experience than raw `npx @gannonh/kata` by showing vers
 
 <process>
 
-<step name="get_installed_version">
-Read installed version:
+<step name="detect_installation">
+Detect whether Kata is installed locally (in current project) or globally:
 
+```bash
+if [ -d "./.claude/commands/kata" ]; then
+  echo "local"
+else
+  echo "global"
+fi
+```
+
+**Set paths based on installation type:**
+
+| Installation | VERSION Path | Install Flag | Cache Path |
+|-------------|--------------|--------------|------------|
+| Local | `./.claude/kata/VERSION` | (no flag) | `./.claude/cache/kata-update-check.json` |
+| Global | `~/.claude/kata/VERSION` | `--global` | `~/.claude/cache/kata-update-check.json` |
+
+Store the installation type for use in subsequent steps.
+
+**Display detection result:**
+```
+Detected installation: [local/global]
+```
+</step>
+
+<step name="get_installed_version">
+Read installed version from the detected installation path:
+
+**For local installation:**
+```bash
+cat ./.claude/kata/VERSION 2>/dev/null
+```
+
+**For global installation:**
 ```bash
 cat ~/.claude/kata/VERSION 2>/dev/null
 ```
@@ -23,6 +55,7 @@ cat ~/.claude/kata/VERSION 2>/dev/null
 ## Kata Update
 
 **Installed version:** Unknown
+**Installation type:** [local/global]
 
 Your installation doesn't include version tracking.
 
@@ -105,13 +138,20 @@ STOP here if ahead.
 
 ────────────────────────────────────────────────────────────
 
-⚠️  **Note:** The installer performs a clean install of Kata folders:
+⚠️  **Note:** The installer performs a clean install of Kata folders.
+
+**For local installation (in current project):**
+- `./.claude/commands/kata/` will be wiped and replaced
+- `./.claude/kata/` will be wiped and replaced
+- `./.claude/agents/kata-*` files will be replaced
+
+**For global installation:**
 - `~/.claude/commands/kata/` will be wiped and replaced
 - `~/.claude/kata/` will be wiped and replaced
 - `~/.claude/agents/kata-*` files will be replaced
 
 Your custom files in other locations are preserved:
-- Custom commands in `~/.claude/commands/your-stuff/` ✓
+- Custom commands not in the kata folder ✓
 - Custom agents not prefixed with `kata-` ✓
 - Custom hooks ✓
 - Your CLAUDE.md files ✓
@@ -129,8 +169,14 @@ Use AskUserQuestion:
 </step>
 
 <step name="run_update">
-Run the update:
+Run the update using the appropriate flag based on installation type:
 
+**For local installation:**
+```bash
+npx @gannonh/kata
+```
+
+**For global installation:**
 ```bash
 npx @gannonh/kata --global
 ```
@@ -139,6 +185,12 @@ Capture output. If install fails, show error and STOP.
 
 Clear the update cache so statusline indicator disappears:
 
+**For local installation:**
+```bash
+rm -f ./.claude/cache/kata-update-check.json
+```
+
+**For global installation:**
 ```bash
 rm -f ~/.claude/cache/kata-update-check.json
 ```
@@ -161,12 +213,14 @@ Format completion message (changelog was already shown in confirmation step):
 </process>
 
 <success_criteria>
+- [ ] Installation type detected (local vs global)
+- [ ] Correct paths used based on installation type
 - [ ] Installed version read correctly
 - [ ] Latest version checked via npm
 - [ ] Update skipped if already current
 - [ ] Changelog fetched and displayed BEFORE update
-- [ ] Clean install warning shown
+- [ ] Clean install warning shown with appropriate paths
 - [ ] User confirmation obtained
-- [ ] Update executed successfully
+- [ ] Update executed with correct flag (--global for global only)
 - [ ] Restart reminder shown
 </success_criteria>
