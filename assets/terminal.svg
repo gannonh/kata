@@ -38,7 +38,7 @@
     <!-- Prompt line -->
     <text class="text prompt" font-size="15" y="0">~</text>
     <text class="text dim" font-size="15" x="16" y="0">$</text>
-    <text class="text command" font-size="15" x="36" y="0">npx kata-cli</text>
+    <text class="text command" font-size="15" x="36" y="0">npx @gannonh/kata</text>
 
     <!-- Banner -->
     <text class="text cyan" font-size="14" y="48" xml:space="preserve">  ██╗  ██╗ █████╗ ████████╗ █████╗</text>
@@ -50,8 +50,7 @@
 
     <!-- Title and subtitle -->
     <text class="text white" font-size="15" y="188">  Kata <tspan class="dim">v0.1.0</tspan></text>
-    <text class="text white" font-size="15" y="212">  A meta-prompting, context engineering and spec-driven</text>
-    <text class="text white" font-size="15" y="232">  development system for Claude Code.</text>
+    <text class="text white" font-size="15" y="212">  Spec-driven development framework for Claude Code.</text>
 
     <!-- Install output -->
     <text class="text" font-size="15" y="280"><tspan class="green">  ✓</tspan><tspan class="white"> Installed commands/kata</tspan></text>
