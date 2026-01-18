@@ -17,7 +17,7 @@ Kata is an independent meta-prompting and context engineering system for Claude 
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 0: Hard Fork & Rebrand** - Sever ties from upstream, establish independent Kata identity
+- [x] **Phase 0: Hard Fork & Rebrand** - Sever ties from upstream, establish independent Kata identity
 - [ ] **Phase 1: Integration Architecture** - Establish extensible integration system with GitHub as first integration
 - [ ] **Phase 2: GitHub Issues Core** - Bidirectional sync and lifecycle tracking
 - [ ] **Phase 3: GitHub Issues Polish** - Auto-labeling and issue templates
@@ -41,11 +41,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 5 plans
 
 Plans:
-- [ ] 00-01-PLAN.md — Git configuration and package.json identity
-- [ ] 00-02-PLAN.md — Core documentation (CLAUDE.md, README.md, install.js)
-- [ ] 00-03-PLAN.md — Support files (FUNDING, CHANGELOG, assets, scripts)
-- [ ] 00-04-PLAN.md — Internal references (commands, hooks, planning docs)
-- [ ] 00-05-PLAN.md — Verification and human approval
+- [x] 00-01-PLAN.md — Git configuration and package.json identity
+- [x] 00-02-PLAN.md — Core documentation (CLAUDE.md, README.md, install.js)
+- [x] 00-03-PLAN.md — Support files (FUNDING, CHANGELOG, assets, scripts)
+- [x] 00-04-PLAN.md — Internal references (commands, hooks, planning docs)
+- [x] 00-05-PLAN.md — Verification and human approval
 
 ### Phase 1: Integration Architecture
 **Goal**: Extensible integration system exists and GitHub integration proves the pattern
@@ -165,7 +165,7 @@ Phases execute in numeric order: 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 0. Hard Fork & Rebrand | 0/5 | Planned | - |
+| 0. Hard Fork & Rebrand | 5/5 | Complete | 2026-01-18 |
 | 1. Integration Architecture | 0/3 | Planned | - |
 | 2. GitHub Issues Core | 0/3 | Not started | - |
 | 3. GitHub Issues Polish | 0/2 | Not started | - |
@@ -176,4 +176,4 @@ Phases execute in numeric order: 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 ---
 *Roadmap created: 2026-01-17*
-*Last updated: 2026-01-18 - Phase 0 planned (5 plans in 4 waves)*
+*Last updated: 2026-01-18 - Phase 0 complete, ready for Phase 1*
