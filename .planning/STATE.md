@@ -5,32 +5,32 @@
 See: .planning/PROJECT.md (updated 2026-01-17)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** Phase 0 - Hard Fork & Rebrand
+**Current focus:** Phase 1 - Integration Architecture
 
 ## Current Position
 
-Phase: 0 of 8 (Hard Fork & Rebrand)
-Plan: 3 of 3 in current phase
-Status: In progress
-Last activity: 2026-01-18 - Completed 00-03-PLAN.md (Support Files)
+Phase: 1 of 7 (Integration Architecture)
+Plan: 0 of 3 in current phase
+Status: Ready to start Phase 1
+Last activity: 2026-01-18 - Removed Phase 0.1, ready for Phase 1
 
-Progress: [===.................] 15%
+Progress: [=====...............] 14%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
+- Total plans completed: 5
 - Average duration: 2 min
-- Total execution time: 5 min
+- Total execution time: 10 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 00-hard-fork-rebrand | 3 | 5 min | 1.7 min |
+| 00-hard-fork-rebrand | 5 | 10 min | 2 min |
 
 **Recent Trend:**
-- Last 5 plans: 00-01 (1 min), 00-02 (1 min), 00-03 (3 min)
+- Last 5 plans: 00-01 (1 min), 00-02 (1 min), 00-03 (3 min), 00-04 (3 min), 00-05 (2 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -50,14 +50,17 @@ Recent decisions affecting current work:
 - Claude Code first (where GSD already runs), then port to VS Code
 - **00-03:** FUNDING.yml removed (can add gannonh funding later when public)
 - **00-03:** CHANGELOG.md reset to v0.1.0 clean slate
+- **00-04:** All glittercowboy/get-shit-done references removed from commands, hooks, planning docs
+- **00-05:** Phase 0 verified complete with human approval
 
 ### Roadmap Evolution
 
 - Phase 0 inserted before Phase 1: Hard Fork & Rebrand (vision diverged from upstream)
+- Phase 0 completed 2026-01-18 - all 5 plans executed successfully
 
 ### Pending Todos
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
@@ -66,5 +69,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-18
-Stopped at: Completed 00-03-PLAN.md (Support Files)
+Stopped at: Removed Phase 0.1 - Ready to start Phase 1
 Resume file: None

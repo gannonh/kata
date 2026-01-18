@@ -1,6 +1,7 @@
 node_modules/
 package-lock.json
 .DS_Store
+.npmrc
 TO-DOS.md
 /research.claude/
 
@@ -9,3 +10,4 @@ TO-DOS.md
 
 # misc
 kata.code-workspace
+.secrets/
