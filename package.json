@@ -1,0 +1,32 @@
+{
+  "name": "kata-cli",
+  "version": "0.1.0",
+  "description": "A meta-prompting, context engineering and spec-driven development system for Claude Code.",
+  "bin": {
+    "kata": "bin/install.js"
+  },
+  "files": [
+    "bin",
+    "commands",
+    "kata",
+    "agents",
+    "hooks"
+  ],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "ai",
+    "meta-prompting",
+    "context-engineering",
+    "spec-driven-development"
+  ],
+  "author": "gannonh",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gannonh/kata.git"
+  },
+  "engines": {
+    "node": ">=16.7.0"
+  }
+}
