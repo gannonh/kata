@@ -5,10 +5,6 @@
 **A light-weight and powerful meta-prompting, context engineering and spec-driven development system for Claude Code.**
 
 [![npm version](https://img.shields.io/npm/v/@gannonh/kata?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@gannonh/kata)
-[![npm downloads](https://img.shields.io/npm/dm/@gannonh/kata?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@gannonh/kata)
-[![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/gannonh/kata?style=for-the-badge&logo=github&color=181717)](https://github.com/gannonh/kata)
-
 <br>
 
 ```bash
@@ -39,7 +35,7 @@ People who want to describe what they want and have it built correctly — witho
 ## Getting Started
 
 ```bash
-npx @gannonh/kata (coming soon)
+npx @gannonh/kata
 ```
 
 That's it. Verify with `/kata:help` inside your Claude Code interface.
