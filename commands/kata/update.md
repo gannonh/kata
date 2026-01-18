@@ -6,7 +6,7 @@ description: Update Kata to latest version with changelog display
 <objective>
 Check for Kata updates, install if available, and display what changed.
 
-Provides a better update experience than raw `npx kata-cli` by showing version diff and changelog entries.
+Provides a better update experience than raw `npx @kata/cli` by showing version diff and changelog entries.
 </objective>
 
 <process>
@@ -36,14 +36,14 @@ Proceed to install step (treat as version 0.0.0 for comparison).
 Check npm for latest version:
 
 ```bash
-npm view kata-cli version 2>/dev/null
+npm view @kata/cli version 2>/dev/null
 ```
 
 **If npm check fails:**
 ```
 Couldn't check for updates (offline or npm unavailable).
 
-To update manually: `npx kata-cli --global`
+To update manually: `npx @kata/cli --global`
 ```
 
 STOP here if npm unavailable.
@@ -132,7 +132,7 @@ Use AskUserQuestion:
 Run the update:
 
 ```bash
-npx kata-cli --global
+npx @kata/cli --global
 ```
 
 Capture output. If install fails, show error and STOP.

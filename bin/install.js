@@ -60,7 +60,7 @@ console.log(banner);
 
 // Show help if requested
 if (hasHelp) {
-  console.log(`  ${yellow}Usage:${reset} npx kata-cli [options]
+  console.log(`  ${yellow}Usage:${reset} npx @kata/cli [options]
 
   ${yellow}Options:${reset}
     ${cyan}-g, --global${reset}              Install globally (to Claude config directory)
@@ -71,16 +71,16 @@ if (hasHelp) {
 
   ${yellow}Examples:${reset}
     ${dim}# Install to default ~/.claude directory${reset}
-    npx kata-cli --global
+    npx @kata/cli --global
 
     ${dim}# Install to custom config directory (for multiple Claude accounts)${reset}
-    npx kata-cli --global --config-dir ~/.claude-bc
+    npx @kata/cli --global --config-dir ~/.claude-bc
 
     ${dim}# Using environment variable${reset}
-    CLAUDE_CONFIG_DIR=~/.claude-bc npx kata-cli --global
+    CLAUDE_CONFIG_DIR=~/.claude-bc npx @kata/cli --global
 
     ${dim}# Install to current project only${reset}
-    npx kata-cli --local
+    npx @kata/cli --local
 
   ${yellow}Notes:${reset}
     The --config-dir option is useful when you have multiple Claude Code
@@ -369,7 +369,7 @@ function install(isGlobal) {
   // If critical components failed, exit with error
   if (failures.length > 0) {
     console.error(`\n  ${yellow}Installation incomplete!${reset} Failed: ${failures.join(', ')}`);
-    console.error(`  Try running directly: node ~/.npm/_npx/*/node_modules/kata-cli/bin/install.js --global\n`);
+    console.error(`  Try running directly: node ~/.npm/_npx/*/node_modules/@kata/cli/bin/install.js --global\n`);
     process.exit(1);
   }
 

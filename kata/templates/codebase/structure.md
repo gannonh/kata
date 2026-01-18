@@ -123,7 +123,7 @@ Template for `.planning/codebase/STRUCTURE.md` - captures physical file organiza
 ## Directory Layout
 
 ```
-kata-cli/
+@kata/cli/
 ├── bin/                # Executable entry points
 ├── commands/           # Slash command definitions
 │   └── kata/           # Kata-specific commands

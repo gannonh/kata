@@ -26,7 +26,7 @@ cat ~/.claude/kata/VERSION 2>/dev/null
 
 Your installation doesn't include version tracking.
 
-**To fix:** `npx kata-cli --global`
+**To fix:** `npx @kata/cli --global`
 
 This will reinstall with version tracking enabled.
 ```
@@ -107,7 +107,7 @@ You're on the latest version.
 
 [View full changelog](https://github.com/gannonh/kata/blob/main/CHANGELOG.md)
 
-**To update:** `npx kata-cli --global`
+**To update:** `npx @kata/cli --global`
 ```
 
 **Breaking changes:** Surface prominently with **BREAKING:** prefix in the output.

@@ -4,17 +4,15 @@
 
 **A light-weight and powerful meta-prompting, context engineering and spec-driven development system for Claude Code.**
 
-**Solves context rot — the quality degradation that happens as Claude fills its context window.**
-
-[![npm version](https://img.shields.io/npm/v/kata-cli?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/kata-cli)
-[![npm downloads](https://img.shields.io/npm/dm/kata-cli?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/kata-cli)
+[![npm version](https://img.shields.io/npm/v/@kata/cli?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@kata/cli)
+[![npm downloads](https://img.shields.io/npm/dm/@kata/cli?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@kata/cli)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/gannonh/kata?style=for-the-badge&logo=github&color=181717)](https://github.com/gannonh/kata)
 
 <br>
 
 ```bash
-npx kata-cli
+npx @kata/cli
 ```
 
 **Works on Mac, Windows, and Linux.**
@@ -25,41 +23,12 @@ npx kata-cli
 
 <br>
 
-*"If you know clearly what you want, this WILL build it for you. No bs."*
-
-*"I've done SpecKit, OpenSpec and Taskmaster — this has produced the best results for me."*
-
-*"By far the most powerful addition to my Claude Code. Nothing over-engineered. Literally just gets shit done."*
-
-<br>
-
 **Trusted by engineers at Amazon, Google, Shopify, and Webflow.**
-
-[Why I Built This](#why-i-built-this) · [How It Works](#how-it-works) · [Commands](#commands) · [Why It Works](#why-it-works)
 
 </div>
 
 ---
 
-## Why I Built This
-
-I'm a solo developer. I don't write code — Claude Code does.
-
-Other spec-driven development tools exist; BMAD, Speckit... But they all seem to make things way more complicated than they need to be (sprint ceremonies, story points, stakeholder syncs, retrospectives, Jira workflows) or lack real big picture understanding of what you're building. I'm not a 50-person software company. I don't want to play enterprise theater. I'm just a creative person trying to build great things that work.
-
-So I built Kata. The complexity is in the system, not in your workflow. Behind the scenes: context engineering, XML prompt formatting, subagent orchestration, state management. What you see: a few commands that just work.
-
-The system gives Claude everything it needs to do the work *and* verify it. I trust the workflow. It just does a good job.
-
-That's what this is. No enterprise roleplay bullshit. Just an incredibly effective system for building cool stuff consistently using Claude Code.
-
----
-
-Vibecoding has a bad reputation. You describe what you want, AI generates code, and you get inconsistent garbage that falls apart at scale.
-
-Kata fixes that. It's the context engineering layer that makes Claude Code reliable. Describe your idea, let the system extract everything it needs to know, and let Claude Code get to work.
-
----
 
 ## Who This Is For
 
@@ -70,7 +39,7 @@ People who want to describe what they want and have it built correctly — witho
 ## Getting Started
 
 ```bash
-npx kata-cli
+npx @kata/cli (coming soon)
 ```
 
 That's it. Verify with `/kata:help` inside your Claude Code interface.
@@ -86,15 +55,15 @@ Kata evolves fast. Check for updates periodically:
 Update with:
 
 ```bash
-npx kata-cli@latest
+npx @kata/cli@latest
 ```
 
 <details>
 <summary><strong>Non-interactive Install (Docker, CI, Scripts)</strong></summary>
 
 ```bash
-npx kata-cli --global   # Install to ~/.claude/
-npx kata-cli --local    # Install to ./.claude/
+npx @kata/cli --global   # Install to ~/.claude/
+npx @kata/cli --local    # Install to ./.claude/
 ```
 
 Use `--global` (`-g`) or `--local` (`-l`) to skip the interactive prompt.
@@ -303,16 +272,16 @@ Claude Code is incredibly powerful *if* you give it the context it needs. Most p
 
 Kata handles it for you:
 
-| File | What it does |
-|------|--------------|
-| `PROJECT.md` | Project vision, always loaded |
-| `research/` | Ecosystem knowledge (stack, features, architecture, pitfalls) |
-| `REQUIREMENTS.md` | Scoped v1/v2 requirements with phase traceability |
-| `ROADMAP.md` | Where you're going, what's done |
-| `STATE.md` | Decisions, blockers, position — memory across sessions |
-| `PLAN.md` | Atomic task with XML structure, verification steps |
-| `SUMMARY.md` | What happened, what changed, committed to history |
-| `todos/` | Captured ideas and tasks for later work |
+| File              | What it does                                                  |
+| ----------------- | ------------------------------------------------------------- |
+| `PROJECT.md`      | Project vision, always loaded                                 |
+| `research/`       | Ecosystem knowledge (stack, features, architecture, pitfalls) |
+| `REQUIREMENTS.md` | Scoped v1/v2 requirements with phase traceability             |
+| `ROADMAP.md`      | Where you're going, what's done                               |
+| `STATE.md`        | Decisions, blockers, position — memory across sessions        |
+| `PLAN.md`         | Atomic task with XML structure, verification steps            |
+| `SUMMARY.md`      | What happened, what changed, committed to history             |
+| `todos/`          | Captured ideas and tasks for later work                       |
 
 Size limits based on where Claude's quality degrades. Stay under, get consistent excellence.
 
@@ -340,12 +309,12 @@ Precise instructions. No guessing. Verification built in.
 
 Every stage uses the same pattern: a thin orchestrator spawns specialized agents, collects results, and routes to the next step.
 
-| Stage | Orchestrator does | Agents do |
-|-------|------------------|-----------|
-| Research | Coordinates, presents findings | 4 parallel researchers investigate stack, features, architecture, pitfalls |
-| Planning | Validates, manages iteration | Planner creates plans, checker verifies, loop until pass |
-| Execution | Groups into waves, tracks progress | Executors implement in parallel, each with fresh 200k context |
-| Verification | Presents results, routes next | Verifier checks codebase against goals, debuggers diagnose failures |
+| Stage        | Orchestrator does                  | Agents do                                                                  |
+| ------------ | ---------------------------------- | -------------------------------------------------------------------------- |
+| Research     | Coordinates, presents findings     | 4 parallel researchers investigate stack, features, architecture, pitfalls |
+| Planning     | Validates, manages iteration       | Planner creates plans, checker verifies, loop until pass                   |
+| Execution    | Groups into waves, tracks progress | Executors implement in parallel, each with fresh 200k context              |
+| Verification | Presents results, routes next      | Verifier checks codebase against goals, debuggers diagnose failures        |
 
 The orchestrator never does heavy lifting. It spawns agents, waits, integrates results.
 
@@ -382,51 +351,51 @@ You're never locked in. The system adapts.
 
 ### Core Workflow
 
-| Command | What it does |
-|---------|--------------|
-| `/kata:new-project` | Full initialization: questions → research → requirements → roadmap |
-| `/kata:discuss-phase [N]` | Capture implementation decisions before planning |
-| `/kata:plan-phase [N]` | Research + plan + verify for a phase |
-| `/kata:execute-phase <N>` | Execute all plans in parallel waves, verify when complete |
-| `/kata:verify-work [N]` | Manual user acceptance testing ¹ |
-| `/kata:complete-milestone` | Archive milestone, tag release |
-| `/kata:new-milestone [name]` | Start next version: questions → research → requirements → roadmap |
+| Command                      | What it does                                                       |
+| ---------------------------- | ------------------------------------------------------------------ |
+| `/kata:new-project`          | Full initialization: questions → research → requirements → roadmap |
+| `/kata:discuss-phase [N]`    | Capture implementation decisions before planning                   |
+| `/kata:plan-phase [N]`       | Research + plan + verify for a phase                               |
+| `/kata:execute-phase <N>`    | Execute all plans in parallel waves, verify when complete          |
+| `/kata:verify-work [N]`      | Manual user acceptance testing ¹                                   |
+| `/kata:complete-milestone`   | Archive milestone, tag release                                     |
+| `/kata:new-milestone [name]` | Start next version: questions → research → requirements → roadmap  |
 
 ### Navigation
 
-| Command | What it does |
-|---------|--------------|
-| `/kata:progress` | Where am I? What's next? |
-| `/kata:help` | Show all commands and usage guide |
+| Command          | What it does                      |
+| ---------------- | --------------------------------- |
+| `/kata:progress` | Where am I? What's next?          |
+| `/kata:help`     | Show all commands and usage guide |
 
 ### Brownfield
 
-| Command | What it does |
-|---------|--------------|
+| Command              | What it does                                 |
+| -------------------- | -------------------------------------------- |
 | `/kata:map-codebase` | Analyze existing codebase before new-project |
 
 ### Phase Management
 
-| Command | What it does |
-|---------|--------------|
-| `/kata:add-phase` | Append phase to roadmap |
+| Command                  | What it does                      |
+| ------------------------ | --------------------------------- |
+| `/kata:add-phase`        | Append phase to roadmap           |
 | `/kata:insert-phase [N]` | Insert urgent work between phases |
-| `/kata:remove-phase [N]` | Remove future phase, renumber |
+| `/kata:remove-phase [N]` | Remove future phase, renumber     |
 
 ### Session
 
-| Command | What it does |
-|---------|--------------|
-| `/kata:pause-work` | Create handoff when stopping mid-phase |
-| `/kata:resume-work` | Restore from last session |
+| Command             | What it does                           |
+| ------------------- | -------------------------------------- |
+| `/kata:pause-work`  | Create handoff when stopping mid-phase |
+| `/kata:resume-work` | Restore from last session              |
 
 ### Utilities
 
-| Command | What it does |
-|---------|--------------|
-| `/kata:add-todo [desc]` | Capture idea for later |
-| `/kata:check-todos` | List pending todos |
-| `/kata:debug [desc]` | Systematic debugging with persistent state |
+| Command                 | What it does                               |
+| ----------------------- | ------------------------------------------ |
+| `/kata:add-todo [desc]` | Capture idea for later                     |
+| `/kata:check-todos`     | List pending todos                         |
+| `/kata:debug [desc]`    | Systematic debugging with persistent state |
 
 <sup>¹ Contributed by reddit user OracleGreyBeard</sup>
 
@@ -440,18 +409,18 @@ You're never locked in. The system adapts.
 
 **Commands not working as expected?**
 - Run `/kata:help` to verify installation
-- Re-run `npx kata-cli` to reinstall
+- Re-run `npx @kata/cli` to reinstall
 
 **Updating to the latest version?**
 ```bash
-npx kata-cli@latest
+npx @kata/cli@latest
 ```
 
 **Using Docker or containerized environments?**
 
 If file reads fail with tilde paths (`~/.claude/...`), set `CLAUDE_CONFIG_DIR` before installing:
 ```bash
-CLAUDE_CONFIG_DIR=/home/youruser/.claude npx kata-cli --global
+CLAUDE_CONFIG_DIR=/home/youruser/.claude npx @kata/cli --global
 ```
 This ensures absolute paths are used instead of `~` which may not expand correctly in containers.
 

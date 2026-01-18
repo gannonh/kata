@@ -1,5 +1,5 @@
 {
-  "name": "kata-cli",
+  "name": "@kata/cli",
   "version": "0.1.0",
   "description": "A meta-prompting, context engineering and spec-driven development system for Claude Code.",
   "bin": {

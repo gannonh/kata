@@ -32,7 +32,7 @@ const child = spawn(process.execPath, ['-e', `
 
   let latest = null;
   try {
-    latest = execSync('npm view kata-cli version', { encoding: 'utf8', timeout: 10000 }).trim();
+    latest = execSync('npm view @kata/cli version', { encoding: 'utf8', timeout: 10000 }).trim();
   } catch (e) {}
 
   const result = {
