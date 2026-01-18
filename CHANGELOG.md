@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-01-18
+
+### Fixed
+- Global install now properly adds Kata SessionStart hook when other SessionStart hooks are already configured
+
 ## [0.1.3] - 2026-01-18
 
 ### Added
@@ -31,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Upstream remote and sync workflow
 - References to original project maintainer
 
-[Unreleased]: https://github.com/gannonh/kata/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/gannonh/kata/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/gannonh/kata/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/gannonh/kata/compare/v0.1.0...v0.1.3
 [0.1.0]: https://github.com/gannonh/kata/releases/tag/v0.1.0

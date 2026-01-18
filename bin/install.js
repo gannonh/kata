@@ -391,9 +391,9 @@ function install(isGlobal) {
     settings.hooks.SessionStart = [];
   }
 
-  // Check if Kata update hook already exists (also check for old gsd- hook for migration)
+  // Check if Kata update hook already exists
   const hasKataUpdateHook = settings.hooks.SessionStart.some(entry =>
-    entry.hooks && entry.hooks.some(h => h.command && (h.command.includes('kata-check-update') || h.command.includes('gsd-check-update')))
+    entry.hooks && entry.hooks.some(h => h.command && h.command.includes('kata-check-update'))
   );
 
   if (!hasKataUpdateHook) {
