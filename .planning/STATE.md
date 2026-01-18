@@ -60,7 +60,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+1. **Rename CLI package from kata-cli** (tooling) - npm name conflict with existing package
 
 ### Blockers/Concerns
 
