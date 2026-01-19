@@ -63,11 +63,12 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-4 pending todos:
+5 pending todos:
 - `.planning/todos/pending/2026-01-18-statusline-kata-project-info.md` - Add kata project info to statusline
 - `.planning/todos/pending/2026-01-18-distribute-as-claude-code-plugin.md` - Distribute Kata as Claude Code plugin for CC users
 - `.planning/todos/pending/2026-01-18-create-move-phase-command.md` - Create move-phase command
 - `.planning/todos/pending/2026-01-18-command-subagent-noun-verb-naming.md` - Change command and subagent naming to noun-verb
+- `.planning/todos/pending/2026-01-18-npm-release-workflow-support.md` - Add optional npm release workflow to Kata
 
 ### Blockers/Concerns
 
