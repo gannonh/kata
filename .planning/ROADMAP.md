@@ -27,6 +27,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 ### v0.1.5 GitHub Integration (In Progress)
 
 - [ ] **Phase 0: Convert Commands to Skills** (INSERTED) - Use skill-builder to convert Kata commands to Skills format
+- [ ] **Phase 0.1: Claude Code Plugin Distribution** (INSERTED) - Create plugin distribution using `/plugin-dev:create-plugin`
 - [ ] **Phase 1: Audit & Config Foundation** - Understand integration points, establish config schema
 - [ ] **Phase 2: Onboarding & Milestones** - Config during new-project, GitHub Milestone creation
 - [ ] **Phase 3: Phase Issues** - Create GitHub Issues for phases with labels and metadata
@@ -36,18 +37,39 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Phase Details
 
 ### Phase 0: Convert Commands to Skills (INSERTED)
-**Goal**: Convert Kata slash commands to Claude Code Skills format using `/skill-builder`
+**Goal**: 
+- Convert Kata slash commands to Claude Code Skills format using `/skill-builder`
+- Retain existing slash command files, but have them point to the new Skills, allowing for 
+  - deterministic execution in addition to autonomous agent skill invokation
+  - continue use of $AGRUMENTS (not supported by the SKILLs standard)
 **Depends on**: Nothing (prerequisite for GitHub Integration)
 **Requirements**: None (infrastructure improvement)
 **Success Criteria** (what must be TRUE):
   1. Kata slash commands converted to Skills using skill-builder workflow
-  2. Skills provide same functionality as original commands
-  3. Commands directory structure updated to Skills format
-  4. Installation and usage patterns documented
+  2. Existing slash commands invoke corresponding Skills
+  3. Resource files go with skills for adaptive discolosure
+  4. skills referce correspoding agent, model and context strategy using front-matter: agent, context, model
+  5. Skills provide same functionality as original commands
+  6. Commands directory structure updated to Skills format
+  7. Installation and usage patterns documented
 **Plans**: TBD
 
 Plans:
 - [ ] 00-01: TBD (run /kata:plan-phase 0 to break down)
+
+### Phase 0.1: Claude Code Plugin Distribution (INSERTED)
+**Goal**: Package Kata as a Claude Code plugin for easy distribution using `/plugin-dev:create-plugin`
+**Depends on**: Phase 0 (Skills format established)
+**Requirements**: None (distribution improvement)
+**Success Criteria** (what must be TRUE):
+  1. Kata packaged as Claude Code plugin using plugin-dev workflow
+  2. Plugin manifest (plugin.json) correctly configured
+  3. All commands, agents, workflows available through plugin
+  4. Installation via plugin system documented
+**Plans**: TBD
+
+Plans:
+- [ ] 00.1-01: TBD (run /kata:plan-phase 0.1 to break down)
 
 ### Phase 1: Audit & Config Foundation
 **Goal**: Understand where GitHub integration hooks into existing Kata workflows and establish config schema
@@ -128,18 +150,19 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 0 -> 1 -> 2 -> 3 -> 4 -> 5
+Phases execute in numeric order: 0 -> 0.1 -> 1 -> 2 -> 3 -> 4 -> 5
 
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|----------------|--------|-----------|
-| 0. Hard Fork & Rebrand | v0.1.4 | 5/5 | Complete | 2026-01-18 |
-| 0. Convert Commands to Skills | v0.1.5 | 0/? | Not planned | - |
-| 1. Audit & Config Foundation | v0.1.5 | 0/? | Not planned | - |
-| 2. Onboarding & Milestones | v0.1.5 | 0/? | Not started | - |
-| 3. Phase Issues | v0.1.5 | 0/? | Not started | - |
-| 4. Plan Sync | v0.1.5 | 0/? | Not started | - |
-| 5. PR Integration | v0.1.5 | 0/? | Not started | - |
+| Phase                                | Milestone | Plans Complete | Status      | Completed  |
+| ------------------------------------ | --------- | -------------- | ----------- | ---------- |
+| 0. Hard Fork & Rebrand               | v0.1.4    | 5/5            | Complete    | 2026-01-18 |
+| 0. Convert Commands to Skills        | v0.1.5    | 0/?            | Not planned | -          |
+| 0.1. Claude Code Plugin Distribution | v0.1.5    | 0/?            | Not planned | -          |
+| 1. Audit & Config Foundation         | v0.1.5    | 0/?            | Not planned | -          |
+| 2. Onboarding & Milestones           | v0.1.5    | 0/?            | Not started | -          |
+| 3. Phase Issues                      | v0.1.5    | 0/?            | Not started | -          |
+| 4. Plan Sync                         | v0.1.5    | 0/?            | Not started | -          |
+| 5. PR Integration                    | v0.1.5    | 0/?            | Not started | -          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-18 — Phase 0 inserted for Skills conversion*
+*Last updated: 2026-01-19 — Phase 0.1 inserted for Claude Code plugin distribution*
