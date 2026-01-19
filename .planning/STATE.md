@@ -11,28 +11,28 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 
 Milestone: v0.1.5 GitHub Integration (Phases 0-5)
 Phase: 0 (Convert Commands to Skills) - INSERTED
-Plan: 5 of 9 in current phase
+Plan: 8 of 9 in current phase
 Status: In progress
-Last activity: 2026-01-19 - Completed 00-05-PLAN.md (kata-milestone-management skill)
+Last activity: 2026-01-19 - Completed 00-08-PLAN.md (kata-utility skill)
 
-Progress: [==========..........] 33% (5/9 plans in Phase 0, 1/7 phases)
+Progress: [================....] 89% (8/9 plans in Phase 0, 1/7 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
+- Total plans completed: 11
 - Average duration: 3 min
-- Total execution time: 30 min
+- Total execution time: 34 min
 
 **By Phase:**
 
 | Phase                      | Plans | Total  | Avg/Plan |
 | -------------------------- | ----- | ------ | -------- |
 | 00-hard-fork-rebrand       | 5     | 10 min | 2 min    |
-| 00-convert-commands-skills | 5     | 20 min | 4 min    |
+| 00-convert-commands-skills | 6     | 24 min | 4 min    |
 
 **Recent Trend:**
-- Last 5 plans: 00-01 (8 min), 00-02 (3 min), 00-03 (3 min), 00-04 (2 min), 00-05 (4 min)
+- Last 5 plans: 00-02 (3 min), 00-03 (3 min), 00-04 (2 min), 00-05 (4 min), 00-04 (4 min)
 - Trend: Stable (skills conversion averaging ~4 min per skill)
 
 *Updated after each plan completion*
@@ -78,5 +78,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-19
-Stopped at: Completed 00-05-PLAN.md (kata-milestone-management skill)
+Stopped at: Completed 00-04-PLAN.md (kata-project-initialization skill)
 Resume file: None
