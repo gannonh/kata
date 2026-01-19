@@ -69,30 +69,32 @@ description: This skill should be used when the user asks to "plan a phase", "cr
 
 ### Recommended Project Structure
 
+**Note:** Skills use flat directory naming (no nested namespacing). The namespace goes in the folder name itself.
+
 ```
 kata/
-├── commands/kata/           # Thin command wrappers
-│   ├── plan-phase.md        # Invokes skill with $ARGUMENTS
+├── commands/kata/                    # Thin command wrappers
+│   ├── plan-phase.md                 # Invokes skill with $ARGUMENTS
 │   ├── execute-phase.md
 │   └── ...
-├── skills/kata/             # Domain knowledge and workflows
-│   ├── planning-phases/
-│   │   ├── SKILL.md         # Core planning workflow
+├── skills/
+│   ├── kata-planning/                # Flat naming: kata-{domain}
+│   │   ├── SKILL.md                  # Core planning workflow
 │   │   └── references/
 │   │       ├── task-breakdown.md
 │   │       ├── dependency-graph.md
 │   │       └── goal-backward.md
-│   ├── executing-phases/
+│   ├── kata-execution/               # NOT kata/executing-phases/
 │   │   ├── SKILL.md
 │   │   └── references/
 │   │       ├── deviation-rules.md
 │   │       └── checkpoint-protocol.md
 │   └── ...
-├── agents/                  # Specialized subagent definitions
+├── agents/                           # Specialized subagent definitions
 │   ├── kata-executor.md
 │   ├── kata-planner.md
 │   └── ...
-└── workflows/               # Shared workflow definitions
+└── workflows/                        # Shared workflow definitions
 ```
 
 ### Pattern 1: Dual-Path Invocation
@@ -114,7 +116,7 @@ allowed-tools: [Read, Write, Bash, Glob, Grep, Task, WebFetch]
 
 Plan phase: $ARGUMENTS
 
-@~/.claude/kata/skills/kata-planning/SKILL.md
+@~/.claude/skills/kata-planning/SKILL.md
 ```
 
 **Skill (full workflow):**
@@ -153,7 +155,7 @@ The agent gains access to the skill's knowledge when spawned.
 **When to use:** When current command/agent files exceed 500 lines
 
 ```
-executing-phases/
+skills/kata-execution/
 ├── SKILL.md (~200 lines - core workflow)
 └── references/
     ├── deviation-rules.md (detailed rule explanations)
@@ -255,7 +257,7 @@ Create executable phase prompts (PLAN.md files)...
 
 **Converted to skill + thin command:**
 
-**Skill** (`skills/kata/planning-phases/SKILL.md`):
+**Skill** (`skills/kata-planning/SKILL.md`):
 ```yaml
 ---
 name: kata-planning
@@ -304,7 +306,7 @@ allowed-tools: [Read, Write, Bash, Glob, Grep, Task, WebFetch]
 Plan phase: $ARGUMENTS
 
 Load skill context from:
-@~/.claude/kata/skills/kata-planning/SKILL.md
+@~/.claude/skills/kata-planning/SKILL.md
 
 Project context:
 @.planning/ROADMAP.md
@@ -334,7 +336,7 @@ You are a Kata planner. You create executable phase plans.
 
 **Structure:**
 ```
-skills/kata/executing-phases/
+skills/kata-execution/
 ├── SKILL.md
 └── references/
     ├── deviation-rules.md
