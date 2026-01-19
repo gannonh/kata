@@ -44,7 +44,7 @@ Recent decisions affecting current work:
 
 - ~~Project initialized with extension/wrapper approach (not hard fork)~~ **SUPERSEDED**
 - **2026-01-17: Hard fork decision** - Severing all ties from upstream GSD, full rebrand
-- Build GitHub Integration first (Phases 1-6), then VS Code Adapter (Phase 7)
+- Build GitHub Integration first (Phases 1-5), then VS Code Adapter (Phase 6)
 - "Adapter" = IDE-specific code (VS Code Adapter, Claude Code Adapter)
 - "Integration" = external system connection (GitHub Integration, Linear Integration)
 - Claude Code first (where GSD already runs), then port to VS Code

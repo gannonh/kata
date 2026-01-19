@@ -18,13 +18,13 @@ Kata is an independent meta-prompting and context engineering system for Claude 
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 0: Hard Fork & Rebrand** - Sever ties from upstream, establish independent Kata identity
-- [ ] **Phase 1: Integration Architecture** - Establish extensible integration system with GitHub as first integration
-- [ ] **Phase 2: GitHub Issues Core** - Bidirectional sync and lifecycle tracking
-- [ ] **Phase 3: GitHub Issues Polish** - Auto-labeling and issue templates
-- [ ] **Phase 4: GitHub PR Creation** - Automated PR workflow with conventions enforced
-- [ ] **Phase 5: GitHub PR Collaboration** - Native reviews and team comment response
-- [ ] **Phase 6: GitHub CI/CD** - Orchestrate checks and generate changelogs
-- [ ] **Phase 7: VS Code Adapter** - Kata for VS Code with full GitHub Integration
+- [ ] **Phase 00.1: Antigravity Adapter** (INSERTED) - Adapter layer for Antigravity IDE integration
+- [ ] **Phase 1: GitHub Issues Core** - Bidirectional sync and lifecycle tracking
+- [ ] **Phase 2: GitHub Issues Polish** - Auto-labeling and issue templates
+- [ ] **Phase 3: GitHub PR Creation** - Automated PR workflow with conventions enforced
+- [ ] **Phase 4: GitHub PR Collaboration** - Native reviews and team comment response
+- [ ] **Phase 5: GitHub CI/CD** - Orchestrate checks and generate changelogs
+- [ ] **Phase 6: VS Code Adapter** - Kata for VS Code with full GitHub Integration
 
 ## Phase Details
 
@@ -47,25 +47,20 @@ Plans:
 - [x] 00-04-PLAN.md — Internal references (commands, hooks, planning docs)
 - [x] 00-05-PLAN.md — Verification and human approval
 
-### Phase 1: Integration Architecture
-**Goal**: Extensible integration system exists and GitHub integration proves the pattern
-**Depends on**: Phase 0 (clean codebase established)
-**Requirements**: INTG-01, INTG-02
-**Success Criteria** (what must be TRUE):
-  1. Integration architecture is documented with clear extension points
-  2. An integration can hook into Kata workflow events (phase start, execute complete, etc.)
-  3. GitHub integration runs using this architecture (not hardcoded)
-  4. Adding a new integration (e.g., Linear) does not require modifying core Kata code
-**Plans**: 3 plans
+### Phase 00.1: Antigravity Adapter (INSERTED)
+**Goal:** [Urgent work - to be planned]
+**Depends on:** Phase 0
+**Plans:** 0 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Integration foundation (registry + hook infrastructure)
-- [ ] 01-02-PLAN.md — GitHub integration skill
-- [ ] 01-03-PLAN.md — Architecture documentation + verification
+- [ ] TBD (run /kata:plan-phase 00.1 to break down)
 
-### Phase 2: GitHub Issues Core
+**Details:**
+[To be added during planning]
+
+### Phase 1: GitHub Issues Core
 **Goal**: Kata milestones and phases sync bidirectionally with GitHub Issues
-**Depends on**: Phase 1 (uses integration architecture)
+**Depends on**: Phase 00.1 (Antigravity Adapter)
 **Requirements**: GHISS-01, GHISS-02
 **Success Criteria** (what must be TRUE):
   1. Creating a milestone/phase in Kata creates corresponding GitHub issues
@@ -75,13 +70,13 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
-- [ ] 02-03: TBD
+- [ ] 01-01: TBD
+- [ ] 01-02: TBD
+- [ ] 01-03: TBD
 
-### Phase 3: GitHub Issues Polish
+### Phase 2: GitHub Issues Polish
 **Goal**: Issues are automatically labeled and templates standardize creation
-**Depends on**: Phase 2
+**Depends on**: Phase 1
 **Requirements**: GHISS-03, GHISS-04
 **Success Criteria** (what must be TRUE):
   1. New issues automatically receive type labels (bug, feature, task)
@@ -91,12 +86,12 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 02-01: TBD
+- [ ] 02-02: TBD
 
-### Phase 4: GitHub PR Creation
+### Phase 3: GitHub PR Creation
 **Goal**: Execute-phase automatically creates well-formed PRs with conventions enforced
-**Depends on**: Phase 2 (PRs link to issues)
+**Depends on**: Phase 1 (PRs link to issues)
 **Requirements**: GHPR-01, GHPR-02, GHPR-03, GHPR-04, GHPR-05
 **Success Criteria** (what must be TRUE):
   1. Completing execute-phase automatically creates a PR
@@ -107,13 +102,13 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
-- [ ] 04-03: TBD
+- [ ] 03-01: TBD
+- [ ] 03-02: TBD
+- [ ] 03-03: TBD
 
-### Phase 5: GitHub PR Collaboration
+### Phase 4: GitHub PR Collaboration
 **Goal**: Claude conducts PR reviews and responds to team feedback
-**Depends on**: Phase 4
+**Depends on**: Phase 3
 **Requirements**: GHPR-06, GHPR-07
 **Success Criteria** (what must be TRUE):
   1. Claude posts review comments directly to GitHub PR
@@ -123,12 +118,12 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
+- [ ] 04-01: TBD
+- [ ] 04-02: TBD
 
-### Phase 6: GitHub CI/CD
+### Phase 5: GitHub CI/CD
 **Goal**: CI checks are orchestrated and changelogs are auto-generated
-**Depends on**: Phase 4 (PR workflow complete)
+**Depends on**: Phase 3 (PR workflow complete)
 **Requirements**: GHCI-01, GHCI-02
 **Success Criteria** (what must be TRUE):
   1. Kata waits for CI checks (lint, build, test) to pass before merge
@@ -138,12 +133,12 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
+- [ ] 05-01: TBD
+- [ ] 05-02: TBD
 
-### Phase 7: VS Code Adapter
+### Phase 6: VS Code Adapter
 **Goal**: Kata for VS Code — full workflow with GitHub Integration
-**Depends on**: Phases 1-6 (complete GitHub Integration to port)
+**Depends on**: Phases 0-5 (complete GitHub Integration to port)
 **Requirements**: VSCODE-01, VSCODE-02, VSCODE-03
 **Success Criteria** (what must be TRUE):
   1. All Kata slash commands work in VS Code (new-project, plan-phase, execute-phase, etc.)
@@ -154,25 +149,26 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 07-01: TBD
-- [ ] 07-02: TBD
-- [ ] 07-03: TBD
+- [ ] 06-01: TBD
+- [ ] 06-02: TBD
+- [ ] 06-03: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
+Phases execute in numeric order: 0 -> 00.1 -> 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 0. Hard Fork & Rebrand | 5/5 | Complete | 2026-01-18 |
-| 1. Integration Architecture | 0/3 | Planned | - |
-| 2. GitHub Issues Core | 0/3 | Not started | - |
-| 3. GitHub Issues Polish | 0/2 | Not started | - |
-| 4. GitHub PR Creation | 0/3 | Not started | - |
-| 5. GitHub PR Collaboration | 0/2 | Not started | - |
-| 6. GitHub CI/CD | 0/2 | Not started | - |
-| 7. VS Code Adapter | 0/3 | Not started | - |
+| 00.1. Antigravity Adapter | 0/? | Not planned | - |
+| 1. GitHub Issues Core | 0/3 | Not started | - |
+| 2. GitHub Issues Polish | 0/2 | Not started | - |
+| 3. GitHub PR Creation | 0/3 | Not started | - |
+| 4. GitHub PR Collaboration | 0/2 | Not started | - |
+| 5. GitHub CI/CD | 0/2 | Not started | - |
+| 6. VS Code Adapter | 0/3 | Not started | - |
+
 
 ---
 *Roadmap created: 2026-01-17*
