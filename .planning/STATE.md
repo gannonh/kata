@@ -11,28 +11,29 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 
 Milestone: v0.1.5 GitHub Integration (Phases 0-5)
 Phase: 0 (Convert Commands to Skills) - INSERTED
-Plan: 0 of ? in current phase (not planned yet)
-Status: Ready to plan Phase 0
-Last activity: 2026-01-18 - Phase 0 inserted for Skills conversion
+Plan: 1 of 9 in current phase
+Status: In progress
+Last activity: 2026-01-19 - Completed 00-01-PLAN.md (kata-planning skill)
 
-Progress: [=====...............] 14% (1/7 phases complete)
+Progress: [======..............] 16% (1/9 plans in Phase 0, 1/7 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 2 min
-- Total execution time: 10 min
+- Total plans completed: 6
+- Average duration: 3 min
+- Total execution time: 18 min
 
 **By Phase:**
 
-| Phase                | Plans | Total  | Avg/Plan |
-| -------------------- | ----- | ------ | -------- |
-| 00-hard-fork-rebrand | 5     | 10 min | 2 min    |
+| Phase                      | Plans | Total  | Avg/Plan |
+| -------------------------- | ----- | ------ | -------- |
+| 00-hard-fork-rebrand       | 5     | 10 min | 2 min    |
+| 00-convert-commands-skills | 1     | 8 min  | 8 min    |
 
 **Recent Trend:**
-- Last 5 plans: 00-01 (1 min), 00-02 (1 min), 00-03 (3 min), 00-04 (3 min), 00-05 (2 min)
-- Trend: Stable
+- Last 5 plans: 00-02 (1 min), 00-03 (3 min), 00-04 (3 min), 00-05 (2 min), 00-01 (8 min)
+- Trend: Stable (first skills conversion plan slightly longer due to pattern establishment)
 
 *Updated after each plan completion*
 
@@ -47,6 +48,8 @@ Recent decisions affecting current work:
 - **2026-01-18: v0.1.5 roadmap** - 5 phases derived from 17 requirements
 - Phase-level PRs (one PR per phase, not per plan)
 - Config-driven integrations (modular enable/disable)
+- **2026-01-19: Skills as orchestrators** - Skills contain full workflow logic and spawn sub-agents via Task tool
+- **2026-01-19: Installer skills filtering** - Only removes kata-* skill directories on reinstall (preserves user skills)
 
 ### Roadmap Evolution
 
@@ -73,6 +76,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-18
-Stopped at: Phase 0 inserted, ready for Skills conversion planning
+Last session: 2026-01-19
+Stopped at: Completed 00-01-PLAN.md (kata-planning skill)
 Resume file: None
