@@ -1,6 +1,7 @@
 ---
 name: kata:execute-phase
 description: Execute all plans in a phase with wave-based parallelization
+disable-model-invocation: true
 argument-hint: "<phase-number> [--gaps-only]"
 allowed-tools:
   - Read

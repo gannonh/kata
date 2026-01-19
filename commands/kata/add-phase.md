@@ -1,6 +1,7 @@
 ---
 name: kata:add-phase
 description: Add phase to end of current milestone in roadmap
+disable-model-invocation: true
 argument-hint: <description>
 allowed-tools:
   - Read

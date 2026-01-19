@@ -1,6 +1,7 @@
 ---
 name: kata:discuss-phase
 description: Gather phase context through adaptive questioning before planning
+disable-model-invocation: true
 argument-hint: "<phase>"
 allowed-tools: [Read, Write, Bash, Glob, Grep, AskUserQuestion]
 ---

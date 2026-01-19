@@ -1,6 +1,7 @@
 ---
 name: kata:whats-new
 description: See what's new in Kata since your installed version
+disable-model-invocation: true
 ---
 
 <objective>

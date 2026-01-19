@@ -1,6 +1,7 @@
 ---
 name: kata:audit-milestone
 description: Audit milestone completion against original intent before archiving
+disable-model-invocation: true
 argument-hint: "[version]"
 allowed-tools:
   - Read

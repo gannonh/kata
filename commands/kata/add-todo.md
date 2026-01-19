@@ -1,6 +1,7 @@
 ---
 name: kata:add-todo
 description: Capture idea or task as todo from current conversation context
+disable-model-invocation: true
 argument-hint: [optional description]
 allowed-tools:
   - Read

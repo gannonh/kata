@@ -1,6 +1,7 @@
 ---
 name: kata:verify-work
 description: Validate built features through conversational UAT
+disable-model-invocation: true
 argument-hint: "[phase number, e.g., '4']"
 allowed-tools:
   - Read

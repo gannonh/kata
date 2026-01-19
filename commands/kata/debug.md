@@ -1,6 +1,7 @@
 ---
 name: kata:debug
 description: Systematic debugging with persistent state across context resets
+disable-model-invocation: true
 argument-hint: [issue description]
 allowed-tools:
   - Read

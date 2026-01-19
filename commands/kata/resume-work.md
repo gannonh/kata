@@ -1,6 +1,7 @@
 ---
 name: kata:resume-work
 description: Resume work from previous session with full context restoration
+disable-model-invocation: true
 allowed-tools:
   - Read
   - Bash

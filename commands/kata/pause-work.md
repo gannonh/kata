@@ -1,6 +1,7 @@
 ---
 name: kata:pause-work
 description: Create context handoff when pausing work mid-phase
+disable-model-invocation: true
 allowed-tools:
   - Read
   - Write

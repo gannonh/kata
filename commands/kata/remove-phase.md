@@ -1,6 +1,7 @@
 ---
 name: kata:remove-phase
 description: Remove a future phase from roadmap and renumber subsequent phases
+disable-model-invocation: true
 argument-hint: <phase-number>
 allowed-tools:
   - Read

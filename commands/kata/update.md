@@ -1,6 +1,7 @@
 ---
 name: kata:update
 description: Update Kata to latest version with changelog display
+disable-model-invocation: true
 ---
 
 <objective>

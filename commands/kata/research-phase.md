@@ -1,6 +1,7 @@
 ---
 name: kata:research-phase
 description: Research how to implement a phase (standalone - usually use /kata:plan-phase instead)
+disable-model-invocation: true
 argument-hint: "[phase]"
 allowed-tools:
   - Read

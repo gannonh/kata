@@ -1,6 +1,7 @@
 ---
 name: kata:help
 description: Show available Kata commands and usage guide
+disable-model-invocation: true
 ---
 
 <objective>

@@ -1,6 +1,7 @@
 ---
 name: kata:list-phase-assumptions
 description: Surface Claude's assumptions about a phase approach before planning
+disable-model-invocation: true
 argument-hint: "[phase]"
 allowed-tools:
   - Read

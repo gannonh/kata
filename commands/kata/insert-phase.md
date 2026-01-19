@@ -1,6 +1,7 @@
 ---
 name: kata:insert-phase
 description: Insert urgent work as decimal phase (e.g., 72.1) between existing phases
+disable-model-invocation: true
 argument-hint: <after> <description>
 allowed-tools:
   - Read

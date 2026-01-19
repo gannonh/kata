@@ -1,6 +1,7 @@
 ---
 name: kata:new-project
 description: Initialize a new project with deep context gathering and PROJECT.md
+disable-model-invocation: true
 allowed-tools:
   - Read
   - Bash

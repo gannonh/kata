@@ -1,6 +1,7 @@
 ---
 name: kata:plan-milestone-gaps
 description: Create phases to close all gaps identified by milestone audit
+disable-model-invocation: true
 allowed-tools:
   - Read
   - Write

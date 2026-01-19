@@ -2,6 +2,7 @@
 type: prompt
 name: kata:complete-milestone
 description: Archive completed milestone and prepare for next version
+disable-model-invocation: true
 argument-hint: <version>
 allowed-tools:
   - Read

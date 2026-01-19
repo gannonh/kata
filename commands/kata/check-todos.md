@@ -1,6 +1,7 @@
 ---
 name: kata:check-todos
 description: List pending todos and select one to work on
+disable-model-invocation: true
 argument-hint: [area filter]
 allowed-tools:
   - Read

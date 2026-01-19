@@ -1,6 +1,7 @@
 ---
 name: kata:plan-phase
 description: Create detailed execution plan for a phase (PLAN.md) with verification loop
+disable-model-invocation: true
 argument-hint: "[phase] [--research] [--skip-research] [--gaps] [--skip-verify]"
 agent: kata-planner
 allowed-tools:
