@@ -37,35 +37,44 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Phase Details
 
 ### Phase 0: Convert Commands to Skills (INSERTED)
-**Goal**: 
-- Convert Kata slash commands to Claude Code Skills format using `/skill-builder`
-- Retain existing slash command files, but have them point to the new Skills, allowing for 
-  - deterministic execution in addition to autonomous agent skill invokation
-  - continue use of $AGRUMENTS (not supported by the SKILLs standard)
+**Goal**:
+- Convert Kata slash commands to Claude Code Skills format
+- Retain existing slash command files, but have them point to the new Skills, allowing for
+  - deterministic execution in addition to autonomous agent skill invocation
+  - continue use of $ARGUMENTS (not supported by the Skills standard)
+- Skills use FLAT directory naming (skills/kata-planning/ NOT skills/kata/planning/)
 **Depends on**: Nothing (prerequisite for GitHub Integration)
 **Requirements**: None (infrastructure improvement)
 **Success Criteria** (what must be TRUE):
-  1. Kata slash commands converted to Skills using skill-builder workflow
-  2. Existing slash commands invoke corresponding Skills
-  3. Resource files go with skills for adaptive discolosure
-  4. skills referce correspoding agent, model and context strategy using front-matter: agent, context, model
-  5. Skills provide same functionality as original commands
-  6. Commands directory structure updated to Skills format
-  7. Installation and usage patterns documented
-**Plans**: TBD
+  1. Kata slash commands converted to Skills format
+  2. Existing slash commands invoke corresponding Skills via skills: frontmatter
+  3. Resource files go with skills for adaptive disclosure (references/ subdirs)
+  4. Skills provide same functionality as original commands
+  5. 8 skills created: kata-planning, kata-execution, kata-verification, kata-project-initialization, kata-milestone-management, kata-roadmap-management, kata-research, kata-utility
+  6. Installation script updated to copy skills/ directory
+**Plans**: 9 plans in 3 waves
 
 Plans:
-- [ ] 00-01: TBD (run /kata:plan-phase 0 to break down)
+- [ ] 00-01-PLAN.md — Create kata-planning skill + update installer
+- [ ] 00-02-PLAN.md — Create kata-execution skill
+- [ ] 00-03-PLAN.md — Create kata-verification skill
+- [ ] 00-04-PLAN.md — Create kata-project-initialization skill
+- [ ] 00-05-PLAN.md — Create kata-milestone-management skill
+- [ ] 00-06-PLAN.md — Create kata-roadmap-management skill
+- [ ] 00-07-PLAN.md — Create kata-research skill
+- [ ] 00-08-PLAN.md — Create kata-utility skill
+- [ ] 00-09-PLAN.md — Update command-only files and documentation
 
 ### Phase 0.1: Claude Code Plugin Distribution (INSERTED)
-**Goal**: Package Kata as a Claude Code plugin for easy distribution using `/plugin-dev:create-plugin`
+**Goal**: Package and publish Kata as a Claude Code plugin for easy distribution using `/plugin-dev:create-plugin`
 **Depends on**: Phase 0 (Skills format established)
 **Requirements**: None (distribution improvement)
 **Success Criteria** (what must be TRUE):
   1. Kata packaged as Claude Code plugin using plugin-dev workflow
-  2. Plugin manifest (plugin.json) correctly configured
-  3. All commands, agents, workflows available through plugin
-  4. Installation via plugin system documented
+  2. Kata published to @gannonh Claude Code plugin marketplace repository
+  3. Plugin manifest (plugin.json) correctly configured
+  4. All commands, agents, workflows available through plugin
+  5. Installation via plugin system documented
 **Plans**: TBD
 
 Plans:
@@ -155,7 +164,7 @@ Phases execute in numeric order: 0 -> 0.1 -> 1 -> 2 -> 3 -> 4 -> 5
 | Phase                                | Milestone | Plans Complete | Status      | Completed  |
 | ------------------------------------ | --------- | -------------- | ----------- | ---------- |
 | 0. Hard Fork & Rebrand               | v0.1.4    | 5/5            | Complete    | 2026-01-18 |
-| 0. Convert Commands to Skills        | v0.1.5    | 0/?            | Not planned | -          |
+| 0. Convert Commands to Skills        | v0.1.5    | 0/9            | Planned     | -          |
 | 0.1. Claude Code Plugin Distribution | v0.1.5    | 0/?            | Not planned | -          |
 | 1. Audit & Config Foundation         | v0.1.5    | 0/?            | Not planned | -          |
 | 2. Onboarding & Milestones           | v0.1.5    | 0/?            | Not started | -          |
@@ -165,4 +174,4 @@ Phases execute in numeric order: 0 -> 0.1 -> 1 -> 2 -> 3 -> 4 -> 5
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-19 — Phase 0.1 inserted for Claude Code plugin distribution*
+*Last updated: 2026-01-19 — Phase 0 planned with 9 plans in 3 waves*
