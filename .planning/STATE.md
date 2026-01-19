@@ -11,29 +11,29 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 
 Milestone: v0.1.5 GitHub Integration (Phases 0-5)
 Phase: 0 (Convert Commands to Skills) - INSERTED
-Plan: 3 of 9 in current phase
+Plan: 5 of 9 in current phase
 Status: In progress
-Last activity: 2026-01-19 - Completed 00-03-PLAN.md (kata-verification skill)
+Last activity: 2026-01-19 - Completed 00-05-PLAN.md (kata-milestone-management skill)
 
-Progress: [========............] 22% (2/9 plans in Phase 0, 1/7 phases)
+Progress: [==========..........] 33% (5/9 plans in Phase 0, 1/7 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+- Total plans completed: 10
 - Average duration: 3 min
-- Total execution time: 21 min
+- Total execution time: 30 min
 
 **By Phase:**
 
 | Phase                      | Plans | Total  | Avg/Plan |
 | -------------------------- | ----- | ------ | -------- |
 | 00-hard-fork-rebrand       | 5     | 10 min | 2 min    |
-| 00-convert-commands-skills | 2     | 11 min | 5.5 min  |
+| 00-convert-commands-skills | 5     | 20 min | 4 min    |
 
 **Recent Trend:**
-- Last 5 plans: 00-03 (3 min), 00-04 (3 min), 00-05 (2 min), 00-01 (8 min), 00-03 (3 min)
-- Trend: Stable (skills conversion averaging ~5 min per skill)
+- Last 5 plans: 00-01 (8 min), 00-02 (3 min), 00-03 (3 min), 00-04 (2 min), 00-05 (4 min)
+- Trend: Stable (skills conversion averaging ~4 min per skill)
 
 *Updated after each plan completion*
 
@@ -50,6 +50,7 @@ Recent decisions affecting current work:
 - Config-driven integrations (modular enable/disable)
 - **2026-01-19: Skills as orchestrators** - Skills contain full workflow logic and spawn sub-agents via Task tool
 - **2026-01-19: Installer skills filtering** - Only removes kata-* skill directories on reinstall (preserves user skills)
+- **2026-01-19: Unified milestone skill** - Combined new/complete/audit operations into single kata-milestone-management skill
 
 ### Roadmap Evolution
 
@@ -77,5 +78,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-19
-Stopped at: Completed 00-03-PLAN.md (kata-verification skill)
+Stopped at: Completed 00-05-PLAN.md (kata-milestone-management skill)
 Resume file: None
