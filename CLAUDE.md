@@ -28,6 +28,10 @@ node bin/install.js --local
 
 # Update local install after changes
 node bin/install.js --local
+
+# Verify skills installed
+ls ~/.claude/skills/kata-*  # global
+ls .claude/skills/kata-*    # local
 ```
 
 ### Using Kata for Kata Development
@@ -73,6 +77,47 @@ Kata uses a thin orchestrator + specialized agents pattern:
 
 **Key principle:** Orchestrators stay lean (~15% context), subagents get fresh 200k tokens each.
 
+## Skills Architecture
+
+Kata provides skills for autonomous invocation alongside slash commands for deterministic execution.
+
+### Skills vs Commands
+
+| Aspect | Skills | Commands |
+|--------|--------|----------|
+| Invocation | Autonomous (Claude decides) | Explicit (`/kata:command`) |
+| Arguments | From natural language context | `$ARGUMENTS` |
+| Use case | "Help me plan phase 2" | `/kata:plan-phase 2 --research` |
+
+### Available Skills
+
+Skills are installed to `~/.claude/skills/` (global) or `.claude/skills/` (local):
+
+| Skill | Purpose | Sub-agents Spawned |
+|-------|---------|-------------------|
+| `kata-planning` | Phase planning, task breakdown | kata-planner, kata-plan-checker |
+| `kata-execution` | Plan execution, checkpoints | kata-executor |
+| `kata-verification` | Goal verification, UAT | kata-verifier, kata-debugger |
+| `kata-project-initialization` | New project setup | kata-project-researcher, kata-roadmapper |
+| `kata-milestone-management` | Milestone operations | kata-roadmapper |
+| `kata-roadmap-management` | Phase operations | kata-roadmapper |
+| `kata-research` | Domain research | kata-phase-researcher, kata-research-synthesizer |
+| `kata-utility` | Progress, debug, mapping | kata-debugger, kata-codebase-mapper |
+
+### Skill Structure
+
+Each skill follows the pattern:
+
+```
+skills/kata-{name}/
+├── SKILL.md         # Orchestrator workflow (<500 lines)
+└── references/      # Progressive disclosure
+    ├── {topic}.md
+    └── ...
+```
+
+Skills ARE orchestrators. They spawn sub-agents via Task tool, not the other way around.
+
 ## Style Guide
 
 @KATA-STYLE.md
@@ -89,7 +134,7 @@ Node.js installer that copies Kata files to Claude Code's plugin directory:
 **Key behavior:**
 - Expands `~` to home directory for container compatibility
 - Respects `CLAUDE_CONFIG_DIR` environment variable
-- Copies: `commands/`, `kata/`, `agents/`, `hooks/`
+- Copies: `commands/`, `kata/`, `agents/`, `hooks/`, `skills/`
 
 ## Working with Planning Files
 
@@ -115,3 +160,5 @@ When modifying `.planning/` files (PROJECT.md, ROADMAP.md, STATE.md):
 2. **Test locally** — Use `node bin/install.js --local` and run commands in Claude Code
 3. **Update KATA-STYLE.md** — If introducing new patterns or conventions
 4. **Follow KATA-STYLE.md** — For all formatting, naming, and structural decisions
+5. **When modifying skills** — Follow the /building-claude-code-skills methodology
+6. **Keep SKILL.md under 500 lines** — Move details to `references/` subdirectory
