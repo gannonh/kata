@@ -327,6 +327,38 @@ function install(isGlobal) {
     }
   }
 
+  // Copy skills to ~/.claude/skills (skill directories must be at root level)
+  const skillsSrc = path.join(src, 'skills');
+  if (fs.existsSync(skillsSrc)) {
+    const skillsDest = path.join(claudeDir, 'skills');
+    fs.mkdirSync(skillsDest, { recursive: true });
+
+    // Remove old Kata skills (kata-*) before copying new ones
+    if (fs.existsSync(skillsDest)) {
+      for (const dir of fs.readdirSync(skillsDest)) {
+        const dirPath = path.join(skillsDest, dir);
+        if (dir.startsWith('kata-') && fs.statSync(dirPath).isDirectory()) {
+          fs.rmSync(dirPath, { recursive: true });
+        }
+      }
+    }
+
+    // Copy each skill directory with path replacement
+    const skillEntries = fs.readdirSync(skillsSrc, { withFileTypes: true });
+    for (const entry of skillEntries) {
+      if (entry.isDirectory()) {
+        const skillSrc = path.join(skillsSrc, entry.name);
+        const skillDest = path.join(skillsDest, entry.name);
+        copyWithPathReplacement(skillSrc, skillDest, pathPrefix);
+      }
+    }
+    if (verifyInstalled(skillsDest, 'skills')) {
+      console.log(`  ${green}✓${reset} Installed skills`);
+    } else {
+      failures.push('skills');
+    }
+  }
+
   // Copy CHANGELOG.md
   const changelogSrc = path.join(src, 'CHANGELOG.md');
   const changelogDest = path.join(claudeDir, 'kata', 'CHANGELOG.md');
