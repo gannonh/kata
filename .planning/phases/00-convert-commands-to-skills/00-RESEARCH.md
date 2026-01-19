@@ -1,0 +1,509 @@
+# Phase 0: Convert Commands to Skills - Research
+
+**Researched:** 2026-01-19
+**Domain:** Claude Code Skills format, command-to-skill conversion
+**Confidence:** HIGH
+
+## Summary
+
+This research establishes how to convert Kata's 24 slash commands to the Claude Code Skills format while maintaining deterministic execution through existing command files. The key insight is that Skills and Commands serve different purposes: Skills are model-invoked (Claude decides when to use them), while Commands are user-invoked (explicit `/command` trigger). Kata needs both.
+
+The conversion strategy involves creating Skills that contain the domain knowledge and workflow guidance, while keeping thin wrapper commands that invoke those skills with $ARGUMENTS support. This "dual-path" approach enables autonomous agent invocation while preserving deterministic execution.
+
+**Primary recommendation:** Create a `skills/kata/` directory with Skills containing the workflow logic, and modify existing commands to become thin invocation wrappers that reference the skills. Use frontmatter fields (`context: fork`, `agent`, `model`, `skills`) to configure execution context.
+
+## Standard Stack
+
+The established patterns for Claude Code Skills and command-skill integration:
+
+### Core Format
+
+| Component | Standard | Source |
+|-----------|----------|--------|
+| SKILL.md | Required file with YAML frontmatter (name, description) + markdown body | Official docs |
+| Directory structure | `skill-name/SKILL.md` with optional `references/`, `scripts/`, `assets/` | Official docs |
+| Description format | "This skill should be used when..." (third-person, trigger-focused) | Best practices |
+| Name format | Gerund form, lowercase, hyphens (e.g., `planning-phases`) | Best practices |
+| Body length | <500 lines in SKILL.md, details in references/ | Best practices |
+
+### Frontmatter Fields
+
+Skills support these frontmatter fields (verified from official documentation):
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Skill identifier (lowercase, hyphens, max 64 chars) |
+| `description` | Yes | When to invoke (max 1024 chars) |
+| `allowed-tools` | No | Tool restrictions for this skill |
+| `model` | No | Model to use when skill active |
+| `context` | No | Set to `fork` for isolated sub-agent context |
+| `agent` | No | Agent type when context: fork (Explore, Plan, general-purpose, custom) |
+| `hooks` | No | Lifecycle hooks (PreToolUse, PostToolUse, Stop) |
+| `user-invocable` | No | Controls slash command menu visibility |
+
+### Command-Skill Integration
+
+Commands can reference skills and share frontmatter fields:
+
+```yaml
+# Command frontmatter (slash command)
+---
+name: kata:plan-phase
+description: Create detailed execution plan for a phase
+agent: kata-planner
+context: fork
+skills: kata-planning, kata-research
+allowed-tools: [Read, Write, Bash, Glob, Grep, Task]
+---
+```
+
+```yaml
+# Skill frontmatter (model-invoked)
+---
+name: kata-planning
+description: This skill should be used when the user asks to "plan a phase", "create execution plan", "break down a phase into tasks", or needs guidance on task breakdown, dependency analysis, and goal-backward verification.
+---
+```
+
+## Architecture Patterns
+
+### Recommended Project Structure
+
+```
+kata/
+├── commands/kata/           # Thin command wrappers
+│   ├── plan-phase.md        # Invokes skill with $ARGUMENTS
+│   ├── execute-phase.md
+│   └── ...
+├── skills/kata/             # Domain knowledge and workflows
+│   ├── planning-phases/
+│   │   ├── SKILL.md         # Core planning workflow
+│   │   └── references/
+│   │       ├── task-breakdown.md
+│   │       ├── dependency-graph.md
+│   │       └── goal-backward.md
+│   ├── executing-phases/
+│   │   ├── SKILL.md
+│   │   └── references/
+│   │       ├── deviation-rules.md
+│   │       └── checkpoint-protocol.md
+│   └── ...
+├── agents/                  # Specialized subagent definitions
+│   ├── kata-executor.md
+│   ├── kata-planner.md
+│   └── ...
+└── workflows/               # Shared workflow definitions
+```
+
+### Pattern 1: Dual-Path Invocation
+
+**What:** Commands invoke skills while preserving $ARGUMENTS
+**When to use:** All Kata commands that need both deterministic and autonomous execution
+
+**Command (thin wrapper):**
+```markdown
+---
+name: kata:plan-phase
+description: Create detailed execution plan for a phase
+argument-hint: "[phase] [--research] [--gaps]"
+agent: kata-planner
+context: fork
+skills: kata-planning
+allowed-tools: [Read, Write, Bash, Glob, Grep, Task, WebFetch]
+---
+
+Plan phase: $ARGUMENTS
+
+@~/.claude/kata/skills/kata-planning/SKILL.md
+```
+
+**Skill (full workflow):**
+```markdown
+---
+name: kata-planning
+description: This skill should be used when planning phases, creating execution plans, breaking down work into tasks, analyzing dependencies, or preparing for phase execution. Includes task breakdown, dependency analysis, and goal-backward verification.
+---
+
+# Phase Planning
+
+[Full workflow content from current agents/workflows]
+```
+
+### Pattern 2: Agent-Skill Binding
+
+**What:** Subagents reference skills for domain knowledge
+**When to use:** When spawning specialized subagents via Task tool
+
+```yaml
+# .claude/agents/kata-planner.md
+---
+name: kata-planner
+description: Creates executable phase plans
+tools: Read, Write, Bash, Glob, Grep
+skills: kata-planning, kata-research
+color: green
+---
+```
+
+The agent gains access to the skill's knowledge when spawned.
+
+### Pattern 3: Progressive Disclosure
+
+**What:** Keep SKILL.md lean, move details to references/
+**When to use:** When current command/agent files exceed 500 lines
+
+```
+executing-phases/
+├── SKILL.md (~200 lines - core workflow)
+└── references/
+    ├── deviation-rules.md (detailed rule explanations)
+    ├── checkpoint-protocol.md (checkpoint handling)
+    ├── tdd-execution.md (TDD workflow details)
+    └── commit-protocol.md (commit conventions)
+```
+
+### Anti-Patterns to Avoid
+
+- **Duplicating content:** Don't copy workflow logic into both command and skill
+- **Ignoring $ARGUMENTS:** Skills don't support $ARGUMENTS, so keep commands as the entry point
+- **Monolithic skills:** Split skills over 500 lines into SKILL.md + references/
+- **Vague descriptions:** Use specific trigger phrases, not generic "helps with planning"
+- **Horizontal organization:** Don't create skills by layer (all research in one skill); use vertical slices per workflow
+
+## Don't Hand-Roll
+
+Problems that look simple but have existing solutions:
+
+| Problem | Don't Build | Use Instead | Why |
+|---------|-------------|-------------|-----|
+| Model invocation control | Custom routing logic | `disable-model-invocation: true` | Built-in frontmatter field |
+| Tool restrictions | Runtime checks | `allowed-tools` frontmatter | Built-in field for commands and skills |
+| Context isolation | Manual state management | `context: fork` | Built-in sub-agent forking |
+| Agent type selection | Custom agent dispatch | `agent` frontmatter field | Built-in agent selection |
+| Skill visibility | Custom menu logic | `user-invocable: false` | Built-in visibility control |
+
+**Key insight:** Claude Code's frontmatter fields handle most orchestration needs. Kata should leverage these rather than building custom routing.
+
+## Common Pitfalls
+
+### Pitfall 1: Description Mismatch
+
+**What goes wrong:** Skills never trigger because description doesn't match user queries
+**Why it happens:** Copying command descriptions verbatim (task-focused instead of trigger-focused)
+**How to avoid:**
+- Start with "This skill should be used when..."
+- Include 5+ specific trigger phrases
+- List concrete use cases
+- Use third-person voice
+**Warning signs:** Skill never auto-invokes, users must always use /command
+
+### Pitfall 2: $ARGUMENTS Loss
+
+**What goes wrong:** Converting commands to skills loses argument handling
+**Why it happens:** Skills don't support $ARGUMENTS or positional parameters
+**How to avoid:** Keep commands as entry points, have them reference skills
+**Warning signs:** Commands that took arguments now require conversation to get same info
+
+### Pitfall 3: Context Bloat
+
+**What goes wrong:** Skills load too much content into context
+**Why it happens:** Putting all workflow details in SKILL.md
+**How to avoid:**
+- Keep SKILL.md under 500 lines
+- Move detailed references to references/ directory
+- Use progressive disclosure pattern
+**Warning signs:** Quality degrades after skill loads, context fills quickly
+
+### Pitfall 4: Missing Agent Binding
+
+**What goes wrong:** Subagents can't access skill knowledge
+**Why it happens:** Not adding `skills:` field to agent frontmatter
+**How to avoid:** Explicitly list skills in agent `skills:` field
+**Warning signs:** Subagents reinvent patterns already documented in skills
+
+### Pitfall 5: Breaking Deterministic Execution
+
+**What goes wrong:** Users lose ability to run specific commands with specific arguments
+**Why it happens:** Replacing commands with skills entirely
+**How to avoid:** Dual-path approach - commands for deterministic, skills for autonomous
+**Warning signs:** Users complain they can't run workflows with specific parameters
+
+## Code Examples
+
+### Example 1: Converting plan-phase Command
+
+**Current command structure:**
+```yaml
+---
+name: kata:plan-phase
+description: Create detailed execution plan for a phase
+argument-hint: "[phase] [--research] [--gaps]"
+agent: kata-planner
+allowed-tools: [Read, Write, Bash, Glob, Grep, Task, WebFetch]
+---
+
+<objective>
+Create executable phase prompts (PLAN.md files)...
+</objective>
+
+<execution_context>
+@~/.claude/kata/workflows/...
+</execution_context>
+
+[~500 lines of workflow]
+```
+
+**Converted to skill + thin command:**
+
+**Skill** (`skills/kata/planning-phases/SKILL.md`):
+```yaml
+---
+name: kata-planning
+description: This skill should be used when the user asks to "plan a phase", "create execution plan", "break down tasks", "analyze dependencies", or needs guidance on phase planning, task breakdown, goal-backward verification, or TDD integration. Applies when creating PLAN.md files or preparing phases for execution.
+---
+
+# Phase Planning
+
+## Overview
+
+Creates executable phase prompts (PLAN.md files) with task breakdown, dependency analysis, and goal-backward verification.
+
+## Core Workflow
+
+[Essential workflow - ~200 lines]
+
+## Additional Resources
+
+### Reference Files
+
+For detailed guidance, consult:
+- **`references/task-breakdown.md`** - Task sizing, specificity, TDD detection
+- **`references/dependency-graph.md`** - Wave assignment, parallel execution
+- **`references/goal-backward.md`** - Must-haves derivation methodology
+- **`references/plan-format.md`** - PLAN.md structure and frontmatter
+
+### Quick Reference
+
+- Plans: 2-3 tasks, ~50% context budget
+- Tasks: 15-60 min execution time
+- Frontmatter: phase, plan, wave, depends_on, files_modified, autonomous, must_haves
+```
+
+**Command** (`commands/kata/plan-phase.md`):
+```yaml
+---
+name: kata:plan-phase
+description: Create detailed execution plan for a phase
+argument-hint: "[phase] [--research] [--gaps]"
+context: fork
+agent: kata-planner
+skills: kata-planning
+allowed-tools: [Read, Write, Bash, Glob, Grep, Task, WebFetch]
+---
+
+Plan phase: $ARGUMENTS
+
+Load skill context from:
+@~/.claude/kata/skills/kata-planning/SKILL.md
+
+Project context:
+@.planning/ROADMAP.md
+@.planning/STATE.md
+```
+
+### Example 2: Agent with Skill Binding
+
+**Agent** (`agents/kata-planner.md`):
+```yaml
+---
+name: kata-planner
+description: Creates executable phase plans with task breakdown, dependency analysis, and goal-backward verification.
+tools: Read, Write, Bash, Glob, Grep, WebFetch
+skills: kata-planning, kata-research
+color: green
+---
+
+<role>
+You are a Kata planner. You create executable phase plans.
+</role>
+
+[Core agent instructions - streamlined since skill provides details]
+```
+
+### Example 3: Skill with References
+
+**Structure:**
+```
+skills/kata/executing-phases/
+├── SKILL.md
+└── references/
+    ├── deviation-rules.md
+    ├── checkpoint-protocol.md
+    ├── tdd-execution.md
+    └── commit-protocol.md
+```
+
+**SKILL.md** (~200 lines):
+```markdown
+---
+name: kata-execution
+description: This skill should be used when executing plans, running PLAN.md files, handling deviations, managing checkpoints, or creating SUMMARY.md files. Applies during /kata:execute-phase or when Claude needs guidance on plan execution workflow.
+---
+
+# Plan Execution
+
+## Overview
+
+Execute PLAN.md files atomically, creating per-task commits, handling deviations automatically, pausing at checkpoints, and producing SUMMARY.md files.
+
+## Execution Flow
+
+1. Load project state (@.planning/STATE.md)
+2. Load plan and parse tasks
+3. Determine execution pattern (autonomous vs checkpoint)
+4. Execute tasks sequentially
+5. Create SUMMARY.md
+6. Update STATE.md
+
+## Task Execution
+
+For each task:
+1. Read task type (auto, checkpoint:*)
+2. Execute action
+3. Run verification
+4. Commit with proper format
+
+## Key References
+
+### Deviation Rules
+See `references/deviation-rules.md` for:
+- Rule 1: Auto-fix bugs
+- Rule 2: Auto-add critical functionality
+- Rule 3: Auto-fix blockers
+- Rule 4: Ask about architectural changes
+
+### Checkpoint Protocol
+See `references/checkpoint-protocol.md` for checkpoint types and return formats.
+
+### TDD Execution
+See `references/tdd-execution.md` for RED-GREEN-REFACTOR cycle.
+```
+
+## State of the Art
+
+| Old Approach | Current Approach | When Changed | Impact |
+|--------------|------------------|--------------|--------|
+| Commands only | Skills + Commands | Claude Code 2024 | Skills enable autonomous discovery |
+| Single-file commands | Multi-file skills with references | Skills spec 2024 | Progressive disclosure reduces context |
+| No agent-skill binding | `skills:` field in agent frontmatter | Skills spec 2024 | Agents can access skill knowledge |
+| Manual tool restrictions | `allowed-tools` frontmatter | Claude Code 2024 | Declarative tool control |
+
+**Deprecated/outdated:**
+- Putting all workflow in one file: Use progressive disclosure with references/
+- Task-focused descriptions: Use trigger-focused descriptions for skills
+
+## Open Questions
+
+Things that couldn't be fully resolved:
+
+1. **Skill loading order with agent binding**
+   - What we know: Agents can list skills in `skills:` field
+   - What's unclear: Exact loading order when multiple skills overlap
+   - Recommendation: Test with simple cases first, document observed behavior
+
+2. **Variable substitution in skills**
+   - What we know: Skills support `$ARGUMENTS` and `${CLAUDE_SESSION_ID}`
+   - What's unclear: Whether custom variables work
+   - Recommendation: Use documented variables only, test edge cases
+
+3. **Hooks in skills vs commands**
+   - What we know: Both support hooks in frontmatter
+   - What's unclear: Whether hooks cascade when command invokes skill
+   - Recommendation: Define hooks at command level for predictability
+
+## Sources
+
+### Primary (HIGH confidence)
+- Claude Code Skills documentation (https://code.claude.com/docs/en/skills) - SKILL.md format, frontmatter fields, directory structure, progressive disclosure
+- Claude Code Slash Commands documentation (https://code.claude.com/docs/en/slash-commands) - Command format, $ARGUMENTS, frontmatter fields
+- Local skill development guides (`~/.claude/skills/building-claude-code-skills/`) - Conversion patterns, best practices
+
+### Secondary (MEDIUM confidence)
+- Anthropic skills repository examples (https://github.com/anthropics/skills) - Real-world skill patterns
+- Plugin-dev skill-development skill - Plugin-specific skill guidance
+
+### Tertiary (LOW confidence)
+- WebSearch results for "Claude Code Skills" - Community patterns, may be outdated
+
+## Metadata
+
+**Confidence breakdown:**
+- Standard stack: HIGH - Verified against official documentation
+- Architecture: HIGH - Based on official documentation and existing patterns
+- Pitfalls: MEDIUM - Derived from conversion guides and community experience
+
+**Research date:** 2026-01-19
+**Valid until:** 2026-02-19 (30 days - Skills format is stable)
+
+## Conversion Inventory
+
+Kata commands requiring conversion (24 total):
+
+### Core Workflow Commands
+| Command | Current Size | Recommended Skill | Priority |
+|---------|--------------|-------------------|----------|
+| new-project | ~900 lines | kata-project-initialization | High |
+| plan-phase | ~475 lines | kata-planning | High |
+| execute-phase | ~300 lines | kata-execution | High |
+| verify-work | ~250 lines | kata-verification | High |
+
+### Planning Commands
+| Command | Current Size | Recommended Skill | Priority |
+|---------|--------------|-------------------|----------|
+| discuss-phase | ~150 lines | kata-discussion | Medium |
+| research-phase | ~200 lines | kata-research | Medium |
+| list-phase-assumptions | ~75 lines | Embed in kata-planning | Low |
+
+### Milestone Commands
+| Command | Current Size | Recommended Skill | Priority |
+|---------|--------------|-------------------|----------|
+| new-milestone | ~800 lines | kata-milestone-management | High |
+| complete-milestone | ~225 lines | kata-milestone-management | Medium |
+| audit-milestone | ~350 lines | kata-milestone-management | Medium |
+
+### Roadmap Commands
+| Command | Current Size | Recommended Skill | Priority |
+|---------|--------------|-------------------|----------|
+| add-phase | ~250 lines | kata-roadmap-management | Medium |
+| insert-phase | ~285 lines | kata-roadmap-management | Medium |
+| remove-phase | ~200 lines | kata-roadmap-management | Low |
+| plan-milestone-gaps | ~315 lines | kata-roadmap-management | Low |
+
+### Utility Commands
+| Command | Current Size | Recommended Skill | Priority |
+|---------|--------------|-------------------|----------|
+| progress | ~300 lines | kata-progress-tracking | Medium |
+| resume-work | ~150 lines | kata-session-management | Low |
+| pause-work | ~125 lines | kata-session-management | Low |
+| debug | ~175 lines | kata-debugging | Medium |
+| map-codebase | ~150 lines | kata-codebase-mapping | Medium |
+| help | ~400 lines | Keep as command only | Low |
+| whats-new | ~100 lines | Keep as command only | Low |
+| update | ~100 lines | Keep as command only | Low |
+
+### Todo Commands
+| Command | Current Size | Recommended Skill | Priority |
+|---------|--------------|-------------------|----------|
+| add-todo | ~215 lines | kata-todo-management | Low |
+| check-todos | ~260 lines | kata-todo-management | Low |
+
+### Agents Requiring Skill Binding
+| Agent | Relevant Skills |
+|-------|-----------------|
+| kata-planner | kata-planning, kata-research |
+| kata-executor | kata-execution |
+| kata-verifier | kata-verification |
+| kata-debugger | kata-debugging |
+| kata-roadmapper | kata-roadmap-management |
+| kata-phase-researcher | kata-research |
+| kata-project-researcher | kata-research |
