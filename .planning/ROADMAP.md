@@ -89,11 +89,11 @@ Plans:
   2. `.planning/config.json` includes `github.enabled` boolean toggle
   3. `.planning/config.json` includes `github.issueMode` with values `auto | ask | never`
   4. Kata commands read config and branch on `github.enabled`
-**Plans**: TBD
+**Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — Update config template + document integration points
+- [ ] 01-02-PLAN.md — Add conditional GitHub hooks to affected skills
 
 ### Phase 2: Onboarding & Milestones
 **Goal**: New projects can configure GitHub integration and milestones create corresponding GitHub Milestones
@@ -166,7 +166,7 @@ Phases execute in numeric order: 0 -> 0.1 -> 1 -> 2 -> 3 -> 4 -> 5
 | 0. Hard Fork & Rebrand               | v0.1.4    | 5/5            | Complete    | 2026-01-18 |
 | 0. Convert Commands to Skills        | v0.1.5    | 9/9            | Complete    | 2026-01-19 |
 | 0.1. Claude Code Plugin Distribution | v0.1.5    | 0/?            | Not planned | -          |
-| 1. Audit & Config Foundation         | v0.1.5    | 0/?            | Not planned | -          |
+| 1. Audit & Config Foundation         | v0.1.5    | 0/2            | Planned     | -          |
 | 2. Onboarding & Milestones           | v0.1.5    | 0/?            | Not started | -          |
 | 3. Phase Issues                      | v0.1.5    | 0/?            | Not started | -          |
 | 4. Plan Sync                         | v0.1.5    | 0/?            | Not started | -          |
@@ -174,4 +174,4 @@ Phases execute in numeric order: 0 -> 0.1 -> 1 -> 2 -> 3 -> 4 -> 5
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-19 — Phase 0 complete (9/9 plans, 8 skills created)*
+*Last updated: 2026-01-19 — Phase 1 planned (2 plans in 2 waves)*
