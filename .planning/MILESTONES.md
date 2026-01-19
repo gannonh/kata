@@ -24,6 +24,6 @@
 
 **Git range:** `2cd2ace` → `0a0f10a`
 
-**What's next:** Antigravity Adapter (Phase 01) then full GitHub Integration (Phases 1-6)
+**What's next:** v0.1.5 GitHub Integration (Phases 0-5) — Skills conversion then Issues/PRs
 
 ---

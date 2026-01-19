@@ -7,7 +7,7 @@ v0.1.5 adds optional, modular GitHub integration to Kata. The integration syncs 
 ## Milestones
 
 - **v0.1.4 Hard Fork & Rebrand** — Phase 0 (shipped 2026-01-18) — [archive](milestones/v0.1.4-ROADMAP.md)
-- **v0.1.5 GitHub Integration** — Phases 1-5 (in progress)
+- **v0.1.5 GitHub Integration** — Phases 0-5 (in progress)
 
 ## Phases
 
@@ -26,6 +26,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ### v0.1.5 GitHub Integration (In Progress)
 
+- [ ] **Phase 0: Convert Commands to Skills** (INSERTED) - Use skill-builder to convert Kata commands to Skills format
 - [ ] **Phase 1: Audit & Config Foundation** - Understand integration points, establish config schema
 - [ ] **Phase 2: Onboarding & Milestones** - Config during new-project, GitHub Milestone creation
 - [ ] **Phase 3: Phase Issues** - Create GitHub Issues for phases with labels and metadata
@@ -34,9 +35,23 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ## Phase Details
 
+### Phase 0: Convert Commands to Skills (INSERTED)
+**Goal**: Convert Kata slash commands to Claude Code Skills format using `/skill-builder`
+**Depends on**: Nothing (prerequisite for GitHub Integration)
+**Requirements**: None (infrastructure improvement)
+**Success Criteria** (what must be TRUE):
+  1. Kata slash commands converted to Skills using skill-builder workflow
+  2. Skills provide same functionality as original commands
+  3. Commands directory structure updated to Skills format
+  4. Installation and usage patterns documented
+**Plans**: TBD
+
+Plans:
+- [ ] 00-01: TBD (run /kata:plan-phase 0 to break down)
+
 ### Phase 1: Audit & Config Foundation
 **Goal**: Understand where GitHub integration hooks into existing Kata workflows and establish config schema
-**Depends on**: Phase 0 (independent project identity)
+**Depends on**: Phase 0 (Skills format established)
 **Requirements**: WFA-01, CFG-01, CFG-02
 **Success Criteria** (what must be TRUE):
   1. Integration points documented for new-milestone, execute-phase, execute-plan commands
@@ -113,11 +128,12 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
+Phases execute in numeric order: 0 -> 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 0. Hard Fork & Rebrand | v0.1.4 | 5/5 | Complete | 2026-01-18 |
+| 0. Convert Commands to Skills | v0.1.5 | 0/? | Not planned | - |
 | 1. Audit & Config Foundation | v0.1.5 | 0/? | Not planned | - |
 | 2. Onboarding & Milestones | v0.1.5 | 0/? | Not started | - |
 | 3. Phase Issues | v0.1.5 | 0/? | Not started | - |
@@ -126,4 +142,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-18 — v0.1.5 roadmap defined*
+*Last updated: 2026-01-18 — Phase 0 inserted for Skills conversion*

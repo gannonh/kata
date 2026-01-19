@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-01-18)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v0.1.5 GitHub Integration (starting with Phase 1 - Audit & Config Foundation)
+**Current focus:** v0.1.5 GitHub Integration (starting with Phase 0 - Convert Commands to Skills)
 
 ## Current Position
 
-Milestone: v0.1.5 GitHub Integration (Phases 1-5)
-Phase: 1 (Audit & Config Foundation) - Ready to plan
+Milestone: v0.1.5 GitHub Integration (Phases 0-5)
+Phase: 0 (Convert Commands to Skills) - INSERTED
 Plan: 0 of ? in current phase (not planned yet)
-Status: Ready to plan Phase 1
-Last activity: 2026-01-18 - v0.1.5 roadmap created
+Status: Ready to plan Phase 0
+Last activity: 2026-01-18 - Phase 0 inserted for Skills conversion
 
-Progress: [=====...............] 17% (1/6 phases complete)
+Progress: [=====...............] 14% (1/7 phases complete)
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Recent decisions affecting current work:
 - Phase 0 completed 2026-01-18 - all 5 plans executed successfully
 - **v0.1.4 milestone archived 2026-01-18** - Hard Fork & Rebrand shipped
 - **v0.1.5 milestone started 2026-01-18** - GitHub Integration (5 phases)
+- **Phase 0 inserted 2026-01-18** - Convert Commands to Skills using /skill-builder (URGENT prerequisite)
 
 ### Pending Todos
 
@@ -72,5 +73,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-18
-Stopped at: v0.1.5 roadmap created, ready for Phase 1 planning
+Stopped at: Phase 0 inserted, ready for Skills conversion planning
 Resume file: None
