@@ -1,16 +1,35 @@
 # Phase 0: Convert Commands to Skills - Research
 
-**Researched:** 2026-01-19
+**Researched:** 2026-01-19 (revised)
 **Domain:** Claude Code Skills format, command-to-skill conversion
 **Confidence:** HIGH
 
 ## Summary
 
-This research establishes how to convert Kata's 24 slash commands to the Claude Code Skills format while maintaining deterministic execution through existing command files. The key insight is that Skills and Commands serve different purposes: Skills are model-invoked (Claude decides when to use them), while Commands are user-invoked (explicit `/command` trigger). Kata needs both.
+**REVISED STRATEGY** (2026-01-19): Skills are now the standard across IDEs (Claude Code, Antigravity, etc.) and can be invoked via `/skill-name` syntax. This changes our approach significantly.
 
-The conversion strategy involves creating Skills that contain the domain knowledge and workflow guidance, while keeping thin wrapper commands that invoke those skills with $ARGUMENTS support. This "dual-path" approach enables autonomous agent invocation while preserving deterministic execution.
+### Key Strategic Decisions
 
-**Primary recommendation:** Create a `skills/kata/` directory with Skills containing the workflow logic, and modify existing commands to become thin invocation wrappers that reference the skills. Use frontmatter fields (`context: fork`, `agent`, `model`, `skills`) to configure execution context.
+1. **Skills only** — Create skills containing full workflow logic. Don't update existing commands.
+2. **Leave commands for A/B testing** — Keep existing commands unchanged to compare old vs new approach.
+3. **No agent-skill binding** — Skills ARE orchestrators that spawn multiple sub-agents via Task tool. Don't bind skills TO agents.
+4. **Natural language invocation** — Skills handle variables from context (e.g., "plan phase 2" extracts phase number).
+5. **Use `/building-claude-code-skills`** — Follow the official skill-building methodology.
+
+### Architecture
+
+```
+Skill (orchestrator)
+  └── contains workflow logic
+  └── spawns sub-agents via Task tool
+      ├── kata-planner
+      ├── kata-plan-checker
+      └── etc.
+```
+
+Skills replace the orchestration role of commands. Agents remain as specialized workers that skills spawn.
+
+**Primary recommendation:** Create 8 skills in `skills/` directory, each containing full workflow logic with progressive disclosure via references/ subdirectories. Leave commands and agents unchanged.
 
 ## Standard Stack
 
@@ -34,35 +53,22 @@ Skills support these frontmatter fields (verified from official documentation):
 |-------|----------|-------------|
 | `name` | Yes | Skill identifier (lowercase, hyphens, max 64 chars) |
 | `description` | Yes | When to invoke (max 1024 chars) |
-| `allowed-tools` | No | Tool restrictions for this skill |
-| `model` | No | Model to use when skill active |
-| `context` | No | Set to `fork` for isolated sub-agent context |
-| `agent` | No | Agent type when context: fork (Explore, Plan, general-purpose, custom) |
-| `hooks` | No | Lifecycle hooks (PreToolUse, PostToolUse, Stop) |
-| `user-invocable` | No | Controls slash command menu visibility |
+| `user-invocable` | No | Controls slash command menu visibility (default: true) |
 
-### Command-Skill Integration
+**Note:** We are NOT using `agent`, `model`, `context`, `allowed-tools`, or `skills` frontmatter fields because Kata skills are orchestrators that spawn multiple sub-agents. These fields are for simpler skills that delegate to a single agent.
 
-Commands can reference skills and share frontmatter fields:
+### Skill Structure Example
 
 ```yaml
-# Command frontmatter (slash command)
----
-name: kata:plan-phase
-description: Create detailed execution plan for a phase
-agent: kata-planner
-context: fork
-skills: kata-planning, kata-research
-allowed-tools: [Read, Write, Bash, Glob, Grep, Task]
----
-```
-
-```yaml
-# Skill frontmatter (model-invoked)
+# skills/kata-planning/SKILL.md
 ---
 name: kata-planning
-description: This skill should be used when the user asks to "plan a phase", "create execution plan", "break down a phase into tasks", or needs guidance on task breakdown, dependency analysis, and goal-backward verification.
+description: Use this skill when planning phases, creating execution plans, breaking down work into tasks, or preparing for phase execution. This includes task breakdown, dependency analysis, wave assignment, and goal-backward verification.
 ---
+
+# Phase Planning
+
+[Workflow that spawns kata-planner, kata-plan-checker via Task tool]
 ```
 
 ## Architecture Patterns
@@ -73,81 +79,79 @@ description: This skill should be used when the user asks to "plan a phase", "cr
 
 ```
 kata/
-├── commands/kata/                    # Thin command wrappers
-│   ├── plan-phase.md                 # Invokes skill with $ARGUMENTS
+├── commands/kata/                    # UNCHANGED - keep for A/B testing
+│   ├── plan-phase.md
 │   ├── execute-phase.md
 │   └── ...
 ├── skills/
 │   ├── kata-planning/                # Flat naming: kata-{domain}
-│   │   ├── SKILL.md                  # Core planning workflow
+│   │   ├── SKILL.md                  # Full workflow (orchestrator)
 │   │   └── references/
 │   │       ├── task-breakdown.md
 │   │       ├── dependency-graph.md
 │   │       └── goal-backward.md
-│   ├── kata-execution/               # NOT kata/executing-phases/
+│   ├── kata-execution/
 │   │   ├── SKILL.md
 │   │   └── references/
 │   │       ├── deviation-rules.md
 │   │       └── checkpoint-protocol.md
 │   └── ...
-├── agents/                           # Specialized subagent definitions
+├── agents/                           # UNCHANGED - workers spawned by skills
 │   ├── kata-executor.md
 │   ├── kata-planner.md
 │   └── ...
-└── workflows/                        # Shared workflow definitions
+└── workflows/                        # May be absorbed into skills
 ```
 
-### Pattern 1: Dual-Path Invocation
+### Pattern 1: Skill as Orchestrator
 
-**What:** Commands invoke skills while preserving $ARGUMENTS
-**When to use:** All Kata commands that need both deterministic and autonomous execution
+**What:** Skills contain full workflow logic and spawn sub-agents via Task tool
+**When to use:** All Kata workflows
 
-**Command (thin wrapper):**
-```markdown
----
-name: kata:plan-phase
-description: Create detailed execution plan for a phase
-argument-hint: "[phase] [--research] [--gaps]"
-agent: kata-planner
-context: fork
-skills: kata-planning
-allowed-tools: [Read, Write, Bash, Glob, Grep, Task, WebFetch]
----
-
-Plan phase: $ARGUMENTS
-
-@~/.claude/skills/kata-planning/SKILL.md
-```
-
-**Skill (full workflow):**
+**Skill (full orchestrator):**
 ```markdown
 ---
 name: kata-planning
-description: This skill should be used when planning phases, creating execution plans, breaking down work into tasks, analyzing dependencies, or preparing for phase execution. Includes task breakdown, dependency analysis, and goal-backward verification.
+description: Use this skill when planning phases, creating execution plans, breaking down work into tasks, or preparing for phase execution. This includes task breakdown, dependency analysis, wave assignment, and goal-backward verification.
 ---
 
 # Phase Planning
 
-[Full workflow content from current agents/workflows]
+## Workflow
+
+1. Validate phase exists in ROADMAP.md
+2. Check for existing research
+3. **Spawn researcher if needed:**
+   ```
+   Task(subagent_type="kata-phase-researcher", prompt="...")
+   ```
+4. **Spawn planner:**
+   ```
+   Task(subagent_type="kata-planner", prompt="...")
+   ```
+5. **Spawn checker for verification:**
+   ```
+   Task(subagent_type="kata-plan-checker", prompt="...")
+   ```
+6. Iterate until plans pass or max iterations
+
+## References
+- See `./task-breakdown.md` for task sizing
+- See `./dependency-graph.md` for wave assignment
 ```
 
-### Pattern 2: Agent-Skill Binding
+**Key insight:** The skill IS the orchestrator. It spawns agents, not the other way around.
 
-**What:** Subagents reference skills for domain knowledge
-**When to use:** When spawning specialized subagents via Task tool
+### Pattern 2: Natural Language Variables
 
-```yaml
-# .claude/agents/kata-planner.md
----
-name: kata-planner
-description: Creates executable phase plans
-tools: Read, Write, Bash, Glob, Grep
-skills: kata-planning, kata-research
-color: green
----
-```
+**What:** Extract workflow variables from user's natural language request
+**When to use:** Instead of $ARGUMENTS (which skills don't support)
 
-The agent gains access to the skill's knowledge when spawned.
+**Example:**
+- User says: "plan phase 2 with research"
+- Skill extracts: phase=2, research=true
+- User says: "execute the next phase"
+- Skill queries ROADMAP.md to find next unexecuted phase
 
 ### Pattern 3: Progressive Disclosure
 

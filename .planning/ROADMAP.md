@@ -26,7 +26,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ### v0.1.5 GitHub Integration (In Progress)
 
-- [ ] **Phase 0: Convert Commands to Skills** (INSERTED) - Use skill-builder to convert Kata commands to Skills format
+- [ ] **Phase 0: Convert Commands to Skills** (INSERTED) - Create skills as orchestrators that spawn sub-agents
 - [ ] **Phase 0.1: Claude Code Plugin Distribution** (INSERTED) - Create plugin distribution using `/plugin-dev:create-plugin`
 - [ ] **Phase 1: Audit & Config Foundation** - Understand integration points, establish config schema
 - [ ] **Phase 2: Onboarding & Milestones** - Config during new-project, GitHub Milestone creation
@@ -37,21 +37,21 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Phase Details
 
 ### Phase 0: Convert Commands to Skills (INSERTED)
-**Goal**:
-- Convert Kata slash commands to Claude Code Skills format
-- Retain existing slash command files, but have them point to the new Skills, allowing for
-  - deterministic execution in addition to autonomous agent skill invocation
-  - continue use of $ARGUMENTS (not supported by the Skills standard)
-- Skills use FLAT directory naming (skills/kata-planning/ NOT skills/kata/planning/)
+**Goal**: Create 8 skills as orchestrators following /building-claude-code-skills methodology
+**Strategy** (REVISED 2026-01-19):
+- Skills only — Create skills containing full workflow logic
+- Leave commands unchanged — Keep for A/B testing between old commands and new skills
+- No agent-skill binding — Skills ARE orchestrators that spawn multiple sub-agents via Task tool
+- Use /building-claude-code-skills methodology — Follow the official skill-building patterns
 **Depends on**: Nothing (prerequisite for GitHub Integration)
 **Requirements**: None (infrastructure improvement)
 **Success Criteria** (what must be TRUE):
-  1. Kata slash commands converted to Skills format
-  2. Existing slash commands invoke corresponding Skills via skills: frontmatter
-  3. Resource files go with skills for adaptive disclosure (references/ subdirs)
-  4. Skills provide same functionality as original commands
-  5. 8 skills created: kata-planning, kata-execution, kata-verification, kata-project-initialization, kata-milestone-management, kata-roadmap-management, kata-research, kata-utility
-  6. Installation script updated to copy skills/ directory
+  1. 8 skills created: kata-planning, kata-execution, kata-verification, kata-project-initialization, kata-milestone-management, kata-roadmap-management, kata-research, kata-utility
+  2. Each skill has SKILL.md (<500 lines) with proper frontmatter (name, description only)
+  3. Each skill has references/ subdirectory for progressive disclosure
+  4. Skills spawn sub-agents via Task tool (skills ARE orchestrators)
+  5. Installation script updated to copy skills/ directory
+  6. CLAUDE.md updated to document skills architecture
 **Plans**: 9 plans in 3 waves
 
 Plans:
@@ -63,7 +63,7 @@ Plans:
 - [ ] 00-06-PLAN.md — Create kata-roadmap-management skill
 - [ ] 00-07-PLAN.md — Create kata-research skill
 - [ ] 00-08-PLAN.md — Create kata-utility skill
-- [ ] 00-09-PLAN.md — Update command-only files and documentation
+- [ ] 00-09-PLAN.md — Update CLAUDE.md documentation + test installation
 
 ### Phase 0.1: Claude Code Plugin Distribution (INSERTED)
 **Goal**: Package and publish Kata as a Claude Code plugin for easy distribution using `/plugin-dev:create-plugin`
@@ -174,4 +174,4 @@ Phases execute in numeric order: 0 -> 0.1 -> 1 -> 2 -> 3 -> 4 -> 5
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-19 — Phase 0 planned with 9 plans in 3 waves*
+*Last updated: 2026-01-19 — Phase 0 planned with 9 plans in 3 waves (revised strategy)*
