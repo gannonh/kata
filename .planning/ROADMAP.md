@@ -32,6 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Migrate Todo Commands to Kata Skill** - Create kata-managing-todos skill from gsd:add-todo and gsd:check-todos — completed 2026-01-20
 - [x] **Phase 1.1: Testing & Evals Harness** - CLI-based test framework leveraging `claude "prompt"` to verify skill invocation and artifact production (INSERTED) — completed 2026-01-20
 - [x] **Phase 1.2: Skill Tests** - Write tests for all 10 kata skills using the test harness (INSERTED) — completed 2026-01-20
+- [ ] **Phase 1.3: Discuss Phase Skill** - Create kata-discussing-phase-context skill for pre-planning context gathering (INSERTED)
 - [ ] **Phase 2: Create Kata Slash Commands** - Create GSD-equivalent slash commands that instantiate Kata skills
 - [ ] **Phase 2.1: Slash Command Tests** - Write tests for all slash commands using the test harness (INSERTED)
 - [ ] **Phase 3: Documentation** - Complete README and add onboarding guidance
@@ -136,6 +137,25 @@ Plans:
 - [x] 01.2-02-PLAN.md — Create tests for roadmap, planning, and progress skills
 - [x] 01.2-03-PLAN.md — Create tests for research, new project, and verification skills
 - [x] 01.2-04-PLAN.md — Verify all 10 tests exist and npm test works
+
+#### Phase 1.3: Discuss Phase Skill (INSERTED)
+**Goal**: Create `kata-discussing-phase-context` skill to gather user's vision and implementation decisions before planning, producing CONTEXT.md that downstream agents (researcher, planner) use
+**Depends on**: Phase 1.2 (Skill test patterns established)
+**Requirements**: None (skill gap closure)
+**Success Criteria** (what must be TRUE):
+  1. kata-discussing-phase-context skill created with SKILL.md (<500 lines)
+  2. Skill has references/ subdirectory for progressive disclosure
+  3. Skill analyzes phase to identify domain-specific gray areas
+  4. Skill conducts adaptive questioning (4 questions per area, offer more/next)
+  5. Skill enforces scope guardrail (clarifies HOW, not WHETHER to add more)
+  6. Skill writes {phase}-CONTEXT.md with decisions that guide research/planning
+  7. Skill offers next steps (research or plan)
+  8. Test file created for skill trigger verification
+**Plans**: 2 plans
+
+Plans:
+- [ ] 01.3-01-PLAN.md — Create skill with SKILL.md and references/
+- [ ] 01.3-02-PLAN.md — Create test file and verify installation
 
 #### Phase 2: Create Kata Slash Commands
 **Goal**: Create GSD-equivalent slash commands that instantiate corresponding Kata skills, ensuring explicit invocation path alongside autonomous skill triggering
@@ -301,6 +321,7 @@ Plans:
 | 1. Migrate Todo Commands to Skill | v0.1.5    | 3/3            | Complete    | 2026-01-20 |
 | 1.1 Testing & Evals Harness       | v0.1.5    | 2/2            | Complete    | 2026-01-20 |
 | 1.2 Skill Tests                   | v0.1.5    | 4/4            | Complete    | 2026-01-20 |
+| 1.3 Discuss Phase Skill           | v0.1.5    | 0/2            | Planned     | -          |
 | 2. Create Kata Slash Commands     | v0.1.5    | 0/?            | Not planned | -          |
 | 2.1 Slash Command Tests           | v0.1.5    | 0/?            | Not planned | -          |
 | 3. Documentation                  | v0.1.5    | 0/?            | Not planned | -          |
@@ -314,4 +335,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-20 — Phase 1.2 (Skill Tests) completed*
+*Last updated: 2026-01-20 — Phase 1.3 planned (2 plans)*
