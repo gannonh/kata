@@ -7,7 +7,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 ## Milestones
 
 - **v0.1.4 Hard Fork & Rebrand** — Phase 0 (shipped 2026-01-18) — [archive](milestones/v0.1.4-ROADMAP.md)
-- **v0.1.5 Skills & Documentation** — Phases 0-3 (in progress)
+- **v0.1.5 Skills & Documentation** — Phases 0-4 (in progress)
 - **v0.1.6 Claude Code Plugin** — Phase 1 (planned)
 - **v0.1.7 GitHub Integration** — Phases 1-5 (planned)
 
@@ -31,10 +31,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 0: Convert Commands to Skills** - Create skills as orchestrators that spawn sub-agents — completed 2026-01-20
 - [x] **Phase 1: Migrate Todo Commands to Kata Skill** - Create kata-managing-todos skill from gsd:add-todo and gsd:check-todos — completed 2026-01-20
 - [x] **Phase 1.1: Testing & Evals Harness** - CLI-based test framework leveraging `claude "prompt"` to verify skill invocation and artifact production (INSERTED) — completed 2026-01-20
-- [ ] **Phase 1.2: Skill Tests** - Write tests for all 10 kata skills using the test harness (INSERTED)
+- [x] **Phase 1.2: Skill Tests** - Write tests for all 10 kata skills using the test harness (INSERTED) — completed 2026-01-20
 - [ ] **Phase 2: Create Kata Slash Commands** - Create GSD-equivalent slash commands that instantiate Kata skills
 - [ ] **Phase 2.1: Slash Command Tests** - Write tests for all slash commands using the test harness (INSERTED)
 - [ ] **Phase 3: Documentation** - Complete README and add onboarding guidance
+- [ ] **Phase 4: Review & Refactor Subagents** - Review all kata subagents and refactor as needed given changes this milestone
 
 ### v0.1.6 Claude Code Plugin (Planned)
 
@@ -131,10 +132,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 01.2-01-PLAN.md — Create tests for debugging, execution, and milestone skills
-- [ ] 01.2-02-PLAN.md — Create tests for roadmap, planning, and progress skills
-- [ ] 01.2-03-PLAN.md — Create tests for research, new project, and verification skills
-- [ ] 01.2-04-PLAN.md — Verify all 10 tests exist and npm test works
+- [x] 01.2-01-PLAN.md — Create tests for debugging, execution, and milestone skills
+- [x] 01.2-02-PLAN.md — Create tests for roadmap, planning, and progress skills
+- [x] 01.2-03-PLAN.md — Create tests for research, new project, and verification skills
+- [x] 01.2-04-PLAN.md — Verify all 10 tests exist and npm test works
 
 #### Phase 2: Create Kata Slash Commands
 **Goal**: Create GSD-equivalent slash commands that instantiate corresponding Kata skills, ensuring explicit invocation path alongside autonomous skill triggering
@@ -180,6 +181,21 @@ Plans:
 
 Plans:
 - [ ] 03-01: TBD (run /kata-planning-phases to break down)
+
+#### Phase 4: Review & Refactor Subagents
+**Goal**: Review all kata subagents (agents/kata-*.md) and refactor as needed to align with changes made this milestone (skills architecture, naming conventions, spawning patterns)
+**Depends on**: Phase 3 (Documentation complete, all skills finalized)
+**Requirements**: None (quality improvement)
+**Success Criteria** (what must be TRUE):
+  1. All kata-* agents reviewed for consistency with skills architecture
+  2. Agent naming follows established conventions (kata-{noun}-{verb} or kata-{gerund})
+  3. Agent prompts updated to reference skills (not old commands)
+  4. Unused or redundant agents removed
+  5. Agent-skill spawning relationships documented in CLAUDE.md
+**Plans**: TBD
+
+Plans:
+- [ ] 04-01: TBD (run /kata-planning-phases to break down)
 
 ### v0.1.6 Claude Code Plugin
 
@@ -284,10 +300,11 @@ Plans:
 | 0. Convert Commands to Skills     | v0.1.5    | 12/12          | Complete    | 2026-01-20 |
 | 1. Migrate Todo Commands to Skill | v0.1.5    | 3/3            | Complete    | 2026-01-20 |
 | 1.1 Testing & Evals Harness       | v0.1.5    | 2/2            | Complete    | 2026-01-20 |
-| 1.2 Skill Tests                   | v0.1.5    | 0/4            | Planned     | -          |
+| 1.2 Skill Tests                   | v0.1.5    | 4/4            | Complete    | 2026-01-20 |
 | 2. Create Kata Slash Commands     | v0.1.5    | 0/?            | Not planned | -          |
 | 2.1 Slash Command Tests           | v0.1.5    | 0/?            | Not planned | -          |
 | 3. Documentation                  | v0.1.5    | 0/?            | Not planned | -          |
+| 4. Review & Refactor Subagents    | v0.1.5    | 0/?            | Not planned | -          |
 | 1. Plugin Distribution            | v0.1.6    | 0/?            | Not planned | -          |
 | 1. Audit & Config Foundation      | v0.1.7    | 0/?            | Not planned | -          |
 | 2. Onboarding & Milestones        | v0.1.7    | 0/?            | Not started | -          |
@@ -297,4 +314,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-20 — Phase 1.2 (Skill Tests) planned with 4 plans*
+*Last updated: 2026-01-20 — Phase 1.2 (Skill Tests) completed*
