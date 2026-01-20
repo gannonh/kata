@@ -234,9 +234,8 @@ Present remaining issues and offer:
 
 ### Step 9: Present Results
 
-Output completion banner:
+Output this markdown directly (not as a code block):
 
-```
 KATA > PHASE {X} PLANNED
 
 **Phase {X}: {Name}** - {N} plan(s) in {M} wave(s)
@@ -255,16 +254,17 @@ Verification: {Passed | Passed with override | Skipped}
 
 **Execute Phase {X}** — run all {N} plans
 
-> Instructions can be given conversationally (recommended) or via /commands.
+`/kata-executing-project-phases`
 
-| Action                | Natural Trigger     | Explicit Command  |
-| --------------------- | ------------------- | ----------------- |
-| **Execute the phase** | "Execute phase {X}" | `/kata-execution` |
-
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
+
+**Also available:**
+- cat .planning/phases/{phase-dir}/*-PLAN.md — review plans
+- /kata-planning-phases {X} --research — re-research first
+
+───────────────────────────────────────────────────────────────
 
 ## Key References
 

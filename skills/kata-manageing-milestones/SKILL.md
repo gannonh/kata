@@ -120,8 +120,8 @@ See `./references/milestone-creation.md` for complete details.
    )
    ```
 
-10. **Present completion**
-    ```
+10. **Present completion.** Output this markdown directly (not as a code block):
+
     KATA > MILESTONE INITIALIZED
 
     **v[X.Y] [Name]**
@@ -139,16 +139,11 @@ See `./references/milestone-creation.md` for complete details.
 
     **Phase [N]: [Name]** — [Goal]
 
-    > Instructions can be given conversationally (recommended) or via /commands.
+    `/kata-planning-phases [N]`
 
-    | Action             | Natural Trigger  | Explicit Command        |
-    | ------------------ | ---------------- | ----------------------- |
-    | **Plan the phase** | "Plan phase [N]" | `/kata-planning-phases` |
-
-    <sub>`/clear` first → fresh context window</sub>
+    <sub>/clear first → fresh context window</sub>
 
     ───────────────────────────────────────────────────────────
-    ```
 
 ---
 
@@ -196,8 +191,8 @@ See `./references/milestone-completion.md` for complete details.
    git commit -m "chore: complete v[X.Y] milestone"
    ```
 
-8. **Present completion**
-   ```
+8. **Present completion.** Output this markdown directly (not as a code block):
+
    KATA > MILESTONE v[X.Y] COMPLETE 🎉
 
    Archived:
@@ -210,16 +205,11 @@ See `./references/milestone-completion.md` for complete details.
 
    **Start next milestone** — questioning → research → roadmap
 
-   > Instructions can be given conversationally (recommended) or via /commands.
+   `/kata-manageing-milestones new`
 
-   | Action            | Natural Trigger | Explicit Command             |
-   | ----------------- | --------------- | ---------------------------- |
-   | **New milestone** | "New milestone" | `/kata-manageing-milestones` |
-
-   <sub>`/clear` first → fresh context window</sub>
+   <sub>/clear first → fresh context window</sub>
 
    ───────────────────────────────────────────────────────────
-   ```
 
 ---
 
@@ -276,43 +266,33 @@ See `./references/milestone-auditing.md` for complete details.
 6. **Present results**
    Route by status:
 
-   **If passed:**
-   ```
+   **If passed:** Output this markdown directly (not as a code block):
+
    ───────────────────────────────────────────────────────────
 
    ## ▶ Next Action
 
    **Audit passed** — proceed to milestone completion
 
-   > Instructions can be given conversationally (recommended) or via /commands.
+   `/kata-manageing-milestones complete`
 
-   | Action                 | Natural Trigger      | Explicit Command             |
-   | ---------------------- | -------------------- | ---------------------------- |
-   | **Complete milestone** | "Complete milestone" | `/kata-manageing-milestones` |
-
-   <sub>`/clear` first → fresh context window</sub>
+   <sub>/clear first → fresh context window</sub>
 
    ───────────────────────────────────────────────────────────
-   ```
 
-   **If gaps_found:**
-   ```
+   **If gaps_found:** Output this markdown directly (not as a code block):
+
    ───────────────────────────────────────────────────────────
 
    ## ▶ Next Action
 
    **Gaps found** — plan closure phases
 
-   > Instructions can be given conversationally (recommended) or via /commands.
+   `/kata-managing-project-roadmap plan-gaps`
 
-   | Action               | Natural Trigger | Explicit Command                 |
-   | -------------------- | --------------- | -------------------------------- |
-   | **Plan gap closure** | "Plan gaps"     | `/kata-managing-project-roadmap` |
-
-   <sub>`/clear` first → fresh context window</sub>
+   <sub>/clear first → fresh context window</sub>
 
    ───────────────────────────────────────────────────────────
-   ```
 
    **If tech_debt:** Choose to complete or plan cleanup
 

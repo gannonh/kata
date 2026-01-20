@@ -2,6 +2,14 @@
 
 Visual patterns for user-facing Kata output. Orchestrators @-reference this file.
 
+## Critical: Output Template Rendering
+
+**Never wrap user-facing output in code blocks.** When templates are in triple backticks, Claude outputs them literally (tables as `| col |`, bold as `**text**`).
+
+**Instead:** Use "Output this markdown directly (not as a code block):" followed by the raw template.
+
+See KATA-STYLE.md "Output Template Rendering" section for full examples.
+
 ## Stage Banners
 
 Use for major workflow transitions.
@@ -99,26 +107,26 @@ Plans: 3/5 complete
 
 ## Next Action Block
 
-Always at end of major completions.
+Always at end of major completions. **Do NOT wrap in code blocks** — output directly.
 
-```
+Template (output this directly, not in backticks):
+
 ───────────────────────────────────────────────────────────────
 
 ## ▶ Next Action
 
 **{Identifier}: {Name}** — {one-line description}
 
-> Instructions can be given conversationally (recommended) or via /commands.
+`/{primary-skill-name}`
 
-| Action                 | Natural Trigger    | Explicit Command |
-| ---------------------- | ------------------ | ---------------- |
-| ⭐ **{Primary action}** | "{trigger phrase}" | `/{skill-name}`  |
-| {Secondary action}     | "{trigger phrase}" | `/{skill-name}`  |
-
-<sub>★ recommended · `/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
+
+**Also available:**
+- /{alternative-skill} — description
+
+───────────────────────────────────────────────────────────────
 
 ---
 
@@ -150,6 +158,7 @@ Always at end of major completions.
 
 ## Anti-Patterns
 
+- **Wrapping output templates in code blocks** — causes literal output instead of rendered markdown
 - Varying box/banner widths
 - Mixing banner styles (`===`, `---`, `***`)
 - Skipping `KATA ►` prefix in banners

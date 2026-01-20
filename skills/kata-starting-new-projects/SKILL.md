@@ -294,7 +294,8 @@ All v1 requirements mapped to phases."
 
 ### Step 9: Present Completion
 
-```
+Output this markdown directly (not as a code block):
+
 KATA > PROJECT INITIALIZED
 
 **[Project Name]**
@@ -315,17 +316,16 @@ KATA > PROJECT INITIALIZED
 
 **Phase 1: [Phase Name]** — [Goal from ROADMAP.md]
 
-> Instructions can be given conversationally (recommended) or via /commands.
+`/kata-planning-phases 1`
 
-| Action             | Natural Trigger    | Explicit Command           |
-| ------------------ | ------------------ | -------------------------- |
-| **Research first** | "Research phase 1" | `/kata-researching-phases` |
-| Plan directly      | "Plan phase 1"     | `/kata-planning-phases`    |
-
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
+
+**Also available:**
+- /kata-researching-phases 1 — research the domain first
+
+───────────────────────────────────────────────────────────────
 
 ## Key References
 
