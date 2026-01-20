@@ -169,9 +169,8 @@ Proceed to `present_test`.
 
 Read Current Test section from UAT file.
 
-Display using checkpoint box format:
+Output this markdown directly (not as a code block):
 
-```
 ╔══════════════════════════════════════════════════════════════╗
 ║  CHECKPOINT: Verification Required                           ║
 ╚══════════════════════════════════════════════════════════════╝
@@ -183,7 +182,6 @@ Display using checkpoint box format:
 ──────────────────────────────────────────────────────────────
 → Type "pass" or describe what's wrong
 ──────────────────────────────────────────────────────────────
-```
 
 Wait for user response (plain text, no AskUserQuestion).
 </step>
@@ -485,7 +483,8 @@ Wait for user response.
 <step name="present_ready">
 **Present completion and next steps:**
 
-```
+Output this markdown directly (not as a code block):
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  KATA ► FIXES READY ✓
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -511,10 +510,10 @@ Plans verified and ready for execution.
 |--------|-----------------|------------------|
 | **Execute gap closure** | "Execute phase {phase}" | `/kata-execution` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
+
 </step>
 
 </process>
