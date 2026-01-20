@@ -22,13 +22,13 @@ ls .planning/v*-MILESTONE-AUDIT.md 2>/dev/null
 
 - **No audit found:**
   ```
-  No milestone audit found. Run /kata:audit-milestone first to verify
+  No milestone audit found. Run audit via /kata-manageing-milestones first to verify
   requirements coverage, cross-phase integration, and E2E flows.
   ```
 
 - **Audit has gaps:**
   ```
-  Milestone audit found gaps. Run /kata:plan-milestone-gaps to create
+  Milestone audit found gaps. Run /kata-managing-project-roadmap to create
   phases that close the gaps, or proceed anyway to accept as tech debt.
   ```
 
@@ -316,11 +316,11 @@ Tag: v[X.Y]
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action            | Natural Trigger | Explicit Command             |
-| ----------------- | --------------- | ---------------------------- |
-| **New milestone** | "New milestone" | `/kata-manageing-milestones` |
+| Action                     | Natural Trigger | Explicit Command             |
+| -------------------------- | --------------- | ---------------------------- |
+| ⭐ **Start new milestone** | "New milestone" | `/kata-manageing-milestones` |
 
-<sub>/clear first → fresh context window</sub>
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
@@ -337,4 +337,4 @@ Tag: v[X.Y]
 - [ ] STATE.md updated
 - [ ] Git tag created
 - [ ] Milestone commit made
-- [ ] User knows next step (/kata:new-milestone)
+- [ ] User knows next step (new milestone)
