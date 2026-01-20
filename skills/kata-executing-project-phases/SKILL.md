@@ -1,6 +1,6 @@
 ---
 name: kata-executing-project-phases
-description: Use this skill when executing phases, running plans, handling checkpoints, creating summaries, or managing deviations during plan execution. Triggers include "execute phase", "run plans", "execute PLAN.md", "handle deviations", "checkpoint", "create summary", "wave execution", and "parallel plan execution". This skill orchestrates kata-executor sub-agents for wave-based parallel execution.
+description: Use this skill when executing phases, running plans, handling checkpoints, creating summaries, or managing deviations during plan execution. Triggers include "execute phase", "start phase", "build phase","run plans", "execute PLAN.md", "handle deviations", "checkpoint", "create summary", "wave execution", and "parallel plan execution". This skill orchestrates kata-executor sub-agents for wave-based parallel execution.
 ---
 
 # Phase Execution Orchestrator
@@ -9,7 +9,7 @@ Executes phase plans with wave-based parallelization, checkpoint handling, devia
 
 ## When to Use
 
-- User asks to "execute phase N" or "run the plans"
+- User asks to "execute phase N" or "start phase N" or "run the plans"
 - User wants to run all plans in a phase
 - User needs help handling checkpoints during execution
 - User asks about deviations or verification
