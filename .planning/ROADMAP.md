@@ -26,7 +26,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ### v0.1.5 GitHub Integration (In Progress)
 
-- [x] **Phase 0: Convert Commands to Skills** (INSERTED) - Create skills as orchestrators that spawn sub-agents — completed 2026-01-19
+- [ ] **Phase 0: Convert Commands to Skills** (INSERTED) - Create skills as orchestrators that spawn sub-agents — UAT in progress
 - [ ] **Phase 0.1: Claude Code Plugin Distribution** (INSERTED) - Create plugin distribution using `/plugin-dev:create-plugin`
 - [ ] **Phase 1: Audit & Config Foundation** - Understand integration points, establish config schema
 - [ ] **Phase 2: Onboarding & Milestones** - Config during new-project, GitHub Milestone creation
@@ -52,7 +52,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Skills spawn sub-agents via Task tool (skills ARE orchestrators)
   5. Installation script updated to copy skills/ directory
   6. CLAUDE.md updated to document skills architecture
-**Plans**: 9 plans in 3 waves
+**Plans**: 12 plans (9 original + 3 gap closure)
 
 Plans:
 - [x] 00-01-PLAN.md — Create kata-planning skill + update installer
@@ -64,6 +64,9 @@ Plans:
 - [x] 00-07-PLAN.md — Create kata-research skill
 - [x] 00-08-PLAN.md — Create kata-utility skill
 - [x] 00-09-PLAN.md — Update CLAUDE.md documentation + test installation
+- [ ] 00-10-PLAN.md — Fix kata-execution SUMMARY/commits (gap closure)
+- [ ] 00-11-PLAN.md — Fix kata-verification UAT workflow (gap closure)
+- [ ] 00-12-PLAN.md — Improve skill trigger phrases (gap closure)
 
 ### Phase 0.1: Claude Code Plugin Distribution (INSERTED)
 **Goal**: Package and publish Kata as a Claude Code plugin for easy distribution using `/plugin-dev:create-plugin`
@@ -164,7 +167,7 @@ Phases execute in numeric order: 0 -> 0.1 -> 1 -> 2 -> 3 -> 4 -> 5
 | Phase                                | Milestone | Plans Complete | Status      | Completed  |
 | ------------------------------------ | --------- | -------------- | ----------- | ---------- |
 | 0. Hard Fork & Rebrand               | v0.1.4    | 5/5            | Complete    | 2026-01-18 |
-| 0. Convert Commands to Skills        | v0.1.5    | 9/9            | Complete    | 2026-01-19 |
+| 0. Convert Commands to Skills        | v0.1.5    | 9/12           | Gap closure | -          |
 | 0.1. Claude Code Plugin Distribution | v0.1.5    | 0/?            | Not planned | -          |
 | 1. Audit & Config Foundation         | v0.1.5    | 0/?            | Not planned | -          |
 | 2. Onboarding & Milestones           | v0.1.5    | 0/?            | Not started | -          |
@@ -174,4 +177,4 @@ Phases execute in numeric order: 0 -> 0.1 -> 1 -> 2 -> 3 -> 4 -> 5
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-19 — Phase 0 complete (9/9 plans, 8 skills created)*
+*Last updated: 2026-01-19 — Phase 0 gap closure plans created (3 plans to address UAT issues)*
