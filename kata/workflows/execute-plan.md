@@ -1689,7 +1689,8 @@ Loop back to identify_plan step automatically.
 </if>
 
 <if mode="interactive" OR="custom with gates.execute_next_plan true">
-```
+Output this markdown directly (not as a code block):
+
 Plan {phase}-{plan} complete.
 Summary: .planning/phases/{phase-dir}/{phase}-{plan}-SUMMARY.md
 
@@ -1708,10 +1709,9 @@ Summary: .planning/phases/{phase-dir}/{phase}-{plan}-SUMMARY.md
 | **Execute the phase** | "Execute phase {phase}" | `/kata-execution`            |
 | Run UAT first         | "Run UAT"               | `/kata-verification-and-uat` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 Wait for user to clear and run next command.
 </if>
@@ -1745,9 +1745,8 @@ State: "Current phase is {X}. Milestone has {N} phases (highest: {Y})."
 
 **Route B: Phase complete, more phases remain in milestone**
 
-Read ROADMAP.md to get the next phase's name and goal.
+Read ROADMAP.md to get the next phase's name and goal. Output this markdown directly (not as a code block):
 
-```
 Plan {phase}-{plan} complete.
 Summary: .planning/phases/{phase-dir}/{phase}-{plan}-SUMMARY.md
 
@@ -1769,16 +1768,16 @@ All {Y} plans finished.
 | Plan next phase        | "Plan phase {Z+1}"            | `/kata-planning-phases`      |
 | Research first         | "Research phase {Z+1}"        | `/kata-researching-phases`   |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 ---
 
 **Route C: Milestone complete (all phases done)**
 
-```
+Output this markdown directly (not as a code block):
+
 🎉 MILESTONE COMPLETE!
 
 Plan {phase}-{plan} complete.
@@ -1806,10 +1805,9 @@ All {Y} plans finished.
 | Run UAT first          | "Run UAT"            | `/kata-verification-and-uat`     |
 | Add another phase      | "Add a phase"        | `/kata-managing-project-roadmap` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 </step>
 

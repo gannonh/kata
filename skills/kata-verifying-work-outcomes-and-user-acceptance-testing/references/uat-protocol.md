@@ -103,9 +103,8 @@ Test:
 
 ## Test Script Format
 
-Present tests one at a time using checkpoint box:
+Present tests one at a time. Output this markdown directly (not as a code block):
 
-```
 ╔══════════════════════════════════════════════════════════════╗
 ║  CHECKPOINT: Verification Required                           ║
 ╚══════════════════════════════════════════════════════════════╝
@@ -117,7 +116,6 @@ Present tests one at a time using checkpoint box:
 ──────────────────────────────────────────────────────────────
 → Type "pass" or describe what's wrong
 ──────────────────────────────────────────────────────────────
-```
 
 **Expected behavior guidance:**
 - Describe from user perspective
