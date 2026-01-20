@@ -85,7 +85,7 @@ severity: resolved
 ### 14. kata-verification Outcome
 expected: Running kata-verification skill validates built features, creates UAT.md, diagnoses issues
 result: pass
-notes: "Re-test 2026-01-19: 'run kata uat' triggers UAT mode. Triggers without 'kata' prefix intercepted by test suite. Updated description with kata-prefixed UAT triggers."
+notes: "Re-test 2026-01-19: Skill renamed to kata-verification-and-uat. 'run uat', 'uat phase 2', 'acceptance test' now all trigger correctly. Key learning: skill name and description are critical for autonomous invocation."
 severity: resolved
 
 ### 15. kata-milestone-management Outcome
@@ -151,11 +151,12 @@ skipped: 7
 
 - truth: "kata-verification creates UAT.md and presents interactive tests"
   status: resolved
-  reason: "UAT triggers without 'kata' prefix get intercepted by test suite behavior. Fixed by adding 'kata' prefix to UAT triggers."
+  reason: "Skill renamed to kata-verification-and-uat. Including 'uat' in skill name ensures it matches before Claude defaults to running test suite."
   severity: resolved
   test: 14
-  fix: "Updated skill description with 'run kata uat', 'kata uat', 'kata acceptance test' triggers"
-  working_prompt: "run kata uat"
+  fix: "Renamed skill from kata-verification to kata-verification-and-uat"
+  working_prompts: ["run uat", "uat phase 2", "acceptance test"]
+  learning: "Skill names and descriptions are critical for autonomous invocation - be verbose and specific"
 
 - truth: "kata-roadmap-management skill triggers for roadmap operations"
   status: resolved
