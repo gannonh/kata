@@ -7,13 +7,13 @@ tags: [milestone, lifecycle, archiving, auditing, requirements-coverage]
 # Dependency graph
 requires:
   - phase: 00-01
-    provides: kata-planning skill pattern (SKILL.md + references structure)
+    provides: kata-planning-phases skill pattern (SKILL.md + references structure)
 provides:
-  - kata-milestone-management skill with new/complete/audit operations
+  - kata-manageing-milestones skill with new/complete/audit operations
   - milestone-creation.md reference (questioning, research, requirements, roadmap)
   - milestone-completion.md reference (archive, tag, evolve PROJECT.md)
   - milestone-auditing.md reference (gap analysis, coverage verification)
-affects: [kata-project-initialization, roadmap-management]
+affects: [kata-starting-new-projects, roadmap-management]
 
 # Tech tracking
 tech-stack:
@@ -22,10 +22,10 @@ tech-stack:
 
 key-files:
   created:
-    - skills/kata-milestone-management/SKILL.md
-    - skills/kata-milestone-management/references/milestone-creation.md
-    - skills/kata-milestone-management/references/milestone-completion.md
-    - skills/kata-milestone-management/references/milestone-auditing.md
+    - skills/kata-manageing-milestones/SKILL.md
+    - skills/kata-manageing-milestones/references/milestone-creation.md
+    - skills/kata-manageing-milestones/references/milestone-completion.md
+    - skills/kata-manageing-milestones/references/milestone-auditing.md
   modified: []
 
 key-decisions:
@@ -41,7 +41,7 @@ duration: 4min
 completed: 2026-01-19
 ---
 
-# Phase 00 Plan 05: kata-milestone-management Summary
+# Phase 00 Plan 05: kata-manageing-milestones Summary
 
 **Milestone lifecycle skill combining new, complete, and audit operations with sub-agent orchestration for roadmapping and integration checking**
 
@@ -55,7 +55,7 @@ completed: 2026-01-19
 
 ## Accomplishments
 
-- Created kata-milestone-management skill with unified operation routing (new/complete/audit)
+- Created kata-manageing-milestones skill with unified operation routing (new/complete/audit)
 - Extracted creation workflow with questioning, research, requirements, and roadmap patterns
 - Extracted completion workflow with archiving, PROJECT.md evolution, and git tagging
 - Extracted auditing workflow with phase verification aggregation and integration checking
@@ -64,20 +64,20 @@ completed: 2026-01-19
 
 Each task was committed atomically:
 
-1. **Task 1: Create kata-milestone-management skill with references** - `4da93e9` (feat)
+1. **Task 1: Create kata-manageing-milestones skill with references** - `4da93e9` (feat)
 
 ## Files Created/Modified
 
-- `skills/kata-milestone-management/SKILL.md` - Orchestrator skill (282 lines) with operation routing and sub-agent spawning
-- `skills/kata-milestone-management/references/milestone-creation.md` - Full new milestone workflow
-- `skills/kata-milestone-management/references/milestone-completion.md` - Archive and completion workflow
-- `skills/kata-milestone-management/references/milestone-auditing.md` - Gap analysis and coverage verification
+- `skills/kata-manageing-milestones/SKILL.md` - Orchestrator skill (282 lines) with operation routing and sub-agent spawning
+- `skills/kata-manageing-milestones/references/milestone-creation.md` - Full new milestone workflow
+- `skills/kata-manageing-milestones/references/milestone-completion.md` - Archive and completion workflow
+- `skills/kata-manageing-milestones/references/milestone-auditing.md` - Gap analysis and coverage verification
 
 ## Decisions Made
 
 - **Unified skill:** Combined new-milestone, complete-milestone, and audit-milestone commands into single skill with operation detection from natural language
 - **Progressive disclosure:** Core workflow in SKILL.md (~280 lines), detailed workflows in references/
-- **Sub-agent pattern:** Spawns kata-project-researcher (4x parallel), kata-research-synthesizer, kata-roadmapper, and kata-integration-checker
+- **Sub-agent pattern:** Spawns kata-project-researcher (4x parallel), kata-researching-phases-synthesizer, kata-roadmapper, and kata-integration-checker
 
 ## Deviations from Plan
 

@@ -1,5 +1,5 @@
 ---
-name: kata-execution
+name: kata-executing-project-phases
 description: Use this skill when executing phases, running plans, handling checkpoints, creating summaries, or managing deviations during plan execution. Triggers include "execute phase", "run plans", "execute PLAN.md", "handle deviations", "checkpoint", "create summary", "wave execution", and "parallel plan execution". This skill orchestrates kata-executor sub-agents for wave-based parallel execution.
 ---
 
@@ -101,10 +101,10 @@ Report wave structure:
 
 **Phase {X}: {Name}** - {total_plans} plans across {wave_count} waves
 
-| Wave | Plans | What it builds |
-|------|-------|----------------|
-| 1 | 01, 02 | [from objectives] |
-| 2 | 03 | [from objective] |
+| Wave | Plans  | What it builds    |
+| ---- | ------ | ----------------- |
+| 1    | 01, 02 | [from objectives] |
+| 2    | 03     | [from objective]  |
 ```
 
 ### Step 5: Execute Waves
@@ -279,10 +279,10 @@ Goal verified
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
+| Action                 | Natural Trigger               | Explicit Command             |
+| ---------------------- | ----------------------------- | ---------------------------- |
 | **Verify and run UAT** | "Verify phase {Z}", "Run UAT" | `/kata-verification-and-uat` |
-| Plan next phase | "Plan phase {Z+1}" | `/kata-planning` |
+| Plan next phase        | "Plan phase {Z+1}"            | `/kata-planning-phases`      |
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -303,9 +303,9 @@ All {N} phases complete!
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| **Complete milestone** | "Complete milestone" | `/kata-milestone-management` |
+| Action                 | Natural Trigger      | Explicit Command             |
+| ---------------------- | -------------------- | ---------------------------- |
+| **Complete milestone** | "Complete milestone" | `/kata-manageing-milestones` |
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -326,9 +326,9 @@ Score: {N}/{M} must-haves verified
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| **Plan gap closure** | "Plan gaps for phase {Z}" | `/kata-planning` |
+| Action               | Natural Trigger           | Explicit Command        |
+| -------------------- | ------------------------- | ----------------------- |
+| **Plan gap closure** | "Plan gaps for phase {Z}" | `/kata-planning-phases` |
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -360,7 +360,7 @@ Execution must satisfy:
 
 ## Sub-Agent Summary
 
-| Agent | Purpose | When Spawned |
-|-------|---------|--------------|
-| kata-executor | Execute individual plan | For each plan in wave |
-| kata-verifier | Verify phase goal | After all plans complete |
+| Agent         | Purpose                 | When Spawned             |
+| ------------- | ----------------------- | ------------------------ |
+| kata-executor | Execute individual plan | For each plan in wave    |
+| kata-verifier | Verify phase goal       | After all plans complete |

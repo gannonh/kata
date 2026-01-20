@@ -117,11 +117,11 @@ Report wave structure with context:
 
 **Phase {X}: {Name}** — {total_plans} plans across {wave_count} waves
 
-| Wave | Plans | What it builds |
-|------|-------|----------------|
-| 1 | 01-01, 01-02 | {from plan objectives} |
-| 2 | 01-03 | {from plan objectives} |
-| 3 | 01-04 [checkpoint] | {from plan objectives} |
+| Wave | Plans              | What it builds         |
+| ---- | ------------------ | ---------------------- |
+| 1    | 01-01, 01-02       | {from plan objectives} |
+| 2    | 01-03              | {from plan objectives} |
+| 3    | 01-04 [checkpoint] | {from plan objectives} |
 
 ```
 
@@ -331,12 +331,12 @@ After all waves complete, aggregate results:
 
 ### Wave Summary
 
-| Wave | Plans | Status |
-|------|-------|--------|
-| 1 | plan-01, plan-02 | ✓ Complete |
-| CP | plan-03 | ✓ Verified |
-| 2 | plan-04 | ✓ Complete |
-| 3 | plan-05 | ✓ Complete |
+| Wave | Plans            | Status     |
+| ---- | ---------------- | ---------- |
+| 1    | plan-01, plan-02 | ✓ Complete |
+| CP   | plan-03          | ✓ Verified |
+| 2    | plan-04          | ✓ Complete |
+| 3    | plan-05          | ✓ Complete |
 
 ### Plan Details
 
@@ -375,11 +375,11 @@ grep "^status:" "$PHASE_DIR"/*-VERIFICATION.md | cut -d: -f2 | tr -d ' '
 
 **Route by status:**
 
-| Status | Action |
-|--------|--------|
-| `passed` | Continue to update_roadmap |
-| `human_needed` | Present items to user, get approval or feedback |
-| `gaps_found` | Present gap summary, offer `/kata:plan-phase {phase} --gaps` |
+| Status         | Action                                                       |
+| -------------- | ------------------------------------------------------------ |
+| `passed`       | Continue to update_roadmap                                   |
+| `human_needed` | Present items to user, get approval or feedback              |
+| `gaps_found`   | Present gap summary, offer `/kata:plan-phase {phase} --gaps` |
 
 **If passed:**
 
@@ -428,10 +428,10 @@ Present gaps and offer next command:
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| **Plan gap closure** | "Plan gaps for phase {X}" | `/kata-planning` |
-| Manual testing first | "Run UAT" | `/kata-verification-and-uat` |
+| Action               | Natural Trigger           | Explicit Command             |
+| -------------------- | ------------------------- | ---------------------------- |
+| **Plan gap closure** | "Plan gaps for phase {X}" | `/kata-planning-phases`      |
+| Manual testing first | "Run UAT"                 | `/kata-verification-and-uat` |
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -478,10 +478,10 @@ Present next steps based on milestone status:
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
+| Action                 | Natural Trigger               | Explicit Command             |
+| ---------------------- | ----------------------------- | ---------------------------- |
 | **Verify and run UAT** | "Verify phase {X}", "Run UAT" | `/kata-verification-and-uat` |
-| Plan next phase | "Plan phase {X+1}" | `/kata-planning` |
+| Plan next phase        | "Plan phase {X+1}"            | `/kata-planning-phases`      |
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -502,9 +502,9 @@ All {N} phases executed.
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| **Complete milestone** | "Complete milestone" | `/kata-milestone-management` |
+| Action                 | Natural Trigger      | Explicit Command             |
+| ---------------------- | -------------------- | ---------------------------- |
+| **Complete milestone** | "Complete milestone" | `/kata-manageing-milestones` |
 
 <sub>`/clear` first → fresh context window</sub>
 

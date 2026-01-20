@@ -1,5 +1,5 @@
 ---
-name: kata-research
+name: kata-researching-phases
 description: Use this skill when researching a phase domain, investigating technical approaches, exploring phase scope with the user, gathering implementation context, or listing assumptions before planning. Triggers include "research phase", "investigate", "explore", "discuss phase", "scope discussion", "assumptions", "technical research", "domain research", "gather context", and "what do you think about phase".
 ---
 
@@ -26,10 +26,10 @@ Three operations available:
 
 Parse user intent:
 
-| User Says | Operation |
-|-----------|-----------|
-| "research phase", "investigate", "technical research" | Research |
-| "discuss phase", "explore scope", "gather context" | Discuss |
+| User Says                                             | Operation   |
+| ----------------------------------------------------- | ----------- |
+| "research phase", "investigate", "technical research" | Research    |
+| "discuss phase", "explore scope", "gather context"    | Discuss     |
 | "assumptions", "what do you think", "before planning" | Assumptions |
 
 ## Execution Flow: Research
@@ -64,12 +64,12 @@ If exists, offer options:
 
 Based on phase characteristics, determine research depth. See `./references/discovery-levels.md` for guidance.
 
-| Level | Time | When to Use |
-|-------|------|-------------|
-| 0 | Skip | Pure internal work, no external dependencies |
-| 1 | 2-5 min | Quick verification of known patterns |
-| 2 | 15-30 min | Standard research for unfamiliar domains |
-| 3 | 1+ hour | Deep dive for complex/novel domains |
+| Level | Time      | When to Use                                  |
+| ----- | --------- | -------------------------------------------- |
+| 0     | Skip      | Pure internal work, no external dependencies |
+| 1     | 2-5 min   | Quick verification of known patterns         |
+| 2     | 15-30 min | Standard research for unfamiliar domains     |
+| 3     | 1+ hour   | Deep dive for complex/novel domains          |
 
 ### Step 4: Gather Phase Context
 
@@ -159,12 +159,12 @@ Write to: {phase_dir}/{phase}-RESEARCH.md
 
 ### Step 7: Spawn Synthesizer (if parallel research)
 
-For new project research with multiple parallel researcher agents, spawn kata-research-synthesizer to consolidate findings:
+For new project research with multiple parallel researcher agents, spawn kata-researching-phases-synthesizer to consolidate findings:
 
 ```
 Task(
   prompt=synthesis_prompt,
-  subagent_type="kata-research-synthesizer",
+  subagent_type="kata-researching-phases-synthesizer",
   description="Synthesize research findings"
 )
 ```
@@ -350,10 +350,10 @@ What's next?
 
 ## Sub-Agent Summary
 
-| Agent | Purpose | When Spawned |
-|-------|---------|--------------|
-| kata-phase-researcher | Research domain for phase | Research operation |
-| kata-research-synthesizer | Consolidate parallel research | New project research |
+| Agent                               | Purpose                       | When Spawned         |
+| ----------------------------------- | ----------------------------- | -------------------- |
+| kata-phase-researcher               | Research domain for phase     | Research operation   |
+| kata-researching-phases-synthesizer | Consolidate parallel research | New project research |
 
 ## Quality Standards
 

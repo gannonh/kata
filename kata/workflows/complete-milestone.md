@@ -685,9 +685,9 @@ Tag: v[X.Y]
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| **New milestone** | "New milestone" | `/kata-milestone-management` |
+| Action            | Natural Trigger | Explicit Command             |
+| ----------------- | --------------- | ---------------------------- |
+| **New milestone** | "New milestone" | `/kata-manageing-milestones` |
 
 <sub>`/clear` first → fresh context window</sub>
 

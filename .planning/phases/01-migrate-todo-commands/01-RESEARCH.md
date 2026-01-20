@@ -15,23 +15,23 @@ The todo system is simple file-based storage (YAML frontmatter + markdown body) 
 ## Standard Stack
 
 ### Core
-| Component | Version | Purpose | Why Standard |
-|-----------|---------|---------|--------------|
-| YAML frontmatter | N/A | Todo metadata (created, title, area, files, type) | Established pattern in .planning/todos/ |
-| Markdown body | N/A | Problem/solution description | Human-readable, flexible |
-| File-based storage | N/A | .planning/todos/{pending,done}/ | Simple, git-tracked, no dependencies |
+| Component          | Version | Purpose                                           | Why Standard                            |
+| ------------------ | ------- | ------------------------------------------------- | --------------------------------------- |
+| YAML frontmatter   | N/A     | Todo metadata (created, title, area, files, type) | Established pattern in .planning/todos/ |
+| Markdown body      | N/A     | Problem/solution description                      | Human-readable, flexible                |
+| File-based storage | N/A     | .planning/todos/{pending,done}/                   | Simple, git-tracked, no dependencies    |
 
 ### Supporting
-| Component | Purpose | When to Use |
-|-----------|---------|-------------|
-| AskUserQuestion | Multi-select for check-todos actions | When user reviews todo and chooses action |
-| STATE.md updates | Track pending count | After add/complete operations |
-| Git commits | Track todo lifecycle | On add, move to done |
+| Component        | Purpose                              | When to Use                               |
+| ---------------- | ------------------------------------ | ----------------------------------------- |
+| AskUserQuestion  | Multi-select for check-todos actions | When user reviews todo and chooses action |
+| STATE.md updates | Track pending count                  | After add/complete operations             |
+| Git commits      | Track todo lifecycle                 | On add, move to done                      |
 
 ### Alternatives Considered
-| Instead of | Could Use | Tradeoff |
-|------------|-----------|----------|
-| File-based | SQLite/JSON | Overkill for simple capture, loses git tracking |
+| Instead of       | Could Use         | Tradeoff                                         |
+| ---------------- | ----------------- | ------------------------------------------------ |
+| File-based       | SQLite/JSON       | Overkill for simple capture, loses git tracking  |
 | Individual files | Single todos.json | Loses markdown body flexibility, merge conflicts |
 
 ## Architecture Patterns
@@ -56,10 +56,10 @@ skills/kata-todo-management/
 
 Parse user request to identify operation type:
 
-| Trigger Keywords | Operation |
-|------------------|-----------|
-| "add todo", "capture idea", "note for later", "remember to" | ADD |
-| "check todos", "pending todos", "review todos", "what todos" | CHECK |
+| Trigger Keywords                                             | Operation |
+| ------------------------------------------------------------ | --------- |
+| "add todo", "capture idea", "note for later", "remember to"  | ADD       |
+| "check todos", "pending todos", "review todos", "what todos" | CHECK     |
 ```
 
 ### Pattern 2: File-Based Todo Storage
@@ -102,11 +102,11 @@ AskUserQuestion(
 
 ## Don't Hand-Roll
 
-| Problem | Don't Build | Use Instead | Why |
-|---------|-------------|-------------|-----|
-| Date formatting | Manual date construction | `date +%Y-%m-%d` | Consistent, locale-aware |
-| Slug generation | Complex sanitization | `tr '[:upper:]' '[:lower:]' \| tr ' ' '-' \| tr -cd '[:alnum:]-'` | Standard Unix tools |
-| YAML parsing | Custom parser | Existing frontmatter pattern | Already works in codebase |
+| Problem         | Don't Build              | Use Instead                                                       | Why                       |
+| --------------- | ------------------------ | ----------------------------------------------------------------- | ------------------------- |
+| Date formatting | Manual date construction | `date +%Y-%m-%d`                                                  | Consistent, locale-aware  |
+| Slug generation | Complex sanitization     | `tr '[:upper:]' '[:lower:]' \| tr ' ' '-' \| tr -cd '[:alnum:]-'` | Standard Unix tools       |
+| YAML parsing    | Custom parser            | Existing frontmatter pattern                                      | Already works in codebase |
 
 **Key insight:** Todo management is intentionally simple. Resist complexity creep.
 
@@ -233,15 +233,15 @@ update_state_todos() {
 
 Based on existing todos in the codebase:
 
-| Area | Description | Example Keywords |
-|------|-------------|------------------|
-| planning | Roadmap, requirements, workflow design | planning/, ROADMAP, phase, milestone |
-| execution | Plan execution, task handling | execute, run, action |
-| tooling | Commands, skills, installer, integrations | commands/, skills/, workflows/, agents/ |
-| ui | Visual components, user interface | components/, pages/, ui/, style |
-| testing | Test infrastructure, verification | test/, spec/, *.test.* |
-| docs | Documentation, README, onboarding | *.md, readme, docs/ |
-| other | Anything not fitting above | (default) |
+| Area      | Description                               | Example Keywords                        |
+| --------- | ----------------------------------------- | --------------------------------------- |
+| planning  | Roadmap, requirements, workflow design    | planning/, ROADMAP, phase, milestone    |
+| execution | Plan execution, task handling             | execute, run, action                    |
+| tooling   | Commands, skills, installer, integrations | commands/, skills/, workflows/, agents/ |
+| ui        | Visual components, user interface         | components/, pages/, ui/, style         |
+| testing   | Test infrastructure, verification         | test/, spec/, *.test.*                  |
+| docs      | Documentation, README, onboarding         | *.md, readme, docs/                     |
+| other     | Anything not fitting above                | (default)                               |
 
 ## Check-Todos Actions Specification
 
@@ -269,7 +269,7 @@ When done, run `/kata-todo-management` to mark complete or check other todos.
 Added "[Title]" to Phase [X] backlog.
 Todo moved to done/.
 
-Next: /kata-planning to incorporate into plans
+Next: /kata-planning-phases to incorporate into plans
 ```
 
 ### Action 3: Create New Phase
@@ -305,35 +305,35 @@ What aspects would you like to explore?
 ## Natural Language Triggers
 
 ### ADD Operation
-| Trigger Phrase | Confidence |
-|----------------|------------|
-| "add todo" | HIGH |
-| "capture idea" | HIGH |
-| "note for later" | HIGH |
-| "remember to" | MEDIUM |
-| "todo:" (prefix) | HIGH |
-| "I should" | LOW |
-| "we need to" | LOW |
-| "don't forget" | MEDIUM |
+| Trigger Phrase   | Confidence |
+| ---------------- | ---------- |
+| "add todo"       | HIGH       |
+| "capture idea"   | HIGH       |
+| "note for later" | HIGH       |
+| "remember to"    | MEDIUM     |
+| "todo:" (prefix) | HIGH       |
+| "I should"       | LOW        |
+| "we need to"     | LOW        |
+| "don't forget"   | MEDIUM     |
 
 ### CHECK Operation
-| Trigger Phrase | Confidence |
-|----------------|------------|
-| "check todos" | HIGH |
-| "pending todos" | HIGH |
-| "review todos" | HIGH |
-| "what todos" | HIGH |
-| "list todos" | HIGH |
-| "show todos" | HIGH |
-| "todos" (standalone) | MEDIUM |
+| Trigger Phrase       | Confidence |
+| -------------------- | ---------- |
+| "check todos"        | HIGH       |
+| "pending todos"      | HIGH       |
+| "review todos"       | HIGH       |
+| "what todos"         | HIGH       |
+| "list todos"         | HIGH       |
+| "show todos"         | HIGH       |
+| "todos" (standalone) | MEDIUM     |
 
 ## State of the Art
 
-| Old Approach | Current Approach | When Changed | Impact |
-|--------------|------------------|--------------|--------|
-| Commands (add-todo, check-todos) | Unified skill (kata-todo-management) | Phase 1 | Natural language triggers, operation detection |
-| No type field | type field in frontmatter | Phase 1 | Better triage, filtering |
-| Basic area field | Area inference heuristic | Phase 1 | Less manual classification |
+| Old Approach                     | Current Approach                     | When Changed | Impact                                         |
+| -------------------------------- | ------------------------------------ | ------------ | ---------------------------------------------- |
+| Commands (add-todo, check-todos) | Unified skill (kata-todo-management) | Phase 1      | Natural language triggers, operation detection |
+| No type field                    | type field in frontmatter            | Phase 1      | Better triage, filtering                       |
+| Basic area field                 | Area inference heuristic             | Phase 1      | Less manual classification                     |
 
 **Deprecated/outdated:**
 - /kata:add-todo command - replaced by skill (keep for A/B testing per Phase 0 decision)
@@ -385,7 +385,7 @@ infer_type() {
 ### Primary (HIGH confidence)
 - Existing todos in `.planning/todos/pending/` - analyzed 10 examples
 - kata-manageing-milestones SKILL.md - unified skill pattern
-- kata-progress-and-status-updates SKILL.md - operation detection pattern
+- kata-providing-progress-and-status-updates SKILL.md - operation detection pattern
 - STATE.md template in kata/templates/state.md - Pending Todos section specification
 
 ### Secondary (MEDIUM confidence)

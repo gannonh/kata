@@ -7,7 +7,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 ## Milestones
 
 - **v0.1.4 Hard Fork & Rebrand** — Phase 0 (shipped 2026-01-18) — [archive](milestones/v0.1.4-ROADMAP.md)
-- **v0.1.5 Skills & Documentation** — Phases 0-0.1 (in progress)
+- **v0.1.5 Skills & Documentation** — Phases 0-3 (in progress)
 - **v0.1.6 Claude Code Plugin** — Phase 1 (planned)
 - **v0.1.7 GitHub Integration** — Phases 1-5 (planned)
 
@@ -31,6 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 0: Convert Commands to Skills** - Create skills as orchestrators that spawn sub-agents — completed 2026-01-20
 - [ ] **Phase 1: Migrate Todo Commands to Kata Skill** - Create kata-todo-management skill from gsd:add-todo and gsd:check-todos
 - [ ] **Phase 2: Documentation** - Complete README and add onboarding guidance
+- [ ] **Phase 3: Create Kata Slash Commands** - Create GSD-equivalent slash commands that instantiate Kata skills
 
 ### v0.1.6 Claude Code Plugin (Planned)
 
@@ -58,7 +59,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Depends on**: Nothing
 **Requirements**: None (infrastructure improvement)
 **Success Criteria** (what must be TRUE):
-  1. 8 skills created: kata-planning, kata-execution, kata-verification, kata-project-initialization, kata-manageing-milestones, kata-managing-project-roadmap, kata-research, kata-utility
+  1. 8 skills created: kata-planning-phases, kata-execution, kata-verification, kata-starting-new-projects, kata-manageing-milestones, kata-managing-project-roadmap, kata-researching-phases, kata-utility
   2. Each skill has SKILL.md (<500 lines) with proper frontmatter (name, description only)
   3. Each skill has references/ subdirectory for progressive disclosure
   4. Skills spawn sub-agents via Task tool (skills ARE orchestrators)
@@ -67,13 +68,13 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 12 plans (9 original + 3 gap closure)
 
 Plans:
-- [x] 00-01-PLAN.md — Create kata-planning skill + update installer
+- [x] 00-01-PLAN.md — Create kata-planning-phases skill + update installer
 - [x] 00-02-PLAN.md — Create kata-execution skill
 - [x] 00-03-PLAN.md — Create kata-verification skill
-- [x] 00-04-PLAN.md — Create kata-project-initialization skill
+- [x] 00-04-PLAN.md — Create kata-starting-new-projects skill
 - [x] 00-05-PLAN.md — Create kata-manageing-milestones skill
 - [x] 00-06-PLAN.md — Create kata-managing-project-roadmap skill
-- [x] 00-07-PLAN.md — Create kata-research skill
+- [x] 00-07-PLAN.md — Create kata-researching-phases skill
 - [x] 00-08-PLAN.md — Create kata-utility skill
 - [x] 00-09-PLAN.md — Update CLAUDE.md documentation + test installation
 - [x] 00-10-PLAN.md — Fix kata-execution SUMMARY/commits (gap closure)
@@ -110,7 +111,24 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 02-01: TBD (run /kata-planning to break down)
+- [ ] 02-01: TBD (run /kata-planning-phases to break down)
+
+#### Phase 3: Create Kata Slash Commands
+**Goal**: Create GSD-equivalent slash commands that instantiate corresponding Kata skills, ensuring explicit invocation path alongside autonomous skill triggering
+**Depends on**: Phase 0 (Skills exist), Phase 1 (Todo skill exists)
+**Requirements**: None (usability improvement)
+**Success Criteria** (what must be TRUE):
+  1. Kata slash commands created for all GSD command equivalents (25 commands)
+  2. Each command has `disable-model-invocation: true` in frontmatter
+  3. Each corresponding Kata skill has `user-invocable: false` in frontmatter
+  4. Commands delegate to skills (thin wrappers that instantiate skill workflows)
+  5. Gap skills created for any GSD commands without Kata skill equivalents
+  6. NextUp tables updated to show `/kata-{command}` explicit invocation format
+  7. README documentation updated with command reference
+**Plans**: TBD
+
+Plans:
+- [ ] 03-01: TBD (run /kata-planning-phases to break down)
 
 ### v0.1.6 Claude Code Plugin
 
@@ -127,7 +145,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 01-01: TBD (run /kata-planning to break down)
+- [ ] 01-01: TBD (run /kata-planning-phases to break down)
 
 ### v0.1.7 GitHub Integration
 
@@ -215,6 +233,7 @@ Plans:
 | 0. Convert Commands to Skills     | v0.1.5    | 12/12          | Complete    | 2026-01-20 |
 | 1. Migrate Todo Commands to Skill | v0.1.5    | 0/3            | Planned     | -          |
 | 2. Documentation                  | v0.1.5    | 0/?            | Not planned | -          |
+| 3. Create Kata Slash Commands     | v0.1.5    | 0/?            | Not planned | -          |
 | 1. Plugin Distribution            | v0.1.6    | 0/?            | Not planned | -          |
 | 1. Audit & Config Foundation      | v0.1.7    | 0/?            | Not planned | -          |
 | 2. Onboarding & Milestones        | v0.1.7    | 0/?            | Not started | -          |
@@ -224,4 +243,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-20 — Phase 1 planned: 3 plans in 3 waves*
+*Last updated: 2026-01-20 — Phase 3 added: Create Kata Slash Commands*

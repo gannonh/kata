@@ -7,7 +7,7 @@ tags: [execution, orchestration, deviation-handling, checkpoints, tdd, commits]
 # Dependency graph
 requires:
   - phase: 00-01
-    provides: kata-planning skill pattern
+    provides: kata-planning-phases skill pattern
 provides:
   - kata-execution skill for phase execution
   - deviation-rules reference for auto-fix patterns
@@ -68,7 +68,7 @@ completed: 2026-01-19
 
 1. **Task 1: Create kata-execution skill with references** - `4da93e9` (feat)
 
-**Note:** Files were committed as part of a batch commit that also included kata-milestone-management skill.
+**Note:** Files were committed as part of a batch commit that also included kata-manageing-milestones skill.
 
 ## Files Created/Modified
 
@@ -82,7 +82,7 @@ completed: 2026-01-19
 
 - Organized references by concern (deviation, checkpoint, tdd, commit) rather than combining into one large file
 - Kept SKILL.md focused on workflow (306 lines) with detailed guidance in reference files
-- Used same pattern as kata-planning skill for consistency
+- Used same pattern as kata-planning-phases skill for consistency
 
 ## Deviations from Plan
 

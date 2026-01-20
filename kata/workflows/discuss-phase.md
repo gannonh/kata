@@ -378,9 +378,9 @@ Created: .planning/phases/${PADDED_PHASE}-${SLUG}/${PADDED_PHASE}-CONTEXT.md
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| **Plan the phase** | "Plan phase ${PHASE}" | `/kata-planning` |
+| Action             | Natural Trigger       | Explicit Command        |
+| ------------------ | --------------------- | ----------------------- |
+| **Plan the phase** | "Plan phase ${PHASE}" | `/kata-planning-phases` |
 
 <sub>`/clear` first → fresh context window</sub>
 

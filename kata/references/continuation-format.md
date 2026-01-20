@@ -34,16 +34,16 @@ Standard format for presenting next steps after completing a command or workflow
 
 ## Skill Mapping Reference
 
-| Action        | Skill Name                         | Natural Triggers                    |
-| ------------- | ---------------------------------- | ----------------------------------- |
-| Plan phase    | `kata-planning`                    | "plan phase N", "plan next phase"   |
-| Execute phase | `kata-execution`                   | "execute phase N", "run phase N"    |
-| Verify/UAT    | `kata-verification-and-uat`        | "verify phase N", "run UAT"         |
-| New project   | `kata-project-initialization`      | "new project", "start project"      |
-| New milestone | `kata-milestone-management`        | "new milestone", "start milestone"  |
-| Add phase     | `kata-roadmap-management`          | "add a phase", "insert phase"       |
-| Progress      | `kata-progress-and-status-updates` | "progress", "status", "what's next" |
-| Research      | `kata-research`                    | "research phase N", "investigate"   |
+| Action        | Skill Name                                   | Natural Triggers                    |
+| ------------- | -------------------------------------------- | ----------------------------------- |
+| Plan phase    | `kata-planning-phases`                       | "plan phase N", "plan next phase"   |
+| Execute phase | `kata-execution`                             | "execute phase N", "run phase N"    |
+| Verify/UAT    | `kata-verification-and-uat`                  | "verify phase N", "run UAT"         |
+| New project   | `kata-starting-new-projects`                 | "new project", "start project"      |
+| New milestone | `kata-manageing-milestones`                  | "new milestone", "start milestone"  |
+| Add phase     | `kata-managing-project-roadmap`              | "add a phase", "insert phase"       |
+| Progress      | `kata-providing-progress-and-status-updates` | "progress", "status", "what's next" |
+| Research      | `kata-researching-phases`                    | "research phase N", "investigate"   |
 
 ## Variants
 
@@ -106,11 +106,11 @@ Add note that this is the last plan and what comes after:
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action               | Natural Trigger    | Explicit Command |
-| -------------------- | ------------------ | ---------------- |
-| ⭐ **Plan the phase** | "Plan phase 2"     | `/kata-planning` |
-| Research first       | "Research phase 2" | `/kata-research` |
-| Discuss context      | "Discuss phase 2"  | `/kata-research` |
+| Action               | Natural Trigger    | Explicit Command           |
+| -------------------- | ------------------ | -------------------------- |
+| ⭐ **Plan the phase** | "Plan phase 2"     | `/kata-planning-phases`    |
+| Research first       | "Research phase 2" | `/kata-researching-phases` |
+| Discuss context      | "Discuss phase 2"  | `/kata-researching-phases` |
 
 <sub>★ recommended · `/clear` first → fresh context window</sub>
 
@@ -137,8 +137,8 @@ Show completion status before next action:
 | Action                   | Natural Trigger             | Explicit Command             |
 | ------------------------ | --------------------------- | ---------------------------- |
 | ⭐ **Verify and run UAT** | "Verify phase 2", "Run UAT" | `/kata-verification-and-uat` |
-| Plan next phase          | "Plan phase 3"              | `/kata-planning`             |
-| Research first           | "Research phase 3"          | `/kata-research`             |
+| Plan next phase          | "Plan phase 3"              | `/kata-planning-phases`      |
+| Research first           | "Research phase 3"          | `/kata-researching-phases`   |
 
 <sub>★ recommended · `/clear` first → fresh context window</sub>
 
@@ -158,11 +158,11 @@ When there's no clear primary action:
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action          | Natural Trigger    | Explicit Command |
-| --------------- | ------------------ | ---------------- |
-| Plan the phase  | "Plan phase 3"     | `/kata-planning` |
-| Research first  | "Research phase 3" | `/kata-research` |
-| Discuss context | "Discuss phase 3"  | `/kata-research` |
+| Action          | Natural Trigger    | Explicit Command           |
+| --------------- | ------------------ | -------------------------- |
+| Plan the phase  | "Plan phase 3"     | `/kata-planning-phases`    |
+| Research first  | "Research phase 3" | `/kata-researching-phases` |
+| Discuss context | "Discuss phase 3"  | `/kata-researching-phases` |
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -186,7 +186,7 @@ All 4 phases shipped
 
 | Action                    | Natural Trigger | Explicit Command             |
 | ------------------------- | --------------- | ---------------------------- |
-| ⭐ **Start new milestone** | "New milestone" | `/kata-milestone-management` |
+| ⭐ **Start new milestone** | "New milestone" | `/kata-manageing-milestones` |
 
 <sub>★ recommended · `/clear` first → fresh context window</sub>
 
@@ -239,7 +239,7 @@ User has no idea what 02-03 is about.
 ### Don't: Missing /clear explanation
 
 ```
-`/kata-planning`
+`/kata-planning-phases`
 
 Run /clear first.
 ```
@@ -252,14 +252,14 @@ Doesn't explain why. User might skip it.
 `/kata:plan-phase 3`
 ```
 
-Use skill names directly: `/kata-planning`
+Use skill names directly: `/kata-planning-phases`
 
 ### Don't: Bullet list instead of table
 
 ```
 **Also available:**
-- `/kata-planning` — plan the phase
-- `/kata-research` — research first
+- `/kata-planning-phases` — plan the phase
+- `/kata-researching-phases` — research first
 ```
 
 Use table format for consistency and clarity.
@@ -268,7 +268,7 @@ Use table format for consistency and clarity.
 
 ```
 ```
-/kata-planning
+/kata-planning-phases
 ```
 ```
 

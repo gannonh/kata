@@ -9,7 +9,7 @@ requires:
   - phase: 00-convert-commands-to-skills (plan 06)
     provides: kata-utility skill
   - phase: 00-convert-commands-to-skills (plan 02)
-    provides: kata-roadmap-management skill
+    provides: kata-managing-project-roadmap skill
 provides:
   - Improved trigger phrases for better autonomous skill invocation
   - Natural language patterns for "add a phase" and "check status"
@@ -25,7 +25,7 @@ tech-stack:
 key-files:
   created: []
   modified:
-    - skills/kata-roadmap-management/SKILL.md
+    - skills/kata-managing-project-roadmap/SKILL.md
     - skills/kata-utility/SKILL.md
 
 key-decisions:
@@ -42,7 +42,7 @@ completed: 2026-01-19
 
 # Plan 12: Improve Skill Trigger Phrases Summary
 
-**Enhanced kata-roadmap-management and kata-utility skill trigger phrases for better autonomous invocation**
+**Enhanced kata-managing-project-roadmap and kata-utility skill trigger phrases for better autonomous invocation**
 
 ## Performance
 
@@ -54,7 +54,7 @@ completed: 2026-01-19
 
 ## Accomplishments
 
-- Added "add a phase", "new phase", "create a phase" triggers to kata-roadmap-management
+- Added "add a phase", "new phase", "create a phase" triggers to kata-managing-project-roadmap
 - Added "check status", "current status", "what's the status", "how are we doing" triggers to kata-utility
 - Updated When to Use sections with natural language patterns
 - Updated Operation Detection tables with comprehensive trigger keywords
@@ -67,7 +67,7 @@ Both tasks committed atomically:
 
 ## Files Created/Modified
 
-- `skills/kata-roadmap-management/SKILL.md` - Added natural language trigger phrases for roadmap operations
+- `skills/kata-managing-project-roadmap/SKILL.md` - Added natural language trigger phrases for roadmap operations
 - `skills/kata-utility/SKILL.md` - Added status-related trigger phrases for progress checks
 
 ## Decisions Made

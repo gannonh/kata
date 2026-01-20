@@ -7,13 +7,13 @@ tags: [skills, roadmap, phase-management, decimal-numbering, gap-planning]
 # Dependency graph
 requires:
   - phase: 00-01
-    provides: kata-planning skill pattern and installer updates
+    provides: kata-planning-phases skill pattern and installer updates
 provides:
-  - kata-roadmap-management skill with orchestrator workflow
+  - kata-managing-project-roadmap skill with orchestrator workflow
   - Phase operations reference (add, insert, remove)
   - Decimal numbering conventions for urgent insertions
   - Gap planning reference for audit-to-phase mapping
-affects: [kata-execution, kata-milestone-management, future-roadmap-operations]
+affects: [kata-execution, kata-manageing-milestones, future-roadmap-operations]
 
 # Tech tracking
 tech-stack:
@@ -25,10 +25,10 @@ tech-stack:
 
 key-files:
   created:
-    - skills/kata-roadmap-management/SKILL.md
-    - skills/kata-roadmap-management/references/phase-operations.md
-    - skills/kata-roadmap-management/references/decimal-numbering.md
-    - skills/kata-roadmap-management/references/gap-planning.md
+    - skills/kata-managing-project-roadmap/SKILL.md
+    - skills/kata-managing-project-roadmap/references/phase-operations.md
+    - skills/kata-managing-project-roadmap/references/decimal-numbering.md
+    - skills/kata-managing-project-roadmap/references/gap-planning.md
   modified: []
 
 key-decisions:
@@ -60,7 +60,7 @@ completed: 2026-01-19
 
 ## Accomplishments
 
-- Created kata-roadmap-management skill with orchestrator workflow (303 lines)
+- Created kata-managing-project-roadmap skill with orchestrator workflow (303 lines)
 - Extracted phase operations from 4 slash commands (add-phase, insert-phase, remove-phase, plan-milestone-gaps)
 - Created 3 reference files with detailed workflows and conventions
 - Documented decimal numbering system for urgent phase insertions
@@ -70,16 +70,16 @@ completed: 2026-01-19
 
 Each task was committed atomically:
 
-1. **Task 1: Create kata-roadmap-management skill with references** - `2beedd9` (feat)
+1. **Task 1: Create kata-managing-project-roadmap skill with references** - `2beedd9` (feat)
 
 Note: Committed as part of wave 2 parallel execution.
 
 ## Files Created
 
-- `skills/kata-roadmap-management/SKILL.md` - Orchestrator workflow handling add/insert/remove/plan-gaps operations
-- `skills/kata-roadmap-management/references/phase-operations.md` - Add, insert, remove phase workflows
-- `skills/kata-roadmap-management/references/decimal-numbering.md` - Urgent insertion conventions (X.1, X.2)
-- `skills/kata-roadmap-management/references/gap-planning.md` - Audit-to-phase mapping
+- `skills/kata-managing-project-roadmap/SKILL.md` - Orchestrator workflow handling add/insert/remove/plan-gaps operations
+- `skills/kata-managing-project-roadmap/references/phase-operations.md` - Add, insert, remove phase workflows
+- `skills/kata-managing-project-roadmap/references/decimal-numbering.md` - Urgent insertion conventions (X.1, X.2)
+- `skills/kata-managing-project-roadmap/references/gap-planning.md` - Audit-to-phase mapping
 
 ## Decisions Made
 
@@ -103,7 +103,7 @@ None - no external service configuration required.
 
 - Skill ready for natural language invocation
 - References provide detailed guidance for all operations
-- Integrates with kata-milestone-management for audit workflow
+- Integrates with kata-manageing-milestones for audit workflow
 
 ---
 *Phase: 00-convert-commands-to-skills*

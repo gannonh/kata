@@ -162,7 +162,7 @@ Read:
 - .planning/research/PITFALLS.md
 
 Write to: .planning/research/SUMMARY.md
-", subagent_type="kata-research-synthesizer")
+", subagent_type="kata-researching-phases-synthesizer")
 ```
 
 ## Phase 7: Define Requirements
@@ -283,12 +283,12 @@ KATA > MILESTONE INITIALIZED
 
 **v[X.Y] [Name]**
 
-| Artifact     | Location                   |
-|--------------|----------------------------|
-| Project      | .planning/PROJECT.md       |
-| Research     | .planning/research/        |
-| Requirements | .planning/REQUIREMENTS.md  |
-| Roadmap      | .planning/ROADMAP.md       |
+| Artifact     | Location                  |
+| ------------ | ------------------------- |
+| Project      | .planning/PROJECT.md      |
+| Research     | .planning/research/       |
+| Requirements | .planning/REQUIREMENTS.md |
+| Roadmap      | .planning/ROADMAP.md      |
 
 **[N] phases** | **[X] requirements** | Ready to build
 
@@ -300,9 +300,9 @@ KATA > MILESTONE INITIALIZED
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| **Plan the phase** | "Plan phase [N]" | `/kata-planning` |
+| Action             | Natural Trigger  | Explicit Command        |
+| ------------------ | ---------------- | ----------------------- |
+| **Plan the phase** | "Plan phase [N]" | `/kata-planning-phases` |
 
 <sub>`/clear` first → fresh context window</sub>
 

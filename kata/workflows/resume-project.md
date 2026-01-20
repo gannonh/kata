@@ -217,8 +217,8 @@ Based on user selection, route to appropriate workflow:
 
   > Instructions can be given conversationally (recommended) or via /commands.
 
-  | Action | Natural Trigger | Explicit Command |
-  |--------|-----------------|------------------|
+  | Action                | Natural Trigger         | Explicit Command  |
+  | --------------------- | ----------------------- | ----------------- |
   | **Execute the phase** | "Execute phase {phase}" | `/kata-execution` |
 
   <sub>`/clear` first → fresh context window</sub>
@@ -235,10 +235,10 @@ Based on user selection, route to appropriate workflow:
 
   > Instructions can be given conversationally (recommended) or via /commands.
 
-  | Action | Natural Trigger | Explicit Command |
-  |--------|-----------------|------------------|
-  | **Plan the phase** | "Plan phase [N]" | `/kata-planning` |
-  | Research first | "Research phase [N]" | `/kata-research` |
+  | Action             | Natural Trigger      | Explicit Command           |
+  | ------------------ | -------------------- | -------------------------- |
+  | **Plan the phase** | "Plan phase [N]"     | `/kata-planning-phases`    |
+  | Research first     | "Research phase [N]" | `/kata-researching-phases` |
 
   <sub>`/clear` first → fresh context window</sub>
 

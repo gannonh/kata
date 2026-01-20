@@ -1,5 +1,5 @@
 ---
-name: kata-planning
+name: kata-planning-phases-phases
 description: Use this skill when planning phases, creating execution plans, breaking down work into tasks, preparing for phase execution, or analyzing what work needs to be done. Triggers include "plan phase", "create plan", "task breakdown", "dependency analysis", "wave assignment", and "goal-backward verification". This skill orchestrates research, planning, and verification sub-agents.
 ---
 
@@ -241,8 +241,8 @@ KATA > PHASE {X} PLANNED
 
 **Phase {X}: {Name}** - {N} plan(s) in {M} wave(s)
 
-| Wave | Plans | What it builds |
-|------|-------|----------------|
+| Wave | Plans  | What it builds |
+| ---- | ------ | -------------- |
 | 1    | 01, 02 | [objectives]   |
 | 2    | 03     | [objective]    |
 
@@ -257,8 +257,8 @@ Verification: {Passed | Passed with override | Skipped}
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
+| Action                | Natural Trigger     | Explicit Command  |
+| --------------------- | ------------------- | ----------------- |
 | **Execute the phase** | "Execute phase {X}" | `/kata-execution` |
 
 <sub>`/clear` first → fresh context window</sub>
@@ -288,8 +288,8 @@ Plans must satisfy:
 
 ## Sub-Agent Summary
 
-| Agent | Purpose | When Spawned |
-|-------|---------|--------------|
-| kata-phase-researcher | Research domain for phase | If research needed |
-| kata-planner | Create PLAN.md files | Always |
-| kata-plan-checker | Verify plans meet standards | Unless --skip-verify |
+| Agent                 | Purpose                     | When Spawned         |
+| --------------------- | --------------------------- | -------------------- |
+| kata-phase-researcher | Research domain for phase   | If research needed   |
+| kata-planner          | Create PLAN.md files        | Always               |
+| kata-plan-checker     | Verify plans meet standards | Unless --skip-verify |

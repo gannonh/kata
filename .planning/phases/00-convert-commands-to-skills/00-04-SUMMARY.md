@@ -7,9 +7,9 @@ tags: [skills, project-initialization, discovery, roadmap, orchestrator]
 # Dependency graph
 requires:
   - phase: 00-01
-    provides: kata-planning skill pattern and structure
+    provides: kata-planning-phases skill pattern and structure
 provides:
-  - kata-project-initialization skill for new project setup
+  - kata-starting-new-projects skill for new project setup
   - discovery-protocol reference for user interviews
   - project-template reference for PROJECT.md structure
   - roadmap-creation reference for ROADMAP.md structure
@@ -22,10 +22,10 @@ tech-stack:
 
 key-files:
   created:
-    - skills/kata-project-initialization/SKILL.md
-    - skills/kata-project-initialization/references/discovery-protocol.md
-    - skills/kata-project-initialization/references/project-template.md
-    - skills/kata-project-initialization/references/roadmap-creation.md
+    - skills/kata-starting-new-projects/SKILL.md
+    - skills/kata-starting-new-projects/references/discovery-protocol.md
+    - skills/kata-starting-new-projects/references/project-template.md
+    - skills/kata-starting-new-projects/references/roadmap-creation.md
   modified: []
 
 key-decisions:
@@ -43,7 +43,7 @@ duration: 4min
 completed: 2026-01-19
 ---
 
-# Phase 00 Plan 04: kata-project-initialization Skill Summary
+# Phase 00 Plan 04: kata-starting-new-projects Skill Summary
 
 **Project initialization orchestrator skill with discovery protocol, project template, and roadmap creation references**
 
@@ -57,7 +57,7 @@ completed: 2026-01-19
 
 ## Accomplishments
 
-- Created kata-project-initialization skill as full orchestrator (355 lines)
+- Created kata-starting-new-projects skill as full orchestrator (355 lines)
 - Extracted discovery interview protocol from kata-project-researcher agent
 - Consolidated project template guidance from existing templates
 - Documented roadmap creation process with coverage validation
@@ -66,20 +66,20 @@ completed: 2026-01-19
 
 Each task was committed atomically:
 
-1. **Task 1: Create kata-project-initialization skill with references** - `3a1ca59` (feat)
+1. **Task 1: Create kata-starting-new-projects skill with references** - `3a1ca59` (feat)
 
 ## Files Created
 
-- `skills/kata-project-initialization/SKILL.md` - Main skill orchestrator handling new project onboarding
-- `skills/kata-project-initialization/references/discovery-protocol.md` - Interview techniques, questioning patterns, context checklist
-- `skills/kata-project-initialization/references/project-template.md` - PROJECT.md structure and section guidelines
-- `skills/kata-project-initialization/references/roadmap-creation.md` - Phase identification, goal-backward criteria, coverage validation
+- `skills/kata-starting-new-projects/SKILL.md` - Main skill orchestrator handling new project onboarding
+- `skills/kata-starting-new-projects/references/discovery-protocol.md` - Interview techniques, questioning patterns, context checklist
+- `skills/kata-starting-new-projects/references/project-template.md` - PROJECT.md structure and section guidelines
+- `skills/kata-starting-new-projects/references/roadmap-creation.md` - Phase identification, goal-backward criteria, coverage validation
 
 ## Decisions Made
 
 - SKILL.md structured as full orchestrator that spawns sub-agents (kata-project-researcher, kata-roadmapper)
 - Three reference files cover distinct aspects: discovery, project structure, roadmap creation
-- Matched structure and style of kata-planning skill from plan 00-01
+- Matched structure and style of kata-planning-phases skill from plan 00-01
 - Discovery protocol emphasizes "follow the thread" approach over checklist interrogation
 
 ## Deviations from Plan
@@ -96,7 +96,7 @@ None - no external service configuration required.
 
 ## Next Phase Readiness
 
-- Skill structure established following kata-planning pattern
+- Skill structure established following kata-planning-phases pattern
 - Ready for remaining skills (execution, verification, milestone management)
 - Sub-agents (kata-project-researcher, kata-roadmapper) exist and are referenced
 

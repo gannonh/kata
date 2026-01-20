@@ -342,7 +342,7 @@ Orchestrators @-reference ui-brand.md for stage banners, checkpoint boxes, statu
 - Blockquote explaining the two invocation modes (conversational vs explicit)
 - Table with Action, Natural Trigger, Explicit Command columns
 - Bold for primary/recommended action (first row)
-- Explicit commands use `/skill-name` (e.g., `/kata-planning`), not `/kata:command`
+- Explicit commands use `/skill-name` (e.g., `/kata-planning-phases`), not `/kata:command`
 
 ### Decision Gates
 

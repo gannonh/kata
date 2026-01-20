@@ -1,5 +1,5 @@
 ---
-name: kata-roadmap-management
+name: kata-managing-project-roadmap
 description: Use this skill when adding phases to the roadmap, inserting urgent phases between existing phases, removing future phases, planning gap closure phases, or managing the project roadmap structure. Triggers include "add a phase", "add phase to roadmap", "new phase", "create a phase", "I need a phase", "insert phase", "urgent phase", "remove phase", "plan gaps", "fill gaps", "coverage gaps", "roadmap management", and "decimal phase numbering". This skill handles all roadmap modifications.
 ---
 
@@ -32,12 +32,12 @@ Manages project roadmap operations: adding phases, inserting urgent phases (deci
 
 Parse user request to identify operation:
 
-| User says | Operation | Description |
-|-----------|-----------|-------------|
-| "add phase", "add X to roadmap" | ADD | Append to end of milestone |
-| "insert phase", "urgent work", "between phases" | INSERT | Decimal insertion |
-| "remove phase", "delete phase" | REMOVE | Remove future phase |
-| "plan gaps", "fill gaps", "coverage gaps" | PLAN-GAPS | Create gap closure phases |
+| User says                                       | Operation | Description                |
+| ----------------------------------------------- | --------- | -------------------------- |
+| "add phase", "add X to roadmap"                 | ADD       | Append to end of milestone |
+| "insert phase", "urgent work", "between phases" | INSERT    | Decimal insertion          |
+| "remove phase", "delete phase"                  | REMOVE    | Remove future phase        |
+| "plan gaps", "fill gaps", "coverage gaps"       | PLAN-GAPS | Create gap closure phases  |
 
 ## ADD Phase Operation
 
@@ -92,9 +92,9 @@ Phase {N} added to current milestone:
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| **Plan the phase** | "Plan phase {N}" | `/kata-planning` |
+| Action             | Natural Trigger  | Explicit Command        |
+| ------------------ | ---------------- | ----------------------- |
+| **Plan the phase** | "Plan phase {N}" | `/kata-planning-phases` |
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -231,11 +231,11 @@ Requires MILESTONE-AUDIT.md file from `/kata:audit-milestone`
    - `gaps.integration` — missing cross-phase connections
    - `gaps.flows` — broken E2E flows
 3. **Prioritize gaps:**
-   | Priority | Action |
-   |----------|--------|
-   | `must` | Create phase, blocks milestone |
-   | `should` | Create phase, recommended |
-   | `nice` | Ask user: include or defer? |
+   | Priority | Action                         |
+   | -------- | ------------------------------ |
+   | `must`   | Create phase, blocks milestone |
+   | `should` | Create phase, recommended      |
+   | `nice`   | Ask user: include or defer?    |
 4. **Group into phases:**
    - Same affected phase → combine
    - Same subsystem → combine
@@ -280,12 +280,12 @@ Task(
 
 ### When to Spawn
 
-| Operation | Spawn Agent? | Reason |
-|-----------|--------------|--------|
-| ADD (simple) | No | Orchestrator handles directly |
-| INSERT | Yes | Complex ROADMAP.md updates |
-| REMOVE | Yes | Renumbering complexity |
-| PLAN-GAPS | Yes | Gap analysis and phase creation |
+| Operation    | Spawn Agent? | Reason                          |
+| ------------ | ------------ | ------------------------------- |
+| ADD (simple) | No           | Orchestrator handles directly   |
+| INSERT       | Yes          | Complex ROADMAP.md updates      |
+| REMOVE       | Yes          | Renumbering complexity          |
+| PLAN-GAPS    | Yes          | Gap analysis and phase creation |
 
 ## Key References
 

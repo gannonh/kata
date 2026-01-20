@@ -7,7 +7,7 @@ tags: [verification, uat, debugging, goal-backward, testing]
 # Dependency graph
 requires:
   - phase: 00-01
-    provides: Skills architecture pattern from kata-planning
+    provides: Skills architecture pattern from kata-planning-phases
 provides:
   - kata-verification skill for work verification
   - Goal-backward verification methodology reference

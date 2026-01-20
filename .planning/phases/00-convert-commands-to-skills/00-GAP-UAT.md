@@ -27,16 +27,16 @@ expected: uat-protocol.md includes stage banner formats (KATA > USER ACCEPTANCE 
 result: pass
 evidence: Lines 7-23 show proper `KATA ► USER ACCEPTANCE TESTING` and `KATA ► UAT COMPLETE ✓` banners
 
-### 4. "add a phase" triggers kata-roadmap-management (00-12)
-expected: Saying "add a phase" to Claude should invoke kata-roadmap-management skill (not manual work)
+### 4. "add a phase" triggers kata-managing-project-roadmap (00-12)
+expected: Saying "add a phase" to Claude should invoke kata-managing-project-roadmap skill (not manual work)
 result: pass
 evidence: Skill description includes "add a phase" as explicit trigger phrase
 
 ### 5. "check status" triggers status skill (00-12)
 expected: Saying "check status" to Claude should invoke status skill (not manual work)
 result: pass
-evidence: kata-progress-and-status-updates description includes "check status" trigger
-note: Skill renamed from kata-utility to kata-progress-and-status-updates per 00-12 plan
+evidence: kata-providing-progress-and-status-updates description includes "check status" trigger
+note: Skill renamed from kata-utility to kata-providing-progress-and-status-updates per 00-12 plan
 
 ## Summary
 total: 5
