@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-01-18)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v0.1.5 Skills & Documentation (Phase 2 Create Kata Slash Commands next)
+**Current focus:** v0.1.5 Skills & Documentation (Phase 1.2 Skill Tests next)
 
 ## Current Position
 
-Milestone: v0.1.5 Skills & Documentation (Phases 0, 1, 1.1, 2, 3)
+Milestone: v0.1.5 Skills & Documentation (Phases 0, 1, 1.1, 1.2, 2, 3)
 Phase: 1.1 (Testing & Evals Harness) - COMPLETE
 Plan: 2 of 2 complete
 Status: Ready for next phase
 Last activity: 2026-01-20 - Phase 1.1 complete (test harness verified, 3/3 tests passing)
 
-Progress: [============------------] 60% (3/5 phases)
+Progress: [============------------] 50% (3/6 phases)
 
 ## Performance Metrics
 
@@ -69,6 +69,7 @@ Recent decisions affecting current work:
 - **Phase 2 added 2026-01-20** - Create Kata Slash Commands (GSD-equivalent commands that instantiate skills)
 - **Phase 3 = Documentation** - Moved to last position in v0.1.5
 - **Phase 1.1 inserted 2026-01-20** - Testing & Evals Harness: CLI-based test framework using `claude "prompt"` to verify skills/commands
+- **Phase 1.2 inserted 2026-01-20** - Skill Tests: Write tests for all 10 kata skills using the test harness
 
 ### Pending Todos
 

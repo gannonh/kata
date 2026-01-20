@@ -31,6 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 0: Convert Commands to Skills** - Create skills as orchestrators that spawn sub-agents — completed 2026-01-20
 - [x] **Phase 1: Migrate Todo Commands to Kata Skill** - Create kata-managing-todos skill from gsd:add-todo and gsd:check-todos — completed 2026-01-20
 - [x] **Phase 1.1: Testing & Evals Harness** - CLI-based test framework leveraging `claude "prompt"` to verify skill invocation and artifact production (INSERTED) — completed 2026-01-20
+- [ ] **Phase 1.2: Skill Tests** - Write tests for all 10 kata skills using the test harness (INSERTED)
 - [ ] **Phase 2: Create Kata Slash Commands** - Create GSD-equivalent slash commands that instantiate Kata skills
 - [ ] **Phase 3: Documentation** - Complete README and add onboarding guidance
 
@@ -115,6 +116,21 @@ Plans:
 Plans:
 - [x] 01.1-01-PLAN.md — Create test harness utilities (claude-cli.js, assertions.js) and fixtures
 - [x] 01.1-02-PLAN.md — Create proof-of-concept skill test + npm integration
+
+#### Phase 1.2: Skill Tests (INSERTED)
+**Goal**: Write comprehensive tests for all 10 kata skills using the test harness, ensuring skills trigger correctly on natural language prompts
+**Depends on**: Phase 1.1 (Test harness exists)
+**Requirements**: None (testing improvement)
+**Success Criteria** (what must be TRUE):
+  1. Test files exist for all 10 kata skills
+  2. Each skill has at least one trigger test (natural language → skill invocation)
+  3. Tests verify num_turns > 1 (skill actually ran)
+  4. All tests pass (`npm test` succeeds)
+  5. Single-skill test command works (`npm run test:skill -- tests/skills/<name>.test.js`)
+**Plans**: TBD
+
+Plans:
+- [ ] 01.2-01: TBD (run /kata-planning-phases to break down)
 
 #### Phase 2: Create Kata Slash Commands
 **Goal**: Create GSD-equivalent slash commands that instantiate corresponding Kata skills, ensuring explicit invocation path alongside autonomous skill triggering
@@ -250,6 +266,7 @@ Plans:
 | 0. Convert Commands to Skills     | v0.1.5    | 12/12          | Complete    | 2026-01-20 |
 | 1. Migrate Todo Commands to Skill | v0.1.5    | 3/3            | Complete    | 2026-01-20 |
 | 1.1 Testing & Evals Harness       | v0.1.5    | 2/2            | Complete    | 2026-01-20 |
+| 1.2 Skill Tests                   | v0.1.5    | 0/?            | Not planned | -          |
 | 2. Create Kata Slash Commands     | v0.1.5    | 0/?            | Not planned | -          |
 | 3. Documentation                  | v0.1.5    | 0/?            | Not planned | -          |
 | 1. Plugin Distribution            | v0.1.6    | 0/?            | Not planned | -          |
@@ -261,4 +278,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-20 — Phase 1.1 complete: 2 plans, test harness working*
+*Last updated: 2026-01-20 — Phase 1.2 inserted: Skill Tests*
