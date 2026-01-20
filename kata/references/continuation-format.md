@@ -13,12 +13,12 @@ Standard format for presenting next steps after completing a command or workflow
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| ⭐ **{Primary action}** | "{trigger phrase}" | `/{skill-name}` |
-| {Secondary action} | "{trigger phrase}" | `/{skill-name}` |
+| Action                 | Natural Trigger    | Explicit Command |
+| ---------------------- | ------------------ | ---------------- |
+| ⭐ **{Primary action}** | "{trigger phrase}" | `/{skill-name}`  |
+| {Secondary action}     | "{trigger phrase}" | `/{skill-name}`  |
 
-<sub>⭐ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -34,16 +34,16 @@ Standard format for presenting next steps after completing a command or workflow
 
 ## Skill Mapping Reference
 
-| Action | Skill Name | Natural Triggers |
-|--------|------------|------------------|
-| Plan phase | `kata-planning` | "plan phase N", "plan next phase" |
-| Execute phase | `kata-execution` | "execute phase N", "run phase N" |
-| Verify/UAT | `kata-verification-and-uat` | "verify phase N", "run UAT" |
-| New project | `kata-project-initialization` | "new project", "start project" |
-| New milestone | `kata-milestone-management` | "new milestone", "start milestone" |
-| Add phase | `kata-roadmap-management` | "add a phase", "insert phase" |
-| Progress | `kata-progress-and-status-updates` | "progress", "status", "what's next" |
-| Research | `kata-research` | "research phase N", "investigate" |
+| Action        | Skill Name                         | Natural Triggers                    |
+| ------------- | ---------------------------------- | ----------------------------------- |
+| Plan phase    | `kata-planning`                    | "plan phase N", "plan next phase"   |
+| Execute phase | `kata-execution`                   | "execute phase N", "run phase N"    |
+| Verify/UAT    | `kata-verification-and-uat`        | "verify phase N", "run UAT"         |
+| New project   | `kata-project-initialization`      | "new project", "start project"      |
+| New milestone | `kata-milestone-management`        | "new milestone", "start milestone"  |
+| Add phase     | `kata-roadmap-management`          | "add a phase", "insert phase"       |
+| Progress      | `kata-progress-and-status-updates` | "progress", "status", "what's next" |
+| Research      | `kata-research`                    | "research phase N", "investigate"   |
 
 ## Variants
 
@@ -58,12 +58,12 @@ Standard format for presenting next steps after completing a command or workflow
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| ⭐ **Execute the plan** | "Execute phase 2" | `/kata-execution` |
-| Check assumptions | "List assumptions for phase 2" | — |
+| Action                 | Natural Trigger                | Explicit Command  |
+| ---------------------- | ------------------------------ | ----------------- |
+| ⭐ **Execute the plan** | "Execute phase 2"              | `/kata-execution` |
+| Check assumptions      | "List assumptions for phase 2" | —                 |
 
-<sub>⭐ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -82,11 +82,11 @@ Add note that this is the last plan and what comes after:
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
+| Action                 | Natural Trigger   | Explicit Command  |
+| ---------------------- | ----------------- | ----------------- |
 | ⭐ **Execute the plan** | "Execute phase 2" | `/kata-execution` |
 
-<sub>⭐ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · `/clear` first → fresh context window</sub>
 
 **After this completes:**
 - Phase 2 → Phase 3 transition
@@ -106,13 +106,13 @@ Add note that this is the last plan and what comes after:
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| ⭐ **Plan the phase** | "Plan phase 2" | `/kata-planning` |
-| Research first | "Research phase 2" | `/kata-research` |
-| Discuss context | "Discuss phase 2" | `/kata-research` |
+| Action               | Natural Trigger    | Explicit Command |
+| -------------------- | ------------------ | ---------------- |
+| ⭐ **Plan the phase** | "Plan phase 2"     | `/kata-planning` |
+| Research first       | "Research phase 2" | `/kata-research` |
+| Discuss context      | "Discuss phase 2"  | `/kata-research` |
 
-<sub>⭐ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -134,13 +134,13 @@ Show completion status before next action:
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
+| Action                   | Natural Trigger             | Explicit Command             |
+| ------------------------ | --------------------------- | ---------------------------- |
 | ⭐ **Verify and run UAT** | "Verify phase 2", "Run UAT" | `/kata-verification-and-uat` |
-| Plan next phase | "Plan phase 3" | `/kata-planning` |
-| Research first | "Research phase 3" | `/kata-research` |
+| Plan next phase          | "Plan phase 3"              | `/kata-planning`             |
+| Research first           | "Research phase 3"          | `/kata-research`             |
 
-<sub>⭐ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -158,11 +158,11 @@ When there's no clear primary action:
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| Plan the phase | "Plan phase 3" | `/kata-planning` |
-| Research first | "Research phase 3" | `/kata-research` |
-| Discuss context | "Discuss phase 3" | `/kata-research` |
+| Action          | Natural Trigger    | Explicit Command |
+| --------------- | ------------------ | ---------------- |
+| Plan the phase  | "Plan phase 3"     | `/kata-planning` |
+| Research first  | "Research phase 3" | `/kata-research` |
+| Discuss context | "Discuss phase 3"  | `/kata-research` |
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -184,11 +184,11 @@ All 4 phases shipped
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
+| Action                    | Natural Trigger | Explicit Command             |
+| ------------------------- | --------------- | ---------------------------- |
 | ⭐ **Start new milestone** | "New milestone" | `/kata-milestone-management` |
 
-<sub>⭐ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```

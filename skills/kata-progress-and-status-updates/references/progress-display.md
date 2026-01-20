@@ -76,7 +76,7 @@ From STATE.md Performance Metrics section:
 
 **By Phase:**
 | Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
+| ----- | ----- | ----- | -------- |
 | ...   | ...   | ...   | ...      |
 ```
 
@@ -104,12 +104,12 @@ UAT_GAPS=$(grep -l "status: diagnosed" .planning/phases/[current-phase-dir]/*-UA
 
 ### Step 2: Route Based on Counts
 
-| Condition | Meaning | Route |
-|-----------|---------|-------|
-| UAT_GAPS > 0 | UAT gaps need fix plans | Route E |
-| SUMMARY_COUNT < PLAN_COUNT | Unexecuted plans exist | Route A |
-| SUMMARY_COUNT = PLAN_COUNT AND PLAN_COUNT > 0 | Phase complete | Step 3 |
-| PLAN_COUNT = 0 | Phase not yet planned | Route B |
+| Condition                                     | Meaning                 | Route   |
+| --------------------------------------------- | ----------------------- | ------- |
+| UAT_GAPS > 0                                  | UAT gaps need fix plans | Route E |
+| SUMMARY_COUNT < PLAN_COUNT                    | Unexecuted plans exist  | Route A |
+| SUMMARY_COUNT = PLAN_COUNT AND PLAN_COUNT > 0 | Phase complete          | Step 3  |
+| PLAN_COUNT = 0                                | Phase not yet planned   | Route B |
 
 ### Route A: Unexecuted Plan Exists
 
@@ -124,11 +124,11 @@ Find first PLAN.md without matching SUMMARY.md.
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
+| Action                  | Natural Trigger         | Explicit Command  |
+| ----------------------- | ----------------------- | ----------------- |
 | ⭐ **Execute the phase** | "Execute phase {phase}" | `/kata-execution` |
 
-<sub>⭐ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -148,11 +148,11 @@ Check if `{phase}-CONTEXT.md` exists.
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
+| Action               | Natural Trigger  | Explicit Command |
+| -------------------- | ---------------- | ---------------- |
 | ⭐ **Plan the phase** | "Plan phase {N}" | `/kata-planning` |
 
-<sub>⭐ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -167,12 +167,12 @@ Check if `{phase}-CONTEXT.md` exists.
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
+| Action               | Natural Trigger      | Explicit Command |
+| -------------------- | -------------------- | ---------------- |
 | ⭐ **Research first** | "Research phase {N}" | `/kata-research` |
-| Plan directly | "Plan phase {N}" | `/kata-planning` |
+| Plan directly        | "Plan phase {N}"     | `/kata-planning` |
 
-<sub>⭐ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -181,8 +181,8 @@ Check if `{phase}-CONTEXT.md` exists.
 
 Read ROADMAP.md, identify current phase and highest phase in milestone.
 
-| Condition | Meaning | Route |
-|-----------|---------|-------|
+| Condition         | Meaning            | Route   |
+| ----------------- | ------------------ | ------- |
 | current < highest | More phases remain | Route C |
 | current = highest | Milestone complete | Route D |
 
@@ -199,13 +199,13 @@ Read ROADMAP.md, identify current phase and highest phase in milestone.
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
+| Action                   | Natural Trigger               | Explicit Command             |
+| ------------------------ | ----------------------------- | ---------------------------- |
 | ⭐ **Verify and run UAT** | "Verify phase {Z}", "Run UAT" | `/kata-verification-and-uat` |
-| Plan next phase | "Plan phase {Z+1}" | `/kata-planning` |
-| Research first | "Research phase {Z+1}" | `/kata-research` |
+| Plan next phase          | "Plan phase {Z+1}"            | `/kata-planning`             |
+| Research first           | "Research phase {Z+1}"        | `/kata-research`             |
 
-<sub>⭐ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -225,12 +225,12 @@ All {N} phases finished!
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
+| Action                   | Natural Trigger      | Explicit Command             |
+| ------------------------ | -------------------- | ---------------------------- |
 | ⭐ **Complete milestone** | "Complete milestone" | `/kata-milestone-management` |
-| Run UAT first | "Run UAT" | `/kata-verification-and-uat` |
+| Run UAT first            | "Run UAT"            | `/kata-verification-and-uat` |
 
-<sub>⭐ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -250,13 +250,13 @@ All {N} phases finished!
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| ⭐ **Plan gap closure** | "Plan gaps for phase {phase}" | `/kata-planning` |
-| Execute existing plans | "Execute phase {phase}" | `/kata-execution` |
-| Run more UAT | "Run UAT" | `/kata-verification-and-uat` |
+| Action                 | Natural Trigger               | Explicit Command             |
+| ---------------------- | ----------------------------- | ---------------------------- |
+| ⭐ **Plan gap closure** | "Plan gaps for phase {phase}" | `/kata-planning`             |
+| Execute existing plans | "Execute phase {phase}"       | `/kata-execution`            |
+| Run more UAT           | "Run UAT"                     | `/kata-verification-and-uat` |
 
-<sub>⭐ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -278,11 +278,11 @@ Ready to plan the next milestone.
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
+| Action              | Natural Trigger | Explicit Command             |
+| ------------------- | --------------- | ---------------------------- |
 | ⭐ **New milestone** | "New milestone" | `/kata-milestone-management` |
 
-<sub>⭐ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
