@@ -1,6 +1,6 @@
 ---
 name: kata-utility
-description: Use this skill for project utility operations including progress checks, debugging, session management, and codebase mapping. Triggers include "progress", "status", "where am I", "what's next", "debug", "diagnose", "fix issue", "pause work", "take a break", "resume work", "continue", "map codebase", and "analyze code structure". This skill spawns kata-debugger and kata-codebase-mapper sub-agents.
+description: Use this skill for project utility operations including progress checks, status reports, debugging, session management, and codebase mapping. Triggers include "progress", "status", "check status", "what's the status", "current status", "show status", "project status", "how are we doing", "where am I", "what's next", "debug", "diagnose", "fix issue", "pause work", "take a break", "resume work", "continue", "map codebase", and "analyze code structure". This skill spawns kata-debugger and kata-codebase-mapper sub-agents.
 ---
 
 # Kata Utility Operations
@@ -21,7 +21,7 @@ Parse user request to determine operation:
 
 | Trigger Keywords | Operation |
 |-----------------|-----------|
-| "progress", "status", "where am I", "what's next" | PROGRESS |
+| "progress", "status", "check status", "what's the status", "current status", "show status", "project status", "how are we doing", "where am I", "what's next" | PROGRESS |
 | "debug", "diagnose", "fix", "issue", "problem", "bug" | DEBUG |
 | "pause", "break", "stop for now", "save state" | PAUSE |
 | "resume", "continue", "pick up where", "what were we doing" | RESUME |
