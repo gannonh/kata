@@ -144,7 +144,26 @@ Commit each task atomically. Create SUMMARY.md. Update STATE.md.
 @./references/checkpoint-protocol.md
 @./references/tdd-execution.md
 @./references/commit-protocol.md
+@./references/summary-creation.md
 </execution_context>
+
+<commit_requirements>
+After each task:
+1. Stage modified files individually (git add path/to/file.ts)
+2. Commit: git commit -m \"{type}({phase}-{plan}): {task description}\"
+3. Record commit hash for SUMMARY
+
+NEVER use: git add . or git add -A
+</commit_requirements>
+
+<summary_requirements>
+After all tasks complete:
+1. Create SUMMARY.md at .planning/phases/{phase-dir}/{phase}-{plan}-SUMMARY.md
+2. Include all required frontmatter fields (see summary-creation.md)
+3. Document task commits, accomplishments, deviations
+4. Substantive one-liner (NOT \"Phase complete\" or \"Implementation done\")
+5. Update STATE.md with position and progress
+</summary_requirements>
 
 <context>
 Plan: @{plan_path}
@@ -153,10 +172,15 @@ Project state: @.planning/STATE.md
 
 <success_criteria>
 - [ ] All tasks executed
-- [ ] Each task committed individually
-- [ ] SUMMARY.md created in plan directory
+- [ ] Each task committed individually with proper format
+- [ ] SUMMARY.md created at .planning/phases/{phase-dir}/{phase}-{plan}-SUMMARY.md
 - [ ] STATE.md updated with position and decisions
-</success_criteria>",
+</success_criteria>
+
+Report back with:
+- SUMMARY.md path (absolute)
+- All commit hashes (task commits + metadata commit)
+- Completion status",
   subagent_type="kata-executor"
 )
 ```
@@ -284,6 +308,7 @@ For detailed guidance on specific aspects:
 - **Checkpoints:** See `./references/checkpoint-protocol.md` for types and return formats
 - **TDD execution:** See `./references/tdd-execution.md` for RED-GREEN-REFACTOR cycle
 - **Commits:** See `./references/commit-protocol.md` for atomic task commits
+- **Summary creation:** See `./references/summary-creation.md` for SUMMARY.md structure and requirements
 
 ## Quality Standards
 
