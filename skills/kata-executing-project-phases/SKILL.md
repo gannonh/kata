@@ -263,8 +263,8 @@ git commit -m "docs({phase}): complete {phase-name} phase"
 
 Route based on status:
 
-**If more phases remain:**
-```
+**If more phases remain:** Output this markdown directly (not as a code block):
+
 KATA > PHASE {Z} COMPLETE
 
 **Phase {Z}: {Name}**
@@ -277,20 +277,19 @@ Goal verified
 
 **Phase {Z+1}: {Name}** — {Goal}
 
-> Instructions can be given conversationally (recommended) or via /commands.
+`/kata-planning-phases {Z+1}`
 
-| Action                 | Natural Trigger               | Explicit Command             |
-| ---------------------- | ----------------------------- | ---------------------------- |
-| **Verify and run UAT** | "Verify phase {Z}", "Run UAT" | `/kata-verification-and-uat` |
-| Plan next phase        | "Plan phase {Z+1}"            | `/kata-planning-phases`      |
-
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
-**If milestone complete:**
-```
+**Also available:**
+- /kata-verifying-work-outcomes-and-user-acceptance-testing — verify and run UAT first
+
+───────────────────────────────────────────────────────────────
+
+**If milestone complete:** Output this markdown directly (not as a code block):
+
 KATA > MILESTONE COMPLETE
 
 All {N} phases complete!
@@ -301,19 +300,14 @@ All {N} phases complete!
 
 **Milestone complete** — finalize and archive
 
-> Instructions can be given conversationally (recommended) or via /commands.
+`/kata-manageing-milestones complete`
 
-| Action                 | Natural Trigger      | Explicit Command             |
-| ---------------------- | -------------------- | ---------------------------- |
-| **Complete milestone** | "Complete milestone" | `/kata-manageing-milestones` |
-
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
-**If gaps found:**
-```
+**If gaps found:** Output this markdown directly (not as a code block):
+
 KATA > PHASE {Z} GAPS FOUND
 
 Score: {N}/{M} must-haves verified
@@ -324,16 +318,11 @@ Score: {N}/{M} must-haves verified
 
 **Close gaps** — create plans to fix verification failures
 
-> Instructions can be given conversationally (recommended) or via /commands.
+`/kata-planning-phases {Z} --gaps`
 
-| Action               | Natural Trigger           | Explicit Command        |
-| -------------------- | ------------------------- | ----------------------- |
-| **Plan gap closure** | "Plan gaps for phase {Z}" | `/kata-planning-phases` |
-
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 ## Key References
 

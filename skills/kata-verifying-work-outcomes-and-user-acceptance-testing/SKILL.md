@@ -259,9 +259,8 @@ Create: .planning/debug/{slug}.md
 
 ### Step 7: Offer Gap Closure
 
-After diagnosis, offer fix planning:
+After diagnosis, offer fix planning. Output this markdown directly (not as a code block):
 
-```
 KATA > GAPS DIAGNOSED
 
 {N} gap(s) found, {M} root cause(s) identified
@@ -277,23 +276,16 @@ KATA > GAPS DIAGNOSED
 
 **Plan fixes** — create fix plans for diagnosed gaps
 
-> Instructions can be given conversationally (recommended) or via /commands.
+`/kata-planning-phases {X} --gaps`
 
-| Action               | Natural Trigger           | Explicit Command        |
-| -------------------- | ------------------------- | ----------------------- |
-| **Plan gap closure** | "Plan gaps for phase {X}" | `/kata-planning-phases` |
-
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
-Or manually review remaining issues before planning.
-```
-
 ### Step 8: Present Results
 
-**All passed:**
-```
+**All passed:** Output this markdown directly (not as a code block):
+
 KATA > PHASE {X} VERIFIED
 
 **Phase {X}: {Name}**
@@ -305,22 +297,21 @@ Goal achieved.
 
 ## ▶ Next Action
 
-**Phase verified** — continue to next phase or run UAT
+**Phase verified** — continue to next phase
 
-> Instructions can be given conversationally (recommended) or via /commands.
+`/kata-planning-phases {X+1}`
 
-| Action              | Natural Trigger    | Explicit Command             |
-| ------------------- | ------------------ | ---------------------------- |
-| **Plan next phase** | "Plan phase {X+1}" | `/kata-planning-phases`      |
-| Run UAT             | "Run UAT"          | `/kata-verification-and-uat` |
-
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
-**Gaps found and diagnosed:**
-```
+**Also available:**
+- /kata-verifying-work-outcomes-and-user-acceptance-testing uat — run UAT
+
+───────────────────────────────────────────────────────────────
+
+**Gaps found and diagnosed:** Output this markdown directly (not as a code block):
+
 KATA > PHASE {X} GAPS FOUND
 
 **Phase {X}: {Name}**
@@ -338,16 +329,11 @@ KATA > PHASE {X} GAPS FOUND
 
 **Plan fixes** — close verification gaps
 
-> Instructions can be given conversationally (recommended) or via /commands.
+`/kata-planning-phases {X} --gaps`
 
-| Action               | Natural Trigger           | Explicit Command        |
-| -------------------- | ------------------------- | ----------------------- |
-| **Plan gap closure** | "Plan gaps for phase {X}" | `/kata-planning-phases` |
-
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 ## Key References
 

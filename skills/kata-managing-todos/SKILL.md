@@ -262,35 +262,26 @@ After all todos reviewed or user exits:
 
 2. **Update STATE.md** "Pending Todos" section with new count
 
-3. **Display summary:**
-   ```
+3. **Display summary and next steps.** Output this markdown directly (not as a code block):
+
    KATA > TODO REVIEW COMPLETE
 
    Reviewed: [N] todos
    - Completed: [X]
    - Actioned: [Y]
    - Pending: [Z]
-   ```
 
-4. **Present next steps:**
-   ```
    ───────────────────────────────────────────────────────────
 
    ## ▶ Next Action
 
    **Todo review complete**
 
-   > Instructions can be given conversationally (recommended) or via /commands.
+   `/kata-managing-todos`
 
-   | Action       | Natural Trigger | Explicit Command        |
-   | ------------ | --------------- | ----------------------- |
-   | **Add more** | "add todo"      | `/kata-managing-todos` |
-   | Work on todo | "check todos"   | `/kata-managing-todos` |
-
-   <sub>`/clear` first → fresh context window</sub>
+   <sub>/clear first → fresh context window</sub>
 
    ───────────────────────────────────────────────────────────
-   ```
 
 ---
 

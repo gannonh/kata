@@ -78,7 +78,8 @@ Plans:
 
 ### Completion Output
 
-```
+Output this markdown directly (not as a code block):
+
 Phase {N} added to current milestone:
 - Description: {description}
 - Directory: .planning/phases/{phase-num}-{slug}/
@@ -90,16 +91,11 @@ Phase {N} added to current milestone:
 
 **Phase {N}: {description}**
 
-> Instructions can be given conversationally (recommended) or via /commands.
+`/kata-planning-phases {N}`
 
-| Action             | Natural Trigger  | Explicit Command        |
-| ------------------ | ---------------- | ----------------------- |
-| **Plan the phase** | "Plan phase {N}" | `/kata-planning-phases` |
-
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 ## INSERT Phase Operation (Urgent)
 

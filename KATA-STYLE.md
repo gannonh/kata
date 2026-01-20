@@ -317,6 +317,46 @@ Use subagents for autonomous work. Reserve main context for user interaction.
 
 Orchestrators @-reference ui-brand.md for stage banners, checkpoint boxes, status symbols, and completion displays.
 
+### Output Template Rendering (Critical)
+
+**Problem:** When output templates are wrapped in triple backticks (code blocks), Claude outputs them literally instead of rendering as markdown. Tables show as `| col |`, bold shows as `**text**`, etc.
+
+**Solution:** Never wrap user-facing output templates in code blocks. Instead:
+
+1. Use prose instruction: "Output this markdown directly (not as a code block):"
+2. Place the template content directly (no backtick wrappers)
+3. Remove inline backticks from template content (e.g., `<sub>/clear first</sub>` not `<sub>\`/clear\` first</sub>`)
+
+**DO:**
+```markdown
+### Step 9: Present Results
+
+Output this markdown directly (not as a code block):
+
+KATA > PHASE {X} PLANNED
+
+**Phase {X}: {Name}**
+
+`/kata-planning-phases {X}`
+
+<sub>/clear first → fresh context window</sub>
+```
+
+**DON'T:**
+```markdown
+### Step 9: Present Results
+
+\`\`\`
+KATA > PHASE {X} PLANNED
+
+**Phase {X}: {Name}**
+
+\`/kata-planning-phases {X}\`
+
+<sub>\`/clear\` first → fresh context window</sub>
+\`\`\`
+```
+
 ### "Next Action" Format
 
 ```markdown
@@ -326,23 +366,23 @@ Orchestrators @-reference ui-brand.md for stage banners, checkpoint boxes, statu
 
 **{Identifier}: {Name}** — {one-line description}
 
-> Instructions can be given conversationally (recommended) or via /commands.
+`/{primary-skill-name}`
 
-| Action                 | Natural Trigger    | Explicit Command |
-| ---------------------- | ------------------ | ---------------- |
-| ⭐ **{Primary action}** | "{trigger phrase}" | `/{skill-name}`  |
-| {Secondary action}     | "{trigger phrase}" | `/{skill-name}`  |
+<sub>/clear first → fresh context window</sub>
 
-<sub>★ recommended · `/clear` first → fresh context window</sub>
+───────────────────────────────────────────────────────────────
+
+**Also available:**
+- /{alternative-skill} — description
 
 ───────────────────────────────────────────────────────────────
 ```
 
 **Key elements:**
-- Blockquote explaining the two invocation modes (conversational vs explicit)
-- Table with Action, Natural Trigger, Explicit Command columns
-- Bold for primary/recommended action (first row)
-- Explicit commands use `/skill-name` (e.g., `/kata-planning-phases`), not `/kata:command`
+- Single copy-paste command (primary action)
+- `<sub>` hint for /clear
+- "Also available" section for alternatives
+- Explicit commands use `/skill-name` (e.g., `/kata-planning-phases`)
 
 ### Decision Gates
 
