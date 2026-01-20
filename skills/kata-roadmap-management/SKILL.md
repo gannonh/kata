@@ -1,6 +1,6 @@
 ---
 name: kata-roadmap-management
-description: Use this skill when adding phases to the roadmap, inserting urgent phases between existing phases, removing future phases, planning gap closure phases, or managing the project roadmap structure. Triggers include "add phase", "insert phase", "remove phase", "plan gaps", "fill gaps", "coverage gaps", "urgent phase", "roadmap management", and "decimal phase numbering".
+description: Use this skill when adding phases to the roadmap, inserting urgent phases between existing phases, removing future phases, planning gap closure phases, or managing the project roadmap structure. Triggers include "add a phase", "add phase to roadmap", "new phase", "create a phase", "I need a phase", "insert phase", "urgent phase", "remove phase", "plan gaps", "fill gaps", "coverage gaps", "roadmap management", and "decimal phase numbering". This skill handles all roadmap modifications.
 ---
 
 # Roadmap Management Orchestrator
@@ -9,7 +9,9 @@ Manages project roadmap operations: adding phases, inserting urgent phases (deci
 
 ## When to Use
 
-- User asks to "add a phase" or "add phase N"
+- User says "add a phase" or "I need a new phase"
+- User says "let's add X to the roadmap"
+- User asks to "add phase N" or "create a phase"
 - User needs to "insert urgent work" between existing phases
 - User wants to "remove a phase" or "delete phase N"
 - User asks to "plan gaps" or "fill coverage gaps"
