@@ -169,10 +169,16 @@ Plans:
   5. Gap skills created for any GSD commands without Kata skill equivalents
   6. NextUp tables updated to show `/kata-{command}` explicit invocation format
   7. README documentation updated with command reference
-**Plans**: TBD
+**Plans**: 7 plans
 
 Plans:
-- [ ] 02-01: TBD (run /kata-planning-phases to break down)
+- [ ] 02-01-PLAN.md — Create 3 gap skills (update, quick, help)
+- [ ] 02-02-PLAN.md — Create project and milestone commands (7 commands)
+- [ ] 02-03-PLAN.md — Create roadmap and research commands (7 commands)
+- [ ] 02-04-PLAN.md — Create planning, execution, session, todo commands (8 commands)
+- [ ] 02-05-PLAN.md — Create utility commands (3 commands)
+- [ ] 02-06-PLAN.md — Update all skill frontmatters with user-invocable: false
+- [ ] 02-07-PLAN.md — Update installer, README, CLAUDE.md
 
 #### Phase 2.1: Slash Command Tests (INSERTED)
 **Goal**: Write comprehensive tests for all Kata slash commands using the test harness, ensuring commands correctly invoke their corresponding skills
@@ -322,7 +328,7 @@ Plans:
 | 1.1 Testing & Evals Harness       | v0.1.5    | 2/2            | Complete    | 2026-01-20 |
 | 1.2 Skill Tests                   | v0.1.5    | 4/4            | Complete    | 2026-01-20 |
 | 1.3 Discuss Phase Skill           | v0.1.5    | 2/2            | Complete    | 2026-01-20 |
-| 2. Create Kata Slash Commands     | v0.1.5    | 0/?            | Not planned | -          |
+| 2. Create Kata Slash Commands     | v0.1.5    | 0/7            | Planned     | -          |
 | 2.1 Slash Command Tests           | v0.1.5    | 0/?            | Not planned | -          |
 | 3. Documentation                  | v0.1.5    | 0/?            | Not planned | -          |
 | 4. Review & Refactor Subagents    | v0.1.5    | 0/?            | Not planned | -          |
@@ -335,4 +341,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-20 — Phase 1.3 complete (2 plans)*
+*Last updated: 2026-01-20 — Phase 2 planned (7 plans)*
