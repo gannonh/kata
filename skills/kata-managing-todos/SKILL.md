@@ -210,7 +210,24 @@ No pending todos. Use "add todo" to capture ideas.
 ```
 Exit skill.
 
-**If >0 todos:** Display count and proceed to review.
+**If >0 todos:** Proceed to display overview table.
+
+### Step CHECK-1.5: Display Overview Table
+
+For each todo file in `.planning/todos/pending/`:
+1. Read the file and extract frontmatter fields: title, area, type, created
+
+Build and display the overview table. Output this markdown directly (not as a code block):
+
+KATA > PENDING TODOS
+
+| # | Title | Area | Type | Created |
+|---|-------|------|------|---------|
+| 1 | {title1} | {area1} | {type1} | {date1} |
+| 2 | {title2} | {area2} | {type2} | {date2} |
+...
+
+After displaying the table, proceed to interactive review.
 
 ### Step CHECK-2: Review Each Todo
 
