@@ -1,6 +1,7 @@
 ---
-name: kata-progress-and-status-updates
-description: Use this skill for Kata project status and session management. Triggers include "progress", "status", "check status", "what's the status", "current status", "show status", "project status", "how are we doing", "where am I", "what's next", "pause work", "take a break", "resume work", "continue", "map codebase", and "analyze code structure". This skill spawns kata-codebase-mapper sub-agents. NOT for debugging - use kata-workflow-debugging for Kata issues.
+name: kata-providing-progress-and-status-updates
+version: 0.1.5
+description: Use this skill for Kata project status and session management. Triggers include "progress", "status", "check status", "what's the status", "current status", "show status", "project status", "how are we doing", "where am I", "what's next", "pause work", "take a break", "resume work", "continue", "map codebase", and "analyze code structure". This skill spawns kata-codebase-mapper sub-agents. NOT for debugging - use kata-debugging-kata-workflow-issues for Kata issues.
 ---
 
 # Kata Progress and Status Updates
@@ -16,7 +17,7 @@ Handles progress display, session management (pause/resume), and codebase mappin
 
 ## When NOT to Use
 
-- Debugging Kata workflow issues (use kata-workflow-debugging)
+- Debugging Kata workflow issues (use kata-debugging-kata-workflow-issues)
 - Debugging project code (use general debugging tools)
 
 ## Operation Detection

@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-01-18)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v0.1.5 Skills & Documentation (Phase 0.1 Documentation next)
+**Current focus:** v0.1.5 Skills & Documentation (Phase 1 Todo Skill next)
 
 ## Current Position
 
-Milestone: v0.1.5 Skills & Documentation (Phases 0-0.1)
-Phase: 0.1 (Documentation) - NOT STARTED
-Plan: 0 of ? (not planned yet)
-Status: Ready to plan
-Last activity: 2026-01-20 - Phase 0 complete, roadmap restructured
+Milestone: v0.1.5 Skills & Documentation (Phases 0-3)
+Phase: 1 (Migrate Todo Commands to Kata Skill) - PLANNED
+Plan: 0 of 3 (ready to execute)
+Status: Ready to execute
+Last activity: 2026-01-20 - Phase 3 added (Kata Slash Commands)
 
-Progress: [============------------] 50% (1/2 phases)
+Progress: [======------------------] 25% (1/4 phases)
 
 ## Performance Metrics
 
@@ -50,7 +50,7 @@ Recent decisions affecting current work:
 - Config-driven integrations (modular enable/disable)
 - **2026-01-19: Skills as orchestrators** - Skills contain full workflow logic and spawn sub-agents via Task tool
 - **2026-01-19: Installer skills filtering** - Only removes kata-* skill directories on reinstall (preserves user skills)
-- **2026-01-19: Unified milestone skill** - Combined new/complete/audit operations into single kata-milestone-management skill
+- **2026-01-19: Unified milestone skill** - Combined new/complete/audit operations into single kata-manageing-milestones skill
 
 ### Roadmap Evolution
 
@@ -61,6 +61,7 @@ Recent decisions affecting current work:
 - **Phase 0.1 inserted 2026-01-19** - Documentation (README completion + onboarding guidance)
 - **Phase 0.2 renumbered 2026-01-19** - Claude Code Plugin Distribution (was 0.1, bumped for Documentation priority)
 - **Milestone restructure 2026-01-20** - v0.1.5 now ends after 0.1 (Skills & Documentation), v0.1.6 = Claude Code Plugin, v0.1.7 = GitHub Integration
+- **Phase 3 added 2026-01-20** - Create Kata Slash Commands (GSD-equivalent commands that instantiate skills)
 
 ### Pending Todos
 

@@ -14,11 +14,11 @@ test_project: ../kata-metrics/
 ## Tests
 
 ### 1. Skills Installation
-expected: Running `node bin/install.js --local` copies all 8 skills. After installation, `ls .claude/skills/kata-*` shows 8 directories: kata-planning, kata-execution, kata-verification, kata-project-initialization, kata-milestone-management, kata-roadmap-management, kata-research, kata-utility
+expected: Running `node bin/install.js --local` copies all 8 skills. After installation, `ls .claude/skills/kata-*` shows 8 directories: kata-planning-phases, kata-execution, kata-verification, kata-starting-new-projects, kata-manageing-milestones, kata-managing-project-roadmap, kata-researching-phases, kata-utility
 result: pass
 
-### 2. kata-planning Skill Invocation
-expected: Saying "help me plan phase 1" or similar triggers kata-planning skill, which appears in Claude's response as skill invocation
+### 2. kata-planning-phases Skill Invocation
+expected: Saying "help me plan phase 1" or similar triggers kata-planning-phases skill, which appears in Claude's response as skill invocation
 result: pass
 
 ### 3. kata-execution Skill Invocation
@@ -31,23 +31,23 @@ expected: Saying "verify the work on phase 0" or similar triggers kata-verificat
 result: skipped
 reason: Pivoting to outcome-based testing with kata-metrics test project
 
-### 5. kata-project-initialization Skill Invocation
-expected: Saying "start a new project" or similar triggers kata-project-initialization skill invocation
+### 5. kata-starting-new-projects Skill Invocation
+expected: Saying "start a new project" or similar triggers kata-starting-new-projects skill invocation
 result: skipped
 reason: Pivoting to outcome-based testing with kata-metrics test project
 
-### 6. kata-milestone-management Skill Invocation
-expected: Saying "create a new milestone" or "audit the milestone" triggers kata-milestone-management skill invocation
+### 6. kata-manageing-milestones Skill Invocation
+expected: Saying "create a new milestone" or "audit the milestone" triggers kata-manageing-milestones skill invocation
 result: skipped
 reason: Pivoting to outcome-based testing with kata-metrics test project
 
-### 7. kata-roadmap-management Skill Invocation
-expected: Saying "add a phase to the roadmap" or "insert an urgent phase" triggers kata-roadmap-management skill invocation
+### 7. kata-managing-project-roadmap Skill Invocation
+expected: Saying "add a phase to the roadmap" or "insert an urgent phase" triggers kata-managing-project-roadmap skill invocation
 result: skipped
 reason: Pivoting to outcome-based testing with kata-metrics test project
 
-### 8. kata-research Skill Invocation
-expected: Saying "research how to implement phase 2" or "discuss the phase approach" triggers kata-research skill invocation
+### 8. kata-researching-phases Skill Invocation
+expected: Saying "research how to implement phase 2" or "discuss the phase approach" triggers kata-researching-phases skill invocation
 result: skipped
 reason: Pivoting to outcome-based testing with kata-metrics test project
 
@@ -66,13 +66,13 @@ result: pass
 
 Tests below exercise skill workflows against ../kata-metrics/ to verify actual outcomes.
 
-### 11. kata-project-initialization Outcome
-expected: Running kata-project-initialization skill on kata-metrics creates valid PROJECT.md with vision, requirements, and ROADMAP.md with phases
+### 11. kata-starting-new-projects Outcome
+expected: Running kata-starting-new-projects skill on kata-metrics creates valid PROJECT.md with vision, requirements, and ROADMAP.md with phases
 result: pass
 notes: "Worked perfectly with natural language - validates skills-first approach"
 
-### 12. kata-planning Outcome
-expected: Running kata-planning skill produces valid PLAN.md files with tasks, waves, and verification steps
+### 12. kata-planning-phases Outcome
+expected: Running kata-planning-phases skill produces valid PLAN.md files with tasks, waves, and verification steps
 result: pass
 notes: "3 plans with proper frontmatter, waves, must_haves, verification - high quality"
 
@@ -88,19 +88,19 @@ result: pass
 notes: "Re-test 2026-01-19: Skill renamed to kata-verification-and-uat. 'run uat', 'uat phase 2', 'acceptance test' now all trigger correctly. Key learning: skill name and description are critical for autonomous invocation."
 severity: resolved
 
-### 15. kata-milestone-management Outcome
-expected: Running kata-milestone-management skill creates/audits/archives milestones correctly
+### 15. kata-manageing-milestones Outcome
+expected: Running kata-manageing-milestones skill creates/audits/archives milestones correctly
 result: pass
 notes: "Comprehensive audit with requirements coverage (9/44), phase tracking (1/4), found tech debt issues, created v1-MILESTONE-AUDIT.md"
 
-### 16. kata-roadmap-management Outcome
-expected: Running kata-roadmap-management skill adds/inserts/removes phases with correct numbering
+### 16. kata-managing-project-roadmap Outcome
+expected: Running kata-managing-project-roadmap skill adds/inserts/removes phases with correct numbering
 result: pass
 notes: "Re-test 2026-01-19: 'add a phase for caching' triggered skill automatically. Created Phase 6 with proper success criteria. Gap closure fix worked."
 severity: resolved
 
-### 17. kata-research Outcome
-expected: Running kata-research skill produces RESEARCH.md with domain analysis and approach options
+### 17. kata-researching-phases Outcome
+expected: Running kata-researching-phases skill produces RESEARCH.md with domain analysis and approach options
 result: pass
 notes: "Skill triggered, spawned kata-phase-researcher (32 tools, 5m), created 622-line RESEARCH.md with deps, patterns, recommendations"
 
@@ -119,12 +119,12 @@ pending: 0
 skipped: 7
 
 ### Re-test Results (2026-01-19)
-| Test | Original | Re-test | Notes |
-|------|----------|---------|-------|
-| 13 | issue | pass | Skill invoked, sub-agents executed plans |
-| 14 | issue | pass | "run kata uat" triggers UAT mode (kata prefix required) |
-| 16 | issue | pass | "add a phase" triggered skill automatically |
-| 18 | issue | pass | Required skill rename to work |
+| Test | Original | Re-test | Notes                                                   |
+| ---- | -------- | ------- | ------------------------------------------------------- |
+| 13   | issue    | pass    | Skill invoked, sub-agents executed plans                |
+| 14   | issue    | pass    | "run kata uat" triggers UAT mode (kata prefix required) |
+| 16   | issue    | pass    | "add a phase" triggered skill automatically             |
+| 18   | issue    | pass    | Required skill rename to work                           |
 
 ## Gaps
 
@@ -139,7 +139,7 @@ skipped: 7
       issue: "offer_next sections hardcode slash command format"
   missing:
     - "Add natural language alternatives to Next Up sections"
-    - "Consider skill invocation syntax (e.g., ?kata-planning)"
+    - "Consider skill invocation syntax (e.g., ?kata-planning-phases)"
   debug_session: ""
 
 - truth: "kata-execution creates SUMMARY.md files and makes atomic commits"
@@ -158,7 +158,7 @@ skipped: 7
   working_prompts: ["run uat", "uat phase 2", "acceptance test"]
   learning: "Skill names and descriptions are critical for autonomous invocation - be verbose and specific"
 
-- truth: "kata-roadmap-management skill triggers for roadmap operations"
+- truth: "kata-managing-project-roadmap skill triggers for roadmap operations"
   status: resolved
   reason: "Re-test 2026-01-19: 'add a phase for caching' triggered skill automatically. Created Phase 6 correctly."
   severity: resolved

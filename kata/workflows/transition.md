@@ -410,8 +410,8 @@ State: "Current phase is {X}. Milestone has {N} phases (highest: {Y})."
 
 **Step 2: Route based on milestone status**
 
-| Condition | Meaning | Action |
-|-----------|---------|--------|
+| Condition                     | Meaning            | Action            |
+| ----------------------------- | ------------------ | ----------------- |
 | current phase < highest phase | More phases remain | Go to **Route A** |
 | current phase = highest phase | Milestone complete | Go to **Route B** |
 
@@ -450,11 +450,11 @@ Exit skill and invoke SlashCommand("/kata:plan-phase [X+1]")
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
+| Action                 | Natural Trigger               | Explicit Command             |
+| ---------------------- | ----------------------------- | ---------------------------- |
 | **Verify and run UAT** | "Verify phase [X]", "Run UAT" | `/kata-verification-and-uat` |
-| Plan next phase | "Plan phase [X+1]" | `/kata-planning` |
-| Research first | "Research phase [X+1]" | `/kata-research` |
+| Plan next phase        | "Plan phase [X+1]"            | `/kata-planning-phases`      |
+| Research first         | "Research phase [X+1]"        | `/kata-researching-phases`   |
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -496,9 +496,9 @@ Exit skill and invoke SlashCommand("/kata:complete-milestone {version}")
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| **Complete milestone** | "Complete milestone" | `/kata-milestone-management` |
+| Action                 | Natural Trigger      | Explicit Command             |
+| ---------------------- | -------------------- | ---------------------------- |
+| **Complete milestone** | "Complete milestone" | `/kata-manageing-milestones` |
 
 <sub>`/clear` first → fresh context window</sub>
 

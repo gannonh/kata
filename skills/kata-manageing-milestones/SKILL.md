@@ -1,5 +1,5 @@
 ---
-name: kata-milestone-management
+name: kata-manageing-milestones
 description: Use this skill when creating new milestones, completing milestones, archiving milestones, auditing milestones, or checking milestone coverage. Triggers include "new milestone", "create milestone", "start milestone", "complete milestone", "finish milestone", "archive milestone", "audit milestone", "check milestone", "milestone gaps", "milestone coverage", and "requirements coverage".
 ---
 
@@ -126,12 +126,12 @@ See `./references/milestone-creation.md` for complete details.
 
     **v[X.Y] [Name]**
 
-    | Artifact     | Location                   |
-    |--------------|----------------------------|
-    | Project      | .planning/PROJECT.md       |
-    | Research     | .planning/research/        |
-    | Requirements | .planning/REQUIREMENTS.md  |
-    | Roadmap      | .planning/ROADMAP.md       |
+    | Artifact     | Location                  |
+    | ------------ | ------------------------- |
+    | Project      | .planning/PROJECT.md      |
+    | Research     | .planning/research/       |
+    | Requirements | .planning/REQUIREMENTS.md |
+    | Roadmap      | .planning/ROADMAP.md      |
 
     ───────────────────────────────────────────────────────────
 
@@ -141,9 +141,9 @@ See `./references/milestone-creation.md` for complete details.
 
     > Instructions can be given conversationally (recommended) or via /commands.
 
-    | Action | Natural Trigger | Explicit Command |
-    |--------|-----------------|------------------|
-    | **Plan the phase** | "Plan phase [N]" | `/kata-planning` |
+    | Action             | Natural Trigger  | Explicit Command        |
+    | ------------------ | ---------------- | ----------------------- |
+    | **Plan the phase** | "Plan phase [N]" | `/kata-planning-phases` |
 
     <sub>`/clear` first → fresh context window</sub>
 
@@ -212,9 +212,9 @@ See `./references/milestone-completion.md` for complete details.
 
    > Instructions can be given conversationally (recommended) or via /commands.
 
-   | Action | Natural Trigger | Explicit Command |
-   |--------|-----------------|------------------|
-   | **New milestone** | "New milestone" | `/kata-milestone-management` |
+   | Action            | Natural Trigger | Explicit Command             |
+   | ----------------- | --------------- | ---------------------------- |
+   | **New milestone** | "New milestone" | `/kata-manageing-milestones` |
 
    <sub>`/clear` first → fresh context window</sub>
 
@@ -286,9 +286,9 @@ See `./references/milestone-auditing.md` for complete details.
 
    > Instructions can be given conversationally (recommended) or via /commands.
 
-   | Action | Natural Trigger | Explicit Command |
-   |--------|-----------------|------------------|
-   | **Complete milestone** | "Complete milestone" | `/kata-milestone-management` |
+   | Action                 | Natural Trigger      | Explicit Command             |
+   | ---------------------- | -------------------- | ---------------------------- |
+   | **Complete milestone** | "Complete milestone" | `/kata-manageing-milestones` |
 
    <sub>`/clear` first → fresh context window</sub>
 
@@ -305,9 +305,9 @@ See `./references/milestone-auditing.md` for complete details.
 
    > Instructions can be given conversationally (recommended) or via /commands.
 
-   | Action | Natural Trigger | Explicit Command |
-   |--------|-----------------|------------------|
-   | **Plan gap closure** | "Plan gaps" | `/kata-roadmap-management` |
+   | Action               | Natural Trigger | Explicit Command                 |
+   | -------------------- | --------------- | -------------------------------- |
+   | **Plan gap closure** | "Plan gaps"     | `/kata-managing-project-roadmap` |
 
    <sub>`/clear` first → fresh context window</sub>
 
@@ -328,12 +328,12 @@ For detailed guidance:
 
 ## Sub-Agent Summary
 
-| Agent | Purpose | When Spawned |
-|-------|---------|--------------|
-| kata-project-researcher | Research domain (4 dimensions) | New milestone with research |
-| kata-research-synthesizer | Create research SUMMARY.md | After researchers complete |
-| kata-roadmapper | Create ROADMAP.md from requirements | New milestone after requirements |
-| kata-integration-checker | Verify cross-phase wiring | Audit milestone |
+| Agent                               | Purpose                             | When Spawned                     |
+| ----------------------------------- | ----------------------------------- | -------------------------------- |
+| kata-project-researcher             | Research domain (4 dimensions)      | New milestone with research      |
+| kata-researching-phases-synthesizer | Create research SUMMARY.md          | After researchers complete       |
+| kata-roadmapper                     | Create ROADMAP.md from requirements | New milestone after requirements |
+| kata-integration-checker            | Verify cross-phase wiring           | Audit milestone                  |
 
 ## Quality Standards
 

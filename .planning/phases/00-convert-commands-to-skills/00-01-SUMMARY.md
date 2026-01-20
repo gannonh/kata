@@ -7,10 +7,10 @@ tags: [skills, planning, installer, orchestrator]
 # Dependency graph
 requires: []
 provides:
-  - kata-planning skill with orchestrator workflow
+  - kata-planning-phases skill with orchestrator workflow
   - Reference files for task breakdown, dependency graph, goal-backward, plan format
   - Installer skills/ directory support
-affects: [02-kata-execution, 03-kata-verification, 04-kata-research]
+affects: [02-kata-execution, 03-kata-verification, 04-kata-researching-phases]
 
 # Tech tracking
 tech-stack:
@@ -22,11 +22,11 @@ tech-stack:
 
 key-files:
   created:
-    - skills/kata-planning/SKILL.md
-    - skills/kata-planning/references/task-breakdown.md
-    - skills/kata-planning/references/dependency-graph.md
-    - skills/kata-planning/references/goal-backward.md
-    - skills/kata-planning/references/plan-format.md
+    - skills/kata-planning-phases/SKILL.md
+    - skills/kata-planning-phases/references/task-breakdown.md
+    - skills/kata-planning-phases/references/dependency-graph.md
+    - skills/kata-planning-phases/references/goal-backward.md
+    - skills/kata-planning-phases/references/plan-format.md
   modified:
     - bin/install.js
 
@@ -45,9 +45,9 @@ duration: 8min
 completed: 2026-01-19
 ---
 
-# Phase 00 Plan 01: kata-planning Skill Summary
+# Phase 00 Plan 01: kata-planning-phases Skill Summary
 
-**Created kata-planning skill as orchestrator for phase planning, with 4 reference files for task breakdown, dependency analysis, goal-backward methodology, and plan format**
+**Created kata-planning-phases skill as orchestrator for phase planning, with 4 reference files for task breakdown, dependency analysis, goal-backward methodology, and plan format**
 
 ## Performance
 
@@ -59,7 +59,7 @@ completed: 2026-01-19
 
 ## Accomplishments
 
-- Created kata-planning skill (285 lines) that orchestrates research, planning, and verification sub-agents
+- Created kata-planning-phases skill (285 lines) that orchestrates research, planning, and verification sub-agents
 - Established progressive disclosure pattern with 4 reference files in references/ subdirectory
 - Updated installer to copy skills/ directory with kata-* prefix filtering
 
@@ -67,16 +67,16 @@ completed: 2026-01-19
 
 Each task was committed atomically:
 
-1. **Task 1: Create kata-planning skill with references** - `bd0002e` (feat)
+1. **Task 1: Create kata-planning-phases skill with references** - `bd0002e` (feat)
 2. **Task 2: Update installer to copy skills directory** - `8683ea5` (feat)
 
 ## Files Created/Modified
 
-- `skills/kata-planning/SKILL.md` - Phase planning orchestrator skill (285 lines)
-- `skills/kata-planning/references/task-breakdown.md` - Task sizing, TDD detection, specificity examples
-- `skills/kata-planning/references/dependency-graph.md` - Wave assignment, parallel execution
-- `skills/kata-planning/references/goal-backward.md` - Must-haves derivation methodology
-- `skills/kata-planning/references/plan-format.md` - PLAN.md structure and frontmatter
+- `skills/kata-planning-phases/SKILL.md` - Phase planning orchestrator skill (285 lines)
+- `skills/kata-planning-phases/references/task-breakdown.md` - Task sizing, TDD detection, specificity examples
+- `skills/kata-planning-phases/references/dependency-graph.md` - Wave assignment, parallel execution
+- `skills/kata-planning-phases/references/goal-backward.md` - Must-haves derivation methodology
+- `skills/kata-planning-phases/references/plan-format.md` - PLAN.md structure and frontmatter
 - `bin/install.js` - Added skills/ directory copying with kata-* filtering
 
 ## Decisions Made
@@ -101,7 +101,7 @@ None - no external service configuration required.
 
 ## Next Phase Readiness
 
-- kata-planning skill established as pattern for remaining skill conversions
+- kata-planning-phases skill established as pattern for remaining skill conversions
 - Installer ready to handle additional skills
 - Ready for Plan 02 (kata-execution skill)
 

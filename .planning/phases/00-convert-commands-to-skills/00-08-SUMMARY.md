@@ -13,7 +13,7 @@ provides:
   - Session management workflow (pause/resume)
   - Progress display formatting
   - Codebase mapping orchestration
-affects: [kata-execution, kata-project-initialization]
+affects: [kata-execution, kata-starting-new-projects]
 
 # Tech tracking
 tech-stack:
@@ -103,7 +103,7 @@ None - no external service configuration required.
 
 - kata-utility skill complete with all 5 utility operations
 - References provide detailed workflow guidance
-- Ready for wave 3 skills (kata-research, kata-roadmap-management, kata-project-initialization)
+- Ready for wave 3 skills (kata-researching-phases, kata-managing-project-roadmap, kata-starting-new-projects)
 
 ---
 *Phase: 00-convert-commands-to-skills*

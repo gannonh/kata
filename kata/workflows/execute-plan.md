@@ -977,16 +977,16 @@ git add src/types/user.ts
 
 **3. Determine commit type:**
 
-| Type | When to Use | Example |
-|------|-------------|---------|
-| `feat` | New feature, endpoint, component, functionality | feat(08-02): create user registration endpoint |
-| `fix` | Bug fix, error correction | fix(08-02): correct email validation regex |
-| `test` | Test-only changes (TDD RED phase) | test(08-02): add failing test for password hashing |
-| `refactor` | Code cleanup, no behavior change (TDD REFACTOR phase) | refactor(08-02): extract validation to helper |
-| `perf` | Performance improvement | perf(08-02): add database index for user lookups |
-| `docs` | Documentation changes | docs(08-02): add API endpoint documentation |
-| `style` | Formatting, linting fixes | style(08-02): format auth module |
-| `chore` | Config, tooling, dependencies | chore(08-02): add bcrypt dependency |
+| Type       | When to Use                                           | Example                                            |
+| ---------- | ----------------------------------------------------- | -------------------------------------------------- |
+| `feat`     | New feature, endpoint, component, functionality       | feat(08-02): create user registration endpoint     |
+| `fix`      | Bug fix, error correction                             | fix(08-02): correct email validation regex         |
+| `test`     | Test-only changes (TDD RED phase)                     | test(08-02): add failing test for password hashing |
+| `refactor` | Code cleanup, no behavior change (TDD REFACTOR phase) | refactor(08-02): extract validation to helper      |
+| `perf`     | Performance improvement                               | perf(08-02): add database index for user lookups   |
+| `docs`     | Documentation changes                                 | docs(08-02): add API endpoint documentation        |
+| `style`    | Formatting, linting fixes                             | style(08-02): format auth module                   |
+| `chore`    | Config, tooling, dependencies                         | chore(08-02): add bcrypt dependency                |
 
 **4. Craft commit message:**
 
@@ -1152,9 +1152,9 @@ If you were spawned via Task tool and hit a checkpoint, you cannot directly inte
 
 ### Completed Tasks
 
-| Task | Name | Commit | Files |
-|------|------|--------|-------|
-| 1 | Initialize Next.js 15 project | d6fe73f | package.json, tsconfig.json, app/ |
+| Task | Name                          | Commit  | Files                             |
+| ---- | ----------------------------- | ------- | --------------------------------- |
+| 1    | Initialize Next.js 15 project | d6fe73f | package.json, tsconfig.json, app/ |
 
 ### Current Task
 
@@ -1282,10 +1282,10 @@ Create `.planning/phases/XX-name/{phase}-USER-SETUP.md` using template from `~/.
 
 ## Environment Variables
 
-| Status | Variable | Source | Add to |
-|--------|----------|--------|--------|
-| [ ] | `STRIPE_SECRET_KEY` | Stripe Dashboard → Developers → API keys → Secret key | `.env.local` |
-| [ ] | `STRIPE_WEBHOOK_SECRET` | Stripe Dashboard → Developers → Webhooks → Signing secret | `.env.local` |
+| Status | Variable                | Source                                                    | Add to       |
+| ------ | ----------------------- | --------------------------------------------------------- | ------------ |
+| [ ]    | `STRIPE_SECRET_KEY`     | Stripe Dashboard → Developers → API keys → Secret key     | `.env.local` |
+| [ ]    | `STRIPE_WEBHOOK_SECRET` | Stripe Dashboard → Developers → Webhooks → Signing secret | `.env.local` |
 
 ## Dashboard Configuration
 
@@ -1592,14 +1592,14 @@ git diff --name-only ${FIRST_TASK}^..HEAD 2>/dev/null
 
 **Update only if structural changes occurred:**
 
-| Change Detected | Update Action |
-|-----------------|---------------|
-| New directory in src/ | STRUCTURE.md: Add to directory layout |
-| package.json deps changed | STACK.md: Add/remove from dependencies list |
-| New file pattern (e.g., first .test.ts) | CONVENTIONS.md: Note new pattern |
-| New external API client | INTEGRATIONS.md: Add service entry with file path |
-| Config file added/changed | STACK.md: Update configuration section |
-| File renamed/moved | Update paths in relevant docs |
+| Change Detected                         | Update Action                                     |
+| --------------------------------------- | ------------------------------------------------- |
+| New directory in src/                   | STRUCTURE.md: Add to directory layout             |
+| package.json deps changed               | STACK.md: Add/remove from dependencies list       |
+| New file pattern (e.g., first .test.ts) | CONVENTIONS.md: Note new pattern                  |
+| New external API client                 | INTEGRATIONS.md: Add service entry with file path |
+| Config file added/changed               | STACK.md: Update configuration section            |
+| File renamed/moved                      | Update paths in relevant docs                     |
 
 **Skip update if only:**
 - Code changes within existing files
@@ -1662,10 +1662,10 @@ State the counts: "This phase has [X] plans and [Y] summaries."
 
 Compare the counts from Step 1:
 
-| Condition | Meaning | Action |
-|-----------|---------|--------|
+| Condition         | Meaning           | Action            |
+| ----------------- | ----------------- | ----------------- |
 | summaries < plans | More plans remain | Go to **Route A** |
-| summaries = plans | Phase complete | Go to Step 3 |
+| summaries = plans | Phase complete    | Go to Step 3      |
 
 ---
 
@@ -1703,10 +1703,10 @@ Summary: .planning/phases/{phase-dir}/{phase}-{plan}-SUMMARY.md
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| **Execute the phase** | "Execute phase {phase}" | `/kata-execution` |
-| Run UAT first | "Run UAT" | `/kata-verification-and-uat` |
+| Action                | Natural Trigger         | Explicit Command             |
+| --------------------- | ----------------------- | ---------------------------- |
+| **Execute the phase** | "Execute phase {phase}" | `/kata-execution`            |
+| Run UAT first         | "Run UAT"               | `/kata-verification-and-uat` |
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -1736,8 +1736,8 @@ State: "Current phase is {X}. Milestone has {N} phases (highest: {Y})."
 
 **Step 4: Route based on milestone status**
 
-| Condition | Meaning | Action |
-|-----------|---------|--------|
+| Condition                     | Meaning            | Action            |
+| ----------------------------- | ------------------ | ----------------- |
 | current phase < highest phase | More phases remain | Go to **Route B** |
 | current phase = highest phase | Milestone complete | Go to **Route C** |
 
@@ -1763,11 +1763,11 @@ All {Y} plans finished.
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
+| Action                 | Natural Trigger               | Explicit Command             |
+| ---------------------- | ----------------------------- | ---------------------------- |
 | **Verify and run UAT** | "Verify phase {Z}", "Run UAT" | `/kata-verification-and-uat` |
-| Plan next phase | "Plan phase {Z+1}" | `/kata-planning` |
-| Research first | "Research phase {Z+1}" | `/kata-research` |
+| Plan next phase        | "Plan phase {Z+1}"            | `/kata-planning-phases`      |
+| Research first         | "Research phase {Z+1}"        | `/kata-researching-phases`   |
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -1800,11 +1800,11 @@ All {Y} plans finished.
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| **Complete milestone** | "Complete milestone" | `/kata-milestone-management` |
-| Run UAT first | "Run UAT" | `/kata-verification-and-uat` |
-| Add another phase | "Add a phase" | `/kata-roadmap-management` |
+| Action                 | Natural Trigger      | Explicit Command                 |
+| ---------------------- | -------------------- | -------------------------------- |
+| **Complete milestone** | "Complete milestone" | `/kata-manageing-milestones`     |
+| Run UAT first          | "Run UAT"            | `/kata-verification-and-uat`     |
+| Add another phase      | "Add a phase"        | `/kata-managing-project-roadmap` |
 
 <sub>`/clear` first → fresh context window</sub>
 

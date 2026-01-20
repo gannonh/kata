@@ -54,8 +54,8 @@ ls .planning/phases/[current-phase]/
 ```
 
 **Common workflow when working on Kata:**
-1. Check progress: "What's the status?" or `/kata-progress-and-status-updates`
-2. Plan phase: "Plan phase [N]" or `/kata-planning`
+1. Check progress: "What's the status?" or `/kata-providing-progress-and-status-updates`
+2. Plan phase: "Plan phase [N]" or `/kata-planning-phases`
 3. Execute: "Execute phase [N]" or `/kata-execution`
 4. Verify: "Verify phase [N]" or `/kata-verification-and-uat`
 
@@ -69,11 +69,11 @@ Every file in Kata serves dual purposes:
 
 Kata uses a thin orchestrator + specialized agents pattern:
 
-| Orchestrator (Skill)            | Spawns                                                 | Purpose                        |
-| ------------------------------- | ------------------------------------------------------ | ------------------------------ |
-| `kata-planning`                 | kata-phase-researcher, kata-planner, kata-plan-checker | Research → Plan → Verify loop  |
-| `kata-execution`                | kata-executor (multiple in parallel)                   | Execute plans in waves         |
-| `kata-verification-and-uat`     | kata-verifier, kata-debugger                           | Check goals, diagnose failures |
+| Orchestrator (Skill)        | Spawns                                                 | Purpose                        |
+| --------------------------- | ------------------------------------------------------ | ------------------------------ |
+| `kata-planning-phases`      | kata-phase-researcher, kata-planner, kata-plan-checker | Research → Plan → Verify loop  |
+| `kata-execution`            | kata-executor (multiple in parallel)                   | Execute plans in waves         |
+| `kata-verification-and-uat` | kata-verifier, kata-debugger                           | Check goals, diagnose failures |
 
 **Key principle:** Orchestrators stay lean (~15% context), subagents get fresh 200k tokens each.
 
@@ -83,28 +83,28 @@ Kata provides skills for autonomous invocation alongside slash commands for dete
 
 ### Skills vs Commands
 
-| Aspect     | Skills                        | Explicit Invocation             |
-| ---------- | ----------------------------- | ------------------------------- |
-| Invocation | Autonomous (Claude decides)   | Explicit (`/skill-name`)        |
-| Arguments  | From natural language context | From context                    |
-| Use case   | "Help me plan phase 2"        | `/kata-planning`                |
+| Aspect     | Skills                        | Explicit Invocation      |
+| ---------- | ----------------------------- | ------------------------ |
+| Invocation | Autonomous (Claude decides)   | Explicit (`/skill-name`) |
+| Arguments  | From natural language context | From context             |
+| Use case   | "Help me plan phase 2"        | `/kata-planning-phases`  |
 
-**Note:** Explicit skill invocation uses `/skill-name` syntax (e.g., `/kata-planning`), not the old `/kata:command` namespace.
+**Note:** Explicit skill invocation uses `/skill-name` syntax (e.g., `/kata-planning-phases`), not the old `/kata:command` namespace.
 
 ### Available Skills
 
 Skills are installed to `~/.claude/skills/` (global) or `.claude/skills/` (local):
 
-| Skill                              | Purpose                        | Sub-agents Spawned                               |
-| ---------------------------------- | ------------------------------ | ------------------------------------------------ |
-| `kata-planning`                    | Phase planning, task breakdown | kata-planner, kata-plan-checker                  |
-| `kata-execution`                   | Plan execution, checkpoints    | kata-executor                                    |
-| `kata-verification-and-uat`        | Goal verification, UAT         | kata-verifier, kata-debugger                     |
-| `kata-project-initialization`      | New project setup              | kata-project-researcher, kata-roadmapper         |
-| `kata-milestone-management`        | Milestone operations           | kata-roadmapper                                  |
-| `kata-roadmap-management`          | Phase operations               | kata-roadmapper                                  |
-| `kata-research`                    | Domain research                | kata-phase-researcher, kata-research-synthesizer |
-| `kata-project-status-utilities`    | Progress, debug, mapping       | kata-debugger, kata-codebase-mapper              |
+| Skill                           | Purpose                        | Sub-agents Spawned                                         |
+| ------------------------------- | ------------------------------ | ---------------------------------------------------------- |
+| `kata-planning-phases`          | Phase planning, task breakdown | kata-planner, kata-plan-checker                            |
+| `kata-execution`                | Plan execution, checkpoints    | kata-executor                                              |
+| `kata-verification-and-uat`     | Goal verification, UAT         | kata-verifier, kata-debugger                               |
+| `kata-starting-new-projects`    | New project setup              | kata-project-researcher, kata-roadmapper                   |
+| `kata-manageing-milestones`     | Milestone operations           | kata-roadmapper                                            |
+| `kata-managing-project-roadmap` | Phase operations               | kata-roadmapper                                            |
+| `kata-researching-phases`       | Domain research                | kata-phase-researcher, kata-researching-phases-synthesizer |
+| `kata-project-status-utilities` | Progress, debug, mapping       | kata-debugger, kata-codebase-mapper                        |
 
 ### Skill Naming Best Practices
 

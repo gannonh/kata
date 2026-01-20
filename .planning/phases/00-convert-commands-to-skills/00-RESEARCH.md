@@ -37,32 +37,32 @@ The established patterns for Claude Code Skills and command-skill integration:
 
 ### Core Format
 
-| Component | Standard | Source |
-|-----------|----------|--------|
-| SKILL.md | Required file with YAML frontmatter (name, description) + markdown body | Official docs |
-| Directory structure | `skill-name/SKILL.md` with optional `references/`, `scripts/`, `assets/` | Official docs |
-| Description format | "This skill should be used when..." (third-person, trigger-focused) | Best practices |
-| Name format | Gerund form, lowercase, hyphens (e.g., `planning-phases`) | Best practices |
-| Body length | <500 lines in SKILL.md, details in references/ | Best practices |
+| Component           | Standard                                                                 | Source         |
+| ------------------- | ------------------------------------------------------------------------ | -------------- |
+| SKILL.md            | Required file with YAML frontmatter (name, description) + markdown body  | Official docs  |
+| Directory structure | `skill-name/SKILL.md` with optional `references/`, `scripts/`, `assets/` | Official docs  |
+| Description format  | "This skill should be used when..." (third-person, trigger-focused)      | Best practices |
+| Name format         | Gerund form, lowercase, hyphens (e.g., `planning-phases`)                | Best practices |
+| Body length         | <500 lines in SKILL.md, details in references/                           | Best practices |
 
 ### Frontmatter Fields
 
 Skills support these frontmatter fields (verified from official documentation):
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `name` | Yes | Skill identifier (lowercase, hyphens, max 64 chars) |
-| `description` | Yes | When to invoke (max 1024 chars) |
-| `user-invocable` | No | Controls slash command menu visibility (default: true) |
+| Field            | Required | Description                                            |
+| ---------------- | -------- | ------------------------------------------------------ |
+| `name`           | Yes      | Skill identifier (lowercase, hyphens, max 64 chars)    |
+| `description`    | Yes      | When to invoke (max 1024 chars)                        |
+| `user-invocable` | No       | Controls slash command menu visibility (default: true) |
 
 **Note:** We are NOT using `agent`, `model`, `context`, `allowed-tools`, or `skills` frontmatter fields because Kata skills are orchestrators that spawn multiple sub-agents. These fields are for simpler skills that delegate to a single agent.
 
 ### Skill Structure Example
 
 ```yaml
-# skills/kata-planning/SKILL.md
+# skills/kata-planning-phases/SKILL.md
 ---
-name: kata-planning
+name: kata-planning-phases
 description: Use this skill when planning phases, creating execution plans, breaking down work into tasks, or preparing for phase execution. This includes task breakdown, dependency analysis, wave assignment, and goal-backward verification.
 ---
 
@@ -84,7 +84,7 @@ kata/
 │   ├── execute-phase.md
 │   └── ...
 ├── skills/
-│   ├── kata-planning/                # Flat naming: kata-{domain}
+│   ├── kata-planning-phases/                # Flat naming: kata-{domain}
 │   │   ├── SKILL.md                  # Full workflow (orchestrator)
 │   │   └── references/
 │   │       ├── task-breakdown.md
@@ -111,7 +111,7 @@ kata/
 **Skill (full orchestrator):**
 ```markdown
 ---
-name: kata-planning
+name: kata-planning-phases
 description: Use this skill when planning phases, creating execution plans, breaking down work into tasks, or preparing for phase execution. This includes task breakdown, dependency analysis, wave assignment, and goal-backward verification.
 ---
 
@@ -180,13 +180,13 @@ skills/kata-execution/
 
 Problems that look simple but have existing solutions:
 
-| Problem | Don't Build | Use Instead | Why |
-|---------|-------------|-------------|-----|
-| Model invocation control | Custom routing logic | `disable-model-invocation: true` | Built-in frontmatter field |
-| Tool restrictions | Runtime checks | `allowed-tools` frontmatter | Built-in field for commands and skills |
-| Context isolation | Manual state management | `context: fork` | Built-in sub-agent forking |
-| Agent type selection | Custom agent dispatch | `agent` frontmatter field | Built-in agent selection |
-| Skill visibility | Custom menu logic | `user-invocable: false` | Built-in visibility control |
+| Problem                  | Don't Build             | Use Instead                      | Why                                    |
+| ------------------------ | ----------------------- | -------------------------------- | -------------------------------------- |
+| Model invocation control | Custom routing logic    | `disable-model-invocation: true` | Built-in frontmatter field             |
+| Tool restrictions        | Runtime checks          | `allowed-tools` frontmatter      | Built-in field for commands and skills |
+| Context isolation        | Manual state management | `context: fork`                  | Built-in sub-agent forking             |
+| Agent type selection     | Custom agent dispatch   | `agent` frontmatter field        | Built-in agent selection               |
+| Skill visibility         | Custom menu logic       | `user-invocable: false`          | Built-in visibility control            |
 
 **Key insight:** Claude Code's frontmatter fields handle most orchestration needs. Kata should leverage these rather than building custom routing.
 
@@ -261,10 +261,10 @@ Create executable phase prompts (PLAN.md files)...
 
 **Converted to skill + thin command:**
 
-**Skill** (`skills/kata-planning/SKILL.md`):
+**Skill** (`skills/kata-planning-phases/SKILL.md`):
 ```yaml
 ---
-name: kata-planning
+name: kata-planning-phases
 description: This skill should be used when the user asks to "plan a phase", "create execution plan", "break down tasks", "analyze dependencies", or needs guidance on phase planning, task breakdown, goal-backward verification, or TDD integration. Applies when creating PLAN.md files or preparing phases for execution.
 ---
 
@@ -303,14 +303,14 @@ description: Create detailed execution plan for a phase
 argument-hint: "[phase] [--research] [--gaps]"
 context: fork
 agent: kata-planner
-skills: kata-planning
+skills: kata-planning-phases
 allowed-tools: [Read, Write, Bash, Glob, Grep, Task, WebFetch]
 ---
 
 Plan phase: $ARGUMENTS
 
 Load skill context from:
-@~/.claude/skills/kata-planning/SKILL.md
+@~/.claude/skills/kata-planning-phases/SKILL.md
 
 Project context:
 @.planning/ROADMAP.md
@@ -325,7 +325,7 @@ Project context:
 name: kata-planner
 description: Creates executable phase plans with task breakdown, dependency analysis, and goal-backward verification.
 tools: Read, Write, Bash, Glob, Grep, WebFetch
-skills: kata-planning, kata-research
+skills: kata-planning-phases, kata-researching-phases
 color: green
 ---
 
@@ -397,12 +397,12 @@ See `references/tdd-execution.md` for RED-GREEN-REFACTOR cycle.
 
 ## State of the Art
 
-| Old Approach | Current Approach | When Changed | Impact |
-|--------------|------------------|--------------|--------|
-| Commands only | Skills + Commands | Claude Code 2024 | Skills enable autonomous discovery |
-| Single-file commands | Multi-file skills with references | Skills spec 2024 | Progressive disclosure reduces context |
-| No agent-skill binding | `skills:` field in agent frontmatter | Skills spec 2024 | Agents can access skill knowledge |
-| Manual tool restrictions | `allowed-tools` frontmatter | Claude Code 2024 | Declarative tool control |
+| Old Approach             | Current Approach                     | When Changed     | Impact                                 |
+| ------------------------ | ------------------------------------ | ---------------- | -------------------------------------- |
+| Commands only            | Skills + Commands                    | Claude Code 2024 | Skills enable autonomous discovery     |
+| Single-file commands     | Multi-file skills with references    | Skills spec 2024 | Progressive disclosure reduces context |
+| No agent-skill binding   | `skills:` field in agent frontmatter | Skills spec 2024 | Agents can access skill knowledge      |
+| Manual tool restrictions | `allowed-tools` frontmatter          | Claude Code 2024 | Declarative tool control               |
 
 **Deprecated/outdated:**
 - Putting all workflow in one file: Use progressive disclosure with references/
@@ -456,60 +456,60 @@ Things that couldn't be fully resolved:
 Kata commands requiring conversion (24 total):
 
 ### Core Workflow Commands
-| Command | Current Size | Recommended Skill | Priority |
-|---------|--------------|-------------------|----------|
-| new-project | ~900 lines | kata-project-initialization | High |
-| plan-phase | ~475 lines | kata-planning | High |
-| execute-phase | ~300 lines | kata-execution | High |
-| verify-work | ~250 lines | kata-verification | High |
+| Command       | Current Size | Recommended Skill          | Priority |
+| ------------- | ------------ | -------------------------- | -------- |
+| new-project   | ~900 lines   | kata-starting-new-projects | High     |
+| plan-phase    | ~475 lines   | kata-planning-phases       | High     |
+| execute-phase | ~300 lines   | kata-execution             | High     |
+| verify-work   | ~250 lines   | kata-verification          | High     |
 
 ### Planning Commands
-| Command | Current Size | Recommended Skill | Priority |
-|---------|--------------|-------------------|----------|
-| discuss-phase | ~150 lines | kata-discussion | Medium |
-| research-phase | ~200 lines | kata-research | Medium |
-| list-phase-assumptions | ~75 lines | Embed in kata-planning | Low |
+| Command                | Current Size | Recommended Skill             | Priority |
+| ---------------------- | ------------ | ----------------------------- | -------- |
+| discuss-phase          | ~150 lines   | kata-discussion               | Medium   |
+| research-phase         | ~200 lines   | kata-researching-phases       | Medium   |
+| list-phase-assumptions | ~75 lines    | Embed in kata-planning-phases | Low      |
 
 ### Milestone Commands
-| Command | Current Size | Recommended Skill | Priority |
-|---------|--------------|-------------------|----------|
-| new-milestone | ~800 lines | kata-milestone-management | High |
-| complete-milestone | ~225 lines | kata-milestone-management | Medium |
-| audit-milestone | ~350 lines | kata-milestone-management | Medium |
+| Command            | Current Size | Recommended Skill         | Priority |
+| ------------------ | ------------ | ------------------------- | -------- |
+| new-milestone      | ~800 lines   | kata-manageing-milestones | High     |
+| complete-milestone | ~225 lines   | kata-manageing-milestones | Medium   |
+| audit-milestone    | ~350 lines   | kata-manageing-milestones | Medium   |
 
 ### Roadmap Commands
-| Command | Current Size | Recommended Skill | Priority |
-|---------|--------------|-------------------|----------|
-| add-phase | ~250 lines | kata-roadmap-management | Medium |
-| insert-phase | ~285 lines | kata-roadmap-management | Medium |
-| remove-phase | ~200 lines | kata-roadmap-management | Low |
-| plan-milestone-gaps | ~315 lines | kata-roadmap-management | Low |
+| Command             | Current Size | Recommended Skill             | Priority |
+| ------------------- | ------------ | ----------------------------- | -------- |
+| add-phase           | ~250 lines   | kata-managing-project-roadmap | Medium   |
+| insert-phase        | ~285 lines   | kata-managing-project-roadmap | Medium   |
+| remove-phase        | ~200 lines   | kata-managing-project-roadmap | Low      |
+| plan-milestone-gaps | ~315 lines   | kata-managing-project-roadmap | Low      |
 
 ### Utility Commands
-| Command | Current Size | Recommended Skill | Priority |
-|---------|--------------|-------------------|----------|
-| progress | ~300 lines | kata-progress-tracking | Medium |
-| resume-work | ~150 lines | kata-session-management | Low |
-| pause-work | ~125 lines | kata-session-management | Low |
-| debug | ~175 lines | kata-debugging | Medium |
-| map-codebase | ~150 lines | kata-codebase-mapping | Medium |
-| help | ~400 lines | Keep as command only | Low |
-| whats-new | ~100 lines | Keep as command only | Low |
-| update | ~100 lines | Keep as command only | Low |
+| Command      | Current Size | Recommended Skill       | Priority |
+| ------------ | ------------ | ----------------------- | -------- |
+| progress     | ~300 lines   | kata-progress-tracking  | Medium   |
+| resume-work  | ~150 lines   | kata-session-management | Low      |
+| pause-work   | ~125 lines   | kata-session-management | Low      |
+| debug        | ~175 lines   | kata-debugging          | Medium   |
+| map-codebase | ~150 lines   | kata-codebase-mapping   | Medium   |
+| help         | ~400 lines   | Keep as command only    | Low      |
+| whats-new    | ~100 lines   | Keep as command only    | Low      |
+| update       | ~100 lines   | Keep as command only    | Low      |
 
 ### Todo Commands
-| Command | Current Size | Recommended Skill | Priority |
-|---------|--------------|-------------------|----------|
-| add-todo | ~215 lines | kata-todo-management | Low |
-| check-todos | ~260 lines | kata-todo-management | Low |
+| Command     | Current Size | Recommended Skill    | Priority |
+| ----------- | ------------ | -------------------- | -------- |
+| add-todo    | ~215 lines   | kata-todo-management | Low      |
+| check-todos | ~260 lines   | kata-todo-management | Low      |
 
 ### Agents Requiring Skill Binding
-| Agent | Relevant Skills |
-|-------|-----------------|
-| kata-planner | kata-planning, kata-research |
-| kata-executor | kata-execution |
-| kata-verifier | kata-verification |
-| kata-debugger | kata-debugging |
-| kata-roadmapper | kata-roadmap-management |
-| kata-phase-researcher | kata-research |
-| kata-project-researcher | kata-research |
+| Agent                   | Relevant Skills                               |
+| ----------------------- | --------------------------------------------- |
+| kata-planner            | kata-planning-phases, kata-researching-phases |
+| kata-executor           | kata-execution                                |
+| kata-verifier           | kata-verification                             |
+| kata-debugger           | kata-debugging                                |
+| kata-roadmapper         | kata-managing-project-roadmap                 |
+| kata-phase-researcher   | kata-researching-phases                       |
+| kata-project-researcher | kata-researching-phases                       |

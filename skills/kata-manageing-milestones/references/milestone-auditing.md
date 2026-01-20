@@ -117,27 +117,27 @@ tech_debt:  # Non-critical, deferred
 **Status:** {PASSED | GAPS FOUND | TECH DEBT}
 **Audited:** {timestamp}
 
-| Dimension | Score | Notes |
-|-----------|-------|-------|
+| Dimension    | Score   | Notes   |
+| ------------ | ------- | ------- |
 | Requirements | {N}/{M} | {brief} |
-| Phases | {N}/{M} | {brief} |
-| Integration | {N}/{M} | {brief} |
-| E2E Flows | {N}/{M} | {brief} |
+| Phases       | {N}/{M} | {brief} |
+| Integration  | {N}/{M} | {brief} |
+| E2E Flows    | {N}/{M} | {brief} |
 
 ## Requirements Coverage
 
-| REQ-ID | Description | Phase | Status |
-|--------|-------------|-------|--------|
-| AUTH-01 | User can register | 01 | Satisfied |
-| AUTH-02 | User can login | 01 | Satisfied |
-| PROF-01 | User can edit profile | 02 | Partial |
+| REQ-ID  | Description           | Phase | Status    |
+| ------- | --------------------- | ----- | --------- |
+| AUTH-01 | User can register     | 01    | Satisfied |
+| AUTH-02 | User can login        | 01    | Satisfied |
+| PROF-01 | User can edit profile | 02    | Partial   |
 
 ## Phase Verification
 
-| Phase | Status | Gaps | Tech Debt |
-|-------|--------|------|-----------|
-| 01-auth | Passed | 0 | 2 items |
-| 02-profile | Gaps Found | 1 | 1 item |
+| Phase      | Status     | Gaps | Tech Debt |
+| ---------- | ---------- | ---- | --------- |
+| 01-auth    | Passed     | 0    | 2 items   |
+| 02-profile | Gaps Found | 1    | 1 item    |
 
 ## Integration Issues
 
@@ -185,9 +185,9 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| **Complete milestone** | "Complete milestone" | `/kata-milestone-management` |
+| Action                 | Natural Trigger      | Explicit Command             |
+| ---------------------- | -------------------- | ---------------------------- |
+| **Complete milestone** | "Complete milestone" | `/kata-manageing-milestones` |
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -225,10 +225,10 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| **Plan gaps** | "Plan gaps" | `/kata-roadmap-management` |
-| Complete anyway | "Complete milestone" | `/kata-milestone-management` |
+| Action          | Natural Trigger      | Explicit Command                 |
+| --------------- | -------------------- | -------------------------------- |
+| **Plan gaps**   | "Plan gaps"          | `/kata-managing-project-roadmap` |
+| Complete anyway | "Complete milestone" | `/kata-manageing-milestones`     |
 
 <sub>`/clear` first → fresh context window</sub>
 

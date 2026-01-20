@@ -1,6 +1,6 @@
 ---
-name: kata-project-initialization
-description: Use this skill when starting a new project, initializing a Kata project, creating PROJECT.md, onboarding a new codebase, or setting up project structure. Triggers include "new project", "start project", "initialize kata", "setup project", "create project", and "onboard". This skill orchestrates discovery interviews, research, requirements gathering, and roadmap creation.
+name: kata-starting-new-projects
+description: Use this skill when starting a new project, onboarding a new user,initializing a Kata project, creating PROJECT.md, onboarding a new codebase, or setting up project structure. Triggers include "new project", "start project", "initialize kata", "setup project", "create project", and "onboard". This skill orchestrates discovery interviews, research, requirements gathering, and roadmap creation.
 ---
 
 # Project Initialization Orchestrator
@@ -299,13 +299,13 @@ KATA > PROJECT INITIALIZED
 
 **[Project Name]**
 
-| Artifact       | Location                    |
-|----------------|-----------------------------|
-| Project        | `.planning/PROJECT.md`      |
-| Config         | `.planning/config.json`     |
-| Research       | `.planning/research/`       |
-| Requirements   | `.planning/REQUIREMENTS.md` |
-| Roadmap        | `.planning/ROADMAP.md`      |
+| Artifact     | Location                    |
+| ------------ | --------------------------- |
+| Project      | `.planning/PROJECT.md`      |
+| Config       | `.planning/config.json`     |
+| Research     | `.planning/research/`       |
+| Requirements | `.planning/REQUIREMENTS.md` |
+| Roadmap      | `.planning/ROADMAP.md`      |
 
 **[N] phases** | **[X] requirements** | Ready to build
 
@@ -317,10 +317,10 @@ KATA > PROJECT INITIALIZED
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| **Research first** | "Research phase 1" | `/kata-research` |
-| Plan directly | "Plan phase 1" | `/kata-planning` |
+| Action             | Natural Trigger    | Explicit Command           |
+| ------------------ | ------------------ | -------------------------- |
+| **Research first** | "Research phase 1" | `/kata-researching-phases` |
+| Plan directly      | "Plan phase 1"     | `/kata-planning-phases`    |
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -353,7 +353,7 @@ Initialization complete when:
 
 ## Sub-Agent Summary
 
-| Agent | Purpose | When Spawned |
-|-------|---------|--------------|
+| Agent                   | Purpose                              | When Spawned                                  |
+| ----------------------- | ------------------------------------ | --------------------------------------------- |
 | kata-project-researcher | Discovery interview, domain research | Discovery phase, research phase (4x parallel) |
-| kata-roadmapper | Create ROADMAP.md, STATE.md | After requirements defined |
+| kata-roadmapper         | Create ROADMAP.md, STATE.md          | After requirements defined                    |

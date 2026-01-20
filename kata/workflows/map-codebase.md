@@ -261,9 +261,9 @@ Created .planning/codebase/:
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| **New project** | "New project" | `/kata-project-initialization` |
+| Action          | Natural Trigger | Explicit Command              |
+| --------------- | --------------- | ----------------------------- |
+| **New project** | "New project"   | `/kata-starting-new-projects` |
 
 <sub>`/clear` first → fresh context window</sub>
 
