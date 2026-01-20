@@ -420,21 +420,22 @@ Present gaps and offer next command:
 
 {Extract gap summaries from VERIFICATION.md gaps section}
 
----
+───────────────────────────────────────────────────────────────
 
-## ▶ Next Up
+## ▶ Next Action
 
 **Plan gap closure** — create additional plans to complete the phase
 
-`/kata:plan-phase {X} --gaps`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Plan gap closure** | "Plan gaps for phase {X}" | `/kata-planning` |
+| Manual testing first | "Run UAT" | `/kata-verification-and-uat` |
 
 <sub>`/clear` first → fresh context window</sub>
 
----
-
-**Also available:**
-- `cat {phase_dir}/{phase}-VERIFICATION.md` — see full report
-- `/kata:verify-work {X}` — manual testing before planning
+───────────────────────────────────────────────────────────────
 ```
 
 User runs `/kata:plan-phase {X} --gaps` which:
@@ -469,13 +470,22 @@ Present next steps based on milestone status:
 
 **If more phases remain:**
 ```
-## Next Up
+───────────────────────────────────────────────────────────────
+
+## ▶ Next Action
 
 **Phase {X+1}: {Name}** — {Goal}
 
-`/kata:plan-phase {X+1}`
+> Instructions can be given conversationally (recommended) or via /commands.
 
-<sub>`/clear` first for fresh context</sub>
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Verify and run UAT** | "Verify phase {X}", "Run UAT" | `/kata-verification-and-uat` |
+| Plan next phase | "Plan phase {X+1}" | `/kata-planning` |
+
+<sub>`/clear` first → fresh context window</sub>
+
+───────────────────────────────────────────────────────────────
 ```
 
 **If milestone complete:**
@@ -484,7 +494,21 @@ MILESTONE COMPLETE!
 
 All {N} phases executed.
 
-`/kata:complete-milestone`
+───────────────────────────────────────────────────────────────
+
+## ▶ Next Action
+
+**Complete milestone** — archive and prepare for next
+
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Complete milestone** | "Complete milestone" | `/kata-milestone-management` |
+
+<sub>`/clear` first → fresh context window</sub>
+
+───────────────────────────────────────────────────────────────
 ```
 </step>
 

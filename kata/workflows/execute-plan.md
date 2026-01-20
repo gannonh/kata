@@ -1695,23 +1695,22 @@ Summary: .planning/phases/{phase-dir}/{phase}-{plan}-SUMMARY.md
 
 {Y} of {X} plans complete for Phase {Z}.
 
----
+───────────────────────────────────────────────────────────────
 
-## ▶ Next Up
+## ▶ Next Action
 
 **{phase}-{next-plan}: [Plan Name]** — [objective from next PLAN.md]
 
-`/kata:execute-phase {phase}`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Execute the phase** | "Execute phase {phase}" | `/kata-execution` |
+| Run UAT first | "Run UAT" | `/kata-verification-and-uat` |
 
 <sub>`/clear` first → fresh context window</sub>
 
----
-
-**Also available:**
-- `/kata:verify-work {phase}-{plan}` — manual acceptance testing before continuing
-- Review what was built before continuing
-
----
+───────────────────────────────────────────────────────────────
 ```
 
 Wait for user to clear and run next command.
@@ -1756,24 +1755,23 @@ Summary: .planning/phases/{phase-dir}/{phase}-{plan}-SUMMARY.md
 
 All {Y} plans finished.
 
----
+───────────────────────────────────────────────────────────────
 
-## ▶ Next Up
+## ▶ Next Action
 
 **Phase {Z+1}: {Next Phase Name}** — {Goal from ROADMAP.md}
 
-`/kata:plan-phase {Z+1}`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Verify and run UAT** | "Verify phase {Z}", "Run UAT" | `/kata-verification-and-uat` |
+| Plan next phase | "Plan phase {Z+1}" | `/kata-planning` |
+| Research first | "Research phase {Z+1}" | `/kata-research` |
 
 <sub>`/clear` first → fresh context window</sub>
 
----
-
-**Also available:**
-- `/kata:verify-work {Z}` — manual acceptance testing before continuing
-- `/kata:discuss-phase {Z+1}` — gather context first
-- Review phase accomplishments before continuing
-
----
+───────────────────────────────────────────────────────────────
 ```
 
 ---
@@ -1794,24 +1792,23 @@ All {Y} plans finished.
 ║  All {N} phases complete! Milestone is 100% done.     ║
 ╚═══════════════════════════════════════════════════════╝
 
----
+───────────────────────────────────────────────────────────────
 
-## ▶ Next Up
+## ▶ Next Action
 
 **Complete Milestone** — archive and prepare for next
 
-`/kata:complete-milestone`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Complete milestone** | "Complete milestone" | `/kata-milestone-management` |
+| Run UAT first | "Run UAT" | `/kata-verification-and-uat` |
+| Add another phase | "Add a phase" | `/kata-roadmap-management` |
 
 <sub>`/clear` first → fresh context window</sub>
 
----
-
-**Also available:**
-- `/kata:verify-work` — manual acceptance testing before completing milestone
-- `/kata:add-phase <description>` — add another phase before completing
-- Review accomplishments before archiving
-
----
+───────────────────────────────────────────────────────────────
 ```
 
 </step>

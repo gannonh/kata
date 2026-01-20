@@ -370,23 +370,21 @@ Created: .planning/phases/${PADDED_PHASE}-${SLUG}/${PADDED_PHASE}-CONTEXT.md
 ## Noted for Later
 - [Deferred idea] — future phase
 
----
+───────────────────────────────────────────────────────────────
 
-## ▶ Next Up
+## ▶ Next Action
 
 **Phase ${PHASE}: [Name]** — [Goal from ROADMAP.md]
 
-`/kata:plan-phase ${PHASE}`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Plan the phase** | "Plan phase ${PHASE}" | `/kata-planning` |
 
 <sub>`/clear` first → fresh context window</sub>
 
----
-
-**Also available:**
-- `/kata:plan-phase ${PHASE} --skip-research` — plan without research
-- Review/edit CONTEXT.md before continuing
-
----
+───────────────────────────────────────────────────────────────
 ```
 </step>
 

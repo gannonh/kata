@@ -271,12 +271,22 @@ KATA > PHASE {Z} COMPLETE
 {Y} plans executed
 Goal verified
 
----
-## Next Up
+───────────────────────────────────────────────────────────────
 
-**Phase {Z+1}: {Name}** - {Goal}
+## ▶ Next Action
 
-/kata:plan-phase {Z+1}
+**Phase {Z+1}: {Name}** — {Goal}
+
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Verify and run UAT** | "Verify phase {Z}", "Run UAT" | `/kata-verification-and-uat` |
+| Plan next phase | "Plan phase {Z+1}" | `/kata-planning` |
+
+<sub>`/clear` first → fresh context window</sub>
+
+───────────────────────────────────────────────────────────────
 ```
 
 **If milestone complete:**
@@ -285,7 +295,21 @@ KATA > MILESTONE COMPLETE
 
 All {N} phases complete!
 
-/kata:complete-milestone
+───────────────────────────────────────────────────────────────
+
+## ▶ Next Action
+
+**Milestone complete** — finalize and archive
+
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Complete milestone** | "Complete milestone" | `/kata-milestone-management` |
+
+<sub>`/clear` first → fresh context window</sub>
+
+───────────────────────────────────────────────────────────────
 ```
 
 **If gaps found:**
@@ -294,10 +318,21 @@ KATA > PHASE {Z} GAPS FOUND
 
 Score: {N}/{M} must-haves verified
 
----
-## Next Up
+───────────────────────────────────────────────────────────────
 
-/kata:plan-phase {Z} --gaps
+## ▶ Next Action
+
+**Close gaps** — create plans to fix verification failures
+
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Plan gap closure** | "Plan gaps for phase {Z}" | `/kata-planning` |
+
+<sub>`/clear` first → fresh context window</sub>
+
+───────────────────────────────────────────────────────────────
 ```
 
 ## Key References

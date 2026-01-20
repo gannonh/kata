@@ -177,15 +177,21 @@ Route by status:
 
 All requirements covered. Cross-phase integration verified. E2E flows complete.
 
----
+───────────────────────────────────────────────────────────────
 
-## Next Up
+## ▶ Next Action
 
-**Complete milestone** -- archive and tag
+**Complete milestone** — archive and tag
 
-/kata:complete-milestone {version}
+> Instructions can be given conversationally (recommended) or via /commands.
 
-<sub>/clear first -- fresh context window</sub>
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Complete milestone** | "Complete milestone" | `/kata-milestone-management` |
+
+<sub>`/clear` first → fresh context window</sub>
+
+───────────────────────────────────────────────────────────────
 ```
 
 ---
@@ -211,21 +217,22 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 - **{flow name}:** breaks at {step}
 
----
+───────────────────────────────────────────────────────────────
 
-## Next Up
+## ▶ Next Action
 
-**Plan gap closure** -- create phases to complete milestone
+**Plan gap closure** — create phases to complete milestone
 
-/kata:plan-milestone-gaps
+> Instructions can be given conversationally (recommended) or via /commands.
 
-<sub>/clear first -- fresh context window</sub>
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Plan gaps** | "Plan gaps" | `/kata-roadmap-management` |
+| Complete anyway | "Complete milestone" | `/kata-milestone-management` |
 
----
+<sub>`/clear` first → fresh context window</sub>
 
-**Also available:**
-- cat .planning/v{version}-MILESTONE-AUDIT.md -- see full report
-- /kata:complete-milestone {version} -- proceed anyway (accept tech debt)
+───────────────────────────────────────────────────────────────
 ```
 
 ---

@@ -54,10 +54,10 @@ ls .planning/phases/[current-phase]/
 ```
 
 **Common workflow when working on Kata:**
-1. Check progress: `/kata:progress`
-2. Plan phase: `/kata:plan-phase [N]`
-3. Execute: `/kata:execute-phase [N]`
-4. Verify: `/kata:verify-work [N]`
+1. Check progress: "What's the status?" or `/kata-progress-and-status-updates`
+2. Plan phase: "Plan phase [N]" or `/kata-planning`
+3. Execute: "Execute phase [N]" or `/kata-execution`
+4. Verify: "Verify phase [N]" or `/kata-verification-and-uat`
 
 ## Architecture: Files Teach Claude
 
@@ -69,11 +69,11 @@ Every file in Kata serves dual purposes:
 
 Kata uses a thin orchestrator + specialized agents pattern:
 
-| Orchestrator          | Spawns                                                 | Purpose                        |
-| --------------------- | ------------------------------------------------------ | ------------------------------ |
-| `/kata:plan-phase`    | kata-phase-researcher, kata-planner, kata-plan-checker | Research → Plan → Verify loop  |
-| `/kata:execute-phase` | kata-executor (multiple in parallel)                   | Execute plans in waves         |
-| `/kata:verify-work`   | kata-verifier, kata-debugger                           | Check goals, diagnose failures |
+| Orchestrator (Skill)            | Spawns                                                 | Purpose                        |
+| ------------------------------- | ------------------------------------------------------ | ------------------------------ |
+| `kata-planning`                 | kata-phase-researcher, kata-planner, kata-plan-checker | Research → Plan → Verify loop  |
+| `kata-execution`                | kata-executor (multiple in parallel)                   | Execute plans in waves         |
+| `kata-verification-and-uat`     | kata-verifier, kata-debugger                           | Check goals, diagnose failures |
 
 **Key principle:** Orchestrators stay lean (~15% context), subagents get fresh 200k tokens each.
 
@@ -83,11 +83,13 @@ Kata provides skills for autonomous invocation alongside slash commands for dete
 
 ### Skills vs Commands
 
-| Aspect     | Skills                        | Commands                        |
+| Aspect     | Skills                        | Explicit Invocation             |
 | ---------- | ----------------------------- | ------------------------------- |
-| Invocation | Autonomous (Claude decides)   | Explicit (`/kata:command`)      |
-| Arguments  | From natural language context | `$ARGUMENTS`                    |
-| Use case   | "Help me plan phase 2"        | `/kata:plan-phase 2 --research` |
+| Invocation | Autonomous (Claude decides)   | Explicit (`/skill-name`)        |
+| Arguments  | From natural language context | From context                    |
+| Use case   | "Help me plan phase 2"        | `/kata-planning`                |
+
+**Note:** Explicit skill invocation uses `/skill-name` syntax (e.g., `/kata-planning`), not the old `/kata:command` namespace.
 
 ### Available Skills
 

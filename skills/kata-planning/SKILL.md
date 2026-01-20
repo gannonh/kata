@@ -249,11 +249,21 @@ KATA > PHASE {X} PLANNED
 Research: {Completed | Used existing | Skipped}
 Verification: {Passed | Passed with override | Skipped}
 
-## Next Up
+───────────────────────────────────────────────────────────────
 
-**Execute Phase {X}** - run all {N} plans
+## ▶ Next Action
 
-/kata:execute-phase {X}
+**Execute Phase {X}** — run all {N} plans
+
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Execute the phase** | "Execute phase {X}" | `/kata-execution` |
+
+<sub>`/clear` first → fresh context window</sub>
+
+───────────────────────────────────────────────────────────────
 ```
 
 ## Key References

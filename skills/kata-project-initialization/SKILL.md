@@ -309,18 +309,22 @@ KATA > PROJECT INITIALIZED
 
 **[N] phases** | **[X] requirements** | Ready to build
 
----
+───────────────────────────────────────────────────────────────
 
-## Next Up
+## ▶ Next Action
 
-**Phase 1: [Phase Name]** - [Goal from ROADMAP.md]
+**Phase 1: [Phase Name]** — [Goal from ROADMAP.md]
 
-/kata:discuss-phase 1 - gather context and clarify approach
+> Instructions can be given conversationally (recommended) or via /commands.
 
----
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Research first** | "Research phase 1" | `/kata-research` |
+| Plan directly | "Plan phase 1" | `/kata-planning` |
 
-**Also available:**
-- /kata:plan-phase 1 - skip discussion, plan directly
+<sub>`/clear` first → fresh context window</sub>
+
+───────────────────────────────────────────────────────────────
 ```
 
 ## Key References

@@ -677,17 +677,21 @@ Archived:
 Summary: .planning/MILESTONES.md
 Tag: v[X.Y]
 
----
+───────────────────────────────────────────────────────────────
 
-## ▶ Next Up
+## ▶ Next Action
 
 **Start Next Milestone** — questioning → research → requirements → roadmap
 
-`/kata:new-milestone`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **New milestone** | "New milestone" | `/kata-milestone-management` |
 
 <sub>`/clear` first → fresh context window</sub>
 
----
+───────────────────────────────────────────────────────────────
 ```
 
 </step>

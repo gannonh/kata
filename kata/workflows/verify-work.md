@@ -501,11 +501,17 @@ Plans verified and ready for execution.
 
 ───────────────────────────────────────────────────────────────
 
-## ▶ Next Up
+## ▶ Next Action
 
 **Execute fixes** — run fix plans
 
-`/clear` then `/kata:execute-phase {phase} --gaps-only`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Execute gap closure** | "Execute phase {phase}" | `/kata-execution` |
+
+<sub>`/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```

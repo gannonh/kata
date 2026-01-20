@@ -442,24 +442,23 @@ Exit skill and invoke SlashCommand("/kata:plan-phase [X+1]")
 ```
 ## ✓ Phase [X] Complete
 
----
+───────────────────────────────────────────────────────────────
 
-## ▶ Next Up
+## ▶ Next Action
 
 **Phase [X+1]: [Name]** — [Goal from ROADMAP.md]
 
-`/kata:plan-phase [X+1]`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Verify and run UAT** | "Verify phase [X]", "Run UAT" | `/kata-verification-and-uat` |
+| Plan next phase | "Plan phase [X+1]" | `/kata-planning` |
+| Research first | "Research phase [X+1]" | `/kata-research` |
 
 <sub>`/clear` first → fresh context window</sub>
 
----
-
-**Also available:**
-- `/kata:discuss-phase [X+1]` — gather context first
-- `/kata:research-phase [X+1]` — investigate unknowns
-- Review roadmap
-
----
+───────────────────────────────────────────────────────────────
 ```
 
 </if>
@@ -489,22 +488,21 @@ Exit skill and invoke SlashCommand("/kata:complete-milestone {version}")
 
 🎉 Milestone {version} is 100% complete — all {N} phases finished!
 
----
+───────────────────────────────────────────────────────────────
 
-## ▶ Next Up
+## ▶ Next Action
 
 **Complete Milestone {version}** — archive and prepare for next
 
-`/kata:complete-milestone {version}`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Complete milestone** | "Complete milestone" | `/kata-milestone-management` |
 
 <sub>`/clear` first → fresh context window</sub>
 
----
-
-**Also available:**
-- Review accomplishments before archiving
-
----
+───────────────────────────────────────────────────────────────
 ```
 
 </if>

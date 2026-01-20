@@ -317,27 +317,32 @@ Use subagents for autonomous work. Reserve main context for user interaction.
 
 Orchestrators @-reference ui-brand.md for stage banners, checkpoint boxes, status symbols, and completion displays.
 
-### "Next Up" Format
+### "Next Action" Format
 
 ```markdown
 ───────────────────────────────────────────────────────────────
 
-## ▶ Next Up
+## ▶ Next Action
 
-**{identifier}: {name}** — {one-line description}
+**{Identifier}: {Name}** — {one-line description}
 
-`{copy-paste command}`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **{Primary action}** | "{trigger phrase}" | `/{skill-name}` |
+| {Secondary action} | "{trigger phrase}" | `/{skill-name}` |
 
 <sub>`/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-
-**Also available:**
-- Alternative option
-- Another option
-
-───────────────────────────────────────────────────────────────
 ```
+
+**Key elements:**
+- Blockquote explaining the two invocation modes (conversational vs explicit)
+- Table with Action, Natural Trigger, Explicit Command columns
+- Bold for primary/recommended action (first row)
+- Explicit commands use `/skill-name` (e.g., `/kata-planning`), not `/kata:command`
 
 ### Decision Gates
 

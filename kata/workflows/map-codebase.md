@@ -253,24 +253,21 @@ Created .planning/codebase/:
 - CONCERNS.md ([N] lines) - Technical debt and issues
 
 
----
+───────────────────────────────────────────────────────────────
 
-## ▶ Next Up
+## ▶ Next Action
 
 **Initialize project** — use codebase context for planning
 
-`/kata:new-project`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **New project** | "New project" | `/kata-project-initialization` |
 
 <sub>`/clear` first → fresh context window</sub>
 
----
-
-**Also available:**
-- Re-run mapping: `/kata:map-codebase`
-- Review specific file: `cat .planning/codebase/STACK.md`
-- Edit any document before proceeding
-
----
+───────────────────────────────────────────────────────────────
 ```
 
 End workflow.

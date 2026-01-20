@@ -292,13 +292,21 @@ KATA > MILESTONE INITIALIZED
 
 **[N] phases** | **[X] requirements** | Ready to build
 
----
+───────────────────────────────────────────────────────────────
 
-## Next Up
+## ▶ Next Action
 
 **Phase [N]: [Phase Name]** — [Goal]
 
-/kata:plan-phase [N]
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Plan the phase** | "Plan phase [N]" | `/kata-planning` |
+
+<sub>`/clear` first → fresh context window</sub>
+
+───────────────────────────────────────────────────────────────
 ```
 
 ## Success Criteria

@@ -97,26 +97,25 @@ Plans: 3/5 complete
 
 ---
 
-## Next Up Block
+## Next Action Block
 
 Always at end of major completions.
 
 ```
 ───────────────────────────────────────────────────────────────
 
-## ▶ Next Up
+## ▶ Next Action
 
 **{Identifier}: {Name}** — {one-line description}
 
-`{copy-paste command}`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **{Primary action}** | "{trigger phrase}" | `/{skill-name}` |
+| {Secondary action} | "{trigger phrase}" | `/{skill-name}` |
 
 <sub>`/clear` first → fresh context window</sub>
-
-───────────────────────────────────────────────────────────────
-
-**Also available:**
-- `/kata:alternative-1` — description
-- `/kata:alternative-2` — description
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -155,6 +154,6 @@ Always at end of major completions.
 - Mixing banner styles (`===`, `---`, `***`)
 - Skipping `KATA ►` prefix in banners
 - Random emoji (`🚀`, `✨`, `💫`)
-- Missing Next Up block after completions
+- Missing Next Action block after completions
 
 </ui_patterns>

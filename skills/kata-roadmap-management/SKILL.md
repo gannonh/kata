@@ -84,11 +84,21 @@ Phase {N} added to current milestone:
 - Directory: .planning/phases/{phase-num}-{slug}/
 - Status: Not planned yet
 
-## Next Up
+───────────────────────────────────────────────────────────────
+
+## ▶ Next Action
 
 **Phase {N}: {description}**
 
-/kata:plan-phase {N}
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Plan the phase** | "Plan phase {N}" | `/kata-planning` |
+
+<sub>`/clear` first → fresh context window</sub>
+
+───────────────────────────────────────────────────────────────
 ```
 
 ## INSERT Phase Operation (Urgent)

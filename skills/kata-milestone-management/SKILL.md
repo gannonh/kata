@@ -133,7 +133,21 @@ See `./references/milestone-creation.md` for complete details.
     | Requirements | .planning/REQUIREMENTS.md  |
     | Roadmap      | .planning/ROADMAP.md       |
 
-    Next: /kata:plan-phase [N]
+    ───────────────────────────────────────────────────────────
+
+    ## ▶ Next Action
+
+    **Phase [N]: [Name]** — [Goal]
+
+    > Instructions can be given conversationally (recommended) or via /commands.
+
+    | Action | Natural Trigger | Explicit Command |
+    |--------|-----------------|------------------|
+    | **Plan the phase** | "Plan phase [N]" | `/kata-planning` |
+
+    <sub>`/clear` first → fresh context window</sub>
+
+    ───────────────────────────────────────────────────────────
     ```
 
 ---
@@ -184,13 +198,27 @@ See `./references/milestone-completion.md` for complete details.
 
 8. **Present completion**
    ```
-   Milestone v[X.Y] complete
+   KATA > MILESTONE v[X.Y] COMPLETE 🎉
 
    Archived:
    - milestones/v[X.Y]-ROADMAP.md
    - milestones/v[X.Y]-REQUIREMENTS.md
 
-   Next: /kata:new-milestone
+   ───────────────────────────────────────────────────────────
+
+   ## ▶ Next Action
+
+   **Start next milestone** — questioning → research → roadmap
+
+   > Instructions can be given conversationally (recommended) or via /commands.
+
+   | Action | Natural Trigger | Explicit Command |
+   |--------|-----------------|------------------|
+   | **New milestone** | "New milestone" | `/kata-milestone-management` |
+
+   <sub>`/clear` first → fresh context window</sub>
+
+   ───────────────────────────────────────────────────────────
    ```
 
 ---
@@ -247,9 +275,46 @@ See `./references/milestone-auditing.md` for complete details.
 
 6. **Present results**
    Route by status:
-   - **passed:** Proceed to `/kata:complete-milestone`
-   - **gaps_found:** Run `/kata:plan-milestone-gaps`
-   - **tech_debt:** Choose to complete or plan cleanup
+
+   **If passed:**
+   ```
+   ───────────────────────────────────────────────────────────
+
+   ## ▶ Next Action
+
+   **Audit passed** — proceed to milestone completion
+
+   > Instructions can be given conversationally (recommended) or via /commands.
+
+   | Action | Natural Trigger | Explicit Command |
+   |--------|-----------------|------------------|
+   | **Complete milestone** | "Complete milestone" | `/kata-milestone-management` |
+
+   <sub>`/clear` first → fresh context window</sub>
+
+   ───────────────────────────────────────────────────────────
+   ```
+
+   **If gaps_found:**
+   ```
+   ───────────────────────────────────────────────────────────
+
+   ## ▶ Next Action
+
+   **Gaps found** — plan closure phases
+
+   > Instructions can be given conversationally (recommended) or via /commands.
+
+   | Action | Natural Trigger | Explicit Command |
+   |--------|-----------------|------------------|
+   | **Plan gap closure** | "Plan gaps" | `/kata-roadmap-management` |
+
+   <sub>`/clear` first → fresh context window</sub>
+
+   ───────────────────────────────────────────────────────────
+   ```
+
+   **If tech_debt:** Choose to complete or plan cleanup
 
 ---
 

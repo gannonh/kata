@@ -5,56 +5,67 @@ Standard format for presenting next steps after completing a command or workflow
 ## Core Structure
 
 ```
----
+───────────────────────────────────────────────────────────────
 
-## ▶ Next Up
+## ▶ Next Action
 
-**{identifier}: {name}** — {one-line description}
+**{Identifier}: {Name}** — {one-line description}
 
-`{command to copy-paste}`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **{Primary action}** | "{trigger phrase}" | `/{skill-name}` |
+| {Secondary action} | "{trigger phrase}" | `/{skill-name}` |
 
 <sub>`/clear` first → fresh context window</sub>
 
----
-
-**Also available:**
-- `{alternative option 1}` — description
-- `{alternative option 2}` — description
-
----
+───────────────────────────────────────────────────────────────
 ```
 
 ## Format Rules
 
 1. **Always show what it is** — name + description, never just a command path
 2. **Pull context from source** — ROADMAP.md for phases, PLAN.md `<objective>` for plans
-3. **Command in inline code** — backticks, easy to copy-paste, renders as clickable link
-4. **`/clear` explanation** — always include, keeps it concise but explains why
-5. **"Also available" not "Other options"** — sounds more app-like
-6. **Visual separators** — `---` above and below to make it stand out
+3. **Table format** — Action, Natural Trigger, Explicit Command columns
+4. **Bold primary action** — first row should be bolded (recommended action)
+5. **`/clear` explanation** — always include, keeps it concise but explains why
+6. **Visual separators** — `───` above and below to make it stand out
+
+## Skill Mapping Reference
+
+| Action | Skill Name | Natural Triggers |
+|--------|------------|------------------|
+| Plan phase | `kata-planning` | "plan phase N", "plan next phase" |
+| Execute phase | `kata-execution` | "execute phase N", "run phase N" |
+| Verify/UAT | `kata-verification-and-uat` | "verify phase N", "run UAT" |
+| New project | `kata-project-initialization` | "new project", "start project" |
+| New milestone | `kata-milestone-management` | "new milestone", "start milestone" |
+| Add phase | `kata-roadmap-management` | "add a phase", "insert phase" |
+| Progress | `kata-progress-and-status-updates` | "progress", "status", "what's next" |
+| Research | `kata-research` | "research phase N", "investigate" |
 
 ## Variants
 
 ### Execute Next Plan
 
 ```
----
+───────────────────────────────────────────────────────────────
 
-## ▶ Next Up
+## ▶ Next Action
 
 **02-03: Refresh Token Rotation** — Add /api/auth/refresh with sliding expiry
 
-`/kata:execute-phase 2`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Execute the plan** | "Execute phase 2" | `/kata-execution` |
+| Check assumptions | "List assumptions for phase 2" | — |
 
 <sub>`/clear` first → fresh context window</sub>
 
----
-
-**Also available:**
-- Review plan before executing
-- `/kata:list-phase-assumptions 2` — check assumptions
-
----
+───────────────────────────────────────────────────────────────
 ```
 
 ### Execute Final Plan in Phase
@@ -62,47 +73,48 @@ Standard format for presenting next steps after completing a command or workflow
 Add note that this is the last plan and what comes after:
 
 ```
----
+───────────────────────────────────────────────────────────────
 
-## ▶ Next Up
+## ▶ Next Action
 
 **02-03: Refresh Token Rotation** — Add /api/auth/refresh with sliding expiry
 <sub>Final plan in Phase 2</sub>
 
-`/kata:execute-phase 2`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Execute the plan** | "Execute phase 2" | `/kata-execution` |
 
 <sub>`/clear` first → fresh context window</sub>
-
----
 
 **After this completes:**
 - Phase 2 → Phase 3 transition
 - Next: **Phase 3: Core Features** — User dashboard and settings
 
----
+───────────────────────────────────────────────────────────────
 ```
 
 ### Plan a Phase
 
 ```
----
+───────────────────────────────────────────────────────────────
 
-## ▶ Next Up
+## ▶ Next Action
 
 **Phase 2: Authentication** — JWT login flow with refresh tokens
 
-`/kata:plan-phase 2`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Plan the phase** | "Plan phase 2" | `/kata-planning` |
+| Research first | "Research phase 2" | `/kata-research` |
+| Discuss context | "Discuss phase 2" | `/kata-research` |
 
 <sub>`/clear` first → fresh context window</sub>
 
----
-
-**Also available:**
-- `/kata:discuss-phase 2` — gather context first
-- `/kata:research-phase 2` — investigate unknowns
-- Review roadmap
-
----
+───────────────────────────────────────────────────────────────
 ```
 
 ### Phase Complete, Ready for Next
@@ -110,28 +122,27 @@ Add note that this is the last plan and what comes after:
 Show completion status before next action:
 
 ```
----
+───────────────────────────────────────────────────────────────
 
 ## ✓ Phase 2 Complete
 
 3/3 plans executed
 
-## ▶ Next Up
+## ▶ Next Action
 
 **Phase 3: Core Features** — User dashboard, settings, and data export
 
-`/kata:plan-phase 3`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Verify and run UAT** | "Verify phase 2", "Run UAT" | `/kata-verification-and-uat` |
+| Plan next phase | "Plan phase 3" | `/kata-planning` |
+| Research first | "Research phase 3" | `/kata-research` |
 
 <sub>`/clear` first → fresh context window</sub>
 
----
-
-**Also available:**
-- `/kata:discuss-phase 3` — gather context first
-- `/kata:research-phase 3` — investigate unknowns
-- Review what Phase 2 built
-
----
+───────────────────────────────────────────────────────────────
 ```
 
 ### Multiple Equal Options
@@ -139,41 +150,47 @@ Show completion status before next action:
 When there's no clear primary action:
 
 ```
----
+───────────────────────────────────────────────────────────────
 
-## ▶ Next Up
+## ▶ Next Action
 
 **Phase 3: Core Features** — User dashboard, settings, and data export
 
-**To plan directly:** `/kata:plan-phase 3`
+> Instructions can be given conversationally (recommended) or via /commands.
 
-**To discuss context first:** `/kata:discuss-phase 3`
-
-**To research unknowns:** `/kata:research-phase 3`
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| Plan the phase | "Plan phase 3" | `/kata-planning` |
+| Research first | "Research phase 3" | `/kata-research` |
+| Discuss context | "Discuss phase 3" | `/kata-research` |
 
 <sub>`/clear` first → fresh context window</sub>
 
----
+───────────────────────────────────────────────────────────────
 ```
 
 ### Milestone Complete
 
 ```
----
+───────────────────────────────────────────────────────────────
 
 ## 🎉 Milestone v1.0 Complete
 
 All 4 phases shipped
 
-## ▶ Next Up
+## ▶ Next Action
 
 **Start v1.1** — questioning → research → requirements → roadmap
 
-`/kata:new-milestone`
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action | Natural Trigger | Explicit Command |
+|--------|-----------------|------------------|
+| **Start new milestone** | "New milestone" | `/kata-milestone-management` |
 
 <sub>`/clear` first → fresh context window</sub>
 
----
+───────────────────────────────────────────────────────────────
 ```
 
 ## Pulling Context
@@ -214,7 +231,7 @@ Extract: `**02-03: Refresh Token Rotation** — Add /api/auth/refresh with slidi
 ## To Continue
 
 Run `/clear`, then paste:
-/kata:execute-phase 2
+/kata-execution
 ```
 
 User has no idea what 02-03 is about.
@@ -222,27 +239,36 @@ User has no idea what 02-03 is about.
 ### Don't: Missing /clear explanation
 
 ```
-`/kata:plan-phase 3`
+`/kata-planning`
 
 Run /clear first.
 ```
 
 Doesn't explain why. User might skip it.
 
-### Don't: "Other options" language
+### Don't: Old command namespace syntax
 
 ```
-Other options:
-- Review roadmap
+`/kata:plan-phase 3`
 ```
 
-Sounds like an afterthought. Use "Also available:" instead.
+Use skill names directly: `/kata-planning`
+
+### Don't: Bullet list instead of table
+
+```
+**Also available:**
+- `/kata-planning` — plan the phase
+- `/kata-research` — research first
+```
+
+Use table format for consistency and clarity.
 
 ### Don't: Fenced code blocks for commands
 
 ```
 ```
-/kata:plan-phase 3
+/kata-planning
 ```
 ```
 

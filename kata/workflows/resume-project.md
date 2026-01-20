@@ -209,37 +209,40 @@ Based on user selection, route to appropriate workflow:
 
 - **Execute plan** → Show command for user to run after clearing:
   ```
-  ---
+  ───────────────────────────────────────────────────────────────
 
-  ## ▶ Next Up
+  ## ▶ Next Action
 
   **{phase}-{plan}: [Plan Name]** — [objective from PLAN.md]
 
-  `/kata:execute-phase {phase}`
+  > Instructions can be given conversationally (recommended) or via /commands.
+
+  | Action | Natural Trigger | Explicit Command |
+  |--------|-----------------|------------------|
+  | **Execute the phase** | "Execute phase {phase}" | `/kata-execution` |
 
   <sub>`/clear` first → fresh context window</sub>
 
-  ---
+  ───────────────────────────────────────────────────────────────
   ```
 - **Plan phase** → Show command for user to run after clearing:
   ```
-  ---
+  ───────────────────────────────────────────────────────────────
 
-  ## ▶ Next Up
+  ## ▶ Next Action
 
   **Phase [N]: [Name]** — [Goal from ROADMAP.md]
 
-  `/kata:plan-phase [phase-number]`
+  > Instructions can be given conversationally (recommended) or via /commands.
+
+  | Action | Natural Trigger | Explicit Command |
+  |--------|-----------------|------------------|
+  | **Plan the phase** | "Plan phase [N]" | `/kata-planning` |
+  | Research first | "Research phase [N]" | `/kata-research` |
 
   <sub>`/clear` first → fresh context window</sub>
 
-  ---
-
-  **Also available:**
-  - `/kata:discuss-phase [N]` — gather context first
-  - `/kata:research-phase [N]` — investigate unknowns
-
-  ---
+  ───────────────────────────────────────────────────────────────
   ```
 - **Transition** → ./transition.md
 - **Check todos** → Read .planning/todos/pending/, present summary
