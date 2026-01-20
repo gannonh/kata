@@ -2,6 +2,26 @@
 
 Validate built features through conversational testing with persistent state.
 
+## Visual Presentation
+
+**Stage banner on start:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ KATA ► USER ACCEPTANCE TESTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+◆ Loading tests from summaries...
+```
+
+**Stage banner on completion:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ KATA ► UAT COMPLETE ✓
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
 ## Philosophy
 
 **Show expected, ask if reality matches.**
@@ -86,13 +106,17 @@ Test:
 Present tests one at a time using checkpoint box:
 
 ```
-CHECKPOINT: Verification Required
+╔══════════════════════════════════════════════════════════════╗
+║  CHECKPOINT: Verification Required                           ║
+╚══════════════════════════════════════════════════════════════╝
 
 **Test {N}: {name}**
 
 {expected behavior - specific, observable}
 
--> Type "pass" or describe what's wrong
+──────────────────────────────────────────────────────────────
+→ Type "pass" or describe what's wrong
+──────────────────────────────────────────────────────────────
 ```
 
 **Expected behavior guidance:**
@@ -171,7 +195,11 @@ Default to **major** if unclear. User can correct if needed.
 
 **Display on resume:**
 ```
-Resuming: Phase {phase} UAT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ KATA ► RESUMING UAT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Phase: {phase}
 Progress: {passed + issues + skipped}/{total}
 Issues found so far: {issues count}
 
