@@ -41,7 +41,7 @@ Check for Kata project structure:
 ls .planning/ 2>/dev/null
 ```
 
-If not found, user should run `/kata:new-project` first.
+If not found, user should run `/kata-starting-new-projects` first.
 
 ### Step 3: Route to Workflow
 
@@ -57,7 +57,7 @@ See `./references/milestone-creation.md` for complete details.
 
 1. **Validate project exists**
    ```bash
-   [ -f .planning/PROJECT.md ] || echo "Run /kata:new-project first"
+   [ -f .planning/PROJECT.md ] || echo "Run /kata-starting-new-projects first"
    ```
 
 2. **Check for active milestone**
@@ -139,9 +139,13 @@ See `./references/milestone-creation.md` for complete details.
 
     **Phase [N]: [Name]** — [Goal]
 
-    `/kata-planning-phases [N]`
+    > Instructions can be given conversationally (recommended) or via /commands.
 
-    <sub>/clear first → fresh context window</sub>
+    | Action                | Natural Trigger    | Explicit Command        |
+    | --------------------- | ------------------ | ----------------------- |
+    | ⭐ **Plan the phase** | "Plan phase [N]"   | `/kata-planning-phases` |
+
+    <sub>★ recommended · /clear first → fresh context window</sub>
 
     ───────────────────────────────────────────────────────────
 
@@ -157,8 +161,8 @@ See `./references/milestone-completion.md` for complete details.
    ```bash
    ls .planning/v*-MILESTONE-AUDIT.md 2>/dev/null
    ```
-   - No audit: recommend `/kata:audit-milestone` first
-   - Audit has gaps: recommend `/kata:plan-milestone-gaps`
+   - No audit: recommend `/kata-manageing-milestones audit` first
+   - Audit has gaps: recommend `/kata-managing-project-roadmap`
    - Audit passed: proceed
 
 2. **Verify readiness**
@@ -203,11 +207,15 @@ See `./references/milestone-completion.md` for complete details.
 
    ## ▶ Next Action
 
-   **Start next milestone** — questioning → research → roadmap
+   **Start next milestone** — questioning → research → requirements → roadmap
 
-   `/kata-manageing-milestones new`
+   > Instructions can be given conversationally (recommended) or via /commands.
 
-   <sub>/clear first → fresh context window</sub>
+   | Action                     | Natural Trigger | Explicit Command             |
+   | -------------------------- | --------------- | ---------------------------- |
+   | ⭐ **Start new milestone** | "New milestone" | `/kata-manageing-milestones` |
+
+   <sub>★ recommended · /clear first → fresh context window</sub>
 
    ───────────────────────────────────────────────────────────
 
@@ -274,9 +282,13 @@ See `./references/milestone-auditing.md` for complete details.
 
    **Audit passed** — proceed to milestone completion
 
-   `/kata-manageing-milestones complete`
+   > Instructions can be given conversationally (recommended) or via /commands.
 
-   <sub>/clear first → fresh context window</sub>
+   | Action                      | Natural Trigger      | Explicit Command             |
+   | --------------------------- | -------------------- | ---------------------------- |
+   | ⭐ **Complete milestone**   | "Complete milestone" | `/kata-manageing-milestones` |
+
+   <sub>★ recommended · /clear first → fresh context window</sub>
 
    ───────────────────────────────────────────────────────────
 
@@ -288,9 +300,14 @@ See `./references/milestone-auditing.md` for complete details.
 
    **Gaps found** — plan closure phases
 
-   `/kata-managing-project-roadmap plan-gaps`
+   > Instructions can be given conversationally (recommended) or via /commands.
 
-   <sub>/clear first → fresh context window</sub>
+   | Action                    | Natural Trigger      | Explicit Command                 |
+   | ------------------------- | -------------------- | -------------------------------- |
+   | ⭐ **Plan gaps**          | "Plan gaps"          | `/kata-managing-project-roadmap` |
+   | Complete anyway           | "Complete milestone" | `/kata-manageing-milestones`     |
+
+   <sub>★ recommended · /clear first → fresh context window</sub>
 
    ───────────────────────────────────────────────────────────
 

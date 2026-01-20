@@ -184,11 +184,11 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action                 | Natural Trigger      | Explicit Command             |
-| ---------------------- | -------------------- | ---------------------------- |
-| **Complete milestone** | "Complete milestone" | `/kata-manageing-milestones` |
+| Action                      | Natural Trigger      | Explicit Command             |
+| --------------------------- | -------------------- | ---------------------------- |
+| ⭐ **Complete milestone**   | "Complete milestone" | `/kata-manageing-milestones` |
 
-<sub>/clear first → fresh context window</sub>
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
@@ -222,12 +222,12 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action          | Natural Trigger      | Explicit Command                 |
-| --------------- | -------------------- | -------------------------------- |
-| **Plan gaps**   | "Plan gaps"          | `/kata-managing-project-roadmap` |
-| Complete anyway | "Complete milestone" | `/kata-manageing-milestones`     |
+| Action             | Natural Trigger      | Explicit Command                 |
+| ------------------ | -------------------- | -------------------------------- |
+| ⭐ **Plan gaps**   | "Plan gaps"          | `/kata-managing-project-roadmap` |
+| Complete anyway    | "Complete milestone" | `/kata-manageing-milestones`     |
 
-<sub>/clear first → fresh context window</sub>
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
@@ -250,23 +250,26 @@ All requirements met. No critical blockers. Accumulated tech debt needs review.
 
 ### Total: {N} items across {M} phases
 
----
+───────────────────────────────────────────────────────────────
 
-## Options
+## ▶ Next Action
 
-**A. Complete milestone** -- accept debt, track in backlog
+**Tech debt review** — complete with debt or plan cleanup
 
-/kata:complete-milestone {version}
+> Instructions can be given conversationally (recommended) or via /commands.
 
-**B. Plan cleanup phase** -- address debt before completing
+| Action                    | Natural Trigger      | Explicit Command                 |
+| ------------------------- | -------------------- | -------------------------------- |
+| ⭐ **Complete milestone** | "Complete milestone" | `/kata-manageing-milestones`     |
+| Plan cleanup phase        | "Plan gaps"          | `/kata-managing-project-roadmap` |
 
-/kata:plan-milestone-gaps
+<sub>★ recommended · /clear first → fresh context window</sub>
 
-<sub>/clear first -- fresh context window</sub>
+───────────────────────────────────────────────────────────────
 
-## Integration with plan-milestone-gaps
+## Integration with Gap Planning
 
-When gaps are found, `/kata:plan-milestone-gaps` uses the audit report:
+When gaps are found, the `/kata-managing-project-roadmap` skill uses the audit report:
 
 1. Reads `v{version}-MILESTONE-AUDIT.md`
 2. Extracts gap list from frontmatter

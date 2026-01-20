@@ -299,11 +299,11 @@ KATA > MILESTONE INITIALIZED
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action             | Natural Trigger  | Explicit Command        |
-| ------------------ | ---------------- | ----------------------- |
-| **Plan the phase** | "Plan phase [N]" | `/kata-planning-phases` |
+| Action                | Natural Trigger  | Explicit Command        |
+| --------------------- | ---------------- | ----------------------- |
+| ⭐ **Plan the phase** | "Plan phase [N]" | `/kata-planning-phases` |
 
-<sub>/clear first → fresh context window</sub>
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
@@ -319,4 +319,4 @@ KATA > MILESTONE INITIALIZED
 - [ ] REQUIREMENTS.md created with REQ-IDs (committed)
 - [ ] kata-roadmapper spawned with context
 - [ ] ROADMAP.md, STATE.md committed
-- [ ] User knows next step is `/kata:plan-phase [N]`
+- [ ] User knows next step is planning phase [N]
