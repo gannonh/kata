@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 0: Convert Commands to Skills** - Create skills as orchestrators that spawn sub-agents — completed 2026-01-20
 - [x] **Phase 1: Migrate Todo Commands to Kata Skill** - Create kata-managing-todos skill from gsd:add-todo and gsd:check-todos — completed 2026-01-20
-- [ ] **Phase 1.1: Testing & Evals Harness** - CLI-based test framework leveraging `claude "prompt"` to verify skill invocation and artifact production (INSERTED)
+- [x] **Phase 1.1: Testing & Evals Harness** - CLI-based test framework leveraging `claude "prompt"` to verify skill invocation and artifact production (INSERTED) — completed 2026-01-20
 - [ ] **Phase 2: Create Kata Slash Commands** - Create GSD-equivalent slash commands that instantiate Kata skills
 - [ ] **Phase 3: Documentation** - Complete README and add onboarding guidance
 
@@ -113,8 +113,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01.1-01-PLAN.md — Create test harness utilities (claude-cli.js, assertions.js) and fixtures
-- [ ] 01.1-02-PLAN.md — Create proof-of-concept skill test + npm integration
+- [x] 01.1-01-PLAN.md — Create test harness utilities (claude-cli.js, assertions.js) and fixtures
+- [x] 01.1-02-PLAN.md — Create proof-of-concept skill test + npm integration
 
 #### Phase 2: Create Kata Slash Commands
 **Goal**: Create GSD-equivalent slash commands that instantiate corresponding Kata skills, ensuring explicit invocation path alongside autonomous skill triggering
@@ -249,7 +249,7 @@ Plans:
 | 0. Hard Fork & Rebrand            | v0.1.4    | 5/5            | Complete    | 2026-01-18 |
 | 0. Convert Commands to Skills     | v0.1.5    | 12/12          | Complete    | 2026-01-20 |
 | 1. Migrate Todo Commands to Skill | v0.1.5    | 3/3            | Complete    | 2026-01-20 |
-| 1.1 Testing & Evals Harness       | v0.1.5    | 0/2            | Planned     | -          |
+| 1.1 Testing & Evals Harness       | v0.1.5    | 2/2            | Complete    | 2026-01-20 |
 | 2. Create Kata Slash Commands     | v0.1.5    | 0/?            | Not planned | -          |
 | 3. Documentation                  | v0.1.5    | 0/?            | Not planned | -          |
 | 1. Plugin Distribution            | v0.1.6    | 0/?            | Not planned | -          |
@@ -261,4 +261,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-20 — Phase 1.1 planned: 2 plans in 2 waves*
+*Last updated: 2026-01-20 — Phase 1.1 complete: 2 plans, test harness working*
