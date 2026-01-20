@@ -2,7 +2,7 @@
 
 # KATA
 
-**Spec-driven development and subagent orchestration framework for Claude Code.**
+**Agent orchestration framework for spec-driven development.**
 
 [![npm version](https://img.shields.io/npm/v/@gannonh/kata?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@gannonh/kata)
 <br>
@@ -27,7 +27,7 @@ npx @gannonh/kata
 
 ## Who This Is For
 
-Developers who describe what they want and have it built correctly.
+Teams and individuals that want to describe what they want and have it built correctly.
 
 ---
 
