@@ -29,7 +29,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 ### v0.1.5 Skills & Documentation (In Progress)
 
 - [x] **Phase 0: Convert Commands to Skills** - Create skills as orchestrators that spawn sub-agents — completed 2026-01-20
-- [ ] **Phase 1: Migrate Todo Commands to Kata Skill** - Create kata-todo-management skill from gsd:add-todo and gsd:check-todos
+- [x] **Phase 1: Migrate Todo Commands to Kata Skill** - Create kata-managing-todos skill from gsd:add-todo and gsd:check-todos — completed 2026-01-20
 - [ ] **Phase 1.1: Testing & Evals Harness** - CLI-based test framework leveraging `claude "prompt"` to verify skill invocation and artifact production (INSERTED)
 - [ ] **Phase 2: Create Kata Slash Commands** - Create GSD-equivalent slash commands that instantiate Kata skills
 - [ ] **Phase 3: Documentation** - Complete README and add onboarding guidance
@@ -83,11 +83,11 @@ Plans:
 - [x] 00-12-PLAN.md — Improve skill trigger phrases (gap closure)
 
 #### Phase 1: Migrate Todo Commands to Kata Skill
-**Goal**: Create `kata-todo-management` skill to handle todo capture and management, migrating functionality from GSD's `add-todo` and `check-todos` commands
+**Goal**: Create `kata-managing-todos` skill to handle todo capture and management, migrating functionality from GSD's `add-todo` and `check-todos` commands
 **Depends on**: Phase 0 (Skills established)
 **Requirements**: None (skill migration)
 **Success Criteria** (what must be TRUE):
-  1. kata-todo-management skill created with SKILL.md (<500 lines)
+  1. kata-managing-todos skill created with SKILL.md (<500 lines)
   2. Skill has references/ subdirectory (todo-format.md, actions.md)
   3. ADD operation captures todos with area inference and duplicate detection
   4. CHECK operation lists pending todos with action options (work on, add to phase, create phase, brainstorm, put back)
@@ -96,9 +96,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Create SKILL.md with operation detection and ADD operation
-- [ ] 01-02-PLAN.md — Add CHECK operation and references/actions.md
-- [ ] 01-03-PLAN.md — Verify installation and natural language triggers
+- [x] 01-01-PLAN.md — Create SKILL.md with operation detection and ADD operation
+- [x] 01-02-PLAN.md — Add CHECK operation and references/actions.md
+- [x] 01-03-PLAN.md — Verify installation and natural language triggers (renamed to kata-managing-todos)
 
 #### Phase 1.1: Testing & Evals Harness (INSERTED)
 **Goal**: Create a CLI-based testing framework that leverages Claude Code's command-line instantiation (`claude "prompt"`) to programmatically test Kata skills and commands
@@ -247,7 +247,7 @@ Plans:
 | --------------------------------- | --------- | -------------- | ----------- | ---------- |
 | 0. Hard Fork & Rebrand            | v0.1.4    | 5/5            | Complete    | 2026-01-18 |
 | 0. Convert Commands to Skills     | v0.1.5    | 12/12          | Complete    | 2026-01-20 |
-| 1. Migrate Todo Commands to Skill | v0.1.5    | 0/3            | Planned     | -          |
+| 1. Migrate Todo Commands to Skill | v0.1.5    | 3/3            | Complete    | 2026-01-20 |
 | 1.1 Testing & Evals Harness       | v0.1.5    | 0/?            | Not planned | -          |
 | 2. Create Kata Slash Commands     | v0.1.5    | 0/?            | Not planned | -          |
 | 3. Documentation                  | v0.1.5    | 0/?            | Not planned | -          |
@@ -260,4 +260,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-20 — Phase 1.1 inserted: Testing & Evals Harness*
+*Last updated: 2026-01-20 — Phase 1 complete: kata-managing-todos skill verified*

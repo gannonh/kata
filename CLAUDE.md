@@ -110,8 +110,12 @@ Skills are installed to `~/.claude/skills/` (global) or `.claude/skills/` (local
 
 **Skill names and descriptions are critical for autonomous invocation.** Claude matches skills based on name and description before falling back to default behaviors.
 
+**Mandatory conventions:**
+- **Use gerund (verb-ing) style names** — `kata-managing-todos` not `kata-todo-management`. The gerund form reads naturally: "Use this skill for managing todos"
+- **Exhaustive trigger phrases in description** — List EVERY phrase a user might say that should trigger the skill. More triggers = better matching
+
 **Key learnings:**
-- **Be verbose and specific** — Generic names like "utility" or "verification" get lost. Use descriptive names like `kata-project-status-utilities` or `kata-verification-and-uat`
+- **Be verbose and specific** — Generic names like "utility" or "verification" get lost. Use descriptive names like `kata-providing-progress-and-status-updates` or `kata-verifying-work-outcomes-and-user-acceptance-testing`
 - **Include key terms in the name** — If you want "UAT" to trigger a skill, put "uat" in the skill name itself
 - **Avoid collision with built-in behaviors** — "test" triggers test suite, "build" triggers builds. Prefix with "kata" or use alternative vocabulary
 - **Description triggers matter** — List explicit trigger phrases users might say: "check status", "what's the progress", "run uat"

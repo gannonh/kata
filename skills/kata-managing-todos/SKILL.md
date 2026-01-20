@@ -1,6 +1,6 @@
 ---
-name: kata-todo-management
-description: Use this skill to capture todos, review pending todos, or manage todo lifecycle. Triggers include "add todo", "capture idea", "note for later", "remember to", "todo:", "check todos", "pending todos", "review todos", "list todos", "show todos".
+name: kata-managing-todos
+description: Use this skill for managing todos, capturing ideas, reviewing pending work items, and tracking todo lifecycle. Triggers include "add todo", "new todo", "create todo", "capture idea", "capture this", "note for later", "remember to", "remind me to", "todo:", "I need to", "don't forget", "check todos", "check my todos", "pending todos", "review todos", "list todos", "show todos", "show my todos", "what todos", "what are my todos", "any todos", "todos?", "todo list", "my todos", "open todos", "outstanding todos", "backlog", "things to do", "task list", "manage todos", "todo management".
 ---
 
 # Todo Management Orchestrator
@@ -187,7 +187,7 @@ KATA > TODO CAPTURED
 
 Pending todos: {count}
 
-To review todos: "check todos" or `/kata-todo-management`
+To review todos: "check todos" or `/kata-managing-todos`
 ```
 
 ---
@@ -284,8 +284,8 @@ After all todos reviewed or user exits:
 
    | Action       | Natural Trigger | Explicit Command        |
    | ------------ | --------------- | ----------------------- |
-   | **Add more** | "add todo"      | `/kata-todo-management` |
-   | Work on todo | "check todos"   | `/kata-todo-management` |
+   | **Add more** | "add todo"      | `/kata-managing-todos` |
+   | Work on todo | "check todos"   | `/kata-managing-todos` |
 
    <sub>`/clear` first → fresh context window</sub>
 

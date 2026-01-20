@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 ## Current Position
 
 Milestone: v0.1.5 Skills & Documentation (Phases 0, 1, 1.1, 2, 3)
-Phase: 1 (Migrate Todo Commands to Kata Skill) - IN PROGRESS
-Plan: 2 of 3 complete
-Status: Executing
-Last activity: 2026-01-20 - Completed 01-02-PLAN.md (Todo skill CHECK operation)
+Phase: 1 (Migrate Todo Commands to Kata Skill) - COMPLETE
+Plan: 3 of 3 complete
+Status: Ready for next phase
+Last activity: 2026-01-20 - Phase 1 complete (kata-managing-todos skill verified)
 
-Progress: [====--------------------] 20% (1/5 phases)
+Progress: [========----------------] 40% (2/5 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 19
+- Total plans completed: 22
 - Average duration: 3 min
-- Total execution time: 57 min
+- Total execution time: 76 min
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [====--------------------] 20% (1/5 phases)
 | -------------------------- | ----- | ------ | -------- |
 | 00-hard-fork-rebrand       | 5     | 10 min | 2 min    |
 | 00-convert-commands-skills | 12    | 43 min | 3.5 min  |
+| 01-migrate-todo-commands   | 3     | 19 min | 6 min    |
 
 **Recent Trend:**
-- Last 5 plans: 00-11 (3 min), 00-12 (2 min), 01-01 (2 min), 01-02 (2 min)
-- Trend: Stable (consistent execution times)
+- Last 5 plans: 00-12 (2 min), 01-01 (2 min), 01-02 (2 min), 01-03 (15 min*)
+- Trend: 01-03 longer due to human verification checkpoint and naming convention fix
 
 *Updated after each plan completion*
 
@@ -51,7 +52,8 @@ Recent decisions affecting current work:
 - **2026-01-19: Skills as orchestrators** - Skills contain full workflow logic and spawn sub-agents via Task tool
 - **2026-01-19: Installer skills filtering** - Only removes kata-* skill directories on reinstall (preserves user skills)
 - **2026-01-19: Unified milestone skill** - Combined new/complete/audit operations into single kata-manageing-milestones skill
-- **2026-01-20: Unified todo skill** - Combined add/check operations into kata-todo-management skill with operation detection
+- **2026-01-20: Unified todo skill** - Combined add/check operations into kata-managing-todos skill with operation detection
+- **2026-01-20: Skill naming convention** - Skill names must use gerund (verb-ing) style with exhaustive trigger phrases in description
 
 ### Roadmap Evolution
 
@@ -87,5 +89,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-20
-Stopped at: Completed 01-02-PLAN.md (Todo skill CHECK operation)
-Resume file: .planning/phases/01-migrate-todo-commands/01-03-PLAN.md
+Stopped at: Phase 1 complete (kata-managing-todos skill verified)
+Resume file: None (ready for Phase 1.1 planning)
