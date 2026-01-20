@@ -110,12 +110,12 @@ Always at end of major completions.
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| ⭐ **{Primary action}** | "{trigger phrase}" | `/{skill-name}` |
-| {Secondary action} | "{trigger phrase}" | `/{skill-name}` |
+| Action                 | Natural Trigger    | Explicit Command |
+| ---------------------- | ------------------ | ---------------- |
+| ⭐ **{Primary action}** | "{trigger phrase}" | `/{skill-name}`  |
+| {Secondary action}     | "{trigger phrase}" | `/{skill-name}`  |
 
-<sub>⭐ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -140,7 +140,7 @@ Always at end of major completions.
 
 ```
 | Phase | Status | Plans | Progress |
-|-------|--------|-------|----------|
+| ----- | ------ | ----- | -------- |
 | 1     | ✓      | 3/3   | 100%     |
 | 2     | ◆      | 1/4   | 25%      |
 | 3     | ○      | 0/2   | 0%       |

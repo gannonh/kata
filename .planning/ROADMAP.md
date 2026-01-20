@@ -29,7 +29,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 ### v0.1.5 Skills & Documentation (In Progress)
 
 - [x] **Phase 0: Convert Commands to Skills** - Create skills as orchestrators that spawn sub-agents — completed 2026-01-20
-- [ ] **Phase 0.1: Documentation** - Complete README and add onboarding guidance
+- [ ] **Phase 1: Migrate Todo Commands to Kata Skill** - Create kata-todo-management skill from gsd:add-todo and gsd:check-todos
+- [ ] **Phase 2: Documentation** - Complete README and add onboarding guidance
 
 ### v0.1.6 Claude Code Plugin (Planned)
 
@@ -79,9 +80,25 @@ Plans:
 - [x] 00-11-PLAN.md — Fix kata-verification UAT workflow (gap closure)
 - [x] 00-12-PLAN.md — Improve skill trigger phrases (gap closure)
 
-#### Phase 0.1: Documentation
-**Goal**: Complete README documentation and add onboarding guidance to help new users understand how Kata works
+#### Phase 1: Migrate Todo Commands to Kata Skill
+**Goal**: Create `kata-todo-management` skill to handle todo capture and management, migrating functionality from GSD's `add-todo` and `check-todos` commands
 **Depends on**: Phase 0 (Skills established)
+**Requirements**: None (skill migration)
+**Success Criteria** (what must be TRUE):
+  1. kata-todo-management skill created with SKILL.md (<500 lines)
+  2. Skill has references/ subdirectory (todo-format.md, actions.md)
+  3. ADD operation captures todos with area inference and duplicate detection
+  4. CHECK operation lists pending todos with action options (work on, add to phase, create phase, brainstorm, put back)
+  5. STATE.md updated on todo add/complete
+  6. Installation verified with natural language triggers
+**Plans**: TBD
+
+Plans:
+- [ ] 01-01: TBD (run /kata-planning to break down)
+
+#### Phase 2: Documentation
+**Goal**: Complete README documentation and add onboarding guidance to help new users understand how Kata works
+**Depends on**: Phase 1 (Todo skill complete)
 **Requirements**: None (documentation improvement)
 **Success Criteria** (what must be TRUE):
   1. README.md sections completed (no trailing incomplete text)
@@ -91,7 +108,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 00.1-01: TBD (run /kata-planning to break down)
+- [ ] 02-01: TBD (run /kata-planning to break down)
 
 ### v0.1.6 Claude Code Plugin
 
@@ -190,17 +207,18 @@ Plans:
 
 ## Progress
 
-| Phase                         | Milestone | Plans Complete | Status      | Completed  |
-| ----------------------------- | --------- | -------------- | ----------- | ---------- |
-| 0. Hard Fork & Rebrand        | v0.1.4    | 5/5            | Complete    | 2026-01-18 |
-| 0. Convert Commands to Skills | v0.1.5    | 12/12          | Complete    | 2026-01-20 |
-| 0.1. Documentation            | v0.1.5    | 0/?            | Not planned | -          |
-| 1. Plugin Distribution        | v0.1.6    | 0/?            | Not planned | -          |
-| 1. Audit & Config Foundation  | v0.1.7    | 0/?            | Not planned | -          |
-| 2. Onboarding & Milestones    | v0.1.7    | 0/?            | Not started | -          |
-| 3. Phase Issues               | v0.1.7    | 0/?            | Not started | -          |
-| 4. Plan Sync                  | v0.1.7    | 0/?            | Not started | -          |
-| 5. PR Integration             | v0.1.7    | 0/?            | Not started | -          |
+| Phase                              | Milestone | Plans Complete | Status      | Completed  |
+| ---------------------------------- | --------- | -------------- | ----------- | ---------- |
+| 0. Hard Fork & Rebrand             | v0.1.4    | 5/5            | Complete    | 2026-01-18 |
+| 0. Convert Commands to Skills      | v0.1.5    | 12/12          | Complete    | 2026-01-20 |
+| 1. Migrate Todo Commands to Skill  | v0.1.5    | 0/?            | Not planned | -          |
+| 2. Documentation                   | v0.1.5    | 0/?            | Not planned | -          |
+| 1. Plugin Distribution             | v0.1.6    | 0/?            | Not planned | -          |
+| 1. Audit & Config Foundation       | v0.1.7    | 0/?            | Not planned | -          |
+| 2. Onboarding & Milestones         | v0.1.7    | 0/?            | Not started | -          |
+| 3. Phase Issues                    | v0.1.7    | 0/?            | Not started | -          |
+| 4. Plan Sync                       | v0.1.7    | 0/?            | Not started | -          |
+| 5. PR Integration                  | v0.1.7    | 0/?            | Not started | -          |
 
 ---
 *Roadmap created: 2026-01-18*

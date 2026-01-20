@@ -179,14 +179,14 @@ Build authentication system
 
 ## Naming Conventions
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Files | kebab-case | `execute-phase.md` |
-| Commands | `gsd:kebab-case` | `gsd:execute-phase` |
-| XML tags | kebab-case | `<execution_context>` |
-| Step names | snake_case | `name="load_project_state"` |
-| Bash variables | CAPS_UNDERSCORES | `PHASE_ARG`, `PLAN_START_TIME` |
-| Type attributes | colon separator | `type="checkpoint:human-verify"` |
+| Type            | Convention       | Example                          |
+| --------------- | ---------------- | -------------------------------- |
+| Files           | kebab-case       | `execute-phase.md`               |
+| Commands        | `gsd:kebab-case` | `gsd:execute-phase`              |
+| XML tags        | kebab-case       | `<execution_context>`            |
+| Step names      | snake_case       | `name="load_project_state"`      |
+| Bash variables  | CAPS_UNDERSCORES | `PHASE_ARG`, `PLAN_START_TIME`   |
+| Type attributes | colon separator  | `type="checkpoint:human-verify"` |
 
 ---
 
@@ -293,14 +293,14 @@ Use subagents for autonomous work. Reserve main context for user interaction.
 
 ### Types
 
-| Type | Use |
-|------|-----|
-| `feat` | New feature |
-| `fix` | Bug fix |
-| `test` | Tests only (TDD RED) |
+| Type       | Use                         |
+| ---------- | --------------------------- |
+| `feat`     | New feature                 |
+| `fix`      | Bug fix                     |
+| `test`     | Tests only (TDD RED)        |
 | `refactor` | Code cleanup (TDD REFACTOR) |
-| `docs` | Documentation/metadata |
-| `chore` | Config/dependencies |
+| `docs`     | Documentation/metadata      |
+| `chore`    | Config/dependencies         |
 
 ### Rules
 
@@ -328,12 +328,12 @@ Orchestrators @-reference ui-brand.md for stage banners, checkpoint boxes, statu
 
 > Instructions can be given conversationally (recommended) or via /commands.
 
-| Action | Natural Trigger | Explicit Command |
-|--------|-----------------|------------------|
-| ⭐ **{Primary action}** | "{trigger phrase}" | `/{skill-name}` |
-| {Secondary action} | "{trigger phrase}" | `/{skill-name}` |
+| Action                 | Natural Trigger    | Explicit Command |
+| ---------------------- | ------------------ | ---------------- |
+| ⭐ **{Primary action}** | "{trigger phrase}" | `/{skill-name}`  |
+| {Secondary action}     | "{trigger phrase}" | `/{skill-name}`  |
 
-<sub>⭐ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
