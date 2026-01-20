@@ -9,13 +9,13 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 
 ## Current Position
 
-Milestone: v0.1.5 Skills & Documentation (Phases 0-3)
+Milestone: v0.1.5 Skills & Documentation (Phases 0, 1, 1.1, 2, 3)
 Phase: 1 (Migrate Todo Commands to Kata Skill) - PLANNED
 Plan: 0 of 3 (ready to execute)
 Status: Ready to execute
-Last activity: 2026-01-20 - Phase 3 added (Kata Slash Commands)
+Last activity: 2026-01-20 - Phase 1.1 inserted (Testing & Evals Harness)
 
-Progress: [======------------------] 25% (1/4 phases)
+Progress: [====--------------------] 20% (1/5 phases)
 
 ## Performance Metrics
 
@@ -61,7 +61,9 @@ Recent decisions affecting current work:
 - **Phase 0.1 inserted 2026-01-19** - Documentation (README completion + onboarding guidance)
 - **Phase 0.2 renumbered 2026-01-19** - Claude Code Plugin Distribution (was 0.1, bumped for Documentation priority)
 - **Milestone restructure 2026-01-20** - v0.1.5 now ends after 0.1 (Skills & Documentation), v0.1.6 = Claude Code Plugin, v0.1.7 = GitHub Integration
-- **Phase 3 added 2026-01-20** - Create Kata Slash Commands (GSD-equivalent commands that instantiate skills)
+- **Phase 2 added 2026-01-20** - Create Kata Slash Commands (GSD-equivalent commands that instantiate skills)
+- **Phase 3 = Documentation** - Moved to last position in v0.1.5
+- **Phase 1.1 inserted 2026-01-20** - Testing & Evals Harness: CLI-based test framework using `claude "prompt"` to verify skills/commands
 
 ### Pending Todos
 

@@ -30,8 +30,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 0: Convert Commands to Skills** - Create skills as orchestrators that spawn sub-agents — completed 2026-01-20
 - [ ] **Phase 1: Migrate Todo Commands to Kata Skill** - Create kata-todo-management skill from gsd:add-todo and gsd:check-todos
-- [ ] **Phase 2: Documentation** - Complete README and add onboarding guidance
-- [ ] **Phase 3: Create Kata Slash Commands** - Create GSD-equivalent slash commands that instantiate Kata skills
+- [ ] **Phase 1.1: Testing & Evals Harness** - CLI-based test framework leveraging `claude "prompt"` to verify skill invocation and artifact production (INSERTED)
+- [ ] **Phase 2: Create Kata Slash Commands** - Create GSD-equivalent slash commands that instantiate Kata skills
+- [ ] **Phase 3: Documentation** - Complete README and add onboarding guidance
 
 ### v0.1.6 Claude Code Plugin (Planned)
 
@@ -99,23 +100,24 @@ Plans:
 - [ ] 01-02-PLAN.md — Add CHECK operation and references/actions.md
 - [ ] 01-03-PLAN.md — Verify installation and natural language triggers
 
-#### Phase 2: Documentation
-**Goal**: Complete README documentation and add onboarding guidance to help new users understand how Kata works
-**Depends on**: Phase 1 (Todo skill complete)
-**Requirements**: None (documentation improvement)
+#### Phase 1.1: Testing & Evals Harness (INSERTED)
+**Goal**: Create a CLI-based testing framework that leverages Claude Code's command-line instantiation (`claude "prompt"`) to programmatically test Kata skills and commands
+**Depends on**: Phase 1 (Todo skill exists for test subject)
+**Requirements**: None (infrastructure improvement)
 **Success Criteria** (what must be TRUE):
-  1. README.md sections completed (no trailing incomplete text)
-  2. "What is This" section clearly explains Kata's differentiation from GSD
-  3. Onboarding flow includes explanation of how the Kata system works
-  4. New users can understand skills vs commands, planning workflow, and execution model
+  1. Test harness script(s) can invoke `claude "prompt"` with controlled inputs
+  2. Outcome parser scripts verify: skill invoked? correct artifacts produced?
+  3. At least one skill covered by automated test (proof of concept)
+  4. Tests can run in CI-like environment (no interactive prompts)
+  5. Clear pass/fail reporting for UAT efficiency
 **Plans**: TBD
 
 Plans:
-- [ ] 02-01: TBD (run /kata-planning-phases to break down)
+- [ ] 01.1-01: TBD (run /kata-planning-phases to break down)
 
-#### Phase 3: Create Kata Slash Commands
+#### Phase 2: Create Kata Slash Commands
 **Goal**: Create GSD-equivalent slash commands that instantiate corresponding Kata skills, ensuring explicit invocation path alongside autonomous skill triggering
-**Depends on**: Phase 0 (Skills exist), Phase 1 (Todo skill exists)
+**Depends on**: Phase 0 (Skills exist), Phase 1.1 (Testing harness exists for verification)
 **Requirements**: None (usability improvement)
 **Success Criteria** (what must be TRUE):
   1. Kata slash commands created for all GSD command equivalents (25 commands)
@@ -125,6 +127,20 @@ Plans:
   5. Gap skills created for any GSD commands without Kata skill equivalents
   6. NextUp tables updated to show `/kata-{command}` explicit invocation format
   7. README documentation updated with command reference
+**Plans**: TBD
+
+Plans:
+- [ ] 02-01: TBD (run /kata-planning-phases to break down)
+
+#### Phase 3: Documentation
+**Goal**: Complete README documentation and add onboarding guidance to help new users understand how Kata works
+**Depends on**: Phase 2 (Slash commands complete)
+**Requirements**: None (documentation improvement)
+**Success Criteria** (what must be TRUE):
+  1. README.md sections completed (no trailing incomplete text)
+  2. "What is This" section clearly explains Kata's differentiation from GSD
+  3. Onboarding flow includes explanation of how the Kata system works
+  4. New users can understand skills vs commands, planning workflow, and execution model
 **Plans**: TBD
 
 Plans:
@@ -232,8 +248,9 @@ Plans:
 | 0. Hard Fork & Rebrand            | v0.1.4    | 5/5            | Complete    | 2026-01-18 |
 | 0. Convert Commands to Skills     | v0.1.5    | 12/12          | Complete    | 2026-01-20 |
 | 1. Migrate Todo Commands to Skill | v0.1.5    | 0/3            | Planned     | -          |
-| 2. Documentation                  | v0.1.5    | 0/?            | Not planned | -          |
-| 3. Create Kata Slash Commands     | v0.1.5    | 0/?            | Not planned | -          |
+| 1.1 Testing & Evals Harness       | v0.1.5    | 0/?            | Not planned | -          |
+| 2. Create Kata Slash Commands     | v0.1.5    | 0/?            | Not planned | -          |
+| 3. Documentation                  | v0.1.5    | 0/?            | Not planned | -          |
 | 1. Plugin Distribution            | v0.1.6    | 0/?            | Not planned | -          |
 | 1. Audit & Config Foundation      | v0.1.7    | 0/?            | Not planned | -          |
 | 2. Onboarding & Milestones        | v0.1.7    | 0/?            | Not started | -          |
@@ -243,4 +260,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-20 — Phase 3 added: Create Kata Slash Commands*
+*Last updated: 2026-01-20 — Phase 1.1 inserted: Testing & Evals Harness*
