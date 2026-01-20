@@ -26,8 +26,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ### v0.1.5 GitHub Integration (In Progress)
 
-- [ ] **Phase 0: Convert Commands to Skills** (INSERTED) - Create skills as orchestrators that spawn sub-agents — UAT in progress
-- [ ] **Phase 0.1: Claude Code Plugin Distribution** (INSERTED) - Create plugin distribution using `/plugin-dev:create-plugin`
+- [x] **Phase 0: Convert Commands to Skills** (INSERTED) - Create skills as orchestrators that spawn sub-agents — completed 2026-01-20
+- [ ] **Phase 0.1: Documentation** (INSERTED) - Complete README and add onboarding guidance
+- [ ] **Phase 0.2: Claude Code Plugin Distribution** (INSERTED) - Create plugin distribution using `/plugin-dev:create-plugin`
 - [ ] **Phase 1: Audit & Config Foundation** - Understand integration points, establish config schema
 - [ ] **Phase 2: Onboarding & Milestones** - Config during new-project, GitHub Milestone creation
 - [ ] **Phase 3: Phase Issues** - Create GitHub Issues for phases with labels and metadata
@@ -64,13 +65,27 @@ Plans:
 - [x] 00-07-PLAN.md — Create kata-research skill
 - [x] 00-08-PLAN.md — Create kata-utility skill
 - [x] 00-09-PLAN.md — Update CLAUDE.md documentation + test installation
-- [ ] 00-10-PLAN.md — Fix kata-execution SUMMARY/commits (gap closure)
-- [ ] 00-11-PLAN.md — Fix kata-verification UAT workflow (gap closure)
-- [ ] 00-12-PLAN.md — Improve skill trigger phrases (gap closure)
+- [x] 00-10-PLAN.md — Fix kata-execution SUMMARY/commits (gap closure)
+- [x] 00-11-PLAN.md — Fix kata-verification UAT workflow (gap closure)
+- [x] 00-12-PLAN.md — Improve skill trigger phrases (gap closure)
 
-### Phase 0.1: Claude Code Plugin Distribution (INSERTED)
+### Phase 0.1: Documentation (INSERTED)
+**Goal**: Complete README documentation and add onboarding guidance to help new users understand how Kata works
+**Depends on**: Phase 0 (Skills established)
+**Requirements**: None (documentation improvement)
+**Success Criteria** (what must be TRUE):
+  1. README.md sections completed (no trailing incomplete text)
+  2. "What is This" section clearly explains Kata's differentiation from GSD
+  3. Onboarding flow includes explanation of how the Kata system works
+  4. New users can understand skills vs commands, planning workflow, and execution model
+**Plans**: TBD
+
+Plans:
+- [ ] 00.1-01: TBD (run /kata:plan-phase 0.1 to break down)
+
+### Phase 0.2: Claude Code Plugin Distribution (INSERTED)
 **Goal**: Package and publish Kata as a Claude Code plugin for easy distribution using `/plugin-dev:create-plugin`
-**Depends on**: Phase 0 (Skills format established)
+**Depends on**: Phase 0.1 (Documentation complete)
 **Requirements**: None (distribution improvement)
 **Success Criteria** (what must be TRUE):
   1. Kata packaged as Claude Code plugin using plugin-dev workflow
@@ -81,7 +96,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 00.1-01: TBD (run /kata:plan-phase 0.1 to break down)
+- [ ] 00.2-01: TBD (run /kata:plan-phase 0.2 to break down)
 
 ### Phase 1: Audit & Config Foundation
 **Goal**: Understand where GitHub integration hooks into existing Kata workflows and establish config schema
@@ -162,13 +177,14 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 0 -> 0.1 -> 1 -> 2 -> 3 -> 4 -> 5
+Phases execute in numeric order: 0 -> 0.1 -> 0.2 -> 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase                                | Milestone | Plans Complete | Status      | Completed  |
 | ------------------------------------ | --------- | -------------- | ----------- | ---------- |
 | 0. Hard Fork & Rebrand               | v0.1.4    | 5/5            | Complete    | 2026-01-18 |
-| 0. Convert Commands to Skills        | v0.1.5    | 9/12           | Gap closure | -          |
-| 0.1. Claude Code Plugin Distribution | v0.1.5    | 0/?            | Not planned | -          |
+| 0. Convert Commands to Skills        | v0.1.5    | 12/12          | Complete    | 2026-01-20 |
+| 0.1. Documentation                   | v0.1.5    | 0/?            | Not planned | -          |
+| 0.2. Claude Code Plugin Distribution | v0.1.5    | 0/?            | Not planned | -          |
 | 1. Audit & Config Foundation         | v0.1.5    | 0/?            | Not planned | -          |
 | 2. Onboarding & Milestones           | v0.1.5    | 0/?            | Not started | -          |
 | 3. Phase Issues                      | v0.1.5    | 0/?            | Not started | -          |
@@ -177,4 +193,4 @@ Phases execute in numeric order: 0 -> 0.1 -> 1 -> 2 -> 3 -> 4 -> 5
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-19 — Phase 0 gap closure plans created (3 plans to address UAT issues)*
+*Last updated: 2026-01-20 — Phase 0 Convert Commands to Skills complete*
