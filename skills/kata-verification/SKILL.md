@@ -1,6 +1,6 @@
 ---
 name: kata-verification
-description: Use this skill when verifying, validating or confirming work against plans, checking phase completion, running goal-backward verification, preparing UAT tests, debugging issues, or diagnosing failures. Triggers include "verify work", "check phase", "goal verification", "UAT", "test acceptance", "debug", "diagnose issues", and "did it work". This skill orchestrates verification and debugging sub-agents.
+description: Use this skill when verifying, validating or confirming work against plans, checking phase completion, running goal-backward verification, running user acceptance testing, debugging issues, or diagnosing failures. Triggers include "verify work", "verify the phase", "check phase", "goal verification", "run kata uat", "kata uat", "kata acceptance test", "walk through deliverables", "debug", "diagnose issues", and "did it work". For UAT mode use "run kata uat" or "kata acceptance test" (not just "test" which runs the test suite). This skill orchestrates verification and debugging sub-agents.
 ---
 
 # Work Verification Orchestrator

@@ -78,15 +78,15 @@ notes: "3 plans with proper frontmatter, waves, must_haves, verification - high 
 
 ### 13. kata-execution Outcome
 expected: Running kata-execution skill executes plans, creates SUMMARY.md files, makes atomic commits
-result: issue
-reported: "Code built and works (32 tests pass), but no SUMMARY.md files created and no atomic commits made - all src/ files untracked"
-severity: major
+result: pass
+notes: "Re-test 2026-01-19: 'execute the phase' triggered skill, spawned kata-executor sub-agents in waves, executed 4 plans with commits. Phase 2 complete with verification."
+severity: resolved
 
 ### 14. kata-verification Outcome
 expected: Running kata-verification skill validates built features, creates UAT.md, diagnoses issues
-result: issue
-reported: "Skill does automated must_haves verification (good) but never creates UAT.md or presents interactive tests - even with SUMMARY.md files present"
-severity: major
+result: pass
+notes: "Re-test 2026-01-19: 'run kata uat' triggers UAT mode. Triggers without 'kata' prefix intercepted by test suite. Updated description with kata-prefixed UAT triggers."
+severity: resolved
 
 ### 15. kata-milestone-management Outcome
 expected: Running kata-milestone-management skill creates/audits/archives milestones correctly
@@ -95,9 +95,9 @@ notes: "Comprehensive audit with requirements coverage (9/44), phase tracking (1
 
 ### 16. kata-roadmap-management Outcome
 expected: Running kata-roadmap-management skill adds/inserts/removes phases with correct numbering
-result: issue
-reported: "Skill NOT invoked - Claude did roadmap management manually without triggering kata-roadmap-management skill. Work was correct but skill not used."
-severity: major
+result: pass
+notes: "Re-test 2026-01-19: 'add a phase for caching' triggered skill automatically. Created Phase 6 with proper success criteria. Gap closure fix worked."
+severity: resolved
 
 ### 17. kata-research Outcome
 expected: Running kata-research skill produces RESEARCH.md with domain analysis and approach options
@@ -106,17 +106,25 @@ notes: "Skill triggered, spawned kata-phase-researcher (32 tools, 5m), created 6
 
 ### 18. kata-utility Outcome
 expected: Running kata-utility skill shows progress, debugs issues, maps codebase correctly
-result: issue
-reported: "Skill works excellently when explicitly invoked but doesn't auto-trigger for 'check status' or 'what's the current status' - only triggers when skill name mentioned"
-severity: minor
+result: pass
+notes: "Re-test 2026-01-19: Required renaming skill to 'kata-progress-and-status-utilities' and updating description. After changes, 'give me a progress update' triggered skill automatically."
+severity: resolved-with-changes
 
 ## Summary
 
 total: 18
-passed: 7
-issues: 5
+passed: 10
+issues: 1
 pending: 0
 skipped: 7
+
+### Re-test Results (2026-01-19)
+| Test | Original | Re-test | Notes |
+|------|----------|---------|-------|
+| 13 | issue | pass | Skill invoked, sub-agents executed plans |
+| 14 | issue | pass | "run kata uat" triggers UAT mode (kata prefix required) |
+| 16 | issue | pass | "add a phase" triggered skill automatically |
+| 18 | issue | pass | Required skill rename to work |
 
 ## Gaps
 
@@ -135,63 +143,31 @@ skipped: 7
   debug_session: ""
 
 - truth: "kata-execution creates SUMMARY.md files and makes atomic commits"
-  status: failed
-  reason: "User reported: Code built and works (32 tests pass), but no SUMMARY.md files created and no atomic commits made - all src/ files untracked"
-  severity: major
+  status: resolved
+  reason: "Re-test 2026-01-19: Gap closure 00-10 added explicit instructions. Skill now invokes correctly with sub-agents."
+  severity: resolved
   test: 13
-  root_cause: ""
-  artifacts:
-    - path: "skills/kata-execution/SKILL.md"
-      issue: "Execution skill may not be invoking SUMMARY creation or git workflow"
-    - path: "kata/workflows/execute-plan.md"
-      issue: "Underlying workflow may not be followed completely"
-  missing:
-    - "SUMMARY.md creation after each plan completion"
-    - "Atomic commits per task with proper commit messages"
-    - "Git add/commit workflow during execution"
-  debug_session: ""
+  fix: "00-10-PLAN.md - Added summary_requirements and commit_requirements to sub-agent prompt"
 
 - truth: "kata-verification creates UAT.md and presents interactive tests"
-  status: failed
-  reason: "User reported: Skill does automated must_haves verification (good) but never creates UAT.md or presents interactive tests - even with SUMMARY.md files present"
-  severity: major
+  status: resolved
+  reason: "UAT triggers without 'kata' prefix get intercepted by test suite behavior. Fixed by adding 'kata' prefix to UAT triggers."
+  severity: resolved
   test: 14
-  root_cause: ""
-  artifacts:
-    - path: "skills/kata-verification/SKILL.md"
-      issue: "Skill does automated verification but skips UAT creation workflow"
-    - path: "kata/workflows/verify-work.md"
-      issue: "UAT creation logic may not be invoked by skill"
-  missing:
-    - "Extract testable deliverables from SUMMARY.md"
-    - "Create UAT.md with test list"
-    - "Present tests one at a time for user verification"
-    - "Record pass/issue results interactively"
-  debug_session: ""
+  fix: "Updated skill description with 'run kata uat', 'kata uat', 'kata acceptance test' triggers"
+  working_prompt: "run kata uat"
 
 - truth: "kata-roadmap-management skill triggers for roadmap operations"
-  status: failed
-  reason: "User reported: Skill NOT invoked - Claude did roadmap management manually without triggering kata-roadmap-management skill"
-  severity: major
+  status: resolved
+  reason: "Re-test 2026-01-19: 'add a phase for caching' triggered skill automatically. Created Phase 6 correctly."
+  severity: resolved
   test: 16
-  root_cause: ""
-  artifacts:
-    - path: "skills/kata-roadmap-management/SKILL.md"
-      issue: "Skill description may not match 'add a phase' intent"
-  missing:
-    - "Skill should be triggered for 'add a phase' requests"
-    - "Skill description needs better trigger words"
-  debug_session: ""
+  fix: "00-12-PLAN.md - Added 'add a phase', 'new phase', 'create a phase' to description"
 
 - truth: "kata-utility skill auto-triggers for status/progress requests"
-  status: failed
-  reason: "User reported: Skill works when explicitly invoked but doesn't auto-trigger for 'check status' or 'what's the current status'"
-  severity: minor
+  status: resolved-with-changes
+  reason: "Re-test 2026-01-19: Required renaming skill to 'kata-progress-and-status-utilities' and updating description. After changes, triggers correctly."
+  severity: resolved
   test: 18
-  root_cause: ""
-  artifacts:
-    - path: "skills/kata-utility/SKILL.md"
-      issue: "Skill description may not match 'status' or 'progress' trigger phrases"
-  missing:
-    - "Add 'check status', 'project status', 'current status' to skill triggers"
-  debug_session: ""
+  fix: "00-12-PLAN.md baseline fix, plus additional skill rename required"
+  additional_changes: "Skill renamed from kata-utility to kata-progress-and-status-utilities"
