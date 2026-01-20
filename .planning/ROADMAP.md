@@ -33,6 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1.1: Testing & Evals Harness** - CLI-based test framework leveraging `claude "prompt"` to verify skill invocation and artifact production (INSERTED) — completed 2026-01-20
 - [ ] **Phase 1.2: Skill Tests** - Write tests for all 10 kata skills using the test harness (INSERTED)
 - [ ] **Phase 2: Create Kata Slash Commands** - Create GSD-equivalent slash commands that instantiate Kata skills
+- [ ] **Phase 2.1: Slash Command Tests** - Write tests for all slash commands using the test harness (INSERTED)
 - [ ] **Phase 3: Documentation** - Complete README and add onboarding guidance
 
 ### v0.1.6 Claude Code Plugin (Planned)
@@ -149,9 +150,23 @@ Plans:
 Plans:
 - [ ] 02-01: TBD (run /kata-planning-phases to break down)
 
+#### Phase 2.1: Slash Command Tests (INSERTED)
+**Goal**: Write comprehensive tests for all Kata slash commands using the test harness, ensuring commands correctly invoke their corresponding skills
+**Depends on**: Phase 2 (Slash commands exist), Phase 1.2 (Skill test patterns established)
+**Requirements**: None (testing improvement)
+**Success Criteria** (what must be TRUE):
+  1. Test files exist for all Kata slash commands
+  2. Each command has at least one invocation test
+  3. Tests verify command → skill delegation works
+  4. All tests pass (`npm test` succeeds)
+**Plans**: TBD
+
+Plans:
+- [ ] 02.1-01: TBD (run /kata-planning-phases to break down)
+
 #### Phase 3: Documentation
 **Goal**: Complete README documentation and add onboarding guidance to help new users understand how Kata works
-**Depends on**: Phase 2 (Slash commands complete)
+**Depends on**: Phase 2.1 (Slash command tests complete)
 **Requirements**: None (documentation improvement)
 **Success Criteria** (what must be TRUE):
   1. README.md sections completed (no trailing incomplete text)
@@ -268,6 +283,7 @@ Plans:
 | 1.1 Testing & Evals Harness       | v0.1.5    | 2/2            | Complete    | 2026-01-20 |
 | 1.2 Skill Tests                   | v0.1.5    | 0/?            | Not planned | -          |
 | 2. Create Kata Slash Commands     | v0.1.5    | 0/?            | Not planned | -          |
+| 2.1 Slash Command Tests           | v0.1.5    | 0/?            | Not planned | -          |
 | 3. Documentation                  | v0.1.5    | 0/?            | Not planned | -          |
 | 1. Plugin Distribution            | v0.1.6    | 0/?            | Not planned | -          |
 | 1. Audit & Config Foundation      | v0.1.7    | 0/?            | Not planned | -          |
@@ -278,4 +294,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-20 — Phase 1.2 inserted: Skill Tests*
+*Last updated: 2026-01-20 — Phase 1.2 (Skill Tests) and Phase 2.1 (Slash Command Tests) inserted*

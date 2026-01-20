@@ -9,13 +9,13 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 
 ## Current Position
 
-Milestone: v0.1.5 Skills & Documentation (Phases 0, 1, 1.1, 1.2, 2, 3)
+Milestone: v0.1.5 Skills & Documentation (Phases 0, 1, 1.1, 1.2, 2, 2.1, 3)
 Phase: 1.1 (Testing & Evals Harness) - COMPLETE
 Plan: 2 of 2 complete
 Status: Ready for next phase
 Last activity: 2026-01-20 - Phase 1.1 complete (test harness verified, 3/3 tests passing)
 
-Progress: [============------------] 50% (3/6 phases)
+Progress: [===========--------------] 43% (3/7 phases)
 
 ## Performance Metrics
 
@@ -70,6 +70,7 @@ Recent decisions affecting current work:
 - **Phase 3 = Documentation** - Moved to last position in v0.1.5
 - **Phase 1.1 inserted 2026-01-20** - Testing & Evals Harness: CLI-based test framework using `claude "prompt"` to verify skills/commands
 - **Phase 1.2 inserted 2026-01-20** - Skill Tests: Write tests for all 10 kata skills using the test harness
+- **Phase 2.1 inserted 2026-01-20** - Slash Command Tests: Write tests for all Kata slash commands
 
 ### Pending Todos
 
