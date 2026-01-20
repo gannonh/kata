@@ -1,6 +1,6 @@
 ---
 name: kata-verification
-description: Use this skill when verifying work against goals, checking phase completion, running goal-backward verification, preparing UAT tests, debugging issues, or diagnosing failures. Triggers include "verify work", "check phase", "goal verification", "UAT", "test acceptance", "debug", "diagnose issues", and "did it work". This skill orchestrates verification and debugging sub-agents.
+description: Use this skill when verifying, validating or confirming work against plans, checking phase completion, running goal-backward verification, preparing UAT tests, debugging issues, or diagnosing failures. Triggers include "verify work", "check phase", "goal verification", "UAT", "test acceptance", "debug", "diagnose issues", and "did it work". This skill orchestrates verification and debugging sub-agents.
 ---
 
 # Work Verification Orchestrator
@@ -197,12 +197,12 @@ CHECKPOINT: Verification Required
 - Anything else -> mark as issue (infer severity)
 
 **Severity inference:**
-| User says | Infer |
-|-----------|-------|
-| "crashes", "error", "fails" | blocker |
-| "doesn't work", "wrong" | major |
-| "works but...", "slow" | minor |
-| "color", "spacing" | cosmetic |
+| User says                   | Infer    |
+| --------------------------- | -------- |
+| "crashes", "error", "fails" | blocker  |
+| "doesn't work", "wrong"     | major    |
+| "works but...", "slow"      | minor    |
+| "color", "spacing"          | cosmetic |
 
 **On completion:**
 - Commit UAT.md
@@ -266,10 +266,10 @@ KATA > GAPS DIAGNOSED
 
 {N} gap(s) found, {M} root cause(s) identified
 
-| Gap | Root Cause | Status |
-|-----|------------|--------|
-| {truth 1} | {cause} | diagnosed |
-| {truth 2} | {cause} | needs review |
+| Gap       | Root Cause | Status       |
+| --------- | ---------- | ------------ |
+| {truth 1} | {cause}    | diagnosed    |
+| {truth 2} | {cause}    | needs review |
 
 ## Next Up
 
@@ -308,8 +308,8 @@ KATA > PHASE {X} GAPS FOUND
 {G} gaps diagnosed
 
 | Gap | Root Cause | Fix Direction |
-|-----|------------|---------------|
-| ... | ... | ... |
+| --- | ---------- | ------------- |
+| ... | ...        | ...           |
 
 ## Next Up
 
@@ -337,7 +337,7 @@ Verification must check:
 
 ## Sub-Agent Summary
 
-| Agent | Purpose | When Spawned |
-|-------|---------|--------------|
+| Agent         | Purpose                           | When Spawned               |
+| ------------- | --------------------------------- | -------------------------- |
 | kata-verifier | Check must_haves against codebase | Goal-backward verification |
-| kata-debugger | Diagnose root cause of gaps | When gaps/issues found |
+| kata-debugger | Diagnose root cause of gaps       | When gaps/issues found     |
