@@ -1,13 +1,15 @@
-# Roadmap: Kata v0.1.5 GitHub Integration
+# Roadmap: Kata
 
 ## Overview
 
-v0.1.5 adds optional, modular GitHub integration to Kata. The integration syncs Kata milestones, phases, and plans with GitHub Milestones, Issues, and PRs. All GitHub features are config-driven and can be enabled/disabled without affecting core Kata workflows.
+Kata is a spec-driven development framework for Claude Code. This roadmap tracks milestones for packaging, distribution, and integration features.
 
 ## Milestones
 
 - **v0.1.4 Hard Fork & Rebrand** — Phase 0 (shipped 2026-01-18) — [archive](milestones/v0.1.4-ROADMAP.md)
-- **v0.1.5 GitHub Integration** — Phases 0-5 (in progress)
+- **v0.1.5 Skills & Documentation** — Phases 0-0.1 (in progress)
+- **v0.1.6 Claude Code Plugin** — Phase 1 (planned)
+- **v0.1.7 GitHub Integration** — Phases 1-5 (planned)
 
 ## Phases
 
@@ -24,11 +26,17 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 </details>
 
-### v0.1.5 GitHub Integration (In Progress)
+### v0.1.5 Skills & Documentation (In Progress)
 
-- [x] **Phase 0: Convert Commands to Skills** (INSERTED) - Create skills as orchestrators that spawn sub-agents — completed 2026-01-20
-- [ ] **Phase 0.1: Documentation** (INSERTED) - Complete README and add onboarding guidance
-- [ ] **Phase 0.2: Claude Code Plugin Distribution** (INSERTED) - Create plugin distribution using `/plugin-dev:create-plugin`
+- [x] **Phase 0: Convert Commands to Skills** - Create skills as orchestrators that spawn sub-agents — completed 2026-01-20
+- [ ] **Phase 0.1: Documentation** - Complete README and add onboarding guidance
+
+### v0.1.6 Claude Code Plugin (Planned)
+
+- [ ] **Phase 1: Plugin Distribution** - Package and publish Kata as a Claude Code plugin
+
+### v0.1.7 GitHub Integration (Planned)
+
 - [ ] **Phase 1: Audit & Config Foundation** - Understand integration points, establish config schema
 - [ ] **Phase 2: Onboarding & Milestones** - Config during new-project, GitHub Milestone creation
 - [ ] **Phase 3: Phase Issues** - Create GitHub Issues for phases with labels and metadata
@@ -37,14 +45,16 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ## Phase Details
 
-### Phase 0: Convert Commands to Skills (INSERTED)
+### v0.1.5 Skills & Documentation
+
+#### Phase 0: Convert Commands to Skills
 **Goal**: Create 8 skills as orchestrators following /building-claude-code-skills methodology
 **Strategy** (REVISED 2026-01-19):
 - Skills only — Create skills containing full workflow logic
 - Leave commands unchanged — Keep for A/B testing between old commands and new skills
 - No agent-skill binding — Skills ARE orchestrators that spawn multiple sub-agents via Task tool
 - Use /building-claude-code-skills methodology — Follow the official skill-building patterns
-**Depends on**: Nothing (prerequisite for GitHub Integration)
+**Depends on**: Nothing
 **Requirements**: None (infrastructure improvement)
 **Success Criteria** (what must be TRUE):
   1. 8 skills created: kata-planning, kata-execution, kata-verification, kata-project-initialization, kata-milestone-management, kata-roadmap-management, kata-research, kata-utility
@@ -69,7 +79,7 @@ Plans:
 - [x] 00-11-PLAN.md — Fix kata-verification UAT workflow (gap closure)
 - [x] 00-12-PLAN.md — Improve skill trigger phrases (gap closure)
 
-### Phase 0.1: Documentation (INSERTED)
+#### Phase 0.1: Documentation
 **Goal**: Complete README documentation and add onboarding guidance to help new users understand how Kata works
 **Depends on**: Phase 0 (Skills established)
 **Requirements**: None (documentation improvement)
@@ -81,11 +91,13 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 00.1-01: TBD (run /kata:plan-phase 0.1 to break down)
+- [ ] 00.1-01: TBD (run /kata-planning to break down)
 
-### Phase 0.2: Claude Code Plugin Distribution (INSERTED)
+### v0.1.6 Claude Code Plugin
+
+#### Phase 1: Plugin Distribution
 **Goal**: Package and publish Kata as a Claude Code plugin for easy distribution using `/plugin-dev:create-plugin`
-**Depends on**: Phase 0.1 (Documentation complete)
+**Depends on**: v0.1.5 complete (Documentation)
 **Requirements**: None (distribution improvement)
 **Success Criteria** (what must be TRUE):
   1. Kata packaged as Claude Code plugin using plugin-dev workflow
@@ -96,11 +108,13 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 00.2-01: TBD (run /kata:plan-phase 0.2 to break down)
+- [ ] 01-01: TBD (run /kata-planning to break down)
 
-### Phase 1: Audit & Config Foundation
+### v0.1.7 GitHub Integration
+
+#### Phase 1: Audit & Config Foundation
 **Goal**: Understand where GitHub integration hooks into existing Kata workflows and establish config schema
-**Depends on**: Phase 0 (Skills format established)
+**Depends on**: v0.1.6 complete (Plugin Distribution)
 **Requirements**: WFA-01, CFG-01, CFG-02
 **Success Criteria** (what must be TRUE):
   1. Integration points documented for new-milestone, execute-phase, execute-plan commands
@@ -113,7 +127,7 @@ Plans:
 - [ ] 01-01: TBD
 - [ ] 01-02: TBD
 
-### Phase 2: Onboarding & Milestones
+#### Phase 2: Onboarding & Milestones
 **Goal**: New projects can configure GitHub integration and milestones create corresponding GitHub Milestones
 **Depends on**: Phase 1 (config schema exists)
 **Requirements**: CFG-03, GHM-01, GHM-02
@@ -128,7 +142,7 @@ Plans:
 - [ ] 02-01: TBD
 - [ ] 02-02: TBD
 
-### Phase 3: Phase Issues
+#### Phase 3: Phase Issues
 **Goal**: Phases become GitHub Issues with proper labels, metadata, and milestone assignment
 **Depends on**: Phase 2 (milestones exist to assign issues to)
 **Requirements**: GHI-01, GHI-02, GHI-03
@@ -143,7 +157,7 @@ Plans:
 - [ ] 03-01: TBD
 - [ ] 03-02: TBD
 
-### Phase 4: Plan Sync
+#### Phase 4: Plan Sync
 **Goal**: Phase issues track plan progress as checklist items that update during execution
 **Depends on**: Phase 3 (phase issues exist)
 **Requirements**: GHI-04, GHI-05, WFA-02
@@ -158,7 +172,7 @@ Plans:
 - [ ] 04-01: TBD
 - [ ] 04-02: TBD
 
-### Phase 5: PR Integration
+#### Phase 5: PR Integration
 **Goal**: Phase completion creates well-formed PRs that link to issues and follow conventions
 **Depends on**: Phase 4 (issues exist to link to)
 **Requirements**: GHP-01, GHP-02, GHP-03, GHP-04, WFA-03
@@ -176,21 +190,18 @@ Plans:
 
 ## Progress
 
-**Execution Order:**
-Phases execute in numeric order: 0 -> 0.1 -> 0.2 -> 1 -> 2 -> 3 -> 4 -> 5
-
-| Phase                                | Milestone | Plans Complete | Status      | Completed  |
-| ------------------------------------ | --------- | -------------- | ----------- | ---------- |
-| 0. Hard Fork & Rebrand               | v0.1.4    | 5/5            | Complete    | 2026-01-18 |
-| 0. Convert Commands to Skills        | v0.1.5    | 12/12          | Complete    | 2026-01-20 |
-| 0.1. Documentation                   | v0.1.5    | 0/?            | Not planned | -          |
-| 0.2. Claude Code Plugin Distribution | v0.1.5    | 0/?            | Not planned | -          |
-| 1. Audit & Config Foundation         | v0.1.5    | 0/?            | Not planned | -          |
-| 2. Onboarding & Milestones           | v0.1.5    | 0/?            | Not started | -          |
-| 3. Phase Issues                      | v0.1.5    | 0/?            | Not started | -          |
-| 4. Plan Sync                         | v0.1.5    | 0/?            | Not started | -          |
-| 5. PR Integration                    | v0.1.5    | 0/?            | Not started | -          |
+| Phase                         | Milestone | Plans Complete | Status      | Completed  |
+| ----------------------------- | --------- | -------------- | ----------- | ---------- |
+| 0. Hard Fork & Rebrand        | v0.1.4    | 5/5            | Complete    | 2026-01-18 |
+| 0. Convert Commands to Skills | v0.1.5    | 12/12          | Complete    | 2026-01-20 |
+| 0.1. Documentation            | v0.1.5    | 0/?            | Not planned | -          |
+| 1. Plugin Distribution        | v0.1.6    | 0/?            | Not planned | -          |
+| 1. Audit & Config Foundation  | v0.1.7    | 0/?            | Not planned | -          |
+| 2. Onboarding & Milestones    | v0.1.7    | 0/?            | Not started | -          |
+| 3. Phase Issues               | v0.1.7    | 0/?            | Not started | -          |
+| 4. Plan Sync                  | v0.1.7    | 0/?            | Not started | -          |
+| 5. PR Integration             | v0.1.7    | 0/?            | Not started | -          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-20 — Phase 0 Convert Commands to Skills complete*
+*Last updated: 2026-01-20 — Milestone restructure: v0.1.5 ends after 0.1, v0.1.6 Claude Code Plugin, v0.1.7 GitHub Integration*
