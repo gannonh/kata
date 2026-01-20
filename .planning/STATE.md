@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-01-18)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v0.1.5 Skills & Documentation (Phase 1 Todo Skill next)
+**Current focus:** v0.1.5 Skills & Documentation (Phase 1.1 Testing & Evals Harness)
 
 ## Current Position
 
 Milestone: v0.1.5 Skills & Documentation (Phases 0, 1, 1.1, 2, 3)
-Phase: 1 (Migrate Todo Commands to Kata Skill) - COMPLETE
-Plan: 3 of 3 complete
-Status: Ready for next phase
-Last activity: 2026-01-20 - Phase 1 complete (kata-managing-todos skill verified)
+Phase: 1.1 (Testing & Evals Harness) - IN PROGRESS
+Plan: 1 of 3 complete
+Status: In progress
+Last activity: 2026-01-20 - Completed 01.1-01-PLAN.md (Test harness foundation)
 
-Progress: [========----------------] 40% (2/5 phases)
+Progress: [=========---------------] 46% (2.33/5 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 22
+- Total plans completed: 23
 - Average duration: 3 min
-- Total execution time: 76 min
+- Total execution time: 78 min
 
 **By Phase:**
 
@@ -31,10 +31,11 @@ Progress: [========----------------] 40% (2/5 phases)
 | 00-hard-fork-rebrand       | 5     | 10 min | 2 min    |
 | 00-convert-commands-skills | 12    | 43 min | 3.5 min  |
 | 01-migrate-todo-commands   | 3     | 19 min | 6 min    |
+| 01.1-testing-evals-harness | 1     | 2 min  | 2 min    |
 
 **Recent Trend:**
-- Last 5 plans: 00-12 (2 min), 01-01 (2 min), 01-02 (2 min), 01-03 (15 min*)
-- Trend: 01-03 longer due to human verification checkpoint and naming convention fix
+- Last 5 plans: 01-01 (2 min), 01-02 (2 min), 01-03 (15 min*), 01.1-01 (2 min)
+- Trend: Back to fast execution after Phase 1 verification overhead
 
 *Updated after each plan completion*
 
@@ -54,6 +55,7 @@ Recent decisions affecting current work:
 - **2026-01-19: Unified milestone skill** - Combined new/complete/audit operations into single kata-manageing-milestones skill
 - **2026-01-20: Unified todo skill** - Combined add/check operations into kata-managing-todos skill with operation detection
 - **2026-01-20: Skill naming convention** - Skill names must use gerund (verb-ing) style with exhaustive trigger phrases in description
+- **2026-01-20: ESM module type** - Added "type": "module" to package.json for test harness ESM compatibility
 
 ### Roadmap Evolution
 
@@ -93,5 +95,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-20
-Stopped at: Phase 1 complete (kata-managing-todos skill verified)
-Resume file: None (ready for Phase 1.1 planning)
+Stopped at: Completed 01.1-01-PLAN.md (Test harness foundation)
+Resume file: .planning/phases/01.1-testing-evals-harness/01.1-02-PLAN.md
