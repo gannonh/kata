@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300&amp;family=JetBrains+Mono:wght@500&amp;display=swap');
+      .kanji { font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic Pro', 'Yu Gothic', sans-serif; }
+      .wordmark { font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="400" height="120" fill="#0f0f14" rx="8"/>
+
+  <!-- The kanji 型 -->
+  <text
+    x="60"
+    y="85"
+    text-anchor="middle"
+    class="kanji"
+    fill="#7aa2f7"
+    font-size="72"
+    font-weight="300"
+  >型</text>
+
+  <!-- Divider -->
+  <line x1="120" y1="30" x2="120" y2="90" stroke="#24283b" stroke-width="1"/>
+
+  <!-- Wordmark -->
+  <text
+    x="150"
+    y="72"
+    class="wordmark"
+    fill="#c0caf5"
+    font-size="36"
+    font-weight="500"
+    letter-spacing="6"
+  >KATA</text>
+
+  <!-- Tagline -->
+  <text
+    x="150"
+    y="94"
+    class="wordmark"
+    fill="#565f89"
+    font-size="11"
+  >agent orchestration framework</text>
+</svg>

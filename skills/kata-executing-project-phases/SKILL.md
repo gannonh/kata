@@ -273,16 +273,16 @@ Goal verified
 
 ## ▶ Next Action
 
-**Phase {Z+1}: {Name}** — {Goal}
+**Phase {Z+1}: {Name}** — {Goal from ROADMAP.md}
 
-`/kata-planning-phases {Z+1}`
+> Instructions can be given conversationally (recommended) or via /commands.
 
-<sub>/clear first → fresh context window</sub>
+| Action                   | Natural Trigger      | Explicit Command                                      |
+| ------------------------ | -------------------- | ----------------------------------------------------- |
+| ⭐ **Plan next phase**    | "Plan phase {Z+1}"   | `/kata-planning-phases`                               |
+| Verify completed phase   | "Verify phase {Z}"   | `/kata-verifying-work-outcomes-and-user-acceptance-testing` |
 
-───────────────────────────────────────────────────────────────
-
-**Also available:**
-- /kata-verifying-work-outcomes-and-user-acceptance-testing — verify and run UAT first
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
@@ -298,9 +298,13 @@ All {N} phases complete!
 
 **Milestone complete** — finalize and archive
 
-`/kata-manageing-milestones complete`
+> Instructions can be given conversationally (recommended) or via /commands.
 
-<sub>/clear first → fresh context window</sub>
+| Action                      | Natural Trigger      | Explicit Command              |
+| --------------------------- | -------------------- | ----------------------------- |
+| ⭐ **Complete milestone**    | "Complete milestone" | `/kata-manageing-milestones`  |
+
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
@@ -316,9 +320,14 @@ Score: {N}/{M} must-haves verified
 
 **Close gaps** — create plans to fix verification failures
 
-`/kata-planning-phases {Z} --gaps`
+> Instructions can be given conversationally (recommended) or via /commands.
 
-<sub>/clear first → fresh context window</sub>
+| Action                | Natural Trigger          | Explicit Command                    |
+| --------------------- | ------------------------ | ----------------------------------- |
+| ⭐ **Create fix plans** | "Plan gaps for phase {Z}" | `/kata-planning-phases {Z} --gaps` |
+| Re-execute phase      | "Execute phase {Z}"      | `/kata-executing-project-phases`   |
+
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
@@ -326,6 +335,7 @@ Score: {N}/{M} must-haves verified
 
 For detailed guidance on specific aspects:
 
+- **Next Action format:** See `@~/.claude/kata/references/continuation-format.md` (canonical table format)
 - **Deviation handling:** See `./references/deviation-rules.md` for auto-fix rules and decision tree
 - **Checkpoints:** See `./references/checkpoint-protocol.md` for types and return formats
 - **TDD execution:** See `./references/tdd-execution.md` for RED-GREEN-REFACTOR cycle

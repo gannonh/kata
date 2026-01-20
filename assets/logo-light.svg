@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400&amp;display=swap');
+      .kanji { font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic Pro', 'Yu Gothic', sans-serif; }
+    </style>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="96" fill="#f8f9fc"/>
+  <circle cx="100" cy="100" r="94" fill="none" stroke="#e1e4ed" stroke-width="2"/>
+
+  <!-- The kanji 型 -->
+  <text
+    x="100"
+    y="125"
+    text-anchor="middle"
+    class="kanji"
+    fill="#3d59a1"
+    font-size="100"
+    font-weight="400"
+  >型</text>
+</svg>

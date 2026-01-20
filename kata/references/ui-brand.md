@@ -109,7 +109,7 @@ Plans: 3/5 complete
 
 Always at end of major completions. **Do NOT wrap in code blocks** — output directly.
 
-Template (output this directly, not in backticks):
+See `continuation-format.md` for full specification. Template (output this directly, not in backticks):
 
 ───────────────────────────────────────────────────────────────
 
@@ -117,14 +117,14 @@ Template (output this directly, not in backticks):
 
 **{Identifier}: {Name}** — {one-line description}
 
-`/{primary-skill-name}`
+> Instructions can be given conversationally (recommended) or via /commands.
 
-<sub>/clear first → fresh context window</sub>
+| Action                 | Natural Trigger    | Explicit Command |
+| ---------------------- | ------------------ | ---------------- |
+| ⭐ **{Primary action}** | "{trigger phrase}" | `/{skill-name}`  |
+| {Secondary action}     | "{trigger phrase}" | `/{skill-name}`  |
 
-───────────────────────────────────────────────────────────────
-
-**Also available:**
-- /{alternative-skill} — description
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 

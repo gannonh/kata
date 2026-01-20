@@ -299,14 +299,14 @@ Goal achieved.
 
 **Phase verified** — continue to next phase
 
-`/kata-planning-phases {X+1}`
+> Instructions can be given conversationally (recommended) or via /commands.
 
-<sub>/clear first → fresh context window</sub>
+| Action                  | Natural Trigger       | Explicit Command                                            |
+| ----------------------- | --------------------- | ----------------------------------------------------------- |
+| ⭐ **Plan next phase**   | "Plan phase {X+1}"    | `/kata-planning-phases`                                     |
+| Run UAT                 | "Run UAT"             | `/kata-verifying-work-outcomes-and-user-acceptance-testing` |
 
-───────────────────────────────────────────────────────────────
-
-**Also available:**
-- /kata-verifying-work-outcomes-and-user-acceptance-testing uat — run UAT
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
@@ -329,9 +329,14 @@ KATA > PHASE {X} GAPS FOUND
 
 **Plan fixes** — close verification gaps
 
-`/kata-planning-phases {X} --gaps`
+> Instructions can be given conversationally (recommended) or via /commands.
 
-<sub>/clear first → fresh context window</sub>
+| Action               | Natural Trigger           | Explicit Command                   |
+| -------------------- | ------------------------- | ---------------------------------- |
+| ⭐ **Create fix plans** | "Plan fixes for phase {X}" | `/kata-planning-phases {X} --gaps` |
+| Re-verify            | "Verify phase {X}"        | `/kata-verifying-work-outcomes-and-user-acceptance-testing` |
+
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 

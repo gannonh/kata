@@ -146,7 +146,8 @@ Task(
 
 ## Key References
 
-- **Progress display:** See `./references/progress-display.md`
+- **Next Action format:** See `@~/.claude/kata/references/continuation-format.md` (canonical table format)
+- **Progress display:** See `./references/progress-display.md` (status report + routing logic)
 - **Session management:** See `./references/session-management.md`
 - **Codebase mapping:** See `./references/codebase-mapping.md`
 

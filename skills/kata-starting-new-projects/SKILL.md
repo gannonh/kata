@@ -316,14 +316,14 @@ KATA > PROJECT INITIALIZED
 
 **Phase 1: [Phase Name]** — [Goal from ROADMAP.md]
 
-`/kata-planning-phases 1`
+> Instructions can be given conversationally (recommended) or via /commands.
 
-<sub>/clear first → fresh context window</sub>
+| Action                | Natural Trigger      | Explicit Command           |
+| --------------------- | -------------------- | -------------------------- |
+| ⭐ **Plan the phase**  | "Plan phase 1"       | `/kata-planning-phases`    |
+| Research first        | "Research phase 1"   | `/kata-researching-phases` |
 
-───────────────────────────────────────────────────────────────
-
-**Also available:**
-- /kata-researching-phases 1 — research the domain first
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 

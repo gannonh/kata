@@ -92,7 +92,7 @@ Next: [immediate next action]
 
 ## Routing Logic
 
-After presenting status, determine next action.
+After presenting status, determine next action using the table format from `@~/.claude/kata/references/continuation-format.md`.
 
 ### Step 1: Count Files in Current Phase
 
@@ -121,32 +121,22 @@ Find first PLAN.md without matching SUMMARY.md. Output this markdown directly (n
 
 **{phase}-{plan}: [Plan Name]** — [objective from PLAN.md]
 
-`/kata-executing-project-phases {phase}`
+> Instructions can be given conversationally (recommended) or via /commands.
 
-<sub>/clear first → fresh context window</sub>
+| Action                 | Natural Trigger       | Explicit Command                 |
+| ---------------------- | --------------------- | -------------------------------- |
+| ⭐ **Execute the plan** | "Execute phase {X}"   | `/kata-executing-project-phases` |
+| Check progress         | "What's the status?"  | `/kata-providing-progress-and-status-updates` |
+
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
 ### Route B: Phase Needs Planning
 
-Check if `{phase}-CONTEXT.md` exists.
+Check if `{phase}-RESEARCH.md` exists.
 
-**If CONTEXT.md exists:** Output this markdown directly (not as a code block):
-
-───────────────────────────────────────────────────────────────
-
-## ▶ Next Action
-
-**Phase {N}: {Name}** — {Goal from ROADMAP.md}
-Context gathered, ready to plan
-
-`/kata-planning-phases {N}`
-
-<sub>/clear first → fresh context window</sub>
-
-───────────────────────────────────────────────────────────────
-
-**If CONTEXT.md does NOT exist:** Output this markdown directly (not as a code block):
+**If RESEARCH.md exists:** Output this markdown directly (not as a code block):
 
 ───────────────────────────────────────────────────────────────
 
@@ -154,14 +144,33 @@ Context gathered, ready to plan
 
 **Phase {N}: {Name}** — {Goal from ROADMAP.md}
 
-`/kata-researching-phases {N}`
+> Instructions can be given conversationally (recommended) or via /commands.
 
-<sub>/clear first → fresh context window</sub>
+| Action               | Natural Trigger      | Explicit Command           |
+| -------------------- | -------------------- | -------------------------- |
+| ⭐ **Plan the phase** | "Plan phase {N}"     | `/kata-planning-phases`    |
+| Research first       | "Research phase {N}" | `/kata-researching-phases` |
+
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
-**Also available:**
-- /kata-planning-phases {N} — plan directly without research
+**If RESEARCH.md does NOT exist:** Output this markdown directly (not as a code block):
+
+───────────────────────────────────────────────────────────────
+
+## ▶ Next Action
+
+**Phase {N}: {Name}** — {Goal from ROADMAP.md}
+
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action               | Natural Trigger      | Explicit Command           |
+| -------------------- | -------------------- | -------------------------- |
+| ⭐ **Research first** | "Research phase {N}" | `/kata-researching-phases` |
+| Plan directly        | "Plan phase {N}"     | `/kata-planning-phases`    |
+
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
@@ -178,23 +187,24 @@ Read ROADMAP.md, identify current phase and highest phase in milestone.
 
 Output this markdown directly (not as a code block):
 
-───────────────────────────────────────────────────────────────
-
 ## ✓ Phase {Z} Complete
+
+{N}/{N} plans executed
+
+───────────────────────────────────────────────────────────────
 
 ## ▶ Next Action
 
 **Phase {Z+1}: {Name}** — {Goal from ROADMAP.md}
 
-`/kata-verifying-work-outcomes-and-user-acceptance-testing {Z}`
+> Instructions can be given conversationally (recommended) or via /commands.
 
-<sub>/clear first → fresh context window</sub>
+| Action                   | Natural Trigger      | Explicit Command                                            |
+| ------------------------ | -------------------- | ----------------------------------------------------------- |
+| ⭐ **Verify and run UAT** | "Verify phase {Z}"   | `/kata-verifying-work-outcomes-and-user-acceptance-testing` |
+| Plan next phase          | "Plan phase {Z+1}"   | `/kata-planning-phases`                                     |
 
-───────────────────────────────────────────────────────────────
-
-**Also available:**
-- /kata-planning-phases {Z+1} — plan next phase
-- /kata-researching-phases {Z+1} — research first
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
@@ -202,24 +212,23 @@ Output this markdown directly (not as a code block):
 
 Output this markdown directly (not as a code block):
 
-───────────────────────────────────────────────────────────────
-
 ## 🎉 Milestone Complete
 
 All {N} phases finished!
 
-## ▶ Next Action
-
-**Complete Milestone** — archive and prepare for next
-
-`/kata-manageing-milestones complete`
-
-<sub>/clear first → fresh context window</sub>
-
 ───────────────────────────────────────────────────────────────
 
-**Also available:**
-- /kata-verifying-work-outcomes-and-user-acceptance-testing — run UAT first
+## ▶ Next Action
+
+**Start Next Milestone** — questioning → research → requirements → roadmap
+
+> Instructions can be given conversationally (recommended) or via /commands.
+
+| Action                    | Natural Trigger | Explicit Command             |
+| ------------------------- | --------------- | ---------------------------- |
+| ⭐ **Start new milestone** | "New milestone" | `/kata-manageing-milestones` |
+
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
@@ -227,25 +236,24 @@ All {N} phases finished!
 
 Output this markdown directly (not as a code block):
 
-───────────────────────────────────────────────────────────────
-
 ## ⚠ UAT Gaps Found
 
 **{phase}-UAT.md** has {N} gaps requiring fixes.
+
+───────────────────────────────────────────────────────────────
 
 ## ▶ Next Action
 
 **Close gaps** — create fix plans
 
-`/kata-planning-phases {phase} --gaps`
+> Instructions can be given conversationally (recommended) or via /commands.
 
-<sub>/clear first → fresh context window</sub>
+| Action                | Natural Trigger           | Explicit Command                   |
+| --------------------- | ------------------------- | ---------------------------------- |
+| ⭐ **Create fix plans** | "Plan gaps for phase {X}" | `/kata-planning-phases {X} --gaps` |
+| Execute existing      | "Execute phase {X}"       | `/kata-executing-project-phases`   |
 
-───────────────────────────────────────────────────────────────
-
-**Also available:**
-- /kata-executing-project-phases {phase} — execute existing plans
-- /kata-verifying-work-outcomes-and-user-acceptance-testing — run more UAT
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
@@ -253,19 +261,23 @@ Output this markdown directly (not as a code block):
 
 When ROADMAP.md missing but PROJECT.md exists (milestone completed and archived). Output this markdown directly (not as a code block):
 
-───────────────────────────────────────────────────────────────
-
 ## ✓ Milestone v{X.Y} Complete
 
 Ready to plan the next milestone.
+
+───────────────────────────────────────────────────────────────
 
 ## ▶ Next Action
 
 **Start Next Milestone** — questioning → research → requirements → roadmap
 
-`/kata-manageing-milestones new`
+> Instructions can be given conversationally (recommended) or via /commands.
 
-<sub>/clear first → fresh context window</sub>
+| Action                    | Natural Trigger | Explicit Command                 |
+| ------------------------- | --------------- | -------------------------------- |
+| ⭐ **Start new milestone** | "New milestone" | `/kata-manageing-milestones new` |
+
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 

@@ -2,6 +2,12 @@
 
 # KATA
 
+**型** · /ˈkɑːtɑː/ · *noun*
+<br>
+<sub>a choreographed pattern practiced repeatedly until perfected</sub>
+
+<br>
+
 **Agent orchestration framework for spec-driven development.**
 
 [![npm version](https://img.shields.io/npm/v/@gannonh/kata?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@gannonh/kata)

@@ -359,6 +359,8 @@ KATA > PHASE {X} PLANNED
 
 ### "Next Action" Format
 
+See `kata/references/continuation-format.md` for full specification.
+
 ```markdown
 ───────────────────────────────────────────────────────────────
 
@@ -366,22 +368,22 @@ KATA > PHASE {X} PLANNED
 
 **{Identifier}: {Name}** — {one-line description}
 
-`/{primary-skill-name}`
+> Instructions can be given conversationally (recommended) or via /commands.
 
-<sub>/clear first → fresh context window</sub>
+| Action                 | Natural Trigger    | Explicit Command |
+| ---------------------- | ------------------ | ---------------- |
+| ⭐ **{Primary action}** | "{trigger phrase}" | `/{skill-name}`  |
+| {Secondary action}     | "{trigger phrase}" | `/{skill-name}`  |
 
-───────────────────────────────────────────────────────────────
-
-**Also available:**
-- /{alternative-skill} — description
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
 
 **Key elements:**
-- Single copy-paste command (primary action)
-- `<sub>` hint for /clear
-- "Also available" section for alternatives
+- Table format with Action, Natural Trigger, Explicit Command columns
+- Bold primary action with ⭐ star
+- `<sub>` hint for /clear with ★ indicating recommended
 - Explicit commands use `/skill-name` (e.g., `/kata-planning-phases`)
 
 ### Decision Gates

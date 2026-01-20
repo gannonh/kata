@@ -1,67 +1,127 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540">
   <defs>
     <style>
-      .terminal-bg { fill: #1a1b26; }
-      .terminal-border { fill: #24283b; }
-      .title-bar { fill: #1f2335; }
-      .btn-red { fill: #f7768e; }
-      .btn-yellow { fill: #e0af68; }
-      .btn-green { fill: #9ece6a; }
-      .text { font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', Consolas, monospace; }
-      .prompt { fill: #7aa2f7; }
-      .command { fill: #c0caf5; }
-      .cyan { fill: #7dcfff; }
+      @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;500&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap');
+
+      .terminal-bg { fill: #0f0f14; }
+      .terminal-border { fill: #1a1b26; }
+      .title-bar { fill: #16161e; }
+      .btn-close { fill: #f7768e; }
+      .btn-minimize { fill: #e0af68; }
+      .btn-maximize { fill: #73daca; }
+      .text { font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace; }
+      .kanji { font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic Pro', sans-serif; }
+      .accent { fill: #7aa2f7; }
+      .accent-bright { fill: #89b4fa; }
       .green { fill: #9ece6a; }
-      .dim { fill: #565f89; }
-      .white { fill: #c0caf5; }
+      .muted { fill: #565f89; }
+      .text-primary { fill: #c0caf5; }
+      .text-dim { fill: #414868; }
+
+      /* Subtle glow effect for kanji */
+      .kanji-glow {
+        filter: drop-shadow(0 0 20px rgba(122, 162, 247, 0.3));
+      }
     </style>
+
+    <!-- Gradient for subtle depth -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f0f14"/>
+      <stop offset="100%" style="stop-color:#0a0a0e"/>
+    </linearGradient>
+
+    <!-- Scanline pattern for subtle texture -->
+    <pattern id="scanlines" patternUnits="userSpaceOnUse" width="4" height="4">
+      <rect width="4" height="2" fill="rgba(255,255,255,0.008)"/>
+    </pattern>
   </defs>
 
-  <!-- Window -->
-  <rect class="terminal-border" width="960" height="540" rx="12"/>
-  <rect class="terminal-bg" x="1" y="1" width="958" height="538" rx="11"/>
+  <!-- Window frame -->
+  <rect class="terminal-border" width="960" height="540" rx="10"/>
+  <rect fill="url(#bgGradient)" x="1" y="1" width="958" height="538" rx="9"/>
+  <rect fill="url(#scanlines)" x="1" y="1" width="958" height="538" rx="9"/>
 
   <!-- Title bar -->
-  <rect class="title-bar" x="1" y="1" width="958" height="36" rx="11"/>
-  <rect class="terminal-bg" x="1" y="26" width="958" height="12"/>
+  <rect class="title-bar" x="1" y="1" width="958" height="32" rx="9"/>
+  <rect class="terminal-bg" x="1" y="24" width="958" height="9"/>
 
-  <!-- Window buttons -->
-  <circle class="btn-red" cx="24" cy="19" r="7"/>
-  <circle class="btn-yellow" cx="48" cy="19" r="7"/>
-  <circle class="btn-green" cx="72" cy="19" r="7"/>
+  <!-- Window controls -->
+  <circle class="btn-close" cx="22" cy="17" r="6"/>
+  <circle class="btn-minimize" cx="44" cy="17" r="6"/>
+  <circle class="btn-maximize" cx="66" cy="17" r="6"/>
 
   <!-- Title -->
-  <text x="480" y="24" text-anchor="middle" class="text dim" font-size="13">Terminal</text>
+  <text x="480" y="21" text-anchor="middle" class="text muted" font-size="12" font-weight="500">kata</text>
 
-  <!-- Content -->
-  <g transform="translate(32, 72)">
-    <!-- Prompt line -->
-    <text class="text prompt" font-size="15" y="0">~</text>
-    <text class="text dim" font-size="15" x="16" y="0">$</text>
-    <text class="text command" font-size="15" x="36" y="0">npx @gannonh/kata</text>
+  <!-- Main content area -->
+  <g transform="translate(0, 56)">
 
-    <!-- Banner -->
-    <text class="text cyan" font-size="14" y="48" xml:space="preserve">  ██╗  ██╗ █████╗ ████████╗ █████╗</text>
-    <text class="text cyan" font-size="14" y="68" xml:space="preserve">  ██║ ██╔╝██╔══██╗╚══██╔══╝██╔══██╗</text>
-    <text class="text cyan" font-size="14" y="88" xml:space="preserve">  █████╔╝ ███████║   ██║   ███████║</text>
-    <text class="text cyan" font-size="14" y="108" xml:space="preserve">  ██╔═██╗ ██╔══██║   ██║   ██╔══██║</text>
-    <text class="text cyan" font-size="14" y="128" xml:space="preserve">  ██║  ██╗██║  ██║   ██║   ██║  ██║</text>
-    <text class="text cyan" font-size="14" y="148" xml:space="preserve">  ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝</text>
+    <!-- Left side: Kanji logo -->
+    <g transform="translate(80, 60)" class="kanji-glow">
+      <!-- The kanji 型 rendered large -->
+      <text class="kanji accent" font-size="180" font-weight="300" y="160">型</text>
+    </g>
 
-    <!-- Title and subtitle -->
-    <text class="text white" font-size="15" y="188">  Kata <tspan class="dim">v0.1.0</tspan></text>
-    <text class="text white" font-size="15" y="212">  Spec-driven development framework for Claude Code.</text>
+    <!-- Right side: Info -->
+    <g transform="translate(380, 80)">
+      <!-- Wordmark -->
+      <text class="text text-primary" font-size="42" font-weight="500" letter-spacing="8" y="0">KATA</text>
 
-    <!-- Install output -->
-    <text class="text" font-size="15" y="280"><tspan class="green">  ✓</tspan><tspan class="white"> Installed commands/kata</tspan></text>
-    <text class="text" font-size="15" y="304"><tspan class="green">  ✓</tspan><tspan class="white"> Installed kata</tspan></text>
+      <!-- Tagline -->
+      <text class="text muted" font-size="13" y="32">agent orchestration framework</text>
 
-    <!-- Done message -->
-    <text class="text" font-size="15" y="352"><tspan class="green">  Done!</tspan><tspan class="white"> Run </tspan><tspan class="cyan">/kata:help</tspan><tspan class="white"> to get started.</tspan></text>
+      <!-- Divider line -->
+      <line x1="0" y1="56" x2="200" y2="56" stroke="#24283b" stroke-width="1"/>
 
-    <!-- New prompt -->
-    <text class="text prompt" font-size="15" y="400">~</text>
-    <text class="text dim" font-size="15" x="16" y="400">$</text>
-    <text class="text white" font-size="15" x="36" y="400">▌</text>
+      <!-- Version badge -->
+      <text class="text text-dim" font-size="11" y="80">v1.7.0</text>
+
+      <!-- Install command -->
+      <g transform="translate(0, 120)">
+        <text class="text muted" font-size="11" y="0">$ npx @gannonh/kata</text>
+      </g>
+
+      <!-- Install status -->
+      <g transform="translate(0, 168)">
+        <text class="text" font-size="13" y="0">
+          <tspan class="green">✓</tspan>
+          <tspan class="text-primary" dx="8">Installed kata</tspan>
+        </text>
+        <text class="text" font-size="13" y="24">
+          <tspan class="green">✓</tspan>
+          <tspan class="text-primary" dx="8">Installed skills</tspan>
+        </text>
+        <text class="text" font-size="13" y="48">
+          <tspan class="green">✓</tspan>
+          <tspan class="text-primary" dx="8">Installed agents</tspan>
+        </text>
+      </g>
+
+      <!-- Done message -->
+      <g transform="translate(0, 260)">
+        <text class="text" font-size="13">
+          <tspan class="green">Done!</tspan>
+          <tspan class="text-primary"> Run </tspan>
+          <tspan class="accent">/kata:help</tspan>
+          <tspan class="text-primary"> to begin.</tspan>
+        </text>
+      </g>
+    </g>
+
+    <!-- Bottom prompt -->
+    <g transform="translate(80, 400)">
+      <text class="text accent" font-size="14">~</text>
+      <text class="text muted" font-size="14" x="18">$</text>
+      <rect class="text-primary" x="38" y="-12" width="8" height="16" opacity="0.8">
+        <animate attributeName="opacity" values="0.8;0.2;0.8" dur="1.2s" repeatCount="indefinite"/>
+      </rect>
+    </g>
+
   </g>
+
+  <!-- Subtle corner accents -->
+  <line x1="20" y1="520" x2="20" y2="500" stroke="#24283b" stroke-width="1"/>
+  <line x1="20" y1="520" x2="40" y2="520" stroke="#24283b" stroke-width="1"/>
+  <line x1="940" y1="520" x2="940" y2="500" stroke="#24283b" stroke-width="1"/>
+  <line x1="940" y1="520" x2="920" y2="520" stroke="#24283b" stroke-width="1"/>
 </svg>

@@ -254,15 +254,15 @@ Verification: {Passed | Passed with override | Skipped}
 
 **Execute Phase {X}** — run all {N} plans
 
-`/kata-executing-project-phases`
+> Instructions can be given conversationally (recommended) or via /commands.
 
-<sub>/clear first → fresh context window</sub>
+| Action                 | Natural Trigger        | Explicit Command                 |
+| ---------------------- | ---------------------- | -------------------------------- |
+| ⭐ **Execute the phase** | "Execute phase {X}"    | `/kata-executing-project-phases` |
+| Review plans           | "Show me the plans"    | `cat .planning/phases/{phase-dir}/*-PLAN.md` |
+| Re-research first      | "Research phase {X}"   | `/kata-researching-phases`       |
 
-───────────────────────────────────────────────────────────────
-
-**Also available:**
-- cat .planning/phases/{phase-dir}/*-PLAN.md — review plans
-- /kata-planning-phases {X} --research — re-research first
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
