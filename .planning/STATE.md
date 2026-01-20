@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-01-18)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v0.1.5 Skills & Documentation (Phase 1.2 Skill Tests next)
+**Current focus:** v0.1.5 Skills & Documentation (Phase 1.2 Skill Tests in progress)
 
 ## Current Position
 
-Milestone: v0.1.5 Skills & Documentation (Phases 0, 1, 1.1, 1.2, 2, 2.1, 3)
-Phase: 1.1 (Testing & Evals Harness) - COMPLETE
-Plan: 2 of 2 complete
-Status: Ready for next phase
-Last activity: 2026-01-20 - Phase 1.1 complete (test harness verified, 3/3 tests passing)
+Milestone: v0.1.5 Skills & Documentation (Phases 0, 1, 1.1, 1.2, 2, 2.1, 3, 4)
+Phase: 1.2 (Skill Tests) - IN PROGRESS
+Plan: 2 of 4 complete
+Status: In progress
+Last activity: 2026-01-20 - Completed 01.2-02 (3 skill test files, 10 trigger tests)
 
-Progress: [===========--------------] 43% (3/7 phases)
+Progress: [=========----------------] 38% (3/8 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 24
+- Total plans completed: 25
 - Average duration: 3 min
-- Total execution time: 82 min
+- Total execution time: 84 min
 
 **By Phase:**
 
@@ -32,10 +32,11 @@ Progress: [===========--------------] 43% (3/7 phases)
 | 00-convert-commands-skills | 12    | 43 min | 3.5 min  |
 | 01-migrate-todo-commands   | 3     | 19 min | 6 min    |
 | 01.1-testing-evals-harness | 2     | 6 min  | 3 min    |
+| 01.2-skill-tests           | 2     | 4 min  | 2 min    |
 
 **Recent Trend:**
-- Last 5 plans: 01-02 (2 min), 01-03 (15 min*), 01.1-01 (2 min), 01.1-02 (4 min)
-- Trend: Consistent execution times for test harness work
+- Last 5 plans: 01-03 (15 min*), 01.1-01 (2 min), 01.1-02 (4 min), 01.2-01 (2 min), 01.2-02 (2 min)
+- Trend: Consistent fast execution for test file creation
 
 *Updated after each plan completion*
 
@@ -71,10 +72,11 @@ Recent decisions affecting current work:
 - **Phase 1.1 inserted 2026-01-20** - Testing & Evals Harness: CLI-based test framework using `claude "prompt"` to verify skills/commands
 - **Phase 1.2 inserted 2026-01-20** - Skill Tests: Write tests for all 10 kata skills using the test harness
 - **Phase 2.1 inserted 2026-01-20** - Slash Command Tests: Write tests for all Kata slash commands
+- **Phase 4 added 2026-01-20** - Review & Refactor Subagents: Review all kata subagents and refactor as needed given changes this milestone
 
 ### Pending Todos
 
-14 pending todos:
+15 pending todos:
 - `.planning/todos/pending/2026-01-18-statusline-kata-project-info.md` - Add kata project info to statusline
 - `.planning/todos/pending/2026-01-18-create-move-phase-command.md` - Create move-phase command
 - `.planning/todos/pending/2026-01-18-command-subagent-noun-verb-naming.md` - Change command and subagent naming to noun-verb
@@ -89,6 +91,7 @@ Recent decisions affecting current work:
 - `.planning/todos/pending/2026-01-20-improve-skill-recall-with-hooks.md` - Improve skill recall with hooks and rules
 - `.planning/todos/pending/2026-01-20-addon-extensions-progressive-disclosure.md` - Add-on extensions for progressive disclosure files
 - `.planning/todos/pending/2026-01-20-project-documentation-templates.md` - Project documentation templates and lifecycle
+- `.planning/todos/pending/2026-01-20-cli-ui-for-todo-management.md` - CLI UI for viewing and managing todos
 
 ### Blockers/Concerns
 
@@ -97,5 +100,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-20
-Stopped at: Phase 1.1 complete (test harness verified)
-Resume file: None (ready for Phase 2 planning)
+Stopped at: Completed 01.2-02-PLAN.md (skill tests batch 2)
+Resume file: None (ready for 01.2-03)
