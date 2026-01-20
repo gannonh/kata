@@ -62,7 +62,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-9 pending todos:
+10 pending todos:
 - `.planning/todos/pending/2026-01-18-statusline-kata-project-info.md` - Add kata project info to statusline
 - `.planning/todos/pending/2026-01-18-create-move-phase-command.md` - Create move-phase command
 - `.planning/todos/pending/2026-01-18-command-subagent-noun-verb-naming.md` - Change command and subagent naming to noun-verb
@@ -72,6 +72,7 @@ Recent decisions affecting current work:
 - `.planning/todos/pending/2026-01-19-add-type-label-to-todo-frontmatter.md` - Add type label to todo frontmatter
 - `.planning/todos/pending/2026-01-18-claudemd-kata-onboarding.md` - Add Kata section to CLAUDE.md during new-project onboarding
 - `.planning/todos/pending/2026-01-18-new-user-ux-expectations.md` - Add new user UX expectations to onboarding
+- `.planning/todos/pending/2026-01-18-integrate-pr-skill.md` - Integrate PR skill into Kata system
 
 ### Blockers/Concerns
 
