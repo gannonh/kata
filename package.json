@@ -3,6 +3,10 @@
   "version": "0.1.4",
   "type": "module",
   "description": "Spec-driven development framework for Claude Code.",
+  "scripts": {
+    "test": "node --test tests/**/*.test.js",
+    "test:skills": "node --test tests/skills/*.test.js"
+  },
   "bin": {
     "kata": "bin/install.js"
   },
@@ -29,6 +33,6 @@
     "url": "git+https://github.com/gannonh/kata.git"
   },
   "engines": {
-    "node": ">=16.7.0"
+    "node": ">=20.0.0"
   }
 }
