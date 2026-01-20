@@ -159,10 +159,22 @@ function cleanupOrphanedFiles(claudeDir) {
     'hooks/gsd-notify.sh',  // Removed in v1.6.x
   ];
 
+  const orphanedDirs = [
+    'commands/kata',  // Commands converted to skills in v1.7.x
+  ];
+
   for (const relPath of orphanedFiles) {
     const fullPath = path.join(claudeDir, relPath);
     if (fs.existsSync(fullPath)) {
       fs.unlinkSync(fullPath);
+      console.log(`  ${green}✓${reset} Removed orphaned ${relPath}`);
+    }
+  }
+
+  for (const relPath of orphanedDirs) {
+    const fullPath = path.join(claudeDir, relPath);
+    if (fs.existsSync(fullPath)) {
+      fs.rmSync(fullPath, { recursive: true });
       console.log(`  ${green}✓${reset} Removed orphaned ${relPath}`);
     }
   }
@@ -270,20 +282,6 @@ function install(isGlobal) {
 
   // Clean up orphaned files from previous versions
   cleanupOrphanedFiles(claudeDir);
-
-  // Create commands directory
-  const commandsDir = path.join(claudeDir, 'commands');
-  fs.mkdirSync(commandsDir, { recursive: true });
-
-  // Copy commands/kata with path replacement
-  const kataSrc = path.join(src, 'commands', 'kata');
-  const kataDest = path.join(commandsDir, 'kata');
-  copyWithPathReplacement(kataSrc, kataDest, pathPrefix);
-  if (verifyInstalled(kataDest, 'commands/kata')) {
-    console.log(`  ${green}✓${reset} Installed commands/kata`);
-  } else {
-    failures.push('commands/kata');
-  }
 
   // Copy kata skill with path replacement
   const skillSrc = path.join(src, 'kata');
