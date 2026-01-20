@@ -15,10 +15,10 @@ Standard format for presenting next steps after completing a command or workflow
 
 | Action | Natural Trigger | Explicit Command |
 |--------|-----------------|------------------|
-| **{Primary action}** | "{trigger phrase}" | `/{skill-name}` |
+| ⭐ **{Primary action}** | "{trigger phrase}" | `/{skill-name}` |
 | {Secondary action} | "{trigger phrase}" | `/{skill-name}` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>⭐ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -60,10 +60,10 @@ Standard format for presenting next steps after completing a command or workflow
 
 | Action | Natural Trigger | Explicit Command |
 |--------|-----------------|------------------|
-| **Execute the plan** | "Execute phase 2" | `/kata-execution` |
+| ⭐ **Execute the plan** | "Execute phase 2" | `/kata-execution` |
 | Check assumptions | "List assumptions for phase 2" | — |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>⭐ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -84,9 +84,9 @@ Add note that this is the last plan and what comes after:
 
 | Action | Natural Trigger | Explicit Command |
 |--------|-----------------|------------------|
-| **Execute the plan** | "Execute phase 2" | `/kata-execution` |
+| ⭐ **Execute the plan** | "Execute phase 2" | `/kata-execution` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>⭐ recommended · `/clear` first → fresh context window</sub>
 
 **After this completes:**
 - Phase 2 → Phase 3 transition
@@ -108,11 +108,11 @@ Add note that this is the last plan and what comes after:
 
 | Action | Natural Trigger | Explicit Command |
 |--------|-----------------|------------------|
-| **Plan the phase** | "Plan phase 2" | `/kata-planning` |
+| ⭐ **Plan the phase** | "Plan phase 2" | `/kata-planning` |
 | Research first | "Research phase 2" | `/kata-research` |
 | Discuss context | "Discuss phase 2" | `/kata-research` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>⭐ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -136,11 +136,11 @@ Show completion status before next action:
 
 | Action | Natural Trigger | Explicit Command |
 |--------|-----------------|------------------|
-| **Verify and run UAT** | "Verify phase 2", "Run UAT" | `/kata-verification-and-uat` |
+| ⭐ **Verify and run UAT** | "Verify phase 2", "Run UAT" | `/kata-verification-and-uat` |
 | Plan next phase | "Plan phase 3" | `/kata-planning` |
 | Research first | "Research phase 3" | `/kata-research` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>⭐ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -186,9 +186,9 @@ All 4 phases shipped
 
 | Action | Natural Trigger | Explicit Command |
 |--------|-----------------|------------------|
-| **Start new milestone** | "New milestone" | `/kata-milestone-management` |
+| ⭐ **Start new milestone** | "New milestone" | `/kata-milestone-management` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>⭐ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```

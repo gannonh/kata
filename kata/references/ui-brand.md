@@ -112,10 +112,10 @@ Always at end of major completions.
 
 | Action | Natural Trigger | Explicit Command |
 |--------|-----------------|------------------|
-| **{Primary action}** | "{trigger phrase}" | `/{skill-name}` |
+| ⭐ **{Primary action}** | "{trigger phrase}" | `/{skill-name}` |
 | {Secondary action} | "{trigger phrase}" | `/{skill-name}` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>⭐ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```

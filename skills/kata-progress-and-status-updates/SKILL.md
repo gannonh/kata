@@ -1,31 +1,34 @@
 ---
-name: kata-utility
-description: Use this skill for project utility operations including progress checks, status reports, debugging, session management, and codebase mapping. Triggers include "progress", "status", "check status", "what's the status", "current status", "show status", "project status", "how are we doing", "where am I", "what's next", "debug", "diagnose", "fix issue", "pause work", "take a break", "resume work", "continue", "map codebase", and "analyze code structure". This skill spawns kata-debugger and kata-codebase-mapper sub-agents.
+name: kata-progress-and-status-updates
+description: Use this skill for Kata project status and session management. Triggers include "progress", "status", "check status", "what's the status", "current status", "show status", "project status", "how are we doing", "where am I", "what's next", "pause work", "take a break", "resume work", "continue", "map codebase", and "analyze code structure". This skill spawns kata-codebase-mapper sub-agents. NOT for debugging - use kata-workflow-debugging for Kata issues.
 ---
 
-# Kata Utility Operations
+# Kata Progress and Status Updates
 
-Handles progress display, debugging, session management (pause/resume), and codebase mapping.
+Handles progress display, session management (pause/resume), and codebase mapping.
 
 ## When to Use
 
 - User asks about progress, status, or "where are we"
-- User wants to debug an issue or diagnose a problem
 - User needs to pause work and capture context for later
 - User wants to resume from a previous session
 - User asks to map or analyze the codebase
+
+## When NOT to Use
+
+- Debugging Kata workflow issues (use kata-workflow-debugging)
+- Debugging project code (use general debugging tools)
 
 ## Operation Detection
 
 Parse user request to determine operation:
 
-| Trigger Keywords | Operation |
-|-----------------|-----------|
-| "progress", "status", "check status", "what's the status", "current status", "show status", "project status", "how are we doing", "where am I", "what's next" | PROGRESS |
-| "debug", "diagnose", "fix", "issue", "problem", "bug" | DEBUG |
-| "pause", "break", "stop for now", "save state" | PAUSE |
-| "resume", "continue", "pick up where", "what were we doing" | RESUME |
-| "map codebase", "analyze structure", "understand code" | MAP-CODEBASE |
+| Trigger Keywords                                                                                                                                              | Operation    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| "progress", "status", "check status", "what's the status", "current status", "show status", "project status", "how are we doing", "where am I", "what's next" | PROGRESS     |
+| "pause", "break", "stop for now", "save state"                                                                                                                | PAUSE        |
+| "resume", "continue", "pick up where", "what were we doing"                                                                                                   | RESUME       |
+| "map codebase", "analyze structure", "understand code"                                                                                                        | MAP-CODEBASE |
 
 ## PROGRESS Operation
 
@@ -70,100 +73,6 @@ See `./references/progress-display.md` for formatting.
 ### Step 6: Route to Next Action
 
 Determine routing based on file counts. See `./references/progress-display.md` for routing logic.
-
-## DEBUG Operation
-
-Systematic debugging with persistent state across context resets.
-
-### Step 1: Check Active Sessions
-
-```bash
-ls .planning/debug/*.md 2>/dev/null | grep -v resolved | head -5
-```
-
-If active sessions exist AND no issue specified:
-- Display sessions with status, hypothesis, next action
-- Wait for user to select session or describe new issue
-
-### Step 2: Gather Symptoms (if new issue)
-
-Collect from user:
-1. **Expected behavior** - What should happen?
-2. **Actual behavior** - What happens instead?
-3. **Error messages** - Any errors?
-4. **Timeline** - When did this start?
-5. **Reproduction** - How to trigger it?
-
-### Step 3: Spawn kata-debugger
-
-```
-Task(
-  prompt=debug_prompt,
-  subagent_type="kata-debugger",
-  description="Debug {slug}"
-)
-```
-
-Debug prompt:
-```markdown
-<objective>
-Investigate issue: {slug}
-
-**Summary:** {trigger}
-</objective>
-
-<symptoms>
-expected: {expected}
-actual: {actual}
-errors: {errors}
-reproduction: {reproduction}
-timeline: {timeline}
-</symptoms>
-
-<mode>
-symptoms_prefilled: true
-goal: find_and_fix
-</mode>
-
-<debug_file>
-Create: .planning/debug/{slug}.md
-</debug_file>
-```
-
-### Step 4: Handle Agent Return
-
-**If `## ROOT CAUSE FOUND`:**
-- Display root cause and evidence
-- Offer: "Fix now", "Plan fix", "Manual fix"
-
-**If `## CHECKPOINT REACHED`:**
-- Present checkpoint to user
-- Get response, spawn continuation agent
-
-**If `## INVESTIGATION INCONCLUSIVE`:**
-- Show what was checked
-- Offer: "Continue investigating", "Manual investigation", "Add more context"
-
-### Step 5: Spawn Continuation (After Checkpoint)
-
-```markdown
-<objective>
-Continue debugging {slug}. Evidence is in debug file.
-</objective>
-
-<prior_state>
-Debug file: @.planning/debug/{slug}.md
-</prior_state>
-
-<checkpoint_response>
-**Type:** {checkpoint_type}
-**Response:** {user_response}
-</checkpoint_response>
-
-<mode>
-goal: find_and_fix
-</mode>
-```
 
 ## PAUSE Operation
 
@@ -242,9 +151,8 @@ Task(
 
 ## Sub-Agent Summary
 
-| Agent | Purpose | When Spawned |
-|-------|---------|--------------|
-| kata-debugger | Investigate bugs with scientific method | DEBUG operation |
+| Agent                | Purpose                       | When Spawned           |
+| -------------------- | ----------------------------- | ---------------------- |
 | kata-codebase-mapper | Explore and document codebase | MAP-CODEBASE operation |
 
 ## Quality Standards

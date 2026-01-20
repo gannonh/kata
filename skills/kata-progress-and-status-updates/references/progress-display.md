@@ -126,9 +126,9 @@ Find first PLAN.md without matching SUMMARY.md.
 
 | Action | Natural Trigger | Explicit Command |
 |--------|-----------------|------------------|
-| **Execute the phase** | "Execute phase {phase}" | `/kata-execution` |
+| ⭐ **Execute the phase** | "Execute phase {phase}" | `/kata-execution` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>⭐ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -150,9 +150,9 @@ Check if `{phase}-CONTEXT.md` exists.
 
 | Action | Natural Trigger | Explicit Command |
 |--------|-----------------|------------------|
-| **Plan the phase** | "Plan phase {N}" | `/kata-planning` |
+| ⭐ **Plan the phase** | "Plan phase {N}" | `/kata-planning` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>⭐ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -169,10 +169,10 @@ Check if `{phase}-CONTEXT.md` exists.
 
 | Action | Natural Trigger | Explicit Command |
 |--------|-----------------|------------------|
-| **Research first** | "Research phase {N}" | `/kata-research` |
+| ⭐ **Research first** | "Research phase {N}" | `/kata-research` |
 | Plan directly | "Plan phase {N}" | `/kata-planning` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>⭐ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -201,11 +201,11 @@ Read ROADMAP.md, identify current phase and highest phase in milestone.
 
 | Action | Natural Trigger | Explicit Command |
 |--------|-----------------|------------------|
-| **Verify and run UAT** | "Verify phase {Z}", "Run UAT" | `/kata-verification-and-uat` |
+| ⭐ **Verify and run UAT** | "Verify phase {Z}", "Run UAT" | `/kata-verification-and-uat` |
 | Plan next phase | "Plan phase {Z+1}" | `/kata-planning` |
 | Research first | "Research phase {Z+1}" | `/kata-research` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>⭐ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -227,10 +227,10 @@ All {N} phases finished!
 
 | Action | Natural Trigger | Explicit Command |
 |--------|-----------------|------------------|
-| **Complete milestone** | "Complete milestone" | `/kata-milestone-management` |
+| ⭐ **Complete milestone** | "Complete milestone" | `/kata-milestone-management` |
 | Run UAT first | "Run UAT" | `/kata-verification-and-uat` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>⭐ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -252,11 +252,11 @@ All {N} phases finished!
 
 | Action | Natural Trigger | Explicit Command |
 |--------|-----------------|------------------|
-| **Plan gap closure** | "Plan gaps for phase {phase}" | `/kata-planning` |
+| ⭐ **Plan gap closure** | "Plan gaps for phase {phase}" | `/kata-planning` |
 | Execute existing plans | "Execute phase {phase}" | `/kata-execution` |
 | Run more UAT | "Run UAT" | `/kata-verification-and-uat` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>⭐ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -280,9 +280,9 @@ Ready to plan the next milestone.
 
 | Action | Natural Trigger | Explicit Command |
 |--------|-----------------|------------------|
-| **New milestone** | "New milestone" | `/kata-milestone-management` |
+| ⭐ **New milestone** | "New milestone" | `/kata-milestone-management` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>⭐ recommended · `/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 ```

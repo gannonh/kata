@@ -2,7 +2,7 @@
 
 # KATA
 
-**Spec-driven development framework for Claude Code.**
+**Spec-driven development and subagent orchestration framework for Claude Code.**
 
 [![npm version](https://img.shields.io/npm/v/@gannonh/kata?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@gannonh/kata)
 <br>
@@ -123,6 +123,19 @@ Add this to your project's `.claude/settings.json`:
 ```
 
 </details>
+
+## What is This
+
+This project began as a fork of the [GSD system](https://github.com/glittercowboy/get-shit-done), and then quickly became a hard fork. Why hard fork and not contribute to the original project? Because I'm a control freak. Just kidding (kind of). The real reason is two fold, well three, or two and a half.
+
+- **Team-oriented by design.** GSD, as its brilliant creator has made very clear, is optimized for solo devs, viewing "enterprise" features as anti-patterns. I love the simplicity of GSD and respect its opinionated position, but the projects I work on are more often than not multi-player. At a minimum, I need:
+  - **GitHub integration** — PRs, issues, code review workflows. Planning that connects to where teams actually collaborate.
+  - **IDE agnostic** — Not everyone uses Claude Code (I do but I'm not everyone). Kata should work with the tools teams prefer.
+
+- **Skills as the foundation.** GSD is primarily built on `/commands`, which are Claude Code-specific. Kata standardizes on **skills** — an emerging open standard supported across major agentic frameworks. 
+  - This makes Kata portable and future-proof, not locked to a single tool.
+  - Skills use progressive discolsure to keep prompts lean and efficient.
+  - Skills instantiate with natural language, which is especially convenient when using text-to-speech as your primary input device (you can still invoke with a slash command but it isn't necessary)
 
 ---
 
