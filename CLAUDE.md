@@ -36,7 +36,7 @@ ls .claude/skills/kata-*    # local
 
 ### Using Kata for Kata Development
 
-This project uses Kata to develop itself. Key files in `.planning/`:
+This project uses Kata to build Kata. Key files in `.planning/`:
 
 ```bash
 # Check current state and progress
@@ -83,26 +83,37 @@ Kata provides skills for autonomous invocation alongside slash commands for dete
 
 ### Skills vs Commands
 
-| Aspect | Skills | Commands |
-|--------|--------|----------|
-| Invocation | Autonomous (Claude decides) | Explicit (`/kata:command`) |
-| Arguments | From natural language context | `$ARGUMENTS` |
-| Use case | "Help me plan phase 2" | `/kata:plan-phase 2 --research` |
+| Aspect     | Skills                        | Commands                        |
+| ---------- | ----------------------------- | ------------------------------- |
+| Invocation | Autonomous (Claude decides)   | Explicit (`/kata:command`)      |
+| Arguments  | From natural language context | `$ARGUMENTS`                    |
+| Use case   | "Help me plan phase 2"        | `/kata:plan-phase 2 --research` |
 
 ### Available Skills
 
 Skills are installed to `~/.claude/skills/` (global) or `.claude/skills/` (local):
 
-| Skill | Purpose | Sub-agents Spawned |
-|-------|---------|-------------------|
-| `kata-planning` | Phase planning, task breakdown | kata-planner, kata-plan-checker |
-| `kata-execution` | Plan execution, checkpoints | kata-executor |
-| `kata-verification` | Goal verification, UAT | kata-verifier, kata-debugger |
-| `kata-project-initialization` | New project setup | kata-project-researcher, kata-roadmapper |
-| `kata-milestone-management` | Milestone operations | kata-roadmapper |
-| `kata-roadmap-management` | Phase operations | kata-roadmapper |
-| `kata-research` | Domain research | kata-phase-researcher, kata-research-synthesizer |
-| `kata-utility` | Progress, debug, mapping | kata-debugger, kata-codebase-mapper |
+| Skill                              | Purpose                        | Sub-agents Spawned                               |
+| ---------------------------------- | ------------------------------ | ------------------------------------------------ |
+| `kata-planning`                    | Phase planning, task breakdown | kata-planner, kata-plan-checker                  |
+| `kata-execution`                   | Plan execution, checkpoints    | kata-executor                                    |
+| `kata-verification-and-uat`        | Goal verification, UAT         | kata-verifier, kata-debugger                     |
+| `kata-project-initialization`      | New project setup              | kata-project-researcher, kata-roadmapper         |
+| `kata-milestone-management`        | Milestone operations           | kata-roadmapper                                  |
+| `kata-roadmap-management`          | Phase operations               | kata-roadmapper                                  |
+| `kata-research`                    | Domain research                | kata-phase-researcher, kata-research-synthesizer |
+| `kata-project-status-utilities`    | Progress, debug, mapping       | kata-debugger, kata-codebase-mapper              |
+
+### Skill Naming Best Practices
+
+**Skill names and descriptions are critical for autonomous invocation.** Claude matches skills based on name and description before falling back to default behaviors.
+
+**Key learnings:**
+- **Be verbose and specific** — Generic names like "utility" or "verification" get lost. Use descriptive names like `kata-project-status-utilities` or `kata-verification-and-uat`
+- **Include key terms in the name** — If you want "UAT" to trigger a skill, put "uat" in the skill name itself
+- **Avoid collision with built-in behaviors** — "test" triggers test suite, "build" triggers builds. Prefix with "kata" or use alternative vocabulary
+- **Description triggers matter** — List explicit trigger phrases users might say: "check status", "what's the progress", "run uat"
+- **Test natural language prompts** — Verify skills trigger correctly with phrases like "help me plan phase 2" not just explicit invocation
 
 ### Skill Structure
 
