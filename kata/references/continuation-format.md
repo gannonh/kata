@@ -4,7 +4,8 @@ Standard format for presenting next steps after completing a command or workflow
 
 ## Core Structure
 
-```
+Output this markdown directly (not as a code block):
+
 ───────────────────────────────────────────────────────────────
 
 ## ▶ Next Action
@@ -18,10 +19,9 @@ Standard format for presenting next steps after completing a command or workflow
 | ⭐ **{Primary action}** | "{trigger phrase}" | `/{skill-name}`  |
 | {Secondary action}     | "{trigger phrase}" | `/{skill-name}`  |
 
-<sub>★ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 ## Format Rules
 
@@ -49,7 +49,8 @@ Standard format for presenting next steps after completing a command or workflow
 
 ### Execute Next Plan
 
-```
+Output this markdown directly (not as a code block):
+
 ───────────────────────────────────────────────────────────────
 
 ## ▶ Next Action
@@ -63,16 +64,14 @@ Standard format for presenting next steps after completing a command or workflow
 | ⭐ **Execute the plan** | "Execute phase 2"              | `/kata-execution` |
 | Check assumptions      | "List assumptions for phase 2" | —                 |
 
-<sub>★ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 ### Execute Final Plan in Phase
 
-Add note that this is the last plan and what comes after:
+Add note that this is the last plan and what comes after. Output this markdown directly (not as a code block):
 
-```
 ───────────────────────────────────────────────────────────────
 
 ## ▶ Next Action
@@ -86,18 +85,18 @@ Add note that this is the last plan and what comes after:
 | ---------------------- | ----------------- | ----------------- |
 | ⭐ **Execute the plan** | "Execute phase 2" | `/kata-execution` |
 
-<sub>★ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 **After this completes:**
 - Phase 2 → Phase 3 transition
 - Next: **Phase 3: Core Features** — User dashboard and settings
 
 ───────────────────────────────────────────────────────────────
-```
 
 ### Plan a Phase
 
-```
+Output this markdown directly (not as a code block):
+
 ───────────────────────────────────────────────────────────────
 
 ## ▶ Next Action
@@ -112,16 +111,14 @@ Add note that this is the last plan and what comes after:
 | Research first       | "Research phase 2" | `/kata-researching-phases` |
 | Discuss context      | "Discuss phase 2"  | `/kata-researching-phases` |
 
-<sub>★ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 ### Phase Complete, Ready for Next
 
-Show completion status before next action:
+Show completion status before next action. Output this markdown directly (not as a code block):
 
-```
 ───────────────────────────────────────────────────────────────
 
 ## ✓ Phase 2 Complete
@@ -140,16 +137,14 @@ Show completion status before next action:
 | Plan next phase          | "Plan phase 3"              | `/kata-planning-phases`      |
 | Research first           | "Research phase 3"          | `/kata-researching-phases`   |
 
-<sub>★ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 ### Multiple Equal Options
 
-When there's no clear primary action:
+When there's no clear primary action. Output this markdown directly (not as a code block):
 
-```
 ───────────────────────────────────────────────────────────────
 
 ## ▶ Next Action
@@ -164,14 +159,14 @@ When there's no clear primary action:
 | Research first  | "Research phase 3" | `/kata-researching-phases` |
 | Discuss context | "Discuss phase 3"  | `/kata-researching-phases` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 ### Milestone Complete
 
-```
+Output this markdown directly (not as a code block):
+
 ───────────────────────────────────────────────────────────────
 
 ## 🎉 Milestone v1.0 Complete
@@ -188,10 +183,9 @@ All 4 phases shipped
 | ------------------------- | --------------- | ---------------------------- |
 | ⭐ **Start new milestone** | "New milestone" | `/kata-manageing-milestones` |
 
-<sub>★ recommended · `/clear` first → fresh context window</sub>
+<sub>★ recommended · /clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 ## Pulling Context
 

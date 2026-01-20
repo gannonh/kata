@@ -175,7 +175,8 @@ COUNT=$(ls .planning/todos/pending/*.md 2>/dev/null | wc -l | tr -d ' ')
 
 ### Step ADD-8: Confirm and Present Next Steps
 
-```
+Output this markdown directly (not as a code block):
+
 KATA > TODO CAPTURED
 
 **{title}**
@@ -188,7 +189,6 @@ KATA > TODO CAPTURED
 Pending todos: {count}
 
 To review todos: "check todos" or `/kata-managing-todos`
-```
 
 ---
 

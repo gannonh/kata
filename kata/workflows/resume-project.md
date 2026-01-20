@@ -207,8 +207,8 @@ Wait for user selection.
 <step name="route_to_workflow">
 Based on user selection, route to appropriate workflow:
 
-- **Execute plan** → Show command for user to run after clearing:
-  ```
+- **Execute plan** → Output this markdown directly (not as a code block):
+
   ───────────────────────────────────────────────────────────────
 
   ## ▶ Next Action
@@ -221,12 +221,12 @@ Based on user selection, route to appropriate workflow:
   | --------------------- | ----------------------- | ----------------- |
   | **Execute the phase** | "Execute phase {phase}" | `/kata-execution` |
 
-  <sub>`/clear` first → fresh context window</sub>
+  <sub>/clear first → fresh context window</sub>
 
   ───────────────────────────────────────────────────────────────
-  ```
-- **Plan phase** → Show command for user to run after clearing:
-  ```
+
+- **Plan phase** → Output this markdown directly (not as a code block):
+
   ───────────────────────────────────────────────────────────────
 
   ## ▶ Next Action
@@ -240,10 +240,9 @@ Based on user selection, route to appropriate workflow:
   | **Plan the phase** | "Plan phase [N]"     | `/kata-planning-phases`    |
   | Research first     | "Research phase [N]" | `/kata-researching-phases` |
 
-  <sub>`/clear` first → fresh context window</sub>
+  <sub>/clear first → fresh context window</sub>
 
   ───────────────────────────────────────────────────────────────
-  ```
 - **Transition** → ./transition.md
 - **Check todos** → Read .planning/todos/pending/, present summary
 - **Review alignment** → Read PROJECT.md, compare to current state

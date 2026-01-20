@@ -353,9 +353,8 @@ Write file.
 </step>
 
 <step name="confirm_creation">
-Present summary and next steps:
+Present summary and next steps. Output this markdown directly (not as a code block):
 
-```
 Created: .planning/phases/${PADDED_PHASE}-${SLUG}/${PADDED_PHASE}-CONTEXT.md
 
 ## Decisions Captured
@@ -382,10 +381,10 @@ Created: .planning/phases/${PADDED_PHASE}-${SLUG}/${PADDED_PHASE}-CONTEXT.md
 | ------------------ | --------------------- | ----------------------- |
 | **Plan the phase** | "Plan phase ${PHASE}" | `/kata-planning-phases` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
+
 </step>
 
 <step name="git_commit">

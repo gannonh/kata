@@ -226,9 +226,8 @@ git commit -m "docs: map existing codebase
 
 ### Step 7: Offer Next Steps
 
-Present completion summary:
+Present completion summary. Output this markdown directly (not as a code block):
 
-```
 Codebase mapping complete.
 
 Created .planning/codebase/:
@@ -249,7 +248,7 @@ Created .planning/codebase/:
 
 `/kata:new-project`
 
-<sub>`/clear` first -> fresh context window</sub>
+<sub>/clear first -> fresh context window</sub>
 
 ---
 
@@ -259,7 +258,6 @@ Created .planning/codebase/:
 - Edit any document before proceeding
 
 ---
-```
 
 ## Document Templates
 

@@ -293,7 +293,8 @@ git commit -m "chore: complete v[X.Y] milestone"
 
 ## Step 9: Present Completion
 
-```
+Output this markdown directly (not as a code block):
+
 Milestone v[X.Y] [Name] complete
 
 Shipped:
@@ -319,10 +320,9 @@ Tag: v[X.Y]
 | ----------------- | --------------- | ---------------------------- |
 | **New milestone** | "New milestone" | `/kata-manageing-milestones` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 ## Success Criteria
 

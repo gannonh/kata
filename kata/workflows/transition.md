@@ -439,7 +439,8 @@ Exit skill and invoke SlashCommand("/kata:plan-phase [X+1]")
 
 <if mode="interactive" OR="custom with gates.confirm_transition true">
 
-```
+Output this markdown directly (not as a code block):
+
 ## ✓ Phase [X] Complete
 
 ───────────────────────────────────────────────────────────────
@@ -456,10 +457,9 @@ Exit skill and invoke SlashCommand("/kata:plan-phase [X+1]")
 | Plan next phase        | "Plan phase [X+1]"            | `/kata-planning-phases`      |
 | Research first         | "Research phase [X+1]"        | `/kata-researching-phases`   |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 </if>
 
@@ -483,7 +483,8 @@ Exit skill and invoke SlashCommand("/kata:complete-milestone {version}")
 
 <if mode="interactive" OR="custom with gates.confirm_transition true">
 
-```
+Output this markdown directly (not as a code block):
+
 ## ✓ Phase {X}: {Phase Name} Complete
 
 🎉 Milestone {version} is 100% complete — all {N} phases finished!
@@ -500,10 +501,9 @@ Exit skill and invoke SlashCommand("/kata:complete-milestone {version}")
 | ---------------------- | -------------------- | ---------------------------- |
 | **Complete milestone** | "Complete milestone" | `/kata-manageing-milestones` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 </if>
 
