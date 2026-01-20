@@ -55,7 +55,6 @@ function parseConfigDirArg() {
 const explicitConfigDir = parseConfigDirArg();
 const hasHelp = args.includes('--help') || args.includes('-h');
 const forceStatusline = args.includes('--force-statusline');
-const hasGitHooks = args.includes('--git-hooks');
 
 console.log(banner);
 
@@ -69,7 +68,6 @@ if (hasHelp) {
     ${cyan}-c, --config-dir <path>${reset}   Specify custom Claude config directory
     ${cyan}-h, --help${reset}                Show this help message
     ${cyan}--force-statusline${reset}        Replace existing statusline config
-    ${cyan}--git-hooks${reset}               Install git pre-commit hook for linting
 
   ${yellow}Examples:${reset}
     ${dim}# Install to default ~/.claude directory${reset}
@@ -158,7 +156,8 @@ function copyWithPathReplacement(srcDir, destDir, pathPrefix) {
  */
 function cleanupOrphanedFiles(claudeDir) {
   const orphanedFiles = [
-    'hooks/gsd-notify.sh',  // Removed in v1.6.x
+    'hooks/gsd-notify.sh',   // Removed in v1.6.x
+    'hooks/kata-lint.js',    // Dev-only, erroneously distributed in v1.7.x
   ];
 
   const orphanedDirs = [
@@ -221,68 +220,6 @@ function cleanupOrphanedHooks(settings) {
   }
 
   return settings;
-}
-
-/**
- * Install git pre-commit hook for output template linting
- * Returns true if installed, false if skipped
- */
-function installGitHook(isGlobal) {
-  const gitHooksDir = path.join(process.cwd(), '.git', 'hooks');
-
-  // Check if .git/hooks exists
-  if (!fs.existsSync(gitHooksDir)) {
-    console.log(`  ${yellow}⚠${reset} Skipping git hook (no .git/hooks directory)`);
-    return false;
-  }
-
-  const preCommitPath = path.join(gitHooksDir, 'pre-commit');
-  const hookMarker = '# Kata pre-commit hook';
-
-  // Generate hook script content
-  const hookScript = `#!/bin/sh
-${hookMarker} - lint output templates
-# Bypass with: git commit --no-verify
-
-STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep '\\.md$')
-[ -z "$STAGED" ] && exit 0
-
-LINTER=".claude/hooks/kata-lint.js"
-[ ! -f "$LINTER" ] && LINTER="$HOME/.claude/hooks/kata-lint.js"
-[ -f "$LINTER" ] && node "$LINTER" --staged
-exit $?
-`;
-
-  // Check if pre-commit already exists
-  if (fs.existsSync(preCommitPath)) {
-    const existing = fs.readFileSync(preCommitPath, 'utf8');
-
-    // Already has Kata hook
-    if (existing.includes(hookMarker)) {
-      console.log(`  ${green}✓${reset} Git hook already installed`);
-      return true;
-    }
-
-    // Append to existing hook
-    const appendScript = `
-
-${hookMarker} - lint output templates
-STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep '\\.md$')
-if [ -n "$STAGED" ]; then
-  LINTER=".claude/hooks/kata-lint.js"
-  [ ! -f "$LINTER" ] && LINTER="$HOME/.claude/hooks/kata-lint.js"
-  [ -f "$LINTER" ] && node "$LINTER" --staged || exit $?
-fi
-`;
-    fs.appendFileSync(preCommitPath, appendScript);
-    console.log(`  ${green}✓${reset} Appended to existing git pre-commit hook`);
-    return true;
-  }
-
-  // Create new hook
-  fs.writeFileSync(preCommitPath, hookScript, { mode: 0o755 });
-  console.log(`  ${green}✓${reset} Installed git pre-commit hook`);
-  return true;
 }
 
 /**
@@ -515,11 +452,6 @@ function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallS
       command: statuslineCommand
     };
     console.log(`  ${green}✓${reset} Configured statusline`);
-  }
-
-  // Install git pre-commit hook if requested
-  if (hasGitHooks) {
-    installGitHook(isGlobal);
   }
 
   // Always write settings (hooks were already configured in install())

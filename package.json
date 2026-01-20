@@ -10,7 +10,8 @@
     "commands",
     "kata",
     "agents",
-    "hooks"
+    "hooks",
+    "skills"
   ],
   "keywords": [
     "claude",
