@@ -8,16 +8,13 @@
 
 <br>
 
-**Agent orchestration framework for spec-driven development.**
 
 [![npm version](https://img.shields.io/npm/v/@gannonh/kata?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@gannonh/kata)
 <br>
-
 ```bash
 npx @gannonh/kata
 ```
 
-**Works on Mac, Windows, and Linux.**
 
 <br>
 
@@ -25,7 +22,7 @@ npx @gannonh/kata
 
 <br>
 
-**Trusted by engineers at Amazon, Google, Shopify, and Webflow.**
+**Agent orchestration framework for spec-driven development.**
 
 </div>
 
