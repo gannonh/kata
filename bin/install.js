@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const readline = require('readline');
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import readline from 'readline';
+import { fileURLToPath } from 'url';
+
+// ES module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Colors
 const cyan = '\x1b[36m';
@@ -13,7 +18,7 @@ const dim = '\x1b[2m';
 const reset = '\x1b[0m';
 
 // Get version from package.json
-const pkg = require('../package.json');
+const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
 
 const banner = `
 ${cyan}  ┌──────────────────────────────────────────────────────────┐
