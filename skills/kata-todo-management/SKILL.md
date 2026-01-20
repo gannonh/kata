@@ -194,22 +194,103 @@ To review todos: "check todos" or `/kata-todo-management`
 
 ## CHECK Operation Workflow
 
-**See Plan 01-02 for CHECK operation implementation.**
+Reviews pending todos and presents action options for each.
 
-This plan (01-01) focuses on ADD operation. CHECK operation will be added in the next plan.
+### Step CHECK-1: List Pending Todos
 
-### Placeholder Response
+Count and list pending todos:
 
-When CHECK operation is triggered:
-
+```bash
+ls .planning/todos/pending/*.md 2>/dev/null | wc -l
 ```
-CHECK operation coming in Plan 01-02.
 
-For now, you can view pending todos manually:
-  ls .planning/todos/pending/
-
-Current pending count: {count}
+**If 0 todos:**
 ```
+No pending todos. Use "add todo" to capture ideas.
+```
+Exit skill.
+
+**If >0 todos:** Display count and proceed to review.
+
+### Step CHECK-2: Review Each Todo
+
+For each todo file in `.planning/todos/pending/`:
+
+1. **Read todo file** and extract frontmatter fields
+2. **Display summary:**
+   ```
+   ### [Title]
+   **Area:** [area] | **Type:** [type] | **Created:** [date]
+   ```
+
+3. **Present action options** using AskUserQuestion:
+   ```
+   question="What would you like to do with '[Title]'?"
+   options=[
+     "work on now",
+     "add to current phase",
+     "create new phase",
+     "brainstorm ideas",
+     "put back (review later)",
+     "mark complete"
+   ]
+   ```
+
+### Step CHECK-3: Route Based on Selection
+
+Route to action based on user selection:
+
+| Selection           | Action                                           |
+| ------------------- | ------------------------------------------------ |
+| work on now         | Display content, exit skill (user takes over)    |
+| add to current phase| Add to ROADMAP backlog, move to done/            |
+| create new phase    | Invoke kata-managing-project-roadmap add-phase   |
+| brainstorm ideas    | Display content, continue conversation           |
+| put back            | Skip to next todo (or exit if last)              |
+| mark complete       | Move to done/, show next todo                    |
+
+See `./references/actions.md` for detailed action workflows.
+
+### Step CHECK-4: Update STATE.md and Summarize
+
+After all todos reviewed or user exits:
+
+1. **Count remaining pending todos:**
+   ```bash
+   count=$(ls .planning/todos/pending/*.md 2>/dev/null | wc -l | tr -d ' ')
+   ```
+
+2. **Update STATE.md** "Pending Todos" section with new count
+
+3. **Display summary:**
+   ```
+   KATA > TODO REVIEW COMPLETE
+
+   Reviewed: [N] todos
+   - Completed: [X]
+   - Actioned: [Y]
+   - Pending: [Z]
+   ```
+
+4. **Present next steps:**
+   ```
+   ───────────────────────────────────────────────────────────
+
+   ## ▶ Next Action
+
+   **Todo review complete**
+
+   > Instructions can be given conversationally (recommended) or via /commands.
+
+   | Action       | Natural Trigger | Explicit Command        |
+   | ------------ | --------------- | ----------------------- |
+   | **Add more** | "add todo"      | `/kata-todo-management` |
+   | Work on todo | "check todos"   | `/kata-todo-management` |
+
+   <sub>`/clear` first → fresh context window</sub>
+
+   ───────────────────────────────────────────────────────────
+   ```
 
 ---
 
@@ -217,6 +298,7 @@ Current pending count: {count}
 
 - **Todo format specification:** See `./references/todo-format.md`
 - **Area and type values:** See `./references/todo-format.md`
+- **CHECK action workflows:** See `./references/actions.md`
 
 ## Quality Standards
 
