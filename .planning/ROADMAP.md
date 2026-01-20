@@ -128,10 +128,13 @@ Plans:
   3. Tests verify num_turns > 1 (skill actually ran)
   4. All tests pass (`npm test` succeeds)
   5. Single-skill test command works (`npm run test:skill -- tests/skills/<name>.test.js`)
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 01.2-01: TBD (run /kata-planning-phases to break down)
+- [ ] 01.2-01-PLAN.md — Create tests for debugging, execution, and milestone skills
+- [ ] 01.2-02-PLAN.md — Create tests for roadmap, planning, and progress skills
+- [ ] 01.2-03-PLAN.md — Create tests for research, new project, and verification skills
+- [ ] 01.2-04-PLAN.md — Verify all 10 tests exist and npm test works
 
 #### Phase 2: Create Kata Slash Commands
 **Goal**: Create GSD-equivalent slash commands that instantiate corresponding Kata skills, ensuring explicit invocation path alongside autonomous skill triggering
@@ -281,7 +284,7 @@ Plans:
 | 0. Convert Commands to Skills     | v0.1.5    | 12/12          | Complete    | 2026-01-20 |
 | 1. Migrate Todo Commands to Skill | v0.1.5    | 3/3            | Complete    | 2026-01-20 |
 | 1.1 Testing & Evals Harness       | v0.1.5    | 2/2            | Complete    | 2026-01-20 |
-| 1.2 Skill Tests                   | v0.1.5    | 0/?            | Not planned | -          |
+| 1.2 Skill Tests                   | v0.1.5    | 0/4            | Planned     | -          |
 | 2. Create Kata Slash Commands     | v0.1.5    | 0/?            | Not planned | -          |
 | 2.1 Slash Command Tests           | v0.1.5    | 0/?            | Not planned | -          |
 | 3. Documentation                  | v0.1.5    | 0/?            | Not planned | -          |
@@ -294,4 +297,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-20 — Phase 1.2 (Skill Tests) and Phase 2.1 (Slash Command Tests) inserted*
+*Last updated: 2026-01-20 — Phase 1.2 (Skill Tests) planned with 4 plans*
