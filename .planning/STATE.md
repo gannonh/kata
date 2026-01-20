@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 
 Milestone: v0.1.5 Skills & Documentation (Phases 0, 1, 1.1, 1.2, 2, 2.1, 3, 4)
 Phase: 1.2 (Skill Tests) - IN PROGRESS
-Plan: 2 of 4 complete
+Plan: 3 of 4 complete
 Status: In progress
-Last activity: 2026-01-20 - Completed 01.2-02 (3 skill test files, 10 trigger tests)
+Last activity: 2026-01-20 - Completed 01.2-03 (research/project/verification skill tests)
 
 Progress: [=========----------------] 38% (3/8 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 25
+- Total plans completed: 26
 - Average duration: 3 min
-- Total execution time: 84 min
+- Total execution time: 85 min
 
 **By Phase:**
 
@@ -32,10 +32,10 @@ Progress: [=========----------------] 38% (3/8 phases)
 | 00-convert-commands-skills | 12    | 43 min | 3.5 min  |
 | 01-migrate-todo-commands   | 3     | 19 min | 6 min    |
 | 01.1-testing-evals-harness | 2     | 6 min  | 3 min    |
-| 01.2-skill-tests           | 2     | 4 min  | 2 min    |
+| 01.2-skill-tests           | 3     | 5 min  | 1.5 min  |
 
 **Recent Trend:**
-- Last 5 plans: 01-03 (15 min*), 01.1-01 (2 min), 01.1-02 (4 min), 01.2-01 (2 min), 01.2-02 (2 min)
+- Last 5 plans: 01.1-01 (2 min), 01.1-02 (4 min), 01.2-01 (2 min), 01.2-02 (2 min), 01.2-03 (1 min)
 - Trend: Consistent fast execution for test file creation
 
 *Updated after each plan completion*
@@ -100,5 +100,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-20
-Stopped at: Completed 01.2-02-PLAN.md (skill tests batch 2)
-Resume file: None (ready for 01.2-03)
+Stopped at: Completed 01.2-03-PLAN.md (research/project/verification skill tests)
+Resume file: None (ready for 01.2-04)
