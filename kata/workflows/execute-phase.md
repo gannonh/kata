@@ -137,8 +137,8 @@ Execute each wave in sequence. Autonomous plans within a wave run in parallel.
 
    Read each plan's `<objective>` section. Extract what's being built and why it matters.
 
-   **Output:**
-   ```
+   **Output this markdown directly (not as a code block):**
+
    ---
 
    ## Wave {N}
@@ -152,7 +152,6 @@ Execute each wave in sequence. Autonomous plans within a wave run in parallel.
    Spawning {count} agent(s)...
 
    ---
-   ```
 
    **Examples:**
    - Bad: "Executing terrain generation plan"
@@ -201,8 +200,8 @@ Execute each wave in sequence. Autonomous plans within a wave run in parallel.
    - Read SUMMARY.md to extract what was built
    - Note any issues or deviations
 
-   **Output:**
-   ```
+   **Output this markdown directly (not as a code block):**
+
    ---
 
    ## Wave {N} Complete
@@ -217,7 +216,6 @@ Execute each wave in sequence. Autonomous plans within a wave run in parallel.
    {If more waves: brief note on what this enables for next wave}
 
    ---
-   ```
 
    **Examples:**
    - Bad: "Wave 2 complete. Proceeding to Wave 3."
@@ -468,8 +466,8 @@ git commit -m "docs(phase-{X}): complete phase execution"
 <step name="offer_next">
 Present next steps based on milestone status:
 
-**If more phases remain:**
-```
+**If more phases remain:** Output this markdown directly (not as a code block):
+
 ───────────────────────────────────────────────────────────────
 
 ## ▶ Next Action
@@ -483,13 +481,12 @@ Present next steps based on milestone status:
 | **Verify and run UAT** | "Verify phase {X}", "Run UAT" | `/kata-verification-and-uat` |
 | Plan next phase        | "Plan phase {X+1}"            | `/kata-planning-phases`      |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
-**If milestone complete:**
-```
+**If milestone complete:** Output this markdown directly (not as a code block):
+
 MILESTONE COMPLETE!
 
 All {N} phases executed.
@@ -506,10 +503,10 @@ All {N} phases executed.
 | ---------------------- | -------------------- | ---------------------------- |
 | **Complete milestone** | "Complete milestone" | `/kata-manageing-milestones` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
+
 </step>
 
 </process>

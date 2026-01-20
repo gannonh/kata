@@ -113,9 +113,8 @@ For each wave in sequence:
 
 **1. Describe what's being built (BEFORE spawning):**
 
-Read each plan's `<objective>` section. Output:
+Read each plan's `<objective>` section. Output this markdown directly (not as a code block):
 
-```
 ---
 ## Wave {N}
 
@@ -124,7 +123,6 @@ Read each plan's `<objective>` section. Output:
 
 Spawning {count} agent(s)...
 ---
-```
 
 **2. Spawn kata-executor sub-agents in parallel:**
 

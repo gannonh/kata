@@ -167,9 +167,8 @@ Route by status:
 
 ---
 
-**If passed:**
+**If passed:** Output this markdown directly (not as a code block):
 
-```
 ## Milestone {version} -- Audit Passed
 
 **Score:** {N}/{M} requirements satisfied
@@ -189,16 +188,14 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 | ---------------------- | -------------------- | ---------------------------- |
 | **Complete milestone** | "Complete milestone" | `/kata-manageing-milestones` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 ---
 
-**If gaps_found:**
+**If gaps_found:** Output this markdown directly (not as a code block):
 
-```
 ## Milestone {version} -- Gaps Found
 
 **Score:** {N}/{M} requirements satisfied
@@ -230,16 +227,14 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 | **Plan gaps**   | "Plan gaps"          | `/kata-managing-project-roadmap` |
 | Complete anyway | "Complete milestone" | `/kata-manageing-milestones`     |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 ---
 
-**If tech_debt (no blockers but accumulated debt):**
+**If tech_debt (no blockers but accumulated debt):** Output this markdown directly (not as a code block):
 
-```
 ## Milestone {version} -- Tech Debt Review
 
 **Score:** {N}/{M} requirements satisfied
@@ -268,7 +263,6 @@ All requirements met. No critical blockers. Accumulated tech debt needs review.
 /kata:plan-milestone-gaps
 
 <sub>/clear first -- fresh context window</sub>
-```
 
 ## Integration with plan-milestone-gaps
 

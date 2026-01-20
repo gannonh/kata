@@ -13,8 +13,8 @@ Actions are lightweight routing flows, not full sub-agent workflows. Each action
 **Steps:**
 
 1. Read full todo file content
-2. Display formatted output:
-   ```
+2. Display formatted output (output this markdown directly, not as a code block):
+
    ## Working on: [Title]
 
    [Todo body content]
@@ -26,7 +26,7 @@ Actions are lightweight routing flows, not full sub-agent workflows. Each action
    - [file2]
 
    When done, say "mark [title] complete" or "check todos" to continue.
-   ```
+
 3. Exit skill (user continues naturally)
 
 **Important:** Does NOT move file to done/. User explicitly marks complete later via "mark complete" action or by saying "mark [title] complete".

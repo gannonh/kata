@@ -238,9 +238,8 @@ Present completion summary and next steps.
 wc -l .planning/codebase/*.md
 ```
 
-**Output format:**
+**Output this markdown directly (not as a code block):**
 
-```
 Codebase mapping complete.
 
 Created .planning/codebase/:
@@ -265,10 +264,9 @@ Created .planning/codebase/:
 | --------------- | --------------- | ----------------------------- |
 | **New project** | "New project"   | `/kata-starting-new-projects` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 End workflow.
 </step>

@@ -276,9 +276,8 @@ git commit -m "docs: create v[X.Y] roadmap ([N] phases)"
 
 ## Phase 9: Done
 
-Present completion:
+Present completion. Output this markdown directly (not as a code block):
 
-```
 KATA > MILESTONE INITIALIZED
 
 **v[X.Y] [Name]**
@@ -304,10 +303,9 @@ KATA > MILESTONE INITIALIZED
 | ------------------ | ---------------- | ----------------------- |
 | **Plan the phase** | "Plan phase [N]" | `/kata-planning-phases` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 ## Success Criteria
 

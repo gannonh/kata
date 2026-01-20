@@ -663,7 +663,8 @@ Confirm: "Committed: chore: complete v[X.Y] milestone"
 
 <step name="offer_next">
 
-```
+Output this markdown directly (not as a code block):
+
 ✅ Milestone v[X.Y] [Name] complete
 
 Shipped:
@@ -689,10 +690,9 @@ Tag: v[X.Y]
 | ----------------- | --------------- | ---------------------------- |
 | **New milestone** | "New milestone" | `/kata-manageing-milestones` |
 
-<sub>`/clear` first → fresh context window</sub>
+<sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
-```
 
 </step>
 
