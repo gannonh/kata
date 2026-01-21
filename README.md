@@ -427,7 +427,7 @@ The system adapts.
 
 **Commands not found after install?**
 - Restart Claude Code to reload slash commands
-- Verify files exist in `~/.claude/commands/gsd/` (global) or `./.claude/commands/gsd/` (local)
+- Verify files exist in `~/.claude/commands/kata/` (global) or `./.claude/commands/kata/` (local)
 
 **Commands not working as expected?**
 - Run `/kata:help` to verify installation
