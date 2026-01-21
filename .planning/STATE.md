@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 
 Milestone: v0.1.5 Skills & Documentation (Phases 0, 1, 1.1, 1.2, 1.3, 2, 2.1, 3, 4)
 Phase: 2 (Create Kata Slash Commands) - IN PROGRESS
-Plan: 5 of 7 complete
+Plan: 6 of 7 complete
 Status: In progress
-Last activity: 2026-01-21 - Completed 02-05-PLAN.md (utility commands)
+Last activity: 2026-01-21 - Completed 02-06-PLAN.md (skill frontmatter updates)
 
 Progress: [=============------------] 67% (6/9 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 34
+- Total plans completed: 35
 - Average duration: 3 min
-- Total execution time: 105 min
+- Total execution time: 107 min
 
 **By Phase:**
 
@@ -34,10 +34,10 @@ Progress: [=============------------] 67% (6/9 phases)
 | 01.1-testing-evals-harness | 2     | 6 min  | 3 min    |
 | 01.2-skill-tests           | 4     | 6 min  | 1.5 min  |
 | 01.3-discuss-phase-skill   | 2     | 5 min  | 2.5 min  |
-| 02-create-kata-slash-cmds  | 5     | 14 min | 2.8 min  |
+| 02-create-kata-slash-cmds  | 6     | 16 min | 2.7 min  |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (6 min), 02-02 (1 min), 02-03 (2 min), 02-04 (3 min), 02-05 (2 min)
+- Last 5 plans: 02-02 (1 min), 02-03 (2 min), 02-04 (3 min), 02-05 (2 min), 02-06 (2 min)
 - Trend: Consistent fast execution, command creation averaging <3 min
 
 *Updated after each plan completion*
@@ -64,6 +64,7 @@ Recent decisions affecting current work:
 - **2026-01-21: Roadmap command split** - Roadmap operations get individual commands (add/insert/remove/plan-gaps) instead of single command with args
 - **2026-01-21: Research workflow tripartite** - Phase research split into discuss (interactive), research (investigation), assumptions (validation)
 - **2026-01-21: Command delegation pattern** - All slash commands use disable-model-invocation: true and delegate to skills via Task tool
+- **2026-01-21: Skill invocation control** - Added user-invocable: false to all 14 Kata skills to prevent autonomous invocation; skills only trigger via natural language or command delegation
 
 ### Roadmap Evolution
 
@@ -108,5 +109,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed 02-05-PLAN.md (utility commands)
-Resume file: Continue Phase 2 (remaining plans: 02-06 or 02-07)
+Stopped at: Completed 02-06-PLAN.md (skill frontmatter updates)
+Resume file: Continue Phase 2 (remaining plan: 02-07)
