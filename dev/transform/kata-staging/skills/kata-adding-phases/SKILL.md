@@ -1,6 +1,13 @@
 ---
 name: kata-adding-phases
-description: Use this skill when adding planned phases to the roadmap, appending sequential work to milestones, or creating new phase entries. Triggers include "add phase", "append phase", "new phase", and "create phase".
+description: Use this skill to add planned work discovered during execution to the end of the current milestone in the roadmap. This skill appends sequential phases to the current milestone's phase list, automatically calculating the next phase number. Triggers include "add phase", "append phase", "new phase", and "create phase". This skill updates ROADMAP.md and STATE.md accordingly.
+version: 0.1.0
+user-invocable: false
+disable-model-invocation: false
+allowed-tools:
+  - Read
+  - Write
+  - Bash
 ---
 
 <objective>
@@ -18,18 +25,17 @@ Purpose: Add planned work discovered during execution that belongs at the end of
 
 <process>
 
-<step name="parse_arguments">
-Parse the command arguments:
-- All arguments become the phase description
-- Example: `/kata:add-phase Add authentication` → description = "Add authentication"
-- Example: `/kata:add-phase Fix critical performance issues` → description = "Fix critical performance issues"
+<step name="infer_phase_description">
+Infer the phase description from the conversation context:
+- Example: `Add authentication` → description = "Add authentication"
+- Example: `Fix critical performance issues` → description = "Fix critical performance issues"
 
-If no arguments provided:
+If unable to infer, prompt user for description:
 
 ```
 ERROR: Phase description required
-Usage: /kata:add-phase <description>
-Example: /kata:add-phase Add authentication system
+Please provide a brief description for the new phase.
+Example: Add authentication system
 ```
 
 Exit.
@@ -150,7 +156,7 @@ If "Roadmap Evolution" section doesn't exist, create it.
 <step name="completion">
 Present completion summary:
 
-```
+
 Phase {N} added to current milestone:
 - Description: {description}
 - Directory: .planning/phases/{phase-num}-{slug}/
@@ -176,7 +182,7 @@ Project state updated: .planning/STATE.md
 - Review roadmap
 
 ---
-```
+
 </step>
 
 </process>
@@ -199,4 +205,4 @@ Phase addition is complete when:
 - [ ] New phase appears at end of current milestone
 - [ ] Next phase number calculated correctly (ignoring decimals)
 - [ ] User informed of next steps
-      </success_criteria>
+</success_criteria>

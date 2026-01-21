@@ -1,16 +1,26 @@
 ---
 name: kata-auditing-milestones
-description: Use this skill when verifying milestone achievement against definition of done, checking requirements coverage, or validating end-to-end flows. Triggers include "audit milestone", "verify milestone", and "check milestone".
+description: Use this skill to verify milestone achievement against its definition of done, checking requirements coverage, cross-phase integration, and end-to-end flows. Triggers include "audit milestone", "verify milestone", "check milestone", and "milestone audit". This skill reads existing phase verification files, aggregates technical debt and gaps, and spawns an integration checker for cross-phase wiring.
+version: 0.1.0
+user-invocable: false
+disable-model-invocation: false
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
+  - Bash
+  - Task
+  - Write
 ---
 
 <objective>
 Verify milestone achieved its definition of done. Check requirements coverage, cross-phase integration, and end-to-end flows.
 
-**This command IS the orchestrator.** Reads existing VERIFICATION.md files (phases already verified during execute-phase), aggregates tech debt and deferred gaps, then spawns integration checker for cross-phase wiring.
+**This skill IS the orchestrator.** Reads existing VERIFICATION.md files (phases already verified during execute-phase), aggregates tech debt and deferred gaps, then spawns integration checker for cross-phase wiring.
 </objective>
 
 <execution_context>
-<!-- Spawns kata-integration-checker agent which has all audit expertise baked in -->
+<!-- Spawns sata-integration-checker agent which has all audit expertise baked in -->
 </execution_context>
 
 <context>
@@ -30,24 +40,6 @@ Glob: .planning/phases/*/*-VERIFICATION.md
 </context>
 
 <process>
-
-## 0. Resolve Model Profile
-
-Read model profile for agent spawning:
-
-```bash
-MODEL_PROFILE=$(cat .planning/config.json 2>/dev/null | grep -o '"model_profile"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "balanced")
-```
-
-Default to "balanced" if not set.
-
-**Model lookup table:**
-
-| Agent | quality | balanced | budget |
-|-------|---------|----------|--------|
-| kata-integration-checker | sonnet | sonnet | haiku |
-
-Store resolved model for use in Task call below.
 
 ## 1. Determine Milestone Scope
 
@@ -93,8 +85,7 @@ Phase exports: {from SUMMARYs}
 API routes: {routes created}
 
 Verify cross-phase wiring and E2E user flows.",
-  subagent_type="kata-integration-checker",
-  model="{integration_checker_model}"
+  subagent_type="sata-integration-checker"
 )
 ```
 
@@ -173,7 +164,7 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 **Complete milestone** — archive and tag
 
-/kata:complete-milestone {version}
+/sata:complete-milestone {version}
 
 <sub>/clear first → fresh context window</sub>
 
@@ -210,7 +201,7 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 **Plan gap closure** — create phases to complete milestone
 
-/kata:plan-milestone-gaps
+/sata:plan-milestone-gaps
 
 <sub>/clear first → fresh context window</sub>
 
@@ -218,7 +209,7 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 **Also available:**
 - cat .planning/v{version}-MILESTONE-AUDIT.md — see full report
-- /kata:complete-milestone {version} — proceed anyway (accept tech debt)
+- /sata:complete-milestone {version} — proceed anyway (accept tech debt)
 
 ───────────────────────────────────────────────────────────────
 
@@ -248,11 +239,11 @@ All requirements met. No critical blockers. Accumulated tech debt needs review.
 
 **A. Complete milestone** — accept debt, track in backlog
 
-/kata:complete-milestone {version}
+/sata:complete-milestone {version}
 
 **B. Plan cleanup phase** — address debt before completing
 
-/kata:plan-milestone-gaps
+/sata:plan-milestone-gaps
 
 <sub>/clear first → fresh context window</sub>
 

@@ -1,6 +1,6 @@
 ---
 name: kata-discussing-phases
-description: Use this skill when exploring phase requirements, clarifying goals, or discussing implementation approaches. Triggers include "discuss phase", "explore phase", and "talk about phase".
+description: Use this skill when gathering phase context through adaptive questioning before planning, clarifying implementation decisions, or exploring gray areas for a phase. Triggers include "discuss phase", "clarify phase", "gather context", "what are the gray areas", and "phase discussion".
 ---
 
 <objective>

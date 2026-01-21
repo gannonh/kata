@@ -1,6 +1,6 @@
 ---
 name: kata-checking-todos
-description: Use this skill when reviewing pending todos, checking task status, or managing todo lists. Triggers include "check todos", "show todos", and "list tasks".
+description: Use this skill when reviewing pending todos, selecting a todo to work on, filtering todos by area, or deciding what to work on next. Triggers include "check todos", "list todos", "what todos", "pending todos", "show todos", "view todos", and "select todo to work on".
 ---
 
 <objective>

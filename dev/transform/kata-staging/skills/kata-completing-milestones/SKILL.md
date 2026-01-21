@@ -1,6 +1,6 @@
 ---
 name: kata-completing-milestones
-description: Use this skill when finishing a milestone, archiving work, or transitioning to next milestone. Triggers include "complete milestone", "finish milestone", and "close milestone".
+description: Use this skill when archiving a completed milestone, preparing for the next version, marking a milestone complete, shipping a version, or wrapping up milestone work. Triggers include "complete milestone", "finish milestone", "archive milestone", "ship version", "mark milestone done", and "milestone complete".
 ---
 
 <objective>

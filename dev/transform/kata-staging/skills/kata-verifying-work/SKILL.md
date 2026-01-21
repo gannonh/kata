@@ -1,6 +1,6 @@
 ---
 name: kata-verifying-work
-description: Use this skill when verifying completed work, validating implementation, or running acceptance tests. Triggers include "verify work", "validate", and "check work".
+description: Use this skill when validating built features through conversational testing, running UAT, user acceptance testing, checking if features work, or verifying implementation. Triggers include "verify work", "test features", "UAT", "user testing", "check if it works", and "validate features".
 ---
 
 <objective>

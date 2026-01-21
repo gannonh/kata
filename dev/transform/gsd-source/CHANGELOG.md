@@ -6,24 +6,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.9.4] - 2026-01-21
+
+### Changed
+- Checkpoint automation now enforces automation-first principle: Claude starts servers, handles CLI installs, and fixes setup failures before presenting checkpoints to users
+- Added server lifecycle protocol (port conflict handling, background process management)
+- Added CLI auto-installation handling with safe-to-install matrix
+- Added pre-checkpoint failure recovery (fix broken environment before asking user to verify)
+- DRY refactor: checkpoints.md is now single source of truth for automation patterns
+
+## [1.9.2] - 2025-01-21
+
+### Removed
+- **Codebase Intelligence System** — Removed due to overengineering concerns
+  - Deleted `/gsd:analyze-codebase` command
+  - Deleted `/gsd:query-intel` command
+  - Removed SQLite graph database and sql.js dependency (21MB)
+  - Removed intel hooks (gsd-intel-index.js, gsd-intel-session.js, gsd-intel-prune.js)
+  - Removed entity file generation and templates
+
+### Fixed
+- new-project now properly includes model_profile in config
+
 ## [1.9.0] - 2025-01-20
 
 ### Added
-- **Codebase Intelligence System** — Automatic semantic understanding of your codebase
-  - `/gsd:analyze-codebase` now generates semantic entities (modules, services, utils) from AST analysis
-  - `/gsd:query-intel` command for CLI access to dependency graph (`dependents`, `hotspots`)
-  - SQLite graph database (`.planning/intel/graph.db`) stores entity relationships
-  - SessionStart hook injects relevant codebase context into conversations
-  - PostToolUse hook maintains index incrementally as files change
-  - Stop hook prunes deleted files from index
 - **Model Profiles** — `/gsd:set-profile` for quality/balanced/budget agent configurations
 - **Workflow Settings** — `/gsd:settings` command for toggling workflow behaviors interactively
-
-### Changed
-- Subagent prompts now include codebase intelligence context when available
-- New project initialization creates intel directory structure
-- Install process registers intel hooks automatically
-- Documentation updated: help.md, README.md with new commands and codebase intelligence features
 
 ### Fixed
 - Orchestrators now inline file contents in Task prompts (fixes context issues with @ references)
@@ -981,7 +990,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - YOLO mode for autonomous execution
 - Interactive mode with checkpoints
 
-[Unreleased]: https://github.com/glittercowboy/get-shit-done/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/glittercowboy/get-shit-done/compare/v1.9.4...HEAD
+[1.9.4]: https://github.com/glittercowboy/get-shit-done/releases/tag/v1.9.4
+[1.9.2]: https://github.com/glittercowboy/get-shit-done/releases/tag/v1.9.2
 [1.9.0]: https://github.com/glittercowboy/get-shit-done/releases/tag/v1.9.0
 [1.8.0]: https://github.com/glittercowboy/get-shit-done/releases/tag/v1.8.0
 [1.7.1]: https://github.com/glittercowboy/get-shit-done/releases/tag/v1.7.1

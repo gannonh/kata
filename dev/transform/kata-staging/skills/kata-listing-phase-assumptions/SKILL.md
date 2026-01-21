@@ -1,6 +1,6 @@
 ---
 name: kata-listing-phase-assumptions
-description: Use this skill when listing phase assumptions, reviewing constraints, or documenting decisions. Triggers include "list assumptions", "show assumptions", and "phase assumptions".
+description: Use this skill when surfacing Claude's assumptions about a phase approach before planning, checking what Claude thinks, or validating understanding before planning. Triggers include "list assumptions", "what are you thinking", "show assumptions", "phase assumptions", and "what's the plan".
 ---
 
 <objective>

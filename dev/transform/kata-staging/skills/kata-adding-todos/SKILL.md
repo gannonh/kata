@@ -1,6 +1,14 @@
 ---
 name: kata-adding-todos
-description: Use this skill when capturing ideas, tasks, or issues that surface during a session as structured todos for later work. Triggers include "add todo", "capture todo", "new todo", and "create todo".
+description: Use this skill to capture an idea, task, or issue that surfaces during a Kata session as a structured todo for later work. This skill creates markdown todo files in the .planning/todos/pending directory with relevant metadata and content extracted from the conversation. Triggers include "add todo", "capture todo", "new todo", and "create todo". 
+version: 0.1.0
+user-invocable: false
+disable-model-invocation: false
+allowed-tools:
+  - Read
+  - Write
+  - Bash
+  - Glob
 ---
 
 <objective>
@@ -30,8 +38,8 @@ Note existing areas for consistency in infer_area step.
 </step>
 
 <step name="extract_content">
-**With arguments:** Use as the title/focus.
-- `/kata:add-todo Add auth token refresh` → title = "Add auth token refresh"
+Infer the todo content from the conversation context:
+- - Example: `Add auth token refresh` → title = "Add auth token refresh"
 
 **Without arguments:** Analyze recent conversation to extract:
 - The specific problem, idea, or task discussed
@@ -48,17 +56,17 @@ Formulate:
 <step name="infer_area">
 Infer area from file paths:
 
-| Path pattern | Area |
-|--------------|------|
-| `src/api/*`, `api/*` | `api` |
-| `src/components/*`, `src/ui/*` | `ui` |
-| `src/auth/*`, `auth/*` | `auth` |
-| `src/db/*`, `database/*` | `database` |
-| `tests/*`, `__tests__/*` | `testing` |
-| `docs/*` | `docs` |
-| `.planning/*` | `planning` |
-| `scripts/*`, `bin/*` | `tooling` |
-| No files or unclear | `general` |
+| Path pattern                   | Area       |
+| ------------------------------ | ---------- |
+| `src/api/*`, `api/*`           | `api`      |
+| `src/components/*`, `src/ui/*` | `ui`       |
+| `src/auth/*`, `auth/*`         | `auth`     |
+| `src/db/*`, `database/*`       | `database` |
+| `tests/*`, `__tests__/*`       | `testing`  |
+| `docs/*`                       | `docs`     |
+| `.planning/*`                  | `planning` |
+| `scripts/*`, `bin/*`           | `tooling`  |
+| No files or unclear            | `general`  |
 
 Use existing area from step 2 if similar match exists.
 </step>
@@ -159,7 +167,7 @@ Would you like to:
 
 1. Continue with current work
 2. Add another todo
-3. View all todos (/kata:check-todos)
+3. View all todos (/sata:check-todos)
 ```
 </step>
 

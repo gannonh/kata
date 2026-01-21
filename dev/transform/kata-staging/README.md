@@ -1,67 +1,102 @@
 <div align="center">
 
-# KATA
+# GET SHIT DONE
 
-**型** · /ˈkɑːtɑː/ · *noun*
+**A light-weight and powerful meta-prompting, context engineering and spec-driven development system for Claude Code by TÂCHES.**
+
+**Solves context rot — the quality degradation that happens as Claude fills its context window.**
+
+[![npm version](https://img.shields.io/npm/v/get-shit-done-cc?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/get-shit-done-cc)
+[![npm downloads](https://img.shields.io/npm/dm/get-shit-done-cc?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/get-shit-done-cc)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/glittercowboy/get-shit-done?style=for-the-badge&logo=github&color=181717)](https://github.com/glittercowboy/get-shit-done)
+
 <br>
-<sub>a choreographed pattern practiced repeatedly until perfected</sub>
 
-<br>
-
-
-[![npm version](https://img.shields.io/npm/v/@gannonh/kata?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@gannonh/kata)
-<br>
 ```bash
-npx @gannonh/kata
+npx get-shit-done-cc
 ```
 
+**Works on Mac, Windows, and Linux.**
 
 <br>
 
-![Kata Install](assets/terminal.svg)
+![GSD Install](assets/terminal.svg)
 
 <br>
 
-**Agent orchestration framework for spec-driven development.**
+*"If you know clearly what you want, this WILL build it for you. No bs."*
+
+*"I've done SpecKit, OpenSpec and Taskmaster — this has produced the best results for me."*
+
+*"By far the most powerful addition to my Claude Code. Nothing over-engineered. Literally just gets shit done."*
+
+<br>
+
+**Trusted by engineers at Amazon, Google, Shopify, and Webflow.**
+
+[Why I Built This](#why-i-built-this) · [How It Works](#how-it-works) · [Commands](#commands) · [Why It Works](#why-it-works)
 
 </div>
 
 ---
 
+## Why I Built This
+
+I'm a solo developer. I don't write code — Claude Code does.
+
+Other spec-driven development tools exist; BMAD, Speckit... But they all seem to make things way more complicated than they need to be (sprint ceremonies, story points, stakeholder syncs, retrospectives, Jira workflows) or lack real big picture understanding of what you're building. I'm not a 50-person software company. I don't want to play enterprise theater. I'm just a creative person trying to build great things that work.
+
+So I built GSD. The complexity is in the system, not in your workflow. Behind the scenes: context engineering, XML prompt formatting, subagent orchestration, state management. What you see: a few commands that just work.
+
+The system gives Claude everything it needs to do the work *and* verify it. I trust the workflow. It just does a good job.
+
+That's what this is. No enterprise roleplay bullshit. Just an incredibly effective system for building cool stuff consistently using Claude Code.
+
+— **TÂCHES**
+
+---
+
+Vibecoding has a bad reputation. You describe what you want, AI generates code, and you get inconsistent garbage that falls apart at scale.
+
+GSD fixes that. It's the context engineering layer that makes Claude Code reliable. Describe your idea, let the system extract everything it needs to know, and let Claude Code get to work.
+
+---
+
 ## Who This Is For
 
-Teams and individuals that want to describe what they want and have it built correctly.
+People who want to describe what they want and have it built correctly — without pretending they're running a 50-person engineering org.
 
 ---
 
 ## Getting Started
 
 ```bash
-npx @gannonh/kata
+npx get-shit-done-cc
 ```
 
-Verify with `/kata:help` inside Claude Code.
+That's it. Verify with `/gsd:help` inside your Claude Code interface.
 
 ### Staying Updated
 
-Kata updates frequently. Check for changes:
+GSD evolves fast. Check for updates periodically:
 
 ```
-/kata:whats-new
+/gsd:whats-new
 ```
 
-Update:
+Update with:
 
 ```bash
-npx @gannonh/kata@latest
+npx get-shit-done-cc@latest
 ```
 
 <details>
 <summary><strong>Non-interactive Install (Docker, CI, Scripts)</strong></summary>
 
 ```bash
-npx @gannonh/kata --global   # Install to ~/.claude/
-npx @gannonh/kata --local    # Install to ./.claude/
+npx get-shit-done-cc --global   # Install to ~/.claude/
+npx get-shit-done-cc --local    # Install to ./.claude/
 ```
 
 Use `--global` (`-g`) or `--local` (`-l`) to skip the interactive prompt.
@@ -74,8 +109,8 @@ Use `--global` (`-g`) or `--local` (`-l`) to skip the interactive prompt.
 Clone the repository and run the installer locally:
 
 ```bash
-git clone https://github.com/gannonh/kata.git
-cd kata
+git clone https://github.com/glittercowboy/get-shit-done.git
+cd get-shit-done
 node bin/install.js --local
 ```
 
@@ -85,19 +120,19 @@ Installs to `./.claude/` for testing modifications before contributing.
 
 ### Recommended: Skip Permissions Mode
 
-Kata automates many operations. Run Claude Code with:
+GSD is designed for frictionless automation. Run Claude Code with:
 
 ```bash
 claude --dangerously-skip-permissions
 ```
 
 > [!TIP]
-> Kata works best this way. Approving `date` and `git commit` 50 times slows down the workflow.
+> This is how GSD is intended to be used — stopping to approve `date` and `git commit` 50 times defeats the purpose.
 
 <details>
 <summary><strong>Alternative: Granular Permissions</strong></summary>
 
-Add this to your project's `.claude/settings.json`:
+If you prefer not to use that flag, add this to your project's `.claude/settings.json`:
 
 ```json
 {
@@ -127,29 +162,16 @@ Add this to your project's `.claude/settings.json`:
 
 </details>
 
-## What is This
-
-This project began as a fork of the [GSD system](https://github.com/glittercowboy/get-shit-done), and then quickly became a hard fork. Why hard fork and not contribute to the original project? Because I'm a control freak. Just kidding (kind of). The real reason is two fold, well three, or two and a half.
-
-- **Team-oriented by design.** GSD, as its brilliant creator has made very clear, is optimized for solo devs, viewing "enterprise" features as anti-patterns. I love the simplicity of GSD and respect its opinionated position, but the projects I work on are more often than not multi-player. At a minimum, I need:
-  - **GitHub integration** — PRs, issues, code review workflows. Planning that connects to where teams actually collaborate.
-  - **IDE agnostic** — Not everyone uses Claude Code (I do but I'm not everyone). Kata should work with the tools teams prefer.
-
-- **Skills as the foundation.** GSD is primarily built on `/commands`, which are Claude Code-specific. Kata standardizes on **skills** — an emerging open standard supported across major agentic frameworks. 
-  - This makes Kata portable and future-proof, not locked to a single tool.
-  - Skills use progressive discolsure to keep prompts lean and efficient.
-  - Skills instantiate with natural language, which is especially convenient when using text-to-speech as your primary input device (you can still invoke with a slash command but it isn't necessary)
-
 ---
 
 ## How It Works
 
-> **Existing codebase?** Run `/kata:map-codebase` first. It spawns parallel agents to analyze your stack, architecture, conventions, and concerns. Then `/kata:new-project` references your codebase. Questions focus on what you're adding, and planning loads your patterns automatically.
+> **Already have code?** Run `/gsd:map-codebase` first. It spawns parallel agents to analyze your stack, architecture, conventions, and concerns. Then `/gsd:new-project` knows your codebase — questions focus on what you're adding, and planning automatically loads your patterns.
 
 ### 1. Initialize Project
 
 ```
-/kata:new-project
+/gsd:new-project
 ```
 
 One command, one flow. The system:
@@ -168,12 +190,12 @@ You approve the roadmap. Now you're ready to build.
 ### 2. Discuss Phase
 
 ```
-/kata:discuss-phase 1
+/gsd:discuss-phase 1
 ```
 
-**Here you shape the implementation.**
+**This is where you shape the implementation.**
 
-Your roadmap has a sentence or two per phase. That lacks enough context to build something the way you imagine it. This step captures your preferences before anything gets researched or planned.
+Your roadmap has a sentence or two per phase. That's not enough context to build something the way *you* imagine it. This step captures your preferences before anything gets researched or planned.
 
 The system analyzes the phase and identifies gray areas based on what's being built:
 
@@ -182,12 +204,12 @@ The system analyzes the phase and identifies gray areas based on what's being bu
 - **Content systems** → Structure, tone, depth, flow
 - **Organization tasks** → Grouping criteria, naming, duplicates, exceptions
 
-For each area you select, it asks until you're satisfied. The output, `CONTEXT.md`, feeds directly into the next two steps:
+For each area you select, it asks until you're satisfied. The output — `CONTEXT.md` — feeds directly into the next two steps:
 
 1. **Researcher reads it** — Knows what patterns to investigate ("user wants card layout" → research card component libraries)
 2. **Planner reads it** — Knows what decisions are locked ("infinite scroll decided" → plan includes scroll handling)
 
-Going deeper here makes the system build what you actually want. Skip it and you get reasonable defaults. Use it and you get your vision.
+The deeper you go here, the more the system builds what you actually want. Skip it and you get reasonable defaults. Use it and you get *your* vision.
 
 **Creates:** `{phase}-CONTEXT.md`
 
@@ -196,7 +218,7 @@ Going deeper here makes the system build what you actually want. Skip it and you
 ### 3. Plan Phase
 
 ```
-/kata:plan-phase 1
+/gsd:plan-phase 1
 ```
 
 The system:
@@ -214,7 +236,7 @@ Each plan is small enough to execute in a fresh context window. No degradation, 
 ### 4. Execute Phase
 
 ```
-/kata:execute-phase 1
+/gsd:execute-phase 1
 ```
 
 The system:
@@ -233,12 +255,12 @@ Walk away, come back to completed work with clean git history.
 ### 5. Verify Work
 
 ```
-/kata:verify-work 1
+/gsd:verify-work 1
 ```
 
-**Here you confirm it actually works.**
+**This is where you confirm it actually works.**
 
-Automated verification checks that code exists and tests pass. But does the feature work the way you expected? This is your chance to use it.
+Automated verification checks that code exists and tests pass. But does the feature *work* the way you expected? This is your chance to use it.
 
 The system:
 
@@ -247,7 +269,7 @@ The system:
 3. **Diagnoses failures automatically** — Spawns debug agents to find root causes
 4. **Creates verified fix plans** — Ready for immediate re-execution
 
-If everything passes, you move on. If something's broken, you don't manually debug. Run `/kata:execute-phase` again with the fix plans it created.
+If everything passes, you move on. If something's broken, you don't manually debug — you just run `/gsd:execute-phase` again with the fix plans it created.
 
 **Creates:** `{phase}-UAT.md`, fix plans if issues found
 
@@ -256,22 +278,47 @@ If everything passes, you move on. If something's broken, you don't manually deb
 ### 6. Repeat → Complete → Next Milestone
 
 ```
-/kata:discuss-phase 2
-/kata:plan-phase 2
-/kata:execute-phase 2
-/kata:verify-work 2
+/gsd:discuss-phase 2
+/gsd:plan-phase 2
+/gsd:execute-phase 2
+/gsd:verify-work 2
 ...
-/kata:complete-milestone
-/kata:new-milestone
+/gsd:complete-milestone
+/gsd:new-milestone
 ```
 
 Loop **discuss → plan → execute → verify** until milestone complete.
 
-Each phase gets your input (discuss), research (plan), clean execution (execute), and human verification (verify). Context stays fresh. Quality stays high.
+Each phase gets your input (discuss), proper research (plan), clean execution (execute), and human verification (verify). Context stays fresh. Quality stays high.
 
-When all phases are done, `/kata:complete-milestone` archives the milestone and tags the release.
+When all phases are done, `/gsd:complete-milestone` archives the milestone and tags the release.
 
-Then `/kata:new-milestone` starts the next version. Same flow as `new-project` but for your existing codebase. You describe what you want to build next, the system researches the domain, you scope requirements, and it creates a fresh roadmap. Each milestone is a clean cycle: define → build → ship.
+Then `/gsd:new-milestone` starts the next version — same flow as `new-project` but for your existing codebase. You describe what you want to build next, the system researches the domain, you scope requirements, and it creates a fresh roadmap. Each milestone is a clean cycle: define → build → ship.
+
+---
+
+### Quick Mode
+
+```
+/gsd:quick
+```
+
+**For ad-hoc tasks that don't need full planning.**
+
+Quick mode gives you GSD guarantees (atomic commits, state tracking) with a faster path:
+
+- **Same agents** — Planner + executor, same quality
+- **Skips optional steps** — No research, no plan checker, no verifier
+- **Separate tracking** — Lives in `.planning/quick/`, not phases
+
+Use for: bug fixes, small features, config changes, one-off tasks.
+
+```
+/gsd:quick
+> What do you want to do? "Add dark mode toggle to settings"
+```
+
+**Creates:** `.planning/quick/001-add-dark-mode-toggle/PLAN.md`, `SUMMARY.md`
 
 ---
 
@@ -279,22 +326,22 @@ Then `/kata:new-milestone` starts the next version. Same flow as `new-project` b
 
 ### Context Engineering
 
-Claude Code performs well with the right context. Most users don't provide it.
+Claude Code is incredibly powerful *if* you give it the context it needs. Most people don't.
 
-Kata handles it for you:
+GSD handles it for you:
 
-| File              | Function                                                      |
-| ----------------- | ------------------------------------------------------------- |
-| `PROJECT.md`      | Project vision, always loaded                                 |
-| `research/`       | Ecosystem knowledge (stack, features, architecture, pitfalls) |
-| `REQUIREMENTS.md` | Scoped v1/v2 requirements with phase traceability             |
-| `ROADMAP.md`      | Where you're going, what's done                               |
-| `STATE.md`        | Decisions, blockers, position — memory across sessions        |
-| `PLAN.md`         | Atomic task with XML structure, verification steps            |
-| `SUMMARY.md`      | What happened, what changed, committed to history             |
-| `todos/`          | Captured ideas and tasks for later work                       |
+| File | What it does |
+|------|--------------|
+| `PROJECT.md` | Project vision, always loaded |
+| `research/` | Ecosystem knowledge (stack, features, architecture, pitfalls) |
+| `REQUIREMENTS.md` | Scoped v1/v2 requirements with phase traceability |
+| `ROADMAP.md` | Where you're going, what's done |
+| `STATE.md` | Decisions, blockers, position — memory across sessions |
+| `PLAN.md` | Atomic task with XML structure, verification steps |
+| `SUMMARY.md` | What happened, what changed, committed to history |
+| `todos/` | Captured ideas and tasks for later work |
 
-Size limits based on where Claude's quality degrades. Stay under, get consistent results.
+Size limits based on where Claude's quality degrades. Stay under, get consistent excellence.
 
 ### XML Prompt Formatting
 
@@ -320,16 +367,16 @@ Precise instructions. No guessing. Verification built in.
 
 Every stage uses the same pattern: a thin orchestrator spawns specialized agents, collects results, and routes to the next step.
 
-| Stage        | Orchestrator does                  | Agents do                                                                  |
-| ------------ | ---------------------------------- | -------------------------------------------------------------------------- |
-| Research     | Coordinates, presents findings     | 4 parallel researchers investigate stack, features, architecture, pitfalls |
-| Planning     | Validates, manages iteration       | Planner creates plans, checker verifies, loop until pass                   |
-| Execution    | Groups into waves, tracks progress | Executors implement in parallel, each with fresh 200k context              |
-| Verification | Presents results, routes next      | Verifier checks codebase against goals, debuggers diagnose failures        |
+| Stage | Orchestrator does | Agents do |
+|-------|------------------|-----------|
+| Research | Coordinates, presents findings | 4 parallel researchers investigate stack, features, architecture, pitfalls |
+| Planning | Validates, manages iteration | Planner creates plans, checker verifies, loop until pass |
+| Execution | Groups into waves, tracks progress | Executors implement in parallel, each with fresh 200k context |
+| Verification | Presents results, routes next | Verifier checks codebase against goals, debuggers diagnose failures |
 
-The orchestrator spawns agents, waits, and integrates results.
+The orchestrator never does heavy lifting. It spawns agents, waits, integrates results.
 
-**Result:** You can run an entire phase (deep research, multiple plans created and verified, thousands of lines of code written across parallel executors, automated verification against goals) and your main context window stays at 30-40%. The work happens in fresh subagent contexts. Your session stays fast and responsive.
+**The result:** You can run an entire phase — deep research, multiple plans created and verified, thousands of lines of code written across parallel executors, automated verification against goals — and your main context window stays at 30-40%. The work happens in fresh subagent contexts. Your session stays fast and responsive.
 
 ### Atomic Git Commits
 
@@ -354,7 +401,7 @@ Every commit is surgical, traceable, and meaningful.
 - Complete milestones and start fresh
 - Adjust plans without rebuilding everything
 
-The system adapts.
+You're never locked in. The system adapts.
 
 ---
 
@@ -362,64 +409,112 @@ The system adapts.
 
 ### Core Workflow
 
-| Command                      | Function                                                           |
-| ---------------------------- | ------------------------------------------------------------------ |
-| `/kata:project-new`          | Full initialization: questions → research → requirements → roadmap |
-| `/kata:phase-discuss [N]`    | Capture implementation decisions before planning                   |
-| `/kata:phase-plan [N]`       | Research + plan + verify for a phase                               |
-| `/kata:phase-execute <N>`    | Execute all plans in parallel waves, verify when complete          |
-| `/kata:work-verify [N]`      | Manual user acceptance testing ¹                                   |
-| `/kata:milestone-complete`   | Archive milestone, tag release                                     |
-| `/kata:milestone-new [name]` | Start next version: questions → research → requirements → roadmap  |
+| Command | What it does |
+|---------|--------------|
+| `/gsd:new-project` | Full initialization: questions → research → requirements → roadmap |
+| `/gsd:discuss-phase [N]` | Capture implementation decisions before planning |
+| `/gsd:plan-phase [N]` | Research + plan + verify for a phase |
+| `/gsd:execute-phase <N>` | Execute all plans in parallel waves, verify when complete |
+| `/gsd:verify-work [N]` | Manual user acceptance testing ¹ |
+| `/gsd:audit-milestone` | Verify milestone achieved its definition of done |
+| `/gsd:complete-milestone` | Archive milestone, tag release |
+| `/gsd:new-milestone [name]` | Start next version: questions → research → requirements → roadmap |
 
 ### Navigation
 
-| Command              | Function                          |
-| -------------------- | --------------------------------- |
-| `/kata:project-status` | Where am I? What's next?          |
-| `/kata:help`         | Show all commands and usage guide |
+| Command | What it does |
+|---------|--------------|
+| `/gsd:progress` | Where am I? What's next? |
+| `/gsd:help` | Show all commands and usage guide |
+| `/gsd:whats-new` | See what changed since your installed version |
+| `/gsd:update` | Update GSD with changelog preview |
 
 ### Brownfield
 
-| Command              | Function                                     |
-| -------------------- | -------------------------------------------- |
-| `/kata:codebase-map` | Analyze existing codebase before new-project |
+| Command | What it does |
+|---------|--------------|
+| `/gsd:map-codebase` | Analyze existing codebase before new-project |
 
 ### Phase Management
 
-| Command                    | Function                          |
-| -------------------------- | --------------------------------- |
-| `/kata:phase-add`          | Append phase to roadmap           |
-| `/kata:phase-insert [N]`   | Insert urgent work between phases |
-| `/kata:phase-remove [N]`   | Remove future phase, renumber     |
-| `/kata:roadmap-plan-gaps` | Analyze coverage gaps             |
-
-### Research & Planning
-
-| Command                     | Function                           |
-| --------------------------- | ---------------------------------- |
-| `/kata:phase-research [N]`  | Research phase domain              |
-| `/kata:phase-assumptions [N]` | List phase assumptions           |
+| Command | What it does |
+|---------|--------------|
+| `/gsd:add-phase` | Append phase to roadmap |
+| `/gsd:insert-phase [N]` | Insert urgent work between phases |
+| `/gsd:remove-phase [N]` | Remove future phase, renumber |
+| `/gsd:list-phase-assumptions [N]` | See Claude's intended approach before planning |
+| `/gsd:plan-milestone-gaps` | Create phases to close gaps from audit |
 
 ### Session
 
-| Command             | Function                               |
-| ------------------- | -------------------------------------- |
-| `/kata:work-pause`  | Create handoff when stopping mid-phase |
-| `/kata:work-resume` | Restore from last session              |
+| Command | What it does |
+|---------|--------------|
+| `/gsd:pause-work` | Create handoff when stopping mid-phase |
+| `/gsd:resume-work` | Restore from last session |
 
 ### Utilities
 
-| Command                 | Function                                   |
-| ----------------------- | ------------------------------------------ |
-| `/kata:todo-add [desc]` | Capture idea for later                     |
-| `/kata:todo-check`      | List pending todos                         |
-| `/kata:workflow-debug [desc]` | Systematic debugging with persistent state |
-| `/kata:quick [desc]`    | Quick task with atomic commit              |
-| `/kata:update`          | Check for updates                          |
-| `/kata:whats-new`       | Show changelog                             |
+| Command | What it does |
+|---------|--------------|
+| `/gsd:settings` | Configure model profile and workflow agents |
+| `/gsd:set-profile <profile>` | Switch model profile (quality/balanced/budget) |
+| `/gsd:add-todo [desc]` | Capture idea for later |
+| `/gsd:check-todos` | List pending todos |
+| `/gsd:debug [desc]` | Systematic debugging with persistent state |
+| `/gsd:quick` | Execute ad-hoc task with GSD guarantees |
 
 <sup>¹ Contributed by reddit user OracleGreyBeard</sup>
+
+---
+
+## Configuration
+
+GSD stores project settings in `.planning/config.json`. Configure during `/gsd:new-project` or update later with `/gsd:settings`.
+
+### Core Settings
+
+| Setting | Options | Default | What it controls |
+|---------|---------|---------|------------------|
+| `mode` | `yolo`, `interactive` | `interactive` | Auto-approve vs confirm at each step |
+| `depth` | `quick`, `standard`, `comprehensive` | `standard` | Planning thoroughness (phases × plans) |
+
+### Model Profiles
+
+Control which Claude model each agent uses. Balance quality vs token spend.
+
+| Profile | Planning | Execution | Verification |
+|---------|----------|-----------|--------------|
+| `quality` | Opus | Opus | Sonnet |
+| `balanced` (default) | Opus | Sonnet | Sonnet |
+| `budget` | Sonnet | Sonnet | Haiku |
+
+Switch profiles:
+```
+/gsd:set-profile budget
+```
+
+Or configure via `/gsd:settings`.
+
+### Workflow Agents
+
+These spawn additional agents during planning/execution. They improve quality but add tokens and time.
+
+| Setting | Default | What it does |
+|---------|---------|--------------|
+| `workflow.research` | `true` | Researches domain before planning each phase |
+| `workflow.plan_check` | `true` | Verifies plans achieve phase goals before execution |
+| `workflow.verifier` | `true` | Confirms must-haves were delivered after execution |
+
+Use `/gsd:settings` to toggle these, or override per-invocation:
+- `/gsd:plan-phase --skip-research`
+- `/gsd:plan-phase --skip-verify`
+
+### Execution
+
+| Setting | Default | What it controls |
+|---------|---------|------------------|
+| `parallelization.enabled` | `true` | Run independent plans simultaneously |
+| `planning.commit_docs` | `true` | Track `.planning/` in git |
 
 ---
 
@@ -427,24 +522,36 @@ The system adapts.
 
 **Commands not found after install?**
 - Restart Claude Code to reload slash commands
-- Verify files exist in `~/.claude/commands/kata/` (global) or `./.claude/commands/kata/` (local)
+- Verify files exist in `~/.claude/commands/gsd/` (global) or `./.claude/commands/gsd/` (local)
 
 **Commands not working as expected?**
-- Run `/kata:help` to verify installation
-- Re-run `npx @gannonh/kata` to reinstall
+- Run `/gsd:help` to verify installation
+- Re-run `npx get-shit-done-cc` to reinstall
 
 **Updating to the latest version?**
 ```bash
-npx @gannonh/kata@latest
+npx get-shit-done-cc@latest
 ```
 
 **Using Docker or containerized environments?**
 
 If file reads fail with tilde paths (`~/.claude/...`), set `CLAUDE_CONFIG_DIR` before installing:
 ```bash
-CLAUDE_CONFIG_DIR=/home/youruser/.claude npx @gannonh/kata --global
+CLAUDE_CONFIG_DIR=/home/youruser/.claude npx get-shit-done-cc --global
 ```
 This ensures absolute paths are used instead of `~` which may not expand correctly in containers.
+
+---
+
+## Star History
+
+<a href="https://star-history.com/#glittercowboy/get-shit-done&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=glittercowboy/get-shit-done&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=glittercowboy/get-shit-done&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=glittercowboy/get-shit-done&type=Date" />
+ </picture>
+</a>
 
 ---
 
@@ -456,6 +563,6 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-**Claude Code performs well. Kata makes it reliable.**
+**Claude Code is powerful. GSD makes it reliable.**
 
 </div>

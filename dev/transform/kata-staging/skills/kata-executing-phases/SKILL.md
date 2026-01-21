@@ -1,6 +1,6 @@
 ---
 name: kata-executing-phases
-description: Use this skill when executing phase plans, running tasks, or implementing planned work. Triggers include "execute phase", "run phase", and "implement phase".
+description: Use this skill when executing all plans in a phase with wave-based parallelization, running phase execution, or completing phase work. Triggers include "execute phase", "run phase", "execute plans", "run the phase", and "phase execution".
 ---
 
 <objective>
@@ -27,24 +27,6 @@ Phase: $ARGUMENTS
 </context>
 
 <process>
-0. **Resolve Model Profile**
-
-   Read model profile for agent spawning:
-   ```bash
-   MODEL_PROFILE=$(cat .planning/config.json 2>/dev/null | grep -o '"model_profile"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "balanced")
-   ```
-
-   Default to "balanced" if not set.
-
-   **Model lookup table:**
-
-   | Agent | quality | balanced | budget |
-   |-------|---------|----------|--------|
-   | kata-executor | opus | sonnet | sonnet |
-   | kata-verifier | sonnet | sonnet | haiku |
-
-   Store resolved models for use in Task calls below.
-
 1. **Validate phase exists**
    - Find phase directory matching argument
    - Count PLAN.md files
@@ -86,11 +68,6 @@ Phase: $ARGUMENTS
    **If clean:** Continue to verification.
 
 7. **Verify phase goal**
-   Check config: `WORKFLOW_VERIFIER=$(cat .planning/config.json 2>/dev/null | grep -o '"verifier"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")`
-
-   **If `workflow.verifier` is `false`:** Skip to step 8 (treat as passed).
-
-   **Otherwise:**
    - Spawn `kata-verifier` subagent with phase directory and goal
    - Verifier checks must_haves against actual codebase (not SUMMARY claims)
    - Creates VERIFICATION.md with detailed report
@@ -242,22 +219,12 @@ After user runs /kata:plan-phase {Z} --gaps:
 <wave_execution>
 **Parallel spawning:**
 
-Before spawning, read file contents. The `@` syntax does not work across Task() boundaries.
-
-```bash
-# Read each plan and STATE.md
-PLAN_01_CONTENT=$(cat "{plan_01_path}")
-PLAN_02_CONTENT=$(cat "{plan_02_path}")
-PLAN_03_CONTENT=$(cat "{plan_03_path}")
-STATE_CONTENT=$(cat .planning/STATE.md)
-```
-
-Spawn all plans in a wave with a single message containing multiple Task calls, with inlined content:
+Spawn all plans in a wave with a single message containing multiple Task calls:
 
 ```
-Task(prompt="Execute plan at {plan_01_path}\n\nPlan:\n{plan_01_content}\n\nProject state:\n{state_content}", subagent_type="kata-executor", model="{executor_model}")
-Task(prompt="Execute plan at {plan_02_path}\n\nPlan:\n{plan_02_content}\n\nProject state:\n{state_content}", subagent_type="kata-executor", model="{executor_model}")
-Task(prompt="Execute plan at {plan_03_path}\n\nPlan:\n{plan_03_content}\n\nProject state:\n{state_content}", subagent_type="kata-executor", model="{executor_model}")
+Task(prompt="Execute plan at {plan_01_path}\n\nPlan: @{plan_01_path}\nProject state: @.planning/STATE.md", subagent_type="kata-executor")
+Task(prompt="Execute plan at {plan_02_path}\n\nPlan: @{plan_02_path}\nProject state: @.planning/STATE.md", subagent_type="kata-executor")
+Task(prompt="Execute plan at {plan_03_path}\n\nPlan: @{plan_03_path}\nProject state: @.planning/STATE.md", subagent_type="kata-executor")
 ```
 
 All three run in parallel. Task tool blocks until all complete.
