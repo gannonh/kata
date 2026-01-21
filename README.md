@@ -364,49 +364,60 @@ The system adapts.
 
 | Command                      | Function                                                           |
 | ---------------------------- | ------------------------------------------------------------------ |
-| `/kata:new-project`          | Full initialization: questions → research → requirements → roadmap |
-| `/kata:discuss-phase [N]`    | Capture implementation decisions before planning                   |
-| `/kata:plan-phase [N]`       | Research + plan + verify for a phase                               |
-| `/kata:execute-phase <N>`    | Execute all plans in parallel waves, verify when complete          |
-| `/kata:verify-work [N]`      | Manual user acceptance testing ¹                                   |
-| `/kata:complete-milestone`   | Archive milestone, tag release                                     |
-| `/kata:new-milestone [name]` | Start next version: questions → research → requirements → roadmap  |
+| `/kata:project-new`          | Full initialization: questions → research → requirements → roadmap |
+| `/kata:phase-discuss [N]`    | Capture implementation decisions before planning                   |
+| `/kata:phase-plan [N]`       | Research + plan + verify for a phase                               |
+| `/kata:phase-execute <N>`    | Execute all plans in parallel waves, verify when complete          |
+| `/kata:work-verify [N]`      | Manual user acceptance testing ¹                                   |
+| `/kata:milestone-complete`   | Archive milestone, tag release                                     |
+| `/kata:milestone-new [name]` | Start next version: questions → research → requirements → roadmap  |
 
 ### Navigation
 
-| Command          | Function                          |
-| ---------------- | --------------------------------- |
-| `/kata:progress` | Where am I? What's next?          |
-| `/kata:help`     | Show all commands and usage guide |
+| Command              | Function                          |
+| -------------------- | --------------------------------- |
+| `/kata:project-status` | Where am I? What's next?          |
+| `/kata:help`         | Show all commands and usage guide |
 
 ### Brownfield
 
 | Command              | Function                                     |
 | -------------------- | -------------------------------------------- |
-| `/kata:map-codebase` | Analyze existing codebase before new-project |
+| `/kata:codebase-map` | Analyze existing codebase before new-project |
 
 ### Phase Management
 
-| Command                  | Function                          |
-| ------------------------ | --------------------------------- |
-| `/kata:add-phase`        | Append phase to roadmap           |
-| `/kata:insert-phase [N]` | Insert urgent work between phases |
-| `/kata:remove-phase [N]` | Remove future phase, renumber     |
+| Command                    | Function                          |
+| -------------------------- | --------------------------------- |
+| `/kata:phase-add`          | Append phase to roadmap           |
+| `/kata:phase-insert [N]`   | Insert urgent work between phases |
+| `/kata:phase-remove [N]`   | Remove future phase, renumber     |
+| `/kata:roadmap-plan-gaps` | Analyze coverage gaps             |
+
+### Research & Planning
+
+| Command                     | Function                           |
+| --------------------------- | ---------------------------------- |
+| `/kata:phase-research [N]`  | Research phase domain              |
+| `/kata:phase-assumptions [N]` | List phase assumptions           |
 
 ### Session
 
 | Command             | Function                               |
 | ------------------- | -------------------------------------- |
-| `/kata:pause-work`  | Create handoff when stopping mid-phase |
-| `/kata:resume-work` | Restore from last session              |
+| `/kata:work-pause`  | Create handoff when stopping mid-phase |
+| `/kata:work-resume` | Restore from last session              |
 
 ### Utilities
 
 | Command                 | Function                                   |
 | ----------------------- | ------------------------------------------ |
-| `/kata:add-todo [desc]` | Capture idea for later                     |
-| `/kata:check-todos`     | List pending todos                         |
-| `/kata:debug [desc]`    | Systematic debugging with persistent state |
+| `/kata:todo-add [desc]` | Capture idea for later                     |
+| `/kata:todo-check`      | List pending todos                         |
+| `/kata:workflow-debug [desc]` | Systematic debugging with persistent state |
+| `/kata:quick [desc]`    | Quick task with atomic commit              |
+| `/kata:update`          | Check for updates                          |
+| `/kata:whats-new`       | Show changelog                             |
 
 <sup>¹ Contributed by reddit user OracleGreyBeard</sup>
 
