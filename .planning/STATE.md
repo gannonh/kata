@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 
 Milestone: v0.1.5 Skills & Documentation (Phases 0, 1, 1.1, 1.2, 1.3, 2, 2.1, 3, 4)
 Phase: 2 (Create Kata Slash Commands) - IN PROGRESS
-Plan: 3 of 3 complete
-Status: Phase complete - ready for next phase
-Last activity: 2026-01-21 - Completed 02-03-PLAN.md (roadmap & research commands)
+Plan: 4 of 7 complete
+Status: In progress
+Last activity: 2026-01-21 - Completed 02-04-PLAN.md (workflow and session commands)
 
 Progress: [=============------------] 67% (6/9 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 32
+- Total plans completed: 33
 - Average duration: 3 min
-- Total execution time: 100 min
+- Total execution time: 103 min
 
 **By Phase:**
 
@@ -34,11 +34,11 @@ Progress: [=============------------] 67% (6/9 phases)
 | 01.1-testing-evals-harness | 2     | 6 min  | 3 min    |
 | 01.2-skill-tests           | 4     | 6 min  | 1.5 min  |
 | 01.3-discuss-phase-skill   | 2     | 5 min  | 2.5 min  |
-| 02-create-kata-slash-cmds  | 3     | 9 min  | 3 min    |
+| 02-create-kata-slash-cmds  | 4     | 12 min | 3 min    |
 
 **Recent Trend:**
-- Last 5 plans: 01.3-01 (3 min), 01.3-02 (2 min), 02-01 (6 min), 02-02 (1 min), 02-03 (2 min)
-- Trend: Fast command creation, skill creation slightly longer
+- Last 5 plans: 01.3-02 (2 min), 02-01 (6 min), 02-02 (1 min), 02-03 (2 min), 02-04 (3 min)
+- Trend: Consistent fast execution, command creation averaging 3 min
 
 *Updated after each plan completion*
 
@@ -63,6 +63,7 @@ Recent decisions affecting current work:
 - **2026-01-20: Quick task constraints** - <30 min, ≤3 files, no architecture decisions, fail-fast escalation
 - **2026-01-21: Roadmap command split** - Roadmap operations get individual commands (add/insert/remove/plan-gaps) instead of single command with args
 - **2026-01-21: Research workflow tripartite** - Phase research split into discuss (interactive), research (investigation), assumptions (validation)
+- **2026-01-21: Command delegation pattern** - All slash commands use disable-model-invocation: true and delegate to skills via Task tool
 
 ### Roadmap Evolution
 
@@ -107,5 +108,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed 02-03-PLAN.md (roadmap & research commands) - Phase 2 complete
-Resume file: Ready for Phase 2.1 (slash command tests)
+Stopped at: Completed 02-04-PLAN.md (workflow and session commands)
+Resume file: Continue Phase 2 (remaining plans: 02-05, 02-06, or 02-07)
