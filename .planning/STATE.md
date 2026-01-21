@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 
 Milestone: v0.1.5 Skills & Documentation (Phases 0, 1, 1.1, 1.2, 1.3, 2, 2.1, 3, 4)
 Phase: 2 (Create Kata Slash Commands) - IN PROGRESS
-Plan: 2 of 3 complete
-Status: In progress
-Last activity: 2026-01-20 - Completed 02-02-PLAN.md (project and milestone commands)
+Plan: 3 of 3 complete
+Status: Phase complete - ready for next phase
+Last activity: 2026-01-21 - Completed 02-03-PLAN.md (roadmap & research commands)
 
-Progress: [============-------------] 56% (5/9 phases)
+Progress: [=============------------] 67% (6/9 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 31
+- Total plans completed: 32
 - Average duration: 3 min
-- Total execution time: 98 min
+- Total execution time: 100 min
 
 **By Phase:**
 
@@ -34,10 +34,10 @@ Progress: [============-------------] 56% (5/9 phases)
 | 01.1-testing-evals-harness | 2     | 6 min  | 3 min    |
 | 01.2-skill-tests           | 4     | 6 min  | 1.5 min  |
 | 01.3-discuss-phase-skill   | 2     | 5 min  | 2.5 min  |
-| 02-create-kata-slash-cmds  | 2     | 7 min  | 3.5 min  |
+| 02-create-kata-slash-cmds  | 3     | 9 min  | 3 min    |
 
 **Recent Trend:**
-- Last 5 plans: 01.2-04 (1 min), 01.3-01 (3 min), 01.3-02 (2 min), 02-01 (6 min), 02-02 (1 min)
+- Last 5 plans: 01.3-01 (3 min), 01.3-02 (2 min), 02-01 (6 min), 02-02 (1 min), 02-03 (2 min)
 - Trend: Fast command creation, skill creation slightly longer
 
 *Updated after each plan completion*
@@ -61,6 +61,8 @@ Recent decisions affecting current work:
 - **2026-01-20: ESM module type** - Added "type": "module" to package.json for test harness ESM compatibility
 - **2026-01-20: Multi-intent skills** - kata-updating-to-latest-version handles update, whats-new, and version-check in single skill
 - **2026-01-20: Quick task constraints** - <30 min, ≤3 files, no architecture decisions, fail-fast escalation
+- **2026-01-21: Roadmap command split** - Roadmap operations get individual commands (add/insert/remove/plan-gaps) instead of single command with args
+- **2026-01-21: Research workflow tripartite** - Phase research split into discuss (interactive), research (investigation), assumptions (validation)
 
 ### Roadmap Evolution
 
@@ -104,6 +106,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-20
-Stopped at: Completed 02-02-PLAN.md (project and milestone commands)
-Resume file: Continue Phase 2 (plan 03)
+Last session: 2026-01-21
+Stopped at: Completed 02-03-PLAN.md (roadmap & research commands) - Phase 2 complete
+Resume file: Ready for Phase 2.1 (slash command tests)
