@@ -1,6 +1,7 @@
 ---
 name: kata-showing-available-commands-and-usage-guides
 description: Use this skill for displaying available Kata commands, usage guides, and help documentation. Triggers include "kata help", "help with kata", "show commands", "kata commands", "what commands", "list commands", "available commands", "how to use kata", "kata usage", "kata guide", "kata documentation", "show me kata", "what can kata do", "kata features", "help me with kata", "kata reference", "command list".
+user-invocable: false
 ---
 
 # Command Reference & Usage Guide Orchestrator

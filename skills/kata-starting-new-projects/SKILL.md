@@ -1,6 +1,7 @@
 ---
 name: kata-starting-new-projects
 description: Use this skill when starting a new project, onboarding a new user,initializing a Kata project, creating PROJECT.md, onboarding a new codebase, or setting up project structure. Triggers include "new project", "start project", "initialize kata", "setup project", "create project", and "onboard". This skill orchestrates discovery interviews, research, requirements gathering, and roadmap creation.
+user-invocable: false
 ---
 
 # Project Initialization Orchestrator

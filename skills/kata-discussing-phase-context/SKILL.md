@@ -1,6 +1,7 @@
 ---
 name: kata-discussing-phase-context
 description: Use this skill when discussing a phase before planning, gathering implementation context, exploring how a phase should work, clarifying user preferences, or capturing decisions for downstream agents. Triggers include "discuss phase", "gather context", "phase discussion", "clarify implementation", "what should phase look like", "explore phase scope", "implementation decisions", "pre-planning discussion", "how should we build phase", "talk about phase", "phase context", "before we plan", "let's discuss", and "user preferences for phase".
+user-invocable: false
 ---
 
 # Phase Discussion Orchestrator

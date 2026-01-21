@@ -1,6 +1,7 @@
 ---
 name: kata-updating-to-latest-version
 description: Use this skill for updating Kata to the latest version, checking current version, viewing changelog, or seeing what's new in recent releases. Triggers include "update kata", "upgrade kata", "update to latest", "check for updates", "kata updates", "new version", "latest version", "whats new", "what's new", "what's new in kata", "recent changes", "show changelog", "view changelog", "kata changelog", "version", "kata version", "current version", "check version", "which version".
+user-invocable: false
 ---
 
 # Update & Version Management Orchestrator
