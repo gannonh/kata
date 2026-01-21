@@ -172,13 +172,15 @@ Plans:
 **Plans**: 7 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Create 3 gap skills (update, quick, help)
-- [ ] 02-02-PLAN.md — Create project and milestone commands (7 commands)
-- [ ] 02-03-PLAN.md — Create roadmap and research commands (7 commands)
-- [ ] 02-04-PLAN.md — Create planning, execution, session, todo commands (8 commands)
-- [ ] 02-05-PLAN.md — Create utility commands (3 commands)
-- [ ] 02-06-PLAN.md — Update all skill frontmatters with user-invocable: false
-- [ ] 02-07-PLAN.md — Update installer, README, CLAUDE.md
+- [x] 02-01-PLAN.md — Create 3 gap skills (update, quick, help)
+- [x] 02-02-PLAN.md — Create project and milestone commands (7 commands)
+- [x] 02-03-PLAN.md — Create roadmap and research commands (7 commands)
+- [x] 02-04-PLAN.md — Create planning, execution, session, todo commands (8 commands)
+- [x] 02-05-PLAN.md — Create utility commands (3 commands)
+- [x] 02-06-PLAN.md — Update all skill frontmatters with user-invocable: false
+- [x] 02-07-PLAN.md — Update installer, README, CLAUDE.md
+
+**Status**: ✅ Complete (2026-01-20)
 
 #### Phase 2.1: Slash Command Tests (INSERTED)
 **Goal**: Write comprehensive tests for all Kata slash commands using the test harness, ensuring commands correctly invoke their corresponding skills
