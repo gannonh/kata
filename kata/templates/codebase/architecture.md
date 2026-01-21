@@ -146,7 +146,7 @@ Template for `.planning/codebase/ARCHITECTURE.md` - captures conceptual code org
 
 **CLI Command Execution:**
 
-1. User runs: `gsd new-project`
+1. User runs: `kata new-project`
 2. Commander parses args and flags
 3. Command handler invoked (`src/commands/new-project.ts`)
 4. Handler calls service methods (`src/services/project.ts` → `create()`)
@@ -180,7 +180,7 @@ Template for `.planning/codebase/ARCHITECTURE.md` - captures conceptual code org
 
 **CLI Entry:**
 - Location: `src/index.ts`
-- Triggers: User runs `gsd <command>`
+- Triggers: User runs `kata <command>`
 - Responsibilities: Register commands, parse args, display help
 
 **Commands:**

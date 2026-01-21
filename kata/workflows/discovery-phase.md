@@ -107,7 +107,7 @@ For: Choosing between options, new external integration.
 
 5. **Cross-verify:** Any WebSearch finding → confirm with Context7/official docs.
 
-6. **Quality check:** Before finalizing findings, consult the gsd-researcher agent's verification protocols to avoid common research gaps.
+6. **Quality check:** Before finalizing findings, consult the kata-researcher agent's verification protocols to avoid common research gaps.
 
 7. **Create DISCOVERY.md** using ~/.claude/kata/templates/discovery.md structure:
 
@@ -160,7 +160,7 @@ For: Architectural decisions, novel problems, high-risk choices.
    - Mark what's verified vs assumed
    - Flag contradictions
 
-6. **Quality check:** Before finalizing findings, consult the gsd-researcher agent's verification protocols to ensure comprehensive coverage and avoid common research gaps.
+6. **Quality check:** Before finalizing findings, consult the kata-researcher agent's verification protocols to ensure comprehensive coverage and avoid common research gaps.
 
 7. **Create comprehensive DISCOVERY.md:**
 
