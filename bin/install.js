@@ -167,7 +167,7 @@ function cleanupOrphanedFiles(claudeDir) {
   ];
 
   const orphanedDirs = [
-    'commands/kata',  // Commands converted to skills in v1.7.x
+    // Removed: 'commands/kata' - commands are now part of the distribution
   ];
 
   for (const relPath of orphanedFiles) {
@@ -383,6 +383,30 @@ function install(isGlobal) {
     console.log(`  ${green}✓${reset} Wrote VERSION (${pkg.version})`);
   } else {
     failures.push('VERSION');
+  }
+
+  // Copy commands to ~/.claude/commands (slash commands for explicit invocation)
+  const commandsSrc = path.join(src, 'commands');
+  if (fs.existsSync(commandsSrc)) {
+    const commandsDest = path.join(claudeDir, 'commands');
+
+    // Remove old kata commands before copying new ones
+    const kataCommandsDest = path.join(commandsDest, 'kata');
+    if (fs.existsSync(kataCommandsDest)) {
+      fs.rmSync(kataCommandsDest, { recursive: true });
+    }
+
+    // Copy commands/kata directory with path replacement
+    const kataCommandsSrc = path.join(commandsSrc, 'kata');
+    if (fs.existsSync(kataCommandsSrc)) {
+      copyWithPathReplacement(kataCommandsSrc, kataCommandsDest, pathPrefix);
+    }
+
+    if (verifyInstalled(kataCommandsDest, 'commands')) {
+      console.log(`  ${green}✓${reset} Installed commands`);
+    } else {
+      failures.push('commands');
+    }
   }
 
   // Copy hooks
