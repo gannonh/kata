@@ -10,24 +10,11 @@ allowed-tools:
   - Bash
 ---
 
-<objective>
-Add a new integer phase to the end of the current milestone in the roadmap.
+## Step 1: Parse Context
 
-This command appends sequential phases to the current milestone's phase list, automatically calculating the next phase number based on existing phases.
+Phase Description: "$ARGUMENTS"
 
-Purpose: Add planned work discovered during execution that belongs at the end of current milestone.
-</objective>
+## Step 2: Invoke Skill
 
-<step name="parse_arguments">
-Parse the command arguments:
-- All arguments become the phase description
-- Example: `/kata:add-phase Add authentication` → description = "Add authentication"
-- Example: `/kata:add-phase Fix critical performance issues` → description = "Fix critical performance issues"
-
-If no arguments provided, ask the user for a phase description:
-</step>
-
-<step name="run_skill">
 Run the following skill to add the phase:
-Skill("kata-adding-phases")
-</step>
+`Skill("kata-adding-phases")`
