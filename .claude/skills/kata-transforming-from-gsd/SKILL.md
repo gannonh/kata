@@ -1,40 +1,35 @@
 ---
-name: kata:transform-from-gsd
-description: Transform get-shit-done files to kata format with validation and approval before deployment
-argument-hint: ""
+name: kata-transforming-from-gsd
+description: Use this skill when transforming get-shit-done repository files to kata format. Handles copying, renaming, text replacement, skill conversion, command generation, validation, and deployment. Triggers include "transform from gsd", "gsd to kata", "update from gsd", "sync from gsd".
+version: 0.1.0
+user-invocable: false
+disable-model-invocation: false
 allowed-tools:
   - Read
   - Write
   - Bash
   - Glob
-  - Skill
   - AskUserQuestion
-hooks:
-  Stop:
-    - matcher: ""
-      hooks:
-        - type: command
-          command: .claude/hooks/validate-gsd-transform.sh
 ---
 
-<objective>
+# Transforming GSD to Kata
+
 Orchestrate complete transformation of get-shit-done (GSD) repository files into Kata format.
 
-**New workflow:**
+## Workflow
+
 1. Pull latest GSD from GitHub
 2. Copy to `gsd-source/` (reference) and transform to `kata-staging/`
 3. Run text replacements on kata-staging/
-4. Convert GSD commands to Kata skills
-5. Post-process skill frontmatter (add version, user-invocable, disable-model-invocation)
-6. Generate Kata commands (thin wrappers)
+4. Convert GSD commands to Kata skills (inline)
+5. Post-process skill frontmatter
+6. Generate Kata commands (inline)
 7. Validate transformation
 8. Request user approval
 9. Deploy to final destinations if approved
 
-All transformations happen in `kata-staging/` before deployment. User reviews validation results and approves deployment.
-</objective>
+## Paths
 
-<context>
 **Source:** `/Users/gannonhall/dev/oss/get-shit-done`
 
 **Staging:** `/Users/gannonhall/dev/oss/kata/dev/transform/`
@@ -42,52 +37,35 @@ All transformations happen in `kata-staging/` before deployment. User reviews va
 - `kata-staging/` - Transformed files ready for deployment
 
 **Scripts:**
-- @dev/transform-gsd-to-kata.py — Copy and transform
-- @dev/replace-gsd-with-kata.py — Text replacement
-- @dev/post-process-skill-frontmatter.py — Add skill frontmatter
-- @dev/generate-kata-commands.py — Generate Kata commands
+- `dev/transform-gsd-to-kata.py` — Copy and transform
+- `dev/replace-gsd-with-kata.py` — Text replacement
+- `dev/post-process-skill-frontmatter.py` — Add skill frontmatter
 
-**Skill:**
-- converting-commands-to-skills — Command→skill conversion
+## Process
 
-**Hook:**
-- @.claude/hooks/validate-gsd-transform.sh — Validation (runs automatically)
-</context>
-
-<process>
-
-<step name="pull_latest_gsd">
-Pull latest GSD from GitHub:
+### Step 1: Pull Latest GSD
 
 ```bash
 cd /Users/gannonhall/dev/oss/get-shit-done
 git pull origin main
 ```
 
-Display git pull output.
+Display git pull output. If pull fails, display error and STOP.
 
-If pull fails, display error and STOP.
-</step>
-
-<step name="copy_and_transform">
-Run transformation script to copy GSD→gsd-source and transform→kata-staging:
+### Step 2: Copy and Transform
 
 ```bash
 cd /Users/gannonhall/dev/oss/kata
 python3 dev/transform-gsd-to-kata.py
 ```
 
-This creates:
+Creates:
 - `dev/transform/gsd-source/` - Full copy of GSD repo
 - `dev/transform/kata-staging/` - Transformed files (agents renamed, etc.)
 
-Display script output showing file counts.
-
 Display: "✓ Step 1: Files copied and transformed"
-</step>
 
-<step name="replace_text">
-Run text replacement on kata-staging/ to replace all GSD references:
+### Step 3: Text Replacement
 
 ```bash
 cd /Users/gannonhall/dev/oss/kata/dev/transform/kata-staging
@@ -95,43 +73,80 @@ python3 ../../../dev/replace-gsd-with-kata.py
 cd ../../..
 ```
 
-This processes all files in kata-staging/:
-- agents/
-- kata/ (workflows)
-- hooks/
-- scripts/
-- KATA-STYLE.md
-- etc.
-
-Display replacement counts.
-
 Display: "✓ Step 2: Text replaced (gsd → kata)"
-</step>
 
-<step name="convert_to_skills">
-Convert GSD commands to Kata skills using the converting-commands-to-skills skill.
+### Step 4: Convert GSD Commands to Kata Skills (Inline)
 
-First, copy GSD commands to kata-staging for conversion:
+Copy GSD commands to kata-staging for conversion:
 
 ```bash
 cp -r dev/transform/gsd-source/commands/gsd dev/transform/kata-staging/commands/
 ```
 
-Then invoke skill:
+**For each GSD command in `dev/transform/gsd-source/commands/gsd/`:**
 
-Use Skill tool with:
-- skill: "converting-commands-to-skills"
-- args: "/Users/gannonhall/dev/oss/kata/dev/transform/kata-staging"
+1. **Determine skill name:**
+   - `add-phase.md` → `kata-adding-phases`
+   - Pattern: Remove gsd namespace, add kata- prefix, convert verb to gerund form
+   - `add-phase` → `adding-phases`
+   - `plan-phase` → `planning-phases`
+   - `execute-plan` → `executing-plans`
+   - `verify-work` → `verifying-work`
 
-When asked "Do you want a basic conversion or full conversion?", select "basic" (frontmatter + directory only, preserve content).
+2. **Check if skill exists in `dev/transform/kata-staging/skills/kata-{skill-name}/SKILL.md`**
 
-Skills will be created in `dev/transform/kata-staging/skills/`
+3. **If skill EXISTS:**
+   - Read existing skill
+   - Parse and preserve existing YAML frontmatter
+   - Read GSD command content (everything below frontmatter)
+   - Replace skill content (below frontmatter) with GSD command content
+   - Write updated skill
+
+4. **If skill does NOT exist:**
+   - Create new frontmatter:
+     ```yaml
+     ---
+     name: kata-{skill-name}
+     description: {enhanced description with triggers}
+     ---
+     ```
+   - Copy GSD command content (below frontmatter)
+   - Write new skill to `dev/transform/kata-staging/skills/kata-{skill-name}/SKILL.md`
+
+**Name transformation algorithm:**
+
+```
+command_name → skill_name:
+  add-phase → adding-phases
+  plan-phase → planning-phases
+  execute-plan → executing-plans
+  verify-work → verifying-work
+  new-project → starting-new-projects
+  debug → debugging
+  quick → quick-tasks
+
+Gerund rules:
+  - add → adding
+  - plan → planning
+  - execute → executing
+  - verify → verifying
+  - start/new → starting
+  - debug → debugging
+
+Pluralization:
+  - phase → phases
+  - plan → plans (except in "planning")
+  - project → projects
+  - work → work (no change)
+```
+
+**Description enhancement:**
+- Original: "Add a new phase to the roadmap"
+- Enhanced: "Use this skill when adding planned phases to the roadmap, appending sequential work to milestones, or creating new phase entries. Triggers include 'add phase', 'append phase', 'new phase', and 'create phase'."
 
 Display: "✓ Step 3: Commands converted to skills"
-</step>
 
-<step name="post_process_skills">
-Add missing frontmatter fields to skills:
+### Step 5: Post-Process Skill Frontmatter
 
 ```bash
 python3 dev/post-process-skill-frontmatter.py
@@ -143,29 +158,73 @@ Adds to each skill:
 - disable-model-invocation: false
 - allowed-tools: [Read, Write, Bash]
 
-Display script output showing skills updated.
-
 Display: "✓ Step 4: Skill frontmatter completed"
-</step>
 
-<step name="generate_commands">
-Generate Kata commands (thin wrappers that invoke skills):
+### Step 6: Generate Kata Commands (Inline)
 
-```bash
-python3 dev/generate-kata-commands.py
+**For each skill in `dev/transform/kata-staging/skills/kata-*/SKILL.md`:**
+
+1. **Determine command name:**
+   - `kata-adding-phases` → `add-phase`
+   - Pattern: Remove kata- prefix, convert gerund to imperative, singularize
+
+2. **Check if command exists in `dev/transform/kata-staging/commands/kata/{command-name}.md`**
+
+3. **If command does NOT exist:**
+   - Create thin wrapper command:
+     ```yaml
+     ---
+     name: {command-name}
+     description: {first sentence from skill description}
+     argument-hint: <description>
+     version: 0.1.0
+     disable-model-invocation: true
+     allowed-tools:
+       - Read
+       - Write
+       - Bash
+     ---
+
+     ## Step 1: Parse Context
+
+     Arguments: "$ARGUMENTS"
+
+     ## Step 2: Invoke Skill
+
+     Run the following skill:
+     `Skill("kata-{skill-name}")`
+     ```
+
+4. **If command EXISTS:** Skip (preserve manually created command)
+
+**Name transformation algorithm (reverse of skill naming):**
+
+```
+skill_name → command_name:
+  kata-adding-phases → add-phase
+  kata-planning-phases → plan-phase
+  kata-executing-plans → execute-plan
+  kata-verifying-work → verify-work
+
+Reverse gerund:
+  - adding → add
+  - planning → plan
+  - executing → execute
+  - verifying → verify
+  - starting → start
+  - debugging → debug
+
+Singularization:
+  - phases → phase
+  - plans → plan
+  - projects → project
 ```
 
-Creates commands in `dev/transform/kata-staging/commands/kata/`
-
-Display script output showing commands generated.
-
 Display: "✓ Step 5: Kata commands generated"
-</step>
 
-<step name="validate">
-Run validation hook (runs automatically via Stop hook):
+### Step 7: Validate
 
-The validation hook will check:
+The validation will check:
 - Agent frontmatter has kata- prefix
 - No remaining GSD references
 - Kata references exist
@@ -173,15 +232,20 @@ The validation hook will check:
 - Kata commands exist
 - Files in correct locations
 
-Hook output will be displayed automatically.
+Run validation:
+
+```bash
+cd /Users/gannonhall/dev/oss/kata
+bash .claude/hooks/validate-gsd-transform.sh
+```
 
 If validation fails, STOP and display error message.
 
 Display: "✓ Step 6: Validation complete"
-</step>
 
-<step name="request_approval">
-Display summary and request user approval for deployment:
+### Step 8: Request Approval
+
+Display summary:
 
 ```
 ═══════════════════════════════════════════════════════════
@@ -210,14 +274,14 @@ Use AskUserQuestion:
   2. label: "No, let me review first", description: "Exit without deploying. Files remain in kata-staging/ for inspection."
 
 If user selects "No":
-- Display message: "Files preserved in dev/transform/kata-staging/ for review. Run command again to deploy."
+- Display: "Files preserved in dev/transform/kata-staging/ for review. Run skill again to deploy."
 - STOP
 
 If user selects "Yes":
 - Proceed to deployment step
-</step>
 
-<step name="deploy">
+### Step 9: Deploy
+
 Deploy files from kata-staging/ to final destinations:
 
 ```bash
@@ -254,10 +318,6 @@ echo "WORKFLOWS=$(find kata/workflows -name '*.md' | wc -l | tr -d ' ')"
 echo "SKILLS=$(find skills/kata-* -name 'SKILL.md' | wc -l | tr -d ' ')"
 ```
 
-Display: "✓ Step 7: Deployed to final destinations"
-</step>
-
-<step name="completion">
 Display completion summary:
 
 ```
@@ -283,12 +343,8 @@ Next steps:
 ───────────────────────────────────────────────────────────
 ```
 
-Replace [N] with actual counts from bash output.
-</step>
+## Success Criteria
 
-</process>
-
-<success_criteria>
 - [ ] Latest GSD pulled from GitHub
 - [ ] Files copied to gsd-source/ (reference)
 - [ ] Files transformed to kata-staging/
@@ -301,10 +357,3 @@ Replace [N] with actual counts from bash output.
 - [ ] User approved deployment
 - [ ] Files deployed to final destinations
 - [ ] Deployment summary displayed
-</success_criteria>
-
-<note>
-The transformation is automatically validated by a Stop hook (`.claude/hooks/validate-gsd-transform.sh`) before requesting user approval.
-
-Files remain in `kata-staging/` until user approves deployment, preventing accidental overwrites of production files.
-</note>

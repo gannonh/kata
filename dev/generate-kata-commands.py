@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""
+DEPRECATED: This script's logic is now inline in the skill:
+  .claude/skills/kata-transforming-from-gsd/SKILL.md
+
+Kept for reference only. The skill handles command generation directly
+as part of the GSD→Kata transformation workflow.
+"""
 
 import yaml
 import re
