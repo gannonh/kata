@@ -32,6 +32,10 @@ node bin/install.js --local
 # Verify skills installed
 ls ~/.claude/skills/kata-*  # global
 ls .claude/skills/kata-*    # local
+
+# Verify commands installed
+ls ~/.claude/commands/kata/  # global
+ls .claude/commands/kata/    # local
 ```
 
 ### Using Kata for Kata Development
@@ -54,10 +58,10 @@ ls .planning/phases/[current-phase]/
 ```
 
 **Common workflow when working on Kata:**
-1. Check progress: "What's the status?" or `/kata-providing-progress-and-status-updates`
-2. Plan phase: "Plan phase [N]" or `/kata-planning-phases`
-3. Execute: "Execute phase [N]" or `/kata-execution`
-4. Verify: "Verify phase [N]" or `/kata-verification-and-uat`
+1. Check progress: "What's the status?" or `/kata:project-status`
+2. Plan phase: "Plan phase [N]" or `/kata:phase-plan [N]`
+3. Execute: "Execute phase [N]" or `/kata:phase-execute [N]`
+4. Verify: "Verify phase [N]" or `/kata:work-verify [N]`
 
 ## Architecture: Files Teach Claude
 
@@ -83,13 +87,18 @@ Kata provides skills for autonomous invocation alongside slash commands for dete
 
 ### Skills vs Commands
 
-| Aspect     | Skills                        | Explicit Invocation      |
-| ---------- | ----------------------------- | ------------------------ |
-| Invocation | Autonomous (Claude decides)   | Explicit (`/skill-name`) |
-| Arguments  | From natural language context | From context             |
-| Use case   | "Help me plan phase 2"        | `/kata-planning-phases`  |
+| Aspect     | Skills                                 | Commands                          |
+| ---------- | -------------------------------------- | --------------------------------- |
+| Invocation | Autonomous from natural language       | Explicit with `/kata:command-name` |
+| Arguments  | Extracted from conversational context  | From command context              |
+| Use case   | "Help me plan phase 2"                 | `/kata:phase-plan 2`              |
+| Frontmatter | `user-invocable: false`               | `disable-model-invocation: true`  |
+| Delegation | Respond to natural language            | Spawn skills via Task tool        |
 
-**Note:** Explicit skill invocation uses `/skill-name` syntax (e.g., `/kata-planning-phases`), not the old `/kata:command` namespace.
+**Key points:**
+- **Skills** respond to natural language (e.g., "plan phase 2", "what's the status") but cannot be invoked directly with `/skill-name` (controlled by `user-invocable: false`)
+- **Commands** provide explicit invocation (e.g., `/kata:phase-plan 2`, `/kata:project-status`) and delegate to skills via Task tool
+- Both work together: commands for deterministic invocation, skills for conversational interaction
 
 ### Available Skills
 
