@@ -1,50 +1,32 @@
-  
-  /gsd:add-phase
-  kata-adding-phases
+Create a local slash command that does the following
+
+## Step 1:
+
+runs a pythion script that does the following (script needs to be created as part of this task):
+
+<!-- python script spec -->
+1. copy all files 
+from `/Users/gannonhall/dev/oss/get-shit-done/commands/gsd`
+to `/Users/gannonhall/dev/oss/kata/dev/transform/commands/gsd`
+
+1. copy all files 
+from `/Users/gannonhall/dev/oss/get-shit-done/agents`
+to `/Users/gannonhall/dev/oss/kata/agents` and changes the prefix of each from `gsd-` to `sata-`
+
+1. copy all files and folders 
+from `/Users/gannonhall/dev/oss/get-shit-done/get-shit-done/*`
+to `/Users/gannonhall/dev/oss/kata/kata`
+
+## Step 2:
+
+Run a python script that converts gsd names to kata (script exists): `/Users/gannonhall/dev/oss/kata/dev/replace-gsd-with-kata.py`
+
+## step 3:
+
+Run this skill: `/converting-commands-to-skills /Users/gannonhall/dev/oss/kata/dev/transform`  
+
+# Step 4
+
+Report results
 
 
-  ```
-  
-  
-  
-  
-  
-  
-  
-  
-  Best approach:                                                                                                                                                 
-                                                                                                                                                                 
-  # First, commit or stash your current changes                                                                                                                  
-  git add .planning/MILESTONES.md README.md                                                                                                                      
-  git commit -m "CHECKPOINT BEFORE EXPERIMENTAL WORK"                                                                                                      
-                                                                                                                                                                 
-  # Create and switch to experimental branch from current feature branch                                                                                         
-  git checkout -b feat/v0.1.5-skills-documentation-experimental                                                                                                  
-                                                                                                                                                                 
-  # Do your radical experiment here                                                                                                                              
-  # If it works: merge back or rename branch                                                                                                                     
-  # If it fails: just switch back and delete the branch                                                                                                          
-                                                                                                                                                                 
-  Rollback is trivial:                                                                                                                                           
-  # Switch back to safe branch                                                                                                                                   
-  git checkout feat/v0.1.5-skills-documentation                                                                                                                  
-                                                                                                                                                                 
-  # Delete experimental branch if you want                                                                                                                       
-  git branch -D feat/v0.1.5-skills-documentation-experimental                                                                                                    
-                                                                                                                                                                 
-  Why this is better than marking a commit:                                                                                                                      
-  - Clear separation: experimental work is isolated                                                                                                              
-  - No risk: your current branch stays untouched                                                                                                                 
-  - Easy cleanup: just delete the branch                                                                                                                         
-  - No need to remember commit hashes                                                                                                                            
-  - Can switch back and forth easily to compare                                                                                                                  
-                                                                                                                                                                 
-  Alternative if you want to keep both approaches visible:                                                                                                       
-  # Tag current state before branching                                                                                                                           
-  git tag safe-point                                                                                                                                             
-                                                                                                                                                                 
-  # Later, can always return to tag                                                                                                                              
-  git checkout safe-point                                                                                                                                        
-  git checkout -b recovery-branch                                                                                                                                
-                                                                                                                                                                 
-  The branch approach is cleaner though. What's the radical thing you're planning to try? 
