@@ -148,7 +148,7 @@ npx @gannonh/kata
 This will reinstall Kata with the latest version.
 
 **To see what's new:**
-"whats new in kata" or `/kata-updating-to-latest-version`
+"whats new in kata" or `/kata:whats-new`
 
 ### If AHEAD
 
@@ -222,7 +222,7 @@ KATA > WHAT'S NEW
 - Latest: v{LATEST_VERSION}
 
 **To update:**
-"update kata" or `/kata-updating-to-latest-version`
+"update kata" or `/kata:update`
 
 ### If No New Changes
 
@@ -252,7 +252,7 @@ KATA > VERSION INFO
 {if UPDATE_AVAILABLE}
 **Status:** Update available
 
-To update: "update kata" or `/kata-updating-to-latest-version`
+To update: "update kata" or `/kata:update`
 To see changes: "whats new in kata"
 {endif}
 

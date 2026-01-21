@@ -239,8 +239,8 @@ KATA > PHASE {X} CONTEXT CAPTURED
 
 | Action | Natural Trigger | Explicit Command |
 | ------ | --------------- | ---------------- |
-| **Plan the phase** | "Plan phase {X}" | `/kata-planning-phases` |
-| Research first | "Research phase {X}" | `/kata-researching-phases` |
+| **Plan the phase** | "Plan phase {X}" | `/kata:phase-plan` |
+| Research first | "Research phase {X}" | `/kata:phase-research` |
 | View context | "Show context" | `cat {phase_dir}/{phase}-CONTEXT.md` |
 
 <sub>/clear first -> fresh context window</sub>

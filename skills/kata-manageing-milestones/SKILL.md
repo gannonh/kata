@@ -42,7 +42,7 @@ Check for Kata project structure:
 ls .planning/ 2>/dev/null
 ```
 
-If not found, user should run `/kata-starting-new-projects` first.
+If not found, user should run `/kata:project-new` first.
 
 ### Step 3: Route to Workflow
 
@@ -58,7 +58,7 @@ See `./references/milestone-creation.md` for complete details.
 
 1. **Validate project exists**
    ```bash
-   [ -f .planning/PROJECT.md ] || echo "Run /kata-starting-new-projects first"
+   [ -f .planning/PROJECT.md ] || echo "Run /kata:project-new first"
    ```
 
 2. **Check for active milestone**
@@ -144,7 +144,7 @@ See `./references/milestone-creation.md` for complete details.
 
     | Action                | Natural Trigger    | Explicit Command        |
     | --------------------- | ------------------ | ----------------------- |
-    | ⭐ **Plan the phase** | "Plan phase [N]"   | `/kata-planning-phases` |
+    | ⭐ **Plan the phase** | "Plan phase [N]"   | `/kata:phase-plan` |
 
     <sub>★ recommended · /clear first → fresh context window</sub>
 
@@ -162,8 +162,8 @@ See `./references/milestone-completion.md` for complete details.
    ```bash
    ls .planning/v*-MILESTONE-AUDIT.md 2>/dev/null
    ```
-   - No audit: recommend `/kata-manageing-milestones audit` first
-   - Audit has gaps: recommend `/kata-managing-project-roadmap`
+   - No audit: recommend `/kata:milestone-audit` first
+   - Audit has gaps: recommend `/kata:roadmap-plan-gaps`
    - Audit passed: proceed
 
 2. **Verify readiness**
@@ -214,7 +214,7 @@ See `./references/milestone-completion.md` for complete details.
 
    | Action                     | Natural Trigger | Explicit Command             |
    | -------------------------- | --------------- | ---------------------------- |
-   | ⭐ **Start new milestone** | "New milestone" | `/kata-manageing-milestones` |
+   | ⭐ **Start new milestone** | "New milestone" | `/kata:milestone-new` |
 
    <sub>★ recommended · /clear first → fresh context window</sub>
 
@@ -287,7 +287,7 @@ See `./references/milestone-auditing.md` for complete details.
 
    | Action                      | Natural Trigger      | Explicit Command             |
    | --------------------------- | -------------------- | ---------------------------- |
-   | ⭐ **Complete milestone**   | "Complete milestone" | `/kata-manageing-milestones` |
+   | ⭐ **Complete milestone**   | "Complete milestone" | `/kata:milestone-complete` |
 
    <sub>★ recommended · /clear first → fresh context window</sub>
 
@@ -305,8 +305,8 @@ See `./references/milestone-auditing.md` for complete details.
 
    | Action                    | Natural Trigger      | Explicit Command                 |
    | ------------------------- | -------------------- | -------------------------------- |
-   | ⭐ **Plan gaps**          | "Plan gaps"          | `/kata-managing-project-roadmap` |
-   | Complete anyway           | "Complete milestone" | `/kata-manageing-milestones`     |
+   | ⭐ **Plan gaps**          | "Plan gaps"          | `/kata:roadmap-plan-gaps` |
+   | Complete anyway           | "Complete milestone" | `/kata:milestone-complete`     |
 
    <sub>★ recommended · /clear first → fresh context window</sub>
 

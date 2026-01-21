@@ -280,8 +280,8 @@ Goal verified
 
 | Action                   | Natural Trigger      | Explicit Command                                      |
 | ------------------------ | -------------------- | ----------------------------------------------------- |
-| ⭐ **Plan next phase**    | "Plan phase {Z+1}"   | `/kata-planning-phases`                               |
-| Verify completed phase   | "Verify phase {Z}"   | `/kata-verifying-work-outcomes-and-user-acceptance-testing` |
+| ⭐ **Plan next phase**    | "Plan phase {Z+1}"   | `/kata:phase-plan`                               |
+| Verify completed phase   | "Verify phase {Z}"   | `/kata:work-verify` |
 
 <sub>★ recommended · /clear first → fresh context window</sub>
 
@@ -303,7 +303,7 @@ All {N} phases complete!
 
 | Action                      | Natural Trigger      | Explicit Command              |
 | --------------------------- | -------------------- | ----------------------------- |
-| ⭐ **Complete milestone**    | "Complete milestone" | `/kata-manageing-milestones`  |
+| ⭐ **Complete milestone**    | "Complete milestone" | `/kata:milestone-complete`  |
 
 <sub>★ recommended · /clear first → fresh context window</sub>
 
@@ -325,8 +325,8 @@ Score: {N}/{M} must-haves verified
 
 | Action                | Natural Trigger          | Explicit Command                    |
 | --------------------- | ------------------------ | ----------------------------------- |
-| ⭐ **Create fix plans** | "Plan gaps for phase {Z}" | `/kata-planning-phases {Z} --gaps` |
-| Re-execute phase      | "Execute phase {Z}"      | `/kata-executing-project-phases`   |
+| ⭐ **Create fix plans** | "Plan gaps for phase {Z}" | `/kata:phase-plan {Z} --gaps` |
+| Re-execute phase      | "Execute phase {Z}"      | `/kata:phase-execute`   |
 
 <sub>★ recommended · /clear first → fresh context window</sub>
 

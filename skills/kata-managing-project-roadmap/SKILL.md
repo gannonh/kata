@@ -92,7 +92,7 @@ Phase {N} added to current milestone:
 
 **Phase {N}: {description}**
 
-`/kata-planning-phases {N}`
+`/kata:phase-plan {N}`
 
 <sub>/clear first → fresh context window</sub>
 

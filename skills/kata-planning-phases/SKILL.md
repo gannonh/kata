@@ -259,9 +259,9 @@ Verification: {Passed | Passed with override | Skipped}
 
 | Action                 | Natural Trigger        | Explicit Command                 |
 | ---------------------- | ---------------------- | -------------------------------- |
-| ⭐ **Execute the phase** | "Execute phase {X}"    | `/kata-executing-project-phases` |
+| ⭐ **Execute the phase** | "Execute phase {X}"    | `/kata:phase-execute`            |
 | Review plans           | "Show me the plans"    | `cat .planning/phases/{phase-dir}/*-PLAN.md` |
-| Re-research first      | "Research phase {X}"   | `/kata-researching-phases`       |
+| Re-research first      | "Research phase {X}"   | `/kata:phase-research`           |
 
 <sub>★ recommended · /clear first → fresh context window</sub>
 

@@ -321,8 +321,8 @@ KATA > PROJECT INITIALIZED
 
 | Action                | Natural Trigger      | Explicit Command           |
 | --------------------- | -------------------- | -------------------------- |
-| ⭐ **Plan the phase**  | "Plan phase 1"       | `/kata-planning-phases`    |
-| Research first        | "Research phase 1"   | `/kata-researching-phases` |
+| ⭐ **Plan the phase**  | "Plan phase 1"       | `/kata:phase-plan`    |
+| Research first        | "Research phase 1"   | `/kata:phase-research` |
 
 <sub>★ recommended · /clear first → fresh context window</sub>
 

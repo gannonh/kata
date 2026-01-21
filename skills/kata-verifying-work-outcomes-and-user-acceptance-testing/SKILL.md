@@ -277,7 +277,7 @@ KATA > GAPS DIAGNOSED
 
 **Plan fixes** — create fix plans for diagnosed gaps
 
-`/kata-planning-phases {X} --gaps`
+`/kata:phase-plan {X} --gaps`
 
 <sub>/clear first → fresh context window</sub>
 
@@ -304,8 +304,8 @@ Goal achieved.
 
 | Action                  | Natural Trigger       | Explicit Command                                            |
 | ----------------------- | --------------------- | ----------------------------------------------------------- |
-| ⭐ **Plan next phase**   | "Plan phase {X+1}"    | `/kata-planning-phases`                                     |
-| Run UAT                 | "Run UAT"             | `/kata-verifying-work-outcomes-and-user-acceptance-testing` |
+| ⭐ **Plan next phase**   | "Plan phase {X+1}"    | `/kata:phase-plan`                                          |
+| Run UAT                 | "Run UAT"             | `/kata:work-verify`                                         |
 
 <sub>★ recommended · /clear first → fresh context window</sub>
 
@@ -334,8 +334,8 @@ KATA > PHASE {X} GAPS FOUND
 
 | Action               | Natural Trigger           | Explicit Command                   |
 | -------------------- | ------------------------- | ---------------------------------- |
-| ⭐ **Create fix plans** | "Plan fixes for phase {X}" | `/kata-planning-phases {X} --gaps` |
-| Re-verify            | "Verify phase {X}"        | `/kata-verifying-work-outcomes-and-user-acceptance-testing` |
+| ⭐ **Create fix plans** | "Plan fixes for phase {X}" | `/kata:phase-plan {X} --gaps` |
+| Re-verify            | "Verify phase {X}"        | `/kata:work-verify` |
 
 <sub>★ recommended · /clear first → fresh context window</sub>
 

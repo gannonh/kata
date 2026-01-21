@@ -189,7 +189,7 @@ KATA > TODO CAPTURED
 
 Pending todos: {count}
 
-To review todos: "check todos" or `/kata-managing-todos`
+To review todos: "check todos" or `/kata:todo-check`
 
 ---
 
@@ -295,7 +295,7 @@ After all todos reviewed or user exits:
 
    **Todo review complete**
 
-   `/kata-managing-todos`
+   `/kata:todo-check`
 
    <sub>/clear first → fresh context window</sub>
 

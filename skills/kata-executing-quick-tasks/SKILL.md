@@ -61,7 +61,7 @@ If user selects "This needs planning", exit and recommend:
 ```
 This task may benefit from planning.
 
-Use "plan this" or `/kata-planning-phases` for structured approach.
+Use "plan this" or `/kata:phase-plan` for structured approach.
 ```
 
 ### Step 2: Validate Task Constraints
@@ -186,7 +186,7 @@ KATA > QUICK TASK COMPLETE
 
 Task completed without planning overhead.
 
-For larger changes: "plan this" or `/kata-planning-phases`
+For larger changes: "plan this" or `/kata:phase-plan`
 
 ---
 
