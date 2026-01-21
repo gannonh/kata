@@ -1,3 +1,17 @@
+  
+  /gsd:add-phase
+  kata-adding-phases
+
+
+  ```
+  
+  
+  
+  
+  
+  
+  
+  
   Best approach:                                                                                                                                                 
                                                                                                                                                                  
   # First, commit or stash your current changes                                                                                                                  
