@@ -1,6 +1,7 @@
 ---
 name: kata-debugging-kata-workflow-issues
 description: Use this skill when Kata workflows fail or get stuck. Triggers include "plan failed", "execution stuck", "kata error", "phase not working", "workflow issue", "kata broken", "plan won't complete", "executor failed", and "why did the plan fail". This skill spawns kata-debugger to investigate Kata-specific issues using scientific method. NOT for debugging your project code - this debugs Kata itself.
+user-invocable: false
 ---
 
 # Kata Workflow Debugging

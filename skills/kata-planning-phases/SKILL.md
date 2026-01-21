@@ -1,6 +1,7 @@
 ---
-name: kata-planning-phases-phases
+name: kata-planning-phases
 description: Use this skill when planning phases, creating execution plans, breaking down work into tasks, preparing for phase execution, or analyzing what work needs to be done. Triggers include "plan phase", "create plan", "task breakdown", "dependency analysis", "wave assignment", and "goal-backward verification". This skill orchestrates research, planning, and verification sub-agents.
+user-invocable: false
 ---
 
 # Phase Planning Orchestrator

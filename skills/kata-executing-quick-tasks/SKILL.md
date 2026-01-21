@@ -1,6 +1,7 @@
 ---
 name: kata-executing-quick-tasks
 description: Use this skill for executing small, well-defined tasks quickly without full planning overhead. Triggers include "quick", "quick task", "do this quickly", "fast task", "skip research", "skip planning", "just do it", "just do this", "simple task", "one-off task", "small change", "tiny fix", "quick fix", "quick change", "don't plan just do".
+user-invocable: false
 ---
 
 # Quick Task Execution Orchestrator

@@ -1,6 +1,7 @@
 ---
 name: kata-researching-phases
 description: Use this skill when researching a phase domain, investigating technical approaches, exploring phase scope with the user, gathering implementation context, or listing assumptions before planning. Triggers include "research phase", "investigate", "explore", "discuss phase", "scope discussion", "assumptions", "technical research", "domain research", "gather context", and "what do you think about phase".
+user-invocable: false
 ---
 
 # Phase Research Orchestrator

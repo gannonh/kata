@@ -1,6 +1,7 @@
 ---
 name: kata-manageing-milestones
 description: Use this skill when creating new milestones, completing milestones, archiving milestones, auditing milestones, or checking milestone coverage. Triggers include "new milestone", "create milestone", "start milestone", "complete milestone", "finish milestone", "archive milestone", "audit milestone", "check milestone", "milestone gaps", "milestone coverage", and "requirements coverage".
+user-invocable: false
 ---
 
 # Milestone Management Orchestrator

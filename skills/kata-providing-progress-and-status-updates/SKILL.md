@@ -2,6 +2,7 @@
 name: kata-providing-progress-and-status-updates
 version: 0.1.5
 description: Use this skill for Kata project status, progress tracking, and session management. Triggers include "progress", "status", "check status", "what's the status", "current status", "show status", "project status", "how are we doing", "where am I" (project position query), "where am I in the project", "where are we", "what phase", "what's next", "pause work", "take a break", "resume work", "continue", "map codebase", and "analyze code structure". When user asks "where am I" in a Kata project context, this skill shows current phase and progress. This skill spawns kata-codebase-mapper sub-agents. NOT for debugging - use kata-debugging-kata-workflow-issues for Kata issues.
+user-invocable: false
 ---
 
 # Kata Progress and Status Updates
