@@ -1,8 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
   <defs>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@200&amp;display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@200&amp;family=JetBrains+Mono:wght@400&amp;display=swap');
       .kanji { font-family: 'Noto Serif JP', serif; }
+      .phonetic { font-family: 'JetBrains Mono', monospace; }
     </style>
   </defs>
 
@@ -13,11 +14,21 @@
   <!-- The kanji 型 -->
   <text
     x="100"
-    y="125"
+    y="115"
     text-anchor="middle"
     class="kanji"
     fill="#0d0d0d"
     font-size="100"
     font-weight="200"
   >型</text>
+
+  <!-- Phonetic pronunciation -->
+  <text
+    x="100"
+    y="150"
+    text-anchor="middle"
+    class="phonetic"
+    fill="#a0a0a0"
+    font-size="16"
+  >/ˈkɑːtɑː/</text>
 </svg>
