@@ -13,7 +13,7 @@ allowed-tools:
 <objective>
 Check for Kata updates, install if available, and display what changed.
 
-Provides a better update experience than raw `npx kata-cc` by showing version diff and changelog entries.
+Provides a better update experience than raw `npx @gannonh/kata` by showing version diff and changelog entries.
 </objective>
 
 <process>

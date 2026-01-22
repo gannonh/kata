@@ -1,6 +1,6 @@
 {
   "name": "@gannonh/kata",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "type": "module",
   "description": "Spec-driven development framework for Claude Code.",
   "scripts": {

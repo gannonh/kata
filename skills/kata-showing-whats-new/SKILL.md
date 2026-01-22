@@ -33,7 +33,7 @@ cat ~/.claude/kata/VERSION 2>/dev/null
 
 Your installation doesn't include version tracking.
 
-**To fix:** `npx kata-cc --global`
+**To fix:** `npx @gannonh/kata --global`
 
 This will reinstall with version tracking enabled.
 ```
@@ -45,7 +45,7 @@ STOP here if no VERSION file.
 Fetch latest CHANGELOG.md from GitHub:
 
 Use WebFetch tool with:
-- URL: `https://raw.githubusercontent.com/glittercowboy/kata/main/CHANGELOG.md`
+- URL: `https://raw.githubusercontent.com/gannnonh/kata/main/CHANGELOG.md`
 - Prompt: "Extract all version entries with their dates and changes. Return in Keep-a-Changelog format."
 
 **If fetch fails:**
@@ -82,7 +82,7 @@ Format output clearly:
 
 You're on the latest version.
 
-[View full changelog](https://github.com/glittercowboy/kata/blob/main/CHANGELOG.md)
+[View full changelog](https://github.com/gannnonh/kata/blob/main/CHANGELOG.md)
 ```
 
 **If updates available:**
@@ -112,9 +112,9 @@ You're on the latest version.
 
 ---
 
-[View full changelog](https://github.com/glittercowboy/kata/blob/main/CHANGELOG.md)
+[View full changelog](https://github.com/gannnonh/kata/blob/main/CHANGELOG.md)
 
-**To update:** `npx kata-cc --global`
+**To update:** `npx @gannonh/kata --global`
 ```
 
 **Breaking changes:** Surface prominently with **BREAKING:** prefix in the output.
