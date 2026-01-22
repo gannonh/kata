@@ -145,7 +145,56 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
    **If `PR_WORKFLOW=true`:**
 
-   Skip git tag creation. Display:
+   Skip git tag creation. Offer to create PR:
+
+   Use AskUserQuestion:
+   - header: "Create PR"
+   - question: "Would you like me to create a PR for this milestone?"
+   - options:
+     - "Yes, create PR" — Create PR to merge to main
+     - "No, I'll do it manually" — Show instructions only
+
+   **If "Yes, create PR":**
+
+   ```bash
+   # Get current branch
+   CURRENT_BRANCH=$(git branch --show-current)
+
+   # Push branch if not already pushed
+   git push -u origin "$CURRENT_BRANCH" 2>/dev/null || true
+
+   # Create PR
+   gh pr create \
+     --title "v{{version}}: [Milestone Name]" \
+     --body "$(cat <<'EOF'
+   ## Summary
+
+   Completes milestone v{{version}}.
+
+   **Key accomplishments:**
+   - [accomplishment 1]
+   - [accomplishment 2]
+   - [accomplishment 3]
+
+   ## After Merge
+
+   Create GitHub Release with tag `v{{version}}` to trigger npm publish (if configured).
+   EOF
+   )"
+   ```
+
+   Display PR URL and next steps:
+   ```
+   ✓ PR created: [PR URL]
+
+   After merge:
+   → Create GitHub Release with tag v{{version}}
+   → GitHub Actions will publish to npm (if configured)
+   ```
+
+   **If "No, I'll do it manually":**
+
+   Display:
    ```
    ⚡ PR workflow mode — tag will be created via GitHub Release after merge
 
@@ -173,7 +222,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 - `.planning/REQUIREMENTS.md` deleted (fresh for next milestone)
 - ROADMAP.md collapsed to one-line entry
 - PROJECT.md updated with current state
-- Git tag v{{version}} created (if pr_workflow=false) OR deferred to GitHub Release (if pr_workflow=true)
+- Git tag v{{version}} created (if pr_workflow=false) OR PR created/instructions given (if pr_workflow=true)
 - Commit successful
 - User knows next steps (including need for fresh requirements)
   </success_criteria>
