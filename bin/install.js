@@ -11,9 +11,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Colors
-const cyan = '\x1b[36m';
+const amber = '\x1b[33m';  // Yellow ANSI - closest to amber #d4a574
 const green = '\x1b[32m';
-const yellow = '\x1b[33m';
+const warn = '\x1b[38;5;214m';  // Orange for warnings
 const dim = '\x1b[2m';
 const reset = '\x1b[0m';
 
@@ -21,7 +21,7 @@ const reset = '\x1b[0m';
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
 
 const banner = `
-${cyan}  ┌──────────────────────────────────────────────────────────┐
+${amber}  ┌──────────────────────────────────────────────────────────┐
   │                                                          │
   │    ██╗  ██╗ █████╗ ████████╗ █████╗       ╔═══════╗      │
   │    ██║ ██╔╝██╔══██╗╚══██╔══╝██╔══██╗      ║ ═╦═   ║      │
@@ -46,7 +46,7 @@ function parseConfigDirArg() {
     const nextArg = args[configDirIndex + 1];
     // Error if --config-dir is provided without a value or next arg is another flag
     if (!nextArg || nextArg.startsWith('-')) {
-      console.error(`  ${yellow}--config-dir requires a path argument${reset}`);
+      console.error(`  ${warn}--config-dir requires a path argument${reset}`);
       process.exit(1);
     }
     return nextArg;
@@ -66,16 +66,16 @@ console.log(banner);
 
 // Show help if requested
 if (hasHelp) {
-  console.log(`  ${yellow}Usage:${reset} npx @gannonh/kata [options]
+  console.log(`  ${warn}Usage:${reset} npx @gannonh/kata [options]
 
-  ${yellow}Options:${reset}
-    ${cyan}-g, --global${reset}              Install globally (to Claude config directory)
-    ${cyan}-l, --local${reset}               Install locally (to ./.claude in current directory)
-    ${cyan}-c, --config-dir <path>${reset}   Specify custom Claude config directory
-    ${cyan}-h, --help${reset}                Show this help message
-    ${cyan}--force-statusline${reset}        Replace existing statusline config
+  ${warn}Options:${reset}
+    ${amber}-g, --global${reset}              Install globally (to Claude config directory)
+    ${amber}-l, --local${reset}               Install locally (to ./.claude in current directory)
+    ${amber}-c, --config-dir <path>${reset}   Specify custom Claude config directory
+    ${amber}-h, --help${reset}                Show this help message
+    ${amber}--force-statusline${reset}        Replace existing statusline config
 
-  ${yellow}Examples:${reset}
+  ${warn}Examples:${reset}
     ${dim}# Install to default ~/.claude directory${reset}
     npx @gannonh/kata --global
 
@@ -88,7 +88,7 @@ if (hasHelp) {
     ${dim}# Install to current project only${reset}
     npx @gannonh/kata --local
 
-  ${yellow}Notes:${reset}
+  ${warn}Notes:${reset}
     The --config-dir option is useful when you have multiple Claude Code
     configurations (e.g., for different subscriptions). It takes priority
     over the CLAUDE_CONFIG_DIR environment variable.
@@ -234,17 +234,17 @@ function cleanupOrphanedHooks(settings) {
  */
 function verifyInstalled(dirPath, description) {
   if (!fs.existsSync(dirPath)) {
-    console.error(`  ${yellow}✗${reset} Failed to install ${description}: directory not created`);
+    console.error(`  ${warn}✗${reset} Failed to install ${description}: directory not created`);
     return false;
   }
   try {
     const entries = fs.readdirSync(dirPath);
     if (entries.length === 0) {
-      console.error(`  ${yellow}✗${reset} Failed to install ${description}: directory is empty`);
+      console.error(`  ${warn}✗${reset} Failed to install ${description}: directory is empty`);
       return false;
     }
   } catch (e) {
-    console.error(`  ${yellow}✗${reset} Failed to install ${description}: ${e.message}`);
+    console.error(`  ${warn}✗${reset} Failed to install ${description}: ${e.message}`);
     return false;
   }
   return true;
@@ -255,7 +255,7 @@ function verifyInstalled(dirPath, description) {
  */
 function verifyFileInstalled(filePath, description) {
   if (!fs.existsSync(filePath)) {
-    console.error(`  ${yellow}✗${reset} Failed to install ${description}: file not created`);
+    console.error(`  ${warn}✗${reset} Failed to install ${description}: file not created`);
     return false;
   }
   return true;
@@ -283,7 +283,7 @@ function install(isGlobal) {
     ? (configDir ? `${claudeDir}/` : '~/.claude/')
     : './.claude/';
 
-  console.log(`  Installing to ${cyan}${locationLabel}${reset}\n`);
+  console.log(`  Installing to ${amber}${locationLabel}${reset}\n`);
 
   // Track installation failures
   const failures = [];
@@ -447,7 +447,7 @@ function install(isGlobal) {
 
   // If critical components failed, exit with error
   if (failures.length > 0) {
-    console.error(`\n  ${yellow}Installation incomplete!${reset} Failed: ${failures.join(', ')}`);
+    console.error(`\n  ${warn}Installation incomplete!${reset} Failed: ${failures.join(', ')}`);
     console.error(`  Try running directly: node ~/.npm/_npx/*/node_modules/@gannonh/kata/bin/install.js --global\n`);
     process.exit(1);
   }
@@ -506,7 +506,7 @@ function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallS
   writeSettings(settingsPath, settings);
 
   console.log(`
-  ${green}Done!${reset} Launch Claude Code and run ${cyan}/kata:help${reset}.
+  ${green}Done!${reset} Launch Claude Code and run ${amber}/kata:help${reset}.
 `);
 }
 
@@ -530,8 +530,8 @@ function handleStatusline(settings, isInteractive, callback) {
 
   // Has existing, non-interactive mode - skip
   if (!isInteractive) {
-    console.log(`  ${yellow}⚠${reset} Skipping statusline (already configured)`);
-    console.log(`    Use ${cyan}--force-statusline${reset} to replace\n`);
+    console.log(`  ${warn}⚠${reset} Skipping statusline (already configured)`);
+    console.log(`    Use ${amber}--force-statusline${reset} to replace\n`);
     callback(false);
     return;
   }
@@ -545,7 +545,7 @@ function handleStatusline(settings, isInteractive, callback) {
   });
 
   console.log(`
-  ${yellow}⚠${reset} Existing statusline detected
+  ${warn}⚠${reset} Existing statusline detected
 
   Your current statusline:
     ${dim}command: ${existingCmd}${reset}
@@ -555,8 +555,8 @@ function handleStatusline(settings, isInteractive, callback) {
     • Current task (from todo list)
     • Context window usage (color-coded)
 
-  ${cyan}1${reset}) Keep existing
-  ${cyan}2${reset}) Replace with Kata statusline
+  ${amber}1${reset}) Keep existing
+  ${amber}2${reset}) Replace with Kata statusline
 `);
 
   rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
@@ -573,7 +573,7 @@ function promptLocation() {
   // Check if stdin is a TTY - if not, fall back to global install
   // This handles npx execution in environments like WSL2 where stdin may not be properly connected
   if (!process.stdin.isTTY) {
-    console.log(`  ${yellow}Non-interactive terminal detected, defaulting to global install${reset}\n`);
+    console.log(`  ${warn}Non-interactive terminal detected, defaulting to global install${reset}\n`);
     const { settingsPath, settings, statuslineCommand } = install(true);
     handleStatusline(settings, false, (shouldInstallStatusline) => {
       finishInstall(settingsPath, settings, statuslineCommand, shouldInstallStatusline, true);
@@ -593,7 +593,7 @@ function promptLocation() {
   rl.on('close', () => {
     if (!answered) {
       answered = true;
-      console.log(`\n  ${yellow}Input stream closed, defaulting to global install${reset}\n`);
+      console.log(`\n  ${warn}Input stream closed, defaulting to global install${reset}\n`);
       const { settingsPath, settings, statuslineCommand } = install(true);
       handleStatusline(settings, false, (shouldInstallStatusline) => {
         finishInstall(settingsPath, settings, statuslineCommand, shouldInstallStatusline, true);
@@ -605,10 +605,10 @@ function promptLocation() {
   const globalPath = configDir || path.join(os.homedir(), '.claude');
   const globalLabel = globalPath.replace(os.homedir(), '~');
 
-  console.log(`  ${yellow}Where would you like to install?${reset}
+  console.log(`  ${warn}Where would you like to install?${reset}
 
-  ${cyan}1${reset}) Global ${dim}(${globalLabel})${reset} - available in all projects
-  ${cyan}2${reset}) Local  ${dim}(./.claude)${reset} - this project only
+  ${amber}1${reset}) Global ${dim}(${globalLabel})${reset} - available in all projects
+  ${amber}2${reset}) Local  ${dim}(./.claude)${reset} - this project only
 `);
 
   rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
@@ -626,10 +626,10 @@ function promptLocation() {
 
 // Main
 if (hasGlobal && hasLocal) {
-  console.error(`  ${yellow}Cannot specify both --global and --local${reset}`);
+  console.error(`  ${warn}Cannot specify both --global and --local${reset}`);
   process.exit(1);
 } else if (explicitConfigDir && hasLocal) {
-  console.error(`  ${yellow}Cannot use --config-dir with --local${reset}`);
+  console.error(`  ${warn}Cannot use --config-dir with --local${reset}`);
   process.exit(1);
 } else if (hasGlobal) {
   const { settingsPath, settings, statuslineCommand } = install(true);

@@ -4,6 +4,8 @@
 
 **Kata** (型) is an agent orchestration framework for spec-driven development. The brand reflects precision, discipline, and the methodical practice inherent in the Japanese concept of *kata* — a pattern or form perfected through repetition.
 
+The visual identity draws from Japanese minimalism: aged paper, lacquered wood, and calligraphic ink.
+
 ---
 
 ## The Mark
@@ -37,59 +39,76 @@ Maintain clear space around the mark equal to the height of the horizontal strok
 
 | Name | Hex | RGB | Usage |
 |------|-----|-----|-------|
-| **Kata Blue** | `#7aa2f7` | 122, 162, 247 | Primary accent, links, highlights |
-| **Deep Slate** | `#0f0f14` | 15, 15, 20 | Primary background |
-| **Soft White** | `#c0caf5` | 192, 202, 245 | Primary text |
+| **Ink** | `#0d0d0d` | 13, 13, 13 | Primary background |
+| **Paper** | `#faf8f5` | 250, 248, 245 | Primary text |
+| **Amber** | `#d4a574` | 212, 165, 116 | Primary accent, highlights |
 
 ### Secondary Colors
 
 | Name | Hex | RGB | Usage |
 |------|-----|-----|-------|
-| **Muted** | `#565f89` | 86, 95, 137 | Secondary text, borders |
-| **Dim** | `#414868` | 65, 72, 104 | Tertiary text, disabled states |
-| **Border** | `#24283b` | 36, 40, 59 | Dividers, frames |
+| **Charcoal** | `#1a1a1a` | 26, 26, 26 | Code backgrounds, cards |
+| **Stone** | `#2d2d2d` | 45, 45, 45 | Borders, dividers |
+| **Ash** | `#404040` | 64, 64, 64 | Muted text, secondary elements |
+
+### Accent Variants
+
+| Name | Hex | Usage |
+|------|-----|-------|
+| **Amber Glow** | `#e8c49a` | Hover states, highlights |
+| **Amber Deep** | `#b8956a` | Pressed states, darker accents |
 
 ### Semantic Colors
 
 | Name | Hex | Usage |
 |------|-----|-------|
-| **Success** | `#9ece6a` | Checkmarks, confirmations |
+| **Bamboo** | `#8fa876` | Success, checkmarks, confirmations |
+| **Moss** | `#5c6b4d` | Secondary success states |
 | **Warning** | `#e0af68` | Cautions, pending states |
 | **Error** | `#f7768e` | Errors, destructive actions |
-| **Info** | `#7dcfff` | Informational highlights |
 
 ### Color Ratios
 
-- **Background**: 70% Deep Slate
-- **Text**: 20% Soft White / Muted
-- **Accent**: 10% Kata Blue (used sparingly for impact)
+- **Background**: 70% Ink
+- **Text**: 20% Paper / Ash
+- **Accent**: 10% Amber (used sparingly for impact)
 
 ---
 
 ## Typography
 
+### Japanese Text
+
+```
+Primary: Noto Serif JP
+Weight: 200 (Extra Light) for the 型 mark
+Fallback: serif
+```
+
+The kanji mark uses an extra-light weight to maintain elegance and calligraphic quality.
+
+### Body Text
+
+```
+Primary: Zen Kaku Gothic New
+Weight: 400 (Regular), 500 (Medium)
+Fallback: sans-serif
+```
+
 ### Terminal / CLI
 
 ```
 Primary: JetBrains Mono, SF Mono, Consolas, monospace
+Weight: 400 (Regular), 500 (Medium)
 ```
 
 All terminal output uses monospace fonts. JetBrains Mono is preferred for its excellent legibility and programming ligatures.
 
-### Japanese Text
-
-```
-Primary: Noto Sans JP, Hiragino Kaku Gothic Pro, Yu Gothic, sans-serif
-Weight: 300 (Light) for the 型 mark
-```
-
-The kanji mark uses a light weight to maintain elegance and avoid visual heaviness.
-
 ### Web / Documentation
 
 ```
-Headers: JetBrains Mono (500 weight)
-Body: System sans-serif stack
+Headers: Noto Serif JP (400 weight)
+Body: Zen Kaku Gothic New (400 weight)
 Code: JetBrains Mono (400 weight)
 ```
 
@@ -115,8 +134,8 @@ The CLI banner combines ASCII art with the 型 mark:
 
 ### Banner Rules
 
-- Frame and ASCII art: Kata Blue (`#7aa2f7` / cyan ANSI)
-- The 型 character: Default terminal color (stands out against cyan)
+- Frame and ASCII art: Amber (`#d4a574` / yellow ANSI `\x1b[33m`)
+- The 型 character: Default terminal color (stands out against amber)
 - Version/tagline: Dim (`\x1b[2m`)
 - Box uses single-line drawing characters (`┌ ─ ┐ │ └ ┘`)
 
@@ -129,17 +148,17 @@ The CLI banner combines ASCII art with the 型 mark:
 Dark mode primary logo. The 型 kanji centered in a circular container.
 
 - Dimensions: 200×200
-- Background: Deep Slate (`#0f0f14`)
-- Border: Border color (`#24283b`)
-- Mark: Kata Blue (`#7aa2f7`)
+- Background: Ink (`#0d0d0d`)
+- Border: Stone (`#2d2d2d`)
+- Mark: Amber (`#d4a574`)
 
 ### `assets/logo-light.svg`
 
 Light mode variant for light backgrounds.
 
-- Background: White (`#ffffff`)
+- Background: Paper (`#faf8f5`)
 - Border: Light gray (`#e5e7eb`)
-- Mark: Deep Slate (`#0f0f14`)
+- Mark: Ink (`#0d0d0d`)
 
 ### `assets/wordmark.svg`
 

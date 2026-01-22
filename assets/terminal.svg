@@ -1,33 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540">
   <defs>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;500&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@200;400&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap');
 
-      .terminal-bg { fill: #0f0f14; }
-      .terminal-border { fill: #1a1b26; }
-      .title-bar { fill: #16161e; }
+      .terminal-bg { fill: #0d0d0d; }
+      .terminal-border { fill: #1a1a1a; }
+      .title-bar { fill: #1a1a1a; }
       .btn-close { fill: #f7768e; }
       .btn-minimize { fill: #e0af68; }
-      .btn-maximize { fill: #73daca; }
+      .btn-maximize { fill: #8fa876; }
       .text { font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace; }
-      .kanji { font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic Pro', sans-serif; }
-      .accent { fill: #7aa2f7; }
-      .accent-bright { fill: #89b4fa; }
-      .green { fill: #9ece6a; }
-      .muted { fill: #565f89; }
-      .text-primary { fill: #c0caf5; }
-      .text-dim { fill: #414868; }
+      .kanji { font-family: 'Noto Serif JP', serif; }
+      .accent { fill: #d4a574; }
+      .accent-bright { fill: #e8c49a; }
+      .green { fill: #8fa876; }
+      .muted { fill: #404040; }
+      .text-primary { fill: #faf8f5; }
+      .text-dim { fill: #2d2d2d; }
 
       /* Subtle glow effect for kanji */
       .kanji-glow {
-        filter: drop-shadow(0 0 20px rgba(122, 162, 247, 0.3));
+        filter: drop-shadow(0 0 20px rgba(212, 165, 116, 0.3));
       }
     </style>
 
     <!-- Gradient for subtle depth -->
     <linearGradient id="bgGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#0f0f14"/>
-      <stop offset="100%" style="stop-color:#0a0a0e"/>
+      <stop offset="0%" style="stop-color:#0d0d0d"/>
+      <stop offset="100%" style="stop-color:#0a0a0a"/>
     </linearGradient>
 
     <!-- Scanline pattern for subtle texture -->
@@ -59,7 +59,7 @@
     <!-- Left side: Kanji logo -->
     <g transform="translate(80, 60)" class="kanji-glow">
       <!-- The kanji 型 rendered large -->
-      <text class="kanji accent" font-size="180" font-weight="300" y="160">型</text>
+      <text class="kanji accent" font-size="180" font-weight="200" y="160">型</text>
     </g>
 
     <!-- Right side: Info -->
@@ -71,10 +71,10 @@
       <text class="text muted" font-size="13" y="32">agent orchestration framework</text>
 
       <!-- Divider line -->
-      <line x1="0" y1="56" x2="200" y2="56" stroke="#24283b" stroke-width="1"/>
+      <line x1="0" y1="56" x2="200" y2="56" stroke="#2d2d2d" stroke-width="1"/>
 
       <!-- Version badge -->
-      <text class="text text-dim" font-size="11" y="80">v1.7.0</text>
+      <text class="text" font-size="11" y="80" fill="#404040">v1.7.0</text>
 
       <!-- Install command -->
       <g transform="translate(0, 120)">
@@ -120,8 +120,8 @@
   </g>
 
   <!-- Subtle corner accents -->
-  <line x1="20" y1="520" x2="20" y2="500" stroke="#24283b" stroke-width="1"/>
-  <line x1="20" y1="520" x2="40" y2="520" stroke="#24283b" stroke-width="1"/>
-  <line x1="940" y1="520" x2="940" y2="500" stroke="#24283b" stroke-width="1"/>
-  <line x1="940" y1="520" x2="920" y2="520" stroke="#24283b" stroke-width="1"/>
+  <line x1="20" y1="520" x2="20" y2="500" stroke="#2d2d2d" stroke-width="1"/>
+  <line x1="20" y1="520" x2="40" y2="520" stroke="#2d2d2d" stroke-width="1"/>
+  <line x1="940" y1="520" x2="940" y2="500" stroke="#2d2d2d" stroke-width="1"/>
+  <line x1="940" y1="520" x2="920" y2="520" stroke="#2d2d2d" stroke-width="1"/>
 </svg>
