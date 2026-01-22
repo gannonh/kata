@@ -13,13 +13,23 @@
   <!-- The kanji 型 -->
   <text
     x="60"
-    y="85"
+    y="75"
     text-anchor="middle"
     class="kanji"
     fill="#d4a574"
     font-size="72"
     font-weight="200"
   >型</text>
+
+  <!-- Phonetic pronunciation -->
+  <text
+    x="60"
+    y="100"
+    text-anchor="middle"
+    class="wordmark"
+    fill="#404040"
+    font-size="9"
+  >/ˈkɑːtɑː/</text>
 
   <!-- Divider -->
   <line x1="120" y1="30" x2="120" y2="90" stroke="#2d2d2d" stroke-width="1"/>
