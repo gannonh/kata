@@ -96,7 +96,7 @@ fi
 - Push tags to remote when ready
 
 **When `pr_workflow: true`:**
-- Work on feature branches
+- Work on feature branches (one branch per phase)
 - Create PRs for phase completion
 - Create git tags via GitHub Release after merge
 - Enables GitHub Actions for CI/CD (e.g., npm publish)
@@ -106,6 +106,86 @@ fi
 ```bash
 PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
 ```
+
+### Branch Naming Convention
+
+**Pattern:** `{type}/v{milestone}-{phase}-{slug}`
+
+**Examples:**
+- `feat/v0.1.9-01-plugin-structure-validation`
+- `fix/v0.1.9-01.1-document-pr-workflow`
+- `docs/v0.2.0-03-api-reference`
+
+**Prefix types:** Follow commit type conventions
+- `feat/` — New features
+- `fix/` — Bug fixes
+- `docs/` — Documentation changes
+- `refactor/` — Code restructuring
+- `chore/` — Maintenance tasks
+
+**Branch timing:** Create after planning complete, before execution. Planning work stays on main.
+
+### PR Granularity & Lifecycle
+
+**Granularity:** One PR per phase (not per-plan, not per-milestone).
+
+**Lifecycle:**
+1. **Create branch** — After planning complete, before first execution task
+2. **Open draft PR** — At first commit on the branch
+3. **Mark ready** — When phase execution complete (all plans done)
+4. **Merge** — After review/approval
+
+**PR title format:** `v{milestone} Phase {N}: {Phase Name}`
+- Example: `v0.1.9 Phase 1: Plugin Structure & Validation`
+
+**PR body format:**
+```markdown
+## Phase Goal
+[One-line phase objective]
+
+## Plans Completed
+- [x] Plan 01: [name]
+- [x] Plan 02: [name]
+
+## Test Checklist
+- [ ] [Success criterion 1]
+- [ ] [Success criterion 2]
+```
+
+### Release-Milestone Relationship
+
+**Release = milestone** — Only one release per milestone (1:1 mapping).
+
+**Milestone name IS the version:**
+- v0.1.9 milestone produces v0.1.9 release
+- No mid-milestone releases
+- No version number mismatch
+
+**Release trigger:** Merge to main with version bump. The `publish.yml` workflow detects version changes in package.json and triggers the release.
+
+**Version bump timing:** User bumps version manually before `/kata:complete-milestone`. The workflow verifies the bump is done.
+
+### Workflow Timing
+
+| Step | When | What Happens |
+|------|------|--------------|
+| Create branch | After planning, before execution | `git checkout -b {type}/v{milestone}-{phase}-{slug}` |
+| Open PR | At first commit | Open as draft, set title/body |
+| Execute plans | During phase | Each plan commits to branch |
+| Mark ready | All plans complete | Convert draft to ready for review |
+| Merge | After approval | Merge to main, triggers release if version bumped |
+
+### Integration Points
+
+Commands that check `pr_workflow` and change behavior:
+
+| Command | pr_workflow: false | pr_workflow: true |
+|---------|-------------------|-------------------|
+| new-project | Asks about config | Offers GitHub Actions scaffold |
+| settings | Allows toggle | Same |
+| execute-phase | Commits to main | Create branch, open draft PR |
+| complete-milestone | Creates local tag | Skips tag, defer to GitHub Release |
+| progress | Phase status only | Show PR status |
 
 **Usage in kata-completing-milestones:**
 
