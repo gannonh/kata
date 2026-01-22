@@ -13,7 +13,7 @@ Milestone: v0.1.6 Claude Code Plugin (Phase 1)
 Phase: Not started
 Plan: Not started
 Status: Ready for planning
-Last activity: 2026-01-22 - Completed quick task 001: Add PR workflow config option
+Last activity: 2026-01-22 - Completed quick task 002: Config schema consistency
 
 Progress: [------------------------------] 0% (0/1 phases complete)
 
@@ -100,9 +100,10 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 001 | Add PR workflow config option | 2026-01-22 | 975f1d3 | [001-add-pr-workflow-config-option](./quick/001-add-pr-workflow-config-option/) |
+| 002 | Config schema consistency & PR workflow features | 2026-01-22 | 325d86c | [002-config-schema-consistency](./quick/002-config-schema-consistency/) |
 
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: Completed quick task 001 (PR workflow config)
+Stopped at: Completed quick task 002 (config schema consistency)
 Resume file: Ready for v0.1.6 Claude Code Plugin planning

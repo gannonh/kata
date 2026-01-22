@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-01-22
+
+### Added
+- **PR workflow config option**: Enable PR-based release workflow via `pr_workflow` setting
+- **PR creation in milestone completion**: Offer to create PR via `gh pr create` when pr_workflow enabled
+- **GitHub Actions scaffolding**: Scaffold release workflow during new-project when pr_workflow enabled
+- **Config schema documentation**: Full schema reference in `kata/references/planning-config.md`
+- **Missing config key detection**: Settings skill detects and prompts for missing config keys
+
+### Changed
+- Config schema now includes `commit_docs` and `pr_workflow` options
+- Settings skill presents 6 settings (was 5)
+- PR workflow defaults to "No" (direct commits to main)
+
+### Fixed
+- Hooks installation now handles subdirectories correctly
+- GSD reference validation in transform workflow
+
 ## [0.1.5] - 2026-01-22
 
 ### Added
@@ -55,7 +73,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Upstream remote and sync workflow
 - References to original project maintainer
 
-[Unreleased]: https://github.com/gannonh/kata/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/gannonh/kata/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/gannonh/kata/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/gannonh/kata/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/gannonh/kata/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/gannonh/kata/compare/v0.1.0...v0.1.3

@@ -410,17 +410,34 @@ function install(isGlobal) {
     }
   }
 
-  // Copy hooks
+  // Copy hooks (recursively to handle subdirectories like dist/)
   const hooksSrc = path.join(src, 'hooks');
   if (fs.existsSync(hooksSrc)) {
     const hooksDest = path.join(claudeDir, 'hooks');
-    fs.mkdirSync(hooksDest, { recursive: true });
-    const hookEntries = fs.readdirSync(hooksSrc);
-    for (const entry of hookEntries) {
-      const srcFile = path.join(hooksSrc, entry);
-      const destFile = path.join(hooksDest, entry);
-      fs.copyFileSync(srcFile, destFile);
+    // Clean install: remove existing to prevent orphaned files
+    if (fs.existsSync(hooksDest)) {
+      fs.rmSync(hooksDest, { recursive: true });
     }
+    fs.mkdirSync(hooksDest, { recursive: true });
+
+    function copyHooksRecursive(srcDir, destDir) {
+      const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+      for (const entry of entries) {
+        // Skip dist/ directory - it's for npm publishing only
+        if (entry.name === 'dist') continue;
+
+        const srcPath = path.join(srcDir, entry.name);
+        const destPath = path.join(destDir, entry.name);
+        if (entry.isDirectory()) {
+          fs.mkdirSync(destPath, { recursive: true });
+          copyHooksRecursive(srcPath, destPath);
+        } else {
+          fs.copyFileSync(srcPath, destPath);
+        }
+      }
+    }
+
+    copyHooksRecursive(hooksSrc, hooksDest);
     if (verifyInstalled(hooksDest, 'hooks')) {
       console.log(`  ${green}✓${reset} Installed hooks`);
     } else {
