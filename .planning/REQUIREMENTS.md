@@ -1,11 +1,11 @@
-# Requirements: Kata v0.1.6 Claude Code Plugin
+# Requirements: Kata v0.1.9 Claude Code Plugin
 
 **Defined:** 2026-01-22
 **Core Value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
 
 ## v1 Requirements
 
-Requirements for v0.1.6 release. Each maps to roadmap phases.
+Requirements for v0.1.9 release. Each maps to roadmap phases.
 
 ### Plugin Structure
 
@@ -27,7 +27,7 @@ Requirements for v0.1.6 release. Each maps to roadmap phases.
 - [ ] **DST-01**: Marketplace repository created (gannonh-plugins)
 - [ ] **DST-02**: `marketplace.json` with Kata plugin entry
 - [ ] **DST-03**: Plugin installable via `/plugin install kata@gannonh-plugins`
-- [ ] **DST-04**: Version tracked via semantic versioning (v0.1.6)
+- [ ] **DST-04**: Version tracked via semantic versioning (v0.1.9)
 
 ### Documentation
 
@@ -50,7 +50,7 @@ Explicitly excluded. Documented to prevent scope creep.
 
 | Feature | Reason |
 |---------|--------|
-| GitHub Integration | That's v0.1.7 |
+| GitHub Integration | That's v0.1.10 |
 | IDE adapters | After plugin proves distribution model |
 | Plugin marketplace UI | Using standard Claude Code plugin system |
 

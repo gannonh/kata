@@ -24,7 +24,7 @@
 
 **Git range:** `v0.1.4` → `v0.1.5`
 
-**What's next:** v0.1.6 Claude Code Plugin (Package and publish as plugin)
+**What's next:** v0.1.9 Claude Code Plugin (Package and publish as plugin)
 
 ---
 

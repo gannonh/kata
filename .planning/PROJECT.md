@@ -4,7 +4,7 @@
 
 A spec-driven development framework for Claude Code. Brings structured, reliable AI development to teams without changing their existing tools. Teams use Kata's quality-producing process inside the tools they already love.
 
-**Current state:** v0.1.5 shipped — 14 skills, 25 slash commands, test harness. Starting v0.1.6 Claude Code Plugin.
+**Current state:** v0.1.5 shipped — 14 skills, 25 slash commands, test harness. Starting v0.1.9 Claude Code Plugin.
 
 ## Core Value
 
@@ -19,7 +19,7 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Slash command suite — v0.1.5 (25 commands delegating to skills)
 - Test harness — v0.1.5 (CLI-based skill testing with `claude "prompt"`)
 
-### Active (v0.1.7 GitHub Integration)
+### Active (v0.1.10 GitHub Integration)
 
 - [ ] Config-driven integration — enable/disable via .planning/config.json
 - [ ] GitHub Milestone creation — new-milestone creates GH Milestone
@@ -105,7 +105,7 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 | Kata Milestone → GH Milestone | Use GitHub's native feature for version tracking | — Pending |
 | Phase → Issue, Plan → Checklist | Right granularity — phases are coordination unit, plans are execution detail | — Pending |
 
-## Current Milestone: v0.1.6 Claude Code Plugin
+## Current Milestone: v0.1.9 Claude Code Plugin
 
 **Goal:** Package and publish Kata as a Claude Code plugin for easy distribution
 
@@ -124,4 +124,4 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Test with `claude --plugin-dir ./` before publishing
 
 ---
-*Last updated: 2026-01-22 — v0.1.6 milestone started*
+*Last updated: 2026-01-22 — v0.1.9 milestone started*

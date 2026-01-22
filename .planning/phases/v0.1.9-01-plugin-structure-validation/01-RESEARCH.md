@@ -301,7 +301,7 @@ Things that couldn't be fully resolved:
 1. **Dual Distribution Strategy**
    - What we know: Both npm install and plugin install should work
    - What's unclear: Should bin/install.js be deprecated or maintained alongside?
-   - Recommendation: Maintain both for v0.1.6, evaluate deprecation in future
+   - Recommendation: Maintain both for v0.1.9, evaluate deprecation in future
 
 2. **Statusline in Plugin Context**
    - What we know: Plugin hooks.json shouldn't include statusline (user preference)
@@ -311,7 +311,7 @@ Things that couldn't be fully resolved:
 3. **Version Synchronization**
    - What we know: plugin.json and package.json both have version
    - What's unclear: Best way to keep in sync
-   - Recommendation: Manual sync for v0.1.6, consider build script later
+   - Recommendation: Manual sync for v0.1.9, consider build script later
 
 ## Sources
 

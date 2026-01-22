@@ -5,15 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-01-22)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v0.1.6 Claude Code Plugin — Phase 1: Plugin Structure & Validation
+**Current focus:** v0.1.9 Claude Code Plugin — Phase 1: Plugin Structure & Validation
 
 ## Current Position
 
-Milestone: v0.1.6 Claude Code Plugin
+Milestone: v0.1.9 Claude Code Plugin
 Phase: 1 of 3 (Plugin Structure & Validation)
 Plan: 01 of 01 complete
 Status: Phase 1 complete, ready for Phase 2
-Last activity: 2026-01-22 — Completed v0.1.6-01-01-PLAN.md
+Last activity: 2026-01-22 — Completed v0.1.9-01-01-PLAN.md
 
 Progress: [##########--------------------] 33% (1/3 phases)
 
@@ -37,7 +37,7 @@ Progress: [##########--------------------] 33% (1/3 phases)
 | 02-create-kata-slash-cmds  | 7     | 17 min | 2.4 min  |
 
 **Recent Trend:**
-- Last 5 plans: 02-05 (2 min), 02-06 (2 min), 02-07 (1 min), v0.1.6-01-01 (1 min)
+- Last 5 plans: 02-05 (2 min), 02-06 (2 min), 02-07 (1 min), v0.1.9-01-01 (1 min)
 - Trend: Fast execution on infrastructure and documentation tasks
 
 *Updated after each plan completion*
@@ -50,14 +50,14 @@ Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
 - **2026-01-22: Statusline excluded from plugin** - Statusline is user preference, not plugin functionality; not included in hooks.json
-- **2026-01-22: v0.1.6 roadmap** - 3 phases derived from 15 requirements (quick depth)
+- **2026-01-22: v0.1.9 roadmap** - 3 phases derived from 15 requirements (quick depth)
 - **2026-01-22: Phase grouping** - Structure+validation in Phase 1, distribution in Phase 2, docs in Phase 3
 - **2026-01-21: Skill invocation control** - Added user-invocable: false to all 14 Kata skills
 
 ### Roadmap Evolution
 
 - **v0.1.5 milestone completed 2026-01-22** - Skills & Documentation shipped (6 phases, 30 plans)
-- **v0.1.6 milestone started 2026-01-22** - Claude Code Plugin (3 phases, 15 requirements)
+- **v0.1.9 milestone started 2026-01-22** - Claude Code Plugin (3 phases, 15 requirements)
 
 ### Pending Todos
 
@@ -93,5 +93,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-22T14:59:37Z
-Stopped at: Completed v0.1.6-01-01-PLAN.md (Plugin Structure & Validation)
+Stopped at: Completed v0.1.9-01-01-PLAN.md (Plugin Structure & Validation)
 Resume file: Ready for `/kata:plan-phase 2` (Distribution)

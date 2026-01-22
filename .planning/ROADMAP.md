@@ -8,8 +8,8 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 - **v0.1.4 Hard Fork & Rebrand** — Phase 0 (shipped 2026-01-18) — [archive](milestones/v0.1.4-ROADMAP.md)
 - **v0.1.5 Skills & Documentation** — Phases 0-2 (shipped 2026-01-22) — [archive](milestones/v0.1.5-ROADMAP.md)
-- **v0.1.6 Claude Code Plugin** — Phases 1-3 (in progress)
-- **v0.1.7 GitHub Integration** — Phases 1-5 (planned)
+- **v0.1.9 Claude Code Plugin** — Phases 1-3 (in progress)
+- **v0.1.10 GitHub Integration** — Phases 1-5 (planned)
 
 ## Phases
 
@@ -38,13 +38,13 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 </details>
 
-### v0.1.6 Claude Code Plugin (In Progress)
+### v0.1.9 Claude Code Plugin (In Progress)
 
 - [ ] **Phase 1: Plugin Structure & Validation** - Create plugin manifest and directory structure, validate locally
 - [ ] **Phase 2: Marketplace Distribution** - Publish to marketplace repository, verify installation
 - [ ] **Phase 3: Documentation** - Installation instructions and usage guide
 
-### v0.1.7 GitHub Integration (Planned)
+### v0.1.10 GitHub Integration (Planned)
 
 - [ ] **Phase 1: Audit & Config Foundation** - Understand integration points, establish config schema
 - [ ] **Phase 2: Onboarding & Milestones** - Config during new-project, GitHub Milestone creation
@@ -54,7 +54,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ## Phase Details
 
-### v0.1.6 Claude Code Plugin
+### v0.1.9 Claude Code Plugin
 
 #### Phase 1: Plugin Structure & Validation
 **Goal**: Kata has valid plugin structure that passes Claude Code validation and works locally
@@ -83,7 +83,7 @@ Plans:
   3. `/plugin install kata@gannonh-plugins` installs Kata successfully
   4. All `/kata:*` commands accessible after marketplace installation
   5. All Kata skills respond to natural language after marketplace installation
-  6. Plugin version shows v0.1.6 via semantic versioning
+  6. Plugin version shows v0.1.9 via semantic versioning
 **Plans**: TBD
 
 Plans:
@@ -102,11 +102,11 @@ Plans:
 Plans:
 - [ ] 03-01: TBD (run /kata:plan-phase to break down)
 
-### v0.1.7 GitHub Integration
+### v0.1.10 GitHub Integration
 
 #### Phase 1: Audit & Config Foundation
 **Goal**: Understand where GitHub integration hooks into existing Kata workflows and establish config schema
-**Depends on**: v0.1.6 complete (Plugin Distribution)
+**Depends on**: v0.1.9 complete (Plugin Distribution)
 **Requirements**: WFA-01, CFG-01, CFG-02
 **Success Criteria** (what must be TRUE):
   1. Integration points documented for new-milestone, execute-phase, execute-plan commands
@@ -186,14 +186,14 @@ Plans:
 | --------------------------------- | --------- | -------------- | ----------- | ---------- |
 | 0. Hard Fork & Rebrand            | v0.1.4    | 5/5            | Complete    | 2026-01-18 |
 | 0-2. Skills & Documentation       | v0.1.5    | 30/30          | Complete    | 2026-01-22 |
-| 1. Plugin Structure & Validation  | v0.1.6    | 0/1            | Planned     | -          |
-| 2. Marketplace Distribution       | v0.1.6    | 0/?            | Not started | -          |
-| 3. Documentation                  | v0.1.6    | 0/?            | Not started | -          |
-| 1. Audit & Config Foundation      | v0.1.7    | 0/?            | Not planned | -          |
-| 2. Onboarding & Milestones        | v0.1.7    | 0/?            | Not started | -          |
-| 3. Phase Issues                   | v0.1.7    | 0/?            | Not started | -          |
-| 4. Plan Sync                      | v0.1.7    | 0/?            | Not started | -          |
-| 5. PR Integration                 | v0.1.7    | 0/?            | Not started | -          |
+| 1. Plugin Structure & Validation  | v0.1.9    | 0/1            | Planned     | -          |
+| 2. Marketplace Distribution       | v0.1.9    | 0/?            | Not started | -          |
+| 3. Documentation                  | v0.1.9    | 0/?            | Not started | -          |
+| 1. Audit & Config Foundation      | v0.1.10    | 0/?            | Not planned | -          |
+| 2. Onboarding & Milestones        | v0.1.10    | 0/?            | Not started | -          |
+| 3. Phase Issues                   | v0.1.10    | 0/?            | Not started | -          |
+| 4. Plan Sync                      | v0.1.10    | 0/?            | Not started | -          |
+| 5. PR Integration                 | v0.1.10    | 0/?            | Not started | -          |
 
 ---
 *Roadmap created: 2026-01-18*
