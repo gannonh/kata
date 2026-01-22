@@ -1,64 +1,48 @@
-# Requirements: Kata v0.1.7 GitHub Integration
+# Requirements: Kata v0.1.6 Claude Code Plugin
 
-**Defined:** 2026-01-18
-**Updated:** 2026-01-22 — Rescoped to v0.1.7 after v0.1.5 shipped
+**Defined:** 2026-01-22
 **Core Value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
 
 ## v1 Requirements
 
-Requirements for v0.1.7 release. Each maps to roadmap phases.
+Requirements for v0.1.6 release. Each maps to roadmap phases.
 
-### Configuration
+### Plugin Structure
 
-- [ ] **CFG-01**: GitHub integration enabled/disabled via `.planning/config.json`
-- [ ] **CFG-02**: Issue creation mode configurable: `auto` | `ask` | `never`
-- [ ] **CFG-03**: Integration config set during `/kata:new-project` onboarding
+- [ ] **PLG-01**: `.claude-plugin/plugin.json` manifest with name, version, description, author
+- [ ] **PLG-02**: `commands/` directory contains all Kata slash commands
+- [ ] **PLG-03**: `agents/` directory contains all Kata sub-agents
+- [ ] **PLG-04**: `skills/` directory contains all Kata skills (SKILL.md format)
+- [ ] **PLG-05**: `hooks/` directory contains hooks.json for Kata hooks
 
-### GitHub Milestones
+### Validation & Testing
 
-- [ ] **GHM-01**: `/kata:new-milestone` creates corresponding GitHub Milestone
-- [ ] **GHM-02**: Milestone includes version number and description from ROADMAP.md
+- [ ] **VAL-01**: Plugin validates with `claude plugin validate .`
+- [ ] **VAL-02**: Local testing works with `claude --plugin-dir ./`
+- [ ] **VAL-03**: All `/kata:*` commands accessible after plugin load
+- [ ] **VAL-04**: All Kata skills invocable after plugin load
 
-### GitHub Issues
+### Distribution
 
-- [ ] **GHI-01**: Phase issues created with `phase` label when milestone created
-- [ ] **GHI-02**: Phase issues include goal and success criteria from ROADMAP.md
-- [ ] **GHI-03**: Phase issues assigned to GitHub Milestone
-- [ ] **GHI-04**: Plan checklist added to phase issue body
-- [ ] **GHI-05**: Plan checklist items updated as plans complete
+- [ ] **DST-01**: Marketplace repository created (gannonh-plugins)
+- [ ] **DST-02**: `marketplace.json` with Kata plugin entry
+- [ ] **DST-03**: Plugin installable via `/plugin install kata@gannonh-plugins`
+- [ ] **DST-04**: Version tracked via semantic versioning (v0.1.6)
 
-### GitHub PRs
+### Documentation
 
-- [ ] **GHP-01**: `/kata:execute-phase` creates PR at phase completion
-- [ ] **GHP-02**: PR auto-links to phase issue with "Closes #X"
-- [ ] **GHP-03**: PR title follows convention: `Phase N: [Phase Name]`
-- [ ] **GHP-04**: PR body includes summary from phase SUMMARY.md
-
-### Workflow Audit
-
-- [ ] **WFA-01**: Document integration points in existing Kata workflows
-- [ ] **WFA-02**: Add conditional GitHub logic to relevant commands/agents
-- [ ] **WFA-03**: Create GitHub-specific templates/references for @file loading
+- [ ] **DOC-01**: README with installation instructions
+- [ ] **DOC-02**: Plugin usage documented (how to install, how to use)
 
 ## v2 Requirements
 
 Deferred to later milestones. Tracked but not in current roadmap.
 
-### GitHub Project Boards
+### Advanced Plugin Features
 
-- **GPB-01**: Sync phase status to GitHub Project board columns
-- **GPB-02**: Auto-move cards as phases progress
-
-### GitHub Actions
-
-- **GHA-01**: Trigger CI checks before PR merge
-- **GHA-02**: Surface CI failures with actionable information
-
-### Native PR Reviews
-
-- **GPR-01**: Claude reviews PRs with full Kata context
-- **GPR-02**: Review comments posted directly to GitHub
-- **GPR-03**: Claude responds to team PR feedback
+- **ADV-01**: MCP server bundled with plugin (if applicable)
+- **ADV-02**: LSP server integration (if applicable)
+- **ADV-03**: Plugin auto-update notifications
 
 ## Out of Scope
 
@@ -66,11 +50,9 @@ Explicitly excluded. Documented to prevent scope creep.
 
 | Feature | Reason |
 |---------|--------|
-| Linear integration | GitHub first proves the pattern |
-| Jira integration | GitHub first proves the pattern |
-| VS Code adapter | Prove in Claude Code first |
-| Bidirectional issue sync | One-way (Kata → GitHub) for v1 |
-| GitHub Discussions | Issues sufficient for v1 |
+| GitHub Integration | That's v0.1.7 |
+| IDE adapters | After plugin proves distribution model |
+| Plugin marketplace UI | Using standard Claude Code plugin system |
 
 ## Traceability
 
@@ -78,29 +60,27 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CFG-01 | Phase 1 | Pending |
-| CFG-02 | Phase 1 | Pending |
-| CFG-03 | Phase 2 | Pending |
-| GHM-01 | Phase 2 | Pending |
-| GHM-02 | Phase 2 | Pending |
-| GHI-01 | Phase 3 | Pending |
-| GHI-02 | Phase 3 | Pending |
-| GHI-03 | Phase 3 | Pending |
-| GHI-04 | Phase 4 | Pending |
-| GHI-05 | Phase 4 | Pending |
-| GHP-01 | Phase 5 | Pending |
-| GHP-02 | Phase 5 | Pending |
-| GHP-03 | Phase 5 | Pending |
-| GHP-04 | Phase 5 | Pending |
-| WFA-01 | Phase 1 | Pending |
-| WFA-02 | Phase 4 | Pending |
-| WFA-03 | Phase 5 | Pending |
+| PLG-01 | TBD | Pending |
+| PLG-02 | TBD | Pending |
+| PLG-03 | TBD | Pending |
+| PLG-04 | TBD | Pending |
+| PLG-05 | TBD | Pending |
+| VAL-01 | TBD | Pending |
+| VAL-02 | TBD | Pending |
+| VAL-03 | TBD | Pending |
+| VAL-04 | TBD | Pending |
+| DST-01 | TBD | Pending |
+| DST-02 | TBD | Pending |
+| DST-03 | TBD | Pending |
+| DST-04 | TBD | Pending |
+| DOC-01 | TBD | Pending |
+| DOC-02 | TBD | Pending |
 
 **Coverage:**
-- v1 requirements: 17 total
-- Mapped to phases: 17
-- Unmapped: 0
+- v1 requirements: 15 total
+- Mapped to phases: 0
+- Unmapped: 15
 
 ---
-*Requirements defined: 2026-01-18*
-*Last updated: 2026-01-22 — rescoped to v0.1.7 after v0.1.5 shipped*
+*Requirements defined: 2026-01-22*
+*Last updated: 2026-01-22 — initial definition*
