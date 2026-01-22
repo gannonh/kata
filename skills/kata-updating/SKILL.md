@@ -43,14 +43,14 @@ Proceed to install step (treat as version 0.0.0 for comparison).
 Check npm for latest version:
 
 ```bash
-npm view kata-cc version 2>/dev/null
+npm view @gannonh/kata version 2>/dev/null
 ```
 
 **If npm check fails:**
 ```
 Couldn't check for updates (offline or npm unavailable).
 
-To update manually: `npx kata-cc --global`
+To update manually: `npx @gannonh/kata --global`
 ```
 
 STOP here if npm unavailable.
@@ -136,10 +136,29 @@ Use AskUserQuestion:
 </step>
 
 <step name="run_update">
-Run the update:
+First, check if running from within the kata source directory:
 
 ```bash
-npx kata-cc --global
+grep -q '"name": "@gannonh/kata"' package.json 2>/dev/null && echo "KATA_SOURCE_DIR"
+```
+
+**If output is "KATA_SOURCE_DIR":**
+```
+Cannot run update from within the Kata source directory.
+npm resolves @gannonh/kata locally instead of fetching from registry.
+
+**Solutions:**
+1. Run `/kata:update` from a different directory
+2. Run `cd ~ && npx @gannonh/kata --global` manually
+3. Run `npm install -g @gannonh/kata` for global install
+```
+
+STOP here if in kata source directory.
+
+Otherwise, run the update:
+
+```bash
+npx @gannonh/kata --global
 ```
 
 Capture output. If install fails, show error and STOP.
