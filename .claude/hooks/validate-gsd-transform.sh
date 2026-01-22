@@ -31,14 +31,28 @@ fi
 # Check 2: No remaining GSD references in kata-staging content (excluding name field and README.md)
 echo ""
 echo "✓ Checking for GSD references in kata-staging..."
+
+# Check for 'gsd' references
 GSD_REFS=$(grep -ri "gsd" $STAGING 2>/dev/null | grep -v "^[^:]*:name:" | grep -v "gsd-source" | grep -v "README.md:" | wc -l | tr -d ' ')
-if [ "$GSD_REFS" -gt 0 ]; then
-  echo "  ⚠️  WARNING: $GSD_REFS 'gsd' references still found in kata-staging/"
-  echo "  Sample:"
-  grep -ri "gsd" $STAGING 2>/dev/null | grep -v "^[^:]*:name:" | grep -v "gsd-source" | grep -v "README.md:" | head -5 | sed 's/^/    /'
+
+# Check for 'get-shit-done' references (the full name)
+GET_SHIT_DONE_REFS=$(grep -ri "get-shit-done" $STAGING 2>/dev/null | grep -v "gsd-source" | grep -v "README.md:" | wc -l | tr -d ' ')
+
+TOTAL_REFS=$((GSD_REFS + GET_SHIT_DONE_REFS))
+
+if [ "$TOTAL_REFS" -gt 0 ]; then
+  echo "  ❌ FAIL: Found GSD references in kata-staging/"
+  if [ "$GSD_REFS" -gt 0 ]; then
+    echo "  'gsd' references ($GSD_REFS):"
+    grep -ri "gsd" $STAGING 2>/dev/null | grep -v "^[^:]*:name:" | grep -v "gsd-source" | grep -v "README.md:" | head -3 | sed 's/^/    /'
+  fi
+  if [ "$GET_SHIT_DONE_REFS" -gt 0 ]; then
+    echo "  'get-shit-done' references ($GET_SHIT_DONE_REFS):"
+    grep -ri "get-shit-done" $STAGING 2>/dev/null | grep -v "gsd-source" | grep -v "README.md:" | head -3 | sed 's/^/    /'
+  fi
   EXIT_CODE=1
 else
-  echo "  ✓ No GSD references in kata-staging/ (README.md excluded)"
+  echo "  ✓ No GSD/get-shit-done references in kata-staging/ (README.md excluded)"
 fi
 
 # Check 3: Verify kata references exist (replacement worked)
