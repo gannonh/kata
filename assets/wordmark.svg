@@ -24,11 +24,11 @@
   <!-- Phonetic pronunciation -->
   <text
     x="60"
-    y="100"
+    y="108"
     text-anchor="middle"
     class="wordmark"
     fill="#404040"
-    font-size="9"
+    font-size="12"
   >/ˈkɑːtɑː/</text>
 
   <!-- Divider -->

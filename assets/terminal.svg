@@ -61,7 +61,7 @@
       <!-- The kanji 型 rendered large -->
       <text class="kanji accent" font-size="180" font-weight="200" y="160">型</text>
       <!-- Phonetic pronunciation -->
-      <text class="text muted" font-size="14" y="190" x="90" text-anchor="middle">/ˈkɑːtɑː/</text>
+      <text class="text muted" font-size="24" y="210" x="90" text-anchor="middle">/ˈkɑːtɑː/</text>
     </g>
 
     <!-- Right side: Info -->
