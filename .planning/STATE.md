@@ -100,7 +100,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 001 | Add PR workflow config option | 2026-01-22 | 975f1d3 | [001-add-pr-workflow-config-option](./quick/001-add-pr-workflow-config-option/) |
-| 002 | Config schema consistency and missing key detection | 2026-01-22 | f41792b | [002-config-schema-consistency](./quick/002-config-schema-consistency/) |
+| 002 | Config schema consistency & PR workflow features | 2026-01-22 | 325d86c | [002-config-schema-consistency](./quick/002-config-schema-consistency/) |
 
 ## Session Continuity
 

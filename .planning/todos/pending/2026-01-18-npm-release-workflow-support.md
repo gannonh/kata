@@ -26,7 +26,11 @@ Port `/Users/gannonhall/.claude/commands/npm-release.md` to Kata system:
 - Make optional (not all Kata projects are npm packages)
 - Follow Kata style conventions (XML structure, imperative voice)
 
-**Additional (2026-01-22):** When `pr_workflow: true` during `/kata:new-project`:
-- Offer to scaffold `.github/workflows/release.yml`
-- Auto-publish to npm on GitHub Release creation
-- Coordinate with `kata-completing-milestones` which defers tagging to GitHub Release in PR workflow mode
+**Implemented (2026-01-22):**
+- ✅ `pr_workflow` config option in new-project and settings
+- ✅ PR creation offer in complete-milestone when pr_workflow=true
+- ✅ GH Actions scaffolding (`.github/workflows/release.yml`) during new-project when pr_workflow=true
+- ✅ Workflow auto-publishes to npm when version changes, creates GitHub Release with tag
+
+**Still pending:**
+- Port `/npm-release` command for manual CHANGELOG generation and version bumping
