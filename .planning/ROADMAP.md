@@ -35,7 +35,6 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1.3: Discuss Phase Skill** - Create kata-discussing-phase-context skill for pre-planning context gathering (INSERTED) — completed 2026-01-20
 - [x] **Phase 2: Create Kata Slash Commands** - Create GSD-equivalent slash commands that instantiate Kata skills — completed 2026-01-21
 - [ ] **Phase 3: Documentation** - Complete README and add onboarding guidance
-- [ ] **Phase 4: Review & Refactor Subagents** - Review all kata subagents and refactor as needed given changes this milestone
 
 ### v0.1.6 Claude Code Plugin (Planned)
 
@@ -195,21 +194,6 @@ Plans:
 Plans:
 - [ ] 03-01: TBD (run /kata-planning-phases to break down)
 
-#### Phase 4: Review & Refactor Subagents
-**Goal**: Review all kata subagents (agents/kata-*.md) and refactor as needed to align with changes made this milestone (skills architecture, naming conventions, spawning patterns)
-**Depends on**: Phase 3 (Documentation complete, all skills finalized)
-**Requirements**: None (quality improvement)
-**Success Criteria** (what must be TRUE):
-  1. All kata-* agents reviewed for consistency with skills architecture
-  2. Agent naming follows established conventions (kata-{noun}-{verb} or kata-{gerund})
-  3. Agent prompts updated to reference skills (not old commands)
-  4. Unused or redundant agents removed
-  5. Agent-skill spawning relationships documented in CLAUDE.md
-**Plans**: TBD
-
-Plans:
-- [ ] 04-01: TBD (run /kata-planning-phases to break down)
-
 ### v0.1.6 Claude Code Plugin
 
 #### Phase 1: Plugin Distribution
@@ -317,7 +301,6 @@ Plans:
 | 1.3 Discuss Phase Skill           | v0.1.5    | 2/2            | Complete    | 2026-01-20 |
 | 2. Create Kata Slash Commands     | v0.1.5    | 7/7            | Complete    | 2026-01-21 |
 | 3. Documentation                  | v0.1.5    | 0/?            | Not planned | -          |
-| 4. Review & Refactor Subagents    | v0.1.5    | 0/?            | Not planned | -          |
 | 1. Plugin Distribution            | v0.1.6    | 0/?            | Not planned | -          |
 | 1. Audit & Config Foundation      | v0.1.7    | 0/?            | Not planned | -          |
 | 2. Onboarding & Milestones        | v0.1.7    | 0/?            | Not started | -          |
@@ -327,4 +310,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-21 — Removed Phase 2.1 (Slash Command Tests)*
+*Last updated: 2026-01-21 — Removed Phase 4 (Review & Refactor Subagents)*

@@ -9,13 +9,13 @@ See: .planning/PROJECT.md (updated 2026-01-18)
 
 ## Current Position
 
-Milestone: v0.1.5 Skills & Documentation (Phases 0, 1, 1.1, 1.2, 1.3, 2, 3, 4)
+Milestone: v0.1.5 Skills & Documentation (Phases 0, 1, 1.1, 1.2, 1.3, 2, 3)
 Phase: 2 (Create Kata Slash Commands) - COMPLETE
 Plan: 7 of 7 complete
 Status: Phase complete
-Last activity: 2026-01-21 - Removed Phase 2.1 (Slash Command Tests)
+Last activity: 2026-01-21 - Removed Phase 4 (Review & Refactor Subagents)
 
-Progress: [==================--------] 75% (6/8 phases)
+Progress: [====================------] 86% (6/7 phases)
 
 ## Performance Metrics
 
@@ -82,6 +82,7 @@ Recent decisions affecting current work:
 - **Phase 2.1 inserted 2026-01-20** - Slash Command Tests: Write tests for all Kata slash commands
 - **Phase 4 added 2026-01-20** - Review & Refactor Subagents: Review all kata subagents and refactor as needed given changes this milestone
 - **Phase 1.3 inserted 2026-01-20** - Discuss Phase Skill: Create kata-discussing-phase-context for pre-planning context gathering (gap discovered during Phase 2 planning)
+- **Phase 4 removed 2026-01-21** - Review & Refactor Subagents: Removed from v0.1.5 milestone
 
 ### Pending Todos
 
