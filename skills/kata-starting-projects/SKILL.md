@@ -32,10 +32,10 @@ This is the most leveraged moment in any project. Deep questioning here means be
 
 <execution_context>
 
-@~/.claude/get-shit-done/references/questioning.md
-@~/.claude/get-shit-done/references/ui-brand.md
-@~/.claude/get-shit-done/templates/project.md
-@~/.claude/get-shit-done/templates/requirements.md
+@~/.claude/kata/references/questioning.md
+@~/.claude/kata/references/ui-brand.md
+@~/.claude/kata/templates/project.md
+@~/.claude/kata/templates/requirements.md
 
 </execution_context>
 
@@ -280,15 +280,6 @@ questions: [
       { label: "Yes (Recommended)", description: "Planning docs tracked in version control" },
       { label: "No", description: "Keep .planning/ local-only (add to .gitignore)" }
     ]
-  },
-  {
-    header: "PR Workflow",
-    question: "Use PR-based release workflow?",
-    multiSelect: false,
-    options: [
-      { label: "Yes", description: "Protect main, create PRs, tag via GitHub Release" },
-      { label: "No (Recommended)", description: "Commit directly to main, create tags locally" }
-    ]
   }
 ]
 ```
@@ -355,7 +346,6 @@ Create `.planning/config.json` with all settings:
   "depth": "quick|standard|comprehensive",
   "parallelization": true|false,
   "commit_docs": true|false,
-  "pr_workflow": true|false,
   "model_profile": "quality|balanced|budget",
   "workflow": {
     "research": true|false,
@@ -388,137 +378,6 @@ EOF
 ```
 
 **Note:** Run `/kata:settings` anytime to update these preferences.
-
-**If pr_workflow = Yes:**
-
-Ask about GitHub Actions release workflow:
-
-```
-AskUserQuestion([
-  {
-    header: "GitHub Actions",
-    question: "Scaffold a GitHub Actions workflow to auto-publish on release?",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recommended)", description: "Create .github/workflows/release.yml for npm publish" },
-      { label: "No", description: "I'll set up CI/CD myself" }
-    ]
-  }
-])
-```
-
-**If "Yes":**
-
-Create `.github/workflows/release.yml`:
-
-```bash
-mkdir -p .github/workflows
-```
-
-Write the workflow file:
-
-```yaml
-name: Publish to npm
-
-on:
-  push:
-    branches:
-      - main
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Get package info
-        id: package
-        run: |
-          LOCAL_VERSION=$(node -p "require('./package.json').version")
-          PACKAGE_NAME=$(node -p "require('./package.json').name")
-          echo "local_version=$LOCAL_VERSION" >> $GITHUB_OUTPUT
-          echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-
-          # Get published version (returns empty if not published)
-          PUBLISHED_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "")
-          echo "published_version=$PUBLISHED_VERSION" >> $GITHUB_OUTPUT
-
-          echo "Local version: $LOCAL_VERSION"
-          echo "Published version: $PUBLISHED_VERSION"
-
-      - name: Check if should publish
-        id: check
-        run: |
-          LOCAL="${{ steps.package.outputs.local_version }}"
-          PUBLISHED="${{ steps.package.outputs.published_version }}"
-
-          if [ -z "$PUBLISHED" ]; then
-            echo "Package not yet published, will publish"
-            echo "should_publish=true" >> $GITHUB_OUTPUT
-          elif [ "$LOCAL" != "$PUBLISHED" ]; then
-            echo "Version changed ($PUBLISHED -> $LOCAL), will publish"
-            echo "should_publish=true" >> $GITHUB_OUTPUT
-          else
-            echo "Version unchanged ($LOCAL), skipping publish"
-            echo "should_publish=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Publish to npm
-        if: steps.check.outputs.should_publish == 'true'
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Create GitHub Release
-        if: steps.check.outputs.should_publish == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.package.outputs.local_version }}
-          name: v${{ steps.package.outputs.local_version }}
-          generate_release_notes: true
-          make_latest: true
-```
-
-Commit the workflow:
-
-```bash
-git add .github/workflows/release.yml
-git commit -m "$(cat <<'EOF'
-ci: add npm publish workflow
-
-Publishes to npm and creates GitHub Release when:
-- Push to main
-- package.json version differs from published version
-
-Requires NPM_TOKEN secret in repository settings.
-EOF
-)"
-```
-
-Display setup instructions:
-
-```
-✓ Created .github/workflows/release.yml
-
-## Setup Required
-
-Add NPM_TOKEN secret to your GitHub repository:
-1. Go to repo Settings → Secrets and variables → Actions
-2. Click "New repository secret"
-3. Name: NPM_TOKEN
-4. Value: Your npm access token (from npmjs.com → Access Tokens)
-
-The workflow will auto-publish when you merge PRs that bump package.json version.
-```
 
 ## Phase 5.5: Resolve Model Profile
 
@@ -618,7 +477,7 @@ Your STACK.md feeds into roadmap creation. Be prescriptive:
 
 <output>
 Write to: .planning/research/STACK.md
-Use template: ~/.claude/get-shit-done/templates/research-project/STACK.md
+Use template: ~/.claude/kata/templates/research-project/STACK.md
 </output>
 ", subagent_type="kata-project-researcher", model="{researcher_model}", description="Stack research")
 
@@ -657,7 +516,7 @@ Your FEATURES.md feeds into requirements definition. Categorize clearly:
 
 <output>
 Write to: .planning/research/FEATURES.md
-Use template: ~/.claude/get-shit-done/templates/research-project/FEATURES.md
+Use template: ~/.claude/kata/templates/research-project/FEATURES.md
 </output>
 ", subagent_type="kata-project-researcher", model="{researcher_model}", description="Features research")
 
@@ -696,7 +555,7 @@ Your ARCHITECTURE.md informs phase structure in roadmap. Include:
 
 <output>
 Write to: .planning/research/ARCHITECTURE.md
-Use template: ~/.claude/get-shit-done/templates/research-project/ARCHITECTURE.md
+Use template: ~/.claude/kata/templates/research-project/ARCHITECTURE.md
 </output>
 ", subagent_type="kata-project-researcher", model="{researcher_model}", description="Architecture research")
 
@@ -735,7 +594,7 @@ Your PITFALLS.md prevents mistakes in roadmap/planning. For each pitfall:
 
 <output>
 Write to: .planning/research/PITFALLS.md
-Use template: ~/.claude/get-shit-done/templates/research-project/PITFALLS.md
+Use template: ~/.claude/kata/templates/research-project/PITFALLS.md
 </output>
 ", subagent_type="kata-project-researcher", model="{researcher_model}", description="Pitfalls research")
 ```
@@ -758,7 +617,7 @@ Read these files:
 
 <output>
 Write to: .planning/research/SUMMARY.md
-Use template: ~/.claude/get-shit-done/templates/research-project/SUMMARY.md
+Use template: ~/.claude/kata/templates/research-project/SUMMARY.md
 Commit after writing.
 </output>
 ", subagent_type="kata-research-synthesizer", model="{synthesizer_model}", description="Synthesize research")

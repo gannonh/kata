@@ -11,7 +11,7 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/get-shit-done/references/ui-brand.md
+@~/.claude/kata/references/ui-brand.md
 </execution_context>
 
 <objective>

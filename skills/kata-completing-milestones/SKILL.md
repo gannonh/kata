@@ -20,8 +20,8 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 <execution_context>
 **Load these files NOW (before proceeding):**
 
-- @~/.claude/get-shit-done/workflows/complete-milestone.md (main workflow)
-- @~/.claude/get-shit-done/templates/milestone-archive.md (archive template)
+- @~/.claude/kata/workflows/complete-milestone.md (main workflow)
+- @~/.claude/kata/templates/milestone-archive.md (archive template)
   </execution_context>
 
 <context>
@@ -40,38 +40,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
 **Follow complete-milestone.md workflow:**
 
-0. **Pre-flight: Release artifacts**
-
-   Before archiving, ensure release artifacts are ready:
-
-   ```markdown
-   ## Pre-flight: Release Artifacts
-
-   ☐ CHANGELOG.md updated with v{{version}} entry
-   ☐ package.json version set to {{version}}
-
-   These should be committed BEFORE running this command.
-   ```
-
-   If either is missing, prompt:
-   ```
-   ⚠ Release artifacts not ready. Please update:
-   - CHANGELOG.md — add v{{version}} entry
-   - package.json — set version to {{version}}
-
-   Then re-run /kata:complete-milestone
-   ```
-
-   Use AskUserQuestion:
-   - header: "Release artifacts"
-   - question: "Have you updated CHANGELOG.md and package.json for v{{version}}?"
-   - options:
-     - "Yes, continue" — Proceed with completion
-     - "No, let me update them" — Exit to update
-
-   If "No", exit command.
-
-1. **Check for audit:**
+0. **Check for audit:**
 
    - Look for `.planning/v{{version}}-MILESTONE-AUDIT.md`
    - If missing or stale: recommend `/kata:audit-milestone` first
@@ -135,78 +104,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 7. **Commit and tag:**
 
    - Stage: MILESTONES.md, PROJECT.md, ROADMAP.md, STATE.md, archive files
-   - Commit: `chore: complete v{{version}} milestone`
-
-   **Check PR workflow mode:**
-
-   ```bash
-   PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
-   ```
-
-   **If `PR_WORKFLOW=true`:**
-
-   Skip git tag creation. Offer to create PR:
-
-   Use AskUserQuestion:
-   - header: "Create PR"
-   - question: "Would you like me to create a PR for this milestone?"
-   - options:
-     - "Yes, create PR" — Create PR to merge to main
-     - "No, I'll do it manually" — Show instructions only
-
-   **If "Yes, create PR":**
-
-   ```bash
-   # Get current branch
-   CURRENT_BRANCH=$(git branch --show-current)
-
-   # Push branch if not already pushed
-   git push -u origin "$CURRENT_BRANCH" 2>/dev/null || true
-
-   # Create PR
-   gh pr create \
-     --title "v{{version}}: [Milestone Name]" \
-     --body "$(cat <<'EOF'
-   ## Summary
-
-   Completes milestone v{{version}}.
-
-   **Key accomplishments:**
-   - [accomplishment 1]
-   - [accomplishment 2]
-   - [accomplishment 3]
-
-   ## After Merge
-
-   Create GitHub Release with tag `v{{version}}` to trigger npm publish (if configured).
-   EOF
-   )"
-   ```
-
-   Display PR URL and next steps:
-   ```
-   ✓ PR created: [PR URL]
-
-   After merge:
-   → Create GitHub Release with tag v{{version}}
-   → GitHub Actions will publish to npm (if configured)
-   ```
-
-   **If "No, I'll do it manually":**
-
-   Display:
-   ```
-   ⚡ PR workflow mode — tag will be created via GitHub Release after merge
-
-   Next steps:
-   1. Create PR to merge this branch to main
-   2. After merge, create GitHub Release with tag v{{version}}
-   3. GitHub Actions will publish to npm (if configured)
-   ```
-
-   **If `PR_WORKFLOW=false` (default):**
-
-   Create tag locally:
+   - Commit: `chore: archive v{{version}} milestone`
    - Tag: `git tag -a v{{version}} -m "[milestone summary]"`
    - Ask about pushing tag
 
@@ -222,7 +120,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 - `.planning/REQUIREMENTS.md` deleted (fresh for next milestone)
 - ROADMAP.md collapsed to one-line entry
 - PROJECT.md updated with current state
-- Git tag v{{version}} created (if pr_workflow=false) OR PR created/instructions given (if pr_workflow=true)
+- Git tag v{{version}} created
 - Commit successful
 - User knows next steps (including need for fresh requirements)
   </success_criteria>

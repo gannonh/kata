@@ -43,7 +43,7 @@ Kata evolves fast. Check for updates periodically:
 Shows what changed since your installed version. Update with:
 
 ```bash
-npx get-shit-done-cc@latest
+npx kata-cc@latest
 ```
 
 ## Core Workflow
@@ -355,7 +355,7 @@ Update Kata to latest version with changelog preview.
 
 - Shows what changed before updating
 - Confirms before running install
-- Better than raw `npx get-shit-done-cc`
+- Better than raw `npx kata-cc`
 
 Usage: `/kata:update`
 

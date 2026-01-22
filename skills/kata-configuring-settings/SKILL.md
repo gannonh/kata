@@ -14,8 +14,6 @@ allowed-tools:
 Allow users to toggle workflow agents on/off and select model profile via interactive settings.
 
 Updates `.planning/config.json` with workflow preferences and model profile selection.
-
-**Handles missing config keys:** If config.json is missing any expected keys (e.g., `pr_workflow`, `commit_docs`), prompts user for preferences and adds them.
 </objective>
 
 <process>
@@ -28,40 +26,19 @@ ls .planning/config.json 2>/dev/null
 
 **If not found:** Error - run `/kata:new-project` first.
 
-## 2. Read Current Config and Detect Missing Keys
+## 2. Read Current Config
 
 ```bash
 cat .planning/config.json
 ```
 
-Parse current values with defaults:
-- `mode` — yolo or interactive (default: `yolo`)
-- `depth` — quick, standard, or comprehensive (default: `standard`)
-- `parallelization` — run agents in parallel (default: `true`)
+Parse current values (default to `true` if not present):
+- `workflow.research` — spawn researcher during plan-phase
+- `workflow.plan_check` — spawn plan checker during plan-phase
+- `workflow.verifier` — spawn verifier during execute-phase
 - `model_profile` — which model each agent uses (default: `balanced`)
-- `commit_docs` — commit planning artifacts to git (default: `true`)
-- `pr_workflow` — use PR-based release workflow (default: `false`)
-- `workflow.research` — spawn researcher during plan-phase (default: `true`)
-- `workflow.plan_check` — spawn plan checker during plan-phase (default: `true`)
-- `workflow.verifier` — spawn verifier during execute-phase (default: `true`)
 
-**Detect missing keys:**
-
-Check if these keys exist in config.json:
-- `commit_docs`
-- `pr_workflow`
-
-If any are missing, note them for step 3.
-
-## 3. Present Settings (Including New Options)
-
-**If missing keys were detected:**
-
-Display notification:
-```
-⚠️  New config options available: {list missing keys}
-   Adding these to your settings...
-```
+## 3. Present Settings
 
 Use AskUserQuestion with current values shown:
 
@@ -75,24 +52,6 @@ AskUserQuestion([
       { label: "Quality", description: "Opus everywhere except verification (highest cost)" },
       { label: "Balanced (Recommended)", description: "Opus for planning, Sonnet for execution/verification" },
       { label: "Budget", description: "Sonnet for writing, Haiku for research/verification (lowest cost)" }
-    ]
-  },
-  {
-    question: "Commit planning docs to git?",
-    header: "Commit Docs",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recommended)", description: "Track planning artifacts in git history" },
-      { label: "No", description: "Keep planning private (add .planning/ to .gitignore)" }
-    ]
-  },
-  {
-    question: "Use PR-based release workflow?",
-    header: "PR Workflow",
-    multiSelect: false,
-    options: [
-      { label: "Yes", description: "Protect main, create PRs, tag via GitHub Release" },
-      { label: "No (Recommended)", description: "Commit directly to main, create tags locally" }
     ]
   },
   {
@@ -125,33 +84,25 @@ AskUserQuestion([
 ])
 ```
 
-**Pre-select based on current config values (use defaults for missing keys).**
+**Pre-select based on current config values.**
 
 ## 4. Update Config
 
-Merge new settings into existing config.json (preserving existing keys like `mode`, `depth`, `parallelization`):
+Merge new settings into existing config.json:
 
 ```json
 {
-  "mode": "yolo|interactive",
-  "depth": "quick|standard|comprehensive",
-  "parallelization": true|false,
-  "model_profile": "quality|balanced|budget",
-  "commit_docs": true|false,
-  "pr_workflow": true|false,
+  ...existing_config,
+  "model_profile": "quality" | "balanced" | "budget",
   "workflow": {
-    "research": true|false,
-    "plan_check": true|false,
-    "verifier": true|false
+    "research": true/false,
+    "plan_check": true/false,
+    "verifier": true/false
   }
 }
 ```
 
 Write updated config to `.planning/config.json`.
-
-**If `commit_docs` changed to `false`:**
-- Add `.planning/` to `.gitignore` (create if needed)
-- Note: User should run `git rm -r --cached .planning/` if already tracked
 
 ## 5. Confirm Changes
 
@@ -165,8 +116,6 @@ Display:
 | Setting              | Value |
 |----------------------|-------|
 | Model Profile        | {quality/balanced/budget} |
-| Commit Docs          | {On/Off} |
-| PR Workflow          | {On/Off} |
 | Plan Researcher      | {On/Off} |
 | Plan Checker         | {On/Off} |
 | Execution Verifier   | {On/Off} |
@@ -184,8 +133,7 @@ Quick commands:
 
 <success_criteria>
 - [ ] Current config read
-- [ ] Missing keys detected and user notified
-- [ ] User presented with 6 settings (profile + commit_docs + pr_workflow + 3 toggles)
-- [ ] Config updated with complete schema
+- [ ] User presented with 4 settings (profile + 3 toggles)
+- [ ] Config updated with model_profile and workflow section
 - [ ] Changes confirmed to user
 </success_criteria>
