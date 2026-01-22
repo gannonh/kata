@@ -389,6 +389,137 @@ EOF
 
 **Note:** Run `/kata:settings` anytime to update these preferences.
 
+**If pr_workflow = Yes:**
+
+Ask about GitHub Actions release workflow:
+
+```
+AskUserQuestion([
+  {
+    header: "GitHub Actions",
+    question: "Scaffold a GitHub Actions workflow to auto-publish on release?",
+    multiSelect: false,
+    options: [
+      { label: "Yes (Recommended)", description: "Create .github/workflows/release.yml for npm publish" },
+      { label: "No", description: "I'll set up CI/CD myself" }
+    ]
+  }
+])
+```
+
+**If "Yes":**
+
+Create `.github/workflows/release.yml`:
+
+```bash
+mkdir -p .github/workflows
+```
+
+Write the workflow file:
+
+```yaml
+name: Publish to npm
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Get package info
+        id: package
+        run: |
+          LOCAL_VERSION=$(node -p "require('./package.json').version")
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          echo "local_version=$LOCAL_VERSION" >> $GITHUB_OUTPUT
+          echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+
+          # Get published version (returns empty if not published)
+          PUBLISHED_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "")
+          echo "published_version=$PUBLISHED_VERSION" >> $GITHUB_OUTPUT
+
+          echo "Local version: $LOCAL_VERSION"
+          echo "Published version: $PUBLISHED_VERSION"
+
+      - name: Check if should publish
+        id: check
+        run: |
+          LOCAL="${{ steps.package.outputs.local_version }}"
+          PUBLISHED="${{ steps.package.outputs.published_version }}"
+
+          if [ -z "$PUBLISHED" ]; then
+            echo "Package not yet published, will publish"
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+          elif [ "$LOCAL" != "$PUBLISHED" ]; then
+            echo "Version changed ($PUBLISHED -> $LOCAL), will publish"
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+          else
+            echo "Version unchanged ($LOCAL), skipping publish"
+            echo "should_publish=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish to npm
+        if: steps.check.outputs.should_publish == 'true'
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.should_publish == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.package.outputs.local_version }}
+          name: v${{ steps.package.outputs.local_version }}
+          generate_release_notes: true
+          make_latest: true
+```
+
+Commit the workflow:
+
+```bash
+git add .github/workflows/release.yml
+git commit -m "$(cat <<'EOF'
+ci: add npm publish workflow
+
+Publishes to npm and creates GitHub Release when:
+- Push to main
+- package.json version differs from published version
+
+Requires NPM_TOKEN secret in repository settings.
+EOF
+)"
+```
+
+Display setup instructions:
+
+```
+✓ Created .github/workflows/release.yml
+
+## Setup Required
+
+Add NPM_TOKEN secret to your GitHub repository:
+1. Go to repo Settings → Secrets and variables → Actions
+2. Click "New repository secret"
+3. Name: NPM_TOKEN
+4. Value: Your npm access token (from npmjs.com → Access Tokens)
+
+The workflow will auto-publish when you merge PRs that bump package.json version.
+```
+
 ## Phase 5.5: Resolve Model Profile
 
 Read model profile for agent spawning:
