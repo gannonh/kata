@@ -28,6 +28,27 @@ npx @gannonh/kata
 
 ---
 
+## Talk to It Like a Person
+
+Drive your entire workflow with **natural language**. 🗣️
+
+No memorizing commands. No syntax. Just say what you want:
+
+| You say...               | Kata does...                           |
+| ------------------------ | -------------------------------------- |
+| "Start a new project"    | Launches full project initialization   |
+| "What's the status?"     | Shows progress, next steps, blockers   |
+| "Plan phase 2"           | Researches and creates execution plans |
+| "Execute the phase"      | Runs all plans with parallel agents    |
+| "I'm done for today"     | Creates handoff for session resumption |
+| "Debug this login issue" | Spawns systematic debugging workflow   |
+
+Every workflow responds to natural language. Slash commands exist for precision when you want them (`/kata:plan-phase 2`), but you never *need* them.
+
+**This isn't autocomplete. It's intent recognition.** Kata understands what you're trying to accomplish and routes to the right workflow — research, planning, execution, verification — automatically.
+
+---
+
 ## Who This Is For
 
 Teams and individuals that want to describe what they want and have it built correctly.
@@ -137,8 +158,9 @@ If you prefer not to use that flag, add this to your project's `.claude/settings
 ### 1. Initialize Project
 
 ```
-/kata:new-project
+"Start a new project"
 ```
+<sub>or `/kata:new-project`</sub>
 
 One command, one flow. The system:
 
@@ -156,8 +178,9 @@ You approve the roadmap. Now you're ready to build.
 ### 2. Discuss Phase
 
 ```
-/kata:discuss-phase 1
+"Let's discuss phase 1"
 ```
+<sub>or `/kata:discuss-phase 1`</sub>
 
 **This is where you shape the implementation.**
 
@@ -184,8 +207,9 @@ The deeper you go here, the more the system builds what you actually want. Skip 
 ### 3. Plan Phase
 
 ```
-/kata:plan-phase 1
+"Plan phase 1"
 ```
+<sub>or `/kata:plan-phase 1`</sub>
 
 The system:
 
@@ -202,8 +226,9 @@ Each plan is small enough to execute in a fresh context window. No degradation, 
 ### 4. Execute Phase
 
 ```
-/kata:execute-phase 1
+"Execute phase 1"
 ```
+<sub>or `/kata:execute-phase 1`</sub>
 
 The system:
 
@@ -221,8 +246,9 @@ Walk away, come back to completed work with clean git history.
 ### 5. Verify Work
 
 ```
-/kata:verify-work 1
+"Verify phase 1"
 ```
+<sub>or `/kata:verify-work 1`</sub>
 
 **This is where you confirm it actually works.**
 
@@ -244,13 +270,13 @@ If everything passes, you move on. If something's broken, you don't manually deb
 ### 6. Repeat → Complete → Next Milestone
 
 ```
-/kata:discuss-phase 2
-/kata:plan-phase 2
-/kata:execute-phase 2
-/kata:verify-work 2
+"Discuss phase 2"
+"Plan phase 2"
+"Execute phase 2"
+"Verify phase 2"
 ...
-/kata:complete-milestone
-/kata:new-milestone
+"Complete the milestone"
+"Start the next milestone"
 ```
 
 Loop **discuss → plan → execute → verify** until milestone complete.
@@ -266,8 +292,9 @@ Then `/kata:new-milestone` starts the next version — same flow as `new-project
 ### Quick Mode
 
 ```
-/kata:quick
+"Quick task: add dark mode toggle"
 ```
+<sub>or `/kata:quick`</sub>
 
 **For ad-hoc tasks that don't need full planning.**
 
@@ -373,10 +400,12 @@ You're never locked in. The system adapts.
 
 ## Commands
 
+> **Remember:** All commands also respond to natural language. "What's my progress?" works the same as `/kata:progress`.
+
 ### Core Workflow
 
-| Command                     | What it does                                                       |
-| --------------------------- | ------------------------------------------------------------------ |
+| Command                      | What it does                                                       |
+| ---------------------------- | ------------------------------------------------------------------ |
 | `/kata:new-project`          | Full initialization: questions → research → requirements → roadmap |
 | `/kata:discuss-phase [N]`    | Capture implementation decisions before planning                   |
 | `/kata:plan-phase [N]`       | Research + plan + verify for a phase                               |
@@ -388,23 +417,23 @@ You're never locked in. The system adapts.
 
 ### Navigation
 
-| Command          | What it does                                  |
-| ---------------- | --------------------------------------------- |
+| Command           | What it does                                  |
+| ----------------- | --------------------------------------------- |
 | `/kata:progress`  | Where am I? What's next?                      |
 | `/kata:help`      | Show all commands and usage guide             |
 | `/kata:whats-new` | See what changed since your installed version |
-| `/kata:update`    | Update Kata with changelog preview             |
+| `/kata:update`    | Update Kata with changelog preview            |
 
 ### Brownfield
 
-| Command             | What it does                                 |
-| ------------------- | -------------------------------------------- |
+| Command              | What it does                                 |
+| -------------------- | -------------------------------------------- |
 | `/kata:map-codebase` | Analyze existing codebase before new-project |
 
 ### Phase Management
 
-| Command                           | What it does                                   |
-| --------------------------------- | ---------------------------------------------- |
+| Command                            | What it does                                   |
+| ---------------------------------- | ---------------------------------------------- |
 | `/kata:add-phase`                  | Append phase to roadmap                        |
 | `/kata:insert-phase [N]`           | Insert urgent work between phases              |
 | `/kata:remove-phase [N]`           | Remove future phase, renumber                  |
@@ -413,21 +442,21 @@ You're never locked in. The system adapts.
 
 ### Session
 
-| Command            | What it does                           |
-| ------------------ | -------------------------------------- |
+| Command             | What it does                           |
+| ------------------- | -------------------------------------- |
 | `/kata:pause-work`  | Create handoff when stopping mid-phase |
 | `/kata:resume-work` | Restore from last session              |
 
 ### Utilities
 
-| Command                      | What it does                                   |
-| ---------------------------- | ---------------------------------------------- |
+| Command                       | What it does                                   |
+| ----------------------------- | ---------------------------------------------- |
 | `/kata:settings`              | Configure model profile and workflow agents    |
 | `/kata:set-profile <profile>` | Switch model profile (quality/balanced/budget) |
 | `/kata:add-todo [desc]`       | Capture idea for later                         |
 | `/kata:check-todos`           | List pending todos                             |
 | `/kata:debug [desc]`          | Systematic debugging with persistent state     |
-| `/kata:quick`                 | Execute ad-hoc task with Kata guarantees        |
+| `/kata:quick`                 | Execute ad-hoc task with Kata guarantees       |
 
 <sup>¹ Contributed by reddit user OracleGreyBeard</sup>
 
@@ -530,5 +559,7 @@ MIT License. See [LICENSE](LICENSE) for details.
 <div align="center">
 
 **Claude Code is powerful. Kata makes it reliable.**
+
+*Just tell it what you want.*
 
 </div>
