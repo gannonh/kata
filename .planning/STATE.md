@@ -13,7 +13,7 @@ Milestone: v0.1.6 Claude Code Plugin (Phase 1)
 Phase: Not started
 Plan: Not started
 Status: Ready for planning
-Last activity: 2026-01-22 - v0.1.5 Skills & Documentation shipped
+Last activity: 2026-01-22 - Completed quick task 001: Add PR workflow config option
 
 Progress: [------------------------------] 0% (0/1 phases complete)
 
@@ -95,8 +95,14 @@ Recent decisions affecting current work:
 
 None yet.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 001 | Add PR workflow config option | 2026-01-22 | 975f1d3 | [001-add-pr-workflow-config-option](./quick/001-add-pr-workflow-config-option/) |
+
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: v0.1.5 milestone archived
+Stopped at: Completed quick task 001 (PR workflow config)
 Resume file: Ready for v0.1.6 Claude Code Plugin planning
