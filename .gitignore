@@ -11,3 +11,4 @@ kata.code-workspace
 .secrets/
 skills.bak/
 tmp/
+.DS_Store
