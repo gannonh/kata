@@ -12,3 +12,4 @@ kata.code-workspace
 skills.bak/
 tmp/
 .DS_Store
+.claude/plans/
