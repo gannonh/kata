@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-01-22
+## [0.1.8] - 2026-01-22
+
+### Added
+- **Website launch**: [kata.sh](https://kata.sh) is live (documentation coming soon)
+- Phonetic pronunciation (/ˈkɑːtɑː/) below kanji in all SVG assets
 
 ### Changed
 - **Brand refresh**: Updated visual identity to match new website design
@@ -15,10 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Background: Ink (#0d0d0d) replaces Deep Slate (#0f0f14)
   - Typography: Noto Serif JP (weight 200) for kanji mark
 - **CLI installer**: Simplified to standard ANSI colors for terminal compatibility
-- **All SVG assets**: Updated with new brand colors and phonetic pronunciation (/ˈkɑːtɑː/)
-
-### Added
-- Phonetic pronunciation below kanji in logo.svg, logo-light.svg, wordmark.svg, terminal.svg
+- **All SVG assets**: Updated with new brand colors
 
 ## [0.1.6] - 2026-01-22
 
