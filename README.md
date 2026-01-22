@@ -49,21 +49,6 @@ Every workflow responds to natural language. Slash commands exist for precision 
 
 ---
 
-## Some Context
-
-This project began as a fork of the [GSD system](https://github.com/glittercowboy/get-shit-done), and then quickly became a hard fork. Why hard fork and not contribute to the original project? The reasons are two fold, well three fold, or two and a half-fold.
-
-- **Team-oriented by design.** GSD, as its brilliant creator has made very clear, is optimized for solo devs, viewing "enterprise" features as anti-patterns. I love the simplicity of GSD and respect its opinionated position, but the projects I work on are more often than not multi-player. At a minimum, I need:
-  - **GitHub integration** — PRs, issues, code review workflows. Planning that connects to where teams actually collaborate.
-  - **IDE agnostic** — Not everyone uses Claude Code (I do but I'm not everyone). Kata should work with the tools teams already use.
-
-- **Skills as the foundation.** GSD is primarily built on `/commands`, which are Claude Code-specific. Kata standardizes on **skills** — an emerging open standard supported across major agentic frameworks.
-  - This makes Kata portable and future-proof, not locked to a single tool.
-  - Skills use progressive disclosure to keep prompts lean and efficient.
-  - Skills instantiate with natural language, which is especially convenient when using text-to-speech as your primary input device (you can still invoke with a slash command but it isn't necessary)   
-
----
-
 ## Who This Is For
 
 Teams and individuals that want to describe what they want and have it built correctly.
@@ -553,15 +538,18 @@ This ensures absolute paths are used instead of `~` which may not expand correct
 
 ---
 
-## Star History
+## Background
 
-<a href="https://star-history.com/#gannonh/kata&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=gannonh/kata&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=gannonh/kata&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=gannonh/kata&type=Date" />
- </picture>
-</a>
+This project began as a fork of the [GSD system](https://github.com/glittercowboy/get-shit-done), and then quickly became a hard fork. Why hard fork and not contribute to the original project? The reasons are two fold, well three fold, or two and a half-fold.
+
+- **Team-oriented by design.** GSD, as its brilliant creator has made very clear, is optimized for solo devs, viewing "enterprise" features as anti-patterns. I love the simplicity of GSD and respect its opinionated position, but the projects I work on are more often than not multi-player. At a minimum, I need:
+  - **GitHub integration** — PRs, issues, code review workflows. Planning that connects to where teams actually collaborate.
+  - **IDE agnostic** — Not everyone uses Claude Code (I do but I'm not everyone). Kata should work with the tools teams already use.
+
+- **Skills as the foundation.** GSD is primarily built on `/commands`, which are Claude Code-specific. Kata standardizes on **skills** — an emerging open standard supported across major agentic frameworks.
+  - This makes Kata portable and future-proof, not locked to a single tool.
+  - Skills use progressive disclosure to keep prompts lean and efficient.
+  - Skills instantiate with natural language, which is especially convenient when using text-to-speech as your primary input device (you can still invoke with a slash command but it isn't necessary).
 
 ---
 
