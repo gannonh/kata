@@ -30,9 +30,9 @@ npx @gannonh/kata
 
 ## Talk to It Like a Person
 
-Drive your entire workflow with **natural language**. 🗣️
+Drive your entire workflow with **natural language**.
 
-No memorizing commands. No syntax. Just say what you want:
+Say what you want:
 
 | You say...               | Kata does...                           |
 | ------------------------ | -------------------------------------- |
@@ -45,7 +45,7 @@ No memorizing commands. No syntax. Just say what you want:
 
 Every workflow responds to natural language. Slash commands exist for precision when you want them (`/kata:plan-phase 2`), but you never *need* them.
 
-**Intent recognition.** Kata understands what you're trying to accomplish and routes to the right workflow — research, planning, execution, verification — automatically.
+**Intent recognition.** Kata parses what you're trying to accomplish and routes to the right workflow (research, planning, execution, verification) automatically.
 
 ---
 
@@ -114,7 +114,7 @@ claude --dangerously-skip-permissions
 ```
 
 > [!TIP]
-> This is how Kata is intended to be used — stopping to approve `date` and `git commit` 50 times defeats the purpose.
+> Kata works best this way. Approving `date` and `git commit` 50 times defeats the purpose.
 
 <details>
 <summary><strong>Alternative: Granular Permissions</strong></summary>
@@ -153,7 +153,7 @@ If you prefer not to use that flag, add this to your project's `.claude/settings
 
 ## How It Works
 
-> **Already have code?** Run `/kata:map-codebase` first. It spawns parallel agents to analyze your stack, architecture, conventions, and concerns. Then `/kata:new-project` knows your codebase — questions focus on what you're adding, and planning automatically loads your patterns.
+> **Already have code?** Run `/kata:map-codebase` first. It spawns parallel agents to analyze your stack, architecture, conventions, and concerns. Then `/kata:new-project` knows your codebase. Questions focus on what you're adding, and planning automatically loads your patterns.
 
 ### 1. Initialize Project
 
@@ -164,10 +164,10 @@ If you prefer not to use that flag, add this to your project's `.claude/settings
 
 One command, one flow. The system:
 
-1. **Questions** — Asks until it understands your idea completely (goals, constraints, tech preferences, edge cases)
-2. **Research** — Spawns parallel agents to investigate the domain (optional but recommended)
-3. **Requirements** — Extracts what's v1, v2, and out of scope
-4. **Roadmap** — Creates phases mapped to requirements
+1. **Questions**: Asks until it understands your idea completely (goals, constraints, tech preferences, edge cases)
+2. **Research**: Spawns parallel agents to investigate the domain (optional but recommended)
+3. **Requirements**: Extracts what's v1, v2, and out of scope
+4. **Roadmap**: Creates phases mapped to requirements
 
 You approve the roadmap. Now you're ready to build.
 
@@ -193,12 +193,12 @@ The system analyzes the phase and identifies gray areas based on what's being bu
 - **Content systems** → Structure, tone, depth, flow
 - **Organization tasks** → Grouping criteria, naming, duplicates, exceptions
 
-For each area you select, it asks until you're satisfied. The output — `CONTEXT.md` — feeds directly into the next two steps:
+For each area you select, it asks until you're satisfied. The output (`CONTEXT.md`) feeds directly into the next two steps:
 
-1. **Researcher reads it** — Knows what patterns to investigate ("user wants card layout" → research card component libraries)
-2. **Planner reads it** — Knows what decisions are locked ("infinite scroll decided" → plan includes scroll handling)
+1. **Researcher reads it**: Knows what patterns to investigate ("user wants card layout" → research card component libraries)
+2. **Planner reads it**: Knows what decisions are locked ("infinite scroll decided" → plan includes scroll handling)
 
-The deeper you go here, the more the system builds what you actually want. Skip it and you get reasonable defaults. Use it and you get *your* vision.
+Depth here correlates with alignment to your intent. Skip it for reasonable defaults.
 
 **Creates:** `{phase}-CONTEXT.md`
 
@@ -213,11 +213,11 @@ The deeper you go here, the more the system builds what you actually want. Skip 
 
 The system:
 
-1. **Researches** — Investigates how to implement this phase, guided by your CONTEXT.md decisions
-2. **Plans** — Creates 2-3 atomic task plans with XML structure
-3. **Verifies** — Checks plans against requirements, loops until they pass
+1. **Researches**: Investigates how to implement this phase, guided by your CONTEXT.md decisions
+2. **Plans**: Creates 2-3 atomic task plans with XML structure
+3. **Verifies**: Checks plans against requirements, loops until they pass
 
-Each plan is small enough to execute in a fresh context window. No degradation, no "I'll be more concise now."
+Each plan fits in a fresh context window.
 
 **Creates:** `{phase}-RESEARCH.md`, `{phase}-{N}-PLAN.md`
 
@@ -232,10 +232,10 @@ Each plan is small enough to execute in a fresh context window. No degradation, 
 
 The system:
 
-1. **Runs plans in waves** — Parallel where possible, sequential when dependent
-2. **Fresh context per plan** — 200k tokens purely for implementation, zero accumulated garbage
-3. **Commits per task** — Every task gets its own atomic commit
-4. **Verifies against goals** — Checks the codebase delivers what the phase promised
+1. **Runs plans in waves**: Parallel where possible, sequential when dependent
+2. **Fresh context per plan**: 200k tokens for implementation, zero accumulated garbage
+3. **Commits per task**: Every task gets its own atomic commit
+4. **Verifies against goals**: Checks the codebase delivers what the phase promised
 
 Walk away, come back to completed work with clean git history.
 
@@ -256,12 +256,12 @@ Automated verification checks that code exists and tests pass. But does the feat
 
 The system:
 
-1. **Extracts testable deliverables** — What you should be able to do now
-2. **Walks you through one at a time** — "Can you log in with email?" Yes/no, or describe what's wrong
-3. **Diagnoses failures automatically** — Spawns debug agents to find root causes
-4. **Creates verified fix plans** — Ready for immediate re-execution
+1. **Extracts testable deliverables**: What you should be able to do now
+2. **Walks you through one at a time**: "Can you log in with email?" Yes/no, or describe what's wrong
+3. **Diagnoses failures automatically**: Spawns debug agents to find root causes
+4. **Creates verified fix plans**: Ready for immediate re-execution
 
-If everything passes, you move on. If something's broken, you don't manually debug — you just run `/kata:execute-phase` again with the fix plans it created.
+If everything passes, you move on. If something's broken, run `/kata:execute-phase` again with the fix plans it created.
 
 **Creates:** `{phase}-UAT.md`, fix plans if issues found
 
@@ -285,7 +285,7 @@ Each phase gets your input (discuss), proper research (plan), clean execution (e
 
 When all phases are done, `/kata:complete-milestone` archives the milestone and tags the release.
 
-Then `/kata:new-milestone` starts the next version — same flow as `new-project` but for your existing codebase. You describe what you want to build next, the system researches the domain, you scope requirements, and it creates a fresh roadmap. Each milestone is a clean cycle: define → build → ship.
+Then `/kata:new-milestone` starts the next version. Same flow as `new-project` for your existing codebase. You describe what you want to build next, the system researches the domain, you scope requirements, and it creates a fresh roadmap. Each milestone is a clean cycle: define → build → ship.
 
 ---
 
@@ -300,9 +300,9 @@ Then `/kata:new-milestone` starts the next version — same flow as `new-project
 
 Quick mode gives you Kata guarantees (atomic commits, state tracking) with a faster path:
 
-- **Same agents** — Planner + executor, same quality
-- **Skips optional steps** — No research, no plan checker, no verifier
-- **Separate tracking** — Lives in `.planning/quick/`, not phases
+- **Same agents**: Planner + executor, same quality
+- **Skips optional steps**: No research, no plan checker, no verifier
+- **Separate tracking**: Lives in `.planning/quick/`
 
 Use for: bug fixes, small features, config changes, one-off tasks.
 
@@ -319,9 +319,7 @@ Use for: bug fixes, small features, config changes, one-off tasks.
 
 ### Context Engineering
 
-Claude Code is incredibly powerful *if* you give it the context it needs. Most people don't.
-
-Kata handles it for you:
+Claude Code requires the right context to perform well. Kata manages context for you:
 
 | File              | What it does                                                  |
 | ----------------- | ------------------------------------------------------------- |
@@ -329,12 +327,12 @@ Kata handles it for you:
 | `research/`       | Ecosystem knowledge (stack, features, architecture, pitfalls) |
 | `REQUIREMENTS.md` | Scoped v1/v2 requirements with phase traceability             |
 | `ROADMAP.md`      | Where you're going, what's done                               |
-| `STATE.md`        | Decisions, blockers, position — memory across sessions        |
+| `STATE.md`        | Decisions, blockers, position. Memory across sessions         |
 | `PLAN.md`         | Atomic task with XML structure, verification steps            |
 | `SUMMARY.md`      | What happened, what changed, committed to history             |
 | `todos/`          | Captured ideas and tasks for later work                       |
 
-Size limits based on where Claude's quality degrades. Stay under, get consistent excellence.
+Size limits based on where Claude's quality degrades.
 
 ### XML Prompt Formatting
 
@@ -354,7 +352,7 @@ Every plan is structured XML optimized for Claude:
 </task>
 ```
 
-Precise instructions. No guessing. Verification built in.
+Precise instructions with verification built in.
 
 ### Multi-Agent Orchestration
 
@@ -369,7 +367,7 @@ Every stage uses the same pattern: a thin orchestrator spawns specialized agents
 
 The orchestrator never does heavy lifting. It spawns agents, waits, integrates results.
 
-**The result:** You can run an entire phase — deep research, multiple plans created and verified, thousands of lines of code written across parallel executors, automated verification against goals — and your main context window stays at 30-40%. The work happens in fresh subagent contexts. Your session stays fast and responsive.
+**The result:** You can run an entire phase (research, planning, execution, verification) and your main context window stays at 30-40%. The work happens in fresh subagent contexts.
 
 ### Atomic Git Commits
 
@@ -385,7 +383,7 @@ lmn012o feat(08-02): create registration endpoint
 > [!NOTE]
 > **Benefits:** Git bisect finds exact failing task. Each task independently revertable. Clear history for Claude in future sessions. Better observability in AI-automated workflow.
 
-Every commit is surgical, traceable, and meaningful.
+Every commit is traceable and revertable.
 
 ### Modular by Design
 
@@ -394,7 +392,7 @@ Every commit is surgical, traceable, and meaningful.
 - Complete milestones and start fresh
 - Adjust plans without rebuilding everything
 
-You're never locked in. The system adapts.
+The system adapts to changing requirements.
 
 ---
 
@@ -542,14 +540,14 @@ This ensures absolute paths are used instead of `~` which may not expand correct
 
 This project began as a fork of the [GSD system](https://github.com/glittercowboy/get-shit-done), and then quickly became a hard fork. Why hard fork and not contribute to the original project? The reasons are two fold, well three fold, or two and a half-fold.
 
-- **Team-oriented by design.** GSD, as its brilliant creator has made very clear, is optimized for solo devs, viewing "enterprise" features as anti-patterns. I love the simplicity of GSD and respect its opinionated position, but the projects I work on are more often than not multi-player. At a minimum, I need:
-  - **GitHub integration** — PRs, issues, code review workflows. Planning that connects to where teams actually collaborate.
-  - **IDE agnostic** — Not everyone uses Claude Code (I do but I'm not everyone). Kata should work with the tools teams already use.
+- **Team-oriented by design.** GSD is optimized for solo devs, viewing "enterprise" features as anti-patterns. I respect that position, but my projects are multi-player. At a minimum, I need:
+  - **GitHub integration**: PRs, issues, code review workflows. Planning that connects to where teams actually collaborate.
+  - **IDE agnostic**: Kata should work with the tools teams already use.
 
-- **Skills as the foundation.** GSD is primarily built on `/commands`, which are Claude Code-specific. Kata standardizes on **skills** — an emerging open standard supported across major agentic frameworks.
-  - This makes Kata portable and future-proof, not locked to a single tool.
-  - Skills use progressive disclosure to keep prompts lean and efficient.
-  - Skills instantiate with natural language, which is especially convenient when using text-to-speech as your primary input device (you can still invoke with a slash command but it isn't necessary).
+- **Skills as the foundation.** GSD is built on `/commands`, which are Claude Code-specific. Kata standardizes on **skills**, an emerging open standard supported across major agentic frameworks.
+  - Portable across tools.
+  - Progressive disclosure keeps prompts lean.
+  - Natural language instantiation (useful for voice input).
 
 ---
 
@@ -561,8 +559,8 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-**Claude Code is powerful. Kata makes it reliable.**
+**Kata adds structure to Claude Code.**
 
-*Just tell it what you want.*
+*Tell it what you want.*
 
 </div>
