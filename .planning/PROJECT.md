@@ -110,15 +110,18 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 **Goal:** Package and publish Kata as a Claude Code plugin for easy distribution
 
 **Target features:**
-- Plugin manifest (plugin.json) correctly configured
-- All commands, agents, workflows available through plugin
-- Published to @gannonh Claude Code plugin marketplace
-- Installation via plugin system documented
+- Plugin manifest (`.claude-plugin/plugin.json`) correctly configured
+- Plugin directory structure (`commands/`, `agents/`, `skills/`, `hooks/`)
+- All Kata components available through plugin namespace (`/kata:*`)
+- Published to @gannonh Claude Code plugin marketplace repository
+- Installation via `/plugin install kata@gannonh-plugins` documented
+- Local testing via `--plugin-dir` validated
 
 **Approach:**
-- Use /plugin-dev:create-plugin workflow
-- Follow Claude Code plugin conventions
-- Test plugin installation and functionality
+- Restructure repository to match Claude Code plugin conventions
+- Create `.claude-plugin/plugin.json` manifest
+- Create marketplace repository with `marketplace.json`
+- Test with `claude --plugin-dir ./` before publishing
 
 ---
-*Last updated: 2026-01-22 — v0.1.5 milestone complete*
+*Last updated: 2026-01-22 — v0.1.6 milestone started*

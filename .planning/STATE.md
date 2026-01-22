@@ -9,13 +9,13 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 
 ## Current Position
 
-Milestone: v0.1.6 Claude Code Plugin (Phase 1)
-Phase: Not started
-Plan: Not started
-Status: Ready for planning
-Last activity: 2026-01-22 - Completed quick task 002: Config schema consistency
+Milestone: v0.1.6 Claude Code Plugin
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-01-22 — Milestone v0.1.6 started
 
-Progress: [------------------------------] 0% (0/1 phases complete)
+Progress: [------------------------------] 0% (0/? phases — roadmap pending)
 
 ## Performance Metrics
 
