@@ -24,7 +24,7 @@
   <!-- Phonetic pronunciation -->
   <text
     x="60"
-    y="102"
+    y="98"
     text-anchor="middle"
     class="wordmark"
     fill="#404040"
