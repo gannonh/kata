@@ -68,10 +68,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. `hooks/hooks.json` exists with Kata hook definitions
   6. `claude plugin validate .` passes with no errors
   7. `claude --plugin-dir ./` loads plugin and shows `/kata:*` commands
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 01-01: TBD (run /kata:plan-phase to break down)
+- [ ] 01-01-PLAN.md — Create plugin manifest, hooks.json, and validate
 
 #### Phase 2: Marketplace Distribution
 **Goal**: Kata installable from marketplace repository via standard plugin install command
@@ -186,7 +186,7 @@ Plans:
 | --------------------------------- | --------- | -------------- | ----------- | ---------- |
 | 0. Hard Fork & Rebrand            | v0.1.4    | 5/5            | Complete    | 2026-01-18 |
 | 0-2. Skills & Documentation       | v0.1.5    | 30/30          | Complete    | 2026-01-22 |
-| 1. Plugin Structure & Validation  | v0.1.6    | 0/?            | Not started | -          |
+| 1. Plugin Structure & Validation  | v0.1.6    | 0/1            | Planned     | -          |
 | 2. Marketplace Distribution       | v0.1.6    | 0/?            | Not started | -          |
 | 3. Documentation                  | v0.1.6    | 0/?            | Not started | -          |
 | 1. Audit & Config Foundation      | v0.1.7    | 0/?            | Not planned | -          |
@@ -197,4 +197,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-22 — v0.1.6 phases defined (3 phases, 15 requirements)*
+*Last updated: 2026-01-22 — Phase 1 planned (1 plan)*
