@@ -49,7 +49,7 @@ Every workflow responds to natural language. Slash commands exist for precision 
 
 ---
 
-## What is This
+## Some Context
 
 This project began as a fork of the [GSD system](https://github.com/glittercowboy/get-shit-done), and then quickly became a hard fork. Why hard fork and not contribute to the original project? The reasons are two fold, well three fold, or two and a half-fold.
 
