@@ -423,6 +423,9 @@ function install(isGlobal) {
     function copyHooksRecursive(srcDir, destDir) {
       const entries = fs.readdirSync(srcDir, { withFileTypes: true });
       for (const entry of entries) {
+        // Skip dist/ directory - it's for npm publishing only
+        if (entry.name === 'dist') continue;
+
         const srcPath = path.join(srcDir, entry.name);
         const destPath = path.join(destDir, entry.name);
         if (entry.isDirectory()) {
