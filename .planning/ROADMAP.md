@@ -8,7 +8,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 - **v0.1.4 Hard Fork & Rebrand** — Phase 0 (shipped 2026-01-18) — [archive](milestones/v0.1.4-ROADMAP.md)
 - **v0.1.5 Skills & Documentation** — Phases 0-2 (shipped 2026-01-22) — [archive](milestones/v0.1.5-ROADMAP.md)
-- **v0.1.6 Claude Code Plugin** — Phase 1 (planned)
+- **v0.1.6 Claude Code Plugin** — Phases 1-3 (in progress)
 - **v0.1.7 GitHub Integration** — Phases 1-5 (planned)
 
 ## Phases
@@ -38,9 +38,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 </details>
 
-### v0.1.6 Claude Code Plugin (Planned)
+### v0.1.6 Claude Code Plugin (In Progress)
 
-- [ ] **Phase 1: Plugin Distribution** - Package and publish Kata as a Claude Code plugin
+- [ ] **Phase 1: Plugin Structure & Validation** - Create plugin manifest and directory structure, validate locally
+- [ ] **Phase 2: Marketplace Distribution** - Publish to marketplace repository, verify installation
+- [ ] **Phase 3: Documentation** - Installation instructions and usage guide
 
 ### v0.1.7 GitHub Integration (Planned)
 
@@ -54,20 +56,51 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ### v0.1.6 Claude Code Plugin
 
-#### Phase 1: Plugin Distribution
-**Goal**: Package and publish Kata as a Claude Code plugin for easy distribution using `/plugin-dev:create-plugin`
-**Depends on**: v0.1.5 complete (Documentation)
-**Requirements**: None (distribution improvement)
+#### Phase 1: Plugin Structure & Validation
+**Goal**: Kata has valid plugin structure that passes Claude Code validation and works locally
+**Depends on**: v0.1.5 complete (Skills & Documentation)
+**Requirements**: PLG-01, PLG-02, PLG-03, PLG-04, PLG-05, VAL-01, VAL-02
 **Success Criteria** (what must be TRUE):
-  1. Kata packaged as Claude Code plugin using plugin-dev workflow
-  2. Kata published to @gannonh Claude Code plugin marketplace repository
-  3. Plugin manifest (plugin.json) correctly configured
-  4. All commands, agents, workflows available through plugin
-  5. Installation via plugin system documented
+  1. `.claude-plugin/plugin.json` exists with name, version, description, author fields
+  2. `commands/kata/` directory contains all 25 Kata slash commands
+  3. `agents/` directory contains all Kata sub-agents (kata-*.md files)
+  4. `skills/kata-*/SKILL.md` structure exists for all 14 skills
+  5. `hooks/hooks.json` exists with Kata hook definitions
+  6. `claude plugin validate .` passes with no errors
+  7. `claude --plugin-dir ./` loads plugin and shows `/kata:*` commands
 **Plans**: TBD
 
 Plans:
-- [ ] 01-01: TBD (run /kata-planning-phases to break down)
+- [ ] 01-01: TBD (run /kata:plan-phase to break down)
+
+#### Phase 2: Marketplace Distribution
+**Goal**: Kata installable from marketplace repository via standard plugin install command
+**Depends on**: Phase 1 (plugin validates locally)
+**Requirements**: DST-01, DST-02, DST-03, DST-04, VAL-03, VAL-04
+**Success Criteria** (what must be TRUE):
+  1. GitHub repository `gannonh-plugins` exists with marketplace structure
+  2. `marketplace.json` contains Kata plugin entry with source URL
+  3. `/plugin install kata@gannonh-plugins` installs Kata successfully
+  4. All `/kata:*` commands accessible after marketplace installation
+  5. All Kata skills respond to natural language after marketplace installation
+  6. Plugin version shows v0.1.6 via semantic versioning
+**Plans**: TBD
+
+Plans:
+- [ ] 02-01: TBD (run /kata:plan-phase to break down)
+
+#### Phase 3: Documentation
+**Goal**: Users can install and use Kata plugin via documented instructions
+**Depends on**: Phase 2 (marketplace installation works)
+**Requirements**: DOC-01, DOC-02
+**Success Criteria** (what must be TRUE):
+  1. README includes installation instructions for marketplace install
+  2. README includes local development instructions (`--plugin-dir`)
+  3. Usage documented: how to start a project, common commands, skill invocation
+**Plans**: TBD
+
+Plans:
+- [ ] 03-01: TBD (run /kata:plan-phase to break down)
 
 ### v0.1.7 GitHub Integration
 
@@ -153,7 +186,9 @@ Plans:
 | --------------------------------- | --------- | -------------- | ----------- | ---------- |
 | 0. Hard Fork & Rebrand            | v0.1.4    | 5/5            | Complete    | 2026-01-18 |
 | 0-2. Skills & Documentation       | v0.1.5    | 30/30          | Complete    | 2026-01-22 |
-| 1. Plugin Distribution            | v0.1.6    | 0/?            | Not planned | -          |
+| 1. Plugin Structure & Validation  | v0.1.6    | 0/?            | Not started | -          |
+| 2. Marketplace Distribution       | v0.1.6    | 0/?            | Not started | -          |
+| 3. Documentation                  | v0.1.6    | 0/?            | Not started | -          |
 | 1. Audit & Config Foundation      | v0.1.7    | 0/?            | Not planned | -          |
 | 2. Onboarding & Milestones        | v0.1.7    | 0/?            | Not started | -          |
 | 3. Phase Issues                   | v0.1.7    | 0/?            | Not started | -          |
@@ -162,4 +197,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-22 — v0.1.5 Skills & Documentation shipped*
+*Last updated: 2026-01-22 — v0.1.6 phases defined (3 phases, 15 requirements)*

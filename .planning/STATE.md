@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-01-22)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v0.1.6 Claude Code Plugin
+**Current focus:** v0.1.6 Claude Code Plugin — Phase 1: Plugin Structure & Validation
 
 ## Current Position
 
 Milestone: v0.1.6 Claude Code Plugin
-Phase: Not started (defining requirements)
+Phase: 1 of 3 (Plugin Structure & Validation)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-01-22 — Milestone v0.1.6 started
+Status: Ready to plan
+Last activity: 2026-01-22 — Roadmap defined with 3 phases
 
-Progress: [------------------------------] 0% (0/? phases — roadmap pending)
+Progress: [------------------------------] 0% (0/3 phases)
 
 ## Performance Metrics
 
@@ -49,27 +49,14 @@ Progress: [------------------------------] 0% (0/? phases — roadmap pending)
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **2026-01-17: Hard fork decision** - Severing all ties from upstream GSD, full rebrand
-- **2026-01-18: v0.1.5 roadmap** - 5 phases derived from 17 requirements
-- Phase-level PRs (one PR per phase, not per plan)
-- Config-driven integrations (modular enable/disable)
-- **2026-01-19: Skills as orchestrators** - Skills contain full workflow logic and spawn sub-agents via Task tool
-- **2026-01-19: Installer skills filtering** - Only removes kata-* skill directories on reinstall (preserves user skills)
-- **2026-01-19: Unified milestone skill** - Combined new/complete/audit operations into single kata-manageing-milestones skill
-- **2026-01-20: Unified todo skill** - Combined add/check operations into kata-managing-todos skill with operation detection
-- **2026-01-20: Skill naming convention** - Skill names must use gerund (verb-ing) style with exhaustive trigger phrases in description
-- **2026-01-20: ESM module type** - Added "type": "module" to package.json for test harness ESM compatibility
-- **2026-01-20: Multi-intent skills** - kata-updating-to-latest-version handles update, whats-new, and version-check in single skill
-- **2026-01-20: Quick task constraints** - <30 min, ≤3 files, no architecture decisions, fail-fast escalation
-- **2026-01-21: Roadmap command split** - Roadmap operations get individual commands (add/insert/remove/plan-gaps) instead of single command with args
-- **2026-01-21: Research workflow tripartite** - Phase research split into discuss (interactive), research (investigation), assumptions (validation)
-- **2026-01-21: Command delegation pattern** - All slash commands use disable-model-invocation: true and delegate to skills via Task tool
-- **2026-01-21: Skill invocation control** - Added user-invocable: false to all 14 Kata skills to prevent autonomous invocation; skills only trigger via natural language or command delegation
+- **2026-01-22: v0.1.6 roadmap** - 3 phases derived from 15 requirements (quick depth)
+- **2026-01-22: Phase grouping** - Structure+validation in Phase 1, distribution in Phase 2, docs in Phase 3
+- **2026-01-21: Skill invocation control** - Added user-invocable: false to all 14 Kata skills
 
 ### Roadmap Evolution
 
 - **v0.1.5 milestone completed 2026-01-22** - Skills & Documentation shipped (6 phases, 30 plans)
-- **v0.1.6 milestone started 2026-01-22** - Claude Code Plugin
+- **v0.1.6 milestone started 2026-01-22** - Claude Code Plugin (3 phases, 15 requirements)
 
 ### Pending Todos
 
@@ -105,5 +92,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: Completed quick task 002 (config schema consistency)
-Resume file: Ready for v0.1.6 Claude Code Plugin planning
+Stopped at: Roadmap defined for v0.1.6 (3 phases)
+Resume file: Ready for `/kata:plan-phase 1`

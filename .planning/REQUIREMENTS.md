@@ -60,27 +60,27 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PLG-01 | TBD | Pending |
-| PLG-02 | TBD | Pending |
-| PLG-03 | TBD | Pending |
-| PLG-04 | TBD | Pending |
-| PLG-05 | TBD | Pending |
-| VAL-01 | TBD | Pending |
-| VAL-02 | TBD | Pending |
-| VAL-03 | TBD | Pending |
-| VAL-04 | TBD | Pending |
-| DST-01 | TBD | Pending |
-| DST-02 | TBD | Pending |
-| DST-03 | TBD | Pending |
-| DST-04 | TBD | Pending |
-| DOC-01 | TBD | Pending |
-| DOC-02 | TBD | Pending |
+| PLG-01 | Phase 1 | Pending |
+| PLG-02 | Phase 1 | Pending |
+| PLG-03 | Phase 1 | Pending |
+| PLG-04 | Phase 1 | Pending |
+| PLG-05 | Phase 1 | Pending |
+| VAL-01 | Phase 1 | Pending |
+| VAL-02 | Phase 1 | Pending |
+| VAL-03 | Phase 2 | Pending |
+| VAL-04 | Phase 2 | Pending |
+| DST-01 | Phase 2 | Pending |
+| DST-02 | Phase 2 | Pending |
+| DST-03 | Phase 2 | Pending |
+| DST-04 | Phase 2 | Pending |
+| DOC-01 | Phase 3 | Pending |
+| DOC-02 | Phase 3 | Pending |
 
 **Coverage:**
 - v1 requirements: 15 total
-- Mapped to phases: 0
-- Unmapped: 15
+- Mapped to phases: 15
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-22*
-*Last updated: 2026-01-22 — initial definition*
+*Last updated: 2026-01-22 — traceability updated after roadmap creation*
