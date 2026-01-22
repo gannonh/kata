@@ -6,7 +6,9 @@
   "scripts": {
     "test": "node --test --test-reporter spec tests/**/*.test.js",
     "test:skills": "node --test --test-reporter spec tests/skills/*.test.js",
-    "test:skill": "node --test --test-reporter spec"
+    "test:skill": "node --test --test-reporter spec",
+    "build:hooks": "node scripts/build-hooks.js",
+    "prepublishOnly": "npm run build:hooks"
   },
   "bin": {
     "kata": "bin/install.js"
