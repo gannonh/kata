@@ -8,13 +8,18 @@
 
 <br>
 
-[kata.sh](https://kata.sh) · [Documentation](https://kata.sh) *(coming soon)*
+[kata.sh](https://kata.sh)
 
 <br>
 
+[![Plugin](https://img.shields.io/badge/plugin-kata--marketplace-blue?style=for-the-badge)](https://github.com/gannonh/kata-marketplace)
 [![npm version](https://img.shields.io/npm/v/@gannonh/kata?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@gannonh/kata)
 <br>
 ```bash
+# install as claude code plugin
+/plugin install kata@kata-marketplace
+
+# install via npx
 npx @gannonh/kata
 ```
 
@@ -61,11 +66,25 @@ Teams and individuals that want to describe what they want and have it built cor
 <!-- sanitize -->
 ## Getting Started
 
+### Recommended: Plugin Install
+
+```bash
+/plugin marketplace add gannonh/kata-marketplace
+/plugin install kata@kata-marketplace
+```
+
+Verify with `/kata:help` inside Claude Code.
+
+<details>
+<summary><strong>Alternative: NPM Install</strong></summary>
+
 ```bash
 npx @gannonh/kata
 ```
 
-That's it. Verify with `/kata:help` inside your Claude Code interface.
+Use NPM if you prefer global installation or need CI/container support.
+
+</details>
 
 ### Staying Updated
 
@@ -75,8 +94,12 @@ Kata evolves fast. Check for updates periodically:
 /kata:whats-new
 ```
 
-Update with:
+**Plugin users:**
+```bash
+claude plugin update kata@kata-marketplace
+```
 
+**NPM users:**
 ```bash
 npx @gannonh/kata@latest
 ```

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-01-23
+
+Kata 1.0 ships with **Claude Code plugin support** as the recommended installation method.
+
+### Added
+- **Claude Code plugin distribution**: Install via `/plugin marketplace add gannonh/kata-marketplace` + `/plugin install kata@kata-marketplace`
+- **Dual build system**: `node scripts/build.js` produces both NPM and plugin distributions
+- **Plugin-aware statusline**: Detects installation method (NPM vs plugin) and shows appropriate update commands
+- **CI validation pipelines**: Tests and build artifact validation run before NPM publish and plugin release
+- **Plugin marketplace badge**: README now shows both plugin and NPM badges
+
+### Changed
+- **Plugin install is now recommended**: Getting Started section leads with marketplace install, NPM moved to collapsible alternative
+- **Command namespace**: All commands now use `kata:` prefix (e.g., `/kata:help`, `/kata:phase-plan`)
+- **Hook scripts converted to ES modules**: All hooks now use ESM syntax
+- **Staying Updated section**: Split into separate commands for plugin and NPM users
+
+### Fixed
+- Source directory detection in update skill prevents npx failure
+- Stale `kata-cc` references updated to `@gannonh/kata`
+- Main branch push blocking logic updated to new format
+- Removed unused hooks and statusline from default settings
+
 ## [0.1.8] - 2026-01-22
 
 ### Added
@@ -87,7 +110,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Upstream remote and sync workflow
 - References to original project maintainer
 
-[Unreleased]: https://github.com/gannonh/kata/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/gannonh/kata/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/gannonh/kata/compare/v0.1.8...v1.0.0
+[0.1.8]: https://github.com/gannonh/kata/compare/v0.1.6...v0.1.8
 [0.1.6]: https://github.com/gannonh/kata/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/gannonh/kata/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/gannonh/kata/compare/v0.1.3...v0.1.4
