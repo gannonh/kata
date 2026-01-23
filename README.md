@@ -24,13 +24,12 @@ Agent orchestration framework for spec-driven development.
 
 </div>
 
-**Install as Claude Code plugin:**
-```bash
-/plugin install kata@kata-marketplace
-```
 
-**Or via npx:**
 ```bash
+# Install as Claude Code plugin
+/plugin install kata@kata-marketplace
+
+# Or install via NPM
 npx @gannonh/kata
 ```
 
