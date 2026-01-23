@@ -163,7 +163,7 @@ function cleanupOrphanedFiles(claudeDir) {
   const orphanedFiles = [
     'hooks/gsd-notify.sh',   // Removed in v1.6.x
     'hooks/kata-lint.js',    // Dev-only, erroneously distributed in v1.7.x
-    'hooks/statusline.js',   // Renamed to kata-statusline.js
+    'hooks/statusline.js',   // Renamed to kata-npm-statusline.js
   ];
 
   const orphanedDirs = [

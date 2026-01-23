@@ -575,18 +575,22 @@ fi
 **Copy statusline hook to project:**
 
 ```bash
-# Copy kata-statusline.js to project's .claude/hooks/
+# Copy appropriate statusline hook to project's .claude/hooks/
 mkdir -p .claude/hooks
 
-# For NPM installs
-if [ -f ~/.claude/kata/hooks/kata-statusline.js ]; then
-  cp ~/.claude/kata/hooks/kata-statusline.js .claude/hooks/
-# For local installs
-elif [ -f ./.claude/kata/hooks/kata-statusline.js ]; then
-  cp ./.claude/kata/hooks/kata-statusline.js .claude/hooks/
-# For plugin installs
-elif [ -n "$CLAUDE_PLUGIN_ROOT" ] && [ -f "$CLAUDE_PLUGIN_ROOT/hooks/kata-statusline.js" ]; then
-  cp "$CLAUDE_PLUGIN_ROOT/hooks/kata-statusline.js" .claude/hooks/
+# Detect install type and copy the right statusline hook
+# Plugin installs use kata-plugin-statusline.js (shows plugin update command)
+# NPM installs use kata-npm-statusline.js (shows /kata:update command)
+
+if [ -n "$CLAUDE_PLUGIN_ROOT" ] && [ -f "$CLAUDE_PLUGIN_ROOT/hooks/kata-plugin-statusline.js" ]; then
+  # Plugin install
+  cp "$CLAUDE_PLUGIN_ROOT/hooks/kata-plugin-statusline.js" .claude/hooks/kata-statusline.js
+elif [ -f ~/.claude/kata/hooks/kata-npm-statusline.js ]; then
+  # Global NPM install
+  cp ~/.claude/kata/hooks/kata-npm-statusline.js .claude/hooks/kata-statusline.js
+elif [ -f ./.claude/kata/hooks/kata-npm-statusline.js ]; then
+  # Local NPM install
+  cp ./.claude/kata/hooks/kata-npm-statusline.js .claude/hooks/kata-statusline.js
 fi
 ```
 
