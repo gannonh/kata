@@ -98,11 +98,11 @@ Exit command.
 
 **Display stage banner:**
 
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► QUESTIONING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+
 
 **Open the conversation:**
 
@@ -552,13 +552,13 @@ Use AskUserQuestion:
 **If "Research first":**
 
 Display stage banner:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► RESEARCHING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Researching [domain] ecosystem...
-```
+
 
 Create research directory:
 ```bash
@@ -765,7 +765,7 @@ Commit after writing.
 ```
 
 Display research complete banner and key findings:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► RESEARCH COMPLETE ✓
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -777,18 +777,18 @@ Display research complete banner and key findings:
 **Watch Out For:** [from SUMMARY.md]
 
 Files: `.planning/research/`
-```
+
 
 **If "Skip research":** Continue to Phase 7.
 
 ## Phase 7: Define Requirements
 
 Display stage banner:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► DEFINING REQUIREMENTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+
 
 **Load context:**
 
@@ -927,13 +927,13 @@ EOF
 ## Phase 8: Create Roadmap
 
 Display stage banner:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► CREATING ROADMAP
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Spawning roadmapper...
-```
+
 
 Spawn kata-roadmapper agent with context:
 
@@ -1070,7 +1070,7 @@ EOF
 
 Present completion with next steps:
 
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► PROJECT INITIALIZED ✓
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1103,7 +1103,7 @@ Present completion with next steps:
 - `/kata:phase-plan 1` — skip discussion, plan directly
 
 ───────────────────────────────────────────────────────────────
-```
+
 
 </process>
 

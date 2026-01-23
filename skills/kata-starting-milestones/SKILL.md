@@ -156,13 +156,13 @@ Use AskUserQuestion:
 **If "Research first":**
 
 Display stage banner:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► RESEARCHING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Researching [new features] ecosystem...
-```
+
 
 Create research directory:
 ```bash
@@ -369,7 +369,7 @@ Commit after writing.
 ```
 
 Display research complete banner and key findings:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► RESEARCH COMPLETE ✓
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -381,18 +381,18 @@ Display research complete banner and key findings:
 **Watch Out For:** [from SUMMARY.md]
 
 Files: `.planning/research/`
-```
+
 
 **If "Skip research":** Continue to Phase 8.
 
 ## Phase 8: Define Requirements
 
 Display stage banner:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► DEFINING REQUIREMENTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+
 
 **Load context:**
 
@@ -522,13 +522,13 @@ EOF
 ## Phase 9: Create Roadmap
 
 Display stage banner:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► CREATING ROADMAP
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Spawning roadmapper...
-```
+
 
 **Determine starting phase number:**
 
@@ -668,7 +668,7 @@ EOF
 
 Present completion with next steps:
 
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► MILESTONE INITIALIZED ✓
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -700,7 +700,7 @@ Present completion with next steps:
 - `/kata:phase-plan [N]` — skip discussion, plan directly
 
 ───────────────────────────────────────────────────────────────
-```
+
 
 </process>
 

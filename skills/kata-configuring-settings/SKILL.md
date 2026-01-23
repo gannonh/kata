@@ -157,7 +157,7 @@ Write updated config to `.planning/config.json`.
 
 Display:
 
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► SETTINGS UPDATED
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -178,7 +178,7 @@ Quick commands:
 - /kata:phase-plan --research — force research
 - /kata:phase-plan --skip-research — skip research
 - /kata:phase-plan --skip-verify — skip plan check
-```
+
 
 </process>
 

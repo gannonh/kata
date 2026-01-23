@@ -6,7 +6,7 @@ Visual patterns for user-facing Kata output. Orchestrators @-reference this file
 
 Use for major workflow transitions.
 
-```
+`
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► {STAGE NAME}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -141,7 +141,7 @@ Always at end of major completions.
 
 ```
 | Phase | Status | Plans | Progress |
-|-------|--------|-------|----------|
+| ----- | ------ | ----- | -------- |
 | 1     | ✓      | 3/3   | 100%     |
 | 2     | ◆      | 1/4   | 25%      |
 | 3     | ○      | 0/2   | 0%       |

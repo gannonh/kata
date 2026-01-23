@@ -144,13 +144,13 @@ ls "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null
 **If RESEARCH.md missing OR `--research` flag set:**
 
 Display stage banner:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► RESEARCHING PHASE {X}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Spawning researcher...
-```
+
 
 Proceed to spawn researcher
 
@@ -250,13 +250,13 @@ UAT_CONTENT=$(cat "${PHASE_DIR}"/*-UAT.md 2>/dev/null)
 ## 8. Spawn kata-planner Agent
 
 Display stage banner:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► PLANNING PHASE {X}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Spawning planner...
-```
+
 
 Fill prompt with inlined content and spawn:
 

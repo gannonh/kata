@@ -178,7 +178,7 @@ git commit -m "docs({phase}): add root causes from diagnosis"
 **Report diagnosis results and hand off:**
 
 Display:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► DIAGNOSIS COMPLETE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -192,7 +192,7 @@ Display:
 Debug sessions: ${DEBUG_DIR}/
 
 Proceeding to plan fixes...
-```
+
 
 Return to phase-verify orchestrator for automatic planning.
 Do NOT offer manual next steps - phase-verify handles the rest.

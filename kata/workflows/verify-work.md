@@ -373,13 +373,13 @@ Diagnosis runs automatically - no user prompt. Parallel agents investigate simul
 **Auto-plan fixes from diagnosed gaps:**
 
 Display:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► PLANNING FIXES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Spawning planner for gap closure...
-```
+
 
 Spawn kata-planner in --gaps mode:
 
@@ -422,13 +422,13 @@ On return:
 **Verify fix plans with checker:**
 
 Display:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► VERIFYING FIX PLANS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Spawning plan checker...
-```
+
 
 Initialize: `iteration_count = 1`
 
@@ -518,7 +518,7 @@ Wait for user response.
 <step name="present_ready">
 **Present completion and next steps:**
 
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► FIXES READY ✓
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -541,7 +541,7 @@ Plans verified and ready for execution.
 `/clear` then `/kata:phase-execute {phase} --gaps-only`
 
 ───────────────────────────────────────────────────────────────
-```
+
 </step>
 
 </process>
