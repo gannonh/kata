@@ -3,6 +3,10 @@
 
 const fs = require('fs');
 const input = JSON.parse(fs.readFileSync(0, 'utf8'));
+
+// Debug: log to file
+fs.appendFileSync('/tmp/hook-debug.log', JSON.stringify(input, null, 2) + '\n---\n');
+
 const command = input.tool_input?.command || '';
 
 // Patterns that indicate pushing to main
