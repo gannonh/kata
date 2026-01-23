@@ -3,8 +3,8 @@ created: 2026-01-18T17:29
 title: Add new user UX expectations to onboarding
 area: planning
 files:
-  - commands/kata/new-project.md
-  - kata/workflows/new-project.md
+  - commands/kata/project-new.md
+  - kata/workflows/project-new.md
 ---
 
 ## Problem
@@ -19,7 +19,7 @@ Without this context, users may feel uncertain about how to interact.
 
 ## Solution
 
-During `/kata:new-project` onboarding, include a brief "How Kata Works" section:
+During `/kata:project-new` onboarding, include a brief "How Kata Works" section:
 
 ```
 ## How to Use Kata

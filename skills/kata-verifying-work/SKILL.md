@@ -15,7 +15,7 @@ Validate built features through conversational testing with persistent state.
 
 Purpose: Confirm what Claude built actually works from user's perspective. One test at a time, plain text responses, no interrogation. When issues are found, automatically diagnose, plan fixes, and prepare for execution.
 
-Output: {phase}-UAT.md tracking all test results. If issues found: diagnosed gaps, verified fix plans ready for /kata:execute-phase
+Output: {phase}-UAT.md tracking all test results. If issues found: diagnosed gaps, verified fix plans ready for /kata:phase-execute
 </objective>
 
 <execution_context>
@@ -48,7 +48,7 @@ Phase: $ARGUMENTS (optional)
    - Spawn kata-planner in --gaps mode to create fix plans
    - Spawn kata-plan-checker to verify fix plans
    - Iterate planner ↔ checker until plans pass (max 3)
-   - Present ready status with `/clear` then `/kata:execute-phase`
+   - Present ready status with `/clear` then `/kata:phase-execute`
 </process>
 
 <anti_patterns>
@@ -62,11 +62,11 @@ Phase: $ARGUMENTS (optional)
 <offer_next>
 Output this markdown directly (not as a code block). Route based on UAT results:
 
-| Status | Route |
-|--------|-------|
-| All tests pass + more phases | Route A (next phase) |
-| All tests pass + last phase | Route B (milestone complete) |
-| Issues found + fix plans ready | Route C (execute fixes) |
+| Status                          | Route                         |
+| ------------------------------- | ----------------------------- |
+| All tests pass + more phases    | Route A (next phase)          |
+| All tests pass + last phase     | Route B (milestone complete)  |
+| Issues found + fix plans ready  | Route C (execute fixes)       |
 | Issues found + planning blocked | Route D (manual intervention) |
 
 ---
@@ -88,15 +88,15 @@ UAT complete ✓
 
 **Phase {Z+1}: {Name}** — {Goal from ROADMAP.md}
 
-/kata:discuss-phase {Z+1} — gather context and clarify approach
+/kata:phase-discuss {Z+1} — gather context and clarify approach
 
 <sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
-- /kata:plan-phase {Z+1} — skip discussion, plan directly
-- /kata:execute-phase {Z+1} — skip to execution (if already planned)
+- /kata:phase-plan {Z+1} — skip discussion, plan directly
+- /kata:phase-execute {Z+1} — skip to execution (if already planned)
 
 ───────────────────────────────────────────────────────────────
 
@@ -119,14 +119,14 @@ Final phase verified ✓
 
 **Audit milestone** — verify requirements, cross-phase integration, E2E flows
 
-/kata:audit-milestone
+/kata:milestone-audit
 
 <sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
-- /kata:complete-milestone — skip audit, archive directly
+- /kata:milestone-complete — skip audit, archive directly
 
 ───────────────────────────────────────────────────────────────
 
@@ -154,7 +154,7 @@ Fix plans verified ✓
 
 **Execute fix plans** — run diagnosed fixes
 
-/kata:execute-phase {Z} --gaps-only
+/kata:phase-execute {Z} --gaps-only
 
 <sub>/clear first → fresh context window</sub>
 
@@ -162,7 +162,7 @@ Fix plans verified ✓
 
 **Also available:**
 - cat .planning/phases/{phase_dir}/*-PLAN.md — review fix plans
-- /kata:plan-phase {Z} --gaps — regenerate fix plans
+- /kata:phase-plan {Z} --gaps — regenerate fix plans
 
 ───────────────────────────────────────────────────────────────
 
@@ -197,8 +197,8 @@ Review the issues above and either:
 ───────────────────────────────────────────────────────────────
 
 **Options:**
-- /kata:plan-phase {Z} --gaps — retry fix planning with guidance
-- /kata:discuss-phase {Z} — gather more context before replanning
+- /kata:phase-plan {Z} --gaps — retry fix planning with guidance
+- /kata:phase-discuss {Z} — gather more context before replanning
 
 ───────────────────────────────────────────────────────────────
 </offer_next>
@@ -213,5 +213,5 @@ Review the issues above and either:
 - [ ] If issues: parallel debug agents diagnose root causes
 - [ ] If issues: kata-planner creates fix plans from diagnosed gaps
 - [ ] If issues: kata-plan-checker verifies fix plans (max 3 iterations)
-- [ ] Ready for `/kata:execute-phase` when complete
+- [ ] Ready for `/kata:phase-execute` when complete
 </success_criteria>

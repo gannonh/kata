@@ -1,5 +1,5 @@
 <purpose>
-Validate built features through conversational testing with persistent state. Creates UAT.md that tracks test progress, survives /clear, and feeds gaps into /kata:plan-phase --gaps.
+Validate built features through conversational testing with persistent state. Creates UAT.md that tracks test progress, survives /clear, and feeds gaps into /kata:phase-plan --gaps.
 
 User tests, Claude records. One test at a time. Plain text responses.
 </purpose>
@@ -31,10 +31,10 @@ Default to "balanced" if not set.
 
 **Model lookup table:**
 
-| Agent | quality | balanced | budget |
-|-------|---------|----------|--------|
-| kata-planner | opus | opus | sonnet |
-| kata-plan-checker | sonnet | sonnet | haiku |
+| Agent             | quality | balanced | budget |
+| ----------------- | ------- | -------- | ------ |
+| kata-planner      | opus    | opus     | sonnet |
+| kata-plan-checker | sonnet  | sonnet   | haiku  |
 
 Store resolved models for use in Task calls below.
 </step>
@@ -55,10 +55,10 @@ Display inline:
 ```
 ## Active UAT Sessions
 
-| # | Phase | Status | Current Test | Progress |
-|---|-------|--------|--------------|----------|
-| 1 | 04-comments | testing | 3. Reply to Comment | 2/6 |
-| 2 | 05-auth | testing | 1. Login Form | 0/4 |
+| #   | Phase       | Status  | Current Test        | Progress |
+| --- | ----------- | ------- | ------------------- | -------- |
+| 1   | 04-comments | testing | 3. Reply to Comment | 2/6      |
+| 2   | 05-auth     | testing | 1. Login Form       | 0/4      |
 
 Reply with a number to resume, or provide a phase number to start new.
 ```
@@ -78,7 +78,7 @@ If no, continue to `create_uat_file`.
 ```
 No active UAT sessions.
 
-Provide a phase number to start testing (e.g., /kata:verify-work 4)
+Provide a phase number to start testing (e.g., /kata:phase-verify 4)
 ```
 
 **If no active sessions AND $ARGUMENTS provided:**
@@ -250,7 +250,7 @@ reported: "{verbatim user response}"
 severity: {inferred}
 ```
 
-Append to Gaps section (structured YAML for plan-phase --gaps):
+Append to Gaps section (structured YAML for phase-plan --gaps):
 ```yaml
 - truth: "{expected behavior from test}"
   status: failed
@@ -325,11 +325,11 @@ Present summary:
 ```
 ## UAT Complete: Phase {phase}
 
-| Result | Count |
-|--------|-------|
-| Passed | {N}   |
-| Issues | {N}   |
-| Skipped| {N}   |
+| Result  | Count |
+| ------- | ----- |
+| Passed  | {N}   |
+| Issues  | {N}   |
+| Skipped | {N}   |
 
 [If issues > 0:]
 ### Issues Found
@@ -343,8 +343,8 @@ Present summary:
 ```
 All tests passed. Ready to continue.
 
-- `/kata:plan-phase {next}` — Plan next phase
-- `/kata:execute-phase {next}` — Execute next phase
+- `/kata:phase-plan {next}` — Plan next phase
+- `/kata:phase-execute {next}` — Execute next phase
 ```
 </step>
 
@@ -373,13 +373,13 @@ Diagnosis runs automatically - no user prompt. Parallel agents investigate simul
 **Auto-plan fixes from diagnosed gaps:**
 
 Display:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► PLANNING FIXES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Spawning planner for gap closure...
-```
+
 
 Spawn kata-planner in --gaps mode:
 
@@ -403,7 +403,7 @@ Task(
 </planning_context>
 
 <downstream_consumer>
-Output consumed by /kata:execute-phase
+Output consumed by /kata:phase-execute
 Plans must be executable prompts.
 </downstream_consumer>
 """,
@@ -422,13 +422,13 @@ On return:
 **Verify fix plans with checker:**
 
 Display:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► VERIFYING FIX PLANS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Spawning plan checker...
-```
+
 
 Initialize: `iteration_count = 1`
 
@@ -510,7 +510,7 @@ Display: `Max iterations reached. {N} issues remain.`
 Offer options:
 1. Force proceed (execute despite issues)
 2. Provide guidance (user gives direction, retry)
-3. Abandon (exit, user runs /kata:plan-phase manually)
+3. Abandon (exit, user runs /kata:phase-plan manually)
 
 Wait for user response.
 </step>
@@ -518,15 +518,15 @@ Wait for user response.
 <step name="present_ready">
 **Present completion and next steps:**
 
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► FIXES READY ✓
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **Phase {X}: {Name}** — {N} gap(s) diagnosed, {M} fix plan(s) created
 
-| Gap | Root Cause | Fix Plan |
-|-----|------------|----------|
+| Gap       | Root Cause   | Fix Plan   |
+| --------- | ------------ | ---------- |
 | {truth 1} | {root_cause} | {phase}-04 |
 | {truth 2} | {root_cause} | {phase}-04 |
 
@@ -538,10 +538,10 @@ Plans verified and ready for execution.
 
 **Execute fixes** — run fix plans
 
-`/clear` then `/kata:execute-phase {phase} --gaps-only`
+`/clear` then `/kata:phase-execute {phase} --gaps-only`
 
 ───────────────────────────────────────────────────────────────
-```
+
 </step>
 
 </process>
@@ -554,14 +554,14 @@ Keep results in memory. Write to file only when:
 2. **Session complete** — Final write before commit
 3. **Checkpoint** — Every 5 passed tests (safety net)
 
-| Section | Rule | When Written |
-|---------|------|--------------|
-| Frontmatter.status | OVERWRITE | Start, complete |
+| Section             | Rule      | When Written      |
+| ------------------- | --------- | ----------------- |
+| Frontmatter.status  | OVERWRITE | Start, complete   |
 | Frontmatter.updated | OVERWRITE | On any file write |
-| Current Test | OVERWRITE | On any file write |
-| Tests.{N}.result | OVERWRITE | On any file write |
-| Summary | OVERWRITE | On any file write |
-| Gaps | APPEND | When issue found |
+| Current Test        | OVERWRITE | On any file write |
+| Tests.{N}.result    | OVERWRITE | On any file write |
+| Summary             | OVERWRITE | On any file write |
+| Gaps                | APPEND    | When issue found  |
 
 On context reset: File shows last checkpoint. Resume from there.
 </update_rules>
@@ -569,12 +569,12 @@ On context reset: File shows last checkpoint. Resume from there.
 <severity_inference>
 **Infer severity from user's natural language:**
 
-| User says | Infer |
-|-----------|-------|
-| "crashes", "error", "exception", "fails completely" | blocker |
-| "doesn't work", "nothing happens", "wrong behavior" | major |
-| "works but...", "slow", "weird", "minor issue" | minor |
-| "color", "spacing", "alignment", "looks off" | cosmetic |
+| User says                                           | Infer    |
+| --------------------------------------------------- | -------- |
+| "crashes", "error", "exception", "fails completely" | blocker  |
+| "doesn't work", "nothing happens", "wrong behavior" | major    |
+| "works but...", "slow", "weird", "minor issue"      | minor    |
+| "color", "spacing", "alignment", "looks off"        | cosmetic |
 
 Default to **major** if unclear. User can correct if needed.
 
@@ -592,5 +592,5 @@ Default to **major** if unclear. User can correct if needed.
 - [ ] If issues: kata-planner creates fix plans (gap_closure mode)
 - [ ] If issues: kata-plan-checker verifies fix plans
 - [ ] If issues: revision loop until plans pass (max 3 iterations)
-- [ ] Ready for `/kata:execute-phase --gaps-only` when complete
+- [ ] Ready for `/kata:phase-execute --gaps-only` when complete
 </success_criteria>

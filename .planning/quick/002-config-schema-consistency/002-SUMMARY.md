@@ -61,7 +61,7 @@
 ## PR Workflow Flow (when enabled)
 
 1. User works on feature branch
-2. `/kata:complete-milestone` offers to create PR
+2. `/kata:milestone-complete` offers to create PR
 3. User merges PR to main
 4. GH Actions (if scaffolded):
    - Detects version change in package.json

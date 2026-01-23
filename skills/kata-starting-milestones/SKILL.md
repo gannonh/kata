@@ -15,7 +15,7 @@ allowed-tools:
 <objective>
 Start a new milestone through unified flow: questioning → research (optional) → requirements → roadmap.
 
-This is the brownfield equivalent of new-project. The project exists, PROJECT.md has history. This command gathers "what's next", updates PROJECT.md, then continues through the full requirements → roadmap cycle.
+This is the brownfield equivalent of project-new. The project exists, PROJECT.md has history. This command gathers "what's next", updates PROJECT.md, then continues through the full requirements → roadmap cycle.
 
 **Creates/Updates:**
 - `.planning/PROJECT.md` — updated with new milestone goals
@@ -24,7 +24,7 @@ This is the brownfield equivalent of new-project. The project exists, PROJECT.md
 - `.planning/ROADMAP.md` — phase structure (continues numbering)
 - `.planning/STATE.md` — reset for new milestone
 
-**After this command:** Run `/kata:plan-phase [N]` to start execution.
+**After this command:** Run `/kata:phase-plan [N]` to start execution.
 </objective>
 
 <execution_context>
@@ -136,11 +136,11 @@ Default to "balanced" if not set.
 
 **Model lookup table:**
 
-| Agent | quality | balanced | budget |
-|-------|---------|----------|--------|
-| kata-project-researcher | opus | sonnet | haiku |
-| kata-research-synthesizer | sonnet | sonnet | haiku |
-| kata-roadmapper | opus | sonnet | sonnet |
+| Agent                     | quality | balanced | budget |
+| ------------------------- | ------- | -------- | ------ |
+| kata-project-researcher   | opus    | sonnet   | haiku  |
+| kata-research-synthesizer | sonnet  | sonnet   | haiku  |
+| kata-roadmapper           | opus    | sonnet   | sonnet |
 
 Store resolved models for use in Task calls below.
 
@@ -156,13 +156,13 @@ Use AskUserQuestion:
 **If "Research first":**
 
 Display stage banner:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► RESEARCHING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Researching [new features] ecosystem...
-```
+
 
 Create research directory:
 ```bash
@@ -369,7 +369,7 @@ Commit after writing.
 ```
 
 Display research complete banner and key findings:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► RESEARCH COMPLETE ✓
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -381,18 +381,18 @@ Display research complete banner and key findings:
 **Watch Out For:** [from SUMMARY.md]
 
 Files: `.planning/research/`
-```
+
 
 **If "Skip research":** Continue to Phase 8.
 
 ## Phase 8: Define Requirements
 
 Display stage banner:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► DEFINING REQUIREMENTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+
 
 **Load context:**
 
@@ -522,13 +522,13 @@ EOF
 ## Phase 9: Create Roadmap
 
 Display stage banner:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► CREATING ROADMAP
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Spawning roadmapper...
-```
+
 
 **Determine starting phase number:**
 
@@ -591,10 +591,10 @@ Read the created ROADMAP.md and present it nicely inline:
 
 **[N] phases** | **[X] requirements mapped** | All milestone requirements covered ✓
 
-| # | Phase | Goal | Requirements | Success Criteria |
-|---|-------|------|--------------|------------------|
-| [N] | [Name] | [Goal] | [REQ-IDs] | [count] |
-| [N+1] | [Name] | [Goal] | [REQ-IDs] | [count] |
+| #     | Phase  | Goal   | Requirements | Success Criteria |
+| ----- | ------ | ------ | ------------ | ---------------- |
+| [N]   | [Name] | [Goal] | [REQ-IDs]    | [count]          |
+| [N+1] | [Name] | [Goal] | [REQ-IDs]    | [count]          |
 ...
 
 ### Phase Details
@@ -668,19 +668,19 @@ EOF
 
 Present completion with next steps:
 
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► MILESTONE INITIALIZED ✓
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **Milestone v[X.Y]: [Name]**
 
-| Artifact       | Location                    |
-|----------------|-----------------------------|
-| Project        | `.planning/PROJECT.md`      |
-| Research       | `.planning/research/`       |
-| Requirements   | `.planning/REQUIREMENTS.md` |
-| Roadmap        | `.planning/ROADMAP.md`      |
+| Artifact     | Location                    |
+| ------------ | --------------------------- |
+| Project      | `.planning/PROJECT.md`      |
+| Research     | `.planning/research/`       |
+| Requirements | `.planning/REQUIREMENTS.md` |
+| Roadmap      | `.planning/ROADMAP.md`      |
 
 **[N] phases** | **[X] requirements** | Ready to build ✓
 
@@ -690,17 +690,17 @@ Present completion with next steps:
 
 **Phase [N]: [Phase Name]** — [Goal from ROADMAP.md]
 
-`/kata:discuss-phase [N]` — gather context and clarify approach
+`/kata:phase-discuss [N]` — gather context and clarify approach
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:plan-phase [N]` — skip discussion, plan directly
+- `/kata:phase-plan [N]` — skip discussion, plan directly
 
 ───────────────────────────────────────────────────────────────
-```
+
 
 </process>
 
@@ -717,7 +717,7 @@ Present completion with next steps:
 - [ ] User feedback incorporated (if any)
 - [ ] ROADMAP.md created with phases continuing from previous milestone
 - [ ] All commits made (if planning docs committed)
-- [ ] User knows next step is `/kata:discuss-phase [N]`
+- [ ] User knows next step is `/kata:phase-discuss [N]`
 
 **Atomic commits:** Each phase commits its artifacts immediately. If context is lost, artifacts persist.
 </success_criteria>

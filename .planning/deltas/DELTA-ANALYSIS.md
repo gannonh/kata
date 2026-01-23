@@ -9,13 +9,13 @@
 
 ## Summary
 
-| Category | Count |
-|----------|-------|
-| New Features | 8 |
-| Workflow Changes | 6 |
-| Breaking Changes | 5 |
-| Bug Fixes | 18 |
-| Documentation/Housekeeping | 7 |
+| Category                   | Count |
+| -------------------------- | ----- |
+| New Features               | 8     |
+| Workflow Changes           | 6     |
+| Breaking Changes           | 5     |
+| Bug Fixes                  | 18    |
+| Documentation/Housekeeping | 7     |
 
 ---
 
@@ -24,7 +24,7 @@
 ### 1. Quick Mode (`/gsd:quick`) — v1.7.0
 **Complexity**: Medium
 **Description**: Execute small, ad-hoc tasks with GSD guarantees but skip optional agents (researcher, checker, verifier). Quick tasks live in `.planning/quick/` with their own tracking in STATE.md.
-**Kata Adaptation**: Rename to `/kata:quick`, update paths and branding
+**Kata Adaptation**: Rename to `/kata:task-execute`, update paths and branding
 **Value**: High — enables lightweight task execution without full phase overhead
 
 ### 2. Uncommitted Planning Mode — v1.8.0
@@ -33,15 +33,15 @@
 **Kata Adaptation**: Direct port, update config.json schema
 **Value**: High — essential for OSS contribution workflows
 
-### 3. Git Tracking Setup in new-project — v1.8.0
+### 3. Git Tracking Setup in project-new — v1.8.0
 **Complexity**: Low
-**Description**: `/gsd:new-project` now asks about git tracking during initial setup, letting you opt out of committing planning docs from the start.
+**Description**: `/gsd:project-new` now asks about git tracking during initial setup, letting you opt out of committing planning docs from the start.
 **Kata Adaptation**: Rename command, update prompts
 **Value**: Medium — improves onboarding UX
 
 ### 4. `--gaps-only` Flag — v1.6.3
 **Complexity**: Low
-**Description**: `--gaps-only` flag for `/gsd:execute-phase` — executes only gap closure plans after verify-work finds issues, eliminating redundant state discovery.
+**Description**: `--gaps-only` flag for `/gsd:phase-execute` — executes only gap closure plans after phase-verify finds issues, eliminating redundant state discovery.
 **Kata Adaptation**: Direct port with command rename
 **Value**: Medium — workflow optimization
 
@@ -57,9 +57,9 @@
 **Kata Adaptation**: Already in Kata (shows `/kata:update`)
 **Value**: Already integrated — Skip
 
-### 7. verify-work Next-Step Routing — v1.6.0
+### 7. phase-verify Next-Step Routing — v1.6.0
 **Complexity**: Low
-**Description**: `/gsd:verify-work` now includes next-step routing after verification completes.
+**Description**: `/gsd:phase-verify` now includes next-step routing after verification completes.
 **Kata Adaptation**: Update command references
 **Value**: Low — UX polish
 
@@ -73,9 +73,9 @@
 
 ## Breaking Changes
 
-### 1. Unified `/gsd:new-milestone` Flow — v1.6.0
+### 1. Unified `/gsd:milestone-new` Flow — v1.6.0
 **Complexity**: High
-**Description**: Now mirrors `/gsd:new-project` with questioning → research → requirements → roadmap in a single command.
+**Description**: Now mirrors `/gsd:project-new` with questioning → research → requirements → roadmap in a single command.
 **Impact**: Removes 4 commands, consolidates workflow
 **Kata Adaptation**: Major refactor of milestone commands
 **Removed Commands**:
@@ -86,7 +86,7 @@
 
 ### 2. Removed `/gsd:execute-plan` — v1.5.28
 **Complexity**: Medium
-**Description**: Use `/gsd:execute-phase` instead.
+**Description**: Use `/gsd:phase-execute` instead.
 **Impact**: Command removal, update all references
 **Kata Adaptation**: Remove command, update docs
 
@@ -102,16 +102,16 @@
 
 ### 5. Phase Directory Creation Timing — v1.6.2
 **Complexity**: Low
-**Description**: Phase directories now created at discuss/plan-phase instead of during roadmap creation.
+**Description**: Phase directories now created at discuss/phase-plan instead of during roadmap creation.
 **Kata Adaptation**: Update workflow timing
 
 ---
 
 ## Workflow/Behavioral Changes
 
-### 1. Domain-Aware Questioning in discuss-phase — v1.5.29
+### 1. Domain-Aware Questioning in phase-discuss — v1.5.29
 **Complexity**: Medium
-**Description**: Discuss-phase now uses domain-aware questioning with deeper probing for gray areas.
+**Description**: phase-discuss now uses domain-aware questioning with deeper probing for gray areas.
 **Kata Adaptation**: Port questioning logic updates
 
 ### 2. Clean Install Behavior — v1.6.1
@@ -145,41 +145,41 @@
 
 ### High Priority (Likely affects Kata)
 
-| Fix | Version | Complexity | Notes |
-|-----|---------|------------|-------|
-| Windows hooks via Node.js | v1.5.29 | Medium | Critical for Windows users |
-| Console window flash on Windows | v1.7.0 | Low | Windows UX |
-| Phase directory matching (zero-padded) | v1.5.28 | Low | Likely same issue |
-| Orchestrator corrections committed | v1.5.27 | Low | Git workflow fix |
-| Revised plans committed after checker | v1.5.26 | Low | Git workflow fix |
-| Planner loads CONTEXT.md/RESEARCH.md | v1.5.24 | Low | Agent reliability |
-| Researcher loads CONTEXT.md | v1.5.25 | Low | Agent reliability |
-| WSL2/non-TTY installation | v1.6.4 | Medium | Linux/WSL users |
-| Empty `--config-dir` validation | v1.7.0 | Low | Edge case |
+| Fix                                    | Version | Complexity | Notes                      |
+| -------------------------------------- | ------- | ---------- | -------------------------- |
+| Windows hooks via Node.js              | v1.5.29 | Medium     | Critical for Windows users |
+| Console window flash on Windows        | v1.7.0  | Low        | Windows UX                 |
+| Phase directory matching (zero-padded) | v1.5.28 | Low        | Likely same issue          |
+| Orchestrator corrections committed     | v1.5.27 | Low        | Git workflow fix           |
+| Revised plans committed after checker  | v1.5.26 | Low        | Git workflow fix           |
+| Planner loads CONTEXT.md/RESEARCH.md   | v1.5.24 | Low        | Agent reliability          |
+| Researcher loads CONTEXT.md            | v1.5.25 | Low        | Agent reliability          |
+| WSL2/non-TTY installation              | v1.6.4  | Medium     | Linux/WSL users            |
+| Empty `--config-dir` validation        | v1.7.0  | Low        | Edge case                  |
 
 ### Lower Priority (May already be different in Kata)
 
-| Fix | Version | Notes |
-|-----|---------|-------|
-| Stop notification hook improvements | v1.5.24, v1.5.25 | Notification system |
-| Blocking notification popups removed | v1.5.29 | May not apply |
-| Orphaned gsd-notify.sh cleanup | v1.6.4 | GSD-specific |
-| Output templates render markdown | v1.5.30 | Template fix |
-| Next-step suggestions consistency | v1.5.30 | Routing fix |
-| File copy verification in install | v1.6.4 | Installer |
-| allowed-tools YAML format | v1.7.0 | Agent config |
-| Agent name in research-phase heading | v1.7.0 | Typo fix |
+| Fix                                  | Version          | Notes               |
+| ------------------------------------ | ---------------- | ------------------- |
+| Stop notification hook improvements  | v1.5.24, v1.5.25 | Notification system |
+| Blocking notification popups removed | v1.5.29          | May not apply       |
+| Orphaned gsd-notify.sh cleanup       | v1.6.4           | GSD-specific        |
+| Output templates render markdown     | v1.5.30          | Template fix        |
+| Next-step suggestions consistency    | v1.5.30          | Routing fix         |
+| File copy verification in install    | v1.6.4           | Installer           |
+| allowed-tools YAML format            | v1.7.0           | Agent config        |
+| Agent name in phase-research heading | v1.7.0           | Typo fix            |
 
 ---
 
 ## Already in Kata / Skip
 
-| Feature | Reason |
-|---------|--------|
-| Statusline update indicator | Already implemented differently |
-| Installation detection | Kata has own implementation |
-| README/documentation changes | Kata has own docs |
-| Housekeeping (package.json fields) | Not applicable |
+| Feature                            | Reason                          |
+| ---------------------------------- | ------------------------------- |
+| Statusline update indicator        | Already implemented differently |
+| Installation detection             | Kata has own implementation     |
+| README/documentation changes       | Kata has own docs               |
+| Housekeeping (package.json fields) | Not applicable                  |
 
 ---
 
@@ -192,7 +192,7 @@ Quick Mode (v1.7.0)
 Uncommitted Planning Mode (v1.8.0)
 └── Git Tracking Setup (v1.8.0)
 
-Unified new-milestone (v1.6.0)
+Unified milestone-new (v1.6.0)
 ├── Removed discuss-milestone
 ├── Removed create-roadmap
 ├── Removed define-requirements

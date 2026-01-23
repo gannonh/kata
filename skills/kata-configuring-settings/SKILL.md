@@ -26,7 +26,7 @@ Updates `.planning/config.json` with workflow preferences and model profile sele
 ls .planning/config.json 2>/dev/null
 ```
 
-**If not found:** Error - run `/kata:new-project` first.
+**If not found:** Error - run `/kata:project-new` first.
 
 ## 2. Read Current Config and Detect Missing Keys
 
@@ -41,15 +41,17 @@ Parse current values with defaults:
 - `model_profile` — which model each agent uses (default: `balanced`)
 - `commit_docs` — commit planning artifacts to git (default: `true`)
 - `pr_workflow` — use PR-based release workflow (default: `false`)
-- `workflow.research` — spawn researcher during plan-phase (default: `true`)
-- `workflow.plan_check` — spawn plan checker during plan-phase (default: `true`)
-- `workflow.verifier` — spawn verifier during execute-phase (default: `true`)
+- `display.statusline` — show Kata statusline (default: `true`)
+- `workflow.research` — spawn researcher during phase-plan (default: `true`)
+- `workflow.plan_check` — spawn plan checker during phase-plan (default: `true`)
+- `workflow.verifier` — spawn verifier during phase-execute (default: `true`)
 
 **Detect missing keys:**
 
 Check if these keys exist in config.json:
 - `commit_docs`
 - `pr_workflow`
+- `display.statusline`
 
 If any are missing, note them for step 3.
 
@@ -91,8 +93,8 @@ AskUserQuestion([
     header: "PR Workflow",
     multiSelect: false,
     options: [
-      { label: "Yes", description: "Protect main, create PRs, tag via GitHub Release" },
-      { label: "No (Recommended)", description: "Commit directly to main, create tags locally" }
+      { label: "Yes (Recommended)", description: "Protect main, create PRs, tag via GitHub Release" },
+      { label: "No", description: "Commit directly to main, create tags locally" }
     ]
   },
   {
@@ -121,6 +123,15 @@ AskUserQuestion([
       { label: "Yes", description: "Verify must-haves after execution" },
       { label: "No", description: "Skip post-execution verification" }
     ]
+  },
+  {
+    question: "Enable Kata statusline?",
+    header: "Statusline",
+    multiSelect: false,
+    options: [
+      { label: "Yes (Recommended)", description: "Show model, context usage, update status in statusline" },
+      { label: "No", description: "Use default Claude Code statusline" }
+    ]
   }
 ])
 ```
@@ -139,6 +150,9 @@ Merge new settings into existing config.json (preserving existing keys like `mod
   "model_profile": "quality|balanced|budget",
   "commit_docs": true|false,
   "pr_workflow": true|false,
+  "display": {
+    "statusline": true|false
+  },
   "workflow": {
     "research": true|false,
     "plan_check": true|false,
@@ -149,6 +163,64 @@ Merge new settings into existing config.json (preserving existing keys like `mod
 
 Write updated config to `.planning/config.json`.
 
+**If `display.statusline` changed to `true`:**
+
+Update `.claude/settings.json` with statusline configuration:
+
+```bash
+# Ensure .claude directory exists
+mkdir -p .claude
+
+# Check if settings.json exists and has statusLine
+if [ -f .claude/settings.json ]; then
+  # Check if statusLine already configured
+  if grep -q '"statusLine"' .claude/settings.json; then
+    echo "Statusline already configured in .claude/settings.json"
+  else
+    # Add statusLine to existing settings using node
+    node -e "
+      const fs = require('fs');
+      const settings = JSON.parse(fs.readFileSync('.claude/settings.json', 'utf8'));
+      settings.statusLine = {
+        type: 'command',
+        command: 'node \"\$CLAUDE_PROJECT_DIR/.claude/hooks/kata-statusline.js\"'
+      };
+      fs.writeFileSync('.claude/settings.json', JSON.stringify(settings, null, 2));
+    "
+    echo "✓ Statusline enabled in .claude/settings.json"
+  fi
+else
+  # Create new settings.json with statusLine
+  cat > .claude/settings.json << 'SETTINGS_EOF'
+{
+  "statusLine": {
+    "type": "command",
+    "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/kata-statusline.js\""
+  }
+}
+SETTINGS_EOF
+  echo "✓ Created .claude/settings.json with statusline"
+fi
+```
+
+The statusline hook will be automatically installed on next session start by Kata's SessionStart hook.
+
+**If `display.statusline` changed to `false`:**
+
+Remove statusline from `.claude/settings.json`:
+
+```bash
+if [ -f .claude/settings.json ]; then
+  node -e "
+    const fs = require('fs');
+    const settings = JSON.parse(fs.readFileSync('.claude/settings.json', 'utf8'));
+    delete settings.statusLine;
+    fs.writeFileSync('.claude/settings.json', JSON.stringify(settings, null, 2));
+  "
+  echo "✓ Statusline disabled in .claude/settings.json"
+fi
+```
+
 **If `commit_docs` changed to `false`:**
 - Add `.planning/` to `.gitignore` (create if needed)
 - Note: User should run `git rm -r --cached .planning/` if already tracked
@@ -157,35 +229,37 @@ Write updated config to `.planning/config.json`.
 
 Display:
 
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► SETTINGS UPDATED
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-| Setting              | Value |
-|----------------------|-------|
-| Model Profile        | {quality/balanced/budget} |
-| Commit Docs          | {On/Off} |
-| PR Workflow          | {On/Off} |
-| Plan Researcher      | {On/Off} |
-| Plan Checker         | {On/Off} |
-| Execution Verifier   | {On/Off} |
+| Setting            | Value                     |
+| ------------------ | ------------------------- |
+| Model Profile      | {quality/balanced/budget} |
+| Commit Docs        | {On/Off}                  |
+| PR Workflow        | {On/Off}                  |
+| Statusline         | {On/Off}                  |
+| Plan Researcher    | {On/Off}                  |
+| Plan Checker       | {On/Off}                  |
+| Execution Verifier | {On/Off}                  |
 
-These settings apply to future /kata:plan-phase and /kata:execute-phase runs.
+These settings apply to future /kata:phase-plan and /kata:phase-execute runs.
 
 Quick commands:
-- /kata:set-profile <profile> — switch model profile
-- /kata:plan-phase --research — force research
-- /kata:plan-phase --skip-research — skip research
-- /kata:plan-phase --skip-verify — skip plan check
-```
+- /kata:models-config <profile> — switch model profile
+- /kata:phase-plan --research — force research
+- /kata:phase-plan --skip-research — skip research
+- /kata:phase-plan --skip-verify — skip plan check
+
 
 </process>
 
 <success_criteria>
 - [ ] Current config read
 - [ ] Missing keys detected and user notified
-- [ ] User presented with 6 settings (profile + commit_docs + pr_workflow + 3 toggles)
+- [ ] User presented with 7 settings (profile + commit_docs + pr_workflow + statusline + 3 toggles)
 - [ ] Config updated with complete schema
+- [ ] .claude/settings.json updated if statusline toggled
 - [ ] Changes confirmed to user
 </success_criteria>

@@ -6,11 +6,9 @@ Visual patterns for user-facing Kata output. Orchestrators @-reference this file
 
 Use for major workflow transitions.
 
-```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► {STAGE NAME}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
 
 **Stage names (uppercase):**
 - `QUESTIONING`
@@ -29,7 +27,7 @@ Use for major workflow transitions.
 
 User action required. 62-character width.
 
-```
+
 ╔══════════════════════════════════════════════════════════════╗
 ║  CHECKPOINT: {Type}                                          ║
 ╚══════════════════════════════════════════════════════════════╝
@@ -39,7 +37,7 @@ User action required. 62-character width.
 ──────────────────────────────────────────────────────────────
 → {ACTION PROMPT}
 ──────────────────────────────────────────────────────────────
-```
+
 
 **Types:**
 - `CHECKPOINT: Verification Required` → `→ Type "approved" or describe issues`

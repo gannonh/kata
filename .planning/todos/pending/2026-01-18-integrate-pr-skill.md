@@ -23,10 +23,10 @@ This skill should be integrated into Kata for seamless phase-level PR workflows 
 Integrate the PR skill into Kata:
 1. Port to `skills/kata-pull-requests/` or similar
 2. Coordinate with phase completion (auto-create PR after phase execution?)
-3. Connect to verification workflow (run review agents as part of `/kata:verify-work`?)
+3. Connect to verification workflow (run review agents as part of `/kata:phase-verify`?)
 4. Consider phase-level PR template with summary of plans executed
 
 Key integration points:
-- After `/kata:execute-phase` completes → suggest/create PR
-- `/kata:verify-work` could include PR review
+- After `/kata:phase-execute` completes → suggest/create PR
+- `/kata:phase-verify` could include PR review
 - STATE.md could track PR state per phase

@@ -13,7 +13,7 @@ provides:
   - milestone-creation.md reference (questioning, research, requirements, roadmap)
   - milestone-completion.md reference (archive, tag, evolve PROJECT.md)
   - milestone-auditing.md reference (gap analysis, coverage verification)
-affects: [kata-starting-new-projects, roadmap-management]
+affects: [kata-starting-project-news, roadmap-management]
 
 # Tech tracking
 tech-stack:
@@ -29,7 +29,7 @@ key-files:
   modified: []
 
 key-decisions:
-  - "Combined three commands (new-milestone, complete-milestone, audit-milestone) into single skill with operation routing"
+  - "Combined three commands (milestone-new, milestone-complete, milestone-audit) into single skill with operation routing"
   - "Extracted workflow details to reference files for progressive disclosure"
 
 patterns-established:
@@ -75,7 +75,7 @@ Each task was committed atomically:
 
 ## Decisions Made
 
-- **Unified skill:** Combined new-milestone, complete-milestone, and audit-milestone commands into single skill with operation detection from natural language
+- **Unified skill:** Combined milestone-new, milestone-complete, and milestone-audit commands into single skill with operation detection from natural language
 - **Progressive disclosure:** Core workflow in SKILL.md (~280 lines), detailed workflows in references/
 - **Sub-agent pattern:** Spawns kata-project-researcher (4x parallel), kata-researching-phases-synthesizer, kata-roadmapper, and kata-integration-checker
 

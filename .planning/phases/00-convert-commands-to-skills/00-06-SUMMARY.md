@@ -61,7 +61,7 @@ completed: 2026-01-19
 ## Accomplishments
 
 - Created kata-managing-project-roadmap skill with orchestrator workflow (303 lines)
-- Extracted phase operations from 4 slash commands (add-phase, insert-phase, remove-phase, plan-milestone-gaps)
+- Extracted phase operations from 4 slash commands (phase-add, phase-insert, phase-remove, milestone-plan-gaps)
 - Created 3 reference files with detailed workflows and conventions
 - Documented decimal numbering system for urgent phase insertions
 - Established gap-to-phase mapping patterns for milestone audit integration
@@ -83,7 +83,7 @@ Note: Committed as part of wave 2 parallel execution.
 
 ## Decisions Made
 
-1. **Four operations in one skill** - Combined add-phase, insert-phase, remove-phase, and plan-milestone-gaps into single skill since they all manage roadmap structure
+1. **Four operations in one skill** - Combined phase-add, phase-insert, phase-remove, and milestone-plan-gaps into single skill since they all manage roadmap structure
 2. **Spawning strategy** - Simple ADD operations handled inline; INSERT, REMOVE, PLAN-GAPS spawn kata-roadmapper for complexity
 3. **Decimal format** - Standardized on `{NN.M}` format (e.g., `02.1` not `2.1`) for consistent sorting
 

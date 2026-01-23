@@ -61,7 +61,6 @@ function parseConfigDirArg() {
 }
 const explicitConfigDir = parseConfigDirArg();
 const hasHelp = args.includes('--help') || args.includes('-h');
-const forceStatusline = args.includes('--force-statusline');
 
 console.log(banner);
 
@@ -74,7 +73,6 @@ if (hasHelp) {
     ${amber}-l, --local${reset}               Install locally (to ./.claude in current directory)
     ${amber}-c, --config-dir <path>${reset}   Specify custom Claude config directory
     ${amber}-h, --help${reset}                Show this help message
-    ${amber}--force-statusline${reset}        Replace existing statusline config
 
   ${amber}Examples:${reset}
     ${dim}# Install to default ~/.claude directory${reset}
@@ -165,7 +163,7 @@ function cleanupOrphanedFiles(claudeDir) {
   const orphanedFiles = [
     'hooks/gsd-notify.sh',   // Removed in v1.6.x
     'hooks/kata-lint.js',    // Dev-only, erroneously distributed in v1.7.x
-    'hooks/statusline.js',   // Renamed to kata-statusline.js
+    'hooks/statusline.js',   // Renamed to kata-npm-statusline.js
   ];
 
   const orphanedDirs = [
@@ -453,12 +451,9 @@ function install(isGlobal) {
     process.exit(1);
   }
 
-  // Configure statusline and hooks in settings.json
+  // Configure hooks in settings.json
   const settingsPath = path.join(claudeDir, 'settings.json');
   const settings = cleanupOrphanedHooks(readSettings(settingsPath));
-  const statuslineCommand = isGlobal
-    ? 'node "$HOME/.claude/hooks/kata-statusline.js"'
-    : 'node .claude/hooks/kata-statusline.js';
   const updateCheckCommand = isGlobal
     ? 'node "$HOME/.claude/hooks/kata-check-update.js"'
     : 'node .claude/hooks/kata-check-update.js';
@@ -488,83 +483,19 @@ function install(isGlobal) {
     console.log(`  ${green}✓${reset} Configured update check hook`);
   }
 
-  return { settingsPath, settings, statuslineCommand };
+  return { settingsPath, settings };
 }
 
 /**
- * Apply statusline config, then print completion message
+ * Write settings and print completion message
  */
-function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallStatusline, isGlobal) {
-  if (shouldInstallStatusline) {
-    settings.statusLine = {
-      type: 'command',
-      command: statuslineCommand
-    };
-    console.log(`  ${green}✓${reset} Configured statusline`);
-  }
-
-  // Always write settings (hooks were already configured in install())
+function finishInstall(settingsPath, settings) {
+  // Write settings (hooks were already configured in install())
   writeSettings(settingsPath, settings);
 
   console.log(`
   ${green}Done!${reset} Launch Claude Code and run ${amber}/kata:help${reset}.
 `);
-}
-
-/**
- * Handle statusline configuration with optional prompt
- */
-function handleStatusline(settings, isInteractive, callback) {
-  const hasExisting = settings.statusLine != null;
-
-  // No existing statusline - just install it
-  if (!hasExisting) {
-    callback(true);
-    return;
-  }
-
-  // Has existing and --force-statusline flag
-  if (forceStatusline) {
-    callback(true);
-    return;
-  }
-
-  // Has existing, non-interactive mode - skip
-  if (!isInteractive) {
-    console.log(`  ${amber}⚠${reset} Skipping statusline (already configured)`);
-    console.log(`    Use ${amber}--force-statusline${reset} to replace\n`);
-    callback(false);
-    return;
-  }
-
-  // Has existing, interactive mode - prompt user
-  const existingCmd = settings.statusLine.command || settings.statusLine.url || '(custom)';
-
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-
-  console.log(`
-  ${amber}⚠${reset} Existing statusline detected
-
-  Your current statusline:
-    ${dim}command: ${existingCmd}${reset}
-
-  Kata includes a statusline showing:
-    • Model name
-    • Current task (from todo list)
-    • Context window usage (color-coded)
-
-  ${amber}1${reset}) Keep existing
-  ${amber}2${reset}) Replace with Kata statusline
-`);
-
-  rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
-    rl.close();
-    const choice = answer.trim() || '1';
-    callback(choice === '2');
-  });
 }
 
 /**
@@ -575,10 +506,8 @@ function promptLocation() {
   // This handles npx execution in environments like WSL2 where stdin may not be properly connected
   if (!process.stdin.isTTY) {
     console.log(`  ${amber}Non-interactive terminal detected, defaulting to global install${reset}\n`);
-    const { settingsPath, settings, statuslineCommand } = install(true);
-    handleStatusline(settings, false, (shouldInstallStatusline) => {
-      finishInstall(settingsPath, settings, statuslineCommand, shouldInstallStatusline, true);
-    });
+    const { settingsPath, settings } = install(true);
+    finishInstall(settingsPath, settings);
     return;
   }
 
@@ -595,10 +524,8 @@ function promptLocation() {
     if (!answered) {
       answered = true;
       console.log(`\n  ${amber}Input stream closed, defaulting to global install${reset}\n`);
-      const { settingsPath, settings, statuslineCommand } = install(true);
-      handleStatusline(settings, false, (shouldInstallStatusline) => {
-        finishInstall(settingsPath, settings, statuslineCommand, shouldInstallStatusline, true);
-      });
+      const { settingsPath, settings } = install(true);
+      finishInstall(settingsPath, settings);
     }
   });
 
@@ -617,11 +544,8 @@ function promptLocation() {
     rl.close();
     const choice = answer.trim() || '1';
     const isGlobal = choice !== '2';
-    const { settingsPath, settings, statuslineCommand } = install(isGlobal);
-    // Interactive mode - prompt for optional features
-    handleStatusline(settings, true, (shouldInstallStatusline) => {
-      finishInstall(settingsPath, settings, statuslineCommand, shouldInstallStatusline, isGlobal);
-    });
+    const { settingsPath, settings } = install(isGlobal);
+    finishInstall(settingsPath, settings);
   });
 }
 
@@ -633,17 +557,11 @@ if (hasGlobal && hasLocal) {
   console.error(`  ${amber}Cannot use --config-dir with --local${reset}`);
   process.exit(1);
 } else if (hasGlobal) {
-  const { settingsPath, settings, statuslineCommand } = install(true);
-  // Non-interactive - respect flags
-  handleStatusline(settings, false, (shouldInstallStatusline) => {
-    finishInstall(settingsPath, settings, statuslineCommand, shouldInstallStatusline, true);
-  });
+  const { settingsPath, settings } = install(true);
+  finishInstall(settingsPath, settings);
 } else if (hasLocal) {
-  const { settingsPath, settings, statuslineCommand } = install(false);
-  // Non-interactive - respect flags
-  handleStatusline(settings, false, (shouldInstallStatusline) => {
-    finishInstall(settingsPath, settings, statuslineCommand, shouldInstallStatusline, false);
-  });
+  const { settingsPath, settings } = install(false);
+  finishInstall(settingsPath, settings);
 } else {
   promptLocation();
 }

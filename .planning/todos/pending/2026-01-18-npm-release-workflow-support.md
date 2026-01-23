@@ -16,7 +16,7 @@ Kata projects that publish to npm need a release workflow. There's an existing `
 - Release commit with marker ("NPM VERSION BUMP: X.X.X")
 - PR creation for CI-triggered publish
 
-This should be available as an optional Kata workflow, coordinated with `/kata:complete-milestone` (which owns git tags).
+This should be available as an optional Kata workflow, coordinated with `/kata:milestone-complete` (which owns git tags).
 
 ## Solution
 
@@ -27,9 +27,9 @@ Port `/Users/gannonhall/.claude/commands/npm-release.md` to Kata system:
 - Follow Kata style conventions (XML structure, imperative voice)
 
 **Implemented (2026-01-22):**
-- ✅ `pr_workflow` config option in new-project and settings
-- ✅ PR creation offer in complete-milestone when pr_workflow=true
-- ✅ GH Actions scaffolding (`.github/workflows/release.yml`) during new-project when pr_workflow=true
+- ✅ `pr_workflow` config option in project-new and settings
+- ✅ PR creation offer in milestone-complete when pr_workflow=true
+- ✅ GH Actions scaffolding (`.github/workflows/release.yml`) during project-new when pr_workflow=true
 - ✅ Workflow auto-publishes to npm when version changes, creates GitHub Release with tag
 
 **Still pending:**

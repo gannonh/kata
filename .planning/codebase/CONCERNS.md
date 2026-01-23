@@ -13,8 +13,8 @@
 **Deprecated Files Not Removed:**
 - Issue: Multiple deprecated files remain in codebase with "DEPRECATED" headers but still loadable
 - Files:
-  - `kata/workflows/plan-phase.md`
-  - `kata/workflows/research-phase.md`
+  - `kata/workflows/phase-plan.md`
+  - `kata/workflows/phase-research.md`
   - `kata/workflows/research-project.md`
   - `kata/workflows/debug.md`
   - `kata/references/plan-format.md`
@@ -75,13 +75,13 @@
 ## Fragile Areas
 
 **Roadmap Parsing:**
-- Files: `commands/gsd/execute-phase.md`, `commands/gsd/plan-phase.md`
+- Files: `commands/gsd/phase-execute.md`, `commands/gsd/phase-plan.md`
 - Why fragile: Commands use grep/sed to parse ROADMAP.md for phase information
 - Safe modification: Test with various roadmap formats; regex patterns assume specific line formats
 - Test coverage: No automated tests - relies on Claude's pattern matching
 
 **Wave-Based Parallel Execution:**
-- Files: `commands/gsd/execute-phase.md`, `agents/kata-executor.md`
+- Files: `commands/gsd/phase-execute.md`, `agents/kata-executor.md`
 - Why fragile: Parallel Task spawning depends on correct wave assignment in PLAN.md frontmatter
 - Safe modification: Ensure wave numbers are integers, dependency graph is acyclic
 - Test coverage: No automated validation of wave assignment

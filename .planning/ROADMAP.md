@@ -94,16 +94,16 @@ Plans:
 **Depends on**: Phase 1 (plugin validates locally)
 **Requirements**: DST-01, DST-02, DST-03, DST-04, VAL-03, VAL-04
 **Success Criteria** (what must be TRUE):
-  1. GitHub repository `gannonh-plugins` exists with marketplace structure
+  1. GitHub repository `claude-code-plugins` exists with marketplace structure
   2. `marketplace.json` contains Kata plugin entry with source URL
-  3. `/plugin install kata@gannonh-plugins` installs Kata successfully
+  3. `/plugin install kata@claude-code-plugins` installs Kata successfully
   4. All `/kata:*` commands accessible after marketplace installation
   5. All Kata skills respond to natural language after marketplace installation
   6. Plugin version shows v0.1.9 via semantic versioning
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Create marketplace infrastructure (version bump, gannonh-plugins repo, marketplace.json)
+- [ ] 02-01-PLAN.md — Create marketplace infrastructure (version bump, claude-code-plugins repo, marketplace.json)
 - [ ] 02-02-PLAN.md — Verify marketplace installation end-to-end
 
 #### Phase 3: Documentation

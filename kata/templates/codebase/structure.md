@@ -148,7 +148,7 @@ kata/
 **commands/kata/**
 - Purpose: Slash command definitions for Claude Code
 - Contains: *.md files (one per command)
-- Key files: new-project.md, plan-phase.md, execute-plan.md
+- Key files: project-new.md, phase-plan.md, execute-plan.md
 - Subdirectories: None (flat structure)
 
 **kata/references/**
@@ -166,7 +166,7 @@ kata/
 **kata/workflows/**
 - Purpose: Reusable multi-step procedures
 - Contains: Workflow definitions called by commands
-- Key files: execute-plan.md, research-phase.md
+- Key files: execute-plan.md, phase-research.md
 - Subdirectories: None
 
 ## Key File Locations

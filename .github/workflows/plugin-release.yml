@@ -1,0 +1,95 @@
+name: Publish Plugin to Marketplace
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish-plugin:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout kata
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Get version from release tag
+        id: version
+        run: |
+          # Extract version from tag (v0.1.9 → 0.1.9)
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing plugin version: $VERSION"
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build plugin distribution
+        run: |
+          npm run build:hooks
+          node scripts/build.js plugin
+
+      - name: Validate plugin build
+        run: |
+          # Verify critical files exist
+          test -f dist/plugin/.claude-plugin/plugin.json
+          test -d dist/plugin/commands
+          test -d dist/plugin/skills
+          test -d dist/plugin/hooks
+          test -f dist/plugin/VERSION
+          echo "✓ Plugin build validated"
+
+      - name: Validate plugin.json version matches tag
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PLUGIN_VERSION=$(node -p "require('./dist/plugin/.claude-plugin/plugin.json').version")
+          if [ "$TAG_VERSION" != "$PLUGIN_VERSION" ]; then
+            echo "Error: Tag version ($TAG_VERSION) doesn't match plugin.json ($PLUGIN_VERSION)"
+            exit 1
+          fi
+          echo "✓ Version match: $TAG_VERSION"
+
+      - name: Checkout marketplace
+        uses: actions/checkout@v4
+        with:
+          repository: gannonh/kata-marketplace
+          token: ${{ secrets.MARKETPLACE_TOKEN }}
+          path: marketplace
+
+      - name: Update marketplace with plugin files
+        run: |
+          # Clean existing plugin directory in marketplace
+          rm -rf marketplace/plugins/kata/*
+
+          # Copy built plugin to marketplace
+          mkdir -p marketplace/plugins/kata
+          cp -r dist/plugin/* marketplace/plugins/kata/
+
+          # Update version in marketplace.json if it exists
+          if [ -f marketplace/marketplace.json ]; then
+            # Use Node.js to update the version
+            node -e "
+              const fs = require('fs');
+              const m = JSON.parse(fs.readFileSync('marketplace/marketplace.json', 'utf8'));
+              const plugin = m.plugins.find(p => p.name === 'kata');
+              if (plugin) {
+                plugin.version = '${{ steps.version.outputs.version }}';
+                fs.writeFileSync('marketplace/marketplace.json', JSON.stringify(m, null, 2) + '\n');
+                console.log('Updated kata version to ${{ steps.version.outputs.version }}');
+              }
+            "
+          fi
+
+      - name: Commit and push to marketplace
+        working-directory: marketplace
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "chore: update kata plugin to v${{ steps.version.outputs.version }}"
+          git push

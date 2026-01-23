@@ -122,12 +122,12 @@ Current process steps in `kata-executing-phases/SKILL.md`:
 
 **Pattern:** `{type}/v{milestone}-{phase}-{slug}`
 
-| Component | Source | Example |
-|-----------|--------|---------|
-| type | Infer from phase goal (feat/fix/docs/refactor/chore) | `feat` |
-| milestone | From ROADMAP.md current milestone | `0.1.10` |
-| phase | Zero-padded phase number | `05` |
-| slug | Phase name, kebab-case, max 40 chars | `pr-integration` |
+| Component | Source                                               | Example          |
+| --------- | ---------------------------------------------------- | ---------------- |
+| type      | Infer from phase goal (feat/fix/docs/refactor/chore) | `feat`           |
+| milestone | From ROADMAP.md current milestone                    | `0.1.10`         |
+| phase     | Zero-padded phase number                             | `05`             |
+| slug      | Phase name, kebab-case, max 40 chars                 | `pr-integration` |
 
 **Examples:**
 - `feat/v0.1.10-05-pr-integration`
@@ -160,7 +160,7 @@ Closes #[phase-issue-number]
 After implementation, verify:
 
 1. Set `pr_workflow: true` in `.planning/config.json`
-2. Run `/kata:execute-phase` on a test phase
+2. Run `/kata:phase-execute` on a test phase
 3. Confirm:
    - Branch created with correct naming
    - Draft PR opened at first commit

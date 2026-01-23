@@ -10,7 +10,7 @@ requires:
     provides: Skill architecture and patterns
 provides:
   - kata-updating-to-latest-version skill (update, whats-new, version-check)
-  - kata-executing-quick-tasks skill (quick task execution without planning)
+  - kata-executing-task-executes skill (quick task execution without planning)
   - kata-showing-available-commands-and-usage-guides skill (command reference and help)
 affects: [02-create-kata-slash-commands, slash-command-tests, documentation]
 
@@ -26,8 +26,8 @@ key-files:
   created:
     - skills/kata-updating-to-latest-version/SKILL.md
     - skills/kata-updating-to-latest-version/references/version-detection.md
-    - skills/kata-executing-quick-tasks/SKILL.md
-    - skills/kata-executing-quick-tasks/references/task-constraints.md
+    - skills/kata-executing-task-executes/SKILL.md
+    - skills/kata-executing-task-executes/references/task-constraints.md
     - skills/kata-showing-available-commands-and-usage-guides/SKILL.md
     - skills/kata-showing-available-commands-and-usage-guides/references/command-reference.md
   modified: []
@@ -72,7 +72,7 @@ completed: 2026-01-20
 Each task was committed atomically:
 
 1. **Task 1: Create kata-updating-to-latest-version skill** - `ca3c922` (feat)
-2. **Task 2: Create kata-executing-quick-tasks skill** - `4e36d68` (feat)
+2. **Task 2: Create kata-executing-task-executes skill** - `4e36d68` (feat)
 3. **Task 3: Create kata-showing-available-commands-and-usage-guides skill** - `4253389` (feat)
 
 **Plan metadata:** (pending - to be committed with STATE.md update)
@@ -81,8 +81,8 @@ Each task was committed atomically:
 
 - `skills/kata-updating-to-latest-version/SKILL.md` - Version detection, update workflow, changelog display
 - `skills/kata-updating-to-latest-version/references/version-detection.md` - Semver comparison, npm API, CHANGELOG parsing
-- `skills/kata-executing-quick-tasks/SKILL.md` - Quick task orchestration with size/scope constraints
-- `skills/kata-executing-quick-tasks/references/task-constraints.md` - Validation heuristics, escalation rules, commit guidelines
+- `skills/kata-executing-task-executes/SKILL.md` - Quick task orchestration with size/scope constraints
+- `skills/kata-executing-task-executes/references/task-constraints.md` - Validation heuristics, escalation rules, commit guidelines
 - `skills/kata-showing-available-commands-and-usage-guides/SKILL.md` - Multi-context help routing and display
 - `skills/kata-showing-available-commands-and-usage-guides/references/command-reference.md` - Complete command documentation with workflows and tips
 

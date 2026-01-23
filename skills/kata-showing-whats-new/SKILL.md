@@ -19,10 +19,16 @@ Shows version comparison, changelog entries for missed versions, and update inst
 <process>
 
 <step name="get_installed_version">
-Read installed version from VERSION file:
+Read installed version from VERSION file (checking plugin context first):
 
 ```bash
-cat ~/.claude/kata/VERSION 2>/dev/null
+if [ -n "$CLAUDE_PLUGIN_ROOT" ]; then
+  cat "$CLAUDE_PLUGIN_ROOT/kata/VERSION" 2>/dev/null
+elif [ -f ~/.claude/kata/VERSION ]; then
+  cat ~/.claude/kata/VERSION
+elif [ -f ./.claude/kata/VERSION ]; then
+  cat ./.claude/kata/VERSION
+fi
 ```
 
 **If VERSION file missing:**
@@ -33,9 +39,9 @@ cat ~/.claude/kata/VERSION 2>/dev/null
 
 Your installation doesn't include version tracking.
 
-**To fix:** `npx @gannonh/kata --global`
-
-This will reinstall with version tracking enabled.
+**To reinstall:**
+- Plugin users: `/plugin install kata@kata-marketplace`
+- NPM users: `npx @gannonh/kata --global`
 ```
 
 STOP here if no VERSION file.
@@ -45,7 +51,7 @@ STOP here if no VERSION file.
 Fetch latest CHANGELOG.md from GitHub:
 
 Use WebFetch tool with:
-- URL: `https://raw.githubusercontent.com/gannnonh/kata/main/CHANGELOG.md`
+- URL: `https://raw.githubusercontent.com/gannonh/kata/refs/heads/main/CHANGELOG.md`
 - Prompt: "Extract all version entries with their dates and changes. Return in Keep-a-Changelog format."
 
 **If fetch fails:**
@@ -114,7 +120,9 @@ You're on the latest version.
 
 [View full changelog](https://github.com/gannnonh/kata/blob/main/CHANGELOG.md)
 
-**To update:** `npx @gannonh/kata --global`
+**To update:**
+- Plugin users: `/plugin update kata@kata-marketplace`
+- NPM users: `npx @gannonh/kata --global`
 ```
 
 **Breaking changes:** Surface prominently with **BREAKING:** prefix in the output.

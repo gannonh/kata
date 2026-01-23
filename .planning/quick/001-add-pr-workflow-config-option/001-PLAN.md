@@ -3,7 +3,7 @@
 ## Objective
 
 Update milestone completion workflow to support PR-based releases where:
-- Tags are NOT created during `/kata:complete-milestone` when `pr_workflow: true`
+- Tags are NOT created during `/kata:milestone-complete` when `pr_workflow: true`
 - Instead, tags are created via GitHub Release after PR merge
 - Config option is set during project setup and available in settings
 
@@ -42,5 +42,5 @@ Update milestone completion workflow to support PR-based releases where:
 - [ ] `pr_workflow` config option exists in schema
 - [ ] New projects prompt for PR workflow preference
 - [ ] Settings skill allows toggling PR workflow
-- [ ] Complete-milestone skips tag when pr_workflow is true
+- [ ] milestone-complete skips tag when pr_workflow is true
 - [ ] Changelog/version bump reminder added to completion workflow

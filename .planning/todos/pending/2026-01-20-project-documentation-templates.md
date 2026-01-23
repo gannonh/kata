@@ -5,7 +5,7 @@ area: docs
 type: feature
 files:
   - kata/templates/
-  - skills/kata-starting-new-projects/
+  - skills/kata-starting-project-news/
   - skills/kata-manageing-milestones/
 ---
 

@@ -14,6 +14,9 @@ Configuration options for Kata projects in `.planning/config.json`.
   "model_profile": "quality|balanced|budget",
   "commit_docs": true|false,
   "pr_workflow": true|false,
+  "display": {
+    "statusline": true|false
+  },
   "workflow": {
     "research": true|false,
     "plan_check": true|false,
@@ -22,17 +25,18 @@ Configuration options for Kata projects in `.planning/config.json`.
 }
 ```
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `mode` | `yolo` | `yolo` = auto-approve, `interactive` = confirm at each step |
-| `depth` | `standard` | `quick` (3-5 phases), `standard` (5-8), `comprehensive` (8-12) |
-| `parallelization` | `true` | Run independent plans simultaneously |
-| `model_profile` | `balanced` | Which AI models for agents (see model-profiles.md) |
-| `commit_docs` | `true` | Whether to commit planning artifacts to git |
-| `pr_workflow` | `false` | Use PR-based release workflow vs direct commits |
-| `workflow.research` | `true` | Spawn researcher before planning each phase |
-| `workflow.plan_check` | `true` | Verify plans achieve phase goals before execution |
-| `workflow.verifier` | `true` | Confirm deliverables after phase execution |
+| Option                | Default    | Description                                                    |
+| --------------------- | ---------- | -------------------------------------------------------------- |
+| `mode`                | `yolo`     | `yolo` = auto-approve, `interactive` = confirm at each step    |
+| `depth`               | `standard` | `quick` (3-5 phases), `standard` (5-8), `comprehensive` (8-12) |
+| `parallelization`     | `true`     | Run independent plans simultaneously                           |
+| `model_profile`       | `balanced` | Which AI models for agents (see model-profiles.md)             |
+| `commit_docs`         | `true`     | Whether to commit planning artifacts to git                    |
+| `pr_workflow`         | `true`     | Use PR-based release workflow vs direct commits                |
+| `display.statusline`  | `true`     | Enable Kata custom statusline in Claude Code                   |
+| `workflow.research`   | `true`     | Spawn researcher before planning each phase                    |
+| `workflow.plan_check` | `true`     | Verify plans achieve phase goals before execution              |
+| `workflow.verifier`   | `true`     | Confirm deliverables after phase execution                     |
 
 </config_schema>
 
@@ -109,10 +113,10 @@ PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:s
 
 ### Branch Types
 
-| Branch Type | Pattern | Purpose |
-|-------------|---------|---------|
-| **Phase branch** | `{type}/v{milestone}-{phase}-{slug}` | Code work for one phase |
-| **Release branch** | `release/v{milestone}` | Version bump, changelog, archive |
+| Branch Type        | Pattern                              | Purpose                          |
+| ------------------ | ------------------------------------ | -------------------------------- |
+| **Phase branch**   | `{type}/v{milestone}-{phase}-{slug}` | Code work for one phase          |
+| **Release branch** | `release/v{milestone}`               | Version bump, changelog, archive |
 
 **Phase branch examples:**
 - `feat/v0.1.9-01-plugin-structure-validation`
@@ -132,7 +136,7 @@ PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:s
 
 **Branch timing:**
 - Phase branches: Create after planning, before execution
-- Release branch: Create when starting `/kata:complete-milestone`
+- Release branch: Create when starting `/kata:milestone-complete`
 
 ### PR Granularity & Lifecycle
 
@@ -166,7 +170,7 @@ PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:s
 
 #### Release PR Lifecycle
 
-1. **Create branch** — When starting `/kata:complete-milestone`
+1. **Create branch** — When starting `/kata:milestone-complete`
 2. **Make release commits** — Version bump, CHANGELOG, milestone archive
 3. **Open PR** — Ready for review (not draft)
 4. **Merge** — Triggers GitHub Action → creates tag → publishes
@@ -204,48 +208,48 @@ After merge, GitHub Action will:
 
 **Release flow:**
 1. All phase PRs merged to main (code complete)
-2. `/kata:complete-milestone` creates release branch
+2. `/kata:milestone-complete` creates release branch
 3. Version bump, changelog, archive committed to release branch
 4. Release PR merged to main
 5. GitHub Action detects version change → creates tag → publishes
 
 **Release trigger:** Merge of release PR to main. The `publish.yml` workflow detects version changes in package.json and triggers the release.
 
-**Version bump timing:** Version bump happens ON the release branch, as part of `/kata:complete-milestone`.
+**Version bump timing:** Version bump happens ON the release branch, as part of `/kata:milestone-complete`.
 
 ### Workflow Timing
 
 **Phase workflow:**
 
-| Step | When | What Happens |
-|------|------|--------------|
+| Step          | When                             | What Happens                                         |
+| ------------- | -------------------------------- | ---------------------------------------------------- |
 | Create branch | After planning, before execution | `git checkout -b {type}/v{milestone}-{phase}-{slug}` |
-| Open draft PR | At first commit | `gh pr create --draft` |
-| Execute plans | During phase | Each plan commits to branch |
-| Mark ready | All plans complete | `gh pr ready` |
-| Merge | After approval | Merge to main |
+| Open draft PR | At first commit                  | `gh pr create --draft`                               |
+| Execute plans | During phase                     | Each plan commits to branch                          |
+| Mark ready    | All plans complete               | `gh pr ready`                                        |
+| Merge         | After approval                   | Merge to main                                        |
 
 **Release workflow (after all phases complete):**
 
-| Step | When | What Happens |
-|------|------|--------------|
-| Create branch | Start of complete-milestone | `git checkout -b release/v{milestone}` |
-| Release commits | During complete-milestone | Version bump, changelog, archive |
-| Open PR | After commits | `gh pr create --title "Release v{milestone}"` |
-| Merge | After approval | Merge to main |
-| GitHub Action | After merge | Creates tag, publishes to npm |
+| Step            | When                        | What Happens                                  |
+| --------------- | --------------------------- | --------------------------------------------- |
+| Create branch   | Start of milestone-complete | `git checkout -b release/v{milestone}`        |
+| Release commits | During milestone-complete   | Version bump, changelog, archive              |
+| Open PR         | After commits               | `gh pr create --title "Release v{milestone}"` |
+| Merge           | After approval              | Merge to main                                 |
+| GitHub Action   | After merge                 | Creates tag, publishes to npm                 |
 
 ### Integration Points
 
 Commands that check `pr_workflow` and change behavior:
 
-| Command | pr_workflow: false | pr_workflow: true |
-|---------|-------------------|-------------------|
-| new-project | Asks about config | Offers GitHub Actions scaffold |
-| settings | Allows toggle | Same |
-| execute-phase | Commits to main | Create phase branch, open draft PR |
-| complete-milestone | Creates local tag | Create release branch, open release PR |
-| progress | Phase status only | Show PR status (phase and release) |
+| Command            | pr_workflow: false | pr_workflow: true                      |
+| ------------------ | ------------------ | -------------------------------------- |
+| project-new        | Asks about config  | Offers GitHub Actions scaffold         |
+| settings           | Allows toggle      | Same                                   |
+| phase-execute      | Commits to main    | Create phase branch, open draft PR     |
+| milestone-complete | Creates local tag  | Create release branch, open release PR |
+| progress           | Phase status only  | Show PR status (phase and release)     |
 
 **Usage in kata-executing-phases:**
 
@@ -306,6 +310,33 @@ VERIFIER=$(cat .planning/config.json 2>/dev/null | grep -o '"verifier"[[:space:]
 
 </workflow_agents>
 
+<display_settings>
+
+## Display Settings
+
+### `display.statusline` (default: `true`)
+
+Controls whether Kata's custom statusline is enabled in Claude Code.
+
+**When `true`:**
+- Shows current model, context usage %, and Kata update availability
+- Configures `.claude/settings.json` with statusLine hook
+- Copies `kata-statusline.js` to `.claude/hooks/`
+
+**When `false`:**
+- Uses Claude Code's default statusline
+- No `.claude/settings.json` modification
+
+**Note:** Statusline changes take effect on next Claude Code session start.
+
+**Checking the config:**
+
+```bash
+STATUSLINE=$(cat .planning/config.json 2>/dev/null | grep -o '"statusline"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
+```
+
+</display_settings>
+
 <setup_uncommitted_mode>
 
 To use uncommitted mode (keep planning private):
@@ -332,7 +363,7 @@ To use uncommitted mode (keep planning private):
 
 <updating_settings>
 
-Run `/kata:settings` to update config preferences interactively.
+Run `/kata:settings-config` to update config preferences interactively.
 
 The settings skill will:
 1. Detect any missing config keys from schema evolution

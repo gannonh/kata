@@ -19,7 +19,7 @@ Output: .planning/codebase/ folder with 7 structured documents about the codebas
 </objective>
 
 <execution_context>
-@~/.claude/kata/workflows/map-codebase.md
+@~/.claude/kata/workflows/project-analyze.md
 </execution_context>
 
 <context>
@@ -29,20 +29,20 @@ Focus area: $ARGUMENTS (optional - if provided, tells agents to focus on specifi
 Check for .planning/STATE.md - loads context if project already initialized
 
 **This command can run:**
-- Before /kata:new-project (brownfield codebases) - creates codebase map first
-- After /kata:new-project (greenfield codebases) - updates codebase map as code evolves
+- Before /kata:project-new (brownfield codebases) - creates codebase map first
+- After /kata:project-new (greenfield codebases) - updates codebase map as code evolves
 - Anytime to refresh codebase understanding
 </context>
 
 <when_to_use>
-**Use map-codebase for:**
+**Use project-analyze for:**
 - Brownfield projects before initialization (understand existing code first)
 - Refreshing codebase map after significant changes
 - Onboarding to an unfamiliar codebase
 - Before major refactoring (understand current state)
 - When STATE.md references outdated codebase info
 
-**Skip map-codebase for:**
+**Skip project-analyze for:**
 - Greenfield projects with no code yet (nothing to map)
 - Trivial codebases (<5 files)
 </when_to_use>
@@ -58,7 +58,7 @@ Check for .planning/STATE.md - loads context if project already initialized
 4. Wait for agents to complete, collect confirmations (NOT document contents)
 5. Verify all 7 documents exist with line counts
 6. Commit codebase map
-7. Offer next steps (typically: /kata:new-project or /kata:plan-phase)
+7. Offer next steps (typically: /kata:project-new or /kata:phase-plan)
 </process>
 
 <success_criteria>

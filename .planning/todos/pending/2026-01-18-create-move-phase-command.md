@@ -15,7 +15,7 @@ Use cases:
 - Reordering phases without manual ROADMAP.md editing
 - Avoiding manual renumbering of subsequent phases
 
-Similar to how `insert-phase` creates decimal phases (e.g., 72.1) and `remove-phase` removes phases with renumbering, a `move-phase` command would allow repositioning existing phases.
+Similar to how `phase-insert` creates decimal phases (e.g., 72.1) and `phase-remove` removes phases with renumbering, a `move-phase` command would allow repositioning existing phases.
 
 ## Solution
 
@@ -27,4 +27,4 @@ TBD - Need to design:
 5. Git commit message format for phase moves
 6. Whether to preserve phase history or update references
 
-Consider studying `remove-phase` and `insert-phase` implementations for patterns.
+Consider studying `phase-remove` and `phase-insert` implementations for patterns.

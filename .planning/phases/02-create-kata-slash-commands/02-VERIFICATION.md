@@ -17,50 +17,50 @@ score: 7/7 must-haves verified
 
 ### Observable Truths
 
-| # | Truth | Status | Evidence |
-|---|-------|--------|----------|
-| 1 | 25 Kata slash commands exist (all GSD equivalents) | ✓ VERIFIED | 25 .md files in commands/kata/ |
-| 2 | Each command has `disable-model-invocation: true` | ✓ VERIFIED | All 25 commands have frontmatter flag |
-| 3 | Each skill has `user-invocable: false` | ✓ VERIFIED | All 14 skills have frontmatter flag |
-| 4 | Commands delegate to skills (thin wrappers) | ✓ VERIFIED | All commands reference kata-* skills, largest is 63 lines |
-| 5 | Gap skills created for missing equivalents | ✓ VERIFIED | 3 gap skills exist with references/ |
-| 6 | NextUp tables show `/kata:command-name` format | ✓ VERIFIED | Skills reference /kata: commands in tables |
-| 7 | README documents command reference | ✓ VERIFIED | 42 /kata: references in Commands section |
+| #   | Truth                                              | Status     | Evidence                                                  |
+| --- | -------------------------------------------------- | ---------- | --------------------------------------------------------- |
+| 1   | 25 Kata slash commands exist (all GSD equivalents) | ✓ VERIFIED | 25 .md files in commands/kata/                            |
+| 2   | Each command has `disable-model-invocation: true`  | ✓ VERIFIED | All 25 commands have frontmatter flag                     |
+| 3   | Each skill has `user-invocable: false`             | ✓ VERIFIED | All 14 skills have frontmatter flag                       |
+| 4   | Commands delegate to skills (thin wrappers)        | ✓ VERIFIED | All commands reference kata-* skills, largest is 63 lines |
+| 5   | Gap skills created for missing equivalents         | ✓ VERIFIED | 3 gap skills exist with references/                       |
+| 6   | NextUp tables show `/kata:command-name` format     | ✓ VERIFIED | Skills reference /kata: commands in tables                |
+| 7   | README documents command reference                 | ✓ VERIFIED | 42 /kata: references in Commands section                  |
 
 **Score:** 7/7 truths verified
 
 ### Required Artifacts
 
-| Artifact | Expected | Status | Details |
-|----------|----------|--------|---------|
-| `commands/kata/*.md` | 25 command files | ✓ VERIFIED | All present, 25 files |
-| `commands/kata/project-new.md` | Project commands | ✓ VERIFIED | Substantive (11 lines), delegates to kata-starting-new-projects |
-| `commands/kata/phase-plan.md` | Planning commands | ✓ VERIFIED | Substantive (62 lines), delegates to kata-planning-phases |
-| `commands/kata/phase-execute.md` | Execution commands | ✓ VERIFIED | Substantive (63 lines), delegates to kata-executing-project-phases |
-| `commands/kata/help.md` | Help command | ✓ VERIFIED | Substantive (53 lines), delegates to kata-showing-available-commands-and-usage-guides |
-| `commands/kata/quick.md` | Quick task command | ✓ VERIFIED | Substantive (13 lines), delegates to kata-executing-quick-tasks |
-| `commands/kata/update.md` | Update command | ✓ VERIFIED | Substantive (13 lines), delegates to kata-updating-to-latest-version |
-| `skills/kata-updating-to-latest-version/SKILL.md` | Gap skill 1 | ✓ VERIFIED | 282 lines, has references/version-detection.md (183 lines) |
-| `skills/kata-executing-quick-tasks/SKILL.md` | Gap skill 2 | ✓ VERIFIED | 252 lines, has references/task-constraints.md (297 lines) |
-| `skills/kata-showing-available-commands-and-usage-guides/SKILL.md` | Gap skill 3 | ✓ VERIFIED | 342 lines, has references/command-reference.md (822 lines) |
-| `bin/install.js` | Installer with commands support | ✓ VERIFIED | Contains "Copy commands" logic (2 occurrences) |
-| `README.md` | Command documentation | ✓ VERIFIED | Commands section with all 25 commands documented |
-| `CLAUDE.md` | Updated workflow docs | ✓ VERIFIED | Skills vs Commands section, user-invocable explanation |
+| Artifact                                                           | Expected                        | Status     | Details                                                                               |
+| ------------------------------------------------------------------ | ------------------------------- | ---------- | ------------------------------------------------------------------------------------- |
+| `commands/kata/*.md`                                               | 25 command files                | ✓ VERIFIED | All present, 25 files                                                                 |
+| `commands/kata/project-new.md`                                     | Project commands                | ✓ VERIFIED | Substantive (11 lines), delegates to kata-starting-project-news                       |
+| `commands/kata/phase-plan.md`                                      | Planning commands               | ✓ VERIFIED | Substantive (62 lines), delegates to kata-planning-phases                             |
+| `commands/kata/phase-execute.md`                                   | Execution commands              | ✓ VERIFIED | Substantive (63 lines), delegates to kata-executing-project-phases                    |
+| `commands/kata/help.md`                                            | Help command                    | ✓ VERIFIED | Substantive (53 lines), delegates to kata-showing-available-commands-and-usage-guides |
+| `commands/kata/quick.md`                                           | Quick task command              | ✓ VERIFIED | Substantive (13 lines), delegates to kata-executing-task-executes                     |
+| `commands/kata/update.md`                                          | Update command                  | ✓ VERIFIED | Substantive (13 lines), delegates to kata-updating-to-latest-version                  |
+| `skills/kata-updating-to-latest-version/SKILL.md`                  | Gap skill 1                     | ✓ VERIFIED | 282 lines, has references/version-detection.md (183 lines)                            |
+| `skills/kata-executing-task-executes/SKILL.md`                     | Gap skill 2                     | ✓ VERIFIED | 252 lines, has references/task-constraints.md (297 lines)                             |
+| `skills/kata-showing-available-commands-and-usage-guides/SKILL.md` | Gap skill 3                     | ✓ VERIFIED | 342 lines, has references/command-reference.md (822 lines)                            |
+| `bin/install.js`                                                   | Installer with commands support | ✓ VERIFIED | Contains "Copy commands" logic (2 occurrences)                                        |
+| `README.md`                                                        | Command documentation           | ✓ VERIFIED | Commands section with all 25 commands documented                                      |
+| `CLAUDE.md`                                                        | Updated workflow docs           | ✓ VERIFIED | Skills vs Commands section, user-invocable explanation                                |
 
 ### Key Link Verification
 
-| From | To | Via | Status | Details |
-|------|-----|-----|--------|---------|
-| `commands/kata/project-new.md` | `skills/kata-starting-new-projects` | Skill delegation | ✓ WIRED | Command references skill, skill exists |
-| `commands/kata/phase-plan.md` | `skills/kata-planning-phases` | Skill delegation | ✓ WIRED | Command references skill, skill exists |
-| `commands/kata/phase-execute.md` | `skills/kata-executing-project-phases` | Skill delegation | ✓ WIRED | Command references skill, skill exists |
-| `commands/kata/work-verify.md` | `skills/kata-verifying-work-outcomes-and-user-acceptance-testing` | Skill delegation | ✓ WIRED | Command references skill, skill exists |
-| `commands/kata/help.md` | `skills/kata-showing-available-commands-and-usage-guides` | Skill delegation | ✓ WIRED | Command references skill, skill exists |
-| `commands/kata/quick.md` | `skills/kata-executing-quick-tasks` | Skill delegation | ✓ WIRED | Command references skill, skill exists |
-| `commands/kata/update.md` | `skills/kata-updating-to-latest-version` | Skill delegation | ✓ WIRED | Command references skill, skill exists |
-| `commands/kata/milestone-new.md` | `skills/kata-manageing-milestones` | Skill delegation | ✓ WIRED | Command references skill, skill exists |
-| `commands/kata/todo-add.md` | `skills/kata-managing-todos` | Skill delegation | ✓ WIRED | Command references skill, skill exists |
-| `bin/install.js` | `commands/kata/` | Installation copying | ✓ WIRED | Installer copies commands directory with path replacement |
+| From                             | To                                                                | Via                  | Status  | Details                                                   |
+| -------------------------------- | ----------------------------------------------------------------- | -------------------- | ------- | --------------------------------------------------------- |
+| `commands/kata/project-new.md`   | `skills/kata-starting-project-news`                               | Skill delegation     | ✓ WIRED | Command references skill, skill exists                    |
+| `commands/kata/phase-plan.md`    | `skills/kata-planning-phases`                                     | Skill delegation     | ✓ WIRED | Command references skill, skill exists                    |
+| `commands/kata/phase-execute.md` | `skills/kata-executing-project-phases`                            | Skill delegation     | ✓ WIRED | Command references skill, skill exists                    |
+| `commands/kata/work-verify.md`   | `skills/kata-verifying-work-outcomes-and-user-acceptance-testing` | Skill delegation     | ✓ WIRED | Command references skill, skill exists                    |
+| `commands/kata/help.md`          | `skills/kata-showing-available-commands-and-usage-guides`         | Skill delegation     | ✓ WIRED | Command references skill, skill exists                    |
+| `commands/kata/quick.md`         | `skills/kata-executing-task-executes`                             | Skill delegation     | ✓ WIRED | Command references skill, skill exists                    |
+| `commands/kata/update.md`        | `skills/kata-updating-to-latest-version`                          | Skill delegation     | ✓ WIRED | Command references skill, skill exists                    |
+| `commands/kata/milestone-new.md` | `skills/kata-manageing-milestones`                                | Skill delegation     | ✓ WIRED | Command references skill, skill exists                    |
+| `commands/kata/todos-add.md`     | `skills/kata-managing-todos`                                      | Skill delegation     | ✓ WIRED | Command references skill, skill exists                    |
+| `bin/install.js`                 | `commands/kata/`                                                  | Installation copying | ✓ WIRED | Installer copies commands directory with path replacement |
 
 ### Requirements Coverage
 
@@ -101,7 +101,7 @@ ls commands/kata/*.md | wc -l
 - Execution: phase-execute, quick
 - Verification: work-verify
 - Session: work-pause, work-resume
-- Utilities: codebase-map, todo-add, todo-check, workflow-debug, help, update, whats-new
+- Utilities: codebase-map, todos-add, todo-check, workflow-debug, help, update, whats-new
 
 All 25 GSD command equivalents covered.
 
@@ -131,7 +131,7 @@ wc -l commands/kata/*.md | sort -n | tail -5
 ```
 
 **Delegation pattern sample:**
-- `project-new.md` → "Execute the kata-starting-new-projects skill workflow"
+- `project-new.md` → "Execute the kata-starting-project-news skill workflow"
 - `phase-plan.md` → "delegating to the kata-planning-phases skill"
 - `help.md` → "delegating to the kata-showing-available-commands-and-usage-guides skill"
 
@@ -153,7 +153,7 @@ Three gap skills created for GSD commands without Kata equivalents:
 - Handles: update, whats-new, version checking
 - Features: npm registry integration, CHANGELOG parsing, semver comparison
 
-**kata-executing-quick-tasks:**
+**kata-executing-task-executes:**
 - SKILL.md: 252 lines
 - references/task-constraints.md: 297 lines
 - Handles: quick task execution without planning
@@ -178,7 +178,7 @@ grep -r "/kata:" skills/kata-*/SKILL.md | grep -E "Execute|phase-" | wc -l
 **Sample NextUp tables:**
 - kata-planning-phases: `/kata:phase-execute`
 - kata-discussing-phase-context: `/kata:phase-plan`, `/kata:phase-research`
-- kata-managing-todos: `/kata:todo-add`, `/kata:todo-check`
+- kata-managing-todos: `/kata:todos-add`, `/kata:todo-check`
 
 Skills updated to show explicit command invocation format.
 
@@ -204,22 +204,22 @@ Skills updated to show explicit command invocation format.
 
 All 14 skills have corresponding commands:
 
-| Skill | Commands |
-|-------|----------|
-| kata-starting-new-projects | /kata:project-new |
-| kata-manageing-milestones | /kata:milestone-new, /kata:milestone-complete, /kata:milestone-audit |
-| kata-managing-project-roadmap | /kata:phase-add, /kata:phase-insert, /kata:phase-remove, /kata:roadmap-plan-gaps |
-| kata-discussing-phase-context | /kata:phase-discuss |
-| kata-researching-phases | /kata:phase-research, /kata:phase-assumptions |
-| kata-planning-phases | /kata:phase-plan |
-| kata-executing-project-phases | /kata:phase-execute |
-| kata-verifying-work-outcomes-and-user-acceptance-testing | /kata:work-verify |
-| kata-providing-progress-and-status-updates | /kata:project-status, /kata:work-pause, /kata:work-resume, /kata:codebase-map |
-| kata-managing-todos | /kata:todo-add, /kata:todo-check |
-| kata-debugging-kata-workflow-issues | /kata:workflow-debug |
-| kata-updating-to-latest-version | /kata:update, /kata:whats-new |
-| kata-executing-quick-tasks | /kata:quick |
-| kata-showing-available-commands-and-usage-guides | /kata:help |
+| Skill                                                    | Commands                                                                         |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| kata-starting-project-news                               | /kata:project-new                                                                |
+| kata-manageing-milestones                                | /kata:milestone-new, /kata:milestone-complete, /kata:milestone-audit             |
+| kata-managing-project-roadmap                            | /kata:phase-add, /kata:phase-insert, /kata:phase-remove, /kata:roadmap-plan-gaps |
+| kata-discussing-phase-context                            | /kata:phase-discuss                                                              |
+| kata-researching-phases                                  | /kata:phase-research, /kata:phase-assumptions                                    |
+| kata-planning-phases                                     | /kata:phase-plan                                                                 |
+| kata-executing-project-phases                            | /kata:phase-execute                                                              |
+| kata-verifying-work-outcomes-and-user-acceptance-testing | /kata:work-verify                                                                |
+| kata-providing-progress-and-status-updates               | /kata:project-status, /kata:work-pause, /kata:work-resume, /kata:codebase-map    |
+| kata-managing-todos                                      | /kata:todos-add, /kata:todo-check                                                |
+| kata-debugging-kata-workflow-issues                      | /kata:workflow-debug                                                             |
+| kata-updating-to-latest-version                          | /kata:update, /kata:whats-new                                                    |
+| kata-executing-task-executes                             | /kata:task-execute                                                               |
+| kata-showing-available-commands-and-usage-guides         | /kata:help                                                                       |
 
 Complete coverage - every skill accessible via explicit command.
 

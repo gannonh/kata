@@ -59,7 +59,7 @@ completed: 2026-01-19
 - Created kata-researching-phases skill that handles research, discuss, and assumptions operations
 - Implemented discovery levels framework (0-3) for determining research depth
 - Extracted research protocol from kata-phase-researcher agent
-- Extracted discussion protocol from discuss-phase command/workflow
+- Extracted discussion protocol from phase-discuss command/workflow
 
 ## Task Commits
 
@@ -74,7 +74,7 @@ Note: Files were committed in previous session as part of 00-05-SUMMARY commit. 
 - `skills/kata-researching-phases/references/discussion-protocol.md` - CONTEXT.md structure and gray area identification
 
 ## Decisions Made
-- Combined research-phase, discuss-phase, and list-phase-assumptions commands into single skill
+- Combined phase-research, phase-discuss, and phase-assumptions commands into single skill
 - Operation determined from natural language: "research", "discuss", "assumptions"
 - Discovery levels inform research depth without requiring explicit user configuration
 

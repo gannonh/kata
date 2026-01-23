@@ -15,9 +15,9 @@ Useful information to display:
 - Current milestone
 - Current phase (e.g., Phase 04-02)
 - Current plan status
-- Suggested next command (e.g., `/kata:verify-work`)
+- Suggested next command (e.g., `/kata:phase-verify`)
 
-Example format: `v0.1.4 | Phase 04-02 | /kata:verify-work`
+Example format: `v0.1.4 | Phase 04-02 | /kata:phase-verify`
 
 ## Solution
 

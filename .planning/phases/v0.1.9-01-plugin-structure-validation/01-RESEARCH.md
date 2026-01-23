@@ -19,20 +19,20 @@ Claude Code plugins require a specific directory structure with a `.claude-plugi
 
 ### Core Requirements
 
-| Component | Current State | Plugin Requirement | Gap |
-|-----------|--------------|-------------------|-----|
-| `.claude-plugin/plugin.json` | Missing | Required | Create manifest |
-| `commands/kata/*.md` | 27 files exist | `commands/` at root | Already compatible |
-| `agents/kata-*.md` | 12 files exist | `agents/` at root | Already compatible |
-| `skills/kata-*/SKILL.md` | 27 skills exist | `skills/` at root | Already compatible |
-| `hooks/*.js` | 2 files exist | `hooks/hooks.json` | Create hooks.json |
+| Component                    | Current State   | Plugin Requirement  | Gap                |
+| ---------------------------- | --------------- | ------------------- | ------------------ |
+| `.claude-plugin/plugin.json` | Missing         | Required            | Create manifest    |
+| `commands/kata/*.md`         | 27 files exist  | `commands/` at root | Already compatible |
+| `agents/kata-*.md`           | 12 files exist  | `agents/` at root   | Already compatible |
+| `skills/kata-*/SKILL.md`     | 27 skills exist | `skills/` at root   | Already compatible |
+| `hooks/*.js`                 | 2 files exist   | `hooks/hooks.json`  | Create hooks.json  |
 
 ### Alternatives Considered
 
-| Instead of | Could Use | Tradeoff |
-|------------|-----------|----------|
+| Instead of             | Could Use                   | Tradeoff                                    |
+| ---------------------- | --------------------------- | ------------------------------------------- |
 | Root-level directories | Custom paths in plugin.json | Unnecessary complexity; standard paths work |
-| Individual hook JSON | Single hooks.json | Plugin system expects hooks.json |
+| Individual hook JSON   | Single hooks.json           | Plugin system expects hooks.json            |
 
 ## Architecture Patterns
 
@@ -44,7 +44,7 @@ kata/
 │   └── plugin.json        # Required manifest (ONLY this file here)
 ├── commands/
 │   └── kata/              # Slash commands
-│       ├── execute-phase.md
+│       ├── phase-execute.md
 │       └── ...            # 27 total
 ├── agents/
 │   ├── kata-executor.md
@@ -110,7 +110,7 @@ Source: [Claude Code Hooks Reference](https://code.claude.com/docs/en/hooks)
 ### Pattern 3: Command Namespace
 
 **What:** Commands are automatically namespaced with plugin name
-**Behavior:** `commands/kata/execute-phase.md` becomes `/kata:execute-phase`
+**Behavior:** `commands/kata/phase-execute.md` becomes `/kata:phase-execute`
 
 This already matches Kata's current structure. No changes needed.
 
@@ -122,11 +122,11 @@ This already matches Kata's current structure. No changes needed.
 
 ## Don't Hand-Roll
 
-| Problem | Don't Build | Use Instead | Why |
-|---------|-------------|-------------|-----|
+| Problem           | Don't Build        | Use Instead                | Why                                      |
+| ----------------- | ------------------ | -------------------------- | ---------------------------------------- |
 | Plugin validation | Manual JSON checks | `claude plugin validate .` | Official validator catches schema errors |
-| Local testing | Copy files around | `claude --plugin-dir ./` | Direct loading without installation |
-| Path resolution | Hardcoded paths | `${CLAUDE_PLUGIN_ROOT}` | Works across installations |
+| Local testing     | Copy files around  | `claude --plugin-dir ./`   | Direct loading without installation      |
+| Path resolution   | Hardcoded paths    | `${CLAUDE_PLUGIN_ROOT}`    | Works across installations               |
 
 **Key insight:** The plugin system is designed for automatic discovery. Components in standard directories (`commands/`, `agents/`, `skills/`, `hooks/`) are found automatically - no registration in plugin.json needed.
 
@@ -252,11 +252,11 @@ claude --plugin-dir ./
 
 ## State of the Art
 
-| Old Approach | Current Approach | When Changed | Impact |
-|--------------|------------------|--------------|--------|
-| `~/.claude/` directory installation | Plugin system with `.claude-plugin/` | Claude Code 1.0.33+ | Standard packaging |
-| Manual file copying | `claude plugin install` | 2025 | Simplified distribution |
-| Settings.json hooks | hooks/hooks.json in plugins | 2025 | Plugin-scoped hooks |
+| Old Approach                        | Current Approach                     | When Changed        | Impact                  |
+| ----------------------------------- | ------------------------------------ | ------------------- | ----------------------- |
+| `~/.claude/` directory installation | Plugin system with `.claude-plugin/` | Claude Code 1.0.33+ | Standard packaging      |
+| Manual file copying                 | `claude plugin install`              | 2025                | Simplified distribution |
+| Settings.json hooks                 | hooks/hooks.json in plugins          | 2025                | Plugin-scoped hooks     |
 
 **Deprecated/outdated:**
 - Manual installation via `npx @gannonh/kata` will still work but plugin system is preferred
@@ -266,17 +266,17 @@ claude --plugin-dir ./
 
 ### Current Inventory
 
-| Component | Count | Notes |
-|-----------|-------|-------|
-| Commands | 27 | `commands/kata/*.md` |
-| Agents | 12 | `agents/kata-*.md` |
-| Skills | 27 | `skills/kata-*/SKILL.md` |
-| Hooks | 2 | `kata-statusline.js`, `kata-check-update.js` |
+| Component | Count | Notes                                        |
+| --------- | ----- | -------------------------------------------- |
+| Commands  | 27    | `commands/kata/*.md`                         |
+| Agents    | 12    | `agents/kata-*.md`                           |
+| Skills    | 27    | `skills/kata-*/SKILL.md`                     |
+| Hooks     | 2     | `kata-statusline.js`, `kata-check-update.js` |
 
 ### Namespace Behavior
 
 The plugin name "kata" combined with command folder "kata" results in:
-- `commands/kata/execute-phase.md` -> `/kata:execute-phase`
+- `commands/kata/phase-execute.md` -> `/kata:phase-execute`
 
 This matches the existing command naming convention. No renaming needed.
 

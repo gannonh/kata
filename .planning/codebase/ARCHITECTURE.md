@@ -70,7 +70,7 @@ This is a meta-prompting and context engineering system for Claude Code. It prov
 
 **Project Initialization Flow:**
 
-1. User runs `/kata:new-project`
+1. User runs `/kata:project-new`
 2. Command orchestrates questioning, research, requirements gathering
 3. `kata-roadmapper` agent spawned to create ROADMAP.md
 4. STATE.md initialized to track project memory
@@ -78,7 +78,7 @@ This is a meta-prompting and context engineering system for Claude Code. It prov
 
 **Planning Flow:**
 
-1. User runs `/kata:plan-phase {N}`
+1. User runs `/kata:phase-plan {N}`
 2. Command loads STATE.md, ROADMAP.md context
 3. Optional: Spawns `kata-plan-checker` for validation
 4. `kata-planner` agent creates PLAN.md files
@@ -86,7 +86,7 @@ This is a meta-prompting and context engineering system for Claude Code. It prov
 
 **Execution Flow:**
 
-1. User runs `/kata:execute-phase {N}` or `/kata:execute-plan`
+1. User runs `/kata:phase-execute {N}` or `/kata:execute-plan`
 2. Orchestrator discovers plans, groups by wave
 3. `kata-executor` agents spawned per plan (parallel within wave)
 4. Each executor creates SUMMARY.md, commits atomically
@@ -104,7 +104,7 @@ This is a meta-prompting and context engineering system for Claude Code. It prov
 
 **Commands (Orchestrators):**
 - Purpose: User-facing entry points that coordinate workflows
-- Examples: `commands/kata/new-project.md`, `commands/kata/execute-plan.md`
+- Examples: `commands/kata/project-new.md`, `commands/kata/execute-plan.md`
 - Pattern: Thin orchestrator - validate, spawn agents, handle returns
 
 **Agents (Subagents):**

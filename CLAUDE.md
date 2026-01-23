@@ -109,7 +109,7 @@ Skills are installed to `~/.claude/skills/` (global) or `.claude/skills/` (local
 | `kata-planning-phases`          | Phase planning, task breakdown | kata-planner, kata-plan-checker                            |
 | `kata-execution`                | Plan execution, checkpoints    | kata-executor                                              |
 | `kata-verification-and-uat`     | Goal verification, UAT         | kata-verifier, kata-debugger                               |
-| `kata-starting-new-projects`    | New project setup              | kata-project-researcher, kata-roadmapper                   |
+| `kata-starting-project-news`    | New project setup              | kata-project-researcher, kata-roadmapper                   |
 | `kata-manageing-milestones`     | Milestone operations           | kata-roadmapper                                            |
 | `kata-managing-project-roadmap` | Phase operations               | kata-roadmapper                                            |
 | `kata-researching-phases`       | Domain research                | kata-phase-researcher, kata-researching-phases-synthesizer |

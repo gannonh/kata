@@ -24,9 +24,9 @@ Requirements for v0.1.9 release. Each maps to roadmap phases.
 
 ### Distribution
 
-- [ ] **DST-01**: Marketplace repository created (gannonh-plugins)
+- [ ] **DST-01**: Marketplace repository created (claude-code-plugins)
 - [ ] **DST-02**: `marketplace.json` with Kata plugin entry
-- [ ] **DST-03**: Plugin installable via `/plugin install kata@gannonh-plugins`
+- [ ] **DST-03**: Plugin installable via `/plugin install kata@claude-code-plugins`
 - [ ] **DST-04**: Version tracked via semantic versioning (v0.1.9)
 
 ### Documentation

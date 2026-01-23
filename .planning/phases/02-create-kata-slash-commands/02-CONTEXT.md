@@ -16,12 +16,12 @@ Create GSD-equivalent slash commands that provide explicit invocation paths to K
 ### Command Naming Pattern
 - **Namespace:** `/kata:` prefix with colon separator
 - **Ordering:** noun-verb (entity first, then action)
-  - `/kata:phase-plan` not `/kata:plan-phase`
-  - `/kata:project-new` not `/kata:new-project`
-  - `/kata:milestone-complete` not `/kata:complete-milestone`
+  - `/kata:phase-plan` not `/kata:phase-plan`
+  - `/kata:project-new` not `/kata:project-new`
+  - `/kata:milestone-complete` not `/kata:milestone-complete`
 - **Utilities:** Force an entity even for utilities
-  - `/kata:project-status` not `/kata:status`
-  - `/kata:workflow-debug` not `/kata:debug`
+  - `/kata:project-status` not `/kata:project-status`
+  - `/kata:workflow-debug` not `/kata:issue-debug`
 - **Length:** Abbreviate where obvious for usability
   - `/kata:phase-plan` preferred over `/kata:phases-planning`
 
@@ -30,7 +30,7 @@ Create GSD-equivalent slash commands that provide explicit invocation paths to K
 - **Methodology:** Use `/building-claude-code-skills` for each new skill
 - **Gap skills to create:**
   1. `kata-updating-to-latest-version` — handles `/kata:update` AND `/kata:whats-new`
-  2. `kata-execute-quick-task` — handles `/kata:quick`
+  2. `kata-execute-task-execute` — handles `/kata:task-execute`
   3. `kata-showing-available-commands-and-usage-guides` — handles `/kata:help`
 - **Multi-command skills:** Skills can receive multiple commands; command name provides context for which action to perform
 

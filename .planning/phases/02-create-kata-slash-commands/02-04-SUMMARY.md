@@ -29,7 +29,7 @@ key-files:
     - commands/kata/work-pause.md
     - commands/kata/work-resume.md
     - commands/kata/codebase-map.md
-    - commands/kata/todo-add.md
+    - commands/kata/todos-add.md
     - commands/kata/todo-check.md
   modified: []
 
@@ -37,7 +37,7 @@ key-decisions:
   - "All commands use disable-model-invocation: true for deterministic execution"
   - "Commands delegate to skills via Task tool, passing through arguments"
   - "No arguments command have empty argument-hint"
-  - "All commands follow noun-verb naming pattern (phase-plan, work-pause, todo-add)"
+  - "All commands follow noun-verb naming pattern (phase-plan, work-pause, todos-add)"
 
 patterns-established:
   - "Command pattern: Validate → Delegate to skill → Pass through results"
@@ -63,7 +63,7 @@ completed: 2026-01-20
 
 ## Accomplishments
 - Created 3 core workflow commands (phase-plan, phase-execute, work-verify)
-- Created 5 session and todo commands (work-pause, work-resume, codebase-map, todo-add, todo-check)
+- Created 5 session and todo commands (work-pause, work-resume, codebase-map, todos-add, todo-check)
 - All commands delegate to corresponding skills with proper frontmatter
 - Commands provide explicit invocation paths alongside autonomous skill triggering
 
@@ -80,8 +80,8 @@ Each task was committed atomically:
 - `commands/kata/work-verify.md` - Delegates to kata-verifying-work-outcomes-and-user-acceptance-testing skill
 - `commands/kata/work-pause.md` - Delegates to kata-providing-progress-and-status-updates (pause operation)
 - `commands/kata/work-resume.md` - Delegates to kata-providing-progress-and-status-updates (resume operation)
-- `commands/kata/codebase-map.md` - Delegates to kata-providing-progress-and-status-updates (map-codebase operation)
-- `commands/kata/todo-add.md` - Delegates to kata-managing-todos skill (add operation)
+- `commands/kata/codebase-map.md` - Delegates to kata-providing-progress-and-status-updates (project-analyze operation)
+- `commands/kata/todos-add.md` - Delegates to kata-managing-todos skill (add operation)
 - `commands/kata/todo-check.md` - Delegates to kata-managing-todos skill (check operation)
 
 ## Decisions Made

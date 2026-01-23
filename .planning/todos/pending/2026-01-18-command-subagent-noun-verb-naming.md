@@ -9,7 +9,7 @@ files:
 
 ## Problem
 
-Current naming convention uses verb-noun (e.g., `plan-phase`, `execute-phase`, `add-todo`). Consider switching to noun-verb for consistency and clarity (e.g., `phase-plan`, `phase-execute`, `todo-add`).
+Current naming convention uses verb-noun (e.g., `phase-plan`, `phase-execute`, `todos-add`). Consider switching to noun-verb for consistency and clarity (e.g., `phase-plan`, `phase-execute`, `todos-add`).
 
 This would affect:
 - All slash commands in `commands/kata/`

@@ -44,7 +44,7 @@ Normalize phase input in step 2 before any directory lookups.
 ls .planning/ 2>/dev/null
 ```
 
-**If not found:** Error - user should run `/kata:new-project` first.
+**If not found:** Error - user should run `/kata:project-new` first.
 
 **Resolve model profile for agent spawning:**
 
@@ -56,11 +56,11 @@ Default to "balanced" if not set.
 
 **Model lookup table:**
 
-| Agent | quality | balanced | budget |
-|-------|---------|----------|--------|
-| kata-phase-researcher | opus | sonnet | haiku |
-| kata-planner | opus | opus | sonnet |
-| kata-plan-checker | sonnet | sonnet | haiku |
+| Agent                 | quality | balanced | budget |
+| --------------------- | ------- | -------- | ------ |
+| kata-phase-researcher | opus    | sonnet   | haiku  |
+| kata-planner          | opus    | opus     | sonnet |
+| kata-plan-checker     | sonnet  | sonnet   | haiku  |
 
 Store resolved models for use in Task calls below.
 
@@ -144,13 +144,13 @@ ls "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null
 **If RESEARCH.md missing OR `--research` flag set:**
 
 Display stage banner:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► RESEARCHING PHASE {X}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Spawning researcher...
-```
+
 
 Proceed to spawn researcher
 
@@ -250,13 +250,13 @@ UAT_CONTENT=$(cat "${PHASE_DIR}"/*-UAT.md 2>/dev/null)
 ## 8. Spawn kata-planner Agent
 
 Display stage banner:
-```
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► PLANNING PHASE {X}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Spawning planner...
-```
+
 
 Fill prompt with inlined content and spawn:
 
@@ -288,7 +288,7 @@ Fill prompt with inlined content and spawn:
 </planning_context>
 
 <downstream_consumer>
-Output consumed by /kata:execute-phase
+Output consumed by /kata:phase-execute
 Plans must be executable prompts with:
 
 - Frontmatter (wave, depends_on, files_modified, autonomous)
@@ -340,13 +340,13 @@ Parse planner output:
 ## 10. Spawn kata-plan-checker Agent
 
 Display:
-```
+`
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► VERIFYING PLANS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Spawning plan checker...
-```
+
 
 Read plans and requirements for the checker:
 
@@ -478,10 +478,10 @@ Output this markdown directly (not as a code block):
 
 **Phase {X}: {Name}** — {N} plan(s) in {M} wave(s)
 
-| Wave | Plans | What it builds |
-|------|-------|----------------|
-| 1    | 01, 02 | [objectives] |
-| 2    | 03     | [objective]  |
+| Wave | Plans  | What it builds |
+| ---- | ------ | -------------- |
+| 1    | 01, 02 | [objectives]   |
+| 2    | 03     | [objective]    |
 
 Research: {Completed | Used existing | Skipped}
 Verification: {Passed | Passed with override | Skipped}
@@ -492,7 +492,7 @@ Verification: {Passed | Passed with override | Skipped}
 
 **Execute Phase {X}** — run all {N} plans
 
-/kata:execute-phase {X}
+/kata:phase-execute {X}
 
 <sub>/clear first → fresh context window</sub>
 
@@ -500,7 +500,7 @@ Verification: {Passed | Passed with override | Skipped}
 
 **Also available:**
 - cat .planning/phases/{phase-dir}/*-PLAN.md — review plans
-- /kata:plan-phase {X} --research — re-research first
+- /kata:phase-plan {X} --research — re-research first
 
 ───────────────────────────────────────────────────────────────
 </offer_next>

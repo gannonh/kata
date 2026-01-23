@@ -13,3 +13,7 @@ skills.bak/
 tmp/
 .DS_Store
 .claude/plans/
+
+# build output
+dist/
+.claude/kata/cache/update-check.json
