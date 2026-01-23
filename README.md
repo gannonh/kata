@@ -8,6 +8,9 @@
 
 <br>
 
+Agent orchestration framework for spec-driven development.
+<br>
+
 [kata.sh](https://kata.sh)
 
 <br>
@@ -20,7 +23,6 @@
 ![Kata Install](assets/terminal.svg)
 
 <br>
-Agent orchestration framework for spec-driven development.
 
 </div>
 
