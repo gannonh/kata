@@ -92,19 +92,22 @@ jobs:
           mkdir -p marketplace/plugins/kata
           cp -r dist/plugin/* marketplace/plugins/kata/
 
-          # Update version in marketplace.json if it exists
-          if [ -f marketplace/marketplace.json ]; then
+          # Update version in marketplace.json (in .claude-plugin directory)
+          MARKETPLACE_JSON="marketplace/.claude-plugin/marketplace.json"
+          if [ -f "$MARKETPLACE_JSON" ]; then
             # Use Node.js to update the version
             node -e "
               const fs = require('fs');
-              const m = JSON.parse(fs.readFileSync('marketplace/marketplace.json', 'utf8'));
+              const m = JSON.parse(fs.readFileSync('$MARKETPLACE_JSON', 'utf8'));
               const plugin = m.plugins.find(p => p.name === 'kata');
               if (plugin) {
                 plugin.version = '${{ steps.version.outputs.version }}';
-                fs.writeFileSync('marketplace/marketplace.json', JSON.stringify(m, null, 2) + '\n');
+                fs.writeFileSync('$MARKETPLACE_JSON', JSON.stringify(m, null, 2) + '\n');
                 console.log('Updated kata version to ${{ steps.version.outputs.version }}');
               }
             "
+          else
+            echo "Warning: marketplace.json not found at $MARKETPLACE_JSON"
           fi
 
       - name: Commit and push to marketplace

@@ -1,11 +1,12 @@
 {
   "name": "@gannonh/kata",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "description": "Spec-driven development framework for Claude Code.",
   "scripts": {
     "test": "node --test --test-reporter spec ./tests/build.test.js",
-    "test:build": "node --test --test-reporter spec tests/build.test.js",
+    "test:smoke": "node --test --test-reporter spec ./tests/smoke.test.js",
+    "test:all": "node --test --test-reporter spec ./tests/build.test.js ./tests/smoke.test.js",
     "build": "node scripts/build.js all",
     "build:plugin": "node scripts/build.js plugin",
     "build:npm": "node scripts/build.js npm",
