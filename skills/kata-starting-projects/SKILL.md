@@ -343,6 +343,15 @@ questions: [
       { label: "Quality", description: "Opus for research/roadmap — higher cost, deeper analysis" },
       { label: "Budget", description: "Haiku where possible — fastest, lowest cost" }
     ]
+  },
+  {
+    header: "Statusline",
+    question: "Enable Kata statusline? (shows model, context usage, update status)",
+    multiSelect: false,
+    options: [
+      { label: "Yes (Recommended)", description: "Display live session info in Claude Code statusline" },
+      { label: "No", description: "Use default Claude Code statusline" }
+    ]
   }
 ]
 ```
@@ -357,6 +366,9 @@ Create `.planning/config.json` with all settings:
   "commit_docs": true|false,
   "pr_workflow": true|false,
   "model_profile": "quality|balanced|budget",
+  "display": {
+    "statusline": true|false
+  },
   "workflow": {
     "research": true|false,
     "plan_check": true|false,
@@ -519,6 +531,68 @@ Add NPM_TOKEN secret to your GitHub repository:
 
 The workflow will auto-publish when you merge PRs that bump package.json version.
 ```
+
+**If statusline = Yes:**
+
+Update `.claude/settings.json` with statusline configuration:
+
+```bash
+# Ensure .claude directory exists
+mkdir -p .claude
+
+# Check if settings.json exists and has statusLine
+if [ -f .claude/settings.json ]; then
+  # Check if statusLine already configured
+  if grep -q '"statusLine"' .claude/settings.json; then
+    echo "Statusline already configured in .claude/settings.json"
+  else
+    # Add statusLine to existing settings using node
+    node -e "
+      const fs = require('fs');
+      const settings = JSON.parse(fs.readFileSync('.claude/settings.json', 'utf8'));
+      settings.statusLine = {
+        type: 'command',
+        command: 'node \"\$CLAUDE_PROJECT_DIR/.claude/hooks/kata-statusline.js\"'
+      };
+      fs.writeFileSync('.claude/settings.json', JSON.stringify(settings, null, 2));
+    "
+    echo "✓ Statusline enabled in .claude/settings.json"
+  fi
+else
+  # Create new settings.json with statusLine
+  cat > .claude/settings.json << 'SETTINGS_EOF'
+{
+  "statusLine": {
+    "type": "command",
+    "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/kata-statusline.js\""
+  }
+}
+SETTINGS_EOF
+  echo "✓ Created .claude/settings.json with statusline"
+fi
+```
+
+**Copy statusline hook to project:**
+
+```bash
+# Copy kata-statusline.js to project's .claude/hooks/
+mkdir -p .claude/hooks
+
+# For NPM installs
+if [ -f ~/.claude/kata/hooks/kata-statusline.js ]; then
+  cp ~/.claude/kata/hooks/kata-statusline.js .claude/hooks/
+# For local installs
+elif [ -f ./.claude/kata/hooks/kata-statusline.js ]; then
+  cp ./.claude/kata/hooks/kata-statusline.js .claude/hooks/
+# For plugin installs
+elif [ -n "$CLAUDE_PLUGIN_ROOT" ] && [ -f "$CLAUDE_PLUGIN_ROOT/hooks/kata-statusline.js" ]; then
+  cp "$CLAUDE_PLUGIN_ROOT/hooks/kata-statusline.js" .claude/hooks/
+fi
+```
+
+**If statusline = No:**
+
+No changes to `.claude/settings.json`.
 
 ## Phase 5.5: Resolve Model Profile
 

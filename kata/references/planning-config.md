@@ -14,6 +14,9 @@ Configuration options for Kata projects in `.planning/config.json`.
   "model_profile": "quality|balanced|budget",
   "commit_docs": true|false,
   "pr_workflow": true|false,
+  "display": {
+    "statusline": true|false
+  },
   "workflow": {
     "research": true|false,
     "plan_check": true|false,
@@ -30,6 +33,7 @@ Configuration options for Kata projects in `.planning/config.json`.
 | `model_profile`       | `balanced` | Which AI models for agents (see model-profiles.md)             |
 | `commit_docs`         | `true`     | Whether to commit planning artifacts to git                    |
 | `pr_workflow`         | `false`    | Use PR-based release workflow vs direct commits                |
+| `display.statusline`  | `true`     | Enable Kata custom statusline in Claude Code                   |
 | `workflow.research`   | `true`     | Spawn researcher before planning each phase                    |
 | `workflow.plan_check` | `true`     | Verify plans achieve phase goals before execution              |
 | `workflow.verifier`   | `true`     | Confirm deliverables after phase execution                     |
@@ -305,6 +309,33 @@ VERIFIER=$(cat .planning/config.json 2>/dev/null | grep -o '"verifier"[[:space:]
 ```
 
 </workflow_agents>
+
+<display_settings>
+
+## Display Settings
+
+### `display.statusline` (default: `true`)
+
+Controls whether Kata's custom statusline is enabled in Claude Code.
+
+**When `true`:**
+- Shows current model, context usage %, and Kata update availability
+- Configures `.claude/settings.json` with statusLine hook
+- Copies `kata-statusline.js` to `.claude/hooks/`
+
+**When `false`:**
+- Uses Claude Code's default statusline
+- No `.claude/settings.json` modification
+
+**Note:** Statusline changes take effect on next Claude Code session start.
+
+**Checking the config:**
+
+```bash
+STATUSLINE=$(cat .planning/config.json 2>/dev/null | grep -o '"statusline"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
+```
+
+</display_settings>
 
 <setup_uncommitted_mode>
 
