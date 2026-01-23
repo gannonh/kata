@@ -1,5 +1,5 @@
 ---
-name: help
+name: kata:help
 description: Show available Kata commands and usage guide
 argument-hint: <description>
 version: 0.1.0

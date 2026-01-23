@@ -1,6 +1,6 @@
 ---
-name: kata:update
-description: Update Kata to latest version with changelog display
+name: kata:project-status
+description: Check project progress, show context, and route to next action (execute or plan)
 argument-hint: <description>
 version: 0.1.0
 disable-model-invocation: true
@@ -17,4 +17,4 @@ Arguments: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the following skill:
-`Skill("kata-updating")`
+`Skill("kata-tracking-progress")`

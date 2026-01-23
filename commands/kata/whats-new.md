@@ -1,5 +1,5 @@
 ---
-name: whats-new
+name: kata:whats-new
 description: See what's new in Kata since your installed version
 argument-hint: <description>
 version: 0.1.0

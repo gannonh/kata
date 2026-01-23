@@ -1,6 +1,6 @@
 ---
-name: kata:update
-description: Update Kata to latest version with changelog display
+name: kata:phase-resume
+description: Resume work from previous session with full context restoration
 argument-hint: <description>
 version: 0.1.0
 disable-model-invocation: true
@@ -17,4 +17,4 @@ Arguments: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the following skill:
-`Skill("kata-updating")`
+`Skill("kata-resuming-work")`

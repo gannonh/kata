@@ -1,6 +1,6 @@
 ---
-name: kata:update
-description: Update Kata to latest version with changelog display
+name: kata:settings-config
+description: Configure Kata workflow toggles and model profile
 argument-hint: <description>
 version: 0.1.0
 disable-model-invocation: true
@@ -17,4 +17,4 @@ Arguments: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the following skill:
-`Skill("kata-updating")`
+`Skill("kata-configuring-settings")`
