@@ -107,29 +107,41 @@ fi
 PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
 ```
 
-### Branch Naming Convention
+### Branch Types
 
-**Pattern:** `{type}/v{milestone}-{phase}-{slug}`
+| Branch Type | Pattern | Purpose |
+|-------------|---------|---------|
+| **Phase branch** | `{type}/v{milestone}-{phase}-{slug}` | Code work for one phase |
+| **Release branch** | `release/v{milestone}` | Version bump, changelog, archive |
 
-**Examples:**
+**Phase branch examples:**
 - `feat/v0.1.9-01-plugin-structure-validation`
 - `fix/v0.1.9-01.1-document-pr-workflow`
 - `docs/v0.2.0-03-api-reference`
 
-**Prefix types:** Follow commit type conventions
+**Release branch examples:**
+- `release/v0.1.9`
+- `release/v0.2.0`
+
+**Type prefixes** (for phase branches):
 - `feat/` — New features
 - `fix/` — Bug fixes
 - `docs/` — Documentation changes
 - `refactor/` — Code restructuring
 - `chore/` — Maintenance tasks
 
-**Branch timing:** Create after planning complete, before execution. Planning work stays on main.
+**Branch timing:**
+- Phase branches: Create after planning, before execution
+- Release branch: Create when starting `/kata:complete-milestone`
 
 ### PR Granularity & Lifecycle
 
-**Granularity:** One PR per phase (not per-plan, not per-milestone).
+**Two PR types:**
+- **Phase PRs** — One per phase, contains code work
+- **Release PR** — One per milestone, contains version bump and archive
 
-**Lifecycle:**
+#### Phase PR Lifecycle
+
 1. **Create branch** — After planning complete, before first execution task
 2. **Open draft PR** — At first commit on the branch
 3. **Mark ready** — When phase execution complete (all plans done)
@@ -152,6 +164,35 @@ PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:s
 - [ ] [Success criterion 2]
 ```
 
+#### Release PR Lifecycle
+
+1. **Create branch** — When starting `/kata:complete-milestone`
+2. **Make release commits** — Version bump, CHANGELOG, milestone archive
+3. **Open PR** — Ready for review (not draft)
+4. **Merge** — Triggers GitHub Action → creates tag → publishes
+
+**PR title format:** `Release v{milestone}`
+- Example: `Release v0.1.9`
+
+**PR body format:**
+```markdown
+## Release v{milestone}
+
+**Milestone:** {Milestone Name}
+
+### Changes
+- [Summary of what shipped in this milestone]
+
+### Release Checklist
+- [x] Version bumped in package.json
+- [x] CHANGELOG.md updated
+- [x] Milestone archived
+
+After merge, GitHub Action will:
+- Create tag v{milestone}
+- Publish to npm (if configured)
+```
+
 ### Release-Milestone Relationship
 
 **Release = milestone** — Only one release per milestone (1:1 mapping).
@@ -161,19 +202,38 @@ PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:s
 - No mid-milestone releases
 - No version number mismatch
 
-**Release trigger:** Merge to main with version bump. The `publish.yml` workflow detects version changes in package.json and triggers the release.
+**Release flow:**
+1. All phase PRs merged to main (code complete)
+2. `/kata:complete-milestone` creates release branch
+3. Version bump, changelog, archive committed to release branch
+4. Release PR merged to main
+5. GitHub Action detects version change → creates tag → publishes
 
-**Version bump timing:** User bumps version manually before `/kata:complete-milestone`. The workflow verifies the bump is done.
+**Release trigger:** Merge of release PR to main. The `publish.yml` workflow detects version changes in package.json and triggers the release.
+
+**Version bump timing:** Version bump happens ON the release branch, as part of `/kata:complete-milestone`.
 
 ### Workflow Timing
+
+**Phase workflow:**
 
 | Step | When | What Happens |
 |------|------|--------------|
 | Create branch | After planning, before execution | `git checkout -b {type}/v{milestone}-{phase}-{slug}` |
-| Open PR | At first commit | Open as draft, set title/body |
+| Open draft PR | At first commit | `gh pr create --draft` |
 | Execute plans | During phase | Each plan commits to branch |
-| Mark ready | All plans complete | Convert draft to ready for review |
-| Merge | After approval | Merge to main, triggers release if version bumped |
+| Mark ready | All plans complete | `gh pr ready` |
+| Merge | After approval | Merge to main |
+
+**Release workflow (after all phases complete):**
+
+| Step | When | What Happens |
+|------|------|--------------|
+| Create branch | Start of complete-milestone | `git checkout -b release/v{milestone}` |
+| Release commits | During complete-milestone | Version bump, changelog, archive |
+| Open PR | After commits | `gh pr create --title "Release v{milestone}"` |
+| Merge | After approval | Merge to main |
+| GitHub Action | After merge | Creates tag, publishes to npm |
 
 ### Integration Points
 
@@ -183,19 +243,38 @@ Commands that check `pr_workflow` and change behavior:
 |---------|-------------------|-------------------|
 | new-project | Asks about config | Offers GitHub Actions scaffold |
 | settings | Allows toggle | Same |
-| execute-phase | Commits to main | Create branch, open draft PR |
-| complete-milestone | Creates local tag | Skips tag, defer to GitHub Release |
-| progress | Phase status only | Show PR status |
+| execute-phase | Commits to main | Create phase branch, open draft PR |
+| complete-milestone | Creates local tag | Create release branch, open release PR |
+| progress | Phase status only | Show PR status (phase and release) |
+
+**Usage in kata-executing-phases:**
+
+```bash
+if [ "$PR_WORKFLOW" = "true" ]; then
+  # Create phase branch and PR
+  git checkout -b "feat/v${MILESTONE}-${PHASE}-${SLUG}"
+  # ... execute plans ...
+  gh pr create --draft --title "v${MILESTONE} Phase ${PHASE}: ${NAME}"
+else
+  # Commit directly to main
+  git add . && git commit -m "feat(${PHASE}): ..."
+fi
+```
 
 **Usage in kata-completing-milestones:**
 
 ```bash
 if [ "$PR_WORKFLOW" = "true" ]; then
-  # Skip git tag, defer to GitHub Release
-  echo "Tag will be created via GitHub Release after merge"
+  # Create release branch
+  git checkout -b "release/v${VERSION}"
+  # ... bump version, update changelog, archive milestone ...
+  git push -u origin "release/v${VERSION}"
+  gh pr create --title "Release v${VERSION}" --body "..."
+  echo "Merge the release PR to trigger GitHub Action"
 else
   # Create tag locally
-  git tag -a v1.0.0 -m "Release v1.0.0"
+  git tag -a "v${VERSION}" -m "Release v${VERSION}"
+  echo "Push tag: git push origin v${VERSION}"
 fi
 ```
 
