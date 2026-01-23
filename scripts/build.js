@@ -329,6 +329,22 @@ function buildNpm() {
     }
   }
 
+  // Clean up package.json for distribution (remove dev scripts)
+  const distPkgPath = path.join(dest, 'package.json');
+  if (fs.existsSync(distPkgPath)) {
+    const distPkg = JSON.parse(fs.readFileSync(distPkgPath, 'utf8'));
+    // Remove scripts that don't work in dist context
+    delete distPkg.scripts.prepublishOnly;
+    delete distPkg.scripts.build;
+    delete distPkg.scripts['build:plugin'];
+    delete distPkg.scripts['build:npm'];
+    delete distPkg.scripts['build:hooks'];
+    delete distPkg.scripts.test;
+    delete distPkg.scripts['test:build'];
+    fs.writeFileSync(distPkgPath, JSON.stringify(distPkg, null, 2) + '\n');
+    console.log(`  ${green}✓${reset} Cleaned package.json scripts`);
+  }
+
   // Write VERSION file to kata/ directory (matches install.js behavior)
   const kataDir = path.join(dest, 'kata');
   if (fs.existsSync(kataDir)) {
