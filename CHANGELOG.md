@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-01-23
+
+### Fixed
+- **Plugin path resolution**: Fixed "Error reading file" when agents load templates in plugin installations by adding dynamic `$KATA_BASE` path resolution to 24 files (agents, skills, workflows, templates)
+
+### Added
+- **Test coverage for path resolution**: Added 7 tests to ensure dynamic path resolution is maintained across all affected files
+
 ## [1.0.2] - 2026-01-23
 
 ### Fixed
@@ -122,7 +130,8 @@ Kata 1.0 ships with **Claude Code plugin support** as the recommended installati
 - Upstream remote and sync workflow
 - References to original project maintainer
 
-[Unreleased]: https://github.com/gannonh/kata/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/gannonh/kata/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/gannonh/kata/compare/v1.0.2...v1.0.3
 [1.0.0]: https://github.com/gannonh/kata/compare/v0.1.8...v1.0.0
 [0.1.8]: https://github.com/gannonh/kata/compare/v0.1.6...v0.1.8
 [0.1.6]: https://github.com/gannonh/kata/compare/v0.1.5...v0.1.6
