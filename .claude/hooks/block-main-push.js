@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Block direct pushes to main branch for this repo
 
-const fs = require('fs');
+import fs from 'fs';
+
 const input = JSON.parse(fs.readFileSync(0, 'utf8'));
 
 // Debug: log to file
