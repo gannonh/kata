@@ -87,13 +87,13 @@ Kata provides skills for autonomous invocation alongside slash commands for dete
 
 ### Skills vs Commands
 
-| Aspect     | Skills                                 | Commands                          |
-| ---------- | -------------------------------------- | --------------------------------- |
-| Invocation | Autonomous from natural language       | Explicit with `/kata:command-name` |
-| Arguments  | Extracted from conversational context  | From command context              |
-| Use case   | "Help me plan phase 2"                 | `/kata:phase-plan 2`              |
-| Frontmatter | `user-invocable: false`               | `disable-model-invocation: true`  |
-| Delegation | Respond to natural language            | Spawn skills via Task tool        |
+| Aspect      | Skills                                | Commands                           |
+| ----------- | ------------------------------------- | ---------------------------------- |
+| Invocation  | Autonomous from natural language      | Explicit with `/kata:command-name` |
+| Arguments   | Extracted from conversational context | From command context               |
+| Use case    | "Help me plan phase 2"                | `/kata:phase-plan 2`               |
+| Frontmatter | `user-invocable: false`               | `disable-model-invocation: true`   |
+| Delegation  | Respond to natural language           | Spawn skills via Task tool         |
 
 **Key points:**
 - **Skills** respond to natural language (e.g., "plan phase 2", "what's the status") but cannot be invoked directly with `/skill-name` (controlled by `user-invocable: false`)
@@ -173,7 +173,8 @@ When modifying `.planning/` files (PROJECT.md, ROADMAP.md, STATE.md):
 
 ## PR Workflow
 
-**NEVER commit directly to main.** When `pr_workflow: true`, follow the spec in `kata/references/planning-config.md#pr_workflow_behavior`.
+**NEVER commit directly to main.** When `pr_workflow: true`, follow the spec in:
+@kata/references/planning-config.md.
 
 ## Common Gotchas
 
