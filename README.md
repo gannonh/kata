@@ -14,15 +14,6 @@
 
 [![Plugin](https://img.shields.io/badge/plugin-kata--marketplace-blue?style=for-the-badge)](https://github.com/gannonh/kata-marketplace)
 [![npm version](https://img.shields.io/npm/v/@gannonh/kata?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@gannonh/kata)
-<br>
-```bash
-# install as claude code plugin
-/plugin install kata@kata-marketplace
-
-# install via npx
-npx @gannonh/kata
-```
-
 
 <br>
 
@@ -33,6 +24,16 @@ npx @gannonh/kata
 **Agent orchestration framework for spec-driven development.**
 
 </div>
+
+**Install as Claude Code plugin:**
+```bash
+/plugin install kata@kata-marketplace
+```
+
+**Or via npx:**
+```bash
+npx @gannonh/kata
+```
 
 ---
 
