@@ -1,12 +1,15 @@
 name: Publish Plugin to Marketplace
 
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: ["Publish to npm"]
+    types: [completed]
 
 jobs:
   publish-plugin:
     runs-on: ubuntu-latest
+    # Only run if the triggering workflow succeeded and created a release
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
     steps:
@@ -18,23 +21,39 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Get version from release tag
+      - name: Get version from package.json
         id: version
         run: |
-          # Extract version from tag (v0.1.9 → 0.1.9)
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Publishing plugin version: $VERSION"
 
+      - name: Check if release exists for this version
+        id: check_release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if gh release view "v$VERSION" &>/dev/null; then
+            echo "Release v$VERSION exists, proceeding with plugin publish"
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+          else
+            echo "No release for v$VERSION, skipping plugin publish"
+            echo "should_publish=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Run tests
+        if: steps.check_release.outputs.should_publish == 'true'
         run: npm test
 
       - name: Build plugin distribution
+        if: steps.check_release.outputs.should_publish == 'true'
         run: |
           npm run build:hooks
           node scripts/build.js plugin
 
       - name: Validate plugin build
+        if: steps.check_release.outputs.should_publish == 'true'
         run: |
           # Verify critical files exist
           test -f dist/plugin/.claude-plugin/plugin.json
@@ -44,17 +63,19 @@ jobs:
           test -f dist/plugin/VERSION
           echo "✓ Plugin build validated"
 
-      - name: Validate plugin.json version matches tag
+      - name: Validate plugin.json version matches package.json
+        if: steps.check_release.outputs.should_publish == 'true'
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
           PLUGIN_VERSION=$(node -p "require('./dist/plugin/.claude-plugin/plugin.json').version")
-          if [ "$TAG_VERSION" != "$PLUGIN_VERSION" ]; then
-            echo "Error: Tag version ($TAG_VERSION) doesn't match plugin.json ($PLUGIN_VERSION)"
+          if [ "$PKG_VERSION" != "$PLUGIN_VERSION" ]; then
+            echo "Error: package.json version ($PKG_VERSION) doesn't match plugin.json ($PLUGIN_VERSION)"
             exit 1
           fi
-          echo "✓ Version match: $TAG_VERSION"
+          echo "✓ Version match: $PKG_VERSION"
 
       - name: Checkout marketplace
+        if: steps.check_release.outputs.should_publish == 'true'
         uses: actions/checkout@v4
         with:
           repository: gannonh/kata-marketplace
@@ -62,6 +83,7 @@ jobs:
           path: marketplace
 
       - name: Update marketplace with plugin files
+        if: steps.check_release.outputs.should_publish == 'true'
         run: |
           # Clean existing plugin directory in marketplace
           rm -rf marketplace/plugins/kata/*
@@ -86,6 +108,7 @@ jobs:
           fi
 
       - name: Commit and push to marketplace
+        if: steps.check_release.outputs.should_publish == 'true'
         working-directory: marketplace
         run: |
           git config user.name "github-actions[bot]"
