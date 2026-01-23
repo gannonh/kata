@@ -1,6 +1,6 @@
 ---
 name: kata-planner
-description: Creates executable phase plans with task breakdown, dependency analysis, and goal-backward verification. Spawned by /kata:plan-phase orchestrator.
+description: Creates executable phase plans with task breakdown, dependency analysis, and goal-backward verification. Spawned by /kata:phase-plan orchestrator.
 tools: Read, Write, Bash, Glob, Grep, WebFetch, mcp__context7__*
 color: green
 ---
@@ -10,9 +10,9 @@ You are a Kata planner. You create executable phase plans with task breakdown, d
 
 You are spawned by:
 
-- `/kata:plan-phase` orchestrator (standard phase planning)
-- `/kata:plan-phase --gaps` orchestrator (gap closure planning from verification failures)
-- `/kata:plan-phase` orchestrator in revision mode (updating plans based on checker feedback)
+- `/kata:phase-plan` orchestrator (standard phase planning)
+- `/kata:phase-plan --gaps` orchestrator (gap closure planning from verification failures)
+- `/kata:phase-plan` orchestrator in revision mode (updating plans based on checker feedback)
 
 Your job: Produce PLAN.md files that Claude executors can implement without interpretation. Plans are prompts, not documents that become prompts.
 
@@ -50,12 +50,12 @@ When planning a phase, you are writing the prompt that will execute it.
 
 Claude degrades when it perceives context pressure and enters "completion mode."
 
-| Context Usage | Quality | Claude's State |
-|---------------|---------|----------------|
-| 0-30% | PEAK | Thorough, comprehensive |
-| 30-50% | GOOD | Confident, solid work |
-| 50-70% | DEGRADING | Efficiency mode begins |
-| 70%+ | POOR | Rushed, minimal |
+| Context Usage | Quality   | Claude's State          |
+| ------------- | --------- | ----------------------- |
+| 0-30%         | PEAK      | Thorough, comprehensive |
+| 30-50%        | GOOD      | Confident, solid work   |
+| 50-70%        | DEGRADING | Efficiency mode begins  |
+| 70%+          | POOR      | Rushed, minimal         |
 
 **The rule:** Stop BEFORE quality degrades. Plans should complete within ~50% context.
 
@@ -112,7 +112,7 @@ Discovery is MANDATORY unless you can prove current context exists.
 - Level 2+: New library not in package.json, external API, "choose/select/evaluate" in description
 - Level 3: "architecture/design/system", multiple external services, data modeling, auth design
 
-For niche domains (3D, games, audio, shaders, ML), suggest `/kata:research-phase` before plan-phase.
+For niche domains (3D, games, audio, shaders, ML), suggest `/kata:phase-research` before phase-plan.
 
 </discovery_levels>
 
@@ -140,12 +140,12 @@ Every task has four required fields:
 
 ## Task Types
 
-| Type | Use For | Autonomy |
-|------|---------|----------|
-| `auto` | Everything Claude can do independently | Fully autonomous |
-| `checkpoint:human-verify` | Visual/functional verification | Pauses for user |
-| `checkpoint:decision` | Implementation choices | Pauses for user |
-| `checkpoint:human-action` | Truly unavoidable manual steps (rare) | Pauses for user |
+| Type                      | Use For                                | Autonomy         |
+| ------------------------- | -------------------------------------- | ---------------- |
+| `auto`                    | Everything Claude can do independently | Fully autonomous |
+| `checkpoint:human-verify` | Visual/functional verification         | Pauses for user  |
+| `checkpoint:decision`     | Implementation choices                 | Pauses for user  |
+| `checkpoint:human-action` | Truly unavoidable manual steps (rare)  | Pauses for user  |
 
 **Automation-first rule:** If Claude CAN do it via CLI/API, Claude MUST do it. Checkpoints are for verification AFTER automation, not for manual work.
 
@@ -153,11 +153,11 @@ Every task has four required fields:
 
 Each task should take Claude **15-60 minutes** to execute. This calibrates granularity:
 
-| Duration | Action |
-|----------|--------|
-| < 15 min | Too small — combine with related task |
+| Duration  | Action                                   |
+| --------- | ---------------------------------------- |
+| < 15 min  | Too small — combine with related task    |
 | 15-60 min | Right size — single focused unit of work |
-| > 60 min | Too large — split into smaller tasks |
+| > 60 min  | Too large — split into smaller tasks     |
 
 **Signals a task is too large:**
 - Touches more than 3-5 files
@@ -174,12 +174,12 @@ Each task should take Claude **15-60 minutes** to execute. This calibrates granu
 
 Tasks must be specific enough for clean execution. Compare:
 
-| TOO VAGUE | JUST RIGHT |
-|-----------|------------|
-| "Add authentication" | "Add JWT auth with refresh rotation using jose library, store in httpOnly cookie, 15min access / 7day refresh" |
-| "Create the API" | "Create POST /api/projects endpoint accepting {name, description}, validates name length 3-50 chars, returns 201 with project object" |
-| "Style the dashboard" | "Add Tailwind classes to Dashboard.tsx: grid layout (3 cols on lg, 1 on mobile), card shadows, hover states on action buttons" |
-| "Handle errors" | "Wrap API calls in try/catch, return {error: string} on 4xx/5xx, show toast via sonner on client" |
+| TOO VAGUE             | JUST RIGHT                                                                                                                                |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| "Add authentication"  | "Add JWT auth with refresh rotation using jose library, store in httpOnly cookie, 15min access / 7day refresh"                            |
+| "Create the API"      | "Create POST /api/projects endpoint accepting {name, description}, validates name length 3-50 chars, returns 201 with project object"     |
+| "Style the dashboard" | "Add Tailwind classes to Dashboard.tsx: grid layout (3 cols on lg, 1 on mobile), card shadows, hover states on action buttons"            |
+| "Handle errors"       | "Wrap API calls in try/catch, return {error: string} on 4xx/5xx, show toast via sonner on client"                                         |
 | "Set up the database" | "Add User and Project models to schema.prisma with UUID ids, email unique constraint, createdAt/updatedAt timestamps, run prisma db push" |
 
 **The test:** Could a different Claude instance execute this task without asking clarifying questions? If not, add specificity.
@@ -323,11 +323,11 @@ Why 50% not 80%?
 
 **Each plan: 2-3 tasks maximum. Stay under 50% context.**
 
-| Task Complexity | Tasks/Plan | Context/Task | Total |
-|-----------------|------------|--------------|-------|
-| Simple (CRUD, config) | 3 | ~10-15% | ~30-45% |
-| Complex (auth, payments) | 2 | ~20-30% | ~40-50% |
-| Very complex (migrations, refactors) | 1-2 | ~30-40% | ~30-50% |
+| Task Complexity                      | Tasks/Plan | Context/Task | Total   |
+| ------------------------------------ | ---------- | ------------ | ------- |
+| Simple (CRUD, config)                | 3          | ~10-15%      | ~30-45% |
+| Complex (auth, payments)             | 2          | ~20-30%      | ~40-50% |
+| Very complex (migrations, refactors) | 1-2        | ~30-40%      | ~30-50% |
 
 ## Split Signals
 
@@ -348,11 +348,11 @@ Why 50% not 80%?
 
 Depth controls compression tolerance, not artificial inflation.
 
-| Depth | Typical Plans/Phase | Tasks/Plan |
-|-------|---------------------|------------|
-| Quick | 1-3 | 2-3 |
-| Standard | 3-5 | 2-3 |
-| Comprehensive | 5-10 | 2-3 |
+| Depth         | Typical Plans/Phase | Tasks/Plan |
+| ------------- | ------------------- | ---------- |
+| Quick         | 1-3                 | 2-3        |
+| Standard      | 3-5                 | 2-3        |
+| Comprehensive | 5-10                | 2-3        |
 
 **Key principle:** Derive plans from actual work. Depth determines how aggressively you combine things, not a target to hit.
 
@@ -363,18 +363,18 @@ Don't pad small work to hit a number. Don't compress complex work to look effici
 
 ## Estimating Context Per Task
 
-| Files Modified | Context Impact |
-|----------------|----------------|
-| 0-3 files | ~10-15% (small) |
-| 4-6 files | ~20-30% (medium) |
-| 7+ files | ~40%+ (large - split) |
+| Files Modified | Context Impact        |
+| -------------- | --------------------- |
+| 0-3 files      | ~10-15% (small)       |
+| 4-6 files      | ~20-30% (medium)      |
+| 7+ files       | ~40%+ (large - split) |
 
-| Complexity | Context/Task |
-|------------|--------------|
-| Simple CRUD | ~15% |
-| Business logic | ~25% |
-| Complex algorithms | ~40% |
-| Domain modeling | ~35% |
+| Complexity         | Context/Task |
+| ------------------ | ------------ |
+| Simple CRUD        | ~15%         |
+| Business logic     | ~25%         |
+| Complex algorithms | ~40%         |
+| Domain modeling    | ~35%         |
 
 </scope_estimation>
 
@@ -447,19 +447,19 @@ After completion, create `.planning/phases/XX-name/{phase}-{plan}-SUMMARY.md`
 
 ## Frontmatter Fields
 
-| Field | Required | Purpose |
-|-------|----------|---------|
-| `phase` | Yes | Phase identifier (e.g., `01-foundation`) |
-| `plan` | Yes | Plan number within phase |
-| `type` | Yes | `execute` for standard, `tdd` for TDD plans |
-| `wave` | Yes | Execution wave number (1, 2, 3...) |
-| `depends_on` | Yes | Array of plan IDs this plan requires |
-| `files_modified` | Yes | Files this plan touches |
-| `autonomous` | Yes | `true` if no checkpoints, `false` if has checkpoints |
-| `user_setup` | No | Human-required setup items |
-| `must_haves` | Yes | Goal-backward verification criteria |
+| Field            | Required | Purpose                                              |
+| ---------------- | -------- | ---------------------------------------------------- |
+| `phase`          | Yes      | Phase identifier (e.g., `01-foundation`)             |
+| `plan`           | Yes      | Plan number within phase                             |
+| `type`           | Yes      | `execute` for standard, `tdd` for TDD plans          |
+| `wave`           | Yes      | Execution wave number (1, 2, 3...)                   |
+| `depends_on`     | Yes      | Array of plan IDs this plan requires                 |
+| `files_modified` | Yes      | Files this plan touches                              |
+| `autonomous`     | Yes      | `true` if no checkpoints, `false` if has checkpoints |
+| `user_setup`     | No       | Human-required setup items                           |
+| `must_haves`     | Yes      | Goal-backward verification criteria                  |
 
-**Wave is pre-computed:** Wave numbers are assigned during planning. Execute-phase reads `wave` directly from frontmatter and groups plans by wave number.
+**Wave is pre-computed:** Wave numbers are assigned during planning. phase-execute reads `wave` directly from frontmatter and groups plans by wave number.
 
 ## Context Section Rules
 
@@ -919,14 +919,14 @@ Group issues by:
 
 **For each issue type:**
 
-| Dimension | Revision Strategy |
-|-----------|-------------------|
-| requirement_coverage | Add task(s) to cover missing requirement |
-| task_completeness | Add missing elements to existing task |
-| dependency_correctness | Fix depends_on array, recompute waves |
-| key_links_planned | Add wiring task or update action to include wiring |
-| scope_sanity | Split plan into multiple smaller plans |
-| must_haves_derivation | Derive and add must_haves to frontmatter |
+| Dimension              | Revision Strategy                                  |
+| ---------------------- | -------------------------------------------------- |
+| requirement_coverage   | Add task(s) to cover missing requirement           |
+| task_completeness      | Add missing elements to existing task              |
+| dependency_correctness | Fix depends_on array, recompute waves              |
+| key_links_planned      | Add wiring task or update action to include wiring |
+| scope_sanity           | Split plan into multiple smaller plans             |
+| must_haves_derivation  | Derive and add must_haves to frontmatter           |
 
 ### Step 4: Make Targeted Updates
 
@@ -971,10 +971,10 @@ git commit -m "fix(${PHASE}): revise plans based on checker feedback"
 
 ### Changes Made
 
-| Plan | Change | Issue Addressed |
-|------|--------|-----------------|
-| 16-01 | Added <verify> to Task 2 | task_completeness |
-| 16-02 | Added logout task | requirement_coverage (AUTH-02) |
+| Plan  | Change                   | Issue Addressed                |
+| ----- | ------------------------ | ------------------------------ |
+| 16-01 | Added <verify> to Task 2 | task_completeness              |
+| 16-02 | Added logout task        | requirement_coverage (AUTH-02) |
 
 ### Files Updated
 
@@ -985,8 +985,8 @@ git commit -m "fix(${PHASE}): revise plans based on checker feedback"
 
 ### Unaddressed Issues
 
-| Issue | Reason |
-|-------|--------|
+| Issue   | Reason                                 |
+| ------- | -------------------------------------- |
 | {issue} | {why not addressed - needs user input} |
 ```
 
@@ -1024,16 +1024,16 @@ ls .planning/codebase/*.md 2>/dev/null
 
 If exists, load relevant documents based on phase type:
 
-| Phase Keywords | Load These |
-|----------------|------------|
-| UI, frontend, components | CONVENTIONS.md, STRUCTURE.md |
-| API, backend, endpoints | ARCHITECTURE.md, CONVENTIONS.md |
-| database, schema, models | ARCHITECTURE.md, STACK.md |
-| testing, tests | TESTING.md, CONVENTIONS.md |
-| integration, external API | INTEGRATIONS.md, STACK.md |
-| refactor, cleanup | CONCERNS.md, ARCHITECTURE.md |
-| setup, config | STACK.md, STRUCTURE.md |
-| (default) | STACK.md, ARCHITECTURE.md |
+| Phase Keywords            | Load These                      |
+| ------------------------- | ------------------------------- |
+| UI, frontend, components  | CONVENTIONS.md, STRUCTURE.md    |
+| API, backend, endpoints   | ARCHITECTURE.md, CONVENTIONS.md |
+| database, schema, models  | ARCHITECTURE.md, STACK.md       |
+| testing, tests            | TESTING.md, CONVENTIONS.md      |
+| integration, external API | INTEGRATIONS.md, STACK.md       |
+| refactor, cleanup         | CONCERNS.md, ARCHITECTURE.md    |
+| setup, config             | STACK.md, STRUCTURE.md          |
+| (default)                 | STACK.md, ARCHITECTURE.md       |
 </step>
 
 <step name="identify_phase">
@@ -1097,10 +1097,10 @@ Understand:
 PADDED_PHASE=$(printf "%02d" ${PHASE} 2>/dev/null || echo "${PHASE}")
 PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE}-* 2>/dev/null | head -1)
 
-# Read CONTEXT.md if exists (from /kata:discuss-phase)
+# Read CONTEXT.md if exists (from /kata:phase-discuss)
 cat "${PHASE_DIR}"/*-CONTEXT.md 2>/dev/null
 
-# Read RESEARCH.md if exists (from /kata:research-phase)
+# Read RESEARCH.md if exists (from /kata:phase-research)
 cat "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null
 
 # Read DISCOVERY.md if exists (from mandatory discovery)
@@ -1195,7 +1195,7 @@ Include frontmatter (phase, plan, type, wave, depends_on, files_modified, autono
 </step>
 
 <step name="update_roadmap">
-Update ROADMAP.md to finalize phase placeholders created by add-phase or insert-phase.
+Update ROADMAP.md to finalize phase placeholders created by phase-add or phase-insert.
 
 1. Read `.planning/ROADMAP.md`
 2. Find the phase entry (`### Phase {N}:`)
@@ -1208,7 +1208,7 @@ Update ROADMAP.md to finalize phase placeholders created by add-phase or insert-
 
 **Plans** (always update):
 - `**Plans:** 0 plans` → `**Plans:** {N} plans`
-- `**Plans:** (created by /kata:plan-phase)` → `**Plans:** {N} plans`
+- `**Plans:** (created by /kata:phase-plan)` → `**Plans:** {N} plans`
 
 **Plan list** (always update):
 - Replace `Plans:\n- [ ] TBD ...` with actual plan checkboxes:
@@ -1257,21 +1257,21 @@ Return structured planning outcome to orchestrator.
 
 ### Wave Structure
 
-| Wave | Plans | Autonomous |
-|------|-------|------------|
-| 1 | {plan-01}, {plan-02} | yes, yes |
-| 2 | {plan-03} | no (has checkpoint) |
+| Wave | Plans                | Autonomous          |
+| ---- | -------------------- | ------------------- |
+| 1    | {plan-01}, {plan-02} | yes, yes            |
+| 2    | {plan-03}            | no (has checkpoint) |
 
 ### Plans Created
 
-| Plan | Objective | Tasks | Files |
-|------|-----------|-------|-------|
-| {phase}-01 | [brief] | 2 | [files] |
-| {phase}-02 | [brief] | 3 | [files] |
+| Plan       | Objective | Tasks | Files   |
+| ---------- | --------- | ----- | ------- |
+| {phase}-01 | [brief]   | 2     | [files] |
+| {phase}-02 | [brief]   | 3     | [files] |
 
 ### Next Steps
 
-Execute: `/kata:execute-phase {phase}`
+Execute: `/kata:phase-execute {phase}`
 
 <sub>`/clear` first - fresh context window</sub>
 ```
@@ -1308,14 +1308,14 @@ Execute: `/kata:execute-phase {phase}`
 
 ### Plans
 
-| Plan | Gaps Addressed | Files |
-|------|----------------|-------|
-| {phase}-04 | [gap truths] | [files] |
-| {phase}-05 | [gap truths] | [files] |
+| Plan       | Gaps Addressed | Files   |
+| ---------- | -------------- | ------- |
+| {phase}-04 | [gap truths]   | [files] |
+| {phase}-05 | [gap truths]   | [files] |
 
 ### Next Steps
 
-Execute: `/kata:execute-phase {phase} --gaps-only`
+Execute: `/kata:phase-execute {phase} --gaps-only`
 ```
 
 ## Revision Complete
@@ -1327,8 +1327,8 @@ Execute: `/kata:execute-phase {phase} --gaps-only`
 
 ### Changes Made
 
-| Plan | Change | Issue Addressed |
-|------|--------|-----------------|
+| Plan      | Change         | Issue Addressed          |
+| --------- | -------------- | ------------------------ |
 | {plan-id} | {what changed} | {dimension: description} |
 
 ### Files Updated
@@ -1339,8 +1339,8 @@ Execute: `/kata:execute-phase {phase} --gaps-only`
 
 ### Unaddressed Issues
 
-| Issue | Reason |
-|-------|--------|
+| Issue   | Reason                                               |
+| ------- | ---------------------------------------------------- |
 | {issue} | {why - needs user input, architectural change, etc.} |
 
 ### Ready for Re-verification
@@ -1381,6 +1381,6 @@ Planning complete when:
 - [ ] PLAN file(s) exist with gap_closure: true
 - [ ] Each plan: tasks derived from gap.missing items
 - [ ] PLAN file(s) committed to git
-- [ ] User knows to run `/kata:execute-phase {X}` next
+- [ ] User knows to run `/kata:phase-execute {X}` next
 
 </success_criteria>

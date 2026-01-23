@@ -20,7 +20,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 <execution_context>
 **Load these files NOW (before proceeding):**
 
-- @~/.claude/kata/workflows/complete-milestone.md (main workflow)
+- @~/.claude/kata/workflows/milestone-complete.md (main workflow)
 - @~/.claude/kata/templates/milestone-archive.md (archive template)
   </execution_context>
 
@@ -38,7 +38,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
 <process>
 
-**Follow complete-milestone.md workflow:**
+**Follow milestone-complete.md workflow:**
 
 0. **Pre-flight: Release artifacts**
 
@@ -59,7 +59,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    - CHANGELOG.md — add v{{version}} entry
    - package.json — set version to {{version}}
 
-   Then re-run /kata:complete-milestone
+   Then re-run /kata:milestone-complete
    ```
 
    Use AskUserQuestion:
@@ -74,19 +74,19 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 1. **Check for audit:**
 
    - Look for `.planning/v{{version}}-MILESTONE-AUDIT.md`
-   - If missing or stale: recommend `/kata:audit-milestone` first
-   - If audit status is `gaps_found`: recommend `/kata:plan-milestone-gaps` first
+   - If missing or stale: recommend `/kata:milestone-audit` first
+   - If audit status is `gaps_found`: recommend `/kata:milestone-plan-gaps` first
    - If audit status is `passed`: proceed to step 1
 
    ```markdown
    ## Pre-flight Check
 
    {If no v{{version}}-MILESTONE-AUDIT.md:}
-   ⚠ No milestone audit found. Run `/kata:audit-milestone` first to verify
+   ⚠ No milestone audit found. Run `/kata:milestone-audit` first to verify
    requirements coverage, cross-phase integration, and E2E flows.
 
    {If audit has gaps:}
-   ⚠ Milestone audit found gaps. Run `/kata:plan-milestone-gaps` to create
+   ⚠ Milestone audit found gaps. Run `/kata:milestone-plan-gaps` to create
    phases that close the gaps, or proceed anyway to accept as tech debt.
 
    {If audit passed:}
@@ -211,7 +211,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    - Ask about pushing tag
 
 8. **Offer next steps:**
-   - `/kata:new-milestone` — start next milestone (questioning → research → requirements → roadmap)
+   - `/kata:milestone-new` — start next milestone (questioning → research → requirements → roadmap)
 
 </process>
 
@@ -229,11 +229,11 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
 <critical_rules>
 
-- **Load workflow first:** Read complete-milestone.md before executing
+- **Load workflow first:** Read milestone-complete.md before executing
 - **Verify completion:** All phases must have SUMMARY.md files
 - **User confirmation:** Wait for approval at verification gates
 - **Archive before deleting:** Always create archive files before updating/deleting originals
 - **One-line summary:** Collapsed milestone in ROADMAP.md should be single line with link
 - **Context efficiency:** Archive keeps ROADMAP.md and REQUIREMENTS.md constant size per milestone
-- **Fresh requirements:** Next milestone starts with `/kata:new-milestone` which includes requirements definition
+- **Fresh requirements:** Next milestone starts with `/kata:milestone-new` which includes requirements definition
   </critical_rules>

@@ -164,7 +164,7 @@ Build authentication system
 
 **Static references** (always load):
 ```
-@~/.claude/kata/workflows/execute-phase.md
+@~/.claude/kata/workflows/phase-execute.md
 @.planning/PROJECT.md
 ```
 
@@ -179,14 +179,14 @@ Build authentication system
 
 ## Naming Conventions
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Files | kebab-case | `execute-phase.md` |
-| Commands | `kata:kebab-case` | `kata:execute-phase` |
-| XML tags | kebab-case | `<execution_context>` |
-| Step names | snake_case | `name="load_project_state"` |
-| Bash variables | CAPS_UNDERSCORES | `PHASE_ARG`, `PLAN_START_TIME` |
-| Type attributes | colon separator | `type="checkpoint:human-verify"` |
+| Type            | Convention        | Example                          |
+| --------------- | ----------------- | -------------------------------- |
+| Files           | kebab-case        | `phase-execute.md`               |
+| Commands        | `kata:kebab-case` | `kata:phase-execute`             |
+| XML tags        | kebab-case        | `<execution_context>`            |
+| Step names      | snake_case        | `name="load_project_state"`      |
+| Bash variables  | CAPS_UNDERSCORES  | `PHASE_ARG`, `PLAN_START_TIME`   |
+| Type attributes | colon separator   | `type="checkpoint:human-verify"` |
 
 ---
 
@@ -293,14 +293,14 @@ Use subagents for autonomous work. Reserve main context for user interaction.
 
 ### Types
 
-| Type | Use |
-|------|-----|
-| `feat` | New feature |
-| `fix` | Bug fix |
-| `test` | Tests only (TDD RED) |
+| Type       | Use                         |
+| ---------- | --------------------------- |
+| `feat`     | New feature                 |
+| `fix`      | Bug fix                     |
+| `test`     | Tests only (TDD RED)        |
 | `refactor` | Code cleanup (TDD REFACTOR) |
-| `docs` | Documentation/metadata |
-| `chore` | Config/dependencies |
+| `docs`     | Documentation/metadata      |
+| `chore`    | Config/dependencies         |
 
 ### Rules
 
@@ -416,8 +416,8 @@ Quick tasks update STATE.md, NOT ROADMAP.md:
 ```markdown
 ### Quick Tasks Completed
 
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
+| #   | Description          | Date       | Commit  | Directory                                       |
+| --- | -------------------- | ---------- | ------- | ----------------------------------------------- |
 | 001 | Add dark mode toggle | 2026-01-19 | abc123f | [001-add-dark-mode](./quick/001-add-dark-mode/) |
 ```
 
@@ -489,11 +489,11 @@ Kata includes an automatic codebase learning system that indexes code and detect
 
 ### Files
 
-| File | Purpose | Updated By |
-|------|---------|------------|
-| `.planning/intel/index.json` | File exports/imports index | PostToolUse hook |
+| File                               | Purpose                                   | Updated By       |
+| ---------------------------------- | ----------------------------------------- | ---------------- |
+| `.planning/intel/index.json`       | File exports/imports index                | PostToolUse hook |
 | `.planning/intel/conventions.json` | Detected naming/directory/suffix patterns | PostToolUse hook |
-| `.planning/intel/summary.md` | Concise context for injection | PostToolUse hook |
+| `.planning/intel/summary.md`       | Concise context for injection             | PostToolUse hook |
 
 ### Index Schema
 
@@ -543,7 +543,7 @@ Kata includes an automatic codebase learning system that indexes code and detect
 - Creates .planning/intel/ directory
 - Scans all JS/TS files (excludes node_modules, dist, build, .git, vendor, coverage)
 - Uses same extraction logic as PostToolUse hook
-- Works standalone (no /kata:new-project required)
+- Works standalone (no /kata:project-new required)
 
 ---
 

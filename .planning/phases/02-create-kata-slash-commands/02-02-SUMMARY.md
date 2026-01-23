@@ -6,7 +6,7 @@ tags: [commands, slash-commands, skill-delegation]
 
 requires:
   - phase: 02-01
-    provides: Gap skills (quick-tasks, update, help)
+    provides: Gap skills (task-executes, update, help)
 provides:
   - 7 slash commands for project and milestone operations
   - Explicit invocation paths delegating to skills
@@ -76,10 +76,10 @@ Each task was committed atomically:
 
 ## Files Created/Modified
 
-- `commands/kata/project-new.md` - Delegates to kata-starting-new-projects skill
+- `commands/kata/project-new.md` - Delegates to kata-starting-project-news skill
 - `commands/kata/project-status.md` - Delegates to kata-providing-progress-and-status-updates skill
 - `commands/kata/workflow-debug.md` - Delegates to kata-debugging-kata-workflow-issues skill
-- `commands/kata/quick.md` - Delegates to kata-executing-quick-tasks skill
+- `commands/kata/quick.md` - Delegates to kata-executing-task-executes skill
 - `commands/kata/milestone-new.md` - Delegates to kata-manageing-milestones (new operation)
 - `commands/kata/milestone-complete.md` - Delegates to kata-manageing-milestones (complete operation)
 - `commands/kata/milestone-audit.md` - Delegates to kata-manageing-milestones (audit operation)

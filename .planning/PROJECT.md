@@ -22,10 +22,10 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 ### Active (v0.1.10 GitHub Integration)
 
 - [ ] Config-driven integration — enable/disable via .planning/config.json
-- [ ] GitHub Milestone creation — new-milestone creates GH Milestone
+- [ ] GitHub Milestone creation — milestone-new creates GH Milestone
 - [ ] Phase issue creation — phases become GitHub Issues with `phase` label
 - [ ] Plan checklist sync — plans shown as checklist items in phase issues
-- [ ] PR creation at phase completion — execute-phase creates PR, auto-links with "Closes #X"
+- [ ] PR creation at phase completion — phase-execute creates PR, auto-links with "Closes #X"
 - [ ] Workflow audit — document integration points in existing Kata workflows
 
 ### Out of Scope
@@ -92,18 +92,18 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 ## Key Decisions
 
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| ~~Start as extension, not hard fork~~ | ~~Maximize leverage of upstream velocity~~ | Superseded |
-| **Hard fork and rebrand** | Vision diverged significantly; clean break enables independent evolution | Good — v0.1.4 |
-| **Skills as orchestrators** | Skills contain full workflow logic, spawn sub-agents via Task tool | Good — v0.1.5 |
-| **Command delegation** | Slash commands delegate to skills with disable-model-invocation | Good — v0.1.5 |
-| **Skill naming** | Gerund style with exhaustive triggers for autonomous matching | Good — v0.1.5 |
-| GitHub integration first | Prove integration pattern before IDE adapters | — Pending |
-| Config-driven integrations | Modular, can enable/disable without affecting core Kata | — Pending |
-| Phase-level PRs | One PR per phase (not per plan) — complete reviewable units | — Pending |
-| Kata Milestone → GH Milestone | Use GitHub's native feature for version tracking | — Pending |
-| Phase → Issue, Plan → Checklist | Right granularity — phases are coordination unit, plans are execution detail | — Pending |
+| Decision                              | Rationale                                                                    | Outcome       |
+| ------------------------------------- | ---------------------------------------------------------------------------- | ------------- |
+| ~~Start as extension, not hard fork~~ | ~~Maximize leverage of upstream velocity~~                                   | Superseded    |
+| **Hard fork and rebrand**             | Vision diverged significantly; clean break enables independent evolution     | Good — v0.1.4 |
+| **Skills as orchestrators**           | Skills contain full workflow logic, spawn sub-agents via Task tool           | Good — v0.1.5 |
+| **Command delegation**                | Slash commands delegate to skills with disable-model-invocation              | Good — v0.1.5 |
+| **Skill naming**                      | Gerund style with exhaustive triggers for autonomous matching                | Good — v0.1.5 |
+| GitHub integration first              | Prove integration pattern before IDE adapters                                | — Pending     |
+| Config-driven integrations            | Modular, can enable/disable without affecting core Kata                      | — Pending     |
+| Phase-level PRs                       | One PR per phase (not per plan) — complete reviewable units                  | — Pending     |
+| Kata Milestone → GH Milestone         | Use GitHub's native feature for version tracking                             | — Pending     |
+| Phase → Issue, Plan → Checklist       | Right granularity — phases are coordination unit, plans are execution detail | — Pending     |
 
 ## Current Milestone: v0.1.9 Claude Code Plugin
 

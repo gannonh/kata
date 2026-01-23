@@ -1,10 +1,10 @@
 ---
 created: 2026-01-18T17:28
-title: Add Kata section to CLAUDE.md during new-project onboarding
+title: Add Kata section to CLAUDE.md during project-new onboarding
 area: planning
 files:
-  - commands/kata/new-project.md
-  - kata/workflows/new-project.md
+  - commands/kata/project-new.md
+  - kata/workflows/project-new.md
 ---
 
 ## Problem
@@ -17,9 +17,9 @@ When onboarding a new project with Kata, there's no explanation in CLAUDE.md tha
 
 ## Solution
 
-As part of `/kata:new-project`, add or update CLAUDE.md with a Kata section explaining:
+As part of `/kata:project-new`, add or update CLAUDE.md with a Kata section explaining:
 - Project uses Kata for project management and orchestration
-- Key commands: `/kata:progress`, `/kata:plan-phase`, `/kata:execute-phase`
+- Key commands: `/kata:project-status`, `/kata:phase-plan`, `/kata:phase-execute`
 - Planning files location: `.planning/`
 - Hierarchy: PROJECT.md → milestones → phases → plans
 - Reference to full Kata docs if installed globally

@@ -35,7 +35,7 @@ score: 6/6 must-haves verified
 | `skills/kata-planning-phases/SKILL.md`          | Orchestrator workflow  | VERIFIED | 285 lines, 3 Task() calls, proper frontmatter               |
 | `skills/kata-execution/SKILL.md`                | Orchestrator workflow  | VERIFIED | 306 lines, 2 Task() calls, proper frontmatter               |
 | `skills/kata-verification/SKILL.md`             | Orchestrator workflow  | VERIFIED | 343 lines, 2 Task() calls, proper frontmatter               |
-| `skills/kata-starting-new-projects/SKILL.md`    | Orchestrator workflow  | VERIFIED | 355 lines, 2 Task() calls, proper frontmatter               |
+| `skills/kata-starting-project-news/SKILL.md`    | Orchestrator workflow  | VERIFIED | 355 lines, 2 Task() calls, proper frontmatter               |
 | `skills/kata-manageing-milestones/SKILL.md`     | Orchestrator workflow  | VERIFIED | 282 lines, 3 Task() calls, proper frontmatter               |
 | `skills/kata-managing-project-roadmap/SKILL.md` | Orchestrator workflow  | VERIFIED | 303 lines, 1 Task() call, proper frontmatter                |
 | `skills/kata-researching-phases/SKILL.md`       | Orchestrator workflow  | VERIFIED | 372 lines, 2 Task() calls, proper frontmatter               |
@@ -77,7 +77,7 @@ Phase 0 goal fully achieved:
    - kata-planning-phases (285 lines)
    - kata-execution (306 lines)
    - kata-verification (343 lines)
-   - kata-starting-new-projects (355 lines)
+   - kata-starting-project-news (355 lines)
    - kata-manageing-milestones (282 lines)
    - kata-managing-project-roadmap (303 lines)
    - kata-researching-phases (372 lines)

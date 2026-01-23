@@ -9,7 +9,7 @@ requires:
   - phase: 00-01
     provides: kata-planning-phases skill pattern and structure
 provides:
-  - kata-starting-new-projects skill for new project setup
+  - kata-starting-project-news skill for new project setup
   - discovery-protocol reference for user interviews
   - project-template reference for PROJECT.md structure
   - roadmap-creation reference for ROADMAP.md structure
@@ -22,10 +22,10 @@ tech-stack:
 
 key-files:
   created:
-    - skills/kata-starting-new-projects/SKILL.md
-    - skills/kata-starting-new-projects/references/discovery-protocol.md
-    - skills/kata-starting-new-projects/references/project-template.md
-    - skills/kata-starting-new-projects/references/roadmap-creation.md
+    - skills/kata-starting-project-news/SKILL.md
+    - skills/kata-starting-project-news/references/discovery-protocol.md
+    - skills/kata-starting-project-news/references/project-template.md
+    - skills/kata-starting-project-news/references/roadmap-creation.md
   modified: []
 
 key-decisions:
@@ -43,7 +43,7 @@ duration: 4min
 completed: 2026-01-19
 ---
 
-# Phase 00 Plan 04: kata-starting-new-projects Skill Summary
+# Phase 00 Plan 04: kata-starting-project-news Skill Summary
 
 **Project initialization orchestrator skill with discovery protocol, project template, and roadmap creation references**
 
@@ -57,7 +57,7 @@ completed: 2026-01-19
 
 ## Accomplishments
 
-- Created kata-starting-new-projects skill as full orchestrator (355 lines)
+- Created kata-starting-project-news skill as full orchestrator (355 lines)
 - Extracted discovery interview protocol from kata-project-researcher agent
 - Consolidated project template guidance from existing templates
 - Documented roadmap creation process with coverage validation
@@ -66,14 +66,14 @@ completed: 2026-01-19
 
 Each task was committed atomically:
 
-1. **Task 1: Create kata-starting-new-projects skill with references** - `3a1ca59` (feat)
+1. **Task 1: Create kata-starting-project-news skill with references** - `3a1ca59` (feat)
 
 ## Files Created
 
-- `skills/kata-starting-new-projects/SKILL.md` - Main skill orchestrator handling new project onboarding
-- `skills/kata-starting-new-projects/references/discovery-protocol.md` - Interview techniques, questioning patterns, context checklist
-- `skills/kata-starting-new-projects/references/project-template.md` - PROJECT.md structure and section guidelines
-- `skills/kata-starting-new-projects/references/roadmap-creation.md` - Phase identification, goal-backward criteria, coverage validation
+- `skills/kata-starting-project-news/SKILL.md` - Main skill orchestrator handling new project onboarding
+- `skills/kata-starting-project-news/references/discovery-protocol.md` - Interview techniques, questioning patterns, context checklist
+- `skills/kata-starting-project-news/references/project-template.md` - PROJECT.md structure and section guidelines
+- `skills/kata-starting-project-news/references/roadmap-creation.md` - Phase identification, goal-backward criteria, coverage validation
 
 ## Decisions Made
 

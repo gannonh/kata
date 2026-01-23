@@ -95,7 +95,7 @@
 
 **Slash Commands (`commands/kata/`):**
 - 29 commands total
-- Key commands: `new-project.md`, `plan-phase.md`, `execute-phase.md`, `debug.md`
+- Key commands: `project-new.md`, `phase-plan.md`, `phase-execute.md`, `debug.md`
 - Commands use frontmatter for metadata and tool permissions
 
 **Agents (`agents/`):**

@@ -26,7 +26,7 @@ This is the most leveraged moment in any project. Deep questioning here means be
 - `.planning/ROADMAP.md` — phase structure
 - `.planning/STATE.md` — project memory
 
-**After this command:** Run `/kata:plan-phase 1` to start execution.
+**After this command:** Run `/kata:phase-plan 1` to start execution.
 
 </objective>
 
@@ -47,7 +47,7 @@ This is the most leveraged moment in any project. Deep questioning here means be
 
 1. **Abort if project exists:**
    ```bash
-   [ -f .planning/PROJECT.md ] && echo "ERROR: Project already initialized. Use /kata:progress" && exit 1
+   [ -f .planning/PROJECT.md ] && echo "ERROR: Project already initialized. Use /kata:project-status" && exit 1
    ```
 
 2. **Initialize git repo in THIS directory** (required even if inside a parent repo):
@@ -81,12 +81,12 @@ Use AskUserQuestion:
 - header: "Existing Code"
 - question: "I detected existing code in this directory. Would you like to map the codebase first?"
 - options:
-  - "Map codebase first" — Run /kata:map-codebase to understand existing architecture (Recommended)
+  - "Map codebase first" — Run /kata:project-analyze to understand existing architecture (Recommended)
   - "Skip mapping" — Proceed with project initialization
 
 **If "Map codebase first":**
 ```
-Run `/kata:map-codebase` first, then return to `/kata:new-project`
+Run `/kata:project-analyze` first, then return to `/kata:project-new`
 ```
 Exit command.
 
@@ -211,9 +211,9 @@ Initialize with any decisions made during questioning:
 ```markdown
 ## Key Decisions
 
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| [Choice from questioning] | [Why] | — Pending |
+| Decision                  | Rationale | Outcome   |
+| ------------------------- | --------- | --------- |
+| [Choice from questioning] | [Why]     | — Pending |
 ```
 
 **Last updated footer:**
@@ -297,11 +297,11 @@ questions: [
 
 These spawn additional agents during planning/execution. They add tokens and time but improve quality.
 
-| Agent | When it runs | What it does |
-|-------|--------------|--------------|
-| **Researcher** | Before planning each phase | Investigates domain, finds patterns, surfaces gotchas |
-| **Plan Checker** | After plan is created | Verifies plan actually achieves the phase goal |
-| **Verifier** | After phase execution | Confirms must-haves were delivered |
+| Agent            | When it runs               | What it does                                          |
+| ---------------- | -------------------------- | ----------------------------------------------------- |
+| **Researcher**   | Before planning each phase | Investigates domain, finds patterns, surfaces gotchas |
+| **Plan Checker** | After plan is created      | Verifies plan actually achieves the phase goal        |
+| **Verifier**     | After phase execution      | Confirms must-haves were delivered                    |
 
 All recommended for important projects. Skip for quick experiments.
 
@@ -387,7 +387,7 @@ EOF
 )"
 ```
 
-**Note:** Run `/kata:settings` anytime to update these preferences.
+**Note:** Run `/kata:settings-config` anytime to update these preferences.
 
 **If pr_workflow = Yes:**
 
@@ -532,11 +532,11 @@ Default to "balanced" if not set.
 
 **Model lookup table:**
 
-| Agent | quality | balanced | budget |
-|-------|---------|----------|--------|
-| kata-project-researcher | opus | sonnet | haiku |
-| kata-research-synthesizer | sonnet | sonnet | haiku |
-| kata-roadmapper | opus | sonnet | sonnet |
+| Agent                     | quality | balanced | budget |
+| ------------------------- | ------- | -------- | ------ |
+| kata-project-researcher   | opus    | sonnet   | haiku  |
+| kata-research-synthesizer | sonnet  | sonnet   | haiku  |
+| kata-roadmapper           | opus    | sonnet   | sonnet |
 
 Store resolved models for use in Task calls below.
 
@@ -987,11 +987,11 @@ Read the created ROADMAP.md and present it nicely inline:
 
 **[N] phases** | **[X] requirements mapped** | All v1 requirements covered ✓
 
-| # | Phase | Goal | Requirements | Success Criteria |
-|---|-------|------|--------------|------------------|
-| 1 | [Name] | [Goal] | [REQ-IDs] | [count] |
-| 2 | [Name] | [Goal] | [REQ-IDs] | [count] |
-| 3 | [Name] | [Goal] | [REQ-IDs] | [count] |
+| #   | Phase  | Goal   | Requirements | Success Criteria |
+| --- | ------ | ------ | ------------ | ---------------- |
+| 1   | [Name] | [Goal] | [REQ-IDs]    | [count]          |
+| 2   | [Name] | [Goal] | [REQ-IDs]    | [count]          |
+| 3   | [Name] | [Goal] | [REQ-IDs]    | [count]          |
 ...
 
 ### Phase Details
@@ -1077,13 +1077,13 @@ Present completion with next steps:
 
 **[Project Name]**
 
-| Artifact       | Location                    |
-|----------------|-----------------------------|
-| Project        | `.planning/PROJECT.md`      |
-| Config         | `.planning/config.json`     |
-| Research       | `.planning/research/`       |
-| Requirements   | `.planning/REQUIREMENTS.md` |
-| Roadmap        | `.planning/ROADMAP.md`      |
+| Artifact     | Location                    |
+| ------------ | --------------------------- |
+| Project      | `.planning/PROJECT.md`      |
+| Config       | `.planning/config.json`     |
+| Research     | `.planning/research/`       |
+| Requirements | `.planning/REQUIREMENTS.md` |
+| Roadmap      | `.planning/ROADMAP.md`      |
 
 **[N] phases** | **[X] requirements** | Ready to build ✓
 
@@ -1093,14 +1093,14 @@ Present completion with next steps:
 
 **Phase 1: [Phase Name]** — [Goal from ROADMAP.md]
 
-`/kata:discuss-phase 1` — gather context and clarify approach
+`/kata:phase-discuss 1` — gather context and clarify approach
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:plan-phase 1` — skip discussion, plan directly
+- `/kata:phase-plan 1` — skip discussion, plan directly
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -1141,7 +1141,7 @@ Present completion with next steps:
 - [ ] ROADMAP.md created with phases, requirement mappings, success criteria
 - [ ] STATE.md initialized
 - [ ] REQUIREMENTS.md traceability updated
-- [ ] User knows next step is `/kata:discuss-phase 1`
+- [ ] User knows next step is `/kata:phase-discuss 1`
 
 **Atomic commits:** Each phase commits its artifacts immediately. If context is lost, artifacts persist.
 

@@ -2,7 +2,7 @@
 phase: 00-convert-commands-to-skills
 plan: 08
 subsystem: skills
-tags: [progress, debug, pause, resume, map-codebase, session-management, utility]
+tags: [progress, debug, pause, resume, project-analyze, session-management, utility]
 
 # Dependency graph
 requires:
@@ -13,7 +13,7 @@ provides:
   - Session management workflow (pause/resume)
   - Progress display formatting
   - Codebase mapping orchestration
-affects: [kata-execution, kata-starting-new-projects]
+affects: [kata-execution, kata-starting-project-news]
 
 # Tech tracking
 tech-stack:
@@ -60,11 +60,11 @@ completed: 2026-01-19
 
 ## Accomplishments
 
-- Created kata-utility skill with 5 operations (progress, debug, pause, resume, map-codebase)
+- Created kata-utility skill with 5 operations (progress, debug, pause, resume, project-analyze)
 - Extracted progress display workflow from commands/kata/progress.md
 - Extracted debugging workflow from commands/kata/debug.md with kata-debugger sub-agent spawning
-- Extracted session management from commands/kata/pause-work.md and resume-work.md
-- Extracted codebase mapping from commands/kata/map-codebase.md with parallel kata-codebase-mapper spawning
+- Extracted session management from commands/kata/phase-pause.md and phase-resume.md
+- Extracted codebase mapping from commands/kata/project-analyze.md with parallel kata-codebase-mapper spawning
 
 ## Task Commits
 
@@ -103,7 +103,7 @@ None - no external service configuration required.
 
 - kata-utility skill complete with all 5 utility operations
 - References provide detailed workflow guidance
-- Ready for wave 3 skills (kata-researching-phases, kata-managing-project-roadmap, kata-starting-new-projects)
+- Ready for wave 3 skills (kata-researching-phases, kata-managing-project-roadmap, kata-starting-project-news)
 
 ---
 *Phase: 00-convert-commands-to-skills*

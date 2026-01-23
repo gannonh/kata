@@ -14,7 +14,7 @@ test_project: ../kata-metrics/
 ## Tests
 
 ### 1. Skills Installation
-expected: Running `node bin/install.js --local` copies all 8 skills. After installation, `ls .claude/skills/kata-*` shows 8 directories: kata-planning-phases, kata-execution, kata-verification, kata-starting-new-projects, kata-manageing-milestones, kata-managing-project-roadmap, kata-researching-phases, kata-utility
+expected: Running `node bin/install.js --local` copies all 8 skills. After installation, `ls .claude/skills/kata-*` shows 8 directories: kata-planning-phases, kata-execution, kata-verification, kata-starting-project-news, kata-manageing-milestones, kata-managing-project-roadmap, kata-researching-phases, kata-utility
 result: pass
 
 ### 2. kata-planning-phases Skill Invocation
@@ -31,8 +31,8 @@ expected: Saying "verify the work on phase 0" or similar triggers kata-verificat
 result: skipped
 reason: Pivoting to outcome-based testing with kata-metrics test project
 
-### 5. kata-starting-new-projects Skill Invocation
-expected: Saying "start a new project" or similar triggers kata-starting-new-projects skill invocation
+### 5. kata-starting-project-news Skill Invocation
+expected: Saying "start a new project" or similar triggers kata-starting-project-news skill invocation
 result: skipped
 reason: Pivoting to outcome-based testing with kata-metrics test project
 
@@ -66,8 +66,8 @@ result: pass
 
 Tests below exercise skill workflows against ../kata-metrics/ to verify actual outcomes.
 
-### 11. kata-starting-new-projects Outcome
-expected: Running kata-starting-new-projects skill on kata-metrics creates valid PROJECT.md with vision, requirements, and ROADMAP.md with phases
+### 11. kata-starting-project-news Outcome
+expected: Running kata-starting-project-news skill on kata-metrics creates valid PROJECT.md with vision, requirements, and ROADMAP.md with phases
 result: pass
 notes: "Worked perfectly with natural language - validates skills-first approach"
 

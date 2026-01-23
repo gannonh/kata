@@ -120,21 +120,21 @@ After completion, create `.planning/phases/XX-name/{phase}-{plan}-SUMMARY.md`
 
 ## Frontmatter Fields
 
-| Field | Required | Purpose |
-|-------|----------|---------|
-| `phase` | Yes | Phase identifier (e.g., `01-foundation`) |
-| `plan` | Yes | Plan number within phase (e.g., `01`, `02`) |
-| `type` | Yes | Always `execute` for standard plans, `tdd` for TDD plans |
-| `wave` | Yes | Execution wave number (1, 2, 3...). Pre-computed at plan time. |
-| `depends_on` | Yes | Array of plan IDs this plan requires. |
-| `files_modified` | Yes | Files this plan touches. |
-| `autonomous` | Yes | `true` if no checkpoints, `false` if has checkpoints |
-| `user_setup` | No | Array of human-required setup items (external services) |
-| `must_haves` | Yes | Goal-backward verification criteria (see below) |
+| Field            | Required | Purpose                                                        |
+| ---------------- | -------- | -------------------------------------------------------------- |
+| `phase`          | Yes      | Phase identifier (e.g., `01-foundation`)                       |
+| `plan`           | Yes      | Plan number within phase (e.g., `01`, `02`)                    |
+| `type`           | Yes      | Always `execute` for standard plans, `tdd` for TDD plans       |
+| `wave`           | Yes      | Execution wave number (1, 2, 3...). Pre-computed at plan time. |
+| `depends_on`     | Yes      | Array of plan IDs this plan requires.                          |
+| `files_modified` | Yes      | Files this plan touches.                                       |
+| `autonomous`     | Yes      | `true` if no checkpoints, `false` if has checkpoints           |
+| `user_setup`     | No       | Array of human-required setup items (external services)        |
+| `must_haves`     | Yes      | Goal-backward verification criteria (see below)                |
 
-**Wave is pre-computed:** Wave numbers are assigned during `/kata:plan-phase`. Execute-phase reads `wave` directly from frontmatter and groups plans by wave number. No runtime dependency analysis needed.
+**Wave is pre-computed:** Wave numbers are assigned during `/kata:phase-plan`. phase-execute reads `wave` directly from frontmatter and groups plans by wave number. No runtime dependency analysis needed.
 
-**Must-haves enable verification:** The `must_haves` field carries goal-backward requirements from planning to execution. After all plans complete, execute-phase spawns a verification subagent that checks these criteria against the actual codebase.
+**Must-haves enable verification:** The `must_haves` field carries goal-backward requirements from planning to execution. After all plans complete, phase-execute spawns a verification subagent that checks these criteria against the actual codebase.
 
 ---
 
@@ -274,12 +274,12 @@ See `~/.claude/kata/references/tdd.md` for TDD plan structure.
 
 ## Task Types
 
-| Type | Use For | Autonomy |
-|------|---------|----------|
-| `auto` | Everything Claude can do independently | Fully autonomous |
-| `checkpoint:human-verify` | Visual/functional verification | Pauses, returns to orchestrator |
-| `checkpoint:decision` | Implementation choices | Pauses, returns to orchestrator |
-| `checkpoint:human-action` | Truly unavoidable manual steps (rare) | Pauses, returns to orchestrator |
+| Type                      | Use For                                | Autonomy                        |
+| ------------------------- | -------------------------------------- | ------------------------------- |
+| `auto`                    | Everything Claude can do independently | Fully autonomous                |
+| `checkpoint:human-verify` | Visual/functional verification         | Pauses, returns to orchestrator |
+| `checkpoint:decision`     | Implementation choices                 | Pauses, returns to orchestrator |
+| `checkpoint:human-action` | Truly unavoidable manual steps (rare)  | Pauses, returns to orchestrator |
 
 **Checkpoint behavior in parallel execution:**
 - Plan runs until checkpoint
@@ -536,20 +536,20 @@ must_haves:
 
 **Field descriptions:**
 
-| Field | Purpose |
-|-------|---------|
-| `truths` | Observable behaviors from user perspective. Each must be testable. |
-| `artifacts` | Files that must exist with real implementation. |
-| `artifacts[].path` | File path relative to project root. |
-| `artifacts[].provides` | What this artifact delivers. |
-| `artifacts[].min_lines` | Optional. Minimum lines to be considered substantive. |
-| `artifacts[].exports` | Optional. Expected exports to verify. |
-| `artifacts[].contains` | Optional. Pattern that must exist in file. |
-| `key_links` | Critical connections between artifacts. |
-| `key_links[].from` | Source artifact. |
-| `key_links[].to` | Target artifact or endpoint. |
-| `key_links[].via` | How they connect (description). |
-| `key_links[].pattern` | Optional. Regex to verify connection exists. |
+| Field                   | Purpose                                                            |
+| ----------------------- | ------------------------------------------------------------------ |
+| `truths`                | Observable behaviors from user perspective. Each must be testable. |
+| `artifacts`             | Files that must exist with real implementation.                    |
+| `artifacts[].path`      | File path relative to project root.                                |
+| `artifacts[].provides`  | What this artifact delivers.                                       |
+| `artifacts[].min_lines` | Optional. Minimum lines to be considered substantive.              |
+| `artifacts[].exports`   | Optional. Expected exports to verify.                              |
+| `artifacts[].contains`  | Optional. Pattern that must exist in file.                         |
+| `key_links`             | Critical connections between artifacts.                            |
+| `key_links[].from`      | Source artifact.                                                   |
+| `key_links[].to`        | Target artifact or endpoint.                                       |
+| `key_links[].via`       | How they connect (description).                                    |
+| `key_links[].pattern`   | Optional. Regex to verify connection exists.                       |
 
 **Why this matters:**
 
@@ -557,9 +557,9 @@ Task completion ≠ Goal achievement. A task "create chat component" can complet
 
 **Verification flow:**
 
-1. Plan-phase derives must_haves from phase goal (goal-backward)
+1. phase-plan derives must_haves from phase goal (goal-backward)
 2. Must_haves written to PLAN.md frontmatter
-3. Execute-phase runs all plans
+3. phase-execute runs all plans
 4. Verification subagent checks must_haves against codebase
 5. Gaps found → fix plans created → execute → re-verify
 6. All must_haves pass → phase complete

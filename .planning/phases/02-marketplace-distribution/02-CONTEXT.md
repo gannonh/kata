@@ -6,7 +6,13 @@
 <domain>
 ## Phase Boundary
 
-Publish Kata plugin to marketplace repository. Users install via `claude plugin install kata@gannonh-plugins`. All slash commands and skills accessible after installation.
+Publish Kata plugin to marketplace repository. Users install via `claude plugin install kata@claude-code-plugins`. All slash commands and skills accessible after installation.
+
+Docs:
+
+@/Users/gannonhall/.claude/rules/plugin-marketplaces.md
+@/Users/gannonhall/.claude/rules/plugins-reference.md
+@/Users/gannonhall/.claude/rules/plugins.md
 
 </domain>
 

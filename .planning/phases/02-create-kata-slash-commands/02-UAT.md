@@ -17,7 +17,7 @@ updated: 2026-01-21T00:58:00Z
 number: 1
 name: Gap skills created
 expected: |
-  3 skills exist: kata-updating-to-latest-version, kata-executing-quick-tasks, kata-showing-available-commands-and-usage-guides
+  3 skills exist: kata-updating-to-latest-version, kata-executing-task-executes, kata-showing-available-commands-and-usage-guides
   Each has SKILL.md and references/ directory
 awaiting: user response
 
@@ -26,17 +26,17 @@ awaiting: user response
 ### 1. Gap Skills Created
 expected: |
   - skills/kata-updating-to-latest-version/SKILL.md exists
-  - skills/kata-executing-quick-tasks/SKILL.md exists
+  - skills/kata-executing-task-executes/SKILL.md exists
   - skills/kata-showing-available-commands-and-usage-guides/SKILL.md exists
   - Each has references/ subdirectory with content
 result: pending
 
 ### 2. Project & Milestone Commands Work
 expected: |
-  - `/kata:project-new` command exists and delegates to kata-starting-new-projects
+  - `/kata:project-new` command exists and delegates to kata-starting-project-news
   - `/kata:project-status` command exists and delegates to kata-providing-progress-and-status-updates
   - `/kata:workflow-debug` command exists and delegates to kata-debugging-kata-workflow-issues
-  - `/kata:quick` command exists and delegates to kata-executing-quick-tasks
+  - `/kata:task-execute` command exists and delegates to kata-executing-task-executes
   - `/kata:milestone-new`, `/kata:milestone-complete`, `/kata:milestone-audit` exist
   - All have `disable-model-invocation: true` in frontmatter
 result: pending
@@ -53,7 +53,7 @@ result: pending
 expected: |
   - `/kata:phase-plan`, `/kata:phase-execute`, `/kata:work-verify` exist
   - `/kata:work-pause`, `/kata:work-resume`, `/kata:codebase-map` exist
-  - `/kata:todo-add`, `/kata:todo-check` exist
+  - `/kata:todos-add`, `/kata:todo-check` exist
   - All delegate to correct skills
   - All have `disable-model-invocation: true` in frontmatter
 result: pending
@@ -69,7 +69,7 @@ result: pending
 ### 6. All Skills Have user-invocable: false
 expected: |
   - All 14 Kata skills have `user-invocable: false` in frontmatter
-  - Skills: starting-new-projects, manageing-milestones, managing-project-roadmap, discussing-phase-context, researching-phases, planning-phases, executing-project-phases, verifying-work-outcomes-and-user-acceptance-testing, providing-progress-and-status-updates, managing-todos, debugging-kata-workflow-issues, updating-to-latest-version, executing-quick-tasks, showing-available-commands-and-usage-guides
+  - Skills: starting-project-news, manageing-milestones, managing-project-roadmap, discussing-phase-context, researching-phases, planning-phases, executing-project-phases, verifying-work-outcomes-and-user-acceptance-testing, providing-progress-and-status-updates, managing-todos, debugging-kata-workflow-issues, updating-to-latest-version, executing-task-executes, showing-available-commands-and-usage-guides
   - kata-planning-phases name fixed (was kata-planning-phases-phases)
 result: pending
 

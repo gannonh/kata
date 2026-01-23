@@ -18,7 +18,7 @@ Output: Conversational output only (no file creation) - ends with "What do you t
 </objective>
 
 <execution_context>
-@~/.claude/kata/workflows/list-phase-assumptions.md
+@~/.claude/kata/workflows/phase-assumptions.md
 </execution_context>
 
 <context>
@@ -34,7 +34,7 @@ Phase number: $ARGUMENTS (required)
 <process>
 1. Validate phase number argument (error if missing or invalid)
 2. Check if phase exists in roadmap
-3. Follow list-phase-assumptions.md workflow:
+3. Follow phase-assumptions.md workflow:
    - Analyze roadmap description
    - Surface assumptions about: technical approach, implementation order, scope, risks, dependencies
    - Present assumptions clearly

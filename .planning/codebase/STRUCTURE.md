@@ -36,7 +36,7 @@ kata-cli/
 **`commands/kata/`:**
 - Purpose: All user-facing slash commands
 - Contains: One `.md` file per command
-- Key files: `new-project.md`, `plan-phase.md`, `execute-phase.md`, `execute-plan.md`
+- Key files: `project-new.md`, `phase-plan.md`, `phase-execute.md`, `execute-plan.md`
 
 **`agents/`:**
 - Purpose: Specialized subagents spawned by commands
@@ -46,7 +46,7 @@ kata-cli/
 **`kata/workflows/`:**
 - Purpose: Detailed execution workflows referenced by commands
 - Contains: Complex multi-step procedures
-- Key files: `execute-phase.md`, `plan-phase.md`, `create-roadmap.md`
+- Key files: `phase-execute.md`, `phase-plan.md`, `create-roadmap.md`
 
 **`kata/templates/`:**
 - Purpose: Document structure templates with placeholders
@@ -72,9 +72,9 @@ kata-cli/
 - `package.json`: NPM package metadata and files list
 
 **Commands (User-Facing):**
-- `commands/kata/new-project.md`: Initialize new project
-- `commands/kata/plan-phase.md`: Create execution plans for a phase
-- `commands/kata/execute-phase.md`: Execute all plans in a phase
+- `commands/kata/project-new.md`: Initialize new project
+- `commands/kata/phase-plan.md`: Create execution plans for a phase
+- `commands/kata/phase-execute.md`: Execute all plans in a phase
 - `commands/kata/execute-plan.md`: Execute a single plan
 - `commands/kata/progress.md`: Show project progress
 - `commands/kata/help.md`: Command reference
@@ -95,8 +95,8 @@ kata-cli/
 - `kata/templates/project.md`: PROJECT.md structure
 
 **Workflows:**
-- `kata/workflows/execute-phase.md`: Wave-based parallel execution
-- `kata/workflows/plan-phase.md`: Phase planning workflow
+- `kata/workflows/phase-execute.md`: Wave-based parallel execution
+- `kata/workflows/phase-plan.md`: Phase planning workflow
 - `kata/workflows/create-roadmap.md`: Roadmap creation workflow
 
 **Hooks:**
@@ -107,10 +107,10 @@ kata-cli/
 ## Naming Conventions
 
 **Files:**
-- Commands: `kebab-case.md` (e.g., `new-project.md`, `execute-plan.md`)
+- Commands: `kebab-case.md` (e.g., `project-new.md`, `execute-plan.md`)
 - Agents: `kata-{role}.md` (e.g., `kata-planner.md`, `kata-executor.md`)
 - Templates: `kebab-case.md` (e.g., `state.md`, `summary.md`)
-- Workflows: `kebab-case.md` (e.g., `execute-phase.md`)
+- Workflows: `kebab-case.md` (e.g., `phase-execute.md`)
 - Hooks: `kata-{function}.sh` or `{function}.sh`
 
 **Directories:**

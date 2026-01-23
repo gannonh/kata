@@ -176,7 +176,7 @@ Present: Factual statements, verification results, direct answers
 
 **Static references** (always load):
 ```
-@~/.claude/kata/workflows/execute-phase.md
+@~/.claude/kata/workflows/phase-execute.md
 @.planning/PROJECT.md
 ```
 
@@ -313,14 +313,14 @@ Header comment explains purpose:
 
 ### Types
 
-| Type | Use |
-|------|-----|
-| `feat` | New feature |
-| `fix` | Bug fix |
-| `test` | Tests only (TDD RED) |
+| Type       | Use                         |
+| ---------- | --------------------------- |
+| `feat`     | New feature                 |
+| `fix`      | Bug fix                     |
+| `test`     | Tests only (TDD RED)        |
 | `refactor` | Code cleanup (TDD REFACTOR) |
-| `docs` | Documentation/metadata |
-| `chore` | Config/dependencies |
+| `docs`     | Documentation/metadata      |
+| `chore`    | Config/dependencies         |
 
 ### Rules
 

@@ -6,7 +6,7 @@
 
 ## Summary
 
-This phase migrates the `add-todo` and `check-todos` commands to a unified `kata-todo-management` skill. Research confirms the established skill pattern from Phase 0: skills as orchestrators with SKILL.md (<500 lines) plus references/ subdirectory for progressive disclosure.
+This phase migrates the `todos-add` and `todos-lists` commands to a unified `kata-todo-management` skill. Research confirms the established skill pattern from Phase 0: skills as orchestrators with SKILL.md (<500 lines) plus references/ subdirectory for progressive disclosure.
 
 The todo system is simple file-based storage (YAML frontmatter + markdown body) with two operations: ADD (capture ideas) and CHECK (review and act). Key enhancements identified: area inference from file context, duplicate detection via title/file similarity, and type field per pending todo request.
 
@@ -24,7 +24,7 @@ The todo system is simple file-based storage (YAML frontmatter + markdown body) 
 ### Supporting
 | Component        | Purpose                              | When to Use                               |
 | ---------------- | ------------------------------------ | ----------------------------------------- |
-| AskUserQuestion  | Multi-select for check-todos actions | When user reviews todo and chooses action |
+| AskUserQuestion  | Multi-select for todos-lists actions | When user reviews todo and chooses action |
 | STATE.md updates | Track pending count                  | After add/complete operations             |
 | Git commits      | Track todo lifecycle                 | On add, move to done                      |
 
@@ -42,7 +42,7 @@ skills/kata-todo-management/
 ├── SKILL.md              # Orchestrator (<500 lines)
 └── references/
     ├── todo-format.md    # Frontmatter schema, filename conventions
-    └── actions.md        # check-todos action workflows
+    └── actions.md        # todos-lists action workflows
 ```
 
 ### Pattern 1: Unified Skill with Operation Detection
@@ -243,7 +243,7 @@ Based on existing todos in the codebase:
 | docs      | Documentation, README, onboarding         | *.md, readme, docs/                     |
 | other     | Anything not fitting above                | (default)                               |
 
-## Check-Todos Actions Specification
+## todos-lists Actions Specification
 
 ### Action 1: Work On Now
 **Behavior:** Display todo content, clear skill invocation, user takes over
@@ -277,7 +277,7 @@ Next: /kata-planning-phases to incorporate into plans
 **Output:**
 ```
 Creating phase from todo...
-[Invoke kata-managing-project-roadmap add-phase operation]
+[Invoke kata-managing-project-roadmap phase-add operation]
 Todo moved to done/ after phase created.
 ```
 
@@ -294,7 +294,7 @@ What aspects would you like to explore?
 (Skill completes, normal conversation continues)
 
 ### Action 5: Put Back
-**Behavior:** Do nothing, return to check-todos list or exit
+**Behavior:** Do nothing, return to todos-lists list or exit
 **Output:**
 ```
 "[Title]" kept in pending.
@@ -329,15 +329,15 @@ What aspects would you like to explore?
 
 ## State of the Art
 
-| Old Approach                     | Current Approach                     | When Changed | Impact                                         |
-| -------------------------------- | ------------------------------------ | ------------ | ---------------------------------------------- |
-| Commands (add-todo, check-todos) | Unified skill (kata-todo-management) | Phase 1      | Natural language triggers, operation detection |
-| No type field                    | type field in frontmatter            | Phase 1      | Better triage, filtering                       |
-| Basic area field                 | Area inference heuristic             | Phase 1      | Less manual classification                     |
+| Old Approach                      | Current Approach                     | When Changed | Impact                                         |
+| --------------------------------- | ------------------------------------ | ------------ | ---------------------------------------------- |
+| Commands (todos-add, todos-lists) | Unified skill (kata-todo-management) | Phase 1      | Natural language triggers, operation detection |
+| No type field                     | type field in frontmatter            | Phase 1      | Better triage, filtering                       |
+| Basic area field                  | Area inference heuristic             | Phase 1      | Less manual classification                     |
 
 **Deprecated/outdated:**
-- /kata:add-todo command - replaced by skill (keep for A/B testing per Phase 0 decision)
-- /kata:check-todos command - replaced by skill (keep for A/B testing per Phase 0 decision)
+- /kata:todos-add command - replaced by skill (keep for A/B testing per Phase 0 decision)
+- /kata:todos-lists command - replaced by skill (keep for A/B testing per Phase 0 decision)
 
 ## Pending Enhancement: Type Field
 
@@ -373,7 +373,7 @@ infer_type() {
 1. **Mark complete flow**
    - What we know: Todos move from pending/ to done/
    - What's unclear: Should there be explicit "mark complete" action, or just on "work on now" completion?
-   - Recommendation: Add "mark complete" to check-todos actions for todos worked on outside Kata
+   - Recommendation: Add "mark complete" to todos-lists actions for todos worked on outside Kata
 
 2. **Bulk operations**
    - What we know: Current design is one-at-a-time review

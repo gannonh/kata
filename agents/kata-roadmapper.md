@@ -1,6 +1,6 @@
 ---
 name: kata-roadmapper
-description: Creates project roadmaps with phase breakdown, requirement mapping, success criteria derivation, and coverage validation. Spawned by /kata:new-project orchestrator.
+description: Creates project roadmaps with phase breakdown, requirement mapping, success criteria derivation, and coverage validation. Spawned by /kata:project-new orchestrator.
 tools: Read, Write, Bash, Glob, Grep
 color: purple
 ---
@@ -10,7 +10,7 @@ You are a Kata roadmapper. You create project roadmaps that map requirements to 
 
 You are spawned by:
 
-- `/kata:new-project` orchestrator (unified project initialization)
+- `/kata:project-new` orchestrator (unified project initialization)
 
 Your job: Transform requirements into a phase structure that delivers the project. Every v1 requirement maps to exactly one phase. Every phase has observable success criteria.
 
@@ -24,14 +24,14 @@ Your job: Transform requirements into a phase structure that delivers the projec
 </role>
 
 <downstream_consumer>
-Your ROADMAP.md is consumed by `/kata:plan-phase` which uses it to:
+Your ROADMAP.md is consumed by `/kata:phase-plan` which uses it to:
 
-| Output | How Plan-Phase Uses It |
-|--------|------------------------|
-| Phase goals | Decomposed into executable plans |
-| Success criteria | Inform must_haves derivation |
-| Requirement mappings | Ensure plans cover phase scope |
-| Dependencies | Order plan execution |
+| Output               | How phase-plan Uses It           |
+| -------------------- | -------------------------------- |
+| Phase goals          | Decomposed into executable plans |
+| Success criteria     | Inform must_haves derivation     |
+| Requirement mappings | Ensure plans cover phase scope   |
+| Dependencies         | Order plan execution             |
 
 **Be specific.** Success criteria must be observable user behaviors, not implementation tasks.
 </downstream_consumer>
@@ -182,7 +182,7 @@ Track coverage as you go.
 **Integer phases (1, 2, 3):** Planned milestone work.
 
 **Decimal phases (2.1, 2.2):** Urgent insertions after planning.
-- Created via `/kata:insert-phase`
+- Created via `/kata:phase-insert`
 - Execute between integers: 1 → 1.1 → 1.2 → 2
 
 **Starting number:**
@@ -193,11 +193,11 @@ Track coverage as you go.
 
 Read depth from config.json. Depth controls compression tolerance.
 
-| Depth | Typical Phases | What It Means |
-|-------|----------------|---------------|
-| Quick | 3-5 | Combine aggressively, critical path only |
-| Standard | 5-8 | Balanced grouping |
-| Comprehensive | 8-12 | Let natural boundaries stand |
+| Depth         | Typical Phases | What It Means                            |
+| ------------- | -------------- | ---------------------------------------- |
+| Quick         | 3-5            | Combine aggressively, critical path only |
+| Standard      | 5-8            | Balanced grouping                        |
+| Comprehensive | 8-12           | Let natural boundaries stand             |
 
 **Key:** Derive phases from work, then apply depth as compression guidance. Don't pad small projects or compress complex ones.
 
@@ -272,11 +272,11 @@ After roadmap creation, REQUIREMENTS.md gets updated with phase mappings:
 ```markdown
 ## Traceability
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| AUTH-01 | Phase 2 | Pending |
-| AUTH-02 | Phase 2 | Pending |
-| PROF-01 | Phase 3 | Pending |
+| Requirement | Phase   | Status  |
+| ----------- | ------- | ------- |
+| AUTH-01     | Phase 2 | Pending |
+| AUTH-02     | Phase 2 | Pending |
+| PROF-01     | Phase 3 | Pending |
 ...
 ```
 
@@ -317,11 +317,11 @@ When presenting to user for approval:
 
 ### Phase Structure
 
-| Phase | Goal | Requirements | Success Criteria |
-|-------|------|--------------|------------------|
-| 1 - Setup | [goal] | SETUP-01, SETUP-02 | 3 criteria |
-| 2 - Auth | [goal] | AUTH-01, AUTH-02, AUTH-03 | 4 criteria |
-| 3 - Content | [goal] | CONT-01, CONT-02 | 3 criteria |
+| Phase       | Goal   | Requirements              | Success Criteria |
+| ----------- | ------ | ------------------------- | ---------------- |
+| 1 - Setup   | [goal] | SETUP-01, SETUP-02        | 3 criteria       |
+| 2 - Auth    | [goal] | AUTH-01, AUTH-02, AUTH-03 | 4 criteria       |
+| 3 - Content | [goal] | CONT-01, CONT-02          | 3 criteria       |
 
 ### Success Criteria Preview
 
@@ -458,10 +458,10 @@ When files are written and returning to orchestrator:
 **Depth:** {from config}
 **Coverage:** {X}/{X} requirements mapped ✓
 
-| Phase | Goal | Requirements |
-|-------|------|--------------|
-| 1 - {name} | {goal} | {req-ids} |
-| 2 - {name} | {goal} | {req-ids} |
+| Phase      | Goal   | Requirements |
+| ---------- | ------ | ------------ |
+| 1 - {name} | {goal} | {req-ids}    |
+| 2 - {name} | {goal} | {req-ids}    |
 
 ### Success Criteria Preview
 
@@ -506,16 +506,16 @@ After incorporating user feedback and updating files:
 
 ### Updated Summary
 
-| Phase | Goal | Requirements |
-|-------|------|--------------|
-| 1 - {name} | {goal} | {count} |
-| 2 - {name} | {goal} | {count} |
+| Phase      | Goal   | Requirements |
+| ---------- | ------ | ------------ |
+| 1 - {name} | {goal} | {count}      |
+| 2 - {name} | {goal} | {count}      |
 
 **Coverage:** {X}/{X} requirements mapped ✓
 
 ### Ready for Planning
 
-Next: `/kata:plan-phase 1`
+Next: `/kata:phase-plan 1`
 ```
 
 ## Roadmap Blocked

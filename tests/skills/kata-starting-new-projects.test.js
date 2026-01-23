@@ -19,7 +19,7 @@ const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 // Path to Kata repo root (for skill installation)
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-starting-new-projects skill', () => {
+describe('kata-starting-project-news skill', () => {
   let testDir;
 
   beforeEach(() => {
@@ -29,9 +29,9 @@ describe('kata-starting-new-projects skill', () => {
     // Copy fixture project
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
-    // Install kata-starting-new-projects skill to test project
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-starting-new-projects');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-starting-new-projects');
+    // Install kata-starting-project-news skill to test project
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-starting-project-news');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-starting-project-news');
     cpSync(skillSource, skillDest, { recursive: true });
   });
 

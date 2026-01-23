@@ -80,8 +80,8 @@ description: Use this skill when planning phases, creating execution plans, brea
 ```
 kata/
 ├── commands/kata/                    # UNCHANGED - keep for A/B testing
-│   ├── plan-phase.md
-│   ├── execute-phase.md
+│   ├── phase-plan.md
+│   ├── phase-execute.md
 │   └── ...
 ├── skills/
 │   ├── kata-planning-phases/                # Flat naming: kata-{domain}
@@ -236,12 +236,12 @@ Problems that look simple but have existing solutions:
 
 ## Code Examples
 
-### Example 1: Converting plan-phase Command
+### Example 1: Converting phase-plan Command
 
 **Current command structure:**
 ```yaml
 ---
-name: kata:plan-phase
+name: kata:phase-plan
 description: Create detailed execution plan for a phase
 argument-hint: "[phase] [--research] [--gaps]"
 agent: kata-planner
@@ -295,10 +295,10 @@ For detailed guidance, consult:
 - Frontmatter: phase, plan, wave, depends_on, files_modified, autonomous, must_haves
 ```
 
-**Command** (`commands/kata/plan-phase.md`):
+**Command** (`commands/kata/phase-plan.md`):
 ```yaml
 ---
-name: kata:plan-phase
+name: kata:phase-plan
 description: Create detailed execution plan for a phase
 argument-hint: "[phase] [--research] [--gaps]"
 context: fork
@@ -353,7 +353,7 @@ skills/kata-execution/
 ```markdown
 ---
 name: kata-execution
-description: This skill should be used when executing plans, running PLAN.md files, handling deviations, managing checkpoints, or creating SUMMARY.md files. Applies during /kata:execute-phase or when Claude needs guidance on plan execution workflow.
+description: This skill should be used when executing plans, running PLAN.md files, handling deviations, managing checkpoints, or creating SUMMARY.md files. Applies during /kata:phase-execute or when Claude needs guidance on plan execution workflow.
 ---
 
 # Plan Execution
@@ -458,50 +458,50 @@ Kata commands requiring conversion (24 total):
 ### Core Workflow Commands
 | Command       | Current Size | Recommended Skill          | Priority |
 | ------------- | ------------ | -------------------------- | -------- |
-| new-project   | ~900 lines   | kata-starting-new-projects | High     |
-| plan-phase    | ~475 lines   | kata-planning-phases       | High     |
-| execute-phase | ~300 lines   | kata-execution             | High     |
-| verify-work   | ~250 lines   | kata-verification          | High     |
+| project-new   | ~900 lines   | kata-starting-project-news | High     |
+| phase-plan    | ~475 lines   | kata-planning-phases       | High     |
+| phase-execute | ~300 lines   | kata-execution             | High     |
+| phase-verify  | ~250 lines   | kata-verification          | High     |
 
 ### Planning Commands
-| Command                | Current Size | Recommended Skill             | Priority |
-| ---------------------- | ------------ | ----------------------------- | -------- |
-| discuss-phase          | ~150 lines   | kata-discussion               | Medium   |
-| research-phase         | ~200 lines   | kata-researching-phases       | Medium   |
-| list-phase-assumptions | ~75 lines    | Embed in kata-planning-phases | Low      |
+| Command           | Current Size | Recommended Skill             | Priority |
+| ----------------- | ------------ | ----------------------------- | -------- |
+| phase-discuss     | ~150 lines   | kata-discussion               | Medium   |
+| phase-research    | ~200 lines   | kata-researching-phases       | Medium   |
+| phase-assumptions | ~75 lines    | Embed in kata-planning-phases | Low      |
 
 ### Milestone Commands
 | Command            | Current Size | Recommended Skill         | Priority |
 | ------------------ | ------------ | ------------------------- | -------- |
-| new-milestone      | ~800 lines   | kata-manageing-milestones | High     |
-| complete-milestone | ~225 lines   | kata-manageing-milestones | Medium   |
-| audit-milestone    | ~350 lines   | kata-manageing-milestones | Medium   |
+| milestone-new      | ~800 lines   | kata-manageing-milestones | High     |
+| milestone-complete | ~225 lines   | kata-manageing-milestones | Medium   |
+| milestone-audit    | ~350 lines   | kata-manageing-milestones | Medium   |
 
 ### Roadmap Commands
 | Command             | Current Size | Recommended Skill             | Priority |
 | ------------------- | ------------ | ----------------------------- | -------- |
-| add-phase           | ~250 lines   | kata-managing-project-roadmap | Medium   |
-| insert-phase        | ~285 lines   | kata-managing-project-roadmap | Medium   |
-| remove-phase        | ~200 lines   | kata-managing-project-roadmap | Low      |
-| plan-milestone-gaps | ~315 lines   | kata-managing-project-roadmap | Low      |
+| phase-add           | ~250 lines   | kata-managing-project-roadmap | Medium   |
+| phase-insert        | ~285 lines   | kata-managing-project-roadmap | Medium   |
+| phase-remove        | ~200 lines   | kata-managing-project-roadmap | Low      |
+| milestone-plan-gaps | ~315 lines   | kata-managing-project-roadmap | Low      |
 
 ### Utility Commands
-| Command      | Current Size | Recommended Skill       | Priority |
-| ------------ | ------------ | ----------------------- | -------- |
-| progress     | ~300 lines   | kata-progress-tracking  | Medium   |
-| resume-work  | ~150 lines   | kata-session-management | Low      |
-| pause-work   | ~125 lines   | kata-session-management | Low      |
-| debug        | ~175 lines   | kata-debugging          | Medium   |
-| map-codebase | ~150 lines   | kata-codebase-mapping   | Medium   |
-| help         | ~400 lines   | Keep as command only    | Low      |
-| whats-new    | ~100 lines   | Keep as command only    | Low      |
-| update       | ~100 lines   | Keep as command only    | Low      |
+| Command         | Current Size | Recommended Skill       | Priority |
+| --------------- | ------------ | ----------------------- | -------- |
+| progress        | ~300 lines   | kata-progress-tracking  | Medium   |
+| phase-resume    | ~150 lines   | kata-session-management | Low      |
+| phase-pause     | ~125 lines   | kata-session-management | Low      |
+| debug           | ~175 lines   | kata-debugging          | Medium   |
+| project-analyze | ~150 lines   | kata-codebase-mapping   | Medium   |
+| help            | ~400 lines   | Keep as command only    | Low      |
+| whats-new       | ~100 lines   | Keep as command only    | Low      |
+| update          | ~100 lines   | Keep as command only    | Low      |
 
 ### Todo Commands
 | Command     | Current Size | Recommended Skill    | Priority |
 | ----------- | ------------ | -------------------- | -------- |
-| add-todo    | ~215 lines   | kata-todo-management | Low      |
-| check-todos | ~260 lines   | kata-todo-management | Low      |
+| todos-add   | ~215 lines   | kata-todo-management | Low      |
+| todos-lists | ~260 lines   | kata-todo-management | Low      |
 
 ### Agents Requiring Skill Binding
 | Agent                   | Relevant Skills                               |

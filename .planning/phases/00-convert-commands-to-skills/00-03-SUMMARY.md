@@ -60,7 +60,7 @@ completed: 2026-01-19
 - Created kata-verification skill (343 lines) following building-claude-code-skills methodology
 - Implemented workflow that spawns kata-verifier and kata-debugger sub-agents via Task tool
 - Created 3 reference files covering verification methodology, UAT protocol, and debugging workflow
-- Extracted content from existing commands/agents: verify-work.md, debug.md, kata-verifier.md, kata-debugger.md
+- Extracted content from existing commands/agents: phase-verify.md, debug.md, kata-verifier.md, kata-debugger.md
 
 ## Task Commits
 

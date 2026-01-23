@@ -22,7 +22,7 @@ tech-stack:
 key-files:
   created: []
   modified:
-    - skills/kata-starting-new-projects/SKILL.md
+    - skills/kata-starting-project-news/SKILL.md
     - skills/kata-manageing-milestones/SKILL.md
     - skills/kata-managing-project-roadmap/SKILL.md
     - skills/kata-discussing-phase-context/SKILL.md
@@ -34,7 +34,7 @@ key-files:
     - skills/kata-managing-todos/SKILL.md
     - skills/kata-debugging-kata-workflow-issues/SKILL.md
     - skills/kata-updating-to-latest-version/SKILL.md
-    - skills/kata-executing-quick-tasks/SKILL.md
+    - skills/kata-executing-task-executes/SKILL.md
     - skills/kata-showing-available-commands-and-usage-guides/SKILL.md
 
 key-decisions:
@@ -76,7 +76,7 @@ Each task was committed atomically:
 1. **Tasks 1-3: Add user-invocable: false to all 14 skills** - `2ec9723` (feat)
 
 ## Files Created/Modified
-- `skills/kata-starting-new-projects/SKILL.md` - Added user-invocable: false
+- `skills/kata-starting-project-news/SKILL.md` - Added user-invocable: false
 - `skills/kata-manageing-milestones/SKILL.md` - Added user-invocable: false
 - `skills/kata-managing-project-roadmap/SKILL.md` - Added user-invocable: false
 - `skills/kata-discussing-phase-context/SKILL.md` - Added user-invocable: false
@@ -88,7 +88,7 @@ Each task was committed atomically:
 - `skills/kata-managing-todos/SKILL.md` - Added user-invocable: false
 - `skills/kata-debugging-kata-workflow-issues/SKILL.md` - Added user-invocable: false
 - `skills/kata-updating-to-latest-version/SKILL.md` - Added user-invocable: false
-- `skills/kata-executing-quick-tasks/SKILL.md` - Added user-invocable: false
+- `skills/kata-executing-task-executes/SKILL.md` - Added user-invocable: false
 - `skills/kata-showing-available-commands-and-usage-guides/SKILL.md` - Added user-invocable: false
 
 ## Decisions Made
