@@ -20,6 +20,7 @@ Context budget: ~15% orchestrator, 100% fresh per subagent.
 
 <execution_context>
 @~/.claude/kata/references/ui-brand.md
+@~/.claude/kata/references/planning-config.md
 @~/.claude/kata/workflows/execute-phase.md
 </execution_context>
 

@@ -49,6 +49,7 @@ Progress: [################----------------] 50% (2/4 phases)
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- **2026-01-22: PR workflow spec in product** - `kata/references/planning-config.md#pr_workflow_behavior` is authoritative; v0.1.10 Phase 5 references it; kata-executing-phases needs to @-reference and implement it
 - **2026-01-22: Statusline excluded from plugin** - Statusline is user preference, not plugin functionality; not included in hooks.json
 - **2026-01-22: v0.1.9 roadmap** - 3 phases derived from 15 requirements (quick depth)
 - **2026-01-22: Phase grouping** - Structure+validation in Phase 1, distribution in Phase 2, docs in Phase 3

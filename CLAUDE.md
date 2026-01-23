@@ -171,6 +171,10 @@ When modifying `.planning/` files (PROJECT.md, ROADMAP.md, STATE.md):
 3. **Update STATE.md** — When making decisions or completing work
 4. **Commit planning changes** — Use `docs:` or `chore:` prefix
 
+## PR Workflow
+
+**NEVER commit directly to main.** When `pr_workflow: true`, follow the spec in `kata/references/planning-config.md#pr_workflow_behavior`.
+
 ## Common Gotchas
 
 1. **Don't transform plans** — PLAN.md files are prompts, not documents to rewrite into different formats

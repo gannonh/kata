@@ -184,12 +184,14 @@ Plans:
 **Goal**: Phase completion creates well-formed PRs that link to issues and follow conventions
 **Depends on**: Phase 4 (issues exist to link to)
 **Requirements**: GHP-01, GHP-02, GHP-03, GHP-04, WFA-03
+**Implementation Spec**: `kata/references/planning-config.md#pr_workflow_behavior`
 **Success Criteria** (what must be TRUE):
-  1. `/kata:execute-phase` creates PR when all plans complete (if `github.enabled`)
-  2. PR body includes "Closes #X" linking to phase issue
-  3. PR title follows convention: `Phase N: [Phase Name]`
-  4. PR body includes summary from phase SUMMARY.md
-  5. GitHub-specific templates exist for @file loading in workflows
+  1. `/kata:execute-phase` creates branch at phase start (when `pr_workflow: true`)
+  2. `/kata:execute-phase` opens draft PR at first commit
+  3. `/kata:execute-phase` marks PR ready when phase complete
+  4. PR title follows convention: `v{milestone} Phase {N}: {Phase Name}`
+  5. PR body includes phase goal, completed plans checklist, and "Closes #X" linking to phase issue
+  6. `/kata:progress` shows PR status (draft/ready/merged) when `pr_workflow: true`
 **Plans**: TBD
 
 Plans:
