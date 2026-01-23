@@ -2,9 +2,9 @@
 // Claude Code Statusline - Kata Edition
 // Shows: model | current task | directory | context usage
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
 // Read JSON from stdin
 let input = '';
@@ -26,7 +26,7 @@ process.stdin.on('end', () => {
 
       // Build progress bar (10 segments)
       const filled = Math.floor(used / 10);
-      const bar = '█'.repeat(filled) + '░'.repeat(10 - filled);
+      const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(10 - filled);
 
       // Color based on usage
       if (used < 50) {
@@ -36,7 +36,7 @@ process.stdin.on('end', () => {
       } else if (used < 80) {
         ctx = ` \x1b[38;5;208m${bar} ${used}%\x1b[0m`;
       } else {
-        ctx = ` \x1b[5;31m💀 ${bar} ${used}%\x1b[0m`;
+        ctx = ` \x1b[5;31m\u{1F480} ${bar} ${used}%\x1b[0m`;
       }
     }
 
@@ -82,7 +82,7 @@ process.stdin.on('end', () => {
           : !cache.isLocalInstall;
 
         if (cache.update_available && cacheIsRelevant) {
-          kataUpdate = '\x1b[33m⬆ /kata:update\x1b[0m │ ';
+          kataUpdate = '\x1b[33m\u2B06 /kata:update\x1b[0m \u2502 ';
         }
       } catch (e) {}
     }
@@ -90,9 +90,9 @@ process.stdin.on('end', () => {
     // Output
     const dirname = path.basename(dir);
     if (task) {
-      process.stdout.write(`${kataUpdate}\x1b[2m${model}\x1b[0m │ \x1b[1m${task}\x1b[0m │ \x1b[2m${dirname}\x1b[0m${ctx}`);
+      process.stdout.write(`${kataUpdate}\x1b[2m${model}\x1b[0m \u2502 \x1b[1m${task}\x1b[0m \u2502 \x1b[2m${dirname}\x1b[0m${ctx}`);
     } else {
-      process.stdout.write(`${kataUpdate}\x1b[2m${model}\x1b[0m │ \x1b[2m${dirname}\x1b[0m${ctx}`);
+      process.stdout.write(`${kataUpdate}\x1b[2m${model}\x1b[0m \u2502 \x1b[2m${dirname}\x1b[0m${ctx}`);
     }
   } catch (e) {
     // Silent fail - don't break statusline on parse errors

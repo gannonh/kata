@@ -2,10 +2,10 @@
 // Check for Kata updates in background, write result to cache
 // Called by SessionStart hook - runs once per session
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const { execSync, spawn } = require('child_process');
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import { spawn } from 'child_process';
 
 const homeDir = os.homedir();
 const cwd = process.cwd();
@@ -32,9 +32,10 @@ if (!fs.existsSync(cacheDir)) {
 }
 
 // Run check in background (spawn detached process)
-const child = spawn(process.execPath, ['-e', `
-  const fs = require('fs');
-  const { execSync } = require('child_process');
+// Note: The spawned process uses --input-type=module for ESM compatibility
+const child = spawn(process.execPath, ['--input-type=module', '-e', `
+  import fs from 'fs';
+  import { execSync } from 'child_process';
 
   const cacheFile = ${JSON.stringify(cacheFile)};
   const versionFile = ${JSON.stringify(versionFile)};
