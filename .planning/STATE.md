@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 
 Milestone: v1.0.6 Plugin Stability
 Phase: 2.1 (Skill-Centric Resource Restructure)
-Plan: 4/5 complete
-Status: In progress
-Last activity: 2026-01-24 — Completed 02.1-04-PLAN.md (build system cleanup)
+Plan: 5/5 complete
+Status: Phase complete
+Last activity: 2026-01-24 — Completed 02.1-05-PLAN.md (remove shared kata/ directories)
 
-Progress: [#############################---] 90% (v1.0.0 shipped, stabilizing)
+Progress: [################################] 100% (v1.0.0 shipped, phase 2.1 complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 45
+- Total plans completed: 46
 - Average duration: 3 min
-- Total execution time: 123 min
+- Total execution time: 125 min
 
 **By Milestone:**
 
@@ -31,7 +31,7 @@ Progress: [#############################---] 90% (v1.0.0 shipped, stabilizing)
 | v0.1.4    | 1      | 5     | Shipped 2026-01-18 |
 | v0.1.5    | 6      | 30    | Shipped 2026-01-22 |
 | v1.0.0    | 4      | 5     | Shipped 2026-01-23 |
-| v1.0.6    | 1      | 5     | In progress (4/5) |
+| v1.0.6    | 1      | 5     | Complete |
 
 **Recent Trend:**
 - v1.0.1-v1.0.5: Rapid patch releases (5 patches in 2 days) addressing plugin distribution issues
@@ -58,7 +58,7 @@ Recent decisions affecting current work:
 - **v1.0.0 shipped 2026-01-23** — Claude Code Plugin (was v0.1.9 in planning)
 - **v1.0.1-v1.0.5 patches 2026-01-23/24** — Plugin stability fixes
 - **v1.0.6 milestone started 2026-01-24** — Plugin Stability (Phase 2.1 insertion)
-- **Phase 2.1 inserted (2026-01-24)** — Skill-Centric Resource Restructure (URGENT) - move kata/ resources into skill folders for standards compliance and npx distribution support
+- **Phase 2.1 complete (2026-01-24)** — Skill-Centric Resource Restructure complete - all skills now self-contained with local resources, shared kata/ directories removed
 
 ### Pending Todos
 
@@ -94,5 +94,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Completed 02.1-04-PLAN.md (build system cleanup)
-Resume file: .planning/phases/v1.0.6-02.1-skill-resource-restructure/02.1-05-PLAN.md
+Stopped at: Completed 02.1-05-PLAN.md (remove shared kata/ directories) - Phase 2.1 complete
+Resume file: None - ready for next milestone
