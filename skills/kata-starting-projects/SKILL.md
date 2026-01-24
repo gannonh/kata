@@ -12,17 +12,6 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-<kata_path>
-**IMPORTANT:** Before reading any Kata file (templates, references, workflows), resolve the base path:
-
-```bash
-KATA_BASE=$(if [ -n "$CLAUDE_PLUGIN_ROOT" ]; then echo "$CLAUDE_PLUGIN_ROOT/kata"; elif [ -d ~/.claude/kata ]; then echo ~/.claude/kata; else echo ./.claude/kata; fi) && echo $KATA_BASE
-```
-
-Use the output as `$KATA_BASE` for all file paths below. For example:
-- `$KATA_BASE/templates/summary.md` instead of `~/.claude/kata/templates/summary.md`
-</kata_path>
-
 <objective>
 
 Initialize a new project through unified flow: questioning → research (optional) → requirements → roadmap.
@@ -43,10 +32,10 @@ This is the most leveraged moment in any project. Deep questioning here means be
 
 <execution_context>
 
-@$KATA_BASE/references/questioning.md
-@$KATA_BASE/references/ui-brand.md
-@$KATA_BASE/templates/project.md
-@$KATA_BASE/templates/requirements.md
+@~/.claude/kata/references/questioning.md
+@~/.claude/kata/references/ui-brand.md
+@~/.claude/kata/templates/project.md
+@~/.claude/kata/templates/requirements.md
 
 </execution_context>
 

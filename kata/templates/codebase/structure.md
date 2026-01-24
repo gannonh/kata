@@ -216,7 +216,7 @@ kata/
 
 **New Workflow:**
 - Implementation: `kata/workflows/{name}.md`
-- Usage: Reference from command with `@$KATA_BASE/workflows/{name}.md`
+- Usage: Reference from command with `@~/.claude/kata/workflows/{name}.md`
 
 **New Reference Document:**
 - Implementation: `kata/references/{name}.md`

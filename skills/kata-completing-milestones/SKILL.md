@@ -10,17 +10,6 @@ allowed-tools:
   - Bash
 ---
 
-<kata_path>
-**IMPORTANT:** Before reading any Kata file (templates, references, workflows), resolve the base path:
-
-```bash
-KATA_BASE=$(if [ -n "$CLAUDE_PLUGIN_ROOT" ]; then echo "$CLAUDE_PLUGIN_ROOT/kata"; elif [ -d ~/.claude/kata ]; then echo ~/.claude/kata; else echo ./.claude/kata; fi) && echo $KATA_BASE
-```
-
-Use the output as `$KATA_BASE` for all file paths below. For example:
-- `$KATA_BASE/templates/summary.md` instead of `~/.claude/kata/templates/summary.md`
-</kata_path>
-
 <objective>
 Mark milestone {{version}} complete, archive to milestones/, and update ROADMAP.md and REQUIREMENTS.md.
 
@@ -31,8 +20,8 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 <execution_context>
 **Load these files NOW (before proceeding):**
 
-- @$KATA_BASE/workflows/milestone-complete.md (main workflow)
-- @$KATA_BASE/templates/milestone-archive.md (archive template)
+- @~/.claude/kata/workflows/milestone-complete.md (main workflow)
+- @~/.claude/kata/templates/milestone-archive.md (archive template)
   </execution_context>
 
 <context>

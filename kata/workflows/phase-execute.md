@@ -1,14 +1,3 @@
-<kata_path>
-**IMPORTANT:** Before reading any Kata file (templates, references, workflows), resolve the base path:
-
-```bash
-KATA_BASE=$(if [ -n "$CLAUDE_PLUGIN_ROOT" ]; then echo "$CLAUDE_PLUGIN_ROOT/kata"; elif [ -d ~/.claude/kata ]; then echo ~/.claude/kata; else echo ./.claude/kata; fi) && echo $KATA_BASE
-```
-
-Use the output as `$KATA_BASE` for all file paths below. For example:
-- `$KATA_BASE/templates/summary.md` instead of `~/.claude/kata/templates/summary.md`
-</kata_path>
-
 <purpose>
 Execute all plans in a phase using wave-based parallel execution. Orchestrator stays lean by delegating plan execution to subagents.
 </purpose>
@@ -222,10 +211,10 @@ Execute each wave in sequence. Autonomous plans within a wave run in parallel.
    </objective>
 
    <execution_context>
-   @$KATA_BASE/workflows/execute-plan.md
-   @$KATA_BASE/templates/summary.md
-   @$KATA_BASE/references/checkpoints.md
-   @$KATA_BASE/references/tdd.md
+   @~/.claude/kata/workflows/execute-plan.md
+   @~/.claude/kata/templates/summary.md
+   @~/.claude/kata/references/checkpoints.md
+   @~/.claude/kata/references/tdd.md
    </execution_context>
 
    <context>

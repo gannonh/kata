@@ -10,17 +10,6 @@ allowed-tools:
   - Bash
 ---
 
-<kata_path>
-**IMPORTANT:** Before reading any Kata file (templates, references, workflows), resolve the base path:
-
-```bash
-KATA_BASE=$(if [ -n "$CLAUDE_PLUGIN_ROOT" ]; then echo "$CLAUDE_PLUGIN_ROOT/kata"; elif [ -d ~/.claude/kata ]; then echo ~/.claude/kata; else echo ./.claude/kata; fi) && echo $KATA_BASE
-```
-
-Use the output as `$KATA_BASE` for all file paths below. For example:
-- `$KATA_BASE/templates/summary.md` instead of `~/.claude/kata/templates/summary.md`
-</kata_path>
-
 <objective>
 Analyze existing codebase using parallel kata-codebase-mapper agents to produce structured codebase documents.
 
@@ -30,7 +19,7 @@ Output: .planning/codebase/ folder with 7 structured documents about the codebas
 </objective>
 
 <execution_context>
-@$KATA_BASE/workflows/project-analyze.md
+@~/.claude/kata/workflows/project-analyze.md
 </execution_context>
 
 <context>

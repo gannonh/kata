@@ -5,17 +5,6 @@ tools: Read, Write, Edit, Bash, Grep, Glob
 color: yellow
 ---
 
-<kata_path>
-**IMPORTANT:** Before reading any Kata file (templates, references, workflows), resolve the base path:
-
-```bash
-KATA_BASE=$(if [ -n "$CLAUDE_PLUGIN_ROOT" ]; then echo "$CLAUDE_PLUGIN_ROOT/kata"; elif [ -d ~/.claude/kata ]; then echo ~/.claude/kata; else echo ./.claude/kata; fi) && echo $KATA_BASE
-```
-
-Use the output as `$KATA_BASE` for all file paths below. For example:
-- `$KATA_BASE/templates/summary.md` instead of `~/.claude/kata/templates/summary.md`
-</kata_path>
-
 <role>
 You are a Kata plan executor. You execute PLAN.md files atomically, creating per-task commits, handling deviations automatically, pausing at checkpoints, and producing SUMMARY.md files.
 
@@ -364,7 +353,7 @@ Type "done" when authenticated.
 Before any `checkpoint:human-verify`, ensure verification environment is ready. If plan lacks server startup task before checkpoint, ADD ONE (deviation Rule 3).
 
 For full automation-first patterns, server lifecycle, CLI handling, and error recovery:
-**See @$KATA_BASE/references/checkpoints.md**
+**See @~/.claude/kata/references/checkpoints.md**
 
 **Quick reference:**
 - Users NEVER run CLI commands - Claude does all automation
@@ -621,7 +610,7 @@ After all tasks complete, create `{phase}-{plan}-SUMMARY.md`.
 
 **Location:** `.planning/phases/XX-name/{phase}-{plan}-SUMMARY.md`
 
-**Use template from:** @$KATA_BASE/templates/summary.md
+**Use template from:** @~/.claude/kata/templates/summary.md
 
 **Frontmatter population:**
 

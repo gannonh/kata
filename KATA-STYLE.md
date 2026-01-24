@@ -175,6 +175,32 @@ Build authentication system
 
 **@-references are lazy loading signals.** They tell Claude what to read, not pre-loaded content.
 
+### Path Resolution in Skills/Agents/Workflows
+
+**CRITICAL:** Claude's `@` reference system is a STATIC file path parser. It does NOT support variable substitution.
+
+**Correct — use static paths that build.js transforms:**
+```
+@~/.claude/kata/templates/summary.md
+@~/.claude/kata/workflows/execute-plan.md
+@~/.claude/kata/references/checkpoints.md
+```
+
+**Wrong — Claude treats $VARIABLES as literal text:**
+```
+@$KATA_BASE/templates/summary.md  ❌ Looks for directory named "$KATA_BASE"
+@${VAR}/workflows/foo.md          ❌ Looks for directory named "${VAR}"
+```
+
+**How the build system handles this:**
+
+| Build Target | Transformation                                           |
+| ------------ | -------------------------------------------------------- |
+| Plugin       | `@~/.claude/kata/` → `@./kata/` (relative to plugin root) |
+| NPM          | Paths stay as `@~/.claude/kata/` (install.js transforms at runtime) |
+
+**Source files MUST use the canonical `@~/.claude/kata/` form.** The build system handles the rest.
+
 ---
 
 ## Naming Conventions

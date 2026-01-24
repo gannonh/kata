@@ -43,17 +43,20 @@ describe('NPM build', () => {
     assert.ok(fs.existsSync(path.join(ROOT, 'dist/npm/agents')));
   });
 
-  test('skills reference valid paths (static or dynamic)', () => {
+  test('skills use canonical @~/.claude/kata/ paths', () => {
     const skillPath = path.join(ROOT, 'dist/npm/skills/kata-executing-phases/SKILL.md');
     if (fs.existsSync(skillPath)) {
       const content = fs.readFileSync(skillPath, 'utf8');
-      // NPM skills can use:
-      // - @~/.claude/ paths (static)
-      // - @./.claude/ paths (static, local)
-      // - $KATA_BASE paths (dynamic resolution)
+      // NPM skills MUST use @~/.claude/kata/ paths (canonical form)
+      // install.js transforms these at runtime based on install location
+      // $KATA_BASE does NOT work - Claude's @ parser is static
       assert.ok(
-        content.includes('@~/.claude/') || content.includes('@./.claude/') || content.includes('$KATA_BASE'),
-        'NPM skills should reference valid path patterns'
+        content.includes('@~/.claude/kata/'),
+        'NPM skills should use @~/.claude/kata/ paths (canonical form)'
+      );
+      assert.ok(
+        !content.includes('@$KATA_BASE/'),
+        'NPM skills should NOT use @$KATA_BASE/ (Claude cannot substitute variables)'
       );
     }
   });
@@ -516,230 +519,158 @@ describe('Command validation', () => {
   });
 });
 
-describe('Dynamic path resolution', () => {
+describe('@ Reference Path Validation', () => {
   /**
-   * Files that should have the <kata_path> block for dynamic path resolution.
-   * This is critical for plugin installations where paths differ from NPM installs.
+   * CRITICAL: Claude's @ reference system is a STATIC file path parser.
+   * It does NOT support variable substitution like $KATA_BASE or ${VAR}.
+   *
+   * These tests ensure source files use the canonical @~/.claude/kata/ form,
+   * which build.js transforms to @./kata/ for plugin builds.
    */
-  const FILES_REQUIRING_PATH_RESOLUTION = {
-    agents: [
-      'kata-research-synthesizer.md',
-      'kata-roadmapper.md',
-      'kata-executor.md',
-      'kata-planner.md',
-    ],
-    skills: [
-      'kata-completing-milestones',
-      'kata-discussing-phases',
-      'kata-executing-phases',
-      'kata-listing-phase-assumptions',
-      'kata-mapping-codebases',
-      'kata-planning-phases',
-      'kata-resuming-work',
-      'kata-showing-whats-new',
-      'kata-starting-milestones',
-      'kata-starting-projects',
-      'kata-updating',
-      'kata-verifying-work',
-    ],
-    workflows: [
-      'discovery-phase.md',
-      'execute-plan.md',
-      'milestone-complete.md',
-      'phase-execute.md',
-      'phase-verify.md',
-      'resume-project.md',
-      'verify-work.md',
-    ],
-    templates: [
-      'phase-prompt.md',
-    ],
-  };
 
-  test('agent files have <kata_path> block', () => {
-    const errors = [];
-    for (const file of FILES_REQUIRING_PATH_RESOLUTION.agents) {
-      const filePath = path.join(ROOT, 'agents', file);
-      if (fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath, 'utf8');
-        if (!content.includes('<kata_path>')) {
-          errors.push(`agents/${file}: Missing <kata_path> block`);
-        }
+  /**
+   * Recursively scan directory for markdown files
+   */
+  function scanMarkdownFiles(dir, files = []) {
+    if (!fs.existsSync(dir)) return files;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        scanMarkdownFiles(fullPath, files);
+      } else if (entry.name.endsWith('.md')) {
+        files.push(fullPath);
       }
     }
-    if (errors.length > 0) {
-      assert.fail(`Missing path resolution blocks:\n${errors.join('\n')}`);
-    }
-  });
+    return files;
+  }
 
-  test('skill files have <kata_path> block', () => {
-    const errors = [];
-    for (const skillName of FILES_REQUIRING_PATH_RESOLUTION.skills) {
-      const filePath = path.join(ROOT, 'skills', skillName, 'SKILL.md');
-      if (fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath, 'utf8');
-        if (!content.includes('<kata_path>')) {
-          errors.push(`skills/${skillName}/SKILL.md: Missing <kata_path> block`);
-        }
-      }
-    }
-    if (errors.length > 0) {
-      assert.fail(`Missing path resolution blocks:\n${errors.join('\n')}`);
-    }
-  });
-
-  test('workflow files have <kata_path> block', () => {
-    const errors = [];
-    for (const file of FILES_REQUIRING_PATH_RESOLUTION.workflows) {
-      const filePath = path.join(ROOT, 'kata/workflows', file);
-      if (fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath, 'utf8');
-        if (!content.includes('<kata_path>')) {
-          errors.push(`kata/workflows/${file}: Missing <kata_path> block`);
-        }
-      }
-    }
-    if (errors.length > 0) {
-      assert.fail(`Missing path resolution blocks:\n${errors.join('\n')}`);
-    }
-  });
-
-  test('template files have <kata_path> block', () => {
-    const errors = [];
-    for (const file of FILES_REQUIRING_PATH_RESOLUTION.templates) {
-      const filePath = path.join(ROOT, 'kata/templates', file);
-      if (fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath, 'utf8');
-        if (!content.includes('<kata_path>')) {
-          errors.push(`kata/templates/${file}: Missing <kata_path> block`);
-        }
-      }
-    }
-    if (errors.length > 0) {
-      assert.fail(`Missing path resolution blocks:\n${errors.join('\n')}`);
-    }
-  });
-
-  test('<kata_path> blocks contain KATA_BASE resolution script', () => {
-    const errors = [];
-    const allFiles = [
-      ...FILES_REQUIRING_PATH_RESOLUTION.agents.map(f => path.join(ROOT, 'agents', f)),
-      ...FILES_REQUIRING_PATH_RESOLUTION.skills.map(s => path.join(ROOT, 'skills', s, 'SKILL.md')),
-      ...FILES_REQUIRING_PATH_RESOLUTION.workflows.map(f => path.join(ROOT, 'kata/workflows', f)),
-      ...FILES_REQUIRING_PATH_RESOLUTION.templates.map(f => path.join(ROOT, 'kata/templates', f)),
-    ];
-
-    for (const filePath of allFiles) {
-      if (fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath, 'utf8');
-        const relativePath = path.relative(ROOT, filePath);
-
-        // Check for KATA_BASE assignment in the kata_path block
-        if (content.includes('<kata_path>')) {
-          if (!content.includes('KATA_BASE=')) {
-            errors.push(`${relativePath}: <kata_path> block missing KATA_BASE assignment`);
-          }
-          if (!content.includes('CLAUDE_PLUGIN_ROOT')) {
-            errors.push(`${relativePath}: <kata_path> block missing CLAUDE_PLUGIN_ROOT check`);
-          }
-        }
-      }
-    }
-
-    if (errors.length > 0) {
-      assert.fail(`Invalid <kata_path> blocks:\n${errors.join('\n')}`);
-    }
-  });
-
-  test('files with <kata_path> use $KATA_BASE for path references', () => {
-    const errors = [];
-    const allFiles = [
-      ...FILES_REQUIRING_PATH_RESOLUTION.agents.map(f => path.join(ROOT, 'agents', f)),
-      ...FILES_REQUIRING_PATH_RESOLUTION.skills.map(s => path.join(ROOT, 'skills', s, 'SKILL.md')),
-      ...FILES_REQUIRING_PATH_RESOLUTION.workflows.map(f => path.join(ROOT, 'kata/workflows', f)),
-      ...FILES_REQUIRING_PATH_RESOLUTION.templates.map(f => path.join(ROOT, 'kata/templates', f)),
-    ];
-
-    for (const filePath of allFiles) {
-      if (fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath, 'utf8');
-        const relativePath = path.relative(ROOT, filePath);
-
-        // Skip the kata_path block itself when checking for hardcoded paths
-        let contentWithoutKataPath = content.replace(/<kata_path>[\s\S]*?<\/kata_path>/g, '');
-
-        // Also skip bash file existence checks (e.g., [ -f ~/.claude/kata/VERSION ])
-        // These are runtime conditionals, not path references that Claude reads
-        contentWithoutKataPath = contentWithoutKataPath.replace(/\[ -[fd] [^\]]+\]/g, '');
-        contentWithoutKataPath = contentWithoutKataPath.replace(/if \[ -[fd] [^\]]+\]/g, '');
-        contentWithoutKataPath = contentWithoutKataPath.replace(/elif \[ -[fd] [^\]]+\]/g, '');
-
-        // Check for hardcoded ~/.claude/kata/ paths (should be $KATA_BASE/)
-        // Only flag @-style references that Claude reads (not bash file checks)
-        const hardcodedRefs = contentWithoutKataPath.match(/@~\/\.claude\/kata\/[^\s\n<>`"'()]+/g) || [];
-
-        for (const ref of hardcodedRefs) {
-          errors.push(`${relativePath}: Hardcoded path found: ${ref} (should use $KATA_BASE/)`);
-        }
-      }
-    }
-
-    if (errors.length > 0) {
-      assert.fail(`Hardcoded paths found (should use $KATA_BASE):\n${errors.join('\n')}`);
-    }
-  });
-
-  test('no orphaned hardcoded ~/.claude/kata/ paths in source', () => {
-    // Check all source files for any remaining hardcoded paths
+  test('no $KATA_BASE in @ references (Claude cannot substitute variables)', () => {
+    // @ references must be static paths that build.js can transform
+    // @$KATA_BASE/... will NEVER work - Claude treats it as literal path
     const dirsToCheck = ['agents', 'skills', 'kata/workflows', 'kata/templates'];
     const errors = [];
 
     for (const dir of dirsToCheck) {
-      const fullDir = path.join(ROOT, dir);
-      if (!fs.existsSync(fullDir)) continue;
+      const files = scanMarkdownFiles(path.join(ROOT, dir));
+      for (const file of files) {
+        const content = fs.readFileSync(file, 'utf8');
+        const relativePath = path.relative(ROOT, file);
 
-      function checkDir(currentDir) {
-        const entries = fs.readdirSync(currentDir, { withFileTypes: true });
-        for (const entry of entries) {
-          const fullPath = path.join(currentDir, entry.name);
-          if (entry.isDirectory()) {
-            checkDir(fullPath);
-          } else if (entry.name.endsWith('.md')) {
-            const content = fs.readFileSync(fullPath, 'utf8');
-            const relativePath = path.relative(ROOT, fullPath);
+        // Match @$VARIABLE/ patterns - these will never work
+        const badPattern = /@\$[A-Z_]+\//g;
+        const matches = content.match(badPattern) || [];
 
-            // Skip the kata_path block when checking
-            let contentWithoutKataPath = content.replace(/<kata_path>[\s\S]*?<\/kata_path>/g, '');
-
-            // Also skip bash file existence checks and conditionals
-            contentWithoutKataPath = contentWithoutKataPath.replace(/\[ -[fd] [^\]]+\]/g, '');
-            contentWithoutKataPath = contentWithoutKataPath.replace(/if \[ -[fd] [^\]]+\]/g, '');
-            contentWithoutKataPath = contentWithoutKataPath.replace(/elif \[ -[fd] [^\]]+\]/g, '');
-            contentWithoutKataPath = contentWithoutKataPath.replace(/cat [^\n]+\/VERSION/g, '');
-
-            // Look for @-style references that should use $KATA_BASE
-            // These are the paths Claude reads, not bash file operations
-            const patterns = [
-              /@~\/\.claude\/kata\/templates\//g,
-              /@~\/\.claude\/kata\/workflows\//g,
-              /@~\/\.claude\/kata\/references\//g,
-            ];
-
-            for (const pattern of patterns) {
-              const matches = contentWithoutKataPath.match(pattern) || [];
-              for (const match of matches) {
-                errors.push(`${relativePath}: Found ${match}`);
-              }
-            }
-          }
+        for (const match of matches) {
+          errors.push(`${relativePath}: Invalid @ reference: ${match} (Claude cannot substitute variables)`);
         }
       }
-
-      checkDir(fullDir);
     }
 
     if (errors.length > 0) {
-      assert.fail(`Orphaned hardcoded paths found:\n${errors.join('\n')}`);
+      assert.fail(`Variable patterns in @ references will not work:\n${errors.join('\n')}`);
+    }
+  });
+
+  test('no ${VAR} syntax in @ references', () => {
+    // @${KATA_BASE}/... is also invalid
+    // Exception: code blocks showing dynamic prompt construction (bash substitutes before Task call)
+    const dirsToCheck = ['agents', 'skills', 'kata/workflows', 'kata/templates'];
+    const errors = [];
+
+    for (const dir of dirsToCheck) {
+      const files = scanMarkdownFiles(path.join(ROOT, dir));
+      for (const file of files) {
+        const content = fs.readFileSync(file, 'utf8');
+        const relativePath = path.relative(ROOT, file);
+
+        // Remove code blocks - variables inside are dynamically constructed
+        // (bash substitutes @${VAR}/ before Task tool receives the prompt)
+        const contentWithoutCodeBlocks = content.replace(/```[\s\S]*?```/g, '');
+
+        // Match @${...}/ patterns outside code blocks
+        const badPattern = /@\$\{[^}]+\}\//g;
+        const matches = contentWithoutCodeBlocks.match(badPattern) || [];
+
+        for (const match of matches) {
+          errors.push(`${relativePath}: Invalid @ reference: ${match} (Claude cannot substitute variables)`);
+        }
+      }
+    }
+
+    if (errors.length > 0) {
+      assert.fail(`Variable patterns in @ references will not work:\n${errors.join('\n')}`);
+    }
+  });
+
+  test('source files use canonical @~/.claude/kata/ pattern', () => {
+    // Source files MUST use @~/.claude/kata/ for build.js to transform correctly
+    // This is the canonical form that:
+    // - Plugin build transforms to @./kata/
+    // - NPM install.js transforms at runtime
+    const dirsToCheck = ['agents', 'skills', 'kata/workflows', 'kata/templates'];
+    const filesWithKataRefs = [];
+
+    for (const dir of dirsToCheck) {
+      const files = scanMarkdownFiles(path.join(ROOT, dir));
+      for (const file of files) {
+        const content = fs.readFileSync(file, 'utf8');
+
+        // Check if file has any kata-related @ references
+        if (content.match(/@[^\s]*kata\//)) {
+          filesWithKataRefs.push({
+            path: path.relative(ROOT, file),
+            content
+          });
+        }
+      }
+    }
+
+    const errors = [];
+    for (const { path: filePath, content } of filesWithKataRefs) {
+      // Valid: @~/.claude/kata/
+      // Invalid: @$KATA_BASE/, @./kata/ (in source), @${VAR}/
+
+      // Skip bash file checks (not @ references)
+      let checkContent = content;
+      checkContent = checkContent.replace(/\[ -[fd] [^\]]+\]/g, '');
+      checkContent = checkContent.replace(/cat [^\n]+\/kata\//g, '');
+
+      // Find @ references to kata paths
+      const kataRefs = checkContent.match(/@[^\s\n<>`"'()]*kata\/[^\s\n<>`"'()]+/g) || [];
+
+      for (const ref of kataRefs) {
+        if (!ref.startsWith('@~/.claude/kata/') && !ref.startsWith('@.planning/')) {
+          errors.push(`${filePath}: Non-canonical @ reference: ${ref} (should use @~/.claude/kata/)`);
+        }
+      }
+    }
+
+    if (errors.length > 0) {
+      assert.fail(`Non-canonical @ references found:\n${errors.join('\n')}`);
+    }
+  });
+
+  test('no <kata_path> blocks in source (deprecated pattern)', () => {
+    // The <kata_path> block pattern was removed because it doesn't help with @ references
+    // Claude's @ parser is static and cannot use bash-resolved variables
+    const dirsToCheck = ['agents', 'skills', 'kata/workflows', 'kata/templates'];
+    const errors = [];
+
+    for (const dir of dirsToCheck) {
+      const files = scanMarkdownFiles(path.join(ROOT, dir));
+      for (const file of files) {
+        const content = fs.readFileSync(file, 'utf8');
+        const relativePath = path.relative(ROOT, file);
+
+        if (content.includes('<kata_path>')) {
+          errors.push(`${relativePath}: Contains deprecated <kata_path> block`);
+        }
+      }
+    }
+
+    if (errors.length > 0) {
+      assert.fail(`Deprecated <kata_path> blocks found:\n${errors.join('\n')}`);
     }
   });
 });

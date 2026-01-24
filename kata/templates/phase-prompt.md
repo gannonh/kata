@@ -1,16 +1,5 @@
 # Phase Prompt Template
 
-<kata_path>
-**IMPORTANT:** Before reading any Kata file (templates, references, workflows), resolve the base path:
-
-```bash
-KATA_BASE=$(if [ -n "$CLAUDE_PLUGIN_ROOT" ]; then echo "$CLAUDE_PLUGIN_ROOT/kata"; elif [ -d ~/.claude/kata ]; then echo ~/.claude/kata; else echo ./.claude/kata; fi) && echo $KATA_BASE
-```
-
-Use the output as `$KATA_BASE` for all file paths below. For example:
-- `$KATA_BASE/templates/summary.md` instead of `~/.claude/kata/templates/summary.md`
-</kata_path>
-
 > **Note:** Planning methodology is in `agents/kata-planner.md`.
 > This template defines the PLAN.md output format that the agent produces.
 
@@ -48,10 +37,10 @@ Output: [What artifacts will be created]
 </objective>
 
 <execution_context>
-@$KATA_BASE/workflows/execute-plan.md
-@$KATA_BASE/templates/summary.md
+@~/.claude/kata/workflows/execute-plan.md
+@~/.claude/kata/templates/summary.md
 [If plan contains checkpoint tasks (type="checkpoint:*"), add:]
-@$KATA_BASE/references/checkpoints.md
+@~/.claude/kata/references/checkpoints.md
 </execution_context>
 
 <context>
@@ -86,7 +75,7 @@ Output: [What artifacts will be created]
   <done>[Acceptance criteria]</done>
 </task>
 
-<!-- For checkpoint task examples and patterns, see @$KATA_BASE/references/checkpoints.md -->
+<!-- For checkpoint task examples and patterns, see @~/.claude/kata/references/checkpoints.md -->
 <!-- Key rule: Claude starts dev server BEFORE human-verify checkpoints. User only visits URLs. -->
 
 <task type="checkpoint:decision" gate="blocking">
@@ -383,9 +372,9 @@ Output: Working dashboard component.
 </objective>
 
 <execution_context>
-@$KATA_BASE/workflows/execute-plan.md
-@$KATA_BASE/templates/summary.md
-@$KATA_BASE/references/checkpoints.md
+@~/.claude/kata/workflows/execute-plan.md
+@~/.claude/kata/templates/summary.md
+@~/.claude/kata/references/checkpoints.md
 </execution_context>
 
 <context>

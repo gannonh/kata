@@ -127,10 +127,16 @@ describe('NPX Install Smoke Test', () => {
     const skillPath = path.join(npxTestDir, '.claude/skills/kata-executing-phases/SKILL.md');
     if (fs.existsSync(skillPath)) {
       const content = fs.readFileSync(skillPath, 'utf8');
-      // NPM install should have ~/.claude/ paths OR $KATA_BASE for dynamic resolution
+      // Local NPM install transforms @~/.claude/kata/ to @./.claude/kata/
+      // (relative to the local .claude directory)
+      // $KATA_BASE does NOT work - Claude's @ parser is static
       assert.ok(
-        content.includes('@~/.claude/') || content.includes('@./') || content.includes('$KATA_BASE'),
-        'Skill should have valid path references (static or dynamic)'
+        content.includes('@./.claude/kata/'),
+        'Local install should have @./.claude/kata/ path references'
+      );
+      assert.ok(
+        !content.includes('@$KATA_BASE/'),
+        'Skill should NOT have @$KATA_BASE/ references (Claude cannot substitute variables)'
       );
     }
   });
@@ -180,14 +186,19 @@ describe('Plugin Build Smoke Test', () => {
     if (fs.existsSync(skillPath)) {
       const content = fs.readFileSync(skillPath, 'utf8');
       // Plugin skills should NOT have hardcoded ~/.claude/kata/ paths
-      // They should use either @./kata/ (static transformation) or $KATA_BASE (dynamic)
+      // build.js transforms @~/.claude/kata/ to @./kata/
+      // $KATA_BASE does NOT work - Claude's @ parser is static
       assert.ok(
         !content.includes('@~/.claude/kata/'),
         'Plugin skills should NOT have hardcoded ~/.claude/kata/ paths'
       );
       assert.ok(
-        content.includes('@./kata/') || content.includes('$KATA_BASE'),
-        'Plugin skills should have @./kata/ paths or $KATA_BASE for dynamic resolution'
+        !content.includes('@$KATA_BASE/'),
+        'Plugin skills should NOT have @$KATA_BASE/ (Claude cannot substitute variables)'
+      );
+      assert.ok(
+        content.includes('@./kata/'),
+        'Plugin skills should have @./kata/ paths (transformed by build.js)'
       );
     }
   });
@@ -203,6 +214,46 @@ describe('Plugin Build Smoke Test', () => {
       '',
       `Plugin build should not contain ~/.claude/ references: ${result.stdout}`
     );
+  });
+
+  test('no $KATA_BASE in plugin @ references', () => {
+    const pluginDir = path.join(ROOT, 'dist/plugin');
+    const result = spawnSync('grep', ['-r', '@\\$KATA_BASE/', pluginDir], {
+      encoding: 'utf8'
+    });
+
+    assert.strictEqual(
+      result.stdout.trim(),
+      '',
+      `Plugin build should not contain @$KATA_BASE/ references (Claude cannot substitute variables): ${result.stdout}`
+    );
+  });
+
+  test('plugin @ references resolve to existing files', () => {
+    // Extract all @ references from a sample skill and verify they exist
+    const skillPath = path.join(ROOT, 'dist/plugin/skills/kata-executing-phases/SKILL.md');
+    if (!fs.existsSync(skillPath)) return;
+
+    const content = fs.readFileSync(skillPath, 'utf8');
+    // Match @./kata/... references (the transformed form for plugins)
+    const refs = content.match(/@\.[^\s\n<>`"'()]+/g) || [];
+    const errors = [];
+
+    for (const ref of refs) {
+      // Skip @.planning/ references (project-local, not part of plugin)
+      if (ref.startsWith('@.planning/')) continue;
+
+      const relativePath = ref.substring(1); // Remove @
+      const fullPath = path.join(ROOT, 'dist/plugin', relativePath);
+
+      if (!fs.existsSync(fullPath)) {
+        errors.push(`@ reference not found: ${ref} (expected at ${fullPath})`);
+      }
+    }
+
+    if (errors.length > 0) {
+      assert.fail(`Broken @ references in plugin:\n${errors.join('\n')}`);
+    }
   });
 });
 

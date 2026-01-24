@@ -10,17 +10,6 @@ allowed-tools:
   - Bash
 ---
 
-<kata_path>
-**IMPORTANT:** Before reading any Kata file (templates, references, workflows), resolve the base path:
-
-```bash
-KATA_BASE=$(if [ -n "$CLAUDE_PLUGIN_ROOT" ]; then echo "$CLAUDE_PLUGIN_ROOT/kata"; elif [ -d ~/.claude/kata ]; then echo ~/.claude/kata; else echo ./.claude/kata; fi) && echo $KATA_BASE
-```
-
-Use the output as `$KATA_BASE` for all file paths below. For example:
-- `$KATA_BASE/templates/summary.md` instead of `~/.claude/kata/templates/summary.md`
-</kata_path>
-
 <objective>
 Analyze a phase and present Claude's assumptions about technical approach, implementation order, scope boundaries, risk areas, and dependencies.
 
@@ -29,7 +18,7 @@ Output: Conversational output only (no file creation) - ends with "What do you t
 </objective>
 
 <execution_context>
-@$KATA_BASE/workflows/phase-assumptions.md
+@~/.claude/kata/workflows/phase-assumptions.md
 </execution_context>
 
 <context>
