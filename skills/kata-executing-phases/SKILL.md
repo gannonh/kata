@@ -19,9 +19,9 @@ Context budget: ~15% orchestrator, 100% fresh per subagent.
 </objective>
 
 <execution_context>
-@~/.claude/kata/references/ui-brand.md
-@~/.claude/kata/references/planning-config.md
-@~/.claude/kata/workflows/phase-execute.md
+@./references/ui-brand.md
+@./references/planning-config.md
+@./references/phase-execute.md
 </execution_context>
 
 <context>
@@ -279,7 +279,7 @@ Plans with `autonomous: false` have checkpoints. The phase-execute.md workflow h
 - Orchestrator presents to user, collects response
 - Spawns fresh continuation agent (not resume)
 
-See `@~/.claude/kata/workflows/phase-execute.md` step `checkpoint_handling` for complete details.
+See `@./references/phase-execute.md` step `checkpoint_handling` for complete details.
 </checkpoint_handling>
 
 <deviation_rules>

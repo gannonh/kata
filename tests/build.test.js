@@ -35,24 +35,29 @@ describe('NPM build', () => {
     assert.ok(fs.existsSync(path.join(ROOT, 'dist/npm/hooks')));
   });
 
-  test('includes kata directory', () => {
-    assert.ok(fs.existsSync(path.join(ROOT, 'dist/npm/kata')));
+  test('does NOT include shared kata directory (Phase 2.1 restructure)', () => {
+    // After Phase 2.1, shared kata/ directory is removed
+    // Skills now have self-contained references/ subdirectories
+    assert.ok(!fs.existsSync(path.join(ROOT, 'dist/npm/kata')));
   });
 
   test('includes agents directory', () => {
     assert.ok(fs.existsSync(path.join(ROOT, 'dist/npm/agents')));
   });
 
-  test('skills use canonical @~/.claude/kata/ paths', () => {
+  test('skills use local @./references/ paths (Phase 2.1 restructure)', () => {
     const skillPath = path.join(ROOT, 'dist/npm/skills/kata-executing-phases/SKILL.md');
     if (fs.existsSync(skillPath)) {
       const content = fs.readFileSync(skillPath, 'utf8');
-      // NPM skills MUST use @~/.claude/kata/ paths (canonical form)
-      // install.js transforms these at runtime based on install location
-      // $KATA_BASE does NOT work - Claude's @ parser is static
+      // After Phase 2.1, skills use local @./references/ paths
+      // Skills are self-contained with bundled resources
       assert.ok(
-        content.includes('@~/.claude/kata/'),
-        'NPM skills should use @~/.claude/kata/ paths (canonical form)'
+        content.includes('@./references/'),
+        'NPM skills should use @./references/ paths (self-contained)'
+      );
+      assert.ok(
+        !content.includes('@~/.claude/kata/'),
+        'NPM skills should NOT use @~/.claude/kata/ (old shared path)'
       );
       assert.ok(
         !content.includes('@$KATA_BASE/'),
@@ -92,8 +97,10 @@ describe('Plugin build', () => {
     assert.ok(fs.existsSync(path.join(ROOT, 'dist/plugin/hooks')));
   });
 
-  test('includes kata directory', () => {
-    assert.ok(fs.existsSync(path.join(ROOT, 'dist/plugin/kata')));
+  test('does NOT include shared kata directory (Phase 2.1 restructure)', () => {
+    // After Phase 2.1, shared kata/ directory is removed
+    // Skills now have self-contained references/ subdirectories
+    assert.ok(!fs.existsSync(path.join(ROOT, 'dist/plugin/kata')));
   });
 
   test('includes VERSION file', () => {
@@ -111,28 +118,30 @@ describe('Plugin build', () => {
     }
   });
 
-  test('no ~/.claude/ references in plugin distribution', () => {
+  test('no ~/.claude/ references in plugin distribution (excluding CHANGELOG)', () => {
+    // CHANGELOG.md contains historical documentation about old path patterns
     const result = execSync(
-      'grep -r "@~/.claude/" dist/plugin/ 2>/dev/null || true',
+      'grep -r "@~/.claude/" dist/plugin/ --include="*.md" 2>/dev/null | grep -v CHANGELOG.md || true',
       { cwd: ROOT, encoding: 'utf8' }
     );
     assert.strictEqual(result.trim(), '', 'Plugin should not have ~/.claude/ references');
   });
 
-  test('plugin @-references use @./kata/ pattern (not @./)', () => {
-    // Verify the transform produces @./kata/... not @./...
+  test('plugin skills use local @./references/ pattern', () => {
+    // After Phase 2.1 restructure, skills use @./references/ for local resources
+    // Skills no longer reference shared @./kata/ directory
     const skillPath = path.join(ROOT, 'dist/plugin/skills/kata-executing-phases/SKILL.md');
     if (fs.existsSync(skillPath)) {
       const content = fs.readFileSync(skillPath, 'utf8');
       // Find all @./... references (excluding @.planning/ which is project-local)
-      const refs = content.match(/@\.\/(kata\/)?[^\s\n<>`"'()]+/g) || [];
+      const refs = content.match(/@\.\/(references\/)?[^\s\n<>`"'()]+/g) || [];
       for (const ref of refs) {
         // Skip @.planning/ references (project-local, not part of plugin)
         if (ref.startsWith('@.planning/')) continue;
-        // All other @./ references should be @./kata/
+        // Skill references should be @./references/ (local to skill directory)
         assert.ok(
-          ref.startsWith('@./kata/'),
-          `Plugin reference should be @./kata/..., got: ${ref}`
+          ref.startsWith('@./references/'),
+          `Skill reference should be @./references/..., got: ${ref}`
         );
       }
     }
@@ -404,14 +413,15 @@ describe('Workflow @-reference validation', () => {
   /**
    * Resolve a reference to a file path
    */
-  function resolveRef(ref) {
+  function resolveRef(ref, baseDir = ROOT) {
     if (ref.startsWith('@~/.claude/')) {
       // For source validation, map to local path
       const relativePath = ref.replace('@~/.claude/', '');
       return path.join(ROOT, relativePath);
     } else if (ref.startsWith('@./')) {
+      // Resolve relative to the file's directory
       const relativePath = ref.replace('@./', '');
-      return path.join(ROOT, relativePath);
+      return path.join(baseDir, relativePath);
     }
     return null;
   }
@@ -458,7 +468,8 @@ describe('Workflow @-reference validation', () => {
           const relativePath = path.relative(ROOT, fullPath);
 
           for (const ref of refs) {
-            const resolved = resolveRef(ref);
+            const fileDir = path.dirname(fullPath);
+            const resolved = resolveRef(ref, fileDir);
             if (resolved && !fs.existsSync(resolved)) {
               errors.push(`${relativePath}: Reference not found: ${ref}`);
             }

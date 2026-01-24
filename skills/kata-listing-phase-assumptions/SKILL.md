@@ -18,7 +18,7 @@ Output: Conversational output only (no file creation) - ends with "What do you t
 </objective>
 
 <execution_context>
-@~/.claude/kata/workflows/phase-assumptions.md
+@./references/phase-assumptions.md
 </execution_context>
 
 <context>

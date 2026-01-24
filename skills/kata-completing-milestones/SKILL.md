@@ -20,8 +20,8 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 <execution_context>
 **Load these files NOW (before proceeding):**
 
-- @~/.claude/kata/workflows/milestone-complete.md (main workflow)
-- @~/.claude/kata/templates/milestone-archive.md (archive template)
+- @./references/milestone-complete.md (main workflow)
+- @./references/milestone-archive-template.md (archive template)
   </execution_context>
 
 <context>

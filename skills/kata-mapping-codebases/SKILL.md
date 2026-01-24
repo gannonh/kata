@@ -19,7 +19,7 @@ Output: .planning/codebase/ folder with 7 structured documents about the codebas
 </objective>
 
 <execution_context>
-@~/.claude/kata/workflows/project-analyze.md
+@./references/project-analyze.md
 </execution_context>
 
 <context>

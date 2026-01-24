@@ -11,9 +11,23 @@ allowed-tools:
 ---
 
 <objective>
-Display the complete Kata command reference.
+Display the complete Kata command reference with version info.
 
-Output ONLY the reference content below. Do NOT add:
+First, read the installed version:
+
+```bash
+if [ -n "$CLAUDE_PLUGIN_ROOT" ]; then
+  cat "$CLAUDE_PLUGIN_ROOT/VERSION" 2>/dev/null
+elif [ -f ~/.claude/kata/VERSION ]; then
+  cat ~/.claude/kata/VERSION
+elif [ -f ./.claude/kata/VERSION ]; then
+  cat ./.claude/kata/VERSION
+else
+  echo "unknown"
+fi
+```
+
+Then output the reference content below, inserting the version at the top. Do NOT add:
 
 - Project-specific analysis
 - Git status or file context
@@ -24,7 +38,9 @@ Output ONLY the reference content below. Do NOT add:
 <reference>
 # Kata Command Reference
 
-**Kata** (Get Shit Done) creates hierarchical project plans optimized for solo agentic development with Claude Code.
+**Version:** {version from bash above}
+
+**Kata** is a spec-driven development framework for Claude Code. It creates hierarchical project plans optimized for agentic development.
 
 ## Quick Start
 

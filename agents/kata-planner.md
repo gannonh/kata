@@ -407,8 +407,8 @@ Output: [What artifacts will be created]
 </objective>
 
 <execution_context>
-@~/.claude/kata/workflows/execute-plan.md
-@~/.claude/kata/templates/summary.md
+@./references/execute-plan.md
+@./references/summary-template.md
 </execution_context>
 
 <context>

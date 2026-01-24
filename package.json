@@ -1,6 +1,6 @@
 {
   "name": "@gannonh/kata",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "type": "module",
   "description": "Spec-driven development framework for Claude Code.",
   "scripts": {
@@ -17,6 +17,7 @@
     "kata": "bin/install.js"
   },
   "files": [
+    "README.md",
     "bin",
     "commands",
     "kata",

@@ -19,8 +19,8 @@ Output: {phase}-UAT.md tracking all test results. If issues found: diagnosed gap
 </objective>
 
 <execution_context>
-@~/.claude/kata/workflows/verify-work.md
-@~/.claude/kata/templates/UAT.md
+@./references/verify-work.md
+@./references/UAT-template.md
 </execution_context>
 
 <context>

@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-01-24
+
+### Fixed
+- **Stale template references**: Fixed 15+ prose references to `$KATA_BASE/templates/` in skills and agents that remained after Phase 2.1 skill-centric restructure
+- **Nested reference paths**: Fixed `@./references/` paths inside `references/` directories to use sibling-relative `@./` syntax
+- **Test suite alignment**: Updated tests to reflect Phase 2.1 architecture (skills use local `@./references/` paths, no shared `kata/` directory)
+- **resolveRef() relative path handling**: Fixed path resolution to correctly handle `@./` references relative to the containing file's directory
+
+### Added
+- **Local plugin testing script**: Added `scripts/test-local.sh` for easy local plugin testing during development
+
 ## [1.0.7] - 2026-01-24
 
 ### Fixed

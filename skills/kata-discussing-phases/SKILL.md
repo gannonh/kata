@@ -23,8 +23,8 @@ Extract implementation decisions that downstream agents need — researcher and 
 </objective>
 
 <execution_context>
-@~/.claude/kata/workflows/phase-discuss.md
-@~/.claude/kata/templates/context.md
+@./references/phase-discuss.md
+@./references/context-template.md
 </execution_context>
 
 <context>

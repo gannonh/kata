@@ -123,16 +123,15 @@ describe('NPX Install Smoke Test', () => {
     );
   });
 
-  test('skills have correct path references for NPM install', () => {
+  test('skills have correct path references for NPM install (Phase 2.1)', () => {
     const skillPath = path.join(npxTestDir, '.claude/skills/kata-executing-phases/SKILL.md');
     if (fs.existsSync(skillPath)) {
       const content = fs.readFileSync(skillPath, 'utf8');
-      // Local NPM install transforms @~/.claude/kata/ to @./.claude/kata/
-      // (relative to the local .claude directory)
-      // $KATA_BASE does NOT work - Claude's @ parser is static
+      // Phase 2.1: Skills are self-contained with local @./references/ paths
+      // Skills reference their own references/ subdirectory, not a shared kata/ directory
       assert.ok(
-        content.includes('@./.claude/kata/'),
-        'Local install should have @./.claude/kata/ path references'
+        content.includes('@./') && !content.includes('@~/.claude/kata/'),
+        'NPM install skills should use local @./ references (not shared @~/.claude/kata/)'
       );
       assert.ok(
         !content.includes('@$KATA_BASE/'),
@@ -181,13 +180,12 @@ describe('Plugin Build Smoke Test', () => {
     );
   });
 
-  test('plugin skills have transformed paths (not ~/.claude/)', () => {
+  test('plugin skills have local references (Phase 2.1)', () => {
     const skillPath = path.join(ROOT, 'dist/plugin/skills/kata-executing-phases/SKILL.md');
     if (fs.existsSync(skillPath)) {
       const content = fs.readFileSync(skillPath, 'utf8');
-      // Plugin skills should NOT have hardcoded ~/.claude/kata/ paths
-      // build.js transforms @~/.claude/kata/ to @./kata/
-      // $KATA_BASE does NOT work - Claude's @ parser is static
+      // Phase 2.1: Skills are self-contained with local @./references/ paths
+      // No shared kata/ directory - skills reference their own references/ subdirectory
       assert.ok(
         !content.includes('@~/.claude/kata/'),
         'Plugin skills should NOT have hardcoded ~/.claude/kata/ paths'
@@ -196,16 +194,18 @@ describe('Plugin Build Smoke Test', () => {
         !content.includes('@$KATA_BASE/'),
         'Plugin skills should NOT have @$KATA_BASE/ (Claude cannot substitute variables)'
       );
+      // Skills use @./references/ for their own local references, or @./workflows/, @./kata/
       assert.ok(
-        content.includes('@./kata/'),
-        'Plugin skills should have @./kata/ paths (transformed by build.js)'
+        content.includes('@./'),
+        'Plugin skills should have local @./ references'
       );
     }
   });
 
   test('no stale ~/.claude/ references in plugin build', () => {
     const pluginDir = path.join(ROOT, 'dist/plugin');
-    const result = spawnSync('grep', ['-r', '@~/.claude/', pluginDir], {
+    // Exclude CHANGELOG.md which documents historical path transformation (not actual code)
+    const result = spawnSync('grep', ['-r', '--exclude=CHANGELOG.md', '@~/.claude/', pluginDir], {
       encoding: 'utf8'
     });
 
@@ -230,13 +230,15 @@ describe('Plugin Build Smoke Test', () => {
     );
   });
 
-  test('plugin @ references resolve to existing files', () => {
+  test('plugin @ references resolve to existing files (Phase 2.1)', () => {
     // Extract all @ references from a sample skill and verify they exist
+    // Phase 2.1: Skills use @./references/ paths relative to each skill's directory
     const skillPath = path.join(ROOT, 'dist/plugin/skills/kata-executing-phases/SKILL.md');
+    const skillDir = path.dirname(skillPath);
     if (!fs.existsSync(skillPath)) return;
 
     const content = fs.readFileSync(skillPath, 'utf8');
-    // Match @./kata/... references (the transformed form for plugins)
+    // Match @./... references
     const refs = content.match(/@\.[^\s\n<>`"'()]+/g) || [];
     const errors = [];
 
@@ -244,8 +246,9 @@ describe('Plugin Build Smoke Test', () => {
       // Skip @.planning/ references (project-local, not part of plugin)
       if (ref.startsWith('@.planning/')) continue;
 
-      const relativePath = ref.substring(1); // Remove @
-      const fullPath = path.join(ROOT, 'dist/plugin', relativePath);
+      const relativePath = ref.substring(2); // Remove @.
+      // Resolve relative to skill's directory (Phase 2.1 - skills are self-contained)
+      const fullPath = path.join(skillDir, relativePath);
 
       if (!fs.existsSync(fullPath)) {
         errors.push(`@ reference not found: ${ref} (expected at ${fullPath})`);

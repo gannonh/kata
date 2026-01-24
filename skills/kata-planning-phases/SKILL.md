@@ -11,7 +11,7 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/kata/references/ui-brand.md
+@./references/ui-brand.md
 </execution_context>
 
 <objective>
