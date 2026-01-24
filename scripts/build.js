@@ -198,12 +198,18 @@ function copyPath(src, dest, transform = null, excludeFilter = null) {
 /**
  * Transform paths for plugin distribution
  * @~/.claude/kata/ → @./kata/
+ * subagent_type="kata- → subagent_type="kata:kata-
  *
  * The kata/ directory is copied to plugin root as kata/,
  * so @./kata/templates/ resolves to <plugin-root>/kata/templates/
+ *
+ * Plugin agents are namespaced by Claude Code as pluginname:agentname,
+ * so kata-executor becomes kata:kata-executor in plugin context.
  */
 function transformPluginPaths(content) {
-  return content.replace(/@~\/\.claude\/kata\//g, '@./kata/');
+  return content
+    .replace(/@~\/\.claude\/kata\//g, '@./kata/')
+    .replace(/subagent_type="kata-/g, 'subagent_type="kata:kata-');
 }
 
 /**
