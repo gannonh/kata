@@ -14,7 +14,7 @@ Enables seamless session continuity for fully autonomous workflows.
 </purpose>
 
 <required_reading>
-@~/.claude/kata/references/continuation-format.md
+@./continuation-format.md
 </required_reading>
 
 <process>

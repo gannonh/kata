@@ -211,10 +211,10 @@ Execute each wave in sequence. Autonomous plans within a wave run in parallel.
    </objective>
 
    <execution_context>
-   @~/.claude/kata/workflows/execute-plan.md
-   @~/.claude/kata/templates/summary.md
-   @~/.claude/kata/references/checkpoints.md
-   @~/.claude/kata/references/tdd.md
+   @./execute-plan.md
+   @./summary-template.md
+   @./checkpoints.md
+   @./tdd.md
    </execution_context>
 
    <context>
