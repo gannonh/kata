@@ -10,11 +10,10 @@ This is the ritual that separates "development" from "shipped."
 
 **Read these files NOW:**
 
-1. templates/milestone.md
-2. templates/milestone-archive.md
-3. `.planning/ROADMAP.md`
-4. `.planning/REQUIREMENTS.md`
-5. `.planning/PROJECT.md`
+1. @./references/milestone-archive-template.md
+2. `.planning/ROADMAP.md`
+3. `.planning/REQUIREMENTS.md`
+4. `.planning/PROJECT.md`
 
 </required_reading>
 
@@ -38,7 +37,7 @@ When a milestone completes, this workflow:
 
 **Archive Format:**
 
-**ROADMAP archive** uses `templates/milestone-archive.md` template with:
+**ROADMAP archive** uses `@./references/milestone-archive-template.md` template with:
 - Milestone header (status, phases, date)
 - Full phase details from roadmap
 - Milestone summary (decisions, issues, technical debt)
@@ -196,7 +195,7 @@ If file doesn't exist:
 
 If exists, prepend new entry (reverse chronological order).
 
-Use template from `templates/milestone.md`:
+Use this template format:
 
 ```markdown
 ## v[Version] [Name] (Shipped: YYYY-MM-DD)
@@ -423,7 +422,7 @@ Extract completed milestone details and create archive file.
 
 1. Create archive file path: `.planning/milestones/v[X.Y]-ROADMAP.md`
 
-2. Read `$KATA_BASE/templates/milestone-archive.md` template
+2. Read `$KATA_BASE/@./references/milestone-archive-template.md` template
 
 3. Extract data from current ROADMAP.md:
    - All phases belonging to this milestone (by phase number range)

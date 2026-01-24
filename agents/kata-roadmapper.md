@@ -286,7 +286,7 @@ After roadmap creation, REQUIREMENTS.md gets updated with phase mappings:
 
 ## ROADMAP.md Structure
 
-Use template from `$KATA_BASE/templates/roadmap.md`.
+Use the standard ROADMAP.md format (see examples in existing projects).
 
 Key sections:
 - Overview (2-3 sentences)
@@ -295,7 +295,7 @@ Key sections:
 
 ## STATE.md Structure
 
-Use template from `$KATA_BASE/templates/state.md`.
+Use the standard STATE.md format (see examples in existing projects).
 
 Key sections:
 - Project Reference (core value, current focus)
