@@ -44,7 +44,6 @@ const COMMON_INCLUDES = [
   'skills',
   'agents',
   'hooks',
-  'kata',
   'CHANGELOG.md',
 ];
 
@@ -196,20 +195,16 @@ function copyPath(src, dest, transform = null, excludeFilter = null) {
 }
 
 /**
- * Transform paths for plugin distribution
- * @~/.claude/kata/ → @./kata/
- * subagent_type="kata- → subagent_type="kata:kata-
- *
- * The kata/ directory is copied to plugin root as kata/,
- * so @./kata/templates/ resolves to <plugin-root>/kata/templates/
+ * Transform agent references for plugin distribution
  *
  * Plugin agents are namespaced by Claude Code as pluginname:agentname,
  * so kata-executor becomes kata:kata-executor in plugin context.
+ *
+ * Note: @~/.claude/kata/ path transformation removed in v1.0.6 Phase 2.1.
+ * Skills now use relative paths to bundled resources.
  */
 function transformPluginPaths(content) {
-  return content
-    .replace(/@~\/\.claude\/kata\//g, '@./kata/')
-    .replace(/subagent_type="kata-/g, 'subagent_type="kata:kata-');
+  return content.replace(/subagent_type="kata-/g, 'subagent_type="kata:kata-');
 }
 
 /**
@@ -227,7 +222,7 @@ function validateBuild(dest, target) {
   const errors = [];
 
   // Check required directories exist
-  const requiredDirs = ['kata', 'agents', 'skills'];
+  const requiredDirs = ['agents', 'skills'];
   for (const dir of requiredDirs) {
     const dirPath = path.join(dest, dir);
     if (!fs.existsSync(dirPath)) {
@@ -235,7 +230,8 @@ function validateBuild(dest, target) {
     }
   }
 
-  // For plugin target, verify no ~/.claude/ references remain
+  // For plugin target, verify no ~/.claude/ references remain in executable files
+  // Excludes CHANGELOG.md which contains historical documentation
   if (target === 'plugin') {
     const checkForOldPaths = (dir) => {
       if (!fs.existsSync(dir)) return;
@@ -244,7 +240,7 @@ function validateBuild(dest, target) {
         const fullPath = path.join(dir, entry.name);
         if (entry.isDirectory()) {
           checkForOldPaths(fullPath);
-        } else if (entry.name.endsWith('.md')) {
+        } else if (entry.name.endsWith('.md') && entry.name !== 'CHANGELOG.md') {
           const content = fs.readFileSync(fullPath, 'utf8');
           if (content.includes('@~/.claude/')) {
             errors.push(`Old path reference in ${fullPath.replace(dest, '')}`);
@@ -354,12 +350,9 @@ function buildNpm() {
     console.log(`  ${green}✓${reset} Cleaned package.json scripts`);
   }
 
-  // Write VERSION file to kata/ directory (matches install.js behavior)
-  const kataDir = path.join(dest, 'kata');
-  if (fs.existsSync(kataDir)) {
-    fs.writeFileSync(path.join(kataDir, 'VERSION'), pkg.version);
-    console.log(`  ${green}✓${reset} Wrote kata/VERSION (${pkg.version})`);
-  }
+  // Write VERSION file
+  writeVersion(dest);
+  console.log(`  ${green}✓${reset} Wrote VERSION (${pkg.version})`)
 
   // Validate build
   const errors = validateBuild(dest, 'npm');
