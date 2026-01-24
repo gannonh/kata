@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 
 Milestone: v1.0.6 Plugin Stability
 Phase: 2.1 (Skill-Centric Resource Restructure)
-Plan: 4/5
+Plan: 4/5 complete
 Status: In progress
-Last activity: 2026-01-24 — Completed 02.1-02-PLAN.md (skill references update)
+Last activity: 2026-01-24 — Completed 02.1-04-PLAN.md (build system cleanup)
 
 Progress: [#############################---] 90% (v1.0.0 shipped, stabilizing)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 44
+- Total plans completed: 45
 - Average duration: 3 min
-- Total execution time: 120 min
+- Total execution time: 123 min
 
 **By Milestone:**
 
@@ -94,5 +94,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Completed 02.1-02-PLAN.md (skill references update)
-Resume file: .planning/phases/v1.0.6-02.1-skill-resource-restructure/02.1-04-PLAN.md
+Stopped at: Completed 02.1-04-PLAN.md (build system cleanup)
+Resume file: .planning/phases/v1.0.6-02.1-skill-resource-restructure/02.1-05-PLAN.md
