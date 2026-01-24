@@ -1,6 +1,6 @@
 {
   "name": "kata",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Spec-driven development framework for Claude Code. Provides structured workflows for requirements gathering, research, planning, execution, and verification.",
   "author": {
     "name": "gannonh",

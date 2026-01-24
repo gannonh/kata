@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-01-24
+
+### Fixed
+- **Plugin agent namespacing**: Build system now transforms `subagent_type="kata-*"` to `subagent_type="kata:kata-*"` for plugin distribution. Claude Code namespaces plugin agents as `pluginname:agentname`, so skills referencing agents like `kata-executor` need the `kata:` prefix in plugin context. Source files remain unchanged for npx distribution compatibility.
+
 ## [1.0.6] - 2026-01-24
 
 ### Fixed
