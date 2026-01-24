@@ -2,13 +2,26 @@
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-01-24
+
+### Fixed
+- **Plugin path resolution (v2)**: Reverted `@$KATA_BASE/` approach from 1.0.3 — Claude's `@` reference system is a static file path parser that cannot substitute variables. Restored canonical `@~/.claude/kata/` paths which `build.js` transforms correctly to `@./kata/` for plugins.
+
+### Changed
+- **Removed `<kata_path>` blocks**: These blocks didn't help with @ references since Claude can't use bash-resolved variables in @ paths
+
+### Added
+- **Tests to catch this class of bug**: New tests detect `@$VARIABLE/` and `@${VAR}/` patterns in source files (which will never work)
+- **Integration test for plugin @ references**: Verifies that plugin build @ references resolve to existing files
+- **Path reference documentation**: Added section to KATA-STYLE.md explaining why @ references must use static paths
+
 ## [1.0.3] - 2026-01-23
 
 ### Fixed
-- **Plugin path resolution**: Fixed "Error reading file" when agents load templates in plugin installations by adding dynamic `$KATA_BASE` path resolution to 24 files (agents, skills, workflows, templates)
+- **Plugin path resolution**: Attempted to fix "Error reading file" when agents load templates by adding `$KATA_BASE` path resolution (reverted in 1.0.4 — this approach doesn't work)
 
 ### Added
-- **Test coverage for path resolution**: Added 7 tests to ensure dynamic path resolution is maintained across all affected files
+- **Test coverage for path resolution**: Added tests for path resolution (updated in 1.0.4)
 
 ## [1.0.2] - 2026-01-23
 
