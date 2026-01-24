@@ -5,40 +5,37 @@
 See: .planning/PROJECT.md (updated 2026-01-22)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v0.1.9 Claude Code Plugin — Phase 2: Marketplace Distribution
+**Current focus:** v1.0.6 Plugin Stability — Phase 2.1: Skill-Centric Resource Restructure
 
 ## Current Position
 
-Milestone: v0.1.9 Claude Code Plugin
-Phase: 2 of 4 (Marketplace Distribution) — Plan 01 COMPLETE
-Plan: 01/02 complete
-Status: Marketplace infrastructure created, plugin version 0.1.9
-Last activity: 2026-01-23 — Completed 02-01-PLAN.md
+Milestone: v1.0.6 Plugin Stability
+Phase: 2.1 (Skill-Centric Resource Restructure)
+Plan: 1/5
+Status: In progress
+Last activity: 2026-01-24 — Completed 02.1-01-PLAN.md (copy resources into skills)
 
-Progress: [####################------------] 62% (2.5/4 phases)
+Progress: [############################----] 88% (v1.0.0 shipped, stabilizing)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 38
+- Total plans completed: 41
 - Average duration: 3 min
-- Total execution time: 110 min
+- Total execution time: 116 min
 
-**By Phase:**
+**By Milestone:**
 
-| Phase                      | Plans | Total  | Avg/Plan |
-| -------------------------- | ----- | ------ | -------- |
-| 00-hard-fork-rebrand       | 5     | 10 min | 2 min    |
-| 00-convert-commands-skills | 12    | 43 min | 3.5 min  |
-| 01-migrate-todo-commands   | 3     | 19 min | 6 min    |
-| 01.1-testing-evals-harness | 2     | 6 min  | 3 min    |
-| 01.2-skill-tests           | 4     | 6 min  | 1.5 min  |
-| 01.3-phase-discuss-skill   | 2     | 5 min  | 2.5 min  |
-| 02-create-kata-slash-cmds  | 7     | 17 min | 2.4 min  |
+| Milestone | Phases | Plans | Status |
+| --------- | ------ | ----- | ------ |
+| v0.1.4    | 1      | 5     | Shipped 2026-01-18 |
+| v0.1.5    | 6      | 30    | Shipped 2026-01-22 |
+| v1.0.0    | 4      | 5     | Shipped 2026-01-23 |
+| v1.0.6    | 1      | 5     | In progress (1/5) |
 
 **Recent Trend:**
-- Last 5 plans: 02-07 (1 min), v0.1.9-01-01 (1 min), v0.1.9-01.1-01 (1 min), 02-01 (1 min)
-- Trend: Fast execution on infrastructure and documentation tasks
+- v1.0.1-v1.0.5: Rapid patch releases (5 patches in 2 days) addressing plugin distribution issues
+- Focus shifted from planned features to stability
 
 *Updated after each plan completion*
 
@@ -49,18 +46,19 @@ Progress: [####################------------] 62% (2.5/4 phases)
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **2026-01-23: Marketplace created** - gannonh/claude-code-plugins repository with Kata v0.1.9 entry; install via `/plugin marketplace add gannonh/claude-code-plugins` then `/plugin install kata@claude-code-plugins`
-- **2026-01-22: PR workflow spec in product** - `kata/references/planning-config.md#pr_workflow_behavior` is authoritative; v0.1.10 Phase 5 references it; kata-executing-phases needs to @-reference and implement it
-- **2026-01-22: Statusline excluded from plugin** - Statusline is user preference, not plugin functionality; not included in hooks.json
-- **2026-01-22: v0.1.9 roadmap** - 3 phases derived from 15 requirements (quick depth)
-- **2026-01-22: Phase grouping** - Structure+validation in Phase 1, distribution in Phase 2, docs in Phase 3
-- **2026-01-21: Skill invocation control** - Added user-invocable: false to all 14 Kata skills
+- **2026-01-24: Roadmap realigned** — Updated to reflect actual release history; v0.1.9 became v1.0.0, added v1.0.6 milestone for stability work
+- **2026-01-24: Phase 2.1 inserted** — Skill-Centric Resource Restructure to support npx-based skill distribution (Vercel model)
+- **2026-01-23: Marketplace created** - gannonh/kata-marketplace repository with Kata v1.0.0 entry
+- **2026-01-22: PR workflow spec in product** - `kata/references/planning-config.md#pr_workflow_behavior` is authoritative
 
 ### Roadmap Evolution
 
-- **v0.1.5 milestone completed 2026-01-22** - Skills & Documentation shipped (6 phases, 30 plans)
-- **v0.1.9 milestone started 2026-01-22** - Claude Code Plugin (3 phases, 15 requirements)
-- **Phase 1.1 inserted after Phase 1 (2026-01-22)** - Document PR Workflow Behavior (URGENT) - clarify pr_workflow config, branch naming, PR-per-phase, release=milestone rules
+- **v0.1.4 shipped 2026-01-18** — Hard Fork & Rebrand
+- **v0.1.5 shipped 2026-01-22** — Skills & Documentation (6 phases, 30 plans)
+- **v1.0.0 shipped 2026-01-23** — Claude Code Plugin (was v0.1.9 in planning)
+- **v1.0.1-v1.0.5 patches 2026-01-23/24** — Plugin stability fixes
+- **v1.0.6 milestone started 2026-01-24** — Plugin Stability (Phase 2.1 insertion)
+- **Phase 2.1 inserted (2026-01-24)** — Skill-Centric Resource Restructure (URGENT) - move kata/ resources into skill folders for standards compliance and npx distribution support
 
 ### Pending Todos
 
@@ -95,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-23T03:49:47Z
-Stopped at: Completed 02-01-PLAN.md (Marketplace Distribution)
-Resume file: Ready for 02-02-PLAN.md or `/kata:phase-plan 2` if more plans needed
+Last session: 2026-01-24
+Stopped at: Completed 02.1-01-PLAN.md (copy resources into skills)
+Resume file: .planning/phases/v1.0.6-02.1-skill-resource-restructure/02.1-02-PLAN.md
