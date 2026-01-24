@@ -198,6 +198,9 @@ function copyPath(src, dest, transform = null, excludeFilter = null) {
 /**
  * Transform paths for plugin distribution
  * @~/.claude/kata/ → @./kata/
+ *
+ * The kata/ directory is copied to plugin root as kata/,
+ * so @./kata/templates/ resolves to <plugin-root>/kata/templates/
  */
 function transformPluginPaths(content) {
   return content.replace(/@~\/\.claude\/kata\//g, '@./kata/');

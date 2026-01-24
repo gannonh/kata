@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-01-24
+
+### Fixed
+- **Plugin path transformation**: Fixed `build.js` to transform `@~/.claude/kata/` → `@./kata/` (was incorrectly producing `@./`). This caused "file not found" errors when plugin skills referenced templates, workflows, and references.
+
+### Added
+- **Path transformation tests**: New tests verify plugin `@-references` use the correct `@./kata/` pattern and resolve to existing files
+- **Release skill**: Added `.claude/skills/releasing-kata/` for guided release workflow
+
 ## [1.0.5] - 2026-01-24
 
 ### Fixed

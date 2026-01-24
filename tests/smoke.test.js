@@ -218,7 +218,8 @@ describe('Plugin Build Smoke Test', () => {
 
   test('no $KATA_BASE in plugin @ references', () => {
     const pluginDir = path.join(ROOT, 'dist/plugin');
-    const result = spawnSync('grep', ['-r', '@\\$KATA_BASE/', pluginDir], {
+    // Exclude CHANGELOG.md which documents the failed @$KATA_BASE/ approach (not actual code)
+    const result = spawnSync('grep', ['-r', '--exclude=CHANGELOG.md', '@\\$KATA_BASE/', pluginDir], {
       encoding: 'utf8'
     });
 

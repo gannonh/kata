@@ -119,6 +119,54 @@ describe('Plugin build', () => {
     assert.strictEqual(result.trim(), '', 'Plugin should not have ~/.claude/ references');
   });
 
+  test('plugin @-references use @./kata/ pattern (not @./)', () => {
+    // Verify the transform produces @./kata/... not @./...
+    const skillPath = path.join(ROOT, 'dist/plugin/skills/kata-executing-phases/SKILL.md');
+    if (fs.existsSync(skillPath)) {
+      const content = fs.readFileSync(skillPath, 'utf8');
+      // Find all @./... references (excluding @.planning/ which is project-local)
+      const refs = content.match(/@\.\/(kata\/)?[^\s\n<>`"'()]+/g) || [];
+      for (const ref of refs) {
+        // Skip @.planning/ references (project-local, not part of plugin)
+        if (ref.startsWith('@.planning/')) continue;
+        // All other @./ references should be @./kata/
+        assert.ok(
+          ref.startsWith('@./kata/'),
+          `Plugin reference should be @./kata/..., got: ${ref}`
+        );
+      }
+    }
+  });
+
+  test('plugin agents have transformed paths', () => {
+    const agentPath = path.join(ROOT, 'dist/plugin/agents/kata-executor.md');
+    if (fs.existsSync(agentPath)) {
+      const content = fs.readFileSync(agentPath, 'utf8');
+      assert.ok(
+        !content.includes('@~/.claude/kata/'),
+        'Plugin agents should NOT have ~/.claude/kata/ paths'
+      );
+      // If it has kata/ references, they should be @./kata/
+      if (content.includes('@./kata/') || content.includes('kata/references/')) {
+        assert.ok(
+          content.includes('@./kata/'),
+          'Plugin agents should use @./kata/ for resource references'
+        );
+      }
+    }
+  });
+
+  test('plugin workflows have transformed paths', () => {
+    const workflowPath = path.join(ROOT, 'dist/plugin/kata/workflows/phase-execute.md');
+    if (fs.existsSync(workflowPath)) {
+      const content = fs.readFileSync(workflowPath, 'utf8');
+      assert.ok(
+        !content.includes('@~/.claude/kata/'),
+        'Plugin workflows should NOT have ~/.claude/kata/ paths'
+      );
+    }
+  });
+
   test('plugin.json has correct name', () => {
     const plugin = JSON.parse(
       fs.readFileSync(path.join(ROOT, 'dist/plugin/.claude-plugin/plugin.json'), 'utf8')
