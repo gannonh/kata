@@ -2,7 +2,7 @@
 name: kata-adding-todos
 description: Use this skill to capture an idea, task, or issue that surfaces during a Kata session as a structured todo for later work. This skill creates markdown todo files in the .planning/todos/pending directory with relevant metadata and content extracted from the conversation. Triggers include "add todo", "capture todo", "new todo", and "create todo". 
 version: 0.1.0
-user-invocable: false
+user-invocable: true
 disable-model-invocation: false
 allowed-tools:
   - Read

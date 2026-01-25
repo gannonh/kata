@@ -2,7 +2,7 @@
 name: kata-starting-milestones
 description: Use this skill when starting a new milestone cycle, beginning the next version, creating a new milestone, or planning what's next after completing a milestone. Triggers include "new milestone", "start milestone", "next milestone", "create milestone", and "milestone cycle".
 version: 0.1.0
-user-invocable: false
+user-invocable: true
 disable-model-invocation: false
 allowed-tools:
   - Read

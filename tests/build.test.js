@@ -85,8 +85,9 @@ describe('Plugin build', () => {
     assert.ok(fs.existsSync(path.join(ROOT, 'dist/plugin/.claude-plugin/plugin.json')));
   });
 
-  test('includes commands directory', () => {
-    assert.ok(fs.existsSync(path.join(ROOT, 'dist/plugin/commands')));
+  test('does NOT include commands directory (skills handle everything)', () => {
+    // Commands excluded from plugin - skills are user-invocable and handle everything
+    assert.ok(!fs.existsSync(path.join(ROOT, 'dist/plugin/commands')));
   });
 
   test('includes skills directory', () => {
@@ -528,8 +529,8 @@ describe('Skill and command validation', () => {
     return frontmatter;
   }
 
-  test('all skills are NOT user-invocable (commands provide autocomplete)', () => {
-    // Commands provide autocomplete, skills provide implementation
+  test('all skills are user-invocable (plugin has no commands)', () => {
+    // Skills are user-invocable for plugin distribution (no commands to conflict)
     const skillsDir = path.join(ROOT, 'skills');
     if (!fs.existsSync(skillsDir)) return;
 
@@ -545,21 +546,21 @@ describe('Skill and command validation', () => {
       const content = fs.readFileSync(skillFile, 'utf8');
       const frontmatter = parseFrontmatter(content);
 
-      if (frontmatter && frontmatter['user-invocable'] === 'true') {
-        errors.push(`${dir}: user-invocable should be false (commands provide autocomplete)`);
+      if (frontmatter && frontmatter['user-invocable'] === 'false') {
+        errors.push(`${dir}: user-invocable should be true (no commands in plugin)`);
       }
     }
 
     if (errors.length > 0) {
-      assert.fail(`User-invocable skills found (should use commands for autocomplete):\n${errors.join('\n')}`);
+      assert.fail(`Non-invocable skills found:\n${errors.join('\n')}`);
     }
   });
 
-  test('commands directory exists with kata subdirectory', () => {
-    // Commands provide autocomplete in Claude Code /menu
+  test('commands directory exists with kata subdirectory (for NPM)', () => {
+    // Commands exist for NPM distribution (npx @gannonh/kata)
     assert.ok(
       fs.existsSync(path.join(ROOT, 'commands/kata')),
-      'commands/kata/ directory should exist for autocomplete support'
+      'commands/kata/ directory should exist for NPM distribution'
     );
   });
 });
