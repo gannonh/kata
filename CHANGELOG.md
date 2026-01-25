@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.1.15] - 2026-01-25
+
+### Fixed
+- **NPX install failure**: Fixed `ENOENT: no such file or directory, scandir '.../kata/kata'` error when running `npx @gannonh/kata`. The `kata/` source directory was removed in v1.0.6 but three places still referenced it:
+  - `package.json` files field listed `"kata"` (build.js now filters it out)
+  - `bin/install.js` tried to copy from non-existent `kata/` directory (removed)
+  - `bin/install.js` CHANGELOG copy failed because kata dest dir wasn't created first (fixed ordering)
+
 ## [1.1.14] - 2026-01-25
 
 ### Fixed

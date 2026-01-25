@@ -18,8 +18,10 @@ Kata is a **spec-driven development framework** for Claude Code. It's a meta-pro
 
 ### Installation and Testing
 
+**⚠️ NEVER run `node bin/install.js --local` from within the kata directory itself.** This overwrites `.claude/` with Kata's own files, breaking the development environment. Test local installs from a separate project directory.
+
 ```bash
-# Install locally to ./.claude/ for development
+# Install locally to ./.claude/ for development (run from a DIFFERENT project, not kata/)
 node bin/install.js --local
 
 # Verify installation (in Claude Code)

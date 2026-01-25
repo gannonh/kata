@@ -290,16 +290,6 @@ function install(isGlobal) {
   // Clean up orphaned files from previous versions
   cleanupOrphanedFiles(claudeDir);
 
-  // Copy kata skill with path replacement
-  const skillSrc = path.join(src, 'kata');
-  const skillDest = path.join(claudeDir, 'kata');
-  copyWithPathReplacement(skillSrc, skillDest, pathPrefix);
-  if (verifyInstalled(skillDest, 'kata')) {
-    console.log(`  ${green}✓${reset} Installed kata`);
-  } else {
-    failures.push('kata');
-  }
-
   // Copy agents to ~/.claude/agents (subagents must be at root level)
   // Only delete gsd-*.md files to preserve user's custom agents
   const agentsSrc = path.join(src, 'agents');
@@ -364,9 +354,14 @@ function install(isGlobal) {
     }
   }
 
+  // Create kata directory for CHANGELOG and VERSION files
+  // (kata/ source dir was removed, but these files still live there)
+  const kataDest = path.join(claudeDir, 'kata');
+  fs.mkdirSync(kataDest, { recursive: true });
+
   // Copy CHANGELOG.md
   const changelogSrc = path.join(src, 'CHANGELOG.md');
-  const changelogDest = path.join(claudeDir, 'kata', 'CHANGELOG.md');
+  const changelogDest = path.join(kataDest, 'CHANGELOG.md');
   if (fs.existsSync(changelogSrc)) {
     fs.copyFileSync(changelogSrc, changelogDest);
     if (verifyFileInstalled(changelogDest, 'CHANGELOG.md')) {
@@ -377,7 +372,7 @@ function install(isGlobal) {
   }
 
   // Write VERSION file for whats-new command
-  const versionDest = path.join(claudeDir, 'kata', 'VERSION');
+  const versionDest = path.join(kataDest, 'VERSION');
   fs.writeFileSync(versionDest, pkg.version);
   if (verifyFileInstalled(versionDest, 'VERSION')) {
     console.log(`  ${green}✓${reset} Wrote VERSION (${pkg.version})`);

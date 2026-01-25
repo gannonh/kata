@@ -1,6 +1,6 @@
 {
   "name": "@gannonh/kata",
-  "version": "1.1.14",
+  "version": "1.1.15",
   "type": "module",
   "description": "Spec-driven development framework for Claude Code.",
   "scripts": {
@@ -8,6 +8,7 @@
     "test:smoke": "node --test --test-reporter spec ./tests/smoke.test.js",
     "test:all": "node --test --test-reporter spec ./tests/build.test.js ./tests/smoke.test.js",
     "test:skills": "node --test --test-reporter spec --test-reporter junit --test-reporter-destination junit.xml tests/skills/*.test.js",
+    "test:skill": "node --test --test-reporter spec",
     "test:affected": "node -e \"import('./tests/harness/affected.js').then(m => console.log(m.getAffectedTestFiles().join(' ')))\" | xargs -r node --test",
     "build": "node scripts/build.js all",
     "build:plugin": "node scripts/build.js plugin",
@@ -21,7 +22,6 @@
   "files": [
     "README.md",
     "bin",
-    "kata",
     "agents",
     "commands",
     "hooks",

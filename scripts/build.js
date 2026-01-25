@@ -457,6 +457,10 @@ function buildNpm() {
   const distPkgPath = path.join(dest, 'package.json');
   if (fs.existsSync(distPkgPath)) {
     const distPkg = JSON.parse(fs.readFileSync(distPkgPath, 'utf8'));
+    // Remove kata from files since it doesn't exist in npm distribution
+    if (distPkg.files) {
+      distPkg.files = distPkg.files.filter(f => f !== 'kata');
+    }
     // Remove scripts that don't work in dist context
     delete distPkg.scripts.prepublishOnly;
     delete distPkg.scripts.build;
