@@ -2,7 +2,7 @@
 name: kata-resuming-work
 description: Use this skill when resuming work from a previous session, restoring context after a break, continuing work after /clear, or picking up where you left off. Triggers include "resume work", "continue work", "pick up where I left off", "restore context", and "resume session".
 version: 0.1.0
-user-invocable: true
+user-invocable: false
 disable-model-invocation: false
 allowed-tools:
   - Read

@@ -2,7 +2,7 @@
 name: kata-setting-profiles
 description: Use this skill when switch model profile for kata agents (quality/balanced/budget). Triggers include "set profile", "set profile".
 version: 0.1.0
-user-invocable: true
+user-invocable: false
 disable-model-invocation: false
 allowed-tools:
   - Read

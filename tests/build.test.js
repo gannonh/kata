@@ -528,8 +528,8 @@ describe('Skill and command validation', () => {
     return frontmatter;
   }
 
-  test('all skills are user-invocable', () => {
-    // Phase 2.2: All skills must be user-invocable (no commands layer)
+  test('all skills are NOT user-invocable (commands provide autocomplete)', () => {
+    // Commands provide autocomplete, skills provide implementation
     const skillsDir = path.join(ROOT, 'skills');
     if (!fs.existsSync(skillsDir)) return;
 
@@ -545,13 +545,13 @@ describe('Skill and command validation', () => {
       const content = fs.readFileSync(skillFile, 'utf8');
       const frontmatter = parseFrontmatter(content);
 
-      if (frontmatter && frontmatter['user-invocable'] === 'false') {
-        errors.push(`${dir}: user-invocable should be true (not false)`);
+      if (frontmatter && frontmatter['user-invocable'] === 'true') {
+        errors.push(`${dir}: user-invocable should be false (commands provide autocomplete)`);
       }
     }
 
     if (errors.length > 0) {
-      assert.fail(`Non-user-invocable skills found:\n${errors.join('\n')}`);
+      assert.fail(`User-invocable skills found (should use commands for autocomplete):\n${errors.join('\n')}`);
     }
   });
 

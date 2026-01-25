@@ -2,7 +2,7 @@
 name: kata-planning-phases
 description: Use this skill when create detailed execution plan for a phase (plan.md) with verification loop. Triggers include "plan phase", "plan phase".
 version: 0.1.0
-user-invocable: true
+user-invocable: false
 disable-model-invocation: false
 allowed-tools:
   - Read

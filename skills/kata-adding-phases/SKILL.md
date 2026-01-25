@@ -2,7 +2,7 @@
 name: kata-adding-phases
 description: Use this skill to add planned work discovered during execution to the end of the current milestone in the roadmap. This skill appends sequential phases to the current milestone's phase list, automatically calculating the next phase number. Triggers include "add phase", "append phase", "new phase", and "create phase". This skill updates ROADMAP.md and STATE.md accordingly.
 version: 0.1.0
-user-invocable: true
+user-invocable: false
 disable-model-invocation: false
 allowed-tools:
   - Read

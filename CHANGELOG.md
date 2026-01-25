@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-01-25
+
+### Fixed
+- **Duplicate autocomplete entries**: Set all skills to `user-invocable: false`. Commands provide autocomplete, skills provide implementation. Previously skills had `user-invocable: true` which could cause duplicate entries.
+
 ## [1.1.3] - 2026-01-25
 
 ### Fixed

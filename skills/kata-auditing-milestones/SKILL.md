@@ -2,7 +2,7 @@
 name: kata-auditing-milestones
 description: Use this skill to verify milestone achievement against its definition of done, checking requirements coverage, cross-phase integration, and end-to-end flows. Triggers include "audit milestone", "verify milestone", "check milestone", and "milestone audit". This skill reads existing phase verification files, aggregates technical debt and gaps, and spawns an integration checker for cross-phase wiring.
 version: 0.1.0
-user-invocable: true
+user-invocable: false
 disable-model-invocation: false
 allowed-tools:
   - Read

@@ -2,7 +2,7 @@
 name: kata-tracking-progress
 description: Use this skill when check project progress, show context, and route to next action (execute or plan). Triggers include "progress".
 version: 0.1.0
-user-invocable: true
+user-invocable: false
 disable-model-invocation: false
 allowed-tools:
   - Read
