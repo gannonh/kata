@@ -101,5 +101,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Completed 00-06-PLAN.md (utility skill tests)
-Resume file: .planning/phases/00-develop-robust-testing-suite/00-07-PLAN.md
+Stopped at: Completed 00-02-PLAN.md (status/info skill tests)
+Resume file: .planning/phases/00-develop-robust-testing-suite/00-03-PLAN.md

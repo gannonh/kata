@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
-import { mkdtempSync, rmSync, cpSync, existsSync, readFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, cpSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -51,7 +51,7 @@ describe('kata-adding-phases', () => {
 
 No phases completed.
 `;
-    require('node:fs').writeFileSync(roadmapPath, roadmapContent);
+    writeFileSync(roadmapPath, roadmapContent);
   });
 
   afterEach(() => {
