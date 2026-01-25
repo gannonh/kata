@@ -10,7 +10,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - **v0.1.5 Skills & Documentation** — Phases 0-2 (shipped 2026-01-22) — [archive](milestones/v0.1.5-ROADMAP.md)
 - **v1.0.0 Claude Code Plugin** — Phases 1-3 (shipped 2026-01-23)
 - **v1.0.8 Plugin Stability** — Phase 2.1 (shipped 2026-01-24) — [archive](milestones/v1.0.8-ROADMAP.md)
-- **v1.0.9 Command Consolidation** — Phase 2.2 (in progress)
+- **v1.0.9 Command Consolidation** — Phase 2.2 (complete)
 - **v1.1.0 GitHub Integration** — Phases 1-5 (planned)
 
 ## Phases
@@ -59,9 +59,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - **v1.0.8 Plugin Stability** — Phase 2.1 (shipped 2026-01-24) — [archive](milestones/v1.0.8-ROADMAP.md)
 
-### v1.0.9 Command Consolidation (In Progress)
+### v1.0.9 Command Consolidation (Complete)
 
-- [ ] **Phase 2.2: Normalize on Skills** (INSERTED) - Remove commands layer, skills become both slash commands and natural language
+- [x] **Phase 2.2: Normalize on Skills** (INSERTED) - Remove commands layer, skills become both slash commands and natural language — completed 2026-01-25
 
 #### Phase 2.2: Normalize on Skills (INSERTED)
 **Goal**: Eliminate command->skill indirection by making skills directly invocable; update build to strip `kata-` prefix for plugin namespace
@@ -76,9 +76,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 3 plans
 
 Plans:
-- [ ] 02.2-01-PLAN.md — Make all skills user-invocable
-- [ ] 02.2-02-PLAN.md — Update build.js to strip kata- prefix for plugin
-- [ ] 02.2-03-PLAN.md — Delete commands, update documentation
+- [x] 02.2-01-PLAN.md — Make all skills user-invocable
+- [x] 02.2-02-PLAN.md — Update build.js to strip kata- prefix for plugin
+- [x] 02.2-03-PLAN.md — Delete commands, update documentation
 
 ### v1.1.0 GitHub Integration (Planned)
 
@@ -178,7 +178,7 @@ Plans:
 | 0-2. Skills & Documentation        | v0.1.5    | 30/30          | Complete    | 2026-01-22 |
 | 1-3. Claude Code Plugin            | v1.0.0    | 5/5            | Complete    | 2026-01-23 |
 | 2.1 Skill Resource Restructure     | v1.0.8    | 5/5            | Shipped     | 2026-01-24 |
-| 2.2 Normalize on Skills            | v1.0.9    | 0/3            | Ready       | -          |
+| 2.2 Normalize on Skills            | v1.0.9    | 3/3            | Complete    | 2026-01-25 |
 | 1. Audit & Config Foundation       | v1.1.0    | 0/?            | Not planned | -          |
 | 2. Onboarding & Milestones         | v1.1.0    | 0/?            | Not started | -          |
 | 3. Phase Issues                    | v1.1.0    | 0/?            | Not started | -          |
@@ -187,4 +187,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-24 — Phase 2.2 planned*
+*Last updated: 2026-01-25 — Phase 2.2 complete*
