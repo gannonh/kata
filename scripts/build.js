@@ -238,11 +238,23 @@ function transformSkillName(content) {
 }
 
 /**
+ * Transform Skill() invocations in commands for plugin distribution
+ *
+ * Commands call Skill("kata-inserting-phases") but plugin skills are
+ * namespaced as kata:inserting-phases. Transform the invocation:
+ * Skill("kata-*") -> Skill("kata:*")
+ */
+function transformSkillInvocation(content) {
+  return content.replace(/Skill\("kata-([^"]+)"\)/g, 'Skill("kata:$1")');
+}
+
+/**
  * Combined transform for plugin .md files
  */
 function transformPluginContent(content) {
-  let result = transformPluginPaths(content);  // subagent_type transform
-  result = transformSkillName(result);          // Skill name transform
+  let result = transformPluginPaths(content);     // subagent_type transform
+  result = transformSkillName(result);             // Skill name transform
+  result = transformSkillInvocation(result);       // Skill() call transform
   return result;
 }
 

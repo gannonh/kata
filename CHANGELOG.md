@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.1.6] - 2026-01-25
+
+### Fixed
+- **Plugin Skill() invocations**: Transform `Skill("kata-*")` to `Skill("kata:*")` in plugin commands. Plugin skills are namespaced, so commands need to use `kata:inserting-phases` not `kata-inserting-phases`.
+
 ## [1.1.5] - 2026-01-25
 
 ### Fixed
