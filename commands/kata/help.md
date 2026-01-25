@@ -1,6 +1,6 @@
 ---
-name: kata:configuring-settings
-description: Configure Kata workflow toggles and model profile
+name: kata:help
+description: Show available Kata commands and usage guide
 argument-hint: <description>
 version: 0.1.0
 disable-model-invocation: true
@@ -17,4 +17,4 @@ Arguments: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the following skill:
-`Skill("kata-configuring-settings")`
+`Skill("kata-providing-help")`

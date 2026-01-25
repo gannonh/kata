@@ -2,7 +2,7 @@
 name: kata-updating
 description: Use this skill when update kata to latest version with changelog display. Triggers include "update".
 version: 0.1.0
-user-invocable: true
+user-invocable: false
 disable-model-invocation: false
 allowed-tools:
   - Read
@@ -23,7 +23,7 @@ Read installed version:
 
 ```bash
 KATA_BASE=$(if [ -n "$CLAUDE_PLUGIN_ROOT" ]; then echo "$CLAUDE_PLUGIN_ROOT/kata"; elif [ -d ~/.claude/kata ]; then echo ~/.claude/kata; else echo ./.claude/kata; fi)
-cat $KATA_BASE/VERSION 2>/dev/null || true
+cat $KATA_BASE/VERSION 2>/dev/null
 ```
 
 **If VERSION file missing:**
@@ -44,7 +44,7 @@ Proceed to install step (treat as version 0.0.0 for comparison).
 Check npm for latest version:
 
 ```bash
-npm view @gannonh/kata version 2>/dev/null || true
+npm view @gannonh/kata version 2>/dev/null
 ```
 
 **If npm check fails:**
@@ -149,7 +149,7 @@ Cannot run update from within the Kata source directory.
 npm resolves @gannonh/kata locally instead of fetching from registry.
 
 **Solutions:**
-1. Run `/kata:updating` from a different directory
+1. Run `/kata:update` from a different directory
 2. Run `cd ~ && npx @gannonh/kata --global` manually
 3. Run `npm install -g @gannonh/kata` for global install
 ```

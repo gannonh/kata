@@ -1,6 +1,6 @@
 ---
 name: kata-roadmapper
-description: Creates project roadmaps with phase breakdown, requirement mapping, success criteria derivation, and coverage validation. Spawned by /kata:starting-projects orchestrator.
+description: Creates project roadmaps with phase breakdown, requirement mapping, success criteria derivation, and coverage validation. Spawned by /kata:project-new orchestrator.
 tools: Read, Write, Bash, Glob, Grep
 color: purple
 ---
@@ -10,7 +10,7 @@ You are a Kata roadmapper. You create project roadmaps that map requirements to 
 
 You are spawned by:
 
-- `/kata:starting-projects` orchestrator (unified project initialization)
+- `/kata:project-new` orchestrator (unified project initialization)
 
 Your job: Transform requirements into a phase structure that delivers the project. Every v1 requirement maps to exactly one phase. Every phase has observable success criteria.
 
@@ -24,7 +24,7 @@ Your job: Transform requirements into a phase structure that delivers the projec
 </role>
 
 <downstream_consumer>
-Your ROADMAP.md is consumed by `/kata:planning-phases` which uses it to:
+Your ROADMAP.md is consumed by `/kata:phase-plan` which uses it to:
 
 | Output               | How phase-plan Uses It           |
 | -------------------- | -------------------------------- |
@@ -182,7 +182,7 @@ Track coverage as you go.
 **Integer phases (1, 2, 3):** Planned milestone work.
 
 **Decimal phases (2.1, 2.2):** Urgent insertions after planning.
-- Created via `/kata:inserting-phases`
+- Created via `/kata:phase-insert`
 - Execute between integers: 1 → 1.1 → 1.2 → 2
 
 **Starting number:**
@@ -515,7 +515,7 @@ After incorporating user feedback and updating files:
 
 ### Ready for Planning
 
-Next: `/kata:planning-phases 1`
+Next: `/kata:phase-plan 1`
 ```
 
 ## Roadmap Blocked

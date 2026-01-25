@@ -2,7 +2,7 @@
 name: kata-auditing-milestones
 description: Use this skill to verify milestone achievement against its definition of done, checking requirements coverage, cross-phase integration, and end-to-end flows. Triggers include "audit milestone", "verify milestone", "check milestone", and "milestone audit". This skill reads existing phase verification files, aggregates technical debt and gaps, and spawns an integration checker for cross-phase wiring.
 version: 0.1.0
-user-invocable: true
+user-invocable: false
 disable-model-invocation: false
 allowed-tools:
   - Read
@@ -183,7 +183,7 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 **Complete milestone** — archive and tag
 
-/kata:completing-milestones {version}
+/kata:milestone-complete {version}
 
 <sub>/clear first → fresh context window</sub>
 
@@ -220,7 +220,7 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 **Plan gap closure** — create phases to complete milestone
 
-/kata:planning-milestone-gaps
+/kata:milestone-plan-gaps
 
 <sub>/clear first → fresh context window</sub>
 
@@ -228,7 +228,7 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 **Also available:**
 - cat .planning/v{version}-MILESTONE-AUDIT.md — see full report
-- /kata:completing-milestones {version} — proceed anyway (accept tech debt)
+- /kata:milestone-complete {version} — proceed anyway (accept tech debt)
 
 ───────────────────────────────────────────────────────────────
 
@@ -258,11 +258,11 @@ All requirements met. No critical blockers. Accumulated tech debt needs review.
 
 **A. Complete milestone** — accept debt, track in backlog
 
-/kata:completing-milestones {version}
+/kata:milestone-complete {version}
 
 **B. Plan cleanup phase** — address debt before completing
 
-/kata:planning-milestone-gaps
+/kata:milestone-plan-gaps
 
 <sub>/clear first → fresh context window</sub>
 

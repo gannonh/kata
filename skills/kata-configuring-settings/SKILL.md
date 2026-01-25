@@ -2,7 +2,7 @@
 name: kata-configuring-settings
 description: Use this skill when configure kata workflow toggles and model profile. Triggers include "settings".
 version: 0.1.0
-user-invocable: true
+user-invocable: false
 disable-model-invocation: false
 allowed-tools:
   - Read
@@ -23,10 +23,10 @@ Updates `.planning/config.json` with workflow preferences and model profile sele
 ## 1. Validate Environment
 
 ```bash
-(ls .planning/config.json 2>/dev/null || true) || true
+ls .planning/config.json 2>/dev/null
 ```
 
-**If not found:** Error - run `/kata:starting-projects` first.
+**If not found:** Error - run `/kata:project-new` first.
 
 ## 2. Read Current Config and Detect Missing Keys
 
@@ -244,13 +244,13 @@ Display:
 | Plan Checker       | {On/Off}                  |
 | Execution Verifier | {On/Off}                  |
 
-These settings apply to future /kata:planning-phases and /kata:executing-phases runs.
+These settings apply to future /kata:phase-plan and /kata:phase-execute runs.
 
 Quick commands:
-- /kata:setting-profiles <profile> — switch model profile
-- /kata:planning-phases --research — force research
-- /kata:planning-phases --skip-research — skip research
-- /kata:planning-phases --skip-verify — skip plan check
+- /kata:models-config <profile> — switch model profile
+- /kata:phase-plan --research — force research
+- /kata:phase-plan --skip-research — skip research
+- /kata:phase-plan --skip-verify — skip plan check
 
 
 </process>

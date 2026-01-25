@@ -2,7 +2,7 @@
 name: kata-debugging
 description: Use this skill when systematically debugging issues, investigating bugs, troubleshooting problems, or tracking down errors with persistent state across context resets. Triggers include "debug", "investigate bug", "troubleshoot", "find the problem", "why isn't this working", and "debug session".
 version: 0.1.0
-user-invocable: true
+user-invocable: false
 disable-model-invocation: false
 allowed-tools:
   - Read
@@ -23,7 +23,7 @@ User's issue: $ARGUMENTS
 
 Check for active sessions:
 ```bash
-(ls .planning/debug/*.md 2>/dev/null || true) | grep -v resolved | head -5
+ls .planning/debug/*.md 2>/dev/null | grep -v resolved | head -5
 ```
 </context>
 
@@ -112,7 +112,7 @@ Task(
 - Display root cause and evidence summary
 - Offer options:
   - "Fix now" - spawn fix subagent
-  - "Plan fix" - suggest /kata:planning-phases --gaps
+  - "Plan fix" - suggest /kata:phase-plan --gaps
   - "Manual fix" - done
 
 **If `## CHECKPOINT REACHED`:**

@@ -1,7 +1,7 @@
 ---
-name: kata:discussing-phases
-description: Gather phase context through adaptive questioning before planning
-argument-hint: <phase>
+name: kata:whats-new
+description: See what's new in Kata since your installed version
+argument-hint: <description>
 version: 0.1.0
 disable-model-invocation: true
 allowed-tools:
@@ -17,4 +17,4 @@ Arguments: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the following skill:
-`Skill("kata-discussing-phases")`
+`Skill("kata-showing-whats-new")`

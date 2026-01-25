@@ -2,7 +2,7 @@
 name: kata-adding-phases
 description: Use this skill to add planned work discovered during execution to the end of the current milestone in the roadmap. This skill appends sequential phases to the current milestone's phase list, automatically calculating the next phase number. Triggers include "add phase", "append phase", "new phase", and "create phase". This skill updates ROADMAP.md and STATE.md accordingly.
 version: 0.1.0
-user-invocable: true
+user-invocable: false
 disable-model-invocation: false
 allowed-tools:
   - Read
@@ -28,15 +28,15 @@ Purpose: Add planned work discovered during execution that belongs at the end of
 <step name="parse_arguments">
 Parse the command arguments:
 - All arguments become the phase description
-- Example: `/kata:adding-phases Add authentication` → description = "Add authentication"
-- Example: `/kata:adding-phases Fix critical performance issues` → description = "Fix critical performance issues"
+- Example: `/kata:phase-add Add authentication` → description = "Add authentication"
+- Example: `/kata:phase-add Fix critical performance issues` → description = "Fix critical performance issues"
 
 If no arguments provided:
 
 ```
 ERROR: Phase description required
-Usage: /kata:adding-phases <description>
-Example: /kata:adding-phases Add authentication system
+Usage: /kata:phase-add <description>
+Example: /kata:phase-add Add authentication system
 ```
 
 Exit.
@@ -130,7 +130,7 @@ Add the new phase entry to the roadmap:
    **Plans:** 0 plans
 
    Plans:
-   - [ ] TBD (run /kata:planning-phases {N} to break down)
+   - [ ] TBD (run /kata:phase-plan {N} to break down)
 
    **Details:**
    [To be added during planning]
@@ -172,14 +172,14 @@ Project state updated: .planning/STATE.md
 
 **Phase {N}: {description}**
 
-`/kata:planning-phases {N}`
+`/kata:phase-plan {N}`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:adding-phases <description>` — add another phase
+- `/kata:phase-add <description>` — add another phase
 - Review roadmap
 
 ---
@@ -192,8 +192,8 @@ Project state updated: .planning/STATE.md
 
 - Don't modify phases outside current milestone
 - Don't renumber existing phases
-- Don't use decimal numbering (that's /kata:inserting-phases)
-- Don't create plans yet (that's /kata:planning-phases)
+- Don't use decimal numbering (that's /kata:phase-insert)
+- Don't create plans yet (that's /kata:phase-plan)
 - Don't commit changes (user decides when to commit)
   </anti_patterns>
 

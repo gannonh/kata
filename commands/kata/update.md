@@ -1,7 +1,7 @@
 ---
-name: kata:checking-todos
-description: List pending todos and select one to work on
-argument-hint: [area filter]
+name: kata:update
+description: Update Kata to latest version with changelog display
+argument-hint: <description>
 version: 0.1.0
 disable-model-invocation: true
 allowed-tools:
@@ -17,4 +17,4 @@ Arguments: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the following skill:
-`Skill("kata-checking-todos")`
+`Skill("kata-updating")`

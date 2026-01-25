@@ -2,7 +2,7 @@
 name: kata-showing-whats-new
 description: Use this skill when showing what's new in Kata since the installed version, displaying changelog entries, checking for Kata updates, or reviewing recent changes. Triggers include "what's new", "whats new", "show changes", "changelog", "recent changes", and "what changed".
 version: 0.1.0
-user-invocable: true
+user-invocable: false
 disable-model-invocation: false
 allowed-tools:
   - Read
@@ -23,7 +23,7 @@ Read installed version from VERSION file (checking plugin context first):
 
 ```bash
 if [ -n "$CLAUDE_PLUGIN_ROOT" ]; then
-  cat "$CLAUDE_PLUGIN_ROOT/kata/VERSION" 2>/dev/null || true
+  cat "$CLAUDE_PLUGIN_ROOT/kata/VERSION" 2>/dev/null
 elif [ -f ~/.claude/kata/VERSION ]; then
   cat ~/.claude/kata/VERSION
 elif [ -f ./.claude/kata/VERSION ]; then
@@ -57,7 +57,7 @@ Use WebFetch tool with:
 **If fetch fails:**
 Fall back to local changelog:
 ```bash
-cat $KATA_BASE/CHANGELOG.md 2>/dev/null || true
+cat $KATA_BASE/CHANGELOG.md 2>/dev/null
 ```
 
 Note to user: "Couldn't check for updates (offline or GitHub unavailable). Showing local changelog."

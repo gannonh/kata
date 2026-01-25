@@ -40,9 +40,9 @@ const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
  * Files/directories to include in both distributions
  */
 const COMMON_INCLUDES = [
+  'commands/kata',
   'skills',
   'agents',
-  'commands',
   'hooks',
   'CHANGELOG.md',
 ];
@@ -66,11 +66,11 @@ const EXCLUDES = [
 
 /**
  * Files/directories to exclude from PLUGIN distribution only
- * (these are NPM-specific or cause namespace conflicts)
+ * (these are NPM-specific and don't work in plugin context)
  */
 const PLUGIN_EXCLUDES = [
+  'commands/kata/update.md',
   'skills/kata-updating',
-  'commands',  // Skills handle everything in plugin context - commands conflict
 ];
 
 /**
@@ -129,13 +129,8 @@ function copyFile(src, dest, transform = null) {
 
 /**
  * Recursively copy a directory with optional path transformation
- * @param {string} src - Source directory
- * @param {string} dest - Destination directory
- * @param {Function} transform - Content transform function
- * @param {Function} excludeFilter - Path exclusion filter
- * @param {Function} renameDir - Directory rename function (optional)
  */
-function copyDir(src, dest, transform = null, excludeFilter = null, renameDir = null) {
+function copyDir(src, dest, transform = null, excludeFilter = null) {
   if (!fs.existsSync(src)) {
     console.log(`  ${amber}!${reset} Skipping ${src} (not found)`);
     return false;
@@ -151,10 +146,7 @@ function copyDir(src, dest, transform = null, excludeFilter = null, renameDir = 
     if (entry.name === 'dist' && src.includes('hooks')) continue;
 
     const srcPath = path.join(src, entry.name);
-
-    // Apply directory rename if provided
-    const destName = entry.isDirectory() && renameDir ? renameDir(entry.name) : entry.name;
-    const destPath = path.join(dest, destName);
+    const destPath = path.join(dest, entry.name);
 
     // Check plugin-specific exclusions using relative path from ROOT
     if (excludeFilter) {
@@ -166,7 +158,7 @@ function copyDir(src, dest, transform = null, excludeFilter = null, renameDir = 
     }
 
     if (entry.isDirectory()) {
-      copyDir(srcPath, destPath, transform, excludeFilter, renameDir);
+      copyDir(srcPath, destPath, transform, excludeFilter);
     } else {
       copyFile(srcPath, destPath, transform);
     }
@@ -176,13 +168,8 @@ function copyDir(src, dest, transform = null, excludeFilter = null, renameDir = 
 
 /**
  * Copy a file or directory to destination
- * @param {string} src - Source path relative to ROOT
- * @param {string} dest - Destination directory
- * @param {Function} transform - Content transform function
- * @param {Function} excludeFilter - Path exclusion filter
- * @param {Function} renameDir - Directory rename function (optional)
  */
-function copyPath(src, dest, transform = null, excludeFilter = null, renameDir = null) {
+function copyPath(src, dest, transform = null, excludeFilter = null) {
   const srcPath = path.join(ROOT, src);
   const destPath = path.join(dest, src);
 
@@ -199,7 +186,7 @@ function copyPath(src, dest, transform = null, excludeFilter = null, renameDir =
 
   const stat = fs.statSync(srcPath);
   if (stat.isDirectory()) {
-    return copyDir(srcPath, destPath, transform, excludeFilter, renameDir);
+    return copyDir(srcPath, destPath, transform, excludeFilter);
   } else {
     fs.mkdirSync(path.dirname(destPath), { recursive: true });
     copyFile(srcPath, destPath, transform);
@@ -218,57 +205,6 @@ function copyPath(src, dest, transform = null, excludeFilter = null, renameDir =
  */
 function transformPluginPaths(content) {
   return content.replace(/subagent_type="kata-/g, 'subagent_type="kata:kata-');
-}
-
-/**
- * Transform skill names for plugin distribution
- *
- * Plugin skills are namespaced as pluginname:skillname.
- * Source skills are named kata-* (e.g., kata-planning-phases).
- * Without transformation: /kata:kata-planning-phases (redundant)
- * With transformation: /kata:planning-phases (clean)
- *
- * This function:
- * 1. Strips kata- prefix from name field in SKILL.md frontmatter
- * 2. Applied during plugin build only (NPX keeps original names)
- */
-function transformSkillName(content) {
-  // Transform name: kata-* to name: * in frontmatter
-  // Only match at start of line to avoid false positives in content
-  return content.replace(/^(name:\s*)kata-/m, '$1');
-}
-
-/**
- * Transform Skill() invocations in commands for plugin distribution
- *
- * Commands call Skill("kata-inserting-phases") but plugin skills have
- * the kata- prefix stripped (e.g., skills/inserting-phases/SKILL.md).
- * Transform to match the skill's local name:
- * Skill("kata-*") -> Skill("*")
- */
-function transformSkillInvocation(content) {
-  return content.replace(/Skill\("kata-([^"]+)"\)/g, 'Skill("$1")');
-}
-
-/**
- * Combined transform for plugin .md files
- */
-function transformPluginContent(content) {
-  let result = transformPluginPaths(content);     // subagent_type transform
-  result = transformSkillName(result);             // Skill name transform
-  result = transformSkillInvocation(result);       // Skill() call transform
-  return result;
-}
-
-/**
- * Rename skill directories for plugin distribution
- * Strips kata- prefix: kata-planning-phases -> planning-phases
- */
-function renameSkillDir(name) {
-  if (name.startsWith('kata-')) {
-    return name.slice(5);  // Remove 'kata-' (5 chars)
-  }
-  return name;
 }
 
 /**
@@ -345,17 +281,10 @@ function buildPlugin() {
 
   // Copy common files with path transformation AND plugin exclusions
   for (const item of COMMON_INCLUDES) {
-    // Skip commands - handled specially below
-    if (item === 'commands') continue;
-    // Use directory rename only for skills directory
-    const dirRename = item === 'skills' ? renameSkillDir : null;
-    if (copyPath(item, dest, transformPluginContent, shouldExcludeFromPlugin, dirRename)) {
+    if (copyPath(item, dest, transformPluginPaths, shouldExcludeFromPlugin)) {
       console.log(`  ${green}✓${reset} Copied ${item}`);
     }
   }
-
-  // Commands excluded from plugin - skills handle everything
-  // (commands create namespace conflicts with skills in plugin context)
 
   // Copy plugin-specific files
   for (const item of PLUGIN_INCLUDES) {

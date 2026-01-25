@@ -1,7 +1,7 @@
 ---
-name: kata:executing-phases
-description: Execute all plans in a phase with wave-based parallelization
-argument-hint: <phase-number> [--gaps-only]
+name: kata:milestone-audit
+description: Audit milestone completion against original intent before archiving
+argument-hint: [version]
 version: 0.1.0
 disable-model-invocation: true
 allowed-tools:
@@ -17,4 +17,4 @@ Arguments: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the following skill:
-`Skill("kata-executing-phases")`
+`Skill("kata-auditing-milestones")`

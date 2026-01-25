@@ -1,5 +1,5 @@
 ---
-name: kata:pausing-work
+name: kata:phase-pause
 description: Create context handoff when pausing work mid-phase
 argument-hint: <description>
 version: 0.1.0

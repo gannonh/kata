@@ -1,7 +1,7 @@
 ---
-name: kata:setting-profiles
-description: Switch model profile for Kata agents (quality/balanced/budget)
-argument-hint: <description>
+name: kata:phase-verify
+description: Validate built features through conversational UAT
+argument-hint: [phase number, e.g., '4']
 version: 0.1.0
 disable-model-invocation: true
 allowed-tools:
@@ -17,4 +17,4 @@ Arguments: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the following skill:
-`Skill("kata-setting-profiles")`
+`Skill("kata-verifying-work")`

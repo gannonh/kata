@@ -1,7 +1,7 @@
 ---
-name: kata:completing-milestones
-description: Archive completed milestone and prepare for next version
-argument-hint: <version>
+name: kata:project-new
+description: Initialize a new project with deep context gathering and PROJECT.md
+argument-hint: <description>
 version: 0.1.0
 disable-model-invocation: true
 allowed-tools:
@@ -17,4 +17,4 @@ Arguments: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the following skill:
-`Skill("kata-completing-milestones")`
+`Skill("kata-starting-projects")`

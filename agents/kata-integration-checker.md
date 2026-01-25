@@ -59,7 +59,7 @@ For each phase, extract what it provides and what it should consume.
 # Key exports from each phase
 for summary in .planning/phases/*/*-SUMMARY.md; do
   echo "=== $summary ==="
-  grep -A 10 "Key Files\|Exports\|Provides" "$summary" 2>/dev/null || true
+  grep -A 10 "Key Files\|Exports\|Provides" "$summary" 2>/dev/null
 done
 ```
 
@@ -176,7 +176,7 @@ Check that routes requiring auth actually check auth.
 protected_patterns="dashboard|settings|profile|account|user"
 
 # Find components/pages matching these patterns
-grep -r -l "$protected_patterns" src/ --include="*.tsx" 2>/dev/null || true
+grep -r -l "$protected_patterns" src/ --include="*.tsx" 2>/dev/null
 ```
 
 **Check auth usage in protected areas:**

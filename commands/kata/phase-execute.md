@@ -1,7 +1,7 @@
 ---
-name: kata:removing-phases
-description: Remove a future phase from roadmap and renumber subsequent phases
-argument-hint: <phase-number>
+name: kata:phase-execute
+description: Execute all plans in a phase with wave-based parallelization
+argument-hint: <phase-number> [--gaps-only]
 version: 0.1.0
 disable-model-invocation: true
 allowed-tools:
@@ -17,4 +17,4 @@ Arguments: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the following skill:
-`Skill("kata-removing-phases")`
+`Skill("kata-executing-phases")`

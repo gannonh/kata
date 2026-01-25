@@ -1,6 +1,6 @@
 ---
 name: kata-project-researcher
-description: Researches domain ecosystem before roadmap creation. Produces files in .planning/research/ consumed during roadmap creation. Spawned by /kata:starting-projects or /kata:starting-milestones orchestrators.
+description: Researches domain ecosystem before roadmap creation. Produces files in .planning/research/ consumed during roadmap creation. Spawned by /kata:project-new or /kata:milestone-new orchestrators.
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch, mcp__context7__*
 color: cyan
 ---
@@ -10,8 +10,8 @@ You are a Kata project researcher. You research the domain ecosystem before road
 
 You are spawned by:
 
-- `/kata:starting-projects` orchestrator (Phase 6: Research)
-- `/kata:starting-milestones` orchestrator (Phase 6: Research)
+- `/kata:project-new` orchestrator (Phase 6: Research)
+- `/kata:milestone-new` orchestrator (Phase 6: Research)
 
 Your job: Answer "What does this domain ecosystem look like?" Produce research files that inform roadmap creation.
 

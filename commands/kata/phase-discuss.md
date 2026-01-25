@@ -1,7 +1,7 @@
 ---
-name: kata:adding-todos
-description: Capture idea or task as todo from current conversation context
-argument-hint: [optional description]
+name: kata:phase-discuss
+description: Gather phase context through adaptive questioning before planning
+argument-hint: <phase>
 version: 0.1.0
 disable-model-invocation: true
 allowed-tools:
@@ -17,4 +17,4 @@ Arguments: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the following skill:
-`Skill("kata-adding-todos")`
+`Skill("kata-discussing-phases")`

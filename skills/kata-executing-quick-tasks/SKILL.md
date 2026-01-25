@@ -1,8 +1,8 @@
 ---
-name: kata-executing-quick-tasks
+name: kata-executing-task-executes
 description: Use this skill when executing small ad-hoc tasks with Kata guarantees, running quick tasks without full planning, or handling one-off work outside the roadmap. Triggers include "quick task", "quick mode", "quick fix", "ad-hoc task", "small task", and "one-off task".
 version: 0.1.0
-user-invocable: true
+user-invocable: false
 disable-model-invocation: false
 allowed-tools:
   - Read
@@ -59,7 +59,7 @@ Check that an active Kata project exists:
 ```bash
 if [ ! -f .planning/ROADMAP.md ]; then
   echo "Quick mode requires an active project with ROADMAP.md."
-  echo "Run /kata:starting-projects first."
+  echo "Run /kata:project-new first."
   exit 1
 fi
 ```
@@ -102,7 +102,7 @@ Ensure `.planning/quick/` directory exists and find the next sequential number:
 mkdir -p .planning/quick
 
 # Find highest existing number and increment
-last=$((ls -1d .planning/quick/[0-9][0-9][0-9]-* 2>/dev/null || true) | sort -r | head -1 | xargs -I{} basename {} | grep -oE '^[0-9]+')
+last=$(ls -1d .planning/quick/[0-9][0-9][0-9]-* 2>/dev/null | sort -r | head -1 | xargs -I{} basename {} | grep -oE '^[0-9]+')
 
 if [ -z "$last" ]; then
   next_num="001"
@@ -288,7 +288,7 @@ Commit: ${commit_hash}
 
 ---
 
-Ready for next task: /kata:executing-quick-tasks
+Ready for next task: /kata:task-execute
 ```
 
 </process>

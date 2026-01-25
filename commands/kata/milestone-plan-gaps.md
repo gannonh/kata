@@ -1,6 +1,6 @@
 ---
-name: kata:tracking-progress
-description: Check project progress, show context, and route to next action (execute or plan)
+name: kata:milestone-plan-gaps
+description: Create phases to close all gaps identified by milestone audit
 argument-hint: <description>
 version: 0.1.0
 disable-model-invocation: true
@@ -17,4 +17,4 @@ Arguments: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the following skill:
-`Skill("kata-tracking-progress")`
+`Skill("kata-planning-milestone-gaps")`

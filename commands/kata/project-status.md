@@ -1,6 +1,6 @@
 ---
-name: kata:starting-projects
-description: Initialize a new project with deep context gathering and PROJECT.md
+name: kata:project-status
+description: Check project progress, show context, and route to next action (execute or plan)
 argument-hint: <description>
 version: 0.1.0
 disable-model-invocation: true
@@ -17,4 +17,4 @@ Arguments: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the following skill:
-`Skill("kata-starting-projects")`
+`Skill("kata-tracking-progress")`

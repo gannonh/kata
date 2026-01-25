@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.1.10] - 2026-01-25
+
+### Fixed
+- **Restored v1.0.8 working state**: Reverted commands, skills, agents, and build.js to v1.0.8 state. Commands use `phase-add` style naming, skills use `adding-phases` style - no namespace conflicts.
+
 ## [1.1.9] - 2026-01-25
 
 ### Fixed

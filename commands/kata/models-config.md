@@ -1,6 +1,6 @@
 ---
-name: kata:showing-whats-new
-description: See what's new in Kata since your installed version
+name: kata:models-config
+description: Switch model profile for Kata agents (quality/balanced/budget)
 argument-hint: <description>
 version: 0.1.0
 disable-model-invocation: true
@@ -17,4 +17,4 @@ Arguments: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the following skill:
-`Skill("kata-showing-whats-new")`
+`Skill("kata-setting-profiles")`

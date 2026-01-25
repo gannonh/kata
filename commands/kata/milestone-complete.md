@@ -1,7 +1,7 @@
 ---
-name: kata:providing-help
-description: Show available Kata commands and usage guide
-argument-hint: <description>
+name: kata:milestone-complete
+description: Archive completed milestone and prepare for next version
+argument-hint: <version>
 version: 0.1.0
 disable-model-invocation: true
 allowed-tools:
@@ -17,4 +17,4 @@ Arguments: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the following skill:
-`Skill("kata-providing-help")`
+`Skill("kata-completing-milestones")`

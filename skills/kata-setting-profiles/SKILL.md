@@ -2,7 +2,7 @@
 name: kata-setting-profiles
 description: Use this skill when switch model profile for kata agents (quality/balanced/budget). Triggers include "set profile", "set profile".
 version: 0.1.0
-user-invocable: true
+user-invocable: false
 disable-model-invocation: false
 allowed-tools:
   - Read
@@ -36,13 +36,13 @@ if $ARGUMENTS.profile not in ["quality", "balanced", "budget"]:
 ## 2. Check for project
 
 ```bash
-(ls .planning/config.json 2>/dev/null || true) || true
+ls .planning/config.json 2>/dev/null
 ```
 
 If no `.planning/` directory:
 ```
 Error: No Kata project found.
-Run /kata:starting-projects first to initialize a project.
+Run /kata:project-new first to initialize a project.
 ```
 
 ## 3. Update config.json
@@ -78,7 +78,7 @@ Next spawned agents will use the new profile.
 
 **Switch to budget mode:**
 ```
-/kata:setting-profiles budget
+/kata:models-config budget
 
 ✓ Model profile set to: budget
 
@@ -93,7 +93,7 @@ Agents will now use:
 
 **Switch to quality mode:**
 ```
-/kata:setting-profiles quality
+/kata:models-config quality
 
 ✓ Model profile set to: quality
 

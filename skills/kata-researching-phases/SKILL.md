@@ -2,7 +2,7 @@
 name: kata-researching-phases
 description: Use this skill when researching how to implement a phase standalone, investigating implementation approaches before planning, or re-researching after planning is complete. Triggers include "research phase", "investigate phase", "how to implement", "research implementation", and "phase research".
 version: 0.1.0
-user-invocable: true
+user-invocable: false
 disable-model-invocation: false
 allowed-tools:
   - Read
@@ -13,7 +13,7 @@ allowed-tools:
 <objective>
 Research how to implement a phase. Spawns kata-phase-researcher agent with phase context.
 
-**Note:** This is a standalone research command. For most workflows, use `/kata:planning-phases` which integrates research automatically.
+**Note:** This is a standalone research command. For most workflows, use `/kata:phase-plan` which integrates research automatically.
 
 **Use this command when:**
 - You want to research without planning yet
@@ -63,7 +63,7 @@ else
   PHASE="$ARGUMENTS"
 fi
 
-grep -A5 "Phase ${PHASE}:" .planning/ROADMAP.md 2>/dev/null || true
+grep -A5 "Phase ${PHASE}:" .planning/ROADMAP.md 2>/dev/null
 ```
 
 **If not found:** Error and exit. **If found:** Extract phase number, name, description.
@@ -71,7 +71,7 @@ grep -A5 "Phase ${PHASE}:" .planning/ROADMAP.md 2>/dev/null || true
 ## 2. Check Existing Research
 
 ```bash
-(ls .planning/phases/${PHASE}-*/RESEARCH.md 2>/dev/null || true) || true
+ls .planning/phases/${PHASE}-*/RESEARCH.md 2>/dev/null
 ```
 
 **If exists:** Offer: 1) Update research, 2) View existing, 3) Skip. Wait for response.
@@ -82,9 +82,9 @@ grep -A5 "Phase ${PHASE}:" .planning/ROADMAP.md 2>/dev/null || true
 
 ```bash
 grep -A20 "Phase ${PHASE}:" .planning/ROADMAP.md
-cat .planning/REQUIREMENTS.md 2>/dev/null || true
-cat .planning/phases/${PHASE}-*/${PHASE}-CONTEXT.md 2>/dev/null || true
-grep -A30 "### Decisions Made" .planning/STATE.md 2>/dev/null || true
+cat .planning/REQUIREMENTS.md 2>/dev/null
+cat .planning/phases/${PHASE}-*/${PHASE}-CONTEXT.md 2>/dev/null
+grep -A30 "### Decisions Made" .planning/STATE.md 2>/dev/null
 ```
 
 Present summary with phase description, requirements, prior decisions.
@@ -124,7 +124,7 @@ Mode: ecosystem
 </context>
 
 <downstream_consumer>
-Your RESEARCH.md will be loaded by `/kata:planning-phases` which uses specific sections:
+Your RESEARCH.md will be loaded by `/kata:phase-plan` which uses specific sections:
 - `## Standard Stack` → Plans use these libraries
 - `## Architecture Patterns` → Task structure follows these
 - `## Don't Hand-Roll` → Tasks NEVER build custom solutions for listed problems

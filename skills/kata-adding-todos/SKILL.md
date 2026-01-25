@@ -2,7 +2,7 @@
 name: kata-adding-todos
 description: Use this skill to capture an idea, task, or issue that surfaces during a Kata session as a structured todo for later work. This skill creates markdown todo files in the .planning/todos/pending directory with relevant metadata and content extracted from the conversation. Triggers include "add todo", "capture todo", "new todo", and "create todo". 
 version: 0.1.0
-user-invocable: true
+user-invocable: false
 disable-model-invocation: false
 allowed-tools:
   - Read
@@ -31,7 +31,7 @@ mkdir -p .planning/todos/pending .planning/todos/done
 
 <step name="check_existing_areas">
 ```bash
-(ls .planning/todos/pending/*.md 2>/dev/null || true) | xargs -I {} grep "^area:" {} 2>/dev/null | cut -d' ' -f2 | sort -u
+ls .planning/todos/pending/*.md 2>/dev/null | xargs -I {} grep "^area:" {} 2>/dev/null | cut -d' ' -f2 | sort -u
 ```
 
 Note existing areas for consistency in infer_area step.
@@ -39,7 +39,7 @@ Note existing areas for consistency in infer_area step.
 
 <step name="extract_content">
 **With arguments:** Use as the title/focus.
-- `/kata:adding-todos Add auth token refresh` → title = "Add auth token refresh"
+- `/kata:todos-add Add auth token refresh` → title = "Add auth token refresh"
 
 **Without arguments:** Analyze recent conversation to extract:
 - The specific problem, idea, or task discussed
@@ -73,7 +73,7 @@ Use existing area from step 2 if similar match exists.
 
 <step name="check_duplicates">
 ```bash
-grep -l -i "[key words from title]" .planning/todos/pending/*.md 2>/dev/null || true
+grep -l -i "[key words from title]" .planning/todos/pending/*.md 2>/dev/null
 ```
 
 If potential duplicate found:
@@ -121,7 +121,7 @@ files:
 <step name="update_state">
 If `.planning/STATE.md` exists:
 
-1. Count todos: `(ls .planning/todos/pending/*.md 2>/dev/null || true) | wc -l`
+1. Count todos: `ls .planning/todos/pending/*.md 2>/dev/null | wc -l`
 2. Update "### Pending Todos" under "## Accumulated Context"
 </step>
 
@@ -167,7 +167,7 @@ Would you like to:
 
 1. Continue with current work
 2. Add another todo
-3. View all todos (/kata:checking-todos)
+3. View all todos (/kata:todos-lists)
 ```
 </step>
 
