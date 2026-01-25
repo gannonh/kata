@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [1.1.1] - 2026-01-25
+## [1.1.2] - 2026-01-25
 
 ### Fixed
 - **Stale command references**: Updated 286 references from old command syntax (`/kata:phase-execute`, `/kata:project-new`, etc.) to new skill syntax (`/kata:executing-phases`, `/kata:starting-projects`, etc.) across skills, agents, and documentation
