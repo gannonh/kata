@@ -66,10 +66,11 @@ const EXCLUDES = [
 
 /**
  * Files/directories to exclude from PLUGIN distribution only
- * (these are NPM-specific and don't work in plugin context)
+ * (these are NPM-specific or cause namespace conflicts)
  */
 const PLUGIN_EXCLUDES = [
   'skills/kata-updating',
+  'commands',  // Skills handle everything in plugin context - commands conflict
 ];
 
 /**
@@ -353,14 +354,8 @@ function buildPlugin() {
     }
   }
 
-  // Handle commands specially: lift commands/kata/* to commands/*
-  // NPX uses commands/kata/ for namespacing, plugin uses commands/ (plugin name provides namespace)
-  const commandsSrc = path.join(ROOT, 'commands', 'kata');
-  const commandsDest = path.join(dest, 'commands');
-  if (fs.existsSync(commandsSrc)) {
-    copyDir(commandsSrc, commandsDest, transformPluginContent);
-    console.log(`  ${green}✓${reset} Copied commands (lifted from commands/kata/)`);
-  }
+  // Commands excluded from plugin - skills handle everything
+  // (commands create namespace conflicts with skills in plugin context)
 
   // Copy plugin-specific files
   for (const item of PLUGIN_INCLUDES) {

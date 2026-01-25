@@ -2,7 +2,7 @@
 name: kata-executing-quick-tasks
 description: Use this skill when executing small ad-hoc tasks with Kata guarantees, running quick tasks without full planning, or handling one-off work outside the roadmap. Triggers include "quick task", "quick mode", "quick fix", "ad-hoc task", "small task", and "one-off task".
 version: 0.1.0
-user-invocable: false
+user-invocable: true
 disable-model-invocation: false
 allowed-tools:
   - Read

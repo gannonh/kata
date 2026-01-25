@@ -2,7 +2,7 @@
 name: kata-removing-phases
 description: Use this skill when remove a future phase from roadmap and renumber subsequent phases. Triggers include "remove phase", "remove phase".
 version: 0.1.0
-user-invocable: false
+user-invocable: true
 disable-model-invocation: false
 allowed-tools:
   - Read

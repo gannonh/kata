@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.1.9] - 2026-01-25
+
+### Fixed
+- **Plugin skill invocation**: Removed commands from plugin build. Commands and skills had same namespace (`kata:adding-phases`) causing conflicts. Skills now handle everything in plugin context with `user-invocable: true`.
+
 ## [1.1.8] - 2026-01-25
 
 ### Fixed

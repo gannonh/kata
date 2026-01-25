@@ -2,7 +2,7 @@
 name: kata-debugging
 description: Use this skill when systematically debugging issues, investigating bugs, troubleshooting problems, or tracking down errors with persistent state across context resets. Triggers include "debug", "investigate bug", "troubleshoot", "find the problem", "why isn't this working", and "debug session".
 version: 0.1.0
-user-invocable: false
+user-invocable: true
 disable-model-invocation: false
 allowed-tools:
   - Read
