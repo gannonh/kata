@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [1.1.8] - 2026-01-25
+
+### Fixed
+- **Reverted skills-only architecture**: Rolled back to v1.0.8 codebase. The v1.1.x skills-only changes (removing commands, `user-invocable: false`) broke natural language invocation entirely.
+
+### Architecture
+- Commands + Skills architecture restored (commands for autocomplete, skills for implementation)
+- Skills: `user-invocable: false`, `disable-model-invocation: false`
+- Commands delegate to skills via Task tool
+
 ## [1.0.8] - 2026-01-24
 
 ### Fixed
