@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.1.10] - 2026-01-25
+
+### Fixed
+- **Restored working v1.0.8 state**: Reverted all v1.1.x changes that broke plugin functionality. Commands and skills now use different naming conventions (commands: `phase-add`, skills: `adding-phases`) to avoid namespace conflicts.
+
 ## [1.0.8] - 2026-01-24
 
 ### Fixed
