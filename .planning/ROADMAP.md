@@ -121,11 +121,11 @@ Plans:
   2. `.planning/config.json` includes `github.enabled` boolean toggle
   3. `.planning/config.json` includes `github.issueMode` with values `auto | ask | never`
   4. Kata commands read config and branch on `github.enabled`
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — Document integration points and extend config schema
+- [ ] 01-02-PLAN.md — Add github namespace to config.json and verify
 
 #### Phase 2: Onboarding & Milestones
 **Goal**: New projects can configure GitHub integration and milestones create corresponding GitHub Milestones
@@ -200,7 +200,7 @@ Plans:
 | 2.1 Skill Resource Restructure     | v1.0.8    | 5/5            | Shipped     | 2026-01-24 |
 | 2.2 Normalize on Skills            | v1.0.9    | 3/3            | Complete    | 2026-01-25 |
 | 0. Develop Robust Testing Suite    | v1.1.0    | 7/7            | Complete    | 2026-01-25 |
-| 1. Audit & Config Foundation       | v1.1.0    | 0/?            | Not planned | -          |
+| 1. Audit & Config Foundation       | v1.1.0    | 0/2            | Planned     | -          |
 | 2. Onboarding & Milestones         | v1.1.0    | 0/?            | Not started | -          |
 | 3. Phase Issues                    | v1.1.0    | 0/?            | Not started | -          |
 | 4. Plan Sync                       | v1.1.0    | 0/?            | Not started | -          |
@@ -208,4 +208,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-25 — Phase 0 complete (7/7 plans)*
+*Last updated: 2026-01-25 — Phase 1 planned (2 plans)*
