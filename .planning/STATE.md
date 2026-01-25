@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-01-24)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v1.0.9 Command Consolidation — Phase 2.2: Normalize on Skills
+**Current focus:** v1.1.0 GitHub Integration — Phase 0: Develop Robust Testing Suite
 
 ## Current Position
 
-Milestone: v1.0.9 Command Consolidation
-Phase: 2.2 (Normalize on Skills)
-Plan: 03 of 3 complete
-Status: Phase complete
-Last activity: 2026-01-25 — Completed 02.2-03-PLAN.md (remove commands layer, update documentation)
+Milestone: v1.1.0 GitHub Integration
+Phase: 0 (Develop Robust Testing Suite)
+Plan: 01 of 7 complete
+Status: In progress
+Last activity: 2026-01-25 — Completed 00-01-PLAN.md (extend test harness)
 
-Progress: [##########                      ] 100% (3/3 plans in phase 2.2)
+Progress: [#                               ] 14% (1/7 plans in phase 0)
 
 ## Performance Metrics
 
@@ -64,7 +64,8 @@ Recent decisions affecting current work:
 - **v1.0.1-v1.0.5 patches 2026-01-23/24** — Plugin stability fixes
 - **v1.0.8 shipped 2026-01-24** — Plugin Stability (1 phase, 5 plans) — skills now self-contained
 - **v1.0.9 started 2026-01-25** — Command Consolidation (1 phase, 3 plans)
-- **v1.1.0 milestone planned** — GitHub Integration (5 phases planned)
+- **v1.1.0 milestone planned** — GitHub Integration (6 phases planned)
+- **Phase 0 added 2026-01-25** — Develop Robust Testing Suite (inserted before Phase 1)
 
 ### Pending Todos
 
@@ -100,5 +101,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Completed 02.2-03-PLAN.md (phase complete)
-Resume file: None - phase 2.2 complete, ready for v1.0.9 release
+Stopped at: Completed 00-01-PLAN.md (extend test harness)
+Resume file: .planning/phases/00-develop-robust-testing-suite/00-02-PLAN.md
