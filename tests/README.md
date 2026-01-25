@@ -10,6 +10,9 @@ npm test
 
 # Run only skill tests
 npm run test:skills
+
+# Run only tests for changed skills (CI mode)
+npm run test:affected
 ```
 
 Tests take 60-90 seconds because they actually invoke Claude Code via subprocess.
@@ -136,6 +139,8 @@ const result = invokeClaude('check my todos', {
 | `assertArtifactExists(basePath, relativePath)` | Verify file/directory was created |
 | `assertFileMatchesPattern(dirPath, pattern)` | Verify file matching regex exists |
 | `assertResultContains(result, text)` | Verify response contains expected text |
+| `assertNextStepProposed(result, command)` | Verify "Next Up" section contains expected `/kata:` command |
+| `assertFileStructure(basePath, paths)` | Verify all expected relative paths exist |
 
 ### Configuration (runner.js)
 
@@ -171,6 +176,276 @@ Each test invokes Claude Code, which costs money and takes time:
 
 Run tests sparingly during development. Use `npm run test:skills` to run only skill tests.
 
+## Affected Test Detection
+
+Run only tests for skills changed in your branch — essential for CI cost control.
+
+### How It Works
+
+```javascript
+import { getAffectedSkills, getAffectedTestFiles } from '../harness/affected.js';
+
+// Get skills affected by git changes
+const skills = getAffectedSkills('origin/main');
+// → ['kata-tracking-progress', 'kata-adding-phases']
+
+// Get test files for affected skills
+const testFiles = getAffectedTestFiles('origin/main');
+// → ['tests/skills/tracking-progress.test.js', 'tests/skills/adding-phases.test.js']
+```
+
+### What Triggers Affected Detection
+
+| Change | Detection |
+|--------|-----------|
+| `skills/kata-{name}/` | Direct skill change → that skill affected |
+| `agents/kata-{agent}.md` | Agent change → all skills spawning that agent affected |
+
+### Agent-to-Skill Mapping
+
+When an agent file changes, the harness scans all SKILL.md files to find which skills spawn that agent:
+
+```javascript
+import { getSkillsUsingAgent } from '../harness/affected.js';
+
+// Find skills that spawn kata-executor
+const skills = getSkillsUsingAgent('kata-executor');
+// → ['kata-executing-phases']
+```
+
+The mapping is cached for efficiency within a test run.
+
+## CI Integration
+
+### GitHub Workflow
+
+The CI workflow (defined in `.github/workflows/kata-skills.yml`) uses affected test detection to minimize costs:
+
+```yaml
+- name: Run affected skill tests
+  env:
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  run: npm run test:affected
+```
+
+### Cost Control
+
+Each test invokes Claude Code, which costs money. Affected test detection ensures:
+
+1. PRs only run tests for changed skills
+2. Agent changes cascade to dependent skill tests
+3. Full test suite runs only on main branch merges
+
+### Required Secrets
+
+| Secret | Purpose |
+|--------|---------|
+| `ANTHROPIC_API_KEY` | Claude API access for test execution |
+
+## Writing Skill Tests
+
+### Test Structural Outputs, Not Prose
+
+Skills produce deterministic artifacts. Test those, not conversational text:
+
+```javascript
+// Good: Test artifact creation
+assertArtifactExists(testDir, '.planning/phases/01-auth/01-01-PLAN.md');
+assertFileStructure(testDir, [
+  '.planning/STATE.md',
+  '.planning/ROADMAP.md',
+  '.planning/phases/01-auth/'
+]);
+
+// Good: Test "Next Up" proposal
+assertNextStepProposed(result, '/kata:execute-phase');
+
+// Avoid: Testing exact prose (brittle)
+assert(result.result.includes('I have created the plan'));
+```
+
+### `assertNextStepProposed` Example
+
+Kata skills end with a "Next Up" section proposing the next command:
+
+```javascript
+import { assertNextStepProposed } from '../harness/assertions.js';
+
+const result = invokeClaude('plan phase 1', { cwd: testDir });
+
+// Verify skill proposed execute-phase as next step
+assertNextStepProposed(result, '/kata:execute-phase');
+```
+
+### Test Isolation Best Practices
+
+1. **Fresh temp directory per test** — Use `mkdtempSync` in `beforeEach`
+2. **Copy fixtures, don't mutate** — `cpSync(FIXTURES_DIR, testDir)`
+3. **Install only needed skills** — Copy specific skill to `testDir/.claude/skills/`
+4. **Clean up on success** — `rmSync(testDir)` in `afterEach`
+
+## Integration Testing Patterns
+
+### Testing Orchestrator Skills
+
+Orchestrator skills spawn agents (e.g., `kata-planning-phases` spawns `kata-planner`). Test these by:
+
+1. **Setting up fixtures** with pre-populated `.planning/` structures
+2. **Invoking the skill** and letting it spawn agents
+3. **Asserting artifacts** created by the spawned agents
+
+```javascript
+describe('kata-planning-phases (orchestrator)', () => {
+  let testDir;
+
+  beforeEach(() => {
+    testDir = mkdtempSync(join(tmpdir(), 'kata-test-'));
+
+    // Copy fixture with roadmap and state
+    cpSync(join(FIXTURES_DIR, 'multi-phase-project'), testDir, { recursive: true });
+
+    // Install orchestrator skill AND agents it spawns
+    cpSync(join(KATA_ROOT, 'skills/kata-planning-phases'),
+           join(testDir, '.claude/skills/kata-planning-phases'),
+           { recursive: true });
+    cpSync(join(KATA_ROOT, 'agents/kata-planner.md'),
+           join(testDir, '.claude/agents/kata-planner.md'));
+    cpSync(join(KATA_ROOT, 'agents/kata-plan-checker.md'),
+           join(testDir, '.claude/agents/kata-plan-checker.md'));
+  });
+
+  it('creates plan files when planning phase 1', () => {
+    const result = invokeClaude('plan phase 1', {
+      cwd: testDir,
+      maxBudget: 5.00,  // Orchestrators need higher budget
+      timeout: 300000   // 5 min for multi-agent flows
+    });
+
+    assertNoError(result);
+    assertSkillInvoked(result);
+
+    // Verify agent output: planner creates PLAN.md files
+    assertFileMatchesPattern(
+      join(testDir, '.planning/phases/01-auth'),
+      /01-\d+-PLAN\.md$/
+    );
+
+    // Verify orchestrator proposed next step
+    assertNextStepProposed(result, '/kata:execute-phase');
+  });
+});
+```
+
+### Fixture Hierarchy
+
+Create fixtures at different complexity levels:
+
+```
+tests/fixtures/
+├── kata-project/           # Base: minimal STATE.md, ROADMAP.md
+├── multi-phase-project/    # Extended: populated roadmap with phases
+├── mid-execution/          # Partial: some plans complete, some pending
+└── agent-fixtures/
+    ├── planner-input/      # Isolated agent test fixtures
+    └── verifier-input/
+```
+
+**Base fixtures** for simple skill tests:
+
+```
+fixtures/kata-project/
+├── .planning/
+│   ├── STATE.md
+│   ├── ROADMAP.md
+│   └── todos/pending/.gitkeep
+├── .claude/skills/.gitkeep
+└── CLAUDE.md
+```
+
+**Phase fixtures** for orchestrator tests:
+
+```
+fixtures/multi-phase-project/
+├── .planning/
+│   ├── STATE.md
+│   ├── ROADMAP.md
+│   ├── PROJECT.md
+│   ├── REQUIREMENTS.md
+│   └── phases/
+│       └── 01-auth/
+│           └── 01-CONTEXT.md
+├── .claude/
+│   ├── skills/.gitkeep
+│   └── agents/.gitkeep
+└── CLAUDE.md
+```
+
+### Verifying Agent Spawning
+
+To confirm an orchestrator spawned the expected agent without mocking:
+
+1. **Check output patterns** — Agents produce characteristic output
+2. **Check artifacts** — Agents create specific files
+3. **Check turn count** — Multi-agent flows have many turns
+
+```javascript
+it('spawns planner agent (verified by output)', () => {
+  const result = invokeClaude('plan phase 1', { cwd: testDir, maxBudget: 5.00 });
+
+  // Planner agent produces PLAN.md files
+  assertFileMatchesPattern(
+    join(testDir, '.planning/phases/01-auth'),
+    /PLAN\.md$/
+  );
+
+  // Orchestrator mentions agent activity in output
+  assertResultContains(result, /Spawning planner|PLANNING PHASE/i);
+
+  // Multi-agent flow: expect many turns
+  assert.ok(result.num_turns > 5, 'Expected multi-agent flow to have 5+ turns');
+});
+```
+
+### Simple vs Workflow Skills
+
+| Skill Type | Test Approach |
+|------------|---------------|
+| **Simple** (no agents) | Invoke, assert output contains expected text/pattern |
+| **Workflow** (spawns agents) | Set up fixtures, invoke, assert artifacts created |
+
+**Simple skill test:**
+
+```javascript
+it('provides help text', () => {
+  const result = invokeClaude('/kata:providing-help', { cwd: testDir });
+  assertNoError(result);
+  assertResultContains(result, '/kata:');  // Lists available commands
+});
+```
+
+**Workflow skill test:**
+
+```javascript
+it('executes phase plans', () => {
+  // Fixture has completed plans ready for execution
+  cpSync(join(FIXTURES_DIR, 'ready-to-execute'), testDir, { recursive: true });
+
+  const result = invokeClaude('execute phase 1', {
+    cwd: testDir,
+    maxBudget: 10.00,
+    timeout: 600000
+  });
+
+  assertNoError(result);
+
+  // Verify executor agent ran: SUMMARY.md files created
+  assertFileMatchesPattern(
+    join(testDir, '.planning/phases/01-auth'),
+    /SUMMARY\.md$/
+  );
+});
+```
+
 ## Troubleshooting
 
 **Tests timeout:** Increase `timeout` option in `invokeClaude()` call.
@@ -180,3 +455,5 @@ Run tests sparingly during development. Use `npm run test:skills` to run only sk
 **Skill not found:** Verify skill is copied to `testDir/.claude/skills/` in `beforeEach`.
 
 **State pollution between tests:** Each test should use fresh `mkdtempSync` directory.
+
+**Orchestrator tests fail:** Ensure agents are copied to `.claude/agents/` alongside skills.
