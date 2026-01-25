@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-01-25
+
+### Fixed
+- **Autocomplete not working**: Restored `commands/` layer as thin wrappers for skills. Skills provide the implementation, commands provide `/` menu autocomplete. This fixes autocomplete that broke in 1.1.0 when commands were removed.
+- **Command→skill mapping mismatch**: Fixed `executing-quick-tasks` command referencing wrong skill (`kata-executing-task-executes` → `kata-executing-quick-tasks`)
+- **Stale command references**: Removed references to non-existent `/kata:discussing-milestones` skill, fixed `/kata:update` → `/kata:updating`, fixed `/kata:analyze-codebase` → `/kata:mapping-codebases`
+
+### Changed
+- **Command naming convention**: All 27 commands renamed from old syntax to new gerund form (e.g., `phase-execute.md` → `executing-phases.md`, `project-new.md` → `starting-projects.md`)
+- **Build system**: Added commands to both NPM and plugin builds. Plugin build lifts `commands/kata/*` to `commands/*` and strips `kata:` prefix from command names.
+- **Tests and CI/CD**: Updated to validate commands directory exists in distributions
+
 ## [1.1.2] - 2026-01-25
 
 ### Fixed

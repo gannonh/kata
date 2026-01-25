@@ -75,11 +75,10 @@ describe('NPX Install Smoke Test', () => {
     );
   });
 
-  test('does NOT create commands directory (Phase 2.2 - skills-only)', () => {
-    // Phase 2.2: Commands layer removed, skills are the primary interface
+  test('install creates commands directory', () => {
     assert.ok(
-      !fs.existsSync(path.join(npxTestDir, '.claude/commands')),
-      '.claude/commands should NOT exist (skills-only architecture)'
+      fs.existsSync(path.join(npxTestDir, '.claude/commands')),
+      '.claude/commands directory should exist for autocomplete'
     );
   });
 

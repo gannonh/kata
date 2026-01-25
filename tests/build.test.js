@@ -23,9 +23,8 @@ describe('NPM build', () => {
     assert.ok(fs.existsSync(path.join(ROOT, 'dist/npm/package.json')));
   });
 
-  test('does NOT include commands directory (Phase 2.2 - skills-only)', () => {
-    // Phase 2.2: Commands layer removed, skills are the primary interface
-    assert.ok(!fs.existsSync(path.join(ROOT, 'dist/npm/commands')));
+  test('includes commands directory', () => {
+    assert.ok(fs.existsSync(path.join(ROOT, 'dist/npm/commands')));
   });
 
   test('includes skills directory', () => {
@@ -86,9 +85,8 @@ describe('Plugin build', () => {
     assert.ok(fs.existsSync(path.join(ROOT, 'dist/plugin/.claude-plugin/plugin.json')));
   });
 
-  test('does NOT include commands directory (Phase 2.2 - skills-only)', () => {
-    // Phase 2.2: Commands layer removed, skills are the primary interface
-    assert.ok(!fs.existsSync(path.join(ROOT, 'dist/plugin/commands')));
+  test('includes commands directory', () => {
+    assert.ok(fs.existsSync(path.join(ROOT, 'dist/plugin/commands')));
   });
 
   test('includes skills directory', () => {
@@ -510,7 +508,7 @@ describe('Workflow @-reference validation', () => {
   });
 });
 
-describe('Skill validation (Phase 2.2)', () => {
+describe('Skill and command validation', () => {
   /**
    * Parse YAML frontmatter from markdown content
    */
@@ -557,11 +555,11 @@ describe('Skill validation (Phase 2.2)', () => {
     }
   });
 
-  test('no commands directory exists (Phase 2.2)', () => {
-    // Phase 2.2: Commands layer completely removed
+  test('commands directory exists with kata subdirectory', () => {
+    // Commands provide autocomplete in Claude Code /menu
     assert.ok(
-      !fs.existsSync(path.join(ROOT, 'commands')),
-      'commands/ directory should not exist (Phase 2.2 - skills-only)'
+      fs.existsSync(path.join(ROOT, 'commands/kata')),
+      'commands/kata/ directory should exist for autocomplete support'
     );
   });
 });

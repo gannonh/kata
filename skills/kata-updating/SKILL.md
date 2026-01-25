@@ -149,7 +149,7 @@ Cannot run update from within the Kata source directory.
 npm resolves @gannonh/kata locally instead of fetching from registry.
 
 **Solutions:**
-1. Run `/kata:update` from a different directory
+1. Run `/kata:updating` from a different directory
 2. Run `cd ~ && npx @gannonh/kata --global` manually
 3. Run `npm install -g @gannonh/kata` for global install
 ```

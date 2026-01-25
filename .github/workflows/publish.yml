@@ -65,10 +65,11 @@ jobs:
       - name: Validate build artifacts
         if: steps.check.outputs.should_publish == 'true'
         run: |
-          # Verify critical files exist in dist (Phase 2.2: skills-only, no commands)
+          # Verify critical files exist in dist
           test -f dist/npm/bin/install.js
           test -f dist/npm/package.json
           test -d dist/npm/skills
+          test -d dist/npm/commands
           test -d dist/npm/hooks
           test -d dist/npm/agents
           echo "✓ All required files present"

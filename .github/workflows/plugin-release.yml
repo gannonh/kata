@@ -61,9 +61,10 @@ jobs:
       - name: Validate plugin build
         if: steps.check_release.outputs.should_publish == 'true'
         run: |
-          # Verify critical files exist (Phase 2.2: skills-only, no commands)
+          # Verify critical files exist
           test -f dist/plugin/.claude-plugin/plugin.json
           test -d dist/plugin/skills
+          test -d dist/plugin/commands
           test -d dist/plugin/hooks
           test -d dist/plugin/agents
           test -f dist/plugin/VERSION

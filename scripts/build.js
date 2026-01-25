@@ -42,6 +42,7 @@ const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 const COMMON_INCLUDES = [
   'skills',
   'agents',
+  'commands',
   'hooks',
   'CHANGELOG.md',
 ];
@@ -237,12 +238,22 @@ function transformSkillName(content) {
 }
 
 /**
+ * Transform command names for plugin distribution
+ * Commands use kata:name format, plugin namespace provides kata: prefix
+ * Transform: name: kata:executing-phases -> name: executing-phases
+ */
+function transformCommandName(content) {
+  return content.replace(/^(name:\s*)kata:/m, '$1');
+}
+
+/**
  * Combined transform for plugin .md files
- * Applies both agent reference and skill name transforms
+ * Applies agent reference, skill name, and command name transforms
  */
 function transformPluginContent(content) {
   let result = transformPluginPaths(content);  // Existing: subagent_type transform
-  result = transformSkillName(result);          // New: name field transform
+  result = transformSkillName(result);          // Skill name transform
+  result = transformCommandName(result);        // Command name transform
   return result;
 }
 
@@ -331,11 +342,22 @@ function buildPlugin() {
 
   // Copy common files with path transformation AND plugin exclusions
   for (const item of COMMON_INCLUDES) {
+    // Skip commands - handled specially below
+    if (item === 'commands') continue;
     // Use directory rename only for skills directory
     const dirRename = item === 'skills' ? renameSkillDir : null;
     if (copyPath(item, dest, transformPluginContent, shouldExcludeFromPlugin, dirRename)) {
       console.log(`  ${green}✓${reset} Copied ${item}`);
     }
+  }
+
+  // Handle commands specially: lift commands/kata/* to commands/*
+  // NPX uses commands/kata/ for namespacing, plugin uses commands/ (plugin name provides namespace)
+  const commandsSrc = path.join(ROOT, 'commands', 'kata');
+  const commandsDest = path.join(dest, 'commands');
+  if (fs.existsSync(commandsSrc)) {
+    copyDir(commandsSrc, commandsDest, transformPluginContent);
+    console.log(`  ${green}✓${reset} Copied commands (lifted from commands/kata/)`);
   }
 
   // Copy plugin-specific files

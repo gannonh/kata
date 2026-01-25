@@ -43,7 +43,7 @@ Milestone name: $ARGUMENTS (optional - will prompt if not provided)
 @.planning/MILESTONES.md
 @.planning/config.json
 
-**Load milestone context (if exists, from /kata:discuss-milestone):**
+**Load milestone context (if exists):**
 @.planning/MILESTONE-CONTEXT.md
 </context>
 
@@ -54,7 +54,7 @@ Milestone name: $ARGUMENTS (optional - will prompt if not provided)
 - Read PROJECT.md (existing project, Validated requirements, decisions)
 - Read MILESTONES.md (what shipped previously)
 - Read STATE.md (pending todos, blockers)
-- Check for MILESTONE-CONTEXT.md (from /kata:discuss-milestone)
+- Check for MILESTONE-CONTEXT.md (if exists)
 
 ## Phase 2: Gather Milestone Goals
 
