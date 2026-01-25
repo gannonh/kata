@@ -88,3 +88,56 @@ export function assertResultContains(result, expected, message) {
     );
   }
 }
+
+/**
+ * Assert that a "Next Up" section proposes the expected command.
+ * Kata skills output a standardized "Next Up" section with a suggested command.
+ *
+ * @param {Object} result - Claude JSON response
+ * @param {string} expectedCommand - Command substring to match (e.g., '/kata:execute-phase')
+ * @param {string} [message] - Custom failure message
+ */
+export function assertNextStepProposed(result, expectedCommand, message) {
+  const text = result.result || '';
+
+  // Look for Kata's "Next Up" section pattern
+  const nextUpPattern = /## ▶ Next Up[\s\S]*?(\/kata:[a-z-]+)/i;
+  const match = text.match(nextUpPattern);
+
+  if (!match) {
+    assert.fail(
+      message || `Expected "## ▶ Next Up" section with /kata: command, but pattern not found in result`
+    );
+  }
+
+  const foundCommand = match[1];
+  assert.ok(
+    foundCommand.includes(expectedCommand),
+    message || `Expected next step command to include "${expectedCommand}", got "${foundCommand}"`
+  );
+}
+
+/**
+ * Assert that all expected paths exist relative to a base directory.
+ * Useful for verifying file structure after skill execution.
+ *
+ * @param {string} basePath - Base directory path
+ * @param {string[]} expectedPaths - Array of relative paths that should exist
+ * @param {string} [message] - Custom failure message
+ */
+export function assertFileStructure(basePath, expectedPaths, message) {
+  const missing = [];
+
+  for (const relativePath of expectedPaths) {
+    const fullPath = join(basePath, relativePath);
+    if (!existsSync(fullPath)) {
+      missing.push(relativePath);
+    }
+  }
+
+  if (missing.length > 0) {
+    assert.fail(
+      message || `Expected file structure incomplete. Missing paths:\n  - ${missing.join('\n  - ')}`
+    );
+  }
+}
