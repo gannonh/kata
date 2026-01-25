@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.1.14] - 2026-01-25
+
+### Fixed
+- **Plugin Skill() invocation**: Build system now transforms `Skill("kata-xxx")` to `Skill("kata:xxx")` for plugin distribution. Commands calling skills failed with "Unknown skill" because skill directories are renamed (`kata-xxx` → `xxx`) but Skill() calls weren't being transformed to match the plugin namespace.
+
 ## [1.1.10] - 2026-01-25
 
 ### Fixed
