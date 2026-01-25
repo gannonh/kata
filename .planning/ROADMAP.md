@@ -11,7 +11,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - **v1.0.0 Claude Code Plugin** — Phases 1-3 (shipped 2026-01-23)
 - **v1.0.8 Plugin Stability** — Phase 2.1 (shipped 2026-01-24) — [archive](milestones/v1.0.8-ROADMAP.md)
 - **v1.0.9 Command Consolidation** — Phase 2.2 (complete)
-- **v1.1.0 GitHub Integration** — Phases 1-5 (planned)
+- **v1.1.0 GitHub Integration** — Phases 0-5 (planned)
 
 ## Phases
 
@@ -82,6 +82,7 @@ Plans:
 
 ### v1.1.0 GitHub Integration (Planned)
 
+- [ ] **Phase 0: Develop Robust Testing Suite** - Establish testing infrastructure before integration work
 - [ ] **Phase 1: Audit & Config Foundation** - Understand integration points, establish config schema
 - [ ] **Phase 2: Onboarding & Milestones** - Config during project-new, GitHub Milestone creation
 - [ ] **Phase 3: Phase Issues** - Create GitHub Issues for phases with labels and metadata
@@ -92,9 +93,28 @@ Plans:
 
 ### v1.1.0 GitHub Integration
 
+#### Phase 0: Develop Robust Testing Suite
+**Goal**: Establish comprehensive testing infrastructure to validate Kata skills and agents using CLI-based testing with affected-test detection for CI cost control
+**Depends on**: v1.0.9 complete (Command Consolidation)
+**Success Criteria** (what must be TRUE):
+  1. Testing framework established for Kata skills and agents
+  2. Test patterns documented for integration testing
+  3. CI/CD pipeline includes test execution
+  4. Baseline test coverage for existing functionality (27 skills)
+**Plans:** 7 plans
+
+Plans:
+- [ ] 00-01-PLAN.md — Extend test harness with affected-test detection and assertions
+- [ ] 00-02-PLAN.md — Skill tests for status/info skills (Wave 1)
+- [ ] 00-03-PLAN.md — Skill tests for project management skills (Wave 2)
+- [ ] 00-04-PLAN.md — Skill tests for phase/milestone skills (Wave 3)
+- [ ] 00-05-PLAN.md — Skill tests for execution workflow skills (Wave 4)
+- [ ] 00-06-PLAN.md — Skill tests for utility skills (Wave 5)
+- [ ] 00-07-PLAN.md — CI/CD integration with GitHub Actions
+
 #### Phase 1: Audit & Config Foundation
 **Goal**: Understand where GitHub integration hooks into existing Kata workflows and establish config schema
-**Depends on**: v1.0.8 complete (Plugin Stability)
+**Depends on**: Phase 0 complete (testing in place)
 **Requirements**: WFA-01, CFG-01, CFG-02
 **Success Criteria** (what must be TRUE):
   1. Integration points documented for milestone-new, phase-execute, execute-plan commands
@@ -179,6 +199,7 @@ Plans:
 | 1-3. Claude Code Plugin            | v1.0.0    | 5/5            | Complete    | 2026-01-23 |
 | 2.1 Skill Resource Restructure     | v1.0.8    | 5/5            | Shipped     | 2026-01-24 |
 | 2.2 Normalize on Skills            | v1.0.9    | 3/3            | Complete    | 2026-01-25 |
+| 0. Develop Robust Testing Suite    | v1.1.0    | 0/7            | Planned     | -          |
 | 1. Audit & Config Foundation       | v1.1.0    | 0/?            | Not planned | -          |
 | 2. Onboarding & Milestones         | v1.1.0    | 0/?            | Not started | -          |
 | 3. Phase Issues                    | v1.1.0    | 0/?            | Not started | -          |
@@ -187,4 +208,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-25 — Phase 2.2 complete*
+*Last updated: 2026-01-25 — Phase 0 planned with 7 plans*
