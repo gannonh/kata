@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 
 Milestone: v1.0.9 Command Consolidation
 Phase: 2.2 (Normalize on Skills)
-Plan: 01 of 3 complete
+Plan: 02 of 3 complete
 Status: In progress
-Last activity: 2026-01-25 — Completed 02.2-01-PLAN.md (make skills user-invocable)
+Last activity: 2026-01-25 — Completed 02.2-02-PLAN.md (build.js skill prefix transformation)
 
-Progress: [###                             ] 33% (1/3 plans in phase 2.2)
+Progress: [######                          ] 67% (2/3 plans in phase 2.2)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 47
+- Total plans completed: 48
 - Average duration: 3 min
-- Total execution time: 126 min
+- Total execution time: 129 min
 
 **By Milestone:**
 
@@ -32,7 +32,7 @@ Progress: [###                             ] 33% (1/3 plans in phase 2.2)
 | v0.1.5    | 6      | 30    | Shipped 2026-01-22 |
 | v1.0.0    | 4      | 5     | Shipped 2026-01-23 |
 | v1.0.8    | 1      | 5     | Shipped 2026-01-24 |
-| v1.0.9    | 1      | 1     | In progress |
+| v1.0.9    | 1      | 2     | In progress |
 
 **Recent Trend:**
 - v1.0.1-v1.0.5: Rapid patch releases (5 patches in 2 days) addressing plugin distribution issues
@@ -48,6 +48,7 @@ Progress: [###                             ] 33% (1/3 plans in phase 2.2)
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- **2026-01-25: Build.js skill prefix transformation** — Plugin build strips `kata-` prefix from skill directories and names for clean `/kata:skill-name` invocation
 - **2026-01-25: Skills made user-invocable** — All 27 skills changed from `user-invocable: false` to `user-invocable: true` for direct / menu access
 - **2026-01-24: Roadmap realigned** — Updated to reflect actual release history; v0.1.9 became v1.0.0, added v1.0.8 milestone for stability work
 - **2026-01-24: Phase 2.1 inserted** — Skill-Centric Resource Restructure to support npx-based skill distribution (Vercel model)
@@ -98,5 +99,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Completed 02.2-01-PLAN.md
-Resume file: .planning/phases/v1.0.9-02.2-normalize-on-skills/02.2-02-PLAN.md
+Stopped at: Completed 02.2-02-PLAN.md
+Resume file: .planning/phases/v1.0.9-02.2-normalize-on-skills/02.2-03-PLAN.md
