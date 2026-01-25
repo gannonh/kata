@@ -569,7 +569,7 @@ Kata includes an automatic codebase learning system that indexes code and detect
 - Creates .planning/intel/ directory
 - Scans all JS/TS files (excludes node_modules, dist, build, .git, vendor, coverage)
 - Uses same extraction logic as PostToolUse hook
-- Works standalone (no /kata:project-new required)
+- Works standalone (no /kata:starting-projects required)
 
 ---
 

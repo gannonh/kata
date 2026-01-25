@@ -33,18 +33,18 @@ If no `.planning/` directory:
 ```
 No planning structure found.
 
-Run /kata:project-new to start a new project.
+Run /kata:starting-projects to start a new project.
 ```
 
 Exit.
 
-If missing STATE.md: suggest `/kata:project-new`.
+If missing STATE.md: suggest `/kata:starting-projects`.
 
 **If ROADMAP.md missing but PROJECT.md exists:**
 
 This means a milestone was completed and archived. Go to **Route F** (between milestones).
 
-If missing both ROADMAP.md and PROJECT.md: suggest `/kata:project-new`.
+If missing both ROADMAP.md and PROJECT.md: suggest `/kata:starting-projects`.
 </step>
 
 <step name="load">
@@ -71,8 +71,8 @@ If missing both ROADMAP.md and PROJECT.md: suggest `/kata:project-new`.
 - Calculate: total plans, completed plans, remaining plans
 - Note any blockers or concerns
 - Check for CONTEXT.md: For phases without PLAN.md files, check if `{phase}-CONTEXT.md` exists in phase directory
-- Count pending todos: `ls .planning/todos/pending/*.md 2>/dev/null | wc -l`
-- Check for active debug sessions: `ls .planning/debug/*.md 2>/dev/null | grep -v resolved | wc -l`
+- Count pending todos: `(ls .planning/todos/pending/*.md 2>/dev/null || true) | wc -l`
+- Check for active debug sessions: `(ls .planning/debug/*.md 2>/dev/null || true) | grep -v resolved | wc -l`
   </step>
 
 <step name="report">
@@ -101,10 +101,10 @@ CONTEXT: [✓ if CONTEXT.md exists | - if not]
 - [any blockers or concerns from STATE.md]
 
 ## Pending Todos
-- [count] pending — /kata:todos-lists to review
+- [count] pending — /kata:checking-todos to review
 
 ## Active Debug Sessions
-- [count] active — /kata:issue-debug to continue
+- [count] active — /kata:debugging to continue
 (Only show this section if count > 0)
 
 ## What's Next
@@ -121,9 +121,9 @@ CONTEXT: [✓ if CONTEXT.md exists | - if not]
 List files in the current phase directory:
 
 ```bash
-ls -1 .planning/phases/[current-phase-dir]/*-PLAN.md 2>/dev/null | wc -l
-ls -1 .planning/phases/[current-phase-dir]/*-SUMMARY.md 2>/dev/null | wc -l
-ls -1 .planning/phases/[current-phase-dir]/*-UAT.md 2>/dev/null | wc -l
+(ls -1 .planning/phases/[current-phase-dir]/*-PLAN.md 2>/dev/null || true) | wc -l
+(ls -1 .planning/phases/[current-phase-dir]/*-SUMMARY.md 2>/dev/null || true) | wc -l
+(ls -1 .planning/phases/[current-phase-dir]/*-UAT.md 2>/dev/null || true) | wc -l
 ```
 
 State: "This phase has {X} plans, {Y} summaries."
@@ -134,7 +134,7 @@ Check for UAT.md files with status "diagnosed" (has gaps needing fixes).
 
 ```bash
 # Check for diagnosed UAT with gaps
-grep -l "status: diagnosed" .planning/phases/[current-phase-dir]/*-UAT.md 2>/dev/null
+grep -l "status: diagnosed" .planning/phases/[current-phase-dir]/*-UAT.md 2>/dev/null || true
 ```
 
 Track:
@@ -163,7 +163,7 @@ Read its `<objective>` section.
 
 **{phase}-{plan}: [Plan Name]** — [objective summary from PLAN.md]
 
-`/kata:phase-execute {phase}`
+`/kata:executing-phases {phase}`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -186,7 +186,7 @@ Check if `{phase}-CONTEXT.md` exists in phase directory.
 **Phase {N}: {Name}** — {Goal from ROADMAP.md}
 <sub>✓ Context gathered, ready to plan</sub>
 
-`/kata:phase-plan {phase-number}`
+`/kata:planning-phases {phase-number}`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -202,15 +202,15 @@ Check if `{phase}-CONTEXT.md` exists in phase directory.
 
 **Phase {N}: {Name}** — {Goal from ROADMAP.md}
 
-`/kata:phase-discuss {phase}` — gather context and clarify approach
+`/kata:discussing-phases {phase}` — gather context and clarify approach
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:phase-plan {phase}` — skip discussion, plan directly
-- `/kata:phase-assumptions {phase}` — see Claude's assumptions
+- `/kata:planning-phases {phase}` — skip discussion, plan directly
+- `/kata:listing-phase-assumptions {phase}` — see Claude's assumptions
 
 ---
 ```
@@ -228,15 +228,15 @@ UAT.md exists with gaps (diagnosed issues). User needs to plan fixes.
 
 **{phase}-UAT.md** has {N} gaps requiring fixes.
 
-`/kata:phase-plan {phase} --gaps`
+`/kata:planning-phases {phase} --gaps`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:phase-execute {phase}` — execute phase plans
-- `/kata:phase-verify {phase}` — run more UAT testing
+- `/kata:executing-phases {phase}` — execute phase plans
+- `/kata:verifying-work {phase}` — run more UAT testing
 
 ---
 ```
@@ -275,15 +275,15 @@ Read ROADMAP.md to get the next phase's name and goal.
 
 **Phase {Z+1}: {Name}** — {Goal from ROADMAP.md}
 
-`/kata:phase-discuss {Z+1}` — gather context and clarify approach
+`/kata:discussing-phases {Z+1}` — gather context and clarify approach
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:phase-plan {Z+1}` — skip discussion, plan directly
-- `/kata:phase-verify {Z}` — user acceptance test before continuing
+- `/kata:planning-phases {Z+1}` — skip discussion, plan directly
+- `/kata:verifying-work {Z}` — user acceptance test before continuing
 
 ---
 ```
@@ -303,14 +303,14 @@ All {N} phases finished!
 
 **Complete Milestone** — archive and prepare for next
 
-`/kata:milestone-complete`
+`/kata:completing-milestones`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:phase-verify` — user acceptance test before completing milestone
+- `/kata:verifying-work` — user acceptance test before completing milestone
 
 ---
 ```
@@ -334,7 +334,7 @@ Ready to plan the next milestone.
 
 **Start Next Milestone** — questioning → research → requirements → roadmap
 
-`/kata:milestone-new`
+`/kata:starting-milestones`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -346,10 +346,10 @@ Ready to plan the next milestone.
 <step name="edge_cases">
 **Handle edge cases:**
 
-- Phase complete but next phase not planned → offer `/kata:phase-plan [next]`
+- Phase complete but next phase not planned → offer `/kata:planning-phases [next]`
 - All work complete → offer milestone completion
 - Blockers present → highlight before offering to continue
-- Handoff file exists → mention it, offer `/kata:phase-resume`
+- Handoff file exists → mention it, offer `/kata:resuming-work`
   </step>
 
 </process>
@@ -359,7 +359,7 @@ Ready to plan the next milestone.
 - [ ] Rich context provided (recent work, decisions, issues)
 - [ ] Current position clear with visual progress
 - [ ] What's next clearly explained
-- [ ] Smart routing: /kata:phase-execute if plans exist, /kata:phase-plan if not
+- [ ] Smart routing: /kata:executing-phases if plans exist, /kata:planning-phases if not
 - [ ] User confirms before any action
 - [ ] Seamless handoff to appropriate kata command
       </success_criteria>

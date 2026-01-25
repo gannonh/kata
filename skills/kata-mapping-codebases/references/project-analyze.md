@@ -44,7 +44,7 @@ Store resolved model for use in Task calls below.
 Check if .planning/codebase/ already exists:
 
 ```bash
-ls -la .planning/codebase/ 2>/dev/null
+(ls -la .planning/codebase/ 2>/dev/null || true) || true
 ```
 
 **If exists:**
@@ -292,14 +292,14 @@ Created .planning/codebase/:
 
 **Initialize project** — use codebase context for planning
 
-`/kata:project-new`
+`/kata:starting-projects`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- Re-run mapping: `/kata:project-analyze`
+- Re-run mapping: `/kata:mapping-codebases`
 - Review specific file: `cat .planning/codebase/STACK.md`
 - Edit any document before proceeding
 

@@ -41,10 +41,10 @@ Normalize phase input in step 2 before any directory lookups.
 ## 1. Validate Environment and Resolve Model Profile
 
 ```bash
-ls .planning/ 2>/dev/null
+(ls .planning/ 2>/dev/null || true) || true
 ```
 
-**If not found:** Error - user should run `/kata:project-new` first.
+**If not found:** Error - user should run `/kata:starting-projects` first.
 
 **Resolve model profile for agent spawning:**
 
@@ -90,14 +90,14 @@ fi
 **Check for existing research and plans:**
 
 ```bash
-ls .planning/phases/${PHASE}-*/*-RESEARCH.md 2>/dev/null
-ls .planning/phases/${PHASE}-*/*-PLAN.md 2>/dev/null
+(ls .planning/phases/${PHASE}-*/*-RESEARCH.md 2>/dev/null || true) || true
+(ls .planning/phases/${PHASE}-*/*-PLAN.md 2>/dev/null || true) || true
 ```
 
 ## 3. Validate Phase
 
 ```bash
-grep -A5 "Phase ${PHASE}:" .planning/ROADMAP.md 2>/dev/null
+grep -A5 "Phase ${PHASE}:" .planning/ROADMAP.md 2>/dev/null || true
 ```
 
 **If not found:** Error with available phases. **If found:** Extract phase number, name, description.
@@ -106,7 +106,7 @@ grep -A5 "Phase ${PHASE}:" .planning/ROADMAP.md 2>/dev/null
 
 ```bash
 # PHASE is already normalized (08, 02.1, etc.) from step 2
-PHASE_DIR=$(ls -d .planning/phases/${PHASE}-* 2>/dev/null | head -1)
+PHASE_DIR=$((ls -d .planning/phases/${PHASE}-* 2>/dev/null || true) | head -1)
 if [ -z "$PHASE_DIR" ]; then
   # Create phase directory from roadmap name
   PHASE_NAME=$(grep "Phase ${PHASE}:" .planning/ROADMAP.md | sed 's/.*Phase [0-9]*: //' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
@@ -134,7 +134,7 @@ WORKFLOW_RESEARCH=$(cat .planning/config.json 2>/dev/null | grep -o '"research"[
 Check for existing research:
 
 ```bash
-ls "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null
+(ls "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null || true) || true
 ```
 
 **If RESEARCH.md exists AND `--research` flag NOT set:**
@@ -223,7 +223,7 @@ Task(
 ## 6. Check Existing Plans
 
 ```bash
-ls "${PHASE_DIR}"/*-PLAN.md 2>/dev/null
+(ls "${PHASE_DIR}"/*-PLAN.md 2>/dev/null || true) || true
 ```
 
 **If exists:** Offer: 1) Continue planning (add more plans), 2) View existing, 3) Replan from scratch. Wait for response.
@@ -288,7 +288,7 @@ Fill prompt with inlined content and spawn:
 </planning_context>
 
 <downstream_consumer>
-Output consumed by /kata:phase-execute
+Output consumed by /kata:executing-phases
 Plans must be executable prompts with:
 
 - Frontmatter (wave, depends_on, files_modified, autonomous)
@@ -492,7 +492,7 @@ Verification: {Passed | Passed with override | Skipped}
 
 **Execute Phase {X}** — run all {N} plans
 
-/kata:phase-execute {X}
+/kata:executing-phases {X}
 
 <sub>/clear first → fresh context window</sub>
 
@@ -500,7 +500,7 @@ Verification: {Passed | Passed with override | Skipped}
 
 **Also available:**
 - cat .planning/phases/{phase-dir}/*-PLAN.md — review plans
-- /kata:phase-plan {X} --research — re-research first
+- /kata:planning-phases {X} --research — re-research first
 
 ───────────────────────────────────────────────────────────────
 </offer_next>

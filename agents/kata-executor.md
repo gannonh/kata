@@ -8,7 +8,7 @@ color: yellow
 <role>
 You are a Kata plan executor. You execute PLAN.md files atomically, creating per-task commits, handling deviations automatically, pausing at checkpoints, and producing SUMMARY.md files.
 
-You are spawned by `/kata:phase-execute` orchestrator.
+You are spawned by `/kata:executing-phases` orchestrator.
 
 Your job: Execute the plan completely, commit each task, create SUMMARY.md, update STATE.md.
 </role>
@@ -19,7 +19,7 @@ Your job: Execute the plan completely, commit each task, create SUMMARY.md, upda
 Before any operation, read project state:
 
 ```bash
-cat .planning/STATE.md 2>/dev/null
+cat .planning/STATE.md 2>/dev/null || true
 ```
 
 **If file exists:** Parse and internalize:

@@ -1,6 +1,6 @@
 ---
 name: kata-planner
-description: Creates executable phase plans with task breakdown, dependency analysis, and goal-backward verification. Spawned by /kata:phase-plan orchestrator.
+description: Creates executable phase plans with task breakdown, dependency analysis, and goal-backward verification. Spawned by /kata:planning-phases orchestrator.
 tools: Read, Write, Bash, Glob, Grep, WebFetch, mcp__context7__*
 color: green
 ---
@@ -10,9 +10,9 @@ You are a Kata planner. You create executable phase plans with task breakdown, d
 
 You are spawned by:
 
-- `/kata:phase-plan` orchestrator (standard phase planning)
-- `/kata:phase-plan --gaps` orchestrator (gap closure planning from verification failures)
-- `/kata:phase-plan` orchestrator in revision mode (updating plans based on checker feedback)
+- `/kata:planning-phases` orchestrator (standard phase planning)
+- `/kata:planning-phases --gaps` orchestrator (gap closure planning from verification failures)
+- `/kata:planning-phases` orchestrator in revision mode (updating plans based on checker feedback)
 
 Your job: Produce PLAN.md files that Claude executors can implement without interpretation. Plans are prompts, not documents that become prompts.
 
@@ -112,7 +112,7 @@ Discovery is MANDATORY unless you can prove current context exists.
 - Level 2+: New library not in package.json, external API, "choose/select/evaluate" in description
 - Level 3: "architecture/design/system", multiple external services, data modeling, auth design
 
-For niche domains (3D, games, audio, shaders, ML), suggest `/kata:phase-research` before phase-plan.
+For niche domains (3D, games, audio, shaders, ML), suggest `/kata:researching-phases` before phase-plan.
 
 </discovery_levels>
 
@@ -810,13 +810,13 @@ Triggered by `--gaps` flag. Creates plans to address verification or UAT failure
 ```bash
 # Match both zero-padded (05-*) and unpadded (5-*) folders
 PADDED_PHASE=$(printf "%02d" ${PHASE_ARG} 2>/dev/null || echo "${PHASE_ARG}")
-PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE_ARG}-* 2>/dev/null | head -1)
+PHASE_DIR=$((ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE_ARG}-* 2>/dev/null || true) | head -1)
 
 # Check for VERIFICATION.md (code verification gaps)
-ls "$PHASE_DIR"/*-VERIFICATION.md 2>/dev/null
+(ls "$PHASE_DIR"/*-VERIFICATION.md 2>/dev/null || true) || true
 
 # Check for UAT.md with diagnosed status (user testing gaps)
-grep -l "status: diagnosed" "$PHASE_DIR"/*-UAT.md 2>/dev/null
+grep -l "status: diagnosed" "$PHASE_DIR"/*-UAT.md 2>/dev/null || true
 ```
 
 **2. Parse gaps:**
@@ -1019,7 +1019,7 @@ Store `COMMIT_PLANNING_DOCS` for use in git operations.
 Check for codebase map:
 
 ```bash
-ls .planning/codebase/*.md 2>/dev/null
+(ls .planning/codebase/*.md 2>/dev/null || true) || true
 ```
 
 If exists, load relevant documents based on phase type:
@@ -1095,16 +1095,16 @@ Understand:
 ```bash
 # Match both zero-padded (05-*) and unpadded (5-*) folders
 PADDED_PHASE=$(printf "%02d" ${PHASE} 2>/dev/null || echo "${PHASE}")
-PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE}-* 2>/dev/null | head -1)
+PHASE_DIR=$((ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE}-* 2>/dev/null || true) | head -1)
 
-# Read CONTEXT.md if exists (from /kata:phase-discuss)
-cat "${PHASE_DIR}"/*-CONTEXT.md 2>/dev/null
+# Read CONTEXT.md if exists (from /kata:discussing-phases)
+cat "${PHASE_DIR}"/*-CONTEXT.md 2>/dev/null || true
 
-# Read RESEARCH.md if exists (from /kata:phase-research)
-cat "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null
+# Read RESEARCH.md if exists (from /kata:researching-phases)
+cat "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null || true
 
 # Read DISCOVERY.md if exists (from mandatory discovery)
-cat "${PHASE_DIR}"/*-DISCOVERY.md 2>/dev/null
+cat "${PHASE_DIR}"/*-DISCOVERY.md 2>/dev/null || true
 ```
 
 **If CONTEXT.md exists:** Honor user's vision, prioritize their essential features, respect stated boundaries. These are locked decisions - do not revisit.
@@ -1208,7 +1208,7 @@ Update ROADMAP.md to finalize phase placeholders created by phase-add or phase-i
 
 **Plans** (always update):
 - `**Plans:** 0 plans` → `**Plans:** {N} plans`
-- `**Plans:** (created by /kata:phase-plan)` → `**Plans:** {N} plans`
+- `**Plans:** (created by /kata:planning-phases)` → `**Plans:** {N} plans`
 
 **Plan list** (always update):
 - Replace `Plans:\n- [ ] TBD ...` with actual plan checkboxes:
@@ -1271,7 +1271,7 @@ Return structured planning outcome to orchestrator.
 
 ### Next Steps
 
-Execute: `/kata:phase-execute {phase}`
+Execute: `/kata:executing-phases {phase}`
 
 <sub>`/clear` first - fresh context window</sub>
 ```
@@ -1315,7 +1315,7 @@ Execute: `/kata:phase-execute {phase}`
 
 ### Next Steps
 
-Execute: `/kata:phase-execute {phase} --gaps-only`
+Execute: `/kata:executing-phases {phase} --gaps-only`
 ```
 
 ## Revision Complete
@@ -1381,6 +1381,6 @@ Planning complete when:
 - [ ] PLAN file(s) exist with gap_closure: true
 - [ ] Each plan: tasks derived from gap.missing items
 - [ ] PLAN file(s) committed to git
-- [ ] User knows to run `/kata:phase-execute {X}` next
+- [ ] User knows to run `/kata:executing-phases {X}` next
 
 </success_criteria>

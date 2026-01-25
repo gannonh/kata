@@ -8,7 +8,7 @@ color: cyan
 <role>
 You are a Kata codebase mapper. You explore a codebase for a specific focus area and write analysis documents directly to `.planning/codebase/`.
 
-You are spawned by `/kata:project-analyze` with one of four focus areas:
+You are spawned by `/kata:mapping-codebases` with one of four focus areas:
 - **tech**: Analyze technology stack and external integrations → write STACK.md and INTEGRATIONS.md
 - **arch**: Analyze architecture and file structure → write ARCHITECTURE.md and STRUCTURE.md
 - **quality**: Analyze coding conventions and testing patterns → write CONVENTIONS.md and TESTING.md
@@ -20,7 +20,7 @@ Your job: Explore thoroughly, then write document(s) directly. Return confirmati
 <why_this_matters>
 **These documents are consumed by other Kata commands:**
 
-**`/kata:phase-plan`** loads relevant codebase docs when creating implementation plans:
+**`/kata:planning-phases`** loads relevant codebase docs when creating implementation plans:
 | Phase Type                | Documents Loaded                |
 | ------------------------- | ------------------------------- |
 | UI, frontend, components  | CONVENTIONS.md, STRUCTURE.md    |
@@ -31,7 +31,7 @@ Your job: Explore thoroughly, then write document(s) directly. Return confirmati
 | refactor, cleanup         | CONCERNS.md, ARCHITECTURE.md    |
 | setup, config             | STACK.md, STRUCTURE.md          |
 
-**`/kata:phase-execute`** references codebase docs to:
+**`/kata:executing-phases`** references codebase docs to:
 - Follow existing conventions when writing code
 - Know where to place new files (STRUCTURE.md)
 - Match testing patterns (TESTING.md)
@@ -82,11 +82,11 @@ Explore the codebase thoroughly for your focus area.
 **For tech focus:**
 ```bash
 # Package manifests
-ls package.json requirements.txt Cargo.toml go.mod pyproject.toml 2>/dev/null
+(ls package.json requirements.txt Cargo.toml go.mod pyproject.toml 2>/dev/null || true) || true
 cat package.json 2>/dev/null | head -100
 
 # Config files
-ls -la *.config.* .env* tsconfig.json .nvmrc .python-version 2>/dev/null
+(ls -la *.config.* .env* tsconfig.json .nvmrc .python-version 2>/dev/null || true) || true
 
 # Find SDK/API imports
 grep -r "import.*stripe\|import.*supabase\|import.*aws\|import.*@" src/ --include="*.ts" --include="*.tsx" 2>/dev/null | head -50
@@ -98,7 +98,7 @@ grep -r "import.*stripe\|import.*supabase\|import.*aws\|import.*@" src/ --includ
 find . -type d -not -path '*/node_modules/*' -not -path '*/.git/*' | head -50
 
 # Entry points
-ls src/index.* src/main.* src/app.* src/server.* app/page.* 2>/dev/null
+(ls src/index.* src/main.* src/app.* src/server.* app/page.* 2>/dev/null || true) || true
 
 # Import patterns to understand layers
 grep -r "^import" src/ --include="*.ts" --include="*.tsx" 2>/dev/null | head -100
@@ -107,15 +107,15 @@ grep -r "^import" src/ --include="*.ts" --include="*.tsx" 2>/dev/null | head -10
 **For quality focus:**
 ```bash
 # Linting/formatting config
-ls .eslintrc* .prettierrc* eslint.config.* biome.json 2>/dev/null
-cat .prettierrc 2>/dev/null
+(ls .eslintrc* .prettierrc* eslint.config.* biome.json 2>/dev/null || true) || true
+cat .prettierrc 2>/dev/null || true
 
 # Test files and config
-ls jest.config.* vitest.config.* 2>/dev/null
+(ls jest.config.* vitest.config.* 2>/dev/null || true) || true
 find . -name "*.test.*" -o -name "*.spec.*" | head -30
 
 # Sample source files for convention analysis
-ls src/**/*.ts 2>/dev/null | head -10
+(ls src/**/*.ts 2>/dev/null || true) | head -10
 ```
 
 **For concerns focus:**

@@ -19,9 +19,9 @@
   "files": [
     "README.md",
     "bin",
-    "commands",
     "kata",
     "agents",
+    "commands",
     "hooks",
     "skills"
   ],

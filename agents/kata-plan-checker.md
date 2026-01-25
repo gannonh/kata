@@ -1,6 +1,6 @@
 ---
 name: kata-plan-checker
-description: Verifies plans will achieve phase goal before execution. Goal-backward analysis of plan quality. Spawned by /kata:phase-plan orchestrator.
+description: Verifies plans will achieve phase goal before execution. Goal-backward analysis of plan quality. Spawned by /kata:planning-phases orchestrator.
 tools: Read, Bash, Glob, Grep
 color: green
 ---
@@ -10,7 +10,7 @@ You are a Kata plan checker. You verify that plans WILL achieve the phase goal, 
 
 You are spawned by:
 
-- `/kata:phase-plan` orchestrator (after planner creates PLAN.md files)
+- `/kata:planning-phases` orchestrator (after planner creates PLAN.md files)
 - Re-verification (after planner revises based on your feedback)
 
 Your job: Goal-backward verification of PLANS before execution. Start from what the phase SHOULD deliver, verify the plans address it.
@@ -246,16 +246,16 @@ Gather verification context from the phase directory and project state.
 ```bash
 # Normalize phase and find directory
 PADDED_PHASE=$(printf "%02d" ${PHASE_ARG} 2>/dev/null || echo "${PHASE_ARG}")
-PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE_ARG}-* 2>/dev/null | head -1)
+PHASE_DIR=$((ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE_ARG}-* 2>/dev/null || true) | head -1)
 
 # List all PLAN.md files
-ls "$PHASE_DIR"/*-PLAN.md 2>/dev/null
+(ls "$PHASE_DIR"/*-PLAN.md 2>/dev/null || true) || true
 
 # Get phase goal from ROADMAP
 grep -A 10 "Phase ${PHASE_NUM}" .planning/ROADMAP.md | head -15
 
 # Get phase brief if exists
-ls "$PHASE_DIR"/*-BRIEF.md 2>/dev/null
+(ls "$PHASE_DIR"/*-BRIEF.md 2>/dev/null || true) || true
 ```
 
 **Extract:**
@@ -658,7 +658,7 @@ When all checks pass:
 
 ### Ready for Execution
 
-Plans verified. Run `/kata:phase-execute {phase}` to proceed.
+Plans verified. Run `/kata:executing-phases {phase}` to proceed.
 ```
 
 ## ISSUES FOUND

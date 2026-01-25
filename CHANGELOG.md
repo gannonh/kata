@@ -5,12 +5,16 @@
 ## [1.1.8] - 2026-01-25
 
 ### Fixed
-- **Reverted skills-only architecture**: Rolled back to v1.0.8 codebase. The v1.1.x skills-only changes (removing commands, `user-invocable: false`) broke natural language invocation entirely.
+- **Reverted skills-only architecture**: Rolled back to v1.0.8 codebase. The v1.1.x skills-only changes broke natural language invocation entirely — skills with `user-invocable: false` were hidden from the Skill tool, and commands with `disable-model-invocation: true` were blocked.
 
 ### Architecture
 - Commands + Skills architecture restored (commands for autocomplete, skills for implementation)
 - Skills: `user-invocable: false`, `disable-model-invocation: false`
 - Commands delegate to skills via Task tool
+
+## [1.1.0 - 1.1.7] - 2026-01-25 (REVERTED)
+
+**These releases attempted a skills-only architecture that broke natural language invocation. Reverted in 1.1.8.**
 
 ## [1.0.8] - 2026-01-24
 
@@ -80,7 +84,7 @@
 Kata 1.0 ships with **Claude Code plugin support** as the recommended installation method.
 
 ### Added
-- **Claude Code plugin distribution**: Install via `/plugin marketplace add gannonh/kata-marketplace` + `/plugin install kata@kata-marketplace`
+- **Claude Code plugin distribution**: Install via `/plugin marketplace add gannonh/kata-marketplace` + `/plugin install kata@gannonh-kata-marketplace`
 - **Dual build system**: `node scripts/build.js` produces both NPM and plugin distributions
 - **Plugin-aware statusline**: Detects installation method (NPM vs plugin) and shows appropriate update commands
 - **CI validation pipelines**: Tests and build artifact validation run before NPM publish and plugin release
@@ -88,7 +92,7 @@ Kata 1.0 ships with **Claude Code plugin support** as the recommended installati
 
 ### Changed
 - **Plugin install is now recommended**: Getting Started section leads with marketplace install, NPM moved to collapsible alternative
-- **Command namespace**: All commands now use `kata:` prefix (e.g., `/kata:help`, `/kata:phase-plan`)
+- **Command namespace**: All commands now use `kata:` prefix (e.g., `/kata:providing-help`, `/kata:planning-phases`)
 - **Hook scripts converted to ES modules**: All hooks now use ESM syntax
 - **Staying Updated section**: Split into separate commands for plugin and NPM users
 

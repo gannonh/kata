@@ -27,15 +27,15 @@ Output: Phase deleted, all subsequent phases renumbered, git commit as historica
 <step name="parse_arguments">
 Parse the command arguments:
 - Argument is the phase number to remove (integer or decimal)
-- Example: `/kata:phase-remove 17` → phase = 17
-- Example: `/kata:phase-remove 16.1` → phase = 16.1
+- Example: `/kata:removing-phases 17` → phase = 17
+- Example: `/kata:removing-phases 16.1` → phase = 16.1
 
 If no argument provided:
 
 ```
 ERROR: Phase number required
-Usage: /kata:phase-remove <phase-number>
-Example: /kata:phase-remove 17
+Usage: /kata:removing-phases <phase-number>
+Example: /kata:removing-phases 17
 ```
 
 Exit.
@@ -45,8 +45,8 @@ Exit.
 Load project state:
 
 ```bash
-cat .planning/STATE.md 2>/dev/null
-cat .planning/ROADMAP.md 2>/dev/null
+cat .planning/STATE.md 2>/dev/null || true
+cat .planning/ROADMAP.md 2>/dev/null || true
 ```
 
 Parse current phase number from STATE.md "Current Position" section.
@@ -81,7 +81,7 @@ Only future phases can be removed:
 - Current phase: {current}
 - Phase {target} is current or completed
 
-To abandon current work, use /kata:phase-pause instead.
+To abandon current work, use /kata:pausing-work instead.
 ```
 
 Exit.
@@ -89,7 +89,7 @@ Exit.
 3. Check for SUMMARY.md files in phase directory:
 
 ```bash
-ls .planning/phases/{target}-*/*-SUMMARY.md 2>/dev/null
+(ls .planning/phases/{target}-*/*-SUMMARY.md 2>/dev/null || true) || true
 ```
 
 If any SUMMARY.md files exist:
@@ -242,8 +242,8 @@ Search for and update phase references inside plan files:
 
 ```bash
 # Find files that reference the old phase numbers
-grep -r "Phase 18" .planning/phases/17-*/ 2>/dev/null
-grep -r "Phase 19" .planning/phases/18-*/ 2>/dev/null
+grep -r "Phase 18" .planning/phases/17-*/ 2>/dev/null || true
+grep -r "Phase 19" .planning/phases/18-*/ 2>/dev/null || true
 # etc.
 ```
 
@@ -292,7 +292,7 @@ Current position: Phase {current} of {new-total}
 ## What's Next
 
 Would you like to:
-- `/kata:project-status` — see updated roadmap status
+- `/kata:tracking-progress` — see updated roadmap status
 - Continue with current phase
 - Review roadmap
 

@@ -1,5 +1,58 @@
 # Project Milestones: Kata
 
+## v1.0.8 Plugin Stability (Shipped: 2026-01-24)
+
+**Delivered:** Skill self-containment architecture for stable plugin distribution
+
+**Phases completed:** 2.1 (5 plans total)
+
+**Key accomplishments:**
+
+- Skills now self-contained — 10 skills bundle their own resources in local `references/` directories
+- Shared directories removed — `kata/templates/`, `kata/workflows/`, `kata/references/` deleted (53 files)
+- Build system simplified — `kata/` removed from COMMON_INCLUDES
+- Agent namespacing fixed — plugin distribution uses `kata:kata-*` namespace
+- Both distributions clean — plugin and npm outputs are fully self-contained
+
+**Stats:**
+
+- 53 files deleted, 28 files created
+- 1 phase, 5 plans
+- 1 day (2026-01-24) — single-day stabilization sprint
+- Includes patches v1.0.8, v1.0.7
+
+**Git range:** `v1.0.5` → `v1.0.8`
+
+**What's next:** v1.1.0 GitHub Integration
+
+---
+
+## v1.0.0 Claude Code Plugin (Shipped: 2026-01-23)
+
+**Delivered:** Kata packaged as Claude Code plugin for marketplace distribution
+
+**Phases completed:** 1, 1.1, 2, 3 (5 plans total)
+
+**Key accomplishments:**
+
+- Plugin manifest created — `.claude-plugin/plugin.json` with all metadata
+- Marketplace distribution — Published to gannonh/kata-marketplace
+- Dual build system — `build.js` produces both NPM and plugin distributions
+- Plugin-aware statusline — Detects installation method, shows appropriate update commands
+- Documentation updated — README with plugin install as primary method
+
+**Stats:**
+
+- 4 phases, 5 plans
+- 2 days (2026-01-22 → 2026-01-23)
+- Followed by rapid patch releases v1.0.1-v1.0.5 addressing distribution issues
+
+**Git range:** `v0.1.8` → `v1.0.0`
+
+**What's next:** v1.0.8 Plugin Stability (stabilize after rapid patches)
+
+---
+
 ## v0.1.5 Skills & Documentation (Shipped: 2026-01-22)
 
 **Delivered:** Complete skills architecture with 14 specialized skills, slash command suite, and testing framework

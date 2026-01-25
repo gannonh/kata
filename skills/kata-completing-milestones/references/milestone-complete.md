@@ -57,7 +57,7 @@ Check if milestone is truly complete:
 
 ```bash
 cat .planning/ROADMAP.md
-ls .planning/phases/*/SUMMARY.md 2>/dev/null | wc -l
+(ls .planning/phases/*/SUMMARY.md 2>/dev/null || true) | wc -l
 ```
 
 **Questions to ask:**
@@ -84,7 +84,7 @@ Total: 4 phases, 8 plans, all complete
 <config-check>
 
 ```bash
-cat .planning/config.json 2>/dev/null
+cat .planning/config.json 2>/dev/null || true
 ```
 
 </config-check>
@@ -134,7 +134,7 @@ git log --oneline --grep="feat(" | head -20
 git diff --stat FIRST_COMMIT..LAST_COMMIT | tail -1
 
 # Count LOC (adapt to language)
-find . -name "*.swift" -o -name "*.ts" -o -name "*.py" | xargs wc -l 2>/dev/null
+find . -name "*.swift" -o -name "*.ts" -o -name "*.py" | xargs wc -l 2>/dev/null || true
 
 # Calculate timeline
 git log --format="%ai" FIRST_COMMIT | tail -1  # Start date
@@ -527,7 +527,7 @@ Archive requirements and prepare for fresh requirements in next milestone.
    ✅ REQUIREMENTS.md deleted (fresh one needed for next milestone)
    ```
 
-**Important:** The next milestone workflow starts with `/kata:milestone-new` which includes requirements definition. PROJECT.md's Validated section carries the cumulative record across milestones.
+**Important:** The next milestone workflow starts with `/kata:starting-milestones` which includes requirements definition. PROJECT.md's Validated section carries the cumulative record across milestones.
 
 </step>
 
@@ -693,7 +693,7 @@ Tag: v[X.Y]
 
 **Start Next Milestone** — questioning → research → requirements → roadmap
 
-`/kata:milestone-new`
+`/kata:starting-milestones`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -755,6 +755,6 @@ Milestone completion is successful when:
 - [ ] STATE.md updated with fresh project reference
 - [ ] Git tag created (v[X.Y])
 - [ ] Milestone commit made (includes archive files and deletion)
-- [ ] User knows next step (/kata:milestone-new)
+- [ ] User knows next step (/kata:starting-milestones)
 
 </success_criteria>

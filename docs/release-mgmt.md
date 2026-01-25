@@ -9,7 +9,7 @@ Kata has two distribution channels:
 | Channel | Repository | Installation |
 |---------|-----------|--------------|
 | **NPM** | [gannonh/kata](https://github.com/gannonh/kata) | `npx @gannonh/kata` |
-| **Plugin** | [gannonh/kata-marketplace](https://github.com/gannonh/kata-marketplace) | `/plugin install kata@kata-marketplace` |
+| **Plugin** | [gannonh/kata-marketplace](https://github.com/gannonh/kata-marketplace) | `/plugin install kata@gannonh-kata-marketplace` |
 
 ## Release Flow
 
@@ -220,7 +220,7 @@ npm run build:plugin
 grep "@./kata/" dist/plugin/skills/kata-executing-phases/SKILL.md  # Should match
 grep -r "@~/.claude/" dist/plugin/  # Should return nothing
 claude --plugin-dir ./dist/plugin
-/kata:help
+/kata:providing-help
 ```
 
 ### Post-Release Smoke Tests
@@ -248,8 +248,8 @@ cat .claude/kata/VERSION
 claude
 
 # In Claude Code, verify commands work
-/kata:help
-/kata:whats-new
+/kata:providing-help
+/kata:showing-whats-new
 
 # Cleanup
 cd .. && rm -rf kata-npx-test
@@ -268,11 +268,11 @@ claude
 
 # In Claude Code:
 /plugin marketplace add gannonh/kata-marketplace
-/plugin install kata@kata-marketplace
+/plugin install kata@gannonh-kata-marketplace
 
 # Verify plugin loaded
-/kata:help
-/kata:whats-new
+/kata:providing-help
+/kata:showing-whats-new
 
 # Verify version matches release
 # Check statusline shows plugin update method (not npx)
@@ -284,13 +284,13 @@ cd .. && rm -rf kata-plugin-test
 ### Verification Checklist
 
 - [ ] NPX: `npx @gannonh/kata@X.Y.Z` installs without errors
-- [ ] NPX: `/kata:help` shows all commands
+- [ ] NPX: `/kata:providing-help` shows all commands
 - [ ] NPX: VERSION file shows correct version
 - [ ] Plugin: Marketplace add succeeds
 - [ ] Plugin: Plugin install succeeds
-- [ ] Plugin: `/kata:help` shows all commands
+- [ ] Plugin: `/kata:providing-help` shows all commands
 - [ ] Plugin: No `~/.claude/` path errors in plugin mode
-- [ ] Both: `/kata:whats-new` shows release changelog
+- [ ] Both: `/kata:showing-whats-new` shows release changelog
 
 ---
 

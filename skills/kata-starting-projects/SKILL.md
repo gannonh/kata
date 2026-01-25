@@ -26,7 +26,7 @@ This is the most leveraged moment in any project. Deep questioning here means be
 - `.planning/ROADMAP.md` — phase structure
 - `.planning/STATE.md` — project memory
 
-**After this command:** Run `/kata:phase-plan 1` to start execution.
+**After this command:** Run `/kata:planning-phases 1` to start execution.
 
 </objective>
 
@@ -47,7 +47,7 @@ This is the most leveraged moment in any project. Deep questioning here means be
 
 1. **Abort if project exists:**
    ```bash
-   [ -f .planning/PROJECT.md ] && echo "ERROR: Project already initialized. Use /kata:project-status" && exit 1
+   [ -f .planning/PROJECT.md ] && echo "ERROR: Project already initialized. Use /kata:tracking-progress" && exit 1
    ```
 
 2. **Initialize git repo in THIS directory** (required even if inside a parent repo):
@@ -81,12 +81,12 @@ Use AskUserQuestion:
 - header: "Existing Code"
 - question: "I detected existing code in this directory. Would you like to map the codebase first?"
 - options:
-  - "Map codebase first" — Run /kata:project-analyze to understand existing architecture (Recommended)
+  - "Map codebase first" — Run /kata:mapping-codebases to understand existing architecture (Recommended)
   - "Skip mapping" — Proceed with project initialization
 
 **If "Map codebase first":**
 ```
-Run `/kata:project-analyze` first, then return to `/kata:project-new`
+Run `/kata:mapping-codebases` first, then return to `/kata:starting-projects`
 ```
 Exit command.
 
@@ -399,7 +399,7 @@ EOF
 )"
 ```
 
-**Note:** Run `/kata:settings-config` anytime to update these preferences.
+**Note:** Run `/kata:configuring-settings` anytime to update these preferences.
 
 **If pr_workflow = Yes:**
 
@@ -1151,14 +1151,14 @@ Present completion with next steps:
 
 **Phase 1: [Phase Name]** — [Goal from ROADMAP.md]
 
-`/kata:phase-discuss 1` — gather context and clarify approach
+`/kata:discussing-phases 1` — gather context and clarify approach
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:phase-plan 1` — skip discussion, plan directly
+- `/kata:planning-phases 1` — skip discussion, plan directly
 
 ───────────────────────────────────────────────────────────────
 
@@ -1199,7 +1199,7 @@ Present completion with next steps:
 - [ ] ROADMAP.md created with phases, requirement mappings, success criteria
 - [ ] STATE.md initialized
 - [ ] REQUIREMENTS.md traceability updated
-- [ ] User knows next step is `/kata:phase-discuss 1`
+- [ ] User knows next step is `/kata:discussing-phases 1`
 
 **Atomic commits:** Each phase commits its artifacts immediately. If context is lost, artifacts persist.
 

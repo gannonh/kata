@@ -1,5 +1,5 @@
 <purpose>
-Validate built features through conversational testing with persistent state. Creates UAT.md that tracks test progress, survives /clear, and feeds gaps into /kata:phase-plan --gaps.
+Validate built features through conversational testing with persistent state. Creates UAT.md that tracks test progress, survives /clear, and feeds gaps into /kata:planning-phases --gaps.
 
 User tests, Claude records. One test at a time. Plain text responses.
 </purpose>
@@ -78,7 +78,7 @@ If no, continue to `create_uat_file`.
 ```
 No active UAT sessions.
 
-Provide a phase number to start testing (e.g., /kata:phase-verify 4)
+Provide a phase number to start testing (e.g., /kata:verifying-work 4)
 ```
 
 **If no active sessions AND $ARGUMENTS provided:**
@@ -94,10 +94,10 @@ Parse $ARGUMENTS as phase number (e.g., "4") or plan number (e.g., "04-02").
 ```bash
 # Find phase directory (match both zero-padded and unpadded)
 PADDED_PHASE=$(printf "%02d" ${PHASE_ARG} 2>/dev/null || echo "${PHASE_ARG}")
-PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE_ARG}-* 2>/dev/null | head -1)
+PHASE_DIR=$((ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE_ARG}-* 2>/dev/null || true) | head -1)
 
 # Find SUMMARY files
-ls "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null
+(ls "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null || true) || true
 ```
 
 Read each SUMMARY.md to extract testable deliverables.
@@ -343,8 +343,8 @@ Present summary:
 ```
 All tests passed. Ready to continue.
 
-- `/kata:phase-plan {next}` — Plan next phase
-- `/kata:phase-execute {next}` — Execute next phase
+- `/kata:planning-phases {next}` — Plan next phase
+- `/kata:executing-phases {next}` — Execute next phase
 ```
 </step>
 
@@ -403,7 +403,7 @@ Task(
 </planning_context>
 
 <downstream_consumer>
-Output consumed by /kata:phase-execute
+Output consumed by /kata:executing-phases
 Plans must be executable prompts.
 </downstream_consumer>
 """,
@@ -510,7 +510,7 @@ Display: `Max iterations reached. {N} issues remain.`
 Offer options:
 1. Force proceed (execute despite issues)
 2. Provide guidance (user gives direction, retry)
-3. Abandon (exit, user runs /kata:phase-plan manually)
+3. Abandon (exit, user runs /kata:planning-phases manually)
 
 Wait for user response.
 </step>
@@ -538,7 +538,7 @@ Plans verified and ready for execution.
 
 **Execute fixes** — run fix plans
 
-`/clear` then `/kata:phase-execute {phase} --gaps-only`
+`/clear` then `/kata:executing-phases {phase} --gaps-only`
 
 ───────────────────────────────────────────────────────────────
 
@@ -592,5 +592,5 @@ Default to **major** if unclear. User can correct if needed.
 - [ ] If issues: kata-planner creates fix plans (gap_closure mode)
 - [ ] If issues: kata-plan-checker verifies fix plans
 - [ ] If issues: revision loop until plans pass (max 3 iterations)
-- [ ] Ready for `/kata:phase-execute --gaps-only` when complete
+- [ ] Ready for `/kata:executing-phases --gaps-only` when complete
 </success_criteria>

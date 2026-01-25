@@ -34,7 +34,7 @@ Then verify each level against the actual codebase.
 Before starting fresh, check if a previous VERIFICATION.md exists:
 
 ```bash
-cat "$PHASE_DIR"/*-VERIFICATION.md 2>/dev/null
+cat "$PHASE_DIR"/*-VERIFICATION.md 2>/dev/null || true
 ```
 
 **If previous verification exists with `gaps:` section → RE-VERIFICATION MODE:**
@@ -57,14 +57,14 @@ Gather all verification context from the phase directory and project state.
 
 ```bash
 # Phase directory (provided in prompt)
-ls "$PHASE_DIR"/*-PLAN.md 2>/dev/null
-ls "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null
+(ls "$PHASE_DIR"/*-PLAN.md 2>/dev/null || true) || true
+(ls "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null || true) || true
 
 # Phase goal from ROADMAP
 grep -A 5 "Phase ${PHASE_NUM}" .planning/ROADMAP.md
 
 # Requirements mapped to this phase
-grep -E "^| ${PHASE_NUM}" .planning/REQUIREMENTS.md 2>/dev/null
+grep -E "^| ${PHASE_NUM}" .planning/REQUIREMENTS.md 2>/dev/null || true
 ```
 
 Extract phase goal from ROADMAP.md. This is the outcome to verify, not the tasks.
@@ -78,7 +78,7 @@ Determine what must be verified. In re-verification mode, must-haves come from S
 Check if any PLAN.md has `must_haves` in frontmatter:
 
 ```bash
-grep -l "must_haves:" "$PHASE_DIR"/*-PLAN.md 2>/dev/null
+grep -l "must_haves:" "$PHASE_DIR"/*-PLAN.md 2>/dev/null || true
 ```
 
 If found, extract and use:
@@ -372,7 +372,7 @@ verify_state_render_link() {
 If REQUIREMENTS.md exists and has requirements mapped to this phase:
 
 ```bash
-grep -E "Phase ${PHASE_NUM}" .planning/REQUIREMENTS.md 2>/dev/null
+grep -E "Phase ${PHASE_NUM}" .planning/REQUIREMENTS.md 2>/dev/null || true
 ```
 
 For each requirement:
@@ -406,13 +406,13 @@ scan_antipatterns() {
     [ -f "$file" ] || continue
 
     # TODO/FIXME comments
-    grep -n -E "TODO|FIXME|XXX|HACK" "$file" 2>/dev/null
+    grep -n -E "TODO|FIXME|XXX|HACK" "$file" 2>/dev/null || true
 
     # Placeholder content
-    grep -n -E "placeholder|coming soon|will be here" "$file" -i 2>/dev/null
+    grep -n -E "placeholder|coming soon|will be here" "$file" -i 2>/dev/null || true
 
     # Empty implementations
-    grep -n -E "return null|return \{\}|return \[\]|=> \{\}" "$file" 2>/dev/null
+    grep -n -E "return null|return \{\}|return \[\]|=> \{\}" "$file" 2>/dev/null || true
 
     # Console.log only implementations
     grep -n -B 2 -A 2 "console\.log" "$file" 2>/dev/null | grep -E "^\s*(const|function|=>)"
@@ -486,7 +486,7 @@ score = (verified_truths / total_truths)
 
 ## Step 10: Structure Gap Output (If Gaps Found)
 
-When gaps are found, structure them for consumption by `/kata:phase-plan --gaps`.
+When gaps are found, structure them for consumption by `/kata:planning-phases --gaps`.
 
 **Output structured gaps in YAML frontmatter:**
 
@@ -527,7 +527,7 @@ gaps:
 - `artifacts`: Which files have issues and what's wrong
 - `missing`: Specific things that need to be added/fixed
 
-The planner (`/kata:phase-plan --gaps`) reads this gap analysis and creates appropriate plans.
+The planner (`/kata:planning-phases --gaps`) reads this gap analysis and creates appropriate plans.
 
 **Group related gaps by concern** when possible — if multiple truths fail because of the same root cause (e.g., "Chat component is a stub"), note this in the reason to help the planner create focused plans.
 
@@ -648,7 +648,7 @@ All must-haves verified. Phase goal achieved. Ready to proceed.
 2. **{Truth 2}** — {reason}
    - Missing: {what needs to be added}
 
-Structured gaps in VERIFICATION.md frontmatter for `/kata:phase-plan --gaps`.
+Structured gaps in VERIFICATION.md frontmatter for `/kata:planning-phases --gaps`.
 
 {If human_needed:}
 
@@ -674,7 +674,7 @@ Automated checks passed. Awaiting human verification.
 
 **DO NOT skip key link verification.** This is where 80% of stubs hide. The pieces exist but aren't connected.
 
-**Structure gaps in YAML frontmatter.** The planner (`/kata:phase-plan --gaps`) creates plans from your analysis.
+**Structure gaps in YAML frontmatter.** The planner (`/kata:planning-phases --gaps`) creates plans from your analysis.
 
 **DO flag for human verification when uncertain.** If you can't verify programmatically (visual, real-time, external service), say so explicitly.
 

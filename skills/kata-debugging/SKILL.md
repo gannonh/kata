@@ -23,7 +23,7 @@ User's issue: $ARGUMENTS
 
 Check for active sessions:
 ```bash
-ls .planning/debug/*.md 2>/dev/null | grep -v resolved | head -5
+(ls .planning/debug/*.md 2>/dev/null || true) | grep -v resolved | head -5
 ```
 </context>
 
@@ -112,7 +112,7 @@ Task(
 - Display root cause and evidence summary
 - Offer options:
   - "Fix now" - spawn fix subagent
-  - "Plan fix" - suggest /kata:phase-plan --gaps
+  - "Plan fix" - suggest /kata:planning-phases --gaps
   - "Manual fix" - done
 
 **If `## CHECKPOINT REACHED`:**

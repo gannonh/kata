@@ -33,7 +33,7 @@ Store resolved model for use in Task calls below.
 Before any operation, read project state:
 
 ```bash
-cat .planning/STATE.md 2>/dev/null
+cat .planning/STATE.md 2>/dev/null || true
 ```
 
 **If file exists:** Parse and internalize:
@@ -78,8 +78,8 @@ Find the next plan to execute:
 cat .planning/ROADMAP.md
 # Look for phase with "In progress" status
 # Then find plans in that phase
-ls .planning/phases/XX-name/*-PLAN.md 2>/dev/null | sort
-ls .planning/phases/XX-name/*-SUMMARY.md 2>/dev/null | sort
+(ls .planning/phases/XX-name/*-PLAN.md 2>/dev/null || true) | sort
+(ls .planning/phases/XX-name/*-SUMMARY.md 2>/dev/null || true) | sort
 ```
 
 **Logic:**
@@ -111,7 +111,7 @@ Confirm with user if ambiguous.
 
 <config-check>
 ```bash
-cat .planning/config.json 2>/dev/null
+cat .planning/config.json 2>/dev/null || true
 ```
 </config-check>
 
@@ -564,7 +564,7 @@ Before executing, check if previous phase had issues:
 
 ```bash
 # Find previous phase summary
-ls .planning/phases/*/SUMMARY.md 2>/dev/null | sort -r | head -2 | tail -1
+(ls .planning/phases/*/SUMMARY.md 2>/dev/null || true) | sort -r | head -2 | tail -1
 ```
 
 If previous phase SUMMARY.md has "Issues Encountered" != "None" or "Next Phase Readiness" mentions blockers:
@@ -1630,7 +1630,7 @@ Check what changed across all task commits in this plan:
 FIRST_TASK=$(git log --oneline --grep="feat({phase}-{plan}):" --grep="fix({phase}-{plan}):" --grep="test({phase}-{plan}):" --reverse | head -1 | cut -d' ' -f1)
 
 # Get all changes from first task through now
-git diff --name-only ${FIRST_TASK}^..HEAD 2>/dev/null
+git diff --name-only ${FIRST_TASK}^..HEAD 2>/dev/null || true
 ```
 
 **Update only if structural changes occurred:**
@@ -1695,8 +1695,8 @@ This warning appears BEFORE "Plan complete" messaging. User sees setup requireme
 List files in the phase directory:
 
 ```bash
-ls -1 .planning/phases/[current-phase-dir]/*-PLAN.md 2>/dev/null | wc -l
-ls -1 .planning/phases/[current-phase-dir]/*-SUMMARY.md 2>/dev/null | wc -l
+(ls -1 .planning/phases/[current-phase-dir]/*-PLAN.md 2>/dev/null || true) | wc -l
+(ls -1 .planning/phases/[current-phase-dir]/*-SUMMARY.md 2>/dev/null || true) | wc -l
 ```
 
 State the counts: "This phase has [X] plans and [Y] summaries."
@@ -1744,14 +1744,14 @@ Summary: .planning/phases/{phase-dir}/{phase}-{plan}-SUMMARY.md
 
 **{phase}-{next-plan}: [Plan Name]** — [objective from next PLAN.md]
 
-`/kata:phase-execute {phase}`
+`/kata:executing-phases {phase}`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:phase-verify {phase}-{plan}` — manual acceptance testing before continuing
+- `/kata:verifying-work {phase}-{plan}` — manual acceptance testing before continuing
 - Review what was built before continuing
 
 ---
@@ -1805,15 +1805,15 @@ All {Y} plans finished.
 
 **Phase {Z+1}: {Next Phase Name}** — {Goal from ROADMAP.md}
 
-`/kata:phase-plan {Z+1}`
+`/kata:planning-phases {Z+1}`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:phase-verify {Z}` — manual acceptance testing before continuing
-- `/kata:phase-discuss {Z+1}` — gather context first
+- `/kata:verifying-work {Z}` — manual acceptance testing before continuing
+- `/kata:discussing-phases {Z+1}` — gather context first
 - Review phase accomplishments before continuing
 
 ---
@@ -1843,15 +1843,15 @@ All {Y} plans finished.
 
 **Complete Milestone** — archive and prepare for next
 
-`/kata:milestone-complete`
+`/kata:completing-milestones`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:phase-verify` — manual acceptance testing before completing milestone
-- `/kata:phase-add <description>` — add another phase before completing
+- `/kata:verifying-work` — manual acceptance testing before completing milestone
+- `/kata:adding-phases <description>` — add another phase before completing
 - Review accomplishments before archiving
 
 ---

@@ -29,8 +29,8 @@ Focus area: $ARGUMENTS (optional - if provided, tells agents to focus on specifi
 Check for .planning/STATE.md - loads context if project already initialized
 
 **This command can run:**
-- Before /kata:project-new (brownfield codebases) - creates codebase map first
-- After /kata:project-new (greenfield codebases) - updates codebase map as code evolves
+- Before /kata:starting-projects (brownfield codebases) - creates codebase map first
+- After /kata:starting-projects (greenfield codebases) - updates codebase map as code evolves
 - Anytime to refresh codebase understanding
 </context>
 
@@ -58,7 +58,7 @@ Check for .planning/STATE.md - loads context if project already initialized
 4. Wait for agents to complete, collect confirmations (NOT document contents)
 5. Verify all 7 documents exist with line counts
 6. Commit codebase map
-7. Offer next steps (typically: /kata:project-new or /kata:phase-plan)
+7. Offer next steps (typically: /kata:starting-projects or /kata:planning-phases)
 </process>
 
 <success_criteria>

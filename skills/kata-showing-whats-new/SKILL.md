@@ -23,7 +23,7 @@ Read installed version from VERSION file (checking plugin context first):
 
 ```bash
 if [ -n "$CLAUDE_PLUGIN_ROOT" ]; then
-  cat "$CLAUDE_PLUGIN_ROOT/kata/VERSION" 2>/dev/null
+  cat "$CLAUDE_PLUGIN_ROOT/kata/VERSION" 2>/dev/null || true
 elif [ -f ~/.claude/kata/VERSION ]; then
   cat ~/.claude/kata/VERSION
 elif [ -f ./.claude/kata/VERSION ]; then
@@ -57,7 +57,7 @@ Use WebFetch tool with:
 **If fetch fails:**
 Fall back to local changelog:
 ```bash
-cat $KATA_BASE/CHANGELOG.md 2>/dev/null
+cat $KATA_BASE/CHANGELOG.md 2>/dev/null || true
 ```
 
 Note to user: "Couldn't check for updates (offline or GitHub unavailable). Showing local changelog."

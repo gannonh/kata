@@ -7,9 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Kata is a **spec-driven development framework** for Claude Code. It's a meta-prompting and context engineering system that helps Claude build software systematically through structured workflows: requirements gathering → research → planning → execution → verification.
 
 **Core Architecture:**
-- **Commands** (slash commands in `commands/kata/`) — Thin orchestrators that delegate to workflows
-- **Workflows** (`kata/workflows/`) — Detailed process logic with step-by-step execution
-- **Agents** (`agents/kata-*.md`) — Specialized subagents for specific tasks (planning, execution, verification, debugging)
+- **Skills** (`skills/kata-*/SKILL.md`) — Primary interface for all Kata workflows, invoked via `/kata:skill-name` (plugin) or `/kata-skill-name` (NPX)
+- **Agents** (`agents/kata-*.md`) — Specialized subagents spawned by skills for specific tasks (planning, execution, verification, debugging)
 - **Templates** (`kata/templates/`) — Structured output formats (PROJECT.md, PLAN.md, etc.)
 - **References** (`kata/references/`) — Deep-dive documentation on concepts and patterns
 
@@ -24,18 +23,16 @@ Kata is a **spec-driven development framework** for Claude Code. It's a meta-pro
 node bin/install.js --local
 
 # Verify installation (in Claude Code)
-/kata:help
+/kata:providing-help      # plugin
+/kata-help      # NPX
 
 # Update local install after changes
 node bin/install.js --local
 
 # Verify skills installed
-ls ~/.claude/skills/kata-*  # global
-ls .claude/skills/kata-*    # local
-
-# Verify commands installed
-ls ~/.claude/commands/kata/  # global
-ls .claude/commands/kata/    # local
+ls ~/.claude/skills/kata-*   # NPX global
+ls .claude/skills/kata-*     # NPX local
+ls .claude/skills/*          # Plugin (kata- prefixes stripped)
 ```
 
 ### Using Kata for Kata Development
@@ -58,10 +55,10 @@ ls .planning/phases/[current-phase]/
 ```
 
 **Common workflow when working on Kata:**
-1. Check progress: "What's the status?" or `/kata:project-status`
-2. Plan phase: "Plan phase [N]" or `/kata:phase-plan [N]`
-3. Execute: "Execute phase [N]" or `/kata:phase-execute [N]`
-4. Verify: "Verify phase [N]" or `/kata:work-verify [N]`
+1. Check progress: "What's the status?" or `/kata:tracking-progress`
+2. Plan phase: "Plan phase [N]" or `/kata:planning-phases [N]`
+3. Execute: "Execute phase [N]" or `/kata:executing-phases [N]`
+4. Verify: "Verify phase [N]" or `/kata:verifying-phases [N]`
 
 ## Architecture: Files Teach Claude
 
@@ -83,37 +80,36 @@ Kata uses a thin orchestrator + specialized agents pattern:
 
 ## Skills Architecture
 
-Kata provides skills for autonomous invocation alongside slash commands for deterministic execution.
+Skills are the primary interface for all Kata workflows. They respond to both natural language and explicit slash command invocation.
 
-### Skills vs Commands
+### Invocation Syntax
 
-| Aspect      | Skills                                | Commands                           |
-| ----------- | ------------------------------------- | ---------------------------------- |
-| Invocation  | Autonomous from natural language      | Explicit with `/kata:command-name` |
-| Arguments   | Extracted from conversational context | From command context               |
-| Use case    | "Help me plan phase 2"                | `/kata:phase-plan 2`               |
-| Frontmatter | `user-invocable: false`               | `disable-model-invocation: true`   |
-| Delegation  | Respond to natural language           | Spawn skills via Task tool         |
+| Installation | Syntax | Example |
+| ------------ | ------ | ------- |
+| Plugin | `/kata:skill-name` | `/kata:planning-phases 1` |
+| NPX | `/kata-skill-name` | `/kata-planning-phases 1` |
 
 **Key points:**
-- **Skills** respond to natural language (e.g., "plan phase 2", "what's the status") but cannot be invoked directly with `/skill-name` (controlled by `user-invocable: false`)
-- **Commands** provide explicit invocation (e.g., `/kata:phase-plan 2`, `/kata:project-status`) and delegate to skills via Task tool
-- Both work together: commands for deterministic invocation, skills for conversational interaction
+- **Natural language works:** "plan phase 2", "what's the status", "execute the phase"
+- **Explicit invocation works:** Use the slash command syntax for precision
+- **All skills are user-invocable:** Direct `/` menu access and natural language routing
 
 ### Available Skills
 
-Skills are installed to `~/.claude/skills/` (global) or `.claude/skills/` (local):
+Skills are installed to:
+- **Plugin:** `.claude/skills/` (prefixes stripped for clean `/kata:skill-name` invocation)
+- **NPX:** `~/.claude/skills/kata-*` (global) or `.claude/skills/kata-*` (local)
 
-| Skill                           | Purpose                        | Sub-agents Spawned                                         |
-| ------------------------------- | ------------------------------ | ---------------------------------------------------------- |
-| `kata-planning-phases`          | Phase planning, task breakdown | kata-planner, kata-plan-checker                            |
-| `kata-execution`                | Plan execution, checkpoints    | kata-executor                                              |
-| `kata-verification-and-uat`     | Goal verification, UAT         | kata-verifier, kata-debugger                               |
-| `kata-starting-project-news`    | New project setup              | kata-project-researcher, kata-roadmapper                   |
-| `kata-manageing-milestones`     | Milestone operations           | kata-roadmapper                                            |
-| `kata-managing-project-roadmap` | Phase operations               | kata-roadmapper                                            |
-| `kata-researching-phases`       | Domain research                | kata-phase-researcher, kata-researching-phases-synthesizer |
-| `kata-project-status-utilities` | Progress, debug, mapping       | kata-debugger, kata-codebase-mapper                        |
+| Skill (source) | Invocation (plugin) | Purpose | Sub-agents Spawned |
+| -------------- | ------------------- | ------- | ------------------ |
+| `kata-planning-phases` | `/kata:planning-phases` | Phase planning, task breakdown | kata-planner, kata-plan-checker |
+| `kata-executing-phases` | `/kata:executing-phases` | Plan execution, checkpoints | kata-executor |
+| `kata-verifying-phases` | `/kata:verifying-phases` | Goal verification, UAT | kata-verifier, kata-debugger |
+| `kata-starting-projects` | `/kata:starting-projects` | New project setup | kata-project-researcher, kata-roadmapper |
+| `kata-managing-milestones` | `/kata:managing-milestones` | Milestone operations | kata-roadmapper |
+| `kata-managing-roadmap` | `/kata:managing-roadmap` | Phase operations | kata-roadmapper |
+| `kata-researching-phases` | `/kata:researching-phases` | Domain research | kata-phase-researcher |
+| `kata-project-status` | `/kata:tracking-progress` | Progress, debug, mapping | kata-debugger, kata-codebase-mapper |
 
 ### Skill Naming Best Practices
 
@@ -160,7 +156,7 @@ Node.js installer that copies Kata files to Claude Code's plugin directory:
 **Key behavior:**
 - Expands `~` to home directory for container compatibility
 - Respects `CLAUDE_CONFIG_DIR` environment variable
-- Copies: `commands/`, `kata/`, `agents/`, `hooks/`, `skills/`
+- Copies: `skills/`, `agents/`, `hooks/`
 
 ## Working with Planning Files
 

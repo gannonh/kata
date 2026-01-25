@@ -4,7 +4,7 @@
 
 A spec-driven development framework for Claude Code. Brings structured, reliable AI development to teams without changing their existing tools. Teams use Kata's quality-producing process inside the tools they already love.
 
-**Current state:** v0.1.5 shipped — 14 skills, 25 slash commands, test harness. Starting v0.1.9 Claude Code Plugin.
+**Current state:** v1.0.6 shipped — Plugin stability through skill self-containment. 10 skills now bundle their own resources.
 
 ## Core Value
 
@@ -18,8 +18,10 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Skills architecture — v0.1.5 (14 skills as orchestrators, spawn sub-agents via Task tool)
 - Slash command suite — v0.1.5 (25 commands delegating to skills)
 - Test harness — v0.1.5 (CLI-based skill testing with `claude "prompt"`)
+- Claude Code plugin — v1.0.0 (plugin manifest, marketplace distribution)
+- Skill self-containment — v1.0.6 (skills bundle own resources, no shared kata/ dependencies)
 
-### Active (v0.1.10 GitHub Integration)
+### Active (v1.1.0 GitHub Integration)
 
 - [ ] Config-driven integration — enable/disable via .planning/config.json
 - [ ] GitHub Milestone creation — milestone-new creates GH Milestone
@@ -105,23 +107,23 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 | Kata Milestone → GH Milestone         | Use GitHub's native feature for version tracking                             | — Pending     |
 | Phase → Issue, Plan → Checklist       | Right granularity — phases are coordination unit, plans are execution detail | — Pending     |
 
-## Current Milestone: v0.1.9 Claude Code Plugin
+## Next Milestone: v1.1.0 GitHub Integration
 
-**Goal:** Package and publish Kata as a Claude Code plugin for easy distribution
+**Goal:** Enable GitHub-integrated development workflow for teams
 
 **Target features:**
-- Plugin manifest (`.claude-plugin/plugin.json`) correctly configured
-- Plugin directory structure (`commands/`, `agents/`, `skills/`, `hooks/`)
-- All Kata components available through plugin namespace (`/kata:*`)
-- Published to @gannonh Claude Code plugin marketplace repository
-- Installation via `/plugin install kata@gannonh-plugins` documented
-- Local testing via `--plugin-dir` validated
+- Config-driven integration — enable/disable via `.planning/config.json`
+- GitHub Milestone creation — `/kata:starting-milestones` creates GH Milestone
+- Phase issue creation — phases become GitHub Issues with `phase` label
+- Plan checklist sync — plans shown as checklist items in phase issues
+- PR creation at phase completion — `/kata:executing-phases` creates PR with auto-linking
 
 **Approach:**
-- Restructure repository to match Claude Code plugin conventions
-- Create `.claude-plugin/plugin.json` manifest
-- Create marketplace repository with `marketplace.json`
-- Test with `claude --plugin-dir ./` before publishing
+- Phase 1: Audit existing workflows, establish config schema
+- Phase 2: Onboarding integration, milestone creation
+- Phase 3: Phase issues with labels and metadata
+- Phase 4: Plan sync with checklist updates
+- Phase 5: PR integration with auto-linking
 
 ---
-*Last updated: 2026-01-22 — v0.1.9 milestone started*
+*Last updated: 2026-01-24 — v1.0.6 milestone shipped*

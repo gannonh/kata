@@ -37,7 +37,7 @@ Store resolved models for use in Task calls below.
 Before any operation, read project state:
 
 ```bash
-cat .planning/STATE.md 2>/dev/null
+cat .planning/STATE.md 2>/dev/null || true
 ```
 
 **If file exists:** Parse and internalize:
@@ -73,13 +73,13 @@ Confirm phase exists and has plans:
 ```bash
 # Match both zero-padded (05-*) and unpadded (5-*) folders
 PADDED_PHASE=$(printf "%02d" ${PHASE_ARG} 2>/dev/null || echo "${PHASE_ARG}")
-PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE_ARG}-* 2>/dev/null | head -1)
+PHASE_DIR=$((ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE_ARG}-* 2>/dev/null || true) | head -1)
 if [ -z "$PHASE_DIR" ]; then
   echo "ERROR: No phase directory matching '${PHASE_ARG}'"
   exit 1
 fi
 
-PLAN_COUNT=$(ls -1 "$PHASE_DIR"/*-PLAN.md 2>/dev/null | wc -l | tr -d ' ')
+PLAN_COUNT=$((ls -1 "$PHASE_DIR"/*-PLAN.md 2>/dev/null || true) | wc -l | tr -d ' ')
 if [ "$PLAN_COUNT" -eq 0 ]; then
   echo "ERROR: No plans found in $PHASE_DIR"
   exit 1
@@ -94,10 +94,10 @@ List all plans and extract metadata:
 
 ```bash
 # Get all plans
-ls -1 "$PHASE_DIR"/*-PLAN.md 2>/dev/null | sort
+(ls -1 "$PHASE_DIR"/*-PLAN.md 2>/dev/null || true) | sort
 
 # Get completed plans (have SUMMARY.md)
-ls -1 "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null | sort
+(ls -1 "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null || true) | sort
 ```
 
 For each plan, read frontmatter to extract:
@@ -141,7 +141,7 @@ waves = {
 }
 ```
 
-**No dependency analysis needed.** Wave numbers are pre-computed during `/kata:phase-plan`.
+**No dependency analysis needed.** Wave numbers are pre-computed during `/kata:planning-phases`.
 
 Report wave structure with context:
 ```
@@ -427,7 +427,7 @@ grep "^status:" "$PHASE_DIR"/*-VERIFICATION.md | cut -d: -f2 | tr -d ' '
 | -------------- | ------------------------------------------------------------ |
 | `passed`       | Continue to update_roadmap                                   |
 | `human_needed` | Present items to user, get approval or feedback              |
-| `gaps_found`   | Present gap summary, offer `/kata:phase-plan {phase} --gaps` |
+| `gaps_found`   | Present gap summary, offer `/kata:planning-phases {phase} --gaps` |
 
 **If passed:**
 
@@ -474,7 +474,7 @@ Present gaps and offer next command:
 
 **Plan gap closure** — create additional plans to complete the phase
 
-`/kata:phase-plan {X} --gaps`
+`/kata:planning-phases {X} --gaps`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -482,13 +482,13 @@ Present gaps and offer next command:
 
 **Also available:**
 - `cat {phase_dir}/{phase}-VERIFICATION.md` — see full report
-- `/kata:phase-verify {X}` — manual testing before planning
+- `/kata:verifying-work {X}` — manual testing before planning
 ```
 
-User runs `/kata:phase-plan {X} --gaps` which:
+User runs `/kata:planning-phases {X} --gaps` which:
 1. Reads VERIFICATION.md gaps
 2. Creates additional plans (04, 05, etc.) with `gap_closure: true` to close gaps
-3. User then runs `/kata:phase-execute {X} --gaps-only`
+3. User then runs `/kata:executing-phases {X} --gaps-only`
 4. phase-execute runs only gap closure plans (04-05)
 5. Verifier runs again after new plans complete
 
@@ -532,7 +532,7 @@ Present next steps based on milestone status:
 
 **Phase {X+1}: {Name}** — {Goal}
 
-`/kata:phase-plan {X+1}`
+`/kata:planning-phases {X+1}`
 
 <sub>`/clear` first for fresh context</sub>
 ```
@@ -543,7 +543,7 @@ MILESTONE COMPLETE!
 
 All {N} phases executed.
 
-`/kata:milestone-complete`
+`/kata:completing-milestones`
 ```
 </step>
 
@@ -598,7 +598,7 @@ Each subagent: Fresh 200k context
 
 If phase execution was interrupted (context limit, user exit, error):
 
-1. Run `/kata:phase-execute {phase}` again
+1. Run `/kata:executing-phases {phase}` again
 2. discover_plans finds completed SUMMARYs
 3. Skips completed plans
 4. Resumes from first incomplete plan

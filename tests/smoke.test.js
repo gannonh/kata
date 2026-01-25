@@ -78,7 +78,7 @@ describe('NPX Install Smoke Test', () => {
   test('install creates commands directory', () => {
     assert.ok(
       fs.existsSync(path.join(npxTestDir, '.claude/commands')),
-      '.claude/commands directory should exist'
+      '.claude/commands directory should exist for autocomplete'
     );
   });
 
@@ -116,10 +116,11 @@ describe('NPX Install Smoke Test', () => {
     }
   });
 
-  test('kata:help command file exists', () => {
+  test('providing-help skill exists (replaces kata:help command)', () => {
+    // Phase 2.2: Commands removed, skills are the primary interface
     assert.ok(
-      fs.existsSync(path.join(npxTestDir, '.claude/commands/kata/help.md')),
-      'kata:help command should exist'
+      fs.existsSync(path.join(npxTestDir, '.claude/skills/kata-providing-help/SKILL.md')),
+      'kata-providing-help skill should exist'
     );
   });
 

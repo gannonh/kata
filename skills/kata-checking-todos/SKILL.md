@@ -25,7 +25,7 @@ Enables reviewing captured ideas and deciding what to work on next.
 
 <step name="check_exist">
 ```bash
-TODO_COUNT=$(ls .planning/todos/pending/*.md 2>/dev/null | wc -l | tr -d ' ')
+TODO_COUNT=$((ls .planning/todos/pending/*.md 2>/dev/null || true) | wc -l | tr -d ' ')
 echo "Pending todos: $TODO_COUNT"
 ```
 
@@ -33,14 +33,14 @@ If count is 0:
 ```
 No pending todos.
 
-Todos are captured during work sessions with /kata:todos-add.
+Todos are captured during work sessions with /kata:adding-todos.
 
 ---
 
 Would you like to:
 
-1. Continue with current phase (/kata:project-status)
-2. Add a todo now (/kata:todos-add)
+1. Continue with current phase (/kata:tracking-progress)
+2. Add a todo now (/kata:adding-todos)
 ```
 
 Exit.
@@ -48,8 +48,8 @@ Exit.
 
 <step name="parse_filter">
 Check for area filter in arguments:
-- `/kata:todos-lists` → show all
-- `/kata:todos-lists api` → filter to area:api only
+- `/kata:checking-todos` → show all
+- `/kata:checking-todos api` → filter to area:api only
 </step>
 
 <step name="list_todos">
@@ -74,7 +74,7 @@ Pending Todos:
 ---
 
 Reply with a number to view details, or:
-- `/kata:todos-lists [area]` to filter by area
+- `/kata:checking-todos [area]` to filter by area
 - `q` to exit
 ```
 
@@ -138,7 +138,7 @@ Use AskUserQuestion:
 - question: "What would you like to do with this todo?"
 - options:
   - "Work on it now" — move to done, start working
-  - "Create a phase" — /kata:phase-add with this scope
+  - "Create a phase" — /kata:adding-phases with this scope
   - "Brainstorm approach" — think through before deciding
   - "Put it back" — return to list
 </step>
@@ -154,7 +154,7 @@ Update STATE.md todo count. Present problem/solution context. Begin work or ask 
 Note todo reference in phase planning notes. Keep in pending. Return to list or exit.
 
 **Create a phase:**
-Display: `/kata:phase-add [description from todo]`
+Display: `/kata:adding-phases [description from todo]`
 Keep in pending. User runs command in fresh context.
 
 **Brainstorm approach:**
@@ -168,7 +168,7 @@ Return to list_todos step.
 After any action that changes todo count:
 
 ```bash
-ls .planning/todos/pending/*.md 2>/dev/null | wc -l
+(ls .planning/todos/pending/*.md 2>/dev/null || true) | wc -l
 ```
 
 Update STATE.md "### Pending Todos" section if exists.
@@ -213,7 +213,7 @@ Confirm: "Committed: docs: start work on todo - [title]"
 <anti_patterns>
 - Don't delete todos — move to done/ when work begins
 - Don't start work without moving to done/ first
-- Don't create plans from this command — route to /kata:phase-plan or /kata:phase-add
+- Don't create plans from this command — route to /kata:planning-phases or /kata:adding-phases
 </anti_patterns>
 
 <success_criteria>

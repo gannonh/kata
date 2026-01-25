@@ -68,9 +68,10 @@ jobs:
           # Verify critical files exist in dist
           test -f dist/npm/bin/install.js
           test -f dist/npm/package.json
-          test -d dist/npm/commands
           test -d dist/npm/skills
+          test -d dist/npm/commands
           test -d dist/npm/hooks
+          test -d dist/npm/agents
           echo "✓ All required files present"
 
       - name: Publish to npm

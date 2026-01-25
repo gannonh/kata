@@ -24,7 +24,7 @@ This is the brownfield equivalent of project-new. The project exists, PROJECT.md
 - `.planning/ROADMAP.md` — phase structure (continues numbering)
 - `.planning/STATE.md` — reset for new milestone
 
-**After this command:** Run `/kata:phase-plan [N]` to start execution.
+**After this command:** Run `/kata:planning-phases [N]` to start execution.
 </objective>
 
 <execution_context>
@@ -43,7 +43,7 @@ Milestone name: $ARGUMENTS (optional - will prompt if not provided)
 @.planning/MILESTONES.md
 @.planning/config.json
 
-**Load milestone context (if exists, from /kata:discuss-milestone):**
+**Load milestone context (if exists):**
 @.planning/MILESTONE-CONTEXT.md
 </context>
 
@@ -54,7 +54,7 @@ Milestone name: $ARGUMENTS (optional - will prompt if not provided)
 - Read PROJECT.md (existing project, Validated requirements, decisions)
 - Read MILESTONES.md (what shipped previously)
 - Read STATE.md (pending todos, blockers)
-- Check for MILESTONE-CONTEXT.md (from /kata:discuss-milestone)
+- Check for MILESTONE-CONTEXT.md (if exists)
 
 ## Phase 2: Gather Milestone Goals
 
@@ -690,14 +690,14 @@ Present completion with next steps:
 
 **Phase [N]: [Phase Name]** — [Goal from ROADMAP.md]
 
-`/kata:phase-discuss [N]` — gather context and clarify approach
+`/kata:discussing-phases [N]` — gather context and clarify approach
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:phase-plan [N]` — skip discussion, plan directly
+- `/kata:planning-phases [N]` — skip discussion, plan directly
 
 ───────────────────────────────────────────────────────────────
 
@@ -717,7 +717,7 @@ Present completion with next steps:
 - [ ] User feedback incorporated (if any)
 - [ ] ROADMAP.md created with phases continuing from previous milestone
 - [ ] All commits made (if planning docs committed)
-- [ ] User knows next step is `/kata:phase-discuss [N]`
+- [ ] User knows next step is `/kata:discussing-phases [N]`
 
 **Atomic commits:** Each phase commits its artifacts immediately. If context is lost, artifacts persist.
 </success_criteria>

@@ -11,11 +11,11 @@ allowed-tools:
 ---
 
 <objective>
-Create all phases necessary to close gaps identified by `/kata:milestone-audit`.
+Create all phases necessary to close gaps identified by `/kata:auditing-milestones`.
 
 Reads MILESTONE-AUDIT.md, groups gaps into logical phases, creates phase entries in ROADMAP.md, and offers to plan each phase.
 
-One command creates all fix phases — no manual `/kata:phase-add` per gap.
+One command creates all fix phases — no manual `/kata:adding-phases` per gap.
 </objective>
 
 <execution_context>
@@ -41,7 +41,7 @@ Glob: .planning/v*-MILESTONE-AUDIT.md (use most recent)
 
 ```bash
 # Find the most recent audit file
-ls -t .planning/v*-MILESTONE-AUDIT.md 2>/dev/null | head -1
+(ls -t .planning/v*-MILESTONE-AUDIT.md 2>/dev/null || true) | head -1
 ```
 
 Parse YAML frontmatter to extract structured gaps:
@@ -51,7 +51,7 @@ Parse YAML frontmatter to extract structured gaps:
 
 If no audit file exists or has no gaps, error:
 ```
-No audit gaps found. Run `/kata:milestone-audit` first.
+No audit gaps found. Run `/kata:auditing-milestones` first.
 ```
 
 ## 2. Prioritize Gaps
@@ -188,22 +188,22 @@ git commit -m "docs(roadmap): add gap closure phases {N}-{M}"
 
 **Plan first gap closure phase**
 
-`/kata:phase-plan {N}`
+`/kata:planning-phases {N}`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:phase-execute {N}` — if plans already exist
+- `/kata:executing-phases {N}` — if plans already exist
 - `cat .planning/ROADMAP.md` — see updated roadmap
 
 ---
 
 **After all gap phases complete:**
 
-`/kata:milestone-audit` — re-audit to verify gaps closed
-`/kata:milestone-complete {version}` — archive when audit passes
+`/kata:auditing-milestones` — re-audit to verify gaps closed
+`/kata:completing-milestones {version}` — archive when audit passes
 ```
 
 </process>
@@ -291,5 +291,5 @@ becomes:
 - [ ] ROADMAP.md updated with new phases
 - [ ] Phase directories created
 - [ ] Changes committed
-- [ ] User knows to run `/kata:phase-plan` next
+- [ ] User knows to run `/kata:planning-phases` next
 </success_criteria>
