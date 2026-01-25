@@ -7,6 +7,8 @@
     "test": "node --test --test-reporter spec ./tests/build.test.js",
     "test:smoke": "node --test --test-reporter spec ./tests/smoke.test.js",
     "test:all": "node --test --test-reporter spec ./tests/build.test.js ./tests/smoke.test.js",
+    "test:skills": "node --test --test-reporter spec --test-reporter junit --test-reporter-destination junit.xml tests/skills/*.test.js",
+    "test:affected": "node -e \"import('./tests/harness/affected.js').then(m => console.log(m.getAffectedTestFiles().join(' ')))\" | xargs -r node --test",
     "build": "node scripts/build.js all",
     "build:plugin": "node scripts/build.js plugin",
     "build:npm": "node scripts/build.js npm",
