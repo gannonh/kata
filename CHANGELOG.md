@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.1.7] - 2026-01-25
+
+### Fixed
+- **Plugin Skill() invocations (v2)**: Transform `Skill("kata-*")` to `Skill("*")` (not `kata:*`). Commands were calling themselves recursively because `kata:inserting-phases` is the command name, not the skill name. Skills are named `inserting-phases` (without prefix).
+
 ## [1.1.6] - 2026-01-25
 
 ### Fixed

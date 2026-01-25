@@ -240,12 +240,13 @@ function transformSkillName(content) {
 /**
  * Transform Skill() invocations in commands for plugin distribution
  *
- * Commands call Skill("kata-inserting-phases") but plugin skills are
- * namespaced as kata:inserting-phases. Transform the invocation:
- * Skill("kata-*") -> Skill("kata:*")
+ * Commands call Skill("kata-inserting-phases") but plugin skills have
+ * the kata- prefix stripped (e.g., skills/inserting-phases/SKILL.md).
+ * Transform to match the skill's local name:
+ * Skill("kata-*") -> Skill("*")
  */
 function transformSkillInvocation(content) {
-  return content.replace(/Skill\("kata-([^"]+)"\)/g, 'Skill("kata:$1")');
+  return content.replace(/Skill\("kata-([^"]+)"\)/g, 'Skill("$1")');
 }
 
 /**
