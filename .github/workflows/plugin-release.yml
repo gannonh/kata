@@ -4,12 +4,18 @@ on:
   workflow_run:
     workflows: ["Publish to npm"]
     types: [completed]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual trigger'
+        required: false
+        default: 'Manual re-run'
 
 jobs:
   publish-plugin:
     runs-on: ubuntu-latest
-    # Only run if the triggering workflow succeeded and created a release
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # Run if: (1) triggered by successful npm publish, or (2) manually dispatched
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     permissions:
       contents: read
     steps:
