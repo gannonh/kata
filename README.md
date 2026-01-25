@@ -29,6 +29,7 @@ Agent orchestration framework for spec-driven development.
 
 ```bash
 # Install as Claude Code plugin
+/plugin marketplace add gannonh/kata-marketplace
 /plugin install kata@kata-marketplace
 
 # Or install via NPM
