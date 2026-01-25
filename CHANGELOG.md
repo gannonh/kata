@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-01-25
+
+**Skills-only architecture.** Commands layer removed — skills are now the primary interface.
+
+### Changed
+- **Skills-only distribution**: All 27 commands removed. Skills are now the sole interface for all Kata functionality
+- **Skill naming convention**: Changed from verb-noun (`/kata:phase-plan`) to gerund form (`/kata:planning-phases`) for natural language matching
+- **All skills user-invocable**: Skills appear directly in `/` menu for explicit invocation and respond to natural language
+- **Build.js prefix transformation**: Plugin build strips `kata-` prefix from skill directories for clean `/kata:skill-name` invocation
+
+### Removed
+- **Commands directory**: 27 command wrapper files deleted — skills handle everything now
+- **`commands/` from package.json files array**: No longer needed in NPM distribution
+
+### Fixed
+- **Test suite updated**: Tests now verify skills-only architecture (no commands directory expected)
+
 ## [1.0.8] - 2026-01-24
 
 ### Fixed
