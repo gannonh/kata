@@ -227,4 +227,180 @@ Progress: [                                ] 0%
       throw new Error('Expected skill to include gh repo create instructions in warning');
     }
   });
+
+  describe('Phase Issue Creation (Phase 9.5)', () => {
+    it('contains issueMode config check', () => {
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-adding-milestones', 'SKILL.md');
+      const skillContent = readFileSync(skillPath, 'utf8');
+
+      // Verify skill checks all three issueMode values
+      const hasAutoMode = skillContent.includes('"auto"') || skillContent.includes("'auto'") || skillContent.includes('auto');
+      const hasAskMode = skillContent.includes('"ask"') || skillContent.includes("'ask'") || skillContent.includes('ask');
+      const hasNeverMode = skillContent.includes('"never"') || skillContent.includes("'never'") || skillContent.includes('never');
+
+      // At minimum, skill should reference issueMode
+      const hasIssueModeCheck = skillContent.includes('issueMode') || skillContent.includes('ISSUE_MODE');
+
+      if (!hasIssueModeCheck) {
+        throw new Error('Expected skill to check issueMode configuration');
+      }
+
+      // Should handle all three modes
+      const modesFound = [hasAutoMode, hasAskMode, hasNeverMode].filter(Boolean).length;
+      if (modesFound < 3) {
+        throw new Error(`Expected skill to handle auto, ask, and never modes for issueMode. Found ${modesFound}/3`);
+      }
+    });
+
+    it('contains phase label creation', () => {
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-adding-milestones', 'SKILL.md');
+      const skillContent = readFileSync(skillPath, 'utf8');
+
+      // Verify idempotent label creation pattern
+      const hasLabelCreate = skillContent.includes('gh label create');
+      const hasForceFlag = skillContent.includes('--force');
+      const hasPhaseLabel = skillContent.includes('"phase"') || skillContent.includes("'phase'");
+
+      if (!hasLabelCreate) {
+        throw new Error('Expected skill to include gh label create command');
+      }
+
+      if (!hasForceFlag) {
+        throw new Error('Expected skill to use --force flag for idempotent label creation');
+      }
+
+      if (!hasPhaseLabel) {
+        throw new Error('Expected skill to create a "phase" label');
+      }
+    });
+
+    it('contains milestone number lookup', () => {
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-adding-milestones', 'SKILL.md');
+      const skillContent = readFileSync(skillPath, 'utf8');
+
+      // Verify milestone API lookup before issue creation
+      const hasMilestoneApi = skillContent.includes('/repos/:owner/:repo/milestones') ||
+                              skillContent.includes('gh api') && skillContent.includes('milestones');
+
+      // Should extract milestone number with jq or similar
+      const hasMilestoneSelect = skillContent.includes('.title') ||
+                                  skillContent.includes('select') ||
+                                  skillContent.includes('MILESTONE_NUM');
+
+      if (!hasMilestoneApi) {
+        throw new Error('Expected skill to query GitHub milestones API');
+      }
+
+      if (!hasMilestoneSelect) {
+        throw new Error('Expected skill to extract milestone number before creating issues');
+      }
+    });
+
+    it('contains ROADMAP.md parsing for phases', () => {
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-adding-milestones', 'SKILL.md');
+      const skillContent = readFileSync(skillPath, 'utf8');
+
+      // Verify ROADMAP.md is read
+      const hasRoadmapRead = skillContent.includes('ROADMAP.md') || skillContent.includes('ROADMAP_FILE');
+
+      // Verify phase extraction patterns
+      const hasPhaseExtraction = skillContent.includes('Phase') ||
+                                  skillContent.includes('PHASE_');
+
+      // Verify goal/success criteria parsing
+      const hasGoalParsing = skillContent.includes('Goal') || skillContent.includes('PHASE_GOAL');
+      const hasSuccessCriteria = skillContent.includes('Success Criteria') || skillContent.includes('SUCCESS_CRITERIA');
+
+      if (!hasRoadmapRead) {
+        throw new Error('Expected skill to read ROADMAP.md for phase information');
+      }
+
+      if (!hasPhaseExtraction) {
+        throw new Error('Expected skill to extract phase information from roadmap');
+      }
+
+      if (!hasGoalParsing || !hasSuccessCriteria) {
+        throw new Error('Expected skill to parse Phase Goal and Success Criteria from roadmap');
+      }
+    });
+
+    it('contains idempotent issue existence check', () => {
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-adding-milestones', 'SKILL.md');
+      const skillContent = readFileSync(skillPath, 'utf8');
+
+      // Verify issue list check before creation
+      const hasIssueList = skillContent.includes('gh issue list');
+      const hasLabelFilter = skillContent.includes('--label') && skillContent.includes('phase');
+      const hasMilestoneFilter = skillContent.includes('--milestone');
+
+      // Should check for existing issue to avoid duplicates
+      const hasExistenceCheck = skillContent.includes('EXISTING') ||
+                                 skillContent.includes('already exists') ||
+                                 skillContent.includes('if [ -n');
+
+      if (!hasIssueList) {
+        throw new Error('Expected skill to list existing issues before creation');
+      }
+
+      if (!hasLabelFilter) {
+        throw new Error('Expected skill to filter issues by phase label');
+      }
+
+      if (!hasMilestoneFilter) {
+        throw new Error('Expected skill to filter issues by milestone');
+      }
+
+      if (!hasExistenceCheck) {
+        throw new Error('Expected skill to check if issue already exists (idempotent)');
+      }
+    });
+
+    it('uses --body-file pattern', () => {
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-adding-milestones', 'SKILL.md');
+      const skillContent = readFileSync(skillPath, 'utf8');
+
+      // Verify body-file pattern for safe special character handling
+      const hasBodyFile = skillContent.includes('--body-file');
+
+      // Should write to temp file first
+      const hasTempFile = skillContent.includes('/tmp/') ||
+                           skillContent.includes('phase-issue-body') ||
+                           skillContent.includes('cat >');
+
+      if (!hasBodyFile) {
+        throw new Error('Expected skill to use --body-file pattern for issue body');
+      }
+
+      if (!hasTempFile) {
+        throw new Error('Expected skill to write issue body to temp file before gh issue create');
+      }
+    });
+
+    it('contains gh issue create with required flags', () => {
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-adding-milestones', 'SKILL.md');
+      const skillContent = readFileSync(skillPath, 'utf8');
+
+      // Verify gh issue create command with all required flags
+      const hasIssueCreate = skillContent.includes('gh issue create');
+      const hasTitleFlag = skillContent.includes('--title');
+      const hasLabelFlag = skillContent.includes('--label') && skillContent.includes('phase');
+      const hasMilestoneFlag = skillContent.includes('--milestone');
+
+      if (!hasIssueCreate) {
+        throw new Error('Expected skill to include gh issue create command');
+      }
+
+      if (!hasTitleFlag) {
+        throw new Error('Expected gh issue create to include --title flag');
+      }
+
+      if (!hasLabelFlag) {
+        throw new Error('Expected gh issue create to include --label "phase" flag');
+      }
+
+      if (!hasMilestoneFlag) {
+        throw new Error('Expected gh issue create to include --milestone flag');
+      }
+    });
+  });
 });
