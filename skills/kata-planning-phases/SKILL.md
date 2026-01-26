@@ -599,6 +599,9 @@ Output this markdown directly (not as a code block):
 Research: {Completed | Used existing | Skipped}
 Verification: {Passed | Passed with override | Skipped}
 
+{If GITHUB_UPDATE_SUCCESS=true:}
+GitHub Issue: #{ISSUE_NUMBER} updated with {PLAN_COUNT} plan checklist items
+
 ───────────────────────────────────────────────────────────────
 
 ## ▶ Next Up
@@ -629,6 +632,7 @@ Verification: {Passed | Passed with override | Skipped}
 - [ ] Plans created (PLANNING COMPLETE or CHECKPOINT handled)
 - [ ] kata-plan-checker spawned (unless --skip-verify)
 - [ ] Verification passed OR user override OR max iterations with user decision
+- [ ] GitHub issue updated with plan checklist (if github.enabled and issueMode != never)
 - [ ] User sees status between agent spawns
 - [ ] User knows next steps (execute or review)
 </success_criteria>
