@@ -1,0 +1,80 @@
+---
+title: 'Development Setup'
+description: 'Set up Kata for development'
+---
+
+## Clone Repository
+
+```bash
+git clone https://github.com/gannonh/kata.git
+cd kata
+```
+
+## Install Locally
+
+```bash
+node bin/install.js --local
+```
+
+This installs to `./.claude/` for testing modifications.
+
+<Warning>
+**Never run `node bin/install.js --local` from within the kata directory itself.** Test local installs from a separate project directory.
+</Warning>
+
+## Verify Installation
+
+In Claude Code:
+
+<CodeGroup>
+
+```bash Plugin
+/kata:providing-help
+```
+
+```bash NPX
+/kata-providing-help
+```
+
+</CodeGroup>
+
+## Test Changes
+
+1. Make modifications
+2. Reinstall: `node bin/install.js --local`
+3. Test in Claude Code
+4. Verify behavior matches expectations
+
+## Project Structure
+
+```
+kata/
+├── skills/         # Primary interface
+├── agents/         # Specialized subagents
+├── kata/
+│   ├── templates/  # Structured outputs
+│   ├── workflows/  # Detailed processes
+│   └── references/ # Deep-dive docs
+├── bin/            # Installation scripts
+└── .planning/      # Kata uses Kata
+```
+
+## Key Files
+
+- **CLAUDE.md** — Project overview and guidelines
+- **KATA-STYLE.md** — Comprehensive style guide
+- **.planning/STATE.md** — Current development state
+
+## Running Tests
+
+```bash
+npm test
+```
+
+## Building
+
+```bash
+npm run build
+```
+
+This creates plugin and NPM distributions.

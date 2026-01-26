@@ -1,0 +1,97 @@
+---
+title: 'XML Prompting'
+description: 'Why Kata uses XML structure in plans'
+---
+
+## Plans ARE Prompts
+
+PLAN.md files are executable XML documents optimized for Claude. When an executor agent reads a plan, it's reading its instructions directly.
+
+## Why XML?
+
+1. **Semantic structure** — Tags have meaning, not just hierarchy
+2. **Claude-optimized** — Claude parses XML exceptionally well
+3. **Precise instructions** — No ambiguity in what goes where
+4. **Progressive disclosure** — Nested structure for complexity
+
+## Task Structure
+
+```xml
+<task type="auto">
+  <name>Create login endpoint</name>
+  <files>src/app/api/auth/login/route.ts</files>
+  <action>
+    POST endpoint accepting {email, password}.
+    Query User by email, compare password with bcrypt.
+    On match, create JWT with jose library, set as httpOnly cookie.
+    Return 200. On mismatch, return 401.
+  </action>
+  <verify>curl -X POST localhost:3000/api/auth/login returns 200 with Set-Cookie</verify>
+  <done>Valid credentials → 200 + cookie. Invalid → 401.</done>
+</task>
+```
+
+## Task Types
+
+### auto
+
+Standard implementation. Claude executes autonomously.
+
+### checkpoint:human-verify
+
+Human verification required.
+
+```xml
+<task type="checkpoint:human-verify" gate="blocking">
+  <what-built>Login page with form</what-built>
+  <how-to-verify>
+    1. Navigate to /login
+    2. Enter valid credentials
+    3. Verify redirect to dashboard
+  </how-to-verify>
+  <resume-signal>Reply "continue" after testing</resume-signal>
+</task>
+```
+
+### checkpoint:decision
+
+User must choose between options.
+
+```xml
+<task type="checkpoint:decision" gate="blocking">
+  <decision>Which auth library?</decision>
+  <context>Need JWT handling</context>
+  <options>
+    <option id="jose">
+      <name>jose</name>
+      <pros>Modern, ESM-friendly</pros>
+      <cons>Less examples</cons>
+    </option>
+    <option id="jwt">
+      <name>jsonwebtoken</name>
+      <pros>Popular, well-documented</pros>
+      <cons>CommonJS issues</cons>
+    </option>
+  </options>
+  <resume-signal>Select "jose" or "jwt"</resume-signal>
+</task>
+```
+
+## Conditional Logic
+
+```xml
+<if mode="yolo">
+  Auto-execute without confirmation
+</if>
+
+<if mode="interactive">
+  Wait for user approval
+</if>
+```
+
+## Benefits
+
+1. **No transformation** — Plans execute as-written
+2. **Clear structure** — No parsing ambiguity
+3. **Verification built-in** — Every task has `<verify>` and `<done>`
+4. **Machine-readable** — Can be parsed programmatically

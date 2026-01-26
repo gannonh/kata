@@ -1,0 +1,253 @@
+---
+title: 'Skills'
+description: 'The primary interface for Kata workflows'
+---
+
+## What Are Skills?
+
+Skills are the primary interface for all Kata workflows. They're user-invocable commands that respond to both natural language and explicit slash command invocation.
+
+## Invocation Methods
+
+### Natural Language (Recommended)
+
+```
+"Plan phase 2"
+"What's the status?"
+"Execute the phase"
+"I'm done for today"
+```
+
+Kata parses intent and routes to the appropriate skill automatically.
+
+### Explicit Commands
+
+| Installation | Syntax               | Example                   |
+| ------------ | -------------------- | ------------------------- |
+| Plugin       | `/kata:skill-name`   | `/kata:planning-phases 2` |
+| NPX          | `/kata-skill-name`   | `/kata-planning-phases 2` |
+
+Use explicit commands when you need precision or want to bypass intent recognition.
+
+## Skill Architecture
+
+Skills are **thin orchestrators**. They:
+
+1. Load necessary context
+2. Spawn specialized agents
+3. Collect results
+4. Route to next step
+
+**Key principle:** Skills stay lean (~15% context). Heavy lifting happens in fresh agent contexts.
+
+```
+Skill (30% context)
+    ↓
+Spawns Agent (fresh 200k)
+    ↓
+Agent completes work
+    ↓
+Returns results
+    ↓
+Skill stays at 30%
+```
+
+## Skill Structure
+
+Each skill follows a consistent pattern:
+
+```
+skills/kata-{name}/
+├── SKILL.md         # Orchestrator workflow (<500 lines)
+└── references/      # Progressive disclosure
+    ├── {topic}.md
+    └── ...
+```
+
+The main SKILL.md file contains the orchestration logic. Detailed documentation lives in `references/` for progressive disclosure.
+
+## Core Workflow Skills
+
+### starting-projects
+
+**Purpose:** Full project initialization
+
+**Flow:**
+1. Questions → understand requirements
+2. Research → investigate domain (optional)
+3. Requirements → extract v1, v2, out of scope
+4. Roadmap → create phase structure
+
+**Creates:** `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md`
+
+### planning-phases
+
+**Purpose:** Research and plan a single phase
+
+**Flow:**
+1. Research → investigate implementation approach
+2. Plan → create 2-3 atomic task plans
+3. Verify → check against requirements
+
+**Creates:** `{phase}-RESEARCH.md`, `{phase}-{N}-PLAN.md`
+
+### executing-phases
+
+**Purpose:** Execute all plans in a phase
+
+**Flow:**
+1. Group plans into waves (parallel/sequential)
+2. Spawn executor per plan with fresh context
+3. Atomic commit per task
+4. Verify against phase goals
+
+**Creates:** `{phase}-{N}-SUMMARY.md`, `{phase}-VERIFICATION.md`
+
+### verifying-phases
+
+**Purpose:** Manual user acceptance testing
+
+**Flow:**
+1. Extract testable deliverables
+2. Walk through verification steps
+3. Diagnose failures automatically
+4. Create fix plans if issues found
+
+**Creates:** `{phase}-UAT.md`, fix plans if needed
+
+## Navigation Skills
+
+### tracking-progress
+
+**Purpose:** Show current position and next steps
+
+**Output:**
+- Current phase and progress
+- Blockers and decisions
+- Next recommended action
+- Available options
+
+### providing-help
+
+**Purpose:** List all skills and usage
+
+**Output:**
+- Complete skill reference
+- Invocation syntax
+- Common workflows
+
+## Phase Management Skills
+
+### adding-phases
+
+Add a new phase to the end of the roadmap.
+
+### inserting-phases
+
+Insert urgent work between existing phases. Uses decimal numbering (e.g., 2.1 between 2 and 3).
+
+### removing-phases
+
+Remove a future phase and renumber remaining phases.
+
+## Utility Skills
+
+### executing-quick-tasks
+
+Execute ad-hoc tasks without full planning overhead.
+
+**Use for:**
+- Bug fixes
+- Small features
+- Config changes
+- One-off tasks
+
+**Creates:** `.planning/quick/{NNN}-{slug}/PLAN.md`, `SUMMARY.md`
+
+### debugging
+
+Systematic debugging with persistent state tracking.
+
+### pausing-work / resuming-work
+
+Create session handoffs and restore context.
+
+## Skill Naming Conventions
+
+Skills follow strict naming patterns for autonomous invocation:
+
+1. **Gerund (verb-ing) style** — `kata-managing-todos` not `kata-todo-management`
+2. **Exhaustive trigger phrases** — List every phrase users might say
+3. **Verbose and specific** — `kata-providing-progress-and-status-updates` over `kata-status`
+
+**Why this matters:** Claude matches skills based on name and description before falling back to defaults. Better naming = better autonomous routing.
+
+## Progressive Disclosure
+
+Skills use `@-references` to load context progressively:
+
+```markdown
+@~/.claude/kata/workflows/phase-execute.md
+@~/.claude/kata/templates/plan.md
+@.planning/PROJECT.md
+```
+
+Only load what's needed. Keep the main skill file focused on orchestration.
+
+## Subagent Spawning
+
+Skills spawn agents via the Task tool:
+
+```xml
+<task>
+  <spawn agent="kata-planner">
+    <context>
+      @.planning/PROJECT.md
+      @.planning/REQUIREMENTS.md
+      Phase 2 requirements
+    </context>
+  </spawn>
+</task>
+```
+
+The agent works in a fresh 200k window. Results return to the skill for integration.
+
+## Quality Constraints
+
+- **SKILL.md:** Under 500 lines
+- **Context usage:** Stay under 30%
+- **Heavy work:** Spawn agents
+- **Documentation:** Move to `references/`
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Agents"
+    icon="robot"
+    href="/core-concepts/agents"
+  >
+    Learn about specialized subagents
+  </Card>
+  <Card
+    title="Skills Reference"
+    icon="list"
+    href="/skills/overview"
+  >
+    Complete list of available skills
+  </Card>
+  <Card
+    title="Workflow Guide"
+    icon="diagram-project"
+    href="/workflow/starting-projects"
+  >
+    See skills in action
+  </Card>
+  <Card
+    title="Advanced Orchestration"
+    icon="network-wired"
+    href="/advanced/multi-agent-orchestration"
+  >
+    Deep dive into orchestration patterns
+  </Card>
+</CardGroup>

@@ -1,0 +1,79 @@
+---
+title: 'Verifying Phases'
+description: 'Manual user acceptance testing'
+---
+
+## Overview
+
+The `verifying-phases` skill guides you through manual testing of completed work and automatically diagnoses failures.
+
+## Invocation
+
+```
+"Verify phase 1"
+```
+
+Or explicitly:
+
+<CodeGroup>
+
+```bash Plugin
+/kata:verifying-phases 1
+```
+
+```bash NPX
+/kata-verifying-phases 1
+```
+
+</CodeGroup>
+
+## Workflow
+
+### 1. Extract Deliverables
+
+System identifies testable deliverables from phase goals and VERIFICATION.md.
+
+### 2. Manual Testing
+
+Walks you through verification steps one at a time:
+- "Can you log in with email?" → Yes/No/Issue
+- "Do invalid credentials return 401?" → Yes/No/Issue
+
+### 3. Automatic Diagnosis
+
+If issues found, spawns `kata-debugger` agent to:
+- Investigate root cause
+- Propose fix
+- Create verified fix plan
+
+### 4. Fix Plan Generation
+
+Creates new plan ready for immediate execution:
+
+```bash
+/kata:executing-phases 1
+```
+
+Fix plans integrate back into the phase.
+
+## Output Files
+
+| File | Purpose |
+| ---- | ------- |
+| {phase}-UAT.md | User acceptance testing results |
+| {phase}-{N}-PLAN.md | Fix plans if issues found |
+
+## Pass Criteria
+
+Phase verified when:
+- All deliverables manually tested
+- All tests pass
+- No blocking issues remain
+
+## Next Steps
+
+If verification passes, proceed to next phase:
+- [Planning Phases](/workflow/planning-phases) — Plan the next phase
+
+If issues found, re-execute with fix plans:
+- [Executing Phases](/workflow/executing-phases) — Run fix plans

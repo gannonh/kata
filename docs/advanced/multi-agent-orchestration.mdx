@@ -1,0 +1,70 @@
+---
+title: 'Multi-Agent Orchestration'
+description: 'How Kata uses specialized agents with fresh contexts'
+---
+
+## Pattern
+
+Kata uses a **thin orchestrator + specialized agents** pattern:
+
+```
+Orchestrator (Skill at ~30% context)
+    ↓ spawns
+Agent 1 (fresh 200k tokens)
+    ↓ completes
+Results to Orchestrator
+    ↓ spawns
+Agent 2 (fresh 200k tokens)
+    ↓ completes
+Results to Orchestrator
+```
+
+The orchestrator never does heavy lifting. It coordinates.
+
+## Orchestrators
+
+| Orchestrator (Skill) | Spawns | Purpose |
+| -------------------- | ------ | ------- |
+| `kata-planning-phases` | kata-phase-researcher, kata-planner, kata-plan-checker | Research → Plan → Verify loop |
+| `kata-executing-phases` | kata-executor (multiple in parallel) | Execute plans in waves |
+| `kata-verifying-phases` | kata-verifier, kata-debugger | Check goals, diagnose failures |
+
+## Agents
+
+Specialized subagents for focused tasks:
+
+- **kata-planner** — Creates execution plans
+- **kata-executor** — Implements tasks
+- **kata-verifier** — Checks work against goals
+- **kata-debugger** — Diagnoses failures
+- **kata-phase-researcher** — Investigates domain
+
+Each agent:
+- Works in fresh 200k context
+- Has single responsibility
+- Returns results only
+- Is stateless (orchestrator manages state)
+
+## Parallel Execution
+
+Independent agents run simultaneously:
+
+```
+Orchestrator
+    ↓
+├─ Agent 1 (wave 1)
+├─ Agent 2 (wave 1)
+└─ Agent 3 (wave 1)
+    ↓ all complete
+├─ Agent 4 (wave 2)
+└─ Agent 5 (wave 2)
+```
+
+Plans grouped into waves based on dependencies.
+
+## Benefits
+
+1. **Fresh context per task** — Quality stays high
+2. **Parallel execution** — Work completes faster
+3. **Specialization** — Each agent optimized for its purpose
+4. **Orchestrator stays lean** — Never accumulates garbage

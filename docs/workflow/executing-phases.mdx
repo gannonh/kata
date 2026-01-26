@@ -1,0 +1,85 @@
+---
+title: 'Executing Phases'
+description: 'Run plans with fresh context and atomic commits'
+---
+
+## Overview
+
+The `executing-phases` skill executes all plans in a phase using parallel waves, fresh context per plan, and atomic commits per task.
+
+## Invocation
+
+```
+"Execute phase 1"
+```
+
+Or explicitly:
+
+<CodeGroup>
+
+```bash Plugin
+/kata:executing-phases 1
+```
+
+```bash NPX
+/kata-executing-phases 1
+```
+
+</CodeGroup>
+
+## Workflow
+
+### 1. Wave Grouping
+
+Plans are grouped into waves based on dependencies:
+
+```
+Wave 1 (parallel):
+  - Plan 1 (no dependencies)
+  - Plan 2 (no dependencies)
+
+Wave 2 (parallel):
+  - Plan 3 (depends on Plan 1)
+  - Plan 4 (depends on Plan 2)
+```
+
+### 2. Parallel Execution
+
+Spawns `kata-executor` agent per plan with:
+- Fresh 200k token context
+- Plan instructions
+- Project context
+- State information
+
+Agents work simultaneously within each wave.
+
+### 3. Atomic Commits
+
+Each task creates its own commit immediately after completion:
+
+```bash
+abc123f feat(02-01): implement login endpoint
+def456g feat(02-01): add password hashing
+hij789k test(02-01): add login flow tests
+```
+
+Commit format: `{type}({phase}-{plan}): {description}`
+
+### 4. Verification
+
+After all plans complete, spawns `kata-verifier` agent to check:
+- Phase goals delivered?
+- Requirements satisfied?
+- Code quality acceptable?
+
+## Output Files
+
+| File | Purpose |
+| ---- | ------- |
+| {phase}-{N}-SUMMARY.md | Post-execution record |
+| {phase}-VERIFICATION.md | Goal verification results |
+
+## Next Steps
+
+After execution, proceed to:
+- [Verifying Phases](/workflow/verifying-phases) — Manual user acceptance testing

@@ -1,0 +1,85 @@
+---
+title: 'Starting Projects'
+description: 'Initialize a new project with Kata'
+---
+
+## Overview
+
+The `starting-projects` skill launches full project initialization: questions → research → requirements → roadmap.
+
+## Invocation
+
+```
+"Start a new project"
+```
+
+Or explicitly:
+
+<CodeGroup>
+
+```bash Plugin
+/kata:starting-projects
+```
+
+```bash NPX
+/kata-starting-projects
+```
+
+</CodeGroup>
+
+## Workflow
+
+### 1. Questions
+
+The system asks until it understands your idea completely:
+- Project goals
+- Technology preferences
+- Constraints
+- Edge cases
+- User experience requirements
+
+### 2. Research (Optional)
+
+Spawns 4 parallel research agents:
+- **Stack researcher** — Investigates technology choices
+- **Feature researcher** — Explores similar product features
+- **Architecture researcher** — Evaluates structural patterns
+- **Pitfalls researcher** — Identifies common mistakes
+
+Research is optional but recommended for unfamiliar domains.
+
+### 3. Requirements
+
+Extracts and categorizes requirements:
+- **v1** — Must-have for initial release
+- **v2** — Nice-to-have for future
+- **Out of scope** — Explicitly excluded
+
+### 4. Roadmap
+
+Creates phases mapped to requirements. Each phase has:
+- Name and description
+- Goals (what must be delivered)
+- Traced requirements
+- Dependencies
+
+## Output Files
+
+| File | Purpose |
+| ---- | ------- |
+| PROJECT.md | Project vision, always loaded |
+| REQUIREMENTS.md | Scoped requirements with phase traceability |
+| ROADMAP.md | Phase breakdown and progress tracking |
+| STATE.md | Living memory across sessions |
+| research/ | Domain investigation findings (if research enabled) |
+
+## Next Steps
+
+After initialization, proceed to:
+
+1. **Discuss Phase 1** — Capture implementation decisions ([discussing-phases](/workflow/discussing-phases))
+2. **Plan Phase 1** — Research and create execution plans ([planning-phases](/workflow/planning-phases))
+3. **Execute Phase 1** — Run plans with fresh context ([executing-phases](/workflow/executing-phases))
+4. **Verify Phase 1** — Manual acceptance testing ([verifying-phases](/workflow/verifying-phases))
+
+See [Quickstart](/quickstart) for the complete workflow.

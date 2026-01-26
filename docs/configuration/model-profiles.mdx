@@ -1,0 +1,38 @@
+---
+title: 'Model Profiles'
+description: 'Balance quality vs token spend'
+---
+
+## Overview
+
+Model profiles control which Claude model each agent uses. Balance quality vs token spend based on your needs.
+
+## Available Profiles
+
+| Profile | Planning | Execution | Verification |
+| ------- | -------- | --------- | ------------ |
+| `quality` | Opus | Opus | Sonnet |
+| `balanced` (default) | Opus | Sonnet | Sonnet |
+| `budget` | Sonnet | Sonnet | Haiku |
+
+## Switch Profiles
+
+<CodeGroup>
+
+```bash Plugin
+/kata:setting-profiles budget
+```
+
+```bash NPX
+/kata-setting-profiles budget
+```
+
+</CodeGroup>
+
+Or configure via `/kata:configuring-settings`.
+
+## Recommendations
+
+- **quality** — Critical projects, unfamiliar domains
+- **balanced** — Default, good for most use cases
+- **budget** — Well-understood work, tight token budget

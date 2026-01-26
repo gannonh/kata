@@ -1,0 +1,185 @@
+---
+title: 'Planning'
+description: 'How Kata breaks down and structures work'
+---
+
+## Planning Hierarchy
+
+Kata organizes work into three levels:
+
+```
+Milestone (e.g., "v1.0")
+    ↓
+Phase (e.g., "User Authentication")
+    ↓
+Plan (e.g., "1-1-PLAN.md: Login flow")
+    ↓
+Task (e.g., "Create JWT endpoint")
+```
+
+## Phases
+
+**Phase** = A conceptual grouping of related functionality
+
+Examples:
+- "User Authentication"
+- "Payment Processing"
+- "Admin Dashboard"
+
+Phases are defined in `ROADMAP.md` with:
+- Name and description
+- Goals (what must be delivered)
+- Status (pending, in-progress, complete)
+- Dependencies
+
+## Plans
+
+**Plan** = 2-3 atomic tasks that fit in a fresh context window
+
+Each plan:
+- Implements part of a phase
+- Has clear verification steps
+- Can execute independently (if no dependencies)
+- Creates atomic commits per task
+
+**Naming:** `{phase}-{plan}-PLAN.md` (e.g., `02-01-PLAN.md`)
+
+## Tasks
+
+**Task** = Specific implementation with verification
+
+Task structure:
+```xml
+<task type="auto">
+  <name>Create login endpoint</name>
+  <files>src/app/api/auth/login/route.ts</files>
+  <action>
+    POST endpoint accepting {email, password}.
+    Query User by email, compare password with bcrypt.
+    On match, create JWT with jose library, set as httpOnly cookie.
+    Return 200. On mismatch, return 401.
+  </action>
+  <verify>curl -X POST localhost:3000/api/auth/login returns 200 with Set-Cookie</verify>
+  <done>Valid credentials → 200 + cookie. Invalid → 401.</done>
+</task>
+```
+
+## Task Types
+
+### auto
+
+Standard implementation task. Claude executes autonomously.
+
+### checkpoint:human-verify
+
+Human verification required. Claude builds something, you test it manually.
+
+```xml
+<task type="checkpoint:human-verify" gate="blocking">
+  <what-built>Description of what was built</what-built>
+  <how-to-verify>Numbered steps for user</how-to-verify>
+  <resume-signal>Text telling user how to continue</resume-signal>
+</task>
+```
+
+### checkpoint:decision
+
+Decision point. User must choose between options.
+
+```xml
+<task type="checkpoint:decision" gate="blocking">
+  <decision>What needs deciding</decision>
+  <context>Why this matters</context>
+  <options>
+    <option id="identifier">
+      <name>Option Name</name>
+      <pros>Benefits</pros>
+      <cons>Tradeoffs</cons>
+    </option>
+  </options>
+  <resume-signal>Selection instruction</resume-signal>
+</task>
+```
+
+## Plan Sizing
+
+Plans split when:
+- More than 3 tasks
+- Multiple subsystems involved
+- More than 5 files per task
+- Context usage approaching 50%
+
+**Key principle:** Small plans maintain quality. Split aggressively.
+
+## Waves
+
+Plans are grouped into **waves** for parallel execution:
+
+```
+Wave 1 (parallel):
+  - Plan 1 (no dependencies)
+  - Plan 2 (no dependencies)
+  ↓
+Wave 2 (parallel):
+  - Plan 3 (depends on Plan 1)
+  - Plan 4 (depends on Plan 2)
+```
+
+Dependencies are tracked in SUMMARY.md frontmatter.
+
+## Decimal Phase Numbering
+
+Urgent work uses decimal phases:
+
+- Integer phases (1, 2, 3) = Roadmap phases
+- Decimal phases (1.1, 2.1) = Inserted urgent work
+
+Example: Critical bug found between phases 2 and 3 → Create phase 2.1
+
+## Depth Setting
+
+Controls planning thoroughness:
+
+| Depth          | Plans per Phase | Use Case                    |
+| -------------- | --------------- | --------------------------- |
+| Quick          | 1-3             | Rapid prototyping           |
+| Standard       | 3-5             | Balanced (default)          |
+| Comprehensive  | 5-10            | Complex domains, brownfield |
+
+**Important:** Depth controls compression tolerance, not inflation. Never pad to hit a target number.
+
+## Plan Verification
+
+Before execution, plans are checked against:
+- Phase goals achieved?
+- Requirements covered?
+- Dependencies clear?
+- Verification steps specified?
+
+Failed checks trigger planner iteration.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Planning Phases"
+    icon="diagram-project"
+    href="/workflow/planning-phases"
+  >
+    See the planning workflow in action
+  </Card>
+  <Card
+    title="Executing Phases"
+    icon="play"
+    href="/workflow/executing-phases"
+  >
+    Learn how plans get executed
+  </Card>
+  <Card
+    title="XML Prompting"
+    icon="code"
+    href="/advanced/xml-prompting"
+  >
+    Deep dive into plan structure
+  </Card>
+</CardGroup>

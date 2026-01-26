@@ -1,0 +1,199 @@
+---
+title: 'Quickstart'
+description: 'Get started with Kata in under 5 minutes'
+---
+
+## Installation
+
+Choose your installation method:
+
+<CodeGroup>
+
+```bash Plugin Install (Recommended)
+/plugin marketplace add gannonh/kata-marketplace
+/plugin install kata@gannonh-kata-marketplace
+```
+
+```bash NPM Install
+npx @gannonh/kata
+```
+
+</CodeGroup>
+
+## Verify Installation
+
+<CodeGroup>
+
+```bash Plugin
+/kata:providing-help
+```
+
+```bash NPX
+/kata-providing-help
+```
+
+</CodeGroup>
+
+## Your First Project
+
+### 1. Start a New Project
+
+```
+"Start a new project"
+```
+
+Or use the explicit command:
+
+<CodeGroup>
+
+```bash Plugin
+/kata:starting-projects
+```
+
+```bash NPX
+/kata-starting-projects
+```
+
+</CodeGroup>
+
+The system will:
+1. Ask questions until it understands your idea completely
+2. Optionally spawn research agents to investigate the domain
+3. Extract requirements (v1, v2, out of scope)
+4. Create a roadmap with phases mapped to requirements
+
+### 2. Plan Your First Phase
+
+```
+"Plan phase 1"
+```
+
+Or explicitly:
+
+<CodeGroup>
+
+```bash Plugin
+/kata:planning-phases 1
+```
+
+```bash NPX
+/kata-planning-phases 1
+```
+
+</CodeGroup>
+
+The system will:
+1. Research how to implement the phase
+2. Create 2-3 atomic task plans with XML structure
+3. Verify plans against requirements
+
+### 3. Execute the Phase
+
+```
+"Execute phase 1"
+```
+
+Or explicitly:
+
+<CodeGroup>
+
+```bash Plugin
+/kata:executing-phases 1
+```
+
+```bash NPX
+/kata-executing-phases 1
+```
+
+</CodeGroup>
+
+The system will:
+1. Run plans in parallel waves
+2. Give each plan a fresh 200k context window
+3. Create atomic commits per task
+4. Verify work against phase goals
+
+### 4. Verify the Work
+
+```
+"Verify phase 1"
+```
+
+Or explicitly:
+
+<CodeGroup>
+
+```bash Plugin
+/kata:verifying-phases 1
+```
+
+```bash NPX
+/kata-verifying-phases 1
+```
+
+</CodeGroup>
+
+The system will:
+1. Extract testable deliverables
+2. Walk you through verification steps
+3. Diagnose failures automatically if issues found
+4. Create fix plans ready for re-execution
+
+## Natural Language Commands
+
+Kata responds to natural language. You don't need to memorize slash commands:
+
+| You say...               | Kata does...                           |
+| ------------------------ | -------------------------------------- |
+| "Start a new project"    | Launches full project initialization   |
+| "What's the status?"     | Shows progress, next steps, blockers   |
+| "Plan phase 2"           | Researches and creates execution plans |
+| "Execute the phase"      | Runs all plans with parallel agents    |
+| "I'm done for today"     | Creates handoff for session resumption |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Core Concepts"
+    icon="book"
+    href="/core-concepts/overview"
+  >
+    Understand how Kata works under the hood
+  </Card>
+  <Card
+    title="Workflow Guide"
+    icon="diagram-project"
+    href="/workflow/starting-projects"
+  >
+    Deep dive into the complete Kata workflow
+  </Card>
+  <Card
+    title="Configuration"
+    icon="gear"
+    href="/configuration/settings"
+  >
+    Customize Kata for your needs
+  </Card>
+  <Card
+    title="Skills Reference"
+    icon="list"
+    href="/skills/overview"
+  >
+    Explore all available skills and commands
+  </Card>
+</CardGroup>
+
+## Recommended Setup
+
+Kata is designed for frictionless automation. Run Claude Code with:
+
+```bash
+claude --dangerously-skip-permissions
+```
+
+<Tip>
+Kata works best this way. Approving `date` and `git commit` 50 times defeats the purpose.
+</Tip>
+
+Alternatively, configure granular permissions in `.claude/settings.json`. See [Installation](/installation) for details.

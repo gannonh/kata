@@ -1,0 +1,70 @@
+---
+title: 'Context Engineering'
+description: 'How Kata manages Claude context deliberately'
+---
+
+## The Context Problem
+
+Claude's quality degrades as context fills up. At 70%+ context usage, quality drops significantly.
+
+## Kata's Solution
+
+Manage context deliberately through:
+
+1. **Thin orchestrators** — Stay at ~30% context
+2. **Fresh agent contexts** — 200k tokens per spawn
+3. **Progressive disclosure** — Load only what's needed
+4. **Structured state** — Memory across sessions
+
+## Quality Curve
+
+| Context Level | Quality    | Strategy                  |
+| ------------- | ---------- | ------------------------- |
+| 0-30%         | Peak       | Orchestrators stay here   |
+| 30-50%        | Good       | Acceptable for light work |
+| 50-70%        | Degrading  | Time to wrap up           |
+| 70%+          | Poor       | Spawn fresh agent         |
+
+## Context Flow
+
+```
+Main Context (Orchestrator)
+    ↓ Load minimal context
+PROJECT.md + REQUIREMENTS.md + Current phase
+    ↓ Spawn agent
+Agent Context (Fresh 200k)
+    ↓ Work completes
+Results return
+    ↓
+Main Context still at ~30%
+```
+
+## File-Based Context
+
+| File | Purpose | Always Loaded? |
+| ---- | ------- | -------------- |
+| PROJECT.md | Project vision | Yes |
+| REQUIREMENTS.md | Scoped requirements | For planning/execution |
+| ROADMAP.md | Phase structure | For navigation |
+| STATE.md | Session memory | For resuming |
+| PLAN.md | Task instructions | For execution only |
+
+## Progressive Disclosure
+
+Use `@-references` to load context on demand:
+
+```markdown
+@~/.claude/kata/workflows/phase-execute.md
+@.planning/PROJECT.md
+```
+
+Only load when actually needed.
+
+## Size Constraints
+
+Based on where quality degrades:
+
+- **Plans:** 2-3 tasks max
+- **Context usage:** Orchestrators under 30%
+- **Task scope:** >5 files → split
+- **Phase scope:** >3 plans → consider splitting

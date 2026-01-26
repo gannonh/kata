@@ -1,0 +1,105 @@
+---
+title: 'Quick Mode'
+description: 'Execute ad-hoc tasks without full planning'
+---
+
+## Overview
+
+Quick mode provides Kata guarantees (atomic commits, state tracking) with a faster path for small, self-contained tasks.
+
+## When to Use
+
+**Use quick mode for:**
+- Bug fixes
+- Small features
+- Config changes
+- One-off tasks
+
+**Use full planning for:**
+- Tasks involving multiple subsystems
+- Work requiring investigation
+- Tasks that are part of larger phases
+- Complex changes
+
+## Invocation
+
+```
+"Quick task: add dark mode toggle"
+```
+
+Or explicitly:
+
+<CodeGroup>
+
+```bash Plugin
+/kata:executing-quick-tasks
+```
+
+```bash NPX
+/kata-executing-quick-tasks
+```
+
+</CodeGroup>
+
+## What's Different
+
+### Same Quality
+- Same agents (planner + executor)
+- Same atomic commits
+- Same state tracking
+
+### Faster Path
+- Skips research phase
+- Skips plan checker loop
+- Skips verifier agent
+- Separate tracking (`.planning/quick/`)
+
+## Workflow
+
+1. Get task description
+2. Spawn planner (with quick constraints)
+3. Spawn executor
+4. Update STATE.md
+5. Commit artifacts
+
+## Output Files
+
+```
+.planning/quick/
+├── 001-add-dark-mode/
+│   ├── PLAN.md
+│   └── SUMMARY.md
+├── 002-fix-login-bug/
+│   ├── PLAN.md
+│   └── SUMMARY.md
+```
+
+Numbering: 3-digit sequential (001, 002, 003...)
+
+## Tracking
+
+Quick tasks update STATE.md, NOT ROADMAP.md:
+
+```markdown
+### Quick Tasks Completed
+
+| #   | Description          | Date       | Commit  |
+| --- | -------------------- | ---------- | ------- |
+| 001 | Add dark mode toggle | 2026-01-19 | abc123f |
+```
+
+## Commit Convention
+
+```
+docs(quick-001): add dark mode toggle
+
+Quick task completed.
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+```
+
+## Next Steps
+
+Return to regular workflow:
+- [Planning Phases](/workflow/planning-phases) — Resume phase planning
+- [Executing Phases](/workflow/executing-phases) — Resume phase execution

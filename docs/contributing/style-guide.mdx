@@ -1,0 +1,100 @@
+---
+title: 'Style Guide'
+description: 'Conventions and patterns for contributing'
+---
+
+## Core Principles
+
+1. **Plans ARE prompts** — XML documents executed directly
+2. **Files teach Claude** — Dual purpose: runtime + teaching
+3. **Context engineering** — Manage deliberately
+4. **Solo developer + Claude** — No enterprise patterns
+
+## Naming Conventions
+
+| Type | Convention | Example |
+| ---- | ---------- | ------- |
+| Files | kebab-case | `phase-execute.md` |
+| Skills | `kata:kebab-case` | `kata:planning-phases` |
+| XML tags | kebab-case | `<execution_context>` |
+| Bash variables | CAPS_UNDERSCORES | `PHASE_ARG` |
+
+## Language & Tone
+
+### Imperative Voice
+
+✅ "Execute tasks", "Create file", "Read STATE.md"
+
+❌ "Execution is performed", "The file should be created"
+
+### No Filler
+
+Absent: "Let me", "Just", "Simply", "Basically"
+
+Present: Direct instructions, technical precision
+
+### No Sycophancy
+
+Absent: "Great!", "Awesome!", "Excellent!"
+
+Present: Factual statements, verification results
+
+## XML Conventions
+
+### Semantic Containers
+
+Use tags for semantic purposes, not generic hierarchy.
+
+✅ `<objective>`, `<verification>`, `<action>`
+
+❌ `<section>`, `<item>`, `<content>`
+
+### Task Structure
+
+```xml
+<task type="auto">
+  <name>Action-oriented name</name>
+  <files>src/path/file.ts</files>
+  <action>What to do and WHY</action>
+  <verify>Command to prove completion</verify>
+  <done>Measurable acceptance criteria</done>
+</task>
+```
+
+## File Structure
+
+### Skills
+
+```
+skills/kata-{name}/
+├── SKILL.md         # <500 lines
+└── references/      # Progressive disclosure
+    ├── {topic}.md
+    └── ...
+```
+
+### Agents
+
+```
+agents/kata-{name}.md
+```
+
+Single file per agent.
+
+## Size Constraints
+
+- **Plans:** 2-3 tasks maximum
+- **Skills:** Under 500 lines
+- **Context usage:** Orchestrators under 30%
+
+## Commit Conventions
+
+```
+{type}({phase}-{plan}): {description}
+```
+
+Types: `feat`, `fix`, `test`, `refactor`, `docs`, `chore`
+
+## Full Reference
+
+For complete style documentation, see [KATA-STYLE.md](https://github.com/gannonh/kata/blob/main/KATA-STYLE.md).

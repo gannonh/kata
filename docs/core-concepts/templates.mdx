@@ -1,0 +1,130 @@
+---
+title: 'Templates'
+description: 'Structured output formats for consistency'
+---
+
+## Overview
+
+Templates define structured output formats that ensure consistency across planning, execution, and verification. They're stored in `kata/templates/` and loaded by agents as needed.
+
+## Core Templates
+
+### PROJECT.md
+
+**Purpose:** Project vision, always loaded in context
+
+**Contains:**
+- Project name and description
+- Goals and success criteria
+- Technology stack
+- Constraints and preferences
+
+**Created by:** `kata-starting-projects`
+
+### REQUIREMENTS.md
+
+**Purpose:** Scoped requirements with phase traceability
+
+**Structure:**
+- v1 (must-have)
+- v2 (nice-to-have)
+- Out of scope
+
+**Created by:** `kata-starting-projects`
+
+### ROADMAP.md
+
+**Purpose:** Phase breakdown and progress tracking
+
+**Contains:**
+- Milestones
+- Phases with goals
+- Status indicators
+- Dependencies
+
+**Created by:** `kata-starting-projects`
+
+### PLAN.md
+
+**Purpose:** Atomic task plan with XML structure
+
+**Structure:**
+```xml
+<task type="auto">
+  <name>Task name</name>
+  <files>affected files</files>
+  <action>precise instructions</action>
+  <verify>verification command</verify>
+  <done>acceptance criteria</done>
+</task>
+```
+
+**Created by:** `kata-planner`
+
+### SUMMARY.md
+
+**Purpose:** Post-execution record of what happened
+
+**Contains:**
+- Tasks completed
+- Files changed
+- Commits created
+- Issues encountered
+
+**Created by:** `kata-executor`
+
+### STATE.md
+
+**Purpose:** Living memory across sessions
+
+**Contains:**
+- Current position
+- Decisions made
+- Blockers
+- Context for resuming
+
+**Updated by:** All skills
+
+## Template Usage
+
+Agents load templates via `@-references`:
+
+```markdown
+@~/.claude/kata/templates/plan.md
+```
+
+Templates show agents what good output looks like without inflating the orchestrator's context.
+
+## Frontmatter
+
+Templates use YAML frontmatter for machine-readable metadata:
+
+```yaml
+---
+type: plan
+phase: 2
+plan: 1
+dependencies: []
+---
+```
+
+This enables dependency tracking and automated routing.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Planning"
+    icon="diagram-project"
+    href="/core-concepts/planning"
+  >
+    Learn how templates structure plans
+  </Card>
+  <Card
+    title="XML Prompting"
+    icon="code"
+    href="/advanced/xml-prompting"
+  >
+    Understand XML structure in plans
+  </Card>
+</CardGroup>

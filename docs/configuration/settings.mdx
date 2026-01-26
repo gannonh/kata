@@ -1,0 +1,82 @@
+---
+title: 'Settings'
+description: 'Configure Kata for your needs'
+---
+
+## Overview
+
+Kata stores project settings in `.planning/config.json`. Configure during project initialization or update later with `/kata:configuring-settings`.
+
+## Core Settings
+
+### Mode
+
+Controls auto-approval behavior:
+
+| Mode | Behavior |
+| ---- | -------- |
+| `yolo` | Auto-approve all steps |
+| `interactive` | Confirm at each step (default) |
+
+### Depth
+
+Controls planning thoroughness:
+
+| Depth | Plans per Phase | Use Case |
+| ----- | --------------- | -------- |
+| `quick` | 1-3 | Rapid prototyping |
+| `standard` | 3-5 | Balanced (default) |
+| `comprehensive` | 5-10 | Complex domains |
+
+## Configuration
+
+Use the configuration skill:
+
+<CodeGroup>
+
+```bash Plugin
+/kata:configuring-settings
+```
+
+```bash NPX
+/kata-configuring-settings
+```
+
+</CodeGroup>
+
+Or edit `.planning/config.json` directly:
+
+```json
+{
+  "mode": "interactive",
+  "depth": "standard",
+  "model_profile": "balanced",
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true
+  },
+  "parallelization": {
+    "enabled": true
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Model Profiles"
+    icon="brain"
+    href="/configuration/model-profiles"
+  >
+    Control which Claude model each agent uses
+  </Card>
+  <Card
+    title="Workflow Agents"
+    icon="robot"
+    href="/configuration/workflow-agents"
+  >
+    Toggle optional workflow agents
+  </Card>
+</CardGroup>

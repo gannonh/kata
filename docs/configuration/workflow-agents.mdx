@@ -1,0 +1,58 @@
+---
+title: 'Workflow Agents'
+description: 'Toggle optional workflow agents'
+---
+
+## Overview
+
+These agents spawn during planning/execution. They improve quality but add tokens and time.
+
+## Available Agents
+
+### Research Agent
+
+**Setting:** `workflow.research`
+
+**Default:** `true`
+
+**Purpose:** Investigates domain before planning each phase
+
+**Skip per-invocation:**
+```bash
+/kata:planning-phases 1 --skip-research
+```
+
+### Plan Checker
+
+**Setting:** `workflow.plan_check`
+
+**Default:** `true`
+
+**Purpose:** Verifies plans achieve phase goals before execution
+
+**Skip per-invocation:**
+```bash
+/kata:planning-phases 1 --skip-verify
+```
+
+### Verifier
+
+**Setting:** `workflow.verifier`
+
+**Default:** `true`
+
+**Purpose:** Confirms must-haves were delivered after execution
+
+## Configuration
+
+Use `/kata:configuring-settings` to toggle, or edit `.planning/config.json`:
+
+```json
+{
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true
+  }
+}
+```

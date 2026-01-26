@@ -1,0 +1,200 @@
+---
+title: 'Installation'
+description: 'Install Kata via plugin or NPM'
+---
+
+## Installation Methods
+
+### Plugin Install (Recommended)
+
+The plugin installation provides the cleanest command syntax:
+
+```bash
+/plugin marketplace add gannonh/kata-marketplace
+/plugin install kata@gannonh-kata-marketplace
+```
+
+**Verify:**
+```bash
+/kata:providing-help
+```
+
+Skills are installed to `.claude/skills/` with prefixes stripped for clean `/kata:skill-name` invocation.
+
+### NPM Install
+
+Use NPM if you prefer global installation or need CI/container support:
+
+```bash
+npx @gannonh/kata
+```
+
+**Verify:**
+```bash
+/kata-providing-help
+```
+
+Skills are installed to `~/.claude/skills/kata-*` (global) or `.claude/skills/kata-*` (local).
+
+## Non-Interactive Install
+
+For Docker, CI, or scripted environments:
+
+<CodeGroup>
+
+```bash Global Install
+npx @gannonh/kata --global
+```
+
+```bash Local Install
+npx @gannonh/kata --local
+```
+
+</CodeGroup>
+
+Use `--global` (`-g`) or `--local` (`-l`) to skip the interactive prompt.
+
+## Development Installation
+
+Clone the repository and install locally for testing modifications:
+
+```bash
+git clone https://github.com/gannonh/kata.git
+cd kata
+node bin/install.js --local
+```
+
+<Warning>
+**Never run `node bin/install.js --local` from within the kata directory itself.** This overwrites `.claude/` with Kata's own files, breaking the development environment. Test local installs from a separate project directory.
+</Warning>
+
+## Permissions Setup
+
+### Recommended: Skip Permissions Mode
+
+Kata is designed for frictionless automation. Run Claude Code with:
+
+```bash
+claude --dangerously-skip-permissions
+```
+
+<Tip>
+Kata works best this way. Approving `date` and `git commit` 50 times defeats the purpose.
+</Tip>
+
+### Alternative: Granular Permissions
+
+If you prefer not to use that flag, add this to your project's `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(date:*)",
+      "Bash(echo:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(wc:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(sort:*)",
+      "Bash(grep:*)",
+      "Bash(tr:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git tag:*)"
+    ]
+  }
+}
+```
+
+## Staying Updated
+
+Check for updates periodically:
+
+<CodeGroup>
+
+```bash Plugin
+/kata:showing-whats-new
+```
+
+```bash NPX
+/kata-showing-whats-new
+```
+
+</CodeGroup>
+
+### Update Commands
+
+<CodeGroup>
+
+```bash Plugin Update
+claude plugin update kata@gannonh-kata-marketplace
+```
+
+```bash NPM Update
+npx @gannonh/kata@latest
+```
+
+</CodeGroup>
+
+## Docker & Container Environments
+
+If file reads fail with tilde paths (`~/.claude/...`), set `CLAUDE_CONFIG_DIR` before installing:
+
+```bash
+CLAUDE_CONFIG_DIR=/home/youruser/.claude npx @gannonh/kata --global
+```
+
+This ensures absolute paths are used instead of `~` which may not expand correctly in containers.
+
+## Troubleshooting
+
+### Skills Not Found After Install
+
+- Restart Claude Code to reload skills
+- **Plugin:** Verify skills exist in `./.claude/skills/` (prefixes stripped)
+- **NPX:** Verify skills exist in `~/.claude/skills/kata-*` (global) or `./.claude/skills/kata-*` (local)
+
+### Skills Not Working as Expected
+
+<CodeGroup>
+
+```bash Plugin
+/kata:providing-help
+```
+
+```bash NPX
+/kata-providing-help
+```
+
+</CodeGroup>
+
+If issues persist, re-run the installer:
+
+```bash
+npx @gannonh/kata
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Quickstart"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Get up and running in under 5 minutes
+  </Card>
+  <Card
+    title="Configuration"
+    icon="gear"
+    href="/configuration/settings"
+  >
+    Customize Kata for your needs
+  </Card>
+</CardGroup>

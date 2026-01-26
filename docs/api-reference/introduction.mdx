@@ -1,0 +1,62 @@
+---
+title: 'API Reference'
+description: 'API documentation for Kata'
+---
+
+## Overview
+
+This section contains API documentation for Kata. More content coming soon.
+
+## Skills API
+
+All Kata skills can be invoked programmatically or via natural language.
+
+### Invocation Syntax
+
+| Installation | Syntax               | Example                   |
+| ------------ | -------------------- | ------------------------- |
+| Plugin       | `/kata:skill-name`   | `/kata:planning-phases 2` |
+| NPX          | `/kata-skill-name`   | `/kata-planning-phases 2` |
+
+### Natural Language
+
+```
+"Plan phase 2"
+"Execute the phase"
+"What's the status?"
+```
+
+## File Structure
+
+Kata creates and maintains these files:
+
+| File | Location | Purpose |
+| ---- | -------- | ------- |
+| PROJECT.md | .planning/ | Project vision |
+| REQUIREMENTS.md | .planning/ | Scoped requirements |
+| ROADMAP.md | .planning/ | Phase breakdown |
+| STATE.md | .planning/ | Session memory |
+| {phase}-{plan}-PLAN.md | .planning/phases/{phase}/ | Execution plans |
+| {phase}-{plan}-SUMMARY.md | .planning/phases/{phase}/ | Post-execution records |
+
+## Configuration API
+
+Configuration is stored in `.planning/config.json`:
+
+```json
+{
+  "mode": "interactive",
+  "depth": "standard",
+  "model_profile": "balanced",
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true
+  },
+  "parallelization": {
+    "enabled": true
+  }
+}
+```
+
+See [Configuration](/configuration/settings) for details.

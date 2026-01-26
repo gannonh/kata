@@ -1,0 +1,134 @@
+---
+title: 'Agents'
+description: 'Specialized subagents for focused tasks'
+---
+
+## Overview
+
+Agents are specialized subagents spawned by skills for specific tasks. Each agent works in a fresh 200k token context window, preventing context degradation that would occur if all work happened in the main orchestrator.
+
+## Core Agents
+
+### kata-planner
+
+**Purpose:** Create atomic task plans with XML structure
+
+**Spawned by:** `kata-planning-phases`
+
+**Input:**
+- Phase requirements
+- Research findings
+- Project context
+
+**Output:** `{phase}-{N}-PLAN.md` with structured tasks
+
+### kata-executor
+
+**Purpose:** Implement tasks from plans
+
+**Spawned by:** `kata-executing-phases`
+
+**Input:**
+- Single PLAN.md file
+- Project context
+- State information
+
+**Output:** Code changes, atomic commits, SUMMARY.md
+
+### kata-verifier
+
+**Purpose:** Check work against phase goals
+
+**Spawned by:** `kata-executing-phases`, `kata-verifying-phases`
+
+**Input:**
+- Phase goals
+- Completed work
+- Codebase state
+
+**Output:** Verification results, gap analysis
+
+### kata-debugger
+
+**Purpose:** Diagnose failures systematically
+
+**Spawned by:** `kata-verifying-phases`, `kata-debugging`
+
+**Input:**
+- Failure description
+- Relevant code
+- Execution context
+
+**Output:** Root cause analysis, fix plan
+
+### kata-phase-researcher
+
+**Purpose:** Investigate domain before planning
+
+**Spawned by:** `kata-planning-phases`
+
+**Input:**
+- Phase description
+- Technology stack
+- Constraints
+
+**Output:** `{phase}-RESEARCH.md` with findings
+
+## Orchestration Pattern
+
+```
+Orchestrator (Skill)
+    ↓ (spawns)
+Agent 1 (fresh 200k)
+    ↓ (completes)
+Results to Orchestrator
+    ↓ (spawns)
+Agent 2 (fresh 200k)
+    ↓ (completes)
+Results to Orchestrator
+```
+
+The orchestrator never accumulates context garbage from agent work.
+
+## Agent Constraints
+
+- **Context size:** Fresh 200k tokens per spawn
+- **Focus:** Single responsibility
+- **Communication:** Results only, no streaming
+- **State:** Stateless (orchestrator manages state)
+
+## Parallel Execution
+
+Multiple agents can run simultaneously:
+
+```
+Orchestrator
+    ↓
+├─ Agent 1 (wave 1)
+├─ Agent 2 (wave 1)
+└─ Agent 3 (wave 1)
+    ↓ (all complete)
+├─ Agent 4 (wave 2)
+└─ Agent 5 (wave 2)
+```
+
+Plans are grouped into waves based on dependencies. Independent work runs in parallel.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Multi-Agent Orchestration"
+    icon="network-wired"
+    href="/advanced/multi-agent-orchestration"
+  >
+    Deep dive into orchestration patterns
+  </Card>
+  <Card
+    title="Skills"
+    icon="terminal"
+    href="/core-concepts/skills"
+  >
+    Learn about skill orchestrators
+  </Card>
+</CardGroup>

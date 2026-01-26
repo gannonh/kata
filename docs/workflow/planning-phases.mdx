@@ -1,0 +1,90 @@
+---
+title: 'Planning Phases'
+description: 'Research and create execution plans'
+---
+
+## Overview
+
+The `planning-phases` skill researches how to implement a phase, creates atomic task plans, and verifies they achieve phase goals.
+
+## Invocation
+
+```
+"Plan phase 1"
+```
+
+Or explicitly:
+
+<CodeGroup>
+
+```bash Plugin
+/kata:planning-phases 1
+```
+
+```bash NPX
+/kata-planning-phases 1
+```
+
+</CodeGroup>
+
+## Workflow
+
+### 1. Research
+
+Spawns `kata-phase-researcher` agent to investigate:
+- Technology choices
+- Implementation patterns
+- Library recommendations
+- Common pitfalls
+
+Guided by CONTEXT.md decisions from discuss phase (if it exists).
+
+### 2. Planning
+
+Spawns `kata-planner` agent to create 2-3 atomic task plans with XML structure.
+
+Each plan contains:
+- Specific tasks with verification steps
+- File paths to be modified
+- Implementation guidance
+- Success criteria
+
+### 3. Verification
+
+Spawns `kata-plan-checker` agent to verify:
+- Phase goals achieved?
+- Requirements covered?
+- Dependencies clear?
+- Verification steps specified?
+
+Loops until plans pass verification.
+
+## Options
+
+### Skip Research
+
+```bash
+/kata:planning-phases 1 --skip-research
+```
+
+Use when you're confident about the approach and don't need domain investigation.
+
+### Skip Verification
+
+```bash
+/kata:planning-phases 1 --skip-verify
+```
+
+Skip the plan checker loop. Useful for quick iterations.
+
+## Output Files
+
+| File | Purpose |
+| ---- | ------- |
+| {phase}-RESEARCH.md | Domain investigation findings |
+| {phase}-{N}-PLAN.md | Atomic task plans with XML structure |
+
+## Next Steps
+
+After planning, proceed to:
+- [Executing Phases](/workflow/executing-phases) — Run plans with fresh context

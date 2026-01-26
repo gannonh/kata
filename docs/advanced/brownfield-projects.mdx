@@ -1,0 +1,60 @@
+---
+title: 'Brownfield Projects'
+description: 'Using Kata with existing codebases'
+---
+
+## Overview
+
+Kata works with existing codebases. Use the codebase mapping skill before project initialization to help Claude understand your patterns.
+
+## Codebase Mapping
+
+<CodeGroup>
+
+```bash Plugin
+/kata:mapping-codebases
+```
+
+```bash NPX
+/kata-mapping-codebases
+```
+
+</CodeGroup>
+
+Spawns parallel agents to analyze:
+- Technology stack
+- Architecture patterns
+- Code conventions
+- Domain concerns
+
+## Workflow
+
+1. **Map codebase** — Run mapping skill
+2. **Initialize project** — Run `/kata:starting-projects`
+3. **Questions use context** — System knows your codebase
+4. **Planning loads patterns** — Agents reference your conventions
+
+## What Gets Analyzed
+
+- File structure
+- Naming conventions
+- Technology choices
+- Architectural patterns
+- Testing approach
+- Build system
+- Deployment setup
+
+## Output
+
+Creates `.planning/intel/` with:
+- `index.json` — File exports/imports
+- `conventions.json` — Detected patterns
+- `summary.md` — Concise context for injection
+
+## Auto-Indexing
+
+Kata automatically indexes code as you work:
+- **PostToolUse hook** — Updates index on file changes
+- **SessionStart hook** — Loads context on startup
+
+Brownfield setup is one-time. Ongoing work maintains intelligence automatically.

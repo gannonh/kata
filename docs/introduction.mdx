@@ -1,0 +1,113 @@
+---
+title: Introduction
+description: 'Welcome to Kata - A spec-driven development framework for Claude Code'
+---
+
+<img
+  className="block dark:hidden"
+  src="/images/hero-light.svg"
+  alt="Hero Light"
+/>
+<img
+  className="hidden dark:block"
+  src="/images/hero-dark.svg"
+  alt="Hero Dark"
+/>
+
+## What is Kata?
+
+Kata is an **agent orchestration framework** for spec-driven development. It's a meta-prompting and context engineering system that helps Claude build software systematically through structured workflows:
+
+**Requirements gathering → Research → Planning → Execution → Verification**
+
+型 · /ˈkɑːtɑː/ · *noun* - a choreographed pattern practiced repeatedly until perfected
+
+## Core Features
+
+<CardGroup cols={2}>
+  <Card
+    title="Natural Language Interface"
+    icon="message"
+    href="/core-concepts/overview"
+  >
+    Drive your entire workflow with natural language. Say what you want, Kata routes to the right workflow.
+  </Card>
+  <Card
+    title="Multi-Agent Orchestration"
+    icon="network-wired"
+    href="/advanced/multi-agent-orchestration"
+  >
+    Thin orchestrators spawn specialized agents with fresh context windows for each task.
+  </Card>
+  <Card
+    title="Context Engineering"
+    icon="brain"
+    href="/advanced/context-engineering"
+  >
+    Deliberate context management keeps Claude performing at peak quality throughout your project.
+  </Card>
+  <Card
+    title="Atomic Git Commits"
+    icon="code-branch"
+    href="/workflow/executing-phases"
+  >
+    Every task gets its own commit immediately after completion for perfect traceability.
+  </Card>
+</CardGroup>
+
+## Key Design Principles
+
+### Plans ARE Prompts
+
+PLAN.md files are executable XML documents optimized for Claude, not prose to be transformed. Every plan is structured for direct consumption by execution agents.
+
+### Files Teach Claude
+
+Every file in Kata serves dual purposes:
+1. **Runtime functionality** — Loaded by Claude during execution
+2. **Teaching material** — Shows Claude how to build software systematically
+
+### Fresh Context Windows
+
+Orchestrators stay lean (~15% context), subagents get fresh 200k tokens each. Walk away, come back to completed work without accumulated context garbage.
+
+## Architecture
+
+**Core Components:**
+- **Skills** (`skills/kata-*/SKILL.md`) — Primary interface for all Kata workflows
+- **Agents** (`agents/kata-*.md`) — Specialized subagents spawned by skills
+- **Templates** (`kata/templates/`) — Structured output formats (PROJECT.md, PLAN.md)
+- **References** (`kata/references/`) — Deep-dive documentation on concepts
+
+## Getting Started
+
+<CardGroup cols={2}>
+  <Card
+    title="Quickstart"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Get up and running in under 5 minutes
+  </Card>
+  <Card
+    title="Installation"
+    icon="download"
+    href="/installation"
+  >
+    Detailed installation instructions for plugin and NPM
+  </Card>
+  <Card
+    title="Your First Project"
+    icon="flag"
+    href="/workflow/starting-projects"
+  >
+    Learn how to initialize and build your first project with Kata
+  </Card>
+  <Card
+    title="Core Concepts"
+    icon="book"
+    href="/core-concepts/overview"
+  >
+    Understand the fundamental concepts behind Kata
+  </Card>
+</CardGroup>

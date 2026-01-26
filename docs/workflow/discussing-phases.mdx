@@ -1,0 +1,60 @@
+---
+title: 'Discussing Phases'
+description: 'Capture implementation decisions before planning'
+---
+
+## Overview
+
+The `discussing-phases` skill captures implementation decisions before research and planning. This ensures Claude understands your preferences and builds features the way you envision them.
+
+## When to Use
+
+Use this skill when:
+- You have specific preferences for how something should be built
+- The phase involves UI/UX decisions
+- Multiple valid approaches exist
+- You want to shape the implementation direction
+
+Skip it for phases where you're comfortable with Claude's defaults.
+
+## Invocation
+
+```
+"Let's discuss phase 1"
+```
+
+Or explicitly:
+
+<CodeGroup>
+
+```bash Plugin
+/kata:discussing-phases 1
+```
+
+```bash NPX
+/kata-discussing-phases 1
+```
+
+</CodeGroup>
+
+## What Gets Captured
+
+Based on what's being built, the system identifies gray areas:
+
+- **Visual features** → Layout, density, interactions, empty states
+- **APIs/CLIs** → Response format, flags, error handling, verbosity
+- **Content systems** → Structure, tone, depth, flow
+- **Organization tasks** → Grouping criteria, naming, duplicates
+
+For each area you select, it asks until you're satisfied.
+
+## Output
+
+Creates `{phase}-CONTEXT.md` which feeds into:
+1. **Researcher** — Knows what patterns to investigate
+2. **Planner** — Knows what decisions are locked
+
+## Next Steps
+
+After discussing, proceed to:
+- [Planning Phases](/workflow/planning-phases) — Research and create execution plans
