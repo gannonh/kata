@@ -89,7 +89,7 @@ Plans:
 - [x] **Phase 2.2: Decouple Project Init & Milestone Setup** (INSERTED) - Separate project creation from first milestone, establish Kata↔GitHub mapping — completed 2026-01-26
 - [x] **Phase 3: Phase Issues** - Create GitHub Issues for phases with labels and metadata — completed 2026-01-26
 - [x] **Phase 4: Plan Sync** - Checklist items in issues, update as plans complete — completed 2026-01-26
-- [ ] **Phase 5: PR Integration** - Create PRs at milestone completion with auto-linking
+- [ ] **Phase 5: PR Integration** - Create PRs at phase start with auto-linking
 - [ ] **Phase 6: PR Review Workflow Skill & Agents** - PR review workflow skill and agents (existing work to import)
 
 ## Phase Details
@@ -214,22 +214,23 @@ Plans:
 - [x] 04-03-PLAN.md — Tests and documentation
 
 #### Phase 5: PR Integration
-**Goal**: Milestone completion creates well-formed PRs that link to issues and follow conventions
+**Goal**: Phase execution creates well-formed PRs that link to issues and follow conventions
 **Depends on**: Phase 4 (issues exist to link to)
 **Requirements**: GHP-01, GHP-02, GHP-03, GHP-04, WFA-03
 **Implementation Spec**: `kata/references/planning-config.md#pr_workflow_behavior`
 **Success Criteria** (what must be TRUE):
-  1. `/kata:completing-milestones` creates branch at phase start (when `pr_workflow: true`)
-  2. `/kata:completing-milestones` opens draft PR at first commit
-  3. `/kata:completing-milestones` marks PR ready when phase complete
+  1. `/kata:executing-phases` creates branch at phase start (when `pr_workflow: true`)
+  2. `/kata:executing-phases` opens draft PR after first wave commits
+  3. `/kata:executing-phases` marks PR ready when phase complete
   4. PR title follows convention: `v{milestone} Phase {N}: {Phase Name}`
-  5. PR body includes phase goal, completed plans checklist, and "Closes #X" linking to phase issue
+  5. PR body includes phase goal, plans checklist, and "Closes #X" linking to phase issue
   6. `/kata:tracking-progress` shows PR status (draft/ready/merged) when `pr_workflow: true`
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
+- [ ] 05-01-PLAN.md — Add PR workflow to kata-executing-phases (branch, draft PR, ready)
+- [ ] 05-02-PLAN.md — Add PR status display to kata-tracking-progress
+- [ ] 05-03-PLAN.md — Tests and documentation updates
 
 #### Phase 6: PR Review Workflow Skill & Agents
 **Goal**: Integrate PR review workflow skill and agents into Kata (importing existing work from outside project)
@@ -262,9 +263,9 @@ Plans:
 | 2.2 Decouple Init & Milestone (INSERTED) | v1.1.0    | 4/4            | Complete    | 2026-01-26 |
 | 3. Phase Issues                          | v1.1.0    | 2/2            | Complete    | 2026-01-26 |
 | 4. Plan Sync                             | v1.1.0    | 3/3            | Complete    | 2026-01-26 |
-| 5. PR Integration                        | v1.1.0    | 0/?            | Not started | -          |
+| 5. PR Integration                        | v1.1.0    | 0/3            | Planned     | -          |
 | 6. PR Review Workflow Skill              | v1.1.0    | 0/?            | Not started | -          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-26 — Phase 4 complete (3/3 plans)*
+*Last updated: 2026-01-26 — Phase 5 planned (3 plans)*
