@@ -184,18 +184,18 @@ Plans:
 
 #### Phase 3: Phase Issues
 **Goal**: Phases become GitHub Issues with proper labels, metadata, and milestone assignment
-**Depends on**: Phase 2 (milestones exist to assign issues to)
+**Depends on**: Phase 2.2 (kata-adding-milestones exists with GitHub Milestone creation)
 **Requirements**: GHI-01, GHI-02, GHI-03
 **Success Criteria** (what must be TRUE):
   1. Phase issues created with `phase` label when milestone created
   2. Issue body includes phase goal and success criteria from ROADMAP.md
   3. Phase issues assigned to corresponding GitHub Milestone
   4. Issues created respecting `github.issueMode` config setting
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md — Add phase issue creation to kata-adding-milestones
+- [ ] 03-02-PLAN.md — Add tests and update integration documentation
 
 #### Phase 4: Plan Sync
 **Goal**: Phase issues track plan progress as checklist items that update during execution
@@ -259,11 +259,11 @@ Plans:
 | 2. Onboarding & Milestones               | v1.1.0    | 3/3            | Complete    | 2026-01-25 |
 | 2.1 GitHub Repo Setup (INSERTED)         | v1.1.0    | 2/2            | Complete    | 2026-01-26 |
 | 2.2 Decouple Init & Milestone (INSERTED) | v1.1.0    | 4/4            | Complete    | 2026-01-26 |
-| 3. Phase Issues                          | v1.1.0    | 0/?            | Not started | -          |
+| 3. Phase Issues                          | v1.1.0    | 0/2            | Not started | -          |
 | 4. Plan Sync                             | v1.1.0    | 0/?            | Not started | -          |
 | 5. PR Integration                        | v1.1.0    | 0/?            | Not started | -          |
 | 6. PR Review Workflow Skill              | v1.1.0    | 0/?            | Not started | -          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-26 — Phase 2.2 complete (Decouple Project Init & Milestone Setup)*
+*Last updated: 2026-01-26 — Phase 3 planned (2 plans)*
