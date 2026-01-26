@@ -14,6 +14,10 @@ Configuration options for Kata projects in `.planning/config.json`.
   "model_profile": "quality|balanced|budget",
   "commit_docs": true|false,
   "pr_workflow": true|false,
+  "github": {
+    "enabled": true|false,
+    "issueMode": "auto|ask|never"
+  },
   "display": {
     "statusline": true|false
   },
@@ -33,6 +37,8 @@ Configuration options for Kata projects in `.planning/config.json`.
 | `model_profile`       | `balanced` | Which AI models for agents (see model-profiles.md)             |
 | `commit_docs`         | `true`     | Whether to commit planning artifacts to git                    |
 | `pr_workflow`         | `true`     | Use PR-based release workflow vs direct commits                |
+| `github.enabled`      | `false`    | Create GitHub Milestones/Issues when true                      |
+| `github.issueMode`    | `never`    | Issue creation mode: `auto`, `ask`, `never`                    |
 | `display.statusline`  | `true`     | Enable Kata custom statusline in Claude Code                   |
 | `workflow.research`   | `true`     | Spawn researcher before planning each phase                    |
 | `workflow.plan_check` | `true`     | Verify plans achieve phase goals before execution              |
@@ -283,6 +289,55 @@ fi
 ```
 
 </pr_workflow_behavior>
+
+<github_integration>
+
+## GitHub Integration
+
+When `github.enabled: true`, Kata creates GitHub Milestones and Issues to mirror your planning structure.
+
+### Reading Config Values
+
+```bash
+# Read github.enabled (default: false)
+GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | head -1 | grep -o 'true\|false' || echo "false")
+
+# Read github.issueMode (default: never)
+GITHUB_ISSUE_MODE=$(cat .planning/config.json 2>/dev/null | grep -o '"issueMode"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "never")
+```
+
+**Note:** The `head -1` in `GITHUB_ENABLED` ensures we get the `github.enabled` value, not a similarly-named key in another namespace.
+
+### Conditional Execution
+
+```bash
+if [ "$GITHUB_ENABLED" = "true" ]; then
+  # GitHub operations here
+  gh milestone create "v${MILESTONE}" --description "..."
+fi
+
+if [ "$GITHUB_ENABLED" = "true" ] && [ "$GITHUB_ISSUE_MODE" = "auto" ]; then
+  # Auto-create issue
+  gh issue create --title "Phase ${PHASE}: ${NAME}" --milestone "v${MILESTONE}"
+fi
+
+if [ "$GITHUB_ENABLED" = "true" ] && [ "$GITHUB_ISSUE_MODE" = "ask" ]; then
+  # Check cached decision, prompt if needed
+  # See github-integration.md for ask mode implementation
+fi
+```
+
+### Issue Mode Values
+
+| Value   | Behavior                                                                |
+| ------- | ----------------------------------------------------------------------- |
+| `auto`  | Create Issues automatically for each phase                              |
+| `ask`   | Prompt once per milestone; decision applies to all phases in milestone  |
+| `never` | Never create phase Issues (Milestones still created if enabled)         |
+
+**Detailed integration points:** See [github-integration.md](github-integration.md)
+
+</github_integration>
 
 <workflow_agents>
 

@@ -8,7 +8,7 @@
 
 <br>
 
-Agent orchestration framework for spec-driven development.
+Multi-agent orchestration framework for spec-driven development.
 <br>
 
 [kata.sh](https://kata.sh)
@@ -29,7 +29,6 @@ Agent orchestration framework for spec-driven development.
 
 ```bash
 # Install as Claude Code plugin
-/plugin marketplace add gannonh/kata-marketplace
 /plugin install kata@gannonh-kata-marketplace
 
 # Or install via NPM
@@ -424,72 +423,96 @@ The system adapts to changing requirements.
 
 ---
 
+## Ecosystem
+
+### kata-tui
+
+**Terminal dashboard for project visibility.**
+
+[![GitHub](https://img.shields.io/badge/GitHub-kata--tui-181717?style=flat&logo=github)](https://github.com/gannonh/kata-tui)
+
+A Rust-based TUI that displays your Kata project state in a two-pane terminal interface:
+
+- **Left pane**: Project info from `PROJECT.md`
+- **Right pane**: Live roadmap and phase progress from `ROADMAP.md` and `STATE.md`
+- **Navigation**: Vim-style keybindings (j/k scroll, Tab switches panes, q quits)
+
+Install and run:
+```bash
+cargo install kata-tui
+kata-tui
+```
+
+Keep it open alongside Claude Code for at-a-glance project awareness.
+
+---
+
 ## Skills
 
 > **Remember:** All skills respond to natural language. "What's my progress?" works the same as `/kata:tracking-progress` (plugin) or `/kata-tracking-progress` (NPX).
 
 Skills are invoked via slash commands. The syntax differs between plugin and NPX installations:
 
-| Installation | Syntax | Example |
-| ------------ | ------ | ------- |
-| Plugin | `/kata:skill-name` | `/kata:planning-phases 1` |
-| NPX | `/kata-skill-name` | `/kata-planning-phases 1` |
+| Installation | Syntax             | Example                   |
+| ------------ | ------------------ | ------------------------- |
+| Plugin       | `/kata:skill-name` | `/kata:planning-phases 1` |
+| NPX          | `/kata-skill-name` | `/kata-planning-phases 1` |
 
 ### Core Workflow
 
-| Skill | What it does |
-| ----- | ------------ |
-| `starting-projects` | Full initialization: questions → research → requirements → roadmap |
-| `discussing-phases [N]` | Capture implementation decisions before planning |
-| `planning-phases [N]` | Research + plan + verify for a phase |
-| `executing-phases <N>` | Execute all plans in parallel waves, verify when complete |
-| `verifying-phases [N]` | Manual user acceptance testing |
-| `auditing-milestones` | Verify milestone achieved its definition of done |
-| `completing-milestones` | Archive milestone, tag release |
-| `starting-milestones [name]` | Start next version: questions → research → requirements → roadmap |
+| Skill                        | What it does                                                       |
+| ---------------------------- | ------------------------------------------------------------------ |
+| `starting-projects`          | Full initialization: questions → research → requirements → roadmap |
+| `discussing-phases [N]`      | Capture implementation decisions before planning                   |
+| `planning-phases [N]`        | Research + plan + verify for a phase                               |
+| `executing-phases <N>`       | Execute all plans in parallel waves, verify when complete          |
+| `verifying-phases [N]`       | Manual user acceptance testing                                     |
+| `auditing-milestones`        | Verify milestone achieved its definition of done                   |
+| `completing-milestones`      | Archive milestone, tag release                                     |
+| `starting-milestones [name]` | Start next version: questions → research → requirements → roadmap  |
 
 ### Navigation
 
-| Skill | What it does |
-| ----- | ------------ |
-| `tracking-progress` | Where am I? What's next? |
-| `providing-help` | Show all skills and usage guide |
+| Skill               | What it does                                  |
+| ------------------- | --------------------------------------------- |
+| `tracking-progress` | Where am I? What's next?                      |
+| `providing-help`    | Show all skills and usage guide               |
 | `showing-whats-new` | See what changed since your installed version |
-| `updating` | Update Kata with changelog preview (NPX only) |
+| `updating`          | Update Kata with changelog preview (NPX only) |
 
 ### Brownfield
 
-| Skill | What it does |
-| ----- | ------------ |
+| Skill               | What it does                                   |
+| ------------------- | ---------------------------------------------- |
 | `mapping-codebases` | Analyze existing codebase before project setup |
 
 ### Phase Management
 
-| Skill | What it does |
-| ----- | ------------ |
-| `adding-phases` | Append phase to roadmap |
-| `inserting-phases [N]` | Insert urgent work between phases |
-| `removing-phases [N]` | Remove future phase, renumber |
+| Skill                           | What it does                                   |
+| ------------------------------- | ---------------------------------------------- |
+| `adding-phases`                 | Append phase to roadmap                        |
+| `inserting-phases [N]`          | Insert urgent work between phases              |
+| `removing-phases [N]`           | Remove future phase, renumber                  |
 | `listing-phase-assumptions [N]` | See Claude's intended approach before planning |
-| `planning-milestone-gaps` | Create phases to close gaps from audit |
+| `planning-milestone-gaps`       | Create phases to close gaps from audit         |
 
 ### Session
 
-| Skill | What it does |
-| ----- | ------------ |
-| `pausing-work` | Create handoff when stopping mid-phase |
-| `resuming-work` | Restore from last session |
+| Skill           | What it does                           |
+| --------------- | -------------------------------------- |
+| `pausing-work`  | Create handoff when stopping mid-phase |
+| `resuming-work` | Restore from last session              |
 
 ### Utilities
 
-| Skill | What it does |
-| ----- | ------------ |
-| `configuring-settings` | Configure model profile and workflow agents |
+| Skill                        | What it does                                   |
+| ---------------------------- | ---------------------------------------------- |
+| `configuring-settings`       | Configure model profile and workflow agents    |
 | `setting-profiles <profile>` | Switch model profile (quality/balanced/budget) |
-| `adding-todos [desc]` | Capture idea for later |
-| `checking-todos` | List pending todos |
-| `debugging [desc]` | Systematic debugging with persistent state |
-| `executing-quick-tasks` | Execute ad-hoc task with Kata guarantees |
+| `adding-todos [desc]`        | Capture idea for later                         |
+| `checking-todos`             | List pending todos                             |
+| `debugging [desc]`           | Systematic debugging with persistent state     |
+| `executing-quick-tasks`      | Execute ad-hoc task with Kata guarantees       |
 
 ---
 

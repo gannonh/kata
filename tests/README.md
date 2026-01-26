@@ -11,6 +11,9 @@ npm test
 # Run only skill tests
 npm run test:skills
 
+# Run a specific skill test
+npm run test:skill -- tests/skills/tracking-progress.test.js
+
 # Run only tests for changed skills (CI mode)
 npm run test:affected
 ```

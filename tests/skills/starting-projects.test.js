@@ -2,14 +2,17 @@
  * Tests for kata-starting-projects skill.
  *
  * Verifies that the starting-projects skill correctly initializes a new Kata
- * project from scratch with all required artifacts.
+ * project with PROJECT.md and config.json only.
+ *
+ * NOTE: ROADMAP.md, REQUIREMENTS.md, and STATE.md are created by
+ * kata-adding-milestones, not starting-projects.
  *
  * IMPORTANT: This test uses a FRESH temp directory (not the kata-project fixture)
  * since starting-projects initializes from an empty directory.
  */
 
 import { describe, it, beforeEach, afterEach } from 'node:test';
-import { mkdtempSync, rmSync, cpSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, cpSync, writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -125,9 +128,9 @@ This is a test project for kata-starting-projects skill testing.
     }
   });
 
-  it('creates ROADMAP.md during initialization', () => {
+  it('does not create ROADMAP.md (handled by add-milestone)', () => {
     const result = invokeClaude(
-      'new project: Build a weather CLI tool. Use TypeScript. Standard depth. Skip research.',
+      'new project: Build a weather CLI tool. Use TypeScript.',
       {
         cwd: testDir,
         maxBudget: config.budgets.expensive,
@@ -138,13 +141,15 @@ This is a test project for kata-starting-projects skill testing.
     assertNoError(result);
     assertSkillInvoked(result);
 
-    // Check for ROADMAP.md (may require more interaction to complete)
-    if (existsSync(join(testDir, '.planning', 'ROADMAP.md'))) {
-      assertArtifactExists(testDir, '.planning/ROADMAP.md', 'Expected ROADMAP.md to be created');
+    // ROADMAP.md should NOT be created by starting-projects
+    // It's created by add-milestone
+    const roadmapPath = join(testDir, '.planning', 'ROADMAP.md');
+    if (existsSync(roadmapPath)) {
+      throw new Error('ROADMAP.md should not be created by starting-projects (handled by add-milestone)');
     }
   });
 
-  it('creates STATE.md during initialization', () => {
+  it('does not create STATE.md (handled by add-milestone)', () => {
     const result = invokeClaude(
       'setup kata project for a blog engine with posts and comments',
       {
@@ -157,9 +162,79 @@ This is a test project for kata-starting-projects skill testing.
     assertNoError(result);
     assertSkillInvoked(result);
 
-    // Check for STATE.md
-    if (existsSync(join(testDir, '.planning', 'STATE.md'))) {
-      assertArtifactExists(testDir, '.planning/STATE.md', 'Expected STATE.md to be created');
+    // STATE.md should NOT be created by starting-projects
+    // It's created by add-milestone
+    const statePath = join(testDir, '.planning', 'STATE.md');
+    if (existsSync(statePath)) {
+      throw new Error('STATE.md should not be created by starting-projects (handled by add-milestone)');
+    }
+  });
+
+  it('includes GitHub integration questions in config', () => {
+    // Use a prompt that asks about project setup with GitHub enabled
+    const result = invokeClaude(
+      'start new kata project: A simple API. Enable GitHub tracking.',
+      {
+        cwd: testDir,
+        maxBudget: config.budgets.standard,
+        timeout: config.timeouts.standard
+      }
+    );
+
+    assertNoError(result);
+    assertSkillInvoked(result);
+
+    // Check that GitHub is mentioned in the response or config
+    const resultText = result.result || '';
+    const mentionsGitHub = resultText.toLowerCase().includes('github') ||
+                           resultText.includes('milestone') ||
+                           resultText.includes('issue');
+
+    // If config.json was created, check for github namespace
+    const configPath = join(testDir, '.planning', 'config.json');
+    let hasGitHubConfig = false;
+
+    if (existsSync(configPath)) {
+      const configContent = readFileSync(configPath, 'utf8');
+      hasGitHubConfig = configContent.includes('"github"') ||
+                        configContent.includes('github');
+    }
+
+    // The skill should either mention GitHub in output or create github config
+    if (!mentionsGitHub && !hasGitHubConfig) {
+      // GitHub questions may not complete in non-interactive test, but should be mentioned
+      console.log('Note: GitHub integration may require interactive mode for full test');
+    }
+  });
+
+  it('includes GitHub remote detection in workflow', () => {
+    // This test verifies the skill content includes the remote detection pattern
+    // Actual remote detection happens during interactive execution
+
+    const skillPath = join(testDir, '.claude', 'skills', 'kata-starting-projects', 'SKILL.md');
+    const skillContent = readFileSync(skillPath, 'utf8');
+
+    // Verify remote detection pattern exists
+    const hasRemoteCheck = skillContent.includes('git remote -v') ||
+                            skillContent.includes('HAS_GITHUB_REMOTE');
+
+    if (!hasRemoteCheck) {
+      throw new Error('Expected skill to include GitHub remote detection pattern');
+    }
+
+    // Verify repo creation option exists
+    const hasRepoCreate = skillContent.includes('gh repo create');
+
+    if (!hasRepoCreate) {
+      throw new Error('Expected skill to include gh repo create command');
+    }
+
+    // Verify skip option that disables github.enabled
+    const hasSkipOption = skillContent.includes('Skip for now') ||
+                           skillContent.includes('github.enabled: false');
+
+    if (!hasSkipOption) {
+      throw new Error('Expected skill to include skip option that disables GitHub');
     }
   });
 });

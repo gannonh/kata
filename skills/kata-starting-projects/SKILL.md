@@ -17,19 +17,15 @@ allowed-tools:
 
 <objective>
 
-Initialize a new project through unified flow: questioning → research (optional) → requirements → roadmap.
+Initialize a new project with deep context gathering and workflow configuration.
 
-This is the most leveraged moment in any project. Deep questioning here means better plans, better execution, better outcomes. One command takes you from idea to ready-for-planning.
+This is the most leveraged moment in any project. Deep questioning here means better plans, better execution, better outcomes.
 
 **Creates:**
 - `.planning/PROJECT.md` — project context
 - `.planning/config.json` — workflow preferences
-- `.planning/research/` — domain research (optional)
-- `.planning/REQUIREMENTS.md` — scoped requirements
-- `.planning/ROADMAP.md` — phase structure
-- `.planning/STATE.md` — project memory
 
-**After this command:** Run `/kata:plan-phase 1` to start execution.
+**After this command:** Run `/kata:add-milestone` to define your first milestone.
 
 </objective>
 
@@ -38,7 +34,6 @@ This is the most leveraged moment in any project. Deep questioning here means be
 @./references/questioning.md
 @./references/ui-brand.md
 @./references/project-template.md
-@./references/requirements-template.md
 
 </execution_context>
 
@@ -292,9 +287,82 @@ questions: [
       { label: "Yes (Recommended)", description: "Protect main, create PRs, tag via GitHub Release" },
       { label: "No", description: "Commit directly to main, create tags locally" }
     ]
+  },
+  {
+    header: "GitHub Tracking",
+    question: "Enable GitHub Milestone/Issue tracking?",
+    multiSelect: false,
+    options: [
+      { label: "Yes (Recommended)", description: "Create GitHub Milestones for Kata milestones, optionally create Issues for phases" },
+      { label: "No", description: "Keep planning local to .planning/ directory only" }
+    ]
   }
 ]
+
+# If GitHub Tracking = Yes, ask follow-up:
+{
+  header: "Issue Creation",
+  question: "When should GitHub Issues be created for phases?",
+  multiSelect: false,
+  options: [
+    { label: "Auto", description: "Create Issues automatically for each phase (no prompting)" },
+    { label: "Ask per milestone", description: "Prompt once per milestone, decision applies to all phases" },
+    { label: "Never", description: "Only create Milestones, no phase-level Issues" }
+  ]
+}
 ```
+
+**GitHub Repository Check (conditional):**
+
+**If GitHub Tracking = Yes:**
+
+After confirming GitHub preferences, check for existing remote:
+
+```bash
+# Check if gh CLI is authenticated
+GH_AUTH=$(gh auth status &>/dev/null && echo "true" || echo "false")
+
+# Check for GitHub remote
+HAS_GITHUB_REMOTE=$(git remote -v 2>/dev/null | grep -q 'github\.com' && echo "true" || echo "false")
+```
+
+**If `HAS_GITHUB_REMOTE=false` and user selected GitHub Tracking = Yes:**
+
+Use AskUserQuestion:
+- header: "GitHub Repository"
+- question: "GitHub tracking enabled, but no GitHub repository is linked. Create one now?"
+- options:
+  - "Create public repo" — Run `gh repo create --source=. --public --push`
+  - "Create private repo" — Run `gh repo create --source=. --private --push`
+  - "Skip for now" — Disable GitHub tracking (can enable later with `gh repo create`)
+
+**If "Create public repo":**
+```bash
+if [ "$GH_AUTH" = "true" ]; then
+  gh repo create --source=. --public --push && echo "GitHub repository created" || echo "Warning: Failed to create repository"
+else
+  echo "Warning: GitHub CLI not authenticated. Run 'gh auth login' first, then 'gh repo create --source=. --public --push'"
+fi
+```
+Continue with `github.enabled: true`.
+
+**If "Create private repo":**
+```bash
+if [ "$GH_AUTH" = "true" ]; then
+  gh repo create --source=. --private --push && echo "GitHub repository created" || echo "Warning: Failed to create repository"
+else
+  echo "Warning: GitHub CLI not authenticated. Run 'gh auth login' first, then 'gh repo create --source=. --private --push'"
+fi
+```
+Continue with `github.enabled: true`.
+
+**If "Skip for now":**
+- Set `github.enabled: false` in config.json (override user's earlier selection)
+- Display note: "GitHub tracking disabled — no repository configured. Run `gh repo create --source=. --public` to enable later, then update `.planning/config.json`."
+
+**If `HAS_GITHUB_REMOTE=true`:**
+- Proceed normally with user's GitHub preferences
+- No additional prompts needed
 
 **Round 2 — Workflow agents:**
 
@@ -376,9 +444,33 @@ Create `.planning/config.json` with all settings:
     "research": true|false,
     "plan_check": true|false,
     "verifier": true|false
+  },
+  "github": {
+    "enabled": true|false,
+    "issueMode": "auto|ask|never"
   }
 }
 ```
+
+**GitHub Tracking conditional logic:**
+
+**If GitHub Tracking = Yes:**
+- Ask the Issue Creation follow-up question
+- Check for GitHub remote (see GitHub Repository Check above)
+- Set `github.enabled` based on final state (true if remote exists or was created, false if skipped)
+- Set `github.issueMode` based on Issue Creation choice:
+  - "Auto" → `"auto"`
+  - "Ask per milestone" → `"ask"`
+  - "Never" → `"never"`
+- Display note based on outcome:
+  - If remote exists/created: "GitHub integration enabled. Milestones will be created via `gh` CLI."
+  - If skipped: "GitHub tracking disabled — no repository configured."
+
+**If GitHub Tracking = No:**
+- Skip the Issue Creation question
+- Skip the GitHub Repository Check
+- Set `github.enabled: false`
+- Set `github.issueMode: "never"`
 
 **If commit_docs = No:**
 - Set `commit_docs: false` in config.json
@@ -599,537 +691,28 @@ Default to "balanced" if not set.
 | kata-research-synthesizer | sonnet  | sonnet   | haiku  |
 | kata-roadmapper           | opus    | sonnet   | sonnet |
 
-Store resolved models for use in Task calls below.
+Store resolved models for use in Task calls if milestone research/roadmapping is needed later.
 
-## Phase 6: Research Decision
+## Phase 6: Done
 
-Use AskUserQuestion:
-- header: "Research"
-- question: "Research the domain ecosystem before defining requirements?"
-- options:
-  - "Research first (Recommended)" — Discover standard stacks, expected features, architecture patterns
-  - "Skip research" — I know this domain well, go straight to requirements
+**Commit PROJECT.md and config.json (if not already committed):**
 
-**If "Research first":**
-
-Display stage banner:
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- Kata ► RESEARCHING
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Researching [domain] ecosystem...
-
-
-Create research directory:
-```bash
-mkdir -p .planning/research
-```
-
-**Determine milestone context:**
-
-Check if this is greenfield or subsequent milestone:
-- If no "Validated" requirements in PROJECT.md → Greenfield (building from scratch)
-- If "Validated" requirements exist → Subsequent milestone (adding to existing app)
-
-Display spawning indicator:
-```
-◆ Spawning 4 researchers in parallel...
-  → Stack research
-  → Features research
-  → Architecture research
-  → Pitfalls research
-```
-
-Spawn 4 parallel kata-project-researcher agents with rich context:
-
-```
-Task(prompt="
-<research_type>
-Project Research — Stack dimension for [domain].
-</research_type>
-
-<milestone_context>
-[greenfield OR subsequent]
-
-Greenfield: Research the standard stack for building [domain] from scratch.
-Subsequent: Research what's needed to add [target features] to an existing [domain] app. Don't re-research the existing system.
-</milestone_context>
-
-<question>
-What's the standard 2025 stack for [domain]?
-</question>
-
-<project_context>
-[PROJECT.md summary - core value, constraints, what they're building]
-</project_context>
-
-<downstream_consumer>
-Your STACK.md feeds into roadmap creation. Be prescriptive:
-- Specific libraries with versions
-- Clear rationale for each choice
-- What NOT to use and why
-</downstream_consumer>
-
-<quality_gate>
-- [ ] Versions are current (verify with Context7/official docs, not training data)
-- [ ] Rationale explains WHY, not just WHAT
-- [ ] Confidence levels assigned to each recommendation
-</quality_gate>
-
-<output>
-Write to: .planning/research/STACK.md
-Format: Standard research output forSTACK.md
-</output>
-", subagent_type="kata-project-researcher", model="{researcher_model}", description="Stack research")
-
-Task(prompt="
-<research_type>
-Project Research — Features dimension for [domain].
-</research_type>
-
-<milestone_context>
-[greenfield OR subsequent]
-
-Greenfield: What features do [domain] products have? What's table stakes vs differentiating?
-Subsequent: How do [target features] typically work? What's expected behavior?
-</milestone_context>
-
-<question>
-What features do [domain] products have? What's table stakes vs differentiating?
-</question>
-
-<project_context>
-[PROJECT.md summary]
-</project_context>
-
-<downstream_consumer>
-Your FEATURES.md feeds into requirements definition. Categorize clearly:
-- Table stakes (must have or users leave)
-- Differentiators (competitive advantage)
-- Anti-features (things to deliberately NOT build)
-</downstream_consumer>
-
-<quality_gate>
-- [ ] Categories are clear (table stakes vs differentiators vs anti-features)
-- [ ] Complexity noted for each feature
-- [ ] Dependencies between features identified
-</quality_gate>
-
-<output>
-Write to: .planning/research/FEATURES.md
-Format: Standard research output forFEATURES.md
-</output>
-", subagent_type="kata-project-researcher", model="{researcher_model}", description="Features research")
-
-Task(prompt="
-<research_type>
-Project Research — Architecture dimension for [domain].
-</research_type>
-
-<milestone_context>
-[greenfield OR subsequent]
-
-Greenfield: How are [domain] systems typically structured? What are major components?
-Subsequent: How do [target features] integrate with existing [domain] architecture?
-</milestone_context>
-
-<question>
-How are [domain] systems typically structured? What are major components?
-</question>
-
-<project_context>
-[PROJECT.md summary]
-</project_context>
-
-<downstream_consumer>
-Your ARCHITECTURE.md informs phase structure in roadmap. Include:
-- Component boundaries (what talks to what)
-- Data flow (how information moves)
-- Suggested build order (dependencies between components)
-</downstream_consumer>
-
-<quality_gate>
-- [ ] Components clearly defined with boundaries
-- [ ] Data flow direction explicit
-- [ ] Build order implications noted
-</quality_gate>
-
-<output>
-Write to: .planning/research/ARCHITECTURE.md
-Format: Standard research output forARCHITECTURE.md
-</output>
-", subagent_type="kata-project-researcher", model="{researcher_model}", description="Architecture research")
-
-Task(prompt="
-<research_type>
-Project Research — Pitfalls dimension for [domain].
-</research_type>
-
-<milestone_context>
-[greenfield OR subsequent]
-
-Greenfield: What do [domain] projects commonly get wrong? Critical mistakes?
-Subsequent: What are common mistakes when adding [target features] to [domain]?
-</milestone_context>
-
-<question>
-What do [domain] projects commonly get wrong? Critical mistakes?
-</question>
-
-<project_context>
-[PROJECT.md summary]
-</project_context>
-
-<downstream_consumer>
-Your PITFALLS.md prevents mistakes in roadmap/planning. For each pitfall:
-- Warning signs (how to detect early)
-- Prevention strategy (how to avoid)
-- Which phase should address it
-</downstream_consumer>
-
-<quality_gate>
-- [ ] Pitfalls are specific to this domain (not generic advice)
-- [ ] Prevention strategies are actionable
-- [ ] Phase mapping included where relevant
-</quality_gate>
-
-<output>
-Write to: .planning/research/PITFALLS.md
-Format: Standard research output forPITFALLS.md
-</output>
-", subagent_type="kata-project-researcher", model="{researcher_model}", description="Pitfalls research")
-```
-
-After all 4 agents complete, spawn synthesizer to create SUMMARY.md:
-
-```
-Task(prompt="
-<task>
-Synthesize research outputs into SUMMARY.md.
-</task>
-
-<research_files>
-Read these files:
-- .planning/research/STACK.md
-- .planning/research/FEATURES.md
-- .planning/research/ARCHITECTURE.md
-- .planning/research/PITFALLS.md
-</research_files>
-
-<output>
-Write to: .planning/research/SUMMARY.md
-Format: Standard research output forSUMMARY.md
-Commit after writing.
-</output>
-", subagent_type="kata-research-synthesizer", model="{synthesizer_model}", description="Synthesize research")
-```
-
-Display research complete banner and key findings:
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- Kata ► RESEARCH COMPLETE ✓
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-## Key Findings
-
-**Stack:** [from SUMMARY.md]
-**Table Stakes:** [from SUMMARY.md]
-**Watch Out For:** [from SUMMARY.md]
-
-Files: `.planning/research/`
-
-
-**If "Skip research":** Continue to Phase 7.
-
-## Phase 7: Define Requirements
-
-Display stage banner:
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- Kata ► DEFINING REQUIREMENTS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-
-**Load context:**
-
-Read PROJECT.md and extract:
-- Core value (the ONE thing that must work)
-- Stated constraints (budget, timeline, tech limitations)
-- Any explicit scope boundaries
-
-**If research exists:** Read research/FEATURES.md and extract feature categories.
-
-**Present features by category:**
-
-```
-Here are the features for [domain]:
-
-## Authentication
-**Table stakes:**
-- Sign up with email/password
-- Email verification
-- Password reset
-- Session management
-
-**Differentiators:**
-- Magic link login
-- OAuth (Google, GitHub)
-- 2FA
-
-**Research notes:** [any relevant notes]
-
----
-
-## [Next Category]
-...
-```
-
-**If no research:** Gather requirements through conversation instead.
-
-Ask: "What are the main things users need to be able to do?"
-
-For each capability mentioned:
-- Ask clarifying questions to make it specific
-- Probe for related capabilities
-- Group into categories
-
-**Scope each category:**
-
-For each category, use AskUserQuestion:
-
-- header: "[Category name]"
-- question: "Which [category] features are in v1?"
-- multiSelect: true
-- options:
-  - "[Feature 1]" — [brief description]
-  - "[Feature 2]" — [brief description]
-  - "[Feature 3]" — [brief description]
-  - "None for v1" — Defer entire category
-
-Track responses:
-- Selected features → v1 requirements
-- Unselected table stakes → v2 (users expect these)
-- Unselected differentiators → out of scope
-
-**Identify gaps:**
-
-Use AskUserQuestion:
-- header: "Additions"
-- question: "Any requirements research missed? (Features specific to your vision)"
-- options:
-  - "No, research covered it" — Proceed
-  - "Yes, let me add some" — Capture additions
-
-**Validate core value:**
-
-Cross-check requirements against Core Value from PROJECT.md. If gaps detected, surface them.
-
-**Generate REQUIREMENTS.md:**
-
-Create `.planning/REQUIREMENTS.md` with:
-- v1 Requirements grouped by category (checkboxes, REQ-IDs)
-- v2 Requirements (deferred)
-- Out of Scope (explicit exclusions with reasoning)
-- Traceability section (empty, filled by roadmap)
-
-**REQ-ID format:** `[CATEGORY]-[NUMBER]` (AUTH-01, CONTENT-02)
-
-**Requirement quality criteria:**
-
-Good requirements are:
-- **Specific and testable:** "User can reset password via email link" (not "Handle password reset")
-- **User-centric:** "User can X" (not "System does Y")
-- **Atomic:** One capability per requirement (not "User can login and manage profile")
-- **Independent:** Minimal dependencies on other requirements
-
-Reject vague requirements. Push for specificity:
-- "Handle authentication" → "User can log in with email/password and stay logged in across sessions"
-- "Support sharing" → "User can share post via link that opens in recipient's browser"
-
-**Present full requirements list:**
-
-Show every requirement (not counts) for user confirmation:
-
-```
-## v1 Requirements
-
-### Authentication
-- [ ] **AUTH-01**: User can create account with email/password
-- [ ] **AUTH-02**: User can log in and stay logged in across sessions
-- [ ] **AUTH-03**: User can log out from any page
-
-### Content
-- [ ] **CONT-01**: User can create posts with text
-- [ ] **CONT-02**: User can edit their own posts
-
-[... full list ...]
-
----
-
-Does this capture what you're building? (yes / adjust)
-```
-
-If "adjust": Return to scoping.
-
-**Commit requirements:**
+Check if uncommitted changes exist and commit them:
 
 ```bash
-git add .planning/REQUIREMENTS.md
-git commit -m "$(cat <<'EOF'
-docs: define v1 requirements
+# Check for uncommitted planning files
+if git status --porcelain .planning/PROJECT.md .planning/config.json 2>/dev/null | grep -q '.'; then
+  git add .planning/PROJECT.md .planning/config.json
+  git commit -m "$(cat <<'EOF'
+docs: initialize project
 
-[X] requirements across [N] categories
-[Y] requirements deferred to v2
+Project context and workflow configuration.
 EOF
 )"
+fi
 ```
 
-## Phase 8: Create Roadmap
-
-Display stage banner:
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- Kata ► CREATING ROADMAP
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-◆ Spawning roadmapper...
-
-
-Spawn kata-roadmapper agent with context:
-
-```
-Task(prompt="
-<planning_context>
-
-**Project:**
-@.planning/PROJECT.md
-
-**Requirements:**
-@.planning/REQUIREMENTS.md
-
-**Research (if exists):**
-@.planning/research/SUMMARY.md
-
-**Config:**
-@.planning/config.json
-
-</planning_context>
-
-<instructions>
-Create roadmap:
-1. Derive phases from requirements (don't impose structure)
-2. Map every v1 requirement to exactly one phase
-3. Derive 2-5 success criteria per phase (observable user behaviors)
-4. Validate 100% coverage
-5. Write files immediately (ROADMAP.md, STATE.md, update REQUIREMENTS.md traceability)
-6. Return ROADMAP CREATED with summary
-
-Write files first, then return. This ensures artifacts persist even if context is lost.
-</instructions>
-", subagent_type="kata-roadmapper", model="{roadmapper_model}", description="Create roadmap")
-```
-
-**Handle roadmapper return:**
-
-**If `## ROADMAP BLOCKED`:**
-- Present blocker information
-- Work with user to resolve
-- Re-spawn when resolved
-
-**If `## ROADMAP CREATED`:**
-
-Read the created ROADMAP.md and present it nicely inline:
-
-```
----
-
-## Proposed Roadmap
-
-**[N] phases** | **[X] requirements mapped** | All v1 requirements covered ✓
-
-| #   | Phase  | Goal   | Requirements | Success Criteria |
-| --- | ------ | ------ | ------------ | ---------------- |
-| 1   | [Name] | [Goal] | [REQ-IDs]    | [count]          |
-| 2   | [Name] | [Goal] | [REQ-IDs]    | [count]          |
-| 3   | [Name] | [Goal] | [REQ-IDs]    | [count]          |
-...
-
-### Phase Details
-
-**Phase 1: [Name]**
-Goal: [goal]
-Requirements: [REQ-IDs]
-Success criteria:
-1. [criterion]
-2. [criterion]
-3. [criterion]
-
-**Phase 2: [Name]**
-Goal: [goal]
-Requirements: [REQ-IDs]
-Success criteria:
-1. [criterion]
-2. [criterion]
-
-[... continue for all phases ...]
-
----
-```
-
-**CRITICAL: Ask for approval before committing:**
-
-Use AskUserQuestion:
-- header: "Roadmap"
-- question: "Does this roadmap structure work for you?"
-- options:
-  - "Approve" — Commit and continue
-  - "Adjust phases" — Tell me what to change
-  - "Review full file" — Show raw ROADMAP.md
-
-**If "Approve":** Continue to commit.
-
-**If "Adjust phases":**
-- Get user's adjustment notes
-- Re-spawn roadmapper with revision context:
-  ```
-  Task(prompt="
-  <revision>
-  User feedback on roadmap:
-  [user's notes]
-
-  Current ROADMAP.md: @.planning/ROADMAP.md
-
-  Update the roadmap based on feedback. Edit files in place.
-  Return ROADMAP REVISED with changes made.
-  </revision>
-  ", subagent_type="kata-roadmapper", model="{roadmapper_model}", description="Revise roadmap")
-  ```
-- Present revised roadmap
-- Loop until user approves
-
-**If "Review full file":** Display raw `cat .planning/ROADMAP.md`, then re-ask.
-
-**Commit roadmap (after approval):**
-
-```bash
-git add .planning/ROADMAP.md .planning/STATE.md .planning/REQUIREMENTS.md
-git commit -m "$(cat <<'EOF'
-docs: create roadmap ([N] phases)
-
-Phases:
-1. [phase-name]: [requirements covered]
-2. [phase-name]: [requirements covered]
-...
-
-All v1 requirements mapped to phases.
-EOF
-)"
-```
-
-## Phase 10: Done
-
-Present completion with next steps:
+**Display completion banner:**
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1138,30 +721,22 @@ Present completion with next steps:
 
 **[Project Name]**
 
-| Artifact     | Location                    |
-| ------------ | --------------------------- |
-| Project      | `.planning/PROJECT.md`      |
-| Config       | `.planning/config.json`     |
-| Research     | `.planning/research/`       |
-| Requirements | `.planning/REQUIREMENTS.md` |
-| Roadmap      | `.planning/ROADMAP.md`      |
+| Artifact     | Location                |
+| ------------ | ----------------------- |
+| Project      | `.planning/PROJECT.md`  |
+| Config       | `.planning/config.json` |
 
-**[N] phases** | **[X] requirements** | Ready to build ✓
+Ready for milestone planning ✓
 
 ───────────────────────────────────────────────────────────────
 
 ## ▶ Next Up
 
-**Phase 1: [Phase Name]** — [Goal from ROADMAP.md]
+**Define your first milestone**
 
-`/kata:discuss-phase 1` — gather context and clarify approach
+`/kata:add-milestone` — research, requirements, and roadmap
 
 <sub>`/clear` first → fresh context window</sub>
-
----
-
-**Also available:**
-- `/kata:plan-phase 1` — skip discussion, plan directly
 
 ───────────────────────────────────────────────────────────────
 
@@ -1172,15 +747,6 @@ Present completion with next steps:
 
 - `.planning/PROJECT.md`
 - `.planning/config.json`
-- `.planning/research/` (if research selected)
-  - `STACK.md`
-  - `FEATURES.md`
-  - `ARCHITECTURE.md`
-  - `PITFALLS.md`
-  - `SUMMARY.md`
-- `.planning/REQUIREMENTS.md`
-- `.planning/ROADMAP.md`
-- `.planning/STATE.md`
 
 </output>
 
@@ -1192,18 +758,8 @@ Present completion with next steps:
 - [ ] Deep questioning completed (threads followed, not rushed)
 - [ ] PROJECT.md captures full context → **committed**
 - [ ] config.json has workflow mode, depth, parallelization → **committed**
-- [ ] Research completed (if selected) — 4 parallel agents spawned → **committed**
-- [ ] Requirements gathered (from research or conversation)
-- [ ] User scoped each category (v1/v2/out of scope)
-- [ ] REQUIREMENTS.md created with REQ-IDs → **committed**
-- [ ] kata-roadmapper spawned with context
-- [ ] Roadmap files written immediately (not draft)
-- [ ] User feedback incorporated (if any)
-- [ ] ROADMAP.md created with phases, requirement mappings, success criteria
-- [ ] STATE.md initialized
-- [ ] REQUIREMENTS.md traceability updated
-- [ ] User knows next step is `/kata:discuss-phase 1`
+- [ ] User knows next step is `/kata:add-milestone`
 
-**Atomic commits:** Each phase commits its artifacts immediately. If context is lost, artifacts persist.
+**Atomic commits:** PROJECT.md and config.json are committed. If context is lost, artifacts persist.
 
 </success_criteria>

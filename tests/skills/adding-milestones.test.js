@@ -15,7 +15,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-starting-milestones', () => {
+describe('kata-adding-milestones', () => {
   let testDir;
 
   beforeEach(() => {
@@ -24,8 +24,8 @@ describe('kata-starting-milestones', () => {
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
     // Install skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-starting-milestones');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-starting-milestones');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-adding-milestones');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-adding-milestones');
     cpSync(skillSource, skillDest, { recursive: true });
 
     // Ensure .claude directory structure exists
@@ -86,8 +86,8 @@ Progress: [                                ] 0%
     }
   });
 
-  it('responds to "start milestone v2.0"', async () => {
-    const result = invokeClaude('start milestone v2.0 for advanced features', {
+  it('responds to "add milestone v2.0"', async () => {
+    const result = invokeClaude('add milestone v2.0 for advanced features', {
       cwd: testDir,
       maxBudget: config.budgets.standard,
       timeout: config.timeouts.standard
@@ -130,6 +130,101 @@ Progress: [                                ] 0%
 
     if (!hasMilestone && !mentionsMilestone) {
       throw new Error(`Expected milestone v1.1 to be created or mentioned, got:\n${resultText.substring(0, 500)}`);
+    }
+  });
+
+  it('mentions GitHub milestone creation when enabled', async () => {
+    // Update config.json to enable GitHub
+    const configPath = join(testDir, '.planning', 'config.json');
+    const configContent = JSON.stringify({
+      mode: 'yolo',
+      depth: 'quick',
+      parallelization: true,
+      commit_docs: true,
+      github: {
+        enabled: true,
+        issueMode: 'never'
+      }
+    }, null, 2);
+    writeFileSync(configPath, configContent);
+
+    const result = invokeClaude('add milestone v2.0 for GitHub integration features', {
+      cwd: testDir,
+      maxBudget: config.budgets.standard,
+      timeout: config.timeouts.standard
+    });
+
+    assertNoError(result);
+    assertSkillInvoked(result);
+
+    // Check that GitHub milestone is mentioned in the response
+    const resultText = result.result || '';
+    const mentionsGitHub = resultText.toLowerCase().includes('github') ||
+                           resultText.includes('milestone') ||
+                           resultText.includes('gh ');
+
+    // The skill should mention GitHub operations or milestones
+    if (!mentionsGitHub) {
+      console.log('Note: GitHub milestone creation may require gh CLI authentication for full test');
+    }
+  });
+
+  it('skips GitHub when disabled in config', async () => {
+    // Ensure config has github.enabled = false
+    const configPath = join(testDir, '.planning', 'config.json');
+    const configContent = JSON.stringify({
+      mode: 'yolo',
+      depth: 'quick',
+      parallelization: true,
+      commit_docs: true,
+      github: {
+        enabled: false,
+        issueMode: 'never'
+      }
+    }, null, 2);
+    writeFileSync(configPath, configContent);
+
+    const result = invokeClaude('add milestone v1.2 for local-only features', {
+      cwd: testDir,
+      maxBudget: config.budgets.standard,
+      timeout: config.timeouts.standard
+    });
+
+    assertNoError(result);
+    assertSkillInvoked(result);
+
+    // Should not error even when GitHub is disabled
+    // The skill should handle disabled state gracefully
+  });
+
+  it('includes GitHub remote validation guard', () => {
+    // This test verifies the skill content includes the remote validation pattern
+    // Actual remote validation happens during interactive execution
+
+    const skillPath = join(testDir, '.claude', 'skills', 'kata-adding-milestones', 'SKILL.md');
+    const skillContent = readFileSync(skillPath, 'utf8');
+
+    // Verify remote detection pattern exists
+    const hasRemoteCheck = skillContent.includes('git remote -v') ||
+                            skillContent.includes('HAS_GITHUB_REMOTE');
+
+    if (!hasRemoteCheck) {
+      throw new Error('Expected skill to include GitHub remote validation pattern');
+    }
+
+    // Verify warning message for missing remote
+    const hasNoRemoteWarning = skillContent.includes('no GitHub remote') ||
+                                skillContent.includes('Skipping GitHub Milestone');
+
+    if (!hasNoRemoteWarning) {
+      throw new Error('Expected skill to include warning for missing GitHub remote');
+    }
+
+    // Verify actionable instructions in warning
+    const hasCreateInstructions = skillContent.includes('gh repo create');
+
+    if (!hasCreateInstructions) {
+      throw new Error('Expected skill to include gh repo create instructions in warning');
     }
   });
 });

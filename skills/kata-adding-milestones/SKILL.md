@@ -1,8 +1,8 @@
 ---
-name: kata-starting-milestones
-description: Use this skill when starting a new milestone cycle, beginning the next version, creating a new milestone, or planning what's next after completing a milestone. Triggers include "new milestone", "start milestone", "next milestone", "create milestone", and "milestone cycle".
+name: kata-adding-milestones
+description: Use this skill when adding a milestone to an existing project, starting a new milestone cycle, creating the first milestone after project init, or defining what's next after completing work. Triggers include "add milestone", "new milestone", "start milestone", "create milestone", "first milestone", "next milestone", and "milestone cycle".
 version: 0.1.0
-user-invocable: false
+user-invocable: true
 disable-model-invocation: false
 allowed-tools:
   - Read
@@ -12,20 +12,20 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-<user_command>/kata:new-milestone</user_command>
+<user_command>/kata:add-milestone</user_command>
 
 
 <objective>
-Start a new milestone through unified flow: questioning → research (optional) → requirements → roadmap.
+Add a milestone to the project through unified flow: questioning → research (optional) → requirements → roadmap.
 
-This is the brownfield equivalent of project-new. The project exists, PROJECT.md has history. This command gathers "what's next", updates PROJECT.md, then continues through the full requirements → roadmap cycle.
+This works for both first milestone (after /kata:new-project) and subsequent milestones (after completing a milestone).
 
 **Creates/Updates:**
 - `.planning/PROJECT.md` — updated with new milestone goals
 - `.planning/research/` — domain research (optional, focuses on NEW features)
 - `.planning/REQUIREMENTS.md` — scoped requirements for this milestone
-- `.planning/ROADMAP.md` — phase structure (continues numbering)
-- `.planning/STATE.md` — reset for new milestone
+- `.planning/ROADMAP.md` — phase structure (creates if first, continues if subsequent)
+- `.planning/STATE.md` — reset for new milestone (creates if first)
 
 **After this command:** Run `/kata:plan-phase [N]` to start execution.
 </objective>
@@ -35,6 +35,7 @@ This is the brownfield equivalent of project-new. The project exists, PROJECT.md
 @./references/ui-brand.md
 @./references/project-template.md
 @./references/requirements-template.md
+@./references/github-mapping.md
 </execution_context>
 
 <context>
@@ -108,6 +109,84 @@ Last activity: [today] — Milestone v[X.Y] started
 ```
 
 Keep Accumulated Context section (decisions, blockers) from previous milestone.
+
+## Phase 5.5: Create GitHub Milestone (if enabled)
+
+Read GitHub config:
+```bash
+GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
+```
+
+**If `GITHUB_ENABLED=true`:**
+
+**Step 1: Validate GitHub remote exists**
+
+```bash
+HAS_GITHUB_REMOTE=$(git remote -v 2>/dev/null | grep -q 'github\.com' && echo "true" || echo "false")
+```
+
+**If `HAS_GITHUB_REMOTE=false`:**
+
+Display warning and skip GitHub operations:
+```
+Warning: GitHub tracking enabled but no GitHub remote found.
+Skipping GitHub Milestone creation.
+
+To enable GitHub Milestones:
+1. Create a repository: gh repo create --source=. --public --push
+2. Re-run milestone creation or manually create via: gh api --method POST /repos/:owner/:repo/milestones -f title="v${VERSION}"
+```
+
+Continue with local milestone initialization (do NOT set github.enabled=false in config - user may add remote later).
+
+**If `HAS_GITHUB_REMOTE=true`:**
+
+**Step 2: Check authentication (non-blocking)**
+
+```bash
+if ! gh auth status &>/dev/null; then
+  echo "Warning: GitHub CLI not authenticated. Run 'gh auth login' to enable GitHub integration."
+  # Continue without GitHub operations - local milestone still created
+else
+  # Proceed with milestone creation
+fi
+```
+
+**Step 3: Check if milestone exists (idempotent)**
+
+```bash
+MILESTONE_EXISTS=$(gh api /repos/:owner/:repo/milestones 2>/dev/null | jq -r ".[] | select(.title==\"v${VERSION}\") | .number" 2>/dev/null)
+```
+
+**Step 4: Create milestone if doesn't exist**
+
+```bash
+if [ -z "$MILESTONE_EXISTS" ]; then
+  # Extract milestone description (first paragraph of goal, truncated to 500 chars)
+  MILESTONE_DESC=$(echo "$MILESTONE_GOALS" | head -1 | cut -c1-500)
+
+  gh api \
+    --method POST \
+    -H "Accept: application/vnd.github.v3+json" \
+    /repos/:owner/:repo/milestones \
+    -f title="v${VERSION}" \
+    -f state='open' \
+    -f description="${MILESTONE_DESC}" \
+    2>/dev/null && echo "GitHub Milestone v${VERSION} created" || echo "Warning: Failed to create GitHub Milestone (continuing)"
+else
+  echo "GitHub Milestone v${VERSION} already exists (#${MILESTONE_EXISTS})"
+fi
+```
+
+**If `GITHUB_ENABLED=false`:**
+
+Skip GitHub operations silently (no warning needed - user opted out).
+
+**Error handling principle:**
+- All GitHub operations are non-blocking
+- Missing remote warns but does not stop milestone initialization
+- Auth failures warn but do not stop milestone initialization
+- Planning files always persist locally regardless of GitHub status
 
 ## Phase 6: Cleanup and Commit
 
@@ -684,6 +763,10 @@ Present completion with next steps:
 | Research     | `.planning/research/`       |
 | Requirements | `.planning/REQUIREMENTS.md` |
 | Roadmap      | `.planning/ROADMAP.md`      |
+
+**If `GITHUB_ENABLED=true` and milestone created:**
+
+| GitHub       | Milestone v${VERSION} created |
 
 **[N] phases** | **[X] requirements** | Ready to build ✓
 
