@@ -219,6 +219,7 @@ Output this markdown directly (not as a code block). Route based on status:
 
 {Y} plans executed
 Goal verified ✓
+{If github.enabled: GitHub Issue: #{issue_number} ({checked}/{total} plans checked off)}
 
 ───────────────────────────────────────────────────────────────
 
@@ -399,5 +400,6 @@ After all plans in phase complete (step 7):
 - [ ] STATE.md reflects phase completion
 - [ ] ROADMAP.md updated
 - [ ] REQUIREMENTS.md updated (phase requirements marked Complete)
+- [ ] GitHub issue checkboxes updated per wave (if github.enabled)
 - [ ] User informed of next steps
 </success_criteria>
