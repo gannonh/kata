@@ -181,13 +181,20 @@ gh issue create \
   --milestone "v${VERSION}"
 ```
 
-### Phase 4: Plan Updates (Planned)
+### Phase 4: Plan Updates (Implemented)
 
 #### `kata-planning-phases`
 
-**Hook:** After phase plan created, before returning
-**Action:** Update existing GitHub Issue with plan checklist
+**Hook:** After PLAN.md files created (Step 14)
+**Action:** Update phase issue with plan checklist
 **Config checked:** `github.enabled`, `github.issueMode`
+
+**Flow:**
+1. Check `github.enabled` and `issueMode`
+2. Find phase issue by milestone and label
+3. Build checklist from PLAN.md files
+4. Replace placeholder text with checklist
+5. Update issue with `--body-file`
 
 ```bash
 if [ "$GITHUB_ENABLED" = "true" ] && [ "$ISSUE_MODE" != "never" ]; then
@@ -196,7 +203,7 @@ if [ "$GITHUB_ENABLED" = "true" ] && [ "$ISSUE_MODE" != "never" ]; then
     --json number,title --jq ".[] | select(.title | startswith(\"Phase ${PHASE}:\")) | .number")
 
   # Update issue body with plan checklist
-  gh issue edit $ISSUE_NUMBER --body "..."
+  gh issue edit $ISSUE_NUMBER --body-file /tmp/phase-issue-body.md
 fi
 ```
 
@@ -204,6 +211,23 @@ fi
 - Adds plan checklist under `## Plans` section
 - `- [ ] Plan 01: {plan-name}`
 - `- [ ] Plan 02: {plan-name}`
+
+#### `kata-executing-phases`
+
+**Hook:** After each wave completes (Step 4.5)
+**Action:** Check off completed plans in issue
+**Config checked:** `github.enabled`, `github.issueMode`
+
+**Flow:**
+1. Check `github.enabled` and `issueMode`
+2. Build COMPLETED_PLANS_IN_WAVE from SUMMARY.md files
+3. Find phase issue by milestone and label
+4. Read current issue body
+5. Update checkboxes for all plans completed in wave
+6. Write updated body atomically
+
+**Race Condition Mitigation:**
+Issue updated at orchestrator level per-wave, not in individual executors. This ensures sequential updates when multiple plans complete simultaneously in a wave.
 
 ### Phase 4-5: Execution & Tracking
 
@@ -440,8 +464,8 @@ fi
 | `kata-adding-milestones`   | 2     | Create GitHub Milestone             | `github.enabled`                       | Implemented |
 | `kata-configuring-settings`| 2     | Display/update github.* settings    | N/A                                    | Implemented |
 | `kata-adding-milestones`   | 3     | Create phase Issues (Phase 9.5)     | `github.enabled`, `github.issueMode`   | Implemented |
-| `kata-planning-phases`     | 4     | Update phase Issue with plan list   | `github.enabled`, `github.issueMode`   | Planned     |
-| `kata-executing-phases`    | 5     | Update Issue checklist, create PR   | `github.enabled`, `pr_workflow`        | Planned     |
+| `kata-planning-phases`     | 4     | Update phase Issue with plan list   | `github.enabled`, `github.issueMode`   | Implemented |
+| `kata-executing-phases`    | 4     | Update Issue checklist per wave     | `github.enabled`, `github.issueMode`   | Implemented |
 | `kata-tracking-progress`   | 6     | Show GH issue/milestone/PR status   | `github.enabled`, `pr_workflow`        | Planned     |
 
 **See:** [planning-config.md](planning-config.md) for config schema and reading patterns.
