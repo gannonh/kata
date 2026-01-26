@@ -87,7 +87,7 @@ Plans:
 - [x] **Phase 2: Onboarding & Milestones** - Config during project-new, GitHub Milestone creation — completed 2026-01-25
 - [x] **Phase 2.1: GitHub Repo Setup** (INSERTED) - Detect/create GitHub repo before milestone creation — completed 2026-01-26
 - [x] **Phase 2.2: Decouple Project Init & Milestone Setup** (INSERTED) - Separate project creation from first milestone, establish Kata↔GitHub mapping — completed 2026-01-26
-- [ ] **Phase 3: Phase Issues** - Create GitHub Issues for phases with labels and metadata
+- [x] **Phase 3: Phase Issues** - Create GitHub Issues for phases with labels and metadata — completed 2026-01-26
 - [ ] **Phase 4: Plan Sync** - Checklist items in issues, update as plans complete
 - [ ] **Phase 5: PR Integration** - Create PRs at milestone completion with auto-linking
 - [ ] **Phase 6: PR Review Workflow Skill & Agents** - PR review workflow skill and agents (existing work to import)
@@ -194,8 +194,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Add phase issue creation to kata-adding-milestones
-- [ ] 03-02-PLAN.md — Add tests and update integration documentation
+- [x] 03-01-PLAN.md — Add phase issue creation to kata-adding-milestones
+- [x] 03-02-PLAN.md — Add tests and update integration documentation
 
 #### Phase 4: Plan Sync
 **Goal**: Phase issues track plan progress as checklist items that update during execution
@@ -259,11 +259,11 @@ Plans:
 | 2. Onboarding & Milestones               | v1.1.0    | 3/3            | Complete    | 2026-01-25 |
 | 2.1 GitHub Repo Setup (INSERTED)         | v1.1.0    | 2/2            | Complete    | 2026-01-26 |
 | 2.2 Decouple Init & Milestone (INSERTED) | v1.1.0    | 4/4            | Complete    | 2026-01-26 |
-| 3. Phase Issues                          | v1.1.0    | 0/2            | Not started | -          |
+| 3. Phase Issues                          | v1.1.0    | 2/2            | Complete    | 2026-01-26 |
 | 4. Plan Sync                             | v1.1.0    | 0/?            | Not started | -          |
 | 5. PR Integration                        | v1.1.0    | 0/?            | Not started | -          |
 | 6. PR Review Workflow Skill              | v1.1.0    | 0/?            | Not started | -          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-26 — Phase 3 planned (2 plans)*
+*Last updated: 2026-01-26 — Phase 3 complete (2 plans)*
