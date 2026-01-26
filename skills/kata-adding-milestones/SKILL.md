@@ -746,6 +746,157 @@ EOF
 )"
 ```
 
+## Phase 9.5: Create Phase Issues (if enabled)
+
+**1. Check github.enabled** - Skip silently if false
+
+**If `GITHUB_ENABLED=false`:** Skip to Phase 10.
+
+**2. Check github.issueMode** (auto | ask | never):
+
+```bash
+ISSUE_MODE=$(cat .planning/config.json 2>/dev/null | grep -o '"issueMode"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "auto")
+```
+
+- If "never": Skip phase issue creation silently, continue to Phase 10
+- If "ask": Use AskUserQuestion to prompt:
+  - header: "GitHub Phase Issues"
+  - question: "Create GitHub Issues for each phase in this milestone?"
+  - options:
+    - "Yes" — Create issues for all phases
+    - "No" — Skip issue creation for this milestone
+
+- If "auto" or user approved "Yes": Proceed with creation
+
+**3. Create phase label (idempotent)**:
+
+```bash
+gh label create "phase" --color "0E8A16" --description "Kata phase tracking" --force 2>/dev/null || true
+```
+
+**4. Get milestone number** (from Phase 5.5):
+
+```bash
+MILESTONE_NUM=$(gh api /repos/:owner/:repo/milestones --jq ".[] | select(.title==\"v${VERSION}\") | .number" 2>/dev/null)
+if [ -z "$MILESTONE_NUM" ]; then
+  echo "Warning: Could not find GitHub Milestone v${VERSION}. Skipping phase issue creation."
+  # Continue without phase issues - skip to Phase 10
+fi
+```
+
+**5. Parse phases from ROADMAP.md** (for this milestone only):
+
+The ROADMAP.md structure uses:
+- Milestone headers: `### v1.1.0 GitHub Integration (Planned)` or `### v{VERSION} {Name} (Status)`
+- Phase headers: `#### Phase N: Phase Name`
+- Goal line: `**Goal**: description text`
+- Requirements line: `**Requirements**: REQ-01, REQ-02` (optional)
+- Success criteria: `**Success Criteria** (what must be TRUE):` followed by numbered list
+
+```bash
+# Find the milestone section and extract phases
+# VERSION is already set (e.g., "1.1.0")
+
+ROADMAP_FILE=".planning/ROADMAP.md"
+
+# Get line numbers for milestone section boundaries
+MILESTONE_START=$(grep -n "^### v${VERSION}" "$ROADMAP_FILE" | head -1 | cut -d: -f1)
+NEXT_MILESTONE=$(awk -v start="$MILESTONE_START" 'NR > start && /^### v[0-9]/ {print NR; exit}' "$ROADMAP_FILE")
+
+# If no next milestone, use end of file
+if [ -z "$NEXT_MILESTONE" ]; then
+  NEXT_MILESTONE=$(wc -l < "$ROADMAP_FILE")
+fi
+
+# Extract phase blocks within this milestone section
+# Each phase starts with "#### Phase N:" and ends at next "#### Phase" or section boundary
+PHASE_HEADERS=$(sed -n "${MILESTONE_START},${NEXT_MILESTONE}p" "$ROADMAP_FILE" | grep -n "^#### Phase [0-9]")
+
+# Process each phase
+echo "$PHASE_HEADERS" | while IFS= read -r phase_line; do
+  # Extract phase number and name from "#### Phase N: Name"
+  PHASE_NUM=$(echo "$phase_line" | sed -E 's/.*Phase ([0-9.]+):.*/\1/')
+  PHASE_NAME=$(echo "$phase_line" | sed -E 's/.*Phase [0-9.]+: (.*)/\1/')
+
+  # Get relative line number within milestone section
+  PHASE_REL_LINE=$(echo "$phase_line" | cut -d: -f1)
+  PHASE_ABS_LINE=$((MILESTONE_START + PHASE_REL_LINE - 1))
+
+  # Find next phase or section end
+  NEXT_PHASE_LINE=$(sed -n "$((PHASE_ABS_LINE+1)),${NEXT_MILESTONE}p" "$ROADMAP_FILE" | grep -n "^#### Phase\|^### \|^## " | head -1 | cut -d: -f1)
+  if [ -z "$NEXT_PHASE_LINE" ]; then
+    PHASE_END=$NEXT_MILESTONE
+  else
+    PHASE_END=$((PHASE_ABS_LINE + NEXT_PHASE_LINE - 1))
+  fi
+
+  # Extract phase block
+  PHASE_BLOCK=$(sed -n "${PHASE_ABS_LINE},${PHASE_END}p" "$ROADMAP_FILE")
+
+  # Extract goal (line starting with **Goal**:)
+  PHASE_GOAL=$(echo "$PHASE_BLOCK" | grep "^\*\*Goal\*\*:" | sed 's/\*\*Goal\*\*: *//')
+
+  # Extract requirements (line starting with **Requirements**:) - may not exist
+  REQUIREMENT_IDS=$(echo "$PHASE_BLOCK" | grep "^\*\*Requirements\*\*:" | sed 's/\*\*Requirements\*\*: *//')
+
+  # Extract success criteria (numbered list after **Success Criteria**)
+  # Convert to checklist format: "  1. item" -> "- [ ] item"
+  SUCCESS_CRITERIA_AS_CHECKLIST=$(echo "$PHASE_BLOCK" | \
+    awk '/^\*\*Success Criteria\*\*/{found=1; next} found && /^  [0-9]+\./{print} found && /^\*\*/{exit}' | \
+    sed -E 's/^  [0-9]+\. /- [ ] /')
+
+  # --- Issue creation code (step 6) ---
+
+  # Check if issue already exists (idempotent)
+  EXISTING=$(gh issue list --label "phase" --milestone "v${VERSION}" --json number,title --jq ".[] | select(.title | startswith(\"Phase ${PHASE_NUM}:\")) | .number" 2>/dev/null)
+
+  if [ -n "$EXISTING" ]; then
+    echo "Phase ${PHASE_NUM} issue already exists: #${EXISTING}"
+  else
+    # Build issue body using temp file (handles special characters safely)
+    cat > /tmp/phase-issue-body.md << PHASE_EOF
+## Goal
+
+${PHASE_GOAL}
+
+## Success Criteria
+
+${SUCCESS_CRITERIA_AS_CHECKLIST}
+$([ -n "$REQUIREMENT_IDS" ] && echo "
+## Requirements
+
+${REQUIREMENT_IDS}")
+
+## Plans
+
+<!-- Checklist added by /kata:planning-phases (Phase 4) -->
+_Plans will be added after phase planning completes._
+
+---
+<sub>Created by Kata | Phase ${PHASE_NUM} of milestone v${VERSION}</sub>
+PHASE_EOF
+
+    # Create issue
+    gh issue create \
+      --title "Phase ${PHASE_NUM}: ${PHASE_NAME}" \
+      --body-file /tmp/phase-issue-body.md \
+      --label "phase" \
+      --milestone "v${VERSION}" \
+      2>/dev/null && echo "Created issue: Phase ${PHASE_NUM}: ${PHASE_NAME}" || echo "Warning: Failed to create issue for Phase ${PHASE_NUM}"
+  fi
+done
+```
+
+**6. Display summary** (after loop):
+
+```
+◆ GitHub Phase Issues: [N] created for milestone v${VERSION}
+```
+
+**Error handling principle:** All operations are non-blocking. Missing milestone, auth issues, or creation failures warn but do not stop the milestone flow.
+
+**IMPORTANT:** Use temp file approach (--body-file) to handle special characters in phase goals. Direct --body strings break with quotes/backticks.
+
 ## Phase 10: Done
 
 Present completion with next steps:
