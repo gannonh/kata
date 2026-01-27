@@ -427,6 +427,26 @@ Output this markdown directly (not as a code block). Route based on status:
 
 **Route A: Phase verified, more phases remain**
 
+**If PR_WORKFLOW=true:**
+Use AskUserQuestion:
+- header: "PR Ready for Merge"
+- question: "PR #{pr_number} is ready. Merge before continuing to next phase?"
+- options:
+  - "Yes, merge now" — Run `gh pr merge --squash --delete-branch`, then show next phase
+  - "No, review first" — Show PR URL and next phase as current output does
+  - "Skip to next phase" — Continue without merge prompt
+
+**If user chooses "Yes, merge now":**
+```bash
+gh pr merge "$PR_NUMBER" --squash --delete-branch
+echo "Merged PR #${PR_NUMBER}"
+git checkout main && git pull
+```
+Then display completion output with merge status.
+
+**If user chooses "No, review first" or "Skip":**
+Display standard completion output below.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► PHASE {Z} COMPLETE ✓
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -436,8 +456,10 @@ Output this markdown directly (not as a code block). Route based on status:
 {Y} plans executed
 Goal verified ✓
 {If github.enabled: GitHub Issue: #{issue_number} ({checked}/{total} plans checked off)}
-{If pr_workflow: PR: #{pr_number} ({pr_url}) — ready for review}
+{If PR_WORKFLOW and PR merged: PR: #{pr_number} — merged}
+{If PR_WORKFLOW and PR not merged: PR: #{pr_number} ({pr_url}) — ready for review}
 {If REVIEW_SUMMARY: PR Review: {summary_stats}}
+{If TODOS_CREATED: Backlog: {N} todos created from review suggestions}
 
 ───────────────────────────────────────────────────────────────
 
