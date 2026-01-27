@@ -229,6 +229,41 @@ fi
 **Race Condition Mitigation:**
 Issue updated at orchestrator level per-wave, not in individual executors. This ensures sequential updates when multiple plans complete simultaneously in a wave.
 
+### Phase 5: PR Integration (Implemented)
+
+#### `kata-executing-phases` PR Workflow
+
+**Hook:** At phase start, after first wave, and at phase completion
+**Action:** Create branch, open draft PR, mark PR ready
+**Config checked:** `pr_workflow`
+
+**Flow:**
+1. Step 1.5: Create phase branch (`{type}/v{milestone}-{phase}-{slug}`)
+2. Step 4.5: Open draft PR after first wave (includes phase goal, plans checklist, "Closes #X")
+3. Step 10.5: Mark PR ready after phase completion
+
+**PR Title:** `v{milestone} Phase {N}: {Phase Name}`
+
+**PR Body:**
+```markdown
+## Phase Goal
+[Goal from ROADMAP.md]
+
+## Plans
+- [ ] Plan 01: [name]
+- [ ] Plan 02: [name]
+
+## Success Criteria
+- [ ] [criterion 1]
+- [ ] [criterion 2]
+
+Closes #[phase-issue-number]
+```
+
+**Re-run Protection:**
+- Branch creation: checks if branch exists before creating
+- PR creation: checks if PR exists before creating
+
 ### Phase 4-5: Execution & Tracking
 
 #### `kata-executing-phases`
@@ -466,7 +501,7 @@ fi
 | `kata-adding-milestones`   | 3     | Create phase Issues (Phase 9.5)     | `github.enabled`, `github.issueMode`   | Implemented |
 | `kata-planning-phases`     | 4     | Update phase Issue with plan list   | `github.enabled`, `github.issueMode`   | Implemented |
 | `kata-executing-phases`    | 4     | Update Issue checklist per wave     | `github.enabled`, `github.issueMode`   | Implemented |
-| `kata-tracking-progress`   | 6     | Show GH issue/milestone/PR status   | `github.enabled`, `pr_workflow`        | Planned     |
+| `kata-tracking-progress`   | 5     | Show GH issue/milestone/PR status   | `github.enabled`, `pr_workflow`        | Implemented |
 
 **See:** [planning-config.md](planning-config.md) for config schema and reading patterns.
 
