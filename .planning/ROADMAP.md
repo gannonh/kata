@@ -90,8 +90,7 @@ Plans:
 - [x] **Phase 3: Phase Issues** - Create GitHub Issues for phases with labels and metadata — completed 2026-01-26
 - [x] **Phase 4: Plan Sync** - Checklist items in issues, update as plans complete — completed 2026-01-26
 - [x] **Phase 5: PR Integration** - Create PRs at phase start with auto-linking — completed 2026-01-27
-- [x] **Phase 6: PR Review Workflow Skill & Agents** - Integrate PR review skill and agents into phase execution workflow (4/4 plans)
-- [ ] **Phase 7: Deprecate NPX Support** - Remove NPX distribution, simplify to plugin-only, eliminate build process
+- [ ] **Phase 6: PR Review Workflow Skill & Agents** - Integrate PR review skill and agents into phase execution workflow (3/4 plans, UAT fix pending)
 
 ## Phase Details
 
@@ -247,23 +246,7 @@ Plans:
 - [x] 06-01-PLAN.md — Update skill frontmatter and command wrapper
 - [x] 06-02-PLAN.md — Add PR review integration to kata-executing-phases
 - [x] 06-03-PLAN.md — Add skill test and README documentation
-- [x] 06-04-PLAN.md — UAT fix: backlog todo prompt + merge before next phase
-- [ ] **Phase 7: Deprecate NPX Support** - Remove NPX distribution, simplify to plugin-only, eliminate build process
-
-#### Phase 7: Deprecate NPX Support
-**Goal**: Simplify Kata distribution by removing NPX support and build process, focusing exclusively on Claude Code plugin development
-**Depends on**: Phase 6 complete (PR Review Workflow)
-**Success Criteria** (what must be TRUE):
-  1. NPX-related code removed from codebase (bin/, install.js for npx)
-  2. Build process eliminated (no transformation needed for plugin-only)
-  3. Source files serve directly as plugin files (no build step)
-  4. README updated to remove NPX installation instructions
-  5. Package.json cleaned of NPX-specific configuration
-  6. CLAUDE.md updated to reflect plugin-only architecture
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /kata:plan-phase 7 to break down)
+- [ ] 06-04-PLAN.md — UAT fix: backlog todo prompt + merge before next phase
 
 ## Progress
 
@@ -282,8 +265,7 @@ Plans:
 | 3. Phase Issues                          | v1.1.0    | 2/2            | Complete    | 2026-01-26 |
 | 4. Plan Sync                             | v1.1.0    | 3/3            | Complete    | 2026-01-26 |
 | 5. PR Integration                        | v1.1.0    | 3/3            | Complete    | 2026-01-27 |
-| 6. PR Review Workflow Skill              | v1.1.0    | 4/4            | Complete    | 2026-01-27 |
-| 7. Deprecate NPX Support                 | v1.1.0    | 0/0            | Not Started | —          |
+| 6. PR Review Workflow Skill              | v1.1.0    | 3/4            | In Progress | —          |
 
 ---
 *Roadmap created: 2026-01-18*
