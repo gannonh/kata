@@ -361,6 +361,33 @@ PR_EOF
 
     Store PR_URL for offer_next output.
 
+10.6. **Run PR Review (pr_workflow only, optional)**
+
+    After marking PR ready, offer to run automated review:
+
+    Use AskUserQuestion:
+    - header: "PR Review"
+    - question: "Run automated PR review before team review?"
+    - options:
+      - "Yes, run full review" — Run kata-reviewing-pull-requests with all aspects
+      - "Quick review (code only)" — Run kata-reviewing-pull-requests with "code" aspect only
+      - "Skip" — Proceed without review
+
+    **If user chooses "Yes, run full review":**
+    1. Invoke skill: `Skill("kata-reviewing-pull-requests", "")`
+    2. Display review summary
+    3. Store REVIEW_SUMMARY for offer_next output
+
+    **If user chooses "Quick review (code only)":**
+    1. Invoke skill: `Skill("kata-reviewing-pull-requests", "code")`
+    2. Display review summary
+    3. Store REVIEW_SUMMARY for offer_next output
+
+    **If user chooses "Skip":**
+    Continue to step 11 without review.
+
+    *Non-blocking: phase completion continues regardless of review findings.*
+
 11. **Offer next steps**
     - Route to next action (see `<offer_next>`)
 </process>
@@ -389,6 +416,7 @@ Output this markdown directly (not as a code block). Route based on status:
 Goal verified ✓
 {If github.enabled: GitHub Issue: #{issue_number} ({checked}/{total} plans checked off)}
 {If pr_workflow: PR: #{pr_number} ({pr_url}) — ready for review}
+{If REVIEW_SUMMARY: PR Review: {summary_stats}}
 
 ───────────────────────────────────────────────────────────────
 
