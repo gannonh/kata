@@ -16,7 +16,6 @@ Agent orchestration framework for spec-driven development.
 <br>
 
 [![Plugin](https://img.shields.io/badge/plugin-kata--marketplace-blue?style=for-the-badge)](https://github.com/gannonh/kata-marketplace)
-[![npm version](https://img.shields.io/npm/v/@gannonh/kata?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@gannonh/kata)
 
 <br>
 
@@ -31,9 +30,6 @@ Agent orchestration framework for spec-driven development.
 # Install as Claude Code plugin
 /plugin marketplace add gannonh/kata-marketplace
 /plugin install kata@gannonh-kata-marketplace
-
-# Or install via NPM
-npx @gannonh/kata
 ```
 
 ---
@@ -67,56 +63,30 @@ Teams and individuals who want to describe what they want and have it built corr
 
 ## Getting Started
 
-### Recommended: Plugin Install
+### Install as Claude Code Plugin
 
 ```bash
 # Start Claude Code
 claude
 
-# Install the plugin from the Claude Code cli
+# Install the plugin from the Claude Code CLI
 /plugin install kata@gannonh-kata-marketplace
 ```
 
-Verify with `/kata: help`.
-
-<details>
-<summary><strong>Alternative: NPM Install</strong></summary>
-
-```bash
-npx @gannonh/kata
-```
-
-</details>
+Verify with `/kata:help`.
 
 ### Staying Updated
 
 Kata evolves fast. Check for updates periodically:
 
 ```
-/kata:whats-new   
+/kata:whats-new
 ```
 
-**Plugin users:**
+Update the plugin:
 ```bash
 claude plugin update kata@gannonh-kata-marketplace
 ```
-
-**NPM users:**
-```bash
-npx @gannonh/kata@latest
-```
-
-<details>
-<summary><strong>Non-interactive Install (Docker, CI, Scripts)</strong></summary>
-
-```bash
-npx @gannonh/kata --global   # Install to ~/.claude/
-npx @gannonh/kata --local    # Install to ./.claude/
-```
-
-Use `--global` (`-g`) or `--local` (`-l`) to skip the interactive prompt.
-
-</details>
 
 <details>
 <summary><strong>Development Installation</strong></summary>
