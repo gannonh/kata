@@ -2,8 +2,8 @@
 name: kata-reviewing-prs
 description: Comprehensive pull request review using specialized agents covering code quality, test coverage, error handling, type design, comment accuracy, and code simplification. Use when reviewing PRs, checking code before committing, validating changes before creating PRs, or when the user asks to "review my PR", "check code quality", "review changes", "code review", "PR review", "check tests", "review before commit", "review before PR", "check error handling", "analyze types", "simplify code", "review this phase", "analyze test coverage", "review types", or "simplify the code". Supports targeted reviews (tests, errors, types, comments, code, simplify) or full review (all aspects).
 version: 0.1.0
-argument-hint: "[aspects...] [--staged|--pr|--branch <ref>]"
-user-invocable: true
+user-invocable: false
+disable-model-invocation: false
 allowed-tools:
   - Read
   - Grep
@@ -12,23 +12,21 @@ allowed-tools:
   - Bash(gh:*)
 ---
 
-<user_command>/kata:reviewing-prs</user_command>
-
 # PR Reviews
 
 Run comprehensive pull request reviews using specialized agents, each analyzing a different aspect of code quality.
 
 ## Review Aspects
 
-| Aspect | Agent | Focus |
-|--------|-------|-------|
-| `code` | code-reviewer | Project guidelines, bugs, code quality |
-| `tests` | test-analyzer | Test coverage quality and completeness |
-| `errors` | silent-failure-hunter | Silent failures, error handling |
-| `types` | type-design-analyzer | Type encapsulation and invariants |
-| `comments` | comment-analyzer | Comment accuracy and maintainability |
-| `simplify` | code-simplifier | Clarity and maintainability |
-| `all` | All applicable | Full review (default) |
+| Aspect     | Agent                 | Focus                                  |
+| ---------- | --------------------- | -------------------------------------- |
+| `code`     | code-reviewer         | Project guidelines, bugs, code quality |
+| `tests`    | test-analyzer         | Test coverage quality and completeness |
+| `errors`   | silent-failure-hunter | Silent failures, error handling        |
+| `types`    | type-design-analyzer  | Type encapsulation and invariants      |
+| `comments` | comment-analyzer      | Comment accuracy and maintainability   |
+| `simplify` | code-simplifier       | Clarity and maintainability            |
+| `all`      | All applicable        | Full review (default)                  |
 
 ## Context Detection
 
@@ -62,37 +60,37 @@ Falls back to `git diff` for unstaged changes, or `git diff --staged` for staged
 
 **Full review (plugin):**
 ```
-/kata:reviewing-prs
+/kata:review-pr
 ```
 
 **Full review (npx):**
 ```
-/kata-reviewing-prs
+/kata-review-pr
 ```
 
 **Targeted reviews:**
 ```
-/kata:reviewing-prs tests errors    # Test coverage and error handling only
-/kata:reviewing-prs comments        # Comment accuracy only
-/kata:reviewing-prs simplify        # Code simplification only
+/kata:review-pr tests errors    # Test coverage and error handling only
+/kata:review-pr comments        # Comment accuracy only
+/kata:review-pr simplify        # Code simplification only
 ```
 
 **Parallel execution:**
 ```
-/kata:reviewing-prs all parallel    # Launch all agents simultaneously
+/kata:review-pr all parallel    # Launch all agents simultaneously
 ```
 
 **Scope modifiers:**
 ```
-/kata:reviewing-prs --staged        # Review staged changes only
-/kata:reviewing-prs --pr            # Force PR diff mode (auto-detected normally)
-/kata:reviewing-prs --branch main   # Compare against specific branch
+/kata:review-pr --staged        # Review staged changes only
+/kata:review-pr --pr            # Force PR diff mode (auto-detected normally)
+/kata:review-pr --branch main   # Compare against specific branch
 ```
 
 **Combined usage:**
 ```
-/kata:reviewing-prs code tests --staged    # Review staged code and tests
-/kata:reviewing-prs all --pr               # Full review of PR changes
+/kata:review-pr code tests --staged    # Review staged code and tests
+/kata:review-pr all --pr               # Full review of PR changes
 ```
 
 ### Scope Resolution
@@ -104,14 +102,14 @@ Scope precedence (highest to lowest):
 
 ## Applicability by Change Type
 
-| Change Type | Applicable Agents |
-|-------------|-------------------|
-| Any code | code-reviewer (always) |
-| Test files | test-analyzer |
-| Comments/docs | comment-analyzer |
-| Error handling | silent-failure-hunter |
-| New/modified types | type-design-analyzer |
-| After passing review | code-simplifier |
+| Change Type          | Applicable Agents      |
+| -------------------- | ---------------------- |
+| Any code             | code-reviewer (always) |
+| Test files           | test-analyzer          |
+| Comments/docs        | comment-analyzer       |
+| Error handling       | silent-failure-hunter  |
+| New/modified types   | type-design-analyzer   |
+| After passing review | code-simplifier        |
 
 ## Output Format
 
@@ -154,16 +152,16 @@ Review phase changes before marking PR ready. Invoke between plan execution and 
 
 **After plan completion:**
 Quick review of individual plan changes:
-`/kata:reviewing-prs code errors`
+`/kata:review-pr code errors`
 
 **Before milestone audit:**
 Full review of all milestone changes:
-`/kata:reviewing-prs all`
+`/kata:review-pr all`
 
 **Pre-commit hook pattern:**
 Add to your workflow before committing:
 1. Stage changes
-2. `/kata:reviewing-prs code errors --staged`
+2. `/kata:review-pr code errors --staged`
 3. Fix critical issues
 4. Commit
 
@@ -171,13 +169,13 @@ Add to your workflow before committing:
 
 **Before committing:**
 1. Write code
-2. Run: `/kata:reviewing-prs code errors`
+2. Run: `/kata:review-pr code errors`
 3. Fix critical issues
 4. Commit
 
 **Before creating PR:**
 1. Stage changes
-2. Run: `/kata:reviewing-prs all`
+2. Run: `/kata:review-pr all`
 3. Address critical and important issues
 4. Re-run targeted reviews
 5. Create PR
