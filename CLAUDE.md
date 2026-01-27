@@ -149,17 +149,9 @@ Skills ARE orchestrators. They spawn sub-agents via Task tool, not the other way
 
 ## Installation System (bin/install.js)
 
-Node.js installer that copies Kata files to Claude Code's plugin directory:
+**Deprecated.** The bin/install.js script now displays a deprecation message directing users to install via the Claude Code plugin marketplace.
 
-**Modes:**
-- `--global` / `-g` → Install to `~/.claude/`
-- `--local` / `-l` → Install to `./.claude/`
-- `--config-dir <path>` → Custom Claude config directory
-
-**Key behavior:**
-- Expands `~` to home directory for container compatibility
-- Respects `CLAUDE_CONFIG_DIR` environment variable
-- Copies: `skills/`, `agents/`, `hooks/`
+For local development, use `npm run build:plugin` instead. See "Installation and Testing" above.
 
 ## Working with Planning Files
 
@@ -187,7 +179,7 @@ When modifying `.planning/` files (PROJECT.md, ROADMAP.md, STATE.md):
 ## Making Changes to Kata
 
 1. **Match existing patterns** — Study similar files before creating new ones
-2. **Test locally** — Use `node bin/install.js --local` and run commands in Claude Code
+2. **Test locally** — Use `npm run build:plugin` and test with `claude --plugin-dir`
 3. **Update KATA-STYLE.md** — If introducing new patterns or conventions
 4. **Follow KATA-STYLE.md** — For all formatting, naming, and structural decisions
 5. **When modifying skills** — Follow the /building-claude-code-skills methodology
