@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 
 Milestone: v1.1.0 GitHub Integration
 Phase: 7 (Deprecate NPX Support)
-Plan: 00 of 0 complete
-Status: Not planned
-Last activity: 2026-01-27 — Phase 7 added to roadmap
+Plan: 01 of 3 complete
+Status: In progress
+Last activity: 2026-01-27 — Completed 07-01 (Rename Skill Directories)
 
-Progress: [███████████████████████████████████████████░░░░░] 86% (6/7 phases in v1.1.0)
+Progress: [████████████████████████████████████████████░░░░] 88% (6.33/7 phases in v1.1.0)
 
 ## Performance Metrics
 
@@ -76,6 +76,7 @@ Recent decisions affecting current work:
 - **Phase 6 complete 2026-01-27** — PR Review Workflow Skill & Agents (3/3 plans)
 - **Phase 6 UAT fix 2026-01-27** — Gap closure plan for backlog todo prompt and merge-first workflow
 - **Phase 7 added 2026-01-27** — Deprecate NPX Support (plugin-only distribution)
+- **Phase 7 plan 01 complete 2026-01-27** — Renamed 27 skill directories (removed kata- prefix)
 
 ### Pending Todos
 
@@ -111,5 +112,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Phase 7 added to roadmap
-Next action: /kata:plan-phase 7 to plan Deprecate NPX Support
+Stopped at: Completed 07-01-PLAN.md (Rename Skill Directories)
+Next action: Execute 07-02 (Simplify Build Process) or continue phase 7
