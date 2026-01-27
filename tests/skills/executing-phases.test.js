@@ -277,4 +277,88 @@ None.
       }
     });
   });
+
+  describe('PR Integration - Phase 5', () => {
+    it('contains branch creation step', () => {
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillContent = readFileSync(skillPath, 'utf8');
+
+      const hasBranchCreation = skillContent.includes('Create Phase Branch') ||
+                                 skillContent.includes('git checkout -b');
+
+      if (!hasBranchCreation) {
+        throw new Error('Expected skill to include branch creation step for pr_workflow');
+      }
+    });
+
+    it('contains draft PR creation step', () => {
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillContent = readFileSync(skillPath, 'utf8');
+
+      const hasDraftPR = skillContent.includes('gh pr create --draft');
+
+      if (!hasDraftPR) {
+        throw new Error('Expected skill to include draft PR creation with gh pr create --draft');
+      }
+    });
+
+    it('contains PR ready step', () => {
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillContent = readFileSync(skillPath, 'utf8');
+
+      const hasPRReady = skillContent.includes('gh pr ready');
+
+      if (!hasPRReady) {
+        throw new Error('Expected skill to include gh pr ready step');
+      }
+    });
+
+    it('includes PR title convention', () => {
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillContent = readFileSync(skillPath, 'utf8');
+
+      // Should have title pattern: v{milestone} Phase {N}: {Name}
+      const hasTitlePattern = skillContent.includes('v${MILESTONE} Phase') ||
+                              skillContent.includes('v{milestone} Phase');
+
+      if (!hasTitlePattern) {
+        throw new Error('Expected skill to include PR title convention');
+      }
+    });
+
+    it('includes issue linking in PR body', () => {
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillContent = readFileSync(skillPath, 'utf8');
+
+      const hasClosesLink = skillContent.includes('Closes #');
+
+      if (!hasClosesLink) {
+        throw new Error('Expected skill to include "Closes #" issue linking in PR body');
+      }
+    });
+
+    it('has re-run protection for branch creation', () => {
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillContent = readFileSync(skillPath, 'utf8');
+
+      const hasReRunProtection = skillContent.includes('show-ref --verify') ||
+                                  skillContent.includes('branch exists');
+
+      if (!hasReRunProtection) {
+        throw new Error('Expected skill to have re-run protection for branch creation');
+      }
+    });
+
+    it('has re-run protection for PR creation', () => {
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillContent = readFileSync(skillPath, 'utf8');
+
+      const hasExistingPRCheck = skillContent.includes('EXISTING_PR') ||
+                                  skillContent.includes('PR already exists');
+
+      if (!hasExistingPRCheck) {
+        throw new Error('Expected skill to check for existing PR before creation');
+      }
+    });
+  });
 });
