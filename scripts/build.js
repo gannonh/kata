@@ -1,21 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * Build script for Kata dual distribution.
+ * Build script for Kata plugin distribution.
  *
- * Targets:
- * - plugin: Lean distribution for Claude Code marketplace (/plugin install)
- *   - Path transform: @~/.claude/kata/ → @./kata/
- *   - Output: dist/plugin/
- *
- * - npm: Distribution via npx @gannonh/kata
- *   - No path transform (install.js handles at runtime)
- *   - Output: dist/npm/
+ * Builds the Claude Code marketplace plugin (/plugin install)
+ * - Path transform: subagent_type="kata-xxx" → subagent_type="kata:kata-xxx"
+ * - Path transform: Skill("xxx") → Skill("kata:xxx") (plugin namespace)
+ * - Output: dist/plugin/
  *
  * Usage:
- *   node scripts/build.js plugin   # Build plugin only
- *   node scripts/build.js npm      # Build npm only
- *   node scripts/build.js all      # Build both (default)
+ *   node scripts/build.js [plugin]   # Build plugin (default)
  */
 
 import fs from 'fs';
@@ -37,9 +31,9 @@ const reset = '\x1b[0m';
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 
 /**
- * Files/directories to include in both distributions
+ * Files/directories to include in the distribution
  */
-const COMMON_INCLUDES = [
+const INCLUDES = [
   'commands/kata',
   'skills',
   'agents',
@@ -65,27 +59,10 @@ const EXCLUDES = [
 ];
 
 /**
- * Files/directories to exclude from PLUGIN distribution only
- * (these are NPM-specific and don't work in plugin context)
- *
- * Note: Previously contained 'commands/kata/update.md' and 'skills/kata-updating'
- * but these were deleted in Phase 7 (NPX deprecation). Array kept for future use.
- */
-const PLUGIN_EXCLUDES = [];
-
-/**
  * Plugin-specific includes
  */
 const PLUGIN_INCLUDES = [
   '.claude-plugin',
-];
-
-/**
- * NPM-specific includes
- */
-const NPM_INCLUDES = [
-  'bin',
-  'package.json',
 ];
 
 /**
@@ -106,16 +83,6 @@ function shouldExclude(name) {
 }
 
 /**
- * Check if path should be excluded from plugin build
- * @param {string} relativePath - Path relative to source root
- */
-function shouldExcludeFromPlugin(relativePath) {
-  return PLUGIN_EXCLUDES.some(excluded =>
-    relativePath === excluded || relativePath.startsWith(excluded + '/')
-  );
-}
-
-/**
  * Copy a file, optionally transforming paths in .md files
  */
 function copyFile(src, dest, transform = null) {
@@ -130,7 +97,7 @@ function copyFile(src, dest, transform = null) {
 /**
  * Recursively copy a directory with optional path transformation
  */
-function copyDir(src, dest, transform = null, excludeFilter = null) {
+function copyDir(src, dest, transform = null) {
   if (!fs.existsSync(src)) {
     console.log(`  ${amber}!${reset} Skipping ${src} (not found)`);
     return false;
@@ -148,17 +115,8 @@ function copyDir(src, dest, transform = null, excludeFilter = null) {
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
 
-    // Check plugin-specific exclusions using relative path from ROOT
-    if (excludeFilter) {
-      const relativePath = path.relative(ROOT, srcPath);
-      if (excludeFilter(relativePath)) {
-        console.log(`  ${dim}-${reset} Excluded ${relativePath} (plugin-specific)`);
-        continue;
-      }
-    }
-
     if (entry.isDirectory()) {
-      copyDir(srcPath, destPath, transform, excludeFilter);
+      copyDir(srcPath, destPath, transform);
     } else {
       copyFile(srcPath, destPath, transform);
     }
@@ -169,15 +127,9 @@ function copyDir(src, dest, transform = null, excludeFilter = null) {
 /**
  * Copy a file or directory to destination
  */
-function copyPath(src, dest, transform = null, excludeFilter = null) {
+function copyPath(src, dest, transform = null) {
   const srcPath = path.join(ROOT, src);
   const destPath = path.join(dest, src);
-
-  // Check if this specific path should be excluded
-  if (excludeFilter && excludeFilter(src)) {
-    console.log(`  ${dim}-${reset} Excluded ${src} (plugin-specific)`);
-    return true; // Return true to not trigger "not found" warning
-  }
 
   if (!fs.existsSync(srcPath)) {
     console.log(`  ${amber}!${reset} Skipping ${src} (not found)`);
@@ -186,7 +138,7 @@ function copyPath(src, dest, transform = null, excludeFilter = null) {
 
   const stat = fs.statSync(srcPath);
   if (stat.isDirectory()) {
-    return copyDir(srcPath, destPath, transform, excludeFilter);
+    return copyDir(srcPath, destPath, transform);
   } else {
     fs.mkdirSync(path.dirname(destPath), { recursive: true });
     copyFile(srcPath, destPath, transform);
@@ -201,45 +153,19 @@ function copyPath(src, dest, transform = null, excludeFilter = null) {
  * so kata-executor becomes kata:kata-executor in plugin context.
  *
  * Plugin skills are namespaced as pluginname:skillname. Since skill
- * directories are renamed (kata-xxx → xxx), Skill() invocations need
- * to be transformed from Skill("kata-xxx") to Skill("kata:xxx").
- *
- * Note: @~/.claude/kata/ path transformation removed in v1.0.6 Phase 2.1.
- * Skills now use relative paths to bundled resources.
+ * directories no longer have kata- prefix (renamed in Phase 7),
+ * Skill("xxx") invocations need to be transformed to Skill("kata:xxx").
  */
 function transformPluginPaths(content) {
   // Transform agent references: subagent_type="kata-xxx" → subagent_type="kata:kata-xxx"
   content = content.replace(/subagent_type="kata-/g, 'subagent_type="kata:kata-');
 
-  // Transform Skill invocations: Skill("kata-xxx") → Skill("kata:xxx")
-  // Skill dirs renamed kata-xxx → xxx, so plugin skill name is kata:xxx
-  content = content.replace(/Skill\("kata-/g, 'Skill("kata:');
+  // Transform Skill invocations: Skill("xxx") → Skill("kata:xxx")
+  // Skills no longer have kata- prefix in source, so plugin skill name is kata:xxx
+  // Match Skill(" followed by any skill name that doesn't start with kata:
+  content = content.replace(/Skill\("(?!kata:)([^"]+)"\)/g, 'Skill("kata:$1")');
 
   return content;
-}
-
-/**
- * Transform skill name in SKILL.md frontmatter for plugin distribution
- *
- * Plugin skills are namespaced by Claude Code as pluginname:skillname,
- * so kata-adding-phases becomes kata:adding-phases in plugin context.
- * We strip the kata- prefix from the name field to avoid double-prefixing.
- */
-function transformSkillName(content) {
-  return content.replace(/^(name:\s*)kata-/m, '$1');
-}
-
-/**
- * Rename skill directory for plugin distribution
- *
- * Strips kata- prefix from skill directories so they're accessible
- * as kata:skill-name instead of kata:kata-skill-name
- */
-function renameSkillDir(name) {
-  if (name.startsWith('kata-')) {
-    return name.slice(5);  // Remove 'kata-' (5 chars)
-  }
-  return name;
 }
 
 /**
@@ -253,7 +179,7 @@ function writeVersion(dest) {
 /**
  * Validate build output
  */
-function validateBuild(dest, target) {
+function validateBuild(dest) {
   const errors = [];
 
   // Check required directories exist
@@ -265,51 +191,30 @@ function validateBuild(dest, target) {
     }
   }
 
-  // For plugin target, verify no ~/.claude/ references remain in executable files
+  // Verify no ~/.claude/ references remain in executable files
   // Excludes CHANGELOG.md which contains historical documentation
-  if (target === 'plugin') {
-    const checkForOldPaths = (dir) => {
-      if (!fs.existsSync(dir)) return;
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name);
-        if (entry.isDirectory()) {
-          checkForOldPaths(fullPath);
-        } else if (entry.name.endsWith('.md') && entry.name !== 'CHANGELOG.md') {
-          const content = fs.readFileSync(fullPath, 'utf8');
-          if (content.includes('@~/.claude/')) {
-            errors.push(`Old path reference in ${fullPath.replace(dest, '')}`);
-          }
+  const checkForOldPaths = (dir) => {
+    if (!fs.existsSync(dir)) return;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        checkForOldPaths(fullPath);
+      } else if (entry.name.endsWith('.md') && entry.name !== 'CHANGELOG.md') {
+        const content = fs.readFileSync(fullPath, 'utf8');
+        if (content.includes('@~/.claude/')) {
+          errors.push(`Old path reference in ${fullPath.replace(dest, '')}`);
         }
       }
-    };
-    checkForOldPaths(dest);
-
-    // Verify excluded files are not present
-    for (const excluded of PLUGIN_EXCLUDES) {
-      const fullPath = path.join(dest, excluded);
-      if (fs.existsSync(fullPath)) {
-        errors.push(`Plugin build should not include: ${excluded}`);
-      }
     }
-  }
-
-  // For npm target, verify install.js exists
-  if (target === 'npm') {
-    const installPath = path.join(dest, 'bin', 'install.js');
-    if (!fs.existsSync(installPath)) {
-      errors.push('Missing bin/install.js');
-    }
-  }
+  };
+  checkForOldPaths(dest);
 
   return errors;
 }
 
 /**
- * Copy skills directory with special handling for plugin distribution:
- * - Rename skill directories (strip kata- prefix)
- * - Transform SKILL.md name field (strip kata- prefix)
- * - Apply standard plugin path transforms
+ * Copy skills directory for plugin distribution
  */
 function copySkillsForPlugin(dest) {
   const srcDir = path.join(ROOT, 'skills');
@@ -327,27 +232,14 @@ function copySkillsForPlugin(dest) {
     if (!entry.isDirectory()) continue;
     if (shouldExclude(entry.name)) continue;
 
-    // Check plugin-specific exclusions
-    const relativePath = `skills/${entry.name}`;
-    if (shouldExcludeFromPlugin(relativePath)) {
-      console.log(`  ${dim}-${reset} Excluded ${relativePath} (plugin-specific)`);
-      continue;
-    }
-
-    // Rename directory: kata-adding-phases -> adding-phases
-    const newDirName = renameSkillDir(entry.name);
     const srcPath = path.join(srcDir, entry.name);
-    const destPath = path.join(destDir, newDirName);
+    const destPath = path.join(destDir, entry.name);
 
-    // Copy skill directory contents
+    // Copy skill directory contents with transforms
     fs.mkdirSync(destPath, { recursive: true });
     copySkillContents(srcPath, destPath);
 
-    if (entry.name !== newDirName) {
-      console.log(`  ${green}✓${reset} Copied skills/${entry.name} → skills/${newDirName}`);
-    } else {
-      console.log(`  ${green}✓${reset} Copied skills/${entry.name}`);
-    }
+    console.log(`  ${green}+${reset} Copied skills/${entry.name}`);
   }
 
   return true;
@@ -368,14 +260,8 @@ function copySkillContents(srcDir, destDir) {
     if (entry.isDirectory()) {
       fs.mkdirSync(destPath, { recursive: true });
       copySkillContents(srcPath, destPath);
-    } else if (entry.name === 'SKILL.md') {
-      // Apply both skill name transform and plugin path transform
-      let content = fs.readFileSync(srcPath, 'utf8');
-      content = transformSkillName(content);
-      content = transformPluginPaths(content);
-      fs.writeFileSync(destPath, content);
     } else if (entry.name.endsWith('.md')) {
-      // Apply plugin path transform only
+      // Apply plugin path transform
       const content = fs.readFileSync(srcPath, 'utf8');
       fs.writeFileSync(destPath, transformPluginPaths(content));
     } else {
@@ -393,101 +279,40 @@ function buildPlugin() {
   const dest = path.join(ROOT, 'dist', 'plugin');
   cleanDir(dest);
 
-  // Copy skills with special handling (rename dirs, transform names)
+  // Copy skills with path transformation
   copySkillsForPlugin(dest);
 
-  // Copy other common files with path transformation AND plugin exclusions
-  for (const item of COMMON_INCLUDES) {
+  // Copy other files with path transformation
+  for (const item of INCLUDES) {
     // Skip skills - handled above
     if (item === 'skills') continue;
-    if (copyPath(item, dest, transformPluginPaths, shouldExcludeFromPlugin)) {
-      console.log(`  ${green}✓${reset} Copied ${item}`);
+    if (copyPath(item, dest, transformPluginPaths)) {
+      console.log(`  ${green}+${reset} Copied ${item}`);
     }
   }
 
   // Copy plugin-specific files
   for (const item of PLUGIN_INCLUDES) {
     if (copyPath(item, dest)) {
-      console.log(`  ${green}✓${reset} Copied ${item}`);
+      console.log(`  ${green}+${reset} Copied ${item}`);
     }
   }
 
   // Write VERSION file
   writeVersion(dest);
-  console.log(`  ${green}✓${reset} Wrote VERSION (${pkg.version})`);
+  console.log(`  ${green}+${reset} Wrote VERSION (${pkg.version})`);
 
   // Validate build
-  const errors = validateBuild(dest, 'plugin');
+  const errors = validateBuild(dest);
   if (errors.length > 0) {
     console.log(`\n${red}Validation errors:${reset}`);
     for (const error of errors) {
-      console.log(`  ${red}✗${reset} ${error}`);
+      console.log(`  ${red}x${reset} ${error}`);
     }
     return false;
   }
 
-  console.log(`\n${green}✓ Plugin build complete: dist/plugin/${reset}`);
-  return true;
-}
-
-/**
- * Build npm distribution
- */
-function buildNpm() {
-  console.log(`\n${green}Building npm distribution...${reset}\n`);
-
-  const dest = path.join(ROOT, 'dist', 'npm');
-  cleanDir(dest);
-
-  // Copy common files (no path transformation - install.js handles it)
-  for (const item of COMMON_INCLUDES) {
-    if (copyPath(item, dest)) {
-      console.log(`  ${green}✓${reset} Copied ${item}`);
-    }
-  }
-
-  // Copy npm-specific files
-  for (const item of NPM_INCLUDES) {
-    if (copyPath(item, dest)) {
-      console.log(`  ${green}✓${reset} Copied ${item}`);
-    }
-  }
-
-  // Clean up package.json for distribution (remove dev scripts)
-  const distPkgPath = path.join(dest, 'package.json');
-  if (fs.existsSync(distPkgPath)) {
-    const distPkg = JSON.parse(fs.readFileSync(distPkgPath, 'utf8'));
-    // Remove kata from files since it doesn't exist in npm distribution
-    if (distPkg.files) {
-      distPkg.files = distPkg.files.filter(f => f !== 'kata');
-    }
-    // Remove scripts that don't work in dist context
-    delete distPkg.scripts.prepublishOnly;
-    delete distPkg.scripts.build;
-    delete distPkg.scripts['build:plugin'];
-    delete distPkg.scripts['build:npm'];
-    delete distPkg.scripts['build:hooks'];
-    delete distPkg.scripts.test;
-    delete distPkg.scripts['test:build'];
-    fs.writeFileSync(distPkgPath, JSON.stringify(distPkg, null, 2) + '\n');
-    console.log(`  ${green}✓${reset} Cleaned package.json scripts`);
-  }
-
-  // Write VERSION file
-  writeVersion(dest);
-  console.log(`  ${green}✓${reset} Wrote VERSION (${pkg.version})`)
-
-  // Validate build
-  const errors = validateBuild(dest, 'npm');
-  if (errors.length > 0) {
-    console.log(`\n${red}Validation errors:${reset}`);
-    for (const error of errors) {
-      console.log(`  ${red}✗${reset} ${error}`);
-    }
-    return false;
-  }
-
-  console.log(`\n${green}✓ npm build complete: dist/npm/${reset}`);
+  console.log(`\n${green}+ Plugin build complete: dist/plugin/${reset}`);
   return true;
 }
 
@@ -496,29 +321,18 @@ function buildNpm() {
  */
 function main() {
   const args = process.argv.slice(2);
-  const target = args[0] || 'all';
+  const target = args[0] || 'plugin';
 
   console.log(`${amber}Kata Build System${reset}`);
   console.log(`${dim}Version: ${pkg.version}${reset}`);
 
-  let success = true;
-
-  switch (target) {
-    case 'plugin':
-      success = buildPlugin();
-      break;
-    case 'npm':
-      success = buildNpm();
-      break;
-    case 'all':
-      success = buildPlugin() && buildNpm();
-      break;
-    default:
-      console.error(`${red}Unknown target: ${target}${reset}`);
-      console.log(`\nUsage: node scripts/build.js [plugin|npm|all]`);
-      process.exit(1);
+  if (target !== 'plugin' && target !== 'all') {
+    console.error(`${red}Unknown target: ${target}${reset}`);
+    console.log(`\nUsage: node scripts/build.js [plugin]`);
+    process.exit(1);
   }
 
+  const success = buildPlugin();
   if (!success) {
     process.exit(1);
   }
