@@ -91,7 +91,7 @@ Plans:
 - [x] **Phase 4: Plan Sync** - Checklist items in issues, update as plans complete — completed 2026-01-26
 - [x] **Phase 5: PR Integration** - Create PRs at phase start with auto-linking — completed 2026-01-27
 - [x] **Phase 6: PR Review Workflow Skill & Agents** - Integrate PR review skill and agents into phase execution workflow — completed 2026-01-27
-- [ ] **Phase 7: Deprecate NPX Support** - Remove NPX distribution path, plugin-only going forward
+- [x] **Phase 7: Deprecate NPX Support** - Remove NPX distribution path, plugin-only going forward — completed 2026-01-27
 
 ## Phase Details
 
@@ -266,7 +266,7 @@ Plans:
 - [x] 07-03-PLAN.md — Simplify build system to plugin-only
 - [x] 07-04-PLAN.md — Update documentation for plugin-only
 - [x] 07-05-PLAN.md — Replace bin/install.js with deprecation stub
-- [ ] 07-06-PLAN.md — Gap closure: Fix development workflow documentation
+- [x] 07-06-PLAN.md — Gap closure: Fix development workflow documentation
 
 ## Progress
 
@@ -286,8 +286,8 @@ Plans:
 | 4. Plan Sync                             | v1.1.0    | 3/3            | Complete    | 2026-01-26 |
 | 5. PR Integration                        | v1.1.0    | 3/3            | Complete    | 2026-01-27 |
 | 6. PR Review Workflow Skill              | v1.1.0    | 4/4            | Complete    | 2026-01-27 |
-| 7. Deprecate NPX Support                 | v1.1.0    | 5/6            | In Progress | —          |
+| 7. Deprecate NPX Support                 | v1.1.0    | 6/6            | Complete    | 2026-01-27 |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-27 — Phase 7 gap closure plan added (07-06)*
+*Last updated: 2026-01-27 — Phase 7 complete (gap closure plan 07-06 executed)*
