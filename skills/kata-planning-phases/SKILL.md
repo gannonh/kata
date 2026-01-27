@@ -1,6 +1,6 @@
 ---
 name: kata-planning-phases
-description: Use this skill to plan detailed phases as part of the roadmap. Triggers include "plan phase", "create phase plan", "create a plan" "roadmap planning", and "roadmap phase creation".
+description: Use this skill to plan detailed roadmap phases. Triggers include "plan phase n", "create phase plan", "create a plan" "roadmap planning", and "roadmap phase creation".
 metadata:
   version: "0.1.0"
 user-invocable: false

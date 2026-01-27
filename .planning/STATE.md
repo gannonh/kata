@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-01-24)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v1.1.0 GitHub Integration — Phase 6: PR Review Workflow Skill & Agents
+**Current focus:** v1.1.0 GitHub Integration — Phase 7: Deprecate NPX Support
 
 ## Current Position
 
 Milestone: v1.1.0 GitHub Integration
-Phase: 6 (PR Review Workflow Skill & Agents)
-Plan: 04 of 4 complete
-Status: Verified ✓
-Last activity: 2026-01-27 — Phase 6 UAT verified (9/9 tests passing)
+Phase: 7 (Deprecate NPX Support)
+Plan: 00 of 0 complete
+Status: Not planned
+Last activity: 2026-01-27 — Phase 7 added to roadmap
 
-Progress: [████████████████████████████████████████████████] 100% (6/6 phases in v1.1.0)
+Progress: [███████████████████████████████████████████░░░░░] 86% (6/7 phases in v1.1.0)
 
 ## Performance Metrics
 
@@ -33,7 +33,7 @@ Progress: [███████████████████████
 | v1.0.0    | 4      | 5     | Shipped 2026-01-23 |
 | v1.0.8    | 1      | 5     | Shipped 2026-01-24 |
 | v1.0.9    | 1      | 3     | Shipped 2026-01-25 |
-| v1.1.0    | 6      | 25    | Complete (6/6 phases, +1 gap closure) |
+| v1.1.0    | 7      | 25    | In Progress (6/7 phases, +1 gap closure) |
 
 **Recent Trend:**
 - v1.0.1-v1.0.5: Rapid patch releases (5 patches in 2 days) addressing plugin distribution issues
@@ -75,6 +75,7 @@ Recent decisions affecting current work:
 - **Phase 5 complete 2026-01-27** — PR Integration (branch creation, draft PR, ready automation, tests, docs)
 - **Phase 6 complete 2026-01-27** — PR Review Workflow Skill & Agents (3/3 plans)
 - **Phase 6 UAT fix 2026-01-27** — Gap closure plan for backlog todo prompt and merge-first workflow
+- **Phase 7 added 2026-01-27** — Deprecate NPX Support (plugin-only distribution)
 
 ### Pending Todos
 
@@ -110,5 +111,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Phase 6 verified — all 9 UAT tests passing
-Next action: /kata:audit-milestone to verify v1.1.0 requirements coverage
+Stopped at: Phase 7 added to roadmap
+Next action: /kata:plan-phase 7 to plan Deprecate NPX Support

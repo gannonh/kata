@@ -11,7 +11,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - **v1.0.0 Claude Code Plugin** — Phases 1-3 (shipped 2026-01-23)
 - **v1.0.8 Plugin Stability** — Phase 2.1 (shipped 2026-01-24) — [archive](milestones/v1.0.8-ROADMAP.md)
 - **v1.0.9 Command Consolidation** — Phase 2.2 (complete)
-- **v1.1.0 GitHub Integration** — Phases 0-6 (planned)
+- **v1.1.0 GitHub Integration** — Phases 0-7 (planned)
 
 ## Phases
 
@@ -91,6 +91,7 @@ Plans:
 - [x] **Phase 4: Plan Sync** - Checklist items in issues, update as plans complete — completed 2026-01-26
 - [x] **Phase 5: PR Integration** - Create PRs at phase start with auto-linking — completed 2026-01-27
 - [x] **Phase 6: PR Review Workflow Skill & Agents** - Integrate PR review skill and agents into phase execution workflow — completed 2026-01-27
+- [ ] **Phase 7: Deprecate NPX Support** - Remove NPX distribution path, plugin-only going forward
 
 ## Phase Details
 
@@ -248,6 +249,16 @@ Plans:
 - [x] 06-03-PLAN.md — Add skill test and README documentation
 - [x] 06-04-PLAN.md — UAT fix: backlog todo prompt + merge before next phase
 
+#### Phase 7: Deprecate NPX Support
+**Goal**: Remove NPX distribution path; Kata becomes plugin-only
+**Depends on**: Phase 6 (PR Review complete)
+**Success Criteria** (what must be TRUE):
+  1. [To be planned]
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /kata:plan-phase 7 to break down)
+
 ## Progress
 
 | Phase                                    | Milestone | Plans Complete | Status      | Completed  |
@@ -266,6 +277,7 @@ Plans:
 | 4. Plan Sync                             | v1.1.0    | 3/3            | Complete    | 2026-01-26 |
 | 5. PR Integration                        | v1.1.0    | 3/3            | Complete    | 2026-01-27 |
 | 6. PR Review Workflow Skill              | v1.1.0    | 4/4            | Complete    | 2026-01-27 |
+| 7. Deprecate NPX Support                 | v1.1.0    | 0/0            | Not Started | —          |
 
 ---
 *Roadmap created: 2026-01-18*
