@@ -6,72 +6,6 @@ import path from 'node:path';
 
 const ROOT = process.cwd();
 
-describe('NPM build', () => {
-  before(() => {
-    execSync('npm run build:npm', { cwd: ROOT, stdio: 'pipe' });
-  });
-
-  test('creates dist/npm directory', () => {
-    assert.ok(fs.existsSync(path.join(ROOT, 'dist/npm')));
-  });
-
-  test('includes bin/install.js', () => {
-    assert.ok(fs.existsSync(path.join(ROOT, 'dist/npm/bin/install.js')));
-  });
-
-  test('includes package.json', () => {
-    assert.ok(fs.existsSync(path.join(ROOT, 'dist/npm/package.json')));
-  });
-
-  test('includes commands directory', () => {
-    assert.ok(fs.existsSync(path.join(ROOT, 'dist/npm/commands')));
-  });
-
-  test('includes skills directory', () => {
-    assert.ok(fs.existsSync(path.join(ROOT, 'dist/npm/skills')));
-  });
-
-  test('includes hooks directory', () => {
-    assert.ok(fs.existsSync(path.join(ROOT, 'dist/npm/hooks')));
-  });
-
-  test('does NOT include shared kata directory (Phase 2.1 restructure)', () => {
-    // After Phase 2.1, shared kata/ directory is removed
-    // Skills now have self-contained references/ subdirectories
-    assert.ok(!fs.existsSync(path.join(ROOT, 'dist/npm/kata')));
-  });
-
-  test('includes agents directory', () => {
-    assert.ok(fs.existsSync(path.join(ROOT, 'dist/npm/agents')));
-  });
-
-  test('skills use local @./references/ paths (Phase 2.1 restructure)', () => {
-    const skillPath = path.join(ROOT, 'dist/npm/skills/kata-executing-phases/SKILL.md');
-    if (fs.existsSync(skillPath)) {
-      const content = fs.readFileSync(skillPath, 'utf8');
-      // After Phase 2.1, skills use local @./references/ paths
-      // Skills are self-contained with bundled resources
-      assert.ok(
-        content.includes('@./references/'),
-        'NPM skills should use @./references/ paths (self-contained)'
-      );
-      assert.ok(
-        !content.includes('@~/.claude/kata/'),
-        'NPM skills should NOT use @~/.claude/kata/ (old shared path)'
-      );
-      assert.ok(
-        !content.includes('@$KATA_BASE/'),
-        'NPM skills should NOT use @$KATA_BASE/ (Claude cannot substitute variables)'
-      );
-    }
-  });
-
-  test('package.json has correct name', () => {
-    const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'dist/npm/package.json'), 'utf8'));
-    assert.strictEqual(pkg.name, '@gannonh/kata');
-  });
-});
-
 describe('Plugin build', () => {
   before(() => {
     execSync('npm run build:plugin', { cwd: ROOT, stdio: 'pipe' });
@@ -108,7 +42,7 @@ describe('Plugin build', () => {
   });
 
   test('skills reference ./kata/ paths (not ~/.claude/)', () => {
-    const skillPath = path.join(ROOT, 'dist/plugin/skills/kata-executing-phases/SKILL.md');
+    const skillPath = path.join(ROOT, 'dist/plugin/skills/executing-phases/SKILL.md');
     if (fs.existsSync(skillPath)) {
       const content = fs.readFileSync(skillPath, 'utf8');
       assert.ok(
@@ -130,7 +64,7 @@ describe('Plugin build', () => {
   test('plugin skills use local @./references/ pattern', () => {
     // After Phase 2.1 restructure, skills use @./references/ for local resources
     // Skills no longer reference shared @./kata/ directory
-    const skillPath = path.join(ROOT, 'dist/plugin/skills/kata-executing-phases/SKILL.md');
+    const skillPath = path.join(ROOT, 'dist/plugin/skills/executing-phases/SKILL.md');
     if (fs.existsSync(skillPath)) {
       const content = fs.readFileSync(skillPath, 'utf8');
       // Find all @./... references (excluding @.planning/ which is project-local)
@@ -165,22 +99,20 @@ describe('Plugin build', () => {
     }
   });
 
-  test('plugin workflows have transformed paths', () => {
-    const workflowPath = path.join(ROOT, 'dist/plugin/kata/workflows/phase-execute.md');
-    if (fs.existsSync(workflowPath)) {
-      const content = fs.readFileSync(workflowPath, 'utf8');
-      assert.ok(
-        !content.includes('@~/.claude/kata/'),
-        'Plugin workflows should NOT have ~/.claude/kata/ paths'
-      );
-    }
-  });
-
   test('plugin.json has correct name', () => {
     const plugin = JSON.parse(
       fs.readFileSync(path.join(ROOT, 'dist/plugin/.claude-plugin/plugin.json'), 'utf8')
     );
     assert.strictEqual(plugin.name, 'kata');
+  });
+
+  test('skills no longer have kata- prefix in directory names', () => {
+    // Phase 7-01 renamed skill directories to remove kata- prefix
+    const skillsDir = path.join(ROOT, 'dist/plugin/skills');
+    const entries = fs.readdirSync(skillsDir);
+    const kataPrefix = entries.filter(e => e.startsWith('kata-'));
+    assert.strictEqual(kataPrefix.length, 0,
+      `Skills should not have kata- prefix: ${kataPrefix.join(', ')}`);
   });
 });
 
@@ -203,22 +135,12 @@ describe('Version consistency', () => {
         `Plugin VERSION mismatch: ${version} vs package.json ${pkg.version}`);
     }
   });
-
-  test('built npm VERSION matches package.json', () => {
-    const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-    const versionFile = path.join(ROOT, 'dist/npm/kata/VERSION');
-    if (fs.existsSync(versionFile)) {
-      const version = fs.readFileSync(versionFile, 'utf8').trim();
-      assert.strictEqual(version, pkg.version,
-        `NPM VERSION mismatch: ${version} vs package.json ${pkg.version}`);
-    }
-  });
 });
 
 describe('No stale references', () => {
   test('no kata-cc references in source', () => {
     const result = execSync(
-      'grep -r "kata-cc" commands/ skills/ kata/ agents/ 2>/dev/null || true',
+      'grep -r "kata-cc" commands/ skills/ agents/ 2>/dev/null || true',
       { cwd: ROOT, encoding: 'utf8' }
     );
     assert.strictEqual(result.trim(), '', 'Should not have stale kata-cc references');
@@ -226,7 +148,7 @@ describe('No stale references', () => {
 
   test('no GSD references in source', () => {
     const result = execSync(
-      'grep -ri "get-shit-done\\|glittercowboy/gsd" commands/ skills/ kata/ agents/ 2>/dev/null || true',
+      'grep -ri "get-shit-done\\|glittercowboy/gsd" commands/ skills/ agents/ 2>/dev/null || true',
       { cwd: ROOT, encoding: 'utf8' }
     );
     // Allow references in README or historical docs, but not in functional code
@@ -387,7 +309,7 @@ describe('Agent file validation', () => {
 
 });
 
-describe('Workflow @-reference validation', () => {
+describe('Skill @-reference validation', () => {
   /**
    * Extract @-references from content
    * Stops at whitespace, newlines, backticks, quotes, and XML brackets
@@ -426,30 +348,6 @@ describe('Workflow @-reference validation', () => {
     return null;
   }
 
-  test('workflow @-references point to existing files', () => {
-    const workflowsDir = path.join(ROOT, 'kata/workflows');
-    if (!fs.existsSync(workflowsDir)) return;
-
-    const workflowFiles = fs.readdirSync(workflowsDir).filter(f => f.endsWith('.md'));
-    const errors = [];
-
-    for (const file of workflowFiles) {
-      const content = fs.readFileSync(path.join(workflowsDir, file), 'utf8');
-      const refs = extractReferences(content);
-
-      for (const ref of refs) {
-        const resolved = resolveRef(ref);
-        if (resolved && !fs.existsSync(resolved)) {
-          errors.push(`${file}: Reference not found: ${ref}`);
-        }
-      }
-    }
-
-    if (errors.length > 0) {
-      assert.fail(`Broken @-references:\n${errors.join('\n')}`);
-    }
-  });
-
   test('skill @-references point to existing files', () => {
     const skillsDir = path.join(ROOT, 'skills');
     if (!fs.existsSync(skillsDir)) return;
@@ -482,30 +380,6 @@ describe('Workflow @-reference validation', () => {
 
     if (errors.length > 0) {
       assert.fail(`Broken @-references in skills:\n${errors.join('\n')}`);
-    }
-  });
-
-  test('template @-references point to existing files', () => {
-    const templatesDir = path.join(ROOT, 'kata/templates');
-    if (!fs.existsSync(templatesDir)) return;
-
-    const templateFiles = fs.readdirSync(templatesDir).filter(f => f.endsWith('.md'));
-    const errors = [];
-
-    for (const file of templateFiles) {
-      const content = fs.readFileSync(path.join(templatesDir, file), 'utf8');
-      const refs = extractReferences(content);
-
-      for (const ref of refs) {
-        const resolved = resolveRef(ref);
-        if (resolved && !fs.existsSync(resolved)) {
-          errors.push(`${file}: Reference not found: ${ref}`);
-        }
-      }
-    }
-
-    if (errors.length > 0) {
-      assert.fail(`Broken @-references in templates:\n${errors.join('\n')}`);
     }
   });
 });
@@ -607,7 +481,7 @@ describe('@ Reference Path Validation', () => {
   test('no $KATA_BASE in @ references (Claude cannot substitute variables)', () => {
     // @ references must be static paths that build.js can transform
     // @$KATA_BASE/... will NEVER work - Claude treats it as literal path
-    const dirsToCheck = ['agents', 'skills', 'kata/workflows', 'kata/templates'];
+    const dirsToCheck = ['agents', 'skills'];
     const errors = [];
 
     for (const dir of dirsToCheck) {
@@ -634,7 +508,7 @@ describe('@ Reference Path Validation', () => {
   test('no ${VAR} syntax in @ references', () => {
     // @${KATA_BASE}/... is also invalid
     // Exception: code blocks showing dynamic prompt construction (bash substitutes before Task call)
-    const dirsToCheck = ['agents', 'skills', 'kata/workflows', 'kata/templates'];
+    const dirsToCheck = ['agents', 'skills'];
     const errors = [];
 
     for (const dir of dirsToCheck) {
@@ -662,58 +536,10 @@ describe('@ Reference Path Validation', () => {
     }
   });
 
-  test('source files use canonical @~/.claude/kata/ pattern', () => {
-    // Source files MUST use @~/.claude/kata/ for build.js to transform correctly
-    // This is the canonical form that:
-    // - Plugin build transforms to @./kata/
-    // - NPM install.js transforms at runtime
-    const dirsToCheck = ['agents', 'skills', 'kata/workflows', 'kata/templates'];
-    const filesWithKataRefs = [];
-
-    for (const dir of dirsToCheck) {
-      const files = scanMarkdownFiles(path.join(ROOT, dir));
-      for (const file of files) {
-        const content = fs.readFileSync(file, 'utf8');
-
-        // Check if file has any kata-related @ references
-        if (content.match(/@[^\s]*kata\//)) {
-          filesWithKataRefs.push({
-            path: path.relative(ROOT, file),
-            content
-          });
-        }
-      }
-    }
-
-    const errors = [];
-    for (const { path: filePath, content } of filesWithKataRefs) {
-      // Valid: @~/.claude/kata/
-      // Invalid: @$KATA_BASE/, @./kata/ (in source), @${VAR}/
-
-      // Skip bash file checks (not @ references)
-      let checkContent = content;
-      checkContent = checkContent.replace(/\[ -[fd] [^\]]+\]/g, '');
-      checkContent = checkContent.replace(/cat [^\n]+\/kata\//g, '');
-
-      // Find @ references to kata paths
-      const kataRefs = checkContent.match(/@[^\s\n<>`"'()]*kata\/[^\s\n<>`"'()]+/g) || [];
-
-      for (const ref of kataRefs) {
-        if (!ref.startsWith('@~/.claude/kata/') && !ref.startsWith('@.planning/')) {
-          errors.push(`${filePath}: Non-canonical @ reference: ${ref} (should use @~/.claude/kata/)`);
-        }
-      }
-    }
-
-    if (errors.length > 0) {
-      assert.fail(`Non-canonical @ references found:\n${errors.join('\n')}`);
-    }
-  });
-
   test('no <kata_path> blocks in source (deprecated pattern)', () => {
     // The <kata_path> block pattern was removed because it doesn't help with @ references
     // Claude's @ parser is static and cannot use bash-resolved variables
-    const dirsToCheck = ['agents', 'skills', 'kata/workflows', 'kata/templates'];
+    const dirsToCheck = ['agents', 'skills'];
     const errors = [];
 
     for (const dir of dirsToCheck) {
@@ -735,63 +561,6 @@ describe('@ Reference Path Validation', () => {
 });
 
 describe('Circular dependency check', () => {
-  /**
-   * Extract @-references from content (workflow files only)
-   */
-  function extractWorkflowRefs(content) {
-    const refs = [];
-    const pattern = /@~\/\.claude\/kata\/workflows\/([^\s\n<>]+\.md)/g;
-    let match;
-    while ((match = pattern.exec(content)) !== null) {
-      refs.push(match[1]);
-    }
-    return refs;
-  }
-
-  test('no circular references in workflows', () => {
-    const workflowsDir = path.join(ROOT, 'kata/workflows');
-    if (!fs.existsSync(workflowsDir)) return;
-
-    // Build dependency graph
-    const graph = {};
-    const workflowFiles = fs.readdirSync(workflowsDir).filter(f => f.endsWith('.md'));
-
-    for (const file of workflowFiles) {
-      const content = fs.readFileSync(path.join(workflowsDir, file), 'utf8');
-      const refs = extractWorkflowRefs(content);
-      graph[file] = refs;
-    }
-
-    // Detect cycles using DFS
-    function hasCycle(node, visited, recStack, path) {
-      visited.add(node);
-      recStack.add(node);
-      path.push(node);
-
-      const deps = graph[node] || [];
-      for (const dep of deps) {
-        if (!visited.has(dep)) {
-          const result = hasCycle(dep, visited, recStack, path);
-          if (result) return result;
-        } else if (recStack.has(dep)) {
-          path.push(dep);
-          return path.slice(path.indexOf(dep));
-        }
-      }
-
-      path.pop();
-      recStack.delete(node);
-      return null;
-    }
-
-    for (const file of workflowFiles) {
-      const cycle = hasCycle(file, new Set(), new Set(), []);
-      if (cycle) {
-        assert.fail(`Circular dependency detected: ${cycle.join(' -> ')}`);
-      }
-    }
-  });
-
   test('no circular references in skills', () => {
     const skillsDir = path.join(ROOT, 'skills');
     if (!fs.existsSync(skillsDir)) return;

@@ -10,9 +10,8 @@
     "test:skills": "node --test --test-reporter spec --test-reporter-destination stdout --test-reporter junit --test-reporter-destination junit.xml tests/skills/*.test.js",
     "test:skill": "node --test --test-reporter spec",
     "test:affected": "node -e \"import('./tests/harness/affected.js').then(m => console.log(m.getAffectedTestFiles().join(' ')))\" | xargs -r node --test",
-    "build": "node scripts/build.js all",
+    "build": "node scripts/build.js plugin",
     "build:plugin": "node scripts/build.js plugin",
-    "build:npm": "node scripts/build.js npm",
     "build:hooks": "node scripts/build-hooks.cjs",
     "prepublishOnly": "npm run build:hooks"
   },
@@ -20,12 +19,7 @@
     "kata": "bin/install.js"
   },
   "files": [
-    "README.md",
-    "bin",
-    "agents",
-    "commands",
-    "hooks",
-    "skills"
+    "bin"
   ],
   "keywords": [
     "claude",
