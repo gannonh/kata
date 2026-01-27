@@ -38,7 +38,7 @@ Progress: [███████████████████████
 **Recent Trend:**
 - v1.0.1-v1.0.5: Rapid patch releases (5 patches in 2 days) addressing plugin distribution issues
 - Focus shifted from planned features to stability
-- v1.0.9: Command consolidation - normalizing on skills-only distribution
+- v1.0.9: Command consolidation - skills made user-invocable alongside commands
 
 *Updated after each plan completion*
 
@@ -49,9 +49,8 @@ Progress: [███████████████████████
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **2026-01-25: Commands layer removed** — Deleted 27 command wrapper files, updated README and CLAUDE.md for skills-only architecture
+- **2026-01-25: Commands/Skills architecture** — Commands are user-invocable (via `/kata:`), skills are agent-invocable (via `Skill()`). Commands invoke skills. Users → Commands → Skills → Agents.
 - **2026-01-25: Build.js skill prefix transformation** — Plugin build strips `kata-` prefix from skill directories and names for clean `/kata:skill-name` invocation
-- **2026-01-25: Skills made user-invocable** — All 27 skills changed from `user-invocable: false` to `user-invocable: true` for direct / menu access
 - **2026-01-24: Roadmap realigned** — Updated to reflect actual release history; v0.1.9 became v1.0.0, added v1.0.8 milestone for stability work
 - **2026-01-24: Phase 2.1 inserted** — Skill-Centric Resource Restructure to support npx-based skill distribution (Vercel model)
 - **2026-01-23: Marketplace created** - gannonh/kata-marketplace repository with Kata v1.0.0 entry
