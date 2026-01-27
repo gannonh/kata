@@ -109,5 +109,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 05-03-PLAN.md (PR integration tests and docs)
-Resume file: .planning/phases/06-milestone-close/06-01-PLAN.md
+Stopped at: Phase 5 complete — PR Integration verified
+Resume file: .planning/phases/06-pr-review-workflow/06-01-PLAN.md

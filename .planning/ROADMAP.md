@@ -89,7 +89,7 @@ Plans:
 - [x] **Phase 2.2: Decouple Project Init & Milestone Setup** (INSERTED) - Separate project creation from first milestone, establish Kata↔GitHub mapping — completed 2026-01-26
 - [x] **Phase 3: Phase Issues** - Create GitHub Issues for phases with labels and metadata — completed 2026-01-26
 - [x] **Phase 4: Plan Sync** - Checklist items in issues, update as plans complete — completed 2026-01-26
-- [ ] **Phase 5: PR Integration** - Create PRs at phase start with auto-linking
+- [x] **Phase 5: PR Integration** - Create PRs at phase start with auto-linking — completed 2026-01-27
 - [ ] **Phase 6: PR Review Workflow Skill & Agents** - PR review workflow skill and agents (existing work to import)
 
 ## Phase Details
@@ -228,9 +228,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — Add PR workflow to kata-executing-phases (branch, draft PR, ready)
-- [ ] 05-02-PLAN.md — Add PR status display to kata-tracking-progress
-- [ ] 05-03-PLAN.md — Tests and documentation updates
+- [x] 05-01-PLAN.md — Add PR workflow to kata-executing-phases (branch, draft PR, ready)
+- [x] 05-02-PLAN.md — Add PR status display to kata-tracking-progress
+- [x] 05-03-PLAN.md — Tests and documentation updates
 
 #### Phase 6: PR Review Workflow Skill & Agents
 **Goal**: Integrate PR review workflow skill and agents into Kata (importing existing work from outside project)
@@ -263,9 +263,9 @@ Plans:
 | 2.2 Decouple Init & Milestone (INSERTED) | v1.1.0    | 4/4            | Complete    | 2026-01-26 |
 | 3. Phase Issues                          | v1.1.0    | 2/2            | Complete    | 2026-01-26 |
 | 4. Plan Sync                             | v1.1.0    | 3/3            | Complete    | 2026-01-26 |
-| 5. PR Integration                        | v1.1.0    | 0/3            | Planned     | -          |
+| 5. PR Integration                        | v1.1.0    | 3/3            | Complete    | 2026-01-27 |
 | 6. PR Review Workflow Skill              | v1.1.0    | 0/?            | Not started | -          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-26 — Phase 5 planned (3 plans)*
+*Last updated: 2026-01-27 — Phase 5 complete (3/3 plans)*
