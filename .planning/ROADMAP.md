@@ -236,16 +236,16 @@ Plans:
 **Goal**: Integrate PR review skill and agents into phase execution workflow
 **Depends on**: Phase 5 (PR Integration complete)
 **Success Criteria** (what must be TRUE):
-  1. PR review skill accessible via `/kata:reviewing-pull-requests`
+  1. PR review command accessible via `/kata:review-pr`
   2. Review agents available for code review workflows
   3. Phase execution offers optional review after `gh pr ready`
   4. README documents PR review workflow usage
 **Plans:** 3 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Update skill frontmatter and delete obsolete command wrapper
-- [ ] 06-02-PLAN.md — Add PR review integration to kata-executing-phases
-- [ ] 06-03-PLAN.md — Add skill test and README documentation
+- [x] 06-01-PLAN.md — Update skill frontmatter and command wrapper
+- [x] 06-02-PLAN.md — Add PR review integration to kata-executing-phases
+- [x] 06-03-PLAN.md — Add skill test and README documentation
 
 ## Progress
 
@@ -264,8 +264,8 @@ Plans:
 | 3. Phase Issues                          | v1.1.0    | 2/2            | Complete    | 2026-01-26 |
 | 4. Plan Sync                             | v1.1.0    | 3/3            | Complete    | 2026-01-26 |
 | 5. PR Integration                        | v1.1.0    | 3/3            | Complete    | 2026-01-27 |
-| 6. PR Review Workflow Skill              | v1.1.0    | 0/3            | Not started | -          |
+| 6. PR Review Workflow Skill              | v1.1.0    | 3/3            | Complete    | 2026-01-27 |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-27 — Phase 6 planned (3 plans)*
+*Last updated: 2026-01-27 — Phase 6 complete (3 plans)*
