@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 
 Milestone: v1.1.0 GitHub Integration
 Phase: 7 (Deprecate NPX Support)
-Plan: 01 of 3 complete
+Plan: 02 of 3 complete
 Status: In progress
-Last activity: 2026-01-27 — Completed 07-01 (Rename Skill Directories)
+Last activity: 2026-01-27 — Completed 07-02 (Delete NPX Files)
 
-Progress: [████████████████████████████████████████████░░░░] 88% (6.33/7 phases in v1.1.0)
+Progress: [█████████████████████████████████████████████░░░] 90% (6.67/7 phases in v1.1.0)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 60
+- Total plans completed: 62
 - Average duration: 3 min
-- Total execution time: 155 min
+- Total execution time: 159 min
 
 **By Milestone:**
 
@@ -77,6 +77,7 @@ Recent decisions affecting current work:
 - **Phase 6 UAT fix 2026-01-27** — Gap closure plan for backlog todo prompt and merge-first workflow
 - **Phase 7 added 2026-01-27** — Deprecate NPX Support (plugin-only distribution)
 - **Phase 7 plan 01 complete 2026-01-27** — Renamed 27 skill directories (removed kata- prefix)
+- **Phase 7 plan 02 complete 2026-01-27** — Deleted NPX-specific files, cleaned up build.js
 
 ### Pending Todos
 
@@ -112,5 +113,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 07-01-PLAN.md (Rename Skill Directories)
-Next action: Execute 07-02 (Simplify Build Process) or continue phase 7
+Stopped at: Completed 07-02-PLAN.md (Delete NPX Files)
+Next action: Execute 07-03 (Update Documentation) to complete phase 7
