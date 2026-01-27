@@ -236,16 +236,17 @@ Plans:
 **Goal**: Integrate PR review workflow skill and agents into Kata (importing existing work from outside project)
 **Depends on**: Phase 5 (PR Integration complete)
 **Success Criteria** (what must be TRUE):
-  1. PR review skill integrated into Kata skills directory
-  2. Review agents available for code review workflows
-  3. Integration with GitHub PR events
-  4. Documentation for PR review workflow usage
-**Plans**: TBD
-**Note**: User has existing implementation outside this project - remind to import during planning
+  1. PR review skill integrated into Kata skills directory as `kata-reviewing-prs`
+  2. All 6 review agents available (code, tests, errors, types, comments, simplify)
+  3. Skill integrates with GitHub PR context (auto-detect PR, use gh pr diff)
+  4. Tests verify skill invocation
+**Plans:** 4 plans
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
+- [ ] 06-01-PLAN.md — Import and adapt PR review skill with Kata conventions
+- [ ] 06-02-PLAN.md — Add GitHub PR context integration
+- [ ] 06-03-PLAN.md — Create skill tests
+- [ ] 06-04-PLAN.md — Update documentation and mark todo complete
 
 ## Progress
 
@@ -264,8 +265,8 @@ Plans:
 | 3. Phase Issues                          | v1.1.0    | 2/2            | Complete    | 2026-01-26 |
 | 4. Plan Sync                             | v1.1.0    | 3/3            | Complete    | 2026-01-26 |
 | 5. PR Integration                        | v1.1.0    | 3/3            | Complete    | 2026-01-27 |
-| 6. PR Review Workflow Skill              | v1.1.0    | 0/?            | Not started | -          |
+| 6. PR Review Workflow Skill              | v1.1.0    | 0/4            | Not started | -          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-27 — Phase 5 complete (3/3 plans)*
+*Last updated: 2026-01-27 — Phase 6 planned (4 plans)*
