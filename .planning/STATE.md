@@ -11,16 +11,16 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 
 Milestone: v1.1.0 GitHub Integration
 Phase: 6 (PR Review Workflow)
-Plan: 03 of 4 complete
-Status: In progress
-Last activity: 2026-01-27 — Completed 06-03-PLAN.md (aa96a70)
+Plan: 04 of 4 complete
+Status: Phase complete
+Last activity: 2026-01-27 — Completed 06-04-PLAN.md
 
-Progress: [████████████████████████████████████████████████████████████████████████] 75% (3/4 plans in phase 6)
+Progress: [████████████████████████████████████████████████████████████████████████████████████████████████] 100% (4/4 plans in phase 6)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 58
+- Total plans completed: 59
 - Average duration: 3 min
 - Total execution time: 150 min
 
@@ -33,7 +33,7 @@ Progress: [███████████████████████
 | v1.0.0    | 4      | 5     | Shipped 2026-01-23 |
 | v1.0.8    | 1      | 5     | Shipped 2026-01-24 |
 | v1.0.9    | 1      | 3     | Shipped 2026-01-25 |
-| v1.1.0    | 6      | 22    | Phase 6 in progress (3/4 plans) |
+| v1.1.0    | 6      | 22    | Phase 6 complete (4/4 plans) |
 
 **Recent Trend:**
 - v1.0.1-v1.0.5: Rapid patch releases (5 patches in 2 days) addressing plugin distribution issues
@@ -75,10 +75,11 @@ Recent decisions affecting current work:
 - **Phase 4 GAP fix 2026-01-26** — Fixed step ordering bug in kata-planning-phases (UAT finding)
 - **Phase 5 complete 2026-01-27** — PR Integration (branch creation, draft PR, ready automation, tests, docs)
 - **Phase 6 started 2026-01-27** — PR Review Workflow (skill import with 6 specialized agents)
+- **Phase 6 complete 2026-01-27** — PR Review skill and agents imported, integrated with GitHub PR workflow
 
 ### Pending Todos
 
-16 pending todos:
+15 pending todos:
 - `.planning/todos/pending/2026-01-18-statusline-kata-project-info.md` - Add kata project info to statusline
 - `.planning/todos/pending/2026-01-18-create-move-phase-command.md` - Create move-phase command
 - `.planning/todos/pending/2026-01-18-command-subagent-noun-verb-naming.md` - Change command and subagent naming to noun-verb
@@ -88,7 +89,6 @@ Recent decisions affecting current work:
 - `.planning/todos/pending/2026-01-19-add-type-label-to-todo-frontmatter.md` - Add type label to todo frontmatter
 - `.planning/todos/pending/2026-01-18-claudemd-kata-onboarding.md` - Add Kata section to CLAUDE.md during project-new onboarding
 - `.planning/todos/pending/2026-01-18-new-user-ux-expectations.md` - Add new user UX expectations to onboarding
-- `.planning/todos/pending/2026-01-18-integrate-pr-skill.md` - Integrate PR skill into Kata system
 - `.planning/todos/pending/2026-01-20-folder-based-phase-state-management.md` - Folder-based phase state management
 - `.planning/todos/pending/2026-01-20-improve-skill-recall-with-hooks.md` - Improve skill recall with hooks and rules
 - `.planning/todos/pending/2026-01-20-addon-extensions-progressive-disclosure.md` - Add-on extensions for progressive disclosure files
@@ -110,5 +110,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Phase 6 Plan 03 complete — kata-reviewing-prs skill tests added
+Stopped at: Phase 6 complete — PR Review Workflow skill and agents integrated
 Resume file: None
