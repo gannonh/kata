@@ -108,7 +108,7 @@ Skills are installed to:
 | `kata-executing-phases` | `/kata:executing-phases` | Plan execution, checkpoints | kata-executor |
 | `kata-verifying-phases` | `/kata:verifying-phases` | Goal verification, UAT | kata-verifier, kata-debugger |
 | `kata-starting-projects` | `/kata:starting-projects` | New project setup | kata-project-researcher, kata-roadmapper |
-| `kata-managing-milestones` | `/kata:managing-milestones` | Milestone operations | kata-roadmapper |
+| `kata-adding-milestones` | `/kata:adding-milestones` | Add milestone, research, requirements, roadmap | kata-project-researcher, kata-roadmapper |
 | `kata-managing-roadmap` | `/kata:managing-roadmap` | Phase operations | kata-roadmapper |
 | `kata-researching-phases` | `/kata:researching-phases` | Domain research | kata-phase-researcher |
 | `kata-project-status` | `/kata:tracking-progress` | Progress, debug, mapping | kata-debugger, kata-codebase-mapper |

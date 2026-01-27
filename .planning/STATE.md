@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-01-24)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v1.1.0 GitHub Integration — Phase 1: Audit & Config Foundation
+**Current focus:** v1.1.0 GitHub Integration — Phase 5: PR Integration (complete)
 
 ## Current Position
 
 Milestone: v1.1.0 GitHub Integration
-Phase: 0 (Develop Robust Testing Suite)
-Plan: 07 of 7 complete
+Phase: 5 (PR Integration)
+Plan: 03 of 3 complete
 Status: Phase complete
-Last activity: 2026-01-25 — Completed 00-07-PLAN.md (CI integration)
+Last activity: 2026-01-27 — Completed 05-03-PLAN.md (49bd9b2)
 
-Progress: [################################] 100% (7/7 plans in phase 0)
+Progress: [████████████████████████████████████████████████] 100% (3/3 plans in phase 5)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 50
+- Total plans completed: 56
 - Average duration: 3 min
-- Total execution time: 131 min
+- Total execution time: 147 min
 
 **By Milestone:**
 
@@ -33,7 +33,7 @@ Progress: [################################] 100% (7/7 plans in phase 0)
 | v1.0.0    | 4      | 5     | Shipped 2026-01-23 |
 | v1.0.8    | 1      | 5     | Shipped 2026-01-24 |
 | v1.0.9    | 1      | 3     | Shipped 2026-01-25 |
-| v1.1.0    | 1      | 7     | Phase 0 complete |
+| v1.1.0    | 6      | 21    | Phase 5 complete (3/3 plans) |
 
 **Recent Trend:**
 - v1.0.1-v1.0.5: Rapid patch releases (5 patches in 2 days) addressing plugin distribution issues
@@ -56,6 +56,7 @@ Recent decisions affecting current work:
 - **2026-01-24: Phase 2.1 inserted** — Skill-Centric Resource Restructure to support npx-based skill distribution (Vercel model)
 - **2026-01-23: Marketplace created** - gannonh/kata-marketplace repository with Kata v1.0.0 entry
 - **2026-01-22: PR workflow spec in product** - `kata/references/planning-config.md#pr_workflow_behavior` is authoritative
+- **2026-01-27: PR body static, issue tracks progress** — PR body checklist remains unchecked; GitHub issue is source of truth for plan completion
 
 ### Roadmap Evolution
 
@@ -68,6 +69,11 @@ Recent decisions affecting current work:
 - **v1.1.0 milestone planned** — GitHub Integration (6 phases planned)
 - **Phase 0 added 2026-01-25** — Develop Robust Testing Suite (inserted before Phase 1)
 - **Phase 0 complete 2026-01-25** — 7 plans, 27 skill tests, CI workflow
+- **Phase 1-2.2 complete 2026-01-26** — Config foundation, onboarding, repo setup, milestone decoupling
+- **Phase 3 complete 2026-01-26** — Phase issue creation, 2 plans
+- **Phase 4 complete 2026-01-26** — Plan sync (plan checklist in issues, execution checkbox updates, test coverage)
+- **Phase 4 GAP fix 2026-01-26** — Fixed step ordering bug in kata-planning-phases (UAT finding)
+- **Phase 5 complete 2026-01-27** — PR Integration (branch creation, draft PR, ready automation, tests, docs)
 
 ### Pending Todos
 
@@ -102,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-25
-Stopped at: Completed 00-07-PLAN.md (CI integration) — Phase 0 complete
-Resume file: None (Phase 0 complete, ready for Phase 1)
+Last session: 2026-01-27
+Stopped at: Phase 5 complete — PR Integration verified
+Resume file: .planning/phases/06-pr-review-workflow/06-01-PLAN.md

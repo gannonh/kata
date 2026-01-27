@@ -57,6 +57,12 @@ If missing both ROADMAP.md and PROJECT.md: suggest `/kata:new-project`.
 - Read `.planning/ROADMAP.md` for phase structure and objectives
 - Read `.planning/PROJECT.md` for current state (What This Is, Core Value, Requirements)
 - Read `.planning/config.json` for settings (model_profile, workflow toggles)
+
+**Load PR workflow config:**
+
+```bash
+PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
+```
   </step>
 
 <step name="recent">
@@ -109,6 +115,58 @@ CONTEXT: [✓ if CONTEXT.md exists | - if not]
 ## Active Debug Sessions
 - [count] active — /kata:debug-issue to continue
 (Only show this section if count > 0)
+
+## PR Status
+(Only show this section if PR_WORKFLOW is true)
+
+Check for PR on current branch:
+
+```bash
+if [ "$PR_WORKFLOW" = "true" ]; then
+  CURRENT_BRANCH=$(git branch --show-current)
+  PR_INFO=$(gh pr list --head "$CURRENT_BRANCH" --json number,state,title,url --jq '.[0]' 2>/dev/null)
+
+  if [ -n "$PR_INFO" ] && [ "$PR_INFO" != "null" ]; then
+    PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number')
+    PR_STATE=$(echo "$PR_INFO" | jq -r '.state')
+    PR_TITLE=$(echo "$PR_INFO" | jq -r '.title')
+    PR_URL=$(echo "$PR_INFO" | jq -r '.url')
+
+    # Check if draft
+    if [ "$PR_STATE" = "OPEN" ]; then
+      IS_DRAFT=$(gh pr view "$PR_NUMBER" --json isDraft --jq '.isDraft' 2>/dev/null)
+      if [ "$IS_DRAFT" = "true" ]; then
+        STATE_DISPLAY="Draft"
+      else
+        STATE_DISPLAY="Ready for review"
+      fi
+    elif [ "$PR_STATE" = "MERGED" ]; then
+      STATE_DISPLAY="Merged"
+    elif [ "$PR_STATE" = "CLOSED" ]; then
+      STATE_DISPLAY="Closed"
+    else
+      STATE_DISPLAY="$PR_STATE"
+    fi
+  fi
+fi
+```
+
+**If PR exists:**
+```
+## PR Status
+
+PR #[number]: [title]
+Status: [Draft | Ready for review | Merged]
+URL: [url]
+```
+
+**If no PR exists:**
+```
+## PR Status
+
+No open PR for current branch.
+Branch: [current_branch]
+```
 
 ## What's Next
 [Next phase/plan objective from ROADMAP]
@@ -165,6 +223,7 @@ Read its `<objective>` section.
 ## ▶ Next Up
 
 **{phase}-{plan}: [Plan Name]** — [objective summary from PLAN.md]
+{If PR_WORKFLOW is true AND PR exists: PR #[number] ([state]) — [url]}
 
 `/kata:execute-phase {phase}`
 
@@ -276,6 +335,10 @@ Read ROADMAP.md to get the next phase's name and goal.
 
 ## ▶ Next Up
 
+{If PR_WORKFLOW is true AND PR exists:
+**⚠️ Merge PR #[number] first** — [url]
+Then continue with:
+}
 **Phase {Z+1}: {Name}** — {Goal from ROADMAP.md}
 
 `/kata:discuss-phase {Z+1}` — gather context and clarify approach
@@ -304,6 +367,9 @@ All {N} phases finished!
 
 ## ▶ Next Up
 
+{If PR_WORKFLOW is true: **⚠️ Merge all phase PRs first** before completing milestone
+Then continue with:
+}
 **Complete Milestone** — archive and prepare for next
 
 `/kata:complete-milestone`

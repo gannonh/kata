@@ -6,7 +6,7 @@
  */
 
 import { describe, it, beforeEach, afterEach } from 'node:test';
-import { mkdtempSync, rmSync, cpSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, cpSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -65,5 +65,42 @@ describe('kata-tracking-progress skill', () => {
     // The fixture STATE.md contains "Milestone" and "Phase" keywords
     // The skill should read and display this information
     assertResultContains(result, /Milestone|Phase|Progress|Fixture/i);
+  });
+
+  describe('PR Status Display - Phase 5', () => {
+    it('contains pr_workflow config check', () => {
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-tracking-progress', 'SKILL.md');
+      const skillContent = readFileSync(skillPath, 'utf8');
+
+      const hasPRWorkflowCheck = skillContent.includes('pr_workflow') ||
+                                  skillContent.includes('PR_WORKFLOW');
+
+      if (!hasPRWorkflowCheck) {
+        throw new Error('Expected skill to check pr_workflow config');
+      }
+    });
+
+    it('contains PR status section', () => {
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-tracking-progress', 'SKILL.md');
+      const skillContent = readFileSync(skillPath, 'utf8');
+
+      const hasPRStatus = skillContent.includes('PR Status') ||
+                          skillContent.includes('PR #');
+
+      if (!hasPRStatus) {
+        throw new Error('Expected skill to display PR status');
+      }
+    });
+
+    it('uses gh pr commands for status', () => {
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-tracking-progress', 'SKILL.md');
+      const skillContent = readFileSync(skillPath, 'utf8');
+
+      const hasGHPR = skillContent.includes('gh pr');
+
+      if (!hasGHPR) {
+        throw new Error('Expected skill to use gh pr commands for status');
+      }
+    });
   });
 });
