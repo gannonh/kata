@@ -350,14 +350,14 @@ Use for: bug fixes, small features, config changes, one-off tasks.
 
 The PR review workflow runs multiple specialized agents, each focusing on a different aspect:
 
-| Agent | Focus |
-|-------|-------|
-| `code-reviewer` | General code quality, CLAUDE.md compliance |
-| `comment-analyzer` | Comment accuracy and documentation |
-| `pr-test-analyzer` | Test coverage and quality |
-| `silent-failure-hunter` | Error handling and silent failures |
-| `type-design-analyzer` | Type design and invariants |
-| `code-simplifier` | Code clarity and maintainability |
+| Agent                        | Focus                                      |
+| ---------------------------- | ------------------------------------------ |
+| `kata-code-reviewer`         | General code quality, CLAUDE.md compliance |
+| `kata-comment-analyzer`      | Comment accuracy and documentation         |
+| `kata-pr-test-analyzer`      | Test coverage and quality                  |
+| `kata-silent-failure-hunter` | Error handling and silent failures         |
+| `kata-type-design-analyzer`  | Type design and invariants                 |
+| `kata-code-simplifier`       | Code clarity and maintainability           |
 
 **Usage:**
 

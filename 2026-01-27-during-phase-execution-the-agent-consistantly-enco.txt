@@ -1,0 +1,570 @@
+
+ ▐▛███▜▌   Claude Code v2.1.20
+▝▜█████▛▘  Opus 4.5 · Claude Max
+  ▘▘ ▝▝    ~/dev/oss/kata
+
+❯ /usage 
+  ⎿  Status dialog dismissed
+
+❯ during phase execution the agent consistantly encourters a  path issue:\  
+  Read(/Users/gannonhall/dev/oss/kata-burner/test-uat/.planning/references/ 
+  summary-template.md)\                                                     
+  \                                                                         
+  Please investigate                                                        
+  ⎿  [Image #1]
+
+⏺ I'll investigate this path resolution issue. The agent is looking for
+  summary-template.md in the project's .planning/references/ directory, but it
+  likely should be looking in Kata's own templates directory.
+
+⏺ Explore(Find summary template location)
+  ⎿  Search(pattern: "summary-template\.md", path: "~/dev/oss/kata")
+
+
+     +8 more tool uses (ctrl+o to expand)
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ It should be Looking in that skills references directory                  
+  skills/kata-executing-phases/references/summary-template.md               
+
+⏺ Got it. The template should be at
+  skills/kata-executing-phases/references/summary-template.md, but something is
+  incorrectly looking in .planning/references/. Let me find where the wrong path
+   is being used.
+
+⏺ Searched for 1 pattern, read 1 file (ctrl+o to expand)
+  ⎿  Loaded ../../../.claude/rules/skills.md
+
+⏺ Now I see the issue. The agents use @./references/summary-template.md as a
+  relative path. Let me check the actual directory structure to understand where
+   the template should be.
+
+⏺ Searched for 1 pattern, read 1 file (ctrl+o to expand)
+  ⎿  PreToolUse:Bash hook error
+
+⏺ I see the structure. The template exists at
+  agents/references/summary-template.md in source. But the issue is that when
+  the agent runs, @./references/summary-template.md is resolving relative to the
+   project's working directory (.planning/references/), not relative to the
+  installed agent location.
+
+  Let me check what paths the installed agents actually use.
+
+⏺ Read 2 files (ctrl+o to expand)
+  ⎿  Loaded ../../../.claude/rules/sub-agents.md
+
+⏺ Now I understand the issue. The @./references/summary-template.md path in
+  agents is resolving relative to the working directory (the project root), not
+  relative to the agent file location.
+
+  The agents expect the template at .planning/references/summary-template.md but
+   it should be looking at the installed agent's references directory.
+
+  Let me check the build system to understand how this should work.
+
+⏺ Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Found the issue. Looking at install.js lines 309-316, when installing agents
+  it only copies .md files and ignores directories:
+
+  if (entry.isFile() && entry.name.endsWith('.md')) {
+    // Only copies .md files, NOT the references/ subdirectory
+  }
+
+  This means agents/references/ never gets installed, so when the agent runs and
+   tries to load @./references/summary-template.md, the file doesn't exist at
+  the expected location.
+
+  Let me verify the structure.
+
+⏺ Read 1 file (ctrl+o to expand)
+  ⎿  PreToolUse:Bash hook error
+
+⏺ I've identified the root cause. Let me write up the plan.
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ That's not right. It shouldn't be looking in the agents references        
+  directory, it should be looking in the skills references directory.       
+  skills/kata-executing-phases/references/summary-template.md               
+
+⏺ You're right. The kata-executor agent is spawned by the kata-executing-phases
+  skill, so it should reference the skill's references directory at
+  skills/kata-executing-phases/references/summary-template.md, not a relative
+  @./references/ path.
+
+  Let me check what the correct path pattern should be.
+
+⏺ Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Let me check what the correct canonical path pattern should be for skill
+  references, and whether both agents/references/ and
+  skills/kata-executing-phases/references/ have the same template (and if so,
+  why there's duplication).
+
+⏺ Bash(diff /Users/gannonhall/dev/oss/kata/agents/references/summary-template.md
+       /Users/gannonhall/dev/oss/kata/skills/kata-executing-phases/references/su
+      mmary-templat…)
+  ⎿  PreToolUse:Bash hook error
+  ⎿  Files are identical
+
+⏺ Read 1 file (ctrl+o to expand)
+
+⏺ Now I understand. The files are identical because there's duplication. The
+  skill kata-executing-phases correctly uses @./references/ which resolves
+  relative to the skill directory. But the agent kata-executor.md is installed
+  to .claude/agents/ and when it uses @./references/, it tries to resolve
+  relative to somewhere else (apparently the project's .planning/ directory).
+
+  The fix should:
+  1. Update the agents to use the canonical path to the skill's references
+  (e.g., @~/.claude/skills/kata-executing-phases/references/summary-template.md)
+  2. Remove the duplicate agents/references/ directory since it's not needed
+
+  Let me write the plan.
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ I've identified the issue and written the plan. The agents use @./references/
+  paths that don't resolve correctly when installed. The fix is to update them
+  to use the canonical @~/.claude/skills/kata-executing-phases/references/ path
+  pattern, and remove the duplicate agents/references/ directory.
+  ⎿  Tool use rejected with user message: This work with our build system. ?
+
+⏺ Good question. Let me check how the build system handles skill reference
+  paths.
+
+⏺ Searched for 1 pattern, read 2 files (ctrl+o to expand)
+
+⏺ I see the issue. Looking at the build system:
+
+  1. Skills use @./references/ which works because skills are directories - the
+  ./ resolves relative to the skill's directory
+  2. Agents are flat files at .claude/agents/kata-*.md, so @./references/
+  doesn't work
+
+  For agents to reference skill resources, the path needs to work across both
+  distributions:
+
+  NPM:
+  - Skills at: ~/.claude/skills/kata-executing-phases/references/...
+  - Agents should use: @~/.claude/skills/kata-executing-phases/references/...
+  - install.js transforms ~/.claude/ → pathPrefix ✓
+
+  Plugin:
+  - Skills at: .claude/skills/executing-phases/references/... (kata- prefix
+  stripped)
+  - Build needs to transform the path accordingly
+
+  Let me check if the build system handles skill reference paths in agents.
+
+⏺ Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Currently no agents use the skill path format. The build system
+  transformPluginPaths only handles:
+  - subagent_type="kata-" → subagent_type="kata:kata-"
+  - Skill("kata-" → Skill("kata:"
+
+  It doesn't handle skill reference paths. Let me update the plan with the full
+  solution.
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ I've updated the plan to include the build system changes. Let me verify the
+  path transformation logic is correct by checking how paths work in the
+  installed distributions.
+
+⏺ Read 2 files (ctrl+o to expand)
+  ⎿  PreToolUse:Bash hook error
+  ⎿  PreToolUse:Bash hook error
+
+⏺ The dist directories confirm:
+  - Plugin: executing-phases (kata- prefix stripped)
+  - NPM: kata-executing-phases (prefix preserved)
+
+  The plan's transformation logic is correct. The regex
+  @~/.claude/skills/kata-([^/]+)/ → @./skills/$1/ will properly transform
+  kata-executing-phases to executing-phases for plugin builds.
+  ⎿ Tool use rejected with user message: The plug-in is installed at the local 
+    level as opposed to the user level.
+
+⏺ You're right. The plugin is installed to .claude/ (project level), not ./
+  relative to the plugin root. Let me check how skill references work in the
+  installed context.
+
+⏺ Searched for 1 pattern, read 1 file (ctrl+o to expand)
+  ⎿  PreToolUse:Bash hook error
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ No. It depends how the user installs the plugin. It could be either.  
+  ⎿ ⧉ Selected 1 lines from .claude/agents/kata-executor.md in Visual Studio 
+    Code
+
+⏺ I see - the plugin could be installed at .claude/ (project) or ~/.claude/
+  (user level), so the path needs to work in both cases.
+
+  For skills, @./references/ works because it's relative to the skill's own
+  directory. But for agents referencing skill resources, what path pattern
+  should be used that works regardless of plugin installation location?
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ What you need to understand is that our product can be installed as an    
+  npx or as a plug-in. The plug-ins have their own file system and it's     
+  somewhere else.                                                           
+
+⏺ I understand now. There are two distribution paths:
+
+  1. NPX: Installs to ~/.claude/ or ./.claude/, and install.js transforms paths
+  at runtime
+  2. Plugin: Has its own isolated filesystem, separate from any .claude/
+  location
+
+  For the plugin distribution, what's the correct path pattern for an agent to
+  reference a skill's resources? Would it be:
+  - @./skills/executing-phases/references/... (relative to plugin root)?
+  - Something else?
+
+⏺ User declined to answer questions
+
+❯ I don't know, we spent many, many, many hours figuring this out. So go    
+  back, look through all the code, and figure it out.                       
+
+⏺ Let me dig deeper into the codebase to understand how path resolution was
+  designed to work.
+
+⏺ Explore(Investigate path resolution patterns)
+  ⎿  Read(.planning/phases/.archive/v1.0.6-02.1-skill-resource-restructure/02.1-
+
+
+     +36 more tool uses (ctrl+o to expand)
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ Look at that, it's all outdated. That's why it's in the archives.  
+
+⏺ You're right, let me look at the current working code instead. Skills with
+  @./references/ work correctly - I need to understand why and how that pattern
+  applies.
+
+⏺ Searched for 1 pattern, read 1 file (ctrl+o to expand)
+  ⎿  PreToolUse:Bash hook error
+
+⏺ Skills have their own references/ subdirectory within each skill folder. Let
+  me check how agents are structured and what the install process copies.
+
+⏺ Read 2 files (ctrl+o to expand)
+  ⎿  PreToolUse:Bash hook error
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ @/Users/gannonhall/.claude/rules/plugins-reference.md\                    
+  @/Users/gannonhall/.claude/rules/plugin-marketplaces.md\                  
+  @/Users/gannonhall/.claude/rules/skills.md\                               
+  @/Users/gannonhall/.claude/rules/sub-agents.md                            
+  ⎿  Read ../../../.claude/rules/plugins-reference.md (739 lines)
+  ⎿  Read ../../../.claude/rules/plugin-marketplaces.md (613 lines)
+  ⎿  Read ../../../.claude/rules/skills.md (649 lines)
+  ⎿  Read ../../../.claude/rules/sub-agents.md (740 lines)
+
+⏺ This is very helpful. The key insight from the plugins-reference.md
+  documentation:
+
+  ${CLAUDE_PLUGIN_ROOT}: Contains the absolute path to your plugin directory. 
+  Use this in hooks, MCP servers, and scripts to ensure correct paths regardless
+   of installation location.
+
+  This environment variable is designed exactly for this use case - referencing
+  files within a plugin regardless of where it's installed.
+
+  Let me check if this pattern is already used in Kata and how it should be
+  applied.
+
+⏺ Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Now I see the full picture. The key insight from CLAUDE.md:
+
+  CRITICAL: Claude's @ reference system is a STATIC file path parser. It does 
+  NOT support variable substitution.
+
+  So @ references can't use ${CLAUDE_PLUGIN_ROOT}. But looking at how
+  ${CLAUDE_PLUGIN_ROOT} IS used - it's in shell commands and hooks, not in @
+  references.
+
+  The current pattern shows:
+  - Skills use @./references/ which works because skills are directories with
+  references subdirectories
+  - Hooks/scripts use ${CLAUDE_PLUGIN_ROOT} for shell commands
+
+  The fundamental issue is that agents are flat files, but they're trying to use
+   the same @./references/ pattern that only works for skills.
+
+  The simplest fix is to ensure agents/references/ gets installed. Let me update
+   the plan.
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ One-to-one relationship between an agent and a reference. If so, just     
+  duplicate the content, and that can even be part of the build system. We  
+  just put the content in line for the agent.                               
+
+⏺ That's a much cleaner solution. Let me verify the agent-to-reference
+  relationships to confirm they're one-to-one.
+
+⏺ Searched for 1 pattern (ctrl+o to expand)
+
+⏺ I see there's some sharing - summary-template.md is used by both agents. Let
+  me check the sizes to see if inlining is practical.
+
+⏺ Read 1 file (ctrl+o to expand)
+  ⎿  PreToolUse:Bash hook error
+
+⏺ The files are fairly large, but the build system could inline them during
+  build. The source stays clean with @./references/ and the build process
+  replaces those with actual content. Let me update the plan.
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ Think through all of our options here. There are several things that we   
+  could do. We could not use custom subagents and instead have the          
+  resources be relative to the skill. The skill loads the resource in       
+  spawning a general subagent. That's one solution. Another is to figure    
+  out the path issue. I feel like we already solved this though, and        
+  there's just something like maybe a bug or something. I don't know, I'm   
+  confused.                                                                 
+
+⏺ Let me think through all the options and investigate whether this was working
+  before.
+
+⏺ Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ I see - the skill already passes the plan content to the agent via the prompt.
+   The agent's system prompt has @./references/ which it tries to load at
+  runtime.
+
+  Let me check if there's a pattern where skills embed their references and pass
+   to general agents.
+
+⏺ Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Let me look at where exactly the agent is when it tries to load this
+  reference.
+
+⏺ Read 1 file (ctrl+o to expand)
+
+⏺ Now I understand better. The @./references/ in the agent is being resolved in
+  some context related to .planning/ rather than relative to the agent file
+  location. This is a Claude Code @-reference resolution behavior.
+
+  Let me update the plan with all options clearly laid out.
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ Updated plan
+  ⎿  /plan to preview
+  ⎿ Tool use rejected with user message: The user wants to clarify these 
+    questions.
+        This means they may have additional information, context or questions 
+    for you.
+        Take their response into account and then reformulate the questions if 
+    appropriate.
+        Start by asking them what they would like to clarify.
+
+        Questions asked:
+    - "Which approach do you want to take for fixing the agent reference path 
+    issue?"
+      (No answer provided)
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ Probably 4. We already do quite a bit of transforms. This is getting more 
+  and more complicated, supporting plugins and npx. I feel like we should   
+  maybe just get rid of npx and just do plugins, but I don't know if that   
+  solves our problem here.                                                  
+
+⏺ You raise a good point. Let me think through whether going plugin-only would
+  actually solve this problem.
+
+  The core issue: Agents are flat .md files, and @./references/ doesn't resolve
+  relative to the agent file location. This is Claude Code behavior, not NPX vs
+  plugin.
+
+  For plugins:
+  - ${CLAUDE_PLUGIN_ROOT} works in shell commands/hooks
+  - But @ references don't support variable substitution
+  - Skills' @./references/ works because skills are directories
+  - Agents would still have the same problem
+
+  So going plugin-only doesn't inherently fix the agent path issue. The
+  complexity you're feeling is real though - maintaining two distribution
+  mechanisms with different path behaviors is a lot.
+
+  Let me search for when this might have worked or what the intended design was.
+
+⏺ Bash(git log --oneline --all -- "agents/kata-executor.md" | head -20)
+  ⎿  PreToolUse:Bash hook error
+  ⎿ fdaa0d5 refactor: rename commands to verb-first style and fix reference
+    s
+    1ab98fd fix: restore v1.0.8 working state
+    … +10 lines (ctrl+o to expand)
+
+
+⏺ Bash(git log --oneline --all -- "agents/references/" | head -20)
+  ⎿  PreToolUse:Bash hook error
+  ⎿ fdaa0d5 refactor: rename commands to verb-first style and fix reference
+    s
+    1ab98fd fix: restore v1.0.8 working state
+    … +6 lines (ctrl+o to expand)
+
+
+⏺ Interesting git history. Let me look at the key commits.
+
+⏺ Bash(git show c73ce27 --stat | head -30)
+  ⎿  PreToolUse:Bash hook error
+  ⎿  commit c73ce278fb99b4df42f343e2d8b2665d65a3d364
+     Author: Gannon Hall <gannonhall@gmail.com>
+     Date:   Sat Jan 24 06:19:18 2026 -0800
+     … +29 lines (ctrl+o to expand)
+
+⏺ Bash(git show 26b97cc --stat | head -30)
+  ⎿  PreToolUse:Bash hook error
+  ⎿  commit 26b97cc28cf7d10e500e4405dcf06b48c7b2d85c
+     Author: Gannon Hall <gannonhall@gmail.com>
+     Date:   Sat Jan 24 13:05:46 2026 -0800
+     … +18 lines (ctrl+o to expand)
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ Wait a minute. Thinking more about this, why can't we continue having     
+  custom subagents and the orchestrator agent that's running the workflow   
+  who's already reading this skill and has access to the resource? Why      
+  doesn't it send that resource to the subagent instead of having the       
+  subagent have a reference to something it needs to go get? If the case is 
+  that subagents do not really have file system visibility, they are flat,  
+  they do however receive prompts. So it seems to me that we just want      
+  them prompted with this content?                                          
+
+⏺ That's exactly right. The orchestrator (skill) already has access to
+  @./references/ and it works. The skill should pass the content to the subagent
+   via the Task prompt, rather than having the subagent try to load it.
+
+  Current flow (broken):
+  1. Skill runs, can access @./references/summary-template.md ✓
+  2. Skill spawns kata-executor subagent
+  3. Subagent's system prompt has @./references/summary-template.md ✗ (fails to
+  resolve)
+
+  Better flow:
+  1. Skill runs, loads @./references/summary-template.md ✓
+  2. Skill spawns kata-executor WITH that content in the Task prompt
+  3. Subagent receives content it needs directly ✓
+
+  This way:
+  - Custom subagent preserved (kata-executor with its tools, color, specialized
+  system prompt)
+  - No path resolution issues
+  - Orchestrator gathers resources, executor executes with what it's given
+  - Clean separation of concerns
+
+  The fix would be:
+  1. Remove @./references/... from agent system prompts
+  2. Have the skill include the necessary reference content when spawning the
+  Task
+  3. Agent system prompt just describes behavior, doesn't try to load external
+  files
+
+  Let me update the plan with this approach.
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ The plan is updated with the recommended solution: have the orchestrating
+  skill pass the reference content to the subagent via the Task prompt, rather
+  than having the subagent try to load references itself.
+
+  This preserves custom subagents, requires no build system changes, and works
+  identically for NPX and plugin.
+  ⎿ Tool use rejected with user message: That sounds reasonable, but I just want
+     to get the full picture here. Notice that in the production code, the 
+    agent's directory has a references directory with three files currently. How
+     are the agents accessing those files right now, and why isn't this file in 
+    there? \
+    agents/references/checkpoints.md
+    agents/references/execute-plan.md
+    agents/references/git-integration.md
+
+
+⏺ Good question. Let me check the current state of agents/references/ and
+  compare with what the agents reference.
+
+⏺ Searched for 1 pattern, read 1 file (ctrl+o to expand)
+  ⎿  PreToolUse:Bash hook error
+
+⏺ So summary-template.md IS in agents/references/ (4 files total). The files
+  exist in source. Let me check if they're being installed and where the
+  @./references/ is actually resolving to.
+
+⏺ Read 2 files (ctrl+o to expand)
+  ⎿  PreToolUse:Bash hook error
+  ⎿  PreToolUse:Bash hook error
+
+⏺ Found the issue. The references/ directory exists in source but is NOT being 
+  installed. install.js only copies .md files from agents/, not subdirectories.
+
+  Let me also check the build outputs.
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ Yeah, but it's not looking there. It's looking inside the planning        
+  directory.                                                                
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ That sounds like it could be the solution. The references directory isn't 
+  being copied over as part of the build. Let's try that first.             
+
+⏺ Let's try that. The fix would be to update install.js to copy
+  agents/references/ alongside the agent .md files.
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ But install is only for the Node version. What about the plugin?  
+
+⏺ Good point. Let me check how build.js handles agents for the plugin.
+
+⏺ Read 2 files (ctrl+o to expand)
+  ⎿  PreToolUse:Bash hook error
+  ⎿  PreToolUse:Bash hook error
+
+⏺ The plugin build already includes agents/references/ with all 4 files. It's
+  only NPX install (install.js) that's missing it.
+
+  So the fix is straightforward: update install.js to also copy
+  agents/references/.
+
+  Let me update the plan.
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ But it was actually the plugin version where I was seeing this bug.  
+
+⏺ That's the key insight. The plugin build already HAS agents/references/ with
+  all the files, but the agent is STILL looking in .planning/references/.
+
+  So the path resolution for @./references/ in agents simply doesn't work - even
+   when the files exist at the correct location. Claude Code isn't resolving @./
+   relative to the agent file.
+
+  This confirms we need the orchestrator-passing-content approach: the skill
+  loads the references (which works), and passes the content to the subagent in
+  the Task prompt.
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ Updated plan
+  ⎿  /plan to preview
+  ⎿ Tool use rejected with user message: One more thing before we make a 
+    decision. I was reading the documentation and interestingly, agents can have
+     a front matter designation pointing to a specific skill, and skills can 
+    point to a specific agent. I don't know if that would help us at all, but 
+    can you look at the documentation there and see what you think?
+
+⏺ Interesting. Let me look at that documentation more carefully.
+
+⏺ Read 2 files (ctrl+o to expand)
+  ⎿  Interrupted · What should Claude do instead?
