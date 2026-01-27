@@ -565,6 +565,23 @@ Use `/kata:configuring-settings` to toggle these, or override per-invocation:
 | `parallelization.enabled` | `true`  | Run independent plans simultaneously |
 | `planning.commit_docs`    | `true`  | Track `.planning/` in git            |
 
+### GitHub PR Workflow
+
+| Setting       | Options       | Default | What it controls               |
+| ------------- | ------------- | ------- | ------------------------------ |
+| `pr_workflow` | `true/false`  | `false` | Create PRs for phase execution |
+
+When enabled (`pr_workflow: true`), phase execution creates GitHub PRs:
+
+1. **Branch creation** at phase start: `{type}/v{milestone}-{phase}-{slug}`
+2. **Draft PR** after first wave with phase goal, plans checklist, and issue linking
+3. **README review** offered before marking PR ready (optional, non-blocking)
+4. **PR marked ready** when phase completes
+
+**PR title format:** `v{milestone} Phase {N}: {Phase Name}`
+
+**Works with GitHub Integration:** Enable both `github.enabled: true` and `pr_workflow: true` for full integration. Issues track planning, PRs track execution.
+
 ---
 
 ## Troubleshooting

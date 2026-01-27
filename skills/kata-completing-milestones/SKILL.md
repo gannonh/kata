@@ -135,6 +135,37 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    - Add "Next Milestone Goals" section
    - Archive previous content in `<details>` (if v1.1+)
 
+6.5. **Review Documentation (Non-blocking):**
+
+   Before committing, offer final README review:
+
+   Use AskUserQuestion:
+   - header: "Final README Review"
+   - question: "Review README.md before completing milestone v{{version}}?"
+   - options:
+     - "Yes, I'll review now" — Pause for user review, wait for "continue"
+     - "Skip for now" — Proceed directly to commit
+     - "Show README" — Display content, ask if accurate
+
+   **If "Yes, I'll review now":**
+   ```
+   Review README.md for the complete v{{version}} milestone.
+   Ensure all shipped features are documented.
+   Say "continue" when ready to proceed.
+   ```
+
+   **If "Show README":**
+   Display README.md, then use AskUserQuestion:
+   - header: "README Accuracy"
+   - question: "Does this look accurate for v{{version}}?"
+   - options:
+     - "Yes, looks good" — Proceed to Step 7
+     - "Needs updates" — Pause for user edits, wait for "continue"
+
+   **If "Skip" or review complete:** Proceed to Step 7.
+
+   *Non-blocking: milestone completion continues regardless of choice.*
+
 7. **Commit and tag:**
 
    - Stage: MILESTONES.md, PROJECT.md, ROADMAP.md, STATE.md, archive files

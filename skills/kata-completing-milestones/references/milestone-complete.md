@@ -549,6 +549,34 @@ Confirm:
 
 </step>
 
+<step name="review_documentation">
+
+Offer final README review before committing milestone completion.
+
+Use AskUserQuestion:
+- header: "Final README Review"
+- question: "Review README.md before completing milestone v{{version}}?"
+- options:
+  - "Yes, I'll review now" — Pause for user review, wait for "continue"
+  - "Skip for now" — Proceed directly to commit
+  - "Show README" — Display content, ask if accurate
+
+**If "Yes, I'll review now":**
+```
+Review README.md for the complete v{{version}} milestone.
+Ensure all shipped features are documented.
+Say "continue" when ready to proceed.
+```
+
+**If "Show README":**
+Display README.md content, then ask: "Does this look accurate for v{{version}}? (yes / needs updates)"
+
+**If "Skip" or review complete:** Proceed to update_state.
+
+*Non-blocking: milestone completion continues regardless of choice.*
+
+</step>
+
 <step name="update_state">
 
 Update STATE.md to reflect milestone completion.

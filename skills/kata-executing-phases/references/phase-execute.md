@@ -523,6 +523,44 @@ git commit -m "docs(phase-{X}): complete phase execution"
 ```
 </step>
 
+<step name="review_documentation">
+Offer README review before marking PR ready (pr_workflow only).
+
+**If PR_WORKFLOW=false:** Skip this step.
+
+**If PR_WORKFLOW=true:**
+
+Use AskUserQuestion:
+- header: "README Review"
+- question: "This phase may have added user-facing features. Review README before marking PR ready?"
+- options:
+  - "Yes, I'll update README" — Pause for user edits, wait for "continue"
+  - "Skip" — Proceed to mark PR ready
+  - "Show README" — Display current README, then ask if updates needed
+
+**If "Yes, I'll update README":**
+```
+Update README.md with any documentation for this phase's features.
+Say "continue" when ready to mark the PR ready.
+```
+
+**If "Show README":**
+Display README.md content, then ask: "Does the README need updates for this phase? (yes / no)"
+
+**After README updates (if any):**
+```bash
+# Only if README was modified
+if git diff --quiet README.md; then
+  echo "No README changes"
+else
+  git add README.md
+  git commit -m "docs({phase}): update README for phase features"
+fi
+```
+
+*Non-blocking: phase completion continues regardless of choice.*
+</step>
+
 <step name="offer_next">
 Present next steps based on milestone status:
 
