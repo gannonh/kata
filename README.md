@@ -91,15 +91,27 @@ claude plugin update kata@gannonh-kata-marketplace
 <details>
 <summary><strong>Development Installation</strong></summary>
 
-Clone the repository and run the installer locally:
+Clone the repository and build the plugin:
 
 ```bash
 git clone https://github.com/gannonh/kata.git
 cd kata
-node bin/install.js --local
+npm run build:plugin
 ```
 
-Installs to `./.claude/` for testing modifications before contributing.
+Test locally using Claude Code's plugin-dir flag:
+
+```bash
+# From a test project directory
+claude --plugin-dir /path/to/kata/dist/plugin
+```
+
+Or manually copy to a test project:
+
+```bash
+# Copy built plugin to test project
+cp -r dist/plugin/* /path/to/test-project/.claude/plugins/kata/
+```
 
 </details>
 
