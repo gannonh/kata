@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 
 Milestone: v1.1.0 GitHub Integration
 Phase: 7 (Deprecate NPX Support)
-Plan: 03 of 5 complete
-Status: In progress
-Last activity: 2026-01-27 — Completed 07-03 (Simplify Build System)
+Plan: 05 of 5 complete
+Status: PHASE COMPLETE
+Last activity: 2026-01-27 — Completed 07-05 (NPX Deprecation Stub)
 
-Progress: [████████████████████████████████████████████░░░░] 88% (6.6/7 phases in v1.1.0)
+Progress: [██████████████████████████████████████████████████] 100% (7/7 phases in v1.1.0)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 63
+- Total plans completed: 65
 - Average duration: 3 min
-- Total execution time: 162 min
+- Total execution time: 166 min
 
 **By Milestone:**
 
@@ -33,7 +33,7 @@ Progress: [███████████████████████
 | v1.0.0    | 4      | 5     | Shipped 2026-01-23 |
 | v1.0.8    | 1      | 5     | Shipped 2026-01-24 |
 | v1.0.9    | 1      | 3     | Shipped 2026-01-25 |
-| v1.1.0    | 7      | 25    | In Progress (6/7 phases, +1 gap closure) |
+| v1.1.0    | 7      | 25    | Phase 7 complete, ready for release |
 
 **Recent Trend:**
 - v1.0.1-v1.0.5: Rapid patch releases (5 patches in 2 days) addressing plugin distribution issues
@@ -79,6 +79,9 @@ Recent decisions affecting current work:
 - **Phase 7 plan 01 complete 2026-01-27** — Renamed 27 skill directories (removed kata- prefix)
 - **Phase 7 plan 02 complete 2026-01-27** — Deleted NPX-specific files, cleaned up build.js
 - **Phase 7 plan 03 complete 2026-01-27** — Simplified build.js to plugin-only, tests reduced 55%
+- **Phase 7 plan 04 complete 2026-01-27** — Updated documentation (README, CLAUDE.md, KATA-STYLE.md)
+- **Phase 7 plan 05 complete 2026-01-27** — NPX deprecation stub (563 lines -> 17 lines)
+- **Phase 7 COMPLETE 2026-01-27** — NPX deprecation complete, plugin-only distribution
 
 ### Pending Todos
 
@@ -114,5 +117,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 07-03-PLAN.md (Simplify Build System)
-Next action: Execute 07-04 (Update Documentation) to continue phase 7
+Stopped at: Completed 07-05-PLAN.md (NPX Deprecation Stub)
+Next action: Phase 7 complete. Manual step: run `npm publish` to release deprecation package. Milestone v1.1.0 ready for release.
