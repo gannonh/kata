@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 
 Milestone: v1.1.0 GitHub Integration
 Phase: 6 (PR Review Workflow Skill & Agents)
-Plan: 03 of 3 complete
+Plan: 04 of 4 complete (including gap closure)
 Status: Complete
-Last activity: 2026-01-27 — Phase 6 complete (PR review integration)
+Last activity: 2026-01-27 — Phase 6 UAT gaps fixed (06-04 gap closure plan)
 
 Progress: [████████████████████████████████████████████████] 100% (6/6 phases in v1.1.0)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 59
+- Total plans completed: 60
 - Average duration: 3 min
-- Total execution time: 152 min
+- Total execution time: 155 min
 
 **By Milestone:**
 
@@ -33,7 +33,7 @@ Progress: [███████████████████████
 | v1.0.0    | 4      | 5     | Shipped 2026-01-23 |
 | v1.0.8    | 1      | 5     | Shipped 2026-01-24 |
 | v1.0.9    | 1      | 3     | Shipped 2026-01-25 |
-| v1.1.0    | 6      | 24    | Complete (6/6 phases) |
+| v1.1.0    | 6      | 25    | Complete (6/6 phases, +1 gap closure) |
 
 **Recent Trend:**
 - v1.0.1-v1.0.5: Rapid patch releases (5 patches in 2 days) addressing plugin distribution issues
@@ -74,6 +74,7 @@ Recent decisions affecting current work:
 - **Phase 4 GAP fix 2026-01-26** — Fixed step ordering bug in kata-planning-phases (UAT finding)
 - **Phase 5 complete 2026-01-27** — PR Integration (branch creation, draft PR, ready automation, tests, docs)
 - **Phase 6 complete 2026-01-27** — PR Review Workflow Skill & Agents (3/3 plans)
+- **Phase 6 UAT fix 2026-01-27** — Gap closure plan for backlog todo prompt and merge-first workflow
 
 ### Pending Todos
 
@@ -109,5 +110,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Phase 6 complete — PR Review Workflow Skill & Agents
-Next action: /kata:audit-milestone (milestone v1.1.0 complete)
+Stopped at: Phase 6 UAT gaps fixed — 06-04 gap closure plan complete
+Next action: Re-run UAT to verify fixes, then /kata:audit-milestone
