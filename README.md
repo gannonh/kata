@@ -339,6 +339,49 @@ Use for: bug fixes, small features, config changes, one-off tasks.
 
 ---
 
+### PR Review
+
+```
+"Review my PR"
+```
+<sub>or `/kata:reviewing-pull-requests`</sub>
+
+**Automated code quality analysis using specialized review agents.**
+
+The PR review workflow runs multiple specialized agents, each focusing on a different aspect:
+
+| Agent | Focus |
+|-------|-------|
+| `code-reviewer` | General code quality, CLAUDE.md compliance |
+| `comment-analyzer` | Comment accuracy and documentation |
+| `pr-test-analyzer` | Test coverage and quality |
+| `silent-failure-hunter` | Error handling and silent failures |
+| `type-design-analyzer` | Type design and invariants |
+| `code-simplifier` | Code clarity and maintainability |
+
+**Usage:**
+
+```
+"Review my PR"                    # Full review (all agents)
+"Run code review"                 # Quick review (code agent only)
+"Review tests and error handling" # Specific aspects
+```
+
+**Integration with phase execution:**
+
+When `pr_workflow: true`, phase completion offers automated review after marking the PR ready:
+
+1. Phase completes all plans
+2. PR marked ready via `gh pr ready`
+3. Optional: Run automated review
+4. Review summary shown with phase completion
+
+Review is always optional and non-blocking — findings are informational for the subsequent human review.
+
+**Creates:** Review summary in phase completion output
+
+---
+
 ## Why It Works
 
 ### Context Engineering
