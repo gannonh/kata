@@ -2,6 +2,7 @@
 name: kata-reviewing-prs
 description: Comprehensive pull request review using specialized agents covering code quality, test coverage, error handling, type design, comment accuracy, and code simplification. Use when reviewing PRs, checking code before committing, validating changes before creating PRs, or when the user asks to "review my PR", "check code quality", "review changes", "code review", "PR review", "check tests", "review before commit", "review before PR", "check error handling", "analyze types", "simplify code", "review this phase", "analyze test coverage", "review types", or "simplify the code". Supports targeted reviews (tests, errors, types, comments, code, simplify) or full review (all aspects).
 version: 0.1.0
+argument-hint: "[aspects...] [--staged|--pr|--branch <ref>]"
 user-invocable: true
 allowed-tools:
   - Read
@@ -29,9 +30,29 @@ Run comprehensive pull request reviews using specialized agents, each analyzing 
 | `simplify` | code-simplifier | Clarity and maintainability |
 | `all` | All applicable | Full review (default) |
 
+## Context Detection
+
+When invoked, the skill automatically detects context:
+
+**On a PR branch:**
+```bash
+# Check if current branch has an open PR
+gh pr view --json number,baseRefName 2>/dev/null
+```
+If a PR exists, use `gh pr diff` for scope instead of `git diff`.
+
+**During phase execution:**
+When `pr_workflow: true` in `.planning/config.json`, the skill knows to review phase-specific changes.
+
+**Standalone:**
+Falls back to `git diff` for unstaged changes, or `git diff --staged` for staged changes.
+
 ## Workflow
 
-1. **Determine scope** - Check `git diff --name-only` for changed files
+1. **Determine scope**
+   - If on a branch with open PR, use `gh pr diff --name-only`
+   - If `--staged` flag, use `git diff --staged --name-only`
+   - Default to `git diff --name-only` for unstaged changes
 2. **Select aspects** - Parse user request or default to all applicable
 3. **Launch agents** - Sequential (default) or parallel (if requested)
 4. **Aggregate results** - Combine findings by severity
@@ -60,6 +81,26 @@ Run comprehensive pull request reviews using specialized agents, each analyzing 
 ```
 /kata:reviewing-prs all parallel    # Launch all agents simultaneously
 ```
+
+**Scope modifiers:**
+```
+/kata:reviewing-prs --staged        # Review staged changes only
+/kata:reviewing-prs --pr            # Force PR diff mode (auto-detected normally)
+/kata:reviewing-prs --branch main   # Compare against specific branch
+```
+
+**Combined usage:**
+```
+/kata:reviewing-prs code tests --staged    # Review staged code and tests
+/kata:reviewing-prs all --pr               # Full review of PR changes
+```
+
+### Scope Resolution
+
+Scope precedence (highest to lowest):
+1. Explicit `--pr` or `--staged` takes precedence
+2. Auto-detect PR if on branch with open PR
+3. Default to unstaged `git diff`
 
 ## Applicability by Change Type
 
@@ -106,23 +147,25 @@ See references for detailed agent specifications:
 - [comment-analyzer.md](./references/comment-analyzer.md) - Comment accuracy verification
 - [code-simplifier.md](./references/code-simplifier.md) - Code clarity refinement
 
-## Kata Workflow Integration
+## Kata Workflow Usage
 
-**Before phase execution:**
-- Run targeted review on staged changes: `/kata:reviewing-prs code errors`
-- Catch issues before they enter the commit history
+**During phase execution (`pr_workflow: true`):**
+Review phase changes before marking PR ready. Invoke between plan execution and phase completion.
 
-**Before PR creation:**
-- Run full review: `/kata:reviewing-prs all`
-- Address critical and important issues before opening PR
+**After plan completion:**
+Quick review of individual plan changes:
+`/kata:reviewing-prs code errors`
 
-**After plan execution:**
-- Quick code + errors check: `/kata:reviewing-prs code errors`
-- Verify no obvious issues introduced
+**Before milestone audit:**
+Full review of all milestone changes:
+`/kata:reviewing-prs all`
 
-**During phase verification:**
-- Can be invoked manually as part of UAT
-- Focus on specific aspects based on phase goals
+**Pre-commit hook pattern:**
+Add to your workflow before committing:
+1. Stage changes
+2. `/kata:reviewing-prs code errors --staged`
+3. Fix critical issues
+4. Commit
 
 ## Workflow Integration
 
