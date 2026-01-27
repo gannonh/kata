@@ -427,25 +427,25 @@ Output this markdown directly (not as a code block). Route based on status:
 
 **Route A: Phase verified, more phases remain**
 
-**If PR_WORKFLOW=true:**
+**Step 1: If PR_WORKFLOW=true, STOP and ask about merge BEFORE showing completion output.**
+
 Use AskUserQuestion:
 - header: "PR Ready for Merge"
 - question: "PR #{pr_number} is ready. Merge before continuing to next phase?"
 - options:
-  - "Yes, merge now" — Run `gh pr merge --squash --delete-branch`, then show next phase
-  - "No, review first" — Show PR URL and next phase as current output does
-  - "Skip to next phase" — Continue without merge prompt
+  - "Yes, merge now" — merge PR, then show completion
+  - "No, continue without merging" — show completion with PR status
 
-**If user chooses "Yes, merge now":**
+**Step 2: Handle merge response (if PR_WORKFLOW=true)**
+
+If user chose "Yes, merge now":
 ```bash
 gh pr merge "$PR_NUMBER" --squash --delete-branch
-echo "Merged PR #${PR_NUMBER}"
 git checkout main && git pull
 ```
-Then display completion output with merge status.
+Set MERGED=true for output below.
 
-**If user chooses "No, review first" or "Skip":**
-Display standard completion output below.
+**Step 3: Show completion output**
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► PHASE {Z} COMPLETE ✓
@@ -456,8 +456,8 @@ Display standard completion output below.
 {Y} plans executed
 Goal verified ✓
 {If github.enabled: GitHub Issue: #{issue_number} ({checked}/{total} plans checked off)}
-{If PR_WORKFLOW and PR merged: PR: #{pr_number} — merged}
-{If PR_WORKFLOW and PR not merged: PR: #{pr_number} ({pr_url}) — ready for review}
+{If PR_WORKFLOW and MERGED: PR: #{pr_number} — merged ✓}
+{If PR_WORKFLOW and not MERGED: PR: #{pr_number} ({pr_url}) — ready for review}
 {If REVIEW_SUMMARY: PR Review: {summary_stats}}
 {If TODOS_CREATED: Backlog: {N} todos created from review suggestions}
 
@@ -467,15 +467,16 @@ Goal verified ✓
 
 **Phase {Z+1}: {Name}** — {Goal from ROADMAP.md}
 
-/kata:discuss-phase {Z+1} — gather context and clarify approach
+`/kata:discuss-phase {Z+1}` — gather context and clarify approach
 
-<sub>/clear first → fresh context window</sub>
+<sub>`/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
-- /kata:plan-phase {Z+1} — skip discussion, plan directly
-- /kata:verify-work {Z} — manual acceptance testing before continuing
+- `/kata:plan-phase {Z+1}` — skip discussion, plan directly
+- `/kata:verify-work {Z}` — manual acceptance testing before continuing
+{If PR_WORKFLOW and not MERGED: - `gh pr view --web` — review PR in browser before next phase}
 
 ───────────────────────────────────────────────────────────────
 
