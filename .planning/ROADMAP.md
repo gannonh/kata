@@ -253,11 +253,19 @@ Plans:
 **Goal**: Remove NPX distribution path; Kata becomes plugin-only
 **Depends on**: Phase 6 (PR Review complete)
 **Success Criteria** (what must be TRUE):
-  1. [To be planned]
-**Plans:** 0 plans
+  1. All 27 skill directories renamed (kata-* -> *)
+  2. Build system simplified (NPM target removed, plugin build retained)
+  3. NPX-specific files deleted (update skill, check hooks, publish workflow)
+  4. Documentation updated (README, CLAUDE.md, KATA-STYLE.md)
+  5. Final NPM deprecation package published manually
+**Plans:** 5 plans
 
 Plans:
-- [ ] TBD (run /kata:plan-phase 7 to break down)
+- [ ] 07-01-PLAN.md — Rename skill directories and update frontmatter
+- [ ] 07-02-PLAN.md — Delete NPX-specific files
+- [ ] 07-03-PLAN.md — Simplify build system to plugin-only
+- [ ] 07-04-PLAN.md — Update documentation for plugin-only
+- [ ] 07-05-PLAN.md — Replace bin/install.js with deprecation stub
 
 ## Progress
 
@@ -277,8 +285,8 @@ Plans:
 | 4. Plan Sync                             | v1.1.0    | 3/3            | Complete    | 2026-01-26 |
 | 5. PR Integration                        | v1.1.0    | 3/3            | Complete    | 2026-01-27 |
 | 6. PR Review Workflow Skill              | v1.1.0    | 4/4            | Complete    | 2026-01-27 |
-| 7. Deprecate NPX Support                 | v1.1.0    | 0/0            | Not Started | —          |
+| 7. Deprecate NPX Support                 | v1.1.0    | 0/5            | Planned     | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-27 — Phase 6 complete (3 plans)*
+*Last updated: 2026-01-27 — Phase 7 planned (5 plans)*
