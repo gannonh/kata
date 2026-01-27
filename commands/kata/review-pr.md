@@ -16,5 +16,12 @@ Phase Description: "$ARGUMENTS"
 
 ## Step 2: Invoke Skill
 
-Run the following skill to add the phase:
+Run the PR review skill:
 `Skill("kata-reviewing-pull-requests")`
+
+## Troubleshooting
+
+- **"Not a git repository"**: Run this command from within a git repository
+- **"No changes detected"**: Stage or commit changes before running review
+- **"gh CLI not authenticated"**: Run `gh auth login` first for GitHub PR integration
+- **"Agent timeout"**: Large PRs may timeout; try reviewing specific aspects with `/kata:review-pr errors`

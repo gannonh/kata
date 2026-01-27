@@ -1,8 +1,9 @@
 ---
 name: kata-reviewing-pull-requests
 description: Use this skill to run a comprehensive pull request review using multiple specialized agents. Each agent focuses on a different aspect of code quality, such as comments, tests, error handling, type design, and general code review. The skill aggregates results and provides a clear action plan for improvements. Triggers include "review PR", "analyze pull request", "code review", and "PR quality check".
-version: 0.1.0
 user-invocable: false
+metadata:
+  version: "0.1.0"
 context: fork
 allowed-tools:
   - Bash
@@ -40,13 +41,19 @@ Run a comprehensive pull request review using multiple specialized agents, each 
    - Check if PR already exists: `gh pr view`
    - Identify file types and what reviews apply
 
+   **Error handling:**
+   - If `git diff` fails (not a git repo): Report error clearly and stop
+   - If `gh pr view` fails with "no PR found": Expected for pre-PR reviews, continue with git diff
+   - If `gh pr view` fails with auth error: Note that GitHub CLI authentication is needed
+   - If no changed files found: Report "No changes detected" and stop
+
 4. **Determine Applicable Reviews**
 
    Based on changes:
    - **Always applicable**: kata-code-reviewer (general quality)
    - **If test files changed**: kata-pr-test-analyzer
    - **If comments/docs added**: kata-comment-analyzer
-   - **If error handling changed**: kata-silent-failure-hunter
+   - **If error handling changed**: kata-failure-finder
    - **If types added/modified**: kata-type-design-analyzer
    - **After passing review**: kata-code-simplifier (polish and refine)
 
@@ -62,6 +69,13 @@ Run a comprehensive pull request review using multiple specialized agents, each 
    - Faster for comprehensive review
    - Results come back together
 
+   **Agent failure handling:**
+   - If agent completes: Include results in aggregation
+   - If agent times out: Report "[agent-name] timed out - consider running independently"
+   - If agent fails: Report "[agent-name] failed: [error reason]"
+   - If one agent fails, STILL proceed with remaining agents
+   - **Never silently skip a failed agent** - always report its status
+
 6. **Aggregate Results**
 
    After agents complete, summarize:
@@ -69,6 +83,12 @@ Run a comprehensive pull request review using multiple specialized agents, each 
    - **Important Issues** (should fix)
    - **Suggestions** (nice to have)
    - **Positive Observations** (what's good)
+
+   **Edge cases:**
+   - If no issues found: Celebrate with "All Checks Passed" summary
+   - If agents conflict: Note the disagreement and let user decide
+   - If agent output malformed: Note "[agent] output could not be parsed"
+   - Always include count of agents completed vs failed
 
 7. **Provide Action Plan**
 
@@ -132,7 +152,7 @@ Run a comprehensive pull request review using multiple specialized agents, each 
 - Identifies critical gaps
 - Evaluates test quality
 
-**kata-silent-failure-hunter**:
+**kata-failure-finder**:
 - Finds silent failures
 - Reviews catch blocks
 - Checks error logging
@@ -147,7 +167,7 @@ Run a comprehensive pull request review using multiple specialized agents, each 
 - Detects bugs and issues
 - Reviews general code quality
 
-**code-simplifier**:
+**kata-code-simplifier**:
 - Simplifies complex code
 - Improves clarity and readability
 - Applies project standards
@@ -187,11 +207,3 @@ Run a comprehensive pull request review using multiple specialized agents, each 
 3. Verify issues are resolved
 4. Push updates
 ```
-
-## Notes:
-
-- Agents run autonomously and return detailed reports
-- Each agent focuses on its specialty for deep analysis
-- Results are actionable with specific file:line references
-- Agents use appropriate models for their complexity
-- All agents available in `/agents` list

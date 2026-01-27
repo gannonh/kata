@@ -43,7 +43,7 @@ Created `tests/skills/reviewing-pull-requests.test.js` following existing test p
    - `kata-code-simplifier.md`
    - `kata-comment-analyzer.md`
    - `kata-pr-test-analyzer.md`
-   - `kata-silent-failure-hunter.md`
+   - `kata-failure-finder.md`
    - `kata-type-design-analyzer.md`
 4. **Trigger tests**:
    - "review my PR" prompt
@@ -61,9 +61,9 @@ Added "PR Review" section to README.md between Quick Mode and Why It Works:
 
 ## Commits
 
-| Hash | Type | Description |
-|------|------|-------------|
-| 0f1cc06 | test | Add PR review skill test |
+| Hash    | Type | Description                     |
+| ------- | ---- | ------------------------------- |
+| 0f1cc06 | test | Add PR review skill test        |
 | 4874c5a | docs | Add PR review section to README |
 
 ## Key Decisions
@@ -76,10 +76,10 @@ None - plan executed exactly as written.
 
 ## Files Changed
 
-| File | Change | Lines |
-|------|--------|-------|
-| `tests/skills/reviewing-pull-requests.test.js` | created | 79 |
-| `README.md` | modified | +43 |
+| File                                           | Change   | Lines |
+| ---------------------------------------------- | -------- | ----- |
+| `tests/skills/reviewing-pull-requests.test.js` | created  | 79    |
+| `README.md`                                    | modified | +43   |
 
 ## Verification
 
