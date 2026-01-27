@@ -344,7 +344,7 @@ Use for: bug fixes, small features, config changes, one-off tasks.
 ```
 "Review my PR"
 ```
-<sub>or `/kata:reviewing-pull-requests`</sub>
+<sub>or `/kata:review-pr`</sub>
 
 **Automated code quality analysis using specialized review agents.**
 
