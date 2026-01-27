@@ -90,7 +90,7 @@ Plans:
 - [x] **Phase 3: Phase Issues** - Create GitHub Issues for phases with labels and metadata — completed 2026-01-26
 - [x] **Phase 4: Plan Sync** - Checklist items in issues, update as plans complete — completed 2026-01-26
 - [x] **Phase 5: PR Integration** - Create PRs at phase start with auto-linking — completed 2026-01-27
-- [ ] **Phase 6: PR Review Workflow Skill & Agents** - PR review workflow skill and agents (existing work to import)
+- [ ] **Phase 6: PR Review Workflow Skill & Agents** - Integrate PR review skill and agents into phase execution workflow
 
 ## Phase Details
 
@@ -233,19 +233,19 @@ Plans:
 - [x] 05-03-PLAN.md — Tests and documentation updates
 
 #### Phase 6: PR Review Workflow Skill & Agents
-**Goal**: Integrate PR review workflow skill and agents into Kata (importing existing work from outside project)
+**Goal**: Integrate PR review skill and agents into phase execution workflow
 **Depends on**: Phase 5 (PR Integration complete)
 **Success Criteria** (what must be TRUE):
-  1. PR review skill integrated into Kata skills directory
+  1. PR review skill accessible via `/kata:reviewing-pull-requests`
   2. Review agents available for code review workflows
-  3. Integration with GitHub PR events
-  4. Documentation for PR review workflow usage
-**Plans**: TBD
-**Note**: User has existing implementation outside this project - remind to import during planning
+  3. Phase execution offers optional review after `gh pr ready`
+  4. README documents PR review workflow usage
+**Plans:** 3 plans
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
+- [ ] 06-01-PLAN.md — Update skill frontmatter and delete obsolete command wrapper
+- [ ] 06-02-PLAN.md — Add PR review integration to kata-executing-phases
+- [ ] 06-03-PLAN.md — Add skill test and README documentation
 
 ## Progress
 
@@ -264,8 +264,8 @@ Plans:
 | 3. Phase Issues                          | v1.1.0    | 2/2            | Complete    | 2026-01-26 |
 | 4. Plan Sync                             | v1.1.0    | 3/3            | Complete    | 2026-01-26 |
 | 5. PR Integration                        | v1.1.0    | 3/3            | Complete    | 2026-01-27 |
-| 6. PR Review Workflow Skill              | v1.1.0    | 0/?            | Not started | -          |
+| 6. PR Review Workflow Skill              | v1.1.0    | 0/3            | Not started | -          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-27 — Phase 5 complete (3/3 plans)*
+*Last updated: 2026-01-27 — Phase 6 planned (3 plans)*
