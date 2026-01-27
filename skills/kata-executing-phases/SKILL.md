@@ -377,37 +377,57 @@ PR_EOF
       - "Quick review (code only)" — Run kata-reviewing-pull-requests with "code" aspect only
       - "Skip" — Proceed without review
 
-    **If user chooses "Yes, run full review":**
-    1. Invoke skill: `Skill("kata-reviewing-pull-requests", "")`
-    2. Display review summary
-    3. Store REVIEW_SUMMARY for offer_next output
-
-    **If user chooses "Quick review (code only)":**
-    1. Invoke skill: `Skill("kata-reviewing-pull-requests", "code")`
-    2. Display review summary
-    3. Store REVIEW_SUMMARY for offer_next output
+    **If user chooses review:**
+    1. Invoke skill: `Skill("kata-reviewing-pull-requests", "<aspect>")`
+    2. Display review summary with counts: {N} critical, {M} important, {P} suggestions
+    3. **STOP and ask what to do with findings** (see below)
 
     **If user chooses "Skip":**
     Continue to step 11 without review.
 
-    **If REVIEW_SUMMARY contains suggestions (non-critical findings):**
+10.7. **Handle Review Findings (required after review completes)**
 
-    Use AskUserQuestion:
-    - header: "Review Suggestions"
-    - question: "Create backlog todos for the {N} suggestions from code review?"
-    - options:
-      - "Yes, create todos" — Create todos using `/kata:add-todo` for each suggestion, then continue
-      - "No, skip" — Continue without creating todos
+    **STOP here. Do not proceed to step 11 until user chooses an action.**
 
-    **If user chooses "Yes, create todos":**
-    For each suggestion in REVIEW_SUMMARY:
-    - Extract suggestion text
-    - Create todo with appropriate tag (e.g., "refactor", "perf", "docs")
-    - Log: "Created todo: {suggestion summary}"
+    Use AskUserQuestion with options based on what was found:
+    - header: "Review Findings"
+    - question: "How do you want to handle the review findings?"
+    - options (show only applicable ones):
+      - "Fix critical issues" — (if critical > 0) Fix critical, then offer to add remaining to backlog
+      - "Fix critical & important" — (if critical + important > 0) Fix both, then offer to add suggestions to backlog
+      - "Fix all issues" — (if any issues) Fix everything
+      - "Add to backlog" — Create todos for all issues without fixing
+      - "Ignore and continue" — Skip all issues
 
-    Store TODOS_CREATED count for offer_next output.
+    **After user chooses:**
 
-    *Non-blocking: phase completion continues regardless of review findings or todo choices.*
+    **Path A: "Fix critical issues"**
+    1. Fix each critical issue
+    2. If important or suggestions remain, ask: "Add remaining {N} issues to backlog?"
+       - "Yes" → Create todos, store TODOS_CREATED count
+       - "No" → Continue
+    3. Continue to step 11
+
+    **Path B: "Fix critical & important"**
+    1. Fix each critical and important issue
+    2. If suggestions remain, ask: "Add {N} suggestions to backlog?"
+       - "Yes" → Create todos, store TODOS_CREATED count
+       - "No" → Continue
+    3. Continue to step 11
+
+    **Path C: "Fix all issues"**
+    1. Fix all critical, important, and suggestion issues
+    2. Continue to step 11
+
+    **Path D: "Add to backlog"**
+    1. Create todos for all issues using `/kata:add-todo`
+    2. Store TODOS_CREATED count
+    3. Continue to step 11
+
+    **Path E: "Ignore and continue"**
+    1. Continue to step 11
+
+    Store REVIEW_SUMMARY and TODOS_CREATED for offer_next output.
 
 11. **Offer next steps**
     - Route to next action (see `<offer_next>`)
