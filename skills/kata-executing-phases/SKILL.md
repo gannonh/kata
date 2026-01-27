@@ -49,10 +49,14 @@ Phase: $ARGUMENTS
 
    **Model lookup table:**
 
-   | Agent         | quality | balanced | budget |
-   | ------------- | ------- | -------- | ------ |
-   | kata-executor | opus    | sonnet   | sonnet |
-   | kata-verifier | sonnet  | sonnet   | haiku  |
+   | Agent              | quality | balanced | budget |
+   | ------------------ | ------- | -------- | ------ |
+   | kata-executor      | opus    | sonnet   | sonnet |
+   | kata-verifier      | sonnet  | sonnet   | haiku  |
+   | kata-code-reviewer | opus    | sonnet   | sonnet |
+   | kata-*-analyzer    | sonnet  | sonnet   | haiku  |
+
+   *Note: Review agents (kata-code-reviewer, kata-*-analyzer) are spawned by the kata-reviewing-pull-requests skill, which handles its own model selection based on the agents' frontmatter. The table above documents expected model usage for cost planning.*
 
    Store resolved models for use in Task calls below.
 
