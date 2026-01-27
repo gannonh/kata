@@ -390,7 +390,24 @@ PR_EOF
     **If user chooses "Skip":**
     Continue to step 11 without review.
 
-    *Non-blocking: phase completion continues regardless of review findings.*
+    **If REVIEW_SUMMARY contains suggestions (non-critical findings):**
+
+    Use AskUserQuestion:
+    - header: "Review Suggestions"
+    - question: "Create backlog todos for the {N} suggestions from code review?"
+    - options:
+      - "Yes, create todos" — Create todos using `/kata:add-todo` for each suggestion, then continue
+      - "No, skip" — Continue without creating todos
+
+    **If user chooses "Yes, create todos":**
+    For each suggestion in REVIEW_SUMMARY:
+    - Extract suggestion text
+    - Create todo with appropriate tag (e.g., "refactor", "perf", "docs")
+    - Log: "Created todo: {suggestion summary}"
+
+    Store TODOS_CREATED count for offer_next output.
+
+    *Non-blocking: phase completion continues regardless of review findings or todo choices.*
 
 11. **Offer next steps**
     - Route to next action (see `<offer_next>`)
