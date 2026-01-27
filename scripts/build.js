@@ -67,11 +67,11 @@ const EXCLUDES = [
 /**
  * Files/directories to exclude from PLUGIN distribution only
  * (these are NPM-specific and don't work in plugin context)
+ *
+ * Note: Previously contained 'commands/kata/update.md' and 'skills/kata-updating'
+ * but these were deleted in Phase 7 (NPX deprecation). Array kept for future use.
  */
-const PLUGIN_EXCLUDES = [
-  'commands/kata/update.md',
-  'skills/kata-updating',
-];
+const PLUGIN_EXCLUDES = [];
 
 /**
  * Plugin-specific includes
