@@ -258,14 +258,15 @@ Plans:
   3. NPX-specific files deleted (update skill, check hooks, publish workflow)
   4. Documentation updated (README, CLAUDE.md, KATA-STYLE.md)
   5. Final NPM deprecation package published manually
-**Plans:** 5 plans
+**Plans:** 6 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — Rename skill directories and update frontmatter
-- [ ] 07-02-PLAN.md — Delete NPX-specific files
-- [ ] 07-03-PLAN.md — Simplify build system to plugin-only
-- [ ] 07-04-PLAN.md — Update documentation for plugin-only
-- [ ] 07-05-PLAN.md — Replace bin/install.js with deprecation stub
+- [x] 07-01-PLAN.md — Rename skill directories and update frontmatter
+- [x] 07-02-PLAN.md — Delete NPX-specific files
+- [x] 07-03-PLAN.md — Simplify build system to plugin-only
+- [x] 07-04-PLAN.md — Update documentation for plugin-only
+- [x] 07-05-PLAN.md — Replace bin/install.js with deprecation stub
+- [ ] 07-06-PLAN.md — Gap closure: Fix development workflow documentation
 
 ## Progress
 
@@ -285,8 +286,8 @@ Plans:
 | 4. Plan Sync                             | v1.1.0    | 3/3            | Complete    | 2026-01-26 |
 | 5. PR Integration                        | v1.1.0    | 3/3            | Complete    | 2026-01-27 |
 | 6. PR Review Workflow Skill              | v1.1.0    | 4/4            | Complete    | 2026-01-27 |
-| 7. Deprecate NPX Support                 | v1.1.0    | 0/5            | Planned     | —          |
+| 7. Deprecate NPX Support                 | v1.1.0    | 5/6            | In Progress | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-27 — Phase 7 planned (5 plans)*
+*Last updated: 2026-01-27 — Phase 7 gap closure plan added (07-06)*
