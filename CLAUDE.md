@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Kata is a **spec-driven development framework** for Claude Code. It's a meta-prompting and context engineering system that helps Claude build software systematically through structured workflows: requirements gathering → research → planning → execution → verification.
 
 **Core Architecture:**
-- **Skills** (`skills/kata-*/SKILL.md`) — Primary interface for all Kata workflows, invoked via `/kata:skill-name` (plugin) or `/kata-skill-name` (NPX)
+- **Skills** (`skills/*/SKILL.md`) — Primary interface for all Kata workflows, invoked via `/kata:skill-name`
 - **Agents** (`agents/kata-*.md`) — Specialized subagents spawned by skills for specific tasks (planning, execution, verification, debugging)
 - **Templates** (`kata/templates/`) — Structured output formats (PROJECT.md, PLAN.md, etc.)
 - **References** (`kata/references/`) — Deep-dive documentation on concepts and patterns
@@ -25,16 +25,13 @@ Kata is a **spec-driven development framework** for Claude Code. It's a meta-pro
 node bin/install.js --local
 
 # Verify installation (in Claude Code)
-/kata:providing-help      # plugin
-/kata-help      # NPX
+/kata:providing-help
 
 # Update local install after changes
 node bin/install.js --local
 
 # Verify skills installed
-ls ~/.claude/skills/kata-*   # NPX global
-ls .claude/skills/kata-*     # NPX local
-ls .claude/skills/*          # Plugin (kata- prefixes stripped)
+ls .claude/skills/*
 ```
 
 ### Using Kata for Kata Development
@@ -86,10 +83,9 @@ Skills are the primary interface for all Kata workflows. They respond to both na
 
 ### Invocation Syntax
 
-| Installation | Syntax | Example |
-| ------------ | ------ | ------- |
-| Plugin | `/kata:skill-name` | `/kata:planning-phases 1` |
-| NPX | `/kata-skill-name` | `/kata-planning-phases 1` |
+| Syntax | Example |
+| ------ | ------- |
+| `/kata:skill-name` | `/kata:planning-phases 1` |
 
 **Key points:**
 - **Natural language works:** "plan phase 2", "what's the status", "execute the phase"
@@ -98,11 +94,9 @@ Skills are the primary interface for all Kata workflows. They respond to both na
 
 ### Available Skills
 
-Skills are installed to:
-- **Plugin:** `.claude/skills/` (prefixes stripped for clean `/kata:skill-name` invocation)
-- **NPX:** `~/.claude/skills/kata-*` (global) or `.claude/skills/kata-*` (local)
+Skills are installed to `.claude/skills/` (prefixes stripped for clean `/kata:skill-name` invocation).
 
-| Skill (source) | Invocation (plugin) | Purpose | Sub-agents Spawned |
+| Skill | Invocation | Purpose | Sub-agents Spawned |
 | -------------- | ------------------- | ------- | ------------------ |
 | `kata-planning-phases` | `/kata:planning-phases` | Phase planning, task breakdown | kata-planner, kata-plan-checker |
 | `kata-executing-phases` | `/kata:executing-phases` | Plan execution, checkpoints | kata-executor |

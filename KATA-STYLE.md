@@ -197,7 +197,6 @@ Build authentication system
 | Build Target | Transformation                                           |
 | ------------ | -------------------------------------------------------- |
 | Plugin       | `@~/.claude/kata/` → `@./kata/` (relative to plugin root) |
-| NPM          | Paths stay as `@~/.claude/kata/` (install.js transforms at runtime) |
 
 **Source files MUST use the canonical `@~/.claude/kata/` form.** The build system handles the rest.
 
