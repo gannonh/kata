@@ -8,7 +8,7 @@
 
 <br>
 
-Multi-agent orchestration framework for spec-driven development.
+Agent orchestration framework for spec-driven development.
 <br>
 
 [kata.sh](https://kata.sh)
@@ -29,6 +29,7 @@ Multi-agent orchestration framework for spec-driven development.
 
 ```bash
 # Install as Claude Code plugin
+/plugin marketplace add gannonh/kata-marketplace
 /plugin install kata@gannonh-kata-marketplace
 
 # Or install via NPM
@@ -37,7 +38,7 @@ npx @gannonh/kata
 
 ---
 
-## Talk to It Like a Person
+## Voice-First: Conversational User Interface
 
 Drive your entire workflow with **natural language**.
 
@@ -52,7 +53,7 @@ Say what you want:
 | "I'm done for today"     | Creates handoff for session resumption |
 | "Debug this login issue" | Spawns systematic debugging workflow   |
 
-Every workflow responds to natural language. Slash commands exist for precision when you want them (`/kata:planning-phases 2`), but you never *need* them.
+Every workflow responds to natural language. Slash commands exist for precision when you want them (`/kata:plan-phase 2`), but you never *need* them.
 
 **Intent recognition.** Kata parses what you're trying to accomplish and routes to the right workflow (research, planning, execution, verification) automatically.
 
@@ -60,21 +61,23 @@ Every workflow responds to natural language. Slash commands exist for precision 
 
 ## Who This Is For
 
-Teams and individuals that want to describe what they want and have it built correctly.
+Teams and individuals who want to describe what they want and have it built correctly.
 
 ---
 
-<!-- sanitize -->
 ## Getting Started
 
 ### Recommended: Plugin Install
 
 ```bash
-/plugin marketplace add gannonh/kata-marketplace
+# Start Claude Code
+claude
+
+# Install the plugin from the Claude Code cli
 /plugin install kata@gannonh-kata-marketplace
 ```
 
-Verify with `/kata:providing-help` (plugin) or `/kata-providing-help` (NPX) inside Claude Code.
+Verify with `/kata: help`.
 
 <details>
 <summary><strong>Alternative: NPM Install</strong></summary>
@@ -83,8 +86,6 @@ Verify with `/kata:providing-help` (plugin) or `/kata-providing-help` (NPX) insi
 npx @gannonh/kata
 ```
 
-Use NPM if you prefer global installation or need CI/container support.
-
 </details>
 
 ### Staying Updated
@@ -92,8 +93,7 @@ Use NPM if you prefer global installation or need CI/container support.
 Kata evolves fast. Check for updates periodically:
 
 ```
-/kata:showing-whats-new   # plugin
-/kata-showing-whats-new   # NPX
+/kata:whats-new   
 ```
 
 **Plugin users:**
@@ -141,9 +141,6 @@ Kata is designed for frictionless automation. Run Claude Code with:
 claude --dangerously-skip-permissions
 ```
 
-> [!TIP]
-> Kata works best this way. Approving `date` and `git commit` 50 times defeats the purpose.
-
 <details>
 <summary><strong>Alternative: Granular Permissions</strong></summary>
 
@@ -181,14 +178,12 @@ If you prefer not to use that flag, add this to your project's `.claude/settings
 
 ## How It Works
 
-> **Already have code?** Run `/kata:mapping-codebases` (plugin) or `/kata-mapping-codebases` (NPX) first. It spawns parallel agents to analyze your stack, architecture, conventions, and concerns. Then your next project setup knows your codebase. Questions focus on what you're adding, and planning automatically loads your patterns.
-
 ### 1. Initialize Project
 
 ```
 "Start a new project"
 ```
-<sub>or `/kata:starting-projects` (plugin) | `/kata-starting-projects` (NPX)</sub>
+<sub>or `/kata:new-project`</sub>
 
 One command, one flow. The system:
 
@@ -201,6 +196,8 @@ You approve the roadmap. Now you're ready to build.
 
 **Creates:** `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md`, `.planning/research/`
 
+> **Already have code?** Kata will automatically map your codebase as part of the workflow . It spawns parallel agents to analyze your stack, architecture, conventions, and concerns. Questions focus on what you're adding, and planning automatically loads your patterns.
+
 ---
 
 ### 2. Discuss Phase
@@ -208,7 +205,7 @@ You approve the roadmap. Now you're ready to build.
 ```
 "Let's discuss phase 1"
 ```
-<sub>or `/kata:discussing-phases 1` (plugin) | `/kata-discussing-phases 1` (NPX)</sub>
+<sub>or `/kata:discuss-phase 1`</sub>
 
 **This is where you shape the implementation.**
 
@@ -237,7 +234,7 @@ Depth here correlates with alignment to your intent. Skip it for reasonable defa
 ```
 "Plan phase 1"
 ```
-<sub>or `/kata:planning-phases 1` (plugin) | `/kata-planning-phases 1` (NPX)</sub>
+<sub>or `/kata:plan-phase 1`</sub>
 
 The system:
 
@@ -256,7 +253,7 @@ Each plan fits in a fresh context window.
 ```
 "Execute phase 1"
 ```
-<sub>or `/kata:executing-phases 1` (plugin) | `/kata-executing-phases 1` (NPX)</sub>
+<sub>or `/kata:execute-phases 1`</sub>
 
 The system:
 
@@ -276,7 +273,7 @@ Walk away, come back to completed work with clean git history.
 ```
 "Verify phase 1"
 ```
-<sub>or `/kata:verifying-phases 1` (plugin) | `/kata-verifying-phases 1` (NPX)</sub>
+<sub>or `/kata:verify-phases 1`</sub>
 
 **This is where you confirm it actually works.**
 
@@ -289,7 +286,7 @@ The system:
 3. **Diagnoses failures automatically**: Spawns debug agents to find root causes
 4. **Creates verified fix plans**: Ready for immediate re-execution
 
-If everything passes, you move on. If something's broken, run `/kata:executing-phases` again with the fix plans it created.
+If everything passes, you move on. If something's broken, run `/kata:execute-phase` again with the fix plans it created.
 
 **Creates:** `{phase}-UAT.md`, fix plans if issues found
 
@@ -307,7 +304,7 @@ If everything passes, you move on. If something's broken, run `/kata:executing-p
 "Start the next milestone"
 ```
 
-Loop **discuss → plan → execute → verify** until milestone complete.
+Loop **discuss → plan → execute → verify** until milestone is complete.
 
 Each phase gets your input (discuss), proper research (plan), clean execution (execute), and human verification (verify). Context stays fresh. Quality stays high.
 
@@ -320,9 +317,9 @@ Then "start the next milestone" kicks off the next version. Same flow as project
 ### Quick Mode
 
 ```
-"Quick task: add dark mode toggle"
+"Quick task: add dark mode toggle."
 ```
-<sub>or `/kata:executing-quick-tasks` (plugin) | `/kata-executing-quick-tasks` (NPX)</sub>
+<sub>or `/kata:quick-task`</sub>
 
 **For ad-hoc tasks that don't need full planning.**
 
@@ -423,99 +420,6 @@ The system adapts to changing requirements.
 
 ---
 
-## Ecosystem
-
-### kata-tui
-
-**Terminal dashboard for project visibility.**
-
-[![GitHub](https://img.shields.io/badge/GitHub-kata--tui-181717?style=flat&logo=github)](https://github.com/gannonh/kata-tui)
-
-A Rust-based TUI that displays your Kata project state in a two-pane terminal interface:
-
-- **Left pane**: Project info from `PROJECT.md`
-- **Right pane**: Live roadmap and phase progress from `ROADMAP.md` and `STATE.md`
-- **Navigation**: Vim-style keybindings (j/k scroll, Tab switches panes, q quits)
-
-Install and run:
-```bash
-cargo install kata-tui
-kata-tui
-```
-
-Keep it open alongside Claude Code for at-a-glance project awareness.
-
----
-
-## Skills
-
-> **Remember:** All skills respond to natural language. "What's my progress?" works the same as `/kata:tracking-progress` (plugin) or `/kata-tracking-progress` (NPX).
-
-Skills are invoked via slash commands. The syntax differs between plugin and NPX installations:
-
-| Installation | Syntax             | Example                   |
-| ------------ | ------------------ | ------------------------- |
-| Plugin       | `/kata:skill-name` | `/kata:planning-phases 1` |
-| NPX          | `/kata-skill-name` | `/kata-planning-phases 1` |
-
-### Core Workflow
-
-| Skill                        | What it does                                                       |
-| ---------------------------- | ------------------------------------------------------------------ |
-| `starting-projects`          | Full initialization: questions → research → requirements → roadmap |
-| `discussing-phases [N]`      | Capture implementation decisions before planning                   |
-| `planning-phases [N]`        | Research + plan + verify for a phase                               |
-| `executing-phases <N>`       | Execute all plans in parallel waves, verify when complete          |
-| `verifying-phases [N]`       | Manual user acceptance testing                                     |
-| `auditing-milestones`        | Verify milestone achieved its definition of done                   |
-| `completing-milestones`      | Archive milestone, tag release                                     |
-| `starting-milestones [name]` | Start next version: questions → research → requirements → roadmap  |
-
-### Navigation
-
-| Skill               | What it does                                  |
-| ------------------- | --------------------------------------------- |
-| `tracking-progress` | Where am I? What's next?                      |
-| `providing-help`    | Show all skills and usage guide               |
-| `showing-whats-new` | See what changed since your installed version |
-| `updating`          | Update Kata with changelog preview (NPX only) |
-
-### Brownfield
-
-| Skill               | What it does                                   |
-| ------------------- | ---------------------------------------------- |
-| `mapping-codebases` | Analyze existing codebase before project setup |
-
-### Phase Management
-
-| Skill                           | What it does                                   |
-| ------------------------------- | ---------------------------------------------- |
-| `adding-phases`                 | Append phase to roadmap                        |
-| `inserting-phases [N]`          | Insert urgent work between phases              |
-| `removing-phases [N]`           | Remove future phase, renumber                  |
-| `listing-phase-assumptions [N]` | See Claude's intended approach before planning |
-| `planning-milestone-gaps`       | Create phases to close gaps from audit         |
-
-### Session
-
-| Skill           | What it does                           |
-| --------------- | -------------------------------------- |
-| `pausing-work`  | Create handoff when stopping mid-phase |
-| `resuming-work` | Restore from last session              |
-
-### Utilities
-
-| Skill                        | What it does                                   |
-| ---------------------------- | ---------------------------------------------- |
-| `configuring-settings`       | Configure model profile and workflow agents    |
-| `setting-profiles <profile>` | Switch model profile (quality/balanced/budget) |
-| `adding-todos [desc]`        | Capture idea for later                         |
-| `checking-todos`             | List pending todos                             |
-| `debugging [desc]`           | Systematic debugging with persistent state     |
-| `executing-quick-tasks`      | Execute ad-hoc task with Kata guarantees       |
-
----
-
 ## Configuration
 
 Kata stores project settings in `.planning/config.json`. Configure during `/kata:starting-projects` or update later with `/kata:configuring-settings`.
@@ -539,10 +443,10 @@ Control which Claude model each agent uses. Balance quality vs token spend.
 
 Switch profiles:
 ```
-/kata:setting-profiles budget
+/kata:set-profile
 ```
 
-Or configure via `/kata:configuring-settings`.
+Or configure via `/kata:configure-settings`.
 
 ### Workflow Agents
 
@@ -554,9 +458,9 @@ These spawn additional agents during planning/execution. They improve quality bu
 | `workflow.plan_check` | `true`  | Verifies plans achieve phase goals before execution |
 | `workflow.verifier`   | `true`  | Confirms must-haves were delivered after execution  |
 
-Use `/kata:configuring-settings` to toggle these, or override per-invocation:
-- `planning-phases --skip-research`
-- `planning-phases --skip-verify`
+Use `/kata:configure-settings` to toggle these, or override per-invocation:
+- `/kata:plan-phase --skip-research`
+- `/kata:plan-phase --skip-verify`
 
 ### Execution
 
@@ -564,49 +468,6 @@ Use `/kata:configuring-settings` to toggle these, or override per-invocation:
 | ------------------------- | ------- | ------------------------------------ |
 | `parallelization.enabled` | `true`  | Run independent plans simultaneously |
 | `planning.commit_docs`    | `true`  | Track `.planning/` in git            |
-
-### GitHub PR Workflow
-
-| Setting       | Options       | Default | What it controls               |
-| ------------- | ------------- | ------- | ------------------------------ |
-| `pr_workflow` | `true/false`  | `false` | Create PRs for phase execution |
-
-When enabled (`pr_workflow: true`), phase execution creates GitHub PRs:
-
-1. **Branch creation** at phase start: `{type}/v{milestone}-{phase}-{slug}`
-2. **Draft PR** after first wave with phase goal, plans checklist, and issue linking
-3. **README review** offered before marking PR ready (optional, non-blocking)
-4. **PR marked ready** when phase completes
-
-**PR title format:** `v{milestone} Phase {N}: {Phase Name}`
-
-**Works with GitHub Integration:** Enable both `github.enabled: true` and `pr_workflow: true` for full integration. Issues track planning, PRs track execution.
-
----
-
-## Troubleshooting
-
-**Skills not found after install?**
-- Restart Claude Code to reload skills
-- **Plugin:** Verify skills exist in `./.claude/skills/` (prefixes stripped)
-- **NPX:** Verify skills exist in `~/.claude/skills/kata-*` (global) or `./.claude/skills/kata-*` (local)
-
-**Skills not working as expected?**
-- Run `/kata:providing-help` (plugin) or `/kata-providing-help` (NPX) to verify installation
-- Re-run `npx @gannonh/kata` to reinstall
-
-**Updating to the latest version?**
-```bash
-npx @gannonh/kata@latest
-```
-
-**Using Docker or containerized environments?**
-
-If file reads fail with tilde paths (`~/.claude/...`), set `CLAUDE_CONFIG_DIR` before installing:
-```bash
-CLAUDE_CONFIG_DIR=/home/youruser/.claude npx @gannonh/kata --global
-```
-This ensures absolute paths are used instead of `~` which may not expand correctly in containers.
 
 ---
 
