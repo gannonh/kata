@@ -135,6 +135,17 @@ Store `$QUICK_DIR` for use in orchestration.
 
 ---
 
+**Step 4.5: Read context files**
+
+Read files before spawning agents using the Read tool. The `@` syntax does not work across Task() boundaries - content must be inlined.
+
+**Read this file:**
+- `.planning/STATE.md` (required)
+
+Store content for use in Task prompts below.
+
+---
+
 **Step 5: Spawn planner (quick mode)**
 
 Spawn kata-planner with quick mode context:
@@ -149,7 +160,7 @@ Task(
 **Description:** ${DESCRIPTION}
 
 **Project State:**
-@.planning/STATE.md
+${STATE_CONTENT}
 
 </planning_context>
 
@@ -182,15 +193,23 @@ If plan not found, error: "Planner failed to create ${next_num}-PLAN.md"
 
 **Step 6: Spawn executor**
 
-Spawn kata-executor with plan reference:
+Read the plan content before spawning using the Read tool:
+- `${QUICK_DIR}/${next_num}-PLAN.md`
+
+Spawn kata-executor with inlined plan (use the STATE_CONTENT from step 4.5):
 
 ```
 Task(
   prompt="
 Execute quick task ${next_num}.
 
-Plan: @${QUICK_DIR}/${next_num}-PLAN.md
-Project state: @.planning/STATE.md
+<plan>
+${PLAN_CONTENT}
+</plan>
+
+<project_state>
+${STATE_CONTENT}
+</project_state>
 
 <constraints>
 - Execute all tasks in the plan

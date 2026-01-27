@@ -235,20 +235,16 @@ ls "${PHASE_DIR}"/*-PLAN.md 2>/dev/null
 
 Read and store context file contents for the planner agent. The `@` syntax does not work across Task() boundaries - content must be inlined.
 
-```bash
-# Read required files
-STATE_CONTENT=$(cat .planning/STATE.md)
-ROADMAP_CONTENT=$(cat .planning/ROADMAP.md)
+**Read these files using the Read tool:**
+- `.planning/STATE.md` (required)
+- `.planning/ROADMAP.md` (required)
+- `.planning/REQUIREMENTS.md` (if exists)
+- `${PHASE_DIR}/*-CONTEXT.md` (if exists)
+- `${PHASE_DIR}/*-RESEARCH.md` (if exists)
+- `${PHASE_DIR}/*-VERIFICATION.md` (if --gaps mode)
+- `${PHASE_DIR}/*-UAT.md` (if --gaps mode)
 
-# Read optional files (empty string if missing)
-REQUIREMENTS_CONTENT=$(cat .planning/REQUIREMENTS.md 2>/dev/null)
-CONTEXT_CONTENT=$(cat "${PHASE_DIR}"/*-CONTEXT.md 2>/dev/null)
-RESEARCH_CONTENT=$(cat "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null)
-
-# Gap closure files (only if --gaps mode)
-VERIFICATION_CONTENT=$(cat "${PHASE_DIR}"/*-VERIFICATION.md 2>/dev/null)
-UAT_CONTENT=$(cat "${PHASE_DIR}"/*-UAT.md 2>/dev/null)
-```
+Store all content for use in the Task prompt below.
 
 ## 8. Spawn kata-planner Agent
 

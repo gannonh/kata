@@ -520,22 +520,18 @@ After user runs /kata:plan-phase {Z} --gaps:
 <wave_execution>
 **Parallel spawning:**
 
-Before spawning, read file contents. The `@` syntax does not work across Task() boundaries.
+Before spawning, read file contents using Read tool. The `@` syntax does not work across Task() boundaries - content must be inlined in the Task prompt.
 
-```bash
-# Read each plan and STATE.md
-PLAN_01_CONTENT=$(cat "{plan_01_path}")
-PLAN_02_CONTENT=$(cat "{plan_02_path}")
-PLAN_03_CONTENT=$(cat "{plan_03_path}")
-STATE_CONTENT=$(cat .planning/STATE.md)
-```
+**Read these files:**
+- Each plan file in the wave (e.g., `{plan_01_path}`, `{plan_02_path}`, etc.)
+- `.planning/STATE.md`
 
 Spawn all plans in a wave with a single message containing multiple Task calls, with inlined content:
 
 ```
-Task(prompt="Execute plan at {plan_01_path}\n\nPlan:\n{plan_01_content}\n\nProject state:\n{state_content}", subagent_type="kata-executor", model="{executor_model}")
-Task(prompt="Execute plan at {plan_02_path}\n\nPlan:\n{plan_02_content}\n\nProject state:\n{state_content}", subagent_type="kata-executor", model="{executor_model}")
-Task(prompt="Execute plan at {plan_03_path}\n\nPlan:\n{plan_03_content}\n\nProject state:\n{state_content}", subagent_type="kata-executor", model="{executor_model}")
+Task(prompt="Execute plan at {plan_01_path}\n\n<plan>\n{plan_01_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>", subagent_type="kata-executor", model="{executor_model}")
+Task(prompt="Execute plan at {plan_02_path}\n\n<plan>\n{plan_02_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>", subagent_type="kata-executor", model="{executor_model}")
+Task(prompt="Execute plan at {plan_03_path}\n\n<plan>\n{plan_03_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>", subagent_type="kata-executor", model="{executor_model}")
 ```
 
 All three run in parallel. Task tool blocks until all complete.

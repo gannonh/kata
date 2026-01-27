@@ -407,8 +407,7 @@ Output: [What artifacts will be created]
 </objective>
 
 <execution_context>
-@./references/execute-plan.md
-@./references/summary-template.md
+<!-- Executor agent has built-in instructions for plan execution and summary creation -->
 </execution_context>
 
 <context>

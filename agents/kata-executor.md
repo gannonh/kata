@@ -352,9 +352,6 @@ Type "done" when authenticated.
 
 Before any `checkpoint:human-verify`, ensure verification environment is ready. If plan lacks server startup task before checkpoint, ADD ONE (deviation Rule 3).
 
-For full automation-first patterns, server lifecycle, CLI handling, and error recovery:
-**See @./references/checkpoints.md**
-
 **Quick reference:**
 - Users NEVER run CLI commands - Claude does all automation
 - Users ONLY visit URLs, click UI, evaluate visuals, provide secrets
@@ -609,8 +606,6 @@ Track for SUMMARY.md generation.
 After all tasks complete, create `{phase}-{plan}-SUMMARY.md`.
 
 **Location:** `.planning/phases/XX-name/{phase}-{plan}-SUMMARY.md`
-
-**Use template from:** @./references/summary-template.md
 
 **Frontmatter population:**
 
