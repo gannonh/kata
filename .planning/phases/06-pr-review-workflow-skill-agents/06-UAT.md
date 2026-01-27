@@ -36,27 +36,25 @@ Derived from SUMMARY.md deliverables across 3 plans.
 
 | # | Test | Expected | Status | Notes |
 |---|------|----------|--------|-------|
-| 8 | Backlog todo prompt after fixes | After fixing critical issues, prompt to create todos for suggestions | ❌ | Suggestions displayed but not actionable |
-| 9 | Merge prompt before next phase | Primary next action should be "merge PR" not "discuss phase 2" | ❌ | Workflow suggests next phase before PR merged |
+| 8 | Backlog todo prompt after fixes | After fixing critical issues, prompt to create todos for suggestions | ✅ | Fixed in 06-04: AskUserQuestion at line 396 |
+| 9 | Merge prompt before next phase | Primary next action should be "merge PR" not "discuss phase 2" | ✅ | Fixed in 06-04: AskUserQuestion at line 432 |
 
 ## Summary
 
 - **Total tests:** 9
-- **Passed:** 7
-- **Failed:** 2
+- **Passed:** 9
+- **Failed:** 0
 - **Pending:** 0
 
 ## Issues Found
 
-### Issue 1: No backlog todo prompt for suggestions (Severity: Medium)
+### ~~Issue 1: No backlog todo prompt for suggestions (Severity: Medium)~~ FIXED
 **Location:** kata-executing-phases Step 10.6 / PR review flow
-**Expected:** After fixing critical issues, ask "Create backlog todos for the N suggestions?"
-**Actual:** Suggestions are displayed in summary table but user has no way to capture them for later
+**Fix:** Added AskUserQuestion "Create backlog todos for the {N} suggestions?" with Yes/No options (Plan 06-04, commit f5d8433)
 
-### Issue 2: No merge prompt before next phase (Severity: High)
+### ~~Issue 2: No merge prompt before next phase (Severity: High)~~ FIXED
 **Location:** kata-executing-phases offer_next (Route A)
-**Expected:** After PR marked ready, primary action should be "Merge PR #N" or at minimum block next phase until merged
-**Actual:** Output says "ready for review" then immediately suggests "/kata:discuss-phase 2"
+**Fix:** Added AskUserQuestion "PR #{pr_number} is ready. Merge before continuing?" with merge/review/skip options (Plan 06-04, commit 070a892)
 
 ## Documentation Note
 
@@ -64,5 +62,5 @@ SUMMARY.md for Plan 01 claims `user-invocable: false` was removed, but the skill
 
 ---
 *UAT session started: 2026-01-27*
-*UAT completed: 2026-01-27*
-*Status: 2 issues found, needs fix plans*
+*UAT re-verified: 2026-01-27*
+*Status: All tests passing ✓*
