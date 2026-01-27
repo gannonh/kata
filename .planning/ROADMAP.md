@@ -90,7 +90,7 @@ Plans:
 - [x] **Phase 3: Phase Issues** - Create GitHub Issues for phases with labels and metadata — completed 2026-01-26
 - [x] **Phase 4: Plan Sync** - Checklist items in issues, update as plans complete — completed 2026-01-26
 - [x] **Phase 5: PR Integration** - Create PRs at phase start with auto-linking — completed 2026-01-27
-- [ ] **Phase 6: PR Review Workflow Skill & Agents** - Integrate PR review skill and agents into phase execution workflow (3/4 plans, UAT fix pending)
+- [x] **Phase 6: PR Review Workflow Skill & Agents** - Integrate PR review skill and agents into phase execution workflow — completed 2026-01-27
 
 ## Phase Details
 
@@ -246,7 +246,7 @@ Plans:
 - [x] 06-01-PLAN.md — Update skill frontmatter and command wrapper
 - [x] 06-02-PLAN.md — Add PR review integration to kata-executing-phases
 - [x] 06-03-PLAN.md — Add skill test and README documentation
-- [ ] 06-04-PLAN.md — UAT fix: backlog todo prompt + merge before next phase
+- [x] 06-04-PLAN.md — UAT fix: backlog todo prompt + merge before next phase
 
 ## Progress
 
@@ -265,7 +265,7 @@ Plans:
 | 3. Phase Issues                          | v1.1.0    | 2/2            | Complete    | 2026-01-26 |
 | 4. Plan Sync                             | v1.1.0    | 3/3            | Complete    | 2026-01-26 |
 | 5. PR Integration                        | v1.1.0    | 3/3            | Complete    | 2026-01-27 |
-| 6. PR Review Workflow Skill              | v1.1.0    | 3/4            | In Progress | —          |
+| 6. PR Review Workflow Skill              | v1.1.0    | 4/4            | Complete    | 2026-01-27 |
 
 ---
 *Roadmap created: 2026-01-18*
