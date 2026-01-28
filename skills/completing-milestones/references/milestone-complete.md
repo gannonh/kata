@@ -119,6 +119,169 @@ If "wait": Stop, user will return when ready.
 
 </step>
 
+<step name="release_workflow">
+
+**This step executes when user selected "Yes" or "Yes, dry-run first" in SKILL.md step 0.5**
+
+**Load reference files:**
+- Read @./version-detector.md for version detection functions
+- Read @./changelog-generator.md for changelog generation functions
+
+**Workflow:**
+
+1. **Detect version bump (REL-02):**
+   Use detect_version_bump and calculate_next_version from version-detector.md:
+   ```bash
+   # Get last release tag
+   LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+   # Get commits since last tag
+   if [ -n "$LAST_TAG" ]; then
+     COMMITS=$(git log --oneline --format="%s" "$LAST_TAG"..HEAD)
+   else
+     COMMITS=$(git log --oneline --format="%s")
+   fi
+
+   # Categorize commits
+   BREAKING=$(echo "$COMMITS" | grep -E "^[a-z]+(\(.+\))?!:|BREAKING CHANGE:" || true)
+   FEATURES=$(echo "$COMMITS" | grep -E "^feat(\(.+\))?:" || true)
+   FIXES=$(echo "$COMMITS" | grep -E "^fix(\(.+\))?:" || true)
+
+   # Detect bump type
+   if [ -n "$BREAKING" ]; then
+     BUMP_TYPE="major"
+   elif [ -n "$FEATURES" ]; then
+     BUMP_TYPE="minor"
+   elif [ -n "$FIXES" ]; then
+     BUMP_TYPE="patch"
+   else
+     BUMP_TYPE="none"
+   fi
+
+   # Get current version
+   CURRENT_VERSION=$(node -p "require('./package.json').version")
+
+   # Calculate next version
+   IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+   case "$BUMP_TYPE" in
+     major) NEXT_VERSION="$((major + 1)).0.0" ;;
+     minor) NEXT_VERSION="${major}.$((minor + 1)).0" ;;
+     patch) NEXT_VERSION="${major}.${minor}.$((patch + 1))" ;;
+     *) NEXT_VERSION="$CURRENT_VERSION" ;;
+   esac
+   ```
+
+2. **Generate changelog entry (REL-01):**
+   Use get_commits_by_type and generate_changelog_entry from changelog-generator.md:
+   ```bash
+   # Get commits by type
+   DOCS=$(echo "$COMMITS" | grep -E "^docs(\(.+\))?:" || true)
+   REFACTOR=$(echo "$COMMITS" | grep -E "^refactor(\(.+\))?:" || true)
+   PERF=$(echo "$COMMITS" | grep -E "^perf(\(.+\))?:" || true)
+   CHANGED="$DOCS
+   $REFACTOR
+   $PERF"
+
+   # Generate changelog entry
+   DATE=$(date +%Y-%m-%d)
+   ```
+
+3. **Present for review (REL-04 dry-run):**
+   ```
+   ## Release Preview
+
+   **Current version:** $CURRENT_VERSION
+   **Bump type:** $BUMP_TYPE
+   **Next version:** $NEXT_VERSION
+
+   **Changelog entry:**
+   ## [$NEXT_VERSION] - $DATE
+
+   ### Added
+   [feat commits formatted]
+
+   ### Fixed
+   [fix commits formatted]
+
+   ### Changed
+   [docs/refactor/perf commits formatted]
+
+   **Files to update:**
+   - package.json
+   - .claude-plugin/plugin.json
+   - CHANGELOG.md
+   ```
+
+4. **If dry-run mode:**
+   ```
+   DRY RUN COMPLETE
+
+   To apply these changes, run the release workflow again without dry-run.
+   ```
+   Stop here and return to SKILL.md flow.
+
+5. **Confirm before proceeding:**
+   Use AskUserQuestion:
+   - header: "Confirm Release"
+   - question: "Apply release changes?"
+   - options:
+     - "Yes, update files" — Apply version bump and changelog
+     - "Edit changelog first" — Pause for user edits, then confirm
+     - "Cancel" — Abort release, proceed to archive only
+
+6. **Apply changes (if confirmed):**
+   Use update_versions from version-detector.md:
+   ```bash
+   # Update package.json
+   jq --arg v "$NEXT_VERSION" '.version = $v' package.json > package.json.tmp
+   mv package.json.tmp package.json
+
+   # Update plugin.json
+   jq --arg v "$NEXT_VERSION" '.version = $v' .claude-plugin/plugin.json > plugin.json.tmp
+   mv plugin.json.tmp .claude-plugin/plugin.json
+
+   # Prepend changelog entry to CHANGELOG.md
+   # (Use insertion pattern from changelog-generator.md)
+   ```
+
+7. **Check pr_workflow mode (REL-03):**
+   ```bash
+   PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
+   ```
+
+   **If `PR_WORKFLOW=true`:**
+   ```
+   Release files updated. After PR merge:
+   1. Create GitHub Release with tag v$NEXT_VERSION
+   2. CI will automatically publish to marketplace
+
+   Note: After GitHub Release is created (manually or via pr_workflow merge),
+   the existing `.github/workflows/plugin-release.yml` will automatically
+   publish to the marketplace.
+   ```
+
+   **If `PR_WORKFLOW=false`:**
+   Create GitHub Release directly:
+   ```bash
+   # Extract changelog for this version
+   CHANGELOG=$(awk "/^## \[${NEXT_VERSION}\]/{found=1; next} /^## \[/{if(found) exit} found{print}" CHANGELOG.md)
+
+   # Create release with tag
+   gh release create "v$NEXT_VERSION" \
+     --title "v$NEXT_VERSION" \
+     --notes "$CHANGELOG" \
+     --target $(git branch --show-current)
+
+   echo "GitHub Release created: v$NEXT_VERSION"
+   ```
+
+8. **Continue to gather_stats step**
+
+**Release files tracking:**
+When release workflow completes, set `RELEASE_RAN=true` so git_commit_milestone step knows to stage release files.
+
+</step>
+
 <step name="gather_stats">
 
 Calculate milestone statistics:
@@ -664,7 +827,7 @@ COMMIT_PLANNING_DOCS=$(cat .planning/config.json 2>/dev/null | grep -o '"commit_
 git check-ignore -q .planning 2>/dev/null && COMMIT_PLANNING_DOCS=false
 ```
 
-**If `COMMIT_PLANNING_DOCS=false`:** Skip git operations
+**If `COMMIT_PLANNING_DOCS=false`:** Skip git operations for planning files only
 
 **If `COMMIT_PLANNING_DOCS=true` (default):**
 
@@ -681,9 +844,49 @@ git add .planning/STATE.md
 
 # Stage deletions
 git add -u .planning/
+```
 
-# Commit with descriptive message
-git commit -m "$(cat <<'EOF'
+**If release workflow was run (RELEASE_RAN=true):**
+
+```bash
+# Stage release files
+git add package.json
+git add .claude-plugin/plugin.json
+git add CHANGELOG.md
+```
+
+**Commit with descriptive message:**
+
+```bash
+# Build commit message based on what was included
+if [ "$RELEASE_RAN" = "true" ]; then
+  git commit -m "$(cat <<'EOF'
+chore: complete v[X.Y] milestone with release
+
+Release:
+- package.json version bumped
+- plugin.json version bumped
+- CHANGELOG.md updated
+
+Archived:
+- milestones/v[X.Y]-ROADMAP.md
+- milestones/v[X.Y]-REQUIREMENTS.md
+- milestones/v[X.Y]-MILESTONE-AUDIT.md (if audit was run)
+
+Deleted (fresh for next milestone):
+- ROADMAP.md
+- REQUIREMENTS.md
+
+Updated:
+- MILESTONES.md (new entry)
+- PROJECT.md (requirements → Validated)
+- STATE.md (reset for next milestone)
+
+Tagged: v[X.Y]
+EOF
+)"
+else
+  git commit -m "$(cat <<'EOF'
 chore: complete v[X.Y] milestone
 
 Archived:
@@ -703,6 +906,7 @@ Updated:
 Tagged: v[X.Y]
 EOF
 )"
+fi
 ```
 
 Confirm: "Committed: chore: complete v[X.Y] milestone"
