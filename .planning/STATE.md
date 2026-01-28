@@ -5,15 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-01-27)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** Milestone complete — run `/kata:adding-milestones` to define next milestone
+**Current focus:** v1.3.0 Release Automation & Workflow Docs — roadmap created, ready to plan Phase 0
 
 ## Current Position
 
-Milestone: v1.3.0 Workflow Polish & Backlog Integration
-Phase: Not started (defining requirements)
+Milestone: v1.3.0 Release Automation & Workflow Docs
+Phase: Phase 0 (Foundation & CI Hardening)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-01-28 — Milestone v1.3.0 started
+Status: Roadmap complete, ready to plan Phase 0
+Last activity: 2026-01-28 — v1.3.0 roadmap created
 
 Progress: [░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 0%
 
@@ -36,7 +36,7 @@ Progress: [░░░░░░░░░░░░░░░░░░░░░░░
 | v1.1.0    | 10     | 33    | Shipped 2026-01-27 |
 | v1.2.0    | 1      | 2     | Shipped 2026-01-27 |
 | v1.2.1    | 1      | 1     | Shipped 2026-01-28 |
-| v1.3.0    | —      | —     | In Progress        |
+| v1.3.0    | 4      | —     | In Progress        |
 
 **Recent Trend:**
 - v1.0.1-v1.0.5: Rapid patch releases (5 patches in 2 days) addressing plugin distribution issues
@@ -86,6 +86,7 @@ Recent decisions affecting current work:
 - **Phase 7 plan 05 complete 2026-01-27** — NPX deprecation stub (563 lines -> 17 lines)
 - **Phase 7 COMPLETE 2026-01-27** — NPX deprecation complete, plugin-only distribution
 - **Phase 7 GAP fix 2026-01-27** — Gap closure plan 07-06 for development workflow docs
+- **v1.3.0 started 2026-01-28** — Release Automation & Workflow Docs (4 phases: 0-3)
 
 ### Pending Todos
 
@@ -127,5 +128,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-28
-Stopped at: v1.3.0 milestone initialized
-Next action: Research decision, then requirements definition and roadmap creation
+Stopped at: v1.3.0 roadmap created
+Next action: `/kata:planning-phases 0` to plan Phase 0 (Foundation & CI Hardening)

@@ -30,11 +30,10 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 ### Active
 
-**v1.3.0 — Release Automation & Workflow Docs**
+**v1.3.0 — Release Automation**
 
+- CI hardening (validate plugin artifacts before release)
 - Release management automation (milestone completion → PR merge → CI release)
-- Workflow documentation (Mermaid/ASCII diagrams for all workflows)
-- UX improvements (statusline project info, onboarding enhancements)
 
 ### Out of Scope
 
@@ -126,14 +125,13 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 
-## Current Milestone: v1.3.0 Release Automation & Workflow Docs
+## Current Milestone: v1.3.0 Release Automation
 
-**Goal:** Automate the release pipeline, document all workflow decision paths, and polish user experience.
+**Goal:** Harden CI validation and automate the release pipeline.
 
 **Target features:**
+- CI hardening (validate plugin artifacts before release)
 - Release management automation (milestone completion → PR merge → CI release)
-- Workflow diagrams for all skills/agents (Mermaid/ASCII with decision trees)
-- UX polish (statusline info, better onboarding)
 
 ---
 *Last updated: 2026-01-28 — v1.3.0 milestone started*
