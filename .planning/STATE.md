@@ -86,7 +86,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-16 pending todos:
+17 pending todos:
 - `.planning/todos/pending/2026-01-18-statusline-kata-project-info.md` - Add kata project info to statusline
 - `.planning/todos/pending/2026-01-18-create-move-phase-command.md` - Create move-phase command
 - `.planning/todos/pending/2026-01-18-command-subagent-noun-verb-naming.md` - Change command and subagent naming to noun-verb
@@ -103,6 +103,7 @@ Recent decisions affecting current work:
 - `.planning/todos/pending/2026-01-20-project-documentation-templates.md` - Project documentation templates and lifecycle
 - `.planning/todos/pending/2026-01-20-cli-ui-for-todo-management.md` - CLI UI for viewing and managing todos
 - `.planning/todos/pending/2026-01-21-add-validation-hooks-agents-skills.md` - Add validation hooks to agents and skills
+- `.planning/todos/pending/2026-01-27-create-workflow-flow-diagrams.md` - Create detailed flow diagrams of workflow paths
 
 ### Blockers/Concerns
 
