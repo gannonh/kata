@@ -52,6 +52,14 @@ claude plugin install kata@kata-marketplace
 
 **All features are optional.** Enable what you need via `/kata:configure-settings`.
 
+<div align="center">
+
+![GitHub Integration Setup](assets/project-config-flow.gif)
+
+<sub>Interactive setup for PR workflows, GitHub tracking, issue creation, and CI scaffolding</sub>
+
+</div>
+
 ---
 
 ## Voice-First: Conversational Interface
