@@ -376,29 +376,49 @@ PR_EOF
 
     Store PR_URL for offer_next output.
 
-10.6. **Run PR Review (pr_workflow only, optional)**
+10.6. **Post-Verification Checkpoint (REQUIRED)**
 
-    After marking PR ready, offer to run automated review:
+    After PR is ready (or after phase commits if pr_workflow=false), present the user with post-verification options. This is the decision point before proceeding to completion output.
+
+    **IMPORTANT:** Do NOT skip this step. Do NOT proceed directly to step 11. The user must choose how to proceed.
 
     Use AskUserQuestion:
-    - header: "PR Review"
-    - question: "Run automated PR review before team review?"
+    - header: "Phase Complete"
+    - question: "Phase {X} execution complete. What would you like to do?"
     - options:
-      - "Yes, run full review" — Run kata-reviewing-pull-requests with all aspects
-      - "Quick review (code only)" — Run kata-reviewing-pull-requests with "code" aspect only
-      - "Skip" — Proceed without review
+      - "Run UAT (Recommended)" — Walk through deliverables for manual acceptance testing
+      - "Run PR review" — 6 specialized agents review code quality
+      - "Merge PR" — (if pr_workflow=true) Squash merge to main
+      - "Skip to completion" — Trust automated verification, proceed to next phase/milestone
 
-    **If user chooses review:**
-    1. Invoke skill: `Skill("kata:reviewing-pull-requests", "<aspect>")`
+    **Note:** Show "Merge PR" option only if `pr_workflow=true` AND PR exists AND not already merged.
+
+    **If user chooses "Run UAT":**
+    1. Invoke skill: `Skill("kata:verify-work", "{phase}")`
+    2. UAT skill handles the walkthrough and any issues found
+    3. After UAT completes, return to this step to ask again (user may want PR review or merge)
+
+    **If user chooses "Run PR review":**
+    1. Invoke skill: `Skill("kata:reviewing-pull-requests")`
     2. Display review summary with counts: {N} critical, {M} important, {P} suggestions
-    3. **STOP and ask what to do with findings** (see below)
+    3. **STOP and ask what to do with findings** (see step 10.7)
+    4. After findings handled, return to this step
 
-    **If user chooses "Skip":**
-    Continue to step 11 without review.
+    **If user chooses "Merge PR":**
+    1. Execute merge:
+       ```bash
+       gh pr merge "$PR_NUMBER" --squash --delete-branch
+       git checkout main && git pull
+       ```
+    2. Set MERGED=true
+    3. Return to this step to ask if user wants UAT or review before continuing
 
-10.7. **Handle Review Findings (required after review completes)**
+    **If user chooses "Skip to completion":**
+    Continue to step 11.
 
-    **STOP here. Do not proceed to step 11 until user chooses an action.**
+10.7. **Handle Review Findings (required after PR review completes)**
+
+    **STOP here. Do not proceed until user chooses an action.**
 
     Use AskUserQuestion with options based on what was found:
     - header: "Review Findings"
@@ -417,28 +437,30 @@ PR_EOF
     2. If important or suggestions remain, ask: "Add remaining {N} issues to backlog?"
        - "Yes" → Create todos, store TODOS_CREATED count
        - "No" → Continue
-    3. Continue to step 11
+    3. Return to step 10.6 checkpoint
 
     **Path B: "Fix critical & important"**
     1. Fix each critical and important issue
     2. If suggestions remain, ask: "Add {N} suggestions to backlog?"
        - "Yes" → Create todos, store TODOS_CREATED count
        - "No" → Continue
-    3. Continue to step 11
+    3. Return to step 10.6 checkpoint
 
     **Path C: "Fix all issues"**
     1. Fix all critical, important, and suggestion issues
-    2. Continue to step 11
+    2. Return to step 10.6 checkpoint
 
     **Path D: "Add to backlog"**
     1. Create todos for all issues using `/kata:add-todo`
     2. Store TODOS_CREATED count
-    3. Continue to step 11
+    3. Return to step 10.6 checkpoint
 
     **Path E: "Ignore and continue"**
-    1. Continue to step 11
+    1. Return to step 10.6 checkpoint
 
     Store REVIEW_SUMMARY and TODOS_CREATED for offer_next output.
+
+    **Note:** After handling findings, return to step 10.6 so user can choose UAT, merge, or skip. The checkpoint loop continues until user explicitly chooses "Skip to completion".
 
 11. **Offer next steps**
     - Route to next action (see `<offer_next>`)
@@ -458,25 +480,7 @@ Output this markdown directly (not as a code block). Route based on status:
 
 **Route A: Phase verified, more phases remain**
 
-**Step 1: If PR_WORKFLOW=true, STOP and ask about merge BEFORE showing completion output.**
-
-Use AskUserQuestion:
-- header: "PR Ready for Merge"
-- question: "PR #{pr_number} is ready. Merge before continuing to next phase?"
-- options:
-  - "Yes, merge now" — merge PR, then show completion
-  - "No, continue without merging" — show completion with PR status
-
-**Step 2: Handle merge response (if PR_WORKFLOW=true)**
-
-If user chose "Yes, merge now":
-```bash
-gh pr merge "$PR_NUMBER" --squash --delete-branch
-git checkout main && git pull
-```
-Set MERGED=true for output below.
-
-**Step 3: Show completion output**
+(Merge status already determined in step 10.6)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► PHASE {Z} COMPLETE ✓
@@ -523,7 +527,8 @@ Goal verified ✓
 
 {N} phases completed
 All phase goals verified ✓
-{If pr_workflow: Phase PRs ready — merge to prepare for release}
+{If PR_WORKFLOW and MERGED: All phase PRs merged ✓}
+{If PR_WORKFLOW and not MERGED: Phase PRs ready — merge to prepare for release}
 
 ───────────────────────────────────────────────────────────────
 
