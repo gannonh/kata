@@ -138,7 +138,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. `/kata:starting-projects` prompts for GitHub integration preferences
   2. Config choices saved to `.planning/config.json` during onboarding
-  3. `/kata:starting-milestones` creates GitHub Milestone when `github.enabled = true`
+  3. `/kata:adding-milestones` creates GitHub Milestone when `github.enabled = true`
   4. GitHub Milestone includes version number and description from ROADMAP.md
 **Plans:** 3 plans
 
@@ -154,7 +154,7 @@ Plans:
   1. `/kata:starting-projects` checks for existing GitHub remote (`git remote -v`)
   2. If no remote and `github.enabled=true`, prompts to create repo with `gh repo create`
   3. If user declines repo creation, `github.enabled` set to `false` with explanation
-  4. GitHub Milestone creation in `/kata:starting-milestones` only runs when remote exists
+  4. GitHub Milestone creation in `/kata:adding-milestones` only runs when remote exists
 **Plans:** 2 plans
 
 Plans:
@@ -270,23 +270,23 @@ Plans:
 
 ## Progress
 
-| Phase                                    | Milestone | Plans Complete | Status      | Completed  |
-| ---------------------------------------- | --------- | -------------- | ----------- | ---------- |
-| 0. Hard Fork & Rebrand                   | v0.1.4    | 5/5            | Complete    | 2026-01-18 |
-| 0-2. Skills & Documentation              | v0.1.5    | 30/30          | Complete    | 2026-01-22 |
-| 1-3. Claude Code Plugin                  | v1.0.0    | 5/5            | Complete    | 2026-01-23 |
-| 2.1 Skill Resource Restructure           | v1.0.8    | 5/5            | Shipped     | 2026-01-24 |
-| 2.2 Normalize on Skills                  | v1.0.9    | 3/3            | Complete    | 2026-01-25 |
-| 0. Develop Robust Testing Suite          | v1.1.0    | 7/7            | Complete    | 2026-01-25 |
-| 1. Audit & Config Foundation             | v1.1.0    | 2/2            | Complete    | 2026-01-25 |
-| 2. Onboarding & Milestones               | v1.1.0    | 3/3            | Complete    | 2026-01-25 |
-| 2.1 GitHub Repo Setup (INSERTED)         | v1.1.0    | 2/2            | Complete    | 2026-01-26 |
-| 2.2 Decouple Init & Milestone (INSERTED) | v1.1.0    | 4/4            | Complete    | 2026-01-26 |
-| 3. Phase Issues                          | v1.1.0    | 2/2            | Complete    | 2026-01-26 |
-| 4. Plan Sync                             | v1.1.0    | 3/3            | Complete    | 2026-01-26 |
-| 5. PR Integration                        | v1.1.0    | 3/3            | Complete    | 2026-01-27 |
-| 6. PR Review Workflow Skill              | v1.1.0    | 4/4            | Complete    | 2026-01-27 |
-| 7. Deprecate NPX Support                 | v1.1.0    | 6/6            | Complete    | 2026-01-27 |
+| Phase                                    | Milestone | Plans Complete | Status   | Completed  |
+| ---------------------------------------- | --------- | -------------- | -------- | ---------- |
+| 0. Hard Fork & Rebrand                   | v0.1.4    | 5/5            | Complete | 2026-01-18 |
+| 0-2. Skills & Documentation              | v0.1.5    | 30/30          | Complete | 2026-01-22 |
+| 1-3. Claude Code Plugin                  | v1.0.0    | 5/5            | Complete | 2026-01-23 |
+| 2.1 Skill Resource Restructure           | v1.0.8    | 5/5            | Shipped  | 2026-01-24 |
+| 2.2 Normalize on Skills                  | v1.0.9    | 3/3            | Complete | 2026-01-25 |
+| 0. Develop Robust Testing Suite          | v1.1.0    | 7/7            | Complete | 2026-01-25 |
+| 1. Audit & Config Foundation             | v1.1.0    | 2/2            | Complete | 2026-01-25 |
+| 2. Onboarding & Milestones               | v1.1.0    | 3/3            | Complete | 2026-01-25 |
+| 2.1 GitHub Repo Setup (INSERTED)         | v1.1.0    | 2/2            | Complete | 2026-01-26 |
+| 2.2 Decouple Init & Milestone (INSERTED) | v1.1.0    | 4/4            | Complete | 2026-01-26 |
+| 3. Phase Issues                          | v1.1.0    | 2/2            | Complete | 2026-01-26 |
+| 4. Plan Sync                             | v1.1.0    | 3/3            | Complete | 2026-01-26 |
+| 5. PR Integration                        | v1.1.0    | 3/3            | Complete | 2026-01-27 |
+| 6. PR Review Workflow Skill              | v1.1.0    | 4/4            | Complete | 2026-01-27 |
+| 7. Deprecate NPX Support                 | v1.1.0    | 6/6            | Complete | 2026-01-27 |
 
 ---
 *Roadmap created: 2026-01-18*

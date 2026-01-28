@@ -17,21 +17,21 @@ The config schema in `.planning/config.json` is read via bash grep patterns thro
 This phase is internal to Kata - no external libraries needed.
 
 ### Core
-| Component | Version | Purpose | Why Standard |
-| --------- | ------- | ------- | ------------ |
-| Bash grep/sed | N/A | Config reading | Established pattern in all Kata skills |
-| JSON | N/A | Config format | Already used for `.planning/config.json` |
+| Component     | Version | Purpose        | Why Standard                             |
+| ------------- | ------- | -------------- | ---------------------------------------- |
+| Bash grep/sed | N/A     | Config reading | Established pattern in all Kata skills   |
+| JSON          | N/A     | Config format  | Already used for `.planning/config.json` |
 
 ### Supporting
-| Component | Purpose | When to Use |
-| --------- | ------- | ----------- |
-| `gh` CLI | GitHub API access | Future phases (milestones, issues, PRs) |
+| Component | Purpose           | When to Use                             |
+| --------- | ----------------- | --------------------------------------- |
+| `gh` CLI  | GitHub API access | Future phases (milestones, issues, PRs) |
 
 ### Alternatives Considered
-| Instead of | Could Use | Tradeoff |
-| ---------- | --------- | -------- |
-| Bash grep | jq | jq cleaner but adds dependency; grep is already established pattern |
-| JSON config | YAML | JSON matches existing config.json format |
+| Instead of  | Could Use | Tradeoff                                                            |
+| ----------- | --------- | ------------------------------------------------------------------- |
+| Bash grep   | jq        | jq cleaner but adds dependency; grep is already established pattern |
+| JSON config | YAML      | JSON matches existing config.json format                            |
 
 ## Architecture Patterns
 
@@ -100,7 +100,7 @@ skills/kata-executing-phases/references/github-integration.md
 
 ## Integration Points
 
-### /kata:starting-milestones (Phase 2)
+### /kata:adding-milestones (Phase 2)
 **When:** After roadmap created, user approves
 **What:** Create GitHub Milestone if `github.enabled`
 **Config check:** `github.enabled`, `github.issueMode`
@@ -132,11 +132,11 @@ skills/kata-executing-phases/
 
 ## Don't Hand-Roll
 
-| Problem | Don't Build | Use Instead | Why |
-| ------- | ----------- | ----------- | --- |
-| JSON parsing | Custom parser | Bash grep patterns | Established in 50+ locations across skills |
-| GitHub API | Custom HTTP calls | `gh` CLI | Already used in milestone-complete, PR workflow |
-| Config validation | Schema validator | Grep with defaults | Kata pattern - missing keys get defaults |
+| Problem           | Don't Build       | Use Instead        | Why                                             |
+| ----------------- | ----------------- | ------------------ | ----------------------------------------------- |
+| JSON parsing      | Custom parser     | Bash grep patterns | Established in 50+ locations across skills      |
+| GitHub API        | Custom HTTP calls | `gh` CLI           | Already used in milestone-complete, PR workflow |
+| Config validation | Schema validator  | Grep with defaults | Kata pattern - missing keys get defaults        |
 
 **Key insight:** Kata deliberately uses simple bash tools over complex dependencies. The grep-based config reading is battle-tested across the codebase and works reliably.
 
@@ -227,9 +227,9 @@ fi
 
 ## State of the Art
 
-| Old Approach | Current Approach | When Changed | Impact |
-| ------------ | ---------------- | ------------ | ------ |
-| N/A (new feature) | Config-driven integration | v1.1.0 | Allows opt-in GitHub integration |
+| Old Approach      | Current Approach          | When Changed | Impact                           |
+| ----------------- | ------------------------- | ------------ | -------------------------------- |
+| N/A (new feature) | Config-driven integration | v1.1.0       | Allows opt-in GitHub integration |
 
 **Deprecated/outdated:**
 - None (this is new feature development)
@@ -240,14 +240,14 @@ Based on codebase analysis, these skills need modification for GitHub integratio
 
 ### Phase 1 (This Phase) - Config & Documentation Only
 
-| Skill | Current State | Phase 1 Change |
-| ----- | ------------- | -------------- |
-| `kata-starting-projects` | Creates config.json | Document: will add GitHub options in Phase 2 |
-| `kata-starting-milestones` | Creates milestone | Document: will create GH Milestone in Phase 2 |
-| `kata-configuring-settings` | Edits config.json | Document: will add GitHub settings in Phase 2 |
-| `kata-planning-phases` | Creates plans | Document: will create/update issue in Phase 3-4 |
-| `kata-executing-phases` | Executes plans | Document: will update issue/create PR in Phase 4-5 |
-| `kata-tracking-progress` | Shows status | Document: will show GH issue/PR status in Phase 5 |
+| Skill                       | Current State       | Phase 1 Change                                     |
+| --------------------------- | ------------------- | -------------------------------------------------- |
+| `kata-starting-projects`    | Creates config.json | Document: will add GitHub options in Phase 2       |
+| `kata-starting-milestones`  | Creates milestone   | Document: will create GH Milestone in Phase 2      |
+| `kata-configuring-settings` | Edits config.json   | Document: will add GitHub settings in Phase 2      |
+| `kata-planning-phases`      | Creates plans       | Document: will create/update issue in Phase 3-4    |
+| `kata-executing-phases`     | Executes plans      | Document: will update issue/create PR in Phase 4-5 |
+| `kata-tracking-progress`    | Shows status        | Document: will show GH issue/PR status in Phase 5  |
 
 ### Files to Create/Modify in This Phase
 
