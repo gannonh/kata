@@ -196,10 +196,20 @@ Phase: $ARGUMENTS
 
    - **Open Draft PR (first wave only, pr_workflow only):**
 
-     After first wave completion:
+     After first wave completion (orchestrator provides PHASE_ARG):
      ```bash
-     if [ "$PR_WORKFLOW" = "true" ] && [ "$WAVE_NUM" = "1" ]; then
-       # Check if PR already exists (re-run protection)
+     # Re-read config (bash blocks don't share state)
+     PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
+     GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | head -1 | grep -o 'true\|false' || echo "false")
+     ISSUE_MODE=$(cat .planning/config.json 2>/dev/null | grep -o '"issueMode"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "never")
+     MILESTONE=$(grep -E "^\- \[.\] \*\*Phase|^### v" .planning/ROADMAP.md | grep -E "In Progress" | grep -oE "v[0-9]+\.[0-9]+(\.[0-9]+)?" | head -1 | tr -d 'v')
+     [ -z "$MILESTONE" ] && MILESTONE=$(grep -oE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' .planning/ROADMAP.md | head -1 | tr -d 'v')
+     PHASE_DIR=$(ls -d .planning/phases/${PHASE_ARG:-00}* 2>/dev/null | head -1)
+     PHASE_NUM=$(basename "$PHASE_DIR" | sed -E 's/^([0-9]+)-.*/\1/')
+     BRANCH=$(git branch --show-current)
+
+     if [ "$PR_WORKFLOW" = "true" ]; then
+       # Check if PR already exists (re-run protection - also handles wave > 1)
        EXISTING_PR=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null)
        if [ -n "$EXISTING_PR" ]; then
          echo "PR #${EXISTING_PR} already exists, skipping creation"
@@ -208,11 +218,11 @@ Phase: $ARGUMENTS
          # Push branch and create draft PR
          git push -u origin "$BRANCH"
 
-         # Get phase name from ROADMAP.md
-         PHASE_NAME=$(grep -E "^Phase ${PHASE_NUM}:" .planning/ROADMAP.md | sed -E 's/^Phase [0-9]+: //' | cut -d'—' -f1 | xargs)
+         # Get phase name from ROADMAP.md (format: #### Phase N: Name)
+         PHASE_NAME=$(grep -E "^#### Phase ${PHASE_NUM}:" .planning/ROADMAP.md | sed -E 's/^#### Phase [0-9]+: //' | xargs)
 
-         # Build PR body
-         PHASE_GOAL=$(grep -A 2 "^Phase ${PHASE_NUM}:" .planning/ROADMAP.md | grep "Goal:" | sed 's/.*Goal: //')
+         # Build PR body (Goal is on next line after phase header)
+         PHASE_GOAL=$(grep -A 3 "^#### Phase ${PHASE_NUM}:" .planning/ROADMAP.md | grep "Goal:" | sed 's/.*Goal:[[:space:]]*//')
 
          # Get phase issue number for linking (if github.enabled)
          CLOSES_LINE=""

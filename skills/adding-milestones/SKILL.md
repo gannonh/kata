@@ -778,6 +778,13 @@ gh label create "phase" --color "0E8A16" --description "Kata phase tracking" --f
 **4. Get milestone number** (from Phase 5.5):
 
 ```bash
+# Extract VERSION from current milestone (the one marked "In Progress")
+VERSION=$(grep -E "^### v[0-9]+\.[0-9]+.*\(In Progress\)" .planning/ROADMAP.md | grep -oE "v[0-9]+\.[0-9]+(\.[0-9]+)?" | head -1 | tr -d 'v')
+if [ -z "$VERSION" ]; then
+  echo "Warning: Could not determine milestone version from ROADMAP.md. Skipping phase issue creation."
+  exit 0
+fi
+
 MILESTONE_NUM=$(gh api /repos/:owner/:repo/milestones --jq ".[] | select(.title==\"v${VERSION}\") | .number" 2>/dev/null)
 if [ -z "$MILESTONE_NUM" ]; then
   echo "Warning: Could not find GitHub Milestone v${VERSION}. Skipping phase issue creation."
@@ -796,9 +803,14 @@ The ROADMAP.md structure uses:
 
 ```bash
 # Find the milestone section and extract phases
-# VERSION is already set (e.g., "1.1.0")
-
 ROADMAP_FILE=".planning/ROADMAP.md"
+
+# Extract VERSION from current milestone (the one marked "In Progress")
+VERSION=$(grep -E "^### v[0-9]+\.[0-9]+.*\(In Progress\)" "$ROADMAP_FILE" | grep -oE "v[0-9]+\.[0-9]+(\.[0-9]+)?" | head -1 | tr -d 'v')
+if [ -z "$VERSION" ]; then
+  echo "Warning: Could not determine milestone version. Skipping phase issue creation."
+  exit 0
+fi
 
 # Get line numbers for milestone section boundaries
 MILESTONE_START=$(grep -n "^### v${VERSION}" "$ROADMAP_FILE" | head -1 | cut -d: -f1)
