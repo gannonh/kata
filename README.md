@@ -11,7 +11,7 @@
 Multi-agent orchestration framework for spec-driven development.
 <br>
 
-**v1.2.0** — Optional GitHub integration, automated PR review, and release automation.
+**v1.3.0** — Release automation with changelog generation and semantic versioning.
 <br>
 
 [kata.sh](https://kata.sh)
@@ -36,7 +36,19 @@ claude plugin install kata@kata-marketplace
 
 ---
 
-## What's New in v1.2.0
+## What's New in v1.3.0
+
+**Release Automation** — Complete release workflow from milestone completion:
+- **Changelog Generation** — Auto-generate entries from conventional commits (feat → Added, fix → Fixed)
+- **Version Detection** — Semantic versioning based on commit types (breaking → major, feat → minor, fix → patch)
+- **Dry-Run Mode** — Preview changes before applying
+- **Review Gate** — Human approval before writing changelog
+- **GitHub Release** — Creates release with tag after PR merge
+
+When completing a milestone, you're offered: "Run release workflow", "Dry-run first", or "Just archive".
+
+<details>
+<summary><strong>v1.2.0: GitHub Integration & PR Review</strong></summary>
 
 **Optional GitHub Integration** — Mirror your roadmap to GitHub when you want team visibility:
 - Milestones → GitHub Milestones
@@ -48,7 +60,7 @@ claude plugin install kata@kata-marketplace
 - Code quality, test coverage, error handling, type design, documentation, simplification
 - Runs after phase execution or on-demand
 
-**Release Automation** — CI creates GitHub Releases with tags automatically on merge.
+</details>
 
 **All features are optional.** Enable what you need via `/kata:configure-settings`.
 
@@ -279,15 +291,20 @@ Offered automatically after phase execution or run on-demand anytime.
 "Complete the milestone"
 ```
 
-Archives and ships:
+Archives and ships, with optional release automation:
 
 1. **Verify** — All phases have summaries, optional audit passed
-2. **Archive** — Moves milestone to `milestones/v1.0-ROADMAP.md`
-3. **Update** — PROJECT.md gets "Current State" section
-4. **Release** — Creates PR or tag based on workflow setting
-5. **CI** — GitHub Release created automatically on merge (v1.2.0+)
+2. **Release Workflow** (optional, v1.3.0+) — Offered before archiving:
+   - Detects version bump from conventional commits (feat → minor, fix → patch, breaking → major)
+   - Generates changelog entry from commit history (Keep a Changelog format)
+   - Preview mode lets you review before applying
+   - Human confirmation before writing to files
+3. **Archive** — Moves milestone to `milestones/v1.0-ROADMAP.md`
+4. **Update** — PROJECT.md gets "Current State" section
+5. **Release** — Creates PR or tag based on workflow setting
+6. **CI** — GitHub Release created automatically on merge
 
-**Creates:** Archived roadmap/requirements, git tag or release PR
+**Creates:** Archived roadmap/requirements, updated CHANGELOG.md (if release), git tag or release PR
 
 **Next:** "Add milestone v1.1"
 
@@ -368,7 +385,7 @@ Override per-invocation: `/kata:plan-phase --skip-research`
 | Execute phase         | Creates branch, draft PR, checks off plans |
 | Phase complete        | Marks PR ready, links "Closes #X"          |
 | Milestone complete    | Creates release PR                         |
-| Merge to main         | CI creates GitHub Release + tag (v1.2.0+)  |
+| Merge to main         | CI creates GitHub Release + tag            |
 
 **Requirements:** `gh` CLI authenticated, GitHub remote configured.
 
