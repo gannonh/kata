@@ -48,13 +48,15 @@ const EXCLUDES = [
   'tests',
   '.git',
   'dev',
-  'scripts',
   'node_modules',
   '.secrets',
   '.github',
   'assets',
   'dist',
   '.DS_Store',
+  '__pycache__',
+  // Note: 'scripts' removed - top-level scripts/ isn't in INCLUDES anyway,
+  // and we need skills/*/scripts/ to be copied for skill helper scripts
 ];
 
 /**
