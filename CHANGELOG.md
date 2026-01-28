@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-01-28 — Release Automation
+
+Kata v1.3.0 integrates release workflow into milestone completion: version detection, changelog generation, and GitHub Release creation.
+
+### Added
+- **Release workflow in milestone completion**: `/kata:completing-milestones` now offers release workflow before verification
+- **Version detection reference**: `version-detector.md` with semantic version detection from conventional commits
+- **Changelog generation reference**: `changelog-generator.md` with Keep a Changelog format and commit-to-section mapping
+- **Dry-run mode**: Preview version bump and changelog without applying changes
+- **PR workflow integration**: Instructions for PR merge vs direct `gh release create` based on config
+
+### Changed
+- **Milestone completion skill**: Updated description with release triggers (release version, create release, ship milestone)
+- **Execution phase workflow**: Consolidated post-execution options into step 10.6 checkpoint loop
+- **README**: Updated for v1.3.0 with What's New section documenting release automation
+
+### Fixed
+- **Merge timing**: Merge now offered after UAT/PR review, not before
+
+---
+
 ## [1.2.2] - 2026-01-28
 
 ### Fixed
@@ -270,8 +291,20 @@ Kata 1.0 ships with **Claude Code plugin support** as the recommended installati
 - Upstream remote and sync workflow
 - References to original project maintainer
 
-[Unreleased]: https://github.com/gannonh/kata/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/gannonh/kata/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/gannonh/kata/compare/v1.2.2...v1.3.0
+[1.2.2]: https://github.com/gannonh/kata/compare/v1.2.1...v1.2.2
+[1.2.1]: https://github.com/gannonh/kata/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/gannonh/kata/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/gannonh/kata/compare/v1.0.8...v1.1.0
+[1.0.8]: https://github.com/gannonh/kata/compare/v1.0.7...v1.0.8
+[1.0.7]: https://github.com/gannonh/kata/compare/v1.0.6...v1.0.7
+[1.0.6]: https://github.com/gannonh/kata/compare/v1.0.5...v1.0.6
+[1.0.5]: https://github.com/gannonh/kata/compare/v1.0.4...v1.0.5
+[1.0.4]: https://github.com/gannonh/kata/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/gannonh/kata/compare/v1.0.2...v1.0.3
+[1.0.2]: https://github.com/gannonh/kata/compare/v1.0.1...v1.0.2
+[1.0.1]: https://github.com/gannonh/kata/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/gannonh/kata/compare/v0.1.8...v1.0.0
 [0.1.8]: https://github.com/gannonh/kata/compare/v0.1.6...v0.1.8
 [0.1.6]: https://github.com/gannonh/kata/compare/v0.1.5...v0.1.6
