@@ -105,7 +105,7 @@ Plans:
 **Requirements:** 4 (REL-01 to REL-04)
 **Depth:** Quick
 
-- [ ] **Phase 0: Foundation & CI Hardening** — Prevent path resolution issues, validate artifacts before release
+- [x] **Phase 0: Foundation & CI Hardening** — Prevent path resolution issues, validate artifacts before release — completed 2026-01-28
 - [ ] **Phase 1: Release Automation** — Milestone completion triggers GitHub Release and CI publish
 
 ---
@@ -128,8 +128,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 00-01-PLAN.md — Create artifact validation test suite
-- [ ] 00-02-PLAN.md — Reorder CI workflow for pre-release validation
+- [x] 00-01-PLAN.md — Create artifact validation test suite
+- [x] 00-02-PLAN.md — Reorder CI workflow for pre-release validation
 
 ---
 
@@ -176,9 +176,9 @@ Plans:
 | 5. PR Integration                        | v1.1.0    | 3/3            | Complete | 2026-01-27 |
 | 6. PR Review Workflow Skill              | v1.1.0    | 4/4            | Complete | 2026-01-27 |
 | 7. Deprecate NPX Support                 | v1.1.0    | 6/6            | Complete | 2026-01-27 |
-| 0. Foundation & CI Hardening             | v1.3.0    | 0/2            | Planned  | —          |
+| 0. Foundation & CI Hardening             | v1.3.0    | 2/2            | Complete | 2026-01-28 |
 | 1. Release Automation                    | v1.3.0    | —              | Pending  | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-28 — Phase 0 planned (2 plans)*
+*Last updated: 2026-01-28 — Phase 0 complete (2 plans)*
