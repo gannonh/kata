@@ -1,5 +1,80 @@
 # Project Milestones: Kata
 
+## v1.2.1 (Shipped: 2026-01-28)
+
+**Delivered:** VERSION file path fix for plugin distribution
+
+**Phases completed:** N/A (patch release)
+
+**Key accomplishments:**
+
+- Fixed VERSION file path in skills to use `$CLAUDE_PLUGIN_ROOT/VERSION`
+- Removed deprecated NPX fallback paths from skills
+- Removed stale `kata/VERSION` source file
+
+**Stats:**
+
+- 3 files modified
+- Patch release (same day as v1.2.0)
+
+**Git range:** `v1.2.0` → `v1.2.1`
+
+**What's next:** v1.3.0 Release Automation
+
+---
+
+## v1.2.0 Release Process Automation (Shipped: 2026-01-27)
+
+**Delivered:** Automated release pipeline with CI-driven GitHub Releases
+
+**Phases completed:** N/A (single-day release automation)
+
+**Key accomplishments:**
+
+- CI workflow creates GitHub Releases with tags on version change
+- Changelog extraction automated from CHANGELOG.md
+- Release skill updated for plugin-only distribution
+- Removed all NPM publishing references
+
+**Stats:**
+
+- ~10 files modified
+- CI/CD automation sprint (same day as v1.1.0)
+
+**Git range:** `v1.1.0` → `v1.2.0`
+
+**What's next:** v1.2.1 patch (VERSION path fix)
+
+---
+
+## v1.1.0 GitHub Integration (Shipped: 2026-01-27)
+
+**Delivered:** Config-driven GitHub Milestone, Issue, and PR workflows
+
+**Phases completed:** 0-7 (33 plans total)
+
+**Key accomplishments:**
+
+- GitHub Milestone/Issue/PR integration with auto-linking
+- Test harness with 27 skill tests and CI/CD integration
+- PR review workflow with 6 specialized agents
+- Plugin-only distribution (NPX deprecated, 27 skills renamed)
+- Phase issues with `phase` label, plan checklist sync
+- Branch creation and draft PR automation
+
+**Stats:**
+
+- 79 files changed, 2069 insertions, 885 deletions
+- 10 phases, 33 plans
+- 3 days (2026-01-25 → 2026-01-27)
+- Includes rapid iteration on skills-only architecture (v1.1.0-1.1.15)
+
+**Git range:** `v1.0.8` → `v1.1.0`
+
+**What's next:** v1.2.0 Release Process Automation
+
+---
+
 ## v1.0.8 Plugin Stability (Shipped: 2026-01-24)
 
 **Delivered:** Skill self-containment architecture for stable plugin distribution
