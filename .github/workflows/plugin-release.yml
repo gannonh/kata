@@ -59,6 +59,34 @@ jobs:
             echo "should_publish=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Run tests
+        if: steps.check.outputs.should_publish == 'true'
+        run: npm test
+
+      - name: Build hooks
+        if: steps.check.outputs.should_publish == 'true'
+        run: npm run build:hooks
+
+      - name: Build plugin distribution
+        if: steps.check.outputs.should_publish == 'true'
+        run: node scripts/build.js plugin
+
+      - name: Validate plugin build (quick check)
+        if: steps.check.outputs.should_publish == 'true'
+        run: |
+          # Verify critical files exist
+          test -f dist/plugin/.claude-plugin/plugin.json
+          test -d dist/plugin/skills
+          test -d dist/plugin/commands
+          test -d dist/plugin/hooks
+          test -d dist/plugin/agents
+          test -f dist/plugin/VERSION
+          echo "✓ Plugin build validated (quick check)"
+
+      - name: Validate plugin artifacts
+        if: steps.check.outputs.should_publish == 'true'
+        run: npm run test:artifacts
+
       - name: Create GitHub Release
         if: steps.check.outputs.should_publish == 'true'
         env:
@@ -82,28 +110,6 @@ jobs:
             --target main
 
           echo "✓ Created GitHub Release v$VERSION"
-
-      - name: Run tests
-        if: steps.check.outputs.should_publish == 'true'
-        run: npm test
-
-      - name: Build plugin distribution
-        if: steps.check.outputs.should_publish == 'true'
-        run: |
-          npm run build:hooks
-          node scripts/build.js plugin
-
-      - name: Validate plugin build
-        if: steps.check.outputs.should_publish == 'true'
-        run: |
-          # Verify critical files exist
-          test -f dist/plugin/.claude-plugin/plugin.json
-          test -d dist/plugin/skills
-          test -d dist/plugin/commands
-          test -d dist/plugin/hooks
-          test -d dist/plugin/agents
-          test -f dist/plugin/VERSION
-          echo "✓ Plugin build validated"
 
       - name: Checkout marketplace
         if: steps.check.outputs.should_publish == 'true'
