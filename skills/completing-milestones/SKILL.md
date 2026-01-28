@@ -1,6 +1,6 @@
 ---
 name: completing-milestones
-description: Use this skill when archiving a completed milestone, preparing for the next version, marking a milestone complete, shipping a version, or wrapping up milestone work. Triggers include "complete milestone", "finish milestone", "archive milestone", "ship version", "mark milestone done", and "milestone complete".
+description: Use this skill when archiving a completed milestone, preparing for the next version, marking a milestone complete, shipping a version, or wrapping up milestone work. Triggers include "complete milestone", "finish milestone", "archive milestone", "ship version", "mark milestone done", "milestone complete", "release version", "create release", and "ship milestone".
 metadata:
   version: "0.1.0"
 user-invocable: false
@@ -26,6 +26,8 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
 - @./references/milestone-complete.md (main workflow)
 - @./references/milestone-archive-template.md (archive template)
+- @./references/version-detector.md (version detection functions)
+- @./references/changelog-generator.md (changelog generation functions)
   </execution_context>
 
 <context>
@@ -74,6 +76,19 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
      - "No, let me update them" — Exit to update
 
    If "No", exit command.
+
+0.5. **Offer release workflow:**
+
+   Use AskUserQuestion:
+   - header: "Release Workflow"
+   - question: "Would you like to run the release workflow before archiving?"
+   - options:
+     - "Yes, run release workflow" — Execute release_workflow step in milestone-complete.md
+     - "Yes, dry-run first" — Preview release changes without applying them
+     - "No, just archive" — Skip release, proceed to verify readiness
+
+   If "Yes" or "Yes, dry-run first": Follow release_workflow step in milestone-complete.md (loads version-detector.md and changelog-generator.md).
+   If "No, just archive": Skip to step 1.
 
 1. **Check for audit:**
 
@@ -260,6 +275,11 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 - Git tag v{{version}} created (if pr_workflow=false) OR PR created/instructions given (if pr_workflow=true)
 - Commit successful
 - User knows next steps (including need for fresh requirements)
+
+**If release workflow was run:**
+- CHANGELOG.md updated with v{{version}} entry (reviewed and approved)
+- Version bumped in package.json and .claude-plugin/plugin.json
+- GitHub Release created (if pr_workflow=false) OR instructions provided (if pr_workflow=true)
   </success_criteria>
 
 <critical_rules>
