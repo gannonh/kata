@@ -48,6 +48,8 @@ Phase: $ARGUMENTS (optional)
 6. Update UAT.md after each response
 7. On completion: commit UAT.md
 7.5. Finalize changes (pr_workflow only) — commit fixes, push, mark PR ready
+7.6. Run PR review (pr_workflow only, optional) — offer automated review
+7.7. Handle review findings — fix issues or add to backlog
 8. If issues found:
    - Spawn parallel debug agents to diagnose root causes
    - Spawn kata-planner in --gaps mode to create fix plans
@@ -98,6 +100,77 @@ PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:s
 
 Store PR_NUMBER and PR_URL for offer_next.
 </step_7_5_pr_workflow>
+
+<step_7_6_pr_review>
+## 7.6. Run PR Review (pr_workflow only, optional)
+
+After marking PR ready, offer to run automated review:
+
+Use AskUserQuestion:
+- header: "PR Review"
+- question: "Run automated PR review before team review?"
+- options:
+  - "Yes, run full review" — Run kata-reviewing-pull-requests with all aspects
+  - "Quick review (code only)" — Run kata-reviewing-pull-requests with "code" aspect only
+  - "Skip" — Proceed without review
+
+**If user chooses review:**
+1. Invoke skill: `Skill("kata:reviewing-pull-requests", "<aspect>")`
+2. Display review summary with counts: {N} critical, {M} important, {P} suggestions
+3. **STOP and ask what to do with findings** (see step 7.7)
+
+**If user chooses "Skip":**
+Continue to offer_next without review.
+</step_7_6_pr_review>
+
+<step_7_7_handle_findings>
+## 7.7. Handle Review Findings (required after review completes)
+
+**STOP here. Do not proceed to offer_next until user chooses an action.**
+
+Use AskUserQuestion with options based on what was found:
+- header: "Review Findings"
+- question: "How do you want to handle the review findings?"
+- options (show only applicable ones):
+  - "Fix critical issues" — (if critical > 0) Fix critical, then offer to add remaining to backlog
+  - "Fix critical & important" — (if critical + important > 0) Fix both, then offer to add suggestions to backlog
+  - "Fix all issues" — (if any issues) Fix everything
+  - "Add to backlog" — Create todos for all issues without fixing
+  - "Ignore and continue" — Skip all issues
+
+**After user chooses:**
+
+**Path A: "Fix critical issues"**
+1. Fix each critical issue
+2. If important or suggestions remain, ask: "Add remaining {N} issues to backlog?"
+   - "Yes" → Create todos, store TODOS_CREATED count
+   - "No" → Continue
+3. Commit and push fixes
+4. Continue to offer_next
+
+**Path B: "Fix critical & important"**
+1. Fix each critical and important issue
+2. If suggestions remain, ask: "Add {N} suggestions to backlog?"
+   - "Yes" → Create todos, store TODOS_CREATED count
+   - "No" → Continue
+3. Commit and push fixes
+4. Continue to offer_next
+
+**Path C: "Fix all issues"**
+1. Fix all critical, important, and suggestion issues
+2. Commit and push fixes
+3. Continue to offer_next
+
+**Path D: "Add to backlog"**
+1. Create todos for all issues using `/kata:add-todo`
+2. Store TODOS_CREATED count
+3. Continue to offer_next
+
+**Path E: "Ignore and continue"**
+1. Continue to offer_next
+
+Store REVIEW_SUMMARY and TODOS_CREATED for offer_next output.
+</step_7_7_handle_findings>
 
 <anti_patterns>
 - Don't use AskUserQuestion for test responses — plain text conversation
@@ -151,6 +224,8 @@ Set MERGED=true for output below.
 UAT complete ✓
 {If PR_WORKFLOW and MERGED: PR: #{pr_number} — merged ✓}
 {If PR_WORKFLOW and not MERGED: PR: #{pr_number} ({pr_url}) — ready for review}
+{If REVIEW_SUMMARY: PR Review: {summary_stats}}
+{If TODOS_CREATED: Backlog: {N} todos created from review suggestions}
 
 ───────────────────────────────────────────────────────────────
 
@@ -205,6 +280,8 @@ Set MERGED=true for output below.
 Final phase verified ✓
 {If PR_WORKFLOW and MERGED: PR: #{pr_number} — merged ✓}
 {If PR_WORKFLOW and not MERGED: PR: #{pr_number} ({pr_url}) — ready for review}
+{If REVIEW_SUMMARY: PR Review: {summary_stats}}
+{If TODOS_CREATED: Backlog: {N} todos created from review suggestions}
 
 ───────────────────────────────────────────────────────────────
 
