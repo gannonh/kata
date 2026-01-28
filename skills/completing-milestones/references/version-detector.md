@@ -19,6 +19,9 @@ Extract commits since last release tag, categorize by type.
 
 ```bash
 # Get last release tag
+# Note: git describe finds the most recent tag reachable from HEAD.
+# On diverged branches, this may not be the "latest" tag chronologically.
+# For release workflows, ensure you're on the main branch.
 LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
 # Get commits since last tag (or all commits if no tag)
@@ -28,7 +31,11 @@ else
   COMMITS=$(git log --oneline --format="%s")
 fi
 
-# Filter by type
+# Filter by type using Conventional Commits patterns:
+# - Breaking: "type(scope)!:" suffix OR "BREAKING CHANGE:" in footer
+# - Features: "feat:" or "feat(scope):"
+# - Fixes: "fix:" or "fix(scope):"
+# The `|| true` prevents grep from returning exit code 1 when no matches found.
 BREAKING=$(echo "$COMMITS" | grep -E "^[a-z]+(\(.+\))?!:|BREAKING CHANGE:" || true)
 FEATURES=$(echo "$COMMITS" | grep -E "^feat(\(.+\))?:" || true)
 FIXES=$(echo "$COMMITS" | grep -E "^fix(\(.+\))?:" || true)
@@ -108,6 +115,12 @@ Update version files atomically (package.json and plugin.json).
 update_versions() {
   local version="$1"
 
+  # Check jq is available
+  if ! command -v jq &> /dev/null; then
+    echo "Error: jq is required but not installed. Install via: brew install jq (macOS) or apt-get install jq (Linux)"
+    return 1
+  fi
+
   # Update package.json
   jq --arg v "$version" '.version = $v' package.json > package.json.tmp
   mv package.json.tmp package.json
@@ -118,7 +131,7 @@ update_versions() {
 }
 ```
 
-**Requires:** `jq` for JSON manipulation (reliable, handles edge cases)
+**Requires:** `jq` for JSON manipulation (reliable, handles edge cases). Most systems have jq installed; if missing, the function provides install instructions.
 
 **Atomic update:** Uses tmp file + mv pattern to prevent partial writes
 

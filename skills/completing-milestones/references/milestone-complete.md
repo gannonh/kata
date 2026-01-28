@@ -11,9 +11,11 @@ This is the ritual that separates "development" from "shipped."
 **Read these files NOW:**
 
 1. @./milestone-archive-template.md
-2. `.planning/ROADMAP.md`
-3. `.planning/REQUIREMENTS.md`
-4. `.planning/PROJECT.md`
+2. @./version-detector.md (if running release workflow)
+3. @./changelog-generator.md (if running release workflow)
+4. `.planning/ROADMAP.md`
+5. `.planning/REQUIREMENTS.md`
+6. `.planning/PROJECT.md`
 
 </required_reading>
 

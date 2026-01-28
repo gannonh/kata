@@ -376,9 +376,15 @@ PR_EOF
 
     Store PR_URL for offer_next output.
 
-10.6. **Post-Verification Checkpoint (REQUIRED)**
+10.6. **Post-Verification Checkpoint (REQUIRED — Loop until user chooses "Skip to completion")**
 
     After PR is ready (or after phase commits if pr_workflow=false), present the user with post-verification options. This is the decision point before proceeding to completion output.
+
+    **Control flow:**
+    - UAT → returns here after completion
+    - PR review → step 10.7 → returns here
+    - Merge → executes merge → returns here
+    - Skip → proceeds to step 11
 
     **IMPORTANT:** Do NOT skip this step. Do NOT proceed directly to step 11. The user must choose how to proceed.
 

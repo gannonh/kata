@@ -73,6 +73,10 @@ get_commits_by_type() {
   local since="$1"
   local type="$2"
 
+  # grep pattern: ^type or ^type(scope): where scope can be any text
+  # Examples matched: "feat: add login", "feat(auth): add login", "fix(ui): button color"
+  # Note: Scopes with special chars like "feat(api/v2):" are matched correctly
+  # The `|| true` prevents exit code 1 when no matches (which would fail in scripts)
   if [ -n "$since" ]; then
     git log --oneline --format="%s" "$since"..HEAD | grep -E "^${type}(\(.+\))?:" || true
   else
@@ -113,7 +117,10 @@ generate_changelog_entry() {
   if [ -n "$features" ]; then
     echo "### Added"
     echo "$features" | while read -r line; do
-      # Strip "feat: " or "feat(scope): " prefix
+      # Strip "feat: " or "feat(scope): " prefix using sed
+      # Pattern: ^feat followed by optional (scope) followed by ": "
+      # \([^:]*\) captures the optional scope including parens
+      # Result: "feat(auth): add login" → "add login"
       desc=$(echo "$line" | sed 's/^feat\([^:]*\): //')
       echo "- $desc"
     done
@@ -219,6 +226,20 @@ EOF
 
   # Insert after header (after first blank line following header)
   # Using awk to find insertion point
+  #
+  # Expected CHANGELOG.md format:
+  #   # Changelog
+  #   <blank line>     ← insertion point (entry goes after this)
+  #   ## [1.2.0] - ...
+  #
+  # How it works:
+  # 1. Print "# Changelog" header unchanged
+  # 2. On first blank line after header, print it, then print new entry
+  # 3. Print all remaining lines unchanged
+  #
+  # Edge case: If no blank line exists after header, entry is NOT inserted.
+  # The ensure_changelog_header function above creates the correct format,
+  # so this shouldn't happen in normal usage.
   awk -v entry="$entry" '
     /^# Changelog/ { print; next }
     /^$/ && !inserted { print; print entry; inserted=1; next }
