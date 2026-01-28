@@ -30,7 +30,11 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 ### Active
 
-(No active requirements — run `/kata:adding-milestones` to define next milestone)
+**v1.3.0 — Release Automation & Workflow Docs**
+
+- Release management automation (milestone completion → PR merge → CI release)
+- Workflow documentation (Mermaid/ASCII diagrams for all workflows)
+- UX improvements (statusline project info, onboarding enhancements)
 
 ### Out of Scope
 
@@ -122,9 +126,14 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 
-## Next Milestone
+## Current Milestone: v1.3.0 Release Automation & Workflow Docs
 
-Run `/kata:adding-milestones` to define the next milestone.
+**Goal:** Automate the release pipeline, document all workflow decision paths, and polish user experience.
+
+**Target features:**
+- Release management automation (milestone completion → PR merge → CI release)
+- Workflow diagrams for all skills/agents (Mermaid/ASCII with decision trees)
+- UX polish (statusline info, better onboarding)
 
 ---
-*Last updated: 2026-01-27 — v1.1.0 milestone shipped*
+*Last updated: 2026-01-28 — v1.3.0 milestone started*

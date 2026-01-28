@@ -9,13 +9,13 @@ See: .planning/PROJECT.md (updated 2026-01-27)
 
 ## Current Position
 
-Milestone: v1.1.0 GitHub Integration
-Phase: MILESTONE COMPLETE
-Plan: N/A
-Status: SHIPPED
-Last activity: 2026-01-27 — v1.1.0 milestone shipped
+Milestone: v1.3.0 Workflow Polish & Backlog Integration
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-01-28 — Milestone v1.3.0 started
 
-Progress: [██████████████████████████████████████████████████] 100% (SHIPPED)
+Progress: [░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -33,7 +33,10 @@ Progress: [███████████████████████
 | v1.0.0    | 4      | 5     | Shipped 2026-01-23 |
 | v1.0.8    | 1      | 5     | Shipped 2026-01-24 |
 | v1.0.9    | 1      | 3     | Shipped 2026-01-25 |
-| v1.1.0    | 10     | 33    | SHIPPED 2026-01-27 |
+| v1.1.0    | 10     | 33    | Shipped 2026-01-27 |
+| v1.2.0    | 1      | 2     | Shipped 2026-01-27 |
+| v1.2.1    | 1      | 1     | Shipped 2026-01-28 |
+| v1.3.0    | —      | —     | In Progress        |
 
 **Recent Trend:**
 - v1.0.1-v1.0.5: Rapid patch releases (5 patches in 2 days) addressing plugin distribution issues
@@ -86,7 +89,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-17 pending todos:
+22 pending todos:
 - `.planning/todos/pending/2026-01-18-statusline-kata-project-info.md` - Add kata project info to statusline
 - `.planning/todos/pending/2026-01-18-create-move-phase-command.md` - Create move-phase command
 - `.planning/todos/pending/2026-01-18-command-subagent-noun-verb-naming.md` - Change command and subagent naming to noun-verb
@@ -104,6 +107,11 @@ Recent decisions affecting current work:
 - `.planning/todos/pending/2026-01-20-cli-ui-for-todo-management.md` - CLI UI for viewing and managing todos
 - `.planning/todos/pending/2026-01-21-add-validation-hooks-agents-skills.md` - Add validation hooks to agents and skills
 - `.planning/todos/pending/2026-01-27-create-workflow-flow-diagrams.md` - Create detailed flow diagrams of workflow paths
+- `.planning/todos/pending/2026-01-26-github-integration-tests.md` - GitHub integration tests
+- `.planning/todos/pending/2026-01-26-github-issues-as-todos.md` - Replace local todos with GitHub Issues
+- `.planning/todos/pending/2026-01-28-github-todos-backlog-integration.md` - GitHub todos/backlog integration
+- `.planning/todos/pending/2026-01-28-roadmap-phase-management.md` - Roadmap phase management enhancements
+- `.planning/todos/pending/2026-01-28-linear-integration-research.md` - Linear integration research
 
 ### Blockers/Concerns
 
@@ -118,6 +126,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-27
-Stopped at: v1.1.0 milestone completed
-Next action: Run `/kata:adding-milestones` to define next milestone. Manual step: run `npm publish` to release deprecation package, then create GitHub Release.
+Last session: 2026-01-28
+Stopped at: v1.3.0 milestone initialized
+Next action: Research decision, then requirements definition and roadmap creation
