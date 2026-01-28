@@ -17,4 +17,4 @@ Phase Description: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the following skill to add the phase:
-`Skill("kata-adding-phases")`
+`Skill("kata:adding-phases")`

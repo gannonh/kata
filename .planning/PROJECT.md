@@ -113,7 +113,7 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 **Target features:**
 - Config-driven integration — enable/disable via `.planning/config.json`
-- GitHub Milestone creation — `/kata:starting-milestones` creates GH Milestone
+- GitHub Milestone creation — `/kata:adding-milestones` creates GH Milestone
 - Phase issue creation — phases become GitHub Issues with `phase` label
 - Plan checklist sync — plans shown as checklist items in phase issues
 - PR creation at phase completion — `/kata:executing-phases` creates PR with auto-linking

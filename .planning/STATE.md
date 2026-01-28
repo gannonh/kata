@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-01-24)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v1.1.0 GitHub Integration — Phase 6: PR Review Workflow Skill & Agents
+**Current focus:** v1.1.0 GitHub Integration — Phase 7: Deprecate NPX Support
 
 ## Current Position
 
 Milestone: v1.1.0 GitHub Integration
-Phase: 6 (PR Review Workflow Skill & Agents)
-Plan: 04 of 4 complete
-Status: Verified ✓
-Last activity: 2026-01-27 — Phase 6 UAT verified (9/9 tests passing)
+Phase: 7 (Deprecate NPX Support)
+Plan: 06 of 6 complete (includes gap closure plan)
+Status: PHASE VERIFIED
+Last activity: 2026-01-27 — Completed 07-06 (Development Workflow Docs gap closure)
 
-Progress: [████████████████████████████████████████████████] 100% (6/6 phases in v1.1.0)
+Progress: [██████████████████████████████████████████████████] 100% (7/7 phases in v1.1.0)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 60
+- Total plans completed: 66
 - Average duration: 3 min
-- Total execution time: 155 min
+- Total execution time: 166 min
 
 **By Milestone:**
 
@@ -33,7 +33,7 @@ Progress: [███████████████████████
 | v1.0.0    | 4      | 5     | Shipped 2026-01-23 |
 | v1.0.8    | 1      | 5     | Shipped 2026-01-24 |
 | v1.0.9    | 1      | 3     | Shipped 2026-01-25 |
-| v1.1.0    | 6      | 25    | Complete (6/6 phases, +1 gap closure) |
+| v1.1.0    | 7      | 26    | Phase 7 verified, milestone complete |
 
 **Recent Trend:**
 - v1.0.1-v1.0.5: Rapid patch releases (5 patches in 2 days) addressing plugin distribution issues
@@ -75,10 +75,18 @@ Recent decisions affecting current work:
 - **Phase 5 complete 2026-01-27** — PR Integration (branch creation, draft PR, ready automation, tests, docs)
 - **Phase 6 complete 2026-01-27** — PR Review Workflow Skill & Agents (3/3 plans)
 - **Phase 6 UAT fix 2026-01-27** — Gap closure plan for backlog todo prompt and merge-first workflow
+- **Phase 7 added 2026-01-27** — Deprecate NPX Support (plugin-only distribution)
+- **Phase 7 plan 01 complete 2026-01-27** — Renamed 27 skill directories (removed kata- prefix)
+- **Phase 7 plan 02 complete 2026-01-27** — Deleted NPX-specific files, cleaned up build.js
+- **Phase 7 plan 03 complete 2026-01-27** — Simplified build.js to plugin-only, tests reduced 55%
+- **Phase 7 plan 04 complete 2026-01-27** — Updated documentation (README, CLAUDE.md, KATA-STYLE.md)
+- **Phase 7 plan 05 complete 2026-01-27** — NPX deprecation stub (563 lines -> 17 lines)
+- **Phase 7 COMPLETE 2026-01-27** — NPX deprecation complete, plugin-only distribution
+- **Phase 7 GAP fix 2026-01-27** — Gap closure plan 07-06 for development workflow docs
 
 ### Pending Todos
 
-16 pending todos:
+17 pending todos:
 - `.planning/todos/pending/2026-01-18-statusline-kata-project-info.md` - Add kata project info to statusline
 - `.planning/todos/pending/2026-01-18-create-move-phase-command.md` - Create move-phase command
 - `.planning/todos/pending/2026-01-18-command-subagent-noun-verb-naming.md` - Change command and subagent naming to noun-verb
@@ -95,6 +103,7 @@ Recent decisions affecting current work:
 - `.planning/todos/pending/2026-01-20-project-documentation-templates.md` - Project documentation templates and lifecycle
 - `.planning/todos/pending/2026-01-20-cli-ui-for-todo-management.md` - CLI UI for viewing and managing todos
 - `.planning/todos/pending/2026-01-21-add-validation-hooks-agents-skills.md` - Add validation hooks to agents and skills
+- `.planning/todos/pending/2026-01-27-create-workflow-flow-diagrams.md` - Create detailed flow diagrams of workflow paths
 
 ### Blockers/Concerns
 
@@ -110,5 +119,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Phase 6 verified — all 9 UAT tests passing
-Next action: /kata:audit-milestone to verify v1.1.0 requirements coverage
+Stopped at: Completed 07-06-PLAN.md (Development Workflow Docs gap closure)
+Next action: Phase 7 complete with all gaps closed. Manual step: run `npm publish` to release deprecation package. Milestone v1.1.0 ready for release.

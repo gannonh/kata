@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Kata is a **spec-driven development framework** for Claude Code. It's a meta-prompting and context engineering system that helps Claude build software systematically through structured workflows: requirements gathering → research → planning → execution → verification.
 
 **Core Architecture:**
-- **Skills** (`skills/kata-*/SKILL.md`) — Primary interface for all Kata workflows, invoked via `/kata:skill-name` (plugin) or `/kata-skill-name` (NPX)
+- **Skills** (`skills/*/SKILL.md`) — Primary interface for all Kata workflows, invoked via `/kata:skill-name`
 - **Agents** (`agents/kata-*.md`) — Specialized subagents spawned by skills for specific tasks (planning, execution, verification, debugging)
 - **Templates** (`kata/templates/`) — Structured output formats (PROJECT.md, PLAN.md, etc.)
 - **References** (`kata/references/`) — Deep-dive documentation on concepts and patterns
@@ -18,24 +18,28 @@ Kata is a **spec-driven development framework** for Claude Code. It's a meta-pro
 
 ### Installation and Testing
 
-**⚠️ NEVER run `node bin/install.js --local` from within the kata directory itself.** This overwrites `.claude/` with Kata's own files, breaking the development environment. Test local installs from a separate project directory.
+Build and test the plugin locally:
 
 ```bash
-# Install locally to ./.claude/ for development (run from a DIFFERENT project, not kata/)
-node bin/install.js --local
+# Build the plugin
+npm run build:plugin
 
-# Verify installation (in Claude Code)
-/kata:providing-help      # plugin
-/kata-help      # NPX
+# Test from a separate project using --plugin-dir
+cd /path/to/test-project
+claude --plugin-dir /path/to/kata/dist/plugin
 
-# Update local install after changes
-node bin/install.js --local
-
-# Verify skills installed
-ls ~/.claude/skills/kata-*   # NPX global
-ls .claude/skills/kata-*     # NPX local
-ls .claude/skills/*          # Plugin (kata- prefixes stripped)
+# Verify skills load
+/kata:help
 ```
+
+Alternative: manually copy to test project's plugin directory:
+
+```bash
+mkdir -p /path/to/test-project/.claude/plugins/kata
+cp -r dist/plugin/* /path/to/test-project/.claude/plugins/kata/
+```
+
+After rebuilding, restart Claude Code to pick up changes.
 
 ### Using Kata for Kata Development
 
@@ -86,10 +90,9 @@ Skills are the primary interface for all Kata workflows. They respond to both na
 
 ### Invocation Syntax
 
-| Installation | Syntax | Example |
-| ------------ | ------ | ------- |
-| Plugin | `/kata:skill-name` | `/kata:planning-phases 1` |
-| NPX | `/kata-skill-name` | `/kata-planning-phases 1` |
+| Syntax | Example |
+| ------ | ------- |
+| `/kata:skill-name` | `/kata:planning-phases 1` |
 
 **Key points:**
 - **Natural language works:** "plan phase 2", "what's the status", "execute the phase"
@@ -98,11 +101,9 @@ Skills are the primary interface for all Kata workflows. They respond to both na
 
 ### Available Skills
 
-Skills are installed to:
-- **Plugin:** `.claude/skills/` (prefixes stripped for clean `/kata:skill-name` invocation)
-- **NPX:** `~/.claude/skills/kata-*` (global) or `.claude/skills/kata-*` (local)
+Skills are installed to `.claude/skills/` (prefixes stripped for clean `/kata:skill-name` invocation).
 
-| Skill (source) | Invocation (plugin) | Purpose | Sub-agents Spawned |
+| Skill | Invocation | Purpose | Sub-agents Spawned |
 | -------------- | ------------------- | ------- | ------------------ |
 | `kata-planning-phases` | `/kata:planning-phases` | Phase planning, task breakdown | kata-planner, kata-plan-checker |
 | `kata-executing-phases` | `/kata:executing-phases` | Plan execution, checkpoints | kata-executor |
@@ -148,17 +149,9 @@ Skills ARE orchestrators. They spawn sub-agents via Task tool, not the other way
 
 ## Installation System (bin/install.js)
 
-Node.js installer that copies Kata files to Claude Code's plugin directory:
+**Deprecated.** The bin/install.js script now displays a deprecation message directing users to install via the Claude Code plugin marketplace.
 
-**Modes:**
-- `--global` / `-g` → Install to `~/.claude/`
-- `--local` / `-l` → Install to `./.claude/`
-- `--config-dir <path>` → Custom Claude config directory
-
-**Key behavior:**
-- Expands `~` to home directory for container compatibility
-- Respects `CLAUDE_CONFIG_DIR` environment variable
-- Copies: `skills/`, `agents/`, `hooks/`
+For local development, use `npm run build:plugin` instead. See "Installation and Testing" above.
 
 ## Working with Planning Files
 
@@ -186,7 +179,7 @@ When modifying `.planning/` files (PROJECT.md, ROADMAP.md, STATE.md):
 ## Making Changes to Kata
 
 1. **Match existing patterns** — Study similar files before creating new ones
-2. **Test locally** — Use `node bin/install.js --local` and run commands in Claude Code
+2. **Test locally** — Use `npm run build:plugin` and test with `claude --plugin-dir`
 3. **Update KATA-STYLE.md** — If introducing new patterns or conventions
 4. **Follow KATA-STYLE.md** — For all formatting, naming, and structural decisions
 5. **When modifying skills** — Follow the /building-claude-code-skills methodology

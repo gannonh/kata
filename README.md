@@ -1,6 +1,6 @@
 <div align="center">
 
-# KATA
+# Kata
 
 **型** · /ˈkɑːtɑː/ · *noun*
 <br>
@@ -16,7 +16,6 @@ Agent orchestration framework for spec-driven development.
 <br>
 
 [![Plugin](https://img.shields.io/badge/plugin-kata--marketplace-blue?style=for-the-badge)](https://github.com/gannonh/kata-marketplace)
-[![npm version](https://img.shields.io/npm/v/@gannonh/kata?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@gannonh/kata)
 
 <br>
 
@@ -29,11 +28,11 @@ Agent orchestration framework for spec-driven development.
 
 ```bash
 # Install as Claude Code plugin
-/plugin marketplace add gannonh/kata-marketplace
-/plugin install kata@gannonh-kata-marketplace
+# From the terminal
+claude plugin install kata@kata-marketplace
 
-# Or install via NPM
-npx @gannonh/kata
+# From Claude Code CLI
+/plugin install kata@gannonh-kata-marketplace
 ```
 
 ---
@@ -67,69 +66,55 @@ Teams and individuals who want to describe what they want and have it built corr
 
 ## Getting Started
 
-### Recommended: Plugin Install
+### Install as Claude Code Plugin
 
 ```bash
 # Start Claude Code
 claude
 
-# Install the plugin from the Claude Code cli
+# Install the plugin from the Claude Code CLI
 /plugin install kata@gannonh-kata-marketplace
 ```
 
-Verify with `/kata: help`.
-
-<details>
-<summary><strong>Alternative: NPM Install</strong></summary>
-
-```bash
-npx @gannonh/kata
-```
-
-</details>
+Verify with `/kata:help`.
 
 ### Staying Updated
 
 Kata evolves fast. Check for updates periodically:
 
 ```
-/kata:whats-new   
+/kata:whats-new
 ```
 
-**Plugin users:**
+Update the plugin:
 ```bash
 claude plugin update kata@gannonh-kata-marketplace
 ```
 
-**NPM users:**
-```bash
-npx @gannonh/kata@latest
-```
-
-<details>
-<summary><strong>Non-interactive Install (Docker, CI, Scripts)</strong></summary>
-
-```bash
-npx @gannonh/kata --global   # Install to ~/.claude/
-npx @gannonh/kata --local    # Install to ./.claude/
-```
-
-Use `--global` (`-g`) or `--local` (`-l`) to skip the interactive prompt.
-
-</details>
-
 <details>
 <summary><strong>Development Installation</strong></summary>
 
-Clone the repository and run the installer locally:
+Clone the repository and build the plugin:
 
 ```bash
 git clone https://github.com/gannonh/kata.git
 cd kata
-node bin/install.js --local
+npm run build:plugin
 ```
 
-Installs to `./.claude/` for testing modifications before contributing.
+Test locally using Claude Code's plugin-dir flag:
+
+```bash
+# From a test project directory
+claude --plugin-dir /path/to/kata/dist/plugin
+```
+
+Or manually copy to a test project:
+
+```bash
+# Copy built plugin to test project
+cp -r dist/plugin/* /path/to/test-project/.claude/plugins/kata/
+```
 
 </details>
 
