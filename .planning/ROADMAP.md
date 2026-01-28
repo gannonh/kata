@@ -120,12 +120,16 @@ Plans:
 
 **Success Criteria** (what must be TRUE):
 1. CI tests actual plugin artifacts from `dist/plugin/` directory, not just source code
-2. Integration test suite validates transformed paths (`@~/.claude/kata/` → `@./kata/`)
+2. Integration test suite validates transformed paths (subagent_type kata: prefix, no @~/.claude/ patterns)
 3. Artifact verification script runs in CI before creating GitHub Release
-4. Test coverage includes skill invocation with transformed paths
+4. Test coverage includes @./references/ path resolution
 5. Build failures block release creation (no silent path errors in production)
 
-**Plans:** TBD (estimate 2-3 plans)
+**Plans:** 2 plans
+
+Plans:
+- [ ] 00-01-PLAN.md — Create artifact validation test suite
+- [ ] 00-02-PLAN.md — Reorder CI workflow for pre-release validation
 
 ---
 
@@ -172,9 +176,9 @@ Plans:
 | 5. PR Integration                        | v1.1.0    | 3/3            | Complete | 2026-01-27 |
 | 6. PR Review Workflow Skill              | v1.1.0    | 4/4            | Complete | 2026-01-27 |
 | 7. Deprecate NPX Support                 | v1.1.0    | 6/6            | Complete | 2026-01-27 |
-| 0. Foundation & CI Hardening             | v1.3.0    | —              | Pending  | —          |
+| 0. Foundation & CI Hardening             | v1.3.0    | 0/2            | Planned  | —          |
 | 1. Release Automation                    | v1.3.0    | —              | Pending  | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-28 — v1.3.0 scope reduced to release automation*
+*Last updated: 2026-01-28 — Phase 0 planned (2 plans)*
