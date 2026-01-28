@@ -4,10 +4,10 @@
 
 ### Release Automation
 
-- [ ] **REL-01**: User can auto-generate changelog entries from conventional commits when completing a milestone
-- [ ] **REL-02**: User can auto-detect semantic version bump (major/minor/patch) based on commit types
-- [ ] **REL-03**: User can trigger release workflow from milestone completion (milestone → PR merge → GitHub Release → CI publish)
-- [ ] **REL-04**: User can dry-run a release to validate workflow without publishing
+- [x] **REL-01**: User can auto-generate changelog entries from conventional commits when completing a milestone
+- [x] **REL-02**: User can auto-detect semantic version bump (major/minor/patch) based on commit types
+- [x] **REL-03**: User can trigger release workflow from milestone completion (milestone → PR merge → GitHub Release → CI publish)
+- [x] **REL-04**: User can dry-run a release to validate workflow without publishing
 
 ---
 
@@ -40,15 +40,15 @@
 
 ## Traceability
 
-| Requirement | Phase   | Plan | Status  |
-| ----------- | ------- | ---- | ------- |
-| REL-01      | Phase 1 | —    | Pending |
-| REL-02      | Phase 1 | —    | Pending |
-| REL-03      | Phase 1 | —    | Pending |
-| REL-04      | Phase 1 | —    | Pending |
+| Requirement | Phase   | Plan  | Status   |
+| ----------- | ------- | ----- | -------- |
+| REL-01      | Phase 1 | 01-01 | Complete |
+| REL-02      | Phase 1 | 01-01 | Complete |
+| REL-03      | Phase 1 | 01-02 | Complete |
+| REL-04      | Phase 1 | 01-02 | Complete |
 
 **Coverage:** 4/4 requirements mapped (100%)
 
 ---
 *Created: 2026-01-28*
-*Last updated: 2026-01-28 — scope reduced to release automation only*
+*Last updated: 2026-01-28 — Phase 1 complete, all REL requirements satisfied*

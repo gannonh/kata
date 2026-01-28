@@ -106,7 +106,7 @@ Plans:
 **Depth:** Quick
 
 - [x] **Phase 0: Foundation & CI Hardening** — Prevent path resolution issues, validate artifacts before release — completed 2026-01-28
-- [ ] **Phase 1: Release Automation** — Milestone completion triggers GitHub Release and CI publish
+- [x] **Phase 1: Release Automation** — Milestone completion triggers GitHub Release and CI publish — completed 2026-01-28
 
 ---
 
@@ -152,8 +152,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Create version detection and changelog generation references
-- [ ] 01-02-PLAN.md — Integrate release workflow into completing-milestones skill
+- [x] 01-01-PLAN.md — Create version detection and changelog generation references
+- [x] 01-02-PLAN.md — Integrate release workflow into completing-milestones skill
 
 ---
 
@@ -181,8 +181,8 @@ Plans:
 | 6. PR Review Workflow Skill              | v1.1.0    | 4/4            | Complete | 2026-01-27 |
 | 7. Deprecate NPX Support                 | v1.1.0    | 6/6            | Complete | 2026-01-27 |
 | 0. Foundation & CI Hardening             | v1.3.0    | 2/2            | Complete | 2026-01-28 |
-| 1. Release Automation                    | v1.3.0    | 0/2            | Planned  | —          |
+| 1. Release Automation                    | v1.3.0    | 2/2            | Complete | 2026-01-28 |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-28 — Phase 1 planned (2 plans)*
+*Last updated: 2026-01-28 — Phase 1 complete (2/2 plans)*
