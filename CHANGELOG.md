@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-01-28
+
+### Fixed
+- **VERSION file path**: Skills now correctly reference `$CLAUDE_PLUGIN_ROOT/VERSION` instead of deprecated `kata/VERSION` path
+- **Removed deprecated NPX fallbacks**: Skills no longer check `~/.claude/kata/VERSION` paths (NPX deprecated in v1.1.0)
+
+### Removed
+- **Stale `kata/VERSION` file**: Removed outdated source file (build generates VERSION correctly)
+
+---
+
 ## [1.2.0] - 2026-01-27 — Release Process Automation
 
 Kata v1.2.0 automates the release pipeline: CI now creates GitHub Releases with tags automatically.

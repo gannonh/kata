@@ -22,10 +22,6 @@ First, read the installed version:
 ```bash
 if [ -n "$CLAUDE_PLUGIN_ROOT" ]; then
   cat "$CLAUDE_PLUGIN_ROOT/VERSION" 2>/dev/null
-elif [ -f ~/.claude/kata/VERSION ]; then
-  cat ~/.claude/kata/VERSION
-elif [ -f ./.claude/kata/VERSION ]; then
-  cat ./.claude/kata/VERSION
 else
   echo "unknown"
 fi

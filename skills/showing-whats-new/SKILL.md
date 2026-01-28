@@ -27,11 +27,7 @@ Read installed version from VERSION file (checking plugin context first):
 
 ```bash
 if [ -n "$CLAUDE_PLUGIN_ROOT" ]; then
-  cat "$CLAUDE_PLUGIN_ROOT/kata/VERSION" 2>/dev/null
-elif [ -f ~/.claude/kata/VERSION ]; then
-  cat ~/.claude/kata/VERSION
-elif [ -f ./.claude/kata/VERSION ]; then
-  cat ./.claude/kata/VERSION
+  cat "$CLAUDE_PLUGIN_ROOT/VERSION" 2>/dev/null
 fi
 ```
 
@@ -44,8 +40,7 @@ fi
 Your installation doesn't include version tracking.
 
 **To reinstall:**
-- Plugin users: `/plugin install kata@kata-marketplace`
-- NPM users: `npx @gannonh/kata --global`
+`/plugin install kata@kata-marketplace`
 ```
 
 STOP here if no VERSION file.
@@ -61,7 +56,7 @@ Use WebFetch tool with:
 **If fetch fails:**
 Fall back to local changelog:
 ```bash
-cat $KATA_BASE/CHANGELOG.md 2>/dev/null
+cat "$CLAUDE_PLUGIN_ROOT/CHANGELOG.md" 2>/dev/null
 ```
 
 Note to user: "Couldn't check for updates (offline or GitHub unavailable). Showing local changelog."
@@ -125,8 +120,7 @@ You're on the latest version.
 [View full changelog](https://github.com/gannnonh/kata/blob/main/CHANGELOG.md)
 
 **To update:**
-- Plugin users: `/plugin update kata@kata-marketplace`
-- NPM users: `npx @gannonh/kata --global`
+`/plugin update kata@kata-marketplace`
 ```
 
 **Breaking changes:** Surface prominently with **BREAKING:** prefix in the output.
