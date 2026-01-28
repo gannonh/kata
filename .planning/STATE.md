@@ -90,7 +90,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-22 pending todos:
+23 pending todos:
 - `.planning/todos/pending/2026-01-18-statusline-kata-project-info.md` - Add kata project info to statusline
 - `.planning/todos/pending/2026-01-18-create-move-phase-command.md` - Create move-phase command
 - `.planning/todos/pending/2026-01-18-command-subagent-noun-verb-naming.md` - Change command and subagent naming to noun-verb
@@ -113,6 +113,7 @@ Recent decisions affecting current work:
 - `.planning/todos/pending/2026-01-28-github-todos-backlog-integration.md` - GitHub todos/backlog integration
 - `.planning/todos/pending/2026-01-28-roadmap-phase-management.md` - Roadmap phase management enhancements
 - `.planning/todos/pending/2026-01-28-linear-integration-research.md` - Linear integration research
+- `.planning/todos/pending/2026-01-28-encourage-small-milestones.md` - Encourage small milestones in workflow skill
 
 ### Blockers/Concerns
 
