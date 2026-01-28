@@ -46,7 +46,8 @@ Phase: $ARGUMENTS (optional)
    - Wait for plain text response
    - "yes/y/next" = pass, anything else = issue (severity inferred)
 6. Update UAT.md after each response
-7. On completion: commit, present summary
+7. On completion: commit UAT.md
+7.5. Finalize changes (pr_workflow only) — commit fixes, push, mark PR ready
 8. If issues found:
    - Spawn parallel debug agents to diagnose root causes
    - Spawn kata-planner in --gaps mode to create fix plans
@@ -54,6 +55,49 @@ Phase: $ARGUMENTS (optional)
    - Iterate planner ↔ checker until plans pass (max 3)
    - Present ready status with `/clear` then `/kata:execute-phase`
 </process>
+
+<step_7_5_pr_workflow>
+## 7.5. Finalize Changes (pr_workflow only)
+
+Read pr_workflow config:
+```bash
+PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
+```
+
+**If PR_WORKFLOW=false:** Skip to offer_next.
+
+**If PR_WORKFLOW=true:**
+
+1. Check for uncommitted changes:
+   ```bash
+   git status --porcelain
+   ```
+
+2. If changes exist, stage and commit them:
+   ```bash
+   git add -u
+   git commit -m "fix({phase}): UAT fixes"
+   ```
+
+3. Push to branch:
+   ```bash
+   BRANCH=$(git branch --show-current)
+   git push origin "$BRANCH"
+   ```
+
+4. Check if PR exists:
+   ```bash
+   PR_NUMBER=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null)
+   ```
+
+5. If PR exists, mark ready (if still draft):
+   ```bash
+   gh pr ready "$PR_NUMBER" 2>/dev/null || true
+   PR_URL=$(gh pr view --json url --jq '.url')
+   ```
+
+Store PR_NUMBER and PR_URL for offer_next.
+</step_7_5_pr_workflow>
 
 <anti_patterns>
 - Don't use AskUserQuestion for test responses — plain text conversation
@@ -77,6 +121,26 @@ Output this markdown directly (not as a code block). Route based on UAT results:
 
 **Route A: All tests pass, more phases remain**
 
+**Step 1: If PR_WORKFLOW=true, STOP and ask about merge BEFORE showing completion output.**
+
+Use AskUserQuestion:
+- header: "PR Ready for Merge"
+- question: "PR #{pr_number} is ready. Merge before continuing to next phase?"
+- options:
+  - "Yes, merge now" — merge PR, then show completion
+  - "No, continue without merging" — show completion with PR status
+
+**Step 2: Handle merge response (if PR_WORKFLOW=true)**
+
+If user chose "Yes, merge now":
+```bash
+gh pr merge "$PR_NUMBER" --squash --delete-branch
+git checkout main && git pull
+```
+Set MERGED=true for output below.
+
+**Step 3: Show completion output**
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► PHASE {Z} VERIFIED ✓
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -85,6 +149,8 @@ Output this markdown directly (not as a code block). Route based on UAT results:
 
 {N}/{N} tests passed
 UAT complete ✓
+{If PR_WORKFLOW and MERGED: PR: #{pr_number} — merged ✓}
+{If PR_WORKFLOW and not MERGED: PR: #{pr_number} ({pr_url}) — ready for review}
 
 ───────────────────────────────────────────────────────────────
 
@@ -101,12 +167,33 @@ UAT complete ✓
 **Also available:**
 - /kata:plan-phase {Z+1} — skip discussion, plan directly
 - /kata:execute-phase {Z+1} — skip to execution (if already planned)
+{If PR_WORKFLOW and not MERGED: - `gh pr view --web` — review PR in browser before next phase}
 
 ───────────────────────────────────────────────────────────────
 
 ---
 
 **Route B: All tests pass, milestone complete**
+
+**Step 1: If PR_WORKFLOW=true, STOP and ask about merge BEFORE showing completion output.**
+
+Use AskUserQuestion:
+- header: "PR Ready for Merge"
+- question: "PR #{pr_number} is ready. Merge before completing milestone?"
+- options:
+  - "Yes, merge now" — merge PR, then show completion
+  - "No, continue without merging" — show completion with PR status
+
+**Step 2: Handle merge response (if PR_WORKFLOW=true)**
+
+If user chose "Yes, merge now":
+```bash
+gh pr merge "$PR_NUMBER" --squash --delete-branch
+git checkout main && git pull
+```
+Set MERGED=true for output below.
+
+**Step 3: Show completion output**
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Kata ► PHASE {Z} VERIFIED ✓
@@ -116,6 +203,8 @@ UAT complete ✓
 
 {N}/{N} tests passed
 Final phase verified ✓
+{If PR_WORKFLOW and MERGED: PR: #{pr_number} — merged ✓}
+{If PR_WORKFLOW and not MERGED: PR: #{pr_number} ({pr_url}) — ready for review}
 
 ───────────────────────────────────────────────────────────────
 
@@ -131,6 +220,7 @@ Final phase verified ✓
 
 **Also available:**
 - /kata:complete-milestone — skip audit, archive directly
+{If PR_WORKFLOW and not MERGED: - `gh pr view --web` — review PR in browser before audit}
 
 ───────────────────────────────────────────────────────────────
 

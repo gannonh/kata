@@ -17,7 +17,7 @@ Phase Description: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the PR review skill:
-`Skill("kata-reviewing-pull-requests")`
+`Skill("kata:reviewing-pull-requests")`
 
 ## Troubleshooting
 

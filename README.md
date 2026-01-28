@@ -1,6 +1,6 @@
 <div align="center">
 
-# KATA
+# Kata
 
 **型** · /ˈkɑːtɑː/ · *noun*
 <br>

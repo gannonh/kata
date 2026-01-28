@@ -5,7 +5,6 @@
  *
  * Builds the Claude Code marketplace plugin (/plugin install)
  * - Path transform: subagent_type="kata-xxx" → subagent_type="kata:kata-xxx"
- * - Path transform: Skill("xxx") → Skill("kata:xxx") (plugin namespace)
  * - Output: dist/plugin/
  *
  * Usage:
@@ -152,18 +151,12 @@ function copyPath(src, dest, transform = null) {
  * Plugin agents are namespaced by Claude Code as pluginname:agentname,
  * so kata-executor becomes kata:kata-executor in plugin context.
  *
- * Plugin skills are namespaced as pluginname:skillname. Since skill
- * directories no longer have kata- prefix (renamed in Phase 7),
- * Skill("xxx") invocations need to be transformed to Skill("kata:xxx").
+ * Skill() invocations use kata:skillname format directly in source
+ * (no transformation needed).
  */
 function transformPluginPaths(content) {
   // Transform agent references: subagent_type="kata-xxx" → subagent_type="kata:kata-xxx"
   content = content.replace(/subagent_type="kata-/g, 'subagent_type="kata:kata-');
-
-  // Transform Skill invocations: Skill("xxx") → Skill("kata:xxx")
-  // Skills no longer have kata- prefix in source, so plugin skill name is kata:xxx
-  // Match Skill(" followed by any skill name that doesn't start with kata:
-  content = content.replace(/Skill\("(?!kata:)([^"]+)"\)/g, 'Skill("kata:$1")');
 
   return content;
 }

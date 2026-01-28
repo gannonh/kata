@@ -17,4 +17,4 @@ Arguments: "$ARGUMENTS"
 ## Step 2: Invoke Skill
 
 Run the following skill:
-`Skill("kata-listing-phase-assumptions")`
+`Skill("kata:listing-phase-assumptions")`
