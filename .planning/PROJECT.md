@@ -30,7 +30,10 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 ### Active
 
-(No active requirements — run `/kata:adding-milestones` to define next milestone)
+**v1.3.0 — Release Automation**
+
+- CI hardening (validate plugin artifacts before release)
+- Release management automation (milestone completion → PR merge → CI release)
 
 ### Out of Scope
 
@@ -122,9 +125,13 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 
-## Next Milestone
+## Current Milestone: v1.3.0 Release Automation
 
-Run `/kata:adding-milestones` to define the next milestone.
+**Goal:** Harden CI validation and automate the release pipeline.
+
+**Target features:**
+- CI hardening (validate plugin artifacts before release)
+- Release management automation (milestone completion → PR merge → CI release)
 
 ---
-*Last updated: 2026-01-27 — v1.1.0 milestone shipped*
+*Last updated: 2026-01-28 — v1.3.0 milestone started*

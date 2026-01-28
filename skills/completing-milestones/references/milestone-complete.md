@@ -183,21 +183,19 @@ Key accomplishments for this milestone:
 
 <step name="create_milestone_entry">
 
-Create or update `.planning/MILESTONES.md`.
+**ACTION REQUIRED: Use the Write tool to update `.planning/MILESTONES.md`.**
 
-If file doesn't exist:
+1. Read current MILESTONES.md:
+
+```bash
+cat .planning/MILESTONES.md
+```
+
+2. **Use the Write tool** to prepend the new entry (keep all existing entries below):
 
 ```markdown
 # Project Milestones: [Project Name from PROJECT.md]
 
-[New entry]
-```
-
-If exists, prepend new entry (reverse chronological order).
-
-Use this template format:
-
-```markdown
 ## v[Version] [Name] (Shipped: YYYY-MM-DD)
 
 **Delivered:** [One sentence from user]
@@ -220,7 +218,17 @@ Use this template format:
 **What's next:** [Ask user: what's the next goal?]
 
 ---
+
+[... existing entries below ...]
 ```
+
+3. **Verify the file was written** (GATE - do not proceed if this fails):
+
+```bash
+head -5 .planning/MILESTONES.md | grep "v[X.Y]" && echo "✓ MILESTONES.md updated" || echo "✗ MILESTONES.md NOT updated - fix before continuing"
+```
+
+**CRITICAL:** Do NOT proceed to the next step until MILESTONES.md contains the new version entry.
 
 </step>
 
@@ -470,7 +478,7 @@ Extract completed milestone details and create archive file.
 
 <step name="archive_requirements">
 
-Archive requirements and prepare for fresh requirements in next milestone.
+**ACTION REQUIRED: Archive requirements and prepare for fresh requirements in next milestone.**
 
 **Process:**
 
@@ -479,18 +487,13 @@ Archive requirements and prepare for fresh requirements in next milestone.
    cat .planning/REQUIREMENTS.md
    ```
 
-2. Create archive file: `.planning/milestones/v[X.Y]-REQUIREMENTS.md`
-
-3. Transform requirements for archive:
+2. Transform requirements for archive:
    - Mark all v1 requirements as `[x]` complete
    - Add outcome notes where relevant (validated, adjusted, dropped)
    - Update traceability table status to "Complete" for all shipped requirements
-   - Add "Milestone Summary" section with:
-     - Total requirements shipped
-     - Any requirements that changed scope during milestone
-     - Any requirements dropped and why
 
-4. Write archive file with header:
+3. **Use the Write tool** to create `.planning/milestones/v[X.Y]-REQUIREMENTS.md`:
+
    ```markdown
    # Requirements Archive: v[X.Y] [Milestone Name]
 
@@ -516,6 +519,11 @@ Archive requirements and prepare for fresh requirements in next milestone.
    *Archived: [DATE] as part of v[X.Y] milestone completion*
    ```
 
+4. **Verify the archive was created** (GATE - do not proceed if this fails):
+   ```bash
+   ls -la .planning/milestones/v[X.Y]-REQUIREMENTS.md && echo "✓ Requirements archived" || echo "✗ Archive NOT created - fix before continuing"
+   ```
+
 5. Delete original REQUIREMENTS.md:
    ```bash
    rm .planning/REQUIREMENTS.md
@@ -526,6 +534,8 @@ Archive requirements and prepare for fresh requirements in next milestone.
    ✅ Requirements archived to milestones/v[X.Y]-REQUIREMENTS.md
    ✅ REQUIREMENTS.md deleted (fresh one needed for next milestone)
    ```
+
+**CRITICAL:** Do NOT proceed to the next step until the archive file exists.
 
 **Important:** The next milestone workflow starts with `/kata:new-milestone` which includes requirements definition. PROJECT.md's Validated section carries the cumulative record across milestones.
 

@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-01-27)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** Milestone complete — run `/kata:adding-milestones` to define next milestone
+**Current focus:** v1.3.0 Release Automation & Workflow Docs — roadmap created, ready to plan Phase 0
 
 ## Current Position
 
-Milestone: v1.1.0 GitHub Integration
-Phase: MILESTONE COMPLETE
-Plan: N/A
-Status: SHIPPED
-Last activity: 2026-01-27 — v1.1.0 milestone shipped
+Milestone: v1.3.0 Release Automation & Workflow Docs
+Phase: Phase 0 (Foundation & CI Hardening) - COMPLETE
+Plan: 02 of 2
+Status: Phase 0 complete, ready for Phase 1
+Last activity: 2026-01-28 — Completed 00-02-PLAN.md (CI workflow integration)
 
-Progress: [██████████████████████████████████████████████████] 100% (SHIPPED)
+Progress: [██████████████████████████████████████████████████] 100% (2/2 plans in Phase 0)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 66
+- Total plans completed: 68
 - Average duration: 3 min
-- Total execution time: 166 min
+- Total execution time: 171 min
 
 **By Milestone:**
 
@@ -33,7 +33,10 @@ Progress: [███████████████████████
 | v1.0.0    | 4      | 5     | Shipped 2026-01-23 |
 | v1.0.8    | 1      | 5     | Shipped 2026-01-24 |
 | v1.0.9    | 1      | 3     | Shipped 2026-01-25 |
-| v1.1.0    | 10     | 33    | SHIPPED 2026-01-27 |
+| v1.1.0    | 10     | 33    | Shipped 2026-01-27 |
+| v1.2.0    | 1      | 2     | Shipped 2026-01-27 |
+| v1.2.1    | 1      | 1     | Shipped 2026-01-28 |
+| v1.3.0    | 4      | —     | In Progress        |
 
 **Recent Trend:**
 - v1.0.1-v1.0.5: Rapid patch releases (5 patches in 2 days) addressing plugin distribution issues
@@ -83,10 +86,14 @@ Recent decisions affecting current work:
 - **Phase 7 plan 05 complete 2026-01-27** — NPX deprecation stub (563 lines -> 17 lines)
 - **Phase 7 COMPLETE 2026-01-27** — NPX deprecation complete, plugin-only distribution
 - **Phase 7 GAP fix 2026-01-27** — Gap closure plan 07-06 for development workflow docs
+- **v1.3.0 started 2026-01-28** — Release Automation & Workflow Docs (4 phases: 0-3)
+- **Phase 0 plan 01 complete 2026-01-28** — Artifact validation test suite (13 tests)
+- **Phase 0 plan 02 complete 2026-01-28** — CI workflow integration (validation before release)
+- **Phase 0 COMPLETE 2026-01-28** — Foundation & CI Hardening (2 plans)
 
 ### Pending Todos
 
-17 pending todos:
+23 pending todos:
 - `.planning/todos/pending/2026-01-18-statusline-kata-project-info.md` - Add kata project info to statusline
 - `.planning/todos/pending/2026-01-18-create-move-phase-command.md` - Create move-phase command
 - `.planning/todos/pending/2026-01-18-command-subagent-noun-verb-naming.md` - Change command and subagent naming to noun-verb
@@ -104,6 +111,12 @@ Recent decisions affecting current work:
 - `.planning/todos/pending/2026-01-20-cli-ui-for-todo-management.md` - CLI UI for viewing and managing todos
 - `.planning/todos/pending/2026-01-21-add-validation-hooks-agents-skills.md` - Add validation hooks to agents and skills
 - `.planning/todos/pending/2026-01-27-create-workflow-flow-diagrams.md` - Create detailed flow diagrams of workflow paths
+- `.planning/todos/pending/2026-01-26-github-integration-tests.md` - GitHub integration tests
+- `.planning/todos/pending/2026-01-26-github-issues-as-todos.md` - Replace local todos with GitHub Issues
+- `.planning/todos/pending/2026-01-28-github-todos-backlog-integration.md` - GitHub todos/backlog integration
+- `.planning/todos/pending/2026-01-28-roadmap-phase-management.md` - Roadmap phase management enhancements
+- `.planning/todos/pending/2026-01-28-linear-integration-research.md` - Linear integration research
+- `.planning/todos/pending/2026-01-28-encourage-small-milestones.md` - Encourage small milestones in workflow skill
 
 ### Blockers/Concerns
 
@@ -118,6 +131,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-27
-Stopped at: v1.1.0 milestone completed
-Next action: Run `/kata:adding-milestones` to define next milestone. Manual step: run `npm publish` to release deprecation package, then create GitHub Release.
+Last session: 2026-01-28
+Stopped at: Completed 00-02-PLAN.md (Phase 0 complete)
+Next action: Plan Phase 1 (Workflow Documentation)
