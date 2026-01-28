@@ -232,7 +232,7 @@ function copySkillsForPlugin(dest) {
     fs.mkdirSync(destPath, { recursive: true });
     copySkillContents(srcPath, destPath);
 
-    console.log(`  ${green}+${reset} Copied skills/${entry.name}`);
+    console.log(`  ${green}✓${reset} Copied skills/${entry.name}`);
   }
 
   return true;
@@ -280,20 +280,20 @@ function buildPlugin() {
     // Skip skills - handled above
     if (item === 'skills') continue;
     if (copyPath(item, dest, transformPluginPaths)) {
-      console.log(`  ${green}+${reset} Copied ${item}`);
+      console.log(`  ${green}✓${reset} Copied ${item}`);
     }
   }
 
   // Copy plugin-specific files
   for (const item of PLUGIN_INCLUDES) {
     if (copyPath(item, dest)) {
-      console.log(`  ${green}+${reset} Copied ${item}`);
+      console.log(`  ${green}✓${reset} Copied ${item}`);
     }
   }
 
   // Write VERSION file
   writeVersion(dest);
-  console.log(`  ${green}+${reset} Wrote VERSION (${pkg.version})`);
+  console.log(`  ${green}✓${reset} Wrote VERSION (${pkg.version})`);
 
   // Validate build
   const errors = validateBuild(dest);
@@ -305,7 +305,7 @@ function buildPlugin() {
     return false;
   }
 
-  console.log(`\n${green}+ Plugin build complete: dist/plugin/${reset}`);
+  console.log(`\n${green}✓ Plugin build complete: dist/plugin/${reset}`);
   return true;
 }
 
