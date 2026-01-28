@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-01-28
+
+### Fixed
+- **GitHub issue body updates**: Replaced awk with Python script for reliable multiline content handling in plan checklists
+- **Skill scripts directory**: Plugin build now includes `skills/*/scripts/` directories (was globally excluded)
+- **Script path resolution**: Skills use base directory from invocation header instead of hardcoded marketplace paths
+
+---
+
 ## [1.2.1] - 2026-01-28
 
 ### Fixed
