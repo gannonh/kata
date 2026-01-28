@@ -15,7 +15,7 @@ jobs:
   publish-plugin:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - name: Checkout kata
         uses: actions/checkout@v4
@@ -58,6 +58,30 @@ jobs:
             echo "Version unchanged ($LOCAL), skipping publish"
             echo "should_publish=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.should_publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.plugin_version }}"
+
+          # Skip if release already exists
+          if gh release view "v$VERSION" &>/dev/null; then
+            echo "Release v$VERSION already exists, skipping"
+            exit 0
+          fi
+
+          # Extract changelog for this version
+          CHANGELOG=$(awk "/^## \[${VERSION}\]/{found=1; next} /^## \[/{if(found) exit} found{print}" CHANGELOG.md)
+
+          # Create release with tag
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --notes "$CHANGELOG" \
+            --target main
+
+          echo "✓ Created GitHub Release v$VERSION"
 
       - name: Run tests
         if: steps.check.outputs.should_publish == 'true'

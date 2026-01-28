@@ -8,10 +8,10 @@
 
 <br>
 
-Agent orchestration framework for spec-driven development.
+Multi-agent orchestration framework for spec-driven development.
 <br>
 
-**v1.1.0** — GitHub-integrated workflows: Milestones, Issues, PRs, and code review.
+**v1.2.0** — Optional GitHub integration, automated PR review, and release automation.
 <br>
 
 [kata.sh](https://kata.sh)
@@ -31,108 +31,74 @@ Agent orchestration framework for spec-driven development.
 
 ```bash
 # Install as Claude Code plugin
-# From the terminal
 claude plugin install kata@kata-marketplace
-
-# From Claude Code CLI
-/plugin install kata@gannonh-kata-marketplace
 ```
 
 ---
 
-## Voice-First: Conversational User Interface
+## What's New in v1.2.0
 
-Drive your entire workflow with **natural language**.
+**Optional GitHub Integration** — Mirror your roadmap to GitHub when you want team visibility:
+- Milestones → GitHub Milestones
+- Phases → GitHub Issues with checklist tracking
+- Execution → Draft PRs that mark ready when complete
+- Progress visible to teammates without opening Claude Code
 
-Say what you want:
+**Automated PR Review** — 6 specialized agents review your code before merge:
+- Code quality, test coverage, error handling, type design, documentation, simplification
+- Runs after phase execution or on-demand
 
-| You say...               | Kata does...                                         |
-| ------------------------ | ---------------------------------------------------- |
-| "Start a new project"    | Launches project init with GitHub repo setup         |
-| "What's the status?"     | Shows progress, PR status, next steps, blockers      |
-| "Plan phase 2"           | Researches and creates execution plans               |
-| "Execute the phase"      | Runs plans, creates PR, updates GitHub Issues        |
-| "Review my PR"           | Spawns 6 specialized review agents                   |
-| "I'm done for today"     | Creates handoff for session resumption               |
+**Release Automation** — CI creates GitHub Releases with tags automatically on merge.
 
-Every workflow responds to natural language. Slash commands exist for precision when you want them (`/kata:plan-phase 2`), but you never *need* them.
-
-**Intent recognition.** Kata parses what you're trying to accomplish and routes to the right workflow (research, planning, execution, verification) automatically.
+**All features are optional.** Enable what you need via `/kata:configure-settings`.
 
 ---
 
-## Who This Is For
+## Voice-First: Conversational Interface
 
-Teams and individuals who want to describe what they want and have it built correctly.
+Drive your entire workflow with **natural language**.
 
-**v1.1.0 brings native GitHub integration:**
+| You say...                | Kata does...                                         |
+| ------------------------- | ---------------------------------------------------- |
+| "Start a new project"     | Deep questioning → PROJECT.md + config               |
+| "Add the first milestone" | Research → Requirements → Roadmap → GitHub Milestone |
+| "Let's discuss phase 1"   | Identifies gray areas → Captures your decisions      |
+| "Plan phase 1"            | Research → Plans → Verification loop                 |
+| "Execute the phase"       | Parallel agents → Commits → PR (optional)            |
+| "Verify the work"         | UAT testing → Debug agents if issues found           |
+| "Review my PR"            | 6 specialized review agents                          |
+| "Complete the milestone"  | Archive → Tag/Release                                |
+| "What's the status?"      | Progress report → Routes to next action              |
 
-- **Milestones** → GitHub Milestones
-- **Phases** → GitHub Issues with `phase` label
-- **Plans** → Checklist items in issues, checked as work completes
-- **PRs** → Created automatically with "Closes #X" linking
-
-Your work is visible in GitHub as it happens. Team members see progress without opening Kata.
+Slash commands exist for precision (`/kata:plan-phase 2`), but natural language always works.
 
 ---
 
 ## Getting Started
 
-### Install as Claude Code Plugin
+### Install
 
 ```bash
-# Start Claude Code
-claude
+# From terminal
+claude plugin install kata@kata-marketplace
 
-# Install the plugin from the Claude Code CLI
+# Or from Claude Code CLI
 /plugin install kata@gannonh-kata-marketplace
 ```
 
 Verify with `/kata:help`.
 
-### Staying Updated
-
-Kata evolves fast. Check for updates periodically:
-
-```
-/kata:whats-new
-```
-
-Update the plugin:
-```bash
-claude plugin update kata@gannonh-kata-marketplace
-```
-
-<details>
-<summary><strong>Development Installation</strong></summary>
-
-Clone the repository and build the plugin:
+### Update
 
 ```bash
-git clone https://github.com/gannonh/kata.git
-cd kata
-npm run build:plugin
+claude plugin update kata@kata-marketplace
 ```
 
-Test locally using Claude Code's plugin-dir flag:
+Check what's new: `/kata:whats-new`
 
-```bash
-# From a test project directory
-claude --plugin-dir /path/to/kata/dist/plugin
-```
+### Recommended: Skip Permissions
 
-Or manually copy to a test project:
-
-```bash
-# Copy built plugin to test project
-cp -r dist/plugin/* /path/to/test-project/.claude/plugins/kata/
-```
-
-</details>
-
-### Recommended: Skip Permissions Mode
-
-Kata is designed for frictionless automation. Run Claude Code with:
+Kata is designed for automation. For best experience:
 
 ```bash
 claude --dangerously-skip-permissions
@@ -141,29 +107,14 @@ claude --dangerously-skip-permissions
 <details>
 <summary><strong>Alternative: Granular Permissions</strong></summary>
 
-If you prefer not to use that flag, add this to your project's `.claude/settings.json`:
+Add to `.claude/settings.json`:
 
 ```json
 {
   "permissions": {
     "allow": [
-      "Bash(date:*)",
-      "Bash(echo:*)",
-      "Bash(cat:*)",
-      "Bash(ls:*)",
-      "Bash(mkdir:*)",
-      "Bash(wc:*)",
-      "Bash(head:*)",
-      "Bash(tail:*)",
-      "Bash(sort:*)",
-      "Bash(grep:*)",
-      "Bash(tr:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git status:*)",
-      "Bash(git log:*)",
-      "Bash(git diff:*)",
-      "Bash(git tag:*)"
+      "Bash(git:*)", "Bash(gh:*)", "Bash(npm:*)",
+      "Bash(cat:*)", "Bash(ls:*)", "Bash(mkdir:*)"
     ]
   }
 }
@@ -180,217 +131,249 @@ If you prefer not to use that flag, add this to your project's `.claude/settings
 ```
 "Start a new project"
 ```
-<sub>or `/kata:new-project`</sub>
 
-One command, one flow. The system:
+Creates the foundation through deep questioning:
 
-1. **Questions**: Asks until it understands your idea completely (goals, constraints, tech preferences, edge cases)
-2. **Research**: Spawns parallel agents to investigate the domain (optional but recommended)
-3. **Requirements**: Extracts what's v1, v2, and out of scope
-4. **Roadmap**: Creates phases mapped to requirements
+1. **Questions** — Probes until it understands your vision (goals, constraints, tech, edge cases)
+2. **Configuration** — Sets workflow preferences (mode, agents, GitHub integration)
 
-You approve the roadmap. Now you're ready to build.
+**Creates:** `PROJECT.md`, `config.json`
 
-**Creates:** `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md`, `.planning/research/`
+**Next:** "Add the first milestone"
 
-> **Already have code?** Kata will automatically map your codebase as part of the workflow . It spawns parallel agents to analyze your stack, architecture, conventions, and concerns. Questions focus on what you're adding, and planning automatically loads your patterns.
+> **Have existing code?** Kata detects it and offers to map your codebase first. Spawns parallel agents to analyze stack, architecture, and conventions.
 
 ---
 
-### 2. Discuss Phase
+### 2. Add Milestone
+
+```
+"Add milestone v1.0"
+```
+
+Defines what you're building this cycle:
+
+1. **Research** (optional) — 4 parallel agents investigate domain: Stack, Features, Architecture, Pitfalls
+2. **Requirements** — Extracts v1 scope with traceability IDs (AUTH-01, API-02)
+3. **Roadmap** — Creates phases mapped to requirements
+4. **GitHub Milestone** (optional) — Creates milestone + phase issues if enabled
+
+**Creates:** `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md`, `research/` (optional)
+
+**Next:** "Plan phase 1" or "Discuss phase 1"
+
+---
+
+### 3. Discuss Phase (Optional)
 
 ```
 "Let's discuss phase 1"
 ```
-<sub>or `/kata:discuss-phase 1`</sub>
 
-**This is where you shape the implementation.**
+**Use when the phase goal is ambiguous.** Captures your implementation preferences before planning.
 
-Your roadmap has a sentence or two per phase. That's not enough context to build something the way *you* imagine it. This step captures your preferences before anything gets researched or planned.
-
-The system analyzes the phase and identifies gray areas based on what's being built:
-
+The system analyzes the phase and identifies domain-specific gray areas:
 - **Visual features** → Layout, density, interactions, empty states
-- **APIs/CLIs** → Response format, flags, error handling, verbosity
-- **Content systems** → Structure, tone, depth, flow
-- **Organization tasks** → Grouping criteria, naming, duplicates, exceptions
+- **APIs** → Response format, error handling, versioning
+- **Data systems** → Structure, validation, migrations
 
-For each area you select, it asks until you're satisfied. The output (`CONTEXT.md`) feeds directly into the next two steps:
-
-1. **Researcher reads it**: Knows what patterns to investigate ("user wants card layout" → research card component libraries)
-2. **Planner reads it**: Knows what decisions are locked ("infinite scroll decided" → plan includes scroll handling)
-
-Depth here correlates with alignment to your intent. Skip it for reasonable defaults.
+For each area you select, it probes until satisfied. Output feeds directly into planning.
 
 **Creates:** `{phase}-CONTEXT.md`
 
+**Skip if:** Phase goal is clear and unambiguous.
+
 ---
 
-### 3. Plan Phase
+### 4. Plan Phase
 
 ```
 "Plan phase 1"
 ```
-<sub>or `/kata:plan-phase 1`</sub>
 
-The system:
+Creates executable plans through research and verification:
 
-1. **Researches**: Investigates how to implement this phase, guided by your CONTEXT.md decisions
-2. **Plans**: Creates 2-3 atomic task plans with XML structure
-3. **Verifies**: Checks plans against requirements, loops until they pass
+1. **Research** — Investigates how to implement this phase
+2. **Planning** — Creates 2-5 atomic PLAN.md files with XML task structure
+3. **Verification** — Plan checker confirms plans achieve phase goals (loops until pass)
+4. **GitHub Update** — Adds plan checklist to phase issue (if enabled)
 
-Each plan fits in a fresh context window.
+**Creates:** `{phase}-RESEARCH.md`, `{phase}-01-PLAN.md`, `{phase}-02-PLAN.md`, ...
 
-**Creates:** `{phase}-RESEARCH.md`, `{phase}-{N}-PLAN.md`
+**Flags:**
+- `--skip-research` — Skip research, plan directly
+- `--skip-verify` — Skip plan checker loop
+- `--gaps` — Create fix plans from failed verification
 
 ---
 
-### 4. Execute Phase
+### 5. Execute Phase
 
 ```
 "Execute phase 1"
 ```
-<sub>or `/kata:execute-phases 1`</sub>
 
-The system:
+Runs plans with fresh context per agent:
 
-1. **Creates branch and PR**: `feat/v1.0-1-project-foundation` with draft PR
-2. **Runs plans in waves**: Parallel where possible, sequential when dependent
-3. **Updates GitHub Issue**: Checks off plans as they complete
-4. **Fresh context per plan**: 200k tokens for implementation, zero accumulated garbage
-5. **Commits per task**: Every task gets its own atomic commit
-6. **Marks PR ready**: When phase complete, auto-links to phase issue with "Closes #X"
-7. **Verifies against goals**: Checks the codebase delivers what the phase promised
+1. **Branch** — Creates `feat/v1.0-1-foundation` (if PR workflow enabled)
+2. **Waves** — Groups plans by dependency, runs parallel within each wave
+3. **Commits** — Atomic commit per task with conventional format
+4. **GitHub Updates** — Checks off plans in issue as they complete
+5. **Verification** — Confirms phase goal achieved
+6. **PR** — Marks ready, links with "Closes #X" (if enabled)
 
-Walk away, come back to completed work with clean git history and a ready-for-review PR.
+**Creates:** `{phase}-SUMMARY.md` per plan, `{phase}-VERIFICATION.md`
 
-**Creates:** `{phase}-{N}-SUMMARY.md`, `{phase}-VERIFICATION.md`, GitHub PR
-
-**GitHub Integration:**
-- PR title: `v{milestone} Phase {N}: {Phase Name}`
-- PR body includes phase goal and plan checklist
-- Phase issue checkboxes update as each plan completes
-- PR links to issue with "Closes #X" for automatic closure on merge
+Walk away, come back to completed work with clean git history.
 
 ---
 
-### 5. Verify Work
+### 6. Verify Work (Optional UAT)
 
 ```
 "Verify phase 1"
 ```
-<sub>or `/kata:verify-phases 1`</sub>
 
-**This is where you confirm it actually works.**
+**Manual testing with intelligent assistance.** The system:
 
-Automated verification checks that code exists and tests pass. But does the feature *work* the way you expected? This is your chance to use it.
-
-The system:
-
-1. **Extracts testable deliverables**: What you should be able to do now
-2. **Walks you through one at a time**: "Can you log in with email?" Yes/no, or describe what's wrong
-3. **Diagnoses failures automatically**: Spawns debug agents to find root causes
-4. **Creates verified fix plans**: Ready for immediate re-execution
-
-If everything passes, you move on. If something's broken, run `/kata:execute-phase` again with the fix plans it created.
+1. Extracts testable deliverables from summaries
+2. Walks you through each one: "Can you log in with email?"
+3. On failures: Spawns debug agents → Creates fix plans → Executes fixes
 
 **Creates:** `{phase}-UAT.md`, fix plans if issues found
 
+**Skip if:** Automated verification passed and you trust it.
+
 ---
 
-### 6. Repeat → Complete → Next Milestone
+### 7. Review PR (Optional)
 
 ```
-"Discuss phase 2"
-"Plan phase 2"
-"Execute phase 2"
-"Verify phase 2"
-...
+"Review my PR"
+```
+
+Runs 6 specialized review agents in parallel:
+
+| Agent            | Focus                                 |
+| ---------------- | ------------------------------------- |
+| Code Reviewer    | General quality, CLAUDE.md compliance |
+| Test Analyzer    | Coverage gaps, edge cases             |
+| Comment Analyzer | Documentation accuracy                |
+| Failure Finder   | Error handling, silent failures       |
+| Type Analyzer    | Type design, invariants               |
+| Code Simplifier  | Clarity, maintainability              |
+
+**Output:** Aggregated findings by severity (Critical → Important → Suggestions)
+
+Offered automatically after phase execution or run on-demand anytime.
+
+---
+
+### 8. Complete Milestone
+
+```
 "Complete the milestone"
-"Start the next milestone"
 ```
 
-Loop **discuss → plan → execute → verify** until milestone is complete.
+Archives and ships:
 
-Each phase gets your input (discuss), proper research (plan), clean execution (execute), and human verification (verify). Context stays fresh. Quality stays high.
+1. **Verify** — All phases have summaries, optional audit passed
+2. **Archive** — Moves milestone to `milestones/v1.0-ROADMAP.md`
+3. **Update** — PROJECT.md gets "Current State" section
+4. **Release** — Creates PR or tag based on workflow setting
+5. **CI** — GitHub Release created automatically on merge (v1.2.0+)
 
-**GitHub workflow integration:**
-- Each phase creates its own PR (reviewed independently)
-- Merge PR after review, then continue to next phase
-- Phase issues close automatically when PR merges
-- GitHub Milestone tracks overall progress
+**Creates:** Archived roadmap/requirements, git tag or release PR
 
-When all phases are done, "complete the milestone" archives the milestone and closes the GitHub Milestone.
-
-Then "start the next milestone" kicks off the next version with a new GitHub Milestone. Same flow as project initialization. Each milestone is a clean cycle: define → build → ship → repeat.
+**Next:** "Add milestone v1.1"
 
 ---
 
 ### Quick Mode
 
 ```
-"Quick task: add dark mode toggle."
-```
-<sub>or `/kata:quick-task`</sub>
-
-**For ad-hoc tasks that don't need full planning.**
-
-Quick mode gives you Kata guarantees (atomic commits, state tracking) with a faster path:
-
-- **Same agents**: Planner + executor, same quality
-- **Skips optional steps**: No research, no plan checker, no verifier
-- **Separate tracking**: Lives in `.planning/quick/`
-
-Use for: bug fixes, small features, config changes, one-off tasks.
-
-```
-"Quick task: add dark mode toggle to settings"
+"Quick task: fix the login bug"
 ```
 
-**Creates:** `.planning/quick/001-add-dark-mode-toggle/PLAN.md`, `SUMMARY.md`
+For ad-hoc work that doesn't need full planning:
+
+- Same agents, same quality
+- Skips research, plan checker, verifier
+- Separate tracking in `.planning/quick/`
+
+**Use for:** Bug fixes, config changes, small features, one-off tasks.
 
 ---
 
-### PR Review
+## Configuration
+
+Settings live in `.planning/config.json`. Configure during project init or update anytime:
 
 ```
-"Review my PR"
-```
-<sub>or `/kata:review-pr`</sub>
-
-**Automated code quality analysis using specialized review agents.**
-
-The PR review workflow runs multiple specialized agents, each focusing on a different aspect:
-
-| Agent                       | Focus                                      |
-| --------------------------- | ------------------------------------------ |
-| `kata-code-reviewer`        | General code quality, CLAUDE.md compliance |
-| `kata-comment-analyzer`     | Comment accuracy and documentation         |
-| `kata-pr-test-analyzer`     | Test coverage and quality                  |
-| `kata-failure-finder`       | Error handling and silent failures         |
-| `kata-type-design-analyzer` | Type design and invariants                 |
-| `kata-code-simplifier`      | Code clarity and maintainability           |
-
-**Usage:**
-
-```
-"Review my PR"                    # Full review (all agents)
-"Run code review"                 # Quick review (code agent only)
-"Review tests and error handling" # Specific aspects
+/kata:configure-settings
 ```
 
-**Integration with phase execution:**
+### Core Settings
 
-When `pr_workflow: true`, phase completion offers automated review after marking the PR ready:
+| Setting | Options                              | Default    | What it controls                  |
+| ------- | ------------------------------------ | ---------- | --------------------------------- |
+| `mode`  | `yolo`, `interactive`                | `yolo`     | Auto-approve vs confirm each step |
+| `depth` | `quick`, `standard`, `comprehensive` | `standard` | Planning thoroughness             |
 
-1. Phase completes all plans
-2. PR marked ready via `gh pr ready`
-3. Optional: Run automated review
-4. Review summary shown with phase completion
+### Model Profiles
 
-Review is always optional and non-blocking — findings are informational for the subsequent human review.
+Balance quality vs cost:
 
-**Creates:** Review summary in phase completion output
+| Profile    | Planning | Execution | Verification |
+| ---------- | -------- | --------- | ------------ |
+| `quality`  | Opus     | Opus      | Sonnet       |
+| `balanced` | Opus     | Sonnet    | Sonnet       |
+| `budget`   | Sonnet   | Sonnet    | Haiku        |
+
+Switch: `/kata:set-profile quality`
+
+### Workflow Agents
+
+Toggle agents that run during planning/execution:
+
+| Setting               | Default | What it does                         |
+| --------------------- | ------- | ------------------------------------ |
+| `workflow.research`   | `true`  | Research domain before planning      |
+| `workflow.plan_check` | `true`  | Verify plans achieve phase goals     |
+| `workflow.verifier`   | `true`  | Confirm deliverables after execution |
+
+Override per-invocation: `/kata:plan-phase --skip-research`
+
+### GitHub Integration (Optional)
+
+**All GitHub features are off by default.** Enable via `/kata:configure-settings`:
+
+| Setting            | Options              | Default | What it enables                               |
+| ------------------ | -------------------- | ------- | --------------------------------------------- |
+| `pr_workflow`      | `true`/`false`       | `false` | Branch per phase, PRs, tag via GitHub Release |
+| `github.enabled`   | `true`/`false`       | `false` | GitHub Milestones and Issues                  |
+| `github.issueMode` | `auto`/`ask`/`never` | `auto`  | When to create phase Issues                   |
+
+**When both enabled:**
+
+| Kata Action           | GitHub Result                              |
+| --------------------- | ------------------------------------------ |
+| Add milestone         | Creates GitHub Milestone                   |
+| Add phases to roadmap | Creates Issues with `phase` label          |
+| Plan phase            | Updates issue with plan checklist          |
+| Execute phase         | Creates branch, draft PR, checks off plans |
+| Phase complete        | Marks PR ready, links "Closes #X"          |
+| Milestone complete    | Creates release PR                         |
+| Merge to main         | CI creates GitHub Release + tag (v1.2.0+)  |
+
+**Requirements:** `gh` CLI authenticated, GitHub remote configured.
+
+### Execution
+
+| Setting           | Default | What it controls                     |
+| ----------------- | ------- | ------------------------------------ |
+| `parallelization` | `true`  | Run independent plans simultaneously |
+| `commit_docs`     | `true`  | Track `.planning/` in git            |
 
 ---
 
@@ -398,176 +381,108 @@ Review is always optional and non-blocking — findings are informational for th
 
 ### Context Engineering
 
-Claude Code requires the right context to perform well. Kata manages context for you:
+Claude requires the right context to perform well. Kata manages it:
 
-| File              | What it does                                                  |
-| ----------------- | ------------------------------------------------------------- |
-| `PROJECT.md`      | Project vision, always loaded                                 |
-| `research/`       | Ecosystem knowledge (stack, features, architecture, pitfalls) |
-| `REQUIREMENTS.md` | Scoped v1/v2 requirements with phase traceability             |
-| `ROADMAP.md`      | Where you're going, what's done                               |
-| `STATE.md`        | Decisions, blockers, position. Memory across sessions         |
-| `PLAN.md`         | Atomic task with XML structure, verification steps            |
-| `SUMMARY.md`      | What happened, what changed, committed to history             |
-| `todos/`          | Captured ideas and tasks for later work                       |
-
-Size limits based on where Claude's quality degrades.
-
-### XML Prompt Formatting
-
-Every plan is structured XML optimized for Claude:
-
-```xml
-<task type="auto">
-  <name>Create login endpoint</name>
-  <files>src/app/api/auth/login/route.ts</files>
-  <action>
-    Use jose for JWT (not jsonwebtoken - CommonJS issues).
-    Validate credentials against users table.
-    Return httpOnly cookie on success.
-  </action>
-  <verify>curl -X POST localhost:3000/api/auth/login returns 200 + Set-Cookie</verify>
-  <done>Valid credentials return cookie, invalid return 401</done>
-</task>
-```
-
-Precise instructions with verification built in.
+| File              | Purpose                                          |
+| ----------------- | ------------------------------------------------ |
+| `PROJECT.md`      | Vision, requirements, decisions — always loaded  |
+| `research/`       | Domain knowledge (stack, architecture, pitfalls) |
+| `REQUIREMENTS.md` | Scoped requirements with traceability            |
+| `ROADMAP.md`      | Phase structure, what's done                     |
+| `STATE.md`        | Living memory across sessions                    |
+| `PLAN.md`         | Atomic executable task with verification         |
+| `SUMMARY.md`      | What happened, committed to history              |
 
 ### Multi-Agent Orchestration
 
-Every stage uses the same pattern: a thin orchestrator spawns specialized agents, collects results, and routes to the next step.
+Every stage uses thin orchestrators that spawn specialized agents:
 
-| Stage        | Orchestrator does                  | Agents do                                                                  |
-| ------------ | ---------------------------------- | -------------------------------------------------------------------------- |
-| Research     | Coordinates, presents findings     | 4 parallel researchers investigate stack, features, architecture, pitfalls |
-| Planning     | Validates, manages iteration       | Planner creates plans, checker verifies, loop until pass                   |
-| Execution    | Groups into waves, tracks progress | Executors implement in parallel, each with fresh 200k context              |
-| Verification | Presents results, routes next      | Verifier checks codebase against goals, debuggers diagnose failures        |
+| Stage        | Orchestrator     | Agents                                           |
+| ------------ | ---------------- | ------------------------------------------------ |
+| Research     | Coordinates      | 4 parallel researchers → synthesizer             |
+| Planning     | Validates, loops | Planner → checker (up to 3 iterations)           |
+| Execution    | Groups waves     | Parallel executors, each with fresh 200k context |
+| Verification | Routes           | Verifier → debuggers if failures                 |
 
-The orchestrator never does heavy lifting. It spawns agents, waits, integrates results.
+**Result:** Run an entire phase and your main context stays at 30-40%.
 
-**The result:** You can run an entire phase (research, planning, execution, verification) and your main context window stays at 30-40%. The work happens in fresh subagent contexts.
+### Atomic Commits
 
-### Atomic Git Commits
+Each task gets its own commit:
 
-Each task gets its own commit immediately after completion:
-
-```bash
-abc123f docs(08-02): complete user registration plan
-def456g feat(08-02): add email confirmation flow
-hij789k feat(08-02): implement password hashing
-lmn012o feat(08-02): create registration endpoint
+```
+abc123f feat(01-02): add email confirmation flow
+def456g feat(01-02): implement password hashing
+ghi789j feat(01-02): create registration endpoint
 ```
 
-> [!NOTE]
-> **Benefits:** Git bisect finds exact failing task. Each task independently revertable. Clear history for Claude in future sessions. Better observability in AI-automated workflow.
-
-Every commit is traceable and revertable.
-
-### Modular by Design
-
-- Add phases to current milestone
-- Insert urgent work between phases
-- Complete milestones and start fresh
-- Adjust plans without rebuilding everything
-
-The system adapts to changing requirements.
+Git bisect finds exact failures. Each task independently revertable.
 
 ---
 
-## Configuration
+## Artifact Structure
 
-Kata stores project settings in `.planning/config.json`. Configure during `/kata:starting-projects` or update later with `/kata:configuring-settings`.
-
-### Core Settings
-
-| Setting | Options                              | Default       | What it controls                       |
-| ------- | ------------------------------------ | ------------- | -------------------------------------- |
-| `mode`  | `yolo`, `interactive`                | `interactive` | Auto-approve vs confirm at each step   |
-| `depth` | `quick`, `standard`, `comprehensive` | `standard`    | Planning thoroughness (phases × plans) |
-
-### Model Profiles
-
-Control which Claude model each agent uses. Balance quality vs token spend.
-
-| Profile              | Planning | Execution | Verification |
-| -------------------- | -------- | --------- | ------------ |
-| `quality`            | Opus     | Opus      | Sonnet       |
-| `balanced` (default) | Opus     | Sonnet    | Sonnet       |
-| `budget`             | Sonnet   | Sonnet    | Haiku        |
-
-Switch profiles:
 ```
-/kata:set-profile
+.planning/
+├── PROJECT.md              # Project vision and requirements
+├── config.json             # Workflow configuration
+├── ROADMAP.md              # Phase structure
+├── REQUIREMENTS.md         # Scoped requirements with IDs
+├── STATE.md                # Living memory
+├── research/               # Domain research (optional)
+│   ├── STACK.md
+│   ├── FEATURES.md
+│   ├── ARCHITECTURE.md
+│   ├── PITFALLS.md
+│   └── SUMMARY.md
+├── phases/
+│   └── 01-foundation/
+│       ├── 01-CONTEXT.md       # Implementation decisions
+│       ├── 01-RESEARCH.md      # Phase research
+│       ├── 01-01-PLAN.md       # Executable plan
+│       ├── 01-01-SUMMARY.md    # Execution summary
+│       ├── 01-VERIFICATION.md  # Goal verification
+│       └── 01-UAT.md           # User acceptance tests
+├── quick/                  # Ad-hoc tasks
+│   └── 001-fix-bug/
+├── milestones/             # Archived milestones
+│   ├── v1.0-ROADMAP.md
+│   └── v1.0-REQUIREMENTS.md
+└── todos/                  # Deferred work
 ```
 
-Or configure via `/kata:configure-settings`.
+---
 
-### Workflow Agents
+## Development Installation
 
-These spawn additional agents during planning/execution. They improve quality but add tokens and time.
+<details>
+<summary><strong>Build from source</strong></summary>
 
-| Setting               | Default | What it does                                        |
-| --------------------- | ------- | --------------------------------------------------- |
-| `workflow.research`   | `true`  | Researches domain before planning each phase        |
-| `workflow.plan_check` | `true`  | Verifies plans achieve phase goals before execution |
-| `workflow.verifier`   | `true`  | Confirms must-haves were delivered after execution  |
+```bash
+git clone https://github.com/gannonh/kata.git
+cd kata
+npm run build:plugin
 
-Use `/kata:configure-settings` to toggle these, or override per-invocation:
-- `/kata:plan-phase --skip-research`
-- `/kata:plan-phase --skip-verify`
+# Test locally
+claude --plugin-dir ./dist/plugin
+```
 
-### GitHub Integration
-
-Enable GitHub-integrated workflows during project initialization or via settings.
-
-| Setting              | Options               | Default | What it controls                          |
-| -------------------- | --------------------- | ------- | ----------------------------------------- |
-| `github.enabled`     | `true`, `false`       | `false` | Enable GitHub Milestone/Issue/PR features |
-| `github.issueMode`   | `auto`, `ask`, `never`| `auto`  | When to create GitHub Issues for phases   |
-| `pr_workflow`        | `true`, `false`       | `false` | Create PRs per phase vs commit to main    |
-
-**When `github.enabled` and `pr_workflow` are both true:**
-
-1. **Project init** → Creates GitHub repo if needed
-2. **Add milestone** → Creates GitHub Milestone
-3. **Add phases** → Creates GitHub Issues with `phase` label
-4. **Plan phase** → Updates issue with plan checklist
-5. **Execute phase** → Creates branch, draft PR, updates checkboxes, marks PR ready
-6. **Track progress** → Shows PR status (Draft/Ready/Merged)
-
-**Issue mode options:**
-- `auto`: Create issues automatically (default)
-- `ask`: Prompt before creating each issue
-- `never`: Skip issue creation (milestone-only mode)
-
-### Execution
-
-| Setting                   | Default | What it controls                     |
-| ------------------------- | ------- | ------------------------------------ |
-| `parallelization.enabled` | `true`  | Run independent plans simultaneously |
-| `planning.commit_docs`    | `true`  | Track `.planning/` in git            |
+</details>
 
 ---
 
 ## Background
 
-This project began as a fork of the [GSD system](https://github.com/glittercowboy/get-shit-done), and then quickly became a hard fork. Why hard fork and not contribute to the original project? The reasons are two fold, well three fold, or two and a half-fold.
+Kata began as a fork of [GSD](https://github.com/glittercowboy/get-shit-done), then became a hard fork:
 
-- **Team-oriented by design.** GSD is optimized for solo devs, viewing "enterprise" features as anti-patterns. I respect that position, but my projects are multi-player. At a minimum, I need:
-  - **GitHub integration**: PRs, issues, code review workflows. Planning that connects to where teams actually collaborate.
-  - **IDE agnostic**: Kata should work with the tools teams already use.
-
-- **Skills as the foundation.** GSD is built on `/commands`, which are Claude Code-specific. Kata standardizes on **skills**, an emerging open standard supported across major agentic frameworks.
-  - Portable across tools.
-  - Progressive disclosure keeps prompts lean.
-  - Natural language instantiation (useful for voice input).
+- **Team-oriented** — GSD optimizes for solo devs. Kata adds GitHub integration, PR workflows, and collaborative features.
+- **Skills-based** — Built on the emerging [Agent Skills](https://agentskills.io) open standard, not Claude Code-specific commands.
 
 ---
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+MIT License. See [LICENSE](LICENSE).
 
 ---
 
@@ -575,6 +490,6 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 **Kata adds structure to Claude Code.**
 
-*Tell it what you want. Track progress in GitHub.*
+*Tell it what you want. Track progress in GitHub (optionally).*
 
 </div>

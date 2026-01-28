@@ -1,11 +1,11 @@
 ---
 name: releasing-kata
-description: Use this skill when releasing a new version of Kata, bumping versions, updating changelogs, creating release PRs, or publishing to NPM and the plugin marketplace. Triggers include "release", "bump version", "publish", "create release PR", "ship it", "cut a release".
+description: Use this skill when releasing a new version of Kata, bumping versions, updating changelogs, or creating release PRs. Triggers include "release", "bump version", "publish", "create release PR", "ship it", "cut a release".
 ---
 
 # Releasing Kata
 
-Guide the release process for Kata's dual-channel distribution (NPM + Plugin marketplace).
+Guide the release process for Kata's plugin marketplace distribution.
 
 ## Release Flow Overview
 
@@ -15,7 +15,7 @@ Guide the release process for Kata's dual-channel distribution (NPM + Plugin mar
 3. Update CHANGELOG.md
 4. Create release branch and PR
 5. Merge PR to main
-6. CI automatically: tests → build → publish NPM → create GitHub Release → push to marketplace
+6. CI automatically: tests → build → create GitHub Release → push to marketplace
 ```
 
 ## Step 1: Pre-Release Verification
@@ -141,45 +141,22 @@ gh run watch  # Watch the latest run
 ```
 
 **CI Pipeline:**
-1. `publish.yml` triggers on version change detection
-2. Runs tests → Builds → Publishes to NPM → Creates GitHub Release
-3. `plugin-release.yml` triggers on publish completion
-4. Builds plugin → Pushes to kata-marketplace
+1. `plugin-release.yml` triggers on push to main
+2. Detects version change between plugin.json and marketplace
+3. Runs tests → Builds → Creates GitHub Release → Pushes to marketplace
 
 ## Step 8: Verify Release
 
-After CI completes (~2-3 minutes), verify both distribution channels.
+After CI completes (~2-3 minutes), verify the release.
 
-### 8a. Automated Smoke Tests
-
-Run the automated smoke tests against the published version:
+### 8a. Verify GitHub Release
 
 ```bash
-# Test against published NPM package
-KATA_VERSION=X.Y.Z npm run test:smoke
-
-# Optional: Include Claude CLI integration tests
-TEST_CLI=1 KATA_VERSION=X.Y.Z npm run test:smoke
-```
-
-**What smoke tests verify:**
-- NPX install creates correct directory structure
-- VERSION file matches expected version
-- Skills have correct path references
-- Plugin build has transformed paths
-- @ references resolve to existing files
-
-### 8b. Verify NPM and GitHub Release
-
-```bash
-# Verify NPM package published
-npm view @gannonh/kata version
-
-# Verify GitHub Release created
+# Verify GitHub Release created with tag
 gh release view vX.Y.Z
 ```
 
-### 8c. Verify Plugin Marketplace Updated
+### 8b. Verify Plugin Marketplace Updated
 
 ```bash
 # Check marketplace version (bypasses CDN cache)
@@ -189,7 +166,7 @@ gh api repos/gannonh/kata-marketplace/contents/.claude-plugin/marketplace.json -
 gh run list --workflow=plugin-release.yml --limit 3
 ```
 
-### 8d. Manual Plugin Installation Test
+### 8c. Manual Plugin Installation Test
 
 **This is the one test that can't be fully automated.** Test actual plugin installation:
 
@@ -239,7 +216,6 @@ See `./release-troubleshooting.md` for common issues:
 - [ ] GitHub Release created with correct tag (`gh release view vX.Y.Z`)
 
 **Post-release verification:**
-- [ ] NPM shows new version (`npm view @gannonh/kata version`)
-- [ ] Smoke tests pass against published version (`KATA_VERSION=X.Y.Z npm run test:smoke`)
+- [ ] GitHub Release created with tag (`gh release view vX.Y.Z`)
 - [ ] Marketplace shows new version (`gh api` check)
 - [ ] Manual plugin test passes (`/plugin install kata@kata-marketplace` + `/kata:providing-help`)

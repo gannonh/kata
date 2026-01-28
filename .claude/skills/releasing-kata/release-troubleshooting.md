@@ -4,23 +4,6 @@ Common issues and solutions for the Kata release process.
 
 ## CI Workflow Failures
 
-### NPM Publish Fails
-
-**Symptom:** CI fails at publish step
-
-**Check:**
-1. `NPM_TOKEN` secret is set in GitHub repo settings
-2. Version in `package.json` is higher than published version
-3. `dist/npm/package.json` exists after build
-
-```bash
-# Check published version
-npm view @gannonh/kata version
-
-# Verify local version is higher
-cat package.json | jq -r '.version'
-```
-
 ### Tests Fail in CI
 
 **Symptom:** Tests pass locally but fail in CI
@@ -56,18 +39,18 @@ gh api repos/gannonh/kata-marketplace/commits --jq '.[0] | "\(.sha[0:7]) \(.comm
 
 ### Plugin Workflow Didn't Trigger
 
-**Symptom:** NPM published but plugin-release.yml never ran
+**Symptom:** Version bumped but plugin-release.yml never ran
 
-**Cause:** GitHub doesn't trigger workflows on releases created by workflows using `GITHUB_TOKEN`
-
-**Solution:** The workflow uses `workflow_run` trigger instead of `release` trigger. If it still fails:
+**Check:**
+1. Workflow triggers on push to main — was PR merged?
+2. Version in plugin.json differs from marketplace version
 
 ```bash
 # Manually trigger the workflow
 gh workflow run plugin-release.yml
 
-# Or check if the publish workflow succeeded
-gh run list --workflow=publish.yml --limit 3
+# Check recent workflow runs
+gh run list --workflow=plugin-release.yml --limit 3
 ```
 
 ### CDN Caching Delay
@@ -107,7 +90,6 @@ echo "plugin.json:  $(jq -r '.version' .claude-plugin/plugin.json)"
 ```bash
 npm run build
 cat dist/plugin/VERSION
-cat dist/npm/kata/VERSION
 ```
 
 ## Path Transformation Issues
@@ -150,19 +132,11 @@ npm run build
 
 # Verify structure
 ls -la dist/plugin/
-ls -la dist/npm/
 ```
 
 ## Secrets Setup
 
 If you need to set up secrets for a fresh repository:
-
-### NPM_TOKEN
-
-1. Go to https://www.npmjs.com/settings/YOUR_USERNAME/tokens
-2. Generate new **Automation** token
-3. Go to https://github.com/gannonh/kata/settings/secrets/actions
-4. Add secret named `NPM_TOKEN`
 
 ### MARKETPLACE_TOKEN
 
