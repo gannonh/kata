@@ -16,3 +16,4 @@ tmp/
 # build output
 dist/
 .claude/kata/cache/update-check.json
+__pycache__/
