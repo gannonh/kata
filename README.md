@@ -11,7 +11,7 @@
 Multi-agent orchestration framework for spec-driven development.
 <br>
 
-**v1.3.0** — Release automation with changelog generation and semantic versioning.
+**v1.3.1** — Release automation with changelog generation and semantic versioning.
 <br>
 
 [kata.sh](https://kata.sh)
@@ -36,9 +36,9 @@ claude plugin install kata@kata-marketplace
 
 ---
 
-## What's New in v1.3.0
+## What's New in v1.3.0–1.3.1
 
-**Release Automation** — Complete release workflow from milestone completion:
+**Release Automation** — Complete release workflow integrated into milestone completion:
 - **Changelog Generation** — Auto-generate entries from conventional commits (feat → Added, fix → Fixed)
 - **Version Detection** — Semantic versioning based on commit types (breaking → major, feat → minor, fix → patch)
 - **Dry-Run Mode** — Preview changes before applying
@@ -46,6 +46,8 @@ claude plugin install kata@kata-marketplace
 - **GitHub Release** — Creates release with tag after PR merge
 
 When completing a milestone, you're offered: "Run release workflow", "Dry-run first", or "Just archive".
+
+**v1.3.1** also ensures the release branch is created before any commits when `pr_workflow=true`.
 
 <details>
 <summary><strong>v1.2.0: GitHub Integration & PR Review</strong></summary>
