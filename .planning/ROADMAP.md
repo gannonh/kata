@@ -13,7 +13,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 **Phases:** 1
 **Requirements:** 2 (TOOL-01, TOOL-02)
 
-- [ ] **Phase 1: Internal Documentation** — Flow diagrams and glossary
+- [x] **Phase 1: Internal Documentation** — Flow diagrams and glossary (2/2 plans) — completed 2026-01-29
 
 #### Phase 1: Internal Documentation
 
@@ -33,8 +33,8 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 **Plans:** 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Create 6 Mermaid workflow diagrams (TOOL-01)
-- [ ] 01-02-PLAN.md — Create terminology glossary with relationships (TOOL-02)
+- [x] 01-01-PLAN.md — Create 6 Mermaid workflow diagrams (TOOL-01)
+- [x] 01-02-PLAN.md — Create terminology glossary with relationships (TOOL-02)
 
 ---
 
@@ -144,9 +144,9 @@ Plans:
 | v1.0.9    | 1      | 3     | Complete | 2026-01-25 |
 | v1.1.0    | 10     | 33    | Shipped  | 2026-01-27 |
 | v1.3.0    | 2      | 4     | Shipped  | 2026-01-28 |
-| v1.3.3    | 1      | 2     | Current  | —          |
+| v1.3.3    | 1      | 2     | Complete | —          |
 | v1.4.0    | TBD    | TBD   | Future   | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-29 — Phase 1 planned (2 plans)*
+*Last updated: 2026-01-29 — Phase 1 complete (2/2 plans), milestone ready for verification*
