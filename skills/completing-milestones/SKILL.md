@@ -291,38 +291,27 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
    ```
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    ⚠ POST-RELEASE CHECKLIST
+    POST-RELEASE CHECKLIST
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-   Before celebrating, verify the release:
+   Before moving on, verify the release:
 
-   1. **Check CI passed:**
-      gh run list --limit 1
-      gh run view [run-id] (if needed)
-
-   2. **Verify GitHub Release created:**
-      gh release view v{{version}}
-
-   3. **Verify marketplace updated (if applicable):**
-      Check marketplace shows v{{version}}
-
-   4. **Quick smoke test:**
-      - Install/update the release
-      - Run basic functionality
-      - Confirm no obvious issues
+   ☐ CI/CD pipeline passed (if configured)
+   ☐ Release artifacts published successfully
+   ☐ Quick smoke test confirms basic functionality
 
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    ```
 
    Use AskUserQuestion:
    - header: "Verification"
-   - question: "Have you verified the release?"
+   - question: "Release verification complete?"
    - options:
-     - "Yes, all good" — Continue to completion
-     - "CI failed" — Stop and investigate
-     - "Skip verification" — Continue without verifying
+     - "Yes, verified" — Continue to completion
+     - "Something failed" — Stop and investigate
+     - "Skip" — Continue without verifying
 
-   **If "CI failed":** Stop and help debug the issue.
+   **If "Something failed":** Stop and help debug the issue.
    **If "Yes" or "Skip":** Continue to step 9.
 
 9. **Offer next steps:**
