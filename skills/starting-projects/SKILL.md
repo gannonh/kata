@@ -519,6 +519,30 @@ AskUserQuestion([
 
 Create `.github/workflows/release.yml`:
 
+**Branch Protection Recommendation:**
+
+After scaffolding, display:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ⚠ RECOMMENDED: Enable GitHub Branch Protection
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Since you've enabled PR workflow, we strongly recommend
+protecting your main branch to prevent accidental direct pushes.
+
+Go to: https://github.com/{owner}/{repo}/settings/branches
+
+Enable these settings for `main`:
+  ✓ Require a pull request before merging
+  ✓ Do not allow bypassing the above settings
+  ✗ Allow force pushes (uncheck this)
+
+This ensures ALL changes go through PRs — even in emergencies,
+you can temporarily disable protection from GitHub settings.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
 ```bash
 mkdir -p .github/workflows
 ```
@@ -728,6 +752,23 @@ fi
 | Config   | `.planning/config.json` |
 
 Ready for milestone planning ✓
+
+**If pr_workflow = Yes, append:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ⚠ RECOMMENDED: Enable Branch Protection
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PR workflow is enabled. Protect your main branch:
+
+  https://github.com/{owner}/{repo}/settings/branches
+
+Settings for `main`:
+  ✓ Require a pull request before merging
+  ✓ Do not allow bypassing the above settings
+  ✗ Allow force pushes (uncheck)
+```
 
 ───────────────────────────────────────────────────────────────
 

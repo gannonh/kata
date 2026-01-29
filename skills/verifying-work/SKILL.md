@@ -207,7 +207,7 @@ Use AskUserQuestion:
 
 If user chose "Yes, merge now":
 ```bash
-gh pr merge "$PR_NUMBER" --squash --delete-branch
+gh pr merge "$PR_NUMBER" --merge --delete-branch
 git checkout main && git pull
 ```
 Set MERGED=true for output below.
@@ -263,7 +263,7 @@ Use AskUserQuestion:
 
 If user chose "Yes, merge now":
 ```bash
-gh pr merge "$PR_NUMBER" --squash --delete-branch
+gh pr merge "$PR_NUMBER" --merge --delete-branch
 git checkout main && git pull
 ```
 Set MERGED=true for output below.

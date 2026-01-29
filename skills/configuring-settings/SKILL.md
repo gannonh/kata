@@ -256,6 +256,25 @@ Quick commands:
 - /kata:plan-phase --skip-research — skip research
 - /kata:plan-phase --skip-verify — skip plan check
 
+**If PR Workflow was just enabled (changed from Off to On), append:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ⚠ RECOMMENDED: Enable Branch Protection
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PR workflow is enabled. Protect your main branch:
+
+  https://github.com/{owner}/{repo}/settings/branches
+
+Settings for `main`:
+  ✓ Require a pull request before merging
+  ✓ Do not allow bypassing the above settings
+  ✗ Allow force pushes (uncheck)
+
+This ensures ALL changes go through PRs.
+```
+
 
 </process>
 

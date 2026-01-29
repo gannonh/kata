@@ -413,7 +413,7 @@ PR_EOF
     **If user chooses "Merge PR":**
     1. Execute merge:
        ```bash
-       gh pr merge "$PR_NUMBER" --squash --delete-branch
+       gh pr merge "$PR_NUMBER" --merge --delete-branch
        git checkout main && git pull
        ```
     2. Set MERGED=true
