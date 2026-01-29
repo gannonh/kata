@@ -12,7 +12,8 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - **v1.0.8 Plugin Stability** — Phase 2.1 (shipped 2026-01-24) — [archive](milestones/v1.0.8-ROADMAP.md)
 - **v1.0.9 Command Consolidation** — Phase 2.2 (complete)
 - **v1.1.0 GitHub Integration** — Phases 0-7 (shipped 2026-01-27) — [archive](milestones/v1.1.0-ROADMAP.md)
-- **v1.3.0 Release Automation** — Phases 0-1 (in progress)
+- **v1.3.0 Release Automation** — Phases 0-1 (complete)
+- **v1.3.3 Internal Tooling** — Phase 2 (in progress)
 
 ## Phases
 
@@ -97,7 +98,38 @@ Plans:
 
 </details>
 
-### v1.3.0 Release Automation (In Progress)
+### v1.3.3 Internal Tooling (In Progress)
+
+**Goal:** Create internal documentation and terminology reference for Kata.
+
+**Phases:** 1
+**Requirements:** 2 (TOOL-01, TOOL-02)
+**Depth:** Quick
+
+- [ ] **Phase 2: Internal Documentation** — Flow diagrams and glossary for Kata internals
+
+---
+
+#### Phase 2: Internal Documentation
+
+**Goal:** Create Mermaid flow diagrams and terminology glossary for Kata
+
+**Depends on:** v1.3.0 complete
+
+**Requirements:** TOOL-01, TOOL-02
+
+**Success Criteria** (what must be TRUE):
+1. Mermaid diagrams exist for major workflow paths (orchestration, lifecycle, planning, execution, verification, PR)
+2. Diagrams stored in `docs/` or `kata/references/` for progressive disclosure
+3. Kata glossary defines all key terms (milestone, phase, issue, plan, etc.)
+4. Glossary shows relationships between concepts
+5. Documentation is usable by both humans and future Claude instances
+
+**Plans:** TBD (created during phase planning)
+
+---
+
+### v1.3.0 Release Automation (Complete)
 
 **Goal:** Harden CI validation and automate the release pipeline.
 
@@ -182,7 +214,8 @@ Plans:
 | 7. Deprecate NPX Support                 | v1.1.0    | 6/6            | Complete | 2026-01-27 |
 | 0. Foundation & CI Hardening             | v1.3.0    | 2/2            | Complete | 2026-01-28 |
 | 1. Release Automation                    | v1.3.0    | 2/2            | Complete | 2026-01-28 |
+| 2. Internal Documentation                | v1.3.3    | 0/0            | Pending  | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-28 — Phase 1 complete (2/2 plans)*
+*Last updated: 2026-01-29 — v1.3.3 milestone started*
