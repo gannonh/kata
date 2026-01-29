@@ -285,7 +285,47 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    - Tag: `git tag -a v{{version}} -m "[milestone summary]"`
    - Ask about pushing tag
 
-8. **Offer next steps:**
+8. **Post-release verification:**
+
+   After the release PR is merged (or tag is pushed), prompt for verification:
+
+   ```
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    ⚠ POST-RELEASE CHECKLIST
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   Before celebrating, verify the release:
+
+   1. **Check CI passed:**
+      gh run list --limit 1
+      gh run view [run-id] (if needed)
+
+   2. **Verify GitHub Release created:**
+      gh release view v{{version}}
+
+   3. **Verify marketplace updated (if applicable):**
+      Check marketplace shows v{{version}}
+
+   4. **Quick smoke test:**
+      - Install/update the release
+      - Run basic functionality
+      - Confirm no obvious issues
+
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ```
+
+   Use AskUserQuestion:
+   - header: "Verification"
+   - question: "Have you verified the release?"
+   - options:
+     - "Yes, all good" — Continue to completion
+     - "CI failed" — Stop and investigate
+     - "Skip verification" — Continue without verifying
+
+   **If "CI failed":** Stop and help debug the issue.
+   **If "Yes" or "Skip":** Continue to step 9.
+
+9. **Offer next steps:**
    - `/kata:new-milestone` — start next milestone (questioning → research → requirements → roadmap)
 
 </process>
