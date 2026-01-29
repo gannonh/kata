@@ -11,27 +11,44 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 **Goal:** Create internal documentation and terminology reference for Kata.
 
 **Phases:** 1
-**Requirements:** 3 (TOOL-01, TOOL-02, TOOL-03)
+**Requirements:** 2 (TOOL-01, TOOL-02)
 
-- [ ] **Phase 2: Internal Documentation** — Flow diagrams, glossary, roadmap format fix
+- [ ] **Phase 1: Internal Documentation** — Flow diagrams and glossary
 
-#### Phase 2: Internal Documentation
+#### Phase 1: Internal Documentation
 
-**Goal:** Create Mermaid flow diagrams, terminology glossary, and fix ROADMAP.md format
+**Goal:** Create Mermaid flow diagrams and terminology glossary
 
 **Depends on:** v1.3.0 complete
 
-**Requirements:** TOOL-01, TOOL-02, TOOL-03
+**Requirements:** TOOL-01, TOOL-02
 
 **Success Criteria** (what must be TRUE):
 1. Mermaid diagrams exist for major workflow paths (orchestration, lifecycle, planning, execution, verification, PR)
-2. Diagrams stored in `docs/` or `kata/references/` for progressive disclosure
+2. Diagrams stored in `.docs/` for progressive disclosure
 3. Kata glossary defines all key terms (milestone, phase, issue, plan, etc.)
 4. Glossary shows relationships between concepts
 5. Documentation is usable by both humans and future Claude instances
-6. ROADMAP.md format is clear — current milestone at top, obvious "where are we now?", consistent structure
 
-**Plans:** TBD (created during phase planning)
+**Plans:** 2 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Create 6 Mermaid workflow diagrams (TOOL-01)
+- [ ] 01-02-PLAN.md — Create terminology glossary with relationships (TOOL-02)
+
+---
+
+## Future Milestones
+
+### v1.4.0 Issue & Phase Management
+
+**Goal:** Unified issue model and improved phase management.
+
+**Requirements:** 13 (ISS-01–04, PULL-01–02, PHASE-01–05, ROAD-01–02)
+
+*Issue Model:* Rename todos → issues, local + GitHub sync, pull from GitHub
+*Phase Management:* Folder organization, move/reorder phases, phase numbering reset, artifact validation at completion
+*Roadmap:* Show future milestones, clearer format
 
 ---
 
@@ -127,8 +144,9 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 | v1.0.9    | 1      | 3     | Complete | 2026-01-25 |
 | v1.1.0    | 10     | 33    | Shipped  | 2026-01-27 |
 | v1.3.0    | 2      | 4     | Shipped  | 2026-01-28 |
-| v1.3.3    | 1      | 0     | Current  | —          |
+| v1.3.3    | 1      | 2     | Current  | —          |
+| v1.4.0    | TBD    | TBD   | Future   | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-29 — Reformatted for clarity*
+*Last updated: 2026-01-29 — Phase 1 planned (2 plans)*

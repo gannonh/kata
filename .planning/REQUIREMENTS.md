@@ -6,7 +6,6 @@
 
 - [ ] **TOOL-01**: User can view Mermaid flow diagrams documenting Kata's major workflow paths (orchestration, lifecycle, planning, execution, verification, PR)
 - [ ] **TOOL-02**: User can reference a Kata glossary defining key terms (milestone, phase, issue, plan, etc.) with clear relationships
-- [ ] **TOOL-03**: ROADMAP.md format is clear — current milestone visible at top, "where are we now?" obvious, consistent structure throughout
 
 ---
 
@@ -23,16 +22,26 @@
 
 ## Future Requirements
 
-**v1.4.0 — Issue Management:**
+**v1.4.0 — Issue & Phase Management:**
+
+*Issue Model:*
 - [ ] **ISS-01**: "Todos" renamed to "issues" in all skills, commands, and terminology
 - [ ] **ISS-02**: Local issue storage uses `.planning/issues/` directory structure
 - [ ] **ISS-03**: When GitHub enabled, issues sync bidirectionally with GitHub Issues (backlog label)
 - [ ] **ISS-04**: Projects without GitHub use local-only issue storage
 - [ ] **PULL-01**: User can pull a GitHub Issue into Kata workflow
 - [ ] **PULL-02**: Pulled issues become active work items with Kata tracking
+
+*Phase Management:*
 - [ ] **PHASE-01**: Phase folders organized as pending/active/completed structure
 - [ ] **PHASE-02**: User can move a phase to a different position in the roadmap
 - [ ] **PHASE-03**: User can move a phase to a different milestone
+- [ ] **PHASE-04**: Phase numbering resets per milestone (each milestone has Phase 1, 2, 3... not global numbering)
+- [ ] **PHASE-05**: Artifact validation at phase/milestone completion — thorough review and cleanup of REQUIREMENTS.md, ROADMAP.md, PROJECT.md, MILESTONES.md, STATE.md (agent verification loop or validation scripts)
+
+*Roadmap Improvements:*
+- [ ] **ROAD-01**: Roadmap shows FUTURE milestones (what's coming), not just current and past
+- [ ] **ROAD-02**: Roadmap format clearly shows current position and what's next
 
 **Deferred to later milestones:**
 - Demo projects for UAT testing (fixture projects in various states)
@@ -55,14 +64,13 @@
 
 ## Traceability
 
-| Requirement | Phase   | Plan | Status  |
-| ----------- | ------- | ---- | ------- |
-| TOOL-01     | Phase 2 | TBD  | Pending |
-| TOOL-02     | Phase 2 | TBD  | Pending |
-| TOOL-03     | Phase 2 | TBD  | Pending |
+| Requirement | Phase   | Plan    | Status  |
+| ----------- | ------- | ------- | ------- |
+| TOOL-01     | Phase 1 | 01-01   | Pending |
+| TOOL-02     | Phase 1 | 01-02   | Pending |
 
-**Coverage:** 3/3 requirements mapped to phases (100%)
+**Coverage:** 2/2 requirements mapped to plans (100%)
 
 ---
 *Created: 2026-01-28*
-*Last updated: 2026-01-29 — v1.3.3 requirements defined*
+*Last updated: 2026-01-29 — Plans assigned to requirements*
