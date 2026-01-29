@@ -21,7 +21,7 @@
 
 ```bash
 # Install as Claude Code plugin
-claude plugin install kata@kata-marketplace
+/plugin install kata@gannonh-kata-marketplace
 ```
 
 ---
@@ -87,10 +87,7 @@ Slash commands exist for precision (`/kata:plan-phase 2`), but natural language 
 ### Install
 
 ```bash
-# From terminal
-claude plugin install kata@kata-marketplace
-
-# Or from Claude Code CLI
+# from Claude Code CLI
 /plugin install kata@gannonh-kata-marketplace
 ```
 
