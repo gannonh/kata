@@ -962,7 +962,7 @@ Confirm: "Committed: chore: complete v[X.Y] milestone"
 
 <step name="offer_next">
 
-```
+
 ✅ Milestone v[X.Y] [Name] complete
 
 Shipped:
@@ -987,7 +987,7 @@ Tag: v[X.Y]
 <sub>`/clear` first → fresh context window</sub>
 
 ---
-```
+
 
 </step>
 

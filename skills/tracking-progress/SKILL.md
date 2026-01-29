@@ -393,7 +393,6 @@ A milestone was completed and archived. Ready to start the next milestone cycle.
 
 Read MILESTONES.md to find the last completed milestone version.
 
-```
 ---
 
 ## ✓ Milestone v{X.Y} Complete
@@ -409,7 +408,6 @@ Ready to plan the next milestone.
 <sub>`/clear` first → fresh context window</sub>
 
 ---
-```
 
 </step>
 
