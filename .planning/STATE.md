@@ -9,13 +9,13 @@ See: .planning/PROJECT.md (updated 2026-01-27)
 
 ## Current Position
 
-Milestone: v1.3.0 Release Automation & Workflow Docs
-Phase: Phase 1 (Release Automation) - COMPLETE
-Plan: 02 of 2
-Status: Milestone complete, ready for /kata:complete-milestone
-Last activity: 2026-01-28 — Completed 01-02-PLAN.md (release workflow integration into completing-milestones skill)
+Milestone: v1.4.0 Tooling & Issue Management
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-01-29 — Milestone v1.4.0 started
 
-Progress: [██████████████████████████████████████████████████] 100% (2/2 plans in Phase 1)
+Progress: [                                                  ] 0%
 
 ## Performance Metrics
 

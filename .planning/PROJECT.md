@@ -125,13 +125,18 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 
-## Current Milestone: v1.3.0 Release Automation
+## Current Milestone: v1.4.0 Tooling & Issue Management
 
-**Goal:** Harden CI validation and automate the release pipeline.
+**Goal:** Improve internal tooling and redesign issue management for unified local+GitHub workflow.
 
 **Target features:**
-- CI hardening (validate plugin artifacts before release)
-- Release management automation (milestone completion → PR merge → CI release)
+- Flow diagrams (Mermaid documentation of Kata workflows)
+- Demo projects for UAT testing (fixture projects in various states)
+- Rename todos → issues (unified terminology, `.planning/issues/`)
+- Local + GitHub sync (always local, GitHub as optional sync layer)
+- Pull from GitHub (bring external issues into Kata workflow)
+- Phase folder organization (pending/active/completed structure)
+- Phase management (move, reorder phases)
 
 ---
-*Last updated: 2026-01-28 — v1.3.0 milestone started*
+*Last updated: 2026-01-29 — v1.4.0 milestone started*
