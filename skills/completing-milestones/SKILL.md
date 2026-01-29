@@ -46,7 +46,49 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
 **Follow milestone-complete.md workflow:**
 
-0. **Pre-flight: Release artifacts**
+0. **CRITICAL: Branch setup (if pr_workflow=true)**
+
+   **Check pr_workflow config FIRST before any other work:**
+
+   ```bash
+   PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
+   CURRENT_BRANCH=$(git branch --show-current)
+   ```
+
+   **If `PR_WORKFLOW=true` AND on `main`:**
+
+   You MUST create a release branch BEFORE proceeding. All milestone completion work goes on that branch.
+
+   ```bash
+   # Determine version (ask user or detect from package.json)
+   VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "X.Y.Z")
+
+   # Create release branch
+   git checkout -b release/v$VERSION
+
+   echo "Created release branch: release/v$VERSION"
+   echo "All milestone completion work will be committed here."
+   ```
+
+   Display:
+   ```
+   ⚠ pr_workflow is enabled — creating release branch first.
+
+   Branch: release/v$VERSION
+
+   All milestone completion commits will go to this branch.
+   After completion, a PR will be created to merge to main.
+   ```
+
+   **If `PR_WORKFLOW=false` OR already on a non-main branch:**
+
+   Proceed with current branch (commits go to main or current branch).
+
+   **GATE: Do NOT proceed until branch is correct:**
+   - If pr_workflow=true, you must be on release/vX.Y.Z branch
+   - If pr_workflow=false, main branch is OK
+
+0.1. **Pre-flight: Release artifacts**
 
    Before archiving, ensure release artifacts are ready:
 
@@ -77,7 +119,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
    If "No", exit command.
 
-0.5. **Offer release workflow:**
+0.2. **Offer release workflow:**
 
    Use AskUserQuestion:
    - header: "Release Workflow"
@@ -182,36 +224,25 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
    *Non-blocking: milestone completion continues regardless of choice.*
 
-7. **Commit and tag:**
+7. **Commit and finalize:**
 
    - Stage: MILESTONES.md, PROJECT.md, ROADMAP.md, STATE.md, archive files
    - Commit: `chore: complete v{{version}} milestone`
 
-   **Check PR workflow mode:**
+   **PR workflow handling (branch was created in step 0):**
 
    ```bash
    PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
+   CURRENT_BRANCH=$(git branch --show-current)
    ```
 
-   **If `PR_WORKFLOW=true`:**
+   **If `PR_WORKFLOW=true` (on release/vX.Y.Z branch):**
 
-   Skip git tag creation. Offer to create PR:
-
-   Use AskUserQuestion:
-   - header: "Create PR"
-   - question: "Would you like me to create a PR for this milestone?"
-   - options:
-     - "Yes, create PR" — Create PR to merge to main
-     - "No, I'll do it manually" — Show instructions only
-
-   **If "Yes, create PR":**
+   Push branch and create PR:
 
    ```bash
-   # Get current branch
-   CURRENT_BRANCH=$(git branch --show-current)
-
-   # Push branch if not already pushed
-   git push -u origin "$CURRENT_BRANCH" 2>/dev/null || true
+   # Push branch
+   git push -u origin "$CURRENT_BRANCH"
 
    # Create PR
    gh pr create \
@@ -226,35 +257,29 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    - [accomplishment 2]
    - [accomplishment 3]
 
+   ## Release Files
+
+   - `package.json` — version {{version}}
+   - `.claude-plugin/plugin.json` — version {{version}}
+   - `CHANGELOG.md` — v{{version}} entry added
+
    ## After Merge
 
-   Create GitHub Release with tag `v{{version}}` to trigger npm publish (if configured).
+   Create GitHub Release with tag `v{{version}}` to trigger CI publish to marketplace.
    EOF
    )"
    ```
 
-   Display PR URL and next steps:
+   Display:
    ```
    ✓ PR created: [PR URL]
 
    After merge:
    → Create GitHub Release with tag v{{version}}
-   → GitHub Actions will publish to npm (if configured)
+   → CI will publish to marketplace
    ```
 
-   **If "No, I'll do it manually":**
-
-   Display:
-   ```
-   ⚡ PR workflow mode — tag will be created via GitHub Release after merge
-
-   Next steps:
-   1. Create PR to merge this branch to main
-   2. After merge, create GitHub Release with tag v{{version}}
-   3. GitHub Actions will publish to npm (if configured)
-   ```
-
-   **If `PR_WORKFLOW=false` (default):**
+   **If `PR_WORKFLOW=false` (on main):**
 
    Create tag locally:
    - Tag: `git tag -a v{{version}} -m "[milestone summary]"`

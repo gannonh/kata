@@ -53,6 +53,50 @@ When a milestone completes, this workflow:
 
 <process>
 
+<step name="ensure_release_branch">
+
+**CRITICAL: Check pr_workflow and create release branch BEFORE any work.**
+
+This step MUST run first. If pr_workflow is enabled, all milestone completion work
+must happen on a release branch, not main.
+
+```bash
+PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
+CURRENT_BRANCH=$(git branch --show-current)
+```
+
+**If `PR_WORKFLOW=true` AND `CURRENT_BRANCH=main`:**
+
+```bash
+# Get version from user input or package.json
+VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "X.Y.Z")
+
+# Create release branch
+git checkout -b "release/v$VERSION"
+
+echo "✓ Created release branch: release/v$VERSION"
+```
+
+Present:
+```
+⚠ pr_workflow is enabled
+
+Creating release branch: release/v$VERSION
+
+All milestone completion work will be committed to this branch.
+After completion, a PR will be created to merge to main.
+```
+
+**If `PR_WORKFLOW=false` OR already on non-main branch:**
+
+Proceed without creating branch.
+
+**GATE:** Do not proceed to verify_readiness until:
+- If pr_workflow=true: Current branch is release/vX.Y.Z (NOT main)
+- If pr_workflow=false: Any branch is acceptable
+
+</step>
+
 <step name="verify_readiness">
 
 Check if milestone is truly complete:
