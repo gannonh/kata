@@ -1,5 +1,54 @@
 # Project Milestones: Kata
 
+## v1.3.0 Release Automation (Shipped: 2026-01-28)
+
+**Delivered:** Release workflow integrated into milestone completion with version detection and changelog generation
+
+**Phases completed:** 0, 1 (4 plans total)
+
+**Key accomplishments:**
+
+- Release workflow in milestone completion — `/kata:completing-milestones` now offers release workflow
+- Version detection reference — semantic version detection from conventional commits
+- Changelog generation reference — Keep a Changelog format with commit-to-section mapping
+- Dry-run mode — preview version bump and changelog without applying changes
+- PR workflow integration — instructions for PR merge vs direct `gh release create`
+
+**Stats:**
+
+- 16 files changed, 1413 insertions, 84 deletions
+- 2 phases, 4 plans
+- 1 day (2026-01-28)
+
+**Git range:** `v1.2.2` → `v1.3.0`
+
+**What's next:** v1.3.1 patch (milestone completion workflow fix)
+
+---
+
+## v1.2.2 (Shipped: 2026-01-28)
+
+**Delivered:** Bug fixes for skill scripts and GitHub issue updates
+
+**Phases completed:** N/A (patch release)
+
+**Key accomplishments:**
+
+- GitHub issue body updates — replaced awk with Python script for reliable multiline content
+- Skill scripts directory — plugin build now includes `skills/*/scripts/` directories
+- Script path resolution — skills use base directory from invocation header
+
+**Stats:**
+
+- 3 files modified
+- Patch release (same day as v1.2.1)
+
+**Git range:** `v1.2.1` → `v1.2.2`
+
+**What's next:** v1.3.0 Release Automation
+
+---
+
 ## v1.2.1 (Shipped: 2026-01-28)
 
 **Delivered:** VERSION file path fix for plugin distribution

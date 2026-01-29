@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-01-28
+
+### Fixed
+- **Milestone completion branch workflow**: When `pr_workflow=true`, now creates release branch FIRST before any commits. Previously committed to main then offered to create branch (too late, causing lost work on reset).
+
+### Added
+- **v1.3.0 milestone archives**: Recovered and added missing milestone archive files from v1.3.0 release.
+
+---
+
 ## [1.3.0] - 2026-01-28 — Release Automation
 
 Kata v1.3.0 integrates release workflow into milestone completion: version detection, changelog generation, and GitHub Release creation.
@@ -291,7 +301,8 @@ Kata 1.0 ships with **Claude Code plugin support** as the recommended installati
 - Upstream remote and sync workflow
 - References to original project maintainer
 
-[Unreleased]: https://github.com/gannonh/kata/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/gannonh/kata/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/gannonh/kata/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/gannonh/kata/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/gannonh/kata/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/gannonh/kata/compare/v1.2.0...v1.2.1
