@@ -14,6 +14,7 @@ Use cases:
 - Moving a phase later when priorities shift
 - Reordering phases without manual ROADMAP.md editing
 - Avoiding manual renumbering of subsequent phases
+- Moving a phase to the backlog (todos) for future consideration
 
 Similar to how `phase-insert` creates decimal phases (e.g., 72.1) and `phase-remove` removes phases with renumbering, a `move-phase` command would allow repositioning existing phases.
 

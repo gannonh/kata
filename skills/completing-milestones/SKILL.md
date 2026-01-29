@@ -199,11 +199,11 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
    Use AskUserQuestion:
    - header: "Final README Review"
-   - question: "Review README.md before completing milestone v{{version}}?"
+   - question: "Revise README before completing milestone v{{version}}?"
    - options:
-     - "Yes, I'll review now" — Pause for user review, wait for "continue"
+     - "Yes, draft an update for my review" — Revise README and present to the user for approval
+     - "No, I'll make the edits myself" — Pause for user review, wait for "continue"
      - "Skip for now" — Proceed directly to commit
-     - "Show README" — Display content, ask if accurate
 
    **If "Yes, I'll review now":**
    ```
@@ -224,7 +224,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
    *Non-blocking: milestone completion continues regardless of choice.*
 
-7. **Commit and finalize:**
+1. **Commit and finalize:**
 
    - Stage: MILESTONES.md, PROJECT.md, ROADMAP.md, STATE.md, archive files
    - Commit: `chore: complete v{{version}} milestone`
@@ -285,7 +285,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    - Tag: `git tag -a v{{version}} -m "[milestone summary]"`
    - Ask about pushing tag
 
-8. **Post-release verification:**
+2. **Post-release verification:**
 
    After the release PR is merged (or tag is pushed), prompt for verification:
 
@@ -314,7 +314,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    **If "Something failed":** Stop and help debug the issue.
    **If "Yes" or "Skip":** Continue to step 9.
 
-9. **Offer next steps:**
+3. **Offer next steps:**
    - `/kata:new-milestone` — start next milestone (questioning → research → requirements → roadmap)
 
 </process>

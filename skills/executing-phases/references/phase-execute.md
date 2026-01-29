@@ -534,9 +534,9 @@ Use AskUserQuestion:
 - header: "README Review"
 - question: "This phase may have added user-facing features. Review README before marking PR ready?"
 - options:
-  - "Yes, I'll update README" — Pause for user edits, wait for "continue"
-  - "Skip" — Proceed to mark PR ready
-  - "Show README" — Display current README, then ask if updates needed
+  - "Yes, draft an update for my review" — Revise README and present to the user for approval
+  - "No, I'll make the edits myself" — Pause for user review, wait for "continue"
+  - "Skip for now" — Proceed directly to commit
 
 **If "Yes, I'll update README":**
 ```

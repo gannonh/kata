@@ -325,11 +325,11 @@ PR_EOF
 
     Use AskUserQuestion:
     - header: "README Review"
-    - question: "This phase may have added user-facing features. Review README before marking PR ready?"
+    - question: "This phase may have added user-facing features. Revise README before marking PR ready?"
     - options:
-      - "Yes, I'll update README" — Pause for user edits, wait for "continue"
-      - "Skip" — Proceed to mark PR ready
-      - "Show README" — Display current README, then ask if updates needed
+      - "Yes, draft an update for my review" — Revise README and present to the user for approval
+      - "No, I'll make the edits myself" — Pause for user review, wait for "continue"
+      - "Skip for now" — Proceed directly to commit
 
     **If user chooses "Yes, I'll update README":**
     ```
@@ -394,7 +394,7 @@ PR_EOF
     - options:
       - "Run UAT (Recommended)" — Walk through deliverables for manual acceptance testing
       - "Run PR review" — 6 specialized agents review code quality
-      - "Merge PR" — (if pr_workflow=true) Squash merge to main
+      - "Merge PR" — (if pr_workflow=true) Merge to main
       - "Skip to completion" — Trust automated verification, proceed to next phase/milestone
 
     **Note:** Show "Merge PR" option only if `pr_workflow=true` AND PR exists AND not already merged.
@@ -405,19 +405,19 @@ PR_EOF
     3. After UAT completes, return to this step to ask again (user may want PR review or merge)
 
     **If user chooses "Run PR review":**
-    1. Invoke skill: `Skill("kata:reviewing-pull-requests")`
-    2. Display review summary with counts: {N} critical, {M} important, {P} suggestions
-    3. **STOP and ask what to do with findings** (see step 10.7)
-    4. After findings handled, return to this step
+    4. Invoke skill: `Skill("kata:reviewing-pull-requests")`
+    5. Display review summary with counts: {N} critical, {M} important, {P} suggestions
+    6. **STOP and ask what to do with findings** (see step 10.7)
+    7. After findings handled, return to this step
 
     **If user chooses "Merge PR":**
-    1. Execute merge:
+    8. Execute merge:
        ```bash
        gh pr merge "$PR_NUMBER" --merge --delete-branch
        git checkout main && git pull
        ```
-    2. Set MERGED=true
-    3. Return to this step to ask if user wants UAT or review before continuing
+    9. Set MERGED=true
+    10. Return to this step to ask if user wants UAT or review before continuing
 
     **If user chooses "Skip to completion":**
     Continue to step 11.

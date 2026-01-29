@@ -774,11 +774,12 @@ Offer final README review before committing milestone completion.
 
 Use AskUserQuestion:
 - header: "Final README Review"
-- question: "Review README.md before completing milestone v{{version}}?"
+- question: "Revise README before completing milestone v{{version}}?"
 - options:
-  - "Yes, I'll review now" — Pause for user review, wait for "continue"
-  - "Skip for now" — Proceed directly to commit
-  - "Show README" — Display content, ask if accurate
+ - "Yes, draft an update for my review" — Revise README and present to the user for approval
+ - "No, I'll make the edits myself" — Pause for user review, wait for "continue"
+ - "Skip for now" — Proceed directly to commit
+
 
 **If "Yes, I'll review now":**
 ```

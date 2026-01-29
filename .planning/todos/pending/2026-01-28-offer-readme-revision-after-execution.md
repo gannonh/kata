@@ -9,7 +9,7 @@ files:
 
 ## Problem
 
-After completing an execution phase, the README may need updates to reflect new features, changed APIs, or updated usage instructions. Currently there's no prompt to consider this, so documentation drift accumulates.
+After completing an execution phase, the README may need updates to reflect new features, changed APIs, or updated usage instructions. Currently , the agent prompts the user but puts the onus on the user to make the changes. Instead, the agent should offer to draft changes for approval by the user. 
 
 ## Solution
 

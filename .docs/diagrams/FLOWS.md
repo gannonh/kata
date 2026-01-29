@@ -354,7 +354,7 @@ flowchart TD
 
     subgraph Merge["Merge Flow"]
         APPROVE["PR approved"]
-        MERGE["Squash merge to main"]
+        MERGE["Merge to main"]
         DELETE["Delete branch"]
         CLOSE["Close phase issue"]
     end
