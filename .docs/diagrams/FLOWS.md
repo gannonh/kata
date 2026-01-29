@@ -8,7 +8,7 @@ How users interact with skills, which orchestrate agents.
 
 ```mermaid
 %%{init: {'theme': 'dark'}}%%
-flowchart TD
+flowchart LR
     subgraph User["User Interface"]
         CMD["/kata:skill-name"]
         NL["Natural Language"]
@@ -16,58 +16,28 @@ flowchart TD
 
     subgraph Skills["Skills (Orchestrators)"]
         SP["starting-projects"]
-        AM["adding-milestones"]
         PP["planning-phases"]
         EP["executing-phases"]
         VW["verifying-work"]
-        RP["reviewing-pull-requests"]
-        CM["completing-milestones"]
     end
 
-    subgraph Agents["Subagents (via Task tool)"]
-        PR["kata-project-researcher"]
-        RS["kata-research-synthesizer"]
+    subgraph Agents["Subagents"]
         RM["kata-roadmapper"]
-        PHR["kata-phase-researcher"]
         PL["kata-planner"]
-        PC["kata-plan-checker"]
         EX["kata-executor"]
         VF["kata-verifier"]
-        DB["kata-debugger"]
-        CR["kata-code-reviewer"]
-        CA["kata-comment-analyzer"]
-        TA["kata-pr-test-analyzer"]
-        FF["kata-failure-finder"]
-        TD["kata-type-design-analyzer"]
-        CS["kata-code-simplifier"]
     end
 
     CMD --> Skills
     NL --> Skills
 
-    SP --> PR
-    SP --> RS
     SP --> RM
-    AM --> PR
-    AM --> RS
-    AM --> RM
-    PP --> PHR
     PP --> PL
-    PP --> PC
     EP --> EX
-    EP --> VF
     VW --> VF
-    VW --> DB
-    VW --> PL
-    VW --> PC
-    RP --> CR
-    RP --> CA
-    RP --> TA
-    RP --> FF
-    RP --> TD
-    RP --> CS
-    CM --> RM
 ```
+
+> **Note:** This diagram shows the core skill-to-agent pattern. Additional skills include `adding-milestones`, `reviewing-pull-requests`, and `completing-milestones`. Additional agents include `kata-project-researcher`, `kata-phase-researcher`, `kata-plan-checker`, `kata-debugger`, `kata-code-reviewer`, and others. See [GLOSSARY.md](GLOSSARY.md) for the complete list.
 
 ## 2. Project Lifecycle
 
