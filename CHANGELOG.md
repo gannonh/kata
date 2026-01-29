@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-01-29 — Internal Documentation
+
+Kata v1.3.3 ships **Internal Documentation**: workflow diagrams, terminology glossary, and dark theme styling for all diagrams.
+
+### Added
+- **Post-release verification checklist**: Milestone completion now includes CI/CD, release artifact, and smoke test verification steps
+
+### Fixed
+- **High-level orchestration diagram**: Simplified diagram structure for better clarity
+
+### Changed
+- **Internal documentation**: Added workflow diagrams (FLOWS.md), terminology glossary (GLOSSARY.md), and dark theme styling for all diagrams
+
+---
+
 ## [1.3.2] - 2026-01-28
 
 ### Changed
@@ -311,7 +326,8 @@ Kata 1.0 ships with **Claude Code plugin support** as the recommended installati
 - Upstream remote and sync workflow
 - References to original project maintainer
 
-[Unreleased]: https://github.com/gannonh/kata/compare/v1.3.2...HEAD
+[Unreleased]: https://github.com/gannonh/kata/compare/v1.3.3...HEAD
+[1.3.3]: https://github.com/gannonh/kata/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/gannonh/kata/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/gannonh/kata/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/gannonh/kata/compare/v1.2.2...v1.3.0

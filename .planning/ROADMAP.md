@@ -6,44 +6,11 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 ## Current Milestone
 
-### v1.3.3 Internal Tooling ← YOU ARE HERE
-
-**Goal:** Create internal documentation and terminology reference for Kata.
-
-**Phases:** 1
-**Requirements:** 2 (TOOL-01, TOOL-02)
-
-- [x] **Phase 1: Internal Documentation** — Flow diagrams and glossary (2/2 plans) — completed 2026-01-29
-
-#### Phase 1: Internal Documentation
-
-**Goal:** Create Mermaid flow diagrams and terminology glossary
-
-**Depends on:** v1.3.0 complete
-
-**Requirements:** TOOL-01, TOOL-02
-
-**Success Criteria** (what must be TRUE):
-1. Mermaid diagrams exist for major workflow paths (orchestration, lifecycle, planning, execution, verification, PR)
-2. Diagrams stored in `.docs/` for progressive disclosure
-3. Kata glossary defines all key terms (milestone, phase, issue, plan, etc.)
-4. Glossary shows relationships between concepts
-5. Documentation is usable by both humans and future Claude instances
-
-**Plans:** 2 plans
-
-Plans:
-- [x] 01-01-PLAN.md — Create 6 Mermaid workflow diagrams (TOOL-01)
-- [x] 01-02-PLAN.md — Create terminology glossary with relationships (TOOL-02)
-
----
-
-## Future Milestones
-
-### v1.4.0 Issue & Phase Management
+### v1.4.0 Issue & Phase Management ← YOU ARE HERE
 
 **Goal:** Unified issue model and improved phase management.
 
+**Phases:** TBD (planning not started)
 **Requirements:** 13 (ISS-01–04, PULL-01–02, PHASE-01–05, ROAD-01–02)
 
 *Issue Model:* Rename todos → issues, local + GitHub sync, pull from GitHub
@@ -53,6 +20,17 @@ Plans:
 ---
 
 ## Completed Milestones
+
+<details>
+<summary>v1.3.3 Internal Documentation — SHIPPED 2026-01-29</summary>
+
+**Goal:** Create internal documentation and terminology reference for Kata.
+
+- [x] Phase 1: Internal Documentation (4/4 plans) — completed 2026-01-29
+
+[Full archive](milestones/v1.3.3-ROADMAP.md)
+
+</details>
 
 <details>
 <summary>v1.3.0 Release Automation — SHIPPED 2026-01-28</summary>
@@ -144,9 +122,9 @@ Plans:
 | v1.0.9    | 1      | 3     | Complete | 2026-01-25 |
 | v1.1.0    | 10     | 33    | Shipped  | 2026-01-27 |
 | v1.3.0    | 2      | 4     | Shipped  | 2026-01-28 |
-| v1.3.3    | 1      | 2     | Complete | —          |
-| v1.4.0    | TBD    | TBD   | Future   | —          |
+| v1.3.3    | 1      | 4     | Shipped  | 2026-01-29 |
+| v1.4.0    | TBD    | TBD   | Current  | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-29 — Phase 1 complete (2/2 plans), milestone ready for verification*
+*Last updated: 2026-01-29 — v1.3.3 shipped, v1.4.0 is current milestone*

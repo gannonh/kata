@@ -26,7 +26,7 @@
 
 ---
 
-## What's New in v1.3.0–1.3.1
+## What's New in v1.3.0
 
 **Release Automation** — Complete release workflow integrated into milestone completion:
 - **Changelog Generation** — Auto-generate entries from conventional commits (feat → Added, fix → Fixed)
@@ -36,8 +36,6 @@
 - **GitHub Release** — Creates release with tag after PR merge
 
 When completing a milestone, you're offered: "Run release workflow", "Dry-run first", or "Just archive".
-
-**v1.3.1** also ensures the release branch is created before any commits when `pr_workflow=true`.
 
 <details>
 <summary><strong>v1.2.0: GitHub Integration & PR Review</strong></summary>
@@ -480,6 +478,13 @@ claude --plugin-dir ./dist/plugin
 </details>
 
 ---
+
+## Understanding Kata
+
+Visual and conceptual guides for how Kata works:
+
+- **[Workflow Diagrams](.docs/diagrams/FLOWS.md)** — Mermaid flowcharts of orchestration, lifecycle, planning, execution, verification, and PR workflows
+- **[Terminology Glossary](.docs/glossary/GLOSSARY.md)** — Definitions and relationships between all Kata concepts
 
 ## Background
 

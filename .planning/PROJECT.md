@@ -4,7 +4,7 @@
 
 A spec-driven development framework for Claude Code. Brings structured, reliable AI development to teams without changing their existing tools. Teams use Kata's quality-producing process inside the tools they already love.
 
-**Current state:** v1.1.0 shipped — GitHub Integration. Config-driven GitHub Milestone, Issue, and PR workflows. Plugin-only distribution.
+**Current state:** v1.3.3 shipped — Internal Documentation. Workflow diagrams and terminology glossary. Previous: GitHub Integration with config-driven Milestone, Issue, and PR workflows.
 
 ## Core Value
 
@@ -27,13 +27,16 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - PR creation at phase completion — v1.1.0 (phase-execute creates PR, auto-links with "Closes #X")
 - Workflow audit — v1.1.0 (integration points documented in github-integration.md)
 - Plugin-only distribution — v1.1.0 (NPX deprecated, 27 skills renamed)
+- Release automation — v1.3.0 (changelog generation, version detection, PR workflow)
+- Internal documentation — v1.3.3 (workflow diagrams, terminology glossary)
 
 ### Active
 
-**v1.3.0 — Release Automation**
+**v1.4.0 — Issue & Phase Management**
 
-- CI hardening (validate plugin artifacts before release)
-- Release management automation (milestone completion → PR merge → CI release)
+- Issue model (rename todos → issues, local + GitHub sync)
+- Phase management (folder organization, move/reorder phases)
+- Roadmap improvements (show future milestones, clearer format)
 
 ### Out of Scope
 
@@ -125,13 +128,25 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 
-## Current Milestone: v1.3.3 Internal Tooling
+## Shipped: v1.3.3 Internal Documentation
 
-**Goal:** Create internal documentation and terminology reference for Kata.
+**Delivered:** Workflow diagrams and terminology glossary for contributor onboarding.
+
+**Key accomplishments:**
+- 6 Mermaid workflow diagrams covering orchestration, lifecycle, planning, execution, verification, and PR workflows
+- Comprehensive glossary with 33 term definitions and relationship diagrams
+- Dark theme styling for all diagrams
+
+See `.planning/milestones/v1.3.3-ROADMAP.md` for full archive.
+
+## Current Milestone: v1.4.0 Issue & Phase Management
+
+**Goal:** Unified issue model and improved phase management.
 
 **Target features:**
-- Flow diagrams (Mermaid documentation of Kata workflows)
-- Kata glossary (define key terms: milestone, phase, issue, plan, etc.)
+- Rename todos → issues with local + GitHub sync
+- Phase folder organization and move/reorder capability
+- Roadmap improvements (show future milestones)
 
 ---
-*Last updated: 2026-01-29 — v1.3.3 milestone started*
+*Last updated: 2026-01-29 — v1.3.3 shipped*
