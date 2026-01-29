@@ -8,6 +8,7 @@
 **Multi-agent orchestration framework for spec-driven development.**
 
 ![alt text](assets/brand/logo-circle-dark.png)
+<br>
 [kata.sh](https://kata.sh)
 
 
