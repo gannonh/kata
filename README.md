@@ -2,31 +2,20 @@
 
 # Kata
 
-**型** · /ˈkɑːtɑː/ · *noun*
-<br>
-<sub>a choreographed pattern practiced repeatedly until perfected</sub>
+**型** · /ˈkɑːtɑː/ · *noun* - a choreographed pattern practiced repeatedly until perfected
 
-<br>
 
-Multi-agent orchestration framework for spec-driven development.
-<br>
+**Multi-agent orchestration framework for spec-driven development.**
 
-**v1.3.1** — Release automation with changelog generation and semantic versioning.
-<br>
-
+![alt text](assets/brand/logo-circle-dark.png)
 [kata.sh](https://kata.sh)
 
-<br>
+
 
 [![Plugin](https://img.shields.io/badge/plugin-kata--marketplace-blue?style=for-the-badge)](https://github.com/gannonh/kata-marketplace)
 
-<br>
-
-[![Kata Install](assets/terminal.svg)](https://kata.sh/)
-
-<br>
-
 </div>
+
 
 
 ```bash

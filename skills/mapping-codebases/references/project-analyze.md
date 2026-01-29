@@ -273,7 +273,6 @@ wc -l .planning/codebase/*.md
 
 **Output format:**
 
-```
 Codebase mapping complete.
 
 Created .planning/codebase/:
@@ -304,7 +303,6 @@ Created .planning/codebase/:
 - Edit any document before proceeding
 
 ---
-```
 
 End workflow.
 </step>
