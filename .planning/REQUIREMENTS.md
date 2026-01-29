@@ -37,21 +37,21 @@
 
 ## Traceability
 
-| Requirement | Phase | Verified |
-| ----------- | ----- | -------- |
-| ISS-01      | TBD   | ☐        |
-| ISS-02      | TBD   | ☐        |
-| ISS-03      | TBD   | ☐        |
-| ISS-04      | TBD   | ☐        |
-| PULL-01     | TBD   | ☐        |
-| PULL-02     | TBD   | ☐        |
-| PHASE-01    | TBD   | ☐        |
-| PHASE-02    | TBD   | ☐        |
-| PHASE-03    | TBD   | ☐        |
-| PHASE-04    | TBD   | ☐        |
-| PHASE-05    | TBD   | ☐        |
-| ROAD-01     | TBD   | ☐        |
-| ROAD-02     | TBD   | ☐        |
+| Requirement | Phase   | Verified |
+| ----------- | ------- | -------- |
+| ISS-01      | Phase 1 | -        |
+| ISS-02      | Phase 2 | -        |
+| ISS-03      | Phase 1 | -        |
+| ISS-04      | Phase 1 | -        |
+| PULL-01     | Phase 2 | -        |
+| PULL-02     | Phase 2 | -        |
+| PHASE-01    | Phase 3 | -        |
+| PHASE-02    | Phase 4 | -        |
+| PHASE-03    | Phase 4 | -        |
+| PHASE-04    | Phase 4 | -        |
+| PHASE-05    | Phase 3 | -        |
+| ROAD-01     | Phase 5 | -        |
+| ROAD-02     | Phase 5 | -        |
 
 ---
 
