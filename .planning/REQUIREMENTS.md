@@ -4,8 +4,8 @@
 
 ### Internal Tooling
 
-- [ ] **TOOL-01**: User can view Mermaid flow diagrams documenting Kata's major workflow paths (orchestration, lifecycle, planning, execution, verification, PR)
-- [ ] **TOOL-02**: User can reference a Kata glossary defining key terms (milestone, phase, issue, plan, etc.) with clear relationships
+- [x] **TOOL-01**: User can view Mermaid flow diagrams documenting Kata's major workflow paths (orchestration, lifecycle, planning, execution, verification, PR)
+- [x] **TOOL-02**: User can reference a Kata glossary defining key terms (milestone, phase, issue, plan, etc.) with clear relationships
 
 ---
 
