@@ -125,13 +125,13 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 
-## Current Milestone: v1.3.0 Release Automation
+## Current Milestone: v1.3.3 Internal Tooling
 
-**Goal:** Harden CI validation and automate the release pipeline.
+**Goal:** Create internal documentation and terminology reference for Kata.
 
 **Target features:**
-- CI hardening (validate plugin artifacts before release)
-- Release management automation (milestone completion → PR merge → CI release)
+- Flow diagrams (Mermaid documentation of Kata workflows)
+- Kata glossary (define key terms: milestone, phase, issue, plan, etc.)
 
 ---
-*Last updated: 2026-01-28 — v1.3.0 milestone started*
+*Last updated: 2026-01-29 — v1.3.3 milestone started*
