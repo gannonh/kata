@@ -19,9 +19,18 @@
 
 
 
+## Install
+
+**From inside Claude Code:**
 ```bash
-# Install as Claude Code plugin
+/plugin marketplace add gannonh/kata-marketplace
 /plugin install kata@gannonh-kata-marketplace
+```
+
+**From terminal:**
+```bash
+claude plugin marketplace add gannonh/kata-marketplace
+claude plugin install kata@gannonh-kata-marketplace
 ```
 
 ---
@@ -84,9 +93,16 @@ Slash commands exist for precision (`/kata:plan-phase 2`), but natural language 
 
 ### Install
 
+**From inside Claude Code:**
 ```bash
-# from Claude Code CLI
+/plugin marketplace add gannonh/kata-marketplace
 /plugin install kata@gannonh-kata-marketplace
+```
+
+**From terminal:**
+```bash
+claude plugin marketplace add gannonh/kata-marketplace
+claude plugin install kata@gannonh-kata-marketplace
 ```
 
 Verify with `/kata:help`.
@@ -94,7 +110,7 @@ Verify with `/kata:help`.
 ### Update
 
 ```bash
-claude plugin update kata@kata-marketplace
+claude plugin update kata@gannonh-kata-marketplace
 ```
 
 Check what's new: `/kata:whats-new`
