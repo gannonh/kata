@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-01-29)
 
 Milestone: v1.4.0 Issue & Phase Management
 Phase: 1 of 1 (Issue Model Foundation)
-Plan: 02 of 6
+Plan: 03 of 6
 Status: In progress
-Last activity: 2026-01-31 — Completed 01-02-PLAN.md (Rename checking-todos to checking-issues)
+Last activity: 2026-01-31 — Completed 01-03-PLAN.md (Add Auto-Migration Logic)
 
-Progress: [████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 2/6 plans (33%)
+Progress: [████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 3/6 plans (50%)
 
 ## Performance Metrics
 
@@ -105,6 +105,7 @@ Recent decisions affecting current work:
 - **v1.4.0 started 2026-01-31** — Issue & Phase Management (1 phase planned)
 - **Phase 1 plan 01 complete 2026-01-31** — Rename adding-todos to adding-issues
 - **Phase 1 plan 02 complete 2026-01-31** — Rename checking-todos to checking-issues
+- **Phase 1 plan 03 complete 2026-01-31** — Add auto-migration logic (archive, not delete)
 
 ### Pending Todos
 
@@ -151,6 +152,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 01-02-PLAN.md
-Resume file: .planning/phases/01-issue-model-foundation/01-03-PLAN.md
-Next action: Execute 01-03-PLAN.md
+Stopped at: Completed 01-03-PLAN.md
+Resume file: .planning/phases/01-issue-model-foundation/01-04-PLAN.md
+Next action: Execute 01-04-PLAN.md
