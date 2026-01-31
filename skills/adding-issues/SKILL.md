@@ -1,8 +1,8 @@
 ---
 name: adding-issues
-description: Use this skill to capture an idea, task, or issue that surfaces during a Kata session as a structured issue for later work. This skill creates markdown issue files in the .planning/issues/open directory with relevant metadata and content extracted from the conversation. Triggers include "add issue", "capture issue", "new issue", "create issue", "log issue", and "file issue".
+description: Use this skill to capture an idea, task, or issue that surfaces during a Kata session as a structured issue for later work. This skill creates markdown issue files in the .planning/issues/open directory with relevant metadata and content extracted from the conversation. Triggers include "add issue", "capture issue", "new issue", "create issue", "log issue", "file issue", "add todo" (deprecated), "capture todo" (deprecated), "new todo" (deprecated).
 metadata:
-  version: "0.2.0"
+  version: "0.3.0"
 user-invocable: false
 disable-model-invocation: false
 allowed-tools:
@@ -26,6 +26,16 @@ Enables "thought -> capture -> continue" flow without losing context or derailin
 </context>
 
 <process>
+
+<step name="deprecation_notice">
+**If the user invoked with "todo" vocabulary** (e.g., "add todo", "capture todo", "new todo"):
+
+Display:
+
+> **Note:** "todos" is now "issues". Using `/kata:add-issue`.
+
+Then proceed with the action (non-blocking).
+</step>
 
 <step name="check_and_migrate">
 Check if legacy `.planning/todos/` exists and needs migration:
