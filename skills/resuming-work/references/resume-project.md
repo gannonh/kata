@@ -246,7 +246,7 @@ Based on user selection, route to appropriate workflow:
   ---
   ```
 - **Transition** → ./transition.md
-- **Check issues** → Read .planning/issues/pending/, present summary
+- **Check issues** → Read .planning/issues/open/, present summary
 - **Review alignment** → Read PROJECT.md, compare to current state
 - **Something else** → Ask what they need
 </step>
@@ -277,7 +277,7 @@ If STATE.md is missing but other artifacts exist:
 1. Read PROJECT.md → Extract "What This Is" and Core Value
 2. Read ROADMAP.md → Determine phases, find current position
 3. Scan \*-SUMMARY.md files → Extract decisions, concerns
-4. Count pending issues in .planning/issues/pending/
+4. Count pending issues in .planning/issues/open/
 5. Check for .continue-here files → Session continuity
 
 Reconstruct and write STATE.md, then proceed normally.

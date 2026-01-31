@@ -273,7 +273,7 @@ Usage: `/kata:debug-issue` (resume active session)
 Capture idea or task as issue from current conversation.
 
 - Extracts context from conversation (or uses provided description)
-- Creates structured issue file in `.planning/issues/pending/`
+- Creates structured issue file in `.planning/issues/open/`
 - Infers area from file paths for grouping
 - Checks for duplicates before creating
 - Updates STATE.md issue count
