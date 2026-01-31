@@ -13,7 +13,7 @@ Milestone: v1.4.0 Issue & Phase Management
 Phase: 1 (not started)
 Plan: Not started
 Status: Ready to plan Phase 1
-Last activity: 2026-01-29 — v1.4.0 roadmap created (5 phases, 13 requirements)
+Last activity: 2026-01-31 — Completed quick task 003: GitHub issue-PR integration
 
 Progress: [░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 0%
 
@@ -143,9 +143,10 @@ None yet.
 | --- | ------------------------------------------------ | ---------- | ------- | ------------------------------------------------------------------------------- |
 | 001 | Add PR workflow config option                    | 2026-01-22 | 975f1d3 | [001-add-pr-workflow-config-option](./quick/001-add-pr-workflow-config-option/) |
 | 002 | Config schema consistency & PR workflow features | 2026-01-22 | 325d86c | [002-config-schema-consistency](./quick/002-config-schema-consistency/)         |
+| 003 | Integrate GitHub issues into PR workflow         | 2026-01-31 | c367d42 | [003-integrate-github-issues-into-pr-workflow](./quick/003-integrate-github-issues-into-pr-workflow/) |
 
 ## Session Continuity
 
-Last session: 2026-01-29
-Stopped at: v1.3.3 milestone completed
+Last session: 2026-01-31
+Stopped at: Quick task 003 completed
 Next action: Start next milestone (/kata:adding-milestones) or plan v1.4.0 phases
