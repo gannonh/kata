@@ -768,6 +768,42 @@ Confirm:
 
 </step>
 
+<step name="close_github_milestone">
+
+Close the GitHub Milestone if github.enabled.
+
+```bash
+# Check if GitHub integration is enabled
+GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | head -1 | grep -o 'true\|false' || echo "false")
+
+if [ "$GITHUB_ENABLED" = "true" ]; then
+  # Find the milestone by name (v[X.Y])
+  # VERSION should be set from earlier steps (e.g., from package.json or user input)
+  MILESTONE_NUMBER=$(gh api repos/:owner/:repo/milestones --jq ".[] | select(.title == \"v${VERSION}\") | .number" 2>/dev/null)
+
+  if [ -n "$MILESTONE_NUMBER" ]; then
+    # Close the milestone
+    gh api repos/:owner/:repo/milestones/${MILESTONE_NUMBER} \
+      --method PATCH \
+      --field state=closed \
+      && echo "Closed GitHub Milestone v${VERSION}" \
+      || echo "Warning: Failed to close GitHub Milestone v${VERSION}"
+  else
+    echo "Note: No GitHub Milestone found for v${VERSION}"
+  fi
+else
+  echo "GitHub integration disabled, skipping milestone closure"
+fi
+```
+
+Confirm:
+```
+{If closed: ✅ GitHub Milestone v[X.Y] closed}
+{If not found: Note: No GitHub Milestone for v[X.Y] (skipped)}
+```
+
+</step>
+
 <step name="review_documentation">
 
 Offer final README review before committing milestone completion.
