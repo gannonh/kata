@@ -27,6 +27,32 @@ Enables "thought -> capture -> continue" flow without losing context or derailin
 
 <process>
 
+<step name="check_and_migrate">
+Check if legacy `.planning/todos/` exists and needs migration:
+
+```bash
+if [ -d ".planning/todos/pending" ] && [ ! -d ".planning/todos/_archived" ]; then
+  # Create new structure
+  mkdir -p .planning/issues/open .planning/issues/closed
+
+  # Copy pending todos to open issues
+  cp .planning/todos/pending/*.md .planning/issues/open/ 2>/dev/null || true
+
+  # Copy done todos to closed issues
+  cp .planning/todos/done/*.md .planning/issues/closed/ 2>/dev/null || true
+
+  # Archive originals
+  mkdir -p .planning/todos/_archived
+  mv .planning/todos/pending .planning/todos/_archived/ 2>/dev/null || true
+  mv .planning/todos/done .planning/todos/_archived/ 2>/dev/null || true
+
+  echo "Migrated todos to issues format"
+fi
+```
+
+Migration is idempotent: presence of `_archived/` indicates already migrated.
+</step>
+
 <step name="ensure_directory">
 ```bash
 mkdir -p .planning/issues/open .planning/issues/closed
