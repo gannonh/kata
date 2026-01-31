@@ -230,6 +230,7 @@ Phase: $ARGUMENTS
            PHASE_ISSUE=$(gh issue list --label phase --milestone "v${MILESTONE}" \
              --json number,title --jq ".[] | select(.title | startswith(\"Phase ${PHASE_NUM}:\")) | .number" 2>/dev/null)
            [ -n "$PHASE_ISSUE" ] && CLOSES_LINE="Closes #${PHASE_ISSUE}"
+           # Store PHASE_ISSUE for use in step 10.6 merge path
          fi
 
          # Build plans checklist (all unchecked initially)
@@ -415,6 +416,13 @@ PR_EOF
        ```bash
        gh pr merge "$PR_NUMBER" --merge --delete-branch
        git checkout main && git pull
+
+       # Explicitly close the phase issue (backup in case Closes #X didn't trigger)
+       if [ -n "$PHASE_ISSUE" ]; then
+         gh issue close "$PHASE_ISSUE" --comment "Closed by PR #${PR_NUMBER} merge" 2>/dev/null \
+           && echo "Closed issue #${PHASE_ISSUE}" \
+           || echo "Note: Issue #${PHASE_ISSUE} may already be closed"
+       fi
        ```
     9. Set MERGED=true
     10. Return to this step to ask if user wants UAT or review before continuing
