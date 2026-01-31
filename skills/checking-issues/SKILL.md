@@ -1,8 +1,8 @@
 ---
 name: checking-issues
-description: Use this skill when reviewing open issues, selecting an issue to work on, filtering issues by area, or deciding what to work on next. Triggers include "check issues", "list issues", "what issues", "open issues", "show issues", "view issues", and "select issue to work on".
+description: Use this skill when reviewing open issues, selecting an issue to work on, filtering issues by area, or deciding what to work on next. Triggers include "check issues", "list issues", "what issues", "open issues", "show issues", "view issues", "select issue to work on", "check todos" (deprecated), "list todos" (deprecated), "pending todos" (deprecated).
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
 user-invocable: false
 disable-model-invocation: false
 allowed-tools:
@@ -26,6 +26,16 @@ Enables reviewing captured ideas and deciding what to work on next.
 </context>
 
 <process>
+
+<step name="deprecation_notice">
+**If the user invoked with "todo" vocabulary** (e.g., "check todos", "list todos", "pending todos"):
+
+Display:
+
+> **Note:** "todos" is now "issues". Using `/kata:check-issues`.
+
+Then proceed with the action (non-blocking).
+</step>
 
 <step name="check_and_migrate">
 Check if legacy `.planning/todos/` exists and needs migration:
@@ -201,7 +211,7 @@ After any action that changes issue count:
 ls .planning/issues/open/*.md 2>/dev/null | wc -l
 ```
 
-Update STATE.md "### Open Issues" section if exists.
+Update STATE.md "### Pending Issues" section if exists.
 </step>
 
 <step name="git_commit">
