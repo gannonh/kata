@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-01-31 — GitHub Issue Integration
+
+### Fixed
+- **Issue closure on PR merge**: Phase issues now explicitly closed after PR merge (backup for `Closes #X` auto-close)
+- **GitHub Milestone closure**: Milestones now properly closed via API when completing milestones
+
+---
+
 ## [1.3.3] - 2026-01-29 — Internal Documentation
 
 Kata v1.3.3 ships **Internal Documentation**: workflow diagrams, terminology glossary, and dark theme styling for all diagrams.
