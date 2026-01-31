@@ -6,16 +6,61 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 ## Current Milestone
 
-### v1.4.0 Issue & Phase Management ← YOU ARE HERE
+### v1.4.0 Issue & Phase Management (In Progress)
 
 **Goal:** Unified issue model and improved phase management.
 
-**Phases:** TBD (planning not started)
-**Requirements:** 13 (ISS-01–04, PULL-01–02, PHASE-01–05, ROAD-01–02)
+#### Phase 1: Issue Model Foundation
 
-*Issue Model:* Rename todos → issues, local + GitHub sync, pull from GitHub
-*Phase Management:* Folder organization, move/reorder phases, phase numbering reset, artifact validation at completion
-*Roadmap:* Show future milestones, clearer format
+**Goal:** Establish "issues" as Kata's vocabulary with local storage and unified display.
+**Requirements:** ISS-01, ISS-03, ISS-04
+
+**Success Criteria** (what must be TRUE):
+1. All Kata skills, agents, and UI messages use "issues" instead of "todos"
+2. User can create issues that persist to `.planning/issues/` in non-GitHub projects
+3. `/kata:check-issues` displays all issues with consistent format regardless of source
+
+#### Phase 2: GitHub Issue Sync
+
+**Goal:** Integrate Kata issues with GitHub Issues for bidirectional workflow.
+**Requirements:** ISS-02, PULL-01, PULL-02
+**Dependencies:** Phase 1
+
+**Success Criteria** (what must be TRUE):
+1. Issues created in Kata appear as GitHub Issues with `backlog` label when `github.enabled=true`
+2. User can pull existing GitHub Issues into Kata workflow via filtering
+3. Kata execution can reference and auto-update external GitHub Issues on completion
+
+#### Phase 3: Phase Organization
+
+**Goal:** Organize phase artifacts into state directories with completion validation.
+**Requirements:** PHASE-01, PHASE-05
+
+**Success Criteria** (what must be TRUE):
+1. Phase directories are organized under `pending/`, `active/`, `completed/` subdirectories
+2. Phase completion validates PLAN.md and SUMMARY.md existence
+3. Non-gap phases require VERIFICATION.md for completion validation
+
+#### Phase 4: Phase Movement
+
+**Goal:** Enable flexible phase reorganization within and across milestones.
+**Requirements:** PHASE-02, PHASE-03, PHASE-04
+**Dependencies:** Phase 3
+
+**Success Criteria** (what must be TRUE):
+1. User can move a phase to a different milestone via `/kata:move-phase`
+2. User can reorder phases within a milestone with automatic renumbering
+3. Each milestone starts phase numbering at 1 (not cumulative across milestones)
+
+#### Phase 5: Roadmap Enhancements
+
+**Goal:** Improve roadmap visibility and readability.
+**Requirements:** ROAD-01, ROAD-02
+
+**Success Criteria** (what must be TRUE):
+1. ROADMAP.md displays future planned milestones (not just current)
+2. Phase and milestone hierarchy is visually clear with consistent formatting
+3. Progress indicators are easily scannable
 
 ---
 
@@ -123,8 +168,8 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 | v1.1.0    | 10     | 33    | Shipped  | 2026-01-27 |
 | v1.3.0    | 2      | 4     | Shipped  | 2026-01-28 |
 | v1.3.3    | 1      | 4     | Shipped  | 2026-01-29 |
-| v1.4.0    | TBD    | TBD   | Current  | —          |
+| v1.4.0    | 5      | TBD   | Current  | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-29 — v1.3.3 shipped, v1.4.0 is current milestone*
+*Last updated: 2026-01-29 — v1.4.0 phases defined*
