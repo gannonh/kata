@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-01-29)
 
 Milestone: v1.4.0 Issue & Phase Management
 Phase: 1 of 1 (Issue Model Foundation)
-Plan: 03 of 6
+Plan: 04 of 6
 Status: In progress
-Last activity: 2026-01-31 — Completed 01-03-PLAN.md (Add Auto-Migration Logic)
+Last activity: 2026-01-31 — Completed 01-04-PLAN.md (Update secondary skill references)
 
-Progress: [████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 3/6 plans (50%)
+Progress: [████████████████████████████████░░░░░░░░░░░░░░░░░░] 4/6 plans (67%)
 
 ## Performance Metrics
 
@@ -106,8 +106,9 @@ Recent decisions affecting current work:
 - **Phase 1 plan 01 complete 2026-01-31** — Rename adding-todos to adding-issues
 - **Phase 1 plan 02 complete 2026-01-31** — Rename checking-todos to checking-issues
 - **Phase 1 plan 03 complete 2026-01-31** — Add auto-migration logic (archive, not delete)
+- **Phase 1 plan 04 complete 2026-01-31** — Update secondary skill references (6 files)
 
-### Pending Todos
+### Pending Issues
 
 26 pending todos:
 - `.planning/todos/pending/2026-01-18-statusline-kata-project-info.md` - Add kata project info to statusline
@@ -152,6 +153,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 01-03-PLAN.md
-Resume file: .planning/phases/01-issue-model-foundation/01-04-PLAN.md
-Next action: Execute 01-04-PLAN.md
+Stopped at: Completed 01-04-PLAN.md
+Resume file: .planning/phases/01-issue-model-foundation/01-05-PLAN.md
+Next action: Execute 01-05-PLAN.md
