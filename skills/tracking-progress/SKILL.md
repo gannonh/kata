@@ -81,7 +81,7 @@ PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:s
 - Calculate: total plans, completed plans, remaining plans
 - Note any blockers or concerns
 - Check for CONTEXT.md: For phases without PLAN.md files, check if `{phase}-CONTEXT.md` exists in phase directory
-- Count pending todos: `ls .planning/todos/pending/*.md 2>/dev/null | wc -l`
+- Count pending issues: `ls .planning/issues/pending/*.md 2>/dev/null | wc -l`
 - Check for active debug sessions: `ls .planning/debug/*.md 2>/dev/null | grep -v resolved | wc -l`
   </step>
 
@@ -110,8 +110,8 @@ CONTEXT: [✓ if CONTEXT.md exists | - if not]
 ## Blockers/Concerns
 - [any blockers or concerns from STATE.md]
 
-## Pending Todos
-- [count] pending — /kata:check-todoss to review
+## Pending Issues
+- [count] pending — /kata:check-issues to review
 
 ## Active Debug Sessions
 - [count] active — /kata:debug-issue to continue

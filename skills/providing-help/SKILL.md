@@ -267,31 +267,31 @@ Systematic debugging with persistent state across context resets.
 Usage: `/kata:debug-issue "login button doesn't work"`
 Usage: `/kata:debug-issue` (resume active session)
 
-### Todo Management
+### Issue Management
 
-**`/kata:add-todo [description]`**
-Capture idea or task as todo from current conversation.
+**`/kata:add-issue [description]`**
+Capture idea or task as issue from current conversation.
 
 - Extracts context from conversation (or uses provided description)
-- Creates structured todo file in `.planning/todos/pending/`
+- Creates structured issue file in `.planning/issues/pending/`
 - Infers area from file paths for grouping
 - Checks for duplicates before creating
-- Updates STATE.md todo count
+- Updates STATE.md issue count
 
-Usage: `/kata:add-todo` (infers from conversation)
-Usage: `/kata:add-todo Add auth token refresh`
+Usage: `/kata:add-issue` (infers from conversation)
+Usage: `/kata:add-issue Add auth token refresh`
 
-**`/kata:check-todoss [area]`**
-List pending todos and select one to work on.
+**`/kata:check-issues [area]`**
+List pending issues and select one to work on.
 
-- Lists all pending todos with title, area, age
-- Optional area filter (e.g., `/kata:check-todoss api`)
-- Loads full context for selected todo
+- Lists all pending issues with title, area, age
+- Optional area filter (e.g., `/kata:check-issues api`)
+- Loads full context for selected issue
 - Routes to appropriate action (work now, add to phase, brainstorm)
-- Moves todo to done/ when work begins
+- Moves issue to done/ when work begins
 
-Usage: `/kata:check-todoss`
-Usage: `/kata:check-todoss api`
+Usage: `/kata:check-issues`
+Usage: `/kata:check-issues api`
 
 ### User Acceptance Testing
 
@@ -370,9 +370,9 @@ Usage: `/kata:whats-new`
 ├── ROADMAP.md            # Current phase breakdown
 ├── STATE.md              # Project memory & context
 ├── config.json           # Workflow mode & gates
-├── todos/                # Captured ideas and tasks
-│   ├── pending/          # Todos waiting to be worked on
-│   └── done/             # Completed todos
+├── issues/               # Captured ideas and tasks
+│   ├── pending/          # Issues waiting to be worked on
+│   └── done/             # Completed issues
 ├── debug/                # Active debug sessions
 │   └── resolved/         # Archived resolved issues
 ├── codebase/             # Codebase map (brownfield projects)
@@ -474,10 +474,10 @@ Example config:
 **Capturing ideas during work:**
 
 ```
-/kata:add-todo                    # Capture from conversation context
-/kata:add-todo Fix modal z-index  # Capture with explicit description
-/kata:check-todoss                 # Review and work on todos
-/kata:check-todoss api             # Filter by area
+/kata:add-issue                    # Capture from conversation context
+/kata:add-issue Fix modal z-index  # Capture with explicit description
+/kata:check-issues                 # Review and work on issues
+/kata:check-issues api             # Filter by area
 ```
 
 **Debugging an issue:**

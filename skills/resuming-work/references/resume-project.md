@@ -48,7 +48,7 @@ cat .planning/PROJECT.md
 - **Current Position**: Phase X of Y, Plan A of B, Status
 - **Progress**: Visual progress bar
 - **Recent Decisions**: Key decisions affecting current work
-- **Pending Todos**: Ideas captured during sessions
+- **Pending Issues**: Ideas captured during sessions
 - **Blockers/Concerns**: Issues carried forward
 - **Session Continuity**: Where we left off, any resume files
 
@@ -127,8 +127,8 @@ Present complete project status to user:
 
     Resume with: Task tool (resume parameter with agent ID)
 
-[If pending todos exist:]
-📋 [N] pending todos — /kata:check-todoss to review
+[If pending issues exist:]
+📋 [N] pending issues — /kata:check-issues to review
 
 [If blockers exist:]
 ⚠️  Carried concerns:
@@ -192,7 +192,7 @@ What would you like to do?
 
 [Secondary options:]
 2. Review current phase status
-3. Check pending todos ([N] pending)
+3. Check pending issues ([N] pending)
 4. Review brief alignment
 5. Something else
 ```
@@ -246,7 +246,7 @@ Based on user selection, route to appropriate workflow:
   ---
   ```
 - **Transition** → ./transition.md
-- **Check todos** → Read .planning/todos/pending/, present summary
+- **Check issues** → Read .planning/issues/pending/, present summary
 - **Review alignment** → Read PROJECT.md, compare to current state
 - **Something else** → Ask what they need
 </step>
@@ -277,7 +277,7 @@ If STATE.md is missing but other artifacts exist:
 1. Read PROJECT.md → Extract "What This Is" and Core Value
 2. Read ROADMAP.md → Determine phases, find current position
 3. Scan \*-SUMMARY.md files → Extract decisions, concerns
-4. Count pending todos in .planning/todos/pending/
+4. Count pending issues in .planning/issues/pending/
 5. Check for .continue-here files → Session continuity
 
 Reconstruct and write STATE.md, then proceed normally.

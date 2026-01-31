@@ -135,7 +135,7 @@ Use AskUserQuestion with options based on what was found:
   - "Fix critical issues" — (if critical > 0) Fix critical, then offer to add remaining to backlog
   - "Fix critical & important" — (if critical + important > 0) Fix both, then offer to add suggestions to backlog
   - "Fix all issues" — (if any issues) Fix everything
-  - "Add to backlog" — Create todos for all issues without fixing
+  - "Add to backlog" — Create issues for all findings without fixing
   - "Ignore and continue" — Skip all issues
 
 **After user chooses:**
@@ -143,7 +143,7 @@ Use AskUserQuestion with options based on what was found:
 **Path A: "Fix critical issues"**
 1. Fix each critical issue
 2. If important or suggestions remain, ask: "Add remaining {N} issues to backlog?"
-   - "Yes" → Create todos, store TODOS_CREATED count
+   - "Yes" → Create issues, store TODOS_CREATED count
    - "No" → Continue
 3. Commit and push fixes
 4. Continue to offer_next
@@ -151,7 +151,7 @@ Use AskUserQuestion with options based on what was found:
 **Path B: "Fix critical & important"**
 1. Fix each critical and important issue
 2. If suggestions remain, ask: "Add {N} suggestions to backlog?"
-   - "Yes" → Create todos, store TODOS_CREATED count
+   - "Yes" → Create issues, store TODOS_CREATED count
    - "No" → Continue
 3. Commit and push fixes
 4. Continue to offer_next
@@ -162,7 +162,7 @@ Use AskUserQuestion with options based on what was found:
 3. Continue to offer_next
 
 **Path D: "Add to backlog"**
-1. Create todos for all issues using `/kata:add-todo`
+1. Create issues for all findings using `/kata:add-issue`
 2. Store TODOS_CREATED count
 3. Continue to offer_next
 
@@ -225,7 +225,7 @@ UAT complete ✓
 {If PR_WORKFLOW and MERGED: PR: #{pr_number} — merged ✓}
 {If PR_WORKFLOW and not MERGED: PR: #{pr_number} ({pr_url}) — ready for review}
 {If REVIEW_SUMMARY: PR Review: {summary_stats}}
-{If TODOS_CREATED: Backlog: {N} todos created from review suggestions}
+{If TODOS_CREATED: Backlog: {N} issues created from review suggestions}
 
 ───────────────────────────────────────────────────────────────
 
@@ -281,7 +281,7 @@ Final phase verified ✓
 {If PR_WORKFLOW and MERGED: PR: #{pr_number} — merged ✓}
 {If PR_WORKFLOW and not MERGED: PR: #{pr_number} ({pr_url}) — ready for review}
 {If REVIEW_SUMMARY: PR Review: {summary_stats}}
-{If TODOS_CREATED: Backlog: {N} todos created from review suggestions}
+{If TODOS_CREATED: Backlog: {N} issues created from review suggestions}
 
 ───────────────────────────────────────────────────────────────
 
