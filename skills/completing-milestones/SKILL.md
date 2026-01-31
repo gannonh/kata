@@ -224,7 +224,12 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
    *Non-blocking: milestone completion continues regardless of choice.*
 
-1. **Commit and finalize:**
+6.7. **Close GitHub Milestone:**
+
+   If github.enabled, close the GitHub Milestone for this version.
+   See milestone-complete.md `close_github_milestone` step for details.
+
+7. **Commit and finalize:**
 
    - Stage: MILESTONES.md, PROJECT.md, ROADMAP.md, STATE.md, archive files
    - Commit: `chore: complete v{{version}} milestone`
@@ -327,6 +332,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 - ROADMAP.md collapsed to one-line entry
 - PROJECT.md updated with current state
 - Git tag v{{version}} created (if pr_workflow=false) OR PR created/instructions given (if pr_workflow=true)
+- GitHub Milestone v{{version}} closed (if github.enabled)
 - Commit successful
 - User knows next steps (including need for fresh requirements)
 
