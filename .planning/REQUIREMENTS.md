@@ -1,24 +1,12 @@
-# Requirements: v1.4.0 Issue & Phase Management
+# Requirements: v1.5.0 Phase Management
 
-**Milestone:** v1.4.0
-**Created:** 2026-01-29
-**Total Requirements:** 13
+**Milestone:** v1.5.0
+**Created:** 2026-02-01
+**Total Requirements:** 7
 
 ---
 
-## v1.4.0 Requirements
-
-### Issue Model
-
-- [ ] **ISS-01**: Rename "todos" vocabulary to "issues" throughout Kata (skills, UI messages, file references)
-- [x] **ISS-02**: Store issues as GitHub Issues with `backlog` label when `github.enabled=true`
-- [ ] **ISS-03**: Keep local `.planning/issues/` fallback for non-GitHub projects
-- [ ] **ISS-04**: Display issues in `/kata:check-issues` (renamed from check-todos) with unified view across local and GitHub sources
-
-### Pull from GitHub
-
-- [x] **PULL-01**: Pull existing GitHub Issues into Kata workflow (query via `gh issue list`, filter by labels, make workable)
-- [x] **PULL-02**: Link Kata execution to external GitHub Issues (reference existing issues during phase execution, auto-update on completion)
+## v1.5.0 Requirements
 
 ### Phase Management
 
@@ -37,21 +25,15 @@
 
 ## Traceability
 
-| Requirement | Phase   | Verified   |
-| ----------- | ------- | ---------- |
-| ISS-01      | Phase 1 | ✓          |
-| ISS-02      | Phase 2 | ✓          |
-| ISS-03      | Phase 1 | ✓          |
-| ISS-04      | Phase 1 | ✓          |
-| PULL-01     | Phase 2 | ✓          |
-| PULL-02     | Phase 2 | ✓          |
-| PHASE-01    | Phase 3 | -        |
-| PHASE-02    | Phase 4 | -        |
-| PHASE-03    | Phase 4 | -        |
-| PHASE-04    | Phase 4 | -        |
-| PHASE-05    | Phase 3 | -        |
-| ROAD-01     | Phase 5 | -        |
-| ROAD-02     | Phase 5 | -        |
+| Requirement | Phase   | Verified |
+| ----------- | ------- | -------- |
+| PHASE-01    | Phase 1 | -        |
+| PHASE-02    | Phase 2 | -        |
+| PHASE-03    | Phase 2 | -        |
+| PHASE-04    | Phase 2 | -        |
+| PHASE-05    | Phase 1 | -        |
+| ROAD-01     | Phase 3 | -        |
+| ROAD-02     | Phase 3 | -        |
 
 ---
 
@@ -60,11 +42,11 @@
 **Deferred to future milestones:**
 - Linear integration (separate integration milestone)
 - GitHub Project board sync (later GitHub phase)
-- Issue templates/forms (later enhancement)
+- Phase templates/presets (later enhancement)
 
 **Explicitly not building:**
-- Full issue tracker UI (use GitHub/local files directly)
-- Issue assignment to team members (GitHub handles this natively)
+- Full project management UI (use Kata skills via CLI)
+- Cross-project phase management (single project scope)
 
 ---
-*Requirements defined: 2026-01-29*
+*Requirements carried over from v1.4.0: 2026-02-01*

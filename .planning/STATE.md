@@ -2,27 +2,27 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-29)
+See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v1.4.0 Issue & Phase Management — Phase 2 complete
+**Current focus:** v1.5.0 Phase Management — Planning
 
 ## Current Position
 
-Milestone: v1.4.0 Issue & Phase Management
-Phase: 2 of 5 (GitHub Issue Sync)
-Plan: 05 of 5 (gap closure)
-Status: Phase complete
-Last activity: 2026-02-01 — Completed 02-05-PLAN.md (self-assignment on work start - gap closure)
+Milestone: v1.5.0 Phase Management
+Phase: Not started
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-02-01 — v1.4.0 milestone shipped
 
-Progress: [██████████████████████████████████████████████████] 5/5 plans (100%)
+Progress: [                                                  ] 0/3 phases (0%)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 74
+- Total plans completed: 85
 - Average duration: 3 min
-- Total execution time: 185 min
+- Total execution time: 212 min
 
 **By Milestone:**
 
@@ -38,11 +38,11 @@ Progress: [███████████████████████
 | v1.2.1    | 1      | 1     | Shipped 2026-01-28 |
 | v1.3.0    | 2      | 4     | Shipped 2026-01-28 |
 | v1.3.3    | 1      | 4     | Shipped 2026-01-29 |
+| v1.4.0    | 2      | 11    | Shipped 2026-02-01 |
 
 **Recent Trend:**
-- v1.0.1-v1.0.5: Rapid patch releases (5 patches in 2 days) addressing plugin distribution issues
-- Focus shifted from planned features to stability
-- v1.0.9: Command consolidation - skills made user-invocable alongside commands
+- v1.4.0: GitHub Issue Sync shipped (11 plans across 2 phases)
+- Remaining phase management scope moved to v1.5.0
 
 *Updated after each plan completion*
 
@@ -53,70 +53,14 @@ Progress: [███████████████████████
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **2026-02-01: Commands deprecated** — Removed commands/kata/ wrapper layer. Skills are now user-invocable directly via /kata:skill-name. 29 command files deleted, 27 skills updated. All references updated to use gerund skill names (e.g., `/kata:planning-phases` not `/kata:plan-phase`).
-- **2026-01-25: Commands/Skills architecture** — (Superseded by 2026-02-01 decision) Commands were user-invocable (via `/kata:`), skills were agent-invocable (via `Skill()`). Commands invoked skills. Users → Commands → Skills → Agents.
-- **2026-01-25: Build.js skill prefix transformation** — Plugin build strips `kata-` prefix from skill directories and names for clean `/kata:skill-name` invocation
-- **2026-01-24: Roadmap realigned** — Updated to reflect actual release history; v0.1.9 became v1.0.0, added v1.0.8 milestone for stability work
-- **2026-01-24: Phase 2.1 inserted** — Skill-Centric Resource Restructure to support npx-based skill distribution (Vercel model)
-- **2026-01-23: Marketplace created** - gannonh/kata-marketplace repository with Kata v1.0.0 entry
-- **2026-01-22: PR workflow spec in product** - `kata/references/planning-config.md#pr_workflow_behavior` is authoritative
+- **2026-02-01: v1.4.0 scope reduced** — Shipped with phases 1-2 (GitHub Issue Sync). Phases 3-5 (Phase Management, Roadmap Enhancements) moved to v1.5.0.
+- **2026-02-01: Commands deprecated** — Removed commands/kata/ wrapper layer. Skills are now user-invocable directly via /kata:skill-name. 29 command files deleted, 27 skills updated.
 - **2026-01-27: PR body static, issue tracks progress** — PR body checklist remains unchecked; GitHub issue is source of truth for plan completion
 
 ### Roadmap Evolution
 
-- **v0.1.4 shipped 2026-01-18** — Hard Fork & Rebrand
-- **v0.1.5 shipped 2026-01-22** — Skills & Documentation (6 phases, 30 plans)
-- **v1.0.0 shipped 2026-01-23** — Claude Code Plugin (was v0.1.9 in planning)
-- **v1.0.1-v1.0.5 patches 2026-01-23/24** — Plugin stability fixes
-- **v1.0.8 shipped 2026-01-24** — Plugin Stability (1 phase, 5 plans) — skills now self-contained
-- **v1.0.9 started 2026-01-25** — Command Consolidation (1 phase, 3 plans)
-- **v1.1.0 milestone planned** — GitHub Integration (6 phases planned)
-- **Phase 0 added 2026-01-25** — Develop Robust Testing Suite (inserted before Phase 1)
-- **Phase 0 complete 2026-01-25** — 7 plans, 27 skill tests, CI workflow
-- **Phase 1-2.2 complete 2026-01-26** — Config foundation, onboarding, repo setup, milestone decoupling
-- **Phase 3 complete 2026-01-26** — Phase issue creation, 2 plans
-- **Phase 4 complete 2026-01-26** — Plan sync (plan checklist in issues, execution checkbox updates, test coverage)
-- **Phase 4 GAP fix 2026-01-26** — Fixed step ordering bug in kata-planning-phases (UAT finding)
-- **Phase 5 complete 2026-01-27** — PR Integration (branch creation, draft PR, ready automation, tests, docs)
-- **Phase 6 complete 2026-01-27** — PR Review Workflow Skill & Agents (3/3 plans)
-- **Phase 6 UAT fix 2026-01-27** — Gap closure plan for backlog todo prompt and merge-first workflow
-- **Phase 7 added 2026-01-27** — Deprecate NPX Support (plugin-only distribution)
-- **Phase 7 plan 01 complete 2026-01-27** — Renamed 27 skill directories (removed kata- prefix)
-- **Phase 7 plan 02 complete 2026-01-27** — Deleted NPX-specific files, cleaned up build.js
-- **Phase 7 plan 03 complete 2026-01-27** — Simplified build.js to plugin-only, tests reduced 55%
-- **Phase 7 plan 04 complete 2026-01-27** — Updated documentation (README, CLAUDE.md, KATA-STYLE.md)
-- **Phase 7 plan 05 complete 2026-01-27** — NPX deprecation stub (563 lines -> 17 lines)
-- **Phase 7 COMPLETE 2026-01-27** — NPX deprecation complete, plugin-only distribution
-- **Phase 7 GAP fix 2026-01-27** — Gap closure plan 07-06 for development workflow docs
-- **v1.3.0 started 2026-01-28** — Release Automation & Workflow Docs (4 phases: 0-3)
-- **Phase 0 plan 01 complete 2026-01-28** — Artifact validation test suite (13 tests)
-- **Phase 0 plan 02 complete 2026-01-28** — CI workflow integration (validation before release)
-- **Phase 0 COMPLETE 2026-01-28** — Foundation & CI Hardening (2 plans)
-- **Phase 1 plan 01 complete 2026-01-28** — Version detection and changelog reference files
-- **Phase 1 plan 02 complete 2026-01-28** — Release workflow integration into completing-milestones skill
-- **Phase 1 COMPLETE 2026-01-28** — Release Automation (2 plans, REL-01 through REL-04 satisfied)
-- **v1.3.0 milestone complete 2026-01-28** — Ready for release
-- **v1.3.3 started 2026-01-29** — Internal Tooling (1 phase planned)
-- **Phase 1 plan 01 complete 2026-01-29** — Workflow diagrams (6 Mermaid diagrams in FLOWS.md)
-- **Phase 1 plan 02 complete 2026-01-29** — Terminology glossary (33 definitions in GLOSSARY.md)
-- **Phase 1 COMPLETE 2026-01-29** — Internal Documentation (2 plans, TOOL-01 and TOOL-02 satisfied)
-- **Phase 1 GAP fix 2026-01-29** — Gap closure plan 01-03 for orchestration diagram readability (UAT Issue #1)
-- **Phase 1 GAP fix 2026-01-29** — Gap closure plan 01-04 for dark theme diagram styling (UAT Issue #2)
-- **v1.3.3 SHIPPED 2026-01-29** — Internal Documentation complete (1 phase, 4 plans)
-- **v1.4.0 started 2026-01-31** — Issue & Phase Management (1 phase planned)
-- **Phase 1 plan 01 complete 2026-01-31** — Rename adding-todos to adding-issues
-- **Phase 1 plan 02 complete 2026-01-31** — Rename checking-todos to checking-issues
-- **Phase 1 plan 03 complete 2026-01-31** — Add auto-migration logic (archive, not delete)
-- **Phase 1 plan 04 complete 2026-01-31** — Update secondary skill references (6 files)
-- **Phase 1 plan 05 complete 2026-01-31** — Deprecation handling for old "todo" vocabulary
-- **Phase 1 plan 06 complete 2026-01-31** — STATE.md integration verification
-- **Phase 1 COMPLETE 2026-01-31** — Issue Model Foundation (6 plans)
-- **Phase 2 plan 01 complete 2026-02-01** — Add GitHub issue sync to add-issue skill
-- **Phase 2 plan 02 complete 2026-02-01** — GitHub pull for check-issues (PULL-01)
-- **Phase 2 plan 03 complete 2026-02-01** — Execution linking - auto-close (PULL-02)
-- **Phase 2 plan 04 complete 2026-02-01** — In-progress label sync (gap closure)
-- **Phase 2 plan 05 complete 2026-02-01** — Self-assignment on work start (gap closure)
-- **Phase 2 COMPLETE 2026-02-01** — GitHub Issue Sync (5 plans, full bidirectional sync)
+- **v1.4.0 shipped 2026-02-01** — GitHub Issue Sync (2 phases, 11 plans)
+- **v1.5.0 planned** — Phase Management (3 phases from v1.4.0 scope)
 
 ### Pending Issues
 
@@ -156,7 +100,7 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-None yet.
+None.
 
 ### Quick Tasks Completed
 
@@ -170,6 +114,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed 02-05-PLAN.md (self-assignment on work start - gap closure)
+Stopped at: Completed v1.4.0 milestone
 Resume file: None
-Next action: Phase 2 fully complete with all gap closures. Begin Phase 3 planning or verify phase.
+Next action: Run `/kata:add-milestone` to define v1.5.0 requirements and research, or start planning Phase 1.

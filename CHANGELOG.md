@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-02-01 — GitHub Issue Sync
+
+Kata v1.4.0 ships **GitHub Issue Sync**: bidirectional GitHub Issue integration with automatic labeling, assignment, and lifecycle management.
+
+### Added
+- **GitHub Issue creation**: Issues created via `/kata:add-issue` automatically sync to GitHub with `backlog` label
+- **GitHub Issue pull**: `/kata:check-issues` pulls existing GitHub Issues with `backlog` label for selection
+- **Execution linking**: Kata execution can reference and auto-close GitHub Issues on completion
+- **In-progress label sync**: When starting work, adds `in-progress` label and removes `backlog`
+- **Self-assignment**: When starting work on GitHub-linked issue, auto-assigns to `@me`
+- **Local fallback**: Non-GitHub projects continue using `.planning/issues/` storage
+
+### Changed
+- Issue vocabulary normalized from "todos" to "issues" throughout all skills
+- Issue storage moved from `.planning/todos/` to `.planning/issues/open/`
+- Skills renamed from gerund style to simple names (`add-issue`, `check-issues`)
+
+### Fixed
+- Auto-migration archives old `.planning/todos/` directory when migrating
+
+---
+
 ## [1.3.5] - 2026-02-01 — Issue Model & Skills-First
 
 **Issue Model Foundation** — Kata now uses "issues" vocabulary consistently:
