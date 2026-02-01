@@ -6,51 +6,11 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 ## Current Milestone
 
-### v1.4.0 Issue & Phase Management (In Progress)
+### v1.5.0 Phase Management (Planned)
 
-**Goal:** Unified issue model and improved phase management.
+**Goal:** Improved phase organization, movement, and roadmap visibility.
 
-#### Phase 1: Issue Model Foundation
-
-**Goal:** Establish "issues" as Kata's vocabulary with local storage and unified display.
-**Requirements:** ISS-01, ISS-03, ISS-04
-**Plans:** 6 plans
-
-- [x] 01-01-PLAN.md — Rename adding-todos to adding-issues
-- [x] 01-02-PLAN.md — Rename checking-todos to checking-issues
-- [x] 01-03-PLAN.md — Add auto-migration logic
-- [x] 01-04-PLAN.md — Update secondary skill references
-- [x] 01-05-PLAN.md — Deprecation handling
-- [x] 01-06-PLAN.md — STATE.md integration verification
-
-**Success Criteria** (what must be TRUE):
-1. All Kata skills, agents, and UI messages use "issues" instead of "todos"
-2. User can create issues that persist to `.planning/issues/` in non-GitHub projects
-3. `/kata:check-issues` displays all issues with consistent format regardless of source
-
-**Status:** COMPLETE
-
-#### Phase 2: GitHub Issue Sync
-
-**Goal:** Integrate Kata issues with GitHub Issues for bidirectional workflow.
-**Requirements:** ISS-02, PULL-01, PULL-02
-**Dependencies:** Phase 1
-**Plans:** 5 plans (3 core + 2 gap closure)
-
-- [x] 02-01-PLAN.md — Add GitHub Issue sync to add-issue skill
-- [x] 02-02-PLAN.md — Add GitHub Issue pull to check-issues skill
-- [x] 02-03-PLAN.md — Add execution linking (auto-close on completion)
-- [x] 02-04-PLAN.md — Gap: Add in-progress label sync
-- [x] 02-05-PLAN.md — Gap: Add self-assignment on work start
-
-**Success Criteria** (what must be TRUE):
-1. Issues created in Kata appear as GitHub Issues with `backlog` label when `github.enabled=true`
-2. User can pull existing GitHub Issues into Kata workflow via filtering
-3. Kata execution can reference and auto-update external GitHub Issues on completion
-
-**Status:** COMPLETE
-
-#### Phase 3: Phase Organization
+#### Phase 1: Phase Organization
 
 **Goal:** Organize phase artifacts into state directories with completion validation.
 **Requirements:** PHASE-01, PHASE-05
@@ -60,18 +20,18 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 2. Phase completion validates PLAN.md and SUMMARY.md existence
 3. Non-gap phases require VERIFICATION.md for completion validation
 
-#### Phase 4: Phase Movement
+#### Phase 2: Phase Movement
 
 **Goal:** Enable flexible phase reorganization within and across milestones.
 **Requirements:** PHASE-02, PHASE-03, PHASE-04
-**Dependencies:** Phase 3
+**Dependencies:** Phase 1
 
 **Success Criteria** (what must be TRUE):
 1. User can move a phase to a different milestone via `/kata:move-phase`
 2. User can reorder phases within a milestone with automatic renumbering
 3. Each milestone starts phase numbering at 1 (not cumulative across milestones)
 
-#### Phase 5: Roadmap Enhancements
+#### Phase 3: Roadmap Enhancements
 
 **Goal:** Improve roadmap visibility and readability.
 **Requirements:** ROAD-01, ROAD-02
@@ -84,6 +44,18 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 ---
 
 ## Completed Milestones
+
+<details>
+<summary>v1.4.0 GitHub Issue Sync — SHIPPED 2026-02-01</summary>
+
+**Goal:** Unified issue model and bidirectional GitHub Issue integration.
+
+- [x] Phase 1: Issue Model Foundation (6/6 plans) — completed 2026-01-31
+- [x] Phase 2: GitHub Issue Sync (5/5 plans) — completed 2026-02-01
+
+[Full archive](milestones/v1.4.0-ROADMAP.md)
+
+</details>
 
 <details>
 <summary>v1.3.3 Internal Documentation — SHIPPED 2026-01-29</summary>
@@ -187,8 +159,9 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 | v1.1.0    | 10     | 33    | Shipped  | 2026-01-27 |
 | v1.3.0    | 2      | 4     | Shipped  | 2026-01-28 |
 | v1.3.3    | 1      | 4     | Shipped  | 2026-01-29 |
-| v1.4.0    | 5      | TBD   | Current  | —          |
+| v1.4.0    | 2      | 11    | Shipped  | 2026-02-01 |
+| v1.5.0    | 3      | TBD   | Planned  | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-01 — Phase 2 gap closure complete (02-04, 02-05)*
+*Last updated: 2026-02-01 — v1.4.0 shipped, v1.5.0 planned with phase management scope*
