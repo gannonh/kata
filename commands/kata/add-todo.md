@@ -1,8 +1,8 @@
 ---
 name: kata:add-todo
-description: Capture idea or task as todo from current conversation context
+description: "[DEPRECATED] Use /kata:add-issue instead. Capture idea or task as issue."
 argument-hint: [optional description]
-version: 0.1.0
+version: 0.2.0
 disable-model-invocation: true
 allowed-tools:
   - Read
@@ -10,11 +10,15 @@ allowed-tools:
   - Bash
 ---
 
-## Step 1: Parse Context
+## Step 1: Deprecation Notice
+
+> **Note:** `/kata:add-todo` is now `/kata:add-issue`. Redirecting...
+
+## Step 2: Parse Context
 
 Arguments: "$ARGUMENTS"
 
-## Step 2: Invoke Skill
+## Step 3: Invoke Skill
 
 Run the following skill:
-`Skill("kata:adding-todos")`
+`Skill("kata:adding-issues")`
