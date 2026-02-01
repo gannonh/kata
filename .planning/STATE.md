@@ -114,33 +114,38 @@ Recent decisions affecting current work:
 
 ### Pending Issues
 
-26 pending todos:
-- `.planning/todos/pending/2026-01-18-statusline-kata-project-info.md` - Add kata project info to statusline
-- `.planning/todos/pending/2026-01-18-create-move-phase-command.md` - Create move-phase command
-- `.planning/todos/pending/2026-01-18-command-subagent-noun-verb-naming.md` - Change command and subagent naming to noun-verb
-- `.planning/todos/pending/2026-01-18-npm-release-workflow-support.md` - Add optional npm release workflow to Kata
-- `.planning/todos/pending/2026-01-18-separate-project-new-from-first-milestone.md` - Separate project-new from first milestone creation
-- `.planning/todos/pending/2026-01-18-model-config-options.md` - Add model configuration options for workflows
-- `.planning/todos/pending/2026-01-19-add-type-label-to-todo-frontmatter.md` - Add type label to todo frontmatter
-- `.planning/todos/pending/2026-01-18-claudemd-kata-onboarding.md` - Add Kata section to CLAUDE.md during project-new onboarding
-- `.planning/todos/pending/2026-01-18-new-user-ux-expectations.md` - Add new user UX expectations to onboarding
-- `.planning/todos/pending/2026-01-18-integrate-pr-skill.md` - Integrate PR skill into Kata system
-- `.planning/todos/pending/2026-01-20-folder-based-phase-state-management.md` - Folder-based phase state management
-- `.planning/todos/pending/2026-01-20-improve-skill-recall-with-hooks.md` - Improve skill recall with hooks and rules
-- `.planning/todos/pending/2026-01-20-addon-extensions-progressive-disclosure.md` - Add-on extensions for progressive disclosure files
-- `.planning/todos/pending/2026-01-20-project-documentation-templates.md` - Project documentation templates and lifecycle
-- `.planning/todos/pending/2026-01-20-cli-ui-for-todo-management.md` - CLI UI for viewing and managing todos
-- `.planning/todos/pending/2026-01-21-add-validation-hooks-agents-skills.md` - Add validation hooks to agents and skills
-- `.planning/todos/pending/2026-01-27-create-workflow-flow-diagrams.md` - Create detailed flow diagrams of workflow paths
-- `.planning/todos/pending/2026-01-26-github-integration-tests.md` - GitHub integration tests
-- `.planning/todos/pending/2026-01-26-github-issues-as-todos.md` - Replace local todos with GitHub Issues
-- `.planning/todos/pending/2026-01-28-github-todos-backlog-integration.md` - GitHub todos/backlog integration
-- `.planning/todos/pending/2026-01-28-roadmap-phase-management.md` - Roadmap phase management enhancements
-- `.planning/todos/pending/2026-01-28-linear-integration-research.md` - Linear integration research
-- `.planning/todos/pending/2026-01-28-encourage-small-milestones.md` - Encourage small milestones in workflow skill
-- `.planning/todos/pending/2026-01-28-extract-inline-scripts-to-files.md` - Extract inline scripts from Markdown to standalone files
-- `.planning/todos/pending/2026-01-28-offer-readme-revision-after-execution.md` - Offer README revision after execution phase
-- `.planning/todos/pending/2026-01-28-demo-projects-for-uat-testing.md` - Create demo projects in various states for UAT testing
+27 open issues (26 legacy + 1 new):
+
+**New issues** (`.planning/issues/open/`):
+- `2026-02-01-test-issue.md` - Test issue
+
+**Legacy issues** (`.planning/todos/pending/` - pending migration):
+- `2026-01-18-statusline-kata-project-info.md` - Add kata project info to statusline
+- `2026-01-18-create-move-phase-command.md` - Create move-phase command
+- `2026-01-18-command-subagent-noun-verb-naming.md` - Change command and subagent naming to noun-verb
+- `2026-01-18-npm-release-workflow-support.md` - Add optional npm release workflow to Kata
+- `2026-01-18-separate-project-new-from-first-milestone.md` - Separate project-new from first milestone creation
+- `2026-01-18-model-config-options.md` - Add model configuration options for workflows
+- `2026-01-19-add-type-label-to-todo-frontmatter.md` - Add type label to todo frontmatter
+- `2026-01-18-claudemd-kata-onboarding.md` - Add Kata section to CLAUDE.md during project-new onboarding
+- `2026-01-18-new-user-ux-expectations.md` - Add new user UX expectations to onboarding
+- `2026-01-18-integrate-pr-skill.md` - Integrate PR skill into Kata system
+- `2026-01-20-folder-based-phase-state-management.md` - Folder-based phase state management
+- `2026-01-20-improve-skill-recall-with-hooks.md` - Improve skill recall with hooks and rules
+- `2026-01-20-addon-extensions-progressive-disclosure.md` - Add-on extensions for progressive disclosure files
+- `2026-01-20-project-documentation-templates.md` - Project documentation templates and lifecycle
+- `2026-01-20-cli-ui-for-todo-management.md` - CLI UI for viewing and managing todos
+- `2026-01-21-add-validation-hooks-agents-skills.md` - Add validation hooks to agents and skills
+- `2026-01-27-create-workflow-flow-diagrams.md` - Create detailed flow diagrams of workflow paths
+- `2026-01-26-github-integration-tests.md` - GitHub integration tests
+- `2026-01-26-github-issues-as-todos.md` - Replace local todos with GitHub Issues
+- `2026-01-28-github-todos-backlog-integration.md` - GitHub todos/backlog integration
+- `2026-01-28-roadmap-phase-management.md` - Roadmap phase management enhancements
+- `2026-01-28-linear-integration-research.md` - Linear integration research
+- `2026-01-28-encourage-small-milestones.md` - Encourage small milestones in workflow skill
+- `2026-01-28-extract-inline-scripts-to-files.md` - Extract inline scripts from Markdown to standalone files
+- `2026-01-28-offer-readme-revision-after-execution.md` - Offer README revision after execution phase
+- `2026-01-28-demo-projects-for-uat-testing.md` - Create demo projects in various states for UAT testing
 
 ### Blockers/Concerns
 
