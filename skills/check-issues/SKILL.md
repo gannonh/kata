@@ -304,6 +304,20 @@ if echo "$PROVENANCE" | grep -q "^github:"; then
   fi
 fi
 ```
+
+Display confirmation:
+```
+Issue moved to closed/: [filename]
+
+  [title]
+  Area: [area]
+  GitHub: Closed #[number] (if provenance exists and close succeeded)
+          -or- Not linked (if no provenance)
+          -or- Failed to close #[number] (if close failed)
+
+Ready to begin work.
+```
+
 Update STATE.md issue count. Present problem/solution context. Begin work or ask how to proceed.
 
 **Work on it now (GitHub-only issue):**
@@ -319,6 +333,18 @@ if [ "$GITHUB_ENABLED" = "true" ]; then
     || echo "Warning: Failed to close GitHub Issue #${ISSUE_NUMBER}"
 fi
 ```
+
+Display confirmation:
+```
+Issue moved to closed/: [filename]
+
+  [title]
+  Area: [area]
+  GitHub: Closed #[number]
+
+Ready to begin work.
+```
+
 Update STATE.md issue count. Present problem/solution context. Begin work or ask how to proceed.
 
 **View on GitHub (GitHub-only issues):**
@@ -369,10 +395,19 @@ git check-ignore -q .planning 2>/dev/null && COMMIT_PLANNING_DOCS=false
 git add .planning/issues/closed/[filename]
 git rm --cached .planning/issues/open/[filename] 2>/dev/null || true
 [ -f .planning/STATE.md ] && git add .planning/STATE.md
-git commit -m "$(cat <<'EOF'
+
+# Check if issue had GitHub provenance that was closed
+PROVENANCE=$(grep "^provenance:" ".planning/issues/closed/[filename]" | cut -d' ' -f2)
+GITHUB_REF=""
+if echo "$PROVENANCE" | grep -q "^github:"; then
+  GITHUB_REF="GitHub Issue $(echo "$PROVENANCE" | grep -oE '#[0-9]+') closed."
+fi
+
+git commit -m "$(cat <<EOF
 docs: start work on issue - [title]
 
 Moved to closed/, beginning implementation.
+${GITHUB_REF}
 EOF
 )"
 ```
