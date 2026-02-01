@@ -16,12 +16,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-resuming-work', () => {
+describe('kata-resume-work', () => {
   let testDir;
 
   beforeEach(() => {
     // Create isolated test environment
-    testDir = mkdtempSync(join(tmpdir(), 'kata-test-resuming-work-'));
+    testDir = mkdtempSync(join(tmpdir(), 'kata-test-resume-work-'));
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
     // Create a phase directory with paused state
@@ -96,8 +96,8 @@ Resume file: .planning/phases/01-test-phase/.continue-here.md
     writeFileSync(join(testDir, '.planning', 'STATE.md'), stateContent);
 
     // Install skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-resuming-work');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-resuming-work');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-resume-work');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-resume-work');
     cpSync(skillSource, skillDest, { recursive: true });
   });
 
@@ -115,7 +115,7 @@ Resume file: .planning/phases/01-test-phase/.continue-here.md
     });
 
     assertNoError(result);
-    assertSkillInvoked(result, 'Expected kata-resuming-work skill to be invoked');
+    assertSkillInvoked(result, 'Expected kata-resume-work skill to be invoked');
   });
 
   it('reads previous session context', async () => {

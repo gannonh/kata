@@ -15,7 +15,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-completing-milestones', () => {
+describe('kata-complete-milestone', () => {
   let testDir;
 
   beforeEach(() => {
@@ -24,8 +24,8 @@ describe('kata-completing-milestones', () => {
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
     // Install skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-completing-milestones');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-completing-milestones');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-complete-milestone');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-complete-milestone');
     cpSync(skillSource, skillDest, { recursive: true });
 
     // Ensure .claude directory structure exists
@@ -138,17 +138,17 @@ Plans:
     if (existsSync(roadmapPath)) {
       const roadmapContent = readFileSync(roadmapPath, 'utf8');
       archived = archived ||
-                 roadmapContent.includes('complete') ||
-                 roadmapContent.includes('archived') ||
-                 roadmapContent.includes('shipped');
+        roadmapContent.includes('complete') ||
+        roadmapContent.includes('archived') ||
+        roadmapContent.includes('shipped');
     }
 
     // The skill might request pre-flight checks
     const resultText = result.result || '';
     const mentionsArchive = resultText.toLowerCase().includes('archive') ||
-                            resultText.toLowerCase().includes('complete') ||
-                            resultText.toLowerCase().includes('milestone') ||
-                            resultText.toLowerCase().includes('pre-flight');
+      resultText.toLowerCase().includes('complete') ||
+      resultText.toLowerCase().includes('milestone') ||
+      resultText.toLowerCase().includes('pre-flight');
 
     if (!archived && !mentionsArchive) {
       throw new Error(`Expected milestone to be archived or mentioned, got:\n${resultText.substring(0, 500)}`);

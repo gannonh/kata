@@ -1,5 +1,5 @@
 /**
- * Tests for kata-tracking-progress skill
+ * Tests for kata-track-progress skill
  *
  * This skill checks project progress, summarizes recent work,
  * and intelligently routes to the next action.
@@ -23,7 +23,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-tracking-progress skill', () => {
+describe('kata-track-progress skill', () => {
   let testDir;
 
   beforeEach(() => {
@@ -32,8 +32,8 @@ describe('kata-tracking-progress skill', () => {
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
     // Install skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-tracking-progress');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-tracking-progress');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-track-progress');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-track-progress');
     cpSync(skillSource, skillDest, { recursive: true });
   });
 
@@ -69,11 +69,11 @@ describe('kata-tracking-progress skill', () => {
 
   describe('PR Status Display - Phase 5', () => {
     it('contains pr_workflow config check', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-tracking-progress', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-track-progress', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       const hasPRWorkflowCheck = skillContent.includes('pr_workflow') ||
-                                  skillContent.includes('PR_WORKFLOW');
+        skillContent.includes('PR_WORKFLOW');
 
       if (!hasPRWorkflowCheck) {
         throw new Error('Expected skill to check pr_workflow config');
@@ -81,11 +81,11 @@ describe('kata-tracking-progress skill', () => {
     });
 
     it('contains PR status section', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-tracking-progress', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-track-progress', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       const hasPRStatus = skillContent.includes('PR Status') ||
-                          skillContent.includes('PR #');
+        skillContent.includes('PR #');
 
       if (!hasPRStatus) {
         throw new Error('Expected skill to display PR status');
@@ -93,7 +93,7 @@ describe('kata-tracking-progress skill', () => {
     });
 
     it('uses gh pr commands for status', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-tracking-progress', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-track-progress', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       const hasGHPR = skillContent.includes('gh pr');

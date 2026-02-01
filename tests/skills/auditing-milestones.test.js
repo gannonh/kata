@@ -16,7 +16,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-auditing-milestones', () => {
+describe('kata-audit-milestone', () => {
   let testDir;
 
   beforeEach(() => {
@@ -25,8 +25,8 @@ describe('kata-auditing-milestones', () => {
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
     // Install skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-auditing-milestones');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-auditing-milestones');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-audit-milestone');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-audit-milestone');
     cpSync(skillSource, skillDest, { recursive: true });
 
     // Ensure .claude directory structure exists
@@ -135,11 +135,11 @@ None
     // Result should mention milestone, phases, progress, or requirements
     const resultText = result.result || '';
     const mentionsStatus = resultText.toLowerCase().includes('milestone') ||
-                           resultText.toLowerCase().includes('phase') ||
-                           resultText.toLowerCase().includes('requirement') ||
-                           resultText.toLowerCase().includes('progress') ||
-                           resultText.toLowerCase().includes('audit') ||
-                           resultText.toLowerCase().includes('coverage');
+      resultText.toLowerCase().includes('phase') ||
+      resultText.toLowerCase().includes('requirement') ||
+      resultText.toLowerCase().includes('progress') ||
+      resultText.toLowerCase().includes('audit') ||
+      resultText.toLowerCase().includes('coverage');
 
     if (!mentionsStatus) {
       throw new Error(`Expected audit to mention milestone, phases, or progress, got:\n${resultText.substring(0, 500)}`);

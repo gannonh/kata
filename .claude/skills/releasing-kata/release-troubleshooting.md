@@ -103,7 +103,7 @@ cat dist/plugin/VERSION
 **Verify:**
 ```bash
 # Plugin should have @./kata/ paths (not @~/.claude/kata/)
-grep "@./kata/" dist/plugin/skills/kata-executing-phases/SKILL.md
+grep "@./kata/" dist/plugin/skills/kata-execute-phase/SKILL.md
 
 # Should return nothing
 grep -r "@~/.claude/" dist/plugin/

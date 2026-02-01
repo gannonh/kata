@@ -16,25 +16,27 @@ Kata is a **meta-prompting system** where every file is both implementation and 
 
 ## File Structure Conventions
 
-### Slash Commands (`commands/kata/*.md`)
+### Skills (`skills/*/SKILL.md`)
+
+Skills are the primary interface for all Kata workflows. Users invoke skills directly via `/kata:skill-name`.
 
 ```yaml
 ---
-name: kata:command-name
-description: One-line description
-argument-hint: "<required>" or "[optional]"
-allowed-tools: [Read, Write, Bash, Glob, Grep, AskUserQuestion]
+name: skill-name
+description: Triggers and purpose description
+user-invocable: true
+allowed-tools: [Read, Write, Bash, ...]
 ---
 ```
 
 **Section order:**
 1. `<objective>` — What/why/when (always present)
-2. `<execution_context>` — @-references to workflows, templates, references
+2. `<execution_context>` — @-references to templates, references
 3. `<context>` — Dynamic content: `$ARGUMENTS`, bash output, @file refs
 4. `<process>` or `<step>` elements — Implementation steps
 5. `<success_criteria>` — Measurable completion checklist
 
-**Commands are thin wrappers.** Delegate detailed logic to workflows.
+**Skills ARE orchestrators.** They spawn sub-agents via Task tool.
 
 ### Workflows (`kata/workflows/*.md`)
 
@@ -194,8 +196,8 @@ Build authentication system
 
 **How the build system handles this:**
 
-| Build Target | Transformation                                           |
-| ------------ | -------------------------------------------------------- |
+| Build Target | Transformation                                            |
+| ------------ | --------------------------------------------------------- |
 | Plugin       | `@~/.claude/kata/` → `@./kata/` (relative to plugin root) |
 
 **Source files MUST use the canonical `@~/.claude/kata/` form.** The build system handles the rest.
@@ -376,13 +378,13 @@ Include escape hatch: "Something else", "Let me describe"
 
 Information flows through layers:
 
-1. **Command** — High-level objective, delegates to workflow
+1. **Skill** — High-level objective and orchestration
 2. **Workflow** — Detailed process, references templates/references
 3. **Template** — Concrete structure with placeholders
 4. **Reference** — Deep dive on specific concept
 
 Each layer answers different questions:
-- Command: "Should I use this?"
+- Skill: "Should I use this? What does it do?"
 - Workflow: "What happens?"
 - Template: "What does output look like?"
 - Reference: "Why this design?"
@@ -564,11 +566,11 @@ Kata includes an automatic codebase learning system that indexes code and detect
 
 ### Commands
 
-**`/kata:analyze-codebase`** — Bulk scan for brownfield projects:
+**`/kata:map-codebase`** — Bulk scan for brownfield projects:
 - Creates .planning/intel/ directory
 - Scans all JS/TS files (excludes node_modules, dist, build, .git, vendor, coverage)
 - Uses same extraction logic as PostToolUse hook
-- Works standalone (no /kata:starting-projects required)
+- Works standalone (no /kata:new-project required)
 
 ---
 
@@ -576,7 +578,7 @@ Kata includes an automatic codebase learning system that indexes code and detect
 
 1. **XML for semantic structure, Markdown for content**
 2. **@-references are lazy loading signals**
-3. **Commands delegate to workflows**
+3. **Skills are orchestrators** — invoke via `/kata:skill-name`
 4. **Progressive disclosure hierarchy**
 5. **Imperative, brief, technical** — no filler, no sycophancy
 6. **Solo developer + Claude** — no enterprise patterns

@@ -15,7 +15,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-adding-milestones', () => {
+describe('kata-add-milestone', () => {
   let testDir;
 
   beforeEach(() => {
@@ -24,8 +24,8 @@ describe('kata-adding-milestones', () => {
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
     // Install skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-adding-milestones');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-adding-milestones');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-add-milestone');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-add-milestone');
     cpSync(skillSource, skillDest, { recursive: true });
 
     // Ensure .claude directory structure exists
@@ -125,8 +125,8 @@ Progress: [                                ] 0%
     // The skill might also just output milestone info
     const resultText = result.result || '';
     const mentionsMilestone = resultText.includes('v1.1') ||
-                               resultText.includes('milestone') ||
-                               resultText.toLowerCase().includes('1.1');
+      resultText.includes('milestone') ||
+      resultText.toLowerCase().includes('1.1');
 
     if (!hasMilestone && !mentionsMilestone) {
       throw new Error(`Expected milestone v1.1 to be created or mentioned, got:\n${resultText.substring(0, 500)}`);
@@ -160,8 +160,8 @@ Progress: [                                ] 0%
     // Check that GitHub milestone is mentioned in the response
     const resultText = result.result || '';
     const mentionsGitHub = resultText.toLowerCase().includes('github') ||
-                           resultText.includes('milestone') ||
-                           resultText.includes('gh ');
+      resultText.includes('milestone') ||
+      resultText.includes('gh ');
 
     // The skill should mention GitHub operations or milestones
     if (!mentionsGitHub) {
@@ -201,12 +201,12 @@ Progress: [                                ] 0%
     // This test verifies the skill content includes the remote validation pattern
     // Actual remote validation happens during interactive execution
 
-    const skillPath = join(testDir, '.claude', 'skills', 'kata-adding-milestones', 'SKILL.md');
+    const skillPath = join(testDir, '.claude', 'skills', 'kata-add-milestone', 'SKILL.md');
     const skillContent = readFileSync(skillPath, 'utf8');
 
     // Verify remote detection pattern exists
     const hasRemoteCheck = skillContent.includes('git remote -v') ||
-                            skillContent.includes('HAS_GITHUB_REMOTE');
+      skillContent.includes('HAS_GITHUB_REMOTE');
 
     if (!hasRemoteCheck) {
       throw new Error('Expected skill to include GitHub remote validation pattern');
@@ -214,7 +214,7 @@ Progress: [                                ] 0%
 
     // Verify warning message for missing remote
     const hasNoRemoteWarning = skillContent.includes('no GitHub remote') ||
-                                skillContent.includes('Skipping GitHub Milestone');
+      skillContent.includes('Skipping GitHub Milestone');
 
     if (!hasNoRemoteWarning) {
       throw new Error('Expected skill to include warning for missing GitHub remote');
@@ -230,7 +230,7 @@ Progress: [                                ] 0%
 
   describe('Phase Issue Creation (Phase 9.5)', () => {
     it('contains issueMode config check', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-adding-milestones', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-add-milestone', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       // Verify skill checks all three issueMode values
@@ -253,7 +253,7 @@ Progress: [                                ] 0%
     });
 
     it('contains phase label creation', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-adding-milestones', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-add-milestone', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       // Verify idempotent label creation pattern
@@ -275,17 +275,17 @@ Progress: [                                ] 0%
     });
 
     it('contains milestone number lookup', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-adding-milestones', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-add-milestone', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       // Verify milestone API lookup before issue creation
       const hasMilestoneApi = skillContent.includes('/repos/:owner/:repo/milestones') ||
-                              skillContent.includes('gh api') && skillContent.includes('milestones');
+        skillContent.includes('gh api') && skillContent.includes('milestones');
 
       // Should extract milestone number with jq or similar
       const hasMilestoneSelect = skillContent.includes('.title') ||
-                                  skillContent.includes('select') ||
-                                  skillContent.includes('MILESTONE_NUM');
+        skillContent.includes('select') ||
+        skillContent.includes('MILESTONE_NUM');
 
       if (!hasMilestoneApi) {
         throw new Error('Expected skill to query GitHub milestones API');
@@ -297,7 +297,7 @@ Progress: [                                ] 0%
     });
 
     it('contains ROADMAP.md parsing for phases', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-adding-milestones', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-add-milestone', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       // Verify ROADMAP.md is read
@@ -305,7 +305,7 @@ Progress: [                                ] 0%
 
       // Verify phase extraction patterns
       const hasPhaseExtraction = skillContent.includes('Phase') ||
-                                  skillContent.includes('PHASE_');
+        skillContent.includes('PHASE_');
 
       // Verify goal/success criteria parsing
       const hasGoalParsing = skillContent.includes('Goal') || skillContent.includes('PHASE_GOAL');
@@ -325,7 +325,7 @@ Progress: [                                ] 0%
     });
 
     it('contains idempotent issue existence check', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-adding-milestones', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-add-milestone', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       // Verify issue list check before creation
@@ -335,8 +335,8 @@ Progress: [                                ] 0%
 
       // Should check for existing issue to avoid duplicates
       const hasExistenceCheck = skillContent.includes('EXISTING') ||
-                                 skillContent.includes('already exists') ||
-                                 skillContent.includes('if [ -n');
+        skillContent.includes('already exists') ||
+        skillContent.includes('if [ -n');
 
       if (!hasIssueList) {
         throw new Error('Expected skill to list existing issues before creation');
@@ -356,7 +356,7 @@ Progress: [                                ] 0%
     });
 
     it('uses --body-file pattern', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-adding-milestones', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-add-milestone', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       // Verify body-file pattern for safe special character handling
@@ -364,8 +364,8 @@ Progress: [                                ] 0%
 
       // Should write to temp file first
       const hasTempFile = skillContent.includes('/tmp/') ||
-                           skillContent.includes('phase-issue-body') ||
-                           skillContent.includes('cat >');
+        skillContent.includes('phase-issue-body') ||
+        skillContent.includes('cat >');
 
       if (!hasBodyFile) {
         throw new Error('Expected skill to use --body-file pattern for issue body');
@@ -377,7 +377,7 @@ Progress: [                                ] 0%
     });
 
     it('contains gh issue create with required flags', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-adding-milestones', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-add-milestone', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       // Verify gh issue create command with all required flags

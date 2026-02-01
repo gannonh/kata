@@ -1,5 +1,5 @@
 /**
- * Tests for kata-mapping-codebases skill.
+ * Tests for kata-map-codebase skill.
  *
  * Verifies that the codebase mapping skill correctly analyzes codebase structure
  * and produces documentation about the code organization.
@@ -24,7 +24,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-mapping-codebases skill', () => {
+describe('kata-map-codebase skill', () => {
   let testDir;
 
   beforeEach(() => {
@@ -33,8 +33,8 @@ describe('kata-mapping-codebases skill', () => {
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
     // Install skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-mapping-codebases');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-mapping-codebases');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-map-codebase');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-map-codebase');
     cpSync(skillSource, skillDest, { recursive: true });
 
     // Install the agent that mapping skill spawns

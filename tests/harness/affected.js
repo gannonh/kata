@@ -81,7 +81,7 @@ function buildAgentSkillCache() {
  * 2. Agent changes: agents/kata-{agent}.md -> find skills that spawn that agent
  *
  * @param {string} [baseBranch='origin/main'] - Base branch for comparison
- * @returns {string[]} Array of skill names (e.g., ['kata-tracking-progress', 'kata-adding-phases'])
+ * @returns {string[]} Array of skill names (e.g., ['kata-track-progress', 'kata-add-phase'])
  */
 export function getAffectedSkills(baseBranch = 'origin/main') {
   let changedFiles;

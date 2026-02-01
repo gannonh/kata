@@ -113,7 +113,7 @@ Verify with `/kata:help`.
 claude plugin update kata@gannonh-kata-marketplace
 ```
 
-Check what's new: `/kata:whats-new`
+Check what's new: `/kata:showing-whats-new`
 
 ### Recommended: Skip Permissions
 

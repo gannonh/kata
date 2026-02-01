@@ -15,7 +15,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-removing-phases', () => {
+describe('kata-remove-phase', () => {
   let testDir;
 
   beforeEach(() => {
@@ -24,8 +24,8 @@ describe('kata-removing-phases', () => {
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
     // Install skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-removing-phases');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-removing-phases');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-remove-phase');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-remove-phase');
     cpSync(skillSource, skillDest, { recursive: true });
 
     // Ensure .claude directory structure exists
@@ -130,14 +130,14 @@ Progress: [#                               ] 0%
     // Should either not have Phase 3 or have renumbered phases
     const hasPhase3 = roadmapContent.includes('### Phase 3: Final Polish');
     const phaseRemoved = !hasPhase3 ||
-                          roadmapContent.includes('removed') ||
-                          roadmapContent.includes('2 of 2') ||
-                          !roadmapContent.includes('Phase 3');
+      roadmapContent.includes('removed') ||
+      roadmapContent.includes('2 of 2') ||
+      !roadmapContent.includes('Phase 3');
 
     // Alternatively, the skill might require confirmation - check result
     const resultText = result.result || '';
     const awaitingConfirmation = resultText.toLowerCase().includes('confirm') ||
-                                  resultText.toLowerCase().includes('proceed');
+      resultText.toLowerCase().includes('proceed');
 
     if (!phaseRemoved && !awaitingConfirmation) {
       throw new Error(`Expected ROADMAP.md to be updated or skill to request confirmation, got:\n${roadmapContent.substring(0, 800)}`);

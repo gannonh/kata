@@ -33,7 +33,6 @@ const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
  * Files/directories to include in the distribution
  */
 const INCLUDES = [
-  'commands/kata',
   'skills',
   'agents',
   'hooks',

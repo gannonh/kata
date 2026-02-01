@@ -12,7 +12,7 @@ npm test
 npm run test:skills
 
 # Run a specific skill test
-npm run test:skill -- tests/skills/tracking-progress.test.js
+npm run test:skill -- tests/skills/track-progress.test.js
 
 # Run only tests for changed skills (CI mode)
 npm run test:affected
@@ -135,15 +135,15 @@ const result = invokeClaude('check my todos', {
 
 ### Assertions
 
-| Function | Purpose |
-|----------|---------|
-| `assertSkillInvoked(result)` | Verify `num_turns > 1` (skill executed, not just ad-hoc answer) |
-| `assertNoError(result)` | Verify `is_error === false` |
-| `assertArtifactExists(basePath, relativePath)` | Verify file/directory was created |
-| `assertFileMatchesPattern(dirPath, pattern)` | Verify file matching regex exists |
-| `assertResultContains(result, text)` | Verify response contains expected text |
-| `assertNextStepProposed(result, command)` | Verify "Next Up" section contains expected `/kata:` command |
-| `assertFileStructure(basePath, paths)` | Verify all expected relative paths exist |
+| Function                                       | Purpose                                                         |
+| ---------------------------------------------- | --------------------------------------------------------------- |
+| `assertSkillInvoked(result)`                   | Verify `num_turns > 1` (skill executed, not just ad-hoc answer) |
+| `assertNoError(result)`                        | Verify `is_error === false`                                     |
+| `assertArtifactExists(basePath, relativePath)` | Verify file/directory was created                               |
+| `assertFileMatchesPattern(dirPath, pattern)`   | Verify file matching regex exists                               |
+| `assertResultContains(result, text)`           | Verify response contains expected text                          |
+| `assertNextStepProposed(result, command)`      | Verify "Next Up" section contains expected `/kata:` command     |
+| `assertFileStructure(basePath, paths)`         | Verify all expected relative paths exist                        |
 
 ### Configuration (runner.js)
 
@@ -171,11 +171,11 @@ Checking `num_turns > 1` confirms a skill actually ran rather than Claude giving
 
 Each test invokes Claude Code, which costs money and takes time:
 
-| Test Type | Budget | Timeout | Use Case |
-|-----------|--------|---------|----------|
-| Quick | $0.50 | 1 min | Simple skill trigger |
-| Standard | $2.00 | 3 min | Full workflow |
-| Expensive | $5.00 | 5 min | Complex multi-turn |
+| Test Type | Budget | Timeout | Use Case             |
+| --------- | ------ | ------- | -------------------- |
+| Quick     | $0.50  | 1 min   | Simple skill trigger |
+| Standard  | $2.00  | 3 min   | Full workflow        |
+| Expensive | $5.00  | 5 min   | Complex multi-turn   |
 
 Run tests sparingly during development. Use `npm run test:skills` to run only skill tests.
 
@@ -190,18 +190,18 @@ import { getAffectedSkills, getAffectedTestFiles } from '../harness/affected.js'
 
 // Get skills affected by git changes
 const skills = getAffectedSkills('origin/main');
-// → ['kata-tracking-progress', 'kata-adding-phases']
+// → ['kata-track-progress', 'kata-add-phase']
 
 // Get test files for affected skills
 const testFiles = getAffectedTestFiles('origin/main');
-// → ['tests/skills/tracking-progress.test.js', 'tests/skills/adding-phases.test.js']
+// → ['tests/skills/track-progress.test.js', 'tests/skills/add-phase.test.js']
 ```
 
 ### What Triggers Affected Detection
 
-| Change | Detection |
-|--------|-----------|
-| `skills/kata-{name}/` | Direct skill change → that skill affected |
+| Change                   | Detection                                              |
+| ------------------------ | ------------------------------------------------------ |
+| `skills/kata-{name}/`    | Direct skill change → that skill affected              |
 | `agents/kata-{agent}.md` | Agent change → all skills spawning that agent affected |
 
 ### Agent-to-Skill Mapping
@@ -213,7 +213,7 @@ import { getSkillsUsingAgent } from '../harness/affected.js';
 
 // Find skills that spawn kata-executor
 const skills = getSkillsUsingAgent('kata-executor');
-// → ['kata-executing-phases']
+// → ['kata-execute-phase']
 ```
 
 The mapping is cached for efficiency within a test run.
@@ -239,11 +239,11 @@ The CI workflow (`.github/workflows/test-skills.yml`) uses affected test detecti
 
 **Workflow jobs:**
 
-| Job | Trigger | What it does |
-|-----|---------|--------------|
-| `detect-changes` | Always | Identifies affected skills using `affected.js` |
-| `test-affected` | PR has affected tests | Runs only tests for changed skills |
-| `test-full` | Push to main | Runs full test suite |
+| Job              | Trigger               | What it does                                   |
+| ---------------- | --------------------- | ---------------------------------------------- |
+| `detect-changes` | Always                | Identifies affected skills using `affected.js` |
+| `test-affected`  | PR has affected tests | Runs only tests for changed skills             |
+| `test-full`      | Push to main          | Runs full test suite                           |
 
 Test results appear as **PR annotations** via `mikepenz/action-junit-report`.
 
@@ -265,18 +265,18 @@ npm run test:affected
 
 Tests use tiered budgets from `harness/runner.js`:
 
-| Tier | Budget | Use Case |
-|------|--------|----------|
-| `quick` | $0.50 | Simple skill trigger verification |
-| `standard` | $2.00 | Full workflow execution |
-| `expensive` | $5.00 | Multi-agent orchestrator tests |
+| Tier        | Budget | Use Case                          |
+| ----------- | ------ | --------------------------------- |
+| `quick`     | $0.50  | Simple skill trigger verification |
+| `standard`  | $2.00  | Full workflow execution           |
+| `expensive` | $5.00  | Multi-agent orchestrator tests    |
 
 Choose the appropriate tier based on what your test needs to verify.
 
 ### Required Secrets
 
-| Secret | Purpose | How to Set |
-|--------|---------|------------|
+| Secret              | Purpose                              | How to Set                              |
+| ------------------- | ------------------------------------ | --------------------------------------- |
 | `ANTHROPIC_API_KEY` | Claude API access for test execution | Repository Settings > Secrets > Actions |
 
 **Missing API key symptoms:**
@@ -347,14 +347,14 @@ assertNextStepProposed(result, '/kata:execute-phase');
 
 ### Testing Orchestrator Skills
 
-Orchestrator skills spawn agents (e.g., `kata-planning-phases` spawns `kata-planner`). Test these by:
+Orchestrator skills spawn agents (e.g., `kata-plan-phase` spawns `kata-planner`). Test these by:
 
 1. **Setting up fixtures** with pre-populated `.planning/` structures
 2. **Invoking the skill** and letting it spawn agents
 3. **Asserting artifacts** created by the spawned agents
 
 ```javascript
-describe('kata-planning-phases (orchestrator)', () => {
+describe('kata-plan-phase (orchestrator)', () => {
   let testDir;
 
   beforeEach(() => {
@@ -364,8 +364,8 @@ describe('kata-planning-phases (orchestrator)', () => {
     cpSync(join(FIXTURES_DIR, 'multi-phase-project'), testDir, { recursive: true });
 
     // Install orchestrator skill AND agents it spawns
-    cpSync(join(KATA_ROOT, 'skills/kata-planning-phases'),
-           join(testDir, '.claude/skills/kata-planning-phases'),
+    cpSync(join(KATA_ROOT, 'skills/kata-plan-phase'),
+           join(testDir, '.claude/skills/kata-plan-phase'),
            { recursive: true });
     cpSync(join(KATA_ROOT, 'agents/kata-planner.md'),
            join(testDir, '.claude/agents/kata-planner.md'));
@@ -467,10 +467,10 @@ it('spawns planner agent (verified by output)', () => {
 
 ### Simple vs Workflow Skills
 
-| Skill Type | Test Approach |
-|------------|---------------|
-| **Simple** (no agents) | Invoke, assert output contains expected text/pattern |
-| **Workflow** (spawns agents) | Set up fixtures, invoke, assert artifacts created |
+| Skill Type                   | Test Approach                                        |
+| ---------------------------- | ---------------------------------------------------- |
+| **Simple** (no agents)       | Invoke, assert output contains expected text/pattern |
+| **Workflow** (spawns agents) | Set up fixtures, invoke, assert artifacts created    |
 
 **Simple skill test:**
 

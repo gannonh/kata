@@ -16,12 +16,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-setting-profiles', () => {
+describe('kata-set-profile', () => {
   let testDir;
 
   beforeEach(() => {
     // Create isolated test environment
-    testDir = mkdtempSync(join(tmpdir(), 'kata-test-setting-profiles-'));
+    testDir = mkdtempSync(join(tmpdir(), 'kata-test-set-profile-'));
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
     // Create a config.json file to simulate active project
@@ -37,8 +37,8 @@ describe('kata-setting-profiles', () => {
     );
 
     // Install skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-setting-profiles');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-setting-profiles');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-set-profile');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-set-profile');
     cpSync(skillSource, skillDest, { recursive: true });
   });
 
@@ -56,7 +56,7 @@ describe('kata-setting-profiles', () => {
     });
 
     assertNoError(result);
-    assertSkillInvoked(result, 'Expected kata-setting-profiles skill to be invoked');
+    assertSkillInvoked(result, 'Expected kata-set-profile skill to be invoked');
   });
 
   it('profile affects execution', async () => {

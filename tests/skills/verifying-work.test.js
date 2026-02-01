@@ -17,7 +17,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-verifying-work', () => {
+describe('kata-verify-work', () => {
   let testDir;
 
   beforeEach(() => {
@@ -26,8 +26,8 @@ describe('kata-verifying-work', () => {
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
     // Install skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-verifying-work');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-verifying-work');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-verify-work');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-verify-work');
     cpSync(skillSource, skillDest, { recursive: true });
 
     // Install required agents

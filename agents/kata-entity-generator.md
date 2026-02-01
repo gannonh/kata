@@ -8,7 +8,7 @@ color: cyan
 <role>
 You are a Kata entity generator. You create semantic documentation for source files that captures PURPOSE (what the code does and why it exists), not just syntax.
 
-You are spawned by `/kata:analyze-codebase` with a list of file paths.
+You are spawned by `/kata:map-codebase` with a list of file paths.
 
 Your job: Read each file, analyze its purpose, write entity markdown to `.planning/intel/entities/`, return statistics only.
 </role>
@@ -170,17 +170,17 @@ TBD
 <type_heuristics>
 Determine entity type from file path and content:
 
-| Type | Indicators |
-|------|-----------|
-| api | In api/, routes/, endpoints/ directory, exports route handlers |
-| component | In components/, exports React/Vue/Svelte components |
-| util | In utils/, lib/, helpers/, exports utility functions |
-| config | In config/, *.config.*, exports configuration objects |
-| hook | In hooks/, exports use* functions (React hooks) |
-| service | In services/, exports service classes/functions |
-| model | In models/, types/, exports data models or TypeScript types |
-| test | *.test.*, *.spec.*, contains test suites |
-| module | Default if unclear, general-purpose module |
+| Type      | Indicators                                                     |
+| --------- | -------------------------------------------------------------- |
+| api       | In api/, routes/, endpoints/ directory, exports route handlers |
+| component | In components/, exports React/Vue/Svelte components            |
+| util      | In utils/, lib/, helpers/, exports utility functions           |
+| config    | In config/, *.config.*, exports configuration objects          |
+| hook      | In hooks/, exports use* functions (React hooks)                |
+| service   | In services/, exports service classes/functions                |
+| model     | In models/, types/, exports data models or TypeScript types    |
+| test      | *.test.*, *.spec.*, contains test suites                       |
+| module    | Default if unclear, general-purpose module                     |
 </type_heuristics>
 
 <wiki_link_rules>

@@ -20,18 +20,39 @@ Guide the release process for Kata's plugin marketplace distribution.
 
 ## Step 1: Pre-Release Verification
 
-Before starting a release, ensure the codebase is ready:
+Our workflow is PR-driven:
+- **Development** happens on feature branches
+- **Releases** happen on release branches created from main
 
-```bash
-# Run all tests
-npm test && npm run test:smoke
+### 1a. Ensure you're ready to release
 
-# Build and verify both distributions
-npm run build
+Before creating a release branch, verify:
 
-# Check for uncommitted changes
-git status
-```
+1. **Check current branch**: Must be on `main` (not a feature branch)
+   ```bash
+   git branch --show-current
+   ```
+
+2. **If on a feature branch**: The PR must pass CI and be merged first
+   ```bash
+   # Check PR status
+   gh pr status
+
+   # Monitor PR CI checks
+   gh pr checks --watch 2>&1 | tail -10
+
+   # After PR merges, switch to main
+   git checkout main && git pull
+   ```
+
+3. **Verify working directory is clean**:
+   ```bash
+   git status  # Should show "nothing to commit, working tree clean"
+   ```
+
+### 1b. Run pre-release checks
+
+Once on main with a clean working directory, verify the codebase is ready:
 
 **Stop if tests fail.** Fix issues before proceeding.
 
@@ -181,14 +202,14 @@ claude
 In Claude Code:
 ```
 /plugin install kata@kata-marketplace
-/kata:providing-help
-/kata:showing-whats-new
+/kata:kata-help
+/kata:whats-new
 ```
 
 **Verify:**
 - Plugin installs without errors
-- `/kata:providing-help` shows all commands
-- `/kata:showing-whats-new` shows new version changelog
+- `/kata:kata-help` shows all commands
+- `/kata:whats-new` shows new version changelog
 - No path resolution errors
 
 ```bash
@@ -218,4 +239,4 @@ See `./release-troubleshooting.md` for common issues:
 **Post-release verification:**
 - [ ] GitHub Release created with tag (`gh release view vX.Y.Z`)
 - [ ] Marketplace shows new version (`gh api` check)
-- [ ] Manual plugin test passes (`/plugin install kata@kata-marketplace` + `/kata:providing-help`)
+- [ ] Manual plugin test passes (`/plugin install kata@kata-marketplace` + `/kata:kata-help`)

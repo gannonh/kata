@@ -14,17 +14,33 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 **Goal:** Establish "issues" as Kata's vocabulary with local storage and unified display.
 **Requirements:** ISS-01, ISS-03, ISS-04
+**Plans:** 6 plans
+
+- [x] 01-01-PLAN.md — Rename adding-todos to adding-issues
+- [x] 01-02-PLAN.md — Rename checking-todos to checking-issues
+- [x] 01-03-PLAN.md — Add auto-migration logic
+- [x] 01-04-PLAN.md — Update secondary skill references
+- [x] 01-05-PLAN.md — Deprecation handling
+- [x] 01-06-PLAN.md — STATE.md integration verification
 
 **Success Criteria** (what must be TRUE):
 1. All Kata skills, agents, and UI messages use "issues" instead of "todos"
 2. User can create issues that persist to `.planning/issues/` in non-GitHub projects
 3. `/kata:check-issues` displays all issues with consistent format regardless of source
 
+**Status:** COMPLETE
+
 #### Phase 2: GitHub Issue Sync
 
 **Goal:** Integrate Kata issues with GitHub Issues for bidirectional workflow.
 **Requirements:** ISS-02, PULL-01, PULL-02
 **Dependencies:** Phase 1
+**Plans:** 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Add GitHub Issue sync to add-issue skill
+- [ ] 02-02-PLAN.md — Add GitHub Issue pull to check-issues skill
+- [ ] 02-03-PLAN.md — Add execution linking (auto-close on completion)
 
 **Success Criteria** (what must be TRUE):
 1. Issues created in Kata appear as GitHub Issues with `backlog` label when `github.enabled=true`
@@ -172,4 +188,4 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-29 — v1.4.0 phases defined*
+*Last updated: 2026-02-01 — Phase 2 planned (3 plans)*

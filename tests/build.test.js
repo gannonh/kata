@@ -42,7 +42,7 @@ describe('Plugin build', () => {
   });
 
   test('skills reference ./kata/ paths (not ~/.claude/)', () => {
-    const skillPath = path.join(ROOT, 'dist/plugin/skills/executing-phases/SKILL.md');
+    const skillPath = path.join(ROOT, 'dist/plugin/skills/execute-phase/SKILL.md');
     if (fs.existsSync(skillPath)) {
       const content = fs.readFileSync(skillPath, 'utf8');
       assert.ok(
@@ -64,7 +64,7 @@ describe('Plugin build', () => {
   test('plugin skills use local @./references/ pattern', () => {
     // After Phase 2.1 restructure, skills use @./references/ for local resources
     // Skills no longer reference shared @./kata/ directory
-    const skillPath = path.join(ROOT, 'dist/plugin/skills/executing-phases/SKILL.md');
+    const skillPath = path.join(ROOT, 'dist/plugin/skills/execute-phase/SKILL.md');
     if (fs.existsSync(skillPath)) {
       const content = fs.readFileSync(skillPath, 'utf8');
       // Find all @./... references (excluding @.planning/ which is project-local)
