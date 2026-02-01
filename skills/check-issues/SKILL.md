@@ -316,6 +316,26 @@ Return to list or offer to work on it.
 Move from open to in-progress (does NOT close GitHub Issue):
 ```bash
 mv ".planning/issues/open/[filename]" ".planning/issues/in-progress/"
+
+# Add in-progress label to GitHub Issue if linked
+PROVENANCE=$(grep "^provenance:" ".planning/issues/in-progress/[filename]" | cut -d' ' -f2)
+if echo "$PROVENANCE" | grep -q "^github:"; then
+  ISSUE_NUMBER=$(echo "$PROVENANCE" | grep -oE '#[0-9]+' | tr -d '#')
+
+  if [ -n "$ISSUE_NUMBER" ]; then
+    GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | head -1 | grep -o 'true\|false' || echo "false")
+
+    if [ "$GITHUB_ENABLED" = "true" ]; then
+      # Create in-progress label idempotently (ignore error if exists)
+      gh label create "in-progress" --description "Issue is actively being worked on" --color "FFA500" 2>/dev/null || true
+
+      # Add in-progress label (keeps backlog label)
+      gh issue edit "$ISSUE_NUMBER" --add-label "in-progress" 2>/dev/null \
+        && echo "Added in-progress label to GitHub Issue #${ISSUE_NUMBER}" \
+        || echo "Warning: Failed to add in-progress label to GitHub Issue #${ISSUE_NUMBER}"
+    fi
+  fi
+fi
 ```
 
 Display confirmation:
@@ -324,7 +344,7 @@ Issue moved to in-progress: [filename]
 
   [title]
   Area: [area]
-  GitHub: Linked to #[number] (if provenance exists)
+  GitHub: Linked to #[number], added in-progress label
           -or- Not linked (if no provenance)
 
 Ready to begin work.
@@ -338,6 +358,20 @@ Update STATE.md issue count. Present problem/solution context. Begin work or ask
 First execute "Pull to local" action, then move to in-progress:
 ```bash
 mv ".planning/issues/open/${date_prefix}-${slug}.md" ".planning/issues/in-progress/"
+
+# Add in-progress label to GitHub Issue (we know it's GitHub-linked since this is the GitHub-only path)
+GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | head -1 | grep -o 'true\|false' || echo "false")
+
+if [ "$GITHUB_ENABLED" = "true" ]; then
+  # Create in-progress label idempotently (ignore error if exists)
+  gh label create "in-progress" --description "Issue is actively being worked on" --color "FFA500" 2>/dev/null || true
+
+  # Add in-progress label (keeps backlog label)
+  # Note: $ISSUE_NUMBER is already available from the pull-to-local step
+  gh issue edit "$ISSUE_NUMBER" --add-label "in-progress" 2>/dev/null \
+    && echo "Added in-progress label to GitHub Issue #${ISSUE_NUMBER}" \
+    || echo "Warning: Failed to add in-progress label to GitHub Issue #${ISSUE_NUMBER}"
+fi
 ```
 
 Display confirmation:
@@ -346,7 +380,7 @@ Issue moved to in-progress: [filename]
 
   [title]
   Area: [area]
-  GitHub: Linked to #[number]
+  GitHub: Linked to #[number], added in-progress label
 
 Ready to begin work.
 
@@ -553,6 +587,7 @@ The provenance field is the linchpin - it enables deduplication and bidirectiona
 - [ ] Roadmap context checked for phase match
 - [ ] Appropriate actions offered based on issue state
 - [ ] "Work on it now" moves to in-progress (does NOT close GitHub)
+- [ ] "Work on it now" adds in-progress label to GitHub Issue (if linked)
 - [ ] "Mark complete" moves to closed AND closes GitHub Issue
 - [ ] STATE.md updated if issue count changed
 - [ ] Changes committed to git
