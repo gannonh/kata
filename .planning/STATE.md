@@ -153,10 +153,11 @@ None yet.
 | 001 | Add PR workflow config option                    | 2026-01-22 | 975f1d3 | [001-add-pr-workflow-config-option](./quick/001-add-pr-workflow-config-option/) |
 | 002 | Config schema consistency & PR workflow features | 2026-01-22 | 325d86c | [002-config-schema-consistency](./quick/002-config-schema-consistency/)         |
 | 003 | Integrate GitHub issues into PR workflow         | 2026-01-31 | c367d42 | [003-integrate-github-issues-into-pr-workflow](./quick/003-integrate-github-issues-into-pr-workflow/) |
+| 004 | Deprecate slash commands, skills-first           | 2026-02-01 | b0f0e4e | [004-deprecate-slash-commands](./quick/004-deprecate-slash-commands/)                                 |
 
 ## Session Continuity
 
-Last session: 2026-01-31
-Stopped at: Completed 01-06-PLAN.md (Phase 1 complete)
+Last session: 2026-02-01
+Stopped at: Completed quick task 004 (commands deprecated)
 Resume file: None
 Next action: Complete milestone v1.4.0 or start next milestone
