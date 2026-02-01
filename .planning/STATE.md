@@ -53,7 +53,8 @@ Progress: [███████████████████████
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **2026-01-25: Commands/Skills architecture** — Commands are user-invocable (via `/kata:`), skills are agent-invocable (via `Skill()`). Commands invoke skills. Users → Commands → Skills → Agents.
+- **2026-02-01: Commands deprecated** — Removed commands/kata/ wrapper layer. Skills are now user-invocable directly via /kata:skill-name. 29 command files deleted, 27 skills updated with user-invocable: true.
+- **2026-01-25: Commands/Skills architecture** — (Superseded by 2026-02-01 decision) Commands were user-invocable (via `/kata:`), skills were agent-invocable (via `Skill()`). Commands invoked skills. Users → Commands → Skills → Agents.
 - **2026-01-25: Build.js skill prefix transformation** — Plugin build strips `kata-` prefix from skill directories and names for clean `/kata:skill-name` invocation
 - **2026-01-24: Roadmap realigned** — Updated to reflect actual release history; v0.1.9 became v1.0.0, added v1.0.8 milestone for stability work
 - **2026-01-24: Phase 2.1 inserted** — Skill-Centric Resource Restructure to support npx-based skill distribution (Vercel model)
