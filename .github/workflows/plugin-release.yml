@@ -75,9 +75,9 @@ jobs:
         if: steps.check.outputs.should_publish == 'true'
         run: |
           # Verify critical files exist
+          # Note: commands directory removed in v1.3.5 (skills-first architecture)
           test -f dist/plugin/.claude-plugin/plugin.json
           test -d dist/plugin/skills
-          test -d dist/plugin/commands
           test -d dist/plugin/hooks
           test -d dist/plugin/agents
           test -f dist/plugin/VERSION
