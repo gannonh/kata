@@ -40,7 +40,7 @@ Check if legacy `.planning/todos/` exists and needs migration:
 ```bash
 if [ -d ".planning/todos/pending" ] && [ ! -d ".planning/todos/_archived" ]; then
   # Create new structure
-  mkdir -p .planning/issues/open .planning/issues/closed
+  mkdir -p .planning/issues/open .planning/issues/in-progress .planning/issues/closed
 
   # Copy pending todos to open issues
   cp .planning/todos/pending/*.md .planning/issues/open/ 2>/dev/null || true
@@ -55,6 +55,9 @@ if [ -d ".planning/todos/pending" ] && [ ! -d ".planning/todos/_archived" ]; the
 
   echo "Migrated todos to issues format"
 fi
+
+# Ensure in-progress directory exists
+mkdir -p .planning/issues/in-progress
 ```
 
 Migration is idempotent: presence of `_archived/` indicates already migrated.
@@ -62,13 +65,15 @@ Migration is idempotent: presence of `_archived/` indicates already migrated.
 
 <step name="check_exist">
 ```bash
-ISSUE_COUNT=$(ls .planning/issues/open/*.md 2>/dev/null | wc -l | tr -d ' ')
-echo "Open issues: $ISSUE_COUNT"
+OPEN_COUNT=$(ls .planning/issues/open/*.md 2>/dev/null | wc -l | tr -d ' ')
+IN_PROGRESS_COUNT=$(ls .planning/issues/in-progress/*.md 2>/dev/null | wc -l | tr -d ' ')
+echo "Open issues: $OPEN_COUNT"
+echo "In progress: $IN_PROGRESS_COUNT"
 ```
 
-If count is 0:
+If both counts are 0:
 ```
-No open issues.
+No open or in-progress issues.
 
 Issues are captured during work sessions with /kata:add-issue.
 
@@ -97,8 +102,8 @@ GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:sp
 
 **2. Build dedupe list from local files' provenance fields:**
 ```bash
-# Get all GitHub issue numbers already tracked locally
-LOCAL_PROVENANCE=$(grep -h "^provenance: github:" .planning/issues/open/*.md 2>/dev/null | grep -oE '#[0-9]+' | tr -d '#' | sort -u)
+# Get all GitHub issue numbers already tracked locally (from open and in-progress)
+LOCAL_PROVENANCE=$(grep -h "^provenance: github:" .planning/issues/open/*.md .planning/issues/in-progress/*.md 2>/dev/null | grep -oE '#[0-9]+' | tr -d '#' | sort -u)
 ```
 
 **3. Query GitHub Issues (if enabled):**
@@ -110,32 +115,46 @@ if [ "$GITHUB_ENABLED" = "true" ]; then
 fi
 ```
 
-**4. Query local issues:**
+**4. Query in-progress issues first:**
 ```bash
-for file in .planning/issues/open/*.md; do
+for file in .planning/issues/in-progress/*.md; do
+  [ -f "$file" ] || continue
   created=$(grep "^created:" "$file" | cut -d' ' -f2)
   title=$(grep "^title:" "$file" | cut -d':' -f2- | xargs)
   area=$(grep "^area:" "$file" | cut -d' ' -f2)
-  echo "$created|$title|$area|$file"
+  echo "$created|$title|$area|$file|in-progress"
 done | sort
 ```
 
-**5. Merge and display:**
+**5. Query open issues:**
+```bash
+for file in .planning/issues/open/*.md; do
+  [ -f "$file" ] || continue
+  created=$(grep "^created:" "$file" | cut -d' ' -f2)
+  title=$(grep "^title:" "$file" | cut -d':' -f2- | xargs)
+  area=$(grep "^area:" "$file" | cut -d' ' -f2)
+  echo "$created|$title|$area|$file|open"
+done | sort
+```
 
-Combine local and GitHub issues into a unified list:
+**6. Merge and display:**
+
+Display in-progress issues first (if any), then open issues:
+- In-progress issues marked with `[IN PROGRESS]` indicator
 - Local issues display as-is with their area
 - GitHub-only issues (number NOT in LOCAL_PROVENANCE) display with `[GH]` indicator
-- Format: `1. Add auth token refresh (api, 2d ago)` vs `1. Fix login bug [GH] (bug, 2d ago)`
-
-Sort combined list by date (oldest first for consistent ordering).
+- Format: `1. [IN PROGRESS] Fix auth bug (api, 2d ago)` or `2. Add feature [GH] (bug, 3d ago)`
 
 Apply area filter if specified. Display as numbered list:
 
 ```
-Open Issues:
+Issues:
 
-1. Add auth token refresh (api, 2d ago)
-2. Fix modal z-index issue (ui, 1d ago)
+--- In Progress ---
+1. [IN PROGRESS] Fix auth token refresh (api, 2d ago)
+
+--- Open (Backlog) ---
+2. Add modal z-index fix (ui, 1d ago)
 3. Fix login bug [GH] (bug, 3d ago)
 4. Refactor database connection pool (database, 5h ago)
 
@@ -209,6 +228,17 @@ If roadmap exists:
 </step>
 
 <step name="offer_actions">
+**If in-progress issue:**
+
+Use AskUserQuestion:
+- header: "Action"
+- question: "This issue is in progress. What would you like to do?"
+- options:
+  - "Mark complete" — move to closed, close GitHub Issue if linked
+  - "Continue working" — show context and begin work
+  - "Put back to open" — move back to backlog
+  - "View details" — show full issue context
+
 **If GitHub-only issue (has [GH] indicator):**
 
 Use AskUserQuestion:
@@ -216,28 +246,28 @@ Use AskUserQuestion:
 - question: "This is a GitHub Issue. What would you like to do?"
 - options:
   - "Pull to local" — create local file for offline work
-  - "Work on it now" — pull to local AND move to closed
+  - "Work on it now" — pull to local AND move to in-progress
   - "View on GitHub" — open in browser (gh issue view --web)
   - "Put it back" — return to list
 
-**If local issue maps to a roadmap phase:**
+**If open local issue maps to a roadmap phase:**
 
 Use AskUserQuestion:
 - header: "Action"
 - question: "This issue relates to Phase [N]: [name]. What would you like to do?"
 - options:
-  - "Work on it now" — move to closed, start working
+  - "Work on it now" — move to in-progress, start working
   - "Add to phase plan" — include when planning Phase [N]
   - "Brainstorm approach" — think through before deciding
   - "Put it back" — return to list
 
-**If local issue with no roadmap match:**
+**If open local issue with no roadmap match:**
 
 Use AskUserQuestion:
 - header: "Action"
 - question: "What would you like to do with this issue?"
 - options:
-  - "Work on it now" — move to closed, start working
+  - "Work on it now" — move to in-progress, start working
   - "Create a phase" — /kata:add-phase with this scope
   - "Brainstorm approach" — think through before deciding
   - "Put it back" — return to list
@@ -282,9 +312,53 @@ The `provenance` field enables deduplication on subsequent checks.
 Confirm: "Pulled GitHub Issue #[number] to local: .planning/issues/open/[filename]"
 Return to list or offer to work on it.
 
-**Work on it now (local issue):**
+**Work on it now (open local issue):**
+Move from open to in-progress (does NOT close GitHub Issue):
 ```bash
-mv ".planning/issues/open/[filename]" ".planning/issues/closed/"
+mv ".planning/issues/open/[filename]" ".planning/issues/in-progress/"
+```
+
+Display confirmation:
+```
+Issue moved to in-progress: [filename]
+
+  [title]
+  Area: [area]
+  GitHub: Linked to #[number] (if provenance exists)
+          -or- Not linked (if no provenance)
+
+Ready to begin work.
+
+When complete, use `/kata:check-issues` and select "Mark complete".
+```
+
+Update STATE.md issue count. Present problem/solution context. Begin work or ask how to proceed.
+
+**Work on it now (GitHub-only issue):**
+First execute "Pull to local" action, then move to in-progress:
+```bash
+mv ".planning/issues/open/${date_prefix}-${slug}.md" ".planning/issues/in-progress/"
+```
+
+Display confirmation:
+```
+Issue moved to in-progress: [filename]
+
+  [title]
+  Area: [area]
+  GitHub: Linked to #[number]
+
+Ready to begin work.
+
+When complete, use `/kata:check-issues` and select "Mark complete".
+```
+
+Update STATE.md issue count. Present problem/solution context. Begin work or ask how to proceed.
+
+**Mark complete (in-progress issue):**
+Move from in-progress to closed and close GitHub Issue if linked:
+```bash
+mv ".planning/issues/in-progress/[filename]" ".planning/issues/closed/"
 
 # Check if issue has GitHub provenance
 PROVENANCE=$(grep "^provenance:" ".planning/issues/closed/[filename]" | cut -d' ' -f2)
@@ -308,7 +382,7 @@ fi
 
 Display confirmation:
 ```
-Issue moved to closed/: [filename]
+Issue completed: [filename]
 
   [title]
   Area: [area]
@@ -316,37 +390,21 @@ Issue moved to closed/: [filename]
           -or- Not linked (if no provenance)
           -or- Failed to close #[number] (if close failed)
 
-Ready to begin work.
+Issue closed.
 ```
 
-Update STATE.md issue count. Present problem/solution context. Begin work or ask how to proceed.
+Update STATE.md issue count.
 
-**Work on it now (GitHub-only issue):**
-First execute "Pull to local" action, then move to closed:
+**Put back to open (in-progress issue):**
+Move from in-progress back to open:
 ```bash
-mv ".planning/issues/open/${date_prefix}-${slug}.md" ".planning/issues/closed/"
-
-# Close GitHub Issue with comment (ISSUE_NUMBER already known from selection)
-GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | head -1 | grep -o 'true\|false' || echo "false")
-if [ "$GITHUB_ENABLED" = "true" ]; then
-  gh issue close "$ISSUE_NUMBER" --comment "Completed via Kata workflow" 2>/dev/null \
-    && echo "Closed GitHub Issue #${ISSUE_NUMBER}" \
-    || echo "Warning: Failed to close GitHub Issue #${ISSUE_NUMBER}"
-fi
+mv ".planning/issues/in-progress/[filename]" ".planning/issues/open/"
 ```
+Confirm: "Issue moved back to open: [filename]"
+Return to list.
 
-Display confirmation:
-```
-Issue moved to closed/: [filename]
-
-  [title]
-  Area: [area]
-  GitHub: Closed #[number]
-
-Ready to begin work.
-```
-
-Update STATE.md issue count. Present problem/solution context. Begin work or ask how to proceed.
+**Continue working (in-progress issue):**
+Present problem/solution context. Begin work or ask how to proceed.
 
 **View on GitHub (GitHub-only issues):**
 ```bash
@@ -372,14 +430,17 @@ Return to list_issues step.
 After any action that changes issue count:
 
 ```bash
-ls .planning/issues/open/*.md 2>/dev/null | wc -l
+OPEN_COUNT=$(ls .planning/issues/open/*.md 2>/dev/null | wc -l | tr -d ' ')
+IN_PROGRESS_COUNT=$(ls .planning/issues/in-progress/*.md 2>/dev/null | wc -l | tr -d ' ')
+CLOSED_COUNT=$(ls .planning/issues/closed/*.md 2>/dev/null | wc -l | tr -d ' ')
+echo "Open: $OPEN_COUNT, In Progress: $IN_PROGRESS_COUNT, Closed: $CLOSED_COUNT"
 ```
 
 Update STATE.md "### Pending Issues" section if exists.
 </step>
 
 <step name="git_commit">
-If issue was moved to closed/, commit the change:
+If issue state changed, commit the change:
 
 **Check planning config:**
 
@@ -392,72 +453,107 @@ git check-ignore -q .planning 2>/dev/null && COMMIT_PLANNING_DOCS=false
 
 **If `COMMIT_PLANNING_DOCS=true` (default):**
 
+**If moved to in-progress (Work on it now):**
+```bash
+git add .planning/issues/in-progress/[filename]
+git rm --cached .planning/issues/open/[filename] 2>/dev/null || true
+[ -f .planning/STATE.md ] && git add .planning/STATE.md
+
+git commit -m "$(cat <<EOF
+docs: start work on issue - [title]
+
+Moved to in-progress.
+EOF
+)"
+```
+Confirm: "Committed: docs: start work on issue - [title]"
+
+**If moved to closed (Mark complete):**
 ```bash
 git add .planning/issues/closed/[filename]
-git rm --cached .planning/issues/open/[filename] 2>/dev/null || true
+git rm --cached .planning/issues/in-progress/[filename] 2>/dev/null || true
 [ -f .planning/STATE.md ] && git add .planning/STATE.md
 
 # Check if issue had GitHub provenance that was closed
 PROVENANCE=$(grep "^provenance:" ".planning/issues/closed/[filename]" | cut -d' ' -f2)
 GITHUB_REF=""
 if echo "$PROVENANCE" | grep -q "^github:"; then
-  GITHUB_REF="GitHub Issue $(echo "$PROVENANCE" | grep -oE '#[0-9]+') closed."
+  GITHUB_REF="Closes $(echo "$PROVENANCE" | grep -oE '#[0-9]+')"
 fi
 
 git commit -m "$(cat <<EOF
-docs: start work on issue - [title]
+docs: complete issue - [title]
 
-Moved to closed/, beginning implementation.
 ${GITHUB_REF}
 EOF
 )"
 ```
+Confirm: "Committed: docs: complete issue - [title]"
 
-Confirm: "Committed: docs: start work on issue - [title]"
+**If moved back to open (Put back to open):**
+```bash
+git add .planning/issues/open/[filename]
+git rm --cached .planning/issues/in-progress/[filename] 2>/dev/null || true
+[ -f .planning/STATE.md ] && git add .planning/STATE.md
+
+git commit -m "docs: return issue to backlog - [title]"
+```
+Confirm: "Committed: docs: return issue to backlog - [title]"
 </step>
 
 </process>
 
 <output>
-- Moved issue to `.planning/issues/closed/` (if "Work on it now")
+- Moved issue to `.planning/issues/in-progress/` (if "Work on it now")
+- Moved issue to `.planning/issues/closed/` (if "Mark complete")
+- Moved issue to `.planning/issues/open/` (if "Put back to open")
 - Created `.planning/issues/open/` file (if "Pull to local" from GitHub)
 - Updated `.planning/STATE.md` (if issue count changed)
 </output>
 
 <anti_patterns>
-- Don't delete issues — move to closed/ when work begins
-- Don't start work without moving to closed/ first
+- Don't delete issues — use proper state transitions
+- Don't close GitHub Issues when starting work — only when marking complete
 - Don't create plans from this command — route to /kata:plan-phase or /kata:add-phase
 </anti_patterns>
 
-<execution_linking>
-## Execution Linking (PULL-02)
+<issue_lifecycle>
+## Issue Lifecycle
 
-When an issue has GitHub provenance (`provenance: github:owner/repo#N`), the following behaviors activate:
+Issues follow a three-state lifecycle:
 
-1. **Display:** Issue shows GitHub reference in details view
-2. **Work on it now:** Closing the local issue also closes the GitHub Issue with a completion comment
-3. **Traceability:** Git commits reference the GitHub Issue number
+```
+open/        → Backlog (not started)
+in-progress/ → Actively being worked on
+closed/      → Completed
+```
 
-This creates a bidirectional sync loop:
-- **Outbound (ISS-02):** `/kata:add-issue` creates GitHub Issue, stores provenance in local file
-- **Inbound (PULL-01):** `/kata:check-issues` pulls GitHub Issues, creates local files with provenance
-- **Completion (PULL-02):** "Work on it now" closes both local and GitHub Issue
+**State transitions:**
+- **Work on it now:** `open/` → `in-progress/` (does NOT close GitHub Issue)
+- **Mark complete:** `in-progress/` → `closed/` (closes GitHub Issue if linked)
+- **Put back to open:** `in-progress/` → `open/` (useful if deprioritized)
+
+**GitHub Issue lifecycle:**
+- Created when: `/kata:add-issue` with `github.enabled=true`
+- Linked via: `provenance: github:owner/repo#N` in local file
+- Closed when: User selects "Mark complete" on an in-progress issue
+- Alternative: GitHub auto-closes via "Closes #N" in PR description when PR merges
 
 The provenance field is the linchpin - it enables deduplication and bidirectional updates.
-</execution_linking>
+</issue_lifecycle>
 
 <success_criteria>
-- [ ] All open issues listed with title, area, age
+- [ ] Open and in-progress issues listed with title, area, age
+- [ ] In-progress issues shown first with [IN PROGRESS] indicator
 - [ ] GitHub backlog issues included (if github.enabled=true)
 - [ ] Deduplication applied (local provenance matches GitHub #)
 - [ ] GitHub-only issues marked with [GH] indicator
 - [ ] Area filter applied if specified
 - [ ] Selected issue's full context loaded
 - [ ] Roadmap context checked for phase match
-- [ ] Appropriate actions offered (Pull to local for GitHub issues)
-- [ ] Selected action executed
+- [ ] Appropriate actions offered based on issue state
+- [ ] "Work on it now" moves to in-progress (does NOT close GitHub)
+- [ ] "Mark complete" moves to closed AND closes GitHub Issue
 - [ ] STATE.md updated if issue count changed
-- [ ] Changes committed to git (if issue moved to closed/)
-- [ ] GitHub Issue auto-closed when local issue moved to closed/ (if provenance exists)
+- [ ] Changes committed to git
 </success_criteria>
