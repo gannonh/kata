@@ -157,6 +157,73 @@ files:
 ```
 </step>
 
+<step name="sync_to_github">
+**Check GitHub integration:**
+
+```bash
+GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | head -1 | grep -o 'true\|false' || echo "false")
+```
+
+**If `GITHUB_ENABLED=false`:** Log "Local-only issue (GitHub integration disabled)" and skip to next step.
+
+**If `GITHUB_ENABLED=true`:**
+
+1. **Check if already synced:**
+   - Read the just-created local file's frontmatter
+   - If `provenance` already contains `github:`, skip (already synced)
+
+2. **Create backlog label (idempotent):**
+   ```bash
+   gh label create "backlog" --description "Kata backlog issues" --force 2>/dev/null || true
+   ```
+
+3. **Build issue body file:**
+   Write to `/tmp/issue-body.md`:
+   ```markdown
+   ## Problem
+
+   [problem section from local file]
+
+   ## Solution
+
+   [solution section from local file]
+
+   ---
+   *Created via Kata `/kata:add-issue`*
+   ```
+
+4. **Create GitHub Issue:**
+   ```bash
+   ISSUE_URL=$(gh issue create \
+     --title "$TITLE" \
+     --body-file /tmp/issue-body.md \
+     --label "backlog" 2>/dev/null)
+   ```
+
+5. **Extract issue number and update provenance:**
+   ```bash
+   if [ -n "$ISSUE_URL" ]; then
+     ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -oE '[0-9]+$')
+     REPO_NAME=$(gh repo view --json nameWithOwner --jq '.nameWithOwner' 2>/dev/null)
+     # Update local file's frontmatter with provenance
+     # provenance: github:owner/repo#N
+   fi
+   ```
+
+6. **Update local file frontmatter:**
+   - Read the local issue file
+   - Replace `provenance: local` with `provenance: github:${REPO_NAME}#${ISSUE_NUMBER}`
+   - Write updated file
+
+**Non-blocking error handling:** All GitHub operations are wrapped to warn but continue on failure. Local file creation is never blocked by GitHub failures.
+
+```bash
+if ! gh auth status &>/dev/null; then
+  echo "Warning: gh CLI not authenticated. GitHub sync skipped."
+fi
+```
+</step>
+
 <step name="update_state">
 If `.planning/STATE.md` exists:
 
@@ -199,6 +266,7 @@ Issue saved: .planning/issues/open/[filename]
   [title]
   Area: [area]
   Files: [count] referenced
+  GitHub: #[number] (if synced, otherwise "local only")
 
 ---
 
@@ -215,6 +283,7 @@ Would you like to:
 <output>
 - `.planning/issues/open/[date]-[slug].md`
 - Updated `.planning/STATE.md` (if exists)
+- GitHub Issue #N with `backlog` label (if github.enabled=true)
 </output>
 
 <anti_patterns>
@@ -231,4 +300,6 @@ Would you like to:
 - [ ] Area consistent with existing issues
 - [ ] STATE.md updated if exists
 - [ ] Issue and state committed to git
+- [ ] GitHub Issue created with backlog label (if github.enabled=true)
+- [ ] Provenance field set in local file (if GitHub synced)
 </success_criteria>
