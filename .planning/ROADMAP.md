@@ -37,15 +37,16 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 **Dependencies:** Phase 1
 **Plans:** 3 plans
 
-Plans:
-- [ ] 02-01-PLAN.md — Add GitHub Issue sync to add-issue skill
-- [ ] 02-02-PLAN.md — Add GitHub Issue pull to check-issues skill
-- [ ] 02-03-PLAN.md — Add execution linking (auto-close on completion)
+- [x] 02-01-PLAN.md — Add GitHub Issue sync to add-issue skill
+- [x] 02-02-PLAN.md — Add GitHub Issue pull to check-issues skill
+- [x] 02-03-PLAN.md — Add execution linking (auto-close on completion)
 
 **Success Criteria** (what must be TRUE):
 1. Issues created in Kata appear as GitHub Issues with `backlog` label when `github.enabled=true`
 2. User can pull existing GitHub Issues into Kata workflow via filtering
 3. Kata execution can reference and auto-update external GitHub Issues on completion
+
+**Status:** COMPLETE
 
 #### Phase 3: Phase Organization
 
@@ -188,4 +189,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-01 — Phase 2 planned (3 plans)*
+*Last updated: 2026-02-01 — Phase 2 complete (3 plans)*

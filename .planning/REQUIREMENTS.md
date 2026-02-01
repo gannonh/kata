@@ -11,14 +11,14 @@
 ### Issue Model
 
 - [ ] **ISS-01**: Rename "todos" vocabulary to "issues" throughout Kata (skills, UI messages, file references)
-- [ ] **ISS-02**: Store issues as GitHub Issues with `backlog` label when `github.enabled=true`
+- [x] **ISS-02**: Store issues as GitHub Issues with `backlog` label when `github.enabled=true`
 - [ ] **ISS-03**: Keep local `.planning/issues/` fallback for non-GitHub projects
 - [ ] **ISS-04**: Display issues in `/kata:check-issues` (renamed from check-todos) with unified view across local and GitHub sources
 
 ### Pull from GitHub
 
-- [ ] **PULL-01**: Pull existing GitHub Issues into Kata workflow (query via `gh issue list`, filter by labels, make workable)
-- [ ] **PULL-02**: Link Kata execution to external GitHub Issues (reference existing issues during phase execution, auto-update on completion)
+- [x] **PULL-01**: Pull existing GitHub Issues into Kata workflow (query via `gh issue list`, filter by labels, make workable)
+- [x] **PULL-02**: Link Kata execution to external GitHub Issues (reference existing issues during phase execution, auto-update on completion)
 
 ### Phase Management
 
@@ -37,14 +37,14 @@
 
 ## Traceability
 
-| Requirement | Phase   | Verified |
-| ----------- | ------- | -------- |
-| ISS-01      | Phase 1 | -        |
-| ISS-02      | Phase 2 | -        |
-| ISS-03      | Phase 1 | -        |
-| ISS-04      | Phase 1 | -        |
-| PULL-01     | Phase 2 | -        |
-| PULL-02     | Phase 2 | -        |
+| Requirement | Phase   | Verified   |
+| ----------- | ------- | ---------- |
+| ISS-01      | Phase 1 | ✓          |
+| ISS-02      | Phase 2 | ✓          |
+| ISS-03      | Phase 1 | ✓          |
+| ISS-04      | Phase 1 | ✓          |
+| PULL-01     | Phase 2 | ✓          |
+| PULL-02     | Phase 2 | ✓          |
 | PHASE-01    | Phase 3 | -        |
 | PHASE-02    | Phase 4 | -        |
 | PHASE-03    | Phase 4 | -        |
