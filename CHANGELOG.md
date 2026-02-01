@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+## [1.3.5] - 2026-02-01 — Issue Model & Skills-First
+
+**Issue Model Foundation** — Kata now uses "issues" vocabulary consistently:
+- Renamed all references from "todos" to "issues" throughout skills and UI
+- Migrated storage from `.planning/todos/` to `.planning/issues/` with auto-archive
+- `/kata:add-issue` and `/kata:check-issues` replace todo equivalents
+
+**Skills-First Architecture** — Simplified invocation layer:
+- Removed commands wrapper layer (29 files deleted)
+- Skills are now directly user-invocable via `/kata:skill-name`
+- Cleaner skill names: `help`, `add-issue`, `execute-phase` (not gerund style)
+
+### Changed
+- Vocabulary normalized from "todos" to "issues" across all skills, agents, and messages
+- Skills renamed from gerund style (`adding-issues`) to simple names (`add-issue`)
+- Commands layer removed — skills are primary interface
+
+### Added
+- Auto-migration from `.planning/todos/` to `.planning/issues/` (archives old location)
+- Deprecation handling for legacy "todo" vocabulary redirects users to new names
+
+---
+
 ## [1.3.4] - 2026-01-31 — GitHub Issue Integration
 
 ### Fixed

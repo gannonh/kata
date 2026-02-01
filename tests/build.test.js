@@ -19,8 +19,9 @@ describe('Plugin build', () => {
     assert.ok(fs.existsSync(path.join(ROOT, 'dist/plugin/.claude-plugin/plugin.json')));
   });
 
-  test('includes commands directory', () => {
-    assert.ok(fs.existsSync(path.join(ROOT, 'dist/plugin/commands')));
+  test('commands directory removed (skills-first architecture)', () => {
+    // Commands layer was deprecated in v1.3.5 - skills are now primary interface
+    assert.ok(!fs.existsSync(path.join(ROOT, 'dist/plugin/commands')));
   });
 
   test('includes skills directory', () => {
