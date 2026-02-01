@@ -105,7 +105,8 @@ LOCAL_PROVENANCE=$(grep -h "^provenance: github:" .planning/issues/open/*.md 2>/
 ```bash
 if [ "$GITHUB_ENABLED" = "true" ]; then
   # Get GitHub Issues with backlog label, excluding those already tracked locally
-  GITHUB_ISSUES=$(gh issue list --label "backlog" --state open --json number,title,createdAt,labels --jq '.[] | "\(.createdAt)|\(.title)|github|\(.number)"' 2>/dev/null)
+  # Note: --label flag has issues in some gh CLI versions, use jq filter instead
+  GITHUB_ISSUES=$(gh issue list --state open --json number,title,createdAt,labels --jq '.[] | select(.labels[].name == "backlog") | "\(.createdAt)|\(.title)|github|\(.number)"' 2>/dev/null)
 fi
 ```
 
