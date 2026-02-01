@@ -1,15 +1,15 @@
 ---
-created: 2026-02-01T14:01
+created: 2026-02-01T14:04
 title: UAT test issue
 area: testing
-provenance: local
+provenance: github:gannonh/kata-orchestrator#75
 files: []
 ---
 
 ## Problem
 
-UAT test issue created to verify the GitHub issue sync functionality in Phase 2 of v1.4.0 Issue & Phase Management milestone.
+Test issue created to verify UAT workflow functionality and issue management system.
 
 ## Solution
 
-TBD
+TBD - This is a test issue for verification purposes.
