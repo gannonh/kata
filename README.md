@@ -105,7 +105,7 @@ claude plugin marketplace add gannonh/kata-marketplace
 claude plugin install kata@gannonh-kata-marketplace
 ```
 
-Verify with `/kata:providing-help`.
+Verify with `/kata:help`.
 
 ### Update
 
