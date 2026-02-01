@@ -333,6 +333,11 @@ if echo "$PROVENANCE" | grep -q "^github:"; then
       gh issue edit "$ISSUE_NUMBER" --add-label "in-progress" 2>/dev/null \
         && echo "Added in-progress label to GitHub Issue #${ISSUE_NUMBER}" \
         || echo "Warning: Failed to add in-progress label to GitHub Issue #${ISSUE_NUMBER}"
+
+      # Assign issue to self
+      gh issue edit "$ISSUE_NUMBER" --add-assignee @me 2>/dev/null \
+        && echo "Assigned GitHub Issue #${ISSUE_NUMBER} to @me" \
+        || echo "Warning: Failed to assign GitHub Issue #${ISSUE_NUMBER}"
     fi
   fi
 fi
@@ -344,7 +349,7 @@ Issue moved to in-progress: [filename]
 
   [title]
   Area: [area]
-  GitHub: Linked to #[number], added in-progress label
+  GitHub: Linked to #[number], added in-progress label, assigned to @me
           -or- Not linked (if no provenance)
 
 Ready to begin work.
@@ -371,6 +376,11 @@ if [ "$GITHUB_ENABLED" = "true" ]; then
   gh issue edit "$ISSUE_NUMBER" --add-label "in-progress" 2>/dev/null \
     && echo "Added in-progress label to GitHub Issue #${ISSUE_NUMBER}" \
     || echo "Warning: Failed to add in-progress label to GitHub Issue #${ISSUE_NUMBER}"
+
+  # Assign issue to self
+  gh issue edit "$ISSUE_NUMBER" --add-assignee @me 2>/dev/null \
+    && echo "Assigned GitHub Issue #${ISSUE_NUMBER} to @me" \
+    || echo "Warning: Failed to assign GitHub Issue #${ISSUE_NUMBER}"
 fi
 ```
 
@@ -380,7 +390,7 @@ Issue moved to in-progress: [filename]
 
   [title]
   Area: [area]
-  GitHub: Linked to #[number], added in-progress label
+  GitHub: Linked to #[number], added in-progress label, assigned to @me
 
 Ready to begin work.
 
@@ -588,6 +598,7 @@ The provenance field is the linchpin - it enables deduplication and bidirectiona
 - [ ] Appropriate actions offered based on issue state
 - [ ] "Work on it now" moves to in-progress (does NOT close GitHub)
 - [ ] "Work on it now" adds in-progress label to GitHub Issue (if linked)
+- [ ] "Work on it now" assigns GitHub Issue to @me (if linked)
 - [ ] "Mark complete" moves to closed AND closes GitHub Issue
 - [ ] STATE.md updated if issue count changed
 - [ ] Changes committed to git
