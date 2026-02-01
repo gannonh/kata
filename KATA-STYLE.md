@@ -566,7 +566,7 @@ Kata includes an automatic codebase learning system that indexes code and detect
 
 ### Commands
 
-**`/kata:analyze-codebase`** — Bulk scan for brownfield projects:
+**`/kata:mapping-codebases`** — Bulk scan for brownfield projects:
 - Creates .planning/intel/ directory
 - Scans all JS/TS files (excludes node_modules, dist, build, .git, vendor, coverage)
 - Uses same extraction logic as PostToolUse hook

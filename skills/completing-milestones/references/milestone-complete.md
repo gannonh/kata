@@ -746,7 +746,7 @@ Extract completed milestone details and create archive file.
 
 **CRITICAL:** Do NOT proceed to the next step until the archive file exists.
 
-**Important:** The next milestone workflow starts with `/kata:new-milestone` which includes requirements definition. PROJECT.md's Validated section carries the cumulative record across milestones.
+**Important:** The next milestone workflow starts with `/kata:adding-milestones` which includes requirements definition. PROJECT.md's Validated section carries the cumulative record across milestones.
 
 </step>
 
@@ -1018,7 +1018,7 @@ Tag: v[X.Y]
 
 **Start Next Milestone** — questioning → research → requirements → roadmap
 
-`/kata:new-milestone`
+`/kata:adding-milestones`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -1080,6 +1080,6 @@ Milestone completion is successful when:
 - [ ] STATE.md updated with fresh project reference
 - [ ] Git tag created (v[X.Y])
 - [ ] Milestone commit made (includes archive files and deletion)
-- [ ] User knows next step (/kata:new-milestone)
+- [ ] User knows next step (/kata:adding-milestones)
 
 </success_criteria>

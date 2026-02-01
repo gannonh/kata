@@ -29,7 +29,7 @@ Enables reviewing captured ideas and deciding what to work on next.
 
 Display:
 
-> **Note:** "todos" is now "issues". Using `/kata:check-issues`.
+> **Note:** "todos" is now "issues". Using `/kata:checking-issues`.
 
 Then proceed with the action (non-blocking).
 </step>
@@ -70,14 +70,14 @@ If count is 0:
 ```
 No open issues.
 
-Issues are captured during work sessions with /kata:add-issue.
+Issues are captured during work sessions with /kata:adding-issues.
 
 ---
 
 Would you like to:
 
-1. Continue with current phase (/kata:check-progress)
-2. Add an issue now (/kata:add-issue)
+1. Continue with current phase (/kata:tracking-progress)
+2. Add an issue now (/kata:adding-issues)
 ```
 
 Exit.
@@ -85,8 +85,8 @@ Exit.
 
 <step name="parse_filter">
 Check for area filter in arguments:
-- `/kata:check-issues` → show all
-- `/kata:check-issues api` → filter to area:api only
+- `/kata:checking-issues` → show all
+- `/kata:checking-issues api` → filter to area:api only
 </step>
 
 <step name="list_issues">
@@ -111,7 +111,7 @@ Open Issues:
 ---
 
 Reply with a number to view details, or:
-- `/kata:check-issues [area]` to filter by area
+- `/kata:checking-issues [area]` to filter by area
 - `q` to exit
 ```
 
@@ -175,7 +175,7 @@ Use AskUserQuestion:
 - question: "What would you like to do with this issue?"
 - options:
   - "Work on it now" — move to closed, start working
-  - "Create a phase" — /kata:add-phase with this scope
+  - "Create a phase" — /kata:adding-phases with this scope
   - "Brainstorm approach" — think through before deciding
   - "Put it back" — return to list
 </step>
@@ -191,7 +191,7 @@ Update STATE.md issue count. Present problem/solution context. Begin work or ask
 Note issue reference in phase planning notes. Keep in open. Return to list or exit.
 
 **Create a phase:**
-Display: `/kata:add-phase [description from issue]`
+Display: `/kata:adding-phases [description from issue]`
 Keep in open. User runs command in fresh context.
 
 **Brainstorm approach:**
@@ -250,7 +250,7 @@ Confirm: "Committed: docs: start work on issue - [title]"
 <anti_patterns>
 - Don't delete issues — move to closed/ when work begins
 - Don't start work without moving to closed/ first
-- Don't create plans from this command — route to /kata:plan-phase or /kata:add-phase
+- Don't create plans from this command — route to /kata:planning-phases or /kata:adding-phases
 </anti_patterns>
 
 <success_criteria>

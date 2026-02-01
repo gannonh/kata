@@ -291,14 +291,14 @@ Created .planning/codebase/:
 
 **Initialize project** — use codebase context for planning
 
-`/kata:new-project`
+`/kata:starting-projects`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- Re-run mapping: `/kata:map-codebase`
+- Re-run mapping: `/kata:mapping-codebases`
 - Review specific file: `cat .planning/codebase/STACK.md`
 - Edit any document before proceeding
 

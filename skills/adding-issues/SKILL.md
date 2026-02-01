@@ -29,7 +29,7 @@ Enables "thought -> capture -> continue" flow without losing context or derailin
 
 Display:
 
-> **Note:** "todos" is now "issues". Using `/kata:add-issue`.
+> **Note:** "todos" is now "issues". Using `/kata:adding-issues`.
 
 Then proceed with the action (non-blocking).
 </step>
@@ -76,7 +76,7 @@ Note existing areas for consistency in infer_area step.
 
 <step name="extract_content">
 **With arguments:** Use as the title/focus.
-- `/kata:add-issue Add auth token refresh` -> title = "Add auth token refresh"
+- `/kata:adding-issues Add auth token refresh` -> title = "Add auth token refresh"
 
 **Without arguments:** Analyze recent conversation to extract:
 - The specific problem, idea, or task discussed
@@ -206,7 +206,7 @@ Would you like to:
 
 1. Continue with current work
 2. Add another issue
-3. View all issues (/kata:check-issues)
+3. View all issues (/kata:checking-issues)
 ```
 </step>
 

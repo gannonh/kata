@@ -43,7 +43,7 @@ ls .planning/config.json 2>/dev/null
 If no `.planning/` directory:
 ```
 Error: No Kata project found.
-Run /kata:new-project first to initialize a project.
+Run /kata:starting-projects first to initialize a project.
 ```
 
 ## 3. Update config.json
@@ -79,7 +79,7 @@ Next spawned agents will use the new profile.
 
 **Switch to budget mode:**
 ```
-/kata:set-profile budget
+/kata:setting-profiles budget
 
 ✓ Model profile set to: budget
 
@@ -94,7 +94,7 @@ Agents will now use:
 
 **Switch to quality mode:**
 ```
-/kata:set-profile quality
+/kata:setting-profiles quality
 
 ✓ Model profile set to: quality
 

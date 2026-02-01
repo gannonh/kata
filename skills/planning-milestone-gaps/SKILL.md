@@ -12,11 +12,11 @@ allowed-tools:
 ---
 
 <objective>
-Create all phases necessary to close gaps identified by `/kata:audit-milestone`.
+Create all phases necessary to close gaps identified by `/kata:auditing-milestones`.
 
 Reads MILESTONE-AUDIT.md, groups gaps into logical phases, creates phase entries in ROADMAP.md, and offers to plan each phase.
 
-One command creates all fix phases — no manual `/kata:add-phase` per gap.
+One command creates all fix phases — no manual `/kata:adding-phases` per gap.
 </objective>
 
 <execution_context>
@@ -52,7 +52,7 @@ Parse YAML frontmatter to extract structured gaps:
 
 If no audit file exists or has no gaps, error:
 ```
-No audit gaps found. Run `/kata:audit-milestone` first.
+No audit gaps found. Run `/kata:auditing-milestones` first.
 ```
 
 ## 2. Prioritize Gaps
@@ -189,22 +189,22 @@ git commit -m "docs(roadmap): add gap closure phases {N}-{M}"
 
 **Plan first gap closure phase**
 
-`/kata:plan-phase {N}`
+`/kata:planning-phases {N}`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:execute-phase {N}` — if plans already exist
+- `/kata:executing-phases {N}` — if plans already exist
 - `cat .planning/ROADMAP.md` — see updated roadmap
 
 ---
 
 **After all gap phases complete:**
 
-`/kata:audit-milestone` — re-audit to verify gaps closed
-`/kata:complete-milestone {version}` — archive when audit passes
+`/kata:auditing-milestones` — re-audit to verify gaps closed
+`/kata:completing-milestones {version}` — archive when audit passes
 ```
 
 </process>
@@ -292,5 +292,5 @@ becomes:
 - [ ] ROADMAP.md updated with new phases
 - [ ] Phase directories created
 - [ ] Changes committed
-- [ ] User knows to run `/kata:plan-phase` next
+- [ ] User knows to run `/kata:planning-phases` next
 </success_criteria>

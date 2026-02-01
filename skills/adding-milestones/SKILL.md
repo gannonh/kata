@@ -16,7 +16,7 @@ allowed-tools:
 <objective>
 Add a milestone to the project through unified flow: questioning → research (optional) → requirements → roadmap.
 
-This works for both first milestone (after /kata:new-project) and subsequent milestones (after completing a milestone).
+This works for both first milestone (after /kata:starting-projects) and subsequent milestones (after completing a milestone).
 
 **Creates/Updates:**
 - `.planning/PROJECT.md` — updated with new milestone goals
@@ -25,7 +25,7 @@ This works for both first milestone (after /kata:new-project) and subsequent mil
 - `.planning/ROADMAP.md` — phase structure (creates if first, continues if subsequent)
 - `.planning/STATE.md` — reset for new milestone (creates if first)
 
-**After this command:** Run `/kata:plan-phase [N]` to start execution.
+**After this command:** Run `/kata:planning-phases [N]` to start execution.
 </objective>
 
 <execution_context>
@@ -937,14 +937,14 @@ Present completion with next steps:
 
 **Phase [N]: [Phase Name]** — [Goal from ROADMAP.md]
 
-`/kata:discuss-phase [N]` — gather context and clarify approach
+`/kata:discussing-phases [N]` — gather context and clarify approach
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:plan-phase [N]` — skip discussion, plan directly
+- `/kata:planning-phases [N]` — skip discussion, plan directly
 
 ───────────────────────────────────────────────────────────────
 
@@ -964,7 +964,7 @@ Present completion with next steps:
 - [ ] User feedback incorporated (if any)
 - [ ] ROADMAP.md created with phases continuing from previous milestone
 - [ ] All commits made (if planning docs committed)
-- [ ] User knows next step is `/kata:discuss-phase [N]`
+- [ ] User knows next step is `/kata:discussing-phases [N]`
 
 **Atomic commits:** Each phase commits its artifacts immediately. If context is lost, artifacts persist.
 </success_criteria>

@@ -19,9 +19,18 @@
 
 
 
+## Install
+
+**From inside Claude Code:**
 ```bash
-# Install as Claude Code plugin
+/plugin marketplace add gannonh/kata-marketplace
 /plugin install kata@gannonh-kata-marketplace
+```
+
+**From terminal:**
+```bash
+claude plugin marketplace add gannonh/kata-marketplace
+claude plugin install kata@gannonh-kata-marketplace
 ```
 
 ---
@@ -52,7 +61,7 @@ When completing a milestone, you're offered: "Run release workflow", "Dry-run fi
 
 </details>
 
-**All features are optional.** Enable what you need via `/kata:configure-settings`.
+**All features are optional.** Enable what you need via `/kata:configuring-settings`.
 
 <p align="center">
 <img src="assets/project-config-flow.gif" alt="GitHub Integration Setup">
@@ -76,7 +85,7 @@ Drive your entire workflow with **natural language**.
 | "Complete the milestone"  | Archive → Tag/Release                                |
 | "What's the status?"      | Progress report → Routes to next action              |
 
-Slash commands exist for precision (`/kata:plan-phase 2`), but natural language always works.
+Slash commands exist for precision (`/kata:planning-phases 2`), but natural language always works.
 
 ---
 
@@ -84,20 +93,27 @@ Slash commands exist for precision (`/kata:plan-phase 2`), but natural language 
 
 ### Install
 
+**From inside Claude Code:**
 ```bash
-# from Claude Code CLI
+/plugin marketplace add gannonh/kata-marketplace
 /plugin install kata@gannonh-kata-marketplace
 ```
 
-Verify with `/kata:help`.
+**From terminal:**
+```bash
+claude plugin marketplace add gannonh/kata-marketplace
+claude plugin install kata@gannonh-kata-marketplace
+```
+
+Verify with `/kata:providing-help`.
 
 ### Update
 
 ```bash
-claude plugin update kata@kata-marketplace
+claude plugin update kata@gannonh-kata-marketplace
 ```
 
-Check what's new: `/kata:whats-new`
+Check what's new: `/kata:showing-whats-new`
 
 ### Recommended: Skip Permissions
 
@@ -318,7 +334,7 @@ For ad-hoc work that doesn't need full planning:
 Settings live in `.planning/config.json`. Configure during project init or update anytime:
 
 ```
-/kata:configure-settings
+/kata:configuring-settings
 ```
 
 ### Core Settings
@@ -338,7 +354,7 @@ Balance quality vs cost:
 | `balanced` | Opus     | Sonnet    | Sonnet       |
 | `budget`   | Sonnet   | Sonnet    | Haiku        |
 
-Switch: `/kata:set-profile quality`
+Switch: `/kata:setting-profiles quality`
 
 ### Workflow Agents
 
@@ -350,11 +366,11 @@ Toggle agents that run during planning/execution:
 | `workflow.plan_check` | `true`  | Verify plans achieve phase goals     |
 | `workflow.verifier`   | `true`  | Confirm deliverables after execution |
 
-Override per-invocation: `/kata:plan-phase --skip-research`
+Override per-invocation: `/kata:planning-phases --skip-research`
 
 ### GitHub Integration (Optional)
 
-**All GitHub features are off by default.** Enable via `/kata:configure-settings`:
+**All GitHub features are off by default.** Enable via `/kata:configuring-settings`:
 
 | Setting            | Options              | Default | What it enables                               |
 | ------------------ | -------------------- | ------- | --------------------------------------------- |

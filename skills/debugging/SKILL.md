@@ -113,7 +113,7 @@ Task(
 - Display root cause and evidence summary
 - Offer options:
   - "Fix now" - spawn fix subagent
-  - "Plan fix" - suggest /kata:plan-phase --gaps
+  - "Plan fix" - suggest /kata:planning-phases --gaps
   - "Manual fix" - done
 
 **If `## CHECKPOINT REACHED`:**

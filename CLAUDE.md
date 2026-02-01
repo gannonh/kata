@@ -29,7 +29,7 @@ cd /path/to/test-project
 claude --plugin-dir /path/to/kata/dist/plugin
 
 # Verify skills load
-/kata:help
+/kata:providing-help
 ```
 
 Alternative: manually copy to test project's plugin directory:

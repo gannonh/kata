@@ -1,6 +1,6 @@
 ---
 name: providing-help
-description: Use this skill when showing available Kata commands, displaying the usage guide, explaining command reference, or when the user asks for help with Kata. Triggers include "help", "show commands", "list commands", "what commands", "kata commands", and "usage guide".
+description: Use this skill when showing available Kata skills, displaying the usage guide, explaining skill reference, or when the user asks for help with Kata. Triggers include "help", "show skills", "list skills", "what skills", "kata skills", and "usage guide".
 metadata:
   version: "0.1.0"
 user-invocable: true
@@ -12,7 +12,7 @@ allowed-tools:
 ---
 
 <objective>
-Display the complete Kata command reference with version info.
+Display the complete Kata skill reference with version info.
 
 First, read the installed version:
 
@@ -33,7 +33,7 @@ Then output the reference content below, inserting the version at the top. Do NO
   </objective>
 
 <reference>
-# Kata Command Reference
+# Kata Skill Reference
 
 **Version:** {version from bash above}
 
@@ -41,16 +41,16 @@ Then output the reference content below, inserting the version at the top. Do NO
 
 ## Quick Start
 
-1. `/kata:new-project` - Initialize project (includes research, requirements, roadmap)
-2. `/kata:plan-phase 1` - Create detailed plan for first phase
-3. `/kata:execute-phase 1` - Execute the phase
+1. `/kata:starting-projects` - Initialize project (includes research, requirements, roadmap)
+2. `/kata:planning-phases 1` - Create detailed plan for first phase
+3. `/kata:executing-phases 1` - Execute the phase
 
 ## Staying Updated
 
 Kata evolves fast. Check for updates periodically:
 
 ```
-/kata:whats-new
+/kata:showing-whats-new
 ```
 
 Shows what changed since your installed version and how to update.
@@ -58,15 +58,15 @@ Shows what changed since your installed version and how to update.
 ## Core Workflow
 
 ```
-/kata:new-project → /kata:plan-phase → /kata:execute-phase → repeat
+/kata:starting-projects → /kata:planning-phases → /kata:executing-phases → repeat
 ```
 
 ### Project Initialization
 
-**`/kata:new-project`**
+**`/kata:starting-projects`**
 Initialize new project through unified flow.
 
-One command takes you from idea to ready-for-planning:
+One skill takes you from idea to ready-for-planning:
 - Deep questioning to understand what you're building
 - Optional domain research (spawns 4 parallel researcher agents)
 - Requirements definition with v1/v2/out-of-scope scoping
@@ -80,30 +80,30 @@ Creates all `.planning/` artifacts:
 - `ROADMAP.md` — phases mapped to requirements
 - `STATE.md` — project memory
 
-Usage: `/kata:new-project`
+Usage: `/kata:starting-projects`
 
-**`/kata:map-codebase`**
+**`/kata:mapping-codebases`**
 Map an existing codebase for brownfield projects.
 
 - Analyzes codebase with parallel Explore agents
 - Creates `.planning/codebase/` with 7 focused documents
 - Covers stack, architecture, structure, conventions, testing, integrations, concerns
-- Use before `/kata:new-project` on existing codebases
+- Use before `/kata:starting-projects` on existing codebases
 
-Usage: `/kata:map-codebase`
+Usage: `/kata:mapping-codebases`
 
 ### Phase Planning
 
-**`/kata:discuss-phase <number>`**
+**`/kata:discussing-phases <number>`**
 Help articulate your vision for a phase before planning.
 
 - Captures how you imagine this phase working
 - Creates CONTEXT.md with your vision, essentials, and boundaries
 - Use when you have ideas about how something should look/feel
 
-Usage: `/kata:discuss-phase 2`
+Usage: `/kata:discussing-phases 2`
 
-**`/kata:research-phase <number>`**
+**`/kata:researching-phases <number>`**
 Comprehensive ecosystem research for niche/complex domains.
 
 - Discovers standard stack, architecture patterns, pitfalls
@@ -111,18 +111,18 @@ Comprehensive ecosystem research for niche/complex domains.
 - Use for 3D, games, audio, shaders, ML, and other specialized domains
 - Goes beyond "which library" to ecosystem knowledge
 
-Usage: `/kata:research-phase 3`
+Usage: `/kata:researching-phases 3`
 
-**`/kata:list-assumptions <number>`**
+**`/kata:listing-phase-assumptions <number>`**
 See what Claude is planning to do before it starts.
 
 - Shows Claude's intended approach for a phase
 - Lets you course-correct if Claude misunderstood your vision
 - No files created - conversational output only
 
-Usage: `/kata:list-assumptions 3`
+Usage: `/kata:listing-phase-assumptions 3`
 
-**`/kata:plan-phase <number>`**
+**`/kata:planning-phases <number>`**
 Create detailed execution plan for a specific phase.
 
 - Generates `.planning/phases/XX-phase-name/XX-YY-PLAN.md`
@@ -130,12 +130,12 @@ Create detailed execution plan for a specific phase.
 - Includes verification criteria and success measures
 - Multiple plans per phase supported (XX-01, XX-02, etc.)
 
-Usage: `/kata:plan-phase 1`
+Usage: `/kata:planning-phases 1`
 Result: Creates `.planning/phases/01-foundation/01-01-PLAN.md`
 
 ### Execution
 
-**`/kata:execute-phase <phase-number>`**
+**`/kata:executing-phases <phase-number>`**
 Execute all plans in a phase.
 
 - Groups plans by wave (from frontmatter), executes waves sequentially
@@ -143,11 +143,11 @@ Execute all plans in a phase.
 - Verifies phase goal after all plans complete
 - Updates REQUIREMENTS.md, ROADMAP.md, STATE.md
 
-Usage: `/kata:execute-phase 5`
+Usage: `/kata:executing-phases 5`
 
 ### Quick Mode
 
-**`/kata:quick-task`**
+**`/kata:executing-quick-tasks`**
 Execute small, ad-hoc tasks with Kata guarantees but skip optional agents.
 
 Quick mode uses the same system with a shorter path:
@@ -157,31 +157,31 @@ Quick mode uses the same system with a shorter path:
 
 Use when you know exactly what to do and the task is small enough to not need research or verification.
 
-Usage: `/kata:quick-task`
+Usage: `/kata:executing-quick-tasks`
 Result: Creates `.planning/quick/NNN-slug/PLAN.md`, `.planning/quick/NNN-slug/SUMMARY.md`
 
 ### Roadmap Management
 
-**`/kata:add-phase <description>`**
+**`/kata:adding-phases <description>`**
 Add new phase to end of current milestone.
 
 - Appends to ROADMAP.md
 - Uses next sequential number
 - Updates phase directory structure
 
-Usage: `/kata:add-phase "Add admin dashboard"`
+Usage: `/kata:adding-phases "Add admin dashboard"`
 
-**`/kata:insert-phase <after> <description>`**
+**`/kata:inserting-phases <after> <description>`**
 Insert urgent work as decimal phase between existing phases.
 
 - Creates intermediate phase (e.g., 7.1 between 7 and 8)
 - Useful for discovered work that must happen mid-milestone
 - Maintains phase ordering
 
-Usage: `/kata:insert-phase 7 "Fix critical auth bug"`
+Usage: `/kata:inserting-phases 7 "Fix critical auth bug"`
 Result: Creates Phase 7.1
 
-**`/kata:remove-phase <number>`**
+**`/kata:removing-phases <number>`**
 Remove a future phase and renumber subsequent phases.
 
 - Deletes phase directory and all references
@@ -189,12 +189,12 @@ Remove a future phase and renumber subsequent phases.
 - Only works on future (unstarted) phases
 - Git commit preserves historical record
 
-Usage: `/kata:remove-phase 17`
+Usage: `/kata:removing-phases 17`
 Result: Phase 17 deleted, phases 18-20 become 17-19
 
 ### Milestone Management
 
-**`/kata:new-milestone <name>`**
+**`/kata:adding-milestones <name>`**
 Start a new milestone through unified flow.
 
 - Deep questioning to understand what you're building next
@@ -202,11 +202,11 @@ Start a new milestone through unified flow.
 - Requirements definition with scoping
 - Roadmap creation with phase breakdown
 
-Mirrors `/kata:new-project` flow for brownfield projects (existing PROJECT.md).
+Mirrors `/kata:starting-projects` flow for brownfield projects (existing PROJECT.md).
 
-Usage: `/kata:new-milestone "v2.0 Features"`
+Usage: `/kata:adding-milestones "v2.0 Features"`
 
-**`/kata:complete-milestone <version>`**
+**`/kata:completing-milestones <version>`**
 Archive completed milestone and prepare for next version.
 
 - Creates MILESTONES.md entry with stats
@@ -214,11 +214,11 @@ Archive completed milestone and prepare for next version.
 - Creates git tag for the release
 - Prepares workspace for next version
 
-Usage: `/kata:complete-milestone 1.0.0`
+Usage: `/kata:completing-milestones 1.0.0`
 
 ### Progress Tracking
 
-**`/kata:check-progress`**
+**`/kata:tracking-progress`**
 Check project status and intelligently route to next action.
 
 - Shows visual progress bar and completion percentage
@@ -228,45 +228,45 @@ Check project status and intelligently route to next action.
 - Offers to execute next plan or create it if missing
 - Detects 100% milestone completion
 
-Usage: `/kata:check-progress`
+Usage: `/kata:tracking-progress`
 
 ### Session Management
 
-**`/kata:resume-work`**
+**`/kata:resuming-work`**
 Resume work from previous session with full context restoration.
 
 - Reads STATE.md for project context
 - Shows current position and recent progress
 - Offers next actions based on project state
 
-Usage: `/kata:resume-work`
+Usage: `/kata:resuming-work`
 
-**`/kata:pause-work`**
+**`/kata:pausing-work`**
 Create context handoff when pausing work mid-phase.
 
 - Creates .continue-here file with current state
 - Updates STATE.md session continuity section
 - Captures in-progress work context
 
-Usage: `/kata:pause-work`
+Usage: `/kata:pausing-work`
 
 ### Debugging
 
-**`/kata:debug-issue [issue description]`**
+**`/kata:debugging [issue description]`**
 Systematic debugging with persistent state across context resets.
 
 - Gathers symptoms through adaptive questioning
 - Creates `.planning/debug/[slug].md` to track investigation
 - Investigates using scientific method (evidence → hypothesis → test)
-- Survives `/clear` — run `/kata:debug-issue` with no args to resume
+- Survives `/clear` — run `/kata:debugging` with no args to resume
 - Archives resolved issues to `.planning/debug/resolved/`
 
-Usage: `/kata:debug-issue "login button doesn't work"`
-Usage: `/kata:debug-issue` (resume active session)
+Usage: `/kata:debugging "login button doesn't work"`
+Usage: `/kata:debugging` (resume active session)
 
 ### Issue Management
 
-**`/kata:add-issue [description]`**
+**`/kata:adding-issues [description]`**
 Capture idea or task as issue from current conversation.
 
 - Extracts context from conversation (or uses provided description)
@@ -275,24 +275,24 @@ Capture idea or task as issue from current conversation.
 - Checks for duplicates before creating
 - Updates STATE.md issue count
 
-Usage: `/kata:add-issue` (infers from conversation)
-Usage: `/kata:add-issue Add auth token refresh`
+Usage: `/kata:adding-issues` (infers from conversation)
+Usage: `/kata:adding-issues Add auth token refresh`
 
-**`/kata:check-issues [area]`**
+**`/kata:checking-issues [area]`**
 List pending issues and select one to work on.
 
 - Lists all pending issues with title, area, age
-- Optional area filter (e.g., `/kata:check-issues api`)
+- Optional area filter (e.g., `/kata:checking-issues api`)
 - Loads full context for selected issue
 - Routes to appropriate action (work now, add to phase, brainstorm)
 - Moves issue to done/ when work begins
 
-Usage: `/kata:check-issues`
-Usage: `/kata:check-issues api`
+Usage: `/kata:checking-issues`
+Usage: `/kata:checking-issues api`
 
 ### User Acceptance Testing
 
-**`/kata:verify-work [phase]`**
+**`/kata:verifying-work [phase]`**
 Validate built features through conversational UAT.
 
 - Extracts testable deliverables from SUMMARY.md files
@@ -300,11 +300,11 @@ Validate built features through conversational UAT.
 - Automatically diagnoses failures and creates fix plans
 - Ready for re-execution if issues found
 
-Usage: `/kata:verify-work 3`
+Usage: `/kata:verifying-work 3`
 
 ### Milestone Auditing
 
-**`/kata:audit-milestone [version]`**
+**`/kata:auditing-milestones [version]`**
 Audit milestone completion against original intent.
 
 - Reads all phase VERIFICATION.md files
@@ -312,44 +312,44 @@ Audit milestone completion against original intent.
 - Spawns integration checker for cross-phase wiring
 - Creates MILESTONE-AUDIT.md with gaps and tech debt
 
-Usage: `/kata:audit-milestone`
+Usage: `/kata:auditing-milestones`
 
-**`/kata:plan-milestone-gaps`**
+**`/kata:planning-milestone-gaps`**
 Create phases to close gaps identified by audit.
 
 - Reads MILESTONE-AUDIT.md and groups gaps into phases
 - Prioritizes by requirement priority (must/should/nice)
 - Adds gap closure phases to ROADMAP.md
-- Ready for `/kata:plan-phase` on new phases
+- Ready for `/kata:planning-phases` on new phases
 
-Usage: `/kata:plan-milestone-gaps`
+Usage: `/kata:planning-milestone-gaps`
 
 ### Configuration
 
-**`/kata:configure-settings`**
+**`/kata:configuring-settings`**
 Configure workflow toggles and model profile interactively.
 
 - Toggle researcher, plan checker, verifier agents
 - Select model profile (quality/balanced/budget)
 - Updates `.planning/config.json`
 
-Usage: `/kata:configure-settings`
+Usage: `/kata:configuring-settings`
 
-**`/kata:set-profile <profile>`**
+**`/kata:setting-profiles <profile>`**
 Quick switch model profile for Kata agents.
 
 - `quality` — Opus everywhere except verification
 - `balanced` — Opus for planning, Sonnet for execution (default)
 - `budget` — Sonnet for writing, Haiku for research/verification
 
-Usage: `/kata:set-profile budget`
+Usage: `/kata:setting-profiles budget`
 
-### Utility Commands
+### Utility Skills
 
-**`/kata:help`**
-Show this command reference.
+**`/kata:providing-help`**
+Show this skill reference.
 
-**`/kata:whats-new`**
+**`/kata:showing-whats-new`**
 See what's changed since your installed version.
 
 - Shows installed vs latest version comparison
@@ -357,7 +357,7 @@ See what's changed since your installed version.
 - Highlights breaking changes
 - Provides update instructions when behind
 
-Usage: `/kata:whats-new`
+Usage: `/kata:showing-whats-new`
 
 ## Files & Structure
 
@@ -391,7 +391,7 @@ Usage: `/kata:whats-new`
 
 ## Workflow Modes
 
-Set during `/kata:new-project`:
+Set during `/kata:starting-projects`:
 
 **Interactive Mode**
 
@@ -439,51 +439,51 @@ Example config:
 **Starting a new project:**
 
 ```
-/kata:new-project        # Unified flow: questioning → research → requirements → roadmap
+/kata:starting-projects        # Unified flow: questioning → research → requirements → roadmap
 /clear
-/kata:plan-phase 1       # Create plans for first phase
+/kata:planning-phases 1       # Create plans for first phase
 /clear
-/kata:execute-phase 1    # Execute all plans in phase
+/kata:executing-phases 1    # Execute all plans in phase
 ```
 
 **Resuming work after a break:**
 
 ```
-/kata:check-progress  # See where you left off and continue
+/kata:tracking-progress  # See where you left off and continue
 ```
 
 **Adding urgent mid-milestone work:**
 
 ```
-/kata:insert-phase 5 "Critical security fix"
-/kata:plan-phase 5.1
-/kata:execute-phase 5.1
+/kata:inserting-phases 5 "Critical security fix"
+/kata:planning-phases 5.1
+/kata:executing-phases 5.1
 ```
 
 **Completing a milestone:**
 
 ```
-/kata:complete-milestone 1.0.0
+/kata:completing-milestones 1.0.0
 /clear
-/kata:new-milestone  # Start next milestone (questioning → research → requirements → roadmap)
+/kata:adding-milestones  # Start next milestone (questioning → research → requirements → roadmap)
 ```
 
 **Capturing ideas during work:**
 
 ```
-/kata:add-issue                    # Capture from conversation context
-/kata:add-issue Fix modal z-index  # Capture with explicit description
-/kata:check-issues                 # Review and work on issues
-/kata:check-issues api             # Filter by area
+/kata:adding-issues                    # Capture from conversation context
+/kata:adding-issues Fix modal z-index  # Capture with explicit description
+/kata:checking-issues                 # Review and work on issues
+/kata:checking-issues api             # Filter by area
 ```
 
 **Debugging an issue:**
 
 ```
-/kata:debug-issue "form submission fails silently"  # Start debug session
+/kata:debugging "form submission fails silently"  # Start debug session
 # ... investigation happens, context fills up ...
 /clear
-/kata:debug-issue                                    # Resume from where you left off
+/kata:debugging                                    # Resume from where you left off
 ```
 
 ## Getting Help
@@ -491,5 +491,5 @@ Example config:
 - Read `.planning/PROJECT.md` for project vision
 - Read `.planning/STATE.md` for current context
 - Check `.planning/ROADMAP.md` for phase status
-- Run `/kata:check-progress` to check where you're up to
+- Run `/kata:tracking-progress` to check where you're up to
   </reference>

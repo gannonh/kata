@@ -1,5 +1,5 @@
 <purpose>
-Validate built features through conversational testing with persistent state. Creates UAT.md that tracks test progress, survives /clear, and feeds gaps into /kata:plan-phase --gaps.
+Validate built features through conversational testing with persistent state. Creates UAT.md that tracks test progress, survives /clear, and feeds gaps into /kata:planning-phases --gaps.
 
 User tests, Claude records. One test at a time. Plain text responses.
 </purpose>
@@ -78,7 +78,7 @@ If no, continue to `create_uat_file`.
 ```
 No active UAT sessions.
 
-Provide a phase number to start testing (e.g., /kata:verify-work 4)
+Provide a phase number to start testing (e.g., /kata:verifying-work 4)
 ```
 
 **If no active sessions AND $ARGUMENTS provided:**
@@ -343,8 +343,8 @@ Present summary:
 ```
 All tests passed. Ready to continue.
 
-- `/kata:plan-phase {next}` — Plan next phase
-- `/kata:execute-phase {next}` — Execute next phase
+- `/kata:planning-phases {next}` — Plan next phase
+- `/kata:executing-phases {next}` — Execute next phase
 ```
 </step>
 
@@ -403,7 +403,7 @@ Task(
 </planning_context>
 
 <downstream_consumer>
-Output consumed by /kata:execute-phase
+Output consumed by /kata:executing-phases
 Plans must be executable prompts.
 </downstream_consumer>
 """,
@@ -510,7 +510,7 @@ Display: `Max iterations reached. {N} issues remain.`
 Offer options:
 1. Force proceed (execute despite issues)
 2. Provide guidance (user gives direction, retry)
-3. Abandon (exit, user runs /kata:plan-phase manually)
+3. Abandon (exit, user runs /kata:planning-phases manually)
 
 Wait for user response.
 </step>
@@ -538,7 +538,7 @@ Plans verified and ready for execution.
 
 **Execute fixes** — run fix plans
 
-`/clear` then `/kata:execute-phase {phase} --gaps-only`
+`/clear` then `/kata:executing-phases {phase} --gaps-only`
 
 ───────────────────────────────────────────────────────────────
 
@@ -592,5 +592,5 @@ Default to **major** if unclear. User can correct if needed.
 - [ ] If issues: kata-planner creates fix plans (gap_closure mode)
 - [ ] If issues: kata-plan-checker verifies fix plans
 - [ ] If issues: revision loop until plans pass (max 3 iterations)
-- [ ] Ready for `/kata:execute-phase --gaps-only` when complete
+- [ ] Ready for `/kata:executing-phases --gaps-only` when complete
 </success_criteria>
