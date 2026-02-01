@@ -429,6 +429,23 @@ Confirm: "Committed: docs: start work on issue - [title]"
 - Don't create plans from this command — route to /kata:plan-phase or /kata:add-phase
 </anti_patterns>
 
+<execution_linking>
+## Execution Linking (PULL-02)
+
+When an issue has GitHub provenance (`provenance: github:owner/repo#N`), the following behaviors activate:
+
+1. **Display:** Issue shows GitHub reference in details view
+2. **Work on it now:** Closing the local issue also closes the GitHub Issue with a completion comment
+3. **Traceability:** Git commits reference the GitHub Issue number
+
+This creates a bidirectional sync loop:
+- **Outbound (ISS-02):** `/kata:add-issue` creates GitHub Issue, stores provenance in local file
+- **Inbound (PULL-01):** `/kata:check-issues` pulls GitHub Issues, creates local files with provenance
+- **Completion (PULL-02):** "Work on it now" closes both local and GitHub Issue
+
+The provenance field is the linchpin - it enables deduplication and bidirectional updates.
+</execution_linking>
+
 <success_criteria>
 - [ ] All open issues listed with title, area, age
 - [ ] GitHub backlog issues included (if github.enabled=true)
@@ -441,4 +458,5 @@ Confirm: "Committed: docs: start work on issue - [title]"
 - [ ] Selected action executed
 - [ ] STATE.md updated if issue count changed
 - [ ] Changes committed to git (if issue moved to closed/)
+- [ ] GitHub Issue auto-closed when local issue moved to closed/ (if provenance exists)
 </success_criteria>
