@@ -156,6 +156,7 @@ If invalid: "Invalid selection. Reply with a number (1-[N]) or `q` to exit."
 </step>
 
 <step name="load_context">
+**If local issue (has file path):**
 Read the issue file completely. Display:
 
 ```
@@ -173,6 +174,26 @@ Read the issue file completely. Display:
 ```
 
 If `files` field has entries, read and briefly summarize each.
+
+**If GitHub-only issue (has [GH] indicator):**
+Fetch full issue details from GitHub:
+```bash
+gh issue view $ISSUE_NUMBER --json title,body,createdAt,labels
+```
+
+Display:
+```
+## [title] [GH]
+
+**Source:** GitHub Issue #[number]
+**Created:** [date] ([relative time] ago)
+**Labels:** [list of GitHub labels]
+
+### Description
+[issue body content]
+```
+
+Note: This issue exists only in GitHub, not yet pulled to local.
 </step>
 
 <step name="check_roadmap">
@@ -187,7 +208,18 @@ If roadmap exists:
 </step>
 
 <step name="offer_actions">
-**If issue maps to a roadmap phase:**
+**If GitHub-only issue (has [GH] indicator):**
+
+Use AskUserQuestion:
+- header: "Action"
+- question: "This is a GitHub Issue. What would you like to do?"
+- options:
+  - "Pull to local" — create local file for offline work
+  - "Work on it now" — pull to local AND move to closed
+  - "View on GitHub" — open in browser (gh issue view --web)
+  - "Put it back" — return to list
+
+**If local issue maps to a roadmap phase:**
 
 Use AskUserQuestion:
 - header: "Action"
@@ -198,7 +230,7 @@ Use AskUserQuestion:
   - "Brainstorm approach" — think through before deciding
   - "Put it back" — return to list
 
-**If no roadmap match:**
+**If local issue with no roadmap match:**
 
 Use AskUserQuestion:
 - header: "Action"
@@ -211,11 +243,62 @@ Use AskUserQuestion:
 </step>
 
 <step name="execute_action">
-**Work on it now:**
+**Pull to local (GitHub-only issues):**
+Create local file from GitHub Issue:
+```bash
+# Get issue details
+ISSUE_DATA=$(gh issue view $ISSUE_NUMBER --json title,body,createdAt,labels)
+TITLE=$(echo "$ISSUE_DATA" | jq -r '.title')
+BODY=$(echo "$ISSUE_DATA" | jq -r '.body')
+CREATED=$(echo "$ISSUE_DATA" | jq -r '.createdAt')
+
+# Generate file path
+timestamp=$(date "+%Y-%m-%dT%H:%M")
+date_prefix=$(date "+%Y-%m-%d")
+slug=$(echo "$TITLE" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | head -c 40)
+OWNER_REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+
+# Create local file with provenance
+cat > ".planning/issues/open/${date_prefix}-${slug}.md" << EOF
+---
+created: ${timestamp}
+title: ${TITLE}
+area: general
+provenance: github:${OWNER_REPO}#${ISSUE_NUMBER}
+files: []
+---
+
+## Problem
+
+${BODY}
+
+## Solution
+
+TBD
+EOF
+```
+The `provenance` field enables deduplication on subsequent checks.
+Confirm: "Pulled GitHub Issue #[number] to local: .planning/issues/open/[filename]"
+Return to list or offer to work on it.
+
+**Work on it now (local issue):**
 ```bash
 mv ".planning/issues/open/[filename]" ".planning/issues/closed/"
 ```
 Update STATE.md issue count. Present problem/solution context. Begin work or ask how to proceed.
+
+**Work on it now (GitHub-only issue):**
+First execute "Pull to local" action, then move to closed:
+```bash
+mv ".planning/issues/open/${date_prefix}-${slug}.md" ".planning/issues/closed/"
+```
+Update STATE.md issue count. Present problem/solution context. Begin work or ask how to proceed.
+
+**View on GitHub (GitHub-only issues):**
+```bash
+gh issue view $ISSUE_NUMBER --web
+```
+Opens issue in browser. Return to list.
 
 **Add to phase plan:**
 Note issue reference in phase planning notes. Keep in open. Return to list or exit.
