@@ -51,6 +51,25 @@ Skills are now the primary user interface for Kata workflows, invocable directly
 - KATA-STYLE.md: Updated progressive disclosure hierarchy (Skill replaces Command)
 - STATE.md: Logged commands deprecation decision
 
+### Command References Updated to Skill Names (52 files)
+Old command names (imperative form) replaced with new skill names (gerund form):
+
+| Old Command | New Skill |
+|-------------|-----------|
+| `/kata:plan-phase` | `/kata:planning-phases` |
+| `/kata:execute-phase` | `/kata:executing-phases` |
+| `/kata:new-project` | `/kata:starting-projects` |
+| `/kata:check-progress` | `/kata:tracking-progress` |
+| `/kata:add-issue` | `/kata:adding-issues` |
+| `/kata:check-issues` | `/kata:checking-issues` |
+| (and 21 more...) | |
+
+Files updated:
+- 27 skill SKILL.md files
+- 14 skill reference files
+- 11 agent .md files
+- CLAUDE.md, README.md, KATA-STYLE.md
+
 ## Commits
 
 | Task | Commit | Description |
@@ -58,6 +77,7 @@ Skills are now the primary user interface for Kata workflows, invocable directly
 | 1 | ce053db | Make all skills user-invocable |
 | 2 | 94af26f | Delete commands layer and update build |
 | 3 | b0f0e4e | Update documentation for skills-first architecture |
+| 4 | 7469479 | Update all command references to skill names |
 
 ## Verification Results
 
@@ -69,10 +89,11 @@ Skills are now the primary user interface for Kata workflows, invocable directly
 - [x] dist/plugin/ has no commands/ directory
 - [x] KATA-STYLE.md updated
 - [x] STATE.md has decision logged
+- [x] All /kata: references use gerund skill names
 
 ## Deviations from Plan
 
-None - plan executed exactly as written.
+Additional work: Updated all command references throughout skills/, agents/, and documentation to use the new gerund-form skill names (e.g., `/kata:plan-phase` → `/kata:planning-phases`).
 
 ## Impact
 

@@ -53,7 +53,7 @@ Progress: [███████████████████████
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **2026-02-01: Commands deprecated** — Removed commands/kata/ wrapper layer. Skills are now user-invocable directly via /kata:skill-name. 29 command files deleted, 27 skills updated with user-invocable: true.
+- **2026-02-01: Commands deprecated** — Removed commands/kata/ wrapper layer. Skills are now user-invocable directly via /kata:skill-name. 29 command files deleted, 27 skills updated. All references updated to use gerund skill names (e.g., `/kata:planning-phases` not `/kata:plan-phase`).
 - **2026-01-25: Commands/Skills architecture** — (Superseded by 2026-02-01 decision) Commands were user-invocable (via `/kata:`), skills were agent-invocable (via `Skill()`). Commands invoked skills. Users → Commands → Skills → Agents.
 - **2026-01-25: Build.js skill prefix transformation** — Plugin build strips `kata-` prefix from skill directories and names for clean `/kata:skill-name` invocation
 - **2026-01-24: Roadmap realigned** — Updated to reflect actual release history; v0.1.9 became v1.0.0, added v1.0.8 milestone for stability work
@@ -153,7 +153,7 @@ None yet.
 | 001 | Add PR workflow config option                    | 2026-01-22 | 975f1d3 | [001-add-pr-workflow-config-option](./quick/001-add-pr-workflow-config-option/) |
 | 002 | Config schema consistency & PR workflow features | 2026-01-22 | 325d86c | [002-config-schema-consistency](./quick/002-config-schema-consistency/)         |
 | 003 | Integrate GitHub issues into PR workflow         | 2026-01-31 | c367d42 | [003-integrate-github-issues-into-pr-workflow](./quick/003-integrate-github-issues-into-pr-workflow/) |
-| 004 | Deprecate slash commands, skills-first           | 2026-02-01 | b0f0e4e | [004-deprecate-slash-commands](./quick/004-deprecate-slash-commands/)                                 |
+| 004 | Deprecate slash commands, skills-first           | 2026-02-01 | 7469479 | [004-deprecate-slash-commands](./quick/004-deprecate-slash-commands/)                                 |
 
 ## Session Continuity
 
