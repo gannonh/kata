@@ -1,5 +1,5 @@
 /**
- * Tests for kata-showing-whats-new skill
+ * Tests for kata-whats-new skill
  *
  * This skill displays changes between installed version and latest available version.
  */
@@ -22,7 +22,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-showing-whats-new skill', () => {
+describe('kata-whats-new skill', () => {
   let testDir;
 
   beforeEach(() => {
@@ -31,8 +31,8 @@ describe('kata-showing-whats-new skill', () => {
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
     // Install skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-showing-whats-new');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-showing-whats-new');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-whats-new');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-whats-new');
     cpSync(skillSource, skillDest, { recursive: true });
 
     // Create a VERSION file for the skill to read

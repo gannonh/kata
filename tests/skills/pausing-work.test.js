@@ -16,12 +16,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-pausing-work', () => {
+describe('kata-pause-work', () => {
   let testDir;
 
   beforeEach(() => {
     // Create isolated test environment
-    testDir = mkdtempSync(join(tmpdir(), 'kata-test-pausing-work-'));
+    testDir = mkdtempSync(join(tmpdir(), 'kata-test-pause-work-'));
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
     // Create a phase directory to simulate active work
@@ -53,8 +53,8 @@ Test phase for verifying pause functionality.
     );
 
     // Install skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-pausing-work');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-pausing-work');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-pause-work');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-pause-work');
     cpSync(skillSource, skillDest, { recursive: true });
 
     // Initialize git repo for commit operations
@@ -83,7 +83,7 @@ Test phase for verifying pause functionality.
     });
 
     assertNoError(result);
-    assertSkillInvoked(result, 'Expected kata-pausing-work skill to be invoked');
+    assertSkillInvoked(result, 'Expected kata-pause-work skill to be invoked');
   });
 
   it('updates session state', async () => {

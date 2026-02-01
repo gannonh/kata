@@ -1,6 +1,6 @@
 ---
 name: kata-planner
-description: Creates executable phase plans with task breakdown, dependency analysis, and goal-backward verification. Spawned by /kata:planning-phases orchestrator.
+description: Creates executable phase plans with task breakdown, dependency analysis, and goal-backward verification. Spawned by /kata:plan-phase orchestrator.
 tools: Read, Write, Bash, Glob, Grep, WebFetch, mcp__context7__*
 color: green
 ---
@@ -10,9 +10,9 @@ You are a Kata planner. You create executable phase plans with task breakdown, d
 
 You are spawned by:
 
-- `/kata:planning-phases` orchestrator (standard phase planning)
-- `/kata:planning-phases --gaps` orchestrator (gap closure planning from verification failures)
-- `/kata:planning-phases` orchestrator in revision mode (updating plans based on checker feedback)
+- `/kata:plan-phase` orchestrator (standard phase planning)
+- `/kata:plan-phase --gaps` orchestrator (gap closure planning from verification failures)
+- `/kata:plan-phase` orchestrator in revision mode (updating plans based on checker feedback)
 
 Your job: Produce PLAN.md files that Claude executors can implement without interpretation. Plans are prompts, not documents that become prompts.
 
@@ -112,7 +112,7 @@ Discovery is MANDATORY unless you can prove current context exists.
 - Level 2+: New library not in package.json, external API, "choose/select/evaluate" in description
 - Level 3: "architecture/design/system", multiple external services, data modeling, auth design
 
-For niche domains (3D, games, audio, shaders, ML), suggest `/kata:researching-phases` before phase-plan.
+For niche domains (3D, games, audio, shaders, ML), suggest `/kata:research-phase` before phase-plan.
 
 </discovery_levels>
 
@@ -1096,10 +1096,10 @@ Understand:
 PADDED_PHASE=$(printf "%02d" ${PHASE} 2>/dev/null || echo "${PHASE}")
 PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE}-* 2>/dev/null | head -1)
 
-# Read CONTEXT.md if exists (from /kata:discussing-phases)
+# Read CONTEXT.md if exists (from /kata:discuss-phase)
 cat "${PHASE_DIR}"/*-CONTEXT.md 2>/dev/null
 
-# Read RESEARCH.md if exists (from /kata:researching-phases)
+# Read RESEARCH.md if exists (from /kata:research-phase)
 cat "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null
 
 # Read DISCOVERY.md if exists (from mandatory discovery)
@@ -1207,7 +1207,7 @@ Update ROADMAP.md to finalize phase placeholders created by phase-add or phase-i
 
 **Plans** (always update):
 - `**Plans:** 0 plans` → `**Plans:** {N} plans`
-- `**Plans:** (created by /kata:planning-phases)` → `**Plans:** {N} plans`
+- `**Plans:** (created by /kata:plan-phase)` → `**Plans:** {N} plans`
 
 **Plan list** (always update):
 - Replace `Plans:\n- [ ] TBD ...` with actual plan checkboxes:
@@ -1270,7 +1270,7 @@ Return structured planning outcome to orchestrator.
 
 ### Next Steps
 
-Execute: `/kata:executing-phases {phase}`
+Execute: `/kata:execute-phase {phase}`
 
 <sub>`/clear` first - fresh context window</sub>
 ```
@@ -1314,7 +1314,7 @@ Execute: `/kata:executing-phases {phase}`
 
 ### Next Steps
 
-Execute: `/kata:executing-phases {phase} --gaps-only`
+Execute: `/kata:execute-phase {phase} --gaps-only`
 ```
 
 ## Revision Complete
@@ -1380,6 +1380,6 @@ Planning complete when:
 - [ ] PLAN file(s) exist with gap_closure: true
 - [ ] Each plan: tasks derived from gap.missing items
 - [ ] PLAN file(s) committed to git
-- [ ] User knows to run `/kata:executing-phases {X}` next
+- [ ] User knows to run `/kata:execute-phase {X}` next
 
 </success_criteria>

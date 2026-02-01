@@ -58,7 +58,7 @@ describe('Plugin Build Smoke Test', () => {
   });
 
   test('plugin skills have local references (Phase 2.1)', () => {
-    const skillPath = path.join(ROOT, 'dist/plugin/skills/executing-phases/SKILL.md');
+    const skillPath = path.join(ROOT, 'dist/plugin/skills/execute-phase/SKILL.md');
     if (fs.existsSync(skillPath)) {
       const content = fs.readFileSync(skillPath, 'utf8');
       // Phase 2.1: Skills are self-contained with local @./references/ paths
@@ -110,7 +110,7 @@ describe('Plugin Build Smoke Test', () => {
   test('plugin @ references resolve to existing files (Phase 2.1)', () => {
     // Extract all @ references from a sample skill and verify they exist
     // Phase 2.1: Skills use @./references/ paths relative to each skill's directory
-    const skillPath = path.join(ROOT, 'dist/plugin/skills/executing-phases/SKILL.md');
+    const skillPath = path.join(ROOT, 'dist/plugin/skills/execute-phase/SKILL.md');
     const skillDir = path.dirname(skillPath);
     if (!fs.existsSync(skillPath)) return;
 

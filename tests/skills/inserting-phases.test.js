@@ -15,7 +15,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-inserting-phases', () => {
+describe('kata-insert-phase', () => {
   let testDir;
 
   beforeEach(() => {
@@ -24,8 +24,8 @@ describe('kata-inserting-phases', () => {
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
     // Install skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-inserting-phases');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-inserting-phases');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-insert-phase');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-insert-phase');
     cpSync(skillSource, skillDest, { recursive: true });
 
     // Ensure .claude directory structure exists
@@ -102,8 +102,8 @@ Plans:
 
     // Should contain decimal phase numbering (1.1 or similar)
     const hasDecimalPhase = roadmapContent.includes('1.1') ||
-                            roadmapContent.includes('Phase 1.') ||
-                            roadmapContent.includes('01.1');
+      roadmapContent.includes('Phase 1.') ||
+      roadmapContent.includes('01.1');
     if (!hasDecimalPhase) {
       // Also check for (INSERTED) marker which indicates decimal insertion
       const hasInsertedMarker = roadmapContent.includes('INSERTED');

@@ -16,7 +16,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-discussing-phases', () => {
+describe('kata-discuss-phase', () => {
   let testDir;
 
   beforeEach(() => {
@@ -25,8 +25,8 @@ describe('kata-discussing-phases', () => {
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
     // Install skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-discussing-phases');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-discussing-phases');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-discuss-phase');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-discuss-phase');
     cpSync(skillSource, skillDest, { recursive: true });
 
     // Ensure .claude directory structure exists
@@ -114,9 +114,9 @@ Progress: [                                ] 0%
 
     // The skill should either create CONTEXT.md or present gray areas for discussion
     const mentionsContext = resultText.toLowerCase().includes('context') ||
-                            resultText.toLowerCase().includes('decision') ||
-                            resultText.toLowerCase().includes('gray area') ||
-                            resultText.toLowerCase().includes('discuss');
+      resultText.toLowerCase().includes('decision') ||
+      resultText.toLowerCase().includes('gray area') ||
+      resultText.toLowerCase().includes('discuss');
 
     if (!contextCreated && !mentionsContext) {
       throw new Error(`Expected CONTEXT.md to be created or discussion of gray areas, got:\n${resultText.substring(0, 500)}`);

@@ -18,7 +18,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-executing-phases', () => {
+describe('kata-execute-phase', () => {
   let testDir;
 
   beforeEach(() => {
@@ -27,8 +27,8 @@ describe('kata-executing-phases', () => {
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
     // Install skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-executing-phases');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-executing-phases');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-execute-phase');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-execute-phase');
     cpSync(skillSource, skillDest, { recursive: true });
 
     // Install required agents (spawned by skill)
@@ -209,12 +209,12 @@ None.
 
   describe('Plan Sync - Wave Completion (Phase 4)', () => {
     it('contains wave completion GitHub update', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-execute-phase', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       // Verify wave completion includes GitHub update
       const hasWaveUpdate = skillContent.includes('wave') &&
-                            skillContent.includes('gh issue');
+        skillContent.includes('gh issue');
 
       if (!hasWaveUpdate) {
         throw new Error('Expected skill to update GitHub issue on wave completion');
@@ -222,18 +222,18 @@ None.
     });
 
     it('updates per wave not per plan (race condition mitigation)', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-execute-phase', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       // Verify orchestrator-level update pattern
       const hasWaveCompletion = skillContent.includes('wave complete') ||
-                                skillContent.includes('COMPLETED_PLANS_IN_WAVE') ||
-                                skillContent.includes('Wave');
+        skillContent.includes('COMPLETED_PLANS_IN_WAVE') ||
+        skillContent.includes('Wave');
 
       // Should mention per-wave updates, not per-plan
       const mentionsPerWave = skillContent.includes('per wave') ||
-                               skillContent.includes('per-wave') ||
-                               skillContent.includes('ONCE per wave');
+        skillContent.includes('per-wave') ||
+        skillContent.includes('ONCE per wave');
 
       if (!hasWaveCompletion) {
         throw new Error('Expected skill to update issue at wave completion, not per-plan');
@@ -241,13 +241,13 @@ None.
     });
 
     it('contains checkbox toggle pattern', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-execute-phase', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       // Verify sed pattern for checkbox toggle
       const hasCheckboxToggle = skillContent.includes('\\[ \\]') ||
-                                skillContent.includes('- [ ]') ||
-                                skillContent.includes('[x]');
+        skillContent.includes('- [ ]') ||
+        skillContent.includes('[x]');
 
       if (!hasCheckboxToggle) {
         throw new Error('Expected skill to include checkbox toggle pattern');
@@ -255,11 +255,11 @@ None.
     });
 
     it('contains config guard', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-execute-phase', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       const hasEnabledCheck = skillContent.includes('GITHUB_ENABLED') ||
-                              skillContent.includes('github.enabled');
+        skillContent.includes('github.enabled');
 
       if (!hasEnabledCheck) {
         throw new Error('Expected skill to check github.enabled config');
@@ -267,7 +267,7 @@ None.
     });
 
     it('uses --body-file pattern', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-execute-phase', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       const hasBodyFile = skillContent.includes('--body-file');
@@ -280,11 +280,11 @@ None.
 
   describe('PR Integration - Phase 5', () => {
     it('contains branch creation step', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-execute-phase', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       const hasBranchCreation = skillContent.includes('Create Phase Branch') ||
-                                 skillContent.includes('git checkout -b');
+        skillContent.includes('git checkout -b');
 
       if (!hasBranchCreation) {
         throw new Error('Expected skill to include branch creation step for pr_workflow');
@@ -292,7 +292,7 @@ None.
     });
 
     it('contains draft PR creation step', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-execute-phase', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       const hasDraftPR = skillContent.includes('gh pr create --draft');
@@ -303,7 +303,7 @@ None.
     });
 
     it('contains PR ready step', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-execute-phase', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       const hasPRReady = skillContent.includes('gh pr ready');
@@ -314,12 +314,12 @@ None.
     });
 
     it('includes PR title convention', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-execute-phase', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       // Should have title pattern: v{milestone} Phase {N}: {Name}
       const hasTitlePattern = skillContent.includes('v${MILESTONE} Phase') ||
-                              skillContent.includes('v{milestone} Phase');
+        skillContent.includes('v{milestone} Phase');
 
       if (!hasTitlePattern) {
         throw new Error('Expected skill to include PR title convention');
@@ -327,7 +327,7 @@ None.
     });
 
     it('includes issue linking in PR body', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-execute-phase', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       const hasClosesLink = skillContent.includes('Closes #');
@@ -338,11 +338,11 @@ None.
     });
 
     it('has re-run protection for branch creation', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-execute-phase', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       const hasReRunProtection = skillContent.includes('show-ref --verify') ||
-                                  skillContent.includes('branch exists');
+        skillContent.includes('branch exists');
 
       if (!hasReRunProtection) {
         throw new Error('Expected skill to have re-run protection for branch creation');
@@ -350,11 +350,11 @@ None.
     });
 
     it('has re-run protection for PR creation', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-executing-phases', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-execute-phase', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       const hasExistingPRCheck = skillContent.includes('EXISTING_PR') ||
-                                  skillContent.includes('PR already exists');
+        skillContent.includes('PR already exists');
 
       if (!hasExistingPRCheck) {
         throw new Error('Expected skill to check for existing PR before creation');

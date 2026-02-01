@@ -17,7 +17,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-planning-phases', () => {
+describe('kata-plan-phase', () => {
   let testDir;
 
   beforeEach(() => {
@@ -26,8 +26,8 @@ describe('kata-planning-phases', () => {
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
     // Install skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-planning-phases');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-planning-phases');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-plan-phase');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-plan-phase');
     cpSync(skillSource, skillDest, { recursive: true });
 
     // Install required agents (spawned by skill)
@@ -177,12 +177,12 @@ None.
 
   describe('Plan Sync - Plan Checklist (Phase 4)', () => {
     it('contains GitHub issue update step', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-planning-phases', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-plan-phase', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       // Verify Step 14 or similar exists for GitHub update
       const hasGitHubStep = skillContent.includes('GitHub Issue') ||
-                            skillContent.includes('gh issue edit');
+        skillContent.includes('gh issue edit');
 
       if (!hasGitHubStep) {
         throw new Error('Expected skill to include GitHub issue update step');
@@ -190,13 +190,13 @@ None.
     });
 
     it('contains config guard for github.enabled', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-planning-phases', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-plan-phase', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       const hasEnabledCheck = skillContent.includes('GITHUB_ENABLED') ||
-                              skillContent.includes('github.enabled');
+        skillContent.includes('github.enabled');
       const hasIssueModeCheck = skillContent.includes('ISSUE_MODE') ||
-                                skillContent.includes('issueMode');
+        skillContent.includes('issueMode');
 
       if (!hasEnabledCheck) {
         throw new Error('Expected skill to check github.enabled config');
@@ -208,14 +208,14 @@ None.
     });
 
     it('contains plan checklist construction', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-planning-phases', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-plan-phase', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       // Verify plan iteration and checklist building
       const hasPlanIteration = skillContent.includes('PLAN.md') ||
-                                skillContent.includes('for plan_file');
+        skillContent.includes('for plan_file');
       const hasChecklistFormat = skillContent.includes('- [ ]') ||
-                                 skillContent.includes('PLAN_CHECKLIST');
+        skillContent.includes('PLAN_CHECKLIST');
 
       if (!hasPlanIteration) {
         throw new Error('Expected skill to iterate over PLAN.md files');
@@ -227,7 +227,7 @@ None.
     });
 
     it('uses --body-file pattern', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-planning-phases', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-plan-phase', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       const hasBodyFile = skillContent.includes('--body-file');
@@ -238,14 +238,14 @@ None.
     });
 
     it('contains non-blocking error handling', () => {
-      const skillPath = join(testDir, '.claude', 'skills', 'kata-planning-phases', 'SKILL.md');
+      const skillPath = join(testDir, '.claude', 'skills', 'kata-plan-phase', 'SKILL.md');
       const skillContent = readFileSync(skillPath, 'utf8');
 
       // Should warn but not stop workflow on GitHub errors
       const hasNonBlocking = skillContent.includes('Warning') ||
-                             skillContent.includes('warn') ||
-                             skillContent.includes('Skip') ||
-                             skillContent.includes('non-blocking');
+        skillContent.includes('warn') ||
+        skillContent.includes('Skip') ||
+        skillContent.includes('non-blocking');
 
       if (!hasNonBlocking) {
         throw new Error('Expected skill to handle GitHub errors non-blocking');

@@ -1,14 +1,14 @@
 /**
- * Tests for kata-starting-projects skill.
+ * Tests for kata-new-project skill.
  *
- * Verifies that the starting-projects skill correctly initializes a new Kata
+ * Verifies that the new-project skill correctly initializes a new Kata
  * project with PROJECT.md and config.json only.
  *
  * NOTE: ROADMAP.md, REQUIREMENTS.md, and STATE.md are created by
- * kata-adding-milestones, not starting-projects.
+ * kata-add-milestone, not new-project.
  *
  * IMPORTANT: This test uses a FRESH temp directory (not the kata-project fixture)
- * since starting-projects initializes from an empty directory.
+ * since new-project initializes from an empty directory.
  */
 
 import { describe, it, beforeEach, afterEach } from 'node:test';
@@ -30,12 +30,12 @@ import { config } from '../harness/runner.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-starting-projects skill', () => {
+describe('kata-new-project skill', () => {
   let testDir;
 
   beforeEach(() => {
     // Create a FRESH empty temp directory (not from fixture)
-    // starting-projects initializes from scratch
+    // new-project initializes from scratch
     testDir = mkdtempSync(join(tmpdir(), 'kata-test-starting-'));
 
     // Initialize git repo (required by the skill)
@@ -50,15 +50,15 @@ describe('kata-starting-projects skill', () => {
     // Create a minimal CLAUDE.md
     writeFileSync(join(testDir, 'CLAUDE.md'), `# Test Project
 
-This is a test project for kata-starting-projects skill testing.
+This is a test project for kata-new-project skill testing.
 `);
 
     // Install the skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-starting-projects');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-starting-projects');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-new-project');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-new-project');
     cpSync(skillSource, skillDest, { recursive: true });
 
-    // Install agents that starting-projects may spawn
+    // Install agents that new-project may spawn
     const agents = [
       'kata-project-researcher.md',
       'kata-research-synthesizer.md',
@@ -90,7 +90,7 @@ This is a test project for kata-starting-projects skill testing.
     });
 
     assertNoError(result);
-    assertSkillInvoked(result, 'Expected starting-projects skill to be invoked');
+    assertSkillInvoked(result, 'Expected new-project skill to be invoked');
   });
 
   it('creates .planning directory', () => {
@@ -141,11 +141,11 @@ This is a test project for kata-starting-projects skill testing.
     assertNoError(result);
     assertSkillInvoked(result);
 
-    // ROADMAP.md should NOT be created by starting-projects
+    // ROADMAP.md should NOT be created by new-project
     // It's created by add-milestone
     const roadmapPath = join(testDir, '.planning', 'ROADMAP.md');
     if (existsSync(roadmapPath)) {
-      throw new Error('ROADMAP.md should not be created by starting-projects (handled by add-milestone)');
+      throw new Error('ROADMAP.md should not be created by new-project (handled by add-milestone)');
     }
   });
 
@@ -162,11 +162,11 @@ This is a test project for kata-starting-projects skill testing.
     assertNoError(result);
     assertSkillInvoked(result);
 
-    // STATE.md should NOT be created by starting-projects
+    // STATE.md should NOT be created by new-project
     // It's created by add-milestone
     const statePath = join(testDir, '.planning', 'STATE.md');
     if (existsSync(statePath)) {
-      throw new Error('STATE.md should not be created by starting-projects (handled by add-milestone)');
+      throw new Error('STATE.md should not be created by new-project (handled by add-milestone)');
     }
   });
 
@@ -187,8 +187,8 @@ This is a test project for kata-starting-projects skill testing.
     // Check that GitHub is mentioned in the response or config
     const resultText = result.result || '';
     const mentionsGitHub = resultText.toLowerCase().includes('github') ||
-                           resultText.includes('milestone') ||
-                           resultText.includes('issue');
+      resultText.includes('milestone') ||
+      resultText.includes('issue');
 
     // If config.json was created, check for github namespace
     const configPath = join(testDir, '.planning', 'config.json');
@@ -197,7 +197,7 @@ This is a test project for kata-starting-projects skill testing.
     if (existsSync(configPath)) {
       const configContent = readFileSync(configPath, 'utf8');
       hasGitHubConfig = configContent.includes('"github"') ||
-                        configContent.includes('github');
+        configContent.includes('github');
     }
 
     // The skill should either mention GitHub in output or create github config
@@ -211,12 +211,12 @@ This is a test project for kata-starting-projects skill testing.
     // This test verifies the skill content includes the remote detection pattern
     // Actual remote detection happens during interactive execution
 
-    const skillPath = join(testDir, '.claude', 'skills', 'kata-starting-projects', 'SKILL.md');
+    const skillPath = join(testDir, '.claude', 'skills', 'kata-new-project', 'SKILL.md');
     const skillContent = readFileSync(skillPath, 'utf8');
 
     // Verify remote detection pattern exists
     const hasRemoteCheck = skillContent.includes('git remote -v') ||
-                            skillContent.includes('HAS_GITHUB_REMOTE');
+      skillContent.includes('HAS_GITHUB_REMOTE');
 
     if (!hasRemoteCheck) {
       throw new Error('Expected skill to include GitHub remote detection pattern');
@@ -231,7 +231,7 @@ This is a test project for kata-starting-projects skill testing.
 
     // Verify skip option that disables github.enabled
     const hasSkipOption = skillContent.includes('Skip for now') ||
-                           skillContent.includes('github.enabled: false');
+      skillContent.includes('github.enabled: false');
 
     if (!hasSkipOption) {
       throw new Error('Expected skill to include skip option that disables GitHub');

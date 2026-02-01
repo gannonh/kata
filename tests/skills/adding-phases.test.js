@@ -17,7 +17,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'kata-project');
 const KATA_ROOT = join(__dirname, '..', '..');
 
-describe('kata-adding-phases', () => {
+describe('kata-add-phase', () => {
   let testDir;
 
   beforeEach(() => {
@@ -26,8 +26,8 @@ describe('kata-adding-phases', () => {
     cpSync(FIXTURES_DIR, testDir, { recursive: true });
 
     // Install skill being tested
-    const skillSource = join(KATA_ROOT, 'skills', 'kata-adding-phases');
-    const skillDest = join(testDir, '.claude', 'skills', 'kata-adding-phases');
+    const skillSource = join(KATA_ROOT, 'skills', 'kata-add-phase');
+    const skillDest = join(testDir, '.claude', 'skills', 'kata-add-phase');
     cpSync(skillSource, skillDest, { recursive: true });
 
     // Ensure .claude directory structure exists
@@ -86,8 +86,8 @@ No phases completed.
 
     // Should contain reference to authentication or new phase
     const hasNewPhase = roadmapContent.includes('authentication') ||
-                        roadmapContent.includes('Phase 2') ||
-                        roadmapContent.includes('user-authentication');
+      roadmapContent.includes('Phase 2') ||
+      roadmapContent.includes('user-authentication');
     if (!hasNewPhase) {
       throw new Error(`Expected ROADMAP.md to contain new phase reference, got:\n${roadmapContent.substring(0, 500)}`);
     }

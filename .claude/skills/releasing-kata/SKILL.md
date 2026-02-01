@@ -181,14 +181,14 @@ claude
 In Claude Code:
 ```
 /plugin install kata@kata-marketplace
-/kata:providing-help
-/kata:showing-whats-new
+/kata:kata-help
+/kata:whats-new
 ```
 
 **Verify:**
 - Plugin installs without errors
-- `/kata:providing-help` shows all commands
-- `/kata:showing-whats-new` shows new version changelog
+- `/kata:kata-help` shows all commands
+- `/kata:whats-new` shows new version changelog
 - No path resolution errors
 
 ```bash
@@ -218,4 +218,4 @@ See `./release-troubleshooting.md` for common issues:
 **Post-release verification:**
 - [ ] GitHub Release created with tag (`gh release view vX.Y.Z`)
 - [ ] Marketplace shows new version (`gh api` check)
-- [ ] Manual plugin test passes (`/plugin install kata@kata-marketplace` + `/kata:providing-help`)
+- [ ] Manual plugin test passes (`/plugin install kata@kata-marketplace` + `/kata:kata-help`)
