@@ -118,10 +118,11 @@ Recent decisions affecting current work:
 
 ### Pending Issues
 
-27 open issues (26 legacy + 1 new):
+28 open issues (26 legacy + 2 new):
 
 **New issues** (`.planning/issues/open/`):
 - `2026-02-01-test-issue.md` - Test issue
+- `2026-02-01-uat-test-issue.md` - UAT test issue
 
 **Legacy issues** (`.planning/todos/pending/` - pending migration):
 - `2026-01-18-statusline-kata-project-info.md` - Add kata project info to statusline
