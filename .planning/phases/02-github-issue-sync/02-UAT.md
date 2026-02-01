@@ -52,17 +52,34 @@ closed/      → Completed
 1. **gh CLI --label flag broken** (e3679f6): `gh issue list --label backlog` returns nothing. Fixed by using jq filter instead.
 2. **Wrong lifecycle design** (3ade669): GitHub Issues closed on "start work" instead of "complete". Redesigned with `in-progress/` state.
 3. **Missing in-progress label on GitHub** (UAT): When "Work on it now" moves issue to `in-progress/`, should also add `in-progress` label to GitHub Issue (keeping `backlog` label too).
+4. **Missing self-assignment on GitHub** (UAT): When "Work on it now" is used on a GitHub-linked issue, should assign the issue to oneself.
+
+### Plan 04: In-Progress Label Sync (Gap Closure)
+
+| # | Test | Expected | Result |
+|---|------|----------|--------|
+| 10 | In-progress label added | GitHub Issue gets `in-progress` label (keeps `backlog`) | ✓ PASS |
+
+### Plan 05: Self-Assignment (Gap Closure)
+
+| # | Test | Expected | Result |
+|---|------|----------|--------|
+| 11 | Self-assignment on work start | GitHub Issue assigned to @me | ✓ PASS |
 
 ## Progress
 
 First pass: 5/6 tested (1 fail fixed, 1 skip)
 Second pass: Tests 7-9 passed after redesign
+Gap closure pass: Tests 10-11 passed
 
-**Final: 8/9 passed, 1 skipped**
+**Final: 10/11 passed, 1 skipped**
 
-## Enhancement Request
+## Gaps
 
-Issue #3 logged as enhancement: Add `in-progress` label to GitHub Issues when "Work on it now" is used. This is not a bug but a workflow improvement request.
+All gaps from initial UAT have been closed:
+
+- ~~Gap #3: Missing in-progress label~~ → Fixed by 02-04-PLAN (Test 10 ✓)
+- ~~Gap #4: Missing self-assignment~~ → Fixed by 02-05-PLAN (Test 11 ✓)
 
 ---
-*UAT completed 2026-02-01*
+*UAT completed 2026-02-01 — All gaps closed*
