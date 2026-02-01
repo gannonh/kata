@@ -1,6 +1,6 @@
 ---
 name: check-issues
-description: Use this skill when reviewing open issues, selecting an issue to work on, filtering issues by area, or deciding what to work on next. Triggers include "check issues", "list issues", "what issues", "open issues", "show issues", "view issues", "select issue to work on", "check todos" (deprecated), "list todos" (deprecated), "pending todos" (deprecated).
+description: Use this skill when reviewing open issues, selecting an issue to work on, filtering issues by area, pulling GitHub issues, or deciding what to work on next. Triggers include "check issues", "list issues", "what issues", "open issues", "show issues", "view issues", "select issue to work on", "github issues", "backlog issues", "pull issues", "check todos" (deprecated), "list todos" (deprecated), "pending todos" (deprecated).
 metadata:
   version: "0.2.0"
 user-invocable: true
@@ -357,6 +357,7 @@ Confirm: "Committed: docs: start work on issue - [title]"
 
 <output>
 - Moved issue to `.planning/issues/closed/` (if "Work on it now")
+- Created `.planning/issues/open/` file (if "Pull to local" from GitHub)
 - Updated `.planning/STATE.md` (if issue count changed)
 </output>
 
@@ -368,10 +369,13 @@ Confirm: "Committed: docs: start work on issue - [title]"
 
 <success_criteria>
 - [ ] All open issues listed with title, area, age
+- [ ] GitHub backlog issues included (if github.enabled=true)
+- [ ] Deduplication applied (local provenance matches GitHub #)
+- [ ] GitHub-only issues marked with [GH] indicator
 - [ ] Area filter applied if specified
 - [ ] Selected issue's full context loaded
 - [ ] Roadmap context checked for phase match
-- [ ] Appropriate actions offered
+- [ ] Appropriate actions offered (Pull to local for GitHub issues)
 - [ ] Selected action executed
 - [ ] STATE.md updated if issue count changed
 - [ ] Changes committed to git (if issue moved to closed/)
