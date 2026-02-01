@@ -90,6 +90,26 @@ Check for area filter in arguments:
 </step>
 
 <step name="list_issues">
+**1. Check GitHub config:**
+```bash
+GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | head -1 | grep -o 'true\|false' || echo "false")
+```
+
+**2. Build dedupe list from local files' provenance fields:**
+```bash
+# Get all GitHub issue numbers already tracked locally
+LOCAL_PROVENANCE=$(grep -h "^provenance: github:" .planning/issues/open/*.md 2>/dev/null | grep -oE '#[0-9]+' | tr -d '#' | sort -u)
+```
+
+**3. Query GitHub Issues (if enabled):**
+```bash
+if [ "$GITHUB_ENABLED" = "true" ]; then
+  # Get GitHub Issues with backlog label, excluding those already tracked locally
+  GITHUB_ISSUES=$(gh issue list --label "backlog" --state open --json number,title,createdAt,labels --jq '.[] | "\(.createdAt)|\(.title)|github|\(.number)"' 2>/dev/null)
+fi
+```
+
+**4. Query local issues:**
 ```bash
 for file in .planning/issues/open/*.md; do
   created=$(grep "^created:" "$file" | cut -d' ' -f2)
@@ -99,6 +119,15 @@ for file in .planning/issues/open/*.md; do
 done | sort
 ```
 
+**5. Merge and display:**
+
+Combine local and GitHub issues into a unified list:
+- Local issues display as-is with their area
+- GitHub-only issues (number NOT in LOCAL_PROVENANCE) display with `[GH]` indicator
+- Format: `1. Add auth token refresh (api, 2d ago)` vs `1. Fix login bug [GH] (bug, 2d ago)`
+
+Sort combined list by date (oldest first for consistent ordering).
+
 Apply area filter if specified. Display as numbered list:
 
 ```
@@ -106,7 +135,8 @@ Open Issues:
 
 1. Add auth token refresh (api, 2d ago)
 2. Fix modal z-index issue (ui, 1d ago)
-3. Refactor database connection pool (database, 5h ago)
+3. Fix login bug [GH] (bug, 3d ago)
+4. Refactor database connection pool (database, 5h ago)
 
 ---
 
@@ -115,7 +145,7 @@ Reply with a number to view details, or:
 - `q` to exit
 ```
 
-Format age as relative time.
+Format age as relative time. The `[GH]` indicator marks GitHub-only issues (not yet pulled to local).
 </step>
 
 <step name="handle_selection">
