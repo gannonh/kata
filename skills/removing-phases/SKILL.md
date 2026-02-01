@@ -3,16 +3,13 @@ name: removing-phases
 description: Use this skill when remove a future phase from roadmap and renumber subsequent phases. Triggers include "remove phase", "remove phase".
 metadata:
   version: "0.1.0"
-user-invocable: false
+user-invocable: true
 disable-model-invocation: false
 allowed-tools:
   - Read
   - Write
   - Bash
 ---
-
-<user_command>/kata:remove-phase</user_command>
-
 
 <objective>
 Remove an unstarted future phase from the roadmap and renumber all subsequent phases to maintain a clean, linear sequence.

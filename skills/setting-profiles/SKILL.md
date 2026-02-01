@@ -3,16 +3,13 @@ name: setting-profiles
 description: Use this skill when switch model profile for kata agents (quality/balanced/budget). Triggers include "set profile", "set profile".
 metadata:
   version: "0.1.0"
-user-invocable: false
+user-invocable: true
 disable-model-invocation: false
 allowed-tools:
   - Read
   - Write
   - Bash
 ---
-
-<user_command>/kata:set-profile</user_command>
-
 
 <objective>
 Switch the model profile used by Kata agents. This controls which Claude model each agent uses, balancing quality vs token spend.

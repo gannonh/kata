@@ -3,16 +3,13 @@ name: mapping-codebases
 description: Use this skill when analyzing an existing codebase with parallel mapper agents, creating codebase documentation, understanding brownfield projects, or mapping code structure. Triggers include "map codebase", "analyze codebase", "document codebase", "understand code", and "codebase map".
 metadata:
   version: "0.1.0"
-user-invocable: false
+user-invocable: true
 disable-model-invocation: false
 allowed-tools:
   - Read
   - Write
   - Bash
 ---
-
-<user_command>/kata:map-codebase</user_command>
-
 
 <objective>
 Analyze existing codebase using parallel kata-codebase-mapper agents to produce structured codebase documents.

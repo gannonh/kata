@@ -3,7 +3,7 @@ name: starting-projects
 description: Use this skill when initialize a new project with deep context gathering and project.md. Triggers include "new project", "start project", "initialize project", "create project", "begin project", "setup project".
 metadata:
   version: "0.1.0"
-user-invocable: false
+user-invocable: true
 disable-model-invocation: false
 allowed-tools:
   - Read
@@ -12,9 +12,6 @@ allowed-tools:
   - Task
   - AskUserQuestion
 ---
-
-<user_command>/kata:new-project</user_command>
-
 
 <objective>
 

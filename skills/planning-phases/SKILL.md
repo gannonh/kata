@@ -3,16 +3,13 @@ name: planning-phases
 description: Use this skill to plan detailed roadmap phases. Triggers include "plan phase n", "create phase plan", "create a plan" "roadmap planning", and "roadmap phase creation".
 metadata:
   version: "0.1.0"
-user-invocable: false
+user-invocable: true
 disable-model-invocation: false
 allowed-tools:
   - Read
   - Write
   - Bash
 ---
-
-<user_command>/kata:plan-phase</user_command>
-
 
 <execution_context>
 @./references/ui-brand.md

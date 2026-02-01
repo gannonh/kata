@@ -13,9 +13,6 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-<user_command>/kata:add-milestone</user_command>
-
-
 <objective>
 Add a milestone to the project through unified flow: questioning → research (optional) → requirements → roadmap.
 

@@ -3,16 +3,13 @@ name: showing-whats-new
 description: Use this skill when showing what's new in Kata since the installed version, displaying changelog entries, checking for Kata updates, or reviewing recent changes. Triggers include "what's new", "whats new", "show changes", "changelog", "recent changes", and "what changed".
 metadata:
   version: "0.1.0"
-user-invocable: false
+user-invocable: true
 disable-model-invocation: false
 allowed-tools:
   - Read
   - Write
   - Bash
 ---
-
-<user_command>/kata:whats-new</user_command>
-
 
 <objective>
 Display changes between installed version and latest available version.

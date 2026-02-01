@@ -3,16 +3,13 @@ name: pausing-work
 description: Use this skill when creating a context handoff file, pausing work mid-phase, stopping work temporarily, or creating a checkpoint for session resumption. Triggers include "pause work", "stop work", "create handoff", "save progress", and "pause session".
 metadata:
   version: "0.1.0"
-user-invocable: false
+user-invocable: true
 disable-model-invocation: false
 allowed-tools:
   - Read
   - Write
   - Bash
 ---
-
-<user_command>/kata:pause-work</user_command>
-
 
 <objective>
 Create `.continue-here.md` handoff file to preserve complete work state across sessions.

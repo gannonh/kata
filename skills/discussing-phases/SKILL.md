@@ -3,16 +3,13 @@ name: discussing-phases
 description: Use this skill when gathering phase context through adaptive questioning before planning, clarifying implementation decisions, or exploring gray areas for a phase. Triggers include "discuss phase", "clarify phase", "gather context", "what are the gray areas", and "phase discussion".
 metadata:
   version: "0.1.0"
-user-invocable: false
+user-invocable: true
 disable-model-invocation: false
 allowed-tools:
   - Read
   - Write
   - Bash
 ---
-
-<user_command>/kata:discuss-phase</user_command>
-
 
 <objective>
 Extract implementation decisions that downstream agents need — researcher and planner will use CONTEXT.md to know what to investigate and what choices are locked.

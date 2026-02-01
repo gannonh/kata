@@ -3,16 +3,13 @@ name: configuring-settings
 description: Use this skill when configure kata workflow toggles and model profile. Triggers include "settings".
 metadata:
   version: "0.1.0"
-user-invocable: false
+user-invocable: true
 disable-model-invocation: false
 allowed-tools:
   - Read
   - Write
   - Bash
 ---
-
-<user_command>/kata:configure-settings</user_command>
-
 
 <objective>
 Allow users to toggle workflow agents on/off and select model profile via interactive settings.

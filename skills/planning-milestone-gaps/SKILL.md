@@ -3,16 +3,13 @@ name: planning-milestone-gaps
 description: Use this skill when create phases to close all gaps identified by milestone audit. Triggers include "plan milestone gaps", "plan gaps".
 metadata:
   version: "0.1.0"
-user-invocable: false
+user-invocable: true
 disable-model-invocation: false
 allowed-tools:
   - Read
   - Write
   - Bash
 ---
-
-<user_command>/kata:plan-milestone-gaps</user_command>
-
 
 <objective>
 Create all phases necessary to close gaps identified by `/kata:audit-milestone`.

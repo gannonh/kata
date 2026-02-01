@@ -3,16 +3,13 @@ name: providing-help
 description: Use this skill when showing available Kata commands, displaying the usage guide, explaining command reference, or when the user asks for help with Kata. Triggers include "help", "show commands", "list commands", "what commands", "kata commands", and "usage guide".
 metadata:
   version: "0.1.0"
-user-invocable: false
+user-invocable: true
 disable-model-invocation: false
 allowed-tools:
   - Read
   - Write
   - Bash
 ---
-
-<user_command>/kata:help</user_command>
-
 
 <objective>
 Display the complete Kata command reference with version info.
