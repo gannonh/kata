@@ -81,7 +81,8 @@ describe('Artifact Validation: Structure', () => {
   });
 
   test('required directories exist', () => {
-    const requiredDirs = ['.claude-plugin', 'skills', 'agents', 'commands', 'hooks'];
+    // Note: commands removed in v1.3.5 (skills-first architecture)
+    const requiredDirs = ['.claude-plugin', 'skills', 'agents', 'hooks'];
     const missing = [];
 
     for (const dir of requiredDirs) {
