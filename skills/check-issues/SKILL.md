@@ -284,6 +284,25 @@ Return to list or offer to work on it.
 **Work on it now (local issue):**
 ```bash
 mv ".planning/issues/open/[filename]" ".planning/issues/closed/"
+
+# Check if issue has GitHub provenance
+PROVENANCE=$(grep "^provenance:" ".planning/issues/closed/[filename]" | cut -d' ' -f2)
+if echo "$PROVENANCE" | grep -q "^github:"; then
+  # Extract issue number from provenance (format: github:owner/repo#N)
+  ISSUE_NUMBER=$(echo "$PROVENANCE" | grep -oE '#[0-9]+' | tr -d '#')
+
+  if [ -n "$ISSUE_NUMBER" ]; then
+    # Check github.enabled (may have changed since issue was created)
+    GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | head -1 | grep -o 'true\|false' || echo "false")
+
+    if [ "$GITHUB_ENABLED" = "true" ]; then
+      # Close GitHub Issue with comment
+      gh issue close "$ISSUE_NUMBER" --comment "Completed via Kata workflow" 2>/dev/null \
+        && echo "Closed GitHub Issue #${ISSUE_NUMBER}" \
+        || echo "Warning: Failed to close GitHub Issue #${ISSUE_NUMBER}"
+    fi
+  fi
+fi
 ```
 Update STATE.md issue count. Present problem/solution context. Begin work or ask how to proceed.
 
@@ -291,6 +310,14 @@ Update STATE.md issue count. Present problem/solution context. Begin work or ask
 First execute "Pull to local" action, then move to closed:
 ```bash
 mv ".planning/issues/open/${date_prefix}-${slug}.md" ".planning/issues/closed/"
+
+# Close GitHub Issue with comment (ISSUE_NUMBER already known from selection)
+GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | head -1 | grep -o 'true\|false' || echo "false")
+if [ "$GITHUB_ENABLED" = "true" ]; then
+  gh issue close "$ISSUE_NUMBER" --comment "Completed via Kata workflow" 2>/dev/null \
+    && echo "Closed GitHub Issue #${ISSUE_NUMBER}" \
+    || echo "Warning: Failed to close GitHub Issue #${ISSUE_NUMBER}"
+fi
 ```
 Update STATE.md issue count. Present problem/solution context. Begin work or ask how to proceed.
 
