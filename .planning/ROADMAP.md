@@ -6,6 +6,46 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 ## Current Milestone
 
+### v1.4.1 Issue Execution (In Progress)
+
+**Goal:** Complete the issue lifecycle with execution workflows and PR integration.
+
+#### Phase 1: PR → Issue Closure
+
+**Goal:** All PR-creating workflows properly close their associated GitHub Issues.
+**Requirements:** CLOSE-01, CLOSE-02, CLOSE-03
+
+**Success Criteria** (what must be TRUE):
+1. Phase execution PRs include `Closes #X` for the phase GitHub Issue
+2. Milestone completion PRs include `Closes #X` for all completed phase issues
+3. Issue execution PRs include `Closes #X` for the source issue
+
+#### Phase 2: Issue Execution Workflow
+
+**Goal:** Structured execution path when working on an issue.
+**Requirements:** EXEC-01, EXEC-02, EXEC-03
+**Dependencies:** Phase 1
+
+**Success Criteria** (what must be TRUE):
+1. "Work on it now" offers execution mode selection (quick task vs planned)
+2. Quick task execution creates plan, executes with commits, creates PR with `Closes #X`
+3. Planned execution links issue to a new or existing phase
+
+#### Phase 3: Issue → Roadmap Integration
+
+**Goal:** Pull backlog issues into milestones and phases.
+**Requirements:** INTEG-01, INTEG-02, INTEG-03
+**Dependencies:** Phase 2
+
+**Success Criteria** (what must be TRUE):
+1. User can pull backlog issues into a milestone's scope
+2. User can pull issues into a phase (becomes a task/plan)
+3. Phase plans can reference their source issue number for traceability
+
+---
+
+## Planned Milestones
+
 ### v1.5.0 Phase Management (Planned)
 
 **Goal:** Improved phase organization, movement, and roadmap visibility.
@@ -160,8 +200,9 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 | v1.3.0    | 2      | 4     | Shipped  | 2026-01-28 |
 | v1.3.3    | 1      | 4     | Shipped  | 2026-01-29 |
 | v1.4.0    | 2      | 11    | Shipped  | 2026-02-01 |
+| v1.4.1    | 3      | TBD   | Current  | —          |
 | v1.5.0    | 3      | TBD   | Planned  | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-01 — v1.4.0 shipped, v1.5.0 planned with phase management scope*
+*Last updated: 2026-02-01 — v1.4.1 inserted for Issue Execution, v1.5.0 retained for Phase Management*
