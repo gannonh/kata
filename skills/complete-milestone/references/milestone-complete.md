@@ -903,6 +903,8 @@ git push origin v[X.Y]
 
 Commit milestone completion including archive files and deletions.
 
+**Note:** Phase issue closure is handled via `Closes #X` lines in the PR body (see SKILL.md step 7 where CLOSES_LINES is constructed from all phase issues in the milestone). No explicit issue closure needed here.
+
 **Check planning config:**
 
 ```bash
