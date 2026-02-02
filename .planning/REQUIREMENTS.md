@@ -10,9 +10,9 @@
 
 ### PR → Issue Closure
 
-- [ ] **CLOSE-01**: Phase execution PRs include `Closes #X` for the phase GitHub Issue
-- [ ] **CLOSE-02**: Milestone completion PRs include `Closes #X` for all completed phase issues
-- [ ] **CLOSE-03**: Issue execution PRs include `Closes #X` for the source issue
+- [x] **CLOSE-01**: Phase execution PRs include `Closes #X` for the phase GitHub Issue
+- [x] **CLOSE-02**: Milestone completion PRs include `Closes #X` for all completed phase issues
+- [x] **CLOSE-03**: Issue execution PRs include `Closes #X` for the source issue
 
 ### Issue Execution Workflow
 
@@ -30,11 +30,11 @@
 
 ## Traceability
 
-| Requirement | Phase   | Verified |
-| ----------- | ------- | -------- |
-| CLOSE-01    | Phase 1 | -        |
-| CLOSE-02    | Phase 1 | -        |
-| CLOSE-03    | Phase 1 | -        |
+| Requirement | Phase   | Verified   |
+| ----------- | ------- | ---------- |
+| CLOSE-01    | Phase 1 | 2026-02-01 |
+| CLOSE-02    | Phase 1 | 2026-02-01 |
+| CLOSE-03    | Phase 1 | 2026-02-01 |
 | EXEC-01     | Phase 2 | -        |
 | EXEC-02     | Phase 2 | -        |
 | EXEC-03     | Phase 2 | -        |

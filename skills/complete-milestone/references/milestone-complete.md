@@ -903,6 +903,8 @@ git push origin v[X.Y]
 
 Commit milestone completion including archive files and deletions.
 
+**Note:** Phase issue closure is handled via `Closes #X` lines in the PR body (see SKILL.md step 7 where CLOSES_LINES is constructed from all phase issues in the milestone). No explicit issue closure needed here.
+
 **Check planning config:**
 
 ```bash
@@ -1083,3 +1085,42 @@ Milestone completion is successful when:
 - [ ] User knows next step (/kata:add-milestone)
 
 </success_criteria>
+
+<reference name="issue_execution_pr_pattern">
+
+**Pattern for Issue Execution PRs (Phase 2 implementation)**
+
+When the issue execution workflow creates a PR for completing a backlog issue:
+
+1. Query the source issue number from the issue being worked on
+2. Build CLOSES_LINE: `Closes #${ISSUE_NUMBER}`
+3. Include in PR body
+
+```bash
+# Pattern for issue execution PRs
+ISSUE_NUMBER="${SOURCE_ISSUE_NUMBER}"  # From issue being executed
+CLOSES_LINE=""
+if [ -n "$ISSUE_NUMBER" ]; then
+  CLOSES_LINE="Closes #${ISSUE_NUMBER}"
+fi
+```
+
+**PR body template:**
+```markdown
+## Summary
+
+Completes issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}
+
+## Changes
+
+[Implementation details]
+
+${CLOSES_LINE}
+```
+
+**Notes:**
+- Source issue is a backlog issue (label: issue), not a phase issue (label: phase)
+- Single issue closure (unlike milestone completion which closes multiple)
+- Issue execution creates its own branch and PR
+
+</reference>

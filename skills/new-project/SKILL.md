@@ -330,19 +330,9 @@ Use AskUserQuestion:
 - header: "GitHub Repository"
 - question: "GitHub tracking enabled, but no GitHub repository is linked. Create one now?"
 - options:
+  - "Create private repo (Recommended)" — Run `gh repo create --source=. --private --push`
   - "Create public repo" — Run `gh repo create --source=. --public --push`
-  - "Create private repo" — Run `gh repo create --source=. --private --push`
   - "Skip for now" — Disable GitHub tracking (can enable later with `gh repo create`)
-
-**If "Create public repo":**
-```bash
-if [ "$GH_AUTH" = "true" ]; then
-  gh repo create --source=. --public --push && echo "GitHub repository created" || echo "Warning: Failed to create repository"
-else
-  echo "Warning: GitHub CLI not authenticated. Run 'gh auth login' first, then 'gh repo create --source=. --public --push'"
-fi
-```
-Continue with `github.enabled: true`.
 
 **If "Create private repo":**
 ```bash
@@ -350,6 +340,16 @@ if [ "$GH_AUTH" = "true" ]; then
   gh repo create --source=. --private --push && echo "GitHub repository created" || echo "Warning: Failed to create repository"
 else
   echo "Warning: GitHub CLI not authenticated. Run 'gh auth login' first, then 'gh repo create --source=. --private --push'"
+fi
+```
+Continue with `github.enabled: true`.
+
+**If "Create public repo":**
+```bash
+if [ "$GH_AUTH" = "true" ]; then
+  gh repo create --source=. --public --push && echo "GitHub repository created" || echo "Warning: Failed to create repository"
+else
+  echo "Warning: GitHub CLI not authenticated. Run 'gh auth login' first, then 'gh repo create --source=. --public --push'"
 fi
 ```
 Continue with `github.enabled: true`.

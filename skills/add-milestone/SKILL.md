@@ -125,17 +125,32 @@ HAS_GITHUB_REMOTE=$(git remote -v 2>/dev/null | grep -q 'github\.com' && echo "t
 
 **If `HAS_GITHUB_REMOTE=false`:**
 
-Display warning and skip GitHub operations:
-```
-Warning: GitHub tracking enabled but no GitHub remote found.
-Skipping GitHub Milestone creation.
+Use AskUserQuestion to offer repo creation:
+- header: "GitHub Repository"
+- question: "GitHub tracking is enabled but no GitHub remote found. Create a repository now?"
+- options:
+  - "Yes, create private repo (Recommended)" — Create private repository and push
+  - "Yes, create public repo" — Create public repository and push
+  - "Skip for now" — Continue without GitHub integration
 
-To enable GitHub Milestones:
-1. Create a repository: gh repo create --source=. --public --push
-2. Re-run milestone creation or manually create via: gh api --method POST /repos/:owner/:repo/milestones -f title="v${VERSION}"
+**If "Yes, create private repo":**
+```bash
+gh repo create --source=. --private --push
 ```
+If successful, set `HAS_GITHUB_REMOTE=true` and continue to Step 2 (Check authentication).
 
-Continue with local milestone initialization (do NOT set github.enabled=false in config - user may add remote later).
+**If "Yes, create public repo":**
+```bash
+gh repo create --source=. --public --push
+```
+If successful, set `HAS_GITHUB_REMOTE=true` and continue to Step 2 (Check authentication).
+
+**If "Skip for now":**
+Display brief note and continue with local milestone initialization:
+```
+Continuing without GitHub integration. Run `gh repo create` later to enable.
+```
+Do NOT set github.enabled=false in config - user may add remote later.
 
 **If `HAS_GITHUB_REMOTE=true`:**
 

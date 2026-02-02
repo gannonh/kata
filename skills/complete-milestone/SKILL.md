@@ -246,10 +246,33 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    # Push branch
    git push -u origin "$CURRENT_BRANCH"
 
+   # Collect all phase issues for this milestone
+   GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | head -1 | grep -o 'true\|false' || echo "false")
+   ISSUE_MODE=$(cat .planning/config.json 2>/dev/null | grep -o '"issueMode"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "never")
+
+   CLOSES_LINES=""
+   if [ "$GITHUB_ENABLED" = "true" ] && [ "$ISSUE_MODE" != "never" ]; then
+     # Get all phase issue numbers for this milestone
+     # --state all includes already-closed issues (GitHub ignores redundant Closes #X,
+     # but including them ensures PR body reflects all related work)
+     PHASE_ISSUES=$(gh issue list --label phase --milestone "v{{version}}" \
+       --state all --json number --jq '.[].number' 2>/dev/null)
+
+     if [ -z "$PHASE_ISSUES" ]; then
+       echo "Note: No phase issues found for milestone v{{version}}. This is expected for milestones without GitHub issues."
+     fi
+
+     # Build multi-line closes section
+     for num in ${PHASE_ISSUES}; do
+       CLOSES_LINES="${CLOSES_LINES}Closes #${num}
+   "
+     done
+   fi
+
    # Create PR
    gh pr create \
      --title "v{{version}}: [Milestone Name]" \
-     --body "$(cat <<'EOF'
+     --body "$(cat <<EOF
    ## Summary
 
    Completes milestone v{{version}}.
@@ -268,6 +291,10 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    ## After Merge
 
    Create GitHub Release with tag `v{{version}}` to trigger CI publish to marketplace.
+
+   ## Closes
+
+   ${CLOSES_LINES}
    EOF
    )"
    ```
