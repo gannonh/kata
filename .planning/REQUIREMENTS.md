@@ -16,9 +16,9 @@
 
 ### Issue Execution Workflow
 
-- [ ] **EXEC-01**: "Work on it now" offers execution mode selection (quick task vs planned)
-- [ ] **EXEC-02**: Quick task execution creates plan, executes with commits, creates PR with `Closes #X`
-- [ ] **EXEC-03**: Planned execution links issue to a new or existing phase
+- [x] **EXEC-01**: "Work on it now" offers execution mode selection (quick task vs planned)
+- [x] **EXEC-02**: Quick task execution creates plan, executes with commits, creates PR with `Closes #X`
+- [x] **EXEC-03**: Planned execution links issue to a new or existing phase
 
 ### Issue → Roadmap Integration
 
@@ -35,9 +35,9 @@
 | CLOSE-01    | Phase 1 | 2026-02-01 |
 | CLOSE-02    | Phase 1 | 2026-02-01 |
 | CLOSE-03    | Phase 1 | 2026-02-01 |
-| EXEC-01     | Phase 2 | -        |
-| EXEC-02     | Phase 2 | -        |
-| EXEC-03     | Phase 2 | -        |
+| EXEC-01     | Phase 2 | 2026-02-02 |
+| EXEC-02     | Phase 2 | 2026-02-02 |
+| EXEC-03     | Phase 2 | 2026-02-02 |
 | INTEG-01    | Phase 3 | -        |
 | INTEG-02    | Phase 3 | -        |
 | INTEG-03    | Phase 3 | -        |

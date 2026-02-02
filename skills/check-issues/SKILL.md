@@ -246,9 +246,12 @@ Use AskUserQuestion:
 - question: "This is a GitHub Issue. What would you like to do?"
 - options:
   - "Pull to local" — create local file for offline work
-  - "Work on it now" — pull to local AND move to in-progress
+  - "Work on it now" — pull to local AND move to in-progress (shows mode selection)
   - "View on GitHub" — open in browser (gh issue view --web)
   - "Put it back" — return to list
+
+**If user selects "Work on it now" (for GitHub-only issues):**
+First pull to local, then show mode selection (see below).
 
 **If open local issue maps to a roadmap phase:**
 
@@ -256,7 +259,7 @@ Use AskUserQuestion:
 - header: "Action"
 - question: "This issue relates to Phase [N]: [name]. What would you like to do?"
 - options:
-  - "Work on it now" — move to in-progress, start working
+  - "Work on it now" — move to in-progress, start working (shows mode selection)
   - "Add to phase plan" — include when planning Phase [N]
   - "Brainstorm approach" — think through before deciding
   - "Put it back" — return to list
@@ -267,10 +270,24 @@ Use AskUserQuestion:
 - header: "Action"
 - question: "What would you like to do with this issue?"
 - options:
-  - "Work on it now" — move to in-progress, start working
+  - "Work on it now" — move to in-progress, start working (shows mode selection)
   - "Create a phase" — /kata:add-phase with this scope
   - "Brainstorm approach" — think through before deciding
   - "Put it back" — return to list
+
+**Mode selection (when "Work on it now" selected for open local or GitHub-only issues):**
+
+After selecting "Work on it now", present execution mode selection:
+
+Use AskUserQuestion:
+- header: "Execution Mode"
+- question: "How would you like to work on this issue?"
+- options:
+  - "Quick task" — Small fix, execute now with commits + PR
+  - "Planned" — Create phase or link to existing phase
+  - "Put it back" — Return to issue list
+
+Store the selected mode for use in execute_action step.
 </step>
 
 <step name="execute_action">
@@ -313,6 +330,158 @@ Confirm: "Pulled GitHub Issue #[number] to local: .planning/issues/open/[filenam
 Return to list or offer to work on it.
 
 **Work on it now (open local issue):**
+
+**Based on mode selection from offer_actions step:**
+
+**If "Quick task" mode selected:**
+
+1. Move from open to in-progress:
+```bash
+mv ".planning/issues/open/[filename]" ".planning/issues/in-progress/"
+ISSUE_FILE=".planning/issues/in-progress/[filename]"
+
+# Add in-progress label to GitHub Issue if linked
+PROVENANCE=$(grep "^provenance:" "$ISSUE_FILE" | cut -d' ' -f2)
+if echo "$PROVENANCE" | grep -q "^github:"; then
+  ISSUE_NUMBER=$(echo "$PROVENANCE" | grep -oE '#[0-9]+' | tr -d '#')
+
+  if [ -n "$ISSUE_NUMBER" ]; then
+    GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | head -1 | grep -o 'true\|false' || echo "false")
+
+    if [ "$GITHUB_ENABLED" = "true" ]; then
+      gh label create "in-progress" --description "Issue is actively being worked on" --color "FFA500" 2>/dev/null || true
+      gh issue edit "$ISSUE_NUMBER" --add-label "in-progress" 2>/dev/null || true
+      gh issue edit "$ISSUE_NUMBER" --add-assignee @me 2>/dev/null || true
+    fi
+  fi
+fi
+```
+
+2. Display:
+```
+Starting quick task execution for issue: [title]
+```
+
+3. Route to execute-quick-task with issue context:
+```
+/kata:execute-quick-task --issue "$ISSUE_FILE"
+```
+
+The execute-quick-task skill will handle planning, execution, and PR creation.
+
+**If "Planned" mode selected:**
+
+Do NOT move issue to in-progress yet. Present planned execution options:
+
+Use AskUserQuestion:
+- header: "Planned Execution"
+- question: "How should this issue be planned?"
+- options:
+  - "Create new phase" — Add a phase to the roadmap for this issue
+  - "Link to existing phase" — Associate with an upcoming phase
+  - "Put it back" — Return to issue list
+
+**If "Create new phase" selected:**
+
+1. Extract issue context for phase creation:
+```bash
+ISSUE_TITLE=$(grep "^title:" "$ISSUE_FILE" | cut -d':' -f2- | xargs)
+PROVENANCE=$(grep "^provenance:" "$ISSUE_FILE" | cut -d' ' -f2)
+ISSUE_NUMBER=""
+if echo "$PROVENANCE" | grep -q "^github:"; then
+  ISSUE_NUMBER=$(echo "$PROVENANCE" | grep -oE '#[0-9]+' | tr -d '#')
+fi
+```
+
+2. Display routing guidance:
+```
+Creating phase from issue: ${ISSUE_TITLE}
+${ISSUE_NUMBER:+GitHub Issue: #${ISSUE_NUMBER}}
+
+The new phase will be linked to this issue.
+When the phase PR merges, the issue will close automatically.
+
+---
+
+## ▶ Next Up
+
+**Create Phase:** ${ISSUE_TITLE}
+
+`/kata:add-phase ${ISSUE_TITLE}`
+
+<sub>`/clear` first → fresh context window</sub>
+
+---
+
+Note: Issue remains in open/ until phase work begins.
+When phase planning starts, move issue to in-progress manually
+or use /kata:check-issues to update status.
+```
+
+3. Keep issue in open/ (do NOT move to in-progress yet).
+
+**If "Link to existing phase" selected:**
+
+1. Find upcoming phases that might match:
+```bash
+# Get phase directories that are not yet complete (no SUMMARY.md for all plans)
+# This is a heuristic - phases with incomplete plans
+UPCOMING_PHASES=""
+for phase_dir in .planning/phases/*/; do
+  phase_name=$(basename "$phase_dir")
+  # Check if phase has at least one PLAN.md but missing at least one SUMMARY.md
+  plan_count=$(ls "$phase_dir"/*-PLAN.md 2>/dev/null | wc -l)
+  summary_count=$(ls "$phase_dir"/*-SUMMARY.md 2>/dev/null | wc -l)
+
+  if [ "$plan_count" -gt 0 ] && [ "$plan_count" -gt "$summary_count" ]; then
+    # Extract phase goal from roadmap
+    phase_num=$(echo "$phase_name" | grep -oE '^[0-9]+')
+    phase_goal=$(grep -A2 "### Phase ${phase_num}:" .planning/ROADMAP.md | grep "Goal:" | cut -d':' -f2- | xargs)
+    UPCOMING_PHASES="${UPCOMING_PHASES}\n- ${phase_name}: ${phase_goal}"
+  fi
+done
+```
+
+2. If matching phases found, present selection:
+```
+Upcoming phases that could include this issue:
+
+${UPCOMING_PHASES}
+
+To link this issue to a phase:
+1. Note the issue reference when planning that phase
+2. Include issue context in the phase PLAN.md
+3. The issue PR will close the issue when merged
+
+Which phase? (Enter phase name or "none" to go back)
+```
+
+3. If phase selected:
+   - Note the linkage in STATE.md under "### Pending Issues" with phase reference
+   - Display confirmation: "Issue linked to phase ${PHASE_NAME}. Include in phase planning."
+   - Keep issue in open/
+
+4. If no phases found:
+```
+No upcoming phases found.
+
+Options:
+- /kata:add-phase ${ISSUE_TITLE} — Create a new phase
+- /kata:track-progress — View current roadmap status
+- Put it back — Return to issue list
+```
+
+**If "Put it back" selected from planned execution:**
+Return to list_issues step.
+
+**If "Put it back" selected from mode selection:**
+
+Return to list_issues step.
+
+**Legacy behavior (no mode selection, direct work):**
+
+If proceeding without mode selection (e.g., for in-progress issues):
+
 Move from open to in-progress (does NOT close GitHub Issue):
 ```bash
 mv ".planning/issues/open/[filename]" ".planning/issues/in-progress/"
@@ -360,7 +529,146 @@ When complete, use `/kata:check-issues` and select "Mark complete".
 Update STATE.md issue count. Present problem/solution context. Begin work or ask how to proceed.
 
 **Work on it now (GitHub-only issue):**
-First execute "Pull to local" action, then move to in-progress:
+
+First execute "Pull to local" action to create local file, then proceed based on mode selection.
+
+**Based on mode selection from offer_actions step:**
+
+**If "Quick task" mode selected:**
+
+1. Pull to local (creates file at `.planning/issues/open/${date_prefix}-${slug}.md`)
+2. Move to in-progress:
+```bash
+mv ".planning/issues/open/${date_prefix}-${slug}.md" ".planning/issues/in-progress/"
+ISSUE_FILE=".planning/issues/in-progress/${date_prefix}-${slug}.md"
+
+# Add in-progress label to GitHub Issue (we know it's GitHub-linked)
+GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | head -1 | grep -o 'true\|false' || echo "false")
+
+if [ "$GITHUB_ENABLED" = "true" ]; then
+  gh label create "in-progress" --description "Issue is actively being worked on" --color "FFA500" 2>/dev/null || true
+  gh issue edit "$ISSUE_NUMBER" --add-label "in-progress" 2>/dev/null || true
+  gh issue edit "$ISSUE_NUMBER" --add-assignee @me 2>/dev/null || true
+fi
+```
+
+3. Display:
+```
+Starting quick task execution for issue: [title]
+```
+
+4. Route to execute-quick-task with issue context:
+```
+/kata:execute-quick-task --issue "$ISSUE_FILE"
+```
+
+**If "Planned" mode selected:**
+
+1. Pull to local (creates file at `.planning/issues/open/${date_prefix}-${slug}.md`)
+2. Do NOT move to in-progress. Present planned execution options:
+
+Use AskUserQuestion:
+- header: "Planned Execution"
+- question: "How should this issue be planned?"
+- options:
+  - "Create new phase" — Add a phase to the roadmap for this issue
+  - "Link to existing phase" — Associate with an upcoming phase
+  - "Put it back" — Return to issue list
+
+**If "Create new phase" selected (GitHub-only issue):**
+
+1. Extract issue context (already have from pull-to-local):
+```bash
+ISSUE_FILE=".planning/issues/open/${date_prefix}-${slug}.md"
+ISSUE_TITLE=$(grep "^title:" "$ISSUE_FILE" | cut -d':' -f2- | xargs)
+# ISSUE_NUMBER already available from the GitHub-only flow
+```
+
+2. Display routing guidance:
+```
+Creating phase from issue: ${ISSUE_TITLE}
+GitHub Issue: #${ISSUE_NUMBER}
+
+The new phase will be linked to this issue.
+When the phase PR merges, the issue will close automatically.
+
+---
+
+## ▶ Next Up
+
+**Create Phase:** ${ISSUE_TITLE}
+
+`/kata:add-phase ${ISSUE_TITLE}`
+
+<sub>`/clear` first → fresh context window</sub>
+
+---
+
+Note: Issue remains in open/ until phase work begins.
+When phase planning starts, move issue to in-progress manually
+or use /kata:check-issues to update status.
+```
+
+3. Keep issue in open/ (do NOT move to in-progress yet).
+
+**If "Link to existing phase" selected (GitHub-only issue):**
+
+1. Find upcoming phases (same logic as local issue path):
+```bash
+UPCOMING_PHASES=""
+for phase_dir in .planning/phases/*/; do
+  phase_name=$(basename "$phase_dir")
+  plan_count=$(ls "$phase_dir"/*-PLAN.md 2>/dev/null | wc -l)
+  summary_count=$(ls "$phase_dir"/*-SUMMARY.md 2>/dev/null | wc -l)
+
+  if [ "$plan_count" -gt 0 ] && [ "$plan_count" -gt "$summary_count" ]; then
+    phase_num=$(echo "$phase_name" | grep -oE '^[0-9]+')
+    phase_goal=$(grep -A2 "### Phase ${phase_num}:" .planning/ROADMAP.md | grep "Goal:" | cut -d':' -f2- | xargs)
+    UPCOMING_PHASES="${UPCOMING_PHASES}\n- ${phase_name}: ${phase_goal}"
+  fi
+done
+```
+
+2. If matching phases found, present selection:
+```
+Upcoming phases that could include this issue:
+
+${UPCOMING_PHASES}
+
+To link this issue to a phase:
+1. Note the issue reference when planning that phase
+2. Include issue context in the phase PLAN.md
+3. The issue PR will close the issue when merged
+
+Which phase? (Enter phase name or "none" to go back)
+```
+
+3. If phase selected:
+   - Note the linkage in STATE.md under "### Pending Issues" with phase reference
+   - Display confirmation: "Issue linked to phase ${PHASE_NAME}. Include in phase planning."
+   - Keep issue in open/
+
+4. If no phases found:
+```
+No upcoming phases found.
+
+Options:
+- /kata:add-phase ${ISSUE_TITLE} — Create a new phase
+- /kata:track-progress — View current roadmap status
+- Put it back — Return to issue list
+```
+
+**If "Put it back" selected from planned execution:**
+Return to list_issues step (do not pull to local).
+
+**If "Put it back" selected from mode selection:**
+
+Return to list_issues step (do not pull to local).
+
+**Legacy behavior (no mode selection):**
+
+If proceeding without mode selection:
+
 ```bash
 mv ".planning/issues/open/${date_prefix}-${slug}.md" ".planning/issues/in-progress/"
 
@@ -548,11 +856,13 @@ Confirm: "Committed: docs: return issue to backlog - [title]"
 </process>
 
 <output>
-- Moved issue to `.planning/issues/in-progress/` (if "Work on it now")
+- Moved issue to `.planning/issues/in-progress/` (if "Work on it now" with mode selection)
 - Moved issue to `.planning/issues/closed/` (if "Mark complete")
 - Moved issue to `.planning/issues/open/` (if "Put back to open")
 - Created `.planning/issues/open/` file (if "Pull to local" from GitHub)
 - Updated `.planning/STATE.md` (if issue count changed)
+- Routed to `/kata:execute-quick-task` (if "Quick task" mode selected)
+- Displayed planned execution guidance (if "Planned" mode selected)
 </output>
 
 <anti_patterns>
@@ -573,7 +883,8 @@ closed/      → Completed
 ```
 
 **State transitions:**
-- **Work on it now:** `open/` → `in-progress/` (does NOT close GitHub Issue)
+- **Work on it now (Quick task):** `open/` → `in-progress/` → routes to `/kata:execute-quick-task`
+- **Work on it now (Planned):** stays in `open/` with guidance for phase planning
 - **Mark complete:** `in-progress/` → `closed/` (closes GitHub Issue if linked)
 - **Put back to open:** `in-progress/` → `open/` (useful if deprioritized)
 
@@ -596,9 +907,11 @@ The provenance field is the linchpin - it enables deduplication and bidirectiona
 - [ ] Selected issue's full context loaded
 - [ ] Roadmap context checked for phase match
 - [ ] Appropriate actions offered based on issue state
-- [ ] "Work on it now" moves to in-progress (does NOT close GitHub)
-- [ ] "Work on it now" adds in-progress label to GitHub Issue (if linked)
-- [ ] "Work on it now" assigns GitHub Issue to @me (if linked)
+- [ ] "Work on it now" presents mode selection (Quick task vs Planned) via AskUserQuestion
+- [ ] "Quick task" mode moves to in-progress and routes to `/kata:execute-quick-task --issue`
+- [ ] "Planned" mode displays guidance message and returns gracefully
+- [ ] "Work on it now" adds in-progress label to GitHub Issue (if linked, Quick task mode)
+- [ ] "Work on it now" assigns GitHub Issue to @me (if linked, Quick task mode)
 - [ ] "Mark complete" moves to closed AND closes GitHub Issue
 - [ ] STATE.md updated if issue count changed
 - [ ] Changes committed to git

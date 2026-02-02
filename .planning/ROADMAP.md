@@ -24,16 +24,21 @@ Plans:
 2. ✓ Milestone completion PRs include `Closes #X` for all completed phase issues
 3. ✓ Issue execution PRs include `Closes #X` for the source issue
 
-#### Phase 2: Issue Execution Workflow
+#### Phase 2: Issue Execution Workflow ✓
 
 **Goal:** Structured execution path when working on an issue.
 **Requirements:** EXEC-01, EXEC-02, EXEC-03
 **Dependencies:** Phase 1
+**Plans:** 2/2 complete
+
+Plans:
+- [x] 02-01-PLAN.md — Mode selection + quick task enhancement (EXEC-01, EXEC-02)
+- [x] 02-02-PLAN.md — Planned mode routing (EXEC-03)
 
 **Success Criteria** (what must be TRUE):
-1. "Work on it now" offers execution mode selection (quick task vs planned)
-2. Quick task execution creates plan, executes with commits, creates PR with `Closes #X`
-3. Planned execution links issue to a new or existing phase
+1. ✓ "Work on it now" offers execution mode selection (quick task vs planned)
+2. ✓ Quick task execution creates plan, executes with commits, creates PR with `Closes #X`
+3. ✓ Planned execution links issue to a new or existing phase
 
 #### Phase 3: Issue → Roadmap Integration
 
@@ -204,9 +209,9 @@ Plans:
 | v1.3.0    | 2      | 4     | Shipped  | 2026-01-28 |
 | v1.3.3    | 1      | 4     | Shipped  | 2026-01-29 |
 | v1.4.0    | 2      | 11    | Shipped  | 2026-02-01 |
-| v1.4.1    | 3      | 1     | Current  | —          |
+| v1.4.1    | 3      | 3     | Current  | —          |
 | v1.5.0    | 3      | TBD   | Planned  | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-01 — Phase 1 complete (1/1 plans, verified)*
+*Last updated: 2026-02-02 — Phase 2 complete (2/2 plans)*
