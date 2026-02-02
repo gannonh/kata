@@ -65,7 +65,7 @@ Recent decisions affecting current work:
 
 ### Pending Issues
 
-21 open issues in `.planning/issues/open/`
+22 open issues in `.planning/issues/open/`
 
 ### Blockers/Concerns
 
