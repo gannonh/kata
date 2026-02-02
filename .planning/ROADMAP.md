@@ -10,19 +10,19 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 **Goal:** Complete the issue lifecycle with execution workflows and PR integration.
 
-#### Phase 1: PR → Issue Closure
+#### Phase 1: PR → Issue Closure ✓
 
 **Goal:** All PR-creating workflows properly close their associated GitHub Issues.
 **Requirements:** CLOSE-01, CLOSE-02, CLOSE-03
-**Plans:** 1 plan
+**Plans:** 1/1 complete
 
 Plans:
-- [ ] 01-01-PLAN.md — Verify execute-phase, implement complete-milestone closure, document pattern
+- [x] 01-01-PLAN.md — Verify execute-phase, implement complete-milestone closure, document pattern
 
 **Success Criteria** (what must be TRUE):
-1. Phase execution PRs include `Closes #X` for the phase GitHub Issue
-2. Milestone completion PRs include `Closes #X` for all completed phase issues
-3. Issue execution PRs include `Closes #X` for the source issue
+1. ✓ Phase execution PRs include `Closes #X` for the phase GitHub Issue
+2. ✓ Milestone completion PRs include `Closes #X` for all completed phase issues
+3. ✓ Issue execution PRs include `Closes #X` for the source issue
 
 #### Phase 2: Issue Execution Workflow
 
@@ -209,4 +209,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-01 — Phase 1 planned (1 plan in 1 wave)*
+*Last updated: 2026-02-01 — Phase 1 complete (1/1 plans, verified)*
