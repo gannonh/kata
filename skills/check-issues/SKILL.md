@@ -457,8 +457,102 @@ Which phase? (Enter phase name or "none" to go back)
 ```
 
 3. If phase selected:
-   - Note the linkage in STATE.md under "### Pending Issues" with phase reference
-   - Display confirmation: "Issue linked to phase ${PHASE_NAME}. Include in phase planning."
+
+**Check if issue already linked to a phase:**
+```bash
+EXISTING_LINKAGE=$(grep "^linked_phase:" "$ISSUE_FILE" 2>/dev/null | cut -d' ' -f2)
+```
+
+**If EXISTING_LINKAGE exists:**
+```
+This issue is already linked to phase: ${EXISTING_LINKAGE}
+
+Options:
+- Override — Link to ${SELECTED_PHASE} instead
+- Cancel — Keep existing linkage
+```
+
+Use AskUserQuestion to confirm override or cancel.
+
+**If override selected or no existing linkage:**
+
+**Step 3a: Update issue file frontmatter with linked_phase:**
+
+```bash
+ISSUE_FILE="[path to issue file]"
+PHASE_NAME="[selected phase name, e.g., '03-issue-roadmap-integration']"
+
+# Add linked_phase to issue frontmatter (after the opening ---)
+# Use awk to insert after first ---
+awk -v phase="$PHASE_NAME" '
+  /^---$/ && !found {
+    print
+    print "linked_phase: " phase
+    found=1
+    next
+  }
+  { print }
+' "$ISSUE_FILE" > "$ISSUE_FILE.tmp" && mv "$ISSUE_FILE.tmp" "$ISSUE_FILE"
+```
+
+**Step 3b: Update STATE.md with linkage entry:**
+
+```bash
+STATE_FILE=".planning/STATE.md"
+
+# Extract issue details for STATE.md entry
+ISSUE_TITLE=$(grep "^title:" "$ISSUE_FILE" | cut -d':' -f2- | xargs)
+PROVENANCE=$(grep "^provenance:" "$ISSUE_FILE" | cut -d' ' -f2)
+GITHUB_REF=""
+if echo "$PROVENANCE" | grep -q "^github:"; then
+  GITHUB_REF="GitHub: $(echo "$PROVENANCE" | grep -oE '#[0-9]+')"
+fi
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Check if "### Pending Issues" section exists
+if ! grep -q "^### Pending Issues" "$STATE_FILE"; then
+  # Append section before "## Session Continuity" if exists, otherwise at end
+  if grep -q "^## Session Continuity" "$STATE_FILE"; then
+    sed -i '' '/^## Session Continuity/i\
+### Pending Issues\
+\
+Issues linked to phases for planned work:\
+\
+' "$STATE_FILE"
+  else
+    echo -e "\n### Pending Issues\n\nIssues linked to phases for planned work:\n" >> "$STATE_FILE"
+  fi
+fi
+
+# Add linkage entry (format enables phase planning to find linked issues)
+LINKAGE_ENTRY="- ${ISSUE_TITLE} → Phase ${PHASE_NAME}\n  - File: ${ISSUE_FILE}\n  ${GITHUB_REF:+- ${GITHUB_REF}}\n  - Linked: ${TIMESTAMP}"
+
+# Insert after "### Pending Issues" header and description
+awk -v entry="$LINKAGE_ENTRY" '
+  /^### Pending Issues/ { pending=1 }
+  pending && /^$/ && !inserted {
+    print
+    print entry
+    inserted=1
+    next
+  }
+  { print }
+' "$STATE_FILE" > "$STATE_FILE.tmp" && mv "$STATE_FILE.tmp" "$STATE_FILE"
+```
+
+**Step 3c: Display confirmation:**
+
+```
+Issue linked to phase: ${PHASE_NAME}
+
+  ${ISSUE_TITLE}
+  File: ${ISSUE_FILE}
+  ${GITHUB_REF:+GitHub: ${GITHUB_REF}}
+
+The issue will be included when planning this phase.
+Issue remains in open/ until phase work begins.
+```
+
    - Keep issue in open/
 
 4. If no phases found:
@@ -643,9 +737,82 @@ To link this issue to a phase:
 Which phase? (Enter phase name or "none" to go back)
 ```
 
-3. If phase selected:
-   - Note the linkage in STATE.md under "### Pending Issues" with phase reference
-   - Display confirmation: "Issue linked to phase ${PHASE_NAME}. Include in phase planning."
+3. If phase selected (GitHub-only issue):
+
+**Note:** For GitHub-only issues, the local file was just created by "Pull to local" step.
+Use the same linkage logic as local issues (see above for full implementation).
+
+**Check if issue already linked to a phase:**
+```bash
+ISSUE_FILE=".planning/issues/open/${date_prefix}-${slug}.md"
+EXISTING_LINKAGE=$(grep "^linked_phase:" "$ISSUE_FILE" 2>/dev/null | cut -d' ' -f2)
+```
+
+**If EXISTING_LINKAGE exists:** Ask to override or cancel.
+
+**If override selected or no existing linkage:**
+
+**Step 3a: Update issue file frontmatter with linked_phase:**
+```bash
+awk -v phase="$PHASE_NAME" '
+  /^---$/ && !found {
+    print
+    print "linked_phase: " phase
+    found=1
+    next
+  }
+  { print }
+' "$ISSUE_FILE" > "$ISSUE_FILE.tmp" && mv "$ISSUE_FILE.tmp" "$ISSUE_FILE"
+```
+
+**Step 3b: Update STATE.md with linkage entry:**
+```bash
+STATE_FILE=".planning/STATE.md"
+ISSUE_TITLE=$(grep "^title:" "$ISSUE_FILE" | cut -d':' -f2- | xargs)
+GITHUB_REF="GitHub: #${ISSUE_NUMBER}"
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Check if "### Pending Issues" section exists, create if not
+if ! grep -q "^### Pending Issues" "$STATE_FILE"; then
+  if grep -q "^## Session Continuity" "$STATE_FILE"; then
+    sed -i '' '/^## Session Continuity/i\
+### Pending Issues\
+\
+Issues linked to phases for planned work:\
+\
+' "$STATE_FILE"
+  else
+    echo -e "\n### Pending Issues\n\nIssues linked to phases for planned work:\n" >> "$STATE_FILE"
+  fi
+fi
+
+# Add linkage entry
+LINKAGE_ENTRY="- ${ISSUE_TITLE} → Phase ${PHASE_NAME}\n  - File: ${ISSUE_FILE}\n  - ${GITHUB_REF}\n  - Linked: ${TIMESTAMP}"
+
+awk -v entry="$LINKAGE_ENTRY" '
+  /^### Pending Issues/ { pending=1 }
+  pending && /^$/ && !inserted {
+    print
+    print entry
+    inserted=1
+    next
+  }
+  { print }
+' "$STATE_FILE" > "$STATE_FILE.tmp" && mv "$STATE_FILE.tmp" "$STATE_FILE"
+```
+
+**Step 3c: Display confirmation:**
+```
+Issue linked to phase: ${PHASE_NAME}
+
+  ${ISSUE_TITLE}
+  File: ${ISSUE_FILE}
+  GitHub: #${ISSUE_NUMBER}
+
+The issue will be included when planning this phase.
+Issue remains in open/ until phase work begins.
+```
+
    - Keep issue in open/
 
 4. If no phases found:
