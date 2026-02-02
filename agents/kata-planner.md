@@ -392,6 +392,7 @@ depends_on: []              # Plan IDs this plan requires
 files_modified: []          # Files this plan touches
 autonomous: true            # false if plan has checkpoints
 user_setup: []              # Human-required setup (omit if empty)
+source_issue: ""            # Optional: github:#N or local file path
 
 must_haves:
   truths: []                # Observable behaviors
@@ -456,6 +457,7 @@ After completion, create `.planning/phases/XX-name/{phase}-{plan}-SUMMARY.md`
 | `files_modified` | Yes      | Files this plan touches                              |
 | `autonomous`     | Yes      | `true` if no checkpoints, `false` if has checkpoints |
 | `user_setup`     | No       | Human-required setup items                           |
+| `source_issue`   | No       | Source issue reference (github:#N or local path)     |
 | `must_haves`     | Yes      | Goal-backward verification criteria                  |
 
 **Wave is pre-computed:** Wave numbers are assigned during planning. phase-execute reads `wave` directly from frontmatter and groups plans by wave number.
@@ -485,6 +487,28 @@ user_setup:
 ```
 
 Only include what Claude literally cannot do (account creation, secret retrieval, dashboard config).
+
+## Source Issue Frontmatter
+
+When a plan originates from an issue (via "Link to existing phase" or quick task from issue):
+
+```yaml
+source_issue: github:#76  # GitHub Issue reference
+```
+
+Or for local-only issues:
+
+```yaml
+source_issue: .planning/issues/open/2026-01-18-fix-auth-bug.md
+```
+
+The `source_issue` field enables:
+- PRs include `Closes #N` automatically (GitHub issues only)
+- Audit trail from plan to originating issue
+- Issue status tracking when plans complete
+
+**Format:** `github:#N` for GitHub Issues, local file path for local-only issues.
+**When to use:** Set automatically when plan is created from an issue via check-issues flow.
 
 </plan_format>
 
