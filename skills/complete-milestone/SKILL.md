@@ -252,12 +252,18 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
    CLOSES_LINES=""
    if [ "$GITHUB_ENABLED" = "true" ] && [ "$ISSUE_MODE" != "never" ]; then
-     # Get all phase issue numbers for this milestone (--state all includes already-closed issues)
+     # Get all phase issue numbers for this milestone
+     # --state all includes already-closed issues (GitHub ignores redundant Closes #X,
+     # but including them ensures PR body reflects all related work)
      PHASE_ISSUES=$(gh issue list --label phase --milestone "v{{version}}" \
        --state all --json number --jq '.[].number' 2>/dev/null)
 
+     if [ -z "$PHASE_ISSUES" ]; then
+       echo "Note: No phase issues found for milestone v{{version}}. This is expected for milestones without GitHub issues."
+     fi
+
      # Build multi-line closes section
-     for num in $PHASE_ISSUES; do
+     for num in ${PHASE_ISSUES}; do
        CLOSES_LINES="${CLOSES_LINES}Closes #${num}
    "
      done
