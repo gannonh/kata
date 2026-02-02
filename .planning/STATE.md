@@ -65,7 +65,7 @@ Recent decisions affecting current work:
 
 ### Pending Issues
 
-26 legacy issues in `.planning/todos/pending/` (pending migration to `.planning/issues/open/`)
+21 open issues in `.planning/issues/open/`
 
 ### Blockers/Concerns
 
