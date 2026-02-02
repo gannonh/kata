@@ -45,6 +45,11 @@ Plans:
 **Goal:** Pull backlog issues into milestones and phases.
 **Requirements:** INTEG-01, INTEG-02, INTEG-03
 **Dependencies:** Phase 2
+**Plans:** 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Issue selection in add-milestone + complete phase linkage (INTEG-01, INTEG-02)
+- [ ] 03-02-PLAN.md — source_issue traceability in plans (INTEG-03)
 
 **Success Criteria** (what must be TRUE):
 1. User can pull backlog issues into a milestone's scope
@@ -209,9 +214,9 @@ Plans:
 | v1.3.0    | 2      | 4     | Shipped  | 2026-01-28 |
 | v1.3.3    | 1      | 4     | Shipped  | 2026-01-29 |
 | v1.4.0    | 2      | 11    | Shipped  | 2026-02-01 |
-| v1.4.1    | 3      | 3     | Current  | —          |
+| v1.4.1    | 3      | 5     | Current  | —          |
 | v1.5.0    | 3      | TBD   | Planned  | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-02 — Phase 2 complete (2/2 plans)*
+*Last updated: 2026-02-02 — Phase 3 planned (2 plans)*
