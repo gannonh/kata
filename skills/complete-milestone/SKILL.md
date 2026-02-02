@@ -272,7 +272,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    # Create PR
    gh pr create \
      --title "v{{version}}: [Milestone Name]" \
-     --body "$(cat <<'EOF'
+     --body "$(cat <<EOF
    ## Summary
 
    Completes milestone v{{version}}.
