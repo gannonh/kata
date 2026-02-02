@@ -71,7 +71,52 @@ Quick tasks can run mid-phase - validation only checks ROADMAP.md exists, not ph
 
 ---
 
+**Step 1.5: Parse issue argument (optional)**
+
+Check for issue file path argument:
+
+```bash
+ISSUE_FILE=""
+ISSUE_NUMBER=""
+ISSUE_TITLE=""
+ISSUE_PROBLEM=""
+
+# Check for --issue flag
+if echo "$ARGUMENTS" | grep -q -- "--issue"; then
+  ISSUE_FILE=$(echo "$ARGUMENTS" | grep -oE '\-\-issue [^ ]+' | cut -d' ' -f2)
+
+  if [ -f "$ISSUE_FILE" ]; then
+    # Extract issue metadata
+    ISSUE_TITLE=$(grep "^title:" "$ISSUE_FILE" | cut -d':' -f2- | xargs)
+    PROVENANCE=$(grep "^provenance:" "$ISSUE_FILE" | cut -d' ' -f2)
+
+    if echo "$PROVENANCE" | grep -q "^github:"; then
+      ISSUE_NUMBER=$(echo "$PROVENANCE" | grep -oE '#[0-9]+' | tr -d '#')
+    fi
+
+    # Extract problem section for context
+    ISSUE_PROBLEM=$(sed -n '/^## Problem/,/^## /p' "$ISSUE_FILE" | tail -n +2 | head -n -1)
+  fi
+fi
+```
+
+If `ISSUE_FILE` provided but file not found: error and exit.
+If `ISSUE_FILE` provided and valid: Use issue title as description (skip Step 2 prompt).
+
+---
+
 **Step 2: Get task description**
+
+**If `$ISSUE_FILE` is set (issue-driven quick task):**
+
+```bash
+DESCRIPTION="$ISSUE_TITLE"
+echo "Using issue title: $DESCRIPTION"
+```
+
+Skip the AskUserQuestion prompt — use the issue title as the description.
+
+**If no issue context (standard quick task):**
 
 Prompt user interactively for the task description:
 
@@ -86,6 +131,8 @@ AskUserQuestion(
 Store response as `$DESCRIPTION`.
 
 If empty, re-prompt: "Please provide a task description."
+
+**Generate slug from description (both paths):**
 
 Generate slug from description:
 ```bash
@@ -159,6 +206,13 @@ Task(
 
 **Project State:**
 ${STATE_CONTENT}
+
+**Issue Context (if from issue):**
+${ISSUE_FILE:+Issue File: $ISSUE_FILE}
+${ISSUE_NUMBER:+GitHub Issue: #$ISSUE_NUMBER}
+${ISSUE_PROBLEM:+
+Problem:
+$ISSUE_PROBLEM}
 
 </planning_context>
 
@@ -269,6 +323,59 @@ Use Edit tool to make these changes atomically
 
 ---
 
+**Step 7.5: Create PR with issue closure (if issue-driven)**
+
+**Check pr_workflow config:**
+```bash
+PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
+```
+
+**If `$ISSUE_NUMBER` is set (issue-driven quick task):**
+
+**If `PR_WORKFLOW=true`:**
+```bash
+# Create branch for this quick task
+BRANCH="fix/quick-${next_num}-${slug}"
+git checkout -b "$BRANCH"
+
+# Push branch
+git push -u origin "$BRANCH"
+
+# Build PR body
+cat > /tmp/quick-pr-body.md << PR_EOF
+## Summary
+
+Completes issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}
+
+## Changes
+
+Quick task ${next_num}: ${DESCRIPTION}
+
+See: ${QUICK_DIR}/${next_num}-SUMMARY.md
+
+Closes #${ISSUE_NUMBER}
+PR_EOF
+
+# Create PR
+gh pr create \
+  --title "fix: ${ISSUE_TITLE}" \
+  --body-file /tmp/quick-pr-body.md
+
+echo "PR created with Closes #${ISSUE_NUMBER}"
+```
+
+**If `PR_WORKFLOW=false`:**
+```bash
+# Close issue directly (no PR workflow)
+gh issue close "$ISSUE_NUMBER" --comment "Completed via quick task ${next_num}"
+echo "Issue #${ISSUE_NUMBER} closed directly (pr_workflow=false)"
+```
+
+**If no `$ISSUE_NUMBER`:**
+Skip PR creation (standard quick task, not issue-driven).
+
+---
+
 **Step 8: Final commit and completion**
 
 Stage and commit quick task artifacts:
@@ -315,7 +422,7 @@ Ready for next task: /kata:execute-quick-task
 
 <success_criteria>
 - [ ] ROADMAP.md validation passes
-- [ ] User provides task description
+- [ ] User provides task description (or uses issue title if --issue flag)
 - [ ] Slug generated (lowercase, hyphens, max 40 chars)
 - [ ] Next number calculated (001, 002, 003...)
 - [ ] Directory created at `.planning/quick/NNN-slug/`
@@ -323,4 +430,7 @@ Ready for next task: /kata:execute-quick-task
 - [ ] `${next_num}-SUMMARY.md` created by executor
 - [ ] STATE.md updated with quick task row
 - [ ] Artifacts committed
+- [ ] Issue context parsed from --issue flag (if provided)
+- [ ] PR created with `Closes #X` (if issue-driven and pr_workflow=true)
+- [ ] Issue closed directly (if issue-driven and pr_workflow=false)
 </success_criteria>
