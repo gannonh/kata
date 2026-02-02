@@ -371,21 +371,108 @@ The execute-quick-task skill will handle planning, execution, and PR creation.
 
 **If "Planned" mode selected:**
 
-Do NOT move issue to in-progress yet. Display guidance message:
+Do NOT move issue to in-progress yet. Present planned execution options:
 
+Use AskUserQuestion:
+- header: "Planned Execution"
+- question: "How should this issue be planned?"
+- options:
+  - "Create new phase" — Add a phase to the roadmap for this issue
+  - "Link to existing phase" — Associate with an upcoming phase
+  - "Put it back" — Return to issue list
+
+**If "Create new phase" selected:**
+
+1. Extract issue context for phase creation:
+```bash
+ISSUE_TITLE=$(grep "^title:" "$ISSUE_FILE" | cut -d':' -f2- | xargs)
+PROVENANCE=$(grep "^provenance:" "$ISSUE_FILE" | cut -d' ' -f2)
+ISSUE_NUMBER=""
+if echo "$PROVENANCE" | grep -q "^github:"; then
+  ISSUE_NUMBER=$(echo "$PROVENANCE" | grep -oE '#[0-9]+' | tr -d '#')
+fi
 ```
-## Planned Execution
 
-This issue will be addressed through phase planning.
+2. Display routing guidance:
+```
+Creating phase from issue: ${ISSUE_TITLE}
+${ISSUE_NUMBER:+GitHub Issue: #${ISSUE_NUMBER}}
 
-**Next steps:**
-- Use `/kata:plan-phase` to create a phase that includes this issue
-- Or link this issue to an existing phase in ROADMAP.md
+The new phase will be linked to this issue.
+When the phase PR merges, the issue will close automatically.
 
-Full planned execution workflow coming in Plan 02-02.
+---
+
+## ▶ Next Up
+
+**Create Phase:** ${ISSUE_TITLE}
+
+`/kata:add-phase ${ISSUE_TITLE}`
+
+<sub>`/clear` first → fresh context window</sub>
+
+---
+
+Note: Issue remains in open/ until phase work begins.
+When phase planning starts, move issue to in-progress manually
+or use /kata:check-issues to update status.
 ```
 
-Return to issue list or end gracefully.
+3. Keep issue in open/ (do NOT move to in-progress yet).
+
+**If "Link to existing phase" selected:**
+
+1. Find upcoming phases that might match:
+```bash
+# Get phase directories that are not yet complete (no SUMMARY.md for all plans)
+# This is a heuristic - phases with incomplete plans
+UPCOMING_PHASES=""
+for phase_dir in .planning/phases/*/; do
+  phase_name=$(basename "$phase_dir")
+  # Check if phase has at least one PLAN.md but missing at least one SUMMARY.md
+  plan_count=$(ls "$phase_dir"/*-PLAN.md 2>/dev/null | wc -l)
+  summary_count=$(ls "$phase_dir"/*-SUMMARY.md 2>/dev/null | wc -l)
+
+  if [ "$plan_count" -gt 0 ] && [ "$plan_count" -gt "$summary_count" ]; then
+    # Extract phase goal from roadmap
+    phase_num=$(echo "$phase_name" | grep -oE '^[0-9]+')
+    phase_goal=$(grep -A2 "### Phase ${phase_num}:" .planning/ROADMAP.md | grep "Goal:" | cut -d':' -f2- | xargs)
+    UPCOMING_PHASES="${UPCOMING_PHASES}\n- ${phase_name}: ${phase_goal}"
+  fi
+done
+```
+
+2. If matching phases found, present selection:
+```
+Upcoming phases that could include this issue:
+
+${UPCOMING_PHASES}
+
+To link this issue to a phase:
+1. Note the issue reference when planning that phase
+2. Include issue context in the phase PLAN.md
+3. The issue PR will close the issue when merged
+
+Which phase? (Enter phase name or "none" to go back)
+```
+
+3. If phase selected:
+   - Note the linkage in STATE.md under "### Pending Issues" with phase reference
+   - Display confirmation: "Issue linked to phase ${PHASE_NAME}. Include in phase planning."
+   - Keep issue in open/
+
+4. If no phases found:
+```
+No upcoming phases found.
+
+Options:
+- /kata:add-phase ${ISSUE_TITLE} — Create a new phase
+- /kata:track-progress — View current roadmap status
+- Put it back — Return to issue list
+```
+
+**If "Put it back" selected from planned execution:**
+Return to list_issues step.
 
 **If "Put it back" selected from mode selection:**
 
@@ -478,21 +565,101 @@ Starting quick task execution for issue: [title]
 **If "Planned" mode selected:**
 
 1. Pull to local (creates file at `.planning/issues/open/${date_prefix}-${slug}.md`)
-2. Do NOT move to in-progress. Display guidance message:
+2. Do NOT move to in-progress. Present planned execution options:
 
+Use AskUserQuestion:
+- header: "Planned Execution"
+- question: "How should this issue be planned?"
+- options:
+  - "Create new phase" — Add a phase to the roadmap for this issue
+  - "Link to existing phase" — Associate with an upcoming phase
+  - "Put it back" — Return to issue list
+
+**If "Create new phase" selected (GitHub-only issue):**
+
+1. Extract issue context (already have from pull-to-local):
+```bash
+ISSUE_FILE=".planning/issues/open/${date_prefix}-${slug}.md"
+ISSUE_TITLE=$(grep "^title:" "$ISSUE_FILE" | cut -d':' -f2- | xargs)
+# ISSUE_NUMBER already available from the GitHub-only flow
 ```
-## Planned Execution
 
-This issue will be addressed through phase planning.
+2. Display routing guidance:
+```
+Creating phase from issue: ${ISSUE_TITLE}
+GitHub Issue: #${ISSUE_NUMBER}
 
-**Next steps:**
-- Use `/kata:plan-phase` to create a phase that includes this issue
-- Or link this issue to an existing phase in ROADMAP.md
+The new phase will be linked to this issue.
+When the phase PR merges, the issue will close automatically.
 
-Full planned execution workflow coming in Plan 02-02.
+---
+
+## ▶ Next Up
+
+**Create Phase:** ${ISSUE_TITLE}
+
+`/kata:add-phase ${ISSUE_TITLE}`
+
+<sub>`/clear` first → fresh context window</sub>
+
+---
+
+Note: Issue remains in open/ until phase work begins.
+When phase planning starts, move issue to in-progress manually
+or use /kata:check-issues to update status.
 ```
 
-Return to issue list or end gracefully.
+3. Keep issue in open/ (do NOT move to in-progress yet).
+
+**If "Link to existing phase" selected (GitHub-only issue):**
+
+1. Find upcoming phases (same logic as local issue path):
+```bash
+UPCOMING_PHASES=""
+for phase_dir in .planning/phases/*/; do
+  phase_name=$(basename "$phase_dir")
+  plan_count=$(ls "$phase_dir"/*-PLAN.md 2>/dev/null | wc -l)
+  summary_count=$(ls "$phase_dir"/*-SUMMARY.md 2>/dev/null | wc -l)
+
+  if [ "$plan_count" -gt 0 ] && [ "$plan_count" -gt "$summary_count" ]; then
+    phase_num=$(echo "$phase_name" | grep -oE '^[0-9]+')
+    phase_goal=$(grep -A2 "### Phase ${phase_num}:" .planning/ROADMAP.md | grep "Goal:" | cut -d':' -f2- | xargs)
+    UPCOMING_PHASES="${UPCOMING_PHASES}\n- ${phase_name}: ${phase_goal}"
+  fi
+done
+```
+
+2. If matching phases found, present selection:
+```
+Upcoming phases that could include this issue:
+
+${UPCOMING_PHASES}
+
+To link this issue to a phase:
+1. Note the issue reference when planning that phase
+2. Include issue context in the phase PLAN.md
+3. The issue PR will close the issue when merged
+
+Which phase? (Enter phase name or "none" to go back)
+```
+
+3. If phase selected:
+   - Note the linkage in STATE.md under "### Pending Issues" with phase reference
+   - Display confirmation: "Issue linked to phase ${PHASE_NAME}. Include in phase planning."
+   - Keep issue in open/
+
+4. If no phases found:
+```
+No upcoming phases found.
+
+Options:
+- /kata:add-phase ${ISSUE_TITLE} — Create a new phase
+- /kata:track-progress — View current roadmap status
+- Put it back — Return to issue list
+```
+
+**If "Put it back" selected from planned execution:**
+Return to list_issues step (do not pull to local).
 
 **If "Put it back" selected from mode selection:**
 
