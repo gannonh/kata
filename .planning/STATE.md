@@ -79,6 +79,7 @@ None.
 | 002 | Config schema consistency & PR workflow features | 2026-01-22 | 325d86c | [002-config-schema-consistency](./quick/002-config-schema-consistency/)         |
 | 003 | Integrate GitHub issues into PR workflow         | 2026-01-31 | c367d42 | [003-integrate-github-issues-into-pr-workflow](./quick/003-integrate-github-issues-into-pr-workflow/) |
 | 004 | Deprecate slash commands, skills-first           | 2026-02-01 | 7469479 | [004-deprecate-slash-commands](./quick/004-deprecate-slash-commands/)                                 |
+| 005 | Create GitHub repo when enabled but no remote    | 2026-02-02 | 98a41ee | [005-create-github-repo-when-github-enabled-b](./quick/005-create-github-repo-when-github-enabled-b/) |
 
 ## Session Continuity
 
