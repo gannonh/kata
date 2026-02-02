@@ -129,19 +129,19 @@ Use AskUserQuestion to offer repo creation:
 - header: "GitHub Repository"
 - question: "GitHub tracking is enabled but no GitHub remote found. Create a repository now?"
 - options:
+  - "Yes, create private repo (Recommended)" — Create private repository and push
   - "Yes, create public repo" — Create public repository and push
-  - "Yes, create private repo" — Create private repository and push
   - "Skip for now" — Continue without GitHub integration
-
-**If "Yes, create public repo":**
-```bash
-gh repo create --source=. --public --push
-```
-If successful, set `HAS_GITHUB_REMOTE=true` and continue to Step 2 (Check authentication).
 
 **If "Yes, create private repo":**
 ```bash
 gh repo create --source=. --private --push
+```
+If successful, set `HAS_GITHUB_REMOTE=true` and continue to Step 2 (Check authentication).
+
+**If "Yes, create public repo":**
+```bash
+gh repo create --source=. --public --push
 ```
 If successful, set `HAS_GITHUB_REMOTE=true` and continue to Step 2 (Check authentication).
 
