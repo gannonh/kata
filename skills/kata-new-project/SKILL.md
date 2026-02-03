@@ -150,9 +150,10 @@ Loop until "Create PROJECT.md" selected.
 
 ```bash
 mkdir -p .planning/phases/pending .planning/phases/active .planning/phases/completed
+touch .planning/phases/pending/.gitkeep .planning/phases/active/.gitkeep .planning/phases/completed/.gitkeep
 ```
 
-This creates `.planning/`, `.planning/phases/`, and the three state subdirectories. Run this BEFORE writing any files.
+This creates `.planning/`, `.planning/phases/`, the three state subdirectories, and `.gitkeep` files so git tracks them. Run this BEFORE writing any files.
 
 Synthesize all context into `.planning/PROJECT.md` using the template from `@./references/project-template.md`.
 
@@ -232,7 +233,7 @@ Do not compress. Capture everything gathered.
 **Commit PROJECT.md:**
 
 ```bash
-git add .planning/PROJECT.md
+git add .planning/PROJECT.md .planning/phases/pending/.gitkeep .planning/phases/active/.gitkeep .planning/phases/completed/.gitkeep
 git commit -m "$(cat <<'EOF'
 docs: initialize project
 
@@ -747,9 +748,9 @@ fi
 MISSING=""
 [ ! -f .planning/PROJECT.md ] && MISSING="${MISSING}\n- .planning/PROJECT.md"
 [ ! -f .planning/config.json ] && MISSING="${MISSING}\n- .planning/config.json"
-[ ! -d .planning/phases/pending ] && MISSING="${MISSING}\n- .planning/phases/pending/"
-[ ! -d .planning/phases/active ] && MISSING="${MISSING}\n- .planning/phases/active/"
-[ ! -d .planning/phases/completed ] && MISSING="${MISSING}\n- .planning/phases/completed/"
+[ ! -f .planning/phases/pending/.gitkeep ] && MISSING="${MISSING}\n- .planning/phases/pending/.gitkeep"
+[ ! -f .planning/phases/active/.gitkeep ] && MISSING="${MISSING}\n- .planning/phases/active/.gitkeep"
+[ ! -f .planning/phases/completed/.gitkeep ] && MISSING="${MISSING}\n- .planning/phases/completed/.gitkeep"
 if [ -n "$MISSING" ]; then
   echo "MISSING ARTIFACTS:${MISSING}"
 else
