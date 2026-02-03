@@ -221,13 +221,23 @@ Initialize with any decisions made during questioning:
 
 Do not compress. Capture everything gathered.
 
-**Commit PROJECT.md:**
+**Create project directories:**
 
 ```bash
 mkdir -p .planning
 mkdir -p .planning/phases/pending
 mkdir -p .planning/phases/active
 mkdir -p .planning/phases/completed
+```
+
+All four directories MUST be created. Verify:
+```bash
+ls -d .planning/phases/pending .planning/phases/active .planning/phases/completed
+```
+
+**Commit PROJECT.md:**
+
+```bash
 git add .planning/PROJECT.md
 git commit -m "$(cat <<'EOF'
 docs: initialize project
