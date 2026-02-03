@@ -68,15 +68,32 @@ Store `COMMIT_PLANNING_DOCS` for use in git operations.
 </step>
 
 <step name="validate_phase">
-Confirm phase exists and has plans:
+Confirm phase exists and has plans using universal discovery:
 
 ```bash
-# Match both zero-padded (05-*) and unpadded (5-*) folders
-PADDED_PHASE=$(printf "%02d" ${PHASE_ARG} 2>/dev/null || echo "${PHASE_ARG}")
-PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE_ARG}-* 2>/dev/null | head -1)
+# Find phase directory across state subdirectories
+PADDED=$(printf "%02d" "$PHASE_ARG" 2>/dev/null || echo "$PHASE_ARG")
+PHASE_DIR=""
+for state in active pending completed; do
+  PHASE_DIR=$(ls -d .planning/phases/${state}/${PADDED}-* .planning/phases/${state}/${PHASE_ARG}-* 2>/dev/null | head -1)
+  [ -n "$PHASE_DIR" ] && break
+done
+# Fallback: flat directory (backward compatibility for unmigrated projects)
+[ -z "$PHASE_DIR" ] && PHASE_DIR=$(ls -d .planning/phases/${PADDED}-* .planning/phases/${PHASE_ARG}-* 2>/dev/null | head -1)
+
 if [ -z "$PHASE_DIR" ]; then
   echo "ERROR: No phase directory matching '${PHASE_ARG}'"
   exit 1
+fi
+
+# Move from pending to active when execution begins
+CURRENT_STATE=$(echo "$PHASE_DIR" | grep -oE '(pending|active|completed)' | head -1)
+if [ "$CURRENT_STATE" = "pending" ]; then
+  DIR_NAME=$(basename "$PHASE_DIR")
+  mkdir -p ".planning/phases/active"
+  mv "$PHASE_DIR" ".planning/phases/active/${DIR_NAME}"
+  PHASE_DIR=".planning/phases/active/${DIR_NAME}"
+  echo "Phase moved to active/"
 fi
 
 PLAN_COUNT=$(ls -1 "$PHASE_DIR"/*-PLAN.md 2>/dev/null | wc -l | tr -d ' ')
@@ -431,7 +448,37 @@ grep "^status:" "$PHASE_DIR"/*-VERIFICATION.md | cut -d: -f2 | tr -d ' '
 
 **If passed:**
 
-Phase goal verified. Proceed to update_roadmap.
+Phase goal verified. Validate completion artifacts and move to completed:
+
+```bash
+# Validate completion artifacts
+PLAN_COUNT=$(ls -1 "$PHASE_DIR"/*-PLAN.md 2>/dev/null | wc -l | tr -d ' ')
+MISSING=""
+if [ "$PLAN_COUNT" -eq 0 ]; then
+  MISSING="${MISSING}\n- No PLAN.md files found"
+fi
+for plan in "$PHASE_DIR"/*-PLAN.md; do
+  plan_id=$(basename "$plan" | sed 's/-PLAN\.md$//')
+  [ ! -f "$PHASE_DIR/${plan_id}-SUMMARY.md" ] && MISSING="${MISSING}\n- Missing SUMMARY.md for ${plan_id}"
+done
+# Non-gap phases require VERIFICATION.md
+IS_GAP=$(grep -l "gap_closure: true" "$PHASE_DIR"/*-PLAN.md 2>/dev/null | head -1)
+if [ -z "$IS_GAP" ] && ! ls "$PHASE_DIR"/*-VERIFICATION.md 1>/dev/null 2>&1; then
+  MISSING="${MISSING}\n- Missing VERIFICATION.md (required for non-gap phases)"
+fi
+
+if [ -z "$MISSING" ]; then
+  DIR_NAME=$(basename "$PHASE_DIR")
+  mkdir -p ".planning/phases/completed"
+  mv "$PHASE_DIR" ".planning/phases/completed/${DIR_NAME}"
+  PHASE_DIR=".planning/phases/completed/${DIR_NAME}"
+  echo "Phase validated and moved to completed/"
+else
+  echo "Warning: Phase incomplete:${MISSING}"
+fi
+```
+
+Proceed to update_roadmap.
 
 **If human_needed:**
 

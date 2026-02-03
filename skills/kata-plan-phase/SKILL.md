@@ -88,11 +88,21 @@ elif [[ "$PHASE" =~ ^([0-9]+)\.([0-9]+)$ ]]; then
 fi
 ```
 
-**Check for existing research and plans:**
+**Check for existing research and plans (uses universal phase discovery):**
 
 ```bash
-ls .planning/phases/${PHASE}-*/*-RESEARCH.md 2>/dev/null
-ls .planning/phases/${PHASE}-*/*-PLAN.md 2>/dev/null
+# Find phase directory across state subdirectories
+PADDED=$(printf "%02d" "$PHASE" 2>/dev/null || echo "$PHASE")
+PHASE_DIR=""
+for state in active pending completed; do
+  PHASE_DIR=$(ls -d .planning/phases/${state}/${PADDED}-* .planning/phases/${state}/${PHASE}-* 2>/dev/null | head -1)
+  [ -n "$PHASE_DIR" ] && break
+done
+# Fallback: flat directory (backward compatibility for unmigrated projects)
+[ -z "$PHASE_DIR" ] && PHASE_DIR=$(ls -d .planning/phases/${PADDED}-* .planning/phases/${PHASE}-* 2>/dev/null | head -1)
+
+ls "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null
+ls "${PHASE_DIR}"/*-PLAN.md 2>/dev/null
 ```
 
 ## 3. Validate Phase
@@ -107,12 +117,21 @@ grep -A5 "Phase ${PHASE}:" .planning/ROADMAP.md 2>/dev/null
 
 ```bash
 # PHASE is already normalized (08, 02.1, etc.) from step 2
-PHASE_DIR=$(ls -d .planning/phases/${PHASE}-* 2>/dev/null | head -1)
+# Use universal phase discovery: search active/pending/completed with flat fallback
+PADDED=$(printf "%02d" "$PHASE" 2>/dev/null || echo "$PHASE")
+PHASE_DIR=""
+for state in active pending completed; do
+  PHASE_DIR=$(ls -d .planning/phases/${state}/${PADDED}-* .planning/phases/${state}/${PHASE}-* 2>/dev/null | head -1)
+  [ -n "$PHASE_DIR" ] && break
+done
+# Fallback: flat directory (backward compatibility for unmigrated projects)
+[ -z "$PHASE_DIR" ] && PHASE_DIR=$(ls -d .planning/phases/${PADDED}-* .planning/phases/${PHASE}-* 2>/dev/null | head -1)
+
 if [ -z "$PHASE_DIR" ]; then
-  # Create phase directory from roadmap name
+  # Create phase directory in pending/ from roadmap name
   PHASE_NAME=$(grep "Phase ${PHASE}:" .planning/ROADMAP.md | sed 's/.*Phase [0-9]*: //' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
-  mkdir -p ".planning/phases/${PHASE}-${PHASE_NAME}"
-  PHASE_DIR=".planning/phases/${PHASE}-${PHASE_NAME}"
+  mkdir -p ".planning/phases/pending/${PHASE}-${PHASE_NAME}"
+  PHASE_DIR=".planning/phases/pending/${PHASE}-${PHASE_NAME}"
 fi
 ```
 

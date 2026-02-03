@@ -59,9 +59,42 @@ Phase: $ARGUMENTS
    Store resolved models for use in Task calls below.
 
 1. **Validate phase exists**
-   - Find phase directory matching argument
-   - Count PLAN.md files
-   - Error if no plans found
+   Find phase directory using universal discovery:
+   ```bash
+   PADDED=$(printf "%02d" "$PHASE_ARG" 2>/dev/null || echo "$PHASE_ARG")
+   PHASE_DIR=""
+   for state in active pending completed; do
+     PHASE_DIR=$(ls -d .planning/phases/${state}/${PADDED}-* .planning/phases/${state}/${PHASE_ARG}-* 2>/dev/null | head -1)
+     [ -n "$PHASE_DIR" ] && break
+   done
+   # Fallback: flat directory (backward compatibility for unmigrated projects)
+   [ -z "$PHASE_DIR" ] && PHASE_DIR=$(ls -d .planning/phases/${PADDED}-* .planning/phases/${PHASE_ARG}-* 2>/dev/null | head -1)
+
+   if [ -z "$PHASE_DIR" ]; then
+     echo "ERROR: No phase directory matching '${PHASE_ARG}'"
+     exit 1
+   fi
+
+   PLAN_COUNT=$(ls -1 "$PHASE_DIR"/*-PLAN.md 2>/dev/null | wc -l | tr -d ' ')
+   if [ "$PLAN_COUNT" -eq 0 ]; then
+     echo "ERROR: No plans found in $PHASE_DIR"
+     exit 1
+   fi
+   ```
+
+1.25. **Move phase to active (state transition)**
+
+   ```bash
+   # Move from pending to active when execution begins
+   CURRENT_STATE=$(echo "$PHASE_DIR" | grep -oE '(pending|active|completed)' | head -1)
+   if [ "$CURRENT_STATE" = "pending" ]; then
+     DIR_NAME=$(basename "$PHASE_DIR")
+     mkdir -p ".planning/phases/active"
+     mv "$PHASE_DIR" ".planning/phases/active/${DIR_NAME}"
+     PHASE_DIR=".planning/phases/active/${DIR_NAME}"
+     echo "Phase moved to active/"
+   fi
+   ```
 
 1.5. **Create Phase Branch (pr_workflow only)**
 
@@ -201,7 +234,7 @@ Phase: $ARGUMENTS
      ISSUE_MODE=$(cat .planning/config.json 2>/dev/null | grep -o '"issueMode"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "never")
      MILESTONE=$(grep -E "^\- \[.\] \*\*Phase|^### v" .planning/ROADMAP.md | grep -E "In Progress" | grep -oE "v[0-9]+\.[0-9]+(\.[0-9]+)?" | head -1 | tr -d 'v')
      [ -z "$MILESTONE" ] && MILESTONE=$(grep -oE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' .planning/ROADMAP.md | head -1 | tr -d 'v')
-     PHASE_DIR=$(ls -d .planning/phases/${PHASE_ARG:-00}* 2>/dev/null | head -1)
+     # PHASE_DIR already set by universal discovery in step 1
      PHASE_NUM=$(basename "$PHASE_DIR" | sed -E 's/^([0-9]+)-.*/\1/')
      BRANCH=$(git branch --show-current)
 
@@ -312,6 +345,38 @@ PR_EOF
      - `passed` → continue to step 8
      - `human_needed` → present items, get approval or feedback
      - `gaps_found` → present gaps, offer `/kata:kata-plan-phase {X} --gaps`
+
+7.5. **Validate completion and move to completed**
+
+   After verification passes, validate completion artifacts before moving phase to completed:
+
+   ```bash
+   # Validate completion artifacts
+   PLAN_COUNT=$(ls -1 "$PHASE_DIR"/*-PLAN.md 2>/dev/null | wc -l | tr -d ' ')
+   MISSING=""
+   if [ "$PLAN_COUNT" -eq 0 ]; then
+     MISSING="${MISSING}\n- No PLAN.md files found"
+   fi
+   for plan in "$PHASE_DIR"/*-PLAN.md; do
+     plan_id=$(basename "$plan" | sed 's/-PLAN\.md$//')
+     [ ! -f "$PHASE_DIR/${plan_id}-SUMMARY.md" ] && MISSING="${MISSING}\n- Missing SUMMARY.md for ${plan_id}"
+   done
+   # Non-gap phases require VERIFICATION.md
+   IS_GAP=$(grep -l "gap_closure: true" "$PHASE_DIR"/*-PLAN.md 2>/dev/null | head -1)
+   if [ -z "$IS_GAP" ] && ! ls "$PHASE_DIR"/*-VERIFICATION.md 1>/dev/null 2>&1; then
+     MISSING="${MISSING}\n- Missing VERIFICATION.md (required for non-gap phases)"
+   fi
+
+   if [ -z "$MISSING" ]; then
+     DIR_NAME=$(basename "$PHASE_DIR")
+     mkdir -p ".planning/phases/completed"
+     mv "$PHASE_DIR" ".planning/phases/completed/${DIR_NAME}"
+     PHASE_DIR=".planning/phases/completed/${DIR_NAME}"
+     echo "Phase validated and moved to completed/"
+   else
+     echo "Warning: Phase incomplete:${MISSING}"
+   fi
+   ```
 
 8. **Update roadmap and state**
    - Update ROADMAP.md, STATE.md
