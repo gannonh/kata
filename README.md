@@ -1,6 +1,6 @@
 <div align="center">
 
-# Kata
+# Kata Orchestrator
 
 **型** · /ˈkɑːtɑː/ · *noun* - a choreographed pattern practiced repeatedly until perfected
 
@@ -35,29 +35,31 @@ claude plugin install kata@gannonh-kata-marketplace
 
 ---
 
-## What's New in v1.3.0
+## What's New in v1.4.1
 
-**Release Automation** — Complete release workflow integrated into milestone completion:
-- **Changelog Generation** — Auto-generate entries from conventional commits (feat → Added, fix → Fixed)
-- **Version Detection** — Semantic versioning based on commit types (breaking → major, feat → minor, fix → patch)
-- **Dry-Run Mode** — Preview changes before applying
-- **Review Gate** — Human approval before writing changelog
-- **GitHub Release** — Creates release with tag after PR merge
-
-When completing a milestone, you're offered: "Run release workflow", "Dry-run first", or "Just archive".
+**Issue Execution** — Complete issue lifecycle from creation to automatic closure:
+- **Execution Modes** — "Work on it now" offers quick task or planned execution
+- **PR Auto-Closure** — Phase, milestone, and issue execution PRs include `Closes #X`
+- **Roadmap Integration** — Pull backlog issues into milestones and phases
+- **Source Traceability** — Issues flow through plans to PRs with automatic closure chain
 
 <details>
-<summary><strong>v1.2.0: GitHub Integration & PR Review</strong></summary>
+<summary><strong>v1.4.0: GitHub Issue Sync</strong></summary>
 
-**Optional GitHub Integration** — Mirror your roadmap to GitHub when you want team visibility:
-- Milestones → GitHub Milestones
-- Phases → GitHub Issues with checklist tracking
-- Execution → Draft PRs that mark ready when complete
-- Progress visible to teammates without opening Claude Code
+**Bidirectional Issue Integration** — Issues sync between Kata and GitHub:
+- Create issues locally, auto-sync to GitHub with `backlog` label
+- Pull existing GitHub Issues for selection and execution
+- In-progress label sync and self-assignment on work start
 
-**Automated PR Review** — 6 specialized agents review your code before merge:
-- Code quality, test coverage, error handling, type design, documentation, simplification
-- Runs after phase execution or on-demand
+</details>
+
+<details>
+<summary><strong>v1.3.0: Release Automation</strong></summary>
+
+**Release Workflow** — Integrated into milestone completion:
+- Changelog generation from conventional commits
+- Semantic version detection (feat → minor, fix → patch)
+- Dry-run mode, review gate, GitHub Release creation
 
 </details>
 
@@ -113,7 +115,7 @@ Verify with `/kata:kata-help`.
 claude plugin update kata@gannonh-kata-marketplace
 ```
 
-Check what's new: `/kata:kata-showing-whats-new`
+Check what's new: `/kata:kata-whats-new`
 
 ### Recommended: Skip Permissions
 
@@ -472,7 +474,7 @@ Git bisect finds exact failures. Each task independently revertable.
 ├── milestones/             # Archived milestones
 │   ├── v1.0-ROADMAP.md
 │   └── v1.0-REQUIREMENTS.md
-└── todos/                  # Deferred work
+└── issues/                 # Backlog issues
 ```
 
 ---
