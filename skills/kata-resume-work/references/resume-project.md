@@ -67,25 +67,25 @@ Look for incomplete work that needs attention:
 ```bash
 # Check for continue-here files (mid-plan resumption) across state subdirectories
 for state in active pending completed; do
-  ls .planning/phases/${state}/*/.continue-here*.md 2>/dev/null
+  find ".planning/phases/${state}" -maxdepth 2 -name ".continue-here*.md" 2>/dev/null
 done
 # Fallback: flat directories
-ls .planning/phases/[0-9]*/.continue-here*.md 2>/dev/null
+find .planning/phases -maxdepth 2 -name ".continue-here*.md" -path "*/[0-9]*/*" 2>/dev/null
 
 # Check for plans without summaries (incomplete execution) across state subdirectories
 for state in active pending completed; do
-  for plan in .planning/phases/${state}/*/*-PLAN.md; do
+  for plan in $(find ".planning/phases/${state}" -maxdepth 2 -name "*-PLAN.md" 2>/dev/null); do
     [ -f "$plan" ] || continue
     summary="${plan/PLAN/SUMMARY}"
     [ ! -f "$summary" ] && echo "Incomplete: $plan"
   done
 done
 # Fallback: flat directories
-for plan in .planning/phases/[0-9]*/*-PLAN.md; do
+for plan in $(find .planning/phases -maxdepth 2 -name "*-PLAN.md" -path "*/[0-9]*/*" 2>/dev/null); do
   [ -f "$plan" ] || continue
   summary="${plan/PLAN/SUMMARY}"
   [ ! -f "$summary" ] && echo "Incomplete: $plan"
-done 2>/dev/null
+done
 
 # Check for interrupted agents
 if [ -f .planning/current-agent-id.txt ] && [ -s .planning/current-agent-id.txt ]; then

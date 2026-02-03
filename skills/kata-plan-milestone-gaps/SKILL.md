@@ -42,7 +42,7 @@ Glob: .planning/v*-MILESTONE-AUDIT.md (use most recent)
 
 ```bash
 # Find the most recent audit file
-ls -t .planning/v*-MILESTONE-AUDIT.md 2>/dev/null | head -1
+find .planning -maxdepth 1 -name "v*-MILESTONE-AUDIT.md" 2>/dev/null | head -1
 ```
 
 Parse YAML frontmatter to extract structured gaps:
