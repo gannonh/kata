@@ -82,10 +82,12 @@ None.
 | 003 | Integrate GitHub issues into PR workflow         | 2026-01-31 | c367d42 | [003-integrate-github-issues-into-pr-workflow](./quick/003-integrate-github-issues-into-pr-workflow/) |
 | 004 | Deprecate slash commands, skills-first           | 2026-02-01 | 7469479 | [004-deprecate-slash-commands](./quick/004-deprecate-slash-commands/)                                 |
 | 005 | Create GitHub repo when enabled but no remote    | 2026-02-02 | 98a41ee | [005-create-github-repo-when-github-enabled-b](./quick/005-create-github-repo-when-github-enabled-b/) |
+| 006 | Add kata- prefix to all skill names              | 2026-02-03 | 7690e2f | [006-add-kata-prefix-to-all-skill-names](./quick/006-add-kata-prefix-to-all-skill-names/) |
+| 007 | Remove skill description filler phrases          | 2026-02-03 | f927fd2 | [007-reduce-unnecessary-verbosity-of-skill-de](./quick/007-reduce-unnecessary-verbosity-of-skill-de/) |
 
 ## Session Continuity
 
-Last session: 2026-02-02
-Stopped at: Completed 04-01-PLAN.md (v1.4.1 complete)
+Last session: 2026-02-03
+Stopped at: Completed quick-007 (remove skill description filler)
 Resume file: None
 Next action: Ship v1.4.1 or start v1.5.0 planning
