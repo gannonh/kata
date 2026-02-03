@@ -2,8 +2,8 @@
 
 ## Phase Organization
 
-- [ ] **PHASE-01**: Phase directories are organized under `pending/`, `active/`, `completed/` subdirectories
-- [ ] **PHASE-05**: Phase completion validates PLAN.md and SUMMARY.md exist; non-gap phases require VERIFICATION.md
+- [x] **PHASE-01**: Phase directories are organized under `pending/`, `active/`, `completed/` subdirectories
+- [x] **PHASE-05**: Phase completion validates PLAN.md and SUMMARY.md exist; non-gap phases require VERIFICATION.md
 
 ## Phase Movement
 
@@ -30,8 +30,8 @@ None deferred — all phase management features included in this milestone.
 
 | Requirement | Phase | Plan(s) | Status |
 | ----------- | ----- | ------- | ------ |
-| PHASE-01    | 1     | —       | —      |
-| PHASE-05    | 1     | —       | —      |
+| PHASE-01    | 1     | 01, 02  | Complete |
+| PHASE-05    | 1     | 01, 02  | Complete |
 | PHASE-02    | 2     | —       | —      |
 | PHASE-03    | 2     | —       | —      |
 | PHASE-04    | 2     | —       | —      |
