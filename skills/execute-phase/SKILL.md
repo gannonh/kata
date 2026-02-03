@@ -238,6 +238,17 @@ Phase: $ARGUMENTS
            PLANS_CHECKLIST="${PLANS_CHECKLIST}- [ ] Plan ${plan_num}: ${plan_name}\n"
          done
 
+         # Collect source_issue references from all plans
+         SOURCE_ISSUES=""
+         for plan in ${PHASE_DIR}/*-PLAN.md; do
+           source_issue=$(grep -m1 "^source_issue:" "$plan" | cut -d':' -f2- | xargs)
+           if echo "$source_issue" | grep -q "^github:#"; then
+             issue_num=$(echo "$source_issue" | grep -oE '#[0-9]+')
+             [ -n "$issue_num" ] && SOURCE_ISSUES="${SOURCE_ISSUES}Closes ${issue_num}\n"
+           fi
+         done
+         SOURCE_ISSUES=$(echo "$SOURCE_ISSUES" | sed '/^$/d')  # Remove empty lines
+
          cat > /tmp/pr-body.md << PR_EOF
 ## Phase Goal
 
@@ -247,6 +258,10 @@ ${PHASE_GOAL}
 
 ${PLANS_CHECKLIST}
 ${CLOSES_LINE}
+${SOURCE_ISSUES:+
+## Source Issues
+
+${SOURCE_ISSUES}}
 PR_EOF
 
          # Create draft PR
@@ -420,6 +435,15 @@ PR_EOF
            && echo "Closed issue #${PHASE_ISSUE}" \
            || echo "Note: Issue #${PHASE_ISSUE} may already be closed"
        fi
+
+       # Close source issues from plans (backup in case Closes #X didn't trigger)
+       for plan in ${PHASE_DIR}/*-PLAN.md; do
+         source_issue=$(grep -m1 "^source_issue:" "$plan" | cut -d':' -f2- | xargs)
+         if echo "$source_issue" | grep -q "^github:#"; then
+           issue_num=$(echo "$source_issue" | grep -oE '[0-9]+')
+           gh issue close "$issue_num" --comment "Closed by PR #${PR_NUMBER} merge (source issue for plan)" 2>/dev/null || true
+         fi
+       done
        ```
     9. Set MERGED=true
     10. Return to this step to ask if user wants UAT or review before continuing

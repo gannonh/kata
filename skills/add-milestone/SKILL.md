@@ -478,7 +478,85 @@ Display research complete banner and key findings:
 Files: `.planning/research/`
 
 
-**If "Skip research":** Continue to Phase 8.
+**If "Skip research":** Continue to Phase 7.5.
+
+## Phase 7.5: Issue Selection
+
+**Check for backlog issues:**
+```bash
+BACKLOG_COUNT=$(ls .planning/issues/open/*.md 2>/dev/null | wc -l | tr -d ' ')
+```
+
+**If BACKLOG_COUNT > 0:**
+
+Display: "Checking backlog for issues to include in this milestone..."
+
+Build issue options dynamically:
+```bash
+ISSUE_OPTIONS=""
+for file in .planning/issues/open/*.md; do
+  [ -f "$file" ] || continue
+  created=$(grep "^created:" "$file" | cut -d' ' -f2)
+  title=$(grep "^title:" "$file" | cut -d':' -f2- | xargs)
+  area=$(grep "^area:" "$file" | cut -d' ' -f2)
+  provenance=$(grep "^provenance:" "$file" | cut -d' ' -f2)
+
+  # Calculate age
+  created_date=$(echo "$created" | cut -dT -f1)
+  days_ago=$(( ($(date +%s) - $(date -j -f "%Y-%m-%d" "$created_date" +%s 2>/dev/null || echo $(date +%s))) / 86400 ))
+  if [ "$days_ago" -eq 0 ]; then
+    age="today"
+  elif [ "$days_ago" -eq 1 ]; then
+    age="1d ago"
+  else
+    age="${days_ago}d ago"
+  fi
+
+  # Extract GitHub issue number if linked
+  github_ref=""
+  if echo "$provenance" | grep -q "^github:"; then
+    github_ref=" (GitHub $(echo "$provenance" | grep -oE '#[0-9]+')"
+  fi
+
+  echo "$file|$title|$area|$age$github_ref"
+done
+```
+
+Use AskUserQuestion:
+- header: "Backlog Issues"
+- question: "Include any backlog issues in this milestone's scope?"
+- multiSelect: true
+- options: Build from issue list above, format as `"[title]" — [area], [age]`
+- Include final option: "None — Start fresh"
+
+**For each selected issue (if not "None — Start fresh"):**
+
+Store as SELECTED_ISSUES variable for use in Phase 8.
+
+Update STATE.md with milestone scope issues:
+
+1. Read STATE.md
+2. Find or create "### Milestone Scope Issues" section
+3. Add each selected issue:
+```markdown
+### Milestone Scope Issues
+
+Issues pulled into current milestone scope:
+- "[issue-title]" (from: [issue-file-path], GitHub: #N if linked)
+```
+
+4. Write updated STATE.md
+
+**Purpose of issue selection:**
+- Selected issues become formally tracked as part of the milestone scope
+- They appear in STATE.md under "### Milestone Scope Issues" for the current milestone
+- They inform requirements generation in Phase 8 (planner should consider these issues when generating requirements)
+- They will be visible in progress tracking commands like /kata:track-progress
+- User still defines formal requirements through Phase 8, but selected issues provide explicit scope context
+
+**If BACKLOG_COUNT = 0:**
+
+Skip silently. Continue to Phase 8.
 
 ## Phase 8: Define Requirements
 

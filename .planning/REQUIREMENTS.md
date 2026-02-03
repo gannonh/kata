@@ -22,9 +22,9 @@
 
 ### Issue → Roadmap Integration
 
-- [ ] **INTEG-01**: Pull backlog issues into a milestone's scope via `/kata:add-milestone` or dedicated skill
-- [ ] **INTEG-02**: Pull issues into a phase (becomes a task/plan within the phase)
-- [ ] **INTEG-03**: Phase plans can reference their source issue number for traceability
+- [x] **INTEG-01**: Pull backlog issues into a milestone's scope via `/kata:add-milestone` or dedicated skill
+- [x] **INTEG-02**: Pull issues into a phase (becomes a task/plan within the phase)
+- [x] **INTEG-03**: Phase plans can reference their source issue number for traceability
 
 ---
 
@@ -38,9 +38,9 @@
 | EXEC-01     | Phase 2 | 2026-02-02 |
 | EXEC-02     | Phase 2 | 2026-02-02 |
 | EXEC-03     | Phase 2 | 2026-02-02 |
-| INTEG-01    | Phase 3 | -        |
-| INTEG-02    | Phase 3 | -        |
-| INTEG-03    | Phase 3 | -        |
+| INTEG-01    | Phase 3 | 2026-02-02 |
+| INTEG-02    | Phase 3 | 2026-02-02 |
+| INTEG-03    | Phase 3 | 2026-02-02 |
 
 ---
 
