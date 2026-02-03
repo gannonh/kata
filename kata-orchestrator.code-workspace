@@ -1,0 +1,20 @@
+{
+    "folders": [
+		{
+			"name": "kata",
+			"path": "."
+		},
+		{
+			"name": "kata-tui",
+			"path": "../kata-tui"
+		},
+		{
+			"name": "kata-burner",
+			"path": "../kata-burner"
+		},
+		{
+			"name": ".claude",
+			"path": "../../../.claude"
+		}
+	]
+}
