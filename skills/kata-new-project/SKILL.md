@@ -225,6 +225,9 @@ Do not compress. Capture everything gathered.
 
 ```bash
 mkdir -p .planning
+mkdir -p .planning/phases/pending
+mkdir -p .planning/phases/active
+mkdir -p .planning/phases/completed
 git add .planning/PROJECT.md
 git commit -m "$(cat <<'EOF'
 docs: initialize project

@@ -125,7 +125,7 @@ Example: `06.1-fix-critical-auth-bug` (phase 6 insertion)
 Create the phase directory structure:
 
 ```bash
-phase_dir=".planning/phases/${decimal_phase}-${slug}"
+phase_dir=".planning/phases/pending/${decimal_phase}-${slug}"
 mkdir -p "$phase_dir"
 ```
 
@@ -221,7 +221,7 @@ Project state updated: .planning/STATE.md
 <success_criteria>
 Phase insertion is complete when:
 
-- [ ] Phase directory created: `.planning/phases/{N.M}-{slug}/`
+- [ ] Phase directory created: `.planning/phases/pending/{N.M}-{slug}/`
 - [ ] Roadmap updated with new phase entry (includes "(INSERTED)" marker)
 - [ ] Phase inserted in correct position (after target phase, before next integer phase)
 - [ ] STATE.md updated with roadmap evolution note
