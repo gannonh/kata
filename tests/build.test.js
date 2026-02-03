@@ -107,13 +107,12 @@ describe('Plugin build', () => {
     assert.strictEqual(plugin.name, 'kata');
   });
 
-  test('skills no longer have kata- prefix in directory names', () => {
-    // Phase 7-01 renamed skill directories to remove kata- prefix
+  test('skills have kata- prefix in directory names', () => {
     const skillsDir = path.join(ROOT, 'dist/plugin/skills');
     const entries = fs.readdirSync(skillsDir);
-    const kataPrefix = entries.filter(e => e.startsWith('kata-'));
-    assert.strictEqual(kataPrefix.length, 0,
-      `Skills should not have kata- prefix: ${kataPrefix.join(', ')}`);
+    const withoutPrefix = entries.filter(e => !e.startsWith('kata-'));
+    assert.strictEqual(withoutPrefix.length, 0,
+      `Skills should have kata- prefix: ${withoutPrefix.join(', ')}`);
   });
 });
 
