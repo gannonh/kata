@@ -57,8 +57,8 @@ Gather all verification context from the phase directory and project state.
 
 ```bash
 # Phase directory (provided in prompt)
-ls "$PHASE_DIR"/*-PLAN.md 2>/dev/null
-ls "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null
+find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null
+find "$PHASE_DIR" -maxdepth 1 -name "*-SUMMARY.md" 2>/dev/null
 
 # Phase goal from ROADMAP
 grep -A 5 "Phase ${PHASE_NUM}" .planning/ROADMAP.md
@@ -78,7 +78,7 @@ Determine what must be verified. In re-verification mode, must-haves come from S
 Check if any PLAN.md has `must_haves` in frontmatter:
 
 ```bash
-grep -l "must_haves:" "$PHASE_DIR"/*-PLAN.md 2>/dev/null
+find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" -exec grep -l "must_haves:" {} + 2>/dev/null
 ```
 
 If found, extract and use:

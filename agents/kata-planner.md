@@ -846,10 +846,10 @@ if [ -z "$PHASE_DIR" ]; then
 fi
 
 # Check for VERIFICATION.md (code verification gaps)
-ls "$PHASE_DIR"/*-VERIFICATION.md 2>/dev/null
+find "$PHASE_DIR" -maxdepth 1 -name "*-VERIFICATION.md" 2>/dev/null
 
 # Check for UAT.md with diagnosed status (user testing gaps)
-grep -l "status: diagnosed" "$PHASE_DIR"/*-UAT.md 2>/dev/null
+find "$PHASE_DIR" -maxdepth 1 -name "*-UAT.md" -exec grep -l "status: diagnosed" {} + 2>/dev/null
 ```
 
 **2. Parse gaps:**

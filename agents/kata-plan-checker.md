@@ -259,13 +259,13 @@ if [ -z "$PHASE_DIR" ]; then
 fi
 
 # List all PLAN.md files
-ls "$PHASE_DIR"/*-PLAN.md 2>/dev/null
+find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null
 
 # Get phase goal from ROADMAP
 grep -A 10 "Phase ${PHASE_NUM}" .planning/ROADMAP.md | head -15
 
 # Get phase brief if exists
-ls "$PHASE_DIR"/*-BRIEF.md 2>/dev/null
+find "$PHASE_DIR" -maxdepth 1 -name "*-BRIEF.md" 2>/dev/null
 ```
 
 **Extract:**
@@ -278,7 +278,7 @@ ls "$PHASE_DIR"/*-BRIEF.md 2>/dev/null
 Read each PLAN.md file in the phase directory.
 
 ```bash
-for plan in "$PHASE_DIR"/*-PLAN.md; do
+for plan in $(find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null); do
   echo "=== $plan ==="
   cat "$plan"
 done
@@ -357,7 +357,7 @@ Build and validate the dependency graph.
 **Parse dependencies:**
 ```bash
 # Extract depends_on from each plan
-for plan in "$PHASE_DIR"/*-PLAN.md; do
+for plan in $(find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null); do
   grep "depends_on:" "$plan"
 done
 ```
