@@ -11,7 +11,7 @@ Authoritative terminology reference for Kata. This document defines key terms, s
 | Phase | A logical unit of work within a milestone, becomes a GitHub Issue |
 | Plan | An executable task specification within a phase, 2-3 tasks maximum |
 | Task | A single atomic unit of work within a plan |
-| Skill | A user-invocable orchestrator workflow (via `/kata:skill-name`) |
+| Skill | A user-invocable orchestrator workflow (via `/kata:kata-skill-name`) |
 | Agent | A specialized subagent spawned by skills for specific work |
 | Checkpoint | A pause point requiring user verification or decision |
 | Wave | A pre-computed dependency group for parallel plan execution |
@@ -405,7 +405,7 @@ flowchart TB
 
 **Definition:** A user-invocable orchestrator workflow that coordinates complex operations by spawning agents.
 
-**Invocation:** `/kata:skill-name` (e.g., `/kata:planning-phases 1`)
+**Invocation:** `/kata:kata-skill-name` (e.g., `/kata:kata-planning-phases 1`)
 
 **Relationships:**
 - Invoked by: User (via slash command or natural language)
@@ -488,7 +488,7 @@ flowchart TB
 
 **Definition:** The workflow for creating executable plans from phase requirements.
 
-**Skill:** `/kata:planning-phases [phase-number]`
+**Skill:** `/kata:kata-planning-phases [phase-number]`
 
 **Agents:** kata-phase-researcher, kata-planner, kata-plan-checker
 
@@ -506,7 +506,7 @@ flowchart TB
 
 **Definition:** The workflow for executing plans and producing working code.
 
-**Skill:** `/kata:executing-phases [phase-number]`
+**Skill:** `/kata:kata-executing-phases [phase-number]`
 
 **Agent:** kata-executor
 
@@ -525,7 +525,7 @@ flowchart TB
 
 **Definition:** The workflow for verifying that phase work meets requirements.
 
-**Skill:** `/kata:verifying-work [phase-number]`
+**Skill:** `/kata:kata-verifying-work [phase-number]`
 
 **Agents:** kata-verifier, kata-debugger
 
@@ -544,7 +544,7 @@ flowchart TB
 
 **Definition:** User verification that delivered work meets expectations.
 
-**Skill:** `/kata:verifying-work` (with user interaction)
+**Skill:** `/kata:kata-verifying-work` (with user interaction)
 
 **Purpose:** Ensure the implementation matches user intent, not just technical requirements.
 
@@ -562,7 +562,7 @@ flowchart TB
 
 **Definition:** Creating additional plans to address issues found during verification or UAT.
 
-**Skill:** `/kata:planning-milestone-gaps`
+**Skill:** `/kata:kata-planning-milestone-gaps`
 
 **Purpose:** Fix defects or add missing functionality discovered after initial execution.
 

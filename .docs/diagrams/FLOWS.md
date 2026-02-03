@@ -10,7 +10,7 @@ How users interact with skills, which orchestrate agents.
 %%{init: {'theme': 'dark'}}%%
 flowchart LR
     subgraph User["User Interface"]
-        CMD["/kata:skill-name"]
+        CMD["/kata:kata-skill-name"]
         NL["Natural Language"]
     end
 
@@ -47,29 +47,29 @@ State machine from project creation to milestone completion.
 %%{init: {'theme': 'dark'}}%%
 flowchart TD
     subgraph Init["Project Initialization"]
-        NP["/kata:new-project"]
+        NP["/kata:kata-new-project"]
         PROJ["PROJECT.md"]
         CFG["config.json"]
     end
 
     subgraph Milestone["Milestone Definition"]
-        AMI["/kata:add-milestone"]
+        AMI["/kata:kata-add-milestone"]
         REQ["REQUIREMENTS.md"]
         ROAD["ROADMAP.md"]
     end
 
     subgraph Phase["Phase Work"]
-        PLN["/kata:plan-phase"]
+        PLN["/kata:kata-plan-phase"]
         PLAN["PLAN.md files"]
-        EXE["/kata:execute-phase"]
+        EXE["/kata:kata-execute-phase"]
         SUM["SUMMARY.md files"]
-        VER["/kata:verify-work"]
+        VER["/kata:kata-verify-work"]
         UAT["UAT.md"]
     end
 
     subgraph Complete["Completion"]
-        AUD["/kata:audit-milestone"]
-        CMP["/kata:complete-milestone"]
+        AUD["/kata:kata-audit-milestone"]
+        CMP["/kata:kata-complete-milestone"]
         TAG["Git tag + Release"]
     end
 
@@ -98,7 +98,7 @@ The planning-phases skill workflow with research and verification loop.
 ```mermaid
 %%{init: {'theme': 'dark'}}%%
 flowchart TD
-    START["/kata:plan-phase N"]
+    START["/kata:kata-plan-phase N"]
 
     subgraph Validate["Validation"]
         CHK{"Phase exists?"}
@@ -164,7 +164,7 @@ The executing-phases skill workflow with wave parallelization.
 ```mermaid
 %%{init: {'theme': 'dark'}}%%
 flowchart TD
-    START["/kata:execute-phase N"]
+    START["/kata:kata-execute-phase N"]
 
     subgraph Setup["Setup"]
         VAL["Validate phase exists"]
@@ -225,7 +225,7 @@ flowchart TD
     UPD --> COMMIT
     COMMIT --> PRREADY
     PRREADY --> OFFER
-    GAPS -->|"/kata:plan-phase --gaps"| START
+    GAPS -->|"/kata:kata-plan-phase --gaps"| START
     HUMAN --> OFFER
 ```
 
@@ -236,7 +236,7 @@ The verifying-work skill workflow for UAT and gap closure.
 ```mermaid
 %%{init: {'theme': 'dark'}}%%
 flowchart TD
-    START["/kata:verify-work N"]
+    START["/kata:kata-verify-work N"]
 
     subgraph Extract["Extract Tests"]
         FIND["Find SUMMARY.md files"]
@@ -275,9 +275,9 @@ flowchart TD
     end
 
     subgraph Output["Completion"]
-        ROUTE_A["/kata:execute-phase (next)"]
-        ROUTE_B["/kata:audit-milestone"]
-        ROUTE_C["/kata:execute-phase --gaps-only"]
+        ROUTE_A["/kata:kata-execute-phase (next)"]
+        ROUTE_B["/kata:kata-audit-milestone"]
+        ROUTE_C["/kata:kata-execute-phase --gaps-only"]
         ROUTE_D["Manual intervention"]
     end
 
@@ -323,7 +323,7 @@ flowchart TD
     end
 
     subgraph PhaseStart["Phase Start"]
-        EXEC["/kata:execute-phase N"]
+        EXEC["/kata:kata-execute-phase N"]
         BRANCH["Create branch: feat/vX.Y-N-slug"]
         CHECKOUT["Checkout branch"]
     end
@@ -344,8 +344,8 @@ flowchart TD
     end
 
     subgraph Review["Review Options"]
-        UAT["/kata:verify-work (UAT)"]
-        PRREV["/kata:reviewing-pull-requests"]
+        UAT["/kata:kata-verify-work (UAT)"]
+        PRREV["/kata:kata-reviewing-pull-requests"]
         AGENTS["6 specialized review agents"]
         FINDINGS["Aggregate findings"]
         FIX["Fix critical/important"]
@@ -361,7 +361,7 @@ flowchart TD
 
     subgraph Release["Release (Milestone Complete)"]
         ALL_MERGED["All phase PRs merged"]
-        COMPLETE["/kata:complete-milestone"]
+        COMPLETE["/kata:kata-complete-milestone"]
         TAG["Create Git tag"]
         RELEASE["GitHub Release"]
         NOTES["Auto-generate release notes"]

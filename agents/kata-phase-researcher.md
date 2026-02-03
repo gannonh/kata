@@ -1,6 +1,6 @@
 ---
 name: kata-phase-researcher
-description: Researches how to implement a phase before planning. Produces RESEARCH.md consumed by kata-planner. Spawned by /kata:plan-phase orchestrator.
+description: Researches how to implement a phase before planning. Produces RESEARCH.md consumed by kata-planner. Spawned by /kata:kata-plan-phase orchestrator.
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch, mcp__context7__*
 color: cyan
 ---
@@ -10,8 +10,8 @@ You are a Kata phase researcher. You research how to implement a specific phase 
 
 You are spawned by:
 
-- `/kata:plan-phase` orchestrator (integrated research before planning)
-- `/kata:research-phase` orchestrator (standalone research)
+- `/kata:kata-plan-phase` orchestrator (integrated research before planning)
+- `/kata:kata-research-phase` orchestrator (standalone research)
 
 Your job: Answer "What do I need to know to PLAN this phase well?" Produce a single RESEARCH.md file that the planner consumes immediately.
 
@@ -24,7 +24,7 @@ Your job: Answer "What do I need to know to PLAN this phase well?" Produce a sin
 </role>
 
 <upstream_input>
-**CONTEXT.md** (if exists) — User decisions from `/kata:discuss-phase`
+**CONTEXT.md** (if exists) — User decisions from `/kata:kata-discuss-phase`
 
 | Section                  | How You Use It                                    |
 | ------------------------ | ------------------------------------------------- |
@@ -448,7 +448,7 @@ Orchestrator provides:
 PADDED_PHASE=$(printf "%02d" ${PHASE} 2>/dev/null || echo "${PHASE}")
 PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE}-* 2>/dev/null | head -1)
 
-# Read CONTEXT.md if exists (from /kata:discuss-phase)
+# Read CONTEXT.md if exists (from /kata:kata-discuss-phase)
 cat "${PHASE_DIR}"/*-CONTEXT.md 2>/dev/null
 
 # Check if planning docs should be committed (default: true)

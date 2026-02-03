@@ -317,7 +317,7 @@ assertFileStructure(testDir, [
 ]);
 
 // Good: Test "Next Up" proposal
-assertNextStepProposed(result, '/kata:execute-phase');
+assertNextStepProposed(result, '/kata:kata-execute-phase');
 
 // Avoid: Testing exact prose (brittle)
 assert(result.result.includes('I have created the plan'));
@@ -333,7 +333,7 @@ import { assertNextStepProposed } from '../harness/assertions.js';
 const result = invokeClaude('plan phase 1', { cwd: testDir });
 
 // Verify skill proposed execute-phase as next step
-assertNextStepProposed(result, '/kata:execute-phase');
+assertNextStepProposed(result, '/kata:kata-execute-phase');
 ```
 
 ### Test Isolation Best Practices
@@ -390,7 +390,7 @@ describe('kata-plan-phase (orchestrator)', () => {
     );
 
     // Verify orchestrator proposed next step
-    assertNextStepProposed(result, '/kata:execute-phase');
+    assertNextStepProposed(result, '/kata:kata-execute-phase');
   });
 });
 ```
@@ -476,7 +476,7 @@ it('spawns planner agent (verified by output)', () => {
 
 ```javascript
 it('provides help text', () => {
-  const result = invokeClaude('/kata:providing-help', { cwd: testDir });
+  const result = invokeClaude('/kata:kata-providing-help', { cwd: testDir });
   assertNoError(result);
   assertResultContains(result, '/kata:');  // Lists available commands
 });

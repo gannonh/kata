@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Kata is a **spec-driven development framework** for Claude Code. It's a meta-prompting and context engineering system that helps Claude build software systematically through structured workflows: requirements gathering → research → planning → execution → verification.
 
 **Core Architecture:**
-- **Skills** (`skills/*/SKILL.md`) — Primary interface for all Kata workflows, invoked via `/kata:skill-name`
+- **Skills** (`skills/kata-*/SKILL.md`) — Primary interface for all Kata workflows, invoked via `/kata:kata-skill-name`
 - **Agents** (`agents/kata-*.md`) — Specialized subagents spawned by skills for specific tasks (planning, execution, verification, debugging)
 - **Templates** (`kata/templates/`) — Structured output formats (PROJECT.md, PLAN.md, etc.)
 - **References** (`kata/references/`) — Deep-dive documentation on concepts and patterns
@@ -29,7 +29,7 @@ cd /path/to/test-project
 claude --plugin-dir /path/to/kata/dist/plugin
 
 # Verify skills load
-/kata:providing-help
+/kata:kata-help
 ```
 
 Alternative: manually copy to test project's plugin directory:
@@ -61,10 +61,10 @@ ls .planning/phases/[current-phase]/
 ```
 
 **Common workflow when working on Kata:**
-1. Check progress: "What's the status?" or `/kata:track-progress`
-2. Plan phase: "Plan phase [N]" or `/kata:plan-phase [N]`
-3. Execute: "Execute phase [N]" or `/kata:execute-phase [N]`
-4. Verify: "Verify phase [N]" or `/kata:verifying-phases [N]`
+1. Check progress: "What's the status?" or `/kata:kata-track-progress`
+2. Plan phase: "Plan phase [N]" or `/kata:kata-plan-phase [N]`
+3. Execute: "Execute phase [N]" or `/kata:kata-execute-phase [N]`
+4. Verify: "Verify phase [N]" or `/kata:kata-verify-work [N]`
 
 ## Architecture: Files Teach Claude
 
@@ -90,9 +90,9 @@ Skills are the primary interface for all Kata workflows. They respond to both na
 
 ### Invocation Syntax
 
-| Syntax             | Example              |
-| ------------------ | -------------------- |
-| `/kata:skill-name` | `/kata:plan-phase 1` |
+| Syntax                  | Example                   |
+| ----------------------- | ------------------------- |
+| `/kata:kata-skill-name` | `/kata:kata-plan-phase 1` |
 
 **Key points:**
 - **Natural language works:** "plan phase 2", "what's the status", "execute the phase"
@@ -101,18 +101,17 @@ Skills are the primary interface for all Kata workflows. They respond to both na
 
 ### Available Skills
 
-Skills are installed to `.claude/skills/` (prefixes stripped for clean `/kata:skill-name` invocation).
+Skills are installed to `.claude/skills/` and invoked via `/kata:kata-skill-name`.
 
-| Skill                   | Invocation               | Purpose                                        | Sub-agents Spawned                       |
-| ----------------------- | ------------------------ | ---------------------------------------------- | ---------------------------------------- |
-| `kata-plan-phase`       | `/kata:plan-phase`       | Phase planning, task breakdown                 | kata-planner, kata-plan-checker          |
-| `kata-execute-phase`    | `/kata:execute-phase`    | Plan execution, checkpoints                    | kata-executor                            |
-| `kata-verifying-phases` | `/kata:verifying-phases` | Goal verification, UAT                         | kata-verifier, kata-debugger             |
-| `kata-new-project`      | `/kata:new-project`      | New project setup                              | kata-project-researcher, kata-roadmapper |
-| `kata-add-milestone`    | `/kata:add-milestone`    | Add milestone, research, requirements, roadmap | kata-project-researcher, kata-roadmapper |
-| `kata-managing-roadmap` | `/kata:managing-roadmap` | Phase operations                               | kata-roadmapper                          |
-| `kata-research-phase`   | `/kata:research-phase`   | Domain research                                | kata-phase-researcher                    |
-| `kata-project-status`   | `/kata:track-progress`   | Progress, debug, mapping                       | kata-debugger, kata-codebase-mapper      |
+| Skill                   | Invocation                    | Purpose                                        | Sub-agents Spawned                       |
+| ----------------------- | ----------------------------- | ---------------------------------------------- | ---------------------------------------- |
+| `kata-plan-phase`       | `/kata:kata-plan-phase`       | Phase planning, task breakdown                 | kata-planner, kata-plan-checker          |
+| `kata-execute-phase`    | `/kata:kata-execute-phase`    | Plan execution, checkpoints                    | kata-executor                            |
+| `kata-verify-work`      | `/kata:kata-verify-work`      | Goal verification, UAT                         | kata-verifier, kata-debugger             |
+| `kata-new-project`      | `/kata:kata-new-project`      | New project setup                              | kata-project-researcher, kata-roadmapper |
+| `kata-add-milestone`    | `/kata:kata-add-milestone`    | Add milestone, research, requirements, roadmap | kata-project-researcher, kata-roadmapper |
+| `kata-research-phase`   | `/kata:kata-research-phase`   | Domain research                                | kata-phase-researcher                    |
+| `kata-track-progress`   | `/kata:kata-track-progress`   | Progress, debug, mapping                       | kata-debugger, kata-codebase-mapper      |
 
 ### Skill Naming Best Practices
 
