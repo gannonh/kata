@@ -87,10 +87,20 @@ To abandon current work, use /kata:kata-pause-work instead.
 
 Exit.
 
-3. Check for SUMMARY.md files in phase directory:
+3. Find and check for SUMMARY.md files in phase directory:
 
 ```bash
-ls .planning/phases/{target}-*/*-SUMMARY.md 2>/dev/null
+# Universal phase discovery for target phase
+PADDED_TARGET=$(printf "%02d" "$TARGET" 2>/dev/null || echo "$TARGET")
+PHASE_DIR=""
+for state in active pending completed; do
+  PHASE_DIR=$(ls -d .planning/phases/${state}/${PADDED_TARGET}-* .planning/phases/${state}/${TARGET}-* 2>/dev/null | head -1)
+  [ -n "$PHASE_DIR" ] && break
+done
+# Fallback: flat directory (backward compatibility)
+[ -z "$PHASE_DIR" ] && PHASE_DIR=$(ls -d .planning/phases/${PADDED_TARGET}-* .planning/phases/${TARGET}-* 2>/dev/null | head -1)
+
+ls ${PHASE_DIR}/*-SUMMARY.md 2>/dev/null
 ```
 
 If any SUMMARY.md files exist:
@@ -111,8 +121,8 @@ Exit.
 Collect information about the phase being removed:
 
 1. Extract phase name from ROADMAP.md heading: `### Phase {target}: {Name}`
-2. Find phase directory: `.planning/phases/{target}-{slug}/`
-3. Find all subsequent phases (integer and decimal) that need renumbering
+2. Phase directory already found via universal discovery: `${PHASE_DIR}`
+3. Find all subsequent phases (searching across active/pending/completed subdirectories) (integer and decimal) that need renumbering
 
 **Subsequent phase detection:**
 
@@ -135,7 +145,7 @@ Present removal summary and confirm:
 Removing Phase {target}: {Name}
 
 This will:
-- Delete: .planning/phases/{target}-{slug}/
+- Delete: ${PHASE_DIR}
 - Renumber {N} subsequent phases:
   - Phase 18 → Phase 17
   - Phase 18.1 → Phase 17.1
@@ -152,9 +162,9 @@ Wait for confirmation.
 Delete the target phase directory if it exists:
 
 ```bash
-if [ -d ".planning/phases/{target}-{slug}" ]; then
-  rm -rf ".planning/phases/{target}-{slug}"
-  echo "Deleted: .planning/phases/{target}-{slug}/"
+if [ -d "${PHASE_DIR}" ]; then
+  rm -rf "${PHASE_DIR}"
+  echo "Deleted: ${PHASE_DIR}"
 fi
 ```
 
@@ -166,9 +176,18 @@ Rename all subsequent phase directories:
 
 For each phase directory that needs renumbering (in reverse order to avoid conflicts):
 
+Find each subsequent phase using universal discovery, then rename within the same state subdirectory:
+
 ```bash
-# Example: renaming 18-dashboard to 17-dashboard
-mv ".planning/phases/18-dashboard" ".planning/phases/17-dashboard"
+# For each subsequent phase, find it across state subdirectories
+for state in active pending completed; do
+  # Example: renaming 18-dashboard to 17-dashboard within the same state dir
+  SRC=$(ls -d .planning/phases/${state}/18-dashboard 2>/dev/null)
+  [ -n "$SRC" ] && mv "$SRC" ".planning/phases/${state}/17-dashboard"
+done
+# Fallback: flat directory
+SRC=$(ls -d .planning/phases/18-dashboard 2>/dev/null)
+[ -n "$SRC" ] && mv "$SRC" ".planning/phases/17-dashboard"
 ```
 
 Process in descending order (20→19, then 19→18, then 18→17) to avoid overwriting.
@@ -242,7 +261,12 @@ Write updated STATE.md.
 Search for and update phase references inside plan files:
 
 ```bash
-# Find files that reference the old phase numbers
+# Find files that reference the old phase numbers (search across state subdirectories)
+for state in active pending completed; do
+  grep -r "Phase 18" .planning/phases/${state}/17-*/ 2>/dev/null
+  grep -r "Phase 19" .planning/phases/${state}/18-*/ 2>/dev/null
+done
+# Fallback: flat directories
 grep -r "Phase 18" .planning/phases/17-*/ 2>/dev/null
 grep -r "Phase 19" .planning/phases/18-*/ 2>/dev/null
 # etc.
@@ -280,7 +304,7 @@ Present completion summary:
 Phase {target} ({original-name}) removed.
 
 Changes:
-- Deleted: .planning/phases/{target}-{slug}/
+- Deleted: ${PHASE_DIR}
 - Renumbered: Phases {first-renumbered}-{last-old} → {first-renumbered-1}-{last-new}
 - Updated: ROADMAP.md, STATE.md
 - Committed: chore: remove phase {target} ({original-name})

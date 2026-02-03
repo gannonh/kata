@@ -94,7 +94,15 @@ Gap: Flow "View dashboard" broken at data fetch
 
 Find highest existing phase:
 ```bash
-ls -d .planning/phases/*/ | sort -V | tail -1
+# Scan all phase directories across states
+ALL_PHASE_DIRS=""
+for state in active pending completed; do
+  [ -d ".planning/phases/${state}" ] && ALL_PHASE_DIRS="${ALL_PHASE_DIRS} $(ls -d .planning/phases/${state}/*/ 2>/dev/null)"
+done
+# Fallback: include flat directories (backward compatibility)
+FLAT_DIRS=$(ls -d .planning/phases/[0-9]*/ 2>/dev/null)
+[ -n "$FLAT_DIRS" ] && ALL_PHASE_DIRS="${ALL_PHASE_DIRS} ${FLAT_DIRS}"
+echo "$ALL_PHASE_DIRS" | tr ' ' '\n' | sort -V | tail -1
 ```
 
 New phases continue from there:
@@ -154,7 +162,8 @@ Add new phases to current milestone:
 ## 7. Create Phase Directories
 
 ```bash
-mkdir -p ".planning/phases/{NN}-{name}"
+# New gap closure phases go into pending/ subdirectory
+mkdir -p ".planning/phases/pending/{NN}-{name}"
 ```
 
 ## 8. Commit Roadmap Update

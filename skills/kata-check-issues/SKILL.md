@@ -427,7 +427,17 @@ or use /kata:kata-check-issues to update status.
 # Get phase directories that are not yet complete (no SUMMARY.md for all plans)
 # This is a heuristic - phases with incomplete plans
 UPCOMING_PHASES=""
-for phase_dir in .planning/phases/*/; do
+# Scan all phase directories across states
+ALL_PHASE_DIRS=""
+for state in active pending completed; do
+  [ -d ".planning/phases/${state}" ] && ALL_PHASE_DIRS="${ALL_PHASE_DIRS} $(ls -d .planning/phases/${state}/*/ 2>/dev/null)"
+done
+# Fallback: include flat directories (backward compatibility)
+FLAT_DIRS=$(ls -d .planning/phases/[0-9]*/ 2>/dev/null)
+[ -n "$FLAT_DIRS" ] && ALL_PHASE_DIRS="${ALL_PHASE_DIRS} ${FLAT_DIRS}"
+
+for phase_dir in $ALL_PHASE_DIRS; do
+  [ -d "$phase_dir" ] || continue
   phase_name=$(basename "$phase_dir")
   # Check if phase has at least one PLAN.md but missing at least one SUMMARY.md
   plan_count=$(ls "$phase_dir"/*-PLAN.md 2>/dev/null | wc -l)

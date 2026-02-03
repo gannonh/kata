@@ -175,14 +175,27 @@ Branch: [current_branch]
 <step name="route">
 **Determine next action based on verified counts.**
 
-**Step 1: Count plans, summaries, and issues in current phase**
+**Step 1: Find current phase directory and count plans, summaries, and issues**
+
+Find the current phase directory using universal discovery:
+
+```bash
+PADDED=$(printf "%02d" "$CURRENT_PHASE" 2>/dev/null || echo "$CURRENT_PHASE")
+PHASE_DIR=""
+for state in active pending completed; do
+  PHASE_DIR=$(ls -d .planning/phases/${state}/${PADDED}-* .planning/phases/${state}/${CURRENT_PHASE}-* 2>/dev/null | head -1)
+  [ -n "$PHASE_DIR" ] && break
+done
+# Fallback: flat directory (backward compatibility)
+[ -z "$PHASE_DIR" ] && PHASE_DIR=$(ls -d .planning/phases/${PADDED}-* .planning/phases/${CURRENT_PHASE}-* 2>/dev/null | head -1)
+```
 
 List files in the current phase directory:
 
 ```bash
-ls -1 .planning/phases/[current-phase-dir]/*-PLAN.md 2>/dev/null | wc -l
-ls -1 .planning/phases/[current-phase-dir]/*-SUMMARY.md 2>/dev/null | wc -l
-ls -1 .planning/phases/[current-phase-dir]/*-UAT.md 2>/dev/null | wc -l
+ls -1 ${PHASE_DIR}/*-PLAN.md 2>/dev/null | wc -l
+ls -1 ${PHASE_DIR}/*-SUMMARY.md 2>/dev/null | wc -l
+ls -1 ${PHASE_DIR}/*-UAT.md 2>/dev/null | wc -l
 ```
 
 State: "This phase has {X} plans, {Y} summaries."
@@ -193,7 +206,7 @@ Check for UAT.md files with status "diagnosed" (has gaps needing fixes).
 
 ```bash
 # Check for diagnosed UAT with gaps
-grep -l "status: diagnosed" .planning/phases/[current-phase-dir]/*-UAT.md 2>/dev/null
+grep -l "status: diagnosed" ${PHASE_DIR}/*-UAT.md 2>/dev/null
 ```
 
 Track:

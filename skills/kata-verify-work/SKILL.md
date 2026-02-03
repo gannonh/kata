@@ -329,7 +329,7 @@ Fix plans verified ✓
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
-- cat .planning/phases/{phase_dir}/*-PLAN.md — review fix plans
+- cat ${PHASE_DIR}/*-PLAN.md — review fix plans
 - /kata:kata-plan-phase {Z} --gaps — regenerate fix plans
 
 ───────────────────────────────────────────────────────────────
