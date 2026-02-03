@@ -203,13 +203,13 @@ In Claude Code:
 ```
 /plugin install kata@kata-marketplace
 /kata:kata-help
-/kata:whats-new
+/kata:kata-whats-new
 ```
 
 **Verify:**
 - Plugin installs without errors
 - `/kata:kata-help` shows all commands
-- `/kata:whats-new` shows new version changelog
+- `/kata:kata-whats-new` shows new version changelog
 - No path resolution errors
 
 ```bash

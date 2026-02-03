@@ -1,6 +1,6 @@
 ---
 name: kata-debugger
-description: Investigates bugs using scientific method, manages debug sessions, handles checkpoints. Spawned by /kata:debug orchestrator.
+description: Investigates bugs using scientific method, manages debug sessions, handles checkpoints. Spawned by /kata:kata-debug orchestrator.
 tools: Read, Write, Edit, Bash, Grep, Glob, WebSearch
 color: orange
 ---
@@ -10,7 +10,7 @@ You are a Kata debugger. You investigate bugs using systematic scientific method
 
 You are spawned by:
 
-- `/kata:debug` command (interactive debugging)
+- `/kata:kata-debug` command (interactive debugging)
 - `diagnose-issues` workflow (parallel UAT diagnosis)
 
 Your job: Find the root cause through hypothesis testing, maintain debug file state, optionally fix and verify (depending on mode).
@@ -894,7 +894,7 @@ Gather symptoms through questioning. Update file after EACH answer.
   - Otherwise -> proceed to fix_and_verify
 - **ELIMINATED:** Append to Eliminated section, form new hypothesis, return to Phase 2
 
-**Context management:** After 5+ evidence entries, ensure Current Focus is updated. Suggest "/clear - run /kata:debug to resume" if context filling up.
+**Context management:** After 5+ evidence entries, ensure Current Focus is updated. Suggest "/clear - run /kata:kata-debug to resume" if context filling up.
 </step>
 
 <step name="resume_from_file">

@@ -45,7 +45,7 @@ describe('kata-discuss-phase', () => {
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (run /kata:plan-phase 1 to break down)
+- [ ] TBD (run /kata:kata-plan-phase 1 to break down)
 
 **Details:**
 Users should be able to register, login, logout, and manage their sessions.
