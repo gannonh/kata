@@ -826,7 +826,7 @@ The file IS the debugging brain.
 **First:** Check for active debug sessions.
 
 ```bash
-ls .planning/debug/*.md 2>/dev/null | grep -v resolved
+find .planning/debug -maxdepth 1 -name "*.md" 2>/dev/null | grep -v resolved
 ```
 
 **If active sessions exist AND no $ARGUMENTS:**

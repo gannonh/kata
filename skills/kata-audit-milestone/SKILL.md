@@ -36,8 +36,9 @@ Version: $ARGUMENTS (optional — defaults to current milestone)
 @.planning/config.json (if exists)
 
 **Completed Work:**
-Glob: .planning/phases/*/*-SUMMARY.md
-Glob: .planning/phases/*/*-VERIFICATION.md
+Glob: .planning/phases/{active,pending,completed}/*/*-SUMMARY.md
+Glob: .planning/phases/{active,pending,completed}/*/*-VERIFICATION.md
+(Also check flat: .planning/phases/[0-9]*/*-SUMMARY.md for backward compatibility)
 </context>
 
 <process>
@@ -63,12 +64,19 @@ Store resolved model for use in Task call below.
 ## 1. Determine Milestone Scope
 
 ```bash
-# Get phases in milestone
-ls -d .planning/phases/*/ | sort -V
+# Scan all phase directories across states
+ALL_PHASE_DIRS=""
+for state in active pending completed; do
+  [ -d ".planning/phases/${state}" ] && ALL_PHASE_DIRS="${ALL_PHASE_DIRS} $(find .planning/phases/${state} -maxdepth 1 -type d -not -name "${state}" 2>/dev/null)"
+done
+# Fallback: include flat directories (backward compatibility)
+FLAT_DIRS=$(find .planning/phases -maxdepth 1 -type d -name "[0-9]*" 2>/dev/null)
+[ -n "$FLAT_DIRS" ] && ALL_PHASE_DIRS="${ALL_PHASE_DIRS} ${FLAT_DIRS}"
+echo "$ALL_PHASE_DIRS" | tr ' ' '\n' | sort -V
 ```
 
 - Parse version from arguments or detect current from ROADMAP.md
-- Identify all phase directories in scope
+- Identify all phase directories in scope (across active/pending/completed subdirectories)
 - Extract milestone definition of done from ROADMAP.md
 - Extract requirements mapped to this milestone from REQUIREMENTS.md
 
@@ -77,9 +85,11 @@ ls -d .planning/phases/*/ | sort -V
 For each phase directory, read the VERIFICATION.md:
 
 ```bash
-cat .planning/phases/01-*/*-VERIFICATION.md
-cat .planning/phases/02-*/*-VERIFICATION.md
-# etc.
+# Read VERIFICATION.md from each phase directory found in step 1
+for phase_dir in $ALL_PHASE_DIRS; do
+  [ -d "$phase_dir" ] || continue
+  cat "${phase_dir}"*-VERIFICATION.md 2>/dev/null
+done
 ```
 
 From each VERIFICATION.md, extract:

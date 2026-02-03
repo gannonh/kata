@@ -65,14 +65,27 @@ cat .planning/PROJECT.md
 Look for incomplete work that needs attention:
 
 ```bash
-# Check for continue-here files (mid-plan resumption)
-ls .planning/phases/*/.continue-here*.md 2>/dev/null
+# Check for continue-here files (mid-plan resumption) across state subdirectories
+for state in active pending completed; do
+  find ".planning/phases/${state}" -maxdepth 2 -name ".continue-here*.md" 2>/dev/null
+done
+# Fallback: flat directories
+find .planning/phases -maxdepth 2 -name ".continue-here*.md" -path "*/[0-9]*/*" 2>/dev/null
 
-# Check for plans without summaries (incomplete execution)
-for plan in .planning/phases/*/*-PLAN.md; do
+# Check for plans without summaries (incomplete execution) across state subdirectories
+for state in active pending completed; do
+  for plan in $(find ".planning/phases/${state}" -maxdepth 2 -name "*-PLAN.md" 2>/dev/null); do
+    [ -f "$plan" ] || continue
+    summary="${plan/PLAN/SUMMARY}"
+    [ ! -f "$summary" ] && echo "Incomplete: $plan"
+  done
+done
+# Fallback: flat directories
+for plan in $(find .planning/phases -maxdepth 2 -name "*-PLAN.md" -path "*/[0-9]*/*" 2>/dev/null); do
+  [ -f "$plan" ] || continue
   summary="${plan/PLAN/SUMMARY}"
   [ ! -f "$summary" ] && echo "Incomplete: $plan"
-done 2>/dev/null
+done
 
 # Check for interrupted agents
 if [ -f .planning/current-agent-id.txt ] && [ -s .planning/current-agent-id.txt ]; then
@@ -200,7 +213,8 @@ What would you like to do?
 **Note:** When offering phase planning, check for CONTEXT.md existence first:
 
 ```bash
-ls .planning/phases/XX-name/CONTEXT.md 2>/dev/null
+# Check for CONTEXT.md using universal discovery (PHASE_DIR set from earlier steps)
+ls ${PHASE_DIR}/CONTEXT.md 2>/dev/null
 ```
 
 If missing, suggest phase-discuss before plan. If exists, offer plan directly.

@@ -112,7 +112,7 @@ Example: `07-add-authentication`
 Create the phase directory structure:
 
 ```bash
-phase_dir=".planning/phases/${phase_num}-${slug}"
+phase_dir=".planning/phases/pending/${phase_num}-${slug}"
 mkdir -p "$phase_dir"
 ```
 
@@ -203,7 +203,7 @@ Project state updated: .planning/STATE.md
 <success_criteria>
 Phase addition is complete when:
 
-- [ ] Phase directory created: `.planning/phases/{NN}-{slug}/`
+- [ ] Phase directory created: `.planning/phases/pending/{NN}-{slug}/`
 - [ ] Roadmap updated with new phase entry
 - [ ] STATE.md updated with roadmap evolution note
 - [ ] New phase appears at end of current milestone

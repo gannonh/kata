@@ -59,9 +59,44 @@ Phase: $ARGUMENTS
    Store resolved models for use in Task calls below.
 
 1. **Validate phase exists**
-   - Find phase directory matching argument
-   - Count PLAN.md files
-   - Error if no plans found
+   Find phase directory using universal discovery:
+   ```bash
+   PADDED=$(printf "%02d" "$PHASE_ARG" 2>/dev/null || echo "$PHASE_ARG")
+   PHASE_DIR=""
+   for state in active pending completed; do
+     PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
+     [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PHASE_ARG}-*" 2>/dev/null | head -1)
+     [ -n "$PHASE_DIR" ] && break
+   done
+   # Fallback: flat directory (backward compatibility for unmigrated projects)
+   [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
+   [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE_ARG}-*" 2>/dev/null | head -1)
+
+   if [ -z "$PHASE_DIR" ]; then
+     echo "ERROR: No phase directory matching '${PHASE_ARG}'"
+     exit 1
+   fi
+
+   PLAN_COUNT=$(find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | wc -l | tr -d ' ')
+   if [ "$PLAN_COUNT" -eq 0 ]; then
+     echo "ERROR: No plans found in $PHASE_DIR"
+     exit 1
+   fi
+   ```
+
+1.25. **Move phase to active (state transition)**
+
+   ```bash
+   # Move from pending to active when execution begins
+   CURRENT_STATE=$(echo "$PHASE_DIR" | grep -oE '(pending|active|completed)' | head -1)
+   if [ "$CURRENT_STATE" = "pending" ]; then
+     DIR_NAME=$(basename "$PHASE_DIR")
+     mkdir -p ".planning/phases/active"
+     mv "$PHASE_DIR" ".planning/phases/active/${DIR_NAME}"
+     PHASE_DIR=".planning/phases/active/${DIR_NAME}"
+     echo "Phase moved to active/"
+   fi
+   ```
 
 1.5. **Create Phase Branch (pr_workflow only)**
 
@@ -133,7 +168,7 @@ Phase: $ARGUMENTS
      ```bash
      # Get plan numbers from SUMMARYs that exist after this wave
      COMPLETED_PLANS_IN_WAVE=""
-     for summary in ${PHASE_DIR}/*-SUMMARY.md; do
+     for summary in $(find "${PHASE_DIR}" -maxdepth 1 -name "*-SUMMARY.md" 2>/dev/null); do
        # Extract plan number from filename (e.g., 04-01-SUMMARY.md -> 01)
        plan_num=$(basename "$summary" | sed -E 's/^[0-9]+-([0-9]+)-SUMMARY\.md$/\1/')
        # Check if this plan was in the current wave (from frontmatter we read earlier)
@@ -201,7 +236,7 @@ Phase: $ARGUMENTS
      ISSUE_MODE=$(cat .planning/config.json 2>/dev/null | grep -o '"issueMode"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "never")
      MILESTONE=$(grep -E "^\- \[.\] \*\*Phase|^### v" .planning/ROADMAP.md | grep -E "In Progress" | grep -oE "v[0-9]+\.[0-9]+(\.[0-9]+)?" | head -1 | tr -d 'v')
      [ -z "$MILESTONE" ] && MILESTONE=$(grep -oE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' .planning/ROADMAP.md | head -1 | tr -d 'v')
-     PHASE_DIR=$(ls -d .planning/phases/${PHASE_ARG:-00}* 2>/dev/null | head -1)
+     # PHASE_DIR already set by universal discovery in step 1
      PHASE_NUM=$(basename "$PHASE_DIR" | sed -E 's/^([0-9]+)-.*/\1/')
      BRANCH=$(git branch --show-current)
 
@@ -232,7 +267,7 @@ Phase: $ARGUMENTS
 
          # Build plans checklist (all unchecked initially)
          PLANS_CHECKLIST=""
-         for plan in ${PHASE_DIR}/*-PLAN.md; do
+         for plan in $(find "${PHASE_DIR}" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null); do
            plan_name=$(grep -m1 "<name>" "$plan" | sed 's/.*<name>//;s/<\/name>.*//' || basename "$plan" | sed 's/-PLAN.md//')
            plan_num=$(basename "$plan" | sed -E 's/^[0-9]+-([0-9]+)-PLAN\.md$/\1/')
            PLANS_CHECKLIST="${PLANS_CHECKLIST}- [ ] Plan ${plan_num}: ${plan_name}\n"
@@ -240,7 +275,7 @@ Phase: $ARGUMENTS
 
          # Collect source_issue references from all plans
          SOURCE_ISSUES=""
-         for plan in ${PHASE_DIR}/*-PLAN.md; do
+         for plan in $(find "${PHASE_DIR}" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null); do
            source_issue=$(grep -m1 "^source_issue:" "$plan" | cut -d':' -f2- | xargs)
            if echo "$source_issue" | grep -q "^github:#"; then
              issue_num=$(echo "$source_issue" | grep -oE '#[0-9]+')
@@ -312,6 +347,38 @@ PR_EOF
      - `passed` → continue to step 8
      - `human_needed` → present items, get approval or feedback
      - `gaps_found` → present gaps, offer `/kata:kata-plan-phase {X} --gaps`
+
+7.5. **Validate completion and move to completed**
+
+   After verification passes, validate completion artifacts before moving phase to completed:
+
+   ```bash
+   # Validate completion artifacts
+   PLAN_COUNT=$(find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | wc -l | tr -d ' ')
+   MISSING=""
+   if [ "$PLAN_COUNT" -eq 0 ]; then
+     MISSING="${MISSING}\n- No PLAN.md files found"
+   fi
+   for plan in $(find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null); do
+     plan_id=$(basename "$plan" | sed 's/-PLAN\.md$//')
+     [ ! -f "$PHASE_DIR/${plan_id}-SUMMARY.md" ] && MISSING="${MISSING}\n- Missing SUMMARY.md for ${plan_id}"
+   done
+   # Non-gap phases require VERIFICATION.md
+   IS_GAP=$(find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" -exec grep -l "gap_closure: true" {} + 2>/dev/null | head -1)
+   if [ -z "$IS_GAP" ] && ! find "$PHASE_DIR" -maxdepth 1 -name "*-VERIFICATION.md" 2>/dev/null | grep -q .; then
+     MISSING="${MISSING}\n- Missing VERIFICATION.md (required for non-gap phases)"
+   fi
+
+   if [ -z "$MISSING" ]; then
+     DIR_NAME=$(basename "$PHASE_DIR")
+     mkdir -p ".planning/phases/completed"
+     mv "$PHASE_DIR" ".planning/phases/completed/${DIR_NAME}"
+     PHASE_DIR=".planning/phases/completed/${DIR_NAME}"
+     echo "Phase validated and moved to completed/"
+   else
+     echo "Warning: Phase incomplete:${MISSING}"
+   fi
+   ```
 
 8. **Update roadmap and state**
    - Update ROADMAP.md, STATE.md
@@ -413,7 +480,7 @@ PR_EOF
     **Note:** Show "Merge PR" option only if `pr_workflow=true` AND PR exists AND not already merged.
 
     **If user chooses "Run UAT":**
-    1. Invoke skill: `Skill("kata:verify-work", "{phase}")`
+    1. Invoke skill: `Skill("kata:kata-verify-work", "{phase}")`
     2. UAT skill handles the walkthrough and any issues found
     3. After UAT completes, return to this step to ask again (user may want PR review or merge)
 
@@ -437,7 +504,7 @@ PR_EOF
        fi
 
        # Close source issues from plans (backup in case Closes #X didn't trigger)
-       for plan in ${PHASE_DIR}/*-PLAN.md; do
+       for plan in $(find "${PHASE_DIR}" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null); do
          source_issue=$(grep -m1 "^source_issue:" "$plan" | cut -d':' -f2- | xargs)
          if echo "$source_issue" | grep -q "^github:#"; then
            issue_num=$(echo "$source_issue" | grep -oE '[0-9]+')

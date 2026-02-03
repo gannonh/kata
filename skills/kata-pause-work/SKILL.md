@@ -24,7 +24,26 @@ Enables seamless resumption in fresh session with full context restoration.
 <process>
 
 <step name="detect">
-Find current phase directory from most recently modified files.
+Find current phase directory using universal discovery:
+
+```bash
+# Get current phase from STATE.md
+CURRENT_PHASE=$(grep -oP 'Phase: \K[0-9]+' .planning/STATE.md 2>/dev/null | head -1)
+PADDED=$(printf "%02d" "$CURRENT_PHASE" 2>/dev/null || echo "$CURRENT_PHASE")
+PHASE_DIR=""
+for state in active pending completed; do
+  PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${CURRENT_PHASE}-*" 2>/dev/null | head -1)
+  [ -n "$PHASE_DIR" ] && break
+done
+# Fallback: flat directory (backward compatibility)
+if [ -z "$PHASE_DIR" ]; then
+  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${CURRENT_PHASE}-*" 2>/dev/null | head -1)
+fi
+```
+
+If universal discovery fails, fall back to most recently modified files.
 </step>
 
 <step name="gather">
@@ -42,7 +61,7 @@ Ask user for clarifications if needed.
 </step>
 
 <step name="write">
-**Write handoff to `.planning/phases/XX-name/.continue-here.md`:**
+**Write handoff to `${PHASE_DIR}/.continue-here.md`:**
 
 ```markdown
 ---
@@ -106,14 +125,14 @@ git check-ignore -q .planning 2>/dev/null && COMMIT_PLANNING_DOCS=false
 **If `COMMIT_PLANNING_DOCS=true` (default):**
 
 ```bash
-git add .planning/phases/*/.continue-here.md
+git add ${PHASE_DIR}/.continue-here.md
 git commit -m "wip: [phase-name] paused at task [X]/[Y]"
 ```
 </step>
 
 <step name="confirm">
 ```
-✓ Handoff created: .planning/phases/[XX-name]/.continue-here.md
+✓ Handoff created: ${PHASE_DIR}/.continue-here.md
 
 Current state:
 

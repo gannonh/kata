@@ -92,12 +92,22 @@ Continue to `create_uat_file`.
 Parse $ARGUMENTS as phase number (e.g., "4") or plan number (e.g., "04-02").
 
 ```bash
-# Find phase directory (match both zero-padded and unpadded)
+# Universal phase discovery
 PADDED_PHASE=$(printf "%02d" ${PHASE_ARG} 2>/dev/null || echo "${PHASE_ARG}")
-PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE_ARG}-* 2>/dev/null | head -1)
+PHASE_DIR=""
+for state in active pending completed; do
+  PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PHASE_ARG}-*" 2>/dev/null | head -1)
+  [ -n "$PHASE_DIR" ] && break
+done
+# Fallback: flat directory (backward compatibility)
+if [ -z "$PHASE_DIR" ]; then
+  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE_ARG}-*" 2>/dev/null | head -1)
+fi
 
 # Find SUMMARY files
-ls "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null
+find "$PHASE_DIR" -maxdepth 1 -name "*-SUMMARY.md" 2>/dev/null
 ```
 
 Read each SUMMARY.md to extract testable deliverables.

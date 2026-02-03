@@ -65,8 +65,8 @@ Migration is idempotent: presence of `_archived/` indicates already migrated.
 
 <step name="check_exist">
 ```bash
-OPEN_COUNT=$(ls .planning/issues/open/*.md 2>/dev/null | wc -l | tr -d ' ')
-IN_PROGRESS_COUNT=$(ls .planning/issues/in-progress/*.md 2>/dev/null | wc -l | tr -d ' ')
+OPEN_COUNT=$(find .planning/issues/open -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+IN_PROGRESS_COUNT=$(find .planning/issues/in-progress -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 echo "Open issues: $OPEN_COUNT"
 echo "In progress: $IN_PROGRESS_COUNT"
 ```
@@ -427,11 +427,21 @@ or use /kata:kata-check-issues to update status.
 # Get phase directories that are not yet complete (no SUMMARY.md for all plans)
 # This is a heuristic - phases with incomplete plans
 UPCOMING_PHASES=""
-for phase_dir in .planning/phases/*/; do
+# Scan all phase directories across states
+ALL_PHASE_DIRS=""
+for state in active pending completed; do
+  [ -d ".planning/phases/${state}" ] && ALL_PHASE_DIRS="${ALL_PHASE_DIRS} $(find .planning/phases/${state} -maxdepth 1 -type d -not -name "${state}" 2>/dev/null)"
+done
+# Fallback: include flat directories (backward compatibility)
+FLAT_DIRS=$(find .planning/phases -maxdepth 1 -type d -name "[0-9]*" 2>/dev/null)
+[ -n "$FLAT_DIRS" ] && ALL_PHASE_DIRS="${ALL_PHASE_DIRS} ${FLAT_DIRS}"
+
+for phase_dir in $ALL_PHASE_DIRS; do
+  [ -d "$phase_dir" ] || continue
   phase_name=$(basename "$phase_dir")
   # Check if phase has at least one PLAN.md but missing at least one SUMMARY.md
-  plan_count=$(ls "$phase_dir"/*-PLAN.md 2>/dev/null | wc -l)
-  summary_count=$(ls "$phase_dir"/*-SUMMARY.md 2>/dev/null | wc -l)
+  plan_count=$(find "$phase_dir" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | wc -l)
+  summary_count=$(find "$phase_dir" -maxdepth 1 -name "*-SUMMARY.md" 2>/dev/null | wc -l)
 
   if [ "$plan_count" -gt 0 ] && [ "$plan_count" -gt "$summary_count" ]; then
     # Extract phase goal from roadmap
@@ -710,10 +720,20 @@ or use /kata:kata-check-issues to update status.
 1. Find upcoming phases (same logic as local issue path):
 ```bash
 UPCOMING_PHASES=""
-for phase_dir in .planning/phases/*/; do
+ALL_PHASE_DIRS=""
+for state in active pending completed; do
+  for d in .planning/phases/${state}/*/; do
+    [ -d "$d" ] && ALL_PHASE_DIRS="$ALL_PHASE_DIRS $d"
+  done
+done
+# Flat directory fallback (unmigrated projects)
+for d in .planning/phases/[0-9]*/; do
+  [ -d "$d" ] && ALL_PHASE_DIRS="$ALL_PHASE_DIRS $d"
+done
+for phase_dir in $ALL_PHASE_DIRS; do
   phase_name=$(basename "$phase_dir")
-  plan_count=$(ls "$phase_dir"/*-PLAN.md 2>/dev/null | wc -l)
-  summary_count=$(ls "$phase_dir"/*-SUMMARY.md 2>/dev/null | wc -l)
+  plan_count=$(find "$phase_dir" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | wc -l)
+  summary_count=$(find "$phase_dir" -maxdepth 1 -name "*-SUMMARY.md" 2>/dev/null | wc -l)
 
   if [ "$plan_count" -gt 0 ] && [ "$plan_count" -gt "$summary_count" ]; then
     phase_num=$(echo "$phase_name" | grep -oE '^[0-9]+')
@@ -949,9 +969,9 @@ Return to list_issues step.
 After any action that changes issue count:
 
 ```bash
-OPEN_COUNT=$(ls .planning/issues/open/*.md 2>/dev/null | wc -l | tr -d ' ')
-IN_PROGRESS_COUNT=$(ls .planning/issues/in-progress/*.md 2>/dev/null | wc -l | tr -d ' ')
-CLOSED_COUNT=$(ls .planning/issues/closed/*.md 2>/dev/null | wc -l | tr -d ' ')
+OPEN_COUNT=$(find .planning/issues/open -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+IN_PROGRESS_COUNT=$(find .planning/issues/in-progress -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+CLOSED_COUNT=$(find .planning/issues/closed -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 echo "Open: $OPEN_COUNT, In Progress: $IN_PROGRESS_COUNT, Closed: $CLOSED_COUNT"
 ```
 

@@ -146,6 +146,15 @@ Loop until "Create PROJECT.md" selected.
 
 ## Phase 4: Write PROJECT.md
 
+**First, create all project directories in a single command:**
+
+```bash
+mkdir -p .planning/phases/pending .planning/phases/active .planning/phases/completed
+touch .planning/phases/pending/.gitkeep .planning/phases/active/.gitkeep .planning/phases/completed/.gitkeep
+```
+
+This creates `.planning/`, `.planning/phases/`, the three state subdirectories, and `.gitkeep` files so git tracks them. Run this BEFORE writing any files.
+
 Synthesize all context into `.planning/PROJECT.md` using the template from `@./references/project-template.md`.
 
 **For greenfield projects:**
@@ -224,8 +233,7 @@ Do not compress. Capture everything gathered.
 **Commit PROJECT.md:**
 
 ```bash
-mkdir -p .planning
-git add .planning/PROJECT.md
+git add .planning/PROJECT.md .planning/phases/pending/.gitkeep .planning/phases/active/.gitkeep .planning/phases/completed/.gitkeep
 git commit -m "$(cat <<'EOF'
 docs: initialize project
 
@@ -734,6 +742,24 @@ EOF
 fi
 ```
 
+**Self-validation — verify all required artifacts exist before displaying completion:**
+
+```bash
+MISSING=""
+[ ! -f .planning/PROJECT.md ] && MISSING="${MISSING}\n- .planning/PROJECT.md"
+[ ! -f .planning/config.json ] && MISSING="${MISSING}\n- .planning/config.json"
+[ ! -f .planning/phases/pending/.gitkeep ] && MISSING="${MISSING}\n- .planning/phases/pending/.gitkeep"
+[ ! -f .planning/phases/active/.gitkeep ] && MISSING="${MISSING}\n- .planning/phases/active/.gitkeep"
+[ ! -f .planning/phases/completed/.gitkeep ] && MISSING="${MISSING}\n- .planning/phases/completed/.gitkeep"
+if [ -n "$MISSING" ]; then
+  echo "MISSING ARTIFACTS:${MISSING}"
+else
+  echo "ALL ARTIFACTS PRESENT"
+fi
+```
+
+**If anything is missing:** Create the missing artifacts now. Do NOT proceed to the completion banner until all artifacts exist.
+
 **Display completion banner:**
 
 
@@ -792,11 +818,13 @@ Settings for `main`:
 <success_criteria>
 
 - [ ] .planning/ directory created
+- [ ] .planning/phases/pending/, active/, completed/ directories created
 - [ ] Git repo initialized
 - [ ] Brownfield detection completed
 - [ ] Deep questioning completed (threads followed, not rushed)
 - [ ] PROJECT.md captures full context → **committed**
 - [ ] config.json has workflow mode, depth, parallelization → **committed**
+- [ ] Self-validation passed (all artifacts exist)
 - [ ] User knows next step is `/kata:kata-add-milestone`
 
 **Atomic commits:** PROJECT.md and config.json are committed. If context is lost, artifacts persist.

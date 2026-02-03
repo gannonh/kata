@@ -1,6 +1,6 @@
 # Phase Context Template
 
-Template for `.planning/phases/XX-name/{phase}-CONTEXT.md` - captures implementation decisions for a phase.
+Template for `.planning/phases/{pending,active,completed}/XX-name/{phase}-CONTEXT.md` - captures implementation decisions for a phase.
 
 **Purpose:** Document decisions that downstream agents need. Researcher uses this to know WHAT to investigate. Planner uses this to know WHAT choices are locked vs flexible.
 
@@ -284,7 +284,7 @@ The output should answer: "What does the researcher need to investigate? What ch
 - **Deferred** — Ideas captured but explicitly out of scope. Prevents scope creep while preserving good ideas.
 
 **After creation:**
-- File lives in phase directory: `.planning/phases/XX-name/{phase}-CONTEXT.md`
+- File lives in phase directory: `.planning/phases/{pending,active,completed}/XX-name/{phase}-CONTEXT.md`
 - `kata-phase-researcher` uses decisions to focus investigation
 - `kata-planner` uses decisions + research to create executable tasks
 - Downstream agents should NOT need to ask the user again about captured decisions

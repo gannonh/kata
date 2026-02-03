@@ -7,7 +7,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 ## Milestones
 
 - ✅ **v1.4.1 Issue Execution** — Phases 1-4 (shipped 2026-02-03)
-- 📋 **v1.5.0 Phase Management** — Phases 1-3 (planned)
+- 🔄 **v1.5.0 Phase Management** — Phases 1-3 (in progress)
 
 ## Completed Milestones
 
@@ -127,9 +127,9 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 ---
 
-## Planned Milestones
+## Current Milestone
 
-### v1.5.0 Phase Management (Planned)
+### v1.5.0 Phase Management (In Progress)
 
 **Goal:** Improved phase organization, movement, and roadmap visibility.
 
@@ -137,11 +137,9 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 **Goal:** Organize phase artifacts into state directories with completion validation.
 **Requirements:** PHASE-01, PHASE-05
+**Plans:** 2 plans
 
-**Success Criteria** (what must be TRUE):
-1. Phase directories are organized under `pending/`, `active/`, `completed/` subdirectories
-2. Phase completion validates PLAN.md and SUMMARY.md existence
-3. Non-gap phases require VERIFICATION.md for completion validation
+- [x] Phase 1: Phase Organization (2/2 plans) — completed 2026-02-03
 
 #### Phase 2: Phase Movement
 
@@ -180,8 +178,8 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 | v1.3.3    | 1      | 4     | Shipped  | 2026-01-29 |
 | v1.4.0    | 2      | 11    | Shipped  | 2026-02-01 |
 | v1.4.1    | 4      | 6     | Shipped  | 2026-02-03 |
-| v1.5.0    | 3      | TBD   | Planned  | —          |
+| v1.5.0    | 3      | 2+    | Active   | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-03 — v1.4.1 shipped*
+*Last updated: 2026-02-03 — v1.5.0 Phase 1 completed*

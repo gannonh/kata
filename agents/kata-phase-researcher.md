@@ -444,9 +444,19 @@ Orchestrator provides:
 **Load phase context (MANDATORY):**
 
 ```bash
-# Match both zero-padded (05-*) and unpadded (5-*) folders
+# Universal phase discovery (state-aware with flat fallback)
 PADDED_PHASE=$(printf "%02d" ${PHASE} 2>/dev/null || echo "${PHASE}")
-PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE}-* 2>/dev/null | head -1)
+PHASE_DIR=""
+for state in active pending completed; do
+  PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
+  [ -n "$PHASE_DIR" ] && break
+done
+# Flat directory fallback (unmigrated projects)
+if [ -z "$PHASE_DIR" ]; then
+  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
+fi
 
 # Read CONTEXT.md if exists (from /kata:kata-discuss-phase)
 cat "${PHASE_DIR}"/*-CONTEXT.md 2>/dev/null

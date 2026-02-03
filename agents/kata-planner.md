@@ -831,15 +831,25 @@ Triggered by `--gaps` flag. Creates plans to address verification or UAT failure
 **1. Find gap sources:**
 
 ```bash
-# Match both zero-padded (05-*) and unpadded (5-*) folders
+# Universal phase discovery (state-aware with flat fallback)
 PADDED_PHASE=$(printf "%02d" ${PHASE_ARG} 2>/dev/null || echo "${PHASE_ARG}")
-PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE_ARG}-* 2>/dev/null | head -1)
+PHASE_DIR=""
+for state in active pending completed; do
+  PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PHASE_ARG}-*" 2>/dev/null | head -1)
+  [ -n "$PHASE_DIR" ] && break
+done
+# Flat directory fallback (unmigrated projects)
+if [ -z "$PHASE_DIR" ]; then
+  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE_ARG}-*" 2>/dev/null | head -1)
+fi
 
 # Check for VERIFICATION.md (code verification gaps)
-ls "$PHASE_DIR"/*-VERIFICATION.md 2>/dev/null
+find "$PHASE_DIR" -maxdepth 1 -name "*-VERIFICATION.md" 2>/dev/null
 
 # Check for UAT.md with diagnosed status (user testing gaps)
-grep -l "status: diagnosed" "$PHASE_DIR"/*-UAT.md 2>/dev/null
+find "$PHASE_DIR" -maxdepth 1 -name "*-UAT.md" -exec grep -l "status: diagnosed" {} + 2>/dev/null
 ```
 
 **2. Parse gaps:**
@@ -912,7 +922,7 @@ Triggered when orchestrator provides `<revision_context>` with checker issues. Y
 Read all PLAN.md files in the phase directory:
 
 ```bash
-cat .planning/phases/${PHASE}-*/*-PLAN.md
+cat "${PHASE_DIR}"/*-PLAN.md
 ```
 
 Build mental model of:
@@ -981,7 +991,7 @@ After making edits, self-check:
 **If `COMMIT_PLANNING_DOCS=true` (default):**
 
 ```bash
-git add .planning/phases/${PHASE}-*/${PHASE}-*-PLAN.md
+git add "${PHASE_DIR}"/${PHASE}-*-PLAN.md
 git commit -m "fix(${PHASE}): revise plans based on checker feedback"
 ```
 
@@ -1042,7 +1052,7 @@ Store `COMMIT_PLANNING_DOCS` for use in git operations.
 Check for codebase map:
 
 ```bash
-ls .planning/codebase/*.md 2>/dev/null
+find .planning/codebase -maxdepth 1 -name "*.md" 2>/dev/null
 ```
 
 If exists, load relevant documents based on phase type:
@@ -1083,7 +1093,15 @@ Apply discovery level protocol (see discovery_levels section).
 
 1. Scan all summary frontmatter (first ~25 lines):
 ```bash
-for f in .planning/phases/*/*-SUMMARY.md; do
+# Scan across state subdirectories (with flat fallback)
+ALL_SUMMARIES=""
+for state in active pending completed; do
+  [ -d ".planning/phases/${state}" ] && ALL_SUMMARIES="$ALL_SUMMARIES $(find .planning/phases/${state} -maxdepth 2 -name "*-SUMMARY.md" -type f 2>/dev/null)"
+done
+# Flat directory fallback (unmigrated projects)
+ALL_SUMMARIES="$ALL_SUMMARIES $(find .planning/phases -maxdepth 2 -name "*-SUMMARY.md" -path "*/[0-9]*/*" -type f 2>/dev/null)"
+for f in $ALL_SUMMARIES; do
+  [ -f "$f" ] || continue
   sed -n '1,/^---$/p; /^---$/q' "$f" | head -30
 done
 ```
@@ -1116,9 +1134,19 @@ Understand:
 **Load phase-specific context files (MANDATORY):**
 
 ```bash
-# Match both zero-padded (05-*) and unpadded (5-*) folders
+# Universal phase discovery (state-aware with flat fallback)
 PADDED_PHASE=$(printf "%02d" ${PHASE} 2>/dev/null || echo "${PHASE}")
-PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE}-* 2>/dev/null | head -1)
+PHASE_DIR=""
+for state in active pending completed; do
+  PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
+  [ -n "$PHASE_DIR" ] && break
+done
+# Flat directory fallback (unmigrated projects)
+if [ -z "$PHASE_DIR" ]; then
+  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
+fi
 
 # Read CONTEXT.md if exists (from /kata:kata-discuss-phase)
 cat "${PHASE_DIR}"/*-CONTEXT.md 2>/dev/null
@@ -1252,7 +1280,7 @@ Commit phase plan(s) and updated roadmap:
 **If `COMMIT_PLANNING_DOCS=true` (default):**
 
 ```bash
-git add .planning/phases/${PHASE}-*/${PHASE}-*-PLAN.md .planning/ROADMAP.md
+git add "${PHASE_DIR}"/${PHASE}-*-PLAN.md .planning/ROADMAP.md
 git commit -m "docs(${PHASE}): create phase plan
 
 Phase ${PHASE}: ${PHASE_NAME}

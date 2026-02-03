@@ -130,9 +130,21 @@ Exit workflow.
 Check if CONTEXT.md already exists:
 
 ```bash
-# Match both zero-padded (05-*) and unpadded (5-*) folders
+# Universal phase discovery
 PADDED_PHASE=$(printf "%02d" ${PHASE})
-ls .planning/phases/${PADDED_PHASE}-*/CONTEXT.md .planning/phases/${PADDED_PHASE}-*/${PADDED_PHASE}-CONTEXT.md .planning/phases/${PHASE}-*/CONTEXT.md .planning/phases/${PHASE}-*/${PHASE}-CONTEXT.md 2>/dev/null
+PHASE_DIR=""
+for state in active pending completed; do
+  PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
+  [ -n "$PHASE_DIR" ] && break
+done
+# Fallback: flat directory (backward compatibility)
+if [ -z "$PHASE_DIR" ]; then
+  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
+fi
+
+ls ${PHASE_DIR}/CONTEXT.md ${PHASE_DIR}/${PADDED_PHASE}-CONTEXT.md 2>/dev/null
 ```
 
 **If exists:**
@@ -282,14 +294,14 @@ Create CONTEXT.md capturing decisions made.
 **Find or create phase directory:**
 
 ```bash
-# Match existing directory (padded or unpadded)
+# Use phase directory found by universal discovery (from check_existing step)
+# If not found, create in pending/ subdirectory
 PADDED_PHASE=$(printf "%02d" ${PHASE})
-PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE}-* 2>/dev/null | head -1)
 if [ -z "$PHASE_DIR" ]; then
-  # Create from roadmap name (lowercase, hyphens)
+  # Create from roadmap name (lowercase, hyphens) in pending/
   PHASE_NAME=$(grep "Phase ${PHASE}:" .planning/ROADMAP.md | sed 's/.*Phase [0-9]*: //' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
-  mkdir -p ".planning/phases/${PADDED_PHASE}-${PHASE_NAME}"
-  PHASE_DIR=".planning/phases/${PADDED_PHASE}-${PHASE_NAME}"
+  mkdir -p ".planning/phases/pending/${PADDED_PHASE}-${PHASE_NAME}"
+  PHASE_DIR=".planning/phases/pending/${PADDED_PHASE}-${PHASE_NAME}"
 fi
 ```
 

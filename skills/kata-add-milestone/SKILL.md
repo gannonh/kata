@@ -484,7 +484,7 @@ Files: `.planning/research/`
 
 **Check for backlog issues:**
 ```bash
-BACKLOG_COUNT=$(ls .planning/issues/open/*.md 2>/dev/null | wc -l | tr -d ' ')
+BACKLOG_COUNT=$(find .planning/issues/open -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 ```
 
 **If BACKLOG_COUNT > 0:**

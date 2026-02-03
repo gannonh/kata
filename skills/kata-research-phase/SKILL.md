@@ -69,10 +69,24 @@ grep -A5 "Phase ${PHASE}:" .planning/ROADMAP.md 2>/dev/null
 
 **If not found:** Error and exit. **If found:** Extract phase number, name, description.
 
-## 2. Check Existing Research
+## 2. Find Phase Directory and Check Existing Research
 
 ```bash
-ls .planning/phases/${PHASE}-*/RESEARCH.md 2>/dev/null
+# Universal phase discovery
+PADDED=$(printf "%02d" "$PHASE" 2>/dev/null || echo "$PHASE")
+PHASE_DIR=""
+for state in active pending completed; do
+  PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
+  [ -n "$PHASE_DIR" ] && break
+done
+# Fallback: flat directory (backward compatibility)
+if [ -z "$PHASE_DIR" ]; then
+  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
+fi
+
+ls ${PHASE_DIR}/RESEARCH.md 2>/dev/null
 ```
 
 **If exists:** Offer: 1) Update research, 2) View existing, 3) Skip. Wait for response.
@@ -84,7 +98,7 @@ ls .planning/phases/${PHASE}-*/RESEARCH.md 2>/dev/null
 ```bash
 grep -A20 "Phase ${PHASE}:" .planning/ROADMAP.md
 cat .planning/REQUIREMENTS.md 2>/dev/null
-cat .planning/phases/${PHASE}-*/${PHASE}-CONTEXT.md 2>/dev/null
+cat ${PHASE_DIR}/${PHASE}-CONTEXT.md 2>/dev/null
 grep -A30 "### Decisions Made" .planning/STATE.md 2>/dev/null
 ```
 
@@ -145,7 +159,7 @@ Before declaring complete, verify:
 </quality_gate>
 
 <output>
-Write to: .planning/phases/${PHASE}-{slug}/${PHASE}-RESEARCH.md
+Write to: ${PHASE_DIR}/${PHASE}-RESEARCH.md
 </output>
 ```
 
@@ -174,7 +188,7 @@ Continue research for Phase {phase_number}: {phase_name}
 </objective>
 
 <prior_state>
-Research file: @.planning/phases/${PHASE}-{slug}/${PHASE}-RESEARCH.md
+Research file: @${PHASE_DIR}/${PHASE}-RESEARCH.md
 </prior_state>
 
 <checkpoint_response>

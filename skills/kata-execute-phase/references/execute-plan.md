@@ -78,8 +78,8 @@ Find the next plan to execute:
 cat .planning/ROADMAP.md
 # Look for phase with "In progress" status
 # Then find plans in that phase
-ls .planning/phases/XX-name/*-PLAN.md 2>/dev/null | sort
-ls .planning/phases/XX-name/*-SUMMARY.md 2>/dev/null | sort
+find .planning/phases/XX-name -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | sort
+find .planning/phases/XX-name -maxdepth 1 -name "*-SUMMARY.md" 2>/dev/null | sort
 ```
 
 **Logic:**
@@ -563,8 +563,15 @@ The CONTEXT.md file provides the user's vision for this phase — how they imagi
 Before executing, check if previous phase had issues:
 
 ```bash
-# Find previous phase summary
-ls .planning/phases/*/SUMMARY.md 2>/dev/null | sort -r | head -2 | tail -1
+# Find previous phase summary (scan across state subdirectories)
+ALL_SUMMARIES=""
+for state in active pending completed; do
+  [ -d ".planning/phases/${state}" ] && ALL_SUMMARIES="${ALL_SUMMARIES} $(find ".planning/phases/${state}" -maxdepth 2 -name "SUMMARY.md" 2>/dev/null)"
+done
+# Fallback: flat directories
+FLAT_SUMMARIES=$(find .planning/phases -maxdepth 2 -name "SUMMARY.md" -path "*/[0-9]*/*" 2>/dev/null)
+[ -n "$FLAT_SUMMARIES" ] && ALL_SUMMARIES="${ALL_SUMMARIES} ${FLAT_SUMMARIES}"
+echo "$ALL_SUMMARIES" | tr ' ' '\n' | sort -r | head -2 | tail -1
 ```
 
 If previous phase SUMMARY.md has "Issues Encountered" != "None" or "Next Phase Readiness" mentions blockers:
@@ -1695,8 +1702,8 @@ This warning appears BEFORE "Plan complete" messaging. User sees setup requireme
 List files in the phase directory:
 
 ```bash
-ls -1 .planning/phases/[current-phase-dir]/*-PLAN.md 2>/dev/null | wc -l
-ls -1 .planning/phases/[current-phase-dir]/*-SUMMARY.md 2>/dev/null | wc -l
+find .planning/phases/[current-phase-dir] -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | wc -l
+find .planning/phases/[current-phase-dir] -maxdepth 1 -name "*-SUMMARY.md" 2>/dev/null | wc -l
 ```
 
 State the counts: "This phase has [X] plans and [Y] summaries."

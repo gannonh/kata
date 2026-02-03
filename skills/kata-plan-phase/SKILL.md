@@ -88,11 +88,25 @@ elif [[ "$PHASE" =~ ^([0-9]+)\.([0-9]+)$ ]]; then
 fi
 ```
 
-**Check for existing research and plans:**
+**Check for existing research and plans (uses universal phase discovery):**
 
 ```bash
-ls .planning/phases/${PHASE}-*/*-RESEARCH.md 2>/dev/null
-ls .planning/phases/${PHASE}-*/*-PLAN.md 2>/dev/null
+# Find phase directory across state subdirectories
+PADDED=$(printf "%02d" "$PHASE" 2>/dev/null || echo "$PHASE")
+PHASE_DIR=""
+for state in active pending completed; do
+  PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
+  [ -n "$PHASE_DIR" ] && break
+done
+# Fallback: flat directory (backward compatibility for unmigrated projects)
+if [ -z "$PHASE_DIR" ]; then
+  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
+fi
+
+find "${PHASE_DIR}" -maxdepth 1 -name "*-RESEARCH.md" 2>/dev/null
+find "${PHASE_DIR}" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null
 ```
 
 ## 3. Validate Phase
@@ -107,12 +121,25 @@ grep -A5 "Phase ${PHASE}:" .planning/ROADMAP.md 2>/dev/null
 
 ```bash
 # PHASE is already normalized (08, 02.1, etc.) from step 2
-PHASE_DIR=$(ls -d .planning/phases/${PHASE}-* 2>/dev/null | head -1)
+# Use universal phase discovery: search active/pending/completed with flat fallback
+PADDED=$(printf "%02d" "$PHASE" 2>/dev/null || echo "$PHASE")
+PHASE_DIR=""
+for state in active pending completed; do
+  PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
+  [ -n "$PHASE_DIR" ] && break
+done
+# Fallback: flat directory (backward compatibility for unmigrated projects)
 if [ -z "$PHASE_DIR" ]; then
-  # Create phase directory from roadmap name
+  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
+fi
+
+if [ -z "$PHASE_DIR" ]; then
+  # Create phase directory in pending/ from roadmap name
   PHASE_NAME=$(grep "Phase ${PHASE}:" .planning/ROADMAP.md | sed 's/.*Phase [0-9]*: //' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
-  mkdir -p ".planning/phases/${PHASE}-${PHASE_NAME}"
-  PHASE_DIR=".planning/phases/${PHASE}-${PHASE_NAME}"
+  mkdir -p ".planning/phases/pending/${PHASE}-${PHASE_NAME}"
+  PHASE_DIR=".planning/phases/pending/${PHASE}-${PHASE_NAME}"
 fi
 ```
 
@@ -135,7 +162,7 @@ WORKFLOW_RESEARCH=$(cat .planning/config.json 2>/dev/null | grep -o '"research"[
 Check for existing research:
 
 ```bash
-ls "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null
+find "${PHASE_DIR}" -maxdepth 1 -name "*-RESEARCH.md" 2>/dev/null
 ```
 
 **If RESEARCH.md exists AND `--research` flag NOT set:**
@@ -224,7 +251,7 @@ Task(
 ## 6. Check Existing Plans
 
 ```bash
-ls "${PHASE_DIR}"/*-PLAN.md 2>/dev/null
+find "${PHASE_DIR}" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null
 ```
 
 **If exists:** Offer: 1) Continue planning (add more plans), 2) View existing, 3) Replan from scratch. Wait for response.
@@ -568,7 +595,7 @@ fi
 ```bash
 PLAN_CHECKLIST=""
 PLAN_COUNT=0
-for plan_file in $(ls "${PHASE_DIR}"/*-PLAN.md 2>/dev/null | sort); do
+for plan_file in $(find "${PHASE_DIR}" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | sort); do
   PLAN_NUM=$(basename "$plan_file" | sed -E 's/.*-([0-9]+)-PLAN\.md/\1/')
   # Extract brief objective from plan (first line after <objective>)
   PLAN_OBJECTIVE=$(grep -A2 "<objective>" "$plan_file" | head -2 | tail -1 | sed 's/^ *//' | head -c 60)

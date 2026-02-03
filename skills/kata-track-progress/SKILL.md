@@ -78,8 +78,8 @@ PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:s
 - Calculate: total plans, completed plans, remaining plans
 - Note any blockers or concerns
 - Check for CONTEXT.md: For phases without PLAN.md files, check if `{phase}-CONTEXT.md` exists in phase directory
-- Count pending issues: `ls .planning/issues/open/*.md 2>/dev/null | wc -l`
-- Check for active debug sessions: `ls .planning/debug/*.md 2>/dev/null | grep -v resolved | wc -l`
+- Count pending issues: `find .planning/issues/open -maxdepth 1 -name "*.md" 2>/dev/null | wc -l`
+- Check for active debug sessions: `find .planning/debug -maxdepth 1 -name "*.md" 2>/dev/null | grep -v resolved | wc -l`
   </step>
 
 <step name="report">
@@ -175,14 +175,31 @@ Branch: [current_branch]
 <step name="route">
 **Determine next action based on verified counts.**
 
-**Step 1: Count plans, summaries, and issues in current phase**
+**Step 1: Find current phase directory and count plans, summaries, and issues**
+
+Find the current phase directory using universal discovery:
+
+```bash
+PADDED=$(printf "%02d" "$CURRENT_PHASE" 2>/dev/null || echo "$CURRENT_PHASE")
+PHASE_DIR=""
+for state in active pending completed; do
+  PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${CURRENT_PHASE}-*" 2>/dev/null | head -1)
+  [ -n "$PHASE_DIR" ] && break
+done
+# Fallback: flat directory (backward compatibility)
+if [ -z "$PHASE_DIR" ]; then
+  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${CURRENT_PHASE}-*" 2>/dev/null | head -1)
+fi
+```
 
 List files in the current phase directory:
 
 ```bash
-ls -1 .planning/phases/[current-phase-dir]/*-PLAN.md 2>/dev/null | wc -l
-ls -1 .planning/phases/[current-phase-dir]/*-SUMMARY.md 2>/dev/null | wc -l
-ls -1 .planning/phases/[current-phase-dir]/*-UAT.md 2>/dev/null | wc -l
+find "${PHASE_DIR}" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | wc -l
+find "${PHASE_DIR}" -maxdepth 1 -name "*-SUMMARY.md" 2>/dev/null | wc -l
+find "${PHASE_DIR}" -maxdepth 1 -name "*-UAT.md" 2>/dev/null | wc -l
 ```
 
 State: "This phase has {X} plans, {Y} summaries."
@@ -193,7 +210,7 @@ Check for UAT.md files with status "diagnosed" (has gaps needing fixes).
 
 ```bash
 # Check for diagnosed UAT with gaps
-grep -l "status: diagnosed" .planning/phases/[current-phase-dir]/*-UAT.md 2>/dev/null
+find "${PHASE_DIR}" -maxdepth 1 -name "*-UAT.md" -exec grep -l "status: diagnosed" {} + 2>/dev/null
 ```
 
 Track:
