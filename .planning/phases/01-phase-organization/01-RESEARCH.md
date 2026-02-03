@@ -174,7 +174,7 @@ validate_phase_completion() {
 
 ### Complete File Inventory Requiring Updates
 
-**Skills (11 files):**
+**Skills (12 files):**
 1. `skills/kata-plan-phase/SKILL.md` — Step 4 (ensure phase dir), step 5 (research lookup)
 2. `skills/kata-execute-phase/SKILL.md` — Step 1.5 (branch setup), step 2-4 (plan discovery)
 3. `skills/kata-track-progress/SKILL.md` — Step "position" and "route" (phase dir listing)
@@ -188,7 +188,7 @@ validate_phase_completion() {
 11. `skills/kata-audit-milestone/SKILL.md` — Phase scanning for milestone audit
 12. `skills/kata-plan-milestone-gaps/SKILL.md` — Phase scanning
 
-**Skill References (6 files):**
+**Skill References (9 files):**
 1. `skills/kata-execute-phase/references/phase-execute.md` — validate_phase step
 2. `skills/kata-execute-phase/references/summary-template.md` — path references
 3. `skills/kata-execute-phase/references/execute-plan.md` — path references
@@ -205,7 +205,7 @@ validate_phase_completion() {
 3. `agents/kata-phase-researcher.md` — Phase directory lookup for research output
 4. `agents/kata-integration-checker.md` — Cross-phase scanning
 
-**Other:**
+**Other (2 files):**
 1. `CLAUDE.md` — Phase directory reference in examples
 2. `.planning/codebase/ARCHITECTURE.md` — Architecture documentation
 
