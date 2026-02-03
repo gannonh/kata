@@ -720,7 +720,17 @@ or use /kata:kata-check-issues to update status.
 1. Find upcoming phases (same logic as local issue path):
 ```bash
 UPCOMING_PHASES=""
-for phase_dir in .planning/phases/*/; do
+ALL_PHASE_DIRS=""
+for state in active pending completed; do
+  for d in .planning/phases/${state}/*/; do
+    [ -d "$d" ] && ALL_PHASE_DIRS="$ALL_PHASE_DIRS $d"
+  done
+done
+# Flat directory fallback (unmigrated projects)
+for d in .planning/phases/[0-9]*/; do
+  [ -d "$d" ] && ALL_PHASE_DIRS="$ALL_PHASE_DIRS $d"
+done
+for phase_dir in $ALL_PHASE_DIRS; do
   phase_name=$(basename "$phase_dir")
   plan_count=$(ls "$phase_dir"/*-PLAN.md 2>/dev/null | wc -l)
   summary_count=$(ls "$phase_dir"/*-SUMMARY.md 2>/dev/null | wc -l)
