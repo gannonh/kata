@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v1.4.1 Issue Execution — Phase 3 Complete (Milestone Complete)
+**Current focus:** v1.4.1 Issue Execution — Milestone Complete
 
 ## Current Position
 
 Milestone: v1.4.1 Issue Execution
-Phase: 4 of 4 (Wire plan-phase Issue Context) — Not Started
-Plan: 0 of 1 complete
-Status: Gap closure phase added from audit
-Last activity: 2026-02-02 — Added Phase 4 to close INTEG-03 gap
+Phase: 4 of 4 (Wire plan-phase Issue Context) — Complete
+Plan: 1 of 1 complete
+Status: Milestone complete
+Last activity: 2026-02-02 — Completed 04-01-PLAN.md (wire plan-phase issue context)
 
-Progress: [██████████████████████████████████████████████████] 5/6 plans (83%)
+Progress: [████████████████████████████████████████████████████████████] 6/6 plans (100%)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 88
+- Total plans completed: 89
 - Average duration: 3 min
-- Total execution time: 223 min
+- Total execution time: 224 min
 
 **By Milestone:**
 
@@ -39,10 +39,11 @@ Progress: [███████████████████████
 | v1.3.0    | 2      | 4     | Shipped 2026-01-28 |
 | v1.3.3    | 1      | 4     | Shipped 2026-01-29 |
 | v1.4.0    | 2      | 11    | Shipped 2026-02-01 |
+| v1.4.1    | 4      | 6     | Complete 2026-02-02 |
 
 **Recent Trend:**
 - v1.4.0: GitHub Issue Sync shipped (11 plans across 2 phases)
-- v1.4.1: Continuing issue work — execution workflows and PR integration
+- v1.4.1: Issue Execution complete (6 plans across 4 phases)
 
 *Updated after each plan completion*
 
@@ -53,6 +54,7 @@ Progress: [███████████████████████
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- **2026-02-02: INTEG-03 closed** — plan-phase now extracts issue context from STATE.md and passes to kata-planner, enabling source_issue traceability.
 - **2026-02-01: v1.4.1 inserted** — Continue issue work before phase management. Issue execution workflow and PR→issue closure needed to complete the issue feature.
 - **2026-02-01: v1.4.0 scope reduced** — Shipped with phases 1-2 (GitHub Issue Sync). Phases 3-5 (Phase Management, Roadmap Enhancements) moved to v1.5.0.
 - **2026-02-01: Commands deprecated** — Removed commands/kata/ wrapper layer. Skills are now user-invocable directly via /kata:skill-name.
@@ -60,8 +62,8 @@ Recent decisions affecting current work:
 ### Roadmap Evolution
 
 - **v1.4.0 shipped 2026-02-01** — GitHub Issue Sync (2 phases, 11 plans)
-- **v1.4.1 created 2026-02-01** — Issue Execution (3 phases: PR closure, execution workflow, roadmap integration)
-- **v1.5.0 retained** — Phase Management (3 phases from original v1.4.0 scope)
+- **v1.4.1 complete 2026-02-02** — Issue Execution (4 phases: PR closure, execution workflow, roadmap integration, plan-phase wiring)
+- **v1.5.0 next** — Phase Management (3 phases from original v1.4.0 scope)
 
 ### Pending Issues
 
@@ -84,6 +86,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Phase 4 added (gap closure from audit)
+Stopped at: Completed 04-01-PLAN.md (v1.4.1 complete)
 Resume file: None
-Next action: `/kata:plan-phase 4` to plan gap closure
+Next action: Ship v1.4.1 or start v1.5.0 planning
