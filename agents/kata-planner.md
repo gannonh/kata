@@ -1052,7 +1052,7 @@ Store `COMMIT_PLANNING_DOCS` for use in git operations.
 Check for codebase map:
 
 ```bash
-ls .planning/codebase/*.md 2>/dev/null
+find .planning/codebase -maxdepth 1 -name "*.md" 2>/dev/null
 ```
 
 If exists, load relevant documents based on phase type:

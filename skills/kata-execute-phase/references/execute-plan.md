@@ -566,10 +566,10 @@ Before executing, check if previous phase had issues:
 # Find previous phase summary (scan across state subdirectories)
 ALL_SUMMARIES=""
 for state in active pending completed; do
-  [ -d ".planning/phases/${state}" ] && ALL_SUMMARIES="${ALL_SUMMARIES} $(ls .planning/phases/${state}/*/SUMMARY.md 2>/dev/null)"
+  [ -d ".planning/phases/${state}" ] && ALL_SUMMARIES="${ALL_SUMMARIES} $(find ".planning/phases/${state}" -maxdepth 2 -name "SUMMARY.md" 2>/dev/null)"
 done
 # Fallback: flat directories
-FLAT_SUMMARIES=$(ls .planning/phases/[0-9]*/SUMMARY.md 2>/dev/null)
+FLAT_SUMMARIES=$(find .planning/phases -maxdepth 2 -name "SUMMARY.md" -path "*/[0-9]*/*" 2>/dev/null)
 [ -n "$FLAT_SUMMARIES" ] && ALL_SUMMARIES="${ALL_SUMMARIES} ${FLAT_SUMMARIES}"
 echo "$ALL_SUMMARIES" | tr ' ' '\n' | sort -r | head -2 | tail -1
 ```

@@ -24,7 +24,7 @@ User's issue: $ARGUMENTS
 
 Check for active sessions:
 ```bash
-ls .planning/debug/*.md 2>/dev/null | grep -v resolved | head -5
+find .planning/debug -maxdepth 1 -name "*.md" 2>/dev/null | grep -v resolved | head -5
 ```
 </context>
 

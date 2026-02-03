@@ -65,8 +65,8 @@ Migration is idempotent: presence of `_archived/` indicates already migrated.
 
 <step name="check_exist">
 ```bash
-OPEN_COUNT=$(ls .planning/issues/open/*.md 2>/dev/null | wc -l | tr -d ' ')
-IN_PROGRESS_COUNT=$(ls .planning/issues/in-progress/*.md 2>/dev/null | wc -l | tr -d ' ')
+OPEN_COUNT=$(find .planning/issues/open -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+IN_PROGRESS_COUNT=$(find .planning/issues/in-progress -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 echo "Open issues: $OPEN_COUNT"
 echo "In progress: $IN_PROGRESS_COUNT"
 ```
@@ -969,9 +969,9 @@ Return to list_issues step.
 After any action that changes issue count:
 
 ```bash
-OPEN_COUNT=$(ls .planning/issues/open/*.md 2>/dev/null | wc -l | tr -d ' ')
-IN_PROGRESS_COUNT=$(ls .planning/issues/in-progress/*.md 2>/dev/null | wc -l | tr -d ' ')
-CLOSED_COUNT=$(ls .planning/issues/closed/*.md 2>/dev/null | wc -l | tr -d ' ')
+OPEN_COUNT=$(find .planning/issues/open -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+IN_PROGRESS_COUNT=$(find .planning/issues/in-progress -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+CLOSED_COUNT=$(find .planning/issues/closed -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 echo "Open: $OPEN_COUNT, In Progress: $IN_PROGRESS_COUNT, Closed: $CLOSED_COUNT"
 ```
 

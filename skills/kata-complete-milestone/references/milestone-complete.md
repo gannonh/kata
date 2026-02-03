@@ -106,11 +106,11 @@ cat .planning/ROADMAP.md
 # Count phase summaries across state subdirectories
 SUMMARY_COUNT=0
 for state in active pending completed; do
-  COUNT=$(ls .planning/phases/${state}/*/SUMMARY.md 2>/dev/null | wc -l)
+  COUNT=$(find ".planning/phases/${state}" -maxdepth 2 -name "SUMMARY.md" 2>/dev/null | wc -l)
   SUMMARY_COUNT=$((SUMMARY_COUNT + COUNT))
 done
 # Fallback: flat directories
-FLAT_COUNT=$(ls .planning/phases/[0-9]*/SUMMARY.md 2>/dev/null | wc -l)
+FLAT_COUNT=$(find .planning/phases -maxdepth 2 -name "SUMMARY.md" -path "*/[0-9]*/*" 2>/dev/null | wc -l)
 [ "$SUMMARY_COUNT" -eq 0 ] && SUMMARY_COUNT=$FLAT_COUNT
 echo "$SUMMARY_COUNT phase summaries found"
 ```

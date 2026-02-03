@@ -68,7 +68,7 @@ mkdir -p .planning/issues/open .planning/issues/closed
 
 <step name="check_existing_areas">
 ```bash
-ls .planning/issues/open/*.md 2>/dev/null | xargs -I {} grep "^area:" {} 2>/dev/null | cut -d' ' -f2 | sort -u
+find .planning/issues/open -maxdepth 1 -name "*.md" 2>/dev/null | xargs -I {} grep "^area:" {} 2>/dev/null | cut -d' ' -f2 | sort -u
 ```
 
 Note existing areas for consistency in infer_area step.
@@ -111,7 +111,7 @@ Use existing area from step 2 if similar match exists.
 
 <step name="check_duplicates">
 ```bash
-grep -l -i "[key words from title]" .planning/issues/open/*.md 2>/dev/null
+find .planning/issues/open -maxdepth 1 -name "*.md" -exec grep -l -i "[key words from title]" {} + 2>/dev/null
 ```
 
 If potential duplicate found:
@@ -227,7 +227,7 @@ fi
 <step name="update_state">
 If `.planning/STATE.md` exists:
 
-1. Count issues: `ls .planning/issues/open/*.md 2>/dev/null | wc -l`
+1. Count issues: `find .planning/issues/open -maxdepth 1 -name "*.md" 2>/dev/null | wc -l`
 2. Update "### Pending Issues" under "## Accumulated Context"
 </step>
 
