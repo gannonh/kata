@@ -197,9 +197,9 @@ fi
 List files in the current phase directory:
 
 ```bash
-ls -1 ${PHASE_DIR}/*-PLAN.md 2>/dev/null | wc -l
-ls -1 ${PHASE_DIR}/*-SUMMARY.md 2>/dev/null | wc -l
-ls -1 ${PHASE_DIR}/*-UAT.md 2>/dev/null | wc -l
+find "${PHASE_DIR}" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | wc -l
+find "${PHASE_DIR}" -maxdepth 1 -name "*-SUMMARY.md" 2>/dev/null | wc -l
+find "${PHASE_DIR}" -maxdepth 1 -name "*-UAT.md" 2>/dev/null | wc -l
 ```
 
 State: "This phase has {X} plans, {Y} summaries."
@@ -210,7 +210,7 @@ Check for UAT.md files with status "diagnosed" (has gaps needing fixes).
 
 ```bash
 # Check for diagnosed UAT with gaps
-grep -l "status: diagnosed" ${PHASE_DIR}/*-UAT.md 2>/dev/null
+find "${PHASE_DIR}" -maxdepth 1 -name "*-UAT.md" -exec grep -l "status: diagnosed" {} + 2>/dev/null
 ```
 
 Track:

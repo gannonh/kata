@@ -104,7 +104,7 @@ if [ -z "$PHASE_DIR" ]; then
   [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${TARGET}-*" 2>/dev/null | head -1)
 fi
 
-ls ${PHASE_DIR}/*-SUMMARY.md 2>/dev/null
+find "${PHASE_DIR}" -maxdepth 1 -name "*-SUMMARY.md" 2>/dev/null
 ```
 
 If any SUMMARY.md files exist:

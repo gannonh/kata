@@ -77,7 +77,7 @@ Phase: $ARGUMENTS
      exit 1
    fi
 
-   PLAN_COUNT=$(ls -1 "$PHASE_DIR"/*-PLAN.md 2>/dev/null | wc -l | tr -d ' ')
+   PLAN_COUNT=$(find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | wc -l | tr -d ' ')
    if [ "$PLAN_COUNT" -eq 0 ]; then
      echo "ERROR: No plans found in $PHASE_DIR"
      exit 1
@@ -168,7 +168,7 @@ Phase: $ARGUMENTS
      ```bash
      # Get plan numbers from SUMMARYs that exist after this wave
      COMPLETED_PLANS_IN_WAVE=""
-     for summary in ${PHASE_DIR}/*-SUMMARY.md; do
+     for summary in $(find "${PHASE_DIR}" -maxdepth 1 -name "*-SUMMARY.md" 2>/dev/null); do
        # Extract plan number from filename (e.g., 04-01-SUMMARY.md -> 01)
        plan_num=$(basename "$summary" | sed -E 's/^[0-9]+-([0-9]+)-SUMMARY\.md$/\1/')
        # Check if this plan was in the current wave (from frontmatter we read earlier)
@@ -267,7 +267,7 @@ Phase: $ARGUMENTS
 
          # Build plans checklist (all unchecked initially)
          PLANS_CHECKLIST=""
-         for plan in ${PHASE_DIR}/*-PLAN.md; do
+         for plan in $(find "${PHASE_DIR}" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null); do
            plan_name=$(grep -m1 "<name>" "$plan" | sed 's/.*<name>//;s/<\/name>.*//' || basename "$plan" | sed 's/-PLAN.md//')
            plan_num=$(basename "$plan" | sed -E 's/^[0-9]+-([0-9]+)-PLAN\.md$/\1/')
            PLANS_CHECKLIST="${PLANS_CHECKLIST}- [ ] Plan ${plan_num}: ${plan_name}\n"
@@ -275,7 +275,7 @@ Phase: $ARGUMENTS
 
          # Collect source_issue references from all plans
          SOURCE_ISSUES=""
-         for plan in ${PHASE_DIR}/*-PLAN.md; do
+         for plan in $(find "${PHASE_DIR}" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null); do
            source_issue=$(grep -m1 "^source_issue:" "$plan" | cut -d':' -f2- | xargs)
            if echo "$source_issue" | grep -q "^github:#"; then
              issue_num=$(echo "$source_issue" | grep -oE '#[0-9]+')
@@ -354,18 +354,18 @@ PR_EOF
 
    ```bash
    # Validate completion artifacts
-   PLAN_COUNT=$(ls -1 "$PHASE_DIR"/*-PLAN.md 2>/dev/null | wc -l | tr -d ' ')
+   PLAN_COUNT=$(find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | wc -l | tr -d ' ')
    MISSING=""
    if [ "$PLAN_COUNT" -eq 0 ]; then
      MISSING="${MISSING}\n- No PLAN.md files found"
    fi
-   for plan in "$PHASE_DIR"/*-PLAN.md; do
+   for plan in $(find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null); do
      plan_id=$(basename "$plan" | sed 's/-PLAN\.md$//')
      [ ! -f "$PHASE_DIR/${plan_id}-SUMMARY.md" ] && MISSING="${MISSING}\n- Missing SUMMARY.md for ${plan_id}"
    done
    # Non-gap phases require VERIFICATION.md
-   IS_GAP=$(grep -l "gap_closure: true" "$PHASE_DIR"/*-PLAN.md 2>/dev/null | head -1)
-   if [ -z "$IS_GAP" ] && ! ls "$PHASE_DIR"/*-VERIFICATION.md 1>/dev/null 2>&1; then
+   IS_GAP=$(find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" -exec grep -l "gap_closure: true" {} + 2>/dev/null | head -1)
+   if [ -z "$IS_GAP" ] && ! find "$PHASE_DIR" -maxdepth 1 -name "*-VERIFICATION.md" 2>/dev/null | grep -q .; then
      MISSING="${MISSING}\n- Missing VERIFICATION.md (required for non-gap phases)"
    fi
 
@@ -480,7 +480,7 @@ PR_EOF
     **Note:** Show "Merge PR" option only if `pr_workflow=true` AND PR exists AND not already merged.
 
     **If user chooses "Run UAT":**
-    1. Invoke skill: `Skill("kata:verify-work", "{phase}")`
+    1. Invoke skill: `Skill("kata:kata-verify-work", "{phase}")`
     2. UAT skill handles the walkthrough and any issues found
     3. After UAT completes, return to this step to ask again (user may want PR review or merge)
 
@@ -504,7 +504,7 @@ PR_EOF
        fi
 
        # Close source issues from plans (backup in case Closes #X didn't trigger)
-       for plan in ${PHASE_DIR}/*-PLAN.md; do
+       for plan in $(find "${PHASE_DIR}" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null); do
          source_issue=$(grep -m1 "^source_issue:" "$plan" | cut -d':' -f2- | xargs)
          if echo "$source_issue" | grep -q "^github:#"; then
            issue_num=$(echo "$source_issue" | grep -oE '[0-9]+')

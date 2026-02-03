@@ -78,8 +78,8 @@ Find the next plan to execute:
 cat .planning/ROADMAP.md
 # Look for phase with "In progress" status
 # Then find plans in that phase
-ls .planning/phases/XX-name/*-PLAN.md 2>/dev/null | sort
-ls .planning/phases/XX-name/*-SUMMARY.md 2>/dev/null | sort
+find .planning/phases/XX-name -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | sort
+find .planning/phases/XX-name -maxdepth 1 -name "*-SUMMARY.md" 2>/dev/null | sort
 ```
 
 **Logic:**
@@ -1702,8 +1702,8 @@ This warning appears BEFORE "Plan complete" messaging. User sees setup requireme
 List files in the phase directory:
 
 ```bash
-ls -1 .planning/phases/[current-phase-dir]/*-PLAN.md 2>/dev/null | wc -l
-ls -1 .planning/phases/[current-phase-dir]/*-SUMMARY.md 2>/dev/null | wc -l
+find .planning/phases/[current-phase-dir] -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | wc -l
+find .planning/phases/[current-phase-dir] -maxdepth 1 -name "*-SUMMARY.md" 2>/dev/null | wc -l
 ```
 
 State the counts: "This phase has [X] plans and [Y] summaries."

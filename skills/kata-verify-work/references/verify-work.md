@@ -107,7 +107,7 @@ if [ -z "$PHASE_DIR" ]; then
 fi
 
 # Find SUMMARY files
-ls "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null
+find "$PHASE_DIR" -maxdepth 1 -name "*-SUMMARY.md" 2>/dev/null
 ```
 
 Read each SUMMARY.md to extract testable deliverables.

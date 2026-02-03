@@ -440,8 +440,8 @@ for phase_dir in $ALL_PHASE_DIRS; do
   [ -d "$phase_dir" ] || continue
   phase_name=$(basename "$phase_dir")
   # Check if phase has at least one PLAN.md but missing at least one SUMMARY.md
-  plan_count=$(ls "$phase_dir"/*-PLAN.md 2>/dev/null | wc -l)
-  summary_count=$(ls "$phase_dir"/*-SUMMARY.md 2>/dev/null | wc -l)
+  plan_count=$(find "$phase_dir" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | wc -l)
+  summary_count=$(find "$phase_dir" -maxdepth 1 -name "*-SUMMARY.md" 2>/dev/null | wc -l)
 
   if [ "$plan_count" -gt 0 ] && [ "$plan_count" -gt "$summary_count" ]; then
     # Extract phase goal from roadmap
@@ -732,8 +732,8 @@ for d in .planning/phases/[0-9]*/; do
 done
 for phase_dir in $ALL_PHASE_DIRS; do
   phase_name=$(basename "$phase_dir")
-  plan_count=$(ls "$phase_dir"/*-PLAN.md 2>/dev/null | wc -l)
-  summary_count=$(ls "$phase_dir"/*-SUMMARY.md 2>/dev/null | wc -l)
+  plan_count=$(find "$phase_dir" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | wc -l)
+  summary_count=$(find "$phase_dir" -maxdepth 1 -name "*-SUMMARY.md" 2>/dev/null | wc -l)
 
   if [ "$plan_count" -gt 0 ] && [ "$plan_count" -gt "$summary_count" ]; then
     phase_num=$(echo "$phase_name" | grep -oE '^[0-9]+')

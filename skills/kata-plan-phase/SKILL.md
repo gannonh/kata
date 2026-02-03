@@ -105,8 +105,8 @@ if [ -z "$PHASE_DIR" ]; then
   [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
 fi
 
-ls "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null
-ls "${PHASE_DIR}"/*-PLAN.md 2>/dev/null
+find "${PHASE_DIR}" -maxdepth 1 -name "*-RESEARCH.md" 2>/dev/null
+find "${PHASE_DIR}" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null
 ```
 
 ## 3. Validate Phase
@@ -162,7 +162,7 @@ WORKFLOW_RESEARCH=$(cat .planning/config.json 2>/dev/null | grep -o '"research"[
 Check for existing research:
 
 ```bash
-ls "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null
+find "${PHASE_DIR}" -maxdepth 1 -name "*-RESEARCH.md" 2>/dev/null
 ```
 
 **If RESEARCH.md exists AND `--research` flag NOT set:**
@@ -251,7 +251,7 @@ Task(
 ## 6. Check Existing Plans
 
 ```bash
-ls "${PHASE_DIR}"/*-PLAN.md 2>/dev/null
+find "${PHASE_DIR}" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null
 ```
 
 **If exists:** Offer: 1) Continue planning (add more plans), 2) View existing, 3) Replan from scratch. Wait for response.
@@ -595,7 +595,7 @@ fi
 ```bash
 PLAN_CHECKLIST=""
 PLAN_COUNT=0
-for plan_file in $(ls "${PHASE_DIR}"/*-PLAN.md 2>/dev/null | sort); do
+for plan_file in $(find "${PHASE_DIR}" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | sort); do
   PLAN_NUM=$(basename "$plan_file" | sed -E 's/.*-([0-9]+)-PLAN\.md/\1/')
   # Extract brief objective from plan (first line after <objective>)
   PLAN_OBJECTIVE=$(grep -A2 "<objective>" "$plan_file" | head -2 | tail -1 | sed 's/^ *//' | head -c 60)
