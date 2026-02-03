@@ -146,6 +146,14 @@ Loop until "Create PROJECT.md" selected.
 
 ## Phase 4: Write PROJECT.md
 
+**First, create all project directories in a single command:**
+
+```bash
+mkdir -p .planning/phases/pending .planning/phases/active .planning/phases/completed
+```
+
+This creates `.planning/`, `.planning/phases/`, and the three state subdirectories. Run this BEFORE writing any files.
+
 Synthesize all context into `.planning/PROJECT.md` using the template from `@./references/project-template.md`.
 
 **For greenfield projects:**
@@ -220,20 +228,6 @@ Initialize with any decisions made during questioning:
 ```
 
 Do not compress. Capture everything gathered.
-
-**Create project directories:**
-
-```bash
-mkdir -p .planning
-mkdir -p .planning/phases/pending
-mkdir -p .planning/phases/active
-mkdir -p .planning/phases/completed
-```
-
-All four directories MUST be created. Verify:
-```bash
-ls -d .planning/phases/pending .planning/phases/active .planning/phases/completed
-```
 
 **Commit PROJECT.md:**
 
