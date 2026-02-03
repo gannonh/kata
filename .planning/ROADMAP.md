@@ -56,6 +56,23 @@ Plans:
 2. ✓ User can pull issues into a phase (becomes a task/plan)
 3. ✓ Phase plans can reference their source issue number for traceability
 
+#### Phase 4: Wire plan-phase to Issue Context
+
+**Goal:** Connect plan-phase to STATE.md issue sections so source_issue is set in generated plans.
+**Requirements:** INTEG-03 (gap closure)
+**Dependencies:** Phase 3
+**Gap Closure:** Closes gaps from v1.4.1 audit
+**Plans:** 0/0 complete
+
+Plans:
+- [ ] 04-01-PLAN.md — Wire plan-phase to STATE.md issue sections
+
+**Success Criteria** (what must be TRUE):
+1. plan-phase reads STATE.md "Pending Issues" section
+2. plan-phase reads STATE.md "Milestone Scope Issues" section
+3. Issue context passed to kata-planner when linked issues exist
+4. Generated PLAN.md files include `source_issue` when created from linked issues
+
 ---
 
 ## Planned Milestones
@@ -214,9 +231,9 @@ Plans:
 | v1.3.0    | 2      | 4     | Shipped  | 2026-01-28 |
 | v1.3.3    | 1      | 4     | Shipped  | 2026-01-29 |
 | v1.4.0    | 2      | 11    | Shipped  | 2026-02-01 |
-| v1.4.1    | 3      | 5     | Current  | —          |
+| v1.4.1    | 4      | 6     | Current  | —          |
 | v1.5.0    | 3      | TBD   | Planned  | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-02 — Phase 3 complete (milestone complete)*
+*Last updated: 2026-02-02 — Phase 4 added (gap closure)*
