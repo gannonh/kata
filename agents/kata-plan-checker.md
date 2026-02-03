@@ -244,9 +244,17 @@ issue:
 Gather verification context from the phase directory and project state.
 
 ```bash
-# Normalize phase and find directory
+# Universal phase discovery (state-aware with flat fallback)
 PADDED_PHASE=$(printf "%02d" ${PHASE_ARG} 2>/dev/null || echo "${PHASE_ARG}")
-PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE_ARG}-* 2>/dev/null | head -1)
+PHASE_DIR=""
+for state in active pending completed; do
+  PHASE_DIR=$(ls -d .planning/phases/${state}/${PADDED_PHASE}-* .planning/phases/${state}/${PHASE_ARG}-* 2>/dev/null | head -1)
+  [ -n "$PHASE_DIR" ] && break
+done
+# Flat directory fallback (unmigrated projects)
+if [ -z "$PHASE_DIR" ]; then
+  PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE_ARG}-* 2>/dev/null | head -1)
+fi
 
 # List all PLAN.md files
 ls "$PHASE_DIR"/*-PLAN.md 2>/dev/null

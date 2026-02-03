@@ -56,8 +56,15 @@ For each phase, extract what it provides and what it should consume.
 **From SUMMARYs, extract:**
 
 ```bash
-# Key exports from each phase
-for summary in .planning/phases/*/*-SUMMARY.md; do
+# Key exports from each phase (scan across state subdirectories)
+ALL_SUMMARIES=""
+for state in active pending completed; do
+  ALL_SUMMARIES="$ALL_SUMMARIES $(ls .planning/phases/${state}/*/*-SUMMARY.md 2>/dev/null)"
+done
+# Flat directory fallback (unmigrated projects)
+ALL_SUMMARIES="$ALL_SUMMARIES $(ls .planning/phases/[0-9]*/*-SUMMARY.md 2>/dev/null)"
+for summary in $ALL_SUMMARIES; do
+  [ -f "$summary" ] || continue
   echo "=== $summary ==="
   grep -A 10 "Key Files\|Exports\|Provides" "$summary" 2>/dev/null
 done

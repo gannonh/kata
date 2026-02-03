@@ -56,8 +56,9 @@ cat .planning/REQUIREMENTS.md
 # See roadmap and phase breakdown
 cat .planning/ROADMAP.md
 
-# Current phase plans
-ls .planning/phases/[current-phase]/
+# Current phase plans (phases live in active/, pending/, or completed/)
+ls .planning/phases/active/
+ls .planning/phases/pending/
 ```
 
 **Common workflow when working on Kata:**

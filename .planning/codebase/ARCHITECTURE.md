@@ -98,7 +98,16 @@ This is a meta-prompting and context engineering system for Claude Code. It prov
 - `.planning/PROJECT.md`: Core project context (updated with decisions)
 - `.planning/ROADMAP.md`: Phase structure with progress
 - `.planning/REQUIREMENTS.md`: Requirement tracking with traceability
-- `.planning/phases/*/`: Plan files, summaries, verification reports
+- `.planning/phases/{active,pending,completed}/XX-name/`: Plan files, summaries, verification reports
+
+**Phase State Organization:**
+Phases are organized into state subdirectories under `.planning/phases/`:
+- `pending/` — Phases not yet started (created by roadmapper)
+- `active/` — Phase currently being executed (moved by phase-execute)
+- `completed/` — Phases that have finished execution (moved after verification)
+- `.archive/` — Cross-milestone historical records (moved by milestone-complete)
+
+All phase discovery uses a universal pattern that scans across state subdirectories with a flat directory fallback for backward compatibility with unmigrated projects.
 
 ## Key Abstractions
 
