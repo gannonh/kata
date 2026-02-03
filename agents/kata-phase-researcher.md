@@ -448,12 +448,14 @@ Orchestrator provides:
 PADDED_PHASE=$(printf "%02d" ${PHASE} 2>/dev/null || echo "${PHASE}")
 PHASE_DIR=""
 for state in active pending completed; do
-  PHASE_DIR=$(ls -d .planning/phases/${state}/${PADDED_PHASE}-* .planning/phases/${state}/${PHASE}-* 2>/dev/null | head -1)
+  PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
   [ -n "$PHASE_DIR" ] && break
 done
 # Flat directory fallback (unmigrated projects)
 if [ -z "$PHASE_DIR" ]; then
-  PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE}-* 2>/dev/null | head -1)
+  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
 fi
 
 # Read CONTEXT.md if exists (from /kata:kata-discuss-phase)

@@ -835,12 +835,14 @@ Triggered by `--gaps` flag. Creates plans to address verification or UAT failure
 PADDED_PHASE=$(printf "%02d" ${PHASE_ARG} 2>/dev/null || echo "${PHASE_ARG}")
 PHASE_DIR=""
 for state in active pending completed; do
-  PHASE_DIR=$(ls -d .planning/phases/${state}/${PADDED_PHASE}-* .planning/phases/${state}/${PHASE_ARG}-* 2>/dev/null | head -1)
+  PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PHASE_ARG}-*" 2>/dev/null | head -1)
   [ -n "$PHASE_DIR" ] && break
 done
 # Flat directory fallback (unmigrated projects)
 if [ -z "$PHASE_DIR" ]; then
-  PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE_ARG}-* 2>/dev/null | head -1)
+  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE_ARG}-*" 2>/dev/null | head -1)
 fi
 
 # Check for VERIFICATION.md (code verification gaps)
@@ -1094,10 +1096,10 @@ Apply discovery level protocol (see discovery_levels section).
 # Scan across state subdirectories (with flat fallback)
 ALL_SUMMARIES=""
 for state in active pending completed; do
-  ALL_SUMMARIES="$ALL_SUMMARIES $(ls .planning/phases/${state}/*/*-SUMMARY.md 2>/dev/null)"
+  [ -d ".planning/phases/${state}" ] && ALL_SUMMARIES="$ALL_SUMMARIES $(find .planning/phases/${state} -maxdepth 2 -name "*-SUMMARY.md" -type f 2>/dev/null)"
 done
 # Flat directory fallback (unmigrated projects)
-ALL_SUMMARIES="$ALL_SUMMARIES $(ls .planning/phases/[0-9]*/*-SUMMARY.md 2>/dev/null)"
+ALL_SUMMARIES="$ALL_SUMMARIES $(find .planning/phases -maxdepth 2 -name "*-SUMMARY.md" -path "*/[0-9]*/*" -type f 2>/dev/null)"
 for f in $ALL_SUMMARIES; do
   [ -f "$f" ] || continue
   sed -n '1,/^---$/p; /^---$/q' "$f" | head -30
@@ -1136,12 +1138,14 @@ Understand:
 PADDED_PHASE=$(printf "%02d" ${PHASE} 2>/dev/null || echo "${PHASE}")
 PHASE_DIR=""
 for state in active pending completed; do
-  PHASE_DIR=$(ls -d .planning/phases/${state}/${PADDED_PHASE}-* .planning/phases/${state}/${PHASE}-* 2>/dev/null | head -1)
+  PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
   [ -n "$PHASE_DIR" ] && break
 done
 # Flat directory fallback (unmigrated projects)
 if [ -z "$PHASE_DIR" ]; then
-  PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE}-* 2>/dev/null | head -1)
+  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
 fi
 
 # Read CONTEXT.md if exists (from /kata:kata-discuss-phase)
