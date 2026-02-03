@@ -1,6 +1,6 @@
 ---
 name: kata-plan-milestone-gaps
-description: Use this skill when create phases to close all gaps identified by milestone audit. Triggers include "plan milestone gaps", "plan gaps".
+description: Create phases to close all gaps identified by milestone audit. Triggers include "plan milestone gaps", "plan gaps".
 metadata:
   version: "0.1.0"
 user-invocable: true

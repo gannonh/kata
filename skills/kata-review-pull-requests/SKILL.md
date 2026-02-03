@@ -1,6 +1,6 @@
 ---
 name: kata-review-pull-requests
-description: Use this skill to run a comprehensive pull request review using multiple specialized agents. Each agent focuses on a different aspect of code quality, such as comments, tests, error handling, type design, and general code review. The skill aggregates results and provides a clear action plan for improvements. Triggers include "review PR", "analyze pull request", "code review", and "PR quality check".
+description: Run a comprehensive pull request review using multiple specialized agents. Each agent focuses on a different aspect of code quality, such as comments, tests, error handling, type design, and general code review. The skill aggregates results and provides a clear action plan for improvements. Triggers include "review PR", "analyze pull request", "code review", and "PR quality check".
 user-invocable: true
 metadata:
   version: "0.1.0"

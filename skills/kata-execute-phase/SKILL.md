@@ -1,6 +1,6 @@
 ---
 name: kata-execute-phase
-description: Use this skill when executing all plans in a phase with wave-based parallelization, running phase execution, or completing phase work. Triggers include "execute phase", "run phase", "execute plans", "run the phase", and "phase execution".
+description: Execute all plans in a phase with wave-based parallelization, running phase execution, or completing phase work. Triggers include "execute phase", "run phase", "execute plans", "run the phase", and "phase execution".
 metadata:
   version: "0.1.0"
 user-invocable: true

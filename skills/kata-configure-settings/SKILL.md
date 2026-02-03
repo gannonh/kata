@@ -1,6 +1,6 @@
 ---
 name: kata-configure-settings
-description: Use this skill when configure kata workflow toggles and model profile. Triggers include "settings".
+description: Configure kata workflow toggles and model profile. Triggers include "settings".
 metadata:
   version: "0.1.0"
 user-invocable: true

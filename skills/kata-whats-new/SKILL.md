@@ -1,6 +1,6 @@
 ---
 name: kata-whats-new
-description: Use this skill when showing what's new in Kata since the installed version, displaying changelog entries, checking for Kata updates, or reviewing recent changes. Triggers include "what's new", "whats new", "show changes", "changelog", "recent changes", and "what changed".
+description: Show what's new in Kata since the installed version, displaying changelog entries, checking for Kata updates, or reviewing recent changes. Triggers include "what's new", "whats new", "show changes", "changelog", "recent changes", and "what changed".
 metadata:
   version: "0.1.0"
 user-invocable: true

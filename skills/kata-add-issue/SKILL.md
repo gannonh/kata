@@ -1,6 +1,6 @@
 ---
 name: kata-add-issue
-description: Use this skill to capture an idea, task, or issue that surfaces during a Kata session as a structured issue for later work. This skill creates markdown issue files in the .planning/issues/open directory with relevant metadata and content extracted from the conversation. Triggers include "add issue", "capture issue", "new issue", "create issue", "log issue", "file issue", "add todo" (deprecated), "capture todo" (deprecated), "new todo" (deprecated).
+description: Capture an idea, task, or issue that surfaces during a Kata session as a structured issue for later work. This skill creates markdown issue files in the .planning/issues/open directory with relevant metadata and content extracted from the conversation. Triggers include "add issue", "capture issue", "new issue", "create issue", "log issue", "file issue", "add todo" (deprecated), "capture todo" (deprecated), "new todo" (deprecated).
 metadata:
   version: "0.3.0"
 user-invocable: true

@@ -1,6 +1,6 @@
 ---
 name: kata-pause-work
-description: Use this skill when creating a context handoff file, pausing work mid-phase, stopping work temporarily, or creating a checkpoint for session resumption. Triggers include "pause work", "stop work", "create handoff", "save progress", and "pause session".
+description: Create a context handoff file, pausing work mid-phase, stopping work temporarily, or creating a checkpoint for session resumption. Triggers include "pause work", "stop work", "create handoff", "save progress", and "pause session".
 metadata:
   version: "0.1.0"
 user-invocable: true

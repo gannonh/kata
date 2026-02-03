@@ -1,6 +1,6 @@
 ---
 name: kata-insert-phase
-description: Use this skill when inserting urgent work as a decimal phase between existing phases, adding mid-milestone work, or creating intermediate phases. Triggers include "insert phase", "add urgent phase", "create decimal phase", "insert between phases", and "urgent work".
+description: Insert urgent work as a decimal phase between existing phases, adding mid-milestone work, or creating intermediate phases. Triggers include "insert phase", "add urgent phase", "create decimal phase", "insert between phases", and "urgent work".
 metadata:
   version: "0.1.0"
 user-invocable: true

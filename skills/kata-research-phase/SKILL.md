@@ -1,6 +1,6 @@
 ---
 name: kata-research-phase
-description: Use this skill when researching how to implement a phase standalone, investigating implementation approaches before planning, or re-researching after planning is complete. Triggers include "research phase", "investigate phase", "how to implement", "research implementation", and "phase research".
+description: Research how to implement a phase standalone, investigating implementation approaches before planning, or re-researching after planning is complete. Triggers include "research phase", "investigate phase", "how to implement", "research implementation", and "phase research".
 metadata:
   version: "0.1.0"
 user-invocable: true

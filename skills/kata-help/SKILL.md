@@ -1,6 +1,6 @@
 ---
 name: kata-help
-description: Use this skill when showing available Kata skills, displaying the usage guide, explaining skill reference, or when the user asks for help with Kata. Triggers include "help", "show skills", "list skills", "what skills", "kata skills", and "usage guide".
+description: Show available Kata skills, displaying the usage guide, explaining skill reference, or when the user asks for help with Kata. Triggers include "help", "show skills", "list skills", "what skills", "kata skills", and "usage guide".
 metadata:
   version: "0.1.0"
 user-invocable: true
