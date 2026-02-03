@@ -1,6 +1,6 @@
 # UAT Template
 
-Template for `.planning/phases/XX-name/{phase}-UAT.md` — persistent UAT session tracking.
+Template for `.planning/phases/{pending,active,completed}/XX-name/{phase}-UAT.md` — persistent UAT session tracking.
 
 ---
 

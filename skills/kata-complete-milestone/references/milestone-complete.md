@@ -103,7 +103,16 @@ Check if milestone is truly complete:
 
 ```bash
 cat .planning/ROADMAP.md
-ls .planning/phases/*/SUMMARY.md 2>/dev/null | wc -l
+# Count phase summaries across state subdirectories
+SUMMARY_COUNT=0
+for state in active pending completed; do
+  COUNT=$(ls .planning/phases/${state}/*/SUMMARY.md 2>/dev/null | wc -l)
+  SUMMARY_COUNT=$((SUMMARY_COUNT + COUNT))
+done
+# Fallback: flat directories
+FLAT_COUNT=$(ls .planning/phases/[0-9]*/SUMMARY.md 2>/dev/null | wc -l)
+[ "$SUMMARY_COUNT" -eq 0 ] && SUMMARY_COUNT=$FLAT_COUNT
+echo "$SUMMARY_COUNT phase summaries found"
 ```
 
 **Questions to ask:**
@@ -370,9 +379,18 @@ Milestone Stats:
 Read all phase SUMMARY.md files in milestone range:
 
 ```bash
-cat .planning/phases/01-*/01-*-SUMMARY.md
-cat .planning/phases/02-*/02-*-SUMMARY.md
-# ... for each phase in milestone
+# Read phase summaries across state subdirectories
+for state in active pending completed; do
+  for phase_dir in .planning/phases/${state}/*/; do
+    [ -d "$phase_dir" ] || continue
+    cat "${phase_dir}"*-SUMMARY.md 2>/dev/null
+  done
+done
+# Fallback: flat directories
+for phase_dir in .planning/phases/[0-9]*/; do
+  [ -d "$phase_dir" ] || continue
+  cat "${phase_dir}"*-SUMMARY.md 2>/dev/null
+done
 ```
 
 From summaries, extract 4-6 key accomplishments.
@@ -448,7 +466,12 @@ Perform full PROJECT.md evolution review at milestone completion.
 **Read all phase summaries in this milestone:**
 
 ```bash
-cat .planning/phases/*-*/*-SUMMARY.md
+# Read all phase summaries across state subdirectories
+for state in active pending completed; do
+  cat .planning/phases/${state}/*-*/*-SUMMARY.md 2>/dev/null
+done
+# Fallback: flat directories
+cat .planning/phases/[0-9]*-*/*-SUMMARY.md 2>/dev/null
 ```
 
 **Full review checklist:**

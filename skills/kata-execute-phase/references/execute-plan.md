@@ -563,8 +563,15 @@ The CONTEXT.md file provides the user's vision for this phase — how they imagi
 Before executing, check if previous phase had issues:
 
 ```bash
-# Find previous phase summary
-ls .planning/phases/*/SUMMARY.md 2>/dev/null | sort -r | head -2 | tail -1
+# Find previous phase summary (scan across state subdirectories)
+ALL_SUMMARIES=""
+for state in active pending completed; do
+  [ -d ".planning/phases/${state}" ] && ALL_SUMMARIES="${ALL_SUMMARIES} $(ls .planning/phases/${state}/*/SUMMARY.md 2>/dev/null)"
+done
+# Fallback: flat directories
+FLAT_SUMMARIES=$(ls .planning/phases/[0-9]*/SUMMARY.md 2>/dev/null)
+[ -n "$FLAT_SUMMARIES" ] && ALL_SUMMARIES="${ALL_SUMMARIES} ${FLAT_SUMMARIES}"
+echo "$ALL_SUMMARIES" | tr ' ' '\n' | sort -r | head -2 | tail -1
 ```
 
 If previous phase SUMMARY.md has "Issues Encountered" != "None" or "Next Phase Readiness" mentions blockers:
