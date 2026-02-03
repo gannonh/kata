@@ -244,6 +244,66 @@ Read and store context file contents for the planner agent. The `@` syntax does 
 
 Store all content for use in the Task prompt below.
 
+### Extract Linked Issues from STATE.md
+
+After reading the base context files, extract any issues linked to this phase from STATE.md:
+
+```bash
+# Normalize phase identifier
+PHASE_DIR_NAME=$(basename "$PHASE_DIR")
+PHASE_NUM=$(echo "$PHASE_DIR_NAME" | grep -oE '^[0-9.]+')
+
+# Extract linked issues from both sections
+LINKED_ISSUES=""
+
+# Check Pending Issues (from check-issues "Link to existing phase")
+if grep -q "^### Pending Issues" .planning/STATE.md 2>/dev/null; then
+  PENDING=$(awk '
+    /^### Pending Issues/{found=1; next}
+    /^### |^## /{if(found) exit}
+    found && /→ Phase/ {
+      # Match phase number or full phase dir name
+      if ($0 ~ /→ Phase '"${PHASE_NUM}"'-/ || $0 ~ /→ Phase '"${PHASE_DIR_NAME}"'/) {
+        print
+      }
+    }
+  ' .planning/STATE.md)
+  [ -n "$PENDING" ] && LINKED_ISSUES="${PENDING}"
+fi
+
+# Check Milestone Scope Issues (from add-milestone issue selection)
+if grep -q "^### Milestone Scope Issues" .planning/STATE.md 2>/dev/null; then
+  SCOPE=$(awk '
+    /^### Milestone Scope Issues/{found=1; next}
+    /^### |^## /{if(found) exit}
+    found && /→ Phase/ {
+      if ($0 ~ /→ Phase '"${PHASE_NUM}"'-/ || $0 ~ /→ Phase '"${PHASE_DIR_NAME}"'/) {
+        print
+      }
+    }
+  ' .planning/STATE.md)
+  [ -n "$SCOPE" ] && LINKED_ISSUES="${LINKED_ISSUES}${SCOPE}"
+fi
+```
+
+Build the issue context section for the prompt (only if issues are linked):
+
+```bash
+ISSUE_CONTEXT_SECTION=""
+if [ -n "$LINKED_ISSUES" ]; then
+  ISSUE_CONTEXT_SECTION="
+**Linked Issues:**
+${LINKED_ISSUES}
+
+Note: Set \`source_issue:\` in plan frontmatter for traceability:
+- GitHub issues: \`source_issue: github:#N\` (extract from provenance field)
+- Local issues: \`source_issue: [file path]\`
+"
+fi
+```
+
+Store ISSUE_CONTEXT_SECTION for use in Step 8 prompt.
+
 ## 8. Spawn kata-planner Agent
 
 Display stage banner:
@@ -277,6 +337,9 @@ Fill prompt with inlined content and spawn:
 
 **Research (if exists):**
 {research_content}
+
+**Linked Issues (from STATE.md):**
+{issue_context_section}
 
 **Gap Closure (if --gaps mode):**
 {verification_content}
