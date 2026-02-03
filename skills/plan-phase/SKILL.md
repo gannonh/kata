@@ -338,6 +338,9 @@ Fill prompt with inlined content and spawn:
 **Research (if exists):**
 {research_content}
 
+**Linked Issues (from STATE.md):**
+{issue_context_section}
+
 **Gap Closure (if --gaps mode):**
 {verification_content}
 {uat_content}
