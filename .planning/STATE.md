@@ -5,15 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-02-03)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** Planning next milestone (v1.5.0 Phase Management)
+**Current focus:** v1.5.0 Phase Management — defining requirements
 
 ## Current Position
 
 Milestone: v1.5.0 Phase Management
-Phase: Not started
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-02-03 — v1.4.1 milestone complete
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-03 — Milestone v1.5.0 started
 
 Progress: Not started
 
@@ -56,7 +56,7 @@ Recent decisions affecting current work:
 ### Roadmap Evolution
 
 - **v1.4.1 shipped 2026-02-03** — Issue Execution (4 phases, 6 plans)
-- **v1.5.0 next** — Phase Management (3 phases from original v1.4.0 scope)
+- **v1.5.0 started 2026-02-03** — Phase Management (3 phases: organization, movement, roadmap enhancements)
 
 ### Pending Issues
 
@@ -81,6 +81,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: v1.4.1 milestone completion
+Stopped at: v1.5.0 milestone initialization
 Resume file: None
-Next action: `/kata:kata-add-milestone` for v1.5.0 or start planning
+Next action: Define requirements, then `/kata:kata-plan-phase 1`

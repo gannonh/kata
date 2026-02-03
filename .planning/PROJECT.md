@@ -4,7 +4,7 @@
 
 A spec-driven development framework for Claude Code. Brings structured, reliable AI development to teams without changing their existing tools. Teams use Kata's quality-producing process inside the tools they already love.
 
-**Current state:** v1.4.1 shipped — Issue Execution. Complete issue lifecycle with execution workflows, PR auto-closure, roadmap integration, and plan-phase issue context wiring. Previous: GitHub Issue Sync with bidirectional issue integration.
+**Current state:** v1.5.0 in progress — Phase Management. Improved phase organization, movement, and roadmap visibility. Previous: v1.4.1 Issue Execution (complete issue lifecycle with execution workflows and PR auto-closure).
 
 ## Core Value
 
@@ -160,4 +160,4 @@ See `.planning/milestones/v1.4.0-ROADMAP.md` for full archive.
 See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 
 ---
-*Last updated: 2026-02-03 after v1.4.1 milestone*
+*Last updated: 2026-02-03 — v1.5.0 milestone started*
