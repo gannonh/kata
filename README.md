@@ -1,6 +1,6 @@
 <div align="center">
 
-# Kata
+# Kata Orchestrator
 
 **型** · /ˈkɑːtɑː/ · *noun* - a choreographed pattern practiced repeatedly until perfected
 
