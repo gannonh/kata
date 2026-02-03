@@ -741,6 +741,24 @@ EOF
 fi
 ```
 
+**Self-validation — verify all required artifacts exist before displaying completion:**
+
+```bash
+MISSING=""
+[ ! -f .planning/PROJECT.md ] && MISSING="${MISSING}\n- .planning/PROJECT.md"
+[ ! -f .planning/config.json ] && MISSING="${MISSING}\n- .planning/config.json"
+[ ! -d .planning/phases/pending ] && MISSING="${MISSING}\n- .planning/phases/pending/"
+[ ! -d .planning/phases/active ] && MISSING="${MISSING}\n- .planning/phases/active/"
+[ ! -d .planning/phases/completed ] && MISSING="${MISSING}\n- .planning/phases/completed/"
+if [ -n "$MISSING" ]; then
+  echo "MISSING ARTIFACTS:${MISSING}"
+else
+  echo "ALL ARTIFACTS PRESENT"
+fi
+```
+
+**If anything is missing:** Create the missing artifacts now. Do NOT proceed to the completion banner until all artifacts exist.
+
 **Display completion banner:**
 
 
@@ -799,11 +817,13 @@ Settings for `main`:
 <success_criteria>
 
 - [ ] .planning/ directory created
+- [ ] .planning/phases/pending/, active/, completed/ directories created
 - [ ] Git repo initialized
 - [ ] Brownfield detection completed
 - [ ] Deep questioning completed (threads followed, not rushed)
 - [ ] PROJECT.md captures full context → **committed**
 - [ ] config.json has workflow mode, depth, parallelization → **committed**
+- [ ] Self-validation passed (all artifacts exist)
 - [ ] User knows next step is `/kata:kata-add-milestone`
 
 **Atomic commits:** PROJECT.md and config.json are committed. If context is lost, artifacts persist.
