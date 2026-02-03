@@ -430,10 +430,10 @@ UPCOMING_PHASES=""
 # Scan all phase directories across states
 ALL_PHASE_DIRS=""
 for state in active pending completed; do
-  [ -d ".planning/phases/${state}" ] && ALL_PHASE_DIRS="${ALL_PHASE_DIRS} $(ls -d .planning/phases/${state}/*/ 2>/dev/null)"
+  [ -d ".planning/phases/${state}" ] && ALL_PHASE_DIRS="${ALL_PHASE_DIRS} $(find .planning/phases/${state} -maxdepth 1 -type d -not -name "${state}" 2>/dev/null)"
 done
 # Fallback: include flat directories (backward compatibility)
-FLAT_DIRS=$(ls -d .planning/phases/[0-9]*/ 2>/dev/null)
+FLAT_DIRS=$(find .planning/phases -maxdepth 1 -type d -name "[0-9]*" 2>/dev/null)
 [ -n "$FLAT_DIRS" ] && ALL_PHASE_DIRS="${ALL_PHASE_DIRS} ${FLAT_DIRS}"
 
 for phase_dir in $ALL_PHASE_DIRS; do

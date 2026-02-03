@@ -134,11 +134,15 @@ Check if CONTEXT.md already exists:
 PADDED_PHASE=$(printf "%02d" ${PHASE})
 PHASE_DIR=""
 for state in active pending completed; do
-  PHASE_DIR=$(ls -d .planning/phases/${state}/${PADDED_PHASE}-* .planning/phases/${state}/${PHASE}-* 2>/dev/null | head -1)
+  PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
   [ -n "$PHASE_DIR" ] && break
 done
 # Fallback: flat directory (backward compatibility)
-[ -z "$PHASE_DIR" ] && PHASE_DIR=$(ls -d .planning/phases/${PADDED_PHASE}-* .planning/phases/${PHASE}-* 2>/dev/null | head -1)
+if [ -z "$PHASE_DIR" ]; then
+  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED_PHASE}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
+fi
 
 ls ${PHASE_DIR}/CONTEXT.md ${PHASE_DIR}/${PADDED_PHASE}-CONTEXT.md 2>/dev/null
 ```

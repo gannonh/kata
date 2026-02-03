@@ -183,11 +183,15 @@ Find the current phase directory using universal discovery:
 PADDED=$(printf "%02d" "$CURRENT_PHASE" 2>/dev/null || echo "$CURRENT_PHASE")
 PHASE_DIR=""
 for state in active pending completed; do
-  PHASE_DIR=$(ls -d .planning/phases/${state}/${PADDED}-* .planning/phases/${state}/${CURRENT_PHASE}-* 2>/dev/null | head -1)
+  PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${CURRENT_PHASE}-*" 2>/dev/null | head -1)
   [ -n "$PHASE_DIR" ] && break
 done
 # Fallback: flat directory (backward compatibility)
-[ -z "$PHASE_DIR" ] && PHASE_DIR=$(ls -d .planning/phases/${PADDED}-* .planning/phases/${CURRENT_PHASE}-* 2>/dev/null | head -1)
+if [ -z "$PHASE_DIR" ]; then
+  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${CURRENT_PHASE}-*" 2>/dev/null | head -1)
+fi
 ```
 
 List files in the current phase directory:

@@ -94,11 +94,15 @@ Exit.
 PADDED_TARGET=$(printf "%02d" "$TARGET" 2>/dev/null || echo "$TARGET")
 PHASE_DIR=""
 for state in active pending completed; do
-  PHASE_DIR=$(ls -d .planning/phases/${state}/${PADDED_TARGET}-* .planning/phases/${state}/${TARGET}-* 2>/dev/null | head -1)
+  PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED_TARGET}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${TARGET}-*" 2>/dev/null | head -1)
   [ -n "$PHASE_DIR" ] && break
 done
 # Fallback: flat directory (backward compatibility)
-[ -z "$PHASE_DIR" ] && PHASE_DIR=$(ls -d .planning/phases/${PADDED_TARGET}-* .planning/phases/${TARGET}-* 2>/dev/null | head -1)
+if [ -z "$PHASE_DIR" ]; then
+  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED_TARGET}-*" 2>/dev/null | head -1)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${TARGET}-*" 2>/dev/null | head -1)
+fi
 
 ls ${PHASE_DIR}/*-SUMMARY.md 2>/dev/null
 ```
@@ -182,11 +186,11 @@ Find each subsequent phase using universal discovery, then rename within the sam
 # For each subsequent phase, find it across state subdirectories
 for state in active pending completed; do
   # Example: renaming 18-dashboard to 17-dashboard within the same state dir
-  SRC=$(ls -d .planning/phases/${state}/18-dashboard 2>/dev/null)
+  SRC=$(find .planning/phases/${state} -maxdepth 1 -type d -name "18-dashboard" 2>/dev/null | head -1)
   [ -n "$SRC" ] && mv "$SRC" ".planning/phases/${state}/17-dashboard"
 done
 # Fallback: flat directory
-SRC=$(ls -d .planning/phases/18-dashboard 2>/dev/null)
+SRC=$(find .planning/phases -maxdepth 1 -type d -name "18-dashboard" 2>/dev/null | head -1)
 [ -n "$SRC" ] && mv "$SRC" ".planning/phases/17-dashboard"
 ```
 
