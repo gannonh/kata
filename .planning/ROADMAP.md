@@ -137,6 +137,11 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 **Goal:** Organize phase artifacts into state directories with completion validation.
 **Requirements:** PHASE-01, PHASE-05
+**Plans:** 2 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Core orchestrators: universal discovery, state transitions, completion validation
+- [ ] 01-02-PLAN.md — Propagate universal discovery to remaining skills, references, and agents
 
 **Success Criteria** (what must be TRUE):
 1. Phase directories are organized under `pending/`, `active/`, `completed/` subdirectories
@@ -184,4 +189,4 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-03 — v1.5.0 started*
+*Last updated: 2026-02-03 — v1.5.0 Phase 1 planned*
