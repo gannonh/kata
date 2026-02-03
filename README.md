@@ -462,13 +462,16 @@ Git bisect finds exact failures. Each task independently revertable.
 │   ├── PITFALLS.md
 │   └── SUMMARY.md
 ├── phases/
-│   └── 01-foundation/
-│       ├── 01-CONTEXT.md       # Implementation decisions
-│       ├── 01-RESEARCH.md      # Phase research
-│       ├── 01-01-PLAN.md       # Executable plan
-│       ├── 01-01-SUMMARY.md    # Execution summary
-│       ├── 01-VERIFICATION.md  # Goal verification
-│       └── 01-UAT.md           # User acceptance tests
+│   ├── pending/               # Planned phases not yet started
+│   ├── active/                # Phase currently being executed
+│   │   └── 01-foundation/
+│   │       ├── 01-CONTEXT.md       # Implementation decisions
+│   │       ├── 01-RESEARCH.md      # Phase research
+│   │       ├── 01-01-PLAN.md       # Executable plan
+│   │       ├── 01-01-SUMMARY.md    # Execution summary
+│   │       ├── 01-VERIFICATION.md  # Goal verification
+│   │       └── 01-UAT.md           # User acceptance tests
+│   └── completed/             # Verified phases
 ├── quick/                  # Ad-hoc tasks
 │   └── 001-fix-bug/
 ├── milestones/             # Archived milestones
