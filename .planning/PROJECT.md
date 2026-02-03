@@ -4,7 +4,7 @@
 
 A spec-driven development framework for Claude Code. Brings structured, reliable AI development to teams without changing their existing tools. Teams use Kata's quality-producing process inside the tools they already love.
 
-**Current state:** v1.3.3 shipped — Internal Documentation. Workflow diagrams and terminology glossary. Previous: GitHub Integration with config-driven Milestone, Issue, and PR workflows.
+**Current state:** v1.4.1 shipped — Issue Execution. Complete issue lifecycle with execution workflows, PR auto-closure, roadmap integration, and plan-phase issue context wiring. Previous: GitHub Issue Sync with bidirectional issue integration.
 
 ## Core Value
 
@@ -29,13 +29,17 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Plugin-only distribution — v1.1.0 (NPX deprecated, 27 skills renamed)
 - Release automation — v1.3.0 (changelog generation, version detection, PR workflow)
 - Internal documentation — v1.3.3 (workflow diagrams, terminology glossary)
+- Issue model — v1.4.0 (rename todos → issues, local + GitHub sync)
+- PR→Issue closure — v1.4.1 (phase, milestone, and issue execution PRs auto-close GitHub Issues)
+- Issue execution workflow — v1.4.1 (mode selection: quick task vs planned, PR with Closes #X)
+- Issue→roadmap integration — v1.4.1 (pull issues into milestones and phases, source_issue traceability)
 
 ### Active
 
-**v1.4.0 — Issue & Phase Management**
+**v1.5.0 — Phase Management**
 
-- Issue model (rename todos → issues, local + GitHub sync)
-- Phase management (folder organization, move/reorder phases)
+- Phase organization (folder state directories: pending, active, completed)
+- Phase movement (move/reorder phases within and across milestones)
 - Roadmap improvements (show future milestones, clearer format)
 
 ### Out of Scope
@@ -56,17 +60,17 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 ## Context
 
-**v0.1.5 shipped (2026-01-22):**
-- 468 files modified, 96k insertions
-- 14 skills as orchestrators spawning sub-agents
-- 25 slash commands with disable-model-invocation
-- Test harness using `claude "prompt"` for skill verification
-- Gerund naming convention for skills with exhaustive trigger phrases
+**v1.4.1 shipped (2026-02-03):**
+- 152 files changed, 6,941 insertions, 651 deletions
+- Complete issue lifecycle: creation → execution → PR → auto-closure
+- Source issue traceability: issue → plan → PR → closure chain
+- All skill names prefixed with `kata-` for consistent namespacing
+- Skill descriptions cleaned of filler phrases
 
-**v0.1.4 shipped (2026-01-18):**
-- 130 files modified, ~68k LOC (md, js, json, sh)
-- Tech stack: Node.js installer, Claude Code slash commands, markdown workflows
-- Complete rebrand from GSD to Kata with gannonh/kata identity
+**v1.4.0 shipped (2026-02-01):**
+- Bidirectional GitHub Issue integration with automatic labeling
+- Issue vocabulary normalized (todos → issues)
+- Skills-first architecture (commands wrapper removed)
 
 **Fork rationale:**
 - Original GSD was firmly solo-dev focused
@@ -115,6 +119,33 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 | Kata Milestone → GH Milestone         | Use GitHub's native feature for version tracking                             | Good — v1.1.0 |
 | Phase → Issue, Plan → Checklist       | Right granularity — phases are coordination unit, plans are execution detail | Good — v1.1.0 |
 | Plugin-only distribution              | Simplify maintenance, NPX deprecated                                         | Good — v1.1.0 |
+| Issue lifecycle via PR closure        | `Closes #X` in PR body handles all closure paths consistently               | Good — v1.4.1 |
+| Source issue traceability             | Plans reference source issues for audit trail from issue to PR              | Good — v1.4.1 |
+| kata- prefix on all skill names       | Consistent namespacing, avoids collisions with built-in behaviors           | Good — v1.4.1 |
+
+## Shipped: v1.4.1 Issue Execution
+
+**Delivered:** Complete issue lifecycle with execution workflows, PR auto-closure, roadmap integration, and plan-phase issue context wiring.
+
+**Key accomplishments:**
+- PR→Issue auto-closure for phase execution, milestone completion, and issue execution PRs
+- Issue execution workflow with mode selection (quick task vs planned)
+- Issue→roadmap integration: pull backlog issues into milestones and phases
+- Source issue traceability chain from issue→plan→PR→closure
+- Plan-phase issue context wiring for automated source_issue in generated plans
+
+See `.planning/milestones/v1.4.1-ROADMAP.md` for full archive.
+
+## Shipped: v1.4.0 GitHub Issue Sync
+
+**Delivered:** Bidirectional GitHub Issue integration with automatic labeling, assignment, and lifecycle management.
+
+**Key accomplishments:**
+- GitHub Issue creation/pull with automatic label sync
+- Issue execution linking with auto-close
+- Issue vocabulary normalized (todos → issues)
+
+See `.planning/milestones/v1.4.0-ROADMAP.md` for full archive.
 
 ## Shipped: v1.1.0 GitHub Integration
 
@@ -128,25 +159,5 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 
-## Shipped: v1.3.3 Internal Documentation
-
-**Delivered:** Workflow diagrams and terminology glossary for contributor onboarding.
-
-**Key accomplishments:**
-- 6 Mermaid workflow diagrams covering orchestration, lifecycle, planning, execution, verification, and PR workflows
-- Comprehensive glossary with 33 term definitions and relationship diagrams
-- Dark theme styling for all diagrams
-
-See `.planning/milestones/v1.3.3-ROADMAP.md` for full archive.
-
-## Current Milestone: v1.4.0 Issue & Phase Management
-
-**Goal:** Unified issue model and improved phase management.
-
-**Target features:**
-- Rename todos → issues with local + GitHub sync
-- Phase folder organization and move/reorder capability
-- Roadmap improvements (show future milestones)
-
 ---
-*Last updated: 2026-01-29 — v1.3.3 shipped*
+*Last updated: 2026-02-03 after v1.4.1 milestone*

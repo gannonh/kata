@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-02-03 — Issue Execution
+
+Kata v1.4.1 completes the **issue lifecycle**: execution workflows, PR integration with auto-closure, roadmap integration, and plan-phase issue context wiring.
+
+### Added
+- **Issue execution workflow**: "Work on it now" offers mode selection (quick task vs planned) with full PR lifecycle
+- **Quick task issue execution**: Creates plan, executes with commits, creates PR with `Closes #X` for source issue
+- **Planned execution routing**: Links issues to new or existing phases for structured execution
+- **Issue → milestone integration**: Pull backlog issues into milestone scope via `/kata:kata-add-milestone`
+- **Issue → phase integration**: Pull issues into phases as tasks/plans with source issue traceability
+- **Source issue in plans**: `source_issue` frontmatter in PLAN.md files for traceability from issue to execution
+- **Plan-phase issue context**: plan-phase reads STATE.md issue sections and passes context to kata-planner
+- **Multi-issue PR closure**: Milestone completion PRs include `Closes #X` for all phase issues in the milestone
+- **Repo creation prompt**: When GitHub enabled but no remote, offer to create repository during `/kata:kata-new-project`
+
+### Changed
+- All skill names prefixed with `kata-` for consistent namespacing (`add-issue` → `kata-add-issue`)
+- Skill descriptions reduced — removed filler phrases for cleaner autonomous matching
+- Execute-phase reads `source_issue` from PLAN.md frontmatter for PR body `Closes #X`
+
+### Fixed
+- Variable expansion in heredoc for PR body generation
+- Private repository set as default option in new-project skill
+
+---
+
 ## [1.4.0] - 2026-02-01 — GitHub Issue Sync
 
 Kata v1.4.0 ships **GitHub Issue Sync**: bidirectional GitHub Issue integration with automatic labeling, assignment, and lifecycle management.
@@ -379,7 +405,11 @@ Kata 1.0 ships with **Claude Code plugin support** as the recommended installati
 - Upstream remote and sync workflow
 - References to original project maintainer
 
-[Unreleased]: https://github.com/gannonh/kata/compare/v1.3.3...HEAD
+[Unreleased]: https://github.com/gannonh/kata/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/gannonh/kata/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/gannonh/kata/compare/v1.3.5...v1.4.0
+[1.3.5]: https://github.com/gannonh/kata/compare/v1.3.4...v1.3.5
+[1.3.4]: https://github.com/gannonh/kata/compare/v1.3.3...v1.3.4
 [1.3.3]: https://github.com/gannonh/kata/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/gannonh/kata/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/gannonh/kata/compare/v1.3.0...v1.3.1

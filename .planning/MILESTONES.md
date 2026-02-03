@@ -1,5 +1,79 @@
 # Project Milestones: Kata
 
+## v1.4.1 Issue Execution (Shipped: 2026-02-03)
+
+**Delivered:** Complete issue lifecycle with execution workflows, PR auto-closure, roadmap integration, and plan-phase issue context wiring
+
+**Phases completed:** 1-4 (6 plans total)
+
+**Key accomplishments:**
+
+- PR→Issue auto-closure for phase execution, milestone completion, and issue execution PRs
+- Issue execution workflow with mode selection (quick task vs planned)
+- Issue→roadmap integration: pull backlog issues into milestones and phases
+- Source issue traceability chain from issue→plan→PR→closure
+- Plan-phase issue context wiring for automated source_issue in generated plans
+
+**Stats:**
+
+- 152 files changed, 6,941 insertions, 651 deletions
+- 4 phases, 6 plans
+- 2 days (2026-02-01 → 2026-02-03)
+
+**Git range:** `v1.4.0` → `v1.4.1`
+
+**What's next:** v1.5.0 Phase Management
+
+---
+
+## v1.4.0 GitHub Issue Sync (Shipped: 2026-02-01)
+
+**Delivered:** Unified issue model and bidirectional GitHub Issue integration
+
+**Phases completed:** 1-2 (11 plans total)
+
+**Key accomplishments:**
+
+- GitHub Issue creation with automatic `backlog` label sync
+- GitHub Issue pull for existing issues with selection UI
+- Issue execution linking with auto-close on completion
+- In-progress label sync and self-assignment
+- Issue vocabulary normalized (todos → issues)
+
+**Stats:**
+
+- 2 phases, 11 plans
+- 2 days (2026-01-31 → 2026-02-01)
+
+**Git range:** `v1.3.5` → `v1.4.0`
+
+**What's next:** v1.4.1 Issue Execution
+
+---
+
+## v1.3.3 Internal Documentation (Shipped: 2026-01-29)
+
+**Delivered:** Workflow diagrams, terminology glossary, and internal documentation
+
+**Phases completed:** 1 (4 plans total)
+
+**Key accomplishments:**
+
+- 6 Mermaid workflow diagrams covering orchestration, lifecycle, planning, execution, verification, and PR workflows
+- Comprehensive glossary with 33 term definitions and relationship diagrams
+- Dark theme styling for all diagrams
+
+**Stats:**
+
+- 1 phase, 4 plans
+- 1 day (2026-01-29)
+
+**Git range:** `v1.3.0` → `v1.3.3`
+
+**What's next:** v1.4.0 GitHub Issue Sync
+
+---
+
 ## v1.3.0 Release Automation (Shipped: 2026-01-28)
 
 **Delivered:** Release workflow integrated into milestone completion with version detection and changelog generation
@@ -22,77 +96,7 @@
 
 **Git range:** `v1.2.2` → `v1.3.0`
 
-**What's next:** v1.3.1 patch (milestone completion workflow fix)
-
----
-
-## v1.2.2 (Shipped: 2026-01-28)
-
-**Delivered:** Bug fixes for skill scripts and GitHub issue updates
-
-**Phases completed:** N/A (patch release)
-
-**Key accomplishments:**
-
-- GitHub issue body updates — replaced awk with Python script for reliable multiline content
-- Skill scripts directory — plugin build now includes `skills/*/scripts/` directories
-- Script path resolution — skills use base directory from invocation header
-
-**Stats:**
-
-- 3 files modified
-- Patch release (same day as v1.2.1)
-
-**Git range:** `v1.2.1` → `v1.2.2`
-
-**What's next:** v1.3.0 Release Automation
-
----
-
-## v1.2.1 (Shipped: 2026-01-28)
-
-**Delivered:** VERSION file path fix for plugin distribution
-
-**Phases completed:** N/A (patch release)
-
-**Key accomplishments:**
-
-- Fixed VERSION file path in skills to use `$CLAUDE_PLUGIN_ROOT/VERSION`
-- Removed deprecated NPX fallback paths from skills
-- Removed stale `kata/VERSION` source file
-
-**Stats:**
-
-- 3 files modified
-- Patch release (same day as v1.2.0)
-
-**Git range:** `v1.2.0` → `v1.2.1`
-
-**What's next:** v1.3.0 Release Automation
-
----
-
-## v1.2.0 Release Process Automation (Shipped: 2026-01-27)
-
-**Delivered:** Automated release pipeline with CI-driven GitHub Releases
-
-**Phases completed:** N/A (single-day release automation)
-
-**Key accomplishments:**
-
-- CI workflow creates GitHub Releases with tags on version change
-- Changelog extraction automated from CHANGELOG.md
-- Release skill updated for plugin-only distribution
-- Removed all NPM publishing references
-
-**Stats:**
-
-- ~10 files modified
-- CI/CD automation sprint (same day as v1.1.0)
-
-**Git range:** `v1.1.0` → `v1.2.0`
-
-**What's next:** v1.2.1 patch (VERSION path fix)
+**What's next:** v1.3.3 Internal Documentation
 
 ---
 
@@ -143,7 +147,6 @@
 - 53 files deleted, 28 files created
 - 1 phase, 5 plans
 - 1 day (2026-01-24) — single-day stabilization sprint
-- Includes patches v1.0.8, v1.0.7
 
 **Git range:** `v1.0.5` → `v1.0.8`
 
@@ -169,11 +172,10 @@
 
 - 4 phases, 5 plans
 - 2 days (2026-01-22 → 2026-01-23)
-- Followed by rapid patch releases v1.0.1-v1.0.5 addressing distribution issues
 
 **Git range:** `v0.1.8` → `v1.0.0`
 
-**What's next:** v1.0.8 Plugin Stability (stabilize after rapid patches)
+**What's next:** v1.0.8 Plugin Stability
 
 ---
 
@@ -201,7 +203,7 @@
 
 **Git range:** `v0.1.4` → `v0.1.5`
 
-**What's next:** v0.1.9 Claude Code Plugin (Package and publish as plugin)
+**What's next:** v1.0.0 Claude Code Plugin
 
 ---
 
@@ -229,6 +231,6 @@
 
 **Git range:** `2cd2ace` → `0a0f10a`
 
-**What's next:** v0.1.5 Skills & Documentation (In Progress)
+**What's next:** v0.1.5 Skills & Documentation
 
 ---
