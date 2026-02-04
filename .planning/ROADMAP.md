@@ -56,10 +56,14 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - [x] Phase 0: Foundation & CI Hardening (2/2 plans) — completed 2026-01-28
 - [x] Phase 1: Release Automation (2/2 plans) — completed 2026-01-28
 
+[Full archive](milestones/v1.3.0-ROADMAP.md)
+
 </details>
 
 <details>
 <summary>✅ v1.1.0 GitHub Integration — SHIPPED 2026-01-27</summary>
+
+**Goal:** GitHub integration with issue sync, PR workflow, and review automation.
 
 - [x] Phase 0: Develop Robust Testing Suite (7/7 plans) — completed 2026-01-25
 - [x] Phase 1: Audit & Config Foundation (2/2 plans) — completed 2026-01-25
@@ -72,17 +76,25 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - [x] Phase 6: PR Review Workflow Skill & Agents (4/4 plans) — completed 2026-01-27
 - [x] Phase 7: Deprecate NPX Support (6/6 plans) — completed 2026-01-27
 
+[Full archive](milestones/v1.1.0-ROADMAP.md)
+
 </details>
 
 <details>
-<summary>✅ v1.0.9 Command Consolidation — COMPLETE 2026-01-25</summary>
+<summary>✅ v1.0.9 Command Consolidation — SHIPPED 2026-01-25</summary>
+
+**Goal:** Normalize all entry points onto the skills system.
 
 - [x] Phase 2.2: Normalize on Skills (3/3 plans) — completed 2026-01-25
+
+[Full archive](milestones/v1.0.9-ROADMAP.md)
 
 </details>
 
 <details>
 <summary>✅ v1.0.8 Plugin Stability — SHIPPED 2026-01-24</summary>
+
+**Goal:** Restructure skill resources for plugin stability.
 
 - [x] Phase 2.1: Skill Resource Restructure (5/5 plans) — completed 2026-01-24
 
@@ -93,6 +105,8 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 <details>
 <summary>✅ v1.0.0 Claude Code Plugin — SHIPPED 2026-01-23</summary>
 
+**Goal:** Package Kata as a Claude Code plugin for marketplace distribution.
+
 - [x] Phase 1: Plugin Structure & Validation (1/1 plans) — completed 2026-01-22
 - [x] Phase 1.1: Document PR Workflow Behavior (1/1 plans) — completed 2026-01-22
 - [x] Phase 2: Marketplace Distribution (2/2 plans) — completed 2026-01-23
@@ -100,10 +114,14 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 **Patch releases:** v1.0.1-v1.0.5 (plugin distribution fixes)
 
+[Full archive](milestones/v1.0.0-ROADMAP.md)
+
 </details>
 
 <details>
 <summary>✅ v0.1.5 Skills & Documentation — SHIPPED 2026-01-22</summary>
+
+**Goal:** Convert commands to skills and establish documentation patterns.
 
 - [x] Phase 0: Convert Commands to Skills (12/12 plans) — completed 2026-01-20
 - [x] Phase 1: Migrate Todo Commands to Kata Skill (3/3 plans) — completed 2026-01-20
@@ -118,6 +136,8 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 <details>
 <summary>✅ v0.1.4 Hard Fork & Rebrand — SHIPPED 2026-01-18</summary>
+
+**Goal:** Fork from upstream and rebrand as Kata.
 
 - [x] Phase 0: Hard Fork & Rebrand (5/5 plans) — completed 2026-01-18
 
@@ -175,7 +195,7 @@ Plans:
 | v0.1.5    | 6      | 30    | Shipped  | 2026-01-22 |
 | v1.0.0    | 4      | 5     | Shipped  | 2026-01-23 |
 | v1.0.8    | 1      | 5     | Shipped  | 2026-01-24 |
-| v1.0.9    | 1      | 3     | Complete | 2026-01-25 |
+| v1.0.9    | 1      | 3     | Shipped  | 2026-01-25 |
 | v1.1.0    | 10     | 33    | Shipped  | 2026-01-27 |
 | v1.3.0    | 2      | 4     | Shipped  | 2026-01-28 |
 | v1.3.3    | 1      | 4     | Shipped  | 2026-01-29 |
