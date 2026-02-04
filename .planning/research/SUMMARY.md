@@ -1,298 +1,388 @@
-# Research Summary: v1.3.0 Release Automation & Workflow Documentation
+# Research Summary: Agent Skills Subagent Migration
 
-**Milestone:** v1.3.0
-**Synthesized:** 2026-01-28
+**Project:** Kata v1.6.0 Milestone
+**Synthesized:** 2026-02-04
+**Research Files:** STACK.md, FEATURES.md, SUBAGENT-MIGRATION.md (ARCHITECTURE), PITFALLS.md
 **Overall Confidence:** HIGH
 
 ---
 
 ## Executive Summary
 
-Kata v1.3.0 requires minimal new technology but careful integration work. The project already has 90% of the infrastructure needed for release automation (GitHub Actions, `gh` CLI, CI/CD pipeline). This milestone focuses on **making what exists more visible and systematic** rather than building new infrastructure.
+The v1.6.0 milestone goal was to convert Kata's custom subagents to Agent Skills resources. Research reveals a critical finding: **the Agent Skills specification does not define subagent patterns**. Agent Skills is a format specification for SKILL.md files, not an orchestration framework. Subagent instantiation is a Claude Code implementation detail, not part of the Agent Skills standard.
 
-**The core insight:** Kata's release pain points aren't technical—they're process visibility gaps. Users can't see how Kata works internally (workflow documentation missing). Releases require manual steps that could be automated (milestone → publish flow). The statusline shows generic info instead of project-specific context.
+**What we learned:**
+1. **Agent Skills scope** - Defines SKILL.md format (frontmatter + markdown), directory structure (skills/references/scripts/assets/), and progressive disclosure. Does NOT define multi-agent orchestration.
+2. **Claude Code subagents** - A proprietary extension built on Agent Skills, supporting custom agent definitions in `.claude/agents/` or `<plugin>/agents/` directories.
+3. **Kata's current architecture** - Already uses Claude Code's native subagent system correctly. Agents live in `agents/` directory, copied to `.claude-plugin/agents/` during build.
 
-**The architectural approach:** Extend Kata's existing multi-agent orchestration pattern. New skills (`kata-managing-releases`, `kata-documenting-workflows`) spawn specialized agents (`kata-release-manager`, `kata-workflow-documenter`) to handle release state machines and diagram generation. This preserves Kata's thin orchestrator pattern while adding release automation and documentation capabilities.
+**The real question:** Should Kata's architecture change to better leverage Claude Code's plugin agent features? The answer is **yes, with refinements**, not a wholesale migration.
 
-**Critical risk:** Path resolution failures. Kata already experienced this with 6 patch releases (v1.0.3-1.0.8) fixing path issues. The build system transforms paths (`@~/.claude/kata/` → `@./kata/`) but CI doesn't validate transformed artifacts. Prevention requires **CI testing of actual plugin artifacts before release**, not just source code.
+**Recommended scope:** Polish Kata's existing architecture to align with Claude Code's latest subagent conventions, specifically:
+- Update frontmatter fields to match Claude Code's schema
+- Rename `subagent_type` parameter to `agent` in Task() calls
+- Explore optional features (skills preloading, permissionMode, lifecycle hooks)
+- Test behavior equivalence after changes
+
+This is a polish pass, not a rewrite. Estimated effort: 2-3 hours code changes, 1 hour testing.
 
 ---
 
 ## Key Findings by Research Area
 
-### From STACK.md: Technology Choices
+### From STACK.md: Architecture and Standards
 
-**Core additions (3 dependencies):**
-1. **Mermaid.js v11.x** — Interactive flowcharts for web/GitHub (72k stars, industry standard)
-2. **Diagon** — ASCII diagrams for terminal/CLI documentation
-3. **semver v7.x** — Programmatic version bumping (official npm library)
+**Critical finding:** Agent Skills spec has no concept of subagent definition, spawning, delegation, or multi-agent orchestration. These are platform-specific implementations.
 
-**What NOT to add:**
-- `semantic-release` or similar — Kata already has working CI automation
-- Diagram rendering engines (d3.js, vis.js) — Mermaid + Diagon cover all use cases
-- `@octokit/rest` — `gh` CLI already provides GitHub API access
-- Changelog generators — CHANGELOG.md is manually curated for quality
+**Claude Code's subagent system:**
+- Location: `.claude/agents/` (project), `~/.claude/agents/` (user), `<plugin>/agents/` (plugin)
+- Format: Markdown with YAML frontmatter (same as SKILL.md)
+- Frontmatter fields: `name`, `description`, `tools`, `disallowedTools`, `model`, `permissionMode`, `skills`, `hooks`
+- Spawning: Task tool with `subagent_type` (legacy) or `agent` (preferred) parameter
+- Constraint: Subagents cannot spawn other subagents
 
-**Confidence: HIGH** — All technologies validated with official sources. No experimental dependencies.
+**Kata's current architecture:**
+- Skills are orchestrators (invoke Task tool)
+- Agents live in `agents/kata-*.md` with markdown + YAML frontmatter
+- Build system copies to `.claude-plugin/agents/` and transforms namespaces
+- Already 90% compliant with Claude Code's plugin agent standard
 
-**Integration points:**
-- `scripts/bump-version.js` — Uses semver for automated version bumping
-- `scripts/generate-workflow-docs.js` — Uses Mermaid for diagram generation
-- `hooks/statusline.sh` — Bash script parsing `.planning/STATE.md` (no deps)
+**Recommended approach:** Hybrid architecture
+1. Agents distributed as plugin subagents (`.claude-plugin/agents/`)
+2. Skills reference agents via Task tool (`agent="kata:kata-planner"`)
+3. Optional: Skills field in agent frontmatter for preloading domain knowledge
 
-### From FEATURES.md: Table Stakes vs Differentiators
+**Technology stack:**
+- No new dependencies required
+- Build system updates: minor regex changes
+- Agent frontmatter updates: add `model`, move `color` to `metadata`
+- Task invocation updates: `subagent_type` → `agent`
 
-**Table stakes (users expect these):**
-- Semantic versioning with MAJOR.MINOR.PATCH ✓ (already implemented)
-- Git tag creation ✓ (CI handles via `gh release create`)
-- GitHub Release creation ✓ (already implemented in `plugin-release.yml`)
-- Publish trigger (merge to main → auto-publish) ✓ (already working)
-- Changelog generation — **MISSING** (currently manual CHANGELOG.md)
-- Version bump automation — **MISSING** (currently manual `.claude-plugin/plugin.json` edit)
+### From FEATURES.md: Required Capabilities
 
-**Differentiators (Kata-specific value):**
-- Milestone-triggered release — Close milestone → prompt "Ready to release?"
-- Phase completion validation — Verify all tasks done before allowing release
-- Workflow diagrams (Mermaid) — Visual orchestrator → subagent flows
-- ASCII workflow diagrams — Terminal-friendly visualization for `/kata:help`
-- Statusline project info — Show current phase/milestone/task count
-- Release notes from SUMMARY.md — Extract from phase accomplishments, not just commits
+**Table stakes (must-have):**
+- Custom subagent definitions (already supported)
+- Tool restrictions per agent (frontmatter `tools:` field)
+- Model selection per agent (frontmatter `model:` field)
+- Task tool spawning (already working)
+- Plugin distribution (already implemented)
+- Context isolation (built-in behavior)
 
-**Anti-features (explicitly avoid):**
-- Manual version selection (defeats semantic versioning automation)
-- Changelog in commit body (bloats commits, duplicate effort)
-- Monolithic workflow diagrams (overwhelming, unmaintainable)
-- Auto-merge PRs (removes human oversight)
-- Video tutorials (become outdated, not searchable)
+**Differentiators (should-have):**
+- Skills preloading into subagents (inject domain knowledge via `skills:` field)
+- Permission modes (control prompts: `acceptEdits`, `dontAsk`, `bypassPermissions`, `plan`)
+- Lifecycle hooks per agent (PreToolUse, PostToolUse, Stop)
+- Color coding (visual identification, already used)
 
-**MVP recommendation for v1.3.0:**
-- Changelog auto-generation
-- Version bump automation
-- Quickstart documentation
-- Workflow diagrams for core flows (planning, execution, verification)
-- Milestone completion trigger
-- Statusline project info
+**Anti-features to address:**
+- Missing `name` field in frontmatter (inferred from filename, should be explicit)
+- Custom frontmatter fields (verify compatibility with Claude Code)
+- Very long agent prompts (consider references/ structure)
+- No progressive disclosure for agents (main file only, no references/)
 
-**Defer to post-v1.3.0:**
-- Interactive onboarding wizard (complex UX design)
-- Release notes from SUMMARY.md (commit-based sufficient initially)
-- Rollback support (edge case, handle manually)
+**MVP recommendation:**
+1. Verify frontmatter compatibility
+2. Add `name` field to all agents
+3. Test Task() spawning with plugin agents
+4. Add `permissionMode` to verifier (read-only) and executor (auto-approve edits)
+5. Add `model` to agent frontmatter (remove from Task() calls)
 
-### From ARCHITECTURE.md: Integration Strategy
+### From SUBAGENT-MIGRATION.md: Migration Path
 
-**Recommended approach:** Extend, don't replace. Kata's architecture already supports this work through:
-1. **New skills** orchestrating multi-step release flows
-2. **New agents** handling specialized tasks (release state machine, diagram generation)
-3. **Enhanced CI** with validation checkpoints and feedback loops
-4. **Config flags** enabling/disabling features (`.planning/config.json`)
-
-**Component integration:**
+**Current architecture:**
 ```
-/kata:completing-milestones (modified)
-  └─> kata-release-manager agent (new)
-       ├─> Validates changelog/version alignment
-       ├─> Creates GitHub Release via gh CLI
-       └─> Updates STATE.md with release status
-
-/kata:documenting-workflows (new)
-  └─> kata-workflow-documenter agent (new)
-       ├─> Parses SKILL.md XML structure
-       ├─> Generates Mermaid diagrams
-       └─> Writes to skills/*/diagrams/ directory
+agents/kata-*.md           → Agent definitions (19 files)
+skills/kata-*/SKILL.md     → Orchestrators
+scripts/build.js           → Copies agents to .claude-plugin/agents/
 ```
 
-**Key architectural patterns:**
-1. **Release state machine** — Agent tracks draft → ready → published → failed transitions
-2. **Progressive diagram disclosure** — Diagrams in `skills/*/diagrams/` loaded on-demand
-3. **Validation before automation** — Local checks before GitHub Release creation (prevent CI failures)
+**Target architecture:**
+```
+agents/kata-*.md           → Agent definitions (source)
+.claude-plugin/agents/     → Built plugin agents
+skills/kata-*/SKILL.md     → Orchestrators (no change)
+```
 
-**Build order recommendation:**
-- **Phase 1: Release automation foundation** (highest value, proven patterns)
-- **Phase 2: Workflow documentation system** (parallel development, isolated from Phase 1)
-- **Phase 3: Integration & polish** (connects pieces, handles edge cases)
+**Gap analysis:**
 
-**Phases 1 and 2 can proceed independently** — no blocking dependencies between them.
+| Kata Current | Claude Code Standard | Action |
+|--------------|---------------------|---------|
+| `name` (inferred) | `name` (required) | Add explicit field |
+| `tools` | `tools` | Keep format |
+| `color` | (not standard) | Move to `metadata.color` |
+| `subagent_type="kata-*"` | `agent="kata:kata-*"` | Rename parameter |
+| (missing) | `model` | Add where needed |
 
-**Scalability considerations:**
-- Release time: Manual (5 min) → Automated (1 min)
-- Diagram generation: Parallelizable (wave-based like execution)
-- CI duration: ~2 min currently, minimal increase expected
+**Migration steps:**
+1. **Phase 1:** Update agent frontmatter (add `model`, move `color`)
+2. **Phase 2:** Update Task invocations (`subagent_type` → `agent`)
+3. **Phase 3:** Update build.js transform regex
+4. **Phase 4:** Update tests (artifact validation, frontmatter schema)
+5. **Phase 5:** Update documentation (CLAUDE.md, KATA-STYLE.md)
 
-### From PITFALLS.md: Critical Risks
+**No structural changes needed.** The `agents/` directory already matches Claude Code's expected layout.
 
-**Critical pitfalls (cause rewrites/production failures):**
+**Backwards compatibility:** Keep dual transforms in build.js during transition to support both `subagent_type` (legacy) and `agent` (preferred).
 
-1. **CI environment path assumptions** — Kata already experienced this (v1.0.3-1.0.8). Paths work locally, fail in CI. Prevention: Test actual plugin artifacts in CI before release.
+**Rollback strategy:** Git revert. Changes are additive, not destructive.
 
-2. **GitHub Actions release trigger deadlock** — Releases created by GitHub Actions don't trigger `on: release` workflows. Default `GITHUB_TOKEN` lacks permissions. Prevention: Use PAT with `workflow` scope.
+### From PITFALLS.md: Risk Mitigation
 
-3. **npm OIDC authentication misconceptions** — Setting `NODE_AUTH_TOKEN` to empty string breaks OIDC. Must be completely unset. (Not applicable to Kata's plugin marketplace but similar auth pitfalls may exist)
+**Critical pitfalls:**
 
-4. **Semantic versioning without validation** — Automated version bumps based on commit messages can produce wrong versions if commits misrepresent changes. Prevention: Manual changelog review gate before publish.
+1. **Context passing assumption mismatch** (Severity: HIGH)
+   - Kata orchestrators inline context via Task prompts
+   - @-references don't work across Task boundaries
+   - Agents must receive all required context explicitly
+   - **Prevention:** Audit every Task invocation, design explicit context injection
+   - **Affects:** Phase 1 (POC)
 
-5. **Workflow diagrams diverge from implementation** — Documentation shows one flow, code implements another. Prevention: Co-locate diagrams with code, establish review cadence, add "Last validated" timestamps.
+2. **Tool allowlist semantic drift** (Severity: HIGH)
+   - `allowed-tools` controls permission prompting, not tool availability
+   - Agents may gain unintended capabilities if allowlist misunderstood
+   - **Prevention:** Map tool lists carefully, test with restricted access
+   - **Affects:** Phase 1 (POC) and Phase 2 (each agent)
 
-**Moderate pitfalls (cause delays/rework):**
-- `.gitignore` vs `.npmignore` confusion (build artifacts excluded from package)
-- Statusline performance anti-patterns (network requests blocking render)
-- Onboarding assumes expert context (beginners get stuck)
-- Version bump without changelog review (wrong/misleading generated content)
-- Missing integration test coverage (unit tests pass, workflows break)
+3. **Model selection regression** (Severity: HIGH)
+   - Kata's model_profile config (quality/balanced/budget) controls model per agent
+   - Agent Skills `model` field is static
+   - **Prevention:** Keep model selection in orchestrator, use `model: inherit`
+   - **Affects:** Phase 1 (design decision)
 
-**Phase-specific warnings:**
-- **Phase 0 (CI validation):** Pitfall 1 (path assumptions), Pitfall 10 (integration tests)
-- **Phase 1 (Release workflow):** Pitfall 2 (trigger deadlock), Pitfall 4 (version validation)
-- **Phase 2 (Workflow docs):** Pitfall 5 (diagram divergence)
-- **Phase 3 (Statusline):** Pitfall 7 (performance <50ms budget)
+4. **Structured return contract breakage** (Severity: HIGH)
+   - Orchestrators parse agent output (`## PLANNING COMPLETE`, `## CHECKPOINT REACHED`)
+   - Agent Skills don't enforce return formats
+   - **Prevention:** Maintain explicit output requirements, validate parsing
+   - **Affects:** Phase 1 (POC)
 
-**Kata-specific high risks:**
-- **Path resolution in plugin distribution** — Historical precedent, must validate transformed artifacts
-- **Multi-step release workflow** — Many automation points where silent failures can occur
-- **Workflow diagram maintenance** — 14 skills, multiple agents, complex to keep synchronized
+5. **Subagent-cannot-spawn-subagent hierarchy violation** (Severity: CRITICAL)
+   - Kata Skills ARE orchestrators that spawn multiple agents
+   - Claude Code constraint: subagents cannot spawn other subagents
+   - **Prevention:** Skills must NOT use `context: fork` if they spawn agents
+   - **Affects:** Phase 1 (architecture validation)
+
+**Moderate pitfalls:**
+- Discovery pattern incompatibility (skill location matters)
+- Description mismatch for invocation (rewrite for triggers)
+- Hook migration gap (explicit hooks for implicit behaviors)
+- @-reference syntax preservation (build system transforms)
+- Checkpoint protocol translation (no native support)
+
+**Kata-specific risk factors:**
+- High: Context inlining pattern (all 15+ agents affected)
+- High: Orchestrator hierarchy (8 skills spawn subagents)
+- Medium: Structured return contracts (10+ patterns)
+- Medium: Model profile system (3 profiles, per-agent models)
+- Low: Visual identity (6 color values)
 
 ---
 
 ## Implications for Roadmap
 
+### Revised Milestone Goal
+
+**Original:** Convert custom subagents to Agent Skills resources
+
+**Revised:** Align Kata's subagent architecture with Claude Code plugin conventions
+
+The milestone is still valid but needs scoping adjustment. Kata already uses Claude Code's native subagent system. The work is polish and optimization, not wholesale migration.
+
 ### Suggested Phase Structure
 
-Based on combined research, recommend **4 phases with 2 parallel tracks**:
+#### Phase 1: POC — Validate Architecture (2-4 hours)
+**Goal:** Prove that Kata's current architecture works with Claude Code plugin agents, identify any breaking changes.
 
-**Phase 0: Foundation & CI Hardening**
-- **Rationale:** Prevent repeating v1.0.x path issues. Must validate CI before adding automation.
-- **Deliverable:** CI tests actual plugin artifacts, integration test suite
-- **Features:** None visible to users (infrastructure only)
-- **Pitfalls to avoid:** Pitfall 1 (path assumptions), Pitfall 10 (missing integration tests)
-- **Dependencies:** None (blocks Phase 1)
+**Delivers:**
+- Frontmatter field audit (all 19 agents)
+- Test harness for agent spawning
+- Context passing contract documentation
+- Model selection strategy decision
 
-**Phase 1: Release Automation** (depends on Phase 0)
-- **Rationale:** Highest-value pain point (manual releases). Builds on proven GitHub Actions.
-- **Deliverable:** `/kata:completing-milestones` triggers GitHub Release → CI publishes plugin
-- **Features:** Changelog generation, version bump automation, milestone → release flow
-- **Pitfalls to avoid:** Pitfall 2 (trigger deadlock), Pitfall 4 (version validation), Pitfall 9 (changelog review)
-- **Dependencies:** Phase 0 complete
-- **Research needs:** None (STACK.md provides clear guidance)
+**Features from FEATURES.md:**
+- Verify frontmatter compatibility
+- Add `name` field to 2-3 sample agents
+- Test Task() spawning with plugin namespace
 
-**Phase 2: Workflow Documentation** (parallel to Phase 1 after Phase 0)
-- **Rationale:** Isolated from release automation, provides independent UX value.
-- **Deliverable:** Mermaid + ASCII diagrams for core workflows
-- **Features:** `/kata:documenting-workflows`, diagrams for planning/execution/verification flows
-- **Pitfalls to avoid:** Pitfall 5 (diagram divergence), Pitfall 11 (hard-coded versions)
-- **Dependencies:** Phase 0 complete (parallel with Phase 1)
-- **Research needs:** None (ARCHITECTURE.md defines pattern)
+**Pitfalls to avoid:**
+- Context passing mismatch (test with kata-planner)
+- Subagent hierarchy violation (verify orchestrator can spawn)
+- Model selection regression (test config.json profiles)
 
-**Phase 3: Integration & UX Polish** (depends on Phases 1 and 2)
-- **Rationale:** Connects release automation + workflow docs, adds finishing touches.
-- **Deliverable:** Statusline integration, quickstart docs, batch diagram generation
-- **Features:** Statusline shows phase/milestone, "Try Kata in 5 minutes" guide
-- **Pitfalls to avoid:** Pitfall 7 (statusline performance), Pitfall 8 (expert assumptions), Pitfall 12 (versioning communication)
-- **Dependencies:** Phases 1 and 2 complete
-- **Research needs:** User testing for onboarding (optional `/kata:researching-phases 3`)
+**Research flag:** No additional research needed. Architecture validated.
+
+---
+
+#### Phase 2: Update Frontmatter (1-2 hours)
+**Goal:** Bring all agent definitions up to Claude Code's plugin agent standard.
+
+**Delivers:**
+- All 19 agents have explicit `name` field
+- `color` moved to `metadata.color`
+- `model` field added where appropriate
+- Frontmatter validated against schema
+
+**Features from FEATURES.md:**
+- Table stakes: explicit name field
+- Nice-to-have: permissionMode for verifier, executor
+
+**Pitfalls to avoid:**
+- Tool allowlist drift (verify tools field semantics)
+- Description mismatch (rewrite for invocation triggers if needed)
+
+**Research flag:** Standard patterns, no research needed.
+
+---
+
+#### Phase 3: Update Task Invocations (1 hour)
+**Goal:** Modernize Task() calls to use `agent` parameter instead of legacy `subagent_type`.
+
+**Delivers:**
+- All SKILL.md files use `agent="kata-*"`
+- Build system transforms to `agent="kata:kata-*"`
+- Tests validate parameter change
+
+**Features from FEATURES.md:**
+- Task tool spawning (modernize syntax)
+
+**Pitfalls to avoid:**
+- Build transform misses cases (grep for all patterns)
+
+**Research flag:** Standard patterns, no research needed.
+
+---
+
+#### Phase 4: Explore Optional Features (2-3 hours)
+**Goal:** Evaluate and selectively adopt Claude Code's advanced subagent features.
+
+**Delivers:**
+- Skills preloading tested (inject plan-format into planner)
+- permissionMode applied to appropriate agents
+- Lifecycle hooks POC (pre-commit validation in executor)
+- Decision document on what to adopt
+
+**Features from FEATURES.md:**
+- Skills preloading (differentiator)
+- Permission modes (differentiator)
+- Lifecycle hooks (nice-to-have)
+
+**Pitfalls to avoid:**
+- Skills preloading bloats context (test selectively)
+- Hook migration gap (audit implicit behaviors)
+
+**Research flag:** Experimental features. May need iteration based on testing.
+
+---
+
+#### Phase 5: Update Build System & Documentation (1 hour)
+**Goal:** Finalize build transformations and update project documentation.
+
+**Delivers:**
+- Build.js handles new patterns
+- CLAUDE.md documents agent conventions
+- KATA-STYLE.md updated with frontmatter rules
+- Tests validate build output
+
+**Features from FEATURES.md:**
+- Plugin distribution (validate)
+
+**Pitfalls to avoid:**
+- @-reference syntax changes
+- Discovery pattern incompatibility
+
+**Research flag:** Standard patterns, no research needed.
+
+---
 
 ### Research Flags
 
-**Skip research (standard patterns):**
-- Phase 0: CI testing is well-documented, straightforward
-- Phase 1: STACK.md + ARCHITECTURE.md provide complete guidance
-- Phase 2: Mermaid syntax well-documented, diagram generation clear
+**Needs additional research:**
+- None. All questions answered by current research.
 
-**Consider research (if complexity emerges):**
-- Phase 3: Statusline performance optimization (if <50ms budget hard to meet)
-- Phase 3: Onboarding UX patterns (if beginner testing reveals gaps)
+**Standard patterns (skip research):**
+- Frontmatter updates (Phase 2)
+- Task invocation syntax (Phase 3)
+- Build system transforms (Phase 5)
 
-**Current research is sufficient for all phases.** No additional `/kata:researching-phases` calls needed unless implementation uncovers unexpected complexity.
-
-### Dependency Graph
-
-```
-Phase 0 (Foundation)
-├─> Phase 1 (Release Automation)
-│   └─> Phase 3 (Integration)
-└─> Phase 2 (Workflow Docs)
-    └─> Phase 3 (Integration)
-```
-
-**Critical path:** Phase 0 → Phase 1 → Phase 3 (release automation focus)
-**Parallel track:** Phase 0 → Phase 2 → Phase 3 (documentation can develop independently)
-
-### Task Distribution Estimates
-
-Based on complexity assessments from research:
-
-- **Phase 0:** 2-3 tasks (CI validation script, integration test harness, artifact verification)
-- **Phase 1:** 4-6 tasks (semver script, changelog generator, release-manager agent, skill modification, validation gates)
-- **Phase 2:** 4-5 tasks (workflow-documenter agent, Mermaid generation, ASCII generation, diagram integration, documentation updates)
-- **Phase 3:** 3-4 tasks (statusline script, quickstart docs, batch processing, performance optimization)
-
-**Total estimated: 13-18 tasks across 4 phases.**
+**Experimental (may need iteration):**
+- Skills preloading (Phase 4) - Test with small sample first
+- Lifecycle hooks (Phase 4) - Validate hook behavior matches expectations
 
 ---
 
 ## Confidence Assessment
 
-| Area                     | Confidence | Rationale                                                   |
-| ------------------------ | ---------- | ----------------------------------------------------------- |
-| **Stack (technologies)** | HIGH       | All libraries validated with official sources, proven in production, active maintenance |
-| **Features (scope)**     | HIGH       | MVP definition clear, table stakes identified, anti-features flagged |
-| **Architecture**         | HIGH       | Extends proven patterns (v1.1.0 GitHub integration, v0.1.5 agent spawning), no experimental designs |
-| **Pitfalls**             | HIGH       | Grounded in Kata's actual history (v1.0.x releases) + verified sources |
-| **Phase structure**      | MEDIUM-HIGH | Clear rationale for each phase, but task estimates are preliminary (refine during planning) |
+| Area | Confidence | Notes |
+|------|------------|-------|
+| Stack | HIGH | Verified with official Claude Code docs and Agent Skills spec |
+| Features | HIGH | Based on documented Claude Code subagent capabilities |
+| Architecture | HIGH | Kata codebase analyzed, build.js validated, directory structure confirmed |
+| Pitfalls | HIGH | Based on Kata patterns + industry best practices for subagent systems |
 
-**Gaps identified:**
-1. **Statusline implementation details** — Research covers patterns but not Claude Code-specific API. May need investigation during Phase 3.
-2. **Plugin marketplace authentication** — PITFALLS.md covers npm OIDC but Kata uses different marketplace. Similar auth patterns likely exist.
-3. **User testing for onboarding** — FEATURES.md recommends beginner testing but research doesn't include user data. Phase 3 may need feedback loop.
+### Gaps Addressed
 
-**None of these gaps block starting work.** They can be addressed during phase planning/execution.
+**Original uncertainty:** How do Agent Skills define subagents?
+
+**Resolution:** They don't. Agent Skills defines SKILL.md format. Claude Code implements subagents as a platform feature. Kata already uses Claude Code's system correctly.
+
+**Original uncertainty:** Should agents become skill resources?
+
+**Resolution:** No. Keep agents as plugin agents (`.claude-plugin/agents/`). Skills remain orchestrators. This aligns with Claude Code's architecture.
+
+**Original uncertainty:** What breaks during migration?
+
+**Resolution:** Very little. Changes are primarily:
+1. Frontmatter field updates (add `name`, move `color`)
+2. Parameter rename (`subagent_type` → `agent`)
+3. Optional feature adoption (skills preloading, permissionMode)
+
+### Risks Requiring Attention During Planning
+
+1. **Context passing** - Must test that agents receive all required context after changes
+2. **Structured returns** - Must validate that orchestrators can still parse agent output
+3. **Model profiles** - Must ensure config.json model_profile setting still works
+4. **Tool permissions** - Must verify agents don't gain unintended capabilities
 
 ---
 
 ## Sources Aggregated
 
-### Official Documentation (HIGH confidence)
-- [Mermaid.js Official Docs](https://mermaid.js.org/)
-- [GitHub - mermaid-js/mermaid](https://github.com/mermaid-js/mermaid)
-- [semver - npm](https://www.npmjs.com/package/semver)
-- [GitHub - npm/node-semver](https://github.com/npm/node-semver)
-- [GitHub Actions: Releasing and maintaining actions](https://docs.github.com/en/actions/sharing-automations/creating-actions/releasing-and-maintaining-actions)
-- [Claude Code - Status line configuration](https://code.claude.com/docs/en/statusline)
-- [Semantic Versioning 2.0.0](https://semver.org/)
-- [Conventional Commits](https://www.conventionalcommits.org/en/about/)
+### Agent Skills Specification
+- [Agent Skills Specification](https://agentskills.io/specification.md) - SKILL.md format definition
+- [Integrate Skills](https://agentskills.io/integrate-skills.md) - Integration guidance
 
-### Community Best Practices (MEDIUM-HIGH confidence)
-- [semantic-release/semantic-release](https://github.com/semantic-release/semantic-release)
-- [conventional-changelog/conventional-changelog](https://github.com/conventional-changelog/conventional-changelog)
-- [GitHub - ArthurSonzogni/Diagon](https://github.com/ArthurSonzogni/Diagon)
-- [Include diagrams in your Markdown files with Mermaid](https://github.blog/developer-skills/github/include-diagrams-markdown-files-mermaid/)
-- [Automating Versioning with Semantic Release | Agoda Engineering](https://medium.com/agoda-engineering/automating-versioning-and-releases-using-semantic-release-6ed355ede742)
-- [How To Automatically Generate A Helpful Changelog](https://mokkapps.de/blog/how-to-automatically-generate-a-helpful-changelog-from-your-git-commit-messages)
+### Claude Code Documentation
+- [Create Custom Subagents](https://code.claude.com/docs/en/sub-agents) - Complete subagent reference
+- [Skills Documentation](https://code.claude.com/docs/en/skills) - Skills and subagent interaction
+- [Plugin Components Reference](https://code.claude.com/docs/en/plugins-reference) - Plugin structure
 
-### Kata-Specific (HIGH confidence)
-- Kata codebase: `.github/workflows/plugin-release.yml`, `skills/completing-milestones/SKILL.md`
-- Kata history: v1.0.1-v1.0.8 release notes (path resolution issues)
-- Kata architecture: `.planning/config.json`, `agents/kata-executor.md`
+### Kata Codebase
+- `scripts/build.js` - Plugin build with namespace transformation
+- `agents/kata-*.md` - Current agent definitions (19 files)
+- `skills/kata-*/SKILL.md` - Current skill orchestrators
+- `CLAUDE.md`, `KATA-STYLE.md` - Project conventions
 
-### Known Issues & Pitfalls (HIGH confidence)
-- [GitHub Actions release automation trigger issues](https://github.com/orgs/community/discussions/25281)
-- [The Pain That is Github Actions](https://www.feldera.com/blog/the-pain-that-is-github-actions)
-- [npm Classic Tokens to OIDC Trusted Publishing troubleshooting](https://dev.to/zhangjintao/from-deprecated-npm-classic-tokens-to-oidc-trusted-publishing-a-cicd-troubleshooting-journey-4h8b)
-- [GitHub Actions path resolution issues](https://github.com/actions/runner/issues/2185)
+### Community Resources
+- [Task Tool: Claude Code's Agent Orchestration System](https://dev.to/bhaidar/the-task-tool-claude-codes-agent-orchestration-system-4bf2)
+- [Claude Code Customization Guide](https://alexop.dev/posts/claude-code-customization-guide-claudemd-skills-subagents/)
+- [Best Practices for Claude Code Sub-Agents](https://www.pubnub.com/blog/best-practices-for-claude-code-sub-agents/)
 
 ---
 
-## Ready for Roadmap Creation
+## Ready for Requirements Definition
 
-This synthesis provides everything needed for `/kata:planning-roadmap`:
+This research provides sufficient foundation for requirements definition. The milestone scope is clear:
 
-- **Scope definition:** Clear MVP (changelog, version bump, diagrams, statusline) vs deferred features
-- **Phase structure:** 4 phases with parallel development opportunities
-- **Technology choices:** 3 dependencies, all validated and minimal
-- **Risk mitigation:** Critical pitfalls mapped to phases, prevention strategies defined
-- **Confidence levels:** HIGH overall, specific gaps identified (but non-blocking)
+**Core objective:** Polish Kata's subagent architecture to align with Claude Code plugin conventions.
 
-**Recommended next steps:**
-1. Orchestrator proceeds to requirements definition
-2. Roadmapper uses phase suggestions to structure ROADMAP.md
-3. Planner can start Phase 0 immediately (no additional research needed)
+**Deliverables:**
+1. Frontmatter updated across all 19 agents
+2. Task invocations modernized (agent parameter)
+3. Build system handles new patterns
+4. Optional features evaluated and selectively adopted
+5. Documentation reflects current conventions
 
-**Total research completeness: 95%** — Remaining 5% will emerge during phase planning (normal and expected).
+**Estimated effort:** 7-12 hours total (5 phases)
+
+**Risk level:** Low. Changes are incremental, additive, and easily reversible.
+
+The roadmapper can proceed with confidence that the technical approach is sound and the scope is well-defined.
