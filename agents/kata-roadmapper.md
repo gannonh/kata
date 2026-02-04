@@ -288,8 +288,11 @@ Use the standard ROADMAP.md format (see examples in existing projects).
 
 Key sections:
 - Overview (2-3 sentences)
-- Phases with Goal, Dependencies, Requirements, Success Criteria
-- Progress table
+- Milestones overview (✅ shipped, 🔄 current, ○ planned)
+- Completed Milestones (collapsed `<details>` with Goal, phase list, archive link)
+- Planned Milestones (future work with Goal and Target features)
+- Current Milestone with Phases (Goal, Dependencies, Requirements, Success Criteria)
+- Progress Summary table (includes planned milestones with "Planned" status)
 
 ## STATE.md Structure
 

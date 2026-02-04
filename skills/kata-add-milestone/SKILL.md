@@ -738,10 +738,28 @@ Create roadmap for milestone v[X.Y]:
 4. Derive 2-5 success criteria per phase (observable user behaviors)
 5. Validate 100% coverage of new requirements
 6. Write files immediately (ROADMAP.md, STATE.md, update REQUIREMENTS.md traceability)
-7. Return ROADMAP CREATED with summary
+7. Include "Planned Milestones" section in ROADMAP.md if user mentioned future milestone ideas
+8. Use ○ symbol for planned milestones in overview, 🔄 for current, ✅ for completed
+9. Include planned milestones in Progress Summary table with "Planned" status
+10. Return ROADMAP CREATED with summary
 
 Write files first, then return. This ensures artifacts persist even if context is lost.
 </instructions>
+
+<format_conventions>
+Milestones overview uses these symbols:
+- ✅ for shipped milestones
+- 🔄 for current/in-progress milestone
+- ○ for planned milestones
+
+Completed milestone details blocks MUST include:
+- Summary line: ✅ v[X.Y] [Name] — SHIPPED [DATE]
+- **Goal:** line
+- Phase checkboxes with plan counts and dates
+- [Full archive](milestones/v[X.Y]-ROADMAP.md) link
+
+Progress Summary table includes planned milestones with "Planned" status and "—" for metrics.
+</format_conventions>
 ", subagent_type="kata-roadmapper", model="{roadmapper_model}", description="Create roadmap")
 ```
 
