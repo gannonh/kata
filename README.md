@@ -35,13 +35,24 @@ claude plugin install kata@gannonh-kata-marketplace
 
 ---
 
-## What's New in v1.4.1
+## What's New in v1.5.0
 
-**Issue Execution** — Complete issue lifecycle from creation to automatic closure:
-- **Execution Modes** — "Work on it now" offers quick task or planned execution
-- **PR Auto-Closure** — Phase, milestone, and issue execution PRs include `Closes #X`
-- **Roadmap Integration** — Pull backlog issues into milestones and phases
-- **Source Traceability** — Issues flow through plans to PRs with automatic closure chain
+**Phase Management** — Reorganize your roadmap without starting over:
+- **Move phases** — `/kata:kata-move-phase 3 to v2.0` moves a phase between milestones
+- **Reorder phases** — `/kata:kata-move-phase 3 before 1` changes phase order within a milestone
+- **Per-milestone numbering** — Each milestone starts at Phase 1 (independent numbering)
+- **Phase state directories** — Phases organized into `pending/`, `active/`, `completed/`
+
+<details>
+<summary><strong>v1.4.1: Issue Execution</strong></summary>
+
+**Complete Issue Lifecycle** — From creation to automatic closure:
+- Execution modes: "Work on it now" offers quick task or planned execution
+- PR auto-closure: Phase, milestone, and issue execution PRs include `Closes #X`
+- Roadmap integration: Pull backlog issues into milestones and phases
+- Source traceability: Issues flow through plans to PRs with automatic closure chain
+
+</details>
 
 <details>
 <summary><strong>v1.4.0: GitHub Issue Sync</strong></summary>
@@ -85,6 +96,8 @@ Drive your entire workflow with **natural language**.
 | "Verify the work"         | UAT testing → Debug agents if issues found           |
 | "Review my PR"            | 6 specialized review agents                          |
 | "Complete the milestone"  | Archive → Tag/Release                                |
+| "Move phase 3 to v2.0"   | Cross-milestone move → Renumber → Commit             |
+| "Reorder phase 3 before 1"| Reorder → Renumber all affected → Commit            |
 | "What's the status?"      | Progress report → Routes to next action              |
 
 Slash commands exist for precision (`/kata:kata-plan-phase 2`), but natural language always works.

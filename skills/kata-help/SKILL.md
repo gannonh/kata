@@ -192,6 +192,16 @@ Remove a future phase and renumber subsequent phases.
 Usage: `/kata:kata-remove-phase 17`
 Result: Phase 17 deleted, phases 18-20 become 17-19
 
+**`/kata:kata-move-phase <phase> <operation>`**
+Move a phase between milestones or reorder within a milestone.
+
+- Cross-milestone: moves phase to target milestone, renumbers both
+- Reorder: changes phase position within milestone, renumbers all
+- Only pending phases can be moved
+
+Usage: `/kata:kata-move-phase 3 to v1.6.0` (cross-milestone)
+Usage: `/kata:kata-move-phase 3 before 1` (reorder within milestone)
+
 ### Milestone Management
 
 **`/kata:kata-add-milestone <name>`**

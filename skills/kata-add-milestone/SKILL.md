@@ -705,8 +705,7 @@ Display stage banner:
 
 **Determine starting phase number:**
 
-Read MILESTONES.md to find the last phase number from previous milestone.
-New phases continue from there (e.g., if v1.0 ended at phase 5, v1.1 starts at phase 6).
+Start phase numbering at 1 (each milestone has independent numbering).
 
 Spawn kata-roadmapper agent with context:
 
@@ -726,14 +725,14 @@ Task(prompt="
 **Config:**
 @.planning/config.json
 
-**Previous milestone (for phase numbering):**
+**Previous milestones (shipped context):**
 @.planning/MILESTONES.md
 
 </planning_context>
 
 <instructions>
 Create roadmap for milestone v[X.Y]:
-1. Start phase numbering from [N] (continues from previous milestone)
+1. Start phase numbering at 1 (each milestone has independent numbering)
 2. Derive phases from THIS MILESTONE's requirements (don't include validated/existing)
 3. Map every requirement to exactly one phase
 4. Derive 2-5 success criteria per phase (observable user behaviors)
@@ -1055,7 +1054,7 @@ Present completion with next steps:
 - [ ] kata-roadmapper spawned with phase numbering context
 - [ ] Roadmap files written immediately (not draft)
 - [ ] User feedback incorporated (if any)
-- [ ] ROADMAP.md created with phases continuing from previous milestone
+- [ ] ROADMAP.md created with phases starting at 1 (per-milestone numbering)
 - [ ] All commits made (if planning docs committed)
 - [ ] User knows next step is `/kata:kata-discuss-phase [N]`
 
