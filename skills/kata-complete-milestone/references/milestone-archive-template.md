@@ -119,5 +119,5 @@ _For current project status, see .planning/ROADMAP.md_
 
 - Update ROADMAP.md to collapse completed milestone in `<details>` tag
 - Update PROJECT.md to brownfield format with Current State section
-- Continue phase numbering in next milestone (never restart at 01)
+- Each milestone starts phase numbering at 1
   </guidelines>
