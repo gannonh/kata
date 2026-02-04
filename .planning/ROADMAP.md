@@ -148,14 +148,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 **Dependencies:** Phase 1
 **Plans:** 2 plans
 
-Plans:
-- [ ] 02-01-PLAN.md — Per-milestone numbering + kata-move-phase skill (cross-milestone moves)
-- [ ] 02-02-PLAN.md — Within-milestone reorder + help listing + requirements traceability
-
-**Success Criteria** (what must be TRUE):
-1. User can move a phase to a different milestone via `/kata:kata-move-phase`
-2. User can reorder phases within a milestone with automatic renumbering
-3. Each milestone starts phase numbering at 1 (not cumulative across milestones)
+- [x] Phase 2: Phase Movement (2/2 plans) — completed 2026-02-03
 
 #### Phase 3: Roadmap Enhancements
 
@@ -187,4 +180,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-03 — v1.5.0 Phase 2 planned*
+*Last updated: 2026-02-03 — v1.5.0 Phase 2 complete*
