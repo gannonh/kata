@@ -13,8 +13,8 @@
 
 ## Roadmap
 
-- [ ] **ROAD-01**: ROADMAP.md displays future planned milestones (not just current)
-- [ ] **ROAD-02**: Phase and milestone hierarchy is visually clear with consistent formatting and scannable progress indicators
+- [x] **ROAD-01**: ROADMAP.md displays future planned milestones (not just current)
+- [x] **ROAD-02**: Phase and milestone hierarchy is visually clear with consistent formatting and scannable progress indicators
 
 ## Future Requirements
 
@@ -35,8 +35,8 @@ None deferred — all phase management features included in this milestone.
 | PHASE-02    | 2     | 01, 02  | Complete |
 | PHASE-03    | 2     | 02      | Complete |
 | PHASE-04    | 2     | 01      | Complete |
-| ROAD-01     | 3     | —       | —      |
-| ROAD-02     | 3     | —       | —      |
+| ROAD-01     | 3     | 01, 02  | Complete |
+| ROAD-02     | 3     | 01, 02  | Complete |
 
 ---
 *Created: 2026-02-03 for milestone v1.5.0*

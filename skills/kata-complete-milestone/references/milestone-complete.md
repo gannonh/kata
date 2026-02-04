@@ -620,22 +620,35 @@ Add milestone headers and collapse completed work:
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-4 (shipped YYYY-MM-DD)
-- 🚧 **v1.1 Security** — Phases 5-6 (in progress)
-- 📋 **v2.0 Redesign** — Phases 7-10 (planned)
+- 🔄 **v1.1 Security** — Phases 5-6 (in progress)
+- ○ **v2.0 Redesign** — planned
 
 ## Phases
 
 <details>
 <summary>✅ v1.0 MVP (Phases 1-4) — SHIPPED YYYY-MM-DD</summary>
 
+**Goal:** [One sentence milestone goal]
+
 - [x] Phase 1: Foundation (2/2 plans) — completed YYYY-MM-DD
 - [x] Phase 2: Authentication (2/2 plans) — completed YYYY-MM-DD
 - [x] Phase 3: Core Features (3/3 plans) — completed YYYY-MM-DD
 - [x] Phase 4: Polish (1/1 plan) — completed YYYY-MM-DD
 
+[Full archive](milestones/v1.0-ROADMAP.md)
+
 </details>
 
-### 🚧 v[Next] [Name] (In Progress / Planned)
+## Planned Milestones
+
+### v2.0 Redesign (Planned)
+
+**Goal:** [To be defined when milestone becomes active]
+
+**Target features:**
+- [Feature placeholder]
+
+### 🔄 v[Next] [Name] (In Progress / Planned)
 
 - [ ] Phase 5: [Name] ([N] plans)
 - [ ] Phase 6: [Name] ([N] plans)

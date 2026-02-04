@@ -9,6 +9,7 @@ This template is used by the milestone-complete workflow to create archive files
 # Milestone v{{VERSION}}: {{MILESTONE_NAME}}
 
 **Status:** ✅ SHIPPED {{DATE}}
+**Goal:** {{MILESTONE_GOAL}}
 **Phases:** {{PHASE_START}}-{{PHASE_END}}
 **Total Plans:** {{TOTAL_PLANS}}
 
