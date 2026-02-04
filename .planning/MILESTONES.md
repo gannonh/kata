@@ -1,5 +1,32 @@
 # Project Milestones: Kata
 
+## v1.5.0 Phase Management (Shipped: 2026-02-04)
+
+**Delivered:** Phase state directories, cross-milestone phase movement, per-milestone numbering, and standardized roadmap formatting
+
+**Phases completed:** 1-3 (6 plans total)
+
+**Key accomplishments:**
+
+- Universal phase discovery pattern with state-aware `find` across all skills and agents
+- Phase state directories (`pending/`, `active/`, `completed/`) with automatic transitions
+- `/kata:kata-move-phase` for cross-milestone moves and within-milestone reordering
+- Per-milestone phase numbering starting at 1 (independent per milestone)
+- Roadmap format standardization with Planned Milestones section
+- Format conventions propagated to milestone completion, add-milestone, and roadmapper agents
+
+**Stats:**
+
+- 88 files changed, 4,618 insertions, 226 deletions
+- 3 phases, 6 plans
+- 2 days (2026-02-03 → 2026-02-04)
+
+**Git range:** `v1.4.1` → `v1.5.0`
+
+**What's next:** TBD
+
+---
+
 ## v1.4.1 Issue Execution (Shipped: 2026-02-03)
 
 **Delivered:** Complete issue lifecycle with execution workflows, PR auto-closure, roadmap integration, and plan-phase issue context wiring

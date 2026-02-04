@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-02-04 — Phase Management
+
+Kata v1.5.0 ships **Phase Management**: organized phase directories, cross-milestone phase movement, and improved roadmap visibility.
+
+### Added
+- **Phase state directories**: Phases organized under `pending/`, `active/`, `completed/` subdirectories
+- **Phase completion validation**: Validates PLAN.md and SUMMARY.md exist; non-gap phases require VERIFICATION.md
+- **Phase movement skill**: `/kata:kata-move-phase` moves phases between milestones with automatic renumbering
+- **Within-milestone reorder**: Reorder phases within a milestone via `/kata:kata-move-phase`
+- **Per-milestone phase numbering**: Each milestone starts numbering at 1 (independent, not cumulative)
+- **Planned milestones in roadmap**: ROADMAP.md displays future planned milestones with placeholder goals
+- **Roadmap format conventions**: Standardized formatting propagated to milestone completion, add-milestone, and roadmapper agents
+
+### Changed
+- Universal phase discovery pattern across all skills and agents (state-aware `find` instead of `ls` glob)
+- Roadmap completed milestone details blocks standardized with consistent formatting
+- Progress summary table updated with milestone-level tracking
+
+### Fixed
+- Replaced all `ls` glob patterns with `find` for zsh-safe phase discovery across skills and agents
+- Self-validation checkpoint added before completion banner
+- Directory creation ordering in new-project skill
+
+---
+
 ## [1.4.1] - 2026-02-03 — Issue Execution
 
 Kata v1.4.1 completes the **issue lifecycle**: execution workflows, PR integration with auto-closure, roadmap integration, and plan-phase issue context wiring.
@@ -405,7 +430,8 @@ Kata 1.0 ships with **Claude Code plugin support** as the recommended installati
 - Upstream remote and sync workflow
 - References to original project maintainer
 
-[Unreleased]: https://github.com/gannonh/kata/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/gannonh/kata/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/gannonh/kata/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/gannonh/kata/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/gannonh/kata/compare/v1.3.5...v1.4.0
 [1.3.5]: https://github.com/gannonh/kata/compare/v1.3.4...v1.3.5

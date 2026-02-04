@@ -4,7 +4,7 @@
 
 A spec-driven development framework for Claude Code. Brings structured, reliable AI development to teams without changing their existing tools. Teams use Kata's quality-producing process inside the tools they already love.
 
-**Current state:** v1.5.0 in progress — Phase Management. Improved phase organization, movement, and roadmap visibility. Previous: v1.4.1 Issue Execution (complete issue lifecycle with execution workflows and PR auto-closure).
+**Current state:** v1.5.0 shipped (2026-02-04). Phase Management: organized phase state directories, cross-milestone phase movement, per-milestone numbering, standardized roadmap formatting.
 
 ## Core Value
 
@@ -33,14 +33,13 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - PR→Issue closure — v1.4.1 (phase, milestone, and issue execution PRs auto-close GitHub Issues)
 - Issue execution workflow — v1.4.1 (mode selection: quick task vs planned, PR with Closes #X)
 - Issue→roadmap integration — v1.4.1 (pull issues into milestones and phases, source_issue traceability)
+- Phase state directories — v1.5.0 (pending/, active/, completed/ with automatic transitions)
+- Phase movement — v1.5.0 (cross-milestone moves, within-milestone reorder, per-milestone numbering)
+- Roadmap formatting — v1.5.0 (Planned Milestones section, standardized details blocks, format conventions)
 
 ### Active
 
-**v1.5.0 — Phase Management**
-
-- Phase organization (folder state directories: pending, active, completed)
-- Phase movement (move/reorder phases within and across milestones)
-- Roadmap improvements (show future milestones, clearer format)
+Planning next milestone.
 
 ### Out of Scope
 
@@ -59,6 +58,13 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Building an agent framework — use platform-native capabilities (subagents, Skills, MCPs)
 
 ## Context
+
+**v1.5.0 shipped (2026-02-04):**
+- 88 files changed, 4,618 insertions, 226 deletions
+- Phase state directories with universal discovery pattern across all skills/agents
+- Cross-milestone phase movement and within-milestone reordering
+- Per-milestone phase numbering starting at 1
+- Standardized roadmap formatting with Planned Milestones section
 
 **v1.4.1 shipped (2026-02-03):**
 - 152 files changed, 6,941 insertions, 651 deletions
@@ -122,6 +128,22 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 | Issue lifecycle via PR closure        | `Closes #X` in PR body handles all closure paths consistently               | Good — v1.4.1 |
 | Source issue traceability             | Plans reference source issues for audit trail from issue to PR              | Good — v1.4.1 |
 | kata- prefix on all skill names       | Consistent namespacing, avoids collisions with built-in behaviors           | Good — v1.4.1 |
+| Phase state directories               | Organize artifacts under pending/active/completed for lifecycle clarity    | Good — v1.5.0 |
+| Universal find-based discovery         | zsh-safe, supports both flat and state directories                         | Good — v1.5.0 |
+| Per-milestone phase numbering          | Independent numbering avoids cross-milestone confusion                     | Good — v1.5.0 |
+
+## Shipped: v1.5.0 Phase Management
+
+**Delivered:** Phase state directories, cross-milestone phase movement, per-milestone numbering, and standardized roadmap formatting.
+
+**Key accomplishments:**
+- Universal phase discovery pattern with state-aware `find` across all skills and agents
+- Phase state directories (`pending/`, `active/`, `completed/`) with automatic transitions
+- `/kata:kata-move-phase` for cross-milestone moves and within-milestone reordering
+- Per-milestone phase numbering starting at 1 (independent per milestone)
+- Roadmap format standardization with Planned Milestones section
+
+See `.planning/milestones/v1.5.0-ROADMAP.md` for full archive.
 
 ## Shipped: v1.4.1 Issue Execution
 
@@ -160,4 +182,4 @@ See `.planning/milestones/v1.4.0-ROADMAP.md` for full archive.
 See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 
 ---
-*Last updated: 2026-02-03 — v1.5.0 milestone started*
+*Last updated: 2026-02-04 after v1.5.0 milestone*
