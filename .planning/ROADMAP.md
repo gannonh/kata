@@ -194,14 +194,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 **Requirements:** ROAD-01, ROAD-02
 **Plans:** 2 plans
 
-Plans:
-- [ ] 03-01-PLAN.md — Update ROADMAP.md with Planned Milestones section and consistent formatting
-- [ ] 03-02-PLAN.md — Update skills and agents for consistent ROADMAP.md formatting
-
-**Success Criteria** (what must be TRUE):
-1. ROADMAP.md displays future planned milestones (not just current)
-2. Phase and milestone hierarchy is visually clear with consistent formatting
-3. Progress indicators are easily scannable
+- [x] Phase 3: Roadmap Enhancements (2/2 plans) — completed 2026-02-04
 
 ---
 
