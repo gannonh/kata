@@ -12,14 +12,14 @@ allowed-tools:
 ---
 
 <objective>
-Move a pending phase to a different milestone, renumbering at both source and destination.
+Move a pending phase to a different milestone or reorder phases within a milestone.
 
-Purpose: Enable flexible phase reorganization between milestones when scope changes.
-Output: Phase moved, directories renamed, ROADMAP.md updated, STATE.md updated, git commit as historical record.
+Purpose: Enable flexible phase reorganization (cross-milestone moves and within-milestone reordering).
+Output: Phase moved/reordered, directories renamed, ROADMAP.md updated, STATE.md updated, git commit as historical record.
 
 **Supported operations:**
 - Cross-milestone move: `/kata:kata-move-phase 3 to v1.6.0`
-- Reorder within milestone: (planned for Plan 02)
+- Reorder within milestone: `/kata:kata-move-phase 3 before 1` or `/kata:kata-move-phase 3 after 1`
 </objective>
 
 <execution_context>
@@ -30,39 +30,40 @@ Output: Phase moved, directories renamed, ROADMAP.md updated, STATE.md updated, 
 <process>
 
 <step name="parse_arguments">
-Parse the command arguments:
+Parse the command arguments. First arg is always the phase number (integer).
+
+**Detect operation type from second arg:**
+- `"to"` + milestone version → cross-milestone move
+- `"before"` or `"after"` + target phase number → reorder within milestone
 
 **Cross-milestone move:**
-- First arg: phase number (integer)
-- Second arg: "to"
-- Third arg: target milestone version (e.g., v1.6.0)
-- Example: `/kata:kata-move-phase 3 to v1.6.0`
+- `/kata:kata-move-phase 3 to v1.6.0`
 
-**Reorder (planned for Plan 02):**
-- If second arg is "before" or "after": reorder operation
-- Display: "Reorder capability coming soon. Use cross-milestone move with 'to' keyword."
-- Exit.
+**Reorder within milestone:**
+- `/kata:kata-move-phase 3 before 1` → Phase 3 takes position 1, everything shifts up
+- `/kata:kata-move-phase 3 after 1` → Phase 3 takes position 2, phases 2+ shift up
 
 **Validation:**
-- If no arguments:
+- If no arguments or missing second arg:
 
 ```
-ERROR: Phase number and target required
-Usage: /kata:kata-move-phase <phase-number> to <milestone-version>
-Example: /kata:kata-move-phase 3 to v1.6.0
+ERROR: Phase number and operation required
+Usage: /kata:kata-move-phase <phase> to <milestone>
+       /kata:kata-move-phase <phase> before|after <position>
+```
+
+Exit.
+
+- If second arg is not "to", "before", or "after":
+
+```
+ERROR: Invalid operation "{arg}"
+Expected: to, before, or after
 ```
 
 Exit.
 
-- If missing "to" keyword or target:
-
-```
-ERROR: Invalid syntax
-Usage: /kata:kata-move-phase <phase-number> to <milestone-version>
-Example: /kata:kata-move-phase 3 to v1.6.0
-```
-
-Exit.
+Store: PHASE_NUM, OPERATION (move|reorder), and either TARGET_MILESTONE or POSITION+TARGET_POSITION.
 </step>
 
 <step name="load_state">
@@ -77,151 +78,69 @@ Parse current milestone version from ROADMAP.md (the milestone marked "In Progre
 </step>
 
 <step name="validate_phase_exists">
-Verify the target phase exists in ROADMAP.md:
+Verify the phase exists in ROADMAP.md and find its directory:
 
-1. Search for `#### Phase {target}:` heading within the current milestone section
-2. Use universal phase discovery to find the phase directory:
-
-```bash
-PADDED=$(printf "%02d" "$PHASE_NUM" 2>/dev/null || echo "$PHASE_NUM")
-PHASE_DIR=""
-for state in active pending completed; do
-  PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
-  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PHASE_NUM}-*" 2>/dev/null | head -1)
-  [ -n "$PHASE_DIR" ] && break
-done
-# Fallback: flat directory
-if [ -z "$PHASE_DIR" ]; then
-  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
-  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE_NUM}-*" 2>/dev/null | head -1)
-fi
-```
-
-If not found in ROADMAP.md:
-
-```
-ERROR: Phase {target} not found in roadmap
-Available phases: [list phase numbers from current milestone]
-```
-
-Exit.
+1. Search for `#### Phase {N}:` heading within the current milestone
+2. Use universal phase discovery (search active/pending/completed with padded and unpadded names, fallback to flat)
+3. If not found: `ERROR: Phase {N} not found in roadmap` + list available phases. Exit.
 </step>
 
 <step name="validate_phase_movable">
-Verify the phase can be moved:
+Verify the phase can be moved/reordered:
 
-1. **Phase must be in pending/** (not active or completed):
-
-```bash
-# Check if in active/ or completed/ (not movable)
-for state in active completed; do
-  if find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | grep -q .; then
-    echo "ERROR: Phase ${PHASE_NUM} is in ${state}/ and cannot be moved"
-    exit 1
-  fi
-done
-```
-
-If not in pending/:
-
-```
-ERROR: Phase {target} is not in pending state
-Only pending phases can be moved between milestones.
-Active or completed phases have execution artifacts tied to their current position.
-```
-
-Exit.
-
-2. **Phase must not have SUMMARY.md files** (no executed plans):
-
-```bash
-find "${PHASE_DIR}" -maxdepth 1 -name "*-SUMMARY.md" 2>/dev/null
-```
-
-If SUMMARY.md files exist:
-
-```
-ERROR: Phase {target} has completed work
-
-Found executed plans:
-- {list of SUMMARY.md files}
-
-Cannot move phases with completed work.
-```
-
-Exit.
+1. **Must be in pending/** (not active or completed). If not: `ERROR: Phase {N} is in {state}/ and cannot be moved`. Exit.
+2. **Must not have SUMMARY.md files** (no executed plans). If found: `ERROR: Phase {N} has completed work`. Exit.
 </step>
 
 <step name="validate_target_milestone">
-Verify the target milestone exists and is different from source:
+**Cross-milestone move only.** Skip for reorder operations.
 
-1. Search ROADMAP.md for the target milestone heading (e.g., `### v1.6.0`)
-2. Target must exist in ROADMAP.md
+1. Target milestone heading must exist in ROADMAP.md. If not: `ERROR: Milestone {target} not found` + list available. Exit.
+2. Target must differ from source. If same: `ERROR: Phase already in {milestone}. Use before/after to reorder.` Exit.
+</step>
 
-If not found:
+<step name="validate_reorder_target">
+**Reorder only.** Skip for cross-milestone moves.
+
+Validate the target position phase exists in the same milestone:
+
+1. Target position phase must exist in ROADMAP.md within the current milestone
+2. Target can be any state (active, pending, completed) since we're reordering the roadmap listing
+3. The phase being moved must be pending (already validated in validate_phase_movable)
+
+Calculate the effective target position:
+- `before N` → target position = N (phase takes position N, everything at N+ shifts up)
+- `after N` → target position = N+1 (phase takes position N+1, everything at N+1+ shifts up)
+
+If target position phase not found:
 
 ```
-ERROR: Milestone {target_milestone} not found in roadmap
-
-Available milestones:
-{list milestone headings from ROADMAP.md}
-```
-
-Exit.
-
-3. Target must not be the same as the source milestone:
-
-If same:
-
-```
-ERROR: Phase {target} is already in milestone {target_milestone}
-To reorder within a milestone, use: /kata:kata-move-phase {N} before {M}
-(Reorder capability planned for Plan 02)
+ERROR: Phase {target_position} not found in current milestone
+Available phases: [list phase numbers]
 ```
 
 Exit.
 </step>
 
-<step name="calculate_destination_number">
-Find the next available phase number in the target milestone:
+<step name="confirm_reorder">
+**Reorder only.** Skip for cross-milestone moves.
 
-1. Parse all phase headings within the target milestone section
-2. Find the highest integer phase number
-3. New phase number = highest + 1 (or 1 if milestone has no phases)
-4. Format as two-digit: `printf "%02d" $NEW_NUM`
-
-```bash
-# Extract highest phase number in target milestone
-# Parse between target milestone heading and next milestone heading
-HIGHEST=$(sed -n "/^### ${TARGET_MILESTONE}/,/^### v[0-9]/p" .planning/ROADMAP.md \
-  | grep -E "^#### Phase [0-9]+:" \
-  | sed -E 's/.*Phase ([0-9]+):.*/\1/' \
-  | sort -n | tail -1)
-
-if [ -z "$HIGHEST" ]; then
-  NEW_NUM=1
-else
-  NEW_NUM=$((HIGHEST + 1))
-fi
-PADDED_NEW=$(printf "%02d" "$NEW_NUM")
-```
-</step>
-
-<step name="confirm_move">
-Present move summary and wait for confirmation:
+Show the planned reorder and wait for confirmation:
 
 ```
-Moving Phase {N}: {Name}
+Reordering Phase {N}: {Name}
 
-From: {source_milestone}
-To:   {target_milestone}
+Current order:
+  Phase 1: {name}
+  Phase 2: {name}
+  Phase 3: {name}
 
-This will:
-- Remove phase from {source_milestone} in ROADMAP.md
-- Add as Phase {NEW_NUM} in {target_milestone}
-- Rename directory: {old_dir} -> pending/{PADDED_NEW}-{slug}
-- Rename internal files ({OLD_NUM}-01-PLAN.md -> {NEW_NUM}-01-PLAN.md, etc.)
-- Renumber {M} remaining phases in {source_milestone} to close the gap
+New order:
+  Phase 1: {name}  (was Phase 3)
+  Phase 2: {name}  (was Phase 1)
+  Phase 3: {name}  (was Phase 2)
+
+This will renumber all phase directories and update ROADMAP.md.
 
 Proceed? (y/n)
 ```
@@ -229,92 +148,85 @@ Proceed? (y/n)
 Wait for confirmation.
 </step>
 
+<step name="reorder_roadmap">
+**Reorder only.** Skip for cross-milestone moves.
+
+Update ROADMAP.md to reflect the new phase order:
+
+1. Extract all phase sections within the current milestone
+2. Remove the moving phase section from its current position
+3. Insert it at the target position
+4. Renumber ALL phase headings in the milestone sequentially (1, 2, 3, ...)
+5. Update all references within the milestone:
+   - Phase headings: `#### Phase {old}:` -> `#### Phase {new}:`
+   - Phase list entries
+   - Progress table rows
+   - Plan references: `{old}-01:` -> `{new}-01:`
+   - Dependency references: `Depends on: Phase {old}` -> `Depends on: Phase {new}`
+   - Decimal phase references if any
+
+Write updated ROADMAP.md.
+</step>
+
+<step name="renumber_all_directories">
+**Reorder only.** Skip for cross-milestone moves.
+
+Rename ALL phase directories in the milestone to match new numbering. Use a three-pass approach to avoid collision:
+
+1. **Pass 1:** Move the reordering phase to a temp name (`tmp-{slug}`)
+2. **Pass 2:** Renumber all remaining phases sequentially. Process order matters:
+   - Phases shifting down (higher->lower): process lowest first
+   - Phases shifting up (lower->higher): process highest first
+   - For each: find across state subdirectories, rename directory and internal files
+3. **Pass 3:** Move temp directory to its final numbered position, rename internal files
+
+Handle decimal phases: they follow their parent integer phase and renumber accordingly.
+</step>
+
+<step name="calculate_destination_number">
+**Cross-milestone move only.** Skip for reorder operations.
+
+Find next phase number in target milestone: parse `#### Phase N:` headings, take highest + 1 (or 1 if empty). Format as two-digit padded.
+</step>
+
+<step name="confirm_move">
+**Cross-milestone move only.** Skip for reorder operations.
+
+Show: source milestone, target milestone, new phase number, directory rename, number of phases to renumber in source. Wait for confirmation.
+</step>
+
 <step name="remove_from_source_milestone">
-Remove the phase section from source milestone in ROADMAP.md:
+**Cross-milestone move only.** Skip for reorder operations.
 
-1. Find the phase section boundaries (from `#### Phase {N}:` to next `#### Phase` or section boundary)
-2. Remove the entire section
-3. Renumber remaining phases in source milestone to close the gap:
-   - Phase {N+1} becomes Phase {N}
-   - Phase {N+2} becomes Phase {N+1}
-   - Process in ascending order for downward shifts
-
-Use the same renumbering approach as kata-remove-phase:
-- Update phase headings: `#### Phase {old}:` -> `#### Phase {new}:`
-- Update phase list entries
-- Update progress table rows
-- Update plan references: `{old}-01:` -> `{new}-01:`
-- Update dependency references: `Depends on: Phase {old}` -> `Depends on: Phase {new}`
-- Update decimal phase references if any
+Remove phase section from source milestone in ROADMAP.md and renumber remaining phases to close the gap. Follow the same renumbering approach as kata-remove-phase:
+- Phase headings, list entries, progress table rows
+- Plan references (`{old}-01:` -> `{new}-01:`)
+- Dependency references (`Depends on: Phase {old}` -> `Phase {new}`)
+- Decimal phase references
 </step>
 
 <step name="add_to_target_milestone">
-Insert the phase section into target milestone in ROADMAP.md:
+**Cross-milestone move only.** Skip for reorder operations.
 
-1. Find the insertion point (end of target milestone's phases, before next section)
-2. Update phase number in the section to the calculated destination number
-3. Insert the section with correct formatting
-4. Preserve phase goal, requirements, success criteria
-5. Update dependency references to reflect the new milestone context
-
-If the phase had dependency references to other phases in the source milestone, note them as cross-milestone dependencies or remove them if they no longer apply.
+Insert phase section into target milestone in ROADMAP.md at the calculated destination number. Preserve goal, requirements, success criteria. Remove or note cross-milestone dependency references that no longer apply.
 </step>
 
 <step name="rename_phase_directory">
-Move the phase directory from old number to new number:
+**Cross-milestone move only.** Skip for reorder operations (handled by renumber_all_directories).
 
-```bash
-# Extract slug from current directory name
-SLUG=$(basename "$PHASE_DIR" | sed -E "s/^${PADDED}-//")
-
-# Rename within pending/ (destination is always pending/)
-NEW_DIR=".planning/phases/pending/${PADDED_NEW}-${SLUG}"
-mv "$PHASE_DIR" "$NEW_DIR"
-echo "Renamed: $PHASE_DIR -> $NEW_DIR"
-
-# Rename files inside the directory
-for file in "${NEW_DIR}/${PADDED}-"*; do
-  [ -f "$file" ] || continue
-  NEW_FILE=$(echo "$file" | sed "s/${PADDED}-/${PADDED_NEW}-/")
-  mv "$file" "$NEW_FILE"
-  echo "Renamed: $(basename $file) -> $(basename $NEW_FILE)"
-done
-```
-
-Handle decimal phases that belong to the moved phase:
-- Find phases like {N}.1, {N}.2 in pending/
-- Move them with the parent phase, renumbering to {NEW_NUM}.1, {NEW_NUM}.2
+Rename phase directory to new number within pending/. Rename all files inside (PLAN.md, RESEARCH.md, etc.) to match. Handle decimal phases (N.1, N.2) by moving them with the parent, renumbering to NEW_NUM.1, NEW_NUM.2.
 </step>
 
 <step name="renumber_source_directories">
-Renumber directories of phases that shifted in the source milestone due to the gap:
+**Cross-milestone move only.** Skip for reorder operations (handled by renumber_all_directories).
 
-Process in ascending order (for downward shifts):
-
-```bash
-# For each subsequent phase in source milestone
-# Find it across state subdirectories, rename within same state
-for state in active pending completed; do
-  SRC=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${OLD_PADDED}-*" 2>/dev/null | head -1)
-  if [ -n "$SRC" ]; then
-    SLUG=$(basename "$SRC" | sed -E "s/^${OLD_PADDED}-//")
-    mv "$SRC" ".planning/phases/${state}/${NEW_PADDED}-${SLUG}"
-
-    # Rename files inside
-    for file in ".planning/phases/${state}/${NEW_PADDED}-${SLUG}/${OLD_PADDED}-"*; do
-      [ -f "$file" ] || continue
-      NEW_FILE=$(echo "$file" | sed "s/${OLD_PADDED}-/${NEW_PADDED}-/")
-      mv "$file" "$NEW_FILE"
-    done
-  fi
-done
-```
-
-Process each shifted phase sequentially to avoid conflicts.
+Renumber directories of phases that shifted in the source milestone. Process ascending order (for downward shifts). For each: find across state subdirectories, rename directory and internal files within same state.
 </step>
 
 <step name="update_state">
 Update STATE.md:
+
+**For cross-milestone move:**
 
 1. Add roadmap evolution note:
 
@@ -325,8 +237,17 @@ Update STATE.md:
 2. Update total phase count if the source milestone is the current milestone
 3. Recalculate progress percentage
 
-Update REQUIREMENTS.md traceability if requirements reference the moved phase:
-- Update phase numbers in traceability table for both moved and renumbered phases
+**For reorder:**
+
+1. Add roadmap evolution note:
+
+```markdown
+- **Phase {N} reordered {before|after} Phase {M}** in {milestone}
+```
+
+2. Phase count unchanged (same milestone, same phases)
+
+**Both operations:** Update REQUIREMENTS.md traceability if requirements reference affected phases. Update phase numbers in traceability table for all renumbered phases.
 </step>
 
 <step name="commit">
@@ -343,54 +264,37 @@ git check-ignore -q .planning 2>/dev/null && COMMIT_PLANNING_DOCS=false
 
 ```bash
 git add .planning/
+# Cross-milestone move:
 git commit -m "chore: move phase {N} to {target_milestone}"
+# Reorder:
+git commit -m "chore: reorder phase {N} {before|after} {M}"
 ```
 </step>
 
 <step name="completion">
-Present completion summary:
-
-```
-Phase {N} ({phase-name}) moved to {target_milestone}.
-
-Changes:
-- Moved: Phase {N} -> Phase {NEW_NUM} in {target_milestone}
-- Directory: {old_dir} -> {new_dir}
-- Renumbered: {M} phases in {source_milestone}
-- Updated: ROADMAP.md, STATE.md
-- Committed: chore: move phase {N} to {target_milestone}
-
----
-
-## What's Next
-
-Would you like to:
-- `/kata:kata-track-progress` - see updated roadmap status
-- Continue with current phase
-- Review roadmap
-
----
-```
+Present completion summary showing: operation performed, directories renamed, phases renumbered, files updated, commit message. Then offer next actions: `/kata:kata-track-progress`, continue current phase, review roadmap.
 </step>
 
 </process>
 
 <anti_patterns>
 
-- Don't move active or completed phases (only pending)
+- Don't move active or completed phases (only pending phases can be moved/reordered)
 - Don't move phases with executed plans (SUMMARY.md exists)
 - Don't move to the same milestone (use reorder instead)
+- Don't reorder to the same position (no-op)
 - Don't forget decimal phases (they move with parent integer phase)
 - Don't commit if commit_docs is false
-- Don't leave gaps in phase numbering after move
+- Don't leave gaps in phase numbering after move or reorder
 - Don't modify phases outside the source and target milestones
+- Don't rename directories without the two-pass temp approach (avoids collisions during reorder)
 
 </anti_patterns>
 
 <edge_cases>
 
 **Phase has PLAN.md files but no SUMMARY.md:**
-- Allowed. Rename plan files inside the directory as part of the move.
+- Allowed. Rename plan files inside the directory as part of the move/reorder.
 - Update plan frontmatter phase references.
 
 **Target milestone is empty (no phases):**
@@ -411,10 +315,17 @@ Would you like to:
 - Skip directory operations, proceed with ROADMAP.md updates only.
 - Note in completion summary: "No directory to move (phase not yet created)"
 
+**Reorder: moving to adjacent position:**
+- `before N+1` or `after N-1` when phase is at position N is a no-op.
+- Detect and report: "Phase {N} is already at that position."
+
+**Reorder: only two phases in milestone:**
+- Swap positions. Both directories and all references renumbered.
+
 </edge_cases>
 
 <success_criteria>
-Phase move is complete when:
+**Cross-milestone move** is complete when:
 
 - [ ] Source phase validated as pending/unstarted
 - [ ] Target milestone validated as existing and different from source
@@ -426,8 +337,21 @@ Phase move is complete when:
 - [ ] Decimal phases moved with parent (if any)
 - [ ] Source directories renumbered (if phases shifted)
 - [ ] STATE.md updated with roadmap evolution note
-- [ ] REQUIREMENTS.md traceability updated (if applicable)
 - [ ] Changes committed with descriptive message
 - [ ] No gaps in phase numbering at source or destination
-- [ ] User informed of all changes
+
+**Reorder** is complete when:
+
+- [ ] Phase validated as pending/unstarted
+- [ ] Target position validated as existing in same milestone
+- [ ] Phase sections reordered in ROADMAP.md
+- [ ] All phases in milestone renumbered sequentially
+- [ ] All phase directories renamed (two-pass temp approach)
+- [ ] Files inside directories renamed to match new numbers
+- [ ] Decimal phases renumbered with parent (if any)
+- [ ] STATE.md updated with roadmap evolution note
+- [ ] Changes committed with descriptive message
+- [ ] No gaps in phase numbering
+
+**Both operations:** User informed of all changes.
 </success_criteria>
