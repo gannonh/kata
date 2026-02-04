@@ -104,15 +104,15 @@ Skills are the primary interface for all Kata workflows. They respond to both na
 
 Skills are installed to `.claude/skills/` and invoked via `/kata:kata-skill-name`.
 
-| Skill                   | Invocation                    | Purpose                                        | Sub-agents Spawned                       |
-| ----------------------- | ----------------------------- | ---------------------------------------------- | ---------------------------------------- |
-| `kata-plan-phase`       | `/kata:kata-plan-phase`       | Phase planning, task breakdown                 | kata-planner, kata-plan-checker          |
-| `kata-execute-phase`    | `/kata:kata-execute-phase`    | Plan execution, checkpoints                    | kata-executor                            |
-| `kata-verify-work`      | `/kata:kata-verify-work`      | Goal verification, UAT                         | kata-verifier, kata-debugger             |
-| `kata-new-project`      | `/kata:kata-new-project`      | New project setup                              | kata-project-researcher, kata-roadmapper |
-| `kata-add-milestone`    | `/kata:kata-add-milestone`    | Add milestone, research, requirements, roadmap | kata-project-researcher, kata-roadmapper |
-| `kata-research-phase`   | `/kata:kata-research-phase`   | Domain research                                | kata-phase-researcher                    |
-| `kata-track-progress`   | `/kata:kata-track-progress`   | Progress, debug, mapping                       | kata-debugger, kata-codebase-mapper      |
+| Skill                 | Invocation                  | Purpose                                        | Sub-agents Spawned                       |
+| --------------------- | --------------------------- | ---------------------------------------------- | ---------------------------------------- |
+| `kata-plan-phase`     | `/kata:kata-plan-phase`     | Phase planning, task breakdown                 | kata-planner, kata-plan-checker          |
+| `kata-execute-phase`  | `/kata:kata-execute-phase`  | Plan execution, checkpoints                    | kata-executor                            |
+| `kata-verify-work`    | `/kata:kata-verify-work`    | Goal verification, UAT                         | kata-verifier, kata-debugger             |
+| `kata-new-project`    | `/kata:kata-new-project`    | New project setup                              | kata-project-researcher, kata-roadmapper |
+| `kata-add-milestone`  | `/kata:kata-add-milestone`  | Add milestone, research, requirements, roadmap | kata-project-researcher, kata-roadmapper |
+| `kata-research-phase` | `/kata:kata-research-phase` | Domain research                                | kata-phase-researcher                    |
+| `kata-track-progress` | `/kata:kata-track-progress` | Progress, debug, mapping                       | kata-debugger, kata-codebase-mapper      |
 
 ### Skill Naming Best Practices
 
@@ -184,3 +184,8 @@ When modifying `.planning/` files (PROJECT.md, ROADMAP.md, STATE.md):
 4. **Follow KATA-STYLE.md** — For all formatting, naming, and structural decisions
 5. **When modifying skills** — Follow the /building-claude-code-skills methodology
 6. **Keep SKILL.md under 500 lines** — Move details to `references/` subdirectory
+
+## Testing and UAT
+
+- Create test projects in `../kata-burner/` using `../kata-burner/create-test-project.sh`
+- Use `scripts/test-local.sh` to run local tests against the plugin
