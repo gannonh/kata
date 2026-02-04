@@ -6,12 +6,25 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 ## Milestones
 
+- ✅ **v1.5.0 Phase Management** — Phases 1-3 (shipped 2026-02-04)
 - ✅ **v1.4.1 Issue Execution** — Phases 1-4 (shipped 2026-02-03)
-- 🔄 **v1.5.0 Phase Management** — Phases 1-3 (in progress)
 - ○ **v1.6.0** — planned
 - ○ **v1.7.0** — planned
 
 ## Completed Milestones
+
+<details>
+<summary>✅ v1.5.0 Phase Management (Phases 1-3) — SHIPPED 2026-02-04</summary>
+
+**Goal:** Improved phase organization, movement, and roadmap visibility.
+
+- [x] Phase 1: Phase Organization (2/2 plans) — completed 2026-02-03
+- [x] Phase 2: Phase Movement (2/2 plans) — completed 2026-02-03
+- [x] Phase 3: Roadmap Enhancements (2/2 plans) — completed 2026-02-04
+
+[Full archive](milestones/v1.5.0-ROADMAP.md)
+
+</details>
 
 <details>
 <summary>✅ v1.4.1 Issue Execution (Phases 1-4) — SHIPPED 2026-02-03</summary>
@@ -165,39 +178,6 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 ---
 
-## Current Milestone
-
-### v1.5.0 Phase Management (In Progress)
-
-**Goal:** Improved phase organization, movement, and roadmap visibility.
-
-#### Phase 1: Phase Organization
-
-**Goal:** Organize phase artifacts into state directories with completion validation.
-**Requirements:** PHASE-01, PHASE-05
-**Plans:** 2 plans
-
-- [x] Phase 1: Phase Organization (2/2 plans) — completed 2026-02-03
-
-#### Phase 2: Phase Movement
-
-**Goal:** Enable flexible phase reorganization within and across milestones.
-**Requirements:** PHASE-02, PHASE-03, PHASE-04
-**Dependencies:** Phase 1
-**Plans:** 2 plans
-
-- [x] Phase 2: Phase Movement (2/2 plans) — completed 2026-02-03
-
-#### Phase 3: Roadmap Enhancements
-
-**Goal:** Improve roadmap visibility and readability.
-**Requirements:** ROAD-01, ROAD-02
-**Plans:** 2 plans
-
-- [x] Phase 3: Roadmap Enhancements (2/2 plans) — completed 2026-02-04
-
----
-
 ## Progress Summary
 
 | Milestone | Phases | Plans | Status   | Shipped    |
@@ -212,10 +192,10 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 | v1.3.3    | 1      | 4     | Shipped  | 2026-01-29 |
 | v1.4.0    | 2      | 11    | Shipped  | 2026-02-01 |
 | v1.4.1    | 4      | 6     | Shipped  | 2026-02-03 |
-| v1.5.0    | 3      | 4+    | Active   | —          |
+| v1.5.0    | 3      | 6     | Shipped  | 2026-02-04 |
 | v1.6.0    | —      | —     | Planned  | —          |
 | v1.7.0    | —      | —     | Planned  | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-04 — v1.5.0 Phase 3 roadmap enhancements*
+*Last updated: 2026-02-04 — v1.5.0 shipped*
