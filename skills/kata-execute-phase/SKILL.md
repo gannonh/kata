@@ -399,45 +399,6 @@ PR_EOF
     - Stage REQUIREMENTS.md if updated: `git add .planning/REQUIREMENTS.md`
     - Commit: `docs({phase}): complete {phase-name} phase`
 
-10.25. **Review Documentation (Non-blocking, pr_workflow only)**
-
-    If PR_WORKFLOW=true, before marking PR ready, offer README review:
-
-    Use AskUserQuestion:
-    - header: "README Review"
-    - question: "This phase may have added user-facing features. Revise README before marking PR ready?"
-    - options:
-      - "Yes, draft an update for my review" — Revise README and present to the user for approval
-      - "No, I'll make the edits myself" — Pause for user review, wait for "continue"
-      - "Skip for now" — Proceed directly to commit
-
-    **If user chooses "Yes, I'll update README":**
-    ```
-    Update README.md with any documentation for this phase's features.
-    Say "continue" when ready to mark the PR ready.
-    ```
-
-    **If user chooses "Show README":**
-    Display README.md content, then use AskUserQuestion:
-    - header: "README Updates"
-    - question: "Does the README need updates for this phase?"
-    - options:
-      - "Yes, I'll update now" — Pause for user edits, wait for "continue"
-      - "No, looks good" — Proceed to mark PR ready
-
-    After README updates (if any), stage and commit:
-    ```bash
-    # Only if README was modified
-    if git diff --quiet README.md; then
-      echo "No README changes"
-    else
-      git add README.md
-      git commit -m "docs({phase}): update README for phase features"
-    fi
-    ```
-
-    *Non-blocking: phase completion continues regardless of choice.*
-
 10.5. **Mark PR Ready (pr_workflow only)**
 
     After phase completion commit:
