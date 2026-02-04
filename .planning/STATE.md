@@ -9,13 +9,13 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 
 ## Current Position
 
-Milestone: v1.5.0 Phase Management — SHIPPED
-Phase: Complete
-Plan: Complete
-Status: Milestone shipped, planning next
-Last activity: 2026-02-04 — v1.5.0 milestone complete
+Milestone: v1.6.0 Skills-Native Subagents — In Progress
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-04 — Milestone v1.6.0 started
 
-Progress: ██████ 3/3 phases complete — SHIPPED
+Progress: ░░░░░░ 0/? phases — defining requirements
 
 ## Performance Metrics
 
@@ -51,9 +51,10 @@ Progress: ██████ 3/3 phases complete — SHIPPED
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **2026-02-04: v1.5.0 shipped** — Phase Management complete. Next milestone TBD.
+- **2026-02-04: v1.6.0 started** — Skills-Native Subagents: convert custom subagents to Agent Skills resources.
+- **2026-02-04: Feature branch approach** — Working on `feat/skills-subagents`, merge if POC succeeds.
+- **2026-02-04: Phased scope** — POC first (kata-planner, kata-executor), then full conversion if successful.
 - **2026-02-03: Per-milestone phase numbering** — Each milestone starts phase numbering at 1 (independent numbering, not cumulative).
-- **2026-02-03: kata- prefix on all skills** — All skill names now prefixed with `kata-` for consistent namespacing.
 
 ### Roadmap Evolution
 
@@ -83,6 +84,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-04
-Stopped at: v1.5.0 milestone complete
+Stopped at: v1.6.0 milestone started, awaiting research
 Resume file: None
-Next action: `/kata:kata-add-milestone` to start next milestone
+Next action: Research phase — Agent Skills subagent patterns
