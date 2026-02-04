@@ -7,9 +7,9 @@
 
 ## Phase Movement
 
-- [ ] **PHASE-02**: User can move a phase to a different milestone via `/kata:kata-move-phase`
-- [ ] **PHASE-03**: User can reorder phases within a milestone with automatic renumbering
-- [ ] **PHASE-04**: Each milestone starts phase numbering at 1 (not cumulative across milestones)
+- [x] **PHASE-02**: User can move a phase to a different milestone via `/kata:kata-move-phase`
+- [x] **PHASE-03**: User can reorder phases within a milestone with automatic renumbering
+- [x] **PHASE-04**: Each milestone starts phase numbering at 1 (not cumulative across milestones)
 
 ## Roadmap
 
@@ -32,9 +32,9 @@ None deferred — all phase management features included in this milestone.
 | ----------- | ----- | ------- | ------ |
 | PHASE-01    | 1     | 01, 02  | Complete |
 | PHASE-05    | 1     | 01, 02  | Complete |
-| PHASE-02    | 2     | —       | —      |
-| PHASE-03    | 2     | —       | —      |
-| PHASE-04    | 2     | —       | —      |
+| PHASE-02    | 2     | 01, 02  | Complete |
+| PHASE-03    | 2     | 02      | Complete |
+| PHASE-04    | 2     | 01      | Complete |
 | ROAD-01     | 3     | —       | —      |
 | ROAD-02     | 3     | —       | —      |
 
