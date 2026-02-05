@@ -4,20 +4,15 @@
 
 **型** · /ˈkɑːtɑː/ · *noun* - a choreographed pattern practiced repeatedly until perfected
 
-
 **Multi-agent orchestration framework for spec-driven development.**
 
 ![alt text](assets/brand/logo-circle-dark.png)
 <br>
 [kata.sh](https://kata.sh)
 
-
-
 [![Plugin](https://img.shields.io/badge/plugin-kata--marketplace-blue?style=for-the-badge)](https://github.com/gannonh/kata-marketplace)
 
 </div>
-
-
 
 ## Install
 
@@ -32,7 +27,6 @@
 claude plugin marketplace add gannonh/kata-marketplace
 claude plugin install kata@gannonh-kata-marketplace
 ```
-
 ---
 
 ## What's New in v1.5.0
@@ -86,19 +80,19 @@ claude plugin install kata@gannonh-kata-marketplace
 
 Drive your entire workflow with **natural language**.
 
-| You say...                | Kata does...                                         |
-| ------------------------- | ---------------------------------------------------- |
-| "Start a new project"     | Deep questioning → PROJECT.md + config               |
-| "Add the first milestone" | Research → Requirements → Roadmap → GitHub Milestone |
-| "Let's discuss phase 1"   | Identifies gray areas → Captures your decisions      |
-| "Plan phase 1"            | Research → Plans → Verification loop                 |
-| "Execute the phase"       | Parallel agents → Commits → PR (optional)            |
-| "Verify the work"         | UAT testing → Debug agents if issues found           |
-| "Review my PR"            | 6 specialized review agents                          |
-| "Complete the milestone"  | Archive → Tag/Release                                |
-| "Move phase 3 to v2.0"   | Cross-milestone move → Renumber → Commit             |
-| "Reorder phase 3 before 1"| Reorder → Renumber all affected → Commit            |
-| "What's the status?"      | Progress report → Routes to next action              |
+| You say...                 | Kata does...                                         |
+| -------------------------- | ---------------------------------------------------- |
+| "Start a new project"      | Deep questioning → PROJECT.md + config               |
+| "Add the first milestone"  | Research → Requirements → Roadmap → GitHub Milestone |
+| "Let's discuss phase 1"    | Identifies gray areas → Captures your decisions      |
+| "Plan phase 1"             | Research → Plans → Verification loop                 |
+| "Execute the phase"        | Parallel agents → Commits → PR (optional)            |
+| "Verify the work"          | UAT testing → Debug agents if issues found           |
+| "Review my PR"             | 6 specialized review agents                          |
+| "Complete the milestone"   | Archive → Tag/Release                                |
+| "Move phase 3 to v2.0"     | Cross-milestone move → Renumber → Commit             |
+| "Reorder phase 3 before 1" | Reorder → Renumber all affected → Commit             |
+| "What's the status?"       | Progress report → Routes to next action              |
 
 Slash commands exist for precision (`/kata:kata-plan-phase 2`), but natural language always works.
 
