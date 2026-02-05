@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** Planning next milestone
+**Current focus:** v1.6.0 Skills-Native Subagents (experimental)
 
 ## Current Position
 
 Milestone: v1.6.0 Skills-Native Subagents — In Progress
-Phase: Not started (defining requirements)
+Phase: 1 - Proof of Concept (pending)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-02-04 — Milestone v1.6.0 started
+Status: Roadmap created, awaiting phase planning
+Last activity: 2026-02-05 — Roadmap created for v1.6.0
 
-Progress: ░░░░░░ 0/? phases — defining requirements
+Progress: ░░░░░░░░░░ 0/3 phases
 
 ## Performance Metrics
 
@@ -41,6 +41,7 @@ Progress: ░░░░░░ 0/? phases — defining requirements
 | v1.4.0    | 2      | 11    | Shipped 2026-02-01 |
 | v1.4.1    | 4      | 6     | Shipped 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped 2026-02-04 |
+| v1.6.0    | 3      | —     | Active |
 
 *Updated after each plan completion*
 
@@ -51,13 +52,16 @@ Progress: ░░░░░░ 0/? phases — defining requirements
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **2026-02-04: v1.6.0 started** — Skills-Native Subagents: convert custom subagents to Agent Skills resources.
-- **2026-02-04: Feature branch approach** — Working on `feat/skills-subagents`, merge if POC succeeds.
-- **2026-02-04: Phased scope** — POC first (kata-planner, kata-executor), then full conversion if successful.
-- **2026-02-03: Per-milestone phase numbering** — Each milestone starts phase numbering at 1 (independent numbering, not cumulative).
+- **2026-02-05: Roadmap created for v1.6.0** — 3 phases: POC, Full Conversion (contingent), Cleanup (contingent)
+- **2026-02-05: Contingent phases** — Phase 2 and 3 only execute if POC succeeds (Go decision)
+- **2026-02-04: v1.6.0 started** — Skills-Native Subagents: convert custom subagents to Agent Skills resources
+- **2026-02-04: Feature branch approach** — Working on `feat/skills-subagents`, merge if POC succeeds
+- **2026-02-04: Phased scope** — POC first (kata-planner, kata-executor), then full conversion if successful
+- **2026-02-03: Per-milestone phase numbering** — Each milestone starts phase numbering at 1
 
 ### Roadmap Evolution
 
+- **v1.6.0 roadmap created 2026-02-05** — Skills-Native Subagents (3 phases, 14 requirements)
 - **v1.5.0 shipped 2026-02-04** — Phase Management (3 phases, 6 plans)
 - **v1.4.1 shipped 2026-02-03** — Issue Execution (4 phases, 6 plans)
 
@@ -83,7 +87,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-04
-Stopped at: v1.6.0 milestone started, awaiting research
+Last session: 2026-02-05
+Stopped at: v1.6.0 roadmap created
 Resume file: None
-Next action: Research phase — Agent Skills subagent patterns
+Next action: Plan Phase 1 — Proof of Concept

@@ -108,22 +108,23 @@ Deprecate custom subagent types to make Kata portable across Agent Skills-compat
 
 ## Traceability
 
-| REQ-ID | Phase | Requirement |
-|--------|-------|-------------|
-| POC-01 | 1 | Migrate planner instructions |
-| POC-02 | 1 | Migrate executor instructions |
-| POC-03 | 1 | Update plan-phase skill |
-| POC-04 | 1 | Update execute-phase skill |
-| POC-05 | 1 | Validate POC behavior |
-| POC-06 | 1 | Go/No-Go decision |
-| CONV-01 | 2 | Migrate remaining agents |
-| CONV-02 | 2 | Update all skills |
-| CONV-03 | 2 | Update subagent types |
-| CONV-04 | 2 | Test conversions |
-| CLEAN-01 | 3 | Remove agents directory |
-| CLEAN-02 | 3 | Update build system |
-| CLEAN-03 | 3 | Update documentation |
-| CLEAN-04 | 3 | Final verification |
+| REQ-ID   | Phase | Status  |
+|----------|-------|---------|
+| POC-01   | 1     | Pending |
+| POC-02   | 1     | Pending |
+| POC-03   | 1     | Pending |
+| POC-04   | 1     | Pending |
+| POC-05   | 1     | Pending |
+| POC-06   | 1     | Pending |
+| CONV-01  | 2     | Pending |
+| CONV-02  | 2     | Pending |
+| CONV-03  | 2     | Pending |
+| CONV-04  | 2     | Pending |
+| CLEAN-01 | 3     | Pending |
+| CLEAN-02 | 3     | Pending |
+| CLEAN-03 | 3     | Pending |
+| CLEAN-04 | 3     | Pending |
 
 ---
 *Requirements defined: 2026-02-04*
+*Traceability updated: 2026-02-05*
