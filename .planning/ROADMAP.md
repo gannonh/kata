@@ -177,7 +177,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 **Experimental:** Working on `feat/skills-subagents` branch. Merge if successful. If POC fails, milestone is abandoned.
 
-### Phase 1: Proof of Concept
+### Phase 1: Proof of Concept ✓
 
 **Goal:** Validate the subagent-as-skill-resource pattern with 2 agents
 
@@ -188,9 +188,9 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 **Plans:** 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Migrate kata-planner to skill resource + update kata-plan-phase
-- [ ] 01-02-PLAN.md — Migrate kata-executor to skill resource + update kata-execute-phase
-- [ ] 01-03-PLAN.md — Validate POC behavior + Go/No-Go decision
+- [x] 01-01-PLAN.md — Migrate kata-planner to skill resource + update kata-plan-phase
+- [x] 01-02-PLAN.md — Migrate kata-executor to skill resource + update kata-execute-phase
+- [x] 01-03-PLAN.md — Validate POC behavior + Go/No-Go decision (Go)
 
 **Success Criteria:**
 1. kata-planner instructions exist as skill resource (`skills/kata-plan-phase/references/planner-instructions.md`)
@@ -212,13 +212,14 @@ Plans:
 
 **Contingency:** Only execute if POC succeeds (user approves Go decision in Phase 1)
 
-**Requirements:** CONV-01, CONV-02, CONV-03, CONV-04
+**Requirements:** CONV-01, CONV-02, CONV-03, CONV-04, CONV-05
 
 **Success Criteria:**
 1. All 15+ agent instruction files migrated to skill `references/` directories
 2. All skills that spawn subagents use `general-purpose` type with inlined instructions
 3. No remaining `subagent_type="kata:kata-*"` patterns in codebase
-4. Each converted skill produces equivalent behavior compared to pre-migration
+4. Automated migration validation test passes in `npm test`
+5. Execute-phase orchestrator runs project test suite before verification
 
 ---
 

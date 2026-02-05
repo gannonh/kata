@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 ## Current Position
 
 Milestone: v1.6.0 Skills-Native Subagents — In Progress
-Phase: 1 - Proof of Concept (active)
-Plan: 01-01 and 01-02 complete, 01-03 remaining
-Status: In progress
-Last activity: 2026-02-05 — Completed 01-02-PLAN.md (executor migration)
+Phase: 1 - Proof of Concept (completed)
+Plan: —
+Status: Phase 1 complete. Go decision made. Phase 2 greenlit.
+Last activity: 2026-02-05 — Phase 1 complete (3/3 plans, Go decision)
 
-Progress: ░░░░░░░░░░ 0/3 phases (2/3 plans in Phase 1)
+Progress: ███░░░░░░░ 1/3 phases
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 108
+- Total plans completed: 109
 - Average duration: 3 min
-- Total execution time: ~275 min
+- Total execution time: ~278 min
 
 **By Milestone:**
 
@@ -41,7 +41,7 @@ Progress: ░░░░░░░░░░ 0/3 phases (2/3 plans in Phase 1)
 | v1.4.0    | 2      | 11    | Shipped 2026-02-01 |
 | v1.4.1    | 4      | 6     | Shipped 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped 2026-02-04 |
-| v1.6.0    | 3      | —     | Active |
+| v1.6.0    | 3      | 3     | Active |
 
 *Updated after each plan completion*
 
@@ -52,6 +52,8 @@ Progress: ░░░░░░░░░░ 0/3 phases (2/3 plans in Phase 1)
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- **2026-02-05: Go decision — proceed to full conversion** — POC validated in real project, behavioral equivalence confirmed
+- **2026-02-05: Phase 2 scope expanded** — Added CONV-04 (automated migration test) and CONV-05 (test suite in execute-phase)
 - **2026-02-05: Executor inline pattern established** — Same pattern as planner: extract body to skill resource, inline via agent-instructions wrapper, general-purpose subagent
 - **2026-02-05: Planner inline pattern established** — Extract agent body to skill resource, prepend with agent-instructions wrapper, use general-purpose subagent type
 - **2026-02-05: Roadmap created for v1.6.0** — 3 phases: POC, Full Conversion (contingent), Cleanup (contingent)
@@ -90,6 +92,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-05
-Stopped at: Completed 01-02-PLAN.md
+Stopped at: Phase 1 complete
 Resume file: None
-Next action: Execute 01-03-PLAN.md (POC go/no-go decision)
+Next action: Plan Phase 2 — Full Conversion

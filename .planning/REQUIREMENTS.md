@@ -12,33 +12,33 @@ Deprecate custom subagent types to make Kata portable across Agent Skills-compat
 
 ### POC (Proof of Concept)
 
-- [ ] **POC-01**: Migrate kata-planner instructions to skill resource
+- [x] **POC-01**: Migrate kata-planner instructions to skill resource
   - Move `agents/kata-planner.md` body content to `skills/kata-plan-phase/references/planner-instructions.md`
   - Keep only essential instructions (role, philosophy, task breakdown, execution flow)
 
-- [ ] **POC-02**: Migrate kata-executor instructions to skill resource
+- [x] **POC-02**: Migrate kata-executor instructions to skill resource
   - Move `agents/kata-executor.md` body content to `skills/kata-execute-phase/references/executor-instructions.md`
   - Keep only essential instructions (role, execution protocol, checkpoint handling)
 
-- [ ] **POC-03**: Update kata-plan-phase to inline planner instructions
+- [x] **POC-03**: Update kata-plan-phase to inline planner instructions
   - Read `references/planner-instructions.md` content
   - Wrap in `<agent-instructions>` tags
   - Combine with task-specific prompt
   - Change `subagent_type="kata:kata-planner"` to `subagent_type="general-purpose"`
 
-- [ ] **POC-04**: Update kata-execute-phase to inline executor instructions
+- [x] **POC-04**: Update kata-execute-phase to inline executor instructions
   - Read `references/executor-instructions.md` content
   - Wrap in `<agent-instructions>` tags
   - Combine with task-specific prompt
   - Change `subagent_type="kata:kata-executor"` to `subagent_type="general-purpose"`
 
-- [ ] **POC-05**: Validate POC behavior matches current behavior
+- [x] **POC-05**: Validate POC behavior matches current behavior
   - Test phase planning with new pattern
   - Test phase execution with new pattern
   - Compare output quality and behavior
   - Document any differences
 
-- [ ] **POC-06**: Go/No-Go decision gate
+- [x] **POC-06**: Go/No-Go decision gate
   - Review POC results
   - User decides: proceed to full conversion or abandon
 
@@ -68,10 +68,18 @@ Deprecate custom subagent types to make Kata portable across Agent Skills-compat
   - Use `general-purpose` for most agents
   - Consider `Explore` for read-only research agents
 
-- [ ] **CONV-04**: Test all converted skills
-  - Run each skill through typical workflow
-  - Verify behavior matches pre-migration
-  - Document any regressions
+- [ ] **CONV-04**: Automated migration validation test
+  - For each agent in `agents/`, verify corresponding instruction file exists in skill `references/`
+  - Verify instruction file body matches agent body (no frontmatter, byte-for-byte)
+  - Verify referencing skill reads instruction file before Task() calls
+  - Verify Task() calls use `subagent_type="general-purpose"` with `<agent-instructions>` wrapper
+  - Assert zero remaining `subagent_type="kata:kata-*"` patterns in skills
+  - Runs as part of `npm test`
+
+- [ ] **CONV-05**: Execute-phase runs test suite before verification
+  - After all waves complete (step 6), run project test suite (`npm test` or detected runner)
+  - Fail fast before spawning verifier if tests fail
+  - Ensures UAT always includes automated test validation
 
 ### Cleanup
 
@@ -110,16 +118,17 @@ Deprecate custom subagent types to make Kata portable across Agent Skills-compat
 
 | REQ-ID   | Phase | Status  |
 |----------|-------|---------|
-| POC-01   | 1     | Pending |
-| POC-02   | 1     | Pending |
-| POC-03   | 1     | Pending |
-| POC-04   | 1     | Pending |
-| POC-05   | 1     | Pending |
-| POC-06   | 1     | Pending |
+| POC-01   | 1     | Complete |
+| POC-02   | 1     | Complete |
+| POC-03   | 1     | Complete |
+| POC-04   | 1     | Complete |
+| POC-05   | 1     | Complete |
+| POC-06   | 1     | Complete |
 | CONV-01  | 2     | Pending |
 | CONV-02  | 2     | Pending |
 | CONV-03  | 2     | Pending |
 | CONV-04  | 2     | Pending |
+| CONV-05  | 2     | Pending |
 | CLEAN-01 | 3     | Pending |
 | CLEAN-02 | 3     | Pending |
 | CLEAN-03 | 3     | Pending |
