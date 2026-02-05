@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 
 Milestone: v1.6.0 Skills-Native Subagents — In Progress
 Phase: 1 - Proof of Concept (active)
-Plan: 01-01 complete, 01-02 and 01-03 remaining
+Plan: 01-01 and 01-02 complete, 01-03 remaining
 Status: In progress
-Last activity: 2026-02-05 — Completed 01-01-PLAN.md (planner migration)
+Last activity: 2026-02-05 — Completed 01-02-PLAN.md (executor migration)
 
-Progress: ░░░░░░░░░░ 0/3 phases (1/3 plans in Phase 1)
+Progress: ░░░░░░░░░░ 0/3 phases (2/3 plans in Phase 1)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 107
+- Total plans completed: 108
 - Average duration: 3 min
-- Total execution time: ~272 min
+- Total execution time: ~275 min
 
 **By Milestone:**
 
@@ -52,6 +52,7 @@ Progress: ░░░░░░░░░░ 0/3 phases (1/3 plans in Phase 1)
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- **2026-02-05: Executor inline pattern established** — Same pattern as planner: extract body to skill resource, inline via agent-instructions wrapper, general-purpose subagent
 - **2026-02-05: Planner inline pattern established** — Extract agent body to skill resource, prepend with agent-instructions wrapper, use general-purpose subagent type
 - **2026-02-05: Roadmap created for v1.6.0** — 3 phases: POC, Full Conversion (contingent), Cleanup (contingent)
 - **2026-02-05: Contingent phases** — Phase 2 and 3 only execute if POC succeeds (Go decision)
@@ -89,6 +90,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-05
-Stopped at: Completed 01-01-PLAN.md
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
-Next action: Execute 01-02-PLAN.md (executor migration)
+Next action: Execute 01-03-PLAN.md (POC go/no-go decision)
