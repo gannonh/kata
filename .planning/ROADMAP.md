@@ -185,6 +185,13 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 **Requirements:** POC-01, POC-02, POC-03, POC-04, POC-05, POC-06
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Migrate kata-planner to skill resource + update kata-plan-phase
+- [ ] 01-02-PLAN.md — Migrate kata-executor to skill resource + update kata-execute-phase
+- [ ] 01-03-PLAN.md — Validate POC behavior + Go/No-Go decision
+
 **Success Criteria:**
 1. kata-planner instructions exist as skill resource (`skills/kata-plan-phase/references/planner-instructions.md`)
 2. kata-executor instructions exist as skill resource (`skills/kata-execute-phase/references/executor-instructions.md`)
@@ -253,4 +260,4 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-05 — v1.6.0 roadmap created*
+*Last updated: 2026-02-05 — Phase 1 planned (3 plans)*
