@@ -47,9 +47,9 @@ Phase: $ARGUMENTS
 
    **Model lookup table:**
 
-   | Agent              | quality | balanced | budget |
-   | ------------------ | ------- | -------- | ------ |
-   | kata-executor      | opus    | sonnet   | sonnet |
+   | Agent                       | quality | balanced | budget |
+   | --------------------------- | ------- | -------- | ------ |
+   | general-purpose (executor)  | opus    | sonnet   | sonnet |
    | kata-verifier      | sonnet  | sonnet   | haiku  |
    | kata-code-reviewer | opus    | sonnet   | sonnet |
    | kata-*-analyzer    | sonnet  | sonnet   | haiku  |
@@ -159,7 +159,7 @@ Phase: $ARGUMENTS
 
 4. **Execute waves**
    For each wave in order:
-   - Spawn `kata-executor` for each plan in wave (parallel Task calls)
+   - Spawn `general-purpose` executor for each plan in wave (parallel Task calls)
    - Wait for completion (Task blocks)
    - Verify SUMMARYs created
    - **Update GitHub issue checkboxes (if enabled):**
@@ -664,13 +664,14 @@ Before spawning, read file contents using Read tool. The `@` syntax does not wor
 **Read these files:**
 - Each plan file in the wave (e.g., `{plan_01_path}`, `{plan_02_path}`, etc.)
 - `.planning/STATE.md`
+- `references/executor-instructions.md` (relative to skill base directory) — store as `executor_instructions_content`
 
 Spawn all plans in a wave with a single message containing multiple Task calls, with inlined content:
 
 ```
-Task(prompt="Execute plan at {plan_01_path}\n\n<plan>\n{plan_01_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>", subagent_type="kata-executor", model="{executor_model}")
-Task(prompt="Execute plan at {plan_02_path}\n\n<plan>\n{plan_02_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>", subagent_type="kata-executor", model="{executor_model}")
-Task(prompt="Execute plan at {plan_03_path}\n\n<plan>\n{plan_03_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>", subagent_type="kata-executor", model="{executor_model}")
+Task(prompt="<agent-instructions>\n{executor_instructions_content}\n</agent-instructions>\n\nExecute plan at {plan_01_path}\n\n<plan>\n{plan_01_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>", subagent_type="general-purpose", model="{executor_model}")
+Task(prompt="<agent-instructions>\n{executor_instructions_content}\n</agent-instructions>\n\nExecute plan at {plan_02_path}\n\n<plan>\n{plan_02_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>", subagent_type="general-purpose", model="{executor_model}")
+Task(prompt="<agent-instructions>\n{executor_instructions_content}\n</agent-instructions>\n\nExecute plan at {plan_03_path}\n\n<plan>\n{plan_03_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>", subagent_type="general-purpose", model="{executor_model}")
 ```
 
 All three run in parallel. Task tool blocks until all complete.

@@ -24,11 +24,10 @@ Default to "balanced" if not set.
 
 **Model lookup table:**
 
-| Agent           | quality | balanced | budget |
-| --------------- | ------- | -------- | ------ |
-| kata-executor   | opus    | sonnet   | sonnet |
-| kata-verifier   | sonnet  | sonnet   | haiku  |
-| general-purpose | —       | —        | —      |
+| Agent                       | quality | balanced | budget |
+| --------------------------- | ------- | -------- | ------ |
+| general-purpose (executor)  | opus    | sonnet   | sonnet |
+| kata-verifier               | sonnet  | sonnet   | haiku  |
 
 Store resolved models for use in Task calls below.
 </step>
@@ -315,7 +314,7 @@ Plans with `autonomous: false` require user interaction.
 
 1. **Spawn agent for checkpoint plan:**
    ```
-   Task(prompt="{subagent-task-prompt}", subagent_type="kata-executor", model="{executor_model}")
+   Task(prompt="<agent-instructions>\n{executor_instructions_content}\n</agent-instructions>\n\n{subagent-task-prompt}", subagent_type="general-purpose", model="{executor_model}")
    ```
 
 2. **Agent runs until checkpoint:**
@@ -354,7 +353,7 @@ Plans with `autonomous: false` require user interaction.
    ```
    Task(
      prompt=filled_continuation_template,
-     subagent_type="kata-executor",
+     subagent_type="general-purpose",
      model="{executor_model}"
    )
    ```
