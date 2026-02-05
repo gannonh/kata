@@ -59,37 +59,18 @@ Phase: $ARGUMENTS
    Store resolved models for use in Task calls below.
 
 1. **Validate phase exists**
-   Find phase directory using universal discovery:
+   Find phase directory using the discovery script:
    ```bash
-   PADDED=$(printf "%02d" "$PHASE_ARG" 2>/dev/null || echo "$PHASE_ARG")
-   PHASE_DIR=""
-   for state in active pending completed; do
-     PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
-     [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PHASE_ARG}-*" 2>/dev/null | head -1)
-     [ -n "$PHASE_DIR" ] && break
-   done
-   # Fallback: flat directory (backward compatibility for unmigrated projects)
-   [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
-   [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE_ARG}-*" 2>/dev/null | head -1)
-
-   if [ -z "$PHASE_DIR" ]; then
-     echo "ERROR: No phase directory matching '${PHASE_ARG}'"
-     exit 1
-   fi
-
-   PLAN_COUNT=$(find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | wc -l | tr -d ' ')
-   if [ "$PLAN_COUNT" -eq 0 ]; then
-     echo "ERROR: No plans found in $PHASE_DIR"
-     exit 1
-   fi
+   bash skills/kata-execute-phase/scripts/find-phase.sh "$PHASE_ARG"
    ```
+   Outputs `PHASE_DIR`, `PLAN_COUNT`, and `PHASE_STATE` as key=value pairs. Exit code 1 = not found, 2 = no plans. Parse the output to set these variables for subsequent steps.
 
 1.25. **Move phase to active (state transition)**
 
    ```bash
    # Move from pending to active when execution begins
-   CURRENT_STATE=$(echo "$PHASE_DIR" | grep -oE '(pending|active|completed)' | head -1)
-   if [ "$CURRENT_STATE" = "pending" ]; then
+   # PHASE_STATE is from find-phase.sh output (step 1)
+   if [ "$PHASE_STATE" = "pending" ]; then
      DIR_NAME=$(basename "$PHASE_DIR")
      mkdir -p ".planning/phases/active"
      mv "$PHASE_DIR" ".planning/phases/active/${DIR_NAME}"
@@ -155,7 +136,23 @@ Phase: $ARGUMENTS
 3. **Group by wave**
    - Read `wave` from each plan's frontmatter
    - Group plans by wave number
-   - Report wave structure to user
+
+3.5. **Display execution banner**
+
+   Display stage banner and wave structure:
+
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    Kata ► EXECUTING PHASE {X}: {Phase Name}
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   **{N} plans, {M} waves:**
+
+   | Wave | Plans | Description |
+   |------|-------|-------------|
+   | 1    | 01, 02 | {plan names from frontmatter} |
+   | 2    | 03    | {plan name} |
+
+   **Model profile:** {profile} (executor → {model})
 
 4. **Execute waves**
    For each wave in order:
