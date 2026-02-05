@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 ## Current Position
 
 Milestone: v1.6.0 Skills-Native Subagents — In Progress
-Phase: 1 - Proof of Concept (pending)
-Plan: —
-Status: Roadmap created, awaiting phase planning
-Last activity: 2026-02-05 — Roadmap created for v1.6.0
+Phase: 1 - Proof of Concept (active)
+Plan: 01-01 complete, 01-02 and 01-03 remaining
+Status: In progress
+Last activity: 2026-02-05 — Completed 01-01-PLAN.md (planner migration)
 
-Progress: ░░░░░░░░░░ 0/3 phases
+Progress: ░░░░░░░░░░ 0/3 phases (1/3 plans in Phase 1)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 106
+- Total plans completed: 107
 - Average duration: 3 min
-- Total execution time: ~270 min
+- Total execution time: ~272 min
 
 **By Milestone:**
 
@@ -52,6 +52,7 @@ Progress: ░░░░░░░░░░ 0/3 phases
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- **2026-02-05: Planner inline pattern established** — Extract agent body to skill resource, prepend with agent-instructions wrapper, use general-purpose subagent type
 - **2026-02-05: Roadmap created for v1.6.0** — 3 phases: POC, Full Conversion (contingent), Cleanup (contingent)
 - **2026-02-05: Contingent phases** — Phase 2 and 3 only execute if POC succeeds (Go decision)
 - **2026-02-04: v1.6.0 started** — Skills-Native Subagents: convert custom subagents to Agent Skills resources
@@ -88,6 +89,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-05
-Stopped at: v1.6.0 roadmap created
+Stopped at: Completed 01-01-PLAN.md
 Resume file: None
-Next action: Plan Phase 1 — Proof of Concept
+Next action: Execute 01-02-PLAN.md (executor migration)
