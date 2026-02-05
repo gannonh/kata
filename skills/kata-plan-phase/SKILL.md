@@ -268,11 +268,9 @@ Read and store context file contents for the planner agent. The `@` syntax does 
 - `${PHASE_DIR}/*-RESEARCH.md` (if exists)
 - `${PHASE_DIR}/*-VERIFICATION.md` (if --gaps mode)
 - `${PHASE_DIR}/*-UAT.md` (if --gaps mode)
-- `${SKILL_BASE_DIR}/references/planner-instructions.md` (required) — where `${SKILL_BASE_DIR}` is the skill's base directory shown in the invocation header (e.g., `skills/kata-plan-phase` or the resolved plugin path)
+- `references/planner-instructions.md` (relative to skill base directory) — store as `planner_instructions_content`
 
 Store all content for use in the Task prompt below.
-
-Store the planner instructions content as `planner_instructions_content` for use in the Task prompt.
 
 ### Extract Linked Issues from STATE.md
 
