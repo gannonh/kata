@@ -185,6 +185,20 @@ When modifying `.planning/` files (PROJECT.md, ROADMAP.md, STATE.md):
 5. **When modifying skills** — Follow the /building-claude-code-skills methodology
 6. **Keep SKILL.md under 500 lines** — Move details to `references/` subdirectory
 
+## Release Details
+
+**Version file:** `.claude-plugin/plugin.json`
+
+**Pre-release tests:** `npm run build && npm test && npm run test:smoke`
+
+**CI pipeline:** `plugin-release.yml` triggers on push to main, detects version change, runs tests, builds, creates GitHub Release, and pushes to the marketplace (`kata-marketplace`).
+
+**Post-release verification:**
+```bash
+gh release view vX.Y.Z
+gh api repos/gannonh/kata-marketplace/contents/.claude-plugin/marketplace.json --jq '.content' | base64 -d | jq -r '.plugins[0].version'
+```
+
 ## Testing and UAT
 
 - Create test projects in `../kata-burner/` using `../kata-burner/create-test-project.sh`

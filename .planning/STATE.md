@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** Planning next milestone
+**Current focus:** v1.6.0 Skills-Native Subagents (experimental)
 
 ## Current Position
 
-Milestone: v1.5.0 Phase Management — SHIPPED
-Phase: Complete
-Plan: Complete
-Status: Milestone shipped, planning next
-Last activity: 2026-02-04 — v1.5.0 milestone complete
+Milestone: v1.6.0 Skills-Native Subagents — In Progress
+Phase: 1 - Proof of Concept (completed)
+Plan: —
+Status: Phase 1 complete. Go decision made. Phase 2 greenlit.
+Last activity: 2026-02-05 — Phase 1 complete (3/3 plans, Go decision)
 
-Progress: ██████ 3/3 phases complete — SHIPPED
+Progress: ███░░░░░░░ 1/3 phases
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 106
+- Total plans completed: 109
 - Average duration: 3 min
-- Total execution time: ~270 min
+- Total execution time: ~278 min
 
 **By Milestone:**
 
@@ -41,6 +41,7 @@ Progress: ██████ 3/3 phases complete — SHIPPED
 | v1.4.0    | 2      | 11    | Shipped 2026-02-01 |
 | v1.4.1    | 4      | 6     | Shipped 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped 2026-02-04 |
+| v1.6.0    | 3      | 3     | Active |
 
 *Updated after each plan completion*
 
@@ -51,18 +52,26 @@ Progress: ██████ 3/3 phases complete — SHIPPED
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **2026-02-04: v1.5.0 shipped** — Phase Management complete. Next milestone TBD.
-- **2026-02-03: Per-milestone phase numbering** — Each milestone starts phase numbering at 1 (independent numbering, not cumulative).
-- **2026-02-03: kata- prefix on all skills** — All skill names now prefixed with `kata-` for consistent namespacing.
+- **2026-02-05: Go decision — proceed to full conversion** — POC validated in real project, behavioral equivalence confirmed
+- **2026-02-05: Phase 2 scope expanded** — Added CONV-04 (automated migration test) and CONV-05 (test suite in execute-phase)
+- **2026-02-05: Executor inline pattern established** — Same pattern as planner: extract body to skill resource, inline via agent-instructions wrapper, general-purpose subagent
+- **2026-02-05: Planner inline pattern established** — Extract agent body to skill resource, prepend with agent-instructions wrapper, use general-purpose subagent type
+- **2026-02-05: Roadmap created for v1.6.0** — 3 phases: POC, Full Conversion (contingent), Cleanup (contingent)
+- **2026-02-05: Contingent phases** — Phase 2 and 3 only execute if POC succeeds (Go decision)
+- **2026-02-04: v1.6.0 started** — Skills-Native Subagents: convert custom subagents to Agent Skills resources
+- **2026-02-04: Feature branch approach** — Working on `feat/skills-subagents`, merge if POC succeeds
+- **2026-02-04: Phased scope** — POC first (kata-planner, kata-executor), then full conversion if successful
+- **2026-02-03: Per-milestone phase numbering** — Each milestone starts phase numbering at 1
 
 ### Roadmap Evolution
 
+- **v1.6.0 roadmap created 2026-02-05** — Skills-Native Subagents (3 phases, 14 requirements)
 - **v1.5.0 shipped 2026-02-04** — Phase Management (3 phases, 6 plans)
 - **v1.4.1 shipped 2026-02-03** — Issue Execution (4 phases, 6 plans)
 
 ### Pending Issues
 
-24 open issues in `.planning/issues/open/`
+25 open issues in `.planning/issues/open/`
 
 ### Blockers/Concerns
 
@@ -82,7 +91,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-04
-Stopped at: v1.5.0 milestone complete
+Last session: 2026-02-05
+Stopped at: Phase 1 complete
 Resume file: None
-Next action: `/kata:kata-add-milestone` to start next milestone
+Next action: Plan Phase 2 — Full Conversion

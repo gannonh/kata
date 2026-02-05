@@ -22,9 +22,9 @@ Default to "balanced" if not set.
 
 **Model lookup table:**
 
-| Agent         | quality | balanced | budget |
-| ------------- | ------- | -------- | ------ |
-| kata-executor | opus    | sonnet   | sonnet |
+| Agent                       | quality | balanced | budget |
+| --------------------------- | ------- | -------- | ------ |
+| general-purpose (executor)  | opus    | sonnet   | sonnet |
 
 Store resolved model for use in Task calls below.
 </step>
@@ -237,7 +237,7 @@ No segmentation benefit - execute entirely in main
 ```
 1. Run init_agent_tracking step first (see step below)
 
-2. Use Task tool with subagent_type="kata-executor" and model="{executor_model}":
+2. Use Task tool with subagent_type="general-purpose" and model="{executor_model}":
 
    Prompt: "Execute plan at .planning/phases/{phase}-{plan}-PLAN.md
 
@@ -389,7 +389,7 @@ For Pattern A (fully autonomous) and Pattern C (decision-dependent), skip this s
 
    B. If routing = Subagent:
       ```
-      Spawn Task tool with subagent_type="kata-executor" and model="{executor_model}":
+      Spawn Task tool with subagent_type="general-purpose" and model="{executor_model}":
 
       Prompt: "Execute tasks [task numbers/names] from plan at [plan path].
 

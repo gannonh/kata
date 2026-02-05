@@ -8,7 +8,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 - ✅ **v1.5.0 Phase Management** — Phases 1-3 (shipped 2026-02-04)
 - ✅ **v1.4.1 Issue Execution** — Phases 1-4 (shipped 2026-02-03)
-- ○ **v1.6.0** — planned
+- 🔄 **v1.6.0 Skills-Native Subagents** — current (experimental)
 - ○ **v1.7.0** — planned
 
 ## Completed Milestones
@@ -162,19 +162,82 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 ## Planned Milestones
 
-### v1.6.0 (Planned)
-
-**Goal:** To be defined.
-
-**Target features:**
-- TBD
-
 ### v1.7.0 (Planned)
 
 **Goal:** To be defined.
 
 **Target features:**
 - TBD
+
+---
+
+## Current Milestone: v1.6.0 Skills-Native Subagents
+
+**Goal:** Deprecate custom subagent types to make Kata portable across Agent Skills-compatible platforms.
+
+**Experimental:** Working on `feat/skills-subagents` branch. Merge if successful. If POC fails, milestone is abandoned.
+
+### Phase 1: Proof of Concept ✓
+
+**Goal:** Validate the subagent-as-skill-resource pattern with 2 agents
+
+**Dependencies:** None
+
+**Requirements:** POC-01, POC-02, POC-03, POC-04, POC-05, POC-06
+
+**Plans:** 3 plans
+
+Plans:
+- [x] 01-01-PLAN.md — Migrate kata-planner to skill resource + update kata-plan-phase
+- [x] 01-02-PLAN.md — Migrate kata-executor to skill resource + update kata-execute-phase
+- [x] 01-03-PLAN.md — Validate POC behavior + Go/No-Go decision (Go)
+
+**Success Criteria:**
+1. kata-planner instructions exist as skill resource (`skills/kata-plan-phase/references/planner-instructions.md`)
+2. kata-executor instructions exist as skill resource (`skills/kata-execute-phase/references/executor-instructions.md`)
+3. `kata-plan-phase` skill spawns standard `general-purpose` subagent with inlined instructions
+4. `kata-execute-phase` skill spawns standard `general-purpose` subagent with inlined instructions
+5. Phase planning produces equivalent quality output compared to current custom subagent pattern
+6. User has made Go/No-Go decision (POC-06 is blocking gate)
+
+**Note:** POC-06 is a human decision checkpoint. If user decides "No-Go", milestone is abandoned.
+
+---
+
+### Phase 2: Full Conversion (Contingent)
+
+**Goal:** Migrate all remaining agents to skill resources
+
+**Dependencies:** Phase 1 (Go decision required)
+
+**Contingency:** Only execute if POC succeeds (user approves Go decision in Phase 1)
+
+**Requirements:** CONV-01, CONV-02, CONV-03, CONV-04, CONV-05
+
+**Success Criteria:**
+1. All 15+ agent instruction files migrated to skill `references/` directories
+2. All skills that spawn subagents use `general-purpose` type with inlined instructions
+3. No remaining `subagent_type="kata:kata-*"` patterns in codebase
+4. Automated migration validation test passes in `npm test`
+5. Execute-phase orchestrator runs project test suite before verification
+
+---
+
+### Phase 3: Cleanup (Contingent)
+
+**Goal:** Remove legacy infrastructure and update documentation
+
+**Dependencies:** Phase 2
+
+**Contingency:** Only execute if Phase 2 completes
+
+**Requirements:** CLEAN-01, CLEAN-02, CLEAN-03, CLEAN-04
+
+**Success Criteria:**
+1. `agents/` directory deleted from repository
+2. Build system no longer references or copies agent files
+3. CLAUDE.md and KATA-STYLE.md reflect new skill resource pattern
+4. Full workflow (new-project to plan to execute to verify) works with built plugin
 
 ---
 
@@ -193,9 +256,9 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 | v1.4.0    | 2      | 11    | Shipped  | 2026-02-01 |
 | v1.4.1    | 4      | 6     | Shipped  | 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped  | 2026-02-04 |
-| v1.6.0    | —      | —     | Planned  | —          |
+| v1.6.0    | 3      | —     | Active   | —          |
 | v1.7.0    | —      | —     | Planned  | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-04 — v1.5.0 shipped*
+*Last updated: 2026-02-05 — Phase 1 planned (3 plans)*

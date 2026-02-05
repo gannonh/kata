@@ -114,7 +114,7 @@ If there are significant changes affecting usage, update `README.md` accordingly
 ### 3: Update Website (if needed)
 
 If there are significant changes affecting documentation, update the website docs accordingly.
-`~/Users/gannonhall~/dev/oss/kata-site/src`
+`~/Users/gannonhall~/dev/kata/kata-site/src`
 
 ## Step 5: Run Tests Again
 

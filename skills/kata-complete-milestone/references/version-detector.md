@@ -106,34 +106,113 @@ calculate_next_version "1.2.3" "major"  # Returns: 2.0.0
 calculate_next_version "1.2.3" "patch"  # Returns: 1.2.4
 ```
 
-## update_versions
+## detect_version_files
 
-Update version files atomically (package.json and plugin.json).
+Detect which files in the project contain version strings that need bumping.
 
 ```bash
-# Source: Kata's existing releasing-kata skill
-update_versions() {
-  local version="$1"
+# Detect version files present in the project root
+# Check common version file locations across ecosystems
+detect_version_files() {
+  local files=""
 
-  # Check jq is available
-  if ! command -v jq &> /dev/null; then
-    echo "Error: jq is required but not installed. Install via: brew install jq (macOS) or apt-get install jq (Linux)"
-    return 1
-  fi
+  # Node.js / JavaScript
+  [ -f "package.json" ] && files="$files package.json"
 
-  # Update package.json
-  jq --arg v "$version" '.version = $v' package.json > package.json.tmp
-  mv package.json.tmp package.json
+  # Python
+  [ -f "pyproject.toml" ] && files="$files pyproject.toml"
+  [ -f "setup.py" ] && files="$files setup.py"
+  [ -f "setup.cfg" ] && files="$files setup.cfg"
 
-  # Update plugin.json
-  jq --arg v "$version" '.version = $v' .claude-plugin/plugin.json > plugin.json.tmp
-  mv plugin.json.tmp .claude-plugin/plugin.json
+  # Ruby
+  [ -f "*.gemspec" ] && files="$files $(ls *.gemspec 2>/dev/null)"
+  [ -f "lib/*/version.rb" ] && files="$files $(ls lib/*/version.rb 2>/dev/null)"
+
+  # Rust
+  [ -f "Cargo.toml" ] && files="$files Cargo.toml"
+
+  # Go
+  [ -f "version.go" ] && files="$files version.go"
+
+  # iOS / macOS
+  [ -f "*.xcodeproj/project.pbxproj" ] && files="$files xcodeproj"
+
+  # Claude Code plugin
+  [ -f ".claude-plugin/plugin.json" ] && files="$files .claude-plugin/plugin.json"
+
+  # Generic
+  [ -f "VERSION" ] && files="$files VERSION"
+  [ -f "version.txt" ] && files="$files version.txt"
+
+  echo "$files"
 }
 ```
 
-**Requires:** `jq` for JSON manipulation (reliable, handles edge cases). Most systems have jq installed; if missing, the function provides install instructions.
+## get_current_version
 
-**Atomic update:** Uses tmp file + mv pattern to prevent partial writes
+Read the current version from detected project files.
+
+```bash
+# Read version from the first detected version file
+get_current_version() {
+  # Try common version sources in priority order
+  if [ -f "package.json" ]; then
+    node -p "require('./package.json').version" 2>/dev/null && return
+  fi
+  if [ -f "pyproject.toml" ]; then
+    grep -m1 'version' pyproject.toml | sed 's/.*= *"\(.*\)"/\1/' 2>/dev/null && return
+  fi
+  if [ -f "Cargo.toml" ]; then
+    grep -m1 '^version' Cargo.toml | sed 's/.*= *"\(.*\)"/\1/' 2>/dev/null && return
+  fi
+  if [ -f "VERSION" ]; then
+    cat VERSION 2>/dev/null && return
+  fi
+  # Fallback: extract from last git tag
+  git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' && return
+  echo "0.0.0"
+}
+```
+
+## update_versions
+
+Update all detected version files to the new version.
+
+```bash
+update_versions() {
+  local version="$1"
+  local files=$(detect_version_files)
+
+  for file in $files; do
+    case "$file" in
+      package.json|.claude-plugin/plugin.json|*/plugin.json)
+        if command -v jq &>/dev/null; then
+          jq --arg v "$version" '.version = $v' "$file" > "$file.tmp"
+          mv "$file.tmp" "$file"
+        fi
+        ;;
+      pyproject.toml)
+        sed -i.bak "s/^version = \".*\"/version = \"$version\"/" "$file" && rm -f "$file.bak"
+        ;;
+      Cargo.toml)
+        sed -i.bak "s/^version = \".*\"/version = \"$version\"/" "$file" && rm -f "$file.bak"
+        ;;
+      setup.cfg)
+        sed -i.bak "s/^version = .*/version = $version/" "$file" && rm -f "$file.bak"
+        ;;
+      VERSION|version.txt)
+        echo "$version" > "$file"
+        ;;
+      *)
+        echo "Note: Manual version update may be needed for $file"
+        ;;
+    esac
+    echo "Updated $file → $version"
+  done
+}
+```
+
+**Atomic update:** Uses tmp file + mv pattern for JSON files to prevent partial writes
 
 </functions>
 
@@ -150,9 +229,8 @@ if [ "$DRY_RUN" = "true" ]; then
   echo "DRY RUN: Would create release v$VERSION"
   echo "DRY RUN: Changelog entry:"
   echo "$CHANGELOG_ENTRY"
-  echo "DRY RUN: Files to update:"
-  echo "  - package.json"
-  echo "  - .claude-plugin/plugin.json"
+  echo "DRY RUN: Version files detected:"
+  detect_version_files
   echo "  - CHANGELOG.md"
 else
   # Execute actual release
@@ -180,13 +258,13 @@ Dry run mode shows:
 
 ### Pitfall 1: Version Mismatch
 
-**What goes wrong:** package.json and plugin.json have different versions
+**What goes wrong:** Multiple version files have different versions
 
-**Why it happens:** Manual version bumping in multiple files
+**Why it happens:** Manual version bumping across files
 
-**How to avoid:** Use `update_versions` function to update both files atomically
+**How to avoid:** Use `update_versions` function to update all detected files atomically
 
-**Warning signs:** Test failures, marketplace showing wrong version
+**Warning signs:** Test failures, published artifact showing wrong version
 
 ### Pitfall 2: Missing Breaking Change Detection
 

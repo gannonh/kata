@@ -4,7 +4,7 @@
 
 A spec-driven development framework for Claude Code. Brings structured, reliable AI development to teams without changing their existing tools. Teams use Kata's quality-producing process inside the tools they already love.
 
-**Current state:** v1.5.0 shipped (2026-02-04). Phase Management: organized phase state directories, cross-milestone phase movement, per-milestone numbering, standardized roadmap formatting.
+**Current state:** v1.6.0 in progress (2026-02-04). Skills-Native Subagents: converting custom subagents to Agent Skills resources for standard-aligned architecture.
 
 ## Core Value
 
@@ -39,7 +39,12 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 ### Active
 
-Planning next milestone.
+**v1.6.0 Skills-Native Subagents** — Convert custom subagents to Agent Skills resources
+
+- Subagent-as-skill-resource pattern — agents become skill resources spawned via built-in subagent mechanism
+- Proof of concept — validate pattern with kata-planner and kata-executor
+- Full conversion — if POC succeeds, convert all 15+ subagents
+- Agent Skills standard alignment — portable across compatible platforms
 
 ### Out of Scope
 
@@ -181,5 +186,17 @@ See `.planning/milestones/v1.4.0-ROADMAP.md` for full archive.
 
 See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 
+## Current Milestone: v1.6.0 Skills-Native Subagents
+
+**Goal:** Convert custom subagents to Agent Skills resources for standard-aligned, portable architecture.
+
+**Target features:**
+- Subagent-as-skill-resource pattern validation
+- Proof of concept with kata-planner and kata-executor
+- Full conversion of all subagents (if POC succeeds)
+- Identical behavior with new architecture
+
+**Experimental:** Working on `feat/skills-subagents` branch. Merge if successful.
+
 ---
-*Last updated: 2026-02-04 after v1.5.0 milestone*
+*Last updated: 2026-02-04 — v1.6.0 milestone started*

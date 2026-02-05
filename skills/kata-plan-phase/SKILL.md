@@ -268,6 +268,7 @@ Read and store context file contents for the planner agent. The `@` syntax does 
 - `${PHASE_DIR}/*-RESEARCH.md` (if exists)
 - `${PHASE_DIR}/*-VERIFICATION.md` (if --gaps mode)
 - `${PHASE_DIR}/*-UAT.md` (if --gaps mode)
+- `references/planner-instructions.md` (relative to skill base directory) — store as `planner_instructions_content`
 
 Store all content for use in the Task prompt below.
 
@@ -398,8 +399,8 @@ Before returning PLANNING COMPLETE:
 
 ```
 Task(
-  prompt=filled_prompt,
-  subagent_type="kata-planner",
+  prompt="<agent-instructions>\n{planner_instructions_content}\n</agent-instructions>\n\n" + filled_prompt,
+  subagent_type="general-purpose",
   model="{planner_model}",
   description="Plan Phase {phase}"
 )
@@ -528,8 +529,8 @@ Return what changed.
 
 ```
 Task(
-  prompt=revision_prompt,
-  subagent_type="kata-planner",
+  prompt="<agent-instructions>\n{planner_instructions_content}\n</agent-instructions>\n\n" + revision_prompt,
+  subagent_type="general-purpose",
   model="{planner_model}",
   description="Revise Phase {phase} plans"
 )

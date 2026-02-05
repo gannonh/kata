@@ -1,485 +1,498 @@
-# Technology Stack
+# Technology Stack: Agent Skills Subagent Patterns
 
-**Project:** Kata v1.3.0 — Release Automation & Workflow Documentation
-**Researched:** 2026-01-28
-**Confidence:** HIGH (validated with official sources and existing codebase)
+**Project:** Kata Subagent Architecture Migration
+**Researched:** 2026-02-04
+**Confidence:** HIGH (verified with official Claude Code docs and Agent Skills spec)
 
 ## Executive Summary
 
-This milestone requires minimal stack additions. Kata's existing GitHub Actions + `gh` CLI + Node.js foundation already handles 90% of release automation needs. Three targeted additions fill the gaps:
+The Agent Skills specification does not define subagent patterns. It is a format specification for skill files (SKILL.md), not an orchestration framework. Subagent instantiation and multi-agent orchestration are **Claude Code implementation details**, not part of the Agent Skills standard.
 
-1. **Mermaid.js** for interactive workflow diagrams (web rendering)
-2. **Diagon** for ASCII flow diagrams (terminal/markdown rendering)
-3. **Semver library** for programmatic version management
+Kata's current architecture uses Claude Code's native subagent system correctly. The migration question is: should Kata's custom agents (kata-planner, kata-executor, etc.) be distributed as:
 
-**Critical insight:** Kata already has robust release automation (GitHub Actions creates releases on version change). This milestone focuses on workflow documentation and statusline integration, not rebuilding what works.
+1. **Plugin agents** (`.claude-plugin/agents/`) — Claude Code's standard subagent format
+2. **Skill resources** (`skills/*/references/`) — Agent prompts loaded by skills on demand
 
----
-
-## Current Stack (Already Validated)
-
-### Release Infrastructure (v1.2.0)
-
-| Technology          | Version | Purpose                           | Status    |
-| ------------------- | ------- | --------------------------------- | --------- |
-| GitHub Actions      | N/A     | CI/CD, automated releases         | ✓ Working |
-| `gh` CLI            | Latest  | GitHub API operations             | ✓ Working |
-| Node.js             | >=20.0  | Build system, scripts             | ✓ Working |
-| `plugin-release.yml` | —       | Auto-creates releases on push     | ✓ Working |
-
-**What already works:**
-- CI detects version change in `.claude-plugin/plugin.json`
-- Creates GitHub Release with tag (extracted from CHANGELOG.md)
-- Publishes plugin to marketplace
-- All automated, zero manual steps
-
-**Validated by:** `.github/workflows/plugin-release.yml` (lines 45-84), CHANGELOG.md entries for v1.2.0-v1.2.1
-
-### GitHub Integration (v1.1.0)
-
-| Technology        | Version | Purpose                       | Status    |
-| ----------------- | ------- | ----------------------------- | --------- |
-| `gh api`          | Latest  | Milestones, issues, PRs       | ✓ Working |
-| GitHub CLI        | Latest  | PR creation/management        | ✓ Working |
-| `.planning/config.json` | —       | GitHub integration toggles    | ✓ Working |
-
-**What already works:**
-- Milestone creation via `gh api`
-- Phase → Issue conversion with labels
-- PR creation with auto-linking
-- Plan checklist sync
-
-**Validated by:** `skills/completing-milestones/SKILL.md`, `skills/adding-milestones/SKILL.md`
+**Recommendation:** Hybrid approach. Convert agents to plugin subagents for first-class Claude Code integration, while skills reference agent prompts via the `skills` frontmatter field for progressive disclosure.
 
 ---
 
-## Recommended Stack Additions
+## Agent Skills Specification: What It Defines
 
-### 1. Workflow Diagram Generation
+The [Agent Skills specification](https://agentskills.io/specification.md) defines:
 
-**Requirement:** Visualize Kata's 27 skills and 14+ agents with their decision trees and orchestration patterns.
+| Component | Purpose | Relevant to Subagents? |
+|-----------|---------|------------------------|
+| `SKILL.md` format | Frontmatter + markdown instructions | No — skill files, not agent definitions |
+| `name`, `description` | Metadata for discovery | No — skill identification |
+| `allowed-tools` | Pre-approved tools (experimental) | Partially — tool restrictions |
+| `scripts/`, `references/`, `assets/` | Supporting resources | Potentially — agent prompts could live here |
 
-#### For Web/Interactive Documentation
+**Critical finding:** Agent Skills spec has no concept of:
+- Subagent definition
+- Agent spawning
+- Task delegation
+- Multi-agent orchestration
 
-| Library           | Version | Purpose                          | Why Choose This                  |
-| ----------------- | ------- | -------------------------------- | -------------------------------- |
-| **mermaid**       | 11.x    | Interactive flowcharts, sequence diagrams | Industry standard, 72k+ GitHub stars, active maintenance |
+These are **platform-specific implementations**. Claude Code happens to implement subagents, but another Agent Skills-compatible platform might not.
 
-**Installation:**
-```bash
-npm install mermaid --save-dev
-```
-
-**Rationale:**
-- Native support in GitHub README rendering
-- Claude Code docs use Mermaid extensively
-- No build step for markdown embedding
-- Handles complex decision trees (if/else logic)
-- Supports sequence diagrams for agent orchestration
-
-**Example Usage:**
-```markdown
-```mermaid
-flowchart TD
-    Start[User: `/kata:executing-phases`] --> LoadState[Load STATE.md]
-    LoadState --> CheckPlans{Plans exist?}
-    CheckPlans -->|No| SpawnPlanner[Spawn kata-planner]
-    CheckPlans -->|Yes| ExecuteWave[Execute wave 1]
-    ExecuteWave --> Checkpoint{Checkpoint gate?}
-    Checkpoint -->|Yes| WaitUser[Wait for user verify]
-    Checkpoint -->|No| NextTask[Execute next task]
-```
-```
-
-**Sources:**
-- [GitHub - mermaid-js/mermaid](https://github.com/mermaid-js/mermaid) (72k stars, actively maintained)
-- [Mermaid.js Official Docs](https://mermaid.js.org/)
-- [Mermaid Flowchart Syntax](https://mermaid.js.org/syntax/flowchart.html)
-
-#### For Terminal/ASCII Documentation
-
-| Library           | Version | Purpose                          | Why Choose This                  |
-| ----------------- | ------- | -------------------------------- | -------------------------------- |
-| **Diagon**        | Latest  | Markdown → ASCII diagram conversion | Best for terminal/CLI docs, converts declarative syntax |
-
-**Installation:**
-```bash
-# Use as CLI tool (no npm package needed)
-# Or integrate via stdin/stdout
-```
-
-**Rationale:**
-- Generates ASCII diagrams from simple text
-- Perfect for `SKILL.md` and agent files (terminal-first UX)
-- Supports flowcharts, sequence diagrams, trees
-- Lightweight, no runtime dependencies
-
-**Example Input:**
-```
-graph {
-  User --> kata-executing-phases
-  kata-executing-phases --> kata-planner
-  kata-executing-phases --> kata-executor
-  kata-executor --> Task1
-  kata-executor --> Task2
-}
-```
-
-**Example Output:**
-```
-    ┌──────┐
-    │ User │
-    └──┬───┘
-       │
-       ▼
-┌─────────────────────┐
-│ kata-executing      │
-│ -phases             │
-└───┬────────────┬────┘
-    │            │
-    ▼            ▼
-┌────────┐  ┌────────┐
-│ planner│  │executor│
-└────────┘  └───┬──┬─┘
-                │  │
-                ▼  ▼
-            ┌────┐┌────┐
-            │T1  ││T2  │
-            └────┘└────┘
-```
-
-**Sources:**
-- [GitHub - ArthurSonzogni/Diagon](https://github.com/ArthurSonzogni/Diagon) (1.8k stars)
-- [ASCII Diagrams](https://asciidiagrams.github.io/)
-
-**Alternative (if Diagon insufficient):** ASCIIFlow for manual diagram creation, but Diagon's declarative approach better fits code generation.
-
-### 2. Semantic Version Management
-
-**Requirement:** Programmatically bump versions during milestone completion.
-
-| Library           | Version | Purpose                          | Why Choose This                  |
-| ----------------- | ------- | -------------------------------- | -------------------------------- |
-| **semver**        | 7.x     | Parse, validate, bump versions   | Official npm semver parser, used by npm itself |
-
-**Installation:**
-```bash
-npm install semver --save-dev
-```
-
-**Rationale:**
-- De facto standard for semver operations in Node.js
-- Used by npm internally (highest validation possible)
-- Simple API: `semver.inc(version, 'patch')` → `"1.2.2"`
-- Handles prerelease, build metadata
-
-**Example Usage:**
-```javascript
-const semver = require('semver');
-
-// Current: v1.2.1
-const current = '1.2.1';
-const next = semver.inc(current, 'minor'); // "1.3.0"
-
-// Validate before bumping
-if (semver.valid(current)) {
-  console.log(`Next version: ${next}`);
-}
-```
-
-**Integration Point:**
-- `skills/completing-milestones/SKILL.md` — automate version bump
-- `scripts/bump-version.js` — new script for `/kata:completing-milestones`
-
-**Sources:**
-- [semver - npm](https://www.npmjs.com/package/semver) (official npm package)
-- [GitHub - npm/node-semver](https://github.com/npm/node-semver) (10k+ stars)
-- [npm Docs - About semantic versioning](https://docs.npmjs.com/about-semantic-versioning/)
-
-### 3. Statusline Integration
-
-**Requirement:** Display Kata project info in Claude Code statusline.
-
-| Component         | Type    | Purpose                          | Implementation                   |
-| ----------------- | ------- | -------------------------------- | -------------------------------- |
-| **Statusline Hook** | Custom  | Inject Kata metadata into statusline | Bash script + Claude Code statusline API |
-
-**No external library needed.** Claude Code's statusline system uses a command string that Kata can populate via hook.
-
-**Implementation Strategy:**
-
-1. **Add statusline configuration to `.claude/settings.json`:**
-```json
-{
-  "statusLine": "${CLAUDE_PLUGIN_ROOT}/hooks/statusline.sh"
-}
-```
-
-2. **Create `hooks/statusline.sh` script:**
-```bash
-#!/usr/bin/env bash
-# Outputs statusline format: "Kata: v1.3.0 | Phase 2.1 | 3/5 plans"
-
-if [ -f ".planning/STATE.md" ]; then
-  VERSION=$(grep "Milestone:" .planning/STATE.md | awk '{print $2}')
-  PHASE=$(grep "Phase:" .planning/STATE.md | awk '{print $2}')
-  PROGRESS=$(grep "Progress:" .planning/STATE.md | awk '{print $2}')
-  echo "Kata: $VERSION | $PHASE | $PROGRESS"
-fi
-```
-
-**Design Decision:** Keep statusline hook minimal. Complex parsing degrades performance (statusline refreshes frequently). Read only STATE.md (single source of truth).
-
-**Sources:**
-- [Claude Code - Status line configuration](https://code.claude.com/docs/en/statusline) (official docs)
-- [GitHub - ccstatusline examples](https://github.com/sirmalloc/ccstatusline) (community reference patterns)
+**Source:** [Agent Skills Specification](https://agentskills.io/specification.md)
 
 ---
 
-## What NOT to Add
+## Claude Code Subagent Architecture
 
-### ❌ Release Automation Libraries
+### How Claude Code Implements Subagents
 
-**Don't add:** `semantic-release`, `release-it`, `standard-version`
+Claude Code's subagent system is a **proprietary extension** built on top of the Agent Skills standard. Key components:
 
-**Why not:**
-- Kata already has working release automation (v1.2.0)
-- GitHub Actions handles: tag creation, release notes, marketplace publish
-- Adding semantic-release would duplicate working CI logic
-- These tools assume semantic commit messages (Kata uses custom format)
+| Component | Location | Format | Purpose |
+|-----------|----------|--------|---------|
+| Subagent definitions | `.claude/agents/` or `~/.claude/agents/` | Markdown + YAML frontmatter | Define custom subagents |
+| Plugin agents | `<plugin>/agents/` | Same format | Plugin-distributed subagents |
+| Task tool | Internal | N/A | Spawns subagents at runtime |
+| Built-in agents | Internal | N/A | Explore, Plan, general-purpose |
 
-**Current approach works:** CI detects version change → creates release. No build-time automation needed.
+### Subagent Frontmatter Fields
 
-### ❌ Diagram Rendering Engines
+```yaml
+---
+name: kata-planner           # Unique identifier (kebab-case)
+description: Plans phases    # When to delegate
+tools: Read, Write, Bash     # Allowed tools (or inherits all)
+disallowedTools: []          # Tools to deny
+model: sonnet                # sonnet, opus, haiku, or inherit
+permissionMode: default      # Permission handling mode
+skills: []                   # Skills to preload into context
+hooks: {}                    # Lifecycle hooks
+---
 
-**Don't add:** `d3.js`, `vis.js`, `cytoscape.js`
-
-**Why not:**
-- Kata doesn't need a web UI (CLI-first tool)
-- Mermaid handles web rendering (GitHub embeds)
-- Diagon handles terminal rendering (ASCII)
-- Heavy dependencies for documentation-only use case
-
-### ❌ GitHub API Wrappers
-
-**Don't add:** `@octokit/rest`, `github-api`
-
-**Why not:**
-- `gh` CLI already provides full GitHub API access
-- Native auth (uses `gh auth login` credentials)
-- Less code to maintain (no API version tracking)
-- Kata's existing patterns use `gh api` successfully
-
-**Example (current working approach):**
-```bash
-gh api --method PATCH /repos/$OWNER/$REPO/milestones/$NUMBER -f state='closed'
+[System prompt markdown body]
 ```
 
-### ❌ Changelog Generators
+**Source:** [Claude Code Subagents Documentation](https://code.claude.com/docs/en/sub-agents)
 
-**Don't add:** `conventional-changelog`, `auto-changelog`
+### Task Tool Parameters
 
-**Why not:**
-- CHANGELOG.md is manually curated (intentional quality control)
-- Automated changelogs produce noise (commit-level detail unnecessary)
-- Kata's changelog format is custom (categorized by feature impact)
-- v1.2.0 already extracts changelog sections for GitHub Releases
+When skills spawn subagents, they use the Task tool:
+
+```
+Task(
+  prompt="[task instructions]",
+  subagent_type="kata-planner",  # References agent by name
+  model="sonnet"                  # Optional: override model
+)
+```
+
+The `subagent_type` parameter references:
+1. Built-in agents: `Explore`, `Plan`, `general-purpose`
+2. User agents: From `~/.claude/agents/`
+3. Project agents: From `.claude/agents/`
+4. Plugin agents: Namespaced as `pluginname:agentname`
+
+**Key constraint:** Subagents cannot spawn other subagents. Nested delegation requires skills or chained subagents from the main conversation.
 
 ---
 
-## Integration with Existing Stack
+## Kata's Current Architecture
 
-### Workflow Documentation Generation
+### Skills as Orchestrators
 
-**New script:** `scripts/generate-workflow-docs.js`
+Kata follows the pattern where skills ARE orchestrators:
+
+```
+skills/kata-plan-phase/SKILL.md    → Orchestrator
+  ↓ spawns
+agents/kata-phase-researcher.md    → Subagent
+agents/kata-planner.md             → Subagent
+agents/kata-plan-checker.md        → Subagent
+```
+
+### How Kata Currently Spawns Agents
+
+From `skills/kata-plan-phase/SKILL.md`:
+
+```
+Task(
+  prompt=research_prompt,
+  subagent_type="kata-phase-researcher",
+  model="{researcher_model}",
+  description="Research Phase {phase}"
+)
+```
+
+### Plugin Namespacing
+
+Kata's build system transforms agent references for plugin distribution:
 
 ```javascript
-const mermaid = require('mermaid');
-const fs = require('fs');
-const path = require('path');
-
-// Read skill files
-const skillsDir = 'skills';
-const skills = fs.readdirSync(skillsDir);
-
-skills.forEach(skill => {
-  const skillPath = path.join(skillsDir, skill, 'SKILL.md');
-  // Parse skill, extract process steps
-  // Generate Mermaid diagram
-  // Output to skill's references/ directory
-});
+// scripts/build.js line 159
+content = content.replace(/subagent_type="kata-/g, 'subagent_type="kata:kata-');
 ```
 
-**Trigger:** Manual (via command) or CI hook (on skill changes)
-
-### Version Bump Automation
-
-**New script:** `scripts/bump-version.js`
-
-```javascript
-const semver = require('semver');
-const fs = require('fs');
-
-const pluginManifest = '.claude-plugin/plugin.json';
-const pkg = JSON.parse(fs.readFileSync(pluginManifest, 'utf8'));
-
-// Read milestone version from STATE.md or user input
-const currentVersion = pkg.version;
-const nextVersion = semver.inc(currentVersion, process.argv[2] || 'patch');
-
-pkg.version = nextVersion;
-fs.writeFileSync(pluginManifest, JSON.stringify(pkg, null, 2) + '\n');
-
-console.log(`Version bumped: ${currentVersion} → ${nextVersion}`);
-```
-
-**Invoked by:** `/kata:completing-milestones` during milestone completion
-
-### Statusline Hook
-
-**New file:** `hooks/statusline.sh`
-
-**Integration:** Add to `.claude-plugin/plugin.json`:
-```json
-{
-  "hooks": "./hooks/hooks.json"
-}
-```
-
-**Add to `hooks/hooks.json`:**
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/statusline.sh"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+This converts `subagent_type="kata-planner"` to `subagent_type="kata:kata-planner"` because Claude Code namespaces plugin agents as `pluginname:agentname`.
 
 ---
 
-## Installation & Setup
+## Migration Options Analysis
 
-### Development Dependencies
+### Option 1: Keep Current Architecture (agents/ directory)
 
-```bash
-# Add to package.json devDependencies
-npm install --save-dev mermaid semver
+**How it works:**
+- Agents remain in `agents/kata-*.md`
+- Build copies to `.claude-plugin/agents/`
+- Skills reference via `subagent_type="kata:kata-*"`
+
+**Pros:**
+- Already working
+- Clear separation between skills and agents
+- Familiar pattern
+
+**Cons:**
+- `agents/` directory is Kata-specific, not Agent Skills standard
+- Requires build-time transformation for namespacing
+- No progressive disclosure — entire agent prompt loaded at spawn
+
+**Verdict:** Valid but not leveraging new Claude Code features.
+
+### Option 2: Agents as Skill Resources
+
+**How it works:**
+- Move agent prompts to `skills/*/references/agent-*.md`
+- Skills read agent prompt content and inline into Task calls
+- No separate `agents/` directory
+
+**Pros:**
+- Aligns with Agent Skills progressive disclosure
+- Skills control when/how agent prompts are loaded
+- Simpler plugin structure (no agents/ directory)
+
+**Cons:**
+- Loss of first-class subagent features (auto-delegation, /agents command)
+- Skills must manually inline agent content into Task prompts
+- No model/tool restrictions at agent level (must be in Task call)
+
+**Verdict:** Possible but loses Claude Code native features.
+
+### Option 3: Hybrid — Plugin Agents + Skill References (Recommended)
+
+**How it works:**
+1. Agents distributed as plugin subagents (`.claude-plugin/agents/`)
+2. Skills can preload agent content via `skills` frontmatter field
+3. Task tool references agent by name
+
+```yaml
+# Subagent definition (agents/kata-planner.md)
+---
+name: kata-planner
+description: Creates executable phase plans
+tools: Read, Write, Bash, Glob, Grep, WebFetch
+model: opus
+skills:
+  - kata-plan-format    # Preloads skill content into agent context
+---
 ```
 
-### Scripts
+```yaml
+# Skill that spawns the agent (skills/kata-plan-phase/SKILL.md)
+---
+name: kata-plan-phase
+allowed-tools: Read, Bash, Task
+---
 
-Add to `package.json`:
-```json
-{
-  "scripts": {
-    "docs:workflows": "node scripts/generate-workflow-docs.js",
-    "version:bump": "node scripts/bump-version.js"
-  }
-}
+Spawn planner:
+Task(prompt="...", subagent_type="kata:kata-planner")
 ```
 
-### No Runtime Dependencies
+**Pros:**
+- First-class Claude Code integration
+- Agents visible in `/agents` command
+- Skills field enables progressive disclosure
+- Clean separation of concerns
+- No loss of features
 
-All additions are dev-time tools or build-time utilities. Plugin distribution remains lightweight (no new runtime deps).
+**Cons:**
+- Requires maintaining both agents/ and skills/
+- Plugin namespace prefix required
+
+**Verdict:** Best of both worlds. Recommended approach.
 
 ---
 
-## Alternatives Considered
+## Recommended Stack
 
-| Category              | Considered         | Chosen      | Why Not                           |
-| --------------------- | ------------------ | ----------- | --------------------------------- |
-| Diagram generation    | PlantUML           | Mermaid     | Requires Java runtime, less GitHub support |
-| Diagram generation    | Graphviz           | Mermaid     | Complex syntax, CLI-only (no web embed) |
-| ASCII diagrams        | ASCIIFlow          | Diagon      | Manual drawing tool, not code-generated |
-| ASCII diagrams        | Graph-Easy         | Diagon      | Perl dependency, limited syntax |
-| Version management    | npm version        | semver lib  | CLI tool, not programmatic |
-| Release automation    | semantic-release   | GitHub Actions | Overkill, Kata has custom conventions |
-| Changelog generation  | conventional-changelog | Manual      | Generic output, Kata needs curation |
-| GitHub API            | Octokit            | gh CLI      | Extra dependency, auth complexity |
+### Plugin Structure
+
+```
+.claude-plugin/
+├── plugin.json          # Plugin manifest
+├── skills/              # Agent Skills standard
+│   ├── kata-plan-phase/
+│   │   └── SKILL.md     # Orchestrator skill
+│   └── kata-execute-phase/
+│       └── SKILL.md     # Orchestrator skill
+└── agents/              # Claude Code subagents
+    ├── kata-planner.md
+    ├── kata-executor.md
+    ├── kata-verifier.md
+    └── ...
+```
+
+### Agent Definition Pattern
+
+```yaml
+---
+name: kata-planner
+description: Creates executable phase plans with task breakdown, dependency analysis, and goal-backward verification. Spawned by kata-plan-phase orchestrator.
+tools: Read, Write, Bash, Glob, Grep, WebFetch, mcp__context7__*
+model: opus
+---
+
+<role>
+[Agent system prompt...]
+</role>
+```
+
+### Skill Orchestrator Pattern
+
+```yaml
+---
+name: kata-plan-phase
+description: Plan detailed roadmap phases.
+allowed-tools: Read, Write, Bash, Task
+---
+
+Spawn agents via Task tool:
+Task(
+  prompt="[context + instructions]",
+  subagent_type="kata:kata-planner",
+  model="opus"
+)
+```
+
+### Build System Requirements
+
+1. **Copy agents to plugin:** `agents/*.md` → `.claude-plugin/agents/`
+2. **Transform namespaces:** `subagent_type="kata-*"` → `subagent_type="kata:kata-*"`
+3. **Validate agent frontmatter:** Ensure required fields present
 
 ---
 
-## Confidence Assessment
+## Skills Field for Agent Knowledge Injection
 
-| Area                  | Confidence | Reason                                    |
-| --------------------- | ---------- | ----------------------------------------- |
-| Mermaid.js            | HIGH       | Verified in official docs, GitHub native support |
-| Diagon                | MEDIUM     | Community tool, less documentation than Mermaid |
-| Semver library        | HIGH       | Official npm library, used by npm itself |
-| Statusline integration | HIGH       | Verified in Claude Code official docs |
-| GitHub Actions        | HIGH       | Already working in v1.2.0 release |
-| Existing stack        | HIGH       | Validated against codebase (package.json, workflows) |
+Claude Code's `skills` frontmatter field allows subagents to preload skill content:
+
+```yaml
+# agents/kata-planner.md
+---
+name: kata-planner
+skills:
+  - kata-plan-format       # Injects skill content at spawn
+  - kata-goal-backward     # Domain knowledge available to agent
+---
+```
+
+**How it works:**
+1. When Task spawns `kata-planner`, Claude Code reads the agent definition
+2. The `skills` array is processed
+3. Full content of each referenced skill is injected into agent's context
+4. Agent has domain knowledge without reading files during execution
+
+**Use cases for Kata:**
+- Inject plan format specification into planner
+- Inject verification patterns into verifier
+- Inject checkpoint protocols into executor
+
+**Constraint:** Skills must be in the same plugin or user-level skills directory.
+
+---
+
+## Task Tool Behavior Deep Dive
+
+### Spawning Syntax
+
+```
+Task(
+  prompt="[instructions]",           # Required: what the agent should do
+  subagent_type="kata:kata-planner", # Required: which agent to use
+  model="opus",                      # Optional: override agent's model
+  description="Plan Phase 2"         # Optional: short description for UI
+)
+```
+
+### Content Inlining Requirement
+
+**Critical:** `@` references don't work across Task boundaries. Content must be inlined:
+
+```
+# WRONG — @references won't resolve in spawned agent
+Task(
+  prompt="Read @.planning/STATE.md and plan",
+  subagent_type="kata:kata-planner"
+)
+
+# CORRECT — read content, inline it
+state_content = Read(".planning/STATE.md")
+Task(
+  prompt="<project_state>\n${state_content}\n</project_state>\n\nPlan the phase.",
+  subagent_type="kata:kata-planner"
+)
+```
+
+### Parallel Spawning
+
+Multiple Task calls in one message spawn parallel agents:
+
+```
+Task(prompt="Execute plan 1", subagent_type="kata:kata-executor")
+Task(prompt="Execute plan 2", subagent_type="kata:kata-executor")
+Task(prompt="Execute plan 3", subagent_type="kata:kata-executor")
+# All three run in parallel, Task blocks until all complete
+```
 
 ---
 
 ## Migration Path
 
-### Phase 1: Add Dependencies
+### Phase 1: Audit Current Agents
 
 ```bash
-npm install --save-dev mermaid semver
+# Count agents
+ls -la agents/kata-*.md | wc -l
+
+# Verify frontmatter format
+for f in agents/kata-*.md; do
+  head -20 "$f" | grep -E "^(name|description|tools|model):"
+done
 ```
 
-### Phase 2: Create Scripts
+### Phase 2: Align Frontmatter
 
-1. `scripts/generate-workflow-docs.js` (Mermaid generation)
-2. `scripts/bump-version.js` (semver integration)
-3. `hooks/statusline.sh` (statusline hook)
+Ensure all agents use Claude Code's supported fields:
 
-### Phase 3: Update Skills
+```yaml
+---
+name: kata-executor                     # Required
+description: Executes Kata plans        # Required
+tools: Read, Write, Edit, Bash          # Optional, inherits if omitted
+model: sonnet                           # Optional, inherits if omitted
+---
+```
 
-1. `/kata:completing-milestones` — call `bump-version.js`
-2. Document workflow — add Mermaid diagrams to `references/`
+Remove Kata-specific fields that Claude Code doesn't recognize:
+- `color` — not standard (cosmetic only, can keep)
 
-### Phase 4: Test
+### Phase 3: Update Build Script
 
-1. Validate Mermaid renders in GitHub
-2. Test ASCII diagrams in terminal
-3. Verify statusline updates
-4. Run version bump script
+Verify `scripts/build.js` handles:
+1. Copying `agents/` to `.claude-plugin/agents/`
+2. Transforming `subagent_type` references
+3. Preserving agent file structure
+
+### Phase 4: Test Plugin Distribution
+
+```bash
+npm run build:plugin
+claude --plugin-dir dist/plugin
+
+# Verify agents load
+/agents
+# Should show kata:kata-planner, kata:kata-executor, etc.
+```
+
+---
+
+## What NOT to Change
+
+### Keep Current Agent Format
+
+Kata's agent files already follow Claude Code's format:
+
+```yaml
+---
+name: kata-planner
+description: Creates executable phase plans...
+tools: Read, Write, Bash, Glob, Grep, WebFetch, mcp__context7__*
+---
+```
+
+This IS the Claude Code subagent format. No migration needed for file structure.
+
+### Keep Task Tool Usage
+
+Kata's current Task() invocations are correct:
+
+```
+Task(
+  prompt=filled_prompt,
+  subagent_type="kata-planner",
+  model="{planner_model}"
+)
+```
+
+The build system already handles `kata:` prefix for plugin distribution.
+
+### Keep Skills as Orchestrators
+
+The pattern where skills ARE orchestrators (not separate orchestrator files) aligns with both:
+- Agent Skills progressive disclosure philosophy
+- Claude Code's skill + subagent architecture
 
 ---
 
 ## Open Questions
 
-None. All technologies validated with official sources.
+### 1. Should Agents Preload Skills?
+
+**Question:** Should Kata's agents use the `skills` field to preload domain knowledge?
+
+**Tradeoff:**
+- YES: Agent has patterns/formats without reading files at runtime
+- NO: Agent stays lean, reads what it needs (current behavior)
+
+**Recommendation:** Evaluate per-agent. Planner might benefit from preloaded plan-format skill. Executor needs fresh context, probably not.
+
+### 2. MCP Tool Access in Agents
+
+**Question:** Kata agents reference `mcp__context7__*` tools. How does plugin distribution handle MCP?
+
+**Finding:** MCP tools are inherited from parent if not restricted. Plugin agents can use MCP tools if:
+1. User has MCP server configured
+2. Agent's `tools` field includes `mcp__*` or inherits all
+
+**Recommendation:** Keep current MCP tool references. Users without Context7 will simply not have those tools available.
+
+---
+
+## Confidence Assessment
+
+| Area | Confidence | Reason |
+|------|------------|--------|
+| Agent Skills spec scope | HIGH | Verified directly at agentskills.io |
+| Claude Code subagent format | HIGH | Verified at code.claude.com/docs |
+| Task tool parameters | HIGH | Verified in official docs |
+| Plugin namespacing | HIGH | Validated in Kata codebase (build.js) |
+| Skills preloading | HIGH | Documented in Claude Code subagent docs |
+| MCP inheritance | MEDIUM | Inferred from tool inheritance docs, not explicit |
 
 ---
 
 ## Sources
 
-**Mermaid.js:**
-- [GitHub - mermaid-js/mermaid](https://github.com/mermaid-js/mermaid)
-- [Mermaid.js Official Docs](https://mermaid.js.org/)
-- [Mermaid Flowchart Syntax](https://mermaid.js.org/syntax/flowchart.html)
+**Agent Skills Specification:**
+- [Agent Skills Specification](https://agentskills.io/specification.md)
+- [Integrate Skills](https://agentskills.io/integrate-skills.md)
 
-**Diagon:**
-- [GitHub - ArthurSonzogni/Diagon](https://github.com/ArthurSonzogni/Diagon)
-- [ASCII Diagrams](https://asciidiagrams.github.io/)
+**Claude Code Documentation:**
+- [Create Custom Subagents](https://code.claude.com/docs/en/sub-agents)
+- [Skills Documentation](https://code.claude.com/docs/en/skills)
+- [Plugin Components Reference](https://code.claude.com/docs/en/plugins-reference)
 
-**Semver:**
-- [semver - npm](https://www.npmjs.com/package/semver)
-- [GitHub - npm/node-semver](https://github.com/npm/node-semver)
-- [npm Docs - About semantic versioning](https://docs.npmjs.com/about-semantic-versioning/)
+**Kata Codebase:**
+- `scripts/build.js` — Plugin build with namespace transformation
+- `agents/kata-*.md` — Current agent definitions
+- `skills/kata-*/SKILL.md` — Current skill orchestrators
 
-**Claude Code Statusline:**
-- [Claude Code - Status line configuration](https://code.claude.com/docs/en/statusline)
-- [GitHub - ccstatusline](https://github.com/sirmalloc/ccstatusline)
-- [ccusage Statusline Integration](https://ccusage.com/guide/statusline)
-
-**GitHub Actions:**
-- [GitHub Docs - Releasing and maintaining actions](https://docs.github.com/en/actions/how-tos/create-and-publish-actions/release-and-maintain-actions)
-- [GitHub - softprops/action-gh-release](https://github.com/softprops/action-gh-release)
-
-**GitHub CLI:**
-- [GitHub - gh-milestone extension](https://github.com/scttfrdmn/gh-milestone)
-- [GitHub CLI Manual](https://cli.github.com/manual/gh_help_reference)
+**Community Resources:**
+- [Task Tool: Claude Code's Agent Orchestration System](https://dev.to/bhaidar/the-task-tool-claude-codes-agent-orchestration-system-4bf2)
+- [Claude Code Customization Guide](https://alexop.dev/posts/claude-code-customization-guide-claudemd-skills-subagents/)

@@ -57,8 +57,9 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    You MUST create a release branch BEFORE proceeding. All milestone completion work goes on that branch.
 
    ```bash
-   # Determine version (ask user or detect from package.json)
-   VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "X.Y.Z")
+   # Determine version from user input or detect from project files
+   # (version-detector.md handles detection across project types)
+   VERSION="X.Y.Z"  # Set from user input or detection
 
    # Create release branch
    git checkout -b release/v$VERSION
@@ -85,49 +86,47 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    - If pr_workflow=true, you must be on release/vX.Y.Z branch
    - If pr_workflow=false, main branch is OK
 
-0.1. **Pre-flight: Release artifacts**
+0.1. **Generate release artifacts:**
 
-   Before archiving, ensure release artifacts are ready:
+   Proactively generate changelog and version bump. Follow the release_workflow step in milestone-complete.md (loads version-detector.md and changelog-generator.md) to:
+   1. Detect version bump type from conventional commits
+   2. Calculate next version
+   3. Generate changelog entry
+   4. Bump version in all project version files detected by version-detector.md
+   5. Insert changelog entry into CHANGELOG.md
 
-   ```markdown
-   ## Pre-flight: Release Artifacts
-
-   ☐ CHANGELOG.md updated with v{{version}} entry
-   ☐ package.json version set to {{version}}
-
-   These should be committed BEFORE running this command.
+   Present all proposed changes for review:
    ```
+   ## Release Preview
 
-   If either is missing, prompt:
-   ```
-   ⚠ Release artifacts not ready. Please update:
-   - CHANGELOG.md — add v{{version}} entry
-   - package.json — set version to {{version}}
+   **Current version:** $CURRENT_VERSION
+   **Bump type:** $BUMP_TYPE
+   **Next version:** $NEXT_VERSION
 
-   Then re-run /kata:kata-complete-milestone
+   **Changelog entry:**
+   ## [$NEXT_VERSION] - $DATE
+
+   ### Added
+   [feat commits formatted]
+
+   ### Fixed
+   [fix commits formatted]
+
+   ### Changed
+   [docs/refactor/perf commits formatted]
+
+   **Files updated:**
+   [list each version file detected and updated]
+   - CHANGELOG.md → new entry prepended
    ```
 
    Use AskUserQuestion:
-   - header: "Release artifacts"
-   - question: "Have you updated CHANGELOG.md and package.json for v{{version}}?"
+   - header: "Release Changes"
+   - question: "Review the release changes above. Approve?"
    - options:
-     - "Yes, continue" — Proceed with completion
-     - "No, let me update them" — Exit to update
-
-   If "No", exit command.
-
-0.2. **Offer release workflow:**
-
-   Use AskUserQuestion:
-   - header: "Release Workflow"
-   - question: "Would you like to run the release workflow before archiving?"
-   - options:
-     - "Yes, run release workflow" — Execute release_workflow step in milestone-complete.md
-     - "Yes, dry-run first" — Preview release changes without applying them
-     - "No, just archive" — Skip release, proceed to verify readiness
-
-   If "Yes" or "Yes, dry-run first": Follow release_workflow step in milestone-complete.md (loads version-detector.md and changelog-generator.md).
-   If "No, just archive": Skip to step 1.
+     - "Approve" — Keep changes and proceed to verify readiness
+     - "Edit changelog first" — Pause for user edits, then confirm
+     - "Revert and skip release" — Undo release file changes, proceed to verify readiness without release artifacts
 
 1. **Check for audit:**
 
@@ -284,13 +283,12 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
    ## Release Files
 
-   - `package.json` — version {{version}}
-   - `.claude-plugin/plugin.json` — version {{version}}
+   [list version files that were updated]
    - `CHANGELOG.md` — v{{version}} entry added
 
    ## After Merge
 
-   Create GitHub Release with tag `v{{version}}` to trigger CI publish to marketplace.
+   Create GitHub Release with tag `v{{version}}`.
 
    ## Closes
 
@@ -305,7 +303,6 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
    After merge:
    → Create GitHub Release with tag v{{version}}
-   → CI will publish to marketplace
    ```
 
    **If `PR_WORKFLOW=false` (on main):**
@@ -362,7 +359,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
 **If release workflow was run:**
 - CHANGELOG.md updated with v{{version}} entry (reviewed and approved)
-- Version bumped in package.json and .claude-plugin/plugin.json
+- Version bumped in all detected project version files
 - GitHub Release created (if pr_workflow=false) OR instructions provided (if pr_workflow=true)
   </success_criteria>
 

@@ -1,339 +1,328 @@
-# Domain Pitfalls: Release Automation & Workflow Documentation
+# Domain Pitfalls: Agent Skills Migration
 
-**Domain:** Release automation, workflow documentation, statusline integration, CLI onboarding
-**Researched:** 2026-01-28
-**Confidence:** HIGH (based on Kata's historical issues v1.0.1-1.0.8 and verified sources)
+**Domain:** Converting custom subagents to Agent Skills resources
+**Researched:** 2026-02-04
+**Confidence:** HIGH (based on Kata codebase analysis + industry patterns)
 
 ## Executive Summary
 
-This research identifies critical pitfalls when adding release automation and workflow documentation to Kata, drawing from:
-- Kata's actual release history (8 patch releases from v1.0.1-1.0.8, mostly path resolution and CI issues)
-- GitHub Actions automation patterns
-- npm package publishing in CI/CD
-- Workflow documentation maintenance
-- CLI tool statusline integration
+This research identifies critical pitfalls when converting Kata's 15+ custom subagents to Agent Skills resources. The migration involves:
+- Converting `agents/kata-*.md` files to skill resources
+- Preserving tool allowlists and context passing
+- Maintaining orchestrator-agent communication patterns
+- Testing behavior equivalence
 
-The most dangerous pattern: **path resolution assumptions break in CI**. Kata already experienced this (v1.0.3-1.0.8). Prevention requires CI testing **before** release, not after.
+The most dangerous pattern: **context passing assumptions mismatch**. Kata orchestrators inline context via Task prompts. Agent Skills receive context differently. Silent failures occur when agents execute without required context.
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, rapid patch releases, or production failures.
+Mistakes that cause rewrites or significant rework.
 
-### Pitfall 1: CI Environment Path Assumptions
+### Pitfall 1: Context Passing Assumption Mismatch
 
-**What goes wrong:** Paths that work locally fail in CI because environment variables, working directories, or file system structure differ between local and CI environments.
+**What goes wrong:** Custom agents receive context via Task tool prompt parameter with inlined content. Agent Skills receive context differently (SKILL.md content + `$ARGUMENTS`). Migration assumes context flows the same way.
 
-**Why it happens:**
-- Local development uses absolute paths or relies on shell session state
-- CI runners have different directory structures and environment setup
-- Build processes assume local file locations exist in CI
+**Why it happens:** Kata's current architecture uses orchestrators to read files with the Read tool, then inline content into Task prompts:
 
-**Kata experienced this:**
-- v1.0.3: Plugin path resolution attempt (failed)
-- v1.0.4: Revert path approach, add tests
-- v1.0.5: Hidden directories not copied to marketplace
-- v1.0.6-v1.0.8: Continued path resolution issues
-- **Pattern:** 6 patch releases fixing the same root cause
+```javascript
+// Current pattern in kata-plan-phase and kata-execute-phase
+Task(
+  prompt="Execute plan at {plan_path}\n\n<plan>\n{plan_content}\n</plan>...",
+  subagent_type="kata-executor",
+  model="{executor_model}"
+)
+```
+
+Agent Skills receive their SKILL.md body as the prompt, with `$ARGUMENTS` as the variable input. The `@` syntax for file references does not work across Task boundaries.
 
 **Consequences:**
-- Rapid patch release cycles (multiple per day)
-- User-facing bugs in published artifacts
-- Trust erosion (version numbering becomes meaningless)
-- CI becomes unreliable gating mechanism
+- Agents receive incomplete context and produce incorrect output
+- Plans execute without access to STATE.md, ROADMAP.md, or prior SUMMARYs
+- Verification fails because verifier lacks must_haves from PLAN.md frontmatter
 
 **Prevention:**
-1. **Test in CI before releasing** — Run full plugin build and validation in CI
-2. **Use CI-compatible paths** — No assumptions about `$HOME`, working directory, or installed tools
-3. **Validate artifacts** — CI should test the actual built plugin, not source
-4. **Copy/paste protection** — If path resolution requires `resolvePathSync` with extension handling, test it with actual plugin structure in CI
+1. Audit every Task invocation to identify what context is inlined
+2. Design explicit context injection mechanism for Skills:
+   - Use `!`command`` syntax for dynamic context injection (pre-executes shell commands)
+   - Pre-read required files in orchestrator and pass via structured `$ARGUMENTS`
+   - Consider the `context: fork` pattern for Skills that need isolation
+3. Create context contract documentation for each converted agent
 
-**Detection:**
-- CI workflow succeeds but published artifacts fail
-- Rapid patch releases with "fix path" or "restore working state" messages
-- Local testing passes, CI testing passes, but users report failures
-- Build process modifies paths (like `build.js` stripping prefixes) without corresponding CI validation
+**Detection (warning signs):**
+- Agent asks for information that should already be available
+- Verification or execution produces "file not found" or "variable undefined" errors
+- Output references placeholder values instead of real data
 
-**Which phase should address:**
-- **Phase 0: CI validation** — Before implementing release automation
-- **Phase 1: Release workflow** — Build and test artifacts in CI before publishing
+**Which phase should address:** Phase 1 (POC) with kata-planner and kata-executor
 
 ---
 
-### Pitfall 2: GitHub Actions Release Trigger Deadlock
+### Pitfall 2: Tool Allowlist Semantic Drift
 
-**What goes wrong:** Releases created by GitHub Actions don't trigger subsequent `on: release` workflows. The release publishes but post-release automation never runs.
+**What goes wrong:** Custom agents have explicit `tools:` frontmatter. Agent Skills have `allowed-tools:` with different semantics. During migration, the tool lists get copied but the permission model changes.
 
-**Why it happens:**
-- GitHub prevents infinite loop scenarios where releases trigger releases
-- Default `GITHUB_TOKEN` doesn't have permissions to trigger workflow events
-- Without custom Personal Access Token (PAT), release workflows complete but don't cascade
+**Why it happens:** Current Kata agents specify tools as a simple list:
+
+```yaml
+# Current agent (kata-executor.md)
+tools: Read, Write, Edit, Bash, Grep, Glob
+```
+
+Agent Skills `allowed-tools` field controls permission prompting (tools that run without asking), not tool availability. The Skills documentation states: "If you omit `tools`, you're implicitly granting access to all available tools."
 
 **Consequences:**
-- Silent failure — release looks successful but downstream automation skipped
-- Manual intervention required for every release
-- Version tags exist but packages not published (or vice versa)
-- Changelog/documentation updates never happen
+- Agents gain unintended capabilities (MCP tools, dangerous operations)
+- Security model degrades silently
+- Agents perform operations they shouldn't (executing arbitrary code, modifying files outside scope)
 
 **Prevention:**
-1. **Use PAT with workflow permissions** — Create GitHub Personal Access Token with `workflow` scope
-2. **Store as repository secret** — `GH_PAT` or similar, not `GITHUB_TOKEN`
-3. **Test trigger chain** — Verify release creation actually triggers publish workflow
-4. **Explicit status checks** — Don't rely on implicit workflow chaining
-5. **Alternative: Manual release step** — Use `workflow_dispatch` trigger for releases requiring approval
+1. Map current tool lists to explicit `allowed-tools` AND explicit `disallowedTools` in Skills
+2. Test each converted agent with all tools disabled, then enable one at a time
+3. Consider using `context: fork` with restricted agents for isolation
+4. Add hooks (`PreToolUse`) for conditional validation when simple lists are insufficient
 
-**Detection:**
-- CI creates releases but publish workflow never runs
-- GitHub Actions UI shows no triggered workflows after release
-- Version tags exist but npm/marketplace shows old version
-- Release notes generated but not attached to release
+**Detection (warning signs):**
+- Agent completes tasks suspiciously fast (skipping verification)
+- Agent modifies files outside its expected scope
+- Agent uses tools not in original allowlist
 
-**Which phase should address:**
-- **Phase 0: CI validation** — Understand trigger chain before implementing
-- **Phase 1: Release workflow** — Test end-to-end automation with PAT
+**Which phase should address:** Phase 1 (POC) and Phase 2 (conversion of each agent)
 
 ---
 
-### Pitfall 3: npm OIDC Authentication Misconceptions
+### Pitfall 3: Model Selection Regression
 
-**What goes wrong:** Setting `NODE_AUTH_TOKEN` to empty string prevents OIDC Trusted Publishing from working. npm tries to use the empty token instead of falling back to OIDC.
+**What goes wrong:** Kata orchestrators select models based on config profiles (quality/balanced/budget). Agent Skills have a `model` field but it's static per skill. Migration loses dynamic model selection.
 
-**Why it happens:**
-- Classic npm tokens deprecated in 2026
-- OIDC Trusted Publishing requires token variable to be **completely unset**, not empty
-- GitHub Actions templates often include `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` which sets empty string when secret missing
+**Why it happens:** Current orchestrators implement model lookup:
+
+```bash
+MODEL_PROFILE=$(cat .planning/config.json | grep '"model_profile"' | ... || echo "balanced")
+# Then lookup table:
+# | Agent          | quality | balanced | budget |
+# | kata-planner   | opus    | opus     | sonnet |
+```
+
+Agent Skills `model` field is a single value, not configurable per invocation.
 
 **Consequences:**
-- Publish fails with authentication error despite OIDC being configured
-- Debugging leads down wrong path (checking OIDC config when the problem is token variable)
-- First version must be published manually (OIDC only works after Trusted Publisher configured)
+- Users lose cost control (budget profile users get expensive models)
+- Performance degrades (quality profile users get cheaper models)
+- Orchestrator complexity increases to compensate
 
 **Prevention:**
-1. **Unset vs empty** — Only set `NODE_AUTH_TOKEN` if token exists: `if: ${{ secrets.NPM_TOKEN }}`
-2. **OIDC-first workflow** — Prefer OIDC Trusted Publishing, not classic tokens
-3. **Repository URL exactness** — `package.json` repository.url must exactly match GitHub URL (case-sensitive)
-4. **GitHub-hosted runners only** — Self-hosted runners don't support OIDC (as of 2026)
-5. **Manual first publish** — Document that first version requires manual publish or classic token
+1. Keep model selection in orchestrator, NOT in Skill definition
+2. Use `model: inherit` in Skills so orchestrator controls selection
+3. If Skills must specify models, create profile-specific Skill variants or use hooks
 
-**Detection:**
-- CI shows authentication error: "Unable to authenticate"
-- OIDC config looks correct but still fails
-- `NODE_AUTH_TOKEN` present in env (even if empty)
-- Works locally with token, fails in CI with OIDC
+**Detection (warning signs):**
+- Unexpected API costs after migration
+- Model-specific behaviors (hallucination rates, context limits) differ from pre-migration
+- config.json model_profile setting has no effect
 
-**Which phase should address:**
-- **Phase 1: Release workflow** — Configure OIDC correctly from start
-- **Not applicable to Kata** — Kata uses Claude Code plugin marketplace, not npm, but similar authentication pitfalls may exist
+**Which phase should address:** Phase 1 (POC) design decision
 
 ---
 
-### Pitfall 4: Semantic Versioning Automation Without Validation
+### Pitfall 4: Structured Return Contract Breakage
 
-**What goes wrong:** Automated versioning based on commit messages produces wrong version bumps when commit messages don't match actual changes, or validation is missing.
+**What goes wrong:** Kata agents return structured outputs (`## PLANNING COMPLETE`, `## CHECKPOINT REACHED`, `## DEBUG COMPLETE`). Orchestrators parse these to determine next action. Skills may not maintain the same return contract.
 
-**Why it happens:**
-- Tools like `semantic-release` trust commit message format (`feat:`, `fix:`, `BREAKING CHANGE:`)
-- No static analysis confirms commit message matches code changes
-- Manual commits can use wrong type (dev thinks "feat" but actually "fix")
-- Breaking changes introduced in "fix" commits
+**Why it happens:** Current agents have explicit `<structured_returns>` sections defining output formats:
 
-**Kata experienced this:**
-- Rapid v1.0.x patch releases indicate incomplete testing, not just fixes
-- Version numbering confusion (when is it patch vs minor?)
-- No automated validation of version appropriateness
+```markdown
+## PLANNING COMPLETE
+**Phase:** {phase-name}
+**Plans:** {N} plan(s) in {M} wave(s)
+...
+```
+
+Orchestrators pattern-match on these:
+
+```bash
+# Implied in orchestrator logic
+if output contains "## PLANNING COMPLETE"
+  → proceed to verification
+elif output contains "## CHECKPOINT REACHED"
+  → present to user
+```
+
+Agent Skills don't enforce return formats. The Skill body IS the prompt, but output structure is not guaranteed.
 
 **Consequences:**
-- Breaking changes released as patches
-- Users trust semantic versioning, get surprised by breaks
-- Version history becomes meaningless
-- Rollback requires multiple versions
+- Orchestrators fail to parse agent output
+- Workflows hang waiting for patterns that never appear
+- Silent failures where orchestrator assumes success
 
 **Prevention:**
-1. **Validate commit types** — CI checks that `feat:` commits actually add features, `fix:` commits actually fix bugs
-2. **Manual bump approval** — Human confirms version bump before release
-3. **Changelog review** — Generated changelog must make sense before publish
-4. **BREAKING: detection** — CI fails if breaking changes found in non-major version
-5. **Test matrix** — Validate new version against previous version's API
+1. Maintain explicit output format requirements in Skill body
+2. Add output validation in orchestrators after Skill completion
+3. Consider hooks (`Stop`) to validate output format before returning to orchestrator
+4. Test return format parsing with diverse outputs
 
-**Detection:**
-- Patch releases that break existing usage
-- Commit messages don't match actual changes
-- Multiple patches released same day
-- Versions skip numbers (v1.0.3 → v1.0.8)
+**Detection (warning signs):**
+- Orchestrator displays raw agent output instead of formatted results
+- "Next Up" sections never appear
+- State files not updated after agent completion
 
-**Which phase should address:**
-- **Phase 1: Release workflow** — Version bump validation before publish
-- **Phase 2: Workflow docs** — Document when to use major/minor/patch
+**Which phase should address:** Phase 1 (POC) with kata-planner and kata-executor
 
 ---
 
-### Pitfall 5: Workflow Diagrams Diverge from Implementation
+### Pitfall 5: Subagent-Cannot-Spawn-Subagent Hierarchy Violation
 
-**What goes wrong:** Documentation shows one workflow, code implements another. Diagrams become obsolete as code evolves.
+**What goes wrong:** Kata's architecture relies on Skills spawning subagents via Task tool. The Agent Skills documentation states "Subagents cannot spawn other subagents." If Skills become subagents, the orchestration hierarchy breaks.
 
-**Why it happens:**
-- Diagrams drawn once during design, never updated
-- No automation linking diagram to code
-- Changes to code don't trigger documentation review
-- Multiple contributors update code, none update diagrams
+**Why it happens:** Current Kata Skills ARE orchestrators. They spawn agents:
+
+```
+Skill (kata-plan-phase)
+  → spawns Agent (kata-phase-researcher)
+  → spawns Agent (kata-planner)
+  → spawns Agent (kata-plan-checker)
+```
+
+If Skills execute as subagents (via `context: fork`), they lose the ability to spawn further subagents.
 
 **Consequences:**
-- Onboarding uses wrong mental model
-- Debugging uses incorrect assumptions
-- Stakeholders make decisions based on outdated diagrams
-- "Documentation says X, code does Y" confusion
+- Multi-agent workflows become impossible
+- kata-plan-phase can't spawn kata-planner
+- kata-execute-phase can't spawn kata-executor
+- Architecture requires complete redesign
 
 **Prevention:**
-1. **Co-locate diagrams with code** — Workflow diagram lives with workflow implementation
-2. **Review checklist** — PR template requires documentation update for workflow changes
-3. **Quarterly review cadence** — Scheduled documentation audit every 3 months
-4. **Executable diagrams** — Mermaid/ASCII in markdown, not separate image files
-5. **Test references** — Diagram mentions phase numbers, tests validate those phases exist
-6. **Living documentation marker** — Date stamp on diagrams: "Last validated: 2026-01-28"
+1. Skills that orchestrate MUST NOT use `context: fork`
+2. Only leaf-node agents (those that do work, not spawn others) should become skill resources
+3. Keep orchestrator logic in Skills without `context: fork`
+4. Converted agents become skill resources spawned by Task, not Skills with `context: fork`
 
-**Detection:**
-- User reports: "Documentation says do X but system does Y"
-- Code review finds workflow behavior contradicting docs
-- Diagram shows 5 phases, ROADMAP.md shows 7 phases
-- File paths in diagram don't match actual file structure
-- Git blame shows diagram last updated months before workflow code
+**Detection (warning signs):**
+- "Subagents cannot spawn other subagents" error
+- Skill completes but expected subagents never ran
+- Workflow produces incomplete results
 
-**Which phase should address:**
-- **Phase 2: Workflow docs** — Create diagrams during workflow implementation
-- **Phase 3: Documentation maintenance** — Establish review cadence and co-location patterns
+**Which phase should address:** Phase 1 (POC) architecture validation
 
 ---
 
 ## Moderate Pitfalls
 
-Mistakes that cause delays, technical debt, or require rework.
+Mistakes that cause delays or technical debt.
 
-### Pitfall 6: .gitignore vs .npmignore Confusion
+### Pitfall 6: Discovery Pattern Incompatibility
 
-**What goes wrong:** Build artifacts created during CI are listed in `.gitignore`, so they're not included in published npm package (if `.npmignore` doesn't exist).
+**What goes wrong:** Claude Code discovers Skills from `.claude/skills/` directories. Kata agents live in `agents/` directory. Migration must maintain discoverability.
 
-**Why it happens:**
-- npm honors `.gitignore` when `.npmignore` is missing
-- Build process generates `dist/` or similar, which is `.gitignore`'d
-- CI builds successfully but published package is incomplete
+**Why it happens:** Claude Code has specific conventions for skill discovery:
+- `.claude/skills/<skill-name>/SKILL.md` (project)
+- `~/.claude/skills/<skill-name>/SKILL.md` (user)
+- Plugin skills in plugin's `skills/` directory
+
+Kata's agents are in `agents/kata-*.md`, a flat structure.
 
 **Prevention:**
-1. **Explicit .npmignore** — Always create `.npmignore`, don't rely on `.gitignore` behavior
-2. **Test published tarball** — CI extracts and validates package contents before publish
-3. **files field in package.json** — Explicitly list what to include (more reliable than ignore files)
+- Skills as subagent resources must be installed to `.claude/skills/` or bundled in plugin
+- Update build system to place converted agents in correct location
+- Test that converted agents are discoverable by Claude Code
 
-**Detection:**
-- Published package smaller than expected
-- Users report "module not found" after install
-- Local development works, installed package fails
-
-**Which phase should address:**
-- **Phase 1: Release workflow** — Validate package contents before publish
+**Which phase should address:** Phase 2 (full conversion)
 
 ---
 
-### Pitfall 7: Statusline Performance Anti-Patterns
+### Pitfall 7: Description Mismatch for Invocation
 
-**What goes wrong:** Statusline commands that fetch network data (GitHub CI status, etc.) take 1-2 seconds, causing sluggish terminal experience.
+**What goes wrong:** Kata agents have descriptions for documentation. Agent Skills descriptions drive invocation (Claude decides when to use them). A documentation-style description becomes a poor invocation trigger.
 
-**Why it happens:**
-- Statusline called frequently (every prompt render)
-- Network requests block rendering
-- No caching of expensive operations
+**Why it happens:** Current agent descriptions are informational:
+
+```yaml
+# Current (documentation-style)
+description: Executes Kata plans with atomic commits, deviation handling...
+```
+
+Agent Skills descriptions must trigger invocation:
+
+```yaml
+# Required (invocation-style)
+description: Execute plans. Use when running phase execution, completing plans, or implementing planned tasks.
+```
 
 **Prevention:**
-1. **Cache aggressively** — Session-wide caching with multi-tier duration strategies
-2. **Async updates** — Return immediately with cached data, update in background
-3. **Progressive disclosure** — Show basic info first, detailed info only when expanded
-4. **Performance budget** — Statusline must respond <50ms
+- Rewrite descriptions with invocation triggers in mind
+- Include action phrases: "use when", "for", "handles"
+- Test natural language invocation after conversion
+- Follow Kata's existing skill naming guidance (gerund style)
 
-**Detection:**
-- Terminal feels sluggish
-- Noticeable delay before prompt appears
-- Network requests in statusline code
-- Response times >500ms
-
-**Which phase should address:**
-- **Phase 3: Statusline integration** — Design for performance from start
+**Which phase should address:** Phase 2 (each agent conversion)
 
 ---
 
-### Pitfall 8: Onboarding Assumes Expert Context
+### Pitfall 8: Hook Migration Gap
 
-**What goes wrong:** Documentation/onboarding designed by experts who forget what beginners don't know. Users get stuck on implicit assumptions.
+**What goes wrong:** Kata orchestrators have implicit hook-like behavior (post-execution commits, state updates). Agent Skills have explicit hooks (`PreToolUse`, `PostToolUse`, `Stop`, `SubagentStart`, `SubagentStop`). Implicit behaviors don't automatically migrate.
 
-**Why it happens:**
-- Author knows domain deeply, assumes basics
-- No user testing with actual beginners
-- Onboarding reviews only by other experts
+**Why it happens:** Current orchestrators embed post-execution logic:
+
+```bash
+# In orchestrator after Task returns
+git add .planning/STATE.md
+git commit -m "docs({phase}): complete phase"
+```
+
+Agent Skills would need hooks to replicate this behavior consistently.
 
 **Prevention:**
-1. **Beginner review** — Someone unfamiliar with project tests onboarding
-2. **Explicit prerequisites** — List required knowledge, tools, accounts
-3. **Common errors section** — Document mistakes beginners make
-4. **Progressive complexity** — Start with simplest path, add advanced later
+- Audit each orchestrator for post-execution behaviors
+- Implement explicit hooks for behaviors that must survive migration
+- Test that commits, state updates, and artifacts are created correctly
 
-**Detection:**
-- Support questions about "obvious" things
-- Users stuck at same point repeatedly
-- "How do I X?" when documentation assumes X is known
-- Low completion rate for onboarding flow
-
-**Which phase should address:**
-- **Phase 4: UX polish** — User testing and onboarding refinement
+**Which phase should address:** Phase 2 (each agent conversion)
 
 ---
 
-### Pitfall 9: Version Bump Without Changelog Review
+### Pitfall 9: @-Reference Syntax Preservation
 
-**What goes wrong:** Automated version bump happens, changelog generated, release published — all without human review. Generated changelog may be wrong, misleading, or missing context.
+**What goes wrong:** Kata agents use `@~/.claude/kata/...` paths that the build system transforms. Agent Skills may have different path resolution rules.
 
-**Why it happens:**
-- Full automation removes human checkpoint
-- Trust in commit message quality
-- "Move fast" culture skips review
+**Why it happens:** Kata's build system transforms paths:
+
+| Build Target | Transformation |
+| --- | --- |
+| Plugin | `@~/.claude/kata/` → `@./kata/` |
+
+Agent Skills may resolve `@` references differently.
 
 **Prevention:**
-1. **Changelog approval gate** — Human confirms changelog before publish
-2. **Draft release workflow** — Create draft, human reviews, then publish
-3. **Commit message quality enforcement** — CI fails on generic messages like "fix stuff"
+- Test @-reference resolution after conversion
+- Update build system if Skills have different path semantics
+- Document path transformation rules
 
-**Detection:**
-- Changelog entries don't make sense to users
-- Important changes missing from changelog
-- Duplicate entries (commit message ambiguity)
-
-**Which phase should address:**
-- **Phase 1: Release workflow** — Add human review checkpoint
+**Which phase should address:** Phase 2 (build system updates)
 
 ---
 
-### Pitfall 10: Missing Integration Test Coverage
+### Pitfall 10: Checkpoint Protocol Translation
 
-**What goes wrong:** Unit tests pass, integration tests missing, so multi-step workflows break in production.
+**What goes wrong:** Kata agents have explicit checkpoint types (`checkpoint:human-verify`, `checkpoint:decision`, `checkpoint:human-action`). Agent Skills don't have native checkpoint support.
 
-**Why it happens:**
-- CI runs unit tests only
-- Integration tests slow/complex
-- "It works locally" confidence
+**Why it happens:** Current checkpoint flow:
 
-**Kata experienced this:**
-- v1.0.1: CI workflow trigger issues (caught post-release)
-- v1.0.3-1.0.8: Path resolution (should have been caught by integration tests)
+```
+Agent hits checkpoint → returns structured CHECKPOINT REACHED
+Orchestrator parses → presents to user → gets response
+Orchestrator spawns fresh continuation agent with response
+```
+
+Agent Skills have no built-in checkpoint concept.
 
 **Prevention:**
-1. **End-to-end test in CI** — Full plugin build → install → invoke → verify
-2. **Release candidate testing** — Test actual release artifacts before publish
-3. **Integration test suite** — Test multi-step workflows, not just units
+- Design checkpoint-to-Skill pattern (return structured output, orchestrator presents, spawn continuation)
+- Test full checkpoint flow with converted agents
+- Preserve checkpoint semantics even if implementation differs
 
-**Detection:**
-- Rapid patch releases after major release
-- "It worked in CI but failed for users"
-- Issues only found after publish
-
-**Which phase should address:**
-- **Phase 0: CI validation** — Before implementing release automation
+**Which phase should address:** Phase 1 (POC) with kata-executor
 
 ---
 
@@ -341,117 +330,130 @@ Mistakes that cause delays, technical debt, or require rework.
 
 Mistakes that cause annoyance but are fixable.
 
-### Pitfall 11: Hard-Coded Version Numbers in Docs
+### Pitfall 11: Color/Branding Loss
 
-**What goes wrong:** Documentation includes version-specific examples that become outdated.
+**What goes wrong:** Kata agents have `color:` frontmatter for visual identification. Agent Skills don't have equivalent.
 
-**Prevention:**
-- Use "latest" instead of version numbers where possible
-- Automated doc generation from templates
-- Scheduled doc review
+**Why it happens:** Current agents have visual differentiation:
 
-**Which phase should address:**
-- **Phase 2: Workflow docs** — Use version-agnostic patterns
+```yaml
+color: green  # kata-planner
+color: yellow # kata-executor
+color: orange # kata-debugger
+```
+
+Agent Skills spec doesn't include color field.
+
+**Prevention:** Document which visual cues are lost and whether they matter. Consider Claude Code subagent color configuration as alternative.
 
 ---
 
-### Pitfall 12: Unclear Versioning Strategy Communication
+### Pitfall 12: Version Compatibility
 
-**What goes wrong:** Users don't know whether to trust semantic versioning, or when breaking changes might happen.
+**What goes wrong:** Agent Skills standard may evolve. Kata's conversion may depend on features added later.
 
 **Prevention:**
-- Document versioning policy explicitly
-- CHANGELOG.md explains versioning decisions
-- Breaking change migration guides
+- Pin to specific Agent Skills version/spec
+- Document which features are used
+- Monitor agentskills.io for spec changes
 
-**Which phase should address:**
-- **Phase 4: UX polish** — Document versioning guarantees
+---
+
+### Pitfall 13: Testing Coverage Gap
+
+**What goes wrong:** Kata has no systematic agent testing. Migration adds complexity without test coverage.
+
+**Prevention:**
+- Establish test patterns before migration
+- Test agent invocation, output parsing, and state effects
+- Add regression tests for critical workflows
+
+**Which phase should address:** Phase 1 (POC) should include test strategy
 
 ---
 
 ## Phase-Specific Warnings
 
-| Phase Topic                     | Likely Pitfall                                | Mitigation                                                     |
-| ------------------------------- | --------------------------------------------- | -------------------------------------------------------------- |
-| Phase 0: CI Validation          | Pitfall 1 (path assumptions), Pitfall 10      | Test artifacts in CI environment, not just source              |
-| Phase 1: Release Workflow       | Pitfall 2 (trigger deadlock), Pitfall 4       | Use PAT, test trigger chain, validate version bump             |
-| Phase 2: Workflow Documentation | Pitfall 5 (diagram divergence)                | Co-locate diagrams, establish review cadence                   |
-| Phase 3: Statusline Integration | Pitfall 7 (performance)                       | Cache aggressively, performance budget <50ms                   |
-| Phase 4: UX/Onboarding Polish   | Pitfall 8 (expert assumptions), Pitfall 12    | Beginner testing, explicit versioning policy                   |
+| Phase Topic | Likely Pitfall | Mitigation |
+| --- | --- | --- |
+| POC with kata-planner | Context passing (1), Structured returns (4) | Design explicit context contracts, validate output parsing |
+| POC with kata-executor | Checkpoint handling (10), Tool permissions (2) | Test full execution cycle including checkpoints |
+| Architecture validation | Subagent hierarchy (5) | Confirm orchestrators can spawn subagents |
+| Full conversion | Description quality (7), Hook migration (8) | Rewrite descriptions for invocation, audit implicit behaviors |
+| Build system | Path resolution (9), Discovery (6) | Test end-to-end from source to installed plugin |
 
 ---
 
 ## Kata-Specific Risk Factors
 
-Based on Kata's history and architecture:
+Based on Kata's architecture:
 
-### High Risk: Path Resolution in Plugin Distribution
-- **Historical precedent:** v1.0.3-1.0.8 all path-related
-- **Root cause:** Build system transforms paths (`build.js` strips prefixes), CI doesn't validate transformed artifacts
-- **Mitigation:** Phase 0 must validate plugin structure matches what Claude Code expects
+### High Risk: Context Inlining Pattern
+- **Impact:** All 15+ agents receive context via Task prompt inlining
+- **Root cause:** `@` references don't work across Task boundaries
+- **Mitigation:** Design explicit context passing for converted agents
 
-### High Risk: Multi-Step Release Workflow
-- **Complexity:** Milestone completion → PR merge → CI trigger → version bump → plugin publish → marketplace update
-- **Failure modes:** Many points where automation can break silently
-- **Mitigation:** Test end-to-end with draft release, validate each step separately
+### High Risk: Orchestrator Hierarchy
+- **Impact:** 8 Skills spawn subagents; if Skills become subagents, hierarchy breaks
+- **Root cause:** "Subagents cannot spawn other subagents" constraint
+- **Mitigation:** Keep orchestrator Skills inline, only convert leaf agents
 
-### Medium Risk: Workflow Diagram Maintenance
-- **Kata has:** 14 skills, multiple agents, complex orchestration
-- **Challenge:** Keeping diagrams synchronized with code as system evolves
-- **Mitigation:** Co-locate diagrams with skill/agent files, automated validation
+### Medium Risk: Structured Return Contracts
+- **Impact:** Orchestrators parse 10+ different return patterns
+- **Root cause:** Agent Skills don't guarantee output format
+- **Mitigation:** Add output validation, test parsing thoroughly
 
-### Low Risk: npm Publishing
-- **Not applicable:** Kata uses Claude Code plugin marketplace, not npm
-- **But:** Similar authentication pitfalls may exist (API keys, tokens, etc.)
+### Medium Risk: Model Profile System
+- **Impact:** 3 model profiles (quality/balanced/budget) with per-agent models
+- **Root cause:** Agent Skills have static model field
+- **Mitigation:** Keep model selection in orchestrator, use `model: inherit`
+
+### Low Risk: Visual Identity
+- **Impact:** 6 color values for agent differentiation
+- **Root cause:** Agent Skills don't support color field
+- **Mitigation:** Accept loss or find alternative visual cue
 
 ---
 
-## Integration Pitfalls with Existing System
+## Integration with Existing System
 
-### GitHub Integration + Release Automation
-- **Risk:** Milestone → Issue → PR → Release chain has many dependencies
-- **What could break:** Phase completes, PR merges, but release workflow doesn't trigger (Pitfall 2)
-- **Prevention:** Test full chain from milestone creation to plugin publish
+### Preserving Skill-Agent Communication
+- **Risk:** Orchestrator Skills (kata-plan-phase, kata-execute-phase) spawn agents
+- **What could break:** If agents become skills invoked differently, communication patterns change
+- **Prevention:** Test full workflows end-to-end after conversion
 
-### Statusline + Project State
-- **Risk:** Statusline queries `.planning/STATE.md` frequently, could cause performance issues
-- **What could break:** File I/O blocking statusline render (Pitfall 7)
-- **Prevention:** Cache STATE.md parsing, invalidate only on Write tool use
+### State Management Continuity
+- **Risk:** Agents write to `.planning/` files (STATE.md, SUMMARY.md, etc.)
+- **What could break:** Skill execution context differs, file writes fail
+- **Prevention:** Test file I/O patterns in converted agents
 
-### Workflow Docs + Kata's XML Workflows
-- **Risk:** Workflows use XML for semantic structure, diagrams need to represent this accurately
-- **What could break:** Diagram shows steps as sequence, actual workflow has conditionals (Pitfall 5)
-- **Prevention:** ASCII/Mermaid diagrams that can show conditionals and loops
+### Commit Protocol Preservation
+- **Risk:** Agents commit per-task with specific formats
+- **What could break:** Git operations in skill context behave differently
+- **Prevention:** Test commit flow including staging, message format, and Co-Authored-By
+
+---
+
+## Research Confidence
+
+| Area | Confidence | Notes |
+| --- | --- | --- |
+| Context passing pitfalls | HIGH | Based on Kata codebase analysis and Agent Skills docs |
+| Tool permission pitfalls | HIGH | Direct from Agent Skills specification and Claude Code docs |
+| Model selection pitfalls | HIGH | Based on current Kata config system analysis |
+| Subagent hierarchy | HIGH | Claude Code docs explicitly state limitation |
+| Checkpoint handling | MEDIUM | Agent Skills checkpoint pattern not fully documented |
+| Build system integration | MEDIUM | Depends on Kata's specific build system choices |
 
 ---
 
 ## Sources
 
-**GitHub Actions:**
-- [GitHub Actions release automation trigger issues](https://github.com/orgs/community/discussions/25281)
-- [The Pain That is Github Actions](https://www.feldera.com/blog/the-pain-that-is-github-actions)
-- [GitHub Actions path resolution issues](https://github.com/actions/runner/issues/2185)
-- [GitHub Actions workspace path differences](https://community.sonarsource.com/t/official-sonarcloud-github-action-fails-to-resolve-paths-due-to-workspace-difference/103652)
-
-**npm Publishing:**
-- [npm Classic Tokens to OIDC Trusted Publishing troubleshooting](https://dev.to/zhangjintao/from-deprecated-npm-classic-tokens-to-oidc-trusted-publishing-a-cicd-troubleshooting-journey-4h8b)
-- [npm Docs: Using private packages in CI/CD](https://docs.npmjs.com/using-private-packages-in-a-ci-cd-workflow/)
-
-**Version Management:**
-- [Version Control Best Practices](https://www.modernrequirements.com/blogs/version-control-best-practices/)
-- [Semantic Versioning 2.0.0](https://semver.org/)
-- [Automating Versioning with Semantic Release](https://medium.com/agoda-engineering/automating-versioning-and-releases-using-semantic-release-d16c5672fbe1)
-
-**Workflow Documentation:**
-- [Workflow Mistakes: 7 Common Pitfalls](https://q3edge.com/common-workflow-mistakes/)
-- [Document Workflow Guide 2026](https://www.proprofskb.com/blog/workflow-documentation/)
-
-**CLI Statusline:**
-- [Claude Code Statusline Documentation](https://code.claude.com/docs/en/statusline)
-- [ccstatusline performance patterns](https://github.com/sirmalloc/ccstatusline)
-- [CLI UX Best Practices for Progress Displays](https://evilmartians.com/chronicles/cli-ux-best-practices-3-patterns-for-improving-progress-displays)
-
-**Kata Historical Issues:**
-- Kata git log (v1.0.1-v1.0.8 patch releases)
-- `.planning/ROADMAP.md` (patch release notes)
-- `skills/executing-phases/references/github-integration.md` (integration complexity)
+- [Claude Code Skills Documentation](https://code.claude.com/docs/en/skills)
+- [Claude Code Subagents Documentation](https://code.claude.com/docs/en/sub-agents)
+- [Agent Skills Standard](https://agentskills.io)
+- [Agent Skills Specification](https://agentskills.io/specification)
+- [Claude Code Subagent Best Practices](https://www.pubnub.com/blog/best-practices-for-claude-code-sub-agents/)
+- [Claude Code Subagent Common Mistakes](https://claudekit.cc/blog/vc-04-subagents-from-basic-to-deep-dive-i-misunderstood)
+- [Agent Skills: Universal Standard](https://medium.com/@richardhightower/agent-skills-the-universal-standard-transforming-how-ai-agents-work-fc7397406e2e)
+- Kata codebase analysis: `agents/kata-*.md`, `skills/kata-*/SKILL.md`

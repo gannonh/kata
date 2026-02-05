@@ -68,8 +68,9 @@ CURRENT_BRANCH=$(git branch --show-current)
 **If `PR_WORKFLOW=true` AND `CURRENT_BRANCH=main`:**
 
 ```bash
-# Get version from user input or package.json
-VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "X.Y.Z")
+# Determine version from user input or detect from project files
+# (version-detector.md handles detection across project types)
+VERSION="X.Y.Z"  # Set from user input or detection
 
 # Create release branch
 git checkout -b "release/v$VERSION"
@@ -176,7 +177,7 @@ If "wait": Stop, user will return when ready.
 
 <step name="release_workflow">
 
-**This step executes when user selected "Yes" or "Yes, dry-run first" in SKILL.md step 0.5**
+**This step executes as part of SKILL.md step 0.1. The agent generates release artifacts proactively and presents them for approval in the SKILL.**
 
 **Load reference files:**
 - Read @./version-detector.md for version detection functions
@@ -213,8 +214,8 @@ If "wait": Stop, user will return when ready.
      BUMP_TYPE="none"
    fi
 
-   # Get current version
-   CURRENT_VERSION=$(node -p "require('./package.json').version")
+   # Get current version (detect from project files — see version-detector.md)
+   CURRENT_VERSION=$(...) # Use detect method appropriate for project type
 
    # Calculate next version
    IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
@@ -262,44 +263,15 @@ If "wait": Stop, user will return when ready.
    [docs/refactor/perf commits formatted]
 
    **Files to update:**
-   - package.json
-   - .claude-plugin/plugin.json
+   [list version files detected in project]
    - CHANGELOG.md
    ```
 
-4. **If dry-run mode:**
-   ```
-   DRY RUN COMPLETE
+4. **Apply changes (approval happens in SKILL.md step 0.1):**
+   Use update_versions from version-detector.md to bump all detected version files.
+   Use insertion pattern from changelog-generator.md to prepend changelog entry.
 
-   To apply these changes, run the release workflow again without dry-run.
-   ```
-   Stop here and return to SKILL.md flow.
-
-5. **Confirm before proceeding:**
-   Use AskUserQuestion:
-   - header: "Confirm Release"
-   - question: "Apply release changes?"
-   - options:
-     - "Yes, update files" — Apply version bump and changelog
-     - "Edit changelog first" — Pause for user edits, then confirm
-     - "Cancel" — Abort release, proceed to archive only
-
-6. **Apply changes (if confirmed):**
-   Use update_versions from version-detector.md:
-   ```bash
-   # Update package.json
-   jq --arg v "$NEXT_VERSION" '.version = $v' package.json > package.json.tmp
-   mv package.json.tmp package.json
-
-   # Update plugin.json
-   jq --arg v "$NEXT_VERSION" '.version = $v' .claude-plugin/plugin.json > plugin.json.tmp
-   mv plugin.json.tmp .claude-plugin/plugin.json
-
-   # Prepend changelog entry to CHANGELOG.md
-   # (Use insertion pattern from changelog-generator.md)
-   ```
-
-7. **Check pr_workflow mode (REL-03):**
+5. **Check pr_workflow mode (REL-03):**
    ```bash
    PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
    ```
@@ -307,12 +279,7 @@ If "wait": Stop, user will return when ready.
    **If `PR_WORKFLOW=true`:**
    ```
    Release files updated. After PR merge:
-   1. Create GitHub Release with tag v$NEXT_VERSION
-   2. CI will automatically publish to marketplace
-
-   Note: After GitHub Release is created (manually or via pr_workflow merge),
-   the existing `.github/workflows/plugin-release.yml` will automatically
-   publish to the marketplace.
+   → Create GitHub Release with tag v$NEXT_VERSION
    ```
 
    **If `PR_WORKFLOW=false`:**
@@ -330,7 +297,7 @@ If "wait": Stop, user will return when ready.
    echo "GitHub Release created: v$NEXT_VERSION"
    ```
 
-8. **Continue to gather_stats step**
+6. **Continue to gather_stats step**
 
 **Release files tracking:**
 When release workflow completes, set `RELEASE_RAN=true` so git_commit_milestone step knows to stage release files.
@@ -814,7 +781,7 @@ GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:sp
 
 if [ "$GITHUB_ENABLED" = "true" ]; then
   # Find the milestone by name (v[X.Y])
-  # VERSION should be set from earlier steps (e.g., from package.json or user input)
+  # VERSION should be set from earlier steps (user input or version-detector.md)
   MILESTONE_NUMBER=$(gh api repos/:owner/:repo/milestones --jq ".[] | select(.title == \"v${VERSION}\") | .number" 2>/dev/null)
 
   if [ -n "$MILESTONE_NUMBER" ]; then
@@ -970,10 +937,10 @@ git add -u .planning/
 **If release workflow was run (RELEASE_RAN=true):**
 
 ```bash
-# Stage release files
-git add package.json
-git add .claude-plugin/plugin.json
+# Stage release files (version files detected by version-detector.md)
+# Stage each version file that was updated, plus CHANGELOG.md
 git add CHANGELOG.md
+# git add [each version file that was bumped]
 ```
 
 **Commit with descriptive message:**
@@ -985,8 +952,7 @@ if [ "$RELEASE_RAN" = "true" ]; then
 chore: complete v[X.Y] milestone with release
 
 Release:
-- package.json version bumped
-- plugin.json version bumped
+- Version files bumped
 - CHANGELOG.md updated
 
 Archived:
