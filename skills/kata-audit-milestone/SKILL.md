@@ -103,18 +103,28 @@ If a phase is missing VERIFICATION.md, flag it as "unverified phase" — this is
 
 ## 3. Spawn Integration Checker
 
+Read the integration checker instructions:
+
+```
+integration_checker_instructions_content = Read("skills/kata-audit-milestone/references/integration-checker-instructions.md")
+```
+
 With phase context collected:
 
 ```
 Task(
-  prompt="Check cross-phase integration and E2E flows.
+  prompt="<agent-instructions>
+{integration_checker_instructions_content}
+</agent-instructions>
+
+Check cross-phase integration and E2E flows.
 
 Phases: {phase_dirs}
 Phase exports: {from SUMMARYs}
 API routes: {routes created}
 
 Verify cross-phase wiring and E2E user flows.",
-  subagent_type="kata-integration-checker",
+  subagent_type="general-purpose",
   model="{integration_checker_model}"
 )
 ```
