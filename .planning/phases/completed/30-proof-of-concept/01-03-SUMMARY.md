@@ -69,14 +69,14 @@ All automated validation checks passed:
 
 Tested in `kata-burner/test-greenfield-20260205-131424`:
 
-**Planner test** (`/kata:kata-plan-phase 1`):
+**Planner test** (`/kata-plan-phase 1`):
 - Research phase spawned correctly
 - Planner produced well-structured PLAN.md with proper frontmatter, tasks, wave assignments
 - Plan checker verified output
 - GitHub issue integration worked
 - Full workflow completed in ~8 minutes
 
-**Executor test** (`/kata:kata-execute-phase 1`):
+**Executor test** (`/kata-execute-phase 1`):
 - Executor spawned as general-purpose with inlined instructions
 - 2/2 tasks completed, 3 commits with correct format
 - SUMMARY.md created with proper structure

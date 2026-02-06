@@ -142,7 +142,7 @@ PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:s
 
 **Branch timing:**
 - Phase branches: Create after planning, before execution
-- Release branch: Create when starting `/kata:kata-complete-milestone`
+- Release branch: Create when starting `/kata-complete-milestone`
 
 ### PR Granularity & Lifecycle
 
@@ -176,7 +176,7 @@ PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:s
 
 #### Release PR Lifecycle
 
-1. **Create branch** — When starting `/kata:kata-complete-milestone`
+1. **Create branch** — When starting `/kata-complete-milestone`
 2. **Make release commits** — Version bump, CHANGELOG, milestone archive
 3. **Open PR** — Ready for review (not draft)
 4. **Merge** — Triggers GitHub Action → creates tag → publishes
@@ -214,14 +214,14 @@ After merge, GitHub Action will:
 
 **Release flow:**
 1. All phase PRs merged to main (code complete)
-2. `/kata:kata-complete-milestone` creates release branch
+2. `/kata-complete-milestone` creates release branch
 3. Version bump, changelog, archive committed to release branch
 4. Release PR merged to main
 5. GitHub Action detects version change → creates tag → publishes
 
 **Release trigger:** Merge of release PR to main. The `publish.yml` workflow detects version changes in package.json and triggers the release.
 
-**Version bump timing:** Version bump happens ON the release branch, as part of `/kata:kata-complete-milestone`.
+**Version bump timing:** Version bump happens ON the release branch, as part of `/kata-complete-milestone`.
 
 ### Workflow Timing
 
@@ -418,7 +418,7 @@ To use uncommitted mode (keep planning private):
 
 <updating_settings>
 
-Run `/kata:kata-configure-settings` to update config preferences interactively.
+Run `/kata-configure-settings` to update config preferences interactively.
 
 The settings skill will:
 1. Detect any missing config keys from schema evolution

@@ -25,7 +25,7 @@ This is the fundamental architecture of Kata Orchestrator. Users interact with *
 ```mermaid
 flowchart LR
     subgraph User["User Interface"]
-        CMD["/kata:kata-skill-name"]
+        CMD["/kata-skill-name"]
         NL["Natural Language"]
     end
 
@@ -68,13 +68,13 @@ flowchart LR
 **Natural invocation:**
 ```
 User: "plan phase 2"
-Assistant: [Invokes /kata:kata-planning-phases 2]
+Assistant: [Invokes /kata-planning-phases 2]
 
 User: "execute the foundation phase"
-Assistant: [Invokes /kata:kata-executing-phases 1]
+Assistant: [Invokes /kata-executing-phases 1]
 
 User: "run UAT on phase 3"
-Assistant: [Invokes /kata:kata-verifying-work 3]
+Assistant: [Invokes /kata-verifying-work 3]
 ```
 
 ---
@@ -88,29 +88,29 @@ This state machine shows the complete development lifecycle managed by Kata.
 ```mermaid
 flowchart TD
     subgraph Init["Project Initialization"]
-        NP["/kata:kata-starting-projects"]
+        NP["/kata-starting-projects"]
         PROJ["PROJECT.md"]
         CFG["config.json"]
     end
 
     subgraph Milestone["Milestone Definition"]
-        AMI["/kata:kata-adding-milestones"]
+        AMI["/kata-adding-milestones"]
         REQ["REQUIREMENTS.md"]
         ROAD["ROADMAP.md"]
     end
 
     subgraph Phase["Phase Work"]
-        PLN["/kata:kata-planning-phases"]
+        PLN["/kata-planning-phases"]
         PLAN["PLAN.md files"]
-        EXE["/kata:kata-executing-phases"]
+        EXE["/kata-executing-phases"]
         SUM["SUMMARY.md files"]
-        VER["/kata:kata-verifying-work"]
+        VER["/kata-verifying-work"]
         UAT["UAT.md"]
     end
 
     subgraph Complete["Completion"]
-        AUD["/kata:kata-auditing-milestones"]
-        CMP["/kata:kata-completing-milestones"]
+        AUD["/kata-auditing-milestones"]
+        CMP["/kata-completing-milestones"]
         TAG["Git tag + Release"]
     end
 
@@ -149,14 +149,14 @@ Each stage produces traceable artifacts in `.planning/`:
 
 ## 3. Planning Flow
 
-**Skill:** `/kata:kata-planning-phases N`  
+**Skill:** `/kata-planning-phases N`  
 **Purpose:** Create executable PLAN.md files for a phase with optional research and mandatory verification
 
 This workflow ensures every phase has thoroughly researched, validated plans before execution begins.
 
 ```mermaid
 flowchart TD
-    START["/kata:kata-planning-phases N"]
+    START["/kata-planning-phases N"]
 
     subgraph Validate["Validation"]
         CHK{"Phase exists?"}
@@ -219,14 +219,14 @@ flowchart TD
 
 ## 4. Execution Flow
 
-**Skill:** `/kata:kata-executing-phases N`  
+**Skill:** `/kata-executing-phases N`  
 **Purpose:** Execute all plans in a phase with wave-based parallelization, checkpointing, and verification
 
 This is the execution engine of Kata, orchestrating parallel agents with automatic dependency resolution.
 
 ```mermaid
 flowchart TD
-    START["/kata:kata-executing-phases N"]
+    START["/kata-executing-phases N"]
 
     subgraph Setup["Setup"]
         VAL["Validate phase exists"]
@@ -287,7 +287,7 @@ flowchart TD
     UPD --> COMMIT
     COMMIT --> PRREADY
     PRREADY --> OFFER
-    GAPS -->|"/kata:kata-planning-phases --gaps"| START
+    GAPS -->|"/kata-planning-phases --gaps"| START
     HUMAN --> OFFER
 ```
 
@@ -295,14 +295,14 @@ flowchart TD
 
 ## 5. Verification Flow
 
-**Skill:** `/kata:kata-verifying-work N`  
+**Skill:** `/kata-verifying-work N`  
 **Purpose:** Conversational UAT (User Acceptance Testing) with automated gap diagnosis and fix planning
 
 This workflow transforms deliverables into testable assertions and guides users through validation.
 
 ```mermaid
 flowchart TD
-    START["/kata:kata-verifying-work N"]
+    START["/kata-verifying-work N"]
 
     subgraph Extract["Extract Tests"]
         FIND["Find SUMMARY.md files"]
@@ -341,9 +341,9 @@ flowchart TD
     end
 
     subgraph Output["Completion"]
-        ROUTE_A["/kata:kata-planning-phases (next)"]
-        ROUTE_B["/kata:kata-auditing-milestones"]
-        ROUTE_C["/kata:kata-executing-phases --gaps-only"]
+        ROUTE_A["/kata-planning-phases (next)"]
+        ROUTE_B["/kata-auditing-milestones"]
+        ROUTE_C["/kata-executing-phases --gaps-only"]
         ROUTE_D["Manual intervention"]
     end
 
@@ -393,7 +393,7 @@ flowchart TD
     end
 
     subgraph PhaseStart["Phase Start"]
-        EXEC["/kata:kata-executing-phases N"]
+        EXEC["/kata-executing-phases N"]
         BRANCH["Create branch: feat/vX.Y-N-slug"]
         CHECKOUT["Checkout branch"]
     end
@@ -414,8 +414,8 @@ flowchart TD
     end
 
     subgraph Review["Review Options"]
-        UAT["/kata:kata-verifying-work (UAT)"]
-        PRREV["/kata:kata-reviewing-pull-requests"]
+        UAT["/kata-verifying-work (UAT)"]
+        PRREV["/kata-reviewing-pull-requests"]
         AGENTS["6 specialized review agents"]
         FINDINGS["Aggregate findings"]
         FIX["Fix critical/important"]
@@ -431,7 +431,7 @@ flowchart TD
 
     subgraph Release["Release (Milestone Complete)"]
         ALL_MERGED["All phase PRs merged"]
-        COMPLETE["/kata:kata-completing-milestones"]
+        COMPLETE["/kata-completing-milestones"]
         TAG["Create Git tag"]
         RELEASE["GitHub Release"]
         NOTES["Auto-generate release notes"]
@@ -476,44 +476,44 @@ flowchart TD
 ### All Skills (27)
 
 **Project Lifecycle:**
-- `/kata:kata-starting-projects` - Initialize PROJECT.md with deep questioning
-- `/kata:kata-adding-milestones` - Create requirements + roadmap
-- `/kata:kata-planning-phases` - Create PLAN.md files with research
-- `/kata:kata-executing-phases` - Wave-based execution
-- `/kata:kata-verifying-work` - Conversational UAT
-- `/kata:kata-auditing-milestones` - Pre-completion audit
-- `/kata:kata-completing-milestones` - Archive + release
+- `/kata-starting-projects` - Initialize PROJECT.md with deep questioning
+- `/kata-adding-milestones` - Create requirements + roadmap
+- `/kata-planning-phases` - Create PLAN.md files with research
+- `/kata-executing-phases` - Wave-based execution
+- `/kata-verifying-work` - Conversational UAT
+- `/kata-auditing-milestones` - Pre-completion audit
+- `/kata-completing-milestones` - Archive + release
 
 **Phase Operations:**
-- `/kata:kata-discussing-phases` - Phase definition conversation
-- `/kata:kata-researching-phases` - Deep research only
-- `/kata:kata-archiving-phases` - Move phase to archive
-- `/kata:kata-canceling-phases` - Cancel in-progress phase
-- `/kata:kata-inserting-phases` - Insert new phase in roadmap
-- `/kata:kata-moving-phases` - Reorder phases
-- `/kata:kata-renaming-phases` - Rename phase
+- `/kata-discussing-phases` - Phase definition conversation
+- `/kata-researching-phases` - Deep research only
+- `/kata-archiving-phases` - Move phase to archive
+- `/kata-canceling-phases` - Cancel in-progress phase
+- `/kata-inserting-phases` - Insert new phase in roadmap
+- `/kata-moving-phases` - Reorder phases
+- `/kata-renaming-phases` - Rename phase
 
 **Pull Request:**
-- `/kata:kata-reviewing-pull-requests` - Spawn 6 review agents
+- `/kata-reviewing-pull-requests` - Spawn 6 review agents
 
 **Debugging:**
-- `/kata:kata-debugging` - General debugging with kata-debugger
-- `/kata:kata-finding-silent-failures` - Detect subtle bugs
+- `/kata-debugging` - General debugging with kata-debugger
+- `/kata-finding-silent-failures` - Detect subtle bugs
 
 **Todo Management:**
-- `/kata:kata-adding-todos` - Add structured todos
-- `/kata:kata-completing-todos` - Mark todos complete
-- `/kata:kata-listing-todos` - Show all todos
-- `/kata:kata-prioritizing-todos` - Reorder by priority
+- `/kata-adding-todos` - Add structured todos
+- `/kata-completing-todos` - Mark todos complete
+- `/kata-listing-todos` - Show all todos
+- `/kata-prioritizing-todos` - Reorder by priority
 
 **Tracking:**
-- `/kata:kata-tracking-progress` - Status reports
-- `/kata:kata-tracking-requirements` - Requirement coverage
+- `/kata-tracking-progress` - Status reports
+- `/kata-tracking-requirements` - Requirement coverage
 
 **Utility:**
-- `/kata:kata-continuing-work` - Resume after checkpoint
-- `/kata:kata-mapping-codebase` - Generate codebase map
-- `/kata:kata-reviewing-docs` - Documentation review
+- `/kata-continuing-work` - Resume after checkpoint
+- `/kata-mapping-codebase` - Generate codebase map
+- `/kata-reviewing-docs` - Documentation review
 
 ### All Agents (19)
 
@@ -653,7 +653,7 @@ Wave 3 (depends on wave 2):
 
 **Solution:** Skills stay lean (~15% context), delegating to fresh agents (100% context per spawn).
 
-**Example:** `/kata:kata-executing-phases 3`
+**Example:** `/kata-executing-phases 3`
 
 ```
 Skill context budget (~30k tokens):

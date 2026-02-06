@@ -93,8 +93,8 @@ Skills are orchestrators that spawn general-purpose subagents with instructions 
 ```markdown
 | Skill                 | Invocation                  | Purpose                                        |
 | --------------------- | --------------------------- | ---------------------------------------------- |
-| `kata-plan-phase`     | `/kata:kata-plan-phase`     | Phase planning, task breakdown                 |
-| `kata-execute-phase`  | `/kata:kata-execute-phase`  | Plan execution, checkpoints                    |
+| `kata-plan-phase`     | `/kata-plan-phase`     | Phase planning, task breakdown                 |
+| `kata-execute-phase`  | `/kata-execute-phase`  | Plan execution, checkpoints                    |
 ...
 ```
 ✅ No "Sub-agents Spawned" column

@@ -94,7 +94,7 @@ export function assertResultContains(result, expected, message) {
  * Kata skills output a standardized "Next Up" section with a suggested command.
  *
  * @param {Object} result - Claude JSON response
- * @param {string} expectedCommand - Command substring to match (e.g., '/kata:kata-execute-phase')
+ * @param {string} expectedCommand - Command substring to match (e.g., '/kata-execute-phase')
  * @param {string} [message] - Custom failure message
  */
 export function assertNextStepProposed(result, expectedCommand, message) {

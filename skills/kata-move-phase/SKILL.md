@@ -12,8 +12,8 @@ Purpose: Enable flexible phase reorganization (cross-milestone moves and within-
 Output: Phase moved/reordered, directories renamed, ROADMAP.md updated, STATE.md updated, git commit as historical record.
 
 **Supported operations:**
-- Cross-milestone move: `/kata:kata-move-phase 3 to v1.6.0`
-- Reorder within milestone: `/kata:kata-move-phase 3 before 1` or `/kata:kata-move-phase 3 after 1`
+- Cross-milestone move: `/kata-move-phase 3 to v1.6.0`
+- Reorder within milestone: `/kata-move-phase 3 before 1` or `/kata-move-phase 3 after 1`
 </objective>
 
 <execution_context>
@@ -31,19 +31,19 @@ Parse the command arguments. First arg is always the phase number (integer).
 - `"before"` or `"after"` + target phase number → reorder within milestone
 
 **Cross-milestone move:**
-- `/kata:kata-move-phase 3 to v1.6.0`
+- `/kata-move-phase 3 to v1.6.0`
 
 **Reorder within milestone:**
-- `/kata:kata-move-phase 3 before 1` → Phase 3 takes position 1, everything shifts up
-- `/kata:kata-move-phase 3 after 1` → Phase 3 takes position 2, phases 2+ shift up
+- `/kata-move-phase 3 before 1` → Phase 3 takes position 1, everything shifts up
+- `/kata-move-phase 3 after 1` → Phase 3 takes position 2, phases 2+ shift up
 
 **Validation:**
 - If no arguments or missing second arg:
 
 ```
 ERROR: Phase number and operation required
-Usage: /kata:kata-move-phase <phase> to <milestone>
-       /kata:kata-move-phase <phase> before|after <position>
+Usage: /kata-move-phase <phase> to <milestone>
+       /kata-move-phase <phase> before|after <position>
 ```
 
 Exit.
@@ -266,7 +266,7 @@ git commit -m "chore: reorder phase {N} {before|after} {M}"
 </step>
 
 <step name="completion">
-Present completion summary showing: operation performed, directories renamed, phases renumbered, files updated, commit message. Then offer next actions: `/kata:kata-track-progress`, continue current phase, review roadmap.
+Present completion summary showing: operation performed, directories renamed, phases renumbered, files updated, commit message. Then offer next actions: `/kata-track-progress`, continue current phase, review roadmap.
 </step>
 
 </process>

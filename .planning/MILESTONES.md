@@ -38,7 +38,7 @@
 
 - Universal phase discovery pattern with state-aware `find` across all skills and agents
 - Phase state directories (`pending/`, `active/`, `completed/`) with automatic transitions
-- `/kata:kata-move-phase` for cross-milestone moves and within-milestone reordering
+- `/kata-move-phase` for cross-milestone moves and within-milestone reordering
 - Per-milestone phase numbering starting at 1 (independent per milestone)
 - Roadmap format standardization with Planned Milestones section
 - Format conventions propagated to milestone completion, add-milestone, and roadmapper agents

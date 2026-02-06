@@ -18,7 +18,7 @@ Kata is a **meta-prompting system** where every file is both implementation and 
 
 ### Skills (`skills/kata-*/SKILL.md`)
 
-Skills are the primary interface for all Kata workflows. Users invoke skills directly via `/kata:kata-skill-name`.
+Skills are the primary interface for all Kata workflows. Users invoke skills directly via `/kata-skill-name`.
 
 ```yaml
 ---
@@ -565,11 +565,11 @@ Kata includes an automatic codebase learning system that indexes code and detect
 
 ### Commands
 
-**`/kata:kata-map-codebase`** — Bulk scan for brownfield projects:
+**`/kata-map-codebase`** — Bulk scan for brownfield projects:
 - Creates .planning/intel/ directory
 - Scans all JS/TS files (excludes node_modules, dist, build, .git, vendor, coverage)
 - Uses same extraction logic as PostToolUse hook
-- Works standalone (no /kata:kata-new-project required)
+- Works standalone (no /kata-new-project required)
 
 ---
 
@@ -577,7 +577,7 @@ Kata includes an automatic codebase learning system that indexes code and detect
 
 1. **XML for semantic structure, Markdown for content**
 2. **@-references are lazy loading signals**
-3. **Skills are orchestrators** — invoke via `/kata:kata-skill-name`
+3. **Skills are orchestrators** — invoke via `/kata-skill-name`
 4. **Progressive disclosure hierarchy**
 5. **Imperative, brief, technical** — no filler, no sycophancy
 6. **Solo developer + Claude** — no enterprise patterns

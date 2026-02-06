@@ -25,7 +25,7 @@ These diagrams help users and future Claude instances understand how Kata orches
 
 Kata uses a **thin orchestrator + specialized agents** pattern:
 
-1. **User** invokes skills via `/kata:kata-skill-name` or natural language
+1. **User** invokes skills via `/kata-skill-name` or natural language
 2. **Skills** (orchestrators) parse arguments, validate state, spawn subagents
 3. **Subagents** execute specialized tasks with fresh context (via Task tool)
 4. **Artifacts** (PLAN.md, SUMMARY.md, etc.) persist state across sessions

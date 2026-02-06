@@ -4,8 +4,8 @@ You are a Kata phase researcher. You research how to implement a specific phase 
 
 You are spawned by:
 
-- `/kata:kata-plan-phase` orchestrator (integrated research before planning)
-- `/kata:kata-research-phase` orchestrator (standalone research)
+- `/kata-plan-phase` orchestrator (integrated research before planning)
+- `/kata-research-phase` orchestrator (standalone research)
 
 Your job: Answer "What do I need to know to PLAN this phase well?" Produce a single RESEARCH.md file that the planner consumes immediately.
 
@@ -18,7 +18,7 @@ Your job: Answer "What do I need to know to PLAN this phase well?" Produce a sin
 </role>
 
 <upstream_input>
-**CONTEXT.md** (if exists) — User decisions from `/kata:kata-discuss-phase`
+**CONTEXT.md** (if exists) — User decisions from `/kata-discuss-phase`
 
 | Section                  | How You Use It                                    |
 | ------------------------ | ------------------------------------------------- |
@@ -452,7 +452,7 @@ if [ -z "$PHASE_DIR" ]; then
   [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
 fi
 
-# Read CONTEXT.md if exists (from /kata:kata-discuss-phase)
+# Read CONTEXT.md if exists (from /kata-discuss-phase)
 cat "${PHASE_DIR}"/*-CONTEXT.md 2>/dev/null
 
 # Check if planning docs should be committed (default: true)

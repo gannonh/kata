@@ -15,7 +15,7 @@ This is the most leveraged moment in any project. Deep questioning here means be
 - `.planning/PROJECT.md` — project context
 - `.planning/config.json` — workflow preferences
 
-**After this command:** Run `/kata:kata-add-milestone` to define your first milestone.
+**After this command:** Run `/kata-add-milestone` to define your first milestone.
 
 </objective>
 
@@ -35,7 +35,7 @@ This is the most leveraged moment in any project. Deep questioning here means be
 
 1. **Abort if project exists:**
    ```bash
-   [ -f .planning/PROJECT.md ] && echo "ERROR: Project already initialized. Use /kata:kata-track-progress" && exit 1
+   [ -f .planning/PROJECT.md ] && echo "ERROR: Project already initialized. Use /kata-track-progress" && exit 1
    ```
 
 2. **Initialize git repo in THIS directory** (required even if inside a parent repo):
@@ -69,12 +69,12 @@ Use AskUserQuestion:
 - header: "Existing Code"
 - question: "I detected existing code in this directory. Would you like to map the codebase first?"
 - options:
-  - "Map codebase first" — Run /kata:kata-map-codebase to understand existing architecture (Recommended)
+  - "Map codebase first" — Run /kata-map-codebase to understand existing architecture (Recommended)
   - "Skip mapping" — Proceed with project initialization
 
 **If "Map codebase first":**
 ```
-Run `/kata:kata-map-codebase` first, then return to `/kata:kata-new-project`
+Run `/kata-map-codebase` first, then return to `/kata-new-project`
 ```
 Exit command.
 
@@ -492,7 +492,7 @@ EOF
 )"
 ```
 
-**Note:** Run `/kata:kata-configure-settings` anytime to update these preferences.
+**Note:** Run `/kata-configure-settings` anytime to update these preferences.
 
 **If pr_workflow = Yes:**
 
@@ -791,7 +791,7 @@ Settings for `main`:
 
 **Define your first milestone**
 
-`/kata:kata-add-milestone` — research, requirements, and roadmap
+`/kata-add-milestone` — research, requirements, and roadmap
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -817,7 +817,7 @@ Settings for `main`:
 - [ ] PROJECT.md captures full context → **committed**
 - [ ] config.json has workflow mode, depth, parallelization → **committed**
 - [ ] Self-validation passed (all artifacts exist)
-- [ ] User knows next step is `/kata:kata-add-milestone`
+- [ ] User knows next step is `/kata-add-milestone`
 
 **Atomic commits:** PROJECT.md and config.json are committed. If context is lost, artifacts persist.
 

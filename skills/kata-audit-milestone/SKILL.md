@@ -195,7 +195,7 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 **Complete milestone** — archive and tag
 
-/kata:kata-complete-milestone {version}
+/kata-complete-milestone {version}
 
 <sub>/clear first → fresh context window</sub>
 
@@ -232,7 +232,7 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 **Plan gap closure** — create phases to complete milestone
 
-/kata:kata-plan-milestone-gaps
+/kata-plan-milestone-gaps
 
 <sub>/clear first → fresh context window</sub>
 
@@ -240,7 +240,7 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 **Also available:**
 - cat .planning/v{version}-MILESTONE-AUDIT.md — see full report
-- /kata:kata-complete-milestone {version} — proceed anyway (accept tech debt)
+- /kata-complete-milestone {version} — proceed anyway (accept tech debt)
 
 ───────────────────────────────────────────────────────────────
 
@@ -270,11 +270,11 @@ All requirements met. No critical blockers. Accumulated tech debt needs review.
 
 **A. Complete milestone** — accept debt, track in backlog
 
-/kata:kata-complete-milestone {version}
+/kata-complete-milestone {version}
 
 **B. Plan cleanup phase** — address debt before completing
 
-/kata:kata-plan-milestone-gaps
+/kata-plan-milestone-gaps
 
 <sub>/clear first → fresh context window</sub>
 

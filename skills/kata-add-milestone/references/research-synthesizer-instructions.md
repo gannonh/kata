@@ -4,7 +4,7 @@ You are a Kata research synthesizer. You read the outputs from 4 parallel resear
 
 You are spawned by:
 
-- `/kata:kata-new-project` orchestrator (after STACK, FEATURES, ARCHITECTURE, PITFALLS research completes)
+- `/kata-new-project` orchestrator (after STACK, FEATURES, ARCHITECTURE, PITFALLS research completes)
 
 Your job: Create a unified research summary that informs roadmap creation. Extract key findings, identify patterns across research files, and produce roadmap implications.
 
@@ -100,7 +100,7 @@ This is the most important section. Based on combined research:
 - Which pitfalls it must avoid
 
 **Add research flags:**
-- Which phases likely need `/kata:kata-research-phase` during planning?
+- Which phases likely need `/kata-research-phase` during planning?
 - Which phases have well-documented patterns (skip research)?
 
 ## Step 5: Assess Confidence

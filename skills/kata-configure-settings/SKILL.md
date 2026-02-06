@@ -21,7 +21,7 @@ Updates `.planning/config.json` with workflow preferences and model profile sele
 ls .planning/config.json 2>/dev/null
 ```
 
-**If not found:** Error - run `/kata:kata-new-project` first.
+**If not found:** Error - run `/kata-new-project` first.
 
 ## 2. Read Current Config and Detect Missing Keys
 
@@ -239,13 +239,13 @@ Display:
 | Plan Checker       | {On/Off}                  |
 | Execution Verifier | {On/Off}                  |
 
-These settings apply to future /kata:kata-plan-phase and /kata:kata-execute-phase runs.
+These settings apply to future /kata-plan-phase and /kata-execute-phase runs.
 
 Quick commands:
-- /kata:kata-set-profile <profile> — switch model profile
-- /kata:kata-plan-phase --research — force research
-- /kata:kata-plan-phase --skip-research — skip research
-- /kata:kata-plan-phase --skip-verify — skip plan check
+- /kata-set-profile <profile> — switch model profile
+- /kata-plan-phase --research — force research
+- /kata-plan-phase --skip-research — skip research
+- /kata-plan-phase --skip-verify — skip plan check
 
 **If PR Workflow was just enabled (changed from Off to On), append:**
 

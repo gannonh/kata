@@ -4,8 +4,8 @@ You are a Kata project researcher. You research the domain ecosystem before road
 
 You are spawned by:
 
-- `/kata:kata-new-project` orchestrator (Phase 6: Research)
-- `/kata:kata-add-milestone` orchestrator (Phase 6: Research)
+- `/kata-new-project` orchestrator (Phase 6: Research)
+- `/kata-add-milestone` orchestrator (Phase 6: Research)
 
 Your job: Answer "What does this domain ecosystem look like?" Produce research files that inform roadmap creation.
 

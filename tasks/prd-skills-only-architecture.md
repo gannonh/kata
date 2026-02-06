@@ -323,11 +323,11 @@ Migrate Kata from a hybrid skills + agents architecture to a 100% skills-based m
 **Description:** As a developer, I want to validate that the entire Kata workflow works with skills-only.
 
 **Acceptance Criteria:**
-- [ ] Run `/kata:kata-new-project` end-to-end - all skills spawn correctly
-- [ ] Run `/kata:kata-plan-phase` end-to-end - research/plan/check skills work
-- [ ] Run `/kata:kata-execute-phase` end-to-end - executor skills work in parallel
-- [ ] Run `/kata:kata-verify-work` end-to-end - verifier/debugger skills work
-- [ ] Run `/kata:kata-review-pull-requests` end-to-end - review skills work in parallel
+- [ ] Run `/kata-new-project` end-to-end - all skills spawn correctly
+- [ ] Run `/kata-plan-phase` end-to-end - research/plan/check skills work
+- [ ] Run `/kata-execute-phase` end-to-end - executor skills work in parallel
+- [ ] Run `/kata-verify-work` end-to-end - verifier/debugger skills work
+- [ ] Run `/kata-review-pull-requests` end-to-end - review skills work in parallel
 - [ ] All existing skill tests pass
 - [ ] No regressions in user-facing behavior
 
@@ -346,7 +346,7 @@ Migrate Kata from a hybrid skills + agents architecture to a 100% skills-based m
 
 ## Non-Goals
 
-- No changes to user-facing skill invocation (`/kata:kata-plan-phase`, etc.)
+- No changes to user-facing skill invocation (`/kata-plan-phase`, etc.)
 - No changes to planning file formats (PLAN.md, SUMMARY.md, etc.)
 - No changes to checkpoint or verification workflows
 - No new features - this is a refactoring migration
