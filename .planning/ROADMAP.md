@@ -8,7 +8,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 - ✅ **v1.5.0 Phase Management** — Phases 1-3 (shipped 2026-02-04)
 - ✅ **v1.4.1 Issue Execution** — Phases 1-4 (shipped 2026-02-03)
-- 🔄 **v1.6.0 Skills-Native Subagents** — current (experimental)
+- 🔄 **v1.6.0 Skills-Native Subagents** — current (Phase 2 complete)
 - ○ **v1.7.0** — planned
 
 ## Completed Milestones
@@ -204,15 +204,24 @@ Plans:
 
 ---
 
-### Phase 2: Full Conversion (Contingent)
+### Phase 2: Full Conversion ✓
 
 **Goal:** Migrate all remaining agents to skill resources
 
 **Dependencies:** Phase 1 (Go decision required)
 
-**Contingency:** Only execute if POC succeeds (user approves Go decision in Phase 1)
-
 **Requirements:** CONV-01, CONV-02, CONV-03, CONV-04, CONV-05
+
+**Plans:** 7 plans
+
+Plans:
+- [x] 02-01-PLAN.md — Migrate phase-researcher + plan-checker to kata-plan-phase
+- [x] 02-02-PLAN.md — Migrate project-researcher + synthesizer + roadmapper to kata-add-milestone
+- [x] 02-03-PLAN.md — Extract 8 PR review agents to kata-review-pull-requests
+- [x] 02-04-PLAN.md — Migrate integration-checker to kata-audit-milestone
+- [x] 02-05-PLAN.md — Migrate debugger to kata-debug + extract verifier/codebase-mapper + update quick-task
+- [x] 02-06-PLAN.md — Update shared agent consumers and reference files across skills
+- [x] 02-07-PLAN.md — Migration validation test (CONV-04) + test suite step (CONV-05)
 
 **Success Criteria:**
 1. All 15+ agent instruction files migrated to skill `references/` directories
@@ -223,20 +232,40 @@ Plans:
 
 ---
 
-### Phase 3: Cleanup (Contingent)
+### Phase 3: Agent Teams Migration (Contingent)
 
-**Goal:** Remove legacy infrastructure and update documentation
+**Goal:** Migrate multi-agent orchestration from Task-tool subagents to Claude Code agent teams with shared task lists and inter-agent messaging
 
 **Dependencies:** Phase 2
 
-**Contingency:** Only execute if Phase 2 completes
+**Contingency:** Only execute if Phase 2 completes. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` feature.
+
+**Requirements:** TEAM-01, TEAM-02, TEAM-03, TEAM-04, TEAM-05, TEAM-06
+
+**Success Criteria:**
+1. Skills with multi-agent coordination use Teammate/SendMessage/TaskCreate tools instead of parallel Task calls
+2. Agent teams enable direct inter-agent communication (planner ↔ checker, reviewer cross-challenge)
+3. Wave-based execution uses shared task lists with dependency tracking
+4. Skills with single fire-and-forget subagents remain on Task tool (no unnecessary migration)
+5. All migrated skills produce equivalent or better output quality
+6. Agent teams cleanup (shutdown + Teammate cleanup) happens at end of each skill invocation
+
+---
+
+### Phase 4: Cleanup (Contingent)
+
+**Goal:** Remove legacy infrastructure and update documentation
+
+**Dependencies:** Phase 3
+
+**Contingency:** Only execute if Phase 3 completes
 
 **Requirements:** CLEAN-01, CLEAN-02, CLEAN-03, CLEAN-04
 
 **Success Criteria:**
 1. `agents/` directory deleted from repository
 2. Build system no longer references or copies agent files
-3. CLAUDE.md and KATA-STYLE.md reflect new skill resource pattern
+3. CLAUDE.md and KATA-STYLE.md reflect new skill resource and agent teams patterns
 4. Full workflow (new-project to plan to execute to verify) works with built plugin
 
 ---
@@ -256,9 +285,9 @@ Plans:
 | v1.4.0    | 2      | 11    | Shipped  | 2026-02-01 |
 | v1.4.1    | 4      | 6     | Shipped  | 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped  | 2026-02-04 |
-| v1.6.0    | 3      | —     | Active   | —          |
+| v1.6.0    | 4      | —     | Active   | —          |
 | v1.7.0    | —      | —     | Planned  | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-05 — Phase 1 planned (3 plans)*
+*Last updated: 2026-02-05 — Phase 2 complete (7/7 plans, verified)*
