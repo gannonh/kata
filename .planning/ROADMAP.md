@@ -8,7 +8,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 - ✅ **v1.5.0 Phase Management** — Phases 1-3 (shipped 2026-02-04)
 - ✅ **v1.4.1 Issue Execution** — Phases 1-4 (shipped 2026-02-03)
-- 🔄 **v1.6.0 Skills-Native Subagents** — current (Phase 31 complete)
+- 🔄 **v1.6.0 Skills-Native Subagents** — current (Phase 32 complete)
 - ○ **v1.7.0** — planned
 
 ## Completed Milestones
@@ -232,7 +232,7 @@ Plans:
 
 ---
 
-### Phase 32: Phase lookup ignores milestone scope causing collisions
+### Phase 32: Phase lookup ignores milestone scope causing collisions ✓
 
 **Goal:** Revert to globally sequential phase numbering, rename all historical directories, and update numbering policy across all skills
 
@@ -241,9 +241,9 @@ Plans:
 **Plans:** 3 plans (2 waves)
 
 Plans:
-- [x] 32-01-PLAN.md — Batch-rename completed + pending phase directories to globally sequential numbers
-- [x] 32-02-PLAN.md — Update numbering policy and documentation across all skill files
-- [ ] 32-03-PLAN.md — Update ROADMAP.md and STATE.md with new global phase numbers
+- [x] 03-01-PLAN.md — Batch-rename completed + pending phase directories to globally sequential numbers
+- [x] 03-02-PLAN.md — Update numbering policy and documentation across all skill files
+- [x] 03-03-PLAN.md — Update ROADMAP.md and STATE.md with new global phase numbers
 
 **Success Criteria:**
 1. Every phase directory has a globally unique sequential numeric prefix (no collisions)
@@ -313,4 +313,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-06 — Phase headers updated to globally sequential numbers (30-34)*
+*Last updated: 2026-02-06 — Phase 32 complete (global phase numbering, closes #102)*

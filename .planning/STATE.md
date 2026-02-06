@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v1.6.0 Skills-Native Subagents (Phase 32 in progress)
+**Current focus:** v1.6.0 Skills-Native Subagents (Phase 32 complete)
 
 ## Current Position
 
 Milestone: v1.6.0 Skills-Native Subagents — In Progress
-Phase: 32 - Phase lookup ignores milestone scope (in progress)
-Plan: 01 - Batch-rename directories (complete), 02 - Update numbering policy (complete), 03 - Update ROADMAP and STATE (complete)
-Status: All Phase 32 plans executed. Directories renamed, numbering policy updated, ROADMAP.md and STATE.md reflect global phase numbers.
-Last activity: 2026-02-06 — Plan 32-03 complete (ROADMAP.md and STATE.md updated with global phase numbers 30-34)
+Phase: 32 - Phase lookup ignores milestone scope (completed)
+Plan: —
+Status: Phase 32 complete. 3 plans executed, verified. Global phase numbering restored, closes #102.
+Last activity: 2026-02-06 — Phase 32 complete (3/3 plans, verification passed)
 
-Progress: ████░░░░░░ 2/5 phases
+Progress: █████░░░░░ 3/5 phases
 
 ## Performance Metrics
 
