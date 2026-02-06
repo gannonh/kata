@@ -8,7 +8,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 - ✅ **v1.5.0 Phase Management** — Phases 1-3 (shipped 2026-02-04)
 - ✅ **v1.4.1 Issue Execution** — Phases 1-4 (shipped 2026-02-03)
-- 🔄 **v1.6.0 Skills-Native Subagents** — current (Phase 33 complete)
+- 🔄 **v1.6.0 Skills-Native Subagents** — current (Phase 34 complete)
 - ○ **v1.7.0** — planned
 
 ## Completed Milestones
@@ -276,15 +276,19 @@ Plans:
 
 ---
 
-### Phase 34: Cleanup (Contingent)
+### Phase 34: Cleanup ✓
 
 **Goal:** Remove legacy infrastructure and update documentation
 
 **Dependencies:** Phase 33
 
-**Contingency:** Only execute if Phase 33 completes
-
 **Requirements:** CLEAN-01, CLEAN-02, CLEAN-03, CLEAN-04
+
+**Plans:** 2 plans (2 waves)
+
+Plans:
+- [x] 34-01-PLAN.md — Update CLAUDE.md, KATA-STYLE.md, README.md, build.js documentation
+- [x] 34-02-PLAN.md — Build plugin and run test suite validation
 
 **Success Criteria:**
 1. `agents/` directory deleted from repository
@@ -314,4 +318,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-06 — Phase 33 complete (skills.sh distribution channel)*
+*Last updated: 2026-02-06 — Phase 34 complete (cleanup)*
