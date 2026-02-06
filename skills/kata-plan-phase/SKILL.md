@@ -230,8 +230,8 @@ Write research findings to: {phase_dir}/{phase}-RESEARCH.md
 
 ```
 Task(
-  prompt=research_prompt,
-  subagent_type="kata-phase-researcher",
+  prompt="<agent-instructions>\n{phase_researcher_instructions_content}\n</agent-instructions>\n\n" + research_prompt,
+  subagent_type="general-purpose",
   model="{researcher_model}",
   description="Research Phase {phase}"
 )
@@ -269,6 +269,8 @@ Read and store context file contents for the planner agent. The `@` syntax does 
 - `${PHASE_DIR}/*-VERIFICATION.md` (if --gaps mode)
 - `${PHASE_DIR}/*-UAT.md` (if --gaps mode)
 - `references/planner-instructions.md` (relative to skill base directory) — store as `planner_instructions_content`
+- `references/phase-researcher-instructions.md` (relative to skill base directory) — store as `phase_researcher_instructions_content`
+- `references/plan-checker-instructions.md` (relative to skill base directory) — store as `plan_checker_instructions_content`
 
 Store all content for use in the Task prompt below.
 
@@ -471,8 +473,8 @@ Return one of:
 
 ```
 Task(
-  prompt=checker_prompt,
-  subagent_type="kata-plan-checker",
+  prompt="<agent-instructions>\n{plan_checker_instructions_content}\n</agent-instructions>\n\n" + checker_prompt,
+  subagent_type="general-purpose",
   model="{checker_model}",
   description="Verify Phase {phase} plans"
 )
