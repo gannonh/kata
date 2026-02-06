@@ -8,7 +8,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 - ✅ **v1.5.0 Phase Management** — Phases 1-3 (shipped 2026-02-04)
 - ✅ **v1.4.1 Issue Execution** — Phases 1-4 (shipped 2026-02-03)
-- 🔄 **v1.6.0 Skills-Native Subagents** — current (Phase 32 complete)
+- 🔄 **v1.6.0 Skills-Native Subagents** — current (Phase 33 complete)
 - ○ **v1.7.0** — planned
 
 ## Completed Milestones
@@ -253,7 +253,7 @@ Plans:
 
 ---
 
-### Phase 33: skills.sh Distribution Channel
+### Phase 33: skills.sh Distribution Channel ✓
 
 **Goal:** Publish Kata skills to skills.sh via a `gannonh/kata-skills` GitHub repo, creating a second distribution channel alongside the existing Claude Code plugin marketplace
 
@@ -261,10 +261,11 @@ Plans:
 
 **Requirements:** DIST-01, DIST-02, DIST-03, DIST-04
 
-**Plans:** 0 plans
+**Plans:** 2 plans (2 waves)
 
 Plans:
-- [ ] TBD (run /kata:kata-plan-phase 33 to break down)
+- [x] 33-01-PLAN.md — Normalize source frontmatter to Agent Skills spec + add skills-ref validation test
+- [x] 33-02-PLAN.md — Add skills-sh build target, README generation, and CI pipeline extension
 
 **Success Criteria:**
 1. `gannonh/kata-skills` GitHub repo exists with `skills/` directory containing all Kata skill folders
@@ -313,4 +314,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-06 — Phase 32 complete (global phase numbering, closes #102)*
+*Last updated: 2026-02-06 — Phase 33 complete (skills.sh distribution channel)*

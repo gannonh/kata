@@ -1,4 +1,4 @@
-name: Publish Plugin to Marketplace
+name: Publish Plugin to Marketplace and Skills Registry
 
 on:
   push:
@@ -155,4 +155,48 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --staged --quiet || git commit -m "chore: update kata plugin to v${{ steps.version.outputs.plugin_version }}"
+          git push
+
+      # --- Skills.sh distribution (gannonh/kata-skills) ---
+
+      - name: Build skills.sh distribution
+        if: steps.check.outputs.should_publish == 'true'
+        run: node scripts/build.js skills-sh
+
+      - name: Validate skills-sh build
+        if: steps.check.outputs.should_publish == 'true'
+        run: |
+          test -d dist/skills-sh/skills
+          test -f dist/skills-sh/README.md
+          test -f dist/skills-sh/LICENSE
+          SKILL_COUNT=$(ls -d dist/skills-sh/skills/kata-* | wc -l)
+          echo "Skills-sh build validated: $SKILL_COUNT skills"
+
+      - name: Checkout kata-skills
+        if: steps.check.outputs.should_publish == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: gannonh/kata-skills
+          token: ${{ secrets.SKILLS_TOKEN }}
+          path: kata-skills
+
+      - name: Update kata-skills with built skills
+        if: steps.check.outputs.should_publish == 'true'
+        run: |
+          # Clean existing skills and metadata
+          rm -rf kata-skills/skills kata-skills/README.md kata-skills/LICENSE
+
+          # Copy built output
+          cp -r dist/skills-sh/skills kata-skills/skills
+          cp dist/skills-sh/README.md kata-skills/README.md
+          cp dist/skills-sh/LICENSE kata-skills/LICENSE
+
+      - name: Commit and push to kata-skills
+        if: steps.check.outputs.should_publish == 'true'
+        working-directory: kata-skills
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "chore: update kata skills to v${{ steps.version.outputs.plugin_version }}"
           git push

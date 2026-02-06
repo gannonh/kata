@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v1.6.0 Skills-Native Subagents (Phase 32 complete)
+**Current focus:** v1.6.0 Skills-Native Subagents (Phase 33 complete)
 
 ## Current Position
 
 Milestone: v1.6.0 Skills-Native Subagents — In Progress
-Phase: 32 - Phase lookup ignores milestone scope (completed)
+Phase: 33 - skills.sh Distribution Channel (completed)
 Plan: —
-Status: Phase 32 complete. 3 plans executed, verified. Global phase numbering restored, closes #102.
-Last activity: 2026-02-06 — Phase 32 complete (3/3 plans, verification passed)
+Status: Phase 33 complete. 2 plans executed, verified. skills.sh distribution channel ready.
+Last activity: 2026-02-06 — Phase 33 complete (2/2 plans, verification passed)
 
-Progress: █████░░░░░ 3/5 phases
+Progress: ████████░░ 4/5 phases
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 119
+- Total plans completed: 121
 - Average duration: 3 min
-- Total execution time: ~320 min
+- Total execution time: ~324 min
 
 **By Milestone:**
 
@@ -41,7 +41,7 @@ Progress: █████░░░░░ 3/5 phases
 | v1.4.0    | 2      | 11    | Shipped 2026-02-01 |
 | v1.4.1    | 4      | 6     | Shipped 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped 2026-02-04 |
-| v1.6.0    | 5      | 13    | Active |
+| v1.6.0    | 5      | 15    | Active |
 
 *Updated after each plan completion*
 
@@ -52,6 +52,7 @@ Progress: █████░░░░░ 3/5 phases
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- **2026-02-06: kata-inserting-phases name field fixed** — Directory name = skill name required by Agent Skills spec. Updated name field from kata-insert-phase to kata-inserting-phases.
 - **2026-02-06: Phase 32 added + phases renumbered** — Inserted "Phase lookup ignores milestone scope" (Closes #102) as Phase 32 after completed Phase 31. Distribution channel became Phase 33, Cleanup became Phase 34
 - **2026-02-05: Phase 2.1 inserted — skills.sh distribution** — New distribution channel via `gannonh/kata-skills` repo for skills.sh registry
 - **2026-02-05: Phase 2 complete — all agents migrated** — 19 agents extracted to skill resources, zero custom subagent types remain
@@ -77,7 +78,7 @@ Recent decisions affecting current work:
 
 ### Pending Issues
 
-26 open issues in `.planning/issues/open/`
+11 open issues in `.planning/issues/open/`
 
 ### Blockers/Concerns
 
@@ -98,6 +99,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Phase 32 Plan 03 complete (all 3 plans done)
+Stopped at: Phase 33 complete (all 2 plans done, verified)
 Resume file: None
-Next action: Verify Phase 32 or plan Phase 33 (skills.sh distribution)
+Next action: Plan or execute Phase 34 (cleanup)

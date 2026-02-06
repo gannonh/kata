@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * Build script for Kata plugin distribution.
+ * Build script for Kata distribution targets.
  *
- * Builds the Claude Code marketplace plugin (/plugin install)
- * - Path transform: subagent_type="kata-xxx" → subagent_type="kata:kata-xxx"
- * - Output: dist/plugin/
+ * Targets:
+ *   plugin     - Claude Code marketplace plugin (/plugin install) → dist/plugin/
+ *   skills-sh  - skills.sh distribution (skills only) → dist/skills-sh/
+ *   all        - Build all targets
  *
  * Usage:
- *   node scripts/build.js [plugin]   # Build plugin (default)
+ *   node scripts/build.js [plugin|skills-sh|all]   # Default: plugin
  */
 
 import fs from 'fs';
@@ -305,6 +306,135 @@ function buildPlugin() {
 }
 
 /**
+ * Parse YAML frontmatter from a SKILL.md file.
+ * Returns object with name and description, or null if no frontmatter.
+ */
+function parseSkillFrontmatter(content) {
+  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!match) return null;
+  const frontmatter = {};
+  const lines = match[1].split('\n');
+  for (const line of lines) {
+    const colonIndex = line.indexOf(':');
+    if (colonIndex > 0) {
+      const key = line.slice(0, colonIndex).trim();
+      let value = line.slice(colonIndex + 1).trim();
+      // Strip surrounding quotes
+      value = value.replace(/^["']|["']$/g, '');
+      frontmatter[key] = value;
+    }
+  }
+  return frontmatter;
+}
+
+/**
+ * Build skills-sh distribution (skills.sh registry)
+ */
+function buildSkillsSh() {
+  console.log(`\n${green}Building skills-sh distribution...${reset}\n`);
+
+  const dest = path.join(ROOT, 'dist', 'skills-sh');
+  cleanDir(dest);
+
+  // Copy skills directory
+  const srcSkills = path.join(ROOT, 'skills');
+  const destSkills = path.join(dest, 'skills');
+  if (!copyDir(srcSkills, destSkills)) {
+    console.log(`  ${red}x${reset} Failed to copy skills directory`);
+    return false;
+  }
+
+  // Count skills
+  const skillDirs = fs.readdirSync(destSkills, { withFileTypes: true })
+    .filter(e => e.isDirectory() && e.name.startsWith('kata-'));
+  console.log(`  ${green}✓${reset} Copied ${skillDirs.length} skills`);
+
+  // Generate README.md from skill metadata
+  const skillRows = [];
+  for (const entry of skillDirs) {
+    const skillMdPath = path.join(srcSkills, entry.name, 'SKILL.md');
+    if (!fs.existsSync(skillMdPath)) continue;
+    const content = fs.readFileSync(skillMdPath, 'utf8');
+    const fm = parseSkillFrontmatter(content);
+    if (!fm || !fm.name) continue;
+    let desc = fm.description || '';
+    // Strip "Triggers include..." suffix (Claude Code-specific)
+    desc = desc.replace(/\s*Triggers include.*$/, '');
+    // Ensure description ends with period
+    if (desc && !desc.endsWith('.')) desc += '.';
+    skillRows.push(`| ${fm.name} | ${desc} |`);
+  }
+
+  const readme = `# Kata Skills
+
+Spec-driven development framework for Claude Code.
+
+## Install
+
+\`\`\`bash
+npx skills add gannonh/kata-skills
+\`\`\`
+
+## Skills
+
+| Skill | Description |
+|-------|-------------|
+${skillRows.join('\n')}
+
+## License
+
+MIT
+`;
+
+  fs.writeFileSync(path.join(dest, 'README.md'), readme);
+  console.log(`  ${green}✓${reset} Generated README.md`);
+
+  // Generate LICENSE
+  const license = `MIT License
+
+Copyright (c) 2026 gannonh
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+`;
+
+  fs.writeFileSync(path.join(dest, 'LICENSE'), license);
+  console.log(`  ${green}✓${reset} Generated LICENSE`);
+
+  // Validate
+  const errors = [];
+  if (!fs.existsSync(destSkills)) errors.push('Missing directory: skills');
+  if (!fs.existsSync(path.join(dest, 'README.md'))) errors.push('Missing file: README.md');
+  if (!fs.existsSync(path.join(dest, 'LICENSE'))) errors.push('Missing file: LICENSE');
+
+  if (errors.length > 0) {
+    console.log(`\n${red}Validation errors:${reset}`);
+    for (const error of errors) {
+      console.log(`  ${red}x${reset} ${error}`);
+    }
+    return false;
+  }
+
+  console.log(`\n${green}✓ Skills-sh build complete: dist/skills-sh/ (${skillDirs.length} skills)${reset}`);
+  return true;
+}
+
+/**
  * Main entry point
  */
 function main() {
@@ -314,13 +444,22 @@ function main() {
   console.log(`${amber}Kata Build System${reset}`);
   console.log(`${dim}Version: ${pkg.version}${reset}`);
 
-  if (target !== 'plugin' && target !== 'all') {
+  const validTargets = ['plugin', 'skills-sh', 'all'];
+  if (!validTargets.includes(target)) {
     console.error(`${red}Unknown target: ${target}${reset}`);
-    console.log(`\nUsage: node scripts/build.js [plugin]`);
+    console.log(`\nUsage: node scripts/build.js [plugin|skills-sh|all]`);
     process.exit(1);
   }
 
-  const success = buildPlugin();
+  let success = true;
+
+  if (target === 'plugin' || target === 'all') {
+    success = buildPlugin();
+  }
+  if (target === 'skills-sh' || target === 'all') {
+    success = buildSkillsSh() && success;
+  }
+
   if (!success) {
     process.exit(1);
   }

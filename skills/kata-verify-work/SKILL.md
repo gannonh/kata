@@ -3,14 +3,8 @@ name: kata-verify-work
 description: Validate built features through conversational testing, running UAT, user acceptance testing, checking if features work, or verifying implementation. Triggers include "verify work", "test features", "UAT", "user testing", "check if it works", and "validate features".
 metadata:
   version: "0.1.0"
-user-invocable: true
-disable-model-invocation: false
-allowed-tools:
-  - Read
-  - Write
-  - Bash
+allowed-tools: Read Write Bash
 ---
-
 <objective>
 Validate built features through conversational testing with persistent state.
 

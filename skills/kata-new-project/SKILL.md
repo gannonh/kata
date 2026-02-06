@@ -3,16 +3,8 @@ name: kata-new-project
 description: Initialize a new project with deep context gathering and project.md. Triggers include "new project", "start project", "initialize project", "create project", "begin project", "setup project".
 metadata:
   version: "0.1.0"
-user-invocable: true
-disable-model-invocation: false
-allowed-tools:
-  - Read
-  - Bash
-  - Write
-  - Task
-  - AskUserQuestion
+allowed-tools: Read Bash Write Task AskUserQuestion
 ---
-
 <objective>
 
 Initialize a new project with deep context gathering and workflow configuration.

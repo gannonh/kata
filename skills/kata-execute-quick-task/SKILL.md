@@ -3,14 +3,8 @@ name: kata-execute-quick-task
 description: Execute small ad-hoc tasks with Kata guarantees, running quick tasks without full planning, or handling one-off work outside the roadmap. Triggers include "quick task", "quick mode", "quick fix", "ad-hoc task", "small task", and "one-off task".
 metadata:
   version: "0.1.0"
-user-invocable: true
-disable-model-invocation: false
-allowed-tools:
-  - Read
-  - Write
-  - Bash
+allowed-tools: Read Write Bash
 ---
-
 <objective>
 Execute small, ad-hoc tasks with Kata guarantees (atomic commits, STATE.md tracking) while skipping optional agents (research, plan-checker, verifier).
 

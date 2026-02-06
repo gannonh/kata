@@ -3,12 +3,7 @@ name: kata-help
 description: Show available Kata skills, displaying the usage guide, explaining skill reference, or when the user asks for help with Kata. Triggers include "help", "show skills", "list skills", "what skills", "kata skills", and "usage guide".
 metadata:
   version: "0.1.0"
-user-invocable: true
-disable-model-invocation: false
-allowed-tools:
-  - Read
-  - Write
-  - Bash
+allowed-tools: Read Write Bash
 ---
 
 <objective>

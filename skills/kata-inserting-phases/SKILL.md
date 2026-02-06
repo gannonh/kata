@@ -1,16 +1,10 @@
 ---
-name: kata-insert-phase
+name: kata-inserting-phases
 description: Insert urgent work as a decimal phase between existing phases, adding mid-milestone work, or creating intermediate phases. Triggers include "insert phase", "add urgent phase", "create decimal phase", "insert between phases", and "urgent work".
 metadata:
   version: "0.1.0"
-user-invocable: true
-disable-model-invocation: false
-allowed-tools:
-  - Read
-  - Write
-  - Bash
+allowed-tools: Read Write Bash
 ---
-
 <objective>
 Insert a decimal phase for urgent work discovered mid-milestone that must be completed between existing integer phases.
 

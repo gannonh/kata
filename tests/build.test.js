@@ -630,3 +630,85 @@ describe('Circular dependency check', () => {
     }
   });
 });
+
+describe('Skills-sh build', () => {
+  before(() => {
+    execSync('npm run build:skills-sh', { cwd: ROOT, stdio: 'pipe' });
+  });
+
+  test('creates dist/skills-sh directory', () => {
+    assert.ok(fs.existsSync(path.join(ROOT, 'dist/skills-sh')));
+  });
+
+  test('includes skills directory with all skill subdirectories', () => {
+    const skillsDir = path.join(ROOT, 'dist/skills-sh/skills');
+    assert.ok(fs.existsSync(skillsDir));
+    const entries = fs.readdirSync(skillsDir, { withFileTypes: true })
+      .filter(e => e.isDirectory() && e.name.startsWith('kata-'));
+    assert.ok(entries.length >= 29, `Expected at least 29 skills, got ${entries.length}`);
+  });
+
+  test('includes README.md with install instructions', () => {
+    const readmePath = path.join(ROOT, 'dist/skills-sh/README.md');
+    assert.ok(fs.existsSync(readmePath));
+    const content = fs.readFileSync(readmePath, 'utf8');
+    assert.ok(content.includes('npx skills add gannonh/kata-skills'));
+    assert.ok(content.includes('| Skill | Description |'));
+  });
+
+  test('README descriptions have trigger phrases stripped', () => {
+    const readmePath = path.join(ROOT, 'dist/skills-sh/README.md');
+    const content = fs.readFileSync(readmePath, 'utf8');
+    assert.ok(!content.includes('Triggers include'),
+      'README should not contain "Triggers include" phrases');
+  });
+
+  test('includes LICENSE file', () => {
+    const licensePath = path.join(ROOT, 'dist/skills-sh/LICENSE');
+    assert.ok(fs.existsSync(licensePath));
+    const content = fs.readFileSync(licensePath, 'utf8');
+    assert.ok(content.includes('MIT License'));
+  });
+
+  test('does NOT include hooks directory', () => {
+    assert.ok(!fs.existsSync(path.join(ROOT, 'dist/skills-sh/hooks')));
+  });
+
+  test('does NOT include .claude-plugin directory', () => {
+    assert.ok(!fs.existsSync(path.join(ROOT, 'dist/skills-sh/.claude-plugin')));
+  });
+
+  test('does NOT include CHANGELOG.md', () => {
+    assert.ok(!fs.existsSync(path.join(ROOT, 'dist/skills-sh/CHANGELOG.md')));
+  });
+
+  test('does NOT include VERSION file', () => {
+    assert.ok(!fs.existsSync(path.join(ROOT, 'dist/skills-sh/VERSION')));
+  });
+});
+
+describe('Agent Skills spec validation', () => {
+  test('all skills pass skills-ref validate', () => {
+    const skillsDir = path.join(ROOT, 'skills');
+    const entries = fs.readdirSync(skillsDir, { withFileTypes: true })
+      .filter(e => e.isDirectory() && e.name.startsWith('kata-'));
+    const errors = [];
+
+    for (const entry of entries) {
+      const skillPath = path.join(skillsDir, entry.name);
+      try {
+        execSync(`npx skills-ref validate "${skillPath}"`, {
+          cwd: ROOT,
+          stdio: 'pipe',
+          timeout: 30000
+        });
+      } catch (err) {
+        errors.push(`${entry.name}: ${err.stderr?.toString().trim() || err.message}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      assert.fail(`Skills failing spec validation:\n${errors.join('\n')}`);
+    }
+  });
+});
