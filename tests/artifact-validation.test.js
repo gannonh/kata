@@ -17,7 +17,7 @@ const PLUGIN_DIR = path.join(ROOT, 'dist/plugin');
  * 1. Structure validation - directories, VERSION, plugin.json
  * 2. Path transformation validation - subagent_type, no stale patterns
  * 3. Reference resolution validation - @./references/ paths exist
- * 4. Frontmatter validation - skills and agents have required fields
+ * 4. Frontmatter validation - skills have required fields
  */
 
 /**
@@ -82,7 +82,8 @@ describe('Artifact Validation: Structure', () => {
 
   test('required directories exist', () => {
     // Note: commands removed in v1.3.5 (skills-first architecture)
-    const requiredDirs = ['.claude-plugin', 'skills', 'agents', 'hooks'];
+    // Note: agents removed in v1.6.0 (instructions moved to skill references/)
+    const requiredDirs = ['.claude-plugin', 'skills', 'hooks'];
     const missing = [];
 
     for (const dir of requiredDirs) {
@@ -129,6 +130,9 @@ describe('Artifact Validation: Path Transformations', () => {
     const errors = [];
 
     for (const file of mdFiles) {
+      // Skip CHANGELOG.md which contains historical documentation about the pattern
+      if (path.basename(file) === 'CHANGELOG.md') continue;
+
       const content = fs.readFileSync(file, 'utf8');
       const relativePath = path.relative(PLUGIN_DIR, file);
 
@@ -282,42 +286,7 @@ describe('Artifact Validation: Reference Resolution', () => {
     );
   });
 
-  test('@./references/ paths in agents resolve to existing files', () => {
-    const agentsDir = path.join(PLUGIN_DIR, 'agents');
-    if (!fs.existsSync(agentsDir)) {
-      assert.fail('agents directory not found in plugin');
-      return;
-    }
-
-    const errors = [];
-    const agentFiles = findFiles(agentsDir, /\.md$/);
-
-    for (const file of agentFiles) {
-      const content = fs.readFileSync(file, 'utf8');
-      const refs = extractReferences(content);
-      const relativePath = path.relative(PLUGIN_DIR, file);
-      const fileDir = path.dirname(file);
-
-      for (const ref of refs) {
-        // Skip @.planning/ references (project-local, not part of plugin)
-        if (ref.startsWith('@.planning/')) continue;
-
-        // Remove @ prefix and resolve relative to file's directory
-        const refPath = ref.substring(2); // Remove @.
-        const fullPath = path.join(fileDir, refPath);
-
-        if (!fs.existsSync(fullPath)) {
-          errors.push(`${relativePath}: @./${refPath} does not exist`);
-        }
-      }
-    }
-
-    assert.strictEqual(
-      errors.length,
-      0,
-      `Broken @./references/ paths in agents:\n${errors.join('\n')}`
-    );
-  });
+  // Note: agents directory removed in v1.6.0 (instructions moved to skill references/)
 });
 
 describe('Artifact Validation: Frontmatter', () => {
@@ -356,36 +325,7 @@ describe('Artifact Validation: Frontmatter', () => {
     );
   });
 
-  test('all agent .md files have description in frontmatter', () => {
-    const agentsDir = path.join(PLUGIN_DIR, 'agents');
-    if (!fs.existsSync(agentsDir)) {
-      assert.fail('agents directory not found in plugin');
-      return;
-    }
-
-    const agentFiles = fs.readdirSync(agentsDir).filter(f => f.endsWith('.md'));
-    const errors = [];
-
-    for (const file of agentFiles) {
-      const content = fs.readFileSync(path.join(agentsDir, file), 'utf8');
-      const frontmatter = parseFrontmatter(content);
-
-      if (!frontmatter) {
-        errors.push(`agents/${file}: Missing frontmatter`);
-        continue;
-      }
-
-      if (!frontmatter.description) {
-        errors.push(`agents/${file}: Missing 'description' in frontmatter`);
-      }
-    }
-
-    assert.strictEqual(
-      errors.length,
-      0,
-      `Agent frontmatter errors:\n${errors.join('\n')}`
-    );
-  });
+  // Note: agent frontmatter test removed in v1.6.0 (agents directory removed)
 
   test('skill descriptions are meaningful (>= 10 chars)', () => {
     const skillsDir = path.join(PLUGIN_DIR, 'skills');
