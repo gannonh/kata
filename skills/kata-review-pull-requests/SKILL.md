@@ -111,24 +111,24 @@ Run a comprehensive pull request review using multiple specialized agents, each 
 
 **Full review (default):**
 ```
-/kata:kata-review-pull-requests
+/kata-review-pull-requests
 ```
 
 **Specific aspects:**
 ```
-/kata:kata-review-pull-requests tests errors
+/kata-review-pull-requests tests errors
 # Reviews only test coverage and error handling
 
-/kata:kata-review-pull-requests comments
+/kata-review-pull-requests comments
 # Reviews only code comments
 
-/kata:kata-review-pull-requests simplify
+/kata-review-pull-requests simplify
 # Simplifies code after passing review
 ```
 
 **Parallel review:**
 ```
-/kata:kata-review-pull-requests all parallel
+/kata-review-pull-requests all parallel
 # Launches all agents in parallel
 ```
 
@@ -178,7 +178,7 @@ Run a comprehensive pull request review using multiple specialized agents, each 
 **Before committing:**
 ```
 1. Write code
-2. Run: /kata:kata-review-pull-requests code errors
+2. Run: /kata-review-pull-requests code errors
 3. Fix any critical issues
 4. Commit
 ```
@@ -186,7 +186,7 @@ Run a comprehensive pull request review using multiple specialized agents, each 
 **Before creating PR:**
 ```
 1. Stage all changes
-2. Run: /kata:kata-review-pull-requests all
+2. Run: /kata-review-pull-requests all
 3. Address all critical and important issues
 4. Run specific reviews again to verify
 5. Create PR

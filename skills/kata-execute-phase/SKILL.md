@@ -355,7 +355,7 @@ PR_EOF
    - Route by status:
      - `passed` → continue to step 8
      - `human_needed` → present items, get approval or feedback
-     - `gaps_found` → present gaps, offer `/kata:kata-plan-phase {X} --gaps`
+     - `gaps_found` → present gaps, offer `/kata-plan-phase {X} --gaps`
 
 7.5. **Validate completion and move to completed**
 
@@ -523,7 +523,7 @@ PR_EOF
     2. Return to step 10.6 checkpoint
 
     **Path D: "Add to backlog"**
-    1. Create issues for all findings using `/kata:kata-add-issue`
+    1. Create issues for all findings using `/kata-add-issue`
     2. Store TODOS_CREATED count
     3. Return to step 10.6 checkpoint
 
@@ -574,15 +574,15 @@ Goal verified ✓
 
 **Phase {Z+1}: {Name}** — {Goal from ROADMAP.md}
 
-`/kata:kata-discuss-phase {Z+1}` — gather context and clarify approach
+`/kata-discuss-phase {Z+1}` — gather context and clarify approach
 
 <sub>`/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
-- `/kata:kata-plan-phase {Z+1}` — skip discussion, plan directly
-- `/kata:kata-verify-work {Z}` — manual acceptance testing before continuing
+- `/kata-plan-phase {Z+1}` — skip discussion, plan directly
+- `/kata-verify-work {Z}` — manual acceptance testing before continuing
 {If PR_WORKFLOW and not MERGED: - `gh pr view --web` — review PR in browser before next phase}
 
 ───────────────────────────────────────────────────────────────
@@ -608,15 +608,15 @@ All phase goals verified ✓
 
 **Audit milestone** — verify requirements, cross-phase integration, E2E flows
 
-/kata:kata-audit-milestone
+/kata-audit-milestone
 
 <sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
-- /kata:kata-verify-work — manual acceptance testing
-- /kata:kata-complete-milestone — skip audit, archive directly
+- /kata-verify-work — manual acceptance testing
+- /kata-complete-milestone — skip audit, archive directly
 
 ───────────────────────────────────────────────────────────────
 
@@ -643,7 +643,7 @@ Report: .planning/phases/{phase_dir}/{phase}-VERIFICATION.md
 
 **Plan gap closure** — create additional plans to complete the phase
 
-/kata:kata-plan-phase {Z} --gaps
+/kata-plan-phase {Z} --gaps
 
 <sub>/clear first → fresh context window</sub>
 
@@ -651,16 +651,16 @@ Report: .planning/phases/{phase_dir}/{phase}-VERIFICATION.md
 
 **Also available:**
 - cat .planning/phases/{phase_dir}/{phase}-VERIFICATION.md — see full report
-- /kata:kata-verify-work {Z} — manual testing before planning
+- /kata-verify-work {Z} — manual testing before planning
 
 ───────────────────────────────────────────────────────────────
 
 ---
 
-After user runs /kata:kata-plan-phase {Z} --gaps:
+After user runs /kata-plan-phase {Z} --gaps:
 1. Planner reads VERIFICATION.md gaps
 2. Creates plans 04, 05, etc. to close gaps
-3. User runs /kata:kata-execute-phase {Z} again
+3. User runs /kata-execute-phase {Z} again
 4. phase-execute runs incomplete plans (04, 05...)
 5. Verifier runs again → loop until passed
 </offer_next>

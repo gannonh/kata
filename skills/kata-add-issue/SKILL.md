@@ -22,7 +22,7 @@ Enables "thought -> capture -> continue" flow without losing context or derailin
 
 Display:
 
-> **Note:** "todos" are now "issues". Using `/kata:kata-add-issue`.
+> **Note:** "todos" are now "issues". Using `/kata-add-issue`.
 
 Then proceed with the action (non-blocking).
 </step>
@@ -69,7 +69,7 @@ Note existing areas for consistency in infer_area step.
 
 <step name="extract_content">
 **With arguments:** Use as the title/focus.
-- `/kata:kata-add-issue Add auth token refresh` -> title = "Add auth token refresh"
+- `/kata-add-issue Add auth token refresh` -> title = "Add auth token refresh"
 
 **Without arguments:** Analyze recent conversation to extract:
 - The specific problem, idea, or task discussed
@@ -182,7 +182,7 @@ GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:sp
    [solution section from local file]
 
    ---
-   *Created via Kata `/kata:kata-add-issue`*
+   *Created via Kata `/kata-add-issue`*
    ```
 
 4. **Create GitHub Issue:**
@@ -267,7 +267,7 @@ Would you like to:
 
 1. Continue with current work
 2. Add another issue
-3. View all issues (/kata:kata-check-issues)
+3. View all issues (/kata-check-issues)
 ```
 </step>
 

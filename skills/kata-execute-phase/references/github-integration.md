@@ -161,7 +161,7 @@ ${REQUIREMENT_IDS}
 
 ## Plans
 
-<!-- Checklist added by /kata:kata-plan-phase (Phase 4) -->
+<!-- Checklist added by /kata-plan-phase (Phase 4) -->
 _Plans will be added after phase planning completes._
 ```
 
@@ -331,8 +331,8 @@ GitHub Status:
 Issues created immediately when phase planning completes. No prompts.
 
 **Timeline:**
-1. `/kata:kata-plan-phase 1` → Phase 1 planned → Issue #1 created
-2. `/kata:kata-plan-phase 2` → Phase 2 planned → Issue #2 created
+1. `/kata-plan-phase 1` → Phase 1 planned → Issue #1 created
+2. `/kata-plan-phase 2` → Phase 2 planned → Issue #2 created
 3. ...
 
 **Use when:** Team wants full GitHub visibility, no manual intervention.
@@ -342,11 +342,11 @@ Issues created immediately when phase planning completes. No prompts.
 Prompts once per milestone. Decision cached in STATE.md.
 
 **Timeline:**
-1. `/kata:kata-plan-phase 1` → "Create Issues for v1.1.0?" → User: "y"
+1. `/kata-plan-phase 1` → "Create Issues for v1.1.0?" → User: "y"
 2. Phase 1 planned → Issue #1 created (decision cached)
-3. `/kata:kata-plan-phase 2` → Phase 2 planned → Issue #2 created (no prompt, uses cache)
+3. `/kata-plan-phase 2` → Phase 2 planned → Issue #2 created (no prompt, uses cache)
 4. New milestone v1.2.0 starts...
-5. `/kata:kata-plan-phase 1` → "Create Issues for v1.2.0?" → User: "n"
+5. `/kata-plan-phase 1` → "Create Issues for v1.2.0?" → User: "n"
 6. Phase 1 planned → No issue created
 
 **Cache location:** STATE.md under `### GitHub Decisions`
@@ -367,8 +367,8 @@ Prompts once per milestone. Decision cached in STATE.md.
 No phase Issues created. Milestones still created if `github.enabled: true`.
 
 **Timeline:**
-1. `/kata:kata-add-milestone v1.1.0` → GitHub Milestone created
-2. `/kata:kata-plan-phase 1` → Phase 1 planned → No issue
+1. `/kata-add-milestone v1.1.0` → GitHub Milestone created
+2. `/kata-plan-phase 1` → Phase 1 planned → No issue
 3. ...
 
 **Use when:** Team wants milestone-level tracking only, or manages Issues manually.

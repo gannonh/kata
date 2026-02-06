@@ -12,7 +12,7 @@ This command appends sequential phases to the current milestone's phase list, au
 
 Purpose: Add planned work discovered during execution that belongs at the end of current milestone.
 
-IMPORTANT: When showing examples to users, always use `/kata:kata-add-phase` (the command), not the skill name.
+IMPORTANT: When showing examples to users, always use `/kata-add-phase` (the command), not the skill name.
 </objective>
 
 <execution_context>
@@ -26,7 +26,7 @@ IMPORTANT: When showing examples to users, always use `/kata:kata-add-phase` (th
 Parse the command arguments:
 
 **With `--issue` flag:**
-- `/kata:kata-add-phase --issue .planning/issues/open/2026-02-06-phase-lookup.md`
+- `/kata-add-phase --issue .planning/issues/open/2026-02-06-phase-lookup.md`
 - Read the issue file to extract title, provenance, and context
 - `description` = issue title from frontmatter
 - `ISSUE_FILE` = the path argument
@@ -51,16 +51,16 @@ fi
 
 **Without `--issue` flag:**
 - All arguments become the phase description
-- Example: `/kata:kata-add-phase Add authentication` → description = "Add authentication"
+- Example: `/kata-add-phase Add authentication` → description = "Add authentication"
 - `ISSUE_FILE`, `ISSUE_PROVENANCE`, `ISSUE_NUMBER` are empty
 
 If no arguments provided:
 
 ```
 ERROR: Phase description required
-Usage: /kata:kata-add-phase <description>
-       /kata:kata-add-phase --issue <issue-file-path>
-Example: /kata:kata-add-phase Add authentication system
+Usage: /kata-add-phase <description>
+       /kata-add-phase --issue <issue-file-path>
+Example: /kata-add-phase Add authentication system
 ```
 
 Exit.
@@ -155,7 +155,7 @@ Add the new phase entry to the roadmap:
    **Plans:** 0 plans
 
    Plans:
-   - [ ] TBD (run /kata:kata-plan-phase {N} to break down)
+   - [ ] TBD (run /kata-plan-phase {N} to break down)
 
    **Details:**
    [To be added during planning]
@@ -201,14 +201,14 @@ Project state updated: .planning/STATE.md
 
 **Phase {N}: {description}**
 
-`/kata:kata-plan-phase {N}`
+`/kata-plan-phase {N}`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:kata-add-phase <description>` — add another phase
+- `/kata-add-phase <description>` — add another phase
 - Review roadmap
 
 ---
@@ -221,8 +221,8 @@ Project state updated: .planning/STATE.md
 
 - Don't modify phases outside current milestone
 - Don't renumber existing phases
-- Don't use decimal numbering (that's /kata:kata-insert-phase)
-- Don't create plans yet (that's /kata:kata-plan-phase)
+- Don't use decimal numbering (that's /kata-insert-phase)
+- Don't create plans yet (that's /kata-plan-phase)
 - Don't commit changes (user decides when to commit)
   </anti_patterns>
 

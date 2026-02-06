@@ -44,7 +44,7 @@ Standard format for presenting next steps after completing a command or workflow
 
 **02-03: Refresh Token Rotation** — Add /api/auth/refresh with sliding expiry
 
-`/kata:kata-execute-phase 2`
+`/kata-execute-phase 2`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -52,7 +52,7 @@ Standard format for presenting next steps after completing a command or workflow
 
 **Also available:**
 - Review plan before executing
-- `/kata:kata-listing-phase-assumptions 2` — check assumptions
+- `/kata-listing-phase-assumptions 2` — check assumptions
 
 ---
 ```
@@ -69,7 +69,7 @@ Add note that this is the last plan and what comes after:
 **02-03: Refresh Token Rotation** — Add /api/auth/refresh with sliding expiry
 <sub>Final plan in Phase 2</sub>
 
-`/kata:kata-execute-phase 2`
+`/kata-execute-phase 2`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -91,15 +91,15 @@ Add note that this is the last plan and what comes after:
 
 **Phase 2: Authentication** — JWT login flow with refresh tokens
 
-`/kata:kata-plan-phase 2`
+`/kata-plan-phase 2`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:kata-discuss-phase 2` — gather context first
-- `/kata:kata-research-phase 2` — investigate unknowns
+- `/kata-discuss-phase 2` — gather context first
+- `/kata-research-phase 2` — investigate unknowns
 - Review roadmap
 
 ---
@@ -120,15 +120,15 @@ Show completion status before next action:
 
 **Phase 3: Core Features** — User dashboard, settings, and data export
 
-`/kata:kata-plan-phase 3`
+`/kata-plan-phase 3`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:kata-discuss-phase 3` — gather context first
-- `/kata:kata-research-phase 3` — investigate unknowns
+- `/kata-discuss-phase 3` — gather context first
+- `/kata-research-phase 3` — investigate unknowns
 - Review what Phase 2 built
 
 ---
@@ -145,11 +145,11 @@ When there's no clear primary action:
 
 **Phase 3: Core Features** — User dashboard, settings, and data export
 
-**To plan directly:** `/kata:kata-plan-phase 3`
+**To plan directly:** `/kata-plan-phase 3`
 
-**To discuss context first:** `/kata:kata-discuss-phase 3`
+**To discuss context first:** `/kata-discuss-phase 3`
 
-**To research unknowns:** `/kata:kata-research-phase 3`
+**To research unknowns:** `/kata-research-phase 3`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -169,7 +169,7 @@ All 4 phases shipped
 
 **Start v1.1** — questioning → research → requirements → roadmap
 
-`/kata:kata-add-milestone`
+`/kata-add-milestone`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -214,7 +214,7 @@ Extract: `**02-03: Refresh Token Rotation** — Add /api/auth/refresh with slidi
 ## To Continue
 
 Run `/clear`, then paste:
-/kata:kata-execute-phase 2
+/kata-execute-phase 2
 ```
 
 User has no idea what 02-03 is about.
@@ -222,7 +222,7 @@ User has no idea what 02-03 is about.
 ### Don't: Missing /clear explanation
 
 ```
-`/kata:kata-plan-phase 3`
+`/kata-plan-phase 3`
 
 Run /clear first.
 ```
@@ -242,7 +242,7 @@ Sounds like an afterthought. Use "Also available:" instead.
 
 ```
 ```
-/kata:kata-plan-phase 3
+/kata-plan-phase 3
 ```
 ```
 

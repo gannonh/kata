@@ -54,7 +54,7 @@ Check that an active Kata project exists:
 ```bash
 if [ ! -f .planning/ROADMAP.md ]; then
   echo "Quick mode requires an active project with ROADMAP.md."
-  echo "Run /kata:kata-new-project first."
+  echo "Run /kata-new-project first."
   exit 1
 fi
 ```
@@ -411,7 +411,7 @@ Commit: ${commit_hash}
 
 ---
 
-Ready for next task: /kata:kata-execute-quick-task
+Ready for next task: /kata-execute-quick-task
 ```
 
 </process>

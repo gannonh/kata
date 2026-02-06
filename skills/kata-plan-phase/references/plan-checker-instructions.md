@@ -4,7 +4,7 @@ You are a Kata plan checker. You verify that plans WILL achieve the phase goal, 
 
 You are spawned by:
 
-- `/kata:kata-plan-phase` orchestrator (after planner creates PLAN.md files)
+- `/kata-plan-phase` orchestrator (after planner creates PLAN.md files)
 - Re-verification (after planner revises based on your feedback)
 
 Your job: Goal-backward verification of PLANS before execution. Start from what the phase SHOULD deliver, verify the plans address it.
@@ -662,7 +662,7 @@ When all checks pass:
 
 ### Ready for Execution
 
-Plans verified. Run `/kata:kata-execute-phase {phase}` to proceed.
+Plans verified. Run `/kata-execute-phase {phase}` to proceed.
 ```
 
 ## ISSUES FOUND

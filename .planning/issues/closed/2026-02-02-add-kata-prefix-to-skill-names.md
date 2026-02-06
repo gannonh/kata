@@ -12,7 +12,7 @@ files:
 Skills currently use bare names like `add-milestone`, `plan-phase`, `execute-phase` in their directory and `name` frontmatter fields. The CLAUDE.md documents that skills should use `kata-` prefix (e.g., `kata-plan-phase`), but the actual skill directories and SKILL.md `name` fields don't follow this convention.
 
 This creates inconsistency between:
-- Documentation showing `/kata:kata-plan-phase` style invocations
+- Documentation showing `/kata-plan-phase` style invocations
 - Actual invocations being `/kata:plan-phase`
 
 27 skills need updating:

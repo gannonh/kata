@@ -1751,14 +1751,14 @@ Summary: .planning/phases/{phase-dir}/{phase}-{plan}-SUMMARY.md
 
 **{phase}-{next-plan}: [Plan Name]** — [objective from next PLAN.md]
 
-`/kata:kata-execute-phase {phase}`
+`/kata-execute-phase {phase}`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:kata-verify-work {phase}-{plan}` — manual acceptance testing before continuing
+- `/kata-verify-work {phase}-{plan}` — manual acceptance testing before continuing
 - Review what was built before continuing
 
 ---
@@ -1812,15 +1812,15 @@ All {Y} plans finished.
 
 **Phase {Z+1}: {Next Phase Name}** — {Goal from ROADMAP.md}
 
-`/kata:kata-plan-phase {Z+1}`
+`/kata-plan-phase {Z+1}`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:kata-verify-work {Z}` — manual acceptance testing before continuing
-- `/kata:kata-discuss-phase {Z+1}` — gather context first
+- `/kata-verify-work {Z}` — manual acceptance testing before continuing
+- `/kata-discuss-phase {Z+1}` — gather context first
 - Review phase accomplishments before continuing
 
 ---
@@ -1850,15 +1850,15 @@ All {Y} plans finished.
 
 **Complete Milestone** — archive and prepare for next
 
-`/kata:kata-complete-milestone`
+`/kata-complete-milestone`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:kata-verify-work` — manual acceptance testing before completing milestone
-- `/kata:kata-add-phase <description>` — add another phase before completing
+- `/kata-verify-work` — manual acceptance testing before completing milestone
+- `/kata-add-phase <description>` — add another phase before completing
 - Review accomplishments before archiving
 
 ---

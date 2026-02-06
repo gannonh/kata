@@ -38,7 +38,7 @@ MATCH_COUNT=$((MATCH_COUNT + $(find .planning/phases -maxdepth 1 -type d -name "
 
 if [ "$MATCH_COUNT" -gt 1 ]; then
   echo "COLLISION: ${MATCH_COUNT} directories match prefix '${PADDED}-*'"
-  echo "Run /kata:kata-migrate-phases to fix duplicate phase numbering before executing."
+  echo "Run /kata-migrate-phases to fix duplicate phase numbering before executing."
   exit 3
 fi
 

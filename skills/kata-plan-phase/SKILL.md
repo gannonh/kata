@@ -39,7 +39,7 @@ Normalize phase input in step 2 before any directory lookups.
 ls .planning/ 2>/dev/null
 ```
 
-**If not found:** Error - user should run `/kata:kata-new-project` first.
+**If not found:** Error - user should run `/kata-new-project` first.
 
 **Resolve model profile for agent spawning:**
 
@@ -113,7 +113,7 @@ if [ "$MATCH_COUNT" -gt 1 ]; then
 fi
 ```
 
-**If COLLISION detected (MATCH_COUNT > 1):** STOP planning. Invoke `/kata:kata-migrate-phases` to renumber phases to globally sequential numbering. After migration completes, re-invoke `/kata:kata-plan-phase` with the migrated phase number. Do NOT continue with ambiguous phase directories.
+**If COLLISION detected (MATCH_COUNT > 1):** STOP planning. Invoke `/kata-migrate-phases` to renumber phases to globally sequential numbering. After migration completes, re-invoke `/kata-plan-phase` with the migrated phase number. Do NOT continue with ambiguous phase directories.
 
 ```bash
 find "${PHASE_DIR}" -maxdepth 1 -name "*-RESEARCH.md" 2>/dev/null
@@ -389,7 +389,7 @@ Fill prompt with inlined content and spawn:
 </planning_context>
 
 <downstream_consumer>
-Output consumed by /kata:kata-execute-phase
+Output consumed by /kata-execute-phase
 Plans must be executable prompts with:
 
 - Frontmatter (wave, depends_on, files_modified, autonomous)
@@ -683,7 +683,7 @@ GitHub Issue: #{ISSUE_NUMBER} updated with {PLAN_COUNT} plan checklist items
 
 **Execute Phase {X}** — run all {N} plans
 
-/kata:kata-execute-phase {X}
+/kata-execute-phase {X}
 
 <sub>/clear first → fresh context window</sub>
 
@@ -691,7 +691,7 @@ GitHub Issue: #{ISSUE_NUMBER} updated with {PLAN_COUNT} plan checklist items
 
 **Also available:**
 - cat .planning/phases/{phase-dir}/*-PLAN.md — review plans
-- /kata:kata-plan-phase {X} --research — re-research first
+- /kata-plan-phase {X} --research — re-research first
 
 ───────────────────────────────────────────────────────────────
 </offer_next>

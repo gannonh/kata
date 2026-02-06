@@ -113,8 +113,8 @@ Always at end of major completions.
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
-- `/kata:kata-alternative-1` — description
-- `/kata:kata-alternative-2` — description
+- `/kata-alternative-1` — description
+- `/kata-alternative-2` — description
 
 ───────────────────────────────────────────────────────────────
 ```

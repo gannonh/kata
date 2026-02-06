@@ -135,7 +135,7 @@ Current state:
 - Status: [in_progress/blocked]
 - Committed as WIP
 
-To resume: /kata:kata-resume-work
+To resume: /kata-resume-work
 
 ```
 </step>

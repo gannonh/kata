@@ -226,7 +226,7 @@ Do NOT offer manual next steps - phase-verify handles the rest.
 
 **Agent times out:**
 - Check DEBUG-{slug}.md for partial progress
-- Can resume with /kata:kata-debug
+- Can resume with /kata-debug
 
 **All agents fail:**
 - Something systemic (permissions, git, etc.)

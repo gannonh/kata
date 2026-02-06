@@ -164,7 +164,7 @@ kata-orchestrator/
 ```yaml
 ---
 name: kata-planner
-description: Creates executable phase plans with task breakdown, dependency analysis, and goal-backward verification. Spawned by /kata:kata-plan-phase orchestrator.
+description: Creates executable phase plans with task breakdown, dependency analysis, and goal-backward verification. Spawned by /kata-plan-phase orchestrator.
 tools: Read, Write, Bash, Glob, Grep, WebFetch, mcp__context7__*
 model: inherit
 metadata:
@@ -290,7 +290,7 @@ The existing architecture already works. Migration is additive, not destructive.
 
 ### Manual Verification
 
-1. Run `/kata:kata-plan-phase` and verify agent spawns
+1. Run `/kata-plan-phase` and verify agent spawns
 2. Check agent appears in `/agents` command
 3. Verify agent description shown correctly
 4. Test model override from orchestrator

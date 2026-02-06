@@ -10,11 +10,11 @@ files:
 
 ## Problem
 
-When a user runs `/kata:kata-plan-phase 1` on a new milestone, the phase directory lookup scans all of `.planning/phases/{active,pending,completed}/` without filtering by current milestone. If a previous milestone also had a Phase 1 (e.g., `01-foundation` from v0.1.0), the lookup matches the old phase instead of creating a new one for the current milestone.
+When a user runs `/kata-plan-phase 1` on a new milestone, the phase directory lookup scans all of `.planning/phases/{active,pending,completed}/` without filtering by current milestone. If a previous milestone also had a Phase 1 (e.g., `01-foundation` from v0.1.0), the lookup matches the old phase instead of creating a new one for the current milestone.
 
 This breaks per-milestone phase numbering (adopted 2026-02-03). Completed phases from earlier milestones remain in `.planning/phases/completed/` with the same `01-*` prefix, causing name collisions.
 
-Observed in kata-context project: `/kata:kata-plan-phase 1` for v0.3.0 matched `01-foundation` from v0.1.0 instead of creating v0.3.0's Phase 1 (Infrastructure + Policy Foundation).
+Observed in kata-context project: `/kata-plan-phase 1` for v0.3.0 matched `01-foundation` from v0.1.0 instead of creating v0.3.0's Phase 1 (Infrastructure + Policy Foundation).
 
 ## Solution
 

@@ -93,7 +93,7 @@ MATCH_COUNT=$((MATCH_COUNT + $(find .planning/phases -maxdepth 1 -type d -name "
 
 if [ "$MATCH_COUNT" -gt 1 ]; then
   echo "COLLISION: ${MATCH_COUNT} directories match prefix '${PADDED}-*'"
-  echo "Run /kata:kata-migrate-phases to fix duplicate phase numbering before executing."
+  echo "Run /kata-migrate-phases to fix duplicate phase numbering before executing."
   exit 1
 fi
 
@@ -174,7 +174,7 @@ waves = {
 }
 ```
 
-**No dependency analysis needed.** Wave numbers are pre-computed during `/kata:kata-plan-phase`.
+**No dependency analysis needed.** Wave numbers are pre-computed during `/kata-plan-phase`.
 
 Report wave structure with context:
 ```
@@ -482,7 +482,7 @@ grep "^status:" "$PHASE_DIR"/*-VERIFICATION.md | cut -d: -f2 | tr -d ' '
 | -------------- | ------------------------------------------------------------ |
 | `passed`       | Continue to update_roadmap                                   |
 | `human_needed` | Present items to user, get approval or feedback              |
-| `gaps_found`   | Present gap summary, offer `/kata:kata-plan-phase {phase} --gaps` |
+| `gaps_found`   | Present gap summary, offer `/kata-plan-phase {phase} --gaps` |
 
 **If passed:**
 
@@ -559,7 +559,7 @@ Present gaps and offer next command:
 
 **Plan gap closure** — create additional plans to complete the phase
 
-`/kata:kata-plan-phase {X} --gaps`
+`/kata-plan-phase {X} --gaps`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -567,13 +567,13 @@ Present gaps and offer next command:
 
 **Also available:**
 - `cat {phase_dir}/{phase}-VERIFICATION.md` — see full report
-- `/kata:kata-verify-work {X}` — manual testing before planning
+- `/kata-verify-work {X}` — manual testing before planning
 ```
 
-User runs `/kata:kata-plan-phase {X} --gaps` which:
+User runs `/kata-plan-phase {X} --gaps` which:
 1. Reads VERIFICATION.md gaps
 2. Creates additional plans (04, 05, etc.) with `gap_closure: true` to close gaps
-3. User then runs `/kata:kata-execute-phase {X} --gaps-only`
+3. User then runs `/kata-execute-phase {X} --gaps-only`
 4. phase-execute runs only gap closure plans (04-05)
 5. Verifier runs again after new plans complete
 
@@ -617,7 +617,7 @@ Present next steps based on milestone status:
 
 **Phase {X+1}: {Name}** — {Goal}
 
-`/kata:kata-plan-phase {X+1}`
+`/kata-plan-phase {X+1}`
 
 <sub>`/clear` first for fresh context</sub>
 ```
@@ -628,7 +628,7 @@ MILESTONE COMPLETE!
 
 All {N} phases executed.
 
-`/kata:kata-complete-milestone`
+`/kata-complete-milestone`
 ```
 </step>
 
@@ -683,7 +683,7 @@ Each subagent: Fresh 200k context
 
 If phase execution was interrupted (context limit, user exit, error):
 
-1. Run `/kata:kata-execute-phase {phase}` again
+1. Run `/kata-execute-phase {phase}` again
 2. discover_plans finds completed SUMMARYs
 3. Skips completed plans
 4. Resumes from first incomplete plan

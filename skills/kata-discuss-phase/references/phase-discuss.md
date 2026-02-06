@@ -119,7 +119,7 @@ Load and validate:
 ```
 Phase [X] not found in roadmap.
 
-Use /kata:kata-track-progress to see available phases.
+Use /kata-track-progress to see available phases.
 ```
 Exit workflow.
 
@@ -388,14 +388,14 @@ Created: .planning/phases/${PADDED_PHASE}-${SLUG}/${PADDED_PHASE}-CONTEXT.md
 
 **Phase ${PHASE}: [Name]** — [Goal from ROADMAP.md]
 
-`/kata:kata-plan-phase ${PHASE}`
+`/kata-plan-phase ${PHASE}`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:kata-plan-phase ${PHASE} --skip-research` — plan without research
+- `/kata-plan-phase ${PHASE} --skip-research` — plan without research
 - Review/edit CONTEXT.md before continuing
 
 ---

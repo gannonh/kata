@@ -100,4 +100,4 @@ None.
 Last session: 2026-02-06
 Stopped at: v1.6.0 milestone shipped
 Resume file: None
-Next action: Define next milestone with /kata:kata-add-milestone
+Next action: Define next milestone with /kata-add-milestone

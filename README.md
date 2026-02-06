@@ -41,8 +41,8 @@ npx skills add gannonh/kata-skills
 <summary><strong>v1.5.0: Phase Management</strong></summary>
 
 **Reorganize your roadmap without starting over:**
-- **Move phases** — `/kata:kata-move-phase 3 to v2.0` moves a phase between milestones
-- **Reorder phases** — `/kata:kata-move-phase 3 before 1` changes phase order within a milestone
+- **Move phases** — `/kata-move-phase 3 to v2.0` moves a phase between milestones
+- **Reorder phases** — `/kata-move-phase 3 before 1` changes phase order within a milestone
 - **Global phase numbering** — Phase numbers are globally sequential across milestones (they never reset)
 - **Phase state directories** — Phases organized into `pending/`, `active/`, `completed/`
 
@@ -79,7 +79,7 @@ npx skills add gannonh/kata-skills
 
 </details>
 
-**All features are optional.** Enable what you need via `/kata:kata-configure-settings`.
+**All features are optional.** Enable what you need via `/kata-configure-settings`.
 
 <p align="center">
 <img src="assets/project-config-flow.gif" alt="GitHub Integration Setup">
@@ -105,7 +105,7 @@ Drive your entire workflow with **natural language**.
 | "Reorder phase 3 before 1" | Reorder → Renumber all affected → Commit             |
 | "What's the status?"       | Progress report → Routes to next action              |
 
-Slash commands exist for precision (`/kata:kata-plan-phase 2`), but natural language always works.
+Slash commands exist for precision (`/kata-plan-phase 2`), but natural language always works.
 
 ---
 
@@ -124,7 +124,7 @@ Slash commands exist for precision (`/kata:kata-plan-phase 2`), but natural lang
 npx skills add gannonh/kata-skills
 ```
 
-Verify with `/kata:kata-help`.
+Verify with `/kata-help`.
 
 ### Update
 
@@ -132,7 +132,7 @@ Verify with `/kata:kata-help`.
 claude plugin update kata@gannonh-kata-marketplace
 ```
 
-Check what's new: `/kata:kata-whats-new`
+Check what's new: `/kata-whats-new`
 
 ### Recommended: Skip Permissions
 
@@ -353,7 +353,7 @@ For ad-hoc work that doesn't need full planning:
 Settings live in `.planning/config.json`. Configure during project init or update anytime:
 
 ```
-/kata:kata-configure-settings
+/kata-configure-settings
 ```
 
 ### Core Settings
@@ -373,7 +373,7 @@ Balance quality vs cost:
 | `balanced` | Opus     | Sonnet    | Sonnet       |
 | `budget`   | Sonnet   | Sonnet    | Haiku        |
 
-Switch: `/kata:kata-set-profile quality`
+Switch: `/kata-set-profile quality`
 
 ### Workflow Agents
 
@@ -385,11 +385,11 @@ Toggle agents that run during planning/execution:
 | `workflow.plan_check` | `true`  | Verify plans achieve phase goals     |
 | `workflow.verifier`   | `true`  | Confirm deliverables after execution |
 
-Override per-invocation: `/kata:kata-plan-phase --skip-research`
+Override per-invocation: `/kata-plan-phase --skip-research`
 
 ### GitHub Integration (Optional)
 
-**All GitHub features are off by default.** Enable via `/kata:kata-configure-settings`:
+**All GitHub features are off by default.** Enable via `/kata-configure-settings`:
 
 | Setting            | Options              | Default | What it enables                               |
 | ------------------ | -------------------- | ------- | --------------------------------------------- |

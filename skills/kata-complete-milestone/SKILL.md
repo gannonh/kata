@@ -125,19 +125,19 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 1. **Check for audit:**
 
    - Look for `.planning/v{{version}}-MILESTONE-AUDIT.md`
-   - If missing or stale: recommend `/kata:kata-audit-milestone` first
-   - If audit status is `gaps_found`: recommend `/kata:kata-plan-milestone-gaps` first
+   - If missing or stale: recommend `/kata-audit-milestone` first
+   - If audit status is `gaps_found`: recommend `/kata-plan-milestone-gaps` first
    - If audit status is `passed`: proceed to step 1
 
    ```markdown
    ## Pre-flight Check
 
    {If no v{{version}}-MILESTONE-AUDIT.md:}
-   ⚠ No milestone audit found. Run `/kata:kata-audit-milestone` first to verify
+   ⚠ No milestone audit found. Run `/kata-audit-milestone` first to verify
    requirements coverage, cross-phase integration, and E2E flows.
 
    {If audit has gaps:}
-   ⚠ Milestone audit found gaps. Run `/kata:kata-plan-milestone-gaps` to create
+   ⚠ Milestone audit found gaps. Run `/kata-plan-milestone-gaps` to create
    phases that close the gaps, or proceed anyway to accept as tech debt.
 
    {If audit passed:}
@@ -335,7 +335,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    **If "Yes" or "Skip":** Continue to step 9.
 
 3. **Offer next steps:**
-   - `/kata:kata-add-milestone` — start next milestone (questioning → research → requirements → roadmap)
+   - `/kata-add-milestone` — start next milestone (questioning → research → requirements → roadmap)
 
 </process>
 
@@ -365,5 +365,5 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 - **Archive before deleting:** Always create archive files before updating/deleting originals
 - **One-line summary:** Collapsed milestone in ROADMAP.md should be single line with link
 - **Context efficiency:** Archive keeps ROADMAP.md and REQUIREMENTS.md constant size per milestone
-- **Fresh requirements:** Next milestone starts with `/kata:kata-add-milestone` which includes requirements definition
+- **Fresh requirements:** Next milestone starts with `/kata-add-milestone` which includes requirements definition
   </critical_rules>

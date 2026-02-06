@@ -122,7 +122,7 @@ gh issue create \
 
 ## Plans
 
-<!-- Checklist added by /kata:kata-plan-phase (Phase 4) -->
+<!-- Checklist added by /kata-plan-phase (Phase 4) -->
 _Plans will be added after phase planning completes._
 
 ---

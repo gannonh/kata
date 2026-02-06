@@ -8,7 +8,7 @@ allowed-tools: Read Write Bash Task AskUserQuestion
 <objective>
 Add a milestone to the project through unified flow: questioning → research (optional) → requirements → roadmap.
 
-This works for both first milestone (after /kata:kata-new-project) and subsequent milestones (after completing a milestone).
+This works for both first milestone (after /kata-new-project) and subsequent milestones (after completing a milestone).
 
 **Creates/Updates:**
 - `.planning/PROJECT.md` — updated with new milestone goals
@@ -17,7 +17,7 @@ This works for both first milestone (after /kata:kata-new-project) and subsequen
 - `.planning/ROADMAP.md` — phase structure (creates if first, continues if subsequent)
 - `.planning/STATE.md` — reset for new milestone (creates if first)
 
-**After this command:** Run `/kata:kata-plan-phase [N]` to start execution.
+**After this command:** Run `/kata-plan-phase [N]` to start execution.
 </objective>
 
 <execution_context>
@@ -571,7 +571,7 @@ Issues pulled into current milestone scope:
 - Selected issues become formally tracked as part of the milestone scope
 - They appear in STATE.md under "### Milestone Scope Issues" for the current milestone
 - They inform requirements generation in Phase 8 (planner should consider these issues when generating requirements)
-- They will be visible in progress tracking commands like /kata:kata-track-progress
+- They will be visible in progress tracking commands like /kata-track-progress
 - User still defines formal requirements through Phase 8, but selected issues provide explicit scope context
 
 **If BACKLOG_COUNT = 0:**
@@ -749,7 +749,7 @@ Use AskUserQuestion:
 
 **If "Migrate now":**
 
-Run the migration logic from `/kata:kata-migrate-phases` inline:
+Run the migration logic from `/kata-migrate-phases` inline:
 1. Build chronology from ROADMAP.md (completed milestone `<details>` blocks + current milestone phases)
 2. Map directories to globally sequential numbers
 3. Execute two-pass rename (tmp- prefix, then final)
@@ -761,7 +761,7 @@ Run the migration logic from `/kata:kata-migrate-phases` inline:
 Display:
 
 ```
-⚠ Skipping migration. Run `/kata:kata-migrate-phases` to fix collisions later.
+⚠ Skipping migration. Run `/kata-migrate-phases` to fix collisions later.
 ```
 
 Continue to Phase 9.
@@ -1082,7 +1082,7 @@ ${REQUIREMENT_IDS}")
 
 ## Plans
 
-<!-- Checklist added by /kata:kata-plan-phase (Phase 4) -->
+<!-- Checklist added by /kata-plan-phase (Phase 4) -->
 _Plans will be added after phase planning completes._
 
 ---
@@ -1140,14 +1140,14 @@ Present completion with next steps:
 
 **Phase [N]: [Phase Name]** — [Goal from ROADMAP.md]
 
-`/kata:kata-discuss-phase [N]` — gather context and clarify approach
+`/kata-discuss-phase [N]` — gather context and clarify approach
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/kata:kata-plan-phase [N]` — skip discussion, plan directly
+- `/kata-plan-phase [N]` — skip discussion, plan directly
 
 ───────────────────────────────────────────────────────────────
 
@@ -1167,7 +1167,7 @@ Present completion with next steps:
 - [ ] User feedback incorporated (if any)
 - [ ] ROADMAP.md created with globally sequential phase numbers (continuing from highest existing)
 - [ ] All commits made (if planning docs committed)
-- [ ] User knows next step is `/kata:kata-discuss-phase [N]`
+- [ ] User knows next step is `/kata-discuss-phase [N]`
 
 **Atomic commits:** Each phase commits its artifacts immediately. If context is lost, artifacts persist.
 </success_criteria>

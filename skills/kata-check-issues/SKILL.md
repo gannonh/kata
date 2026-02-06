@@ -23,7 +23,7 @@ Enables reviewing captured ideas and deciding what to work on next.
 
 Display:
 
-> **Note:** "todos" is now "issues". Using `/kata:kata-check-issues`.
+> **Note:** "todos" is now "issues". Using `/kata-check-issues`.
 
 Then proceed with the action (non-blocking).
 </step>
@@ -69,14 +69,14 @@ If both counts are 0:
 ```
 No open or in-progress issues.
 
-Issues are captured during work sessions with /kata:kata-add-issue.
+Issues are captured during work sessions with /kata-add-issue.
 
 ---
 
 Would you like to:
 
-1. Continue with current phase (/kata:kata-track-progress)
-2. Add an issue now (/kata:kata-add-issue)
+1. Continue with current phase (/kata-track-progress)
+2. Add an issue now (/kata-add-issue)
 ```
 
 Exit.
@@ -84,8 +84,8 @@ Exit.
 
 <step name="parse_filter">
 Check for area filter in arguments:
-- `/kata:kata-check-issues` → show all
-- `/kata:kata-check-issues api` → filter to area:api only
+- `/kata-check-issues` → show all
+- `/kata-check-issues api` → filter to area:api only
 </step>
 
 <step name="list_issues">
@@ -155,7 +155,7 @@ Issues:
 ---
 
 Reply with a number to view details, or:
-- `/kata:kata-check-issues [area]` to filter by area
+- `/kata-check-issues [area]` to filter by area
 - `q` to exit
 ```
 
@@ -265,7 +265,7 @@ Use AskUserQuestion:
 - question: "What would you like to do with this issue?"
 - options:
   - "Work on it now" — move to in-progress, start working (shows mode selection)
-  - "Create a phase" — /kata:kata-add-phase with this scope
+  - "Create a phase" — /kata-add-phase with this scope
   - "Brainstorm approach" — think through before deciding
   - "Put it back" — return to list
 
@@ -358,7 +358,7 @@ Starting quick task execution for issue: [title]
 
 3. Route to execute-quick-task with issue context:
 ```
-/kata:kata-execute-quick-task --issue "$ISSUE_FILE"
+/kata-execute-quick-task --issue "$ISSUE_FILE"
 ```
 
 The execute-quick-task skill will handle planning, execution, and PR creation.
@@ -401,7 +401,7 @@ When the phase PR merges, the issue will close automatically.
 
 **Create Phase:** ${ISSUE_TITLE}
 
-`/kata:kata-add-phase --issue ${ISSUE_FILE}`
+`/kata-add-phase --issue ${ISSUE_FILE}`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -409,7 +409,7 @@ When the phase PR merges, the issue will close automatically.
 
 Note: Issue remains in open/ until phase work begins.
 When phase planning starts, move issue to in-progress manually
-or use /kata:kata-check-issues to update status.
+or use /kata-check-issues to update status.
 ```
 
 3. Keep issue in open/ (do NOT move to in-progress yet).
@@ -564,8 +564,8 @@ Issue remains in open/ until phase work begins.
 No upcoming phases found.
 
 Options:
-- /kata:kata-add-phase --issue ${ISSUE_FILE} — Create a new phase
-- /kata:kata-track-progress — View current roadmap status
+- /kata-add-phase --issue ${ISSUE_FILE} — Create a new phase
+- /kata-track-progress — View current roadmap status
 - Put it back — Return to issue list
 ```
 
@@ -621,7 +621,7 @@ Issue moved to in-progress: [filename]
 
 Ready to begin work.
 
-When complete, use `/kata:kata-check-issues` and select "Mark complete".
+When complete, use `/kata-check-issues` and select "Mark complete".
 ```
 
 Update STATE.md issue count. Present problem/solution context. Begin work or ask how to proceed.
@@ -657,7 +657,7 @@ Starting quick task execution for issue: [title]
 
 4. Route to execute-quick-task with issue context:
 ```
-/kata:kata-execute-quick-task --issue "$ISSUE_FILE"
+/kata-execute-quick-task --issue "$ISSUE_FILE"
 ```
 
 **If "Planned" mode selected:**
@@ -696,7 +696,7 @@ When the phase PR merges, the issue will close automatically.
 
 **Create Phase:** ${ISSUE_TITLE}
 
-`/kata:kata-add-phase --issue ${ISSUE_FILE}`
+`/kata-add-phase --issue ${ISSUE_FILE}`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -704,7 +704,7 @@ When the phase PR merges, the issue will close automatically.
 
 Note: Issue remains in open/ until phase work begins.
 When phase planning starts, move issue to in-progress manually
-or use /kata:kata-check-issues to update status.
+or use /kata-check-issues to update status.
 ```
 
 3. Keep issue in open/ (do NOT move to in-progress yet).
@@ -834,8 +834,8 @@ Issue remains in open/ until phase work begins.
 No upcoming phases found.
 
 Options:
-- /kata:kata-add-phase --issue ${ISSUE_FILE} — Create a new phase
-- /kata:kata-track-progress — View current roadmap status
+- /kata-add-phase --issue ${ISSUE_FILE} — Create a new phase
+- /kata-track-progress — View current roadmap status
 - Put it back — Return to issue list
 ```
 
@@ -883,7 +883,7 @@ Issue moved to in-progress: [filename]
 
 Ready to begin work.
 
-When complete, use `/kata:kata-check-issues` and select "Mark complete".
+When complete, use `/kata-check-issues` and select "Mark complete".
 ```
 
 Update STATE.md issue count. Present problem/solution context. Begin work or ask how to proceed.
@@ -949,7 +949,7 @@ Opens issue in browser. Return to list.
 Note issue reference in phase planning notes. Keep in open. Return to list or exit.
 
 **Create a phase:**
-Display: `/kata:kata-add-phase --issue [issue file path]`
+Display: `/kata-add-phase --issue [issue file path]`
 Keep in open. User runs command in fresh context.
 
 **Brainstorm approach:**
@@ -1042,14 +1042,14 @@ Confirm: "Committed: docs: return issue to backlog - [title]"
 - Moved issue to `.planning/issues/open/` (if "Put back to open")
 - Created `.planning/issues/open/` file (if "Pull to local" from GitHub)
 - Updated `.planning/STATE.md` (if issue count changed)
-- Routed to `/kata:kata-execute-quick-task` (if "Quick task" mode selected)
+- Routed to `/kata-execute-quick-task` (if "Quick task" mode selected)
 - Displayed planned execution guidance (if "Planned" mode selected)
 </output>
 
 <anti_patterns>
 - Don't delete issues — use proper state transitions
 - Don't close GitHub Issues when starting work — only when marking complete
-- Don't create plans from this command — route to /kata:kata-plan-phase or /kata:kata-add-phase
+- Don't create plans from this command — route to /kata-plan-phase or /kata-add-phase
 </anti_patterns>
 
 <issue_lifecycle>
@@ -1064,13 +1064,13 @@ closed/      → Completed
 ```
 
 **State transitions:**
-- **Work on it now (Quick task):** `open/` → `in-progress/` → routes to `/kata:kata-execute-quick-task`
+- **Work on it now (Quick task):** `open/` → `in-progress/` → routes to `/kata-execute-quick-task`
 - **Work on it now (Planned):** stays in `open/` with guidance for phase planning
 - **Mark complete:** `in-progress/` → `closed/` (closes GitHub Issue if linked)
 - **Put back to open:** `in-progress/` → `open/` (useful if deprioritized)
 
 **GitHub Issue lifecycle:**
-- Created when: `/kata:kata-add-issue` with `github.enabled=true`
+- Created when: `/kata-add-issue` with `github.enabled=true`
 - Linked via: `provenance: github:owner/repo#N` in local file
 - Closed when: User selects "Mark complete" on an in-progress issue
 - Alternative: GitHub auto-closes via "Closes #N" in PR description when PR merges
@@ -1089,7 +1089,7 @@ The provenance field is the linchpin - it enables deduplication and bidirectiona
 - [ ] Roadmap context checked for phase match
 - [ ] Appropriate actions offered based on issue state
 - [ ] "Work on it now" presents mode selection (Quick task vs Planned) via AskUserQuestion
-- [ ] "Quick task" mode moves to in-progress and routes to `/kata:kata-execute-quick-task --issue`
+- [ ] "Quick task" mode moves to in-progress and routes to `/kata-execute-quick-task --issue`
 - [ ] "Planned" mode displays guidance message and returns gracefully
 - [ ] "Work on it now" adds in-progress label to GitHub Issue (if linked, Quick task mode)
 - [ ] "Work on it now" assigns GitHub Issue to @me (if linked, Quick task mode)

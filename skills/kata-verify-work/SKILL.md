@@ -10,7 +10,7 @@ Validate built features through conversational testing with persistent state.
 
 Purpose: Confirm what Claude built actually works from user's perspective. One test at a time, plain text responses, no interrogation. When issues are found, automatically diagnose, plan fixes, and prepare for execution.
 
-Output: {phase}-UAT.md tracking all test results. If issues found: diagnosed gaps, verified fix plans ready for /kata:kata-execute-phase
+Output: {phase}-UAT.md tracking all test results. If issues found: diagnosed gaps, verified fix plans ready for /kata-execute-phase
 </objective>
 
 <execution_context>
@@ -46,7 +46,7 @@ Phase: $ARGUMENTS (optional)
    - Spawn kata-planner in --gaps mode to create fix plans
    - Spawn kata-plan-checker to verify fix plans
    - Iterate planner ↔ checker until plans pass (max 3)
-   - Present ready status with `/clear` then `/kata:kata-execute-phase`
+   - Present ready status with `/clear` then `/kata-execute-phase`
 </process>
 
 <step_7_5_pr_workflow>
@@ -153,7 +153,7 @@ Use AskUserQuestion with options based on what was found:
 3. Continue to offer_next
 
 **Path D: "Add to backlog"**
-1. Create issues for all findings using `/kata:kata-add-issue`
+1. Create issues for all findings using `/kata-add-issue`
 2. Store TODOS_CREATED count
 3. Continue to offer_next
 
@@ -224,15 +224,15 @@ UAT complete ✓
 
 **Phase {Z+1}: {Name}** — {Goal from ROADMAP.md}
 
-/kata:kata-discuss-phase {Z+1} — gather context and clarify approach
+/kata-discuss-phase {Z+1} — gather context and clarify approach
 
 <sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
-- /kata:kata-plan-phase {Z+1} — skip discussion, plan directly
-- /kata:kata-execute-phase {Z+1} — skip to execution (if already planned)
+- /kata-plan-phase {Z+1} — skip discussion, plan directly
+- /kata-execute-phase {Z+1} — skip to execution (if already planned)
 {If PR_WORKFLOW and not MERGED: - `gh pr view --web` — review PR in browser before next phase}
 
 ───────────────────────────────────────────────────────────────
@@ -280,14 +280,14 @@ Final phase verified ✓
 
 **Audit milestone** — verify requirements, cross-phase integration, E2E flows
 
-/kata:kata-audit-milestone
+/kata-audit-milestone
 
 <sub>/clear first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
-- /kata:kata-complete-milestone — skip audit, archive directly
+- /kata-complete-milestone — skip audit, archive directly
 {If PR_WORKFLOW and not MERGED: - `gh pr view --web` — review PR in browser before audit}
 
 ───────────────────────────────────────────────────────────────
@@ -316,7 +316,7 @@ Fix plans verified ✓
 
 **Execute fix plans** — run diagnosed fixes
 
-/kata:kata-execute-phase {Z} --gaps-only
+/kata-execute-phase {Z} --gaps-only
 
 <sub>/clear first → fresh context window</sub>
 
@@ -324,7 +324,7 @@ Fix plans verified ✓
 
 **Also available:**
 - cat ${PHASE_DIR}/*-PLAN.md — review fix plans
-- /kata:kata-plan-phase {Z} --gaps — regenerate fix plans
+- /kata-plan-phase {Z} --gaps — regenerate fix plans
 
 ───────────────────────────────────────────────────────────────
 
@@ -359,8 +359,8 @@ Review the issues above and either:
 ───────────────────────────────────────────────────────────────
 
 **Options:**
-- /kata:kata-plan-phase {Z} --gaps — retry fix planning with guidance
-- /kata:kata-discuss-phase {Z} — gather more context before replanning
+- /kata-plan-phase {Z} --gaps — retry fix planning with guidance
+- /kata-discuss-phase {Z} — gather more context before replanning
 
 ───────────────────────────────────────────────────────────────
 </offer_next>
@@ -375,5 +375,5 @@ Review the issues above and either:
 - [ ] If issues: parallel debug agents diagnose root causes
 - [ ] If issues: kata-planner creates fix plans from diagnosed gaps
 - [ ] If issues: kata-plan-checker verifies fix plans (max 3 iterations)
-- [ ] Ready for `/kata:kata-execute-phase` when complete
+- [ ] Ready for `/kata-execute-phase` when complete
 </success_criteria>
