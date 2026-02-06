@@ -69,7 +69,12 @@ Use AskUserQuestion for each:
 
 After all gathered, confirm ready to investigate.
 
-## 3. Spawn kata-debugger Agent
+## 3. Read Instruction Files
+
+Before spawning agents, read agent instructions using the Read tool:
+- `references/debugger-instructions.md` (relative to skill base directory) — store as `debugger_instructions_content`
+
+## 4. Spawn Debugger Agent
 
 Fill prompt and spawn:
 
@@ -100,14 +105,14 @@ Create: .planning/debug/{slug}.md
 
 ```
 Task(
-  prompt=filled_prompt,
-  subagent_type="kata-debugger",
+  prompt="<agent-instructions>\n{debugger_instructions_content}\n</agent-instructions>\n\n" + filled_prompt,
+  subagent_type="general-purpose",
   model="{debugger_model}",
   description="Debug {slug}"
 )
 ```
 
-## 4. Handle Agent Return
+## 5. Handle Agent Return
 
 **If `## ROOT CAUSE FOUND`:**
 - Display root cause and evidence summary
@@ -128,7 +133,7 @@ Task(
   - "Manual investigation" - done
   - "Add more context" - gather more symptoms, spawn again
 
-## 5. Spawn Continuation Agent (After Checkpoint)
+## 6. Spawn Continuation Agent (After Checkpoint)
 
 When user responds to checkpoint, spawn fresh agent:
 
@@ -153,8 +158,8 @@ goal: find_and_fix
 
 ```
 Task(
-  prompt=continuation_prompt,
-  subagent_type="kata-debugger",
+  prompt="<agent-instructions>\n{debugger_instructions_content}\n</agent-instructions>\n\n" + continuation_prompt,
+  subagent_type="general-purpose",
   model="{debugger_model}",
   description="Continue debug {slug}"
 )

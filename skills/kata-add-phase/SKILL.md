@@ -30,15 +30,42 @@ IMPORTANT: When showing examples to users, always use `/kata:kata-add-phase` (th
 
 <step name="parse_arguments">
 Parse the command arguments:
+
+**With `--issue` flag:**
+- `/kata:kata-add-phase --issue .planning/issues/open/2026-02-06-phase-lookup.md`
+- Read the issue file to extract title, provenance, and context
+- `description` = issue title from frontmatter
+- `ISSUE_FILE` = the path argument
+- `ISSUE_PROVENANCE` = provenance field from frontmatter (e.g., `github:owner/repo#102`)
+- `ISSUE_NUMBER` = extracted from provenance if GitHub-linked (e.g., `102`)
+
+```bash
+if echo "$ARGUMENTS" | grep -q "^--issue "; then
+  ISSUE_FILE=$(echo "$ARGUMENTS" | sed 's/^--issue //')
+  if [ ! -f "$ISSUE_FILE" ]; then
+    echo "ERROR: Issue file not found: $ISSUE_FILE"
+    exit 1
+  fi
+  description=$(grep "^title:" "$ISSUE_FILE" | cut -d':' -f2- | xargs)
+  ISSUE_PROVENANCE=$(grep "^provenance:" "$ISSUE_FILE" | cut -d' ' -f2)
+  ISSUE_NUMBER=""
+  if echo "$ISSUE_PROVENANCE" | grep -q "^github:"; then
+    ISSUE_NUMBER=$(echo "$ISSUE_PROVENANCE" | grep -oE '#[0-9]+' | tr -d '#')
+  fi
+fi
+```
+
+**Without `--issue` flag:**
 - All arguments become the phase description
 - Example: `/kata:kata-add-phase Add authentication` → description = "Add authentication"
-- Example: `/kata:kata-add-phase Fix critical performance issues` → description = "Fix critical performance issues"
+- `ISSUE_FILE`, `ISSUE_PROVENANCE`, `ISSUE_NUMBER` are empty
 
 If no arguments provided:
 
 ```
 ERROR: Phase description required
 Usage: /kata:kata-add-phase <description>
+       /kata:kata-add-phase --issue <issue-file-path>
 Example: /kata:kata-add-phase Add authentication system
 ```
 
@@ -130,6 +157,7 @@ Add the new phase entry to the roadmap:
 
    **Goal:** [To be planned]
    **Depends on:** Phase {N-1}
+   {if ISSUE_NUMBER: **Issue:** Closes #{ISSUE_NUMBER}}
    **Plans:** 0 plans
 
    Plans:
@@ -138,6 +166,9 @@ Add the new phase entry to the roadmap:
    **Details:**
    [To be added during planning]
    ```
+
+   If `ISSUE_NUMBER` is set (from `--issue` flag), include the `**Issue:** Closes #{N}` line.
+   This ensures PRs referencing this phase will auto-close the GitHub issue.
 
 3. Write updated roadmap back to file
 
@@ -165,6 +196,7 @@ Phase {N} added to current milestone:
 - Description: {description}
 - Directory: .planning/phases/{phase-num}-{slug}/
 - Status: Not planned yet
+{if ISSUE_NUMBER: - Issue: Closes #${ISSUE_NUMBER} (linked from ${ISSUE_FILE})}
 
 Roadmap updated: {roadmap-path}
 Project state updated: .planning/STATE.md

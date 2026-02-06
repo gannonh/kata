@@ -273,10 +273,22 @@ Display spawning indicator:
   → Pitfalls research
 ```
 
-Spawn 4 parallel kata-project-researcher agents with milestone-aware context:
+Read agent instruction files for inlining into Task() prompts:
+
+```bash
+project_researcher_instructions_content=$(cat ${SKILL_BASE_DIR}/references/project-researcher-instructions.md)
+research_synthesizer_instructions_content=$(cat ${SKILL_BASE_DIR}/references/research-synthesizer-instructions.md)
+roadmapper_instructions_content=$(cat ${SKILL_BASE_DIR}/references/roadmapper-instructions.md)
+```
+
+Spawn all 4 researchers in a **single message containing 4 parallel Task tool calls**. All 4 must be in the same response — do NOT wait for one to finish before spawning the next:
 
 ```
 Task(prompt="
+<agent-instructions>
+{project_researcher_instructions_content}
+</agent-instructions>
+
 <research_type>
 Project Research — Stack dimension for [new features].
 </research_type>
@@ -315,9 +327,13 @@ Your STACK.md feeds into roadmap creation. Be prescriptive:
 Write to: .planning/research/STACK.md
 Format: Standard research output forSTACK.md
 </output>
-", subagent_type="kata-project-researcher", model="{researcher_model}", description="Stack research")
+", subagent_type="general-purpose", model="{researcher_model}", description="Stack research")
 
 Task(prompt="
+<agent-instructions>
+{project_researcher_instructions_content}
+</agent-instructions>
+
 <research_type>
 Project Research — Features dimension for [new features].
 </research_type>
@@ -356,9 +372,13 @@ Your FEATURES.md feeds into requirements definition. Categorize clearly:
 Write to: .planning/research/FEATURES.md
 Format: Standard research output forFEATURES.md
 </output>
-", subagent_type="kata-project-researcher", model="{researcher_model}", description="Features research")
+", subagent_type="general-purpose", model="{researcher_model}", description="Features research")
 
 Task(prompt="
+<agent-instructions>
+{project_researcher_instructions_content}
+</agent-instructions>
+
 <research_type>
 Project Research — Architecture dimension for [new features].
 </research_type>
@@ -398,9 +418,13 @@ Your ARCHITECTURE.md informs phase structure in roadmap. Include:
 Write to: .planning/research/ARCHITECTURE.md
 Format: Standard research output forARCHITECTURE.md
 </output>
-", subagent_type="kata-project-researcher", model="{researcher_model}", description="Architecture research")
+", subagent_type="general-purpose", model="{researcher_model}", description="Architecture research")
 
 Task(prompt="
+<agent-instructions>
+{project_researcher_instructions_content}
+</agent-instructions>
+
 <research_type>
 Project Research — Pitfalls dimension for [new features].
 </research_type>
@@ -436,13 +460,17 @@ Your PITFALLS.md prevents mistakes in roadmap/planning. For each pitfall:
 Write to: .planning/research/PITFALLS.md
 Format: Standard research output forPITFALLS.md
 </output>
-", subagent_type="kata-project-researcher", model="{researcher_model}", description="Pitfalls research")
+", subagent_type="general-purpose", model="{researcher_model}", description="Pitfalls research")
 ```
 
 After all 4 agents complete, spawn synthesizer to create SUMMARY.md:
 
 ```
 Task(prompt="
+<agent-instructions>
+{research_synthesizer_instructions_content}
+</agent-instructions>
+
 <task>
 Synthesize research outputs into SUMMARY.md.
 </task>
@@ -460,7 +488,7 @@ Write to: .planning/research/SUMMARY.md
 Format: Standard research output forSUMMARY.md
 Commit after writing.
 </output>
-", subagent_type="kata-research-synthesizer", model="{synthesizer_model}", description="Synthesize research")
+", subagent_type="general-purpose", model="{synthesizer_model}", description="Synthesize research")
 ```
 
 Display research complete banner and key findings:
@@ -692,6 +720,60 @@ EOF
 )"
 ```
 
+## Phase 8.5: Collision Check
+
+Check for duplicate phase numeric prefixes across all state directories. Collisions cause `find ... -name "01-*" | head -1` to return wrong directories.
+
+```bash
+DUPES=$(for state in active pending completed; do
+  ls .planning/phases/${state}/ 2>/dev/null
+done | grep -oE '^[0-9]+' | sort -n | uniq -d)
+
+# Include flat directories (unmigrated projects)
+FLAT_DUPES=$(ls .planning/phases/ 2>/dev/null | grep -E '^[0-9]' | grep -oE '^[0-9]+' | sort -n | uniq -d)
+
+ALL_DUPES=$(echo -e "${DUPES}\n${FLAT_DUPES}" | sort -nu | grep -v '^$')
+```
+
+**If `ALL_DUPES` is empty:** Continue silently to Phase 9.
+
+**If collisions found:**
+
+Display:
+
+```
+⚠ Duplicate phase prefixes detected: [list]
+
+Phase directories share numeric prefixes across milestones. This causes
+phase lookup commands to return wrong directories.
+```
+
+Use AskUserQuestion:
+- header: "Collisions"
+- question: "Duplicate phase prefixes found. Migrate to globally sequential numbering?"
+- options:
+  - "Migrate now" — Run inline migration, then recalculate NEXT_PHASE before continuing
+  - "Skip" — Continue without fixing (phase lookups may return wrong results)
+
+**If "Migrate now":**
+
+Run the migration logic from `/kata:kata-migrate-phases` inline:
+1. Build chronology from ROADMAP.md (completed milestone `<details>` blocks + current milestone phases)
+2. Map directories to globally sequential numbers
+3. Execute two-pass rename (tmp- prefix, then final)
+4. Update ROADMAP.md current milestone phase numbers
+5. Recalculate `NEXT_PHASE` from the newly renumbered directories
+
+**If "Skip":**
+
+Display:
+
+```
+⚠ Skipping migration. Run `/kata:kata-migrate-phases` to fix collisions later.
+```
+
+Continue to Phase 9.
+
 ## Phase 9: Create Roadmap
 
 Display stage banner:
@@ -705,12 +787,27 @@ Display stage banner:
 
 **Determine starting phase number:**
 
-Start phase numbering at 1 (each milestone has independent numbering).
+Phase numbers are globally sequential across milestones. Scan all existing phase directories to find the highest phase number, then start this milestone's phases at highest + 1:
 
-Spawn kata-roadmapper agent with context:
+```bash
+ALL_PHASE_DIRS=""
+for state in active pending completed; do
+  [ -d ".planning/phases/${state}" ] && ALL_PHASE_DIRS="${ALL_PHASE_DIRS} $(find .planning/phases/${state} -maxdepth 1 -type d -not -name "${state}" 2>/dev/null)"
+done
+HIGHEST=$(echo "$ALL_PHASE_DIRS" | tr ' ' '\n' | grep -oE '/[0-9]+' | grep -oE '[0-9]+' | sort -n | tail -1)
+NEXT_PHASE=$((HIGHEST + 1))
+```
+
+Pass `NEXT_PHASE` as the starting phase number to the roadmapper.
+
+Spawn roadmapper agent with context:
 
 ```
 Task(prompt="
+<agent-instructions>
+{roadmapper_instructions_content}
+</agent-instructions>
+
 <planning_context>
 
 **Project:**
@@ -732,7 +829,7 @@ Task(prompt="
 
 <instructions>
 Create roadmap for milestone v[X.Y]:
-1. Start phase numbering at 1 (each milestone has independent numbering)
+1. Continue phase numbering from the highest existing phase number + 1 (globally sequential across milestones). The starting phase number is provided as NEXT_PHASE.
 2. Derive phases from THIS MILESTONE's requirements (don't include validated/existing)
 3. Map every requirement to exactly one phase
 4. Derive 2-5 success criteria per phase (observable user behaviors)
@@ -760,7 +857,7 @@ Completed milestone details blocks MUST include:
 
 Progress Summary table includes planned milestones with "Planned" status and "—" for metrics.
 </format_conventions>
-", subagent_type="kata-roadmapper", model="{roadmapper_model}", description="Create roadmap")
+", subagent_type="general-purpose", model="{roadmapper_model}", description="Create roadmap")
 ```
 
 **Handle roadmapper return:**
@@ -818,6 +915,10 @@ Use AskUserQuestion:
 - Re-spawn roadmapper with revision context:
   ```
   Task(prompt="
+  <agent-instructions>
+  {roadmapper_instructions_content}
+  </agent-instructions>
+
   <revision>
   User feedback on roadmap:
   [user's notes]
@@ -827,7 +928,7 @@ Use AskUserQuestion:
   Update the roadmap based on feedback. Edit files in place.
   Return ROADMAP REVISED with changes made.
   </revision>
-  ", subagent_type="kata-roadmapper", model="{roadmapper_model}", description="Revise roadmap")
+  ", subagent_type="general-purpose", model="{roadmapper_model}", description="Revise roadmap")
   ```
 - Present revised roadmap
 - Loop until user approves
@@ -1072,7 +1173,7 @@ Present completion with next steps:
 - [ ] kata-roadmapper spawned with phase numbering context
 - [ ] Roadmap files written immediately (not draft)
 - [ ] User feedback incorporated (if any)
-- [ ] ROADMAP.md created with phases starting at 1 (per-milestone numbering)
+- [ ] ROADMAP.md created with globally sequential phase numbers (continuing from highest existing)
 - [ ] All commits made (if planning docs committed)
 - [ ] User knows next step is `/kata:kata-discuss-phase [N]`
 

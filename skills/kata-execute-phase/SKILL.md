@@ -329,7 +329,25 @@ PR_EOF
    git add -u && git commit -m "fix({phase}): orchestrator corrections"
    ```
 
-   **If clean:** Continue to verification.
+   **If clean:** Continue to test suite.
+
+6.5. **Run project test suite**
+
+   Before verification, run the project's test suite to catch regressions early:
+
+   ```bash
+   TEST_SCRIPT=$(cat package.json 2>/dev/null | grep -o '"test"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1)
+   ```
+
+   **If package.json has a test script:**
+   - Run `npm test`
+   - If tests pass: proceed to step 7
+   - If tests fail: report test failures, still proceed to step 7
+
+   **If no test script detected:**
+   - Skip this step, proceed to step 7
+
+   **Skip for gap phases:** If mode is `gap_closure`, skip test suite
 
 7. **Verify phase goal**
    Check config: `WORKFLOW_VERIFIER=$(cat .planning/config.json 2>/dev/null | grep -o '"verifier"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")`

@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v1.6.0 Skills-Native Subagents (experimental)
+**Current focus:** v1.6.0 Skills-Native Subagents (Phase 32 complete)
 
 ## Current Position
 
 Milestone: v1.6.0 Skills-Native Subagents — In Progress
-Phase: 1 - Proof of Concept (completed)
+Phase: 32 - Phase lookup ignores milestone scope (completed)
 Plan: —
-Status: Phase 1 complete. Go decision made. Phase 2 greenlit.
-Last activity: 2026-02-05 — Phase 1 complete (3/3 plans, Go decision)
+Status: Phase 32 complete. 3 plans executed, verified. Global phase numbering restored, closes #102.
+Last activity: 2026-02-06 — Phase 32 complete (3/3 plans, verification passed)
 
-Progress: ███░░░░░░░ 1/3 phases
+Progress: █████░░░░░ 3/5 phases
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 109
+- Total plans completed: 119
 - Average duration: 3 min
-- Total execution time: ~278 min
+- Total execution time: ~320 min
 
 **By Milestone:**
 
@@ -41,7 +41,7 @@ Progress: ███░░░░░░░ 1/3 phases
 | v1.4.0    | 2      | 11    | Shipped 2026-02-01 |
 | v1.4.1    | 4      | 6     | Shipped 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped 2026-02-04 |
-| v1.6.0    | 3      | 3     | Active |
+| v1.6.0    | 5      | 13    | Active |
 
 *Updated after each plan completion*
 
@@ -52,26 +52,32 @@ Progress: ███░░░░░░░ 1/3 phases
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- **2026-02-06: Phase 32 added + phases renumbered** — Inserted "Phase lookup ignores milestone scope" (Closes #102) as Phase 32 after completed Phase 31. Distribution channel became Phase 33, Cleanup became Phase 34
+- **2026-02-05: Phase 2.1 inserted — skills.sh distribution** — New distribution channel via `gannonh/kata-skills` repo for skills.sh registry
+- **2026-02-05: Phase 2 complete — all agents migrated** — 19 agents extracted to skill resources, zero custom subagent types remain
 - **2026-02-05: Go decision — proceed to full conversion** — POC validated in real project, behavioral equivalence confirmed
 - **2026-02-05: Phase 2 scope expanded** — Added CONV-04 (automated migration test) and CONV-05 (test suite in execute-phase)
 - **2026-02-05: Executor inline pattern established** — Same pattern as planner: extract body to skill resource, inline via agent-instructions wrapper, general-purpose subagent
 - **2026-02-05: Planner inline pattern established** — Extract agent body to skill resource, prepend with agent-instructions wrapper, use general-purpose subagent type
-- **2026-02-05: Roadmap created for v1.6.0** — 3 phases: POC, Full Conversion (contingent), Cleanup (contingent)
-- **2026-02-05: Contingent phases** — Phase 2 and 3 only execute if POC succeeds (Go decision)
+- **2026-02-05: Phase 3 inserted — Agent Teams Migration** — Migrate multi-agent orchestration to Claude Code agent teams (Teammate/SendMessage/TaskCreate tools)
+- **2026-02-05: Roadmap expanded for v1.6.0** — 4 phases: POC, Full Conversion, Agent Teams Migration, Cleanup (all contingent)
+- **2026-02-05: Contingent phases** — Phases 2-4 only execute if POC succeeds (Go decision)
 - **2026-02-04: v1.6.0 started** — Skills-Native Subagents: convert custom subagents to Agent Skills resources
 - **2026-02-04: Feature branch approach** — Working on `feat/skills-subagents`, merge if POC succeeds
 - **2026-02-04: Phased scope** — POC first (kata-planner, kata-executor), then full conversion if successful
-- **2026-02-03: Per-milestone phase numbering** — Each milestone starts phase numbering at 1
+- **2026-02-06: Globally sequential phase numbering restored** — Reverted 2026-02-03 per-milestone decision. Phase numbers never reset at milestone boundaries.
+- **2026-02-03: Per-milestone phase numbering** — REVERTED (see 2026-02-06 entry above)
 
 ### Roadmap Evolution
 
-- **v1.6.0 roadmap created 2026-02-05** — Skills-Native Subagents (3 phases, 14 requirements)
+- **v1.6.0 roadmap updated 2026-02-06** — Skills-Native Subagents (5 phases 30-34, global phase numbering restored, #102)
+- **v1.6.0 roadmap updated 2026-02-05** — Skills-Native Subagents (5 phases incl. 2.1 insertion, 24 requirements)
 - **v1.5.0 shipped 2026-02-04** — Phase Management (3 phases, 6 plans)
 - **v1.4.1 shipped 2026-02-03** — Issue Execution (4 phases, 6 plans)
 
 ### Pending Issues
 
-25 open issues in `.planning/issues/open/`
+26 open issues in `.planning/issues/open/`
 
 ### Blockers/Concerns
 
@@ -91,7 +97,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-05
-Stopped at: Phase 1 complete
+Last session: 2026-02-06
+Stopped at: Phase 32 Plan 03 complete (all 3 plans done)
 Resume file: None
-Next action: Plan Phase 2 — Full Conversion
+Next action: Verify Phase 32 or plan Phase 33 (skills.sh distribution)

@@ -34,7 +34,6 @@ const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
  */
 const INCLUDES = [
   'skills',
-  'agents',
   'hooks',
   'CHANGELOG.md',
 ];
@@ -149,16 +148,11 @@ function copyPath(src, dest, transform = null) {
 /**
  * Transform references for plugin distribution
  *
- * Plugin agents are namespaced by Claude Code as pluginname:agentname,
- * so kata-executor becomes kata:kata-executor in plugin context.
- *
  * Skill() invocations use kata:skillname format directly in source
- * (no transformation needed).
+ * (no transformation needed). Agent instructions are inlined via
+ * skill resources, so no agent namespacing transform is needed.
  */
 function transformPluginPaths(content) {
-  // Transform agent references: subagent_type="kata-xxx" → subagent_type="kata:kata-xxx"
-  content = content.replace(/subagent_type="kata-/g, 'subagent_type="kata:kata-');
-
   return content;
 }
 
@@ -177,7 +171,7 @@ function validateBuild(dest) {
   const errors = [];
 
   // Check required directories exist
-  const requiredDirs = ['agents', 'skills'];
+  const requiredDirs = ['skills'];
   for (const dir of requiredDirs) {
     const dirPath = path.join(dest, dir);
     if (!fs.existsSync(dirPath)) {

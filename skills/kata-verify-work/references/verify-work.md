@@ -391,11 +391,18 @@ Display:
 ◆ Spawning planner for gap closure...
 
 
-Spawn kata-planner in --gaps mode:
+**Load agent instructions from skill references/ at runtime:**
+
+```bash
+planner_instructions_content=$(cat references/planner-instructions.md)
+plan_checker_instructions_content=$(cat references/plan-checker-instructions.md)
+```
+
+Spawn planner in --gaps mode:
 
 ```
 Task(
-  prompt="""
+  prompt="<agent-instructions>\n{planner_instructions_content}\n</agent-instructions>\n\n" + """
 <planning_context>
 
 **Phase:** {phase_number}
@@ -417,7 +424,7 @@ Output consumed by /kata:kata-execute-phase
 Plans must be executable prompts.
 </downstream_consumer>
 """,
-  subagent_type="kata-planner",
+  subagent_type="general-purpose",
   model="{planner_model}",
   description="Plan gap fixes for Phase {phase}"
 )
@@ -442,11 +449,11 @@ Display:
 
 Initialize: `iteration_count = 1`
 
-Spawn kata-plan-checker:
+Spawn plan checker:
 
 ```
 Task(
-  prompt="""
+  prompt="<agent-instructions>\n{plan_checker_instructions_content}\n</agent-instructions>\n\n" + """
 <verification_context>
 
 **Phase:** {phase_number}
@@ -463,7 +470,7 @@ Return one of:
 - ## ISSUES FOUND — structured issue list
 </expected_output>
 """,
-  subagent_type="kata-plan-checker",
+  subagent_type="general-purpose",
   model="{checker_model}",
   description="Verify Phase {phase} fix plans"
 )
@@ -481,11 +488,11 @@ On return:
 
 Display: `Sending back to planner for revision... (iteration {N}/3)`
 
-Spawn kata-planner with revision context:
+Spawn planner with revision context:
 
 ```
 Task(
-  prompt="""
+  prompt="<agent-instructions>\n{planner_instructions_content}\n</agent-instructions>\n\n" + """
 <revision_context>
 
 **Phase:** {phase_number}
@@ -504,7 +511,7 @@ Read existing PLAN.md files. Make targeted updates to address checker issues.
 Do NOT replan from scratch unless issues are fundamental.
 </instructions>
 """,
-  subagent_type="kata-planner",
+  subagent_type="general-purpose",
   model="{planner_model}",
   description="Revise Phase {phase} plans"
 )

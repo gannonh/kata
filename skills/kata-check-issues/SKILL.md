@@ -407,7 +407,7 @@ When the phase PR merges, the issue will close automatically.
 
 **Create Phase:** ${ISSUE_TITLE}
 
-`/kata:kata-add-phase ${ISSUE_TITLE}`
+`/kata:kata-add-phase --issue ${ISSUE_FILE}`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -570,7 +570,7 @@ Issue remains in open/ until phase work begins.
 No upcoming phases found.
 
 Options:
-- /kata:kata-add-phase ${ISSUE_TITLE} — Create a new phase
+- /kata:kata-add-phase --issue ${ISSUE_FILE} — Create a new phase
 - /kata:kata-track-progress — View current roadmap status
 - Put it back — Return to issue list
 ```
@@ -702,7 +702,7 @@ When the phase PR merges, the issue will close automatically.
 
 **Create Phase:** ${ISSUE_TITLE}
 
-`/kata:kata-add-phase ${ISSUE_TITLE}`
+`/kata:kata-add-phase --issue ${ISSUE_FILE}`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -840,7 +840,7 @@ Issue remains in open/ until phase work begins.
 No upcoming phases found.
 
 Options:
-- /kata:kata-add-phase ${ISSUE_TITLE} — Create a new phase
+- /kata:kata-add-phase --issue ${ISSUE_FILE} — Create a new phase
 - /kata:kata-track-progress — View current roadmap status
 - Put it back — Return to issue list
 ```
@@ -955,7 +955,7 @@ Opens issue in browser. Return to list.
 Note issue reference in phase planning notes. Keep in open. Return to list or exit.
 
 **Create a phase:**
-Display: `/kata:kata-add-phase [description from issue]`
+Display: `/kata:kata-add-phase --issue [issue file path]`
 Keep in open. User runs command in fresh context.
 
 **Brainstorm approach:**
