@@ -113,7 +113,7 @@ Slash commands exist for precision (`/kata:kata-plan-phase 2`), but natural lang
 
 ### Install
 
-**Claude Code plugin (recommended):**
+**Claude Code plugin:**
 ```bash
 /plugin marketplace add gannonh/kata-marketplace
 /plugin install kata@gannonh-kata-marketplace
