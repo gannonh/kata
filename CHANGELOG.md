@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-02-06
+
+### Fixed
+- Remove `kata:` plugin namespace prefix from all skill invocations (breaks skills-based install)
+- Remove `agents/` directory checks from CI pipeline and artifact validation tests
+
 ## [1.6.0] - 2026-02-06 — Skills-Native Subagents
 
 Kata v1.6.0 ships **Skills-Native Subagents**: all 19 custom agent types migrated to skill resources with general-purpose subagent spawning, making Kata portable across Agent Skills-compatible platforms.
