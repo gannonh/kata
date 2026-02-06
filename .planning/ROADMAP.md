@@ -8,10 +8,25 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 - ✅ **v1.5.0 Phase Management** — Phases 1-3 (shipped 2026-02-04)
 - ✅ **v1.4.1 Issue Execution** — Phases 1-4 (shipped 2026-02-03)
-- 🔄 **v1.6.0 Skills-Native Subagents** — current (Phase 34 complete)
+- ✅ **v1.6.0 Skills-Native Subagents** — Phases 30-34 (shipped 2026-02-06)
 - ○ **v1.7.0** — planned
 
 ## Completed Milestones
+
+<details>
+<summary>✅ v1.6.0 Skills-Native Subagents (Phases 30-34) — SHIPPED 2026-02-06</summary>
+
+**Goal:** Deprecate custom subagent types to make Kata portable across Agent Skills-compatible platforms.
+
+- [x] Phase 30: Proof of Concept (3/3 plans) — completed 2026-02-05
+- [x] Phase 31: Full Conversion (7/7 plans) — completed 2026-02-05
+- [x] Phase 32: Phase lookup ignores milestone scope causing collisions (3/3 plans) — completed 2026-02-06
+- [x] Phase 33: skills.sh Distribution Channel (2/2 plans) — completed 2026-02-06
+- [x] Phase 34: Cleanup (2/2 plans) — completed 2026-02-06
+
+[Full archive](milestones/v1.6.0-ROADMAP.md)
+
+</details>
 
 <details>
 <summary>✅ v1.5.0 Phase Management (Phases 1-3) — SHIPPED 2026-02-04</summary>
@@ -171,133 +186,6 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 ---
 
-## Current Milestone: v1.6.0 Skills-Native Subagents
-
-**Goal:** Deprecate custom subagent types to make Kata portable across Agent Skills-compatible platforms.
-
-**Experimental:** Working on `feat/skills-subagents` branch. Merge if successful. If POC fails, milestone is abandoned.
-
-### Phase 30: Proof of Concept ✓
-
-**Goal:** Validate the subagent-as-skill-resource pattern with 2 agents
-
-**Dependencies:** None
-
-**Requirements:** POC-01, POC-02, POC-03, POC-04, POC-05, POC-06
-
-**Plans:** 3 plans
-
-Plans:
-- [x] 01-01-PLAN.md — Migrate kata-planner to skill resource + update kata-plan-phase
-- [x] 01-02-PLAN.md — Migrate kata-executor to skill resource + update kata-execute-phase
-- [x] 01-03-PLAN.md — Validate POC behavior + Go/No-Go decision (Go)
-
-**Success Criteria:**
-1. kata-planner instructions exist as skill resource (`skills/kata-plan-phase/references/planner-instructions.md`)
-2. kata-executor instructions exist as skill resource (`skills/kata-execute-phase/references/executor-instructions.md`)
-3. `kata-plan-phase` skill spawns standard `general-purpose` subagent with inlined instructions
-4. `kata-execute-phase` skill spawns standard `general-purpose` subagent with inlined instructions
-5. Phase planning produces equivalent quality output compared to current custom subagent pattern
-6. User has made Go/No-Go decision (POC-06 is blocking gate)
-
-**Note:** POC-06 is a human decision checkpoint. If user decides "No-Go", milestone is abandoned.
-
----
-
-### Phase 31: Full Conversion ✓
-
-**Goal:** Migrate all remaining agents to skill resources
-
-**Dependencies:** Phase 30 (Go decision required)
-
-**Requirements:** CONV-01, CONV-02, CONV-03, CONV-04, CONV-05
-
-**Plans:** 7 plans
-
-Plans:
-- [x] 02-01-PLAN.md — Migrate phase-researcher + plan-checker to kata-plan-phase
-- [x] 02-02-PLAN.md — Migrate project-researcher + synthesizer + roadmapper to kata-add-milestone
-- [x] 02-03-PLAN.md — Extract 8 PR review agents to kata-review-pull-requests
-- [x] 02-04-PLAN.md — Migrate integration-checker to kata-audit-milestone
-- [x] 02-05-PLAN.md — Migrate debugger to kata-debug + extract verifier/codebase-mapper + update quick-task
-- [x] 02-06-PLAN.md — Update shared agent consumers and reference files across skills
-- [x] 02-07-PLAN.md — Migration validation test (CONV-04) + test suite step (CONV-05)
-
-**Success Criteria:**
-1. All 15+ agent instruction files migrated to skill `references/` directories
-2. All skills that spawn subagents use `general-purpose` type with inlined instructions
-3. No remaining `subagent_type="kata:kata-*"` patterns in codebase
-4. Automated migration validation test passes in `npm test`
-5. Execute-phase orchestrator runs project test suite before verification
-
----
-
-### Phase 32: Phase lookup ignores milestone scope causing collisions ✓
-
-**Goal:** Revert to globally sequential phase numbering, rename all historical directories, and update numbering policy across all skills
-
-**Dependencies:** Phase 31
-**Issue:** Closes #102
-**Plans:** 3 plans (2 waves)
-
-Plans:
-- [x] 03-01-PLAN.md — Batch-rename completed + pending phase directories to globally sequential numbers
-- [x] 03-02-PLAN.md — Update numbering policy and documentation across all skill files
-- [x] 03-03-PLAN.md — Update ROADMAP.md and STATE.md with new global phase numbers
-
-**Success Criteria:**
-1. Every phase directory has a globally unique sequential numeric prefix (no collisions)
-2. All "start phase numbering at 1" policy references updated to "continue from highest + 1"
-3. ROADMAP.md and STATE.md reflect new global phase numbers
-4. Phase lookup pattern works correctly with unique prefixes (no code change needed)
-
----
-
-### Phase 33: skills.sh Distribution Channel ✓
-
-**Goal:** Publish Kata skills to skills.sh via a `gannonh/kata-skills` GitHub repo, creating a second distribution channel alongside the existing Claude Code plugin marketplace
-
-**Dependencies:** Phase 32
-
-**Requirements:** DIST-01, DIST-02, DIST-03, DIST-04
-
-**Plans:** 2 plans (2 waves)
-
-Plans:
-- [x] 33-01-PLAN.md — Normalize source frontmatter to Agent Skills spec + add skills-ref validation test
-- [x] 33-02-PLAN.md — Add skills-sh build target, README generation, and CI pipeline extension
-
-**Success Criteria:**
-1. `gannonh/kata-skills` GitHub repo exists with `skills/` directory containing all Kata skill folders
-2. Build step produces skills.sh-compatible output (skill folders with spec-compliant SKILL.md frontmatter)
-3. `npx skills add gannonh/kata-skills` installs Kata skills successfully
-4. CI/CD pipeline publishes to `gannonh/kata-skills` on release
-5. Skill naming and descriptions optimized for skills.sh discovery (cross-platform, not Claude Code-specific)
-
----
-
-### Phase 34: Cleanup ✓
-
-**Goal:** Remove legacy infrastructure and update documentation
-
-**Dependencies:** Phase 33
-
-**Requirements:** CLEAN-01, CLEAN-02, CLEAN-03, CLEAN-04
-
-**Plans:** 2 plans (2 waves)
-
-Plans:
-- [x] 34-01-PLAN.md — Update CLAUDE.md, KATA-STYLE.md, README.md, build.js documentation
-- [x] 34-02-PLAN.md — Build plugin and run test suite validation
-
-**Success Criteria:**
-1. `agents/` directory deleted from repository
-2. Build system no longer references or copies agent files
-3. CLAUDE.md and KATA-STYLE.md reflect new skill resource and agent teams patterns
-4. Full workflow (new-project to plan to execute to verify) works with built plugin
-
----
-
 ## Progress Summary
 
 | Milestone | Phases | Plans | Status   | Shipped    |
@@ -313,9 +201,9 @@ Plans:
 | v1.4.0    | 2      | 11    | Shipped  | 2026-02-01 |
 | v1.4.1    | 4      | 6     | Shipped  | 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped  | 2026-02-04 |
-| v1.6.0    | 5      | —     | Active   | —          |
+| v1.6.0    | 5      | 17    | Shipped  | 2026-02-06 |
 | v1.7.0    | —      | —     | Planned  | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-06 — Phase 34 complete (cleanup)*
+*Last updated: 2026-02-06 — v1.6.0 shipped*

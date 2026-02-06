@@ -55,7 +55,7 @@ Phase: $ARGUMENTS
 1. **Validate phase exists**
    Find phase directory using the discovery script:
    ```bash
-   bash skills/kata-execute-phase/scripts/find-phase.sh "$PHASE_ARG"
+   bash "${SKILL_BASE_DIR}/scripts/find-phase.sh" "$PHASE_ARG"
    ```
    Outputs `PHASE_DIR`, `PLAN_COUNT`, and `PHASE_STATE` as key=value pairs. Exit code 1 = not found, 2 = no plans. Parse the output to set these variables for subsequent steps.
 

@@ -2,20 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-04)
+See: .planning/PROJECT.md (updated 2026-02-06)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v1.6.0 Skills-Native Subagents (Phase 34 complete, all phases done)
+**Current focus:** v1.6.0 shipped. Next milestone not yet defined.
 
 ## Current Position
 
-Milestone: v1.6.0 Skills-Native Subagents — In Progress
-Phase: 34 - Cleanup (complete)
-Plan: 02 of 2 (all complete)
-Status: Phase 34 complete. 2 plans executed, verified. All 5 phases done.
-Last activity: 2026-02-06 — Phase 34 complete (2/2 plans, verification passed)
+Milestone: v1.6.0 Skills-Native Subagents — Shipped 2026-02-06
+Phase: All 5 phases complete (30-34)
+Status: Milestone archived. Ready for next milestone.
+Last activity: 2026-02-06 — v1.6.0 milestone completed and archived
 
-Progress: ██████████ 5/5 phases
+Progress: ██████████ 5/5 phases (shipped)
 
 ## Performance Metrics
 
@@ -41,7 +40,7 @@ Progress: ██████████ 5/5 phases
 | v1.4.0    | 2      | 11    | Shipped 2026-02-01 |
 | v1.4.1    | 4      | 6     | Shipped 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped 2026-02-04 |
-| v1.6.0    | 5      | 17    | Active |
+| v1.6.0    | 5      | 17    | Shipped 2026-02-06 |
 
 *Updated after each plan completion*
 
@@ -99,6 +98,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Phase 34 complete (all 2 plans done)
+Stopped at: v1.6.0 milestone shipped
 Resume file: None
-Next action: v1.6.0 milestone complete, ready for release
+Next action: Define next milestone with /kata:kata-add-milestone

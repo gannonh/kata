@@ -2,6 +2,38 @@
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-02-06 — Skills-Native Subagents
+
+Kata v1.6.0 ships **Skills-Native Subagents**: all 19 custom agent types migrated to skill resources with general-purpose subagent spawning, making Kata portable across Agent Skills-compatible platforms.
+
+### Added
+- **Skill resource pattern**: Agent instructions live in `skills/*/references/` and are inlined into subagent prompts at spawn time
+- **Migration validation tests**: Automated tests verify all agents have instruction files, use general-purpose type, and wrap with `<agent-instructions>`
+- **Test suite step**: Execute-phase runs project test suite before spawning verifier
+- **skills.sh distribution channel**: Second distribution via `gannonh/kata-skills` repo alongside plugin marketplace
+- **skills-sh build target**: `npm run build:skills-sh` produces cross-platform skill distribution
+- **CI dual-publish**: Release pipeline publishes to both marketplace and skills.sh registry
+- **Agent Skills spec compliance**: All 29 SKILL.md files normalized to Agent Skills spec with automated validation
+- **Phase migration skill**: `/kata:kata-migrate-phases` fixes duplicate phase numbering with collision detection
+- **Globally sequential phase numbering**: Phase numbers are unique across all milestones
+
+### Changed
+- All 19 custom `kata:kata-*` subagent types replaced with `general-purpose`
+- Cross-skill instruction sharing via file duplication (self-contained, portable skills)
+- `agents/` directory removed; instructions now in skill `references/` directories
+- Build system no longer copies or references agent files
+- CLAUDE.md, KATA-STYLE.md, README.md updated to skill resources terminology
+- Phase numbering reverted from per-milestone to globally sequential
+
+### Fixed
+- Phase lookup collision when multiple milestones had phases starting at 1
+- Parallel Task spawning enforced in add-milestone and map-codebase skills
+- Missing execution stage banner in kata-execute-phase
+- Instruction file path documentation standardized across skills
+- Script path resolution in kata-execute-phase uses `SKILL_BASE_DIR` instead of hardcoded relative path
+
+---
+
 ## [1.5.0] - 2026-02-04 — Phase Management
 
 Kata v1.5.0 ships **Phase Management**: organized phase directories, cross-milestone phase movement, and improved roadmap visibility.
@@ -430,7 +462,8 @@ Kata 1.0 ships with **Claude Code plugin support** as the recommended installati
 - Upstream remote and sync workflow
 - References to original project maintainer
 
-[Unreleased]: https://github.com/gannonh/kata/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/gannonh/kata/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/gannonh/kata/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/gannonh/kata/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/gannonh/kata/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/gannonh/kata/compare/v1.3.5...v1.4.0
