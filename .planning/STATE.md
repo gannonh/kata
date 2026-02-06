@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 
 Milestone: v1.6.0 Skills-Native Subagents — In Progress
 Phase: 32 - Phase lookup ignores milestone scope (in progress)
-Plan: 01 - Batch-rename directories (complete), 02 - Update numbering policy (complete)
-Status: Plans 32-01 and 32-02 executed. All directories renamed to globally sequential prefixes (00-33). Numbering policy updated.
-Last activity: 2026-02-06 — Plan 32-01 complete (32 completed + 2 active/pending directories renamed)
+Plan: 01 - Batch-rename directories (complete), 02 - Update numbering policy (complete), 03 - Update ROADMAP and STATE (complete)
+Status: All Phase 32 plans executed. Directories renamed, numbering policy updated, ROADMAP.md and STATE.md reflect global phase numbers.
+Last activity: 2026-02-06 — Plan 32-03 complete (ROADMAP.md and STATE.md updated with global phase numbers 30-34)
 
 Progress: ████░░░░░░ 2/5 phases
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 116
+- Total plans completed: 119
 - Average duration: 3 min
-- Total execution time: ~311 min
+- Total execution time: ~320 min
 
 **By Milestone:**
 
@@ -41,7 +41,7 @@ Progress: ████░░░░░░ 2/5 phases
 | v1.4.0    | 2      | 11    | Shipped 2026-02-01 |
 | v1.4.1    | 4      | 6     | Shipped 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped 2026-02-04 |
-| v1.6.0    | 5      | 10    | Active |
+| v1.6.0    | 5      | 13    | Active |
 
 *Updated after each plan completion*
 
@@ -52,7 +52,7 @@ Progress: ████░░░░░░ 2/5 phases
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **2026-02-06: Phase 3 added + phases renumbered** — Inserted "Phase lookup ignores milestone scope" (Closes #102) as Phase 3 after completed Phase 2. Renumbered: 2.1→4, 3→5, 4→6
+- **2026-02-06: Phase 32 added + phases renumbered** — Inserted "Phase lookup ignores milestone scope" (Closes #102) as Phase 32 after completed Phase 31. Distribution channel became Phase 33, Cleanup became Phase 34
 - **2026-02-05: Phase 2.1 inserted — skills.sh distribution** — New distribution channel via `gannonh/kata-skills` repo for skills.sh registry
 - **2026-02-05: Phase 2 complete — all agents migrated** — 19 agents extracted to skill resources, zero custom subagent types remain
 - **2026-02-05: Go decision — proceed to full conversion** — POC validated in real project, behavioral equivalence confirmed
@@ -70,7 +70,7 @@ Recent decisions affecting current work:
 
 ### Roadmap Evolution
 
-- **v1.6.0 roadmap updated 2026-02-06** — Skills-Native Subagents (6 phases, Phase 3 added for #102 + renumbered)
+- **v1.6.0 roadmap updated 2026-02-06** — Skills-Native Subagents (5 phases 30-34, global phase numbering restored, #102)
 - **v1.6.0 roadmap updated 2026-02-05** — Skills-Native Subagents (5 phases incl. 2.1 insertion, 24 requirements)
 - **v1.5.0 shipped 2026-02-04** — Phase Management (3 phases, 6 plans)
 - **v1.4.1 shipped 2026-02-03** — Issue Execution (4 phases, 6 plans)
@@ -98,6 +98,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Phase 32 Plans 01 and 02 complete
+Stopped at: Phase 32 Plan 03 complete (all 3 plans done)
 Resume file: None
-Next action: Execute Plan 32-03 (update ROADMAP.md and STATE.md with new global phase numbers)
+Next action: Verify Phase 32 or plan Phase 33 (skills.sh distribution)
