@@ -720,6 +720,60 @@ EOF
 )"
 ```
 
+## Phase 8.5: Collision Check
+
+Check for duplicate phase numeric prefixes across all state directories. Collisions cause `find ... -name "01-*" | head -1` to return wrong directories.
+
+```bash
+DUPES=$(for state in active pending completed; do
+  ls .planning/phases/${state}/ 2>/dev/null
+done | grep -oE '^[0-9]+' | sort -n | uniq -d)
+
+# Include flat directories (unmigrated projects)
+FLAT_DUPES=$(ls .planning/phases/ 2>/dev/null | grep -E '^[0-9]' | grep -oE '^[0-9]+' | sort -n | uniq -d)
+
+ALL_DUPES=$(echo -e "${DUPES}\n${FLAT_DUPES}" | sort -nu | grep -v '^$')
+```
+
+**If `ALL_DUPES` is empty:** Continue silently to Phase 9.
+
+**If collisions found:**
+
+Display:
+
+```
+⚠ Duplicate phase prefixes detected: [list]
+
+Phase directories share numeric prefixes across milestones. This causes
+phase lookup commands to return wrong directories.
+```
+
+Use AskUserQuestion:
+- header: "Collisions"
+- question: "Duplicate phase prefixes found. Migrate to globally sequential numbering?"
+- options:
+  - "Migrate now" — Run inline migration, then recalculate NEXT_PHASE before continuing
+  - "Skip" — Continue without fixing (phase lookups may return wrong results)
+
+**If "Migrate now":**
+
+Run the migration logic from `/kata:kata-migrate-phases` inline:
+1. Build chronology from ROADMAP.md (completed milestone `<details>` blocks + current milestone phases)
+2. Map directories to globally sequential numbers
+3. Execute two-pass rename (tmp- prefix, then final)
+4. Update ROADMAP.md current milestone phase numbers
+5. Recalculate `NEXT_PHASE` from the newly renumbered directories
+
+**If "Skip":**
+
+Display:
+
+```
+⚠ Skipping migration. Run `/kata:kata-migrate-phases` to fix collisions later.
+```
+
+Continue to Phase 9.
+
 ## Phase 9: Create Roadmap
 
 Display stage banner:
