@@ -232,13 +232,56 @@ Plans:
 
 ---
 
-### Phase 3: Agent Teams Migration (Contingent)
+### Phase 3: Phase lookup ignores milestone scope causing collisions
+
+**Goal:** Revert to globally sequential phase numbering, rename all historical directories, and update numbering policy across all skills
+
+**Dependencies:** Phase 2
+**Issue:** Closes #102
+**Plans:** 3 plans (2 waves)
+
+Plans:
+- [ ] 03-01-PLAN.md — Batch-rename completed + pending phase directories to globally sequential numbers
+- [ ] 03-02-PLAN.md — Update numbering policy and documentation across all skill files
+- [ ] 03-03-PLAN.md — Update ROADMAP.md and STATE.md with new global phase numbers
+
+**Success Criteria:**
+1. Every phase directory has a globally unique sequential numeric prefix (no collisions)
+2. All "start phase numbering at 1" policy references updated to "continue from highest + 1"
+3. ROADMAP.md and STATE.md reflect new global phase numbers
+4. Phase lookup pattern works correctly with unique prefixes (no code change needed)
+
+---
+
+### Phase 4: skills.sh Distribution Channel
+
+**Goal:** Publish Kata skills to skills.sh via a `gannonh/kata-skills` GitHub repo, creating a second distribution channel alongside the existing Claude Code plugin marketplace
+
+**Dependencies:** Phase 3
+
+**Requirements:** DIST-01, DIST-02, DIST-03, DIST-04
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /kata:kata-plan-phase 4 to break down)
+
+**Success Criteria:**
+1. `gannonh/kata-skills` GitHub repo exists with `skills/` directory containing all Kata skill folders
+2. Build step produces skills.sh-compatible output (skill folders with spec-compliant SKILL.md frontmatter)
+3. `npx skills add gannonh/kata-skills` installs Kata skills successfully
+4. CI/CD pipeline publishes to `gannonh/kata-skills` on release
+5. Skill naming and descriptions optimized for skills.sh discovery (cross-platform, not Claude Code-specific)
+
+---
+
+### Phase 5: Agent Teams Migration (Contingent)
 
 **Goal:** Migrate multi-agent orchestration from Task-tool subagents to Claude Code agent teams with shared task lists and inter-agent messaging
 
-**Dependencies:** Phase 2
+**Dependencies:** Phase 3
 
-**Contingency:** Only execute if Phase 2 completes. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` feature.
+**Contingency:** Only execute if Phase 3 completes. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` feature.
 
 **Requirements:** TEAM-01, TEAM-02, TEAM-03, TEAM-04, TEAM-05, TEAM-06
 
@@ -252,13 +295,13 @@ Plans:
 
 ---
 
-### Phase 4: Cleanup (Contingent)
+### Phase 6: Cleanup (Contingent)
 
 **Goal:** Remove legacy infrastructure and update documentation
 
-**Dependencies:** Phase 3
+**Dependencies:** Phase 5
 
-**Contingency:** Only execute if Phase 3 completes
+**Contingency:** Only execute if Phase 5 completes
 
 **Requirements:** CLEAN-01, CLEAN-02, CLEAN-03, CLEAN-04
 
@@ -285,9 +328,9 @@ Plans:
 | v1.4.0    | 2      | 11    | Shipped  | 2026-02-01 |
 | v1.4.1    | 4      | 6     | Shipped  | 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped  | 2026-02-04 |
-| v1.6.0    | 4      | —     | Active   | —          |
+| v1.6.0    | 6      | —     | Active   | —          |
 | v1.7.0    | —      | —     | Planned  | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-05 — Phase 2 complete (7/7 plans, verified)*
+*Last updated: 2026-02-06 — Phase 3 planned (3 plans, 2 waves)*
