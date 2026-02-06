@@ -52,6 +52,7 @@ Progress: █████░░░░░ 2/4 phases
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- **2026-02-05: Phase 2.1 inserted — skills.sh distribution** — New distribution channel via `gannonh/kata-skills` repo for skills.sh registry
 - **2026-02-05: Phase 2 complete — all agents migrated** — 19 agents extracted to skill resources, zero custom subagent types remain
 - **2026-02-05: Go decision — proceed to full conversion** — POC validated in real project, behavioral equivalence confirmed
 - **2026-02-05: Phase 2 scope expanded** — Added CONV-04 (automated migration test) and CONV-05 (test suite in execute-phase)
@@ -67,13 +68,13 @@ Recent decisions affecting current work:
 
 ### Roadmap Evolution
 
-- **v1.6.0 roadmap updated 2026-02-05** — Skills-Native Subagents (4 phases, 20 requirements)
+- **v1.6.0 roadmap updated 2026-02-05** — Skills-Native Subagents (5 phases incl. 2.1 insertion, 24 requirements)
 - **v1.5.0 shipped 2026-02-04** — Phase Management (3 phases, 6 plans)
 - **v1.4.1 shipped 2026-02-03** — Issue Execution (4 phases, 6 plans)
 
 ### Pending Issues
 
-25 open issues in `.planning/issues/open/`
+26 open issues in `.planning/issues/open/`
 
 ### Blockers/Concerns
 
