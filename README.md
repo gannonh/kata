@@ -34,7 +34,7 @@ claude plugin install kata@gannonh-kata-marketplace
 **Phase Management** — Reorganize your roadmap without starting over:
 - **Move phases** — `/kata:kata-move-phase 3 to v2.0` moves a phase between milestones
 - **Reorder phases** — `/kata:kata-move-phase 3 before 1` changes phase order within a milestone
-- **Per-milestone numbering** — Each milestone starts at Phase 1 (independent numbering)
+- **Global phase numbering** — Phase numbers are globally sequential across milestones (they never reset)
 - **Phase state directories** — Phases organized into `pending/`, `active/`, `completed/`
 
 <details>

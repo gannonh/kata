@@ -733,7 +733,18 @@ Display stage banner:
 
 **Determine starting phase number:**
 
-Start phase numbering at 1 (each milestone has independent numbering).
+Phase numbers are globally sequential across milestones. Scan all existing phase directories to find the highest phase number, then start this milestone's phases at highest + 1:
+
+```bash
+ALL_PHASE_DIRS=""
+for state in active pending completed; do
+  [ -d ".planning/phases/${state}" ] && ALL_PHASE_DIRS="${ALL_PHASE_DIRS} $(find .planning/phases/${state} -maxdepth 1 -type d -not -name "${state}" 2>/dev/null)"
+done
+HIGHEST=$(echo "$ALL_PHASE_DIRS" | tr ' ' '\n' | grep -oE '/[0-9]+' | grep -oE '[0-9]+' | sort -n | tail -1)
+NEXT_PHASE=$((HIGHEST + 1))
+```
+
+Pass `NEXT_PHASE` as the starting phase number to the roadmapper.
 
 Spawn roadmapper agent with context:
 
@@ -764,7 +775,7 @@ Task(prompt="
 
 <instructions>
 Create roadmap for milestone v[X.Y]:
-1. Start phase numbering at 1 (each milestone has independent numbering)
+1. Continue phase numbering from the highest existing phase number + 1 (globally sequential across milestones). The starting phase number is provided as NEXT_PHASE.
 2. Derive phases from THIS MILESTONE's requirements (don't include validated/existing)
 3. Map every requirement to exactly one phase
 4. Derive 2-5 success criteria per phase (observable user behaviors)
@@ -1108,7 +1119,7 @@ Present completion with next steps:
 - [ ] kata-roadmapper spawned with phase numbering context
 - [ ] Roadmap files written immediately (not draft)
 - [ ] User feedback incorporated (if any)
-- [ ] ROADMAP.md created with phases starting at 1 (per-milestone numbering)
+- [ ] ROADMAP.md created with globally sequential phase numbers (continuing from highest existing)
 - [ ] All commits made (if planning docs committed)
 - [ ] User knows next step is `/kata:kata-discuss-phase [N]`
 

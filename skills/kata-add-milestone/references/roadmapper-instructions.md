@@ -179,7 +179,7 @@ Track coverage as you go.
 - Created via `/kata:kata-insert-phase`
 - Execute between integers: 1 → 1.1 → 1.2 → 2
 
-**Starting number:** Always start at 1 (each milestone has independent phase numbering)
+**Starting number:** Continue from the highest existing phase number + 1 (globally sequential across milestones). The orchestrator provides the starting number as NEXT_PHASE.
 
 ## Depth Calibration
 
