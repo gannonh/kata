@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 ## Current Position
 
 Milestone: v1.6.0 Skills-Native Subagents — In Progress
-Phase: 2 - Full Conversion (completed)
-Plan: —
-Status: Phase 2 complete. All 7 plans executed, verified. 19 agents migrated to skill resources.
-Last activity: 2026-02-05 — Phase 2 complete (7/7 plans, verification passed)
+Phase: 3 - Phase lookup ignores milestone scope (in progress)
+Plan: 02 - Update numbering policy (complete)
+Status: Plan 03-02 executed. All numbering policy references updated to globally sequential model.
+Last activity: 2026-02-06 — Plan 03-02 complete (numbering policy updated across 7 files)
 
-Progress: █████░░░░░ 2/4 phases
+Progress: ████░░░░░░ 2/5 phases
 
 ## Performance Metrics
 
@@ -41,7 +41,7 @@ Progress: █████░░░░░ 2/4 phases
 | v1.4.0    | 2      | 11    | Shipped 2026-02-01 |
 | v1.4.1    | 4      | 6     | Shipped 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped 2026-02-04 |
-| v1.6.0    | 4      | 10    | Active |
+| v1.6.0    | 6      | 10    | Active |
 
 *Updated after each plan completion*
 
@@ -52,6 +52,7 @@ Progress: █████░░░░░ 2/4 phases
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- **2026-02-06: Phase 3 added + phases renumbered** — Inserted "Phase lookup ignores milestone scope" (Closes #102) as Phase 3 after completed Phase 2. Renumbered: 2.1→4, 3→5, 4→6
 - **2026-02-05: Phase 2.1 inserted — skills.sh distribution** — New distribution channel via `gannonh/kata-skills` repo for skills.sh registry
 - **2026-02-05: Phase 2 complete — all agents migrated** — 19 agents extracted to skill resources, zero custom subagent types remain
 - **2026-02-05: Go decision — proceed to full conversion** — POC validated in real project, behavioral equivalence confirmed
@@ -64,10 +65,12 @@ Recent decisions affecting current work:
 - **2026-02-04: v1.6.0 started** — Skills-Native Subagents: convert custom subagents to Agent Skills resources
 - **2026-02-04: Feature branch approach** — Working on `feat/skills-subagents`, merge if POC succeeds
 - **2026-02-04: Phased scope** — POC first (kata-planner, kata-executor), then full conversion if successful
-- **2026-02-03: Per-milestone phase numbering** — Each milestone starts phase numbering at 1
+- **2026-02-06: Globally sequential phase numbering restored** — Reverted 2026-02-03 per-milestone decision. Phase numbers never reset at milestone boundaries.
+- **2026-02-03: Per-milestone phase numbering** — REVERTED (see 2026-02-06 entry above)
 
 ### Roadmap Evolution
 
+- **v1.6.0 roadmap updated 2026-02-06** — Skills-Native Subagents (6 phases, Phase 3 added for #102 + renumbered)
 - **v1.6.0 roadmap updated 2026-02-05** — Skills-Native Subagents (5 phases incl. 2.1 insertion, 24 requirements)
 - **v1.5.0 shipped 2026-02-04** — Phase Management (3 phases, 6 plans)
 - **v1.4.1 shipped 2026-02-03** — Issue Execution (4 phases, 6 plans)
@@ -94,7 +97,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-05
-Stopped at: Phase 2 complete
+Last session: 2026-02-06
+Stopped at: Phase 3 Plan 02 complete
 Resume file: None
-Next action: Discuss Phase 3 — Agent Teams Migration
+Next action: Execute Plan 03-03 (rename historical directories)
