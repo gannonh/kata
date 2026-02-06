@@ -10,17 +10,17 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 ## Current Position
 
 Milestone: v1.6.0 Skills-Native Subagents — In Progress
-Phase: 33 - skills.sh Distribution Channel (in progress)
-Plan: 01 of 2
-Status: Plan 01 complete. All 29 SKILL.md files normalized to Agent Skills spec. skills-ref validation test added.
-Last activity: 2026-02-06 — Completed 33-01-PLAN.md
+Phase: 33 - skills.sh Distribution Channel (complete)
+Plan: 02 of 2
+Status: Plan 02 complete. Build system produces dist/skills-sh/. CI pipeline pushes to gannonh/kata-skills on release.
+Last activity: 2026-02-06 — Completed 33-02-PLAN.md
 
 Progress: ██████░░░░ 3.5/5 phases
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 120
+- Total plans completed: 121
 - Average duration: 3 min
 - Total execution time: ~324 min
 
@@ -99,6 +99,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Completed 33-01-PLAN.md
+Stopped at: Completed 33-02-PLAN.md (Phase 33 complete)
 Resume file: None
-Next action: Execute 33-02-PLAN.md (skills.sh distribution channel setup)
+Next action: Execute Phase 34 (cleanup)
