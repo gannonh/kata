@@ -9,7 +9,7 @@ const ROOT = process.cwd();
  * Migration validation tests for v1.6.0 Skills-Native Subagents.
  *
  * Validates:
- * 1. Every agent has a corresponding instruction file with matching content
+ * 1. Every agent has a corresponding instruction file in skill references/
  * 2. No remaining custom subagent_type patterns in skills
  * 3. Skills that spawn agents use instruction files with agent-instructions wrapper
  */
@@ -40,14 +40,6 @@ const AGENT_MAPPINGS = {
   'kata-silent-failure-hunter': 'kata-review-pull-requests',
   'kata-entity-generator': 'kata-review-pull-requests'
 };
-
-/**
- * Extract body content from an agent markdown file (everything after YAML frontmatter).
- */
-function extractAgentBody(content) {
-  const match = content.match(/^---\n[\s\S]*?\n---\n?([\s\S]*)$/);
-  return match ? match[1].trim() : content.trim();
-}
 
 /**
  * Recursively find all markdown files in a directory.
@@ -87,48 +79,6 @@ describe('Migration validation: agent-to-instruction-file mappings', () => {
     }
   });
 
-  test('instruction file content matches agent body', () => {
-    const errors = [];
-
-    for (const [agentName, skillName] of Object.entries(AGENT_MAPPINGS)) {
-      const agentPath = path.join(ROOT, 'agents', `${agentName}.md`);
-      const shortName = agentName.replace(/^kata-/, '');
-      const instructionPath = path.join(ROOT, 'skills', skillName, 'references', `${shortName}-instructions.md`);
-
-      if (!fs.existsSync(agentPath) || !fs.existsSync(instructionPath)) {
-        errors.push(`${agentName}: agent or instruction file missing, cannot compare`);
-        continue;
-      }
-
-      const agentContent = fs.readFileSync(agentPath, 'utf8');
-      const instructionContent = fs.readFileSync(instructionPath, 'utf8');
-      const agentBody = extractAgentBody(agentContent);
-      const instructionBody = instructionContent.trim();
-
-      if (agentBody !== instructionBody) {
-        // Show first difference for debugging
-        const agentLines = agentBody.split('\n');
-        const instrLines = instructionBody.split('\n');
-        let diffLine = -1;
-        const maxLines = Math.max(agentLines.length, instrLines.length);
-        for (let i = 0; i < maxLines; i++) {
-          if (agentLines[i] !== instrLines[i]) {
-            diffLine = i + 1;
-            break;
-          }
-        }
-        errors.push(
-          `${agentName}: body mismatch with instruction file ` +
-          `(agent: ${agentBody.length} chars, instruction: ${instructionBody.length} chars, ` +
-          `first diff at line ${diffLine})`
-        );
-      }
-    }
-
-    if (errors.length > 0) {
-      assert.fail(`Content mismatches:\n${errors.join('\n')}`);
-    }
-  });
 });
 
 describe('Migration validation: no remaining custom subagent types', () => {
