@@ -84,6 +84,19 @@ if [ -z "$PHASE_DIR" ]; then
   [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE_ARG}-*" 2>/dev/null | head -1)
 fi
 
+# Collision detection: check for duplicate phase numbering
+MATCH_COUNT=0
+for state in active pending completed; do
+  MATCH_COUNT=$((MATCH_COUNT + $(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | wc -l)))
+done
+MATCH_COUNT=$((MATCH_COUNT + $(find .planning/phases -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | wc -l)))
+
+if [ "$MATCH_COUNT" -gt 1 ]; then
+  echo "COLLISION: ${MATCH_COUNT} directories match prefix '${PADDED}-*'"
+  echo "Run /kata:kata-migrate-phases to fix duplicate phase numbering before executing."
+  exit 1
+fi
+
 if [ -z "$PHASE_DIR" ]; then
   echo "ERROR: No phase directory matching '${PHASE_ARG}'"
   exit 1

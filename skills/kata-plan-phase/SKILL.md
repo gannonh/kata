@@ -99,7 +99,7 @@ if [ -z "$PHASE_DIR" ]; then
   [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE}-*" 2>/dev/null | head -1)
 fi
 
-# Collision warning: check if multiple directories match this prefix
+# Collision check: detect duplicate phase numbering that requires migration
 MATCH_COUNT=0
 for state in active pending completed; do
   MATCH_COUNT=$((MATCH_COUNT + $(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | wc -l)))
@@ -108,11 +108,14 @@ done
 MATCH_COUNT=$((MATCH_COUNT + $(find .planning/phases -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | wc -l)))
 
 if [ "$MATCH_COUNT" -gt 1 ]; then
-  echo "WARNING: ${MATCH_COUNT} directories match prefix '${PADDED}-*' across phase states."
-  echo "Phase lookup may return the wrong directory."
-  echo "Run /kata:kata-migrate-phases to fix duplicate phase numbering."
+  echo "COLLISION: ${MATCH_COUNT} directories match prefix '${PADDED}-*' across phase states."
+  echo "This project uses old per-milestone phase numbering that must be migrated first."
 fi
+```
 
+**If COLLISION detected (MATCH_COUNT > 1):** STOP planning. Invoke `/kata:kata-migrate-phases` to renumber phases to globally sequential numbering. After migration completes, re-invoke `/kata:kata-plan-phase` with the migrated phase number. Do NOT continue with ambiguous phase directories.
+
+```bash
 find "${PHASE_DIR}" -maxdepth 1 -name "*-RESEARCH.md" 2>/dev/null
 find "${PHASE_DIR}" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null
 ```
