@@ -430,7 +430,7 @@ Claude requires the right context to perform well. Kata manages it:
 
 Every stage uses thin orchestrators that spawn specialized agents:
 
-| Stage        | Orchestrator     | Agents                                           |
+| Stage        | Orchestrator     | Subagents                                        |
 | ------------ | ---------------- | ------------------------------------------------ |
 | Research     | Coordinates      | 4 parallel researchers → synthesizer             |
 | Planning     | Validates, loops | Planner → checker (up to 3 iterations)           |

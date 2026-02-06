@@ -36,7 +36,7 @@ allowed-tools: [Read, Write, Bash, ...]
 4. `<process>` or `<step>` elements — Implementation steps
 5. `<success_criteria>` — Measurable completion checklist
 
-**Skills ARE orchestrators.** They spawn sub-agents via Task tool.
+**Skills ARE orchestrators.** They spawn general-purpose subagents via Task tool, inlining instructions from `references/`.
 
 ### Workflows (`kata/workflows/*.md`)
 
@@ -255,12 +255,11 @@ Present: Factual statements, verification results, direct answers
 
 ### Fresh Context Pattern
 
-Use subagents for autonomous work. Reserve main context for user interaction.
+Spawn general-purpose subagents with inlined instructions for autonomous work. Reserve main context for user interaction.
 
 ### State Preservation
 
 - `STATE.md` — Living memory across sessions
-- `agent-history.json` — Subagent tracking for resume
 - SUMMARY.md frontmatter — Machine-readable for dependency graphs
 
 ---

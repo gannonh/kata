@@ -149,9 +149,7 @@ function copyPath(src, dest, transform = null) {
 /**
  * Transform references for plugin distribution
  *
- * Skill() invocations use kata:skillname format directly in source
- * (no transformation needed). Agent instructions are inlined via
- * skill resources, so no agent namespacing transform is needed.
+ * No path transforms needed for plugin distribution.
  */
 function transformPluginPaths(content) {
   return content;
