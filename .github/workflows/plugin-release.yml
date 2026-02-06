@@ -76,10 +76,10 @@ jobs:
         run: |
           # Verify critical files exist
           # Note: commands directory removed in v1.3.5 (skills-first architecture)
+          # Note: agents directory removed in v1.6.0 (instructions moved to skill references/)
           test -f dist/plugin/.claude-plugin/plugin.json
           test -d dist/plugin/skills
           test -d dist/plugin/hooks
-          test -d dist/plugin/agents
           test -f dist/plugin/VERSION
           echo "✓ Plugin build validated (quick check)"
 
