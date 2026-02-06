@@ -16,26 +16,37 @@
 
 ## Install
 
-**From inside Claude Code:**
+**Claude Code plugin (recommended):**
 ```bash
 /plugin marketplace add gannonh/kata-marketplace
 /plugin install kata@gannonh-kata-marketplace
 ```
 
-**From terminal:**
+**Agent Skills (skills.sh):**
 ```bash
-claude plugin marketplace add gannonh/kata-marketplace
-claude plugin install kata@gannonh-kata-marketplace
+npx skills add gannonh/kata-skills
 ```
+
 ---
 
-## What's New in v1.5.0
+## What's New in v1.6.0
 
-**Phase Management** — Reorganize your roadmap without starting over:
+**Skills-Native Subagents** — Kata is now portable across Agent Skills-compatible platforms:
+- **Dual install** — Plugin marketplace or `npx skills add gannonh/kata-skills`
+- **Standard subagents** — All 19 custom agent types replaced with `general-purpose` (Agent Skills spec)
+- **Self-contained skills** — Agent instructions bundled in skill `references/`, inlined at spawn time
+- **Validated migration** — Automated tests verify zero custom subagent types remain
+
+<details>
+<summary><strong>v1.5.0: Phase Management</strong></summary>
+
+**Reorganize your roadmap without starting over:**
 - **Move phases** — `/kata:kata-move-phase 3 to v2.0` moves a phase between milestones
 - **Reorder phases** — `/kata:kata-move-phase 3 before 1` changes phase order within a milestone
 - **Global phase numbering** — Phase numbers are globally sequential across milestones (they never reset)
 - **Phase state directories** — Phases organized into `pending/`, `active/`, `completed/`
+
+</details>
 
 <details>
 <summary><strong>v1.4.1: Issue Execution</strong></summary>
@@ -102,16 +113,15 @@ Slash commands exist for precision (`/kata:kata-plan-phase 2`), but natural lang
 
 ### Install
 
-**From inside Claude Code:**
+**Claude Code plugin:**
 ```bash
 /plugin marketplace add gannonh/kata-marketplace
 /plugin install kata@gannonh-kata-marketplace
 ```
 
-**From terminal:**
+**Agent Skills (skills.sh):**
 ```bash
-claude plugin marketplace add gannonh/kata-marketplace
-claude plugin install kata@gannonh-kata-marketplace
+npx skills add gannonh/kata-skills
 ```
 
 Verify with `/kata:kata-help`.
@@ -428,7 +438,7 @@ Claude requires the right context to perform well. Kata manages it:
 
 ### Multi-Agent Orchestration
 
-Every stage uses thin orchestrators that spawn specialized agents:
+Skills are thin orchestrators that spawn `general-purpose` subagents with instructions inlined from their `references/` directory. All agents use the Agent Skills standard — no custom agent types.
 
 | Stage        | Orchestrator     | Subagents                                        |
 | ------------ | ---------------- | ------------------------------------------------ |
@@ -519,7 +529,8 @@ Visual and conceptual guides for how Kata works:
 Kata began as a fork of [GSD](https://github.com/glittercowboy/get-shit-done), then became a hard fork:
 
 - **Team-oriented** — GSD optimizes for solo devs. Kata adds GitHub integration, PR workflows, and collaborative features.
-- **Skills-based** — Built on the emerging [Agent Skills](https://agentskills.io) open standard, not Claude Code-specific commands.
+- **Skills-based** — Built on the [Agent Skills](https://agentskills.io) open standard. Portable across any Agent Skills-compatible platform.
+- **Dual distribution** — Available via Claude Code plugin marketplace and [skills.sh](https://skills.sh).
 
 ---
 

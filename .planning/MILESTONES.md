@@ -1,5 +1,33 @@
 # Project Milestones: Kata
 
+## v1.6.0 Skills-Native Subagents (Shipped: 2026-02-06)
+
+**Delivered:** All 19 custom agent types migrated to skill resources with general-purpose subagent spawning, making Kata portable across Agent Skills-compatible platforms.
+
+**Phases completed:** 30-34 (17 plans total)
+
+**Key accomplishments:**
+
+- Skill resource pattern: agent instructions in `skills/*/references/`, inlined into subagent prompts at spawn time
+- All 19 custom `kata:kata-*` subagent types replaced with standard `general-purpose`
+- Automated migration validation tests (6 tests ensuring compliance)
+- skills.sh distribution channel via `gannonh/kata-skills` with CI dual-publish
+- All 29 SKILL.md files normalized to Agent Skills spec
+- Globally sequential phase numbering replacing per-milestone numbering
+- `agents/` directory removed; instructions self-contained in skill resources
+
+**Stats:**
+
+- 446 files changed, 15,114 insertions, 4,282 deletions
+- 5 phases, 17 plans
+- 3 days (2026-02-04 → 2026-02-06)
+
+**Git range:** `v1.5.0` → `v1.6.0`
+
+**What's next:** TBD
+
+---
+
 ## v1.5.0 Phase Management (Shipped: 2026-02-04)
 
 **Delivered:** Phase state directories, cross-milestone phase movement, per-milestone numbering, and standardized roadmap formatting

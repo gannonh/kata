@@ -4,7 +4,7 @@
 
 A spec-driven development framework for Claude Code. Brings structured, reliable AI development to teams without changing their existing tools. Teams use Kata's quality-producing process inside the tools they already love.
 
-**Current state:** v1.6.0 in progress (2026-02-04). Skills-Native Subagents: converting custom subagents to Agent Skills resources for standard-aligned architecture.
+**Current state:** v1.6.0 shipped (2026-02-06). All custom agent types migrated to skill resources with general-purpose subagent spawning. Portable across Agent Skills-compatible platforms. Dual distribution: plugin marketplace + skills.sh.
 
 ## Core Value
 
@@ -36,15 +36,16 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Phase state directories — v1.5.0 (pending/, active/, completed/ with automatic transitions)
 - Phase movement — v1.5.0 (cross-milestone moves, within-milestone reorder, per-milestone numbering)
 - Roadmap formatting — v1.5.0 (Planned Milestones section, standardized details blocks, format conventions)
+- Skill resource pattern — v1.6.0 (agent instructions in skill references/, inlined into subagent prompts)
+- Custom subagent elimination — v1.6.0 (all 19 kata:kata-* types replaced with general-purpose)
+- Migration validation tests — v1.6.0 (automated compliance verification in npm test)
+- Agent Skills spec compliance — v1.6.0 (29 SKILL.md files normalized to spec)
+- skills.sh distribution — v1.6.0 (dual-channel: plugin marketplace + gannonh/kata-skills)
+- Globally sequential phase numbering — v1.6.0 (unique across all milestones)
 
 ### Active
 
-**v1.6.0 Skills-Native Subagents** — Convert custom subagents to Agent Skills resources
-
-- Subagent-as-skill-resource pattern — agents become skill resources spawned via built-in subagent mechanism
-- Proof of concept — validate pattern with kata-planner and kata-executor
-- Full conversion — if POC succeeds, convert all 15+ subagents
-- Agent Skills standard alignment — portable across compatible platforms
+(None — next milestone not yet defined)
 
 ### Out of Scope
 
@@ -63,6 +64,14 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Building an agent framework — use platform-native capabilities (subagents, Skills, MCPs)
 
 ## Context
+
+**v1.6.0 shipped (2026-02-06):**
+- 446 files changed, 15,114 insertions, 4,282 deletions
+- 19 custom agent types migrated to skill resources with general-purpose subagent spawning
+- Dual distribution: plugin marketplace + skills.sh via gannonh/kata-skills
+- 29 SKILL.md files normalized to Agent Skills spec with automated validation
+- Phase numbering reverted to globally sequential (unique across milestones)
+- agents/ directory removed; instructions self-contained in skill references/
 
 **v1.5.0 shipped (2026-02-04):**
 - 88 files changed, 4,618 insertions, 226 deletions
@@ -135,7 +144,12 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 | kata- prefix on all skill names       | Consistent namespacing, avoids collisions with built-in behaviors           | Good — v1.4.1 |
 | Phase state directories               | Organize artifacts under pending/active/completed for lifecycle clarity    | Good — v1.5.0 |
 | Universal find-based discovery         | zsh-safe, supports both flat and state directories                         | Good — v1.5.0 |
-| Per-milestone phase numbering          | Independent numbering avoids cross-milestone confusion                     | Good — v1.5.0 |
+| ~~Per-milestone phase numbering~~      | ~~Independent numbering avoids cross-milestone confusion~~                 | Reverted — v1.6.0 |
+| Globally sequential phase numbering    | Unique prefixes prevent lookup collisions across milestones               | Good — v1.6.0 |
+| Skill resource pattern                 | Agent instructions in references/, inlined at spawn time for portability  | Good — v1.6.0 |
+| general-purpose subagent type          | Standard type eliminates custom agent dependency, portable across platforms | Good — v1.6.0 |
+| Dual distribution (marketplace + skills.sh) | Two install channels without maintaining separate codebases          | Good — v1.6.0 |
+| Agent Skills spec normalization        | SKILL.md frontmatter follows spec for cross-platform compatibility       | Good — v1.6.0 |
 
 ## Shipped: v1.5.0 Phase Management
 
@@ -186,17 +200,19 @@ See `.planning/milestones/v1.4.0-ROADMAP.md` for full archive.
 
 See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 
-## Current Milestone: v1.6.0 Skills-Native Subagents
+## Shipped: v1.6.0 Skills-Native Subagents
 
-**Goal:** Convert custom subagents to Agent Skills resources for standard-aligned, portable architecture.
+**Delivered:** All 19 custom agent types migrated to skill resources. Kata is portable across Agent Skills-compatible platforms. Dual distribution via plugin marketplace and skills.sh.
 
-**Target features:**
-- Subagent-as-skill-resource pattern validation
-- Proof of concept with kata-planner and kata-executor
-- Full conversion of all subagents (if POC succeeds)
-- Identical behavior with new architecture
+**Key accomplishments:**
+- Skill resource pattern: agent instructions in `skills/*/references/`, inlined into subagent prompts
+- All custom `kata:kata-*` subagent types replaced with standard `general-purpose`
+- Automated migration validation tests ensuring compliance
+- skills.sh distribution channel via `gannonh/kata-skills`
+- Agent Skills spec normalization across 29 SKILL.md files
+- Globally sequential phase numbering replacing per-milestone numbering
 
-**Experimental:** Working on `feat/skills-subagents` branch. Merge if successful.
+See `.planning/milestones/v1.6.0-ROADMAP.md` for full archive.
 
 ---
-*Last updated: 2026-02-04 — v1.6.0 milestone started*
+*Last updated: 2026-02-06 — v1.6.0 milestone shipped*
