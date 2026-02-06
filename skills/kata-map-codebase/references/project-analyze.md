@@ -89,7 +89,7 @@ Continue to spawn_agents.
 </step>
 
 <step name="spawn_agents">
-Spawn 4 parallel codebase-mapper agents using general-purpose with inlined instructions.
+Spawn all 4 codebase-mapper agents in a **single message containing 4 parallel Task tool calls**. All 4 must be in the same response — do NOT wait for one to finish before spawning the next.
 
 **Load codebase-mapper instructions:**
 
@@ -97,7 +97,7 @@ Spawn 4 parallel codebase-mapper agents using general-purpose with inlined instr
 codebase_mapper_instructions_content=$(cat references/codebase-mapper-instructions.md)
 ```
 
-Use Task tool with `subagent_type="general-purpose"`, `model="{mapper_model}"`, and `run_in_background=true` for parallel execution.
+Use Task tool with `subagent_type="general-purpose"`, `model="{mapper_model}"`, and `run_in_background=true`.
 
 **CRITICAL:** Use general-purpose agents with codebase-mapper instructions inlined, NOT `Explore`. The mapper agent writes documents directly.
 

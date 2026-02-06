@@ -281,7 +281,7 @@ research_synthesizer_instructions_content=$(cat ${SKILL_BASE_DIR}/references/res
 roadmapper_instructions_content=$(cat ${SKILL_BASE_DIR}/references/roadmapper-instructions.md)
 ```
 
-Spawn 4 parallel project-researcher agents with milestone-aware context:
+Spawn all 4 researchers in a **single message containing 4 parallel Task tool calls**. All 4 must be in the same response — do NOT wait for one to finish before spawning the next:
 
 ```
 Task(prompt="
