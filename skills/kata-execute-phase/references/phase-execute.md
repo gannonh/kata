@@ -416,6 +416,24 @@ After all waves complete, aggregate results:
 ```
 </step>
 
+<step name="run_test_suite">
+Before verification, run the project's test suite to catch regressions early.
+
+```bash
+TEST_SCRIPT=$(cat package.json 2>/dev/null | grep -o '"test"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1)
+```
+
+**If package.json has a test script:**
+- Run `npm test`
+- If tests pass: proceed to verify_phase_goal
+- If tests fail: report test failures, still proceed to verify_phase_goal
+
+**If no test script detected:**
+- Skip this step, proceed to verify_phase_goal
+
+**Skip for gap phases:** If mode is `gap_closure`, skip test suite. Gap closure plans target specific fixes and run their own verification; the full test suite adds latency without value for small patches.
+</step>
+
 <step name="verify_phase_goal">
 Verify phase achieved its GOAL, not just completed its TASKS.
 
