@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 ## Current Position
 
 Milestone: v1.6.0 Skills-Native Subagents — In Progress
-Phase: 1 - Proof of Concept (completed)
-Plan: —
-Status: Phase 1 complete. Go decision made. Phase 2 greenlit.
-Last activity: 2026-02-05 — Phase 1 complete (3/3 plans, Go decision)
+Phase: 2 - Full Conversion (in progress)
+Plan: 01 of 7
+Status: In progress
+Last activity: 2026-02-06 — Completed 02-01-PLAN.md (kata-plan-phase migrated)
 
-Progress: ███░░░░░░░ 1/3 phases
+Progress: ██░░░░░░░░ 1/4 phases
 
 ## Performance Metrics
 
@@ -41,7 +41,7 @@ Progress: ███░░░░░░░ 1/3 phases
 | v1.4.0    | 2      | 11    | Shipped 2026-02-01 |
 | v1.4.1    | 4      | 6     | Shipped 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped 2026-02-04 |
-| v1.6.0    | 3      | 3     | Active |
+| v1.6.0    | 4      | 3     | Active |
 
 *Updated after each plan completion*
 
@@ -56,8 +56,9 @@ Recent decisions affecting current work:
 - **2026-02-05: Phase 2 scope expanded** — Added CONV-04 (automated migration test) and CONV-05 (test suite in execute-phase)
 - **2026-02-05: Executor inline pattern established** — Same pattern as planner: extract body to skill resource, inline via agent-instructions wrapper, general-purpose subagent
 - **2026-02-05: Planner inline pattern established** — Extract agent body to skill resource, prepend with agent-instructions wrapper, use general-purpose subagent type
-- **2026-02-05: Roadmap created for v1.6.0** — 3 phases: POC, Full Conversion (contingent), Cleanup (contingent)
-- **2026-02-05: Contingent phases** — Phase 2 and 3 only execute if POC succeeds (Go decision)
+- **2026-02-05: Phase 3 inserted — Agent Teams Migration** — Migrate multi-agent orchestration to Claude Code agent teams (Teammate/SendMessage/TaskCreate tools)
+- **2026-02-05: Roadmap expanded for v1.6.0** — 4 phases: POC, Full Conversion, Agent Teams Migration, Cleanup (all contingent)
+- **2026-02-05: Contingent phases** — Phases 2-4 only execute if POC succeeds (Go decision)
 - **2026-02-04: v1.6.0 started** — Skills-Native Subagents: convert custom subagents to Agent Skills resources
 - **2026-02-04: Feature branch approach** — Working on `feat/skills-subagents`, merge if POC succeeds
 - **2026-02-04: Phased scope** — POC first (kata-planner, kata-executor), then full conversion if successful
@@ -65,7 +66,7 @@ Recent decisions affecting current work:
 
 ### Roadmap Evolution
 
-- **v1.6.0 roadmap created 2026-02-05** — Skills-Native Subagents (3 phases, 14 requirements)
+- **v1.6.0 roadmap updated 2026-02-05** — Skills-Native Subagents (4 phases, 20 requirements)
 - **v1.5.0 shipped 2026-02-04** — Phase Management (3 phases, 6 plans)
 - **v1.4.1 shipped 2026-02-03** — Issue Execution (4 phases, 6 plans)
 
@@ -91,7 +92,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-05
-Stopped at: Phase 1 complete
+Last session: 2026-02-06
+Stopped at: Phase 2, Plan 01 complete
 Resume file: None
-Next action: Plan Phase 2 — Full Conversion
+Next action: Execute 02-02-PLAN.md
