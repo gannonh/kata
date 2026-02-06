@@ -8,7 +8,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 - ✅ **v1.5.0 Phase Management** — Phases 1-3 (shipped 2026-02-04)
 - ✅ **v1.4.1 Issue Execution** — Phases 1-4 (shipped 2026-02-03)
-- 🔄 **v1.6.0 Skills-Native Subagents** — current (Phase 2 complete)
+- 🔄 **v1.6.0 Skills-Native Subagents** — current (Phase 31 complete)
 - ○ **v1.7.0** — planned
 
 ## Completed Milestones
@@ -177,7 +177,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 **Experimental:** Working on `feat/skills-subagents` branch. Merge if successful. If POC fails, milestone is abandoned.
 
-### Phase 1: Proof of Concept ✓
+### Phase 30: Proof of Concept ✓
 
 **Goal:** Validate the subagent-as-skill-resource pattern with 2 agents
 
@@ -204,11 +204,11 @@ Plans:
 
 ---
 
-### Phase 2: Full Conversion ✓
+### Phase 31: Full Conversion ✓
 
 **Goal:** Migrate all remaining agents to skill resources
 
-**Dependencies:** Phase 1 (Go decision required)
+**Dependencies:** Phase 30 (Go decision required)
 
 **Requirements:** CONV-01, CONV-02, CONV-03, CONV-04, CONV-05
 
@@ -232,18 +232,18 @@ Plans:
 
 ---
 
-### Phase 3: Phase lookup ignores milestone scope causing collisions
+### Phase 32: Phase lookup ignores milestone scope causing collisions
 
 **Goal:** Revert to globally sequential phase numbering, rename all historical directories, and update numbering policy across all skills
 
-**Dependencies:** Phase 2
+**Dependencies:** Phase 31
 **Issue:** Closes #102
 **Plans:** 3 plans (2 waves)
 
 Plans:
-- [ ] 03-01-PLAN.md — Batch-rename completed + pending phase directories to globally sequential numbers
-- [ ] 03-02-PLAN.md — Update numbering policy and documentation across all skill files
-- [ ] 03-03-PLAN.md — Update ROADMAP.md and STATE.md with new global phase numbers
+- [x] 32-01-PLAN.md — Batch-rename completed + pending phase directories to globally sequential numbers
+- [x] 32-02-PLAN.md — Update numbering policy and documentation across all skill files
+- [ ] 32-03-PLAN.md — Update ROADMAP.md and STATE.md with new global phase numbers
 
 **Success Criteria:**
 1. Every phase directory has a globally unique sequential numeric prefix (no collisions)
@@ -253,18 +253,18 @@ Plans:
 
 ---
 
-### Phase 4: skills.sh Distribution Channel
+### Phase 33: skills.sh Distribution Channel
 
 **Goal:** Publish Kata skills to skills.sh via a `gannonh/kata-skills` GitHub repo, creating a second distribution channel alongside the existing Claude Code plugin marketplace
 
-**Dependencies:** Phase 3
+**Dependencies:** Phase 32
 
 **Requirements:** DIST-01, DIST-02, DIST-03, DIST-04
 
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (run /kata:kata-plan-phase 4 to break down)
+- [ ] TBD (run /kata:kata-plan-phase 33 to break down)
 
 **Success Criteria:**
 1. `gannonh/kata-skills` GitHub repo exists with `skills/` directory containing all Kata skill folders
@@ -275,13 +275,13 @@ Plans:
 
 ---
 
-### Phase 5: Cleanup (Contingent)
+### Phase 34: Cleanup (Contingent)
 
 **Goal:** Remove legacy infrastructure and update documentation
 
-**Dependencies:** Phase 4
+**Dependencies:** Phase 33
 
-**Contingency:** Only execute if Phase 4 completes
+**Contingency:** Only execute if Phase 33 completes
 
 **Requirements:** CLEAN-01, CLEAN-02, CLEAN-03, CLEAN-04
 
@@ -313,4 +313,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-06 — Phase 5 removed (Agent Teams Migration), 6→5 renumbered*
+*Last updated: 2026-02-06 — Phase headers updated to globally sequential numbers (30-34)*
