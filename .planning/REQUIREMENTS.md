@@ -127,21 +127,21 @@ Deprecate custom subagent types to make Kata portable across Agent Skills-compat
 
 ### Cleanup (contingent on Agent Teams Migration)
 
-- [ ] **CLEAN-01**: Remove agents/ directory
+- [x] **CLEAN-01**: Remove agents/ directory
   - Delete all `agents/kata-*.md` files
   - Remove agents/ directory
 
-- [ ] **CLEAN-02**: Update build system
+- [x] **CLEAN-02**: Update build system
   - Remove agent copying from `scripts/build.js`
   - Remove `.claude-plugin/agents/` output
   - Update build validation
 
-- [ ] **CLEAN-03**: Update documentation
+- [x] **CLEAN-03**: Update documentation
   - Update CLAUDE.md (remove agents section, update architecture)
   - Update KATA-STYLE.md (skill resource patterns)
   - Update README if needed
 
-- [ ] **CLEAN-04**: Final verification
+- [x] **CLEAN-04**: Final verification
   - Build plugin
   - Install in test project
   - Run full workflow (new-project → plan → execute → verify)
@@ -179,11 +179,11 @@ Deprecate custom subagent types to make Kata portable across Agent Skills-compat
 | TEAM-04  | 3     | Pending  |
 | TEAM-05  | 3     | Pending  |
 | TEAM-06  | 3     | Pending  |
-| CLEAN-01 | 4     | Pending  |
-| CLEAN-02 | 4     | Pending  |
-| CLEAN-03 | 4     | Pending  |
-| CLEAN-04 | 4     | Pending  |
+| CLEAN-01 | 4     | Complete |
+| CLEAN-02 | 4     | Complete |
+| CLEAN-03 | 4     | Complete |
+| CLEAN-04 | 4     | Complete |
 
 ---
 *Requirements defined: 2026-02-04*
-*Traceability updated: 2026-02-05*
+*Traceability updated: 2026-02-06*

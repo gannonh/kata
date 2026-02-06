@@ -8,7 +8,7 @@ Kata is a **spec-driven development framework** for Claude Code. It's a meta-pro
 
 **Core Architecture:**
 - **Skills** (`skills/kata-*/SKILL.md`) — Primary interface for all Kata workflows, invoked via `/kata:kata-skill-name`
-- **Agents** (`agents/kata-*.md`) — Specialized subagents spawned by skills for specific tasks (planning, execution, verification, debugging)
+- **Skill Resources** (`skills/kata-*/references/`) — Agent instructions inlined into subagent prompts at spawn time
 - **Templates** (`kata/templates/`) — Structured output formats (PROJECT.md, PLAN.md, etc.)
 - **References** (`kata/references/`) — Deep-dive documentation on concepts and patterns
 
@@ -75,15 +75,7 @@ Every file in Kata serves dual purposes:
 
 ### Multi-Agent Orchestration
 
-Kata uses a thin orchestrator + specialized agents pattern:
-
-| Orchestrator (Skill)        | Spawns                                                 | Purpose                        |
-| --------------------------- | ------------------------------------------------------ | ------------------------------ |
-| `kata-plan-phase`           | kata-phase-researcher, kata-planner, kata-plan-checker | Research → Plan → Verify loop  |
-| `kata-execution`            | kata-executor (multiple in parallel)                   | Execute plans in waves         |
-| `kata-verification-and-uat` | kata-verifier, kata-debugger                           | Check goals, diagnose failures |
-
-**Key principle:** Orchestrators stay lean (~15% context), subagents get fresh 200k tokens each.
+Skills are orchestrators that spawn general-purpose subagents with instructions inlined from their `references/` directories. Each subagent gets a fresh 200k context window. The orchestrator stays lean (~15% context) while subagents handle autonomous work.
 
 ## Skills Architecture
 
@@ -104,15 +96,15 @@ Skills are the primary interface for all Kata workflows. They respond to both na
 
 Skills are installed to `.claude/skills/` and invoked via `/kata:kata-skill-name`.
 
-| Skill                 | Invocation                  | Purpose                                        | Sub-agents Spawned                       |
-| --------------------- | --------------------------- | ---------------------------------------------- | ---------------------------------------- |
-| `kata-plan-phase`     | `/kata:kata-plan-phase`     | Phase planning, task breakdown                 | kata-planner, kata-plan-checker          |
-| `kata-execute-phase`  | `/kata:kata-execute-phase`  | Plan execution, checkpoints                    | kata-executor                            |
-| `kata-verify-work`    | `/kata:kata-verify-work`    | Goal verification, UAT                         | kata-verifier, kata-debugger             |
-| `kata-new-project`    | `/kata:kata-new-project`    | New project setup                              | kata-project-researcher, kata-roadmapper |
-| `kata-add-milestone`  | `/kata:kata-add-milestone`  | Add milestone, research, requirements, roadmap | kata-project-researcher, kata-roadmapper |
-| `kata-research-phase` | `/kata:kata-research-phase` | Domain research                                | kata-phase-researcher                    |
-| `kata-track-progress` | `/kata:kata-track-progress` | Progress, debug, mapping                       | kata-debugger, kata-codebase-mapper      |
+| Skill                 | Invocation                  | Purpose                                        |
+| --------------------- | --------------------------- | ---------------------------------------------- |
+| `kata-plan-phase`     | `/kata:kata-plan-phase`     | Phase planning, task breakdown                 |
+| `kata-execute-phase`  | `/kata:kata-execute-phase`  | Plan execution, checkpoints                    |
+| `kata-verify-work`    | `/kata:kata-verify-work`    | Goal verification, UAT                         |
+| `kata-new-project`    | `/kata:kata-new-project`    | New project setup                              |
+| `kata-add-milestone`  | `/kata:kata-add-milestone`  | Add milestone, research, requirements, roadmap |
+| `kata-research-phase` | `/kata:kata-research-phase` | Domain research                                |
+| `kata-track-progress` | `/kata:kata-track-progress` | Progress, debug, mapping                       |
 
 ### Skill Naming Best Practices
 
@@ -141,7 +133,7 @@ skills/kata-{name}/
     └── ...
 ```
 
-Skills ARE orchestrators. They spawn sub-agents via Task tool, not the other way around.
+Skills ARE orchestrators. They spawn general-purpose subagents via Task tool, inlining instructions from their `references/` directory.
 
 ## Style Guide
 
