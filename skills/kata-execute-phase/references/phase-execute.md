@@ -27,7 +27,7 @@ Default to "balanced" if not set.
 | Agent                       | quality | balanced | budget |
 | --------------------------- | ------- | -------- | ------ |
 | general-purpose (executor)  | opus    | sonnet   | sonnet |
-| kata-verifier               | sonnet  | sonnet   | haiku  |
+| general-purpose (verifier)  | sonnet  | sonnet   | haiku  |
 
 Store resolved models for use in Task calls below.
 </step>
@@ -419,18 +419,22 @@ After all waves complete, aggregate results:
 <step name="verify_phase_goal">
 Verify phase achieved its GOAL, not just completed its TASKS.
 
-**Spawn verifier:**
+**Load verifier instructions and spawn:**
+
+```bash
+verifier_instructions_content=$(cat references/verifier-instructions.md)
+```
 
 ```
 Task(
-  prompt="Verify phase {phase_number} goal achievement.
+  prompt="<agent-instructions>\n{verifier_instructions_content}\n</agent-instructions>\n\nVerify phase {phase_number} goal achievement.
 
 Phase directory: {phase_dir}
 Phase goal: {goal from ROADMAP.md}
 
 Check must_haves against actual codebase. Create VERIFICATION.md.
 Verify what actually exists in the code.",
-  subagent_type="kata-verifier",
+  subagent_type="general-purpose",
   model="{verifier_model}"
 )
 ```

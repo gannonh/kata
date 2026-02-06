@@ -33,9 +33,9 @@ Default to "balanced" if not set.
 
 **Model lookup table:**
 
-| Agent                | quality | balanced | budget |
-| -------------------- | ------- | -------- | ------ |
-| kata-codebase-mapper | sonnet  | haiku    | haiku  |
+| Agent                           | quality | balanced | budget |
+| ------------------------------- | ------- | -------- | ------ |
+| general-purpose (codebase-mapper) | sonnet  | haiku    | haiku  |
 
 Store resolved model for use in Task calls below.
 </step>
@@ -89,17 +89,23 @@ Continue to spawn_agents.
 </step>
 
 <step name="spawn_agents">
-Spawn 4 parallel kata-codebase-mapper agents.
+Spawn 4 parallel codebase-mapper agents using general-purpose with inlined instructions.
 
-Use Task tool with `subagent_type="kata-codebase-mapper"`, `model="{mapper_model}"`, and `run_in_background=true` for parallel execution.
+**Load codebase-mapper instructions:**
 
-**CRITICAL:** Use the dedicated `kata-codebase-mapper` agent, NOT `Explore`. The mapper agent writes documents directly.
+```bash
+codebase_mapper_instructions_content=$(cat references/codebase-mapper-instructions.md)
+```
+
+Use Task tool with `subagent_type="general-purpose"`, `model="{mapper_model}"`, and `run_in_background=true` for parallel execution.
+
+**CRITICAL:** Use general-purpose agents with codebase-mapper instructions inlined, NOT `Explore`. The mapper agent writes documents directly.
 
 **Agent 1: Tech Focus**
 
 Task tool parameters:
 ```
-subagent_type: "kata-codebase-mapper"
+subagent_type: "general-purpose"
 model: "{mapper_model}"
 run_in_background: true
 description: "Map codebase tech stack"
@@ -107,6 +113,10 @@ description: "Map codebase tech stack"
 
 Prompt:
 ```
+<agent-instructions>
+{codebase_mapper_instructions_content}
+</agent-instructions>
+
 Focus: tech
 
 Analyze this codebase for technology stack and external integrations.
@@ -122,7 +132,7 @@ Explore thoroughly. Write documents directly using templates. Return confirmatio
 
 Task tool parameters:
 ```
-subagent_type: "kata-codebase-mapper"
+subagent_type: "general-purpose"
 model: "{mapper_model}"
 run_in_background: true
 description: "Map codebase architecture"
@@ -130,6 +140,10 @@ description: "Map codebase architecture"
 
 Prompt:
 ```
+<agent-instructions>
+{codebase_mapper_instructions_content}
+</agent-instructions>
+
 Focus: arch
 
 Analyze this codebase architecture and directory structure.
@@ -145,7 +159,7 @@ Explore thoroughly. Write documents directly using templates. Return confirmatio
 
 Task tool parameters:
 ```
-subagent_type: "kata-codebase-mapper"
+subagent_type: "general-purpose"
 model: "{mapper_model}"
 run_in_background: true
 description: "Map codebase conventions"
@@ -153,6 +167,10 @@ description: "Map codebase conventions"
 
 Prompt:
 ```
+<agent-instructions>
+{codebase_mapper_instructions_content}
+</agent-instructions>
+
 Focus: quality
 
 Analyze this codebase for coding conventions and testing patterns.
@@ -168,7 +186,7 @@ Explore thoroughly. Write documents directly using templates. Return confirmatio
 
 Task tool parameters:
 ```
-subagent_type: "kata-codebase-mapper"
+subagent_type: "general-purpose"
 model: "{mapper_model}"
 run_in_background: true
 description: "Map codebase concerns"
@@ -176,6 +194,10 @@ description: "Map codebase concerns"
 
 Prompt:
 ```
+<agent-instructions>
+{codebase_mapper_instructions_content}
+</agent-instructions>
+
 Focus: concerns
 
 Analyze this codebase for technical debt, known issues, and areas of concern.
@@ -311,7 +333,7 @@ End workflow.
 
 <success_criteria>
 - .planning/codebase/ directory created
-- 4 parallel kata-codebase-mapper agents spawned with run_in_background=true
+- 4 parallel general-purpose agents (with codebase-mapper instructions) spawned with run_in_background=true
 - Agents write documents directly (orchestrator doesn't receive document contents)
 - Read agent output files to collect confirmations
 - All 7 codebase documents exist
