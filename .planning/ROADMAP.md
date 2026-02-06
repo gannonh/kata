@@ -261,10 +261,12 @@ Plans:
 
 **Requirements:** DIST-01, DIST-02, DIST-03, DIST-04
 
-**Plans:** 0 plans
+**Plans:** 3 plans (3 waves)
 
 Plans:
-- [ ] TBD (run /kata:kata-plan-phase 33 to break down)
+- [ ] 33-01-PLAN.md — Add skills-sh build target with frontmatter transformation + build tests
+- [ ] 33-02-PLAN.md — Generate README/LICENSE + optimize descriptions for cross-platform discovery
+- [ ] 33-03-PLAN.md — Extend CI/CD pipeline to publish to gannonh/kata-skills repo
 
 **Success Criteria:**
 1. `gannonh/kata-skills` GitHub repo exists with `skills/` directory containing all Kata skill folders
