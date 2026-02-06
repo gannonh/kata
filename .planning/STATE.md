@@ -11,9 +11,9 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 
 Milestone: v1.6.0 Skills-Native Subagents — In Progress
 Phase: 2 - Full Conversion (in progress)
-Plan: 02 of 7
+Plan: 05 of 7
 Status: Executing Wave 1
-Last activity: 2026-02-06 — Completed 02-02-PLAN.md (kata-add-milestone migrated)
+Last activity: 2026-02-06 — Completed 02-05-PLAN.md (debugger, quick-task, remaining extractions)
 
 Progress: ██░░░░░░░░ 1/4 phases
 
@@ -93,6 +93,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Phase 2, Plan 02 complete
+Stopped at: Phase 2, Plan 05 complete
 Resume file: None
-Next action: Execute remaining Wave 1 plans
+Next action: Execute remaining Wave 1 plans (03, 06, 07)
