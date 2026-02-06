@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Spec-driven development framework for Claude Code.",
   "scripts": {
-    "test": "node --test --test-reporter spec ./tests/build.test.js",
+    "test": "node --test --test-reporter spec ./tests/build.test.js ./tests/migration-validation.test.js",
     "test:smoke": "node --test --test-reporter spec ./tests/smoke.test.js",
     "test:artifacts": "node --test --test-reporter spec ./tests/artifact-validation.test.js",
     "test:all": "node --test --test-reporter spec ./tests/build.test.js ./tests/smoke.test.js ./tests/artifact-validation.test.js",
