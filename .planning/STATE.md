@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v1.6.0 Skills-Native Subagents (Phase 32 complete)
+**Current focus:** v1.6.0 Skills-Native Subagents (Phase 33 in progress)
 
 ## Current Position
 
 Milestone: v1.6.0 Skills-Native Subagents — In Progress
-Phase: 32 - Phase lookup ignores milestone scope (completed)
-Plan: —
-Status: Phase 32 complete. 3 plans executed, verified. Global phase numbering restored, closes #102.
-Last activity: 2026-02-06 — Phase 32 complete (3/3 plans, verification passed)
+Phase: 33 - skills.sh Distribution Channel (in progress)
+Plan: 01 of 2
+Status: Plan 01 complete. All 29 SKILL.md files normalized to Agent Skills spec. skills-ref validation test added.
+Last activity: 2026-02-06 — Completed 33-01-PLAN.md
 
-Progress: █████░░░░░ 3/5 phases
+Progress: ██████░░░░ 3.5/5 phases
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 119
+- Total plans completed: 120
 - Average duration: 3 min
-- Total execution time: ~320 min
+- Total execution time: ~324 min
 
 **By Milestone:**
 
@@ -52,6 +52,7 @@ Progress: █████░░░░░ 3/5 phases
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- **2026-02-06: kata-inserting-phases name field fixed** — Directory name = skill name required by Agent Skills spec. Updated name field from kata-insert-phase to kata-inserting-phases.
 - **2026-02-06: Phase 32 added + phases renumbered** — Inserted "Phase lookup ignores milestone scope" (Closes #102) as Phase 32 after completed Phase 31. Distribution channel became Phase 33, Cleanup became Phase 34
 - **2026-02-05: Phase 2.1 inserted — skills.sh distribution** — New distribution channel via `gannonh/kata-skills` repo for skills.sh registry
 - **2026-02-05: Phase 2 complete — all agents migrated** — 19 agents extracted to skill resources, zero custom subagent types remain
@@ -98,6 +99,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Phase 32 Plan 03 complete (all 3 plans done)
+Stopped at: Completed 33-01-PLAN.md
 Resume file: None
-Next action: Verify Phase 32 or plan Phase 33 (skills.sh distribution)
+Next action: Execute 33-02-PLAN.md (skills.sh distribution channel setup)
