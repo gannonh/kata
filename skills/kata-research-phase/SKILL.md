@@ -104,6 +104,14 @@ grep -A30 "### Decisions Made" .planning/STATE.md 2>/dev/null
 
 Present summary with phase description, requirements, prior decisions.
 
+## 3.5. Load Phase-Researcher Instructions
+
+Read the phase-researcher agent instructions for inlining into Task() calls:
+
+```bash
+phase_researcher_instructions_content=$(cat references/phase-researcher-instructions.md)
+```
+
 ## 4. Spawn kata-phase-researcher Agent
 
 Research modes: ecosystem (default), feasibility, implementation, comparison.
@@ -165,8 +173,8 @@ Write to: ${PHASE_DIR}/${PHASE}-RESEARCH.md
 
 ```
 Task(
-  prompt=filled_prompt,
-  subagent_type="kata-phase-researcher",
+  prompt="<agent-instructions>\n{phase_researcher_instructions_content}\n</agent-instructions>\n\n" + filled_prompt,
+  subagent_type="general-purpose",
   model="{researcher_model}",
   description="Research Phase {phase}"
 )
@@ -199,8 +207,8 @@ Research file: @${PHASE_DIR}/${PHASE}-RESEARCH.md
 
 ```
 Task(
-  prompt=continuation_prompt,
-  subagent_type="kata-phase-researcher",
+  prompt="<agent-instructions>\n{phase_researcher_instructions_content}\n</agent-instructions>\n\n" + continuation_prompt,
+  subagent_type="general-purpose",
   model="{researcher_model}",
   description="Continue research Phase {phase}"
 )
