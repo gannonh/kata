@@ -41,7 +41,7 @@ Progress: ████░░░░░░ 2/5 phases
 | v1.4.0    | 2      | 11    | Shipped 2026-02-01 |
 | v1.4.1    | 4      | 6     | Shipped 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped 2026-02-04 |
-| v1.6.0    | 6      | 10    | Active |
+| v1.6.0    | 5      | 10    | Active |
 
 *Updated after each plan completion*
 

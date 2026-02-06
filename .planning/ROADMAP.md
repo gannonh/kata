@@ -275,33 +275,13 @@ Plans:
 
 ---
 
-### Phase 5: Agent Teams Migration (Contingent)
-
-**Goal:** Migrate multi-agent orchestration from Task-tool subagents to Claude Code agent teams with shared task lists and inter-agent messaging
-
-**Dependencies:** Phase 3
-
-**Contingency:** Only execute if Phase 3 completes. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` feature.
-
-**Requirements:** TEAM-01, TEAM-02, TEAM-03, TEAM-04, TEAM-05, TEAM-06
-
-**Success Criteria:**
-1. Skills with multi-agent coordination use Teammate/SendMessage/TaskCreate tools instead of parallel Task calls
-2. Agent teams enable direct inter-agent communication (planner ↔ checker, reviewer cross-challenge)
-3. Wave-based execution uses shared task lists with dependency tracking
-4. Skills with single fire-and-forget subagents remain on Task tool (no unnecessary migration)
-5. All migrated skills produce equivalent or better output quality
-6. Agent teams cleanup (shutdown + Teammate cleanup) happens at end of each skill invocation
-
----
-
-### Phase 6: Cleanup (Contingent)
+### Phase 5: Cleanup (Contingent)
 
 **Goal:** Remove legacy infrastructure and update documentation
 
-**Dependencies:** Phase 5
+**Dependencies:** Phase 4
 
-**Contingency:** Only execute if Phase 5 completes
+**Contingency:** Only execute if Phase 4 completes
 
 **Requirements:** CLEAN-01, CLEAN-02, CLEAN-03, CLEAN-04
 
@@ -328,9 +308,9 @@ Plans:
 | v1.4.0    | 2      | 11    | Shipped  | 2026-02-01 |
 | v1.4.1    | 4      | 6     | Shipped  | 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped  | 2026-02-04 |
-| v1.6.0    | 6      | —     | Active   | —          |
+| v1.6.0    | 5      | —     | Active   | —          |
 | v1.7.0    | —      | —     | Planned  | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-06 — Phase 3 planned (3 plans, 2 waves)*
+*Last updated: 2026-02-06 — Phase 5 removed (Agent Teams Migration), 6→5 renumbered*
