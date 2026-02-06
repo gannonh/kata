@@ -630,3 +630,29 @@ describe('Circular dependency check', () => {
     }
   });
 });
+
+describe('Agent Skills spec validation', () => {
+  test('all skills pass skills-ref validate', () => {
+    const skillsDir = path.join(ROOT, 'skills');
+    const entries = fs.readdirSync(skillsDir, { withFileTypes: true })
+      .filter(e => e.isDirectory() && e.name.startsWith('kata-'));
+    const errors = [];
+
+    for (const entry of entries) {
+      const skillPath = path.join(skillsDir, entry.name);
+      try {
+        execSync(`npx skills-ref validate "${skillPath}"`, {
+          cwd: ROOT,
+          stdio: 'pipe',
+          timeout: 30000
+        });
+      } catch (err) {
+        errors.push(`${entry.name}: ${err.stderr?.toString().trim() || err.message}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      assert.fail(`Skills failing spec validation:\n${errors.join('\n')}`);
+    }
+  });
+});
