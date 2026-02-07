@@ -251,7 +251,7 @@ EOF
 
 ## Phase 5: Workflow Preferences
 
-**Round 1 — Core workflow settings (4 questions):**
+**5 questions:**
 
 ```
 questions: [
@@ -272,15 +272,6 @@ questions: [
       { label: "Quick", description: "Ship fast (3-5 phases, 1-3 plans each)" },
       { label: "Standard", description: "Balanced scope and speed (5-8 phases, 3-5 plans each)" },
       { label: "Comprehensive", description: "Thorough coverage (8-12 phases, 5-10 plans each)" }
-    ]
-  },
-  {
-    header: "Execution",
-    question: "Run plans in parallel?",
-    multiSelect: false,
-    options: [
-      { label: "Parallel (Recommended)", description: "Independent plans run simultaneously" },
-      { label: "Sequential", description: "One plan at a time" }
     ]
   },
   {
@@ -377,86 +368,21 @@ Continue with `github.enabled: true`.
 - Proceed normally with user's GitHub preferences
 - No additional prompts needed
 
-**Round 2 — Workflow agents:**
-
-These spawn additional agents during planning/execution. They add tokens and time but improve quality.
-
-| Agent            | When it runs               | What it does                                          |
-| ---------------- | -------------------------- | ----------------------------------------------------- |
-| **Researcher**   | Before planning each phase | Investigates domain, finds patterns, surfaces gotchas |
-| **Plan Checker** | After plan is created      | Verifies plan actually achieves the phase goal        |
-| **Verifier**     | After phase execution      | Confirms must-haves were delivered                    |
-
-All recommended for important projects. Skip for quick experiments.
-
-```
-questions: [
-  {
-    header: "Research",
-    question: "Research before planning each phase? (adds tokens/time)",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recommended)", description: "Investigate domain, find patterns, surface gotchas" },
-      { label: "No", description: "Plan directly from requirements" }
-    ]
-  },
-  {
-    header: "Plan Check",
-    question: "Verify plans will achieve their goals? (adds tokens/time)",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recommended)", description: "Catch gaps before execution starts" },
-      { label: "No", description: "Execute plans without verification" }
-    ]
-  },
-  {
-    header: "Verifier",
-    question: "Verify work satisfies requirements after each phase? (adds tokens/time)",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recommended)", description: "Confirm deliverables match phase goals" },
-      { label: "No", description: "Trust execution, skip verification" }
-    ]
-  },
-  {
-    header: "Model Profile",
-    question: "Which AI models for planning agents?",
-    multiSelect: false,
-    options: [
-      { label: "Balanced (Recommended)", description: "Sonnet for most agents — good quality/cost ratio" },
-      { label: "Quality", description: "Opus for research/roadmap — higher cost, deeper analysis" },
-      { label: "Budget", description: "Haiku where possible — fastest, lowest cost" }
-    ]
-  },
-  {
-    header: "Statusline",
-    question: "Enable Kata statusline? (shows model, context usage, update status)",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recommended)", description: "Display live session info in Claude Code statusline" },
-      { label: "No", description: "Use default Claude Code statusline" }
-    ]
-  }
-]
-```
-
-Create `.planning/config.json` with all settings:
+Create `.planning/config.json` with settings (workflow and display defaults are hardcoded, not user-selected):
 
 ```json
 {
   "mode": "yolo|interactive",
   "depth": "quick|standard|comprehensive",
-  "parallelization": true|false,
   "commit_docs": true|false,
   "pr_workflow": true|false,
-  "model_profile": "quality|balanced|budget",
   "display": {
-    "statusline": true|false
+    "statusline": true
   },
   "workflow": {
-    "research": true|false,
-    "plan_check": true|false,
-    "verifier": true|false
+    "research": true,
+    "plan_check": true,
+    "verifier": true
   },
   "github": {
     "enabled": true|false,
@@ -464,6 +390,8 @@ Create `.planning/config.json` with all settings:
   }
 }
 ```
+
+Note: `model_profile` is intentionally absent from initial config. Its absence triggers check-or-ask in `/kata-plan-phase` on first invocation.
 
 **GitHub Tracking conditional logic:**
 
@@ -492,17 +420,22 @@ Create `.planning/config.json` with all settings:
 **If commit_docs = Yes:**
 - No additional gitignore entries needed
 
-**Commit config.json:**
+**Scaffold preferences.json:**
 
 ```bash
-git add .planning/config.json
+echo '{}' > .planning/preferences.json
+```
+
+**Commit config.json and preferences.json:**
+
+```bash
+git add .planning/config.json .planning/preferences.json
 git commit -m "$(cat <<'EOF'
 chore: add project config
 
 Mode: [chosen mode]
 Depth: [chosen depth]
-Parallelization: [enabled/disabled]
-Workflow agents: research=[on/off], plan_check=[on/off], verifier=[on/off]
+Preferences: scaffolded (empty)
 EOF
 )"
 ```
@@ -664,7 +597,7 @@ Add NPM_TOKEN secret to your GitHub repository:
 The workflow will auto-publish when you merge PRs that bump package.json version.
 ```
 
-**If statusline = Yes:**
+**Statusline setup** (display.statusline defaults to true):
 
 Update `.claude/settings.json` with statusline configuration:
 
@@ -705,10 +638,6 @@ fi
 ```
 
 The statusline hook will be automatically installed on next session start by Kata's SessionStart hook.
-
-**If statusline = No:**
-
-No changes to `.claude/settings.json`.
 
 ## Phase 5.5: Resolve Model Profile
 
@@ -755,6 +684,7 @@ fi
 MISSING=""
 [ ! -f .planning/PROJECT.md ] && MISSING="${MISSING}\n- .planning/PROJECT.md"
 [ ! -f .planning/config.json ] && MISSING="${MISSING}\n- .planning/config.json"
+[ ! -f .planning/preferences.json ] && MISSING="${MISSING}\n- .planning/preferences.json"
 [ ! -f .planning/phases/pending/.gitkeep ] && MISSING="${MISSING}\n- .planning/phases/pending/.gitkeep"
 [ ! -f .planning/phases/active/.gitkeep ] && MISSING="${MISSING}\n- .planning/phases/active/.gitkeep"
 [ ! -f .planning/phases/completed/.gitkeep ] && MISSING="${MISSING}\n- .planning/phases/completed/.gitkeep"
@@ -776,10 +706,11 @@ fi
 
 **[Project Name]**
 
-| Artifact | Location                |
-| -------- | ----------------------- |
-| Project  | `.planning/PROJECT.md`  |
-| Config   | `.planning/config.json` |
+| Artifact    | Location                     |
+| ----------- | ---------------------------- |
+| Project     | `.planning/PROJECT.md`       |
+| Config      | `.planning/config.json`      |
+| Preferences | `.planning/preferences.json` |
 
 Ready for milestone planning ✓
 
@@ -819,6 +750,7 @@ Settings for `main`:
 
 - `.planning/PROJECT.md`
 - `.planning/config.json`
+- `.planning/preferences.json`
 
 </output>
 
@@ -830,7 +762,8 @@ Settings for `main`:
 - [ ] Brownfield detection completed
 - [ ] Deep questioning completed (threads followed, not rushed)
 - [ ] PROJECT.md captures full context → **committed**
-- [ ] config.json has workflow mode, depth, parallelization → **committed**
+- [ ] config.json has mode, depth, commit_docs, pr_workflow, github → **committed**
+- [ ] preferences.json scaffolded as `{}` → **committed**
 - [ ] Self-validation passed (all artifacts exist)
 - [ ] User knows next step is `/kata-add-milestone`
 
