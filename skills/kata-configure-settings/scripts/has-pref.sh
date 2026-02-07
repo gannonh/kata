@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Usage: has-pref.sh <key>
+# Exit 0 = user has expressed preference, exit 1 = no preference set
+# Does NOT check defaults table -- purpose is detecting whether user has EXPRESSED a preference
+set -euo pipefail
+
+KEY="${1:?Usage: has-pref.sh <key>}"
+
+KEY="$KEY" node << 'NODE_EOF'
+const fs = require('fs');
+const KEY = process.env.KEY;
+
+function readJSON(file) {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
+  catch { return {}; }
+}
+
+function resolveNested(obj, key) {
+  const parts = key.split('.');
+  let val = obj;
+  for (const p of parts) {
+    if (val == null || typeof val !== 'object') return undefined;
+    val = val[p];
+  }
+  return val;
+}
+
+const prefs = readJSON('.planning/preferences.json');
+const config = readJSON('.planning/config.json');
+
+// Key exists in prefs (explicitly set) or config (legacy)
+const inPrefs = prefs[KEY] !== undefined;
+const inConfig = resolveNested(config, KEY) !== undefined;
+
+process.exit(inPrefs || inConfig ? 0 : 1);
+NODE_EOF
