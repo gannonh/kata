@@ -4,7 +4,7 @@
 
 A spec-driven development framework for Claude Code. Brings structured, reliable AI development to teams without changing their existing tools. Teams use Kata's quality-producing process inside the tools they already love.
 
-**Current state:** v1.7.0 in progress. Shipping brainstorm skill with explorer/challenger agent teams and wiring it into existing workflows as an optional step.
+**Current state:** v1.7.0 shipped. Brainstorm skill with explorer/challenger agent teams wired into 5 workflows as optional step. Planning next milestone.
 
 ## Core Value
 
@@ -42,12 +42,14 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Agent Skills spec compliance — v1.6.0 (29 SKILL.md files normalized to spec)
 - skills.sh distribution — v1.6.0 (dual-channel: plugin marketplace + gannonh/kata-skills)
 - Globally sequential phase numbering — v1.6.0 (unique across all milestones)
+- Brainstorm skill — v1.7.0 (explorer/challenger agent teams for structured ideation)
+- Workflow integration — v1.7.0 (optional brainstorm step in 5 workflows)
+- Agent Teams prerequisite — v1.7.0 (auto-detect and enable CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)
+- Brainstorm context injection — v1.7.0 (SUMMARY.md feeds into planner and researcher agents)
 
 ### Active
 
-- Brainstorm skill — v1.7.0 (explorer/challenger agent teams for structured ideation)
-- Workflow integration — v1.7.0 (optional brainstorm step in milestone, planning, research workflows)
-- Agent Teams prerequisite — v1.7.0 (document CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS requirement)
+(No active requirements. Start next milestone with `/kata-add-milestone`.)
 
 ### Out of Scope
 
@@ -65,19 +67,19 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Building an LLM — use Claude, not compete with it
 - Building an agent framework — use platform-native capabilities (subagents, Skills, MCPs)
 
-## Current Milestone: v1.7.0 Brainstorm Integration
+## Current Milestone: Planning next milestone
 
-**Goal:** Ship the kata-brainstorm skill and integrate structured brainstorming as an optional step across Kata workflows.
-
-**Target features:**
-- kata-brainstorm skill (explorer/challenger agent teams for structured ideation)
-- Optional brainstorm step in kata-add-milestone (before research/requirements)
-- Optional brainstorm step in kata-plan-phase (before planning)
-- Optional brainstorm step in other applicable workflows (research, discuss-phase)
-- Agent Teams prerequisite documentation (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)
-- Build and test plugin distribution with new skill
+No active milestone. Use `/kata-add-milestone` to start the next version.
 
 ## Context
+
+**v1.7.0 shipped (2026-02-07):**
+- 77 files changed, 4,319 insertions, 571 deletions
+- kata-brainstorm skill with explorer/challenger Agent Teams and Kata-aware context assembly
+- Agent Teams prerequisite detection with auto-enable via settings.json
+- Brainstorm gates in 5 workflows (add-milestone, new-project, discuss-phase, research-phase, plan-phase)
+- Brainstorm SUMMARY.md auto-feeds into planner and researcher agents as downstream context
+- All brainstorm integration points non-blocking (skip continues parent workflow)
 
 **v1.6.0 shipped (2026-02-06):**
 - 446 files changed, 15,114 insertions, 4,282 deletions
@@ -165,6 +167,19 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 | Dual distribution (marketplace + skills.sh) | Two install channels without maintaining separate codebases          | Good — v1.6.0 |
 | Agent Skills spec normalization        | SKILL.md frontmatter follows spec for cross-platform compatibility       | Good — v1.6.0 |
 
+## Shipped: v1.7.0 Brainstorm Integration
+
+**Delivered:** Structured explorer/challenger brainstorming via Agent Teams, wired into 5 existing workflows as an optional step with downstream context injection.
+
+**Key accomplishments:**
+- kata-brainstorm skill with explorer/challenger Agent Teams for structured ideation
+- Agent Teams prerequisite detection with auto-enable via settings.json
+- Kata-aware context assembly from PROJECT.md, ROADMAP.md, open issues, STATE.md
+- Brainstorm gates in 5 workflows (add-milestone, new-project, discuss-phase, research-phase, plan-phase)
+- Brainstorm SUMMARY.md auto-feeds into planner and researcher agents
+
+See `.planning/milestones/v1.7.0-ROADMAP.md` for full archive.
+
 ## Shipped: v1.5.0 Phase Management
 
 **Delivered:** Phase state directories, cross-milestone phase movement, per-milestone numbering, and standardized roadmap formatting.
@@ -229,4 +244,4 @@ See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 See `.planning/milestones/v1.6.0-ROADMAP.md` for full archive.
 
 ---
-*Last updated: 2026-02-07 — v1.7.0 milestone started*
+*Last updated: 2026-02-07 after v1.7.0 milestone*

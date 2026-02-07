@@ -57,7 +57,7 @@ All 29 SKILL.md files normalized to Agent Skills spec (Plan 01):
 - Removed `disable-model-invocation: false` (27 files)
 - Removed `context: fork` (1 file: kata-review-pull-requests)
 - Converted `allowed-tools` from YAML list to space-delimited string (28 files)
-- Fixed name mismatch: `kata-inserting-phases` directory now matches `name` field
+- Fixed name mismatch: `kata-insert-phase` directory now matches `name` field
 
 ```bash
 $ grep -r "^user-invocable:" skills/
@@ -80,8 +80,8 @@ All 29 skills pass `skills-ref validate`:
 $ npx skills-ref validate skills/kata-help
 Valid skill: /Users/gannonhall/dev/kata/kata-orchestrator/skills/kata-help
 
-$ npx skills-ref validate skills/kata-inserting-phases
-Valid skill: /Users/gannonhall/dev/kata/kata-orchestrator/skills/kata-inserting-phases
+$ npx skills-ref validate skills/kata-insert-phase
+Valid skill: /Users/gannonhall/dev/kata/kata-orchestrator/skills/kata-insert-phase
 ```
 
 Test suite includes automated validation (added in Plan 01):
@@ -295,7 +295,7 @@ Generated README.md:
 
 **Deviations handled:**
 - Auto-fixed: kata-help was NOT already compliant (had extension fields)
-- Auto-fixed: kata-inserting-phases name mismatch (directory vs frontmatter)
+- Auto-fixed: kata-insert-phase name mismatch (directory vs frontmatter)
 
 ---
 
@@ -343,7 +343,7 @@ Generated README.md:
 ### Resolved Issues
 
 1. ~~kata-help frontmatter compliance~~ — Fixed in Plan 01
-2. ~~kata-inserting-phases name mismatch~~ — Fixed in Plan 01
+2. ~~kata-insert-phase name mismatch~~ — Fixed in Plan 01
 
 ---
 

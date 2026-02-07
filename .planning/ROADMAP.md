@@ -9,48 +9,21 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - ✅ **v1.5.0 Phase Management** — Phases 1-3 (shipped 2026-02-04)
 - ✅ **v1.4.1 Issue Execution** — Phases 1-4 (shipped 2026-02-03)
 - ✅ **v1.6.0 Skills-Native Subagents** — Phases 30-34 (shipped 2026-02-06)
-- 🔄 **v1.7.0 Brainstorm Integration** — Phases 35-36 (in progress)
+- ✅ **v1.7.0 Brainstorm Integration** — Phases 35-36 (shipped 2026-02-07)
 
-## Current Milestone: v1.7.0 Brainstorm Integration
+## Completed Milestones
+
+<details>
+<summary>✅ v1.7.0 Brainstorm Integration (Phases 35-36) — SHIPPED 2026-02-07</summary>
 
 **Goal:** Ship the kata-brainstorm skill and integrate structured brainstorming as an optional step across Kata workflows.
 
-**Source:** GitHub #99
+- [x] Phase 35: Ship Brainstorm Skill (2/2 plans) — completed 2026-02-07
+- [x] Phase 36: Workflow Integration (3/3 plans) — completed 2026-02-07
 
-#### Phase 35: Ship Brainstorm Skill (2 plans) — completed 2026-02-07
+[Full archive](milestones/v1.7.0-ROADMAP.md)
 
-**Goal:** kata-brainstorm skill works standalone with Agent Teams prerequisite handling and project context injection.
-
-**Requirements:** SKILL-01, SKILL-02, SKILL-03, PREREQ-01, PREREQ-02, PREREQ-03, CTX-01
-
-- [x] Plan 01: Prerequisite check and API updates
-- [x] Plan 02: Kata-aware context injection
-
-**Success Criteria** (what must be TRUE):
-1. `/kata-brainstorm` appears in skill list and invokes the brainstorm workflow
-2. Brainstorm output lands in `.planning/brainstorms/YYYY-MM-DDTHH-MM-brainstorm/`
-3. Skill checks for Agent Teams, offers to enable if missing, and skips gracefully on decline
-4. Brainstorm agents receive condensed project context from planning artifacts
-
-#### Phase 36: Workflow Integration (3 plans) — completed 2026-02-07
-
-**Goal:** Existing Kata workflows offer brainstorm as an optional step at natural decision points, and brainstorm output feeds downstream agents.
-
-**Requirements:** WFLOW-01, WFLOW-02, WFLOW-03, WFLOW-04, WFLOW-05, CTX-02
-
-**Success Criteria** (what must be TRUE):
-1. kata-add-milestone, kata-plan-phase, kata-new-project, kata-discuss-phase, and kata-research-phase each offer an optional brainstorm step at the appropriate workflow point
-2. Brainstorm SUMMARY.md auto-feeds into downstream agents (researcher, planner) as context
-3. Declining brainstorm at any integration point does not block the parent workflow
-
-Plans:
-- [x] Plan 01: Add brainstorm gates to add-milestone, new-project, discuss-phase
-- [x] Plan 02: Add brainstorm gates to research-phase and plan-phase
-- [x] Plan 03: Wire brainstorm SUMMARY.md into planner and researcher context
-
----
-
-## Completed Milestones
+</details>
 
 <details>
 <summary>✅ v1.6.0 Skills-Native Subagents (Phases 30-34) — SHIPPED 2026-02-06</summary>
@@ -232,8 +205,8 @@ Plans:
 | v1.4.1    | 4      | 6     | Shipped  | 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped  | 2026-02-04 |
 | v1.6.0    | 5      | 17    | Shipped  | 2026-02-06 |
-| v1.7.0    | 2      | 5     | Active   | —          |
+| v1.7.0    | 2      | 5     | Shipped  | 2026-02-07 |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-07 — Phase 36 complete (3 plans, verified)*
+*Last updated: 2026-02-07 — v1.7.0 Brainstorm Integration shipped*

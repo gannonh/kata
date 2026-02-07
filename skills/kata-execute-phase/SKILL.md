@@ -420,6 +420,15 @@ fi
     Check `COMMIT_PLANNING_DOCS` from config.json (default: true).
     If false: Skip git operations for .planning/ files.
     If true: Bundle all phase metadata updates in one commit:
+    - Stage phase directory move (pending→active→completed transitions):
+      ```bash
+      DIR_NAME=$(basename "$PHASE_DIR")
+      # Stage deletions from previous locations (safe to try both)
+      git add ".planning/phases/pending/${DIR_NAME}" 2>/dev/null || true
+      git add ".planning/phases/active/${DIR_NAME}" 2>/dev/null || true
+      # Stage additions at current (completed) location
+      git add "$PHASE_DIR"
+      ```
     - Stage: `git add .planning/ROADMAP.md .planning/STATE.md`
     - Stage REQUIREMENTS.md if updated: `git add .planning/REQUIREMENTS.md`
     - Commit: `docs({phase}): complete {phase-name} phase`
@@ -471,7 +480,7 @@ fi
     3. After UAT completes, return to this step to ask again (user may want PR review or merge)
 
     **If user chooses "Run PR review":**
-    4. Invoke skill: `Skill("kata:review-pull-requests")`
+    4. Invoke skill: `Skill("kata:kata-review-pull-requests")`
     5. Display review summary with counts: {N} critical, {M} important, {P} suggestions
     6. **STOP and ask what to do with findings** (see step 10.7)
     7. After findings handled, return to this step

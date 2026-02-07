@@ -29,13 +29,23 @@ npx skills add gannonh/kata-skills
 
 ---
 
-## What's New in v1.6.0
+## What's New in v1.7.0
 
-**Skills-Native Subagents** — Kata is now portable across Agent Skills-compatible platforms:
-- **Dual install** — Plugin marketplace or `npx skills add gannonh/kata-skills`
-- **Standard subagents** — All 19 custom agent types replaced with `general-purpose` (Agent Skills spec)
-- **Self-contained skills** — Agent instructions bundled in skill `references/`, inlined at spawn time
-- **Validated migration** — Automated tests verify zero custom subagent types remain
+**Brainstorm Integration** — Structured explorer/challenger ideation wired into workflows:
+- **`/kata-brainstorm`** — Paired agent teams debate ideas, producing pressure-tested proposals
+- **Optional workflow gates** — Brainstorm offered in add-milestone, new-project, discuss-phase, research-phase, and plan-phase
+- **Context injection** — Brainstorm output auto-feeds into planner and researcher agents
+- **Agent Teams prerequisite** — Auto-detects and enables `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`
+
+<details>
+<summary><strong>v1.6.0: Skills-Native Subagents</strong></summary>
+
+**Portable across Agent Skills-compatible platforms:**
+- Dual install: Plugin marketplace or `npx skills add gannonh/kata-skills`
+- All 19 custom agent types replaced with `general-purpose` (Agent Skills spec)
+- Agent instructions bundled in skill `references/`, inlined at spawn time
+
+</details>
 
 <details>
 <summary><strong>v1.5.0: Phase Management</strong></summary>
@@ -100,6 +110,7 @@ Drive your entire workflow with **natural language**.
 | "Execute the phase"        | Parallel agents → Commits → PR (optional)            |
 | "Verify the work"          | UAT testing → Debug agents if issues found           |
 | "Review my PR"             | 6 specialized review agents                          |
+| "Let's brainstorm"         | Explorer/challenger teams → Pressure-tested proposals|
 | "Complete the milestone"   | Archive → Tag/Release                                |
 | "Move phase 3 to v2.0"     | Cross-milestone move → Renumber → Commit             |
 | "Reorder phase 3 before 1" | Reorder → Renumber all affected → Commit             |

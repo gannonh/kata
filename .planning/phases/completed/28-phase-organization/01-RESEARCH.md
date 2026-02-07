@@ -17,17 +17,17 @@ The primary challenge is the breadth of files that reference `.planning/phases/`
 No external libraries required. This is a pure prompt-engineering and directory-structure change within the Kata meta-prompting system.
 
 ### Core
-| Component | Purpose | Why Standard |
-| --------- | ------- | ------------ |
-| Bash `ls`, `mv`, `mkdir` | Directory operations within prompts | Already used throughout Kata skills/agents |
-| Bash `test -f` / `ls *-PLAN.md` | File existence validation | Consistent with existing verification patterns |
-| Grep/sed for frontmatter | Extracting phase metadata | Already used in kata-verifier, kata-executor |
+| Component                       | Purpose                             | Why Standard                                   |
+| ------------------------------- | ----------------------------------- | ---------------------------------------------- |
+| Bash `ls`, `mv`, `mkdir`        | Directory operations within prompts | Already used throughout Kata skills/agents     |
+| Bash `test -f` / `ls *-PLAN.md` | File existence validation           | Consistent with existing verification patterns |
+| Grep/sed for frontmatter        | Extracting phase metadata           | Already used in kata-verifier, kata-executor   |
 
 ### Supporting
-| Pattern | Purpose | When to Use |
-| ------- | ------- | ----------- |
-| `find .planning/phases -name "${PHASE}-*" -type d` | Cross-subdirectory phase discovery | When a skill needs to find a phase regardless of state |
-| `ls .planning/phases/{pending,active,completed}/${PHASE}-*` | State-aware phase lookup | When state matters (e.g., only look in active) |
+| Pattern                                                     | Purpose                            | When to Use                                            |
+| ----------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------ |
+| `find .planning/phases -name "${PHASE}-*" -type d`          | Cross-subdirectory phase discovery | When a skill needs to find a phase regardless of state |
+| `ls .planning/phases/{pending,active,completed}/${PHASE}-*` | State-aware phase lookup           | When state matters (e.g., only look in active)         |
 
 ## Architecture Patterns
 
@@ -131,11 +131,11 @@ validate_phase_completion() {
 
 ## Don't Hand-Roll
 
-| Problem | Don't Build | Use Instead | Why |
-| ------- | ----------- | ----------- | --- |
-| Phase discovery | Custom per-file lookup logic | Single universal `find_phase_dir` pattern | 34+ files need the same logic; copy-paste leads to drift |
-| State validation | Ad-hoc file checks | `validate_phase_completion` pattern | Consistent validation across execute-phase and verify-work |
-| Directory creation | Manual mkdir in each skill | Create all three dirs at project init | Avoid mkdir -p scattered throughout |
+| Problem            | Don't Build                  | Use Instead                               | Why                                                        |
+| ------------------ | ---------------------------- | ----------------------------------------- | ---------------------------------------------------------- |
+| Phase discovery    | Custom per-file lookup logic | Single universal `find_phase_dir` pattern | 34+ files need the same logic; copy-paste leads to drift   |
+| State validation   | Ad-hoc file checks           | `validate_phase_completion` pattern       | Consistent validation across execute-phase and verify-work |
+| Directory creation | Manual mkdir in each skill   | Create all three dirs at project init     | Avoid mkdir -p scattered throughout                        |
 
 **Key insight:** The universal phase discovery pattern must be identical across all 34+ files. Any divergence creates bugs where one skill finds the phase and another doesn't.
 
@@ -182,7 +182,7 @@ validate_phase_completion() {
 5. `skills/kata-research-phase/SKILL.md` — Phase directory lookup
 6. `skills/kata-add-phase/SKILL.md` — Phase creation (new phases go to `pending/`)
 7. `skills/kata-remove-phase/SKILL.md` — Phase directory deletion
-8. `skills/kata-inserting-phases/SKILL.md` — Phase creation for decimal phases
+8. `skills/kata-insert-phase/SKILL.md` — Phase creation for decimal phases
 9. `skills/kata-pause-work/SKILL.md` — Phase directory lookup
 10. `skills/kata-check-issues/SKILL.md` — Phase scanning for issue linkage
 11. `skills/kata-audit-milestone/SKILL.md` — Phase scanning for milestone audit
@@ -243,10 +243,10 @@ mkdir -p .planning/phases/completed
 
 ## State of the Art
 
-| Old Approach | Current Approach | When Changed | Impact |
-| ------------ | ---------------- | ------------ | ------ |
+| Old Approach             | Current Approach                                | When Changed        | Impact                                 |
+| ------------------------ | ----------------------------------------------- | ------------------- | -------------------------------------- |
 | Flat `.planning/phases/` | State subdirectories `pending/active/completed` | v1.5.0 (this phase) | Phase state visible at directory level |
-| No completion validation | PLAN.md + SUMMARY.md + VERIFICATION.md checks | v1.5.0 (this phase) | Prevents premature phase completion |
+| No completion validation | PLAN.md + SUMMARY.md + VERIFICATION.md checks   | v1.5.0 (this phase) | Prevents premature phase completion    |
 
 **Key context on `.archive/`:** The `.planning/phases/.archive/` directory already exists and contains phases from previous milestones (moved there by `kata-complete-milestone`). This is a different lifecycle event from within-milestone completion. `.archive/` = historical record after milestone ships. `completed/` = phase done within current milestone.
 
