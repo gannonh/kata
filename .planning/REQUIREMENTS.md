@@ -50,12 +50,28 @@
 
 | Requirement | Phase | Plan |
 |-------------|-------|------|
-| PREF-01..05 | — | — |
-| CAP-01..05 | — | — |
-| TMPL-01..04 | — | — |
-| WKFL-01..06 | — | — |
+| PREF-01 | 37 | — |
+| PREF-02 | 37 | — |
+| PREF-03 | 37 | — |
+| PREF-04 | 37 | — |
+| PREF-05 | 37 | — |
+| CAP-01 | 37 | — |
+| CAP-02 | 37 | — |
+| CAP-03 | 37 | — |
+| CAP-04 | 37 | — |
+| CAP-05 | 37 | — |
+| TMPL-01 | 38 | — |
+| TMPL-02 | 38 | — |
+| TMPL-03 | 38 | — |
+| TMPL-04 | 38 | — |
+| WKFL-01 | 39 | — |
+| WKFL-02 | 39 | — |
+| WKFL-03 | 39 | — |
+| WKFL-04 | 39 | — |
+| WKFL-05 | 39 | — |
+| WKFL-06 | 39 | — |
 
-*21 requirements across 4 categories*
+*20 requirements across 4 categories, mapped to 3 phases*
 
 ## Source
 

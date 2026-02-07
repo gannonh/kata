@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Milestone: v1.8.0 Adaptive Workflows
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-07 — Milestone v1.8.0 started
+Phase: 37 — Preferences Infrastructure & Progressive Capture
+Plan: Not started
+Status: Roadmap created, ready for planning
+Last activity: 2026-02-07 — v1.8.0 roadmap created (3 phases, 20 requirements)
 
-Progress: ██████████ 13/13 milestones shipped
+Progress: ██████████ 13/13 milestones shipped | v1.8.0: 0/3 phases
 
 ## Performance Metrics
 
@@ -51,7 +51,10 @@ Progress: ██████████ 13/13 milestones shipped
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work: None (between milestones)
+Recent decisions affecting current work:
+- Phase 37 combines PREF + CAP (10 reqs) — accessor scripts are foundation for everything
+- Phase 38 handles TMPL (4 reqs) — independent, can parallelize with 37
+- Phase 39 handles WKFL (6 reqs) — depends on Phase 37 accessor pattern
 
 ### Roadmap Evolution
 
@@ -83,6 +86,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: v1.8.0 milestone started, defining requirements
+Stopped at: v1.8.0 roadmap created
 Resume file: None
-Next action: Define requirements, then create roadmap
+Next action: Plan Phase 37 (`/kata-plan-phase 37`)
