@@ -181,6 +181,30 @@ find "${PHASE_DIR}" -maxdepth 1 -name "*-RESEARCH.md" 2>/dev/null
 
 **If RESEARCH.md missing OR `--research` flag set:**
 
+**Optional brainstorm before research:**
+
+Use AskUserQuestion:
+
+- header: "Brainstorm"
+- question: "Brainstorm approaches before researching this phase?"
+- options:
+  - "Brainstorm first" — Run explorer/challenger brainstorm session
+  - "Skip" — Continue to research
+
+**If "Brainstorm first":**
+
+Display:
+
+```
+Launching brainstorm session...
+```
+
+Run `/kata-brainstorm`
+
+After brainstorm completes, continue to research.
+
+**If "Skip":** Continue to research.
+
 Display stage banner:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
