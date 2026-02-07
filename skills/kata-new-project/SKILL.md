@@ -93,6 +93,22 @@ Exit command.
 
 **Open the conversation:**
 
+Use AskUserQuestion:
+
+- header: "Getting Started"
+- question: "How would you like to begin?"
+- options:
+  - "I know what I want to build" — Jump into describing your project
+  - "Brainstorm first" — Run explorer/challenger brainstorm session to explore ideas
+
+**If "Brainstorm first":**
+
+Display "Launching brainstorm session..." and run `/kata-brainstorm`. After brainstorm completes, continue to questioning below.
+
+**If "I know what I want to build":** Continue to questioning below.
+
+**Questioning:**
+
 Ask inline (freeform, NOT AskUserQuestion):
 
 "What do you want to build?"

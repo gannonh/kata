@@ -175,7 +175,11 @@ Task(
 
 ## 5. Handle Agent Return
 
-**`## RESEARCH COMPLETE`:** Display summary, offer: Plan phase, Dig deeper, Review full, Done.
+**`## RESEARCH COMPLETE`:** Display summary.
+
+**Next steps:** Offer: Plan phase, Dig deeper, Brainstorm ideas, Review full, Done.
+
+- **"Brainstorm ideas":** Run `/kata-brainstorm` to explore ideas based on research findings. After brainstorm completes, return to this menu.
 
 **`## CHECKPOINT REACHED`:** Present to user, get response, spawn continuation.
 

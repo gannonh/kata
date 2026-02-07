@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 ## Current Position
 
 Milestone: v1.7.0 Brainstorm Integration
-Phase: 35 — Ship Brainstorm Skill (complete)
-Status: Phase 35 verified and completed
-Last activity: 2026-02-07 — Phase 35 complete (brainstorm skill with prerequisite check + Kata context injection)
+Phase: 36 — Workflow Integration (complete)
+Status: Phase 36 complete
+Last activity: 2026-02-07 — Phase 36 verified and completed (brainstorm gates in 5 workflows + context injection)
 
-Progress: █████░░░░░ 1/2 phases
+Progress: ██████████ 2/2 phases
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 125
+- Total plans completed: 128
 - Average duration: 3 min
-- Total execution time: ~327 min
+- Total execution time: ~331 min
 
 **By Milestone:**
 
@@ -104,6 +104,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Phase 35 complete, PR #115 ready for review
+Stopped at: Phase 36 verified, PR #116 ready for review
 Resume file: None
-Next action: Discuss/plan phase 36 (Workflow Integration)
+Next action: Audit milestone v1.7.0 or complete milestone
