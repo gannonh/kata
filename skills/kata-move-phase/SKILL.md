@@ -2,8 +2,7 @@
 name: kata-move-phase
 description: Move a phase between milestones or reorder phases within a milestone. Triggers include "move phase", "move phase to milestone", "reorder phase", "reorder phases".
 metadata:
-  version: "0.1.0"
-allowed-tools: Read Write Bash
+  version: "1.6.1"
 ---
 <objective>
 Move a pending phase to a different milestone or reorder phases within a milestone.

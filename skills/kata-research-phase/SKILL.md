@@ -2,8 +2,7 @@
 name: kata-research-phase
 description: Research how to implement a phase standalone, investigating implementation approaches before planning, or re-researching after planning is complete. Triggers include "research phase", "investigate phase", "how to implement", "research implementation", and "phase research".
 metadata:
-  version: "0.1.0"
-allowed-tools: Read Write Bash
+  version: "1.6.1"
 ---
 <objective>
 Research how to implement a phase. Spawns kata-phase-researcher agent with phase context.

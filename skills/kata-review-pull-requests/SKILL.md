@@ -2,8 +2,7 @@
 name: kata-review-pull-requests
 description: Run a comprehensive pull request review using multiple specialized agents. Each agent focuses on a different aspect of code quality, such as comments, tests, error handling, type design, and general code review. The skill aggregates results and provides a clear action plan for improvements. Triggers include "review PR", "analyze pull request", "code review", and "PR quality check".
 metadata:
-  version: "0.1.0"
-allowed-tools: Bash Glob Grep Read Task
+  version: "1.6.1"
 ---
 # Comprehensive PR Review
 

@@ -2,8 +2,7 @@
 name: kata-list-phase-assumptions
 description: Surface Claude's assumptions about a phase approach before planning, checking what Claude thinks, or validating understanding before planning. Triggers include "list assumptions", "what are you thinking", "show assumptions", "phase assumptions", and "what's the plan".
 metadata:
-  version: "0.1.0"
-allowed-tools: Read Write Bash
+  version: "1.6.1"
 ---
 <objective>
 Analyze a phase and present Claude's assumptions about technical approach, implementation order, scope boundaries, risk areas, and dependencies.
