@@ -32,7 +32,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 3. Skill checks for Agent Teams, offers to enable if missing, and skips gracefully on decline
 4. Brainstorm agents receive condensed project context from planning artifacts
 
-#### Phase 36: Workflow Integration
+#### Phase 36: Workflow Integration (3 plans)
 
 **Goal:** Existing Kata workflows offer brainstorm as an optional step at natural decision points, and brainstorm output feeds downstream agents.
 
@@ -42,6 +42,11 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 1. kata-add-milestone, kata-plan-phase, kata-new-project, kata-discuss-phase, and kata-research-phase each offer an optional brainstorm step at the appropriate workflow point
 2. Brainstorm SUMMARY.md auto-feeds into downstream agents (researcher, planner) as context
 3. Declining brainstorm at any integration point does not block the parent workflow
+
+Plans:
+- [ ] Plan 01: Add brainstorm gates to add-milestone, new-project, discuss-phase
+- [ ] Plan 02: Add brainstorm gates to research-phase and plan-phase
+- [ ] Plan 03: Wire brainstorm SUMMARY.md into planner and researcher context
 
 ---
 
@@ -227,8 +232,8 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 | v1.4.1    | 4      | 6     | Shipped  | 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped  | 2026-02-04 |
 | v1.6.0    | 5      | 17    | Shipped  | 2026-02-06 |
-| v1.7.0    | 2      | 2+    | Active   | —          |
+| v1.7.0    | 2      | 5     | Active   | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-07 — Phase 35 completed (2 plans)*
+*Last updated: 2026-02-07 — Phase 36 planned (3 plans)*
