@@ -40,16 +40,16 @@
 
 | Requirement | Phase | Plan |
 |-------------|-------|------|
-| SKILL-01    | —     | —    |
-| SKILL-02    | —     | —    |
-| SKILL-03    | —     | —    |
-| PREREQ-01   | —     | —    |
-| PREREQ-02   | —     | —    |
-| PREREQ-03   | —     | —    |
-| WFLOW-01    | —     | —    |
-| WFLOW-02    | —     | —    |
-| WFLOW-03    | —     | —    |
-| WFLOW-04    | —     | —    |
-| WFLOW-05    | —     | —    |
-| CTX-01      | —     | —    |
-| CTX-02      | —     | —    |
+| SKILL-01    | 35    | —    |
+| SKILL-02    | 35    | —    |
+| SKILL-03    | 35    | —    |
+| PREREQ-01   | 35    | —    |
+| PREREQ-02   | 35    | —    |
+| PREREQ-03   | 35    | —    |
+| WFLOW-01    | 36    | —    |
+| WFLOW-02    | 36    | —    |
+| WFLOW-03    | 36    | —    |
+| WFLOW-04    | 36    | —    |
+| WFLOW-05    | 36    | —    |
+| CTX-01      | 35    | —    |
+| CTX-02      | 36    | —    |

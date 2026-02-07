@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 ## Current Position
 
 Milestone: v1.7.0 Brainstorm Integration
-Phase: Not started (defining requirements)
-Status: Defining requirements
-Last activity: 2026-02-07 — Milestone v1.7.0 started
+Phase: 35 — Ship Brainstorm Skill
+Status: Roadmap created, ready for planning
+Last activity: 2026-02-07 — v1.7.0 roadmap created (2 phases: 35-36)
 
-Progress: ░░░░░░░░░░ 0/? phases
+Progress: ░░░░░░░░░░ 0/2 phases
 
 ## Performance Metrics
 
@@ -70,6 +70,7 @@ Recent decisions affecting current work:
 
 ### Roadmap Evolution
 
+- **v1.7.0 roadmap created 2026-02-07** — Brainstorm Integration (2 phases 35-36, 13 requirements, #99)
 - **v1.6.0 roadmap updated 2026-02-06** — Skills-Native Subagents (5 phases 30-34, global phase numbering restored, #102)
 - **v1.6.0 roadmap updated 2026-02-05** — Skills-Native Subagents (5 phases incl. 2.1 insertion, 24 requirements)
 - **v1.5.0 shipped 2026-02-04** — Phase Management (3 phases, 6 plans)
@@ -103,6 +104,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: v1.7.0 milestone started, defining requirements
+Stopped at: v1.7.0 roadmap created (phases 35-36)
 Resume file: None
-Next action: Complete requirements and roadmap for v1.7.0
+Next action: Plan phase 35 (Ship Brainstorm Skill)
