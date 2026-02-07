@@ -3,12 +3,13 @@ name: kata-execute-quick-task
 description: Execute small ad-hoc tasks with Kata guarantees, running quick tasks without full planning, or handling one-off work outside the roadmap. Triggers include "quick task", "quick mode", "quick fix", "ad-hoc task", "small task", and "one-off task".
 metadata:
   version: "0.1.0"
-allowed-tools: Read Write Bash
 ---
+
 <objective>
 Execute small, ad-hoc tasks with Kata guarantees (atomic commits, STATE.md tracking) while skipping optional agents (research, plan-checker, verifier).
 
 Quick mode is the same system with a shorter path:
+
 - Spawns kata-planner (quick mode) + kata-executor(s)
 - Skips kata-phase-researcher, kata-plan-checker, kata-verifier
 - Quick tasks live in `.planning/quick/` separate from planned phases
@@ -129,6 +130,7 @@ If empty, re-prompt: "Please provide a task description."
 **Generate slug from description (both paths):**
 
 Generate slug from description:
+
 ```bash
 slug=$(echo "$DESCRIPTION" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//' | cut -c1-40)
 ```
@@ -165,6 +167,7 @@ mkdir -p "$QUICK_DIR"
 ```
 
 Report to user:
+
 ```
 Creating quick task ${next_num}: ${DESCRIPTION}
 Directory: ${QUICK_DIR}
@@ -179,6 +182,7 @@ Store `$QUICK_DIR` for use in orchestration.
 Read files before spawning agents using the Read tool. The `@` syntax does not work across Task() boundaries - content must be inlined.
 
 **Read these files:**
+
 - `.planning/STATE.md` (required) — store as `STATE_CONTENT`
 - `skills/kata-plan-phase/references/planner-instructions.md` (cross-skill reference) — store as `planner_instructions_content`
 - `skills/kata-execute-phase/references/executor-instructions.md` (cross-skill reference) — store as `executor_instructions_content`
@@ -231,6 +235,7 @@ Return: ## PLANNING COMPLETE with plan path
 ```
 
 After planner returns:
+
 1. Verify plan exists at `${QUICK_DIR}/${next_num}-PLAN.md`
 2. Extract plan count (typically 1 for quick tasks)
 3. Report: "Plan created: ${QUICK_DIR}/${next_num}-PLAN.md"
@@ -242,6 +247,7 @@ If plan not found, error: "Planner failed to create ${next_num}-PLAN.md"
 **Step 6: Spawn executor**
 
 Read the plan content before spawning using the Read tool:
+
 - `${QUICK_DIR}/${next_num}-PLAN.md`
 
 Spawn kata-executor with inlined plan (use the STATE_CONTENT from step 4.5):
@@ -273,6 +279,7 @@ ${STATE_CONTENT}
 ```
 
 After executor returns:
+
 1. Verify summary exists at `${QUICK_DIR}/${next_num}-SUMMARY.md`
 2. Extract commit hash from executor output
 3. Report completion status
@@ -311,6 +318,7 @@ Insert after `### Blockers/Concerns` section:
 **7d. Update "Last activity" line:**
 
 Find and update the line:
+
 ```
 Last activity: $(date +%Y-%m-%d) - Completed quick task ${next_num}: ${DESCRIPTION}
 ```
@@ -322,6 +330,7 @@ Use Edit tool to make these changes atomically
 **Step 7.5: Create PR with issue closure (if issue-driven)**
 
 **Check pr_workflow config:**
+
 ```bash
 PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
 ```
@@ -329,6 +338,7 @@ PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:s
 **If `$ISSUE_NUMBER` is set (issue-driven quick task):**
 
 **If `PR_WORKFLOW=true`:**
+
 ```bash
 # Create branch for this quick task
 BRANCH="fix/quick-${next_num}-${slug}"
@@ -361,6 +371,7 @@ echo "PR created with Closes #${ISSUE_NUMBER}"
 ```
 
 **If `PR_WORKFLOW=false`:**
+
 ```bash
 # Close issue directly (no PR workflow)
 gh issue close "$ISSUE_NUMBER" --comment "Completed via quick task ${next_num}"
@@ -394,11 +405,13 @@ EOF
 ```
 
 Get final commit hash:
+
 ```bash
 commit_hash=$(git rev-parse --short HEAD)
 ```
 
 Display completion output:
+
 ```
 ---
 
@@ -417,6 +430,7 @@ Ready for next task: /kata-execute-quick-task
 </process>
 
 <success_criteria>
+
 - [ ] ROADMAP.md validation passes
 - [ ] User provides task description (or uses issue title if --issue flag)
 - [ ] Slug generated (lowercase, hyphens, max 40 chars)
@@ -429,4 +443,4 @@ Ready for next task: /kata-execute-quick-task
 - [ ] Issue context parsed from --issue flag (if provided)
 - [ ] PR created with `Closes #X` (if issue-driven and pr_workflow=true)
 - [ ] Issue closed directly (if issue-driven and pr_workflow=false)
-</success_criteria>
+      </success_criteria>

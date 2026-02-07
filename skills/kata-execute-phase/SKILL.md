@@ -3,8 +3,8 @@ name: kata-execute-phase
 description: Execute all plans in a phase with wave-based parallelization, running phase execution, or completing phase work. Triggers include "execute phase", "run phase", "execute plans", "run the phase", and "phase execution".
 metadata:
   version: "0.1.0"
-allowed-tools: Read Write Bash
 ---
+
 <objective>
 Execute all plans in a phase using wave-based parallel execution.
 
@@ -23,6 +23,7 @@ Context budget: ~15% orchestrator, 100% fresh per subagent.
 Phase: $ARGUMENTS
 
 **Flags:**
+
 - `--gaps-only` — Execute only gap closure plans (plans with `gap_closure: true` in frontmatter). Use after phase-verify creates fix plans.
 
 @.planning/ROADMAP.md
@@ -32,25 +33,26 @@ Phase: $ARGUMENTS
 <process>
 0. **Resolve Model Profile**
 
-   Read model profile for agent spawning:
-   ```bash
-   MODEL_PROFILE=$(cat .planning/config.json 2>/dev/null | grep -o '"model_profile"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "balanced")
-   ```
+Read model profile for agent spawning:
 
-   Default to "balanced" if not set.
+```bash
+MODEL_PROFILE=$(cat .planning/config.json 2>/dev/null | grep -o '"model_profile"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "balanced")
+```
 
-   **Model lookup table:**
+Default to "balanced" if not set.
 
-   | Agent                       | quality | balanced | budget |
-   | --------------------------- | ------- | -------- | ------ |
-   | general-purpose (executor)  | opus    | sonnet   | sonnet |
-   | kata-verifier      | sonnet  | sonnet   | haiku  |
-   | kata-code-reviewer | opus    | sonnet   | sonnet |
-   | kata-*-analyzer    | sonnet  | sonnet   | haiku  |
+**Model lookup table:**
 
-   *Note: Review agents (kata-code-reviewer, kata-*-analyzer) are spawned by the kata-review-pull-requests skill, which handles its own model selection based on the agents' frontmatter. The table above documents expected model usage for cost planning.*
+| Agent                      | quality | balanced | budget |
+| -------------------------- | ------- | -------- | ------ |
+| general-purpose (executor) | opus    | sonnet   | sonnet |
+| kata-verifier              | sonnet  | sonnet   | haiku  |
+| kata-code-reviewer         | opus    | sonnet   | sonnet |
+| kata-\*-analyzer           | sonnet  | sonnet   | haiku  |
 
-   Store resolved models for use in Task calls below.
+_Note: Review agents (kata-code-reviewer, kata-_-analyzer) are spawned by the kata-review-pull-requests skill, which handles its own model selection based on the agents' frontmatter. The table above documents expected model usage for cost planning.\*
+
+Store resolved models for use in Task calls below.
 
 1. **Validate phase exists**
    Find phase directory using the discovery script:
@@ -61,69 +63,71 @@ Phase: $ARGUMENTS
 
 1.25. **Move phase to active (state transition)**
 
-   ```bash
-   # Move from pending to active when execution begins
-   # PHASE_STATE is from find-phase.sh output (step 1)
-   if [ "$PHASE_STATE" = "pending" ]; then
-     DIR_NAME=$(basename "$PHASE_DIR")
-     mkdir -p ".planning/phases/active"
-     mv "$PHASE_DIR" ".planning/phases/active/${DIR_NAME}"
-     PHASE_DIR=".planning/phases/active/${DIR_NAME}"
-     echo "Phase moved to active/"
-   fi
-   ```
+```bash
+# Move from pending to active when execution begins
+# PHASE_STATE is from find-phase.sh output (step 1)
+if [ "$PHASE_STATE" = "pending" ]; then
+  DIR_NAME=$(basename "$PHASE_DIR")
+  mkdir -p ".planning/phases/active"
+  mv "$PHASE_DIR" ".planning/phases/active/${DIR_NAME}"
+  PHASE_DIR=".planning/phases/active/${DIR_NAME}"
+  echo "Phase moved to active/"
+fi
+```
 
 1.5. **Create Phase Branch (pr_workflow only)**
 
-   Read pr_workflow config:
-   ```bash
-   PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
-   ```
+Read pr_workflow config:
 
-   **If PR_WORKFLOW=false:** Skip to step 2.
+```bash
+PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
+```
 
-   **If PR_WORKFLOW=true:**
-   1. Get milestone version from ROADMAP.md:
-      ```bash
-      MILESTONE=$(grep -oE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' .planning/ROADMAP.md | head -1 | tr -d 'v')
-      ```
-   2. Get phase number and slug from PHASE_DIR:
-      ```bash
-      PHASE_NUM=$(basename "$PHASE_DIR" | sed -E 's/^([0-9]+)-.*/\1/')
-      SLUG=$(basename "$PHASE_DIR" | sed -E 's/^[0-9]+-//')
-      ```
-   3. Infer branch type from phase goal (feat/fix/docs/refactor/chore, default feat):
-      ```bash
-      PHASE_GOAL=$(grep -A 5 "Phase ${PHASE_NUM}:" .planning/ROADMAP.md | grep "Goal:" | head -1 || echo "")
-      if echo "$PHASE_GOAL" | grep -qi "fix\|bug\|patch"; then
-        BRANCH_TYPE="fix"
-      elif echo "$PHASE_GOAL" | grep -qi "doc\|readme\|comment"; then
-        BRANCH_TYPE="docs"
-      elif echo "$PHASE_GOAL" | grep -qi "refactor\|restructure\|reorganize"; then
-        BRANCH_TYPE="refactor"
-      elif echo "$PHASE_GOAL" | grep -qi "chore\|config\|setup"; then
-        BRANCH_TYPE="chore"
-      else
-        BRANCH_TYPE="feat"
-      fi
-      ```
-   4. Create branch with re-run protection:
-      ```bash
-      BRANCH="${BRANCH_TYPE}/v${MILESTONE}-${PHASE_NUM}-${SLUG}"
-      if git show-ref --verify --quiet refs/heads/"$BRANCH"; then
-        git checkout "$BRANCH"
-        echo "Branch $BRANCH exists, resuming on it"
-      else
-        git checkout -b "$BRANCH"
-        echo "Created branch $BRANCH"
-      fi
-      ```
+**If PR_WORKFLOW=false:** Skip to step 2.
 
-   Store BRANCH variable for use in step 4.5 and step 10.5.
+**If PR_WORKFLOW=true:**
+
+1.  Get milestone version from ROADMAP.md:
+    ```bash
+    MILESTONE=$(grep -oE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' .planning/ROADMAP.md | head -1 | tr -d 'v')
+    ```
+2.  Get phase number and slug from PHASE_DIR:
+    ```bash
+    PHASE_NUM=$(basename "$PHASE_DIR" | sed -E 's/^([0-9]+)-.*/\1/')
+    SLUG=$(basename "$PHASE_DIR" | sed -E 's/^[0-9]+-//')
+    ```
+3.  Infer branch type from phase goal (feat/fix/docs/refactor/chore, default feat):
+    ```bash
+    PHASE_GOAL=$(grep -A 5 "Phase ${PHASE_NUM}:" .planning/ROADMAP.md | grep "Goal:" | head -1 || echo "")
+    if echo "$PHASE_GOAL" | grep -qi "fix\|bug\|patch"; then
+      BRANCH_TYPE="fix"
+    elif echo "$PHASE_GOAL" | grep -qi "doc\|readme\|comment"; then
+      BRANCH_TYPE="docs"
+    elif echo "$PHASE_GOAL" | grep -qi "refactor\|restructure\|reorganize"; then
+      BRANCH_TYPE="refactor"
+    elif echo "$PHASE_GOAL" | grep -qi "chore\|config\|setup"; then
+      BRANCH_TYPE="chore"
+    else
+      BRANCH_TYPE="feat"
+    fi
+    ```
+4.  Create branch with re-run protection:
+    ```bash
+    BRANCH="${BRANCH_TYPE}/v${MILESTONE}-${PHASE_NUM}-${SLUG}"
+    if git show-ref --verify --quiet refs/heads/"$BRANCH"; then
+      git checkout "$BRANCH"
+      echo "Branch $BRANCH exists, resuming on it"
+    else
+      git checkout -b "$BRANCH"
+      echo "Created branch $BRANCH"
+    fi
+    ```
+
+Store BRANCH variable for use in step 4.5 and step 10.5.
 
 2. **Discover plans**
-   - List all *-PLAN.md files in phase directory
-   - Check which have *-SUMMARY.md (already complete)
+   - List all \*-PLAN.md files in phase directory
+   - Check which have \*-SUMMARY.md (already complete)
    - If `--gaps-only`: filter to only plans with `gap_closure: true`
    - Build list of incomplete plans
 
@@ -133,20 +137,20 @@ Phase: $ARGUMENTS
 
 3.5. **Display execution banner**
 
-   Display stage banner and wave structure:
+Display stage banner and wave structure:
 
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    Kata ► EXECUTING PHASE {X}: {Phase Name}
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Kata ► EXECUTING PHASE {X}: {Phase Name}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-   **{N} plans, {M} waves:**
+**{N} plans, {M} waves:**
 
-   | Wave | Plans | Description |
-   |------|-------|-------------|
-   | 1    | 01, 02 | {plan names from frontmatter} |
-   | 2    | 03    | {plan name} |
+| Wave | Plans  | Description                   |
+| ---- | ------ | ----------------------------- |
+| 1    | 01, 02 | {plan names from frontmatter} |
+| 2    | 03     | {plan name}                   |
 
-   **Model profile:** {profile} (executor → {model})
+**Model profile:** {profile} (executor → {model})
 
 4. **Execute waves**
    For each wave in order:
@@ -156,6 +160,7 @@ Phase: $ARGUMENTS
    - **Update GitHub issue checkboxes (if enabled):**
 
      Build COMPLETED_PLANS_IN_WAVE from SUMMARY.md files created this wave:
+
      ```bash
      # Get plan numbers from SUMMARYs that exist after this wave
      COMPLETED_PLANS_IN_WAVE=""
@@ -170,6 +175,7 @@ Phase: $ARGUMENTS
      ```
 
      Check github.enabled and issueMode:
+
      ```bash
      GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
      ISSUE_MODE=$(cat .planning/config.json 2>/dev/null | grep -o '"issueMode"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "never")
@@ -178,8 +184,8 @@ Phase: $ARGUMENTS
      **If `GITHUB_ENABLED != true` OR `ISSUE_MODE = never`:** Skip GitHub update.
 
      **Otherwise:**
-
      1. Find phase issue number:
+
      ```bash
      VERSION=$(grep -oE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' .planning/ROADMAP.md | head -1 | tr -d 'v')
      ISSUE_NUMBER=$(gh issue list \
@@ -191,13 +197,14 @@ Phase: $ARGUMENTS
      ```
 
      If issue not found: Warn and skip (non-blocking).
-
      2. Read current issue body:
+
      ```bash
      ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --json body --jq '.body' 2>/dev/null)
      ```
 
      3. For each completed plan in this wave, update checkbox:
+
      ```bash
      for plan_num in ${COMPLETED_PLANS_IN_WAVE}; do
        # Format: Plan 01, Plan 02, etc.
@@ -208,6 +215,7 @@ Phase: $ARGUMENTS
      ```
 
      4. Write and update:
+
      ```bash
      printf '%s\n' "$ISSUE_BODY" > /tmp/phase-issue-body.md
      gh issue edit "$ISSUE_NUMBER" --body-file /tmp/phase-issue-body.md 2>/dev/null \
@@ -220,6 +228,7 @@ Phase: $ARGUMENTS
    - **Open Draft PR (first wave only, pr_workflow only):**
 
      After first wave completion (orchestrator provides PHASE_ARG):
+
      ```bash
      # Re-read config (bash blocks don't share state)
      PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
@@ -276,6 +285,8 @@ Phase: $ARGUMENTS
          SOURCE_ISSUES=$(echo "$SOURCE_ISSUES" | sed '/^$/d')  # Remove empty lines
 
          cat > /tmp/pr-body.md << PR_EOF
+     ```
+
 ## Phase Goal
 
 ${PHASE_GOAL}
@@ -285,6 +296,7 @@ ${PHASE_GOAL}
 ${PLANS_CHECKLIST}
 ${CLOSES_LINE}
 ${SOURCE_ISSUES:+
+
 ## Source Issues
 
 ${SOURCE_ISSUES}}
@@ -306,7 +318,7 @@ PR_EOF
 
      **Note:** PR body checklist items remain unchecked throughout execution. The PR body is static after creation — it does NOT update as plans complete. The GitHub issue (updated after each wave above) is the source of truth for plan progress during execution.
 
-   - Proceed to next wave
+- Proceed to next wave
 
 5. **Aggregate results**
    - Collect summaries from all plans
@@ -314,11 +326,13 @@ PR_EOF
 
 6. **Commit any orchestrator corrections**
    Check for uncommitted changes before verification:
+
    ```bash
    git status --porcelain
    ```
 
    **If changes exist:** Orchestrator made corrections between executor completions. Commit them:
+
    ```bash
    git add -u && git commit -m "fix({phase}): orchestrator corrections"
    ```
@@ -327,21 +341,23 @@ PR_EOF
 
 6.5. **Run project test suite**
 
-   Before verification, run the project's test suite to catch regressions early:
+Before verification, run the project's test suite to catch regressions early:
 
-   ```bash
-   TEST_SCRIPT=$(cat package.json 2>/dev/null | grep -o '"test"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1)
-   ```
+```bash
+TEST_SCRIPT=$(cat package.json 2>/dev/null | grep -o '"test"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1)
+```
 
-   **If package.json has a test script:**
-   - Run `npm test`
-   - If tests pass: proceed to step 7
-   - If tests fail: report test failures, still proceed to step 7
+**If package.json has a test script:**
 
-   **If no test script detected:**
-   - Skip this step, proceed to step 7
+- Run `npm test`
+- If tests pass: proceed to step 7
+- If tests fail: report test failures, still proceed to step 7
 
-   **Skip for gap phases:** If mode is `gap_closure`, skip test suite
+**If no test script detected:**
+
+- Skip this step, proceed to step 7
+
+**Skip for gap phases:** If mode is `gap_closure`, skip test suite
 
 7. **Verify phase goal**
    Check config: `WORKFLOW_VERIFIER=$(cat .planning/config.json 2>/dev/null | grep -o '"verifier"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")`
@@ -359,35 +375,35 @@ PR_EOF
 
 7.5. **Validate completion and move to completed**
 
-   After verification passes, validate completion artifacts before moving phase to completed:
+After verification passes, validate completion artifacts before moving phase to completed:
 
-   ```bash
-   # Validate completion artifacts
-   PLAN_COUNT=$(find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | wc -l | tr -d ' ')
-   MISSING=""
-   if [ "$PLAN_COUNT" -eq 0 ]; then
-     MISSING="${MISSING}\n- No PLAN.md files found"
-   fi
-   for plan in $(find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null); do
-     plan_id=$(basename "$plan" | sed 's/-PLAN\.md$//')
-     [ ! -f "$PHASE_DIR/${plan_id}-SUMMARY.md" ] && MISSING="${MISSING}\n- Missing SUMMARY.md for ${plan_id}"
-   done
-   # Non-gap phases require VERIFICATION.md
-   IS_GAP=$(find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" -exec grep -l "gap_closure: true" {} + 2>/dev/null | head -1)
-   if [ -z "$IS_GAP" ] && ! find "$PHASE_DIR" -maxdepth 1 -name "*-VERIFICATION.md" 2>/dev/null | grep -q .; then
-     MISSING="${MISSING}\n- Missing VERIFICATION.md (required for non-gap phases)"
-   fi
+```bash
+# Validate completion artifacts
+PLAN_COUNT=$(find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null | wc -l | tr -d ' ')
+MISSING=""
+if [ "$PLAN_COUNT" -eq 0 ]; then
+  MISSING="${MISSING}\n- No PLAN.md files found"
+fi
+for plan in $(find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null); do
+  plan_id=$(basename "$plan" | sed 's/-PLAN\.md$//')
+  [ ! -f "$PHASE_DIR/${plan_id}-SUMMARY.md" ] && MISSING="${MISSING}\n- Missing SUMMARY.md for ${plan_id}"
+done
+# Non-gap phases require VERIFICATION.md
+IS_GAP=$(find "$PHASE_DIR" -maxdepth 1 -name "*-PLAN.md" -exec grep -l "gap_closure: true" {} + 2>/dev/null | head -1)
+if [ -z "$IS_GAP" ] && ! find "$PHASE_DIR" -maxdepth 1 -name "*-VERIFICATION.md" 2>/dev/null | grep -q .; then
+  MISSING="${MISSING}\n- Missing VERIFICATION.md (required for non-gap phases)"
+fi
 
-   if [ -z "$MISSING" ]; then
-     DIR_NAME=$(basename "$PHASE_DIR")
-     mkdir -p ".planning/phases/completed"
-     mv "$PHASE_DIR" ".planning/phases/completed/${DIR_NAME}"
-     PHASE_DIR=".planning/phases/completed/${DIR_NAME}"
-     echo "Phase validated and moved to completed/"
-   else
-     echo "Warning: Phase incomplete:${MISSING}"
-   fi
-   ```
+if [ -z "$MISSING" ]; then
+  DIR_NAME=$(basename "$PHASE_DIR")
+  mkdir -p ".planning/phases/completed"
+  mv "$PHASE_DIR" ".planning/phases/completed/${DIR_NAME}"
+  PHASE_DIR=".planning/phases/completed/${DIR_NAME}"
+  echo "Phase validated and moved to completed/"
+else
+  echo "Warning: Phase incomplete:${MISSING}"
+fi
+```
 
 8. **Update roadmap and state**
    - Update ROADMAP.md, STATE.md
@@ -534,9 +550,8 @@ PR_EOF
 
     **Note:** After handling findings, return to step 10.6 so user can choose UAT, merge, or skip. The checkpoint loop continues until user explicitly chooses "Skip to completion".
 
-11. **Offer next steps**
-    - Route to next action (see `<offer_next>`)
-</process>
+11. **Offer next steps** - Route to next action (see `<offer_next>`)
+    </process>
 
 <offer_next>
 Output this markdown directly (not as a code block). Route based on status:
@@ -555,7 +570,7 @@ Output this markdown directly (not as a code block). Route based on status:
 (Merge status already determined in step 10.6)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- Kata ► PHASE {Z} COMPLETE ✓
+Kata ► PHASE {Z} COMPLETE ✓
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **Phase {Z}: {Name}**
@@ -581,9 +596,10 @@ Goal verified ✓
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
+
 - `/kata-plan-phase {Z+1}` — skip discussion, plan directly
 - `/kata-verify-work {Z}` — manual acceptance testing before continuing
-{If PR_WORKFLOW and not MERGED: - `gh pr view --web` — review PR in browser before next phase}
+  {If PR_WORKFLOW and not MERGED: - `gh pr view --web` — review PR in browser before next phase}
 
 ───────────────────────────────────────────────────────────────
 
@@ -592,7 +608,7 @@ Goal verified ✓
 **Route B: Phase verified, milestone complete**
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- Kata ► MILESTONE COMPLETE 🎉
+Kata ► MILESTONE COMPLETE 🎉
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **v1.0**
@@ -615,6 +631,7 @@ All phase goals verified ✓
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
+
 - /kata-verify-work — manual acceptance testing
 - /kata-complete-milestone — skip audit, archive directly
 
@@ -625,7 +642,7 @@ All phase goals verified ✓
 **Route C: Gaps found — need additional planning**
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- Kata ► PHASE {Z} GAPS FOUND ⚠
+Kata ► PHASE {Z} GAPS FOUND ⚠
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **Phase {Z}: {Name}**
@@ -650,6 +667,7 @@ Report: .planning/phases/{phase_dir}/{phase}-VERIFICATION.md
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
+
 - cat .planning/phases/{phase_dir}/{phase}-VERIFICATION.md — see full report
 - /kata-verify-work {Z} — manual testing before planning
 
@@ -658,12 +676,13 @@ Report: .planning/phases/{phase_dir}/{phase}-VERIFICATION.md
 ---
 
 After user runs /kata-plan-phase {Z} --gaps:
+
 1. Planner reads VERIFICATION.md gaps
 2. Creates plans 04, 05, etc. to close gaps
 3. User runs /kata-execute-phase {Z} again
 4. phase-execute runs incomplete plans (04, 05...)
 5. Verifier runs again → loop until passed
-</offer_next>
+   </offer_next>
 
 <wave_execution>
 **Parallel spawning:**
@@ -671,6 +690,7 @@ After user runs /kata-plan-phase {Z} --gaps:
 Before spawning, read file contents using Read tool. The `@` syntax does not work across Task() boundaries - content must be inlined in the Task prompt.
 
 **Read these files:**
+
 - Each plan file in the wave (e.g., `{plan_01_path}`, `{plan_02_path}`, etc.)
 - `.planning/STATE.md`
 - `references/executor-instructions.md` (relative to skill base directory) — store as `executor_instructions_content`
@@ -690,6 +710,7 @@ All three run in parallel. Task tool blocks until all complete.
 
 <checkpoint_handling>
 Plans with `autonomous: false` have checkpoints. The phase-execute.md workflow handles the full checkpoint flow:
+
 - Subagent pauses at checkpoint, returns structured state
 - Orchestrator presents to user, collects response
 - Spawns fresh continuation agent (not resume)
@@ -712,6 +733,7 @@ Only rule 4 requires user intervention.
 **Per-Task Commits:**
 
 After each task completes:
+
 1. Stage only files modified by that task
 2. Commit with format: `{type}({phase}-{plan}): {task-name}`
 3. Types: feat, fix, test, refactor, perf, chore
@@ -720,6 +742,7 @@ After each task completes:
 **Plan Metadata Commit:**
 
 After all tasks in a plan complete:
+
 1. Stage plan artifacts only: PLAN.md, SUMMARY.md
 2. Commit with format: `docs({phase}-{plan}): complete [plan-name] plan`
 3. NO code files (already committed per-task)
@@ -727,11 +750,13 @@ After all tasks in a plan complete:
 **Phase Completion Commit:**
 
 After all plans in phase complete (step 7):
+
 1. Stage: ROADMAP.md, STATE.md, REQUIREMENTS.md (if updated), VERIFICATION.md
 2. Commit with format: `docs({phase}): complete {phase-name} phase`
 3. Bundles all phase-level state updates in one commit
 
 **NEVER use:**
+
 - `git add .`
 - `git add -A`
 - `git add src/` or any broad directory
@@ -740,6 +765,7 @@ After all plans in phase complete (step 7):
 </commit_rules>
 
 <success_criteria>
+
 - [ ] All incomplete plans in phase executed
 - [ ] Each plan has SUMMARY.md
 - [ ] Phase goal verified (must_haves checked against codebase)
@@ -749,4 +775,4 @@ After all plans in phase complete (step 7):
 - [ ] REQUIREMENTS.md updated (phase requirements marked Complete)
 - [ ] GitHub issue checkboxes updated per wave (if github.enabled)
 - [ ] User informed of next steps
-</success_criteria>
+      </success_criteria>

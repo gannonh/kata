@@ -3,12 +3,13 @@ name: kata-discuss-phase
 description: Gather phase context through adaptive questioning before planning, clarifying implementation decisions, or exploring gray areas for a phase. Triggers include "discuss phase", "clarify phase", "gather context", "what are the gray areas", and "phase discussion".
 metadata:
   version: "0.1.0"
-allowed-tools: Read Write Bash
 ---
+
 <objective>
 Extract implementation decisions that downstream agents need — researcher and planner will use CONTEXT.md to know what to investigate and what choices are locked.
 
 **How it works:**
+
 1. Analyze the phase to identify gray areas (UI, UX, behavior, etc.)
 2. Present gray areas — user selects which to discuss
 3. Deep-dive each selected area until satisfied
@@ -42,6 +43,7 @@ Phase number: $ARGUMENTS (required)
 7. Offer next steps (research or plan)
 
 **CRITICAL: Scope guardrail**
+
 - Phase boundary from ROADMAP.md is FIXED
 - Discussion clarifies HOW to implement, not WHETHER to add more
 - If user suggests new capabilities: "That's its own phase. I'll note it for later."
@@ -49,6 +51,7 @@ Phase number: $ARGUMENTS (required)
 
 **Domain-aware gray areas:**
 Gray areas depend on what's being built. Analyze the phase goal:
+
 - Something users SEE → layout, density, interactions, states
 - Something users CALL → responses, errors, auth, versioning
 - Something users RUN → output format, flags, modes, error handling
@@ -58,23 +61,26 @@ Gray areas depend on what's being built. Analyze the phase goal:
 Generate 3-4 **phase-specific** gray areas, not generic categories.
 
 **Probing depth:**
+
 - Ask 4 questions per area before checking
 - "More questions about [area], or move to next?"
 - If more → ask 4 more, check again
 - After all areas → "Ready to create context?"
 
 **Do NOT ask about (Claude handles these):**
+
 - Technical implementation
 - Architecture choices
 - Performance concerns
 - Scope expansion
-</process>
+  </process>
 
 <success_criteria>
+
 - Gray areas identified through intelligent analysis
 - User chose which areas to discuss
 - Each selected area explored until satisfied
 - Scope creep redirected to deferred ideas
 - CONTEXT.md captures decisions, not vague vision
 - User knows next steps
-</success_criteria>
+  </success_criteria>

@@ -3,8 +3,8 @@ name: kata-check-issues
 description: Review open issues, selecting an issue to work on, filtering issues by area, pulling GitHub issues, or deciding what to work on next. Triggers include "check issues", "list issues", "what issues", "open issues", "show issues", "view issues", "select issue to work on", "github issues", "backlog issues", "pull issues", "check todos" (deprecated), "list todos" (deprecated), "pending todos" (deprecated).
 metadata:
   version: "0.2.0"
-allowed-tools: Read Write Bash
 ---
+
 <objective>
 List all open issues, allow selection, load full context for the selected issue, and route to appropriate action.
 
@@ -66,6 +66,7 @@ echo "In progress: $IN_PROGRESS_COUNT"
 ```
 
 If both counts are 0:
+
 ```
 No open or in-progress issues.
 
@@ -95,12 +96,14 @@ GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:sp
 ```
 
 **2. Build dedupe list from local files' provenance fields:**
+
 ```bash
 # Get all GitHub issue numbers already tracked locally (from open and in-progress)
 LOCAL_PROVENANCE=$(grep -h "^provenance: github:" .planning/issues/open/*.md .planning/issues/in-progress/*.md 2>/dev/null | grep -oE '#[0-9]+' | tr -d '#' | sort -u)
 ```
 
 **3. Query GitHub Issues (if enabled):**
+
 ```bash
 if [ "$GITHUB_ENABLED" = "true" ]; then
   # Get GitHub Issues with backlog label, excluding those already tracked locally
@@ -110,6 +113,7 @@ fi
 ```
 
 **4. Query in-progress issues first:**
+
 ```bash
 for file in .planning/issues/in-progress/*.md; do
   [ -f "$file" ] || continue
@@ -121,6 +125,7 @@ done | sort
 ```
 
 **5. Query open issues:**
+
 ```bash
 for file in .planning/issues/open/*.md; do
   [ -f "$file" ] || continue
@@ -134,6 +139,7 @@ done | sort
 **6. Merge and display:**
 
 Display in-progress issues first (if any), then open issues:
+
 - In-progress issues marked with `[IN PROGRESS]` indicator
 - Local issues display as-is with their area
 - GitHub-only issues (number NOT in LOCAL_PROVENANCE) display with `[GH]` indicator
@@ -191,11 +197,13 @@ If `files` field has entries, read and briefly summarize each.
 
 **If GitHub-only issue (has [GH] indicator):**
 Fetch full issue details from GitHub:
+
 ```bash
 gh issue view $ISSUE_NUMBER --json title,body,createdAt,labels
 ```
 
 Display:
+
 ```
 ## [title] [GH]
 
@@ -216,15 +224,17 @@ ls .planning/ROADMAP.md 2>/dev/null && echo "Roadmap exists"
 ```
 
 If roadmap exists:
+
 1. Check if issue's area matches an upcoming phase
 2. Check if issue's files overlap with a phase's scope
 3. Note any match for action options
-</step>
+   </step>
 
 <step name="offer_actions">
 **If in-progress issue:**
 
 Use AskUserQuestion:
+
 - header: "Action"
 - question: "This issue is in progress. What would you like to do?"
 - options:
@@ -236,6 +246,7 @@ Use AskUserQuestion:
 **If GitHub-only issue (has [GH] indicator):**
 
 Use AskUserQuestion:
+
 - header: "Action"
 - question: "This is a GitHub Issue. What would you like to do?"
 - options:
@@ -250,6 +261,7 @@ First pull to local, then show mode selection (see below).
 **If open local issue maps to a roadmap phase:**
 
 Use AskUserQuestion:
+
 - header: "Action"
 - question: "This issue relates to Phase [N]: [name]. What would you like to do?"
 - options:
@@ -261,6 +273,7 @@ Use AskUserQuestion:
 **If open local issue with no roadmap match:**
 
 Use AskUserQuestion:
+
 - header: "Action"
 - question: "What would you like to do with this issue?"
 - options:
@@ -274,6 +287,7 @@ Use AskUserQuestion:
 After selecting "Work on it now", present execution mode selection:
 
 Use AskUserQuestion:
+
 - header: "Execution Mode"
 - question: "How would you like to work on this issue?"
 - options:
@@ -295,19 +309,22 @@ BODY=$(echo "$ISSUE_DATA" | jq -r '.body')
 CREATED=$(echo "$ISSUE_DATA" | jq -r '.createdAt')
 
 # Generate file path
+
 timestamp=$(date "+%Y-%m-%dT%H:%M")
 date_prefix=$(date "+%Y-%m-%d")
 slug=$(echo "$TITLE" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | head -c 40)
 OWNER_REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
 
 # Create local file with provenance
-cat > ".planning/issues/open/${date_prefix}-${slug}.md" << EOF
----
+
+## cat > ".planning/issues/open/${date_prefix}-${slug}.md" << EOF
+
 created: ${timestamp}
 title: ${TITLE}
 area: general
 provenance: github:${OWNER_REPO}#${ISSUE_NUMBER}
 files: []
+
 ---
 
 ## Problem
@@ -318,7 +335,8 @@ ${BODY}
 
 TBD
 EOF
-```
+
+````
 The `provenance` field enables deduplication on subsequent checks.
 Confirm: "Pulled GitHub Issue #[number] to local: .planning/issues/open/[filename]"
 Return to list or offer to work on it.
@@ -349,14 +367,16 @@ if echo "$PROVENANCE" | grep -q "^github:"; then
     fi
   fi
 fi
-```
+````
 
 2. Display:
+
 ```
 Starting quick task execution for issue: [title]
 ```
 
 3. Route to execute-quick-task with issue context:
+
 ```
 /kata-execute-quick-task --issue "$ISSUE_FILE"
 ```
@@ -368,6 +388,7 @@ The execute-quick-task skill will handle planning, execution, and PR creation.
 Do NOT move issue to in-progress yet. Present planned execution options:
 
 Use AskUserQuestion:
+
 - header: "Planned Execution"
 - question: "How should this issue be planned?"
 - options:
@@ -378,6 +399,7 @@ Use AskUserQuestion:
 **If "Create new phase" selected:**
 
 1. Extract issue context for phase creation:
+
 ```bash
 ISSUE_TITLE=$(grep "^title:" "$ISSUE_FILE" | cut -d':' -f2- | xargs)
 PROVENANCE=$(grep "^provenance:" "$ISSUE_FILE" | cut -d' ' -f2)
@@ -388,6 +410,7 @@ fi
 ```
 
 2. Display routing guidance:
+
 ```
 Creating phase from issue: ${ISSUE_TITLE}
 ${ISSUE_NUMBER:+GitHub Issue: #${ISSUE_NUMBER}}
@@ -417,6 +440,7 @@ or use /kata-check-issues to update status.
 **If "Link to existing phase" selected:**
 
 1. Find upcoming phases that might match:
+
 ```bash
 # Get phase directories that are not yet complete (no SUMMARY.md for all plans)
 # This is a heuristic - phases with incomplete plans
@@ -447,6 +471,7 @@ done
 ```
 
 2. If matching phases found, present selection:
+
 ```
 Upcoming phases that could include this issue:
 
@@ -463,11 +488,13 @@ Which phase? (Enter phase name or "none" to go back)
 3. If phase selected:
 
 **Check if issue already linked to a phase:**
+
 ```bash
 EXISTING_LINKAGE=$(grep "^linked_phase:" "$ISSUE_FILE" 2>/dev/null | cut -d' ' -f2)
 ```
 
 **If EXISTING_LINKAGE exists:**
+
 ```
 This issue is already linked to phase: ${EXISTING_LINKAGE}
 
@@ -557,9 +584,10 @@ The issue will be included when planning this phase.
 Issue remains in open/ until phase work begins.
 ```
 
-   - Keep issue in open/
+- Keep issue in open/
 
 4. If no phases found:
+
 ```
 No upcoming phases found.
 
@@ -581,6 +609,7 @@ Return to list_issues step.
 If proceeding without mode selection (e.g., for in-progress issues):
 
 Move from open to in-progress (does NOT close GitHub Issue):
+
 ```bash
 mv ".planning/issues/open/[filename]" ".planning/issues/in-progress/"
 
@@ -611,6 +640,7 @@ fi
 ```
 
 Display confirmation:
+
 ```
 Issue moved to in-progress: [filename]
 
@@ -636,6 +666,7 @@ First execute "Pull to local" action to create local file, then proceed based on
 
 1. Pull to local (creates file at `.planning/issues/open/${date_prefix}-${slug}.md`)
 2. Move to in-progress:
+
 ```bash
 mv ".planning/issues/open/${date_prefix}-${slug}.md" ".planning/issues/in-progress/"
 ISSUE_FILE=".planning/issues/in-progress/${date_prefix}-${slug}.md"
@@ -651,11 +682,13 @@ fi
 ```
 
 3. Display:
+
 ```
 Starting quick task execution for issue: [title]
 ```
 
 4. Route to execute-quick-task with issue context:
+
 ```
 /kata-execute-quick-task --issue "$ISSUE_FILE"
 ```
@@ -666,6 +699,7 @@ Starting quick task execution for issue: [title]
 2. Do NOT move to in-progress. Present planned execution options:
 
 Use AskUserQuestion:
+
 - header: "Planned Execution"
 - question: "How should this issue be planned?"
 - options:
@@ -676,6 +710,7 @@ Use AskUserQuestion:
 **If "Create new phase" selected (GitHub-only issue):**
 
 1. Extract issue context (already have from pull-to-local):
+
 ```bash
 ISSUE_FILE=".planning/issues/open/${date_prefix}-${slug}.md"
 ISSUE_TITLE=$(grep "^title:" "$ISSUE_FILE" | cut -d':' -f2- | xargs)
@@ -683,6 +718,7 @@ ISSUE_TITLE=$(grep "^title:" "$ISSUE_FILE" | cut -d':' -f2- | xargs)
 ```
 
 2. Display routing guidance:
+
 ```
 Creating phase from issue: ${ISSUE_TITLE}
 GitHub Issue: #${ISSUE_NUMBER}
@@ -712,6 +748,7 @@ or use /kata-check-issues to update status.
 **If "Link to existing phase" selected (GitHub-only issue):**
 
 1. Find upcoming phases (same logic as local issue path):
+
 ```bash
 UPCOMING_PHASES=""
 ALL_PHASE_DIRS=""
@@ -738,6 +775,7 @@ done
 ```
 
 2. If matching phases found, present selection:
+
 ```
 Upcoming phases that could include this issue:
 
@@ -757,6 +795,7 @@ Which phase? (Enter phase name or "none" to go back)
 Use the same linkage logic as local issues (see above for full implementation).
 
 **Check if issue already linked to a phase:**
+
 ```bash
 ISSUE_FILE=".planning/issues/open/${date_prefix}-${slug}.md"
 EXISTING_LINKAGE=$(grep "^linked_phase:" "$ISSUE_FILE" 2>/dev/null | cut -d' ' -f2)
@@ -767,6 +806,7 @@ EXISTING_LINKAGE=$(grep "^linked_phase:" "$ISSUE_FILE" 2>/dev/null | cut -d' ' -
 **If override selected or no existing linkage:**
 
 **Step 3a: Update issue file frontmatter with linked_phase:**
+
 ```bash
 awk -v phase="$PHASE_NAME" '
   /^---$/ && !found {
@@ -780,6 +820,7 @@ awk -v phase="$PHASE_NAME" '
 ```
 
 **Step 3b: Update STATE.md with linkage entry:**
+
 ```bash
 STATE_FILE=".planning/STATE.md"
 ISSUE_TITLE=$(grep "^title:" "$ISSUE_FILE" | cut -d':' -f2- | xargs)
@@ -816,6 +857,7 @@ awk -v entry="$LINKAGE_ENTRY" '
 ```
 
 **Step 3c: Display confirmation:**
+
 ```
 Issue linked to phase: ${PHASE_NAME}
 
@@ -827,9 +869,10 @@ The issue will be included when planning this phase.
 Issue remains in open/ until phase work begins.
 ```
 
-   - Keep issue in open/
+- Keep issue in open/
 
 4. If no phases found:
+
 ```
 No upcoming phases found.
 
@@ -874,6 +917,7 @@ fi
 ```
 
 Display confirmation:
+
 ```
 Issue moved to in-progress: [filename]
 
@@ -890,6 +934,7 @@ Update STATE.md issue count. Present problem/solution context. Begin work or ask
 
 **Mark complete (in-progress issue):**
 Move from in-progress to closed and close GitHub Issue if linked:
+
 ```bash
 mv ".planning/issues/in-progress/[filename]" ".planning/issues/closed/"
 
@@ -914,6 +959,7 @@ fi
 ```
 
 Display confirmation:
+
 ```
 Issue completed: [filename]
 
@@ -930,9 +976,11 @@ Update STATE.md issue count.
 
 **Put back to open (in-progress issue):**
 Move from in-progress back to open:
+
 ```bash
 mv ".planning/issues/in-progress/[filename]" ".planning/issues/open/"
 ```
+
 Confirm: "Issue moved back to open: [filename]"
 Return to list.
 
@@ -940,9 +988,11 @@ Return to list.
 Present problem/solution context. Begin work or ask how to proceed.
 
 **View on GitHub (GitHub-only issues):**
+
 ```bash
 gh issue view $ISSUE_NUMBER --web
 ```
+
 Opens issue in browser. Return to list.
 
 **Add to phase plan:**
@@ -987,6 +1037,7 @@ git check-ignore -q .planning 2>/dev/null && COMMIT_PLANNING_DOCS=false
 **If `COMMIT_PLANNING_DOCS=true` (default):**
 
 **If moved to in-progress (Work on it now):**
+
 ```bash
 git add .planning/issues/in-progress/[filename]
 git rm --cached .planning/issues/open/[filename] 2>/dev/null || true
@@ -999,9 +1050,11 @@ Moved to in-progress.
 EOF
 )"
 ```
+
 Confirm: "Committed: docs: start work on issue - [title]"
 
 **If moved to closed (Mark complete):**
+
 ```bash
 git add .planning/issues/closed/[filename]
 git rm --cached .planning/issues/in-progress/[filename] 2>/dev/null || true
@@ -1021,9 +1074,11 @@ ${GITHUB_REF}
 EOF
 )"
 ```
+
 Confirm: "Committed: docs: complete issue - [title]"
 
 **If moved back to open (Put back to open):**
+
 ```bash
 git add .planning/issues/open/[filename]
 git rm --cached .planning/issues/in-progress/[filename] 2>/dev/null || true
@@ -1031,6 +1086,7 @@ git rm --cached .planning/issues/in-progress/[filename] 2>/dev/null || true
 
 git commit -m "docs: return issue to backlog - [title]"
 ```
+
 Confirm: "Committed: docs: return issue to backlog - [title]"
 </step>
 
@@ -1047,12 +1103,14 @@ Confirm: "Committed: docs: return issue to backlog - [title]"
 </output>
 
 <anti_patterns>
+
 - Don't delete issues — use proper state transitions
 - Don't close GitHub Issues when starting work — only when marking complete
 - Don't create plans from this command — route to /kata-plan-phase or /kata-add-phase
-</anti_patterns>
+  </anti_patterns>
 
 <issue_lifecycle>
+
 ## Issue Lifecycle
 
 Issues follow a three-state lifecycle:
@@ -1064,12 +1122,14 @@ closed/      → Completed
 ```
 
 **State transitions:**
+
 - **Work on it now (Quick task):** `open/` → `in-progress/` → routes to `/kata-execute-quick-task`
 - **Work on it now (Planned):** stays in `open/` with guidance for phase planning
 - **Mark complete:** `in-progress/` → `closed/` (closes GitHub Issue if linked)
 - **Put back to open:** `in-progress/` → `open/` (useful if deprioritized)
 
 **GitHub Issue lifecycle:**
+
 - Created when: `/kata-add-issue` with `github.enabled=true`
 - Linked via: `provenance: github:owner/repo#N` in local file
 - Closed when: User selects "Mark complete" on an in-progress issue
@@ -1079,6 +1139,7 @@ The provenance field is the linchpin - it enables deduplication and bidirectiona
 </issue_lifecycle>
 
 <success_criteria>
+
 - [ ] Open and in-progress issues listed with title, area, age
 - [ ] In-progress issues shown first with [IN PROGRESS] indicator
 - [ ] GitHub backlog issues included (if github.enabled=true)
@@ -1096,4 +1157,4 @@ The provenance field is the linchpin - it enables deduplication and bidirectiona
 - [ ] "Mark complete" moves to closed AND closes GitHub Issue
 - [ ] STATE.md updated if issue count changed
 - [ ] Changes committed to git
-</success_criteria>
+      </success_criteria>

@@ -3,8 +3,8 @@ name: kata-complete-milestone
 description: Archive a completed milestone, preparing for the next version, marking a milestone complete, shipping a version, or wrapping up milestone work. Triggers include "complete milestone", "finish milestone", "archive milestone", "ship version", "mark milestone done", "milestone complete", "release version", "create release", and "ship milestone".
 metadata:
   version: "0.1.0"
-allowed-tools: Read Write Bash
 ---
+
 <objective>
 Mark milestone {{version}} complete, archive to milestones/, and update ROADMAP.md and REQUIREMENTS.md.
 
@@ -63,6 +63,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    ```
 
    Display:
+
    ```
    ⚠ pr_workflow is enabled — creating release branch first.
 
@@ -82,48 +83,50 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
 0.1. **Generate release artifacts:**
 
-   Proactively generate changelog and version bump. Follow the release_workflow step in milestone-complete.md (loads version-detector.md and changelog-generator.md) to:
-   1. Detect version bump type from conventional commits
-   2. Calculate next version
-   3. Generate changelog entry
-   4. Bump version in all project version files detected by version-detector.md
-   5. Insert changelog entry into CHANGELOG.md
+Proactively generate changelog and version bump. Follow the release_workflow step in milestone-complete.md (loads version-detector.md and changelog-generator.md) to:
 
-   Present all proposed changes for review:
-   ```
-   ## Release Preview
+1.  Detect version bump type from conventional commits
+2.  Calculate next version
+3.  Generate changelog entry
+4.  Bump version in all project version files detected by version-detector.md
+5.  Insert changelog entry into CHANGELOG.md
 
-   **Current version:** $CURRENT_VERSION
-   **Bump type:** $BUMP_TYPE
-   **Next version:** $NEXT_VERSION
+Present all proposed changes for review:
 
-   **Changelog entry:**
-   ## [$NEXT_VERSION] - $DATE
+```
+## Release Preview
 
-   ### Added
-   [feat commits formatted]
+**Current version:** $CURRENT_VERSION
+**Bump type:** $BUMP_TYPE
+**Next version:** $NEXT_VERSION
 
-   ### Fixed
-   [fix commits formatted]
+**Changelog entry:**
+## [$NEXT_VERSION] - $DATE
 
-   ### Changed
-   [docs/refactor/perf commits formatted]
+### Added
+[feat commits formatted]
 
-   **Files updated:**
-   [list each version file detected and updated]
-   - CHANGELOG.md → new entry prepended
-   ```
+### Fixed
+[fix commits formatted]
 
-   Use AskUserQuestion:
-   - header: "Release Changes"
-   - question: "Review the release changes above. Approve?"
-   - options:
-     - "Approve" — Keep changes and proceed to verify readiness
-     - "Edit changelog first" — Pause for user edits, then confirm
-     - "Revert and skip release" — Undo release file changes, proceed to verify readiness without release artifacts
+### Changed
+[docs/refactor/perf commits formatted]
+
+**Files updated:**
+[list each version file detected and updated]
+- CHANGELOG.md → new entry prepended
+```
+
+Use AskUserQuestion:
+
+- header: "Release Changes"
+- question: "Review the release changes above. Approve?"
+- options:
+  - "Approve" — Keep changes and proceed to verify readiness
+  - "Edit changelog first" — Pause for user edits, then confirm
+  - "Revert and skip release" — Undo release file changes, proceed to verify readiness without release artifacts
 
 1. **Check for audit:**
-
    - Look for `.planning/v{{version}}-MILESTONE-AUDIT.md`
    - If missing or stale: recommend `/kata-audit-milestone` first
    - If audit status is `gaps_found`: recommend `/kata-plan-milestone-gaps` first
@@ -145,82 +148,78 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    ```
 
 1. **Verify readiness:**
-
    - Check all phases in milestone have completed plans (SUMMARY.md exists)
    - Present milestone scope and stats
    - Wait for confirmation
 
-2. **Gather stats:**
-
+1. **Gather stats:**
    - Count phases, plans, tasks
    - Calculate git range, file changes, LOC
    - Extract timeline from git log
    - Present summary, confirm
 
-3. **Extract accomplishments:**
-
+1. **Extract accomplishments:**
    - Read all phase SUMMARY.md files in milestone range
    - Extract 4-6 key accomplishments
    - Present for approval
 
-4. **Archive milestone:**
-
+1. **Archive milestone:**
    - Create `.planning/milestones/v{{version}}-ROADMAP.md`
    - Extract full phase details from ROADMAP.md
    - Fill milestone-archive.md template
    - Update ROADMAP.md to one-line summary with link
 
-5. **Archive requirements:**
-
+1. **Archive requirements:**
    - Create `.planning/milestones/v{{version}}-REQUIREMENTS.md`
    - Mark all v1 requirements as complete (checkboxes checked)
    - Note requirement outcomes (validated, adjusted, dropped)
    - Delete `.planning/REQUIREMENTS.md` (fresh one created for next milestone)
 
-6. **Update PROJECT.md:**
-
+1. **Update PROJECT.md:**
    - Add "Current State" section with shipped version
    - Add "Next Milestone Goals" section
    - Archive previous content in `<details>` (if v1.1+)
 
 6.5. **Review Documentation (Non-blocking):**
 
-   Before committing, offer final README review:
+Before committing, offer final README review:
 
-   Use AskUserQuestion:
-   - header: "Final README Review"
-   - question: "Revise README before completing milestone v{{version}}?"
-   - options:
-     - "Yes, draft an update for my review" — Revise README and present to the user for approval
-     - "No, I'll make the edits myself" — Pause for user review, wait for "continue"
-     - "Skip for now" — Proceed directly to commit
+Use AskUserQuestion:
 
-   **If "Yes, I'll review now":**
-   ```
-   Review README.md for the complete v{{version}} milestone.
-   Ensure all shipped features are documented.
-   Say "continue" when ready to proceed.
-   ```
+- header: "Final README Review"
+- question: "Revise README before completing milestone v{{version}}?"
+- options:
+  - "Yes, draft an update for my review" — Revise README and present to the user for approval
+  - "No, I'll make the edits myself" — Pause for user review, wait for "continue"
+  - "Skip for now" — Proceed directly to commit
 
-   **If "Show README":**
-   Display README.md, then use AskUserQuestion:
-   - header: "README Accuracy"
-   - question: "Does this look accurate for v{{version}}?"
-   - options:
-     - "Yes, looks good" — Proceed to Step 7
-     - "Needs updates" — Pause for user edits, wait for "continue"
+**If "Yes, I'll review now":**
 
-   **If "Skip" or review complete:** Proceed to Step 7.
+```
+Review README.md for the complete v{{version}} milestone.
+Ensure all shipped features are documented.
+Say "continue" when ready to proceed.
+```
 
-   *Non-blocking: milestone completion continues regardless of choice.*
+**If "Show README":**
+Display README.md, then use AskUserQuestion:
+
+- header: "README Accuracy"
+- question: "Does this look accurate for v{{version}}?"
+- options:
+  - "Yes, looks good" — Proceed to Step 7
+  - "Needs updates" — Pause for user edits, wait for "continue"
+
+**If "Skip" or review complete:** Proceed to Step 7.
+
+_Non-blocking: milestone completion continues regardless of choice._
 
 6.7. **Close GitHub Milestone:**
 
-   If github.enabled, close the GitHub Milestone for this version.
-   See milestone-complete.md `close_github_milestone` step for details.
+If github.enabled, close the GitHub Milestone for this version.
+See milestone-complete.md `close_github_milestone` step for details.
 
 7. **Commit and finalize:**
-
    - Stage: MILESTONES.md, PROJECT.md, ROADMAP.md, STATE.md, archive files
    - Commit: `chore: complete v{{version}} milestone`
 
@@ -292,6 +291,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    ```
 
    Display:
+
    ```
    ✓ PR created: [PR URL]
 
@@ -305,7 +305,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    - Tag: `git tag -a v{{version}} -m "[milestone summary]"`
    - Ask about pushing tag
 
-2. **Post-release verification:**
+8. **Post-release verification:**
 
    After the release PR is merged (or tag is pushed), prompt for verification:
 
@@ -334,7 +334,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    **If "Something failed":** Stop and help debug the issue.
    **If "Yes" or "Skip":** Continue to step 9.
 
-3. **Offer next steps:**
+9. **Offer next steps:**
    - `/kata-add-milestone` — start next milestone (questioning → research → requirements → roadmap)
 
 </process>
@@ -352,6 +352,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 - User knows next steps (including need for fresh requirements)
 
 **If release workflow was run:**
+
 - CHANGELOG.md updated with v{{version}} entry (reviewed and approved)
 - Version bumped in all detected project version files
 - GitHub Release created (if pr_workflow=false) OR instructions provided (if pr_workflow=true)

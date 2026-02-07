@@ -3,8 +3,8 @@ name: kata-configure-settings
 description: Configure kata workflow toggles and model profile. Triggers include "settings".
 metadata:
   version: "0.1.0"
-allowed-tools: Read Write Bash
 ---
+
 <objective>
 Allow users to toggle workflow agents on/off and select model profile via interactive settings.
 
@@ -30,6 +30,7 @@ cat .planning/config.json
 ```
 
 Parse current values with defaults:
+
 - `mode` — yolo or interactive (default: `yolo`)
 - `depth` — quick, standard, or comprehensive (default: `standard`)
 - `parallelization` — run agents in parallel (default: `true`)
@@ -44,6 +45,7 @@ Parse current values with defaults:
 **Detect missing keys:**
 
 Check if these keys exist in config.json:
+
 - `commit_docs`
 - `pr_workflow`
 - `display.statusline`
@@ -55,6 +57,7 @@ If any are missing, note them for step 3.
 **If missing keys were detected:**
 
 Display notification:
+
 ```
 ⚠️  New config options available: {list missing keys}
    Adding these to your settings...
@@ -217,6 +220,7 @@ fi
 ```
 
 **If `commit_docs` changed to `false`:**
+
 - Add `.planning/` to `.gitignore` (create if needed)
 - Note: User should run `git rm -r --cached .planning/` if already tracked
 
@@ -224,9 +228,8 @@ fi
 
 Display:
 
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- Kata ► SETTINGS UPDATED
+Kata ► SETTINGS UPDATED
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 | Setting            | Value                     |
@@ -242,6 +245,7 @@ Display:
 These settings apply to future /kata-plan-phase and /kata-execute-phase runs.
 
 Quick commands:
+
 - /kata-set-profile <profile> — switch model profile
 - /kata-plan-phase --research — force research
 - /kata-plan-phase --skip-research — skip research
@@ -266,14 +270,14 @@ Settings for `main`:
 This ensures ALL changes go through PRs.
 ```
 
-
 </process>
 
 <success_criteria>
+
 - [ ] Current config read
 - [ ] Missing keys detected and user notified
 - [ ] User presented with 7 settings (profile + commit_docs + pr_workflow + statusline + 3 toggles)
 - [ ] Config updated with complete schema
 - [ ] .claude/settings.json updated if statusline toggled
 - [ ] Changes confirmed to user
-</success_criteria>
+      </success_criteria>
