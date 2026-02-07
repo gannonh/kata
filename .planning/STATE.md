@@ -10,19 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 ## Current Position
 
 Milestone: v1.7.0 Brainstorm Integration
-Phase: 36 — Workflow Integration (in progress)
-Plan: 2 of 3
-Status: In progress
-Last activity: 2026-02-07 — Completed 36-02-PLAN.md (brainstorm gates in research-phase, plan-phase)
+Phase: 36 — Workflow Integration (complete)
+Status: Phase 36 complete
+Last activity: 2026-02-07 — Completed 36-03-PLAN.md (brainstorm context wired into planner/researcher)
 
-Progress: █████████░ 1/2 phases (36-02 of 3 plans complete)
+Progress: ██████████ 2/2 phases
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 127
+- Total plans completed: 128
 - Average duration: 3 min
-- Total execution time: ~329 min
+- Total execution time: ~331 min
 
 **By Milestone:**
 
@@ -105,6 +104,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 36-02-PLAN.md
+Stopped at: Phase 36 complete
 Resume file: None
-Next action: Execute 36-03-PLAN.md
