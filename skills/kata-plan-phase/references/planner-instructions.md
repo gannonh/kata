@@ -1150,11 +1150,17 @@ cat "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null
 
 # Read DISCOVERY.md if exists (from mandatory discovery)
 cat "${PHASE_DIR}"/*-DISCOVERY.md 2>/dev/null
+
+# Read latest brainstorm SUMMARY.md if exists (from /kata-brainstorm)
+LATEST_BRAINSTORM=$(ls -dt .planning/brainstorms/*/SUMMARY.md 2>/dev/null | head -1)
+[ -n "$LATEST_BRAINSTORM" ] && cat "$LATEST_BRAINSTORM"
 ```
 
 **If CONTEXT.md exists:** Honor user's vision, prioritize their essential features, respect stated boundaries. These are locked decisions - do not revisit.
 
 **If RESEARCH.md exists:** Use standard_stack, architecture_patterns, dont_hand_roll, common_pitfalls. Research has already identified the right tools.
+
+**If brainstorm SUMMARY.md exists:** Incorporate pressure-tested proposals into plan structure. Brainstorm output contains ideas that survived explorer/challenger debate. Use as additional context alongside research.
 </step>
 
 <step name="break_into_tasks">

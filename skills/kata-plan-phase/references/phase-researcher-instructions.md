@@ -455,6 +455,10 @@ fi
 # Read CONTEXT.md if exists (from /kata-discuss-phase)
 cat "${PHASE_DIR}"/*-CONTEXT.md 2>/dev/null
 
+# Read latest brainstorm SUMMARY.md if exists (from /kata-brainstorm)
+LATEST_BRAINSTORM=$(ls -dt .planning/brainstorms/*/SUMMARY.md 2>/dev/null | head -1)
+[ -n "$LATEST_BRAINSTORM" ] && cat "$LATEST_BRAINSTORM"
+
 # Check if planning docs should be committed (default: true)
 COMMIT_PLANNING_DOCS=$(cat .planning/config.json 2>/dev/null | grep -o '"commit_docs"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
 # Auto-detect gitignored (overrides config)
@@ -468,6 +472,7 @@ git check-ignore -q .planning 2>/dev/null && COMMIT_PLANNING_DOCS=false
 | **Decisions**           | Locked choices — research THESE deeply, don't explore alternatives |
 | **Claude's Discretion** | Your freedom areas — research options, make recommendations        |
 | **Deferred Ideas**      | Out of scope — ignore completely                                   |
+| **Brainstorm SUMMARY.md** | Pressure-tested proposals from explorer/challenger session. Use as additional context to inform research scope and recommendations. |
 
 **Examples:**
 - User decided "use library X" → research X deeply, don't explore alternatives
