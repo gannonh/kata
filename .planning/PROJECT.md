@@ -4,7 +4,7 @@
 
 A spec-driven development framework for Claude Code. Brings structured, reliable AI development to teams without changing their existing tools. Teams use Kata's quality-producing process inside the tools they already love.
 
-**Current state:** v1.6.0 shipped (2026-02-06). All custom agent types migrated to skill resources with general-purpose subagent spawning. Portable across Agent Skills-compatible platforms. Dual distribution: plugin marketplace + skills.sh.
+**Current state:** v1.7.0 in progress. Shipping brainstorm skill with explorer/challenger agent teams and wiring it into existing workflows as an optional step.
 
 ## Core Value
 
@@ -45,7 +45,9 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 ### Active
 
-(None — next milestone not yet defined)
+- Brainstorm skill — v1.7.0 (explorer/challenger agent teams for structured ideation)
+- Workflow integration — v1.7.0 (optional brainstorm step in milestone, planning, research workflows)
+- Agent Teams prerequisite — v1.7.0 (document CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS requirement)
 
 ### Out of Scope
 
@@ -62,6 +64,18 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Building an IDE — coordination layer only, use existing tools
 - Building an LLM — use Claude, not compete with it
 - Building an agent framework — use platform-native capabilities (subagents, Skills, MCPs)
+
+## Current Milestone: v1.7.0 Brainstorm Integration
+
+**Goal:** Ship the kata-brainstorm skill and integrate structured brainstorming as an optional step across Kata workflows.
+
+**Target features:**
+- kata-brainstorm skill (explorer/challenger agent teams for structured ideation)
+- Optional brainstorm step in kata-add-milestone (before research/requirements)
+- Optional brainstorm step in kata-plan-phase (before planning)
+- Optional brainstorm step in other applicable workflows (research, discuss-phase)
+- Agent Teams prerequisite documentation (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)
+- Build and test plugin distribution with new skill
 
 ## Context
 
@@ -215,4 +229,4 @@ See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 See `.planning/milestones/v1.6.0-ROADMAP.md` for full archive.
 
 ---
-*Last updated: 2026-02-06 — v1.6.0 milestone shipped*
+*Last updated: 2026-02-07 — v1.7.0 milestone started*

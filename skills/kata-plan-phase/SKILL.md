@@ -2,8 +2,7 @@
 name: kata-plan-phase
 description: Plan detailed roadmap phases. Triggers include "plan phase n", "create phase plan", "create a plan" "roadmap planning", and "roadmap phase creation".
 metadata:
-  version: "0.1.0"
-allowed-tools: Read Write Bash
+  version: "1.6.1"
 ---
 <execution_context>
 @./references/ui-brand.md

@@ -2,8 +2,7 @@
 name: kata-migrate-phases
 description: Migrate phase directories to globally sequential numbering, fixing duplicate numeric prefixes across milestones. Triggers include "migrate phases", "fix phase numbers", "renumber phases", "phase collision", "fix phase collisions", "fix duplicate phases", "phase numbering migration".
 metadata:
-  version: "0.1.0"
-allowed-tools: Read Write Bash
+  version: "1.6.1"
 ---
 <objective>
 Detect and fix duplicate phase numeric prefixes caused by per-milestone numbering. Migrates all phase directories to globally sequential numbering.

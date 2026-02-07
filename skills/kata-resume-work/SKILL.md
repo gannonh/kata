@@ -2,8 +2,7 @@
 name: kata-resume-work
 description: Resume work from a previous session, restoring context after a break, continuing work after /clear, or picking up where you left off. Triggers include "resume work", "continue work", "pick up where I left off", "restore context", and "resume session".
 metadata:
-  version: "0.1.0"
-allowed-tools: Read Write Bash
+  version: "1.6.1"
 ---
 <objective>
 Restore complete project context and resume work seamlessly from previous session.

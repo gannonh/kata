@@ -2,8 +2,7 @@
 name: kata-map-codebase
 description: Analyze an existing codebase with parallel mapper agents, creating codebase documentation, understanding brownfield projects, or mapping code structure. Triggers include "map codebase", "analyze codebase", "create project context", "document codebase", "understand code", and "codebase map".
 metadata:
-  version: "0.1.0"
-allowed-tools: Read Write Bash
+  version: "1.6.1"
 ---
 <objective>
 Analyze existing codebase using parallel kata-codebase-mapper agents to produce structured codebase documents.

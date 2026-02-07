@@ -3,8 +3,8 @@ name: kata-add-issue
 description: Capture an idea, task, or issue that surfaces during a Kata session as a structured issue for later work. This skill creates markdown issue files in the .planning/issues/open directory with relevant metadata and content extracted from the conversation. Triggers include "add issue", "capture issue", "new issue", "create issue", "log issue", "file issue", "add todo" (deprecated), "capture todo" (deprecated), "new todo" (deprecated).
 metadata:
   version: "0.3.0"
-allowed-tools: Read Write Bash Glob
 ---
+
 <objective>
 Capture an idea, task, or issue that surfaces during a Kata session as a structured issue for later work.
 
@@ -72,17 +72,19 @@ Note existing areas for consistency in infer_area step.
 - `/kata-add-issue Add auth token refresh` -> title = "Add auth token refresh"
 
 **Without arguments:** Analyze recent conversation to extract:
+
 - The specific problem, idea, or task discussed
 - Relevant file paths mentioned
 - Technical details (error messages, line numbers, constraints)
 
 Formulate:
+
 - `title`: 3-10 word descriptive title (action verb preferred)
 - `problem`: What's wrong or why this is needed
 - `solution`: Approach hints or "TBD" if just an idea
 - `files`: Relevant paths with line numbers from conversation
 - `provenance`: (optional) Origin of the issue - "local" (default), "github:owner/repo#N", or other external reference
-</step>
+  </step>
 
 <step name="infer_area">
 Infer area from file paths:
@@ -108,17 +110,19 @@ find .planning/issues/open -maxdepth 1 -name "*.md" -exec grep -l -i "[key words
 ```
 
 If potential duplicate found:
+
 1. Read the existing issue
 2. Compare scope
 
 If overlapping, use AskUserQuestion:
+
 - header: "Duplicate?"
 - question: "Similar issue exists: [title]. What would you like to do?"
 - options:
   - "Skip" - keep existing issue
   - "Replace" - update existing with new context
   - "Add anyway" - create as separate issue
-</step>
+    </step>
 
 <step name="create_file">
 ```bash
@@ -148,6 +152,7 @@ files:
 
 [approach hints or "TBD"]
 ```
+
 </step>
 
 <step name="sync_to_github">
@@ -166,12 +171,14 @@ GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:sp
    - If `provenance` already contains `github:`, skip (already synced)
 
 2. **Create backlog label (idempotent):**
+
    ```bash
    gh label create "backlog" --description "Kata backlog issues" --force 2>/dev/null || true
    ```
 
 3. **Build issue body file:**
    Write to `/tmp/issue-body.md`:
+
    ```markdown
    ## Problem
 
@@ -182,10 +189,12 @@ GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:sp
    [solution section from local file]
 
    ---
-   *Created via Kata `/kata-add-issue`*
+
+   _Created via Kata `/kata-add-issue`_
    ```
 
 4. **Create GitHub Issue:**
+
    ```bash
    ISSUE_URL=$(gh issue create \
      --title "$TITLE" \
@@ -194,6 +203,7 @@ GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:sp
    ```
 
 5. **Extract issue number and update provenance:**
+
    ```bash
    if [ -n "$ISSUE_URL" ]; then
      ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -oE '[0-9]+$')
@@ -215,6 +225,7 @@ if ! gh auth status &>/dev/null; then
   echo "Warning: gh CLI not authenticated. GitHub sync skipped."
 fi
 ```
+
 </step>
 
 <step name="update_state">
@@ -222,7 +233,7 @@ If `.planning/STATE.md` exists:
 
 1. Count issues: `find .planning/issues/open -maxdepth 1 -name "*.md" 2>/dev/null | wc -l`
 2. Update "### Pending Issues" under "## Accumulated Context"
-</step>
+   </step>
 
 <step name="git_commit">
 Commit the issue and any updated state:
@@ -256,10 +267,10 @@ Confirm: "Committed: docs(issue): capture issue - [title]"
 ```
 Issue saved: .planning/issues/open/[filename]
 
-  [title]
-  Area: [area]
-  Files: [count] referenced
-  GitHub: #[number] (if synced, otherwise "local only")
+[title]
+Area: [area]
+Files: [count] referenced
+GitHub: #[number] (if synced, otherwise "local only")
 
 ---
 
@@ -268,6 +279,7 @@ Would you like to:
 1. Continue with current work
 2. Add another issue
 3. View all issues (/kata-check-issues)
+
 ```
 </step>
 
@@ -296,3 +308,4 @@ Would you like to:
 - [ ] GitHub Issue created with backlog label (if github.enabled=true)
 - [ ] Provenance field set in local file (if GitHub synced)
 </success_criteria>
+```

@@ -2,8 +2,7 @@
 name: kata-set-profile
 description: Switch model profile for kata agents (quality/balanced/budget). Triggers include "set profile", "set profile".
 metadata:
-  version: "0.1.0"
-allowed-tools: Read Write Bash
+  version: "1.6.1"
 ---
 <objective>
 Switch the model profile used by Kata agents. This controls which Claude model each agent uses, balancing quality vs token spend.

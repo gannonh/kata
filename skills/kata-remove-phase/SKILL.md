@@ -2,8 +2,7 @@
 name: kata-remove-phase
 description: Remove a future phase from roadmap and renumber subsequent phases. Triggers include "remove phase", "remove phase".
 metadata:
-  version: "0.1.0"
-allowed-tools: Read Write Bash
+  version: "1.6.1"
 ---
 <objective>
 Remove an unstarted future phase from the roadmap and renumber all subsequent phases to maintain a clean, linear sequence.

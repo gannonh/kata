@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-06)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v1.6.0 shipped. Next milestone not yet defined.
+**Current focus:** v1.7.0 Brainstorm Integration — ship brainstorm skill and wire into workflows.
 
 ## Current Position
 
-Milestone: v1.6.0 Skills-Native Subagents — Shipped 2026-02-06
-Phase: All 5 phases complete (30-34)
-Status: Milestone archived. Ready for next milestone.
-Last activity: 2026-02-06 — v1.6.0 milestone completed and archived
+Milestone: v1.7.0 Brainstorm Integration
+Phase: 35 — Ship Brainstorm Skill (complete)
+Status: Phase 35 verified and completed
+Last activity: 2026-02-07 — Phase 35 complete (brainstorm skill with prerequisite check + Kata context injection)
 
-Progress: ██████████ 5/5 phases (shipped)
+Progress: █████░░░░░ 1/2 phases
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 123
+- Total plans completed: 125
 - Average duration: 3 min
-- Total execution time: ~324 min
+- Total execution time: ~327 min
 
 **By Milestone:**
 
@@ -70,14 +70,20 @@ Recent decisions affecting current work:
 
 ### Roadmap Evolution
 
+- **v1.7.0 roadmap created 2026-02-07** — Brainstorm Integration (2 phases 35-36, 13 requirements, #99)
 - **v1.6.0 roadmap updated 2026-02-06** — Skills-Native Subagents (5 phases 30-34, global phase numbering restored, #102)
 - **v1.6.0 roadmap updated 2026-02-05** — Skills-Native Subagents (5 phases incl. 2.1 insertion, 24 requirements)
 - **v1.5.0 shipped 2026-02-04** — Phase Management (3 phases, 6 plans)
 - **v1.4.1 shipped 2026-02-03** — Issue Execution (4 phases, 6 plans)
 
+### Milestone Scope Issues
+
+Issues pulled into current milestone scope:
+- "Integrate explorer/challenger brainstorming skill into Kata" (from: .planning/issues/open/2026-02-05-integrate-brainstorming-skill-into-kata.md, GitHub: #99)
+
 ### Pending Issues
 
-11 open issues in `.planning/issues/open/`
+12 open issues in `.planning/issues/open/`
 
 ### Blockers/Concerns
 
@@ -97,7 +103,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-06
-Stopped at: v1.6.0 milestone shipped
+Last session: 2026-02-07
+Stopped at: Phase 35 complete, PR #115 ready for review
 Resume file: None
-Next action: Define next milestone with /kata-add-milestone
+Next action: Discuss/plan phase 36 (Workflow Integration)

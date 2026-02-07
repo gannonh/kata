@@ -3,8 +3,8 @@ name: kata-add-phase
 description: Add planned work discovered during execution to the end of the current milestone in the roadmap. This skill appends sequential phases to the current milestone's phase list, automatically calculating the next phase number. Triggers include "add phase", "append phase", "new phase", and "create phase". This skill updates ROADMAP.md and STATE.md accordingly.
 metadata:
   version: "0.1.0"
-allowed-tools: Read Write Bash
 ---
+
 <objective>
 Add a new integer phase to the end of the current milestone in the roadmap.
 
@@ -26,6 +26,7 @@ IMPORTANT: When showing examples to users, always use `/kata-add-phase` (the com
 Parse the command arguments:
 
 **With `--issue` flag:**
+
 - `/kata-add-phase --issue .planning/issues/open/2026-02-06-phase-lookup.md`
 - Read the issue file to extract title, provenance, and context
 - `description` = issue title from frontmatter
@@ -50,6 +51,7 @@ fi
 ```
 
 **Without `--issue` flag:**
+
 - All arguments become the phase description
 - Example: `/kata-add-phase Add authentication` → description = "Add authentication"
 - `ISSUE_FILE`, `ISSUE_PROVENANCE`, `ISSUE_NUMBER` are empty
@@ -213,6 +215,7 @@ Project state updated: .planning/STATE.md
 
 ---
 ```
+
 </step>
 
 </process>

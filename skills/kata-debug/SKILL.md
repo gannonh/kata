@@ -3,8 +3,8 @@ name: kata-debug
 description: Systematically debug issues, investigating bugs, troubleshooting problems, or tracking down errors with persistent state across context resets. Triggers include "debug", "investigate bug", "troubleshoot", "find the problem", "why isn't this working", and "debug session".
 metadata:
   version: "0.1.0"
-allowed-tools: Read Write Bash
 ---
+
 <objective>
 Debug issues using scientific method with subagent isolation.
 
@@ -17,9 +17,11 @@ Debug issues using scientific method with subagent isolation.
 User's issue: $ARGUMENTS
 
 Check for active sessions:
+
 ```bash
 find .planning/debug -maxdepth 1 -name "*.md" 2>/dev/null | grep -v resolved | head -5
 ```
+
 </context>
 
 <process>
@@ -45,10 +47,12 @@ Store resolved model for use in Task calls below.
 ## 1. Check Active Sessions
 
 If active sessions exist AND no $ARGUMENTS:
+
 - List sessions with status, hypothesis, next action
 - User picks number to resume OR describes new issue
 
 If $ARGUMENTS provided OR user describes new issue:
+
 - Continue to symptom gathering
 
 ## 2. Gather Symptoms (if new issue)
@@ -66,6 +70,7 @@ After all gathered, confirm ready to investigate.
 ## 3. Read Instruction Files
 
 Before spawning agents, read agent instructions using the Read tool:
+
 - `references/debugger-instructions.md` (relative to skill base directory) — store as `debugger_instructions_content`
 
 ## 4. Spawn Debugger Agent
@@ -109,6 +114,7 @@ Task(
 ## 5. Handle Agent Return
 
 **If `## ROOT CAUSE FOUND`:**
+
 - Display root cause and evidence summary
 - Offer options:
   - "Fix now" - spawn fix subagent
@@ -116,11 +122,13 @@ Task(
   - "Manual fix" - done
 
 **If `## CHECKPOINT REACHED`:**
+
 - Present checkpoint details to user
 - Get user response
 - Spawn continuation agent (see step 5)
 
 **If `## INVESTIGATION INCONCLUSIVE`:**
+
 - Show what was checked and eliminated
 - Offer options:
   - "Continue investigating" - spawn new agent with additional context
@@ -162,9 +170,10 @@ Task(
 </process>
 
 <success_criteria>
+
 - [ ] Active sessions checked
 - [ ] Symptoms gathered (if new)
 - [ ] kata-debugger spawned with context
 - [ ] Checkpoints handled correctly
 - [ ] Root cause confirmed before fixing
-</success_criteria>
+      </success_criteria>
