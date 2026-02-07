@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 ## Current Position
 
 Milestone: v1.7.0 Brainstorm Integration
-Phase: 35 — Ship Brainstorm Skill
-Status: Executing (Plans 01-02 complete)
-Last activity: 2026-02-07 — Plan 02 complete (Kata-aware context assembly)
+Phase: 35 — Ship Brainstorm Skill (complete)
+Status: Phase 35 verified and completed
+Last activity: 2026-02-07 — Phase 35 complete (brainstorm skill with prerequisite check + Kata context injection)
 
-Progress: ░░░░░░░░░░ 0/2 phases
+Progress: █████░░░░░ 1/2 phases
 
 ## Performance Metrics
 
@@ -104,6 +104,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Phase 35 Plans 01-02 complete (brainstorm skill core implementation)
+Stopped at: Phase 35 complete, PR #115 ready for review
 Resume file: None
-Next action: Plan and execute remaining phase 35 work, or proceed to phase 36
+Next action: Discuss/plan phase 36 (Workflow Integration)

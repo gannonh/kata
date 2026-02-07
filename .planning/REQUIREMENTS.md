@@ -2,15 +2,15 @@
 
 ## Skill Shipping
 
-- [ ] **SKILL-01**: kata-brainstorm skill included in plugin build output
-- [ ] **SKILL-02**: Skill loads and invokes correctly via `/kata-brainstorm`
-- [ ] **SKILL-03**: Brainstorm output written to `.planning/brainstorms/YYYY-MM-DDTHH-MM-brainstorm/`
+- [x] **SKILL-01**: kata-brainstorm skill included in plugin build output
+- [x] **SKILL-02**: Skill loads and invokes correctly via `/kata-brainstorm`
+- [x] **SKILL-03**: Brainstorm output written to `.planning/brainstorms/YYYY-MM-DDTHH-MM-brainstorm/`
 
 ## Agent Teams Prerequisite
 
-- [ ] **PREREQ-01**: Brainstorm skill checks whether Agent Teams are enabled (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) before spawning teams
-- [ ] **PREREQ-02**: If Agent Teams not enabled, offer to enable by writing `{"env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}}` to `~/.claude/settings.json`
-- [ ] **PREREQ-03**: If user declines enabling, skip brainstorm gracefully with explanation
+- [x] **PREREQ-01**: Brainstorm skill checks whether Agent Teams are enabled (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) before spawning teams
+- [x] **PREREQ-02**: If Agent Teams not enabled, offer to enable by writing `{"env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}}` to `~/.claude/settings.json`
+- [x] **PREREQ-03**: If user declines enabling, skip brainstorm gracefully with explanation
 
 ## Workflow Integration
 
@@ -22,7 +22,7 @@
 
 ## Context Injection
 
-- [ ] **CTX-01**: Brainstorm agents receive condensed project brief from PROJECT.md, ROADMAP.md, open issues, and recent milestones
+- [x] **CTX-01**: Brainstorm agents receive condensed project brief from PROJECT.md, ROADMAP.md, open issues, and recent milestones
 - [ ] **CTX-02**: Brainstorm output (SUMMARY.md) auto-feeds into downstream agents (researcher, planner) as context
 
 ## Future Requirements
