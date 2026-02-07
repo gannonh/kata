@@ -136,14 +136,14 @@ flowchart TD
 
 Each stage produces traceable artifacts in `.planning/`:
 
-| Stage | Artifacts | Purpose |
-|-------|-----------|---------|
-| **Initialization** | `PROJECT.md`, `config.json` | Vision, requirements, workflow config |
-| **Milestone** | `REQUIREMENTS.md`, `ROADMAP.md` | Scoped requirements (IDs), phase structure |
-| **Planning** | `phases/NN-name/NN-NN-PLAN.md`, `RESEARCH.md` | Executable plans, research context |
-| **Execution** | `phases/NN-name/NN-NN-SUMMARY.md` | Deliverables, implementation notes |
-| **Verification** | `phases/NN-name/NN-VERIFICATION.md`, `UAT.md` | UAT results, gap analysis |
-| **Completion** | `milestones/vX.Y.Z/`, Git tag | Archived work, release notes |
+| Stage              | Artifacts                                     | Purpose                                    |
+| ------------------ | --------------------------------------------- | ------------------------------------------ |
+| **Initialization** | `PROJECT.md`, `config.json`                   | Vision, requirements, workflow config      |
+| **Milestone**      | `REQUIREMENTS.md`, `ROADMAP.md`               | Scoped requirements (IDs), phase structure |
+| **Planning**       | `phases/NN-name/NN-NN-PLAN.md`, `RESEARCH.md` | Executable plans, research context         |
+| **Execution**      | `phases/NN-name/NN-NN-SUMMARY.md`             | Deliverables, implementation notes         |
+| **Verification**   | `phases/NN-name/NN-VERIFICATION.md`, `UAT.md` | UAT results, gap analysis                  |
+| **Completion**     | `milestones/vX.Y.Z/`, Git tag                 | Archived work, release notes               |
 
 ---
 
@@ -489,7 +489,7 @@ flowchart TD
 - `/kata-researching-phases` - Deep research only
 - `/kata-archiving-phases` - Move phase to archive
 - `/kata-canceling-phases` - Cancel in-progress phase
-- `/kata-inserting-phases` - Insert new phase in roadmap
+- `/kata-insert-phase` - Insert new phase in roadmap
 - `/kata-moving-phases` - Reorder phases
 - `/kata-renaming-phases` - Rename phase
 

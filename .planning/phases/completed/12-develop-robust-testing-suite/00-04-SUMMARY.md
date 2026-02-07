@@ -40,11 +40,11 @@ Tests for roadmap-modifying skills including phase add/insert/remove and milesto
 
 ## Tasks Completed
 
-| # | Task | Commit | Key Files |
-|---|------|--------|-----------|
-| 1 | Phase management tests | 01eed3b | adding-phases.test.js, inserting-phases.test.js, removing-phases.test.js |
-| 2 | Phase discussion test | 01dc670 | discussing-phases.test.js |
-| 3 | Milestone lifecycle tests | b0175eb | starting-milestones.test.js, completing-milestones.test.js, auditing-milestones.test.js |
+| #   | Task                      | Commit  | Key Files                                                                               |
+| --- | ------------------------- | ------- | --------------------------------------------------------------------------------------- |
+| 1   | Phase management tests    | 01eed3b | adding-phases.test.js, inserting-phases.test.js, removing-phases.test.js                |
+| 2   | Phase discussion test     | 01dc670 | discussing-phases.test.js                                                               |
+| 3   | Milestone lifecycle tests | b0175eb | starting-milestones.test.js, completing-milestones.test.js, auditing-milestones.test.js |
 
 ## Artifacts Produced
 
@@ -60,15 +60,15 @@ Phase skills (adding, inserting, removing) require a "Current Milestone" section
 
 ## Test Coverage
 
-| Test File | Skill | Assertions |
-|-----------|-------|------------|
-| adding-phases.test.js | kata-adding-phases | Invocation, ROADMAP.md update, phase directory creation |
-| inserting-phases.test.js | kata-inserting-phases | Invocation, decimal phase numbering |
-| removing-phases.test.js | kata-removing-phases | Invocation, ROADMAP.md update/confirmation |
-| discussing-phases.test.js | kata-discussing-phases | Invocation, CONTEXT.md creation |
-| starting-milestones.test.js | kata-starting-milestones | Invocation, milestone structure |
-| completing-milestones.test.js | kata-completing-milestones | Invocation, milestone archival |
-| auditing-milestones.test.js | kata-auditing-milestones | Invocation, status reporting |
+| Test File                     | Skill                      | Assertions                                              |
+| ----------------------------- | -------------------------- | ------------------------------------------------------- |
+| adding-phases.test.js         | kata-adding-phases         | Invocation, ROADMAP.md update, phase directory creation |
+| inserting-phases.test.js      | kata-insert-phase          | Invocation, decimal phase numbering                     |
+| removing-phases.test.js       | kata-removing-phases       | Invocation, ROADMAP.md update/confirmation              |
+| discussing-phases.test.js     | kata-discussing-phases     | Invocation, CONTEXT.md creation                         |
+| starting-milestones.test.js   | kata-starting-milestones   | Invocation, milestone structure                         |
+| completing-milestones.test.js | kata-completing-milestones | Invocation, milestone archival                          |
+| auditing-milestones.test.js   | kata-auditing-milestones   | Invocation, status reporting                            |
 
 ## Deviations from Plan
 

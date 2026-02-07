@@ -31,7 +31,7 @@ key-files:
     - skills/kata-execute-phase/SKILL.md
     - skills/kata-execute-phase/references/phase-execute.md
     - skills/kata-add-phase/SKILL.md
-    - skills/kata-inserting-phases/SKILL.md
+    - skills/kata-insert-phase/SKILL.md
 decisions:
   - Search order is active->pending->completed (active is most common lookup)
   - Flat directory fallback preserves backward compatibility for unmigrated projects
@@ -47,7 +47,7 @@ Updated 6 skill/reference files with directory-based phase state management:
 
 1. **Project initialization** (kata-new-project): Creates `pending/`, `active/`, `completed/` subdirectories under `.planning/phases/` during project setup.
 
-2. **Phase creation** (kata-add-phase, kata-inserting-phases): New phases and inserted decimal phases are created in `pending/` subdirectory.
+2. **Phase creation** (kata-add-phase, kata-insert-phase): New phases and inserted decimal phases are created in `pending/` subdirectory.
 
 3. **Phase planning** (kata-plan-phase): Universal phase discovery searches `active/`, `pending/`, `completed/` subdirectories with flat directory fallback. New phase directories created in `pending/` if they don't exist.
 
@@ -59,10 +59,10 @@ Updated 6 skill/reference files with directory-based phase state management:
 
 ## Decisions Made
 
-| Decision | Rationale |
-| -------- | --------- |
-| Search order: active, pending, completed | Active is most common lookup during execution |
-| Flat directory fallback | Backward compatibility for unmigrated projects |
+| Decision                                    | Rationale                                      |
+| ------------------------------------------- | ---------------------------------------------- |
+| Search order: active, pending, completed    | Active is most common lookup during execution  |
+| Flat directory fallback                     | Backward compatibility for unmigrated projects |
 | VERIFICATION.md required for non-gap phases | Gap closure phases skip verification by design |
 
 ## Deviations from Plan
@@ -71,10 +71,10 @@ None - plan executed exactly as written.
 
 ## Commits
 
-| Task | Commit | Description |
-| ---- | ------ | ----------- |
-| 1 | 5c8f685 | Update project init and phase creation skills |
-| 2 | b40ce29 | Add universal discovery and state transitions to orchestrators |
+| Task | Commit  | Description                                                    |
+| ---- | ------- | -------------------------------------------------------------- |
+| 1    | 5c8f685 | Update project init and phase creation skills                  |
+| 2    | b40ce29 | Add universal discovery and state transitions to orchestrators |
 
 ## Next Phase Readiness
 

@@ -17,7 +17,7 @@ files_modified:
   - skills/kata-execute-phase/SKILL.md
   - skills/kata-execute-quick-task/SKILL.md
   - skills/kata-help/SKILL.md
-  - skills/kata-inserting-phases/SKILL.md
+  - skills/kata-insert-phase/SKILL.md
   - skills/kata-list-phase-assumptions/SKILL.md
   - skills/kata-map-codebase/SKILL.md
   - skills/kata-new-project/SKILL.md
@@ -103,7 +103,7 @@ Specific transformations for all 27 skills:
 10. kata-execute-phase: "Use this skill when executing" -> "Execute"
 11. kata-execute-quick-task: "Use this skill when executing" -> "Execute"
 12. kata-help: "Use this skill when showing" -> "Show"
-13. kata-inserting-phases: "Use this skill when inserting" -> "Insert"
+13. kata-insert-phase: "Use this skill when inserting" -> "Insert"
 14. kata-list-phase-assumptions: "Use this skill when surfacing" -> "Surface"
 15. kata-map-codebase: "Use this skill when analyzing" -> "Analyze"
 16. kata-new-project: "Use this skill when initialize" -> "Initialize"

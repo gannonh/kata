@@ -28,7 +28,7 @@ key-files:
     - skills/kata-execute-phase/SKILL.md
     - skills/kata-execute-quick-task/SKILL.md
     - skills/kata-help/SKILL.md
-    - skills/kata-inserting-phases/SKILL.md
+    - skills/kata-insert-phase/SKILL.md
     - skills/kata-list-phase-assumptions/SKILL.md
     - skills/kata-map-codebase/SKILL.md
     - skills/kata-migrate-phases/SKILL.md
@@ -47,7 +47,7 @@ key-files:
     - skills/kata-whats-new/SKILL.md
     - tests/build.test.js
 decisions:
-  - name-mismatch-fix: kata-inserting-phases name field updated to match directory name (spec requirement)
+  - name-mismatch-fix: kata-insert-phase name field updated to match directory name (spec requirement)
 metrics:
   duration: 4m
   completed: 2026-02-06
@@ -84,11 +84,11 @@ Added `Agent Skills spec validation` describe block to `tests/build.test.js`. Th
 - **Fix:** Included kata-help in the normalization. All 29 files processed, not 28.
 - **Commit:** 8a0599f
 
-**2. [Rule 1 - Bug] kata-inserting-phases name mismatch**
+**2. [Rule 1 - Bug] kata-insert-phase name mismatch**
 - **Found during:** Task 2 (skills-ref validate caught it)
-- **Issue:** Directory name `kata-inserting-phases` did not match `name: kata-insert-phase` in frontmatter. Agent Skills spec requires directory name = skill name.
-- **Fix:** Updated name field to `kata-inserting-phases` to match directory.
-- **Files modified:** skills/kata-inserting-phases/SKILL.md
+- **Issue:** Directory name `kata-insert-phase` did not match `name: kata-insert-phase` in frontmatter. Agent Skills spec requires directory name = skill name.
+- **Fix:** Updated name field to `kata-insert-phase` to match directory.
+- **Files modified:** skills/kata-insert-phase/SKILL.md
 - **Commit:** 6a38762
 
 ## Commits
@@ -98,10 +98,10 @@ Added `Agent Skills spec validation` describe block to `tests/build.test.js`. Th
 
 ## Decisions Made
 
-| Decision | Rationale |
-| -------- | --------- |
-| Fix kata-inserting-phases name to match directory | Agent Skills spec requires directory name = skill name; directory is the canonical identifier |
-| Include kata-help in normalization | Had non-compliant fields despite plan claiming compliance |
+| Decision                                      | Rationale                                                                                     |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Fix kata-insert-phase name to match directory | Agent Skills spec requires directory name = skill name; directory is the canonical identifier |
+| Include kata-help in normalization            | Had non-compliant fields despite plan claiming compliance                                     |
 
 ## Verification Results
 

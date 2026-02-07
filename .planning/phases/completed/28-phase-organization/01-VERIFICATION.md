@@ -16,59 +16,59 @@ score: 12/12 must-haves verified
 
 ### Observable Truths
 
-| # | Truth | Status | Evidence |
-|---|-------|--------|----------|
-| 1 | New projects create pending/, active/, completed/ subdirectories under .planning/phases/ | ✓ VERIFIED | kata-new-project/SKILL.md lines 228-230 create all three subdirectories at project init |
-| 2 | Phase planning finds phase directories regardless of which subdirectory they're in | ✓ VERIFIED | kata-plan-phase/SKILL.md lines 97-102, 123-128 use universal discovery pattern with state iteration and flat fallback |
-| 3 | Phase execution moves phases from pending/ to active/ at start | ✓ VERIFIED | kata-execute-phase/SKILL.md lines 88-96 move from pending to active on execution start |
-| 4 | Phase execution validates completion artifacts before moving to completed/ | ✓ VERIFIED | kata-execute-phase/SKILL.md lines 354-378 validate PLAN.md, SUMMARY.md, and VERIFICATION.md before moving to completed/ |
-| 5 | Non-gap phases require VERIFICATION.md for completion | ✓ VERIFIED | kata-execute-phase/SKILL.md lines 365-368 detect gap_closure: true and require VERIFICATION.md otherwise |
-| 6 | Existing flat-directory phases are found via fallback discovery | ✓ VERIFIED | Universal discovery pattern includes flat fallback in all lookups (line 102, 128 in kata-plan-phase) |
-| 7 | All skills that look up phase directories use the universal discovery pattern | ✓ VERIFIED | Verified in kata-track-progress, kata-verify-work, kata-research-phase, kata-remove-phase, kata-pause-work, kata-check-issues, kata-audit-milestone, kata-plan-milestone-gaps |
-| 8 | All agents that look up phase directories use the universal discovery pattern | ✓ VERIFIED | Verified in kata-planner.md, kata-plan-checker.md, kata-phase-researcher.md with for-state loops |
-| 9 | All skill references use state-aware phase paths | ✓ VERIFIED | Verified across 8 skill reference files (context-template, phase-discuss, verify-work, UAT-template, summary-template, execute-plan, resume-project, milestone-complete) |
-| 10 | No file uses the old flat .planning/phases/${PHASE}-* pattern without fallback | ✓ VERIFIED | All flat patterns found (14 instances) are fallback patterns preceded by state-subdirectory search and empty check |
+| #   | Truth                                                                                    | Status     | Evidence                                                                                                                                                                      |
+| --- | ---------------------------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | New projects create pending/, active/, completed/ subdirectories under .planning/phases/ | ✓ VERIFIED | kata-new-project/SKILL.md lines 228-230 create all three subdirectories at project init                                                                                       |
+| 2   | Phase planning finds phase directories regardless of which subdirectory they're in       | ✓ VERIFIED | kata-plan-phase/SKILL.md lines 97-102, 123-128 use universal discovery pattern with state iteration and flat fallback                                                         |
+| 3   | Phase execution moves phases from pending/ to active/ at start                           | ✓ VERIFIED | kata-execute-phase/SKILL.md lines 88-96 move from pending to active on execution start                                                                                        |
+| 4   | Phase execution validates completion artifacts before moving to completed/               | ✓ VERIFIED | kata-execute-phase/SKILL.md lines 354-378 validate PLAN.md, SUMMARY.md, and VERIFICATION.md before moving to completed/                                                       |
+| 5   | Non-gap phases require VERIFICATION.md for completion                                    | ✓ VERIFIED | kata-execute-phase/SKILL.md lines 365-368 detect gap_closure: true and require VERIFICATION.md otherwise                                                                      |
+| 6   | Existing flat-directory phases are found via fallback discovery                          | ✓ VERIFIED | Universal discovery pattern includes flat fallback in all lookups (line 102, 128 in kata-plan-phase)                                                                          |
+| 7   | All skills that look up phase directories use the universal discovery pattern            | ✓ VERIFIED | Verified in kata-track-progress, kata-verify-work, kata-research-phase, kata-remove-phase, kata-pause-work, kata-check-issues, kata-audit-milestone, kata-plan-milestone-gaps |
+| 8   | All agents that look up phase directories use the universal discovery pattern            | ✓ VERIFIED | Verified in kata-planner.md, kata-plan-checker.md, kata-phase-researcher.md with for-state loops                                                                              |
+| 9   | All skill references use state-aware phase paths                                         | ✓ VERIFIED | Verified across 8 skill reference files (context-template, phase-discuss, verify-work, UAT-template, summary-template, execute-plan, resume-project, milestone-complete)      |
+| 10  | No file uses the old flat .planning/phases/${PHASE}-* pattern without fallback           | ✓ VERIFIED | All flat patterns found (14 instances) are fallback patterns preceded by state-subdirectory search and empty check                                                            |
 
 **Score:** 10/10 truths verified
 
 ### Required Artifacts
 
-| Artifact | Expected | Status | Details |
-|----------|----------|--------|---------|
-| `skills/kata-new-project/SKILL.md` | Creates pending/active/completed subdirectories at project init | ✓ VERIFIED | Lines 228-230: mkdir -p for all three subdirectories |
-| `skills/kata-add-phase/SKILL.md` | New phases created in pending/ subdirectory | ✓ VERIFIED | Line 115: phase_dir=".planning/phases/pending/${phase_num}-${slug}" |
-| `skills/kata-inserting-phases/SKILL.md` | New inserted phases go to pending/ | ✓ VERIFIED | Line 128: phase_dir=".planning/phases/pending/${decimal_phase}-${slug}" |
-| `skills/kata-plan-phase/SKILL.md` | Universal phase discovery searching subdirectories | ✓ VERIFIED | Lines 97-102, 123-128: for-state loop with flat fallback |
-| `skills/kata-execute-phase/SKILL.md` | Phase state transitions and completion validation | ✓ VERIFIED | Lines 88-96 (pending→active), lines 354-378 (active→completed with validation) |
-| `skills/kata-track-progress/SKILL.md` | Phase scanning across state subdirectories | ✓ VERIFIED | Line 185: for-state loop scanning all subdirectories |
-| `skills/kata-verify-work/references/verify-work.md` | Phase directory lookup with universal discovery | ✓ VERIFIED | Line 103: flat fallback after state-subdirectory search |
-| `agents/kata-planner.md` | Phase directory lookup with universal discovery | ✓ VERIFIED | Lines 837, 1096, 1138: multiple for-state loops |
-| `agents/kata-plan-checker.md` | Phase directory lookup with universal discovery | ✓ VERIFIED | Line 250: for-state loop |
-| `.planning/codebase/ARCHITECTURE.md` | Updated architecture documentation reflecting subdirectory structure | ✓ VERIFIED | Lines 104-110: Documents pending/active/completed organization with state descriptions |
-| `CLAUDE.md` | Shows new directory structure | ✓ VERIFIED | 2 references to phases/active, phases/pending, or phases/completed |
-| All remaining skills (8 files) | Use universal phase discovery | ✓ VERIFIED | All 8 skills from Plan 02 Task 1 updated with appropriate discovery patterns |
+| Artifact                                            | Expected                                                             | Status     | Details                                                                                |
+| --------------------------------------------------- | -------------------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------- |
+| `skills/kata-new-project/SKILL.md`                  | Creates pending/active/completed subdirectories at project init      | ✓ VERIFIED | Lines 228-230: mkdir -p for all three subdirectories                                   |
+| `skills/kata-add-phase/SKILL.md`                    | New phases created in pending/ subdirectory                          | ✓ VERIFIED | Line 115: phase_dir=".planning/phases/pending/${phase_num}-${slug}"                    |
+| `skills/kata-insert-phase/SKILL.md`                 | New inserted phases go to pending/                                   | ✓ VERIFIED | Line 128: phase_dir=".planning/phases/pending/${decimal_phase}-${slug}"                |
+| `skills/kata-plan-phase/SKILL.md`                   | Universal phase discovery searching subdirectories                   | ✓ VERIFIED | Lines 97-102, 123-128: for-state loop with flat fallback                               |
+| `skills/kata-execute-phase/SKILL.md`                | Phase state transitions and completion validation                    | ✓ VERIFIED | Lines 88-96 (pending→active), lines 354-378 (active→completed with validation)         |
+| `skills/kata-track-progress/SKILL.md`               | Phase scanning across state subdirectories                           | ✓ VERIFIED | Line 185: for-state loop scanning all subdirectories                                   |
+| `skills/kata-verify-work/references/verify-work.md` | Phase directory lookup with universal discovery                      | ✓ VERIFIED | Line 103: flat fallback after state-subdirectory search                                |
+| `agents/kata-planner.md`                            | Phase directory lookup with universal discovery                      | ✓ VERIFIED | Lines 837, 1096, 1138: multiple for-state loops                                        |
+| `agents/kata-plan-checker.md`                       | Phase directory lookup with universal discovery                      | ✓ VERIFIED | Line 250: for-state loop                                                               |
+| `.planning/codebase/ARCHITECTURE.md`                | Updated architecture documentation reflecting subdirectory structure | ✓ VERIFIED | Lines 104-110: Documents pending/active/completed organization with state descriptions |
+| `CLAUDE.md`                                         | Shows new directory structure                                        | ✓ VERIFIED | 2 references to phases/active, phases/pending, or phases/completed                     |
+| All remaining skills (8 files)                      | Use universal phase discovery                                        | ✓ VERIFIED | All 8 skills from Plan 02 Task 1 updated with appropriate discovery patterns           |
 
 **Score:** 12/12 artifacts verified (6 core + 6 extended)
 
 ### Key Link Verification
 
-| From | To | Via | Status | Details |
-|------|----|----|--------|---------|
-| kata-plan-phase/SKILL.md | .planning/phases/{pending,active,completed}/ | universal phase discovery pattern | ✓ WIRED | Lines 97-102, 123-128: for-state iteration with flat fallback |
-| kata-execute-phase/SKILL.md | .planning/phases/active/ | state transition at execution start | ✓ WIRED | Lines 88-96: mv from pending to active with state detection |
-| kata-execute-phase/SKILL.md | .planning/phases/completed/ | completion validation | ✓ WIRED | Lines 370-375: mv to completed only if validation passes |
-| kata-new-project/SKILL.md | .planning/phases/{pending,active,completed}/ | mkdir at project init | ✓ WIRED | Lines 228-230: mkdir -p for all three subdirectories |
-| kata-add-phase/SKILL.md | .planning/phases/pending/ | new phase creation | ✓ WIRED | Line 115: creates phase_dir in pending/ |
-| All scanning skills | .planning/phases/{pending,active,completed}/ | phase scanning pattern | ✓ WIRED | track-progress, check-issues, audit-milestone, plan-milestone-gaps all scan across states |
+| From                        | To                                           | Via                                 | Status  | Details                                                                                   |
+| --------------------------- | -------------------------------------------- | ----------------------------------- | ------- | ----------------------------------------------------------------------------------------- |
+| kata-plan-phase/SKILL.md    | .planning/phases/{pending,active,completed}/ | universal phase discovery pattern   | ✓ WIRED | Lines 97-102, 123-128: for-state iteration with flat fallback                             |
+| kata-execute-phase/SKILL.md | .planning/phases/active/                     | state transition at execution start | ✓ WIRED | Lines 88-96: mv from pending to active with state detection                               |
+| kata-execute-phase/SKILL.md | .planning/phases/completed/                  | completion validation               | ✓ WIRED | Lines 370-375: mv to completed only if validation passes                                  |
+| kata-new-project/SKILL.md   | .planning/phases/{pending,active,completed}/ | mkdir at project init               | ✓ WIRED | Lines 228-230: mkdir -p for all three subdirectories                                      |
+| kata-add-phase/SKILL.md     | .planning/phases/pending/                    | new phase creation                  | ✓ WIRED | Line 115: creates phase_dir in pending/                                                   |
+| All scanning skills         | .planning/phases/{pending,active,completed}/ | phase scanning pattern              | ✓ WIRED | track-progress, check-issues, audit-milestone, plan-milestone-gaps all scan across states |
 
 **Score:** 6/6 key links wired
 
 ### Requirements Coverage
 
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| PHASE-01: Phase directory organization | ✓ SATISFIED | All truths 1-6 verified: subdirectories created, discovery works, state transitions implemented |
-| PHASE-05: Completion validation | ✓ SATISFIED | Truths 4-5 verified: completion artifacts validated, VERIFICATION.md required for non-gap phases |
+| Requirement                            | Status      | Evidence                                                                                         |
+| -------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------ |
+| PHASE-01: Phase directory organization | ✓ SATISFIED | All truths 1-6 verified: subdirectories created, discovery works, state transitions implemented  |
+| PHASE-05: Completion validation        | ✓ SATISFIED | Truths 4-5 verified: completion artifacts validated, VERIFICATION.md required for non-gap phases |
 
 **Score:** 2/2 requirements satisfied
 
@@ -82,9 +82,9 @@ grep -rn 'ls.*\.planning/phases/\${' skills/ agents/ CLAUDE.md .planning/codebas
 
 **Result:** 14 instances found, ALL are fallback patterns (preceded by `[ -z "$PHASE_DIR" ] &&`)
 
-| File | Line | Pattern | Severity | Impact |
-|------|------|---------|----------|--------|
-| None | - | - | - | All flat patterns are properly guarded fallbacks |
+| File | Line | Pattern | Severity | Impact                                           |
+| ---- | ---- | ------- | -------- | ------------------------------------------------ |
+| None | -    | -       | -        | All flat patterns are properly guarded fallbacks |
 
 **No blocker anti-patterns found.**
 
