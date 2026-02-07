@@ -175,7 +175,33 @@ Task(
 
 ## 5. Handle Agent Return
 
-**`## RESEARCH COMPLETE`:** Display summary, offer: Plan phase, Dig deeper, Review full, Done.
+**`## RESEARCH COMPLETE`:** Display summary.
+
+**Brainstorm follow-up:**
+
+Use AskUserQuestion:
+
+- header: "Brainstorm"
+- question: "Brainstorm ideas based on research findings?"
+- options:
+  - "Brainstorm first" — Run explorer/challenger brainstorm session informed by research
+  - "Skip" — Continue to next steps
+
+**If "Brainstorm first":**
+
+Display:
+
+```
+Launching brainstorm session...
+```
+
+Run `/kata-brainstorm`
+
+After brainstorm completes, continue to offer next steps.
+
+**If "Skip":** Continue to offer next steps.
+
+**Next steps:** Offer: Plan phase, Dig deeper, Review full, Done.
 
 **`## CHECKPOINT REACHED`:** Present to user, get response, spawn continuation.
 
