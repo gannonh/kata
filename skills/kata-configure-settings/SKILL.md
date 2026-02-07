@@ -33,7 +33,6 @@ Parse current values with defaults:
 
 - `mode` — yolo or interactive (default: `yolo`)
 - `depth` — quick, standard, or comprehensive (default: `standard`)
-- `parallelization` — run agents in parallel (default: `true`)
 - `model_profile` — which model each agent uses (default: `balanced`)
 - `commit_docs` — commit planning artifacts to git (default: `true`)
 - `pr_workflow` — use PR-based release workflow (default: `false`)
@@ -138,13 +137,12 @@ AskUserQuestion([
 
 ## 4. Update Config
 
-Merge new settings into existing config.json (preserving existing keys like `mode`, `depth`, `parallelization`):
+Merge new settings into existing config.json (preserving existing keys like `mode`, `depth`):
 
 ```json
 {
   "mode": "yolo|interactive",
   "depth": "quick|standard|comprehensive",
-  "parallelization": true|false,
   "model_profile": "quality|balanced|budget",
   "commit_docs": true|false,
   "pr_workflow": true|false,
