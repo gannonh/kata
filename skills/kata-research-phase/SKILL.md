@@ -177,31 +177,9 @@ Task(
 
 **`## RESEARCH COMPLETE`:** Display summary.
 
-**Brainstorm follow-up:**
+**Next steps:** Offer: Plan phase, Dig deeper, Brainstorm ideas, Review full, Done.
 
-Use AskUserQuestion:
-
-- header: "Brainstorm"
-- question: "Brainstorm ideas based on research findings?"
-- options:
-  - "Brainstorm first" — Run explorer/challenger brainstorm session informed by research
-  - "Skip" — Continue to next steps
-
-**If "Brainstorm first":**
-
-Display:
-
-```
-Launching brainstorm session...
-```
-
-Run `/kata-brainstorm`
-
-After brainstorm completes, continue to offer next steps.
-
-**If "Skip":** Continue to offer next steps.
-
-**Next steps:** Offer: Plan phase, Dig deeper, Review full, Done.
+- **"Brainstorm ideas":** Run `/kata-brainstorm` to explore ideas based on research findings. After brainstorm completes, return to this menu.
 
 **`## CHECKPOINT REACHED`:** Present to user, get response, spawn continuation.
 

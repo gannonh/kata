@@ -36,16 +36,6 @@ Phase number: $ARGUMENTS (required)
 <process>
 1. Validate phase number (error if missing or not in roadmap)
 2. Check if CONTEXT.md exists (offer update/view/skip if yes)
-2.5. **Optional brainstorm** — Use AskUserQuestion:
-   - header: "Brainstorm"
-   - question: "Brainstorm approaches before analyzing gray areas?"
-   - options:
-     - "Brainstorm first" — Run explorer/challenger brainstorm session
-     - "Skip" — Continue without brainstorming
-
-   **If "Brainstorm first":** Display "Launching brainstorm session..." and run `/kata-brainstorm`. After brainstorm completes, continue to step 3.
-
-   **If "Skip":** Continue to step 3.
 3. **Analyze phase** — Identify domain and generate phase-specific gray areas
 4. **Present gray areas** — Multi-select: which to discuss? (NO skip option)
 5. **Deep-dive each area** — 4 questions per area, then offer more/next
