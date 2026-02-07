@@ -5,15 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** Planning next milestone
+**Current focus:** v1.8.0 Adaptive Workflows
 
 ## Current Position
 
-Milestone: v1.7.0 Brainstorm Integration — SHIPPED
-Phase: None active
-Plan: Not started
-Status: Ready for next milestone
-Last activity: 2026-02-07 — v1.7.0 milestone complete
+Milestone: v1.8.0 Adaptive Workflows
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-07 — Milestone v1.8.0 started
 
 Progress: ██████████ 13/13 milestones shipped
 
@@ -83,6 +83,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: v1.7.0 milestone complete
+Stopped at: v1.8.0 milestone started, defining requirements
 Resume file: None
-Next action: `/kata-add-milestone` to start next version
+Next action: Define requirements, then create roadmap

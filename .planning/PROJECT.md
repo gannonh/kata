@@ -49,7 +49,10 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 ### Active
 
-(No active requirements. Start next milestone with `/kata-add-milestone`.)
+- Preferences storage — separate `preferences.json` with accessor scripts for project-lifetime constants
+- Progressive capture — reduce onboarding to 5 essential questions, defer remaining to first encounter
+- Template overrides — project-local templates that override plugin defaults for output formats
+- Config workflow variants — per-skill `workflows` section for project-specific commands and format strings
 
 ### Out of Scope
 
@@ -67,9 +70,16 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Building an LLM — use Claude, not compete with it
 - Building an agent framework — use platform-native capabilities (subagents, Skills, MCPs)
 
-## Current Milestone: Planning next milestone
+## Current Milestone: v1.8.0 Adaptive Workflows
 
-No active milestone. Use `/kata-add-milestone` to start the next version.
+**Goal:** Enable project-specific workflow customization through preferences storage, progressive capture, template overrides, and config-driven workflow variants.
+
+**Target features:**
+
+- `preferences.json` with accessor scripts for project-lifetime constants (changelog format, version files, doc conventions)
+- Reduced onboarding (11 questions to 5) with just-in-time capture for deferred preferences
+- Template override system (`.planning/templates/`) for project-specific output formats
+- Config workflow variants (`workflows` section) for project-specific commands injected into subagent prompts
 
 ## Context
 
@@ -244,4 +254,4 @@ See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 See `.planning/milestones/v1.6.0-ROADMAP.md` for full archive.
 
 ---
-*Last updated: 2026-02-07 after v1.7.0 milestone*
+*Last updated: 2026-02-07 after v1.8.0 milestone start*
