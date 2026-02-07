@@ -25,8 +25,8 @@ Progress: ██████████ 2/2 phases
 
 **By Milestone:**
 
-| Milestone | Phases | Plans | Status |
-| --------- | ------ | ----- | ------ |
+| Milestone | Phases | Plans | Status             |
+| --------- | ------ | ----- | ------------------ |
 | v0.1.4    | 1      | 5     | Shipped 2026-01-18 |
 | v0.1.5    | 6      | 30    | Shipped 2026-01-22 |
 | v1.0.0    | 4      | 5     | Shipped 2026-01-23 |
@@ -51,7 +51,7 @@ Progress: ██████████ 2/2 phases
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **2026-02-06: kata-inserting-phases name field fixed** — Directory name = skill name required by Agent Skills spec. Updated name field from kata-insert-phase to kata-inserting-phases.
+- **2026-02-06: kata-insert-phase name field fixed** — Directory name = skill name required by Agent Skills spec. Updated name field from kata-insert-phase to kata-insert-phase.
 - **2026-02-06: Phase 32 added + phases renumbered** — Inserted "Phase lookup ignores milestone scope" (Closes #102) as Phase 32 after completed Phase 31. Distribution channel became Phase 33, Cleanup became Phase 34
 - **2026-02-05: Phase 2.1 inserted — skills.sh distribution** — New distribution channel via `gannonh/kata-skills` repo for skills.sh registry
 - **2026-02-05: Phase 2 complete — all agents migrated** — 19 agents extracted to skill resources, zero custom subagent types remain
@@ -91,14 +91,14 @@ None.
 
 ### Quick Tasks Completed
 
-| #   | Description                                      | Date       | Commit  | Directory                                                                       |
-| --- | ------------------------------------------------ | ---------- | ------- | ------------------------------------------------------------------------------- |
-| 001 | Add PR workflow config option                    | 2026-01-22 | 975f1d3 | [001-add-pr-workflow-config-option](./quick/001-add-pr-workflow-config-option/) |
-| 002 | Config schema consistency & PR workflow features | 2026-01-22 | 325d86c | [002-config-schema-consistency](./quick/002-config-schema-consistency/)         |
+| #   | Description                                      | Date       | Commit  | Directory                                                                                             |
+| --- | ------------------------------------------------ | ---------- | ------- | ----------------------------------------------------------------------------------------------------- |
+| 001 | Add PR workflow config option                    | 2026-01-22 | 975f1d3 | [001-add-pr-workflow-config-option](./quick/001-add-pr-workflow-config-option/)                       |
+| 002 | Config schema consistency & PR workflow features | 2026-01-22 | 325d86c | [002-config-schema-consistency](./quick/002-config-schema-consistency/)                               |
 | 003 | Integrate GitHub issues into PR workflow         | 2026-01-31 | c367d42 | [003-integrate-github-issues-into-pr-workflow](./quick/003-integrate-github-issues-into-pr-workflow/) |
 | 004 | Deprecate slash commands, skills-first           | 2026-02-01 | 7469479 | [004-deprecate-slash-commands](./quick/004-deprecate-slash-commands/)                                 |
 | 005 | Create GitHub repo when enabled but no remote    | 2026-02-02 | 98a41ee | [005-create-github-repo-when-github-enabled-b](./quick/005-create-github-repo-when-github-enabled-b/) |
-| 006 | Add kata- prefix to all skill names              | 2026-02-03 | 7690e2f | [006-add-kata-prefix-to-all-skill-names](./quick/006-add-kata-prefix-to-all-skill-names/) |
+| 006 | Add kata- prefix to all skill names              | 2026-02-03 | 7690e2f | [006-add-kata-prefix-to-all-skill-names](./quick/006-add-kata-prefix-to-all-skill-names/)             |
 | 007 | Remove skill description filler phrases          | 2026-02-03 | f927fd2 | [007-reduce-unnecessary-verbosity-of-skill-de](./quick/007-reduce-unnecessary-verbosity-of-skill-de/) |
 
 ## Session Continuity
