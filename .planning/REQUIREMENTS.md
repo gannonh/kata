@@ -14,16 +14,16 @@
 
 ## Workflow Integration
 
-- [ ] **WFLOW-01**: kata-add-milestone offers optional brainstorm step before gathering milestone goals
-- [ ] **WFLOW-02**: kata-plan-phase offers optional brainstorm step at research decision gate
-- [ ] **WFLOW-03**: kata-new-project offers optional brainstorm step after initial project description
-- [ ] **WFLOW-04**: kata-discuss-phase offers optional brainstorm step before presenting gray areas
-- [ ] **WFLOW-05**: kata-research-phase offers optional brainstorm follow-up after research completes
+- [x] **WFLOW-01**: kata-add-milestone offers optional brainstorm step before gathering milestone goals
+- [x] **WFLOW-02**: kata-plan-phase offers optional brainstorm step at research decision gate
+- [x] **WFLOW-03**: kata-new-project offers optional brainstorm step after initial project description
+- [x] **WFLOW-04**: kata-discuss-phase offers optional brainstorm step before presenting gray areas
+- [x] **WFLOW-05**: kata-research-phase offers optional brainstorm follow-up after research completes
 
 ## Context Injection
 
 - [x] **CTX-01**: Brainstorm agents receive condensed project brief from PROJECT.md, ROADMAP.md, open issues, and recent milestones
-- [ ] **CTX-02**: Brainstorm output (SUMMARY.md) auto-feeds into downstream agents (researcher, planner) as context
+- [x] **CTX-02**: Brainstorm output (SUMMARY.md) auto-feeds into downstream agents (researcher, planner) as context
 
 ## Future Requirements
 
