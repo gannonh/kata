@@ -306,6 +306,17 @@ Read and store context file contents for the planner agent. The `@` syntax does 
 - `references/phase-researcher-instructions.md` (relative to skill base directory) — store as `phase_researcher_instructions_content`
 - `references/plan-checker-instructions.md` (relative to skill base directory) — store as `plan_checker_instructions_content`
 
+**Read latest brainstorm SUMMARY.md (if exists):**
+
+```bash
+LATEST_BRAINSTORM=$(ls -dt .planning/brainstorms/*/SUMMARY.md 2>/dev/null | head -1)
+if [ -n "$LATEST_BRAINSTORM" ]; then
+  BRAINSTORM_CONTEXT=$(cat "$LATEST_BRAINSTORM")
+fi
+```
+
+Store `BRAINSTORM_CONTEXT` for use in Step 8 prompt. If no brainstorm exists, this variable is empty (no error).
+
 Store all content for use in the Task prompt below.
 
 ### Extract Linked Issues from STATE.md
@@ -404,6 +415,9 @@ Fill prompt with inlined content and spawn:
 
 **Linked Issues (from STATE.md):**
 {issue_context_section}
+
+**Brainstorm Context (if exists):**
+{brainstorm_context}
 
 **Gap Closure (if --gaps mode):**
 {verification_content}
