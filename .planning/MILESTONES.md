@@ -1,5 +1,31 @@
 # Project Milestones: Kata
 
+## v1.7.0 Brainstorm Integration (Shipped: 2026-02-07)
+
+**Delivered:** Structured explorer/challenger brainstorming via Agent Teams, wired into 5 existing workflows as an optional step with downstream context injection.
+
+**Phases completed:** 35-36 (5 plans total)
+
+**Key accomplishments:**
+
+- kata-brainstorm skill with explorer/challenger Agent Teams for structured ideation
+- Agent Teams prerequisite detection with auto-enable via settings.json
+- Kata-aware context assembly injecting PROJECT.md, ROADMAP.md, issues, and STATE.md into brainstorm agents
+- Brainstorm gates in 5 workflows (add-milestone, new-project, discuss-phase, research-phase, plan-phase)
+- Brainstorm SUMMARY.md auto-feeds into planner and researcher agents as downstream context
+
+**Stats:**
+
+- 77 files changed, 4,319 insertions, 571 deletions
+- 2 phases, 5 plans, ~9 tasks
+- 2 days (2026-02-06 → 2026-02-07)
+
+**Git range:** `v1.6.1` → `v1.7.0`
+
+**What's next:** TBD
+
+---
+
 ## v1.6.0 Skills-Native Subagents (Shipped: 2026-02-06)
 
 **Delivered:** All 19 custom agent types migrated to skill resources with general-purpose subagent spawning, making Kata portable across Agent Skills-compatible platforms.

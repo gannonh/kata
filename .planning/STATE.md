@@ -2,26 +2,27 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-06)
+See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v1.7.0 Brainstorm Integration — ship brainstorm skill and wire into workflows.
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Milestone: v1.7.0 Brainstorm Integration
-Phase: 36 — Workflow Integration (complete)
-Status: Phase 36 complete
-Last activity: 2026-02-07 — Phase 36 verified and completed (brainstorm gates in 5 workflows + context injection)
+Milestone: v1.7.0 Brainstorm Integration — SHIPPED
+Phase: None active
+Plan: Not started
+Status: Ready for next milestone
+Last activity: 2026-02-07 — v1.7.0 milestone complete
 
-Progress: ██████████ 2/2 phases
+Progress: ██████████ 13/13 milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 128
+- Total plans completed: 133
 - Average duration: 3 min
-- Total execution time: ~331 min
+- Total execution time: ~340 min
 
 **By Milestone:**
 
@@ -41,6 +42,7 @@ Progress: ██████████ 2/2 phases
 | v1.4.1    | 4      | 6     | Shipped 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped 2026-02-04 |
 | v1.6.0    | 5      | 17    | Shipped 2026-02-06 |
+| v1.7.0    | 2      | 5     | Shipped 2026-02-07 |
 
 *Updated after each plan completion*
 
@@ -49,37 +51,14 @@ Progress: ██████████ 2/2 phases
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- **2026-02-06: kata-insert-phase name field fixed** — Directory name = skill name required by Agent Skills spec. Updated name field from kata-insert-phase to kata-insert-phase.
-- **2026-02-06: Phase 32 added + phases renumbered** — Inserted "Phase lookup ignores milestone scope" (Closes #102) as Phase 32 after completed Phase 31. Distribution channel became Phase 33, Cleanup became Phase 34
-- **2026-02-05: Phase 2.1 inserted — skills.sh distribution** — New distribution channel via `gannonh/kata-skills` repo for skills.sh registry
-- **2026-02-05: Phase 2 complete — all agents migrated** — 19 agents extracted to skill resources, zero custom subagent types remain
-- **2026-02-05: Go decision — proceed to full conversion** — POC validated in real project, behavioral equivalence confirmed
-- **2026-02-05: Phase 2 scope expanded** — Added CONV-04 (automated migration test) and CONV-05 (test suite in execute-phase)
-- **2026-02-05: Executor inline pattern established** — Same pattern as planner: extract body to skill resource, inline via agent-instructions wrapper, general-purpose subagent
-- **2026-02-05: Planner inline pattern established** — Extract agent body to skill resource, prepend with agent-instructions wrapper, use general-purpose subagent type
-- **2026-02-05: Phase 3 inserted — Agent Teams Migration** — Migrate multi-agent orchestration to Claude Code agent teams (Teammate/SendMessage/TaskCreate tools)
-- **2026-02-05: Roadmap expanded for v1.6.0** — 4 phases: POC, Full Conversion, Agent Teams Migration, Cleanup (all contingent)
-- **2026-02-05: Contingent phases** — Phases 2-4 only execute if POC succeeds (Go decision)
-- **2026-02-04: v1.6.0 started** — Skills-Native Subagents: convert custom subagents to Agent Skills resources
-- **2026-02-04: Feature branch approach** — Working on `feat/skills-subagents`, merge if POC succeeds
-- **2026-02-04: Phased scope** — POC first (kata-planner, kata-executor), then full conversion if successful
-- **2026-02-06: Globally sequential phase numbering restored** — Reverted 2026-02-03 per-milestone decision. Phase numbers never reset at milestone boundaries.
-- **2026-02-03: Per-milestone phase numbering** — REVERTED (see 2026-02-06 entry above)
+Recent decisions affecting current work: None (between milestones)
 
 ### Roadmap Evolution
 
-- **v1.7.0 roadmap created 2026-02-07** — Brainstorm Integration (2 phases 35-36, 13 requirements, #99)
-- **v1.6.0 roadmap updated 2026-02-06** — Skills-Native Subagents (5 phases 30-34, global phase numbering restored, #102)
-- **v1.6.0 roadmap updated 2026-02-05** — Skills-Native Subagents (5 phases incl. 2.1 insertion, 24 requirements)
+- **v1.7.0 shipped 2026-02-07** — Brainstorm Integration (2 phases 35-36, 5 plans, 13 requirements)
+- **v1.6.0 shipped 2026-02-06** — Skills-Native Subagents (5 phases 30-34, 17 plans)
 - **v1.5.0 shipped 2026-02-04** — Phase Management (3 phases, 6 plans)
 - **v1.4.1 shipped 2026-02-03** — Issue Execution (4 phases, 6 plans)
-
-### Milestone Scope Issues
-
-Issues pulled into current milestone scope:
-- "Integrate explorer/challenger brainstorming skill into Kata" (from: .planning/issues/open/2026-02-05-integrate-brainstorming-skill-into-kata.md, GitHub: #99)
 
 ### Pending Issues
 
@@ -104,6 +83,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Phase 36 verified, PR #116 ready for review
+Stopped at: v1.7.0 milestone complete
 Resume file: None
-Next action: Audit milestone v1.7.0 or complete milestone
+Next action: `/kata-add-milestone` to start next version
