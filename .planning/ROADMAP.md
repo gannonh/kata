@@ -17,11 +17,14 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 **Source:** GitHub #99
 
-#### Phase 35: Ship Brainstorm Skill
+#### Phase 35: Ship Brainstorm Skill (2 plans)
 
 **Goal:** kata-brainstorm skill works standalone with Agent Teams prerequisite handling and project context injection.
 
 **Requirements:** SKILL-01, SKILL-02, SKILL-03, PREREQ-01, PREREQ-02, PREREQ-03, CTX-01
+
+- [ ] Plan 01: Prerequisite check and API updates
+- [ ] Plan 02: Kata-aware context injection
 
 **Success Criteria** (what must be TRUE):
 1. `/kata-brainstorm` appears in skill list and invokes the brainstorm workflow
@@ -224,8 +227,8 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 | v1.4.1    | 4      | 6     | Shipped  | 2026-02-03 |
 | v1.5.0    | 3      | 6     | Shipped  | 2026-02-04 |
 | v1.6.0    | 5      | 17    | Shipped  | 2026-02-06 |
-| v1.7.0    | 2      | —     | Active   | —          |
+| v1.7.0    | 2      | 2+    | Active   | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-07 — v1.7.0 roadmap created*
+*Last updated: 2026-02-07 — Phase 35 planned (2 plans)*
