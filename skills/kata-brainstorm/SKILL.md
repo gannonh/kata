@@ -91,15 +91,45 @@ Display and STOP:
 
 ### Step 1: Gather Context
 
-Before spawning agents, build a project brief by reading:
+Before spawning agents, assemble a project brief. The approach depends on whether this is a Kata project.
 
-- README or equivalent project overview
-- Any roadmap, backlog, or planning files
-- Recent changelog or shipped features
-- Open issues or feature requests
-- Project constraints (team size, architecture, target users)
+**Check for Kata project:**
 
-Condense this into a context block that every agent receives in their prompt.
+```bash
+[ -d ".planning" ] && echo "kata" || echo "generic"
+```
+
+#### Path A: Kata Project (`.planning/` exists)
+
+Read and condense the following sources into a single project brief (target ~1300 words total). Use the Read tool for each file. If any file is missing, skip it and continue with available data.
+
+| Source | What to extract | Target size |
+| ------ | -------------- | ----------- |
+| `.planning/PROJECT.md` | Core value statement, current milestone name and goals, validated requirements (list only), active requirements, constraints | ~500 words |
+| `.planning/ROADMAP.md` | Current milestone section (phases with goals), progress summary table | ~300 words |
+| `.planning/issues/open/*.md` | Issue titles and areas (one line each) | ~200 words |
+| `.planning/STATE.md` | Current position block, recent decisions (last 3-5) | ~200 words |
+
+For open issues, list files with bash then read first few lines of each to extract titles:
+
+```bash
+ls .planning/issues/open/*.md 2>/dev/null | head -20
+```
+
+#### Path B: Non-Kata Project (no `.planning/` directory)
+
+Fall back to generic context gathering:
+
+- Read `README.md` or `README` if it exists
+- Read `package.json` description field if it exists
+- Read any `CHANGELOG.md` or `HISTORY.md` for recent changes
+- Read any roadmap, backlog, or planning files found in the repo root
+
+Condense available information into a project brief.
+
+#### Brief Injection
+
+The assembled brief (Kata or generic) replaces the `[CONDENSED PROJECT BRIEF]` placeholder in the explorer and challenger prompt templates when spawning agents in Step 4.
 
 ### Step 2: Create Output Directory
 
