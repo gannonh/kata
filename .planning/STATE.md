@@ -75,6 +75,11 @@ Recent decisions affecting current work:
 - **v1.5.0 shipped 2026-02-04** — Phase Management (3 phases, 6 plans)
 - **v1.4.1 shipped 2026-02-03** — Issue Execution (4 phases, 6 plans)
 
+### Milestone Scope Issues
+
+Issues pulled into current milestone scope:
+- "Integrate explorer/challenger brainstorming skill into Kata" (from: .planning/issues/open/2026-02-05-integrate-brainstorming-skill-into-kata.md, GitHub: #99)
+
 ### Pending Issues
 
 12 open issues in `.planning/issues/open/`
