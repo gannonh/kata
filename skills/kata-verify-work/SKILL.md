@@ -105,7 +105,7 @@ Use AskUserQuestion:
   - "Skip" — Proceed without review
 
 **If user chooses review:**
-1. Invoke skill: `Skill("kata:review-pull-requests", "<aspect>")`
+1. Invoke skill: `Skill("kata:kata-review-pull-requests", "<aspect>")`
 2. Display review summary with counts: {N} critical, {M} important, {P} suggestions
 3. **STOP and ask what to do with findings** (see step 7.7)
 
