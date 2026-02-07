@@ -93,6 +93,22 @@ Exit command.
 
 **Open the conversation:**
 
+Use AskUserQuestion:
+
+- header: "Getting Started"
+- question: "How would you like to begin?"
+- options:
+  - "I know what I want to build" — Jump into describing your project
+  - "Brainstorm first" — Run explorer/challenger brainstorm session to explore ideas
+
+**If "Brainstorm first":**
+
+Display "Launching brainstorm session..." and run `/kata-brainstorm`. After brainstorm completes, continue to questioning below.
+
+**If "I know what I want to build":** Continue to questioning below.
+
+**Questioning:**
+
 Ask inline (freeform, NOT AskUserQuestion):
 
 "What do you want to build?"
@@ -134,30 +150,6 @@ When you could write a clear PROJECT.md, use AskUserQuestion:
 If "Keep exploring" — ask what they want to add, or identify gaps and probe naturally.
 
 Loop until "Create PROJECT.md" selected.
-
-## Phase 3.5: Optional Brainstorm
-
-Use AskUserQuestion:
-
-- header: "Brainstorm"
-- question: "Brainstorm directions before creating PROJECT.md?"
-- options:
-  - "Brainstorm first" — Run explorer/challenger brainstorm session
-  - "Skip" — Continue without brainstorming
-
-**If "Brainstorm first":**
-
-Display:
-
-```
-Launching brainstorm session...
-```
-
-Run `/kata-brainstorm`
-
-After brainstorm completes, continue to Phase 4.
-
-**If "Skip":** Continue to Phase 4.
 
 ## Phase 4: Write PROJECT.md
 
