@@ -135,6 +135,30 @@ If "Keep exploring" — ask what they want to add, or identify gaps and probe na
 
 Loop until "Create PROJECT.md" selected.
 
+## Phase 3.5: Optional Brainstorm
+
+Use AskUserQuestion:
+
+- header: "Brainstorm"
+- question: "Brainstorm directions before creating PROJECT.md?"
+- options:
+  - "Brainstorm first" — Run explorer/challenger brainstorm session
+  - "Skip" — Continue without brainstorming
+
+**If "Brainstorm first":**
+
+Display:
+
+```
+Launching brainstorm session...
+```
+
+Run `/kata-brainstorm`
+
+After brainstorm completes, continue to Phase 4.
+
+**If "Skip":** Continue to Phase 4.
+
 ## Phase 4: Write PROJECT.md
 
 **First, create all project directories in a single command:**
