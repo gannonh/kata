@@ -51,6 +51,30 @@ Milestone name: $ARGUMENTS (optional - will prompt if not provided)
 - Read STATE.md (pending todos, blockers)
 - Check for MILESTONE-CONTEXT.md (if exists)
 
+## Phase 1.5: Optional Brainstorm
+
+Use AskUserQuestion:
+
+- header: "Brainstorm"
+- question: "Brainstorm ideas before defining milestone goals?"
+- options:
+  - "Brainstorm first" — Run explorer/challenger brainstorm session
+  - "Skip" — Continue without brainstorming
+
+**If "Brainstorm first":**
+
+Display:
+
+```
+Launching brainstorm session...
+```
+
+Run `/kata-brainstorm`
+
+After brainstorm completes, continue to Phase 2.
+
+**If "Skip":** Continue to Phase 2.
+
 ## Phase 2: Gather Milestone Goals
 
 **If MILESTONE-CONTEXT.md exists:**
