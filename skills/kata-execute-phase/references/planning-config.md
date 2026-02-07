@@ -10,7 +10,6 @@ Configuration options for Kata projects in `.planning/config.json`.
 {
   "mode": "yolo|interactive",
   "depth": "quick|standard|comprehensive",
-  "parallelization": true|false,
   "model_profile": "quality|balanced|budget",
   "commit_docs": true|false,
   "pr_workflow": true|false,
@@ -33,7 +32,6 @@ Configuration options for Kata projects in `.planning/config.json`.
 | --------------------- | ---------- | -------------------------------------------------------------- |
 | `mode`                | `yolo`     | `yolo` = auto-approve, `interactive` = confirm at each step    |
 | `depth`               | `standard` | `quick` (3-5 phases), `standard` (5-8), `comprehensive` (8-12) |
-| `parallelization`     | `true`     | Run independent plans simultaneously                           |
 | `model_profile`       | `balanced` | Which AI models for agents (see model-profiles.md)             |
 | `commit_docs`         | `true`     | Whether to commit planning artifacts to git                    |
 | `pr_workflow`         | `true`     | Use PR-based release workflow vs direct commits                |

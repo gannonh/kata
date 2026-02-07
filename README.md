@@ -424,10 +424,9 @@ Override per-invocation: `/kata-plan-phase --skip-research`
 
 ### Execution
 
-| Setting           | Default | What it controls                     |
-| ----------------- | ------- | ------------------------------------ |
-| `parallelization` | `true`  | Run independent plans simultaneously |
-| `commit_docs`     | `true`  | Track `.planning/` in git            |
+| Setting      | Default | What it controls          |
+| ------------ | ------- | ------------------------- |
+| `commit_docs` | `true`  | Track `.planning/` in git |
 
 ---
 

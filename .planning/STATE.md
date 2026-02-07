@@ -5,24 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** Planning next milestone
+**Current focus:** v1.8.0 Adaptive Workflows
 
 ## Current Position
 
-Milestone: v1.7.0 Brainstorm Integration — SHIPPED
-Phase: None active
-Plan: Not started
-Status: Ready for next milestone
-Last activity: 2026-02-07 — v1.7.0 milestone complete
+Milestone: v1.8.0 Adaptive Workflows
+Phase: 37 — Preferences Infrastructure & Progressive Capture (complete)
+Status: Phase 37 verified and complete
+Last activity: 2026-02-07 — Phase 37 complete (2/2 plans, verified)
 
-Progress: ██████████ 13/13 milestones shipped
+Progress: ██████████ 13/13 milestones shipped | v1.8.0: 1/3 phases
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 133
+- Total plans completed: 135
 - Average duration: 3 min
-- Total execution time: ~340 min
+- Total execution time: ~345 min
 
 **By Milestone:**
 
@@ -51,7 +50,10 @@ Progress: ██████████ 13/13 milestones shipped
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work: None (between milestones)
+Recent decisions affecting current work:
+- Phase 37 combines PREF + CAP (10 reqs) — accessor scripts are foundation for everything
+- Phase 38 handles TMPL (4 reqs) — independent, can parallelize with 37
+- Phase 39 handles WKFL (6 reqs) — depends on Phase 37 accessor pattern
 
 ### Roadmap Evolution
 
@@ -83,6 +85,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: v1.7.0 milestone complete
+Stopped at: Phase 37 complete, PR #123 ready
 Resume file: None
-Next action: `/kata-add-milestone` to start next version
+Next action: Discuss Phase 38 (`/kata-discuss-phase 38`)

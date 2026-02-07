@@ -127,6 +127,47 @@ grep -A5 "Phase ${PHASE}:" .planning/ROADMAP.md 2>/dev/null
 
 **If not found:** Error with available phases. **If found:** Extract phase number, name, description.
 
+## 3.5. Check-or-Ask Model Profile
+
+Check if model_profile has been set in config:
+
+```bash
+KATA_SCRIPTS="${SKILL_BASE_DIR}/../kata-configure-settings/scripts"
+MODEL_PROFILE_SET=$(cat .planning/config.json 2>/dev/null | grep -o '"model_profile"' | head -1)
+```
+
+**If model_profile is absent (empty MODEL_PROFILE_SET):**
+
+This is the first plan-phase run. Ask the user for model_profile.
+
+Use AskUserQuestion:
+- header: "Model Profile"
+- question: "Which AI models for planning agents?"
+- options:
+  - "Balanced (Recommended)" — Sonnet for most agents — good quality/cost ratio
+  - "Quality" — Opus for research/roadmap — higher cost, deeper analysis
+  - "Budget" — Haiku where possible — fastest, lowest cost
+
+After user responds, write to config:
+
+```bash
+# Map selection to value
+# Balanced -> balanced, Quality -> quality, Budget -> budget
+bash "${KATA_SCRIPTS}/set-config.sh" "model_profile" "$CHOSEN_PROFILE"
+```
+
+Display first-run agent defaults notice:
+
+```
++--------------------------------------------------+
+| Agent defaults active: Research, Plan Check,     |
+| Verification. Run /kata-configure-settings to    |
+| customize agent preferences.                     |
++--------------------------------------------------+
+```
+
+**If model_profile exists:** No-op. Continue to step 4.
+
 ## 4. Ensure Phase Directory Exists
 
 ```bash
@@ -604,12 +645,14 @@ if [ -z "$VERSION" ]; then
 fi
 
 # Find phase issue number
-ISSUE_NUMBER=$(gh issue list \
-  --label "phase" \
-  --milestone "v${VERSION}" \
-  --json number,title \
-  --jq ".[] | select(.title | startswith(\"Phase ${PHASE}:\")) | .number" \
-  2>/dev/null)
+# gh issue list --milestone only searches open milestones; use API to include closed
+REPO_SLUG=$(gh repo view --json nameWithOwner --jq '.nameWithOwner' 2>/dev/null)
+MS_NUM=$(gh api "repos/${REPO_SLUG}/milestones?state=all" --jq ".[] | select(.title==\"v${VERSION}\") | .number" 2>/dev/null)
+ISSUE_NUMBER=""
+if [ -n "$MS_NUM" ]; then
+  ISSUE_NUMBER=$(gh api "repos/${REPO_SLUG}/issues?milestone=${MS_NUM}&state=open&labels=phase&per_page=100" \
+    --jq "[.[] | select(.title | startswith(\"Phase ${PHASE}:\"))][0].number" 2>/dev/null)
+fi
 
 if [ -z "$ISSUE_NUMBER" ]; then
   echo "Warning: Could not find GitHub Issue for Phase ${PHASE}. Skipping checklist update."

@@ -10,6 +10,39 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - ✅ **v1.4.1 Issue Execution** — Phases 1-4 (shipped 2026-02-03)
 - ✅ **v1.6.0 Skills-Native Subagents** — Phases 30-34 (shipped 2026-02-06)
 - ✅ **v1.7.0 Brainstorm Integration** — Phases 35-36 (shipped 2026-02-07)
+- 🔄 **v1.8.0 Adaptive Workflows** — Phases 37-39 (in progress)
+
+## Current Milestone: v1.8.0 Adaptive Workflows
+
+**Goal:** Enable project-specific customization of Kata workflows through preferences infrastructure, template overrides, and config-driven workflow variants.
+
+- [x] Phase 37: Preferences Infrastructure & Progressive Capture (2/2 plans) — completed 2026-02-07
+
+#### Phase 38: Template Overrides
+
+**Goal:** Extract inline templates into standalone files with override resolution, schema comments, and drift detection.
+
+**Requirements:** TMPL-01, TMPL-02, TMPL-03, TMPL-04
+
+**Success Criteria:**
+1. Five templates exist as standalone files within skill `references/` directories with schema comments listing required fields
+2. Placing a file at `.planning/templates/{name}.md` overrides the plugin default for that template
+3. Session-start hook detects missing required fields in project template overrides and emits a warning
+4. Skills that use templates resolve project-override-first, plugin-default-second
+
+#### Phase 39: Config Workflow Variants & Settings
+
+**Goal:** Add per-skill `workflows` config section, wire skill-specific config reads, add schema validation, and update settings skill.
+
+**Requirements:** WKFL-01, WKFL-02, WKFL-03, WKFL-04, WKFL-05, WKFL-06
+
+**Success Criteria:**
+1. `config.json` accepts a `workflows` section with per-skill keys (execute-phase, verify-work, complete-milestone)
+2. `kata-execute-phase` reads and applies `workflows.execute-phase` config (post_task_command, commit_style, commit_scope_format)
+3. `kata-verify-work` reads `workflows.verify-work` config (extra_verification_commands) and runs them
+4. `kata-complete-milestone` reads `workflows.complete-milestone` config (version_files, pre_release_commands)
+5. Session-start schema validation warns on unknown keys and errors on invalid value types
+6. `/kata-configure-settings` manages preferences.json, workflow variants, and uses accessor/write utilities; `parallelization` key removed
 
 ## Completed Milestones
 
@@ -191,22 +224,23 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 ## Progress Summary
 
-| Milestone | Phases | Plans | Status   | Shipped    |
-| --------- | ------ | ----- | -------- | ---------- |
-| v0.1.4    | 1      | 5     | Shipped  | 2026-01-18 |
-| v0.1.5    | 6      | 30    | Shipped  | 2026-01-22 |
-| v1.0.0    | 4      | 5     | Shipped  | 2026-01-23 |
-| v1.0.8    | 1      | 5     | Shipped  | 2026-01-24 |
-| v1.0.9    | 1      | 3     | Shipped  | 2026-01-25 |
-| v1.1.0    | 10     | 33    | Shipped  | 2026-01-27 |
-| v1.3.0    | 2      | 4     | Shipped  | 2026-01-28 |
-| v1.3.3    | 1      | 4     | Shipped  | 2026-01-29 |
-| v1.4.0    | 2      | 11    | Shipped  | 2026-02-01 |
-| v1.4.1    | 4      | 6     | Shipped  | 2026-02-03 |
-| v1.5.0    | 3      | 6     | Shipped  | 2026-02-04 |
-| v1.6.0    | 5      | 17    | Shipped  | 2026-02-06 |
-| v1.7.0    | 2      | 5     | Shipped  | 2026-02-07 |
+| Milestone | Phases | Plans | Status      | Shipped    |
+| --------- | ------ | ----- | ----------- | ---------- |
+| v0.1.4    | 1      | 5     | Shipped     | 2026-01-18 |
+| v0.1.5    | 6      | 30    | Shipped     | 2026-01-22 |
+| v1.0.0    | 4      | 5     | Shipped     | 2026-01-23 |
+| v1.0.8    | 1      | 5     | Shipped     | 2026-01-24 |
+| v1.0.9    | 1      | 3     | Shipped     | 2026-01-25 |
+| v1.1.0    | 10     | 33    | Shipped     | 2026-01-27 |
+| v1.3.0    | 2      | 4     | Shipped     | 2026-01-28 |
+| v1.3.3    | 1      | 4     | Shipped     | 2026-01-29 |
+| v1.4.0    | 2      | 11    | Shipped     | 2026-02-01 |
+| v1.4.1    | 4      | 6     | Shipped     | 2026-02-03 |
+| v1.5.0    | 3      | 6     | Shipped     | 2026-02-04 |
+| v1.6.0    | 5      | 17    | Shipped     | 2026-02-06 |
+| v1.7.0    | 2      | 5     | Shipped     | 2026-02-07 |
+| v1.8.0    | 3      | —     | In Progress | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-07 — v1.7.0 Brainstorm Integration shipped*
+*Last updated: 2026-02-07 — v1.8.0 Adaptive Workflows roadmap created*
