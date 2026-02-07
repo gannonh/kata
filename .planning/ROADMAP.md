@@ -16,18 +16,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 **Goal:** Enable project-specific customization of Kata workflows through preferences infrastructure, template overrides, and config-driven workflow variants.
 
-#### Phase 37: Preferences Infrastructure & Progressive Capture
-
-**Goal:** Ship `preferences.json` with accessor scripts, reduce onboarding to 5 questions, and wire progressive capture for deferred settings.
-
-**Requirements:** PREF-01, PREF-02, PREF-03, PREF-04, PREF-05, CAP-01, CAP-02, CAP-03, CAP-04, CAP-05
-
-**Success Criteria:**
-1. `read-pref.sh <key>` resolves through preferences.json -> config.json -> built-in defaults and returns the correct value
-2. `has-pref.sh <key>` returns 0/1 indicating whether the user has expressed a preference
-3. `set-config.sh <key> <value>` atomically writes a nested JSON key
-4. `kata-new-project` asks exactly 5 questions (mode, depth, commit_docs, pr_workflow, github) and scaffolds empty `preferences.json`
-5. First `/kata-plan-phase` invocation triggers model_profile check-or-ask; workflow agent toggles silent-default to true with first-run notice
+- [x] Phase 37: Preferences Infrastructure & Progressive Capture (2/2 plans) — completed 2026-02-07
 
 #### Phase 38: Template Overrides
 

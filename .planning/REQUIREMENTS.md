@@ -2,19 +2,19 @@
 
 ## Preferences Infrastructure
 
-- [ ] **PREF-01**: Preferences stored in `.planning/preferences.json` with flat dot-notation keys (`release.changelog_format`, `docs.readme_on_milestone`)
-- [ ] **PREF-02**: Accessor script (`read-pref.sh`) centralizes parsing with resolution chain: preferences.json -> config.json -> built-in defaults
-- [ ] **PREF-03**: Discovery script (`has-pref.sh`) returns whether a user has expressed a preference for a given key
-- [ ] **PREF-04**: `kata-new-project` scaffolds empty `preferences.json` alongside `config.json`
-- [ ] **PREF-05**: Built-in defaults table covers all known preference keys (release, docs, conventions domains)
+- [x] **PREF-01**: Preferences stored in `.planning/preferences.json` with flat dot-notation keys (`release.changelog_format`, `docs.readme_on_milestone`)
+- [x] **PREF-02**: Accessor script (`read-pref.sh`) centralizes parsing with resolution chain: preferences.json -> config.json -> built-in defaults
+- [x] **PREF-03**: Discovery script (`has-pref.sh`) returns whether a user has expressed a preference for a given key
+- [x] **PREF-04**: `kata-new-project` scaffolds empty `preferences.json` alongside `config.json`
+- [x] **PREF-05**: Built-in defaults table covers all known preference keys (release, docs, conventions domains)
 
 ## Progressive Capture
 
-- [ ] **CAP-01**: `kata-new-project` onboarding reduced to 5 essential questions: mode, depth, commit_docs, pr_workflow, github
-- [ ] **CAP-02**: `model_profile` deferred to first `/kata-plan-phase` via check-or-ask pattern (step 3.5)
-- [ ] **CAP-03**: Workflow agent toggles (research, plan_check, verifier) silent-default to `true` with prominent first-run notice
-- [ ] **CAP-04**: Config write utility (`set-config.sh`) handles JSON parse, nested key set, and atomic write
-- [ ] **CAP-05**: Dead `parallelization` key removed from onboarding, config schema, and settings skill
+- [x] **CAP-01**: `kata-new-project` onboarding reduced to 5 essential questions: mode, depth, commit_docs, pr_workflow, github
+- [x] **CAP-02**: `model_profile` deferred to first `/kata-plan-phase` via check-or-ask pattern (step 3.5)
+- [x] **CAP-03**: Workflow agent toggles (research, plan_check, verifier) silent-default to `true` with prominent first-run notice
+- [x] **CAP-04**: Config write utility (`set-config.sh`) handles JSON parse, nested key set, and atomic write
+- [x] **CAP-05**: Dead `parallelization` key removed from onboarding, config schema, and settings skill
 
 ## Template Overrides
 
@@ -50,16 +50,16 @@
 
 | Requirement | Phase | Plan |
 |-------------|-------|------|
-| PREF-01 | 37 | — |
-| PREF-02 | 37 | — |
-| PREF-03 | 37 | — |
-| PREF-04 | 37 | — |
-| PREF-05 | 37 | — |
-| CAP-01 | 37 | — |
-| CAP-02 | 37 | — |
-| CAP-03 | 37 | — |
-| CAP-04 | 37 | — |
-| CAP-05 | 37 | — |
+| PREF-01 | 37 | 02 |
+| PREF-02 | 37 | 01 |
+| PREF-03 | 37 | 01 |
+| PREF-04 | 37 | 02 |
+| PREF-05 | 37 | 01 |
+| CAP-01 | 37 | 02 |
+| CAP-02 | 37 | 02 |
+| CAP-03 | 37 | 02 |
+| CAP-04 | 37 | 01 |
+| CAP-05 | 37 | 02 |
 | TMPL-01 | 38 | — |
 | TMPL-02 | 38 | — |
 | TMPL-03 | 38 | — |
