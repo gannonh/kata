@@ -29,7 +29,16 @@ npx skills add gannonh/kata-skills
 
 ---
 
-## What's New in v1.8.0
+## What's New in v1.9.0
+
+**Template Overrides (Universal)** — Customize how Kata generates planning artifacts:
+- **Template customization** — `/kata-customize-template` to list, copy, edit, and validate template overrides
+- **Universal resolution** — Templates resolve via sibling discovery, working identically for plugin and skills-only users
+- **Schema validation** — Required field checks run as pre-flight in skills (no SessionStart hooks)
+- **5 customizable templates** — Plans, summaries, UAT sessions, verification reports, changelogs
+
+<details>
+<summary><strong>v1.8.0: Adaptive Workflows</strong></summary>
 
 **Adaptive Workflows** — Project-specific preferences, template overrides, and config-driven workflow variants:
 - **Progressive capture** — Reduced onboarding to 5 essential questions, deferred preferences captured at first use
@@ -38,6 +47,8 @@ npx skills add gannonh/kata-skills
 - **`/kata-doctor`** — Project health checks including roadmap format validation
 - **Config validator** — SessionStart hook warns on unknown keys, errors on invalid types
 - **Template drift detection** — Detects when project templates diverge from plugin schema
+
+</details>
 
 <details>
 <summary><strong>v1.7.0: Brainstorm Integration</strong></summary>
@@ -444,6 +455,46 @@ Override per-invocation: `/kata-plan-phase --skip-research`
 
 ---
 
+## Template Customization
+
+Templates control the structure of planning artifacts. Override any template to change how Kata generates files for your project.
+
+### Available Templates
+
+| Template | Skill | Controls |
+| --- | --- | --- |
+| `summary-template.md` | kata-execute-phase | Phase completion summaries |
+| `plan-template.md` | kata-plan-phase | Phase plan structure |
+| `UAT-template.md` | kata-verify-work | UAT session format |
+| `verification-report.md` | kata-verify-work | Verification report format |
+| `changelog-entry.md` | kata-complete-milestone | Changelog entry format |
+
+Overrides live at `.planning/templates/`. When a template override exists, Kata uses it instead of the built-in default.
+
+### Customization Workflow
+
+```
+# List available templates and override status
+/kata-customize-template list
+
+# Copy a default template for local editing
+/kata-customize-template copy summary-template.md
+
+# Edit the override (describe changes in natural language)
+/kata-customize-template edit summary-template.md
+
+# Validate all overrides against required schemas
+/kata-customize-template validate
+```
+
+### Validation
+
+Template overrides are validated automatically during skill execution. If an override is missing required fields, you will see a drift warning. Run `/kata-customize-template validate` to check all overrides, or `/kata-doctor` for a full project health check.
+
+For detailed schema documentation per template, see [Template Customization Reference](.docs/TEMPLATE-CUSTOMIZATION.md).
+
+---
+
 ## Why It Works
 
 ### Context Engineering
@@ -493,6 +544,7 @@ Git bisect finds exact failures. Each task independently revertable.
 .planning/
 ├── PROJECT.md              # Project vision and requirements
 ├── config.json             # Workflow configuration
+├── templates/              # Template overrides (customized output formats)
 ├── ROADMAP.md              # Phase structure
 ├── REQUIREMENTS.md         # Scoped requirements with IDs
 ├── STATE.md                # Living memory
