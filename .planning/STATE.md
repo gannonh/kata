@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 
 Milestone: v1.8.0 Adaptive Workflows
 Phase: 38 — Template Overrides
-Plan: 1 of 2
-Status: In progress
-Last activity: 2026-02-08 — Completed 38-01-PLAN.md
+Plan: 2 of 2
+Status: Complete
+Last activity: 2026-02-08 — Completed 38-02-PLAN.md
 
-Progress: ██████████ 13/13 milestones shipped | v1.8.0: 2/4 plans (phase 37 complete, 38 in progress)
+Progress: ██████████ 13/13 milestones shipped | v1.8.0: 4/4 plans (phase 37 complete, 38 complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 136
+- Total plans completed: 137
 - Average duration: 3 min
-- Total execution time: ~349 min
+- Total execution time: ~354 min
 
 **By Milestone:**
 
@@ -53,7 +53,7 @@ Progress: ██████████ 13/13 milestones shipped | v1.8.0: 2/4 
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 - Phase 37 combines PREF + CAP (10 reqs) — accessor scripts are foundation for everything
-- Phase 38 handles TMPL (4 reqs) — template extraction and schema comments complete (38-01)
+- Phase 38 handles TMPL (4 reqs) — template extraction, schema comments (38-01), resolution wiring, drift detection (38-02) complete
 - Phase 39 handles WKFL (6 reqs) — depends on Phase 37 accessor pattern
 
 ### Roadmap Evolution
@@ -86,6 +86,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 38-01-PLAN.md
+Stopped at: Completed 38-02-PLAN.md
 Resume file: None
-Next action: Execute 38-02-PLAN.md
+Next action: Phase 38 verification
