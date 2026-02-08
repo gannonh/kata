@@ -28,8 +28,8 @@ describe('Plugin build', () => {
     assert.ok(fs.existsSync(path.join(ROOT, 'dist/plugin/skills')));
   });
 
-  test('includes hooks directory', () => {
-    assert.ok(fs.existsSync(path.join(ROOT, 'dist/plugin/hooks')));
+  test('does NOT include hooks directory (validation moved to skills)', () => {
+    assert.ok(!fs.existsSync(path.join(ROOT, 'dist/plugin/hooks')));
   });
 
   test('does NOT include shared kata directory (Phase 2.1 restructure)', () => {
@@ -176,21 +176,11 @@ describe('Command structure', () => {
   });
 });
 
-describe('Hook scripts', () => {
-  test('hooks use ES module syntax', () => {
-    const hooksDir = path.join(ROOT, 'hooks');
-    if (fs.existsSync(hooksDir)) {
-      const jsFiles = fs.readdirSync(hooksDir).filter(f => f.endsWith('.js'));
-      for (const file of jsFiles) {
-        const content = fs.readFileSync(path.join(hooksDir, file), 'utf8');
-        // Check for ESM patterns (import/export) or lack of CommonJS patterns
-        const hasESM = content.includes('import ') || content.includes('export ');
-        const hasCJS = content.includes('require(') || content.includes('module.exports');
-        if (hasCJS && !hasESM) {
-          assert.fail(`Hook ${file} uses CommonJS but should use ES modules`);
-        }
-      }
-    }
+describe('Validation scripts', () => {
+  test('validation scripts exist in kata-doctor/scripts', () => {
+    const scriptsDir = path.join(ROOT, 'skills/kata-doctor/scripts');
+    assert.ok(fs.existsSync(path.join(scriptsDir, 'check-config.sh')));
+    assert.ok(fs.existsSync(path.join(scriptsDir, 'check-template-drift.sh')));
   });
 });
 
