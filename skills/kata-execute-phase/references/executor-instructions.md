@@ -102,6 +102,23 @@ grep -n "type=\"checkpoint" [plan-path]
 - Continue pattern A or B from there
   </step>
 
+<step name="parse_workflow_config">
+Parse workflow config from `<workflow_config>` block in prompt context:
+
+- `post_task_command` — shell command to run after each task completes (empty = skip)
+- `commit_style` — commit message format: conventional (default), semantic, or simple
+- `commit_scope_format` — scope template, supports `{phase}` and `{plan}` placeholders
+
+**Commit style formats:**
+- `conventional`: `{type}({scope}): {message}` (current default)
+- `semantic`: `{type}: {message}` (no scope)
+- `simple`: `{message}` (no type or scope)
+
+Where `{scope}` is produced by replacing `{phase}` and `{plan}` in `commit_scope_format`.
+
+If `<workflow_config>` block is missing (backward compat), use defaults: commit_style=conventional, commit_scope_format={phase}-{plan}, post_task_command=empty.
+</step>
+
 <step name="execute_tasks">
 Execute each task in the plan.
 
@@ -567,16 +584,44 @@ git add src/types/user.ts
 | `style`    | Formatting, linting fixes                       |
 | `chore`    | Config, tooling, dependencies                   |
 
-**4. Craft commit message:**
+**4. Craft commit message using workflow config:**
 
-Format: `{type}({phase}-{plan}): {task-name-or-description}`
+Apply `commit_style` from `<workflow_config>` (defaults to `conventional` if missing):
+
+- **conventional:** `{type}({scope}): {message}` where `{scope}` is `commit_scope_format` with `{phase}` and `{plan}` replaced
+- **semantic:** `{type}: {message}` (no scope parenthetical)
+- **simple:** `{message}` (no type prefix or scope)
+
+Example for conventional (default):
 
 ```bash
-git commit -m "{type}({phase}-{plan}): {concise task description}
+# Build scope from commit_scope_format (default: {phase}-{plan})
+SCOPE=$(echo "{commit_scope_format}" | sed "s/{phase}/${PHASE}/g; s/{plan}/${PLAN}/g")
+git commit -m "{type}(${SCOPE}): {concise task description}
 
 - {key change 1}
 - {key change 2}
 - {key change 3}
+"
+```
+
+Example for semantic:
+
+```bash
+git commit -m "{type}: {concise task description}
+
+- {key change 1}
+- {key change 2}
+"
+```
+
+Example for simple:
+
+```bash
+git commit -m "{concise task description}
+
+- {key change 1}
+- {key change 2}
 "
 ```
 
@@ -587,6 +632,20 @@ TASK_COMMIT=$(git rev-parse --short HEAD)
 ```
 
 Track for SUMMARY.md generation.
+
+**6. Run post-task command (if configured):**
+
+If `post_task_command` from `<workflow_config>` is non-empty, run it after each task's commit:
+
+```bash
+# Only run if post_task_command is set
+if [ -n "$POST_TASK_CMD" ]; then
+  echo "Running post-task command: $POST_TASK_CMD"
+  eval "$POST_TASK_CMD" 2>&1 || echo "Warning: post_task_command failed (non-blocking)"
+fi
+```
+
+Post-task command failures are non-blocking. Log the failure and continue to the next task.
 
 **Atomic commit benefits:**
 
