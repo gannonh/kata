@@ -16,9 +16,9 @@ Fix template override infrastructure to work universally for all users (plugin +
 
 ### Template Resolution
 
-- [ ] **TMPL-01**: resolve-template.sh uses relative sibling discovery (all skills are siblings)
-- [ ] **TMPL-02**: Template resolution works for all installation locations (no absolute paths)
-- [ ] **TMPL-03**: Clear error messages when template not found in siblings
+- [x] **TMPL-01**: resolve-template.sh uses relative sibling discovery (all skills are siblings)
+- [x] **TMPL-02**: Template resolution works for all installation locations (no absolute paths)
+- [x] **TMPL-03**: Clear error messages when template not found in siblings
 
 ### Validation Migration
 

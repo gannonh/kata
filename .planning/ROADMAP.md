@@ -17,17 +17,17 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 **Goal:** Fix template override infrastructure to work universally for all users (plugin + skills-only), migrate validation from hooks into skills, create template customization UI, and document the feature.
 
-### Phase 40: Template Resolution
+### ✅ Phase 40: Template Resolution
 
 **Requirements:** TMPL-01, TMPL-02, TMPL-03
 
 Rewrite resolve-template.sh to use relative sibling discovery so template resolution works for all installation locations without absolute paths.
 
 **Success criteria:**
-- resolve-template.sh discovers templates via sibling skill directories (not absolute paths)
-- Template resolution works identically for plugin and skills-only installations
-- Missing templates produce clear error messages naming the template and search paths
-- Existing skills that use templates continue to work without modification
+- ✅ resolve-template.sh discovers templates via sibling skill directories (not absolute paths)
+- ✅ Template resolution works identically for plugin and skills-only installations
+- ✅ Missing templates produce clear error messages naming the template and search paths
+- ✅ Existing skills that use templates continue to work without modification
 
 ### Phase 41: Validation Migration
 
