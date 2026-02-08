@@ -318,6 +318,47 @@ Update Current Test section with the pending test.
 Proceed to `present_test`.
 </step>
 
+<step name="run_extra_verification">
+## 7.1. Run Extra Verification Commands
+
+After UAT tests complete and UAT.md is committed, check for project-specific verification commands:
+
+```bash
+EXTRA_CMDS_JSON=$(bash "${SKILL_BASE_DIR}/../kata-configure-settings/scripts/read-pref.sh" "workflows.verify-work.extra_verification_commands" "[]")
+```
+
+**If `EXTRA_CMDS_JSON` is `[]` or empty:** Skip this step.
+
+**Otherwise:** Parse JSON array and execute each command:
+
+```bash
+EXTRA_CMDS_JSON="$EXTRA_CMDS_JSON" node -e "
+const cmds = JSON.parse(process.env.EXTRA_CMDS_JSON);
+if (cmds.length === 0) { process.exit(0); }
+cmds.forEach((cmd, i) => console.log('CMD_' + i + '=' + cmd));
+" > /tmp/kata-extra-cmds.sh
+
+if [ -s /tmp/kata-extra-cmds.sh ]; then
+  echo ""
+  echo "## Extra Verification"
+  echo ""
+  source /tmp/kata-extra-cmds.sh
+  # Run each CMD_N
+  i=0
+  while true; do
+    eval "CMD=\${CMD_${i}:-}"
+    [ -z "$CMD" ] && break
+    echo "Running: $CMD"
+    eval "$CMD" 2>&1 || echo "  Warning: Command failed (non-blocking)"
+    i=$((i + 1))
+  done
+  rm -f /tmp/kata-extra-cmds.sh
+fi
+```
+
+Append command outputs to UAT.md under a `## Extra Verification` section. Non-blocking: command failures are logged but do not stop the workflow.
+</step>
+
 <step name="complete_session">
 **Complete testing and commit:**
 
