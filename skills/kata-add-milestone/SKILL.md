@@ -78,6 +78,11 @@ Continue after migration completes.
 
 **If exit code 0 or 2:** Continue silently.
 
+```bash
+# Validate config
+bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-config.sh" 2>/dev/null || true
+```
+
 ## Phase 1.5: Optional Brainstorm
 
 Use AskUserQuestion:
