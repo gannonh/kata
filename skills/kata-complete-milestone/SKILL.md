@@ -81,7 +81,21 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    - If pr_workflow=true, you must be on release/vX.Y.Z branch
    - If pr_workflow=false, main branch is OK
 
-0.1. **Generate release artifacts:**
+0.1. **Read workflow config:**
+
+Read workflow-specific overrides for milestone completion:
+
+```bash
+VERSION_FILES_JSON=$(bash "${SKILL_BASE_DIR}/../kata-configure-settings/scripts/read-pref.sh" "workflows.complete-milestone.version_files" "[]")
+PRE_RELEASE_CMDS_JSON=$(bash "${SKILL_BASE_DIR}/../kata-configure-settings/scripts/read-pref.sh" "workflows.complete-milestone.pre_release_commands" "[]")
+```
+
+- `version_files`: overrides version-detector.md auto-detection when non-empty
+- `pre_release_commands`: run after version bump, before archive (failures blocking)
+
+Store for use in release workflow steps. See milestone-complete.md `read_workflow_config` step.
+
+0.2. **Generate release artifacts:**
 
 Proactively generate changelog and version bump. Follow the release_workflow step in milestone-complete.md (loads version-detector.md and changelog-generator.md) to:
 
@@ -247,8 +261,14 @@ See milestone-complete.md `close_github_milestone` step for details.
      # Get all phase issue numbers for this milestone
      # --state all includes already-closed issues (GitHub ignores redundant Closes #X,
      # but including them ensures PR body reflects all related work)
-     PHASE_ISSUES=$(gh issue list --label phase --milestone "v{{version}}" \
-       --state all --json number --jq '.[].number' 2>/dev/null)
+     # gh issue list --milestone only searches open milestones; use API to include closed
+     REPO_SLUG=$(gh repo view --json nameWithOwner --jq '.nameWithOwner' 2>/dev/null)
+     MS_NUM=$(gh api "repos/${REPO_SLUG}/milestones?state=all" --jq ".[] | select(.title==\"v{{version}}\") | .number" 2>/dev/null)
+     PHASE_ISSUES=""
+     if [ -n "$MS_NUM" ]; then
+       PHASE_ISSUES=$(gh api "repos/${REPO_SLUG}/issues?milestone=${MS_NUM}&state=all&labels=phase&per_page=100" \
+         --jq '.[].number' 2>/dev/null)
+     fi
 
      if [ -z "$PHASE_ISSUES" ]; then
        echo "Note: No phase issues found for milestone v{{version}}. This is expected for milestones without GitHub issues."

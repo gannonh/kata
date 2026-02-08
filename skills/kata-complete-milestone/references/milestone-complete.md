@@ -98,6 +98,22 @@ Proceed without creating branch.
 
 </step>
 
+<step name="read_workflow_config">
+
+Read workflow config for milestone completion overrides:
+
+```bash
+VERSION_FILES_JSON=$(bash "${SKILL_BASE_DIR}/../kata-configure-settings/scripts/read-pref.sh" "workflows.complete-milestone.version_files" "[]")
+PRE_RELEASE_CMDS_JSON=$(bash "${SKILL_BASE_DIR}/../kata-configure-settings/scripts/read-pref.sh" "workflows.complete-milestone.pre_release_commands" "[]")
+```
+
+- `version_files` — JSON array of file paths. When non-empty, overrides version-detector.md auto-detection. When `[]`, falls back to auto-detection (existing behavior).
+- `pre_release_commands` — JSON array of shell commands. Run after version bump and before archive creation. Failures are blocking.
+
+Store both variables for use in `release_workflow` and `git_commit_milestone` steps.
+
+</step>
+
 <step name="verify_readiness">
 
 Check if milestone is truly complete:
@@ -278,8 +294,66 @@ The resolved template content is available as `{changelog_template_content}` and
    ```
 
 4. **Apply changes (approval happens in SKILL.md step 0.1):**
-   Use update_versions from version-detector.md to bump all detected version files.
+
+   **Determine version files to update:**
+
+   Check `VERSION_FILES_JSON` from `read_workflow_config` step:
+
+   ```bash
+   VERSION_FILES_JSON="$VERSION_FILES_JSON" node -e "
+   const files = JSON.parse(process.env.VERSION_FILES_JSON);
+   if (files.length > 0) {
+     files.forEach(f => console.log(f));
+   }
+   " > /tmp/kata-version-files.txt
+
+   if [ -s /tmp/kata-version-files.txt ]; then
+     echo "Using configured version files (skipping auto-detection):"
+     cat /tmp/kata-version-files.txt
+     # Use these files instead of version-detector.md results
+   else
+     # Fall back to version-detector.md auto-detection (existing behavior)
+   fi
+   rm -f /tmp/kata-version-files.txt
+   ```
+
+   When `version_files` is configured, skip version-detector.md heuristics and use the explicit list. When empty, fall back to current auto-detection. This is an override, not a merge.
+
+   Use update_versions (from version-detector.md or the override list) to bump version files.
    Use insertion pattern from changelog-generator.md to prepend changelog entry.
+
+4.5. **Run pre-release commands (if configured):**
+
+   Check `PRE_RELEASE_CMDS_JSON` from `read_workflow_config` step:
+
+   ```bash
+   PRE_RELEASE_CMDS_JSON="$PRE_RELEASE_CMDS_JSON" node -e "
+   const cmds = JSON.parse(process.env.PRE_RELEASE_CMDS_JSON);
+   if (cmds.length === 0) { process.exit(0); }
+   cmds.forEach((cmd, i) => console.log('CMD_' + i + '=' + cmd));
+   " > /tmp/kata-pre-release-cmds.sh
+
+   if [ -s /tmp/kata-pre-release-cmds.sh ]; then
+     echo "Running pre-release commands:"
+     source /tmp/kata-pre-release-cmds.sh
+     i=0
+     while true; do
+       eval "CMD=\${CMD_${i}:-}"
+       [ -z "$CMD" ] && break
+       echo "  Running: $CMD"
+       eval "$CMD" 2>&1
+       if [ $? -ne 0 ]; then
+         echo "  Warning: Pre-release command failed: $CMD"
+         echo "  Stopping pre-release sequence."
+         break
+       fi
+       i=$((i + 1))
+     done
+     rm -f /tmp/kata-pre-release-cmds.sh
+   fi
+   ```
+
+   Pre-release command failures ARE blocking (unlike extra verification). If a pre-release command fails, stop and report. This protects against releasing with a broken build.
 
 5. **Check pr_workflow mode (REL-03):**
    ```bash
