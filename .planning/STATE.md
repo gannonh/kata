@@ -10,18 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Milestone: v1.8.0 Adaptive Workflows
-Phase: 37 — Preferences Infrastructure & Progressive Capture (complete)
-Status: Phase 37 verified and complete
-Last activity: 2026-02-07 — Phase 37 complete (2/2 plans, verified)
+Phase: 38 — Template Overrides
+Plan: 1 of 2
+Status: In progress
+Last activity: 2026-02-08 — Completed 38-01-PLAN.md
 
-Progress: ██████████ 13/13 milestones shipped | v1.8.0: 1/3 phases
+Progress: ██████████ 13/13 milestones shipped | v1.8.0: 2/4 plans (phase 37 complete, 38 in progress)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 135
+- Total plans completed: 136
 - Average duration: 3 min
-- Total execution time: ~345 min
+- Total execution time: ~349 min
 
 **By Milestone:**
 
@@ -52,7 +53,7 @@ Progress: ██████████ 13/13 milestones shipped | v1.8.0: 1/3 
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 - Phase 37 combines PREF + CAP (10 reqs) — accessor scripts are foundation for everything
-- Phase 38 handles TMPL (4 reqs) — independent, can parallelize with 37
+- Phase 38 handles TMPL (4 reqs) — template extraction and schema comments complete (38-01)
 - Phase 39 handles WKFL (6 reqs) — depends on Phase 37 accessor pattern
 
 ### Roadmap Evolution
@@ -84,7 +85,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-07
-Stopped at: Phase 37 complete, PR #123 ready
+Last session: 2026-02-08
+Stopped at: Completed 38-01-PLAN.md
 Resume file: None
-Next action: Discuss Phase 38 (`/kata-discuss-phase 38`)
+Next action: Execute 38-02-PLAN.md
