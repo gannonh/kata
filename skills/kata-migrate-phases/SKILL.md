@@ -35,7 +35,7 @@ Redirecting...
 Invoke the replacement skill:
 
 ```
-Skill("kata:kata-doctor")
+Skill("kata-doctor")
 ```
 
 </step>

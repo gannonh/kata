@@ -52,7 +52,7 @@ fi
 Invoke kata-doctor in auto mode:
 
 ```
-Skill("kata:kata-doctor", "--auto")
+Skill("kata-doctor", "--auto")
 ```
 
 Continue after migration completes.

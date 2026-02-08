@@ -71,7 +71,7 @@ fi
 Invoke kata-doctor in auto mode:
 
 ```
-Skill("kata:kata-doctor", "--auto")
+Skill("kata-doctor", "--auto")
 ```
 
 Continue after migration completes.
@@ -832,7 +832,7 @@ Use AskUserQuestion:
 Run `/kata-doctor` to perform migration:
 
 ```
-Skill("kata:kata-doctor")
+Skill("kata-doctor")
 ```
 
 After doctor completes, recalculate `NEXT_PHASE` from the newly renumbered directories.

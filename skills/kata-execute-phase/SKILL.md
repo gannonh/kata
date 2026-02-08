@@ -86,7 +86,7 @@ Store resolved models for use in Task calls below.
    Invoke kata-doctor in auto mode:
 
    ```
-   Skill("kata:kata-doctor", "--auto")
+   Skill("kata-doctor", "--auto")
    ```
 
    Continue after migration completes.
@@ -520,12 +520,12 @@ fi
     **Note:** Show "Merge PR" option only if `pr_workflow=true` AND PR exists AND not already merged.
 
     **If user chooses "Run UAT":**
-    1. Invoke skill: `Skill("kata:kata-verify-work", "{phase}")`
+    1. Invoke skill: `Skill("kata-verify-work", "{phase}")`
     2. UAT skill handles the walkthrough and any issues found
     3. After UAT completes, return to this step to ask again (user may want PR review or merge)
 
     **If user chooses "Run PR review":**
-    4. Invoke skill: `Skill("kata:kata-review-pull-requests")`
+    4. Invoke skill: `Skill("kata-review-pull-requests")`
     5. Display review summary with counts: {N} critical, {M} important, {P} suggestions
     6. **STOP and ask what to do with findings** (see step 10.7)
     7. After findings handled, return to this step

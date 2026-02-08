@@ -278,26 +278,122 @@ After roadmap creation, REQUIREMENTS.md gets updated with phase mappings:
 
 ## ROADMAP.md Structure
 
-Use the standard ROADMAP.md format (see examples in existing projects).
+Use this exact canonical format:
 
-Key sections:
-- Overview (2-3 sentences)
-- Milestones overview (✅ shipped, 🔄 current, ○ planned)
-- Completed Milestones (collapsed `<details>` with Goal, phase list, archive link)
-- Planned Milestones (future work with Goal and Target features)
-- Current Milestone with Phases (Goal, Dependencies, Requirements, Success Criteria)
-- Progress Summary table (includes planned milestones with "Planned" status)
+```markdown
+# Roadmap: [Project Name]
+
+## Overview
+
+[2-3 sentence project description]
+
+## Milestones
+
+- ✅ **v1.0.0 [Name]** — Phases N-M (shipped YYYY-MM-DD)
+- ✅ **v1.1.0 [Name]** — Phases N-M (shipped YYYY-MM-DD)
+- 🔄 **v1.2.0 [Name]** — Phases N-M (in progress)
+- ○ **v2.0.0 [Name]** — Phases TBD (planned)
+
+## Current Milestone: v[X.Y] [Name]
+
+**Goal:** [One sentence describing milestone focus]
+
+- [x] Phase N: [Name] (P/P plans) — completed YYYY-MM-DD
+- [x] Phase N+1: [Name] (P/P plans) — completed YYYY-MM-DD
+- [ ] Phase N+2: [Name] (P/P plans)
+
+## Completed Milestones
+
+<details>
+<summary>✅ v[X.Y] [Name] (Phases N-M) — SHIPPED YYYY-MM-DD</summary>
+
+**Goal:** [milestone goal]
+
+- [x] Phase N: [Name] (P/P plans) — completed YYYY-MM-DD
+- [x] Phase N+1: [Name] (P/P plans) — completed YYYY-MM-DD
+
+[Full archive](milestones/v[X.Y]-ROADMAP.md)
+
+</details>
+
+## Planned Milestones
+
+### ○ v[X.Y] [Name]
+
+**Goal:** [planned milestone goal]
+
+**Target features:**
+- [Feature 1]
+- [Feature 2]
+
+---
+
+## Progress Summary
+
+| Milestone | Phases | Plans | Status      | Shipped    |
+| --------- | ------ | ----- | ----------- | ---------- |
+| v1.0.0    | 4      | 12    | Shipped     | YYYY-MM-DD |
+| v1.1.0    | 3      | 8     | Shipped     | YYYY-MM-DD |
+| v1.2.0    | 5      | —     | In Progress | —          |
+| v2.0.0    | —      | —     | Planned     | —          |
+
+---
+*Roadmap created: YYYY-MM-DD*
+*Last updated: YYYY-MM-DD — [update note]*
+```
+
+**Critical format requirements:**
+- MUST have `## Milestones` section with status symbols (✅/🔄/○)
+- MUST have `## Current Milestone: v[X.Y] [Name]` heading
+- MUST NOT have standalone `## Phases` section (old format)
+- Phases are listed under milestone sections, not at root level
 
 ## STATE.md Structure
 
-Use the standard STATE.md format (see examples in existing projects).
+Use this exact canonical format:
 
-Key sections:
-- Project Reference (core value, current focus)
-- Current Position (phase, plan, status, progress bar)
-- Performance Metrics
-- Accumulated Context (decisions, todos, blockers)
-- Session Continuity
+```markdown
+# Project State
+
+## Project Reference
+
+**Core Value:** [from PROJECT.md]
+**Current Focus:** [current milestone goal]
+
+## Current Position
+
+**Milestone:** v[X.Y] [Name]
+**Phase:** [N] of [Total] — [Phase Name]
+**Plan:** [current plan or "—"]
+**Status:** [Planning | Executing | Verifying | Complete]
+**Last activity:** YYYY-MM-DD — [activity note]
+
+Progress: [████████░░] 80%
+
+## Performance Metrics
+
+| Metric | Value |
+| ------ | ----- |
+| Plans completed | N |
+| Plans remaining | M |
+| Current streak | X days |
+
+## Accumulated Context
+
+### Decisions
+- [Decision made during this milestone]
+
+### Blockers
+- [Current blockers, if any]
+
+### Roadmap Evolution
+- [Phase changes, additions, etc.]
+
+## Session Continuity
+
+**Last session:** YYYY-MM-DD
+**Context:** [Brief note about where we left off]
+```
 
 ## Draft Presentation Format
 
