@@ -32,7 +32,6 @@ DEPTH=$(bash "$SCRIPT_DIR/read-pref.sh" "depth" "standard")
 MODEL_PROFILE=$(bash "$SCRIPT_DIR/read-pref.sh" "model_profile" "balanced")
 COMMIT_DOCS=$(bash "$SCRIPT_DIR/read-pref.sh" "commit_docs" "true")
 PR_WORKFLOW=$(bash "$SCRIPT_DIR/read-pref.sh" "pr_workflow" "false")
-STATUSLINE=$(bash "$SCRIPT_DIR/read-pref.sh" "display.statusline" "true")
 RESEARCH=$(bash "$SCRIPT_DIR/read-pref.sh" "workflow.research" "true")
 PLAN_CHECK=$(bash "$SCRIPT_DIR/read-pref.sh" "workflow.plan_check" "true")
 VERIFIER=$(bash "$SCRIPT_DIR/read-pref.sh" "workflow.verifier" "true")
@@ -127,15 +126,6 @@ AskUserQuestion([
     ]
   },
   {
-    question: "Enable Kata statusline?",
-    header: "Statusline",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recommended)", description: "Show model, context usage, update status in statusline" },
-      { label: "No", description: "Use default Claude Code statusline" }
-    ]
-  },
-  {
     question: "Spawn Plan Researcher? (researches domain before planning)",
     header: "Research",
     multiSelect: false,
@@ -214,7 +204,6 @@ bash "$SCRIPT_DIR/set-config.sh" "depth" "$NEW_DEPTH"
 bash "$SCRIPT_DIR/set-config.sh" "model_profile" "$NEW_MODEL_PROFILE"
 bash "$SCRIPT_DIR/set-config.sh" "commit_docs" "$NEW_COMMIT_DOCS"
 bash "$SCRIPT_DIR/set-config.sh" "pr_workflow" "$NEW_PR_WORKFLOW"
-bash "$SCRIPT_DIR/set-config.sh" "display.statusline" "$NEW_STATUSLINE"
 bash "$SCRIPT_DIR/set-config.sh" "workflow.research" "$NEW_RESEARCH"
 bash "$SCRIPT_DIR/set-config.sh" "workflow.plan_check" "$NEW_PLAN_CHECK"
 bash "$SCRIPT_DIR/set-config.sh" "workflow.verifier" "$NEW_VERIFIER"
@@ -249,50 +238,6 @@ done
 
 ### Side-Effects
 
-**If `display.statusline` changed to `true`:**
-
-```bash
-mkdir -p .claude
-
-if [ -f .claude/settings.json ]; then
-  if grep -q '"statusLine"' .claude/settings.json; then
-    echo "Statusline already configured in .claude/settings.json"
-  else
-    node -e "
-      const fs = require('fs');
-      const settings = JSON.parse(fs.readFileSync('.claude/settings.json', 'utf8'));
-      settings.statusLine = {
-        type: 'command',
-        command: 'node \"\$CLAUDE_PROJECT_DIR/.claude/hooks/kata-statusline.js\"'
-      };
-      fs.writeFileSync('.claude/settings.json', JSON.stringify(settings, null, 2));
-    "
-  fi
-else
-  cat > .claude/settings.json << 'SETTINGS_EOF'
-{
-  "statusLine": {
-    "type": "command",
-    "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/kata-statusline.js\""
-  }
-}
-SETTINGS_EOF
-fi
-```
-
-**If `display.statusline` changed to `false`:**
-
-```bash
-if [ -f .claude/settings.json ]; then
-  node -e "
-    const fs = require('fs');
-    const settings = JSON.parse(fs.readFileSync('.claude/settings.json', 'utf8'));
-    delete settings.statusLine;
-    fs.writeFileSync('.claude/settings.json', JSON.stringify(settings, null, 2));
-  "
-fi
-```
-
 **If `commit_docs` changed to `false`:**
 
 - Add `.planning/` to `.gitignore` (create if needed)
@@ -322,7 +267,6 @@ Kata > SETTINGS UPDATED
 | Model Profile      | {quality/balanced/budget} |
 | Commit Docs        | {On/Off}                  |
 | PR Workflow        | {On/Off}                  |
-| Statusline         | {On/Off}                  |
 | Plan Researcher    | {On/Off}                  |
 | Plan Checker       | {On/Off}                  |
 | Execution Verifier | {On/Off}                  |
@@ -375,7 +319,6 @@ This ensures ALL changes go through PRs.
 - [ ] User presented with 3 config sections: preferences, session settings, workflow variants
 - [ ] Config written via set-config.sh (no inline node JSON manipulation for config.json)
 - [ ] Preferences written to preferences.json
-- [ ] .claude/settings.json updated if statusline toggled
 - [ ] .gitignore updated if commit_docs set to false
 - [ ] Changes confirmed to user with three-section display
 </success_criteria>

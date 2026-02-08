@@ -23,7 +23,6 @@ const DEFAULTS = {
   'model_profile': 'balanced',
   'pr_workflow': 'false',
   'commit_docs': 'true',
-  'display.statusline': 'true',
   'workflow.research': 'true',
   'workflow.plan_check': 'true',
   'workflow.verifier': 'true',

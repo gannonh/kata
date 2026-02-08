@@ -376,9 +376,6 @@ Create `.planning/config.json` with settings (workflow and display defaults are 
   "depth": "quick|standard|comprehensive",
   "commit_docs": true|false,
   "pr_workflow": true|false,
-  "display": {
-    "statusline": true
-  },
   "workflow": {
     "research": true,
     "plan_check": true,
@@ -596,48 +593,6 @@ Add NPM_TOKEN secret to your GitHub repository:
 
 The workflow will auto-publish when you merge PRs that bump package.json version.
 ```
-
-**Statusline setup** (display.statusline defaults to true):
-
-Update `.claude/settings.json` with statusline configuration:
-
-```bash
-# Ensure .claude directory exists
-mkdir -p .claude
-
-# Check if settings.json exists and has statusLine
-if [ -f .claude/settings.json ]; then
-  # Check if statusLine already configured
-  if grep -q '"statusLine"' .claude/settings.json; then
-    echo "Statusline already configured in .claude/settings.json"
-  else
-    # Add statusLine to existing settings using node
-    node -e "
-      const fs = require('fs');
-      const settings = JSON.parse(fs.readFileSync('.claude/settings.json', 'utf8'));
-      settings.statusLine = {
-        type: 'command',
-        command: 'node \"\$CLAUDE_PROJECT_DIR/.claude/hooks/kata-statusline.js\"'
-      };
-      fs.writeFileSync('.claude/settings.json', JSON.stringify(settings, null, 2));
-    "
-    echo "✓ Statusline enabled in .claude/settings.json"
-  fi
-else
-  # Create new settings.json with statusLine
-  cat > .claude/settings.json << 'SETTINGS_EOF'
-{
-  "statusLine": {
-    "type": "command",
-    "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/kata-statusline.js\""
-  }
-}
-SETTINGS_EOF
-  echo "✓ Created .claude/settings.json with statusline"
-fi
-```
-
-The statusline hook will be automatically installed on next session start by Kata's SessionStart hook.
 
 ## Phase 5.5: Resolve Model Profile
 

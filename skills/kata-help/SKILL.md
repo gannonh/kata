@@ -121,19 +121,20 @@ Usage: `/kata-listing-phase-assumptions 3`
 **`/kata-plan-phase <number>`**
 Create detailed execution plan for a specific phase.
 
-- Generates `.planning/phases/XX-phase-name/XX-YY-PLAN.md`
+- Generates `.planning/phases/pending/XX-phase-name/XX-YY-PLAN.md`
 - Breaks phase into concrete, actionable tasks
 - Includes verification criteria and success measures
 - Multiple plans per phase supported (XX-01, XX-02, etc.)
 
 Usage: `/kata-plan-phase 1`
-Result: Creates `.planning/phases/01-foundation/01-01-PLAN.md`
+Result: Creates `.planning/phases/pending/01-foundation/01-01-PLAN.md`
 
 ### Execution
 
 **`/kata-execute-phase <phase-number>`**
 Execute all plans in a phase.
 
+- Moves phase from `pending/` → `active/` → `completed/`
 - Groups plans by wave (from frontmatter), executes waves sequentially
 - Plans within each wave run in parallel via Task tool
 - Verifies phase goal after all plans complete
@@ -164,7 +165,7 @@ Add new phase to end of current milestone.
 
 - Appends to ROADMAP.md
 - Uses next sequential number
-- Updates phase directory structure
+- Creates phase directory in `pending/`
 
 Usage: `/kata-add-phase "Add admin dashboard"`
 
@@ -371,11 +372,14 @@ Usage: `/kata-whats-new`
 ```
 .planning/
 ├── PROJECT.md            # Project vision
+├── REQUIREMENTS.md       # Scoped requirements with REQ-IDs
 ├── ROADMAP.md            # Current phase breakdown
 ├── STATE.md              # Project memory & context
+├── MILESTONES.md         # Completed milestone history
 ├── config.json           # Workflow mode & gates
+├── research/             # Domain research (from project init)
 ├── issues/               # Captured ideas and tasks
-│   ├── pending/          # Issues waiting to be worked on
+│   ├── open/             # Issues waiting to be worked on
 │   └── done/             # Completed issues
 ├── debug/                # Active debug sessions
 │   └── resolved/         # Archived resolved issues
@@ -387,13 +391,23 @@ Usage: `/kata-whats-new`
 │   ├── TESTING.md        # Test setup, patterns
 │   ├── INTEGRATIONS.md   # External services, APIs
 │   └── CONCERNS.md       # Tech debt, known issues
+├── milestones/           # Archived milestone details
+├── quick/                # Quick task plans and summaries
+│   └── NNN-slug/
+│       ├── PLAN.md
+│       └── SUMMARY.md
 └── phases/
-    ├── 01-foundation/
-    │   ├── 01-01-PLAN.md
-    │   └── 01-01-SUMMARY.md
-    └── 02-core-features/
-        ├── 02-01-PLAN.md
-        └── 02-01-SUMMARY.md
+    ├── pending/          # Phases not yet started
+    │   └── 03-next-phase/
+    │       └── 03-01-PLAN.md
+    ├── active/           # Phase currently being executed
+    │   └── 02-in-progress/
+    │       ├── 02-01-PLAN.md
+    │       └── 02-01-SUMMARY.md
+    └── completed/        # Finished phases
+        └── 01-foundation/
+            ├── 01-01-PLAN.md
+            └── 01-01-SUMMARY.md
 ```
 
 ## Workflow Modes
