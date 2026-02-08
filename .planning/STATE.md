@@ -15,7 +15,7 @@ Plan: 2 of 2 in phase
 Status: Phase complete
 Last activity: 2026-02-08 — Completed 41-02-PLAN.md (wire pre-flights, remove hooks)
 
-Progress: ██░░░░░░░░ 2/4 phases (150 plans completed)
+Progress: ████░░░░░░ 2/4 phases (150 plans completed)
 
 ## Performance Metrics
 
@@ -92,6 +92,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 41-02-PLAN.md (wire pre-flights, remove hooks)
+Stopped at: Phase 41 complete (validation migration)
 Resume file: None
-Next action: Phase 41 complete. Next: Phase 42 (Customization Skill)
+Next action: Plan Phase 42 (`/kata-plan-phase 42`)
