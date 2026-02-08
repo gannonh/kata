@@ -66,7 +66,34 @@ _Note: Review agents (kata-code-reviewer, kata-_-analyzer) are spawned by the ka
 
 Store resolved models for use in Task calls below.
 
-1. **Validate phase exists**
+1. **Pre-flight: Check roadmap format (auto-migration)**
+
+   If ROADMAP.md exists, check format and auto-migrate if old:
+
+   ```bash
+   if [ -f .planning/ROADMAP.md ]; then
+     bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
+     FORMAT_EXIT=$?
+     
+     if [ $FORMAT_EXIT -eq 1 ]; then
+       echo "Old roadmap format detected. Running auto-migration..."
+     fi
+   fi
+   ```
+
+   **If exit code 1 (old format):**
+
+   Invoke kata-doctor in auto mode:
+
+   ```
+   Skill("kata:kata-doctor", "--auto")
+   ```
+
+   Continue after migration completes.
+
+   **If exit code 0 or 2:** Continue silently.
+
+1.1. **Validate phase exists**
    Find phase directory using the discovery script:
    ```bash
    bash "${SKILL_BASE_DIR}/scripts/find-phase.sh" "$PHASE_ARG"

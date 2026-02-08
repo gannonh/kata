@@ -32,6 +32,33 @@ Normalize phase input in step 2 before any directory lookups.
 
 <process>
 
+## 0. Pre-flight: Check roadmap format (auto-migration)
+
+If ROADMAP.md exists, check format and auto-migrate if old:
+
+```bash
+if [ -f .planning/ROADMAP.md ]; then
+  bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
+  FORMAT_EXIT=$?
+  
+  if [ $FORMAT_EXIT -eq 1 ]; then
+    echo "Old roadmap format detected. Running auto-migration..."
+  fi
+fi
+```
+
+**If exit code 1 (old format):**
+
+Invoke kata-doctor in auto mode:
+
+```
+Skill("kata:kata-doctor", "--auto")
+```
+
+Continue after migration completes.
+
+**If exit code 0 or 2:** Continue silently.
+
 ## 1. Validate Environment and Resolve Model Profile
 
 ```bash
@@ -112,7 +139,7 @@ if [ "$MATCH_COUNT" -gt 1 ]; then
 fi
 ```
 
-**If COLLISION detected (MATCH_COUNT > 1):** STOP planning. Invoke `/kata-migrate-phases` to renumber phases to globally sequential numbering. After migration completes, re-invoke `/kata-plan-phase` with the migrated phase number. Do NOT continue with ambiguous phase directories.
+**If COLLISION detected (MATCH_COUNT > 1):** STOP planning. Invoke `/kata-doctor` to renumber phases to globally sequential numbering. After migration completes, re-invoke `/kata-plan-phase` with the migrated phase number. Do NOT continue with ambiguous phase directories.
 
 ```bash
 find "${PHASE_DIR}" -maxdepth 1 -name "*-RESEARCH.md" 2>/dev/null
