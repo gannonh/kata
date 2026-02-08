@@ -10,16 +10,17 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Milestone: v1.9.0 Template Overrides (Universal)
-Phase: 40 (completed)
-Status: Phase 40 complete, ready for Phase 41
-Last activity: 2026-02-08 — Phase 40 Template Resolution completed
+Phase: 41 (Validation Migration)
+Plan: 1 of 2 in phase
+Status: In progress
+Last activity: 2026-02-08 — Completed 41-01-PLAN.md (validation scripts)
 
 Progress: ██░░░░░░░░ 1/4 phases
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 148
+- Total plans completed: 149
 - Average duration: 3 min
 - Total execution time: ~380 min
 
@@ -43,7 +44,7 @@ Progress: ██░░░░░░░░ 1/4 phases
 | v1.6.0    | 5      | 17    | Shipped 2026-02-06 |
 | v1.7.0    | 2      | 5     | Shipped 2026-02-07 |
 | v1.8.0    | 3      | 7     | Shipped 2026-02-08 |
-| v1.9.0    | 4      | 1     | In Progress        |
+| v1.9.0    | 4      | 2     | In Progress        |
 
 *Updated after each plan completion*
 
@@ -91,6 +92,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Phase 40-01 complete (template resolution rewrite)
+Stopped at: Completed 41-01-PLAN.md (validation scripts)
 Resume file: None
-Next action: Check if Phase 40 has more plans, or move to Phase 41 (`/kata-plan-phase 41`)
+Next action: Execute 41-02-PLAN.md (wire pre-flights and remove hooks)
