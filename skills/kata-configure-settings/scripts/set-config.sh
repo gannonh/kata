@@ -32,7 +32,15 @@ let parsed;
 if (VALUE === 'true') parsed = true;
 else if (VALUE === 'false') parsed = false;
 else if (VALUE !== '' && !isNaN(VALUE)) parsed = Number(VALUE);
-else parsed = VALUE;
+else {
+  // Try parsing as JSON (for arrays/objects)
+  try {
+    parsed = JSON.parse(VALUE);
+  } catch {
+    // Not valid JSON, treat as string
+    parsed = VALUE;
+  }
+}
 
 obj[parts[parts.length - 1]] = parsed;
 
