@@ -1,6 +1,6 @@
 ---
-name: kata-customize-template
-description: Manage template overrides for customizing Kata output formats. List available templates, copy defaults for local editing, edit overrides, validate template schemas. Triggers include "customize template", "override template", "edit template", "template overrides", "list templates", "show templates", "template customization", "manage templates", "what templates can I customize", "template schema".
+name: kata-customize
+description: Manage template overrides for customizing Kata output formats. List available templates, copy defaults for local editing, edit overrides, validate template schemas. Triggers include "customize template", "override template", "edit template", "template overrides", "list templates", "show templates", "template customization", "manage templates", "what templates can I customize", "template schema", "custonmize Kata", "custom config".
 metadata:
   version: "1.9.0"
 ---
@@ -73,7 +73,7 @@ Parse the JSON output. Display:
 Override location: `.planning/templates/`
 
 To customize a template:
-  `/kata-customize-template copy summary-template.md`
+  `/kata-customize copy summary-template.md`
 ```
 
 After displaying the list, stop. Do not proceed to another operation.
@@ -125,7 +125,7 @@ cp "$DEFAULT_PATH" ".planning/templates/$TEMPLATE_NAME"
 Copied default to: `.planning/templates/{TEMPLATE_NAME}`
 
 Edit the file to customize, then validate:
-  `/kata-customize-template validate`
+  `/kata-customize validate`
 ```
 
 ## 5. Edit Operation
@@ -206,7 +206,7 @@ If `DRIFT_OUTPUT` is empty and no overrides exist:
 No template overrides found at `.planning/templates/`.
 
 To create an override:
-  `/kata-customize-template copy summary-template.md`
+  `/kata-customize copy summary-template.md`
 ```
 
 If `DRIFT_OUTPUT` has content (warnings):
@@ -219,17 +219,18 @@ If `DRIFT_OUTPUT` has content (warnings):
 {DRIFT_OUTPUT}
 
 To fix, edit the override or reset to default:
-  `/kata-customize-template edit {template-name}`
-  `/kata-customize-template copy {template-name}` (resets to default)
+  `/kata-customize edit {template-name}`
+  `/kata-customize copy {template-name}` (resets to default)
 ```
 
 </process>
 
 <success_criteria>
+
 - [ ] Templates listed with descriptions and override status
 - [ ] Default copied to .planning/templates/ with overwrite protection
 - [ ] Edit operation reads current content and applies user changes
 - [ ] Validation runs after edit and reports missing fields
 - [ ] All operations use existing infrastructure (resolve-template.sh, check-template-drift.sh)
 - [ ] Skill responds to natural language triggers
-</success_criteria>
+      </success_criteria>

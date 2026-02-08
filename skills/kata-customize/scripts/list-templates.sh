@@ -5,7 +5,7 @@
 # Exit: Always 0
 set -euo pipefail
 
-# Sibling discovery: scripts/ -> kata-customize-template/ -> skills/
+# Sibling discovery: scripts/ -> kata-customize/ -> skills/
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 SKILLS_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd -P)"
 

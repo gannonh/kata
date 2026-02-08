@@ -32,7 +32,7 @@ npx skills add gannonh/kata-skills
 ## What's New in v1.9.0
 
 **Template Overrides (Universal)** — Customize how Kata generates planning artifacts:
-- **Template customization** — `/kata-customize-template` to list, copy, edit, and validate template overrides
+- **Template customization** — `/kata-customize` to list, copy, edit, and validate template overrides
 - **Universal resolution** — Templates resolve via sibling discovery, working identically for plugin and skills-only users
 - **Schema validation** — Required field checks run as pre-flight in skills (no SessionStart hooks)
 - **5 customizable templates** — Plans, summaries, UAT sessions, verification reports, changelogs
@@ -125,21 +125,21 @@ npx skills add gannonh/kata-skills
 
 Drive your entire workflow with **natural language**.
 
-| You say...                 | Kata does...                                         |
-| -------------------------- | ---------------------------------------------------- |
-| "Start a new project"      | Deep questioning → PROJECT.md + config               |
-| "Add the first milestone"  | Research → Requirements → Roadmap → GitHub Milestone |
-| "Let's discuss phase 1"    | Identifies gray areas → Captures your decisions      |
-| "Plan phase 1"             | Research → Plans → Verification loop                 |
-| "Execute the phase"        | Parallel agents → Commits → PR (optional)            |
-| "Verify the work"          | UAT testing → Debug agents if issues found           |
-| "Review my PR"             | 6 specialized review agents                          |
-| "Let's brainstorm"         | Explorer/challenger teams → Pressure-tested proposals|
-| "Complete the milestone"   | Archive → Tag/Release                                |
-| "Move phase 3 to v2.0"     | Cross-milestone move → Renumber → Commit             |
-| "Reorder phase 3 before 1" | Reorder → Renumber all affected → Commit             |
-| "Check project health"     | Roadmap format validation → Config checks            |
-| "What's the status?"       | Progress report → Routes to next action              |
+| You say...                 | Kata does...                                          |
+| -------------------------- | ----------------------------------------------------- |
+| "Start a new project"      | Deep questioning → PROJECT.md + config                |
+| "Add the first milestone"  | Research → Requirements → Roadmap → GitHub Milestone  |
+| "Let's discuss phase 1"    | Identifies gray areas → Captures your decisions       |
+| "Plan phase 1"             | Research → Plans → Verification loop                  |
+| "Execute the phase"        | Parallel agents → Commits → PR (optional)             |
+| "Verify the work"          | UAT testing → Debug agents if issues found            |
+| "Review my PR"             | 6 specialized review agents                           |
+| "Let's brainstorm"         | Explorer/challenger teams → Pressure-tested proposals |
+| "Complete the milestone"   | Archive → Tag/Release                                 |
+| "Move phase 3 to v2.0"     | Cross-milestone move → Renumber → Commit              |
+| "Reorder phase 3 before 1" | Reorder → Renumber all affected → Commit              |
+| "Check project health"     | Roadmap format validation → Config checks             |
+| "What's the status?"       | Progress report → Routes to next action               |
 
 Slash commands exist for precision (`/kata-plan-phase 2`), but natural language always works.
 
@@ -449,8 +449,8 @@ Override per-invocation: `/kata-plan-phase --skip-research`
 
 ### Execution
 
-| Setting      | Default | What it controls          |
-| ------------ | ------- | ------------------------- |
+| Setting       | Default | What it controls          |
+| ------------- | ------- | ------------------------- |
 | `commit_docs` | `true`  | Track `.planning/` in git |
 
 ---
@@ -461,13 +461,13 @@ Templates control the structure of planning artifacts. Override any template to 
 
 ### Available Templates
 
-| Template | Skill | Controls |
-| --- | --- | --- |
-| `summary-template.md` | kata-execute-phase | Phase completion summaries |
-| `plan-template.md` | kata-plan-phase | Phase plan structure |
-| `UAT-template.md` | kata-verify-work | UAT session format |
-| `verification-report.md` | kata-verify-work | Verification report format |
-| `changelog-entry.md` | kata-complete-milestone | Changelog entry format |
+| Template                 | Skill                   | Controls                   |
+| ------------------------ | ----------------------- | -------------------------- |
+| `summary-template.md`    | kata-execute-phase      | Phase completion summaries |
+| `plan-template.md`       | kata-plan-phase         | Phase plan structure       |
+| `UAT-template.md`        | kata-verify-work        | UAT session format         |
+| `verification-report.md` | kata-verify-work        | Verification report format |
+| `changelog-entry.md`     | kata-complete-milestone | Changelog entry format     |
 
 Overrides live at `.planning/templates/`. When a template override exists, Kata uses it instead of the built-in default.
 
@@ -475,21 +475,21 @@ Overrides live at `.planning/templates/`. When a template override exists, Kata 
 
 ```
 # List available templates and override status
-/kata-customize-template list
+/kata-customize list
 
 # Copy a default template for local editing
-/kata-customize-template copy summary-template.md
+/kata-customize copy summary-template.md
 
 # Edit the override (describe changes in natural language)
-/kata-customize-template edit summary-template.md
+/kata-customize edit summary-template.md
 
 # Validate all overrides against required schemas
-/kata-customize-template validate
+/kata-customize validate
 ```
 
 ### Validation
 
-Template overrides are validated automatically during skill execution. If an override is missing required fields, you will see a drift warning. Run `/kata-customize-template validate` to check all overrides, or `/kata-doctor` for a full project health check.
+Template overrides are validated automatically during skill execution. If an override is missing required fields, you will see a drift warning. Run `/kata-customize validate` to check all overrides, or `/kata-doctor` for a full project health check.
 
 For detailed schema documentation per template, see [Template Customization Reference](.docs/TEMPLATE-CUSTOMIZATION.md).
 

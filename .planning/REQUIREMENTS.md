@@ -29,7 +29,7 @@ Fix template override infrastructure to work universally for all users (plugin +
 
 ### User Interface
 
-- [x] **UI-01**: `/kata-customize-template` skill created for template management
+- [x] **UI-01**: `/kata-customize` skill created for template management
 - [x] **UI-02**: User can list available templates with descriptions of what each controls
 - [x] **UI-03**: User can copy plugin default to project override location
 - [x] **UI-04**: User can edit template override with validation after save
@@ -72,7 +72,7 @@ Fix template override infrastructure to work universally for all users (plugin +
 Requirement → Phase mapping (filled by roadmapper):
 
 | Requirement | Phase | Status |
-|-------------|-------|--------|
+| ----------- | ----- | ------ |
 | TMPL-01     | 40    | ○      |
 | TMPL-02     | 40    | ○      |
 | TMPL-03     | 40    | ○      |

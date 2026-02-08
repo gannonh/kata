@@ -7,7 +7,7 @@ tags: [template-customization, documentation, migration, v1.9.0]
 # Dependency graph
 requires:
   - phase: 42-template-customization-skill
-    provides: kata-customize-template skill with list/copy/edit/validate operations
+    provides: kata-customize skill with list/copy/edit/validate operations
 provides:
   - README.md updated with v1.9.0 What's New section
   - README.md Template Customization section with all 5 templates

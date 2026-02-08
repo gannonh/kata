@@ -46,10 +46,10 @@ Move template drift detection and config validation from SessionStart hooks into
 
 **Requirements:** UI-01, UI-02, UI-03, UI-04, UI-05
 
-Build `/kata-customize-template` skill for listing, copying, editing, and validating template overrides.
+Build `/kata-customize` skill for listing, copying, editing, and validating template overrides.
 
 **Success criteria:**
-- ✅ `/kata-customize-template` skill exists and responds to natural language triggers ("customize template", "override template", "edit template")
+- ✅ `/kata-customize` skill exists and responds to natural language triggers ("customize template", "override template", "edit template")
 - ✅ User can list all available templates with descriptions of what each controls
 - ✅ User can copy a plugin default template to `.planning/templates/` for local override
 - ✅ User can edit a template override and get validation feedback after save

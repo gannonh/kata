@@ -6,7 +6,7 @@
 
 ## Summary
 
-Phase 42 creates a new `/kata-customize-template` skill that gives users a self-service interface for listing available templates, copying defaults to project override locations, editing overrides, and validating them against schemas. The skill operates on 5 schema-backed templates resolved via `resolve-template.sh` and does not spawn subagents.
+Phase 42 creates a new `/kata-customize` skill that gives users a self-service interface for listing available templates, copying defaults to project override locations, editing overrides, and validating them against schemas. The skill operates on 5 schema-backed templates resolved via `resolve-template.sh` and does not spawn subagents.
 
 The codebase already contains all the infrastructure this skill needs: `resolve-template.sh` (Phase 40) for template path resolution, `check-template-drift.sh` (Phase 41) for validation logic, the `kata-template-schema` comment format (Phase 38) embedded in each template, and the sibling discovery pattern for locating templates across installation layouts.
 
@@ -19,15 +19,15 @@ The skill is a single SKILL.md file with a companion Bash script for listing tem
 No external libraries. This phase creates one new skill directory and one helper script.
 
 ### Core
-| Library | Version | Purpose | Why Standard |
-| ------- | ------- | ------- | ------------ |
-| Bash | 3.2+ (macOS default) | Script runtime | Already used by all Kata scripts |
-| Node.js (inline) | 20+ | JSON output and schema parsing | Same pattern as read-pref.sh, check-template-drift.sh |
+| Library          | Version              | Purpose                        | Why Standard                                          |
+| ---------------- | -------------------- | ------------------------------ | ----------------------------------------------------- |
+| Bash             | 3.2+ (macOS default) | Script runtime                 | Already used by all Kata scripts                      |
+| Node.js (inline) | 20+                  | JSON output and schema parsing | Same pattern as read-pref.sh, check-template-drift.sh |
 
 ### Alternatives Considered
-| Instead of | Could Use | Tradeoff |
-| ---------- | --------- | -------- |
-| Helper script for listing | Inline discovery in SKILL.md | Script is reusable for Phase 43 documentation and keeps SKILL.md focused on orchestration. |
+| Instead of                       | Could Use                      | Tradeoff                                                                                                                         |
+| -------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| Helper script for listing        | Inline discovery in SKILL.md   | Script is reusable for Phase 43 documentation and keeps SKILL.md focused on orchestration.                                       |
 | Single script for all operations | Separate scripts per operation | Single script with subcommands is simpler. Copy/validate are small enough to inline in SKILL.md or delegate to existing scripts. |
 
 ## Architecture Patterns
@@ -35,7 +35,7 @@ No external libraries. This phase creates one new skill directory and one helper
 ### Skill Structure
 
 ```
-skills/kata-customize-template/
+skills/kata-customize/
 ├── SKILL.md           # Orchestrator (no subagents)
 └── scripts/
     └── list-templates.sh  # Template discovery and metadata extraction
@@ -47,24 +47,24 @@ No `references/` directory needed. This skill operates inline without spawning s
 
 These 5 templates have `kata-template-schema` comments and are resolvable via `resolve-template.sh`. They are the only templates eligible for project override:
 
-| Template | Owning Skill | Controls | Required Fields (Frontmatter) | Required Fields (Body) |
-| --- | --- | --- | --- | --- |
-| summary-template.md | kata-execute-phase | Phase completion documentation format | phase, plan, subsystem, tags, duration, completed | Performance, Accomplishments, Task Commits, Files Created/Modified, Decisions Made |
-| plan-template.md | kata-plan-phase | Phase plan structure | phase, plan, type, wave, depends_on, files_modified, autonomous, must_haves | objective, execution_context, context, tasks, verification, success_criteria, output |
-| UAT-template.md | kata-verify-work | User acceptance testing session format | status, phase, source, started, updated | Current Test, Tests, Summary, Gaps |
-| verification-report.md | kata-verify-work | Automated verification report format | phase, verified, status, score | Goal Achievement, Observable Truths, Required Artifacts, Key Link Verification, Requirements Coverage |
-| changelog-entry.md | kata-complete-milestone | Changelog entry format for milestone releases | (none) | Added, Fixed, Changed |
+| Template               | Owning Skill            | Controls                                      | Required Fields (Frontmatter)                                               | Required Fields (Body)                                                                                |
+| ---------------------- | ----------------------- | --------------------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| summary-template.md    | kata-execute-phase      | Phase completion documentation format         | phase, plan, subsystem, tags, duration, completed                           | Performance, Accomplishments, Task Commits, Files Created/Modified, Decisions Made                    |
+| plan-template.md       | kata-plan-phase         | Phase plan structure                          | phase, plan, type, wave, depends_on, files_modified, autonomous, must_haves | objective, execution_context, context, tasks, verification, success_criteria, output                  |
+| UAT-template.md        | kata-verify-work        | User acceptance testing session format        | status, phase, source, started, updated                                     | Current Test, Tests, Summary, Gaps                                                                    |
+| verification-report.md | kata-verify-work        | Automated verification report format          | phase, verified, status, score                                              | Goal Achievement, Observable Truths, Required Artifacts, Key Link Verification, Requirements Coverage |
+| changelog-entry.md     | kata-complete-milestone | Changelog entry format for milestone releases | (none)                                                                      | Added, Fixed, Changed                                                                                 |
 
 ### Templates Without Schema (Not Overridable)
 
 These templates are referenced via `@` in skill files and do NOT have `kata-template-schema` comments. They are excluded from the customization skill:
 
-| Template | Owning Skill | Reason Not Overridable |
-| --- | --- | --- |
-| requirements-template.md | kata-new-project, kata-add-milestone | Used via @-reference, not resolve-template.sh |
-| project-template.md | kata-new-project, kata-add-milestone | Used via @-reference, not resolve-template.sh |
-| context-template.md | kata-discuss-phase | Used via @-reference, not resolve-template.sh |
-| milestone-archive-template.md | kata-complete-milestone | Used via @-reference, not resolve-template.sh |
+| Template                      | Owning Skill                         | Reason Not Overridable                        |
+| ----------------------------- | ------------------------------------ | --------------------------------------------- |
+| requirements-template.md      | kata-new-project, kata-add-milestone | Used via @-reference, not resolve-template.sh |
+| project-template.md           | kata-new-project, kata-add-milestone | Used via @-reference, not resolve-template.sh |
+| context-template.md           | kata-discuss-phase                   | Used via @-reference, not resolve-template.sh |
+| milestone-archive-template.md | kata-complete-milestone              | Used via @-reference, not resolve-template.sh |
 
 ### Skill Workflow (UI-01 through UI-05)
 
@@ -89,11 +89,11 @@ Run `list-templates.sh` to discover all schema-backed templates. Display:
  Kata > CUSTOMIZABLE TEMPLATES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-| Template | Controls | Override Status |
-| --- | --- | --- |
+| Template            | Controls              | Override Status             |
+| ------------------- | --------------------- | --------------------------- |
 | summary-template.md | Phase completion docs | [active override / default] |
-| plan-template.md | Phase plan structure | [active override / default] |
-| ... | ... | ... |
+| plan-template.md    | Phase plan structure  | [active override / default] |
+| ...                 | ...                   | ...                         |
 
 Override location: .planning/templates/
 ```
@@ -138,7 +138,7 @@ For single-template validation after an edit, parse the specific template agains
 
 Discovers all schema-backed templates and outputs structured information.
 
-**Location:** `skills/kata-customize-template/scripts/list-templates.sh`
+**Location:** `skills/kata-customize/scripts/list-templates.sh`
 
 **Logic:**
 1. Use sibling discovery pattern: navigate from `scripts/` two levels up to `skills/`
@@ -159,16 +159,16 @@ NODE_EOF
 
 ### Existing Scripts Reused
 
-| Script | Location | Used For |
-| --- | --- | --- |
-| resolve-template.sh | kata-execute-phase/scripts/ | Resolve template path (copy operation) |
-| check-template-drift.sh | kata-doctor/scripts/ | Validate overrides (validate operation) |
+| Script                  | Location                    | Used For                                |
+| ----------------------- | --------------------------- | --------------------------------------- |
+| resolve-template.sh     | kata-execute-phase/scripts/ | Resolve template path (copy operation)  |
+| check-template-drift.sh | kata-doctor/scripts/        | Validate overrides (validate operation) |
 
 ### SKILL.md YAML Frontmatter
 
 ```yaml
 ---
-name: kata-customize-template
+name: kata-customize
 description: Manage template overrides for customizing Kata output formats. List available templates, copy defaults for local editing, edit overrides, validate template schemas. Triggers include "customize template", "override template", "edit template", "template overrides", "list templates", "show templates", "template customization", "manage templates".
 metadata:
   version: "1.9.0"
@@ -177,7 +177,7 @@ metadata:
 
 ### Skill Naming and Trigger Analysis
 
-The name `kata-customize-template` uses a verb (customize) consistent with the naming pattern. The description must include exhaustive triggers per KATA-STYLE.md:
+The name `kata-customize` uses a verb (customize) consistent with the naming pattern. The description must include exhaustive triggers per KATA-STYLE.md:
 - "customize template", "override template", "edit template"
 - "template overrides", "list templates", "show templates"
 - "template customization", "manage templates"
@@ -185,16 +185,16 @@ The name `kata-customize-template` uses a verb (customize) consistent with the n
 
 ### Build System Impact
 
-New skill directory `skills/kata-customize-template/` is automatically picked up by `scripts/build.js` since it copies the entire `skills/` directory. No build changes needed.
+New skill directory `skills/kata-customize/` is automatically picked up by `scripts/build.js` since it copies the entire `skills/` directory. No build changes needed.
 
 ## Don't Hand-Roll
 
-| Problem | Don't Build | Use Instead | Why |
-| ------- | ----------- | ----------- | --- |
-| Template path resolution | Custom path logic | resolve-template.sh | Proven across all installation layouts |
-| Override validation | Custom schema parser | check-template-drift.sh | Already parses kata-template-schema and checks fields |
-| Template discovery | Hardcoded list | Filesystem glob + schema comment detection | Automatically picks up new templates added in future |
-| Schema extraction | Manual field lists | Parse kata-template-schema comments | Source of truth is the comment in each template file |
+| Problem                  | Don't Build          | Use Instead                                | Why                                                   |
+| ------------------------ | -------------------- | ------------------------------------------ | ----------------------------------------------------- |
+| Template path resolution | Custom path logic    | resolve-template.sh                        | Proven across all installation layouts                |
+| Override validation      | Custom schema parser | check-template-drift.sh                    | Already parses kata-template-schema and checks fields |
+| Template discovery       | Hardcoded list       | Filesystem glob + schema comment detection | Automatically picks up new templates added in future  |
+| Schema extraction        | Manual field lists   | Parse kata-template-schema comments        | Source of truth is the comment in each template file  |
 
 ## Common Pitfalls
 
@@ -203,7 +203,7 @@ New skill directory `skills/kata-customize-template/` is automatically picked up
 **What goes wrong:** A hardcoded list of 5 templates becomes stale when templates are added or removed.
 **Why it happens:** Easier to write a static list than glob + parse.
 **How to avoid:** Use sibling discovery to find all files with `kata-template-schema` comments. The list is dynamic and self-maintaining.
-**Warning signs:** New template added but doesn't appear in `/kata-customize-template list`.
+**Warning signs:** New template added but doesn't appear in `/kata-customize list`.
 
 ### Pitfall 2: Copy operation doesn't check for existing override
 
@@ -315,7 +315,7 @@ exit 0
 
 ```markdown
 ---
-name: kata-customize-template
+name: kata-customize
 description: [exhaustive triggers]
 ---
 
@@ -348,7 +348,7 @@ $ARGUMENTS
 
 ```bash
 # Test 1: list-templates.sh discovers all 5 schema-backed templates
-bash skills/kata-customize-template/scripts/list-templates.sh | node -e "
+bash skills/kata-customize/scripts/list-templates.sh | node -e "
   const t = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
   console.log('Found:', t.length, 'templates');
   console.log('Names:', t.map(x => x.filename).join(', '));
@@ -369,21 +369,21 @@ bash skills/kata-doctor/scripts/check-template-drift.sh; echo "exit: $?"
 # Expected: exit 0 (no overrides present)
 
 # Test 4: Script works from all installation layouts
-bash skills/kata-customize-template/scripts/list-templates.sh > /dev/null && echo "source: OK"
-bash dist/plugin/skills/kata-customize-template/scripts/list-templates.sh > /dev/null && echo "plugin: OK"
-bash dist/skills-sh/skills/kata-customize-template/scripts/list-templates.sh > /dev/null && echo "skills-sh: OK"
+bash skills/kata-customize/scripts/list-templates.sh > /dev/null && echo "source: OK"
+bash dist/plugin/skills/kata-customize/scripts/list-templates.sh > /dev/null && echo "plugin: OK"
+bash dist/skills-sh/skills/kata-customize/scripts/list-templates.sh > /dev/null && echo "skills-sh: OK"
 
 # Test 5: No CLAUDE_PLUGIN_ROOT references
-grep -r "CLAUDE_PLUGIN_ROOT" skills/kata-customize-template/ && echo "FAIL" || echo "OK"
+grep -r "CLAUDE_PLUGIN_ROOT" skills/kata-customize/ && echo "FAIL" || echo "OK"
 ```
 
 ## State of the Art
 
-| Old Approach | Current Approach | When Changed | Impact |
-| --- | --- | --- | --- |
-| No user interface for template management | /kata-customize-template skill | Phase 42 | Users can discover, copy, edit, and validate templates |
-| Manual file copying for overrides | Guided copy with overwrite protection | Phase 42 | Prevents accidental data loss |
-| Drift detection as background check only | On-demand validation via skill | Phase 42 | Users can validate proactively |
+| Old Approach                              | Current Approach                      | When Changed | Impact                                                 |
+| ----------------------------------------- | ------------------------------------- | ------------ | ------------------------------------------------------ |
+| No user interface for template management | /kata-customize skill                 | Phase 42     | Users can discover, copy, edit, and validate templates |
+| Manual file copying for overrides         | Guided copy with overwrite protection | Phase 42     | Prevents accidental data loss                          |
+| Drift detection as background check only  | On-demand validation via skill        | Phase 42     | Users can validate proactively                         |
 
 ## Open Questions
 
@@ -393,7 +393,7 @@ grep -r "CLAUDE_PLUGIN_ROOT" skills/kata-customize-template/ && echo "FAIL" || e
 
 2. **Should the skill update kata-help reference to include itself?**
    - What we know: kata-help/SKILL.md contains a complete skill reference. New skills should be documented there.
-   - Recommendation: Yes, add a brief entry for `/kata-customize-template` in the Configuration section of kata-help. This is a small addition and belongs in the same plan.
+   - Recommendation: Yes, add a brief entry for `/kata-customize` in the Configuration section of kata-help. This is a small addition and belongs in the same plan.
 
 3. **Should non-schema templates be listed with a "not customizable" note?**
    - What we know: 4 templates lack schema comments (requirements-template.md, project-template.md, context-template.md, milestone-archive-template.md).
