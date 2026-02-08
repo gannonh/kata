@@ -10,12 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Milestone: v1.8.0 Adaptive Workflows
-Phase: 38 — Template Overrides
-Plan: 2 of 2
-Status: Complete
-Last activity: 2026-02-08 — Completed 38-02-PLAN.md
+Phase: 38 — Template Overrides (complete)
+Status: Phase 38 verified and complete
+Last activity: 2026-02-08 — Phase 38 complete (2/2 plans, verified)
 
-Progress: ██████████ 13/13 milestones shipped | v1.8.0: 4/4 plans (phase 37 complete, 38 complete)
+Progress: ██████████ 13/13 milestones shipped | v1.8.0: 2/3 phases
 
 ## Performance Metrics
 
@@ -88,4 +87,4 @@ None.
 Last session: 2026-02-08
 Stopped at: Completed 38-02-PLAN.md
 Resume file: None
-Next action: Phase 38 verification
+Next action: Discuss Phase 39 (`/kata-discuss-phase 39`)

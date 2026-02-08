@@ -18,10 +18,10 @@
 
 ## Template Overrides
 
-- [ ] **TMPL-01**: Five templates extracted from inline skill references into standalone files within skills
-- [ ] **TMPL-02**: Template resolution logic checks `.planning/templates/{name}.md` first, falls back to plugin default
-- [ ] **TMPL-03**: Each extractable template includes schema comment listing required fields
-- [ ] **TMPL-04**: Session-start hook detects drift between project templates and current plugin schema, emits warning for missing required fields
+- [x] **TMPL-01**: Five templates extracted from inline skill references into standalone files within skills
+- [x] **TMPL-02**: Template resolution logic checks `.planning/templates/{name}.md` first, falls back to plugin default
+- [x] **TMPL-03**: Each extractable template includes schema comment listing required fields
+- [x] **TMPL-04**: Session-start hook detects drift between project templates and current plugin schema, emits warning for missing required fields
 
 ## Config Workflow Variants
 
@@ -60,10 +60,10 @@
 | CAP-03 | 37 | 02 |
 | CAP-04 | 37 | 01 |
 | CAP-05 | 37 | 02 |
-| TMPL-01 | 38 | — |
-| TMPL-02 | 38 | — |
-| TMPL-03 | 38 | — |
-| TMPL-04 | 38 | — |
+| TMPL-01 | 38 | Complete |
+| TMPL-02 | 38 | Complete |
+| TMPL-03 | 38 | Complete |
+| TMPL-04 | 38 | Complete |
 | WKFL-01 | 39 | — |
 | WKFL-02 | 39 | — |
 | WKFL-03 | 39 | — |

@@ -17,22 +17,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 **Goal:** Enable project-specific customization of Kata workflows through preferences infrastructure, template overrides, and config-driven workflow variants.
 
 - [x] Phase 37: Preferences Infrastructure & Progressive Capture (2/2 plans) — completed 2026-02-07
-
-#### Phase 38: Template Overrides
-
-**Goal:** Extract inline templates into standalone files with override resolution, schema comments, and drift detection.
-
-**Requirements:** TMPL-01, TMPL-02, TMPL-03, TMPL-04
-
-**Success Criteria:**
-1. Five templates exist as standalone files within skill `references/` directories with schema comments listing required fields
-2. Placing a file at `.planning/templates/{name}.md` overrides the plugin default for that template
-3. Session-start hook detects missing required fields in project template overrides and emits a warning
-4. Skills that use templates resolve project-override-first, plugin-default-second
-
-**Plans:**
-- [ ] Plan 01: Extract templates, add schema comments, create resolve-template.sh (wave 1)
-- [ ] Plan 02: Wire resolution into skills, create drift detection hook (wave 2)
+- [x] Phase 38: Template Overrides (2/2 plans) — completed 2026-02-08
 
 #### Phase 39: Config Workflow Variants & Settings
 
