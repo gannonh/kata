@@ -64,12 +64,12 @@
 | TMPL-02 | 38 | Complete |
 | TMPL-03 | 38 | Complete |
 | TMPL-04 | 38 | Complete |
-| WKFL-01 | 39 | — |
-| WKFL-02 | 39 | — |
-| WKFL-03 | 39 | — |
-| WKFL-04 | 39 | — |
-| WKFL-05 | 39 | — |
-| WKFL-06 | 39 | — |
+| WKFL-01 | 39 | 01, 02 |
+| WKFL-02 | 39 | 02 |
+| WKFL-03 | 39 | 02 |
+| WKFL-04 | 39 | 02 |
+| WKFL-05 | 39 | 01 |
+| WKFL-06 | 39 | 03 |
 
 *20 requirements across 4 categories, mapped to 3 phases*
 

@@ -33,6 +33,14 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 5. Session-start schema validation warns on unknown keys and errors on invalid value types
 6. `/kata-configure-settings` manages preferences.json, workflow variants, and uses accessor/write utilities; `parallelization` key removed
 
+**Plans:**
+
+| Plan | Wave | Name | Requirements |
+| ---- | ---- | ---- | ------------ |
+| 01 | 1 | Schema definition & config validation hook | WKFL-01, WKFL-05 |
+| 02 | 2 | Wire workflow config into three skills | WKFL-02, WKFL-03, WKFL-04 |
+| 03 | 2 | Settings skill update | WKFL-06 |
+
 ## Completed Milestones
 
 <details>
