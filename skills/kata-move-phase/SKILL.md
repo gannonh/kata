@@ -67,7 +67,10 @@ cat .planning/STATE.md 2>/dev/null
 cat .planning/ROADMAP.md 2>/dev/null
 ```
 
-Parse current milestone version from ROADMAP.md (the milestone marked "In Progress").
+Parse current milestone version from ROADMAP.md. Use the "Current Milestone:" heading or `🔄` line marker:
+```bash
+VERSION=$(grep -E "Current Milestone:|🔄" .planning/ROADMAP.md | grep -oE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 | tr -d 'v')
+```
 </step>
 
 <step name="validate_phase_exists">

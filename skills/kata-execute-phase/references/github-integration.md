@@ -199,8 +199,14 @@ gh issue create \
 ```bash
 if [ "$GITHUB_ENABLED" = "true" ] && [ "$ISSUE_MODE" != "never" ]; then
   # Find existing phase issue
-  ISSUE_NUMBER=$(gh issue list --label phase --milestone "v${MILESTONE}" \
-    --json number,title --jq ".[] | select(.title | startswith(\"Phase ${PHASE}:\")) | .number")
+  # gh issue list --milestone only searches open milestones; use API to include closed
+  REPO_SLUG=$(gh repo view --json nameWithOwner --jq '.nameWithOwner' 2>/dev/null)
+  MS_NUM=$(gh api "repos/${REPO_SLUG}/milestones?state=all" --jq ".[] | select(.title==\"v${MILESTONE}\") | .number" 2>/dev/null)
+  ISSUE_NUMBER=""
+  if [ -n "$MS_NUM" ]; then
+    ISSUE_NUMBER=$(gh api "repos/${REPO_SLUG}/issues?milestone=${MS_NUM}&state=open&labels=phase&per_page=100" \
+      --jq "[.[] | select(.title | startswith(\"Phase ${PHASE}:\"))][0].number" 2>/dev/null)
+  fi
 
   # Update issue body with plan checklist
   gh issue edit $ISSUE_NUMBER --body-file /tmp/phase-issue-body.md
@@ -302,8 +308,10 @@ if [ "$GITHUB_ENABLED" = "true" ]; then
   # Fetch milestone progress
   gh milestone view "v${MILESTONE}" --json title,state,closedIssues,openIssues
 
-  # Fetch phase issues
-  gh issue list --milestone "v${MILESTONE}" --json number,title,state
+  # Fetch phase issues (use API to include closed milestones)
+  REPO_SLUG=$(gh repo view --json nameWithOwner --jq '.nameWithOwner' 2>/dev/null)
+  MS_NUM=$(gh api "repos/${REPO_SLUG}/milestones?state=all" --jq ".[] | select(.title==\"v${MILESTONE}\") | .number" 2>/dev/null)
+  [ -n "$MS_NUM" ] && gh api "repos/${REPO_SLUG}/issues?milestone=${MS_NUM}&state=all&labels=phase&per_page=100"
 fi
 
 if [ "$PR_WORKFLOW" = "true" ]; then
@@ -429,9 +437,14 @@ gh issue edit ${ISSUE_NUMBER} --body "..."
 # Close issue
 gh issue close ${ISSUE_NUMBER}
 
-# Get issue number by title
-ISSUE_NUMBER=$(gh issue list --milestone "v${MILESTONE}" --json number,title \
-  | jq -r ".[] | select(.title | contains(\"Phase ${PHASE}:\")) | .number")
+# Get issue number by title (use API to include closed milestones)
+REPO_SLUG=$(gh repo view --json nameWithOwner --jq '.nameWithOwner' 2>/dev/null)
+MS_NUM=$(gh api "repos/${REPO_SLUG}/milestones?state=all" --jq ".[] | select(.title==\"v${MILESTONE}\") | .number" 2>/dev/null)
+ISSUE_NUMBER=""
+if [ -n "$MS_NUM" ]; then
+  ISSUE_NUMBER=$(gh api "repos/${REPO_SLUG}/issues?milestone=${MS_NUM}&state=all&labels=phase&per_page=100" \
+    --jq "[.[] | select(.title | contains(\"Phase ${PHASE}:\"))][0].number" 2>/dev/null)
+fi
 ```
 
 ### Querying Status
@@ -440,8 +453,8 @@ ISSUE_NUMBER=$(gh issue list --milestone "v${MILESTONE}" --json number,title \
 # Milestone progress
 gh milestone view "v${MILESTONE}" --json title,state,closedIssues,openIssues
 
-# List phase issues
-gh issue list --milestone "v${MILESTONE}" --state all --json number,title,state
+# List phase issues (use API to include closed milestones)
+[ -n "$MS_NUM" ] && gh api "repos/${REPO_SLUG}/issues?milestone=${MS_NUM}&state=all&labels=phase&per_page=100" --jq '.[] | {number, title, state}'
 
 # PR status
 gh pr list --state open --json number,title,state,mergeable,statusCheckRollup

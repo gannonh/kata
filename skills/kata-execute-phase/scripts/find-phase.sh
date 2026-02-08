@@ -13,8 +13,9 @@ PHASE_DIR=""
 PHASE_STATE=""
 
 for state in active pending completed; do
-  dir=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
-  [ -z "$dir" ] && dir=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PHASE_ARG}-*" 2>/dev/null | head -1)
+  [ -d ".planning/phases/${state}" ] || continue
+  dir=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED}-*" | head -1 || true)
+  [ -z "$dir" ] && dir=$(find .planning/phases/${state} -maxdepth 1 -type d -name "${PHASE_ARG}-*" | head -1 || true)
   if [ -n "$dir" ]; then
     PHASE_DIR="$dir"
     PHASE_STATE="$state"
@@ -24,17 +25,18 @@ done
 
 # Fallback: flat directory (backward compatibility for unmigrated projects)
 if [ -z "$PHASE_DIR" ]; then
-  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | head -1)
-  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE_ARG}-*" 2>/dev/null | head -1)
+  PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PADDED}-*" | head -1 || true)
+  [ -z "$PHASE_DIR" ] && PHASE_DIR=$(find .planning/phases -maxdepth 1 -type d -name "${PHASE_ARG}-*" | head -1 || true)
   [ -n "$PHASE_DIR" ] && PHASE_STATE="flat"
 fi
 
 # Collision detection: check for duplicate phase numbering
 MATCH_COUNT=0
 for state in active pending completed; do
-  MATCH_COUNT=$((MATCH_COUNT + $(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | wc -l)))
+  [ -d ".planning/phases/${state}" ] || continue
+  MATCH_COUNT=$((MATCH_COUNT + $(find .planning/phases/${state} -maxdepth 1 -type d -name "${PADDED}-*" | wc -l)))
 done
-MATCH_COUNT=$((MATCH_COUNT + $(find .planning/phases -maxdepth 1 -type d -name "${PADDED}-*" 2>/dev/null | wc -l)))
+MATCH_COUNT=$((MATCH_COUNT + $(find .planning/phases -maxdepth 1 -type d -name "${PADDED}-*" | wc -l)))
 
 if [ "$MATCH_COUNT" -gt 1 ]; then
   echo "COLLISION: ${MATCH_COUNT} directories match prefix '${PADDED}-*'"

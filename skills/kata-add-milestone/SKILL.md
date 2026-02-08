@@ -1037,8 +1037,8 @@ gh label create "phase" --color "0E8A16" --description "Kata phase tracking" --f
 **4. Get milestone number** (from Phase 5.5):
 
 ```bash
-# Extract VERSION from current milestone (the one marked "In Progress")
-VERSION=$(grep -E "^### v[0-9]+\.[0-9]+.*\(In Progress\)" .planning/ROADMAP.md | grep -oE "v[0-9]+\.[0-9]+(\.[0-9]+)?" | head -1 | tr -d 'v')
+# Extract VERSION from current milestone
+VERSION=$(grep -E "Current Milestone:|🔄" .planning/ROADMAP.md | grep -oE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 | tr -d 'v')
 if [ -z "$VERSION" ]; then
   echo "Warning: Could not determine milestone version from ROADMAP.md. Skipping phase issue creation."
   exit 0
@@ -1065,8 +1065,8 @@ The ROADMAP.md structure uses:
 # Find the milestone section and extract phases
 ROADMAP_FILE=".planning/ROADMAP.md"
 
-# Extract VERSION from current milestone (the one marked "In Progress")
-VERSION=$(grep -E "^### v[0-9]+\.[0-9]+.*\(In Progress\)" "$ROADMAP_FILE" | grep -oE "v[0-9]+\.[0-9]+(\.[0-9]+)?" | head -1 | tr -d 'v')
+# Extract VERSION from current milestone
+VERSION=$(grep -E "Current Milestone:|🔄" "$ROADMAP_FILE" | grep -oE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 | tr -d 'v')
 if [ -z "$VERSION" ]; then
   echo "Warning: Could not determine milestone version. Skipping phase issue creation."
   exit 0
@@ -1121,7 +1121,14 @@ echo "$PHASE_HEADERS" | while IFS= read -r phase_line; do
   # --- Issue creation code (step 6) ---
 
   # Check if issue already exists (idempotent)
-  EXISTING=$(gh issue list --label "phase" --milestone "v${VERSION}" --json number,title --jq ".[] | select(.title | startswith(\"Phase ${PHASE_NUM}:\")) | .number" 2>/dev/null)
+  # gh issue list --milestone only searches open milestones; use API to include closed
+  REPO_SLUG=$(gh repo view --json nameWithOwner --jq '.nameWithOwner' 2>/dev/null)
+  MS_NUM=$(gh api "repos/${REPO_SLUG}/milestones?state=all" --jq ".[] | select(.title==\"v${VERSION}\") | .number" 2>/dev/null)
+  EXISTING=""
+  if [ -n "$MS_NUM" ]; then
+    EXISTING=$(gh api "repos/${REPO_SLUG}/issues?milestone=${MS_NUM}&state=all&labels=phase&per_page=100" \
+      --jq "[.[] | select(.title | startswith(\"Phase ${PHASE_NUM}:\"))][0].number" 2>/dev/null)
+  fi
 
   if [ -n "$EXISTING" ]; then
     echo "Phase ${PHASE_NUM} issue already exists: #${EXISTING}"
