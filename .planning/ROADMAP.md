@@ -30,6 +30,10 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 3. Session-start hook detects missing required fields in project template overrides and emits a warning
 4. Skills that use templates resolve project-override-first, plugin-default-second
 
+**Plans:**
+- [ ] Plan 01: Extract templates, add schema comments, create resolve-template.sh (wave 1)
+- [ ] Plan 02: Wire resolution into skills, create drift detection hook (wave 2)
+
 #### Phase 39: Config Workflow Variants & Settings
 
 **Goal:** Add per-skill `workflows` config section, wire skill-specific config reads, add schema validation, and update settings skill.
