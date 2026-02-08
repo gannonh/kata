@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 
 Milestone: v1.8.0 Adaptive Workflows
 Phase: 39 — Config Workflow Variants & Settings
-Plan: 1 of 3
+Plan: 2 of 3
 Status: In progress
-Last activity: 2026-02-08 — Completed 39-01-PLAN.md
+Last activity: 2026-02-08 — Completed 39-02-PLAN.md
 
 Progress: ██████████ 13/13 milestones shipped | v1.8.0: 2/3 phases
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 138
+- Total plans completed: 139
 - Average duration: 3 min
-- Total execution time: ~356 min
+- Total execution time: ~358 min
 
 **By Milestone:**
 
@@ -56,6 +56,7 @@ Recent decisions affecting current work:
 - Phase 38 handles TMPL (4 reqs) — template extraction, schema comments (38-01), resolution wiring, drift detection (38-02) complete
 - Phase 39 handles WKFL (6 reqs) — depends on Phase 37 accessor pattern
 - 39-01: Workflow config schema (6 DEFAULTS keys) + session-start validator hook
+- 39-02: Workflow config wired into execute-phase, verify-work, complete-milestone via read-pref.sh
 
 ### Roadmap Evolution
 
@@ -87,6 +88,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 39-01-PLAN.md
+Stopped at: Completed 39-02-PLAN.md
 Resume file: None
-Next action: Execute 39-02-PLAN.md
+Next action: Execute 39-03-PLAN.md
