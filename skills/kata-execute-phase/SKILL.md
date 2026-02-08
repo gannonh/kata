@@ -46,9 +46,9 @@ Default to "balanced" if not set.
 Read workflow config for executor injection:
 
 ```bash
-EXEC_POST_TASK_CMD=$(bash "${SKILL_BASE_DIR}/../kata-configure-settings/scripts/read-pref.sh" "workflows.execute-phase.post_task_command" "")
-EXEC_COMMIT_STYLE=$(bash "${SKILL_BASE_DIR}/../kata-configure-settings/scripts/read-pref.sh" "workflows.execute-phase.commit_style" "conventional")
-EXEC_COMMIT_SCOPE_FMT=$(bash "${SKILL_BASE_DIR}/../kata-configure-settings/scripts/read-pref.sh" "workflows.execute-phase.commit_scope_format" "{phase}-{plan}")
+EXEC_POST_TASK_CMD=$(bash "../kata-configure-settings/scripts/read-pref.sh" "workflows.execute-phase.post_task_command" "")
+EXEC_COMMIT_STYLE=$(bash "../kata-configure-settings/scripts/read-pref.sh" "workflows.execute-phase.commit_style" "conventional")
+EXEC_COMMIT_SCOPE_FMT=$(bash "../kata-configure-settings/scripts/read-pref.sh" "workflows.execute-phase.commit_scope_format" "{phase}-{plan}")
 ```
 
 Store these three variables for injection into executor prompts in the `<wave_execution>` Task() calls.
@@ -72,7 +72,7 @@ Store resolved models for use in Task calls below.
 
    ```bash
    if [ -f .planning/ROADMAP.md ]; then
-     bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
+     bash "../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
      FORMAT_EXIT=$?
      
      if [ $FORMAT_EXIT -eq 1 ]; then
@@ -95,14 +95,14 @@ Store resolved models for use in Task calls below.
 
    ```bash
    # Validate config and template overrides
-   bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-config.sh" 2>/dev/null || true
-   bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-template-drift.sh" 2>/dev/null || true
+   bash "../kata-doctor/scripts/check-config.sh" 2>/dev/null || true
+   bash "../kata-doctor/scripts/check-template-drift.sh" 2>/dev/null || true
    ```
 
 1.1. **Validate phase exists**
    Find phase directory using the discovery script:
    ```bash
-   bash "${SKILL_BASE_DIR}/scripts/find-phase.sh" "$PHASE_ARG"
+   bash "./scripts/find-phase.sh" "$PHASE_ARG"
    ```
    Outputs `PHASE_DIR`, `PLAN_COUNT`, and `PHASE_STATE` as key=value pairs. Exit code 1 = not found, 2 = no plans. Parse the output to set these variables for subsequent steps.
 

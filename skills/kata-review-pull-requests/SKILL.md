@@ -58,12 +58,12 @@ Based on changes:
 Read each applicable reference file into a variable for inlining into subagent prompts:
 
 ```
-code_instructions      = Read("${SKILL_BASE_DIR}/references/code-reviewer-instructions.md")
-test_instructions      = Read("${SKILL_BASE_DIR}/references/pr-test-analyzer-instructions.md")
-comment_instructions   = Read("${SKILL_BASE_DIR}/references/comment-analyzer-instructions.md")
-errors_instructions    = Read("${SKILL_BASE_DIR}/references/silent-failure-hunter-instructions.md")
-types_instructions     = Read("${SKILL_BASE_DIR}/references/type-design-analyzer-instructions.md")
-simplify_instructions  = Read("${SKILL_BASE_DIR}/references/code-simplifier-instructions.md")
+code_instructions      = Read("./references/code-reviewer-instructions.md")
+test_instructions      = Read("./references/pr-test-analyzer-instructions.md")
+comment_instructions   = Read("./references/comment-analyzer-instructions.md")
+errors_instructions    = Read("./references/silent-failure-hunter-instructions.md")
+types_instructions     = Read("./references/type-design-analyzer-instructions.md")
+simplify_instructions  = Read("./references/code-simplifier-instructions.md")
 ```
 
 Only read files for applicable review aspects. Also read:

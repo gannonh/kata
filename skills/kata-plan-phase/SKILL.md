@@ -38,7 +38,7 @@ If ROADMAP.md exists, check format and auto-migrate if old:
 
 ```bash
 if [ -f .planning/ROADMAP.md ]; then
-  bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
+  bash ../kata-doctor/scripts/check-roadmap-format.sh 2>/dev/null
   FORMAT_EXIT=$?
   
   if [ $FORMAT_EXIT -eq 1 ]; then
@@ -61,8 +61,8 @@ Continue after migration completes.
 
 ```bash
 # Validate config and template overrides
-bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-config.sh" 2>/dev/null || true
-bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-template-drift.sh" 2>/dev/null || true
+bash ../kata-doctor/scripts/check-config.sh 2>/dev/null || true
+bash ../kata-doctor/scripts/check-template-drift.sh 2>/dev/null || true
 ```
 
 ## 1. Validate Environment and Resolve Model Profile
@@ -165,7 +165,7 @@ grep -A5 "Phase ${PHASE}:" .planning/ROADMAP.md 2>/dev/null
 Check if model_profile has been set in config:
 
 ```bash
-KATA_SCRIPTS="${SKILL_BASE_DIR}/../kata-configure-settings/scripts"
+KATA_SCRIPTS="../kata-configure-settings/scripts"
 MODEL_PROFILE_SET=$(cat .planning/config.json 2>/dev/null | grep -o '"model_profile"' | head -1)
 ```
 
@@ -359,7 +359,7 @@ Read and store context file contents for the planner agent. The `@` syntax does 
 **Resolve plan template (project override -> plugin default):**
 
 ```bash
-RESOLVE_SCRIPT="${SKILL_BASE_DIR}/../kata-execute-phase/scripts/resolve-template.sh"
+RESOLVE_SCRIPT="../kata-execute-phase/scripts/resolve-template.sh"
 PLAN_TEMPLATE_PATH=$(bash "$RESOLVE_SCRIPT" "plan-template.md")
 PLAN_TEMPLATE_CONTENT=$(cat "$PLAN_TEMPLATE_PATH")
 ```
@@ -736,7 +736,7 @@ printf '%s\n' "$PLAN_CHECKLIST" > /tmp/phase-plan-checklist.md
 
 # SKILL_BASE_DIR should be set to the base directory from skill invocation header
 # e.g., SKILL_BASE_DIR="/path/to/skills/plan-phase"
-python3 "${SKILL_BASE_DIR}/scripts/update-issue-plans.py" "$ISSUE_NUMBER" /tmp/phase-plan-checklist.md \
+python3 ./scripts/update-issue-plans.py "$ISSUE_NUMBER" /tmp/phase-plan-checklist.md \
   && GITHUB_UPDATE_SUCCESS=true \
   || echo "Warning: Script failed, but continuing (non-blocking)"
 

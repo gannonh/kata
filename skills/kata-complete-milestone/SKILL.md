@@ -87,7 +87,7 @@ Read workflow-specific overrides for milestone completion. Also check and auto-m
 
 ```bash
 if [ -f .planning/ROADMAP.md ]; then
-  bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
+  bash ../kata-doctor/scripts/check-roadmap-format.sh 2>/dev/null
   FORMAT_EXIT=$?
   
   if [ $FORMAT_EXIT -eq 1 ]; then
@@ -110,8 +110,8 @@ Continue after migration completes.
 
 ```bash
 # Validate config and template overrides
-bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-config.sh" 2>/dev/null || true
-bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-template-drift.sh" 2>/dev/null || true
+bash ../kata-doctor/scripts/check-config.sh 2>/dev/null || true
+bash ../kata-doctor/scripts/check-template-drift.sh 2>/dev/null || true
 ```
 
 0.2. **Read workflow config:**
@@ -119,8 +119,8 @@ bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-template-drift.sh" 2>/dev/n
 Read workflow-specific overrides for milestone completion:
 
 ```bash
-VERSION_FILES_JSON=$(bash "${SKILL_BASE_DIR}/../kata-configure-settings/scripts/read-pref.sh" "workflows.complete-milestone.version_files" "[]")
-PRE_RELEASE_CMDS_JSON=$(bash "${SKILL_BASE_DIR}/../kata-configure-settings/scripts/read-pref.sh" "workflows.complete-milestone.pre_release_commands" "[]")
+VERSION_FILES_JSON=$(bash ../kata-configure-settings/scripts/read-pref.sh "workflows.complete-milestone.version_files" "[]")
+PRE_RELEASE_CMDS_JSON=$(bash ../kata-configure-settings/scripts/read-pref.sh "workflows.complete-milestone.pre_release_commands" "[]")
 ```
 
 - `version_files`: overrides version-detector.md auto-detection when non-empty

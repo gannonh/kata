@@ -52,7 +52,7 @@ What would you like to do?
 Run the discovery script:
 
 ```bash
-bash "${SKILL_BASE_DIR}/scripts/list-templates.sh"
+bash ./scripts/list-templates.sh
 ```
 
 Parse the JSON output. Display:
@@ -85,7 +85,7 @@ Requires a template name argument. If not provided, run list operation first, th
 **Step 4a: Resolve the default template path**
 
 ```bash
-RESOLVE_SCRIPT="${SKILL_BASE_DIR}/../kata-execute-phase/scripts/resolve-template.sh"
+RESOLVE_SCRIPT="../kata-execute-phase/scripts/resolve-template.sh"
 DEFAULT_PATH=$(bash "$RESOLVE_SCRIPT" "$TEMPLATE_NAME" 2>&1)
 ```
 
@@ -165,7 +165,7 @@ Ask the user what they want to change. Two paths:
 After writing changes (or when user returns from external editing), run single-template validation:
 
 ```bash
-bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-template-drift.sh"
+bash ../kata-doctor/scripts/check-template-drift.sh
 ```
 
 If drift warnings mention the edited template, display them. If clean, display:
@@ -183,7 +183,7 @@ If drift warnings mention the edited template, display them. If clean, display:
 Run validation on all overrides:
 
 ```bash
-DRIFT_OUTPUT=$(bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-template-drift.sh" 2>/dev/null)
+DRIFT_OUTPUT=$(bash ../kata-doctor/scripts/check-template-drift.sh 2>/dev/null)
 ```
 
 If `DRIFT_OUTPUT` is empty and `.planning/templates/` exists with .md files:

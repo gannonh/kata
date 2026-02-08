@@ -234,7 +234,7 @@ Execute each wave in sequence. Autonomous plans within a wave run in parallel.
    CONFIG_CONTENT=$(cat .planning/config.json 2>/dev/null)
 
    # Resolve summary template (project override -> plugin default)
-   SUMMARY_TEMPLATE_PATH=$(bash "${SKILL_BASE_DIR}/scripts/resolve-template.sh" "summary-template.md")
+   SUMMARY_TEMPLATE_PATH=$(bash "./scripts/resolve-template.sh" "summary-template.md")
    SUMMARY_TEMPLATE_CONTENT=$(cat "$SUMMARY_TEMPLATE_PATH")
    ```
 

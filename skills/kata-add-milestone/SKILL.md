@@ -57,7 +57,7 @@ If ROADMAP.md exists, check format and auto-migrate if old:
 
 ```bash
 if [ -f .planning/ROADMAP.md ]; then
-  bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
+  bash "../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
   FORMAT_EXIT=$?
   
   if [ $FORMAT_EXIT -eq 1 ]; then
@@ -80,7 +80,7 @@ Continue after migration completes.
 
 ```bash
 # Validate config
-bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-config.sh" 2>/dev/null || true
+bash "../kata-doctor/scripts/check-config.sh" 2>/dev/null || true
 ```
 
 ## Phase 1.5: Optional Brainstorm
@@ -341,9 +341,9 @@ Display spawning indicator:
 Read agent instruction files for inlining into Task() prompts:
 
 ```bash
-project_researcher_instructions_content=$(cat ${SKILL_BASE_DIR}/references/project-researcher-instructions.md)
-research_synthesizer_instructions_content=$(cat ${SKILL_BASE_DIR}/references/research-synthesizer-instructions.md)
-roadmapper_instructions_content=$(cat ${SKILL_BASE_DIR}/references/roadmapper-instructions.md)
+project_researcher_instructions_content=$(cat ./references/project-researcher-instructions.md)
+research_synthesizer_instructions_content=$(cat ./references/research-synthesizer-instructions.md)
+roadmapper_instructions_content=$(cat ./references/roadmapper-instructions.md)
 ```
 
 Spawn all 4 researchers in a **single message containing 4 parallel Task tool calls**. All 4 must be in the same response — do NOT wait for one to finish before spawning the next:
