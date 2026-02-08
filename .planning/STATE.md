@@ -84,6 +84,7 @@ None.
 | 005 | Create GitHub repo when enabled but no remote    | 2026-02-02 | 98a41ee | [005-create-github-repo-when-github-enabled-b](./quick/005-create-github-repo-when-github-enabled-b/) |
 | 006 | Add kata- prefix to all skill names              | 2026-02-03 | 7690e2f | [006-add-kata-prefix-to-all-skill-names](./quick/006-add-kata-prefix-to-all-skill-names/)             |
 | 007 | Remove skill description filler phrases          | 2026-02-03 | f927fd2 | [007-reduce-unnecessary-verbosity-of-skill-de](./quick/007-reduce-unnecessary-verbosity-of-skill-de/) |
+| 008 | Remove deprecated statusline feature             | 2026-02-08 | 09f3ea2 | [008-deprecate-status-line-feature](./quick/008-deprecate-status-line-feature/)                       |
 
 ## Session Continuity
 
