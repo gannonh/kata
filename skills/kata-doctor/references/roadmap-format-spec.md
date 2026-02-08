@@ -9,7 +9,7 @@ The format detection script (`check-roadmap-format.sh`) checks for these markers
 ### Must Have
 
 1. **`## Milestones`** - Overview list with status symbols
-2. **`## Current Milestone: v[X.Y] [Name]`** - Active milestone heading
+2. **`## Current Milestone:`** - Always present (either `v[X.Y] [Name]` when active, or `None` when between milestones)
 
 ### Must NOT Have
 
@@ -79,6 +79,48 @@ The format detection script (`check-roadmap-format.sh`) checks for these markers
 *Last updated: YYYY-MM-DD — [update note]*
 ```
 
+## Between Milestones State
+
+When all milestones are complete and no new milestone has been started, `## Current Milestone:` is set to `None`:
+
+```markdown
+# Roadmap: [Project Name]
+
+## Overview
+
+[2-3 sentence project description]
+
+## Milestones
+
+- ✅ **v1.8.0 Adaptive Workflows** — Phases 37-39 (shipped 2026-02-08)
+- ✅ **v1.7.0 Brainstorm Integration** — Phases 35-36 (shipped 2026-02-07)
+
+## Current Milestone: None
+
+No active milestone. Use `/kata-add-milestone` to start planning the next version.
+
+## Completed Milestones
+
+<details>
+<summary>✅ v1.8.0 Adaptive Workflows (Phases 37-39) — SHIPPED 2026-02-08</summary>
+
+**Goal:** [milestone goal]
+
+- [x] Phase 37: Preferences Infrastructure (2/2 plans) — completed 2026-02-07
+- [x] Phase 38: Template Overrides (2/2 plans) — completed 2026-02-08
+- [x] Phase 39: Config Workflow Variants & Settings (3/3 plans) — completed 2026-02-08
+
+[Full archive](milestones/v1.8.0-ROADMAP.md)
+
+</details>
+
+---
+*Roadmap created: YYYY-MM-DD*
+*Last updated: YYYY-MM-DD — [update note]*
+```
+
+This state is created by `kata-complete-milestone` and remains until `/kata-add-milestone` adds a new milestone.
+
 ## Milestone Symbols
 
 | Symbol | Meaning     | Used In               |
@@ -108,15 +150,17 @@ The following patterns indicate an old format that needs migration:
 
 1. **`## Phases`** as a top-level section
 2. **`### Phase N:`** headings at root level (not under a milestone)
-3. Missing `## Current Milestone:` heading
+3. **Missing `## Current Milestone:` heading** (section must always be present, even if set to `None`)
 4. Using `<details>` blocks without `## Completed Milestones` section
 
 ## Migration
 
 When old format is detected, `kata-doctor` performs:
 
-1. Create `## Current Milestone:` section from existing phases
-2. Move active phases under current milestone
+1. Create `## Current Milestone:` section (set to `None` if all work is complete, or `v[X.Y] [Name]` if work is active)
+2. Move active phases under current milestone (if any)
 3. Create `## Completed Milestones` for any shipped work
 4. Remove standalone `## Phases` section
 5. Preserve all phase content and metadata
+
+**Note:** `kata-complete-milestone` automatically sets `## Current Milestone: None` when archiving a completed milestone.

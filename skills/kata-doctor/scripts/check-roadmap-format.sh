@@ -12,7 +12,7 @@ ROADMAP=".planning/ROADMAP.md"
 
 # Canonical format requires ALL of:
 # 1. "## Milestones" section (overview list with ✅/🔄/○ symbols)
-# 2. "## Current Milestone:" heading with milestone name
+# 2. "## Current Milestone:" heading (either "v[X.Y] [Name]" or "None")
 # 3. Either "## Completed Milestones" section OR no completed work yet
 
 HAS_MILESTONES=$(grep -E "^## Milestones" "$ROADMAP" 2>/dev/null)

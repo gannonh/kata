@@ -12,6 +12,10 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - ✅ **v1.7.0 Brainstorm Integration** — Phases 35-36 (shipped 2026-02-07)
 - ✅ **v1.8.0 Adaptive Workflows** — Phases 37-39 (shipped 2026-02-08)
 
+## Current Milestone: None
+
+No active milestone. Use `/kata-add-milestone` to start planning the next version.
+
 ## Completed Milestones
 
 <details>

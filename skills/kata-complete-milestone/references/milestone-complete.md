@@ -25,7 +25,7 @@ When a milestone completes, this workflow:
 
 1. Extracts full milestone details to `.planning/milestones/v[X.Y]-ROADMAP.md`
 2. Archives requirements to `.planning/milestones/v[X.Y]-REQUIREMENTS.md`
-3. Updates ROADMAP.md to replace milestone details with one-line summary
+3. Updates ROADMAP.md to "between milestones" state with `## Current Milestone: None`
 4. Deletes REQUIREMENTS.md (fresh one created for next milestone)
 5. Performs full PROJECT.md evolution review
 6. Offers to create next milestone inline
@@ -751,9 +751,45 @@ Extract completed milestone details and create archive file.
 
 6. Write filled template to `.planning/milestones/v[X.Y]-ROADMAP.md`
 
-7. Delete ROADMAP.md (fresh one created for next milestone):
-   ```bash
-   rm .planning/ROADMAP.md
+7. Update ROADMAP.md to "between milestones" state:
+
+   Read current ROADMAP.md to extract:
+   - Project name (from `# Roadmap:` heading)
+   - Overview section content
+   - All milestone entries from `## Milestones` list
+   - All `<details>` blocks from `## Completed Milestones` section
+   - Progress Summary table (if present)
+   - Footer timestamps
+
+   Write updated ROADMAP.md with:
+   ```markdown
+   # Roadmap: [Project Name]
+
+   ## Overview
+
+   [Preserved overview content]
+
+   ## Milestones
+
+   [All milestone entries with updated status for completed milestone]
+
+   ## Current Milestone: None
+
+   No active milestone. Use `/kata-add-milestone` to start planning the next version.
+
+   ## Completed Milestones
+
+   [All preserved <details> blocks]
+
+   ---
+
+   ## Progress Summary
+
+   [Preserved table if present]
+
+   ---
+   *Roadmap created: [original date]*
+   *Last updated: [today] — v[X.Y] [Milestone Name] shipped*
    ```
 
 8. Verify archive exists:
@@ -765,7 +801,7 @@ Extract completed milestone details and create archive file.
 
    ```
    ✅ v[X.Y] roadmap archived to milestones/v[X.Y]-ROADMAP.md
-   ✅ ROADMAP.md deleted (fresh one for next milestone)
+   ✅ ROADMAP.md updated to "between milestones" state
    ```
 
 **Note:** Phase directories (`.planning/phases/`) are NOT deleted. They accumulate across milestones as the raw execution history. Phase numbers are globally sequential across milestones (they never reset).
@@ -1044,14 +1080,14 @@ Archived:
 - milestones/v[X.Y]-REQUIREMENTS.md
 - milestones/v[X.Y]-MILESTONE-AUDIT.md (if audit was run)
 
-Deleted (fresh for next milestone):
-- ROADMAP.md
-- REQUIREMENTS.md
-
 Updated:
+- ROADMAP.md (set to "between milestones" state)
 - MILESTONES.md (new entry)
 - PROJECT.md (requirements → Validated)
 - STATE.md (reset for next milestone)
+
+Deleted (fresh for next milestone):
+- REQUIREMENTS.md
 
 Tagged: v[X.Y]
 EOF
@@ -1065,14 +1101,14 @@ Archived:
 - milestones/v[X.Y]-REQUIREMENTS.md
 - milestones/v[X.Y]-MILESTONE-AUDIT.md (if audit was run)
 
-Deleted (fresh for next milestone):
-- ROADMAP.md
-- REQUIREMENTS.md
-
 Updated:
+- ROADMAP.md (set to "between milestones" state)
 - MILESTONES.md (new entry)
 - PROJECT.md (requirements → Validated)
 - STATE.md (reset for next milestone)
+
+Deleted (fresh for next milestone):
+- REQUIREMENTS.md
 
 Tagged: v[X.Y]
 EOF
@@ -1161,13 +1197,13 @@ Milestone completion is successful when:
 - [ ] PROJECT.md full evolution review completed
 - [ ] All shipped requirements moved to Validated in PROJECT.md
 - [ ] Key Decisions updated with outcomes
-- [ ] ROADMAP.md reorganized with milestone grouping
+- [ ] ROADMAP.md updated to "between milestones" state with `## Current Milestone: None`
 - [ ] Roadmap archive created (milestones/v[X.Y]-ROADMAP.md)
 - [ ] Requirements archive created (milestones/v[X.Y]-REQUIREMENTS.md)
 - [ ] REQUIREMENTS.md deleted (fresh for next milestone)
 - [ ] STATE.md updated with fresh project reference
 - [ ] Git tag created (v[X.Y])
-- [ ] Milestone commit made (includes archive files and deletion)
+- [ ] Milestone commit made (includes archive files and ROADMAP.md update)
 - [ ] User knows next step (/kata-add-milestone)
 
 </success_criteria>
