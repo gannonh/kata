@@ -29,13 +29,26 @@ npx skills add gannonh/kata-skills
 
 ---
 
-## What's New in v1.7.0
+## What's New in v1.8.0
 
-**Brainstorm Integration** — Structured explorer/challenger ideation wired into workflows:
+**Adaptive Workflows** — Project-specific preferences, template overrides, and config-driven workflow variants:
+- **Progressive capture** — Reduced onboarding to 5 essential questions, deferred preferences captured at first use
+- **Template overrides** — Extract inline templates to standalone files at `.planning/templates/`
+- **Config workflow variants** — Per-skill configuration keys in `workflows` section
+- **`/kata-doctor`** — Project health checks including roadmap format validation
+- **Config validator** — SessionStart hook warns on unknown keys, errors on invalid types
+- **Template drift detection** — Detects when project templates diverge from plugin schema
+
+<details>
+<summary><strong>v1.7.0: Brainstorm Integration</strong></summary>
+
+**Structured explorer/challenger ideation wired into workflows:**
 - **`/kata-brainstorm`** — Paired agent teams debate ideas, producing pressure-tested proposals
 - **Optional workflow gates** — Brainstorm offered in add-milestone, new-project, discuss-phase, research-phase, and plan-phase
 - **Context injection** — Brainstorm output auto-feeds into planner and researcher agents
 - **Agent Teams prerequisite** — Auto-detects and enables `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`
+
+</details>
 
 <details>
 <summary><strong>v1.6.0: Skills-Native Subagents</strong></summary>
@@ -114,6 +127,7 @@ Drive your entire workflow with **natural language**.
 | "Complete the milestone"   | Archive → Tag/Release                                |
 | "Move phase 3 to v2.0"     | Cross-milestone move → Renumber → Commit             |
 | "Reorder phase 3 before 1" | Reorder → Renumber all affected → Commit             |
+| "Check project health"     | Roadmap format validation → Config checks            |
 | "What's the status?"       | Progress report → Routes to next action              |
 
 Slash commands exist for precision (`/kata-plan-phase 2`), but natural language always works.
