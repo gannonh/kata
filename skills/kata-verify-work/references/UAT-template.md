@@ -1,3 +1,13 @@
+<!-- kata-template-schema
+required-fields:
+  frontmatter: [status, phase, source, started, updated]
+  body: [Current Test, Tests, Summary, Gaps]
+optional-fields:
+  frontmatter: []
+  body: []
+version: 1
+-->
+
 # UAT Template
 
 Template for `.planning/phases/{pending,active,completed}/XX-name/{phase}-UAT.md` — persistent UAT session tracking.
