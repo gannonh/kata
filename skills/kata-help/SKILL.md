@@ -334,6 +334,19 @@ Usage: `/kata-plan-milestone-gaps`
 
 ### Configuration
 
+**`/kata-customize-template`**
+Manage template overrides for customizing Kata output formats.
+
+- List all customizable templates with override status
+- Copy a default template for local editing
+- Edit an override with conversational changes
+- Validate overrides against required schemas
+
+Usage: `/kata-customize-template`
+Usage: `/kata-customize-template list`
+Usage: `/kata-customize-template copy summary-template.md`
+Usage: `/kata-customize-template validate`
+
 **`/kata-configure-settings`**
 Configure workflow toggles and model profile interactively.
 
@@ -377,6 +390,7 @@ Usage: `/kata-whats-new`
 ├── STATE.md              # Project memory & context
 ├── MILESTONES.md         # Completed milestone history
 ├── config.json           # Workflow mode & gates
+├── templates/            # Template overrides (customized output formats)
 ├── research/             # Domain research (from project init)
 ├── issues/               # Captured ideas and tasks
 │   ├── open/             # Issues waiting to be worked on
