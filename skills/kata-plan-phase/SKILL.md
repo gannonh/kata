@@ -59,6 +59,12 @@ Continue after migration completes.
 
 **If exit code 0 or 2:** Continue silently.
 
+```bash
+# Validate config and template overrides
+bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-config.sh" 2>/dev/null || true
+bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-template-drift.sh" 2>/dev/null || true
+```
+
 ## 1. Validate Environment and Resolve Model Profile
 
 ```bash

@@ -93,6 +93,12 @@ Store resolved models for use in Task calls below.
 
    **If exit code 0 or 2:** Continue silently.
 
+   ```bash
+   # Validate config and template overrides
+   bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-config.sh" 2>/dev/null || true
+   bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-template-drift.sh" 2>/dev/null || true
+   ```
+
 1.1. **Validate phase exists**
    Find phase directory using the discovery script:
    ```bash

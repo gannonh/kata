@@ -1,9 +1,15 @@
-#!/usr/bin/env node
-// Kata Config Validator Hook
-// Runs on SessionStart to validate .planning/config.json against known schema
+#!/usr/bin/env bash
+# Usage: check-config.sh
+# Validates .planning/config.json against known schema
+# Output: Warning messages to stdout
+# Exit: Always 0 (warnings only, never blocks)
+set -euo pipefail
 
-import fs from 'fs';
-import path from 'path';
+# Exit silently if no config file
+[ -f .planning/config.json ] || exit 0
+
+node << 'NODE_EOF'
+const fs = require('fs');
 
 const KNOWN_KEYS = {
   'mode': { type: 'enum', values: ['yolo', 'interactive'] },
@@ -41,63 +47,41 @@ function flattenConfig(obj, prefix = '') {
 function validateValue(key, value, schema) {
   switch (schema.type) {
     case 'boolean':
-      if (typeof value !== 'boolean') {
+      if (typeof value !== 'boolean')
         return `[kata] Config error: Invalid value for '${key}': expected boolean, got '${value}'`;
-      }
       break;
     case 'enum':
-      if (!schema.values.includes(value)) {
+      if (!schema.values.includes(value))
         return `[kata] Config error: Invalid value for '${key}': expected one of ${schema.values.join(', ')}; got '${value}'`;
-      }
       break;
     case 'array':
-      if (!Array.isArray(value)) {
+      if (!Array.isArray(value))
         return `[kata] Config error: Invalid value for '${key}': expected array, got '${value}'`;
-      }
       break;
     case 'string':
-      if (typeof value !== 'string') {
+      if (typeof value !== 'string')
         return `[kata] Config error: Invalid value for '${key}': expected string, got '${value}'`;
-      }
       break;
   }
   return null;
 }
 
-let input = '';
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', chunk => input += chunk);
-process.stdin.on('end', () => {
-  try {
-    const data = JSON.parse(input);
-    const cwd = data.cwd || process.cwd();
+try {
+  const config = JSON.parse(fs.readFileSync('.planning/config.json', 'utf8'));
+  const entries = flattenConfig(config);
 
-    const configPath = path.join(cwd, '.planning', 'config.json');
-    if (!fs.existsSync(configPath)) {
-      process.exit(0);
+  for (const { key, value } of entries) {
+    const schema = KNOWN_KEYS[key];
+    if (!schema) {
+      console.log(`[kata] Config warning: Unknown key '${key}'`);
+      continue;
     }
-
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    const entries = flattenConfig(config);
-    const messages = [];
-
-    for (const { key, value } of entries) {
-      const schema = KNOWN_KEYS[key];
-      if (!schema) {
-        messages.push(`[kata] Config warning: Unknown key '${key}'`);
-        continue;
-      }
-      const error = validateValue(key, value, schema);
-      if (error) {
-        messages.push(error);
-      }
-    }
-
-    if (messages.length > 0) {
-      console.log(messages.join('\n'));
-    }
-  } catch (e) {
-    // Silent fail - never block session start
+    const error = validateValue(key, value, schema);
+    if (error) console.log(error);
   }
-  process.exit(0);
-});
+} catch (e) {
+  // Silent fail - never block skill execution
+}
+NODE_EOF
+
+exit 0

@@ -35,7 +35,6 @@ const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
  */
 const INCLUDES = [
   'skills',
-  'hooks',
   'CHANGELOG.md',
 ];
 
@@ -109,9 +108,6 @@ function copyDir(src, dest, transform = null) {
   for (const entry of entries) {
     // Skip excluded files/directories
     if (shouldExclude(entry.name)) continue;
-    // Skip hooks/dist - it's for npm publishing only
-    if (entry.name === 'dist' && src.includes('hooks')) continue;
-
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
 

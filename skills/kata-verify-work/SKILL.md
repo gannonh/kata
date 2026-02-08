@@ -26,6 +26,18 @@ Phase: $ARGUMENTS (optional)
 @.planning/ROADMAP.md
 </context>
 
+<pre_flight>
+Run validation checks before starting verification:
+
+```bash
+# Validate config and template overrides
+bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-config.sh" 2>/dev/null || true
+bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-template-drift.sh" 2>/dev/null || true
+```
+
+If warnings are printed, relay them to the user before proceeding with verification.
+</pre_flight>
+
 <process>
 1. Check for active UAT sessions (resume or start new)
 2. Find SUMMARY.md files for the phase

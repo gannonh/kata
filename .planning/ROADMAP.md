@@ -29,31 +29,31 @@ Rewrite resolve-template.sh to use relative sibling discovery so template resolu
 - ✅ Missing templates produce clear error messages naming the template and search paths
 - ✅ Existing skills that use templates continue to work without modification
 
-### Phase 41: Validation Migration
+### ✅ Phase 41: Validation Migration
 
 **Requirements:** VAL-01, VAL-02, VAL-03, VAL-04
 
 Move template drift detection and config validation from SessionStart hooks into skills so validation runs universally for plugin + skills-only users.
 
 **Success criteria:**
-- Template drift detection runs inside skills that interact with templates (not at session start)
-- Config validation runs inside skills that read config (not at session start)
-- Both validation paths work for plugin and skills-only installations
-- SessionStart hooks for template-drift and config-validator are removed
-- No regression in validation coverage (same checks, different trigger point)
+- ✅ Template drift detection runs inside skills that interact with templates (not at session start)
+- ✅ Config validation runs inside skills that read config (not at session start)
+- ✅ Both validation paths work for plugin and skills-only installations
+- ✅ SessionStart hooks for template-drift and config-validator are removed
+- ✅ No regression in validation coverage (same checks, different trigger point)
 
-### Phase 42: Template Customization Skill
+### ✅ Phase 42: Template Customization Skill
 
 **Requirements:** UI-01, UI-02, UI-03, UI-04, UI-05
 
 Build `/kata-customize-template` skill for listing, copying, editing, and validating template overrides.
 
 **Success criteria:**
-- `/kata-customize-template` skill exists and responds to natural language triggers ("customize template", "override template", "edit template")
-- User can list all available templates with descriptions of what each controls
-- User can copy a plugin default template to `.planning/templates/` for local override
-- User can edit a template override and get validation feedback after save
-- Template validation checks required fields and reports missing/malformed sections
+- ✅ `/kata-customize-template` skill exists and responds to natural language triggers ("customize template", "override template", "edit template")
+- ✅ User can list all available templates with descriptions of what each controls
+- ✅ User can copy a plugin default template to `.planning/templates/` for local override
+- ✅ User can edit a template override and get validation feedback after save
+- ✅ Template validation checks required fields and reports missing/malformed sections
 
 ### Phase 43: Documentation
 

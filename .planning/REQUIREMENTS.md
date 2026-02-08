@@ -29,11 +29,11 @@ Fix template override infrastructure to work universally for all users (plugin +
 
 ### User Interface
 
-- [ ] **UI-01**: `/kata-customize-template` skill created for template management
-- [ ] **UI-02**: User can list available templates with descriptions of what each controls
-- [ ] **UI-03**: User can copy plugin default to project override location
-- [ ] **UI-04**: User can edit template override with validation after save
-- [ ] **UI-05**: Template validation checks against schema and reports missing required fields
+- [x] **UI-01**: `/kata-customize-template` skill created for template management
+- [x] **UI-02**: User can list available templates with descriptions of what each controls
+- [x] **UI-03**: User can copy plugin default to project override location
+- [x] **UI-04**: User can edit template override with validation after save
+- [x] **UI-05**: Template validation checks against schema and reports missing required fields
 
 ### Documentation
 
