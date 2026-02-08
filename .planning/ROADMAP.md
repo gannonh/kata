@@ -18,28 +18,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 - [x] Phase 37: Preferences Infrastructure & Progressive Capture (2/2 plans) — completed 2026-02-07
 - [x] Phase 38: Template Overrides (2/2 plans) — completed 2026-02-08
-
-#### Phase 39: Config Workflow Variants & Settings
-
-**Goal:** Add per-skill `workflows` config section, wire skill-specific config reads, add schema validation, and update settings skill.
-
-**Requirements:** WKFL-01, WKFL-02, WKFL-03, WKFL-04, WKFL-05, WKFL-06
-
-**Success Criteria:**
-1. `config.json` accepts a `workflows` section with per-skill keys (execute-phase, verify-work, complete-milestone)
-2. `kata-execute-phase` reads and applies `workflows.execute-phase` config (post_task_command, commit_style, commit_scope_format)
-3. `kata-verify-work` reads `workflows.verify-work` config (extra_verification_commands) and runs them
-4. `kata-complete-milestone` reads `workflows.complete-milestone` config (version_files, pre_release_commands)
-5. Session-start schema validation warns on unknown keys and errors on invalid value types
-6. `/kata-configure-settings` manages preferences.json, workflow variants, and uses accessor/write utilities; `parallelization` key removed
-
-**Plans:**
-
-| Plan | Wave | Name | Requirements |
-| ---- | ---- | ---- | ------------ |
-| 01 | 1 | Schema definition & config validation hook | WKFL-01, WKFL-05 |
-| 02 | 2 | Wire workflow config into three skills | WKFL-02, WKFL-03, WKFL-04 |
-| 03 | 2 | Settings skill update | WKFL-06 |
+- [x] Phase 39: Config Workflow Variants & Settings (3/3 plans) — completed 2026-02-08
 
 ## Completed Milestones
 

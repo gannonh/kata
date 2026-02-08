@@ -25,12 +25,12 @@
 
 ## Config Workflow Variants
 
-- [ ] **WKFL-01**: `config.json` gains `workflows` section with per-skill keys for project-specific commands and format strings
-- [ ] **WKFL-02**: `kata-execute-phase` reads `workflows.execute-phase` config (post_task_command, commit_style, commit_scope_format)
-- [ ] **WKFL-03**: `kata-verify-work` reads `workflows.verify-work` config (extra_verification_commands)
-- [ ] **WKFL-04**: `kata-complete-milestone` reads `workflows.complete-milestone` config (version_files, pre_release_commands)
-- [ ] **WKFL-05**: Schema validation on session start warns on unknown keys, errors on invalid value types
-- [ ] **WKFL-06**: `/kata-configure-settings` updated to manage preferences.json (project-lifetime settings), workflow variants, and uses accessor/write utilities; drops dead `parallelization` key
+- [x] **WKFL-01**: `config.json` gains `workflows` section with per-skill keys for project-specific commands and format strings
+- [x] **WKFL-02**: `kata-execute-phase` reads `workflows.execute-phase` config (post_task_command, commit_style, commit_scope_format)
+- [x] **WKFL-03**: `kata-verify-work` reads `workflows.verify-work` config (extra_verification_commands)
+- [x] **WKFL-04**: `kata-complete-milestone` reads `workflows.complete-milestone` config (version_files, pre_release_commands)
+- [x] **WKFL-05**: Schema validation on session start warns on unknown keys, errors on invalid value types
+- [x] **WKFL-06**: `/kata-configure-settings` updated to manage preferences.json (project-lifetime settings), workflow variants, and uses accessor/write utilities; drops dead `parallelization` key
 
 ## Future Requirements (deferred)
 
