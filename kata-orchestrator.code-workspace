@@ -1,12 +1,8 @@
 {
-    "folders": [
+	"folders": [
 		{
 			"name": "kata",
 			"path": "."
-		},
-		{
-			"name": "kata-tui",
-			"path": "../kata-tui"
 		},
 		{
 			"name": "kata-burner",

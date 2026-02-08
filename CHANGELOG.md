@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-02-08 — Adaptive Workflows
+
+Kata v1.8.0 ships **Adaptive Workflows**: project-specific preferences storage, template overrides, and config-driven workflow variants.
+
+### Added
+- **Preferences infrastructure**: Flat `.planning/preferences.json` storage with `read-pref.sh`, `has-pref.sh`, `set-config.sh` accessor scripts
+- **Progressive capture**: Reduced onboarding to 5 essential questions, deferred preferences captured at first use via check-or-ask pattern
+- **Template overrides**: Extract inline templates to standalone files, resolution chain checks `.planning/templates/` before plugin defaults
+- **Template drift detection**: SessionStart hook detects when project templates diverge from plugin schema
+- **Config workflow variants**: `workflows` section in config.json with per-skill configuration keys
+- **Config validator hook**: SessionStart validation warns on unknown config keys, errors on invalid types
+- **kata-doctor skill**: Project health checks including roadmap format validation
+
+### Changed
+- `kata-configure-settings` rewritten with three sections: preferences, session toggles, workflow config
+- `kata-execute-phase` reads `workflows.execute-phase.post_task_command` for customizable post-task verification
+- `kata-verify-work` reads `workflows.verify-work.extra_verification_commands` for additional verification steps
+- `kata-complete-milestone` reads `workflows.complete-milestone.version_files` for custom version file locations
+- Workflow toggles (research, plan_check, verifier) default to true with first-run notice
+
+### Fixed
+- Removed deprecated `parallelization` key from onboarding and settings
+- Roadmap format checks added to ROADMAP-interacting skills to catch outdated formats early
+
+---
+
 ## [1.7.0] - 2026-02-07 — Brainstorm Integration
 
 Kata v1.7.0 ships **Brainstorm Integration**: structured explorer/challenger brainstorming via Agent Teams, wired into existing workflows as an optional step.
@@ -485,7 +511,8 @@ Kata 1.0 ships with **Claude Code plugin support** as the recommended installati
 - Upstream remote and sync workflow
 - References to original project maintainer
 
-[Unreleased]: https://github.com/gannonh/kata/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/gannonh/kata/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/gannonh/kata/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/gannonh/kata/compare/v1.6.1...v1.7.0
 [1.6.1]: https://github.com/gannonh/kata/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/gannonh/kata/compare/v1.5.0...v1.6.0

@@ -10,9 +10,12 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - ✅ **v1.4.1 Issue Execution** — Phases 1-4 (shipped 2026-02-03)
 - ✅ **v1.6.0 Skills-Native Subagents** — Phases 30-34 (shipped 2026-02-06)
 - ✅ **v1.7.0 Brainstorm Integration** — Phases 35-36 (shipped 2026-02-07)
-- 🔄 **v1.8.0 Adaptive Workflows** — Phases 37-39 (in progress)
+- ✅ **v1.8.0 Adaptive Workflows** — Phases 37-39 (shipped 2026-02-08)
 
-## Current Milestone: v1.8.0 Adaptive Workflows
+## Completed Milestones
+
+<details>
+<summary>✅ v1.8.0 Adaptive Workflows (Phases 37-39) — SHIPPED 2026-02-08</summary>
 
 **Goal:** Enable project-specific customization of Kata workflows through preferences infrastructure, template overrides, and config-driven workflow variants.
 
@@ -20,7 +23,9 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - [x] Phase 38: Template Overrides (2/2 plans) — completed 2026-02-08
 - [x] Phase 39: Config Workflow Variants & Settings (3/3 plans) — completed 2026-02-08
 
-## Completed Milestones
+[Full archive](milestones/v1.8.0-ROADMAP.md)
+
+</details>
 
 <details>
 <summary>✅ v1.7.0 Brainstorm Integration (Phases 35-36) — SHIPPED 2026-02-07</summary>
@@ -215,8 +220,8 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 | v1.5.0    | 3      | 6     | Shipped     | 2026-02-04 |
 | v1.6.0    | 5      | 17    | Shipped     | 2026-02-06 |
 | v1.7.0    | 2      | 5     | Shipped     | 2026-02-07 |
-| v1.8.0    | 3      | —     | In Progress | —          |
+| v1.8.0    | 3      | 7     | Shipped     | 2026-02-08 |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-07 — v1.8.0 Adaptive Workflows roadmap created*
+*Last updated: 2026-02-08 — v1.8.0 Adaptive Workflows shipped*
