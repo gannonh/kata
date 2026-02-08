@@ -191,6 +191,32 @@ gh release view vX.Y.Z
 gh api repos/gannonh/kata-marketplace/contents/.claude-plugin/marketplace.json --jq '.content' | base64 -d | jq -r '.plugins[0].version'
 ```
 
+### Hotfixes (bypassing CI)
+
+For urgent fixes that need to reach users immediately without a version bump, patch the downstream repos directly:
+
+```bash
+# Clone both downstream repos
+gh repo clone gannonh/kata-marketplace /tmp/kata-marketplace -- --depth 1
+gh repo clone gannonh/kata-skills /tmp/kata-skills -- --depth 1
+
+# Copy fixed file(s) to both repos
+# Marketplace path: plugins/kata/skills/...
+# Skills path: skills/...
+cp skills/kata-example/file.sh /tmp/kata-marketplace/plugins/kata/skills/kata-example/file.sh
+cp skills/kata-example/file.sh /tmp/kata-skills/skills/kata-example/file.sh
+
+# Commit and push each
+cd /tmp/kata-marketplace && git add -A && git commit -m "fix: description" && git push
+cd /tmp/kata-skills && git add -A && git commit -m "fix: description" && git push
+```
+
+**Downstream repo paths:**
+- **Marketplace** (`gannonh/kata-marketplace`): `plugins/kata/` mirrors `dist/plugin/`
+- **Skills** (`gannonh/kata-skills`): `skills/` mirrors `dist/skills-sh/skills/`
+
+The next full release via CI will overwrite these repos from the built output, so the fix must also be in the source repo (`skills/`) to persist.
+
 ## Testing and UAT
 
 - Create test projects in `../kata-burner/` using `../kata-burner/create-test-project.sh`

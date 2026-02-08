@@ -1,3 +1,13 @@
+<!-- kata-template-schema
+required-fields:
+  frontmatter: [phase, plan, subsystem, tags, duration, completed]
+  body: [Performance, Accomplishments, Task Commits, Files Created/Modified, Decisions Made]
+optional-fields:
+  frontmatter: [requires, provides, affects, tech-stack, key-files, key-decisions, patterns-established]
+  body: [Deviations from Plan, Issues Encountered, User Setup Required, Next Phase Readiness]
+version: 1
+-->
+
 # Summary Template
 
 Template for `.planning/phases/{pending,active,completed}/XX-name/{phase}-{plan}-SUMMARY.md` - phase completion documentation.

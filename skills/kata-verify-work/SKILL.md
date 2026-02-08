@@ -37,6 +37,7 @@ Phase: $ARGUMENTS (optional)
    - "yes/y/next" = pass, anything else = issue (severity inferred)
 6. Update UAT.md after each response
 7. On completion: commit UAT.md
+7.1. Run extra verification commands (if configured in workflows.verify-work)
 7.5. Finalize changes (pr_workflow only) — commit fixes, push, mark PR ready
 7.6. Run PR review (pr_workflow only, optional) — offer automated review
 7.7. Handle review findings — fix issues or add to backlog

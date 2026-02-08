@@ -18,19 +18,19 @@
 
 ## Template Overrides
 
-- [ ] **TMPL-01**: Five templates extracted from inline skill references into standalone files within skills
-- [ ] **TMPL-02**: Template resolution logic checks `.planning/templates/{name}.md` first, falls back to plugin default
-- [ ] **TMPL-03**: Each extractable template includes schema comment listing required fields
-- [ ] **TMPL-04**: Session-start hook detects drift between project templates and current plugin schema, emits warning for missing required fields
+- [x] **TMPL-01**: Five templates extracted from inline skill references into standalone files within skills
+- [x] **TMPL-02**: Template resolution logic checks `.planning/templates/{name}.md` first, falls back to plugin default
+- [x] **TMPL-03**: Each extractable template includes schema comment listing required fields
+- [x] **TMPL-04**: Session-start hook detects drift between project templates and current plugin schema, emits warning for missing required fields
 
 ## Config Workflow Variants
 
-- [ ] **WKFL-01**: `config.json` gains `workflows` section with per-skill keys for project-specific commands and format strings
-- [ ] **WKFL-02**: `kata-execute-phase` reads `workflows.execute-phase` config (post_task_command, commit_style, commit_scope_format)
-- [ ] **WKFL-03**: `kata-verify-work` reads `workflows.verify-work` config (extra_verification_commands)
-- [ ] **WKFL-04**: `kata-complete-milestone` reads `workflows.complete-milestone` config (version_files, pre_release_commands)
-- [ ] **WKFL-05**: Schema validation on session start warns on unknown keys, errors on invalid value types
-- [ ] **WKFL-06**: `/kata-configure-settings` updated to manage preferences.json (project-lifetime settings), workflow variants, and uses accessor/write utilities; drops dead `parallelization` key
+- [x] **WKFL-01**: `config.json` gains `workflows` section with per-skill keys for project-specific commands and format strings
+- [x] **WKFL-02**: `kata-execute-phase` reads `workflows.execute-phase` config (post_task_command, commit_style, commit_scope_format)
+- [x] **WKFL-03**: `kata-verify-work` reads `workflows.verify-work` config (extra_verification_commands)
+- [x] **WKFL-04**: `kata-complete-milestone` reads `workflows.complete-milestone` config (version_files, pre_release_commands)
+- [x] **WKFL-05**: Schema validation on session start warns on unknown keys, errors on invalid value types
+- [x] **WKFL-06**: `/kata-configure-settings` updated to manage preferences.json (project-lifetime settings), workflow variants, and uses accessor/write utilities; drops dead `parallelization` key
 
 ## Future Requirements (deferred)
 
@@ -60,16 +60,16 @@
 | CAP-03 | 37 | 02 |
 | CAP-04 | 37 | 01 |
 | CAP-05 | 37 | 02 |
-| TMPL-01 | 38 | — |
-| TMPL-02 | 38 | — |
-| TMPL-03 | 38 | — |
-| TMPL-04 | 38 | — |
-| WKFL-01 | 39 | — |
-| WKFL-02 | 39 | — |
-| WKFL-03 | 39 | — |
-| WKFL-04 | 39 | — |
-| WKFL-05 | 39 | — |
-| WKFL-06 | 39 | — |
+| TMPL-01 | 38 | Complete |
+| TMPL-02 | 38 | Complete |
+| TMPL-03 | 38 | Complete |
+| TMPL-04 | 38 | Complete |
+| WKFL-01 | 39 | 01, 02 |
+| WKFL-02 | 39 | 02 |
+| WKFL-03 | 39 | 02 |
+| WKFL-04 | 39 | 02 |
+| WKFL-05 | 39 | 01 |
+| WKFL-06 | 39 | 03 |
 
 *20 requirements across 4 categories, mapped to 3 phases*
 

@@ -28,7 +28,13 @@ const DEFAULTS = {
   'workflow.plan_check': 'true',
   'workflow.verifier': 'true',
   'github.enabled': 'false',
-  'github.issueMode': 'never'
+  'github.issueMode': 'never',
+  'workflows.execute-phase.post_task_command': '',
+  'workflows.execute-phase.commit_style': 'conventional',
+  'workflows.execute-phase.commit_scope_format': '{phase}-{plan}',
+  'workflows.verify-work.extra_verification_commands': '[]',
+  'workflows.complete-milestone.version_files': '[]',
+  'workflows.complete-milestone.pre_release_commands': '[]'
 };
 
 function readJSON(file) {
