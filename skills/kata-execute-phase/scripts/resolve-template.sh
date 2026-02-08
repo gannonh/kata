@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Usage: resolve-template.sh <template-name>
 # Returns: absolute path to the resolved template file (stdout)
-# Resolution: .planning/templates/{name}.md -> plugin default
+# Resolution: .planning/templates/{name}.md -> sibling skill references
 # Exit: 0=found, 1=not found
 set -euo pipefail
 
@@ -14,19 +14,22 @@ if [ -f "$PROJECT_TEMPLATE" ]; then
   exit 0
 fi
 
-# Fall back to plugin default
-# Plugin root from environment, or discover from script location
+# Fall back to sibling skill discovery
 # Script is at skills/kata-execute-phase/scripts/resolve-template.sh
-# So ../../.. reaches the plugin root
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}"
+# Two levels up (scripts/ -> kata-execute-phase/ -> skills/) reaches the skills directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+SKILLS_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd -P)"
 
-# Glob across all skills for the template
-for f in "${PLUGIN_ROOT}"/skills/kata-*/references/${TEMPLATE_NAME}; do
+for f in "${SKILLS_DIR}"/kata-*/references/${TEMPLATE_NAME}; do
   if [ -f "$f" ]; then
     echo "$f"
     exit 0
   fi
 done
 
+# Template not found - provide actionable error
 echo "ERROR: Template not found: ${TEMPLATE_NAME}" >&2
+echo "  Searched:" >&2
+echo "    $(pwd)/.planning/templates/${TEMPLATE_NAME} (project override)" >&2
+echo "    ${SKILLS_DIR}/kata-*/references/${TEMPLATE_NAME} (sibling skills)" >&2
 exit 1
