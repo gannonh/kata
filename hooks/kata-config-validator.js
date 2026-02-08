@@ -12,7 +12,6 @@ const KNOWN_KEYS = {
   'commit_docs': { type: 'boolean' },
   'pr_workflow': { type: 'boolean' },
   'parallelization': { type: 'boolean' },
-  'display.statusline': { type: 'boolean' },
   'workflow.research': { type: 'boolean' },
   'workflow.plan_check': { type: 'boolean' },
   'workflow.verifier': { type: 'boolean' },

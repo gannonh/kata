@@ -5,9 +5,6 @@
   "commit_docs": true,
   "pr_workflow": true,
   "model_profile": "quality",
-  "display": {
-    "statusline": false
-  },
   "workflow": {
     "research": true,
     "plan_check": true,
