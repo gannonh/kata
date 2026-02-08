@@ -4,7 +4,7 @@
 
 A spec-driven development framework for Claude Code. Brings structured, reliable AI development to teams without changing their existing tools. Teams use Kata's quality-producing process inside the tools they already love.
 
-**Current state:** v1.7.0 shipped. Brainstorm skill with explorer/challenger agent teams wired into 5 workflows as optional step. Planning next milestone.
+**Current state:** v1.8.0 shipped. Adaptive Workflows milestone complete with preferences infrastructure, template overrides, and config workflow variants. Planning next milestone.
 
 ## Core Value
 
@@ -47,12 +47,14 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Agent Teams prerequisite — v1.7.0 (auto-detect and enable CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)
 - Brainstorm context injection — v1.7.0 (SUMMARY.md feeds into planner and researcher agents)
 
+- Preferences storage — v1.8.0 (preferences.json with accessor scripts for project-lifetime constants)
+- Progressive capture — v1.8.0 (reduce onboarding to 5 questions, defer remaining to first encounter)
+- Template overrides — v1.8.0 (project-local templates override plugin defaults for output formats)
+- Config workflow variants — v1.8.0 (per-skill workflows section for project-specific commands)
+
 ### Active
 
-- Preferences storage — separate `preferences.json` with accessor scripts for project-lifetime constants
-- Progressive capture — reduce onboarding to 5 essential questions, defer remaining to first encounter
-- Template overrides — project-local templates that override plugin defaults for output formats
-- Config workflow variants — per-skill `workflows` section for project-specific commands and format strings
+(Requirements for next milestone defined via `/kata-add-milestone`)
 
 ### Out of Scope
 
@@ -70,18 +72,19 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Building an LLM — use Claude, not compete with it
 - Building an agent framework — use platform-native capabilities (subagents, Skills, MCPs)
 
-## Current Milestone: v1.8.0 Adaptive Workflows
+## Current Milestone
 
-**Goal:** Enable project-specific workflow customization through preferences storage, progressive capture, template overrides, and config-driven workflow variants.
-
-**Target features:**
-
-- `preferences.json` with accessor scripts for project-lifetime constants (changelog format, version files, doc conventions)
-- Reduced onboarding (11 questions to 5) with just-in-time capture for deferred preferences
-- Template override system (`.planning/templates/`) for project-specific output formats
-- Config workflow variants (`workflows` section) for project-specific commands injected into subagent prompts
+No active milestone. Use `/kata-add-milestone` to start planning the next version.
 
 ## Context
+
+**v1.8.0 shipped (2026-02-08):**
+- 92 files changed, 9,921 insertions, 1,321 deletions
+- Preferences infrastructure with `read-pref.sh`, `has-pref.sh`, `set-config.sh` accessor scripts
+- Progressive capture reducing onboarding from 11 to 5 questions
+- Template overrides with project-local templates and drift detection
+- Config workflow variants with per-skill `workflows` section in config.json
+- kata-doctor skill for project health checks
 
 **v1.7.0 shipped (2026-02-07):**
 - 77 files changed, 4,319 insertions, 571 deletions
@@ -190,6 +193,21 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 See `.planning/milestones/v1.7.0-ROADMAP.md` for full archive.
 
+## Shipped: v1.8.0 Adaptive Workflows
+
+**Delivered:** Project-specific workflow customization through preferences storage, progressive capture, template overrides, and config-driven workflow variants.
+
+**Key accomplishments:**
+- Preferences infrastructure with `read-pref.sh`, `has-pref.sh`, `set-config.sh` accessor scripts
+- Progressive capture reducing onboarding from 11 to 5 questions with check-or-ask pattern
+- Template overrides with project-local templates in `.planning/templates/`
+- Template drift detection SessionStart hook
+- Config workflow variants with `workflows` section for per-skill customization
+- Config validator hook warning on unknown keys and erroring on invalid types
+- kata-doctor skill for project health checks
+
+See `.planning/milestones/v1.8.0-ROADMAP.md` for full archive.
+
 ## Shipped: v1.5.0 Phase Management
 
 **Delivered:** Phase state directories, cross-milestone phase movement, per-milestone numbering, and standardized roadmap formatting.
@@ -254,4 +272,4 @@ See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 See `.planning/milestones/v1.6.0-ROADMAP.md` for full archive.
 
 ---
-*Last updated: 2026-02-07 after v1.8.0 milestone start*
+*Last updated: 2026-02-08 after v1.8.0 milestone shipped*

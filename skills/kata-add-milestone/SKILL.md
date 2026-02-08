@@ -51,6 +51,33 @@ Milestone name: $ARGUMENTS (optional - will prompt if not provided)
 - Read STATE.md (pending todos, blockers)
 - Check for MILESTONE-CONTEXT.md (if exists)
 
+## Phase 1.2: Pre-flight Roadmap Format Check
+
+If ROADMAP.md exists, check format and auto-migrate if old:
+
+```bash
+if [ -f .planning/ROADMAP.md ]; then
+  bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
+  FORMAT_EXIT=$?
+  
+  if [ $FORMAT_EXIT -eq 1 ]; then
+    echo "Old roadmap format detected. Running auto-migration..."
+  fi
+fi
+```
+
+**If exit code 1 (old format):**
+
+Invoke kata-doctor in auto mode:
+
+```
+Skill("kata-doctor", "--auto")
+```
+
+Continue after migration completes.
+
+**If exit code 0 or 2:** Continue silently.
+
 ## Phase 1.5: Optional Brainstorm
 
 Use AskUserQuestion:
@@ -797,28 +824,29 @@ Use AskUserQuestion:
 - header: "Collisions"
 - question: "Duplicate phase prefixes found. Migrate to globally sequential numbering?"
 - options:
-  - "Migrate now" — Run inline migration, then recalculate NEXT_PHASE before continuing
+  - "Migrate now" — Run `/kata-doctor` to fix collisions, then recalculate NEXT_PHASE before continuing
   - "Skip" — Continue without fixing (phase lookups may return wrong results)
 
 **If "Migrate now":**
 
-Run the migration logic from `/kata-migrate-phases` inline:
+Run `/kata-doctor` to perform migration:
 
-1. Build chronology from ROADMAP.md (completed milestone `<details>` blocks + current milestone phases)
-2. Map directories to globally sequential numbers
-3. Execute two-pass rename (tmp- prefix, then final)
-4. Update ROADMAP.md current milestone phase numbers
-5. Recalculate `NEXT_PHASE` from the newly renumbered directories
+```
+Skill("kata-doctor")
+```
+
+After doctor completes, recalculate `NEXT_PHASE` from the newly renumbered directories.
 
 **If "Skip":**
 
 Display:
 
 ```
-⚠ Skipping migration. Run `/kata-migrate-phases` to fix collisions later.
+⚠ Skipping migration. Run `/kata-doctor` to fix collisions later.
 ```
 
 Continue to Phase 9.
+
 
 ## Phase 9: Create Roadmap
 

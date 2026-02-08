@@ -1,5 +1,33 @@
 # Project Milestones: Kata
 
+## v1.8.0 Adaptive Workflows (Shipped: 2026-02-08)
+
+**Delivered:** Project-specific workflow customization through preferences storage, progressive capture, template overrides, and config-driven workflow variants.
+
+**Phases completed:** 37-39 (7 plans total)
+
+**Key accomplishments:**
+
+- Preferences infrastructure with `read-pref.sh`, `has-pref.sh`, `set-config.sh` accessor scripts and flat `preferences.json` storage
+- Progressive capture reducing onboarding from 11 to 5 questions, with deferred preferences captured at first use via check-or-ask pattern
+- Template overrides with project-local templates in `.planning/templates/` that override plugin defaults
+- Template drift detection SessionStart hook warning when project templates diverge from plugin schema
+- Config workflow variants with `workflows` section in config.json for per-skill customization
+- Config validator hook on session start warning on unknown keys and erroring on invalid types
+- kata-doctor skill for project health checks including roadmap format validation
+
+**Stats:**
+
+- 92 files changed, 9,921 insertions, 1,321 deletions
+- 3 phases, 7 plans
+- 2 days (2026-02-07 → 2026-02-08)
+
+**Git range:** `v1.7.0` → `v1.8.0`
+
+**What's next:** TBD
+
+---
+
 ## v1.7.0 Brainstorm Integration (Shipped: 2026-02-07)
 
 **Delivered:** Structured explorer/challenger brainstorming via Agent Teams, wired into 5 existing workflows as an optional step with downstream context injection.

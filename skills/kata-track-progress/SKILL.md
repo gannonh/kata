@@ -41,6 +41,36 @@ This means a milestone was completed and archived. Go to **Route F** (between mi
 If missing both ROADMAP.md and PROJECT.md: suggest `/kata-new-project`.
 </step>
 
+<step name="preflight_roadmap_format">
+**Pre-flight: Check roadmap format (auto-migration)**
+
+If ROADMAP.md exists, check format and auto-migrate if old:
+
+```bash
+if [ -f .planning/ROADMAP.md ]; then
+  bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
+  FORMAT_EXIT=$?
+  
+  if [ $FORMAT_EXIT -eq 1 ]; then
+    echo "Old roadmap format detected. Running auto-migration..."
+  fi
+fi
+```
+
+**If exit code 1 (old format):**
+
+Invoke kata-doctor in auto mode:
+
+```
+Skill("kata-doctor", "--auto")
+```
+
+Continue after migration completes.
+
+**If exit code 0 or 2:** Continue silently.
+</step>
+
+
 <step name="load">
 **Load full project context:**
 

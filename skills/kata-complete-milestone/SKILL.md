@@ -81,7 +81,34 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    - If pr_workflow=true, you must be on release/vX.Y.Z branch
    - If pr_workflow=false, main branch is OK
 
-0.1. **Read workflow config:**
+0.1. **Pre-flight: Check roadmap format (auto-migration)**
+
+Read workflow-specific overrides for milestone completion. Also check and auto-migrate roadmap format if needed:
+
+```bash
+if [ -f .planning/ROADMAP.md ]; then
+  bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
+  FORMAT_EXIT=$?
+  
+  if [ $FORMAT_EXIT -eq 1 ]; then
+    echo "Old roadmap format detected. Running auto-migration..."
+  fi
+fi
+```
+
+**If exit code 1 (old format):**
+
+Invoke kata-doctor in auto mode:
+
+```
+Skill("kata-doctor", "--auto")
+```
+
+Continue after migration completes.
+
+**If exit code 0 or 2:** Continue silently.
+
+0.2. **Read workflow config:**
 
 Read workflow-specific overrides for milestone completion:
 

@@ -66,7 +66,34 @@ _Note: Review agents (kata-code-reviewer, kata-_-analyzer) are spawned by the ka
 
 Store resolved models for use in Task calls below.
 
-1. **Validate phase exists**
+1. **Pre-flight: Check roadmap format (auto-migration)**
+
+   If ROADMAP.md exists, check format and auto-migrate if old:
+
+   ```bash
+   if [ -f .planning/ROADMAP.md ]; then
+     bash "${SKILL_BASE_DIR}/../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
+     FORMAT_EXIT=$?
+     
+     if [ $FORMAT_EXIT -eq 1 ]; then
+       echo "Old roadmap format detected. Running auto-migration..."
+     fi
+   fi
+   ```
+
+   **If exit code 1 (old format):**
+
+   Invoke kata-doctor in auto mode:
+
+   ```
+   Skill("kata-doctor", "--auto")
+   ```
+
+   Continue after migration completes.
+
+   **If exit code 0 or 2:** Continue silently.
+
+1.1. **Validate phase exists**
    Find phase directory using the discovery script:
    ```bash
    bash "${SKILL_BASE_DIR}/scripts/find-phase.sh" "$PHASE_ARG"
@@ -493,12 +520,12 @@ fi
     **Note:** Show "Merge PR" option only if `pr_workflow=true` AND PR exists AND not already merged.
 
     **If user chooses "Run UAT":**
-    1. Invoke skill: `Skill("kata:kata-verify-work", "{phase}")`
+    1. Invoke skill: `Skill("kata-verify-work", "{phase}")`
     2. UAT skill handles the walkthrough and any issues found
     3. After UAT completes, return to this step to ask again (user may want PR review or merge)
 
     **If user chooses "Run PR review":**
-    4. Invoke skill: `Skill("kata:kata-review-pull-requests")`
+    4. Invoke skill: `Skill("kata-review-pull-requests")`
     5. Display review summary with counts: {N} critical, {M} important, {P} suggestions
     6. **STOP and ask what to do with findings** (see step 10.7)
     7. After findings handled, return to this step
