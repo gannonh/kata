@@ -232,6 +232,10 @@ Execute each wave in sequence. Autonomous plans within a wave run in parallel.
    PLAN_CONTENT=$(cat "{plan_path}")
    STATE_CONTENT=$(cat .planning/STATE.md)
    CONFIG_CONTENT=$(cat .planning/config.json 2>/dev/null)
+
+   # Resolve summary template (project override -> plugin default)
+   SUMMARY_TEMPLATE_PATH=$(bash "${SKILL_BASE_DIR}/scripts/resolve-template.sh" "summary-template.md")
+   SUMMARY_TEMPLATE_CONTENT=$(cat "$SUMMARY_TEMPLATE_PATH")
    ```
 
    Use Task tool with multiple parallel calls. Each agent gets prompt with inlined content:
@@ -245,10 +249,13 @@ Execute each wave in sequence. Autonomous plans within a wave run in parallel.
 
    <execution_context>
    @./execute-plan.md
-   @./summary-template.md
    @./checkpoints.md
    @./tdd.md
    </execution_context>
+
+   <summary_template>
+   {summary_template_content}
+   </summary_template>
 
    <context>
    Plan:

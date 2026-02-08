@@ -323,6 +323,16 @@ Read and store context file contents for the planner agent. The `@` syntax does 
 - `references/phase-researcher-instructions.md` (relative to skill base directory) — store as `phase_researcher_instructions_content`
 - `references/plan-checker-instructions.md` (relative to skill base directory) — store as `plan_checker_instructions_content`
 
+**Resolve plan template (project override -> plugin default):**
+
+```bash
+RESOLVE_SCRIPT="${SKILL_BASE_DIR}/../kata-execute-phase/scripts/resolve-template.sh"
+PLAN_TEMPLATE_PATH=$(bash "$RESOLVE_SCRIPT" "plan-template.md")
+PLAN_TEMPLATE_CONTENT=$(cat "$PLAN_TEMPLATE_PATH")
+```
+
+Store `PLAN_TEMPLATE_CONTENT` for use in the Step 8 planner prompt.
+
 **Read latest brainstorm SUMMARY.md (if exists):**
 
 ```bash
@@ -441,6 +451,10 @@ Fill prompt with inlined content and spawn:
 {uat_content}
 
 </planning_context>
+
+<plan_template>
+{plan_template_content}
+</plan_template>
 
 <downstream_consumer>
 Output consumed by /kata-execute-phase
@@ -634,10 +648,8 @@ ISSUE_MODE=$(cat .planning/config.json 2>/dev/null | grep -o '"issueMode"[[:spac
 **If enabled, find phase issue:**
 
 ```bash
-# Get milestone version from ROADMAP.md (the one marked "In Progress")
-VERSION=$(grep -E "^### v[0-9]+\.[0-9]+.*\(In Progress\)" .planning/ROADMAP.md | grep -oE "v[0-9]+\.[0-9]+(\.[0-9]+)?" | head -1 | tr -d 'v' || echo "")
-# Fallback: try to find any version if no "In Progress" found
-[ -z "$VERSION" ] && VERSION=$(grep -oE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' .planning/ROADMAP.md | head -1 | tr -d 'v' || echo "")
+# Get milestone version from ROADMAP.md (the one marked current/in-progress)
+VERSION=$(grep -E "Current Milestone:|🔄" .planning/ROADMAP.md | grep -oE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 | tr -d 'v' || echo "")
 
 if [ -z "$VERSION" ]; then
   echo "Warning: Could not determine milestone version. Skipping GitHub issue update."

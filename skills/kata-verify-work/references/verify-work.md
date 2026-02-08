@@ -15,7 +15,15 @@ No Pass/Fail buttons. No severity questions. Just: "Here's what should happen. D
 </philosophy>
 
 <template>
-@./UAT-template.md
+UAT template is resolved at runtime via resolve-template.sh (project override -> plugin default).
+
+```bash
+RESOLVE_SCRIPT="${SKILL_BASE_DIR}/../kata-execute-phase/scripts/resolve-template.sh"
+UAT_TEMPLATE_PATH=$(bash "$RESOLVE_SCRIPT" "UAT-template.md")
+UAT_TEMPLATE_CONTENT=$(cat "$UAT_TEMPLATE_PATH")
+```
+
+The resolved template content is available as `{uat_template_content}` for creating {phase}-UAT.md files.
 </template>
 
 <process>
@@ -37,6 +45,16 @@ Default to "balanced" if not set.
 | kata-plan-checker | sonnet  | sonnet   | haiku  |
 
 Store resolved models for use in Task calls below.
+
+**Resolve verification report template (project override -> plugin default):**
+
+```bash
+RESOLVE_SCRIPT="${SKILL_BASE_DIR}/../kata-execute-phase/scripts/resolve-template.sh"
+VERIFICATION_TEMPLATE_PATH=$(bash "$RESOLVE_SCRIPT" "verification-report.md")
+VERIFICATION_TEMPLATE_CONTENT=$(cat "$VERIFICATION_TEMPLATE_PATH")
+```
+
+The resolved template content is available as `{verification_template_content}` and should be inlined into the verifier subagent prompt as `<verification_template>{verification_template_content}</verification_template>`.
 </step>
 
 <step name="check_active_session">

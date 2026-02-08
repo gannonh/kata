@@ -183,6 +183,16 @@ If "wait": Stop, user will return when ready.
 - Read @./version-detector.md for version detection functions
 - Read @./changelog-generator.md for changelog generation functions
 
+**Resolve changelog entry template (project override -> plugin default):**
+
+```bash
+RESOLVE_SCRIPT="${SKILL_BASE_DIR}/../kata-execute-phase/scripts/resolve-template.sh"
+CHANGELOG_TEMPLATE_PATH=$(bash "$RESOLVE_SCRIPT" "changelog-entry.md")
+CHANGELOG_TEMPLATE_CONTENT=$(cat "$CHANGELOG_TEMPLATE_PATH")
+```
+
+The resolved template content is available as `{changelog_template_content}` and should be used in place of the `@./changelog-entry.md` reference when constructing changelog generation prompts. If a project override exists at `.planning/templates/changelog-entry.md`, it takes precedence over the plugin default.
+
 **Workflow:**
 
 1. **Detect version bump (REL-02):**
