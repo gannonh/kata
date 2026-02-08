@@ -1,12 +1,21 @@
-<!-- kata-template-schema
-required-fields:
-  frontmatter: [phase, plan, subsystem, tags, duration, completed]
-  body: [Performance, Accomplishments, Task Commits, Files Created/Modified, Decisions Made]
-optional-fields:
-  frontmatter: [requires, provides, affects, tech-stack, key-files, key-decisions, patterns-established]
-  body: [Deviations from Plan, Issues Encountered, User Setup Required, Next Phase Readiness]
-version: 1
--->
+---
+kata_template:
+  name: "Summary Template"
+  version: 2
+  required:
+    frontmatter: [phase, plan, subsystem, tags, duration, completed]
+    body: [Performance, Accomplishments, Task Commits, Files Created/Modified, Decisions Made]
+  optional:
+    frontmatter: [requires, provides, affects, tech-stack, key-files, key-decisions, patterns-established]
+    body: [Deviations from Plan, Issues Encountered, User Setup Required, Next Phase Readiness]
+  example_frontmatter:
+    phase: 01-foundation
+    plan: 01
+    subsystem: auth
+    tags: [jwt, jose, bcrypt]
+    duration: 28min
+    completed: 2025-01-15
+---
 
 # Summary Template
 

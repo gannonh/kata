@@ -1,12 +1,26 @@
-<!-- kata-template-schema
-required-fields:
-  frontmatter: [phase, plan, type, wave, depends_on, files_modified, autonomous, must_haves]
-  body: [objective, execution_context, context, tasks, verification, success_criteria, output]
-optional-fields:
-  frontmatter: [user_setup, source_issue, gap_closure]
-  body: []
-version: 1
--->
+---
+kata_template:
+  name: "Plan Template"
+  version: 2
+  required:
+    frontmatter: [phase, plan, type, wave, depends_on, files_modified, autonomous, must_haves]
+    body: [objective, execution_context, context, tasks, verification, success_criteria, output]
+  optional:
+    frontmatter: [user_setup, source_issue, gap_closure]
+    body: []
+  example_frontmatter:
+    phase: 01-foundation
+    plan: 01
+    type: execute
+    wave: 1
+    depends_on: []
+    files_modified: [src/app/api/auth/login/route.ts, src/lib/auth.ts]
+    autonomous: true
+    must_haves:
+      truths: [User can log in with valid credentials]
+      artifacts: [src/app/api/auth/login/route.ts]
+      key_links: [Login endpoint -> JWT generation]
+---
 
 # PLAN.md Template
 

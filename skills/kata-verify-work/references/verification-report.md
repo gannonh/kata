@@ -1,12 +1,19 @@
-<!-- kata-template-schema
-required-fields:
-  frontmatter: [phase, verified, status, score]
-  body: [Goal Achievement, Observable Truths, Required Artifacts, Key Link Verification, Requirements Coverage]
-optional-fields:
-  frontmatter: [re_verification, gaps, human_verification]
-  body: [Anti-Patterns Found, Human Verification Required, Gaps Summary]
-version: 1
--->
+---
+kata_template:
+  name: "Verification Report Template"
+  version: 2
+  required:
+    frontmatter: [phase, verified, status, score]
+    body: [Goal Achievement, Observable Truths, Required Artifacts, Key Link Verification, Requirements Coverage]
+  optional:
+    frontmatter: [re_verification, gaps, human_verification]
+    body: [Anti-Patterns Found, Human Verification Required, Gaps Summary]
+  example_frontmatter:
+    phase: 01-foundation
+    verified: 2025-01-15T15:30:00Z
+    status: passed
+    score: 5/5 must-haves verified
+---
 
 # VERIFICATION.md Template
 
