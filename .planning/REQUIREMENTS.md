@@ -73,23 +73,23 @@ Requirement → Phase mapping (filled by roadmapper):
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TMPL-01     | TBD   | ○      |
-| TMPL-02     | TBD   | ○      |
-| TMPL-03     | TBD   | ○      |
-| VAL-01      | TBD   | ○      |
-| VAL-02      | TBD   | ○      |
-| VAL-03      | TBD   | ○      |
-| VAL-04      | TBD   | ○      |
-| UI-01       | TBD   | ○      |
-| UI-02       | TBD   | ○      |
-| UI-03       | TBD   | ○      |
-| UI-04       | TBD   | ○      |
-| UI-05       | TBD   | ○      |
-| DOCS-01     | TBD   | ○      |
-| DOCS-02     | TBD   | ○      |
-| DOCS-03     | TBD   | ○      |
-| DOCS-04     | TBD   | ○      |
-| DOCS-05     | TBD   | ○      |
+| TMPL-01     | 40    | ○      |
+| TMPL-02     | 40    | ○      |
+| TMPL-03     | 40    | ○      |
+| VAL-01      | 41    | ○      |
+| VAL-02      | 41    | ○      |
+| VAL-03      | 41    | ○      |
+| VAL-04      | 41    | ○      |
+| UI-01       | 42    | ○      |
+| UI-02       | 42    | ○      |
+| UI-03       | 42    | ○      |
+| UI-04       | 42    | ○      |
+| UI-05       | 42    | ○      |
+| DOCS-01     | 43    | ○      |
+| DOCS-02     | 43    | ○      |
+| DOCS-03     | 43    | ○      |
+| DOCS-04     | 43    | ○      |
+| DOCS-05     | 43    | ○      |
 
 ---
 

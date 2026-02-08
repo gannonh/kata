@@ -11,10 +11,62 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - ✅ **v1.6.0 Skills-Native Subagents** — Phases 30-34 (shipped 2026-02-06)
 - ✅ **v1.7.0 Brainstorm Integration** — Phases 35-36 (shipped 2026-02-07)
 - ✅ **v1.8.0 Adaptive Workflows** — Phases 37-39 (shipped 2026-02-08)
+- 🔄 **v1.9.0 Template Overrides (Universal)** — Phases 40-43 (in progress)
 
-## Current Milestone: None
+## Current Milestone: v1.9.0 Template Overrides (Universal)
 
-No active milestone. Use `/kata-add-milestone` to start planning the next version.
+**Goal:** Fix template override infrastructure to work universally for all users (plugin + skills-only), migrate validation from hooks into skills, create template customization UI, and document the feature.
+
+### Phase 40: Template Resolution
+
+**Requirements:** TMPL-01, TMPL-02, TMPL-03
+
+Rewrite resolve-template.sh to use relative sibling discovery so template resolution works for all installation locations without absolute paths.
+
+**Success criteria:**
+- resolve-template.sh discovers templates via sibling skill directories (not absolute paths)
+- Template resolution works identically for plugin and skills-only installations
+- Missing templates produce clear error messages naming the template and search paths
+- Existing skills that use templates continue to work without modification
+
+### Phase 41: Validation Migration
+
+**Requirements:** VAL-01, VAL-02, VAL-03, VAL-04
+
+Move template drift detection and config validation from SessionStart hooks into skills so validation runs universally for plugin + skills-only users.
+
+**Success criteria:**
+- Template drift detection runs inside skills that interact with templates (not at session start)
+- Config validation runs inside skills that read config (not at session start)
+- Both validation paths work for plugin and skills-only installations
+- SessionStart hooks for template-drift and config-validator are removed
+- No regression in validation coverage (same checks, different trigger point)
+
+### Phase 42: Template Customization Skill
+
+**Requirements:** UI-01, UI-02, UI-03, UI-04, UI-05
+
+Build `/kata-customize-template` skill for listing, copying, editing, and validating template overrides.
+
+**Success criteria:**
+- `/kata-customize-template` skill exists and responds to natural language triggers ("customize template", "override template", "edit template")
+- User can list all available templates with descriptions of what each controls
+- User can copy a plugin default template to `.planning/templates/` for local override
+- User can edit a template override and get validation feedback after save
+- Template validation checks required fields and reports missing/malformed sections
+
+### Phase 43: Documentation
+
+**Requirements:** DOCS-01, DOCS-02, DOCS-03, DOCS-04, DOCS-05
+
+Document template customization in README, template schemas, example workflows, and migration guide from hooks to skills-based validation.
+
+**Success criteria:**
+- README includes a template customization section with setup instructions
+- All customizable templates listed with descriptions and field documentation
+- Example workflow shows end-to-end template customization
+- Template schema documentation covers required and optional fields per template
+- Migration guide explains transition from hooks-based to skills-based validation
 
 ## Completed Milestones
 
@@ -225,7 +277,8 @@ No active milestone. Use `/kata-add-milestone` to start planning the next versio
 | v1.6.0    | 5      | 17    | Shipped     | 2026-02-06 |
 | v1.7.0    | 2      | 5     | Shipped     | 2026-02-07 |
 | v1.8.0    | 3      | 7     | Shipped     | 2026-02-08 |
+| v1.9.0    | 4      | —     | In Progress | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-08 — v1.8.0 Adaptive Workflows shipped*
+*Last updated: 2026-02-08 — v1.9.0 Template Overrides (Universal) roadmap created*
