@@ -1,6 +1,8 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this package.
+
+**Important:** Keep this file and the root `CLAUDE.md` up-to-date whenever functionality changes.
 
 ## Project Overview
 
@@ -83,8 +85,8 @@ Skills are the primary interface for all Kata workflows. They respond to both na
 
 ### Invocation Syntax
 
-| Syntax                  | Example                   |
-| ----------------------- | ------------------------- |
+| Syntax             | Example              |
+| ------------------ | -------------------- |
 | `/kata-skill-name` | `/kata-plan-phase 1` |
 
 **Key points:**
@@ -96,8 +98,8 @@ Skills are the primary interface for all Kata workflows. They respond to both na
 
 Skills are installed to `.claude/skills/` and invoked via `/kata-skill-name`.
 
-| Skill                 | Invocation                  | Purpose                                        |
-| --------------------- | --------------------------- | ---------------------------------------------- |
+| Skill                 | Invocation             | Purpose                                        |
+| --------------------- | ---------------------- | ---------------------------------------------- |
 | `kata-plan-phase`     | `/kata-plan-phase`     | Phase planning, task breakdown                 |
 | `kata-execute-phase`  | `/kata-execute-phase`  | Plan execution, checkpoints                    |
 | `kata-verify-work`    | `/kata-verify-work`    | Goal verification, UAT                         |

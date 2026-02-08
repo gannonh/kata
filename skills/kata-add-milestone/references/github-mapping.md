@@ -85,8 +85,14 @@ Key variables assigned:
 Before creating, check if phase issue already exists:
 
 ```bash
-EXISTING=$(gh issue list --label "phase" --milestone "v${VERSION}" --json number,title \
-  --jq ".[] | select(.title | startswith(\"Phase ${PHASE_NUM}:\")) | .number" 2>/dev/null)
+# gh issue list --milestone only searches open milestones; use API to include closed
+REPO_SLUG=$(gh repo view --json nameWithOwner --jq '.nameWithOwner' 2>/dev/null)
+MS_NUM=$(gh api "repos/${REPO_SLUG}/milestones?state=all" --jq ".[] | select(.title==\"v${VERSION}\") | .number" 2>/dev/null)
+EXISTING=""
+if [ -n "$MS_NUM" ]; then
+  EXISTING=$(gh api "repos/${REPO_SLUG}/issues?milestone=${MS_NUM}&state=all&labels=phase&per_page=100" \
+    --jq "[.[] | select(.title | startswith(\"Phase ${PHASE_NUM}:\"))][0].number" 2>/dev/null)
+fi
 ```
 
 If `EXISTING` is non-empty, skip creation and report existing issue number.
