@@ -13,6 +13,61 @@ SKILLS_DIR="$SKILLS_DIR" node << 'NODE_EOF'
 const fs = require('fs');
 const path = require('path');
 
+function parseSimpleYAML(yamlStr) {
+  // Minimal YAML parser for our specific schema structure
+  const lines = yamlStr.split('\n');
+  const result = { kata_template: { name: '', required: {}, optional: {} } };
+
+  for (let line of lines) {
+    const indent = line.match(/^(\s*)/)[1].length;
+    const trimmed = line.trim();
+
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    if (trimmed.includes(':')) {
+      const [key, ...valueParts] = trimmed.split(':');
+      const value = valueParts.join(':').trim();
+
+      // Handle arrays like [item1, item2]
+      if (value.startsWith('[') && value.endsWith(']')) {
+        const items = value.slice(1, -1).split(',').map(s => s.trim()).filter(Boolean);
+        if (key.trim() === 'frontmatter' && indent === 4) {
+          // Figure out if it's required or optional based on context
+          const prevLines = lines.slice(0, lines.indexOf(line));
+          const lastSection = prevLines.reverse().find(l => l.trim().endsWith(':'));
+          if (lastSection && lastSection.includes('required')) {
+            result.kata_template.required.frontmatter = items;
+          } else if (lastSection && lastSection.includes('optional')) {
+            result.kata_template.optional.frontmatter = items;
+          }
+        } else if (key.trim() === 'body' && indent === 4) {
+          const prevLines = lines.slice(0, lines.indexOf(line));
+          const lastSection = prevLines.reverse().find(l => l.trim().endsWith(':'));
+          if (lastSection && lastSection.includes('required')) {
+            result.kata_template.required.body = items;
+          } else if (lastSection && lastSection.includes('optional')) {
+            result.kata_template.optional.body = items;
+          }
+        }
+      } else if (key.trim() === 'name' && indent === 2) {
+        result.kata_template.name = value.replace(/['"]/g, '');
+      }
+    }
+  }
+
+  return result;
+}
+
+function extractSchema(content) {
+  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!fmMatch) return null;
+  try {
+    return parseSimpleYAML(fmMatch[1]);
+  } catch (e) {
+    return null;
+  }
+}
+
 try {
   const skillsDir = process.env.SKILLS_DIR;
   const templates = [];
@@ -27,27 +82,11 @@ try {
       const filePath = path.join(refsDir, filename);
       const content = fs.readFileSync(filePath, 'utf8');
 
-      const schemaMatch = content.match(/<!--\s*kata-template-schema\n([\s\S]*?)-->/);
-      if (!schemaMatch) continue;
+      const schema = extractSchema(content);
+      if (!schema || !schema.kata_template) continue;
 
-      const schema = schemaMatch[1];
-
-      // Parse required fields
-      const reqFm = schema.match(/required-fields:\s*\n\s*frontmatter:\s*\[([^\]]*)\]/);
-      const reqBody = schema.match(/required-fields:[\s\S]*?body:\s*\[([^\]]*)\]/);
-
-      // Parse optional fields
-      const optFm = schema.match(/optional-fields:\s*\n\s*frontmatter:\s*\[([^\]]*)\]/);
-      const optBody = schema.match(/optional-fields:[\s\S]*?body:\s*\[([^\]]*)\]/);
-
-      const parseList = (match) => {
-        if (!match || !match[1].trim()) return [];
-        return match[1].split(',').map(f => f.trim()).filter(Boolean);
-      };
-
-      // Extract description from first heading (any level)
-      const headingMatch = content.match(/^#{1,6}\s+(.+)$/m);
-      const description = headingMatch ? headingMatch[1] : filename;
+      const kt = schema.kata_template;
+      const description = kt.name || filename;
 
       // Check if project override exists
       const overridePath = path.join(process.cwd(), '.planning', 'templates', filename);
@@ -59,12 +98,12 @@ try {
         description,
         hasOverride,
         required: {
-          frontmatter: parseList(reqFm),
-          body: parseList(reqBody)
+          frontmatter: kt.required?.frontmatter || [],
+          body: kt.required?.body || []
         },
         optional: {
-          frontmatter: parseList(optFm),
-          body: parseList(optBody)
+          frontmatter: kt.optional?.frontmatter || [],
+          body: kt.optional?.body || []
         }
       });
     }

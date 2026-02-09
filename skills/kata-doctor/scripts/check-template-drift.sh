@@ -25,23 +25,51 @@ const path = require('path');
 const templatesDir = process.env.TEMPLATES_DIR;
 const skillsDir = process.env.SKILLS_DIR;
 
+function parseSimpleYAML(yamlStr) {
+  const lines = yamlStr.split('\n');
+  const result = { kata_template: { required: { frontmatter: [], body: [] } } };
+
+  for (let line of lines) {
+    const indent = line.match(/^(\s*)/)[1].length;
+    const trimmed = line.trim();
+
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    if (trimmed.includes(':')) {
+      const [key, ...valueParts] = trimmed.split(':');
+      const value = valueParts.join(':').trim();
+
+      if (value.startsWith('[') && value.endsWith(']')) {
+        const items = value.slice(1, -1).split(',').map(s => s.trim()).filter(Boolean);
+        if (key.trim() === 'frontmatter' && indent === 4) {
+          const prevLines = lines.slice(0, lines.indexOf(line));
+          const lastSection = prevLines.reverse().find(l => l.trim().endsWith(':'));
+          if (lastSection && lastSection.includes('required')) {
+            result.kata_template.required.frontmatter = items;
+          }
+        } else if (key.trim() === 'body' && indent === 4) {
+          const prevLines = lines.slice(0, lines.indexOf(line));
+          const lastSection = prevLines.reverse().find(l => l.trim().endsWith(':'));
+          if (lastSection && lastSection.includes('required')) {
+            result.kata_template.required.body = items;
+          }
+        }
+      }
+    }
+  }
+
+  return result.kata_template;
+}
+
 function parseSchemaComment(content) {
-  const match = content.match(/<!--\s*kata-template-schema\n([\s\S]*?)-->/);
-  if (!match) return null;
-  const schema = match[1];
-  const required = { frontmatter: [], body: [] };
-
-  const fmSection = schema.match(/required-fields:\s*\n\s*frontmatter:\s*\[([^\]]*)\]/);
-  if (fmSection) {
-    required.frontmatter = fmSection[1].split(',').map(f => f.trim()).filter(Boolean);
+  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!fmMatch) return null;
+  try {
+    const schema = parseSimpleYAML(fmMatch[1]);
+    return schema.required || { frontmatter: [], body: [] };
+  } catch (e) {
+    return null;
   }
-
-  const bodySection = schema.match(/body:\s*\[([^\]]*)\]/);
-  if (bodySection) {
-    required.body = bodySection[1].split(',').map(f => f.trim()).filter(Boolean);
-  }
-
-  return required;
 }
 
 function parseFrontmatter(content) {
