@@ -35,6 +35,8 @@ PR_WORKFLOW=$(bash "$SCRIPT_DIR/read-pref.sh" "pr_workflow" "false")
 RESEARCH=$(bash "$SCRIPT_DIR/read-pref.sh" "workflow.research" "true")
 PLAN_CHECK=$(bash "$SCRIPT_DIR/read-pref.sh" "workflow.plan_check" "true")
 VERIFIER=$(bash "$SCRIPT_DIR/read-pref.sh" "workflow.verifier" "true")
+WORKTREE_ENABLED=$(bash "$SCRIPT_DIR/read-pref.sh" "worktree.enabled" "false")
+PR_WORKFLOW_VAL=$(bash "$SCRIPT_DIR/read-pref.sh" "pr_workflow" "false")
 
 # Project-lifetime preferences
 CHANGELOG_FMT=$(bash "$SCRIPT_DIR/read-pref.sh" "release.changelog_format" "keep-a-changelog")
@@ -125,6 +127,18 @@ AskUserQuestion([
       { label: "No", description: "Commit directly to main, create tags locally" }
     ]
   },
+  // If PR_WORKFLOW_VAL = "true", include the Git Worktrees question:
+  {
+    question: "Enable git worktree isolation per plan?",
+    header: "Git Worktrees",
+    multiSelect: false,
+    options: [
+      { label: "No", description: "Plans share the working directory (standard)" },
+      { label: "Yes", description: "Each plan gets isolated worktree and branch (advanced)" }
+    ]
+  },
+  // If PR_WORKFLOW_VAL = "false", omit the Git Worktrees question entirely.
+  <!-- If pr_workflow is false, skip Git Worktrees question — worktrees require PR workflow -->
   {
     question: "Spawn Plan Researcher? (researches domain before planning)",
     header: "Research",
@@ -204,6 +218,7 @@ bash "$SCRIPT_DIR/set-config.sh" "depth" "$NEW_DEPTH"
 bash "$SCRIPT_DIR/set-config.sh" "model_profile" "$NEW_MODEL_PROFILE"
 bash "$SCRIPT_DIR/set-config.sh" "commit_docs" "$NEW_COMMIT_DOCS"
 bash "$SCRIPT_DIR/set-config.sh" "pr_workflow" "$NEW_PR_WORKFLOW"
+bash "$SCRIPT_DIR/set-config.sh" "worktree.enabled" "$NEW_WORKTREE_ENABLED"
 bash "$SCRIPT_DIR/set-config.sh" "workflow.research" "$NEW_RESEARCH"
 bash "$SCRIPT_DIR/set-config.sh" "workflow.plan_check" "$NEW_PLAN_CHECK"
 bash "$SCRIPT_DIR/set-config.sh" "workflow.verifier" "$NEW_VERIFIER"
@@ -238,6 +253,18 @@ done
 
 ### Side-Effects
 
+**If worktree was just enabled (changed from false to true):**
+
+```bash
+# Run setup after writing the config
+if ! bash "$SCRIPT_DIR/setup-worktrees.sh"; then
+  echo "Error: Worktree setup failed. Reverting worktree.enabled to false."
+  bash "$SCRIPT_DIR/set-config.sh" "worktree.enabled" "false"
+fi
+```
+
+The settings flow continues regardless of setup outcome (non-fatal).
+
 **If `commit_docs` changed to `false`:**
 
 - Add `.planning/` to `.gitignore` (create if needed)
@@ -267,6 +294,7 @@ Kata > SETTINGS UPDATED
 | Model Profile      | {quality/balanced/budget} |
 | Commit Docs        | {On/Off}                  |
 | PR Workflow        | {On/Off}                  |
+| Git Worktrees      | {On/Off}                  |
 | Plan Researcher    | {On/Off}                  |
 | Plan Checker       | {On/Off}                  |
 | Execution Verifier | {On/Off}                  |
