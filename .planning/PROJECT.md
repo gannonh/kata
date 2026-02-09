@@ -4,7 +4,7 @@
 
 A spec-driven development framework for Claude Code. Brings structured, reliable AI development to teams without changing their existing tools. Teams use Kata's quality-producing process inside the tools they already love.
 
-**Current state:** v1.8.0 shipped. Adaptive Workflows milestone complete with preferences infrastructure, template overrides, and config workflow variants. Planning next milestone.
+**Current state:** v1.9.0 shipped. Template override system now universal across all installation methods. Validation migrated from hooks to skills. Template customization UI and full documentation complete.
 
 ## Core Value
 
@@ -52,6 +52,12 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Template overrides — v1.8.0 (project-local templates override plugin defaults for output formats)
 - Config workflow variants — v1.8.0 (per-skill workflows section for project-specific commands)
 
+- Universal template resolution — v1.9.0 (sibling discovery works for plugin and skills-only installations)
+- In-skill validation — v1.9.0 (template drift and config validation moved from hooks into skills)
+- Template customization UI — v1.9.0 (/kata-customize for listing, copying, editing, validating overrides)
+- Template system tests — v1.9.0 (resolution, drift detection, override behavior test suite)
+- Template documentation — v1.9.0 (schema reference, migration guide, README section)
+
 ### Active
 
 (Requirements for next milestone defined via `/kata-add-milestone`)
@@ -77,6 +83,14 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 No active milestone. Use `/kata-add-milestone` to start planning the next version.
 
 ## Context
+
+**v1.9.0 shipped (2026-02-08):**
+- 71 files changed, 5,610 insertions, 527 deletions
+- Universal template resolution via sibling discovery (works for all install methods)
+- Validation migrated from SessionStart hooks into skills (template drift + config)
+- `/kata-customize` skill for template override management
+- All templates converted to YAML frontmatter with schema documentation
+- Template system test suite and comprehensive docs
 
 **v1.8.0 shipped (2026-02-08):**
 - 92 files changed, 9,921 insertions, 1,321 deletions
@@ -193,6 +207,20 @@ No active milestone. Use `/kata-add-milestone` to start planning the next versio
 
 See `.planning/milestones/v1.7.0-ROADMAP.md` for full archive.
 
+## Shipped: v1.9.0 Template Overrides (Universal)
+
+**Delivered:** Universal template override infrastructure with portable resolution, in-skill validation, template customization UI, and full documentation.
+
+**Key accomplishments:**
+- Universal template resolution via sibling discovery, works for plugin and skills-only installations
+- `/kata-customize` skill for listing, copying, editing, and validating template overrides
+- Validation migrated from SessionStart hooks into skills
+- Template system test suite covering resolution, drift detection, and override behavior
+- All default templates converted to YAML frontmatter with schema documentation
+- Comprehensive template customization docs and hooks-to-skills migration guide
+
+See `.planning/milestones/v1.9.0-ROADMAP.md` for full archive.
+
 ## Shipped: v1.8.0 Adaptive Workflows
 
 **Delivered:** Project-specific workflow customization through preferences storage, progressive capture, template overrides, and config-driven workflow variants.
@@ -272,4 +300,4 @@ See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 See `.planning/milestones/v1.6.0-ROADMAP.md` for full archive.
 
 ---
-*Last updated: 2026-02-08 after v1.8.0 milestone shipped*
+*Last updated: 2026-02-08 after v1.9.0 milestone shipped*

@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-02-08 — Template Overrides (Universal)
+
+Kata v1.9.0 ships **Template Overrides (Universal)**: template resolution rewritten for all install methods, template customization UI, and full documentation.
+
+### Added
+- **Universal template resolution**: resolve-template.sh uses relative sibling discovery, works for plugin and skills-only installations
+- **Template customization skill**: `/kata-customize` for listing, copying, editing, and validating template overrides
+- **Template and config validation**: Drift detection and config validation run as pre-flight checks in skills
+- **Template system tests**: Test suite covering resolution, drift detection, and override behavior
+- **Template schema docs**: Reference documentation for all customizable templates with required/optional fields
+- **Migration guide**: Transition docs for validation setup
+
+### Changed
+- Default templates converted to YAML frontmatter format
+- Template parsers updated to support YAML frontmatter schemas
+- Renamed `kata-customize-template` to `kata-customize`
+
+### Fixed
+- resolve-template.sh project root detection for override checks
+- check-template-drift.sh checks template examples in body, not frontmatter
+- set-config.sh handling of JSON arrays and objects in value coercion
+- Config string array to native array conversion
+- Script paths in SKILL.md and reference files
+
+---
+
 ## [1.8.0] - 2026-02-08 — Adaptive Workflows
 
 Kata v1.8.0 ships **Adaptive Workflows**: project-specific preferences storage, template overrides, and config-driven workflow variants.
@@ -10,9 +36,9 @@ Kata v1.8.0 ships **Adaptive Workflows**: project-specific preferences storage, 
 - **Preferences infrastructure**: Flat `.planning/preferences.json` storage with `read-pref.sh`, `has-pref.sh`, `set-config.sh` accessor scripts
 - **Progressive capture**: Reduced onboarding to 5 essential questions, deferred preferences captured at first use via check-or-ask pattern
 - **Template overrides**: Extract inline templates to standalone files, resolution chain checks `.planning/templates/` before plugin defaults
-- **Template drift detection**: SessionStart hook detects when project templates diverge from plugin schema
+- **Template drift detection**: Detects when project templates diverge from plugin schema
 - **Config workflow variants**: `workflows` section in config.json with per-skill configuration keys
-- **Config validator hook**: SessionStart validation warns on unknown config keys, errors on invalid types
+- **Config validation**: Warns on unknown config keys, errors on invalid types
 - **kata-doctor skill**: Project health checks including roadmap format validation
 
 ### Changed

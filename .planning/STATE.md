@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v1.9.0 Template Overrides (Universal)
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Milestone: v1.9.0 Template Overrides (Universal)
-Phase: 43 (Documentation)
-Plan: 1 of 1 in phase
-Status: Milestone complete
-Last activity: 2026-02-08 — Completed Phase 43 (documentation)
+Milestone: None (v1.9.0 shipped)
+Phase: N/A
+Plan: N/A
+Status: Between milestones
+Last activity: 2026-02-08 — v1.9.0 milestone complete
 
-Progress: ██████████ 4/4 phases (152 plans completed)
+Progress: ██████████ All milestones shipped
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 152
+- Total plans completed: 157
 - Average duration: 3 min
-- Total execution time: ~392 min
+- Total execution time: ~400 min
 
 **By Milestone:**
 
@@ -44,7 +44,7 @@ Progress: ██████████ 4/4 phases (152 plans completed)
 | v1.6.0    | 5      | 17    | Shipped 2026-02-06 |
 | v1.7.0    | 2      | 5     | Shipped 2026-02-07 |
 | v1.8.0    | 3      | 7     | Shipped 2026-02-08 |
-| v1.9.0    | 4      | 4     | Complete           |
+| v1.9.0    | 4      | 5     | Shipped 2026-02-08 |
 
 *Updated after each plan completion*
 
@@ -53,16 +53,10 @@ Progress: ██████████ 4/4 phases (152 plans completed)
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-- v1.9.0 phases 40-43 derived from 17 requirements across 4 requirement groups
-- Phase 40 (Template Resolution) is foundation; Phase 41 (Validation Migration) depends on it
-- Phase 42 (Customization Skill) builds the user-facing interface
-- Phase 42 uses single-file orchestrator pattern (no subagents, no references/ directory)
-- Phase 43 (Documentation) captures everything for users
 
 ### Roadmap Evolution
 
-- **v1.9.0 roadmap created 2026-02-08** — Template Overrides Universal (4 phases 40-43, 17 requirements)
+- **v1.9.0 shipped 2026-02-08** — Template Overrides Universal (4 phases 40-43, 5 plans, 17 requirements)
 - **v1.8.0 shipped 2026-02-08** — Adaptive Workflows (3 phases 37-39, 7 plans)
 - **v1.7.0 shipped 2026-02-07** — Brainstorm Integration (2 phases 35-36, 5 plans, 13 requirements)
 - **v1.6.0 shipped 2026-02-06** — Skills-Native Subagents (5 phases 30-34, 17 plans)
@@ -93,6 +87,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed Phase 43 (documentation)
+Stopped at: v1.9.0 milestone complete
 Resume file: None
-Next action: Complete milestone v1.9.0 (`/kata-complete-milestone`)
+Next action: Start next milestone (`/kata-add-milestone`)
