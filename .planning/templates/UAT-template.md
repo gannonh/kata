@@ -1,6 +1,6 @@
 ---
 kata_template:
-  name: "UAT Template"
+  name: UAT Template
   version: 2
   required:
     frontmatter: [status, phase, source, started, updated]
@@ -10,10 +10,10 @@ kata_template:
     body: []
   example_frontmatter:
     status: testing
-    phase: 04-comments
-    source: [04-01-SUMMARY.md, 04-02-SUMMARY.md]
-    started: 2025-01-15T10:30:00Z
-    updated: 2025-01-15T10:45:00Z
+    phase: XX-name
+    source: []
+    started: 2026-01-01T00:00:00Z
+    updated: 2026-01-01T00:00:00Z
 ---
 
 # UAT Template
@@ -36,7 +36,7 @@ updated: [ISO timestamp]
 ## Current Test
 <!-- OVERWRITE each test - shows where we are -->
 
-number: [N]
+progress: [N] of [total]
 name: [test name]
 expected: |
   [what user should observe]
@@ -75,16 +75,7 @@ skipped: [N]
 
 ## Gaps
 
-<!-- YAML format for phase-plan --gaps consumption -->
-- truth: "[expected behavior from test]"
-  status: failed
-  reason: "User reported: [verbatim response]"
-  severity: blocker | major | minor | cosmetic
-  test: [N]
-  root_cause: ""     # Filled by diagnosis
-  artifacts: []      # Filled by diagnosis
-  missing: []        # Filled by diagnosis
-  debug_session: ""  # Filled by diagnosis
+(none yet)
 ```
 
 ---
@@ -100,7 +91,7 @@ skipped: [N]
 
 **Current Test:**
 - OVERWRITE entirely on each test transition
-- Shows which test is active and what's awaited
+- Shows which test is active (progress: N of total format) and what's awaited
 - On completion: "[testing complete]"
 
 **Tests:**

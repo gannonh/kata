@@ -29,7 +29,7 @@ Fix template override infrastructure to work universally for all users (plugin +
 
 ### User Interface
 
-- [x] **UI-01**: `/kata-customize-template` skill created for template management
+- [x] **UI-01**: `/kata-customize` skill created for template management
 - [x] **UI-02**: User can list available templates with descriptions of what each controls
 - [x] **UI-03**: User can copy plugin default to project override location
 - [x] **UI-04**: User can edit template override with validation after save
@@ -37,11 +37,11 @@ Fix template override infrastructure to work universally for all users (plugin +
 
 ### Documentation
 
-- [ ] **DOCS-01**: README includes template customization section
-- [ ] **DOCS-02**: List of customizable templates with descriptions
-- [ ] **DOCS-03**: Example workflow for customizing templates
-- [ ] **DOCS-04**: Template schema documentation (required/optional fields per template)
-- [ ] **DOCS-05**: Migration guide from hooks to skills-based validation
+- [x] **DOCS-01**: README includes template customization section
+- [x] **DOCS-02**: List of customizable templates with descriptions
+- [x] **DOCS-03**: Example workflow for customizing templates
+- [x] **DOCS-04**: Template schema documentation (required/optional fields per template)
+- [x] **DOCS-05**: Migration guide from hooks to skills-based validation
 
 ---
 
@@ -72,7 +72,7 @@ Fix template override infrastructure to work universally for all users (plugin +
 Requirement → Phase mapping (filled by roadmapper):
 
 | Requirement | Phase | Status |
-|-------------|-------|--------|
+| ----------- | ----- | ------ |
 | TMPL-01     | 40    | ○      |
 | TMPL-02     | 40    | ○      |
 | TMPL-03     | 40    | ○      |
@@ -85,11 +85,11 @@ Requirement → Phase mapping (filled by roadmapper):
 | UI-03       | 42    | ○      |
 | UI-04       | 42    | ○      |
 | UI-05       | 42    | ○      |
-| DOCS-01     | 43    | ○      |
-| DOCS-02     | 43    | ○      |
-| DOCS-03     | 43    | ○      |
-| DOCS-04     | 43    | ○      |
-| DOCS-05     | 43    | ○      |
+| DOCS-01     | 43    | ✓      |
+| DOCS-02     | 43    | ✓      |
+| DOCS-03     | 43    | ✓      |
+| DOCS-04     | 43    | ✓      |
+| DOCS-05     | 43    | ✓      |
 
 ---
 

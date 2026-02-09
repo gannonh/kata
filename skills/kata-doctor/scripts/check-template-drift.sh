@@ -5,8 +5,21 @@
 # Exit: Always 0 (warnings only, never blocks)
 set -euo pipefail
 
-# Exit silently if no template overrides directory
-TEMPLATES_DIR=".planning/templates"
+# Find project root by walking up from cwd to find .planning/
+CURRENT_DIR="$(pwd)"
+PROJECT_ROOT=""
+while [ "$CURRENT_DIR" != "/" ]; do
+  if [ -d "$CURRENT_DIR/.planning" ]; then
+    PROJECT_ROOT="$CURRENT_DIR"
+    break
+  fi
+  CURRENT_DIR="$(dirname "$CURRENT_DIR")"
+done
+
+# Exit silently if no project root found
+[ -n "$PROJECT_ROOT" ] || exit 0
+
+TEMPLATES_DIR="${PROJECT_ROOT}/.planning/templates"
 [ -d "$TEMPLATES_DIR" ] || exit 0
 
 # Check for .md files
@@ -25,23 +38,51 @@ const path = require('path');
 const templatesDir = process.env.TEMPLATES_DIR;
 const skillsDir = process.env.SKILLS_DIR;
 
+function parseSimpleYAML(yamlStr) {
+  const lines = yamlStr.split('\n');
+  const result = { kata_template: { required: { frontmatter: [], body: [] } } };
+
+  for (let line of lines) {
+    const indent = line.match(/^(\s*)/)[1].length;
+    const trimmed = line.trim();
+
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    if (trimmed.includes(':')) {
+      const [key, ...valueParts] = trimmed.split(':');
+      const value = valueParts.join(':').trim();
+
+      if (value.startsWith('[') && value.endsWith(']')) {
+        const items = value.slice(1, -1).split(',').map(s => s.trim()).filter(Boolean);
+        if (key.trim() === 'frontmatter' && indent === 4) {
+          const prevLines = lines.slice(0, lines.indexOf(line));
+          const lastSection = prevLines.reverse().find(l => l.trim().endsWith(':'));
+          if (lastSection && lastSection.includes('required')) {
+            result.kata_template.required.frontmatter = items;
+          }
+        } else if (key.trim() === 'body' && indent === 4) {
+          const prevLines = lines.slice(0, lines.indexOf(line));
+          const lastSection = prevLines.reverse().find(l => l.trim().endsWith(':'));
+          if (lastSection && lastSection.includes('required')) {
+            result.kata_template.required.body = items;
+          }
+        }
+      }
+    }
+  }
+
+  return result.kata_template;
+}
+
 function parseSchemaComment(content) {
-  const match = content.match(/<!--\s*kata-template-schema\n([\s\S]*?)-->/);
-  if (!match) return null;
-  const schema = match[1];
-  const required = { frontmatter: [], body: [] };
-
-  const fmSection = schema.match(/required-fields:\s*\n\s*frontmatter:\s*\[([^\]]*)\]/);
-  if (fmSection) {
-    required.frontmatter = fmSection[1].split(',').map(f => f.trim()).filter(Boolean);
+  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!fmMatch) return null;
+  try {
+    const schema = parseSimpleYAML(fmMatch[1]);
+    return schema.required || { frontmatter: [], body: [] };
+  } catch (e) {
+    return null;
   }
-
-  const bodySection = schema.match(/body:\s*\[([^\]]*)\]/);
-  if (bodySection) {
-    required.body = bodySection[1].split(',').map(f => f.trim()).filter(Boolean);
-  }
-
-  return required;
 }
 
 function parseFrontmatter(content) {
@@ -51,12 +92,13 @@ function parseFrontmatter(content) {
 
 function checkFieldPresence(content, required) {
   const missing = [];
-  const frontmatter = parseFrontmatter(content);
   const bodyContent = content.replace(/^---\n[\s\S]*?\n---\n?/, '');
 
+  // For template files, required frontmatter fields should appear as examples in the body
+  // (not in the template file's own frontmatter)
   for (const field of required.frontmatter) {
     const pattern = new RegExp(`^${field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`, 'm');
-    if (!pattern.test(frontmatter)) missing.push(field);
+    if (!pattern.test(bodyContent)) missing.push(field);
   }
 
   for (const section of required.body) {

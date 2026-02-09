@@ -7,8 +7,8 @@
 ## Success Criteria
 
 ### UI-01: Skill Exists ✓
-- `/kata-customize-template` skill created at `skills/kata-customize-template/SKILL.md`
-- Frontmatter includes name `kata-customize-template`
+- `/kata-customize` skill created at `skills/kata-customize/SKILL.md`
+- Frontmatter includes name `kata-customize`
 - Description includes all required trigger phrases:
   - "customize template"
   - "override template"
@@ -50,7 +50,7 @@
 ## Infrastructure
 
 ### Helper Script ✓
-- `skills/kata-customize-template/scripts/list-templates.sh`
+- `skills/kata-customize/scripts/list-templates.sh`
 - Discovers templates from sibling skill directories
 - Parses kata-template-schema comments
 - Outputs valid JSON with metadata

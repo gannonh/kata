@@ -24,7 +24,7 @@ ls .planning/config.json 2>/dev/null
 ## 2. Read Current Values via Accessor Scripts
 
 ```bash
-SCRIPT_DIR="${SKILL_BASE_DIR}/scripts"
+SCRIPT_DIR="./scripts"
 
 # Session settings
 MODE=$(bash "$SCRIPT_DIR/read-pref.sh" "mode" "yolo")
@@ -197,7 +197,7 @@ Use AskUserQuestion to confirm whether the user wants to change any text-input v
 ### Session Settings (via set-config.sh)
 
 ```bash
-SCRIPT_DIR="${SKILL_BASE_DIR}/scripts"
+SCRIPT_DIR="./scripts"
 
 bash "$SCRIPT_DIR/set-config.sh" "mode" "$NEW_MODE"
 bash "$SCRIPT_DIR/set-config.sh" "depth" "$NEW_DEPTH"

@@ -43,6 +43,25 @@ cp -r dist/plugin/* /path/to/test-project/.claude/plugins/kata/
 
 After rebuilding, restart Claude Code to pick up changes.
 
+### Testing
+
+```bash
+# Fast script tests (no Claude invocation, <5s)
+npm run test:scripts
+
+# Build and source validation
+npm test
+
+# Build artifact validation
+npm run test:artifacts
+
+# Full test suite including smoke tests
+npm run test:all
+
+# Only tests affected by current branch changes
+npm run test:affected
+```
+
 ### Using Kata for Kata Development
 
 This project uses Kata to build Kata. Key files in `.planning/`:
@@ -141,12 +160,6 @@ Skills ARE orchestrators. They spawn general-purpose subagents via Task tool, in
 
 @KATA-STYLE.md
 
-## Installation System (bin/install.js)
-
-**Deprecated.** The bin/install.js script now displays a deprecation message directing users to install via the Claude Code plugin marketplace.
-
-For local development, use `npm run build:plugin` instead. See "Installation and Testing" above.
-
 ## Working with Planning Files
 
 When modifying `.planning/` files (PROJECT.md, ROADMAP.md, STATE.md):
@@ -183,9 +196,9 @@ When modifying `.planning/` files (PROJECT.md, ROADMAP.md, STATE.md):
 
 **Version file:** `.claude-plugin/plugin.json`
 
-**Pre-release tests:** `npm run build && npm test && npm run test:smoke`
+**Pre-release tests:** `npm run build && npm test && npm run test:scripts && npm run test:smoke`
 
-**CI pipeline:** `plugin-release.yml` triggers on push to main, detects version change, runs tests, builds, creates GitHub Release, and pushes to the marketplace (`kata-marketplace`).
+**CI pipeline:** `release.yml` triggers on push to main, detects version change, runs tests, builds, creates GitHub Release, and publishes to the marketplace and skills registry.
 
 **Post-release verification:**
 ```bash

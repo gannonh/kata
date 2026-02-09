@@ -46,27 +46,27 @@ Move template drift detection and config validation from SessionStart hooks into
 
 **Requirements:** UI-01, UI-02, UI-03, UI-04, UI-05
 
-Build `/kata-customize-template` skill for listing, copying, editing, and validating template overrides.
+Build `/kata-customize` skill for listing, copying, editing, and validating template overrides.
 
 **Success criteria:**
-- ✅ `/kata-customize-template` skill exists and responds to natural language triggers ("customize template", "override template", "edit template")
+- ✅ `/kata-customize` skill exists and responds to natural language triggers ("customize template", "override template", "edit template")
 - ✅ User can list all available templates with descriptions of what each controls
 - ✅ User can copy a plugin default template to `.planning/templates/` for local override
 - ✅ User can edit a template override and get validation feedback after save
 - ✅ Template validation checks required fields and reports missing/malformed sections
 
-### Phase 43: Documentation
+### ✅ Phase 43: Documentation
 
 **Requirements:** DOCS-01, DOCS-02, DOCS-03, DOCS-04, DOCS-05
 
 Document template customization in README, template schemas, example workflows, and migration guide from hooks to skills-based validation.
 
 **Success criteria:**
-- README includes a template customization section with setup instructions
-- All customizable templates listed with descriptions and field documentation
-- Example workflow shows end-to-end template customization
-- Template schema documentation covers required and optional fields per template
-- Migration guide explains transition from hooks-based to skills-based validation
+- ✅ README includes a template customization section with setup instructions
+- ✅ All customizable templates listed with descriptions and field documentation
+- ✅ Example workflow shows end-to-end template customization
+- ✅ Template schema documentation covers required and optional fields per template
+- ✅ Migration guide explains transition from hooks-based to skills-based validation
 
 ## Completed Milestones
 

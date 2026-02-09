@@ -1,4 +1,4 @@
-name: Publish Plugin to Marketplace and Skills Registry
+name: Release
 
 on:
   push:
@@ -63,9 +63,9 @@ jobs:
         if: steps.check.outputs.should_publish == 'true'
         run: npm test
 
-      - name: Build hooks
+      - name: Run script tests
         if: steps.check.outputs.should_publish == 'true'
-        run: npm run build:hooks
+        run: npm run test:scripts
 
       - name: Build plugin distribution
         if: steps.check.outputs.should_publish == 'true'
@@ -75,11 +75,9 @@ jobs:
         if: steps.check.outputs.should_publish == 'true'
         run: |
           # Verify critical files exist
-          # Note: commands directory removed in v1.3.5 (skills-first architecture)
-          # Note: agents directory removed in v1.6.0 (instructions moved to skill references/)
+          # Note: commands removed v1.3.5, agents removed v1.6.0, hooks removed v1.9.0
           test -f dist/plugin/.claude-plugin/plugin.json
           test -d dist/plugin/skills
-          test -d dist/plugin/hooks
           test -f dist/plugin/VERSION
           echo "✓ Plugin build validated (quick check)"
 

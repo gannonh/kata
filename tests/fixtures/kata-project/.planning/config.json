@@ -1,0 +1,16 @@
+{
+  "project_name": "Test Fixture",
+  "depth": "standard",
+  "pr_workflow": false,
+  "workflows": {
+    "execute-phase": {
+      "post_task_command": ""
+    },
+    "verify-work": {
+      "extra_verification_commands": []
+    },
+    "complete-milestone": {
+      "version_files": ["package.json"]
+    }
+  }
+}

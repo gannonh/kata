@@ -1,6 +1,6 @@
 ---
 kata_template:
-  name: "Changelog Entry Template"
+  name: Changelog Entry Template
   version: 2
   required:
     frontmatter: []
@@ -11,10 +11,6 @@ kata_template:
 ---
 
 <format>
-
-## Keep a Changelog Format
-
-Standard format for changelog entries (https://keepachangelog.com/):
 
 ```markdown
 ## [X.Y.Z] - YYYY-MM-DD

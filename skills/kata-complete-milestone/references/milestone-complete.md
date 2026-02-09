@@ -103,8 +103,8 @@ Proceed without creating branch.
 Read workflow config for milestone completion overrides:
 
 ```bash
-VERSION_FILES_JSON=$(bash "${SKILL_BASE_DIR}/../kata-configure-settings/scripts/read-pref.sh" "workflows.complete-milestone.version_files" "[]")
-PRE_RELEASE_CMDS_JSON=$(bash "${SKILL_BASE_DIR}/../kata-configure-settings/scripts/read-pref.sh" "workflows.complete-milestone.pre_release_commands" "[]")
+VERSION_FILES_JSON=$(bash ../kata-configure-settings/scripts/read-pref.sh "workflows.complete-milestone.version_files" "[]")
+PRE_RELEASE_CMDS_JSON=$(bash ../kata-configure-settings/scripts/read-pref.sh "workflows.complete-milestone.pre_release_commands" "[]")
 ```
 
 - `version_files` — JSON array of file paths. When non-empty, overrides version-detector.md auto-detection. When `[]`, falls back to auto-detection (existing behavior).
@@ -202,7 +202,7 @@ If "wait": Stop, user will return when ready.
 **Resolve changelog entry template (project override -> plugin default):**
 
 ```bash
-RESOLVE_SCRIPT="${SKILL_BASE_DIR}/../kata-execute-phase/scripts/resolve-template.sh"
+RESOLVE_SCRIPT="../kata-execute-phase/scripts/resolve-template.sh"
 CHANGELOG_TEMPLATE_PATH=$(bash "$RESOLVE_SCRIPT" "changelog-entry.md")
 CHANGELOG_TEMPLATE_CONTENT=$(cat "$CHANGELOG_TEMPLATE_PATH")
 ```

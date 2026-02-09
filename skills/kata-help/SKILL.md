@@ -334,7 +334,7 @@ Usage: `/kata-plan-milestone-gaps`
 
 ### Configuration
 
-**`/kata-customize-template`**
+**`/kata-customize`**
 Manage template overrides for customizing Kata output formats.
 
 - List all customizable templates with override status
@@ -342,10 +342,10 @@ Manage template overrides for customizing Kata output formats.
 - Edit an override with conversational changes
 - Validate overrides against required schemas
 
-Usage: `/kata-customize-template`
-Usage: `/kata-customize-template list`
-Usage: `/kata-customize-template copy summary-template.md`
-Usage: `/kata-customize-template validate`
+Usage: `/kata-customize`
+Usage: `/kata-customize list`
+Usage: `/kata-customize copy summary-template.md`
+Usage: `/kata-customize validate`
 
 **`/kata-configure-settings`**
 Configure workflow toggles and model profile interactively.

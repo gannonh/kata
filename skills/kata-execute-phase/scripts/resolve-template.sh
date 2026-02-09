@@ -7,11 +7,24 @@ set -euo pipefail
 
 TEMPLATE_NAME="${1:?Usage: resolve-template.sh <template-name>}"
 
-# Check project override first
-PROJECT_TEMPLATE=".planning/templates/${TEMPLATE_NAME}"
-if [ -f "$PROJECT_TEMPLATE" ]; then
-  echo "$(pwd)/${PROJECT_TEMPLATE}"
-  exit 0
+# Find project root by looking for .planning/ directory
+# Start from current directory and walk up until we find it
+CURRENT_DIR="$(pwd)"
+while [ "$CURRENT_DIR" != "/" ]; do
+  if [ -d "$CURRENT_DIR/.planning" ]; then
+    PROJECT_ROOT="$CURRENT_DIR"
+    break
+  fi
+  CURRENT_DIR="$(dirname "$CURRENT_DIR")"
+done
+
+# Check project override first (if we found project root)
+if [ -n "$PROJECT_ROOT" ]; then
+  PROJECT_TEMPLATE="${PROJECT_ROOT}/.planning/templates/${TEMPLATE_NAME}"
+  if [ -f "$PROJECT_TEMPLATE" ]; then
+    echo "$PROJECT_TEMPLATE"
+    exit 0
+  fi
 fi
 
 # Fall back to sibling skill discovery
