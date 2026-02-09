@@ -5,8 +5,21 @@
 # Exit: Always 0 (warnings only, never blocks)
 set -euo pipefail
 
-# Exit silently if no template overrides directory
-TEMPLATES_DIR=".planning/templates"
+# Find project root by walking up from cwd to find .planning/
+CURRENT_DIR="$(pwd)"
+PROJECT_ROOT=""
+while [ "$CURRENT_DIR" != "/" ]; do
+  if [ -d "$CURRENT_DIR/.planning" ]; then
+    PROJECT_ROOT="$CURRENT_DIR"
+    break
+  fi
+  CURRENT_DIR="$(dirname "$CURRENT_DIR")"
+done
+
+# Exit silently if no project root found
+[ -n "$PROJECT_ROOT" ] || exit 0
+
+TEMPLATES_DIR="${PROJECT_ROOT}/.planning/templates"
 [ -d "$TEMPLATES_DIR" ] || exit 0
 
 # Check for .md files
