@@ -66,7 +66,9 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 2. `kata-complete-milestone` creates release branch respecting worktree configuration
 3. Users completing milestone see release task options (verify/fix from GitHub #83)
 
-- [ ] Phase 44: Config Foundation (0/0 plans)
+- [ ] Phase 44: Config Foundation (0/2 plans)
+  - [ ] 44-01-PLAN.md — Config schema + reader script (CFG-01, CFG-02)
+  - [ ] 44-02-PLAN.md — Setup script + skill integration (CFG-03, CFG-04, CFG-05)
 - [ ] Phase 45: Worktree Scripting (0/0 plans)
 - [ ] Phase 46: Execution Integration (0/0 plans)
 - [ ] Phase 47: Downstream & Release (0/0 plans)
