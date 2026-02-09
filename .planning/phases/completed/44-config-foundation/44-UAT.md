@@ -4,16 +4,20 @@
 
 | # | Test | Status | Notes |
 |---|------|--------|-------|
-| 1 | worktree.enabled in config schema | PASS | Schema JSON and options table updated |
-| 2 | read-config.sh reads existing key | PASS | Returns "yolo" for mode key |
-| 3 | read-config.sh returns fallback for missing key | PASS | Returns "false" fallback for worktree.enabled |
-| 4 | read-pref.sh includes worktree.enabled default | PASS | Line 29: 'worktree.enabled': 'false' |
-| 5 | setup-worktrees.sh validates preconditions | PASS | pr_workflow, git repo, clean tree, no .bare/ |
-| 6 | setup-worktrees.sh conversion logic present | PASS | clone --bare, gitdir pointer, worktree add main |
-| 7 | kata-new-project asks worktree question | PASS | Conditional on PR workflow, all 3 config paths |
-| 8 | kata-configure-settings has worktree toggle | PASS | Read, ask, write, setup side-effect, confirmation |
-| 9 | Build and tests pass | PASS | 44/44 tests, build succeeds |
+| 1 | read-config.sh reads nested keys from config.json | PASS | Returns "true" for worktree.enabled when set |
+| 2 | read-config.sh returns fallback for missing keys | PASS | Returns "fallback_value" for absent key |
+| 3 | setup-worktrees.sh validates preconditions before converting | PASS | 4 checks: pr_workflow, git repo, clean tree, no .bare |
+| 4 | kata-new-project asks about worktrees when PR workflow enabled | PASS | Gated on PR Workflow = Yes, No as default |
+| 5 | kata-configure-settings shows worktree toggle when pr_workflow=true | PASS | Conditional display, writes via set-config.sh |
+| 6 | Config schema documents worktree.enabled with correct default | PASS | Default false, requires pr_workflow |
+| 7 | read-pref.sh includes worktree.enabled in DEFAULTS | PASS | 'worktree.enabled': 'false' present |
+| 8 | setup-worktrees.sh has error recovery if conversion fails | PASS | EXIT trap with recovery instructions |
+| 9 | Enabling worktrees via settings triggers setup-worktrees.sh | PASS | Runs setup, reverts config on failure |
 
-**Result: 9/9 PASS**
+## Summary
 
-*Verified: 2026-02-09*
+- **Result:** 9/9 tests passed
+- **Build:** 44/44 main tests pass, 12/12 script tests pass
+- **Date:** 2026-02-09
+- **Phase:** 44 (Config Foundation)
+- **Plans:** 44-01, 44-02
