@@ -60,7 +60,10 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 ### Active
 
-(Requirements for next milestone defined via `/kata-add-milestone`)
+- Git worktree support — v1.10.0 (plan-level agent isolation via git worktrees)
+- Config nested key reader — v1.10.0 (read-config.sh for nested JSON keys)
+- Worktree execution integration — v1.10.0 (per-plan worktrees during phase execution)
+- Worktree-aware downstream skills — v1.10.0 (milestone completion, git integration docs)
 
 ### Out of Scope
 
@@ -78,9 +81,17 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Building an LLM — use Claude, not compete with it
 - Building an agent framework — use platform-native capabilities (subagents, Skills, MCPs)
 
-## Current Milestone
+## Current Milestone: v1.10.0 Git Worktree Support
 
-No active milestone. Use `/kata-add-milestone` to start planning the next version.
+**Goal:** Add optional git worktree support so each plan agent during phase execution gets its own isolated worktree and branch, replacing the shared-directory model.
+
+**Target features:**
+
+- Config infrastructure for worktree settings with nested key reader
+- Bare repo conversion and worktree setup scripts
+- Per-plan worktree creation during phase execution with wave-barrier merge semantics
+- Worktree-aware downstream skills (milestone completion, git integration docs)
+- Graceful fallback to shared-directory execution when worktrees disabled or fail
 
 ## Context
 
@@ -300,4 +311,4 @@ See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 See `.planning/milestones/v1.6.0-ROADMAP.md` for full archive.
 
 ---
-*Last updated: 2026-02-08 after v1.9.0 milestone shipped*
+*Last updated: 2026-02-09 after v1.10.0 milestone started*
