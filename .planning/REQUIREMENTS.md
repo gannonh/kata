@@ -45,19 +45,19 @@
 
 | REQ ID   | Phase | Plan | Status  |
 | -------- | ----- | ---- | ------- |
-| CFG-01   |       |      | Pending |
-| CFG-02   |       |      | Pending |
-| CFG-03   |       |      | Pending |
-| CFG-04   |       |      | Pending |
-| CFG-05   |       |      | Pending |
-| EXEC-01  |       |      | Pending |
-| EXEC-02  |       |      | Pending |
-| EXEC-03  |       |      | Pending |
-| EXEC-04  |       |      | Pending |
-| DOWN-01  |       |      | Pending |
-| DOWN-02  |       |      | Pending |
-| HOUSE-01 |       |      | Pending |
-| HOUSE-02 |       |      | Pending |
+| CFG-01   | 44    |      | Pending |
+| CFG-02   | 44    |      | Pending |
+| CFG-03   | 44    |      | Pending |
+| CFG-04   | 44    |      | Pending |
+| CFG-05   | 44    |      | Pending |
+| EXEC-01  | 45    |      | Pending |
+| EXEC-02  | 46    |      | Pending |
+| EXEC-03  | 46    |      | Pending |
+| EXEC-04  | 46    |      | Pending |
+| DOWN-01  | 47    |      | Pending |
+| DOWN-02  | 47    |      | Pending |
+| HOUSE-01 | 45    |      | Pending |
+| HOUSE-02 | 47    |      | Pending |
 
 ---
 

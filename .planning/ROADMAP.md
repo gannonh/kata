@@ -12,10 +12,64 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - ✅ **v1.7.0 Brainstorm Integration** — Phases 35-36 (shipped 2026-02-07)
 - ✅ **v1.8.0 Adaptive Workflows** — Phases 37-39 (shipped 2026-02-08)
 - ✅ **v1.9.0 Template Overrides (Universal)** — Phases 40-43 (shipped 2026-02-08)
+- 🔄 **v1.10.0 Git Worktree Support** — Phases 44-47 (in progress)
 
-## Current Milestone: None
+## Current Milestone: v1.10.0 Git Worktree Support
 
-No active milestone. Use `/kata-add-milestone` to start planning the next version.
+**Goal:** Add optional git worktree support so each plan agent during phase execution gets its own isolated worktree and branch, replacing the shared-directory model.
+
+#### Phase 44: Config Foundation
+
+**Goal:** Establish worktree configuration infrastructure and onboarding integration.
+
+**Requirements:** CFG-01, CFG-02, CFG-03, CFG-04, CFG-05
+
+**Success Criteria** (what must be TRUE):
+1. Users can enable worktrees via `kata-configure-settings` and see worktree config appear in `.planning/config.json`
+2. `read-config.sh` successfully reads nested config keys (e.g., `worktree.enabled` returns "true")
+3. `setup-worktrees.sh` converts standard repo to bare + worktree layout without data loss
+4. New projects ask about worktrees during onboarding when PR workflow enabled
+5. Existing projects can toggle worktree mode retroactively
+
+#### Phase 45: Worktree Scripting
+
+**Goal:** Create core worktree lifecycle management tooling.
+
+**Requirements:** EXEC-01, HOUSE-01
+
+**Success Criteria** (what must be TRUE):
+1. `manage-worktree.sh create` spawns new worktree with branch for a plan
+2. `manage-worktree.sh merge` integrates worktree branch back to main and removes worktree
+3. `manage-worktree.sh list` shows active worktrees with plan associations
+4. Inline scripts from `kata-execute-phase` extracted to standalone files
+
+#### Phase 46: Execution Integration
+
+**Goal:** Wire worktree lifecycle into phase execution workflow.
+
+**Requirements:** EXEC-02, EXEC-03, EXEC-04
+
+**Success Criteria** (what must be TRUE):
+1. When worktrees enabled, `kata-execute-phase` creates isolated worktree per wave
+2. Plan executor agents receive `<working_directory>` pointing to worktree path
+3. After wave completion, worktree merges back to main and cleans up automatically
+4. Documentation explains worktree lifecycle (create → execute → merge → cleanup)
+
+#### Phase 47: Downstream & Release
+
+**Goal:** Update related skills and improve milestone completion workflow.
+
+**Requirements:** DOWN-01, DOWN-02, HOUSE-02
+
+**Success Criteria** (what must be TRUE):
+1. `git-integration.md` documents two-tier branch flow (main + release vs worktree + plan branches)
+2. `kata-complete-milestone` creates release branch respecting worktree configuration
+3. Users completing milestone see release task options (verify/fix from GitHub #83)
+
+- [ ] Phase 44: Config Foundation (0/0 plans)
+- [ ] Phase 45: Worktree Scripting (0/0 plans)
+- [ ] Phase 46: Execution Integration (0/0 plans)
+- [ ] Phase 47: Downstream & Release (0/0 plans)
 
 ## Completed Milestones
 
@@ -224,24 +278,25 @@ No active milestone. Use `/kata-add-milestone` to start planning the next versio
 
 ## Progress Summary
 
-| Milestone | Phases | Plans | Status  | Shipped    |
-| --------- | ------ | ----- | ------- | ---------- |
-| v0.1.4    | 1      | 5     | Shipped | 2026-01-18 |
-| v0.1.5    | 6      | 30    | Shipped | 2026-01-22 |
-| v1.0.0    | 4      | 5     | Shipped | 2026-01-23 |
-| v1.0.8    | 1      | 5     | Shipped | 2026-01-24 |
-| v1.0.9    | 1      | 3     | Shipped | 2026-01-25 |
-| v1.1.0    | 10     | 33    | Shipped | 2026-01-27 |
-| v1.3.0    | 2      | 4     | Shipped | 2026-01-28 |
-| v1.3.3    | 1      | 4     | Shipped | 2026-01-29 |
-| v1.4.0    | 2      | 11    | Shipped | 2026-02-01 |
-| v1.4.1    | 4      | 6     | Shipped | 2026-02-03 |
-| v1.5.0    | 3      | 6     | Shipped | 2026-02-04 |
-| v1.6.0    | 5      | 17    | Shipped | 2026-02-06 |
-| v1.7.0    | 2      | 5     | Shipped | 2026-02-07 |
-| v1.8.0    | 3      | 7     | Shipped | 2026-02-08 |
-| v1.9.0    | 4      | 5     | Shipped | 2026-02-08 |
+| Milestone | Phases | Plans | Status      | Shipped    |
+| --------- | ------ | ----- | ----------- | ---------- |
+| v0.1.4    | 1      | 5     | Shipped     | 2026-01-18 |
+| v0.1.5    | 6      | 30    | Shipped     | 2026-01-22 |
+| v1.0.0    | 4      | 5     | Shipped     | 2026-01-23 |
+| v1.0.8    | 1      | 5     | Shipped     | 2026-01-24 |
+| v1.0.9    | 1      | 3     | Shipped     | 2026-01-25 |
+| v1.1.0    | 10     | 33    | Shipped     | 2026-01-27 |
+| v1.3.0    | 2      | 4     | Shipped     | 2026-01-28 |
+| v1.3.3    | 1      | 4     | Shipped     | 2026-01-29 |
+| v1.4.0    | 2      | 11    | Shipped     | 2026-02-01 |
+| v1.4.1    | 4      | 6     | Shipped     | 2026-02-03 |
+| v1.5.0    | 3      | 6     | Shipped     | 2026-02-04 |
+| v1.6.0    | 5      | 17    | Shipped     | 2026-02-06 |
+| v1.7.0    | 2      | 5     | Shipped     | 2026-02-07 |
+| v1.8.0    | 3      | 7     | Shipped     | 2026-02-08 |
+| v1.9.0    | 4      | 5     | Shipped     | 2026-02-08 |
+| v1.10.0   | 4      | 0     | In Progress | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-08 — v1.9.0 Template Overrides (Universal) shipped*
+*Last updated: 2026-02-09 — v1.10.0 Git Worktree Support started*
