@@ -1,59 +1,70 @@
 ---
-status: in_progress
-phase: 43
-source: 43-01-SUMMARY.md
-started: 2026-02-08
-updated: 2026-02-08
+status: testing
+phase: 43-documentation
+source: [40-01-SUMMARY.md, 41-01-SUMMARY.md, 41-02-SUMMARY.md, 42-01-SUMMARY.md, 43-01-SUMMARY.md]
+started: 2026-02-08T17:00:00Z
+updated: 2026-02-08T17:00:00Z
 ---
-
-# Phase 43 UAT Session
 
 ## Current Test
 
-**Test 1 of 7**
+progress: 1 of 10
+name: Template resolution works without CLAUDE_PLUGIN_ROOT
+expected: |
+  /kata-plan-phase (or any skill that resolves templates) should work successfully
+  The resolve-template.sh script should not reference CLAUDE_PLUGIN_ROOT variable
+  Template resolution should use sibling directory discovery instead
+awaiting: user response
 
 ## Tests
 
-### Test 1: README What's New section updated to v1.9.0
-**Status:** pending
-**Expected:** README.md has "What's New in v1.9.0" section with template customization highlights
-**Location:** README.md (search for "What's New")
+### 1. Template resolution works without CLAUDE_PLUGIN_ROOT
+expected: /kata-plan-phase (or any skill that resolves templates) should work successfully. The resolve-template.sh script should not reference CLAUDE_PLUGIN_ROOT variable. Template resolution should use sibling directory discovery instead.
+result: [pending]
 
-### Test 2: v1.8.0 content preserved in details block
-**Status:** pending
-**Expected:** Previous v1.8.0 content wrapped in collapsible <details> block, matching pattern of v1.7.0
-**Location:** README.md (below v1.9.0 section)
+### 2. Template resolution works across all installation types
+expected: resolve-template.sh discovers templates via sibling skill directories. Template resolution works identically for plugin and skills-only installations. Missing templates produce clear error messages naming the template and search paths.
+result: [pending]
 
-### Test 3: Template Customization section exists with all 5 templates
-**Status:** pending
-**Expected:** New "Template Customization" section between Configuration and Why It Works, lists all 5 templates (summary-template.md, plan-template.md, UAT-template.md, verification-report.md, changelog-entry.md) with owning skills
-**Location:** README.md (after Configuration section)
+### 3. Missing template errors show search paths
+expected: When a template is not found, error message lists both project override path (.planning/templates/) and sibling skills paths that were checked.
+result: [pending]
 
-### Test 4: Template customization workflow example
-**Status:** pending
-**Expected:** Example commands show list, copy, edit, validate operations using /kata-customize
-**Location:** README.md Template Customization section
+### 4. Config validation runs in skill pre-flight
+expected: Skills that read config (kata-execute-phase, kata-plan-phase, etc.) run check-config.sh before execution. Invalid config produces warnings but doesn't block skill execution.
+result: [pending]
 
-### Test 5: TEMPLATE-CUSTOMIZATION.md exists with schema docs
-**Status:** pending
-**Expected:** .docs/TEMPLATE-CUSTOMIZATION.md file exists with schema documentation for all 5 templates (required and optional fields per template)
-**Location:** .docs/TEMPLATE-CUSTOMIZATION.md
+### 5. Template drift detection runs in skill pre-flight
+expected: Skills that use templates run check-template-drift.sh before execution. Missing required fields in user overrides produce warnings but don't block skill execution.
+result: [pending]
 
-### Test 6: Template schema format documented
-**Status:** pending
-**Expected:** Document explains kata-template-schema HTML comment format, shows how required vs optional fields are declared
-**Location:** .docs/TEMPLATE-CUSTOMIZATION.md (Schema Format section)
+### 6. No SessionStart hooks present after migration
+expected: hooks/ directory does not exist in dist/plugin/. SessionStart hooks for template-drift and config-validator are removed. Validation runs in skills instead.
+result: [pending]
 
-### Test 7: Migration guide from hooks to skills
-**Status:** pending
-**Expected:** Migration guide explains what changed from v1.8.0 (SessionStart hooks) to v1.9.0 (skills-based validation), lists removed files, documents which 5 skills run validation
-**Location:** .docs/TEMPLATE-CUSTOMIZATION.md (Migration from Hooks section)
+### 7. `/kata-customize` skill lists all templates
+expected: Running /kata-customize shows all 5 customizable templates (summary-template.md, plan-template.md, UAT-template.md, verification-report.md, changelog-entry.md) with descriptions and override status.
+result: [pending]
+
+### 8. Template copy operation creates override
+expected: /kata-customize copy <template-name> copies the plugin default to .planning/templates/. If override exists, prompts for overwrite confirmation. Copied file is valid and passes drift check.
+result: [pending]
+
+### 9. Template edit validates after save
+expected: After editing a template override, validation runs automatically. Missing required fields are reported. Valid overrides pass with no warnings.
+result: [pending]
+
+### 10. Template override documentation in README
+expected: README.md includes a "Template Customization" section listing all 5 templates with descriptions. Example workflow shows list, copy, edit, and validate operations. .docs/TEMPLATE-CUSTOMIZATION.md exists with comprehensive schema documentation.
+result: [pending]
 
 ## Summary
 
-**Progress:** 0/7 tests completed
-**Issues found:** 0
-**Severity breakdown:** 0 critical, 0 important, 0 minor
+total: 10
+passed: 0
+issues: 0
+pending: 10
+skipped: 0
 
 ## Gaps
 

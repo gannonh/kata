@@ -150,6 +150,13 @@ export function getAffectedTestFiles(baseBranch = 'origin/main') {
   const affectedSkills = getAffectedSkills(baseBranch);
   const testFiles = [];
 
+  // Skills with template scripts trigger script-level tests
+  const templateSkills = ['kata-execute-phase', 'kata-customize', 'kata-doctor'];
+  const scriptTestPath = join(KATA_ROOT, 'tests', 'scripts', 'template-system.test.js');
+  if (affectedSkills.some(s => templateSkills.includes(s)) && existsSync(scriptTestPath)) {
+    testFiles.push(scriptTestPath);
+  }
+
   for (const skill of affectedSkills) {
     // Convert kata-{name} to {name}
     const testName = skill.replace(/^kata-/, '');

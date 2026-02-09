@@ -73,6 +73,17 @@ try {
   const templates = [];
   const skillDirs = fs.readdirSync(skillsDir).filter(d => d.startsWith('kata-'));
 
+  // Find project root by walking up from cwd looking for .planning/
+  let projectRoot = null;
+  let currentDir = process.cwd();
+  while (currentDir !== '/') {
+    if (fs.existsSync(path.join(currentDir, '.planning'))) {
+      projectRoot = currentDir;
+      break;
+    }
+    currentDir = path.dirname(currentDir);
+  }
+
   for (const skillDir of skillDirs) {
     const refsDir = path.join(skillsDir, skillDir, 'references');
     if (!fs.existsSync(refsDir)) continue;
@@ -88,9 +99,8 @@ try {
       const kt = schema.kata_template;
       const description = kt.name || filename;
 
-      // Check if project override exists
-      const overridePath = path.join(process.cwd(), '.planning', 'templates', filename);
-      const hasOverride = fs.existsSync(overridePath);
+      // Check if project override exists (only if we found project root)
+      const hasOverride = projectRoot && fs.existsSync(path.join(projectRoot, '.planning', 'templates', filename));
 
       templates.push({
         filename,
