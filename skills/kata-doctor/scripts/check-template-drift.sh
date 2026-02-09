@@ -79,12 +79,13 @@ function parseFrontmatter(content) {
 
 function checkFieldPresence(content, required) {
   const missing = [];
-  const frontmatter = parseFrontmatter(content);
   const bodyContent = content.replace(/^---\n[\s\S]*?\n---\n?/, '');
 
+  // For template files, required frontmatter fields should appear as examples in the body
+  // (not in the template file's own frontmatter)
   for (const field of required.frontmatter) {
     const pattern = new RegExp(`^${field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`, 'm');
-    if (!pattern.test(frontmatter)) missing.push(field);
+    if (!pattern.test(bodyContent)) missing.push(field);
   }
 
   for (const section of required.body) {
