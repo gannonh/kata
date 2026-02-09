@@ -1,12 +1,20 @@
-<!-- kata-template-schema
-required-fields:
-  frontmatter: [status, phase, source, started, updated]
-  body: [Current Test, Tests, Summary, Gaps]
-optional-fields:
-  frontmatter: []
-  body: []
-version: 1
--->
+---
+kata_template:
+  name: "UAT Template"
+  version: 2
+  required:
+    frontmatter: [status, phase, source, started, updated]
+    body: [Current Test, Tests, Summary, Gaps]
+  optional:
+    frontmatter: []
+    body: []
+  example_frontmatter:
+    status: testing
+    phase: 04-comments
+    source: [04-01-SUMMARY.md, 04-02-SUMMARY.md]
+    started: 2025-01-15T10:30:00Z
+    updated: 2025-01-15T10:45:00Z
+---
 
 # UAT Template
 

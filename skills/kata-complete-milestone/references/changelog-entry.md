@@ -1,12 +1,14 @@
-<!-- kata-template-schema
-required-fields:
-  frontmatter: []
-  body: [Added, Fixed, Changed]
-optional-fields:
-  frontmatter: []
-  body: [Deprecated, Removed, Security]
-version: 1
--->
+---
+kata_template:
+  name: "Changelog Entry Template"
+  version: 2
+  required:
+    frontmatter: []
+    body: [Added, Fixed, Changed]
+  optional:
+    frontmatter: []
+    body: [Deprecated, Removed, Security]
+---
 
 <format>
 
