@@ -303,6 +303,18 @@ questions: [
   }
 ]
 
+# If PR Workflow = Yes, ask about worktrees:
+{
+  header: "Git Worktrees",
+  question: "Use git worktrees for plan isolation? (each plan agent gets its own branch and working directory)",
+  multiSelect: false,
+  options: [
+    { label: "No (Recommended)", description: "Plans share the working directory (standard git workflow)" },
+    { label: "Yes", description: "Each plan gets an isolated worktree and branch (advanced)" }
+  ]
+}
+# If PR Workflow = No, skip this question entirely (worktrees require PR workflow).
+
 # If GitHub Tracking = Yes, ask follow-up:
 {
   header: "Issue Creation",
@@ -381,6 +393,9 @@ Create `.planning/config.json` with settings (workflow and display defaults are 
     "plan_check": true,
     "verifier": true
   },
+  "worktree": {
+    "enabled": true|false
+  },
   "github": {
     "enabled": true|false,
     "issueMode": "auto|ask|never"
@@ -410,6 +425,17 @@ Note: `model_profile` is intentionally absent from initial config. Its absence t
 - Set `github.enabled: false`
 - Set `github.issueMode: "never"`
 
+**Worktree conditional logic:**
+
+**If PR Workflow = Yes AND Worktrees = Yes:**
+- Add `"worktree": { "enabled": true }` to config.json
+
+**If PR Workflow = Yes AND Worktrees = No:**
+- Add `"worktree": { "enabled": false }` to config.json
+
+**If PR Workflow = No:**
+- Do NOT add worktree key to config.json (absence = disabled)
+
 **If commit_docs = No:**
 - Set `commit_docs: false` in config.json
 - Add `.planning/` to `.gitignore` (create if needed)
@@ -438,6 +464,19 @@ EOF
 ```
 
 **Note:** Run `/kata-configure-settings` anytime to update these preferences.
+
+**If Worktrees = Yes (after config.json is written):**
+
+Call setup-worktrees.sh to convert to bare repo + worktree layout:
+
+```bash
+if ! bash "skills/kata-configure-settings/scripts/setup-worktrees.sh"; then
+  echo "Warning: Worktree setup failed. Reverting worktree.enabled to false."
+  bash "skills/kata-configure-settings/scripts/set-config.sh" "worktree.enabled" "false"
+fi
+```
+
+Worktree setup failure is non-fatal. The project setup continues regardless.
 
 **If pr_workflow = Yes:**
 
