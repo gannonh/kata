@@ -1,5 +1,32 @@
 # Project Milestones: Kata
 
+## v1.9.0 Template Overrides Universal (Shipped: 2026-02-08)
+
+**Delivered:** Universal template override infrastructure with portable resolution, in-skill validation, template customization UI, and full documentation.
+
+**Phases completed:** 40-43 (5 plans total)
+
+**Key accomplishments:**
+
+- Universal template resolution via sibling discovery, works for plugin and skills-only installations
+- `/kata-customize` skill for listing, copying, editing, and validating template overrides
+- Validation migrated from SessionStart hooks into skills (template drift + config validation)
+- Template system test suite covering resolution, drift detection, and override behavior
+- All default templates converted to YAML frontmatter with schema documentation
+- Comprehensive template customization docs and hooks-to-skills migration guide
+
+**Stats:**
+
+- 71 files changed, 5,610 insertions, 527 deletions
+- 4 phases, 5 plans
+- 1 day (2026-02-08)
+
+**Git range:** `v1.8.0` → `v1.9.0`
+
+**What's next:** TBD
+
+---
+
 ## v1.8.0 Adaptive Workflows (Shipped: 2026-02-08)
 
 **Delivered:** Project-specific workflow customization through preferences storage, progressive capture, template overrides, and config-driven workflow variants.
