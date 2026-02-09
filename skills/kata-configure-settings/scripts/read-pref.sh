@@ -26,6 +26,7 @@ const DEFAULTS = {
   'workflow.research': 'true',
   'workflow.plan_check': 'true',
   'workflow.verifier': 'true',
+  'worktree.enabled': 'false',
   'github.enabled': 'false',
   'github.issueMode': 'never',
   'workflows.execute-phase.post_task_command': '',
