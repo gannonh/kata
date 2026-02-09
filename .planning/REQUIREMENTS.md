@@ -4,11 +4,11 @@
 
 ### Config Infrastructure
 
-- [ ] **CFG-01**: `worktree.enabled` added to config schema in `planning-config.md`
-- [ ] **CFG-02**: `read-config.sh` created for reading nested JSON keys (Node-based, mirrors `set-config.sh`)
-- [ ] **CFG-03**: `setup-worktrees.sh` script converts existing repo to bare repo + worktree layout (non-destructive)
-- [ ] **CFG-04**: `kata-new-project` Phase 5 asks worktree question (conditional on `pr_workflow: true`)
-- [ ] **CFG-05**: `kata-configure-settings` supports worktree toggle for existing projects
+- [x] **CFG-01**: `worktree.enabled` added to config schema in `planning-config.md`
+- [x] **CFG-02**: `read-config.sh` created for reading nested JSON keys (Node-based, mirrors `set-config.sh`)
+- [x] **CFG-03**: `setup-worktrees.sh` script converts existing repo to bare repo + worktree layout (non-destructive)
+- [x] **CFG-04**: `kata-new-project` Phase 5 asks worktree question (conditional on `pr_workflow: true`)
+- [x] **CFG-05**: `kata-configure-settings` supports worktree toggle for existing projects
 
 ### Execution Integration
 
@@ -45,11 +45,11 @@
 
 | REQ ID   | Phase | Plan | Status  |
 | -------- | ----- | ---- | ------- |
-| CFG-01   | 44    |      | Pending |
-| CFG-02   | 44    |      | Pending |
-| CFG-03   | 44    |      | Pending |
-| CFG-04   | 44    |      | Pending |
-| CFG-05   | 44    |      | Pending |
+| CFG-01   | 44    | 01   | Complete |
+| CFG-02   | 44    | 01   | Complete |
+| CFG-03   | 44    | 02   | Complete |
+| CFG-04   | 44    | 02   | Complete |
+| CFG-05   | 44    | 02   | Complete |
 | EXEC-01  | 45    |      | Pending |
 | EXEC-02  | 46    |      | Pending |
 | EXEC-03  | 46    |      | Pending |
