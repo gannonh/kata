@@ -34,6 +34,8 @@ kata_template:
 
 </format>
 
+_Author: Kata Orchestrator_
+
 <commit_type_mapping>
 
 ## Commit Type Mapping

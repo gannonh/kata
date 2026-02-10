@@ -84,7 +84,7 @@ Store resolved models for use in Task calls below.
    if [ -f .planning/ROADMAP.md ]; then
      bash "../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
      FORMAT_EXIT=$?
-     
+
      if [ $FORMAT_EXIT -eq 1 ]; then
        echo "Old roadmap format detected. Running auto-migration..."
      fi
@@ -110,11 +110,13 @@ Store resolved models for use in Task calls below.
    ```
 
 1.1. **Validate phase exists**
-   Find phase directory using the discovery script:
-   ```bash
-   bash "./scripts/find-phase.sh" "$PHASE_ARG"
-   ```
-   Outputs `PHASE_DIR`, `PLAN_COUNT`, and `PHASE_STATE` as key=value pairs. Exit code 1 = not found, 2 = no plans. Parse the output to set these variables for subsequent steps.
+Find phase directory using the discovery script:
+
+```bash
+bash "./scripts/find-phase.sh" "$PHASE_ARG"
+```
+
+Outputs `PHASE_DIR`, `PLAN_COUNT`, and `PHASE_STATE` as key=value pairs. Exit code 1 = not found, 2 = no plans. Parse the output to set these variables for subsequent steps.
 
 1.25. **Move phase to active (state transition)**
 
@@ -433,9 +435,11 @@ Goal verified ✓
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
+
 - `/kata-review-pull-requests` — automated code review
-{If PR_WORKFLOW: - `gh pr merge --merge --delete-branch` — merge PR directly}
-- `/kata-discuss-phase {Z+1}` — skip to next phase
+  - {If PR_WORKFLOW: `gh pr merge --merge --delete-branch` — merge PR directly}
+- `/kata-discuss-phase {Z+1}` — gather context for next phase
+- `/kata-plan-phase {Z+1}` — plan next phase directly
 
 ───────────────────────────────────────────────────────────────
 
@@ -466,8 +470,9 @@ All phase goals verified ✓
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
+
 - `/kata-review-pull-requests` — automated code review
-{If PR_WORKFLOW: - `gh pr merge --merge --delete-branch` — merge PR directly}
+  - {If PR_WORKFLOW: `gh pr merge --merge --delete-branch` — merge PR directly}
 - `/kata-audit-milestone` — skip UAT, audit directly
 - `/kata-complete-milestone` — skip audit, archive directly
 
