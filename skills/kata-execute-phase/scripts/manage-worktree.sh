@@ -76,13 +76,92 @@ cmd_create() {
 }
 
 cmd_merge() {
-  echo "Not implemented"
-  exit 1
+  local phase="${1:?Usage: manage-worktree.sh merge <phase> <plan> [base-branch]}"
+  local plan="${2:?Usage: manage-worktree.sh merge <phase> <plan> [base-branch]}"
+  local base_branch
+  base_branch=$(resolve_base_branch "${3:-}")
+
+  local branch_name="plan/${phase}-${plan}"
+  local worktree_path="plan-${phase}-${plan}"
+
+  # Verify worktree exists
+  if [ ! -d "$worktree_path" ]; then
+    echo "Error: No worktree at $worktree_path"
+    exit 1
+  fi
+
+  # Check for uncommitted changes
+  if [ -n "$(git -C "$worktree_path" status --porcelain)" ]; then
+    echo "Error: Worktree has uncommitted changes. Commit or stash first."
+    exit 1
+  fi
+
+  # Switch to base branch in main worktree
+  git -C main checkout "$base_branch"
+
+  # Merge plan branch into base
+  if ! git -C main merge "$branch_name" --no-edit; then
+    echo "Error: Merge conflict. Resolve manually in main/ worktree."
+    echo "  cd main && git merge --abort  # to abort"
+    echo "  cd main && git mergetool      # to resolve"
+    exit 1
+  fi
+
+  # Remove worktree
+  GIT_DIR=.bare git worktree remove "$worktree_path"
+
+  # Delete plan branch
+  GIT_DIR=.bare git branch -d "$branch_name"
+
+  echo "MERGED=true"
+  echo "BASE_BRANCH=$base_branch"
+  echo "STATUS=merged"
 }
 
 cmd_list() {
-  echo "Not implemented"
-  exit 1
+  local count=0
+  local output=""
+
+  # Parse porcelain worktree list
+  local current_path=""
+  local current_branch=""
+
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^worktree\ (.+) ]]; then
+      current_path="${BASH_REMATCH[1]}"
+    elif [[ "$line" =~ ^branch\ refs/heads/(.+) ]]; then
+      current_branch="${BASH_REMATCH[1]}"
+    elif [ -z "$line" ]; then
+      # End of worktree entry; check if it matches plan-* pattern
+      local dir_name
+      dir_name=$(basename "$current_path")
+      if [[ "$dir_name" =~ ^plan-([0-9]+)-([0-9]+)$ ]]; then
+        local phase="${BASH_REMATCH[1]}"
+        local plan="${BASH_REMATCH[2]}"
+        output+="${dir_name}  ${current_branch}  phase=${phase} plan=${plan}"$'\n'
+        count=$((count + 1))
+      fi
+      current_path=""
+      current_branch=""
+    fi
+  done < <(GIT_DIR=.bare git worktree list --porcelain)
+
+  # Handle last entry (no trailing blank line)
+  if [ -n "$current_path" ]; then
+    local dir_name
+    dir_name=$(basename "$current_path")
+    if [[ "$dir_name" =~ ^plan-([0-9]+)-([0-9]+)$ ]]; then
+      local phase="${BASH_REMATCH[1]}"
+      local plan="${BASH_REMATCH[2]}"
+      output+="${dir_name}  ${current_branch}  phase=${phase} plan=${plan}"$'\n'
+      count=$((count + 1))
+    fi
+  fi
+
+  echo "WORKTREE_COUNT=$count"
+  if [ -n "$output" ]; then
+    printf "%s" "$output"
+  fi
 }
 
 # --- Main ---
