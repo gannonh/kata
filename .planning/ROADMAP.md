@@ -72,7 +72,9 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - [x] Phase 45: Worktree Scripting (2/2 plans) — completed 2026-02-09
   - [x] 45-01-PLAN.md — manage-worktree.sh create/merge/list (EXEC-01)
   - [x] 45-02-PLAN.md — Extract inline scripts to standalone files (HOUSE-01)
-- [ ] Phase 46: Execution Integration (0/0 plans)
+- [x] Phase 46: Execution Integration (2/2 plans) — completed 2026-02-10
+  - [x] 46-01-PLAN.md — Worktree awareness in reference docs (EXEC-03, EXEC-04)
+  - [x] 46-02-PLAN.md — Wire worktree lifecycle into SKILL.md orchestrator (EXEC-02)
 - [ ] Phase 47: Downstream & Release (0/0 plans)
 
 ## Completed Milestones
@@ -299,8 +301,8 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 | v1.7.0    | 2      | 5     | Shipped     | 2026-02-07 |
 | v1.8.0    | 3      | 7     | Shipped     | 2026-02-08 |
 | v1.9.0    | 4      | 5     | Shipped     | 2026-02-08 |
-| v1.10.0   | 4      | 2     | In Progress | —          |
+| v1.10.0   | 4      | 6     | In Progress | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-09 — Phase 45 Worktree Scripting completed*
+*Last updated: 2026-02-10 — Phase 46 Execution Integration complete (2/2 plans verified)*

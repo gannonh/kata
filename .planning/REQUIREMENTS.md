@@ -13,9 +13,9 @@
 ### Execution Integration
 
 - [x] **EXEC-01**: `manage-worktree.sh` script with create/merge/remove/list subcommands
-- [ ] **EXEC-02**: `kata-execute-phase` step 4 creates plan worktrees per wave, merges after wave, cleans up
-- [ ] **EXEC-03**: `phase-execute.md` updated with worktree lifecycle documentation
-- [ ] **EXEC-04**: `executor-instructions.md` updated with `<working_directory>` worktree awareness
+- [x] **EXEC-02**: `kata-execute-phase` step 4 creates plan worktrees per wave, merges after wave, cleans up
+- [x] **EXEC-03**: `phase-execute.md` updated with worktree lifecycle documentation
+- [x] **EXEC-04**: `executor-instructions.md` updated with `<working_directory>` worktree awareness
 
 ### Downstream Skills
 
@@ -51,9 +51,9 @@
 | CFG-04   | 44    | 02   | Complete |
 | CFG-05   | 44    | 02   | Complete |
 | EXEC-01  | 45    | 01   | Complete |
-| EXEC-02  | 46    |      | Pending |
-| EXEC-03  | 46    |      | Pending |
-| EXEC-04  | 46    |      | Pending |
+| EXEC-02  | 46    | 02   | Complete |
+| EXEC-03  | 46    | 01   | Complete |
+| EXEC-04  | 46    | 01   | Complete |
 | DOWN-01  | 47    |      | Pending |
 | DOWN-02  | 47    |      | Pending |
 | HOUSE-01 | 45    | 02   | Complete |
