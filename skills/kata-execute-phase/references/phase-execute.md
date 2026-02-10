@@ -32,6 +32,59 @@ Default to "balanced" if not set.
 Store resolved models for use in Task calls below.
 </step>
 
+<step name="worktree_lifecycle">
+Determine whether worktree isolation is enabled and manage the lifecycle for each plan.
+
+**1. Detection:**
+
+```bash
+WORKTREE_ENABLED=$(bash scripts/read-config.sh "worktree.enabled" "false")
+```
+
+Store as `WORKTREE_ENABLED` for use in execute_waves. When `false` (default), skip all worktree operations. Existing non-worktree execution is unchanged.
+
+**2. Create (per plan, before agent spawn):**
+
+Before spawning an executor agent for a plan, create its worktree:
+
+```bash
+if [ "$WORKTREE_ENABLED" = "true" ]; then
+  eval "$(bash scripts/manage-worktree.sh create "$PHASE" "$PLAN")"
+  # WORKTREE_PATH now set (e.g., "plan-46-01")
+fi
+```
+
+The script is idempotent. If the worktree already exists, it returns the path without error.
+
+**3. Inject path into agent prompt:**
+
+Add `<working_directory>` to each executor agent's Task() prompt:
+
+```xml
+<working_directory>{WORKTREE_PATH}</working_directory>
+```
+
+The executor agent reads this block and cd's into the path before any file or git operations.
+
+**4. Merge (per plan, after agent completes):**
+
+After all agents in a wave finish, merge each plan's branch back to the base:
+
+```bash
+if [ "$WORKTREE_ENABLED" = "true" ]; then
+  bash scripts/manage-worktree.sh merge "$PHASE" "$PLAN"
+fi
+```
+
+This fast-forward merges the plan branch into the base branch and removes the worktree directory.
+
+**5. Cleanup on failure:**
+
+If an agent fails, its worktree remains on disk for debugging. The user can inspect the state and then either:
+- Complete the work manually and run `manage-worktree.sh merge`
+- Discard the work with `git worktree remove plan-{phase}-{plan}`
+</step>
+
 <step name="load_project_state">
 Before any operation, read project state:
 
@@ -195,6 +248,8 @@ The "What it builds" column comes from skimming plan names/objectives. Keep it b
 
 <step name="execute_waves">
 Execute each wave in sequence. Autonomous plans within a wave run in parallel.
+
+**Worktree mode:** If `WORKTREE_ENABLED=true`, see `worktree_lifecycle` step for pre-spawn (create worktree) and post-wave (merge worktree) operations that wrap each wave.
 
 **For each wave:**
 
@@ -660,6 +715,10 @@ Each subagent: Fresh 200k context
 **No polling.** Task tool blocks until completion. No TaskOutput loops.
 
 **No context bleed.** Orchestrator never reads workflow internals. Just paths and results.
+
+<worktree_context>
+Worktree isolation adds approximately 2% orchestrator context overhead: one config read at startup (`WORKTREE_ENABLED` check) plus per-wave `manage-worktree.sh create` and `manage-worktree.sh merge` calls. Each agent receives a clean working directory on an isolated git branch. The orchestrator tracks no additional state beyond the `WORKTREE_PATH` variable per plan.
+</worktree_context>
 </context_efficiency>
 
 <failure_handling>
