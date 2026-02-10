@@ -133,8 +133,8 @@ AskUserQuestion([
     header: "Git Worktrees",
     multiSelect: false,
     options: [
-      { label: "No", description: "Plans share the working directory (standard)" },
-      { label: "Yes", description: "Each plan gets isolated worktree and branch (advanced)" }
+      { label: "Yes (Recommended)", description: "Each plan gets isolated worktree and branch" },
+      { label: "No", description: "Plans share the working directory (standard)" }
     ]
   },
   // If PR_WORKFLOW_VAL = "false", omit the Git Worktrees question entirely.

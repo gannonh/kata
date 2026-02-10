@@ -309,8 +309,8 @@ questions: [
   question: "Use git worktrees for plan isolation? (each plan agent gets its own branch and working directory)",
   multiSelect: false,
   options: [
-    { label: "No (Recommended)", description: "Plans share the working directory (standard git workflow)" },
-    { label: "Yes", description: "Each plan gets an isolated worktree and branch (advanced)" }
+    { label: "Yes (Recommended)", description: "Each plan gets an isolated worktree and branch" },
+    { label: "No", description: "Plans share the working directory (standard git workflow)" }
   ]
 }
 # If PR Workflow = No, skip this question entirely (worktrees require PR workflow).
