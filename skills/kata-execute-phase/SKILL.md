@@ -133,7 +133,10 @@ PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:s
 **If PR_WORKFLOW=true:**
 
 ```bash
-BRANCH_OUTPUT=$(bash "./scripts/create-phase-branch.sh" "$PHASE_DIR")
+if ! BRANCH_OUTPUT=$(bash "./scripts/create-phase-branch.sh" "$PHASE_DIR"); then
+  echo "Error: Failed to create phase branch" >&2
+  exit 1
+fi
 eval "$BRANCH_OUTPUT"
 # Outputs: BRANCH, BRANCH_TYPE, MILESTONE, PHASE_NUM, SLUG
 ```
@@ -198,9 +201,12 @@ Kata ► EXECUTING PHASE {X}: {Phase Name}
      PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
      if [ "$PR_WORKFLOW" = "true" ]; then
        BRANCH=$(git branch --show-current)
-       PR_OUTPUT=$(bash "./scripts/create-draft-pr.sh" "$PHASE_DIR" "$BRANCH")
-       eval "$PR_OUTPUT"
-       # Outputs: PR_NUMBER (and possibly EXISTING_PR)
+       if ! PR_OUTPUT=$(bash "./scripts/create-draft-pr.sh" "$PHASE_DIR" "$BRANCH"); then
+         echo "Error: Failed to create draft PR" >&2
+       else
+         eval "$PR_OUTPUT"
+         # Outputs: PR_NUMBER (and possibly EXISTING_PR)
+       fi
      fi
      ```
 

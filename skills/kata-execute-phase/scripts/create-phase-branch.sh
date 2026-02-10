@@ -3,7 +3,7 @@
 # Extracts milestone, phase number, slug, and branch type from project context.
 # Usage: create-phase-branch.sh <phase-dir>
 # Output: key=value pairs (BRANCH, BRANCH_TYPE, MILESTONE, PHASE_NUM, SLUG)
-# Exit: 0=success (on branch), 1=error
+# Exit: 0=success (leaves you on the branch), 1=error
 
 set -euo pipefail
 
@@ -12,7 +12,7 @@ PHASE_DIR="${1:?Usage: create-phase-branch.sh <phase-dir>}"
 # 1. Get milestone version from ROADMAP.md
 MILESTONE=$(grep -E "Current Milestone:|🔄" .planning/ROADMAP.md | grep -oE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 | tr -d 'v')
 if [ -z "$MILESTONE" ]; then
-  echo "ERROR: Could not determine milestone from ROADMAP.md"
+  echo "Error: Could not determine milestone from ROADMAP.md" >&2
   exit 1
 fi
 
@@ -20,7 +20,7 @@ fi
 PHASE_NUM=$(basename "$PHASE_DIR" | sed -E 's/^([0-9]+)-.*/\1/')
 SLUG=$(basename "$PHASE_DIR" | sed -E 's/^[0-9]+-//')
 
-# 3. Infer branch type from phase goal (feat/fix/docs/refactor/chore, default feat)
+# 3. Infer branch type from phase goal (precedence: fix > docs > refactor > chore > feat)
 PHASE_GOAL=$(grep -A 5 "Phase ${PHASE_NUM}:" .planning/ROADMAP.md | grep "Goal:" | head -1 || echo "")
 if echo "$PHASE_GOAL" | grep -qi "fix\|bug\|patch"; then
   BRANCH_TYPE="fix"
@@ -34,7 +34,7 @@ else
   BRANCH_TYPE="feat"
 fi
 
-# 4. Create branch with re-run protection
+# 4. Create branch (idempotent: resumes on existing branch)
 BRANCH="${BRANCH_TYPE}/v${MILESTONE}-${PHASE_NUM}-${SLUG}"
 if git show-ref --verify --quiet refs/heads/"$BRANCH"; then
   git checkout "$BRANCH"

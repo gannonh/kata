@@ -19,7 +19,7 @@ READ_CONFIG="$SCRIPT_DIR/../../kata-configure-settings/scripts/read-config.sh"
 check_preconditions() {
   # 1. Bare repo layout required
   if [ ! -d .bare ]; then
-    echo "Error: Bare repo layout required. Run setup-worktrees.sh first."
+    echo "Error: Bare repo layout required. Run setup-worktrees.sh first." >&2
     exit 1
   fi
 
@@ -27,7 +27,7 @@ check_preconditions() {
   local worktree_enabled
   worktree_enabled=$(bash "$READ_CONFIG" "worktree.enabled" "false")
   if [ "$worktree_enabled" != "true" ]; then
-    echo "Error: worktree.enabled is false in config."
+    echo "Error: worktree.enabled is false in config." >&2
     exit 1
   fi
 }
@@ -86,24 +86,30 @@ cmd_merge() {
 
   # Verify worktree exists
   if [ ! -d "$worktree_path" ]; then
-    echo "Error: No worktree at $worktree_path"
+    echo "Error: No worktree at $worktree_path" >&2
     exit 1
   fi
 
   # Check for uncommitted changes
   if [ -n "$(git -C "$worktree_path" status --porcelain)" ]; then
-    echo "Error: Worktree has uncommitted changes. Commit or stash first."
+    echo "Error: Worktree has uncommitted changes. Commit or stash first." >&2
+    exit 1
+  fi
+
+  # Validate main worktree directory exists
+  if [ ! -d "main" ]; then
+    echo "Error: main worktree directory not found" >&2
     exit 1
   fi
 
   # Switch to base branch in main worktree
   git -C main checkout "$base_branch"
 
-  # Merge plan branch into base
+  # Merge plan branch into base (fast-forward preferred, no editor for merge commit)
   if ! git -C main merge "$branch_name" --no-edit; then
-    echo "Error: Merge conflict. Resolve manually in main/ worktree."
-    echo "  cd main && git merge --abort  # to abort"
-    echo "  cd main && git mergetool      # to resolve"
+    echo "Error: Merge conflict. Resolve manually in main/ worktree." >&2
+    echo "  cd main && git merge --abort  # to abort" >&2
+    echo "  cd main && git mergetool      # to resolve" >&2
     exit 1
   fi
 
@@ -144,19 +150,7 @@ cmd_list() {
       current_path=""
       current_branch=""
     fi
-  done < <(GIT_DIR=.bare git worktree list --porcelain)
-
-  # Handle last entry (no trailing blank line)
-  if [ -n "$current_path" ]; then
-    local dir_name
-    dir_name=$(basename "$current_path")
-    if [[ "$dir_name" =~ ^plan-([0-9]+)-([0-9]+)$ ]]; then
-      local phase="${BASH_REMATCH[1]}"
-      local plan="${BASH_REMATCH[2]}"
-      output+="${dir_name}  ${current_branch}  phase=${phase} plan=${plan}"$'\n'
-      count=$((count + 1))
-    fi
-  fi
+  done < <(GIT_DIR=.bare git worktree list --porcelain; echo "")
 
   echo "WORKTREE_COUNT=$count"
   if [ -n "$output" ]; then
@@ -186,8 +180,8 @@ case "$SUBCOMMAND" in
   merge)  cmd_merge "$@" ;;
   list)   cmd_list "$@" ;;
   *)
-    echo "Error: Unknown subcommand '$SUBCOMMAND'"
-    echo "Usage: manage-worktree.sh <create|merge|list> [args]"
+    echo "Error: Unknown subcommand '$SUBCOMMAND'" >&2
+    echo "Usage: manage-worktree.sh <create|merge|list> [args]" >&2
     exit 1
     ;;
 esac
