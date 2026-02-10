@@ -6,9 +6,9 @@
   "scripts": {
     "test": "node --test --test-reporter spec ./tests/build.test.js ./tests/migration-validation.test.js",
     "test:smoke": "node --test --test-reporter spec ./tests/smoke.test.js",
-    "test:scripts": "node --test --test-reporter spec ./tests/scripts/template-system.test.js",
+    "test:scripts": "node --test --test-reporter spec ./tests/scripts/template-system.test.js ./tests/scripts/read-config.test.js ./tests/scripts/setup-worktrees.test.js ./tests/scripts/create-phase-branch.test.js",
     "test:artifacts": "node --test --test-reporter spec ./tests/artifact-validation.test.js",
-    "test:all": "node --test --test-reporter spec ./tests/build.test.js ./tests/smoke.test.js ./tests/artifact-validation.test.js ./tests/scripts/template-system.test.js",
+    "test:all": "node --test --test-reporter spec ./tests/build.test.js ./tests/smoke.test.js ./tests/artifact-validation.test.js ./tests/scripts/template-system.test.js ./tests/scripts/read-config.test.js ./tests/scripts/setup-worktrees.test.js ./tests/scripts/create-phase-branch.test.js",
     "test:skills": "node --test --test-reporter spec --test-reporter-destination stdout --test-reporter junit --test-reporter-destination junit.xml tests/skills/*.test.js",
     "test:skill": "node --test --test-reporter spec",
     "test:affected": "node -e \"import('./tests/harness/affected.js').then(m => console.log(m.getAffectedTestFiles().join(' ')))\" | xargs -r node --test",
