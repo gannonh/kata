@@ -179,9 +179,25 @@ Kata ► EXECUTING PHASE {X}: {Phase Name}
 | 2    | 03     | {plan name}                   |
 
 **Model profile:** {profile} (executor → {model})
+{If WORKTREE_ENABLED=true: **Worktree isolation:** enabled (each plan gets isolated worktree)}
 
 4. **Execute waves**
    For each wave in order:
+
+   - **Create worktrees (if enabled):**
+     If `WORKTREE_ENABLED=true`, create a worktree for each plan in the wave:
+
+     ```bash
+     if [ "$WORKTREE_ENABLED" = "true" ]; then
+       for plan_num in $WAVE_PLAN_NUMBERS; do
+         WT_OUTPUT=$(bash "./scripts/manage-worktree.sh" create "$PHASE_NUM" "$plan_num")
+         eval "$WT_OUTPUT"
+         # Stores WORKTREE_PATH, WORKTREE_BRANCH, STATUS for each plan
+         # Save per-plan: WORKTREE_PATH_${plan_num}=$WORKTREE_PATH
+       done
+     fi
+     ```
+
    - Spawn `general-purpose` executor for each plan in wave (parallel Task calls)
    - Wait for completion (Task blocks)
    - Verify SUMMARYs created
@@ -202,6 +218,25 @@ Kata ► EXECUTING PHASE {X}: {Phase Name}
      ```
 
      This update happens ONCE per wave (after all plans in wave complete), not per-plan, avoiding race conditions.
+
+   - **Merge worktrees (if enabled):**
+     After all agents in wave complete and SUMMARYs verified, merge each plan's worktree:
+
+     ```bash
+     if [ "$WORKTREE_ENABLED" = "true" ]; then
+       for plan_num in $WAVE_PLAN_NUMBERS; do
+         MERGE_OUTPUT=$(bash "./scripts/manage-worktree.sh" merge "$PHASE_NUM" "$plan_num")
+         eval "$MERGE_OUTPUT"
+         if [ "$STATUS" != "merged" ]; then
+           echo "Warning: Worktree merge failed for plan $plan_num" >&2
+         fi
+       done
+     fi
+     ```
+
+     Merge happens ONCE per wave after all agents complete (same pattern as issue checkbox updates). This ensures all plan branches are integrated before the next wave starts.
+
+     **If merge fails:** Report the failure but continue. User can resolve merge conflicts manually and re-run. The worktree and branch remain for inspection.
 
    - **Open Draft PR (first wave only, pr_workflow only):**
 
@@ -496,12 +531,21 @@ Before spawning, read file contents using Read tool. The `@` syntax does not wor
 - `.planning/STATE.md`
 - `references/executor-instructions.md` (relative to skill base directory) — store as `executor_instructions_content`
 
+**Working directory injection (worktree mode):**
+
+If `WORKTREE_ENABLED=true`: For each plan, look up `WORKTREE_PATH_{plan_num}` from the pre-spawn creation step (step 4).
+
+Add to each Task() prompt (after `</workflow_config>`):
+
+- When `WORKTREE_ENABLED=true`: append `\n<working_directory>{worktree_path_for_this_plan}</working_directory>`
+- When `WORKTREE_ENABLED=false`: Omit the `<working_directory>` block entirely (existing behavior).
+
 Spawn all plans in a wave with a single message containing multiple Task calls, with inlined content:
 
 ```
-Task(prompt="<agent-instructions>\n{executor_instructions_content}\n</agent-instructions>\n\nExecute plan at {plan_01_path}\n\n<plan>\n{plan_01_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>\n\n<workflow_config>\npost_task_command: {EXEC_POST_TASK_CMD}\ncommit_style: {EXEC_COMMIT_STYLE}\ncommit_scope_format: {EXEC_COMMIT_SCOPE_FMT}\n</workflow_config>", subagent_type="general-purpose", model="{executor_model}")
-Task(prompt="<agent-instructions>\n{executor_instructions_content}\n</agent-instructions>\n\nExecute plan at {plan_02_path}\n\n<plan>\n{plan_02_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>\n\n<workflow_config>\npost_task_command: {EXEC_POST_TASK_CMD}\ncommit_style: {EXEC_COMMIT_STYLE}\ncommit_scope_format: {EXEC_COMMIT_SCOPE_FMT}\n</workflow_config>", subagent_type="general-purpose", model="{executor_model}")
-Task(prompt="<agent-instructions>\n{executor_instructions_content}\n</agent-instructions>\n\nExecute plan at {plan_03_path}\n\n<plan>\n{plan_03_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>\n\n<workflow_config>\npost_task_command: {EXEC_POST_TASK_CMD}\ncommit_style: {EXEC_COMMIT_STYLE}\ncommit_scope_format: {EXEC_COMMIT_SCOPE_FMT}\n</workflow_config>", subagent_type="general-purpose", model="{executor_model}")
+Task(prompt="<agent-instructions>\n{executor_instructions_content}\n</agent-instructions>\n\nExecute plan at {plan_01_path}\n\n<plan>\n{plan_01_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>\n\n<workflow_config>\npost_task_command: {EXEC_POST_TASK_CMD}\ncommit_style: {EXEC_COMMIT_STYLE}\ncommit_scope_format: {EXEC_COMMIT_SCOPE_FMT}\n</workflow_config>{if WORKTREE_ENABLED: \n<working_directory>{WORKTREE_PATH_01}</working_directory>}", subagent_type="general-purpose", model="{executor_model}")
+Task(prompt="<agent-instructions>\n{executor_instructions_content}\n</agent-instructions>\n\nExecute plan at {plan_02_path}\n\n<plan>\n{plan_02_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>\n\n<workflow_config>\npost_task_command: {EXEC_POST_TASK_CMD}\ncommit_style: {EXEC_COMMIT_STYLE}\ncommit_scope_format: {EXEC_COMMIT_SCOPE_FMT}\n</workflow_config>{if WORKTREE_ENABLED: \n<working_directory>{WORKTREE_PATH_02}</working_directory>}", subagent_type="general-purpose", model="{executor_model}")
+Task(prompt="<agent-instructions>\n{executor_instructions_content}\n</agent-instructions>\n\nExecute plan at {plan_03_path}\n\n<plan>\n{plan_03_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>\n\n<workflow_config>\npost_task_command: {EXEC_POST_TASK_CMD}\ncommit_style: {EXEC_COMMIT_STYLE}\ncommit_scope_format: {EXEC_COMMIT_SCOPE_FMT}\n</workflow_config>{if WORKTREE_ENABLED: \n<working_directory>{WORKTREE_PATH_03}</working_directory>}", subagent_type="general-purpose", model="{executor_model}")
 ```
 
 All three run in parallel. Task tool blocks until all complete.
