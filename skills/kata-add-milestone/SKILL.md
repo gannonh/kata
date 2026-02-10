@@ -59,7 +59,7 @@ If ROADMAP.md exists, check format and auto-migrate if old:
 if [ -f .planning/ROADMAP.md ]; then
   bash "../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
   FORMAT_EXIT=$?
-  
+
   if [ $FORMAT_EXIT -eq 1 ]; then
     echo "Old roadmap format detected. Running auto-migration..."
   fi
@@ -852,7 +852,6 @@ Display:
 
 Continue to Phase 9.
 
-
 ## Phase 9: Create Roadmap
 
 Display stage banner:
@@ -1239,7 +1238,7 @@ Kata ► MILESTONE INITIALIZED ✓
 
 **Phase [N]: [Phase Name]** — [Goal from ROADMAP.md]
 
-`/kata-discuss-phase [N]` — gather context and clarify approach
+`/kata-plan-phase [N]` — plan the next phase
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -1247,7 +1246,7 @@ Kata ► MILESTONE INITIALIZED ✓
 
 **Also available:**
 
-- `/kata-plan-phase [N]` — skip discussion, plan directly
+- `/kata-discuss-phase [N]` — discuss first
 
 ───────────────────────────────────────────────────────────────
 

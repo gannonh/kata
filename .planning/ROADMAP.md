@@ -18,54 +18,6 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 **Goal:** Add optional git worktree support so each plan agent during phase execution gets its own isolated worktree and branch, replacing the shared-directory model.
 
-#### Phase 44: Config Foundation
-
-**Goal:** Establish worktree configuration infrastructure and onboarding integration.
-
-**Requirements:** CFG-01, CFG-02, CFG-03, CFG-04, CFG-05
-
-**Success Criteria** (what must be TRUE):
-1. Users can enable worktrees via `kata-configure-settings` and see worktree config appear in `.planning/config.json`
-2. `read-config.sh` successfully reads nested config keys (e.g., `worktree.enabled` returns "true")
-3. `setup-worktrees.sh` converts standard repo to bare + worktree layout without data loss
-4. New projects ask about worktrees during onboarding when PR workflow enabled
-5. Existing projects can toggle worktree mode retroactively
-
-#### Phase 45: Worktree Scripting
-
-**Goal:** Create core worktree lifecycle management tooling.
-
-**Requirements:** EXEC-01, HOUSE-01
-
-**Success Criteria** (what must be TRUE):
-1. `manage-worktree.sh create` spawns new worktree with branch for a plan
-2. `manage-worktree.sh merge` integrates worktree branch back to main and removes worktree
-3. `manage-worktree.sh list` shows active worktrees with plan associations
-4. Inline scripts from `kata-execute-phase` extracted to standalone files
-
-#### Phase 46: Execution Integration
-
-**Goal:** Wire worktree lifecycle into phase execution workflow.
-
-**Requirements:** EXEC-02, EXEC-03, EXEC-04
-
-**Success Criteria** (what must be TRUE):
-1. When worktrees enabled, `kata-execute-phase` creates isolated worktree per wave
-2. Plan executor agents receive `<working_directory>` pointing to worktree path
-3. After wave completion, worktree merges back to main and cleans up automatically
-4. Documentation explains worktree lifecycle (create → execute → merge → cleanup)
-
-#### Phase 47: Downstream & Release
-
-**Goal:** Update related skills and improve milestone completion workflow.
-
-**Requirements:** DOWN-01, DOWN-02, HOUSE-02
-
-**Success Criteria** (what must be TRUE):
-1. `git-integration.md` documents two-tier branch flow (main + release vs worktree + plan branches)
-2. `kata-complete-milestone` creates release branch respecting worktree configuration
-3. Users completing milestone see release task options (verify/fix from GitHub #83)
-
 - [x] Phase 44: Config Foundation (2/2 plans) — completed 2026-02-09
   - [x] 44-01-PLAN.md — Config schema + reader script (CFG-01, CFG-02)
   - [x] 44-02-PLAN.md — Setup script + skill integration (CFG-03, CFG-04, CFG-05)
@@ -75,7 +27,9 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - [x] Phase 46: Execution Integration (2/2 plans) — completed 2026-02-10
   - [x] 46-01-PLAN.md — Worktree awareness in reference docs (EXEC-03, EXEC-04)
   - [x] 46-02-PLAN.md — Wire worktree lifecycle into SKILL.md orchestrator (EXEC-02)
-- [ ] Phase 47: Downstream & Release (0/0 plans)
+- [x] Phase 47: Downstream & Release (2/2 plans) — completed 2026-02-10
+  - [x] 47-01-PLAN.md — Two-tier branch flow docs + worktree-aware release branch (DOWN-01, DOWN-02)
+  - [x] 47-02-PLAN.md — Active post-release task offerings (HOUSE-02, GitHub #83)
 
 ## Completed Milestones
 
@@ -301,8 +255,8 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 | v1.7.0    | 2      | 5     | Shipped     | 2026-02-07 |
 | v1.8.0    | 3      | 7     | Shipped     | 2026-02-08 |
 | v1.9.0    | 4      | 5     | Shipped     | 2026-02-08 |
-| v1.10.0   | 4      | 6     | In Progress | —          |
+| v1.10.0   | 4      | 8     | In Progress | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-10 — Phase 46 Execution Integration complete (2/2 plans verified)*
+*Last updated: 2026-02-10 — Phase 47 Downstream & Release complete (2/2 plans verified)*
