@@ -12,7 +12,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - ✅ **v1.7.0 Brainstorm Integration** — Phases 35-36 (shipped 2026-02-07)
 - ✅ **v1.8.0 Adaptive Workflows** — Phases 37-39 (shipped 2026-02-08)
 - ✅ **v1.9.0 Template Overrides (Universal)** — Phases 40-43 (shipped 2026-02-08)
-- 🔄 **v1.10.0 Git Worktree Support** — Phases 44-47 (in progress)
+- 🔄 **v1.10.0 Git Worktree Support** — Phases 44-48 (in progress)
 
 ## Current Milestone: v1.10.0 Git Worktree Support
 
@@ -30,6 +30,10 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - [x] Phase 47: Downstream & Release (2/2 plans) — completed 2026-02-10
   - [x] 47-01-PLAN.md — Two-tier branch flow docs + worktree-aware release branch (DOWN-01, DOWN-02)
   - [x] 47-02-PLAN.md — Active post-release task offerings (HOUSE-02, GitHub #83)
+- [ ] Phase 48: Test Coverage of New Functionality (3/3 plans)
+  - [ ] 48-01-PLAN.md — Tests for read-config.sh and find-phase.sh
+  - [ ] 48-02-PLAN.md — Tests for setup-worktrees.sh and create-phase-branch.sh
+  - [ ] 48-03-PLAN.md — Tests for manage-worktree.sh + wire test runner glob
 
 ## Completed Milestones
 
@@ -255,8 +259,8 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 | v1.7.0    | 2      | 5     | Shipped     | 2026-02-07 |
 | v1.8.0    | 3      | 7     | Shipped     | 2026-02-08 |
 | v1.9.0    | 4      | 5     | Shipped     | 2026-02-08 |
-| v1.10.0   | 4      | 8     | In Progress | —          |
+| v1.10.0   | 5      | 8     | In Progress | —          |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-10 — Phase 47 Downstream & Release complete (2/2 plans verified)*
+*Last updated: 2026-02-10 — Phase 48 added: Test Coverage of New Functionality*
