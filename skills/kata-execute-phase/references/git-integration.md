@@ -252,3 +252,37 @@ Each plan produces 2-4 commits (tasks + metadata). Clear, granular, bisectable.
 - "Commit noise" irrelevant when consumer is Claude, not humans
 
 </commit_strategy_rationale>
+
+<branch_flow>
+
+## Two-Tier Branch Model
+
+Kata uses a two-tier branching model. The first tier always exists. The second tier activates when `worktree.enabled=true`.
+
+**Tier 1: Main + Release Branches**
+
+Main branch holds all development. When a milestone completes with `pr_workflow=true`, kata-complete-milestone creates a `release/vX.Y.Z` branch for the release PR. Standard `git checkout -b` handles branch creation.
+
+**Tier 2: Plan Branches per Worktree (when worktree.enabled=true)**
+
+During phase execution, each plan agent gets its own worktree on a `plan/{phase}-{plan}` branch. Plan branches fork from the base branch (main or release/vX.Y.Z), provide isolation for parallel plan agents, and merge back after plan completion. `manage-worktree.sh` handles creation, merge, and cleanup.
+
+### Configuration Variants
+
+| Config | Branches | Managed By |
+| --- | --- | --- |
+| `worktree.enabled=false` | `main`, `release/vX.Y.Z` | `git checkout -b` |
+| `worktree.enabled=true` | `main`, `release/vX.Y.Z`, `plan/{phase}-{plan}` | `manage-worktree.sh` |
+
+### Plan Branch Lifecycle
+
+1. Orchestrator determines base branch (main or release/vX.Y.Z)
+2. `manage-worktree.sh create {phase} {plan}` forks a plan branch from base
+3. Agent works in its isolated worktree directory
+4. Wave completes (all plan agents in the wave finish)
+5. `manage-worktree.sh merge {phase} {plan}` merges plan branch back to base
+6. Worktree directory and plan branch removed
+
+Plan branches are ephemeral. They exist only during plan execution. The base branch accumulates all merged work.
+
+</branch_flow>
