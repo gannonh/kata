@@ -4,11 +4,11 @@
   "parallelization": true,
   "commit_docs": true,
   "pr_workflow": true,
-  "model_profile": "balanced",
+  "model_profile": "quality",
   "workflow": {
     "research": false,
-    "plan_check": false,
-    "verifier": false
+    "plan_check": true,
+    "verifier": true
   },
   "github": {
     "enabled": true,
@@ -22,7 +22,8 @@
       "extra_verification_commands": [
         "npm run build:plugin",
         "npm test",
-        "npm run test:smoke"
+        "npm run test:smoke",
+        "npm run test:affected"
       ]
     },
     "complete-milestone": {

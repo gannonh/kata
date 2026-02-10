@@ -21,6 +21,9 @@ Configuration options for Kata projects in `.planning/config.json`.
     "research": true|false,
     "plan_check": true|false,
     "verifier": true|false
+  },
+  "worktree": {
+    "enabled": true|false
   }
 }
 ```
@@ -37,6 +40,7 @@ Configuration options for Kata projects in `.planning/config.json`.
 | `workflow.research`   | `true`     | Spawn researcher before planning each phase                    |
 | `workflow.plan_check` | `true`     | Verify plans achieve phase goals before execution              |
 | `workflow.verifier`   | `true`     | Confirm deliverables after phase execution                     |
+| `worktree.enabled`    | `false`    | Enable git worktree isolation per plan (requires pr_workflow: true) |
 
 </config_schema>
 

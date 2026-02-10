@@ -313,7 +313,6 @@ Kata ► EXECUTING PHASE {X}: {Phase Name}
                --jq "[.[] | select(.title | startswith(\"Phase ${PHASE_NUM}:\"))][0].number" 2>/dev/null)
            fi
            [ -n "$PHASE_ISSUE" ] && CLOSES_LINE="Closes #${PHASE_ISSUE}"
-           # Store PHASE_ISSUE for use in step 10.6 merge path
          fi
 
          # Build plans checklist (all unchecked initially)
@@ -502,114 +501,6 @@ fi
 
     Store PR_URL for offer_next output.
 
-10.6. **Post-Verification Checkpoint (REQUIRED — Loop until user chooses "Skip to completion")**
-
-    After PR is ready (or after phase commits if pr_workflow=false), present the user with post-verification options. This is the decision point before proceeding to completion output.
-
-    **Control flow:**
-    - UAT → returns here after completion
-    - PR review → step 10.7 → returns here
-    - Merge → executes merge → returns here
-    - Skip → proceeds to step 11
-
-    **IMPORTANT:** Do NOT skip this step. Do NOT proceed directly to step 11. The user must choose how to proceed.
-
-    Use AskUserQuestion:
-    - header: "Phase Complete"
-    - question: "Phase {X} execution complete. What would you like to do?"
-    - options:
-      - "Run UAT (Recommended)" — Walk through deliverables for manual acceptance testing
-      - "Run PR review" — 6 specialized agents review code quality
-      - "Merge PR" — (if pr_workflow=true) Merge to main
-      - "Skip to completion" — Trust automated verification, proceed to next phase/milestone
-
-    **Note:** Show "Merge PR" option only if `pr_workflow=true` AND PR exists AND not already merged.
-
-    **If user chooses "Run UAT":**
-    1. Invoke skill: `Skill("kata-verify-work", "{phase}")`
-    2. UAT skill handles the walkthrough and any issues found
-    3. After UAT completes, return to this step to ask again (user may want PR review or merge)
-
-    **If user chooses "Run PR review":**
-    4. Invoke skill: `Skill("kata-review-pull-requests")`
-    5. Display review summary with counts: {N} critical, {M} important, {P} suggestions
-    6. **STOP and ask what to do with findings** (see step 10.7)
-    7. After findings handled, return to this step
-
-    **If user chooses "Merge PR":**
-    8. Execute merge:
-       ```bash
-       gh pr merge "$PR_NUMBER" --merge --delete-branch
-       git checkout main && git pull
-
-       # Explicitly close the phase issue (backup in case Closes #X didn't trigger)
-       if [ -n "$PHASE_ISSUE" ]; then
-         gh issue close "$PHASE_ISSUE" --comment "Closed by PR #${PR_NUMBER} merge" 2>/dev/null \
-           && echo "Closed issue #${PHASE_ISSUE}" \
-           || echo "Note: Issue #${PHASE_ISSUE} may already be closed"
-       fi
-
-       # Close source issues from plans (backup in case Closes #X didn't trigger)
-       for plan in $(find "${PHASE_DIR}" -maxdepth 1 -name "*-PLAN.md" 2>/dev/null); do
-         source_issue=$(grep -m1 "^source_issue:" "$plan" | cut -d':' -f2- | xargs)
-         if echo "$source_issue" | grep -q "^github:#"; then
-           issue_num=$(echo "$source_issue" | grep -oE '[0-9]+')
-           gh issue close "$issue_num" --comment "Closed by PR #${PR_NUMBER} merge (source issue for plan)" 2>/dev/null || true
-         fi
-       done
-       ```
-    9. Set MERGED=true
-    10. Return to this step to ask if user wants UAT or review before continuing
-
-    **If user chooses "Skip to completion":**
-    Continue to step 11.
-
-10.7. **Handle Review Findings (required after PR review completes)**
-
-    **STOP here. Do not proceed until user chooses an action.**
-
-    Use AskUserQuestion with options based on what was found:
-    - header: "Review Findings"
-    - question: "How do you want to handle the review findings?"
-    - options (show only applicable ones):
-      - "Fix critical issues" — (if critical > 0) Fix critical, then offer to add remaining to backlog
-      - "Fix critical & important" — (if critical + important > 0) Fix both, then offer to add suggestions to backlog
-      - "Fix all issues" — (if any issues) Fix everything
-      - "Add to backlog" — Create issues for all findings without fixing
-      - "Ignore and continue" — Skip all issues
-
-    **After user chooses:**
-
-    **Path A: "Fix critical issues"**
-    1. Fix each critical issue
-    2. If important or suggestions remain, ask: "Add remaining {N} issues to backlog?"
-       - "Yes" → Create issues, store TODOS_CREATED count
-       - "No" → Continue
-    3. Return to step 10.6 checkpoint
-
-    **Path B: "Fix critical & important"**
-    1. Fix each critical and important issue
-    2. If suggestions remain, ask: "Add {N} suggestions to backlog?"
-       - "Yes" → Create issues, store TODOS_CREATED count
-       - "No" → Continue
-    3. Return to step 10.6 checkpoint
-
-    **Path C: "Fix all issues"**
-    1. Fix all critical, important, and suggestion issues
-    2. Return to step 10.6 checkpoint
-
-    **Path D: "Add to backlog"**
-    1. Create issues for all findings using `/kata-add-issue`
-    2. Store TODOS_CREATED count
-    3. Return to step 10.6 checkpoint
-
-    **Path E: "Ignore and continue"**
-    1. Return to step 10.6 checkpoint
-
-    Store REVIEW_SUMMARY and TODOS_CREATED for offer_next output.
-
-    **Note:** After handling findings, return to step 10.6 so user can choose UAT, merge, or skip. The checkpoint loop continues until user explicitly chooses "Skip to completion".
-
 11. **Offer next steps** - Route to next action (see `<offer_next>`)
     </process>
 
@@ -627,8 +518,6 @@ Output this markdown directly (not as a code block). Route based on status:
 
 **Route A: Phase verified, more phases remain**
 
-(Merge status already determined in step 10.6)
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Kata ► PHASE {Z} COMPLETE ✓
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -638,28 +527,24 @@ Kata ► PHASE {Z} COMPLETE ✓
 {Y} plans executed
 Goal verified ✓
 {If github.enabled: GitHub Issue: #{issue_number} ({checked}/{total} plans checked off)}
-{If PR_WORKFLOW and MERGED: PR: #{pr_number} — merged ✓}
-{If PR_WORKFLOW and not MERGED: PR: #{pr_number} ({pr_url}) — ready for review}
-{If REVIEW_SUMMARY: PR Review: {summary_stats}}
-{If TODOS_CREATED: Backlog: {N} issues created from review suggestions}
+{If PR_WORKFLOW: PR: #{pr_number} ({pr_url}) — ready for review}
 
 ───────────────────────────────────────────────────────────────
 
 ## ▶ Next Up
 
-**Phase {Z+1}: {Name}** — {Goal from ROADMAP.md}
+**Walk through deliverables** — conversational acceptance testing
 
-`/kata-discuss-phase {Z+1}` — gather context and clarify approach
+`/kata-verify-work {Z}`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
-
-- `/kata-plan-phase {Z+1}` — skip discussion, plan directly
-- `/kata-verify-work {Z}` — manual acceptance testing before continuing
-  {If PR_WORKFLOW and not MERGED: - `gh pr view --web` — review PR in browser before next phase}
+- `/kata-review-pull-requests` — automated code review
+{If PR_WORKFLOW: - `gh pr merge --merge --delete-branch` — merge PR directly}
+- `/kata-discuss-phase {Z+1}` — skip to next phase
 
 ───────────────────────────────────────────────────────────────
 
@@ -675,25 +560,25 @@ Kata ► MILESTONE COMPLETE 🎉
 
 {N} phases completed
 All phase goals verified ✓
-{If PR_WORKFLOW and MERGED: All phase PRs merged ✓}
-{If PR_WORKFLOW and not MERGED: Phase PRs ready — merge to prepare for release}
+{If PR_WORKFLOW: Phase PR: #{pr_number} ({pr_url}) — ready for review}
 
 ───────────────────────────────────────────────────────────────
 
 ## ▶ Next Up
 
-**Audit milestone** — verify requirements, cross-phase integration, E2E flows
+**Walk through deliverables** — conversational acceptance testing
 
-/kata-audit-milestone
+`/kata-verify-work {Z}`
 
-<sub>/clear first → fresh context window</sub>
+<sub>`/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
-
-- /kata-verify-work — manual acceptance testing
-- /kata-complete-milestone — skip audit, archive directly
+- `/kata-review-pull-requests` — automated code review
+{If PR_WORKFLOW: - `gh pr merge --merge --delete-branch` — merge PR directly}
+- `/kata-audit-milestone` — skip UAT, audit directly
+- `/kata-complete-milestone` — skip audit, archive directly
 
 ───────────────────────────────────────────────────────────────
 

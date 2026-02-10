@@ -14,7 +14,6 @@ Output: {phase}-UAT.md tracking all test results. If issues found: diagnosed gap
 
 <execution_context>
 @./references/verify-work.md
-@./references/UAT-template.md
 </execution_context>
 
 <context>
@@ -39,6 +38,16 @@ If warnings are printed, relay them to the user before proceeding with verificat
 </pre_flight>
 
 <process>
+0. **Resolve UAT template (project override -> plugin default):**
+
+```bash
+RESOLVE_SCRIPT="../kata-execute-phase/scripts/resolve-template.sh"
+UAT_TEMPLATE_PATH=$(bash "$RESOLVE_SCRIPT" "UAT-template.md")
+UAT_TEMPLATE_CONTENT=$(cat "$UAT_TEMPLATE_PATH")
+```
+
+Use `UAT_TEMPLATE_CONTENT` as the format specification when creating or updating UAT.md files.
+
 1. Check for active UAT sessions (resume or start new)
 2. Find SUMMARY.md files for the phase
 3. Extract testable deliverables (user-observable outcomes)
