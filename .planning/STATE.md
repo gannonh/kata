@@ -45,7 +45,7 @@ Progress: ██████████ 8/8 plans complete
 | v1.7.0    | 2      | 5     | Shipped 2026-02-07 |
 | v1.8.0    | 3      | 7     | Shipped 2026-02-08 |
 | v1.9.0    | 4      | 5     | Shipped 2026-02-08 |
-| v1.10.0   | 4      | 4     | In Progress        |
+| v1.10.0   | 4      | 8     | In Progress        |
 
 *Updated after each plan completion*
 

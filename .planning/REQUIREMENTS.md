@@ -19,13 +19,13 @@
 
 ### Downstream Skills
 
-- [ ] **DOWN-01**: `git-integration.md` updated with two-tier branch flow documentation
-- [ ] **DOWN-02**: `kata-complete-milestone` updated for worktree-aware release branch creation
+- [x] **DOWN-01**: `git-integration.md` updated with two-tier branch flow documentation
+- [x] **DOWN-02**: `kata-complete-milestone` updated for worktree-aware release branch creation
 
 ### Housekeeping
 
 - [x] **HOUSE-01**: Extract inline scripts to standalone files where beneficial during worktree implementation
-- [ ] **HOUSE-02**: `kata-complete-milestone` offers release tasks at milestone completion (verify/fix, GitHub #83)
+- [x] **HOUSE-02**: `kata-complete-milestone` offers release tasks at milestone completion (verify/fix, GitHub #83)
 
 ## Future Requirements
 
@@ -54,10 +54,10 @@
 | EXEC-02  | 46    | 02   | Complete |
 | EXEC-03  | 46    | 01   | Complete |
 | EXEC-04  | 46    | 01   | Complete |
-| DOWN-01  | 47    |      | Pending |
-| DOWN-02  | 47    |      | Pending |
+| DOWN-01  | 47    | 01   | Complete |
+| DOWN-02  | 47    | 01   | Complete |
 | HOUSE-01 | 45    | 02   | Complete |
-| HOUSE-02 | 47    |      | Pending |
+| HOUSE-02 | 47    | 02   | Complete |
 
 ---
 
