@@ -199,6 +199,45 @@ Use AskUserQuestion:
    - Present milestone scope and stats
    - Wait for confirmation
 
+1. **Milestone demo walkthrough (optional):**
+
+   Use AskUserQuestion:
+   - header: "Demo Walkthrough"
+   - question: "Run a final demo walkthrough before release?"
+   - options:
+     - "Full walkthrough" — walk through all user-observable deliverables
+     - "Integration only" — focus on cross-phase flows
+     - "Skip" — proceed to archiving
+
+   **If user chose "Skip":** Proceed to next step.
+
+   **If user chose walkthrough:**
+
+   1. Read all phase SUMMARY.md files in the milestone
+   2. Extract user-observable deliverables (features, behaviors, UI changes)
+   3. Synthesize demo scenarios — end-to-end flows across phases, not individual task outputs
+      - "Full walkthrough": all user-observable outcomes
+      - "Integration only": cross-phase touchpoints and E2E flows
+   4. Create `.planning/v{{version}}-UAT.md` with scenario list
+   5. Present scenarios one at a time:
+      - Describe what to demo and expected behavior
+      - Wait for plain text response
+      - "yes/y/next" = pass, anything else = issue (severity inferred)
+   6. Update UAT.md after each response
+   7. On completion: commit UAT.md
+
+   **If all scenarios pass:** Proceed to next step.
+
+   **If issues found:**
+
+   Use AskUserQuestion:
+   - header: "Issues Found"
+   - question: "{N} issues found during walkthrough. How to proceed?"
+   - options:
+     - "Fix before release" — stop milestone completion, create fix plans via `/kata-plan-phase --gaps`
+     - "Accept as known issues" — document in UAT.md, proceed with release
+     - "Stop" — halt for manual intervention
+
 1. **Gather stats:**
    - Count phases, plans, tasks
    - Calculate git range, file changes, LOC
