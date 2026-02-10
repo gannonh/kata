@@ -206,6 +206,48 @@ Plus full markdown report with tables for requirements, phases, integration, tec
 
 Route by status (see `<offer_next>`).
 
+## 8. Offer UAT Walkthrough
+
+Use AskUserQuestion:
+- header: "UAT Walkthrough"
+- question: "Would you like a complete walk-through UAT session?"
+- options:
+  - "Full walkthrough" — walk through all user-observable deliverables
+  - "Integration only" — focus on cross-phase flows
+  - "Skip" — done with audit
+
+**If Skip:** Proceed to `<offer_next>`.
+
+**If walkthrough chosen:**
+
+1. Read all phase SUMMARY.md files in milestone scope
+2. Extract user-observable deliverables (features, behaviors, UI changes)
+3. Synthesize demo scenarios:
+   - "Full walkthrough": all user-observable outcomes across phases
+   - "Integration only": cross-phase touchpoints and E2E flows
+4. Create `.planning/v{version}-UAT.md` adapted from UAT template format:
+   - `milestone: {version}` instead of `phase:`
+   - `source:` lists all phase SUMMARY.md files
+5. Walk through scenarios one at a time (yes/next = pass, anything else = issue with severity inferred)
+6. Update UAT.md after each response
+7. On completion: commit UAT.md
+
+**If all scenarios pass:** Proceed to `<offer_next>` (audit status unchanged).
+
+**If issues found — merge gaps into audit file:**
+
+1. Append UAT gap entries to `MILESTONE-AUDIT.md` under `gaps.flows` (for E2E breaks) or `gaps.requirements` (for unmet requirements), using the same YAML structure the audit already uses
+2. Update MILESTONE-AUDIT.md frontmatter: `status: gaps_found` (if it was `passed` or `tech_debt`)
+3. Update UAT.md summary counts
+
+Then use AskUserQuestion:
+- header: "Issues Found"
+- question: "{N} issues found during walkthrough. How to proceed?"
+- options:
+  - "Plan fix phases" — route to `/kata-plan-milestone-gaps` (reads the updated audit file)
+  - "Accept as known issues" — document in UAT.md, revert MILESTONE-AUDIT.md status to original
+  - "Stop" — halt for manual intervention
+
 </process>
 
 <offer_next>
@@ -219,6 +261,7 @@ Output this markdown directly (not as a code block). Route based on status:
 
 **Score:** {N}/{M} requirements satisfied
 **Report:** .planning/v{version}-MILESTONE-AUDIT.md
+{If walkthrough was run:} **UAT:** .planning/v{version}-UAT.md — all scenarios passed
 
 All requirements covered. Cross-phase integration verified. E2E flows complete.
 
@@ -242,6 +285,7 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 **Score:** {N}/{M} requirements satisfied
 **Report:** .planning/v{version}-MILESTONE-AUDIT.md
+{If walkthrough was run:} **UAT:** .planning/v{version}-UAT.md
 
 ### Unsatisfied Requirements
 
@@ -289,6 +333,7 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 **Score:** {N}/{M} requirements satisfied
 **Report:** .planning/v{version}-MILESTONE-AUDIT.md
+{If walkthrough was run:} **UAT:** .planning/v{version}-UAT.md
 
 All requirements met. No critical blockers. Accumulated tech debt needs review.
 
@@ -327,4 +372,7 @@ All requirements met. No critical blockers. Accumulated tech debt needs review.
 - [ ] Integration checker spawned for cross-phase wiring
 - [ ] v{version}-MILESTONE-AUDIT.md created
 - [ ] Results presented with actionable next steps
+- [ ] UAT walkthrough offered
+- [ ] v{version}-UAT.md created (if walkthrough chosen)
+- [ ] MILESTONE-AUDIT.md updated with UAT gaps (if issues found)
       </success_criteria>

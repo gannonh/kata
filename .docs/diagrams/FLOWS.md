@@ -439,7 +439,45 @@ flowchart TD
     style OUT_D fill:#533,stroke:#f55
 ```
 
-## 8. Complete Milestone
+## 8. Audit Milestone
+
+```mermaid
+%%{init: {'theme': 'dark'}}%%
+flowchart TD
+    START(["/kata-audit-milestone"])
+
+    G0["Resolve model profile,<br/>pre-flight checks"]
+    START --> G0
+
+    G0 --> SCOPE["Determine milestone scope:<br/>parse version, find phase dirs"]
+    SCOPE --> READ["Read all phase VERIFICATION.md files"]
+    READ --> SPAWN["Spawn integration checker agent"]
+    SPAWN --> COLLECT["Collect results:<br/>phase gaps + integration report"]
+    COLLECT --> REQS["Check requirements coverage"]
+    REQS --> AUDIT["Create v{version}-MILESTONE-AUDIT.md"]
+    AUDIT --> PRESENT["Present results (route by status)"]
+
+    PRESENT --> G8{"User wants UAT walkthrough?"}
+    G8 -->|Skip| OFFER["Route by status:<br/>offer_next"]
+    G8 -->|Full or Integration| UAT["Create v{version}-UAT.md,<br/>walk through scenarios"]
+    UAT --> G8_ISS{"Issues found?"}
+    G8_ISS -->|No| OFFER
+    G8_ISS -->|Yes| MERGE["Merge gaps into<br/>MILESTONE-AUDIT.md"]
+    MERGE --> ASK_PLAN["Ask: Plan fixes / Accept / Stop"]
+    ASK_PLAN -->|Plan| GAPS["/kata-plan-milestone-gaps"]
+    ASK_PLAN -->|Accept| REVERT["Revert audit status,<br/>document in UAT.md"] --> OFFER
+    ASK_PLAN -->|Stop| HALT["Halt for manual intervention"]
+
+    OFFER --> G_STATUS{"Audit status?"}
+    G_STATUS -->|passed| OUT_PASS["**Output:** Audit passed<br/>/kata-complete-milestone"]
+    G_STATUS -->|gaps_found| OUT_GAPS["**Output:** Gaps found<br/>/kata-plan-milestone-gaps"]
+    G_STATUS -->|tech_debt| OUT_DEBT["**Output:** Tech debt review<br/>Complete or plan cleanup"]
+
+    style MERGE fill:#553,stroke:#f90
+    style HALT fill:#533,stroke:#f55
+```
+
+## 9. Complete Milestone
 
 ```mermaid
 %%{init: {'theme': 'dark'}}%%
@@ -467,17 +505,7 @@ flowchart TD
     G2["Verify readiness:<br/>count phases, plans, summaries"]
     G2 --> CONFIRM["Present stats, wait for confirmation"]
 
-    CONFIRM --> G3{"User wants demo walkthrough?"}
-    G3 -->|Yes| DEMO["Create UAT scenarios, walk through"]
-    DEMO --> G3_ISS{"Issues found?"}
-    G3_ISS -->|Yes| ASK_FIX["Ask: Fix before release?"]
-    ASK_FIX -->|Yes| BACK["Return to execution"]
-    ASK_FIX -->|No| DOC_ISS["Document as known issues"]
-    DOC_ISS --> STATS
-    G3_ISS -->|No| STATS
-    G3 -->|No| STATS
-
-    STATS["Gather stats, extract accomplishments"]
+    CONFIRM --> STATS["Gather stats, extract accomplishments"]
     STATS --> ARCHIVE["Archive milestone:<br/>copy ROADMAP + REQUIREMENTS to milestones/,<br/>delete REQUIREMENTS.md,<br/>update PROJECT.md"]
 
     ARCHIVE --> G6_5{"User wants README revision?"}
@@ -500,8 +528,6 @@ flowchart TD
 
     VERIFY["Ask: Release verification complete?"]
     VERIFY --> DONE["**Output:** Milestone complete<br/>/kata-add-milestone"]
-
-    style BACK fill:#553,stroke:#f90
 ```
 
 ## Route Index
@@ -545,4 +571,4 @@ Bounded iteration loops in the system.
 | Plan checker revision | plan-phase | 3 | User decides: force / retry / abandon |
 | Gap plan checker | verify-work | 3 | Route D: manual intervention |
 | Roadmapper blocked | add-milestone | Unbounded (user-driven) | User provides context or abandons |
-| Demo walkthrough issues | complete-milestone | 1 | Fix before release or document as known |
+| UAT walkthrough issues | audit-milestone | 1 | Plan fix phases, accept, or stop |
