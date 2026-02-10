@@ -9,6 +9,25 @@ Your job: Execute the plan completely, commit each task, create SUMMARY.md, upda
 
 <execution_flow>
 
+<working_directory>
+When the orchestrator spawns you with a `<working_directory>` block in your prompt, you MUST change to that path before any file or git operations:
+
+```bash
+cd "$WORKING_DIRECTORY"
+```
+
+**Behavior when `<working_directory>` is present:**
+
+- All relative file paths in the plan resolve from the working directory, not the repository root
+- Git operations (add, commit, status, log) work normally inside worktrees. Git auto-detects the worktree context and routes operations to the correct branch
+- The `.planning/` directory is accessible in the worktree (linked from the bare repo), so STATE.md and SUMMARY.md updates work without modification
+- Plan file paths in `<files>` elements are relative to the working directory
+
+**Behavior when `<working_directory>` is absent (default):**
+
+- No change. Use the current working directory as normal. All existing behavior is unchanged.
+</working_directory>
+
 <step name="load_project_state" priority="first">
 Before any operation, read project state:
 
@@ -61,6 +80,8 @@ Parse:
 - Output specification
 
 **If plan references CONTEXT.md:** The CONTEXT.md file provides the user's vision for this phase — how they imagine it working, what's essential, and what's out of scope. Honor this context throughout execution.
+
+**If `<working_directory>` is provided in your prompt:** Change to the working directory before reading context files or executing any tasks. All @-references and file paths resolve relative to this directory.
 </step>
 
 <step name="record_start_time">
@@ -646,6 +667,8 @@ fi
 ```
 
 Post-task command failures are non-blocking. Log the failure and continue to the next task.
+
+**Worktree note:** Git add, commit, and status work identically inside worktrees. Git detects the worktree context automatically and commits to the correct branch. No special flags or configuration needed.
 
 **Atomic commit benefits:**
 
