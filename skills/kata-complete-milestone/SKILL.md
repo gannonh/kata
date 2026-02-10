@@ -44,6 +44,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    ```bash
    PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
    CURRENT_BRANCH=$(git branch --show-current)
+   WORKTREE_ENABLED=$(bash ../kata-configure-settings/scripts/read-config.sh "worktree.enabled" "false")
    ```
 
    **If `PR_WORKFLOW=true` AND on `main`:**
@@ -54,7 +55,31 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    # Determine version from user input or detect from project files
    # (version-detector.md handles detection across project types)
    VERSION="X.Y.Z"  # Set from user input or detection
+   ```
 
+   **When `WORKTREE_ENABLED=true`:**
+
+   ```bash
+   # Create release worktree (manage-worktree.sh is in kata-execute-phase)
+   eval "$(bash ../kata-execute-phase/scripts/manage-worktree.sh create release "v$VERSION")"
+   echo "Created release worktree at $WORKTREE_PATH on branch $WORKTREE_BRANCH"
+   ```
+
+   Display:
+
+   ```
+   ⚠ pr_workflow is enabled — creating release worktree.
+
+   Worktree: $WORKTREE_PATH
+   Branch: $WORKTREE_BRANCH
+
+   All milestone completion commits will go to this worktree.
+   After completion, a PR will be created to merge to main.
+   ```
+
+   **When `WORKTREE_ENABLED=false` (default):**
+
+   ```bash
    # Create release branch
    git checkout -b release/v$VERSION
 
@@ -78,7 +103,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    Proceed with current branch (commits go to main or current branch).
 
    **GATE: Do NOT proceed until branch is correct:**
-   - If pr_workflow=true, you must be on release/vX.Y.Z branch
+   - If pr_workflow=true, you must be on release/vX.Y.Z branch (or release worktree)
    - If pr_workflow=false, main branch is OK
 
 0.1. **Pre-flight: Check roadmap format (auto-migration)**

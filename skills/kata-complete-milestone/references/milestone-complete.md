@@ -63,6 +63,7 @@ must happen on a release branch, not main.
 ```bash
 PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
 CURRENT_BRANCH=$(git branch --show-current)
+WORKTREE_ENABLED=$(bash ../kata-configure-settings/scripts/read-config.sh "worktree.enabled" "false")
 ```
 
 **If `PR_WORKFLOW=true` AND `CURRENT_BRANCH=main`:**
@@ -71,7 +72,29 @@ CURRENT_BRANCH=$(git branch --show-current)
 # Determine version from user input or detect from project files
 # (version-detector.md handles detection across project types)
 VERSION="X.Y.Z"  # Set from user input or detection
+```
 
+**When `WORKTREE_ENABLED=true`:**
+
+```bash
+# Create release worktree (manage-worktree.sh is in kata-execute-phase)
+eval "$(bash ../kata-execute-phase/scripts/manage-worktree.sh create release "v$VERSION")"
+echo "✓ Created release worktree at $WORKTREE_PATH on branch $WORKTREE_BRANCH"
+```
+
+Present:
+```
+⚠ pr_workflow is enabled
+
+Creating release worktree: $WORKTREE_PATH (branch $WORKTREE_BRANCH)
+
+All milestone completion work will be committed to this worktree.
+After completion, a PR will be created to merge to main.
+```
+
+**When `WORKTREE_ENABLED=false` (default):**
+
+```bash
 # Create release branch
 git checkout -b "release/v$VERSION"
 
@@ -93,7 +116,7 @@ After completion, a PR will be created to merge to main.
 Proceed without creating branch.
 
 **GATE:** Do not proceed to verify_readiness until:
-- If pr_workflow=true: Current branch is release/vX.Y.Z (NOT main)
+- If pr_workflow=true: Current branch is release/vX.Y.Z (NOT main), or in release worktree
 - If pr_workflow=false: Any branch is acceptable
 
 </step>
