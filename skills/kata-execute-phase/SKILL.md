@@ -53,6 +53,16 @@ EXEC_COMMIT_SCOPE_FMT=$(bash "../kata-configure-settings/scripts/read-pref.sh" "
 
 Store these three variables for injection into executor prompts in the `<wave_execution>` Task() calls.
 
+0.7. **Check Worktree Config**
+
+Read worktree configuration for conditional worktree lifecycle:
+
+```bash
+WORKTREE_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "worktree.enabled" "false")
+```
+
+Store `WORKTREE_ENABLED` for use in step 4 wave execution. When `false` (default), all worktree operations are skipped and execution proceeds identically to the current flow.
+
 **Model lookup table:**
 
 | Agent                      | quality | balanced | budget |
