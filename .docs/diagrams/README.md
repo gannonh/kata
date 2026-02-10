@@ -1,46 +1,30 @@
-# Kata Workflow Diagrams
+# Kata Workflow Routes
 
-Visual documentation of Kata's architecture and workflow paths.
-
-These diagrams help users and future Claude instances understand how Kata orchestrates development workflows, from project initialization through milestone completion.
+Visual documentation of every decision gate, route, and cross-skill handoff in Kata.
 
 ## Diagrams
 
-| Diagram | Purpose |
+| # | Diagram | What It Shows |
+| --- | --- | --- |
+| 1 | [Lifecycle Overview](FLOWS.md#1-lifecycle-overview) | Complete skill-to-skill state machine with all routes |
+| 2 | [Track Progress (Router)](FLOWS.md#2-track-progress-router) | Central router: 6 named routes based on project state |
+| 3 | [New Project](FLOWS.md#3-new-project) | Initialization gates: git, brownfield, config |
+| 4 | [Add Milestone](FLOWS.md#4-add-milestone) | Brainstorm, research, requirements, roadmap pipeline |
+| 5 | [Plan Phase](FLOWS.md#5-plan-phase) | Research decision tree, planner/checker revision loop |
+| 6 | [Execute Phase](FLOWS.md#6-execute-phase) | Wave parallelization, verifier, gap closure branch |
+| 7 | [Verify Work](FLOWS.md#7-verify-work) | UAT testing, diagnosis, fix planning loop |
+| 8 | [Complete Milestone](FLOWS.md#8-complete-milestone) | Release branch, archive, GitHub closure |
+
+## Reference Tables
+
+| Table | What It Shows |
 | --- | --- |
-| [1. High-Level Orchestration](FLOWS.md#1-high-level-orchestration) | How users interact with skills and agents |
-| [2. Project Lifecycle](FLOWS.md#2-project-lifecycle) | State machine from project creation to milestone completion |
-| [3. Planning Flow](FLOWS.md#3-planning-flow) | Research, planning, and verification loop |
-| [4. Execution Flow](FLOWS.md#4-execution-flow) | Wave-based parallelization with checkpoints |
-| [5. Verification Flow](FLOWS.md#5-verification-flow) | UAT testing and gap closure workflow |
-| [6. PR Workflow](FLOWS.md#6-pr-workflow) | Branch-based PR workflow with GitHub integration |
+| [Route Index](FLOWS.md#route-index) | Every named route with entry condition and destination |
+| [Config-Dependent Branches](FLOWS.md#config-dependent-branches) | How config.json settings activate/deactivate branches |
+| [Loops](FLOWS.md#loops) | Every bounded iteration loop with max count and escape |
 
 ## Rendering
 
-- **GitHub**: Renders Mermaid diagrams natively in markdown preview
-- **Editing**: Use [mermaid.live](https://mermaid.live) for interactive editing
+- **GitHub**: Renders Mermaid natively in markdown preview
 - **VS Code**: Install "Markdown Preview Mermaid Support" extension
-
-## Architecture Overview
-
-Kata uses a **thin orchestrator + specialized agents** pattern:
-
-1. **User** invokes skills via `/kata-skill-name` or natural language
-2. **Skills** (orchestrators) parse arguments, validate state, spawn subagents
-3. **Subagents** execute specialized tasks with fresh context (via Task tool)
-4. **Artifacts** (PLAN.md, SUMMARY.md, etc.) persist state across sessions
-
-Key skills:
-- `starting-projects` - Initialize new projects
-- `adding-milestones` - Define milestones with research and roadmap
-- `planning-phases` - Create executable plans for roadmap phases
-- `executing-phases` - Execute plans with wave parallelization
-- `verifying-work` - UAT testing and gap closure
-- `reviewing-pull-requests` - Multi-agent code review
-
-## Related Documentation
-
-- [CLAUDE.md](../../CLAUDE.md) - Project overview and development guide
-- [KATA-STYLE.md](../../KATA-STYLE.md) - Style guide for Kata development
-- Skills: `skills/*/SKILL.md`
-- Agents: `agents/kata-*.md`
+- **Interactive editing**: [mermaid.live](https://mermaid.live)
