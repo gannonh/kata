@@ -50,13 +50,13 @@
 | CFG-03   | 44    | 02   | Complete |
 | CFG-04   | 44    | 02   | Complete |
 | CFG-05   | 44    | 02   | Complete |
-| EXEC-01  | 45    |      | Pending |
+| EXEC-01  | 45    | 01   | Pending |
 | EXEC-02  | 46    |      | Pending |
 | EXEC-03  | 46    |      | Pending |
 | EXEC-04  | 46    |      | Pending |
 | DOWN-01  | 47    |      | Pending |
 | DOWN-02  | 47    |      | Pending |
-| HOUSE-01 | 45    |      | Pending |
+| HOUSE-01 | 45    | 02   | Pending |
 | HOUSE-02 | 47    |      | Pending |
 
 ---
