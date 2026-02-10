@@ -185,7 +185,6 @@ Kata ► EXECUTING PHASE {X}: {Phase Name}
 
 4. **Execute waves**
    For each wave in order:
-
    - **Create worktrees (if enabled):**
      If `WORKTREE_ENABLED=true`, create a worktree for each plan in the wave:
 
@@ -349,7 +348,14 @@ fi
 ```
 
 8. **Update roadmap and state**
-   - Update ROADMAP.md, STATE.md
+
+   **ROADMAP.md** — two updates:
+
+   a. **Collapse phase detail section:** Remove the completed phase's `#### Phase N:` block (header, goal, requirements, success criteria) from the Current Milestone section. The `- [x]` checklist entry below already captures completion status. Only uncompleted phases keep their detail blocks.
+
+   b. **Update checklist entry:** Change `- [ ] Phase N: Name (X/Y plans)` to `- [x] Phase N: Name (Y/Y plans) — completed YYYY-MM-DD`. Mark each sub-item `[x]` too.
+
+   **STATE.md** — update current position, phase status, and progress bar.
 
 9. **Update requirements**
    Mark phase requirements as Complete:
@@ -438,7 +444,7 @@ Goal verified ✓
 
 - `/kata-review-pull-requests` — automated code review
   - {If PR_WORKFLOW: `gh pr merge --merge --delete-branch` — merge PR directly}
-- `/kata-discuss-phase {Z+1}` — gather context for next phase
+- `/kata-discuss-phase {Z+1}` — gather context for next phase (optional)
 - `/kata-plan-phase {Z+1}` — plan next phase directly
 
 ───────────────────────────────────────────────────────────────
