@@ -6,6 +6,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/../../kata-configure-settings/scripts/project-root.sh"
+
 PHASE_ARG="${1:?Usage: find-phase.sh <phase-arg>}"
 PADDED=$(printf "%02d" "$PHASE_ARG" 2>/dev/null || echo "$PHASE_ARG")
 

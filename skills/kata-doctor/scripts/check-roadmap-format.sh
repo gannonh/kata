@@ -2,8 +2,11 @@
 # Check ROADMAP.md format version against canonical structure
 # Exit codes:
 #   0 = current format (has all required sections)
-#   1 = old format (needs migration)  
+#   1 = old format (needs migration)
 #   2 = no ROADMAP.md (skip check)
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/../../kata-configure-settings/scripts/project-root.sh"
 
 ROADMAP=".planning/ROADMAP.md"
 

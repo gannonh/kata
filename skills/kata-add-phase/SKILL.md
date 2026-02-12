@@ -22,6 +22,8 @@ IMPORTANT: When showing examples to users, always use `/kata-add-phase` (the com
 
 <process>
 
+**Script invocation rule.** Code blocks reference scripts with paths relative to this SKILL.md (e.g., `"../kata-configure-settings/scripts/read-config.sh"`). Resolve these to absolute paths. Run scripts from the project directory (where `.planning/` lives). If you must run from a different directory, pass the project root via environment variable: `KATA_PROJECT_ROOT=/path/to/project bash "/path/to/script.sh" args`.
+
 <step name="parse_arguments">
 Parse the command arguments:
 

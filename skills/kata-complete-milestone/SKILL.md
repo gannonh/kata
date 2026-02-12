@@ -42,9 +42,9 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    **Check pr_workflow config FIRST before any other work:**
 
    ```bash
-   PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
+   PR_WORKFLOW=$(bash "../kata-configure-settings/scripts/read-config.sh" "pr_workflow" "false")
    CURRENT_BRANCH=$(git branch --show-current)
-   WORKTREE_ENABLED=$(bash ../kata-configure-settings/scripts/read-config.sh "worktree.enabled" "false")
+   WORKTREE_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "worktree.enabled" "false")
    ```
 
    **If `PR_WORKFLOW=true` AND on `main`:**
@@ -298,7 +298,7 @@ See milestone-complete.md `close_github_milestone` step for details.
    **PR workflow handling (branch was created in step 0):**
 
    ```bash
-   PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
+   PR_WORKFLOW=$(bash "../kata-configure-settings/scripts/read-config.sh" "pr_workflow" "false")
    CURRENT_BRANCH=$(git branch --show-current)
    ```
 
@@ -311,8 +311,8 @@ See milestone-complete.md `close_github_milestone` step for details.
    git push -u origin "$CURRENT_BRANCH"
 
    # Collect all phase issues for this milestone
-   GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | head -1 | grep -o 'true\|false' || echo "false")
-   ISSUE_MODE=$(cat .planning/config.json 2>/dev/null | grep -o '"issueMode"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "never")
+   GITHUB_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.enabled" "false")
+   ISSUE_MODE=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.issueMode" "never")
 
    CLOSES_LINES=""
    if [ "$GITHUB_ENABLED" = "true" ] && [ "$ISSUE_MODE" != "never" ]; then

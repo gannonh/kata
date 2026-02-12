@@ -299,7 +299,7 @@ Create CONTEXT.md capturing decisions made.
 PADDED_PHASE=$(printf "%02d" ${PHASE})
 if [ -z "$PHASE_DIR" ]; then
   # Create from roadmap name (lowercase, hyphens) in pending/
-  PHASE_NAME=$(grep "Phase ${PHASE}:" .planning/ROADMAP.md | sed 's/.*Phase [0-9]*: //' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+  PHASE_NAME=$(grep -E "^#{3,4} Phase ${PHASE}:" .planning/ROADMAP.md | head -1 | sed 's/.*Phase [0-9]*: //' | sed 's/ *(.*//' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-')
   mkdir -p ".planning/phases/pending/${PADDED_PHASE}-${PHASE_NAME}"
   PHASE_DIR=".planning/phases/pending/${PADDED_PHASE}-${PHASE_NAME}"
 fi

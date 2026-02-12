@@ -3,6 +3,9 @@
 # Reads ONLY from .planning/config.json (no preferences cascade, no defaults)
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/project-root.sh"
+
 KEY="${1:?Usage: read-config.sh <dot.key.path> [fallback]}"
 FALLBACK="${2:-}"
 
@@ -26,7 +29,12 @@ function resolveNested(obj, key) {
   return val;
 }
 
-const config = readJSON('.planning/config.json');
+// Try .planning/config.json first, then main/.planning/config.json (worktree root)
+const fs2 = require('fs');
+const configPath = fs2.existsSync('.planning/config.json') ? '.planning/config.json'
+  : fs2.existsSync('main/.planning/config.json') ? 'main/.planning/config.json'
+  : '.planning/config.json';
+const config = readJSON(configPath);
 const v = resolveNested(config, KEY) ?? (FALLBACK || undefined) ?? '';
 process.stdout.write(typeof v === 'object' ? JSON.stringify(v) : String(v));
 NODE_EOF

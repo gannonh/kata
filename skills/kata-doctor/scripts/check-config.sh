@@ -5,6 +5,9 @@
 # Exit: Always 0 (warnings only, never blocks)
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/../../kata-configure-settings/scripts/project-root.sh"
+
 # Exit silently if no config file
 [ -f .planning/config.json ] || exit 0
 
@@ -28,7 +31,8 @@ const KNOWN_KEYS = {
   'workflows.execute-phase.commit_scope_format': { type: 'string' },
   'workflows.verify-work.extra_verification_commands': { type: 'array' },
   'workflows.complete-milestone.version_files': { type: 'array' },
-  'workflows.complete-milestone.pre_release_commands': { type: 'array' }
+  'workflows.complete-milestone.pre_release_commands': { type: 'array' },
+  'worktree.enabled': { type: 'boolean' }
 };
 
 function flattenConfig(obj, prefix = '') {

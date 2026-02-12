@@ -31,12 +31,15 @@ Phase: $ARGUMENTS
 </context>
 
 <process>
+
+**Script invocation rule.** Code blocks reference scripts with paths relative to this SKILL.md (e.g., `"./scripts/find-phase.sh"`). Resolve these to absolute paths. Run scripts from the project directory (where `.planning/` lives). If you must run from a different directory, pass the project root via environment variable: `KATA_PROJECT_ROOT=/path/to/project bash "/path/to/script.sh" args`.
+
 0. **Resolve Model Profile**
 
 Read model profile for agent spawning:
 
 ```bash
-MODEL_PROFILE=$(cat .planning/config.json 2>/dev/null | grep -o '"model_profile"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "balanced")
+MODEL_PROFILE=$(bash "../kata-configure-settings/scripts/read-config.sh" "model_profile" "balanced")
 ```
 
 Default to "balanced" if not set.
@@ -52,6 +55,15 @@ EXEC_COMMIT_SCOPE_FMT=$(bash "../kata-configure-settings/scripts/read-pref.sh" "
 ```
 
 Store these three variables for injection into executor prompts in the `<wave_execution>` Task() calls.
+
+0.6. **Read GitHub Config**
+
+```bash
+GITHUB_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.enabled" "false")
+ISSUE_MODE=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.issueMode" "never")
+```
+
+Store for use in PR creation and issue checkbox updates.
 
 0.7. **Check Worktree Config**
 
@@ -132,17 +144,19 @@ if [ "$PHASE_STATE" = "pending" ]; then
 fi
 ```
 
-1.5. **Create Phase Branch (pr_workflow only)**
+1.5. **Create phase branch and commit activation changes**
 
 Read pr_workflow config:
 
 ```bash
-PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
+PR_WORKFLOW=$(bash "../kata-configure-settings/scripts/read-config.sh" "pr_workflow" "false")
 ```
 
 **If PR_WORKFLOW=false:** Skip to step 2.
 
 **If PR_WORKFLOW=true:**
+
+Create the phase branch FIRST. Uncommitted activation changes from step 1.25 float to the new branch via `git checkout -b`. Then commit on the phase branch (not main — respects branch protection).
 
 ```bash
 if ! BRANCH_OUTPUT=$(bash "./scripts/create-phase-branch.sh" "$PHASE_DIR"); then
@@ -154,6 +168,14 @@ eval "$BRANCH_OUTPUT"
 ```
 
 Store BRANCH variable for use in step 4.5 and step 10.5.
+
+Now commit the activation changes on the phase branch. This ensures worktrees branch from a clean state and prevents merge conflicts on STATE.md.
+
+```bash
+if [ -n "$(git status --porcelain .planning/)" ]; then
+  git add .planning/ && git commit -m "docs(${PHASE_NUM}): activate phase"
+fi
+```
 
 2. **Discover plans**
    - List all \*-PLAN.md files in phase directory
@@ -201,7 +223,39 @@ Kata ► EXECUTING PHASE {X}: {Phase Name}
 
    - Spawn `general-purpose` executor for each plan in wave (parallel Task calls)
    - Wait for completion (Task blocks)
-   - Verify SUMMARYs created
+
+   **IMPORTANT: The remaining post-wave steps are SEQUENTIAL. Do not run them in parallel.**
+
+   - **Merge worktrees (if enabled) — do this FIRST:**
+     When worktrees are enabled, SUMMARYs and code live in the worktree directories until merged. Merge BEFORE checking SUMMARYs or updating issue checkboxes.
+
+     ```bash
+     if [ "$WORKTREE_ENABLED" = "true" ]; then
+       for plan_num in $WAVE_PLAN_NUMBERS; do
+         MERGE_OUTPUT=$(bash "./scripts/manage-worktree.sh" merge "$PHASE_NUM" "$plan_num")
+         eval "$MERGE_OUTPUT"
+         if [ "$STATUS" != "merged" ]; then
+           echo "Warning: Worktree merge failed for plan $plan_num" >&2
+         fi
+       done
+     fi
+     ```
+
+     Merge happens ONCE per wave after all agents complete. This ensures all plan branches are integrated before the next wave starts.
+
+     **If merge fails:** Report the failure but continue. User can resolve merge conflicts manually and re-run. The worktree and branch remain for inspection.
+
+   - **Verify SUMMARYs created:**
+     After merge (or directly if worktrees disabled), verify each plan has a SUMMARY.md in the phase directory:
+
+     ```bash
+     for plan_num in $WAVE_PLAN_NUMBERS; do
+       if ! find "$PHASE_DIR" -maxdepth 1 -name "*-${plan_num}-SUMMARY.md" 2>/dev/null | grep -q .; then
+         echo "Warning: No SUMMARY.md found for plan $plan_num" >&2
+       fi
+     done
+     ```
+
    - **Update GitHub issue checkboxes (if enabled):**
 
      Build completed plan numbers from SUMMARY.md files created this wave, then update issue checkboxes:
@@ -220,31 +274,20 @@ Kata ► EXECUTING PHASE {X}: {Phase Name}
 
      This update happens ONCE per wave (after all plans in wave complete), not per-plan, avoiding race conditions.
 
-   - **Merge worktrees (if enabled):**
-     After all agents in wave complete and SUMMARYs verified, merge each plan's worktree:
+   - **Open Draft PR (first wave only, pr_workflow only):**
+
+     After first wave completion, commit any remaining uncommitted planning changes:
 
      ```bash
-     if [ "$WORKTREE_ENABLED" = "true" ]; then
-       for plan_num in $WAVE_PLAN_NUMBERS; do
-         MERGE_OUTPUT=$(bash "./scripts/manage-worktree.sh" merge "$PHASE_NUM" "$plan_num")
-         eval "$MERGE_OUTPUT"
-         if [ "$STATUS" != "merged" ]; then
-           echo "Warning: Worktree merge failed for plan $plan_num" >&2
-         fi
-       done
+     if [ -n "$(git status --porcelain .planning/)" ]; then
+       git add .planning/ && git commit -m "docs(${PHASE_NUM}): update planning state"
      fi
      ```
 
-     Merge happens ONCE per wave after all agents complete (same pattern as issue checkbox updates). This ensures all plan branches are integrated before the next wave starts.
-
-     **If merge fails:** Report the failure but continue. User can resolve merge conflicts manually and re-run. The worktree and branch remain for inspection.
-
-   - **Open Draft PR (first wave only, pr_workflow only):**
-
-     After first wave completion:
+     Then create the draft PR:
 
      ```bash
-     PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
+     PR_WORKFLOW=$(bash "../kata-configure-settings/scripts/read-config.sh" "pr_workflow" "false")
      if [ "$PR_WORKFLOW" = "true" ]; then
        BRANCH=$(git branch --show-current)
        if ! PR_OUTPUT=$(bash "./scripts/create-draft-pr.sh" "$PHASE_DIR" "$BRANCH"); then
@@ -301,19 +344,62 @@ TEST_SCRIPT=$(cat package.json 2>/dev/null | grep -o '"test"[[:space:]]*:[[:spac
 
 **Skip for gap phases:** If mode is `gap_closure`, skip test suite
 
-7. **Verify phase goal**
-   Check config: `WORKFLOW_VERIFIER=$(cat .planning/config.json 2>/dev/null | grep -o '"verifier"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")`
+7. **Verify phase goal (automated codebase check — NOT user-facing UAT)**
+
+   Check config: `WORKFLOW_VERIFIER=$(bash "../kata-configure-settings/scripts/read-config.sh" "workflow.verifier" "true")`
 
    **If `workflow.verifier` is `false`:** Skip to step 8 (treat as passed).
 
-   **Otherwise:**
-   - Spawn `kata-verifier` subagent with phase directory and goal
-   - Verifier checks must_haves against actual codebase (not SUMMARY claims)
-   - Creates VERIFICATION.md with detailed report
-   - Route by status:
-     - `passed` → continue to step 8
-     - `human_needed` → present items, get approval or feedback
-     - `gaps_found` → present gaps, offer `/kata-plan-phase {X} --gaps`
+   **Otherwise:** Spawn a Task subagent with verifier instructions inlined. Do NOT invoke `/kata-verify-work` — that is a different skill for interactive user testing.
+
+   Read the verifier instructions file:
+
+   ```
+   verifier_instructions_content = Read("references/verifier-instructions.md")
+   ```
+
+   Read the phase goal from ROADMAP.md and all SUMMARY.md files in the phase directory.
+
+   Spawn the verifier:
+
+   ```
+   Task(
+     prompt="<agent-instructions>
+   {verifier_instructions_content}
+   </agent-instructions>
+
+   Verify phase goal achievement for: {PHASE_DIR}
+
+   PHASE_DIR={PHASE_DIR}
+   PHASE_NUM={PHASE_NUM}
+
+   Phase goal: {goal from ROADMAP.md}
+
+   Plan summaries:
+   {summary contents from phase directory}
+
+   Return your verification results as structured text. Do NOT write any files.",
+     subagent_type="general-purpose",
+     model="{verifier_model from model lookup table}"
+   )
+   ```
+
+   **Create VERIFICATION.md from the verifier's returned text.** The verifier returns structured text with `VERIFICATION_FRONTMATTER` and `VERIFICATION_BODY` sections. Parse these and write to `{PHASE_DIR}/{phase_num}-VERIFICATION.md`:
+
+   ```markdown
+   ---
+   {content from VERIFICATION_FRONTMATTER section}
+   ---
+
+   {content from VERIFICATION_BODY section}
+   ```
+
+   If the verifier's output doesn't follow the expected format, extract the status (`passed`/`gaps_found`/`human_needed`), score, and any gap details from whatever text was returned, and construct the VERIFICATION.md yourself.
+
+   Parse the verification status:
+   - `passed` → continue to step 8
+   - `human_needed` → present items to user, get approval or feedback
+   - `gaps_found` → present gaps, offer `/kata-plan-phase {X} --gaps`
 
 7.5. **Validate completion and move to completed**
 
@@ -382,23 +468,37 @@ fi
     - Stage REQUIREMENTS.md if updated: `git add .planning/REQUIREMENTS.md`
     - Commit: `docs({phase}): complete {phase-name} phase`
 
-10.5. **Mark PR Ready (pr_workflow only)**
+10.5. **Push and ensure PR exists (pr_workflow only)**
 
     After phase completion commit:
     ```bash
     if [ "$PR_WORKFLOW" = "true" ]; then
+      BRANCH=$(git branch --show-current)
+
       # Push final commits
-      git push origin "$BRANCH"
+      git push -u origin "$BRANCH"
 
-      # Mark PR ready for review
-      gh pr ready
+      # Check if draft PR was created earlier
+      PR_NUMBER=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null)
 
-      PR_URL=$(gh pr view --json url --jq '.url')
-      echo "PR marked ready: $PR_URL"
+      if [ -z "$PR_NUMBER" ]; then
+        # Draft PR creation failed earlier — create PR now
+        PR_OUTPUT=$(bash "./scripts/create-draft-pr.sh" "$PHASE_DIR" "$BRANCH" 2>&1) || true
+        PR_NUMBER=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null)
+      fi
+
+      # Mark PR ready for review (if it exists)
+      if [ -n "$PR_NUMBER" ]; then
+        gh pr ready "$PR_NUMBER" 2>/dev/null || true
+        PR_URL=$(gh pr view "$PR_NUMBER" --json url --jq '.url' 2>/dev/null)
+        echo "PR #${PR_NUMBER} marked ready: $PR_URL"
+      else
+        echo "Warning: Could not create or find PR for branch $BRANCH" >&2
+      fi
     fi
     ```
 
-    Store PR_URL for offer_next output.
+    Store PR_NUMBER and PR_URL for offer_next output.
 
 11. **Offer next steps** - Route to next action (see `<offer_next>`)
     </process>

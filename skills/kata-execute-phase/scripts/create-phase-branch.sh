@@ -7,6 +7,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/../../kata-configure-settings/scripts/project-root.sh"
+
 PHASE_DIR="${1:?Usage: create-phase-branch.sh <phase-dir>}"
 
 # 1. Get milestone version from ROADMAP.md
@@ -18,10 +21,11 @@ fi
 
 # 2. Get phase number and slug from PHASE_DIR
 PHASE_NUM=$(basename "$PHASE_DIR" | sed -E 's/^([0-9]+)-.*/\1/')
+PHASE_NUM_UNPADDED=$(echo "$PHASE_NUM" | sed 's/^0*//')
 SLUG=$(basename "$PHASE_DIR" | sed -E 's/^[0-9]+-//')
 
 # 3. Infer branch type from phase goal (precedence: fix > docs > refactor > chore > feat)
-PHASE_GOAL=$(grep -A 5 "Phase ${PHASE_NUM}:" .planning/ROADMAP.md | grep "Goal:" | head -1 || echo "")
+PHASE_GOAL=$(grep -A 5 "Phase ${PHASE_NUM_UNPADDED}:" .planning/ROADMAP.md | grep "Goal:" | head -1 || echo "")
 if echo "$PHASE_GOAL" | grep -qi "fix\|bug\|patch"; then
   BRANCH_TYPE="fix"
 elif echo "$PHASE_GOAL" | grep -qi "doc\|readme\|comment"; then

@@ -33,13 +33,15 @@ const GIT_ENV = {
 };
 
 function makeRoadmap(phaseNum, goal) {
+  // ROADMAP uses unpadded phase numbers (e.g., "Phase 5:" not "Phase 05:")
+  const unpadded = String(Number(phaseNum));
   return `# Roadmap
 
 ## Current Milestone: v1.10.0
 
 ### Phases
 
-#### Phase ${phaseNum}: Test Phase
+#### Phase ${unpadded}: Test Phase
 - Goal: ${goal}
 - Status: Pending
 `;

@@ -76,7 +76,7 @@ Only read files for applicable review aspects. Also read:
 ## 6. Resolve Model Profile
 
 ```bash
-MODEL_PROFILE=$(cat .planning/config.json 2>/dev/null | grep -o '"model_profile"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "balanced")
+MODEL_PROFILE=$(bash "../kata-configure-settings/scripts/read-config.sh" "model_profile" "balanced")
 ```
 
 Default to "balanced" if not set.

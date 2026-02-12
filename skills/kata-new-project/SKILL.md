@@ -28,6 +28,8 @@ This is the most leveraged moment in any project. Deep questioning here means be
 
 <process>
 
+**Script invocation rule.** Code blocks reference scripts with paths relative to this SKILL.md (e.g., `"../kata-configure-settings/scripts/read-config.sh"`). Resolve these to absolute paths. Run scripts from the project directory (where `.planning/` lives). If you must run from a different directory, pass the project root via environment variable: `KATA_PROJECT_ROOT=/path/to/project bash "/path/to/script.sh" args`.
+
 ## Phase 1: Setup
 
 **MANDATORY FIRST STEP — Execute these checks before ANY user interaction:**
@@ -42,7 +44,7 @@ This is the most leveraged moment in any project. Deep questioning here means be
    if [ -d .git ] || [ -f .git ]; then
        echo "Git repo exists in current directory"
    else
-       git init
+       git init -b main
        echo "Initialized new git repo"
    fi
    ```
@@ -470,13 +472,21 @@ EOF
 Call setup-worktrees.sh to convert to bare repo + worktree layout:
 
 ```bash
-if ! bash "skills/kata-configure-settings/scripts/setup-worktrees.sh"; then
+if ! bash "../kata-configure-settings/scripts/setup-worktrees.sh"; then
   echo "Warning: Worktree setup failed. Reverting worktree.enabled to false."
-  bash "skills/kata-configure-settings/scripts/set-config.sh" "worktree.enabled" "false"
+  bash "../kata-configure-settings/scripts/set-config.sh" "worktree.enabled" "false"
 fi
 ```
 
 Worktree setup failure is non-fatal. The project setup continues regardless.
+
+**After successful worktree setup, cd into the main worktree:**
+
+```bash
+cd main
+```
+
+All subsequent operations (GitHub Actions scaffold, validation, commits, push) happen inside `main/`. This is the working directory for the project from now on.
 
 **If pr_workflow = Yes:**
 
@@ -638,7 +648,7 @@ The workflow will auto-publish when you merge PRs that bump package.json version
 Read model profile for agent spawning:
 
 ```bash
-MODEL_PROFILE=$(cat .planning/config.json 2>/dev/null | grep -o '"model_profile"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "balanced")
+MODEL_PROFILE=$(bash "../kata-configure-settings/scripts/read-config.sh" "model_profile" "balanced")
 ```
 
 Default to "balanced" if not set.
@@ -676,12 +686,12 @@ fi
 
 ```bash
 MISSING=""
-[ ! -f .planning/PROJECT.md ] && MISSING="${MISSING}\n- .planning/PROJECT.md"
-[ ! -f .planning/config.json ] && MISSING="${MISSING}\n- .planning/config.json"
-[ ! -f .planning/preferences.json ] && MISSING="${MISSING}\n- .planning/preferences.json"
-[ ! -f .planning/phases/pending/.gitkeep ] && MISSING="${MISSING}\n- .planning/phases/pending/.gitkeep"
-[ ! -f .planning/phases/active/.gitkeep ] && MISSING="${MISSING}\n- .planning/phases/active/.gitkeep"
-[ ! -f .planning/phases/completed/.gitkeep ] && MISSING="${MISSING}\n- .planning/phases/completed/.gitkeep"
+[ -f .planning/PROJECT.md ] || MISSING="${MISSING}\n- .planning/PROJECT.md"
+[ -f .planning/config.json ] || MISSING="${MISSING}\n- .planning/config.json"
+[ -f .planning/preferences.json ] || MISSING="${MISSING}\n- .planning/preferences.json"
+[ -f .planning/phases/pending/.gitkeep ] || MISSING="${MISSING}\n- .planning/phases/pending/.gitkeep"
+[ -f .planning/phases/active/.gitkeep ] || MISSING="${MISSING}\n- .planning/phases/active/.gitkeep"
+[ -f .planning/phases/completed/.gitkeep ] || MISSING="${MISSING}\n- .planning/phases/completed/.gitkeep"
 if [ -n "$MISSING" ]; then
   echo "MISSING ARTIFACTS:${MISSING}"
 else
@@ -724,6 +734,20 @@ Settings for `main`:
   ✓ Do not allow bypassing the above settings
   ✗ Allow force pushes (uncheck)
 ```
+
+───────────────────────────────────────────────────────────────
+
+<!-- If worktree was enabled, add worktree-specific instructions before Next Up -->
+**If worktree.enabled = true:**
+
+> **Worktrees are active.** `main/` is now your project root.
+>
+> Before continuing, restart Claude Code from inside `main/`:
+> ```
+> cd main
+> claude
+> ```
+> All skills, git commands, and file edits run from `main/` going forward.
 
 ───────────────────────────────────────────────────────────────
 

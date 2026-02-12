@@ -153,6 +153,19 @@ describe('setup-worktrees.sh', () => {
     );
   });
 
+  test('exits 0 (idempotent) when running inside a worktree', () => {
+    // Simulate being inside a worktree: ../.bare exists at parent level
+    fs.mkdirSync(path.join(tmpDir, '.bare'), { recursive: true });
+    const subDir = path.join(tmpDir, 'main');
+    fs.mkdirSync(path.join(subDir, '.planning'), { recursive: true });
+
+    const result = runScript(subDir);
+    assert.ok(
+      result.includes('Already converted'),
+      `Output should contain "Already converted", got: ${result}`
+    );
+  });
+
   test('full conversion creates bare repo + worktree layout', () => {
     createGitRepo(tmpDir);
 
@@ -172,6 +185,89 @@ describe('setup-worktrees.sh', () => {
     assert.ok(
       fs.existsSync(path.join(tmpDir, 'main')),
       'main/ worktree directory should exist'
+    );
+
+    // README.md exists at project root with worktree instructions
+    const readme = fs.readFileSync(path.join(tmpDir, 'README.md'), 'utf8');
+    assert.ok(
+      readme.includes('cd main'),
+      'README should tell user to cd into main/'
+    );
+  });
+
+  test('works with master branch (non-main default)', () => {
+    // Init with master instead of main
+    execSync('git init -b master', { cwd: tmpDir, env: GIT_ENV, stdio: 'pipe' });
+    execSync('git commit --allow-empty -m "init"', { cwd: tmpDir, env: GIT_ENV, stdio: 'pipe' });
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning/config.json'),
+      JSON.stringify({ pr_workflow: 'true' }, null, 2)
+    );
+    execSync('git add .planning/config.json', { cwd: tmpDir, env: GIT_ENV, stdio: 'pipe' });
+    execSync('git commit -m "add config"', { cwd: tmpDir, env: GIT_ENV, stdio: 'pipe' });
+
+    runScript(tmpDir);
+
+    // main/ worktree directory exists (directory always named main/)
+    assert.ok(
+      fs.existsSync(path.join(tmpDir, 'main')),
+      'main/ worktree directory should exist even with master branch'
+    );
+
+    // Verify the worktree has the master branch checked out
+    const branch = execSync('git branch --show-current', {
+      cwd: path.join(tmpDir, 'main'),
+      env: GIT_ENV,
+      encoding: 'utf8'
+    }).trim();
+    assert.strictEqual(branch, 'master', 'worktree should have master branch checked out');
+  });
+
+  test('preserves original remote URL after conversion', () => {
+    createGitRepo(tmpDir);
+
+    // Add a fake remote to simulate GitHub
+    execSync('git remote add origin https://github.com/test/repo.git', {
+      cwd: tmpDir, env: GIT_ENV, stdio: 'pipe'
+    });
+
+    runScript(tmpDir);
+
+    // Verify the bare repo's remote still points to GitHub, not local path
+    const remoteUrl = execSync('GIT_DIR=.bare git remote get-url origin', {
+      cwd: tmpDir, env: GIT_ENV, encoding: 'utf8'
+    }).trim();
+    assert.strictEqual(
+      remoteUrl,
+      'https://github.com/test/repo.git',
+      `Remote should be preserved, got: ${remoteUrl}`
+    );
+  });
+
+  test('sets upstream tracking when remote exists', () => {
+    createGitRepo(tmpDir);
+
+    // Add a fake remote to simulate GitHub
+    execSync('git remote add origin https://github.com/test/repo.git', {
+      cwd: tmpDir, env: GIT_ENV, stdio: 'pipe'
+    });
+
+    runScript(tmpDir);
+
+    // Verify branch tracking config is set (git push will use this)
+    const remote = execSync('git -C main config branch.main.remote', {
+      cwd: tmpDir, env: GIT_ENV, encoding: 'utf8'
+    }).trim();
+    assert.strictEqual(remote, 'origin', `branch.main.remote should be origin, got: ${remote}`);
+
+    const merge = execSync('git -C main config branch.main.merge', {
+      cwd: tmpDir, env: GIT_ENV, encoding: 'utf8'
+    }).trim();
+    assert.strictEqual(
+      merge,
+      'refs/heads/main',
+      `branch.main.merge should be refs/heads/main, got: ${merge}`
     );
   });
 });

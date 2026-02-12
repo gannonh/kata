@@ -528,12 +528,22 @@ The planner (`/kata-plan-phase --gaps`) reads this gap analysis and creates appr
 
 <output>
 
-## Create VERIFICATION.md
+## Return Results to Orchestrator
 
-Create `.planning/phases/{phase_dir}/{phase}-VERIFICATION.md` with:
+**DO NOT write any files.** Do not create VERIFICATION.md. The orchestrator handles all file creation.
+
+**DO NOT COMMIT.** The orchestrator bundles verification with other phase artifacts.
+
+Return your results as structured text in this exact format. The orchestrator will parse this and create VERIFICATION.md.
 
 ```markdown
----
+## Verification Complete
+
+**Status:** {passed | gaps_found | human_needed}
+**Score:** {N}/{M} must-haves verified
+
+### VERIFICATION_FRONTMATTER
+
 phase: XX-name
 verified: YYYY-MM-DDTHH:MM:SSZ
 status: passed | gaps_found | human_needed
@@ -559,7 +569,8 @@ human_verification: # Only include if status: human_needed
   - test: "What to do"
     expected: "What should happen"
     why_human: "Why can't verify programmatically"
----
+
+### VERIFICATION_BODY
 
 # Phase {X}: {Name} Verification Report
 
@@ -612,49 +623,8 @@ human_verification: # Only include if status: human_needed
 
 _Verified: {timestamp}_
 _Verifier: Claude (kata-verifier)_
-```
 
-## Return to Orchestrator
-
-**DO NOT COMMIT.** The orchestrator bundles VERIFICATION.md with other phase artifacts.
-
-Return with:
-
-```markdown
-## Verification Complete
-
-**Status:** {passed | gaps_found | human_needed}
-**Score:** {N}/{M} must-haves verified
-**Report:** .planning/phases/{phase_dir}/{phase}-VERIFICATION.md
-
-{If passed:}
-All must-haves verified. Phase goal achieved. Ready to proceed.
-
-{If gaps_found:}
-
-### Gaps Found
-
-{N} gaps blocking goal achievement:
-
-1. **{Truth 1}** — {reason}
-   - Missing: {what needs to be added}
-2. **{Truth 2}** — {reason}
-   - Missing: {what needs to be added}
-
-Structured gaps in VERIFICATION.md frontmatter for `/kata-plan-phase --gaps`.
-
-{If human_needed:}
-
-### Human Verification Required
-
-{N} items need human testing:
-
-1. **{Test name}** — {what to do}
-   - Expected: {what should happen}
-2. **{Test name}** — {what to do}
-   - Expected: {what should happen}
-
-Automated checks passed. Awaiting human verification.
+### END_VERIFICATION
 ```
 
 </output>
@@ -673,7 +643,9 @@ Automated checks passed. Awaiting human verification.
 
 **DO keep verification fast.** Use grep/file checks, not running the app. Goal is structural verification, not functional testing.
 
-**DO NOT commit.** Create VERIFICATION.md but leave committing to the orchestrator.
+**DO NOT write any files.** Return structured text only. The orchestrator creates VERIFICATION.md from your output.
+
+**DO NOT commit.** The orchestrator handles all file operations.
 
 </critical_rules>
 
