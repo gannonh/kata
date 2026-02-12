@@ -4,7 +4,7 @@
 
 A spec-driven development framework for Claude Code. Brings structured, reliable AI development to teams without changing their existing tools. Teams use Kata's quality-producing process inside the tools they already love.
 
-**Current state:** v1.9.0 shipped. Template override system now universal across all installation methods. Validation migrated from hooks to skills. Template customization UI and full documentation complete.
+**Current state:** v1.10.0 shipped. Git worktree support now available for plan-level agent isolation during phase execution. Config foundation, worktree lifecycle management, wave-based execution integration, comprehensive test suite, and worktree-aware downstream skills complete.
 
 ## Core Value
 
@@ -58,12 +58,14 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Template system tests — v1.9.0 (resolution, drift detection, override behavior test suite)
 - Template documentation — v1.9.0 (schema reference, migration guide, README section)
 
-### Active
-
 - Git worktree support — v1.10.0 (plan-level agent isolation via git worktrees)
 - Config nested key reader — v1.10.0 (read-config.sh for nested JSON keys)
 - Worktree execution integration — v1.10.0 (per-plan worktrees during phase execution)
 - Worktree-aware downstream skills — v1.10.0 (milestone completion, git integration docs)
+
+### Active
+
+(No active requirements — add via `/kata-add-milestone`)
 
 ### Out of Scope
 
@@ -81,19 +83,21 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Building an LLM — use Claude, not compete with it
 - Building an agent framework — use platform-native capabilities (subagents, Skills, MCPs)
 
-## Current Milestone: v1.10.0 Git Worktree Support
+## Current Milestone: None
 
-**Goal:** Add optional git worktree support so each plan agent during phase execution gets its own isolated worktree and branch, replacing the shared-directory model.
-
-**Target features:**
-
-- Config infrastructure for worktree settings with nested key reader
-- Bare repo conversion and worktree setup scripts
-- Per-plan worktree creation during phase execution with wave-barrier merge semantics
-- Worktree-aware downstream skills (milestone completion, git integration docs)
-- Graceful fallback to shared-directory execution when worktrees disabled or fail
+No active milestone. Use `/kata-add-milestone` to start planning the next version.
 
 ## Context
+
+**v1.10.0 shipped (2026-02-12):**
+- 98 files changed, 7,199 insertions, 1,116 deletions
+- Config foundation with `worktree.enabled` setting and `read-config.sh` for nested JSON keys
+- Git worktree lifecycle management via `manage-worktree.sh` (create, merge, list subcommands)
+- Bare repo conversion and worktree setup scripts
+- Wave-based execution integration with per-plan worktree isolation
+- Worktree-aware release branch creation in milestone completion
+- Comprehensive test suite for all new worktree scripts
+- Active post-release task offerings replacing passive checklist
 
 **v1.9.0 shipped (2026-02-08):**
 - 71 files changed, 5,610 insertions, 527 deletions
@@ -205,6 +209,21 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 | Dual distribution (marketplace + skills.sh) | Two install channels without maintaining separate codebases          | Good — v1.6.0 |
 | Agent Skills spec normalization        | SKILL.md frontmatter follows spec for cross-platform compatibility       | Good — v1.6.0 |
 
+## Shipped: v1.10.0 Git Worktree Support
+
+**Delivered:** Optional git worktree support for plan-level agent isolation during phase execution, with config foundation, lifecycle management, wave-based execution integration, and comprehensive test coverage.
+
+**Key accomplishments:**
+- Config foundation with `worktree.enabled` setting and `read-config.sh` for nested JSON keys
+- Git worktree lifecycle management via `manage-worktree.sh` (create, merge, list subcommands)
+- Bare repo conversion and worktree setup scripts
+- Wave-based execution integration with per-plan worktree isolation and automatic branch merging
+- Worktree-aware downstream skills (release branch creation, two-tier branch flow docs)
+- Comprehensive test suite for all new worktree scripts and infrastructure
+- Active post-release verification task offerings
+
+See `.planning/milestones/v1.10.0-ROADMAP.md` for full archive.
+
 ## Shipped: v1.7.0 Brainstorm Integration
 
 **Delivered:** Structured explorer/challenger brainstorming via Agent Teams, wired into 5 existing workflows as an optional step with downstream context injection.
@@ -311,4 +330,4 @@ See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 See `.planning/milestones/v1.6.0-ROADMAP.md` for full archive.
 
 ---
-*Last updated: 2026-02-09 after v1.10.0 milestone started*
+*Last updated: 2026-02-12 after v1.10.0 milestone shipped*

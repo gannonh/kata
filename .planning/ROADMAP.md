@@ -12,30 +12,28 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - ✅ **v1.7.0 Brainstorm Integration** — Phases 35-36 (shipped 2026-02-07)
 - ✅ **v1.8.0 Adaptive Workflows** — Phases 37-39 (shipped 2026-02-08)
 - ✅ **v1.9.0 Template Overrides (Universal)** — Phases 40-43 (shipped 2026-02-08)
-- ✅ **v1.10.0 Git Worktree Support** — Phases 44-48 (shipped 2026-02-10)
+- ✅ **v1.10.0 Git Worktree Support** — Phases 44-48 (shipped 2026-02-12)
 
-## Current Milestone: v1.10.0 Git Worktree Support
+## Current Milestone: None
 
-**Goal:** Add optional git worktree support so each plan agent during phase execution gets its own isolated worktree and branch, replacing the shared-directory model.
-
-- [x] Phase 44: Config Foundation (2/2 plans) — completed 2026-02-09
-  - [x] 44-01-PLAN.md — Config schema + reader script (CFG-01, CFG-02)
-  - [x] 44-02-PLAN.md — Setup script + skill integration (CFG-03, CFG-04, CFG-05)
-- [x] Phase 45: Worktree Scripting (2/2 plans) — completed 2026-02-09
-  - [x] 45-01-PLAN.md — manage-worktree.sh create/merge/list (EXEC-01)
-  - [x] 45-02-PLAN.md — Extract inline scripts to standalone files (HOUSE-01)
-- [x] Phase 46: Execution Integration (2/2 plans) — completed 2026-02-10
-  - [x] 46-01-PLAN.md — Worktree awareness in reference docs (EXEC-03, EXEC-04)
-  - [x] 46-02-PLAN.md — Wire worktree lifecycle into SKILL.md orchestrator (EXEC-02)
-- [x] Phase 47: Downstream & Release (2/2 plans) — completed 2026-02-10
-  - [x] 47-01-PLAN.md — Two-tier branch flow docs + worktree-aware release branch (DOWN-01, DOWN-02)
-  - [x] 47-02-PLAN.md — Active post-release task offerings (HOUSE-02, GitHub #83)
-- [x] Phase 48: Test Coverage of New Functionality (3/3 plans) — completed 2026-02-10
-  - [x] 48-01-PLAN.md — Tests for read-config.sh and find-phase.sh
-  - [x] 48-02-PLAN.md — Tests for setup-worktrees.sh and create-phase-branch.sh
-  - [x] 48-03-PLAN.md — Tests for manage-worktree.sh + wire test runner glob
+No active milestone. Use `/kata-add-milestone` to start planning the next version.
 
 ## Completed Milestones
+
+<details>
+<summary>✅ v1.10.0 Git Worktree Support (Phases 44-48) — SHIPPED 2026-02-12</summary>
+
+**Goal:** Optional git worktree support for plan-level agent isolation during phase execution.
+
+- [x] Phase 44: Config Foundation (2/2 plans) — completed 2026-02-09
+- [x] Phase 45: Worktree Scripting (2/2 plans) — completed 2026-02-09
+- [x] Phase 46: Execution Integration (2/2 plans) — completed 2026-02-10
+- [x] Phase 47: Downstream & Release (2/2 plans) — completed 2026-02-10
+- [x] Phase 48: Test Coverage of New Functionality (3/3 plans) — completed 2026-02-10
+
+[Full archive](milestones/v1.10.0-ROADMAP.md)
+
+</details>
 
 <details>
 <summary>✅ v1.9.0 Template Overrides Universal (Phases 40-43) — SHIPPED 2026-02-08</summary>
@@ -136,131 +134,3 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 **Goal:** Create internal documentation and terminology reference for Kata.
 
 - [x] Phase 1: Internal Documentation (4/4 plans) — completed 2026-01-29
-
-[Full archive](milestones/v1.3.3-ROADMAP.md)
-
-</details>
-
-<details>
-<summary>✅ v1.3.0 Release Automation — SHIPPED 2026-01-28</summary>
-
-**Goal:** Harden CI validation and automate the release pipeline.
-
-- [x] Phase 0: Foundation & CI Hardening (2/2 plans) — completed 2026-01-28
-- [x] Phase 1: Release Automation (2/2 plans) — completed 2026-01-28
-
-[Full archive](milestones/v1.3.0-ROADMAP.md)
-
-</details>
-
-<details>
-<summary>✅ v1.1.0 GitHub Integration — SHIPPED 2026-01-27</summary>
-
-**Goal:** GitHub integration with issue sync, PR workflow, and review automation.
-
-- [x] Phase 0: Develop Robust Testing Suite (7/7 plans) — completed 2026-01-25
-- [x] Phase 1: Audit & Config Foundation (2/2 plans) — completed 2026-01-25
-- [x] Phase 2: Onboarding & Milestones (3/3 plans) — completed 2026-01-25
-- [x] Phase 2.1: GitHub Repo Setup (2/2 plans) — completed 2026-01-26
-- [x] Phase 2.2: Decouple Project Init & Milestone Setup (4/4 plans) — completed 2026-01-26
-- [x] Phase 3: Phase Issues (2/2 plans) — completed 2026-01-26
-- [x] Phase 4: Plan Sync (3/3 plans) — completed 2026-01-26
-- [x] Phase 5: PR Integration (3/3 plans) — completed 2026-01-27
-- [x] Phase 6: PR Review Workflow Skill & Agents (4/4 plans) — completed 2026-01-27
-- [x] Phase 7: Deprecate NPX Support (6/6 plans) — completed 2026-01-27
-
-[Full archive](milestones/v1.1.0-ROADMAP.md)
-
-</details>
-
-<details>
-<summary>✅ v1.0.9 Command Consolidation — SHIPPED 2026-01-25</summary>
-
-**Goal:** Normalize all entry points onto the skills system.
-
-- [x] Phase 2.2: Normalize on Skills (3/3 plans) — completed 2026-01-25
-
-[Full archive](milestones/v1.0.9-ROADMAP.md)
-
-</details>
-
-<details>
-<summary>✅ v1.0.8 Plugin Stability — SHIPPED 2026-01-24</summary>
-
-**Goal:** Restructure skill resources for plugin stability.
-
-- [x] Phase 2.1: Skill Resource Restructure (5/5 plans) — completed 2026-01-24
-
-[Full archive](milestones/v1.0.8-ROADMAP.md)
-
-</details>
-
-<details>
-<summary>✅ v1.0.0 Claude Code Plugin — SHIPPED 2026-01-23</summary>
-
-**Goal:** Package Kata as a Claude Code plugin for marketplace distribution.
-
-- [x] Phase 1: Plugin Structure & Validation (1/1 plans) — completed 2026-01-22
-- [x] Phase 1.1: Document PR Workflow Behavior (1/1 plans) — completed 2026-01-22
-- [x] Phase 2: Marketplace Distribution (2/2 plans) — completed 2026-01-23
-- [x] Phase 3: Documentation (1/1 plans) — completed 2026-01-23
-
-**Patch releases:** v1.0.1-v1.0.5 (plugin distribution fixes)
-
-[Full archive](milestones/v1.0.0-ROADMAP.md)
-
-</details>
-
-<details>
-<summary>✅ v0.1.5 Skills & Documentation — SHIPPED 2026-01-22</summary>
-
-**Goal:** Convert commands to skills and establish documentation patterns.
-
-- [x] Phase 0: Convert Commands to Skills (12/12 plans) — completed 2026-01-20
-- [x] Phase 1: Migrate Todo Commands to Kata Skill (3/3 plans) — completed 2026-01-20
-- [x] Phase 1.1: Testing & Evals Harness (2/2 plans) — completed 2026-01-20
-- [x] Phase 1.2: Skill Tests (4/4 plans) — completed 2026-01-20
-- [x] Phase 1.3: Discuss Phase Skill (2/2 plans) — completed 2026-01-20
-- [x] Phase 2: Create Kata Slash Commands (7/7 plans) — completed 2026-01-21
-
-[Full archive](milestones/v0.1.5-ROADMAP.md)
-
-</details>
-
-<details>
-<summary>✅ v0.1.4 Hard Fork & Rebrand — SHIPPED 2026-01-18</summary>
-
-**Goal:** Fork from upstream and rebrand as Kata.
-
-- [x] Phase 0: Hard Fork & Rebrand (5/5 plans) — completed 2026-01-18
-
-[Full archive](milestones/v0.1.4-ROADMAP.md)
-
-</details>
-
----
-
-## Progress Summary
-
-| Milestone | Phases | Plans | Status      | Shipped    |
-| --------- | ------ | ----- | ----------- | ---------- |
-| v0.1.4    | 1      | 5     | Shipped     | 2026-01-18 |
-| v0.1.5    | 6      | 30    | Shipped     | 2026-01-22 |
-| v1.0.0    | 4      | 5     | Shipped     | 2026-01-23 |
-| v1.0.8    | 1      | 5     | Shipped     | 2026-01-24 |
-| v1.0.9    | 1      | 3     | Shipped     | 2026-01-25 |
-| v1.1.0    | 10     | 33    | Shipped     | 2026-01-27 |
-| v1.3.0    | 2      | 4     | Shipped     | 2026-01-28 |
-| v1.3.3    | 1      | 4     | Shipped     | 2026-01-29 |
-| v1.4.0    | 2      | 11    | Shipped     | 2026-02-01 |
-| v1.4.1    | 4      | 6     | Shipped     | 2026-02-03 |
-| v1.5.0    | 3      | 6     | Shipped     | 2026-02-04 |
-| v1.6.0    | 5      | 17    | Shipped     | 2026-02-06 |
-| v1.7.0    | 2      | 5     | Shipped     | 2026-02-07 |
-| v1.8.0    | 3      | 7     | Shipped     | 2026-02-08 |
-| v1.9.0    | 4      | 5     | Shipped     | 2026-02-08 |
-| v1.10.0   | 5      | 11    | Shipped     | 2026-02-10 |
-
----
-*Roadmap created: 2026-01-18*
-*Last updated: 2026-02-10 — Phase 48 complete: Test Coverage of New Functionality*

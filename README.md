@@ -29,13 +29,25 @@ npx skills add gannonh/kata-skills
 
 ---
 
-## What's New in v1.9.0
+## What's New in v1.10.0
 
-**Template Overrides (Universal)** — Customize how Kata generates planning artifacts:
+**Git Worktree Support** — Optional plan-level agent isolation during phase execution:
+- **Config foundation** — `worktree.enabled` setting with `read-config.sh` for nested JSON keys
+- **Worktree lifecycle** — `manage-worktree.sh` creates isolated worktrees per plan, merges after wave completion
+- **Wave-based execution** — Each plan agent gets its own branch and working directory
+- **Graceful fallback** — When disabled (default), execution uses shared-directory model
+- **Test coverage** — Comprehensive test suite for all worktree infrastructure
+
+<details>
+<summary><strong>v1.9.0: Template Overrides (Universal)</strong></summary>
+
+**Customize how Kata generates planning artifacts:**
 - **Template customization** — `/kata-customize` to list, copy, edit, and validate template overrides
 - **Universal resolution** — Templates resolve via sibling discovery, working identically for plugin and skills-only users
 - **Schema validation** — Required field checks run as pre-flight in skills (no SessionStart hooks)
 - **5 customizable templates** — Plans, summaries, UAT sessions, verification reports, changelogs
+
+</details>
 
 <details>
 <summary><strong>v1.8.0: Adaptive Workflows</strong></summary>
