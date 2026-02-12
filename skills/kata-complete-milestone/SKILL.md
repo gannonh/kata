@@ -57,42 +57,21 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    VERSION="X.Y.Z"  # Set from user input or detection
    ```
 
-   **When `WORKTREE_ENABLED=true`:**
+   **Release branches always use the `main/` working directory.** Do NOT create a separate worktree for release work. Milestone completion is sequential admin work with no parallelism — a separate worktree adds complexity with no benefit.
+
+   Create the release branch in the current working directory. In bare repo layout, CWD is already `main/`. In normal repos, CWD is the project root. Both cases use the same command:
 
    ```bash
-   # Create release worktree (manage-worktree.sh is in kata-execute-phase)
-   eval "$(bash ../kata-execute-phase/scripts/manage-worktree.sh create release "v$VERSION")"
-   echo "Created release worktree at $WORKTREE_PATH on branch $WORKTREE_BRANCH"
+   RELEASE_BRANCH="release/v$VERSION"
+   git checkout -b "$RELEASE_BRANCH"
    ```
 
    Display:
 
    ```
-   ⚠ pr_workflow is enabled — creating release worktree.
+   ⚠ pr_workflow is enabled — creating release branch.
 
-   Worktree: $WORKTREE_PATH
-   Branch: $WORKTREE_BRANCH
-
-   All milestone completion commits will go to this worktree.
-   After completion, a PR will be created to merge to main.
-   ```
-
-   **When `WORKTREE_ENABLED=false` (default):**
-
-   ```bash
-   # Create release branch
-   git checkout -b release/v$VERSION
-
-   echo "Created release branch: release/v$VERSION"
-   echo "All milestone completion work will be committed here."
-   ```
-
-   Display:
-
-   ```
-   ⚠ pr_workflow is enabled — creating release branch first.
-
-   Branch: release/v$VERSION
+   Branch: $RELEASE_BRANCH
 
    All milestone completion commits will go to this branch.
    After completion, a PR will be created to merge to main.
@@ -103,8 +82,10 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    Proceed with current branch (commits go to main or current branch).
 
    **GATE: Do NOT proceed until branch is correct:**
-   - If pr_workflow=true, you must be on release/vX.Y.Z branch (or release worktree)
+   - If pr_workflow=true, you must be on release/vX.Y.Z branch
    - If pr_workflow=false, main branch is OK
+
+   **All subsequent steps work in the current working directory.** Do NOT cd to any other directory.
 
 0.1. **Pre-flight: Check roadmap format (auto-migration)**
 
@@ -155,13 +136,38 @@ Store for use in release workflow steps. See milestone-complete.md `read_workflo
 
 0.2. **Generate release artifacts:**
 
-Proactively generate changelog and version bump. Follow the release_workflow step in milestone-complete.md (loads version-detector.md and changelog-generator.md) to:
+Proactively generate changelog and version bump. Use the functions defined in version-detector.md and changelog-generator.md. Run these steps using the exact function definitions from those references:
 
-1.  Detect version bump type from conventional commits
-2.  Calculate next version
-3.  Generate changelog entry
-4.  Bump version in all project version files detected by version-detector.md
-5.  Insert changelog entry into CHANGELOG.md
+```bash
+# 1. Get current version (version-detector.md: get_current_version)
+CURRENT_VERSION=$(node -p "require('./package.json').version" 2>/dev/null || git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0")
+
+# 2. Get commits since last tag (version-detector.md: commit_parsing)
+LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+if [ -n "$LAST_TAG" ]; then
+  COMMITS=$(git log --oneline --format="%s" "$LAST_TAG"..HEAD)
+else
+  COMMITS=$(git log --oneline --format="%s")
+fi
+
+# 3. Categorize commits
+BREAKING=$(echo "$COMMITS" | grep -E "^[a-z]+(\(.+\))?!:|BREAKING CHANGE:" || true)
+FEATURES=$(echo "$COMMITS" | grep -E "^feat(\(.+\))?:" || true)
+FIXES=$(echo "$COMMITS" | grep -E "^fix(\(.+\))?:" || true)
+
+# 4. Determine bump type
+if [ -n "$BREAKING" ]; then BUMP_TYPE="major"
+elif [ -n "$FEATURES" ]; then BUMP_TYPE="minor"
+elif [ -n "$FIXES" ]; then BUMP_TYPE="patch"
+else BUMP_TYPE="none"
+fi
+
+echo "CURRENT=$CURRENT_VERSION BUMP=$BUMP_TYPE"
+echo "FEATURES: $FEATURES"
+echo "FIXES: $FIXES"
+```
+
+Calculate next version using `calculate_next_version` from version-detector.md. Generate changelog entry using changelog-generator.md format. Update version in project files using `update_versions` from version-detector.md (if version changed).
 
 Present all proposed changes for review:
 
@@ -307,7 +313,7 @@ See milestone-complete.md `close_github_milestone` step for details.
    Push branch and create PR:
 
    ```bash
-   # Push branch
+   # Push branch (use --head for bare repo layout where gh can't auto-detect)
    git push -u origin "$CURRENT_BRANCH"
 
    # Collect all phase issues for this milestone
@@ -339,8 +345,10 @@ See milestone-complete.md `close_github_milestone` step for details.
      done
    fi
 
-   # Create PR
+   # Create PR (--head required for bare repo worktree layout)
    gh pr create \
+     --head "$CURRENT_BRANCH" \
+     --base main \
      --title "v{{version}}: [Milestone Name]" \
      --body "$(cat <<EOF
    ## Summary
@@ -375,6 +383,28 @@ See milestone-complete.md `close_github_milestone` step for details.
 
    After merge:
    → Create GitHub Release with tag v{{version}}
+   ```
+
+   **Offer to merge PR:**
+
+   Use AskUserQuestion:
+   - header: "Merge Release PR"
+   - question: "PR is ready. Merge now?"
+   - options:
+     - "Yes, merge now" — merge and return to main
+     - "No, I'll merge later" — leave PR open
+
+   **If "Yes, merge now":**
+
+   ```bash
+   gh pr merge "$PR_NUMBER" --merge --delete-branch
+   ```
+
+   Then return to main:
+
+   ```bash
+   git checkout main
+   git pull
    ```
 
    **If `PR_WORKFLOW=false` (on main):**
