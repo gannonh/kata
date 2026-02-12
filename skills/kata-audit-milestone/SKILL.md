@@ -36,12 +36,14 @@ Glob: .planning/phases/{active,pending,completed}/_/_-VERIFICATION.md
 
 <process>
 
+**Script invocation rule.** Code blocks reference scripts with paths relative to this SKILL.md (e.g., `"../kata-configure-settings/scripts/read-config.sh"`). Resolve these to absolute paths. Run scripts from the project directory (where `.planning/` lives). If you must run from a different directory, pass the project root via environment variable: `KATA_PROJECT_ROOT=/path/to/project bash "/path/to/script.sh" args`.
+
 ## 0. Resolve Model Profile
 
 Read model profile for agent spawning:
 
 ```bash
-MODEL_PROFILE=$(cat .planning/config.json 2>/dev/null | grep -o '"model_profile"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "balanced")
+MODEL_PROFILE=$(bash "../kata-configure-settings/scripts/read-config.sh" "model_profile" "balanced")
 ```
 
 Default to "balanced" if not set.
@@ -62,7 +64,7 @@ If ROADMAP.md exists, check format and auto-migrate if old:
 if [ -f .planning/ROADMAP.md ]; then
   bash "../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
   FORMAT_EXIT=$?
-  
+
   if [ $FORMAT_EXIT -eq 1 ]; then
     echo "Old roadmap format detected. Running auto-migration..."
   fi
@@ -209,6 +211,7 @@ Route by status (see `<offer_next>`).
 ## 8. Offer UAT Walkthrough
 
 Use AskUserQuestion:
+
 - header: "UAT Walkthrough"
 - question: "Would you like a complete walk-through UAT session?"
 - options:
@@ -222,15 +225,95 @@ Use AskUserQuestion:
 
 1. Read all phase SUMMARY.md files in milestone scope
 2. Extract user-observable deliverables (features, behaviors, UI changes)
-3. Synthesize demo scenarios:
-   - "Full walkthrough": all user-observable outcomes across phases
-   - "Integration only": cross-phase touchpoints and E2E flows
-4. Create `.planning/v{version}-UAT.md` adapted from UAT template format:
+3. Classify each deliverable as **user-facing** or **internal**:
+   - **User-facing:** Things end-users interact with through the product's normal interface. For a web app: pages, forms, buttons, API responses. For a CLI tool: commands, flags, output. For a library: public API, configuration options. The test is: would the end-user encounter this during normal use?
+   - **Internal:** Everything else. Scripts, helper functions, reference docs, test files, build artifacts, refactors, and implementation modules are INTERNAL even if they can be invoked directly from a terminal. If the end-user never runs it, sees it, or interacts with it, it's internal.
+4. Design demo scenarios **organized by user journey, not by phase or technical component**:
+   - Map the order in which an end-user naturally encounters these features (e.g., project setup → configuration → daily use → completion)
+   - Each batch follows one segment of that journey, not one phase or one script
+   - "Full walkthrough": walk through the complete user journey, then summarize internal changes
+   - "Integration only": demo cross-phase flows only
+5. Create `.planning/v{version}-UAT.md` adapted from UAT template format:
    - `milestone: {version}` instead of `phase:`
    - `source:` lists all phase SUMMARY.md files
-5. Walk through scenarios one at a time (yes/next = pass, anything else = issue with severity inferred)
-6. Update UAT.md after each response
-7. On completion: commit UAT.md
+
+6. **Set up the environment, then hand off to the user**
+
+   <uat_rules>
+
+   **CRITICAL: The user performs UAT, not you.**
+
+   UAT verifies the milestone's deliverables work from the end-user's perspective. The user interacts with what was built (their app, their CLI, their API). You prepare the environment and give instructions. You MUST NOT run the demo yourself and report results back.
+
+   **What you do:**
+   - Start dev servers, seed databases, install dependencies — whatever setup the user needs
+   - Run internal verification yourself (tests, build checks) and summarize results
+   - Write clear step-by-step instructions telling the user what to try
+   - Wait for the user to report back what happened
+
+   **What the user does:**
+   - Opens the app, runs commands, submits forms, navigates pages
+   - Observes behavior and reports whether it matches expectations
+   - Flags anything unexpected
+
+   **Anti-pattern (WRONG):**
+
+   ```
+   Claude runs curl against the API itself
+   Claude opens the page and reads the DOM
+   Claude says: "The login endpoint returns 200, it works!"
+   ```
+
+   This is automated verification, not user acceptance testing.
+
+   **Correct pattern:**
+
+   ```
+   Claude says: "I started the dev server on port 3000.
+   Try this:
+     1. Open http://localhost:3000/login in your browser
+     2. Enter test@example.com / password123
+     3. You should be redirected to the dashboard with your name displayed
+   What do you see?"
+   ```
+
+   The user experiences the feature. Claude waits for their report.
+
+   </uat_rules>
+
+   **Scenario design principles:**
+   - Each scenario is an instruction TO the user, not a command for Claude to run
+   - Scenarios exercise the product's normal interface — the same way an end-user would encounter the feature. For a web app: open a URL, click a button, submit a form. For a CLI: run the command the user would run. NEVER have the user invoke internal scripts, grep source files, or inspect implementation details
+   - Tell the user what to look for: "You should see X" or "The output should include Y"
+   - Group related scenarios into batches of 2-4
+   - If a milestone is mostly internal work (infrastructure, refactors, scripts), most scenarios belong in the internal summary — don't force the user to manually test internals
+
+   **Internal changes get summarized verification.** Run tests, check build output, and inspect artifacts yourself. Present a summary to the user ("all 47 tests pass, build succeeds"). The user confirms or flags concerns. Do not ask the user to grep files, read source, or run diagnostic commands.
+
+   **Before each batch, brief the user on context from the end-user's perspective.** Describe what the user will experience, not what was built internally. Wrong: "v1.10.0 adds a `worktree.enabled` config option read by three skills." Right: "When you create a new project, you'll now see a question about Git Worktrees." Then give setup instructions if needed (cd to a directory, open a session, etc.).
+
+   Then present the batch using AskUserQuestion with multiSelect:
+
+   ```
+   Use AskUserQuestion:
+   - header: "UAT Batch {N}"
+   - question: "Try each scenario and select the ones that pass. Unselected = needs investigation."
+   - multiSelect: true
+   - options:
+     - "S{X}: {short name}" — {instruction for user to follow}
+     - "S{Y}: {short name}" — {instruction for user to follow}
+     - "S{Z}: {short name}" — {instruction for user to follow}
+     - "None pass" — all scenarios in this batch failed
+   ```
+
+   For any scenario NOT selected (failed):
+   - Ask follow-up: "What's the issue with S{X}?"
+   - Record user's description as a gap with severity inferred from response
+
+   Continue batches until all scenarios are presented.
+
+7. Update UAT.md after each batch with pass/fail status and user-provided evidence
+8. On completion: commit UAT.md
 
 **If all scenarios pass:** Proceed to `<offer_next>` (audit status unchanged).
 
@@ -241,6 +324,7 @@ Use AskUserQuestion:
 3. Update UAT.md summary counts
 
 Then use AskUserQuestion:
+
 - header: "Issues Found"
 - question: "{N} issues found during walkthrough. How to proceed?"
 - options:

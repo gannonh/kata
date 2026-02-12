@@ -3,6 +3,9 @@
 # Handles: JSON parse, nested key set, type coercion, atomic write
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/project-root.sh"
+
 KEY="${1:?Usage: set-config.sh <key> <value>}"
 VALUE="${2:?Usage: set-config.sh <key> <value>}"
 CONFIG_FILE=".planning/config.json"

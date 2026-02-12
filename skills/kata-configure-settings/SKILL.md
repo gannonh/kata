@@ -256,7 +256,12 @@ done
 **If worktree was just enabled (changed from false to true):**
 
 ```bash
-# Run setup after writing the config
+# setup-worktrees.sh requires a clean working tree.
+# Commit all pending config/preference changes first.
+git add .planning/config.json .planning/preferences.json 2>/dev/null
+git commit -m "chore: update kata settings" 2>/dev/null || true
+
+# Run setup after committing
 if ! bash "$SCRIPT_DIR/setup-worktrees.sh"; then
   echo "Error: Worktree setup failed. Reverting worktree.enabled to false."
   bash "$SCRIPT_DIR/set-config.sh" "worktree.enabled" "false"
@@ -264,6 +269,16 @@ fi
 ```
 
 The settings flow continues regardless of setup outcome (non-fatal).
+
+**After successful worktree setup, inform the user:**
+
+> Worktree layout created. `main/` is now your project root. Restart Claude Code from inside `main/` to continue working. All skills, git commands, and file edits run from `main/`.
+
+**If worktree was just disabled (changed from true to false):**
+
+Inform the user:
+
+> Worktree isolation disabled. Phase execution will run all plans in the shared working directory. The bare repo layout is preserved — continue working from `main/`.
 
 **If `commit_docs` changed to `false`:**
 

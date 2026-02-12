@@ -21,15 +21,15 @@ Run a comprehensive pull request review by spawning `general-purpose` subagents 
 
 ## 2. Available Review Aspects
 
-| Aspect       | Reference File                        | Purpose                                    |
-| ------------ | ------------------------------------- | ------------------------------------------ |
-| **code**     | code-reviewer-instructions.md         | General code review for project guidelines |
-| **tests**    | pr-test-analyzer-instructions.md      | Test coverage quality and completeness     |
-| **comments** | comment-analyzer-instructions.md      | Code comment accuracy and maintainability  |
-| **errors**   | silent-failure-hunter-instructions.md | Silent failures and error handling         |
-| **types**    | type-design-analyzer-instructions.md  | Type design and invariants                 |
-| **simplify** | code-simplifier-instructions.md       | Code clarity and maintainability           |
-| **all**      | _(all applicable)_                    | Run all reviews (default)                  |
+| Aspect       | Reference File                       | Purpose                                    |
+| ------------ | ------------------------------------ | ------------------------------------------ |
+| **code**     | code-reviewer-instructions.md        | General code review for project guidelines |
+| **tests**    | pr-test-analyzer-instructions.md     | Test coverage quality and completeness     |
+| **comments** | comment-analyzer-instructions.md     | Code comment accuracy and maintainability  |
+| **errors**   | failure-finder-instructions.md       | Silent failures and error handling         |
+| **types**    | type-design-analyzer-instructions.md | Type design and invariants                 |
+| **simplify** | code-simplifier-instructions.md      | Code clarity and maintainability           |
+| **all**      | _(all applicable)_                   | Run all reviews (default)                  |
 
 ## 3. Identify Changed Files
 
@@ -63,7 +63,7 @@ Read each applicable reference file into a variable for inlining into subagent p
 code_instructions      = Read("./references/code-reviewer-instructions.md")
 test_instructions      = Read("./references/pr-test-analyzer-instructions.md")
 comment_instructions   = Read("./references/comment-analyzer-instructions.md")
-errors_instructions    = Read("./references/silent-failure-hunter-instructions.md")
+errors_instructions    = Read("./references/failure-finder-instructions.md")
 types_instructions     = Read("./references/type-design-analyzer-instructions.md")
 simplify_instructions  = Read("./references/code-simplifier-instructions.md")
 ```
@@ -76,7 +76,7 @@ Only read files for applicable review aspects. Also read:
 ## 6. Resolve Model Profile
 
 ```bash
-MODEL_PROFILE=$(cat .planning/config.json 2>/dev/null | grep -o '"model_profile"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "balanced")
+MODEL_PROFILE=$(bash "../kata-configure-settings/scripts/read-config.sh" "model_profile" "balanced")
 ```
 
 Default to "balanced" if not set.
@@ -175,18 +175,19 @@ Organize findings:
 
 Route based on review results:
 
-| Findings                       | Route                      |
-| ------------------------------ | -------------------------- |
-| Critical issues found          | Route A (must address)     |
-| Important issues, no critical  | Route B (should address)   |
-| Suggestions only               | Route C (optional)         |
-| No issues                      | Route D (clean) → step 11  |
+| Findings                      | Route                     |
+| ----------------------------- | ------------------------- |
+| Critical issues found         | Route A (must address)    |
+| Important issues, no critical | Route B (should address)  |
+| Suggestions only              | Route C (optional)        |
+| No issues                     | Route D (clean) → step 11 |
 
 ---
 
 **Route A: Critical issues found**
 
 Use AskUserQuestion:
+
 - header: "Critical Issues"
 - question: "{N} critical issues found. How do you want to handle them?"
 - options:
@@ -198,6 +199,7 @@ Use AskUserQuestion:
 **Route B: Important issues, no critical**
 
 Use AskUserQuestion:
+
 - header: "Review Findings"
 - question: "{N} important issues found. How do you want to handle them?"
 - options:
@@ -209,6 +211,7 @@ Use AskUserQuestion:
 **Route C: Suggestions only**
 
 Use AskUserQuestion:
+
 - header: "Suggestions"
 - question: "{N} suggestions found. Address them?"
 - options:
@@ -247,6 +250,7 @@ TOTAL_PHASES=$(grep -c '^## Phase' .planning/ROADMAP.md 2>/dev/null || echo "0")
 {If PR exists from step 3:}
 
 Use AskUserQuestion:
+
 - header: "Next Step"
 - question: "Review complete. What next?"
 - options:
@@ -257,6 +261,7 @@ Use AskUserQuestion:
 {If no PR exists:}
 
 Use AskUserQuestion:
+
 - header: "Next Step"
 - question: "Review complete. What next?"
 - options:

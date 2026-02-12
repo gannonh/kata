@@ -4,6 +4,9 @@
 # Does NOT check defaults table -- purpose is detecting whether user has EXPRESSED a preference
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/project-root.sh"
+
 KEY="${1:?Usage: has-pref.sh <key>}"
 
 KEY="$KEY" node << 'NODE_EOF'

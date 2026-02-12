@@ -39,6 +39,9 @@ If warnings are printed, relay them to the user before proceeding with verificat
 </pre_flight>
 
 <process>
+
+**Script invocation rule.** Code blocks reference scripts with paths relative to this SKILL.md (e.g., `"../kata-configure-settings/scripts/read-config.sh"`). Resolve these to absolute paths. Run scripts from the project directory (where `.planning/` lives). If you must run from a different directory, pass the project root via environment variable: `KATA_PROJECT_ROOT=/path/to/project bash "/path/to/script.sh" args`.
+
 0. **Resolve UAT template (project override -> plugin default):**
 
 ```bash
@@ -78,7 +81,7 @@ Use `UAT_TEMPLATE_CONTENT` as the format specification when creating or updating
 Read pr_workflow config:
 
 ```bash
-PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
+PR_WORKFLOW=$(bash "../kata-configure-settings/scripts/read-config.sh" "pr_workflow" "false")
 ```
 
 **If PR_WORKFLOW=false:** Skip to offer_next.

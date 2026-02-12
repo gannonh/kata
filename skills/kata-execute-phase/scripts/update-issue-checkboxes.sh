@@ -9,6 +9,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/../../kata-configure-settings/scripts/project-root.sh"
 READ_CONFIG="$SCRIPT_DIR/../../kata-configure-settings/scripts/read-config.sh"
 
 PHASE_NUM="${1:?Usage: update-issue-checkboxes.sh <phase-num> <phase-dir> <completed-plan-nums...>}"

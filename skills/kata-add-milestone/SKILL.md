@@ -44,6 +44,8 @@ Milestone name: $ARGUMENTS (optional - will prompt if not provided)
 
 <process>
 
+**Script invocation rule.** Code blocks reference scripts with paths relative to this SKILL.md (e.g., `"../kata-configure-settings/scripts/read-config.sh"`). Resolve these to absolute paths. Run scripts from the project directory (where `.planning/` lives). If you must run from a different directory, pass the project root via environment variable: `KATA_PROJECT_ROOT=/path/to/project bash "/path/to/script.sh" args`.
+
 ## Phase 1: Load Context
 
 - Read PROJECT.md (existing project, Validated requirements, decisions)
@@ -165,7 +167,7 @@ Keep Accumulated Context section (decisions, blockers) from previous milestone.
 Read GitHub config:
 
 ```bash
-GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
+GITHUB_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.enabled" "false")
 ```
 
 **If `GITHUB_ENABLED=true`:**
@@ -269,7 +271,7 @@ Delete MILESTONE-CONTEXT.md if exists (consumed).
 Check planning config:
 
 ```bash
-COMMIT_PLANNING_DOCS=$(cat .planning/config.json 2>/dev/null | grep -o '"commit_docs"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
+COMMIT_PLANNING_DOCS=$(bash "../kata-configure-settings/scripts/read-config.sh" "commit_docs" "true")
 git check-ignore -q .planning 2>/dev/null && COMMIT_PLANNING_DOCS=false
 ```
 
@@ -287,7 +289,7 @@ git commit -m "docs: start milestone v[X.Y] [Name]"
 Read model profile for agent spawning:
 
 ```bash
-MODEL_PROFILE=$(cat .planning/config.json 2>/dev/null | grep -o '"model_profile"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "balanced")
+MODEL_PROFILE=$(bash "../kata-configure-settings/scripts/read-config.sh" "model_profile" "balanced")
 ```
 
 Default to "balanced" if not set.
@@ -1047,7 +1049,7 @@ EOF
 **2. Check github.issueMode** (auto | ask | never):
 
 ```bash
-ISSUE_MODE=$(cat .planning/config.json 2>/dev/null | grep -o '"issueMode"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "auto")
+ISSUE_MODE=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.issueMode" "auto")
 ```
 
 - If "never": Skip phase issue creation silently, continue to Phase 10
@@ -1114,8 +1116,8 @@ if [ -z "$NEXT_MILESTONE" ]; then
 fi
 
 # Extract phase blocks within this milestone section
-# Each phase starts with "#### Phase N:" and ends at next "#### Phase" or section boundary
-PHASE_HEADERS=$(sed -n "${MILESTONE_START},${NEXT_MILESTONE}p" "$ROADMAP_FILE" | grep -n "^#### Phase [0-9]")
+# Each phase starts with "### Phase N:" or "#### Phase N:" and ends at next phase or section boundary
+PHASE_HEADERS=$(sed -n "${MILESTONE_START},${NEXT_MILESTONE}p" "$ROADMAP_FILE" | grep -nE "^#{3,4} Phase [0-9]")
 
 # Process each phase
 echo "$PHASE_HEADERS" | while IFS= read -r phase_line; do
@@ -1128,7 +1130,7 @@ echo "$PHASE_HEADERS" | while IFS= read -r phase_line; do
   PHASE_ABS_LINE=$((MILESTONE_START + PHASE_REL_LINE - 1))
 
   # Find next phase or section end
-  NEXT_PHASE_LINE=$(sed -n "$((PHASE_ABS_LINE+1)),${NEXT_MILESTONE}p" "$ROADMAP_FILE" | grep -n "^#### Phase\|^### \|^## " | head -1 | cut -d: -f1)
+  NEXT_PHASE_LINE=$(sed -n "$((PHASE_ABS_LINE+1)),${NEXT_MILESTONE}p" "$ROADMAP_FILE" | grep -nE "^#{2,4} (Phase |v[0-9])" | head -1 | cut -d: -f1)
   if [ -z "$NEXT_PHASE_LINE" ]; then
     PHASE_END=$NEXT_MILESTONE
   else

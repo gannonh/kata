@@ -13,8 +13,8 @@ const SKILLS_DIR = path.join(PLUGIN_DIR, 'skills');
  * manage-worktree.sh Tests
  *
  * Tests precondition checks (bare repo required, worktree enabled, unknown
- * subcommand, usage output) and create/list subcommands using real git repos
- * in tmpDir. Merge subcommand is skipped (slow, fragile in temp repos).
+ * subcommand, usage output), create/list/merge subcommands using real git
+ * repos in tmpDir.
  *
  * Run with: node --test tests/scripts/manage-worktree.test.js
  */
@@ -187,7 +187,7 @@ describe('manage-worktree.sh', () => {
       const result = runManageWorktree(tmpDir, 'create 48 01');
       const kv = parseOutput(result.stdout);
 
-      assert.strictEqual(kv.WORKTREE_PATH, 'plan-48-01');
+      assert.ok(kv.WORKTREE_PATH.endsWith('/plan-48-01'), `WORKTREE_PATH should end with /plan-48-01, got: ${kv.WORKTREE_PATH}`);
       assert.strictEqual(kv.WORKTREE_BRANCH, 'plan/48-01');
       assert.strictEqual(kv.STATUS, 'created');
 
@@ -209,7 +209,7 @@ describe('manage-worktree.sh', () => {
       const kv = parseOutput(result.stdout);
 
       assert.strictEqual(kv.STATUS, 'exists');
-      assert.strictEqual(kv.WORKTREE_PATH, 'plan-48-01');
+      assert.ok(kv.WORKTREE_PATH.endsWith('/plan-48-01'), `WORKTREE_PATH should end with /plan-48-01, got: ${kv.WORKTREE_PATH}`);
       assert.strictEqual(kv.WORKTREE_BRANCH, 'plan/48-01');
     });
   });
@@ -238,6 +238,70 @@ describe('manage-worktree.sh', () => {
       const kv = parseOutput(result.stdout);
 
       assert.strictEqual(kv.WORKTREE_COUNT, '0');
+    });
+  });
+
+  describe('merge subcommand', () => {
+    test('merges plan branch back to base', () => {
+      createBareRepo(tmpDir);
+
+      // Create worktree
+      runManageWorktree(tmpDir, 'create 48 01');
+
+      // Commit a file in the plan worktree
+      fs.writeFileSync(path.join(tmpDir, 'plan-48-01', 'hello.txt'), 'hello');
+      execSync('git add hello.txt && git commit -m "add hello"', {
+        cwd: path.join(tmpDir, 'plan-48-01'),
+        env: GIT_ENV,
+        stdio: 'pipe'
+      });
+
+      // Merge back
+      const result = runManageWorktree(tmpDir, 'merge 48 01');
+      const kv = parseOutput(result.stdout);
+
+      assert.strictEqual(kv.STATUS, 'merged');
+      assert.strictEqual(kv.MERGED, 'true');
+
+      // File should now exist in main/
+      assert.ok(
+        fs.existsSync(path.join(tmpDir, 'main', 'hello.txt')),
+        'hello.txt should exist in main/ after merge'
+      );
+
+      // Worktree directory should be removed
+      assert.ok(
+        !fs.existsSync(path.join(tmpDir, 'plan-48-01')),
+        'plan-48-01/ should be removed after merge'
+      );
+    });
+
+    test('merges when untracked files in main/ conflict with plan branch', () => {
+      createBareRepo(tmpDir);
+
+      // Create worktree
+      runManageWorktree(tmpDir, 'create 48 01');
+
+      // Commit a file in the plan worktree (simulates npm install creating package-lock.json)
+      fs.writeFileSync(path.join(tmpDir, 'plan-48-01', 'generated.txt'), 'from-plan');
+      execSync('git add generated.txt && git commit -m "add generated file"', {
+        cwd: path.join(tmpDir, 'plan-48-01'),
+        env: GIT_ENV,
+        stdio: 'pipe'
+      });
+
+      // Create same file as UNTRACKED in main/ (simulates npm install running between merges)
+      fs.writeFileSync(path.join(tmpDir, 'main', 'generated.txt'), 'from-main-untracked');
+
+      // Merge should succeed (script removes untracked conflicts before merging)
+      const result = runManageWorktree(tmpDir, 'merge 48 01');
+      const kv = parseOutput(result.stdout);
+
+      assert.strictEqual(kv.STATUS, 'merged');
+
+      // File should contain plan branch version (plan is source of truth)
+      const content = fs.readFileSync(path.join(tmpDir, 'main', 'generated.txt'), 'utf8');
+      assert.strictEqual(content, 'from-plan', 'Plan branch version should win over untracked file');
     });
   });
 });

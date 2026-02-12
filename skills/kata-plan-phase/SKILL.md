@@ -76,7 +76,7 @@ ls .planning/ 2>/dev/null
 **Resolve model profile for agent spawning:**
 
 ```bash
-MODEL_PROFILE=$(cat .planning/config.json 2>/dev/null | grep -o '"model_profile"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "balanced")
+MODEL_PROFILE=$(bash "../kata-configure-settings/scripts/read-config.sh" "model_profile" "balanced")
 ```
 
 Default to "balanced" if not set.
@@ -166,7 +166,7 @@ Check if model_profile has been set in config:
 
 ```bash
 KATA_SCRIPTS="../kata-configure-settings/scripts"
-MODEL_PROFILE_SET=$(cat .planning/config.json 2>/dev/null | grep -o '"model_profile"' | head -1)
+MODEL_PROFILE_SET=$(bash "../kata-configure-settings/scripts/read-config.sh" "model_profile")
 ```
 
 **If model_profile is absent (empty MODEL_PROFILE_SET):**
@@ -221,7 +221,7 @@ fi
 
 if [ -z "$PHASE_DIR" ]; then
   # Create phase directory in pending/ from roadmap name
-  PHASE_NAME=$(grep "Phase ${PHASE}:" .planning/ROADMAP.md | sed 's/.*Phase [0-9]*: //' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+  PHASE_NAME=$(grep -E "^#{3,4} Phase ${PHASE}:" .planning/ROADMAP.md | head -1 | sed 's/.*Phase [0-9]*: //' | sed 's/ *(.*//' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-')
   mkdir -p ".planning/phases/pending/${PHASE}-${PHASE_NAME}"
   PHASE_DIR=".planning/phases/pending/${PHASE}-${PHASE_NAME}"
 fi
@@ -236,7 +236,7 @@ fi
 **Check config for research setting:**
 
 ```bash
-WORKFLOW_RESEARCH=$(cat .planning/config.json 2>/dev/null | grep -o '"research"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")
+WORKFLOW_RESEARCH=$(bash "../kata-configure-settings/scripts/read-config.sh" "workflow.research" "true")
 ```
 
 **If `workflow.research` is `false` AND `--research` flag NOT set:** Skip to step 6.
@@ -527,7 +527,7 @@ Parse planner output:
 **`## PLANNING COMPLETE`:**
 - Display: `Planner created {N} plan(s). Files on disk.`
 - If `--skip-verify`: Skip to step 13
-- Check config: `WORKFLOW_PLAN_CHECK=$(cat .planning/config.json 2>/dev/null | grep -o '"plan_check"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "true")`
+- Check config: `WORKFLOW_PLAN_CHECK=$(bash "../kata-configure-settings/scripts/read-config.sh" "workflow.plan_check" "true")`
 - If `workflow.plan_check` is `false`: Skip to step 13
 - Otherwise: Proceed to step 10
 
@@ -670,8 +670,8 @@ Wait for user response.
 **Check config guards:**
 
 ```bash
-GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
-ISSUE_MODE=$(cat .planning/config.json 2>/dev/null | grep -o '"issueMode"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "never")
+GITHUB_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.enabled" "false")
+ISSUE_MODE=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.issueMode" "never")
 ```
 
 **If `GITHUB_ENABLED != true` OR `ISSUE_MODE = never`:**
