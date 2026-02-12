@@ -1,4 +1,31 @@
-# Project Milestones: Kata
+## v1.10.0 Git Worktree Support (Shipped: 2026-02-12)
+
+**Delivered:** Optional git worktree support for plan-level agent isolation during phase execution, replacing the shared-directory model.
+
+**Phases completed:** 44-48 (11 plans total)
+
+**Key accomplishments:**
+
+- Config foundation with worktree.enabled setting and read-config.sh for nested JSON keys
+- Git worktree lifecycle management via manage-worktree.sh (create, merge, list subcommands)
+- Wave-based execution integration with per-plan worktree isolation
+- Worktree-aware downstream skills and two-tier branch flow documentation
+- Comprehensive test suite for all new worktree scripts and infrastructure
+- Post-release verification with active task offerings
+
+**Stats:**
+
+- 98 files created/modified
+- 7,199 insertions, 1,116 deletions
+- 5 phases, 11 plans, 19 tasks
+- 1 day from start to ship (2026-02-09 → 2026-02-10)
+
+**Git range:** `b111432` → `f697508`
+
+**What's next:** Continue improving Kata's development workflow infrastructure
+
+---
+
 
 ## v1.9.0 Template Overrides Universal (Shipped: 2026-02-08)
 

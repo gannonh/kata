@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.10.0] - 2026-02-12
+
+### Added
+- Worktree config foundation with `worktree.enabled` setting and `read-config.sh` for nested JSON keys
+- Git worktree lifecycle management via `manage-worktree.sh` (create, merge, list subcommands)
+- Bare repo conversion and worktree setup script (`setup-worktrees.sh`)
+- Worktree toggle in configuration settings
+- Worktree question in new project onboarding
+- Worktree-aware release branch creation in milestone completion
+- Working directory awareness in executor instructions
+- Phase execution reference documentation for worktree lifecycle
+- Active post-release task offerings replacing passive checklist
+- Optional milestone demo walkthrough to completion process
+- Findings handling and next-action routing to PR review skill
+
+### Fixed
+- Release branch now uses `main/` directory instead of separate worktree
+- Hardened execute-phase worktree flow and script resilience
+- Phase directory moves now properly staged (pending→active transitions)
+- Command references in roadmap phase and milestone initialization
+- Phase detail collapse now explicit in execute-phase
+- UAT template resolution via project override
+- Formatting and clarity improvements in SKILL.md files
+
+### Changed
+- Extracted inline bash scripts to standalone files (`update-issue-checkboxes.sh`, `create-draft-pr.sh`, `create-phase-branch.sh`)
+- Moved UAT walkthrough from complete-milestone to audit-milestone
+- Streamlined post-verification process removing redundant steps
+- Worktrees recommended when PR workflow enabled
+
+
 ## [Unreleased]
 
 ## [1.9.0] - 2026-02-08 — Template Overrides (Universal)
