@@ -37,7 +37,6 @@ const AGENT_MAPPINGS = {
   'kata-pr-test-analyzer': 'kata-review-pull-requests',
   'kata-type-design-analyzer': 'kata-review-pull-requests',
   'kata-failure-finder': 'kata-review-pull-requests',
-  'kata-silent-failure-hunter': 'kata-review-pull-requests',
   'kata-entity-generator': 'kata-review-pull-requests'
 };
 
@@ -59,9 +58,9 @@ function findMarkdownFiles(dir, files = []) {
 }
 
 describe('Migration validation: agent-to-instruction-file mappings', () => {
-  test('all 19 agents have corresponding instruction files', () => {
+  test('all 18 agents have corresponding instruction files', () => {
     const agentNames = Object.keys(AGENT_MAPPINGS);
-    assert.strictEqual(agentNames.length, 19, `Expected 19 agent mappings, got ${agentNames.length}`);
+    assert.strictEqual(agentNames.length, 18, `Expected 18 agent mappings, got ${agentNames.length}`);
 
     const errors = [];
 
