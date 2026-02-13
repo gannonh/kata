@@ -25,6 +25,10 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 **Requirements:** WT-01, WT-02, WT-03, WT-04, WT-05, MT-01, MT-02, MT-03
 
+Plans:
+- [ ] 49-01-PLAN.md — Rewrite create-phase-branch.sh to create phase worktree
+- [ ] 49-02-PLAN.md — Modify manage-worktree.sh for explicit base branch and cleanup-phase
+
 **Success criteria:**
 - `create-phase-branch.sh` creates a worktree directory at project root named `{branch-type}-v{milestone}-{phase-num}-{slug}` and outputs `WORKTREE_PATH` and `BRANCH`
 - Rerunning `create-phase-branch.sh` with an existing worktree outputs the path without error
