@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.10.2] - 2026-02-12
+
+### Changed
+- Model quality selection moved from first phase planning to project initialization for better first milestone planning quality
+
 ## [1.10.0] - 2026-02-12
 
 ### Added
