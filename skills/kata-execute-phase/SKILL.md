@@ -458,36 +458,50 @@ fi
     Check `COMMIT_PLANNING_DOCS` from config.json (default: true).
     If false: Skip git operations for .planning/ files.
     If true: Bundle all phase metadata updates in one commit:
-    - Stage phase directory move (pending→active→completed transitions):
-      ```bash
-      DIR_NAME=$(basename "$PHASE_DIR")
-      # Stage deletions from previous locations (safe to try both)
-      git add ".planning/phases/pending/${DIR_NAME}" 2>/dev/null || true
-      git add ".planning/phases/active/${DIR_NAME}" 2>/dev/null || true
-      # Stage additions at current (completed) location
-      git add "$PHASE_DIR"
-      ```
-    - Stage: `git add .planning/ROADMAP.md .planning/STATE.md`
-    - Stage REQUIREMENTS.md if updated: `git add .planning/REQUIREMENTS.md`
-    - Commit: `docs({phase}): complete {phase-name} phase`
+
+    ```bash
+    DIR_NAME=$(basename "$PHASE_DIR")
+    if [ "$PR_WORKFLOW" = "true" ]; then
+      GIT_DIR_FLAG=(-C "$PHASE_WORKTREE_PATH")
+    else
+      GIT_DIR_FLAG=()
+    fi
+
+    # Stage deletions from previous locations (safe to try both)
+    git "${GIT_DIR_FLAG[@]}" add ".planning/phases/pending/${DIR_NAME}" 2>/dev/null || true
+    git "${GIT_DIR_FLAG[@]}" add ".planning/phases/active/${DIR_NAME}" 2>/dev/null || true
+    # Stage additions at current (completed) location
+    git "${GIT_DIR_FLAG[@]}" add "$PHASE_DIR"
+    # Stage planning files
+    git "${GIT_DIR_FLAG[@]}" add .planning/ROADMAP.md .planning/STATE.md
+    # Stage REQUIREMENTS.md if updated
+    git "${GIT_DIR_FLAG[@]}" add .planning/REQUIREMENTS.md 2>/dev/null || true
+    # Commit
+    git "${GIT_DIR_FLAG[@]}" commit -m "docs(${PHASE_NUM}): complete ${PHASE_NAME} phase"
+    ```
 
 10.5. **Push and ensure PR exists (pr_workflow only)**
 
-    After phase completion commit:
+    After phase completion commit, push from the phase worktree and finalize the PR:
+
     ```bash
     if [ "$PR_WORKFLOW" = "true" ]; then
-      BRANCH=$(git branch --show-current)
+      # Commit any remaining planning changes in the phase worktree
+      if [ -n "$(git -C "$PHASE_WORKTREE_PATH" status --porcelain .planning/)" ]; then
+        git -C "$PHASE_WORKTREE_PATH" add .planning/
+        git -C "$PHASE_WORKTREE_PATH" commit -m "docs(${PHASE_NUM}): update planning state"
+      fi
 
-      # Push final commits
-      git push -u origin "$BRANCH"
+      # Push from phase worktree (not main/)
+      git -C "$PHASE_WORKTREE_PATH" push -u origin "$PHASE_BRANCH"
 
       # Check if draft PR was created earlier
-      PR_NUMBER=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null)
+      PR_NUMBER=$(gh pr list --head "$PHASE_BRANCH" --json number --jq '.[0].number' 2>/dev/null)
 
       if [ -z "$PR_NUMBER" ]; then
         # Draft PR creation failed earlier — create PR now
-        PR_OUTPUT=$(bash "./scripts/create-draft-pr.sh" "$PHASE_DIR" "$BRANCH" 2>&1) || true
-        PR_NUMBER=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null)
+        PR_OUTPUT=$(bash "./scripts/create-draft-pr.sh" "$PHASE_DIR" "$PHASE_BRANCH" 2>&1) || true
+        PR_NUMBER=$(gh pr list --head "$PHASE_BRANCH" --json number --jq '.[0].number' 2>/dev/null)
       fi
 
       # Mark PR ready for review (if it exists)
@@ -496,12 +510,17 @@ fi
         PR_URL=$(gh pr view "$PR_NUMBER" --json url --jq '.url' 2>/dev/null)
         echo "PR #${PR_NUMBER} marked ready: $PR_URL"
       else
-        echo "Warning: Could not create or find PR for branch $BRANCH" >&2
+        echo "Warning: Could not create or find PR for branch $PHASE_BRANCH" >&2
       fi
     fi
     ```
 
     Store PR_NUMBER and PR_URL for offer_next output.
+
+    **Note:** Phase worktree cleanup happens after PR merge, not here. The worktree remains so the PR branch stays valid. Users clean up after merge via:
+    ```bash
+    bash "./scripts/manage-worktree.sh" cleanup-phase "$PHASE_WORKTREE_PATH" "$PHASE_BRANCH"
+    ```
 
 11. **Offer next steps** - Route to next action (see `<offer_next>`)
     </process>
