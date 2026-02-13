@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-12)
 
 Milestone: v1.11.0 Phase-Level Worktrees
 Phase: 50 (active)
-Plan: 02 of 2
-Status: Plan 02 complete
-Last activity: 2026-02-13 — Completed 50-02-PLAN.md
+Plan: 01 of 2
+Status: Plan 01 complete
+Last activity: 2026-02-13 — Completed 50-01-PLAN.md
 
-Progress: Phase 50 executing (2/2 plans complete).
+Progress: Phase 50 executing (1/2 plans complete). Next: plan 02.
 
 ## Performance Metrics
 
