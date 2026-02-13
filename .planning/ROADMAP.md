@@ -19,22 +19,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 **Goal:** Refactor worktree system so phase execution creates phase-level worktrees instead of switching `main/` off the main branch. `main/` stays on `main` permanently.
 
-### Phase 49: Script Layer — Phase Worktree Creation and Merge Target
-
-**Goal:** Modify `create-phase-branch.sh` to create a phase worktree (sibling to `main/`) and update `manage-worktree.sh` to merge plan branches into the phase worktree with explicit base branch passing.
-
-**Requirements:** WT-01, WT-02, WT-03, WT-04, WT-05, MT-01, MT-02, MT-03
-
-Plans:
-- [ ] 49-01-PLAN.md — Rewrite create-phase-branch.sh to create phase worktree
-- [ ] 49-02-PLAN.md — Modify manage-worktree.sh for explicit base branch and cleanup-phase
-
-**Success criteria:**
-- `create-phase-branch.sh` creates a worktree directory at project root named `{branch-type}-v{milestone}-{phase-num}-{slug}` and outputs `WORKTREE_PATH` and `BRANCH`
-- Rerunning `create-phase-branch.sh` with an existing worktree outputs the path without error
-- `manage-worktree.sh cleanup-phase` removes the phase worktree and its branch
-- `manage-worktree.sh merge` merges into the phase worktree directory (not `main/`)
-- `resolve_base_branch` removed; `cmd_create` and `cmd_merge` accept explicit base branch from caller
+- [x] Phase 49: Script Layer — Phase Worktree Creation and Merge Target (2/2 plans) — completed 2026-02-13
 
 ### Phase 50: Orchestrator Integration — Phase Worktree Lifecycle in Execution
 

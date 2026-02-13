@@ -4,17 +4,17 @@
 
 ### Phase Worktree Lifecycle
 
-- [ ] **WT-01**: `create-phase-branch.sh` creates a worktree at project root instead of running `git checkout -b` inside `main/`
-- [ ] **WT-02**: Phase worktree directory named `{branch-type}-v{milestone}-{phase-num}-{slug}` as sibling to `main/`
-- [ ] **WT-03**: Script handles resumption: if worktree and branch already exist, outputs path without error
-- [ ] **WT-04**: Script outputs `WORKTREE_PATH` and `BRANCH` variables for orchestrator consumption
-- [ ] **WT-05**: `manage-worktree.sh` gains `cleanup-phase` subcommand to remove phase worktree and branch
+- [x] **WT-01**: `create-phase-branch.sh` creates a worktree at project root instead of running `git checkout -b` inside `main/`
+- [x] **WT-02**: Phase worktree directory named `{branch-type}-v{milestone}-{phase-num}-{slug}` as sibling to `main/`
+- [x] **WT-03**: Script handles resumption: if worktree and branch already exist, outputs path without error
+- [x] **WT-04**: Script outputs `WORKTREE_PATH` and `BRANCH` variables for orchestrator consumption
+- [x] **WT-05**: `manage-worktree.sh` gains `cleanup-phase` subcommand to remove phase worktree and branch
 
 ### Merge Target
 
-- [ ] **MT-01**: `manage-worktree.sh` `cmd_merge` merges plan branch into phase worktree directory (not `main/`)
-- [ ] **MT-02**: `resolve_base_branch` removed; base branch always passed explicitly by caller
-- [ ] **MT-03**: `cmd_create` defaults base branch to the phase branch passed by caller
+- [x] **MT-01**: `manage-worktree.sh` `cmd_merge` merges plan branch into phase worktree directory (not `main/`)
+- [x] **MT-02**: `resolve_base_branch` removed; base branch always passed explicitly by caller
+- [x] **MT-03**: `cmd_create` defaults base branch to the phase branch passed by caller
 
 ### Orchestrator
 
