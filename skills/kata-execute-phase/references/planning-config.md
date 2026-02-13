@@ -15,7 +15,7 @@ Configuration options for Kata projects in `.planning/config.json`.
   "pr_workflow": true|false,
   "github": {
     "enabled": true|false,
-    "issueMode": "auto|ask|never"
+    "issue_mode": "auto|ask|never"
   },
   "workflow": {
     "research": true|false,
@@ -36,7 +36,7 @@ Configuration options for Kata projects in `.planning/config.json`.
 | `commit_docs`         | `true`     | Whether to commit planning artifacts to git                           |
 | `pr_workflow`         | `true`     | Use PR-based release workflow vs direct commits                       |
 | `github.enabled`      | `false`    | Create GitHub Milestones/Issues when true                             |
-| `github.issueMode`    | `never`    | Issue creation mode: `auto`, `ask`, `never`                           |
+| `github.issue_mode`    | `never`    | Issue creation mode: `auto`, `ask`, `never`                           |
 | `workflow.research`   | `true`     | Spawn researcher before planning each phase                           |
 | `workflow.plan_check` | `true`     | Verify plans achieve phase goals before execution                     |
 | `workflow.verifier`   | `true`     | Confirm deliverables after phase execution                            |
@@ -300,8 +300,8 @@ When `github.enabled: true`, Kata creates GitHub Milestones and Issues to mirror
 # Read github.enabled (default: false)
 GITHUB_ENABLED=$(cat .planning/config.json 2>/dev/null | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | head -1 | grep -o 'true\|false' || echo "false")
 
-# Read github.issueMode (default: never)
-GITHUB_ISSUE_MODE=$(cat .planning/config.json 2>/dev/null | grep -o '"issueMode"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "never")
+# Read github.issue_mode (default: never)
+GITHUB_ISSUE_MODE=$(cat .planning/config.json 2>/dev/null | grep -o '"issue_mode"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"' || echo "never")
 ```
 
 **Note:** The `head -1` in `GITHUB_ENABLED` ensures we get the `github.enabled` value, not a similarly-named key in another namespace.

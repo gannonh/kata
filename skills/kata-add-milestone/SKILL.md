@@ -1046,10 +1046,10 @@ EOF
 
 **If `GITHUB_ENABLED=false`:** Skip to Phase 10.
 
-**2. Check github.issueMode** (auto | ask | never):
+**2. Check github.issue_mode** (auto | ask | never):
 
 ```bash
-ISSUE_MODE=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.issueMode" "auto")
+ISSUE_MODE=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.issue_mode" "auto")
 ```
 
 - If "never": Skip phase issue creation silently, continue to Phase 10

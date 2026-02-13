@@ -31,7 +31,7 @@ const DEFAULTS = {
   'workflow.verifier': 'true',
   'worktree.enabled': 'false',
   'github.enabled': 'false',
-  'github.issueMode': 'never',
+  'github.issue_mode': 'never',
   'workflows.execute-phase.post_task_command': '',
   'workflows.execute-phase.commit_style': 'conventional',
   'workflows.execute-phase.commit_scope_format': '{phase}-{plan}',

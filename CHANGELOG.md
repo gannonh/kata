@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.10.3] - 2026-02-13
+
+### Fixed
+- Config key `github.issueMode` renamed to `github.issue_mode` for consistency with all other snake_case config keys
+- Worktree setup failure during project init now diagnoses the issue and retries instead of silently reverting to disabled
+
 ## [1.10.2] - 2026-02-12
 
 ### Changed

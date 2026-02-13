@@ -60,7 +60,7 @@ Store these three variables for injection into executor prompts in the `<wave_ex
 
 ```bash
 GITHUB_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.enabled" "false")
-ISSUE_MODE=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.issueMode" "never")
+ISSUE_MODE=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.issue_mode" "never")
 ```
 
 Store for use in PR creation and issue checkbox updates.

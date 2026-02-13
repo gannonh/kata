@@ -25,7 +25,7 @@ const KNOWN_KEYS = {
   'workflow.plan_check': { type: 'boolean' },
   'workflow.verifier': { type: 'boolean' },
   'github.enabled': { type: 'boolean' },
-  'github.issueMode': { type: 'enum', values: ['auto', 'never'] },
+  'github.issue_mode': { type: 'enum', values: ['auto', 'ask', 'never'] },
   'workflows.execute-phase.post_task_command': { type: 'string' },
   'workflows.execute-phase.commit_style': { type: 'enum', values: ['conventional', 'semantic', 'simple'] },
   'workflows.execute-phase.commit_scope_format': { type: 'string' },
