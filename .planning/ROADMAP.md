@@ -13,10 +13,48 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - ✅ **v1.8.0 Adaptive Workflows** — Phases 37-39 (shipped 2026-02-08)
 - ✅ **v1.9.0 Template Overrides (Universal)** — Phases 40-43 (shipped 2026-02-08)
 - ✅ **v1.10.0 Git Worktree Support** — Phases 44-48 (shipped 2026-02-12)
+- 🔄 **v1.11.0 Phase-Level Worktrees** — Phases 49-51
 
-## Current Milestone: None
+## Current Milestone: 🔄 v1.11.0 Phase-Level Worktrees
 
-No active milestone. Use `/kata-add-milestone` to start planning the next version.
+**Goal:** Refactor worktree system so phase execution creates phase-level worktrees instead of switching `main/` off the main branch. `main/` stays on `main` permanently.
+
+### Phase 49: Script Layer — Phase Worktree Creation and Merge Target
+
+**Goal:** Modify `create-phase-branch.sh` to create a phase worktree (sibling to `main/`) and update `manage-worktree.sh` to merge plan branches into the phase worktree with explicit base branch passing.
+
+**Requirements:** WT-01, WT-02, WT-03, WT-04, WT-05, MT-01, MT-02, MT-03
+
+**Success criteria:**
+- `create-phase-branch.sh` creates a worktree directory at project root named `{branch-type}-v{milestone}-{phase-num}-{slug}` and outputs `WORKTREE_PATH` and `BRANCH`
+- Rerunning `create-phase-branch.sh` with an existing worktree outputs the path without error
+- `manage-worktree.sh cleanup-phase` removes the phase worktree and its branch
+- `manage-worktree.sh merge` merges into the phase worktree directory (not `main/`)
+- `resolve_base_branch` removed; `cmd_create` and `cmd_merge` accept explicit base branch from caller
+
+### Phase 50: Orchestrator Integration — Phase Worktree Lifecycle in Execution
+
+**Goal:** Wire `phase-execute.md` to create a phase worktree before plan execution, inject the correct `<working_directory>` into agent prompts, pass the phase branch to plan worktree operations, and create a PR (or local merge) from the phase branch after all waves complete.
+
+**Requirements:** OR-01, OR-02, OR-03, OR-04, OR-05, INV-01
+
+**Success criteria:**
+- Phase execution creates a phase worktree before any plan agent spawns
+- Agent prompts receive `<working_directory>` pointing to phase worktree (worktree disabled) or plan worktree (worktree enabled)
+- Plan worktree create/merge calls pass the phase branch explicitly
+- After all waves complete, phase branch becomes a PR against main (or local merge when `pr_workflow=false`)
+- `git -C main branch --show-current` returns `main` at all times during execution
+
+### Phase 51: Documentation — Updated Worktree Structure Docs
+
+**Goal:** Update documentation to reflect the two-tier worktree model where phase worktrees are siblings to `main/`.
+
+**Requirements:** DOC-01, DOC-02
+
+**Success criteria:**
+- `setup-worktrees.sh` README template shows phase worktree directories as siblings to `main/`
+- `git-integration.md` branch flow diagram shows main -> phase branch -> plan branch hierarchy
+- Directory structure examples include `{branch-type}-v{milestone}-{phase}-{slug}/` alongside `plan-{phase}-{plan}/`
 
 ## Completed Milestones
 

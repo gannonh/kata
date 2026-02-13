@@ -46,11 +46,21 @@ None identified. This is a focused structural refactor.
 
 ## Traceability
 
-| Requirement | Phase |
-|-------------|-------|
-| WT-01..WT-04 | TBD |
-| WT-05 | TBD |
-| MT-01..MT-03 | TBD |
-| OR-01..OR-05 | TBD |
-| DOC-01..DOC-02 | TBD |
-| INV-01 | TBD |
+| Requirement | Phase | Description |
+|-------------|-------|-------------|
+| WT-01 | 49 | create-phase-branch.sh creates worktree at project root |
+| WT-02 | 49 | Phase worktree directory naming convention |
+| WT-03 | 49 | Resumption handling for existing worktree/branch |
+| WT-04 | 49 | Script outputs WORKTREE_PATH and BRANCH variables |
+| WT-05 | 49 | cleanup-phase subcommand in manage-worktree.sh |
+| MT-01 | 49 | cmd_merge targets phase worktree, not main/ |
+| MT-02 | 49 | resolve_base_branch removed; explicit base branch |
+| MT-03 | 49 | cmd_create defaults to phase branch from caller |
+| OR-01 | 50 | phase-execute.md creates phase worktree before plans |
+| OR-02 | 50 | working_directory injection for agent prompts |
+| OR-03 | 50 | Plan worktree creation passes phase branch |
+| OR-04 | 50 | Plan worktree merge passes phase branch |
+| OR-05 | 50 | Phase branch becomes PR or local merge after waves |
+| INV-01 | 50 | main/ stays on main branch at all times |
+| DOC-01 | 51 | setup-worktrees.sh README template updated |
+| DOC-02 | 51 | git-integration.md branch flow diagram updated |
