@@ -21,6 +21,10 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 - [x] Phase 49: Script Layer — Phase Worktree Creation and Merge Target (2/2 plans) — completed 2026-02-13
 
+- [ ] Phase 50: Orchestrator Integration — Phase Worktree Lifecycle in Execution (0/2 plans)
+  - [ ] Plan 01: Wire phase worktree setup and wave execution in SKILL.md (wave 1)
+  - [ ] Plan 02: Update phase-execute.md reference for phase worktree architecture (wave 1)
+
 ### Phase 50: Orchestrator Integration — Phase Worktree Lifecycle in Execution
 
 **Goal:** Wire `phase-execute.md` to create a phase worktree before plan execution, inject the correct `<working_directory>` into agent prompts, pass the phase branch to plan worktree operations, and create a PR (or local merge) from the phase branch after all waves complete.
