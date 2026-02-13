@@ -292,7 +292,7 @@ The "What it builds" column comes from skimming plan names/objectives. Keep it b
 <step name="execute_waves">
 Execute each wave in sequence. Autonomous plans within a wave run in parallel.
 
-**Worktree mode:** If `WORKTREE_ENABLED=true`, see `worktree_lifecycle` step for pre-spawn (create worktree) and post-wave (merge worktree) operations that wrap each wave.
+**Worktree mode:** If `PR_WORKFLOW=true`, see `worktree_lifecycle` step for phase worktree creation (before any waves) and plan worktree create/merge operations (per wave when `WORKTREE_ENABLED=true`). When `PR_WORKFLOW=true` and `WORKTREE_ENABLED=false`, agents work directly in the phase worktree.
 
 **For each wave:**
 
@@ -711,6 +711,8 @@ git add .planning/ROADMAP.md .planning/STATE.md .planning/phases/{phase_dir}/*-V
 git add .planning/REQUIREMENTS.md  # if updated
 git commit -m "docs(phase-{X}): complete phase execution"
 ```
+
+**When PR_WORKFLOW=true:** Git add/commit operations in this step execute in the phase worktree directory. The phase worktree contains the same directory structure as main/, including .planning/.
 </step>
 
 <step name="offer_next">
@@ -760,7 +762,7 @@ Each subagent: Fresh 200k context
 **No context bleed.** Orchestrator never reads workflow internals. Just paths and results.
 
 <worktree_context>
-Worktree isolation adds approximately 2% orchestrator context overhead: one config read at startup (`WORKTREE_ENABLED` check) plus per-wave `manage-worktree.sh create` and `manage-worktree.sh merge` calls. Each agent receives a clean working directory on an isolated git branch. The orchestrator tracks no additional state beyond the `WORKTREE_PATH` variable per plan.
+Phase worktree creation adds one script call at startup (create-phase-branch.sh). Plan worktree isolation (when worktree.enabled=true) adds per-wave manage-worktree.sh create and merge calls. Each plan agent receives a clean working directory on an isolated git branch. The orchestrator tracks PHASE_WORKTREE_PATH and PHASE_BRANCH (phase-level) plus WORKTREE_PATH per plan (plan-level). Total overhead: approximately 2-3% of orchestrator context.
 </worktree_context>
 </context_efficiency>
 
