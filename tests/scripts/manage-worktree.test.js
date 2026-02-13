@@ -13,8 +13,8 @@ const SKILLS_DIR = path.join(PLUGIN_DIR, 'skills');
  * manage-worktree.sh Tests
  *
  * Tests precondition checks (bare repo required, worktree enabled, unknown
- * subcommand, usage output), create/list/merge subcommands using real git
- * repos in tmpDir.
+ * subcommand, usage output), create/list/merge/cleanup-phase subcommands
+ * using real git repos in tmpDir.
  *
  * Run with: node --test tests/scripts/manage-worktree.test.js
  */
@@ -184,7 +184,7 @@ describe('manage-worktree.sh', () => {
     test('creates worktree for a plan', () => {
       createBareRepo(tmpDir);
 
-      const result = runManageWorktree(tmpDir, 'create 48 01');
+      const result = runManageWorktree(tmpDir, 'create 48 01 main');
       const kv = parseOutput(result.stdout);
 
       assert.ok(kv.WORKTREE_PATH.endsWith('/plan-48-01'), `WORKTREE_PATH should end with /plan-48-01, got: ${kv.WORKTREE_PATH}`);
@@ -202,10 +202,10 @@ describe('manage-worktree.sh', () => {
       createBareRepo(tmpDir);
 
       // First create
-      runManageWorktree(tmpDir, 'create 48 01');
+      runManageWorktree(tmpDir, 'create 48 01 main');
 
       // Second create should return exists
-      const result = runManageWorktree(tmpDir, 'create 48 01');
+      const result = runManageWorktree(tmpDir, 'create 48 01 main');
       const kv = parseOutput(result.stdout);
 
       assert.strictEqual(kv.STATUS, 'exists');
@@ -219,7 +219,7 @@ describe('manage-worktree.sh', () => {
       createBareRepo(tmpDir);
 
       // Create one worktree
-      runManageWorktree(tmpDir, 'create 48 01');
+      runManageWorktree(tmpDir, 'create 48 01 main');
 
       const result = runManageWorktree(tmpDir, 'list');
       const kv = parseOutput(result.stdout);
@@ -242,11 +242,16 @@ describe('manage-worktree.sh', () => {
   });
 
   describe('merge subcommand', () => {
-    test('merges plan branch back to base', () => {
+    test('merges plan branch into phase worktree', () => {
       createBareRepo(tmpDir);
 
-      // Create worktree
-      runManageWorktree(tmpDir, 'create 48 01');
+      // Create a phase worktree (simulates what create-phase-branch.sh does)
+      execSync('GIT_DIR=.bare git worktree add phase-wt -b feat/test main', {
+        cwd: tmpDir, env: GIT_ENV, stdio: 'pipe'
+      });
+
+      // Create plan worktree forking from phase branch
+      runManageWorktree(tmpDir, 'create 48 01 feat/test');
 
       // Commit a file in the plan worktree
       fs.writeFileSync(path.join(tmpDir, 'plan-48-01', 'hello.txt'), 'hello');
@@ -256,17 +261,17 @@ describe('manage-worktree.sh', () => {
         stdio: 'pipe'
       });
 
-      // Merge back
-      const result = runManageWorktree(tmpDir, 'merge 48 01');
+      // Merge back into phase worktree
+      const result = runManageWorktree(tmpDir, 'merge 48 01 feat/test phase-wt');
       const kv = parseOutput(result.stdout);
 
       assert.strictEqual(kv.STATUS, 'merged');
       assert.strictEqual(kv.MERGED, 'true');
 
-      // File should now exist in main/
+      // File should now exist in phase worktree (not main/)
       assert.ok(
-        fs.existsSync(path.join(tmpDir, 'main', 'hello.txt')),
-        'hello.txt should exist in main/ after merge'
+        fs.existsSync(path.join(tmpDir, 'phase-wt', 'hello.txt')),
+        'hello.txt should exist in phase-wt/ after merge'
       );
 
       // Worktree directory should be removed
@@ -276,11 +281,16 @@ describe('manage-worktree.sh', () => {
       );
     });
 
-    test('merges when untracked files in main/ conflict with plan branch', () => {
+    test('merges when untracked files in phase worktree conflict with plan branch', () => {
       createBareRepo(tmpDir);
 
-      // Create worktree
-      runManageWorktree(tmpDir, 'create 48 01');
+      // Create a phase worktree
+      execSync('GIT_DIR=.bare git worktree add phase-wt -b feat/test main', {
+        cwd: tmpDir, env: GIT_ENV, stdio: 'pipe'
+      });
+
+      // Create plan worktree forking from phase branch
+      runManageWorktree(tmpDir, 'create 48 01 feat/test');
 
       // Commit a file in the plan worktree (simulates npm install creating package-lock.json)
       fs.writeFileSync(path.join(tmpDir, 'plan-48-01', 'generated.txt'), 'from-plan');
@@ -290,18 +300,83 @@ describe('manage-worktree.sh', () => {
         stdio: 'pipe'
       });
 
-      // Create same file as UNTRACKED in main/ (simulates npm install running between merges)
-      fs.writeFileSync(path.join(tmpDir, 'main', 'generated.txt'), 'from-main-untracked');
+      // Create same file as UNTRACKED in phase worktree (simulates npm install running between merges)
+      fs.writeFileSync(path.join(tmpDir, 'phase-wt', 'generated.txt'), 'from-phase-untracked');
 
       // Merge should succeed (script removes untracked conflicts before merging)
-      const result = runManageWorktree(tmpDir, 'merge 48 01');
+      const result = runManageWorktree(tmpDir, 'merge 48 01 feat/test phase-wt');
       const kv = parseOutput(result.stdout);
 
       assert.strictEqual(kv.STATUS, 'merged');
 
       // File should contain plan branch version (plan is source of truth)
-      const content = fs.readFileSync(path.join(tmpDir, 'main', 'generated.txt'), 'utf8');
+      const content = fs.readFileSync(path.join(tmpDir, 'phase-wt', 'generated.txt'), 'utf8');
       assert.strictEqual(content, 'from-plan', 'Plan branch version should win over untracked file');
+    });
+  });
+
+  describe('cleanup-phase subcommand', () => {
+    test('removes phase worktree and branch', () => {
+      createBareRepo(tmpDir);
+
+      // Create a phase worktree
+      execSync('GIT_DIR=.bare git worktree add phase-wt -b feat/test main', {
+        cwd: tmpDir, env: GIT_ENV, stdio: 'pipe'
+      });
+
+      // Run cleanup-phase
+      const result = runManageWorktree(tmpDir, 'cleanup-phase phase-wt feat/test');
+      const kv = parseOutput(result.stdout);
+
+      assert.strictEqual(kv.STATUS, 'cleaned');
+      assert.strictEqual(kv.CLEANED, 'true');
+
+      // phase-wt directory should no longer exist
+      assert.ok(
+        !fs.existsSync(path.join(tmpDir, 'phase-wt')),
+        'phase-wt/ should be removed after cleanup'
+      );
+
+      // Branch should no longer exist
+      try {
+        execSync('GIT_DIR=.bare git show-ref --verify refs/heads/feat/test', {
+          cwd: tmpDir, env: GIT_ENV, stdio: 'pipe'
+        });
+        assert.fail('Branch feat/test should not exist after cleanup');
+      } catch (err) {
+        // Expected: show-ref exits non-zero when branch doesn't exist
+        assert.ok(true);
+      }
+    });
+
+    test('exits 1 when phase worktree directory does not exist', () => {
+      createBareRepo(tmpDir);
+
+      const result = runManageWorktree(tmpDir, 'cleanup-phase nonexistent feat/test', true);
+      assert.strictEqual(result.status, 1);
+      assert.ok(
+        result.stderr.includes('not found'),
+        `Stderr should mention not found, got: ${result.stderr}`
+      );
+    });
+
+    test('exits 1 when phase worktree has uncommitted changes', () => {
+      createBareRepo(tmpDir);
+
+      // Create a phase worktree
+      execSync('GIT_DIR=.bare git worktree add phase-wt -b feat/test main', {
+        cwd: tmpDir, env: GIT_ENV, stdio: 'pipe'
+      });
+
+      // Write an uncommitted file
+      fs.writeFileSync(path.join(tmpDir, 'phase-wt', 'dirty.txt'), 'uncommitted');
+
+      const result = runManageWorktree(tmpDir, 'cleanup-phase phase-wt feat/test', true);
+      assert.strictEqual(result.status, 1);
+      assert.ok(
+        result.stderr.includes('uncommitted changes'),
+        `Stderr should mention uncommitted changes, got: ${result.stderr}`
+      );
     });
   });
 });

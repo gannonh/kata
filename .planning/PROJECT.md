@@ -4,7 +4,7 @@
 
 A spec-driven development framework for Claude Code. Brings structured, reliable AI development to teams without changing their existing tools. Teams use Kata's quality-producing process inside the tools they already love.
 
-**Current state:** v1.10.0 shipped. Git worktree support now available for plan-level agent isolation during phase execution. Config foundation, worktree lifecycle management, wave-based execution integration, comprehensive test suite, and worktree-aware downstream skills complete.
+**Current state:** v1.10.3 shipped. Git worktree support available for plan-level agent isolation. v1.11.0 in progress: refactoring to phase-level worktrees so `main/` stays on main branch permanently.
 
 ## Core Value
 
@@ -65,7 +65,10 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 ### Active
 
-(No active requirements — add via `/kata-add-milestone`)
+- Phase-level worktrees — v1.11.0 (create phase worktree instead of checkout in main/)
+- Main branch protection — v1.11.0 (main/ worktree stays on main branch permanently)
+- Phase worktree merge target — v1.11.0 (plan merges target phase worktree, not main/)
+- Phase worktree cleanup — v1.11.0 (remove phase worktree after merge/PR)
 
 ### Out of Scope
 
@@ -83,9 +86,17 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Building an LLM — use Claude, not compete with it
 - Building an agent framework — use platform-native capabilities (subagents, Skills, MCPs)
 
-## Current Milestone: None
+## Current Milestone: v1.11.0 Phase-Level Worktrees
 
-No active milestone. Use `/kata-add-milestone` to start planning the next version.
+**Goal:** Refactor worktree system so phase execution creates phase-level worktrees instead of switching `main/` off the main branch. `main/` stays on `main` permanently.
+
+**Target features:**
+
+- Phase worktree creation (sibling to `main/`, replaces `git checkout -b` in `main/`)
+- Plan worktrees fork from phase branch (not whatever `main/` is checked out to)
+- Plan merges target phase worktree directory (not `main/`)
+- Phase completion via PR or local merge into main
+- Phase worktree cleanup after merge
 
 ## Context
 
@@ -330,4 +341,4 @@ See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 See `.planning/milestones/v1.6.0-ROADMAP.md` for full archive.
 
 ---
-*Last updated: 2026-02-12 after v1.10.0 milestone shipped*
+*Last updated: 2026-02-13 after v1.11.0 milestone started*

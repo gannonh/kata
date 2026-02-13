@@ -12,9 +12,9 @@ const SKILLS_DIR = path.join(PLUGIN_DIR, 'skills');
 /**
  * create-phase-branch.sh Tests
  *
- * Tests branch creation, branch type inference from ROADMAP.md goal text,
- * idempotent resume, and key=value output format.
- * Uses real git repos in tmpDir -- no mocking, no network.
+ * Tests phase worktree creation, branch type inference from ROADMAP.md goal text,
+ * idempotent resume, WORKTREE_PATH output, and main/ branch invariant.
+ * Uses bare repo layout with main/ worktree in tmpDir -- no mocking, no network.
  *
  * Run with: node --test tests/scripts/create-phase-branch.test.js
  */
@@ -47,9 +47,14 @@ function makeRoadmap(phaseNum, goal) {
 `;
 }
 
-function createGitRepoWithRoadmap(dir, phaseNum, goal) {
+/**
+ * Creates a bare repo layout with main/ worktree suitable for
+ * create-phase-branch.sh testing. Follows the same pattern as
+ * manage-worktree.test.js's createBareRepo.
+ */
+function createBareRepoWithRoadmap(dir, phaseNum, goal) {
+  // 1. Initialize a normal repo and make a commit
   execSync('git init -b main', { cwd: dir, env: GIT_ENV, stdio: 'pipe' });
-  // Create ROADMAP and phase directory
   fs.mkdirSync(path.join(dir, '.planning', 'phases', 'pending', `${phaseNum}-test-phase`), { recursive: true });
   fs.writeFileSync(
     path.join(dir, '.planning/ROADMAP.md'),
@@ -57,6 +62,24 @@ function createGitRepoWithRoadmap(dir, phaseNum, goal) {
   );
   execSync('git add -A', { cwd: dir, env: GIT_ENV, stdio: 'pipe' });
   execSync('git commit -m "init with roadmap"', { cwd: dir, env: GIT_ENV, stdio: 'pipe' });
+
+  // 2. Clone as bare into .bare/
+  execSync('git clone --bare . .bare', { cwd: dir, env: GIT_ENV, stdio: 'pipe' });
+
+  // 3. Remove original .git, replace with pointer
+  fs.rmSync(path.join(dir, '.git'), { recursive: true, force: true });
+  fs.writeFileSync(path.join(dir, '.git'), 'gitdir: .bare\n');
+
+  // 4. Add main worktree
+  execSync('GIT_DIR=.bare git worktree add main main', {
+    cwd: dir,
+    env: GIT_ENV,
+    stdio: 'pipe'
+  });
+
+  // 5. Remove stale working tree files from project root (only main/ has content)
+  // Keep .bare/ and .git pointer; remove .planning/ (original pre-clone artifact)
+  fs.rmSync(path.join(dir, '.planning'), { recursive: true, force: true });
 }
 
 function copySkillsExternal() {
@@ -102,8 +125,8 @@ describe('create-phase-branch.sh', () => {
     if (skillsDir) fs.rmSync(skillsDir, { recursive: true, force: true });
   });
 
-  test('creates branch with correct name format', () => {
-    createGitRepoWithRoadmap(tmpDir, '05', 'Build authentication endpoints');
+  test('creates worktree with correct branch name format', () => {
+    createBareRepoWithRoadmap(tmpDir, '05', 'Build authentication endpoints');
     const stdout = runScript(tmpDir, '.planning/phases/pending/05-test-phase');
     const kv = parseOutput(stdout);
 
@@ -114,8 +137,23 @@ describe('create-phase-branch.sh', () => {
     );
   });
 
+  test('WORKTREE_PATH points to phase worktree directory', () => {
+    createBareRepoWithRoadmap(tmpDir, '05', 'Build authentication endpoints');
+    const stdout = runScript(tmpDir, '.planning/phases/pending/05-test-phase');
+    const kv = parseOutput(stdout);
+
+    assert.ok(
+      kv.WORKTREE_PATH.endsWith('/feat-v1.10.0-05-test-phase'),
+      `WORKTREE_PATH should end with /feat-v1.10.0-05-test-phase, got: ${kv.WORKTREE_PATH}`
+    );
+    assert.ok(
+      fs.existsSync(kv.WORKTREE_PATH),
+      `Worktree directory should exist at ${kv.WORKTREE_PATH}`
+    );
+  });
+
   test('infers fix branch type', () => {
-    createGitRepoWithRoadmap(tmpDir, '05', 'Fix login bug in auth module');
+    createBareRepoWithRoadmap(tmpDir, '05', 'Fix login bug in auth module');
     const stdout = runScript(tmpDir, '.planning/phases/pending/05-test-phase');
     const kv = parseOutput(stdout);
 
@@ -123,7 +161,7 @@ describe('create-phase-branch.sh', () => {
   });
 
   test('infers docs branch type', () => {
-    createGitRepoWithRoadmap(tmpDir, '05', 'Document API endpoints');
+    createBareRepoWithRoadmap(tmpDir, '05', 'Document API endpoints');
     const stdout = runScript(tmpDir, '.planning/phases/pending/05-test-phase');
     const kv = parseOutput(stdout);
 
@@ -131,7 +169,7 @@ describe('create-phase-branch.sh', () => {
   });
 
   test('infers refactor branch type', () => {
-    createGitRepoWithRoadmap(tmpDir, '05', 'Refactor auth module for clarity');
+    createBareRepoWithRoadmap(tmpDir, '05', 'Refactor auth module for clarity');
     const stdout = runScript(tmpDir, '.planning/phases/pending/05-test-phase');
     const kv = parseOutput(stdout);
 
@@ -139,46 +177,49 @@ describe('create-phase-branch.sh', () => {
   });
 
   test('defaults to feat branch type', () => {
-    createGitRepoWithRoadmap(tmpDir, '05', 'Build authentication system');
+    createBareRepoWithRoadmap(tmpDir, '05', 'Build authentication system');
     const stdout = runScript(tmpDir, '.planning/phases/pending/05-test-phase');
     const kv = parseOutput(stdout);
 
     assert.strictEqual(kv.BRANCH_TYPE, 'feat', `Expected feat, got: ${kv.BRANCH_TYPE}`);
   });
 
-  test('idempotent: resumes on existing branch', () => {
-    createGitRepoWithRoadmap(tmpDir, '05', 'Build authentication');
-    const script = path.join(skillsDir, 'skills/kata-execute-phase/scripts/create-phase-branch.sh');
+  test('idempotent: resumes on existing worktree', () => {
+    createBareRepoWithRoadmap(tmpDir, '05', 'Build authentication');
     const phaseDir = '.planning/phases/pending/05-test-phase';
 
-    // First run creates the branch
-    const stdout1 = execSync(`bash "${script}" "${phaseDir}"`, {
-      cwd: tmpDir,
-      encoding: 'utf8',
-      env: GIT_ENV,
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-
-    // Second run resumes on same branch
-    const result2 = execSync(`bash "${script}" "${phaseDir}"`, {
-      cwd: tmpDir,
-      encoding: 'utf8',
-      env: GIT_ENV,
-      // Need stderr to check "exists, resuming"
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-
+    // First run creates the worktree
+    const stdout1 = runScript(tmpDir, phaseDir);
     const kv1 = parseOutput(stdout1);
-    const kv2 = parseOutput(result2);
+
+    // Second run resumes
+    const stdout2 = runScript(tmpDir, phaseDir);
+    const kv2 = parseOutput(stdout2);
+
     assert.strictEqual(kv1.BRANCH, kv2.BRANCH, 'Branch name should be identical on second run');
+    assert.strictEqual(kv1.WORKTREE_PATH, kv2.WORKTREE_PATH, 'WORKTREE_PATH should be identical on second run');
   });
 
-  test('outputs all 5 key=value pairs', () => {
-    createGitRepoWithRoadmap(tmpDir, '05', 'Build authentication');
+  test('main/ stays on main branch after worktree creation', () => {
+    createBareRepoWithRoadmap(tmpDir, '05', 'Build authentication');
+    runScript(tmpDir, '.planning/phases/pending/05-test-phase');
+
+    const mainBranch = execSync('git branch --show-current', {
+      cwd: path.join(tmpDir, 'main'),
+      encoding: 'utf8',
+      env: GIT_ENV,
+      stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
+
+    assert.strictEqual(mainBranch, 'main', `main/ should stay on main branch, got: ${mainBranch}`);
+  });
+
+  test('outputs all 6 key=value pairs', () => {
+    createBareRepoWithRoadmap(tmpDir, '05', 'Build authentication');
     const stdout = runScript(tmpDir, '.planning/phases/pending/05-test-phase');
     const kv = parseOutput(stdout);
 
-    const expected = ['BRANCH', 'BRANCH_TYPE', 'MILESTONE', 'PHASE_NUM', 'SLUG'];
+    const expected = ['WORKTREE_PATH', 'BRANCH', 'BRANCH_TYPE', 'MILESTONE', 'PHASE_NUM', 'SLUG'];
     for (const key of expected) {
       assert.ok(
         key in kv && kv[key].length > 0,
