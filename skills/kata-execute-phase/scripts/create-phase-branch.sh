@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Create a phase branch for PR workflow execution.
+# Create a phase worktree as a sibling to main/.
 # Extracts milestone, phase number, slug, and branch type from project context.
 # Usage: create-phase-branch.sh <phase-dir>
-# Output: key=value pairs (BRANCH, BRANCH_TYPE, MILESTONE, PHASE_NUM, SLUG)
-# Exit: 0=success (leaves you on the branch), 1=error
+# Output: key=value pairs (WORKTREE_PATH, BRANCH, BRANCH_TYPE, MILESTONE, PHASE_NUM, SLUG)
+# Exit: 0=success (worktree exists at WORKTREE_PATH), 1=error
 
 set -euo pipefail
 
@@ -38,17 +38,19 @@ else
   BRANCH_TYPE="feat"
 fi
 
-# 4. Create branch (idempotent: resumes on existing branch)
+# 4. Create phase worktree (idempotent: resumes on existing worktree)
 BRANCH="${BRANCH_TYPE}/v${MILESTONE}-${PHASE_NUM}-${SLUG}"
-if git show-ref --verify --quiet refs/heads/"$BRANCH"; then
-  git checkout "$BRANCH"
-  echo "Branch $BRANCH exists, resuming on it" >&2
+WORKTREE_DIR="$(cd .. && pwd)/${BRANCH_TYPE}-v${MILESTONE}-${PHASE_NUM}-${SLUG}"
+
+if [ -d "$WORKTREE_DIR" ] && GIT_DIR=../.bare git show-ref --verify --quiet refs/heads/"$BRANCH"; then
+  echo "Phase worktree $WORKTREE_DIR exists, resuming" >&2
 else
-  git checkout -b "$BRANCH"
-  echo "Created branch $BRANCH" >&2
+  GIT_DIR=../.bare git worktree add "$WORKTREE_DIR" -b "$BRANCH" main >&2
+  echo "Created phase worktree $WORKTREE_DIR on branch $BRANCH" >&2
 fi
 
 # Output key=value pairs for eval
+echo "WORKTREE_PATH=$WORKTREE_DIR"
 echo "BRANCH=$BRANCH"
 echo "BRANCH_TYPE=$BRANCH_TYPE"
 echo "MILESTONE=$MILESTONE"
