@@ -28,19 +28,19 @@ Configuration options for Kata projects in `.planning/config.json`.
 }
 ```
 
-| Option                | Default    | Description                                                    |
-| --------------------- | ---------- | -------------------------------------------------------------- |
-| `mode`                | `yolo`     | `yolo` = auto-approve, `interactive` = confirm at each step    |
-| `depth`               | `standard` | `quick` (3-5 phases), `standard` (5-8), `comprehensive` (8-12) |
-| `model_profile`       | `balanced` | Which AI models for agents (see model-profiles.md)             |
-| `commit_docs`         | `true`     | Whether to commit planning artifacts to git                    |
-| `pr_workflow`         | `true`     | Use PR-based release workflow vs direct commits                |
-| `github.enabled`      | `false`    | Create GitHub Milestones/Issues when true                      |
-| `github.issueMode`    | `never`    | Issue creation mode: `auto`, `ask`, `never`                    |
-| `workflow.research`   | `true`     | Spawn researcher before planning each phase                    |
-| `workflow.plan_check` | `true`     | Verify plans achieve phase goals before execution              |
-| `workflow.verifier`   | `true`     | Confirm deliverables after phase execution                     |
-| `worktree.enabled`    | `false`    | Enable git worktree isolation per plan (requires pr_workflow: true) |
+| Option                | Default    | Description                                                           |
+| --------------------- | ---------- | --------------------------------------------------------------------- |
+| `mode`                | `yolo`     | `yolo` = auto-approve, `interactive` = confirm at each step           |
+| `depth`               | `standard` | `quick` (3-5 phases), `standard` (5-8), `comprehensive` (8-12)        |
+| `model_profile`       | `balanced` | Which AI models for agents (set during project init, see kata-set-profile) |
+| `commit_docs`         | `true`     | Whether to commit planning artifacts to git                           |
+| `pr_workflow`         | `true`     | Use PR-based release workflow vs direct commits                       |
+| `github.enabled`      | `false`    | Create GitHub Milestones/Issues when true                             |
+| `github.issueMode`    | `never`    | Issue creation mode: `auto`, `ask`, `never`                           |
+| `workflow.research`   | `true`     | Spawn researcher before planning each phase                           |
+| `workflow.plan_check` | `true`     | Verify plans achieve phase goals before execution                     |
+| `workflow.verifier`   | `true`     | Confirm deliverables after phase execution                            |
+| `worktree.enabled`    | `false`    | Enable git worktree isolation per plan (requires pr_workflow: true)   |
 
 </config_schema>
 

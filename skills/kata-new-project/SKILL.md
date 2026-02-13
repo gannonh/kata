@@ -253,7 +253,7 @@ EOF
 
 ## Phase 5: Workflow Preferences
 
-**5 questions:**
+**6 questions:**
 
 ```
 questions: [
@@ -274,6 +274,16 @@ questions: [
       { label: "Quick", description: "Ship fast (3-5 phases, 1-3 plans each)" },
       { label: "Standard", description: "Balanced scope and speed (5-8 phases, 3-5 plans each)" },
       { label: "Comprehensive", description: "Thorough coverage (8-12 phases, 5-10 plans each)" }
+    ]
+  },
+  {
+    header: "Model Quality",
+    question: "Which AI models for planning agents?",
+    multiSelect: false,
+    options: [
+      { label: "Balanced (Recommended)", description: "Opus for planning, Sonnet for execution — good quality/cost ratio" },
+      { label: "Quality", description: "Opus for research/planning — higher cost, deeper analysis" },
+      { label: "Budget", description: "Sonnet/Haiku where possible — fastest, lowest cost" }
     ]
   },
   {
@@ -388,6 +398,7 @@ Create `.planning/config.json` with settings (workflow and display defaults are 
 {
   "mode": "yolo|interactive",
   "depth": "quick|standard|comprehensive",
+  "model_profile": "quality|balanced|budget",
   "commit_docs": true|false,
   "pr_workflow": true|false,
   "workflow": {
@@ -405,7 +416,10 @@ Create `.planning/config.json` with settings (workflow and display defaults are 
 }
 ```
 
-Note: `model_profile` is intentionally absent from initial config. Its absence triggers check-or-ask in `/kata-plan-phase` on first invocation.
+Map user selections to values:
+- "Balanced (Recommended)" → `"balanced"`
+- "Quality" → `"quality"`
+- "Budget" → `"budget"`
 
 **GitHub Tracking conditional logic:**
 
@@ -642,26 +656,6 @@ Add NPM_TOKEN secret to your GitHub repository:
 
 The workflow will auto-publish when you merge PRs that bump package.json version.
 ```
-
-## Phase 5.5: Resolve Model Profile
-
-Read model profile for agent spawning:
-
-```bash
-MODEL_PROFILE=$(bash "../kata-configure-settings/scripts/read-config.sh" "model_profile" "balanced")
-```
-
-Default to "balanced" if not set.
-
-**Model lookup table:**
-
-| Agent                     | quality | balanced | budget |
-| ------------------------- | ------- | -------- | ------ |
-| kata-project-researcher   | opus    | sonnet   | haiku  |
-| kata-research-synthesizer | sonnet  | sonnet   | haiku  |
-| kata-roadmapper           | opus    | sonnet   | sonnet |
-
-Store resolved models for use in Task calls if milestone research/roadmapping is needed later.
 
 ## Phase 6: Done
 
