@@ -160,47 +160,6 @@ grep -A5 "Phase ${PHASE}:" .planning/ROADMAP.md 2>/dev/null
 
 **If not found:** Error with available phases. **If found:** Extract phase number, name, description.
 
-## 3.5. Check-or-Ask Model Profile
-
-Check if model_profile has been set in config:
-
-```bash
-KATA_SCRIPTS="../kata-configure-settings/scripts"
-MODEL_PROFILE_SET=$(bash "../kata-configure-settings/scripts/read-config.sh" "model_profile")
-```
-
-**If model_profile is absent (empty MODEL_PROFILE_SET):**
-
-This is the first plan-phase run. Ask the user for model_profile.
-
-Use AskUserQuestion:
-- header: "Model Profile"
-- question: "Which AI models for planning agents?"
-- options:
-  - "Balanced (Recommended)" — Sonnet for most agents — good quality/cost ratio
-  - "Quality" — Opus for research/roadmap — higher cost, deeper analysis
-  - "Budget" — Haiku where possible — fastest, lowest cost
-
-After user responds, write to config:
-
-```bash
-# Map selection to value
-# Balanced -> balanced, Quality -> quality, Budget -> budget
-bash "${KATA_SCRIPTS}/set-config.sh" "model_profile" "$CHOSEN_PROFILE"
-```
-
-Display first-run agent defaults notice:
-
-```
-+--------------------------------------------------+
-| Agent defaults active: Research, Plan Check,     |
-| Verification. Run /kata-configure-settings to    |
-| customize agent preferences.                     |
-+--------------------------------------------------+
-```
-
-**If model_profile exists:** No-op. Continue to step 4.
-
 ## 4. Ensure Phase Directory Exists
 
 ```bash
