@@ -32,7 +32,7 @@ fi
 
 # Read config via read-config.sh
 GITHUB_ENABLED=$(bash "$READ_CONFIG" "github.enabled" "false")
-ISSUE_MODE=$(bash "$READ_CONFIG" "github.issueMode" "never")
+ISSUE_MODE=$(bash "$READ_CONFIG" "github.issue_mode" "never")
 
 # Parse phase metadata from ROADMAP (|| true prevents pipefail+set -e on grep no-match)
 MILESTONE=$(grep -E "Current Milestone:|🔄" .planning/ROADMAP.md 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 | tr -d 'v' || true)

@@ -22,9 +22,9 @@ if [ -z "$COMPLETED_PLANS" ]; then
   exit 0
 fi
 
-# Check github.enabled and issueMode via read-config.sh
+# Check github.enabled and issue_mode via read-config.sh
 GITHUB_ENABLED=$(bash "$READ_CONFIG" "github.enabled" "false")
-ISSUE_MODE=$(bash "$READ_CONFIG" "github.issueMode" "never")
+ISSUE_MODE=$(bash "$READ_CONFIG" "github.issue_mode" "never")
 
 if [ "$GITHUB_ENABLED" != "true" ] || [ "$ISSUE_MODE" = "never" ]; then
   echo "Skipped: GitHub issues not enabled"

@@ -411,7 +411,7 @@ Create `.planning/config.json` with settings (workflow and display defaults are 
   },
   "github": {
     "enabled": true|false,
-    "issueMode": "auto|ask|never"
+    "issue_mode": "auto|ask|never"
   }
 }
 ```
@@ -427,7 +427,7 @@ Map user selections to values:
 - Ask the Issue Creation follow-up question
 - Check for GitHub remote (see GitHub Repository Check above)
 - Set `github.enabled` based on final state (true if remote exists or was created, false if skipped)
-- Set `github.issueMode` based on Issue Creation choice:
+- Set `github.issue_mode` based on Issue Creation choice:
   - "Auto" → `"auto"`
   - "Ask per milestone" → `"ask"`
   - "Never" → `"never"`
@@ -439,7 +439,7 @@ Map user selections to values:
 - Skip the Issue Creation question
 - Skip the GitHub Repository Check
 - Set `github.enabled: false`
-- Set `github.issueMode: "never"`
+- Set `github.issue_mode: "never"`
 
 **Worktree conditional logic:**
 
@@ -486,13 +486,34 @@ EOF
 Call setup-worktrees.sh to convert to bare repo + worktree layout:
 
 ```bash
-if ! bash "../kata-configure-settings/scripts/setup-worktrees.sh"; then
-  echo "Warning: Worktree setup failed. Reverting worktree.enabled to false."
-  bash "../kata-configure-settings/scripts/set-config.sh" "worktree.enabled" "false"
-fi
+WORKTREE_OUTPUT=$(bash "../kata-configure-settings/scripts/setup-worktrees.sh" 2>&1) || WORKTREE_FAILED=true
+echo "$WORKTREE_OUTPUT"
 ```
 
-Worktree setup failure is non-fatal. The project setup continues regardless.
+**If setup failed (`WORKTREE_FAILED=true`), diagnose and retry (up to 2 retries):**
+
+Read the error output and fix the underlying issue:
+
+| Error message contains | Fix |
+| --- | --- |
+| "uncommitted changes" | `git add -A && git commit -m "chore: commit pending changes before worktree setup"` |
+| "Not a git repository" | `git init && git add -A && git commit -m "chore: initial commit"` |
+| "pr_workflow must be true" | `bash "../kata-configure-settings/scripts/set-config.sh" "pr_workflow" "true"` |
+
+After applying the fix, retry:
+
+```bash
+WORKTREE_OUTPUT=$(bash "../kata-configure-settings/scripts/setup-worktrees.sh" 2>&1) || WORKTREE_FAILED=true
+echo "$WORKTREE_OUTPUT"
+```
+
+**If setup still fails after retries**, revert and warn the user:
+
+```bash
+bash "../kata-configure-settings/scripts/set-config.sh" "worktree.enabled" "false"
+```
+
+Display the error output and tell the user worktree setup failed, their preference was reverted to false, and they can enable it later via `/kata-configure-settings`.
 
 **After successful worktree setup, cd into the main worktree:**
 

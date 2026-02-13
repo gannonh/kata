@@ -630,11 +630,11 @@ Wait for user response.
 
 ```bash
 GITHUB_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.enabled" "false")
-ISSUE_MODE=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.issueMode" "never")
+ISSUE_MODE=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.issue_mode" "never")
 ```
 
 **If `GITHUB_ENABLED != true` OR `ISSUE_MODE = never`:**
-- Log: `Skipping GitHub issue update (github.enabled=${GITHUB_ENABLED}, issueMode=${ISSUE_MODE})`
+- Log: `Skipping GitHub issue update (github.enabled=${GITHUB_ENABLED}, issue_mode=${ISSUE_MODE})`
 - Skip to `<offer_next>`
 
 **If enabled, find phase issue:**
@@ -768,7 +768,7 @@ GitHub Issue: #{ISSUE_NUMBER} updated with {PLAN_COUNT} plan checklist items
 - [ ] Plans created (PLANNING COMPLETE or CHECKPOINT handled)
 - [ ] kata-plan-checker spawned (unless --skip-verify)
 - [ ] Verification passed OR user override OR max iterations with user decision
-- [ ] GitHub issue updated with plan checklist (if github.enabled and issueMode != never)
+- [ ] GitHub issue updated with plan checklist (if github.enabled and issue_mode != never)
 - [ ] User sees status between agent spawns
 - [ ] User knows next steps (execute or review)
 </success_criteria>

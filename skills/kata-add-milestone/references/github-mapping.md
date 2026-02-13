@@ -16,7 +16,7 @@ This document defines how Kata concepts map to GitHub primitives when `github.en
 | Key                | Values               | Effect                                   |
 | ------------------ | -------------------- | ---------------------------------------- |
 | `github.enabled`   | `true`/`false`       | Master toggle for all GitHub integration |
-| `github.issueMode` | `auto`/`ask`/`never` | When to create phase Issues              |
+| `github.issue_mode` | `auto`/`ask`/`never` | When to create phase Issues              |
 
 ## Milestone Creation Flow (Phase 5.5)
 
@@ -47,9 +47,9 @@ When `github.enabled=true` and GitHub Milestone created, phase issues are create
 - After GitHub Milestone is created (Phase 5.5)
 - Only when `github.enabled=true`
 
-### issueMode Check
+### issue_mode Check
 
-The `github.issueMode` config controls phase issue creation:
+The `github.issue_mode` config controls phase issue creation:
 
 | Value   | Behavior                                        |
 | ------- | ----------------------------------------------- |
@@ -147,7 +147,7 @@ All operations are non-blocking:
 
 **Implemented in Phase 9.5 of add-milestone skill.** See "Phase Issue Creation Flow (Phase 9.5)" section above for full details.
 
-When `github.issueMode=auto` or user approves:
+When `github.issue_mode=auto` or user approves:
 1. Create issue with `phase` label
 2. Assign to milestone by number
 3. Issue body includes phase goal and success criteria
