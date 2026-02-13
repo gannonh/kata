@@ -1,0 +1,56 @@
+# Requirements: v1.11.0 Phase-Level Worktrees
+
+## v1.11.0 Requirements
+
+### Phase Worktree Lifecycle
+
+- [ ] **WT-01**: `create-phase-branch.sh` creates a worktree at project root instead of running `git checkout -b` inside `main/`
+- [ ] **WT-02**: Phase worktree directory named `{branch-type}-v{milestone}-{phase-num}-{slug}` as sibling to `main/`
+- [ ] **WT-03**: Script handles resumption: if worktree and branch already exist, outputs path without error
+- [ ] **WT-04**: Script outputs `WORKTREE_PATH` and `BRANCH` variables for orchestrator consumption
+- [ ] **WT-05**: `manage-worktree.sh` gains `cleanup-phase` subcommand to remove phase worktree and branch
+
+### Merge Target
+
+- [ ] **MT-01**: `manage-worktree.sh` `cmd_merge` merges plan branch into phase worktree directory (not `main/`)
+- [ ] **MT-02**: `resolve_base_branch` removed; base branch always passed explicitly by caller
+- [ ] **MT-03**: `cmd_create` defaults base branch to the phase branch passed by caller
+
+### Orchestrator
+
+- [ ] **OR-01**: `phase-execute.md` creates phase worktree before any plan execution
+- [ ] **OR-02**: `<working_directory>` injected into agent prompts points to phase worktree (when `worktree.enabled=false`) or plan worktree (when `worktree.enabled=true`)
+- [ ] **OR-03**: Plan worktree creation passes phase branch explicitly to `manage-worktree.sh`
+- [ ] **OR-04**: Plan worktree merge passes phase branch to `manage-worktree.sh`
+- [ ] **OR-05**: After all waves complete, phase branch becomes PR against main (or local merge if `pr_workflow=false`)
+
+### Documentation
+
+- [ ] **DOC-01**: `setup-worktrees.sh` README template reflects new structure (phase worktree as sibling to `main/`)
+- [ ] **DOC-02**: `git-integration.md` branch flow diagram updated for two-tier worktree model
+
+### Invariant
+
+- [ ] **INV-01**: `main/` is always on the `main` branch. `git -C main branch --show-current` returns `main` at all times during and after phase execution.
+
+## Future Requirements
+
+None identified. This is a focused structural refactor.
+
+## Out of Scope
+
+- **Nested worktrees** — Git worktrees cannot nest. Plan worktrees remain siblings at project root.
+- **New config options** — `worktree.enabled` still controls plan-level worktrees only. Phase worktrees are always created (they replace `git checkout -b`).
+- **Changes to execute-plan.md** — Executor agents work from injected `<working_directory>`, agnostic to worktree structure.
+- **Changes to checkpoints.md, tdd.md, summary-template.md** — Directory-agnostic, no changes needed.
+
+## Traceability
+
+| Requirement | Phase |
+|-------------|-------|
+| WT-01..WT-04 | TBD |
+| WT-05 | TBD |
+| MT-01..MT-03 | TBD |
+| OR-01..OR-05 | TBD |
+| DOC-01..DOC-02 | TBD |
+| INV-01 | TBD |
