@@ -102,6 +102,17 @@ describe('project-root.sh', () => {
     fs.rmSync(projectDir, { recursive: true, force: true });
   });
 
+  test('prefers workspace/.planning over main/.planning when both exist', () => {
+    // Simulate bare repo layout with both workspace/ and main/ having .planning/
+    fs.mkdirSync(path.join(tmpDir, 'workspace/.planning'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, 'main/.planning'), { recursive: true });
+    const skillsDir = copySkills(tmpDir);
+
+    const result = runProjectRootTest(skillsDir, { cwd: tmpDir });
+    // project-root.sh priority 3 (workspace/.planning) beats priority 4 (main/.planning)
+    assert.strictEqual(result, path.join(tmpDir, 'workspace'));
+  });
+
   test('errors when project root not found', () => {
     // No .planning/ anywhere, no env var
     const skillsDir = copySkills(tmpDir);
