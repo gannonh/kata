@@ -397,14 +397,20 @@ See milestone-complete.md `close_github_milestone` step for details.
    **If "Yes, merge now":**
 
    ```bash
-   gh pr merge "$PR_NUMBER" --merge --delete-branch
+   gh pr merge "$PR_NUMBER" --merge
    ```
 
-   Then return to main:
+   Then update local state:
 
    ```bash
-   git checkout main
-   git pull
+   if [ "$WORKTREE_ENABLED" = "true" ]; then
+     # Bare repo layout: update main/ worktree, reset workspace/ to workspace-base
+     git -C main pull
+     bash "skills/kata-execute-phase/scripts/manage-worktree.sh" cleanup-phase workspace "$PHASE_BRANCH"
+   else
+     git checkout main
+     git pull
+   fi
    ```
 
    **If `PR_WORKFLOW=false` (on main):**
