@@ -5,13 +5,16 @@
 # Detection priority:
 #   1. KATA_PROJECT_ROOT env var (explicit override)
 #   2. CWD contains .planning/
-#   3. CWD/main contains .planning/ (bare repo root)
-#   4. Error with instructions
+#   3. CWD/workspace contains .planning/ (bare repo root, prefer workspace over main)
+#   4. CWD/main contains .planning/ (bare repo root, legacy fallback)
+#   5. Error with instructions
 
 if [ -n "${KATA_PROJECT_ROOT:-}" ] && [ -d "${KATA_PROJECT_ROOT}/.planning" ]; then
   cd "$KATA_PROJECT_ROOT"
 elif [ -d ".planning" ]; then
   : # Already at project root
+elif [ -d "workspace/.planning" ]; then
+  cd workspace
 elif [ -d "main/.planning" ]; then
   cd main
 else

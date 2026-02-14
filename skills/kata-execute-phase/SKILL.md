@@ -159,21 +159,21 @@ if ! BRANCH_OUTPUT=$(bash "./scripts/create-phase-branch.sh" "$PHASE_DIR"); then
   exit 1
 fi
 eval "$BRANCH_OUTPUT"
-# Outputs: WORKTREE_PATH, BRANCH, BRANCH_TYPE, MILESTONE, PHASE_NUM, SLUG
+# Outputs: WORKSPACE_PATH, BRANCH, BRANCH_TYPE, MILESTONE, PHASE_NUM, SLUG
 ```
 
-Store PHASE_WORKTREE_PATH and PHASE_BRANCH for steps 4 and 10.5.
+Store WORKSPACE_PATH and PHASE_BRANCH for steps 4 and 10.5.
 
 ```bash
-PHASE_WORKTREE_PATH=$WORKTREE_PATH
+WORKSPACE_PATH=$WORKSPACE_PATH
 PHASE_BRANCH=$BRANCH
 ```
 
-Now commit the activation changes on the phase branch. This ensures worktrees branch from a clean state and prevents merge conflicts on STATE.md.
+Now commit the activation changes on the phase branch. The orchestrator runs from workspace/, so plain git commands work directly. This ensures worktrees branch from a clean state and prevents merge conflicts on STATE.md.
 
 ```bash
-if [ -n "$(git -C "$PHASE_WORKTREE_PATH" status --porcelain .planning/)" ]; then
-  git -C "$PHASE_WORKTREE_PATH" add .planning/ && git -C "$PHASE_WORKTREE_PATH" commit -m "docs(${PHASE_NUM}): activate phase"
+if [ -n "$(git status --porcelain .planning/)" ]; then
+  git add .planning/ && git commit -m "docs(${PHASE_NUM}): activate phase"
 fi
 ```
 
@@ -232,7 +232,7 @@ Kata ► EXECUTING PHASE {X}: {Phase Name}
      ```bash
      if [ "$WORKTREE_ENABLED" = "true" ] && [ "$PR_WORKFLOW" = "true" ]; then
        for plan_num in $WAVE_PLAN_NUMBERS; do
-         MERGE_OUTPUT=$(bash "./scripts/manage-worktree.sh" merge "$PHASE_NUM" "$plan_num" "$PHASE_BRANCH" "$PHASE_WORKTREE_PATH")
+         MERGE_OUTPUT=$(bash "./scripts/manage-worktree.sh" merge "$PHASE_NUM" "$plan_num" "$PHASE_BRANCH" "$WORKSPACE_PATH")
          eval "$MERGE_OUTPUT"
          if [ "$STATUS" != "merged" ]; then
            echo "Warning: Worktree merge failed for plan $plan_num" >&2
@@ -276,12 +276,12 @@ Kata ► EXECUTING PHASE {X}: {Phase Name}
 
    - **Open Draft PR (first wave only, pr_workflow only):**
 
-     After first wave completion, commit any remaining uncommitted planning changes in the phase worktree:
+     After first wave completion, commit any remaining uncommitted planning changes in workspace/:
 
      ```bash
      if [ "$PR_WORKFLOW" = "true" ]; then
-       if [ -n "$(git -C "$PHASE_WORKTREE_PATH" status --porcelain .planning/)" ]; then
-         git -C "$PHASE_WORKTREE_PATH" add .planning/ && git -C "$PHASE_WORKTREE_PATH" commit -m "docs(${PHASE_NUM}): update planning state"
+       if [ -n "$(git status --porcelain .planning/)" ]; then
+         git add .planning/ && git commit -m "docs(${PHASE_NUM}): update planning state"
        fi
      fi
      ```
@@ -290,9 +290,9 @@ Kata ► EXECUTING PHASE {X}: {Phase Name}
 
      ```bash
      if [ "$PR_WORKFLOW" = "true" ]; then
-       # Push from phase worktree (not main/)
-       git -C "$PHASE_WORKTREE_PATH" push -u origin "$PHASE_BRANCH" 2>/dev/null || \
-         git -C "$PHASE_WORKTREE_PATH" push -u --force-with-lease origin "$PHASE_BRANCH" 2>/dev/null
+       # Push from workspace/ (already on the phase branch)
+       git push -u origin "$PHASE_BRANCH" 2>/dev/null || \
+         git push -u --force-with-lease origin "$PHASE_BRANCH" 2>/dev/null
        if ! PR_OUTPUT=$(bash "./scripts/create-draft-pr.sh" "$PHASE_DIR" "$PHASE_BRANCH"); then
          echo "Error: Failed to create draft PR" >&2
        else
@@ -444,7 +444,7 @@ fi
 
    b. **Update checklist entry:** Change `- [ ] Phase N: Name (X/Y plans)` to `- [x] Phase N: Name (Y/Y plans) — completed YYYY-MM-DD`. Mark each sub-item `[x]` too.
 
-   **STATE.md** — update current position, phase status, and progress bar.
+   **STATE.md** — Re-read `.planning/STATE.md` before editing (executors modify it during plan execution, so your initial read is stale). Update current position, phase status, and progress bar.
 
 9. **Update requirements**
    Mark phase requirements as Complete:
@@ -461,39 +461,34 @@ fi
 
     ```bash
     DIR_NAME=$(basename "$PHASE_DIR")
-    if [ "$PR_WORKFLOW" = "true" ]; then
-      GIT_DIR_FLAG=(-C "$PHASE_WORKTREE_PATH")
-    else
-      GIT_DIR_FLAG=()
-    fi
 
     # Stage deletions from previous locations (safe to try both)
-    git "${GIT_DIR_FLAG[@]}" add ".planning/phases/pending/${DIR_NAME}" 2>/dev/null || true
-    git "${GIT_DIR_FLAG[@]}" add ".planning/phases/active/${DIR_NAME}" 2>/dev/null || true
+    git add ".planning/phases/pending/${DIR_NAME}" 2>/dev/null || true
+    git add ".planning/phases/active/${DIR_NAME}" 2>/dev/null || true
     # Stage additions at current (completed) location
-    git "${GIT_DIR_FLAG[@]}" add "$PHASE_DIR"
+    git add "$PHASE_DIR"
     # Stage planning files
-    git "${GIT_DIR_FLAG[@]}" add .planning/ROADMAP.md .planning/STATE.md
+    git add .planning/ROADMAP.md .planning/STATE.md
     # Stage REQUIREMENTS.md if updated
-    git "${GIT_DIR_FLAG[@]}" add .planning/REQUIREMENTS.md 2>/dev/null || true
+    git add .planning/REQUIREMENTS.md 2>/dev/null || true
     # Commit
-    git "${GIT_DIR_FLAG[@]}" commit -m "docs(${PHASE_NUM}): complete ${PHASE_NAME} phase"
+    git commit -m "docs(${PHASE_NUM}): complete ${PHASE_NAME} phase"
     ```
 
 10.5. **Push and ensure PR exists (pr_workflow only)**
 
-    After phase completion commit, push from the phase worktree and finalize the PR:
+    After phase completion commit, push from workspace/ and finalize the PR:
 
     ```bash
     if [ "$PR_WORKFLOW" = "true" ]; then
-      # Commit any remaining planning changes in the phase worktree
-      if [ -n "$(git -C "$PHASE_WORKTREE_PATH" status --porcelain .planning/)" ]; then
-        git -C "$PHASE_WORKTREE_PATH" add .planning/
-        git -C "$PHASE_WORKTREE_PATH" commit -m "docs(${PHASE_NUM}): update planning state"
+      # Commit any remaining planning changes in workspace/
+      if [ -n "$(git status --porcelain .planning/)" ]; then
+        git add .planning/
+        git commit -m "docs(${PHASE_NUM}): update planning state"
       fi
 
-      # Push from phase worktree (not main/)
-      git -C "$PHASE_WORKTREE_PATH" push -u origin "$PHASE_BRANCH"
+      # Push from workspace/ (already on the phase branch)
+      git push -u origin "$PHASE_BRANCH"
 
       # Check if draft PR was created earlier
       PR_NUMBER=$(gh pr list --head "$PHASE_BRANCH" --json number --jq '.[0].number' 2>/dev/null)
@@ -517,9 +512,9 @@ fi
 
     Store PR_NUMBER and PR_URL for offer_next output.
 
-    **Note:** Phase worktree cleanup happens after PR merge, not here. The worktree remains so the PR branch stays valid. Users clean up after merge via:
+    **Note:** Workspace cleanup happens after PR merge, not here. The workspace stays on the phase branch so the PR remains valid. Users clean up after merge via:
     ```bash
-    bash "./scripts/manage-worktree.sh" cleanup-phase "$PHASE_WORKTREE_PATH" "$PHASE_BRANCH"
+    bash "./scripts/manage-worktree.sh" cleanup-phase "$WORKSPACE_PATH" "$PHASE_BRANCH"
     ```
 
 11. **Offer next steps** - Route to next action (see `<offer_next>`)
@@ -664,24 +659,20 @@ Before spawning, read file contents using Read tool. The `@` syntax does not wor
 - `.planning/STATE.md`
 - `references/executor-instructions.md` (relative to skill base directory) — store as `executor_instructions_content`
 
-**Working directory injection (three cases):**
+**Working directory injection (two cases):**
 
-Resolve the `<working_directory>` block per-plan before spawning the Task() subagent. Three cases based on `PR_WORKFLOW` and `WORKTREE_ENABLED` (both set in step 0.7):
+Resolve the `<working_directory>` block per-plan before spawning the Task() subagent. Two cases based on `WORKTREE_ENABLED` (set in step 0.7):
 
 ```bash
 # Resolve working directory block for this plan's subagent prompt
 WORKING_DIR_BLOCK=""
-if [ "$PR_WORKFLOW" = "true" ]; then
-  if [ "$WORKTREE_ENABLED" = "true" ]; then
-    # Case 1: Plan has its own worktree — use the plan-specific path
-    PLAN_WT_PATH="WORKTREE_PATH_${plan_num}"
-    WORKING_DIR_BLOCK="\n<working_directory>${!PLAN_WT_PATH}</working_directory>"
-  else
-    # Case 2: No plan worktrees — all plans share the phase worktree
-    WORKING_DIR_BLOCK="\n<working_directory>${PHASE_WORKTREE_PATH}</working_directory>"
-  fi
-  # Case 3: PR_WORKFLOW=false — no working_directory block (existing behavior)
+if [ "$PR_WORKFLOW" = "true" ] && [ "$WORKTREE_ENABLED" = "true" ]; then
+  # Case 1: Plan has its own worktree — use the plan-specific path
+  PLAN_WT_PATH="WORKTREE_PATH_${plan_num}"
+  WORKING_DIR_BLOCK="\n<working_directory>${!PLAN_WT_PATH}</working_directory>"
 fi
+# Case 2: No plan worktrees — agent works in workspace/ (or project root if no PR workflow)
+# No working_directory block needed — default behavior
 ```
 
 Then append `$WORKING_DIR_BLOCK` to the Task() prompt template for each plan.

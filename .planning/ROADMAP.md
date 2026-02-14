@@ -13,7 +13,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - ✅ **v1.8.0 Adaptive Workflows** — Phases 37-39 (shipped 2026-02-08)
 - ✅ **v1.9.0 Template Overrides (Universal)** — Phases 40-43 (shipped 2026-02-08)
 - ✅ **v1.10.0 Git Worktree Support** — Phases 44-48 (shipped 2026-02-12)
-- 🔄 **v1.11.0 Phase-Level Worktrees** — Phases 49-51
+- 🔄 **v1.11.0 Phase-Level Worktrees** — Phases 49-52
 
 ## Current Milestone: 🔄 v1.11.0 Phase-Level Worktrees
 
@@ -25,16 +25,23 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
   - [x] Plan 01: Wire phase worktree setup and wave execution in SKILL.md (wave 1)
   - [x] Plan 02: Update phase-execute.md reference for phase worktree architecture (wave 1)
 
-### Phase 51: Documentation — Updated Worktree Structure Docs
+- [x] Phase 51: Workspace Worktree Architecture (3/3 plans) — completed 2026-02-14
+  - [x] Plan 01: Script layer — workspace worktree setup and branch lifecycle (wave 1)
+  - [x] Plan 02: Orchestrator layer — SKILL.md and reference updates (wave 2)
+  - [x] Plan 03: Test updates for workspace architecture (wave 2)
 
-**Goal:** Update documentation to reflect the two-tier worktree model where phase worktrees are siblings to `main/`.
+### Phase 52: Documentation — Updated Worktree Structure Docs
+
+**Goal:** Update documentation to reflect the workspace worktree model where `workspace/` is the persistent working directory and `main/` is read-only.
 
 **Requirements:** DOC-01, DOC-02
 
+**Depends on:** Phase 51
+
 **Success criteria:**
-- `setup-worktrees.sh` README template shows phase worktree directories as siblings to `main/`
-- `git-integration.md` branch flow diagram shows main -> phase branch -> plan branch hierarchy
-- Directory structure examples include `{branch-type}-v{milestone}-{phase}-{slug}/` alongside `plan-{phase}-{plan}/`
+- `setup-worktrees.sh` README template shows `workspace/` as persistent working directory alongside read-only `main/`
+- `git-integration.md` branch flow diagram shows main -> phase branch (in workspace) -> plan branch hierarchy
+- Directory structure examples include `workspace/`, `main/`, and `plan-{phase}-{plan}/`
 
 ## Completed Milestones
 

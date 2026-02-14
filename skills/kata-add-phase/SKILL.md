@@ -162,6 +162,59 @@ Phase directory name: `{two-digit-phase}-{slug}`
 Example: `07-add-authentication`
 </step>
 
+<step name="validate_slicing">
+Validate that the new phase follows vertical slicing principles:
+
+1. **Read slicing principles:**
+   ```bash
+   cat "$(dirname "$0")/../kata-add-milestone/references/slicing-principles.md"
+   ```
+
+2. **Check phase description against red flags:**
+
+   **Red Flag 1: Horizontal layer name**
+   - Does description mention "models", "APIs", "components", "frontend", "backend", "database" without feature context?
+   - Examples: "Add database models", "Create API layer", "Build UI components"
+
+   **Red Flag 2: Setup-only phase**
+   - Is this pure infrastructure with no user-facing feature?
+   - Examples: "Set up database", "Configure API", "Initialize framework"
+
+   **Red Flag 3: Continuation of previous phase**
+   - Does description suggest incomplete work from prior phase?
+   - Examples: "Finish authentication", "Complete product catalog", "Add remaining endpoints"
+
+3. **If red flag detected, use AskUserQuestion:**
+
+   ```markdown
+   The phase description "{description}" may not follow vertical slicing principles.
+
+   **Detected issue:** {red flag type}
+
+   **Vertical slicing principle:** Each phase should deliver a complete, demo-able feature (DB + API + UI) rather than a horizontal layer or infrastructure setup.
+
+   **Alternative structures:**
+
+   Option 1: Feature-focused phase
+   - Description: "{suggest feature-focused alternative}"
+   - Structure: Complete capability from DB to UI
+   - Demo-able: {what can be demonstrated}
+
+   Option 2: Inline setup with feature
+   - Description: "{suggest inlined alternative}"
+   - Structure: Setup combined with first feature using it
+   - Demo-able: {what can be demonstrated}
+
+   Option 3: Proceed as-is
+   - Use current description
+   - Note: May result in non-demo-able phase
+   ```
+
+4. **If no red flags, continue silently.**
+
+**Purpose:** Prevent horizontal layer phases and setup-only phases from entering the roadmap. Catch slicing issues at insertion time, not during planning.
+</step>
+
 <step name="create_phase_directory">
 Create the phase directory structure:
 

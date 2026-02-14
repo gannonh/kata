@@ -12,9 +12,10 @@ const SKILLS_DIR = path.join(PLUGIN_DIR, 'skills');
 /**
  * create-phase-branch.sh Tests
  *
- * Tests phase worktree creation, branch type inference from ROADMAP.md goal text,
- * idempotent resume, WORKTREE_PATH output, and main/ branch invariant.
- * Uses bare repo layout with main/ worktree in tmpDir -- no mocking, no network.
+ * Tests workspace checkout to phase branch, branch type inference from ROADMAP.md
+ * goal text, idempotent resume, WORKSPACE_PATH output, and main/ branch invariant.
+ * Uses bare repo layout with main/ + workspace/ worktrees in tmpDir -- no mocking,
+ * no network.
  *
  * Run with: node --test tests/scripts/create-phase-branch.test.js
  */
@@ -77,7 +78,14 @@ function createBareRepoWithRoadmap(dir, phaseNum, goal) {
     stdio: 'pipe'
   });
 
-  // 5. Remove stale working tree files from project root (only main/ has content)
+  // 4b. Add workspace worktree (on workspace-base branch)
+  execSync('GIT_DIR=.bare git worktree add workspace -b workspace-base main', {
+    cwd: dir,
+    env: GIT_ENV,
+    stdio: 'pipe'
+  });
+
+  // 5. Remove stale working tree files from project root (only main/ and workspace/ have content)
   // Keep .bare/ and .git pointer; remove .planning/ (original pre-clone artifact)
   fs.rmSync(path.join(dir, '.planning'), { recursive: true, force: true });
 }
@@ -137,19 +145,28 @@ describe('create-phase-branch.sh', () => {
     );
   });
 
-  test('WORKTREE_PATH points to phase worktree directory', () => {
+  test('WORKSPACE_PATH points to workspace directory on phase branch', () => {
     createBareRepoWithRoadmap(tmpDir, '05', 'Build authentication endpoints');
     const stdout = runScript(tmpDir, '.planning/phases/pending/05-test-phase');
     const kv = parseOutput(stdout);
 
     assert.ok(
-      kv.WORKTREE_PATH.endsWith('/feat-v1.10.0-05-test-phase'),
-      `WORKTREE_PATH should end with /feat-v1.10.0-05-test-phase, got: ${kv.WORKTREE_PATH}`
+      kv.WORKSPACE_PATH.endsWith('/workspace'),
+      `WORKSPACE_PATH should end with /workspace, got: ${kv.WORKSPACE_PATH}`
     );
     assert.ok(
-      fs.existsSync(kv.WORKTREE_PATH),
-      `Worktree directory should exist at ${kv.WORKTREE_PATH}`
+      fs.existsSync(kv.WORKSPACE_PATH),
+      `Workspace directory should exist at ${kv.WORKSPACE_PATH}`
     );
+
+    // workspace/ should now be on the phase branch (not workspace-base)
+    const branch = execSync('git branch --show-current', {
+      cwd: kv.WORKSPACE_PATH,
+      env: GIT_ENV,
+      encoding: 'utf8'
+    }).trim();
+    assert.strictEqual(branch, 'feat/v1.10.0-05-test-phase',
+      `workspace/ should be on phase branch, got: ${branch}`);
   });
 
   test('infers fix branch type', () => {
@@ -184,23 +201,23 @@ describe('create-phase-branch.sh', () => {
     assert.strictEqual(kv.BRANCH_TYPE, 'feat', `Expected feat, got: ${kv.BRANCH_TYPE}`);
   });
 
-  test('idempotent: resumes on existing worktree', () => {
+  test('idempotent: resumes when workspace already on phase branch', () => {
     createBareRepoWithRoadmap(tmpDir, '05', 'Build authentication');
     const phaseDir = '.planning/phases/pending/05-test-phase';
 
-    // First run creates the worktree
+    // First run switches workspace to phase branch
     const stdout1 = runScript(tmpDir, phaseDir);
     const kv1 = parseOutput(stdout1);
 
-    // Second run resumes
+    // Second run detects workspace is already on phase branch
     const stdout2 = runScript(tmpDir, phaseDir);
     const kv2 = parseOutput(stdout2);
 
     assert.strictEqual(kv1.BRANCH, kv2.BRANCH, 'Branch name should be identical on second run');
-    assert.strictEqual(kv1.WORKTREE_PATH, kv2.WORKTREE_PATH, 'WORKTREE_PATH should be identical on second run');
+    assert.strictEqual(kv1.WORKSPACE_PATH, kv2.WORKSPACE_PATH, 'WORKSPACE_PATH should be identical on second run');
   });
 
-  test('main/ stays on main branch after worktree creation', () => {
+  test('main/ stays on main branch after phase branch creation', () => {
     createBareRepoWithRoadmap(tmpDir, '05', 'Build authentication');
     runScript(tmpDir, '.planning/phases/pending/05-test-phase');
 
@@ -212,6 +229,17 @@ describe('create-phase-branch.sh', () => {
     }).trim();
 
     assert.strictEqual(mainBranch, 'main', `main/ should stay on main branch, got: ${mainBranch}`);
+
+    // workspace/ should be on the phase branch
+    const wsBranch = execSync('git branch --show-current', {
+      cwd: path.join(tmpDir, 'workspace'),
+      encoding: 'utf8',
+      env: GIT_ENV,
+      stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
+
+    assert.strictEqual(wsBranch, 'feat/v1.10.0-05-test-phase',
+      `workspace/ should be on phase branch, got: ${wsBranch}`);
   });
 
   test('outputs all 6 key=value pairs', () => {
@@ -219,11 +247,67 @@ describe('create-phase-branch.sh', () => {
     const stdout = runScript(tmpDir, '.planning/phases/pending/05-test-phase');
     const kv = parseOutput(stdout);
 
-    const expected = ['WORKTREE_PATH', 'BRANCH', 'BRANCH_TYPE', 'MILESTONE', 'PHASE_NUM', 'SLUG'];
+    const expected = ['WORKSPACE_PATH', 'BRANCH', 'BRANCH_TYPE', 'MILESTONE', 'PHASE_NUM', 'SLUG'];
     for (const key of expected) {
       assert.ok(
         key in kv && kv[key].length > 0,
         `Output should contain non-empty ${key}, got: ${JSON.stringify(kv)}`
+      );
+    }
+  });
+
+  test('exits 1 when old worktree layout detected (no workspace/)', () => {
+    // Create bare repo with main/ but WITHOUT workspace/ (old v1.10.0 layout)
+    execSync('git init -b main', { cwd: tmpDir, env: GIT_ENV, stdio: 'pipe' });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', 'pending', '05-test-phase'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning/ROADMAP.md'),
+      makeRoadmap('05', 'Build authentication')
+    );
+    execSync('git add -A', { cwd: tmpDir, env: GIT_ENV, stdio: 'pipe' });
+    execSync('git commit -m "init"', { cwd: tmpDir, env: GIT_ENV, stdio: 'pipe' });
+
+    execSync('git clone --bare . .bare', { cwd: tmpDir, env: GIT_ENV, stdio: 'pipe' });
+    fs.rmSync(path.join(tmpDir, '.git'), { recursive: true, force: true });
+    fs.writeFileSync(path.join(tmpDir, '.git'), 'gitdir: .bare\n');
+
+    // Only add main/ worktree (old layout — no workspace/)
+    execSync('GIT_DIR=.bare git worktree add main main', {
+      cwd: tmpDir, env: GIT_ENV, stdio: 'pipe'
+    });
+    fs.rmSync(path.join(tmpDir, '.planning'), { recursive: true, force: true });
+
+    try {
+      runScript(tmpDir, '.planning/phases/pending/05-test-phase');
+      assert.fail('Should have exited with code 1');
+    } catch (err) {
+      assert.strictEqual(err.status, 1, `Expected exit 1, got ${err.status}`);
+      const stderr = err.stderr.toString();
+      assert.ok(
+        stderr.includes('Old worktree layout'),
+        `Stderr should mention old layout, got: ${stderr}`
+      );
+      assert.ok(
+        stderr.includes('setup-worktrees.sh'),
+        `Stderr should mention setup-worktrees.sh for migration, got: ${stderr}`
+      );
+    }
+  });
+
+  test('exits 1 when running from main/ instead of workspace/', () => {
+    // Create bare repo with BOTH main/ and workspace/ but run from main/
+    createBareRepoWithRoadmap(tmpDir, '05', 'Build authentication');
+
+    // Run from main/ instead of workspace/ — should fail
+    try {
+      runScript(path.join(tmpDir, 'main'), '.planning/phases/pending/05-test-phase');
+      assert.fail('Should have exited with code 1');
+    } catch (err) {
+      assert.strictEqual(err.status, 1, `Expected exit 1, got ${err.status}`);
+      const stderr = err.stderr.toString();
+      assert.ok(
+        stderr.includes('Must run from workspace/'),
+        `Stderr should say to run from workspace/, got: ${stderr}`
       );
     }
   });

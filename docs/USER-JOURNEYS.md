@@ -690,7 +690,7 @@ Each agent's context budget (~200k tokens):
   },
   "github": {
     "enabled": false,                 // GitHub integration
-    "issueMode": "auto",             // "auto" | "ask" | "never"
+    "issue_mode": "auto",             // "auto" | "ask" | "never"
     "repo": "owner/repo"             // Auto-detected from git remote
   },
   "pr_workflow": false,               // Branch + PR per phase

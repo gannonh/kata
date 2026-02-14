@@ -733,6 +733,10 @@ fi
 
 Ready for milestone planning ✓
 
+Configure build commands, test commands, and version files:
+
+`/kata-configure-settings`
+
 **If pr_workflow = Yes, append:**
 
 ```
