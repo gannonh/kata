@@ -255,34 +255,51 @@ Each plan produces 2-4 commits (tasks + metadata). Clear, granular, bisectable.
 
 <branch_flow>
 
-## Two-Tier Branch Model
+## Workspace Architecture
 
-Kata uses a two-tier branching model. The first tier always exists. The second tier activates when `worktree.enabled=true`.
+Kata uses a workspace model with two persistent directories and optional plan-level worktrees.
 
-**Tier 1: Main + Release Branches**
+### Layout
 
-Main branch holds all development. When a milestone completes with `pr_workflow=true`, kata-complete-milestone creates a `release/vX.Y.Z` branch for the release PR. Standard `git checkout -b` handles branch creation.
+```
+project-root/
+├── main/           # Stays on main branch (read-only during execution)
+└── workspace/      # Switches to phase branch during execution
+    └── plan-51-01/ # Plan worktree (when worktree.enabled=true)
+    └── plan-51-02/
+```
+
+The orchestrator runs from workspace/. All git operations (add, commit, push) execute directly without `git -C`.
+
+**Tier 1: Workspace + Phase Branches**
+
+When `PR_WORKFLOW=true`, `create-phase-branch.sh` switches workspace/ to a new phase branch (e.g., `feat/v1.11.0-51-workspace-worktree-architecture`). main/ stays on the main branch. The workspace/ directory persists across phases; only the branch changes.
 
 **Tier 2: Plan Branches per Worktree (when worktree.enabled=true)**
 
-During phase execution, each plan agent gets its own worktree on a `plan/{phase}-{plan}` branch. Plan branches fork from the base branch (main or release/vX.Y.Z), provide isolation for parallel plan agents, and merge back after plan completion. `manage-worktree.sh` handles creation, merge, and cleanup.
+During phase execution, each plan agent gets its own worktree on a `plan/{phase}-{plan}` branch. Plan branches fork from the phase branch in workspace/, provide isolation for parallel plan agents, and merge back into workspace/ after plan completion. `manage-worktree.sh` handles creation, merge, and cleanup.
 
 ### Configuration Variants
 
 | Config | Branches | Managed By |
 | --- | --- | --- |
-| `worktree.enabled=false` | `main`, `release/vX.Y.Z` | `git checkout -b` |
-| `worktree.enabled=true` | `main`, `release/vX.Y.Z`, `plan/{phase}-{plan}` | `manage-worktree.sh` |
+| `pr_workflow=true`, `worktree.enabled=false` | `main`, phase branch | `create-phase-branch.sh` |
+| `pr_workflow=true`, `worktree.enabled=true` | `main`, phase branch, `plan/{phase}-{plan}` | `create-phase-branch.sh`, `manage-worktree.sh` |
+| `pr_workflow=false` | `main` | standard git |
 
 ### Plan Branch Lifecycle
 
-1. Orchestrator determines base branch (main or release/vX.Y.Z)
-2. `manage-worktree.sh create {phase} {plan}` forks a plan branch from base
-3. Agent works in its isolated worktree directory
+1. Orchestrator switches workspace/ to phase branch via `create-phase-branch.sh`
+2. `manage-worktree.sh create {phase} {plan} {phase_branch}` forks a plan branch from workspace/'s current branch
+3. Agent works in its isolated plan worktree directory
 4. Wave completes (all plan agents in the wave finish)
-5. `manage-worktree.sh merge {phase} {plan}` merges plan branch back to base
-6. Worktree directory and plan branch removed
+5. `manage-worktree.sh merge {phase} {plan} {phase_branch} {workspace_path}` merges plan branch into workspace/
+6. Plan worktree directory and plan branch removed
 
-Plan branches are ephemeral. They exist only during plan execution. The base branch accumulates all merged work.
+Plan branches are ephemeral. They exist only during plan execution. workspace/ accumulates all merged work on the phase branch.
+
+### Phase Cleanup
+
+After PR merge, `manage-worktree.sh cleanup-phase` switches workspace/ back to the workspace-base branch and deletes the phase branch. The workspace/ directory itself persists for the next phase.
 
 </branch_flow>
