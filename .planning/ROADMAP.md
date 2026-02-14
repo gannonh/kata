@@ -25,18 +25,10 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
   - [x] Plan 01: Wire phase worktree setup and wave execution in SKILL.md (wave 1)
   - [x] Plan 02: Update phase-execute.md reference for phase worktree architecture (wave 1)
 
-### Phase 51: Workspace Worktree Architecture
-
-**Goal:** Refactor worktree layout so the orchestrator and user operate from a persistent `workspace/` worktree (always the active phase branch) instead of from `main/`. `main/` becomes read-only reference. Plan worktrees fork from `workspace/`.
-
-**Depends on:** Phase 50
-
-**Plans:** 3 plans, 2 waves
-
-Plans:
-- [ ] Plan 01: Script layer — workspace worktree setup and branch lifecycle (wave 1)
-- [ ] Plan 02: Orchestrator layer — SKILL.md and reference updates (wave 2)
-- [ ] Plan 03: Test updates for workspace architecture (wave 2)
+- [x] Phase 51: Workspace Worktree Architecture (3/3 plans) — completed 2026-02-14
+  - [x] Plan 01: Script layer — workspace worktree setup and branch lifecycle (wave 1)
+  - [x] Plan 02: Orchestrator layer — SKILL.md and reference updates (wave 2)
+  - [x] Plan 03: Test updates for workspace architecture (wave 2)
 
 ### Phase 52: Documentation — Updated Worktree Structure Docs
 
