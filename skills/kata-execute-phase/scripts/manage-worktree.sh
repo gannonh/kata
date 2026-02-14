@@ -3,10 +3,10 @@
 # Manages plan-level worktree lifecycle (create, merge, list, cleanup-phase).
 #
 # Subcommands:
-#   create <phase> <plan> <base-branch>            — Create worktree for a plan
-#   merge  <phase> <plan> <base-branch> <merge-dir> — Merge plan branch and remove worktree
-#   cleanup-phase <worktree-path> <branch>          — Remove phase worktree and branch
-#   list                                            — List active plan worktrees
+#   create <phase> <plan> <base-branch>              — Create worktree for a plan
+#   merge  <phase> <plan> <base-branch> <merge-dir>  — Merge plan branch and remove worktree
+#   cleanup-phase <workspace-dir> <branch>            — Switch workspace back to workspace-base, delete phase branch
+#   list                                              — List active plan worktrees
 #
 # Requires: bare repo layout (.bare/) from setup-worktrees.sh
 # Output: key=value pairs for machine parsing
@@ -137,21 +137,44 @@ cmd_merge() {
 }
 
 cmd_cleanup_phase() {
-  local phase_worktree="${1:?Usage: manage-worktree.sh cleanup-phase <worktree-path> <branch>}"
-  local phase_branch="${2:?Usage: manage-worktree.sh cleanup-phase <worktree-path> <branch>}"
+  local workspace_dir="${1:?Usage: manage-worktree.sh cleanup-phase <workspace-dir> <branch>}"
+  local phase_branch="${2:?Usage: manage-worktree.sh cleanup-phase <workspace-dir> <branch>}"
 
-  if [ ! -d "$phase_worktree" ]; then
-    echo "Error: Phase worktree directory $phase_worktree not found" >&2
+  if [ ! -d "$workspace_dir" ]; then
+    echo "Error: Workspace directory $workspace_dir not found" >&2
     exit 1
   fi
 
   # Check for uncommitted changes
-  if [ -n "$(git -C "$phase_worktree" status --porcelain)" ]; then
-    echo "Error: Phase worktree has uncommitted changes. Commit or stash first." >&2
+  if [ -n "$(git -C "$workspace_dir" status --porcelain)" ]; then
+    echo "Error: Workspace has uncommitted changes. Commit or stash first." >&2
     exit 1
   fi
 
-  GIT_DIR=.bare git worktree remove "$phase_worktree" >&2
+  # Detect default branch
+  local default_branch
+  default_branch=$(GIT_DIR=.bare git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
+  # Fallback: check if main exists, else master
+  if ! GIT_DIR=.bare git show-ref --verify --quiet "refs/heads/$default_branch" 2>/dev/null; then
+    if GIT_DIR=.bare git show-ref --verify --quiet "refs/heads/main" 2>/dev/null; then
+      default_branch="main"
+    elif GIT_DIR=.bare git show-ref --verify --quiet "refs/heads/master" 2>/dev/null; then
+      default_branch="master"
+    fi
+  fi
+
+  # Switch workspace back to a workspace-base branch tracking the default branch.
+  # Cannot checkout the default branch directly (main/ worktree already has it checked out).
+  local workspace_branch="workspace-base"
+  if GIT_DIR=.bare git show-ref --verify --quiet "refs/heads/$workspace_branch"; then
+    # Reset workspace-base to match current default branch
+    git -C "$workspace_dir" checkout "$workspace_branch" >&2
+    git -C "$workspace_dir" reset --hard "$default_branch" >&2
+  else
+    git -C "$workspace_dir" checkout -b "$workspace_branch" "$default_branch" >&2
+  fi
+
+  # Delete phase branch
   GIT_DIR=.bare git branch -d "$phase_branch" >&2
 
   echo "CLEANED=true"
@@ -200,10 +223,10 @@ if [ -z "$SUBCOMMAND" ]; then
   echo "Usage: manage-worktree.sh <subcommand> [args]"
   echo ""
   echo "Subcommands:"
-  echo "  create <phase> <plan> <base-branch>            — Create worktree for a plan"
-  echo "  merge  <phase> <plan> <base-branch> <merge-dir> — Merge plan branch and remove worktree"
-  echo "  cleanup-phase <worktree-path> <branch>          — Remove phase worktree and branch"
-  echo "  list                                            — List active plan worktrees"
+  echo "  create <phase> <plan> <base-branch>              — Create worktree for a plan"
+  echo "  merge  <phase> <plan> <base-branch> <merge-dir>  — Merge plan branch and remove worktree"
+  echo "  cleanup-phase <workspace-dir> <branch>            — Switch workspace back to workspace-base, delete phase branch"
+  echo "  list                                              — List active plan worktrees"
   exit 1
 fi
 
