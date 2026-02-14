@@ -141,10 +141,11 @@ describe('setup-worktrees.sh', () => {
     }
   });
 
-  test('exits 0 (idempotent) when .bare already exists', () => {
+  test('exits 0 (idempotent) when .bare and workspace/ already exist', () => {
     createGitRepo(tmpDir);
-    // Simulate already-converted state
+    // Simulate fully-converted state (both .bare/ and workspace/)
     fs.mkdirSync(path.join(tmpDir, '.bare'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, 'workspace'), { recursive: true });
 
     const result = runScript(tmpDir);
     assert.ok(
@@ -153,9 +154,10 @@ describe('setup-worktrees.sh', () => {
     );
   });
 
-  test('exits 0 (idempotent) when running inside a worktree', () => {
-    // Simulate being inside a worktree: ../.bare exists at parent level
+  test('exits 0 (idempotent) when running inside a worktree with workspace/', () => {
+    // Simulate being inside a worktree: ../.bare and ../workspace/ exist at parent level
     fs.mkdirSync(path.join(tmpDir, '.bare'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, 'workspace'), { recursive: true });
     const subDir = path.join(tmpDir, 'main');
     fs.mkdirSync(path.join(subDir, '.planning'), { recursive: true });
 
@@ -330,5 +332,133 @@ describe('setup-worktrees.sh', () => {
       'refs/heads/main',
       `branch.main.merge should be refs/heads/main, got: ${merge}`
     );
+  });
+});
+
+describe('setup-worktrees.sh migration', () => {
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kata-worktree-migrate-'));
+    copySkillsExternal();
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    if (skillsDir) fs.rmSync(skillsDir, { recursive: true, force: true });
+  });
+
+  function createOldBareRepo(dir) {
+    // Create a bare repo layout WITHOUT workspace/ (old v1.10.0 layout)
+    execSync('git init -b main', { cwd: dir, env: GIT_ENV, stdio: 'pipe' });
+    fs.mkdirSync(path.join(dir, '.planning'), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, '.planning/config.json'),
+      JSON.stringify({ pr_workflow: 'true', worktree: { enabled: true } }, null, 2)
+    );
+    execSync('git add .planning/config.json', { cwd: dir, env: GIT_ENV, stdio: 'pipe' });
+    execSync('git commit -m "add config"', { cwd: dir, env: GIT_ENV, stdio: 'pipe' });
+
+    execSync('git clone --bare . .bare', { cwd: dir, env: GIT_ENV, stdio: 'pipe' });
+    fs.rmSync(path.join(dir, '.git'), { recursive: true, force: true });
+    fs.writeFileSync(path.join(dir, '.git'), 'gitdir: .bare\n');
+
+    // Only add main/ worktree (old layout)
+    execSync('GIT_DIR=.bare git worktree add main main', {
+      cwd: dir, env: GIT_ENV, stdio: 'pipe'
+    });
+
+    // Clean stale files from project root
+    fs.rmSync(path.join(dir, '.planning'), { recursive: true, force: true });
+  }
+
+  test('migrates old layout: creates workspace/ from project root', () => {
+    createOldBareRepo(tmpDir);
+
+    const result = runScript(tmpDir);
+
+    // workspace/ directory exists
+    assert.ok(
+      fs.existsSync(path.join(tmpDir, 'workspace')),
+      'workspace/ should be created by migration'
+    );
+
+    // workspace/ is on workspace-base branch
+    const branch = execSync('git branch --show-current', {
+      cwd: path.join(tmpDir, 'workspace'),
+      env: GIT_ENV,
+      encoding: 'utf8'
+    }).trim();
+    assert.strictEqual(branch, 'workspace-base',
+      `workspace/ should be on workspace-base branch, got: ${branch}`);
+
+    // Output mentions migration
+    assert.ok(
+      result.includes('Migration complete'),
+      `Output should mention migration, got: ${result}`
+    );
+
+    // Output tells user to cd into workspace/
+    assert.ok(
+      result.includes('workspace'),
+      `Output should mention workspace/, got: ${result}`
+    );
+  });
+
+  test('migrates old layout: creates workspace/ from inside main/', () => {
+    createOldBareRepo(tmpDir);
+
+    // Run from inside main/ (where user would be in old layout)
+    const result = runScript(path.join(tmpDir, 'main'));
+
+    // workspace/ directory exists at project root
+    assert.ok(
+      fs.existsSync(path.join(tmpDir, 'workspace')),
+      'workspace/ should be created at project root by migration from main/'
+    );
+
+    // workspace/ is on workspace-base branch
+    const branch = execSync('git branch --show-current', {
+      cwd: path.join(tmpDir, 'workspace'),
+      env: GIT_ENV,
+      encoding: 'utf8'
+    }).trim();
+    assert.strictEqual(branch, 'workspace-base',
+      `workspace/ should be on workspace-base branch, got: ${branch}`);
+  });
+
+  test('migration adds workspace/ to .gitignore', () => {
+    createOldBareRepo(tmpDir);
+
+    // Create a .gitignore with existing entries (like old setup would have)
+    fs.writeFileSync(path.join(tmpDir, '.gitignore'), '.bare\nmain/\n');
+
+    runScript(tmpDir);
+
+    const gitignore = fs.readFileSync(path.join(tmpDir, '.gitignore'), 'utf8');
+    assert.ok(
+      gitignore.includes('workspace/'),
+      `.gitignore should include workspace/ after migration, got: ${gitignore}`
+    );
+    // Existing entries preserved
+    assert.ok(
+      gitignore.includes('.bare'),
+      `.gitignore should still include .bare, got: ${gitignore}`
+    );
+  });
+
+  test('migration sets upstream tracking when remote exists', () => {
+    createOldBareRepo(tmpDir);
+
+    // Add a remote to the bare repo
+    execSync('GIT_DIR=.bare git remote set-url origin https://github.com/test/repo.git', {
+      cwd: tmpDir, env: GIT_ENV, stdio: 'pipe'
+    });
+
+    runScript(tmpDir);
+
+    const remote = execSync('git -C workspace config branch.workspace-base.remote', {
+      cwd: tmpDir, env: GIT_ENV, encoding: 'utf8'
+    }).trim();
+    assert.strictEqual(remote, 'origin',
+      `workspace-base should track origin, got: ${remote}`);
   });
 });

@@ -444,7 +444,7 @@ fi
 
    b. **Update checklist entry:** Change `- [ ] Phase N: Name (X/Y plans)` to `- [x] Phase N: Name (Y/Y plans) — completed YYYY-MM-DD`. Mark each sub-item `[x]` too.
 
-   **STATE.md** — update current position, phase status, and progress bar.
+   **STATE.md** — Re-read `.planning/STATE.md` before editing (executors modify it during plan execution, so your initial read is stale). Update current position, phase status, and progress bar.
 
 9. **Update requirements**
    Mark phase requirements as Complete:

@@ -255,4 +255,60 @@ describe('create-phase-branch.sh', () => {
       );
     }
   });
+
+  test('exits 1 when old worktree layout detected (no workspace/)', () => {
+    // Create bare repo with main/ but WITHOUT workspace/ (old v1.10.0 layout)
+    execSync('git init -b main', { cwd: tmpDir, env: GIT_ENV, stdio: 'pipe' });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', 'pending', '05-test-phase'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning/ROADMAP.md'),
+      makeRoadmap('05', 'Build authentication')
+    );
+    execSync('git add -A', { cwd: tmpDir, env: GIT_ENV, stdio: 'pipe' });
+    execSync('git commit -m "init"', { cwd: tmpDir, env: GIT_ENV, stdio: 'pipe' });
+
+    execSync('git clone --bare . .bare', { cwd: tmpDir, env: GIT_ENV, stdio: 'pipe' });
+    fs.rmSync(path.join(tmpDir, '.git'), { recursive: true, force: true });
+    fs.writeFileSync(path.join(tmpDir, '.git'), 'gitdir: .bare\n');
+
+    // Only add main/ worktree (old layout — no workspace/)
+    execSync('GIT_DIR=.bare git worktree add main main', {
+      cwd: tmpDir, env: GIT_ENV, stdio: 'pipe'
+    });
+    fs.rmSync(path.join(tmpDir, '.planning'), { recursive: true, force: true });
+
+    try {
+      runScript(tmpDir, '.planning/phases/pending/05-test-phase');
+      assert.fail('Should have exited with code 1');
+    } catch (err) {
+      assert.strictEqual(err.status, 1, `Expected exit 1, got ${err.status}`);
+      const stderr = err.stderr.toString();
+      assert.ok(
+        stderr.includes('Old worktree layout'),
+        `Stderr should mention old layout, got: ${stderr}`
+      );
+      assert.ok(
+        stderr.includes('setup-worktrees.sh'),
+        `Stderr should mention setup-worktrees.sh for migration, got: ${stderr}`
+      );
+    }
+  });
+
+  test('exits 1 when running from main/ instead of workspace/', () => {
+    // Create bare repo with BOTH main/ and workspace/ but run from main/
+    createBareRepoWithRoadmap(tmpDir, '05', 'Build authentication');
+
+    // Run from main/ instead of workspace/ — should fail
+    try {
+      runScript(path.join(tmpDir, 'main'), '.planning/phases/pending/05-test-phase');
+      assert.fail('Should have exited with code 1');
+    } catch (err) {
+      assert.strictEqual(err.status, 1, `Expected exit 1, got ${err.status}`);
+      const stderr = err.stderr.toString();
+      assert.ok(
+        stderr.includes('Must run from workspace/'),
+        `Stderr should say to run from workspace/, got: ${stderr}`
+      );
+    }
+  });
 });

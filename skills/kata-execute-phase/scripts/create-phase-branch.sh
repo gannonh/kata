@@ -44,6 +44,28 @@ fi
 # 4. Switch workspace to phase branch
 BRANCH="${BRANCH_TYPE}/v${MILESTONE}-${PHASE_NUM}-${SLUG}"
 
+# Validate workspace architecture in bare repo layout
+if [ -d ../.bare ]; then
+  if [ ! -d ../workspace ]; then
+    # Old layout: bare repo without workspace/ — tell user to migrate
+    SETUP_SCRIPT="$SCRIPT_DIR/../../kata-configure-settings/scripts/setup-worktrees.sh"
+    echo "Error: Old worktree layout detected (no workspace/ directory)." >&2
+    echo "Run migration from $(pwd):" >&2
+    echo "  bash \"$SETUP_SCRIPT\"" >&2
+    echo "Then restart Claude Code from workspace/:" >&2
+    echo "  cd $(cd .. && pwd)/workspace" >&2
+    exit 1
+  fi
+  WORKSPACE_REAL=$(cd ../workspace && pwd)
+  if [ "$(pwd)" != "$WORKSPACE_REAL" ]; then
+    # Running from wrong directory (e.g., main/ instead of workspace/)
+    echo "Error: Must run from workspace/, not $(basename "$(pwd)")/" >&2
+    echo "Restart Claude Code from workspace/:" >&2
+    echo "  cd $WORKSPACE_REAL" >&2
+    exit 1
+  fi
+fi
+
 # Detect layout: bare repo (../.bare exists) or standard repo
 if [ -d ../.bare ]; then
   # Bare repo layout: project-root.sh cd'd us into workspace/

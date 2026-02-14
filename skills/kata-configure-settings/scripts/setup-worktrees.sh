@@ -10,16 +10,66 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/project-root.sh"
 
+# --- Migration: old bare repo layout → workspace architecture ---
+
+migrate_to_workspace() {
+  echo "Migrating to workspace architecture..."
+  echo ""
+
+  # Detect default branch from main/ worktree
+  local default_branch
+  if [ -d main ]; then
+    default_branch=$(git -C main symbolic-ref --short HEAD 2>/dev/null || echo "main")
+  else
+    default_branch=$(GIT_DIR=.bare git symbolic-ref --short HEAD 2>/dev/null || echo "main")
+  fi
+
+  # Create workspace/ worktree on workspace-base branch
+  GIT_DIR=.bare git worktree add workspace -b workspace-base "$default_branch"
+
+  # Add workspace/ to .gitignore if not already there
+  local gitignore=".gitignore"
+  touch "$gitignore"
+  grep -qxF 'workspace/' "$gitignore" 2>/dev/null || echo 'workspace/' >> "$gitignore"
+
+  # Set upstream tracking for workspace-base
+  local remote_url
+  remote_url=$(GIT_DIR=.bare git remote get-url origin 2>/dev/null || echo "")
+  if [ -n "$remote_url" ]; then
+    git -C workspace config "branch.workspace-base.remote" origin
+    git -C workspace config "branch.workspace-base.merge" "refs/heads/$default_branch"
+  fi
+
+  echo ""
+  echo "Migration complete. workspace/ created on workspace-base branch."
+  echo ""
+  echo "IMPORTANT: workspace/ is now your primary working directory."
+  echo "  - Restart Claude Code from inside workspace/"
+  echo "  - All skills, git commands, and file edits run from workspace/"
+  echo "  - cd $(pwd)/workspace"
+}
+
 # --- Precondition Validation ---
 
 # 1. Must not already be converted (check current dir AND parent)
 if [ -d .bare ]; then
-  echo "Already converted: .bare/ directory exists. Nothing to do."
-  exit 0
+  if [ -d workspace ]; then
+    echo "Already converted: .bare/ and workspace/ exist. Nothing to do."
+    exit 0
+  else
+    migrate_to_workspace
+    exit 0
+  fi
 fi
 if [ -d ../.bare ]; then
-  echo "Already converted: running inside a worktree (../.bare exists). Nothing to do."
-  exit 0
+  if [ -d ../workspace ]; then
+    echo "Already converted: running inside a worktree (../.bare exists). Nothing to do."
+    exit 0
+  else
+    cd ..
+    migrate_to_workspace
+    exit 0
+  fi
 fi
 
 # 2. pr_workflow must be enabled (worktrees require PR workflow)
