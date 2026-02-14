@@ -30,6 +30,13 @@ Your ROADMAP.md is consumed by `/kata-plan-phase` which uses it to:
 **Be specific.** Success criteria must be observable user behaviors, not implementation tasks.
 </downstream_consumer>
 
+<slicing_guidance>
+@./slicing-principles.md
+@./milestone-scope-checklist.md
+
+Apply vertical slicing principles during phase identification and evaluation. Every phase must be independently demo-able since phases map to PRs.
+</slicing_guidance>
+
 <philosophy>
 
 ## Solo Developer + Claude Workflow
@@ -220,6 +227,150 @@ Phase 3: All UI components ← Nothing works until end
 ```
 
 </phase_identification>
+
+<milestone_evaluation>
+
+## Evaluating Phase Structure
+
+After identifying phases, run through milestone scope checklist to validate structure.
+
+### User Value Check
+
+Ask: "What can users DO after this milestone ships?"
+
+Good answers describe observable user actions:
+- "Users can create accounts and log in"
+- "Users can browse products and add to cart"
+- "Admin can manage inventory"
+
+Bad answers describe technical states:
+- "Database is set up"
+- "API framework is configured"
+- "Infrastructure is ready"
+
+**Fix if failing:** Reframe infrastructure phases as feature phases, inline setup with first feature, defer non-critical setup.
+
+### Demo-ability Check
+
+**CRITICAL:** Phase = PR = Demo unit. Every phase must be independently demo-able.
+
+Ask for each phase: "Can I show a working feature when this phase completes?"
+
+**Demo-able phases:**
+- Phase 1: User Registration — Demo: Users can visit /signup, create account, receive confirmation
+- Phase 2: Product Catalog — Demo: Users can browse products, filter by category, view details
+- Phase 3: Shopping Cart — Demo: Users can add items, adjust quantities, see total
+
+**Non-demo-able phases (RED FLAGS):**
+- Phase 1: Database Schema — Demo: "Trust me, the schema exists" ← NOT DEMO-ABLE
+- Phase 2: API Endpoints — Demo: "curl works" ← NOT USER-FACING
+- Phase 3: UI Components — Demo: "Now it finally works" ← NOTHING WORKED UNTIL NOW
+
+**Test:** For each phase, write down what you'll show during demo. If you can't write specific steps, phase is not demo-able.
+
+**Fix if failing:** Restructure phases as vertical slices (DB + API + UI per feature), inline setup with first feature, ensure each phase ships working end-to-end capability.
+
+### Independence Check
+
+Ask: "Can phases execute with minimal dependencies?"
+
+Good structure allows parallel execution:
+```
+Phase 1: User Auth (no dependencies) → Wave 1
+Phase 2: Product Catalog (depends on Phase 1) → Wave 2
+Phase 3: Shopping Cart (depends on Phase 1) → Wave 2
+Phase 4: Order Processing (depends on Phases 2-3) → Wave 3
+
+Parallel opportunity: Phases 2-3 in Wave 2
+```
+
+Bad structure forces sequential execution:
+```
+Phase 1: Database Models → Phase 2: API Layer → Phase 3: UI Layer → Phase 4: Integration Tests
+
+Everything sequential. No parallelism.
+```
+
+**Test:** Draw dependency graph. Do 30%+ of phases have parallel opportunities?
+
+**Fix if failing:** Switch from horizontal layers to vertical features, identify truly independent features, reduce cross-phase dependencies.
+
+### Slicing Check
+
+Ask: "Are phases vertical (feature-focused) or horizontal (layer-focused)?"
+
+**Vertical phases (GOOD):** Named after features/capabilities
+- "User Authentication"
+- "Product Catalog"
+- "Shopping Cart"
+
+**Horizontal phases (BAD):** Named after technical layers
+- "Database Schema"
+- "API Endpoints"
+- "Frontend Components"
+
+**Test:** Read phase names. Do they describe user features or technical layers?
+
+**Fix if failing:** Rename phases to features they deliver, restructure as one feature per phase (full stack).
+
+### Common Fixes
+
+**Fix 1: Infrastructure-Heavy Milestone**
+
+Before:
+```
+v1.0: Foundation
+- Phase 1: Database setup
+- Phase 2: API framework
+- Phase 3: Auth system
+```
+
+After:
+```
+v1.0: Core Features
+- Phase 1: User Management (includes auth, DB setup)
+- Phase 2: Data Management (includes API framework)
+```
+
+**Fix 2: Sequential Bottleneck**
+
+Before:
+```
+Phase 1: Create all models → Phase 2: Create all APIs → Phase 3: Create all UI
+```
+
+After:
+```
+Phase 1: Foundation (shared models)
+Phase 2: Feature A (model + API + UI) [parallel with Phase 3]
+Phase 3: Feature B (model + API + UI) [parallel with Phase 2]
+```
+
+**Fix 3: Non-Demo-able Phases**
+
+Before:
+```
+Phase 1: Backend Setup (not demo-able)
+Phase 2: Frontend Setup (not demo-able)
+Phase 3: Integration (finally demo-able)
+```
+
+After:
+```
+Phase 1: User Auth (demo: login works)
+Phase 2: Product Catalog (demo: browse products)
+Phase 3: Shopping Cart (demo: add to cart)
+```
+
+### Reference Case Studies
+
+For detailed examples of good vs bad milestone structure, see:
+- @./slicing-principles.md (Case Study 1: E-commerce MVP)
+- @./slicing-principles.md (Case Study 2: SaaS Dashboard)
+
+Both show horizontal vs vertical comparisons with plan counts and demo-ability analysis.
+
+</milestone_evaluation>
 
 <coverage_validation>
 

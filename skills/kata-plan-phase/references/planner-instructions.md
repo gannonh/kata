@@ -112,6 +112,12 @@ For niche domains (3D, games, audio, shaders, ML), suggest `/kata-research-phase
 
 <task_breakdown>
 
+## Slicing Principles
+
+@../../kata-add-milestone/references/slicing-principles.md
+
+Apply vertical slicing at plan and task level. Phases are already sliced at milestone planning, but plans within phases should also follow vertical slicing principles.
+
 ## Task Anatomy
 
 Every task has four required fields:
@@ -163,6 +169,146 @@ Each task should take Claude **15-60 minutes** to execute. This calibrates granu
 - One task just sets up for the next
 - Separate tasks touch the same file
 - Neither task is meaningful alone
+
+## Infrastructure Setup: Inline vs Dedicated Phase
+
+Most infrastructure setup should be inlined with the first feature that uses it. Dedicated infrastructure phases are rare.
+
+### Decision Tree
+
+**Question 1: Can setup inline with first feature?**
+
+**YES → Inline it (most common)**
+
+Example:
+```
+Plan 01: User Authentication
+- Task 1: Set up Prisma with User model (setup + first model)
+- Task 2: Create /api/auth/login endpoint
+- Task 3: Create login UI
+```
+
+Setup happens in Task 1. Feature completes by Task 3. Demo-able: working login.
+
+**NO → Continue to Question 2**
+
+**Question 2: Does setup enable 3+ independent features?**
+
+**YES → Dedicated setup phase may be justified**
+
+Example:
+```
+Phase 0: Foundation
+- Next.js 14 with App Router
+- Prisma with PostgreSQL
+- TailwindCSS + shadcn/ui
+
+Phase 1: User Auth (depends on Phase 0)
+Phase 2: Product Catalog (depends on Phase 0)
+Phase 3: Shopping Cart (depends on Phase 0)
+```
+
+Foundation enables 3+ features. Demo-able: "App running, DB connected, UI library working."
+
+**NO → Inline it**
+
+Setup that enables 1-2 features should always be inline.
+
+**Question 3: Can we defer setup until needed?**
+
+Always ask: "What breaks if we don't do this setup now?"
+
+**Defer unless setup blocks immediate feature delivery:**
+- Monitoring/observability → Defer until performance issues
+- Advanced caching → Defer until bottlenecks identified
+- Multi-region deployment → Defer until traffic justifies
+- Comprehensive error tracking → Start with console.log
+
+### Examples by Type
+
+**Database Setup:**
+- ✓ Inline: Prisma setup with first model in Phase 1
+- ❌ Dedicated: "Phase 0: Database Setup" (unless 5+ independent entities)
+
+**Authentication:**
+- ✓ Inline: Auth library setup within "Phase 1: User Auth"
+- ❌ Dedicated: "Phase 0: Auth Infrastructure" (auth IS the feature)
+
+**UI Framework:**
+- ✓ Inline: Tailwind setup in first UI phase
+- ❌ Dedicated: "Phase 0: UI Setup" (nothing to demo)
+
+**API Framework:**
+- ✓ Inline: Express/Next.js setup with first endpoint
+- ❌ Dedicated: "Phase 0: API Setup" (no routes to test)
+
+**External Services (Stripe, Sendgrid):**
+- ✓ Inline: Stripe SDK setup in "Phase N: Payment Processing"
+- ✓ Inline: Sendgrid setup in "Phase N: Email Notifications"
+
+## Defending Against Scope Anxiety
+
+**The fear:** "This plan is too small. We should combine plans to be efficient."
+
+**The reality:** Context quality degrades with size. Small plans outperform large plans.
+
+### Context Quality Curve
+
+| Context Usage | Quality   | Behavior                  |
+| ------------- | --------- | ------------------------- |
+| 0-30%         | PEAK      | Thorough, comprehensive   |
+| 30-50%        | GOOD      | Confident, solid work     |
+| 50-70%        | DEGRADING | Efficiency mode, rushing  |
+| 70%+          | POOR      | Minimal, incomplete       |
+
+**Key insight:** Claude enters "completion mode" when context pressure builds. Quality degrades before hitting limits.
+
+### The Math
+
+**Scenario: 15 tasks to complete**
+
+**Option A: Three large plans (5 tasks each, 80% context)**
+- All 15 tasks execute at 80% context
+- Degraded quality for ALL tasks
+- Verification rushed
+- Bugs introduced
+- Estimated rework: 20-30% of tasks
+- Actual completion: 15 tasks + 3-5 bug fixes = 18-20 tasks
+
+**Option B: Five small plans (3 tasks each, 45% context)**
+- All 15 tasks execute at peak quality (45%)
+- No context pressure
+- Thorough verification
+- Estimated rework: 0-5% of tasks
+- Actual completion: 15 tasks + 0-1 bug fixes = 15-16 tasks
+
+**Result:** Small plans complete faster with fewer bugs than large plans.
+
+### The 3-Task Rule
+
+**Maximum 3 tasks per plan.**
+
+Why?
+- Task 1: 15-20% context
+- Task 2: 15-20% context
+- Task 3: 15-20% context
+- Total: 45-60% context (optimal zone)
+
+**4 tasks = 70%+ context = degradation begins**
+
+### Practical Guidelines
+
+**When pressure to combine arises:**
+
+1. **Check context budget:** Will combined plan exceed 60%? If yes, keep separate.
+
+2. **Verify independence:** Can tasks run in parallel plans? If yes, keep separate for wave optimization.
+
+3. **Test demo-ability:** Can each plan demo something meaningful? If yes, keep separate.
+
+4. **Remember the curve:** Three 40% plans outperform one 80% plan.
+
+**Trust the math:** More plans, smaller scope, consistent quality throughout.
 
 ## Specificity Examples
 
