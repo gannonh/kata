@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: read-pref.sh <key> [fallback]
-# Resolution: preferences.json -> config.json -> built-in defaults -> fallback arg
+# Resolution: config.json -> built-in defaults -> fallback arg
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -55,9 +55,8 @@ function resolveNested(obj, key) {
   return val;
 }
 
-const prefs = readJSON('.planning/preferences.json');
 const config = readJSON('.planning/config.json');
 
-const v = prefs[KEY] ?? resolveNested(config, KEY) ?? DEFAULTS[KEY] ?? FALLBACK ?? '';
+const v = resolveNested(config, KEY) ?? DEFAULTS[KEY] ?? FALLBACK ?? '';
 process.stdout.write(typeof v === 'object' ? JSON.stringify(v) : String(v));
 NODE_EOF

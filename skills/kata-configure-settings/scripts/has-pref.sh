@@ -28,12 +28,10 @@ function resolveNested(obj, key) {
   return val;
 }
 
-const prefs = readJSON('.planning/preferences.json');
 const config = readJSON('.planning/config.json');
 
-// Key exists in prefs (explicitly set) or config (legacy)
-const inPrefs = prefs[KEY] !== undefined;
+// Key exists in config (explicitly set)
 const inConfig = resolveNested(config, KEY) !== undefined;
 
-process.exit(inPrefs || inConfig ? 0 : 1);
+process.exit(inConfig ? 0 : 1);
 NODE_EOF

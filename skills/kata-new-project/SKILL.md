@@ -459,22 +459,15 @@ Map user selections to values:
 **If commit_docs = Yes:**
 - No additional gitignore entries needed
 
-**Scaffold preferences.json:**
+**Commit config.json:**
 
 ```bash
-echo '{}' > .planning/preferences.json
-```
-
-**Commit config.json and preferences.json:**
-
-```bash
-git add .planning/config.json .planning/preferences.json
+git add .planning/config.json
 git commit -m "$(cat <<'EOF'
 chore: add project config
 
 Mode: [chosen mode]
 Depth: [chosen depth]
-Preferences: scaffolded (empty)
 EOF
 )"
 ```
@@ -703,7 +696,6 @@ fi
 MISSING=""
 [ -f .planning/PROJECT.md ] || MISSING="${MISSING}\n- .planning/PROJECT.md"
 [ -f .planning/config.json ] || MISSING="${MISSING}\n- .planning/config.json"
-[ -f .planning/preferences.json ] || MISSING="${MISSING}\n- .planning/preferences.json"
 [ -f .planning/phases/pending/.gitkeep ] || MISSING="${MISSING}\n- .planning/phases/pending/.gitkeep"
 [ -f .planning/phases/active/.gitkeep ] || MISSING="${MISSING}\n- .planning/phases/active/.gitkeep"
 [ -f .planning/phases/completed/.gitkeep ] || MISSING="${MISSING}\n- .planning/phases/completed/.gitkeep"
@@ -729,7 +721,6 @@ fi
 | ----------- | ---------------------------- |
 | Project     | `.planning/PROJECT.md`       |
 | Config      | `.planning/config.json`      |
-| Preferences | `.planning/preferences.json` |
 
 Ready for milestone planning ✓
 
@@ -800,7 +791,6 @@ Settings for `main`:
 - [ ] Deep questioning completed (threads followed, not rushed)
 - [ ] PROJECT.md captures full context → **committed**
 - [ ] config.json has mode, depth, commit_docs, pr_workflow, github → **committed**
-- [ ] preferences.json scaffolded as `{}` → **committed**
 - [ ] Self-validation passed (all artifacts exist)
 - [ ] User knows next step is `/kata-add-milestone`
 
