@@ -143,7 +143,7 @@ Progress: [                                ] 0%
       commit_docs: true,
       github: {
         enabled: true,
-        issueMode: 'never'
+        issue_mode: 'never'
       }
     }, null, 2);
     writeFileSync(configPath, configContent);
@@ -179,7 +179,7 @@ Progress: [                                ] 0%
       commit_docs: true,
       github: {
         enabled: false,
-        issueMode: 'never'
+        issue_mode: 'never'
       }
     }, null, 2);
     writeFileSync(configPath, configContent);

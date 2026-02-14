@@ -203,7 +203,7 @@ flowchart TD
     APPROVE -->|Adjust| ROAD
     APPROVE -->|Accept| COMMIT3["Commit ROADMAP.md"]
 
-    COMMIT3 --> G9_5{"github.enabled + issueMode != never?"}
+    COMMIT3 --> G9_5{"github.enabled + issue_mode != never?"}
     G9_5 -->|Yes| GH_ISSUES["Create GitHub issue per phase"]
     G9_5 -->|No| DONE
     GH_ISSUES --> DONE
@@ -281,7 +281,7 @@ flowchart TD
     ASK_FORCE -->|retry| PLANNER
     ASK_FORCE -->|abandon| ABORT2["Exit"]
 
-    GH{"github.enabled +<br/>issueMode != never?"}
+    GH{"github.enabled +<br/>issue_mode != never?"}
     GH -->|Yes| GH_UPD["Create/update GitHub issue"]
     GH -->|No| DONE
     GH_UPD --> DONE
@@ -556,7 +556,7 @@ Branches that activate based on `.planning/config.json` settings.
 | --- | --- | --- |
 | `pr_workflow` | Create branches, draft PRs, mark ready, release branches | Commit directly to main |
 | `github.enabled` | Create milestones, phase issues, update checkboxes, close on completion | Skip all GitHub integration |
-| `github.issueMode` | `always`: create issues for every phase. `never`: skip. `ask`: prompt user | N/A |
+| `github.issue_mode` | `always`: create issues for every phase. `never`: skip. `ask`: prompt user | N/A |
 | `workflow.research` | Run research agent before planning | Skip research unless `--research` flag |
 | `workflow.plan_check` | Run plan checker after planner | Skip verification unless plans fail |
 | `workflow.verifier` | Run verifier after execution | Skip post-execution verification |
