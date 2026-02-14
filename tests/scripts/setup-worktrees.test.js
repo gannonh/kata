@@ -187,11 +187,57 @@ describe('setup-worktrees.sh', () => {
       'main/ worktree directory should exist'
     );
 
+    // workspace/ directory exists
+    assert.ok(
+      fs.existsSync(path.join(tmpDir, 'workspace')),
+      'workspace/ worktree directory should exist'
+    );
+
+    // workspace/ is on workspace-base branch
+    const wsBranch = execSync('git branch --show-current', {
+      cwd: path.join(tmpDir, 'workspace'),
+      env: GIT_ENV,
+      encoding: 'utf8'
+    }).trim();
+    assert.strictEqual(wsBranch, 'workspace-base',
+      `workspace/ should be on workspace-base branch, got: ${wsBranch}`);
+
     // README.md exists at project root with worktree instructions
     const readme = fs.readFileSync(path.join(tmpDir, 'README.md'), 'utf8');
     assert.ok(
-      readme.includes('cd main'),
-      'README should tell user to cd into main/'
+      readme.includes('cd workspace'),
+      'README should tell user to cd into workspace/'
+    );
+  });
+
+  test('workspace/ worktree created on workspace-base branch', () => {
+    createGitRepo(tmpDir);
+    runScript(tmpDir);
+
+    // workspace/ directory exists
+    assert.ok(
+      fs.existsSync(path.join(tmpDir, 'workspace')),
+      'workspace/ directory should exist'
+    );
+
+    // workspace/ is on workspace-base branch
+    const branch = execSync('git branch --show-current', {
+      cwd: path.join(tmpDir, 'workspace'),
+      env: GIT_ENV,
+      encoding: 'utf8'
+    }).trim();
+    assert.strictEqual(branch, 'workspace-base',
+      `workspace/ should be on workspace-base branch, got: ${branch}`);
+  });
+
+  test('workspace/ added to .gitignore', () => {
+    createGitRepo(tmpDir);
+    runScript(tmpDir);
+
+    const gitignore = fs.readFileSync(path.join(tmpDir, '.gitignore'), 'utf8');
+    assert.ok(
+      gitignore.includes('workspace/'),
+      '.gitignore should include workspace/'
     );
   });
 
@@ -215,13 +261,28 @@ describe('setup-worktrees.sh', () => {
       'main/ worktree directory should exist even with master branch'
     );
 
-    // Verify the worktree has the master branch checked out
+    // Verify the main worktree has the master branch checked out
     const branch = execSync('git branch --show-current', {
       cwd: path.join(tmpDir, 'main'),
       env: GIT_ENV,
       encoding: 'utf8'
     }).trim();
-    assert.strictEqual(branch, 'master', 'worktree should have master branch checked out');
+    assert.strictEqual(branch, 'master', 'main/ worktree should have master branch checked out');
+
+    // workspace/ directory exists
+    assert.ok(
+      fs.existsSync(path.join(tmpDir, 'workspace')),
+      'workspace/ worktree directory should exist even with master branch'
+    );
+
+    // workspace/ is on workspace-base branch (based on master)
+    const wsBranch = execSync('git branch --show-current', {
+      cwd: path.join(tmpDir, 'workspace'),
+      env: GIT_ENV,
+      encoding: 'utf8'
+    }).trim();
+    assert.strictEqual(wsBranch, 'workspace-base',
+      `workspace/ should be on workspace-base branch, got: ${wsBranch}`);
   });
 
   test('preserves original remote URL after conversion', () => {
