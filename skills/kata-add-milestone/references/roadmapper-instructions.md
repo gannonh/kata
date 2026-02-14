@@ -94,8 +94,22 @@ Take the phase goal from your phase identification. This is the outcome, not wor
 - Good: "Users can securely access their accounts" (outcome)
 - Bad: "Build authentication" (task)
 
-**Step 2: Derive Observable Truths (2-5 per phase)**
-List what users can observe/do when the phase completes.
+**Step 2: Define the Demo Scenario**
+**CRITICAL:** What will you show when this phase completes? The demo must be concrete, visual, and user-facing.
+
+For "Users can securely access their accounts":
+- **Demo:** User visits /signup, creates account with email/password, logs in, session persists across browser refresh, user logs out successfully
+
+**Test:** Can you write specific steps a user would follow to see this working? If demo requires showing code or database tables, phase is not user-facing enough.
+
+**Red flags:**
+- "Demo: Code is refactored" ❌ → Not user-visible
+- "Demo: Tests pass" ❌ → Not a demo
+- "Demo: Validation works" ❌ → Too abstract
+- "Demo: User can sign up and log in" ✓ → Concrete steps
+
+**Step 3: Derive Observable Truths (2-5 per phase)**
+List what users can observe/do when the phase completes. These should align with the demo scenario.
 
 For "Users can securely access their accounts":
 - User can create account with email/password
@@ -105,7 +119,7 @@ For "Users can securely access their accounts":
 
 **Test:** Each truth should be verifiable by a human using the application.
 
-**Step 3: Cross-Check Against Requirements**
+**Step 4: Cross-Check Against Requirements**
 For each success criterion:
 - Does at least one requirement support this?
 - If not → gap found
@@ -114,7 +128,7 @@ For each requirement mapped to this phase:
 - Does it contribute to at least one success criterion?
 - If not → question if it belongs here
 
-**Step 4: Resolve Gaps**
+**Step 5: Resolve Gaps**
 Success criterion with no supporting requirement:
 - Add requirement to REQUIREMENTS.md, OR
 - Mark criterion as out of scope for this phase
@@ -252,21 +266,45 @@ Bad answers describe technical states:
 
 ### Demo-ability Check
 
-**CRITICAL:** Phase = PR = Demo unit. Every phase must be independently demo-able.
+**CRITICAL:** Phase = PR = Demo unit. Every phase must be independently demo-able with a concrete demo scenario.
 
-Ask for each phase: "Can I show a working feature when this phase completes?"
+For each phase, you MUST derive a demo scenario that answers: "What specific steps will a user follow to see this working?"
 
-**Demo-able phases:**
-- Phase 1: User Registration — Demo: Users can visit /signup, create account, receive confirmation
-- Phase 2: Product Catalog — Demo: Users can browse products, filter by category, view details
-- Phase 3: Shopping Cart — Demo: Users can add items, adjust quantities, see total
+**Demo format requirements:**
+1. Starts with "Demo: " prefix
+2. Contains specific user actions (visit URL, click button, enter data)
+3. Describes observable outcomes (page loads, data appears, PR created)
+4. Takes 30-60 seconds to execute
+5. Requires no code inspection (all UI/CLI visible)
 
-**Non-demo-able phases (RED FLAGS):**
-- Phase 1: Database Schema — Demo: "Trust me, the schema exists" ← NOT DEMO-ABLE
-- Phase 2: API Endpoints — Demo: "curl works" ← NOT USER-FACING
-- Phase 3: UI Components — Demo: "Now it finally works" ← NOTHING WORKED UNTIL NOW
+**Good demo scenarios:**
+- Phase 1: User Registration
+  - **Demo:** User visits /signup, enters email/password, clicks Create Account, sees confirmation message, logs in with credentials, session persists after browser refresh
 
-**Test:** For each phase, write down what you'll show during demo. If you can't write specific steps, phase is not demo-able.
+- Phase 2: Product Catalog
+  - **Demo:** User visits /products, sees product grid, clicks category filter, grid updates, clicks product card, sees detail page with price and description
+
+- Phase 3: Shopping Cart
+  - **Demo:** User adds product to cart, cart badge shows count, visits /cart, adjusts quantity, sees updated total, removes item, cart updates
+
+**Bad demo scenarios (RED FLAGS):**
+- Phase 1: Database Schema
+  - **Demo:** "Database tables exist" ← NOT USER-VISIBLE
+  - **Fix:** Inline schema creation with first feature that uses it
+
+- Phase 2: API Endpoints
+  - **Demo:** "curl returns 200" ← NOT USER-FACING
+  - **Fix:** Include UI in this phase (vertical slice)
+
+- Phase 3: Code Quality
+  - **Demo:** "Tests pass, code is cleaner" ← NOT A DEMO
+  - **Fix:** Either inline with feature work or make it phase 0 before real work
+
+- Phase 4: Validation & Caching
+  - **Demo:** "Validation errors show" ← TOO ABSTRACT
+  - **Fix:** Show validation in context of a complete feature
+
+**Test:** Write the demo scenario. If it requires showing code, logs, or database state, phase is not demo-able.
 
 **Fix if failing:** Restructure phases as vertical slices (DB + API + UI per feature), inline setup with first feature, ensure each phase ships working end-to-end capability.
 
@@ -449,9 +487,37 @@ Use this exact canonical format:
 
 **Goal:** [One sentence describing milestone focus]
 
-- [x] Phase N: [Name] (P/P plans) — completed YYYY-MM-DD
-- [x] Phase N+1: [Name] (P/P plans) — completed YYYY-MM-DD
-- [ ] Phase N+2: [Name] (P/P plans)
+### Phase N: [Name]
+
+**Goal:** [Phase outcome statement]
+**Demo:** [Concrete user-facing demo scenario with specific steps]
+**Requirements:** REQ-01, REQ-02, REQ-03
+**Plans:** N plans
+
+Plans:
+- [ ] NN-01-PLAN.md — [brief objective]
+- [ ] NN-02-PLAN.md — [brief objective]
+
+**Success Criteria:**
+1. [Observable truth 1]
+2. [Observable truth 2]
+3. [Observable truth 3]
+
+---
+
+### Phase N+1: [Name]
+
+**Goal:** [Phase outcome statement]
+**Demo:** [Concrete user-facing demo scenario with specific steps]
+**Requirements:** REQ-04, REQ-05
+**Plans:** N plans
+
+Plans:
+- [ ] NN-01-PLAN.md — [brief objective]
+
+**Success Criteria:**
+1. [Observable truth 1]
+2. [Observable truth 2]
 
 ## Completed Milestones
 
@@ -498,6 +564,7 @@ Use this exact canonical format:
 - MUST have `## Current Milestone: v[X.Y] [Name]` heading
 - MUST NOT have standalone `## Phases` section (old format)
 - Phases are listed under milestone sections, not at root level
+- MUST have `**Demo:**` field for each phase with concrete user-facing scenario
 
 ## STATE.md Structure
 
@@ -559,11 +626,21 @@ When presenting to user for approval:
 
 ### Phase Structure
 
-| Phase       | Goal   | Requirements              | Success Criteria |
-| ----------- | ------ | ------------------------- | ---------------- |
-| 1 - Setup   | [goal] | SETUP-01, SETUP-02        | 3 criteria       |
-| 2 - Auth    | [goal] | AUTH-01, AUTH-02, AUTH-03 | 4 criteria       |
-| 3 - Content | [goal] | CONT-01, CONT-02          | 3 criteria       |
+| Phase       | Goal   | Demo | Requirements              | Success Criteria |
+| ----------- | ------ | ---- | ------------------------- | ---------------- |
+| 1 - Setup   | [goal] | [concrete demo scenario] | SETUP-01, SETUP-02        | 3 criteria       |
+| 2 - Auth    | [goal] | [concrete demo scenario] | AUTH-01, AUTH-02, AUTH-03 | 4 criteria       |
+| 3 - Content | [goal] | [concrete demo scenario] | CONT-01, CONT-02          | 3 criteria       |
+
+### Demo Scenarios
+
+**Phase 1: Setup**
+Demo: [Specific steps user follows to see this working]
+
+**Phase 2: Auth**
+Demo: [Specific steps user follows to see this working]
+
+[... abbreviated for longer roadmaps ...]
 
 ### Success Criteria Preview
 
@@ -700,10 +777,18 @@ When files are written and returning to orchestrator:
 **Depth:** {from config}
 **Coverage:** {X}/{X} requirements mapped ✓
 
-| Phase      | Goal   | Requirements |
-| ---------- | ------ | ------------ |
-| 1 - {name} | {goal} | {req-ids}    |
-| 2 - {name} | {goal} | {req-ids}    |
+| Phase      | Goal   | Demo | Requirements |
+| ---------- | ------ | ---- | ------------ |
+| 1 - {name} | {goal} | {concrete demo scenario} | {req-ids}    |
+| 2 - {name} | {goal} | {concrete demo scenario} | {req-ids}    |
+
+### Demo Scenarios
+
+**Phase 1: {name}**
+Demo: {Specific steps user follows to see this working}
+
+**Phase 2: {name}**
+Demo: {Specific steps user follows to see this working}
 
 ### Success Criteria Preview
 

@@ -25,35 +25,116 @@ Evaluation criteria for milestone and phase structure. Apply after creating ROAD
 
 ## Demo-ability Check
 
-**CRITICAL:** Phase = PR = Demo unit. Every phase must be independently demo-able.
+**CRITICAL:** Phase = PR = Demo unit. Every phase must have a concrete demo scenario.
 
-**Question for each phase:** "Can I show a working feature when this phase completes?"
+### Demo Format Requirements
 
-**Demo-able phases:**
+Each phase MUST include a demo field that passes these checks:
+
+**Format checklist:**
+- [ ] Starts with "Demo: " prefix
+- [ ] Contains specific user actions (visit X, click Y, enter Z)
+- [ ] Describes observable outcomes (page loads, data appears, response shown)
+- [ ] Executable in 30-60 seconds
+- [ ] Requires no code inspection (all UI/CLI visible)
+- [ ] Reads like instructions you'd give another person
+
+**Quality levels:**
+
+**EXCELLENT (✓✓✓):**
 ```
-✓ Phase 1: User Registration
-  Demo: Users can visit /signup, create account, receive confirmation
-
-✓ Phase 2: Product Catalog
-  Demo: Users can browse products, filter by category, view details
-
-✓ Phase 3: Shopping Cart
-  Demo: Users can add items, adjust quantities, see total
+Phase 1: User Registration
+Demo: User visits /signup, enters email alice@example.com and password,
+clicks Create Account, sees "Check your email" message, clicks confirmation
+link in email, logs in with credentials, dashboard loads, session persists
+after browser refresh, user clicks Logout, returns to login page
 ```
+*Why excellent:* Step-by-step, observable at every step, complete workflow
 
-**Non-demo-able phases (RED FLAGS):**
+**GOOD (✓✓):**
 ```
-❌ Phase 1: Database Schema
-   Demo: "Trust me, the schema exists" ← NOT DEMO-ABLE
-
-❌ Phase 2: API Endpoints
-   Demo: "curl works" ← NOT USER-FACING
-
-❌ Phase 3: UI Components
-   Demo: "Now it finally works" ← NOTHING WORKED UNTIL NOW
+Phase 2: Product Catalog
+Demo: User visits /products, sees product grid with images and prices,
+clicks Electronics category filter, grid updates to show only electronics,
+clicks product card, sees detail page with full description
 ```
+*Why good:* Clear actions, observable outcomes, focused on one feature
 
-**Test:** For each phase, write down what you'll show during demo. If you can't write specific steps, phase is not demo-able.
+**ACCEPTABLE (✓):**
+```
+Phase 3: Plan Generation
+Demo: User runs `kata-cloud plan generate "add rate limiting"`, system
+outputs "Analyzing codebase..." then "Generating plan...", writes
+.plan.json to disk, user runs `cat .kata/plans/01-01.plan.json` to
+inspect generated plan
+```
+*Why acceptable:* CLI demo with visible output, requires file inspection but still concrete
+
+**FAILING (❌):**
+```
+Phase 4: Code Quality Sweep
+Demo: Code is refactored, tests pass, linter reports clean
+```
+*Why failing:* No user actions, no observable outcomes, requires code inspection
+
+**FAILING (❌):**
+```
+Phase 5: Database Schema
+Demo: Schema exists in database
+```
+*Why failing:* Not user-visible, requires database inspection
+
+**FAILING (❌):**
+```
+Phase 6: API Endpoints
+Demo: curl returns 200
+```
+*Why failing:* Not user-facing, too technical, no UI
+
+**FAILING (❌):**
+```
+Phase 7: Validation
+Demo: Validation works correctly
+```
+*Why failing:* Too abstract, no specific steps, no observable behavior
+
+### Validation Process
+
+For each phase:
+
+1. **Read the demo field**
+2. **Execute it mentally** - Can you visualize each step?
+3. **Check for red flags:**
+   - Requires showing code/database/logs
+   - Says "works correctly" without showing how
+   - No specific user actions listed
+   - No observable outcomes described
+   - Too abstract ("validation", "setup", "infrastructure")
+
+4. **If demo fails validation:**
+   - **Option A:** Restructure phase as vertical slice (add UI layer)
+   - **Option B:** Inline phase with next phase (setup + first feature)
+   - **Option C:** Split phase (if too big to demo cohesively)
+
+### Common Fixes
+
+**Problem:** "Phase 1: Database Models"
+**Fix:** Inline with "Phase 1: User Management (DB + API + UI)"
+**New demo:** User visits /admin/users, sees user table, creates user, user appears in table
+
+**Problem:** "Phase 2: API Layer"
+**Fix:** Vertical slice with UI per feature
+**New demo:** User interacts with working feature, not curl commands
+
+**Problem:** "Phase 3: Code Cleanup"
+**Fix:** Make it phase 0 (before features) or inline with features
+**New demo:** If phase 0, demo that existing features still work after cleanup
+
+**Problem:** "Phase 4: Validation & Caching"
+**Fix:** Show validation in context of user action
+**New demo:** User submits invalid data, sees specific error message, corrects it, submission succeeds
+
+**Test:** Can you record a 60-second video of this demo without showing code? If no, phase is not demo-able.
 
 **Fix if failing:**
 - Restructure phases as vertical slices (DB + API + UI per feature)

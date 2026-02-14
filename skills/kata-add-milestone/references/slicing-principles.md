@@ -24,31 +24,76 @@ Horizontal (AVOID):
 
 **Critical mapping:** Phase boundaries align with PR boundaries, which align with demo boundaries.
 
-- **Phase completes** → PR created → User can demo the feature
+- **Phase completes** → PR created → **User can demo the feature**
 - **Phase merges** → Main branch ships new capability
 - **Phase fails demo** → PR doesn't merge
+
+### The Demo Field is Mandatory
+
+Every phase MUST include a `Demo:` field in the roadmap with a concrete scenario describing what a user will see/do.
+
+**Demo format:**
+```
+Demo: User visits /signup, enters email/password, clicks Create Account,
+sees confirmation message, logs in, dashboard loads, session persists
+after refresh
+```
 
 This is why phases MUST be:
 - **Independently verifiable** — Can run UAT on the phase alone
 - **Feature-complete** — Delivers working end-to-end capability
 - **Demo-able** — User can see/interact with what was built
+- **Concrete** — Demo field contains specific steps, not abstract descriptions
 
-**Anti-pattern example (non-demo-able phase):**
+### Demo Anti-Patterns
+
+**Anti-pattern 1: No demo field**
 ```
-Phase 1: Create database schema
-- Users can't see anything
-- No UI, no API, just tables
-- Demo = "trust me, the DB exists"
+❌ Phase 1: Create database schema
+   Goal: Set up User, Product, Order models
+   (no Demo field)
+```
+**Why bad:** Can't verify phase is complete without inspecting code/DB
+
+**Anti-pattern 2: Abstract demo**
+```
+❌ Phase 1: User management
+   Demo: User management works
+```
+**Why bad:** "Works" is not a demo - no specific steps to follow
+
+**Anti-pattern 3: Code-inspection demo**
+```
+❌ Phase 1: API Layer
+   Demo: curl returns 200, database has records
+```
+**Why bad:** Requires technical inspection, not user-facing
+
+**Anti-pattern 4: Test-passing demo**
+```
+❌ Phase 1: Code Quality
+   Demo: All tests pass, linter clean
+```
+**Why bad:** Tests passing is a gate, not a demo
+
+### Demo Best Practices
+
+**Correct pattern (concrete demo):**
+```
+✓ Phase 1: User Registration
+  Goal: Users can create accounts and log in
+  Demo: User visits /signup, enters email alice@example.com and password,
+  clicks Create Account, sees "Check your email" confirmation, clicks link
+  in email, logs in with credentials, dashboard loads with "Welcome Alice",
+  session persists after browser refresh
 ```
 
-**Correct pattern (demo-able phase):**
-```
-Phase 1: User registration
-- Users can visit /signup
-- Users can create account
-- Users can log in
-- Demo = working signup flow
-```
+**Why good:**
+- Specific user actions (visit, enter, click)
+- Observable outcomes (sees confirmation, dashboard loads)
+- Complete workflow (signup → confirmation → login → persistence)
+- Executable in 60 seconds
+- No code inspection required
 
 ## Three Levels of Slicing
 
@@ -78,27 +123,27 @@ v1.0: Infrastructure
 
 ### 2. Phase Level
 
-**Phase = Single complete capability**
+**Phase = Single complete capability with concrete demo**
 
 Good phase:
 ```
 Phase 2: Product Catalog
-- Product list page with filters
-- Product detail page
-- Search functionality
-- Admin product CRUD
+Goal: Users can browse and search products
+Demo: User visits /products, sees product grid with images/prices,
+clicks Electronics filter, grid updates, enters "laptop" in search,
+results filter instantly, clicks product card, sees detail page
+Requirements: PROD-01, PROD-02, PROD-03
 ```
 
 Bad phase:
 ```
 Phase 2: Backend Setup
-- Create Product model
-- Create Category model
-- Create all API routes
-- Set up authentication
+Goal: Set up product infrastructure
+Demo: (none - no user-facing output)
+Requirements: PROD-01, PROD-02
 ```
 
-**Test:** "Can I demo this phase independently?" If no, phase crosses too many concerns or is a horizontal layer.
+**Test:** "Can I write a demo scenario with specific steps?" If no, phase is horizontally layered or too abstract.
 
 ### 3. Plan Level
 
@@ -480,9 +525,14 @@ Use when planning milestones and phases:
 - [ ] Does milestone deliver user-visible value?
 - [ ] Can we ship this milestone to users?
 - [ ] Does each phase contribute to milestone goal?
+- [ ] Can we demo the milestone to a non-technical user?
 
-**Phase Level:**
-- [ ] Is this phase demo-able on its own?
+**Phase Level (CRITICAL - Demo Required):**
+- [ ] Does phase have a concrete `Demo:` field in roadmap?
+- [ ] Does demo include specific user actions and observable outcomes?
+- [ ] Can demo be executed in 30-60 seconds?
+- [ ] Does demo require zero code inspection?
+- [ ] Is this phase demo-able on its own (not "trust me, it works")?
 - [ ] Does phase deliver complete capability (DB + API + UI)?
 - [ ] Can this phase merge as a PR independently?
 - [ ] Is phase named after a feature, not a layer?
@@ -494,6 +544,9 @@ Use when planning milestones and phases:
 - [ ] Can we verify this plan's output independently?
 
 **Red Flags:**
+- [ ] Phase missing `Demo:` field
+- [ ] Demo says "works" or "exists" without showing how
+- [ ] Demo requires showing code, logs, or database state
 - [ ] Phase named after technical layer (Models, APIs, Components)
 - [ ] Phase that blocks all subsequent phases (horizontal dependency)
 - [ ] Plan with 4+ tasks
