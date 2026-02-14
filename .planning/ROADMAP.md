@@ -30,7 +30,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
   - [x] Plan 02: Orchestrator layer — SKILL.md and reference updates (wave 2)
   - [x] Plan 03: Test updates for workspace architecture (wave 2)
 
-### Phase 52: Documentation — Updated Worktree Structure Docs
+### Phase 52: Documentation — Updated Worktree Structure Docs (1/1 plans)
 
 **Goal:** Update documentation to reflect the workspace worktree model where `workspace/` is the persistent working directory and `main/` is read-only.
 
@@ -42,6 +42,8 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - `setup-worktrees.sh` README template shows `workspace/` as persistent working directory alongside read-only `main/`
 - `git-integration.md` branch flow diagram shows main -> phase branch (in workspace) -> plan branch hierarchy
 - Directory structure examples include `workspace/`, `main/`, and `plan-{phase}-{plan}/`
+
+  - [ ] Plan 01: Verify DOC-01/DOC-02 and update REQUIREMENTS.md (wave 1)
 
 ## Completed Milestones
 
