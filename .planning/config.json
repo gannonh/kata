@@ -6,7 +6,7 @@
   "pr_workflow": true,
   "model_profile": "quality",
   "workflow": {
-    "research": false,
+    "research": true,
     "plan_check": true,
     "verifier": true
   },
