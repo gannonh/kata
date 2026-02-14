@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Create a phase worktree as a sibling to main/.
+# Switch workspace/ to a phase branch.
 # Extracts milestone, phase number, slug, and branch type from project context.
 # Usage: create-phase-branch.sh <phase-dir>
-# Output: key=value pairs (WORKTREE_PATH, BRANCH, BRANCH_TYPE, MILESTONE, PHASE_NUM, SLUG)
-# Exit: 0=success (worktree exists at WORKTREE_PATH), 1=error
+# Output: key=value pairs (WORKSPACE_PATH, BRANCH, BRANCH_TYPE, MILESTONE, PHASE_NUM, SLUG)
+# Exit: 0=success (workspace on phase branch), 1=error
+#
+# In bare repo layout: switches workspace/ to a new phase branch via git checkout -b.
+# In standard repo: falls back to git checkout -b in the current directory.
 
 set -euo pipefail
 
@@ -38,19 +41,47 @@ else
   BRANCH_TYPE="feat"
 fi
 
-# 4. Create phase worktree (idempotent: resumes on existing worktree)
+# 4. Switch workspace to phase branch
 BRANCH="${BRANCH_TYPE}/v${MILESTONE}-${PHASE_NUM}-${SLUG}"
-WORKTREE_DIR="$(cd .. && pwd)/${BRANCH_TYPE}-v${MILESTONE}-${PHASE_NUM}-${SLUG}"
 
-if [ -d "$WORKTREE_DIR" ] && GIT_DIR=../.bare git show-ref --verify --quiet refs/heads/"$BRANCH"; then
-  echo "Phase worktree $WORKTREE_DIR exists, resuming" >&2
+# Detect layout: bare repo (../.bare exists) or standard repo
+if [ -d ../.bare ]; then
+  # Bare repo layout: project-root.sh cd'd us into workspace/
+  WORKSPACE_PATH="$(pwd)"
+
+  CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+
+  if [ "$CURRENT_BRANCH" = "$BRANCH" ]; then
+    # Resumption: already on the phase branch
+    echo "Workspace already on branch $BRANCH, resuming" >&2
+  elif GIT_DIR=../.bare git show-ref --verify --quiet "refs/heads/$BRANCH" 2>/dev/null; then
+    # Branch exists but workspace is on a different branch: switch to it
+    git checkout "$BRANCH" >&2
+    echo "Switched workspace to existing branch $BRANCH" >&2
+  else
+    # Create new phase branch from main
+    git checkout -b "$BRANCH" main >&2
+    echo "Created phase branch $BRANCH in workspace" >&2
+  fi
 else
-  GIT_DIR=../.bare git worktree add "$WORKTREE_DIR" -b "$BRANCH" main >&2
-  echo "Created phase worktree $WORKTREE_DIR on branch $BRANCH" >&2
+  # Standard repo (no bare layout): create branch in current directory
+  WORKSPACE_PATH="$(pwd)"
+
+  CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+
+  if [ "$CURRENT_BRANCH" = "$BRANCH" ]; then
+    echo "Already on branch $BRANCH, resuming" >&2
+  elif git show-ref --verify --quiet "refs/heads/$BRANCH" 2>/dev/null; then
+    git checkout "$BRANCH" >&2
+    echo "Switched to existing branch $BRANCH" >&2
+  else
+    git checkout -b "$BRANCH" main >&2
+    echo "Created branch $BRANCH" >&2
+  fi
 fi
 
 # Output key=value pairs for eval
-echo "WORKTREE_PATH=$WORKTREE_DIR"
+echo "WORKSPACE_PATH=$WORKSPACE_PATH"
 echo "BRANCH=$BRANCH"
 echo "BRANCH_TYPE=$BRANCH_TYPE"
 echo "MILESTONE=$MILESTONE"
