@@ -26,8 +26,8 @@
 
 ### Documentation
 
-- [ ] **DOC-01**: `setup-worktrees.sh` README template reflects new structure (phase worktree as sibling to `main/`)
-- [ ] **DOC-02**: `git-integration.md` branch flow diagram updated for two-tier worktree model
+- [x] **DOC-01**: `setup-worktrees.sh` README template reflects workspace architecture (`workspace/` as persistent working directory, `main/` as read-only)
+- [x] **DOC-02**: `git-integration.md` branch flow diagram updated for two-tier worktree model
 
 ### Invariant
 
@@ -62,5 +62,5 @@ None identified. This is a focused structural refactor.
 | OR-04 | 50 | Plan worktree merge passes phase branch |
 | OR-05 | 50 | Phase branch becomes PR or local merge after waves |
 | INV-01 | 50 | main/ stays on main branch at all times |
-| DOC-01 | 51 | setup-worktrees.sh README template updated |
+| DOC-01 | 51 | setup-worktrees.sh README template reflects workspace architecture |
 | DOC-02 | 51 | git-integration.md branch flow diagram updated |
