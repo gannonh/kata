@@ -18,11 +18,11 @@
 
 ### Orchestrator
 
-- [ ] **OR-01**: `phase-execute.md` creates phase worktree before any plan execution
-- [ ] **OR-02**: `<working_directory>` injected into agent prompts points to phase worktree (when `worktree.enabled=false`) or plan worktree (when `worktree.enabled=true`)
-- [ ] **OR-03**: Plan worktree creation passes phase branch explicitly to `manage-worktree.sh`
-- [ ] **OR-04**: Plan worktree merge passes phase branch to `manage-worktree.sh`
-- [ ] **OR-05**: After all waves complete, phase branch becomes PR against main (or local merge if `pr_workflow=false`)
+- [x] **OR-01**: `phase-execute.md` creates phase worktree before any plan execution
+- [x] **OR-02**: `<working_directory>` injected into agent prompts points to phase worktree (when `worktree.enabled=false`) or plan worktree (when `worktree.enabled=true`)
+- [x] **OR-03**: Plan worktree creation passes phase branch explicitly to `manage-worktree.sh`
+- [x] **OR-04**: Plan worktree merge passes phase branch to `manage-worktree.sh`
+- [x] **OR-05**: After all waves complete, phase branch becomes PR against main (or local merge if `pr_workflow=false`)
 
 ### Documentation
 
@@ -31,7 +31,7 @@
 
 ### Invariant
 
-- [ ] **INV-01**: `main/` is always on the `main` branch. `git -C main branch --show-current` returns `main` at all times during and after phase execution.
+- [x] **INV-01**: `main/` is always on the `main` branch. `git -C main branch --show-current` returns `main` at all times during and after phase execution.
 
 ## Future Requirements
 
