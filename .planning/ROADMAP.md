@@ -13,7 +13,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - ✅ **v1.8.0 Adaptive Workflows** — Phases 37-39 (shipped 2026-02-08)
 - ✅ **v1.9.0 Template Overrides (Universal)** — Phases 40-43 (shipped 2026-02-08)
 - ✅ **v1.10.0 Git Worktree Support** — Phases 44-48 (shipped 2026-02-12)
-- 🔄 **v1.11.0 Phase-Level Worktrees** — Phases 49-52
+- 🔄 **v1.11.0 Phase-Level Worktrees** — Phases 49-53
 
 ## Current Milestone: 🔄 v1.11.0 Phase-Level Worktrees
 
@@ -32,6 +32,10 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 
 - [x] Phase 52: Documentation — Updated Worktree Structure Docs (1/1 plans) — completed 2026-02-14
   - [x] Plan 01: Verify DOC-01/DOC-02 and update REQUIREMENTS.md (wave 1)
+
+- [x] Phase 53: Worktree-Safe PR Merge — Fix bare-repo merge pattern across all skills (2/2 plans) — completed 2026-02-14
+  - [x] Plan 01: Fix kata-verify-work + kata-complete-milestone merge patterns (wave 1)
+  - [x] Plan 02: Fix kata-execute-phase + kata-review-pull-requests merge patterns (wave 1)
 
 ## Completed Milestones
 

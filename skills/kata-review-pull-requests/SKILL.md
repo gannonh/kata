@@ -77,6 +77,7 @@ Only read files for applicable review aspects. Also read:
 
 ```bash
 MODEL_PROFILE=$(bash "../kata-configure-settings/scripts/read-config.sh" "model_profile" "balanced")
+WORKTREE_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "worktree.enabled" "false")
 ```
 
 Default to "balanced" if not set.
@@ -273,8 +274,19 @@ Use AskUserQuestion:
 **If user chose "Merge PR":**
 
 ```bash
-gh pr merge "$PR_NUMBER" --merge --delete-branch
-git checkout main && git pull
+gh pr merge "$PR_NUMBER" --merge
+```
+
+Then update local state:
+
+```bash
+if [ "$WORKTREE_ENABLED" = "true" ]; then
+  # Bare repo layout: update main/ worktree, reset workspace/ to workspace-base
+  git -C main pull
+  bash "skills/kata-execute-phase/scripts/manage-worktree.sh" cleanup-phase workspace "$PHASE_BRANCH"
+else
+  git checkout main && git pull
+fi
 ```
 
 {If TODOS_CREATED: Backlog: {N} issues created from review findings}

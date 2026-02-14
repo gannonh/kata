@@ -1,14 +1,14 @@
 ---
 name: kata-configure-settings
-description: Configure kata preferences, session settings, and workflow variants. Triggers include "settings", "configure", "preferences", "workflow config", "workflow variants".
+description: Configure kata session settings and workflow variants. Triggers include "settings", "configure", "preferences", "workflow config", "workflow variants".
 metadata:
   version: "0.2.0"
 ---
 
 <objective>
-Allow users to configure all Kata settings through a single skill: project-lifetime preferences, session settings, and workflow variants.
+Allow users to configure all Kata settings through a single skill: session settings and workflow variants.
 
-Updates `.planning/config.json` (session settings and workflow variants) and `.planning/preferences.json` (project-lifetime preferences) using accessor scripts.
+Updates `.planning/config.json` using accessor scripts.
 </objective>
 
 <process>
@@ -38,11 +38,6 @@ VERIFIER=$(bash "$SCRIPT_DIR/read-pref.sh" "workflow.verifier" "true")
 WORKTREE_ENABLED=$(bash "$SCRIPT_DIR/read-pref.sh" "worktree.enabled" "false")
 PR_WORKFLOW_VAL=$(bash "$SCRIPT_DIR/read-pref.sh" "pr_workflow" "false")
 
-# Project-lifetime preferences
-CHANGELOG_FMT=$(bash "$SCRIPT_DIR/read-pref.sh" "release.changelog_format" "keep-a-changelog")
-README_ON_MS=$(bash "$SCRIPT_DIR/read-pref.sh" "docs.readme_on_milestone" "prompt")
-COMMIT_FORMAT=$(bash "$SCRIPT_DIR/read-pref.sh" "conventions.commit_format" "conventional")
-
 # Workflow variants
 EXEC_POST_TASK=$(bash "$SCRIPT_DIR/read-pref.sh" "workflows.execute-phase.post_task_command" "")
 EXEC_COMMIT_STYLE=$(bash "$SCRIPT_DIR/read-pref.sh" "workflows.execute-phase.commit_style" "conventional")
@@ -52,50 +47,11 @@ MILESTONE_VERSION_FILES=$(bash "$SCRIPT_DIR/read-pref.sh" "workflows.complete-mi
 MILESTONE_PRE_RELEASE=$(bash "$SCRIPT_DIR/read-pref.sh" "workflows.complete-milestone.pre_release_commands" "[]")
 ```
 
-## 3. Present Settings in Three Sections
+## 3. Present Settings in Two Sections
 
 Present each section to the user via AskUserQuestion. Pre-select current values.
 
-### Section A: Project-Lifetime Preferences (preferences.json)
-
-These are project constants that persist across sessions.
-
-```
-AskUserQuestion([
-  {
-    question: "Changelog format?",
-    header: "Changelog Format",
-    multiSelect: false,
-    options: [
-      { label: "keep-a-changelog", description: "Keep a Changelog format (default)" },
-      { label: "conventional", description: "Conventional Commits changelog" },
-      { label: "none", description: "No changelog generation" }
-    ]
-  },
-  {
-    question: "Update README on milestone completion?",
-    header: "README on Milestone",
-    multiSelect: false,
-    options: [
-      { label: "prompt", description: "Ask before updating (default)" },
-      { label: "auto", description: "Update automatically" },
-      { label: "skip", description: "Never update" }
-    ]
-  },
-  {
-    question: "Commit message format?",
-    header: "Commit Format",
-    multiSelect: false,
-    options: [
-      { label: "conventional", description: "Conventional Commits (default)" },
-      { label: "semantic", description: "Semantic commit messages" },
-      { label: "simple", description: "Plain descriptive messages" }
-    ]
-  }
-])
-```
-
-### Section B: Session Settings (config.json)
+### Section A: Session Settings (config.json)
 
 ```
 AskUserQuestion([
@@ -169,7 +125,7 @@ AskUserQuestion([
 ])
 ```
 
-### Section C: Workflow Variants (config.json workflows section)
+### Section B: Workflow Variants (config.json workflows section)
 
 Present workflow variant settings. For text inputs, show current value and ask if user wants to change.
 
@@ -235,30 +191,14 @@ bash "$SCRIPT_DIR/set-config.sh" "workflows.complete-milestone.version_files" "$
 bash "$SCRIPT_DIR/set-config.sh" "workflows.complete-milestone.pre_release_commands" "$NEW_PRE_RELEASE"
 ```
 
-### Project-Lifetime Preferences (preferences.json)
-
-```bash
-for PREF_KEY in "release.changelog_format" "docs.readme_on_milestone" "conventions.commit_format"; do
-  KEY="$PREF_KEY" VALUE="$PREF_VALUE" node -e "
-const fs=require('fs');
-const f='.planning/preferences.json';
-let p;try{p=JSON.parse(fs.readFileSync(f,'utf8'));}catch{p={};}
-p[process.env.KEY]=process.env.VALUE;
-const t=f+'.tmp';
-fs.writeFileSync(t,JSON.stringify(p,null,2)+'\n');
-fs.renameSync(t,f);
-"
-done
-```
-
-### Side-Effects
+## Side-Effects
 
 **If worktree was just enabled (changed from false to true):**
 
 ```bash
 # setup-worktrees.sh requires a clean working tree.
-# Commit all pending config/preference changes first.
-git add .planning/config.json .planning/preferences.json 2>/dev/null
+# Commit all pending config changes first.
+git add .planning/config.json 2>/dev/null
 git commit -m "chore: update kata settings" 2>/dev/null || true
 
 # Run setup after committing
@@ -293,14 +233,6 @@ Display:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Kata > SETTINGS UPDATED
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-**Project Preferences** (preferences.json)
-
-| Setting          | Value             |
-| ---------------- | ----------------- |
-| Changelog Format | {value}           |
-| README on MS     | {value}           |
-| Commit Format    | {value}           |
 
 **Session Settings** (config.json)
 
@@ -359,9 +291,8 @@ This ensures ALL changes go through PRs.
 <success_criteria>
 
 - [ ] Current config read via read-pref.sh (no inline grep/cat parsing)
-- [ ] User presented with 3 config sections: preferences, session settings, workflow variants
+- [ ] User presented with 2 config sections: session settings, workflow variants
 - [ ] Config written via set-config.sh (no inline node JSON manipulation for config.json)
-- [ ] Preferences written to preferences.json
 - [ ] .gitignore updated if commit_docs set to false
-- [ ] Changes confirmed to user with three-section display
+- [ ] Changes confirmed to user with two-section display
 </success_criteria>

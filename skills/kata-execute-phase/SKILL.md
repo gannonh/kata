@@ -560,7 +560,8 @@ Goal verified ✓
 **Also available:**
 
 - `/kata-review-pull-requests` — automated code review
-  - {If PR_WORKFLOW: `gh pr merge --merge --delete-branch` — merge PR directly}
+  - {If PR_WORKFLOW and WORKTREE_ENABLED: `gh pr merge --merge` then `git -C main pull` and `bash skills/kata-execute-phase/scripts/manage-worktree.sh cleanup-phase workspace $PHASE_BRANCH` — merge PR (worktree-safe)}
+  - {If PR_WORKFLOW and not WORKTREE_ENABLED: `gh pr merge --merge --delete-branch` then `git checkout main && git pull` — merge PR directly}
 - `/kata-discuss-phase {Z+1}` — gather context for next phase (optional)
 - `/kata-plan-phase {Z+1}` — plan next phase directly
 
@@ -595,7 +596,8 @@ All phase goals verified ✓
 **Also available:**
 
 - `/kata-review-pull-requests` — automated code review
-  - {If PR_WORKFLOW: `gh pr merge --merge --delete-branch` — merge PR directly}
+  - {If PR_WORKFLOW and WORKTREE_ENABLED: `gh pr merge --merge` then `git -C main pull` and `bash skills/kata-execute-phase/scripts/manage-worktree.sh cleanup-phase workspace $PHASE_BRANCH` — merge PR (worktree-safe)}
+  - {If PR_WORKFLOW and not WORKTREE_ENABLED: `gh pr merge --merge --delete-branch` then `git checkout main && git pull` — merge PR directly}
 - `/kata-audit-milestone` — skip UAT, audit directly
 - `/kata-complete-milestone` — skip audit, archive directly
 

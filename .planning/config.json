@@ -23,7 +23,8 @@
         "npm run build:plugin",
         "npm test",
         "npm run test:smoke",
-        "npm run test:affected"
+        "npm run test:affected",
+        "bash -c 'STALE=$(find skills -name \"SKILL.md\" -newer docs/diagrams/FLOWS.md 2>/dev/null | head -1); [ -n \"$STALE\" ] && echo \"WARNING: docs/diagrams/FLOWS.md may be stale (skills changed since last docs update)\" && exit 1 || echo \"docs/ up to date\"'"
       ]
     },
     "complete-milestone": {

@@ -82,6 +82,7 @@ Read pr_workflow config:
 
 ```bash
 PR_WORKFLOW=$(bash "../kata-configure-settings/scripts/read-config.sh" "pr_workflow" "false")
+WORKTREE_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "worktree.enabled" "false")
 ```
 
 **If PR_WORKFLOW=false:** Skip to offer_next.
@@ -242,8 +243,19 @@ Use AskUserQuestion:
 If user chose "Yes, merge now":
 
 ```bash
-gh pr merge "$PR_NUMBER" --merge --delete-branch
-git checkout main && git pull
+gh pr merge "$PR_NUMBER" --merge
+```
+
+Then update local state:
+
+```bash
+if [ "$WORKTREE_ENABLED" = "true" ]; then
+  # Bare repo layout: update main/ worktree, reset workspace/ to workspace-base
+  git -C main pull
+  bash "skills/kata-execute-phase/scripts/manage-worktree.sh" cleanup-phase workspace "$PHASE_BRANCH"
+else
+  git checkout main && git pull
+fi
 ```
 
 Set MERGED=true for output below.
@@ -302,8 +314,19 @@ Use AskUserQuestion:
 If user chose "Yes, merge now":
 
 ```bash
-gh pr merge "$PR_NUMBER" --merge --delete-branch
-git checkout main && git pull
+gh pr merge "$PR_NUMBER" --merge
+```
+
+Then update local state:
+
+```bash
+if [ "$WORKTREE_ENABLED" = "true" ]; then
+  # Bare repo layout: update main/ worktree, reset workspace/ to workspace-base
+  git -C main pull
+  bash "skills/kata-execute-phase/scripts/manage-worktree.sh" cleanup-phase workspace "$PHASE_BRANCH"
+else
+  git checkout main && git pull
+fi
 ```
 
 Set MERGED=true for output below.
