@@ -1,604 +1,517 @@
-# Architecture: Release Automation & Workflow Documentation
+# Architecture: Codebase Intelligence Integration
 
-**Project:** Kata v1.3.0
-**Researched:** 2026-01-28
-**Confidence:** HIGH
+**Project:** Kata Codebase Intelligence
+**Researched:** 2026-02-15
+**Confidence:** HIGH (patterns verified against codebase, OpenAI Harness Engineering patterns cross-referenced)
 
 ## Executive Summary
 
-Release automation and workflow documentation integrate with Kata's existing architecture through three primary mechanisms: **GitHub Actions integration** (already proven in v1.1.0), **documentation generation systems** (new component), and **skill-based orchestration** (existing pattern extended).
+Codebase intelligence integrates into Kata through three layers: **capture** (extend `kata-map-codebase` to produce machine-readable artifacts alongside human-readable docs), **storage** (`.planning/intel/` directory with JSON index, conventions, and a generated summary), and **consumption** (inject summary into planner and executor subagent prompts via orchestrator-level context assembly). No hooks required for MVP. No new skills needed. The system extends existing patterns without introducing new architectural concepts.
 
-The architecture leverages Kata's strengths:
-- Skills orchestrate multi-step workflows
-- GitHub Actions handles CI/CD triggers
-- Hooks provide event-driven automation
-- Config-driven behavior enables/disables features
+The core constraint: subagent context windows are 200k tokens, and quality degrades past 50%. Intelligence must be compressed to fit within ~2-5% of context (~4k-10k tokens) alongside the plan, state, and instructions that already occupy ~30-40%.
 
-**Key architectural principle:** Kata remains a coordination layer, not a CI/CD platform. GitHub Actions does the heavy lifting; Kata provides the human-friendly interface.
+## Current State: Two Knowledge Systems, Neither Complete
+
+### `.planning/codebase/` (Exists, Partially Used)
+
+Produced by `kata-map-codebase`. Seven human-readable documents: STACK.md, ARCHITECTURE.md, STRUCTURE.md, CONVENTIONS.md, TESTING.md, INTEGRATIONS.md, CONCERNS.md.
+
+**How they are consumed today:**
+
+The planner (`skills/kata-plan-phase/references/planner-instructions.md`, line 1130-1149) has a `load_codebase_context` step that selects 2 documents based on phase keywords:
+
+```
+| Phase Keywords           | Load These                      |
+| UI, frontend, components | CONVENTIONS.md, STRUCTURE.md    |
+| API, backend, endpoints  | ARCHITECTURE.md, CONVENTIONS.md |
+| database, schema, models | ARCHITECTURE.md, STACK.md       |
+```
+
+The mapper instructions (`skills/kata-map-codebase/references/codebase-mapper-instructions.md`, lines 16-24) document this downstream consumption.
+
+**Problem:** These documents are verbose (100-300 lines each), consuming significant context when loaded. The keyword-based selection is brittle. The executor has no `load_codebase_context` step at all; it references codebase docs only indirectly via plan content.
+
+### `.planning/intel/` (Documented in KATA-STYLE.md, Never Implemented)
+
+KATA-STYLE.md (lines 516-570) documents an intel system with `index.json`, `conventions.json`, and `summary.md`. The entity-generator agent (`skills/kata-review-pull-requests/references/entity-generator-instructions.md`) writes to `.planning/intel/entities/`. The `CRITICAL-intel-system-gaps.md` delta documents the mismatch: agents reference `.planning/intel/summary.md` but the generation pipeline does not exist.
+
+**Current references to `.planning/intel/` in the codebase:**
+- KATA-STYLE.md: Documents schema and hook-based generation (never implemented)
+- entity-generator-instructions.md: Writes entities to `.planning/intel/entities/` (orphaned)
+- No skill or script produces `summary.md`
+- No SessionStart or PostToolUse hook generates intel artifacts
 
 ## Recommended Architecture
 
-### High-Level System Structure
+### Design Principles
+
+1. **One system, not two.** Unify `.planning/codebase/` and `.planning/intel/` into a single coherent knowledge pipeline. The codebase mapper captures knowledge; the intel directory stores machine-readable derivatives.
+
+2. **Summary is the interface.** Subagents consume a single file: `.planning/intel/summary.md`. This summary is generated from the codebase documents, not from raw code. The codebase docs remain the human-readable source of truth; the summary is the agent-readable projection.
+
+3. **Capture is explicit, consumption is automatic.** Users run `/kata-map-codebase` to capture. Planners and executors load the summary automatically when it exists.
+
+4. **Context budget is king.** The summary must stay under 150 lines (~3k tokens). This leaves room within the 50% quality threshold for plan content, state, and instructions.
+
+5. **No hooks for MVP.** Hooks add complexity and are fragile (see MEMORY.md bug history). Start with explicit capture via skill invocation. Add incremental hooks after the pipeline proves stable.
+
+### System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    User Interaction Layer                    │
-│  Skills: completing-milestones, creating-workflow-diagrams  │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  Orchestration Layer (New)                   │
-│  Skills: managing-releases, documenting-workflows            │
-│  Agents: kata-release-manager, kata-workflow-documenter      │
-└─────────────────────────────────────────────────────────────┘
-                            │
-            ┌───────────────┼───────────────┐
-            ▼               ▼               ▼
-┌──────────────────┐ ┌──────────────┐ ┌──────────────────┐
-│  GitHub Actions  │ │  File System │ │  Config Layer    │
-│  (Existing)      │ │  (Existing)  │ │  (Existing)      │
-├──────────────────┤ ├──────────────┤ ├──────────────────┤
-│ plugin-release   │ │ .planning/*  │ │ config.json      │
-│ (triggers CI)    │ │ skills/*/    │ │ (feature flags)  │
-│                  │ │ agents/      │ │                  │
-└──────────────────┘ └──────────────┘ └──────────────────┘
-</update>
+Capture                    Store                     Consume
+-------                    -----                     -------
+
+/kata-map-codebase         .planning/                kata-plan-phase
+  |                          |                         |
+  +-> mapper agents          +-> codebase/             +-> orchestrator reads
+  |   (existing)             |   STACK.md              |   intel/summary.md
+  |   write 7 docs           |   ARCHITECTURE.md       |   inlines into
+  |                          |   CONVENTIONS.md         |   planner prompt
+  +-> intel-generator        |   TESTING.md            |
+      (new step)             |   STRUCTURE.md         kata-execute-phase
+      reads codebase/        |   INTEGRATIONS.md        |
+      writes intel/          |   CONCERNS.md            +-> orchestrator reads
+                             |                          |   intel/summary.md
+                             +-> intel/                 |   inlines into
+                                 index.json             |   executor prompt
+                                 conventions.json       |
+                                 summary.md          kata-resume-work
+                                                        |
+                                                        +-> reads summary.md
+                                                            for session context
 ```
 
-### Component Integration Map
+### Component Breakdown
 
-| Component Type | Existing | New | Modified | Purpose |
-| -------------- | -------- | --- | -------- | ------- |
-| **Skills** | completing-milestones | managing-releases | completing-milestones | Release orchestration |
-| **Skills** | - | documenting-workflows | - | Diagram generation |
-| **Agents** | - | kata-release-manager | - | Release state machine |
-| **Agents** | - | kata-workflow-documenter | - | Diagram generation |
-| **GitHub Actions** | plugin-release.yml | - | plugin-release.yml | Enhanced automation |
-| **Templates** | milestone-archive.md | release-template.md | - | Release artifacts |
-| **Config** | config.json | - | config.json | Release flags |
-| **Hooks** | hooks.json | - | hooks.json (optional) | Post-release events |
+#### New Components
 
-## Integration Points with Existing Architecture
+| Component | Type | Location | Purpose |
+|-----------|------|----------|---------|
+| intel-generator script | Node.js script | `skills/kata-map-codebase/scripts/generate-intel.js` | Reads `.planning/codebase/*.md`, produces `.planning/intel/` artifacts |
+| summary.md template | Reference | `skills/kata-map-codebase/references/summary-template.md` | Structure for generated summary |
 
-### 1. Skills Layer (Orchestrators)
+#### Modified Components
 
-**Existing Pattern:** Skills spawn sub-agents via Task tool, stay lean (~15% context)
+| Component | Change | Impact |
+|-----------|--------|--------|
+| `skills/kata-map-codebase/SKILL.md` | Add step 5: run intel-generator after mapper agents complete | Low: appends one step to existing process |
+| `skills/kata-plan-phase/SKILL.md` | Step 7: add `intel/summary.md` to context files read for planner prompt | Low: one additional Read call |
+| `skills/kata-plan-phase/references/planner-instructions.md` | Replace `load_codebase_context` step with `load_intel_summary` step | Medium: simplifies existing logic |
+| `skills/kata-execute-phase/SKILL.md` | `<wave_execution>`: add `intel/summary.md` to files read for executor prompt | Low: one additional Read call |
+| `skills/kata-execute-phase/references/executor-instructions.md` | Add `load_codebase_intelligence` step (read summary, apply conventions) | Low: 10-15 lines added |
+| `skills/kata-resume-work/references/resume-project.md` | Add intel summary to session context loading | Low: one conditional read |
+| `KATA-STYLE.md` | Update Codebase Intelligence section to reflect implemented architecture | Low: documentation only |
 
-**Integration:**
+#### Removed Components
+
+| Component | Reason |
+|-----------|--------|
+| `skills/kata-review-pull-requests/references/entity-generator-instructions.md` | Orphaned. No skill spawns this agent. Entity/graph model replaced by summary model. |
+| KATA-STYLE.md intel hook references | SessionStart and PostToolUse hook descriptions for intel that were never implemented. Replace with actual architecture. |
+
+### Data Flow: Capture
+
 ```
-/kata:complete-milestone
-  └─> kata-release-manager agent (new)
-       ├─> Validates changelog
-       ├─> Triggers GitHub Actions (existing workflow)
-       └─> Updates STATE.md (existing)
-
-/kata:document-workflow [skill-name]
-  └─> kata-workflow-documenter agent (new)
-       ├─> Reads SKILL.md (existing)
-       ├─> Generates Mermaid diagram
-       └─> Writes to skill/references/ (existing pattern)
-```
-
-**New Skills Required:**
-- `kata-managing-releases` — Orchestrates milestone → release → publish
-- `kata-documenting-workflows` — Generates diagrams from skills/agents
-
-**Modified Skills:**
-- `kata-completing-milestones` — Add release automation step after archiving
-- `kata-adding-milestones` — Include workflow diagram TODOs in checklist
-
-### 2. Agent Layer (Execution)
-
-**Existing Pattern:** Agents get fresh 200k context, specialized responsibilities
-
-**Integration:**
-```
-kata-release-manager.md (new)
-├─> Role: State machine for release process
-├─> Capabilities: ["validate_release", "trigger_ci", "update_state"]
-├─> Tools: Read, Write, Bash(gh:*)
-└─> Spawned by: kata-managing-releases skill
-
-kata-workflow-documenter.md (new)
-├─> Role: Extract workflow logic → Mermaid/ASCII
-├─> Capabilities: ["parse_skill", "generate_mermaid", "generate_ascii"]
-├─> Tools: Read, Write
-└─> Spawned by: kata-documenting-workflows skill
+User runs /kata-map-codebase
+  |
+  Step 1-4: Existing mapper agents write .planning/codebase/ (unchanged)
+  |
+  Step 5 (NEW): Orchestrator runs intel-generator
+  |
+  +-> generate-intel.js
+      |
+      Reads:
+        .planning/codebase/STACK.md
+        .planning/codebase/ARCHITECTURE.md
+        .planning/codebase/CONVENTIONS.md
+        .planning/codebase/TESTING.md
+        .planning/codebase/STRUCTURE.md
+        .planning/codebase/INTEGRATIONS.md
+        .planning/codebase/CONCERNS.md
+      |
+      Produces:
+        .planning/intel/index.json       (file registry with exports/imports)
+        .planning/intel/conventions.json  (detected patterns: naming, dirs, suffixes)
+        .planning/intel/summary.md        (compressed agent-readable summary)
 ```
 
-**Design Rationale:**
-- **kata-release-manager** handles multi-step state (draft → ready → published)
-- **kata-workflow-documenter** isolates diagram generation complexity from main flow
-- Both follow existing agent pattern: specialized, single-responsibility
+The intel-generator is a Node.js script, not a subagent. Rationale: the codebase docs are already written. Transforming structured markdown into JSON and a compressed summary is a deterministic operation. Using a subagent would waste context and introduce variability.
 
-### 3. GitHub Actions Integration (Existing)
+### Data Flow: Consumption by Planner
 
-**Current State:** `.github/workflows/plugin-release.yml` already implements:
-- Version checking (local vs marketplace)
-- Test execution
-- Build validation
-- Marketplace publishing
-- GitHub Release creation
-
-**Enhancement Points:**
-```yaml
-# plugin-release.yml (modified)
-on:
-  push:
-    branches: [main]
-  release:
-    types: [published]  # NEW: explicit release trigger
-
-jobs:
-  publish-plugin:
-    # ... existing steps ...
-
-    - name: Validate Kata state (NEW)
-      run: |
-        # Check .planning/STATE.md indicates milestone complete
-        # Verify CHANGELOG.md matches package.json version
-        node scripts/validate-release-state.js
-
-    - name: Generate release notes (NEW)
-      run: |
-        # Extract from CHANGELOG.md or milestone archive
-        node scripts/extract-release-notes.js
+```
+/kata-plan-phase orchestrator (SKILL.md step 7)
+  |
+  Reads .planning/intel/summary.md (if exists)
+  Stores as intel_summary_content
+  |
+  Step 8: Inlines into planner Task() prompt:
+  |
+  <codebase_intelligence>
+  {intel_summary_content}
+  </codebase_intelligence>
 ```
 
-**Integration Strategy:**
-- **Trigger:** Kata creates GitHub Release via `gh release create`
-- **Validation:** CI checks Kata planning state before publishing
-- **Feedback:** CI status visible in Kata skill output
+The planner's `load_codebase_context` step (currently keyword-matching to select 2 full docs) is replaced by loading the single summary. This reduces context consumption from ~400-600 lines (2 full docs) to ~150 lines (summary).
 
-### 4. Configuration Layer (Feature Flags)
+### Data Flow: Consumption by Executor
 
-**Existing Pattern:** `.planning/config.json` with boolean flags
+```
+/kata-execute-phase orchestrator (<wave_execution>)
+  |
+  Reads .planning/intel/summary.md (if exists)
+  Stores as intel_summary_content
+  |
+  Inlines into each executor Task() prompt:
+  |
+  <codebase_intelligence>
+  {intel_summary_content}
+  </codebase_intelligence>
+```
 
-**Integration:**
+The executor's instructions gain a `load_codebase_intelligence` step that tells the agent to apply conventions from the injected summary when writing code.
+
+## Artifact Schemas
+
+### index.json
+
 ```json
 {
-  "mode": "yolo",
-  "pr_workflow": true,
-  "github": {
-    "enabled": true,
-    "issueMode": "auto"
+  "version": 1,
+  "generated": "2026-02-15T10:30:00Z",
+  "source": "kata-map-codebase",
+  "files": {
+    "src/lib/db.ts": {
+      "exports": ["query", "transaction", "pool"],
+      "imports": ["pg", "./config"],
+      "type": "service",
+      "layer": "data"
+    }
   },
-  "release": {  // NEW section
-    "automated": true,
-    "preReleaseValidation": true,
-    "changelogFormat": "standard",
-    "notifyOnPublish": false
-  },
-  "documentation": {  // NEW section
-    "generateWorkflowDiagrams": true,
-    "diagramFormat": "mermaid",  // "mermaid" | "ascii" | "both"
-    "includeDecisionTrees": true
+  "stats": {
+    "total_files": 42,
+    "by_type": { "component": 12, "service": 8, "util": 6 },
+    "by_layer": { "ui": 15, "api": 10, "data": 8 }
   }
 }
 ```
 
-**Flag Behavior:**
-- `release.automated: false` → Manual GitHub Release only
-- `documentation.generateWorkflowDiagrams: false` → Skip diagram generation
+Generated by parsing STRUCTURE.md and ARCHITECTURE.md. Primarily consumed by the intel-generator itself to produce the summary. Future use: file lookup during planning (e.g., "which files export auth functions?").
 
-### 5. File System Layer (Conventions)
+### conventions.json
 
-**Existing Structure:**
-```
-.planning/
-├── ROADMAP.md
-├── STATE.md
-├── PROJECT.md
-├── config.json
-└── milestones/
-    └── v1.1.0-ROADMAP.md
-
-skills/kata-executing-phases/
-├── SKILL.md
-└── references/
-    └── phase-execute.md
-```
-
-**Enhanced Structure:**
-```
-.planning/
-├── ROADMAP.md
-├── STATE.md
-├── PROJECT.md
-├── config.json
-├── milestones/
-│   └── v1.1.0-ROADMAP.md
-└── releases/  # NEW: release artifacts
-    └── v1.1.0/
-        ├── RELEASE-NOTES.md
-        └── validation.json
-
-skills/kata-executing-phases/
-├── SKILL.md
-├── references/
-│   └── phase-execute.md
-└── diagrams/  # NEW: workflow diagrams
-    ├── workflow.mmd (Mermaid)
-    └── workflow.ascii.txt
-```
-
-**Rationale:**
-- **`.planning/releases/`** — Historical release metadata (parallel to milestones/)
-- **`skills/*/diagrams/`** — Progressive disclosure (load on demand)
-- Follows existing convention of skill-local references
-
-### 6. Hook Integration (Optional)
-
-**Existing Pattern:** `hooks/hooks.json` for event-driven automation
-
-**Potential Integration:**
 ```json
 {
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node hooks/update-workflow-diagrams.js"
-          }
-        ]
-      }
-    ]
+  "version": 1,
+  "generated": "2026-02-15T10:30:00Z",
+  "naming": {
+    "files": "kebab-case",
+    "functions": "camelCase",
+    "components": "PascalCase",
+    "constants": "SCREAMING_SNAKE"
+  },
+  "directories": {
+    "components": "src/components/",
+    "services": "src/services/",
+    "utils": "src/lib/",
+    "tests": "co-located (*.test.ts)"
+  },
+  "patterns": {
+    "imports": "path aliases (@/)",
+    "error_handling": "try/catch with custom AppError",
+    "testing": "vitest with co-located test files",
+    "state": "zustand stores in src/stores/"
+  },
+  "confidence": "high"
+}
+```
+
+Generated by parsing CONVENTIONS.md and TESTING.md. Consumed by the intel-generator to produce the summary. Future use: validation in executor (e.g., warn if new file uses wrong naming convention).
+
+### summary.md
+
+```markdown
+# Codebase Intelligence Summary
+
+Generated: 2026-02-15 | Source: .planning/codebase/
+
+## Stack
+
+TypeScript 5.3 | Next.js 14 (App Router) | Prisma + PostgreSQL | Tailwind + shadcn/ui
+
+## Architecture
+
+Layered: UI (src/app/, src/components/) -> API (src/app/api/) -> Services (src/services/) -> Data (prisma/)
+
+Entry points: `src/app/layout.tsx` (root), `src/app/api/*/route.ts` (API)
+
+## Conventions
+
+Files: kebab-case | Functions: camelCase | Components: PascalCase
+Imports: `@/` alias for `src/` | Tests: co-located `*.test.ts` | Errors: custom `AppError` class
+New components: `src/components/{feature}/` | New API: `src/app/api/{resource}/route.ts`
+
+## Key Patterns
+
+- Auth: JWT via jose, httpOnly cookies, middleware check in `src/middleware.ts`
+- DB: Prisma client singleton in `src/lib/prisma.ts`, transactions via `prisma.$transaction`
+- Validation: zod schemas in `src/lib/validators/`
+- State: zustand stores in `src/stores/`, no Redux
+
+## Concerns
+
+- No rate limiting on public API routes
+- Missing error boundary in `src/app/layout.tsx`
+- 3 TODO comments in `src/services/billing.ts`
+```
+
+Target: 30-80 lines. Max: 150 lines. Each section extracts the most actionable information from the corresponding codebase document. The format prioritizes density: agents need to know how to write code that fits the codebase, not understand every architectural decision.
+
+## Context Window Budget Analysis
+
+### Current Budget (without intel)
+
+| Content | Tokens (approx) | % of 200k |
+|---------|-----------------|-----------|
+| Executor instructions | ~8k | 4% |
+| Plan content | ~4-8k | 2-4% |
+| STATE.md | ~2k | 1% |
+| Workflow config | ~0.5k | 0.25% |
+| Working directory block | ~0.2k | 0.1% |
+| **Subtotal (prompt)** | **~15-19k** | **~8-10%** |
+| Task execution overhead | ~60-80k | 30-40% |
+| **Total per plan** | **~75-99k** | **~38-50%** |
+
+### With Intel Summary
+
+| Content | Tokens (approx) | % of 200k |
+|---------|-----------------|-----------|
+| All current content | ~15-19k | ~8-10% |
+| **intel/summary.md** | **~2-3k** | **~1-1.5%** |
+| **Total (prompt)** | **~17-22k** | **~9-11%** |
+
+Adding the summary costs ~1-1.5% of context. This stays well within the quality threshold. The planner actually saves context by replacing 2 full codebase docs (~8-12k) with the summary (~2-3k).
+
+### Planner Comparison
+
+| Approach | Context cost | Quality |
+|----------|-------------|---------|
+| Current: 2 keyword-selected docs | ~8-12k tokens | Medium (brittle selection, verbose) |
+| Proposed: summary.md | ~2-3k tokens | Higher (dense, all dimensions covered) |
+
+## Integration Points
+
+### 1. kata-map-codebase (Capture)
+
+**Current process (unchanged):**
+1. Spawn 4 parallel mapper agents
+2. Each writes 1-2 docs to `.planning/codebase/`
+3. Verify docs exist
+4. Commit
+
+**New step 5 (after step 4, before commit):**
+```bash
+node "./scripts/generate-intel.js"
+```
+
+The script reads `.planning/codebase/*.md`, extracts structured data, writes `.planning/intel/`. Runs in <5 seconds. No subagent needed.
+
+**Modified commit (step 6):** Include `.planning/intel/` in the commit alongside `.planning/codebase/`.
+
+### 2. kata-plan-phase (Consume in Planner)
+
+**SKILL.md step 7 (Read Context Files):** Add to the list of files read:
+```
+- `.planning/intel/summary.md` (if exists) -- store as intel_summary_content
+```
+
+**SKILL.md step 8 (Spawn kata-planner):** Add to the planning_context:
+```xml
+<codebase_intelligence>
+{intel_summary_content}
+</codebase_intelligence>
+```
+
+**planner-instructions.md:** Replace `load_codebase_context` step (lines 1130-1149) with:
+
+```xml
+<step name="load_codebase_intelligence">
+If <codebase_intelligence> section exists in your prompt context, apply it:
+
+- Use naming conventions when specifying file paths in plans
+- Use directory conventions when determining where new files go
+- Reference existing patterns in task <action> elements
+- Consider listed concerns when planning (avoid introducing more debt)
+- Match testing patterns in verification commands
+
+If no <codebase_intelligence>: skip (no error). Plans are still valid without it.
+</step>
+```
+
+This replaces the current keyword-based document selection with a simpler, more reliable pattern.
+
+### 3. kata-execute-phase (Consume in Executor)
+
+**SKILL.md `<wave_execution>`:** Add to files read before spawning:
+```
+- `.planning/intel/summary.md` (if exists) -- store as intel_summary_content
+```
+
+Add to each Task() prompt:
+```
+{INTEL_BLOCK}
+```
+
+Where:
+```bash
+INTEL_BLOCK=""
+if [ -f ".planning/intel/summary.md" ]; then
+  INTEL_BLOCK="<codebase_intelligence>\n${intel_summary_content}\n</codebase_intelligence>"
+fi
+```
+
+**executor-instructions.md:** Add step after `load_plan`:
+
+```xml
+<step name="apply_codebase_intelligence">
+If <codebase_intelligence> section exists in your prompt:
+
+- Follow naming conventions for new files and functions
+- Place new files in the correct directories per project structure
+- Match existing import patterns (aliases, ordering)
+- Follow error handling patterns
+- Match testing patterns when writing tests
+- Avoid introducing issues listed in Concerns
+
+This is guidance, not override. Plan instructions take precedence.
+</step>
+```
+
+### 4. kata-resume-work (Session Context)
+
+Add to `load_state` step:
+```bash
+cat .planning/intel/summary.md 2>/dev/null
+```
+
+Include in the status presentation so users see what codebase knowledge is available.
+
+### 5. Config Integration
+
+No new config flags for MVP. The system operates on file existence: if `.planning/intel/summary.md` exists, agents use it. If it does not exist, agents proceed without it (graceful degradation via `2>/dev/null` pattern already used throughout Kata).
+
+Future config (post-MVP):
+```json
+{
+  "intel": {
+    "auto_refresh": false,
+    "summary_max_lines": 150
   }
 }
 ```
 
-**Use Cases:**
-- Auto-regenerate diagrams when SKILL.md changes
-- Notify on GitHub Release creation
-- Update statusline with release version
-
-**Recommendation:** NOT MVP. Hooks add complexity; start with explicit skill invocation.
-
-## Data Flow Patterns
-
-### Release Automation Flow
+## Directory Structure
 
 ```
-User: /kata:complete-milestone
-  │
-  ├──> completing-milestones skill
-  │     ├─> Validates artifacts (CHANGELOG, package.json)
-  │     ├─> Archives milestone (existing)
-  │     └─> Spawns kata-release-manager agent
-  │
-  ├──> kata-release-manager agent
-  │     ├─> Creates GitHub Release (gh release create)
-  │     ├─> Saves release metadata (.planning/releases/)
-  │     └─> Updates STATE.md
-  │
-  └──> GitHub Actions (triggered by release)
-        ├─> Validates state
-        ├─> Runs tests
-        ├─> Builds plugin
-        ├─> Publishes to marketplace
-        └─> Notifies user (via gh CLI)
+.planning/
+  intel/                      # Machine-readable codebase intelligence
+    index.json                # File registry (exports, imports, types)
+    conventions.json          # Detected patterns (naming, dirs, testing)
+    summary.md                # Agent-readable summary (the interface)
+  codebase/                   # Human-readable codebase documents (existing)
+    STACK.md
+    ARCHITECTURE.md
+    CONVENTIONS.md
+    TESTING.md
+    STRUCTURE.md
+    INTEGRATIONS.md
+    CONCERNS.md
 ```
 
-**Key Decision Points:**
-1. **Pre-flight check** — CHANGELOG/package.json validated before GitHub Release
-2. **CI trigger** — `release.published` event starts automation
-3. **State update** — STATE.md reflects "published" status after success
+## Build Order
 
-### Workflow Documentation Flow
+### Phase 1: Generate and Consume Summary (Foundation)
 
-```
-User: /kata:document-workflow kata-executing-phases
-  │
-  ├──> documenting-workflows skill
-  │     ├─> Reads skill SKILL.md + references/
-  │     ├─> Extracts process steps, decision points
-  │     └─> Spawns kata-workflow-documenter agent
-  │
-  ├──> kata-workflow-documenter agent
-  │     ├─> Parses <process>, <step>, <if> tags
-  │     ├─> Generates Mermaid syntax
-  │     ├─> Generates ASCII fallback
-  │     └─> Writes to skills/*/diagrams/
-  │
-  └──> User reviews generated diagrams
-        └─> Commits if accurate (or regenerates)
-```
+**Goal:** End-to-end pipeline from capture to consumption.
 
-**Key Decision Points:**
-1. **Format selection** — config.json determines Mermaid/ASCII/both
-2. **Validation** — Agent shows preview before writing
-3. **Location** — Diagrams stored with skill for co-location
+**Build:**
+1. `generate-intel.js` script that reads `.planning/codebase/*.md` and produces `.planning/intel/summary.md`
+2. Modify `kata-map-codebase/SKILL.md` to run the script after mapper agents complete
+3. Modify `kata-plan-phase/SKILL.md` to read and inline `summary.md` into planner prompt
+4. Update `planner-instructions.md` to replace keyword-based doc loading with summary consumption
 
-## Scalability Considerations
+**Rationale:** This delivers the core value: planners produce better plans because they know the codebase conventions. The planner is the highest-leverage consumer because it shapes all downstream execution.
 
-| Concern | At Current State | At 50 Skills | At 100 Skills |
-| ------- | ---------------- | ------------ | ------------- |
-| **Release time** | Manual (5 min) | Automated (1 min) | Automated (1 min) |
-| **Diagram generation** | On-demand | Batch mode (all skills) | Batch + caching |
-| **CI duration** | ~2 min | ~2 min (parallelized) | ~3 min (test scaling) |
-| **Storage** | .planning/releases/ | Same (markdown only) | Archive old releases |
+**Dependencies:** None. Uses existing `.planning/codebase/` output.
 
-**Bottlenecks:**
-- **Diagram generation** — 27 skills × 30s each = 13.5 min if sequential
-  - **Mitigation:** Spawn parallel kata-workflow-documenter agents (wave-based like execution)
-- **GitHub Release creation** — Single serial operation (acceptable)
-- **CI test suite** — Already parallelized, scales with test count not skill count
+### Phase 2: Executor Integration and Index Generation
 
-## Architecture Patterns
+**Goal:** Executors follow codebase conventions. Index enables future file-level queries.
 
-### Pattern 1: Release State Machine
+**Build:**
+1. Modify `kata-execute-phase/SKILL.md` to read and inline `summary.md` into executor prompts
+2. Add `apply_codebase_intelligence` step to `executor-instructions.md`
+3. Extend `generate-intel.js` to produce `index.json` and `conventions.json`
+4. Update `kata-resume-work` to include intel summary in session context
 
-**Problem:** Release has multiple stages (draft → ready → published → failed)
+**Rationale:** Executor integration is the second highest-leverage point. The index and conventions JSON are produced by the same script and provide the structured foundation for future features (file lookup, convention validation).
 
-**Solution:** Agent-based state machine with explicit transitions
-```
-┌─────────┐  validate  ┌───────┐  publish  ┌───────────┐
-│  DRAFT  ├───────────>│ READY ├─────────>│ PUBLISHED │
-└────┬────┘            └───┬───┘           └───────────┘
-     │                     │
-     │ validation fails    │ CI fails
-     ▼                     ▼
-┌─────────────────────────────┐
-│         BLOCKED             │
-└─────────────────────────────┘
-```
+**Dependencies:** Phase 1 (summary generation must exist).
 
-**Implementation:**
-- `kata-release-manager` agent maintains state in `.planning/releases/vX.Y.Z/state.json`
-- Each transition validated before proceeding
-- CI failure triggers automatic state update (via hook or polling)
+### Phase 3: Cleanup and Documentation
 
-### Pattern 2: Progressive Diagram Disclosure
+**Goal:** Remove dead code, update documentation.
 
-**Problem:** Not all users need diagrams; they add cognitive load
+**Build:**
+1. Remove orphaned entity-generator-instructions.md
+2. Update KATA-STYLE.md Codebase Intelligence section to reflect actual architecture
+3. Remove dead intel references from any remaining files
+4. Add intel generation to test suite (validate summary format)
 
-**Solution:** Generate on-demand, store with skill
-```
-skills/kata-executing-phases/
-├── SKILL.md (400 lines)
-└── diagrams/
-    ├── workflow.mmd (150 lines) ← Load when needed
-    └── workflow.ascii.txt (80 lines)
-```
+**Rationale:** Cleanup after the system is proven. Ensures documentation matches implementation.
 
-**Benefit:**
-- Main skill stays under 500 line target
-- Diagrams referenced via `[workflow diagram](diagrams/workflow.mmd)` link
-- Agent loads diagrams only if user asks "show me the workflow"
+**Dependencies:** Phase 2.
 
-### Pattern 3: Validation Before Automation
+## OpenAI Harness Engineering Alignment
 
-**Problem:** CI failures waste time and resources
+The recommended architecture aligns with patterns described in OpenAI's Harness Engineering approach:
 
-**Solution:** Local validation before GitHub Release creation
-```
-completing-milestones skill
-  ├─> Check CHANGELOG.md exists
-  ├─> Verify package.json version matches
-  ├─> Run npm test locally
-  ├─> Validate git tree clean
-  └─> THEN create GitHub Release
-```
+| Harness Pattern | Kata Equivalent |
+|-----------------|-----------------|
+| Short AGENTS.md (~100 lines) as table of contents | `summary.md` (~80-150 lines) as agent-readable index |
+| Structured `docs/` as system of record | `.planning/codebase/` as human-readable source of truth |
+| Generated documentation from code | `generate-intel.js` produces JSON + summary from codebase docs |
+| Progressive disclosure (start small, point to deeper) | Summary points to codebase docs; agents load summary only |
+| Mechanical enforcement via linters/CI | Future: convention validation in executor (post-MVP) |
+| Doc gardening agent for stale docs | `/kata-map-codebase` re-run refreshes both codebase/ and intel/ |
 
-**Catches 80% of issues before CI runs.**
+The key divergence: OpenAI uses a persistent `docs/` directory maintained by engineers and agents together. Kata generates the summary from structured documents produced by mapper agents. This is more automated but requires re-running the mapper when the codebase evolves significantly.
 
-## Anti-Patterns to Avoid
+## Risks
 
-### Anti-Pattern 1: Embedding CI Logic in Skills
+### Risk 1: Summary Staleness
 
-**DON'T:**
-```xml
-<task type="auto">
-  <name>Build and publish plugin</name>
-  <action>
-    Run full test suite
-    Build plugin distribution
-    Validate build output
-    Publish to marketplace
-    Create GitHub Release
-  </action>
-</task>
-```
+**Likelihood:** HIGH (codebase changes, summary does not auto-update)
+**Impact:** MEDIUM (agents use stale conventions, produce slightly inconsistent code)
+**Mitigation:** Include generation timestamp in summary header. Skill orchestrators can warn if summary is >30 days old. Future: PostToolUse hook for incremental updates.
 
-**DO:**
-```xml
-<task type="auto">
-  <name>Trigger release automation</name>
-  <action>
-    Create GitHub Release with tag vX.Y.Z.
-    CI will handle: tests, build, publish.
-    Track status via: gh run watch
-  </action>
-</task>
-```
+### Risk 2: Summary Too Generic
 
-**Rationale:** Kata coordinates, GitHub Actions executes. Separation of concerns.
+**Likelihood:** MEDIUM (compression loses actionable detail)
+**Impact:** MEDIUM (agents ignore summary because it adds no value)
+**Mitigation:** Test with real projects. Iterate on summary template. Include concrete file paths and code patterns, not abstract descriptions. The summary-template.md reference file codifies the expected level of specificity.
 
-### Anti-Pattern 2: Monolithic Diagram Generation
+### Risk 3: Context Budget Overflow on Large Projects
 
-**DON'T:**
-```
-/kata:generate-all-diagrams
-  └─> Single agent processes all 27 skills serially
-```
-
-**DO:**
-```
-/kata:document-workflow [skill-name]  # On-demand per skill
-OR
-/kata:batch-document-workflows        # Parallel wave execution
-  └─> Spawn kata-workflow-documenter × 5 in parallel
-```
-
-**Rationale:** Follows existing wave-based parallelization pattern from kata-executing-phases.
-
-### Anti-Pattern 3: Stateful Skills
-
-**DON'T:**
-```
-skill maintains release state across invocations
-relies on environment variables persisting
-```
-
-**DO:**
-```
-skill reads STATE.md for current position
-agent writes state to .planning/releases/vX.Y.Z/
-fresh context on each invocation
-```
-
-**Rationale:** Skills are stateless orchestrators; state lives in `.planning/`.
-
-## Build Order Recommendations
-
-### Phase 1: Release Automation Foundation
-**Goal:** Automate the critical path (milestone → release → publish)
-
-**Components:**
-1. `kata-release-manager` agent
-2. Modify `kata-completing-milestones` skill
-3. Enhance `plugin-release.yml` workflow
-4. Add `.planning/releases/` structure
-5. Config flags: `release.automated`
-
-**Rationale:** Addresses highest-value pain point (manual releases). Builds on proven GitHub Actions integration.
-
-**Estimated Complexity:** MEDIUM (extends existing patterns)
-
-### Phase 2: Workflow Documentation System
-**Goal:** Generate diagrams for existing skills
-
-**Components:**
-1. `kata-workflow-documenter` agent
-2. `kata-documenting-workflows` skill
-3. Mermaid generation logic
-4. ASCII fallback generation
-5. Config flags: `documentation.*`
-
-**Rationale:** Isolated from release automation; can develop in parallel. Provides UX value independent of releases.
-
-**Estimated Complexity:** MEDIUM-HIGH (new logic, diagram parsing)
-
-### Phase 3: Integration & Polish
-**Goal:** Connect the pieces, handle edge cases
-
-**Components:**
-1. Batch diagram generation
-2. Wave-based parallelization
-3. Hooks for auto-regeneration (optional)
-4. Statusline integration
-5. Error recovery flows
-
-**Rationale:** Refinement after core features proven. Leverages learnings from Phases 1-2.
-
-**Estimated Complexity:** LOW-MEDIUM (mostly polish)
-
-### Dependencies Between Phases
-
-```
-Phase 1 (Release Automation)
-  │
-  │ No blocking dependencies
-  │
-  └──> Phase 3 (Integration)
-
-Phase 2 (Workflow Docs)
-  │
-  │ No blocking dependencies
-  │
-  └──> Phase 3 (Integration)
-```
-
-**Key Insight:** Phases 1 and 2 are **parallelizable**. Both extend existing architecture independently.
-
-## Technical Debt & Risks
-
-### Risk 1: GitHub API Rate Limits
-**Likelihood:** LOW
-**Impact:** MEDIUM
-
-**Mitigation:**
-- Use `gh` CLI (authenticated, higher limits)
-- Cache release state locally
-- Fail gracefully with retry instructions
-
-### Risk 2: Diagram Generation Accuracy
-**Likelihood:** MEDIUM
-**Impact:** LOW
-
-**Mitigation:**
-- Start with simple Mermaid flowcharts
-- Human-in-the-loop validation before commit
-- Iterative refinement based on user feedback
-
-### Risk 3: CI Failure Handling
-**Likelihood:** MEDIUM
-**Impact:** HIGH
-
-**Mitigation:**
-- Local validation before GitHub Release (Pattern 3)
-- Clear error messages with recovery steps
-- State machine tracks "BLOCKED" status
-
-### Technical Debt Introduced
-
-1. **Diagram parsing logic** — New complexity in workflow-documenter agent
-   - **Payoff:** Reusable across all skills/agents
-   - **Cleanup:** Extract to shared library if >3 use cases
-
-2. **Release state management** — New `.planning/releases/` structure
-   - **Payoff:** Historical audit trail
-   - **Cleanup:** Archive releases older than 6 months
-
-3. **Config proliferation** — New `release.*` and `documentation.*` flags
-   - **Payoff:** Granular control
-   - **Cleanup:** Consolidate if flags always used together
+**Likelihood:** LOW (summary capped at 150 lines by design)
+**Impact:** LOW (agents degrade gracefully without intel)
+**Mitigation:** Hard cap in generate-intel.js. For very large projects, the script prioritizes the most-modified and most-imported files.
 
 ## References
 
-### Official Documentation (HIGH confidence)
-- [GitHub Actions: Releasing and maintaining actions](https://docs.github.com/en/actions/sharing-automations/creating-actions/releasing-and-maintaining-actions) — Official patterns
-- [Mermaid Flowcharts Syntax](https://mermaid.ai/open-source/syntax/flowchart.html) — Diagram syntax reference
-- [semantic-release documentation](https://semantic-release.gitbook.io/) — Automated versioning
-
-### Community Practices (MEDIUM confidence)
-- [Setting up Automated Release Workflow with GitHub Actions](https://birtony.medium.com/setting-up-automated-release-workflow-with-github-actions-628dbca2446e) — Practical examples
-- [Include diagrams in your Markdown files with Mermaid](https://github.blog/developer-skills/github/include-diagrams-markdown-files-mermaid/) — GitHub integration
-- [Using semantic-release to automate releases and changelogs](https://blog.logrocket.com/using-semantic-release-automate-releases-changelogs/) — Best practices
-
-### Kata-Specific (HIGH confidence)
-- Existing: `.github/workflows/plugin-release.yml`
-- Existing: `skills/completing-milestones/SKILL.md`
-- Existing: `agents/kata-executor.md` (pattern reference)
-- Existing: `.planning/config.json` (feature flag pattern)
-
-## Summary
-
-**Integration Strategy:** Extend, don't replace. Kata's existing architecture supports release automation and workflow documentation through:
-1. **New skills** orchestrating multi-step flows
-2. **New agents** handling specialized tasks (release state, diagram generation)
-3. **Enhanced CI** with validation and feedback loops
-4. **Config flags** enabling/disabling features
-
-**Confidence Level:** HIGH
-- GitHub Actions integration proven (v1.1.0)
-- Agent spawning pattern proven (v0.1.5)
-- Config-driven behavior proven (v1.1.0)
-- New components follow established patterns
-
-**Critical Success Factors:**
-1. Keep skills thin (orchestration only)
-2. Leverage existing GitHub Actions (don't reinvent CI)
-3. Validate before automation (fail fast locally)
-4. Progressive disclosure (diagrams on-demand)
-
-**Recommended Build Order:**
-1. Phase 1: Release automation (highest value)
-2. Phase 2: Workflow documentation (parallel development)
-3. Phase 3: Integration & polish
-
-Both Phase 1 and Phase 2 can proceed independently, then merge in Phase 3.
+- [Harness Engineering: leveraging Codex in an agent-first world](https://openai.com/index/harness-engineering/) -- OpenAI's patterns for structured documentation in agentic workflows
+- `.planning/deltas/CRITICAL-intel-system-gaps.md` -- Documents the current broken state of intel references
+- `skills/kata-map-codebase/SKILL.md` -- Current capture pipeline
+- `skills/kata-plan-phase/references/planner-instructions.md` -- Current codebase context loading (lines 1130-1149)
+- `skills/kata-execute-phase/references/executor-instructions.md` -- Current executor flow (no intel step)
+- `KATA-STYLE.md` (lines 516-570) -- Documented but unimplemented intel schema
