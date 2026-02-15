@@ -114,7 +114,7 @@ For niche domains (3D, games, audio, shaders, ML), suggest `/kata-research-phase
 
 ## Slicing Principles
 
-@../../kata-add-milestone/references/slicing-principles.md
+@./slicing-principles.md
 
 Apply vertical slicing at plan and task level. Phases are already sliced at milestone planning, but plans within phases should also follow vertical slicing principles.
 
