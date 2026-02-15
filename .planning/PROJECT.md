@@ -4,7 +4,7 @@
 
 A spec-driven development framework for Claude Code. Brings structured, reliable AI development to teams without changing their existing tools. Teams use Kata's quality-producing process inside the tools they already love.
 
-**Current state:** v1.10.3 shipped. Git worktree support available for plan-level agent isolation. v1.11.0 in progress: refactoring to phase-level worktrees so `main/` stays on main branch permanently.
+**Current state:** v1.11.0 shipped. Phase-level worktrees with persistent `workspace/` directory. `main/` stays on main branch permanently.
 
 ## Core Value
 
@@ -63,12 +63,14 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Worktree execution integration — v1.10.0 (per-plan worktrees during phase execution)
 - Worktree-aware downstream skills — v1.10.0 (milestone completion, git integration docs)
 
-### Active
-
 - Phase-level worktrees — v1.11.0 (create phase worktree instead of checkout in main/)
 - Main branch protection — v1.11.0 (main/ worktree stays on main branch permanently)
 - Phase worktree merge target — v1.11.0 (plan merges target phase worktree, not main/)
 - Phase worktree cleanup — v1.11.0 (remove phase worktree after merge/PR)
+
+### Active
+
+(None — define with `/kata-add-milestone`)
 
 ### Out of Scope
 
@@ -86,19 +88,18 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Building an LLM — use Claude, not compete with it
 - Building an agent framework — use platform-native capabilities (subagents, Skills, MCPs)
 
-## Current Milestone: v1.11.0 Phase-Level Worktrees
+## Current Milestone: None
 
-**Goal:** Refactor worktree system so phase execution creates phase-level worktrees instead of switching `main/` off the main branch. `main/` stays on `main` permanently.
-
-**Target features:**
-
-- Phase worktree creation (sibling to `main/`, replaces `git checkout -b` in `main/`)
-- Plan worktrees fork from phase branch (not whatever `main/` is checked out to)
-- Plan merges target phase worktree directory (not `main/`)
-- Phase completion via PR or local merge into main
-- Phase worktree cleanup after merge
+Next milestone TBD. Use `/kata-add-milestone` to start planning.
 
 ## Context
+
+**v1.11.0 shipped (2026-02-14):**
+- 61 files changed, 6,421 insertions, 391 deletions
+- Phase-level worktrees: `workspace/` as persistent working directory, `main/` stays read-only on main branch
+- Two-tier worktree model: plan worktrees fork from phase branch, merge back to phase worktree
+- Worktree-safe PR merge patterns across all 4 affected skills
+- Full test coverage for workspace model across all worktree scripts
 
 **v1.10.0 shipped (2026-02-12):**
 - 98 files changed, 7,199 insertions, 1,116 deletions
@@ -219,6 +220,19 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 | general-purpose subagent type          | Standard type eliminates custom agent dependency, portable across platforms | Good — v1.6.0 |
 | Dual distribution (marketplace + skills.sh) | Two install channels without maintaining separate codebases          | Good — v1.6.0 |
 | Agent Skills spec normalization        | SKILL.md frontmatter follows spec for cross-platform compatibility       | Good — v1.6.0 |
+
+## Shipped: v1.11.0 Phase-Level Worktrees
+
+**Delivered:** Phase-level worktree architecture so `main/` stays on the main branch permanently, with persistent `workspace/` as the working directory.
+
+**Key accomplishments:**
+- Phase-level worktrees replace `git checkout -b` in `main/`, keeping `main/` on the main branch permanently
+- Workspace worktree architecture with persistent `workspace/` as working directory and read-only `main/`
+- Two-tier worktree model: plan worktrees fork from phase branch, merges target phase worktree
+- Worktree-safe PR merge patterns across all 4 affected skills
+- Full test coverage for workspace model across all worktree scripts
+
+See `.planning/milestones/v1.11.0-ROADMAP.md` for full archive.
 
 ## Shipped: v1.10.0 Git Worktree Support
 
@@ -341,4 +355,4 @@ See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 See `.planning/milestones/v1.6.0-ROADMAP.md` for full archive.
 
 ---
-*Last updated: 2026-02-13 after v1.11.0 milestone started*
+*Last updated: 2026-02-14 after v1.11.0 milestone*

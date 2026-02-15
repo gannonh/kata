@@ -29,14 +29,24 @@ npx skills add gannonh/kata-skills
 
 ---
 
-## What's New in v1.10.0
+## What's New in v1.11.0
 
-**Git Worktree Support** — Optional plan-level agent isolation during phase execution:
+**Phase-Level Worktrees** — `main/` stays on the main branch permanently:
+- **Workspace architecture** — Persistent `workspace/` as working directory, `main/` as read-only reference
+- **Phase worktrees** — Phase execution creates a worktree instead of switching `main/` off main
+- **Two-tier model** — Plan worktrees fork from phase branch, merge back to phase worktree
+- **Worktree-safe merges** — All merge patterns updated to work with bare repo layout
+
+<details>
+<summary><strong>v1.10.0: Git Worktree Support</strong></summary>
+
+**Optional plan-level agent isolation during phase execution:**
 - **Config foundation** — `worktree.enabled` setting with `read-config.sh` for nested JSON keys
 - **Worktree lifecycle** — `manage-worktree.sh` creates isolated worktrees per plan, merges after wave completion
 - **Wave-based execution** — Each plan agent gets its own branch and working directory
 - **Graceful fallback** — When disabled (default), execution uses shared-directory model
-- **Test coverage** — Comprehensive test suite for all worktree infrastructure
+
+</details>
 
 <details>
 <summary><strong>v1.9.0: Template Overrides (Universal)</strong></summary>
@@ -443,7 +453,7 @@ Override per-invocation: `/kata-plan-phase --skip-research`
 | ------------------ | -------------------- | ------- | --------------------------------------------- |
 | `pr_workflow`      | `true`/`false`       | `false` | Branch per phase, PRs, tag via GitHub Release |
 | `github.enabled`   | `true`/`false`       | `false` | GitHub Milestones and Issues                  |
-| `github.issueMode` | `auto`/`ask`/`never` | `auto`  | When to create phase Issues                   |
+| `github.issue_mode` | `auto`/`ask`/`never` | `auto`  | When to create phase Issues                   |
 
 **When both enabled:**
 
