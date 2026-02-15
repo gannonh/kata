@@ -28,6 +28,14 @@ Automatic codebase knowledge capture, storage, and consumption across all Kata a
 
 **Requirements:** ARCH-01, ARCH-02, INTEG-01, INTEG-02, INTEG-03, INTEG-04, INTEG-05, INTEG-06
 
+**Plans:** 4 plans
+
+Plans:
+- [ ] 54-01-PLAN.md — generate-intel.js script + summary template + kata-map-codebase wiring
+- [ ] 54-02-PLAN.md — planner integration (read + inject intel summary)
+- [ ] 54-03-PLAN.md — executor integration (read + inject intel summary)
+- [ ] 54-04-PLAN.md — verifier integration + KATA-STYLE.md documentation
+
 **Success Criteria:**
 - `.planning/intel/` contains index.json, conventions.json, summary.md with documented schemas
 - Planner agents receive summary.md content in spawned context
