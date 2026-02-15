@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.11.1] - 2026-02-15
+
+### Fixed
+- Cross-skill reference to `slicing-principles.md` broke artifact validation in CI. Copied to `kata-plan-phase/references/` and `kata-add-phase/references/` for skill self-containment.
+
 ## [1.11.0] - 2026-02-14
 
 ### Added
@@ -601,7 +606,8 @@ Kata 1.0 ships with **Claude Code plugin support** as the recommended installati
 - Upstream remote and sync workflow
 - References to original project maintainer
 
-[Unreleased]: https://github.com/gannonh/kata/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/gannonh/kata/compare/v1.11.1...HEAD
+[1.11.1]: https://github.com/gannonh/kata/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/gannonh/kata/compare/v1.10.3...v1.11.0
 [1.10.3]: https://github.com/gannonh/kata/compare/v1.10.2...v1.10.3
 [1.10.2]: https://github.com/gannonh/kata/compare/v1.10.0...v1.10.2
