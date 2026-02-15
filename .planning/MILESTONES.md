@@ -1,3 +1,29 @@
+## v1.11.0 Phase-Level Worktrees (Shipped: 2026-02-14)
+
+**Delivered:** Phase-level worktree architecture so `main/` stays on the main branch permanently, with persistent `workspace/` as the working directory.
+
+**Phases completed:** 49-53 (10 plans total)
+
+**Key accomplishments:**
+
+- Phase-level worktrees replace `git checkout -b` in `main/`, keeping `main/` on the main branch permanently
+- Workspace worktree architecture with persistent `workspace/` as working directory and read-only `main/`
+- Two-tier worktree model: plan worktrees fork from phase branch, merges target phase worktree
+- Worktree-safe PR merge patterns across all 4 affected skills
+- Full test coverage for workspace model across all worktree scripts
+
+**Stats:**
+
+- 61 files changed, 6,421 insertions, 391 deletions
+- 5 phases, 10 plans
+- 2 days (2026-02-13 → 2026-02-14)
+
+**Git range:** `v1.10.3` → `v1.11.0`
+
+**What's next:** TBD
+
+---
+
 ## v1.10.0 Git Worktree Support (Shipped: 2026-02-12)
 
 **Delivered:** Optional git worktree support for plan-level agent isolation during phase execution, replacing the shared-directory model.

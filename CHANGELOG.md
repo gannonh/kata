@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.11.0] - 2026-02-14
+
+### Added
+- Phase-level worktrees: phase execution creates a worktree at project root instead of switching `main/` off the main branch
+- Workspace worktree architecture: `workspace/` as persistent working directory, `main/` as read-only reference
+- Phase worktree naming convention (`{branch-type}-v{milestone}-{phase-num}-{slug}`)
+- Phase worktree resumption handling (existing worktree/branch detected without error)
+- `cleanup-phase` subcommand in `manage-worktree.sh` for phase worktree removal
+- Phase worktree merge target: plan merges target phase worktree directory, not `main/`
+- Workspace migration and validation scripts
+- Worktree-safe PR merge patterns across all skills (kata-complete-milestone, kata-verify-work, kata-execute-phase, kata-review-pull-requests)
+- Mandatory Demo field as first-class primitive in milestone planning
+- Vertical slicing guidance across milestone planning workflows
+
+### Fixed
+- Worktree-conditional merge replaces unconditional `--delete-branch` that conflicted with bare repo layout
+- `github.issueMode` renamed to `github.issue_mode` for consistency with snake_case config keys
+
+### Changed
+- `manage-worktree.sh` base branch always passed explicitly by caller (removed `resolve_base_branch`)
+- Removed unused `preferences.json` file
+
 ## [1.10.3] - 2026-02-13
 
 ### Fixed
@@ -579,7 +601,12 @@ Kata 1.0 ships with **Claude Code plugin support** as the recommended installati
 - Upstream remote and sync workflow
 - References to original project maintainer
 
-[Unreleased]: https://github.com/gannonh/kata/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/gannonh/kata/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/gannonh/kata/compare/v1.10.3...v1.11.0
+[1.10.3]: https://github.com/gannonh/kata/compare/v1.10.2...v1.10.3
+[1.10.2]: https://github.com/gannonh/kata/compare/v1.10.0...v1.10.2
+[1.10.0]: https://github.com/gannonh/kata/compare/v1.9.0...v1.10.0
+[1.9.0]: https://github.com/gannonh/kata/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/gannonh/kata/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/gannonh/kata/compare/v1.6.1...v1.7.0
 [1.6.1]: https://github.com/gannonh/kata/compare/v1.6.0...v1.6.1

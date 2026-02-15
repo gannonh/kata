@@ -13,31 +13,28 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - ✅ **v1.8.0 Adaptive Workflows** — Phases 37-39 (shipped 2026-02-08)
 - ✅ **v1.9.0 Template Overrides (Universal)** — Phases 40-43 (shipped 2026-02-08)
 - ✅ **v1.10.0 Git Worktree Support** — Phases 44-48 (shipped 2026-02-12)
-- 🔄 **v1.11.0 Phase-Level Worktrees** — Phases 49-53
+- ✅ **v1.11.0 Phase-Level Worktrees** — Phases 49-53 (shipped 2026-02-14)
 
-## Current Milestone: 🔄 v1.11.0 Phase-Level Worktrees
+## Current Milestone: None
+
+No active milestone. Use `/kata-add-milestone` to start planning the next version.
+
+## Completed Milestones
+
+<details>
+<summary>✅ v1.11.0 Phase-Level Worktrees (Phases 49-53) — SHIPPED 2026-02-14</summary>
 
 **Goal:** Refactor worktree system so phase execution creates phase-level worktrees instead of switching `main/` off the main branch. `main/` stays on `main` permanently.
 
 - [x] Phase 49: Script Layer — Phase Worktree Creation and Merge Target (2/2 plans) — completed 2026-02-13
-
 - [x] Phase 50: Orchestrator Integration — Phase Worktree Lifecycle in Execution (2/2 plans) — completed 2026-02-13
-  - [x] Plan 01: Wire phase worktree setup and wave execution in SKILL.md (wave 1)
-  - [x] Plan 02: Update phase-execute.md reference for phase worktree architecture (wave 1)
-
 - [x] Phase 51: Workspace Worktree Architecture (3/3 plans) — completed 2026-02-14
-  - [x] Plan 01: Script layer — workspace worktree setup and branch lifecycle (wave 1)
-  - [x] Plan 02: Orchestrator layer — SKILL.md and reference updates (wave 2)
-  - [x] Plan 03: Test updates for workspace architecture (wave 2)
-
 - [x] Phase 52: Documentation — Updated Worktree Structure Docs (1/1 plans) — completed 2026-02-14
-  - [x] Plan 01: Verify DOC-01/DOC-02 and update REQUIREMENTS.md (wave 1)
+- [x] Phase 53: Worktree-Safe PR Merge (2/2 plans) — completed 2026-02-14
 
-- [x] Phase 53: Worktree-Safe PR Merge — Fix bare-repo merge pattern across all skills (2/2 plans) — completed 2026-02-14
-  - [x] Plan 01: Fix kata-verify-work + kata-complete-milestone merge patterns (wave 1)
-  - [x] Plan 02: Fix kata-execute-phase + kata-review-pull-requests merge patterns (wave 1)
+[Full archive](milestones/v1.11.0-ROADMAP.md)
 
-## Completed Milestones
+</details>
 
 <details>
 <summary>✅ v1.10.0 Git Worktree Support (Phases 44-48) — SHIPPED 2026-02-12</summary>
@@ -153,3 +150,34 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 **Goal:** Create internal documentation and terminology reference for Kata.
 
 - [x] Phase 1: Internal Documentation (4/4 plans) — completed 2026-01-29
+
+[Full archive](milestones/v1.3.3-ROADMAP.md)
+
+</details>
+
+---
+
+## Progress Summary
+
+| Milestone | Phases | Plans | Status |
+|-----------|--------|-------|--------|
+| v0.1.4 Hard Fork | 1 | 5 | Shipped 2026-01-18 |
+| v0.1.5 Skills | 6 | 30 | Shipped 2026-01-22 |
+| v1.0.0 Plugin | 4 | 5 | Shipped 2026-01-23 |
+| v1.0.8 Stability | 1 | 5 | Shipped 2026-01-24 |
+| v1.1.0 GitHub | 10 | 33 | Shipped 2026-01-27 |
+| v1.3.0 Release | 2 | 4 | Shipped 2026-01-28 |
+| v1.3.3 Docs | 1 | 4 | Shipped 2026-01-29 |
+| v1.4.0 Issues | 2 | 11 | Shipped 2026-02-01 |
+| v1.4.1 Execution | 4 | 6 | Shipped 2026-02-03 |
+| v1.5.0 Phases | 3 | 6 | Shipped 2026-02-04 |
+| v1.6.0 Subagents | 5 | 17 | Shipped 2026-02-06 |
+| v1.7.0 Brainstorm | 2 | 5 | Shipped 2026-02-07 |
+| v1.8.0 Adaptive | 3 | 7 | Shipped 2026-02-08 |
+| v1.9.0 Templates | 4 | 5 | Shipped 2026-02-08 |
+| v1.10.0 Worktrees | 5 | 11 | Shipped 2026-02-12 |
+| v1.11.0 Phase Worktrees | 5 | 10 | Shipped 2026-02-14 |
+
+---
+*Roadmap created: 2026-01-18*
+*Last updated: 2026-02-14 — v1.11.0 Phase-Level Worktrees shipped*
