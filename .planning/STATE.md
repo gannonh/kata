@@ -9,13 +9,11 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 
 ## Current Position
 
-Milestone: None (v1.11.0 shipped)
-Phase: N/A
-Plan: N/A
-Status: Between milestones. v1.11.0 Phase-Level Worktrees shipped 2026-02-14.
-Last activity: 2026-02-14 — v1.11.0 milestone complete
-
-Progress: Ready for `/kata-add-milestone` to start next version.
+Milestone: v1.12.0 Codebase Intelligence
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-15 — Milestone v1.12.0 started
 
 ## Performance Metrics
 
