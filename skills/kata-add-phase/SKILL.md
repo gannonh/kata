@@ -167,7 +167,7 @@ Validate that the new phase follows vertical slicing principles:
 
 1. **Read slicing principles:**
    ```bash
-   cat "$(dirname "$0")/../kata-add-milestone/references/slicing-principles.md"
+   cat "$(dirname "$0")/references/slicing-principles.md"
    ```
 
 2. **Check phase description against red flags:**
