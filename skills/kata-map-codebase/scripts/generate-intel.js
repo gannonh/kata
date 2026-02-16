@@ -2,6 +2,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const DOC_FILES = [
@@ -52,6 +53,18 @@ function resolveProjectRoot() {
   throw new Error(
     "Could not find project root. Expected .planning/ in CWD or CWD/main, or set KATA_PROJECT_ROOT.",
   );
+}
+
+function getCurrentCommitHash(projectRoot) {
+  try {
+    return execSync("git rev-parse --short HEAD", {
+      cwd: projectRoot,
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+  } catch {
+    return "unknown";
+  }
 }
 
 function readDocs(codebaseDir) {
@@ -214,7 +227,7 @@ function extractImportsExports(pathValue, docsText) {
   };
 }
 
-function buildIndex(docs, generatedIso) {
+function buildIndex(docs, generatedIso, projectRoot) {
   const structureText = docs["STRUCTURE.md"] || "";
   const architectureText = docs["ARCHITECTURE.md"] || "";
   const sourceText = `${structureText}\n${architectureText}`;
@@ -241,6 +254,7 @@ function buildIndex(docs, generatedIso) {
     version: 1,
     generated: generatedIso,
     source: SOURCE_LABEL,
+    commitHash: getCurrentCommitHash(projectRoot),
     files,
     stats: {
       total_files: Object.keys(files).length,
@@ -272,7 +286,7 @@ function collectPatternLines(text, keywords, limit) {
   return lines;
 }
 
-function buildConventions(docs, generatedIso) {
+function buildConventions(docs, generatedIso, projectRoot) {
   const conventionsText = docs["CONVENTIONS.md"] || "";
   const testingText = docs["TESTING.md"] || "";
   const structureText = docs["STRUCTURE.md"] || "";
@@ -320,6 +334,7 @@ function buildConventions(docs, generatedIso) {
   return {
     version: 1,
     generated: generatedIso,
+    commitHash: getCurrentCommitHash(projectRoot),
     naming,
     directories,
     patterns,
@@ -520,8 +535,8 @@ function main() {
   const docs = readDocs(codebaseDir);
   fs.mkdirSync(intelDir, { recursive: true });
 
-  const indexJson = buildIndex(docs, generatedIso);
-  const conventionsJson = buildConventions(docs, generatedIso);
+  const indexJson = buildIndex(docs, generatedIso, projectRoot);
+  const conventionsJson = buildConventions(docs, generatedIso, projectRoot);
   const summaryMd = buildSummary(docs, generatedDate, skillDir);
 
   fs.writeFileSync(path.join(intelDir, "index.json"), `${JSON.stringify(indexJson, null, 2)}\n`);
