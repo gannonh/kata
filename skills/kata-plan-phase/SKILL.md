@@ -38,9 +38,9 @@ If ROADMAP.md exists, check format and auto-migrate if old:
 
 ```bash
 if [ -f .planning/ROADMAP.md ]; then
-  bash ../kata-doctor/scripts/check-roadmap-format.sh 2>/dev/null
+  node scripts/kata-lib.cjs check-roadmap 2>/dev/null
   FORMAT_EXIT=$?
-  
+
   if [ $FORMAT_EXIT -eq 1 ]; then
     echo "Old roadmap format detected. Running auto-migration..."
   fi
@@ -61,8 +61,8 @@ Continue after migration completes.
 
 ```bash
 # Validate config and template overrides
-bash ../kata-doctor/scripts/check-config.sh 2>/dev/null || true
-bash ../kata-doctor/scripts/check-template-drift.sh 2>/dev/null || true
+node scripts/kata-lib.cjs check-config 2>/dev/null || true
+node scripts/kata-lib.cjs check-template-drift 2>/dev/null || true
 ```
 
 ## 1. Validate Environment and Resolve Model Profile
@@ -76,7 +76,7 @@ ls .planning/ 2>/dev/null
 **Resolve model profile for agent spawning:**
 
 ```bash
-MODEL_PROFILE=$(bash "../kata-configure-settings/scripts/read-config.sh" "model_profile" "balanced")
+MODEL_PROFILE=$(node scripts/kata-lib.cjs read-config "model_profile" "balanced")
 ```
 
 Default to "balanced" if not set.
@@ -195,7 +195,7 @@ fi
 **Check config for research setting:**
 
 ```bash
-WORKFLOW_RESEARCH=$(bash "../kata-configure-settings/scripts/read-config.sh" "workflow.research" "true")
+WORKFLOW_RESEARCH=$(node scripts/kata-lib.cjs read-config "workflow.research" "true")
 ```
 
 **If `workflow.research` is `false` AND `--research` flag NOT set:** Skip to step 6.
@@ -319,8 +319,7 @@ Read and store context file contents for the planner agent. The `@` syntax does 
 **Resolve plan template (project override -> plugin default):**
 
 ```bash
-RESOLVE_SCRIPT="../kata-execute-phase/scripts/resolve-template.sh"
-PLAN_TEMPLATE_PATH=$(bash "$RESOLVE_SCRIPT" "plan-template.md")
+PLAN_TEMPLATE_PATH=$(node scripts/kata-lib.cjs resolve-template "plan-template.md")
 PLAN_TEMPLATE_CONTENT=$(cat "$PLAN_TEMPLATE_PATH")
 ```
 
@@ -490,7 +489,7 @@ Parse planner output:
 **`## PLANNING COMPLETE`:**
 - Display: `Planner created {N} plan(s). Files on disk.`
 - If `--skip-verify`: Skip to step 13
-- Check config: `WORKFLOW_PLAN_CHECK=$(bash "../kata-configure-settings/scripts/read-config.sh" "workflow.plan_check" "true")`
+- Check config: `WORKFLOW_PLAN_CHECK=$(node scripts/kata-lib.cjs read-config "workflow.plan_check" "true")`
 - If `workflow.plan_check` is `false`: Skip to step 13
 - Otherwise: Proceed to step 10
 
@@ -633,8 +632,8 @@ Wait for user response.
 **Check config guards:**
 
 ```bash
-GITHUB_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.enabled" "false")
-ISSUE_MODE=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.issue_mode" "never")
+GITHUB_ENABLED=$(node scripts/kata-lib.cjs read-config "github.enabled" "false")
+ISSUE_MODE=$(node scripts/kata-lib.cjs read-config "github.issue_mode" "never")
 ```
 
 **If `GITHUB_ENABLED != true` OR `ISSUE_MODE = never`:**

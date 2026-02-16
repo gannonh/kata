@@ -31,8 +31,8 @@ Run validation checks before starting verification:
 
 ```bash
 # Validate config and template overrides
-bash "../kata-doctor/scripts/check-config.sh" 2>/dev/null || true
-bash "../kata-doctor/scripts/check-template-drift.sh" 2>/dev/null || true
+node scripts/kata-lib.cjs check-config 2>/dev/null || true
+node scripts/kata-lib.cjs check-template-drift 2>/dev/null || true
 ```
 
 If warnings are printed, relay them to the user before proceeding with verification.
@@ -40,13 +40,10 @@ If warnings are printed, relay them to the user before proceeding with verificat
 
 <process>
 
-**Script invocation rule.** Code blocks reference scripts with paths relative to this SKILL.md (e.g., `"../kata-configure-settings/scripts/read-config.sh"`). Resolve these to absolute paths. Run scripts from the project directory (where `.planning/` lives). If you must run from a different directory, pass the project root via environment variable: `KATA_PROJECT_ROOT=/path/to/project bash "/path/to/script.sh" args`.
-
 0. **Resolve UAT template (project override -> plugin default):**
 
 ```bash
-RESOLVE_SCRIPT="../kata-execute-phase/scripts/resolve-template.sh"
-UAT_TEMPLATE_PATH=$(bash "$RESOLVE_SCRIPT" "UAT-template.md")
+UAT_TEMPLATE_PATH=$(node scripts/kata-lib.cjs resolve-template "UAT-template.md")
 UAT_TEMPLATE_CONTENT=$(cat "$UAT_TEMPLATE_PATH")
 ```
 
@@ -81,8 +78,8 @@ Use `UAT_TEMPLATE_CONTENT` as the format specification when creating or updating
 Read pr_workflow config:
 
 ```bash
-PR_WORKFLOW=$(bash "../kata-configure-settings/scripts/read-config.sh" "pr_workflow" "false")
-WORKTREE_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "worktree.enabled" "false")
+PR_WORKFLOW=$(node scripts/kata-lib.cjs read-config "pr_workflow" "false")
+WORKTREE_ENABLED=$(node scripts/kata-lib.cjs read-config "worktree.enabled" "false")
 ```
 
 **If PR_WORKFLOW=false:** Skip to offer_next.

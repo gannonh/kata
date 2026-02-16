@@ -54,12 +54,12 @@ Check for .planning/STATE.md - loads context if project already initialized
 5.5. Generate codebase intelligence artifacts
    - Run the intel generator script:
      ```bash
-     node "./scripts/generate-intel.js"
+     node scripts/generate-intel.js
      ```
-   - If script fails, warn but continue (non-blocking)
+   - If script fails, show the error to the user and continue (non-blocking)
    - Verify artifacts exist:
      ```bash
-     ls .planning/intel/summary.md .planning/intel/index.json .planning/intel/conventions.json 2>/dev/null
+     ls .planning/intel/summary.md .planning/intel/index.json .planning/intel/conventions.json
      ```
 6. Commit codebase map and intel artifacts (`.planning/codebase/` + `.planning/intel/`)
 7. Offer next steps (typically: /kata-new-project or /kata-plan-phase)

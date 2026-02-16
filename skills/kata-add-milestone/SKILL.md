@@ -44,8 +44,6 @@ Milestone name: $ARGUMENTS (optional - will prompt if not provided)
 
 <process>
 
-**Script invocation rule.** Code blocks reference scripts with paths relative to this SKILL.md (e.g., `"../kata-configure-settings/scripts/read-config.sh"`). Resolve these to absolute paths. Run scripts from the project directory (where `.planning/` lives). If you must run from a different directory, pass the project root via environment variable: `KATA_PROJECT_ROOT=/path/to/project bash "/path/to/script.sh" args`.
-
 ## Phase 1: Load Context
 
 - Read PROJECT.md (existing project, Validated requirements, decisions)
@@ -59,7 +57,7 @@ If ROADMAP.md exists, check format and auto-migrate if old:
 
 ```bash
 if [ -f .planning/ROADMAP.md ]; then
-  bash "../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
+  node scripts/kata-lib.cjs check-roadmap 2>/dev/null
   FORMAT_EXIT=$?
 
   if [ $FORMAT_EXIT -eq 1 ]; then
@@ -82,7 +80,7 @@ Continue after migration completes.
 
 ```bash
 # Validate config
-bash "../kata-doctor/scripts/check-config.sh" 2>/dev/null || true
+node scripts/kata-lib.cjs check-config 2>/dev/null || true
 ```
 
 ## Phase 1.5: Optional Brainstorm
@@ -167,7 +165,7 @@ Keep Accumulated Context section (decisions, blockers) from previous milestone.
 Read GitHub config:
 
 ```bash
-GITHUB_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.enabled" "false")
+GITHUB_ENABLED=$(node scripts/kata-lib.cjs read-config "github.enabled" "false")
 ```
 
 **If `GITHUB_ENABLED=true`:**
@@ -271,7 +269,7 @@ Delete MILESTONE-CONTEXT.md if exists (consumed).
 Check planning config:
 
 ```bash
-COMMIT_PLANNING_DOCS=$(bash "../kata-configure-settings/scripts/read-config.sh" "commit_docs" "true")
+COMMIT_PLANNING_DOCS=$(node scripts/kata-lib.cjs read-config "commit_docs" "true")
 git check-ignore -q .planning 2>/dev/null && COMMIT_PLANNING_DOCS=false
 ```
 
@@ -289,7 +287,7 @@ git commit -m "docs: start milestone v[X.Y] [Name]"
 Read model profile for agent spawning:
 
 ```bash
-MODEL_PROFILE=$(bash "../kata-configure-settings/scripts/read-config.sh" "model_profile" "balanced")
+MODEL_PROFILE=$(node scripts/kata-lib.cjs read-config "model_profile" "balanced")
 ```
 
 Default to "balanced" if not set.
@@ -1049,7 +1047,7 @@ EOF
 **2. Check github.issue_mode** (auto | ask | never):
 
 ```bash
-ISSUE_MODE=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.issue_mode" "auto")
+ISSUE_MODE=$(node scripts/kata-lib.cjs read-config "github.issue_mode" "auto")
 ```
 
 - If "never": Skip phase issue creation silently, continue to Phase 10

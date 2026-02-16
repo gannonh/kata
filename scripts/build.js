@@ -254,6 +254,53 @@ function copySkillContents(srcDir, destDir) {
 }
 
 /**
+ * Distribute kata-lib.cjs into every skill's scripts/ directory.
+ * Ensures each skill has a local copy for spec-compliant script resolution.
+ */
+function distributeKataLib(destSkillsDir) {
+  const libSrc = path.join(ROOT, 'scripts', 'kata-lib.cjs');
+  if (!fs.existsSync(libSrc)) return 0;
+  const skillDirs = fs.readdirSync(destSkillsDir, { withFileTypes: true })
+    .filter(e => e.isDirectory() && e.name.startsWith('kata-'));
+  let count = 0;
+  for (const skill of skillDirs) {
+    const destScripts = path.join(destSkillsDir, skill.name, 'scripts');
+    fs.mkdirSync(destScripts, { recursive: true });
+    fs.copyFileSync(libSrc, path.join(destScripts, 'kata-lib.cjs'));
+    count++;
+  }
+  return count;
+}
+
+/**
+ * Check for remaining cross-skill references in SKILL.md files.
+ * Returns array of error strings.
+ */
+function checkCrossSkillRefs(destSkillsDir) {
+  const errors = [];
+  const crossRefPattern = /"\.\.\//;
+  const checkDir = (dir) => {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        checkDir(fullPath);
+      } else if (entry.name === 'SKILL.md') {
+        const content = fs.readFileSync(fullPath, 'utf8');
+        const lines = content.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+          if (crossRefPattern.test(lines[i])) {
+            errors.push(`Cross-skill ref in ${fullPath.replace(destSkillsDir, 'skills')}, line ${i + 1}: ${lines[i].trim()}`);
+          }
+        }
+      }
+    }
+  };
+  checkDir(destSkillsDir);
+  return errors;
+}
+
+/**
  * Build plugin distribution
  */
 function buildPlugin() {
@@ -264,6 +311,13 @@ function buildPlugin() {
 
   // Copy skills with path transformation
   copySkillsForPlugin(dest);
+
+  // Distribute kata-lib.cjs to every skill
+  const destSkills = path.join(dest, 'skills');
+  const libCount = distributeKataLib(destSkills);
+  if (libCount > 0) {
+    console.log(`  ${green}✓${reset} Distributed kata-lib.cjs to ${libCount} skills`);
+  }
 
   // Copy other files with path transformation
   for (const item of INCLUDES) {
@@ -287,6 +341,11 @@ function buildPlugin() {
 
   // Validate build
   const errors = validateBuild(dest);
+
+  // Check for cross-skill references
+  const crossRefErrors = checkCrossSkillRefs(destSkills);
+  errors.push(...crossRefErrors);
+
   if (errors.length > 0) {
     console.log(`\n${red}Validation errors:${reset}`);
     for (const error of errors) {
@@ -336,6 +395,12 @@ function buildSkillsSh() {
   if (!copyDir(srcSkills, destSkills)) {
     console.log(`  ${red}x${reset} Failed to copy skills directory`);
     return false;
+  }
+
+  // Distribute kata-lib.cjs to every skill
+  const libCount = distributeKataLib(destSkills);
+  if (libCount > 0) {
+    console.log(`  ${green}✓${reset} Distributed kata-lib.cjs to ${libCount} skills`);
   }
 
   // Count skills

@@ -109,7 +109,7 @@ Be specific enough for a fresh Claude to understand immediately.
 **Check planning config:**
 
 ```bash
-COMMIT_PLANNING_DOCS=$(bash "../kata-configure-settings/scripts/read-config.sh" "commit_docs" "true")
+COMMIT_PLANNING_DOCS=$(node scripts/kata-lib.cjs read-config "commit_docs" "true")
 git check-ignore -q .planning 2>/dev/null && COMMIT_PLANNING_DOCS=false
 ```
 

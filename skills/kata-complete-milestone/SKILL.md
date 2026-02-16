@@ -42,9 +42,9 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    **Check pr_workflow config FIRST before any other work:**
 
    ```bash
-   PR_WORKFLOW=$(bash "../kata-configure-settings/scripts/read-config.sh" "pr_workflow" "false")
+   PR_WORKFLOW=$(node scripts/kata-lib.cjs read-config "pr_workflow" "false")
    CURRENT_BRANCH=$(git branch --show-current)
-   WORKTREE_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "worktree.enabled" "false")
+   WORKTREE_ENABLED=$(node scripts/kata-lib.cjs read-config "worktree.enabled" "false")
    ```
 
    **If `PR_WORKFLOW=true` AND on `main`:**
@@ -93,7 +93,7 @@ Read workflow-specific overrides for milestone completion. Also check and auto-m
 
 ```bash
 if [ -f .planning/ROADMAP.md ]; then
-  bash ../kata-doctor/scripts/check-roadmap-format.sh 2>/dev/null
+  node scripts/kata-lib.cjs check-roadmap 2>/dev/null
   FORMAT_EXIT=$?
   
   if [ $FORMAT_EXIT -eq 1 ]; then
@@ -116,8 +116,8 @@ Continue after migration completes.
 
 ```bash
 # Validate config and template overrides
-bash ../kata-doctor/scripts/check-config.sh 2>/dev/null || true
-bash ../kata-doctor/scripts/check-template-drift.sh 2>/dev/null || true
+node scripts/kata-lib.cjs check-config 2>/dev/null || true
+node scripts/kata-lib.cjs check-template-drift 2>/dev/null || true
 ```
 
 0.2. **Read workflow config:**
@@ -125,8 +125,8 @@ bash ../kata-doctor/scripts/check-template-drift.sh 2>/dev/null || true
 Read workflow-specific overrides for milestone completion:
 
 ```bash
-VERSION_FILES_JSON=$(bash ../kata-configure-settings/scripts/read-pref.sh "workflows.complete-milestone.version_files" "[]")
-PRE_RELEASE_CMDS_JSON=$(bash ../kata-configure-settings/scripts/read-pref.sh "workflows.complete-milestone.pre_release_commands" "[]")
+VERSION_FILES_JSON=$(node scripts/kata-lib.cjs read-pref "workflows.complete-milestone.version_files" "[]")
+PRE_RELEASE_CMDS_JSON=$(node scripts/kata-lib.cjs read-pref "workflows.complete-milestone.pre_release_commands" "[]")
 ```
 
 - `version_files`: overrides version-detector.md auto-detection when non-empty
@@ -304,7 +304,7 @@ See milestone-complete.md `close_github_milestone` step for details.
    **PR workflow handling (branch was created in step 0):**
 
    ```bash
-   PR_WORKFLOW=$(bash "../kata-configure-settings/scripts/read-config.sh" "pr_workflow" "false")
+   PR_WORKFLOW=$(node scripts/kata-lib.cjs read-config "pr_workflow" "false")
    CURRENT_BRANCH=$(git branch --show-current)
    ```
 
@@ -317,8 +317,8 @@ See milestone-complete.md `close_github_milestone` step for details.
    git push -u origin "$CURRENT_BRANCH"
 
    # Collect all phase issues for this milestone
-   GITHUB_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.enabled" "false")
-   ISSUE_MODE=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.issue_mode" "never")
+   GITHUB_ENABLED=$(node scripts/kata-lib.cjs read-config "github.enabled" "false")
+   ISSUE_MODE=$(node scripts/kata-lib.cjs read-config "github.issue_mode" "never")
 
    CLOSES_LINES=""
    if [ "$GITHUB_ENABLED" = "true" ] && [ "$ISSUE_MODE" != "never" ]; then

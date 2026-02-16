@@ -13,7 +13,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-READ_CONFIG="$SCRIPT_DIR/../../kata-configure-settings/scripts/read-config.sh"
 
 # --- Resolve project root ---
 # If running from inside a worktree (../.bare exists), cd to project root.
@@ -33,7 +32,7 @@ check_preconditions() {
 
   # 2. worktree.enabled must be true
   local worktree_enabled
-  worktree_enabled=$(bash "$READ_CONFIG" "worktree.enabled" "false")
+  worktree_enabled=$(node "$SCRIPT_DIR/kata-lib.cjs" read-config "worktree.enabled" "false")
   if [ "$worktree_enabled" != "true" ]; then
     echo "Error: worktree.enabled is false in config." >&2
     exit 1

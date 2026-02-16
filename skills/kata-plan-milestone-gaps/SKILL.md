@@ -31,15 +31,13 @@ Glob: .planning/v*-MILESTONE-AUDIT.md (use most recent)
 
 <process>
 
-**Script invocation rule.** Code blocks reference scripts with paths relative to this SKILL.md (e.g., `"../kata-configure-settings/scripts/read-config.sh"`). Resolve these to absolute paths. Run scripts from the project directory (where `.planning/` lives). If you must run from a different directory, pass the project root via environment variable: `KATA_PROJECT_ROOT=/path/to/project bash "/path/to/script.sh" args`.
-
 ## 0. Pre-flight: Check roadmap format (auto-migration)
 
 If ROADMAP.md exists, check format and auto-migrate if old:
 
 ```bash
 if [ -f .planning/ROADMAP.md ]; then
-  bash "../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
+  node scripts/kata-lib.cjs check-roadmap 2>/dev/null
   FORMAT_EXIT=$?
   
   if [ $FORMAT_EXIT -eq 1 ]; then
@@ -193,7 +191,7 @@ mkdir -p ".planning/phases/pending/{NN}-{name}"
 **Check planning config:**
 
 ```bash
-COMMIT_PLANNING_DOCS=$(bash "../kata-configure-settings/scripts/read-config.sh" "commit_docs" "true")
+COMMIT_PLANNING_DOCS=$(node scripts/kata-lib.cjs read-config "commit_docs" "true")
 git check-ignore -q .planning 2>/dev/null && COMMIT_PLANNING_DOCS=false
 ```
 

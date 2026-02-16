@@ -12,14 +12,14 @@ const SKILLS_DIR = path.join(PLUGIN_DIR, 'skills');
 /**
  * Template System Tests
  *
- * Tests the bash scripts that power Kata's template override system:
+ * Tests the scripts that power Kata's template override system:
  * - resolve-template.sh (in kata-execute-phase/scripts/)
  * - list-templates.sh (in kata-customize/scripts/)
- * - check-template-drift.sh (in kata-doctor/scripts/)
+ * - kata-lib.cjs check-template-drift (replacement for check-template-drift.sh)
  *
  * Also validates YAML frontmatter schemas across all default templates.
  *
- * These tests invoke bash scripts directly (no Claude API calls).
+ * These tests invoke scripts directly (no Claude API calls).
  * Run with: npm run test:scripts
  */
 
@@ -307,8 +307,8 @@ describe('Template System', () => {
         SUMMARY_OVERRIDE
       );
 
-      const script = path.join(tmpDir, 'skills/kata-doctor/scripts/check-template-drift.sh');
-      const result = execSync(`bash "${script}"`, {
+      const katalib = path.join(tmpDir, 'skills/kata-doctor/scripts/kata-lib.cjs');
+      const result = execSync(`node "${katalib}" check-template-drift`, {
         cwd: tmpDir,
         encoding: 'utf8'
       });
@@ -322,9 +322,9 @@ describe('Template System', () => {
         SUMMARY_OVERRIDE
       );
 
-      const script = path.join(tmpDir, 'skills/kata-doctor/scripts/check-template-drift.sh');
+      const katalib = path.join(tmpDir, 'skills/kata-doctor/scripts/kata-lib.cjs');
       const skillSubdir = path.join(tmpDir, 'skills/kata-doctor/scripts');
-      const result = execSync(`bash "${script}"`, {
+      const result = execSync(`node "${katalib}" check-template-drift`, {
         cwd: skillSubdir,
         encoding: 'utf8'
       });
@@ -338,8 +338,8 @@ describe('Template System', () => {
         DRIFTED_OVERRIDE
       );
 
-      const script = path.join(tmpDir, 'skills/kata-doctor/scripts/check-template-drift.sh');
-      const result = execSync(`bash "${script}"`, {
+      const katalib = path.join(tmpDir, 'skills/kata-doctor/scripts/kata-lib.cjs');
+      const result = execSync(`node "${katalib}" check-template-drift`, {
         cwd: tmpDir,
         encoding: 'utf8'
       });

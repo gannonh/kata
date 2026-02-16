@@ -24,27 +24,25 @@ ls .planning/config.json 2>/dev/null
 ## 2. Read Current Values via Accessor Scripts
 
 ```bash
-SCRIPT_DIR="../kata-configure-settings/scripts"
-
 # Session settings
-MODE=$(bash "$SCRIPT_DIR/read-pref.sh" "mode" "yolo")
-DEPTH=$(bash "$SCRIPT_DIR/read-pref.sh" "depth" "standard")
-MODEL_PROFILE=$(bash "$SCRIPT_DIR/read-pref.sh" "model_profile" "balanced")
-COMMIT_DOCS=$(bash "$SCRIPT_DIR/read-pref.sh" "commit_docs" "true")
-PR_WORKFLOW=$(bash "$SCRIPT_DIR/read-pref.sh" "pr_workflow" "false")
-RESEARCH=$(bash "$SCRIPT_DIR/read-pref.sh" "workflow.research" "true")
-PLAN_CHECK=$(bash "$SCRIPT_DIR/read-pref.sh" "workflow.plan_check" "true")
-VERIFIER=$(bash "$SCRIPT_DIR/read-pref.sh" "workflow.verifier" "true")
-WORKTREE_ENABLED=$(bash "$SCRIPT_DIR/read-pref.sh" "worktree.enabled" "false")
-PR_WORKFLOW_VAL=$(bash "$SCRIPT_DIR/read-pref.sh" "pr_workflow" "false")
+MODE=$(node scripts/kata-lib.cjs read-pref "mode" "yolo")
+DEPTH=$(node scripts/kata-lib.cjs read-pref "depth" "standard")
+MODEL_PROFILE=$(node scripts/kata-lib.cjs read-pref "model_profile" "balanced")
+COMMIT_DOCS=$(node scripts/kata-lib.cjs read-pref "commit_docs" "true")
+PR_WORKFLOW=$(node scripts/kata-lib.cjs read-pref "pr_workflow" "false")
+RESEARCH=$(node scripts/kata-lib.cjs read-pref "workflow.research" "true")
+PLAN_CHECK=$(node scripts/kata-lib.cjs read-pref "workflow.plan_check" "true")
+VERIFIER=$(node scripts/kata-lib.cjs read-pref "workflow.verifier" "true")
+WORKTREE_ENABLED=$(node scripts/kata-lib.cjs read-pref "worktree.enabled" "false")
+PR_WORKFLOW_VAL=$(node scripts/kata-lib.cjs read-pref "pr_workflow" "false")
 
 # Workflow variants
-EXEC_POST_TASK=$(bash "$SCRIPT_DIR/read-pref.sh" "workflows.execute-phase.post_task_command" "")
-EXEC_COMMIT_STYLE=$(bash "$SCRIPT_DIR/read-pref.sh" "workflows.execute-phase.commit_style" "conventional")
-EXEC_SCOPE_FMT=$(bash "$SCRIPT_DIR/read-pref.sh" "workflows.execute-phase.commit_scope_format" "{phase}-{plan}")
-VERIFY_EXTRA_CMDS=$(bash "$SCRIPT_DIR/read-pref.sh" "workflows.verify-work.extra_verification_commands" "[]")
-MILESTONE_VERSION_FILES=$(bash "$SCRIPT_DIR/read-pref.sh" "workflows.complete-milestone.version_files" "[]")
-MILESTONE_PRE_RELEASE=$(bash "$SCRIPT_DIR/read-pref.sh" "workflows.complete-milestone.pre_release_commands" "[]")
+EXEC_POST_TASK=$(node scripts/kata-lib.cjs read-pref "workflows.execute-phase.post_task_command" "")
+EXEC_COMMIT_STYLE=$(node scripts/kata-lib.cjs read-pref "workflows.execute-phase.commit_style" "conventional")
+EXEC_SCOPE_FMT=$(node scripts/kata-lib.cjs read-pref "workflows.execute-phase.commit_scope_format" "{phase}-{plan}")
+VERIFY_EXTRA_CMDS=$(node scripts/kata-lib.cjs read-pref "workflows.verify-work.extra_verification_commands" "[]")
+MILESTONE_VERSION_FILES=$(node scripts/kata-lib.cjs read-pref "workflows.complete-milestone.version_files" "[]")
+MILESTONE_PRE_RELEASE=$(node scripts/kata-lib.cjs read-pref "workflows.complete-milestone.pre_release_commands" "[]")
 ```
 
 ## 3. Present Settings in Two Sections
@@ -164,31 +162,29 @@ Use AskUserQuestion to confirm whether the user wants to change any text-input v
 
 ## 4. Write Updates
 
-### Session Settings (via set-config.sh)
+### Session Settings (via kata-lib.cjs set-config)
 
 ```bash
-SCRIPT_DIR="../kata-configure-settings/scripts"
-
-bash "$SCRIPT_DIR/set-config.sh" "mode" "$NEW_MODE"
-bash "$SCRIPT_DIR/set-config.sh" "depth" "$NEW_DEPTH"
-bash "$SCRIPT_DIR/set-config.sh" "model_profile" "$NEW_MODEL_PROFILE"
-bash "$SCRIPT_DIR/set-config.sh" "commit_docs" "$NEW_COMMIT_DOCS"
-bash "$SCRIPT_DIR/set-config.sh" "pr_workflow" "$NEW_PR_WORKFLOW"
-bash "$SCRIPT_DIR/set-config.sh" "worktree.enabled" "$NEW_WORKTREE_ENABLED"
-bash "$SCRIPT_DIR/set-config.sh" "workflow.research" "$NEW_RESEARCH"
-bash "$SCRIPT_DIR/set-config.sh" "workflow.plan_check" "$NEW_PLAN_CHECK"
-bash "$SCRIPT_DIR/set-config.sh" "workflow.verifier" "$NEW_VERIFIER"
+node scripts/kata-lib.cjs set-config "mode" "$NEW_MODE"
+node scripts/kata-lib.cjs set-config "depth" "$NEW_DEPTH"
+node scripts/kata-lib.cjs set-config "model_profile" "$NEW_MODEL_PROFILE"
+node scripts/kata-lib.cjs set-config "commit_docs" "$NEW_COMMIT_DOCS"
+node scripts/kata-lib.cjs set-config "pr_workflow" "$NEW_PR_WORKFLOW"
+node scripts/kata-lib.cjs set-config "worktree.enabled" "$NEW_WORKTREE_ENABLED"
+node scripts/kata-lib.cjs set-config "workflow.research" "$NEW_RESEARCH"
+node scripts/kata-lib.cjs set-config "workflow.plan_check" "$NEW_PLAN_CHECK"
+node scripts/kata-lib.cjs set-config "workflow.verifier" "$NEW_VERIFIER"
 ```
 
-### Workflow Variants (via set-config.sh)
+### Workflow Variants (via kata-lib.cjs set-config)
 
 ```bash
-bash "$SCRIPT_DIR/set-config.sh" "workflows.execute-phase.post_task_command" "$NEW_POST_TASK_CMD"
-bash "$SCRIPT_DIR/set-config.sh" "workflows.execute-phase.commit_style" "$NEW_COMMIT_STYLE"
-bash "$SCRIPT_DIR/set-config.sh" "workflows.execute-phase.commit_scope_format" "$NEW_SCOPE_FMT"
-bash "$SCRIPT_DIR/set-config.sh" "workflows.verify-work.extra_verification_commands" "$NEW_EXTRA_CMDS"
-bash "$SCRIPT_DIR/set-config.sh" "workflows.complete-milestone.version_files" "$NEW_VERSION_FILES"
-bash "$SCRIPT_DIR/set-config.sh" "workflows.complete-milestone.pre_release_commands" "$NEW_PRE_RELEASE"
+node scripts/kata-lib.cjs set-config "workflows.execute-phase.post_task_command" "$NEW_POST_TASK_CMD"
+node scripts/kata-lib.cjs set-config "workflows.execute-phase.commit_style" "$NEW_COMMIT_STYLE"
+node scripts/kata-lib.cjs set-config "workflows.execute-phase.commit_scope_format" "$NEW_SCOPE_FMT"
+node scripts/kata-lib.cjs set-config "workflows.verify-work.extra_verification_commands" "$NEW_EXTRA_CMDS"
+node scripts/kata-lib.cjs set-config "workflows.complete-milestone.version_files" "$NEW_VERSION_FILES"
+node scripts/kata-lib.cjs set-config "workflows.complete-milestone.pre_release_commands" "$NEW_PRE_RELEASE"
 ```
 
 ## Side-Effects
@@ -202,9 +198,9 @@ git add .planning/config.json 2>/dev/null
 git commit -m "chore: update kata settings" 2>/dev/null || true
 
 # Run setup after committing
-if ! bash "$SCRIPT_DIR/setup-worktrees.sh"; then
+if ! bash scripts/setup-worktrees.sh; then
   echo "Error: Worktree setup failed. Reverting worktree.enabled to false."
-  bash "$SCRIPT_DIR/set-config.sh" "worktree.enabled" "false"
+  node scripts/kata-lib.cjs set-config "worktree.enabled" "false"
 fi
 ```
 
@@ -290,9 +286,9 @@ This ensures ALL changes go through PRs.
 
 <success_criteria>
 
-- [ ] Current config read via read-pref.sh (no inline grep/cat parsing)
+- [ ] Current config read via kata-lib.cjs read-pref (no inline grep/cat parsing)
 - [ ] User presented with 2 config sections: session settings, workflow variants
-- [ ] Config written via set-config.sh (no inline node JSON manipulation for config.json)
+- [ ] Config written via kata-lib.cjs set-config (no inline node JSON manipulation for config.json)
 - [ ] .gitignore updated if commit_docs set to false
 - [ ] Changes confirmed to user with two-section display
 </success_criteria>

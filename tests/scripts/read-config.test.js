@@ -10,9 +10,9 @@ const PLUGIN_DIR = path.join(ROOT, 'dist/plugin');
 const SKILLS_DIR = path.join(PLUGIN_DIR, 'skills');
 
 /**
- * read-config.sh Tests
+ * kata-lib.cjs read-config Tests
  *
- * Tests the bash script that reads .planning/config.json values.
+ * Tests the read-config command in kata-lib.cjs that reads .planning/config.json values.
  * Pure function: no git, no network, no Claude invocation.
  *
  * Run with: node --test tests/scripts/read-config.test.js
@@ -51,8 +51,8 @@ describe('read-config.sh', () => {
   });
 
   function runScript(...args) {
-    const script = path.join(tmpDir, 'skills/kata-configure-settings/scripts/read-config.sh');
-    return execSync(`bash "${script}" ${args.map(a => `"${a}"`).join(' ')}`, {
+    const katalib = path.join(tmpDir, 'skills/kata-configure-settings/scripts/kata-lib.cjs');
+    return execSync(`node "${katalib}" read-config ${args.map(a => `"${a}"`).join(' ')}`, {
       cwd: tmpDir,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -93,9 +93,9 @@ describe('read-config.sh', () => {
   });
 
   test('exits non-zero when no arguments provided', () => {
-    const script = path.join(tmpDir, 'skills/kata-configure-settings/scripts/read-config.sh');
+    const katalib = path.join(tmpDir, 'skills/kata-configure-settings/scripts/kata-lib.cjs');
     try {
-      execSync(`bash "${script}"`, {
+      execSync(`node "${katalib}" read-config`, {
         cwd: tmpDir,
         encoding: 'utf8',
         stdio: ['pipe', 'pipe', 'pipe']

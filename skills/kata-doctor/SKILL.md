@@ -157,7 +157,7 @@ Display the file for user review.
 **Step 6: Commit (if enabled)**
 
 ```bash
-COMMIT_PLANNING_DOCS=$(bash "../kata-configure-settings/scripts/read-config.sh" "commit_docs" "true")
+COMMIT_PLANNING_DOCS=$(node scripts/kata-lib.cjs read-config "commit_docs" "true")
 git check-ignore -q .planning 2>/dev/null && COMMIT_PLANNING_DOCS=false
 ```
 
@@ -312,7 +312,7 @@ done | grep -oE '^[0-9]+' | sort -n | uniq -d)
 **Step 8: Commit**
 
 ```bash
-COMMIT_PLANNING_DOCS=$(bash "../kata-configure-settings/scripts/read-config.sh" "commit_docs" "true")
+COMMIT_PLANNING_DOCS=$(node scripts/kata-lib.cjs read-config "commit_docs" "true")
 git check-ignore -q .planning 2>/dev/null && COMMIT_PLANNING_DOCS=false
 ```
 
