@@ -58,6 +58,13 @@ Plans:
 - index.json contains import/export dependency graph per file
 - All intel artifacts include generation timestamp, confidence scores, and commit hash
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 55-01-PLAN.md — scan-codebase.cjs script (import/export extraction, naming detection, directory mapping, freshness metadata)
+- [ ] 55-02-PLAN.md — tests and fixtures for scan-codebase.cjs (unit + integration tests)
+- [ ] 55-03-PLAN.md — generate-intel.js freshness metadata + kata-map-codebase and kata-execute-phase integration
+
 #### Phase 56: Greenfield Integration
 
 **Goal:** New projects build codebase intel progressively from first code written. No separate brownfield scan required for greenfield projects.
@@ -242,8 +249,8 @@ Plans:
 | v1.9.0 Templates | 4 | 5 | Shipped 2026-02-08 |
 | v1.10.0 Worktrees | 5 | 11 | Shipped 2026-02-12 |
 | v1.11.0 Phase Worktrees | 5 | 10 | Shipped 2026-02-14 |
-| v1.12.0 Codebase Intel | 4 | — | In Progress |
+| v1.12.0 Codebase Intel | 4 | 7 | In Progress |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-15 — Phase 54 execution complete (4/4 plans)*
+*Last updated: 2026-02-15 — Phase 55 planned (3 plans)*
