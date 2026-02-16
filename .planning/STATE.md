@@ -69,7 +69,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 
 ### Pending Issues
 
-13 open issues in `.planning/issues/open/`
+12 open issues in `.planning/issues/open/`
 
 ### Blockers/Concerns
 
