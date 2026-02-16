@@ -78,6 +78,12 @@ Plans:
 - First phase execution populates intel from generated code automatically
 - Progressive capture accumulates across phases without manual trigger
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 56-01-PLAN.md — Intel scaffolding in kata-new-project (scaffold-intel.cjs + SKILL.md wiring)
+- [ ] 56-02-PLAN.md — Smart gate logic + summary update in kata-execute-phase
+
 #### Phase 57: Knowledge Maintenance
 
 **Goal:** System detects stale knowledge, triggers re-analysis on significant changes, and enforces conventions during execution.
