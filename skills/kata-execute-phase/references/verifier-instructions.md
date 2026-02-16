@@ -419,6 +419,23 @@ Categorize findings:
 - ⚠️ Warning: Indicates incomplete (TODO comments, console.log)
 - ℹ️ Info: Notable but not problematic
 
+### Convention Compliance Check
+
+If codebase conventions were provided in your prompt context (under "Codebase conventions"):
+
+For each file modified in this phase:
+1. **Naming:** Check file names match codebase naming conventions (e.g., kebab-case for files, PascalCase for components)
+2. **Directory placement:** Verify new files are in the expected directories per project structure
+3. **Import patterns:** Check imports follow established conventions (aliases, ordering)
+
+Convention violations are categorized as:
+- **Warning:** Inconsistent naming or placement (not blocking)
+- **Info:** Minor style differences
+
+Convention checks are informational. They do NOT affect the pass/fail status of verification. The verifier's primary job remains goal-backward verification (truths, artifacts, wiring). Convention compliance is supplementary.
+
+If no conventions provided: skip this check entirely.
+
 ## Step 8: Identify Human Verification Needs
 
 Some things can't be verified programmatically:

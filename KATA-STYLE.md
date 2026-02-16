@@ -511,64 +511,84 @@ How to make tests pass
 
 ## Codebase Intelligence
 
-Kata includes an automatic codebase learning system that indexes code and detects patterns.
+Kata includes a codebase knowledge system that captures project conventions and injects them into agent contexts.
+
+### Pipeline
+
+```
+Capture: /kata-map-codebase -> mapper agents -> .planning/codebase/ (7 docs)
+                             -> generate-intel.js -> .planning/intel/ (3 artifacts)
+
+Consume: kata-plan-phase orchestrator -> reads intel/summary.md -> inlines into planner prompt
+         kata-execute-phase orchestrator -> reads intel/summary.md -> inlines into executor prompts
+         kata-execute-phase verifier -> reads intel/summary.md -> convention compliance checks
+```
 
 ### Files
 
-| File                               | Purpose                                   | Updated By       |
-| ---------------------------------- | ----------------------------------------- | ---------------- |
-| `.planning/intel/index.json`       | File exports/imports index                | PostToolUse hook |
-| `.planning/intel/conventions.json` | Detected naming/directory/suffix patterns | PostToolUse hook |
-| `.planning/intel/summary.md`       | Concise context for injection             | PostToolUse hook |
+| File | Purpose | Updated By |
+|------|---------|------------|
+| `.planning/intel/index.json` | File registry (exports, imports, types, layers) | generate-intel.js |
+| `.planning/intel/conventions.json` | Detected patterns (naming, directories, testing) | generate-intel.js |
+| `.planning/intel/summary.md` | Compressed agent-readable summary (~80-150 lines) | generate-intel.js |
+
+### Summary Schema
+
+```markdown
+# Codebase Intelligence Summary
+Generated: YYYY-MM-DD | Source: .planning/codebase/
+## Stack
+[One-liner: language + framework + database + UI]
+## Architecture
+[Layers, entry points, data flow]
+## Conventions
+[Naming patterns, import rules, directory placement]
+## Key Patterns
+[Error handling, state management, testing approach]
+## Concerns
+[Outstanding issues, tech debt]
+```
+
+Target: 80-150 lines (~2-3k tokens). Hard cap at 150 lines.
 
 ### Index Schema
 
 ```json
 {
   "version": 1,
-  "updated": 1234567890,
+  "generated": "ISO-8601",
+  "source": "kata-map-codebase",
   "files": {
-    "/absolute/path/to/file.ts": {
-      "exports": ["functionA", "ClassB", "default"],
-      "imports": ["react", "./utils", "@org/pkg"],
-      "indexed": 1234567890
+    "path/to/file.ts": {
+      "exports": ["name1"],
+      "imports": ["pkg"],
+      "type": "component|service|util",
+      "layer": "ui|api|data"
     }
-  }
+  },
+  "stats": { "total_files": 42, "by_type": {}, "by_layer": {} }
 }
 ```
 
 ### Convention Detection
 
-**Naming conventions** (requires 5+ exports, 70%+ match rate):
+Naming conventions (detected from code, requires 5+ exports, 70%+ match rate):
 - camelCase, PascalCase, snake_case, SCREAMING_SNAKE
-- 'default' is skipped (keyword, not naming indicator)
 
-**Directory purposes** (lookup table):
-- components, hooks, utils, lib, services, api, routes, types, models, tests, etc.
+Directory purposes (lookup table from project structure):
+- components, hooks, utils, lib, services, api, routes, types, models, tests
 
-**Suffix patterns** (requires 5+ files):
-- .test.*, .spec.*, .service.*, .controller.*, etc.
+### Consumption Pattern
 
-### Hook Patterns
+Agents consume intel via orchestrator injection. The orchestrator reads `.planning/intel/summary.md` and inlines it as a `<codebase_intelligence>` section in the agent's prompt. No agent reads intel files directly.
 
-**PostToolUse hook (intel-index.js):**
-- Triggers on Write/Edit of JS/TS files
-- Incremental update (single file per invocation)
-- Silent failure (never blocks Claude)
-- Regenerates conventions.json and summary.md on every update
-
-**SessionStart hook (intel-session.js):**
-- Triggers on startup/resume
-- Reads index.json and conventions.json
-- Outputs `<codebase-intelligence>` wrapped summary
-- Silent failure if intel files missing
+Graceful degradation: if `.planning/intel/` does not exist, agents proceed without convention guidance. No errors, no prompts.
 
 ### Commands
 
-**`/kata-map-codebase`** — Bulk scan for brownfield projects:
-- Creates .planning/intel/ directory
-- Scans all JS/TS files (excludes node_modules, dist, build, .git, vendor, coverage)
-- Uses same extraction logic as PostToolUse hook
+**`/kata-map-codebase`** — Full codebase scan for brownfield projects:
+- Spawns 4 parallel mapper agents to write .planning/codebase/
+- Runs generate-intel.js to produce .planning/intel/
 - Works standalone (no /kata-new-project required)
 
 ---

@@ -311,6 +311,7 @@ Read and store context file contents for the planner agent. The `@` syntax does 
 - `${PHASE_DIR}/*-RESEARCH.md` (if exists)
 - `${PHASE_DIR}/*-VERIFICATION.md` (if --gaps mode)
 - `${PHASE_DIR}/*-UAT.md` (if --gaps mode)
+- `.planning/intel/summary.md` (if exists) — store as `intel_summary_content`
 - `references/planner-instructions.md` (relative to skill base directory) — store as `planner_instructions_content`
 - `references/phase-researcher-instructions.md` (relative to skill base directory) — store as `phase_researcher_instructions_content`
 - `references/plan-checker-instructions.md` (relative to skill base directory) — store as `plan_checker_instructions_content`
@@ -437,6 +438,9 @@ Fill prompt with inlined content and spawn:
 
 **Brainstorm Context (if exists):**
 {brainstorm_context}
+
+**Codebase Intelligence (if exists):**
+{intel_summary_content}
 
 **Gap Closure (if --gaps mode):**
 {verification_content}

@@ -10,17 +10,17 @@
 
 ## Workflow Integration
 
-- [ ] **INTEG-01**: Planner agents receive codebase knowledge (architecture, conventions, patterns) in their context when spawned
-- [ ] **INTEG-02**: Executor agents receive relevant codebase conventions and patterns in their context when spawned
-- [ ] **INTEG-03**: Verifier agents can check work against established codebase conventions
-- [ ] **INTEG-04**: Summary.md is auto-generated from .planning/codebase/ docs as a compressed, agent-readable entry point
-- [ ] **INTEG-05**: Context injection is task-type aware (UI tasks get conventions + structure, API tasks get architecture + integrations)
-- [ ] **INTEG-06**: Knowledge discovered by one agent (e.g., planner) is available to subsequent agents (e.g., executor) in the same phase
+- [x] **INTEG-01**: Planner agents receive codebase knowledge (architecture, conventions, patterns) in their context when spawned
+- [x] **INTEG-02**: Executor agents receive relevant codebase conventions and patterns in their context when spawned
+- [x] **INTEG-03**: Verifier agents can check work against established codebase conventions
+- [x] **INTEG-04**: Summary.md is auto-generated from .planning/codebase/ docs as a compressed, agent-readable entry point
+- [x] **INTEG-05**: Context injection is task-type aware (UI tasks get conventions + structure, API tasks get architecture + integrations)
+- [x] **INTEG-06**: Knowledge discovered by one agent (e.g., planner) is available to subsequent agents (e.g., executor) in the same phase
 
 ## Knowledge Architecture
 
-- [ ] **ARCH-01**: .planning/intel/ directory with index.json, conventions.json, and summary.md as the structured knowledge store
-- [ ] **ARCH-02**: Progressive disclosure: summary.md serves as entry point (~80-150 lines), pointing to deeper codebase/ docs on demand
+- [x] **ARCH-01**: .planning/intel/ directory with index.json, conventions.json, and summary.md as the structured knowledge store
+- [x] **ARCH-02**: Progressive disclosure: summary.md serves as entry point (~80-150 lines), pointing to deeper codebase/ docs on demand
 - [ ] **ARCH-03**: Greenfield knowledge scaffolding during kata-new-project (initial codebase docs generated as code is written, not requiring a separate mapping step)
 
 ## Knowledge Maintenance
@@ -56,14 +56,14 @@
 | CAP-03 | 55 | Pending |
 | CAP-04 | 55 | Pending |
 | CAP-05 | 55 | Pending |
-| INTEG-01 | 54 | Pending |
-| INTEG-02 | 54 | Pending |
-| INTEG-03 | 54 | Pending |
-| INTEG-04 | 54 | Pending |
-| INTEG-05 | 54 | Pending |
-| INTEG-06 | 54 | Pending |
-| ARCH-01 | 54 | Pending |
-| ARCH-02 | 54 | Pending |
+| INTEG-01 | 54 | Complete |
+| INTEG-02 | 54 | Complete |
+| INTEG-03 | 54 | Complete |
+| INTEG-04 | 54 | Complete |
+| INTEG-05 | 54 | Complete |
+| INTEG-06 | 54 | Complete |
+| ARCH-01 | 54 | Complete |
+| ARCH-02 | 54 | Complete |
 | ARCH-03 | 56 | Pending |
 | MAINT-01 | 57 | Pending |
 | MAINT-02 | 57 | Pending |

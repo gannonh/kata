@@ -1,0 +1,274 @@
+{
+  "version": 1,
+  "generated": "2026-02-15T22:34:31.403Z",
+  "source": "kata-map-codebase",
+  "files": {
+    "agents/*.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "agents/kata-codebase-mapper.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "agents/kata-debugger.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "agents/kata-executor.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "agents/kata-plan-checker.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "agents/kata-planner.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "agents/kata-roadmapper.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "agents/kata-verifier.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "agents/kata-{role}.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "bin/install.js": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "commands/kata/*.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "commands/kata/execute-plan.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "commands/kata/help.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "commands/kata/phase-execute.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "commands/kata/phase-plan.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "commands/kata/progress.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "commands/kata/project-new.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "commands/kata/{command-name}.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "hooks/*.sh": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "hooks/gsd-check-update.sh": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "hooks/gsd-notify.sh": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "hooks/statusline.sh": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "hooks/{hook-name}.sh": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "kata/references/*.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "kata/references/{topic}.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "kata/templates/*.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "kata/templates/project.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "kata/templates/roadmap.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "kata/templates/state.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "kata/templates/summary.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "kata/templates/{template-name}.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "kata/workflows/*.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "kata/workflows/create-roadmap.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "kata/workflows/phase-execute.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "kata/workflows/phase-plan.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "kata/workflows/{workflow-name}.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "planning/PROJECT.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "planning/REQUIREMENTS.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "planning/ROADMAP.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "planning/STATE.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "planning/phases/01-setup/01-01-PLAN.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "planning/phases/01-setup/01-01-SUMMARY.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    },
+    "planning/phases/01-setup/01-VERIFICATION.md": {
+      "exports": [],
+      "imports": [],
+      "type": "util",
+      "layer": "shared"
+    }
+  },
+  "stats": {
+    "total_files": 43,
+    "by_type": {
+      "util": 43
+    },
+    "by_layer": {
+      "shared": 43
+    }
+  }
+}

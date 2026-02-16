@@ -361,6 +361,12 @@ TEST_SCRIPT=$(cat package.json 2>/dev/null | grep -o '"test"[[:space:]]*:[[:spac
    verifier_instructions_content = Read("references/verifier-instructions.md")
    ```
 
+   Read intel summary for convention compliance checking:
+
+   ```
+   intel_summary_content = Read(".planning/intel/summary.md") if exists, else ""
+   ```
+
    Read the phase goal from ROADMAP.md and all SUMMARY.md files in the phase directory.
 
    Spawn the verifier:
@@ -380,6 +386,9 @@ TEST_SCRIPT=$(cat package.json 2>/dev/null | grep -o '"test"[[:space:]]*:[[:spac
 
    Plan summaries:
    {summary contents from phase directory}
+
+   Codebase conventions (if available):
+   {intel_summary_content}
 
    Return your verification results as structured text. Do NOT write any files.",
      subagent_type="general-purpose",
@@ -660,6 +669,7 @@ Before spawning, read file contents using Read tool. The `@` syntax does not wor
 - Each plan file in the wave (e.g., `{plan_01_path}`, `{plan_02_path}`, etc.)
 - `.planning/STATE.md`
 - `references/executor-instructions.md` (relative to skill base directory) — store as `executor_instructions_content`
+- `.planning/intel/summary.md` (if exists) — store as `intel_summary_content`
 
 **Working directory injection (two cases):**
 
@@ -679,12 +689,20 @@ fi
 
 Then append `$WORKING_DIR_BLOCK` to the Task() prompt template for each plan.
 
+```bash
+# Build codebase intelligence block (empty string if no intel)
+INTEL_BLOCK=""
+if [ -f ".planning/intel/summary.md" ]; then
+  INTEL_BLOCK="\n<codebase_intelligence>\n${intel_summary_content}\n</codebase_intelligence>"
+fi
+```
+
 Spawn all plans in a wave with a single message containing multiple Task calls, with inlined content:
 
 ```
-Task(prompt="<agent-instructions>\n{executor_instructions_content}\n</agent-instructions>\n\nExecute plan at {plan_01_path}\n\n<plan>\n{plan_01_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>\n\n<workflow_config>\npost_task_command: {EXEC_POST_TASK_CMD}\ncommit_style: {EXEC_COMMIT_STYLE}\ncommit_scope_format: {EXEC_COMMIT_SCOPE_FMT}\n</workflow_config>{WORKING_DIR_BLOCK}", subagent_type="general-purpose", model="{executor_model}")
-Task(prompt="<agent-instructions>\n{executor_instructions_content}\n</agent-instructions>\n\nExecute plan at {plan_02_path}\n\n<plan>\n{plan_02_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>\n\n<workflow_config>\npost_task_command: {EXEC_POST_TASK_CMD}\ncommit_style: {EXEC_COMMIT_STYLE}\ncommit_scope_format: {EXEC_COMMIT_SCOPE_FMT}\n</workflow_config>{WORKING_DIR_BLOCK}", subagent_type="general-purpose", model="{executor_model}")
-Task(prompt="<agent-instructions>\n{executor_instructions_content}\n</agent-instructions>\n\nExecute plan at {plan_03_path}\n\n<plan>\n{plan_03_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>\n\n<workflow_config>\npost_task_command: {EXEC_POST_TASK_CMD}\ncommit_style: {EXEC_COMMIT_STYLE}\ncommit_scope_format: {EXEC_COMMIT_SCOPE_FMT}\n</workflow_config>{WORKING_DIR_BLOCK}", subagent_type="general-purpose", model="{executor_model}")
+Task(prompt="<agent-instructions>\n{executor_instructions_content}\n</agent-instructions>\n\nExecute plan at {plan_01_path}\n\n<plan>\n{plan_01_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>\n\n<workflow_config>\npost_task_command: {EXEC_POST_TASK_CMD}\ncommit_style: {EXEC_COMMIT_STYLE}\ncommit_scope_format: {EXEC_COMMIT_SCOPE_FMT}\n</workflow_config>{WORKING_DIR_BLOCK}{INTEL_BLOCK}", subagent_type="general-purpose", model="{executor_model}")
+Task(prompt="<agent-instructions>\n{executor_instructions_content}\n</agent-instructions>\n\nExecute plan at {plan_02_path}\n\n<plan>\n{plan_02_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>\n\n<workflow_config>\npost_task_command: {EXEC_POST_TASK_CMD}\ncommit_style: {EXEC_COMMIT_STYLE}\ncommit_scope_format: {EXEC_COMMIT_SCOPE_FMT}\n</workflow_config>{WORKING_DIR_BLOCK}{INTEL_BLOCK}", subagent_type="general-purpose", model="{executor_model}")
+Task(prompt="<agent-instructions>\n{executor_instructions_content}\n</agent-instructions>\n\nExecute plan at {plan_03_path}\n\n<plan>\n{plan_03_content}\n</plan>\n\n<project_state>\n{state_content}\n</project_state>\n\n<workflow_config>\npost_task_command: {EXEC_POST_TASK_CMD}\ncommit_style: {EXEC_COMMIT_STYLE}\ncommit_scope_format: {EXEC_COMMIT_SCOPE_FMT}\n</workflow_config>{WORKING_DIR_BLOCK}{INTEL_BLOCK}", subagent_type="general-purpose", model="{executor_model}")
 ```
 
 All three run in parallel. Task tool blocks until all complete.
