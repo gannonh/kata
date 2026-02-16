@@ -921,11 +921,39 @@ function main() {
   console.log(`  output: ${intelDir}/`);
 }
 
-try {
-  main();
-  process.exit(0);
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`scan-codebase.cjs failed: ${message}`);
-  process.exit(1);
+// ---------------------------------------------------------------------------
+// Exports for testing
+// ---------------------------------------------------------------------------
+
+module.exports = {
+  stripComments,
+  stripPythonComments,
+  extractJSImports,
+  extractJSExports,
+  extractPyImports: extractPythonImports,
+  extractPyExports: extractPythonExports,
+  extractGoImports,
+  extractGoExports,
+  classifyIdentifier,
+  detectConventions,
+  mergeIndex,
+  isGeneratedFile,
+  classifyType,
+  classifyLayer,
+  scanFile,
+  computeStats,
+  detectDirectoryPurposes,
+  detectFileSuffixes,
+};
+
+// Run as CLI when executed directly
+if (require.main === module) {
+  try {
+    main();
+    process.exit(0);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`scan-codebase.cjs failed: ${message}`);
+    process.exit(1);
+  }
 }
