@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated": "2026-02-16T12:29:28.259Z",
+  "generated": "2026-02-16T18:16:45.902Z",
   "source": "kata-map-codebase",
-  "commitHash": "f02e821",
+  "commitHash": "9a69b71",
   "files": {
     "agents/*.md": {
       "exports": [],
