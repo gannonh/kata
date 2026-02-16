@@ -62,7 +62,7 @@ If ROADMAP.md exists, check format and auto-migrate if old:
 
 ```bash
 if [ -f .planning/ROADMAP.md ]; then
-  bash ../kata-doctor/scripts/check-roadmap-format.sh 2>/dev/null
+  node scripts/kata-lib.cjs check-roadmap 2>/dev/null
   FORMAT_EXIT=$?
   
   if [ $FORMAT_EXIT -eq 1 ]; then

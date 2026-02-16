@@ -38,8 +38,8 @@ Manage the workspace worktree lifecycle: workspace/ holds the phase branch, plan
 **0. Detection:**
 
 ```bash
-WORKTREE_ENABLED=$(bash scripts/read-config.sh "worktree.enabled" "false")
-PR_WORKFLOW=$(bash scripts/read-config.sh "pr_workflow" "false")
+WORKTREE_ENABLED=$(node scripts/kata-lib.cjs read-config "worktree.enabled" "false")
+PR_WORKFLOW=$(node scripts/kata-lib.cjs read-config "pr_workflow" "false")
 ```
 
 Store both variables. When `PR_WORKFLOW=false`, skip all worktree operations.
@@ -331,7 +331,7 @@ Execute each wave in sequence. Autonomous plans within a wave run in parallel.
    CONFIG_CONTENT=$(cat .planning/config.json 2>/dev/null)
 
    # Resolve summary template (project override -> plugin default)
-   SUMMARY_TEMPLATE_PATH=$(bash "./scripts/resolve-template.sh" "summary-template.md")
+   SUMMARY_TEMPLATE_PATH=$(node scripts/kata-lib.cjs resolve-template "summary-template.md")
    SUMMARY_TEMPLATE_CONTENT=$(cat "$SUMMARY_TEMPLATE_PATH")
    ```
 

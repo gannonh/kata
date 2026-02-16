@@ -406,7 +406,7 @@ See milestone-complete.md `close_github_milestone` step for details.
    if [ "$WORKTREE_ENABLED" = "true" ]; then
      # Bare repo layout: update main/ worktree, reset workspace/ to workspace-base
      git -C main pull
-     bash "skills/kata-execute-phase/scripts/manage-worktree.sh" cleanup-phase workspace "$PHASE_BRANCH"
+     bash "scripts/manage-worktree.sh" cleanup-phase workspace "$PHASE_BRANCH"
    else
      git checkout main
      git pull
