@@ -15,11 +15,10 @@ No Pass/Fail buttons. No severity questions. Just: "Here's what should happen. D
 </philosophy>
 
 <template>
-UAT template is resolved at runtime via resolve-template.sh (project override -> plugin default).
+UAT template is resolved at runtime via kata-lib.cjs (project override -> plugin default).
 
 ```bash
-RESOLVE_SCRIPT="../kata-execute-phase/scripts/resolve-template.sh"
-UAT_TEMPLATE_PATH=$(bash "$RESOLVE_SCRIPT" "UAT-template.md")
+UAT_TEMPLATE_PATH=$(node scripts/kata-lib.cjs resolve-template "UAT-template.md")
 UAT_TEMPLATE_CONTENT=$(cat "$UAT_TEMPLATE_PATH")
 ```
 
@@ -49,8 +48,7 @@ Store resolved models for use in Task calls below.
 **Resolve verification report template (project override -> plugin default):**
 
 ```bash
-RESOLVE_SCRIPT="../kata-execute-phase/scripts/resolve-template.sh"
-VERIFICATION_TEMPLATE_PATH=$(bash "$RESOLVE_SCRIPT" "verification-report.md")
+VERIFICATION_TEMPLATE_PATH=$(node scripts/kata-lib.cjs resolve-template "verification-report.md")
 VERIFICATION_TEMPLATE_CONTENT=$(cat "$VERIFICATION_TEMPLATE_PATH")
 ```
 
@@ -324,7 +322,7 @@ Proceed to `present_test`.
 After UAT tests complete and UAT.md is committed, check for project-specific verification commands:
 
 ```bash
-EXTRA_CMDS_JSON=$(bash "../kata-configure-settings/scripts/read-pref.sh" "workflows.verify-work.extra_verification_commands" "[]")
+EXTRA_CMDS_JSON=$(node scripts/kata-lib.cjs read-pref "workflows.verify-work.extra_verification_commands" "[]")
 ```
 
 **If `EXTRA_CMDS_JSON` is `[]` or empty:** Skip this step.

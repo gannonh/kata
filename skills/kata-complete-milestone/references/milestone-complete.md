@@ -63,7 +63,7 @@ must happen on a release branch, not main.
 ```bash
 PR_WORKFLOW=$(cat .planning/config.json 2>/dev/null | grep -o '"pr_workflow"[[:space:]]*:[[:space:]]*[^,}]*' | grep -o 'true\|false' || echo "false")
 CURRENT_BRANCH=$(git branch --show-current)
-WORKTREE_ENABLED=$(bash ../kata-configure-settings/scripts/read-config.sh "worktree.enabled" "false")
+WORKTREE_ENABLED=$(node scripts/kata-lib.cjs read-config "worktree.enabled" "false")
 ```
 
 **If `PR_WORKFLOW=true` AND `CURRENT_BRANCH=main`:**
@@ -77,8 +77,8 @@ VERSION="X.Y.Z"  # Set from user input or detection
 **When `WORKTREE_ENABLED=true`:**
 
 ```bash
-# Create release worktree (manage-worktree.sh is in kata-execute-phase)
-eval "$(bash ../kata-execute-phase/scripts/manage-worktree.sh create release "v$VERSION")"
+# Create release worktree
+eval "$(bash scripts/manage-worktree.sh create release "v$VERSION")"
 echo "✓ Created release worktree at $WORKTREE_PATH on branch $WORKTREE_BRANCH"
 ```
 
@@ -126,8 +126,8 @@ Proceed without creating branch.
 Read workflow config for milestone completion overrides:
 
 ```bash
-VERSION_FILES_JSON=$(bash ../kata-configure-settings/scripts/read-pref.sh "workflows.complete-milestone.version_files" "[]")
-PRE_RELEASE_CMDS_JSON=$(bash ../kata-configure-settings/scripts/read-pref.sh "workflows.complete-milestone.pre_release_commands" "[]")
+VERSION_FILES_JSON=$(node scripts/kata-lib.cjs read-pref "workflows.complete-milestone.version_files" "[]")
+PRE_RELEASE_CMDS_JSON=$(node scripts/kata-lib.cjs read-pref "workflows.complete-milestone.pre_release_commands" "[]")
 ```
 
 - `version_files` — JSON array of file paths. When non-empty, overrides version-detector.md auto-detection. When `[]`, falls back to auto-detection (existing behavior).
@@ -225,8 +225,7 @@ If "wait": Stop, user will return when ready.
 **Resolve changelog entry template (project override -> plugin default):**
 
 ```bash
-RESOLVE_SCRIPT="../kata-execute-phase/scripts/resolve-template.sh"
-CHANGELOG_TEMPLATE_PATH=$(bash "$RESOLVE_SCRIPT" "changelog-entry.md")
+CHANGELOG_TEMPLATE_PATH=$(node scripts/kata-lib.cjs resolve-template "changelog-entry.md")
 CHANGELOG_TEMPLATE_CONTENT=$(cat "$CHANGELOG_TEMPLATE_PATH")
 ```
 

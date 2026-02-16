@@ -49,10 +49,9 @@ BRANCH="${BRANCH_TYPE}/v${MILESTONE}-${PHASE_NUM}-${SLUG}"
 if [ -d ../.bare ]; then
   if [ ! -d ../workspace ]; then
     # Old layout: bare repo without workspace/ — tell user to migrate
-    SETUP_SCRIPT="$SCRIPT_DIR/../../kata-configure-settings/scripts/setup-worktrees.sh"
     echo "Error: Old worktree layout detected (no workspace/ directory)." >&2
-    echo "Run migration from $(pwd):" >&2
-    echo "  bash \"$SETUP_SCRIPT\"" >&2
+    echo "Run /kata-configure-settings to set up worktrees, or:" >&2
+    echo "  Run setup-worktrees.sh from kata-configure-settings skill" >&2
     echo "Then restart Claude Code from workspace/:" >&2
     echo "  cd $(cd .. && pwd)/workspace" >&2
     exit 1

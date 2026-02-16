@@ -13,6 +13,7 @@ This is the most leveraged moment in any project. Deep questioning here means be
 **Creates:**
 - `.planning/PROJECT.md` — project context
 - `.planning/config.json` — workflow preferences
+- `.planning/intel/` — empty v2 intel scaffolding (index.json, conventions.json, summary.md)
 
 **After this command:** Run `/kata-add-milestone` to define your first milestone.
 
@@ -162,6 +163,13 @@ touch .planning/phases/pending/.gitkeep .planning/phases/active/.gitkeep .planni
 
 This creates `.planning/`, `.planning/phases/`, the three state subdirectories, and `.gitkeep` files so git tracks them. Run this BEFORE writing any files.
 
+**Scaffold empty intel for greenfield progressive capture:**
+
+```bash
+# Scaffold empty intel for greenfield progressive capture
+node "scripts/scaffold-intel.cjs" 2>/dev/null || echo "Warning: Intel scaffolding skipped"
+```
+
 Synthesize all context into `.planning/PROJECT.md` using the template from `@./references/project-template.md`.
 
 **For greenfield projects:**
@@ -240,7 +248,7 @@ Do not compress. Capture everything gathered.
 **Commit PROJECT.md:**
 
 ```bash
-git add .planning/PROJECT.md .planning/phases/pending/.gitkeep .planning/phases/active/.gitkeep .planning/phases/completed/.gitkeep
+git add .planning/PROJECT.md .planning/phases/pending/.gitkeep .planning/phases/active/.gitkeep .planning/phases/completed/.gitkeep .planning/intel/
 git commit -m "$(cat <<'EOF'
 docs: initialize project
 
@@ -697,6 +705,9 @@ MISSING=""
 [ -f .planning/phases/pending/.gitkeep ] || MISSING="${MISSING}\n- .planning/phases/pending/.gitkeep"
 [ -f .planning/phases/active/.gitkeep ] || MISSING="${MISSING}\n- .planning/phases/active/.gitkeep"
 [ -f .planning/phases/completed/.gitkeep ] || MISSING="${MISSING}\n- .planning/phases/completed/.gitkeep"
+[ -f .planning/intel/index.json ] || MISSING="${MISSING}\n- .planning/intel/index.json"
+[ -f .planning/intel/conventions.json ] || MISSING="${MISSING}\n- .planning/intel/conventions.json"
+[ -f .planning/intel/summary.md ] || MISSING="${MISSING}\n- .planning/intel/summary.md"
 if [ -n "$MISSING" ]; then
   echo "MISSING ARTIFACTS:${MISSING}"
 else
@@ -719,6 +730,7 @@ fi
 | ----------- | ---------------------------- |
 | Project     | `.planning/PROJECT.md`       |
 | Config      | `.planning/config.json`      |
+| Intel       | `.planning/intel/`           |
 
 Ready for milestone planning ✓
 
@@ -776,7 +788,9 @@ Settings for `main`:
 
 - `.planning/PROJECT.md`
 - `.planning/config.json`
-- `.planning/preferences.json`
+- `.planning/intel/index.json`
+- `.planning/intel/conventions.json`
+- `.planning/intel/summary.md`
 
 </output>
 
@@ -789,7 +803,8 @@ Settings for `main`:
 - [ ] Deep questioning completed (threads followed, not rushed)
 - [ ] PROJECT.md captures full context → **committed**
 - [ ] config.json has mode, depth, commit_docs, pr_workflow, github → **committed**
-- [ ] Self-validation passed (all artifacts exist)
+- [ ] `.planning/intel/` scaffolded with empty v2 schema (index.json, conventions.json, summary.md)
+- [ ] Self-validation passed (all artifacts exist, including intel files)
 - [ ] User knows next step is `/kata-add-milestone`
 
 **Atomic commits:** PROJECT.md and config.json are committed. If context is lost, artifacts persist.

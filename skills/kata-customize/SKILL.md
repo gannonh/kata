@@ -52,7 +52,7 @@ What would you like to do?
 Run the discovery script:
 
 ```bash
-bash ./scripts/list-templates.sh
+bash scripts/list-templates.sh
 ```
 
 Parse the JSON output. Display:
@@ -164,7 +164,7 @@ Ask the user what they want to change. Two paths:
 After writing changes (or when user returns from external editing), run single-template validation:
 
 ```bash
-bash ../kata-doctor/scripts/check-template-drift.sh
+node scripts/kata-lib.cjs check-template-drift
 ```
 
 If drift warnings mention the edited template, display them. If clean, display:
@@ -182,7 +182,7 @@ If drift warnings mention the edited template, display them. If clean, display:
 Run validation on all overrides:
 
 ```bash
-DRIFT_OUTPUT=$(bash ../kata-doctor/scripts/check-template-drift.sh 2>/dev/null)
+DRIFT_OUTPUT=$(node scripts/kata-lib.cjs check-template-drift 2>/dev/null)
 ```
 
 If `DRIFT_OUTPUT` is empty and `.planning/templates/` exists with .md files:
@@ -230,6 +230,6 @@ To fix, edit the override or reset to default:
 - [ ] Default copied to .planning/templates/ with overwrite protection
 - [ ] Edit operation reads current content and applies user changes
 - [ ] Validation runs after edit and reports missing fields
-- [ ] All operations use existing infrastructure (kata-lib.cjs resolve-template, check-template-drift.sh)
+- [ ] All operations use existing infrastructure (kata-lib.cjs resolve-template, kata-lib.cjs check-template-drift)
 - [ ] Skill responds to natural language triggers
       </success_criteria>

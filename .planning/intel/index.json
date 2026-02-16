@@ -1,8 +1,9 @@
 {
-  "version": 1,
-  "generated": "2026-02-16T18:16:45.902Z",
-  "source": "kata-map-codebase",
-  "commitHash": "9a69b71",
+  "version": 2,
+  "generated": "2026-02-16T21:00:47.263Z",
+  "source": "code-scan",
+  "generatedBy": "scan-codebase",
+  "commitHash": "bd3fb9e",
   "files": {
     "agents/*.md": {
       "exports": [],
@@ -261,15 +262,86 @@
       "imports": [],
       "type": "util",
       "layer": "shared"
+    },
+    "scripts/build.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "fs",
+          "path",
+          "url"
+        ],
+        "local": []
+      },
+      "type": "util",
+      "layer": "shared",
+      "lastIndexed": "bd3fb9e",
+      "indexedAt": "2026-02-16T21:00:47.263Z"
+    },
+    "skills/_shared/kata-lib.cjs": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "fs",
+          "path"
+        ],
+        "local": []
+      },
+      "type": "util",
+      "layer": "shared",
+      "lastIndexed": "bd3fb9e",
+      "indexedAt": "2026-02-16T21:00:47.263Z"
+    },
+    "skills/kata-execute-phase/scripts/update-intel-summary.cjs": {
+      "exports": [
+        "main"
+      ],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:path"
+        ],
+        "local": []
+      },
+      "type": "util",
+      "layer": "shared",
+      "lastIndexed": "bd3fb9e",
+      "indexedAt": "2026-02-16T21:00:47.263Z"
+    },
+    "skills/kata-new-project/scripts/scaffold-intel.cjs": {
+      "exports": [
+        "buildConventionsJson",
+        "buildIndexJson",
+        "buildSummaryMd",
+        "resolveProjectRoot",
+        "scaffold"
+      ],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:path"
+        ],
+        "local": []
+      },
+      "type": "util",
+      "layer": "shared",
+      "lastIndexed": "bd3fb9e",
+      "indexedAt": "2026-02-16T21:00:47.263Z"
     }
   },
   "stats": {
-    "total_files": 43,
-    "by_type": {
-      "util": 43
+    "totalFiles": 47,
+    "byType": {
+      "util": 47
     },
-    "by_layer": {
-      "shared": 43
+    "byLayer": {
+      "shared": 47
+    },
+    "byExtension": {
+      ".md": 37,
+      ".js": 2,
+      ".sh": 5,
+      ".cjs": 3
     }
   }
 }

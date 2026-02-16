@@ -62,7 +62,7 @@ Running diagnostics...
 Run format detection:
 
 ```bash
-bash ./scripts/check-roadmap-format.sh 2>/dev/null
+node scripts/kata-lib.cjs check-roadmap 2>/dev/null
 FORMAT_EXIT=$?
 ```
 
@@ -136,7 +136,7 @@ Use Write tool to update `.planning/ROADMAP.md` with new format.
 **Step 5: Verify migration**
 
 ```bash
-bash ./scripts/check-roadmap-format.sh 2>/dev/null
+node scripts/kata-lib.cjs check-roadmap 2>/dev/null
 VERIFY_EXIT=$?
 ```
 
