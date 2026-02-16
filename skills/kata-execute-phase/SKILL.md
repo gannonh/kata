@@ -411,6 +411,29 @@ TEST_SCRIPT=$(cat package.json 2>/dev/null | grep -o '"test"[[:space:]]*:[[:spac
    - `human_needed` → present items to user, get approval or feedback
    - `gaps_found` → present gaps, offer `/kata-plan-phase {X} --gaps`
 
+7.25. **Update codebase index (incremental scan)**
+
+If `.planning/intel/index.json` exists, run an incremental codebase scan to capture changes from this phase's execution. This keeps the index fresh as code evolves.
+
+```bash
+if [ -f ".planning/intel/index.json" ]; then
+  # Get the earliest commit from this phase execution
+  # Use the activation commit as the baseline
+  PHASE_START_COMMIT=$(git log --oneline --all --grep="activate phase" --grep="${PHASE_NUM}" --all-match --format="%H" | tail -1)
+
+  if [ -n "$PHASE_START_COMMIT" ]; then
+    SCAN_SCRIPT=""
+    [ -f "scripts/scan-codebase.cjs" ] && SCAN_SCRIPT="scripts/scan-codebase.cjs"
+    [ -z "$SCAN_SCRIPT" ] && SCAN_SCRIPT=$(find skills/kata-map-codebase/scripts -name "scan-codebase.cjs" -type f 2>/dev/null | head -1)
+    if [ -n "$SCAN_SCRIPT" ]; then
+      node "$SCAN_SCRIPT" --incremental --since "$PHASE_START_COMMIT" 2>/dev/null || true
+    fi
+  fi
+fi
+```
+
+Non-blocking: if the scan fails or intel does not exist, continue silently. The scan is an optional enhancement. The `|| true` ensures the step never blocks phase completion.
+
 7.5. **Validate completion and move to completed**
 
 After verification passes, validate completion artifacts before moving phase to completed:

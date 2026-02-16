@@ -9,7 +9,7 @@ Analyze existing codebase using parallel kata-codebase-mapper agents to produce 
 
 Each mapper agent explores a focus area and **writes documents directly** to `.planning/codebase/`. The orchestrator only receives confirmations, keeping context usage minimal.
 
-Output: .planning/codebase/ folder with 7 structured documents, plus .planning/intel/ with compressed agent-readable artifacts.
+Output: .planning/codebase/ folder with 7 structured documents, plus .planning/intel/ with compressed agent-readable artifacts (doc-derived summary + code-scanned index and conventions).
 </objective>
 
 <execution_context>
@@ -61,6 +61,17 @@ Check for .planning/STATE.md - loads context if project already initialized
      ```bash
      ls .planning/intel/summary.md .planning/intel/index.json .planning/intel/conventions.json
      ```
+5.6. Scan source code for structured index
+   Run the code scanner to produce code-derived index.json and conventions.json:
+   ```bash
+   node scripts/scan-codebase.cjs
+   ```
+   This overwrites the doc-derived index.json and conventions.json from step 5.5 with code-derived data (version 2 schema with per-file imports/exports, naming detection, directory purposes).
+   If the script fails, show the error to the user and continue (non-blocking).
+   Verify code-scan artifacts:
+   ```bash
+   node -e "const j=JSON.parse(require('fs').readFileSync('.planning/intel/index.json','utf8')); console.log('index version:', j.version, 'files:', Object.keys(j.files).length)"
+   ```
 6. Commit codebase map and intel artifacts (`.planning/codebase/` + `.planning/intel/`)
 7. Offer next steps (typically: /kata-new-project or /kata-plan-phase)
 </process>
