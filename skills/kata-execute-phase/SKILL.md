@@ -411,28 +411,44 @@ TEST_SCRIPT=$(cat package.json 2>/dev/null | grep -o '"test"[[:space:]]*:[[:spac
    - `human_needed` → present items to user, get approval or feedback
    - `gaps_found` → present gaps, offer `/kata-plan-phase {X} --gaps`
 
-7.25. **Update codebase index (incremental scan)**
+7.25. **Update codebase index (smart scan)**
 
-If `.planning/intel/index.json` exists, run an incremental codebase scan to capture changes from this phase's execution. This keeps the index fresh as code evolves.
+If `.planning/intel/index.json` exists, determine scan mode and run the appropriate scan. After scanning, update summary.md if needed.
 
 ```bash
 if [ -f ".planning/intel/index.json" ]; then
-  # Get the earliest commit from this phase execution
-  # Use the activation commit as the baseline
-  PHASE_START_COMMIT=$(git log --oneline --all --grep="activate phase" --grep="${PHASE_NUM}" --all-match --format="%H" | tail -1)
+  # Determine scan mode: full (greenfield first population) vs incremental
+  TOTAL_FILES=$(node -e "const j=JSON.parse(require('fs').readFileSync('.planning/intel/index.json','utf8')); console.log(j.stats?.totalFiles ?? j.stats?.total_files ?? 0)")
 
-  if [ -n "$PHASE_START_COMMIT" ]; then
-    SCAN_SCRIPT=""
-    [ -f "scripts/scan-codebase.cjs" ] && SCAN_SCRIPT="scripts/scan-codebase.cjs"
-    [ -z "$SCAN_SCRIPT" ] && SCAN_SCRIPT=$(find skills/kata-map-codebase/scripts -name "scan-codebase.cjs" -type f 2>/dev/null | head -1)
-    if [ -n "$SCAN_SCRIPT" ]; then
-      node "$SCAN_SCRIPT" --incremental --since "$PHASE_START_COMMIT" 2>/dev/null || true
+  # Locate scan script
+  SCAN_SCRIPT=""
+  [ -f "scripts/scan-codebase.cjs" ] && SCAN_SCRIPT="scripts/scan-codebase.cjs"
+  [ -z "$SCAN_SCRIPT" ] && SCAN_SCRIPT=$(find skills/kata-map-codebase/scripts -name "scan-codebase.cjs" -type f 2>/dev/null | head -1)
+
+  if [ -n "$SCAN_SCRIPT" ]; then
+    if [ "$TOTAL_FILES" -eq 0 ]; then
+      # Greenfield first population: full scan
+      node "$SCAN_SCRIPT" 2>/dev/null || true
+    else
+      # Existing codebase: incremental scan
+      PHASE_START_COMMIT=$(git log --oneline --all --grep="activate phase" --grep="${PHASE_NUM}" --all-match --format="%H" | tail -1)
+      if [ -n "$PHASE_START_COMMIT" ]; then
+        node "$SCAN_SCRIPT" --incremental --since "$PHASE_START_COMMIT" 2>/dev/null || true
+      fi
+    fi
+
+    # Update summary.md from scan data (greenfield path only)
+    SUMMARY_SCRIPT=""
+    [ -f "scripts/update-intel-summary.cjs" ] && SUMMARY_SCRIPT="scripts/update-intel-summary.cjs"
+    [ -z "$SUMMARY_SCRIPT" ] && SUMMARY_SCRIPT=$(find skills/kata-execute-phase/scripts -name "update-intel-summary.cjs" -type f 2>/dev/null | head -1)
+    if [ -n "$SUMMARY_SCRIPT" ]; then
+      node "$SUMMARY_SCRIPT" 2>/dev/null || true
     fi
   fi
 fi
 ```
 
-Non-blocking: if the scan fails or intel does not exist, continue silently. The scan is an optional enhancement. The `|| true` ensures the step never blocks phase completion.
+Non-blocking: all scan and summary operations use `|| true`. Failures never block phase completion.
 
 7.5. **Validate completion and move to completed**
 
