@@ -65,7 +65,7 @@
 | ARCH-01 | 54 | Complete |
 | ARCH-02 | 54 | Complete |
 | ARCH-03 | 56 | Complete |
-| MAINT-01 | 57 | Pending |
-| MAINT-02 | 57 | Pending |
-| MAINT-03 | 57 | Pending |
+| MAINT-01 | 57 | Complete |
+| MAINT-02 | 57 | Partial |
+| MAINT-03 | 57 | Complete |
 | MAINT-04 | 55 | Complete |
