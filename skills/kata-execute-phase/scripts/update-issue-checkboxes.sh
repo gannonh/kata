@@ -9,8 +9,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-source "$SCRIPT_DIR/../../kata-configure-settings/scripts/project-root.sh"
-READ_CONFIG="$SCRIPT_DIR/../../kata-configure-settings/scripts/read-config.sh"
+PROJECT_ROOT=$(node "$SCRIPT_DIR/kata-lib.cjs" resolve-root)
+cd "$PROJECT_ROOT"
 
 PHASE_NUM="${1:?Usage: update-issue-checkboxes.sh <phase-num> <phase-dir> <completed-plan-nums...>}"
 PHASE_DIR="${2:?Usage: update-issue-checkboxes.sh <phase-num> <phase-dir> <completed-plan-nums...>}"
@@ -22,9 +22,9 @@ if [ -z "$COMPLETED_PLANS" ]; then
   exit 0
 fi
 
-# Check github.enabled and issue_mode via read-config.sh
-GITHUB_ENABLED=$(bash "$READ_CONFIG" "github.enabled" "false")
-ISSUE_MODE=$(bash "$READ_CONFIG" "github.issue_mode" "never")
+# Check github.enabled and issue_mode
+GITHUB_ENABLED=$(node "$SCRIPT_DIR/kata-lib.cjs" read-config "github.enabled" "false")
+ISSUE_MODE=$(node "$SCRIPT_DIR/kata-lib.cjs" read-config "github.issue_mode" "never")
 
 if [ "$GITHUB_ENABLED" != "true" ] || [ "$ISSUE_MODE" = "never" ]; then
   echo "Skipped: GitHub issues not enabled"

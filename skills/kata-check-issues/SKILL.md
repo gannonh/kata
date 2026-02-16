@@ -92,7 +92,7 @@ Check for area filter in arguments:
 <step name="list_issues">
 **1. Check GitHub config:**
 ```bash
-GITHUB_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.enabled" "false")
+GITHUB_ENABLED=$(node scripts/kata-lib.cjs read-config "github.enabled" "false")
 ```
 
 **2. Build dedupe list from local files' provenance fields:**
@@ -358,7 +358,7 @@ if echo "$PROVENANCE" | grep -q "^github:"; then
   ISSUE_NUMBER=$(echo "$PROVENANCE" | grep -oE '#[0-9]+' | tr -d '#')
 
   if [ -n "$ISSUE_NUMBER" ]; then
-    GITHUB_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.enabled" "false")
+    GITHUB_ENABLED=$(node scripts/kata-lib.cjs read-config "github.enabled" "false")
 
     if [ "$GITHUB_ENABLED" = "true" ]; then
       gh label create "in-progress" --description "Issue is actively being worked on" --color "FFA500" 2>/dev/null || true
@@ -619,7 +619,7 @@ if echo "$PROVENANCE" | grep -q "^github:"; then
   ISSUE_NUMBER=$(echo "$PROVENANCE" | grep -oE '#[0-9]+' | tr -d '#')
 
   if [ -n "$ISSUE_NUMBER" ]; then
-    GITHUB_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.enabled" "false")
+    GITHUB_ENABLED=$(node scripts/kata-lib.cjs read-config "github.enabled" "false")
 
     if [ "$GITHUB_ENABLED" = "true" ]; then
       # Create in-progress label idempotently (ignore error if exists)
@@ -672,7 +672,7 @@ mv ".planning/issues/open/${date_prefix}-${slug}.md" ".planning/issues/in-progre
 ISSUE_FILE=".planning/issues/in-progress/${date_prefix}-${slug}.md"
 
 # Add in-progress label to GitHub Issue (we know it's GitHub-linked)
-GITHUB_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.enabled" "false")
+GITHUB_ENABLED=$(node scripts/kata-lib.cjs read-config "github.enabled" "false")
 
 if [ "$GITHUB_ENABLED" = "true" ]; then
   gh label create "in-progress" --description "Issue is actively being worked on" --color "FFA500" 2>/dev/null || true
@@ -897,7 +897,7 @@ If proceeding without mode selection:
 mv ".planning/issues/open/${date_prefix}-${slug}.md" ".planning/issues/in-progress/"
 
 # Add in-progress label to GitHub Issue (we know it's GitHub-linked since this is the GitHub-only path)
-GITHUB_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.enabled" "false")
+GITHUB_ENABLED=$(node scripts/kata-lib.cjs read-config "github.enabled" "false")
 
 if [ "$GITHUB_ENABLED" = "true" ]; then
   # Create in-progress label idempotently (ignore error if exists)
@@ -946,7 +946,7 @@ if echo "$PROVENANCE" | grep -q "^github:"; then
 
   if [ -n "$ISSUE_NUMBER" ]; then
     # Check github.enabled (may have changed since issue was created)
-    GITHUB_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.enabled" "false")
+    GITHUB_ENABLED=$(node scripts/kata-lib.cjs read-config "github.enabled" "false")
 
     if [ "$GITHUB_ENABLED" = "true" ]; then
       # Close GitHub Issue with comment
@@ -1028,7 +1028,7 @@ If issue state changed, commit the change:
 **Check planning config:**
 
 ```bash
-COMMIT_PLANNING_DOCS=$(bash "../kata-configure-settings/scripts/read-config.sh" "commit_docs" "true")
+COMMIT_PLANNING_DOCS=$(node scripts/kata-lib.cjs read-config "commit_docs" "true")
 git check-ignore -q .planning 2>/dev/null && COMMIT_PLANNING_DOCS=false
 ```
 

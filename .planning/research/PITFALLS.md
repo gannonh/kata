@@ -1,374 +1,360 @@
-# Domain Pitfalls: Agent Skills Migration
+# Domain Pitfalls: Codebase Intelligence for AI Agents
 
-**Domain:** Converting custom subagents to Agent Skills resources
-**Researched:** 2026-02-04
-**Confidence:** HIGH (based on Kata codebase analysis + industry patterns)
+**Domain:** Building codebase knowledge capture, convention detection, and doc gardening for AI coding agents
+**Researched:** 2026-02-15
+**Confidence:** HIGH (cross-verified against OpenAI Harness Engineering, Anthropic context engineering docs, Kata's own failed attempt, and industry implementations)
 
 ## Executive Summary
 
-This research identifies critical pitfalls when converting Kata's 15+ custom subagents to Agent Skills resources. The migration involves:
-- Converting `agents/kata-*.md` files to skill resources
-- Preserving tool allowlists and context passing
-- Maintaining orchestrator-agent communication patterns
-- Testing behavior equivalence
+Codebase intelligence systems for AI agents fail in predictable ways. The dominant failure mode is over-engineering: building graph databases, entity extraction pipelines, and WASM runtimes when flat files solve the problem. Kata's previous attempt documented this exact failure. The second failure mode is context poisoning: loading so much knowledge that agent performance degrades rather than improves. The third is documentation rot: building a system that captures knowledge once but never updates it.
 
-The most dangerous pattern: **context passing assumptions mismatch**. Kata orchestrators inline context via Task prompts. Agent Skills receive context differently. Silent failures occur when agents execute without required context.
+This research covers 13 pitfalls organized by severity, each with detection signals, prevention strategies, and phase assignment.
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites or significant rework.
+Mistakes that cause the feature to fail outright or require a rewrite.
 
-### Pitfall 1: Context Passing Assumption Mismatch
+### Pitfall 1: Over-Engineering the Storage Layer
 
-**What goes wrong:** Custom agents receive context via Task tool prompt parameter with inlined content. Agent Skills receive context differently (SKILL.md content + `$ARGUMENTS`). Migration assumes context flows the same way.
+**What goes wrong:** Teams build graph databases, vector stores, or custom query engines for codebase knowledge. The system becomes too complex to maintain, too slow to run incrementally, and too coupled to specific tooling.
 
-**Why it happens:** Kata's current architecture uses orchestrators to read files with the Read tool, then inline content into Task prompts:
+**Why it happens:** Codebase relationships (imports, exports, call graphs) naturally suggest graph structures. Engineers default to "the right data structure" rather than "the simplest thing that works." Knowledge graph literature reinforces this: graph search finds structural reality while vector search finds conceptual relevance.
 
-```javascript
-// Current pattern in kata-plan-phase and kata-execute-phase
-Task(
-  prompt="Execute plan at {plan_path}\n\n<plan>\n{plan_content}\n</plan>...",
-  subagent_type="kata-executor",
-  model="{executor_model}"
-)
-```
+**Kata's previous attempt did exactly this.** KATA-STYLE.md documented an intel system with:
+- `index.json` for file exports/imports
+- `conventions.json` for pattern detection
+- `summary.md` for agent injection
+- PostToolUse hooks for incremental updates
+- A graph DB and WASM sqlite dependency
+- An entity generator agent
 
-Agent Skills receive their SKILL.md body as the prompt, with `$ARGUMENTS` as the variable input. The `@` syntax for file references does not work across Task boundaries.
+None of it was implemented. The design was too complex for Kata's file-based architecture.
 
 **Consequences:**
-- Agents receive incomplete context and produce incorrect output
-- Plans execute without access to STATE.md, ROADMAP.md, or prior SUMMARYs
-- Verification fails because verifier lacks must_haves from PLAN.md frontmatter
+- Feature never ships (Kata's actual outcome)
+- Maintenance burden exceeds value
+- Dependency on external tools (WASM, sqlite) breaks portability
+- Integration complexity blocks adoption
 
 **Prevention:**
-1. Audit every Task invocation to identify what context is inlined
-2. Design explicit context injection mechanism for Skills:
-   - Use `!`command`` syntax for dynamic context injection (pre-executes shell commands)
-   - Pre-read required files in orchestrator and pass via structured `$ARGUMENTS`
-   - Consider the `context: fork` pattern for Skills that need isolation
-3. Create context contract documentation for each converted agent
+1. Start with markdown files in `.planning/intel/`. No database, no query engine.
+2. Use JSON only for machine-readable indexes that scripts consume directly.
+3. Limit the storage layer to what `cat`, `grep`, and `jq` can query.
+4. Set a complexity budget: if you can't explain the data flow in 3 sentences, simplify.
+5. Validate the design against Kata's constraint: bash scripts + markdown + JSON only.
 
 **Detection (warning signs):**
-- Agent asks for information that should already be available
-- Verification or execution produces "file not found" or "variable undefined" errors
-- Output references placeholder values instead of real data
+- Design mentions "graph," "vector," "embedding," or "query engine"
+- Implementation requires dependencies not already in Kata
+- A script needs more than 50 lines to read/write the knowledge store
+- Storage format requires a custom parser
 
-**Which phase should address:** Phase 1 (POC) with kata-planner and kata-executor
+**Which phase should address:** Phase 1 (architecture). Decide the storage format before writing any code.
 
 ---
 
-### Pitfall 2: Tool Allowlist Semantic Drift
+### Pitfall 2: Context Poisoning from Excessive Knowledge Loading
 
-**What goes wrong:** Custom agents have explicit `tools:` frontmatter. Agent Skills have `allowed-tools:` with different semantics. During migration, the tool lists get copied but the permission model changes.
+**What goes wrong:** The system loads too much codebase knowledge into agent context windows. Agent performance degrades rather than improves. This is the "one big AGENTS.md" problem that OpenAI's Harness Engineering paper identified.
 
-**Why it happens:** Current Kata agents specify tools as a simple list:
-
-```yaml
-# Current agent (kata-executor.md)
-tools: Read, Write, Edit, Bash, Grep, Glob
-```
-
-Agent Skills `allowed-tools` field controls permission prompting (tools that run without asking), not tool availability. The Skills documentation states: "If you omit `tools`, you're implicitly granting access to all available tools."
+**Why it happens:** Intuition says "more context = better results." Research shows the opposite. Context rot degrades LLM performance as context fills up, even well within the technical token limit. The effective context window where models maintain high-quality reasoning is often below 256k tokens, far less than the advertised limit. Anthropic's own guidance: context engineering is about finding the minimal effective context for the next step.
 
 **Consequences:**
-- Agents gain unintended capabilities (MCP tools, dangerous operations)
-- Security model degrades silently
-- Agents perform operations they shouldn't (executing arbitrary code, modifying files outside scope)
+- Agents produce lower-quality plans and code (the "lost in the middle" phenomenon)
+- Response latency increases
+- API costs increase without proportional quality gain
+- Users can't diagnose why agent output degraded
 
 **Prevention:**
-1. Map current tool lists to explicit `allowed-tools` AND explicit `disallowedTools` in Skills
-2. Test each converted agent with all tools disabled, then enable one at a time
-3. Consider using `context: fork` with restricted agents for isolation
-4. Add hooks (`PreToolUse`) for conditional validation when simple lists are insufficient
+1. Budget knowledge injection. Set a hard cap (e.g., 2k tokens) for codebase intelligence injected per agent spawn.
+2. Make injection selective. Planner gets conventions + architecture. Executor gets file-level details for the files it will touch. Verifier gets acceptance criteria only.
+3. Use progressive disclosure: `summary.md` (always loaded) points to detail files (loaded on demand).
+4. Measure before and after. Compare agent output quality with and without knowledge injection on the same tasks.
+5. Follow the Harness Engineering lesson: give agents a map, not an encyclopedia.
 
 **Detection (warning signs):**
-- Agent completes tasks suspiciously fast (skipping verification)
-- Agent modifies files outside its expected scope
-- Agent uses tools not in original allowlist
+- `summary.md` exceeds 100 lines or 2k tokens
+- Agent spawning code inlines multiple knowledge files
+- Agent asks clarifying questions it didn't ask before knowledge injection
+- Plan quality doesn't improve (or worsens) after adding codebase intelligence
 
-**Which phase should address:** Phase 1 (POC) and Phase 2 (conversion of each agent)
+**Which phase should address:** Phase 1 (architecture) for the injection budget, Phase 2+ for measuring and tuning.
 
 ---
 
-### Pitfall 3: Model Selection Regression
+### Pitfall 3: Building Capture Without Consumption
 
-**What goes wrong:** Kata orchestrators select models based on config profiles (quality/balanced/budget). Agent Skills have a `model` field but it's static per skill. Migration loses dynamic model selection.
+**What goes wrong:** The system captures codebase knowledge (indexes files, detects conventions) but no agent workflow actually uses it. The knowledge sits in `.planning/intel/` with no consumer.
 
-**Why it happens:** Current orchestrators implement model lookup:
+**Kata's previous attempt did exactly this.** The entity generator agent was documented but orphaned. Nothing spawned it. The planner and executor had `load_codebase_intelligence` steps, but the files they tried to load were never generated. The `2>/dev/null` suppression made this failure invisible.
 
-```bash
-MODEL_PROFILE=$(cat .planning/config.json | grep '"model_profile"' | ... || echo "balanced")
-# Then lookup table:
-# | Agent          | quality | balanced | budget |
-# | kata-planner   | opus    | opus     | sonnet |
-```
-
-Agent Skills `model` field is a single value, not configurable per invocation.
+**Why it happens:** Capture is a tractable engineering problem (scan files, extract data, write JSON). Consumption requires modifying existing agent workflows, which is riskier and harder to test. Teams build capture first, defer consumption, and never close the loop.
 
 **Consequences:**
-- Users lose cost control (budget profile users get expensive models)
-- Performance degrades (quality profile users get cheaper models)
-- Orchestrator complexity increases to compensate
+- Feature appears complete but delivers zero value
+- Users run indexing commands but see no improvement in agent behavior
+- Maintenance cost without corresponding benefit
+- Silent failures when agents try to load nonexistent knowledge
 
 **Prevention:**
-1. Keep model selection in orchestrator, NOT in Skill definition
-2. Use `model: inherit` in Skills so orchestrator controls selection
-3. If Skills must specify models, create profile-specific Skill variants or use hooks
+1. Build consumption first. Modify one agent (the planner) to read a hand-written `summary.md`. Verify it improves plan quality. Then automate the generation.
+2. Every capture feature must have a named consumer. "The planner reads conventions from X. The executor reads file details from Y."
+3. Delete the `2>/dev/null` pattern. If knowledge is supposed to exist and doesn't, fail loudly.
+4. Add a smoke test: after indexing, verify the planner's output references detected conventions.
 
 **Detection (warning signs):**
-- Unexpected API costs after migration
-- Model-specific behaviors (hallucination rates, context limits) differ from pre-migration
-- config.json model_profile setting has no effect
+- Knowledge files exist but no SKILL.md references them
+- Agent workflows have `(if exists)` guards around knowledge loading
+- No test verifies that agents actually use captured knowledge
+- Removing the knowledge files changes nothing about agent behavior
 
-**Which phase should address:** Phase 1 (POC) design decision
+**Which phase should address:** Phase 1. Wire consumption before building capture automation.
 
 ---
 
-### Pitfall 4: Structured Return Contract Breakage
+### Pitfall 4: Documentation Rot Without Enforcement
 
-**What goes wrong:** Kata agents return structured outputs (`## PLANNING COMPLETE`, `## CHECKPOINT REACHED`, `## DEBUG COMPLETE`). Orchestrators parse these to determine next action. Skills may not maintain the same return contract.
+**What goes wrong:** Codebase knowledge captures a snapshot that becomes stale as code changes. No mechanism detects or fixes drift. Over time, stale knowledge actively poisons agent context.
 
-**Why it happens:** Current agents have explicit `<structured_returns>` sections defining output formats:
+**Why it happens:** Documentation systems lack feedback loops. Code changes through commits; documentation changes through manual effort. Without mechanical enforcement (linters, CI checks, freshness timestamps), documentation decays at the rate of code change.
 
-```markdown
-## PLANNING COMPLETE
-**Phase:** {phase-name}
-**Plans:** {N} plan(s) in {M} wave(s)
-...
-```
-
-Orchestrators pattern-match on these:
-
-```bash
-# Implied in orchestrator logic
-if output contains "## PLANNING COMPLETE"
-  → proceed to verification
-elif output contains "## CHECKPOINT REACHED"
-  → present to user
-```
-
-Agent Skills don't enforce return formats. The Skill body IS the prompt, but output structure is not guaranteed.
+**The Harness Engineering paper identified this explicitly.** Their solution: a doc-gardening agent that scans for stale docs and opens fix-up PRs, combined with mechanical enforcement through custom linters and structural tests.
 
 **Consequences:**
-- Orchestrators fail to parse agent output
-- Workflows hang waiting for patterns that never appear
-- Silent failures where orchestrator assumes success
+- Agents plan against outdated architecture descriptions
+- Convention enforcement references patterns that no longer exist
+- Users lose trust in the system and stop maintaining knowledge files
+- Stale knowledge is worse than no knowledge (actively misleads)
 
 **Prevention:**
-1. Maintain explicit output format requirements in Skill body
-2. Add output validation in orchestrators after Skill completion
-3. Consider hooks (`Stop`) to validate output format before returning to orchestrator
-4. Test return format parsing with diverse outputs
+1. Add freshness timestamps to every knowledge file. `updated: 2026-02-15` in frontmatter.
+2. Track what triggered the last update (commit hash, file change, manual edit).
+3. Flag files older than N commits or N days as potentially stale.
+4. Build a staleness check into `/kata-track-progress` so users see warnings.
+5. Design the doc gardening agent as a later phase, but build the freshness metadata now.
 
 **Detection (warning signs):**
-- Orchestrator displays raw agent output instead of formatted results
-- "Next Up" sections never appear
-- State files not updated after agent completion
+- Knowledge files have no timestamp or version metadata
+- No process triggers knowledge updates when code changes
+- Knowledge references file paths or function names that don't exist
+- Users manually edit knowledge files without tooling support
 
-**Which phase should address:** Phase 1 (POC) with kata-planner and kata-executor
-
----
-
-### Pitfall 5: Subagent-Cannot-Spawn-Subagent Hierarchy Violation
-
-**What goes wrong:** Kata's architecture relies on Skills spawning subagents via Task tool. The Agent Skills documentation states "Subagents cannot spawn other subagents." If Skills become subagents, the orchestration hierarchy breaks.
-
-**Why it happens:** Current Kata Skills ARE orchestrators. They spawn agents:
-
-```
-Skill (kata-plan-phase)
-  → spawns Agent (kata-phase-researcher)
-  → spawns Agent (kata-planner)
-  → spawns Agent (kata-plan-checker)
-```
-
-If Skills execute as subagents (via `context: fork`), they lose the ability to spawn further subagents.
-
-**Consequences:**
-- Multi-agent workflows become impossible
-- kata-plan-phase can't spawn kata-planner
-- kata-execute-phase can't spawn kata-executor
-- Architecture requires complete redesign
-
-**Prevention:**
-1. Skills that orchestrate MUST NOT use `context: fork`
-2. Only leaf-node agents (those that do work, not spawn others) should become skill resources
-3. Keep orchestrator logic in Skills without `context: fork`
-4. Converted agents become skill resources spawned by Task, not Skills with `context: fork`
-
-**Detection (warning signs):**
-- "Subagents cannot spawn other subagents" error
-- Skill completes but expected subagents never ran
-- Workflow produces incomplete results
-
-**Which phase should address:** Phase 1 (POC) architecture validation
+**Which phase should address:** Phase 1 for freshness metadata. Phase 3+ for automated gardening.
 
 ---
 
 ## Moderate Pitfalls
 
-Mistakes that cause delays or technical debt.
+Mistakes that cause delays, rework, or degraded value.
 
-### Pitfall 6: Discovery Pattern Incompatibility
+### Pitfall 5: Language-Specific Convention Detection
 
-**What goes wrong:** Claude Code discovers Skills from `.claude/skills/` directories. Kata agents live in `agents/` directory. Migration must maintain discoverability.
+**What goes wrong:** Convention detection logic is written for JavaScript/TypeScript (camelCase exports, `.test.ts` suffixes, `import`/`export` parsing). The system breaks or produces garbage for Python, Go, Rust, or polyglot codebases.
 
-**Why it happens:** Claude Code has specific conventions for skill discovery:
-- `.claude/skills/<skill-name>/SKILL.md` (project)
-- `~/.claude/skills/<skill-name>/SKILL.md` (user)
-- Plugin skills in plugin's `skills/` directory
+**Why it happens:** Kata's documented convention detection required 5+ exports with 70%+ match rate for naming conventions, and parsed JS/TS import/export statements. This approach is structurally tied to a single language ecosystem.
 
-Kata's agents are in `agents/kata-*.md`, a flat structure.
+**Consequences:**
+- System produces incorrect conventions for non-JS codebases
+- Users in Python/Go/Rust ecosystems get zero value
+- False conventions poison agent plans ("use camelCase" in a snake_case Python project)
 
 **Prevention:**
-- Skills as subagent resources must be installed to `.claude/skills/` or bundled in plugin
-- Update build system to place converted agents in correct location
-- Test that converted agents are discoverable by Claude Code
+1. Start with language-agnostic conventions: directory structure, file naming patterns, test file locations.
+2. Use file extension distribution as the primary language signal.
+3. Defer language-specific analysis (import parsing, naming convention detection) to later phases.
+4. If detecting naming conventions, use the filesystem (filenames, directory names) rather than parsing source code.
+5. Test against at least 3 language ecosystems before shipping.
 
-**Which phase should address:** Phase 2 (full conversion)
+**Detection (warning signs):**
+- Convention detection code contains `import`, `export`, `require`, or AST parsing
+- Tests only cover JavaScript/TypeScript projects
+- Convention output includes language-specific terminology (e.g., "hooks directory" for a Go project)
+
+**Which phase should address:** Phase 1 (architecture decision). Define what conventions are language-agnostic.
 
 ---
 
-### Pitfall 7: Description Mismatch for Invocation
+### Pitfall 6: Indexing at the Wrong Granularity
 
-**What goes wrong:** Kata agents have descriptions for documentation. Agent Skills descriptions drive invocation (Claude decides when to use them). A documentation-style description becomes a poor invocation trigger.
+**What goes wrong:** The index tracks individual functions/exports (too fine) or entire directories (too coarse). Fine-grained indexes blow up in size and become expensive to maintain. Coarse indexes don't provide enough signal for agents to make good decisions.
 
-**Why it happens:** Current agent descriptions are informational:
+**Why it happens:** The right granularity depends on how agents use the data. Without knowing the consumer, engineers default to "index everything" (the previous Kata design tracked per-file exports and imports) or "index nothing" (just directory listings).
 
-```yaml
-# Current (documentation-style)
-description: Executes Kata plans with atomic commits, deviation handling...
-```
-
-Agent Skills descriptions must trigger invocation:
-
-```yaml
-# Required (invocation-style)
-description: Execute plans. Use when running phase execution, completing plans, or implementing planned tasks.
-```
+**Consequences:**
+- Fine-grained: `index.json` grows to thousands of entries, exceeds context budget, requires pruning logic
+- Coarse: Agents can't distinguish between a utils directory with 3 files and one with 300
+- Both: Maintenance cost doesn't match value delivered
 
 **Prevention:**
-- Rewrite descriptions with invocation triggers in mind
-- Include action phrases: "use when", "for", "handles"
-- Test natural language invocation after conversion
-- Follow Kata's existing skill naming guidance (gerund style)
+1. Index at the file level, not the symbol level. File path + purpose + key dependencies.
+2. Use directory-level summaries for architecture understanding.
+3. Target the planner as primary consumer. What does a planner need to know to assign files to tasks? That determines granularity.
+4. Set a size budget: the full index should fit in the context budget (2k tokens for injection).
 
-**Which phase should address:** Phase 2 (each agent conversion)
+**Detection (warning signs):**
+- Index tracks function signatures, variable names, or line numbers
+- Index file exceeds 500 lines
+- Agents receive index data but don't reference it in their output
+- Index update time exceeds 5 seconds for a single file change
+
+**Which phase should address:** Phase 1 (architecture). Define index schema before implementation.
 
 ---
 
-### Pitfall 8: Hook Migration Gap
+### Pitfall 7: Incremental Update Races and Stale Cache
 
-**What goes wrong:** Kata orchestrators have implicit hook-like behavior (post-execution commits, state updates). Agent Skills have explicit hooks (`PreToolUse`, `PostToolUse`, `Stop`, `SubagentStart`, `SubagentStop`). Implicit behaviors don't automatically migrate.
+**What goes wrong:** The incremental indexing system processes file changes, but race conditions between concurrent agent runs cause partial updates, stale reads, or corrupted JSON.
 
-**Why it happens:** Current orchestrators embed post-execution logic:
+**Why it happens:** Kata agents run in parallel (wave-based execution). If two agents edit files simultaneously and both trigger index updates, the JSON file gets corrupted or one update overwrites the other. File-based systems lack atomic transactions.
 
-```bash
-# In orchestrator after Task returns
-git add .planning/STATE.md
-git commit -m "docs({phase}): complete phase"
-```
-
-Agent Skills would need hooks to replicate this behavior consistently.
+**Consequences:**
+- Corrupted `index.json` breaks all subsequent reads
+- Lost updates mean index drifts from reality
+- Debugging is hard because corruption is intermittent
 
 **Prevention:**
-- Audit each orchestrator for post-execution behaviors
-- Implement explicit hooks for behaviors that must survive migration
-- Test that commits, state updates, and artifacts are created correctly
+1. Use append-only writes during execution. Each agent writes its own update file (e.g., `index-update-{timestamp}.json`).
+2. Merge updates in a single-threaded consolidation step after execution completes.
+3. Or: skip real-time incremental updates entirely. Run full reindex between phases (Kata phases are the natural batch boundary).
+4. If using file locking, use `flock` in bash scripts for atomic writes.
+5. Keep the index format simple enough that a corrupted file can be regenerated from scratch in seconds.
 
-**Which phase should address:** Phase 2 (each agent conversion)
+**Detection (warning signs):**
+- JSON parse errors in knowledge files after parallel execution
+- Index shows files that were deleted or files missing that exist
+- Different agents in the same wave see different index states
+- Tests pass in isolation but fail when run in parallel
+
+**Which phase should address:** Phase 2 (execution integration). Address after single-agent indexing works.
 
 ---
 
-### Pitfall 9: @-Reference Syntax Preservation
+### Pitfall 8: Knowledge Architecture That Doesn't Match Agent Spawning
 
-**What goes wrong:** Kata agents use `@~/.claude/kata/...` paths that the build system transforms. Agent Skills may have different path resolution rules.
+**What goes wrong:** Knowledge is organized for human reading (by topic, by module) rather than for agent consumption (by role, by task). Agents must search through irrelevant knowledge to find what they need.
 
-**Why it happens:** Kata's build system transforms paths:
+**Why it happens:** Engineers organize knowledge the way they think about codebases: "here's the authentication module, here's the database layer." Agents need knowledge organized by their role: "here's what a planner needs, here's what an executor needs for this specific task."
 
-| Build Target | Transformation |
-| --- | --- |
-| Plugin | `@~/.claude/kata/` → `@./kata/` |
+**Kata's architecture makes this concrete.** Skills spawn subagents with fresh 200k context windows. Each subagent gets a tailored prompt. Knowledge must be pre-sliced per agent role, not dumped as a monolith.
 
-Agent Skills may resolve `@` references differently.
+**Consequences:**
+- Agents receive knowledge meant for other roles (executor gets architecture docs meant for planner)
+- Context budget wasted on irrelevant knowledge
+- Agent output quality doesn't improve despite knowledge availability
 
 **Prevention:**
-- Test @-reference resolution after conversion
-- Update build system if Skills have different path semantics
-- Document path transformation rules
+1. Organize knowledge outputs by consumer role:
+   - `summary.md` (all agents, architecture overview)
+   - `conventions.md` (planner + executor, coding patterns)
+   - `file-index.md` or `file-index.json` (planner, file purposes for task assignment)
+2. Skills control which knowledge files get inlined into each subagent prompt.
+3. Never load the full knowledge base into any single agent.
+4. Test each agent role independently: does this agent's output improve with its assigned knowledge?
 
-**Which phase should address:** Phase 2 (build system updates)
+**Detection (warning signs):**
+- All agents receive the same knowledge payload
+- Knowledge files contain sections like "For planners:" and "For executors:" (mixed audience)
+- No skill references specific knowledge files (they all reference `summary.md`)
+
+**Which phase should address:** Phase 1 (architecture). Define per-role knowledge contracts.
 
 ---
 
-### Pitfall 10: Checkpoint Protocol Translation
+### Pitfall 9: Brownfield Mapping That Overwhelms
 
-**What goes wrong:** Kata agents have explicit checkpoint types (`checkpoint:human-verify`, `checkpoint:decision`, `checkpoint:human-action`). Agent Skills don't have native checkpoint support.
+**What goes wrong:** Running codebase mapping on a large existing project produces so much output that it exceeds context limits, takes too long to process, or generates noise that drowns signal.
 
-**Why it happens:** Current checkpoint flow:
+**Why it happens:** Brownfield projects have hundreds or thousands of files. A naive scan that indexes everything produces an index too large to consume. The previous `/kata-map-codebase` command scanned all JS/TS files. For a 10k-file monorepo, this generates an unmanageable index.
 
-```
-Agent hits checkpoint → returns structured CHECKPOINT REACHED
-Orchestrator parses → presents to user → gets response
-Orchestrator spawns fresh continuation agent with response
-```
-
-Agent Skills have no built-in checkpoint concept.
+**Consequences:**
+- Mapping takes minutes instead of seconds
+- Output exceeds context budget by 10x
+- Users wait, see a wall of text, and don't trust the results
+- System indexes test fixtures, build artifacts, and vendored code
 
 **Prevention:**
-- Design checkpoint-to-Skill pattern (return structured output, orchestrator presents, spawn continuation)
-- Test full checkpoint flow with converted agents
-- Preserve checkpoint semantics even if implementation differs
+1. Respect `.gitignore` and add Kata-specific exclusions (node_modules, dist, build, .git, vendor, coverage, fixtures).
+2. Set a file count ceiling. If > 500 files match, switch to directory-level summaries.
+3. Produce tiered output: architecture summary (always), file index (on demand), detailed analysis (per-directory, on demand).
+4. Show progress during mapping. A 30-second silent scan feels broken.
+5. Make mapping interruptible. Partial results are better than no results after a timeout.
 
-**Which phase should address:** Phase 1 (POC) with kata-executor
+**Detection (warning signs):**
+- Mapping produces more than 200 lines of output
+- Index file exceeds 50KB
+- Mapping takes more than 30 seconds
+- Output includes files from node_modules, dist, or vendor directories
+
+**Which phase should address:** Phase 2 (brownfield support). After greenfield capture works.
 
 ---
 
 ## Minor Pitfalls
 
-Mistakes that cause annoyance but are fixable.
+Mistakes that cause friction or technical debt but don't block the feature.
 
-### Pitfall 11: Color/Branding Loss
+### Pitfall 10: Conflicting Knowledge Sources
 
-**What goes wrong:** Kata agents have `color:` frontmatter for visual identification. Agent Skills don't have equivalent.
+**What goes wrong:** Codebase intelligence says one thing, CLAUDE.md says another, and project-specific overrides say a third thing. Agents can't determine which source to trust.
 
-**Why it happens:** Current agents have visual differentiation:
+**Why it happens:** Kata already has multiple knowledge sources: CLAUDE.md (project instructions), config.json (settings), templates (output formats), and now `.planning/intel/` (codebase knowledge). Without a clear precedence hierarchy, agents encounter contradictions.
 
-```yaml
-color: green  # kata-planner
-color: yellow # kata-executor
-color: orange # kata-debugger
-```
+**Prevention:**
+1. Define an explicit precedence: CLAUDE.md > `.planning/intel/` > defaults.
+2. Knowledge files should describe what IS (detected patterns), not what SHOULD BE (prescriptions). Prescriptions belong in CLAUDE.md.
+3. If a detected convention conflicts with a CLAUDE.md instruction, the knowledge file should note the conflict rather than overriding.
+4. Document the precedence hierarchy in the knowledge architecture reference.
 
-Agent Skills spec doesn't include color field.
-
-**Prevention:** Document which visual cues are lost and whether they matter. Consider Claude Code subagent color configuration as alternative.
+**Which phase should address:** Phase 1 (architecture documentation).
 
 ---
 
-### Pitfall 12: Version Compatibility
+### Pitfall 11: Manual-Only Knowledge Capture for Greenfield
 
-**What goes wrong:** Agent Skills standard may evolve. Kata's conversion may depend on features added later.
+**What goes wrong:** Greenfield projects start with no codebase to analyze. The system has nothing to index. Users must manually write all knowledge files, which defeats the purpose of automated intelligence.
+
+**Why it happens:** Codebase intelligence systems are designed for existing code. Greenfield projects have no code, no conventions, and no architecture to detect. The gap between "project created" and "enough code to analyze" can be many phases.
 
 **Prevention:**
-- Pin to specific Agent Skills version/spec
-- Document which features are used
-- Monitor agentskills.io for spec changes
+1. For greenfield, capture knowledge progressively during execution. After each phase completes, update the knowledge base with what was built.
+2. Use PLAN.md and SUMMARY.md as knowledge sources. They already describe what was built and why.
+3. Seed knowledge from project setup decisions (language, framework, directory structure) captured during `/kata-new-project`.
+4. Make the first meaningful knowledge capture happen automatically after Phase 1, not as a separate manual step.
+
+**Which phase should address:** Phase 2 (greenfield capture workflow).
 
 ---
 
-### Pitfall 13: Testing Coverage Gap
+### Pitfall 12: Testing Knowledge Quality
 
-**What goes wrong:** Kata has no systematic agent testing. Migration adds complexity without test coverage.
+**What goes wrong:** No objective way to measure whether codebase knowledge improves agent output. Teams ship knowledge features based on intuition, not evidence.
+
+**Why it happens:** Agent output quality is subjective. A plan "looks better" with codebase knowledge, but there's no before/after metric. Without measurement, the feature becomes unfalsifiable, and you can't tell whether improvements or regressions come from knowledge or other changes.
 
 **Prevention:**
-- Establish test patterns before migration
-- Test agent invocation, output parsing, and state effects
-- Add regression tests for critical workflows
+1. Before building the full system, run a manual test: hand-write a `summary.md` for an existing project, run the planner with and without it, compare results.
+2. Define concrete quality signals: Does the planner assign correct files to tasks? Does the executor find the right code to modify? Does the verifier check the right acceptance criteria?
+3. Add a regression test: given a known codebase and known task, verify the planner's file assignments match expected files.
 
-**Which phase should address:** Phase 1 (POC) should include test strategy
+**Which phase should address:** Phase 1 (validation). Test the value proposition before building automation.
+
+---
+
+### Pitfall 13: Ignoring Kata's Existing Knowledge Channels
+
+**What goes wrong:** The new knowledge system duplicates information already captured in STATE.md, PROJECT.md, ROADMAP.md, or SUMMARY.md files. Users maintain the same information in two places. The systems drift.
+
+**Why it happens:** Engineers building the new system don't audit existing knowledge flows. Kata already captures project decisions (PROJECT.md), current state (STATE.md), and phase outcomes (SUMMARY.md). A new "codebase knowledge" system that also tracks decisions and outcomes creates duplication.
+
+**Prevention:**
+1. Audit existing knowledge files before designing new ones. What does each agent already receive?
+2. The new system should cover what's NOT in existing files: detected code conventions, file purposes, architecture patterns, dependency relationships.
+3. If existing files already serve a consumer need, extend them rather than creating a parallel system.
+4. Create a knowledge map: which agent gets which files, and what gap does each new file fill.
+
+**Which phase should address:** Phase 1 (architecture). Audit existing flows before designing new ones.
 
 ---
 
@@ -376,61 +362,74 @@ Agent Skills spec doesn't include color field.
 
 | Phase Topic | Likely Pitfall | Mitigation |
 | --- | --- | --- |
-| POC with kata-planner | Context passing (1), Structured returns (4) | Design explicit context contracts, validate output parsing |
-| POC with kata-executor | Checkpoint handling (10), Tool permissions (2) | Test full execution cycle including checkpoints |
-| Architecture validation | Subagent hierarchy (5) | Confirm orchestrators can spawn subagents |
-| Full conversion | Description quality (7), Hook migration (8) | Rewrite descriptions for invocation, audit implicit behaviors |
-| Build system | Path resolution (9), Discovery (6) | Test end-to-end from source to installed plugin |
+| Architecture / storage design | Over-engineering (1), Granularity (6) | Markdown + JSON only, file-level index, 2k token budget |
+| Architecture / injection design | Context poisoning (2), Agent mismatch (8) | Per-role knowledge contracts, hard token cap |
+| Consumption wiring | Capture without consumption (3) | Build consumption first, test with hand-written knowledge |
+| Greenfield capture | Manual-only capture (11), Existing channels (13) | Progressive capture from SUMMARY.md, audit existing files |
+| Brownfield mapping | Overwhelming output (9), Language-specific (5) | File count ceiling, language-agnostic conventions |
+| Incremental updates | Race conditions (7), Staleness (4) | Phase-boundary batch updates, freshness timestamps |
+| Doc gardening | Rot without enforcement (4) | Freshness metadata now, automated gardening later |
+| Quality validation | No measurement (12) | Manual before/after test in Phase 1 |
 
 ---
 
 ## Kata-Specific Risk Factors
 
-Based on Kata's architecture:
+### HIGH: Repeating the Previous Failure (Over-Engineering)
 
-### High Risk: Context Inlining Pattern
-- **Impact:** All 15+ agents receive context via Task prompt inlining
-- **Root cause:** `@` references don't work across Task boundaries
-- **Mitigation:** Design explicit context passing for converted agents
+- **History:** KATA-STYLE.md documented graph DB, WASM, entity generation, PostToolUse hooks. None shipped.
+- **Root cause:** Design scope exceeded the file-based architecture constraint.
+- **Mitigation:** Every design decision must pass the "bash + markdown + JSON" test. If it needs a new dependency, it's too complex.
 
-### High Risk: Orchestrator Hierarchy
-- **Impact:** 8 Skills spawn subagents; if Skills become subagents, hierarchy breaks
-- **Root cause:** "Subagents cannot spawn other subagents" constraint
-- **Mitigation:** Keep orchestrator Skills inline, only convert leaf agents
+### HIGH: Context Budget Violation
 
-### Medium Risk: Structured Return Contracts
-- **Impact:** Orchestrators parse 10+ different return patterns
-- **Root cause:** Agent Skills don't guarantee output format
-- **Mitigation:** Add output validation, test parsing thoroughly
+- **History:** Kata agents already operate near context limits. Adding knowledge injection without a budget will degrade quality.
+- **Root cause:** No existing mechanism to measure or limit knowledge injection size.
+- **Mitigation:** Hard cap at 2k tokens per agent. Measure before shipping.
 
-### Medium Risk: Model Profile System
-- **Impact:** 3 model profiles (quality/balanced/budget) with per-agent models
-- **Root cause:** Agent Skills have static model field
-- **Mitigation:** Keep model selection in orchestrator, use `model: inherit`
+### MEDIUM: Orphaned Knowledge (Capture Without Consumer)
 
-### Low Risk: Visual Identity
-- **Impact:** 6 color values for agent differentiation
-- **Root cause:** Agent Skills don't support color field
-- **Mitigation:** Accept loss or find alternative visual cue
+- **History:** Entity generator agent was documented but nothing spawned it. Planner/executor `load_codebase_intelligence` steps loaded nonexistent files silently.
+- **Root cause:** `2>/dev/null` suppression hid the failure. No test verified the integration.
+- **Mitigation:** Wire consumption first. Delete `2>/dev/null` suppression. Add smoke tests.
+
+### MEDIUM: Incremental Update Fragility
+
+- **History:** Kata's wave-based parallel execution creates write contention.
+- **Root cause:** File-based JSON has no atomic transactions.
+- **Mitigation:** Batch updates at phase boundaries, not during parallel execution.
+
+### LOW: Multi-Language Support Gap
+
+- **History:** Previous design parsed JS/TS imports/exports. Kata claims to work across arbitrary codebases.
+- **Root cause:** Convention detection logic was language-specific.
+- **Mitigation:** Start with language-agnostic conventions (directories, file naming).
 
 ---
 
-## Integration with Existing System
+## Lessons from Related Systems
 
-### Preserving Skill-Agent Communication
-- **Risk:** Orchestrator Skills (kata-plan-phase, kata-execute-phase) spawn agents
-- **What could break:** If agents become skills invoked differently, communication patterns change
-- **Prevention:** Test full workflows end-to-end after conversion
+### OpenAI Harness Engineering
 
-### State Management Continuity
-- **Risk:** Agents write to `.planning/` files (STATE.md, SUMMARY.md, etc.)
-- **What could break:** Skill execution context differs, file writes fail
-- **Prevention:** Test file I/O patterns in converted agents
+- "One big AGENTS.md" failed. Context is scarce. Too much guidance becomes non-guidance.
+- Solution: treat knowledge as a map (table of contents), not an encyclopedia.
+- Mechanical enforcement (linters, CI) keeps knowledge fresh. Text instructions rot.
+- Doc gardening agent scans for stale docs and opens fix-up PRs.
+- "Golden principles" encoded in repo prevent drift.
 
-### Commit Protocol Preservation
-- **Risk:** Agents commit per-task with specific formats
-- **What could break:** Git operations in skill context behave differently
-- **Prevention:** Test commit flow including staging, message format, and Co-Authored-By
+### Context Engineering Research
+
+- Context rot degrades performance even within technical limits. Effective window is below 256k tokens.
+- "Lost in the middle" phenomenon: information in the center of context is overlooked.
+- Minimal effective context outperforms maximum context.
+- Dynamic retrieval (just-in-time) beats static loading (dump everything).
+
+### Industry Codebase Tools
+
+- Incremental indexing requires O(changes) complexity, not O(repository).
+- File watcher systems fail on directory renames (ghost syncs on stale paths).
+- Agents spend ~40% of time figuring out which documentation to trust when sources conflict.
+- Single source of truth, ruthlessly consolidated, outperforms distributed documentation.
 
 ---
 
@@ -438,22 +437,24 @@ Based on Kata's architecture:
 
 | Area | Confidence | Notes |
 | --- | --- | --- |
-| Context passing pitfalls | HIGH | Based on Kata codebase analysis and Agent Skills docs |
-| Tool permission pitfalls | HIGH | Direct from Agent Skills specification and Claude Code docs |
-| Model selection pitfalls | HIGH | Based on current Kata config system analysis |
-| Subagent hierarchy | HIGH | Claude Code docs explicitly state limitation |
-| Checkpoint handling | MEDIUM | Agent Skills checkpoint pattern not fully documented |
-| Build system integration | MEDIUM | Depends on Kata's specific build system choices |
+| Over-engineering risk | HIGH | Kata's own failed attempt provides direct evidence |
+| Context poisoning | HIGH | Anthropic and OpenAI both document this pattern |
+| Capture/consumption gap | HIGH | Kata's orphaned entity generator is direct evidence |
+| Documentation rot | HIGH | OpenAI Harness Engineering paper, industry consensus |
+| Language-specific detection | MEDIUM | Based on previous Kata design analysis, not field testing |
+| Incremental update races | MEDIUM | Known problem in file-based systems, unverified in Kata's specific architecture |
+| Brownfield scaling | MEDIUM | Extrapolated from industry reports, not tested at Kata scale |
 
 ---
 
 ## Sources
 
-- [Claude Code Skills Documentation](https://code.claude.com/docs/en/skills)
-- [Claude Code Subagents Documentation](https://code.claude.com/docs/en/sub-agents)
-- [Agent Skills Standard](https://agentskills.io)
-- [Agent Skills Specification](https://agentskills.io/specification)
-- [Claude Code Subagent Best Practices](https://www.pubnub.com/blog/best-practices-for-claude-code-sub-agents/)
-- [Claude Code Subagent Common Mistakes](https://claudekit.cc/blog/vc-04-subagents-from-basic-to-deep-dive-i-misunderstood)
-- [Agent Skills: Universal Standard](https://medium.com/@richardhightower/agent-skills-the-universal-standard-transforming-how-ai-agents-work-fc7397406e2e)
-- Kata codebase analysis: `agents/kata-*.md`, `skills/kata-*/SKILL.md`
+- [OpenAI Harness Engineering](https://openai.com/index/harness-engineering/) (doc gardening, golden principles, mechanical enforcement)
+- [Anthropic: Effective Context Engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) (minimal effective context)
+- [Context Engineering Part 2 - Phil Schmid](https://www.philschmid.de/context-engineering-part-2) (context rot, effective window thresholds)
+- [Builder.io: AGENTS.md Tips](https://www.builder.io/blog/agents-md) (keep documentation small, progressive disclosure)
+- [OpenAI AGENTS.md Guide](https://developers.openai.com/codex/guides/agents-md/) (layered guidance, progressive disclosure)
+- [CocoIndex: Real-Time Codebase Indexing](https://cocoindex.io/blogs/index-code-base-for-rag) (incremental indexing architecture)
+- [Glean: Incremental Indexing](https://glean.software/blog/incremental/) (O(changes) indexing)
+- [Augment Code: Large Codebases](https://www.augmentcode.com/tools/ai-coding-assistants-for-large-codebases-a-complete-guide) (convention detection challenges)
+- Kata codebase analysis: `KATA-STYLE.md` (Codebase Intelligence section), `.planning/deltas/CRITICAL-intel-system-gaps.md`

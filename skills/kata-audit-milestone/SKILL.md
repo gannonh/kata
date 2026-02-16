@@ -36,14 +36,12 @@ Glob: .planning/phases/{active,pending,completed}/_/_-VERIFICATION.md
 
 <process>
 
-**Script invocation rule.** Code blocks reference scripts with paths relative to this SKILL.md (e.g., `"../kata-configure-settings/scripts/read-config.sh"`). Resolve these to absolute paths. Run scripts from the project directory (where `.planning/` lives). If you must run from a different directory, pass the project root via environment variable: `KATA_PROJECT_ROOT=/path/to/project bash "/path/to/script.sh" args`.
-
 ## 0. Resolve Model Profile
 
 Read model profile for agent spawning:
 
 ```bash
-MODEL_PROFILE=$(bash "../kata-configure-settings/scripts/read-config.sh" "model_profile" "balanced")
+MODEL_PROFILE=$(node scripts/kata-lib.cjs read-config "model_profile" "balanced")
 ```
 
 Default to "balanced" if not set.
@@ -62,7 +60,7 @@ If ROADMAP.md exists, check format and auto-migrate if old:
 
 ```bash
 if [ -f .planning/ROADMAP.md ]; then
-  bash "../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
+  node scripts/kata-lib.cjs check-roadmap 2>/dev/null
   FORMAT_EXIT=$?
 
   if [ $FORMAT_EXIT -eq 1 ]; then

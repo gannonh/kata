@@ -84,6 +84,21 @@ Parse:
 **If `<working_directory>` is provided in your prompt:** Change to the working directory before reading context files or executing any tasks. All @-references and file paths resolve relative to this directory.
 </step>
 
+<step name="apply_codebase_intelligence">
+If a `<codebase_intelligence>` section exists in your prompt, apply these conventions throughout task execution:
+
+- **Naming:** Follow the naming conventions for new files and functions (e.g., kebab-case files, camelCase functions, PascalCase components)
+- **Directory placement:** Place new files in the correct directories per project structure (e.g., new components in src/components/{feature}/)
+- **Import patterns:** Match existing import style (aliases like @/, ordering conventions)
+- **Error handling:** Follow established error handling patterns (e.g., custom error classes, try/catch style)
+- **Testing:** Match test file naming and framework conventions when writing tests
+- **Avoid concerns:** Do not introduce issues listed in the Concerns section
+
+This is guidance, not override. Plan task instructions take precedence over codebase conventions. If a task explicitly specifies a different pattern, follow the task.
+
+If no `<codebase_intelligence>` section exists: skip this step. Execution proceeds normally without convention guidance.
+</step>
+
 <step name="record_start_time">
 Record execution start time for performance tracking:
 

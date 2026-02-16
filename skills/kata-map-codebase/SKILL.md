@@ -9,7 +9,7 @@ Analyze existing codebase using parallel kata-codebase-mapper agents to produce 
 
 Each mapper agent explores a focus area and **writes documents directly** to `.planning/codebase/`. The orchestrator only receives confirmations, keeping context usage minimal.
 
-Output: .planning/codebase/ folder with 7 structured documents about the codebase state.
+Output: .planning/codebase/ folder with 7 structured documents, plus .planning/intel/ with compressed agent-readable artifacts.
 </objective>
 
 <execution_context>
@@ -51,12 +51,23 @@ Check for .planning/STATE.md - loads context if project already initialized
    - Agent 4: concerns focus → writes CONCERNS.md
 4. Wait for agents to complete, collect confirmations (NOT document contents)
 5. Verify all 7 documents exist with line counts
-6. Commit codebase map
+5.5. Generate codebase intelligence artifacts
+   - Run the intel generator script:
+     ```bash
+     node scripts/generate-intel.js
+     ```
+   - If script fails, show the error to the user and continue (non-blocking)
+   - Verify artifacts exist:
+     ```bash
+     ls .planning/intel/summary.md .planning/intel/index.json .planning/intel/conventions.json
+     ```
+6. Commit codebase map and intel artifacts (`.planning/codebase/` + `.planning/intel/`)
 7. Offer next steps (typically: /kata-new-project or /kata-plan-phase)
 </process>
 
 <success_criteria>
 - [ ] .planning/codebase/ directory created
+- [ ] .planning/intel/ directory created with summary.md, index.json, conventions.json
 - [ ] All 7 codebase documents written by mapper agents
 - [ ] Documents follow template structure
 - [ ] Parallel agents completed without errors

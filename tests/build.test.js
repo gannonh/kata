@@ -177,10 +177,15 @@ describe('Command structure', () => {
 });
 
 describe('Validation scripts', () => {
-  test('validation scripts exist in kata-doctor/scripts', () => {
-    const scriptsDir = path.join(ROOT, 'skills/kata-doctor/scripts');
-    assert.ok(fs.existsSync(path.join(scriptsDir, 'check-config.sh')));
-    assert.ok(fs.existsSync(path.join(scriptsDir, 'check-template-drift.sh')));
+  test('kata-lib.cjs distributed to all skills', () => {
+    const skillsDir = path.join(ROOT, 'dist/plugin/skills');
+    const skillDirs = fs.readdirSync(skillsDir, { withFileTypes: true })
+      .filter(e => e.isDirectory() && e.name.startsWith('kata-'));
+    assert.ok(skillDirs.length > 0, 'Should have skill directories');
+    for (const skill of skillDirs) {
+      const libPath = path.join(skillsDir, skill.name, 'scripts', 'kata-lib.cjs');
+      assert.ok(fs.existsSync(libPath), `${skill.name} should have scripts/kata-lib.cjs`);
+    }
   });
 });
 

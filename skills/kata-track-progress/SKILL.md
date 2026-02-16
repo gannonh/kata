@@ -13,8 +13,6 @@ Provides situational awareness before continuing work.
 
 <process>
 
-**Script invocation rule.** Code blocks reference scripts with paths relative to this SKILL.md (e.g., `"../kata-configure-settings/scripts/read-config.sh"`). Resolve these to absolute paths. Run scripts from the project directory (where `.planning/` lives). If you must run from a different directory, pass the project root via environment variable: `KATA_PROJECT_ROOT=/path/to/project bash "/path/to/script.sh" args`.
-
 <step name="verify">
 **Verify planning structure exists:**
 
@@ -50,7 +48,7 @@ If ROADMAP.md exists, check format and auto-migrate if old:
 
 ```bash
 if [ -f .planning/ROADMAP.md ]; then
-  bash "../kata-doctor/scripts/check-roadmap-format.sh" 2>/dev/null
+  node scripts/kata-lib.cjs check-roadmap 2>/dev/null
   FORMAT_EXIT=$?
 
   if [ $FORMAT_EXIT -eq 1 ]; then
@@ -83,7 +81,7 @@ Continue after migration completes.
 **Load PR workflow config:**
 
 ```bash
-PR_WORKFLOW=$(bash "../kata-configure-settings/scripts/read-config.sh" "pr_workflow" "false")
+PR_WORKFLOW=$(node scripts/kata-lib.cjs read-config "pr_workflow" "false")
 ```
 
   </step>

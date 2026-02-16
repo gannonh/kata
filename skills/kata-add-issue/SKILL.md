@@ -159,7 +159,7 @@ files:
 **Check GitHub integration:**
 
 ```bash
-GITHUB_ENABLED=$(bash "../kata-configure-settings/scripts/read-config.sh" "github.enabled" "false")
+GITHUB_ENABLED=$(node scripts/kata-lib.cjs read-config "github.enabled" "false")
 ```
 
 **If `GITHUB_ENABLED=false`:** Log "Local-only issue (GitHub integration disabled)" and skip to next step.
@@ -241,7 +241,7 @@ Commit the issue and any updated state:
 **Check planning config:**
 
 ```bash
-COMMIT_PLANNING_DOCS=$(bash "../kata-configure-settings/scripts/read-config.sh" "commit_docs" "true")
+COMMIT_PLANNING_DOCS=$(node scripts/kata-lib.cjs read-config "commit_docs" "true")
 git check-ignore -q .planning 2>/dev/null && COMMIT_PLANNING_DOCS=false
 ```
 

@@ -32,7 +32,7 @@ Normalize phase input in step 1 before any directory lookups.
 Read model profile for agent spawning:
 
 ```bash
-MODEL_PROFILE=$(bash "../kata-configure-settings/scripts/read-config.sh" "model_profile" "balanced")
+MODEL_PROFILE=$(node scripts/kata-lib.cjs read-config "model_profile" "balanced")
 ```
 
 Default to "balanced" if not set.

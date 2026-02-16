@@ -28,8 +28,6 @@ This is the most leveraged moment in any project. Deep questioning here means be
 
 <process>
 
-**Script invocation rule.** Code blocks reference scripts with paths relative to this SKILL.md (e.g., `"../kata-configure-settings/scripts/read-config.sh"`). Resolve these to absolute paths. Run scripts from the project directory (where `.planning/` lives). If you must run from a different directory, pass the project root via environment variable: `KATA_PROJECT_ROOT=/path/to/project bash "/path/to/script.sh" args`.
-
 ## Phase 1: Setup
 
 **MANDATORY FIRST STEP — Execute these checks before ANY user interaction:**
@@ -479,7 +477,7 @@ EOF
 Call setup-worktrees.sh to convert to bare repo + worktree layout:
 
 ```bash
-WORKTREE_OUTPUT=$(bash "../kata-configure-settings/scripts/setup-worktrees.sh" 2>&1) || WORKTREE_FAILED=true
+WORKTREE_OUTPUT=$(bash "scripts/setup-worktrees.sh" 2>&1) || WORKTREE_FAILED=true
 echo "$WORKTREE_OUTPUT"
 ```
 
@@ -491,19 +489,19 @@ Read the error output and fix the underlying issue:
 | --- | --- |
 | "uncommitted changes" | `git add -A && git commit -m "chore: commit pending changes before worktree setup"` |
 | "Not a git repository" | `git init && git add -A && git commit -m "chore: initial commit"` |
-| "pr_workflow must be true" | `bash "../kata-configure-settings/scripts/set-config.sh" "pr_workflow" "true"` |
+| "pr_workflow must be true" | `node scripts/kata-lib.cjs set-config "pr_workflow" "true"` |
 
 After applying the fix, retry:
 
 ```bash
-WORKTREE_OUTPUT=$(bash "../kata-configure-settings/scripts/setup-worktrees.sh" 2>&1) || WORKTREE_FAILED=true
+WORKTREE_OUTPUT=$(bash "scripts/setup-worktrees.sh" 2>&1) || WORKTREE_FAILED=true
 echo "$WORKTREE_OUTPUT"
 ```
 
 **If setup still fails after retries**, revert and warn the user:
 
 ```bash
-bash "../kata-configure-settings/scripts/set-config.sh" "worktree.enabled" "false"
+node scripts/kata-lib.cjs set-config "worktree.enabled" "false"
 ```
 
 Display the error output and tell the user worktree setup failed, their preference was reverted to false, and they can enable it later via `/kata-configure-settings`.

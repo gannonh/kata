@@ -32,7 +32,7 @@ Orchestration is inline - no separate workflow file. Quick mode is deliberately 
 Read model profile for agent spawning:
 
 ```bash
-MODEL_PROFILE=$(bash "../kata-configure-settings/scripts/read-config.sh" "model_profile" "balanced")
+MODEL_PROFILE=$(node scripts/kata-lib.cjs read-config "model_profile" "balanced")
 ```
 
 Default to "balanced" if not set.
@@ -332,7 +332,7 @@ Use Edit tool to make these changes atomically
 **Check pr_workflow config:**
 
 ```bash
-PR_WORKFLOW=$(bash "../kata-configure-settings/scripts/read-config.sh" "pr_workflow" "false")
+PR_WORKFLOW=$(node scripts/kata-lib.cjs read-config "pr_workflow" "false")
 ```
 
 **If `$ISSUE_NUMBER` is set (issue-driven quick task):**

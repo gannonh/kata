@@ -1127,25 +1127,17 @@ git check-ignore -q .planning 2>/dev/null && COMMIT_PLANNING_DOCS=false
 Store `COMMIT_PLANNING_DOCS` for use in git operations.
 </step>
 
-<step name="load_codebase_context">
-Check for codebase map:
+<step name="load_codebase_intelligence">
+If the orchestrator included a `**Codebase Intelligence (if exists):**` section in your planning context, apply it when creating plans:
 
-```bash
-find .planning/codebase -maxdepth 1 -name "*.md" 2>/dev/null
-```
+- Use naming conventions when specifying file paths in tasks (match existing codebase style)
+- Use directory conventions when determining where new files should be created
+- Reference existing patterns in task `<action>` elements (e.g., "Follow the existing error handling pattern using AppError")
+- Consider listed concerns when planning (avoid introducing more tech debt)
+- Match testing patterns in `<verify>` elements (use the project's test runner and conventions)
+- Reference architecture layers when assigning files to plans (understand which layer each file belongs to)
 
-If exists, load relevant documents based on phase type:
-
-| Phase Keywords            | Load These                      |
-| ------------------------- | ------------------------------- |
-| UI, frontend, components  | CONVENTIONS.md, STRUCTURE.md    |
-| API, backend, endpoints   | ARCHITECTURE.md, CONVENTIONS.md |
-| database, schema, models  | ARCHITECTURE.md, STACK.md       |
-| testing, tests            | TESTING.md, CONVENTIONS.md      |
-| integration, external API | INTEGRATIONS.md, STACK.md       |
-| refactor, cleanup         | CONCERNS.md, ARCHITECTURE.md    |
-| setup, config             | STACK.md, STRUCTURE.md          |
-| (default)                 | STACK.md, ARCHITECTURE.md       |
+If no codebase intelligence section exists in your context: skip this step. Plans are still valid without it. Do not attempt to load raw codebase documents directly.
 </step>
 
 <step name="identify_phase">

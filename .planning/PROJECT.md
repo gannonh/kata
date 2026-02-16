@@ -70,7 +70,10 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 
 ### Active
 
-(None — define with `/kata-add-milestone`)
+- Codebase knowledge capture — v1.12.0 (greenfield progressive capture, improved brownfield mapping, incremental updates)
+- Workflow integration — v1.12.0 (planner, executor, verifier agents consume codebase knowledge)
+- Knowledge architecture — v1.12.0 (progressive disclosure, structured directory, machine+human readable)
+- Doc gardening — v1.12.0 (stale documentation detection, automated refresh, freshness tracking)
 
 ### Out of Scope
 
@@ -88,9 +91,19 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Building an LLM — use Claude, not compete with it
 - Building an agent framework — use platform-native capabilities (subagents, Skills, MCPs)
 
-## Current Milestone: None
+## Current Milestone: v1.12.0 Codebase Intelligence
 
-Next milestone TBD. Use `/kata-add-milestone` to start planning.
+**Goal:** Build a complete codebase knowledge lifecycle — capture institutional knowledge during projects, integrate it into all agent workflows, and maintain it over time.
+
+**Target features:**
+
+- Greenfield codebase knowledge capture (progressive, during project lifecycle)
+- Improved brownfield mapping with incremental updates
+- Planner/executor/verifier agents consume codebase conventions and architecture
+- Progressive disclosure knowledge architecture (map, not manual)
+- Doc gardening with stale detection, automated refresh, freshness tracking
+
+**Reference:** OpenAI "Harness Engineering" paper by Ryan Lopopolo — repository knowledge as system of record, progressive disclosure, doc gardening, agent legibility
 
 ## Context
 
@@ -355,4 +368,4 @@ See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 See `.planning/milestones/v1.6.0-ROADMAP.md` for full archive.
 
 ---
-*Last updated: 2026-02-14 after v1.11.0 milestone*
+*Last updated: 2026-02-15 after v1.12.0 milestone started*

@@ -1,498 +1,434 @@
-# Technology Stack: Agent Skills Subagent Patterns
+# Technology Stack: Codebase Intelligence
 
-**Project:** Kata Subagent Architecture Migration
-**Researched:** 2026-02-04
-**Confidence:** HIGH (verified with official Claude Code docs and Agent Skills spec)
+**Project:** Kata v1.12.0 Codebase Intelligence
+**Researched:** 2026-02-15
+**Confidence:** HIGH (verified against Kata constraints, Claude Code docs, tool availability)
 
 ## Executive Summary
 
-The Agent Skills specification does not define subagent patterns. It is a format specification for skill files (SKILL.md), not an orchestration framework. Subagent instantiation and multi-agent orchestration are **Claude Code implementation details**, not part of the Agent Skills standard.
+Codebase intelligence for Kata requires three capabilities: static code analysis (extract exports/imports/functions), incremental file indexing (track changes without full rescans), and convention detection (identify naming/structural patterns). All three must work within Kata's constraints: bash scripts, JSON files, markdown output, zero compiled dependencies, no database, no server.
 
-Kata's current architecture uses Claude Code's native subagent system correctly. The migration question is: should Kata's custom agents (kata-planner, kata-executor, etc.) be distributed as:
-
-1. **Plugin agents** (`.claude-plugin/agents/`) — Claude Code's standard subagent format
-2. **Skill resources** (`skills/*/references/`) — Agent prompts loaded by skills on demand
-
-**Recommendation:** Hybrid approach. Convert agents to plugin subagents for first-class Claude Code integration, while skills reference agent prompts via the `skills` frontmatter field for progressive disclosure.
+The recommended stack uses regex-based extraction via bash/grep for code analysis, git-native change detection for incremental indexing, and statistical heuristics over JSON data for convention detection. No new dependencies required.
 
 ---
 
-## Agent Skills Specification: What It Defines
+## Constraint Analysis
 
-The [Agent Skills specification](https://agentskills.io/specification.md) defines:
+Kata's architecture imposes hard constraints on technology choices.
 
-| Component | Purpose | Relevant to Subagents? |
-|-----------|---------|------------------------|
-| `SKILL.md` format | Frontmatter + markdown instructions | No — skill files, not agent definitions |
-| `name`, `description` | Metadata for discovery | No — skill identification |
-| `allowed-tools` | Pre-approved tools (experimental) | Partially — tool restrictions |
-| `scripts/`, `references/`, `assets/` | Supporting resources | Potentially — agent prompts could live here |
+| Constraint | Impact | Source |
+|---|---|---|
+| Zero npm dependencies | No tree-sitter, acorn, jscodeshift, or any npm package | `package.json` has no `dependencies` |
+| No compiled binaries | No ast-grep, universal-ctags | Plugin distributes via marketplace; users have unknown environments |
+| Bash + Node.js only | Scripts must use `/bin/bash` or `node` (>=20) without imports | Existing skill scripts pattern |
+| File-based storage | JSON and markdown in `.planning/` | No database, no server process |
+| Plugin distribution | Everything ships in `skills/` and `.claude-plugin/` | `scripts/build.js` copies only these dirs |
+| Agent context windows | Subagents get 200k tokens; index must be injectable | Task tool inlines content |
 
-**Critical finding:** Agent Skills spec has no concept of:
-- Subagent definition
-- Agent spawning
-- Task delegation
-- Multi-agent orchestration
+**Available tools on target machines (safe to assume):**
+- `bash`, `grep`, `sed`, `awk` (POSIX)
+- `node` >= 20 (required by Kata)
+- `git` (required by Kata)
+- `jq` (common but not universal; use `node -e` as fallback)
 
-These are **platform-specific implementations**. Claude Code happens to implement subagents, but another Agent Skills-compatible platform might not.
-
-**Source:** [Agent Skills Specification](https://agentskills.io/specification.md)
-
----
-
-## Claude Code Subagent Architecture
-
-### How Claude Code Implements Subagents
-
-Claude Code's subagent system is a **proprietary extension** built on top of the Agent Skills standard. Key components:
-
-| Component | Location | Format | Purpose |
-|-----------|----------|--------|---------|
-| Subagent definitions | `.claude/agents/` or `~/.claude/agents/` | Markdown + YAML frontmatter | Define custom subagents |
-| Plugin agents | `<plugin>/agents/` | Same format | Plugin-distributed subagents |
-| Task tool | Internal | N/A | Spawns subagents at runtime |
-| Built-in agents | Internal | N/A | Explore, Plan, general-purpose |
-
-### Subagent Frontmatter Fields
-
-```yaml
----
-name: kata-planner           # Unique identifier (kebab-case)
-description: Plans phases    # When to delegate
-tools: Read, Write, Bash     # Allowed tools (or inherits all)
-disallowedTools: []          # Tools to deny
-model: sonnet                # sonnet, opus, haiku, or inherit
-permissionMode: default      # Permission handling mode
-skills: []                   # Skills to preload into context
-hooks: {}                    # Lifecycle hooks
----
-
-[System prompt markdown body]
-```
-
-**Source:** [Claude Code Subagents Documentation](https://code.claude.com/docs/en/sub-agents)
-
-### Task Tool Parameters
-
-When skills spawn subagents, they use the Task tool:
-
-```
-Task(
-  prompt="[task instructions]",
-  subagent_type="kata-planner",  # References agent by name
-  model="sonnet"                  # Optional: override model
-)
-```
-
-The `subagent_type` parameter references:
-1. Built-in agents: `Explore`, `Plan`, `general-purpose`
-2. User agents: From `~/.claude/agents/`
-3. Project agents: From `.claude/agents/`
-4. Plugin agents: Namespaced as `pluginname:agentname`
-
-**Key constraint:** Subagents cannot spawn other subagents. Nested delegation requires skills or chained subagents from the main conversation.
+**Tools NOT safe to assume:**
+- `ripgrep` (rg) -- fast but not universal
+- `ast-grep` -- powerful but requires separate install
+- `universal-ctags` -- macOS ships BSD ctags (no JS/TS support)
+- Any npm packages -- Kata has zero dependencies
 
 ---
 
-## Kata's Current Architecture
+## Approach 1: Code Analysis (Extract Exports/Imports/Functions)
 
-### Skills as Orchestrators
+### Rejected: AST-based parsing
 
-Kata follows the pattern where skills ARE orchestrators:
+**tree-sitter** (via node-tree-sitter npm package) provides accurate AST parsing for 100+ languages. It handles edge cases like template literals in import paths, re-exports, and dynamic imports.
 
-```
-skills/kata-plan-phase/SKILL.md    → Orchestrator
-  ↓ spawns
-agents/kata-phase-researcher.md    → Subagent
-agents/kata-planner.md             → Subagent
-agents/kata-plan-checker.md        → Subagent
-```
+**Why rejected:** Requires `node-tree-sitter` npm dependency with native C bindings. Adds compiled binary to plugin distribution. Fails Kata's zero-dependency constraint.
 
-### How Kata Currently Spawns Agents
+**ast-grep** provides structural pattern matching from CLI. Patterns like `export function $NAME` match AST nodes instead of text.
 
-From `skills/kata-plan-phase/SKILL.md`:
+**Why rejected:** Requires separate binary installation (`brew install ast-grep` or `cargo install`). Not available by default on any platform. Cannot be bundled in plugin.
 
-```
-Task(
-  prompt=research_prompt,
-  subagent_type="kata-phase-researcher",
-  model="{researcher_model}",
-  description="Research Phase {phase}"
-)
-```
+**jscodeshift** (Facebook) provides JavaScript codemods with a programmatic API for AST manipulation.
 
-### Plugin Namespacing
+**Why rejected:** npm dependency. Designed for code transformation, not extraction.
 
-Kata's build system transforms agent references for plugin distribution:
+### Recommended: Regex-based extraction via Node.js scripts
+
+Use Node.js scripts (no imports) with regex patterns for extraction. Node 20+ includes stable `fs`, `path`, and regex support without any dependencies.
+
+**Why this works for Kata:**
+- Good enough accuracy for 90%+ of real-world JS/TS patterns
+- Zero dependencies
+- Ships as `.js` files alongside skills
+- Handles the patterns that matter: named exports, default exports, import statements, function declarations
+- Edge cases (dynamic imports, computed exports) can be noted as limitations
+
+**Extraction patterns (verified against common JS/TS):**
 
 ```javascript
-// scripts/build.js line 159
-content = content.replace(/subagent_type="kata-/g, 'subagent_type="kata:kata-');
+// Named exports
+/export\s+(?:async\s+)?(?:function|class|const|let|var|enum|interface|type)\s+(\w+)/g
+
+// Default exports
+/export\s+default\s+(?:async\s+)?(?:function|class)\s+(\w+)/g
+
+// Re-exports
+/export\s*\{([^}]+)\}\s*from/g
+
+// Import statements
+/import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s*,?\s*)*from\s+['"]([^'"]+)['"]/g
+
+// Function declarations (non-exported)
+/(?:async\s+)?function\s+(\w+)/g
 ```
 
-This converts `subagent_type="kata-planner"` to `subagent_type="kata:kata-planner"` because Claude Code namespaces plugin agents as `pluginname:agentname`.
+**Limitations (acceptable):**
+- Does not parse `export = something` (TypeScript namespace exports, rare)
+- Does not handle computed property exports (`export { [expr]: value }`)
+- Dynamic imports (`import()`) extracted as strings, not resolved
+- Multi-line destructured exports may miss names if spread across many lines
+
+**These limitations are acceptable because codebase intelligence is advisory, not compilation. Missing 5% of edge cases does not break planning or execution workflows.**
+
+### Alternative: Claude-powered extraction (for non-JS/TS)
+
+For languages outside JS/TS (Python, Go, Rust, Java), regex patterns become unreliable. For these, spawn a subagent with Read access to analyze files directly. Claude handles any language natively.
+
+**When to use:** Multi-language projects where the codebase includes significant non-JS/TS code. The index schema should record which extraction method was used per file.
 
 ---
 
-## Migration Options Analysis
+## Approach 2: Incremental File Indexing
 
-### Option 1: Keep Current Architecture (agents/ directory)
+### Rejected: File watcher / daemon process
 
-**How it works:**
-- Agents remain in `agents/kata-*.md`
-- Build copies to `.claude-plugin/agents/`
-- Skills reference via `subagent_type="kata:kata-*"`
+**Why rejected:** Kata has no long-running process. Plugin activates on Claude Code session start, runs skills on demand, and terminates. No daemon can watch files between sessions.
 
-**Pros:**
-- Already working
-- Clear separation between skills and agents
-- Familiar pattern
+### Rejected: Filesystem timestamps (mtime)
 
-**Cons:**
-- `agents/` directory is Kata-specific, not Agent Skills standard
-- Requires build-time transformation for namespacing
-- No progressive disclosure — entire agent prompt loaded at spawn
+**Why rejected:** `mtime` changes on `git checkout`, `git pull`, and other operations that don't represent actual edits. Copy operations preserve mtime on some platforms. Unreliable for detecting meaningful changes.
 
-**Verdict:** Valid but not leveraging new Claude Code features.
+### Recommended: Git-native change detection
 
-### Option 2: Agents as Skill Resources
+Git already tracks every file change. Use git plumbing commands to detect what changed since last index.
 
-**How it works:**
-- Move agent prompts to `skills/*/references/agent-*.md`
-- Skills read agent prompt content and inline into Task calls
-- No separate `agents/` directory
+**Strategy:**
 
-**Pros:**
-- Aligns with Agent Skills progressive disclosure
-- Skills control when/how agent prompts are loaded
-- Simpler plugin structure (no agents/ directory)
+1. Store last-indexed commit hash in `index.json` metadata
+2. On session start or skill invocation, run:
+   ```bash
+   git diff --name-only --diff-filter=ACMR $LAST_INDEXED_HASH HEAD -- '*.ts' '*.tsx' '*.js' '*.jsx'
+   ```
+3. Re-index only changed files
+4. Update stored commit hash
 
-**Cons:**
-- Loss of first-class subagent features (auto-delegation, /agents command)
-- Skills must manually inline agent content into Task prompts
-- No model/tool restrictions at agent level (must be in Task call)
+**Why this works:**
+- Git is always available (Kata requires it)
+- `--diff-filter=ACMR` captures Added, Copied, Modified, Renamed files
+- `--name-only` returns just paths (fast, scriptable)
+- Deleted files detected via `--diff-filter=D` and removed from index
+- Works across sessions (commit hash persists)
+- Handles branch switches correctly
 
-**Verdict:** Possible but loses Claude Code native features.
-
-### Option 3: Hybrid — Plugin Agents + Skill References (Recommended)
-
-**How it works:**
-1. Agents distributed as plugin subagents (`.claude-plugin/agents/`)
-2. Skills can preload agent content via `skills` frontmatter field
-3. Task tool references agent by name
-
-```yaml
-# Subagent definition (agents/kata-planner.md)
----
-name: kata-planner
-description: Creates executable phase plans
-tools: Read, Write, Bash, Glob, Grep, WebFetch
-model: opus
-skills:
-  - kata-plan-format    # Preloads skill content into agent context
----
-```
-
-```yaml
-# Skill that spawns the agent (skills/kata-plan-phase/SKILL.md)
----
-name: kata-plan-phase
-allowed-tools: Read, Bash, Task
----
-
-Spawn planner:
-Task(prompt="...", subagent_type="kata:kata-planner")
-```
-
-**Pros:**
-- First-class Claude Code integration
-- Agents visible in `/agents` command
-- Skills field enables progressive disclosure
-- Clean separation of concerns
-- No loss of features
-
-**Cons:**
-- Requires maintaining both agents/ and skills/
-- Plugin namespace prefix required
-
-**Verdict:** Best of both worlds. Recommended approach.
-
----
-
-## Recommended Stack
-
-### Plugin Structure
-
-```
-.claude-plugin/
-├── plugin.json          # Plugin manifest
-├── skills/              # Agent Skills standard
-│   ├── kata-plan-phase/
-│   │   └── SKILL.md     # Orchestrator skill
-│   └── kata-execute-phase/
-│       └── SKILL.md     # Orchestrator skill
-└── agents/              # Claude Code subagents
-    ├── kata-planner.md
-    ├── kata-executor.md
-    ├── kata-verifier.md
-    └── ...
-```
-
-### Agent Definition Pattern
-
-```yaml
----
-name: kata-planner
-description: Creates executable phase plans with task breakdown, dependency analysis, and goal-backward verification. Spawned by kata-plan-phase orchestrator.
-tools: Read, Write, Bash, Glob, Grep, WebFetch, mcp__context7__*
-model: opus
----
-
-<role>
-[Agent system prompt...]
-</role>
-```
-
-### Skill Orchestrator Pattern
-
-```yaml
----
-name: kata-plan-phase
-description: Plan detailed roadmap phases.
-allowed-tools: Read, Write, Bash, Task
----
-
-Spawn agents via Task tool:
-Task(
-  prompt="[context + instructions]",
-  subagent_type="kata:kata-planner",
-  model="opus"
-)
-```
-
-### Build System Requirements
-
-1. **Copy agents to plugin:** `agents/*.md` → `.claude-plugin/agents/`
-2. **Transform namespaces:** `subagent_type="kata-*"` → `subagent_type="kata:kata-*"`
-3. **Validate agent frontmatter:** Ensure required fields present
-
----
-
-## Skills Field for Agent Knowledge Injection
-
-Claude Code's `skills` frontmatter field allows subagents to preload skill content:
-
-```yaml
-# agents/kata-planner.md
----
-name: kata-planner
-skills:
-  - kata-plan-format       # Injects skill content at spawn
-  - kata-goal-backward     # Domain knowledge available to agent
----
-```
-
-**How it works:**
-1. When Task spawns `kata-planner`, Claude Code reads the agent definition
-2. The `skills` array is processed
-3. Full content of each referenced skill is injected into agent's context
-4. Agent has domain knowledge without reading files during execution
-
-**Use cases for Kata:**
-- Inject plan format specification into planner
-- Inject verification patterns into verifier
-- Inject checkpoint protocols into executor
-
-**Constraint:** Skills must be in the same plugin or user-level skills directory.
-
----
-
-## Task Tool Behavior Deep Dive
-
-### Spawning Syntax
-
-```
-Task(
-  prompt="[instructions]",           # Required: what the agent should do
-  subagent_type="kata:kata-planner", # Required: which agent to use
-  model="opus",                      # Optional: override agent's model
-  description="Plan Phase 2"         # Optional: short description for UI
-)
-```
-
-### Content Inlining Requirement
-
-**Critical:** `@` references don't work across Task boundaries. Content must be inlined:
-
-```
-# WRONG — @references won't resolve in spawned agent
-Task(
-  prompt="Read @.planning/STATE.md and plan",
-  subagent_type="kata:kata-planner"
-)
-
-# CORRECT — read content, inline it
-state_content = Read(".planning/STATE.md")
-Task(
-  prompt="<project_state>\n${state_content}\n</project_state>\n\nPlan the phase.",
-  subagent_type="kata:kata-planner"
-)
-```
-
-### Parallel Spawning
-
-Multiple Task calls in one message spawn parallel agents:
-
-```
-Task(prompt="Execute plan 1", subagent_type="kata:kata-executor")
-Task(prompt="Execute plan 2", subagent_type="kata:kata-executor")
-Task(prompt="Execute plan 3", subagent_type="kata:kata-executor")
-# All three run in parallel, Task blocks until all complete
-```
-
----
-
-## Migration Path
-
-### Phase 1: Audit Current Agents
+**Edge case: Uncommitted changes**
 
 ```bash
-# Count agents
-ls -la agents/kata-*.md | wc -l
+# Staged changes
+git diff --cached --name-only --diff-filter=ACMR -- '*.ts' '*.tsx'
 
-# Verify frontmatter format
-for f in agents/kata-*.md; do
-  head -20 "$f" | grep -E "^(name|description|tools|model):"
-done
+# Unstaged changes
+git diff --name-only --diff-filter=ACMR -- '*.ts' '*.tsx'
 ```
 
-### Phase 2: Align Frontmatter
+Combine all three (committed since last index + staged + unstaged) for full picture.
 
-Ensure all agents use Claude Code's supported fields:
+**Performance:** `git diff --name-only` runs in milliseconds even on large repos. Proportional to number of changes, not repo size.
 
-```yaml
----
-name: kata-executor                     # Required
-description: Executes Kata plans        # Required
-tools: Read, Write, Edit, Bash          # Optional, inherits if omitted
-model: sonnet                           # Optional, inherits if omitted
----
+### Trigger Mechanisms
+
+Two complementary triggers for re-indexing:
+
+**1. PostToolUse hook (reactive, per-file)**
+
+Claude Code hooks fire after Write/Edit operations. A PostToolUse hook can update the index for the specific file that was just modified.
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": { "tool_name": "Write|Edit" },
+      "hooks": [{
+        "type": "command",
+        "command": "node .planning/intel/scripts/index-file.js \"$TOOL_INPUT_FILE_PATH\""
+      }]
+    }]
+  }
+}
 ```
 
-Remove Kata-specific fields that Claude Code doesn't recognize:
-- `color` — not standard (cosmetic only, can keep)
+**Limitation:** Hooks are configured per-project in `.claude/settings.json`. Kata plugin cannot inject hooks automatically. Users must opt in or the skill must set them up on first run.
 
-### Phase 3: Update Build Script
+**2. SessionStart / on-demand (batch)**
 
-Verify `scripts/build.js` handles:
-1. Copying `agents/` to `.claude-plugin/agents/`
-2. Transforming `subagent_type` references
-3. Preserving agent file structure
-
-### Phase 4: Test Plugin Distribution
+On session start or when a skill needs intel, run the git-diff-based incremental scan. This catches all changes made outside Claude (manual edits, git operations, other tools).
 
 ```bash
-npm run build:plugin
-claude --plugin-dir dist/plugin
-
-# Verify agents load
-/agents
-# Should show kata:kata-planner, kata:kata-executor, etc.
+# Detect changes since last index
+LAST_HASH=$(node -e "const d=require('./.planning/intel/index.json');console.log(d.lastCommit||'')" 2>/dev/null)
+CHANGED=$(git diff --name-only ${LAST_HASH:-HEAD~50} HEAD -- '*.ts' '*.tsx' '*.js' '*.jsx' 2>/dev/null)
 ```
 
 ---
 
-## What NOT to Change
+## Approach 3: Convention Detection
 
-### Keep Current Agent Format
+### Rejected: ML-based pattern learning
 
-Kata's agent files already follow Claude Code's format:
+Tools like NATURALIZE use probabilistic models trained on code to suggest naming conventions. These require training data, model files, and inference runtimes.
 
-```yaml
----
-name: kata-planner
-description: Creates executable phase plans...
-tools: Read, Write, Bash, Glob, Grep, WebFetch, mcp__context7__*
----
+**Why rejected:** Requires compiled dependencies, model files, and significant compute. Overkill for the signal Kata needs.
+
+### Rejected: ESLint/Prettier config parsing
+
+Parse existing linter configs to extract convention rules.
+
+**Why rejected:** Not all projects use linters. Linter configs describe desired conventions, not actual conventions in the code. Many conventions (directory structure, file naming) are not captured by linters.
+
+### Recommended: Statistical heuristics over indexed data
+
+Once the index contains export/function names, file paths, and import patterns, convention detection reduces to counting and pattern matching over JSON data.
+
+**Naming convention detection:**
+
+```javascript
+// Classify each identifier
+function classifyCase(name) {
+  if (name === name.toUpperCase()) return 'SCREAMING_SNAKE';
+  if (/^[a-z][a-zA-Z0-9]*$/.test(name)) return 'camelCase';
+  if (/^[A-Z][a-zA-Z0-9]*$/.test(name)) return 'PascalCase';
+  if (/^[a-z][a-z0-9_]*$/.test(name)) return 'snake_case';
+  if (/^[a-z][a-z0-9-]*$/.test(name)) return 'kebab-case';
+  return 'mixed';
+}
+
+// Count occurrences, report majority pattern
+// Threshold: 5+ exports, 70%+ match rate (from KATA-STYLE.md)
 ```
 
-This IS the Claude Code subagent format. No migration needed for file structure.
+**Directory convention detection:**
 
-### Keep Task Tool Usage
+Lookup table mapping directory names to purposes (from KATA-STYLE.md):
+- `components`, `hooks`, `utils`, `lib`, `services`, `api`, `routes`, `types`, `models`, `tests`
 
-Kata's current Task() invocations are correct:
+Supplement with heuristic: if a directory contains >80% test files (matching `*.test.*` or `*.spec.*`), classify as test directory regardless of name.
 
+**File suffix detection:**
+
+Count file suffixes across the codebase. Report patterns appearing 5+ times:
+- `.test.ts`, `.spec.ts` -- test files
+- `.service.ts`, `.controller.ts` -- service layer
+- `.dto.ts`, `.entity.ts` -- data layer
+- `.hook.ts`, `.util.ts` -- utility patterns
+
+**Import pattern detection:**
+
+Analyze import paths to detect:
+- Path aliases (`@/`, `~/`, `#`)
+- Barrel files (`index.ts` re-exports)
+- Import grouping conventions (external first, then internal)
+
+**Output format:** `conventions.json` with detected patterns and confidence scores.
+
+```json
+{
+  "naming": {
+    "functions": { "pattern": "camelCase", "matchRate": 0.94, "sampleSize": 127 },
+    "classes": { "pattern": "PascalCase", "matchRate": 0.98, "sampleSize": 23 },
+    "constants": { "pattern": "SCREAMING_SNAKE", "matchRate": 0.72, "sampleSize": 18 }
+  },
+  "directories": {
+    "src/components": "ui-components",
+    "src/hooks": "react-hooks",
+    "src/lib": "shared-utilities"
+  },
+  "suffixes": [
+    { "pattern": ".test.ts", "count": 45, "purpose": "unit-tests" },
+    { "pattern": ".service.ts", "count": 12, "purpose": "service-layer" }
+  ]
+}
 ```
-Task(
-  prompt=filled_prompt,
-  subagent_type="kata-planner",
-  model="{planner_model}"
-)
-```
-
-The build system already handles `kata:` prefix for plugin distribution.
-
-### Keep Skills as Orchestrators
-
-The pattern where skills ARE orchestrators (not separate orchestrator files) aligns with both:
-- Agent Skills progressive disclosure philosophy
-- Claude Code's skill + subagent architecture
 
 ---
 
-## Open Questions
+## Approach 4: Doc Freshness Detection
 
-### 1. Should Agents Preload Skills?
+### Recommended: Git blame + file correlation
 
-**Question:** Should Kata's agents use the `skills` field to preload domain knowledge?
+Detect when documentation may be stale by comparing modification dates of docs vs. the code they describe.
 
-**Tradeoff:**
-- YES: Agent has patterns/formats without reading files at runtime
-- NO: Agent stays lean, reads what it needs (current behavior)
+**Strategy:**
 
-**Recommendation:** Evaluate per-agent. Planner might benefit from preloaded plan-format skill. Executor needs fresh context, probably not.
+1. For each doc file, extract referenced code file paths (from backtick-quoted paths in markdown)
+2. Compare `git log -1 --format=%ct` of the doc vs. each referenced code file
+3. If any code file was modified more recently than the doc, flag the doc as potentially stale
 
-### 2. MCP Tool Access in Agents
+```bash
+DOC_DATE=$(git log -1 --format=%ct -- "$DOC_PATH")
+CODE_DATE=$(git log -1 --format=%ct -- "$CODE_PATH")
+if [ "$CODE_DATE" -gt "$DOC_DATE" ]; then
+  echo "STALE: $DOC_PATH references $CODE_PATH (code modified after doc)"
+fi
+```
 
-**Question:** Kata agents reference `mcp__context7__*` tools. How does plugin distribution handle MCP?
-
-**Finding:** MCP tools are inherited from parent if not restricted. Plugin agents can use MCP tools if:
-1. User has MCP server configured
-2. Agent's `tools` field includes `mcp__*` or inherits all
-
-**Recommendation:** Keep current MCP tool references. Users without Context7 will simply not have those tools available.
+**Integration with OpenAI Harness pattern:** OpenAI's engineering harness uses a dedicated "doc-gardening" agent that scans for stale documentation and opens fix-up PRs. Kata can implement a lighter version: a freshness check that runs during `/kata-track-progress` and reports stale docs alongside progress status.
 
 ---
 
-## Confidence Assessment
+## Index Schema
 
-| Area | Confidence | Reason |
-|------|------------|--------|
-| Agent Skills spec scope | HIGH | Verified directly at agentskills.io |
-| Claude Code subagent format | HIGH | Verified at code.claude.com/docs |
-| Task tool parameters | HIGH | Verified in official docs |
-| Plugin namespacing | HIGH | Validated in Kata codebase (build.js) |
-| Skills preloading | HIGH | Documented in Claude Code subagent docs |
-| MCP inheritance | MEDIUM | Inferred from tool inheritance docs, not explicit |
+The central data structure lives at `.planning/intel/index.json`:
+
+```json
+{
+  "version": 1,
+  "lastCommit": "abc123f",
+  "lastUpdated": 1708000000,
+  "files": {
+    "src/services/auth.ts": {
+      "exports": ["AuthService", "login", "logout"],
+      "imports": ["./database", "jsonwebtoken", "@/types"],
+      "functions": ["validateToken", "refreshSession"],
+      "indexed": 1708000000
+    }
+  }
+}
+```
+
+**Size considerations:**
+- A 500-file project produces ~50KB of index JSON
+- A 2000-file project produces ~200KB
+- Entire index can be injected into a 200k-token subagent context (~800KB text budget)
+
+**Derived files (regenerated from index):**
+- `conventions.json` -- detected naming/directory/suffix patterns
+- `summary.md` -- concise text summary for context injection into subagents
+
+---
+
+## Integration with Existing Kata Architecture
+
+### Where scripts live
+
+```
+skills/kata-map-codebase/
+├── SKILL.md                        # Orchestrator (existing, modified)
+├── scripts/
+│   ├── index-file.js               # Index a single file (PostToolUse hook)
+│   ├── index-incremental.js        # Git-diff-based batch re-index
+│   ├── detect-conventions.js       # Generate conventions.json from index
+│   └── check-freshness.js          # Doc staleness checker
+└── references/
+    └── codebase-mapper-instructions.md  # Existing
+```
+
+**Why Node.js scripts instead of bash:**
+- JSON manipulation in bash requires `jq` (not universally available)
+- Node.js 20+ is a hard requirement for Kata (`package.json` engines field)
+- Regex extraction is cleaner in JavaScript
+- `fs` and `path` are built-in, no imports needed
+
+**Fallback for machines without Node.js 20+:**
+Not needed. Kata already requires Node 20+. If Node is missing, Kata itself does not install.
+
+### How intel feeds into workflows
+
+| Consumer | What it reads | When |
+|---|---|---|
+| `/kata-plan-phase` | `summary.md`, `conventions.json` | Inlined into planner subagent prompt |
+| `/kata-execute-phase` | `conventions.json` | Executor follows detected naming patterns |
+| `/kata-map-codebase` | `index.json` | Incremental update instead of full rescan |
+| `/kata-track-progress` | `index.json`, freshness data | Reports stale docs alongside status |
+| PostToolUse hook | Triggers `index-file.js` | After every Write/Edit of a code file |
+
+### Config integration
+
+```json
+{
+  "intel": {
+    "enabled": true,
+    "languages": ["js", "ts", "tsx", "jsx"],
+    "excludeDirs": ["node_modules", "dist", "build", ".git", "vendor", "coverage"]
+  }
+}
+```
+
+Default: enabled, JS/TS only, standard excludes. Users can add languages or exclude directories via `/kata-configure-settings`.
+
+---
+
+## What NOT to Add
+
+| Technology | Why Not |
+|---|---|
+| **tree-sitter** | Compiled native dependency. Violates zero-dependency constraint |
+| **ast-grep** | Requires separate binary installation. Cannot bundle in plugin |
+| **SQLite / LevelDB** | Database adds compiled dependency. JSON files are sufficient for <5000 file codebases |
+| **Language Server Protocol** | Requires running language server process. Kata has no daemon |
+| **ESLint programmatic API** | npm dependency. Not all projects use ESLint |
+| **TypeScript compiler API** | Requires `typescript` npm package. Heavy dependency for extraction |
+| **File watchers (chokidar/fsevents)** | Requires npm dependency and long-running process |
+| **Knowledge graphs (Neo4j, etc.)** | Server dependency. JSON adjacency lists serve the same purpose |
+| **Vector embeddings** | Requires embedding model and similarity search. Overkill for file-level indexing |
+
+---
+
+## Risk Assessment
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| Regex extraction misses edge cases | HIGH | LOW | Intel is advisory, not compilation. 90%+ accuracy is sufficient. Document limitations |
+| Large repos produce oversized index.json | MEDIUM | MEDIUM | Cap indexing at configurable file count. Exclude generated/vendor dirs |
+| PostToolUse hooks unavailable | MEDIUM | LOW | SessionStart batch scan catches everything. Hooks are optimization, not requirement |
+| Convention detection false positives | MEDIUM | LOW | Require 5+ samples and 70%+ match rate before reporting. Show confidence scores |
+| Node.js script execution speed | LOW | LOW | Single-file indexing takes <100ms. Batch of 500 files takes <5s |
+
+---
+
+## Build and Distribution
+
+**No changes to build system required.** Scripts in `skills/kata-map-codebase/scripts/` are already copied by `build.js` (it copies all skill contents including scripts/). The `shouldExclude` function skips `.planning` and `tests` but includes `scripts`.
+
+**Testing approach:** Node.js test files in `tests/scripts/` following existing pattern (`*.test.js` using Node's built-in test runner).
+
+---
+
+## Summary of Recommendations
+
+1. **Code analysis:** Regex-based extraction via Node.js scripts. No dependencies. Ship as skill scripts.
+2. **Incremental indexing:** Git-native change detection (`git diff --name-only`). Store last-indexed commit in `index.json`.
+3. **Convention detection:** Statistical heuristics over indexed data. Count naming patterns, directory purposes, file suffixes.
+4. **Doc freshness:** Git blame comparison between doc and referenced code files.
+5. **Trigger mechanisms:** PostToolUse hook (reactive) + SessionStart batch scan (catch-up). Hooks are optional optimization.
+6. **Storage:** JSON files in `.planning/intel/`. No database.
+7. **Integration:** Inline `summary.md` and `conventions.json` into subagent prompts via existing skill orchestration pattern.
 
 ---
 
 ## Sources
 
-**Agent Skills Specification:**
-- [Agent Skills Specification](https://agentskills.io/specification.md)
-- [Integrate Skills](https://agentskills.io/integrate-skills.md)
+- [ast-grep](https://ast-grep.github.io/) -- AST-based CLI tool (evaluated, rejected for dependency reasons)
+- [tree-sitter](https://tree-sitter.github.io/tree-sitter/) -- Incremental parser (evaluated, rejected for native dependency)
+- [ES6 Import Regex Patterns](https://gist.github.com/manekinekko/7e58a17bc62a9be47172) -- Community-validated regex for JS imports
+- [Claude Code Hooks Reference](https://code.claude.com/docs/en/hooks) -- PostToolUse hook specification
+- [jq Manual](https://jqlang.org/manual/) -- JSON processing (available but not assumed)
+- [Git diff Documentation](https://git-scm.com/docs/git-diff) -- Change detection plumbing
+- [OpenAI Harness Engineering](https://openai.com/index/harness-engineering/) -- Repository knowledge patterns (evaluated for inspiration)
+- [depgrapher](https://blog.disy.net/depgrapher/) -- Regex-based JS dependency analysis (pattern reference)
+- [NATURALIZE](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/allamanis2014learning.pdf) -- Convention learning research (evaluated, rejected for ML dependency)
+- Kata codebase: `skills/kata-map-codebase/SKILL.md`, `scripts/build.js`, `package.json`
 
-**Claude Code Documentation:**
-- [Create Custom Subagents](https://code.claude.com/docs/en/sub-agents)
-- [Skills Documentation](https://code.claude.com/docs/en/skills)
-- [Plugin Components Reference](https://code.claude.com/docs/en/plugins-reference)
-
-**Kata Codebase:**
-- `scripts/build.js` — Plugin build with namespace transformation
-- `agents/kata-*.md` — Current agent definitions
-- `skills/kata-*/SKILL.md` — Current skill orchestrators
-
-**Community Resources:**
-- [Task Tool: Claude Code's Agent Orchestration System](https://dev.to/bhaidar/the-task-tool-claude-codes-agent-orchestration-system-4bf2)
-- [Claude Code Customization Guide](https://alexop.dev/posts/claude-code-customization-guide-claudemd-skills-subagents/)
+---
+*Stack analysis: 2026-02-15*

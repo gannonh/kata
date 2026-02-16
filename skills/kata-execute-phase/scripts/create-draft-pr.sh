@@ -9,8 +9,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-source "$SCRIPT_DIR/../../kata-configure-settings/scripts/project-root.sh"
-READ_CONFIG="$SCRIPT_DIR/../../kata-configure-settings/scripts/read-config.sh"
+PROJECT_ROOT=$(node "$SCRIPT_DIR/kata-lib.cjs" resolve-root)
+cd "$PROJECT_ROOT"
 
 PHASE_DIR="${1:?Usage: create-draft-pr.sh <phase-dir> <branch>}"
 BRANCH="${2:?Usage: create-draft-pr.sh <phase-dir> <branch>}"
@@ -30,9 +30,9 @@ if ! git push -u origin "$BRANCH" >/dev/null 2>/dev/null; then
   git push -u --force-with-lease origin "$BRANCH" >/dev/null
 fi
 
-# Read config via read-config.sh
-GITHUB_ENABLED=$(bash "$READ_CONFIG" "github.enabled" "false")
-ISSUE_MODE=$(bash "$READ_CONFIG" "github.issue_mode" "never")
+# Read config
+GITHUB_ENABLED=$(node "$SCRIPT_DIR/kata-lib.cjs" read-config "github.enabled" "false")
+ISSUE_MODE=$(node "$SCRIPT_DIR/kata-lib.cjs" read-config "github.issue_mode" "never")
 
 # Parse phase metadata from ROADMAP (|| true prevents pipefail+set -e on grep no-match)
 MILESTONE=$(grep -E "Current Milestone:|🔄" .planning/ROADMAP.md 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 | tr -d 'v' || true)

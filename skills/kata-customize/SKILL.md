@@ -85,8 +85,7 @@ Requires a template name argument. If not provided, run list operation first, th
 **Step 4a: Resolve the default template path**
 
 ```bash
-RESOLVE_SCRIPT="../kata-execute-phase/scripts/resolve-template.sh"
-DEFAULT_PATH=$(bash "$RESOLVE_SCRIPT" "$TEMPLATE_NAME" 2>&1)
+DEFAULT_PATH=$(node scripts/kata-lib.cjs resolve-template "$TEMPLATE_NAME" 2>&1)
 ```
 
 If the resolve script exits non-zero, the template name is invalid. Display the error and stop.
@@ -231,6 +230,6 @@ To fix, edit the override or reset to default:
 - [ ] Default copied to .planning/templates/ with overwrite protection
 - [ ] Edit operation reads current content and applies user changes
 - [ ] Validation runs after edit and reports missing fields
-- [ ] All operations use existing infrastructure (resolve-template.sh, check-template-drift.sh)
+- [ ] All operations use existing infrastructure (kata-lib.cjs resolve-template, check-template-drift.sh)
 - [ ] Skill responds to natural language triggers
       </success_criteria>

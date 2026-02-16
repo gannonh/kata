@@ -10,10 +10,10 @@ const PLUGIN_DIR = path.join(ROOT, 'dist/plugin');
 const SKILLS_DIR = path.join(PLUGIN_DIR, 'skills');
 
 /**
- * project-root.sh Tests
+ * kata-lib.cjs resolve-root Tests
  *
- * Tests the shared project root detection helper sourced by all scripts
- * that need project-relative paths (.planning/).
+ * Tests the shared project root detection via kata-lib.cjs resolve-root
+ * (replacement for the former project-root.sh).
  *
  * Run with: node --test tests/scripts/project-root.test.js
  */
@@ -32,12 +32,11 @@ function copySkills(dir) {
   return destSkills;
 }
 
-// Helper: run a script that sources project-root.sh and prints CWD
-function runProjectRootTest(skillsDir, opts = {}) {
-  const prScript = path.join(skillsDir, 'kata-configure-settings/scripts/project-root.sh');
+// Helper: run kata-lib.cjs resolve-root and return the resolved path
+function runResolveRoot(skillsDir, opts = {}) {
+  const katalib = path.join(skillsDir, 'kata-configure-settings/scripts/kata-lib.cjs');
   const env = { ...process.env, ...(opts.env || {}) };
-  // Source project-root.sh then print CWD to verify detection
-  return execSync(`bash -c 'source "${prScript}" && pwd'`, {
+  return execSync(`node "${katalib}" resolve-root`, {
     cwd: opts.cwd || tmpDir,
     encoding: 'utf8',
     env,
@@ -57,7 +56,7 @@ describe('project-root.sh', () => {
   test('detects project root when CWD has .planning/', () => {
     fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
     const skillsDir = copySkills(tmpDir);
-    const result = runProjectRootTest(skillsDir, { cwd: tmpDir });
+    const result = runResolveRoot(skillsDir, { cwd: tmpDir });
     assert.strictEqual(result, tmpDir);
   });
 
@@ -66,18 +65,18 @@ describe('project-root.sh', () => {
     const mainDir = path.join(tmpDir, 'main');
     fs.mkdirSync(path.join(mainDir, '.planning'), { recursive: true });
     const skillsDir = copySkills(tmpDir);
-    const result = runProjectRootTest(skillsDir, { cwd: tmpDir });
+    const result = runResolveRoot(skillsDir, { cwd: tmpDir });
     assert.strictEqual(result, mainDir);
   });
 
   test('uses KATA_PROJECT_ROOT env var when set', () => {
     // Create project root in a completely separate directory
-    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kata-projroot-proj-'));
+    const projectDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'kata-projroot-proj-')));
     fs.mkdirSync(path.join(projectDir, '.planning'), { recursive: true });
     const skillsDir = copySkills(tmpDir);
 
     // CWD is tmpDir (no .planning/), but env var points to projectDir
-    const result = runProjectRootTest(skillsDir, {
+    const result = runResolveRoot(skillsDir, {
       cwd: tmpDir,
       env: { KATA_PROJECT_ROOT: projectDir }
     });
@@ -89,11 +88,11 @@ describe('project-root.sh', () => {
   test('KATA_PROJECT_ROOT takes priority over CWD', () => {
     // Both CWD and env var have .planning/, env var wins
     fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
-    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kata-projroot-proj-'));
+    const projectDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'kata-projroot-proj-')));
     fs.mkdirSync(path.join(projectDir, '.planning'), { recursive: true });
     const skillsDir = copySkills(tmpDir);
 
-    const result = runProjectRootTest(skillsDir, {
+    const result = runResolveRoot(skillsDir, {
       cwd: tmpDir,
       env: { KATA_PROJECT_ROOT: projectDir }
     });
@@ -108,17 +107,17 @@ describe('project-root.sh', () => {
     fs.mkdirSync(path.join(tmpDir, 'main/.planning'), { recursive: true });
     const skillsDir = copySkills(tmpDir);
 
-    const result = runProjectRootTest(skillsDir, { cwd: tmpDir });
-    // project-root.sh priority 3 (workspace/.planning) beats priority 4 (main/.planning)
+    const result = runResolveRoot(skillsDir, { cwd: tmpDir });
+    // resolve-root priority: workspace/.planning beats main/.planning
     assert.strictEqual(result, path.join(tmpDir, 'workspace'));
   });
 
   test('errors when project root not found', () => {
     // No .planning/ anywhere, no env var
     const skillsDir = copySkills(tmpDir);
-    const prScript = path.join(skillsDir, 'kata-configure-settings/scripts/project-root.sh');
+    const katalib = path.join(skillsDir, 'kata-configure-settings/scripts/kata-lib.cjs');
     try {
-      execSync(`bash -c 'source "${prScript}" && pwd'`, {
+      execSync(`node "${katalib}" resolve-root`, {
         cwd: tmpDir,
         encoding: 'utf8',
         stdio: ['pipe', 'pipe', 'pipe']
@@ -137,9 +136,9 @@ describe('project-root.sh', () => {
     // Env var points to a directory without .planning/
     const badDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kata-projroot-bad-'));
     const skillsDir = copySkills(tmpDir);
-    const prScript = path.join(skillsDir, 'kata-configure-settings/scripts/project-root.sh');
+    const katalib = path.join(skillsDir, 'kata-configure-settings/scripts/kata-lib.cjs');
     try {
-      execSync(`bash -c 'source "${prScript}" && pwd'`, {
+      execSync(`node "${katalib}" resolve-root`, {
         cwd: tmpDir,
         encoding: 'utf8',
         env: { ...process.env, KATA_PROJECT_ROOT: badDir },
@@ -174,10 +173,10 @@ describe('project-root.sh integration with scripts', () => {
 
     const pluginDir = path.join(tmpDir, 'plugin');
     const skillsDir = copySkills(pluginDir);
-    const script = path.join(skillsDir, 'kata-configure-settings/scripts/read-config.sh');
+    const katalib = path.join(skillsDir, 'kata-configure-settings/scripts/kata-lib.cjs');
 
     // Run from plugin dir (wrong CWD) with KATA_PROJECT_ROOT set
-    const result = execSync(`bash "${script}" "worktree.enabled" "false"`, {
+    const result = execSync(`node "${katalib}" read-config "worktree.enabled" "false"`, {
       cwd: pluginDir,
       encoding: 'utf8',
       env: { ...process.env, KATA_PROJECT_ROOT: projectDir },
@@ -189,10 +188,10 @@ describe('project-root.sh integration with scripts', () => {
   test('read-config.sh errors when CWD is wrong and no env var', () => {
     const pluginDir = path.join(tmpDir, 'plugin');
     const skillsDir = copySkills(pluginDir);
-    const script = path.join(skillsDir, 'kata-configure-settings/scripts/read-config.sh');
+    const katalib = path.join(skillsDir, 'kata-configure-settings/scripts/kata-lib.cjs');
 
     try {
-      execSync(`bash "${script}" "worktree.enabled" "false"`, {
+      execSync(`node "${katalib}" read-config "worktree.enabled" "false"`, {
         cwd: pluginDir,
         encoding: 'utf8',
         stdio: ['pipe', 'pipe', 'pipe']
