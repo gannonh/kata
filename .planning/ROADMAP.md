@@ -65,24 +65,8 @@ Plans:
 - [x] 55-02-PLAN.md — tests and fixtures for scan-codebase.cjs (unit + integration tests) — completed 2026-02-16
 - [x] 55-03-PLAN.md — generate-intel.js freshness metadata + kata-map-codebase and kata-execute-phase integration — completed 2026-02-16
 
-#### Phase 56: Greenfield Integration
-
-**Goal:** New projects build codebase intel progressively from first code written. No separate brownfield scan required for greenfield projects.
-
-**Demo:** Run `/kata-new-project` to create a new project. Execute the first phase. After completion, `.planning/intel/` exists with index.json populated from the code just written. No `/kata-map-codebase` invocation needed.
-
-**Requirements:** CAP-01, ARCH-03
-
-**Success Criteria:**
-- kata-new-project scaffolds `.planning/intel/` directory with empty schema files
-- First phase execution populates intel from generated code automatically
-- Progressive capture accumulates across phases without manual trigger
-
-**Plans:** 2 plans
-
 Plans:
-- [ ] 56-01-PLAN.md — Intel scaffolding in kata-new-project (scaffold-intel.cjs + SKILL.md wiring)
-- [ ] 56-02-PLAN.md — Smart gate logic + summary update in kata-execute-phase
+- [x] Phase 56: Greenfield Integration (2/2 plans) — completed 2026-02-16
 
 #### Phase 57: Knowledge Maintenance
 
@@ -255,8 +239,8 @@ Plans:
 | v1.9.0 Templates | 4 | 5 | Shipped 2026-02-08 |
 | v1.10.0 Worktrees | 5 | 11 | Shipped 2026-02-12 |
 | v1.11.0 Phase Worktrees | 5 | 10 | Shipped 2026-02-14 |
-| v1.12.0 Codebase Intel | 5 | 10 | In Progress |
+| v1.12.0 Codebase Intel | 4 | 12 | In Progress |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-16 — Phase 55 completed (3 plans)*
+*Last updated: 2026-02-16 — Phase 56 completed (2 plans)*

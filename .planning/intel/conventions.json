@@ -1,29 +1,48 @@
 {
-  "version": 1,
-  "generated": "2026-02-16T18:16:45.902Z",
-  "commitHash": "9a69b71",
+  "version": 2,
+  "generated": "2026-02-16T21:00:47.263Z",
+  "commitHash": "bd3fb9e",
   "naming": {
-    "files": "kebab-case",
-    "functions": "camelCase",
-    "variables": "SCREAMING_SNAKE"
+    "exports": {
+      "pattern": "camelCase",
+      "confidence": 1,
+      "sampleSize": 6,
+      "breakdown": {
+        "camelCase": 6
+      }
+    }
   },
   "directories": {
-    "bin": "bin/",
-    "kata": "commands/kata/",
-    "agents": "agents/",
-    "workflows": "kata/workflows/",
-    "templates": "kata/templates/",
-    "references": "kata/references/",
-    "hooks": "hooks/",
-    ".claude": ".claude/",
-    ".planning": ".planning/",
-    "node_modules": "node_modules/",
-    ".git": ".git/"
+    "bin/": {
+      "purpose": "CLI entry points",
+      "detectedBy": "name-lookup",
+      "fileCount": 1,
+      "dominantSuffix": ".js"
+    },
+    "hooks/": {
+      "purpose": "React hooks",
+      "detectedBy": "name-lookup",
+      "fileCount": 5,
+      "dominantSuffix": ".sh"
+    },
+    "scripts/": {
+      "purpose": "Build/utility scripts",
+      "detectedBy": "name-lookup",
+      "fileCount": 1,
+      "dominantSuffix": ".js"
+    },
+    "skills/kata-execute-phase/scripts/": {
+      "purpose": "Build/utility scripts",
+      "detectedBy": "name-lookup",
+      "fileCount": 1,
+      "dominantSuffix": ".cjs"
+    },
+    "skills/kata-new-project/scripts/": {
+      "purpose": "Build/utility scripts",
+      "detectedBy": "name-lookup",
+      "fileCount": 1,
+      "dominantSuffix": ".cjs"
+    }
   },
-  "patterns": {
-    "imports": "No explicit import pattern detected",
-    "error_handling": "## Error Handling | Explicit error states with user options: | - Exit with error code on validation failure: `process.exit(1)`",
-    "testing": "# Testing Patterns | ## Test Framework | **Status: No automated test suite exists.** | This is a meta-prompting system consisting of Markdown prompts, not executable code. The \"tests\" are: | **The one JavaScript file** (`bin/install.js`) has no unit tests."
-  },
-  "confidence": "high"
+  "fileSuffixes": {}
 }
