@@ -1,14 +1,14 @@
 {
   "version": 2,
-  "generated": "2026-02-17T03:53:06.572Z",
-  "commitHash": "aae4e3c",
+  "generated": "2026-02-17T17:16:42.744Z",
+  "commitHash": "cc9f3ef",
   "naming": {
     "exports": {
       "pattern": "camelCase",
-      "confidence": 0.7,
-      "sampleSize": 74,
+      "confidence": 0.71,
+      "sampleSize": 75,
       "breakdown": {
-        "camelCase": 52,
+        "camelCase": 53,
         "snake_case": 5,
         "PascalCase": 14,
         "SCREAMING_SNAKE": 3
@@ -67,7 +67,7 @@
     "tests/scripts/": {
       "purpose": "test files",
       "detectedBy": "suffix-analysis",
-      "fileCount": 8,
+      "fileCount": 9,
       "dominantSuffix": ".js"
     },
     "tests/skills/": {
@@ -80,7 +80,7 @@
   "fileSuffixes": {
     ".test.js": {
       "purpose": "test files",
-      "count": 40
+      "count": 41
     }
   }
 }

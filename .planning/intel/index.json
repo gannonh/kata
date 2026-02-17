@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "generated": "2026-02-17T03:53:06.572Z",
+  "generated": "2026-02-17T17:16:42.744Z",
   "source": "code-scan",
   "generatedBy": "scan-codebase",
-  "commitHash": "aae4e3c",
+  "commitHash": "cc9f3ef",
   "files": {
     "bin/install.js": {
       "exports": [],
@@ -109,6 +109,7 @@
     },
     "skills/kata-map-codebase/scripts/detect-stale-intel.cjs": {
       "exports": [
+        "detectBrownfieldDocStaleness",
         "detectStaleFiles"
       ],
       "imports": {
@@ -121,8 +122,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "cc9f3ef",
+      "indexedAt": "2026-02-17T17:16:42.744Z"
     },
     "skills/kata-map-codebase/scripts/generate-intel.js": {
       "exports": [],
@@ -1222,19 +1223,38 @@
       "layer": "shared",
       "lastIndexed": "aae4e3c",
       "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/scripts/detect-stale-intel.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:assert",
+          "node:child_process",
+          "node:fs",
+          "node:module",
+          "node:os",
+          "node:path",
+          "node:test"
+        ],
+        "local": []
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "cc9f3ef",
+      "indexedAt": "2026-02-17T17:16:42.744Z"
     }
   },
   "stats": {
-    "totalFiles": 60,
+    "totalFiles": 61,
     "byType": {
       "util": 20,
-      "test": 40
+      "test": 41
     },
     "byLayer": {
-      "shared": 60
+      "shared": 61
     },
     "byExtension": {
-      ".js": 49,
+      ".js": 50,
       ".cjs": 7,
       ".py": 2,
       ".go": 1,
