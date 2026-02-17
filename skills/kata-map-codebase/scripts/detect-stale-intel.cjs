@@ -277,14 +277,15 @@ function detectBrownfieldDocStaleness(projectRoot) {
 function main() {
   const projectRoot = resolveProjectRoot();
   const result = detectStaleFiles(projectRoot);
-  console.log(JSON.stringify(result, null, 2));
+  const brownfield = detectBrownfieldDocStaleness(projectRoot);
+  console.log(JSON.stringify({ ...result, ...brownfield }, null, 2));
 }
 
 // ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 
-module.exports = { detectStaleFiles };
+module.exports = { detectStaleFiles, detectBrownfieldDocStaleness };
 
 if (require.main === module) {
   try {
