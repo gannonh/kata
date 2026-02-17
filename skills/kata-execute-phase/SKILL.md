@@ -422,59 +422,66 @@ if [ -f ".planning/intel/index.json" ]; then
   [ -f "scripts/scan-codebase.cjs" ] && SCAN_SCRIPT="scripts/scan-codebase.cjs"
   [ -z "$SCAN_SCRIPT" ] && SCAN_SCRIPT=$(find skills/kata-map-codebase/scripts -name "scan-codebase.cjs" -type f 2>/dev/null | head -1)
 
-  # --- Step 1: Staleness detection (MAINT-01) ---
+  # --- Staleness detection (MAINT-01) ---
   STALE_SCRIPT=""
   [ -f "scripts/detect-stale-intel.cjs" ] && STALE_SCRIPT="scripts/detect-stale-intel.cjs"
   [ -z "$STALE_SCRIPT" ] && STALE_SCRIPT=$(find skills/kata-map-codebase/scripts -name "detect-stale-intel.cjs" -type f 2>/dev/null | head -1)
 
-  if [ -n "$STALE_SCRIPT" ] && [ -n "$SCAN_SCRIPT" ]; then
+  STALE_COUNT=0
+  STALE_PCT="0"
+  OLDEST_COMMIT=""
+  if [ -n "$STALE_SCRIPT" ]; then
     STALE_JSON=$(node "$STALE_SCRIPT" 2>/dev/null || echo "{}")
-    STALE_PCT=$(echo "$STALE_JSON" | grep -o '"stalePct"[[:space:]]*:[[:space:]]*[0-9.]*' | grep -o '[0-9.]*' || echo "0")
     STALE_COUNT=$(echo "$STALE_JSON" | grep -o '"staleCount"[[:space:]]*:[[:space:]]*[0-9]*' | grep -o '[0-9]*' || echo "0")
-
+    STALE_PCT=$(echo "$STALE_JSON" | grep -o '"stalePct"[[:space:]]*:[[:space:]]*[0-9.]*' | grep -o '[0-9.]*' || echo "0")
     if [ "${STALE_COUNT:-0}" -gt 0 ] 2>/dev/null; then
-      echo "Staleness detected: $STALE_COUNT file(s) (stalePct=$STALE_PCT)" >&2
       OLDEST_COMMIT=$(echo "$STALE_JSON" | grep -o '"oldestStaleCommit"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"oldestStaleCommit"[[:space:]]*:[[:space:]]*"//; s/"$//')
-
-      if [ -n "$OLDEST_COMMIT" ]; then
-        node "$SCAN_SCRIPT" --incremental --since "$OLDEST_COMMIT" 2>/dev/null || true
-      fi
-    fi
-
-    # Doc gardening trigger (MAINT-02): warn when >30% stale and codebase docs exist
-    if [ -d ".planning/codebase/" ] && [ -n "$STALE_PCT" ]; then
-      STALE_HIGH=$(node -e "console.log(Number('${STALE_PCT}') > 0.3 ? 'yes' : 'no')" 2>/dev/null || echo "no")
-      if [ "$STALE_HIGH" = "yes" ]; then
-        echo "Warning: >30% of intel is stale (stalePct=$STALE_PCT). Recommend running /kata-map-codebase to refresh codebase knowledge." >&2
-      fi
     fi
   fi
 
-  # --- Step 2: Greenfield gate (existing logic) ---
+  # --- Unified scan decision tree (greenfield / staleness / incremental) ---
   TOTAL_FILES=$(node -e "const j=JSON.parse(require('fs').readFileSync('.planning/intel/index.json','utf8')); console.log(j.stats?.totalFiles ?? j.stats?.total_files ?? 0)")
 
+  SCAN_RAN="false"
   if [ -n "$SCAN_SCRIPT" ]; then
     if [ "$TOTAL_FILES" -eq 0 ]; then
       # Greenfield first population: full scan
       node "$SCAN_SCRIPT" 2>/dev/null || true
+      SCAN_RAN="true"
+    elif [ "${STALE_COUNT:-0}" -gt 0 ] 2>/dev/null && [ -n "$OLDEST_COMMIT" ]; then
+      # Staleness-triggered incremental re-scan (MAINT-02)
+      echo "Detected $STALE_COUNT stale intel entries, re-scanning from $OLDEST_COMMIT..." >&2
+      node "$SCAN_SCRIPT" --incremental --since "$OLDEST_COMMIT" 2>/dev/null || true
+      SCAN_RAN="true"
     else
-      # Existing codebase: incremental scan
+      # Phase-start incremental scan
       PHASE_START_COMMIT=$(git log --oneline --all --grep="activate phase" --grep="${PHASE_NUM}" --all-match --format="%H" | tail -1)
       if [ -n "$PHASE_START_COMMIT" ]; then
         node "$SCAN_SCRIPT" --incremental --since "$PHASE_START_COMMIT" 2>/dev/null || true
+        SCAN_RAN="true"
       fi
     fi
   fi
 
-  # --- Step 3: Summary update ---
-  SUMMARY_SCRIPT=""
-  [ -f "scripts/update-intel-summary.cjs" ] && SUMMARY_SCRIPT="scripts/update-intel-summary.cjs"
-  [ -z "$SUMMARY_SCRIPT" ] && SUMMARY_SCRIPT=$(find skills/kata-execute-phase/scripts -name "update-intel-summary.cjs" -type f 2>/dev/null | head -1)
-  if [ -n "$SUMMARY_SCRIPT" ]; then
-    node "$SUMMARY_SCRIPT" 2>/dev/null || true
+  # --- Summary update (only when a scan ran) ---
+  if [ "$SCAN_RAN" = "true" ]; then
+    SUMMARY_SCRIPT=""
+    [ -f "scripts/update-intel-summary.cjs" ] && SUMMARY_SCRIPT="scripts/update-intel-summary.cjs"
+    [ -z "$SUMMARY_SCRIPT" ] && SUMMARY_SCRIPT=$(find skills/kata-execute-phase/scripts -name "update-intel-summary.cjs" -type f 2>/dev/null | head -1)
+    if [ -n "$SUMMARY_SCRIPT" ]; then
+      node "$SUMMARY_SCRIPT" 2>/dev/null || true
+    fi
   fi
 
-  # --- Step 4: Convention enforcement (MAINT-03) ---
+  # --- Doc gardening warning (MAINT-02) ---
+  if [ -d ".planning/codebase/" ] && [ -n "$STALE_PCT" ]; then
+    STALE_HIGH=$(node -e "console.log(Number('${STALE_PCT}') > 0.3 ? 'yes' : 'no')" 2>/dev/null || echo "no")
+    if [ "$STALE_HIGH" = "yes" ]; then
+      echo "Warning: >30% of intel is stale (stalePct=$STALE_PCT). Recommend running /kata-map-codebase to refresh codebase knowledge." >&2
+    fi
+  fi
+
+  # --- Convention enforcement (MAINT-03) ---
   CONV_SCRIPT=""
   [ -f "scripts/check-conventions.cjs" ] && CONV_SCRIPT="scripts/check-conventions.cjs"
   [ -z "$CONV_SCRIPT" ] && CONV_SCRIPT=$(find skills/kata-execute-phase/scripts -name "check-conventions.cjs" -type f 2>/dev/null | head -1)
