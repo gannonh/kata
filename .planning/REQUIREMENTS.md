@@ -25,9 +25,9 @@
 
 ## Knowledge Maintenance
 
-- [ ] **MAINT-01**: System detects when codebase docs are stale relative to recent code changes (git blame comparison)
-- [ ] **MAINT-02**: Doc gardening triggers partial re-analysis of codebase docs when documented code areas change significantly
-- [ ] **MAINT-03**: Convention enforcement validates new code against detected patterns during execution (in-skill check, not hook)
+- [x] **MAINT-01**: System detects when codebase docs are stale relative to recent code changes (git blame comparison)
+- [x] **MAINT-02**: Doc gardening triggers partial re-analysis of codebase docs when documented code areas change significantly
+- [x] **MAINT-03**: Convention enforcement validates new code against detected patterns during execution (in-skill check, not hook)
 - [x] **MAINT-04**: Knowledge artifacts include freshness metadata (generation timestamps, confidence scores, last-indexed commit hash)
 
 ## Future Requirements (Deferred)
@@ -66,6 +66,6 @@
 | ARCH-02 | 54 | Complete |
 | ARCH-03 | 56 | Complete |
 | MAINT-01 | 57 | Complete |
-| MAINT-02 | 57 | Partial |
+| MAINT-02 | 57 | Complete |
 | MAINT-03 | 57 | Complete |
 | MAINT-04 | 55 | Complete |
