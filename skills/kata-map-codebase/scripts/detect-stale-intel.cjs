@@ -46,6 +46,15 @@ function isValidCommit(commit, projectRoot) {
 }
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const SUPPORTED_EXTENSIONS = [
+  'js', 'mjs', 'cjs', 'ts', 'mts', 'cts', 'jsx', 'tsx',
+  'py', 'go', 'rs', 'java',
+];
+
+// ---------------------------------------------------------------------------
 // Staleness detection
 // ---------------------------------------------------------------------------
 
@@ -156,6 +165,108 @@ function detectStaleFiles(projectRoot) {
     stalePct: totalIndexed > 0 ? Math.round((staleFiles.length / totalIndexed) * 100) / 100 : 0,
     oldestStaleCommit,
     hasDocBasedEntries,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Brownfield doc staleness detection
+// ---------------------------------------------------------------------------
+
+const BROWNFIELD_DOCS = [
+  'ARCHITECTURE.md', 'STACK.md', 'CONVENTIONS.md', 'STRUCTURE.md',
+  'TESTING.md', 'INTEGRATIONS.md', 'CONCERNS.md',
+];
+
+const ANALYSIS_DATE_RE = /\*\*Analysis Date:\*\*\s*(\d{4}-\d{2}-\d{2})/;
+
+function hasSourceExtension(filePath) {
+  const ext = path.extname(filePath).replace(/^\./, '');
+  return SUPPORTED_EXTENSIONS.includes(ext);
+}
+
+function detectBrownfieldDocStaleness(projectRoot) {
+  // 1. Check if .planning/codebase/ exists
+  const codebaseDir = path.join(projectRoot, '.planning', 'codebase');
+  if (!dirExists(codebaseDir)) {
+    return { brownfieldDocStale: false };
+  }
+
+  // 2. Parse Analysis Date from brownfield docs (first found wins)
+  let analysisDate = null;
+  for (const docName of BROWNFIELD_DOCS) {
+    const docPath = path.join(codebaseDir, docName);
+    try {
+      const content = fs.readFileSync(docPath, 'utf8');
+      const match = content.match(ANALYSIS_DATE_RE);
+      if (match) {
+        analysisDate = match[1];
+        break;
+      }
+    } catch {
+      // File missing or unreadable, try next
+    }
+  }
+
+  if (!analysisDate) {
+    return { brownfieldDocStale: false, reason: 'no_analysis_date' };
+  }
+
+  // 3. Find the commit at or before the analysis date
+  let baseCommit;
+  try {
+    baseCommit = git(
+      `git log --until="${analysisDate}T23:59:59" --format=%H -1`,
+      projectRoot
+    );
+  } catch {
+    return { brownfieldDocStale: false, reason: 'no_commit_at_date' };
+  }
+
+  if (!baseCommit) {
+    return { brownfieldDocStale: false, reason: 'no_commit_at_date' };
+  }
+
+  // 4. Get changed files since base commit
+  let changedRaw;
+  try {
+    changedRaw = git(`git diff --name-only ${baseCommit}..HEAD`, projectRoot);
+  } catch {
+    return { brownfieldDocStale: false, reason: 'git_diff_failed' };
+  }
+
+  // 5. Filter to source files only
+  const changedFiles = changedRaw ? changedRaw.split('\n').filter(Boolean) : [];
+  const sourceChanged = changedFiles.filter(hasSourceExtension);
+
+  // 6. Get total source file count
+  let totalFiles = 0;
+  try {
+    const lsRaw = git('git ls-files', projectRoot);
+    const allFiles = lsRaw ? lsRaw.split('\n').filter(Boolean) : [];
+    totalFiles = allFiles.filter(hasSourceExtension).length;
+  } catch {
+    totalFiles = 0;
+  }
+
+  // 7-8. Compute change percentage and return result
+  if (totalFiles === 0) {
+    return {
+      brownfieldDocStale: false,
+      brownfieldAnalysisDate: analysisDate,
+      brownfieldChangedFiles: sourceChanged.length,
+      brownfieldTotalFiles: 0,
+      brownfieldChangePct: 0,
+    };
+  }
+
+  const changePct = sourceChanged.length / totalFiles;
+
+  return {
+    brownfieldDocStale: changePct > 0.3,
+    brownfieldAnalysisDate: analysisDate,
+    brownfieldChangedFiles: sourceChanged.length,
+    brownfieldTotalFiles: totalFiles,
+    brownfieldChangePct: Math.round(changePct * 100) / 100,
   };
 }
 
