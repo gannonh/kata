@@ -14,7 +14,7 @@ Kata is a spec-driven development framework for Claude Code. This roadmap tracks
 - ✅ **v1.9.0 Template Overrides (Universal)** — Phases 40-43 (shipped 2026-02-08)
 - ✅ **v1.10.0 Git Worktree Support** — Phases 44-48 (shipped 2026-02-12)
 - ✅ **v1.11.0 Phase-Level Worktrees** — Phases 49-53 (shipped 2026-02-14)
-- 🔄 **v1.12.0 Codebase Intelligence** — Phases 54-57 (in progress)
+- 🔄 **v1.12.0 Codebase Intelligence** — Phases 54-58 (in progress)
 
 ## Current Milestone: v1.12.0 Codebase Intelligence
 
@@ -70,6 +70,22 @@ Plans:
 
 Plans:
 - [x] Phase 57: Knowledge Maintenance (3/3 plans) — completed 2026-02-16 (gaps closed)
+
+#### Phase 58: Brownfield Doc Auto-Refresh
+
+**Goal:** When brownfield codebase docs are stale relative to code changes, automatically re-run the full mapping pipeline so agents always receive current codebase context.
+
+**Gap Closure:** Closes GAP-1 from v1.12.0 audit — stale brownfield summary.md delivers misleading context to agents.
+
+**Requirements:** MAINT-02 (partial — brownfield doc staleness path)
+
+**Plans:** 4 plans
+
+**Success Criteria:**
+- `detect-stale-intel.cjs` parses Analysis Date from `.planning/codebase/` docs and compares against git history of architectural files
+- `kata-execute-phase` step 7.25 triggers brownfield re-map when stale docs detected
+- Re-map spawns 4 mapper agents (same as `/kata-map-codebase`), then runs full intel pipeline
+- Tests cover detection logic and refresh trigger integration
 
 ## Completed Milestones
 
@@ -229,8 +245,8 @@ Plans:
 | v1.9.0 Templates | 4 | 5 | Shipped 2026-02-08 |
 | v1.10.0 Worktrees | 5 | 11 | Shipped 2026-02-12 |
 | v1.11.0 Phase Worktrees | 5 | 10 | Shipped 2026-02-14 |
-| v1.12.0 Codebase Intel | 4 | 12 | In Progress |
+| v1.12.0 Codebase Intel | 5 | 12 | In Progress |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-16 — Phase 56 completed (2 plans)*
+*Last updated: 2026-02-17 — Phase 58 added (gap closure: brownfield doc auto-refresh)*
