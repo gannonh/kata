@@ -79,6 +79,7 @@ Store `WORKTREE_ENABLED` and `PR_WORKFLOW` for use in steps 1.5, 4, 10, and 10.5
 | Agent                      | quality | balanced | budget |
 | -------------------------- | ------- | -------- | ------ |
 | general-purpose (executor) | opus    | sonnet   | sonnet |
+| general-purpose (mapper)   | haiku   | haiku    | haiku  |
 | kata-verifier              | sonnet  | sonnet   | haiku  |
 | kata-code-reviewer         | opus    | sonnet   | sonnet |
 | kata-\*-analyzer           | sonnet  | sonnet   | haiku  |
