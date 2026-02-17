@@ -437,6 +437,11 @@ if [ -f ".planning/intel/index.json" ]; then
     if [ "${STALE_COUNT:-0}" -gt 0 ] 2>/dev/null; then
       OLDEST_COMMIT=$(echo "$STALE_JSON" | grep -o '"oldestStaleCommit"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"oldestStaleCommit"[[:space:]]*:[[:space:]]*"//; s/"$//')
     fi
+
+    # --- Brownfield staleness fields (MAINT-02 gap closure) ---
+    BROWNFIELD_STALE="false"
+    BROWNFIELD_STALE=$(echo "$STALE_JSON" | node -e "try{const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log(d.brownfieldDocStale===true?'true':'false')}catch{console.log('false')}" 2>/dev/null || echo "false")
+    BROWNFIELD_ANALYSIS_DATE=$(echo "$STALE_JSON" | node -e "try{const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log(d.brownfieldAnalysisDate||'')}catch{console.log('')}" 2>/dev/null || echo "")
   fi
 
   # --- Unified scan decision tree (greenfield / staleness / incremental) ---
