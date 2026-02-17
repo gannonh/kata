@@ -413,31 +413,58 @@ TEST_SCRIPT=$(cat package.json 2>/dev/null | grep -o '"test"[[:space:]]*:[[:spac
 
 7.25. **Update codebase index (smart scan)**
 
-If `.planning/intel/index.json` exists, determine scan mode and run the appropriate scan. After scanning, update summary.md if needed.
+If `.planning/intel/index.json` exists, run staleness detection, determine scan mode, update summary, and check conventions. All operations are non-blocking.
 
 ```bash
 if [ -f ".planning/intel/index.json" ]; then
-  # Determine scan mode: full (greenfield first population) vs incremental
-  TOTAL_FILES=$(node -e "const j=JSON.parse(require('fs').readFileSync('.planning/intel/index.json','utf8')); console.log(j.stats?.totalFiles ?? j.stats?.total_files ?? 0)")
-
   # Locate scan script
   SCAN_SCRIPT=""
   [ -f "scripts/scan-codebase.cjs" ] && SCAN_SCRIPT="scripts/scan-codebase.cjs"
   [ -z "$SCAN_SCRIPT" ] && SCAN_SCRIPT=$(find skills/kata-map-codebase/scripts -name "scan-codebase.cjs" -type f 2>/dev/null | head -1)
 
+  # --- Staleness detection (MAINT-01) ---
+  STALE_SCRIPT=""
+  [ -f "scripts/detect-stale-intel.cjs" ] && STALE_SCRIPT="scripts/detect-stale-intel.cjs"
+  [ -z "$STALE_SCRIPT" ] && STALE_SCRIPT=$(find skills/kata-map-codebase/scripts -name "detect-stale-intel.cjs" -type f 2>/dev/null | head -1)
+
+  STALE_COUNT=0
+  STALE_PCT="0"
+  OLDEST_COMMIT=""
+  if [ -n "$STALE_SCRIPT" ]; then
+    STALE_JSON=$(node "$STALE_SCRIPT" 2>/dev/null || echo "{}")
+    STALE_COUNT=$(echo "$STALE_JSON" | grep -o '"staleCount"[[:space:]]*:[[:space:]]*[0-9]*' | grep -o '[0-9]*' || echo "0")
+    STALE_PCT=$(echo "$STALE_JSON" | grep -o '"stalePct"[[:space:]]*:[[:space:]]*[0-9.]*' | grep -o '[0-9.]*' || echo "0")
+    if [ "${STALE_COUNT:-0}" -gt 0 ] 2>/dev/null; then
+      OLDEST_COMMIT=$(echo "$STALE_JSON" | grep -o '"oldestStaleCommit"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"oldestStaleCommit"[[:space:]]*:[[:space:]]*"//; s/"$//')
+    fi
+  fi
+
+  # --- Unified scan decision tree (greenfield / staleness / incremental) ---
+  TOTAL_FILES=$(node -e "const j=JSON.parse(require('fs').readFileSync('.planning/intel/index.json','utf8')); console.log(j.stats?.totalFiles ?? j.stats?.total_files ?? 0)")
+
+  SCAN_RAN="false"
   if [ -n "$SCAN_SCRIPT" ]; then
     if [ "$TOTAL_FILES" -eq 0 ]; then
       # Greenfield first population: full scan
       node "$SCAN_SCRIPT" 2>/dev/null || true
+      SCAN_RAN="true"
+    elif [ "${STALE_COUNT:-0}" -gt 0 ] 2>/dev/null && [ -n "$OLDEST_COMMIT" ]; then
+      # Staleness-triggered incremental re-scan (MAINT-02)
+      echo "Detected $STALE_COUNT stale intel entries, re-scanning from $OLDEST_COMMIT..." >&2
+      node "$SCAN_SCRIPT" --incremental --since "$OLDEST_COMMIT" 2>/dev/null || true
+      SCAN_RAN="true"
     else
-      # Existing codebase: incremental scan
+      # Phase-start incremental scan
       PHASE_START_COMMIT=$(git log --oneline --all --grep="activate phase" --grep="${PHASE_NUM}" --all-match --format="%H" | tail -1)
       if [ -n "$PHASE_START_COMMIT" ]; then
         node "$SCAN_SCRIPT" --incremental --since "$PHASE_START_COMMIT" 2>/dev/null || true
+        SCAN_RAN="true"
       fi
     fi
+  fi
 
-    # Update summary.md from scan data (greenfield path only)
+  # --- Summary update (only when a scan ran) ---
+  if [ "$SCAN_RAN" = "true" ]; then
     SUMMARY_SCRIPT=""
     [ -f "scripts/update-intel-summary.cjs" ] && SUMMARY_SCRIPT="scripts/update-intel-summary.cjs"
     [ -z "$SUMMARY_SCRIPT" ] && SUMMARY_SCRIPT=$(find skills/kata-execute-phase/scripts -name "update-intel-summary.cjs" -type f 2>/dev/null | head -1)
@@ -445,10 +472,38 @@ if [ -f ".planning/intel/index.json" ]; then
       node "$SUMMARY_SCRIPT" 2>/dev/null || true
     fi
   fi
+
+  # --- Doc gardening warning (MAINT-02) ---
+  if [ -d ".planning/codebase/" ] && [ -n "$STALE_PCT" ]; then
+    STALE_HIGH=$(node -e "console.log(Number('${STALE_PCT}') > 0.3 ? 'yes' : 'no')" 2>/dev/null || echo "no")
+    if [ "$STALE_HIGH" = "yes" ]; then
+      echo "Warning: >30% of intel is stale (stalePct=$STALE_PCT). Recommend running /kata-map-codebase to refresh codebase knowledge." >&2
+    fi
+  fi
+
+  # --- Convention enforcement (MAINT-03) ---
+  CONV_SCRIPT=""
+  [ -f "scripts/check-conventions.cjs" ] && CONV_SCRIPT="scripts/check-conventions.cjs"
+  [ -z "$CONV_SCRIPT" ] && CONV_SCRIPT=$(find skills/kata-execute-phase/scripts -name "check-conventions.cjs" -type f 2>/dev/null | head -1)
+
+  if [ -n "$CONV_SCRIPT" ]; then
+    PHASE_START_COMMIT=${PHASE_START_COMMIT:-$(git log --oneline --all --grep="activate phase" --grep="${PHASE_NUM}" --all-match --format="%H" | tail -1)}
+    if [ -n "$PHASE_START_COMMIT" ]; then
+      CHANGED_FILES=$(git diff --name-only "$PHASE_START_COMMIT..HEAD" 2>/dev/null | tr '\n' ' ')
+      if [ -n "$CHANGED_FILES" ]; then
+        CONV_JSON=$(node "$CONV_SCRIPT" --files $CHANGED_FILES 2>/dev/null || echo "{}")
+        CONV_VIOLATIONS=$(echo "$CONV_JSON" | node -e "try{const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log((d.violations||[]).length)}catch{console.log(0)}" 2>/dev/null || echo "0")
+        if [ "${CONV_VIOLATIONS:-0}" -gt 0 ] 2>/dev/null; then
+          echo "Convention violations detected ($CONV_VIOLATIONS):" >&2
+          echo "$CONV_JSON" | node -e "try{const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));(d.violations||[]).forEach(v=>console.error('  - '+v.file+': '+v.export+' (found '+v.found+', expected '+v.expected+')'))}catch{}" 2>/dev/null || true
+        fi
+      fi
+    fi
+  fi
 fi
 ```
 
-Non-blocking: all scan and summary operations use `|| true`. Failures never block phase completion.
+Non-blocking: all scan, staleness, summary, and convention operations use `|| true` or `2>/dev/null`. Failures never block phase completion.
 
 7.5. **Validate completion and move to completed**
 
