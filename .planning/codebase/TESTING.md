@@ -1,53 +1,318 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-01-16
+**Analysis Date:** 2026-02-18
 
 ## Test Framework
 
-**Status: No automated test suite exists.**
+**Runner:**
+- Node.js built-in `node:test` module (no external test framework)
+- Version: Node.js >= 20.0.0
+- No external config file; everything in `package.json` scripts
 
-This is a meta-prompting system consisting of Markdown prompts, not executable code. The "tests" are:
-1. Manual execution of `/kata:*` commands in Claude Code
-2. Verification steps embedded in PLAN.md tasks
-3. Success criteria checklists in workflows
+**Assertion Library:**
+- Node.js built-in `assert` and `assert/strict` modules
 
-**The one JavaScript file** (`bin/install.js`) has no unit tests.
-
-## Testing Philosophy
-
-GSD uses **inline verification** rather than a separate test suite:
-
-```xml
-<task type="auto">
-  <name>Create login endpoint</name>
-  <action>POST endpoint accepting {email, password}</action>
-  <verify>curl -X POST localhost:3000/api/auth/login returns 200</verify>
-  <done>Valid credentials -> 200 + cookie</done>
-</task>
+**Run Commands:**
+```bash
+npm test                    # Full suite (build + migration + artifacts + scripts)
+npm run test:smoke         # Smoke tests (post-build validation)
+npm run test:scripts       # Bash script tests only
+npm run test:artifacts     # Build artifact validation
+npm run test:skills        # Skill invocation tests with Claude CLI
+npm run test:all           # All tests combined
+npm run test:affected      # Only tests affected by git changes
 ```
 
-Each task includes:
-- `<verify>` — Command or check to prove completion
-- `<done>` — Acceptance criteria (measurable state)
+## Test File Organization
 
-## TDD Integration
+**Location:**
+- `tests/` directory at repository root
+- Subdirectories:
+  - `tests/harness/` — Shared utilities (assertions, runners)
+  - `tests/scripts/` — Bash script tests
+  - `tests/skills/` — Skill invocation tests
+  - `tests/fixtures/` — Test data and sample codebases
 
-GSD supports TDD for **target projects** (projects built using GSD), not for GSD itself.
+**Naming Convention:**
+- Format: `{module}.test.js` or `{feature}.test.js`
+- Examples: `build.test.js`, `project-root.test.js`, `starting-projects.test.js`
 
-### TDD Detection Heuristic
+**Structure:**
+```
+tests/
+├── harness/
+│   ├── assertions.js       # Shared assertion helpers
+│   ├── runner.js           # Test configuration
+│   ├── claude-cli.js       # Claude CLI invocation wrapper
+│   └── affected.js         # Detect affected tests by git changes
+├── scripts/
+│   ├── project-root.test.js
+│   ├── find-phase.test.js
+│   └── ...
+├── skills/
+│   ├── starting-projects.test.js
+│   ├── planning-phases.test.js
+│   └── ...
+├── fixtures/
+│   └── scan-codebase/      # Sample codebases
+├── build.test.js
+├── smoke.test.js
+├── artifact-validation.test.js
+└── migration-validation.test.js
+```
 
-**Heuristic:** Can you write `expect(fn(input)).toBe(output)` before writing `fn`?
-- Yes: Create a dedicated TDD plan for this feature
-- No: Standard task in standard plan
+## Test Structure
 
-### TDD Plan Structure
+**Suite Organization:**
+```javascript
+import { test, describe, before, after } from 'node:test';
+import assert from 'node:assert';
 
-```markdown
+describe('Feature Name', () => {
+  before(() => {
+    // Setup: once before all tests
+    execSync('npm run build:plugin', { cwd: ROOT, stdio: 'pipe' });
+  });
+
+  after(() => {
+    // Cleanup: once after all tests
+    if (testDir && existsSync(testDir)) {
+      rmSync(testDir, { recursive: true, force: true });
+    }
+  });
+
+  test('specific behavior description', () => {
+    // Arrange, Act, Assert pattern
+    const testData = { ... };
+    const result = myFunction(testData);
+    assert.strictEqual(result, expectedValue);
+  });
+});
+```
+
+**Patterns:**
+- **Before/After hooks:** Shared setup/teardown for suite
+  - Before: Build, create temp dirs, initialize repos
+  - After: Clean up temp resources
+- **Describe blocks:** Group tests by feature or component
+- **Test naming:** Start with lowercase verb (creates, validates, resolves)
+- **Isolation:** Each test gets fresh temp directory via `mkdtempSync()`
+
+## Mocking
+
+**Framework:** No mocking library (Node.js built-ins only)
+
+**Patterns:**
+- **Mock filesystems:** Use `mkdtempSync()` to create isolated temp directories
+- **Mock shell execution:** `execSync()` with stdio redirection
+- **Mock Claude responses:** Parse actual JSON from Claude CLI invocation
+
+Example from `starting-projects.test.js`:
+```javascript
+beforeEach(() => {
+  testDir = mkdtempSync(join(tmpdir(), 'kata-test-starting-'));
+
+  // Initialize git repo
+  execSync('git init', { cwd: testDir, stdio: 'pipe' });
+  execSync('git config user.email "test@test.com"', { cwd: testDir, stdio: 'pipe' });
+
+  // Copy skill to test directory
+  const skillSource = join(KATA_ROOT, 'skills', 'kata-new-project');
+  const skillDest = join(testDir, '.claude', 'skills', 'kata-new-project');
+  cpSync(skillSource, skillDest, { recursive: true });
+});
+```
+
+**What to Mock:**
+- File system operations (temp dirs, not real files)
+- Environment variables (pass via options)
+- External commands (execSync captures output)
+
+**What NOT to Mock:**
+- Actual skill execution (use real Claude CLI)
+- File I/O in utilities (read from dist/)
+- Git operations (use real git in temp repos)
+
+## Fixtures and Factories
+
+**Test Data:**
+- Simple values: Inline in test code
+- Complex objects: Defined as constants at top of test file
+- Codebase samples: Stored in `tests/fixtures/` (e.g., `scan-codebase/sample.js`)
+
+**Location:**
+- Fixtures: `tests/fixtures/` directory
+- Test utilities: `tests/harness/` directory
+- Constants: Top of test file
+
+## Coverage
+
+**Requirements:** None enforced
+
+**Metrics:**
+- No coverage.json or coverage targets
+- Quality driven by critical path testing (build, artifacts, skill invocation)
+
+## Test Types
+
+**Unit Tests (Script validation):**
+- Scope: Individual bash or Node.js scripts
+- Approach: Create temp dirs, run script, verify output and exit codes
+- Example: `tests/scripts/find-phase.test.js` → `find-phase.sh`
+- Files: `tests/scripts/*.test.js`
+
+**Integration Tests (Skill invocation):**
+- Scope: Full skill execution via Claude CLI
+- Approach: Create temp project, invoke skill, parse JSON response
+- Budget tiers: quick ($0.50), standard ($2.00), expensive ($5.00)
+- Timeout tiers: quick (1min), standard (3min), expensive (5min)
+- Example: `tests/skills/starting-projects.test.js` → `kata-new-project` skill
+- Files: `tests/skills/*.test.js`
+
+**Artifact Validation Tests:**
+- Scope: Built plugin structure and contents
+- Approach: Build, then validate files, paths, frontmatter
+- Validates:
+  - Directory structure (skills/, .claude-plugin/)
+  - VERSION file matches package.json
+  - No stale @~/.claude/ paths
+  - SKILL.md frontmatter complete
+  - @./references/ paths resolve
+- File: `tests/artifact-validation.test.js`
+
+**Build Tests:**
+- Scope: Plugin build system (`scripts/build.js`)
+- Approach: Run build, verify output structure
+- Validates:
+  - dist/plugin/ created
+  - Skills directory included
+  - Shared scripts distributed (kata-lib.cjs, manage-worktree.sh)
+  - Script path transformations (${CLAUDE_PLUGIN_ROOT})
+  - No cross-skill refs or stale patterns
+- File: `tests/build.test.js`
+
+**Smoke Tests:**
+- Scope: Post-release verification
+- Approach: Minimal checks for functionality
+- Validates:
+  - Plugin builds successfully
+  - plugin.json exists and complete
+  - VERSION file present
+  - Skills use local @./ references
+- File: `tests/smoke.test.js`
+
+## Common Patterns
+
+**Async Testing:**
+- No async/await in tests (synchronous I/O, execSync)
+- Claude CLI invocation wrapped in `invokeClaude()` helper (blocking)
+
+**Error Testing:**
+- Check exit codes: `assert.strictEqual(result.exitCode, 1)`
+- Check error output: `assertResultContains(result, 'ERROR: ...')`
+- Example from `artifact-validation.test.js`:
+```javascript
+test('no @~/.claude/ references in plugin', () => {
+  const mdFiles = findFiles(PLUGIN_DIR, /\.md$/);
+  const errors = [];
+
+  for (const file of mdFiles) {
+    if (path.basename(file) === 'CHANGELOG.md') continue;
+    const content = fs.readFileSync(file, 'utf8');
+    if (content.includes('@~/.claude/')) {
+      errors.push(`contains @~/.claude/ reference`);
+    }
+  }
+
+  assert.strictEqual(errors.length, 0, `Stale references:\n${errors.join('\n')}`);
+});
+```
+
+## Assertion Helpers
+
+**From `tests/harness/assertions.js`:**
+```javascript
+// Assert skill was invoked (not just ad-hoc response)
+assertSkillInvoked(result, message)
+
+// Assert response completed without error
+assertNoError(result, message)
+
+// Assert artifact exists at path
+assertArtifactExists(basePath, relativePath, message)
+
+// Assert directory contains file matching pattern
+assertFileMatchesPattern(dirPath, pattern, message)
+
+// Assert response text contains expected content
+assertResultContains(result, expected, message)
+
+// Assert "Next Up" section proposes expected command
+assertNextStepProposed(result, expectedCommand, message)
+
+// Assert all expected paths exist
+assertFileStructure(basePath, expectedPaths, message)
+```
+
+## Special Patterns
+
+**Affected Tests Detection (from `tests/harness/affected.js`):**
+- Reads git diff to determine changed files
+- Maps to affected test files
+- Enables fast CI cycles with subset execution
+
+**Test Configuration (from `tests/harness/runner.js`):**
+```javascript
+export const config = {
+  budgets: {
+    quick: 0.50,      // Simple skill trigger tests
+    standard: 2.00,   // Full skill workflow tests
+    expensive: 5.00   // Complex multi-turn tests
+  },
+  timeouts: {
+    quick: 60000,     // 1 min
+    standard: 180000, // 3 min
+    expensive: 300000 // 5 min
+  },
+  isolation: {
+    tempPrefix: 'kata-test-',
+    cleanupOnFailure: true
+  }
+};
+```
+
+**Claude CLI Invocation (from `tests/harness/claude-cli.js`):**
+```javascript
+export function invokeClaude(prompt, options = {}) {
+  const {
+    cwd,                                    // Required: working directory
+    allowedTools = 'Read,Bash,Glob,Write', // Default tool set
+    maxBudget = 1.00,                       // Default cost limit
+    timeout = 120000                        // Default timeout (ms)
+  } = options;
+
+  const args = [
+    '-p', JSON.stringify(prompt),
+    '--output-format', 'json',
+    '--allowedTools', JSON.stringify(allowedTools),
+    '--max-budget-usd', String(maxBudget),
+    '--no-session-persistence'
+  ];
+
+  const result = execSync(`claude ${args.join(' ')}`, {
+    encoding: 'utf8',
+    cwd,
+    timeout,
+    stdio: ['pipe', 'pipe', 'pipe']
+  });
+
+  return JSON.parse(result);
+}
+```
+
 ---
-phase: XX-name
-plan: NN
-type: tdd
----
+
+*Testing analysis: 2026-02-18 | Source: tests/, package.json, test harness*
 
 <objective>
 [What feature and why]

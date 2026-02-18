@@ -159,12 +159,20 @@ function classifyLayer(filePath) {
 
 function extractPathCandidates(text) {
   const paths = [];
-  const backtickPathRegex = /`([^`]+(?:\/[^`]+)*\.[a-zA-Z0-9]+)`/g;
+  // Simple non-backtracking match: collect all backtick-quoted strings then
+  // filter for path-like content. The previous regex
+  // /`([^`]+(?:\/[^`]+)*\.[a-zA-Z0-9]+)`/g caused catastrophic backtracking:
+  // the two [^`]+ quantifiers competed over / characters, giving O(2^n) attempts
+  // on strings containing slashes but no file extension.
+  const backtickRegex = /`([^`\n]+)`/g;
   const barePathRegex =
     /\b(?:[A-Za-z0-9_.-]+\/)+[A-Za-z0-9_.-]+\.[A-Za-z0-9]+\b/g;
 
-  for (const match of text.matchAll(backtickPathRegex)) {
-    paths.push(match[1]);
+  for (const match of text.matchAll(backtickRegex)) {
+    const content = match[1];
+    if (content.includes("/") && /\.[a-zA-Z0-9]+/.test(content)) {
+      paths.push(content);
+    }
   }
   for (const match of text.matchAll(barePathRegex)) {
     paths.push(match[0]);
