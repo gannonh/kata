@@ -165,4 +165,43 @@ describe('detectBrownfieldDocStaleness', () => {
     assert.strictEqual(result.brownfieldAnalysisDate, commitDate);
     assert.ok(result.brownfieldAnalysisDate, 'Expected analysisDate to be populated');
   });
+
+  test('Analysis Date predates git history, >30% changed returns brownfieldDocStale: true (fallback)', () => {
+    // Analysis Date is far before the repo's initial commit
+    const ancientDate = '2020-01-01';
+
+    writeBrownfieldDoc(tmpDir, 'ARCHITECTURE.md', ancientDate);
+    execSync('git add -A', { cwd: tmpDir, stdio: 'pipe' });
+    execSync('git commit -m "add brownfield doc"', { cwd: tmpDir, stdio: 'pipe' });
+
+    // Modify >30% of source files (4 out of 10)
+    modifyAndCommit(
+      tmpDir,
+      ['src/file-0.js', 'src/file-1.js', 'src/file-2.js', 'src/file-3.js'],
+      'modify 4 source files'
+    );
+
+    const result = detectBrownfieldDocStaleness(tmpDir);
+    assert.strictEqual(result.brownfieldDocStale, true,
+      `Expected stale=true via fallback, got: ${JSON.stringify(result)}`);
+    assert.ok(result.brownfieldChangePct > 0.3,
+      `Expected changePct > 0.3, got ${result.brownfieldChangePct}`);
+    assert.ok(result.brownfieldChangedFiles >= 4,
+      `Expected changedFiles >= 4, got ${result.brownfieldChangedFiles}`);
+  });
+
+  test('Analysis Date predates git history, no changes returns brownfieldDocStale: false (fallback)', () => {
+    // Analysis Date is far before the repo's initial commit
+    const ancientDate = '2020-01-01';
+
+    writeBrownfieldDoc(tmpDir, 'ARCHITECTURE.md', ancientDate);
+    execSync('git add -A', { cwd: tmpDir, stdio: 'pipe' });
+    execSync('git commit -m "add brownfield doc"', { cwd: tmpDir, stdio: 'pipe' });
+
+    // No source file modifications after initial commit
+    const result = detectBrownfieldDocStaleness(tmpDir);
+    assert.strictEqual(result.brownfieldDocStale, false,
+      `Expected stale=false via fallback (no source changes), got: ${JSON.stringify(result)}`);
+    assert.strictEqual(result.brownfieldAnalysisDate, ancientDate);
+  });
 });

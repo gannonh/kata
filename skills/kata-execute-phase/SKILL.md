@@ -494,7 +494,7 @@ All 4 run in parallel. Task tool blocks until complete.
 
 ```bash
   # --- Unified scan decision tree (greenfield / staleness / incremental) ---
-  TOTAL_FILES=$(node -e "try{const j=JSON.parse(require('fs').readFileSync('.planning/intel/index.json','utf8')); console.log(j.stats?.totalFiles ?? j.stats?.total_files ?? 0)}catch{console.log(0)}" 2>/dev/null || echo "0")
+  TOTAL_FILES=$(node -e "try{const j=JSON.parse(require('fs').readFileSync('.planning/intel/index.json','utf8')); console.log(j.stats?.totalFiles ?? 0)}catch{console.log(0)}" 2>/dev/null || echo "0")
 
   SCAN_RAN=${SCAN_RAN:-"false"}
   if [ "$SCAN_RAN" != "true" ] && [ -n "$SCAN_SCRIPT" ]; then

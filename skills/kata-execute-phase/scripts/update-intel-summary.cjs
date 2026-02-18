@@ -49,10 +49,6 @@ function main() {
   const convPath = path.join(intelDir, 'conventions.json');
   const codebaseDir = path.join(projectRoot, '.planning', 'codebase');
 
-  // Guard: if .planning/codebase/ exists, generate-intel.js handles summary.md
-  // Do not overwrite its richer output
-  if (dirExists(codebaseDir)) return;
-
   // Guard: if index.json does not exist, nothing to do
   if (!fileExists(indexPath)) return;
 
@@ -63,7 +59,7 @@ function main() {
     return;
   }
 
-  const totalFiles = index.stats?.totalFiles ?? index.stats?.total_files ?? 0;
+  const totalFiles = index.stats?.totalFiles ?? 0;
 
   // Guard: if no files indexed, nothing to summarize
   if (totalFiles === 0) return;
@@ -83,7 +79,8 @@ function main() {
 
   lines.push('# Codebase Intelligence Summary');
   lines.push('');
-  lines.push(`Generated: ${new Date().toISOString().slice(0, 10)} | Source: code-scan (greenfield)`);
+  const source = dirExists(codebaseDir) ? 'code-scan (brownfield enrichment)' : 'code-scan (greenfield)';
+  lines.push(`Generated: ${new Date().toISOString().slice(0, 10)} | Source: ${source}`);
   lines.push('');
 
   // Stack

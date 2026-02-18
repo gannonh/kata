@@ -5,22 +5,22 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v1.12.0 Codebase Intelligence — all phases complete, ready for milestone completion
+**Current focus:** v1.12.0 Codebase Intelligence — all 6 phases complete (54-59), ready for milestone completion
 
 ## Current Position
 
 Milestone: v1.12.0 Codebase Intelligence
-Phase: 58 — Brownfield Doc Auto-Refresh (COMPLETED)
-Plan: All 4 plans executed and verified
-Status: Phase 58 complete, all v1.12.0 phases done (54-58)
-Last activity: 2026-02-17 — Phase 58 verified (19/19 must-haves)
+Phase: 59 — Brownfield Intel Gap Closure (COMPLETED)
+Plan: All 3 plans executed and verified
+Status: Phase 59 complete, all v1.12.0 phases done (54-59). 10/10 must-haves verified.
+Last activity: 2026-02-18 — Phase 59 verified (10/10 must-haves)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 217
+- Total plans completed: 220
 - Average duration: 3 min
-- Total execution time: ~524 min
+- Total execution time: ~526 min
 
 **By Milestone:**
 
@@ -56,6 +56,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 
 ### Roadmap Evolution
 
+- **v1.12.0 phase 59 complete 2026-02-18** — Brownfield Intel Gap Closure (3 plans, 3 gaps closed, e2e verified)
 - **v1.12.0 phase 58 complete 2026-02-17** — Brownfield Doc Auto-Refresh (4 plans, gap closure)
 - **v1.12.0 phase 57 complete 2026-02-16** — Knowledge Maintenance (3 plans, 3 requirements, gaps closed)
 - **v1.12.0 phase 56 complete 2026-02-16** — Greenfield Integration (2 plans, 2 requirements)
@@ -93,7 +94,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-17
-Stopped at: Completed Phase 58 (brownfield doc auto-refresh)
+Last session: 2026-02-18
+Stopped at: Completed Phase 59 (brownfield intel gap closure — 10/10 verified)
 Resume file: None
 Next action: All v1.12.0 phases complete, ready for milestone completion

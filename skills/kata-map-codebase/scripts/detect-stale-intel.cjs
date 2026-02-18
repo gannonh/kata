@@ -223,7 +223,18 @@ function detectBrownfieldDocStaleness(projectRoot) {
   }
 
   if (!baseCommit) {
-    return { brownfieldDocStale: false, reason: 'no_commit_at_date' };
+    // Analysis Date predates git history — fall back to oldest commit
+    try {
+      baseCommit = git('git rev-list --max-parents=0 HEAD', projectRoot);
+      if (baseCommit.includes('\n')) {
+        baseCommit = baseCommit.split('\n')[0];
+      }
+    } catch {
+      return { brownfieldDocStale: false, reason: 'no_commit_at_date' };
+    }
+    if (!baseCommit) {
+      return { brownfieldDocStale: false, reason: 'no_commit_at_date' };
+    }
   }
 
   // 4. Get changed files since base commit
