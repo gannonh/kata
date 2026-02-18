@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.12.0] - 2026-02-18
+
+### Added
+- Codebase intelligence pipeline: scan, index, and inject project conventions into agent context
+- `scan-codebase.cjs` — code-level import/export extraction with naming convention detection
+- `scaffold-intel.cjs` — greenfield intel bootstrapping wired into kata-new-project
+- `update-intel-summary.cjs` — smart intel summary compression from raw intel artifacts
+- Brownfield doc staleness detection with auto-refresh path via mapper agent spawning
+- Convention enforcement script for plan execution
+- Staleness detection script for codebase intel
+- Smart scan gate in kata-execute-phase step 7.25 (unified scan decision tree, SCAN_RAN guard)
+- commitHash freshness metadata in generate-intel.js outputs
+- generate-intel.js v2 schema with camelCase stats (totalFiles, byType, byLayer)
+
+### Fixed
+- generate-intel.js catastrophic-backtracking regex in extractPathCandidates (hung on extensionless directory paths)
+- Oldest-commit fallback in detectBrownfieldDocStaleness for predated Analysis Date
+- Removed brownfield guard from update-intel-summary.cjs; added conditional source label
+- Eliminated cross-skill script references; centralized shared scripts in kata-lib.cjs
+- Removed orphaned entity-generator-instructions.md
+
 ## [1.11.1] - 2026-02-15
 
 ### Fixed

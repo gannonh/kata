@@ -1,3 +1,32 @@
+## v1.12.0 Codebase Intelligence (Shipped: 2026-02-18)
+
+**Delivered:** Automatic codebase knowledge capture, storage, and injection into all Kata agent workflows. Agents receive architecture summaries, naming conventions, and dependency graphs in their context windows.
+
+**Phases completed:** 54-59 (19 plans total)
+
+**Key accomplishments:**
+
+- End-to-end codebase intelligence pipeline: `scan-codebase.cjs` → `generate-intel.js` → `.planning/intel/` → agent context injection
+- Planner, executor, and verifier agents now receive codebase conventions and architecture summaries when spawned
+- Incremental intel updates during phase execution (step 7.25 smart scan gate with SCAN_RAN guard)
+- Brownfield doc staleness detection with auto-refresh path via mapper agent spawning
+- Greenfield intel scaffolding via `scaffold-intel.cjs` wired into kata-new-project
+- generate-intel.js v2 schema with camelCase stats and commitHash freshness metadata
+- 167/167 tests passing; 84 new tests for scan-codebase.cjs; brownfield staleness tests with backdated git commits
+- All 4 gaps from milestone audit closed (oldest-commit fallback, brownfield guard removal, v2 schema migration, Phase 55 verification report)
+
+**Stats:**
+
+- 144 files changed, 18,349 insertions, 3,136 deletions
+- 6 phases, 19 plans
+- 4 days (2026-02-15 → 2026-02-18)
+
+**Git range:** `v1.11.1` → `v1.12.0`
+
+**What's next:** TBD
+
+---
+
 ## v1.11.0 Phase-Level Worktrees (Shipped: 2026-02-14)
 
 **Delivered:** Phase-level worktree architecture so `main/` stays on the main branch permanently, with persistent `workspace/` as the working directory.

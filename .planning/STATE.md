@@ -2,18 +2,18 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-14)
+See: .planning/PROJECT.md (updated 2026-02-18)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v1.12.0 Codebase Intelligence — all 6 phases complete (54-59), ready for milestone completion
+**Current focus:** Planning next milestone (v1.12.0 Codebase Intelligence shipped 2026-02-18)
 
 ## Current Position
 
-Milestone: v1.12.0 Codebase Intelligence
-Phase: 59 — Brownfield Intel Gap Closure (COMPLETED)
-Plan: All 3 plans executed and verified
-Status: Phase 59 complete, all v1.12.0 phases done (54-59). 10/10 must-haves verified.
-Last activity: 2026-02-18 — Phase 59 verified (10/10 must-haves)
+Milestone: None — between milestones
+Phase: Not started
+Plan: Not started
+Status: Ready to plan next milestone
+Last activity: 2026-02-18 — v1.12.0 milestone complete
 
 ## Performance Metrics
 
@@ -45,6 +45,7 @@ Last activity: 2026-02-18 — Phase 59 verified (10/10 must-haves)
 | v1.9.0    | 4      | 5     | Shipped 2026-02-08 |
 | v1.10.0   | 5      | 11    | Shipped 2026-02-12 |
 | v1.11.0   | 5      | 10    | Shipped 2026-02-14 |
+| v1.12.0   | 6      | 19    | Shipped 2026-02-18 |
 
 *Updated after each plan completion*
 
@@ -56,7 +57,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 
 ### Roadmap Evolution
 
-- **v1.12.0 phase 59 complete 2026-02-18** — Brownfield Intel Gap Closure (3 plans, 3 gaps closed, e2e verified)
+- **v1.12.0 shipped 2026-02-18** — Codebase Intelligence (6 phases 54-59, 19 plans, 18 requirements)
 - **v1.12.0 phase 58 complete 2026-02-17** — Brownfield Doc Auto-Refresh (4 plans, gap closure)
 - **v1.12.0 phase 57 complete 2026-02-16** — Knowledge Maintenance (3 plans, 3 requirements, gaps closed)
 - **v1.12.0 phase 56 complete 2026-02-16** — Greenfield Integration (2 plans, 2 requirements)
@@ -95,6 +96,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed Phase 59 (brownfield intel gap closure — 10/10 verified)
+Stopped at: v1.12.0 milestone complete (release/v1.12.0 PR created)
 Resume file: None
-Next action: All v1.12.0 phases complete, ready for milestone completion
+Next action: Merge release PR, then /kata-add-milestone for v1.13.0
