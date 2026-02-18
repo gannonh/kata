@@ -440,7 +440,7 @@ if [ -f ".planning/intel/index.json" ]; then
   fi
 
   # --- Unified scan decision tree (greenfield / staleness / incremental) ---
-  TOTAL_FILES=$(node -e "const j=JSON.parse(require('fs').readFileSync('.planning/intel/index.json','utf8')); console.log(j.stats?.totalFiles ?? j.stats?.total_files ?? 0)")
+  TOTAL_FILES=$(node -e "const j=JSON.parse(require('fs').readFileSync('.planning/intel/index.json','utf8')); console.log(j.stats?.totalFiles ?? 0)")
 
   SCAN_RAN="false"
   if [ -n "$SCAN_SCRIPT" ]; then

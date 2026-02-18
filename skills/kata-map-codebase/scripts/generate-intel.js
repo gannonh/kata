@@ -251,15 +251,15 @@ function buildIndex(docs, generatedIso, projectRoot) {
   }
 
   return {
-    version: 1,
+    version: 2,
     generated: generatedIso,
     source: SOURCE_LABEL,
     commitHash: getCurrentCommitHash(projectRoot),
     files,
     stats: {
-      total_files: Object.keys(files).length,
-      by_type: byType,
-      by_layer: byLayer,
+      totalFiles: Object.keys(files).length,
+      byType,
+      byLayer,
     },
   };
 }

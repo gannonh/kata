@@ -555,7 +555,7 @@ Target: 80-150 lines (~2-3k tokens). Hard cap at 150 lines.
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "generated": "ISO-8601",
   "source": "kata-map-codebase",
   "files": {
@@ -566,7 +566,7 @@ Target: 80-150 lines (~2-3k tokens). Hard cap at 150 lines.
       "layer": "ui|api|data"
     }
   },
-  "stats": { "total_files": 42, "by_type": {}, "by_layer": {} }
+  "stats": { "totalFiles": 42, "byType": {}, "byLayer": {} }
 }
 ```
 
