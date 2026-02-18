@@ -4,7 +4,7 @@
   "parallelization": true,
   "commit_docs": true,
   "pr_workflow": true,
-  "model_profile": "quality",
+  "model_profile": "balanced",
   "workflow": {
     "research": true,
     "plan_check": true,
@@ -16,11 +16,12 @@
   },
   "workflows": {
     "execute-phase": {
-      "post_task_command": "npm run build:plugin && npm test"
+      "post_task_command": "npm run build:plugin && npm run build:skills-sh && npm test"
     },
     "verify-work": {
       "extra_verification_commands": [
         "npm run build:plugin",
+        "npm run build:skills-sh",
         "npm test",
         "npm run test:smoke",
         "npm run test:affected",
