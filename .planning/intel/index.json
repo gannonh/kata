@@ -1,267 +1,50 @@
 {
   "version": 2,
-  "generated": "2026-02-16T21:00:47.263Z",
+  "generated": "2026-02-17T17:16:42.744Z",
   "source": "code-scan",
   "generatedBy": "scan-codebase",
-  "commitHash": "bd3fb9e",
+  "commitHash": "cc9f3ef",
   "files": {
-    "agents/*.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "agents/kata-codebase-mapper.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "agents/kata-debugger.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "agents/kata-executor.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "agents/kata-plan-checker.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "agents/kata-planner.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "agents/kata-roadmapper.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "agents/kata-verifier.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "agents/kata-{role}.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
     "bin/install.js": {
       "exports": [],
-      "imports": [],
+      "imports": {
+        "packages": [],
+        "local": []
+      },
       "type": "util",
-      "layer": "shared"
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
     },
-    "commands/kata/*.md": {
+    "dev/kata-lint.cjs": {
       "exports": [],
-      "imports": [],
+      "imports": {
+        "packages": [
+          "child_process",
+          "fs",
+          "path"
+        ],
+        "local": []
+      },
       "type": "util",
-      "layer": "shared"
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
     },
-    "commands/kata/execute-plan.md": {
+    "dev/scripts/sanitize-readme.js": {
       "exports": [],
-      "imports": [],
+      "imports": {
+        "packages": [
+          "fs",
+          "path",
+          "url"
+        ],
+        "local": []
+      },
       "type": "util",
-      "layer": "shared"
-    },
-    "commands/kata/help.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "commands/kata/phase-execute.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "commands/kata/phase-plan.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "commands/kata/progress.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "commands/kata/project-new.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "commands/kata/{command-name}.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "hooks/*.sh": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "hooks/gsd-check-update.sh": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "hooks/gsd-notify.sh": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "hooks/statusline.sh": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "hooks/{hook-name}.sh": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "kata/references/*.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "kata/references/{topic}.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "kata/templates/*.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "kata/templates/project.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "kata/templates/roadmap.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "kata/templates/state.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "kata/templates/summary.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "kata/templates/{template-name}.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "kata/workflows/*.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "kata/workflows/create-roadmap.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "kata/workflows/phase-execute.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "kata/workflows/phase-plan.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "kata/workflows/{workflow-name}.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "planning/PROJECT.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "planning/REQUIREMENTS.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "planning/ROADMAP.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "planning/STATE.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "planning/phases/01-setup/01-01-PLAN.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "planning/phases/01-setup/01-01-SUMMARY.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
-    },
-    "planning/phases/01-setup/01-VERIFICATION.md": {
-      "exports": [],
-      "imports": [],
-      "type": "util",
-      "layer": "shared"
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
     },
     "scripts/build.js": {
       "exports": [],
@@ -275,8 +58,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "bd3fb9e",
-      "indexedAt": "2026-02-16T21:00:47.263Z"
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
     },
     "skills/_shared/kata-lib.cjs": {
       "exports": [],
@@ -289,8 +72,24 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "bd3fb9e",
-      "indexedAt": "2026-02-16T21:00:47.263Z"
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "skills/kata-execute-phase/scripts/check-conventions.cjs": {
+      "exports": [
+        "checkConventions"
+      ],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:path"
+        ],
+        "local": []
+      },
+      "type": "util",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
     },
     "skills/kata-execute-phase/scripts/update-intel-summary.cjs": {
       "exports": [
@@ -305,8 +104,76 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "bd3fb9e",
-      "indexedAt": "2026-02-16T21:00:47.263Z"
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "skills/kata-map-codebase/scripts/detect-stale-intel.cjs": {
+      "exports": [
+        "detectBrownfieldDocStaleness",
+        "detectStaleFiles"
+      ],
+      "imports": {
+        "packages": [
+          "node:child_process",
+          "node:fs",
+          "node:path"
+        ],
+        "local": []
+      },
+      "type": "util",
+      "layer": "shared",
+      "lastIndexed": "cc9f3ef",
+      "indexedAt": "2026-02-17T17:16:42.744Z"
+    },
+    "skills/kata-map-codebase/scripts/generate-intel.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:child_process",
+          "node:fs",
+          "node:path",
+          "node:url"
+        ],
+        "local": []
+      },
+      "type": "util",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "skills/kata-map-codebase/scripts/scan-codebase.cjs": {
+      "exports": [
+        "classifyIdentifier",
+        "classifyLayer",
+        "classifyType",
+        "computeStats",
+        "detectConventions",
+        "detectDirectoryPurposes",
+        "detectFileSuffixes",
+        "extractGoExports",
+        "extractGoImports",
+        "extractJSExports",
+        "extractJSImports",
+        "extractPyExports",
+        "extractPyImports",
+        "isGeneratedFile",
+        "mergeIndex",
+        "scanFile",
+        "stripComments",
+        "stripPythonComments"
+      ],
+      "imports": {
+        "packages": [
+          "node:child_process",
+          "node:fs",
+          "node:path"
+        ],
+        "local": []
+      },
+      "type": "util",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
     },
     "skills/kata-new-project/scripts/scaffold-intel.cjs": {
       "exports": [
@@ -325,23 +192,1073 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "bd3fb9e",
-      "indexedAt": "2026-02-16T21:00:47.263Z"
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "skills/kata-plan-phase/scripts/update-issue-plans.py": {
+      "exports": [
+        "get_issue_body",
+        "insert_checklist",
+        "main",
+        "run_gh",
+        "update_issue_body"
+      ],
+      "imports": {
+        "packages": [
+          "pathlib",
+          "re",
+          "subprocess",
+          "sys",
+          "tempfile"
+        ],
+        "local": []
+      },
+      "type": "util",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/artifact-validation.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:assert",
+          "node:child_process",
+          "node:fs",
+          "node:path",
+          "node:test"
+        ],
+        "local": []
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/build.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:assert",
+          "node:child_process",
+          "node:fs",
+          "node:path",
+          "node:test"
+        ],
+        "local": []
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/fixtures/scan-codebase/sample.go": {
+      "exports": [
+        "HandleRequest",
+        "StartServer"
+      ],
+      "imports": {
+        "packages": [
+          "fmt",
+          "github.com/gin-gonic/gin",
+          "net/http"
+        ],
+        "local": []
+      },
+      "type": "util",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/fixtures/scan-codebase/sample.js": {
+      "exports": [
+        "API_VERSION",
+        "AppRouter",
+        "createServer"
+      ],
+      "imports": {
+        "packages": [
+          "express",
+          "fs",
+          "path"
+        ],
+        "local": [
+          "../config",
+          "./lazy-module",
+          "./utils/hash"
+        ]
+      },
+      "type": "util",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/fixtures/scan-codebase/sample.py": {
+      "exports": [
+        "UserRepository",
+        "create_user"
+      ],
+      "imports": {
+        "packages": [
+          "os",
+          "pathlib",
+          "sys",
+          "typing"
+        ],
+        "local": [
+          "..utils",
+          ".models"
+        ]
+      },
+      "type": "util",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/fixtures/scan-codebase/sample.ts": {
+      "exports": [
+        "DEFAULT_ROLE",
+        "Status",
+        "UserController",
+        "UserId",
+        "UserService",
+        "validateUser"
+      ],
+      "imports": {
+        "packages": [
+          "express"
+        ],
+        "local": [
+          "./models/user",
+          "./types"
+        ]
+      },
+      "type": "util",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/harness/affected.js": {
+      "exports": [
+        "getAffectedSkills",
+        "getAffectedTestFiles",
+        "getSkillsUsingAgent"
+      ],
+      "imports": {
+        "packages": [
+          "node:child_process",
+          "node:fs",
+          "node:path",
+          "node:url"
+        ],
+        "local": []
+      },
+      "type": "util",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/harness/assertions.js": {
+      "exports": [
+        "assertArtifactExists",
+        "assertFileMatchesPattern",
+        "assertFileStructure",
+        "assertNextStepProposed",
+        "assertNoError",
+        "assertResultContains",
+        "assertSkillInvoked"
+      ],
+      "imports": {
+        "packages": [
+          "node:assert/strict",
+          "node:fs",
+          "node:path"
+        ],
+        "local": []
+      },
+      "type": "util",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/harness/claude-cli.js": {
+      "exports": [
+        "invokeClaude"
+      ],
+      "imports": {
+        "packages": [
+          "node:child_process"
+        ],
+        "local": []
+      },
+      "type": "util",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/harness/runner.js": {
+      "exports": [
+        "config"
+      ],
+      "imports": {
+        "packages": [
+          "node:path",
+          "node:test",
+          "node:test/reporters",
+          "node:url"
+        ],
+        "local": []
+      },
+      "type": "util",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/migration-validation.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:assert",
+          "node:fs",
+          "node:path",
+          "node:test"
+        ],
+        "local": []
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/scripts/create-phase-branch.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:assert",
+          "node:child_process",
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test"
+        ],
+        "local": []
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/scripts/find-phase.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:assert",
+          "node:child_process",
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test"
+        ],
+        "local": []
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/scripts/manage-worktree.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:assert",
+          "node:child_process",
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test"
+        ],
+        "local": []
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/scripts/project-root.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:assert",
+          "node:child_process",
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test"
+        ],
+        "local": []
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/scripts/read-config.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:assert",
+          "node:child_process",
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test"
+        ],
+        "local": []
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/scripts/scan-codebase.test.js": {
+      "exports": [
+        "API_VERSION",
+        "AppRouter",
+        "Status",
+        "UserController",
+        "UserId",
+        "UserService",
+        "alpha",
+        "bar",
+        "baz",
+        "createServer",
+        "foo",
+        "main",
+        "x",
+        "zebra"
+      ],
+      "imports": {
+        "packages": [
+          "express",
+          "fmt",
+          "fs",
+          "node:assert",
+          "node:child_process",
+          "node:fs",
+          "node:module",
+          "node:os",
+          "node:path",
+          "node:test",
+          "path",
+          "real-package",
+          "zod"
+        ],
+        "local": [
+          "../bar",
+          "../config",
+          "./alpha",
+          "./bar",
+          "./lazy-module",
+          "./types",
+          "./utils/foo",
+          "@/utils/foo"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/scripts/setup-worktrees.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:assert",
+          "node:child_process",
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test"
+        ],
+        "local": []
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/scripts/template-system.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:assert",
+          "node:child_process",
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test"
+        ],
+        "local": []
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/adding-milestones.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/adding-phases.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/adding-todos.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "child_process",
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/auditing-milestones.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/checking-todos.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/completing-milestones.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/configuring-settings.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/debugging.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/discussing-phases.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/executing-phases.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:child_process",
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/executing-quick-tasks.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:child_process",
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/inserting-phases.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/listing-phase-assumptions.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/mapping-codebases.test.js": {
+      "exports": [
+        "Button",
+        "formatDate",
+        "helper",
+        "main"
+      ],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js",
+          "./components/Button.js",
+          "./utils/helper.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/pausing-work.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "child_process",
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/planning-milestone-gaps.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/planning-phases.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/providing-help.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/removing-phases.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/researching-phases.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/resuming-work.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/reviewing-pull-requests.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:assert",
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/setting-profiles.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/showing-whats-new.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/starting-projects.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:child_process",
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/tracking-progress.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/updating.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/skills/verifying-work.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test",
+          "node:url"
+        ],
+        "local": [
+          "../harness/assertions.js",
+          "../harness/claude-cli.js",
+          "../harness/runner.js"
+        ]
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/smoke.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:assert",
+          "node:child_process",
+          "node:fs",
+          "node:os",
+          "node:path",
+          "node:test"
+        ],
+        "local": []
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "aae4e3c",
+      "indexedAt": "2026-02-17T03:53:06.572Z"
+    },
+    "tests/scripts/detect-stale-intel.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:assert",
+          "node:child_process",
+          "node:fs",
+          "node:module",
+          "node:os",
+          "node:path",
+          "node:test"
+        ],
+        "local": []
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "cc9f3ef",
+      "indexedAt": "2026-02-17T17:16:42.744Z"
     }
   },
   "stats": {
-    "totalFiles": 47,
+    "totalFiles": 61,
     "byType": {
-      "util": 47
+      "util": 20,
+      "test": 41
     },
     "byLayer": {
-      "shared": 47
+      "shared": 61
     },
     "byExtension": {
-      ".md": 37,
-      ".js": 2,
-      ".sh": 5,
-      ".cjs": 3
+      ".js": 50,
+      ".cjs": 7,
+      ".py": 2,
+      ".go": 1,
+      ".ts": 1
     }
   }
 }

@@ -232,8 +232,8 @@ Plans:
 | v1.9.0 Templates | 4 | 5 | Shipped 2026-02-08 |
 | v1.10.0 Worktrees | 5 | 11 | Shipped 2026-02-12 |
 | v1.11.0 Phase Worktrees | 5 | 10 | Shipped 2026-02-14 |
-| v1.12.0 Codebase Intel | 5 | 12 | In Progress |
+| v1.12.0 Codebase Intel | 6 | 19 | In Progress |
 
 ---
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-02-17 — Phase 58 added (gap closure: brownfield doc auto-refresh)*
+*Last updated: 2026-02-18 — Phase 59 complete (brownfield intel gap closure)*

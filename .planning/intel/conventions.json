@@ -1,14 +1,17 @@
 {
   "version": 2,
-  "generated": "2026-02-16T21:00:47.263Z",
-  "commitHash": "bd3fb9e",
+  "generated": "2026-02-17T17:16:42.744Z",
+  "commitHash": "cc9f3ef",
   "naming": {
     "exports": {
       "pattern": "camelCase",
-      "confidence": 1,
-      "sampleSize": 6,
+      "confidence": 0.71,
+      "sampleSize": 75,
       "breakdown": {
-        "camelCase": 6
+        "camelCase": 53,
+        "snake_case": 5,
+        "PascalCase": 14,
+        "SCREAMING_SNAKE": 3
       }
     }
   },
@@ -19,11 +22,11 @@
       "fileCount": 1,
       "dominantSuffix": ".js"
     },
-    "hooks/": {
-      "purpose": "React hooks",
+    "dev/scripts/": {
+      "purpose": "Build/utility scripts",
       "detectedBy": "name-lookup",
-      "fileCount": 5,
-      "dominantSuffix": ".sh"
+      "fileCount": 1,
+      "dominantSuffix": ".js"
     },
     "scripts/": {
       "purpose": "Build/utility scripts",
@@ -34,7 +37,13 @@
     "skills/kata-execute-phase/scripts/": {
       "purpose": "Build/utility scripts",
       "detectedBy": "name-lookup",
-      "fileCount": 1,
+      "fileCount": 2,
+      "dominantSuffix": ".cjs"
+    },
+    "skills/kata-map-codebase/scripts/": {
+      "purpose": "Build/utility scripts",
+      "detectedBy": "name-lookup",
+      "fileCount": 3,
       "dominantSuffix": ".cjs"
     },
     "skills/kata-new-project/scripts/": {
@@ -42,7 +51,36 @@
       "detectedBy": "name-lookup",
       "fileCount": 1,
       "dominantSuffix": ".cjs"
+    },
+    "skills/kata-plan-phase/scripts/": {
+      "purpose": "Build/utility scripts",
+      "detectedBy": "name-lookup",
+      "fileCount": 1,
+      "dominantSuffix": ".py"
+    },
+    "tests/": {
+      "purpose": "test files",
+      "detectedBy": "suffix-analysis",
+      "fileCount": 4,
+      "dominantSuffix": ".js"
+    },
+    "tests/scripts/": {
+      "purpose": "test files",
+      "detectedBy": "suffix-analysis",
+      "fileCount": 9,
+      "dominantSuffix": ".js"
+    },
+    "tests/skills/": {
+      "purpose": "test files",
+      "detectedBy": "suffix-analysis",
+      "fileCount": 28,
+      "dominantSuffix": ".js"
     }
   },
-  "fileSuffixes": {}
+  "fileSuffixes": {
+    ".test.js": {
+      "purpose": "test files",
+      "count": 41
+    }
+  }
 }
