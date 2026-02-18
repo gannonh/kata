@@ -36,8 +36,7 @@ const AGENT_MAPPINGS = {
   'kata-comment-analyzer': 'kata-review-pull-requests',
   'kata-pr-test-analyzer': 'kata-review-pull-requests',
   'kata-type-design-analyzer': 'kata-review-pull-requests',
-  'kata-failure-finder': 'kata-review-pull-requests',
-  'kata-entity-generator': 'kata-review-pull-requests'
+  'kata-failure-finder': 'kata-review-pull-requests'
 };
 
 /**
