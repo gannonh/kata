@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "generated": "2026-02-17T17:16:42.744Z",
+  "generated": "2026-02-18T19:16:52.328Z",
   "source": "code-scan",
   "generatedBy": "scan-codebase",
-  "commitHash": "cc9f3ef",
+  "commitHash": "c42e922",
   "files": {
     "bin/install.js": {
       "exports": [],
@@ -13,8 +13,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "dev/kata-lint.cjs": {
       "exports": [],
@@ -28,8 +28,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "dev/scripts/sanitize-readme.js": {
       "exports": [],
@@ -43,8 +43,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "scripts/build.js": {
       "exports": [],
@@ -58,8 +58,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "skills/_shared/kata-lib.cjs": {
       "exports": [],
@@ -72,8 +72,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "skills/kata-execute-phase/scripts/check-conventions.cjs": {
       "exports": [
@@ -88,8 +88,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "skills/kata-execute-phase/scripts/update-intel-summary.cjs": {
       "exports": [
@@ -104,8 +104,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "skills/kata-map-codebase/scripts/detect-stale-intel.cjs": {
       "exports": [
@@ -122,8 +122,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "cc9f3ef",
-      "indexedAt": "2026-02-17T17:16:42.744Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "skills/kata-map-codebase/scripts/generate-intel.js": {
       "exports": [],
@@ -138,8 +138,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "skills/kata-map-codebase/scripts/scan-codebase.cjs": {
       "exports": [
@@ -172,8 +172,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "skills/kata-new-project/scripts/scaffold-intel.cjs": {
       "exports": [
@@ -192,8 +192,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "skills/kata-plan-phase/scripts/update-issue-plans.py": {
       "exports": [
@@ -215,8 +215,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/artifact-validation.test.js": {
       "exports": [],
@@ -232,8 +232,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/build.test.js": {
       "exports": [],
@@ -249,8 +249,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/fixtures/scan-codebase/sample.go": {
       "exports": [
@@ -267,8 +267,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/fixtures/scan-codebase/sample.js": {
       "exports": [
@@ -290,8 +290,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/fixtures/scan-codebase/sample.py": {
       "exports": [
@@ -312,8 +312,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/fixtures/scan-codebase/sample.ts": {
       "exports": [
@@ -335,8 +335,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/harness/affected.js": {
       "exports": [
@@ -355,8 +355,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/harness/assertions.js": {
       "exports": [
@@ -378,8 +378,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/harness/claude-cli.js": {
       "exports": [
@@ -393,8 +393,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/harness/runner.js": {
       "exports": [
@@ -411,8 +411,8 @@
       },
       "type": "util",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/migration-validation.test.js": {
       "exports": [],
@@ -427,8 +427,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/scripts/create-phase-branch.test.js": {
       "exports": [],
@@ -445,8 +445,27 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
+    },
+    "tests/scripts/detect-stale-intel.test.js": {
+      "exports": [],
+      "imports": {
+        "packages": [
+          "node:assert",
+          "node:child_process",
+          "node:fs",
+          "node:module",
+          "node:os",
+          "node:path",
+          "node:test"
+        ],
+        "local": []
+      },
+      "type": "test",
+      "layer": "shared",
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/scripts/find-phase.test.js": {
       "exports": [],
@@ -463,8 +482,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/scripts/manage-worktree.test.js": {
       "exports": [],
@@ -481,8 +500,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/scripts/project-root.test.js": {
       "exports": [],
@@ -499,8 +518,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/scripts/read-config.test.js": {
       "exports": [],
@@ -517,8 +536,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/scripts/scan-codebase.test.js": {
       "exports": [
@@ -566,8 +585,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/scripts/setup-worktrees.test.js": {
       "exports": [],
@@ -584,8 +603,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/scripts/template-system.test.js": {
       "exports": [],
@@ -602,8 +621,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/adding-milestones.test.js": {
       "exports": [],
@@ -623,8 +642,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/adding-phases.test.js": {
       "exports": [],
@@ -644,8 +663,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/adding-todos.test.js": {
       "exports": [],
@@ -666,8 +685,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/auditing-milestones.test.js": {
       "exports": [],
@@ -687,8 +706,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/checking-todos.test.js": {
       "exports": [],
@@ -708,8 +727,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/completing-milestones.test.js": {
       "exports": [],
@@ -729,8 +748,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/configuring-settings.test.js": {
       "exports": [],
@@ -750,8 +769,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/debugging.test.js": {
       "exports": [],
@@ -771,8 +790,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/discussing-phases.test.js": {
       "exports": [],
@@ -792,8 +811,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/executing-phases.test.js": {
       "exports": [],
@@ -814,8 +833,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/executing-quick-tasks.test.js": {
       "exports": [],
@@ -836,8 +855,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/inserting-phases.test.js": {
       "exports": [],
@@ -857,8 +876,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/listing-phase-assumptions.test.js": {
       "exports": [],
@@ -878,8 +897,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/mapping-codebases.test.js": {
       "exports": [
@@ -906,8 +925,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/pausing-work.test.js": {
       "exports": [],
@@ -928,8 +947,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/planning-milestone-gaps.test.js": {
       "exports": [],
@@ -949,8 +968,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/planning-phases.test.js": {
       "exports": [],
@@ -970,8 +989,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/providing-help.test.js": {
       "exports": [],
@@ -991,8 +1010,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/removing-phases.test.js": {
       "exports": [],
@@ -1012,8 +1031,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/researching-phases.test.js": {
       "exports": [],
@@ -1033,8 +1052,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/resuming-work.test.js": {
       "exports": [],
@@ -1054,8 +1073,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/reviewing-pull-requests.test.js": {
       "exports": [],
@@ -1076,8 +1095,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/setting-profiles.test.js": {
       "exports": [],
@@ -1097,8 +1116,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/showing-whats-new.test.js": {
       "exports": [],
@@ -1118,8 +1137,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/starting-projects.test.js": {
       "exports": [],
@@ -1140,8 +1159,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/tracking-progress.test.js": {
       "exports": [],
@@ -1161,8 +1180,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/updating.test.js": {
       "exports": [],
@@ -1182,8 +1201,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/skills/verifying-work.test.js": {
       "exports": [],
@@ -1203,8 +1222,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     },
     "tests/smoke.test.js": {
       "exports": [],
@@ -1221,27 +1240,8 @@
       },
       "type": "test",
       "layer": "shared",
-      "lastIndexed": "aae4e3c",
-      "indexedAt": "2026-02-17T03:53:06.572Z"
-    },
-    "tests/scripts/detect-stale-intel.test.js": {
-      "exports": [],
-      "imports": {
-        "packages": [
-          "node:assert",
-          "node:child_process",
-          "node:fs",
-          "node:module",
-          "node:os",
-          "node:path",
-          "node:test"
-        ],
-        "local": []
-      },
-      "type": "test",
-      "layer": "shared",
-      "lastIndexed": "cc9f3ef",
-      "indexedAt": "2026-02-17T17:16:42.744Z"
+      "lastIndexed": "c42e922",
+      "indexedAt": "2026-02-18T19:16:52.328Z"
     }
   },
   "stats": {

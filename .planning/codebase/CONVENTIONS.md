@@ -1,53 +1,321 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-01-16
+**Analysis Date:** 2026-02-18
 
 ## Language Profile
 
-This is a **meta-prompting system**, not a traditional application. The codebase consists of:
-- **Markdown files** (90%+) — Prompts, templates, workflows, agent definitions
-- **JavaScript** (bin/install.js) — CLI installer
-- **Shell scripts** (hooks/*.sh) — Claude Code integration hooks
-
-Conventions below address each file type.
+Kata is a **meta-prompting framework** with significant supporting infrastructure. The codebase consists of:
+- **Markdown files** (80%+) — Prompts, templates, workflows, skills
+- **JavaScript** (20%) — Build system, test suite, codebase analysis
+- **Bash scripts** (<5%) — Project initialization, git automation, shared utilities
+- **CommonJS** (<5%) — Shared library distributed to all skills
 
 ## Naming Patterns
 
 **Files:**
-- kebab-case for all files: `execute-plan.md`, `create-roadmap.md`
-- Agent files: `gsd-{role}.md` (e.g., `kata-executor.md`, `kata-planner.md`)
-- Template files: `{purpose}.md` (e.g., `summary.md`, `project.md`)
-- Hook scripts: `gsd-{purpose}.sh` (e.g., `gsd-notify.sh`)
+- **JavaScript/Node.js:** camelCase (e.g., `build.js`, `generate-intel.js`)
+- **Bash scripts:** kebab-case (e.g., `find-phase.sh`, `manage-worktree.sh`)
+- **Test files:** `{name}.test.js` (Node.js test runner convention)
+- **Markdown documentation:** kebab-case (e.g., `CONVENTIONS.md`)
+- **Skill directories:** `kata-{function}` (e.g., `kata-plan-phase`, `kata-execute-phase`)
 
-**Commands:**
-- Pattern: `gsd:{verb-noun}` (e.g., `gsd:execute-plan`, `gsd:create-roadmap`)
-- All lowercase with hyphens
-
-**XML Tags:**
-- kebab-case for tags: `<execution_context>`, `<success_criteria>`
-- snake_case for step names: `name="load_project_state"`
-- Type attributes use colon separator: `type="checkpoint:human-verify"`
+**Functions:**
+- **JavaScript/Node.js:** camelCase for all functions
+  - Example: `function resolveRoot()`, `export function invokeClaude()`
+- **Bash scripts:** snake_case for function definitions (none currently in use)
+- **CommonJS exports:** Object literal with function properties at end of file
 
 **Variables:**
-- CAPS_UNDERSCORES in bash/shell: `PHASE_ARG`, `PLAN_START_TIME`
-- camelCase in JavaScript: `hasGlobal`, `configDir`, `pathPrefix`
+- **JavaScript:** camelCase for local variables
+  - Example: `testDir`, `allowedTools`, `skillName`
+- **Bash/Node.js:** SCREAMING_SNAKE_CASE for environment and shell variables
+  - Example: `KATA_PROJECT_ROOT`, `PHASE_ARG`, `PROJECT_ROOT`
+- **Constants:** SCREAMING_SNAKE_CASE
+  - Example: `DEFAULTS`, `PLUGIN_INCLUDES`, `KNOWN_KEYS`
+
+**XML Tags in Markdown:**
+- kebab-case for semantic tags: `<execution_context>`, `<success_criteria>`
+- snake_case for attribute values: `name="load_project_state"`
+- Type attributes use colon separator: `type="checkpoint:human-verify"`
 
 ## File Structure Conventions
 
-### Commands (`commands/gsd/*.md`)
+### Skills (`skills/kata-{name}/`)
 
-YAML frontmatter required:
+**YAML frontmatter required in SKILL.md:**
 ```yaml
 ---
-name: gsd:command-name
-description: One-line description
-argument-hint: "<required>" or "[optional]"
-allowed-tools: [Read, Write, Bash, Glob, Grep, AskUserQuestion]
+name: skill-name
+description: Triggers and purpose
+user-invocable: true
+allowed-tools: [Read, Write, Bash, ...]
 ---
 ```
 
-Section order:
+**Section order in SKILL.md:**
 1. `<objective>` — What/why/when (always present)
+2. `<execution_context>` — @-references to templates, references
+3. `<context>` — Dynamic content
+4. `<process>` or `<step>` elements — Implementation
+5. `<success_criteria>` — Completion checklist
+
+### JavaScript/Node.js Build System (`scripts/build.js`)
+
+**Pattern:**
+```javascript
+#!/usr/bin/env node
+
+/**
+ * Module-level JSDoc with purpose and usage
+ */
+
+import fs from 'fs';
+import path from 'path';
+// ... other imports
+
+// Constants
+const DEFAULTS = { ... };
+const INCLUDES = [ ... ];
+
+// Pure utility functions
+function helperFunction() { ... }
+
+// Main orchestration
+function main() { ... }
+
+main();
+```
+
+**Build system features:**
+- ANSI color codes for output (green ✓, red ×, amber !)
+- Plugin path transformation: replaces `scripts/` with `${CLAUDE_PLUGIN_ROOT}/skills/*/scripts/`
+- Shared script distribution: kata-lib.cjs to all skills, manage-worktree.sh to 4 skills
+- Comprehensive validation: script refs, cross-skill refs, frontmatter
+
+### Bash Scripts (`skills/*/scripts/*.sh`)
+
+**Pattern:**
+```bash
+#!/usr/bin/env bash
+# Single-line purpose
+# Usage: script.sh <arg>
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT=$(node "$SCRIPT_DIR/kata-lib.cjs" resolve-root)
+cd "$PROJECT_ROOT"
+
+# Implementation with guards
+[ -d "$dir" ] || continue  # Guard against missing directories
+find ... || true           # Fallback to avoid pipeline failure
+
+# Output format: key=value pairs for machine parsing
+echo "PHASE_DIR=$PHASE_DIR"
+echo "PLAN_COUNT=$PLAN_COUNT"
+echo "PHASE_STATE=$PHASE_STATE"
+
+exit 0  # or explicit error codes (1, 2, 3)
+```
+
+**Error handling:**
+- Exit codes: 0 (success), 1 (not found), 2 (found but invalid), 3 (collision error)
+- `set -euo pipefail` at top for fail-fast
+- Explicit error messages to stderr
+- Guard clauses prevent pipeline failure: `[ -d "$dir" ] || continue`
+
+### CommonJS Shared Library (`skills/_shared/kata-lib.cjs`)
+
+**Pattern:**
+```javascript
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+
+// Utility functions
+function resolveRoot() { ... }
+function readJSON(filePath) { ... }
+
+// Defaults and schema
+const DEFAULTS = { ... };
+const KNOWN_KEYS = { ... };
+
+// CLI entry point with command routing
+const command = process.argv[2];
+switch (command) {
+  case 'resolve-root':
+    console.log(resolveRoot());
+    break;
+  // ...
+}
+
+module.exports = { resolveRoot, readJSON, ... };
+```
+
+## Code Style
+
+**Formatting:**
+- 2-space indents (consistent throughout)
+- No automatic formatter configured
+- Manual review for consistency
+
+**Import Organization (JavaScript):**
+1. Node.js built-ins (fs, path, child_process)
+2. npm packages (rarely used)
+3. Local modules (relative paths)
+
+Example from `build.js`:
+```javascript
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+```
+
+## Error Handling
+
+**Bash Scripts:**
+- `set -euo pipefail` — Exit on error, undefined var, pipe failure
+- Exit codes for different error types
+- Guard clauses before operations: `[ -d "$dir" ] || continue`
+- Error output to stderr: `echo "ERROR: ..." >&2`
+
+**JavaScript/Node.js:**
+- try/catch for file I/O and JSON parsing
+- Graceful fallbacks: `catch { return {}; }`
+- Explicit `process.exit(1)` on fatal errors
+- Error messages to console.log (captured by test framework)
+
+Example from `kata-lib.cjs`:
+```javascript
+function readJSON(filePath) {
+  try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); }
+  catch { return {}; }  // Return empty on any error
+}
+
+function resolveRoot() {
+  // ... logic
+  process.stderr.write('ERROR: Cannot find project root.\n');
+  process.exit(1);
+}
+```
+
+## Logging
+
+**Framework:** `console.log()` only (no third-party logger)
+
+**Patterns:**
+- Build output: ANSI colors for visual status
+- Script output: key=value pairs for machine parsing
+- Test output: Structured via node:test describe/test groups
+- Error messages: Sent to stderr in scripts, stdout in Node.js
+
+**ANSI color codes from `build.js`:**
+```javascript
+const green = '\x1b[32m';
+const amber = '\x1b[33m';
+const red = '\x1b[31m';
+const dim = '\x1b[2m';
+const reset = '\x1b[0m';
+```
+
+## Comments
+
+**When to Comment:**
+- Module-level: JSDoc with purpose and usage
+- Section breaks: Major feature or algorithm blocks
+- Inline: Only for non-obvious logic or workarounds
+- Avoid: Restating what code does
+
+**JSDoc patterns:**
+```javascript
+/**
+ * Invoke Claude CLI with programmatic flags for testing.
+ *
+ * @param {string} prompt - The prompt to send to Claude
+ * @param {Object} options - Configuration options
+ * @param {string} options.cwd - Working directory
+ * @param {number} [options.maxBudget=1.00] - Max cost in USD
+ * @returns {Object} Parsed JSON response
+ */
+```
+
+## Function Design
+
+**Size:** 20-30 lines max; split larger operations
+
+**Parameters:**
+- Positional: Required values only
+- Options object: Multiple related settings
+  - Destructure in function body
+
+**Return values:**
+- Return null/undefined on error; let caller decide handling
+- Plain JS objects (no custom classes)
+
+## Module Design
+
+**Exports:**
+- **ESM:** Named exports at module level
+- **CommonJS:** Single object with properties at file end
+- **Bash:** Single executable, no module pattern
+
+**Shared Scripts Distribution:**
+- Source: `skills/_shared/` (canonical)
+- Build system copies to consumer skill `scripts/` directories
+- Examples: `kata-lib.cjs` (all 32 skills), `manage-worktree.sh` (4 skills)
+
+## Project Root Resolution Pattern
+
+All scripts use this pattern (from `kata-lib.cjs`):
+```javascript
+function resolveRoot() {
+  // Check KATA_PROJECT_ROOT env var
+  const envRoot = process.env.KATA_PROJECT_ROOT;
+  if (envRoot && fs.existsSync(path.join(envRoot, '.planning'))) {
+    return envRoot;
+  }
+
+  // Check CWD and worktree layouts
+  const cwd = process.cwd();
+  if (fs.existsSync(path.join(cwd, '.planning'))) return cwd;
+  if (fs.existsSync(path.join(cwd, 'workspace', '.planning'))) {
+    return path.join(cwd, 'workspace');
+  }
+  if (fs.existsSync(path.join(cwd, 'main', '.planning'))) {
+    return path.join(cwd, 'main');
+  }
+
+  // Fail with clear message
+  process.stderr.write('ERROR: Cannot find project root.\n');
+  process.exit(1);
+}
+```
+
+## YAML Frontmatter Parsing
+
+Manual parsing (no external library):
+```javascript
+function parseFrontmatter(content) {
+  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!match) return null;
+  const frontmatter = {};
+  const lines = match[1].split('\n');
+  for (const line of lines) {
+    const colonIndex = line.indexOf(':');
+    if (colonIndex > 0) {
+      const key = line.slice(0, colonIndex).trim();
+      const value = line.slice(colonIndex + 1).trim();
+      frontmatter[key] = value;
+    }
+  }
+  return frontmatter;
+}
+```
+
+---
+
+*Convention analysis: 2026-02-18 | Source: scripts/, skills/, tests/, package.json*
 2. `<execution_context>` — @-references to workflows, templates, references
 3. `<context>` — Dynamic content: `$ARGUMENTS`, bash output, @file refs
 4. `<process>` or `<step>` elements — Implementation steps

@@ -1,221 +1,372 @@
 # Codebase Structure
 
-**Analysis Date:** 2026-01-16
+**Analysis Date:** 2026-02-18
 
 ## Directory Layout
 
 ```
-kata-cli/
-├── bin/                    # NPM package entry point (installer)
-├── commands/               # User-facing slash commands
-│   └── kata/               # All /kata:* commands
-├── agents/                 # Specialized subagents with baked-in expertise
-├── kata/                   # Core skill content (workflows, templates, references)
-│   ├── references/         # Methodology guides and pattern libraries
-│   ├── templates/          # Document structure templates
-│   │   ├── codebase/       # Codebase mapping templates
-│   │   └── research-project/  # Project research templates
-│   └── workflows/          # Detailed step-by-step procedures
-├── hooks/                  # Shell scripts for Claude Code integration
-├── .claude/                # Mirror structure for development (gets copied to ~/.claude)
-├── .github/                # GitHub workflows and templates
-├── .planning/              # Project planning artifacts (Kata dogfooding)
-├── assets/                 # Documentation assets (images, etc.)
-├── package.json            # NPM package manifest
+kata-orchestrator/
+├── skills/                 # 33+ skill implementations (primary interface)
+│   ├── kata-plan-phase/    # Phase planning orchestrator
+│   │   ├── SKILL.md        # Orchestrator workflow
+│   │   ├── references/     # Planner, checker, template instructions
+│   │   └── scripts/        # Helper scripts (inherited from _shared)
+│   ├── kata-execute-phase/ # Phase execution orchestrator
+│   │   ├── SKILL.md
+│   │   ├── references/     # Executor, verifier, checkpoint instructions
+│   │   └── scripts/        # Phase discovery, worktree, intelligence updating
+│   ├── kata-*/             # Other skills (new-project, research, verify-work, etc.)
+│   └── _shared/            # Shared libraries (kata-lib.cjs, manage-worktree.sh)
+├── scripts/                # Build and automation
+│   ├── build.js            # Plugin and skills-sh distribution builder
+│   └── test-local.sh       # Local testing helper
+├── tests/                  # Test suite (Node.js)
+│   ├── build.test.js       # Build validation tests
+│   ├── migration-validation.test.js
+│   ├── artifact-validation.test.js
+│   ├── smoke.test.js       # Integration smoke tests
+│   ├── skills/             # Skill-specific tests
+│   ├── scripts/            # Script validation tests
+│   ├── harness/            # Test utilities and fixtures
+│   └── fixtures/           # Test data
+├── .claude/                # Development mirror for local testing
+│   ├── skills/             # Symlinks to skills/ for local plugin testing
+│   └── plans/              # Local planning artifacts
+├── .claude-plugin/         # Plugin distribution metadata
+│   └── plugin.json         # Plugin manifest (name, version, description)
+├── .planning/              # Project state (Kata dogfooding itself)
+│   ├── phases/             # Phase organization
+│   │   ├── active/         # Phases in progress
+│   │   ├── pending/        # Planned but not started
+│   │   └── completed/      # Finished phases
+│   ├── intel/              # Generated codebase intelligence
+│   │   ├── index.json      # File registry
+│   │   ├── conventions.json # Detected patterns
+│   │   └── summary.md      # 80-150 line agent summary
+│   ├── codebase/           # Project analysis documents
+│   │   ├── ARCHITECTURE.md
+│   │   ├── STRUCTURE.md
+│   │   ├── CONVENTIONS.md
+│   │   ├── TESTING.md
+│   │   ├── CONCERNS.md
+│   │   ├── STACK.md
+│   │   └── INTEGRATIONS.md
+│   ├── templates/          # Per-project template overrides
+│   ├── issues/             # GitHub issue tracking mirror
+│   │   ├── open/
+│   │   └── closed/
+│   ├── milestones/         # Milestone tracking
+│   ├── STATE.md            # Current position and decisions
+│   ├── ROADMAP.md          # Phase breakdown
+│   ├── PROJECT.md          # Vision and requirements
+│   ├── config.json         # User settings and preferences
+│   └── intel.json          # Intelligence metadata
+├── docs/                   # Documentation
+│   ├── GITHUB_WORKFLOWS.md
+│   ├── USER-JOURNEYS.md
+│   ├── worktrees.md
+│   ├── TEMPLATE-CUSTOMIZATION.md
+│   ├── cc/                 # Claude Code integration guides
+│   └── glossary/           # Term definitions
+├── .github/                # GitHub configuration
+│   └── workflows/          # CI/CD pipeline definitions
+├── dist/                   # Build output (generated)
+│   ├── plugin/             # Claude Code marketplace plugin
+│   └── skills-sh/          # Shell script distribution
+├── assets/                 # Documentation assets
+├── .secrets/               # Local credentials (gitignored)
+├── bin/                    # Binary scripts
+├── dev/                    # Development utilities
+├── tasks/                  # Task definitions
+├── package.json            # NPM metadata
 ├── CHANGELOG.md            # Version history
+├── CLAUDE.md               # Project instructions for Claude Code
+├── KATA-STYLE.md           # Style guide for Kata development
 └── README.md               # Package documentation
 ```
 
 ## Directory Purposes
 
-**`bin/`:**
-- Purpose: NPM package installation entry point
-- Contains: Single `install.js` script
-- Key files: `bin/install.js`
+**`skills/`:**
+- Purpose: User-facing workflow implementations (primary interface)
+- Contains: 33+ skill directories, each with SKILL.md + references/ + scripts/
+- Key patterns:
+  - `SKILL.md`: Orchestrator workflow with YAML frontmatter
+  - `references/`: Instructions inlined into subagent prompts
+  - `scripts/`: Bash and Node.js helpers (config, git, file discovery)
+- Key skills: `kata-plan-phase/`, `kata-execute-phase/`, `kata-new-project/`, `kata-verify-work/`, `kata-research-phase/`
+- Example: `skills/kata-plan-phase/SKILL.md` is the entry point for phase planning
 
-**`commands/kata/`:**
-- Purpose: All user-facing slash commands
-- Contains: One `.md` file per command
-- Key files: `project-new.md`, `phase-plan.md`, `phase-execute.md`, `execute-plan.md`
+**`skills/_shared/`:**
+- Purpose: Shared utilities distributed to all consuming skills
+- Contains: `kata-lib.cjs` (config readers, file finders), `manage-worktree.sh` (git operations)
+- Distribution: Build system copies to each skill's `scripts/` directory during build
 
-**`agents/`:**
-- Purpose: Specialized subagents spawned by commands
-- Contains: One `.md` file per agent type
-- Key files: `kata-planner.md`, `kata-executor.md`, `kata-verifier.md`, `kata-roadmapper.md`
+**`scripts/`:**
+- Purpose: Build and project automation
+- Key files:
+  - `build.js`: Transforms source to plugin and skills-sh distributions
+  - `test-local.sh`: Local testing against plugin
 
-**`kata/workflows/`:**
-- Purpose: Detailed execution workflows referenced by commands
-- Contains: Complex multi-step procedures
-- Key files: `phase-execute.md`, `phase-plan.md`, `create-roadmap.md`
+**`tests/`:**
+- Purpose: Comprehensive test suite (Node.js built-in)
+- Structure:
+  - `build.test.js`: Build output validation
+  - `skills/`: Individual skill tests (e.g., `kata-plan-phase.test.js`)
+  - `scripts/`: Script validation tests
+  - `harness/`: Test utilities and affected file detection
+  - `fixtures/`: Test data and sample projects
 
-**`kata/templates/`:**
-- Purpose: Document structure templates with placeholders
-- Contains: State templates, plan templates, summary templates
-- Key files: `state.md`, `summary.md`, `roadmap.md`, `requirements.md`
+**`.claude/`:**
+- Purpose: Development environment for local testing
+- Contains: Local copy of skills/ and plans/ for plugin development
+- Used by: `claude --plugin-dir .claude` for local testing
 
-**`kata/references/`:**
-- Purpose: Methodology guides and best practices
-- Contains: Principles, patterns, debugging guides
-- Key files: `goal-backward.md`, `verification-patterns.md`, `tdd.md`
+**`.claude-plugin/`:**
+- Purpose: Plugin distribution metadata
+- Contains: `plugin.json` with name, version, description for marketplace
 
-**`hooks/`:**
-- Purpose: Shell scripts for Claude Code hooks
-- Contains: Executable shell scripts
-- Key files: `statusline.sh`, `gsd-notify.sh`, `gsd-check-update.sh`
+**`.planning/`:**
+- Purpose: Project state and roadmap (Kata dogfooding itself)
+- Key files:
+  - `STATE.md`: Current position and decisions (~100 lines)
+  - `ROADMAP.md`: Phase structure with issue numbers
+  - `PROJECT.md`: Project vision and requirements
+  - `config.json`: User settings (model_profile, pr_workflow, depth)
+  - `intel/`: Generated codebase intelligence (index.json, conventions.json, summary.md)
+  - `phases/`: Phase organization by lifecycle (active/, pending/, completed/)
+  - `codebase/`: Analysis documents (ARCHITECTURE.md, STRUCTURE.md, etc.)
+  - `issues/`: GitHub issue mirror (open/, closed/)
+
+**`.github/`:**
+- Purpose: GitHub Actions workflows and templates
+- Contains: CI/CD pipeline for release automation
+
+**`dist/`:**
+- Purpose: Build output (generated by `npm run build:plugin`)
+- Contains:
+  - `plugin/`: Ready-to-distribute plugin (entire skills/ + metadata)
+  - `skills-sh/`: Skills-only distribution for shell script consumption
+- Not committed: These are generated
+
+**`docs/`:**
+- Purpose: Developer and user documentation
+- Key files: Guides for worktrees, GitHub workflows, user journeys, template customization
 
 ## Key File Locations
 
 **Entry Points:**
-- `bin/install.js`: NPM package installation script
+- `package.json`: NPM metadata, scripts, version (v1.11.1 as of analysis)
+- `scripts/build.js`: Build orchestrator for plugin and skills-sh targets
 
-**Configuration:**
-- `package.json`: NPM package metadata and files list
+**Build and Distribution:**
+- `.claude-plugin/plugin.json`: Marketplace plugin metadata
+- `CHANGELOG.md`: Version history and release notes
+- `.github/workflows/release.yml`: CI/CD pipeline for automated releases
 
-**Commands (User-Facing):**
-- `commands/kata/project-new.md`: Initialize new project
-- `commands/kata/phase-plan.md`: Create execution plans for a phase
-- `commands/kata/phase-execute.md`: Execute all plans in a phase
-- `commands/kata/execute-plan.md`: Execute a single plan
-- `commands/kata/progress.md`: Show project progress
-- `commands/kata/help.md`: Command reference
+**Skills (User-Facing Interfaces):**
+- `skills/kata-plan-phase/SKILL.md`: Plan phase orchestrator
+- `skills/kata-execute-phase/SKILL.md`: Execute phase orchestrator
+- `skills/kata-new-project/SKILL.md`: Project initialization
+- `skills/kata-verify-work/SKILL.md`: Goal verification and UAT
+- `skills/kata-map-codebase/SKILL.md`: Codebase intelligence generation
+- `skills/kata-research-phase/SKILL.md`: Domain research
+- `skills/kata-track-progress/SKILL.md`: Progress display
+- All skills follow same structure: `SKILL.md` (orchestrator) + `references/` (instructions) + `scripts/` (helpers)
 
-**Agents (Subagents):**
-- `agents/kata-planner.md`: Creates PLAN.md files with task breakdown
-- `agents/kata-executor.md`: Executes plans with atomic commits
-- `agents/kata-verifier.md`: Verifies phase goal achievement
-- `agents/kata-roadmapper.md`: Creates ROADMAP.md with phase structure
-- `agents/kata-codebase-mapper.md`: Analyzes existing codebase
-- `agents/kata-debugger.md`: Debugging specialist
-- `agents/kata-plan-checker.md`: Validates plans before execution
+**Skill References (Instruction Sets):**
+- `skills/kata-plan-phase/references/planner-instructions.md`: Planner subagent methodology
+- `skills/kata-plan-phase/references/plan-checker-instructions.md`: Plan validation
+- `skills/kata-execute-phase/references/executor-instructions.md`: Executor subagent methodology
+- `skills/kata-execute-phase/references/execute-plan.md`: Plan execution workflow
+- `skills/kata-execute-phase/references/phase-execute.md`: Phase execution orchestration
+- All skills have `ui-brand.md` for consistent UI presentation
 
-**Templates:**
-- `kata/templates/state.md`: STATE.md structure
-- `kata/templates/summary.md`: SUMMARY.md structure
-- `kata/templates/roadmap.md`: ROADMAP.md structure
-- `kata/templates/project.md`: PROJECT.md structure
+**Skill Scripts:**
+- `skills/_shared/kata-lib.cjs`: Configuration readers, roadmap parsing, codebase analysis
+- `skills/_shared/manage-worktree.sh`: Worktree creation and branch management
+- `skills/kata-execute-phase/scripts/find-phase.sh`: Discover phase plans
+- `skills/kata-execute-phase/scripts/create-phase-branch.sh`: Git branch setup
+- `skills/kata-execute-phase/scripts/update-intel-summary.cjs`: Intelligence regeneration
 
-**Workflows:**
-- `kata/workflows/phase-execute.md`: Wave-based parallel execution
-- `kata/workflows/phase-plan.md`: Phase planning workflow
-- `kata/workflows/create-roadmap.md`: Roadmap creation workflow
+**Project State:**
+- `.planning/STATE.md`: Current position and decisions (living memory)
+- `.planning/ROADMAP.md`: Phase structure with issue references
+- `.planning/PROJECT.md`: Project vision and requirements
+- `.planning/config.json`: Configuration (model_profile, pr_workflow, depth, template_overrides)
+- `.planning/intel/summary.md`: Auto-generated codebase conventions (80-150 lines)
 
-**Hooks:**
-- `hooks/statusline.sh`: Progress statusline for Claude Code
-- `hooks/gsd-notify.sh`: Completion notifications (macOS/Linux/Windows)
-- `hooks/gsd-check-update.sh`: Version update check on session start
+**Codebase Intelligence:**
+- `.planning/intel/index.json`: File registry with exports, imports, types, layers
+- `.planning/intel/conventions.json`: Detected naming patterns and directory purposes
+- `.planning/intel/summary.md`: Compressed summary for agent consumption
+
+**Configuration and Documentation:**
+- `CLAUDE.md`: Project instructions for Claude Code
+- `KATA-STYLE.md`: Style guide for Kata development (XML, naming, tone, patterns)
+- `README.md`: Package documentation and installation guide
 
 ## Naming Conventions
 
-**Files:**
-- Commands: `kebab-case.md` (e.g., `project-new.md`, `execute-plan.md`)
-- Agents: `kata-{role}.md` (e.g., `kata-planner.md`, `kata-executor.md`)
-- Templates: `kebab-case.md` (e.g., `state.md`, `summary.md`)
-- Workflows: `kebab-case.md` (e.g., `phase-execute.md`)
-- Hooks: `kata-{function}.sh` or `{function}.sh`
+**Skills:**
+- Format: `kata-{gerund-or-action}.md` (verb-ing preferred)
+- Examples: `kata-plan-phase`, `kata-execute-phase`, `kata-verify-work`, `kata-map-codebase`, `kata-research-phase`
+- YAML frontmatter includes: `name`, `description` (with trigger phrases), `metadata.version`
 
-**Directories:**
-- Lowercase with hyphens: `kata/`, `commands/kata/`
-- Planning phases: `XX-name/` (zero-padded number + kebab-case name)
+**Skill References:**
+- Format: `kebab-case.md` (semantic to context)
+- Examples: `planner-instructions.md`, `executor-instructions.md`, `phase-execute.md`, `plan-template.md`, `ui-brand.md`
+
+**Skill Scripts:**
+- Bash: `kebab-case.sh` (e.g., `find-phase.sh`, `create-phase-branch.sh`)
+- Node.js: `kebab-case.cjs` (CommonJS, e.g., `kata-lib.cjs`, `check-conventions.cjs`)
+- Shared: `scripts/_shared/` → distributed to each consumer skill's `scripts/`
+
+**Build Output:**
+- Plugin: `dist/plugin/` (complete distribution)
+- Skills-sh: `dist/skills-sh/` (skills only)
 
 **Planning Artifacts:**
-- Plans: `{phase}-{plan}-PLAN.md` (e.g., `01-02-PLAN.md`)
-- Summaries: `{phase}-{plan}-SUMMARY.md` (e.g., `01-02-SUMMARY.md`)
-- Verification: `{phase}-VERIFICATION.md` (e.g., `01-VERIFICATION.md`)
+- Plans: `{N}-{name}/NN-{plan-name}-PLAN.md` (e.g., `.planning/phases/active/0/01-setup-PLAN.md`)
+- Summaries: `{N}-{name}/NN-{plan-name}-SUMMARY.md` (e.g., `.planning/phases/active/0/01-setup-SUMMARY.md`)
+- Verification: `{N}-{name}/{N}-VERIFICATION.md` (e.g., `.planning/phases/active/0/0-VERIFICATION.md`)
+- State subdirectories: `active/`, `pending/`, `completed/` (not nested in phase dirs)
+
+**Configuration:**
+- Format: `kebab-case.json` (e.g., `config.json`, `conventions.json`, `index.json`)
+
+**Tests:**
+- Format: `{name}.test.js` (e.g., `build.test.js`, `kata-plan-phase.test.js`)
+- Location: `tests/` for general, `tests/skills/` for skill-specific, `tests/scripts/` for script tests
 
 ## Where to Add New Code
 
-**New Command:**
-- Implementation: `commands/kata/{command-name}.md`
-- Must include: frontmatter with name, description, allowed-tools
-- Pattern: Follow existing command structure with process steps
+**New Skill:**
+- Location: `skills/kata-{gerund-action}/`
+- Structure:
+  - `SKILL.md` (required): Orchestrator with YAML frontmatter, `<execution_context>`, `<process>` steps
+  - `references/` (optional): Instruction files for subagents, UI templates
+  - `scripts/` (optional): Helper scripts (copied from _shared or custom)
+- Pattern: Study existing skill (e.g., `kata-plan-phase/`) for structure
+- Build: Script will automatically include in plugin/skills-sh distributions
 
-**New Agent:**
-- Implementation: `agents/kata-{role}.md`
-- Must include: frontmatter with name, description, tools, color
-- Pattern: Self-contained with role, philosophy, execution flow, success criteria
+**New Skill Reference:**
+- Location: `skills/kata-{name}/references/{topic}.md`
+- Purpose: Instructions for subagents spawned by the skill
+- Pattern: Follow existing references (e.g., `planner-instructions.md`, `executor-instructions.md`)
+- Consumption: Orchestrator lists in `<execution_context>` as `@./references/filename.md`
 
-**New Workflow:**
-- Implementation: `kata/workflows/{workflow-name}.md`
-- Pattern: Step-by-step procedure with process tags
+**New Skill Script:**
+- Location: `skills/kata-{name}/scripts/` or `skills/_shared/`
+- Language: Node.js (`.cjs`) preferred; bash (`.sh`) for git/system operations
+- Pattern: Source `project-root.sh` at top (ensures correct project root)
+- If shared: Add to `skills/_shared/`, build system distributes to each consumer
 
-**New Template:**
-- Implementation: `kata/templates/{template-name}.md`
-- Pattern: Markdown with placeholders and guidelines section
+**New Planning Document:**
+- Location: `.planning/codebase/{DOCUMENT}.md`
+- Files: Auto-generated by `/kata-map-codebase`, updated by `update-intel-summary.cjs`
+- Don't edit manually: These are regenerated; edits will be overwritten
 
-**New Reference:**
-- Implementation: `kata/references/{topic}.md`
-- Pattern: Methodology guide with examples
+**New Test:**
+- Location: `tests/{category}.test.js` or `tests/{category}/{name}.test.js`
+- Pattern: Use Node.js built-in test runner (no external test framework)
+- Example: `tests/skills/kata-plan-phase.test.js` for skill-specific tests
+- Run: `npm test` or `npm run test:affected`
 
-**New Hook:**
-- Implementation: `hooks/{hook-name}.sh`
-- Must be: Executable shell script (`chmod +x`)
-- Integration: Add to `bin/install.js` and settings.json configuration
+**Configuration Addition:**
+- Location: `.planning/config.json`
+- Read via: `kata-lib.cjs read-config "key" "default"`
+- Convention: Use kebab-case keys with dot notation for nested (e.g., `workflows.execute-phase.post_task_command`)
+- Default: Fallback value if key not set (graceful degradation)
 
 ## Special Directories
 
 **`.claude/`:**
-- Purpose: Development mirror of installed structure
-- Generated: Manual (for development)
-- Committed: Yes
+- Purpose: Local development environment for plugin testing
+- Generated: Manual (developer creates symlinks or copies)
+- Committed: Yes (for team reference)
+- Usage: `claude --plugin-dir .claude` to test changes locally
 
 **`.planning/`:**
-- Purpose: Project planning artifacts (GSD dogfooding)
-- Generated: By GSD commands
-- Committed: Partially (some files in .gitignore)
+- Purpose: Project state and roadmap (Kata dogfooding itself)
+- Generated: By skill commands (execute-phase, plan-phase, new-project, etc.)
+- Committed: Partially (ROADMAP.md, STATE.md committed; generated Intel and work-in-progress files may be gitignored)
 
-**`node_modules/`:**
-- Purpose: NPM dependencies (none for this package)
-- Generated: By npm install
-- Committed: No
+**`dist/`:**
+- Purpose: Build output (plugin and skills-sh distributions)
+- Generated: By `npm run build:plugin` or `npm run build:skills-sh`
+- Committed: No (generated only, not in version control)
 
-**`.git/`:**
-- Purpose: Git repository data
-- Generated: By git init
-- Committed: No
+**`.github/workflows/`:**
+- Purpose: CI/CD pipeline automation
+- Committed: Yes
+- Key file: `release.yml` (triggered on version bump in package.json)
 
 ## File Content Patterns
 
-**Command Frontmatter:**
+**Skill Frontmatter:**
 ```yaml
 ---
-name: gsd:{command-name}
-description: What this command does
-argument-hint: "[optional-args]"
-allowed-tools:
-  - Read
-  - Write
-  - Bash
-  - Task
+name: kata-{skill-name}
+description: What skill does + trigger phrases ("plan phase", "create a plan", etc.)
+metadata:
+  version: "X.Y.Z"
 ---
 ```
 
-**Agent Frontmatter:**
-```yaml
----
-name: gsd-{role}
-description: What this agent does
-tools: Read, Write, Edit, Bash, Grep, Glob
-color: {color}
----
+**Execution Context (after frontmatter):**
+```xml
+<execution_context>
+@./references/ui-brand.md
+@./references/detailed-instructions.md
+</execution_context>
 ```
 
-**Plan Frontmatter:**
+**Process Steps (action elements):**
+```xml
+<process>
+
+## N. Step Name
+
+```bash
+# Bash code or node script invocations
+VARIABLE=$(node scripts/kata-lib.cjs read-config "key" "default")
+```
+
+Result: [What happens next]
+
+</process>
+```
+
+**Plan Frontmatter (in `.planning/phases/active/N/`):**
 ```yaml
 ---
-phase: XX-name
-plan: NN
-type: execute | tdd
+type: execute | tdd | research
 wave: N
-depends_on: []
-files_modified: []
+depends_on: [other-plan-ids]
+files_modified: [src/path/file.ts]
 autonomous: true | false
-must_haves:
-  truths: []
-  artifacts: []
-  key_links: []
 ---
+```
+
+**Intelligence Index (`.planning/intel/index.json`):**
+```json
+{
+  "version": 2,
+  "generated": "ISO-8601",
+  "source": "kata-map-codebase",
+  "files": {
+    "path/to/file.ts": {
+      "exports": ["name1", "name2"],
+      "imports": ["pkg"],
+      "type": "component|service|util",
+      "layer": "ui|api|data"
+    }
+  },
+  "stats": { "totalFiles": 42 }
+}
 ```
 
 ---
 
-*Structure analysis: 2026-01-16*
+*Structure analysis: 2026-02-18*
