@@ -5,15 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** v1.12.0 Codebase Intelligence — phase 59 complete, ready for milestone completion
+**Current focus:** v1.12.0 Codebase Intelligence — all 6 phases complete (54-59), ready for milestone completion
 
 ## Current Position
 
 Milestone: v1.12.0 Codebase Intelligence
-Phase: 59 — Brownfield Intel Gap Closure (COMPLETE)
-Plan: 03 of 3 complete (all waves done)
-Status: Phase 59 complete. All 3 plans executed, all gaps closed.
-Last activity: 2026-02-18 — Completed 59-03 (55-VERIFICATION.md + e2e verification)
+Phase: 59 — Brownfield Intel Gap Closure (COMPLETED)
+Plan: All 3 plans executed and verified
+Status: Phase 59 complete, all v1.12.0 phases done (54-59). 10/10 must-haves verified.
+Last activity: 2026-02-18 — Phase 59 verified (10/10 must-haves)
 
 ## Performance Metrics
 
@@ -94,6 +94,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 59-03-PLAN.md (55-VERIFICATION.md + e2e verification)
+Stopped at: Completed Phase 59 (brownfield intel gap closure — 10/10 verified)
 Resume file: None
-Next action: Phase 59 complete, ready for milestone completion
+Next action: All v1.12.0 phases complete, ready for milestone completion
