@@ -79,6 +79,7 @@ Store `WORKTREE_ENABLED` and `PR_WORKFLOW` for use in steps 1.5, 4, 10, and 10.5
 | Agent                      | quality | balanced | budget |
 | -------------------------- | ------- | -------- | ------ |
 | general-purpose (executor) | opus    | sonnet   | sonnet |
+| general-purpose (mapper)   | haiku   | haiku    | haiku  |
 | kata-verifier              | sonnet  | sonnet   | haiku  |
 | kata-code-reviewer         | opus    | sonnet   | sonnet |
 | kata-\*-analyzer           | sonnet  | sonnet   | haiku  |
@@ -413,10 +414,10 @@ TEST_SCRIPT=$(cat package.json 2>/dev/null | grep -o '"test"[[:space:]]*:[[:spac
 
 7.25. **Update codebase index (smart scan)**
 
-If `.planning/intel/index.json` exists, run staleness detection, determine scan mode, update summary, and check conventions. All operations are non-blocking.
+If `.planning/intel/index.json` exists or `.planning/codebase/` directory exists, run staleness detection, determine scan mode, update summary, and check conventions. All operations are non-blocking.
 
 ```bash
-if [ -f ".planning/intel/index.json" ]; then
+if [ -f ".planning/intel/index.json" ] || [ -d ".planning/codebase" ]; then
   # Locate scan script
   SCAN_SCRIPT=""
   [ -f "scripts/scan-codebase.cjs" ] && SCAN_SCRIPT="scripts/scan-codebase.cjs"
@@ -437,13 +438,66 @@ if [ -f ".planning/intel/index.json" ]; then
     if [ "${STALE_COUNT:-0}" -gt 0 ] 2>/dev/null; then
       OLDEST_COMMIT=$(echo "$STALE_JSON" | grep -o '"oldestStaleCommit"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"oldestStaleCommit"[[:space:]]*:[[:space:]]*"//; s/"$//')
     fi
+
+    # --- Brownfield staleness fields (MAINT-02 gap closure) ---
+    BROWNFIELD_STALE="false"
+    BROWNFIELD_STALE=$(echo "$STALE_JSON" | node -e "try{const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log(d.brownfieldDocStale===true?'true':'false')}catch{console.log('false')}" 2>/dev/null || echo "false")
+    BROWNFIELD_ANALYSIS_DATE=$(echo "$STALE_JSON" | node -e "try{const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log(d.brownfieldAnalysisDate||'')}catch{console.log('')}" 2>/dev/null || echo "")
   fi
 
-  # --- Unified scan decision tree (greenfield / staleness / incremental) ---
-  TOTAL_FILES=$(node -e "const j=JSON.parse(require('fs').readFileSync('.planning/intel/index.json','utf8')); console.log(j.stats?.totalFiles ?? j.stats?.total_files ?? 0)")
+  # --- Brownfield doc auto-refresh (MAINT-02 gap closure) ---
+  if [ "$BROWNFIELD_STALE" = "true" ]; then
+    echo "Brownfield docs stale (Analysis Date: $BROWNFIELD_ANALYSIS_DATE). Triggering auto-refresh..." >&2
+```
 
-  SCAN_RAN="false"
-  if [ -n "$SCAN_SCRIPT" ]; then
+**Read mapper instructions** from the kata-map-codebase skill. Use the Read tool:
+
+- Plugin mode: `${CLAUDE_PLUGIN_ROOT}/skills/kata-map-codebase/references/codebase-mapper-instructions.md`
+- Skills mode: `skills/kata-map-codebase/references/codebase-mapper-instructions.md`
+
+Store the content as `mapper_instructions_content`.
+
+**Spawn 4 mapper agents in parallel via Task():**
+
+```
+Task(prompt="<agent-instructions>\n{mapper_instructions_content}\n</agent-instructions>\n\nFocus area: tech\n\nMap the codebase for the tech focus area. Write STACK.md and INTEGRATIONS.md to .planning/codebase/.\n\nProject root: {project_root}", subagent_type="general-purpose", model="haiku")
+Task(prompt="<agent-instructions>\n{mapper_instructions_content}\n</agent-instructions>\n\nFocus area: arch\n\nMap the codebase for the arch focus area. Write ARCHITECTURE.md and STRUCTURE.md to .planning/codebase/.\n\nProject root: {project_root}", subagent_type="general-purpose", model="haiku")
+Task(prompt="<agent-instructions>\n{mapper_instructions_content}\n</agent-instructions>\n\nFocus area: quality\n\nMap the codebase for the quality focus area. Write CONVENTIONS.md and TESTING.md to .planning/codebase/.\n\nProject root: {project_root}", subagent_type="general-purpose", model="haiku")
+Task(prompt="<agent-instructions>\n{mapper_instructions_content}\n</agent-instructions>\n\nFocus area: concerns\n\nMap the codebase for the concerns focus area. Write CONCERNS.md to .planning/codebase/.\n\nProject root: {project_root}", subagent_type="general-purpose", model="haiku")
+```
+
+All 4 run in parallel. Task tool blocks until complete.
+
+**After mapper agents complete, run intel pipeline:**
+
+```bash
+    # Run generate-intel.js (doc-derived summary)
+    GENERATE_SCRIPT=""
+    [ -f "scripts/generate-intel.js" ] && GENERATE_SCRIPT="scripts/generate-intel.js"
+    [ -z "$GENERATE_SCRIPT" ] && GENERATE_SCRIPT=$(find skills/kata-map-codebase/scripts -name "generate-intel.js" -type f 2>/dev/null | head -1)
+    if [ -n "$GENERATE_SCRIPT" ]; then
+      node "$GENERATE_SCRIPT" 2>/dev/null || true
+    fi
+
+    # Run scan-codebase.cjs (full scan, overwrites code-derived artifacts)
+    if [ -n "$SCAN_SCRIPT" ]; then
+      node "$SCAN_SCRIPT" 2>/dev/null || true
+    fi
+
+    # Stage refreshed brownfield docs and intel artifacts
+    git add .planning/codebase/ .planning/intel/ 2>/dev/null || true
+
+    SCAN_RAN="true"
+    echo "Brownfield auto-refresh complete." >&2
+  fi
+```
+
+```bash
+  # --- Unified scan decision tree (greenfield / staleness / incremental) ---
+  TOTAL_FILES=$(node -e "try{const j=JSON.parse(require('fs').readFileSync('.planning/intel/index.json','utf8')); console.log(j.stats?.totalFiles ?? j.stats?.total_files ?? 0)}catch{console.log(0)}" 2>/dev/null || echo "0")
+
+  SCAN_RAN=${SCAN_RAN:-"false"}
+  if [ "$SCAN_RAN" != "true" ] && [ -n "$SCAN_SCRIPT" ]; then
     if [ "$TOTAL_FILES" -eq 0 ]; then
       # Greenfield first population: full scan
       node "$SCAN_SCRIPT" 2>/dev/null || true
@@ -473,8 +527,8 @@ if [ -f ".planning/intel/index.json" ]; then
     fi
   fi
 
-  # --- Doc gardening warning (MAINT-02) ---
-  if [ -d ".planning/codebase/" ] && [ -n "$STALE_PCT" ]; then
+  # --- Doc gardening warning (only if auto-refresh did not run) ---
+  if [ "$BROWNFIELD_STALE" != "true" ] && [ -d ".planning/codebase/" ] && [ -n "$STALE_PCT" ]; then
     STALE_HIGH=$(node -e "console.log(Number('${STALE_PCT}') > 0.3 ? 'yes' : 'no')" 2>/dev/null || echo "no")
     if [ "$STALE_HIGH" = "yes" ]; then
       echo "Warning: >30% of intel is stale (stalePct=$STALE_PCT). Recommend running /kata-map-codebase to refresh codebase knowledge." >&2

@@ -5,20 +5,20 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** Teams get reliable AI-driven development without abandoning their existing GitHub workflow
-**Current focus:** Phase 57 next in v1.12.0 Codebase Intelligence
+**Current focus:** v1.12.0 Codebase Intelligence — all phases complete, ready for milestone completion
 
 ## Current Position
 
 Milestone: v1.12.0 Codebase Intelligence
-Phase: 57 — Knowledge Maintenance (COMPLETED)
-Plan: All 3 plans executed and verified
-Status: Phase 57 complete, goal fully achieved (gaps closed)
-Last activity: 2026-02-16 — Phase 57 gap closure verified
+Phase: 58 — Brownfield Doc Auto-Refresh (COMPLETED)
+Plan: All 4 plans executed and verified
+Status: Phase 58 complete, all v1.12.0 phases done (54-58)
+Last activity: 2026-02-17 — Phase 58 verified (19/19 must-haves)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 213
+- Total plans completed: 217
 - Average duration: 3 min
 - Total execution time: ~524 min
 
@@ -56,6 +56,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 
 ### Roadmap Evolution
 
+- **v1.12.0 phase 58 complete 2026-02-17** — Brownfield Doc Auto-Refresh (4 plans, gap closure)
 - **v1.12.0 phase 57 complete 2026-02-16** — Knowledge Maintenance (3 plans, 3 requirements, gaps closed)
 - **v1.12.0 phase 56 complete 2026-02-16** — Greenfield Integration (2 plans, 2 requirements)
 - **v1.12.0 phase 55 complete 2026-02-16** — Codebase Capture & Indexing (3 plans, 5 requirements)
@@ -92,7 +93,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-16
-Stopped at: Completed 57-03-PLAN.md (gap closure)
+Last session: 2026-02-17
+Stopped at: Completed Phase 58 (brownfield doc auto-refresh)
 Resume file: None
-Next action: Phase 57 complete, ready for milestone completion
+Next action: All v1.12.0 phases complete, ready for milestone completion
