@@ -57,9 +57,9 @@ function findMarkdownFiles(dir, files = []) {
 }
 
 describe('Migration validation: agent-to-instruction-file mappings', () => {
-  test('all 18 agents have corresponding instruction files', () => {
+  test('all 17 agents have corresponding instruction files', () => {
     const agentNames = Object.keys(AGENT_MAPPINGS);
-    assert.strictEqual(agentNames.length, 18, `Expected 18 agent mappings, got ${agentNames.length}`);
+    assert.strictEqual(agentNames.length, 17, `Expected 17 agent mappings, got ${agentNames.length}`);
 
     const errors = [];
 
