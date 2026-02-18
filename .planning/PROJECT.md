@@ -4,7 +4,7 @@
 
 A spec-driven development framework for Claude Code. Brings structured, reliable AI development to teams without changing their existing tools. Teams use Kata's quality-producing process inside the tools they already love.
 
-**Current state:** v1.11.0 shipped. Phase-level worktrees with persistent `workspace/` directory. `main/` stays on main branch permanently.
+**Current state:** v1.12.0 shipped. Full codebase intelligence pipeline: scan → index → inject. Agents receive architecture summaries, conventions, and dependency graphs at spawn time.
 
 ## Core Value
 
@@ -68,12 +68,17 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Phase worktree merge target — v1.11.0 (plan merges target phase worktree, not main/)
 - Phase worktree cleanup — v1.11.0 (remove phase worktree after merge/PR)
 
+- Codebase intelligence pipeline — v1.12.0 (scan-codebase.cjs → generate-intel.js → .planning/intel/ → agent context injection)
+- Planner/executor/verifier intel consumption — v1.12.0 (agents receive summary.md at spawn time, graceful degradation if intel missing)
+- Greenfield intel scaffolding — v1.12.0 (scaffold-intel.cjs wired into kata-new-project, progressive capture from project start)
+- Brownfield doc staleness detection — v1.12.0 (detectBrownfieldDocStaleness with 30% threshold, auto-refresh via mapper agent)
+- Convention enforcement — v1.12.0 (in-skill convention check during execution, not hook-based)
+- Intel freshness metadata — v1.12.0 (generation timestamps, confidence scores, commitHash in all intel artifacts)
+- Smart scan gate — v1.12.0 (unified scan decision tree in step 7.25, SCAN_RAN guard prevents redundant regeneration)
+
 ### Active
 
-- Codebase knowledge capture — v1.12.0 (greenfield progressive capture, improved brownfield mapping, incremental updates)
-- Workflow integration — v1.12.0 (planner, executor, verifier agents consume codebase knowledge)
-- Knowledge architecture — v1.12.0 (progressive disclosure, structured directory, machine+human readable)
-- Doc gardening — v1.12.0 (stale documentation detection, automated refresh, freshness tracking)
+(No active requirements — planning next milestone)
 
 ### Out of Scope
 
@@ -91,21 +96,22 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 - Building an LLM — use Claude, not compete with it
 - Building an agent framework — use platform-native capabilities (subagents, Skills, MCPs)
 
-## Current Milestone: v1.12.0 Codebase Intelligence
+## Current Milestone: None
 
-**Goal:** Build a complete codebase knowledge lifecycle — capture institutional knowledge during projects, integrate it into all agent workflows, and maintain it over time.
-
-**Target features:**
-
-- Greenfield codebase knowledge capture (progressive, during project lifecycle)
-- Improved brownfield mapping with incremental updates
-- Planner/executor/verifier agents consume codebase conventions and architecture
-- Progressive disclosure knowledge architecture (map, not manual)
-- Doc gardening with stale detection, automated refresh, freshness tracking
-
-**Reference:** OpenAI "Harness Engineering" paper by Ryan Lopopolo — repository knowledge as system of record, progressive disclosure, doc gardening, agent legibility
+No active milestone. Use `/kata-add-milestone` to plan the next version.
 
 ## Context
+
+**v1.12.0 shipped (2026-02-18):**
+- 144 files changed, 18,349 insertions, 3,136 deletions
+- End-to-end codebase intelligence: scan-codebase.cjs → generate-intel.js → .planning/intel/ → agent context injection
+- Planner, executor, and verifier agents now receive codebase conventions and architecture summaries when spawned
+- Incremental intel updates during phase execution with smart scan gate (SCAN_RAN guard)
+- Brownfield doc staleness detection with auto-refresh via mapper agent spawning
+- Greenfield intel scaffolding via scaffold-intel.cjs wired into kata-new-project
+- generate-intel.js v2 schema with camelCase stats and commitHash freshness metadata
+- 167/167 tests passing (84 new tests for scan-codebase.cjs)
+- All 4 gaps from milestone audit closed
 
 **v1.11.0 shipped (2026-02-14):**
 - 61 files changed, 6,421 insertions, 391 deletions
@@ -233,6 +239,27 @@ Teams get reliable AI-driven development without abandoning their existing GitHu
 | general-purpose subagent type          | Standard type eliminates custom agent dependency, portable across platforms | Good — v1.6.0 |
 | Dual distribution (marketplace + skills.sh) | Two install channels without maintaining separate codebases          | Good — v1.6.0 |
 | Agent Skills spec normalization        | SKILL.md frontmatter follows spec for cross-platform compatibility       | Good — v1.6.0 |
+| summary.md as intel entry point        | ~80-150 line compressed summary with progressive disclosure to codebase/ docs | Good — v1.12.0 |
+| Regex-based scanning (not AST)         | Zero native dependencies, covers 80% of use cases, simpler maintenance  | Good — v1.12.0 |
+| Graceful intel degradation             | Agents proceed without error if .planning/intel/ doesn't exist          | Good — v1.12.0 |
+| SCAN_RAN gate in step 7.25             | Prevents redundant summary regeneration every plan, flags-based control | Good — v1.12.0 |
+| Brownfield auto-refresh via mapper     | Reuses existing mapper agent for stale doc refresh (no new agent type)  | Good — v1.12.0 |
+
+## Shipped: v1.12.0 Codebase Intelligence
+
+**Delivered:** Automatic codebase knowledge capture, storage, and injection into all Kata agent workflows. Agents receive architecture summaries, naming conventions, and dependency graphs at spawn time.
+
+**Key accomplishments:**
+- End-to-end intelligence pipeline: scan-codebase.cjs → generate-intel.js → .planning/intel/ → agent context injection
+- Planner, executor, and verifier agents receive codebase conventions and architecture summaries at spawn
+- Greenfield scaffolding: scaffold-intel.cjs wired into kata-new-project
+- Brownfield doc staleness detection with 30% threshold auto-refresh via mapper agent
+- Convention enforcement script during plan execution (in-skill check, not hook)
+- generate-intel.js v2 schema with camelCase stats and commitHash freshness metadata
+- 84 new tests for scan-codebase.cjs; 167/167 total tests passing
+- All 4 milestone audit gaps closed (oldest-commit fallback, brownfield guard removal, v2 schema, Phase 55 verification)
+
+See `.planning/milestones/v1.12.0-ROADMAP.md` for full archive.
 
 ## Shipped: v1.11.0 Phase-Level Worktrees
 
@@ -368,4 +395,4 @@ See `.planning/milestones/v1.1.0-ROADMAP.md` for full archive.
 See `.planning/milestones/v1.6.0-ROADMAP.md` for full archive.
 
 ---
-*Last updated: 2026-02-15 after v1.12.0 milestone started*
+*Last updated: 2026-02-18 after v1.12.0 milestone*

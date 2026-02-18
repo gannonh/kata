@@ -29,13 +29,26 @@ npx skills add gannonh/kata-skills
 
 ---
 
-## What's New in v1.11.0
+## What's New in v1.12.0
+
+**Codebase Intelligence** — Agents now understand your project's architecture and conventions:
+- **Full pipeline** — `scan-codebase.cjs` → `generate-intel.js` → `.planning/intel/` → agent context injection
+- **Context-aware agents** — Planners, executors, and verifiers receive codebase conventions and architecture summaries at spawn time
+- **Greenfield scaffolding** — Intel bootstrapped at project creation via `scaffold-intel.cjs` in kata-new-project
+- **Brownfield auto-refresh** — Staleness detection triggers mapper agent when 30%+ of source files change since last scan
+- **Smart scan gate** — Unified decision tree in execute-phase step 7.25, `SCAN_RAN` guard prevents redundant regeneration
+- **v2 intel schema** — `generate-intel.js` emits camelCase stats with commitHash freshness metadata
+
+<details>
+<summary><strong>v1.11.0: Phase-Level Worktrees</strong></summary>
 
 **Phase-Level Worktrees** — `main/` stays on the main branch permanently:
 - **Workspace architecture** — Persistent `workspace/` as working directory, `main/` as read-only reference
 - **Phase worktrees** — Phase execution creates a worktree instead of switching `main/` off main
 - **Two-tier model** — Plan worktrees fork from phase branch, merge back to phase worktree
 - **Worktree-safe merges** — All merge patterns updated to work with bare repo layout
+
+</details>
 
 <details>
 <summary><strong>v1.10.0: Git Worktree Support</strong></summary>
@@ -532,6 +545,7 @@ Claude requires the right context to perform well. Kata manages it:
 | `STATE.md`        | Living memory across sessions                    |
 | `PLAN.md`         | Atomic executable task with verification         |
 | `SUMMARY.md`      | What happened, committed to history              |
+| `intel/summary.md`| Codebase conventions injected into agent context |
 
 ### Multi-Agent Orchestration
 
@@ -587,6 +601,10 @@ Git bisect finds exact failures. Each task independently revertable.
 │   │       ├── 01-VERIFICATION.md  # Goal verification
 │   │       └── 01-UAT.md           # User acceptance tests
 │   └── completed/             # Verified phases
+├── intel/                  # Codebase intelligence (auto-generated)
+│   ├── index.json          # File registry (exports, imports, types, layers)
+│   ├── conventions.json    # Detected naming and directory patterns
+│   └── summary.md          # Compressed agent-readable summary (~80-150 lines)
 ├── quick/                  # Ad-hoc tasks
 │   └── 001-fix-bug/
 ├── milestones/             # Archived milestones
