@@ -33,7 +33,7 @@ test.describe('Wave 1 desktop shell UAT @uat', () => {
     })
 
     expect(windowState.size).toEqual([1440, 900])
-    expect(windowState.minimumSize).toEqual([1040, 600])
+    expect(windowState.minimumSize).toEqual([1024, 600])
     expect(windowState.title).toBe('Kata Orchestrator')
   })
 
