@@ -16,7 +16,7 @@
     "test:app:coverage": "npm run -w app test:coverage",
     "test:app:e2e": "npm run -w app test:e2e",
     "test:app:e2e:ci": "npm run -w app test:e2e:ci",
-    "test:app:quality-gate": "npm run -w app lint && npm run -w app test:e2e:quality-gate",
+    "test:app:quality-gate": "npm run -w app lint && npm run test:app:coverage && npm run -w app test:e2e:quality-gate",
     "test:smoke": "node --test --test-reporter spec ./tests/smoke.test.js",
     "test:scripts": "node --test --test-reporter spec ./tests/scripts/*.test.js",
     "test:artifacts": "node --test --test-reporter spec ./tests/artifact-validation.test.js",

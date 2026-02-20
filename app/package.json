@@ -13,7 +13,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
-    "test:ci:local": "npm run lint && npm run test:e2e:quality-gate && npm run test:e2e:full",
+    "test:ci:local": "npm run lint && npm run test:coverage && npm run test:e2e:quality-gate && npm run test:e2e:full",
     "test:e2e": "npm run test:e2e:full",
     "test:e2e:full": "npm run build && playwright test --grep @uat",
     "test:e2e:ci": "npm run build && playwright test --grep @ci",

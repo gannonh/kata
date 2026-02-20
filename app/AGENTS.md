@@ -29,7 +29,7 @@ npm run test:app
 # Run desktop coverage gate
 npm run test:app:coverage
 
-# Run desktop quality gate (lint + @quality-gate E2E subset)
+# Run desktop quality gate (lint + coverage + @quality-gate E2E subset)
 npm run test:app:quality-gate
 
 # Run all desktop CI-equivalent checks locally
