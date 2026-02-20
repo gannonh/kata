@@ -49,8 +49,8 @@ export function SpecTab({ project }: SpecTabProps) {
           Non-Goals
         </h3>
         <ul className="mt-2 list-disc space-y-1 pl-5 font-body text-sm text-[color:var(--text-secondary)]">
-          {project.nonGoals.map((nonGoal) => (
-            <li key={nonGoal}>{nonGoal}</li>
+          {project.nonGoals.map((nonGoal, index) => (
+            <li key={`${project.id}-non-goal-${index}`}>{nonGoal}</li>
           ))}
         </ul>
       </section>
@@ -60,8 +60,8 @@ export function SpecTab({ project }: SpecTabProps) {
           Assumptions
         </h3>
         <ul className="mt-2 list-disc space-y-1 pl-5 font-body text-sm text-[color:var(--text-secondary)]">
-          {project.assumptions.map((assumption) => (
-            <li key={assumption}>{assumption}</li>
+          {project.assumptions.map((assumption, index) => (
+            <li key={`${project.id}-assumption-${index}`}>{assumption}</li>
           ))}
         </ul>
       </section>

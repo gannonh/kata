@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { mockProject } from '../../mock/project'
 import type { ProjectSpec } from '../../types/project'
@@ -26,6 +26,10 @@ const tabs: Array<TabBarItem<RightPanelTab>> = [
 export function RightPanel({ project = mockProject }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState<RightPanelTab>('spec')
   const [notes, setNotes] = useState(project.notes)
+
+  useEffect(() => {
+    setNotes(project.notes)
+  }, [project.id, project.notes])
 
   const activeContent = useMemo(() => {
     if (activeTab === 'notes') {

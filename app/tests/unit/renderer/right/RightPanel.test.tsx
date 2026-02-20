@@ -1,8 +1,13 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { RightPanel } from '../../../../src/renderer/components/layout/RightPanel'
 import { mockProject } from '../../../../src/renderer/mock/project'
+import type { ProjectSpec } from '../../../../src/renderer/types/project'
+
+afterEach(() => {
+  cleanup()
+})
 
 describe('RightPanel', () => {
   it('shows spec content by default and supports notes editing across tab switches', () => {
@@ -26,5 +31,23 @@ describe('RightPanel', () => {
     fireEvent.click(notesTab)
 
     expect(screen.getByDisplayValue('Capture review follow-up items.')).toBeTruthy()
+  })
+
+  it('resets notes when the selected project changes', () => {
+    const nextProject: ProjectSpec = {
+      ...mockProject,
+      id: 'phase-2',
+      name: 'Kata Desktop App - Phase 2',
+      notes: 'Fresh project notes from the next phase.'
+    }
+
+    const { rerender } = render(<RightPanel project={mockProject} />)
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Notes' }))
+    fireEvent.change(screen.getByLabelText('Project notes'), { target: { value: 'Edited old project notes.' } })
+
+    rerender(<RightPanel project={nextProject} />)
+
+    expect(screen.getByDisplayValue('Fresh project notes from the next phase.')).toBeTruthy()
   })
 })
