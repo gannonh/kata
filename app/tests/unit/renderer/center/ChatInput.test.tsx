@@ -36,6 +36,18 @@ describe('ChatInput', () => {
     expect(onSend).toHaveBeenCalledWith('first line')
   })
 
+  it('does not submit on Enter while IME composition is active', () => {
+    const onSend = vi.fn()
+    render(<ChatInput onSend={onSend} />)
+
+    const textarea = screen.getByLabelText('Message input')
+
+    fireEvent.change(textarea, { target: { value: 'compose me' } })
+    fireEvent.keyDown(textarea, { key: 'Enter', isComposing: true })
+
+    expect(onSend).not.toHaveBeenCalled()
+  })
+
   it('does not submit empty or disabled input', () => {
     const onSend = vi.fn()
 

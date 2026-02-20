@@ -8,7 +8,11 @@ export function MessageList({ children }: MessageListProps) {
   const listRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    const list = listRef.current as HTMLDivElement
+    const list = listRef.current
+    if (!list) {
+      return
+    }
+
     list.scrollTop = list.scrollHeight
   }, [children])
 
