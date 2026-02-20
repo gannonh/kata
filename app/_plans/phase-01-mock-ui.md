@@ -6,6 +6,10 @@ Kata Orchestrator's agent skills have proven effective as a spec-driven developm
 
 Phase 1 builds the complete three-column UI with mock data. No PI package wiring yet. This validates layout, interaction models, and identifies vertical slices for future integration.
 
+Kata Orchestrator consolidates prior Kata R&D into one product: spec-driven development + multi-agent orchestration + context-aware execution. The product direction and positioning are defined in `overview.md`.
+
+UX is extremely important to this project. We are taking a design-first appraoch, specing out key UI components, building a project scaffold and then buuilding out functionality as vertical slices using TDD. Design specs: `design/specs/README.md`
+
 **Key decisions:**
 - React shell + PI Lit.js web components (embedded in center column)
 - New `app/` directory in this repo
@@ -53,6 +57,8 @@ app/
 ```
 
 ---
+
+# Plan: Kata Desktop App — Phase 1 (Mock UI)
 
 ## Build Order (Wave 2 Gate + Parallel Tracks)
 
