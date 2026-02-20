@@ -20,7 +20,10 @@ type ElectronFixtures = {
 
 export const test = base.extend<ElectronFixtures>({
   electronApp: async ({}, use) => {
-    const electronApp = await electron.launch({ args: [mainEntry] })
+    const launchArgs = process.env.CI
+      ? ['--no-sandbox', '--disable-setuid-sandbox', mainEntry]
+      : [mainEntry]
+    const electronApp = await electron.launch({ args: launchArgs })
 
     await use(electronApp)
 
