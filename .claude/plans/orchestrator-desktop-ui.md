@@ -87,7 +87,7 @@ Required before any parallel implementation starts.
 5. **Verify:** `npm run dev`, `npm test`, `npm run lint`
 6. **PR Checkpoint:** Open and merge an initial PR for Wave 2A before parallel work begins
 
-### Wave 2B (Parallel Track): Remaining Shared UI Utilities
+### ✅ Wave 2B (Parallel Track): Remaining Shared UI Utilities
 Can run in parallel with Waves 3, 4, and 5 after Wave 2A merges.
 
 1. Finalize cross-panel shared utilities not required for Wave 2A contracts:
@@ -96,7 +96,7 @@ Can run in parallel with Waves 3, 4, and 5 after Wave 2A merges.
 2. Keep APIs backward-compatible with Wave 2A contracts
 3. **Verify:** `npm run dev`, targeted unit tests, `npm run lint`
 
-### Wave 3 (Parallel Track): Left Panel
+### ✅ Wave 3 (Parallel Track): Left Panel
 Four functional tabs: Agents, Context, Changes, Files.
 
 1. `LeftPanel.tsx` — tab container
@@ -105,7 +105,7 @@ Four functional tabs: Agents, Context, Changes, Files.
 4. `ChangesTab.tsx` — branch display, staged/unstaged file lists with status icons, commit button
 5. `FilesTab.tsx` + `FileTreeNode.tsx` — recursive file tree, expand/collapse, search filter
 
-### Wave 4 (Parallel Track): Center Panel (Mock Chat)
+### ✅ Wave 4 (Parallel Track): Center Panel (Mock Chat)
 Mock chat conversation with realistic messages.
 
 1. Create `mock/messages.ts` (10-15 realistic messages; scoped to chat track)
@@ -118,7 +118,7 @@ Mock chat conversation with realistic messages.
 8. `MockChatPanel.tsx` — composes all chat components with mock data
 9. `useMockChat.ts` hook — simulates message streaming (on send: adds user message, streams assistant response character by character)
 
-### Wave 5 (Parallel Track): Right Panel
+### ✅ Wave 5 (Parallel Track): Right Panel
 Project spec and notes tabs.
 
 1. `RightPanel.tsx` — tab container
@@ -142,7 +142,7 @@ Merge strategy:
 3. Rebase each track on latest `main` before merge
 4. Resolve integration conflicts in a dedicated integration pass before test hardening
 
-### Wave 6: Integration and Test Hardening
+### ✅ Wave 6: Integration and Test Hardening
 
 Reconcile parallel tracks and stabilize before final polish.
 
@@ -151,7 +151,7 @@ Reconcile parallel tracks and stabilize before final polish.
 3. Fix regressions from merge conflict resolution
 4. **Verify:** `npm run dev`, `npm test`, `npm run lint`
 
-### Wave 7: Tests and Polish
+### ✅ Wave 7: Tests and Polish
 
 1. Vitest unit tests: `AppShell.test.tsx`, `AgentCard.test.tsx`, `MessageBubble.test.tsx`, `TabBar.test.tsx`, `useMockChat.test.ts`
 2. Playwright E2E: Electron launch fixture, `app-launch.spec.ts`, `navigation.spec.ts`, `chat-mock.spec.ts`
