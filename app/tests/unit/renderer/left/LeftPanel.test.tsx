@@ -28,4 +28,16 @@ describe('LeftPanel', () => {
     expect(screen.getByLabelText('Create contracts and shared baseline components')).toBeTruthy()
     expect(screen.getByLabelText('Implement left panel tabs')).toBeTruthy()
   })
+
+  it('switches to changes and files tabs', () => {
+    render(<LeftPanel />)
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Changes 3' }))
+    expect(screen.getByRole('heading', { name: 'Changes' })).toBeTruthy()
+    expect(screen.getByText('Branch: feat/wave-2A-contracts')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Files 1' }))
+    expect(screen.getByRole('heading', { name: 'Files' })).toBeTruthy()
+    expect(screen.getByLabelText('Search files')).toBeTruthy()
+  })
 })

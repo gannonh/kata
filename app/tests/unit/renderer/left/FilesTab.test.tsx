@@ -23,6 +23,10 @@ describe('FilesTab', () => {
 
     expect(screen.getByText('TabBar.tsx')).toBeTruthy()
     expect(screen.getByText('StatusBadge.tsx')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle src' }))
+
+    expect(screen.queryByRole('button', { name: 'Toggle src/renderer' })).toBeNull()
   })
 
   it('filters tree results based on search input', () => {
@@ -34,5 +38,16 @@ describe('FilesTab', () => {
 
     expect(screen.getByText('StatusBadge.tsx')).toBeTruthy()
     expect(screen.queryByText('TabBar.tsx')).toBeNull()
+  })
+
+  it('hides all nodes when the search query has no matches', () => {
+    render(<FilesTab files={mockFiles} />)
+
+    fireEvent.change(screen.getByLabelText('Search files'), {
+      target: { value: 'does-not-exist' }
+    })
+
+    expect(screen.queryByRole('button', { name: 'Toggle src' })).toBeNull()
+    expect(screen.queryByText('StatusBadge.tsx')).toBeNull()
   })
 })
