@@ -8,10 +8,9 @@ TO-DOS.md
 # misc
 kata.code-workspace
 .secrets/
-skills.bak/
+
 tmp/
 .DS_Store
-.claude/plans/
 
 # build output
 dist/
