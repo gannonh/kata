@@ -21,4 +21,27 @@ describe('CollapsibleSection', () => {
     fireEvent.click(toggle)
     expect(screen.getByText('Spec and task links')).toBeTruthy()
   })
+
+  it('renders right slot content and supports default closed state', () => {
+    render(
+      <CollapsibleSection
+        title="Agent Notes"
+        defaultOpen={false}
+        rightSlot={<span>2 items</span>}
+      >
+        <p>Collapsed by default</p>
+      </CollapsibleSection>
+    )
+
+    const toggle = screen.getByRole('button', { name: 'Agent Notes' })
+
+    expect(screen.getByText('2 items')).toBeTruthy()
+    expect(screen.queryByText('Collapsed by default')).toBeNull()
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+
+    fireEvent.click(toggle)
+
+    expect(screen.getByText('Collapsed by default')).toBeTruthy()
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+  })
 })
