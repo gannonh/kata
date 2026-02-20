@@ -1,5 +1,7 @@
 # Kata Orchestrator (Kata V2)
 
+> Reference-only document: this is product context. Active desktop execution tracking is managed in Linear (`Kata Desktop App` project).
+
 ## Context
 
 Kata currently provides two open source projects:

@@ -1,5 +1,7 @@
 # Context Retrieval Contract v1
 
+> Reference-only document: this contract is supporting context. Active execution tracking is managed in Linear (`Kata Desktop App` project).
+
 Status: Proposed v1 contract for Context Engine integration with Kata Cloud.
 Audience: Context Engine team and Kata Cloud integration owners.
 
@@ -108,4 +110,3 @@ A provider implementation is v1-ready when all pass:
 1. Deliver engine-backed retrieval behind the `"mcp"` provider path first.
 2. Keep filesystem provider behavior as current fallback in Kata Cloud.
 3. Do not couple engine internals to renderer/UI types; integrate only through this contract.
-

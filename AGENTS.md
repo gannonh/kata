@@ -15,6 +15,16 @@ Kata is a **spec-driven development framework** for Claude Code. It's a meta-pro
 
 **Key Design Principle:** Plans ARE prompts. PLAN.md files are executable XML documents optimized for Claude, not prose to be transformed.
 
+## Workspace Planning Guidance
+
+Use workspace-local planning docs for execution details:
+
+- Desktop app (`app/`): see `app/AGENTS.md` for Linear project structure, issue labels/lanes, blockers, and active sequencing.
+
+Repo-wide rule:
+
+- Keep active execution state in the system of record for that workspace (Linear for desktop app work), and use markdown docs for durable context/architecture only.
+
 ## Development Commands
 
 ### Installation and Testing
@@ -62,35 +72,9 @@ npm run test:affected
 
 # Coverage (core + app)
 npm run test:coverage
-
-# App-only unit tests
-npm run test:app
-
-# App-only coverage
-npm run test:app:coverage
 ```
 
-### Desktop App Testing (workspace: app)
-
-```bash
-# Run strict desktop quality gate (typecheck + tagged Wave 1 E2E subset)
-npm run test:app:quality-gate
-
-# Run only CI-tagged desktop E2E
-npm run test:app:e2e:ci
-
-# Run full Wave 1 desktop UAT E2E suite
-npm run test:app:e2e
-
-# Launch desktop app dev mode from root
-npm run dev
-
-# Run app tests directly from app/
-cd app
-npm run test:e2e:quality-gate
-npm run test:e2e:ci
-npm run test:e2e
-```
+Desktop app commands and quality gates are documented in `app/AGENTS.md`.
 
 ### Using Kata for Kata Development
 
