@@ -40,4 +40,47 @@ describe('useMockChat', () => {
     expect(result.current.isStreaming).toBe(false)
     expect((result.current.messages.at(-1)?.content.length ?? 0) > 0).toBe(true)
   })
+
+  it('ignores empty input and ignores sends while a response is streaming', () => {
+    vi.useFakeTimers()
+
+    const { result } = renderHook(() => useMockChat())
+    const initialCount = result.current.messages.length
+
+    act(() => {
+      result.current.sendMessage('   ')
+    })
+
+    expect(result.current.messages).toHaveLength(initialCount)
+    expect(result.current.isStreaming).toBe(false)
+
+    act(() => {
+      result.current.sendMessage('first')
+    })
+
+    expect(result.current.isStreaming).toBe(true)
+    const countAfterFirstSend = result.current.messages.length
+
+    act(() => {
+      result.current.sendMessage('second should be ignored')
+    })
+
+    expect(result.current.messages).toHaveLength(countAfterFirstSend)
+    expect(result.current.messages.at(-2)?.content).toBe('first')
+  })
+
+  it('clears the pending stream timer on unmount', () => {
+    vi.useFakeTimers()
+    const clearTimeoutSpy = vi.spyOn(window, 'clearTimeout')
+
+    const { result, unmount } = renderHook(() => useMockChat())
+
+    act(() => {
+      result.current.sendMessage('cleanup test')
+    })
+
+    unmount()
+
+    expect(clearTimeoutSpy).toHaveBeenCalled()
+  })
 })

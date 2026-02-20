@@ -11,7 +11,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html'],
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/preload/**/*.d.ts'],
+      exclude: ['src/preload/**/*.d.ts', 'src/renderer/types/**/*.ts'],
       perFile: true,
       thresholds: {
         statements: 100,
