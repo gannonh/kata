@@ -69,7 +69,7 @@ Electron window opens with an empty three-column layout.
 8. Create `PanelResizer.tsx` — draggable column dividers
 9. **Verify:** `npm run dev` opens Electron window with three visible columns
 
-### Wave 2A (Prerequisite Gate): Contracts and Shared Baseline
+### ✅ Wave 2A (Prerequisite Gate): Contracts and Shared Baseline
 Required before any parallel implementation starts.
 
 1. Create types: `agent.ts`, `project.ts`, `git.ts`
