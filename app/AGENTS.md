@@ -32,6 +32,9 @@ npm run test:app:coverage
 # Run desktop quality gate (lint + @quality-gate E2E subset)
 npm run test:app:quality-gate
 
+# Run all desktop CI-equivalent checks locally
+npm run -w app test:ci:local
+
 # Run CI-tagged desktop E2E
 npm run test:app:e2e:ci
 
@@ -45,6 +48,7 @@ From `app/` directly:
 npm run lint
 npm run test
 npm run test:coverage
+npm run test:ci:local
 npm run test:e2e:quality-gate
 npm run test:e2e:ci
 npm run test:e2e
