@@ -9,10 +9,10 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 function createWindow(): void {
-  const window = new BrowserWindow({
+  const mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
-    minWidth: 1024,
+    minWidth: 1040,
     minHeight: 600,
     show: false,
     backgroundColor: '#0a0d11',
@@ -23,14 +23,14 @@ function createWindow(): void {
     }
   })
 
-  window.once('ready-to-show', () => {
-    window.show()
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show()
   })
 
   if (process.env.ELECTRON_RENDERER_URL) {
-    void window.loadURL(process.env.ELECTRON_RENDERER_URL)
+    void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
-    void window.loadFile(path.join(__dirname, '../renderer/index.html'))
+    void mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
 }
 
@@ -43,6 +43,9 @@ app.whenReady().then(() => {
       createWindow()
     }
   })
+}).catch((error: unknown) => {
+  console.error('Kata desktop failed to start:', error)
+  app.quit()
 })
 
 app.on('window-all-closed', () => {

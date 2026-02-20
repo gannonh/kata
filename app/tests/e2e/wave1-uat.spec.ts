@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures/electron'
 
-function assertNumber(value: number | undefined): asserts value is number {
+function assertDefined<T>(value: T | null | undefined): asserts value is T {
   expect(value).toBeDefined()
 }
 
@@ -22,8 +22,6 @@ test.describe('Wave 1 desktop shell UAT @uat', () => {
     electronApp,
     appWindow
   }) => {
-    await appWindow.waitForLoadState('domcontentloaded')
-
     const windowState = await electronApp.evaluate(({ BrowserWindow }) => {
       const window = BrowserWindow.getAllWindows()[0]
 
@@ -35,7 +33,7 @@ test.describe('Wave 1 desktop shell UAT @uat', () => {
     })
 
     expect(windowState.size).toEqual([1440, 900])
-    expect(windowState.minimumSize).toEqual([1024, 600])
+    expect(windowState.minimumSize).toEqual([1040, 600])
     expect(windowState.title).toBe('Kata Orchestrator')
   })
 
@@ -50,16 +48,10 @@ test.describe('Wave 1 desktop shell UAT @uat', () => {
     const leftResizerBox = await leftResizer.boundingBox()
     const rightResizerBox = await rightResizer.boundingBox()
 
-    assertNumber(leftBefore?.width)
-    assertNumber(rightBefore?.width)
-    assertNumber(leftResizerBox?.x)
-    assertNumber(leftResizerBox?.y)
-    assertNumber(leftResizerBox?.width)
-    assertNumber(leftResizerBox?.height)
-    assertNumber(rightResizerBox?.x)
-    assertNumber(rightResizerBox?.y)
-    assertNumber(rightResizerBox?.width)
-    assertNumber(rightResizerBox?.height)
+    assertDefined(leftBefore)
+    assertDefined(rightBefore)
+    assertDefined(leftResizerBox)
+    assertDefined(rightResizerBox)
 
     await appWindow.mouse.move(
       leftResizerBox.x + leftResizerBox.width / 2,
@@ -88,8 +80,8 @@ test.describe('Wave 1 desktop shell UAT @uat', () => {
     const leftAfter = await leftPanel.boundingBox()
     const rightAfter = await rightPanel.boundingBox()
 
-    assertNumber(leftAfter?.width)
-    assertNumber(rightAfter?.width)
+    assertDefined(leftAfter)
+    assertDefined(rightAfter)
 
     expect(leftAfter.width).toBeGreaterThan(leftBefore.width + 40)
     expect(rightAfter.width).toBeGreaterThan(rightBefore.width + 40)

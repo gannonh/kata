@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "npm --prefix app run dev",
     "test": "node --test --test-reporter spec ./tests/build.test.js ./tests/migration-validation.test.js",
-    "test:coverage": "npm --prefix app run test:coverage",
+    "test:coverage": "npm run test:coverage:core && npm run test:app:coverage",
+    "test:coverage:core": "node --test --experimental-test-coverage --test-reporter spec ./tests/build.test.js ./tests/migration-validation.test.js",
+    "test:app:coverage": "npm --prefix app run test:coverage",
     "test:app:e2e": "npm --prefix app run test:e2e",
     "test:app:e2e:ci": "npm --prefix app run test:e2e:ci",
     "test:app:quality-gate": "npm --prefix app run lint && npm --prefix app run test:e2e:quality-gate",

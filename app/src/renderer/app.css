@@ -13,8 +13,8 @@
 }
 
 @theme {
-  --font-display: "Azeret Mono", "SF Mono", Menlo, monospace;
-  --font-body: "Newsreader", "Iowan Old Style", serif;
+  --font-display: "SF Mono", "Menlo", "Monaco", "Cascadia Mono", monospace;
+  --font-body: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
 }
 
 * {

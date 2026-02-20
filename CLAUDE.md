@@ -60,6 +60,12 @@ npm run test:all
 
 # Only tests affected by current branch changes
 npm run test:affected
+
+# Coverage (core + app)
+npm run test:coverage
+
+# App-only coverage
+npm run test:app:coverage
 ```
 
 ### Desktop App Testing (app/)

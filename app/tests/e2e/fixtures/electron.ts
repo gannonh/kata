@@ -27,11 +27,14 @@ export const test = base.extend<ElectronFixtures>({
 
     await use(electronApp)
 
-    await electronApp.close()
+    await electronApp.close().catch(() => {
+      // Electron may have already exited from a crash during the test.
+    })
   },
   appWindow: async ({ electronApp }, use) => {
     const appWindow = await electronApp.firstWindow()
-    await appWindow.waitForLoadState('domcontentloaded')
+    await appWindow.waitForLoadState('load')
+    await appWindow.waitForSelector('#root > *', { state: 'attached' })
 
     await use(appWindow)
   }

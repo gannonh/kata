@@ -1,4 +1,4 @@
-import { type MouseEvent, useCallback } from 'react'
+import { type KeyboardEvent, type MouseEvent, useCallback } from 'react'
 
 type PanelResizerProps = {
   label: string
@@ -29,13 +29,31 @@ export function PanelResizer({ label, testId, onDelta }: PanelResizerProps) {
     [onDelta]
   )
 
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLButtonElement>) => {
+      const step = event.shiftKey ? 48 : 12
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        onDelta(-step)
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        onDelta(step)
+      }
+    },
+    [onDelta]
+  )
+
   return (
     <button
       type="button"
       aria-label={label}
+      role="separator"
+      aria-orientation="vertical"
       data-testid={testId}
       onMouseDown={handleMouseDown}
-      className="relative h-full w-[10px] cursor-col-resize bg-transparent px-0 transition-colors hover:bg-[color:var(--line-strong)]"
+      onKeyDown={handleKeyDown}
+      className="relative h-full w-[10px] cursor-col-resize bg-transparent px-0 transition-colors hover:bg-[color:var(--line-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--text-primary)]"
     >
       <span className="pointer-events-none absolute left-1/2 top-1/2 h-20 w-px -translate-x-1/2 -translate-y-1/2 bg-[color:var(--line)]" />
     </button>

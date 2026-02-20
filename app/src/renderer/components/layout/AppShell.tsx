@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { PanelResizer } from './PanelResizer'
 
@@ -13,20 +13,49 @@ function clamp(value: number, min: number, max: number): number {
 
 export function AppShell() {
   const shellRef = useRef<HTMLDivElement | null>(null)
+  const leftWidthRef = useRef(320)
+  const rightWidthRef = useRef(360)
   const [leftWidth, setLeftWidth] = useState(320)
   const [rightWidth, setRightWidth] = useState(360)
+  const [availableWidth, setAvailableWidth] = useState(1440)
 
-  const availableWidth = shellRef.current?.clientWidth ?? 1440
+  useEffect(() => {
+    leftWidthRef.current = leftWidth
+  }, [leftWidth])
 
-  const maxLeft = Math.max(
-    LEFT_MIN,
-    availableWidth - rightWidth - CENTER_MIN - RESIZER_WIDTH * 2
-  )
+  useEffect(() => {
+    rightWidthRef.current = rightWidth
+  }, [rightWidth])
 
-  const maxRight = Math.max(
-    RIGHT_MIN,
-    availableWidth - leftWidth - CENTER_MIN - RESIZER_WIDTH * 2
-  )
+  useLayoutEffect(() => {
+    const shellElement = shellRef.current
+    if (!shellElement) {
+      return
+    }
+
+    const updateWidth = (): void => {
+      setAvailableWidth(shellElement.clientWidth)
+    }
+
+    updateWidth()
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateWidth)
+      return () => {
+        window.removeEventListener('resize', updateWidth)
+      }
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      setAvailableWidth(entry?.contentRect.width ?? shellElement.clientWidth)
+    })
+    observer.observe(shellElement)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
 
   const gridTemplateColumns = useMemo(
     () => `${leftWidth}px ${RESIZER_WIDTH}px minmax(${CENTER_MIN}px, 1fr) ${RESIZER_WIDTH}px ${rightWidth}px`,
@@ -63,7 +92,13 @@ export function AppShell() {
           label="Resize left panel"
           testId="left-resizer"
           onDelta={(deltaX) => {
-            setLeftWidth((current) => clamp(current + deltaX, LEFT_MIN, maxLeft))
+            setLeftWidth((current) => {
+              const maxLeft = Math.max(
+                LEFT_MIN,
+                availableWidth - rightWidthRef.current - CENTER_MIN - RESIZER_WIDTH * 2
+              )
+              return clamp(current + deltaX, LEFT_MIN, maxLeft)
+            })
           }}
         />
 
@@ -92,7 +127,13 @@ export function AppShell() {
           label="Resize right panel"
           testId="right-resizer"
           onDelta={(deltaX) => {
-            setRightWidth((current) => clamp(current - deltaX, RIGHT_MIN, maxRight))
+            setRightWidth((current) => {
+              const maxRight = Math.max(
+                RIGHT_MIN,
+                availableWidth - leftWidthRef.current - CENTER_MIN - RESIZER_WIDTH * 2
+              )
+              return clamp(current - deltaX, RIGHT_MIN, maxRight)
+            })
           }}
         />
 
