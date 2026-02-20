@@ -88,7 +88,7 @@ jobs:
         run: |
           which xvfb-run >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y xvfb)
 
-      - name: Run desktop Wave 1 quality gate (lint + @quality-gate E2E subset)
+      - name: Run desktop Wave 1 quality gate (lint + coverage + @quality-gate E2E subset)
         run: xvfb-run --auto-servernum npm run test:app:quality-gate
 
   kata-desktop-uat:

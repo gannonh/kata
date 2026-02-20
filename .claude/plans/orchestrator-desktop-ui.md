@@ -54,9 +54,9 @@ app/
 
 ---
 
-## Build Order (6 Waves)
+## Build Order (Wave 2 Gate + Parallel Tracks)
 
-### Wave 1: Scaffold and Shell
+### ✅ Wave 1: Scaffold and Shell
 Electron window opens with an empty three-column layout.
 
 1. Initialize `app/` with `package.json`, install deps
@@ -69,15 +69,34 @@ Electron window opens with an empty three-column layout.
 8. Create `PanelResizer.tsx` — draggable column dividers
 9. **Verify:** `npm run dev` opens Electron window with three visible columns
 
-### Wave 2: Mock Data and Shared Components
-All types, mock data, and reusable components.
+### ✅ Wave 2A (Prerequisite Gate): Contracts and Shared Baseline
+Required before any parallel implementation starts.
 
 1. Create types: `agent.ts`, `project.ts`, `git.ts`
-2. Create mock data: `agents.ts` (orchestrator + 2 sub-agents), `messages.ts` (10-15 realistic messages), `project.ts` (spec, tasks, AC), `git.ts` (branch, staged/unstaged), `files.ts` (file tree)
+2. Create baseline mock data contracts and initial fixtures used across panels:
+   - `mock/agents.ts`
+   - `mock/project.ts`
+   - `mock/git.ts`
+   - `mock/files.ts`
 3. Create `lib/cn.ts` (Tailwind class merge)
-4. Create shared components: `TabBar`, `StatusBadge`, `CollapsibleSection`, `SearchInput`, `MarkdownRenderer`
+4. Create shared baseline components with stable props:
+   - `TabBar`
+   - `StatusBadge`
+   - `CollapsibleSection`
+   - `MarkdownRenderer`
+5. **Verify:** `npm run dev`, `npm test`, `npm run lint`
+6. **PR Checkpoint:** Open and merge an initial PR for Wave 2A before parallel work begins
 
-### Wave 3: Left Panel
+### Wave 2B (Parallel Track): Remaining Shared UI Utilities
+Can run in parallel with Waves 3, 4, and 5 after Wave 2A merges.
+
+1. Finalize cross-panel shared utilities not required for Wave 2A contracts:
+   - `SearchInput`
+   - Any minor shared helpers/styles discovered during panel implementation
+2. Keep APIs backward-compatible with Wave 2A contracts
+3. **Verify:** `npm run dev`, targeted unit tests, `npm run lint`
+
+### Wave 3 (Parallel Track): Left Panel
 Four functional tabs: Agents, Context, Changes, Files.
 
 1. `LeftPanel.tsx` — tab container
@@ -86,19 +105,20 @@ Four functional tabs: Agents, Context, Changes, Files.
 4. `ChangesTab.tsx` — branch display, staged/unstaged file lists with status icons, commit button
 5. `FilesTab.tsx` + `FileTreeNode.tsx` — recursive file tree, expand/collapse, search filter
 
-### Wave 4: Center Panel (Mock Chat)
+### Wave 4 (Parallel Track): Center Panel (Mock Chat)
 Mock chat conversation with realistic messages.
 
-1. `CenterPanel.tsx` — full-height chat wrapper
-2. `MessageList.tsx` — scrollable container with auto-scroll-to-bottom
-3. `MessageBubble.tsx` — user/assistant messages, markdown rendering for assistant
-4. `ToolCallResult.tsx` — collapsible tool name + args + output with syntax highlighting
-5. `StreamingIndicator.tsx` — pulsing animation
-6. `ChatInput.tsx` — textarea + send button
-7. `MockChatPanel.tsx` — composes all chat components with mock data
-8. `useMockChat.ts` hook — simulates message streaming (on send: adds user message, streams assistant response character by character)
+1. Create `mock/messages.ts` (10-15 realistic messages; scoped to chat track)
+2. `CenterPanel.tsx` — full-height chat wrapper
+3. `MessageList.tsx` — scrollable container with auto-scroll-to-bottom
+4. `MessageBubble.tsx` — user/assistant messages, markdown rendering for assistant
+5. `ToolCallResult.tsx` — collapsible tool name + args + output with syntax highlighting
+6. `StreamingIndicator.tsx` — pulsing animation
+7. `ChatInput.tsx` — textarea + send button
+8. `MockChatPanel.tsx` — composes all chat components with mock data
+9. `useMockChat.ts` hook — simulates message streaming (on send: adds user message, streams assistant response character by character)
 
-### Wave 5: Right Panel
+### Wave 5 (Parallel Track): Right Panel
 Project spec and notes tabs.
 
 1. `RightPanel.tsx` — tab container
@@ -108,7 +128,30 @@ Project spec and notes tabs.
 5. `AcceptanceCriteria.tsx` — checklist display
 6. `NotesTab.tsx` — textarea, persisted in React state
 
-### Wave 6: Tests and Polish
+### Parallelization Model (Post-Wave 2A)
+
+Use isolated worktrees/branches for each parallel track:
+- Worktree A: Wave 2B (shared utilities)
+- Worktree B: Wave 3 (left panel)
+- Worktree C: Wave 4 (center panel)
+- Worktree D: Wave 5 (right panel)
+
+Merge strategy:
+1. Merge Wave 2A PR first (gate)
+2. Run Waves 2B/3/4/5 in parallel
+3. Rebase each track on latest `main` before merge
+4. Resolve integration conflicts in a dedicated integration pass before test hardening
+
+### Wave 6: Integration and Test Hardening
+
+Reconcile parallel tracks and stabilize before final polish.
+
+1. Merge and reconcile Waves 2B/3/4/5 output
+2. Run cross-panel integration pass (tab APIs, shared components, styling consistency)
+3. Fix regressions from merge conflict resolution
+4. **Verify:** `npm run dev`, `npm test`, `npm run lint`
+
+### Wave 7: Tests and Polish
 
 1. Vitest unit tests: `AppShell.test.tsx`, `AgentCard.test.tsx`, `MessageBubble.test.tsx`, `TabBar.test.tsx`, `useMockChat.test.ts`
 2. Playwright E2E: Electron launch fixture, `app-launch.spec.ts`, `navigation.spec.ts`, `chat-mock.spec.ts`
@@ -150,12 +193,12 @@ jsdom: ^25.0.0
 
 ## Verification
 
-After each wave:
+After each wave/track:
 - `npm run dev` — Electron window opens, new components render
 - `npm test` — Vitest unit tests pass
 - `npm run lint` — TypeScript compiles without errors
 
-After Wave 6:
+After Wave 7:
 - `npm run test:e2e` — Playwright E2E tests pass (window opens, tabs switch, mock chat works)
 - `npm run build` — Production build succeeds
 - Visual inspection: three-column layout matches reference screenshot proportions, dark theme, all tabs functional

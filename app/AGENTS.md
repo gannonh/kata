@@ -29,7 +29,7 @@ npm run test:app
 # Run desktop coverage gate
 npm run test:app:coverage
 
-# Run desktop quality gate (lint + @quality-gate E2E subset)
+# Run desktop quality gate (lint + coverage + @quality-gate E2E subset)
 npm run test:app:quality-gate
 
 # Run all desktop CI-equivalent checks locally
@@ -60,3 +60,9 @@ npm run test:e2e
 - Expose APIs via preload only; avoid direct Node access from renderer.
 - Add or update tests for behavior changes in main/preload/renderer.
 - Keep E2E tags (`@quality-gate`, `@ci`, `@uat`) aligned with CI jobs.
+
+## Mandatory TDD
+
+1. Test Driven Development is mandatory for all code changes. 
+2. Write tests before implementation, ensure they fail, then implement the feature until tests pass.
+3. Use the Test Driven Development Agent Skill (`test-driven-development`) for guidance.
