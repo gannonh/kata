@@ -10,6 +10,9 @@ Kata is a **spec-driven development framework** for Claude Code. It's a meta-pro
 - **Templates** (`kata/templates/`) — Structured output formats (PROJECT.md, PLAN.md, etc.)
 - **References** (`kata/references/`) — Deep-dive documentation on concepts and patterns
 
+**Directory-specific guidance:**
+- Desktop app work under `app/` also follows `app/AGENTS.md`
+
 **Key Design Principle:** Plans ARE prompts. PLAN.md files are executable XML documents optimized for Claude, not prose to be transformed.
 
 ## Development Commands
@@ -60,11 +63,14 @@ npm run test:affected
 # Coverage (core + app)
 npm run test:coverage
 
+# App-only unit tests
+npm run test:app
+
 # App-only coverage
 npm run test:app:coverage
 ```
 
-### Desktop App Testing (app/)
+### Desktop App Testing (workspace: app)
 
 ```bash
 # Run strict desktop quality gate (typecheck + tagged Wave 1 E2E subset)
@@ -75,6 +81,9 @@ npm run test:app:e2e:ci
 
 # Run full Wave 1 desktop UAT E2E suite
 npm run test:app:e2e
+
+# Launch desktop app dev mode from root
+npm run dev
 
 # Run app tests directly from app/
 cd app
@@ -299,4 +308,3 @@ If invoked skill is `/Users/gannonhall/.agents/skills/kata-plan-phase/SKILL.md`,
 - `scripts/kata-lib.cjs` means  
 `/Users/gannonhall/.agents/skills/kata-plan-phase/scripts/kata-lib.cjs`  
 - never `./scripts/kata-lib.cjs` from repo root.
-
