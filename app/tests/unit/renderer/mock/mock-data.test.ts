@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { mockAgents } from '../../../../src/renderer/mock/agents'
 import { mockFiles } from '../../../../src/renderer/mock/files'
 import { mockGit } from '../../../../src/renderer/mock/git'
+import { mockMessages } from '../../../../src/renderer/mock/messages'
 import { mockProject } from '../../../../src/renderer/mock/project'
 
 describe('renderer mock data contracts', () => {
@@ -39,5 +40,17 @@ describe('renderer mock data contracts', () => {
     expect(sharedNode?.name).toBe('shared')
     expect(sharedNode?.children?.some((node) => node.name === 'TabBar.tsx')).toBe(true)
     expect(sharedNode?.children?.every((node) => node.path.startsWith('src/renderer/components/shared/'))).toBe(true)
+  })
+
+  it('defines chat fixtures with realistic messages and tool call records', () => {
+    expect(mockMessages.length).toBeGreaterThanOrEqual(10)
+    expect(mockMessages.length).toBeLessThanOrEqual(15)
+    expect(mockMessages.some((message) => message.role === 'user')).toBe(true)
+    expect(mockMessages.some((message) => message.role === 'assistant')).toBe(true)
+    expect(
+      mockMessages.some((message) =>
+        (message.toolCalls ?? []).some((toolCall) => toolCall.name.length > 0 && toolCall.output.length > 0)
+      )
+    ).toBe(true)
   })
 })
