@@ -2,6 +2,8 @@
 
 # Kata Context (TBD)
 
+> Reference-only document: this is supporting product/context material. Active desktop execution tracking is managed in Linear (`Kata Desktop App` project).
+
 > Context services for agents and apps
 
 ## Overview

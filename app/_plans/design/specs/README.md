@@ -1,5 +1,7 @@
 # Front-End UI Specifications
 
+> Source-of-truth role: These design specs are the primary product requirements and UI acceptance authority for the desktop app. Active execution tracking lives in Linear (`Kata Desktop App` project).
+
 Derived from the [design mocks](../mocks/README.md) (29 screenshots) and cross-referenced against the current codebase.
 
 ## Spec Documents
