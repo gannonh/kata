@@ -4,6 +4,7 @@ import { LeftPanel } from './LeftPanel'
 import { CenterPanel } from '../center/CenterPanel'
 import { MockChatPanel } from '../center/MockChatPanel'
 import { PanelResizer } from './PanelResizer'
+import { RightPanel } from './RightPanel'
 
 const RESIZER_WIDTH = 10
 const LEFT_MIN = 260
@@ -114,15 +115,7 @@ export function AppShell() {
           data-testid="right-panel"
           className="overflow-hidden rounded-r-[28px] border-l border-[color:var(--line)] bg-[radial-gradient(circle_at_80%_14%,rgba(244,196,48,0.12),transparent_46%)] p-6"
         >
-          <p className="font-display text-xs uppercase tracking-[0.32em] text-[color:var(--text-muted)]">
-            Right Column
-          </p>
-          <h2 className="mt-4 font-display text-3xl uppercase tracking-[0.08em] text-[color:var(--text-primary)]">
-            Spec
-          </h2>
-          <p className="mt-3 max-w-52 font-body text-base text-[color:var(--text-secondary)]">
-            Requirements and acceptance criteria views are scheduled for Wave 5.
-          </p>
+          <RightPanel />
         </aside>
       </section>
     </main>
