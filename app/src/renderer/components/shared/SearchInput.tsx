@@ -2,7 +2,7 @@ import { type KeyboardEvent, useRef } from 'react'
 
 import { cn } from '../../lib/cn'
 
-type SearchInputProps = {
+export type SearchInputProps = {
   value: string
   onValueChange: (value: string) => void
   placeholder?: string
@@ -56,7 +56,7 @@ export function SearchInput({
         onChange={(event) => {
           onValueChange(event.target.value)
         }}
-        className="w-full border-none bg-transparent font-body text-sm text-[color:var(--text-primary)] outline-none placeholder:text-[color:var(--text-muted)]"
+        className="w-full border-none bg-transparent font-body text-sm text-[color:var(--text-primary)] outline-none placeholder:text-[color:var(--text-muted)] [&::-webkit-search-cancel-button]:hidden"
       />
       {value ? (
         <button
