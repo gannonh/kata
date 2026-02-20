@@ -13,8 +13,10 @@
 			"path": "../kata-orchestrator.worktrees/wt-b"
 		},
 		{
-			"name": "wt-c",
 			"path": "../kata-orchestrator.worktrees/wt-c"
+		},
+		{
+			"path": "../kata-orchestrator.worktrees/wt-d"
 		}
 	]
 }
