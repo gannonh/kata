@@ -1,0 +1,8 @@
+node_modules/
+dist/
+out/
+.playwright/
+*.tsbuildinfo
+coverage/
+playwright-report/
+test-results/

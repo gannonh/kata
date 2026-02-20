@@ -62,6 +62,25 @@ npm run test:all
 npm run test:affected
 ```
 
+### Desktop App Testing (app/)
+
+```bash
+# Run strict desktop quality gate (typecheck + tagged Wave 1 E2E subset)
+npm run test:app:quality-gate
+
+# Run only CI-tagged desktop E2E
+npm run test:app:e2e:ci
+
+# Run full Wave 1 desktop UAT E2E suite
+npm run test:app:e2e
+
+# Run app tests directly from app/
+cd app
+npm run test:e2e:quality-gate
+npm run test:e2e:ci
+npm run test:e2e
+```
+
 ### Using Kata for Kata Development
 
 This project uses Kata to build Kata. Key files in `.planning/`:

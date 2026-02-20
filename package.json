@@ -4,7 +4,12 @@
   "type": "module",
   "description": "Spec-driven development framework for Claude Code.",
   "scripts": {
+    "dev": "npm --prefix app run dev",
     "test": "node --test --test-reporter spec ./tests/build.test.js ./tests/migration-validation.test.js",
+    "test:coverage": "npm --prefix app run test:coverage",
+    "test:app:e2e": "npm --prefix app run test:e2e",
+    "test:app:e2e:ci": "npm --prefix app run test:e2e:ci",
+    "test:app:quality-gate": "npm --prefix app run lint && npm --prefix app run test:e2e:quality-gate",
     "test:smoke": "node --test --test-reporter spec ./tests/smoke.test.js",
     "test:scripts": "node --test --test-reporter spec ./tests/scripts/*.test.js",
     "test:artifacts": "node --test --test-reporter spec ./tests/artifact-validation.test.js",
