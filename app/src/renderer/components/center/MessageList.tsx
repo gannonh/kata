@@ -9,11 +9,7 @@ export function MessageList({ children }: MessageListProps) {
 
   useEffect(() => {
     const list = listRef.current
-    if (!list) {
-      return
-    }
-
-    list.scrollTop = list.scrollHeight
+    if (list) list.scrollTop = list.scrollHeight
   }, [children])
 
   return (
