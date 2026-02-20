@@ -1,5 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
+import { LeftPanel } from './LeftPanel'
+import { CenterPanel } from '../center/CenterPanel'
+import { MockChatPanel } from '../center/MockChatPanel'
 import { PanelResizer } from './PanelResizer'
 import { RightPanel } from './RightPanel'
 
@@ -74,20 +77,7 @@ export function AppShell() {
         style={{ gridTemplateColumns }}
         className="relative grid h-full rounded-[28px] border border-[color:var(--line)] bg-[color:var(--surface-panel)]/85 shadow-[0_0_0_1px_var(--line-soft),0_30px_80px_rgba(0,0,0,0.55)]"
       >
-        <aside
-          data-testid="left-panel"
-          className="overflow-hidden rounded-l-[28px] border-r border-[color:var(--line)] bg-[radial-gradient(circle_at_20%_15%,rgba(214,252,194,0.08),transparent_48%)] p-6"
-        >
-          <p className="font-display text-xs uppercase tracking-[0.32em] text-[color:var(--text-muted)]">
-            Left Column
-          </p>
-          <h2 className="mt-4 font-display text-3xl uppercase tracking-[0.08em] text-[color:var(--text-primary)]">
-            Agents
-          </h2>
-          <p className="mt-3 max-w-52 font-body text-base text-[color:var(--text-secondary)]">
-            Workspace context and orchestration controls land here in Wave 3.
-          </p>
-        </aside>
+        <LeftPanel />
 
         <PanelResizer
           label="Resize left panel"
@@ -103,26 +93,9 @@ export function AppShell() {
           }}
         />
 
-        <section
-          data-testid="center-panel"
-          className="relative overflow-hidden p-10"
-        >
-          <div className="pointer-events-none absolute inset-0 opacity-70 [background:linear-gradient(120deg,transparent_0%,rgba(214,252,194,0.07)_34%,transparent_70%)]" />
-          <p className="relative font-display text-xs uppercase tracking-[0.32em] text-[color:var(--text-muted)]">
-            Center Column
-          </p>
-          <h1 className="relative mt-4 font-display text-5xl uppercase tracking-[0.08em]">
-            Orchestrator Chat
-          </h1>
-          <div className="relative mt-8 grid gap-4">
-            <div className="rounded-2xl border border-[color:var(--line)]/80 bg-[color:var(--surface-elevated)]/70 p-5 font-body text-[color:var(--text-secondary)]">
-              Mock conversation scaffolding arrives in Wave 4.
-            </div>
-            <div className="rounded-2xl border border-dashed border-[color:var(--line)]/90 p-5 font-body text-[color:var(--text-muted)]">
-              Future replacement target: PI chat panel web component.
-            </div>
-          </div>
-        </section>
+        <CenterPanel>
+          <MockChatPanel />
+        </CenterPanel>
 
         <PanelResizer
           label="Resize right panel"
