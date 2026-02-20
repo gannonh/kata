@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { LeftPanel } from './LeftPanel'
+import { CenterPanel } from '../center/CenterPanel'
+import { MockChatPanel } from '../center/MockChatPanel'
 import { PanelResizer } from './PanelResizer'
 
 const RESIZER_WIDTH = 10
@@ -90,26 +92,9 @@ export function AppShell() {
           }}
         />
 
-        <section
-          data-testid="center-panel"
-          className="relative overflow-hidden p-10"
-        >
-          <div className="pointer-events-none absolute inset-0 opacity-70 [background:linear-gradient(120deg,transparent_0%,rgba(214,252,194,0.07)_34%,transparent_70%)]" />
-          <p className="relative font-display text-xs uppercase tracking-[0.32em] text-[color:var(--text-muted)]">
-            Center Column
-          </p>
-          <h1 className="relative mt-4 font-display text-5xl uppercase tracking-[0.08em]">
-            Orchestrator Chat
-          </h1>
-          <div className="relative mt-8 grid gap-4">
-            <div className="rounded-2xl border border-[color:var(--line)]/80 bg-[color:var(--surface-elevated)]/70 p-5 font-body text-[color:var(--text-secondary)]">
-              Mock conversation scaffolding arrives in Wave 4.
-            </div>
-            <div className="rounded-2xl border border-dashed border-[color:var(--line)]/90 p-5 font-body text-[color:var(--text-muted)]">
-              Future replacement target: PI chat panel web component.
-            </div>
-          </div>
-        </section>
+        <CenterPanel>
+          <MockChatPanel />
+        </CenterPanel>
 
         <PanelResizer
           label="Resize right panel"
