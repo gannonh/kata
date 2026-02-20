@@ -5,12 +5,16 @@
 			"path": "."
 		},
 		{
-			"name": "kata-burner",
-			"path": "../kata-burner"
+			"name": "wt-a",
+			"path": "../kata-orchestrator.worktrees/wt-a"
 		},
 		{
-			"name": ".claude",
-			"path": "../../../.claude"
+			"name": "wt-b",
+			"path": "../kata-orchestrator.worktrees/wt-b"
+		},
+		{
+			"name": "wt-c",
+			"path": "../kata-orchestrator.worktrees/wt-c"
 		}
 	]
 }
