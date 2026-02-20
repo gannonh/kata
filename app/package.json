@@ -1,0 +1,45 @@
+{
+  "name": "kata-orchestrator-desktop-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Electron + React shell for Kata Orchestrator desktop UI",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "lint": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "test:e2e": "npm run test:e2e:full",
+    "test:e2e:full": "npm run build && playwright test --grep @uat",
+    "test:e2e:ci": "npm run build && playwright test --grep @ci",
+    "test:e2e:quality-gate": "npm run build && playwright test --grep @quality-gate"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "electron": "^34.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@testing-library/react": "^16.0.0",
+    "@vitest/coverage-v8": "^3.0.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "electron-vite": "^2.0.0",
+    "jsdom": "^25.0.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.0",
+    "vite": "^5.4.0",
+    "vitest": "^3.0.0"
+  }
+}

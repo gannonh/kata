@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  kata-core-quality:
+    name: Kata Core Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Run core test suite
+        run: npm test
+
+      - name: Run scripts test suite
+        run: npm run test:scripts
+
+      - name: Build plugin distribution
+        run: npm run build:plugin
+
+      - name: Validate plugin artifacts
+        run: npm run test:artifacts
+
+  kata-desktop-quality-gate:
+    name: Kata Desktop Quality Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            app/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install desktop app dependencies
+        run: npm --prefix app ci
+
+      - name: Run desktop type/lint checks
+        run: npm --prefix app run lint
+
+      - name: Ensure xvfb is available
+        run: |
+          which xvfb-run >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y xvfb)
+
+      - name: Run desktop Wave 1 quality-gate E2E subset
+        run: xvfb-run --auto-servernum npm --prefix app run test:e2e:quality-gate
+
+  kata-desktop-uat:
+    name: Kata Desktop Full UAT E2E
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+      - kata-desktop-quality-gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            app/package-lock.json
+
+      - name: Install desktop app dependencies
+        run: npm --prefix app ci
+
+      - name: Ensure xvfb is available
+        run: |
+          which xvfb-run >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y xvfb)
+
+      - name: Run full desktop Wave 1 UAT E2E suite
+        run: xvfb-run --auto-servernum npm --prefix app run test:e2e
