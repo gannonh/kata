@@ -1,4 +1,4 @@
-import { type KeyboardEvent } from 'react'
+import { type KeyboardEvent, useRef } from 'react'
 
 import { cn } from '../../lib/cn'
 
@@ -17,13 +17,17 @@ export function SearchInput({
   ariaLabel,
   className
 }: SearchInputProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
   const clearValue = (): void => {
     onValueChange('')
+    inputRef.current?.focus()
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
     if (event.key === 'Escape' && value) {
       event.preventDefault()
+      event.stopPropagation()
       clearValue()
     }
   }
@@ -43,6 +47,7 @@ export function SearchInput({
         Find
       </span>
       <input
+        ref={inputRef}
         type="search"
         value={value}
         placeholder={placeholder}
