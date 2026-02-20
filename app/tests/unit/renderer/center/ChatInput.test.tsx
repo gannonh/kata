@@ -35,4 +35,27 @@ describe('ChatInput', () => {
     fireEvent.keyDown(textarea, { key: 'Enter' })
     expect(onSend).toHaveBeenCalledWith('first line')
   })
+
+  it('does not submit empty or disabled input', () => {
+    const onSend = vi.fn()
+
+    const { rerender } = render(<ChatInput onSend={onSend} />)
+    const textarea = screen.getByLabelText('Message input')
+    const sendButton = screen.getByRole('button', { name: 'Send' })
+
+    fireEvent.change(textarea, { target: { value: '   ' } })
+    fireEvent.click(sendButton)
+    expect(onSend).not.toHaveBeenCalled()
+
+    rerender(
+      <ChatInput
+        onSend={onSend}
+        disabled
+      />
+    )
+
+    fireEvent.change(textarea, { target: { value: 'run now' } })
+    fireEvent.submit(textarea.closest('form') as HTMLFormElement)
+    expect(onSend).not.toHaveBeenCalled()
+  })
 })
