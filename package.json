@@ -1,17 +1,22 @@
 {
   "name": "@gannonh/kata",
   "version": "1.12.0",
+  "private": true,
   "type": "module",
   "description": "Spec-driven development framework for Claude Code.",
+  "workspaces": [
+    "app"
+  ],
   "scripts": {
-    "dev": "npm --prefix app run dev",
+    "dev": "npm run -w app dev",
     "test": "node --test --test-reporter spec ./tests/build.test.js ./tests/migration-validation.test.js",
     "test:coverage": "npm run test:coverage:core && npm run test:app:coverage",
     "test:coverage:core": "node --test --experimental-test-coverage --test-reporter spec ./tests/build.test.js ./tests/migration-validation.test.js",
-    "test:app:coverage": "npm --prefix app run test:coverage",
-    "test:app:e2e": "npm --prefix app run test:e2e",
-    "test:app:e2e:ci": "npm --prefix app run test:e2e:ci",
-    "test:app:quality-gate": "npm --prefix app run lint && npm --prefix app run test:e2e:quality-gate",
+    "test:app": "npm run -w app test",
+    "test:app:coverage": "npm run -w app test:coverage",
+    "test:app:e2e": "npm run -w app test:e2e",
+    "test:app:e2e:ci": "npm run -w app test:e2e:ci",
+    "test:app:quality-gate": "npm run -w app lint && npm run -w app test:e2e:quality-gate",
     "test:smoke": "node --test --test-reporter spec ./tests/smoke.test.js",
     "test:scripts": "node --test --test-reporter spec ./tests/scripts/*.test.js",
     "test:artifacts": "node --test --test-reporter spec ./tests/artifact-validation.test.js",
