@@ -1,7 +1,7 @@
 import { expect, test } from './fixtures/electron'
 
 test.describe('Desktop app navigation @uat', () => {
-  test('switches left panel tabs and renders each view @uat', async ({ appWindow }) => {
+  test('switches left panel tabs and renders each view @uat @quality-gate', async ({ appWindow }) => {
     const leftTabs = appWindow.getByRole('tablist', { name: 'Left panel tabs' })
 
     await leftTabs.getByRole('tab', { name: /Context/ }).click()
@@ -16,7 +16,7 @@ test.describe('Desktop app navigation @uat', () => {
     await expect(appWindow.getByLabel('Search files')).toBeVisible()
   })
 
-  test('switches right panel tabs and preserves notes state @uat', async ({ appWindow }) => {
+  test('switches right panel tabs and preserves notes state @uat @quality-gate', async ({ appWindow }) => {
     const rightTabs = appWindow.getByRole('tablist', { name: 'Right panel tabs' })
     const note = 'Integration checkpoint: merged waves 2B-5 and validating UAT.'
 

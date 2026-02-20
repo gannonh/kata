@@ -88,6 +88,7 @@ Required before any parallel implementation starts.
 6. **PR Checkpoint:** Open and merge an initial PR for Wave 2A before parallel work begins
 
 ### ✅ Wave 2B (Parallel Track): Remaining Shared UI Utilities
+
 Can run in parallel with Waves 3, 4, and 5 after Wave 2A merges.
 
 1. Finalize cross-panel shared utilities not required for Wave 2A contracts:
@@ -97,6 +98,7 @@ Can run in parallel with Waves 3, 4, and 5 after Wave 2A merges.
 3. **Verify:** `npm run dev`, targeted unit tests, `npm run lint`
 
 ### ✅ Wave 3 (Parallel Track): Left Panel
+
 Four functional tabs: Agents, Context, Changes, Files.
 
 1. `LeftPanel.tsx` — tab container
@@ -106,6 +108,7 @@ Four functional tabs: Agents, Context, Changes, Files.
 5. `FilesTab.tsx` + `FileTreeNode.tsx` — recursive file tree, expand/collapse, search filter
 
 ### ✅ Wave 4 (Parallel Track): Center Panel (Mock Chat)
+
 Mock chat conversation with realistic messages.
 
 1. Create `mock/messages.ts` (10-15 realistic messages; scoped to chat track)
@@ -119,6 +122,7 @@ Mock chat conversation with realistic messages.
 9. `useMockChat.ts` hook — simulates message streaming (on send: adds user message, streams assistant response character by character)
 
 ### ✅ Wave 5 (Parallel Track): Right Panel
+
 Project spec and notes tabs.
 
 1. `RightPanel.tsx` — tab container

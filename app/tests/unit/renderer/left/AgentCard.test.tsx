@@ -28,7 +28,7 @@ describe('AgentCard', () => {
     expect(screen.getByText('UI Integrator')).toBeTruthy()
     expect(screen.getByText('Running')).toBeTruthy()
     expect(screen.getByText('Model: claude-3-7-sonnet')).toBeTruthy()
-    expect(screen.getByText('Tokens: 2,300')).toBeTruthy()
+    expect(screen.getByText(`Tokens: ${(2300).toLocaleString()}`)).toBeTruthy()
     expect(screen.getByText('Reconciling tab API contracts')).toBeTruthy()
   })
 })
