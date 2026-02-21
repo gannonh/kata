@@ -16,3 +16,4 @@ tmp/
 dist/
 .claude/kata/cache/update-check.json
 __pycache__/
+app/.env
