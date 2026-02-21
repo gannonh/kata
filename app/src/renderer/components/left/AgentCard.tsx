@@ -1,21 +1,8 @@
 import type { AgentSummary } from '../../types/agent'
+import { agentStatusLabel, statusDotClassName } from './agentStatus'
 
 type AgentCardProps = {
   agent: AgentSummary
-}
-
-const statusLabel: Record<AgentSummary['status'], string> = {
-  idle: 'Idle',
-  running: 'Running',
-  blocked: 'Blocked',
-  complete: 'Complete'
-}
-
-const statusDotClassName: Record<AgentSummary['status'], string> = {
-  idle: 'bg-muted-foreground/45',
-  running: 'bg-emerald-400',
-  blocked: 'bg-amber-400',
-  complete: 'bg-sky-400'
 }
 
 function toRelativeTime(isoDate: string, now = Date.now()): string {
@@ -51,7 +38,7 @@ export function AgentCard({ agent }: AgentCardProps) {
             statusDotClassName[agent.status]
           ].join(' ')}
         >
-          <span className="sr-only">{statusLabel[agent.status]}</span>
+          <span className="sr-only">{agentStatusLabel[agent.status]}</span>
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">

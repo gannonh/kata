@@ -106,7 +106,8 @@ export function AppShell() {
   }, [])
 
   const effectiveLeftWidth = leftCollapsed ? LEFT_COLLAPSED : leftWidth
-  const documentWidth = Math.max(0, availableWidth - effectiveLeftWidth - RESIZER_WIDTH * 2)
+  const leftResizerWidth = leftCollapsed ? 0 : RESIZER_WIDTH
+  const documentWidth = Math.max(0, availableWidth - effectiveLeftWidth - leftResizerWidth - RESIZER_WIDTH)
 
   useLayoutEffect(() => {
     setCenterRightOffset((current) => {
@@ -143,8 +144,8 @@ export function AppShell() {
 
   const gridTemplateColumns = useMemo(
     () =>
-      `${effectiveLeftWidth}px ${RESIZER_WIDTH}px ${documentSplit.center}px ${RESIZER_WIDTH}px ${documentSplit.right}px`,
-    [effectiveLeftWidth, documentSplit.center, documentSplit.right]
+      `${effectiveLeftWidth}px ${leftResizerWidth}px ${documentSplit.center}px ${RESIZER_WIDTH}px ${documentSplit.right}px`,
+    [effectiveLeftWidth, leftResizerWidth, documentSplit.center, documentSplit.right]
   )
 
   return (
@@ -168,12 +169,16 @@ export function AppShell() {
           onCollapsedChange={setLeftCollapsed}
         />
 
-        <PanelResizer
-          label="Resize left panel"
-          testId="left-resizer"
-          lineAt="end"
-          onDelta={handleLeftDelta}
-        />
+        {leftCollapsed ? (
+          <div aria-hidden="true" />
+        ) : (
+          <PanelResizer
+            label="Resize left panel"
+            testId="left-resizer"
+            lineAt="end"
+            onDelta={handleLeftDelta}
+          />
+        )}
 
         <CenterPanel>
           <MockChatPanel />

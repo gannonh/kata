@@ -45,14 +45,22 @@ function mockClientWidthRef(initialWidth: number): { setWidth: (nextWidth: numbe
   }
 }
 
-function parseShellColumns(template: string): { left: number; center: number; right: number } {
-  const match = template.match(/^(\d+)px 10px (\d+)px 10px (\d+)px$/)
+function parseShellColumns(template: string): {
+  left: number
+  leftResizer: number
+  center: number
+  rightResizer: number
+  right: number
+} {
+  const match = template.match(/^(\d+)px (\d+)px (\d+)px (\d+)px (\d+)px$/)
   expect(match).toBeTruthy()
 
   return {
     left: Number(match?.[1] ?? 0),
-    center: Number(match?.[2] ?? 0),
-    right: Number(match?.[3] ?? 0)
+    leftResizer: Number(match?.[2] ?? 0),
+    center: Number(match?.[3] ?? 0),
+    rightResizer: Number(match?.[4] ?? 0),
+    right: Number(match?.[5] ?? 0)
   }
 }
 
@@ -120,6 +128,8 @@ describe('AppShell', () => {
 
     const initialColumns = parseShellColumns(grid.style.gridTemplateColumns)
     expect(initialColumns.left).toBe(390)
+    expect(initialColumns.leftResizer).toBe(10)
+    expect(initialColumns.rightResizer).toBe(10)
     expect(initialColumns.center).toBe(initialColumns.right)
 
     fireEvent.keyDown(leftResizer, { key: 'ArrowRight' })
@@ -140,13 +150,18 @@ describe('AppShell', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar navigation' }))
     expect(screen.getByRole('button', { name: 'Expand sidebar navigation' })).toBeTruthy()
+    expect(screen.queryByLabelText('Resize left panel')).toBeNull()
     columns = parseShellColumns(grid.style.gridTemplateColumns)
     expect(columns.left).toBe(56)
+    expect(columns.leftResizer).toBe(0)
 
-    fireEvent.keyDown(leftResizer, { key: 'ArrowRight' })
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar navigation' }))
+    const leftResizerAfterExpand = screen.getByLabelText('Resize left panel')
+    fireEvent.keyDown(leftResizerAfterExpand, { key: 'ArrowRight' })
     expect(screen.getByRole('button', { name: 'Collapse sidebar navigation' })).toBeTruthy()
     columns = parseShellColumns(grid.style.gridTemplateColumns)
     expect(columns.left).toBe(332)
+    expect(columns.leftResizer).toBe(10)
 
     window.dispatchEvent(new Event('resize'))
 

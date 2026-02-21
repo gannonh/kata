@@ -7,10 +7,17 @@ type LeftSectionProps = {
   title: string
   description: string
   addActionLabel: string
+  onAddAction?: () => void
   children: ReactNode
 }
 
-export function LeftSection({ title, description, addActionLabel, children }: LeftSectionProps) {
+export function LeftSection({
+  title,
+  description,
+  addActionLabel,
+  onAddAction,
+  children
+}: LeftSectionProps) {
   return (
     <section>
       <div className="flex items-center justify-between gap-2">
@@ -19,12 +26,15 @@ export function LeftSection({ title, description, addActionLabel, children }: Le
           type="button"
           variant="ghost"
           size="icon-sm"
+          className="-mr-2"
           aria-label={addActionLabel}
+          onClick={onAddAction}
+          disabled={!onAddAction}
         >
           <Plus className="h-4 w-4" />
         </Button>
       </div>
-      <p className="mt-2 max-w-[32ch] truncate text-sm text-muted-foreground">{description}</p>
+      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
       <div className="mt-4">{children}</div>
     </section>
   )

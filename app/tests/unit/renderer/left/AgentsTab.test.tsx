@@ -32,13 +32,28 @@ describe('AgentsTab', () => {
 
     const toggle = screen.getByRole('button', { name: /background agents running/i })
 
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
     fireEvent.click(toggle)
 
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
     expect(screen.getByText('Task Block Parser')).toBeTruthy()
     expect(screen.getAllByText(/Delegated by MVP Planning Coordinator/).length).toBeGreaterThan(0)
 
     fireEvent.click(toggle)
 
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByText('Task Block Parser')).toBeNull()
+  })
+
+  it('omits background summary when coordinator has no children or siblings', () => {
+    const coordinatorOnly = {
+      ...mockAgents[0],
+      children: undefined
+    }
+
+    render(<AgentsTab agents={[coordinatorOnly]} />)
+
+    expect(screen.queryByRole('button', { name: /background agents running/i })).toBeNull()
     expect(screen.queryByText('Task Block Parser')).toBeNull()
   })
 })

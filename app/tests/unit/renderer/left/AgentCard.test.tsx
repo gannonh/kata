@@ -74,6 +74,14 @@ describe('AgentCard', () => {
     expect(screen.getByText('Delegated by MVP Planning Coordinator')).toBeTruthy()
   })
 
+  it('omits delegated attribution when not present', () => {
+    const { delegatedBy, ...agentWithoutDelegation } = runningAgent
+    render(<AgentCard agent={agentWithoutDelegation} />)
+
+    expect(screen.queryByText(/Delegated by/)).toBeNull()
+    expect(delegatedBy).toBeTruthy()
+  })
+
   it('renders status dot for all statuses', () => {
     const { rerender } = render(<AgentCard agent={{ ...runningAgent, status: 'idle' }} />)
 
