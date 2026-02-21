@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { LeftPanel } from './LeftPanel'
 import { CenterPanel } from '../center/CenterPanel'
@@ -120,6 +120,27 @@ export function AppShell() {
     [documentWidth, centerRightOffset]
   )
 
+  const handleLeftDelta = useCallback(
+    (deltaX: number) => {
+      setLeftWidth((current) => clamp(current + deltaX, LEFT_MIN, getMaxLeftWidth(availableWidth)))
+      if (leftCollapsed) {
+        setLeftCollapsed(false)
+      }
+    },
+    [availableWidth, leftCollapsed]
+  )
+
+  const handleCenterRightDelta = useCallback(
+    (deltaX: number) => {
+      setCenterRightOffset((current) => clampCenterRightOffset(current + deltaX, documentWidth))
+    },
+    [documentWidth]
+  )
+
+  const handleCenterRightReset = useCallback(() => {
+    setCenterRightOffset(0)
+  }, [])
+
   const gridTemplateColumns = useMemo(
     () =>
       `${effectiveLeftWidth}px ${RESIZER_WIDTH}px ${documentSplit.center}px ${RESIZER_WIDTH}px ${documentSplit.right}px`,
@@ -151,12 +172,7 @@ export function AppShell() {
           label="Resize left panel"
           testId="left-resizer"
           lineAt="end"
-          onDelta={(deltaX) => {
-            setLeftWidth((current) => clamp(current + deltaX, LEFT_MIN, getMaxLeftWidth(availableWidth)))
-            if (leftCollapsed) {
-              setLeftCollapsed(false)
-            }
-          }}
+          onDelta={handleLeftDelta}
         />
 
         <CenterPanel>
@@ -167,10 +183,8 @@ export function AppShell() {
           label="Resize center-right divider"
           testId="right-resizer"
           lineAt="start"
-          onDelta={(deltaX) => {
-            setCenterRightOffset((current) => clampCenterRightOffset(current + deltaX, documentWidth))
-          }}
-          onReset={() => setCenterRightOffset(0)}
+          onDelta={handleCenterRightDelta}
+          onReset={handleCenterRightReset}
         />
 
         <aside

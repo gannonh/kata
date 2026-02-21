@@ -58,12 +58,13 @@ test.describe('Wave 1 desktop shell UAT @uat', () => {
 
     const centerAfterLeft = await centerPanel.boundingBox()
     const rightAfterLeft = await rightPanel.boundingBox()
+    assertDefined(centerAfterLeft)
+    assertDefined(rightAfterLeft)
+
     await rightResizer.focus()
     for (let index = 0; index < 4; index += 1) {
       await rightResizer.press('ArrowRight')
     }
-    assertDefined(centerAfterLeft)
-    assertDefined(rightAfterLeft)
 
     await expect
       .poll(async () => (await centerPanel.boundingBox())?.width)
