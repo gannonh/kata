@@ -18,3 +18,4 @@ dist/
 __pycache__/
 app/.env*
 !app/.env.example
+.env

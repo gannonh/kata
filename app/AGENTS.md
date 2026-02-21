@@ -8,56 +8,41 @@ This file applies to work under `app/` and complements the root `AGENTS.md`.
 - Keep Kata core/plugin workflows in root `AGENTS.md`.
 - Treat this file as the authoritative desktop planning/execution guide; keep root-level guidance summary-only.
 
-## Desktop PM (Linear-Native)
+## Project Management
 
-- Project: `Kata Desktop App`
-- Board: `https://linear.app/kata-sh/project/kata-desktop-app-bf73d7f4dfbb/overview`
-- Execution model: `https://linear.app/kata-sh/document/execution-model-ui-baseline-then-parallel-functional-vertical-slices-b64c15e0a0f2`
-- Canonical design specs: `_plans/design/specs/README.md`
+Linear is the single source of truth for all desktop project management: task priority, execution order, blockers, status, and acceptance criteria.
 
-Execution order:
+- Project: [Kata Desktop App](https://linear.app/kata-sh/project/kata-desktop-app-bf73d7f4dfbb/overview)
+- Execution model: Linear document "Execution Model: UI Baseline then Parallel Functional Vertical Slices"
+- Workflow contract: Linear document "Desktop App Linear Workflow Contract"
+- Use the `/kata-linear` skill for ticket lifecycle (start, end, next). Use `/linear` for general Linear queries.
+- Always pass `includeRelations: true` when calling `get_issue` to see blocking dependencies.
 
-1. `pillar:ui-baseline` first (`KAT-17`, `KAT-18`, `KAT-19`)
-2. `pillar:functional-slice` next via parallel lanes
+### Determining What to Work on Next
 
-Parallel lanes:
+1. **Check `Todo` status first.** Query issues in the `Kata Desktop App` project with state `Todo`. These have been groomed and are ready to start.
+2. **If nothing is in `Todo`, resolve from blocking relations.** Use `get_issue` with `includeRelations: true` on `track:ui-fidelity` issues to find the first issue whose blockers are all `Done`.
+3. **Read the execution model document** in Linear for the full dependency contract between pillars (UI baseline vs. functional slices) and lanes.
 
-- `lane:orchestrator-core`
-- `lane:git-pr`
-- `lane:verification`
+## Design Specs and Mocks
 
-Current functional slices:
+- Spec index: `_plans/design/specs/README.md` (maps spec numbers to files and mocks)
+- Spec files: `_plans/design/specs/*.md` (component inventories, states, interactions, visual tokens)
+- Mock PNGs: `_plans/design/mocks/*.md` (numbered in user journey order, README has descriptions)
 
-- `KAT-47`..`KAT-50` (slice parents)
-- `KAT-51`..`KAT-62` (owned/estimated sub-issues)
+## Starting Work on an Issue
 
-Current enforced policy:
+1. Fetch the issue from Linear with `get_issue` using `includeRelations: true`. Confirm all blockers are `Done`.
+2. Identify which design spec(s) apply from the issue description or `_plans/design/specs/README.md`
+3. Read the relevant spec file(s) and mock PNGs
+4. Check existing components in `src/renderer/components/`
+5. Create a feature branch
+6. Write failing tests first (TDD is mandatory)
 
-1. UI baseline first, then functional slices.
-2. UI fidelity work is mandatory before baseline implementation starts.
-3. Functional slices remain blocked until baseline parents are complete.
+### Completing an Issue
 
-Current UI fidelity-first sequence (strict blockers):
-
-1. `KAT-63` -> 2. `KAT-69` -> 3. `KAT-64` -> 4. `KAT-65` -> 5. `KAT-66` -> 6. `KAT-67` -> 7. `KAT-68`
-
-Current kickoff:
-
-- Start active execution at `KAT-63` (status: `Todo`)
-
-Where this sequence gates baseline work:
-
-- Spec 01 (`KAT-17`): `KAT-24`/`KAT-25` blocked by fidelity; `KAT-26` blocked by `KAT-24` + `KAT-25`
-- Spec 02 (`KAT-18`): `KAT-27`/`KAT-28` blocked by fidelity; `KAT-29` blocked by `KAT-27` + `KAT-28`
-- Spec 03 (`KAT-19`): `KAT-30`/`KAT-31` blocked by fidelity; `KAT-32` blocked by `KAT-30` + `KAT-31`
-
-Saved view setup guide:
-
-- `https://linear.app/kata-sh/document/saved-views-setup-ui-fidelity-first-sequential-execution-7626a0f3b4a2`
-
-Hard gate:
-
-- Do not move desktop issues to `Done` without linked evidence for referenced spec states/interactions and mock parity.
+- Do not move issues to `Done` without linked evidence (tests, screenshots, or traceable PR notes) for referenced spec states/interactions.
+- After completing an issue, check if the next issue in the blocking chain can be promoted to `Todo`.
 
 ## Desktop Architecture
 

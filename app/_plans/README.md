@@ -4,7 +4,7 @@ This directory contains desktop app planning artifacts.
 
 ## Source of Truth
 
-- Execution source of truth: Linear project `Kata Desktop App`
+- Execution source of truth: Linear project [Kata Desktop App](https://linear.app/kata-sh/project/kata-desktop-app-bf73d7f4dfbb/overview)
 - Workflow contract: Linear document `Desktop App Linear Workflow Contract`
 - Primary requirements and UI acceptance authority: `app/_plans/design/specs/README.md`
 
