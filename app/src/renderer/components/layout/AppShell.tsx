@@ -111,6 +111,7 @@ export function AppShell() {
         <PanelResizer
           label="Resize left panel"
           testId="left-resizer"
+          lineAt="end"
           onDelta={(deltaX) => {
             setLeftWidth((current) => {
               const maxLeft = Math.max(
@@ -133,6 +134,7 @@ export function AppShell() {
         <PanelResizer
           label="Resize right panel"
           testId="right-resizer"
+          lineAt="start"
           onDelta={(deltaX) => {
             setRightWidth((current) => {
               const maxRight = Math.max(
@@ -149,7 +151,7 @@ export function AppShell() {
 
         <aside
           data-testid="right-panel"
-          className="overflow-hidden border-l bg-background"
+          className="overflow-hidden bg-background"
         >
           <RightPanel
             theme={theme}

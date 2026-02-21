@@ -9,7 +9,7 @@ export function MockChatPanel() {
   const { messages, isStreaming, sendMessage } = useMockChat()
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
+    <div className="flex h-full min-h-0 flex-col">
       <MessageList>
         {messages.map((message) => (
           <div
@@ -26,7 +26,11 @@ export function MockChatPanel() {
           </div>
         ))}
       </MessageList>
-      {isStreaming ? <StreamingIndicator /> : null}
+      {isStreaming ? (
+        <div className="px-4 pb-2">
+          <StreamingIndicator />
+        </div>
+      ) : null}
       <ChatInput
         onSend={sendMessage}
         disabled={isStreaming}

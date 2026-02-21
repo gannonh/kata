@@ -49,7 +49,7 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
   return (
     <aside
       data-testid="left-panel"
-      className="flex h-full min-h-0 overflow-hidden border-r bg-background"
+      className="flex h-full min-h-0 overflow-hidden bg-background"
     >
       <Tabs
         value={activeTab}
