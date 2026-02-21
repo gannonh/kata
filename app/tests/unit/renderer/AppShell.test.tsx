@@ -76,7 +76,7 @@ describe('AppShell', () => {
     const grid = getByTestId('app-shell-grid')
     const leftResizer = screen.getByLabelText('Resize left panel')
     const rightResizer = screen.getByLabelText('Resize right panel')
-    const leftTabList = screen.getByRole('tablist', { name: 'Left panel tabs' })
+    const leftTabList = screen.getByRole('tablist', { name: 'Left panel modules' })
 
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Orchestrator Chat' })).toBeTruthy()

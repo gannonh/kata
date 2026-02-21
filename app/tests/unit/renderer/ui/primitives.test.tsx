@@ -111,7 +111,7 @@ describe('shadcn primitives baseline', () => {
 
     expect(defaultSeparator.className.includes('h-px')).toBe(true)
     expect(defaultSeparator.className.includes('w-full')).toBe(true)
-    expect(verticalSeparator.className.includes('h-full')).toBe(true)
+    expect(verticalSeparator.className.includes('data-vertical:self-stretch')).toBe(true)
     expect(verticalSeparator.className.includes('w-px')).toBe(true)
     expect(semanticSeparator.getAttribute('data-slot')).toBe('separator')
   })

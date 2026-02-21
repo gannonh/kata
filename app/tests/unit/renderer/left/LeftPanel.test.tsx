@@ -11,7 +11,7 @@ describe('LeftPanel', () => {
   it('shows the agents tab by default with agent summaries', () => {
     render(<LeftPanel />)
 
-    expect(screen.getByRole('tablist', { name: 'Left panel tabs' })).toBeTruthy()
+    expect(screen.getByRole('tablist', { name: 'Left panel modules' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeTruthy()
     expect(screen.getByText('Kata Orchestrator')).toBeTruthy()
     expect(screen.getByText('Model: gpt-5')).toBeTruthy()
@@ -21,7 +21,7 @@ describe('LeftPanel', () => {
   it('switches to the context tab and renders the shared workspace checklist', () => {
     render(<LeftPanel />)
 
-    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Context 2' }), { button: 0 })
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Context' }), { button: 0 })
 
     expect(screen.getByRole('heading', { name: 'Context' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Open project spec' })).toBeTruthy()
@@ -32,11 +32,11 @@ describe('LeftPanel', () => {
   it('switches to changes and files tabs', () => {
     render(<LeftPanel />)
 
-    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Changes 3' }), { button: 0 })
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Changes' }), { button: 0 })
     expect(screen.getByRole('heading', { name: 'Changes' })).toBeTruthy()
     expect(screen.getByText('Branch: feat/wave-2A-contracts')).toBeTruthy()
 
-    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Files 1' }), { button: 0 })
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Files' }), { button: 0 })
     expect(screen.getByRole('heading', { name: 'Files' })).toBeTruthy()
     expect(screen.getByLabelText('Search files')).toBeTruthy()
   })
