@@ -124,11 +124,8 @@ export function AppShell() {
   const handleLeftDelta = useCallback(
     (deltaX: number) => {
       setLeftWidth((current) => clamp(current + deltaX, LEFT_MIN, getMaxLeftWidth(availableWidth)))
-      if (leftCollapsed) {
-        setLeftCollapsed(false)
-      }
     },
-    [availableWidth, leftCollapsed]
+    [availableWidth]
   )
 
   const handleCenterRightDelta = useCallback(
