@@ -2,21 +2,30 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const exposeInMainWorld = vi.fn()
+const { exposeInMainWorld, invoke } = vi.hoisted(() => ({
+  exposeInMainWorld: vi.fn(),
+  invoke: vi.fn()
+}))
 
 vi.mock('electron', () => ({
   contextBridge: {
     exposeInMainWorld
+  },
+  ipcRenderer: {
+    invoke
   }
 }))
 
 describe('preload bridge', () => {
   afterEach(() => {
     exposeInMainWorld.mockReset()
+    invoke.mockReset()
     vi.resetModules()
   })
 
-  it('exposes the kata API with wave 1 default values', async () => {
+  it('exposes the kata API with default values and external-url support', async () => {
+    invoke.mockResolvedValue(true)
+
     await import('../../../src/preload/index')
 
     expect(exposeInMainWorld).toHaveBeenCalledTimes(1)
@@ -28,6 +37,7 @@ describe('preload bridge', () => {
         getMessages: () => Promise<unknown[]>
         getProject: () => Promise<null>
         getGitStatus: () => Promise<null>
+        openExternalUrl: (url: string) => Promise<boolean>
       }
     ]
 
@@ -36,5 +46,22 @@ describe('preload bridge', () => {
     await expect(api.getMessages()).resolves.toEqual([])
     await expect(api.getProject()).resolves.toBeNull()
     await expect(api.getGitStatus()).resolves.toBeNull()
+    await expect(api.openExternalUrl('https://example.com')).resolves.toBe(true)
+    expect(invoke).toHaveBeenCalledWith('kata:openExternalUrl', 'https://example.com')
+  })
+
+  it('returns false when external open invoke throws', async () => {
+    invoke.mockRejectedValue(new Error('ipc unavailable'))
+
+    await import('../../../src/preload/index')
+
+    const [, api] = exposeInMainWorld.mock.calls[0] as [
+      string,
+      {
+        openExternalUrl: (url: string) => Promise<boolean>
+      }
+    ]
+
+    await expect(api.openExternalUrl('https://example.com')).resolves.toBe(false)
   })
 })

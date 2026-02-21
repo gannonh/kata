@@ -31,6 +31,10 @@ describe('Hero1', () => {
           primary: {
             text: 'Primary CTA',
             url: 'https://example.com/primary'
+          },
+          secondary: {
+            text: 'Secondary CTA',
+            url: 'https://example.com/secondary'
           }
         }}
         image={{
@@ -44,14 +48,17 @@ describe('Hero1', () => {
     expect(screen.getByRole('heading', { name: 'Custom heading' })).toBeTruthy()
     expect(screen.getByText('Custom description')).toBeTruthy()
     const primaryButton = screen.getByRole('button', { name: 'Primary CTA' })
+    const secondaryButton = screen.getByRole('button', { name: 'Secondary CTA' })
     expect(primaryButton).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'View on GitHub' })).toBeNull()
+    expect(secondaryButton).toBeTruthy()
     expect(screen.getByRole('img', { name: 'Custom alt text' }).getAttribute('src')).toBe(
       'https://example.com/demo.png'
     )
 
     fireEvent.click(primaryButton)
+    fireEvent.click(secondaryButton)
     expect(openExternalUrl).toHaveBeenCalledWith('https://example.com/primary')
+    expect(openExternalUrl).toHaveBeenCalledWith('https://example.com/secondary')
   })
 
   it('falls back to local image source and safely no-ops when preload API is missing', () => {
