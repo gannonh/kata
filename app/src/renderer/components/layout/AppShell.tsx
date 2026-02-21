@@ -9,8 +9,7 @@ import { RightPanel } from './RightPanel'
 const RESIZER_WIDTH = 10
 const LEFT_MIN = 260
 const LEFT_COLLAPSED = 56
-const RIGHT_MIN = 300
-const CENTER_MIN = 420
+const CENTER_MIN = 300
 export const THEME_STORAGE_KEY = 'kata-theme'
 
 type Theme = 'dark' | 'light'
@@ -22,9 +21,9 @@ function clamp(value: number, min: number, max: number): number {
 export function AppShell() {
   const shellRef = useRef<HTMLDivElement | null>(null)
   const leftWidthRef = useRef(320)
-  const rightWidthRef = useRef(360)
+  const rightOffsetRef = useRef(0)
   const [leftWidth, setLeftWidth] = useState(320)
-  const [rightWidth, setRightWidth] = useState(360)
+  const [rightOffset, setRightOffset] = useState(0)
   const [leftCollapsed, setLeftCollapsed] = useState(false)
   const [availableWidth, setAvailableWidth] = useState(1440)
   const [theme, setTheme] = useState<Theme>(() => {
@@ -37,8 +36,8 @@ export function AppShell() {
   }, [leftWidth])
 
   useEffect(() => {
-    rightWidthRef.current = rightWidth
-  }, [rightWidth])
+    rightOffsetRef.current = rightOffset
+  }, [rightOffset])
 
   useEffect(() => {
     globalThis.localStorage?.setItem(THEME_STORAGE_KEY, theme)
@@ -81,11 +80,13 @@ export function AppShell() {
 
   const effectiveLeftWidth = leftCollapsed ? LEFT_COLLAPSED : leftWidth
 
-  const gridTemplateColumns = useMemo(
-    () =>
-      `${effectiveLeftWidth}px ${RESIZER_WIDTH}px minmax(${CENTER_MIN}px, 1fr) ${RESIZER_WIDTH}px ${rightWidth}px`,
-    [effectiveLeftWidth, rightWidth]
-  )
+  const gridTemplateColumns = useMemo(() => {
+    const remaining = availableWidth - effectiveLeftWidth - RESIZER_WIDTH * 2
+    const half = remaining / 2
+    const centerWidth = half - rightOffset
+    const rightWidth = half + rightOffset
+    return `${effectiveLeftWidth}px ${RESIZER_WIDTH}px ${centerWidth}px ${RESIZER_WIDTH}px ${rightWidth}px`
+  }, [effectiveLeftWidth, rightOffset, availableWidth])
 
   return (
     <main
@@ -116,7 +117,7 @@ export function AppShell() {
             setLeftWidth((current) => {
               const maxLeft = Math.max(
                 LEFT_MIN,
-                availableWidth - rightWidthRef.current - CENTER_MIN - RESIZER_WIDTH * 2
+                availableWidth - CENTER_MIN * 2 - RESIZER_WIDTH * 2
               )
               const next = clamp(current + deltaX, LEFT_MIN, maxLeft)
               if (leftCollapsed) {
@@ -136,17 +137,14 @@ export function AppShell() {
           testId="right-resizer"
           lineAt="start"
           onDelta={(deltaX) => {
-            setRightWidth((current) => {
-              const maxRight = Math.max(
-                RIGHT_MIN,
-                availableWidth -
-                  (leftCollapsed ? LEFT_COLLAPSED : leftWidthRef.current) -
-                  CENTER_MIN -
-                  RESIZER_WIDTH * 2
-              )
-              return clamp(current - deltaX, RIGHT_MIN, maxRight)
+            setRightOffset((current) => {
+              const remaining = availableWidth - (leftCollapsed ? LEFT_COLLAPSED : leftWidthRef.current) - RESIZER_WIDTH * 2
+              const half = remaining / 2
+              const maxOffset = half - CENTER_MIN
+              return clamp(current - deltaX, -maxOffset, maxOffset)
             })
           }}
+          onDoubleClick={() => setRightOffset(0)}
         />
 
         <aside

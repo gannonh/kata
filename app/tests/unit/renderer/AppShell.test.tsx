@@ -83,25 +83,28 @@ describe('AppShell', () => {
     expect(screen.getByRole('heading', { name: 'Spec' })).toBeTruthy()
     expect(leftTabList).toBeTruthy()
 
+    // Default: equal split → 320 + 10 + 630 + 10 + 630
+    expect(grid.style.gridTemplateColumns).toBe('320px 10px 630px 10px 630px')
+
     fireEvent.keyDown(leftResizer, { key: 'ArrowRight' })
-    expect(grid.style.gridTemplateColumns).toContain('332px 10px minmax(420px, 1fr) 10px 360px')
+    expect(grid.style.gridTemplateColumns).toBe('332px 10px 624px 10px 624px')
 
     fireEvent.keyDown(rightResizer, { key: 'ArrowLeft' })
-    expect(grid.style.gridTemplateColumns).toContain('332px 10px minmax(420px, 1fr) 10px 372px')
+    expect(grid.style.gridTemplateColumns).toBe('332px 10px 612px 10px 636px')
 
     for (let index = 0; index < 10; index += 1) {
       fireEvent.keyDown(leftResizer, { key: 'ArrowLeft', shiftKey: true })
     }
 
-    expect(grid.style.gridTemplateColumns).toContain('260px 10px minmax(420px, 1fr)')
+    expect(grid.style.gridTemplateColumns).toBe('260px 10px 648px 10px 672px')
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar navigation' }))
     expect(screen.getByRole('button', { name: 'Expand sidebar navigation' })).toBeTruthy()
-    expect(grid.style.gridTemplateColumns).toContain('56px 10px minmax(420px, 1fr)')
+    expect(grid.style.gridTemplateColumns).toBe('56px 10px 750px 10px 774px')
 
     fireEvent.keyDown(leftResizer, { key: 'ArrowRight' })
     expect(screen.getByRole('button', { name: 'Collapse sidebar navigation' })).toBeTruthy()
-    expect(grid.style.gridTemplateColumns).toContain('272px 10px minmax(420px, 1fr)')
+    expect(grid.style.gridTemplateColumns).toBe('272px 10px 642px 10px 666px')
 
     window.dispatchEvent(new Event('resize'))
 
@@ -140,16 +143,39 @@ describe('AppShell', () => {
 
     observerCallback?.([{ contentRect: { width: 1700 } }])
     fireEvent.keyDown(leftResizer, { key: 'ArrowRight', shiftKey: true })
-    expect(grid.style.gridTemplateColumns).toContain('368px 10px minmax(420px, 1fr) 10px 360px')
+    expect(grid.style.gridTemplateColumns).toBe('368px 10px 656px 10px 656px')
 
     observerCallback?.([])
     fireEvent.keyDown(rightResizer, { key: 'ArrowRight' })
-    expect(grid.style.gridTemplateColumns).toContain('368px 10px minmax(420px, 1fr) 10px 348px')
+    expect(grid.style.gridTemplateColumns).toBe('368px 10px 568px 10px 544px')
 
     unmount()
 
     expect(disconnectSpy).toHaveBeenCalledTimes(1)
 
+    restoreClientWidth()
+  })
+
+  it('resets right panel offset to equal split on double-click', () => {
+    const restoreClientWidth = mockClientWidth(1600)
+    globalThis.ResizeObserver = undefined
+
+    const { getByTestId, unmount } = render(<AppShell />)
+    const grid = getByTestId('app-shell-grid')
+    const rightResizer = screen.getByLabelText('Resize right panel')
+
+    // Default: equal split
+    expect(grid.style.gridTemplateColumns).toBe('320px 10px 630px 10px 630px')
+
+    // Drag right resizer to create offset
+    fireEvent.keyDown(rightResizer, { key: 'ArrowLeft' })
+    expect(grid.style.gridTemplateColumns).toBe('320px 10px 618px 10px 642px')
+
+    // Double-click resets to equal
+    fireEvent.doubleClick(rightResizer)
+    expect(grid.style.gridTemplateColumns).toBe('320px 10px 630px 10px 630px')
+
+    unmount()
     restoreClientWidth()
   })
 })
