@@ -24,6 +24,33 @@ export function TabBar<TTab extends string>({
   ariaLabel = 'Tabs',
   className
 }: TabBarProps<TTab>) {
+  const enabledTabs = tabs.filter((tab) => !tab.disabled)
+
+  const selectAdjacentTab = (currentTab: TTab, key: string) => {
+    if (enabledTabs.length === 0) {
+      return
+    }
+
+    if (key === 'Home') {
+      onTabChange(enabledTabs[0].id)
+      return
+    }
+
+    if (key === 'End') {
+      onTabChange(enabledTabs[enabledTabs.length - 1].id)
+      return
+    }
+
+    const currentIndex = enabledTabs.findIndex((tab) => tab.id === currentTab)
+    if (currentIndex === -1) {
+      return
+    }
+
+    const direction = key === 'ArrowRight' || key === 'ArrowDown' ? 1 : -1
+    const nextIndex = (currentIndex + direction + enabledTabs.length) % enabledTabs.length
+    onTabChange(enabledTabs[nextIndex].id)
+  }
+
   return (
     <Tabs
       value={activeTab}
@@ -31,27 +58,29 @@ export function TabBar<TTab extends string>({
     >
       <TabsList
         aria-label={ariaLabel}
-        className={cn('h-auto w-full justify-start gap-1 rounded-lg border border-border bg-muted p-1')}
+        className={cn('h-auto w-full justify-start gap-1 overflow-hidden rounded-lg border border-border bg-muted p-1')}
       >
         {tabs.map((tab) => (
           <TabsTrigger
             key={tab.id}
             value={tab.id}
             disabled={tab.disabled}
-            aria-disabled={tab.disabled ? 'true' : undefined}
             onClick={() => {
               if (!tab.disabled) {
                 onTabChange(tab.id)
               }
             }}
-            className="gap-2 px-3 py-1.5"
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowRight' || event.key === 'ArrowLeft' || event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') {
+                event.preventDefault()
+                selectAdjacentTab(tab.id, event.key)
+              }
+            }}
+            className="min-w-0 flex-1"
           >
-            <span>{tab.label}</span>
+            <span className="truncate">{tab.label}</span>
             {typeof tab.count === 'number' ? (
-              <Badge
-                variant="secondary"
-                className="rounded-sm px-1.5 py-0 text-[10px]"
-              >
+              <Badge>
                 {tab.count}
               </Badge>
             ) : null}

@@ -16,13 +16,8 @@ export function MessageList({ children }: MessageListProps) {
     }
 
     const viewport = list.querySelector('[data-radix-scroll-area-viewport]') as HTMLDivElement | null
-    const nextScrollTop = (viewport ?? list).scrollHeight
-
-    if (viewport) {
-      viewport.scrollTop = nextScrollTop
-    }
-
-    list.scrollTop = nextScrollTop
+    const scrollTarget = viewport ?? list
+    scrollTarget.scrollTop = scrollTarget.scrollHeight
   }, [children])
 
   return (

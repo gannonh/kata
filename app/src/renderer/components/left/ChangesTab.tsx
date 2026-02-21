@@ -64,7 +64,6 @@ export function ChangesTab({ git }: ChangesTabProps) {
 
       <Button
         type="button"
-        variant="outline"
         disabled={git.staged.length === 0}
         className="mt-4"
       >

@@ -59,9 +59,6 @@ export function SearchInput({
           type="button"
           aria-label="Clear search"
           onClick={clearValue}
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2"
         >
           Clear
         </Button>

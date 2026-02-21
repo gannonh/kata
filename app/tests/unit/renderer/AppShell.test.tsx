@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { AppShell } from '../../../src/renderer/components/layout/AppShell'
@@ -25,8 +25,25 @@ describe('AppShell', () => {
   const originalResizeObserver = globalThis.ResizeObserver
 
   afterEach(() => {
+    cleanup()
     globalThis.ResizeObserver = originalResizeObserver
+    globalThis.localStorage.clear()
     vi.restoreAllMocks()
+  })
+
+  it('defaults to dark theme and toggles to light from top-right switcher', () => {
+    const { getByTestId, unmount } = render(<AppShell />)
+
+    const root = getByTestId('app-shell-root')
+    expect(root.className).toContain('dark')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to light theme' }))
+
+    expect(root.className.includes('dark')).toBe(false)
+    expect(globalThis.localStorage.getItem('kata-theme')).toBe('light')
+    expect(screen.getByRole('button', { name: 'Switch to dark theme' })).toBeTruthy()
+
+    unmount()
   })
 
   it('renders columns and supports keyboard panel resizing with window resize fallback', () => {

@@ -52,7 +52,6 @@ export function ChatInput({ onSend, disabled = false }: ChatInputProps) {
       />
       <Button
         type="submit"
-        size="sm"
         disabled={disabled || value.trim().length === 0}
       >
         Send

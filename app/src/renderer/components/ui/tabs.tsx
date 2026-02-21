@@ -7,7 +7,7 @@ function Tabs({ className, ...props }: React.ComponentProps<typeof TabsPrimitive
   return (
     <TabsPrimitive.Root
       data-slot="tabs"
-      className={cn(className)}
+      className={className}
       {...props}
     />
   )
@@ -47,4 +47,3 @@ function TabsContent({ className, ...props }: React.ComponentProps<typeof TabsPr
 }
 
 export { Tabs, TabsContent, TabsList, TabsTrigger }
-

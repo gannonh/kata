@@ -14,7 +14,6 @@ export function ContextTab({ project }: ContextTabProps) {
       </h2>
       <Button
         asChild
-        variant="outline"
         className="mt-4"
       >
         <a href={`#project-spec-${project.id}`}>Open project spec</a>
@@ -23,7 +22,10 @@ export function ContextTab({ project }: ContextTabProps) {
         {project.tasks.map((task) => (
           <li key={task.id}>
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Checkbox checked={task.status === 'done'} />
+              <Checkbox
+                checked={task.status === 'done'}
+                disabled
+              />
               <span>{task.title}</span>
             </label>
           </li>

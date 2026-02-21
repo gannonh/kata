@@ -15,6 +15,6 @@ describe('StatusBadge', () => {
     const badge = screen.getByText('Running')
 
     expect(badge).toBeTruthy()
-    expect(badge.className).toContain('bg-emerald')
+    expect(badge.className).toContain('bg-primary')
   })
 })

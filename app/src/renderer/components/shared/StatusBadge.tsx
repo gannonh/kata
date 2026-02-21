@@ -1,5 +1,4 @@
 import { Badge } from '../ui/badge'
-import { cn } from '../../lib/cn'
 
 export type StatusBadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
 
@@ -9,19 +8,19 @@ type StatusBadgeProps = {
   className?: string
 }
 
-const toneVariant: Record<StatusBadgeTone, 'outline' | 'info' | 'success' | 'warning' | 'danger'> = {
+const toneVariant: Record<StatusBadgeTone, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   neutral: 'outline',
-  info: 'info',
-  success: 'success',
-  warning: 'warning',
-  danger: 'danger'
+  info: 'secondary',
+  success: 'default',
+  warning: 'secondary',
+  danger: 'destructive'
 }
 
 export function StatusBadge({ label, tone = 'neutral', className }: StatusBadgeProps) {
   return (
     <Badge
       variant={toneVariant[tone]}
-      className={cn('uppercase tracking-wide', className)}
+      className={className}
     >
       {label}
     </Badge>

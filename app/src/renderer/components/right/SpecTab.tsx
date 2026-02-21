@@ -53,8 +53,8 @@ export function SpecTab({ project }: SpecTabProps) {
         </CardHeader>
         <CardContent>
           <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-            {project.nonGoals.map((nonGoal, index) => (
-              <li key={`${project.id}-non-goal-${index}`}>{nonGoal}</li>
+            {project.nonGoals.map((nonGoal) => (
+              <li key={`${project.id}-non-goal-${nonGoal}`}>{nonGoal}</li>
             ))}
           </ul>
         </CardContent>
@@ -66,8 +66,8 @@ export function SpecTab({ project }: SpecTabProps) {
         </CardHeader>
         <CardContent>
           <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-            {project.assumptions.map((assumption, index) => (
-              <li key={`${project.id}-assumption-${index}`}>{assumption}</li>
+            {project.assumptions.map((assumption) => (
+              <li key={`${project.id}-assumption-${assumption}`}>{assumption}</li>
             ))}
           </ul>
         </CardContent>

@@ -15,13 +15,25 @@ function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxP
     >
       <CheckboxPrimitive.Indicator
         data-slot="checkbox-indicator"
-        className="flex items-center justify-center text-[10px] leading-none"
+        className="flex items-center justify-center"
       >
-        ✓
+        <svg
+          viewBox="0 0 10 10"
+          className="h-3 w-3"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          aria-hidden="true"
+        >
+          <path
+            d="M1.5 5l2.5 2.5 4.5-4.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   )
 }
 
 export { Checkbox }
-

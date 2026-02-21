@@ -1,9 +1,13 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { TabBar } from '../../../../src/renderer/components/shared/TabBar'
 
 describe('TabBar', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
   it('renders tabs and notifies on tab change', () => {
     const onTabChange = vi.fn()
 
@@ -27,12 +31,35 @@ describe('TabBar', () => {
 
     expect(tablist).toBeTruthy()
     expect(agentsTab.getAttribute('aria-selected')).toBe('true')
-    expect(filesTab.getAttribute('aria-disabled')).toBe('true')
+    expect(filesTab.hasAttribute('disabled')).toBe(true)
 
     fireEvent.click(contextTab)
     fireEvent.click(filesTab)
 
     expect(onTabChange).toHaveBeenCalledTimes(1)
+    expect(onTabChange).toHaveBeenCalledWith('context')
+  })
+
+  it('supports keyboard navigation callbacks in controlled mode', () => {
+    const onTabChange = vi.fn()
+
+    render(
+      <TabBar
+        ariaLabel="Panel tabs"
+        activeTab="agents"
+        tabs={[
+          { id: 'agents', label: 'Agents' },
+          { id: 'context', label: 'Context' }
+        ]}
+        onTabChange={onTabChange}
+      />
+    )
+
+    const agentsTab = screen.getByRole('tab', { name: 'Agents' })
+    agentsTab.focus()
+
+    fireEvent.keyDown(agentsTab, { key: 'ArrowRight' })
+
     expect(onTabChange).toHaveBeenCalledWith('context')
   })
 })

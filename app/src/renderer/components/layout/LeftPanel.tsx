@@ -29,7 +29,7 @@ export function LeftPanel() {
   return (
     <aside
       data-testid="left-panel"
-      className="flex h-full min-h-0 flex-col overflow-hidden rounded-l-xl border-r bg-background p-4"
+      className="flex h-full min-h-0 flex-col overflow-hidden border-r bg-background p-4"
     >
       <TabBar
         ariaLabel="Left panel tabs"

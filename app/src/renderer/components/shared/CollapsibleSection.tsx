@@ -1,4 +1,4 @@
-import { type ReactNode, useId, useState } from 'react'
+import { type ReactNode, useState } from 'react'
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible'
 import { Separator } from '../ui/separator'
@@ -20,7 +20,6 @@ export function CollapsibleSection({
   className
 }: CollapsibleSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
-  const contentId = useId()
 
   return (
     <Collapsible
@@ -29,11 +28,7 @@ export function CollapsibleSection({
       className={cn('rounded-lg border bg-card', className)}
     >
       <div className="flex items-center justify-between gap-3 px-4 py-3">
-        <CollapsibleTrigger
-          className="flex flex-1 items-center justify-between gap-3 text-left text-sm font-medium"
-          aria-controls={contentId}
-          aria-expanded={isOpen}
-        >
+        <CollapsibleTrigger className="flex flex-1 items-center justify-between gap-3 text-left text-sm font-medium">
           <span>{title}</span>
           <span
             aria-hidden="true"
@@ -49,10 +44,7 @@ export function CollapsibleSection({
       </div>
       <CollapsibleContent>
         <Separator />
-        <div
-          id={contentId}
-          className="px-4 py-3"
-        >
+        <div className="px-4 py-3">
           {children}
         </div>
       </CollapsibleContent>
