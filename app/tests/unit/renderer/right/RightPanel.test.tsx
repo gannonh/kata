@@ -50,4 +50,26 @@ describe('RightPanel', () => {
 
     expect(screen.getByDisplayValue('Fresh project notes from the next phase.')).toBeTruthy()
   })
+
+  it('toggles right column collapse state', () => {
+    render(<RightPanel project={mockProject} />)
+
+    const collapseButton = screen.getByRole('button', { name: 'Collapse right column' })
+    const specHeading = screen.getByRole('heading', { name: 'Spec', level: 2 })
+    const content = specHeading.parentElement
+
+    expect(content).toBeTruthy()
+    expect(content?.className).toContain('opacity-100')
+
+    fireEvent.click(collapseButton)
+
+    expect(screen.getByRole('button', { name: 'Expand right column' })).toBeTruthy()
+    expect(content?.className).toContain('opacity-0')
+    expect(content?.className).toContain('pointer-events-none')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand right column' }))
+
+    expect(screen.getByRole('button', { name: 'Collapse right column' })).toBeTruthy()
+    expect(content?.className).toContain('opacity-100')
+  })
 })

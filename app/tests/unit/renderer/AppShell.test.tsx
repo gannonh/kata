@@ -95,6 +95,14 @@ describe('AppShell', () => {
 
     expect(grid.style.gridTemplateColumns).toContain('260px 10px minmax(420px, 1fr)')
 
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar navigation' }))
+    expect(screen.getByRole('button', { name: 'Expand sidebar navigation' })).toBeTruthy()
+    expect(grid.style.gridTemplateColumns).toContain('56px 10px minmax(420px, 1fr)')
+
+    fireEvent.keyDown(leftResizer, { key: 'ArrowRight' })
+    expect(screen.getByRole('button', { name: 'Collapse sidebar navigation' })).toBeTruthy()
+    expect(grid.style.gridTemplateColumns).toContain('272px 10px minmax(420px, 1fr)')
+
     window.dispatchEvent(new Event('resize'))
 
     unmount()
