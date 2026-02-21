@@ -8,9 +8,11 @@ import { mockProject } from '../../../../src/renderer/mock/project'
 
 describe('renderer mock data contracts', () => {
   it('defines orchestrator and sub-agent fixtures', () => {
-    expect(mockAgents).toHaveLength(3)
+    expect(mockAgents).toHaveLength(1)
     expect(mockAgents[0]?.id).toBe('orchestrator')
     expect(mockAgents[0]?.status).toBe('running')
+    expect(mockAgents[0]?.children?.length).toBeGreaterThanOrEqual(4)
+    expect(mockAgents[0]?.children?.some((agent) => agent.delegatedBy === mockAgents[0]?.name)).toBe(true)
     expect(mockAgents[0]?.tokenUsage.total).toBe(
       (mockAgents[0]?.tokenUsage.prompt ?? 0) + (mockAgents[0]?.tokenUsage.completion ?? 0)
     )

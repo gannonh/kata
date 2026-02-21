@@ -7,10 +7,10 @@ import { PanelResizer } from './PanelResizer'
 import { RightPanel } from './RightPanel'
 
 const RESIZER_WIDTH = 10
-const LEFT_MIN = 260
+const LEFT_MIN = 320
 const LEFT_COLLAPSED = 56
-const LEFT_DEFAULT = 320
-const LEFT_MAX = 420
+const LEFT_DEFAULT = 390
+const LEFT_MAX = 520
 const DOCUMENT_MIN = 300
 export const THEME_STORAGE_KEY = 'kata-theme'
 

@@ -1,6 +1,6 @@
 import type { ProjectSpec } from '../../types/project'
-import { Button } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
+import { LeftSection } from './LeftSection'
 
 type ContextTabProps = {
   project: ProjectSpec
@@ -8,17 +8,12 @@ type ContextTabProps = {
 
 export function ContextTab({ project }: ContextTabProps) {
   return (
-    <section>
-      <h2 className="text-xl font-semibold tracking-tight">
-        Context
-      </h2>
-      <Button
-        asChild
-        className="mt-4"
-      >
-        <a href={`#project-spec-${project.id}`}>Open project spec</a>
-      </Button>
-      <ul className="mt-4 grid gap-2">
+    <LeftSection
+      title="Context"
+      description="Context about the task, shared with all agents on demand."
+      addActionLabel="Add context"
+    >
+      <ul className="grid gap-2">
         {project.tasks.map((task) => (
           <li key={task.id}>
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -31,6 +26,6 @@ export function ContextTab({ project }: ContextTabProps) {
           </li>
         ))}
       </ul>
-    </section>
+    </LeftSection>
   )
 }

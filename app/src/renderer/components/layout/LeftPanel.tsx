@@ -135,19 +135,21 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
               <PanelLeftClose className="h-4 w-4" />
             </Button>
           </header>
-          <ScrollArea className="min-h-0 flex-1 p-4">
-            {activeTab === 'agents' ? (
-              <AgentsTab agents={mockAgents} />
-            ) : null}
-            {activeTab === 'context' ? (
-              <ContextTab project={mockProject} />
-            ) : null}
-            {activeTab === 'changes' ? (
-              <ChangesTab git={mockGit} />
-            ) : null}
-            {activeTab === 'files' ? (
-              <FilesTab files={mockFiles} />
-            ) : null}
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="p-4">
+              {activeTab === 'agents' ? (
+                <AgentsTab agents={mockAgents} />
+              ) : null}
+              {activeTab === 'context' ? (
+                <ContextTab project={mockProject} />
+              ) : null}
+              {activeTab === 'changes' ? (
+                <ChangesTab git={mockGit} />
+              ) : null}
+              {activeTab === 'files' ? (
+                <FilesTab files={mockFiles} />
+              ) : null}
+            </div>
           </ScrollArea>
         </div>
       </Tabs>

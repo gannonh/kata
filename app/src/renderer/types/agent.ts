@@ -15,4 +15,6 @@ export type AgentSummary = {
   tokenUsage: AgentTokenUsage
   currentTask: string
   lastUpdated: string
+  delegatedBy?: string
+  children?: AgentSummary[]
 }

@@ -13,6 +13,7 @@ describe('FilesTab', () => {
     render(<FilesTab files={mockFiles} />)
 
     expect(screen.getByRole('heading', { name: 'Files' })).toBeTruthy()
+    expect(screen.getByText(/Your copy of the repo lives in/)).toBeTruthy()
     expect(screen.getByLabelText('Search files')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Toggle src' })).toBeTruthy()
 

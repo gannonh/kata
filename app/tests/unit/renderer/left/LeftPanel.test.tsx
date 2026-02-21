@@ -12,11 +12,12 @@ describe('LeftPanel', () => {
     render(<LeftPanel />)
 
     expect(screen.getByRole('tablist', { name: 'Left panel modules' })).toBeTruthy()
-    expect(screen.getAllByText('Kata Orchestrator').length).toBeGreaterThan(0)
+    expect(screen.getByText('Agents write code, maintain notes, and coordinate tasks.')).toBeTruthy()
+    expect(screen.getByText('MVP Planning Coordinator')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Collapse sidebar navigation' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeTruthy()
-    expect(screen.getByText('Model: gpt-5')).toBeTruthy()
-    expect(screen.getByText('Tokens: 5,356')).toBeTruthy()
+    expect(screen.queryByText('Model: gpt-5')).toBeNull()
+    expect(screen.queryByText('Tokens: 5,356')).toBeNull()
   })
 
   it('switches to the context tab and renders the shared workspace checklist', () => {
@@ -25,7 +26,8 @@ describe('LeftPanel', () => {
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Context' }), { button: 0 })
 
     expect(screen.getByRole('heading', { name: 'Context' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Open project spec' })).toBeTruthy()
+    expect(screen.getByText('Context about the task, shared with all agents on demand.')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: 'Open project spec' })).toBeNull()
     expect(screen.getByLabelText('Create contracts and shared baseline components')).toBeTruthy()
     expect(screen.getByLabelText('Implement left panel tabs')).toBeTruthy()
   })
@@ -35,10 +37,12 @@ describe('LeftPanel', () => {
 
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Changes' }), { button: 0 })
     expect(screen.getByRole('heading', { name: 'Changes' })).toBeTruthy()
+    expect(screen.getByText('View and accept file changes.')).toBeTruthy()
     expect(screen.getByText('Branch: feat/wave-2A-contracts')).toBeTruthy()
 
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Files' }), { button: 0 })
     expect(screen.getByRole('heading', { name: 'Files' })).toBeTruthy()
+    expect(screen.getByText(/Your copy of the repo lives in/)).toBeTruthy()
     expect(screen.getByLabelText('Search files')).toBeTruthy()
   })
 

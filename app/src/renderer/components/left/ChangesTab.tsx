@@ -1,6 +1,7 @@
 import type { GitFileState, GitSnapshot } from '../../types/git'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { LeftSection } from './LeftSection'
 
 type ChangesTabProps = {
   git: GitSnapshot
@@ -31,16 +32,17 @@ function renderChanges(items: GitSnapshot['staged']) {
 
 export function ChangesTab({ git }: ChangesTabProps) {
   return (
-    <section>
-      <h2 className="text-xl font-semibold tracking-tight">
-        Changes
-      </h2>
-      <p className="mt-4 text-sm">Branch: {git.branch}</p>
+    <LeftSection
+      title="Changes"
+      description="View and accept file changes."
+      addActionLabel="Add change"
+    >
+      <p className="text-sm">Branch: {git.branch}</p>
       <p className="text-xs text-muted-foreground">
         ↑{git.ahead} ↓{git.behind}
       </p>
 
-      <Card className="mt-4">
+      <Card className="mt-3">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">
             Staged ({git.staged.length})
@@ -51,7 +53,7 @@ export function ChangesTab({ git }: ChangesTabProps) {
         </CardContent>
       </Card>
 
-      <Card className="mt-4">
+      <Card className="mt-3">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">
             Unstaged ({git.unstaged.length})
@@ -65,10 +67,10 @@ export function ChangesTab({ git }: ChangesTabProps) {
       <Button
         type="button"
         disabled={git.staged.length === 0}
-        className="mt-4"
+        className="mt-3"
       >
         Create Commit
       </Button>
-    </section>
+    </LeftSection>
   )
 }
