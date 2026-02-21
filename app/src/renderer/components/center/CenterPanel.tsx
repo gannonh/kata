@@ -15,7 +15,7 @@ export function CenterPanel({ children }: CenterPanelProps) {
         <span className="text-sm text-muted-foreground">&rsaquo;</span>
         <h1 className="text-lg font-semibold tracking-tight">Orchestrator Chat</h1>
       </header>
-      <div className="relative min-h-0 flex-1 p-4">{children}</div>
+      <div className="relative flex min-h-0 flex-1 flex-col p-4">{children}</div>
     </section>
   )
 }

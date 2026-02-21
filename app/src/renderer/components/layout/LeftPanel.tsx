@@ -116,7 +116,7 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
           data-testid="left-panel-content"
           aria-hidden={isSidebarCollapsed}
           className={cn(
-            'min-w-0 overflow-hidden transition-[opacity] duration-200 ease-linear',
+            'flex min-w-0 flex-col overflow-hidden transition-[opacity] duration-200 ease-linear',
             isSidebarCollapsed ? 'pointer-events-none opacity-0' : 'opacity-100'
           )}
         >
@@ -135,7 +135,7 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
               <PanelLeftClose className="h-4 w-4" />
             </Button>
           </header>
-          <ScrollArea className="h-[calc(100%-3.5rem)] p-4">
+          <ScrollArea className="min-h-0 flex-1 p-4">
             {activeTab === 'agents' ? (
               <AgentsTab agents={mockAgents} />
             ) : null}
