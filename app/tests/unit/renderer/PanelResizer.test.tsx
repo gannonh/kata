@@ -51,4 +51,23 @@ describe('PanelResizer', () => {
     expect(onDelta).toHaveBeenNthCalledWith(2, -5)
     expect(onDelta).toHaveBeenCalledTimes(2)
   })
+
+  it('fires onDoubleClick when the separator is double-clicked', () => {
+    const onDelta = vi.fn()
+    const onDoubleClick = vi.fn()
+
+    render(
+      <PanelResizer
+        label="Resize panel"
+        onDelta={onDelta}
+        onDoubleClick={onDoubleClick}
+      />
+    )
+
+    const separator = screen.getByRole('separator', { name: 'Resize panel' })
+    fireEvent.doubleClick(separator)
+
+    expect(onDoubleClick).toHaveBeenCalledTimes(1)
+    expect(onDelta).not.toHaveBeenCalled()
+  })
 })
