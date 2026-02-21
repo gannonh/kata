@@ -80,22 +80,24 @@ export function RightPanel({ project = mockProject, theme, onToggleTheme }: Righ
 
       <div
         className={cn(
-          'min-h-0 flex-1 overflow-hidden p-4 transition-[opacity] duration-200 ease-linear',
+          'flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 transition-[opacity] duration-200 ease-linear',
           isCollapsed ? 'pointer-events-none opacity-0' : 'opacity-100'
         )}
       >
-        <h2 className="text-2xl font-semibold tracking-tight">
+        <h2 className="shrink-0 text-2xl font-semibold tracking-tight">
           Spec
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">{project.name}</p>
+        <p className="mt-1 shrink-0 text-sm text-muted-foreground">{project.name}</p>
         <TabBar
-          className="mt-4"
+          className="mt-4 shrink-0"
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           ariaLabel="Right panel tabs"
         />
-        <ScrollArea className="mt-4 h-[calc(100%-7.5rem)] pr-2">{activeContent}</ScrollArea>
+        <div className="mt-4 min-h-0 flex-1 overflow-hidden">
+          <ScrollArea className="h-full">{activeContent}</ScrollArea>
+        </div>
       </div>
     </div>
   )
