@@ -11,14 +11,15 @@ type StatusBadgeProps = {
 const toneVariant: Record<StatusBadgeTone, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   neutral: 'outline',
   info: 'outline',
-  success: 'default',
+  success: 'outline',
   warning: 'outline',
   danger: 'destructive'
 }
 
 const toneClassName: Partial<Record<StatusBadgeTone, string>> = {
-  info: 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300',
-  warning: 'border-amber-500/50 bg-amber-500/15 text-amber-800 dark:text-amber-300'
+  info: 'border-status-in-progress/50 bg-status-in-progress/15 text-status-in-progress',
+  success: 'border-status-done/50 bg-status-done/15 text-status-done',
+  warning: 'border-status-blocked/50 bg-status-blocked/15 text-status-blocked'
 }
 
 export function StatusBadge({ label, tone = 'neutral', className }: StatusBadgeProps) {

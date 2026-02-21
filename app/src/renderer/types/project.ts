@@ -16,6 +16,8 @@ export type AcceptanceCriterion = {
 export type ProjectSpec = {
   id: string
   name: string
+  sessionTitle?: string
+  repositorySubtitle?: string
   goal: string
   nonGoals: string[]
   assumptions: string[]

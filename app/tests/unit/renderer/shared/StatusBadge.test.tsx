@@ -15,7 +15,7 @@ describe('StatusBadge', () => {
     const badge = screen.getByText('Running')
 
     expect(badge).toBeTruthy()
-    expect(badge.className).toContain('bg-primary')
+    expect(badge.className).toContain('text-status-done')
   })
 
   it('uses distinct styles for info and warning tones', () => {
@@ -35,7 +35,7 @@ describe('StatusBadge', () => {
     const infoBadge = screen.getByText('Info')
     const warningBadge = screen.getByText('Warning')
 
-    expect(infoBadge.className).toContain('text-sky-700')
-    expect(warningBadge.className).toContain('text-amber-800')
+    expect(infoBadge.className).toContain('text-status-in-progress')
+    expect(warningBadge.className).toContain('text-status-blocked')
   })
 })
