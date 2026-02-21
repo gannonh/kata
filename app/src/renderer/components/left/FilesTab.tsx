@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import type { MockFileNode } from '../../mock/files'
 import { FileTreeNode } from './FileTreeNode'
 import { SearchInput } from '../shared/SearchInput'
+import { LeftSection } from './LeftSection'
 
 type FilesTabProps = {
   files: MockFileNode[]
@@ -46,12 +47,12 @@ export function FilesTab({ files }: FilesTabProps) {
   )
 
   return (
-    <section>
-      <h2 className="text-xl font-semibold tracking-tight">
-        Files
-      </h2>
+    <LeftSection
+      title="Files"
+      description="Your copy of the repo lives in /workspace/repo."
+      addActionLabel="Add file view"
+    >
       <SearchInput
-        className="mt-4"
         ariaLabel="Search files"
         value={searchQuery}
         onValueChange={setSearchQuery}
@@ -78,6 +79,6 @@ export function FilesTab({ files }: FilesTabProps) {
           />
         ))}
       </ul>
-    </section>
+    </LeftSection>
   )
 }

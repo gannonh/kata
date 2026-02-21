@@ -120,7 +120,7 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
             isSidebarCollapsed ? 'pointer-events-none opacity-0' : 'opacity-100'
           )}
         >
-          <header className="flex h-14 items-center justify-between px-4">
+          <header className="flex h-14 items-center justify-between pl-4 pr-2">
             <p className="flex items-center gap-1 text-sm font-semibold">
               Kata Orchestrator
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
@@ -129,25 +129,28 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
               type="button"
               variant="ghost"
               size="icon-sm"
+              className="-mr-2"
               aria-label="Collapse sidebar navigation"
               onClick={() => setSidebarCollapsed(true)}
             >
               <PanelLeftClose className="h-4 w-4" />
             </Button>
           </header>
-          <ScrollArea className="min-h-0 flex-1 p-4">
-            {activeTab === 'agents' ? (
-              <AgentsTab agents={mockAgents} />
-            ) : null}
-            {activeTab === 'context' ? (
-              <ContextTab project={mockProject} />
-            ) : null}
-            {activeTab === 'changes' ? (
-              <ChangesTab git={mockGit} />
-            ) : null}
-            {activeTab === 'files' ? (
-              <FilesTab files={mockFiles} />
-            ) : null}
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="py-4 pl-4 pr-2">
+              {activeTab === 'agents' ? (
+                <AgentsTab agents={mockAgents} />
+              ) : null}
+              {activeTab === 'context' ? (
+                <ContextTab project={mockProject} />
+              ) : null}
+              {activeTab === 'changes' ? (
+                <ChangesTab git={mockGit} />
+              ) : null}
+              {activeTab === 'files' ? (
+                <FilesTab files={mockFiles} />
+              ) : null}
+            </div>
           </ScrollArea>
         </div>
       </Tabs>

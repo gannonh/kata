@@ -7,10 +7,10 @@ import { PanelResizer } from './PanelResizer'
 import { RightPanel } from './RightPanel'
 
 const RESIZER_WIDTH = 10
-const LEFT_MIN = 260
+const LEFT_MIN = 320
 const LEFT_COLLAPSED = 56
-const LEFT_DEFAULT = 320
-const LEFT_MAX = 420
+const LEFT_DEFAULT = 390
+const LEFT_MAX = 520
 const DOCUMENT_MIN = 300
 export const THEME_STORAGE_KEY = 'kata-theme'
 
@@ -106,7 +106,8 @@ export function AppShell() {
   }, [])
 
   const effectiveLeftWidth = leftCollapsed ? LEFT_COLLAPSED : leftWidth
-  const documentWidth = Math.max(0, availableWidth - effectiveLeftWidth - RESIZER_WIDTH * 2)
+  const leftResizerWidth = leftCollapsed ? 0 : RESIZER_WIDTH
+  const documentWidth = Math.max(0, availableWidth - effectiveLeftWidth - leftResizerWidth - RESIZER_WIDTH)
 
   useLayoutEffect(() => {
     setCenterRightOffset((current) => {
@@ -123,11 +124,8 @@ export function AppShell() {
   const handleLeftDelta = useCallback(
     (deltaX: number) => {
       setLeftWidth((current) => clamp(current + deltaX, LEFT_MIN, getMaxLeftWidth(availableWidth)))
-      if (leftCollapsed) {
-        setLeftCollapsed(false)
-      }
     },
-    [availableWidth, leftCollapsed]
+    [availableWidth]
   )
 
   const handleCenterRightDelta = useCallback(
@@ -143,8 +141,8 @@ export function AppShell() {
 
   const gridTemplateColumns = useMemo(
     () =>
-      `${effectiveLeftWidth}px ${RESIZER_WIDTH}px ${documentSplit.center}px ${RESIZER_WIDTH}px ${documentSplit.right}px`,
-    [effectiveLeftWidth, documentSplit.center, documentSplit.right]
+      `${effectiveLeftWidth}px ${leftResizerWidth}px ${documentSplit.center}px ${RESIZER_WIDTH}px ${documentSplit.right}px`,
+    [effectiveLeftWidth, leftResizerWidth, documentSplit.center, documentSplit.right]
   )
 
   return (
@@ -168,12 +166,16 @@ export function AppShell() {
           onCollapsedChange={setLeftCollapsed}
         />
 
-        <PanelResizer
-          label="Resize left panel"
-          testId="left-resizer"
-          lineAt="end"
-          onDelta={handleLeftDelta}
-        />
+        {leftCollapsed ? (
+          <div aria-hidden="true" />
+        ) : (
+          <PanelResizer
+            label="Resize left panel"
+            testId="left-resizer"
+            lineAt="end"
+            onDelta={handleLeftDelta}
+          />
+        )}
 
         <CenterPanel>
           <MockChatPanel />

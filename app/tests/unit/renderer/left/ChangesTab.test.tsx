@@ -13,6 +13,7 @@ describe('ChangesTab', () => {
     render(<ChangesTab git={mockGit} />)
 
     expect(screen.getByRole('heading', { name: 'Changes' })).toBeTruthy()
+    expect(screen.getByText('View and accept file changes.')).toBeTruthy()
     expect(screen.getByText('Branch: feat/wave-2A-contracts')).toBeTruthy()
     expect(screen.getByText('↑2 ↓0')).toBeTruthy()
     expect(screen.getByText('Staged (1)')).toBeTruthy()

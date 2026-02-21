@@ -45,14 +45,22 @@ function mockClientWidthRef(initialWidth: number): { setWidth: (nextWidth: numbe
   }
 }
 
-function parseShellColumns(template: string): { left: number; center: number; right: number } {
-  const match = template.match(/^(\d+)px 10px (\d+)px 10px (\d+)px$/)
+function parseShellColumns(template: string): {
+  left: number
+  leftResizer: number
+  center: number
+  rightResizer: number
+  right: number
+} {
+  const match = template.match(/^(\d+)px (\d+)px (\d+)px (\d+)px (\d+)px$/)
   expect(match).toBeTruthy()
 
   return {
     left: Number(match?.[1] ?? 0),
-    center: Number(match?.[2] ?? 0),
-    right: Number(match?.[3] ?? 0)
+    leftResizer: Number(match?.[2] ?? 0),
+    center: Number(match?.[3] ?? 0),
+    rightResizer: Number(match?.[4] ?? 0),
+    right: Number(match?.[5] ?? 0)
   }
 }
 
@@ -119,12 +127,14 @@ describe('AppShell', () => {
     expect(leftTabList).toBeTruthy()
 
     const initialColumns = parseShellColumns(grid.style.gridTemplateColumns)
-    expect(initialColumns.left).toBe(320)
+    expect(initialColumns.left).toBe(390)
+    expect(initialColumns.leftResizer).toBe(10)
+    expect(initialColumns.rightResizer).toBe(10)
     expect(initialColumns.center).toBe(initialColumns.right)
 
     fireEvent.keyDown(leftResizer, { key: 'ArrowRight' })
     let columns = parseShellColumns(grid.style.gridTemplateColumns)
-    expect(columns.left).toBe(332)
+    expect(columns.left).toBe(402)
     expect(columns.center).toBe(columns.right)
 
     fireEvent.keyDown(rightResizer, { key: 'ArrowLeft' })
@@ -136,17 +146,22 @@ describe('AppShell', () => {
     }
 
     columns = parseShellColumns(grid.style.gridTemplateColumns)
-    expect(columns.left).toBe(260)
+    expect(columns.left).toBe(320)
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar navigation' }))
     expect(screen.getByRole('button', { name: 'Expand sidebar navigation' })).toBeTruthy()
+    expect(screen.queryByLabelText('Resize left panel')).toBeNull()
     columns = parseShellColumns(grid.style.gridTemplateColumns)
     expect(columns.left).toBe(56)
+    expect(columns.leftResizer).toBe(0)
 
-    fireEvent.keyDown(leftResizer, { key: 'ArrowRight' })
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar navigation' }))
+    const leftResizerAfterExpand = screen.getByLabelText('Resize left panel')
+    fireEvent.keyDown(leftResizerAfterExpand, { key: 'ArrowRight' })
     expect(screen.getByRole('button', { name: 'Collapse sidebar navigation' })).toBeTruthy()
     columns = parseShellColumns(grid.style.gridTemplateColumns)
-    expect(columns.left).toBe(272)
+    expect(columns.left).toBe(332)
+    expect(columns.leftResizer).toBe(10)
 
     window.dispatchEvent(new Event('resize'))
 
@@ -186,7 +201,7 @@ describe('AppShell', () => {
     observerCallback?.([{ contentRect: { width: 1700 } }])
     fireEvent.keyDown(leftResizer, { key: 'ArrowRight', shiftKey: true })
     let columns = parseShellColumns(grid.style.gridTemplateColumns)
-    expect(columns.left).toBe(368)
+    expect(columns.left).toBe(438)
     expect(columns.center).toBe(columns.right)
 
     observerCallback?.([])
@@ -214,7 +229,7 @@ describe('AppShell', () => {
     await waitFor(() => {
       const columns = parseShellColumns(grid.style.gridTemplateColumns)
       expect(columns.left + columns.center + columns.right + 20).toBeLessThanOrEqual(1040)
-      expect(columns.left).toBeGreaterThanOrEqual(260)
+      expect(columns.left).toBeGreaterThanOrEqual(320)
       expect(columns.center).toBe(columns.right)
       expect(columns.center).toBeGreaterThanOrEqual(300)
       expect(columns.right).toBeGreaterThanOrEqual(300)
