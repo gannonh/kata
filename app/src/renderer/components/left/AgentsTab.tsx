@@ -8,7 +8,7 @@ type AgentsTabProps = {
 export function AgentsTab({ agents }: AgentsTabProps) {
   return (
     <section>
-      <h2 className="font-display text-3xl uppercase tracking-[0.08em] text-[color:var(--text-primary)]">
+      <h2 className="text-xl font-semibold tracking-tight">
         Agents
       </h2>
       <ul className="mt-4 grid gap-3">

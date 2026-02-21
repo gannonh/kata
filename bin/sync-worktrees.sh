@@ -3,7 +3,9 @@ set -euo pipefail
 
 MAIN_DIR="/Users/gannonhall/dev/kata/kata-orchestrator"
 WT_DIR="/Users/gannonhall/dev/kata/kata-orchestrator.worktrees"
-WORKTREES=("wt-a" "wt-b" "wt-c")
+
+# Discover all worktree directories automatically
+mapfile -t WORKTREES < <(find "$WT_DIR" -mindepth 1 -maxdepth 1 -type d -name 'wt-*' | sort | xargs -I{} basename {})
 
 errors=0
 

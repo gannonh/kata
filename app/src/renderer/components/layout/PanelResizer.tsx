@@ -4,9 +4,10 @@ type PanelResizerProps = {
   label: string
   testId?: string
   onDelta: (deltaX: number) => void
+  lineAt?: 'start' | 'center' | 'end'
 }
 
-export function PanelResizer({ label, testId, onDelta }: PanelResizerProps) {
+export function PanelResizer({ label, testId, onDelta, lineAt = 'center' }: PanelResizerProps) {
   const handleMouseDown = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
       event.preventDefault()
@@ -53,9 +54,25 @@ export function PanelResizer({ label, testId, onDelta }: PanelResizerProps) {
       data-testid={testId}
       onMouseDown={handleMouseDown}
       onKeyDown={handleKeyDown}
-      className="relative h-full w-[10px] cursor-col-resize bg-transparent px-0 transition-colors hover:bg-[color:var(--line-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--text-primary)]"
+      className="relative h-full w-[10px] cursor-col-resize bg-transparent px-0 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <span className="pointer-events-none absolute left-1/2 top-1/2 h-20 w-px -translate-x-1/2 -translate-y-1/2 bg-[color:var(--line)]" />
+      <span
+        aria-hidden="true"
+        className={[
+          'pointer-events-none absolute inset-y-0 w-px bg-border',
+          lineAt === 'start' ? 'left-0' : '',
+          lineAt === 'end' ? 'right-0' : '',
+          lineAt === 'center' ? 'left-1/2 -translate-x-1/2' : ''
+        ].join(' ')}
+      />
+      <span
+        className={[
+          'pointer-events-none absolute top-1/2 h-20 w-px -translate-y-1/2 bg-border/60',
+          lineAt === 'start' ? 'left-0' : '',
+          lineAt === 'end' ? 'right-0' : '',
+          lineAt === 'center' ? 'left-1/2 -translate-x-1/2' : ''
+        ].join(' ')}
+      />
     </button>
   )
 }

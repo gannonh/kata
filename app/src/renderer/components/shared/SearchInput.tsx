@@ -1,5 +1,7 @@
 import { type KeyboardEvent, useRef } from 'react'
 
+import { Button } from '../ui/button'
+import { Input } from '../ui/input'
 import { cn } from '../../lib/cn'
 
 export type SearchInputProps = {
@@ -36,17 +38,11 @@ export function SearchInput({
     <div
       role="search"
       className={cn(
-        'flex items-center gap-2 rounded-xl border border-[color:var(--line)] bg-[color:var(--surface-elevated)] px-3 py-2',
+        'flex items-center gap-2 rounded-md border border-input bg-background p-2',
         className
       )}
     >
-      <span
-        aria-hidden="true"
-        className="font-display text-xs uppercase tracking-[0.16em] text-[color:var(--text-muted)]"
-      >
-        Find
-      </span>
-      <input
+      <Input
         ref={inputRef}
         type="search"
         value={value}
@@ -56,17 +52,18 @@ export function SearchInput({
         onChange={(event) => {
           onValueChange(event.target.value)
         }}
-        className="w-full border-none bg-transparent font-body text-sm text-[color:var(--text-primary)] outline-none placeholder:text-[color:var(--text-muted)] [&::-webkit-search-cancel-button]:hidden"
+        className="h-8 border-none bg-transparent shadow-none focus-visible:ring-0"
       />
       {value ? (
-        <button
+        <Button
           type="button"
           aria-label="Clear search"
+          variant="ghost"
+          size="sm"
           onClick={clearValue}
-          className="rounded-md px-1.5 py-0.5 text-xs text-[color:var(--text-secondary)] transition-colors hover:bg-[color:var(--line)]/40 hover:text-[color:var(--text-primary)]"
         >
           Clear
-        </button>
+        </Button>
       ) : null}
     </div>
   )

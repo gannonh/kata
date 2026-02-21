@@ -8,16 +8,14 @@ export function CenterPanel({ children }: CenterPanelProps) {
   return (
     <section
       data-testid="center-panel"
-      className="relative flex h-full min-h-0 flex-col overflow-hidden p-6"
+      className="relative flex h-full min-h-0 flex-col overflow-hidden"
     >
-      <div className="pointer-events-none absolute inset-0 opacity-70 [background:linear-gradient(120deg,transparent_0%,rgba(214,252,194,0.07)_34%,transparent_70%)]" />
-      <p className="relative font-display text-xs uppercase tracking-[0.32em] text-[color:var(--text-muted)]">
-        Center Column
-      </p>
-      <h1 className="relative mt-4 font-display text-5xl uppercase tracking-[0.08em]">
-        Orchestrator Chat
-      </h1>
-      <div className="relative mt-6 min-h-0 flex-1">{children}</div>
+      <header className="flex h-14 shrink-0 items-center gap-2 bg-background px-4">
+        <p className="text-sm text-muted-foreground">Center Column</p>
+        <span className="text-sm text-muted-foreground">&rsaquo;</span>
+        <h1 className="text-lg font-semibold tracking-tight">Orchestrator Chat</h1>
+      </header>
+      <div className="relative min-h-0 flex-1 p-4">{children}</div>
     </section>
   )
 }

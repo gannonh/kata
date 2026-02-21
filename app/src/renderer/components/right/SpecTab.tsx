@@ -1,4 +1,5 @@
 import type { ProjectSpec } from '../../types/project'
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { AcceptanceCriteria } from './AcceptanceCriteria'
 import { ArchitectureDiagram } from './ArchitectureDiagram'
 import { TaskList } from './TaskList'
@@ -10,61 +11,67 @@ type SpecTabProps = {
 export function SpecTab({ project }: SpecTabProps) {
   return (
     <div className="grid gap-4">
-      <section className="rounded-2xl border border-[color:var(--line)]/80 bg-[color:var(--surface-elevated)]/35 p-4">
-        <h3 className="font-display text-sm uppercase tracking-[0.16em] text-[color:var(--text-primary)]">
-          Goal
-        </h3>
-        <p className="mt-2 font-body text-sm text-[color:var(--text-secondary)]">{project.goal}</p>
-      </section>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm uppercase tracking-wide">Goal</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">{project.goal}</p>
+        </CardContent>
+      </Card>
 
-      <section className="rounded-2xl border border-[color:var(--line)]/80 bg-[color:var(--surface-elevated)]/35 p-4">
-        <h3 className="font-display text-sm uppercase tracking-[0.16em] text-[color:var(--text-primary)]">
-          Architecture
-        </h3>
-        <div className="mt-2">
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm uppercase tracking-wide">Architecture</CardTitle>
+        </CardHeader>
+        <CardContent>
           <ArchitectureDiagram />
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className="rounded-2xl border border-[color:var(--line)]/80 bg-[color:var(--surface-elevated)]/35 p-4">
-        <h3 className="font-display text-sm uppercase tracking-[0.16em] text-[color:var(--text-primary)]">
-          Tasks
-        </h3>
-        <div className="mt-2">
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm uppercase tracking-wide">Tasks</CardTitle>
+        </CardHeader>
+        <CardContent>
           <TaskList tasks={project.tasks} />
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className="rounded-2xl border border-[color:var(--line)]/80 bg-[color:var(--surface-elevated)]/35 p-4">
-        <h3 className="font-display text-sm uppercase tracking-[0.16em] text-[color:var(--text-primary)]">
-          Acceptance Criteria
-        </h3>
-        <div className="mt-2">
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm uppercase tracking-wide">Acceptance Criteria</CardTitle>
+        </CardHeader>
+        <CardContent>
           <AcceptanceCriteria criteria={project.acceptanceCriteria} />
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className="rounded-2xl border border-[color:var(--line)]/80 bg-[color:var(--surface-elevated)]/35 p-4">
-        <h3 className="font-display text-sm uppercase tracking-[0.16em] text-[color:var(--text-primary)]">
-          Non-Goals
-        </h3>
-        <ul className="mt-2 list-disc space-y-1 pl-5 font-body text-sm text-[color:var(--text-secondary)]">
-          {project.nonGoals.map((nonGoal, index) => (
-            <li key={`${project.id}-non-goal-${index}`}>{nonGoal}</li>
-          ))}
-        </ul>
-      </section>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm uppercase tracking-wide">Non-Goals</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+            {project.nonGoals.map((nonGoal) => (
+              <li key={`${project.id}-non-goal-${nonGoal}`}>{nonGoal}</li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
 
-      <section className="rounded-2xl border border-[color:var(--line)]/80 bg-[color:var(--surface-elevated)]/35 p-4">
-        <h3 className="font-display text-sm uppercase tracking-[0.16em] text-[color:var(--text-primary)]">
-          Assumptions
-        </h3>
-        <ul className="mt-2 list-disc space-y-1 pl-5 font-body text-sm text-[color:var(--text-secondary)]">
-          {project.assumptions.map((assumption, index) => (
-            <li key={`${project.id}-assumption-${index}`}>{assumption}</li>
-          ))}
-        </ul>
-      </section>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm uppercase tracking-wide">Assumptions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+            {project.assumptions.map((assumption) => (
+              <li key={`${project.id}-assumption-${assumption}`}>{assumption}</li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
     </div>
   )
 }

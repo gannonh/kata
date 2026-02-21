@@ -11,9 +11,10 @@ describe('LeftPanel', () => {
   it('shows the agents tab by default with agent summaries', () => {
     render(<LeftPanel />)
 
-    expect(screen.getByRole('tablist', { name: 'Left panel tabs' })).toBeTruthy()
+    expect(screen.getByRole('tablist', { name: 'Left panel modules' })).toBeTruthy()
+    expect(screen.getAllByText('Kata Orchestrator').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Collapse sidebar navigation' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeTruthy()
-    expect(screen.getByText('Kata Orchestrator')).toBeTruthy()
     expect(screen.getByText('Model: gpt-5')).toBeTruthy()
     expect(screen.getByText('Tokens: 5,356')).toBeTruthy()
   })
@@ -21,7 +22,7 @@ describe('LeftPanel', () => {
   it('switches to the context tab and renders the shared workspace checklist', () => {
     render(<LeftPanel />)
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Context 2' }))
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Context' }), { button: 0 })
 
     expect(screen.getByRole('heading', { name: 'Context' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Open project spec' })).toBeTruthy()
@@ -32,12 +33,28 @@ describe('LeftPanel', () => {
   it('switches to changes and files tabs', () => {
     render(<LeftPanel />)
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Changes 3' }))
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Changes' }), { button: 0 })
     expect(screen.getByRole('heading', { name: 'Changes' })).toBeTruthy()
     expect(screen.getByText('Branch: feat/wave-2A-contracts')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Files 1' }))
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Files' }), { button: 0 })
     expect(screen.getByRole('heading', { name: 'Files' })).toBeTruthy()
     expect(screen.getByLabelText('Search files')).toBeTruthy()
+  })
+
+  it('collapses and expands the sidebar content area from the top toggle', () => {
+    render(<LeftPanel />)
+
+    const content = screen.getByTestId('left-panel-content')
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar navigation' }))
+
+    expect(content.getAttribute('aria-hidden')).toBe('true')
+    expect(content.className).toContain('opacity-0')
+    expect(screen.getByRole('button', { name: 'Expand sidebar navigation' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar navigation' }))
+
+    expect(content.getAttribute('aria-hidden')).toBe('false')
+    expect(content.className).toContain('opacity-100')
   })
 })

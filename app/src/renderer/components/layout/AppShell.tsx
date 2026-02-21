@@ -8,8 +8,12 @@ import { RightPanel } from './RightPanel'
 
 const RESIZER_WIDTH = 10
 const LEFT_MIN = 260
+const LEFT_COLLAPSED = 56
 const RIGHT_MIN = 300
 const CENTER_MIN = 420
+export const THEME_STORAGE_KEY = 'kata-theme'
+
+type Theme = 'dark' | 'light'
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
@@ -21,7 +25,12 @@ export function AppShell() {
   const rightWidthRef = useRef(360)
   const [leftWidth, setLeftWidth] = useState(320)
   const [rightWidth, setRightWidth] = useState(360)
+  const [leftCollapsed, setLeftCollapsed] = useState(false)
   const [availableWidth, setAvailableWidth] = useState(1440)
+  const [theme, setTheme] = useState<Theme>(() => {
+    const persistedTheme = globalThis.localStorage?.getItem(THEME_STORAGE_KEY)
+    return persistedTheme === 'light' || persistedTheme === 'dark' ? persistedTheme : 'dark'
+  })
 
   useEffect(() => {
     leftWidthRef.current = leftWidth
@@ -30,6 +39,15 @@ export function AppShell() {
   useEffect(() => {
     rightWidthRef.current = rightWidth
   }, [rightWidth])
+
+  useEffect(() => {
+    globalThis.localStorage?.setItem(THEME_STORAGE_KEY, theme)
+  }, [theme])
+
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+    document.documentElement.style.colorScheme = theme
+  }, [theme])
 
   useLayoutEffect(() => {
     const shellElement = shellRef.current
@@ -61,34 +79,50 @@ export function AppShell() {
     }
   }, [])
 
+  const effectiveLeftWidth = leftCollapsed ? LEFT_COLLAPSED : leftWidth
+
   const gridTemplateColumns = useMemo(
-    () => `${leftWidth}px ${RESIZER_WIDTH}px minmax(${CENTER_MIN}px, 1fr) ${RESIZER_WIDTH}px ${rightWidth}px`,
-    [leftWidth, rightWidth]
+    () =>
+      `${effectiveLeftWidth}px ${RESIZER_WIDTH}px minmax(${CENTER_MIN}px, 1fr) ${RESIZER_WIDTH}px ${rightWidth}px`,
+    [effectiveLeftWidth, rightWidth]
   )
 
   return (
     <main
       data-testid="app-shell-root"
-      className="h-screen w-screen overflow-hidden bg-[color:var(--surface-bg)] p-5 text-[color:var(--text-primary)]"
+      className="h-screen w-screen overflow-hidden bg-background text-foreground"
     >
       <section
         ref={shellRef}
         data-testid="app-shell-grid"
         style={{ gridTemplateColumns }}
-        className="relative grid h-full rounded-[28px] border border-[color:var(--line)] bg-[color:var(--surface-panel)]/85 shadow-[0_0_0_1px_var(--line-soft),0_30px_80px_rgba(0,0,0,0.55)]"
+        className="relative grid h-full bg-background transition-[grid-template-columns] duration-200 ease-linear"
       >
-        <LeftPanel />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-14 z-10 h-px bg-border"
+        />
+
+        <LeftPanel
+          collapsed={leftCollapsed}
+          onCollapsedChange={setLeftCollapsed}
+        />
 
         <PanelResizer
           label="Resize left panel"
           testId="left-resizer"
+          lineAt="end"
           onDelta={(deltaX) => {
             setLeftWidth((current) => {
               const maxLeft = Math.max(
                 LEFT_MIN,
                 availableWidth - rightWidthRef.current - CENTER_MIN - RESIZER_WIDTH * 2
               )
-              return clamp(current + deltaX, LEFT_MIN, maxLeft)
+              const next = clamp(current + deltaX, LEFT_MIN, maxLeft)
+              if (leftCollapsed) {
+                setLeftCollapsed(false)
+              }
+              return next
             })
           }}
         />
@@ -100,11 +134,15 @@ export function AppShell() {
         <PanelResizer
           label="Resize right panel"
           testId="right-resizer"
+          lineAt="start"
           onDelta={(deltaX) => {
             setRightWidth((current) => {
               const maxRight = Math.max(
                 RIGHT_MIN,
-                availableWidth - leftWidthRef.current - CENTER_MIN - RESIZER_WIDTH * 2
+                availableWidth -
+                  (leftCollapsed ? LEFT_COLLAPSED : leftWidthRef.current) -
+                  CENTER_MIN -
+                  RESIZER_WIDTH * 2
               )
               return clamp(current - deltaX, RIGHT_MIN, maxRight)
             })
@@ -113,9 +151,14 @@ export function AppShell() {
 
         <aside
           data-testid="right-panel"
-          className="overflow-hidden rounded-r-[28px] border-l border-[color:var(--line)] bg-[radial-gradient(circle_at_80%_14%,rgba(244,196,48,0.12),transparent_46%)] p-6"
+          className="overflow-hidden bg-background"
         >
-          <RightPanel />
+          <RightPanel
+            theme={theme}
+            onToggleTheme={() => {
+              setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'))
+            }}
+          />
         </aside>
       </section>
     </main>

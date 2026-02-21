@@ -67,6 +67,15 @@ Hard gate:
 - Unit tests: `tests/unit/`
 - E2E/UAT tests: `tests/e2e/`
 
+## SHADCN Adoption
+
+- Desktop renderer UI standard is now SHADCN-first.
+- SHADCN UI primitives live in `src/renderer/components/ui/`.
+- SHADCN Blocks compositions live in `src/renderer/components/shadcnblocks/`.
+- Reuse existing SHADCN primitives/blocks before creating custom renderer UI primitives.
+- Keep utility/style composition aligned with the configured SHADCN aliases and tokens in `components.json`.
+- For new block pulls from `@shadcnblocks`, ensure `SHADCNBLOCKS_API_KEY` is available in the environment.
+
 ## Commands
 
 From repo root (preferred):

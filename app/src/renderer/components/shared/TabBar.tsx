@@ -1,4 +1,5 @@
-import { cn } from '../../lib/cn'
+import { Badge } from '../ui/badge'
+import { Tabs, TabsList, TabsTrigger } from '../ui/tabs'
 
 export type TabBarItem<TTab extends string> = {
   id: TTab
@@ -22,45 +23,64 @@ export function TabBar<TTab extends string>({
   ariaLabel = 'Tabs',
   className
 }: TabBarProps<TTab>) {
-  return (
-    <div
-      role="tablist"
-      aria-label={ariaLabel}
-      className={cn('flex items-center gap-2 rounded-xl border border-[color:var(--line)] bg-[color:var(--surface-elevated)] p-1', className)}
-    >
-      {tabs.map((tab) => {
-        const isActive = tab.id === activeTab
+  const enabledTabs = tabs.filter((tab) => !tab.disabled)
 
-        return (
-          <button
+  const selectByKey = (key: string) => {
+    if (enabledTabs.length === 0) {
+      return
+    }
+
+    if (key === 'Home') {
+      onTabChange(enabledTabs[0].id)
+      return
+    }
+
+    if (key === 'End') {
+      onTabChange(enabledTabs[enabledTabs.length - 1].id)
+      return
+    }
+
+    const currentIndex = enabledTabs.findIndex((tab) => tab.id === activeTab)
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0
+    const delta = key === 'ArrowRight' || key === 'ArrowDown' ? 1 : -1
+    const nextIndex = (safeIndex + delta + enabledTabs.length) % enabledTabs.length
+    onTabChange(enabledTabs[nextIndex].id)
+  }
+
+  return (
+    <Tabs
+      value={activeTab}
+      onValueChange={(value) => {
+        onTabChange(value as TTab)
+      }}
+      className={className}
+    >
+      <TabsList
+        aria-label={ariaLabel}
+        className="h-auto w-full justify-start gap-1 overflow-hidden rounded-lg border border-border bg-muted p-1"
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowRight' || event.key === 'ArrowLeft' || event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') {
+            event.preventDefault()
+            selectByKey(event.key)
+          }
+        }}
+      >
+        {tabs.map((tab) => (
+          <TabsTrigger
             key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            aria-disabled={tab.disabled ? 'true' : undefined}
+            value={tab.id}
             disabled={tab.disabled}
-            onClick={() => {
-              if (!tab.disabled) {
-                onTabChange(tab.id)
-              }
-            }}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-lg px-3 py-1.5 font-body text-sm transition-colors',
-              isActive
-                ? 'bg-[color:var(--line-strong)] text-[color:var(--text-primary)]'
-                : 'text-[color:var(--text-secondary)] hover:bg-[color:var(--line)]/40',
-              tab.disabled && 'cursor-not-allowed opacity-50'
-            )}
+            className="min-w-0 flex-1"
           >
-            <span>{tab.label}</span>
+            <span className="truncate">{tab.label}</span>
             {typeof tab.count === 'number' ? (
-              <span className="rounded-md bg-[color:var(--line)]/60 px-1.5 py-0.5 text-xs text-[color:var(--text-primary)]">
+              <Badge>
                 {tab.count}
-              </span>
+              </Badge>
             ) : null}
-          </button>
-        )
-      })}
-    </div>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   )
 }

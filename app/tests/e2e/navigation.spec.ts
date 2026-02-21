@@ -2,7 +2,7 @@ import { expect, test } from './fixtures/electron'
 
 test.describe('Desktop app navigation @uat', () => {
   test('switches left panel tabs and renders each view @uat @ci @quality-gate', async ({ appWindow }) => {
-    const leftTabs = appWindow.getByRole('tablist', { name: 'Left panel tabs' })
+    const leftTabs = appWindow.getByRole('tablist', { name: /Left panel (tabs|modules)/ })
 
     await expect(leftTabs.getByRole('tab', { name: /Agents/ })).toHaveAttribute('aria-selected', 'true')
 

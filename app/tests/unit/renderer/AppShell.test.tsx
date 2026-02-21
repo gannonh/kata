@@ -1,7 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { AppShell } from '../../../src/renderer/components/layout/AppShell'
+import { AppShell, THEME_STORAGE_KEY } from '../../../src/renderer/components/layout/AppShell'
 
 function mockClientWidth(width: number): () => void {
   const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
@@ -25,8 +25,43 @@ describe('AppShell', () => {
   const originalResizeObserver = globalThis.ResizeObserver
 
   afterEach(() => {
+    cleanup()
     globalThis.ResizeObserver = originalResizeObserver
+    globalThis.localStorage.clear()
+    document.documentElement.classList.remove('dark')
+    document.documentElement.style.removeProperty('color-scheme')
     vi.restoreAllMocks()
+  })
+
+  it('defaults to dark theme and toggles to light and back from top-right switcher', () => {
+    const { getByTestId, unmount } = render(<AppShell />)
+
+    const root = getByTestId('app-shell-root')
+    expect(root.className).toContain('bg-background')
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    expect(document.documentElement.style.colorScheme).toBe('dark')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to light theme' }))
+
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+    expect(document.documentElement.style.colorScheme).toBe('light')
+    expect(globalThis.localStorage.getItem(THEME_STORAGE_KEY)).toBe('light')
+    expect(screen.getByRole('button', { name: 'Switch to dark theme' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to dark theme' }))
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    expect(globalThis.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark')
+
+    unmount()
+  })
+
+  it('respects a persisted light theme preference on initial render', () => {
+    globalThis.localStorage.setItem(THEME_STORAGE_KEY, 'light')
+    render(<AppShell />)
+
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+    expect(document.documentElement.style.colorScheme).toBe('light')
+    expect(screen.getByRole('button', { name: 'Switch to dark theme' })).toBeTruthy()
   })
 
   it('renders columns and supports keyboard panel resizing with window resize fallback', () => {
@@ -41,7 +76,7 @@ describe('AppShell', () => {
     const grid = getByTestId('app-shell-grid')
     const leftResizer = screen.getByLabelText('Resize left panel')
     const rightResizer = screen.getByLabelText('Resize right panel')
-    const leftTabList = screen.getByRole('tablist', { name: 'Left panel tabs' })
+    const leftTabList = screen.getByRole('tablist', { name: 'Left panel modules' })
 
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Orchestrator Chat' })).toBeTruthy()
@@ -59,6 +94,14 @@ describe('AppShell', () => {
     }
 
     expect(grid.style.gridTemplateColumns).toContain('260px 10px minmax(420px, 1fr)')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar navigation' }))
+    expect(screen.getByRole('button', { name: 'Expand sidebar navigation' })).toBeTruthy()
+    expect(grid.style.gridTemplateColumns).toContain('56px 10px minmax(420px, 1fr)')
+
+    fireEvent.keyDown(leftResizer, { key: 'ArrowRight' })
+    expect(screen.getByRole('button', { name: 'Collapse sidebar navigation' })).toBeTruthy()
+    expect(grid.style.gridTemplateColumns).toContain('272px 10px minmax(420px, 1fr)')
 
     window.dispatchEvent(new Event('resize'))
 

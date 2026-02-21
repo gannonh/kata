@@ -1,4 +1,4 @@
-import { cn } from '../../lib/cn'
+import { Badge } from '../ui/badge'
 
 export type StatusBadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
 
@@ -8,24 +8,26 @@ type StatusBadgeProps = {
   className?: string
 }
 
-const toneClasses: Record<StatusBadgeTone, string> = {
-  neutral: 'border-[color:var(--line)] bg-[color:var(--surface-elevated)] text-[color:var(--text-secondary)]',
-  info: 'border-sky-400/40 bg-sky-500/15 text-sky-100',
-  success: 'border-emerald-400/40 bg-emerald-500/15 text-emerald-100',
-  warning: 'border-amber-400/40 bg-amber-500/15 text-amber-100',
-  danger: 'border-rose-400/40 bg-rose-500/15 text-rose-100'
+const toneVariant: Record<StatusBadgeTone, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  neutral: 'outline',
+  info: 'outline',
+  success: 'default',
+  warning: 'outline',
+  danger: 'destructive'
+}
+
+const toneClassName: Partial<Record<StatusBadgeTone, string>> = {
+  info: 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+  warning: 'border-amber-500/50 bg-amber-500/15 text-amber-800 dark:text-amber-300'
 }
 
 export function StatusBadge({ label, tone = 'neutral', className }: StatusBadgeProps) {
   return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full border px-2 py-0.5 font-body text-xs uppercase tracking-wide',
-        toneClasses[tone],
-        className
-      )}
+    <Badge
+      variant={toneVariant[tone]}
+      className={[toneClassName[tone], className].filter(Boolean).join(' ')}
     >
       {label}
-    </span>
+    </Badge>
   )
 }

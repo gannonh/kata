@@ -1,5 +1,6 @@
 import { StatusBadge, type StatusBadgeTone } from '../shared/StatusBadge'
 import type { ProjectTask, TaskStatus } from '../../types/project'
+import { Card, CardContent } from '../ui/card'
 
 type TaskListProps = {
   tasks: ProjectTask[]
@@ -36,20 +37,21 @@ export function TaskList({ tasks }: TaskListProps) {
         const status = taskStatusConfig[task.status]
 
         return (
-          <li
-            key={task.id}
-            className="rounded-xl border border-[color:var(--line)]/70 bg-[color:var(--surface-elevated)]/40 p-3"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <p className="font-body text-sm text-[color:var(--text-primary)]">{task.title}</p>
-              <StatusBadge
-                label={status.label}
-                tone={status.tone}
-              />
-            </div>
-            {task.owner ? (
-              <p className="mt-1 font-body text-xs text-[color:var(--text-muted)]">Owner: {task.owner}</p>
-            ) : null}
+          <li key={task.id}>
+            <Card>
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm">{task.title}</p>
+                  <StatusBadge
+                    label={status.label}
+                    tone={status.tone}
+                  />
+                </div>
+                {task.owner ? (
+                  <p className="mt-1 text-xs text-muted-foreground">Owner: {task.owner}</p>
+                ) : null}
+              </CardContent>
+            </Card>
           </li>
         )
       })}

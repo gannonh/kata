@@ -1,4 +1,6 @@
 import type { GitFileState, GitSnapshot } from '../../types/git'
+import { Button } from '../ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 
 type ChangesTabProps = {
   git: GitSnapshot
@@ -18,7 +20,7 @@ function renderChanges(items: GitSnapshot['staged']) {
       {items.map((item) => (
         <li
           key={`${item.state}:${item.path}`}
-          className="font-body text-sm text-[color:var(--text-secondary)]"
+          className="text-sm text-muted-foreground"
         >
           {stateIcon[item.state]} {item.path}
         </li>
@@ -30,35 +32,43 @@ function renderChanges(items: GitSnapshot['staged']) {
 export function ChangesTab({ git }: ChangesTabProps) {
   return (
     <section>
-      <h2 className="font-display text-3xl uppercase tracking-[0.08em] text-[color:var(--text-primary)]">
+      <h2 className="text-xl font-semibold tracking-tight">
         Changes
       </h2>
-      <p className="mt-4 font-body text-sm text-[color:var(--text-primary)]">Branch: {git.branch}</p>
-      <p className="font-body text-xs text-[color:var(--text-muted)]">
+      <p className="mt-4 text-sm">Branch: {git.branch}</p>
+      <p className="text-xs text-muted-foreground">
         ↑{git.ahead} ↓{git.behind}
       </p>
 
-      <div className="mt-4 rounded-xl border border-[color:var(--line)] bg-[color:var(--surface-elevated)]/60 p-3">
-        <h3 className="font-display text-sm uppercase tracking-[0.08em] text-[color:var(--text-primary)]">
-          Staged ({git.staged.length})
-        </h3>
-        {renderChanges(git.staged)}
-      </div>
+      <Card className="mt-4">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">
+            Staged ({git.staged.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {renderChanges(git.staged)}
+        </CardContent>
+      </Card>
 
-      <div className="mt-3 rounded-xl border border-[color:var(--line)] bg-[color:var(--surface-elevated)]/60 p-3">
-        <h3 className="font-display text-sm uppercase tracking-[0.08em] text-[color:var(--text-primary)]">
-          Unstaged ({git.unstaged.length})
-        </h3>
-        {renderChanges(git.unstaged)}
-      </div>
+      <Card className="mt-4">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">
+            Unstaged ({git.unstaged.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {renderChanges(git.unstaged)}
+        </CardContent>
+      </Card>
 
-      <button
+      <Button
         type="button"
         disabled={git.staged.length === 0}
-        className="mt-4 rounded-lg border border-[color:var(--line)] px-3 py-2 font-body text-sm text-[color:var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-4"
       >
         Create Commit
-      </button>
+      </Button>
     </section>
   )
 }
