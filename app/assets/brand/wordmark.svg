@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 64">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&amp;display=swap');
+      .text { font-family: 'JetBrains Mono', monospace; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="280" height="64" rx="8" fill="#0d0d0d"/>
+
+  <!-- Mark -->
+  <g transform="translate(12, 9)">
+    <rect x="0" y="0" width="44" height="7" rx="3.5" fill="#d4a574"/>
+    <rect x="0" y="15" width="24" height="7" rx="3.5" fill="#d4a574"/>
+    <rect x="18" y="7" width="7" height="15" rx="3.5" fill="#d4a574"/>
+    <rect x="0" y="30" width="44" height="7" rx="3.5" fill="#d4a574"/>
+    <rect x="18" y="37" width="7" height="9" rx="3.5" fill="#d4a574"/>
+  </g>
+
+  <!-- Divider -->
+  <line x1="72" y1="16" x2="72" y2="48" stroke="#27272a" stroke-width="1"/>
+
+  <!-- Wordmark -->
+  <text x="88" y="42" class="text" fill="#faf8f5" font-size="28" font-weight="500" letter-spacing="4">KATA</text>
+</svg>
