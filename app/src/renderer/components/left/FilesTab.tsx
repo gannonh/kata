@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 
 import type { MockFileNode } from '../../mock/files'
 import { FileTreeNode } from './FileTreeNode'
+import { SearchInput } from '../shared/SearchInput'
 
 type FilesTabProps = {
   files: MockFileNode[]
@@ -46,20 +47,16 @@ export function FilesTab({ files }: FilesTabProps) {
 
   return (
     <section>
-      <h2 className="font-display text-3xl uppercase tracking-[0.08em] text-[color:var(--text-primary)]">
+      <h2 className="text-xl font-semibold tracking-tight">
         Files
       </h2>
-      <label className="mt-4 block">
-        <span className="sr-only">Search files</span>
-        <input
-          aria-label="Search files"
-          type="search"
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-          className="w-full rounded-lg border border-[color:var(--line)] bg-[color:var(--surface-elevated)] px-3 py-2 font-body text-sm text-[color:var(--text-primary)]"
-          placeholder="Search files..."
-        />
-      </label>
+      <SearchInput
+        className="mt-4"
+        ariaLabel="Search files"
+        value={searchQuery}
+        onValueChange={setSearchQuery}
+        placeholder="Search files..."
+      />
       <ul className="mt-4 grid gap-1">
         {filteredFiles.map((node) => (
           <FileTreeNode

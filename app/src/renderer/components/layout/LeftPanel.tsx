@@ -9,6 +9,7 @@ import { ChangesTab } from '../left/ChangesTab'
 import { ContextTab } from '../left/ContextTab'
 import { FilesTab } from '../left/FilesTab'
 import { TabBar } from '../shared/TabBar'
+import { ScrollArea } from '../ui/scroll-area'
 
 type LeftPanelTab = 'agents' | 'context' | 'changes' | 'files'
 
@@ -28,7 +29,7 @@ export function LeftPanel() {
   return (
     <aside
       data-testid="left-panel"
-      className="flex h-full min-h-0 flex-col overflow-hidden rounded-l-[28px] border-r border-[color:var(--line)] bg-[radial-gradient(circle_at_20%_15%,rgba(214,252,194,0.08),transparent_48%)] p-6"
+      className="flex h-full min-h-0 flex-col overflow-hidden rounded-l-xl border-r bg-background p-4"
     >
       <TabBar
         ariaLabel="Left panel tabs"
@@ -36,7 +37,7 @@ export function LeftPanel() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
       />
-      <div className="mt-5 min-h-0 flex-1 overflow-auto">
+      <ScrollArea className="mt-4 min-h-0 flex-1">
         {activeTab === 'agents' ? (
           <AgentsTab agents={mockAgents} />
         ) : null}
@@ -49,7 +50,7 @@ export function LeftPanel() {
         {activeTab === 'files' ? (
           <FilesTab files={mockFiles} />
         ) : null}
-      </div>
+      </ScrollArea>
     </aside>
   )
 }

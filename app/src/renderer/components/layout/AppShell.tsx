@@ -69,13 +69,13 @@ export function AppShell() {
   return (
     <main
       data-testid="app-shell-root"
-      className="h-screen w-screen overflow-hidden bg-[color:var(--surface-bg)] p-5 text-[color:var(--text-primary)]"
+      className="h-screen w-screen overflow-hidden bg-muted/40 p-4 text-foreground"
     >
       <section
         ref={shellRef}
         data-testid="app-shell-grid"
         style={{ gridTemplateColumns }}
-        className="relative grid h-full rounded-[28px] border border-[color:var(--line)] bg-[color:var(--surface-panel)]/85 shadow-[0_0_0_1px_var(--line-soft),0_30px_80px_rgba(0,0,0,0.55)]"
+        className="relative grid h-full rounded-xl border bg-background shadow-sm"
       >
         <LeftPanel />
 
@@ -113,7 +113,7 @@ export function AppShell() {
 
         <aside
           data-testid="right-panel"
-          className="overflow-hidden rounded-r-[28px] border-l border-[color:var(--line)] bg-[radial-gradient(circle_at_80%_14%,rgba(244,196,48,0.12),transparent_46%)] p-6"
+          className="overflow-hidden rounded-r-xl border-l bg-background p-4"
         >
           <RightPanel />
         </aside>

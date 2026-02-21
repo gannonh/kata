@@ -1,5 +1,8 @@
 import { type FormEvent, type KeyboardEvent, useState } from 'react'
 
+import { Button } from '../ui/button'
+import { Textarea } from '../ui/textarea'
+
 type ChatInputProps = {
   onSend: (message: string) => void
   disabled?: boolean
@@ -35,11 +38,11 @@ export function ChatInput({ onSend, disabled = false }: ChatInputProps) {
   return (
     <form
       onSubmit={onSubmit}
-      className="flex items-end gap-3 rounded-2xl border border-[color:var(--line)] bg-[color:var(--surface-panel)]/80 p-3"
+      className="flex items-end gap-3 rounded-lg border bg-card p-3"
     >
-      <textarea
+      <Textarea
         aria-label="Message input"
-        className="min-h-20 flex-1 resize-none rounded-xl border border-[color:var(--line)] bg-[color:var(--surface-bg)]/60 px-3 py-2 font-body text-sm text-[color:var(--text-primary)] outline-none focus:border-[color:var(--line-strong)]"
+        className="min-h-20 flex-1 resize-none"
         value={value}
         disabled={disabled}
         onChange={(event) => {
@@ -47,13 +50,13 @@ export function ChatInput({ onSend, disabled = false }: ChatInputProps) {
         }}
         onKeyDown={onKeyDown}
       />
-      <button
+      <Button
         type="submit"
-        className="rounded-xl border border-[color:var(--line-strong)] bg-[color:var(--line-strong)]/20 px-4 py-2 font-display text-xs uppercase tracking-[0.16em] text-[color:var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+        size="sm"
         disabled={disabled || value.trim().length === 0}
       >
         Send
-      </button>
+      </Button>
     </form>
   )
 }

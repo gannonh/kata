@@ -1,3 +1,5 @@
+import { Textarea } from '../ui/textarea'
+
 type NotesTabProps = {
   notes: string
   onNotesChange: (notes: string) => void
@@ -8,13 +10,13 @@ export function NotesTab({ notes, onNotesChange }: NotesTabProps) {
     <div className="grid h-full gap-3">
       <label
         htmlFor="project-notes"
-        className="font-display text-sm uppercase tracking-[0.16em] text-[color:var(--text-primary)]"
+        className="text-sm font-medium"
       >
         Project notes
       </label>
-      <textarea
+      <Textarea
         id="project-notes"
-        className="min-h-48 w-full resize-y rounded-xl border border-[color:var(--line)] bg-[color:var(--surface-elevated)]/40 p-3 font-body text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--line-strong)]"
+        className="min-h-48 w-full resize-y"
         value={notes}
         placeholder="Capture open questions, risks, and follow-up notes."
         onChange={(event) => {

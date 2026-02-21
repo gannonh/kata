@@ -53,9 +53,9 @@ export function PanelResizer({ label, testId, onDelta }: PanelResizerProps) {
       data-testid={testId}
       onMouseDown={handleMouseDown}
       onKeyDown={handleKeyDown}
-      className="relative h-full w-[10px] cursor-col-resize bg-transparent px-0 transition-colors hover:bg-[color:var(--line-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--text-primary)]"
+      className="relative h-full w-[10px] cursor-col-resize bg-transparent px-0 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <span className="pointer-events-none absolute left-1/2 top-1/2 h-20 w-px -translate-x-1/2 -translate-y-1/2 bg-[color:var(--line)]" />
+      <span className="pointer-events-none absolute left-1/2 top-1/2 h-20 w-px -translate-x-1/2 -translate-y-1/2 bg-border" />
     </button>
   )
 }

@@ -1,5 +1,7 @@
 import { type ReactNode, useEffect, useRef } from 'react'
 
+import { ScrollArea } from '../ui/scroll-area'
+
 type MessageListProps = {
   children: ReactNode
 }
@@ -9,16 +11,27 @@ export function MessageList({ children }: MessageListProps) {
 
   useEffect(() => {
     const list = listRef.current
-    if (list) list.scrollTop = list.scrollHeight
+    if (!list) {
+      return
+    }
+
+    const viewport = list.querySelector('[data-radix-scroll-area-viewport]') as HTMLDivElement | null
+    const nextScrollTop = (viewport ?? list).scrollHeight
+
+    if (viewport) {
+      viewport.scrollTop = nextScrollTop
+    }
+
+    list.scrollTop = nextScrollTop
   }, [children])
 
   return (
-    <div
+    <ScrollArea
       ref={listRef}
       data-testid="message-list"
-      className="min-h-0 flex-1 space-y-4 overflow-y-auto rounded-2xl border border-[color:var(--line)]/90 bg-[color:var(--surface-elevated)]/50 p-4"
+      className="min-h-0 flex-1 rounded-lg border bg-card p-4"
     >
-      {children}
-    </div>
+      <div className="space-y-4">{children}</div>
+    </ScrollArea>
   )
 }

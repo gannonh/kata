@@ -20,7 +20,7 @@ export function FileTreeNode({
 
   if (node.type === 'file') {
     return (
-      <li className="font-body text-sm text-[color:var(--text-secondary)]">
+      <li className="text-sm text-muted-foreground">
         <span style={{ paddingLeft: `${depth * 12}px` }}>{node.name}</span>
       </li>
     )
@@ -32,7 +32,7 @@ export function FileTreeNode({
         type="button"
         onClick={() => onToggle(node.path)}
         aria-label={`Toggle ${node.path}`}
-        className="inline-flex items-center gap-2 font-body text-sm text-[color:var(--text-primary)]"
+        className="inline-flex items-center gap-2 text-sm hover:text-foreground"
         style={{ paddingLeft: `${depth * 12}px` }}
       >
         <span>{isExpanded ? '▾' : '▸'}</span>

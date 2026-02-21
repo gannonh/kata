@@ -102,7 +102,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
   const blocks = parseMarkdown(content)
 
   return (
-    <div className={cn('space-y-3 font-body text-sm text-[color:var(--text-secondary)]', className)}>
+    <div className={cn('space-y-3 text-sm text-muted-foreground', className)}>
       {blocks.map((block, index) => {
         if (block.kind === 'heading') {
           const sizeClass =
@@ -116,7 +116,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
           return (
             <HeadingTag
               key={`heading-${index}`}
-              className={cn('font-display uppercase tracking-[0.08em] text-[color:var(--text-primary)]', sizeClass)}
+              className={cn('font-semibold tracking-tight text-foreground', sizeClass)}
             >
               {block.text}
             </HeadingTag>
@@ -140,7 +140,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
           return (
             <pre
               key={`code-${index}`}
-              className="overflow-x-auto rounded-xl border border-[color:var(--line)] bg-[color:var(--surface-elevated)] p-3 font-mono text-xs text-[color:var(--text-primary)]"
+              className="overflow-x-auto rounded-md border bg-card p-3 font-mono text-xs text-foreground"
             >
               <code className={block.language ? `language-${block.language}` : undefined}>{block.code}</code>
             </pre>

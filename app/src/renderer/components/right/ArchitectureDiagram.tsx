@@ -1,6 +1,6 @@
 export function ArchitectureDiagram() {
   return (
-    <figure className="rounded-xl border border-[color:var(--line)] bg-[color:var(--surface-elevated)]/50 p-3">
+    <figure className="rounded-lg border bg-card p-3">
       <svg
         viewBox="0 0 520 180"
         role="img"
@@ -81,7 +81,7 @@ export function ArchitectureDiagram() {
           strokeWidth="2"
         />
       </svg>
-      <figcaption className="mt-2 font-body text-xs text-[color:var(--text-muted)]">
+      <figcaption className="mt-2 text-xs text-muted-foreground">
         Mock architecture placeholder for renderer, preload, and main process boundaries.
       </figcaption>
     </figure>

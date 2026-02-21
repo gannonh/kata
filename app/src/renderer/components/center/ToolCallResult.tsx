@@ -10,22 +10,22 @@ export function ToolCallResult({ toolCall }: ToolCallResultProps) {
     <CollapsibleSection
       title={`Tool: ${toolCall.name}`}
       defaultOpen={false}
-      className="bg-[color:var(--surface-bg)]/40"
+      className="bg-muted/30"
     >
       <div className="grid gap-3">
         <div className="space-y-1">
-          <p className="font-display text-xs uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
             Arguments
           </p>
-          <pre className="overflow-x-auto rounded-lg border border-[color:var(--line)] bg-[color:var(--surface-elevated)] p-3 text-xs text-[color:var(--text-primary)]">
+          <pre className="overflow-x-auto rounded-md border bg-card p-3 text-xs text-foreground">
             <code className="language-json">{JSON.stringify(toolCall.args, null, 2)}</code>
           </pre>
         </div>
         <div className="space-y-1">
-          <p className="font-display text-xs uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
             Output
           </p>
-          <pre className="overflow-x-auto rounded-lg border border-[color:var(--line)] bg-[color:var(--surface-elevated)] p-3 text-xs text-[color:var(--text-primary)]">
+          <pre className="overflow-x-auto rounded-md border bg-card p-3 text-xs text-foreground">
             <code className="language-text">{toolCall.output}</code>
           </pre>
         </div>

@@ -1,3 +1,5 @@
+import { Badge } from '../ui/badge'
+import { Tabs, TabsList, TabsTrigger } from '../ui/tabs'
 import { cn } from '../../lib/cn'
 
 export type TabBarItem<TTab extends string> = {
@@ -23,44 +25,39 @@ export function TabBar<TTab extends string>({
   className
 }: TabBarProps<TTab>) {
   return (
-    <div
-      role="tablist"
-      aria-label={ariaLabel}
-      className={cn('flex items-center gap-2 rounded-xl border border-[color:var(--line)] bg-[color:var(--surface-elevated)] p-1', className)}
+    <Tabs
+      value={activeTab}
+      className={className}
     >
-      {tabs.map((tab) => {
-        const isActive = tab.id === activeTab
-
-        return (
-          <button
+      <TabsList
+        aria-label={ariaLabel}
+        className={cn('h-auto w-full justify-start gap-1 rounded-lg border border-border bg-muted p-1')}
+      >
+        {tabs.map((tab) => (
+          <TabsTrigger
             key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            aria-disabled={tab.disabled ? 'true' : undefined}
+            value={tab.id}
             disabled={tab.disabled}
+            aria-disabled={tab.disabled ? 'true' : undefined}
             onClick={() => {
               if (!tab.disabled) {
                 onTabChange(tab.id)
               }
             }}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-lg px-3 py-1.5 font-body text-sm transition-colors',
-              isActive
-                ? 'bg-[color:var(--line-strong)] text-[color:var(--text-primary)]'
-                : 'text-[color:var(--text-secondary)] hover:bg-[color:var(--line)]/40',
-              tab.disabled && 'cursor-not-allowed opacity-50'
-            )}
+            className="gap-2 px-3 py-1.5"
           >
             <span>{tab.label}</span>
             {typeof tab.count === 'number' ? (
-              <span className="rounded-md bg-[color:var(--line)]/60 px-1.5 py-0.5 text-xs text-[color:var(--text-primary)]">
+              <Badge
+                variant="secondary"
+                className="rounded-sm px-1.5 py-0 text-[10px]"
+              >
                 {tab.count}
-              </span>
+              </Badge>
             ) : null}
-          </button>
-        )
-      })}
-    </div>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   )
 }
