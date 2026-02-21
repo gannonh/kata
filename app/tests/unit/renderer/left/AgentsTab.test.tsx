@@ -17,6 +17,13 @@ describe('AgentsTab', () => {
     expect(screen.getByText(/background agents running/i)).toBeTruthy()
   })
 
+  it('renders empty state structure when no agents are available', () => {
+    render(<AgentsTab agents={[]} />)
+
+    expect(screen.getByRole('heading', { name: 'Agents' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /background agents running/i })).toBeNull()
+  })
+
   it('expands and collapses delegated background agents', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-02-20T15:15:00.000Z'))

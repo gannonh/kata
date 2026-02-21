@@ -32,6 +32,35 @@ describe('AgentCard', () => {
     expect(screen.getByText('12m')).toBeTruthy()
   })
 
+  it('renders hour-based relative time labels', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-02-20T12:15:00.000Z'))
+
+    render(
+      <AgentCard
+        agent={{
+          ...runningAgent,
+          lastUpdated: '2026-02-20T10:00:00.000Z'
+        }}
+      />
+    )
+
+    expect(screen.getByText('2h')).toBeTruthy()
+  })
+
+  it('omits timestamp label when lastUpdated is invalid', () => {
+    render(
+      <AgentCard
+        agent={{
+          ...runningAgent,
+          lastUpdated: 'not-a-date'
+        }}
+      />
+    )
+
+    expect(screen.queryByText(/^\d+[mhd]$/)).toBeNull()
+  })
+
   it('hides model and token metadata in compact view', () => {
     render(<AgentCard agent={runningAgent} />)
 
