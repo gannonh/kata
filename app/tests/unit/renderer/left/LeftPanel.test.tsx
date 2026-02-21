@@ -12,8 +12,9 @@ describe('LeftPanel', () => {
     render(<LeftPanel />)
 
     expect(screen.getByRole('tablist', { name: 'Left panel modules' })).toBeTruthy()
+    expect(screen.getAllByText('Kata Orchestrator').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Collapse sidebar navigation' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeTruthy()
-    expect(screen.getByText('Kata Orchestrator')).toBeTruthy()
     expect(screen.getByText('Model: gpt-5')).toBeTruthy()
     expect(screen.getByText('Tokens: 5,356')).toBeTruthy()
   })
@@ -39,5 +40,21 @@ describe('LeftPanel', () => {
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Files' }), { button: 0 })
     expect(screen.getByRole('heading', { name: 'Files' })).toBeTruthy()
     expect(screen.getByLabelText('Search files')).toBeTruthy()
+  })
+
+  it('collapses and expands the sidebar content area from the top toggle', () => {
+    render(<LeftPanel />)
+
+    const content = screen.getByTestId('left-panel-content')
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar navigation' }))
+
+    expect(content.getAttribute('aria-hidden')).toBe('true')
+    expect(content.className).toContain('opacity-0')
+    expect(screen.getByRole('button', { name: 'Expand sidebar navigation' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar navigation' }))
+
+    expect(content.getAttribute('aria-hidden')).toBe('false')
+    expect(content.className).toContain('opacity-100')
   })
 })
