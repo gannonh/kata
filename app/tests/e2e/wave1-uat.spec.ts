@@ -77,13 +77,11 @@ test.describe('Wave 1 desktop shell UAT @uat', () => {
     )
     await appWindow.mouse.up()
 
-    const leftAfter = await leftPanel.boundingBox()
-    const rightAfter = await rightPanel.boundingBox()
-
-    assertDefined(leftAfter)
-    assertDefined(rightAfter)
-
-    expect(leftAfter.width).toBeGreaterThan(leftBefore.width + 40)
-    expect(rightAfter.width).toBeGreaterThan(rightBefore.width + 40)
+    await expect
+      .poll(async () => (await leftPanel.boundingBox())?.width)
+      .toBeGreaterThan(leftBefore.width + 40)
+    await expect
+      .poll(async () => (await rightPanel.boundingBox())?.width)
+      .toBeGreaterThan(rightBefore.width + 40)
   })
 })
