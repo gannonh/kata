@@ -60,7 +60,7 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
         }}
       >
         <div className="flex h-full w-14 flex-col border-r border-border bg-background">
-          <div className="flex h-14 items-center justify-center border-b border-border">
+          <div className="flex h-14 items-center justify-center">
             {isSidebarCollapsed ? (
               <Button
                 type="button"
@@ -120,7 +120,7 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
             isSidebarCollapsed ? 'pointer-events-none opacity-0' : 'opacity-100'
           )}
         >
-          <header className="flex h-14 items-center justify-between border-b border-border px-4">
+          <header className="flex h-14 items-center justify-between px-4">
             <p className="flex items-center gap-1 text-sm font-semibold">
               Kata Orchestrator
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />

@@ -98,6 +98,11 @@ export function AppShell() {
         style={{ gridTemplateColumns }}
         className="relative grid h-full bg-background transition-[grid-template-columns] duration-200 ease-linear"
       >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-14 z-10 h-px bg-border"
+        />
+
         <LeftPanel
           collapsed={leftCollapsed}
           onCollapsedChange={setLeftCollapsed}

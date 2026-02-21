@@ -53,7 +53,7 @@ export function RightPanel({ project = mockProject, theme, onToggleTheme }: Righ
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-4">
+      <header className="flex h-14 shrink-0 items-center justify-between bg-background px-4">
         <p className="text-sm font-medium text-foreground">Right Column</p>
         <div className="flex items-center gap-2">
           {theme ? (
