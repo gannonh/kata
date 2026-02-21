@@ -22,13 +22,13 @@ describe('RightPanel', () => {
     expect(screen.getByRole('heading', { name: 'Assumptions' })).toBeTruthy()
 
     const notesTab = screen.getByRole('tab', { name: 'Notes' })
-    fireEvent.click(notesTab)
+    fireEvent.mouseDown(notesTab, { button: 0 })
 
     const notesInput = screen.getByLabelText('Project notes')
     fireEvent.change(notesInput, { target: { value: 'Capture review follow-up items.' } })
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Spec' }))
-    fireEvent.click(notesTab)
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Spec' }), { button: 0 })
+    fireEvent.mouseDown(notesTab, { button: 0 })
 
     expect(screen.getByDisplayValue('Capture review follow-up items.')).toBeTruthy()
   })
@@ -43,7 +43,7 @@ describe('RightPanel', () => {
 
     const { rerender } = render(<RightPanel project={mockProject} />)
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Notes' }))
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Notes' }), { button: 0 })
     fireEvent.change(screen.getByLabelText('Project notes'), { target: { value: 'Edited old project notes.' } })
 
     rerender(<RightPanel project={nextProject} />)

@@ -19,7 +19,7 @@ function parseMarkdown(content: string): MarkdownBlock[] {
   let index = 0
 
   while (index < lines.length) {
-    const line = lines[index] ?? ''
+    const line = lines[index]!
     const trimmed = line.trim()
 
     if (!trimmed) {
@@ -40,12 +40,12 @@ function parseMarkdown(content: string): MarkdownBlock[] {
 
     const codeMatch = /^```(.*)$/.exec(trimmed)
     if (codeMatch) {
-      const language = codeMatch[1]?.trim() ?? ''
+      const language = codeMatch[1].trim()
       const codeLines: string[] = []
       index += 1
 
       while (index < lines.length) {
-        const codeLine = lines[index] ?? ''
+        const codeLine = lines[index]!
         if (codeLine.trim() === '```') {
           index += 1
           break
@@ -65,7 +65,7 @@ function parseMarkdown(content: string): MarkdownBlock[] {
     if (/^-\s+/.test(trimmed)) {
       const items: string[] = []
       while (index < lines.length) {
-        const itemLine = (lines[index] ?? '').trim()
+        const itemLine = lines[index]!.trim()
         const itemMatch = /^-\s+(.+)$/.exec(itemLine)
         if (!itemMatch) {
           break
@@ -81,7 +81,7 @@ function parseMarkdown(content: string): MarkdownBlock[] {
     index += 1
 
     while (index < lines.length) {
-      const paragraphLine = (lines[index] ?? '').trim()
+      const paragraphLine = lines[index]!.trim()
       if (!paragraphLine || /^(#{1,6})\s+/.test(paragraphLine) || /^```/.test(paragraphLine) || /^-\s+/.test(paragraphLine)) {
         break
       }

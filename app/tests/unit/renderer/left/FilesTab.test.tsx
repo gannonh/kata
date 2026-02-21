@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { FilesTab } from '../../../../src/renderer/components/left/FilesTab'
-import { mockFiles } from '../../../../src/renderer/mock/files'
+import { mockFiles, type MockFileNode } from '../../../../src/renderer/mock/files'
 
 describe('FilesTab', () => {
   afterEach(() => {
@@ -49,5 +49,24 @@ describe('FilesTab', () => {
 
     expect(screen.queryByRole('button', { name: 'Toggle src' })).toBeNull()
     expect(screen.queryByText('StatusBadge.tsx')).toBeNull()
+  })
+
+  it('keeps matching directories without children when filtering', () => {
+    const nodes: MockFileNode[] = [
+      {
+        id: 'empty-dir',
+        name: 'empty-dir',
+        path: 'empty-dir',
+        type: 'directory'
+      }
+    ]
+
+    render(<FilesTab files={nodes} />)
+
+    fireEvent.change(screen.getByLabelText('Search files'), {
+      target: { value: 'empty' }
+    })
+
+    expect(screen.getByRole('button', { name: 'Toggle empty-dir' })).toBeTruthy()
   })
 })

@@ -21,7 +21,7 @@ describe('LeftPanel', () => {
   it('switches to the context tab and renders the shared workspace checklist', () => {
     render(<LeftPanel />)
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Context 2' }))
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Context 2' }), { button: 0 })
 
     expect(screen.getByRole('heading', { name: 'Context' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Open project spec' })).toBeTruthy()
@@ -32,11 +32,11 @@ describe('LeftPanel', () => {
   it('switches to changes and files tabs', () => {
     render(<LeftPanel />)
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Changes 3' }))
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Changes 3' }), { button: 0 })
     expect(screen.getByRole('heading', { name: 'Changes' })).toBeTruthy()
     expect(screen.getByText('Branch: feat/wave-2A-contracts')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Files 1' }))
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Files 1' }), { button: 0 })
     expect(screen.getByRole('heading', { name: 'Files' })).toBeTruthy()
     expect(screen.getByLabelText('Search files')).toBeTruthy()
   })

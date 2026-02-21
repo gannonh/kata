@@ -13,14 +13,15 @@ export function ArchitectureDiagram() {
           width="150"
           height="120"
           rx="14"
-          fill="rgba(15, 23, 42, 0.45)"
-          stroke="rgba(148, 163, 184, 0.45)"
+          fill="var(--color-muted)"
+          fillOpacity="0.45"
+          stroke="var(--color-border)"
         />
         <text
           x="85"
           y="95"
           textAnchor="middle"
-          fill="#d1d5db"
+          fill="var(--color-muted-foreground)"
           fontSize="14"
         >
           Renderer UI
@@ -32,14 +33,15 @@ export function ArchitectureDiagram() {
           width="150"
           height="120"
           rx="14"
-          fill="rgba(15, 23, 42, 0.45)"
-          stroke="rgba(148, 163, 184, 0.45)"
+          fill="var(--color-muted)"
+          fillOpacity="0.45"
+          stroke="var(--color-border)"
         />
         <text
           x="261"
           y="95"
           textAnchor="middle"
-          fill="#d1d5db"
+          fill="var(--color-muted-foreground)"
           fontSize="14"
         >
           Preload Bridge
@@ -51,14 +53,15 @@ export function ArchitectureDiagram() {
           width="150"
           height="120"
           rx="14"
-          fill="rgba(15, 23, 42, 0.45)"
-          stroke="rgba(148, 163, 184, 0.45)"
+          fill="var(--color-muted)"
+          fillOpacity="0.45"
+          stroke="var(--color-border)"
         />
         <text
           x="437"
           y="95"
           textAnchor="middle"
-          fill="#d1d5db"
+          fill="var(--color-muted-foreground)"
           fontSize="14"
         >
           Main Process
@@ -69,7 +72,7 @@ export function ArchitectureDiagram() {
           y1="88"
           x2="186"
           y2="88"
-          stroke="#9ca3af"
+          stroke="var(--color-border)"
           strokeWidth="2"
         />
         <line
@@ -77,7 +80,7 @@ export function ArchitectureDiagram() {
           y1="88"
           x2="362"
           y2="88"
-          stroke="#9ca3af"
+          stroke="var(--color-border)"
           strokeWidth="2"
         />
       </svg>

@@ -20,11 +20,11 @@ const badgeVariants = cva(
   }
 )
 
-type BadgeProps = React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof badgeVariants>
+type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & VariantProps<typeof badgeVariants>
 
 function Badge({ className, variant, ...props }: BadgeProps) {
   return (
-    <div
+    <span
       data-slot="badge"
       className={cn(badgeVariants({ variant }), className)}
       {...props}

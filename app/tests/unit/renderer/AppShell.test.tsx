@@ -28,22 +28,40 @@ describe('AppShell', () => {
     cleanup()
     globalThis.ResizeObserver = originalResizeObserver
     globalThis.localStorage.clear()
+    document.documentElement.classList.remove('dark')
+    document.documentElement.style.removeProperty('color-scheme')
     vi.restoreAllMocks()
   })
 
-  it('defaults to dark theme and toggles to light from top-right switcher', () => {
+  it('defaults to dark theme and toggles to light and back from top-right switcher', () => {
     const { getByTestId, unmount } = render(<AppShell />)
 
     const root = getByTestId('app-shell-root')
-    expect(root.className).toContain('dark')
+    expect(root.className).toContain('bg-background')
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    expect(document.documentElement.style.colorScheme).toBe('dark')
 
     fireEvent.click(screen.getByRole('button', { name: 'Switch to light theme' }))
 
-    expect(root.className.includes('dark')).toBe(false)
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+    expect(document.documentElement.style.colorScheme).toBe('light')
     expect(globalThis.localStorage.getItem('kata-theme')).toBe('light')
     expect(screen.getByRole('button', { name: 'Switch to dark theme' })).toBeTruthy()
 
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to dark theme' }))
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    expect(globalThis.localStorage.getItem('kata-theme')).toBe('dark')
+
     unmount()
+  })
+
+  it('respects a persisted light theme preference on initial render', () => {
+    globalThis.localStorage.setItem('kata-theme', 'light')
+    render(<AppShell />)
+
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+    expect(document.documentElement.style.colorScheme).toBe('light')
+    expect(screen.getByRole('button', { name: 'Switch to dark theme' })).toBeTruthy()
   })
 
   it('renders columns and supports keyboard panel resizing with window resize fallback', () => {

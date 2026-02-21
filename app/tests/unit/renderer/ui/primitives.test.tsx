@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { Badge } from '../../../../src/renderer/components/ui/badge'
 import { Button } from '../../../../src/renderer/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../../../../src/renderer/components/ui/card'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../../../src/renderer/components/ui/card'
 import { Checkbox } from '../../../../src/renderer/components/ui/checkbox'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../../../src/renderer/components/ui/collapsible'
 import { Input } from '../../../../src/renderer/components/ui/input'
@@ -18,6 +18,7 @@ describe('shadcn primitives baseline', () => {
       <Card>
         <CardHeader>
           <CardTitle>Shell Baseline</CardTitle>
+          <CardDescription>Base primitive description</CardDescription>
           <Badge>Ready</Badge>
         </CardHeader>
         <CardContent>
@@ -27,11 +28,16 @@ describe('shadcn primitives baseline', () => {
           />
           <Button type="button">Run</Button>
         </CardContent>
+        <CardFooter>
+          <span>Footer content</span>
+        </CardFooter>
       </Card>
     )
 
     expect(screen.getByRole('heading', { name: 'Shell Baseline' })).toBeTruthy()
     expect(screen.getByText('Ready')).toBeTruthy()
+    expect(screen.getByText('Base primitive description')).toBeTruthy()
+    expect(screen.getByText('Footer content')).toBeTruthy()
     expect(screen.getByRole('textbox', { name: 'Search' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Run' })).toBeTruthy()
   })

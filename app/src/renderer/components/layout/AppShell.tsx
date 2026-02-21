@@ -6,7 +6,6 @@ import { MockChatPanel } from '../center/MockChatPanel'
 import { PanelResizer } from './PanelResizer'
 import { RightPanel } from './RightPanel'
 import { Button } from '../ui/button'
-import { cn } from '../../lib/cn'
 
 const RESIZER_WIDTH = 10
 const LEFT_MIN = 260
@@ -42,6 +41,11 @@ export function AppShell() {
 
   useEffect(() => {
     globalThis.localStorage?.setItem(THEME_STORAGE_KEY, theme)
+  }, [theme])
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+    document.documentElement.style.colorScheme = theme
   }, [theme])
 
   useLayoutEffect(() => {
@@ -82,10 +86,7 @@ export function AppShell() {
   return (
     <main
       data-testid="app-shell-root"
-      className={cn(
-        theme === 'dark' ? 'dark' : undefined,
-        'h-screen w-screen overflow-hidden bg-background text-foreground'
-      )}
+      className="h-screen w-screen overflow-hidden bg-background text-foreground"
     >
       <section
         ref={shellRef}
