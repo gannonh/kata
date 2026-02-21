@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { LeftPanel } from './LeftPanel'
 import { CenterPanel } from '../center/CenterPanel'
@@ -9,36 +9,54 @@ import { RightPanel } from './RightPanel'
 const RESIZER_WIDTH = 10
 const LEFT_MIN = 260
 const LEFT_COLLAPSED = 56
-const RIGHT_MIN = 300
-const CENTER_MIN = 420
+const LEFT_DEFAULT = 320
+const LEFT_MAX = 420
+const DOCUMENT_MIN = 300
 export const THEME_STORAGE_KEY = 'kata-theme'
 
 type Theme = 'dark' | 'light'
+type DocumentSplit = { center: number; right: number }
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
 }
 
+function getMaxLeftWidth(availableWidth: number): number {
+  return Math.max(LEFT_MIN, Math.min(LEFT_MAX, availableWidth - RESIZER_WIDTH * 2 - DOCUMENT_MIN * 2))
+}
+
+function clampCenterRightOffset(offset: number, documentWidth: number): number {
+  if (documentWidth <= DOCUMENT_MIN * 2) {
+    return 0
+  }
+
+  const maxOffset = documentWidth / 2 - DOCUMENT_MIN
+  return clamp(offset, -maxOffset, maxOffset)
+}
+
+function getDocumentSplit(documentWidth: number, offset: number): DocumentSplit {
+  if (documentWidth <= 0) {
+    return { center: 0, right: 0 }
+  }
+
+  const clampedOffset = clampCenterRightOffset(offset, documentWidth)
+  const center = Math.round(documentWidth / 2 + clampedOffset)
+  return {
+    center,
+    right: Math.max(0, documentWidth - center)
+  }
+}
+
 export function AppShell() {
   const shellRef = useRef<HTMLDivElement | null>(null)
-  const leftWidthRef = useRef(320)
-  const rightWidthRef = useRef(360)
-  const [leftWidth, setLeftWidth] = useState(320)
-  const [rightWidth, setRightWidth] = useState(360)
+  const [leftWidth, setLeftWidth] = useState(LEFT_DEFAULT)
+  const [centerRightOffset, setCenterRightOffset] = useState(0)
   const [leftCollapsed, setLeftCollapsed] = useState(false)
   const [availableWidth, setAvailableWidth] = useState(1440)
   const [theme, setTheme] = useState<Theme>(() => {
     const persistedTheme = globalThis.localStorage?.getItem(THEME_STORAGE_KEY)
     return persistedTheme === 'light' || persistedTheme === 'dark' ? persistedTheme : 'dark'
   })
-
-  useEffect(() => {
-    leftWidthRef.current = leftWidth
-  }, [leftWidth])
-
-  useEffect(() => {
-    rightWidthRef.current = rightWidth
-  }, [rightWidth])
 
   useEffect(() => {
     globalThis.localStorage?.setItem(THEME_STORAGE_KEY, theme)
@@ -48,6 +66,14 @@ export function AppShell() {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     document.documentElement.style.colorScheme = theme
   }, [theme])
+
+  useLayoutEffect(() => {
+    setLeftWidth((current) => {
+      const maxLeft = getMaxLeftWidth(availableWidth)
+      const next = clamp(current, LEFT_MIN, maxLeft)
+      return next === current ? current : next
+    })
+  }, [availableWidth])
 
   useLayoutEffect(() => {
     const shellElement = shellRef.current
@@ -80,11 +106,45 @@ export function AppShell() {
   }, [])
 
   const effectiveLeftWidth = leftCollapsed ? LEFT_COLLAPSED : leftWidth
+  const documentWidth = Math.max(0, availableWidth - effectiveLeftWidth - RESIZER_WIDTH * 2)
+
+  useLayoutEffect(() => {
+    setCenterRightOffset((current) => {
+      const next = clampCenterRightOffset(current, documentWidth)
+      return next === current ? current : next
+    })
+  }, [documentWidth])
+
+  const documentSplit = useMemo(
+    () => getDocumentSplit(documentWidth, centerRightOffset),
+    [documentWidth, centerRightOffset]
+  )
+
+  const handleLeftDelta = useCallback(
+    (deltaX: number) => {
+      setLeftWidth((current) => clamp(current + deltaX, LEFT_MIN, getMaxLeftWidth(availableWidth)))
+      if (leftCollapsed) {
+        setLeftCollapsed(false)
+      }
+    },
+    [availableWidth, leftCollapsed]
+  )
+
+  const handleCenterRightDelta = useCallback(
+    (deltaX: number) => {
+      setCenterRightOffset((current) => clampCenterRightOffset(current + deltaX, documentWidth))
+    },
+    [documentWidth]
+  )
+
+  const handleCenterRightReset = useCallback(() => {
+    setCenterRightOffset(0)
+  }, [])
 
   const gridTemplateColumns = useMemo(
     () =>
-      `${effectiveLeftWidth}px ${RESIZER_WIDTH}px minmax(${CENTER_MIN}px, 1fr) ${RESIZER_WIDTH}px ${rightWidth}px`,
-    [effectiveLeftWidth, rightWidth]
+      `${effectiveLeftWidth}px ${RESIZER_WIDTH}px ${documentSplit.center}px ${RESIZER_WIDTH}px ${documentSplit.right}px`,
+    [effectiveLeftWidth, documentSplit.center, documentSplit.right]
   )
 
   return (
@@ -112,19 +172,7 @@ export function AppShell() {
           label="Resize left panel"
           testId="left-resizer"
           lineAt="end"
-          onDelta={(deltaX) => {
-            setLeftWidth((current) => {
-              const maxLeft = Math.max(
-                LEFT_MIN,
-                availableWidth - rightWidthRef.current - CENTER_MIN - RESIZER_WIDTH * 2
-              )
-              const next = clamp(current + deltaX, LEFT_MIN, maxLeft)
-              if (leftCollapsed) {
-                setLeftCollapsed(false)
-              }
-              return next
-            })
-          }}
+          onDelta={handleLeftDelta}
         />
 
         <CenterPanel>
@@ -132,21 +180,11 @@ export function AppShell() {
         </CenterPanel>
 
         <PanelResizer
-          label="Resize right panel"
+          label="Resize center-right divider"
           testId="right-resizer"
           lineAt="start"
-          onDelta={(deltaX) => {
-            setRightWidth((current) => {
-              const maxRight = Math.max(
-                RIGHT_MIN,
-                availableWidth -
-                  (leftCollapsed ? LEFT_COLLAPSED : leftWidthRef.current) -
-                  CENTER_MIN -
-                  RESIZER_WIDTH * 2
-              )
-              return clamp(current - deltaX, RIGHT_MIN, maxRight)
-            })
-          }}
+          onDelta={handleCenterRightDelta}
+          onReset={handleCenterRightReset}
         />
 
         <aside

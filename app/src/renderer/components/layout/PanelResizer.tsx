@@ -4,10 +4,11 @@ type PanelResizerProps = {
   label: string
   testId?: string
   onDelta: (deltaX: number) => void
+  onReset?: () => void
   lineAt?: 'start' | 'center' | 'end'
 }
 
-export function PanelResizer({ label, testId, onDelta, lineAt = 'center' }: PanelResizerProps) {
+export function PanelResizer({ label, testId, onDelta, onReset, lineAt = 'center' }: PanelResizerProps) {
   const handleMouseDown = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
       event.preventDefault()
@@ -53,6 +54,7 @@ export function PanelResizer({ label, testId, onDelta, lineAt = 'center' }: Pane
       aria-orientation="vertical"
       data-testid={testId}
       onMouseDown={handleMouseDown}
+      onDoubleClick={() => onReset?.()}
       onKeyDown={handleKeyDown}
       className="relative h-full w-[10px] cursor-col-resize bg-transparent px-0 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >

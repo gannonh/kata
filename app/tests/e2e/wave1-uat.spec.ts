@@ -15,7 +15,7 @@ test.describe('Wave 1 desktop shell UAT @uat', () => {
     await expect(appWindow.getByRole('heading', { name: 'Spec' })).toBeVisible()
 
     await expect(appWindow.getByLabel('Resize left panel')).toBeVisible()
-    await expect(appWindow.getByLabel('Resize right panel')).toBeVisible()
+    await expect(appWindow.getByLabel('Resize center-right divider')).toBeVisible()
   })
 
   test('uses Wave 1 BrowserWindow size and minimum constraints @quality-gate', async ({
@@ -37,33 +37,68 @@ test.describe('Wave 1 desktop shell UAT @uat', () => {
     expect(windowState.title).toBe('Kata Orchestrator')
   })
 
-  test('supports horizontal panel resizing via drag handles @uat', async ({ appWindow }) => {
+  test('supports left sizing and center-right divider resizing @uat', async ({ appWindow }) => {
     const leftPanel = appWindow.getByTestId('left-panel')
+    const centerPanel = appWindow.getByTestId('center-panel')
     const rightPanel = appWindow.getByTestId('right-panel')
     const leftResizer = appWindow.getByTestId('left-resizer')
     const rightResizer = appWindow.getByTestId('right-resizer')
 
     const leftBefore = await leftPanel.boundingBox()
-    const rightBefore = await rightPanel.boundingBox()
-    const leftResizerBox = await leftResizer.boundingBox()
-    const rightResizerBox = await rightResizer.boundingBox()
-
     assertDefined(leftBefore)
-    assertDefined(rightBefore)
-    assertDefined(leftResizerBox)
-    assertDefined(rightResizerBox)
 
-    await appWindow.mouse.move(
-      leftResizerBox.x + leftResizerBox.width / 2,
-      leftResizerBox.y + leftResizerBox.height / 2
-    )
-    await appWindow.mouse.down()
-    await appWindow.mouse.move(
-      leftResizerBox.x + leftResizerBox.width / 2 + 120,
-      leftResizerBox.y + leftResizerBox.height / 2,
-      { steps: 12 }
-    )
-    await appWindow.mouse.up()
+    await leftResizer.focus()
+    for (let index = 0; index < 4; index += 1) {
+      await leftResizer.press('ArrowRight')
+    }
+
+    await expect
+      .poll(async () => (await leftPanel.boundingBox())?.width)
+      .toBeGreaterThan(leftBefore.width + 40)
+
+    const centerAfterLeft = await centerPanel.boundingBox()
+    const rightAfterLeft = await rightPanel.boundingBox()
+    assertDefined(centerAfterLeft)
+    assertDefined(rightAfterLeft)
+
+    await rightResizer.focus()
+    for (let index = 0; index < 4; index += 1) {
+      await rightResizer.press('ArrowRight')
+    }
+
+    await expect
+      .poll(async () => (await centerPanel.boundingBox())?.width)
+      .toBeGreaterThan(centerAfterLeft.width + 40)
+    await expect
+      .poll(async () => (await rightPanel.boundingBox())?.width)
+      .toBeLessThan(rightAfterLeft.width - 40)
+  })
+
+  test('rebalances columns at minimum width without horizontal clipping @quality-gate', async ({
+    electronApp,
+    appWindow
+  }) => {
+    await electronApp.evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows()[0]
+      window.setSize(1040, 900)
+    })
+
+    await expect.poll(async () => {
+      return await appWindow.evaluate(() => {
+        const root = document.documentElement
+        return root.scrollWidth - root.clientWidth
+      })
+    }).toBeLessThanOrEqual(0)
+  })
+
+  test('double-clicking center divider resets center and right to equal widths @quality-gate', async ({
+    appWindow
+  }) => {
+    const centerPanel = appWindow.getByTestId('center-panel')
+    const rightPanel = appWindow.getByTestId('right-panel')
+    const rightResizer = appWindow.getByTestId('right-resizer')
+    const rightResizerBox = await rightResizer.boundingBox()
+    assertDefined(rightResizerBox)
 
     await appWindow.mouse.move(
       rightResizerBox.x + rightResizerBox.width / 2,
@@ -77,11 +112,22 @@ test.describe('Wave 1 desktop shell UAT @uat', () => {
     )
     await appWindow.mouse.up()
 
-    await expect
-      .poll(async () => (await leftPanel.boundingBox())?.width)
-      .toBeGreaterThan(leftBefore.width + 40)
-    await expect
-      .poll(async () => (await rightPanel.boundingBox())?.width)
-      .toBeGreaterThan(rightBefore.width + 40)
+    await expect.poll(async () => {
+      const center = await centerPanel.boundingBox()
+      const right = await rightPanel.boundingBox()
+      assertDefined(center)
+      assertDefined(right)
+      return Math.round(Math.abs(center.width - right.width))
+    }).toBeGreaterThan(20)
+
+    await rightResizer.dblclick()
+
+    await expect.poll(async () => {
+      const center = await centerPanel.boundingBox()
+      const right = await rightPanel.boundingBox()
+      assertDefined(center)
+      assertDefined(right)
+      return Math.round(Math.abs(center.width - right.width))
+    }).toBeLessThanOrEqual(2)
   })
 })
