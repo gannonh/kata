@@ -1,6 +1,5 @@
 import { Badge } from '../ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs'
-import { cn } from '../../lib/cn'
 
 export type TabBarItem<TTab extends string> = {
   id: TTab
@@ -58,7 +57,7 @@ export function TabBar<TTab extends string>({
     >
       <TabsList
         aria-label={ariaLabel}
-        className={cn('h-auto w-full justify-start gap-1 overflow-hidden rounded-lg border border-border bg-muted p-1')}
+        className="h-auto w-full justify-start gap-1 overflow-hidden rounded-lg border border-border bg-muted p-1"
         onKeyDown={(event) => {
           if (event.key === 'ArrowRight' || event.key === 'ArrowLeft' || event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') {
             event.preventDefault()

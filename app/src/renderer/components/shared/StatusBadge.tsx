@@ -10,17 +10,22 @@ type StatusBadgeProps = {
 
 const toneVariant: Record<StatusBadgeTone, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   neutral: 'outline',
-  info: 'secondary',
+  info: 'outline',
   success: 'default',
-  warning: 'secondary',
+  warning: 'outline',
   danger: 'destructive'
+}
+
+const toneClassName: Partial<Record<StatusBadgeTone, string>> = {
+  info: 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+  warning: 'border-amber-500/50 bg-amber-500/15 text-amber-800 dark:text-amber-300'
 }
 
 export function StatusBadge({ label, tone = 'neutral', className }: StatusBadgeProps) {
   return (
     <Badge
       variant={toneVariant[tone]}
-      className={className}
+      className={[toneClassName[tone], className].filter(Boolean).join(' ')}
     >
       {label}
     </Badge>

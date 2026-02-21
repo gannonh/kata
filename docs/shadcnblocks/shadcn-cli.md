@@ -12,7 +12,7 @@ Integration with shadcn CLI v3.0, featuring namespaced registries and private re
 {
   "$schema": "https://ui.shadcn.com/schema.json",
   "style": "radix-vega",
-  "rsc": true,
+  "rsc": false,
   "registries": {
     "@shadcnblocks": {
       "url": "https://shadcnblocks.com/r/{name}",

@@ -11,7 +11,7 @@ const LEFT_MIN = 260
 const LEFT_COLLAPSED = 56
 const RIGHT_MIN = 300
 const CENTER_MIN = 420
-const THEME_STORAGE_KEY = 'kata-theme'
+export const THEME_STORAGE_KEY = 'kata-theme'
 
 type Theme = 'dark' | 'light'
 
@@ -44,7 +44,7 @@ export function AppShell() {
     globalThis.localStorage?.setItem(THEME_STORAGE_KEY, theme)
   }, [theme])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     document.documentElement.style.colorScheme = theme
   }, [theme])

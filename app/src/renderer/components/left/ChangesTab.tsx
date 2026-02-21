@@ -51,7 +51,7 @@ export function ChangesTab({ git }: ChangesTabProps) {
         </CardContent>
       </Card>
 
-      <Card className="mt-3">
+      <Card className="mt-4">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">
             Unstaged ({git.unstaged.length})

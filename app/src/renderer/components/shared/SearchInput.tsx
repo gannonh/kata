@@ -58,6 +58,8 @@ export function SearchInput({
         <Button
           type="button"
           aria-label="Clear search"
+          variant="ghost"
+          size="sm"
           onClick={clearValue}
         >
           Clear

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { AppShell } from '../../../src/renderer/components/layout/AppShell'
+import { AppShell, THEME_STORAGE_KEY } from '../../../src/renderer/components/layout/AppShell'
 
 function mockClientWidth(width: number): () => void {
   const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
@@ -45,18 +45,18 @@ describe('AppShell', () => {
 
     expect(document.documentElement.classList.contains('dark')).toBe(false)
     expect(document.documentElement.style.colorScheme).toBe('light')
-    expect(globalThis.localStorage.getItem('kata-theme')).toBe('light')
+    expect(globalThis.localStorage.getItem(THEME_STORAGE_KEY)).toBe('light')
     expect(screen.getByRole('button', { name: 'Switch to dark theme' })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Switch to dark theme' }))
     expect(document.documentElement.classList.contains('dark')).toBe(true)
-    expect(globalThis.localStorage.getItem('kata-theme')).toBe('dark')
+    expect(globalThis.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark')
 
     unmount()
   })
 
   it('respects a persisted light theme preference on initial render', () => {
-    globalThis.localStorage.setItem('kata-theme', 'light')
+    globalThis.localStorage.setItem(THEME_STORAGE_KEY, 'light')
     render(<AppShell />)
 
     expect(document.documentElement.classList.contains('dark')).toBe(false)
