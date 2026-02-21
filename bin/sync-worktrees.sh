@@ -4,8 +4,11 @@ set -euo pipefail
 MAIN_DIR="/Users/gannonhall/dev/kata/kata-orchestrator"
 WT_DIR="/Users/gannonhall/dev/kata/kata-orchestrator.worktrees"
 
-# Discover all worktree directories automatically
-mapfile -t WORKTREES < <(find "$WT_DIR" -mindepth 1 -maxdepth 1 -type d -name 'wt-*' | sort | xargs -I{} basename {})
+# Discover all worktree directories automatically (bash 3.2 compatible)
+WORKTREES=()
+while IFS= read -r dir; do
+  WORKTREES+=("$(basename "$dir")")
+done < <(find "$WT_DIR" -mindepth 1 -maxdepth 1 -type d -name 'wt-*' | sort)
 
 errors=0
 
