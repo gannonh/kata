@@ -2,6 +2,7 @@ import type { GitFileState, GitSnapshot } from '../../types/git'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { LeftSection } from './LeftSection'
+import { LEFT_PANEL_TYPOGRAPHY } from './left-typography'
 
 type ChangesTabProps = {
   git: GitSnapshot
@@ -21,7 +22,7 @@ function renderChanges(items: GitSnapshot['staged']) {
       {items.map((item) => (
         <li
           key={`${item.state}:${item.path}`}
-          className="text-sm text-muted-foreground"
+          className={LEFT_PANEL_TYPOGRAPHY.bodyMuted}
         >
           {stateIcon[item.state]} {item.path}
         </li>
@@ -37,8 +38,8 @@ export function ChangesTab({ git }: ChangesTabProps) {
       description="View and accept file changes."
       addActionLabel="Add change"
     >
-      <p className="text-sm">Branch: {git.branch}</p>
-      <p className="text-xs text-muted-foreground">
+      <p className={LEFT_PANEL_TYPOGRAPHY.body}>Branch: {git.branch}</p>
+      <p className={LEFT_PANEL_TYPOGRAPHY.meta}>
         ↑{git.ahead} ↓{git.behind}
       </p>
 

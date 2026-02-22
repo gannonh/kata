@@ -13,7 +13,7 @@ type LeftStatusSectionProps = {
   subtitle?: string
   tasks: ProjectTask[]
   onCyclePreviewState?: () => void
-  onSelectPreviewState?: (state: 1 | 2 | 3) => void
+  onSelectPreviewState?: (state: 0 | 1 | 2 | 3) => void
   previewState?: 0 | 1 | 2 | 3
 }
 
@@ -24,11 +24,19 @@ const SEGMENT_TONE_CLASS: Record<SegmentTone, string> = {
   todo: 'bg-muted'
 }
 
+const PREVIEW_STATES = [0, 1, 2, 3] as const
+
 function segmentToneClass(segment: SegmentTone): string {
   return SEGMENT_TONE_CLASS[segment]
 }
 
-function previewToneClass(state: 1 | 2 | 3, isActive: boolean) {
+function previewToneClass(state: 0 | 1 | 2 | 3, isActive: boolean) {
+  if (state === 0) {
+    return isActive
+      ? 'border-border bg-muted/35 text-foreground'
+      : 'border-border/70 text-muted-foreground'
+  }
+
   if (state === 1) {
     return isActive
       ? 'border-status-todo/60 bg-status-todo/20 text-status-todo'
@@ -46,6 +54,9 @@ function previewToneClass(state: 1 | 2 | 3, isActive: boolean) {
     : 'border-status-done/45 text-status-done'
 }
 
+/**
+ * Renders top-left status summary, segment bar, and preview-state controls.
+ */
 export function LeftStatusSection({
   title,
   subtitle,
@@ -125,9 +136,8 @@ export function LeftStatusSection({
           <p className="text-sm text-muted-foreground">{progress.message}</p>
         )}
         <div className="flex items-center gap-1">
-          {[1, 2, 3].map((state) => {
-            const typedState = state as 1 | 2 | 3
-            const isActive = previewState === typedState
+          {PREVIEW_STATES.map((state) => {
+            const isActive = previewState === state
 
             return (
               <button
@@ -135,11 +145,11 @@ export function LeftStatusSection({
                 type="button"
                 className={cn(
                   'h-5 min-w-5 rounded border px-1 text-[11px] leading-none transition-colors',
-                  previewToneClass(typedState, isActive)
+                  previewToneClass(state, isActive)
                 )}
                 aria-label={`Show preview state ${state}`}
                 aria-pressed={isActive}
-                onClick={() => onSelectPreviewState?.(typedState)}
+                onClick={() => onSelectPreviewState?.(state)}
               >
                 {state}
               </button>

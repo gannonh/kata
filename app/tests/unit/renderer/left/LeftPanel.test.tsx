@@ -62,12 +62,14 @@ describe('LeftPanel', () => {
     expect(screen.getByText('Tasks ready to go.')).toBeTruthy()
   })
 
-  it('supports direct preview selection using the 1-2-3 controls', () => {
+  it('supports direct preview selection using the 0-1-2-3 controls', () => {
     render(<LeftPanel />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Show preview state 2' }))
 
     expect(screen.getByText('3 of 5 complete.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Show preview state 0' }))
+    expect(screen.getByText('Tasks ready to go.')).toBeTruthy()
   })
 
   it('keeps the context tab count aligned to the context tab content when preview is active', () => {
@@ -76,19 +78,38 @@ describe('LeftPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cycle status preview state' }))
     const contextTab = screen.getByRole('tab', { name: 'Context' })
 
-    expect(contextTab.getAttribute('title')).toBe('Context (2)')
+    expect(contextTab.getAttribute('title')).toBe('Context (6)')
   })
 
-  it('switches to the context tab and renders the shared workspace checklist', () => {
+  it('switches to the context tab and renders the baseline context hierarchy', () => {
     render(<LeftPanel />)
 
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Context' }), { button: 0 })
 
     expect(screen.getByRole('heading', { name: 'Context' })).toBeTruthy()
-    expect(screen.getByText('Context about the task, shared with all agents on demand.')).toBeTruthy()
-    expect(screen.queryByRole('link', { name: 'Open project spec' })).toBeNull()
-    expect(screen.getByLabelText('Create contracts and shared baseline components')).toBeTruthy()
-    expect(screen.getByLabelText('Implement left panel tabs')).toBeTruthy()
+    expect(screen.getByText('Project specs, tasks, and notes are stored as markdown files in')).toBeTruthy()
+    const notesPath = screen.getByText('./notes')
+    expect(notesPath.tagName).toBe('CODE')
+    expect(notesPath.closest('p')?.textContent).toContain('in ./notes')
+    expect(screen.getByTestId('context-spec-section')).toBeTruthy()
+    expect(screen.queryByText('/tui-app/.workspace.')).toBeNull()
+    expect(screen.getByText('Spec')).toBeTruthy()
+    expect(screen.getByText('Create contracts and shared baseline components')).toBeTruthy()
+    expect(screen.getByText('Implement left panel tabs')).toBeTruthy()
+  })
+
+  it('feeds the preview cycle into the context tab states', () => {
+    render(<LeftPanel />)
+    fireEvent.click(screen.getByRole('button', { name: 'Cycle status preview state' }))
+
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Context' }), { button: 0 })
+    expect(screen.getByText('Notes')).toBeTruthy()
+    expect(screen.getByText('Team Brainstorm - 2/22/26')).toBeTruthy()
+    expect(screen.getByText('Scratchpad')).toBeTruthy()
+    const teamNoteRow = screen.getByTestId('context-note-row-team-brainstorm-2-22-26')
+    const scratchpadRow = screen.getByTestId('context-note-row-scratchpad')
+    expect(teamNoteRow.querySelector('svg')).toBeNull()
+    expect(scratchpadRow.querySelector('svg')).toBeNull()
   })
 
   it('switches to changes and files tabs', () => {

@@ -9,7 +9,7 @@ import { mockGit } from '../../mock/git'
 import { getMockProject } from '../../mock/project'
 import { AgentsTab } from '../left/AgentsTab'
 import { ChangesTab } from '../left/ChangesTab'
-import { ContextTab } from '../left/ContextTab'
+import { ContextTab, getContextTabCount } from '../left/ContextTab'
 import { FilesTab } from '../left/FilesTab'
 import { LeftStatusSection } from '../left/LeftStatusSection'
 import { ErrorBoundary } from '../shared/ErrorBoundary'
@@ -65,6 +65,7 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
   const [previewState, setPreviewState] = useState<PreviewState>(0)
   const project = useMemo(() => getMockProject(), [])
   const statusTasks = previewState === 0 ? project.tasks : previewTasks[previewState]
+  const contextTabCount = getContextTabCount(previewState, project.tasks.length)
 
   const isSidebarCollapsed = collapsed ?? internalCollapsed
 
@@ -78,11 +79,11 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
   const tabs = useMemo(
     () => [
       { id: 'agents', label: 'Agents', icon: Users, count: mockAgents.length },
-      { id: 'context', label: 'Context', icon: Layers3, count: project.tasks.length },
+      { id: 'context', label: 'Context', icon: Layers3, count: contextTabCount },
       { id: 'changes', label: 'Changes', icon: GitBranch, count: mockGit.staged.length + mockGit.unstaged.length },
       { id: 'files', label: 'Files', icon: Folder, count: mockFiles.length }
     ] satisfies Array<{ id: LeftPanelTab; label: string; icon: ComponentType<{ className?: string }>; count: number }>,
-    [project.tasks.length]
+    [contextTabCount]
   )
 
   return (
@@ -191,7 +192,10 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
                 <AgentsTab agents={mockAgents} />
               ) : null}
               {activeTab === 'context' ? (
-                <ContextTab project={project} />
+                <ContextTab
+                  project={project}
+                  previewState={previewState}
+                />
               ) : null}
               {activeTab === 'changes' ? (
                 <ChangesTab git={mockGit} />
