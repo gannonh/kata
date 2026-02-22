@@ -17,6 +17,7 @@ Linear is the single source of truth for all desktop project management: task pr
 - Workflow contract: Linear document "Desktop App Linear Workflow Contract"
 - Use the `/kata-linear` skill for ticket lifecycle (start, end, next). Use `/linear` for general Linear queries.
 - Always pass `includeRelations: true` when calling `get_issue` to see blocking dependencies.
+- Always reference the attached media as the source of truth for design specs and mocks.
 
 ### Determining What to Work on Next
 
@@ -52,14 +53,6 @@ Linear is the single source of truth for all desktop project management: task pr
 - Unit tests: `tests/unit/`
 - E2E/UAT tests: `tests/e2e/`
 
-## SHADCN Adoption
-
-- Desktop renderer UI standard is now SHADCN-first.
-- SHADCN UI primitives live in `src/renderer/components/ui/`.
-- SHADCN Blocks compositions live in `src/renderer/components/shadcnblocks/`.
-- Reuse existing SHADCN primitives/blocks before creating custom renderer UI primitives.
-- Keep utility/style composition aligned with the configured SHADCN aliases and tokens in `components.json`.
-- For new block pulls from `@shadcnblocks`, ensure `SHADCNBLOCKS_API_KEY` is available in the environment.
 
 ## Commands
 
@@ -136,6 +129,13 @@ Port 5199 is hardcoded (`strictPort: true`) to avoid the mismatch where Vite aut
 1. Test Driven Development is mandatory for all code changes. 
 2. Write tests before implementation, ensure they fail, then implement the feature until tests pass.
 3. Use the Test Driven Development Agent Skill (`test-driven-development`) for guidance.
+
+## SHADCN Adoption
+
+- Desktop renderer UI standard is now SHADCN-first.
+- SHADCN UI primitives live in `src/renderer/components/ui/`.
+- SHADCN Blocks compositions live in `src/renderer/components/shadcnblocks/`.
+- Keep utility/style composition aligned with the configured SHADCN aliases and tokens in `components.json`.
 
 ## Private Component Registry (React Source of Truth)
 
