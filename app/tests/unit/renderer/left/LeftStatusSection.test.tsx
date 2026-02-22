@@ -77,10 +77,12 @@ describe('LeftStatusSection', () => {
       />
     )
 
+    expect(screen.getByRole('button', { name: 'Show preview state 0' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Show preview state 3' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show preview state 0' }))
 
     expect(screen.getByRole('button', { name: 'Show preview state 1' }).getAttribute('aria-pressed')).toBe('true')
-    expect(selected).toEqual([3])
+    expect(selected).toEqual([3, 0])
   })
 
   it('does not bubble options button clicks to preview cycle handler', () => {

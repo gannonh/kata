@@ -13,7 +13,7 @@ type LeftStatusSectionProps = {
   subtitle?: string
   tasks: ProjectTask[]
   onCyclePreviewState?: () => void
-  onSelectPreviewState?: (state: 1 | 2 | 3) => void
+  onSelectPreviewState?: (state: 0 | 1 | 2 | 3) => void
   previewState?: 0 | 1 | 2 | 3
 }
 
@@ -28,7 +28,13 @@ function segmentToneClass(segment: SegmentTone): string {
   return SEGMENT_TONE_CLASS[segment]
 }
 
-function previewToneClass(state: 1 | 2 | 3, isActive: boolean) {
+function previewToneClass(state: 0 | 1 | 2 | 3, isActive: boolean) {
+  if (state === 0) {
+    return isActive
+      ? 'border-border bg-muted/35 text-foreground'
+      : 'border-border/70 text-muted-foreground'
+  }
+
   if (state === 1) {
     return isActive
       ? 'border-status-todo/60 bg-status-todo/20 text-status-todo'
@@ -125,8 +131,8 @@ export function LeftStatusSection({
           <p className="text-sm text-muted-foreground">{progress.message}</p>
         )}
         <div className="flex items-center gap-1">
-          {[1, 2, 3].map((state) => {
-            const typedState = state as 1 | 2 | 3
+          {[0, 1, 2, 3].map((state) => {
+            const typedState = state as 0 | 1 | 2 | 3
             const isActive = previewState === typedState
 
             return (
