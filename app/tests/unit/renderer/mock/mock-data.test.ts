@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { mockAgents } from '../../../../src/renderer/mock/agents'
 import { mockFiles } from '../../../../src/renderer/mock/files'
@@ -90,5 +90,18 @@ describe('renderer mock data contracts', () => {
     expect(project.id).toBe('phase-1')
     expect(project.tasks).toHaveLength(2)
     expect(project.tasks.every((task) => task.status === 'todo')).toBe(true)
+  })
+
+  it('falls back to default when localStorage throws', () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError: access denied')
+    })
+
+    const project = getMockProject()
+
+    expect(project.id).toBe('phase-1')
+    expect(project.tasks).toHaveLength(2)
+
+    getItemSpy.mockRestore()
   })
 })
