@@ -182,7 +182,7 @@ export function ContextTab({ project, previewState = 0 }: ContextTabProps) {
         </div>
 
         {state.showNotes ? (
-          <div className="space-y-1 pt-1">
+          <div className="space-y-0.5 pt-1">
             <p
               data-testid="context-notes-heading"
               className={`flex items-center gap-2 ${LEFT_PANEL_TYPOGRAPHY.listItemStrong}`}
@@ -194,7 +194,7 @@ export function ContextTab({ project, previewState = 0 }: ContextTabProps) {
               data-testid="context-note-row-team-brainstorm-2-22-26"
               data-context-note-selected={state.highlightTeamNote}
               className={[
-                `flex items-center gap-2 border px-3 py-1.5 ${LEFT_PANEL_TYPOGRAPHY.listItem}`,
+                'flex items-center gap-2 border px-3 py-0.5 text-sm leading-4 text-muted-foreground',
                 state.highlightTeamNote ? 'border-border/70 bg-muted/25' : 'border-transparent'
               ].join(' ')}
             >
@@ -209,7 +209,7 @@ export function ContextTab({ project, previewState = 0 }: ContextTabProps) {
             <p
               data-testid="context-note-row-scratchpad"
               data-context-note-selected="false"
-              className={`flex items-center gap-2 border border-transparent px-3 py-1.5 ${LEFT_PANEL_TYPOGRAPHY.listItem}`}
+              className="flex items-center gap-2 border border-transparent px-3 py-0.5 text-sm leading-4 text-muted-foreground"
             >
               <span
                 aria-hidden="true"

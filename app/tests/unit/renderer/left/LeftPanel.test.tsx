@@ -110,7 +110,13 @@ describe('LeftPanel', () => {
     expect(screen.getByText('Team Brainstorm - 2/22/26')).toBeTruthy()
     expect(screen.getByText('Scratchpad')).toBeTruthy()
     expect(screen.getByTestId('context-notes-heading').className).toContain('text-foreground/95')
-    expect(screen.getByTestId('context-note-row-team-brainstorm-2-22-26').querySelector('svg')).toBeNull()
+    const teamNoteRow = screen.getByTestId('context-note-row-team-brainstorm-2-22-26')
+    const scratchpadRow = screen.getByTestId('context-note-row-scratchpad')
+    expect(teamNoteRow.querySelector('svg')).toBeNull()
+    expect(scratchpadRow.querySelector('svg')).toBeNull()
+    expect(teamNoteRow.className).toMatch(/\bpy-0\.5\b/)
+    expect(scratchpadRow.className).toMatch(/\bpy-0\.5\b/)
+    expect(teamNoteRow.className).not.toMatch(/\bpy-1\.5\b/)
   })
 
   it('switches to changes and files tabs', () => {
