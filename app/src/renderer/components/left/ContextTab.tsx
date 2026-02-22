@@ -131,8 +131,6 @@ export function getContextTabCount(previewState: ContextPreviewState): number {
   return 1 + state.tasks.length + notesCount
 }
 
-const noop = () => {}
-
 export function ContextTab({ project, previewState = 0 }: ContextTabProps) {
   const state = contextStateForPreview(previewState)
 
@@ -141,7 +139,6 @@ export function ContextTab({ project, previewState = 0 }: ContextTabProps) {
       title="Context"
       description=""
       addActionLabel="Add context"
-      onAddAction={noop}
     >
       <div
         data-testid="context-tab"

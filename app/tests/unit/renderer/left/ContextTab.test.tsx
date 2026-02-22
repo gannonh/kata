@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { ContextTab } from '../../../../src/renderer/components/left/ContextTab'
+import { ContextTab, getContextTabCount } from '../../../../src/renderer/components/left/ContextTab'
 import { mockProject } from '../../../../src/renderer/mock/project'
 
 describe('ContextTab', () => {
@@ -28,6 +28,11 @@ describe('ContextTab', () => {
     expect(screen.queryByText('/tui-app/.workspace.')).toBeNull()
     expect(screen.queryByText('Notes')).toBeNull()
     expect(screen.queryByText('Add context')).toBeNull()
+  })
+
+  it('falls back to state 0 count when preview state is out of range', () => {
+    const invalidPreviewState = 99 as unknown as 0 | 1 | 2 | 3
+    expect(getContextTabCount(invalidPreviewState)).toBe(6)
   })
 
   it('renders the spec + notes state', () => {
