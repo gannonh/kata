@@ -18,7 +18,8 @@ test.describe('Desktop app navigation @uat', () => {
 
     await leftTabs.getByRole('tab', { name: /Changes/ }).click()
     await expect(appWindow.getByRole('heading', { name: 'Changes' })).toBeVisible()
-    await expect(appWindow.getByText(/^Branch:/)).toBeVisible()
+    await expect(appWindow.getByText('Your code lives in:')).toBeVisible()
+    await expect(appWindow.getByText('No changes yet')).toBeVisible()
 
     await leftTabs.getByRole('tab', { name: /Files/ }).click()
     await expect(appWindow.getByRole('heading', { name: 'Files' })).toBeVisible()
