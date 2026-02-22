@@ -65,7 +65,7 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
   const [previewState, setPreviewState] = useState<PreviewState>(0)
   const project = useMemo(() => getMockProject(), [])
   const statusTasks = previewState === 0 ? project.tasks : previewTasks[previewState]
-  const contextTabCount = getContextTabCount(previewState)
+  const contextTabCount = getContextTabCount(previewState, project.tasks.length)
 
   const isSidebarCollapsed = collapsed ?? internalCollapsed
 

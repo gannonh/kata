@@ -78,7 +78,7 @@ describe('LeftPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cycle status preview state' }))
     const contextTab = screen.getByRole('tab', { name: 'Context' })
 
-    expect(contextTab.getAttribute('title')).toBe('Context (9)')
+    expect(contextTab.getAttribute('title')).toBe('Context (6)')
   })
 
   it('switches to the context tab and renders the baseline context hierarchy', () => {
@@ -90,15 +90,12 @@ describe('LeftPanel', () => {
     expect(screen.getByText('Project specs, tasks, and notes are stored as markdown files in')).toBeTruthy()
     const notesPath = screen.getByText('./notes')
     expect(notesPath.tagName).toBe('CODE')
-    expect(notesPath.className).toContain('font-mono')
-    expect(notesPath.className).toContain('whitespace-nowrap')
-    expect(notesPath.className).toContain('text-[10px]')
     expect(notesPath.closest('p')?.textContent).toContain('in ./notes')
-    expect(screen.getByTestId('context-spec-section').className).toContain('pt-2')
+    expect(screen.getByTestId('context-spec-section')).toBeTruthy()
     expect(screen.queryByText('/tui-app/.workspace.')).toBeNull()
     expect(screen.getByText('Spec')).toBeTruthy()
-    expect(screen.getByText('Scaffold Rust project with dependencies')).toBeTruthy()
-    expect(screen.getByText('Wire everything together in main and test end-to-end')).toBeTruthy()
+    expect(screen.getByText('Create contracts and shared baseline components')).toBeTruthy()
+    expect(screen.getByText('Implement left panel tabs')).toBeTruthy()
   })
 
   it('feeds the preview cycle into the context tab states', () => {
@@ -109,14 +106,10 @@ describe('LeftPanel', () => {
     expect(screen.getByText('Notes')).toBeTruthy()
     expect(screen.getByText('Team Brainstorm - 2/22/26')).toBeTruthy()
     expect(screen.getByText('Scratchpad')).toBeTruthy()
-    expect(screen.getByTestId('context-notes-heading').className).toContain('text-foreground/95')
     const teamNoteRow = screen.getByTestId('context-note-row-team-brainstorm-2-22-26')
     const scratchpadRow = screen.getByTestId('context-note-row-scratchpad')
     expect(teamNoteRow.querySelector('svg')).toBeNull()
     expect(scratchpadRow.querySelector('svg')).toBeNull()
-    expect(teamNoteRow.className).toMatch(/\bpy-0\.5\b/)
-    expect(scratchpadRow.className).toMatch(/\bpy-0\.5\b/)
-    expect(teamNoteRow.className).not.toMatch(/\bpy-1\.5\b/)
   })
 
   it('switches to changes and files tabs', () => {

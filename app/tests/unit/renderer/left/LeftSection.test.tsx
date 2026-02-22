@@ -46,4 +46,19 @@ describe('LeftSection', () => {
 
     expect(onAddAction).toHaveBeenCalledTimes(1)
   })
+
+  it('does not render an empty description paragraph when description is omitted', () => {
+    const { container } = render(
+      <LeftSection
+        title="Agents"
+        addActionLabel="Add agent"
+      >
+        <div>Body content</div>
+      </LeftSection>
+    )
+
+    expect(screen.getByRole('heading', { name: 'Agents' })).toBeTruthy()
+    expect(screen.getByText('Body content')).toBeTruthy()
+    expect(container.querySelectorAll('section > p')).toHaveLength(0)
+  })
 })

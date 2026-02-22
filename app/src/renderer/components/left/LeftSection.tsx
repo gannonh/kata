@@ -7,7 +7,7 @@ import { LEFT_PANEL_TYPOGRAPHY } from './left-typography'
 
 type LeftSectionProps = {
   title: string
-  description: string
+  description?: string
   addActionLabel: string
   onAddAction?: () => void
   titleClassName?: string
@@ -15,6 +15,9 @@ type LeftSectionProps = {
   children: ReactNode
 }
 
+/**
+ * Shared scaffold for left-panel sections with heading, optional description, and add action.
+ */
 export function LeftSection({
   title,
   description,
@@ -40,7 +43,9 @@ export function LeftSection({
           <Plus className="h-4 w-4" />
         </Button>
       </div>
-      <p className={cn(LEFT_PANEL_TYPOGRAPHY.sectionDescription, descriptionClassName)}>{description}</p>
+      {description ? (
+        <p className={cn('mt-2', LEFT_PANEL_TYPOGRAPHY.sectionDescription, descriptionClassName)}>{description}</p>
+      ) : null}
       <div className="mt-4">{children}</div>
     </section>
   )

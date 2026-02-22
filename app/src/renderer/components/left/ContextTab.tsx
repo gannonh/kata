@@ -1,6 +1,7 @@
 import { Check, List } from 'lucide-react'
 
-import type { ProjectSpec } from '../../types/project'
+import { cn } from '../../lib/cn'
+import type { ProjectSpec, TaskStatus } from '../../types/project'
 import { LeftSection } from './LeftSection'
 import { LEFT_PANEL_TYPOGRAPHY } from './left-typography'
 
@@ -11,7 +12,7 @@ type ContextTabProps = {
   previewState?: ContextPreviewState
 }
 
-type ContextTaskStatus = 'todo' | 'in_progress' | 'done'
+type ContextTaskStatus = TaskStatus
 type ContextBadgeTone = 'violet' | 'lime' | 'amber' | 'emerald'
 
 type ContextTask = {
@@ -27,46 +28,20 @@ type ContextState = {
   highlightTeamNote: boolean
 }
 
-const BASE_TASKS: ContextTask[] = [
-  { id: 'spec-scaffold-rust', title: 'Scaffold Rust project with dependencies', status: 'todo' },
-  { id: 'spec-github-client', title: 'Implement GitHub API client module', status: 'todo' },
-  { id: 'spec-state-events', title: 'Build app state and event handling', status: 'todo' },
-  { id: 'spec-ratatui', title: 'Build TUI rendering with Ratatui widgets', status: 'todo' },
-  { id: 'spec-main-wire', title: 'Wire everything together in main and test end-to-end', status: 'todo' }
-]
-
-const ACTIVE_TASKS: ContextTask[] = [
-  { id: 'task-bootstrap', title: 'Bootstrap desktop shell and workspace state', status: 'in_progress', badgeTone: 'violet' },
-  { id: 'task-space-create', title: 'Implement space creation and metadata management', status: 'in_progress', badgeTone: 'amber' },
-  { id: 'task-branch-lifecycle', title: 'Add git branch and worktree lifecycle for spaces', status: 'in_progress', badgeTone: 'emerald' },
-  { id: 'task-spec-panel', title: 'Build spec note panel with autosave and comment threads', status: 'in_progress', badgeTone: 'violet' },
-  { id: 'task-task-block', title: 'Implement task block parsing and task-note conversion', status: 'done', badgeTone: 'violet' },
-  { id: 'task-orchestrator-loop', title: 'Ship orchestrator planning loop and specialist task delegation', status: 'todo' },
-  { id: 'task-changes-tab', title: 'Build changes tab with diff inspection and selective staging', status: 'todo' },
-  { id: 'task-pr-workflow', title: 'Add GitHub PR creation workflow in Changes tab', status: 'todo' },
-  { id: 'task-browser-preview', title: 'Add in-app browser preview for local development', status: 'todo' },
-  { id: 'task-context-engine', title: 'Integrate context engine adapter and initial providers', status: 'todo' },
-  { id: 'task-model-runtime', title: 'Implement real model provider runtime and authentication', status: 'todo' }
-]
-
-const STATE_MAP: Record<ContextPreviewState, ContextState> = {
+const PREVIEW_STATE_MAP: Record<ContextPreviewState, Omit<ContextState, 'tasks'>> = {
   0: {
-    tasks: BASE_TASKS,
     showNotes: false,
     highlightTeamNote: false
   },
   1: {
-    tasks: BASE_TASKS,
     showNotes: true,
     highlightTeamNote: true
   },
   2: {
-    tasks: ACTIVE_TASKS,
     showNotes: false,
     highlightTeamNote: false
   },
   3: {
-    tasks: BASE_TASKS,
     showNotes: true,
     highlightTeamNote: false
   }
@@ -75,8 +50,36 @@ const STATE_MAP: Record<ContextPreviewState, ContextState> = {
 const BADGE_TONE_CLASS: Record<ContextBadgeTone, string> = {
   violet: 'bg-violet-400/95 text-violet-950',
   lime: 'bg-lime-300/95 text-lime-950',
-  amber: 'bg-yellow-300/95 text-yellow-950',
+  amber: 'bg-amber-300/95 text-amber-950',
   emerald: 'bg-emerald-300/95 text-emerald-950'
+}
+
+const NOTE_ROWS = ['Team Brainstorm - 2/22/26', 'Scratchpad'] as const
+export const NOTES_SECTION_SIZE = 1 + NOTE_ROWS.length
+
+function badgeToneForStatus(status: ContextTaskStatus): ContextBadgeTone | undefined {
+  if (status === 'in_progress') {
+    return 'violet'
+  }
+
+  if (status === 'done') {
+    return 'emerald'
+  }
+
+  if (status === 'blocked') {
+    return 'amber'
+  }
+
+  return undefined
+}
+
+function contextTasksFromProject(project: ProjectSpec): ContextTask[] {
+  return project.tasks.map((task) => ({
+    id: task.id,
+    title: task.title,
+    status: task.status,
+    badgeTone: badgeToneForStatus(task.status)
+  }))
 }
 
 function ContextStatusMarker({ status }: { status: ContextTaskStatus }) {
@@ -102,6 +105,17 @@ function ContextStatusMarker({ status }: { status: ContextTaskStatus }) {
     )
   }
 
+  if (status === 'blocked') {
+    return (
+      <span
+        data-context-task-status={status}
+        className="mt-0.5 inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-status-blocked text-status-blocked"
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      </span>
+    )
+  }
+
   return (
     <span
       data-context-task-status={status}
@@ -114,30 +128,43 @@ function ContextBadge({ tone }: { tone: ContextBadgeTone }) {
   return (
     <span
       data-context-task-badge
-      className={`inline-flex h-3.5 min-w-3.5 shrink-0 items-center justify-center rounded-sm text-[9px] font-semibold ${BADGE_TONE_CLASS[tone]}`}
+      className={cn(
+        'inline-flex h-3.5 min-w-3.5 shrink-0 items-center justify-center rounded-sm text-[9px] font-semibold',
+        BADGE_TONE_CLASS[tone]
+      )}
     >
       ■
     </span>
   )
 }
 
-function contextStateForPreview(previewState: ContextPreviewState): ContextState {
-  return STATE_MAP[previewState] ?? STATE_MAP[0]
+function contextStateForPreview(project: ProjectSpec, previewState: ContextPreviewState): ContextState {
+  const previewConfig = PREVIEW_STATE_MAP[previewState] ?? PREVIEW_STATE_MAP[0]
+  return {
+    tasks: contextTasksFromProject(project),
+    showNotes: previewConfig.showNotes,
+    highlightTeamNote: previewConfig.highlightTeamNote
+  }
 }
 
-export function getContextTabCount(previewState: ContextPreviewState): number {
-  const state = contextStateForPreview(previewState)
-  const notesCount = state.showNotes ? 3 : 0
-  return 1 + state.tasks.length + notesCount
+/**
+ * Returns the visible row count for the Context tab trigger tooltip badge.
+ */
+export function getContextTabCount(previewState: ContextPreviewState, taskCount = 0): number {
+  const previewConfig = PREVIEW_STATE_MAP[previewState] ?? PREVIEW_STATE_MAP[0]
+  const notesCount = previewConfig.showNotes ? NOTES_SECTION_SIZE : 0
+  return 1 + taskCount + notesCount
 }
 
+/**
+ * Renders project context rows plus optional notes rows for the selected preview state.
+ */
 export function ContextTab({ project, previewState = 0 }: ContextTabProps) {
-  const state = contextStateForPreview(previewState)
+  const state = contextStateForPreview(project, previewState)
 
   return (
     <LeftSection
       title="Context"
-      description=""
       addActionLabel="Add context"
     >
       <div
@@ -157,7 +184,7 @@ export function ContextTab({ project, previewState = 0 }: ContextTabProps) {
           data-testid="context-spec-section"
           className="space-y-1 pt-2"
         >
-          <p className={`flex items-start gap-2 ${LEFT_PANEL_TYPOGRAPHY.listItemStrong}`}>
+          <p className={cn('flex items-start gap-2', LEFT_PANEL_TYPOGRAPHY.listItemStrong)}>
             <List className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" />
             <span className="truncate">Spec</span>
           </p>
@@ -166,7 +193,7 @@ export function ContextTab({ project, previewState = 0 }: ContextTabProps) {
             {state.tasks.map((task) => (
               <p
                 key={task.id}
-                className={`flex items-start gap-2 ${LEFT_PANEL_TYPOGRAPHY.listItem}`}
+                className={cn('flex items-start gap-2', LEFT_PANEL_TYPOGRAPHY.listItem)}
               >
                 <ContextStatusMarker status={task.status} />
                 <span className="min-w-0 flex-1">{task.title}</span>
@@ -182,7 +209,7 @@ export function ContextTab({ project, previewState = 0 }: ContextTabProps) {
           <div className="space-y-0.5 pt-1">
             <p
               data-testid="context-notes-heading"
-              className={`flex items-center gap-2 ${LEFT_PANEL_TYPOGRAPHY.listItemStrong}`}
+              className={cn('flex items-center gap-2', LEFT_PANEL_TYPOGRAPHY.listItemStrong)}
             >
               <List className="h-3.5 w-3.5" />
               <span>Notes</span>
@@ -190,10 +217,10 @@ export function ContextTab({ project, previewState = 0 }: ContextTabProps) {
             <p
               data-testid="context-note-row-team-brainstorm-2-22-26"
               data-context-note-selected={state.highlightTeamNote}
-              className={[
+              className={cn(
                 'flex items-center gap-2 border px-3 py-0.5 text-sm leading-4 text-muted-foreground',
                 state.highlightTeamNote ? 'border-border/70 bg-muted/25' : 'border-transparent'
-              ].join(' ')}
+              )}
             >
               <span
                 aria-hidden="true"
@@ -201,11 +228,11 @@ export function ContextTab({ project, previewState = 0 }: ContextTabProps) {
               >
                 -
               </span>
-              <span>Team Brainstorm - 2/22/26</span>
+              <span>{NOTE_ROWS[0]}</span>
             </p>
             <p
               data-testid="context-note-row-scratchpad"
-              data-context-note-selected="false"
+              data-context-note-selected={false}
               className="flex items-center gap-2 border border-transparent px-3 py-0.5 text-sm leading-4 text-muted-foreground"
             >
               <span
@@ -214,7 +241,7 @@ export function ContextTab({ project, previewState = 0 }: ContextTabProps) {
               >
                 -
               </span>
-              <span>Scratchpad</span>
+              <span>{NOTE_ROWS[1]}</span>
             </p>
           </div>
         ) : null}
