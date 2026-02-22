@@ -63,8 +63,8 @@ test.describe('Desktop app navigation @uat', () => {
     ).toBeVisible()
     await expect(contextTab.locator('code', { hasText: './notes' })).toBeVisible()
     await expect(contextTab.getByTestId('context-spec-section').getByText('Spec')).toBeVisible()
-    await expect(contextTab.getByText('Scaffold Rust project with dependencies')).toBeVisible()
-    await expect(contextTab.getByText('Wire everything together in main and test end-to-end')).toBeVisible()
+    await expect(contextTab.getByText('Create contracts and shared baseline components')).toBeVisible()
+    await expect(contextTab.getByText('Implement left panel tabs')).toBeVisible()
     await expect(appWindow.getByTestId('context-notes-heading')).toHaveCount(0)
 
     await appWindow.getByRole('button', { name: 'Show preview state 1' }).click()
@@ -77,11 +77,11 @@ test.describe('Desktop app navigation @uat', () => {
     )
 
     await appWindow.getByRole('button', { name: 'Show preview state 2' }).click()
-    await expect(contextTab.getByText('Implement real model provider runtime and authentication')).toBeVisible()
+    await expect(contextTab.getByText('Create contracts and shared baseline components')).toBeVisible()
     await expect(appWindow.getByTestId('context-notes-heading')).toHaveCount(0)
-    await expect(contextTab.locator('[data-context-task-status="in_progress"]')).toHaveCount(4)
-    await expect(contextTab.locator('[data-context-task-status="done"]')).toHaveCount(1)
-    await expect(contextTab.locator('[data-context-task-status="todo"]')).toHaveCount(6)
+    await expect(contextTab.locator('[data-context-task-status="in_progress"]')).toHaveCount(0)
+    await expect(contextTab.locator('[data-context-task-status="done"]')).toHaveCount(0)
+    await expect(contextTab.locator('[data-context-task-status="todo"]')).toHaveCount(2)
 
     await appWindow.getByRole('button', { name: 'Show preview state 3' }).click()
     await expect(appWindow.getByTestId('context-notes-heading')).toBeVisible()
