@@ -1,6 +1,6 @@
 import type { ProjectSpec } from '../types/project'
 
-const LEFT_STATUS_SCENARIO_KEY = 'kata-left-status-scenario'
+export const LEFT_STATUS_SCENARIO_KEY = 'kata-left-status-scenario'
 
 type LeftStatusScenario = 'default' | 'simple' | 'progress' | 'overflow'
 

@@ -58,10 +58,11 @@ describe('LeftStatusSection', () => {
     )
 
     const statusSection = screen.getByLabelText('Left panel status')
-    statusSection.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    const cyclePreviewStateButton = screen.getByRole('button', { name: 'Cycle status preview state' })
+    fireEvent.keyDown(cyclePreviewStateButton, { key: 'Enter' })
 
-    expect(statusSection.getAttribute('role')).toBe('button')
-    expect(statusSection.getAttribute('aria-pressed')).toBe('true')
+    expect(statusSection.getAttribute('role')).toBeNull()
+    expect(cyclePreviewStateButton.getAttribute('aria-pressed')).toBe('true')
     expect(toggleCount).toBe(1)
   })
 

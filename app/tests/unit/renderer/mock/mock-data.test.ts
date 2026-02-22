@@ -4,9 +4,7 @@ import { mockAgents } from '../../../../src/renderer/mock/agents'
 import { mockFiles } from '../../../../src/renderer/mock/files'
 import { mockGit } from '../../../../src/renderer/mock/git'
 import { mockMessages } from '../../../../src/renderer/mock/messages'
-import { getMockProject, mockProject } from '../../../../src/renderer/mock/project'
-
-const LEFT_STATUS_SCENARIO_KEY = 'kata-left-status-scenario'
+import { LEFT_STATUS_SCENARIO_KEY, getMockProject, mockProject } from '../../../../src/renderer/mock/project'
 
 describe('renderer mock data contracts', () => {
   afterEach(() => {
@@ -62,18 +60,25 @@ describe('renderer mock data contracts', () => {
     ).toBe(true)
   })
 
-  it('supports simple/progress/overflow left-status scenario overrides', () => {
+  it('supports simple left-status scenario overrides', () => {
     window.localStorage.setItem(LEFT_STATUS_SCENARIO_KEY, 'simple')
     const simpleProject = getMockProject()
-    expect(simpleProject.tasks.some((task) => task.status === 'done')).toBe(false)
 
+    expect(simpleProject.tasks.some((task) => task.status === 'done')).toBe(false)
+  })
+
+  it('supports progress left-status scenario overrides', () => {
     window.localStorage.setItem(LEFT_STATUS_SCENARIO_KEY, 'progress')
     const progressProject = getMockProject()
+
     expect(progressProject.tasks.some((task) => task.status === 'done')).toBe(true)
     expect(progressProject.tasks.some((task) => task.status === 'in_progress')).toBe(true)
+  })
 
+  it('supports overflow left-status scenario overrides', () => {
     window.localStorage.setItem(LEFT_STATUS_SCENARIO_KEY, 'overflow')
     const overflowProject = getMockProject()
+
     expect(overflowProject.tasks).toHaveLength(60)
     expect(overflowProject.tasks.filter((task) => task.status === 'done')).toHaveLength(50)
   })

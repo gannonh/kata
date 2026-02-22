@@ -25,6 +25,31 @@ type LeftPanelProps = {
 }
 
 type PreviewState = 0 | 1 | 2 | 3
+type PreviewTasksByState = Record<Exclude<PreviewState, 0>, ReturnType<typeof getMockProject>['tasks']>
+
+const previewTasks = {
+  1: [
+    { id: 'preview-1-1', title: 'Model project scope', status: 'done' as const },
+    { id: 'preview-1-2', title: 'Create baseline tasks', status: 'done' as const },
+    { id: 'preview-1-3', title: 'Wire layout sections', status: 'in_progress' as const },
+    { id: 'preview-1-4', title: 'Connect tabs', status: 'todo' as const },
+    { id: 'preview-1-5', title: 'Finalize shell copy', status: 'todo' as const }
+  ],
+  2: [
+    { id: 'preview-2-1', title: 'Model project scope', status: 'done' as const },
+    { id: 'preview-2-2', title: 'Create baseline tasks', status: 'done' as const },
+    { id: 'preview-2-3', title: 'Wire layout sections', status: 'done' as const },
+    { id: 'preview-2-4', title: 'Connect tabs', status: 'in_progress' as const },
+    { id: 'preview-2-5', title: 'Finalize shell copy', status: 'todo' as const }
+  ],
+  3: [
+    { id: 'preview-3-1', title: 'Model project scope', status: 'done' as const },
+    { id: 'preview-3-2', title: 'Create baseline tasks', status: 'done' as const },
+    { id: 'preview-3-3', title: 'Wire layout sections', status: 'done' as const },
+    { id: 'preview-3-4', title: 'Connect tabs', status: 'done' as const },
+    { id: 'preview-3-5', title: 'Finalize shell copy', status: 'in_progress' as const }
+  ]
+} satisfies PreviewTasksByState
 
 function nextPreviewState(current: PreviewState): PreviewState {
   if (current === 3) {
@@ -39,33 +64,6 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
   const [internalCollapsed, setInternalCollapsed] = useState(false)
   const [previewState, setPreviewState] = useState<PreviewState>(0)
   const project = useMemo(() => getMockProject(), [])
-  const previewTasks = useMemo(
-    () =>
-      ({
-        1: [
-          { id: 'preview-1-1', title: 'Model project scope', status: 'done' as const },
-          { id: 'preview-1-2', title: 'Create baseline tasks', status: 'done' as const },
-          { id: 'preview-1-3', title: 'Wire layout sections', status: 'in_progress' as const },
-          { id: 'preview-1-4', title: 'Connect tabs', status: 'todo' as const },
-          { id: 'preview-1-5', title: 'Finalize shell copy', status: 'todo' as const }
-        ],
-        2: [
-          { id: 'preview-2-1', title: 'Model project scope', status: 'done' as const },
-          { id: 'preview-2-2', title: 'Create baseline tasks', status: 'done' as const },
-          { id: 'preview-2-3', title: 'Wire layout sections', status: 'done' as const },
-          { id: 'preview-2-4', title: 'Connect tabs', status: 'in_progress' as const },
-          { id: 'preview-2-5', title: 'Finalize shell copy', status: 'todo' as const }
-        ],
-        3: [
-          { id: 'preview-3-1', title: 'Model project scope', status: 'done' as const },
-          { id: 'preview-3-2', title: 'Create baseline tasks', status: 'done' as const },
-          { id: 'preview-3-3', title: 'Wire layout sections', status: 'done' as const },
-          { id: 'preview-3-4', title: 'Connect tabs', status: 'done' as const },
-          { id: 'preview-3-5', title: 'Finalize shell copy', status: 'in_progress' as const }
-        ]
-      }) satisfies Record<Exclude<PreviewState, 0>, typeof project.tasks>,
-    []
-  )
   const statusTasks = previewState === 0 ? project.tasks : previewTasks[previewState]
 
   const isSidebarCollapsed = collapsed ?? internalCollapsed
@@ -80,11 +78,11 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
   const tabs = useMemo(
     () => [
       { id: 'agents', label: 'Agents', icon: Users, count: mockAgents.length },
-      { id: 'context', label: 'Context', icon: Layers3, count: statusTasks.length },
+      { id: 'context', label: 'Context', icon: Layers3, count: project.tasks.length },
       { id: 'changes', label: 'Changes', icon: GitBranch, count: mockGit.staged.length + mockGit.unstaged.length },
       { id: 'files', label: 'Files', icon: Folder, count: mockFiles.length }
     ] satisfies Array<{ id: LeftPanelTab; label: string; icon: ComponentType<{ className?: string }>; count: number }>,
-    [statusTasks.length]
+    [project.tasks.length]
   )
 
   return (

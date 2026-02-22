@@ -71,10 +71,17 @@ function buildTrack({
 export function buildLeftStatusProgress(tasks: ProjectTask[]): LeftStatusProgressView {
   const segmentTones = tasks.map(toSegmentTone)
   const totalCount = segmentTones.length
-  const doneCount = segmentTones.filter((status) => status === 'done').length
-  const inProgressCount = segmentTones.filter((status) => status === 'in_progress').length
-  const blockedCount = segmentTones.filter((status) => status === 'blocked').length
-  const todoCount = segmentTones.filter((status) => status === 'todo').length
+  const counts = segmentTones.reduce<Record<SegmentTone, number>>(
+    (acc, status) => {
+      acc[status] += 1
+      return acc
+    },
+    { done: 0, in_progress: 0, blocked: 0, todo: 0 }
+  )
+  const doneCount = counts.done
+  const inProgressCount = counts.in_progress
+  const blockedCount = counts.blocked
+  const todoCount = counts.todo
   const isAllComplete = totalCount > 0 && doneCount === totalCount
   const hasProgress = doneCount > 0 || inProgressCount > 0 || blockedCount > 0
   const completeRows = Math.floor(doneCount / LEFT_STATUS_ROW_CAP)

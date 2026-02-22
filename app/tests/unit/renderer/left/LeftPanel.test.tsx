@@ -2,10 +2,11 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { LeftPanel } from '../../../../src/renderer/components/layout/LeftPanel'
+import { LEFT_STATUS_SCENARIO_KEY } from '../../../../src/renderer/mock/project'
 
 describe('LeftPanel', () => {
   afterEach(() => {
-    window.localStorage.removeItem('kata-left-status-scenario')
+    window.localStorage.removeItem(LEFT_STATUS_SCENARIO_KEY)
     cleanup()
   })
 
@@ -35,7 +36,7 @@ describe('LeftPanel', () => {
   })
 
   it('supports overflow state scenario with rollup chips', () => {
-    window.localStorage.setItem('kata-left-status-scenario', 'overflow')
+    window.localStorage.setItem(LEFT_STATUS_SCENARIO_KEY, 'overflow')
     render(<LeftPanel />)
 
     expect(screen.getAllByText('25 done')).toHaveLength(2)
@@ -45,18 +46,19 @@ describe('LeftPanel', () => {
   it('toggles to busy preview when clicking the status section', () => {
     render(<LeftPanel />)
 
+    const cyclePreviewStateButton = screen.getByRole('button', { name: 'Cycle status preview state' })
     const statusSection = screen.getByLabelText('Left panel status')
 
     expect(screen.getByText('Tasks ready to go.')).toBeTruthy()
-    fireEvent.click(statusSection)
+    fireEvent.click(cyclePreviewStateButton)
     expect(screen.getByText('2 of 5 complete.')).toBeTruthy()
-    fireEvent.click(statusSection)
+    fireEvent.click(cyclePreviewStateButton)
     expect(screen.getByText('3 of 5 complete.')).toBeTruthy()
-    fireEvent.click(statusSection)
+    fireEvent.click(cyclePreviewStateButton)
     expect(screen.getByText('4 of 5 complete.')).toBeTruthy()
     expect(statusSection.querySelectorAll('[data-segment-status="done"]')).toHaveLength(4)
     expect(statusSection.querySelectorAll('[data-segment-status="in_progress"]')).toHaveLength(1)
-    fireEvent.click(statusSection)
+    fireEvent.click(cyclePreviewStateButton)
     expect(screen.getByText('Tasks ready to go.')).toBeTruthy()
   })
 
@@ -66,6 +68,15 @@ describe('LeftPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show preview state 2' }))
 
     expect(screen.getByText('3 of 5 complete.')).toBeTruthy()
+  })
+
+  it('keeps the context tab count aligned to the context tab content when preview is active', () => {
+    render(<LeftPanel />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cycle status preview state' }))
+    const contextTab = screen.getByRole('tab', { name: 'Context' })
+
+    expect(contextTab.getAttribute('title')).toBe('Context (2)')
   })
 
   it('switches to the context tab and renders the shared workspace checklist', () => {

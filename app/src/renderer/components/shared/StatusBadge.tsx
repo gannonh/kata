@@ -16,6 +16,7 @@ const toneVariant: Record<StatusBadgeTone, 'default' | 'secondary' | 'destructiv
   danger: 'destructive'
 }
 
+// warning intentionally reuses the blocked status token because both map to amber.
 const toneClassName: Partial<Record<StatusBadgeTone, string>> = {
   info: 'border-status-in-progress/50 bg-status-in-progress/15 text-status-in-progress',
   success: 'border-status-done/50 bg-status-done/15 text-status-done',

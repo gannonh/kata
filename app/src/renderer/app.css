@@ -72,6 +72,7 @@ Uncomment to import Google fonts if you want to use them in your project.
   --status-todo: oklch(0.72 0.012 286);
   --status-in-progress: oklch(0.78 0.135 205);
   --status-done: oklch(0.8 0.16 155);
+  /* shared by blocked status and warning badges */
   --status-blocked: oklch(0.84 0.16 82);
 
   /* Fonts */
@@ -139,6 +140,7 @@ Uncomment to import Google fonts if you want to use them in your project.
   --status-todo: oklch(0.72 0.012 286);
   --status-in-progress: oklch(0.78 0.135 205);
   --status-done: oklch(0.8 0.16 155);
+  /* shared by blocked status and warning badges */
   --status-blocked: oklch(0.84 0.16 82);
 
   /* Magicui Colors */

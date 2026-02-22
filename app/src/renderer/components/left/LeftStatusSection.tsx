@@ -17,20 +17,15 @@ type LeftStatusSectionProps = {
   previewState?: 0 | 1 | 2 | 3
 }
 
-function segmentToneClass(segment: SegmentTone) {
-  if (segment === 'done') {
-    return 'bg-status-done/85'
-  }
+const SEGMENT_TONE_CLASS: Record<SegmentTone, string> = {
+  done: 'bg-status-done/85',
+  in_progress: 'bg-status-in-progress/85',
+  blocked: 'bg-status-blocked/85',
+  todo: 'bg-muted'
+}
 
-  if (segment === 'in_progress') {
-    return 'bg-status-in-progress/85'
-  }
-
-  if (segment === 'blocked') {
-    return 'bg-status-blocked/85'
-  }
-
-  return 'bg-muted'
+function segmentToneClass(segment: SegmentTone): string {
+  return SEGMENT_TONE_CLASS[segment] ?? 'bg-muted'
 }
 
 function previewToneClass(state: 1 | 2 | 3, isActive: boolean) {
@@ -66,24 +61,7 @@ export function LeftStatusSection({
   return (
     <section
       aria-label="Left panel status"
-      role={isInteractive ? 'button' : undefined}
-      tabIndex={isInteractive ? 0 : undefined}
-      aria-pressed={isInteractive ? previewState > 0 : undefined}
-      onClick={onCyclePreviewState}
-      onKeyDown={
-        isInteractive
-          ? (event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                onCyclePreviewState?.()
-              }
-            }
-          : undefined
-      }
-      className={cn(
-        'border-y border-border px-4 pb-3 pt-4',
-        isInteractive ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring' : ''
-      )}
+      className="border-y border-border px-4 pb-3 pt-4"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -96,9 +74,6 @@ export function LeftStatusSection({
           variant="ghost"
           aria-label="Status section options"
           className="-mr-2"
-          onClick={(event) => {
-            event.stopPropagation()
-          }}
         >
           <MoreHorizontal className="h-4 w-4" />
         </Button>
@@ -133,7 +108,28 @@ export function LeftStatusSection({
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">{progress.message}</p>
+        {isInteractive ? (
+          <button
+            type="button"
+            aria-label="Cycle status preview state"
+            aria-pressed={previewState > 0}
+            onClick={onCyclePreviewState}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                onCyclePreviewState?.()
+              }
+            }}
+            className={cn(
+              'rounded-sm text-sm text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              'max-w-[70%] truncate text-left'
+            )}
+          >
+            {progress.message}
+          </button>
+        ) : (
+          <p className="text-sm text-muted-foreground">{progress.message}</p>
+        )}
         <div className="flex items-center gap-1">
           {[1, 2, 3].map((state) => {
             const typedState = state as 1 | 2 | 3
@@ -149,10 +145,7 @@ export function LeftStatusSection({
                 )}
                 aria-label={`Show preview state ${state}`}
                 aria-pressed={isActive}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onSelectPreviewState?.(typedState)
-                }}
+                onClick={() => onSelectPreviewState?.(typedState)}
               >
                 {state}
               </button>
