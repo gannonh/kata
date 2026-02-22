@@ -15,20 +15,6 @@ Kata is a **spec-driven development framework** for Claude Code. It's a meta-pro
 
 **Key Design Principle:** Plans ARE prompts. PLAN.md files are executable XML documents optimized for Claude, not prose to be transformed.
 
-## Private Component Registry (React Source of Truth)
-
-Kata now owns a private shadcn-compatible component registry at:
-- Repo: `https://github.com/gannonh/kata-shadcn`
-- Deploy: `https://shadcn-registry-eight.vercel.app`
-
-Treat this registry as the primary source for reusable React components and blocks.
-
-Rules:
-1. Prefer installing from `@kata-shadcn` before creating new one-off components.
-2. If a shared component/block needs changes, make the change in `kata-shadcn` (source repo), not by patching generated copies in downstream apps.
-3. Registry consumers should use `components.json` registry URL format `.../r/{name}.json` and token header `x-registry-token: ${REGISTRY_TOKEN}`.
-4. Pushing to `main` in `kata-shadcn` triggers Vercel deployment; verify install behavior with `npx shadcn add @kata-shadcn/<name>` after deploy.
-
 ## Workspace Planning Guidance
 
 Use workspace-local planning docs for execution details:
