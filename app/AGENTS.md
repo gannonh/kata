@@ -136,3 +136,102 @@ Port 5199 is hardcoded (`strictPort: true`) to avoid the mismatch where Vite aut
 1. Test Driven Development is mandatory for all code changes. 
 2. Write tests before implementation, ensure they fail, then implement the feature until tests pass.
 3. Use the Test Driven Development Agent Skill (`test-driven-development`) for guidance.
+
+## Private Component Registry (React Source of Truth)
+
+Kata now owns a private shadcn-compatible component registry at:
+- Repo: `https://github.com/gannonh/kata-shadcn`
+- Deploy: `https://shadcn-registry-eight.vercel.app`
+
+Treat this registry as the primary source for reusable React components and blocks.
+
+Rules:
+1. Prefer installing from `@kata-shadcn` before creating new one-off components.
+2. If a shared component/block needs changes, make the change in `kata-shadcn` (source repo), not by patching generated copies in downstream apps.
+3. Registry consumers should use `components.json` registry URL format `.../r/{name}.json` and token header `x-registry-token: ${REGISTRY_TOKEN}`.
+4. In this repo, the configured registry key is `@kata-shadcn` in `components.json`, so installs use `npx shadcn add @kata-shadcn/<name>`.
+5. Pushing to `main` in `kata-shadcn` triggers Vercel deployment; verify install behavior after deploy.
+
+### Auth
+
+On the deployed registry (`https://shadcn-registry-eight.vercel.app`), endpoints under `/r/*` require an `x-registry-token` header except these public passthroughs for built-in shadcn dependencies:
+
+- `/r/styles/*` — style definitions
+- `/r/colors/*` — color registry
+- `/r/icons/*` — icon registry
+
+Compatibility endpoints under `/styles/*` proxy to the public shadcn registry for unscoped dependencies (e.g. `utils`, `button`) that the CLI resolves via `styles/{style}/{name}.json`.
+
+When running a local copy of the registry, auth can be disabled when `REGISTRY_TOKEN` is not set (local dev mode). Do not assume this for the deployed Vercel URL.
+
+```bash
+# Load env if present in this repo.
+[ -f .env.local ] && source .env.local
+[ -f .env ] && source .env
+REGISTRY_URL="${REGISTRY_URL:-https://shadcn-registry-eight.vercel.app}"
+
+# 401 expected without token on private component route:
+curl -s -o /dev/null -w "%{http_code}\n" "$REGISTRY_URL/r/hero1.json"
+
+# 200 expected without token on public passthrough:
+curl -s -o /dev/null -w "%{http_code}\n" "$REGISTRY_URL/r/styles/default/button.json"
+
+# 200 expected with token (skip if unset):
+if [ -n "${REGISTRY_TOKEN:-}" ]; then
+  curl -s -o /dev/null -w "%{http_code}\n" \
+    -H "x-registry-token: $REGISTRY_TOKEN" \
+    "$REGISTRY_URL/r/hero1.json"
+fi
+```
+
+### Consuming project setup
+
+In the consuming project's `components.json`:
+
+```json
+{
+  "registries": {
+    "@kata-shadcn": {
+      "url": "https://shadcn-registry-eight.vercel.app/r/{name}.json",
+      "headers": {
+        "x-registry-token": "${REGISTRY_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+Add to the consuming project's `.env`:
+
+```
+REGISTRY_TOKEN=<your-token>
+```
+
+Install a component:
+
+```bash
+npx shadcn add @kata-shadcn/hero1
+```
+
+The install prefix must match the registry key in `components.json` (`<registry-key>/<component-name>`).
+
+For install verification in this repo without touching production component paths, use `--path` to a temp folder under `app/tmp/`:
+
+```bash
+npx shadcn add @kata-shadcn/alert-alert-warning-1 \
+  --path /Users/gannonhall/dev/kata/kata-orchestrator/app/tmp/registry-install \
+  --yes
+```
+
+`shadcn add` can still run dependency resolution and may modify the root lockfile; always run `git status` after verification and restore unintended changes before finishing.
+
+### AI agent discovery
+
+Agents can query the full component index in one request:
+
+```
+GET /r/index.json
+x-registry-token: <secret>
+```
+
+Returns `{ total, items: [{ name, title, description, category, url }] }` where `total` is the current component count. Fetch `/r/{name}.json` for full source.
