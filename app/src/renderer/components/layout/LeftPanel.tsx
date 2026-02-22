@@ -6,11 +6,13 @@ import logoLight from '../../assets/brand/icon-light.svg'
 import { mockAgents } from '../../mock/agents'
 import { mockFiles } from '../../mock/files'
 import { mockGit } from '../../mock/git'
-import { mockProject } from '../../mock/project'
+import { getMockProject } from '../../mock/project'
 import { AgentsTab } from '../left/AgentsTab'
 import { ChangesTab } from '../left/ChangesTab'
 import { ContextTab } from '../left/ContextTab'
 import { FilesTab } from '../left/FilesTab'
+import { LeftStatusSection } from '../left/LeftStatusSection'
+import { ErrorBoundary } from '../shared/ErrorBoundary'
 import { cn } from '../../lib/cn'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
@@ -23,9 +25,46 @@ type LeftPanelProps = {
   onCollapsedChange?: (collapsed: boolean) => void
 }
 
+export type PreviewState = 0 | 1 | 2 | 3
+type PreviewTasksByState = Record<Exclude<PreviewState, 0>, ReturnType<typeof getMockProject>['tasks']>
+
+const previewTasks = {
+  1: [
+    { id: 'preview-1-1', title: 'Model project scope', status: 'done' as const },
+    { id: 'preview-1-2', title: 'Create baseline tasks', status: 'done' as const },
+    { id: 'preview-1-3', title: 'Wire layout sections', status: 'in_progress' as const },
+    { id: 'preview-1-4', title: 'Connect tabs', status: 'todo' as const },
+    { id: 'preview-1-5', title: 'Finalize shell copy', status: 'todo' as const }
+  ],
+  2: [
+    { id: 'preview-2-1', title: 'Model project scope', status: 'done' as const },
+    { id: 'preview-2-2', title: 'Create baseline tasks', status: 'done' as const },
+    { id: 'preview-2-3', title: 'Wire layout sections', status: 'done' as const },
+    { id: 'preview-2-4', title: 'Connect tabs', status: 'in_progress' as const },
+    { id: 'preview-2-5', title: 'Finalize shell copy', status: 'todo' as const }
+  ],
+  3: [
+    { id: 'preview-3-1', title: 'Model project scope', status: 'done' as const },
+    { id: 'preview-3-2', title: 'Create baseline tasks', status: 'done' as const },
+    { id: 'preview-3-3', title: 'Wire layout sections', status: 'done' as const },
+    { id: 'preview-3-4', title: 'Connect tabs', status: 'done' as const },
+    { id: 'preview-3-5', title: 'Finalize shell copy', status: 'in_progress' as const }
+  ]
+} satisfies PreviewTasksByState
+
+// @scaffold -- preview state cycling is development-only UI
+const PREVIEW_CYCLE: Record<PreviewState, PreviewState> = { 0: 1, 1: 2, 2: 3, 3: 0 }
+
+function nextPreviewState(current: PreviewState): PreviewState {
+  return PREVIEW_CYCLE[current] ?? 0
+}
+
 export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {}) {
   const [activeTab, setActiveTab] = useState<LeftPanelTab>('agents')
   const [internalCollapsed, setInternalCollapsed] = useState(false)
+  const [previewState, setPreviewState] = useState<PreviewState>(0)
+  const project = useMemo(() => getMockProject(), [])
+  const statusTasks = previewState === 0 ? project.tasks : previewTasks[previewState]
 
   const isSidebarCollapsed = collapsed ?? internalCollapsed
 
@@ -39,11 +78,11 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
   const tabs = useMemo(
     () => [
       { id: 'agents', label: 'Agents', icon: Users, count: mockAgents.length },
-      { id: 'context', label: 'Context', icon: Layers3, count: mockProject.tasks.length },
+      { id: 'context', label: 'Context', icon: Layers3, count: project.tasks.length },
       { id: 'changes', label: 'Changes', icon: GitBranch, count: mockGit.staged.length + mockGit.unstaged.length },
       { id: 'files', label: 'Files', icon: Folder, count: mockFiles.length }
     ] satisfies Array<{ id: LeftPanelTab; label: string; icon: ComponentType<{ className?: string }>; count: number }>,
-    []
+    [project.tasks.length]
   )
 
   return (
@@ -136,13 +175,23 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
               <PanelLeftClose className="h-4 w-4" />
             </Button>
           </header>
+          <ErrorBoundary fallback={<p className="px-4 py-3 text-sm text-muted-foreground">Unable to load status.</p>}>
+            <LeftStatusSection
+              title={project.sessionTitle}
+              subtitle={project.repositorySubtitle}
+              tasks={statusTasks}
+              previewState={previewState}
+              onCyclePreviewState={() => setPreviewState((current) => nextPreviewState(current))}
+              onSelectPreviewState={(state) => setPreviewState(state)}
+            />
+          </ErrorBoundary>
           <ScrollArea className="min-h-0 flex-1">
             <div className="py-4 pl-4 pr-2">
               {activeTab === 'agents' ? (
                 <AgentsTab agents={mockAgents} />
               ) : null}
               {activeTab === 'context' ? (
-                <ContextTab project={mockProject} />
+                <ContextTab project={project} />
               ) : null}
               {activeTab === 'changes' ? (
                 <ChangesTab git={mockGit} />

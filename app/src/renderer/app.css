@@ -68,6 +68,13 @@ Uncomment to import Google fonts if you want to use them in your project.
   --info: oklch(0.36 0.68 241.16);
   --warning: oklch(0.769 0.288 70.08);
 
+  /* Semantic Status (project + agent states) -- light mode uses lower lightness for contrast on white */
+  --status-todo: oklch(0.55 0.014 286);
+  --status-in-progress: oklch(0.55 0.15 205);
+  --status-done: oklch(0.55 0.16 155);
+  /* amber -- shared with warning badges (both use amber hue) */
+  --status-blocked: oklch(0.65 0.18 82);
+
   /* Fonts */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
@@ -129,6 +136,13 @@ Uncomment to import Google fonts if you want to use them in your project.
   --info: oklch(0.36 0.68 241.16);
   --warning: oklch(0.769 0.288 70.08);
 
+  /* Semantic Status (project + agent states) -- dark mode uses higher lightness for visibility on dark bg */
+  --status-todo: oklch(0.72 0.012 286);
+  --status-in-progress: oklch(0.78 0.135 205);
+  --status-done: oklch(0.8 0.16 155);
+  /* amber -- shared with warning badges (both use amber hue) */
+  --status-blocked: oklch(0.84 0.16 82);
+
   /* Magicui Colors */
   --color-1: oklch(66.2% 0.225 25.9);
   --color-2: oklch(60.4% 0.26 302);
@@ -182,6 +196,12 @@ Uncomment to import Google fonts if you want to use them in your project.
   --color-success: var(--success);
   --color-info: var(--info);
   --color-warning: var(--warning);
+
+  /* Semantic Status */
+  --color-status-todo: var(--status-todo);
+  --color-status-in-progress: var(--status-in-progress);
+  --color-status-done: var(--status-done);
+  --color-status-blocked: var(--status-blocked);
 
   /* Magicui Colors */
   --color-color-5: var(--color-5);
@@ -803,4 +823,3 @@ body[data-scroll-locked] {
 @custom-variant data-active (&:is([data-state="active"], [data-active="true"]));
 @custom-variant data-checked (&:is([data-state="checked"], [data-checked="true"]));
 @custom-variant data-unchecked (&:is([data-state="unchecked"], [data-unchecked="true"]));
-

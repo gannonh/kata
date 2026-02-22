@@ -7,9 +7,10 @@ export const agentStatusLabel: Record<AgentSummary['status'], string> = {
   complete: 'Complete'
 }
 
+// Maps agent lifecycle states to shared status tokens (idle=todo, running=in-progress, complete=done)
 export const statusDotClassName: Record<AgentSummary['status'], string> = {
-  idle: 'bg-muted-foreground/45',
-  running: 'bg-emerald-400',
-  blocked: 'bg-amber-400',
-  complete: 'bg-sky-400'
+  idle: 'bg-status-todo/55',
+  running: 'bg-status-in-progress',
+  blocked: 'bg-status-blocked',
+  complete: 'bg-status-done'
 }

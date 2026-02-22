@@ -1,12 +1,16 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { mockAgents } from '../../../../src/renderer/mock/agents'
 import { mockFiles } from '../../../../src/renderer/mock/files'
 import { mockGit } from '../../../../src/renderer/mock/git'
 import { mockMessages } from '../../../../src/renderer/mock/messages'
-import { mockProject } from '../../../../src/renderer/mock/project'
+import { LEFT_STATUS_SCENARIO_KEY, getMockProject, mockProject } from '../../../../src/renderer/mock/project'
 
 describe('renderer mock data contracts', () => {
+  afterEach(() => {
+    window.localStorage.removeItem(LEFT_STATUS_SCENARIO_KEY)
+  })
+
   it('defines orchestrator and sub-agent fixtures', () => {
     expect(mockAgents).toHaveLength(1)
     expect(mockAgents[0]?.id).toBe('orchestrator')
@@ -21,7 +25,7 @@ describe('renderer mock data contracts', () => {
   it('defines project spec tasks and acceptance criteria fixtures', () => {
     expect(mockProject.id).toBe('phase-1')
     expect(mockProject.tasks).toHaveLength(2)
-    expect(mockProject.tasks.some((task) => task.status === 'in_progress')).toBe(true)
+    expect(mockProject.tasks.every((task) => task.status === 'todo')).toBe(true)
     expect(mockProject.acceptanceCriteria.some((criterion) => criterion.met)).toBe(true)
   })
 
@@ -54,5 +58,50 @@ describe('renderer mock data contracts', () => {
         (message.toolCalls ?? []).some((toolCall) => toolCall.name.length > 0 && toolCall.output.length > 0)
       )
     ).toBe(true)
+  })
+
+  it('supports simple left-status scenario overrides', () => {
+    window.localStorage.setItem(LEFT_STATUS_SCENARIO_KEY, 'simple')
+    const simpleProject = getMockProject()
+
+    expect(simpleProject.tasks.some((task) => task.status === 'done')).toBe(false)
+  })
+
+  it('supports progress left-status scenario overrides', () => {
+    window.localStorage.setItem(LEFT_STATUS_SCENARIO_KEY, 'progress')
+    const progressProject = getMockProject()
+
+    expect(progressProject.tasks.some((task) => task.status === 'done')).toBe(true)
+    expect(progressProject.tasks.some((task) => task.status === 'in_progress')).toBe(true)
+  })
+
+  it('supports overflow left-status scenario overrides', () => {
+    window.localStorage.setItem(LEFT_STATUS_SCENARIO_KEY, 'overflow')
+    const overflowProject = getMockProject()
+
+    expect(overflowProject.tasks).toHaveLength(60)
+    expect(overflowProject.tasks.filter((task) => task.status === 'done')).toHaveLength(50)
+  })
+
+  it('falls back to default project for unknown scenario values', () => {
+    window.localStorage.setItem(LEFT_STATUS_SCENARIO_KEY, 'unsupported')
+    const project = getMockProject()
+
+    expect(project.id).toBe('phase-1')
+    expect(project.tasks).toHaveLength(2)
+    expect(project.tasks.every((task) => task.status === 'todo')).toBe(true)
+  })
+
+  it('falls back to default when localStorage throws', () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError: access denied')
+    })
+
+    const project = getMockProject()
+
+    expect(project.id).toBe('phase-1')
+    expect(project.tasks).toHaveLength(2)
+
+    getItemSpy.mockRestore()
   })
 })

@@ -100,6 +100,30 @@ npm run test:e2e:ci
 npm run test:e2e
 ```
 
+## Claude Desktop Preview
+
+The renderer can run as a standalone web app for use with Claude Desktop's server preview feature.
+
+```bash
+# From app/
+npm run dev:web
+```
+
+This uses `vite.config.web.ts` which:
+- Serves only the renderer on port 5199 (no Electron main/preload)
+- Strips `frame-ancestors 'none'` from the CSP so the preview iframe can embed it
+
+The `.claude/launch.json` config points to `dev:web`. After `preview_start`, the preview panel **will** stay on "Awaiting server..." indefinitely. This is a known Claude Preview limitation with this app. Do not debug it. Do not modify `launch.json` (the schema has no `url`/`startUrl` field to fix this).
+
+After every `preview_start`, immediately run these two commands:
+
+```
+preview_eval: window.location.href = 'http://localhost:5199'
+preview_resize: 1280x800
+```
+
+Port 5199 is hardcoded (`strictPort: true`) to avoid the mismatch where Vite auto-increments past the port the preview expects.
+
 ## Guardrails
 
 - Keep renderer code browser-safe (`nodeIntegration: false`, `contextIsolation: true`).
