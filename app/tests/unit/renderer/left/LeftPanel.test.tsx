@@ -118,12 +118,38 @@ describe('LeftPanel', () => {
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Changes' }), { button: 0 })
     expect(screen.getByRole('heading', { name: 'Changes' })).toBeTruthy()
     expect(screen.getByText('View and accept file changes.')).toBeTruthy()
-    expect(screen.getByText('Branch: feat/wave-2A-contracts')).toBeTruthy()
+    expect(screen.getByText('Your code lives in:')).toBeTruthy()
+    expect(screen.getByText('UNSTAGED / NEW')).toBeTruthy()
 
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Files' }), { button: 0 })
     expect(screen.getByRole('heading', { name: 'Files' })).toBeTruthy()
     expect(screen.getByText(/Your copy of the repo lives in/)).toBeTruthy()
     expect(screen.getByLabelText('Search files')).toBeTruthy()
+  })
+
+  it('feeds the preview cycle into the changes tab click-through states', () => {
+    render(<LeftPanel />)
+
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Changes' }), { button: 0 })
+    expect(screen.getByText('No changes yet')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Archive and start new space' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show preview state 1' }))
+    expect(screen.getByText('COMMITS')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Create PR' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Merge' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Connect Remote' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show preview state 2' }))
+    expect(screen.getByText('3 files changed in Space')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Unstage all' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show preview state 3' }))
+    expect(screen.getByText('3 files changed in Space')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Unstage all' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show preview state 0' }))
+    expect(screen.getByText('No changes yet')).toBeTruthy()
   })
 
   it('collapses and expands the sidebar content area from the top toggle', () => {

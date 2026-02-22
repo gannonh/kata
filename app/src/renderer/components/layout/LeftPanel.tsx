@@ -8,7 +8,7 @@ import { mockFiles } from '../../mock/files'
 import { mockGit } from '../../mock/git'
 import { getMockProject } from '../../mock/project'
 import { AgentsTab } from '../left/AgentsTab'
-import { ChangesTab } from '../left/ChangesTab'
+import { ChangesTab, getChangesTabCount } from '../left/ChangesTab'
 import { ContextTab, getContextTabCount } from '../left/ContextTab'
 import { FilesTab } from '../left/FilesTab'
 import { LeftStatusSection } from '../left/LeftStatusSection'
@@ -66,6 +66,7 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
   const project = useMemo(() => getMockProject(), [])
   const statusTasks = previewState === 0 ? project.tasks : previewTasks[previewState]
   const contextTabCount = getContextTabCount(previewState, project.tasks.length)
+  const changesTabCount = getChangesTabCount(previewState, mockGit)
 
   const isSidebarCollapsed = collapsed ?? internalCollapsed
 
@@ -80,10 +81,10 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
     () => [
       { id: 'agents', label: 'Agents', icon: Users, count: mockAgents.length },
       { id: 'context', label: 'Context', icon: Layers3, count: contextTabCount },
-      { id: 'changes', label: 'Changes', icon: GitBranch, count: mockGit.staged.length + mockGit.unstaged.length },
+      { id: 'changes', label: 'Changes', icon: GitBranch, count: changesTabCount },
       { id: 'files', label: 'Files', icon: Folder, count: mockFiles.length }
     ] satisfies Array<{ id: LeftPanelTab; label: string; icon: ComponentType<{ className?: string }>; count: number }>,
-    [contextTabCount]
+    [changesTabCount, contextTabCount]
   )
 
   return (
@@ -198,7 +199,10 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
                 />
               ) : null}
               {activeTab === 'changes' ? (
-                <ChangesTab git={mockGit} />
+                <ChangesTab
+                  git={mockGit}
+                  previewState={previewState}
+                />
               ) : null}
               {activeTab === 'files' ? (
                 <FilesTab files={mockFiles} />

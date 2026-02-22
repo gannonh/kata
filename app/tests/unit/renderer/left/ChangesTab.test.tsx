@@ -9,31 +9,80 @@ describe('ChangesTab', () => {
     cleanup()
   })
 
-  it('renders branch summary and grouped file change lists', () => {
-    render(<ChangesTab git={mockGit} />)
+  it('renders an empty changes state with archive action affordance in preview 0', () => {
+    render(
+      <ChangesTab
+        git={mockGit}
+        previewState={0}
+      />
+    )
 
     expect(screen.getByRole('heading', { name: 'Changes' })).toBeTruthy()
     expect(screen.getByText('View and accept file changes.')).toBeTruthy()
-    expect(screen.getByText('Branch: feat/wave-2A-contracts')).toBeTruthy()
-    expect(screen.getByText('↑2 ↓0')).toBeTruthy()
-    expect(screen.getByText('Staged (1)')).toBeTruthy()
-    expect(screen.getByText('Unstaged (2)')).toBeTruthy()
-    expect(screen.getByText('A src/renderer/components/shared/TabBar.tsx')).toBeTruthy()
-    expect(screen.getByText('M src/renderer/mock/project.ts')).toBeTruthy()
-    expect(screen.getByText('A src/renderer/components/shared/MarkdownRenderer.tsx')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Create Commit' }).hasAttribute('disabled')).toBe(false)
+    expect(screen.getByText('No changes yet')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Stage all' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Archive and start new space' })).toBeTruthy()
+    expect(screen.getByText('Continue working on this repo in a fresh workspace')).toBeTruthy()
   })
 
-  it('disables commit action when no staged files exist', () => {
+  it('renders state 1 commits actions as create-pr and merge', () => {
+    render(
+      <ChangesTab
+        git={mockGit}
+        previewState={1}
+      />
+    )
+
+    expect(screen.getByText('No changes yet')).toBeTruthy()
+    expect(screen.getByText('COMMITS')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Create PR' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Merge' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Connect Remote' })).toBeNull()
+    expect(screen.queryByText('PULL REQUESTS')).toBeNull()
+  })
+
+  it('renders an unstaged-heavy preview state in preview 2', () => {
     render(
       <ChangesTab
         git={{
           ...mockGit,
           staged: []
         }}
+        previewState={2}
       />
     )
 
-    expect(screen.getByRole('button', { name: 'Create Commit' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByText('UNSTAGED / NEW')).toBeTruthy()
+    expect(screen.getByText('STAGED / APPROVED')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Stage all' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Unstage all' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Commit' }).hasAttribute('disabled')).toBe(true)
+  })
+
+  it('renders timeline-style baseline hierarchy with grouped actions in preview 3', () => {
+    render(
+      <ChangesTab
+        git={mockGit}
+        previewState={3}
+      />
+    )
+
+    expect(screen.getByText('Your code lives in:')).toBeTruthy()
+    expect(screen.getByText('and will be merged into:')).toBeTruthy()
+    expect(screen.getByText(mockGit.branch)).toBeTruthy()
+    expect(screen.getByText('main')).toBeTruthy()
+    expect(screen.getByText('3 files changed in Space')).toBeTruthy()
+    expect(screen.getByText('UNSTAGED / NEW')).toBeTruthy()
+    expect(screen.getByText('STAGED / APPROVED')).toBeTruthy()
+    expect(screen.getByText('COMMITS')).toBeTruthy()
+    expect(screen.getByText('TabBar.tsx')).toBeTruthy()
+    expect(screen.getByText('project.ts')).toBeTruthy()
+    expect(screen.getByText('MarkdownRenderer.tsx')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Stage all' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Unstage all' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Commit' }).hasAttribute('disabled')).toBe(false)
+    expect(screen.getByRole('button', { name: 'Export' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Merge' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Connect Remote' })).toBeTruthy()
   })
 })
