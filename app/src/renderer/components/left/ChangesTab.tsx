@@ -27,6 +27,8 @@ type ChangesView = {
   showUnstageAction: boolean
   showArchiveAction: boolean
   showCreatePrAction: boolean
+  showMergeAction: boolean
+  showConnectRemoteAction: boolean
   showPullRequestAuthPrompt: boolean
 }
 
@@ -65,6 +67,8 @@ function getChangesView(previewState: ChangesPreviewState, git: GitSnapshot): Ch
       showUnstageAction: false,
       showArchiveAction: false,
       showCreatePrAction: false,
+      showMergeAction: true,
+      showConnectRemoteAction: true,
       showPullRequestAuthPrompt: false
     }
   }
@@ -78,6 +82,8 @@ function getChangesView(previewState: ChangesPreviewState, git: GitSnapshot): Ch
       showUnstageAction: false,
       showArchiveAction: true,
       showCreatePrAction: false,
+      showMergeAction: false,
+      showConnectRemoteAction: false,
       showPullRequestAuthPrompt: false
     }
   }
@@ -91,7 +97,9 @@ function getChangesView(previewState: ChangesPreviewState, git: GitSnapshot): Ch
       showUnstageAction: false,
       showArchiveAction: false,
       showCreatePrAction: true,
-      showPullRequestAuthPrompt: true
+      showMergeAction: true,
+      showConnectRemoteAction: false,
+      showPullRequestAuthPrompt: false
     }
   }
 
@@ -103,6 +111,8 @@ function getChangesView(previewState: ChangesPreviewState, git: GitSnapshot): Ch
     showUnstageAction: git.unstaged.length > 0 && git.staged.length > 0,
     showArchiveAction: false,
     showCreatePrAction: false,
+    showMergeAction: true,
+    showConnectRemoteAction: true,
     showPullRequestAuthPrompt: false
   }
 }
@@ -266,33 +276,35 @@ export function ChangesTab({ git, previewState = 0 }: ChangesTabProps) {
           <div className="relative pl-3">
             {renderSectionHeading('COMMITS', 'bg-muted-foreground/70')}
             <div className="mt-2 h-px bg-border/45" />
-            {view.showCreatePrAction ? (
+            {!view.showArchiveAction ? (
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                >
-                  Create PR
-                </Button>
-              </div>
-            ) : null}
-            {!view.showCreatePrAction && !view.showArchiveAction ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                >
-                  Merge
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                >
-                  Connect Remote
-                </Button>
+                {view.showCreatePrAction ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                  >
+                    Create PR
+                  </Button>
+                ) : null}
+                {view.showMergeAction ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                  >
+                    Merge
+                  </Button>
+                ) : null}
+                {view.showConnectRemoteAction ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                  >
+                    Connect Remote
+                  </Button>
+                ) : null}
               </div>
             ) : null}
           </div>

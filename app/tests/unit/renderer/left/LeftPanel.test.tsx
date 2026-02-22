@@ -135,8 +135,10 @@ describe('LeftPanel', () => {
     expect(screen.getByRole('button', { name: 'Archive and start new space' })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Show preview state 1' }))
-    expect(screen.getByText('PULL REQUESTS')).toBeTruthy()
+    expect(screen.getByText('COMMITS')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Create PR' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Merge' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Connect Remote' })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Show preview state 2' }))
     expect(screen.getByText('3 files changed in Space')).toBeTruthy()

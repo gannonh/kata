@@ -25,7 +25,7 @@ describe('ChangesTab', () => {
     expect(screen.getByText('Continue working on this repo in a fresh workspace')).toBeTruthy()
   })
 
-  it('renders a pull request handoff state in preview 1', () => {
+  it('renders state 1 commits actions as create-pr and merge', () => {
     render(
       <ChangesTab
         git={mockGit}
@@ -34,11 +34,11 @@ describe('ChangesTab', () => {
     )
 
     expect(screen.getByText('No changes yet')).toBeTruthy()
+    expect(screen.getByText('COMMITS')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Create PR' })).toBeTruthy()
-    expect(screen.getByText('PULL REQUESTS')).toBeTruthy()
-    expect(screen.getByText('Please authenticate with Augment first.')).toBeTruthy()
-    expect(screen.getByText('Run auggie login in your terminal.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Merge' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Connect Remote' })).toBeNull()
+    expect(screen.queryByText('PULL REQUESTS')).toBeNull()
   })
 
   it('renders an unstaged-heavy preview state in preview 2', () => {
