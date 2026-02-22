@@ -25,7 +25,7 @@ const SEGMENT_TONE_CLASS: Record<SegmentTone, string> = {
 }
 
 function segmentToneClass(segment: SegmentTone): string {
-  return SEGMENT_TONE_CLASS[segment] ?? 'bg-muted'
+  return SEGMENT_TONE_CLASS[segment]
 }
 
 function previewToneClass(state: 1 | 2 | 3, isActive: boolean) {
@@ -114,12 +114,6 @@ export function LeftStatusSection({
             aria-label="Cycle status preview state"
             aria-pressed={previewState > 0}
             onClick={onCyclePreviewState}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                onCyclePreviewState?.()
-              }
-            }}
             className={cn(
               'rounded-sm text-sm text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               'max-w-[70%] truncate text-left'

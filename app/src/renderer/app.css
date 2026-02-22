@@ -68,12 +68,12 @@ Uncomment to import Google fonts if you want to use them in your project.
   --info: oklch(0.36 0.68 241.16);
   --warning: oklch(0.769 0.288 70.08);
 
-  /* Semantic Status (project + agent states) */
-  --status-todo: oklch(0.72 0.012 286);
-  --status-in-progress: oklch(0.78 0.135 205);
-  --status-done: oklch(0.8 0.16 155);
-  /* shared by blocked status and warning badges */
-  --status-blocked: oklch(0.84 0.16 82);
+  /* Semantic Status (project + agent states) -- light mode uses lower lightness for contrast on white */
+  --status-todo: oklch(0.55 0.014 286);
+  --status-in-progress: oklch(0.55 0.15 205);
+  --status-done: oklch(0.55 0.16 155);
+  /* amber -- shared with warning badges (both use amber hue) */
+  --status-blocked: oklch(0.65 0.18 82);
 
   /* Fonts */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -136,11 +136,11 @@ Uncomment to import Google fonts if you want to use them in your project.
   --info: oklch(0.36 0.68 241.16);
   --warning: oklch(0.769 0.288 70.08);
 
-  /* Semantic Status (project + agent states) */
+  /* Semantic Status (project + agent states) -- dark mode uses higher lightness for visibility on dark bg */
   --status-todo: oklch(0.72 0.012 286);
   --status-in-progress: oklch(0.78 0.135 205);
   --status-done: oklch(0.8 0.16 155);
-  /* shared by blocked status and warning badges */
+  /* amber -- shared with warning badges (both use amber hue) */
   --status-blocked: oklch(0.84 0.16 82);
 
   /* Magicui Colors */
@@ -196,6 +196,8 @@ Uncomment to import Google fonts if you want to use them in your project.
   --color-success: var(--success);
   --color-info: var(--info);
   --color-warning: var(--warning);
+
+  /* Semantic Status */
   --color-status-todo: var(--status-todo);
   --color-status-in-progress: var(--status-in-progress);
   --color-status-done: var(--status-done);

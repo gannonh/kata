@@ -55,8 +55,12 @@ function createOverflowTasks() {
 }
 
 function resolveLeftStatusScenario(): LeftStatusScenario {
-  const rawScenario = globalThis.localStorage?.getItem(LEFT_STATUS_SCENARIO_KEY)
-  return rawScenario && isLeftStatusScenario(rawScenario) ? rawScenario : 'default'
+  try {
+    const rawScenario = globalThis.localStorage?.getItem(LEFT_STATUS_SCENARIO_KEY)
+    return rawScenario && isLeftStatusScenario(rawScenario) ? rawScenario : 'default'
+  } catch {
+    return 'default'
+  }
 }
 
 export function getMockProject(): ProjectSpec {
@@ -118,4 +122,5 @@ export function getMockProject(): ProjectSpec {
   return baseProject
 }
 
+/** Default-scenario snapshot evaluated at module load time. Use getMockProject() for runtime-dynamic scenarios. */
 export const mockProject = getMockProject()

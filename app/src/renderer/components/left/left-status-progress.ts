@@ -5,13 +5,13 @@ const LEFT_STATUS_MIN_TRACK_SEGMENTS = 10
 const LEFT_STATUS_MID_TRACK_SEGMENTS = 20
 
 export type LeftStatusMode = 'simple' | 'progress'
-export type LeftStatusMessage = string
 export type SegmentTone = TaskStatus
+export type RollupChip = { label: string }
 
 export type LeftStatusProgressView = {
   mode: LeftStatusMode
-  message: LeftStatusMessage
-  rollups: Array<{ label: string }>
+  message: string
+  rollups: RollupChip[]
   liveSegments: SegmentTone[]
 }
 
@@ -20,9 +20,16 @@ function isTaskStatus(value: unknown): value is TaskStatus {
 }
 
 function toSegmentTone(task: ProjectTask): SegmentTone {
-  return isTaskStatus(task.status) ? task.status : 'todo'
+  if (isTaskStatus(task.status)) {
+    return task.status
+  }
+  console.warn(
+    `[left-status-progress] Task "${task.id}" has unrecognized status "${String(task.status)}", defaulting to "todo"`
+  )
+  return 'todo'
 }
 
+// Tier the live track width: <=10 -> 10, <=20 -> 20, else 25.
 function resolveTrackSegmentCount(taskCount: number): number {
   if (taskCount <= LEFT_STATUS_MIN_TRACK_SEGMENTS) {
     return LEFT_STATUS_MIN_TRACK_SEGMENTS
@@ -56,6 +63,7 @@ function buildTrack({
     }
   }
 
+  // Segment order matches visual layout: done | in_progress | blocked | todo
   push('done', doneCount)
   push('in_progress', inProgressCount)
   push('blocked', blockedCount)
@@ -68,7 +76,16 @@ function buildTrack({
   return track
 }
 
+/**
+ * Computes a view model for the left-panel progress bar.
+ * Completed rows of 25 become rollup chips; the remaining tasks
+ * fill a live track sized at 10, 20, or 25 segments.
+ */
 export function buildLeftStatusProgress(tasks: ProjectTask[]): LeftStatusProgressView {
+  if (tasks.length === 0) {
+    return { mode: 'simple', message: 'No tasks yet.', rollups: [], liveSegments: [] }
+  }
+
   const segmentTones = tasks.map(toSegmentTone)
   const totalCount = segmentTones.length
   const counts = segmentTones.reduce<Record<SegmentTone, number>>(

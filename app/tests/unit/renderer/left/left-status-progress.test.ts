@@ -84,4 +84,26 @@ describe('buildLeftStatusProgress', () => {
     expect(result.liveSegments[0]).toBe('todo')
     expect(result.liveSegments).toHaveLength(10)
   })
+
+  it('returns empty view with "No tasks yet." for zero tasks', () => {
+    const result = buildLeftStatusProgress([])
+
+    expect(result.mode).toBe('simple')
+    expect(result.message).toBe('No tasks yet.')
+    expect(result.rollups).toEqual([])
+    expect(result.liveSegments).toEqual([])
+  })
+
+  it('maps blocked tasks to blocked segments', () => {
+    const result = buildLeftStatusProgress([
+      { id: 't1', title: 'Task 1', status: 'blocked' },
+      { id: 't2', title: 'Task 2', status: 'blocked' },
+      { id: 't3', title: 'Task 3', status: 'todo' }
+    ])
+
+    expect(result.mode).toBe('progress')
+    expect(result.message).toBe('0 of 3 complete.')
+    expect(result.liveSegments.filter((s) => s === 'blocked')).toHaveLength(2)
+    expect(result.liveSegments.filter((s) => s === 'todo')).toHaveLength(8)
+  })
 })

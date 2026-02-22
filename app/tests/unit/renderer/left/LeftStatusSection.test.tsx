@@ -59,7 +59,7 @@ describe('LeftStatusSection', () => {
 
     const statusSection = screen.getByLabelText('Left panel status')
     const cyclePreviewStateButton = screen.getByRole('button', { name: 'Cycle status preview state' })
-    fireEvent.keyDown(cyclePreviewStateButton, { key: 'Enter' })
+    fireEvent.click(cyclePreviewStateButton)
 
     expect(statusSection.getAttribute('role')).toBeNull()
     expect(cyclePreviewStateButton.getAttribute('aria-pressed')).toBe('true')
@@ -98,5 +98,19 @@ describe('LeftStatusSection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Status section options' }))
 
     expect(cycleCount).toBe(0)
+  })
+
+  it('renders static text instead of button when non-interactive', () => {
+    render(
+      <LeftStatusSection
+        tasks={[
+          { id: 't1', title: 'Task 1', status: 'done' },
+          { id: 't2', title: 'Task 2', status: 'todo' }
+        ]}
+      />
+    )
+
+    expect(screen.getByText('1 of 2 complete.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Cycle status preview state' })).toBeNull()
   })
 })

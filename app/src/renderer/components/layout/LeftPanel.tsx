@@ -12,6 +12,7 @@ import { ChangesTab } from '../left/ChangesTab'
 import { ContextTab } from '../left/ContextTab'
 import { FilesTab } from '../left/FilesTab'
 import { LeftStatusSection } from '../left/LeftStatusSection'
+import { ErrorBoundary } from '../shared/ErrorBoundary'
 import { cn } from '../../lib/cn'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
@@ -24,7 +25,7 @@ type LeftPanelProps = {
   onCollapsedChange?: (collapsed: boolean) => void
 }
 
-type PreviewState = 0 | 1 | 2 | 3
+export type PreviewState = 0 | 1 | 2 | 3
 type PreviewTasksByState = Record<Exclude<PreviewState, 0>, ReturnType<typeof getMockProject>['tasks']>
 
 const previewTasks = {
@@ -51,12 +52,11 @@ const previewTasks = {
   ]
 } satisfies PreviewTasksByState
 
-function nextPreviewState(current: PreviewState): PreviewState {
-  if (current === 3) {
-    return 0
-  }
+// @scaffold -- preview state cycling is development-only UI
+const PREVIEW_CYCLE: Record<PreviewState, PreviewState> = { 0: 1, 1: 2, 2: 3, 3: 0 }
 
-  return (current + 1) as PreviewState
+function nextPreviewState(current: PreviewState): PreviewState {
+  return PREVIEW_CYCLE[current] ?? 0
 }
 
 export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {}) {
@@ -175,14 +175,16 @@ export function LeftPanel({ collapsed, onCollapsedChange }: LeftPanelProps = {})
               <PanelLeftClose className="h-4 w-4" />
             </Button>
           </header>
-          <LeftStatusSection
-            title={project.sessionTitle}
-            subtitle={project.repositorySubtitle}
-            tasks={statusTasks}
-            previewState={previewState}
-            onCyclePreviewState={() => setPreviewState((current) => nextPreviewState(current))}
-            onSelectPreviewState={(state) => setPreviewState(state)}
-          />
+          <ErrorBoundary fallback={<p className="px-4 py-3 text-sm text-muted-foreground">Unable to load status.</p>}>
+            <LeftStatusSection
+              title={project.sessionTitle}
+              subtitle={project.repositorySubtitle}
+              tasks={statusTasks}
+              previewState={previewState}
+              onCyclePreviewState={() => setPreviewState((current) => nextPreviewState(current))}
+              onSelectPreviewState={(state) => setPreviewState(state)}
+            />
+          </ErrorBoundary>
           <ScrollArea className="min-h-0 flex-1">
             <div className="py-4 pl-4 pr-2">
               {activeTab === 'agents' ? (
