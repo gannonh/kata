@@ -9,6 +9,7 @@ use uuid::Uuid;
 use super::git_github::{
     create_github_workspace, create_new_github_workspace, list_repo_branches,
     list_repo_issues, list_repo_pull_requests, pull_request_head_branch,
+    repo_default_branch,
     repo_url_from_id,
 };
 use super::git_local::create_local_workspace;
@@ -416,7 +417,11 @@ pub async fn workspace_create_from_source(
                 (None, Some(format!("origin/{normalized}")))
             }
             WorkspaceCreateFromSource::Issue { value } => {
-                (Some(format!("feature/issue-{value}")), Some("origin/main".to_string()))
+                let default_branch = repo_default_branch(&repo_id)?;
+                (
+                    Some(format!("feature/issue-{value}")),
+                    Some(format!("origin/{default_branch}")),
+                )
             }
         };
 

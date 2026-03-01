@@ -104,19 +104,20 @@ export function CreateWorkspaceModal({
   }, [enableIssuesTab, isOpen, loadBranches, loadIssues, loadPullRequests, query, repoId, tab]);
 
   const canCreate = useMemo(() => {
+    if (isLoading) return false;
     if (!repoId) return false;
     if (tab === 'pull_requests') return selectedPullRequest !== null;
     if (tab === 'branches') return Boolean(selectedBranch);
     if (!enableIssuesTab) return false;
     return selectedIssue !== null;
-  }, [enableIssuesTab, repoId, selectedBranch, selectedIssue, selectedPullRequest, tab]);
+  }, [enableIssuesTab, isLoading, repoId, selectedBranch, selectedIssue, selectedPullRequest, tab]);
 
   if (!isOpen) {
     return null;
   }
 
   async function handleCreate() {
-    if (!repoId) return;
+    if (!repoId || isLoading) return;
     setError(null);
     try {
       if (tab === 'pull_requests' && selectedPullRequest !== null) {

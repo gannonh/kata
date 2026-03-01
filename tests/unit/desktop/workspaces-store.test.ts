@@ -246,7 +246,7 @@ describe('useWorkspacesStore', () => {
     expect(useWorkspacesStore.getState().lastError).toBe('remove failed');
   });
 
-  test('returns empty arrays and stores errors for repo list lookups', async () => {
+  test('stores errors for repo list lookups and rethrows option-loading failures', async () => {
     const failingClient: WorkspaceClient = {
       list: async () => [],
       listGitHubRepos: async () => [],
@@ -288,13 +288,19 @@ describe('useWorkspacesStore', () => {
     expect(useWorkspacesStore.getState().lastError).toBe('known repos failed');
     expect(useWorkspacesStore.getState().isLoadingKnownRepos).toBe(false);
 
-    expect(await useWorkspacesStore.getState().listRepoBranches('org/repo')).toEqual([]);
+    await expect(useWorkspacesStore.getState().listRepoBranches('org/repo')).rejects.toThrow(
+      'branches failed',
+    );
     expect(useWorkspacesStore.getState().lastError).toBe('branches failed');
 
-    expect(await useWorkspacesStore.getState().listRepoPullRequests('org/repo')).toEqual([]);
+    await expect(useWorkspacesStore.getState().listRepoPullRequests('org/repo')).rejects.toThrow(
+      'pull requests failed',
+    );
     expect(useWorkspacesStore.getState().lastError).toBe('pull requests failed');
 
-    expect(await useWorkspacesStore.getState().listRepoIssues('org/repo')).toEqual([]);
+    await expect(useWorkspacesStore.getState().listRepoIssues('org/repo')).rejects.toThrow(
+      'issues failed',
+    );
     expect(useWorkspacesStore.getState().lastError).toBe('issues failed');
   });
 

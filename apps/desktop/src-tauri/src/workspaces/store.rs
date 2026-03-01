@@ -153,16 +153,18 @@ fn repo_id_from_source(source: &str) -> Option<String> {
     if parsed.host_str() != Some("github.com") {
         return None;
     }
-    let id = parsed
+    let mut segments = parsed
         .path()
-        .trim_start_matches('/')
-        .trim_end_matches(".git")
-        .trim()
-        .to_string();
-    if id.is_empty() {
+        .trim_matches('/')
+        .split('/')
+        .map(|segment| segment.trim())
+        .filter(|segment| !segment.is_empty());
+    let owner = segments.next()?;
+    let repo = segments.next()?.trim_end_matches(".git").trim_end_matches('/');
+    if owner.is_empty() || repo.is_empty() {
         None
     } else {
-        Some(id)
+        Some(format!("{owner}/{repo}"))
     }
 }
 
@@ -287,5 +289,29 @@ mod tests {
         let store = &mut WorkspaceStore::new(dir.path());
         let err = store.remove("ws_missing").unwrap_err();
         assert!(err.to_string().contains("not found"));
+    }
+
+    #[test]
+    fn repo_id_from_source_canonicalizes_owner_repo_shape() {
+        assert_eq!(
+            repo_id_from_source("https://github.com/kata-sh/kata-cloud-agents"),
+            Some("kata-sh/kata-cloud-agents".to_string())
+        );
+        assert_eq!(
+            repo_id_from_source("https://github.com/kata-sh/kata-cloud-agents/"),
+            Some("kata-sh/kata-cloud-agents".to_string())
+        );
+        assert_eq!(
+            repo_id_from_source("https://github.com/kata-sh/kata-cloud-agents.git/"),
+            Some("kata-sh/kata-cloud-agents".to_string())
+        );
+        assert_eq!(
+            repo_id_from_source("https://github.com/kata-sh/kata-cloud-agents/tree/main"),
+            Some("kata-sh/kata-cloud-agents".to_string())
+        );
+        assert_eq!(
+            repo_id_from_source("https://github.com/kata-sh"),
+            None
+        );
     }
 }

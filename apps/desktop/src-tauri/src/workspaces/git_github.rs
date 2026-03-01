@@ -245,19 +245,7 @@ pub fn list_repo_branches(
     query: Option<&str>,
 ) -> Result<Vec<WorkspaceBranchOption>, WorkspaceError> {
     let repo_url = repo_url_from_id(repo_id)?;
-    let default_branch = run_gh(
-        Path::new("."),
-        &[
-            "repo",
-            "view",
-            repo_id,
-            "--json",
-            "defaultBranchRef",
-            "--jq",
-            ".defaultBranchRef.name",
-        ],
-    )?;
-    let default_name = default_branch.trim().to_string();
+    let default_name = repo_default_branch(repo_id)?;
     let output = Command::new("git")
         .args(["ls-remote", "--heads", &repo_url])
         .output()
@@ -295,6 +283,28 @@ pub fn list_repo_branches(
     });
     items.truncate(20);
     Ok(items)
+}
+
+pub fn repo_default_branch(repo_id: &str) -> Result<String, WorkspaceError> {
+    let default_branch = run_gh(
+        Path::new("."),
+        &[
+            "repo",
+            "view",
+            repo_id,
+            "--json",
+            "defaultBranchRef",
+            "--jq",
+            ".defaultBranchRef.name",
+        ],
+    )?;
+    let branch = default_branch.trim();
+    if branch.is_empty() {
+        return Err(WorkspaceError::InvalidInput(format!(
+            "Unable to determine default branch for repository: {repo_id}"
+        )));
+    }
+    Ok(branch.to_string())
 }
 
 pub fn pull_request_head_branch(repo_id: &str, number: i64) -> Result<String, WorkspaceError> {

@@ -253,6 +253,46 @@ describe('CreateWorkspaceModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  test('disables create while source options are loading for a new repo selection', async () => {
+    const user = userEvent.setup();
+    let resolveSecondLoad: ((value: { name: string; isDefault: boolean; updatedAt: string }[]) => void) | null =
+      null;
+    const loadBranches = vi.fn(async (repoId: string) => {
+      if (repoId === 'kata-sh/repo-a') {
+        return [{ name: 'repo-a-main', isDefault: true, updatedAt: '2026-03-01T00:00:00.000Z' }];
+      }
+      return new Promise<{ name: string; isDefault: boolean; updatedAt: string }[]>((resolve) => {
+        resolveSecondLoad = resolve;
+      });
+    });
+
+    render(
+      <CreateWorkspaceModal
+        isOpen
+        repos={[makeRepo('kata-sh/repo-a'), makeRepo('kata-sh/repo-b')]}
+        onClose={vi.fn()}
+        onCreate={vi.fn(async () => {})}
+        loadPullRequests={vi.fn(async () => [])}
+        loadBranches={loadBranches}
+        loadIssues={vi.fn(async () => [])}
+      />,
+    );
+
+    await screen.findByRole('button', { name: /repo-a-main/i });
+    const createButton = screen.getByRole('button', { name: /create workspace/i });
+    expect(createButton).toBeEnabled();
+
+    await user.selectOptions(screen.getByRole('combobox'), 'kata-sh/repo-b');
+    await waitFor(() => {
+      expect(createButton).toBeDisabled();
+      expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    });
+
+    resolveSecondLoad?.([{ name: 'repo-b-main', isDefault: true, updatedAt: '2026-03-01T00:00:00.000Z' }]);
+    await screen.findByRole('button', { name: /repo-b-main/i });
+    expect(createButton).toBeEnabled();
+  });
+
   test('cancels stale branch and issue loads when switching tabs/unmounting', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

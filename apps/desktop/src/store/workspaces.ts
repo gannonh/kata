@@ -130,7 +130,7 @@ export const useWorkspacesStore = create<WorkspacesState>()((set) => {
         return await workspaceClient.listRepoBranches(repoId, query);
       } catch (error) {
         set({ lastError: toErrorMessage(error) });
-        return [];
+        throw error;
       }
     },
     listRepoPullRequests: async (repoId, query) => {
@@ -138,7 +138,7 @@ export const useWorkspacesStore = create<WorkspacesState>()((set) => {
         return await workspaceClient.listRepoPullRequests(repoId, query);
       } catch (error) {
         set({ lastError: toErrorMessage(error) });
-        return [];
+        throw error;
       }
     },
     listRepoIssues: async (repoId, query) => {
@@ -146,7 +146,7 @@ export const useWorkspacesStore = create<WorkspacesState>()((set) => {
         return await workspaceClient.listRepoIssues(repoId, query);
       } catch (error) {
         set({ lastError: toErrorMessage(error) });
-        return [];
+        throw error;
       }
     },
     quickCreateFromRepo: (repoId, workspaceName) =>
