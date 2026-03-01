@@ -1,9 +1,12 @@
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
+import { CreateWorkspaceModal } from '../components/workspaces/CreateWorkspaceModal';
 import { pickDirectory } from '../services/system/dialog';
-import { isGitHubRepoUrl } from '../types/workspace';
+import { useCreateWorkspaceHotkey } from '../hooks/useCreateWorkspaceHotkey';
+import { deriveNameFromIdentifier, isGitHubRepoUrl } from '../types/workspace';
 import { getWorkspaceClient, toErrorMessage, useWorkspacesStore } from '../store/workspaces';
-import type { GitHubRepoOption } from '../services/workspaces/types';
+import type { GitHubRepoOption, WorkspaceCreateFromSource } from '../services/workspaces/types';
 
 type WorkspaceAction = 'clone' | 'create' | null;
 
@@ -15,25 +18,14 @@ export function deriveNameFromRepoPath(repoPath: string): string {
 
 export function deriveNameFromRepoUrl(repoUrl: string): string {
   try {
-    const parsed = new URL(repoUrl);
-    const lastSegment = parsed.pathname.split('/').filter(Boolean).at(-1) ?? '';
-    const withoutGitSuffix = lastSegment.replace(/\.git$/i, '');
-    return withoutGitSuffix || 'Workspace';
+    return deriveNameFromIdentifier(new URL(repoUrl).pathname);
   } catch {
     return 'Workspace';
   }
 }
 
 export function deriveNameFromRepositoryInput(repositoryName: string): string {
-  const normalized = repositoryName.trim().replace(/\.git$/i, '');
-  if (!normalized) {
-    return 'Workspace';
-  }
-  const parts = normalized
-    .split('/')
-    .map((part) => part.trim())
-    .filter(Boolean);
-  return parts.at(-1) || 'Workspace';
+  return deriveNameFromIdentifier(repositoryName);
 }
 
 export function buildDefaultCloneLocation(home: string): string {
@@ -109,22 +101,39 @@ export function rankRepos(repos: GitHubRepoOption[], query: string): GitHubRepoO
     .slice(0, 20);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const HOME_DIR: string = typeof (globalThis as any).process?.env?.HOME === 'string'
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ? (globalThis as any).process.env.HOME
-  : '~';
+type GlobalProcessEnv = {
+  process?: {
+    env?: {
+      HOME?: string;
+    };
+  };
+};
+
+const HOME_DIR: string = (() => {
+  const home = (globalThis as GlobalProcessEnv).process?.env?.HOME;
+  return typeof home === 'string' ? home : '~';
+})();
 
 const DEFAULT_CLONE_LOCATION = buildDefaultCloneLocation(HOME_DIR);
 
 export function Workspaces() {
+  const navigate = useNavigate();
   const workspaces = useWorkspacesStore((state) => state.workspaces);
+  const knownRepos = useWorkspacesStore((state) => state.knownRepos);
   const isCreating = useWorkspacesStore((state) => state.isCreating);
+  const isLoadingKnownRepos = useWorkspacesStore((state) => state.isLoadingKnownRepos);
   const lastError = useWorkspacesStore((state) => state.lastError);
   const load = useWorkspacesStore((state) => state.load);
+  const loadKnownRepos = useWorkspacesStore((state) => state.loadKnownRepos);
+  const quickCreateFromRepo = useWorkspacesStore((state) => state.quickCreateFromRepo);
+  const createFromSource = useWorkspacesStore((state) => state.createFromSource);
+  const listRepoBranches = useWorkspacesStore((state) => state.listRepoBranches);
+  const listRepoPullRequests = useWorkspacesStore((state) => state.listRepoPullRequests);
+  const listRepoIssues = useWorkspacesStore((state) => state.listRepoIssues);
   const createLocal = useWorkspacesStore((state) => state.createLocal);
   const createGitHub = useWorkspacesStore((state) => state.createGitHub);
   const createNewGitHub = useWorkspacesStore((state) => state.createNewGitHub);
+  const setActive = useWorkspacesStore((state) => state.setActive);
   const archive = useWorkspacesStore((state) => state.archive);
   const remove = useWorkspacesStore((state) => state.remove);
 
@@ -143,10 +152,19 @@ export function Workspaces() {
   const [isPickingCloneLocation, setIsPickingCloneLocation] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [createdRepoUrl, setCreatedRepoUrl] = useState<string | null>(null);
+  const [isCreateFromOpen, setIsCreateFromOpen] = useState(false);
+  const [createFromRepoId, setCreateFromRepoId] = useState<string | null>(null);
 
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadKnownRepos();
+  }, [load, loadKnownRepos]);
+
+  const onHotkey = useCallback(() => {
+    setCreateFromRepoId(knownRepos[0]?.id ?? null);
+    setIsCreateFromOpen(true);
+  }, [knownRepos]);
+  useCreateWorkspaceHotkey(onHotkey);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally resets form errors when action tab changes
   useEffect(() => {
@@ -272,6 +290,7 @@ export function Workspaces() {
 
       setCreatedRepoUrl(null);
       setGithubRepoUrl('');
+      await loadKnownRepos();
       setAction(null);
     } catch (error) {
       setFormError(toErrorMessage(error));
@@ -298,10 +317,42 @@ export function Workspaces() {
 
       setCreatedRepoUrl(workspace.sourceType === 'github' ? workspace.source : null);
       setNewRepositoryName('');
+      await loadKnownRepos();
       setAction(null);
     } catch (error) {
       setFormError(toErrorMessage(error));
     }
+  }
+
+  async function onQuickCreate(repoId: string) {
+    setFormError(null);
+    try {
+      await quickCreateFromRepo(repoId);
+      await loadKnownRepos();
+    } catch (error) {
+      setFormError(toErrorMessage(error));
+    }
+  }
+
+  async function onCreateFrom(input: { repoId: string; source: WorkspaceCreateFromSource }) {
+    setFormError(null);
+    try {
+      await createFromSource(input);
+      await loadKnownRepos();
+    } catch (error) {
+      setFormError(toErrorMessage(error));
+      throw error;
+    }
+  }
+
+  async function onOpenWorkspace(workspaceId: string) {
+    await setActive(workspaceId);
+    const storeError = useWorkspacesStore.getState().lastError;
+    if (storeError) {
+      setFormError(storeError);
+      return;
+    }
+    navigate('/');
   }
 
   return (
@@ -310,6 +361,63 @@ export function Workspaces() {
       <p className="mt-2 text-slate-400">
         Create and manage isolated git workspaces for active work.
       </p>
+
+      <section className="mt-6 rounded border border-slate-800 bg-slate-900/40 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-medium text-slate-200">Quick Create From Known Repos</h2>
+          <button
+            type="button"
+            onClick={() => {
+              setCreateFromRepoId(knownRepos[0]?.id ?? null);
+              setIsCreateFromOpen(true);
+            }}
+            className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-200"
+          >
+            Create from... <span aria-hidden="true">⌘N</span>
+          </button>
+        </div>
+
+        {isLoadingKnownRepos ? (
+          <p className="mt-3 text-sm text-slate-400">Loading repositories...</p>
+        ) : null}
+        {!isLoadingKnownRepos && knownRepos.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-400">
+            No known repos yet. Create a GitHub workspace first to enable quick create.
+          </p>
+        ) : null}
+
+        {!isLoadingKnownRepos && knownRepos.length > 0 ? (
+          <ul className="mt-3 space-y-2" aria-label="Known repositories">
+            {knownRepos.map((repo, index) => (
+              <li
+                key={repo.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-800 bg-slate-900/30 px-3 py-2"
+              >
+                <button
+                  type="button"
+                  onClick={() => void onQuickCreate(repo.id)}
+                  className="text-left text-sm text-slate-100 hover:text-slate-200"
+                >
+                  {repo.nameWithOwner}
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreateFromRepoId(repo.id);
+                      setIsCreateFromOpen(true);
+                    }}
+                    className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-200"
+                  >
+                    Create from...
+                  </button>
+                  <span className="text-xs text-slate-500">{index + 1}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
 
       <div className="mt-6 rounded border border-slate-800 bg-slate-900/40 p-4">
         <h2 className="text-sm font-medium text-slate-200">Add Repository</h2>
@@ -486,12 +594,17 @@ export function Workspaces() {
                 key={workspace.id}
                 className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-800 bg-slate-900/30 px-3 py-2"
               >
-                <div>
+                <button
+                  type="button"
+                  aria-label={`Open workspace ${workspace.name}`}
+                  onClick={() => void onOpenWorkspace(workspace.id)}
+                  className="min-w-[220px] flex-1 text-left"
+                >
                   <p className="font-medium text-slate-100">{workspace.name}</p>
                   <p className="text-xs text-slate-400">
                     {workspace.branch} · {workspace.sourceType} · {workspace.status}
                   </p>
-                </div>
+                </button>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -513,6 +626,18 @@ export function Workspaces() {
           </ul>
         )}
       </section>
+
+      <CreateWorkspaceModal
+        isOpen={isCreateFromOpen}
+        enableIssuesTab={false}
+        initialRepoId={createFromRepoId}
+        repos={knownRepos}
+        onClose={() => setIsCreateFromOpen(false)}
+        onCreate={onCreateFrom}
+        loadBranches={listRepoBranches}
+        loadPullRequests={listRepoPullRequests}
+        loadIssues={listRepoIssues}
+      />
     </div>
   );
 }

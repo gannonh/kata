@@ -36,9 +36,15 @@ export function isGitHubRepoUrl(url: string): boolean {
   }
 }
 
+export function toSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'workspace';
+}
+
 export function deriveWorkspaceBranchName(name: string, suffix: string): string {
-  const slug =
-    name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') ||
-    'workspace';
-  return `workspace/${slug}-${suffix}`;
+  return `workspace/${toSlug(name)}-${suffix}`;
+}
+
+export function deriveNameFromIdentifier(value: string): string {
+  const segment = value.trim().split('/').filter(Boolean).at(-1)?.replace(/\.git$/i, '').trim() ?? '';
+  return segment || 'Workspace';
 }

@@ -74,6 +74,26 @@ describe('useWorkspacesStore', () => {
     expect(state.activeWorkspaceId).toBe(workspace.id);
   });
 
+  test('quickCreateFromRepo appends workspace and sets active workspace', async () => {
+    const workspace = await useWorkspacesStore.getState().quickCreateFromRepo('kata-sh/kata-cloud-agents');
+    const state = useWorkspacesStore.getState();
+    expect(workspace.source).toBe('https://github.com/kata-sh/kata-cloud-agents');
+    expect(state.activeWorkspaceId).toBe(workspace.id);
+    expect(state.workspaces.some((entry) => entry.id === workspace.id)).toBe(true);
+  });
+
+  test('loadKnownRepos stores known repos and loading state', async () => {
+    await useWorkspacesStore.getState().createGitHub({
+      repoUrl: 'https://github.com/kata-sh/kata-cloud-agents',
+      workspaceName: 'kata-cloud-agents',
+    });
+
+    const knownRepos = await useWorkspacesStore.getState().loadKnownRepos();
+    expect(knownRepos.length).toBe(1);
+    expect(useWorkspacesStore.getState().isLoadingKnownRepos).toBe(false);
+    expect(useWorkspacesStore.getState().knownRepos[0]?.id).toBe('kata-sh/kata-cloud-agents');
+  });
+
   test('archiving a non-active workspace preserves active selection', async () => {
     await useWorkspacesStore
       .getState()
@@ -124,6 +144,10 @@ describe('useWorkspacesStore', () => {
     const failingClient: WorkspaceClient = {
       list: async () => [],
       listGitHubRepos: async () => [],
+      listKnownRepos: async () => [],
+      listRepoBranches: async () => [],
+      listRepoPullRequests: async () => [],
+      listRepoIssues: async () => [],
       createLocal: async () => {
         throw new Error('local failed');
       },
@@ -132,6 +156,9 @@ describe('useWorkspacesStore', () => {
       },
       createNewGitHub: async () => {
         throw new Error('github new failed');
+      },
+      createFromSource: async () => {
+        throw new Error('create from failed');
       },
       setActive: async () => {},
       getActiveId: async () => null,
@@ -175,6 +202,10 @@ describe('useWorkspacesStore', () => {
         throw new Error('load failed');
       },
       listGitHubRepos: async () => [],
+      listKnownRepos: async () => [],
+      listRepoBranches: async () => [],
+      listRepoPullRequests: async () => [],
+      listRepoIssues: async () => [],
       createLocal: async () => {
         throw new Error('local failed');
       },
@@ -183,6 +214,9 @@ describe('useWorkspacesStore', () => {
       },
       createNewGitHub: async () => {
         throw new Error('github new failed');
+      },
+      createFromSource: async () => {
+        throw new Error('create from failed');
       },
       setActive: async () => {
         throw new Error('active failed');
@@ -212,12 +246,82 @@ describe('useWorkspacesStore', () => {
     expect(useWorkspacesStore.getState().lastError).toBe('remove failed');
   });
 
+  test('stores errors for repo list lookups and rethrows option-loading failures', async () => {
+    const failingClient: WorkspaceClient = {
+      list: async () => [],
+      listGitHubRepos: async () => [],
+      listKnownRepos: async () => {
+        throw new Error('known repos failed');
+      },
+      listRepoBranches: async () => {
+        throw new Error('branches failed');
+      },
+      listRepoPullRequests: async () => {
+        throw new Error('pull requests failed');
+      },
+      listRepoIssues: async () => {
+        throw new Error('issues failed');
+      },
+      createLocal: async () => {
+        throw new Error('local failed');
+      },
+      createGitHub: async () => {
+        throw new Error('github failed');
+      },
+      createNewGitHub: async () => {
+        throw new Error('github new failed');
+      },
+      createFromSource: async () => {
+        throw new Error('create from failed');
+      },
+      setActive: async () => {},
+      getActiveId: async () => null,
+      archive: async () => {},
+      remove: async () => {},
+    };
+
+    setWorkspaceClient(failingClient);
+    resetWorkspacesStore();
+
+    expect(await useWorkspacesStore.getState().loadKnownRepos()).toEqual([]);
+    expect(useWorkspacesStore.getState().knownRepos).toEqual([]);
+    expect(useWorkspacesStore.getState().lastError).toBe('known repos failed');
+    expect(useWorkspacesStore.getState().isLoadingKnownRepos).toBe(false);
+
+    await expect(useWorkspacesStore.getState().listRepoBranches('org/repo')).rejects.toThrow(
+      'branches failed',
+    );
+    expect(useWorkspacesStore.getState().lastError).toBe('branches failed');
+
+    await expect(useWorkspacesStore.getState().listRepoPullRequests('org/repo')).rejects.toThrow(
+      'pull requests failed',
+    );
+    expect(useWorkspacesStore.getState().lastError).toBe('pull requests failed');
+
+    await expect(useWorkspacesStore.getState().listRepoIssues('org/repo')).rejects.toThrow(
+      'issues failed',
+    );
+    expect(useWorkspacesStore.getState().lastError).toBe('issues failed');
+  });
+
   test('handles non-Error throws and exposes current client', async () => {
     const nonErrorClient: WorkspaceClient = {
       list: async () => {
         throw 'boom';
       },
       listGitHubRepos: async () => {
+        throw 'boom';
+      },
+      listKnownRepos: async () => {
+        throw 'boom';
+      },
+      listRepoBranches: async () => {
+        throw 'boom';
+      },
+      listRepoPullRequests: async () => {
+        throw 'boom';
+      },
+      listRepoIssues: async () => {
         throw 'boom';
       },
       createLocal: async () => {
@@ -227,6 +331,9 @@ describe('useWorkspacesStore', () => {
         throw 'boom';
       },
       createNewGitHub: async () => {
+        throw 'boom';
+      },
+      createFromSource: async () => {
         throw 'boom';
       },
       setActive: async () => {
@@ -255,6 +362,10 @@ describe('useWorkspacesStore', () => {
         throw { message: 'object message' };
       },
       listGitHubRepos: async () => [],
+      listKnownRepos: async () => [],
+      listRepoBranches: async () => [],
+      listRepoPullRequests: async () => [],
+      listRepoIssues: async () => [],
       createLocal: async () => {
         throw { error: 'top level error field' };
       },
@@ -263,6 +374,9 @@ describe('useWorkspacesStore', () => {
       },
       createNewGitHub: async () => {
         throw { message: 'new repo object message' };
+      },
+      createFromSource: async () => {
+        throw { message: 'create from object message' };
       },
       setActive: async () => {
         throw {};

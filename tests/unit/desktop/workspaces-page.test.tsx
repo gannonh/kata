@@ -2,6 +2,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { Workspaces } from '../../../apps/desktop/src/pages/Workspaces';
@@ -24,6 +25,29 @@ vi.mock('../../../apps/desktop/src/services/system/dialog', () => ({
 const pickDirectoryMock = vi.mocked(pickDirectory);
 
 describe('Workspaces page', () => {
+  function seededGithubWorkspace() {
+    return {
+      id: 'ws_seed',
+      name: 'Seed Workspace',
+      sourceType: 'github' as const,
+      source: 'https://github.com/kata-sh/kata-cloud-agents',
+      repoRootPath: '/tmp/repo',
+      worktreePath: '/tmp/repo.worktrees/ws_seed',
+      branch: 'workspace/seed',
+      status: 'ready' as const,
+      createdAt: '2026-03-01T00:00:00.000Z',
+      updatedAt: '2026-03-01T00:00:00.000Z',
+    };
+  }
+
+  function renderWorkspaces() {
+    return render(
+      <MemoryRouter>
+        <Workspaces />
+      </MemoryRouter>,
+    );
+  }
+
   beforeEach(() => {
     pickDirectoryMock.mockReset();
     delete (globalThis as { __TAURI__?: unknown }).__TAURI__;
@@ -33,7 +57,7 @@ describe('Workspaces page', () => {
   });
 
   test('renders three add repository actions', async () => {
-    render(<Workspaces />);
+    renderWorkspaces();
 
     expect(screen.getByRole('button', { name: /local repo/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /clone remote/i })).toBeInTheDocument();
@@ -44,7 +68,7 @@ describe('Workspaces page', () => {
   test('supports local repo creation from local action', async () => {
     const user = userEvent.setup();
     pickDirectoryMock.mockResolvedValueOnce('/tmp/repo');
-    render(<Workspaces />);
+    renderWorkspaces();
 
     await user.click(screen.getByRole('button', { name: /local repo/i }));
 
@@ -54,7 +78,7 @@ describe('Workspaces page', () => {
   test('handles local repo picker cancel and error', async () => {
     const user = userEvent.setup();
     pickDirectoryMock.mockResolvedValueOnce(null).mockRejectedValueOnce(new Error('picker failed'));
-    render(<Workspaces />);
+    renderWorkspaces();
 
     await user.click(screen.getByRole('button', { name: /local repo/i }));
     expect(screen.getByText(/no workspaces yet/i)).toBeInTheDocument();
@@ -66,7 +90,7 @@ describe('Workspaces page', () => {
 
   test('supports remote clone action', async () => {
     const user = userEvent.setup();
-    render(<Workspaces />);
+    renderWorkspaces();
 
     await user.click(screen.getByRole('button', { name: /clone remote/i }));
     await user.type(
@@ -94,7 +118,7 @@ describe('Workspaces page', () => {
     resetWorkspacesStore();
 
     const user = userEvent.setup();
-    render(<Workspaces />);
+    renderWorkspaces();
 
     await user.click(screen.getByRole('button', { name: /clone remote/i }));
     const cloneUrlInput = screen.getByLabelText(/github repository url/i);
@@ -109,7 +133,7 @@ describe('Workspaces page', () => {
 
   test('validates clone action github url', async () => {
     const user = userEvent.setup();
-    render(<Workspaces />);
+    renderWorkspaces();
 
     await user.click(screen.getByRole('button', { name: /clone remote/i }));
     await user.type(
@@ -130,7 +154,7 @@ describe('Workspaces page', () => {
 
   test('supports create new repository action', async () => {
     const user = userEvent.setup();
-    render(<Workspaces />);
+    renderWorkspaces();
 
     await user.click(screen.getByRole('button', { name: /create new/i }));
     await user.type(screen.getByLabelText(/repository name/i), 'kat-154-created');
@@ -157,7 +181,7 @@ describe('Workspaces page', () => {
     resetWorkspacesStore();
 
     const user = userEvent.setup();
-    render(<Workspaces />);
+    renderWorkspaces();
 
     await user.click(screen.getByRole('button', { name: /create new/i }));
     await user.click(screen.getByRole('button', { name: /create new repo/i }));
@@ -175,7 +199,7 @@ describe('Workspaces page', () => {
   test('supports archive and remove on existing list', async () => {
     const user = userEvent.setup();
     pickDirectoryMock.mockResolvedValueOnce('/tmp/kat-154-actions');
-    render(<Workspaces />);
+    renderWorkspaces();
 
     await user.click(screen.getByRole('button', { name: /local repo/i }));
     expect(await screen.findByText(/^kat-154-actions$/i)).toBeInTheDocument();
@@ -203,7 +227,7 @@ describe('Workspaces page', () => {
     resetWorkspacesStore();
 
     const user = userEvent.setup();
-    render(<Workspaces />);
+    renderWorkspaces();
     await user.click(screen.getByRole('button', { name: /clone remote/i }));
 
     expect(await screen.findByRole('status')).toBeInTheDocument();
@@ -233,7 +257,7 @@ describe('Workspaces page', () => {
     resetWorkspacesStore();
 
     const user = userEvent.setup();
-    render(<Workspaces />);
+    renderWorkspaces();
     await user.click(screen.getByRole('button', { name: /clone remote/i }));
     expect(await screen.findByText(/gh auth required/i)).toBeInTheDocument();
   });
@@ -256,7 +280,7 @@ describe('Workspaces page', () => {
       resetWorkspacesStore();
 
       const user = userEvent.setup();
-      const { unmount } = render(<Workspaces />);
+      const { unmount } = renderWorkspaces();
       await user.click(screen.getByRole('button', { name: /clone remote/i }));
       await waitFor(() => {
         expect(listGitHubRepos).toHaveBeenCalledTimes(1);
@@ -294,7 +318,7 @@ describe('Workspaces page', () => {
     resetWorkspacesStore();
 
     const user = userEvent.setup();
-    render(<Workspaces />);
+    renderWorkspaces();
     await user.click(screen.getByRole('button', { name: /clone remote/i }));
     await waitFor(() => {
       expect(listGitHubRepos).toHaveBeenCalledTimes(1);
@@ -327,7 +351,7 @@ describe('Workspaces page', () => {
     resetWorkspacesStore();
 
     const user = userEvent.setup();
-    render(<Workspaces />);
+    renderWorkspaces();
     await user.click(screen.getByRole('button', { name: /clone remote/i }));
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /org\/repo-two/i })).toBeInTheDocument();
@@ -346,7 +370,7 @@ describe('Workspaces page', () => {
       .mockResolvedValueOnce(null)
       .mockRejectedValueOnce(new Error('browse failed'))
       .mockResolvedValueOnce('/tmp/create-picked');
-    render(<Workspaces />);
+    renderWorkspaces();
 
     await user.click(screen.getByRole('button', { name: /clone remote/i }));
     await user.click(screen.getByRole('button', { name: /^browse$/i }));
@@ -365,7 +389,7 @@ describe('Workspaces page', () => {
 
   test('catches unexpected errors from clone store action', async () => {
     const user = userEvent.setup();
-    render(<Workspaces />);
+    renderWorkspaces();
 
     useWorkspacesStore.setState({
       createGitHub: async () => {
@@ -392,7 +416,7 @@ describe('Workspaces page', () => {
 
   test('catches unexpected errors from create-new store action', async () => {
     const user = userEvent.setup();
-    render(<Workspaces />);
+    renderWorkspaces();
 
     useWorkspacesStore.setState({
       createNewGitHub: async () => {
@@ -411,7 +435,7 @@ describe('Workspaces page', () => {
 
   test('uses a default clone location derived from home directory', async () => {
     const user = userEvent.setup();
-    render(<Workspaces />);
+    renderWorkspaces();
 
     await user.click(screen.getByRole('button', { name: /clone remote/i }));
     await waitFor(() => {
@@ -423,7 +447,7 @@ describe('Workspaces page', () => {
 
   test('clears form error when switching actions', async () => {
     const user = userEvent.setup();
-    render(<Workspaces />);
+    renderWorkspaces();
 
     await user.click(screen.getByRole('button', { name: /clone remote/i }));
     const cloneUrlInput = screen.getByLabelText(/github repository url/i);
@@ -436,5 +460,129 @@ describe('Workspaces page', () => {
 
     await user.click(screen.getByRole('button', { name: /create new/i }));
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  test('quick create from known repo creates workspace and handles failure', async () => {
+    const user = userEvent.setup();
+    const successClient = createMemoryWorkspaceClient({
+      workspaces: [seededGithubWorkspace()],
+    });
+    setWorkspaceClient(successClient);
+    resetWorkspacesStore();
+
+    const first = renderWorkspaces();
+    const repoButton = await screen.findByRole('button', { name: /kata-sh\/kata-cloud-agents/i });
+    await user.click(repoButton);
+    expect(await screen.findByText(/^kata-cloud-agents$/i)).toBeInTheDocument();
+    first.unmount();
+
+    const failureClient: WorkspaceClient = {
+      ...createMemoryWorkspaceClient({ workspaces: [seededGithubWorkspace()] }),
+      createFromSource: async () => {
+        throw new Error('quick create failed');
+      },
+    };
+    setWorkspaceClient(failureClient);
+    resetWorkspacesStore();
+
+    renderWorkspaces();
+    await user.click(await screen.findByRole('button', { name: /kata-sh\/kata-cloud-agents/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('quick create failed');
+  });
+
+  test('create from known repo row opens modal and creates from selected source', async () => {
+    const user = userEvent.setup();
+    setWorkspaceClient(
+      createMemoryWorkspaceClient({
+        workspaces: [seededGithubWorkspace()],
+      }),
+    );
+    resetWorkspacesStore();
+    renderWorkspaces();
+
+    const repoButton = await screen.findByRole('button', { name: /kata-sh\/kata-cloud-agents/i });
+    const repoRow = repoButton.closest('li');
+    if (!repoRow) {
+      throw new Error('expected known repo row');
+    }
+    await user.click(within(repoRow).getByRole('button', { name: /^create from\.\.\./i }));
+
+    expect(await screen.findByRole('dialog', { name: /create workspace/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /branches/i }));
+    await user.click(await screen.findByRole('button', { name: /feature\/kata-cloud-agents-next/i }));
+    await user.click(screen.getByRole('button', { name: /create workspace/i }));
+
+    expect(await screen.findByText(/^kata-cloud-agents$/i)).toBeInTheDocument();
+  });
+
+  test('create from modal shows error and stays open on failure', async () => {
+    const user = userEvent.setup();
+    const failureClient: WorkspaceClient = {
+      ...createMemoryWorkspaceClient({ workspaces: [seededGithubWorkspace()] }),
+      createFromSource: async () => {
+        throw new Error('create from failed');
+      },
+    };
+    setWorkspaceClient(failureClient);
+    resetWorkspacesStore();
+    renderWorkspaces();
+
+    const repoButton = await screen.findByRole('button', { name: /kata-sh\/kata-cloud-agents/i });
+    const repoRow = repoButton.closest('li');
+    if (!repoRow) {
+      throw new Error('expected known repo row');
+    }
+    await user.click(within(repoRow).getByRole('button', { name: /^create from\.\.\./i }));
+
+    expect(await screen.findByRole('dialog', { name: /create workspace/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /branches/i }));
+    await user.click(await screen.findByRole('button', { name: /feature\/kata-cloud-agents-next/i }));
+    await user.click(screen.getByRole('button', { name: /create workspace/i }));
+
+    const alerts = await screen.findAllByRole('alert');
+    expect(alerts.some((el) => el.textContent?.includes('create from failed'))).toBe(true);
+    expect(screen.getByRole('dialog', { name: /create workspace/i })).toBeInTheDocument();
+  });
+
+  test('opens create-from modal from top affordance and cmd/ctrl+n hotkey', async () => {
+    const user = userEvent.setup();
+    setWorkspaceClient(
+      createMemoryWorkspaceClient({
+        workspaces: [seededGithubWorkspace()],
+      }),
+    );
+    resetWorkspacesStore();
+    renderWorkspaces();
+
+    await user.click(await screen.findByRole('button', { name: /create from\.\.\./i }));
+    expect(await screen.findByRole('dialog', { name: /create workspace/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(screen.queryByRole('dialog', { name: /create workspace/i })).not.toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'x', metaKey: true });
+    expect(screen.queryByRole('dialog', { name: /create workspace/i })).not.toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'n', metaKey: true });
+    expect(await screen.findByRole('dialog', { name: /create workspace/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+    fireEvent.keyDown(window, { key: 'n', ctrlKey: true });
+    expect(await screen.findByRole('dialog', { name: /create workspace/i })).toBeInTheDocument();
+  });
+
+  test('workspace list row activates workspace when clicked', async () => {
+    const user = userEvent.setup();
+    setWorkspaceClient(
+      createMemoryWorkspaceClient({
+        workspaces: [seededGithubWorkspace()],
+      }),
+    );
+    resetWorkspacesStore();
+    renderWorkspaces();
+
+    await user.click(await screen.findByRole('button', { name: /open workspace seed workspace/i }));
+    await waitFor(() => {
+      expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('ws_seed');
+    });
   });
 });

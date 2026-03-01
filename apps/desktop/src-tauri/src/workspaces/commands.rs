@@ -6,12 +6,18 @@ use serde::Serialize;
 use tauri::State;
 use uuid::Uuid;
 
-use super::git_github::{create_github_workspace, create_new_github_workspace};
+use super::git_github::{
+    create_github_workspace, create_new_github_workspace, list_repo_branches,
+    list_repo_issues, list_repo_pull_requests, pull_request_head_branch,
+    repo_default_branch,
+    repo_url_from_id,
+};
 use super::git_local::create_local_workspace;
 use super::model::{
     now_iso8601, CreateGitHubWorkspaceInput, CreateLocalWorkspaceInput,
-    CreateNewGitHubWorkspaceInput, PreparedWorkspace, Workspace,
-    WorkspaceSourceType, WorkspaceStatus,
+    CreateNewGitHubWorkspaceInput, CreateWorkspaceFromSourceInput, KnownRepoOption,
+    PreparedWorkspace, Workspace, WorkspaceCreateFromSource, WorkspaceSourceType,
+    WorkspaceStatus,
 };
 use super::{WorkspaceError, WorkspaceState};
 
@@ -203,6 +209,51 @@ fn workspace_list_github_repos_blocking(
 }
 
 #[tauri::command]
+pub fn workspace_list_known_repos(
+    query: Option<String>,
+    state: State<'_, WorkspaceState>,
+) -> Result<Vec<KnownRepoOption>, String> {
+    let store = lock_store(&state)?;
+    Ok(store.list_known_repos(query.as_deref()))
+}
+
+#[tauri::command]
+pub async fn workspace_list_repo_pull_requests(
+    repo_id: String,
+    query: Option<String>,
+) -> Result<Vec<super::model::WorkspacePullRequestOption>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        list_repo_pull_requests(&repo_id, query.as_deref()).map_err(to_command_error)
+    })
+    .await
+    .map_err(|err| format!("Failed to load pull requests: {err}"))?
+}
+
+#[tauri::command]
+pub async fn workspace_list_repo_branches(
+    repo_id: String,
+    query: Option<String>,
+) -> Result<Vec<super::model::WorkspaceBranchOption>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        list_repo_branches(&repo_id, query.as_deref()).map_err(to_command_error)
+    })
+    .await
+    .map_err(|err| format!("Failed to load branches: {err}"))?
+}
+
+#[tauri::command]
+pub async fn workspace_list_repo_issues(
+    repo_id: String,
+    query: Option<String>,
+) -> Result<Vec<super::model::WorkspaceIssueOption>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        list_repo_issues(&repo_id, query.as_deref()).map_err(to_command_error)
+    })
+    .await
+    .map_err(|err| format!("Failed to load issues: {err}"))?
+}
+
+#[tauri::command]
 pub fn workspace_list(state: State<'_, WorkspaceState>) -> Result<Vec<Workspace>, String> {
     let store = lock_store(&state)?;
     Ok(store.list())
@@ -312,6 +363,88 @@ pub async fn workspace_create_new_github(
         WorkspaceSourceType::Github,
         created.repo_url,
         created.prepared,
+    );
+    persist_workspace(&state, workspace)
+}
+
+#[tauri::command]
+pub async fn workspace_create_from_source(
+    input: CreateWorkspaceFromSourceInput,
+    state: State<'_, WorkspaceState>,
+) -> Result<Workspace, String> {
+    let workspace_id = next_workspace_id();
+    let suffix_owned = workspace_suffix(&workspace_id).to_string();
+    let app_data_dir = state.app_data_dir.clone();
+
+    let repo_id = input.repo_id.trim().to_string();
+    if repo_id.is_empty() {
+        return Err("Repository selection is required".to_string());
+    }
+    let repo_url = repo_url_from_id(&repo_id).map_err(to_command_error)?;
+    let fallback_name = repo_id
+        .split('/')
+        .filter(|segment| !segment.trim().is_empty())
+        .last()
+        .unwrap_or("Workspace")
+        .to_string();
+    let workspace_name = input
+        .workspace_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(fallback_name.as_str())
+        .to_string();
+
+    let clone_root_path = input.clone_root_path.clone();
+    let source = input.source.clone();
+    let source_value = repo_url.clone();
+    let workspace_name_for_create = workspace_name.clone();
+
+    let prepared = tauri::async_runtime::spawn_blocking(move || {
+        let (branch_name, base_ref) = match source {
+            WorkspaceCreateFromSource::Default => (None, None),
+            WorkspaceCreateFromSource::PullRequest { value } => {
+                let head_branch = pull_request_head_branch(&repo_id, value)?;
+                (None, Some(format!("origin/{head_branch}")))
+            }
+            WorkspaceCreateFromSource::Branch { value } => {
+                let normalized = value.trim().trim_start_matches("origin/").to_string();
+                if normalized.is_empty() {
+                    return Err(WorkspaceError::InvalidInput(
+                        "Branch selection is required".to_string(),
+                    ));
+                }
+                (None, Some(format!("origin/{normalized}")))
+            }
+            WorkspaceCreateFromSource::Issue { value } => {
+                let default_branch = repo_default_branch(&repo_id)?;
+                (
+                    Some(format!("feature/issue-{value}")),
+                    Some(format!("origin/{default_branch}")),
+                )
+            }
+        };
+
+        create_github_workspace(
+            &repo_url,
+            &workspace_name_for_create,
+            clone_root_path,
+            branch_name,
+            base_ref,
+            &suffix_owned,
+            &app_data_dir,
+        )
+    })
+    .await
+    .map_err(|err| format!("Task failed: {err}"))?
+    .map_err(to_command_error)?;
+
+    let workspace = build_workspace(
+        workspace_id,
+        workspace_name,
+        WorkspaceSourceType::Github,
+        source_value,
+        prepared,
     );
     persist_workspace(&state, workspace)
 }

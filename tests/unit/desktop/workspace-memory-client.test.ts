@@ -188,6 +188,186 @@ describe('workspace memory client', () => {
     expect(filtered[0]?.url).toBe('https://github.com/kata-sh/repo-a.git');
   });
 
+  test('lists known repos derived from existing github workspaces', async () => {
+    const now = '2026-02-28T00:00:00.000Z';
+    const client = createMemoryWorkspaceClient({
+      workspaces: [
+        {
+          id: 'ws_a',
+          name: 'A',
+          sourceType: 'github',
+          source: 'https://github.com/kata-sh/repo-a.git',
+          repoRootPath: '/tmp/repo-a',
+          worktreePath: '/tmp/repo-a.worktrees/a',
+          branch: 'workspace/a',
+          status: 'ready',
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: 'ws_b',
+          name: 'B',
+          sourceType: 'github',
+          source: 'https://github.com/kata-sh/repo-a',
+          repoRootPath: '/tmp/repo-a',
+          worktreePath: '/tmp/repo-a.worktrees/b',
+          branch: 'workspace/b',
+          status: 'ready',
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+    });
+
+    const repos = await client.listKnownRepos();
+    expect(repos).toHaveLength(1);
+    expect(repos[0]?.id).toBe('kata-sh/repo-a');
+  });
+
+  test('filters known repos and repo source lists with query terms', async () => {
+    const now = '2026-02-28T00:00:00.000Z';
+    const client = createMemoryWorkspaceClient({
+      workspaces: [
+        {
+          id: 'ws_a',
+          name: 'A',
+          sourceType: 'github',
+          source: 'https://github.com/kata-sh/repo-a.git',
+          repoRootPath: '/tmp/repo-a',
+          worktreePath: '/tmp/repo-a.worktrees/a',
+          branch: 'workspace/a',
+          status: 'ready',
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: 'ws_b',
+          name: 'B',
+          sourceType: 'github',
+          source: 'https://gitlab.com/kata-sh/repo-b',
+          repoRootPath: '/tmp/repo-b',
+          worktreePath: '/tmp/repo-b.worktrees/b',
+          branch: 'workspace/b',
+          status: 'ready',
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: 'ws_c',
+          name: 'C',
+          sourceType: 'github',
+          source: 'not-a-valid-url',
+          repoRootPath: '/tmp/repo-c',
+          worktreePath: '/tmp/repo-c.worktrees/c',
+          branch: 'workspace/c',
+          status: 'ready',
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: 'ws_local',
+          name: 'Local',
+          sourceType: 'local',
+          source: '/tmp/local',
+          repoRootPath: '/tmp/local',
+          worktreePath: '/tmp/local.worktrees/local',
+          branch: 'workspace/local',
+          status: 'ready',
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: 'ws_root',
+          name: 'Root',
+          sourceType: 'github',
+          source: 'https://github.com/',
+          repoRootPath: '/tmp/root',
+          worktreePath: '/tmp/root.worktrees/root',
+          branch: 'workspace/root',
+          status: 'ready',
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+    });
+
+    const knownRepos = await client.listKnownRepos('repo-a');
+    expect(knownRepos).toHaveLength(1);
+    expect(knownRepos[0]?.id).toBe('kata-sh/repo-a');
+
+    const branches = await client.listRepoBranches('kata-sh/repo-a', 'main');
+    expect(branches).toHaveLength(1);
+    expect(branches[0]?.name).toBe('main');
+
+    const pullRequests = await client.listRepoPullRequests('kata-sh/repo-a', 'improvements');
+    expect(pullRequests).toHaveLength(1);
+    expect(pullRequests[0]?.number).toBe(26);
+
+    const issues = await client.listRepoIssues('kata-sh/repo-a', '155');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.number).toBe(155);
+
+    const fallbackBranches = await client.listRepoBranches('');
+    expect(fallbackBranches[1]?.name).toContain('feature/repo-next');
+
+    const fallbackPullRequests = await client.listRepoPullRequests('');
+    expect(fallbackPullRequests[0]?.title).toContain('feat(repo):');
+  });
+
+  test('creates workspace from known repo source', async () => {
+    const client = createMemoryWorkspaceClient();
+    const fromDefault = await client.createFromSource({
+      repoId: 'kata-sh/kata-cloud-agents',
+      source: { type: 'default' },
+    });
+    expect(fromDefault.sourceType).toBe('github');
+    expect(fromDefault.source).toBe('https://github.com/kata-sh/kata-cloud-agents');
+
+    const fromPullRequest = await client.createFromSource({
+      repoId: 'kata-sh/kata-cloud-agents',
+      source: { type: 'pull_request', value: 26 },
+    });
+    expect(fromPullRequest.baseRef).toContain('origin/feature/');
+
+    const fromBranch = await client.createFromSource({
+      repoId: 'kata-sh/kata-cloud-agents',
+      source: { type: 'branch', value: 'feature/kat-155-workspace-and-repo-mgmt' },
+    });
+    expect(fromBranch.baseRef).toBe('origin/feature/kat-155-workspace-and-repo-mgmt');
+
+    const fromIssue = await client.createFromSource({
+      repoId: 'kata-sh/kata-cloud-agents',
+      source: { type: 'issue', value: 155 },
+    });
+    expect(fromIssue.branch).toBe('feature/issue-155');
+  });
+
+  test('validates create-from input and missing pull-request source', async () => {
+    const client = createMemoryWorkspaceClient();
+
+    await expect(
+      client.createFromSource({
+        repoId: '   ',
+        source: { type: 'default' },
+      }),
+    ).rejects.toThrow(/repository selection is required/i);
+
+    await expect(
+      client.createFromSource({
+        repoId: 'kata-sh/kata-cloud-agents',
+        source: { type: 'pull_request', value: 9999 },
+      }),
+    ).rejects.toThrow(/pull request not found/i);
+
+    const fallbackWorkspace = await client.createFromSource({
+      repoId: '///',
+      cloneRootPath: '   ',
+      source: { type: 'default' },
+    });
+    expect(fallbackWorkspace.name).toBe('Workspace');
+    expect(fallbackWorkspace.repoRootPath).toMatch(/^\/tmp\/repo-cache\//);
+  });
+
   test('handles slug/id fallbacks when input and runtime entropy are minimal', async () => {
     const originalCrypto = globalThis.crypto;
     try {

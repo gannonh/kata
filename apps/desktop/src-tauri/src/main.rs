@@ -21,6 +21,11 @@ fn main() {
             workspaces::commands::workspace_create_github,
             workspaces::commands::workspace_create_new_github,
             workspaces::commands::workspace_list_github_repos,
+            workspaces::commands::workspace_list_known_repos,
+            workspaces::commands::workspace_list_repo_pull_requests,
+            workspaces::commands::workspace_list_repo_branches,
+            workspaces::commands::workspace_list_repo_issues,
+            workspaces::commands::workspace_create_from_source,
             workspaces::commands::workspace_pick_directory,
             workspaces::commands::workspace_archive,
             workspaces::commands::workspace_delete

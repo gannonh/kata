@@ -1,14 +1,21 @@
 import {
+  deriveNameFromIdentifier,
   deriveWorkspaceBranchName,
   isGitHubRepoUrl,
+  toSlug,
   type Workspace,
 } from '../../types/workspace';
 import type {
+  CreateWorkspaceFromSourceInput,
   CreateGitHubWorkspaceInput,
   CreateLocalWorkspaceInput,
   CreateNewGitHubWorkspaceInput,
   GitHubRepoOption,
+  WorkspaceBranchOption,
   WorkspaceClient,
+  WorkspaceIssueOption,
+  WorkspaceKnownRepoOption,
+  WorkspacePullRequestOption,
 } from './types';
 
 interface MemoryWorkspaceState {
@@ -22,10 +29,7 @@ function generateWorkspaceId(): string {
   return `ws_${suffix}`;
 }
 
-function toWorkspaceSlug(name: string): string {
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  return slug || 'workspace';
-}
+const toWorkspaceSlug = toSlug;
 
 function parseRepositoryInput(repositoryName: string): {
   owner: string;
@@ -52,6 +56,100 @@ function parseRepositoryInput(repositoryName: string): {
     repo,
     url: `https://github.com/${owner}/${repo}`,
   };
+}
+
+function toRepoId(repoUrl: string): string | null {
+  try {
+    const parsed = new URL(repoUrl);
+    if (parsed.hostname !== 'github.com') {
+      return null;
+    }
+    const value = parsed.pathname.replace(/^\/+/, '').replace(/\.git$/i, '');
+    return value || null;
+  } catch {
+    return null;
+  }
+}
+
+const deriveWorkspaceNameFromRepoId = deriveNameFromIdentifier;
+
+function deriveIssueBranchName(issueNumber: number): string {
+  return `feature/issue-${issueNumber}`;
+}
+
+function repoCacheKey(repoId: string): string {
+  return repoId.replaceAll('/', '__');
+}
+
+function rankByQuery<T extends { updatedAt: string }>(
+  items: T[],
+  query: string | undefined,
+  toHaystack: (item: T) => string,
+): T[] {
+  const normalizedQuery = query?.trim().toLowerCase();
+  const filtered = normalizedQuery
+    ? items.filter((item) => toHaystack(item).toLowerCase().includes(normalizedQuery))
+    : items;
+  return [...filtered]
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+    .slice(0, 20);
+}
+
+function listKnownReposFromState(state: MemoryWorkspaceState): WorkspaceKnownRepoOption[] {
+  const map = new Map<string, WorkspaceKnownRepoOption>();
+  for (const workspace of state.workspaces) {
+    if (workspace.sourceType !== 'github') {
+      continue;
+    }
+    const repoId = toRepoId(workspace.source);
+    if (!repoId) {
+      continue;
+    }
+    const existing = map.get(repoId);
+    if (!existing || workspace.updatedAt > existing.updatedAt) {
+      map.set(repoId, {
+        id: repoId,
+        nameWithOwner: repoId,
+        url: `https://github.com/${repoId}`,
+        updatedAt: workspace.updatedAt,
+      });
+    }
+  }
+
+  return [...map.values()].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
+
+function listRepoBranchesMock(repoId: string): WorkspaceBranchOption[] {
+  const now = new Date().toISOString();
+  const slug = repoId.split('/').filter(Boolean).at(-1) ?? 'repo';
+  return [
+    { name: 'main', isDefault: true, updatedAt: now },
+    { name: `feature/${slug}-next`, isDefault: false, updatedAt: now },
+  ];
+}
+
+function listRepoPullRequestsMock(repoId: string): WorkspacePullRequestOption[] {
+  const now = new Date().toISOString();
+  const slug = repoId.split('/').filter(Boolean).at(-1) ?? 'repo';
+  return [
+    {
+      number: 26,
+      title: `feat(${slug}): follow-up workspace improvements`,
+      headBranch: `feature/${slug}-improvements`,
+      updatedAt: now,
+    },
+  ];
+}
+
+function listRepoIssuesMock(repoId: string): WorkspaceIssueOption[] {
+  const now = new Date().toISOString();
+  return [
+    {
+      number: 155,
+      title: `${repoId}: Workspace and repo mgmt`,
+      updatedAt: now,
+    },
+  ];
 }
 
 function upsertWorkspace(
@@ -97,19 +195,27 @@ export function createMemoryWorkspaceClient(
 
   return {
     list: async () => state.workspaces.map((workspace) => ({ ...workspace })),
+    listKnownRepos: async (query?: string) =>
+      rankByQuery(listKnownReposFromState(state), query, (repo) => {
+        return `${repo.nameWithOwner} ${repo.url}`;
+      }),
+    listRepoBranches: async (repoId: string, query?: string) =>
+      rankByQuery(listRepoBranchesMock(repoId), query, (branch) => branch.name),
+    listRepoPullRequests: async (repoId: string, query?: string) =>
+      rankByQuery(listRepoPullRequestsMock(repoId), query, (pr) => {
+        return `${pr.number} ${pr.title} ${pr.headBranch}`;
+      }),
+    listRepoIssues: async (repoId: string, query?: string) =>
+      rankByQuery(listRepoIssuesMock(repoId), query, (issue) => {
+        return `${issue.number} ${issue.title}`;
+      }),
     listGitHubRepos: async (query?: string) => {
       const candidates = new Map<string, GitHubRepoOption>();
       for (const workspace of state.workspaces) {
         if (workspace.sourceType !== 'github') {
           continue;
         }
-        let nameWithOwner = workspace.source;
-        try {
-          const parsed = new URL(workspace.source);
-          nameWithOwner = parsed.pathname.replace(/^\/+/, '').replace(/\.git$/i, '');
-        } catch {
-          // Keep best-effort source fallback for memory mode.
-        }
+        const nameWithOwner = toRepoId(workspace.source) ?? workspace.source;
 
         candidates.set(workspace.source, {
           nameWithOwner,
@@ -194,6 +300,73 @@ export function createMemoryWorkspaceClient(
       });
       state.activeWorkspaceId = workspace.id;
       return workspace;
+    },
+    createFromSource: async (input: CreateWorkspaceFromSourceInput) => {
+      const repoId = input.repoId.trim();
+      if (!repoId) {
+        throw new Error('Repository selection is required');
+      }
+      const repoUrl = `https://github.com/${repoId}`;
+      const workspaceName = input.workspaceName?.trim() || deriveWorkspaceNameFromRepoId(repoId);
+      const cacheKey = repoCacheKey(repoId);
+      const root = input.cloneRootPath?.trim() || '/tmp/repo-cache';
+      const cachePath = `${root}/${cacheKey}`;
+      const worktreePath = `${cachePath}.worktrees/${toWorkspaceSlug(workspaceName)}`;
+
+      let created: Workspace;
+      switch (input.source.type) {
+        case 'default':
+          created = upsertWorkspace(state, {
+            sourceType: 'github',
+            source: repoUrl,
+            repoRootPath: cachePath,
+            worktreePath,
+            workspaceName,
+            baseRef: 'origin/main',
+          });
+          break;
+        case 'pull_request': {
+          const pullRequestNumber = input.source.value;
+          const pullRequest = listRepoPullRequestsMock(repoId).find(
+            (entry) => entry.number === pullRequestNumber,
+          );
+          if (!pullRequest) {
+            throw new Error(`Pull request not found: ${pullRequestNumber}`);
+          }
+          created = upsertWorkspace(state, {
+            sourceType: 'github',
+            source: repoUrl,
+            repoRootPath: cachePath,
+            worktreePath,
+            workspaceName,
+            baseRef: `origin/${pullRequest.headBranch}`,
+          });
+          break;
+        }
+        case 'branch':
+          created = upsertWorkspace(state, {
+            sourceType: 'github',
+            source: repoUrl,
+            repoRootPath: cachePath,
+            worktreePath,
+            workspaceName,
+            baseRef: `origin/${input.source.value}`,
+          });
+          break;
+        case 'issue':
+          created = upsertWorkspace(state, {
+            sourceType: 'github',
+            source: repoUrl,
+            repoRootPath: cachePath,
+            worktreePath,
+            workspaceName,
+            branchName: deriveIssueBranchName(input.source.value),
+            baseRef: 'origin/main',
+          });
+          break;
+      }
+      state.activeWorkspaceId = created.id;
+      return created;
     },
     setActive: async (id: string) => {
       const found = state.workspaces.some((workspace) => workspace.id === id);

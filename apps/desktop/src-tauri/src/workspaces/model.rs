@@ -63,6 +63,58 @@ pub struct CreateNewGitHubWorkspaceInput {
     pub base_ref: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnownRepoOption {
+    pub id: String,
+    pub name_with_owner: String,
+    pub url: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceBranchOption {
+    pub name: String,
+    pub is_default: bool,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspacePullRequestOption {
+    pub number: u32,
+    pub title: String,
+    pub head_branch: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceIssueOption {
+    pub number: u32,
+    pub title: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum WorkspaceCreateFromSource {
+    Default,
+    PullRequest { value: u32 },
+    Branch { value: String },
+    Issue { value: u32 },
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateWorkspaceFromSourceInput {
+    pub repo_id: String,
+    pub workspace_name: Option<String>,
+    pub clone_root_path: Option<String>,
+    pub source: WorkspaceCreateFromSource,
+}
+
 #[derive(Debug, Clone)]
 pub struct PreparedWorkspace {
     pub repo_root_path: String,
