@@ -1,6 +1,8 @@
 import {
+  deriveNameFromIdentifier,
   deriveWorkspaceBranchName,
   isGitHubRepoUrl,
+  toSlug,
   type Workspace,
 } from '../../types/workspace';
 import type {
@@ -27,10 +29,7 @@ function generateWorkspaceId(): string {
   return `ws_${suffix}`;
 }
 
-function toWorkspaceSlug(name: string): string {
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  return slug || 'workspace';
-}
+const toWorkspaceSlug = toSlug;
 
 function parseRepositoryInput(repositoryName: string): {
   owner: string;
@@ -72,10 +71,7 @@ function toRepoId(repoUrl: string): string | null {
   }
 }
 
-function deriveWorkspaceNameFromRepoId(repoId: string): string {
-  const segment = repoId.split('/').filter(Boolean).at(-1) ?? '';
-  return segment || 'Workspace';
-}
+const deriveWorkspaceNameFromRepoId = deriveNameFromIdentifier;
 
 function deriveIssueBranchName(issueNumber: number): string {
   return `feature/issue-${issueNumber}`;
@@ -219,13 +215,7 @@ export function createMemoryWorkspaceClient(
         if (workspace.sourceType !== 'github') {
           continue;
         }
-        let nameWithOwner = workspace.source;
-        try {
-          const parsed = new URL(workspace.source);
-          nameWithOwner = parsed.pathname.replace(/^\/+/, '').replace(/\.git$/i, '');
-        } catch {
-          // Keep best-effort source fallback for memory mode.
-        }
+        const nameWithOwner = toRepoId(workspace.source) ?? workspace.source;
 
         candidates.set(workspace.source, {
           nameWithOwner,

@@ -1,10 +1,10 @@
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { CreateWorkspaceModal } from '../components/workspaces/CreateWorkspaceModal';
 import { pickDirectory } from '../services/system/dialog';
 import { useCreateWorkspaceHotkey } from '../hooks/useCreateWorkspaceHotkey';
-import { isGitHubRepoUrl } from '../types/workspace';
+import { deriveNameFromIdentifier, isGitHubRepoUrl } from '../types/workspace';
 import { getWorkspaceClient, toErrorMessage, useWorkspacesStore } from '../store/workspaces';
 import type { GitHubRepoOption, WorkspaceCreateFromSource } from '../services/workspaces/types';
 
@@ -18,25 +18,14 @@ export function deriveNameFromRepoPath(repoPath: string): string {
 
 export function deriveNameFromRepoUrl(repoUrl: string): string {
   try {
-    const parsed = new URL(repoUrl);
-    const lastSegment = parsed.pathname.split('/').filter(Boolean).at(-1) ?? '';
-    const withoutGitSuffix = lastSegment.replace(/\.git$/i, '');
-    return withoutGitSuffix || 'Workspace';
+    return deriveNameFromIdentifier(new URL(repoUrl).pathname);
   } catch {
     return 'Workspace';
   }
 }
 
 export function deriveNameFromRepositoryInput(repositoryName: string): string {
-  const normalized = repositoryName.trim().replace(/\.git$/i, '');
-  if (!normalized) {
-    return 'Workspace';
-  }
-  const parts = normalized
-    .split('/')
-    .map((part) => part.trim())
-    .filter(Boolean);
-  return parts.at(-1) || 'Workspace';
+  return deriveNameFromIdentifier(repositoryName);
 }
 
 export function buildDefaultCloneLocation(home: string): string {
@@ -171,10 +160,11 @@ export function Workspaces() {
     void loadKnownRepos();
   }, [load, loadKnownRepos]);
 
-  useCreateWorkspaceHotkey(() => {
+  const onHotkey = useCallback(() => {
     setCreateFromRepoId(knownRepos[0]?.id ?? null);
     setIsCreateFromOpen(true);
-  });
+  }, [knownRepos]);
+  useCreateWorkspaceHotkey(onHotkey);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally resets form errors when action tab changes
   useEffect(() => {

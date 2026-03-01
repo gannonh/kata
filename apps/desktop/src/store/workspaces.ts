@@ -98,6 +98,15 @@ export const useWorkspacesStore = create<WorkspacesState>()((set) => {
     }
   }
 
+  async function runQuery<T>(clientCall: () => Promise<T>): Promise<T> {
+    try {
+      return await clientCall();
+    } catch (error) {
+      set({ lastError: toErrorMessage(error) });
+      throw error;
+    }
+  }
+
   return {
     ...defaultState,
 
@@ -125,30 +134,12 @@ export const useWorkspacesStore = create<WorkspacesState>()((set) => {
         set({ isLoadingKnownRepos: false });
       }
     },
-    listRepoBranches: async (repoId, query) => {
-      try {
-        return await workspaceClient.listRepoBranches(repoId, query);
-      } catch (error) {
-        set({ lastError: toErrorMessage(error) });
-        throw error;
-      }
-    },
-    listRepoPullRequests: async (repoId, query) => {
-      try {
-        return await workspaceClient.listRepoPullRequests(repoId, query);
-      } catch (error) {
-        set({ lastError: toErrorMessage(error) });
-        throw error;
-      }
-    },
-    listRepoIssues: async (repoId, query) => {
-      try {
-        return await workspaceClient.listRepoIssues(repoId, query);
-      } catch (error) {
-        set({ lastError: toErrorMessage(error) });
-        throw error;
-      }
-    },
+    listRepoBranches: (repoId, query) =>
+      runQuery(() => workspaceClient.listRepoBranches(repoId, query)),
+    listRepoPullRequests: (repoId, query) =>
+      runQuery(() => workspaceClient.listRepoPullRequests(repoId, query)),
+    listRepoIssues: (repoId, query) =>
+      runQuery(() => workspaceClient.listRepoIssues(repoId, query)),
     quickCreateFromRepo: (repoId, workspaceName) =>
       runCreate(() =>
         workspaceClient.createFromSource({

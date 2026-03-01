@@ -265,6 +265,7 @@ pub fn list_repo_branches(
             Some(WorkspaceBranchOption {
                 is_default: branch == default_name,
                 name: branch,
+                // Synthetic: git ls-remote does not expose timestamps.
                 updated_at: Utc::now().to_rfc3339(),
             })
         })
