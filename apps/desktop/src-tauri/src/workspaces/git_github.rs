@@ -143,7 +143,7 @@ pub fn list_repo_pull_requests(
     #[derive(Debug, Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct PullRequestItem {
-        number: i64,
+        number: u32,
         title: String,
         head_ref_name: String,
         updated_at: Option<String>,
@@ -196,7 +196,7 @@ pub fn list_repo_issues(
     #[derive(Debug, Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct IssueItem {
-        number: i64,
+        number: u32,
         title: String,
         updated_at: Option<String>,
     }
@@ -308,7 +308,7 @@ pub fn repo_default_branch(repo_id: &str) -> Result<String, WorkspaceError> {
     Ok(branch.to_string())
 }
 
-pub fn pull_request_head_branch(repo_id: &str, number: i64) -> Result<String, WorkspaceError> {
+pub fn pull_request_head_branch(repo_id: &str, number: u32) -> Result<String, WorkspaceError> {
     let output = run_gh(
         Path::new("."),
         &[

@@ -293,6 +293,121 @@ describe('CreateWorkspaceModal', () => {
     expect(createButton).toBeEnabled();
   });
 
+  test('resets to branches tab when issues tab is disabled while on issues', async () => {
+    const user = userEvent.setup();
+    const loadBranches = vi.fn(async () => [
+      { name: 'main', isDefault: true, updatedAt: '2026-03-01T00:00:00.000Z' },
+    ]);
+
+    const { rerender } = render(
+      <CreateWorkspaceModal
+        isOpen
+        enableIssuesTab
+        repos={[makeRepo('kata-sh/kata-cloud-agents')]}
+        onClose={vi.fn()}
+        onCreate={vi.fn(async () => {})}
+        loadPullRequests={vi.fn(async () => [])}
+        loadBranches={loadBranches}
+        loadIssues={vi.fn(async () => [])}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /issues/i }));
+    expect(screen.getByPlaceholderText(/search by issue number, title/i)).toBeInTheDocument();
+
+    rerender(
+      <CreateWorkspaceModal
+        isOpen
+        enableIssuesTab={false}
+        repos={[makeRepo('kata-sh/kata-cloud-agents')]}
+        onClose={vi.fn()}
+        onCreate={vi.fn(async () => {})}
+        loadPullRequests={vi.fn(async () => [])}
+        loadBranches={loadBranches}
+        loadIssues={vi.fn(async () => [])}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/search by branch name/i)).toBeInTheDocument();
+    });
+  });
+
+  test('closes on Escape key', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    render(
+      <CreateWorkspaceModal
+        isOpen
+        repos={[makeRepo('kata-sh/kata-cloud-agents')]}
+        onClose={onClose}
+        onCreate={vi.fn(async () => {})}
+        loadPullRequests={vi.fn(async () => [])}
+        loadBranches={vi.fn(async () => [{ name: 'main', isDefault: true, updatedAt: '2026-03-01T00:00:00.000Z' }])}
+        loadIssues={vi.fn(async () => [])}
+      />,
+    );
+
+    expect(screen.getByRole('dialog', { name: /create workspace/i })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  test('does not close when no source tab condition matches', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const onCreate = vi.fn(async () => {});
+
+    render(
+      <CreateWorkspaceModal
+        isOpen
+        enableIssuesTab={false}
+        repos={[makeRepo('kata-sh/kata-cloud-agents')]}
+        onClose={onClose}
+        onCreate={onCreate}
+        loadPullRequests={vi.fn(async () => [])}
+        loadBranches={vi.fn(async () => [])}
+        loadIssues={vi.fn(async () => [])}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/no branches found/i)).toBeInTheDocument();
+    });
+
+    const createButton = screen.getByRole('button', { name: /create workspace/i });
+    createButton.removeAttribute('disabled');
+    await user.click(createButton);
+    expect(onCreate).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  test('closes on backdrop click but not on dialog body click', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    render(
+      <CreateWorkspaceModal
+        isOpen
+        repos={[makeRepo('kata-sh/kata-cloud-agents')]}
+        onClose={onClose}
+        onCreate={vi.fn(async () => {})}
+        loadPullRequests={vi.fn(async () => [])}
+        loadBranches={vi.fn(async () => [{ name: 'main', isDefault: true, updatedAt: '2026-03-01T00:00:00.000Z' }])}
+        loadIssues={vi.fn(async () => [])}
+      />,
+    );
+
+    const dialog = screen.getByRole('dialog', { name: /create workspace/i });
+    await user.click(dialog);
+    expect(onClose).not.toHaveBeenCalled();
+
+    const backdrop = dialog.parentElement!;
+    await user.click(backdrop);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   test('cancels stale branch and issue loads when switching tabs/unmounting', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

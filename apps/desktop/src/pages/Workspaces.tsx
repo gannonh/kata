@@ -335,12 +335,22 @@ export function Workspaces() {
   }
 
   async function onCreateFrom(input: { repoId: string; source: WorkspaceCreateFromSource }) {
-    await createFromSource(input);
-    await loadKnownRepos();
+    setFormError(null);
+    try {
+      await createFromSource(input);
+      await loadKnownRepos();
+    } catch (error) {
+      setFormError(toErrorMessage(error));
+    }
   }
 
   async function onOpenWorkspace(workspaceId: string) {
     await setActive(workspaceId);
+    const storeError = useWorkspacesStore.getState().lastError;
+    if (storeError) {
+      setFormError(storeError);
+      return;
+    }
     navigate('/');
   }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type {
   WorkspaceBranchOption,
@@ -60,6 +60,28 @@ export function CreateWorkspaceModal({
       setTab('branches');
     }
   }, [enableIssuesTab, tab]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally resets search when tab changes
+  useEffect(() => {
+    setQuery('');
+  }, [tab]);
+
+  const handleEscape = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    },
+    [onClose],
+  );
+
+  useEffect(() => {
+    if (!isOpen) return;
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen, handleEscape]);
 
   useEffect(() => {
     if (!isOpen || !repoId) {
@@ -126,6 +148,8 @@ export function CreateWorkspaceModal({
         await onCreate({ repoId, source: { type: 'branch', value: selectedBranch } });
       } else if (enableIssuesTab && tab === 'issues' && selectedIssue !== null) {
         await onCreate({ repoId, source: { type: 'issue', value: selectedIssue } });
+      } else {
+        return;
       }
       onClose();
     } catch (createError) {
@@ -134,8 +158,11 @@ export function CreateWorkspaceModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-8">
+    // biome-ignore lint/a11y/noStaticElementInteractions: backdrop overlay dismisses modal on click
+    <div role="presentation" className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-8" onClick={onClose}>
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation only prevents backdrop close */}
       <div
+        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label="Create workspace"

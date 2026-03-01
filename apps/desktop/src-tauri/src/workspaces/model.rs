@@ -83,7 +83,7 @@ pub struct WorkspaceBranchOption {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspacePullRequestOption {
-    pub number: i64,
+    pub number: u32,
     pub title: String,
     pub head_branch: String,
     pub updated_at: String,
@@ -92,7 +92,7 @@ pub struct WorkspacePullRequestOption {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceIssueOption {
-    pub number: i64,
+    pub number: u32,
     pub title: String,
     pub updated_at: String,
 }
@@ -101,9 +101,9 @@ pub struct WorkspaceIssueOption {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum WorkspaceCreateFromSource {
     Default,
-    PullRequest { value: i64 },
+    PullRequest { value: u32 },
     Branch { value: String },
-    Issue { value: i64 },
+    Issue { value: u32 },
 }
 
 #[derive(Debug, Clone, Deserialize)]
