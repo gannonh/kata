@@ -1,0 +1,277 @@
+---
+title: 'MCP Servers'
+description: 'Connect to Linear, GitHub, Notion, and more via Model Context Protocol'
+---
+
+## What is MCP?
+
+[Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is an open standard for connecting AI agents to external data sources and services. It provides a structured, validated way for agents to interact with tools and resources.
+
+## Why Use MCP?
+
+<CardGroup cols={2}>
+  <Card title="Standardized" icon="check">
+    Consistent interface across all services
+  </Card>
+  <Card title="Type-Safe" icon="shield">
+    Validated schemas for tools and resources
+  </Card>
+  <Card title="Extensible" icon="puzzle-piece">
+    Easy to add new servers and capabilities
+  </Card>
+  <Card title="Secure" icon="lock">
+    Isolated execution with permission controls
+  </Card>
+</CardGroup>
+
+## Supported MCP Servers
+
+### Official Servers
+
+| Server | Description | Repository |
+|--------|-------------|------------|
+| **Filesystem** | Local file and directory access | [@modelcontextprotocol/server-filesystem](https://github.com/modelcontextprotocol/servers) |
+| **GitHub** | Repository management, issues, PRs | [@modelcontextprotocol/server-github](https://github.com/modelcontextprotocol/servers) |
+| **Brave Search** | Web search | [@modelcontextprotocol/server-brave-search](https://github.com/modelcontextprotocol/servers) |
+| **PostgreSQL** | Database queries | [@modelcontextprotocol/server-postgres](https://github.com/modelcontextprotocol/servers) |
+| **Puppeteer** | Browser automation | [@modelcontextprotocol/server-puppeteer](https://github.com/modelcontextprotocol/servers) |
+
+### Community Servers
+
+- **Linear**: Issue tracking and project management
+- **Notion**: Notes and knowledge base
+- **Slack**: Team communication
+- **Google Drive**: File storage
+- **And many more**: See [MCP Servers Directory](https://github.com/modelcontextprotocol/servers)
+
+## Adding an MCP Server
+
+<Steps>
+  <Step title="Install the Server">
+    Most MCP servers are npm packages:
+    ```bash
+    npm install -g @modelcontextprotocol/server-filesystem
+    ```
+
+    Or use `npx` to run without installing:
+    ```bash
+    npx @modelcontextprotocol/server-filesystem /path/to/dir
+    ```
+  </Step>
+  <Step title="Configure in Kata Agents">
+    1. Navigate to workspace settings → Sources
+    2. Click "Add MCP Server"
+    3. Fill in the configuration
+  </Step>
+  <Step title="Test Connection">
+    Send a message that uses the MCP server to verify it's working
+  </Step>
+</Steps>
+
+## Configuration Examples
+
+### Filesystem
+
+```json
+{
+  "name": "filesystem",
+  "type": "mcp",
+  "transport": "stdio",
+  "command": "npx",
+  "args": [
+    "-y",
+    "@modelcontextprotocol/server-filesystem",
+    "/path/to/directory"
+  ]
+}
+```
+
+### GitHub
+
+```json
+{
+  "name": "github",
+  "type": "mcp",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-github"],
+  "env": {
+    "GITHUB_TOKEN": "ghp_your_token_here"
+  }
+}
+```
+
+### PostgreSQL
+
+```json
+{
+  "name": "postgres",
+  "type": "mcp",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-postgres"],
+  "env": {
+    "POSTGRES_URL": "postgresql://user:pass@localhost:5432/db"
+  }
+}
+```
+
+### Brave Search
+
+```json
+{
+  "name": "brave-search",
+  "type": "mcp",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+  "env": {
+    "BRAVE_API_KEY": "your_api_key_here"
+  }
+}
+```
+
+## Environment Variables
+
+### Security Considerations
+
+When spawning MCP servers, Kata Agents automatically filters sensitive environment variables to prevent credential leakage:
+
+<Warning>
+  Blocked variables include: `ANTHROPIC_API_KEY`, `AWS_SECRET_ACCESS_KEY`, `GITHUB_TOKEN`, and many others.
+</Warning>
+
+To explicitly pass an environment variable to an MCP server, use the `env` field in the configuration (as shown in examples above).
+
+### Using .env Files
+
+You can also load environment variables from a `.env` file in your working directory. This is useful for:
+
+- Sharing credentials across multiple MCP servers
+- Version controlling configuration (but not credentials!)
+- Environment-specific settings
+
+## Transport Types
+
+### stdio (Local Subprocess)
+
+Most MCP servers use stdio transport, running as a subprocess:
+
+- **Pros**: Simple, no network required, secure
+- **Cons**: Local only, requires installation
+
+### SSE (Server-Sent Events)
+
+Remote MCP servers use SSE transport:
+
+- **Pros**: Access remote services, shared infrastructure
+- **Cons**: Requires network, more complex auth
+
+Example SSE configuration:
+
+```json
+{
+  "name": "remote-mcp",
+  "type": "mcp",
+  "transport": "sse",
+  "url": "https://mcp.example.com",
+  "headers": {
+    "Authorization": "Bearer your_token"
+  }
+}
+```
+
+## Large Response Handling
+
+MCP tool responses exceeding ~60KB are automatically summarized using Claude Haiku. This ensures:
+
+- Responses stay within context limits
+- Agent receives focused, relevant information
+- You can still view full responses when needed
+
+The `_intent` field is injected into MCP tool schemas to preserve summarization focus.
+
+## Creating Custom MCP Servers
+
+You can create your own MCP servers using the [MCP SDK](https://github.com/modelcontextprotocol/sdk):
+
+```typescript
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+
+const server = new Server({
+  name: 'my-mcp-server',
+  version: '1.0.0',
+}, {
+  capabilities: {
+    tools: {},
+  },
+});
+
+// Define tools
+server.setRequestHandler('tools/list', async () => {
+  return {
+    tools: [
+      {
+        name: 'my_tool',
+        description: 'Does something useful',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            param: { type: 'string' }
+          }
+        }
+      }
+    ]
+  };
+});
+
+// Start server
+const transport = new StdioServerTransport();
+await server.connect(transport);
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="MCP server not responding">
+    - Check that the command is correct and executable
+    - Verify required environment variables are set
+    - Look at Kata Agents logs for error messages
+    - Test the command manually in terminal
+  </Accordion>
+  <Accordion title="Permission denied">
+    - Ensure the MCP server executable has correct permissions
+    - Check that `npx` or `npm` is in your PATH
+    - Verify you have access to install global packages
+  </Accordion>
+  <Accordion title="Environment variables not working">
+    - Use the `env` field in configuration to explicitly pass variables
+    - Don't rely on shell environment for sensitive credentials
+    - Check that variable names match what the server expects
+  </Accordion>
+  <Accordion title="Slow responses">
+    - Some MCP operations can be slow (e.g., web search)
+    - Large responses are automatically summarized
+    - Consider if you need all the data the tool returns
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Sources"
+    icon="plug"
+    href="/concepts/sources"
+  >
+    Learn more about source types
+  </Card>
+  <Card
+    title="Permissions"
+    icon="shield"
+    href="/concepts/permissions"
+  >
+    Control what MCP servers can do
+  </Card>
+</CardGroup>

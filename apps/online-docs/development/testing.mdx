@@ -1,0 +1,373 @@
+---
+title: 'Testing'
+description: 'Run unit tests and end-to-end tests for Kata Agents'
+---
+
+## Test Overview
+
+Kata Agents uses a comprehensive testing strategy:
+
+<CardGroup cols={2}>
+  <Card title="Unit Tests" icon="flask">
+    Business logic testing with Bun test runner
+  </Card>
+  <Card title="E2E Tests" icon="robot">
+    Full application testing with Playwright
+  </Card>
+  <Card title="Mock Mode" icon="sparkles">
+    Fast tests with mocked API responses
+  </Card>
+  <Card title="Live Mode" icon="globe">
+    Real API tests with actual credentials
+  </Card>
+</CardGroup>
+
+## Unit Tests
+
+Unit tests use the Bun test runner for fast, native testing.
+
+### Running Unit Tests
+
+```bash
+# Run all unit tests
+bun test
+
+# Watch mode
+bun test:watch
+
+# Coverage report
+bun test:coverage
+
+# Specific package
+bun test packages/shared
+
+# Single file
+bun test packages/shared/src/config/__tests__/storage.test.ts
+```
+
+### Test Structure
+
+Unit tests are located alongside the code they test:
+
+```
+packages/shared/src/
+├── config/
+│   ├── storage.ts
+│   └── __tests__/
+│       └── storage.test.ts
+├── credentials/
+│   ├── manager.ts
+│   └── __tests__/
+│       └── manager.test.ts
+```
+
+### Writing Unit Tests
+
+```typescript
+import { describe, it, expect } from 'bun:test';
+import { loadStoredConfig } from '../storage';
+
+describe('loadStoredConfig', () => {
+  it('should load configuration from disk', () => {
+    const config = loadStoredConfig();
+    expect(config).toBeDefined();
+    expect(config.workspaces).toBeArray();
+  });
+
+  it('should return default config if file not found', () => {
+    const config = loadStoredConfig('/nonexistent/path');
+    expect(config).toEqual(defaultConfig);
+  });
+});
+```
+
+## E2E Tests
+
+End-to-end tests use Playwright to test the full application.
+
+### Running E2E Tests
+
+```bash
+# Mock mode (fast, no credentials required)
+bun run test:e2e
+
+# Live mode (real API, requires credentials)
+bun run test:e2e:live
+
+# Headed mode (watch execution)
+bun run test:e2e:headed
+bun run test:e2e:live:headed
+
+# Debug mode (step through)
+bun run test:e2e:debug
+bun run test:e2e:live:debug
+
+# Specific test
+bun run test:e2e -- e2e/tests/live/chat.live.e2e.ts
+```
+
+### Test Categories
+
+E2E tests are organized by feature area:
+
+| File | Feature Area | Description |
+|------|--------------|-------------|
+| `auth.live.e2e.ts` | Authentication | App loads with credentials |
+| `chat.live.e2e.ts` | Chat | Send message, streaming |
+| `session.live.e2e.ts` | Sessions | Create, persist sessions |
+| `git.live.e2e.ts` | Git | Branch badge display |
+| `permission.live.e2e.ts` | Permissions | Mode cycling |
+| `settings.live.e2e.ts` | Settings | App/workspace settings |
+| `workspaces.live.e2e.ts` | Workspaces | Switcher, create |
+| `skills.live.e2e.ts` | Skills | List, add, view info |
+| `mcps.live.e2e.ts` | MCPs | Sources, connections |
+
+### Live Test Setup
+
+Live tests require:
+
+1. **Build the app**:
+   ```bash
+   bun run electron:build
+   ```
+
+2. **Authenticate** (creates credentials):
+   ```bash
+   # Run app and sign in with your API key
+   bun run electron:start
+   ```
+
+Live tests use a demo environment (`~/.kata-agents-demo/`) to avoid interfering with your actual workspace.
+
+### Demo Environment
+
+The live fixture automatically sets up a demo environment:
+
+```bash
+# Manual setup
+bun run demo:setup    # Seed demo environment
+bun run demo:reset    # Wipe and recreate
+bun run demo:repo     # Create demo git repo
+bun run demo:launch   # Setup + launch app
+```
+
+Demo structure:
+
+```
+~/.kata-agents-demo/
+├── config.json
+└── workspaces/demo-workspace/
+    ├── sessions/       # Seeded sessions
+    ├── sources/        # Filesystem MCP
+    ├── skills/         # Copied from project
+    ├── statuses/       # Default config
+    └── labels/         # Default config
+
+~/kata-agents-demo-repo/   # Demo git repo
+```
+
+### Writing E2E Tests
+
+```typescript
+import { test, expect } from '../fixtures/live.fixture';
+import { ChatPage } from '../page-objects/ChatPage';
+
+test('send message and receive response', async ({ mainWindow }) => {
+  const chatPage = new ChatPage(mainWindow);
+
+  // Send message
+  await chatPage.sendMessage('Hello, Claude!');
+
+  // Wait for response (live tests need longer timeouts)
+  await chatPage.waitForResponse({ timeout: 30_000 });
+
+  // Verify response appeared
+  const messages = await chatPage.getMessages();
+  expect(messages.length).toBeGreaterThan(1);
+});
+```
+
+### Page Objects
+
+Page objects encapsulate UI interactions:
+
+```typescript
+export class ChatPage {
+  constructor(private page: Page) {}
+
+  async sendMessage(text: string) {
+    await this.page.fill('[data-testid="chat-input"]', text);
+    await this.page.press('[data-testid="chat-input"]', 'Enter');
+  }
+
+  async waitForResponse(options?: { timeout?: number }) {
+    await this.page.waitForSelector(
+      '[data-testid="assistant-message"]',
+      options
+    );
+  }
+
+  async getMessages() {
+    return this.page.locator('[data-testid="message"]').all();
+  }
+}
+```
+
+## Coverage
+
+### Generate Coverage Report
+
+```bash
+# Full coverage
+bun test:coverage
+
+# Coverage summary
+bun run test:coverage:summary
+```
+
+Coverage reports are generated in `coverage/` directory.
+
+### Coverage Goals
+
+- **Shared packages**: Target 80%+ coverage
+- **Critical paths**: 100% coverage (auth, credentials, sessions)
+- **UI components**: 60%+ coverage (tested via E2E)
+
+## Mock vs Live Tests
+
+### Mock Mode
+
+**When to use:**
+- Development and CI
+- Fast iteration
+- No credentials required
+
+**Characteristics:**
+- Mocked API responses
+- Simulated tool execution
+- Fast execution (<1 min)
+
+### Live Mode
+
+**When to use:**
+- Pre-release validation
+- Integration testing
+- Debugging real API issues
+
+**Characteristics:**
+- Real Anthropic API calls
+- Actual MCP servers
+- Slower execution (5-10 min)
+- Requires credentials
+
+## Continuous Integration
+
+Tests run on every PR:
+
+```yaml
+# .github/workflows/test.yml
+- name: Unit Tests
+  run: bun test
+
+- name: E2E Tests (Mock)
+  run: bun run test:e2e
+
+# Live tests run on main branch only
+- name: E2E Tests (Live)
+  if: github.ref == 'refs/heads/main'
+  run: bun run test:e2e:live
+```
+
+## Debugging Tests
+
+### Unit Tests
+
+Use `console.log()` or Bun's built-in debugger:
+
+```typescript
+import { test } from 'bun:test';
+
+test('my test', () => {
+  console.log('Debug output');
+  debugger; // Breakpoint
+});
+```
+
+Run with debugger:
+
+```bash
+bun --inspect-brk test path/to/test.ts
+```
+
+### E2E Tests
+
+Use Playwright's debug mode:
+
+```bash
+# Headed mode (watch execution)
+bun run test:e2e:headed
+
+# Debug mode (step through)
+bun run test:e2e:debug
+```
+
+Or use `page.pause()` in tests:
+
+```typescript
+test('debug test', async ({ mainWindow }) => {
+  await mainWindow.pause(); // Pause for inspection
+});
+```
+
+### Screenshots and Videos
+
+On test failure:
+- Screenshots: `playwright-report/screenshots/`
+- Videos: `playwright-report/videos/` (retained failures only)
+- Traces: `playwright-report/traces/` (on first retry)
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Test in Isolation">
+    Each test should be independent. Don't rely on test execution order or shared state.
+  </Accordion>
+  <Accordion title="Use Page Objects">
+    Encapsulate UI interactions in page objects for maintainability.
+  </Accordion>
+  <Accordion title="Mock External Services">
+    Use mock mode for fast feedback. Reserve live mode for integration testing.
+  </Accordion>
+  <Accordion title="Test User Flows">
+    E2E tests should test complete user workflows, not individual functions.
+  </Accordion>
+  <Accordion title="Keep Tests Fast">
+    Optimize for speed. Slow tests won't get run frequently.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Architecture"
+    icon="sitemap"
+    href="/development/architecture"
+  >
+    Understand the codebase structure
+  </Card>
+  <Card
+    title="Building"
+    icon="hammer"
+    href="/development/building"
+  >
+    Build from source
+  </Card>
+  <Card
+    title="Contributing"
+    icon="code-pull-request"
+    href="/development/contributing"
+  >
+    Contribute to the project
+  </Card>
+</CardGroup>

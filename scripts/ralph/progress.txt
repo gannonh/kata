@@ -1,0 +1,34 @@
+# Ralph Progress Log: Expandable Message Content
+
+## Codebase Patterns
+- User preferences are stored in `packages/shared/src/config/preferences.ts` with nested interfaces for grouped settings (e.g., `DiffViewerPreferences`, `MessageDisplayPreferences`)
+- The `updatePreferences` function merges nested objects properly - always add merge logic for new nested preference types
+- TurnCard component uses React.memo with a custom comparison function for performance - be careful when adding new props that might affect memoization
+- ResponseCard handles per-message collapse state independently - the `expandContent` prop controls the default, but each message can be toggled
+
+---
+
+## 2026-02-01 - US-005
+- What was implemented: Added TODO comment in TurnCard.tsx noting virtual scrolling consideration for very large conversations with expanded content. Conducted code review to assess scroll performance characteristics.
+- Files changed:
+  - `packages/ui/src/components/chat/TurnCard.tsx` - Added performance TODO comment
+  - `scripts/ralph/prd.json` - Updated to mark US-001 through US-004 as passing (already implemented in previous commits)
+- **Performance Analysis Results:**
+  - Current mitigations already in place:
+    1. TurnCard uses React.memo with custom comparison function to skip re-renders for completed turns
+    2. Content updates during streaming are throttled to 300ms intervals
+    3. Animations use hardware-accelerated transforms (opacity, x)
+    4. ResizeObserver used efficiently for height measurement
+  - Potential concerns for very large conversations (10+ messages, 5000+ px each):
+    1. All messages render in the DOM (no virtualization)
+    2. Large markdown content increases memory usage
+    3. Could cause scroll jank with extremely long conversations
+  - Recommendation: Virtual scrolling at SessionViewer level using react-window or @tanstack/react-virtual would help for power users with very long sessions
+- **Learnings for future iterations:**
+  - TurnCard memoization is sophisticated - check the comparison function before adding props
+  - Streaming performance is handled via throttling in BUFFER_CONFIG
+  - The MAX_HEIGHT constant (540px) is used for collapsed state
+  - Dark mode detection uses MutationObserver on documentElement class changes
+
+---
+

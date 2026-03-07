@@ -1,0 +1,192 @@
+---
+title: 'Git Integration'
+description: 'Live branch display, PR status, and real-time updates'
+---
+
+## Overview
+
+Kata Agents provides seamless Git integration that gives your agent awareness of your Git context and displays live status in the UI.
+
+## Features
+
+<CardGroup cols={2}>
+  <Card title="Branch Badge" icon="code-branch">
+    Current branch name with real-time updates
+  </Card>
+  <Card title="PR Badge" icon="code-pull-request">
+    Linked pull request title and status
+  </Card>
+  <Card title="AI Awareness" icon="brain">
+    Branch and PR context injected per message
+  </Card>
+  <Card title="File Watching" icon="eye">
+    Automatic updates when branch changes
+  </Card>
+</CardGroup>
+
+## Branch Badge
+
+The branch badge shows your current Git branch in the chat input toolbar.
+
+### Features:
+- **Real-time updates**: Changes automatically when you switch branches
+- **File watching**: Monitors `.git/HEAD` for changes
+- **Worktree support**: Handles `.git` file gitdir pointers
+- **Submodule support**: Works with Git submodules
+
+### Display:
+- Appears in the chat input toolbar
+- Shows branch icon + branch name
+- No indicator for non-Git directories
+
+## PR Badge
+
+When your branch has an associated pull request, the PR badge appears next to the branch badge.
+
+### Features:
+- **PR Detection**: Automatically finds linked PRs using `gh pr list`
+- **Status Display**: Shows PR state (open, draft, merged, closed)
+- **Clickable**: Opens PR in browser
+- **Title Display**: Shows full PR title on hover
+
+### Requirements:
+- [GitHub CLI (`gh`)](https://cli.github.com/) must be installed
+- Repository must be on GitHub
+- Must be authenticated with `gh auth login`
+
+### Graceful Degradation:
+- If `gh` is not installed, shows helpful message
+- If not authenticated, prompts to run `gh auth login`
+- If no PR exists, shows branch badge only
+
+## AI Context Injection
+
+The agent receives Git context with each message:
+
+```
+Current branch: feature/new-feature
+PR: #123 "Add new feature" (open)
+```
+
+This allows the agent to:
+- Reference the correct branch in responses
+- Understand the PR context
+- Make branch-aware suggestions
+- Include proper commit messages
+
+<Tip>
+  The agent can automatically include PR context when creating commits or pushing code.
+</Tip>
+
+## Supported Git Features
+
+### Worktrees
+
+Git worktrees are fully supported. Kata Agents correctly handles the `.git` file that points to the actual git directory.
+
+### Submodules
+
+Git submodules work transparently. Each submodule's git context is tracked independently.
+
+### Shallow Clones
+
+Shallow clones are supported, though some git operations may be limited by the clone depth.
+
+## Real-time Updates
+
+Git context updates in real-time through file watching:
+
+1. **Branch Changes**: Detected via `.git/HEAD` file watching
+2. **PR Status**: Polled periodically (configurable)
+3. **UI Updates**: Automatic badge updates without refresh
+
+## Setup
+
+### Install GitHub CLI
+
+<Tabs>
+  <Tab title="macOS">
+    ```bash
+    brew install gh
+    ```
+  </Tab>
+  <Tab title="Windows">
+    ```bash
+    winget install GitHub.cli
+    ```
+  </Tab>
+  <Tab title="Linux">
+    ```bash
+    # Debian/Ubuntu
+    sudo apt install gh
+
+    # Fedora
+    sudo dnf install gh
+
+    # Arch
+    sudo pacman -S github-cli
+    ```
+  </Tab>
+</Tabs>
+
+### Authenticate
+
+```bash
+gh auth login
+```
+
+Follow the prompts to authenticate with your GitHub account.
+
+### Verify
+
+```bash
+gh pr list
+```
+
+If this shows your PRs, Git integration will work in Kata Agents.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Branch badge not updating">
+    - Verify the working directory is a Git repository
+    - Check that `.git/HEAD` is readable
+    - Try changing branches to trigger an update
+    - Restart Kata Agents if the issue persists
+  </Accordion>
+  <Accordion title="PR badge not appearing">
+    - Verify `gh` is installed: `which gh`
+    - Verify authentication: `gh auth status`
+    - Check if PR exists: `gh pr list`
+    - Ensure you're on a branch with a PR
+  </Accordion>
+  <Accordion title="'gh' command not found">
+    - Install GitHub CLI (see setup above)
+    - Ensure `gh` is in your PATH
+    - Restart your terminal and Kata Agents
+  </Accordion>
+  <Accordion title="Worktree not detected">
+    - Verify `.git` file exists and points to correct gitdir
+    - Check permissions on the gitdir
+    - Ensure gitdir path is absolute
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Workspaces"
+    icon="briefcase"
+    href="/concepts/workspaces"
+  >
+    Configure working directory per workspace
+  </Card>
+  <Card
+    title="Sessions"
+    icon="message"
+    href="/concepts/sessions"
+  >
+    Git context is per-session
+  </Card>
+</CardGroup>

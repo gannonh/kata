@@ -1,0 +1,303 @@
+---
+title: 'Contributing'
+description: 'How to contribute to Kata Agents'
+---
+
+## Welcome Contributors!
+
+We welcome contributions to Kata Agents! Whether you're fixing bugs, adding features, improving documentation, or helping with testing, your contributions are valuable.
+
+## Getting Started
+
+<Steps>
+  <Step title="Fork the Repository">
+    Fork [kata-agents](https://github.com/gannonh/kata-agents) to your GitHub account
+  </Step>
+  <Step title="Clone Your Fork">
+    ```bash
+    git clone https://github.com/YOUR_USERNAME/kata-agents.git
+    cd kata-agents
+    ```
+  </Step>
+  <Step title="Install Dependencies">
+    ```bash
+    bun install
+    ```
+  </Step>
+  <Step title="Create a Branch">
+    ```bash
+    git checkout -b feature/my-new-feature
+    ```
+  </Step>
+  <Step title="Make Changes">
+    Write your code, add tests, update documentation
+  </Step>
+  <Step title="Test Your Changes">
+    ```bash
+    bun test
+    bun run test:e2e
+    ```
+  </Step>
+  <Step title="Commit and Push">
+    ```bash
+    git add .
+    git commit -m "Add my new feature"
+    git push origin feature/my-new-feature
+    ```
+  </Step>
+  <Step title="Open Pull Request">
+    Go to GitHub and open a PR from your branch
+  </Step>
+</Steps>
+
+## Development Setup
+
+See the [Building Guide](/development/building) for detailed setup instructions.
+
+### Quick Start
+
+```bash
+# Install dependencies
+bun install
+
+# Run in development mode
+bun run electron:dev
+
+# Run tests
+bun test
+bun run test:e2e
+```
+
+## Contribution Guidelines
+
+### Code Style
+
+We use ESLint and TypeScript for code quality:
+
+```bash
+# Lint code
+bun run lint:electron
+
+# Type check
+bun run typecheck:all
+```
+
+Follow these conventions:
+- Use TypeScript for all code
+- Follow existing code style
+- Use meaningful variable names
+- Add JSDoc comments for public APIs
+- Keep functions focused and small
+
+### Commit Messages
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+feat: add new status workflow feature
+fix: resolve branch badge update issue
+docs: update installation guide
+test: add e2e tests for git integration
+refactor: simplify session persistence logic
+```
+
+Types:
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation only
+- `test`: Adding or updating tests
+- `refactor`: Code refactoring
+- `perf`: Performance improvement
+- `chore`: Maintenance tasks
+
+### Pull Request Process
+
+1. **Update documentation** if you're changing behavior
+2. **Add tests** for new features or bug fixes
+3. **Ensure tests pass**: `bun test && bun run test:e2e`
+4. **Update CHANGELOG.md** if user-facing change
+5. **Request review** from maintainers
+
+### PR Description Template
+
+```markdown
+## Description
+Brief description of changes
+
+## Motivation
+Why is this change needed?
+
+## Changes
+- List of changes made
+
+## Testing
+How was this tested?
+
+## Screenshots (if UI change)
+Before/after screenshots
+
+## Checklist
+- [ ] Tests added/updated
+- [ ] Documentation updated
+- [ ] CHANGELOG.md updated
+- [ ] Lint and type checks pass
+```
+
+## Types of Contributions
+
+### Bug Fixes
+
+Found a bug? We'd love a fix!
+
+1. **Check existing issues** - might already be reported
+2. **Open an issue** - describe the bug with reproduction steps
+3. **Submit a PR** - reference the issue number
+
+### New Features
+
+Want to add a feature?
+
+1. **Open an issue** - discuss the feature first
+2. **Get feedback** - ensure it aligns with project goals
+3. **Implement** - write code, tests, docs
+4. **Submit PR** - reference the issue
+
+### Documentation
+
+Documentation improvements are always welcome:
+
+- Fix typos or unclear explanations
+- Add examples or tutorials
+- Improve API documentation
+- Add missing documentation
+
+### Tests
+
+Help improve test coverage:
+
+- Add unit tests for untested code
+- Write E2E tests for user flows
+- Improve test reliability
+- Add edge case coverage
+
+## Code of Conduct
+
+### Our Pledge
+
+We are committed to providing a welcoming and inclusive environment for all contributors.
+
+### Expected Behavior
+
+- Be respectful and considerate
+- Welcome newcomers
+- Focus on constructive feedback
+- Assume good intent
+
+### Unacceptable Behavior
+
+- Harassment or discrimination
+- Trolling or insulting comments
+- Personal or political attacks
+- Public or private harassment
+
+### Reporting
+
+If you experience or witness unacceptable behavior, please report it to the maintainers.
+
+## Getting Help
+
+Need help contributing?
+
+<CardGroup cols={2}>
+  <Card title="GitHub Issues" icon="github">
+    Ask questions, report bugs, suggest features
+
+    [Open an Issue](https://github.com/gannonh/kata-agents/issues)
+  </Card>
+  <Card title="Discussions" icon="comments">
+    General questions and discussions
+
+    [Join Discussions](https://github.com/gannonh/kata-agents/discussions)
+  </Card>
+</CardGroup>
+
+## Development Tips
+
+### Hot Reload
+
+In development mode, changes reload automatically:
+
+```bash
+bun run electron:dev
+```
+
+- Renderer changes: Instant via Vite HMR
+- Main/preload changes: App restarts automatically
+
+### Debugging
+
+#### Main Process
+
+Use VS Code debugger:
+- Set breakpoints in main process code
+- Press F5 or use "Debug" launch config
+
+#### Renderer
+
+Use Chrome DevTools:
+- Open app in dev mode
+- Press `Cmd+Option+I` (Mac) or `Ctrl+Shift+I` (Windows/Linux)
+
+### Logs
+
+Application logs are written to:
+- **macOS**: `~/Library/Logs/Kata Agents/main.log`
+- **Windows**: `%USERPROFILE%\AppData\Roaming\Kata Agents\logs\main.log`
+- **Linux**: `~/.config/Kata Agents/logs/main.log`
+
+## Project Structure
+
+```
+kata-agents/
+├── apps/
+│   └── electron/       # Desktop app
+├── packages/
+│   ├── core/          # Shared types
+│   ├── shared/        # Business logic
+│   ├── ui/            # React components
+│   └── mermaid/       # Diagram rendering
+├── docs/              # Documentation
+└── scripts/           # Build scripts
+```
+
+See [Architecture](/development/architecture) for details.
+
+## Release Process
+
+Maintainers handle releases:
+
+1. Update version in `package.json` (root and `apps/electron`)
+2. Update `CHANGELOG.md`
+3. Create release branch: `release/vX.Y.Z`
+4. Open PR to `main`
+5. Merge PR
+6. Tag release: `git tag vX.Y.Z`
+7. Push tag: `git push origin vX.Y.Z`
+8. GitHub Actions builds and publishes
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the [Apache License 2.0](https://github.com/gannonh/kata-agents/blob/main/LICENSE).
+
+## Recognition
+
+Contributors are recognized in:
+- GitHub contributors page
+- CHANGELOG.md (for significant contributions)
+- Release notes
+
+## Questions?
+
+Don't hesitate to ask questions! Open an issue or discussion, and we'll help you get started.
+
+Thank you for contributing to Kata Agents! 🎉

@@ -1,0 +1,215 @@
+---
+title: 'Sources'
+description: 'Connect external data and services to your workspace'
+---
+
+## What are Sources?
+
+Sources are external data connections that extend your agent's capabilities. Kata Agents supports three types of sources:
+
+1. **MCP Servers**: Model Context Protocol servers for structured integrations
+2. **REST APIs**: Direct API connections (Google, Slack, Microsoft)
+3. **Local Files**: Filesystem access for reading and writing files
+
+## Source Types
+
+<CardGroup cols={3}>
+  <Card title="MCP Servers" icon="plug">
+    Linear, GitHub, Notion, and custom MCP servers
+  </Card>
+  <Card title="REST APIs" icon="globe">
+    Google (Gmail, Calendar, Drive), Slack, Microsoft
+  </Card>
+  <Card title="Filesystems" icon="folder">
+    Local directories, Obsidian vaults, Git repos
+  </Card>
+</CardGroup>
+
+## MCP Servers
+
+[Model Context Protocol](https://modelcontextprotocol.io/) is a standard for connecting AI agents to external services.
+
+### Supported MCP Transports
+
+- **stdio**: Local subprocess (most MCP servers)
+- **SSE**: Remote server-sent events connection
+
+### Popular MCP Servers
+
+| Server | Description | Transport |
+|--------|-------------|-----------|
+| **Linear** | Issue tracking and project management | stdio |
+| **GitHub** | Repository management, issues, PRs | stdio |
+| **Notion** | Notes and knowledge base | stdio |
+| **Filesystem** | Local file access | stdio |
+| **PostgreSQL** | Database queries | stdio |
+| **Brave Search** | Web search | stdio |
+
+### Adding an MCP Server
+
+<Steps>
+  <Step title="Open Sources Settings">
+    Navigate to workspace settings → Sources
+  </Step>
+  <Step title="Add MCP Server">
+    Click "Add MCP Server" and select from available servers
+  </Step>
+  <Step title="Configure Connection">
+    - **stdio**: Provide command and arguments
+    - **SSE**: Provide server URL and authentication
+  </Step>
+  <Step title="Test Connection">
+    Verify the server is responding correctly
+  </Step>
+</Steps>
+
+### Example: Filesystem MCP
+
+```json
+{
+  "name": "filesystem",
+  "type": "mcp",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/directory"]
+}
+```
+
+## REST API Sources
+
+Kata Agents has built-in support for popular REST APIs with OAuth authentication.
+
+### Supported APIs
+
+<Tabs>
+  <Tab title="Google">
+    - **Gmail**: Read and send emails
+    - **Calendar**: View and create events
+    - **Drive**: Access files and folders
+
+    Requires OAuth 2.0 authentication
+  </Tab>
+  <Tab title="Slack">
+    - **Messages**: Read and send messages
+    - **Channels**: List and search channels
+    - **Users**: Get user information
+
+    Requires Slack OAuth
+  </Tab>
+  <Tab title="Microsoft">
+    - **Outlook**: Email access
+    - **Calendar**: Event management
+    - **OneDrive**: File access
+
+    Requires Microsoft OAuth
+  </Tab>
+</Tabs>
+
+### Adding a REST API Source
+
+<Steps>
+  <Step title="Navigate to Sources">
+    Workspace settings → Sources → Add Source
+  </Step>
+  <Step title="Select API">
+    Choose from Google, Slack, or Microsoft
+  </Step>
+  <Step title="Authenticate">
+    Complete OAuth flow to grant permissions
+  </Step>
+  <Step title="Configure Scopes">
+    Select which services to enable (Gmail, Calendar, etc.)
+  </Step>
+</Steps>
+
+## Local Filesystem
+
+The filesystem source gives your agent access to local files and directories.
+
+### Security Considerations
+
+<Warning>
+  Filesystem access is powerful. Only grant access to directories you trust the agent to read and write.
+</Warning>
+
+The filesystem MCP:
+- Respects permission modes (read-only in Explore mode)
+- Can be scoped to specific directories
+- Follows symbolic links carefully
+- Filters sensitive files (.env, credentials, etc.)
+
+### Environment Variable Filtering
+
+When spawning local MCP servers, sensitive environment variables are automatically filtered to prevent credential leakage:
+
+- `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+- `GITHUB_TOKEN`, `GH_TOKEN`
+- `OPENAI_API_KEY`, `GOOGLE_API_KEY`
+- Other common credential variables
+
+To explicitly pass an environment variable to a specific MCP server, use the `env` field in the source configuration.
+
+## Large Response Handling
+
+Tool responses exceeding ~60KB are automatically summarized using Claude Haiku with intent-aware context. The `_intent` field is injected into MCP tool schemas to preserve summarization focus.
+
+This ensures:
+- Responses stay within context limits
+- Agent receives relevant information
+- User sees full responses when needed
+
+## Source Management
+
+### Enabling/Disabling Sources
+
+Sources can be temporarily disabled without removing them:
+
+1. Navigate to workspace settings → Sources
+2. Toggle the source on/off
+3. Disabled sources don't appear in agent context
+
+### Removing Sources
+
+To permanently remove a source:
+
+1. Navigate to workspace settings → Sources
+2. Select the source to remove
+3. Click "Remove Source"
+4. Confirm deletion
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Scope Filesystem Access">
+    Only grant filesystem access to the directories needed for the task. Don't give blanket access to your home directory.
+  </Accordion>
+  <Accordion title="Use MCP When Available">
+    MCP servers provide structured, validated access to services. Prefer MCP over raw API access when available.
+  </Accordion>
+  <Accordion title="Test Connections">
+    After adding a source, test it with a simple query to verify it's working correctly before relying on it for complex tasks.
+  </Accordion>
+  <Accordion title="Review Permissions">
+    Periodically review which sources are connected and remove any that are no longer needed.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="MCP Servers"
+    icon="plug"
+    href="/features/mcp-servers"
+  >
+    Learn more about MCP integration
+  </Card>
+  <Card
+    title="Permissions"
+    icon="shield"
+    href="/concepts/permissions"
+  >
+    Control what sources can do
+  </Card>
+</CardGroup>

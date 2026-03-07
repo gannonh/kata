@@ -1,0 +1,10 @@
+{
+  "name": "@kata-agents/online-docs",
+  "version": "0.6.0",
+  "private": true,
+  "scripts": {
+    "dev": "mintlify dev",
+    "build": "mintlify build",
+    "preview": "mintlify preview"
+  }
+}

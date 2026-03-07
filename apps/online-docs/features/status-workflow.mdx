@@ -1,0 +1,235 @@
+---
+title: 'Status Workflow'
+description: 'Customizable session workflow states'
+---
+
+## Overview
+
+The status workflow system in Kata Agents allows you to organize sessions based on where they are in your process. Like Kanban boards or issue trackers, you can move sessions through different states.
+
+## Default Statuses
+
+Kata Agents comes with a default workflow:
+
+```
+Todo → In Progress → Needs Review → Done
+```
+
+But you can customize this to match your own workflow.
+
+## Status Properties
+
+Each status has:
+
+- **Name**: Display name (e.g., "In Progress")
+- **Icon**: Visual indicator
+- **Color**: Theme color for the status
+- **Order**: Position in the workflow
+- **Type**: Category (inbox, active, review, done, archived)
+
+## Inbox vs Archive
+
+Sessions are organized into two main views:
+
+### Inbox
+Active sessions that need attention:
+- Todo
+- In Progress
+- Needs Review
+
+### Archive
+Completed or inactive sessions:
+- Done
+- Cancelled
+- On Hold
+
+## Custom Workflows
+
+You can create workflows that match your process:
+
+### Software Development
+```
+Backlog → Planning → Development → Code Review → Testing → Deployed
+```
+
+### Customer Support
+```
+New → Investigating → Waiting on Customer → Resolved → Closed
+```
+
+### Content Creation
+```
+Ideas → Drafting → Editing → Review → Published
+```
+
+### Research
+```
+Queue → Reading → Note Taking → Analysis → Writing → Complete
+```
+
+## Configuring Statuses
+
+<Steps>
+  <Step title="Open Status Settings">
+    Navigate to workspace settings → Statuses
+  </Step>
+  <Step title="Add/Edit Status">
+    - Click "Add Status" or edit existing
+    - Set name, icon, color, type
+  </Step>
+  <Step title="Reorder">
+    Drag statuses to reorder the workflow
+  </Step>
+  <Step title="Save">
+    Changes apply immediately to the workspace
+  </Step>
+</Steps>
+
+## Status Configuration Format
+
+Statuses are stored in your workspace directory:
+
+```json
+{
+  "statuses": [
+    {
+      "id": "todo",
+      "name": "Todo",
+      "icon": "circle",
+      "color": "#808080",
+      "order": 0,
+      "type": "inbox"
+    },
+    {
+      "id": "in-progress",
+      "name": "In Progress",
+      "icon": "clock",
+      "color": "#3b82f6",
+      "order": 1,
+      "type": "active"
+    },
+    {
+      "id": "done",
+      "name": "Done",
+      "icon": "check-circle",
+      "color": "#10b981",
+      "order": 2,
+      "type": "done"
+    }
+  ]
+}
+```
+
+## Moving Sessions
+
+Sessions can be moved between statuses:
+
+### Via UI
+1. Select session in list
+2. Click status dropdown
+3. Choose new status
+
+### Via Keyboard
+Configure keyboard shortcuts for quick status changes.
+
+### Via Agent
+Ask the agent to update status:
+```
+Move this session to "Needs Review"
+```
+
+## Filtering by Status
+
+The session list can be filtered by status:
+
+- **All**: Show all sessions
+- **Inbox**: Active sessions only
+- **Archive**: Completed sessions only
+- **Specific Status**: Filter to one status
+
+## Status-Based Rules
+
+You can configure rules based on status:
+
+### Auto-Archive
+Automatically archive sessions after N days in "Done" status.
+
+### Notifications
+Get notified when sessions enter specific statuses.
+
+### Auto-Status
+Automatically move sessions based on activity:
+- No activity for 7 days → "On Hold"
+- New message received → "In Progress"
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep It Simple">
+    Start with 4-6 statuses. Too many statuses create cognitive overhead.
+  </Accordion>
+  <Accordion title="Match Your Process">
+    Model your actual workflow, not an idealized one. The system should reflect reality.
+  </Accordion>
+  <Accordion title="Use Clear Names">
+    Status names should be immediately understandable. Avoid jargon or abbreviations.
+  </Accordion>
+  <Accordion title="Define Done">
+    Be clear about what "done" means. Does it mean shipped? Reviewed? Closed?
+  </Accordion>
+  <Accordion title="Regular Grooming">
+    Periodically review and update session statuses to keep your inbox current.
+  </Accordion>
+</AccordionGroup>
+
+## Status Types
+
+### inbox
+Sessions that need immediate attention. Shown in the main inbox view.
+
+### active
+Sessions currently being worked on. Highlighted in the UI.
+
+### review
+Sessions waiting for review or feedback.
+
+### done
+Completed sessions. Can be auto-archived.
+
+### archived
+Long-term storage. Not shown in default views.
+
+### cancelled
+Sessions that were started but not completed.
+
+## Integration with Flagging
+
+Statuses and flags work together:
+
+- **Status**: Where the session is in your workflow
+- **Flag**: Whether it's important/urgent
+
+This allows for prioritization:
+1. Flagged + In Progress (urgent, active)
+2. Flagged + Todo (urgent, not started)
+3. Unflagged + In Progress (normal priority, active)
+4. Unflagged + Todo (normal priority, backlog)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Sessions"
+    icon="message"
+    href="/concepts/sessions"
+  >
+    Learn more about session management
+  </Card>
+  <Card
+    title="Workspaces"
+    icon="briefcase"
+    href="/concepts/workspaces"
+  >
+    Statuses are per-workspace
+  </Card>
+</CardGroup>

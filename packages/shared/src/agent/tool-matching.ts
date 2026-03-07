@@ -1,0 +1,373 @@
+/**
+ * Stateless tool matching for SDK message → AgentEvent conversion.
+ *
+ * This module extracts tool_start and tool_result events from SDK message
+ * content blocks using DIRECT ID matching instead of FIFO queues.
+ *
+ * Key principle: Every output is derived from the current message + an
+ * append-only tool index. No mutable queues, stacks, or order-dependent state.
+ *
+ * The SDK provides:
+ * - `parent_tool_use_id` on every message — identifies the subagent context (Task ID or null)
+ * - `tool_use_id` on each tool_result content block — directly identifies which tool the result is for
+ *
+ * Together these eliminate the need for FIFO matching, parent stacks, and orphan recovery.
+ */
+
+import type { AgentEvent } from '@craft-agent/core/types';
+
+// ============================================================================
+// Tool Index — append-only, order-independent lookup
+// ============================================================================
+
+export interface ToolEntry {
+  name: string;
+  input: Record<string, unknown>;
+}
+
+/**
+ * Append-only index of tool metadata, built from tool_start events.
+ * Order-independent: inserting A then B = inserting B then A.
+ * Used to look up tool name/input when processing tool_result blocks
+ * (which carry tool_use_id but not tool_name).
+ */
+export class ToolIndex {
+  private entries = new Map<string, ToolEntry>();
+
+  /** Register a tool (idempotent — same ID always maps to same entry) */
+  register(toolUseId: string, name: string, input: Record<string, unknown>): void {
+    // Update input if we now have more complete data (stream events start with empty input)
+    const existing = this.entries.get(toolUseId);
+    if (existing && Object.keys(existing.input).length === 0 && Object.keys(input).length > 0) {
+      this.entries.set(toolUseId, { name, input });
+    } else if (!existing) {
+      this.entries.set(toolUseId, { name, input });
+    }
+  }
+
+  getName(toolUseId: string): string | undefined {
+    return this.entries.get(toolUseId)?.name;
+  }
+
+  getInput(toolUseId: string): Record<string, unknown> | undefined {
+    return this.entries.get(toolUseId)?.input;
+  }
+
+  getEntry(toolUseId: string): ToolEntry | undefined {
+    return this.entries.get(toolUseId);
+  }
+
+  has(toolUseId: string): boolean {
+    return this.entries.has(toolUseId);
+  }
+
+  get size(): number {
+    return this.entries.size;
+  }
+}
+
+// ============================================================================
+// Content block types (subset of Anthropic SDK types we need)
+// ============================================================================
+
+/** Represents a tool_use content block from an assistant message */
+export interface ToolUseBlock {
+  type: 'tool_use';
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+}
+
+/** Represents a tool_result content block from a user message */
+export interface ToolResultBlock {
+  type: 'tool_result';
+  tool_use_id: string;
+  content?: unknown;
+  is_error?: boolean;
+}
+
+/** Represents a text content block */
+export interface TextBlock {
+  type: 'text';
+  text: string;
+}
+
+/** Union of content blocks we handle */
+export type ContentBlock = ToolUseBlock | ToolResultBlock | TextBlock | { type: string };
+
+// ============================================================================
+// Pure extraction functions
+// ============================================================================
+
+/**
+ * Extract tool_start events from assistant message content blocks.
+ *
+ * Each tool_use block in the content becomes a tool_start event.
+ * Parent assignment comes directly from the SDK's parent_tool_use_id field
+ * on the message — no stacks or FIFO needed.
+ *
+ * @param contentBlocks - Content blocks from SDKAssistantMessage.message.content
+ * @param sdkParentToolUseId - parent_tool_use_id from the SDK message (null = top-level)
+ * @param toolIndex - Append-only index to register new tools in
+ * @param emittedToolStartIds - Set of tool IDs already emitted (for stream/assistant dedup)
+ * @param turnId - Current turn correlation ID
+ * @returns Array of tool_start AgentEvents
+ */
+export function extractToolStarts(
+  contentBlocks: ContentBlock[],
+  sdkParentToolUseId: string | null,
+  toolIndex: ToolIndex,
+  emittedToolStartIds: Set<string>,
+  turnId?: string,
+): AgentEvent[] {
+  const events: AgentEvent[] = [];
+
+  for (const block of contentBlocks) {
+    if (block.type !== 'tool_use') continue;
+    const toolBlock = block as ToolUseBlock;
+
+    // Register in index (idempotent — handles both stream and assistant events)
+    toolIndex.register(toolBlock.id, toolBlock.name, toolBlock.input);
+
+    // Dedup: stream_event arrives before assistant message, both have the same tool_use block.
+    // The Set is append-only and order-independent (same ID always deduplicates the same way).
+    if (emittedToolStartIds.has(toolBlock.id)) {
+      // Already emitted via stream — but check if we now have complete input
+      const hasNewInput = Object.keys(toolBlock.input).length > 0;
+      if (hasNewInput) {
+        // Re-emit with complete input (assistant message has full input, stream has {})
+        const intent = extractIntent(toolBlock);
+        const displayName = toolBlock.input._displayName as string | undefined;
+        events.push({
+          type: 'tool_start',
+          toolName: toolBlock.name,
+          toolUseId: toolBlock.id,
+          input: toolBlock.input,
+          intent,
+          displayName,
+          turnId,
+          parentToolUseId: sdkParentToolUseId ?? undefined,
+        });
+      }
+      continue;
+    }
+
+    emittedToolStartIds.add(toolBlock.id);
+
+    // Parent assignment: SDK's parent_tool_use_id is authoritative.
+    // null → top-level tool, string → tool runs inside that Task subagent.
+    const parentToolUseId = sdkParentToolUseId ?? undefined;
+
+    const intent = extractIntent(toolBlock);
+    const displayName = toolBlock.input._displayName as string | undefined;
+
+    events.push({
+      type: 'tool_start',
+      toolName: toolBlock.name,
+      toolUseId: toolBlock.id,
+      input: toolBlock.input,
+      intent,
+      displayName,
+      turnId,
+      parentToolUseId,
+    });
+  }
+
+  return events;
+}
+
+/**
+ * Extract tool_result events from user message content blocks.
+ *
+ * Each tool_result content block carries an explicit `tool_use_id` that
+ * directly identifies which tool the result belongs to. No FIFO matching needed.
+ *
+ * Falls back to the convenience field `tool_use_result` + `parent_tool_use_id`
+ * when content blocks don't contain tool_result entries (e.g., some MCP tools).
+ *
+ * @param contentBlocks - Content blocks from SDKUserMessage.message.content (may be empty)
+ * @param sdkParentToolUseId - parent_tool_use_id from the SDK message
+ * @param toolUseResultValue - Convenience field tool_use_result from SDK message
+ * @param toolIndex - Read-only lookup for tool name/input
+ * @param turnId - Current turn correlation ID
+ * @returns Array of tool_result AgentEvents (and background task events)
+ */
+export function extractToolResults(
+  contentBlocks: ContentBlock[],
+  sdkParentToolUseId: string | null,
+  toolUseResultValue: unknown,
+  toolIndex: ToolIndex,
+  turnId?: string,
+): AgentEvent[] {
+  const events: AgentEvent[] = [];
+
+  // Primary path: extract tool_use_id directly from content blocks
+  const toolResultBlocks = contentBlocks.filter(
+    (b): b is ToolResultBlock => b.type === 'tool_result'
+  );
+
+  if (toolResultBlocks.length > 0) {
+    // Direct ID matching — each block explicitly identifies its tool
+    for (const block of toolResultBlocks) {
+      const toolUseId = block.tool_use_id;
+      const entry = toolIndex.getEntry(toolUseId);
+
+      const resultStr = serializeResult(block.content);
+      const isError = block.is_error ?? isToolResultError(block.content);
+
+      events.push({
+        type: 'tool_result',
+        toolUseId,
+        toolName: entry?.name,
+        result: resultStr,
+        isError,
+        input: entry?.input,
+        turnId,
+        parentToolUseId: sdkParentToolUseId ?? undefined,
+      });
+
+      // Detect background tasks/shells from results
+      if (entry) {
+        const bgEvents = detectBackgroundEvents(toolUseId, entry, resultStr, isError, turnId);
+        events.push(...bgEvents);
+      }
+    }
+  } else if (toolUseResultValue !== undefined) {
+    // Fallback: use convenience fields when content blocks are unavailable.
+    // This handles edge cases like in-process MCP tools that don't provide
+    // tool_result content blocks.
+    //
+    // When sdkParentToolUseId is set, it points to the tool's own ID (for
+    // regular tools using the convenience API) — so we use it as toolUseId.
+    // When null (top-level tools without content blocks), we generate a
+    // synthetic ID so the result isn't silently dropped.
+    //
+    // parentToolUseId is intentionally set to undefined here because in the
+    // fallback path we only have one ID — using it as BOTH toolUseId and
+    // parentToolUseId would create a self-referencing loop. The safe default
+    // is to treat the tool as top-level when parent is ambiguous.
+    const toolUseId = sdkParentToolUseId ?? `fallback-${turnId ?? 'unknown'}`;
+    const entry = toolIndex.getEntry(toolUseId);
+
+    const resultStr = serializeResult(toolUseResultValue);
+    const isError = isToolResultError(toolUseResultValue);
+
+    events.push({
+      type: 'tool_result',
+      toolUseId,
+      toolName: entry?.name,
+      result: resultStr,
+      isError,
+      input: entry?.input,
+      turnId,
+      parentToolUseId: undefined,
+    });
+
+    if (entry) {
+      const bgEvents = detectBackgroundEvents(toolUseId, entry, resultStr, isError, turnId);
+      events.push(...bgEvents);
+    }
+  }
+
+  return events;
+}
+
+// ============================================================================
+// Helpers (pure)
+// ============================================================================
+
+/** Extract intent from a tool_use block's input */
+function extractIntent(toolBlock: ToolUseBlock): string | undefined {
+  const input = toolBlock.input;
+  let intent = input._intent as string | undefined;
+  // For Bash tools, use description field as intent
+  if (!intent && toolBlock.name === 'Bash') {
+    intent = (input as { description?: string }).description;
+  }
+  return intent;
+}
+
+/** Serialize a tool result value to string, handling circular references */
+export function serializeResult(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value === undefined || value === null) return '';
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return '[Result contains non-serializable data]';
+  }
+}
+
+/** Check if a tool result indicates an error */
+export function isToolResultError(result: unknown): boolean {
+  if (typeof result === 'string') {
+    // Check for common error patterns
+    return result.startsWith('Error:') || result.startsWith('error:');
+  }
+  if (result && typeof result === 'object') {
+    // Check for error flag in result object
+    if ('is_error' in result && (result as { is_error: boolean }).is_error) return true;
+    if ('error' in result) return true;
+  }
+  return false;
+}
+
+/** Detect background task/shell events from tool results */
+function detectBackgroundEvents(
+  toolUseId: string,
+  entry: ToolEntry,
+  resultStr: string,
+  isError: boolean,
+  turnId?: string,
+): AgentEvent[] {
+  const events: AgentEvent[] = [];
+
+  // Background Task detection — Task tool with agentId in result
+  if (entry.name === 'Task' && !isError && resultStr) {
+    const agentIdMatch = resultStr.match(/agentId:\s*([a-zA-Z0-9_-]+)/);
+    if (agentIdMatch?.[1]) {
+      const intentValue = entry.input._intent;
+      events.push({
+        type: 'task_backgrounded',
+        toolUseId,
+        taskId: agentIdMatch[1],
+        turnId,
+        ...(typeof intentValue === 'string' && { intent: intentValue }),
+      });
+    }
+  }
+
+  // Background Shell detection — Bash tool with shell_id or backgroundTaskId
+  if (entry.name === 'Bash' && !isError && resultStr) {
+    const shellIdMatch = resultStr.match(/shell_id:\s*([a-zA-Z0-9_-]+)/)
+      || resultStr.match(/"backgroundTaskId":\s*"([a-zA-Z0-9_-]+)"/);
+    if (shellIdMatch?.[1]) {
+      const intentValue = (typeof entry.input._intent === 'string' && entry.input._intent)
+        || (typeof entry.input.description === 'string' && entry.input.description)
+        || undefined;
+      const commandValue = typeof entry.input.command === 'string' ? entry.input.command : undefined;
+      events.push({
+        type: 'shell_backgrounded',
+        toolUseId,
+        shellId: shellIdMatch[1],
+        turnId,
+        ...(intentValue && { intent: intentValue }),
+        ...(commandValue && { command: commandValue }),
+      });
+    }
+  }
+
+  // Shell killed detection — KillShell tool
+  if (entry.name === 'KillShell') {
+    const shellId = entry.input.shell_id as string;
+    if (shellId) {
+      events.push({
+        type: 'shell_killed',
+        shellId,
+        turnId,
+      });
+    }
+  }
+
+  return events;
+}

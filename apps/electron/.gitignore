@@ -1,0 +1,6 @@
+# Build artifacts for DMG packaging
+# NOTE: vendor/ and packages/ are NOT gitignored because electron-builder
+# respects .gitignore and would exclude them from the app bundle.
+# These directories are created by CI before packaging and are never committed.
+release/
+node_modules/@anthropic-ai/

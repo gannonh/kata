@@ -1,0 +1,163 @@
+/**
+ * Documentation Utilities
+ *
+ * Provides access to built-in documentation that Claude can reference
+ * when performing configuration tasks (sources, agents, permissions, etc.).
+ *
+ * Docs are stored at ~/.kata-agents/docs/ and synced from bundled assets.
+ * Source content lives in packages/shared/assets/docs/*.md for easier editing.
+ */
+
+import { join } from 'path';
+import { homedir } from 'os';
+import { existsSync, mkdirSync, writeFileSync, readdirSync, readFileSync } from 'fs';
+import { getBundledAssetsDir } from '../utils/paths.ts';
+import { debug } from '../utils/debug.ts';
+
+const CONFIG_DIR = join(homedir(), '.kata-agents');
+const DOCS_DIR = join(CONFIG_DIR, 'docs');
+
+// Track if docs have been initialized this session (prevents re-init on hot reload)
+let docsInitialized = false;
+
+// Resolve the bundled docs assets directory using the shared asset resolver.
+// Handles all environments: dev (monorepo source), bundled (dist/assets/docs),
+// and packaged Electron (setBundledAssetsRoot sets the base path at startup).
+function getAssetsDir(): string {
+  return getBundledAssetsDir('docs')
+    // Fallback: development path (will fail gracefully if files don't exist)
+    ?? join(process.cwd(), 'packages', 'shared', 'assets', 'docs');
+}
+
+/**
+ * Load bundled docs from asset files.
+ * Called once at module initialization.
+ * Returns empty strings if files don't exist (graceful degradation).
+ */
+function loadBundledDocs(): Record<string, string> {
+  const assetsDir = getAssetsDir();
+  const docs: Record<string, string> = {};
+
+  // Auto-discover all files in the bundled docs directory.
+  // No hardcoded list — any file dropped into packages/shared/assets/docs/ is synced automatically.
+  let files: string[];
+  try {
+    files = existsSync(assetsDir) ? readdirSync(assetsDir) : [];
+  } catch (error) {
+    debug(`[docs] Could not read assets dir: ${assetsDir}`, error);
+    return docs;
+  }
+
+  for (const filename of files) {
+    const filePath = join(assetsDir, filename);
+    try {
+      docs[filename] = readFileSync(filePath, 'utf-8');
+    } catch (error) {
+      debug(`[docs] Failed to load ${filename}:`, error);
+    }
+  }
+
+  return docs;
+}
+
+// Load docs at module initialization (one-time read)
+const BUNDLED_DOCS = loadBundledDocs();
+
+/**
+ * Get the docs directory path
+ */
+export function getDocsDir(): string {
+  return DOCS_DIR;
+}
+
+/**
+ * Get path to a specific doc file
+ */
+export function getDocPath(filename: string): string {
+  return join(DOCS_DIR, filename);
+}
+
+// App root path reference for use in prompts
+// Using ~ for display since actual path varies per system/instance
+export const APP_ROOT = '~/.kata-agents';
+
+/**
+ * Documentation file references for use in error messages and tool descriptions.
+ * Use these constants instead of hardcoding paths to keep references in sync.
+ */
+export const DOC_REFS = {
+  appRoot: APP_ROOT,
+  sources: `${APP_ROOT}/docs/sources.md`,
+  permissions: `${APP_ROOT}/docs/permissions.md`,
+  skills: `${APP_ROOT}/docs/skills.md`,
+  themes: `${APP_ROOT}/docs/themes.md`,
+  statuses: `${APP_ROOT}/docs/statuses.md`,
+  labels: `${APP_ROOT}/docs/labels.md`,
+  toolIcons: `${APP_ROOT}/docs/tool-icons.md`,
+  mermaid: `${APP_ROOT}/docs/mermaid.md`,
+  docsDir: `${APP_ROOT}/docs/`,
+} as const;
+
+/**
+ * Check if docs directory exists
+ */
+export function docsExist(): boolean {
+  return existsSync(DOCS_DIR);
+}
+
+/**
+ * List available doc files
+ */
+export function listDocs(): string[] {
+  if (!existsSync(DOCS_DIR)) return [];
+  return readdirSync(DOCS_DIR).filter(f => f.endsWith('.md'));
+}
+
+/**
+ * Initialize docs directory with bundled documentation.
+ * Always writes all docs on launch to ensure consistency across debug and release modes.
+ */
+export function initializeDocs(): void {
+  // Skip if already initialized this session (prevents re-init on hot reload)
+  if (docsInitialized) {
+    return;
+  }
+  docsInitialized = true;
+
+  if (!existsSync(DOCS_DIR)) {
+    mkdirSync(DOCS_DIR, { recursive: true });
+  }
+
+  // Always write bundled docs to disk on launch.
+  // This ensures consistent behavior between debug and release modes —
+  // docs are always up-to-date with the running version.
+  for (const [filename, content] of Object.entries(BUNDLED_DOCS)) {
+    const docPath = join(DOCS_DIR, filename);
+    writeFileSync(docPath, content, 'utf-8');
+  }
+
+  debug(`[docs] Synced ${Object.keys(BUNDLED_DOCS).length} docs`);
+}
+
+export { BUNDLED_DOCS };
+
+// Re-export source guides utilities (parsing only - bundled guides removed)
+export {
+  parseSourceGuide,
+  getSourceGuide,
+  getSourceGuideForDomain,
+  getSourceKnowledge,
+  extractDomainFromSource,
+  extractDomainFromUrl,
+  type ParsedSourceGuide,
+  type SourceGuideFrontmatter,
+} from './source-guides.ts';
+
+// Re-export doc links (for UI help popovers)
+export {
+  getDocUrl,
+  getDocInfo,
+  DOCS,
+  type DocFeature,
+  type DocInfo,
+} from './doc-links.ts';

@@ -1,0 +1,367 @@
+---
+title: 'Building from Source'
+description: 'Build and run Kata Agents from source code'
+---
+
+## Prerequisites
+
+Before building from source, you'll need:
+
+<CardGroup cols={2}>
+  <Card title="Bun" icon="package">
+    JavaScript runtime and package manager
+
+    [Install Bun](https://bun.sh/)
+  </Card>
+  <Card title="Node.js" icon="node">
+    Required for Electron (v18+)
+
+    [Install Node.js](https://nodejs.org/)
+  </Card>
+  <Card title="Git" icon="git">
+    Version control system
+
+    [Install Git](https://git-scm.com/)
+  </Card>
+  <Card title="Platform Tools" icon="wrench">
+    - **macOS**: Xcode Command Line Tools
+    - **Windows**: Visual Studio Build Tools
+    - **Linux**: build-essential
+  </Card>
+</CardGroup>
+
+## Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/gannonh/kata-agents.git
+cd kata-agents
+
+# Install dependencies
+bun install
+
+# Build and run
+bun run electron:start
+```
+
+## Development Commands
+
+### Install Dependencies
+
+```bash
+bun install
+```
+
+This installs all dependencies for the monorepo using Bun workspaces.
+
+### Development Mode (Hot Reload)
+
+```bash
+bun run electron:dev
+```
+
+This starts the app in development mode with:
+- Hot reload for renderer changes
+- Source maps for debugging
+- React DevTools integration
+- Console logging enabled
+
+### Build and Run
+
+```bash
+bun run electron:start
+```
+
+This builds all components and runs the app:
+1. Builds main process (esbuild)
+2. Builds preload script (esbuild)
+3. Builds renderer (Vite)
+4. Copies resources
+5. Launches Electron
+
+### Type Checking
+
+```bash
+# Check all packages
+bun run typecheck:all
+
+# Check specific package
+cd packages/shared && bun run tsc --noEmit
+```
+
+### Linting
+
+```bash
+bun run lint:electron
+```
+
+### Testing
+
+```bash
+# Unit tests
+bun test
+
+# Watch mode
+bun test:watch
+
+# Coverage
+bun test:coverage
+
+# E2E tests
+bun run test:e2e
+```
+
+See [Testing Guide](/development/testing) for details.
+
+## Build Components
+
+### Main Process
+
+```bash
+bun run electron:build:main
+```
+
+Builds the Electron main process:
+- Input: `apps/electron/src/main/index.ts`
+- Output: `apps/electron/dist-main/index.js`
+- Bundler: esbuild
+- Platform: Node.js
+
+### Preload Script
+
+```bash
+bun run electron:build:preload
+```
+
+Builds the preload script:
+- Input: `apps/electron/src/preload/index.ts`
+- Output: `apps/electron/dist-preload/preload.js`
+- Bundler: esbuild
+- Platform: Node.js
+
+### Renderer
+
+```bash
+bun run electron:build:renderer
+```
+
+Builds the React renderer:
+- Input: `apps/electron/src/renderer/index.tsx`
+- Output: `apps/electron/dist-renderer/`
+- Bundler: Vite
+- Platform: Browser
+
+### Resources
+
+```bash
+bun run electron:build:resources
+```
+
+Copies static resources to the build directory.
+
+### Full Build
+
+```bash
+bun run electron:build
+```
+
+Runs all build steps in sequence.
+
+## Distribution Builds
+
+Create platform-specific installers:
+
+### macOS
+
+```bash
+# Universal DMG (Apple Silicon + Intel)
+bun run electron:dist:mac
+
+# Apple Silicon only
+cd apps/electron && bun run dist:mac
+
+# Intel only
+cd apps/electron && bun run dist:mac:x64
+```
+
+Output: `apps/electron/dist/Kata-Agents-{version}-{arch}.dmg`
+
+### Windows
+
+```bash
+bun run electron:dist:win
+```
+
+Output: `apps/electron/dist/Kata-Agents-{version}.exe`
+
+### Linux
+
+```bash
+bun run electron:dist:linux
+```
+
+Output: `apps/electron/dist/Kata-Agents-{version}.AppImage`
+
+## Environment Variables
+
+Create a `.env` file in the root directory for OAuth integrations:
+
+```bash
+# Google OAuth
+GOOGLE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_OAUTH_CLIENT_SECRET=your-secret
+
+# Slack OAuth
+SLACK_OAUTH_CLIENT_ID=your-client-id
+SLACK_OAUTH_CLIENT_SECRET=your-secret
+
+# Microsoft OAuth
+MICROSOFT_OAUTH_CLIENT_ID=your-client-id
+```
+
+These are injected at build time via esbuild `--define`.
+
+<Warning>
+  Don't commit the `.env` file. It's in `.gitignore` by default.
+</Warning>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Bun not found">
+    Install Bun:
+    ```bash
+    curl -fsSL https://bun.sh/install | bash
+    ```
+    Then restart your terminal.
+  </Accordion>
+  <Accordion title="Native module build errors">
+    Install platform-specific build tools:
+
+    **macOS:**
+    ```bash
+    xcode-select --install
+    ```
+
+    **Windows:**
+    Install Visual Studio Build Tools from Microsoft
+
+    **Linux (Ubuntu/Debian):**
+    ```bash
+    sudo apt install build-essential
+    ```
+  </Accordion>
+  <Accordion title="Electron fails to start">
+    - Verify Node.js version (v18+)
+    - Clear build artifacts: `bun run electron:clean`
+    - Rebuild: `bun run electron:build`
+    - Check console for errors
+  </Accordion>
+  <Accordion title="Renderer not loading">
+    - Check that Vite build succeeded
+    - Look for errors in DevTools console (`Cmd+Option+I`)
+    - Verify `dist-renderer` directory exists
+  </Accordion>
+  <Accordion title="TypeScript errors">
+    - Run `bun install` to ensure dependencies are current
+    - Check that all `@types/*` packages are installed
+    - Run `bun run typecheck:all` for detailed errors
+  </Accordion>
+</AccordionGroup>
+
+## Development Workflow
+
+### Recommended Setup
+
+1. **Terminal 1**: Run dev server
+   ```bash
+   bun run electron:dev
+   ```
+
+2. **Terminal 2**: Watch tests
+   ```bash
+   bun test:watch
+   ```
+
+3. **Editor**: VS Code or your preferred IDE
+   - Install recommended extensions (see `.vscode/extensions.json`)
+   - Configure TypeScript to use workspace version
+
+### Hot Reload
+
+In development mode, changes hot reload automatically:
+
+- **Renderer changes**: Instant via Vite HMR
+- **Main/preload changes**: App restarts automatically
+- **Shared package changes**: Rebuild required
+
+### Debugging
+
+#### Main Process
+
+Use VS Code debugger:
+
+1. Set breakpoints in main process code
+2. Press F5 or use "Debug" launch config
+3. Debugger attaches to Electron main process
+
+#### Renderer
+
+Use Chrome DevTools:
+
+1. Open app in dev mode
+2. Press `Cmd+Option+I` (Mac) or `Ctrl+Shift+I` (Windows/Linux)
+3. Use Sources tab to set breakpoints
+
+#### Agent Subprocess
+
+Agent logs are written to:
+- **macOS**: `~/Library/Logs/Kata Agents/main.log`
+- **Windows**: `%USERPROFILE%\AppData\Roaming\Kata Agents\logs\main.log`
+- **Linux**: `~/.config/Kata Agents/logs/main.log`
+
+## Clean Builds
+
+To wipe all build artifacts:
+
+```bash
+bun run electron:clean
+```
+
+This removes:
+- `dist-main/`
+- `dist-preload/`
+- `dist-renderer/`
+- `dist/` (electron-builder output)
+
+Then rebuild:
+
+```bash
+bun run electron:build
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Architecture"
+    icon="sitemap"
+    href="/development/architecture"
+  >
+    Understand the codebase structure
+  </Card>
+  <Card
+    title="Testing"
+    icon="flask"
+    href="/development/testing"
+  >
+    Run tests and e2e suites
+  </Card>
+  <Card
+    title="Contributing"
+    icon="code-pull-request"
+    href="/development/contributing"
+  >
+    Contribute to the project
+  </Card>
+</CardGroup>

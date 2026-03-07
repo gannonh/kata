@@ -1,0 +1,87 @@
+---
+title: 'Quickstart'
+description: 'Start using Kata Agents in under 5 minutes'
+---
+
+## Setup your first workspace
+
+<Steps>
+  <Step title="Launch the app">
+    After installation, launch Kata Agents from your applications folder.
+  </Step>
+  <Step title="Choose API Connection">
+    Select how you want to connect to Claude:
+    - Use your own **Anthropic API key**, or
+    - Sign in with your **Claude Max subscription**
+  </Step>
+  <Step title="Create a workspace">
+    Set up your first workspace to organize your sessions. Give it a name and select a working directory.
+  </Step>
+  <Step title="Connect sources (optional)">
+    Add MCP servers, REST APIs, or local filesystems to extend your agent's capabilities.
+
+    <Tip>
+      Start with the filesystem MCP to give your agent access to local files.
+    </Tip>
+  </Step>
+  <Step title="Start chatting">
+    Create your first session and start interacting with Claude!
+  </Step>
+</Steps>
+
+## Your first conversation
+
+Once you've created a workspace, you can start a new session:
+
+1. Click **"New Chat"** or press `Cmd+N` (Mac) / `Ctrl+N` (Windows/Linux)
+2. Type your message in the chat input
+3. Press `Enter` to send
+
+<Tip>
+  Use `Shift+Enter` to add a new line without sending the message.
+</Tip>
+
+## Understanding Permission Modes
+
+Kata Agents has three permission modes to control what actions the agent can take:
+
+| Mode | Display | Behavior |
+|------|---------|----------|
+| `safe` | Explore | Read-only, blocks all write operations |
+| `ask` | Ask to Edit | Prompts for approval (default) |
+| `allow-all` | Auto | Auto-approves all commands |
+
+Press **SHIFT+TAB** to cycle through permission modes during a conversation.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Learn about Workspaces"
+    icon="briefcase"
+    href="/concepts/workspaces"
+  >
+    Organize your work with workspaces
+  </Card>
+  <Card
+    title="Connect MCP Servers"
+    icon="plug"
+    href="/features/mcp-servers"
+  >
+    Extend capabilities with MCP integrations
+  </Card>
+  <Card
+    title="Set up Git Integration"
+    icon="code-branch"
+    href="/features/git-integration"
+  >
+    Enable live branch and PR tracking
+  </Card>
+  <Card
+    title="Customize with Skills"
+    icon="wand-magic-sparkles"
+    href="/features/skills"
+  >
+    Add specialized agent instructions
+  </Card>
+</CardGroup>

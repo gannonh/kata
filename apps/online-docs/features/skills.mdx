@@ -1,0 +1,265 @@
+---
+title: 'Skills'
+description: 'Specialized agent instructions stored per-workspace'
+---
+
+## What are Skills?
+
+Skills are reusable instruction sets that customize how your agent behaves in specific contexts. Think of them as specialized personas or expertise modules that you can activate when needed.
+
+## Why Use Skills?
+
+<CardGroup cols={2}>
+  <Card title="Consistency" icon="check-double">
+    Reuse proven instructions across sessions
+  </Card>
+  <Card title="Expertise" icon="graduation-cap">
+    Give the agent specialized knowledge
+  </Card>
+  <Card title="Efficiency" icon="bolt">
+    No need to re-explain context every time
+  </Card>
+  <Card title="Sharing" icon="share-nodes">
+    Share skills across workspaces
+  </Card>
+</CardGroup>
+
+## How Skills Work
+
+Skills are markdown files stored in your workspace directory:
+
+```
+~/.kata-agents/workspaces/{workspace-id}/skills/
+├── code-review.md
+├── documentation.md
+└── debugging.md
+```
+
+When you invoke a skill, its contents are injected into the system prompt, giving the agent additional context and instructions.
+
+## Creating a Skill
+
+<Steps>
+  <Step title="Navigate to Skills">
+    Workspace settings → Skills
+  </Step>
+  <Step title="Create New Skill">
+    Click "Add Skill" button
+  </Step>
+  <Step title="Name Your Skill">
+    Give it a descriptive name (e.g., "code-review", "api-design")
+  </Step>
+  <Step title="Write Instructions">
+    Add the instructions in markdown format
+  </Step>
+  <Step title="Save and Test">
+    Save the skill and test it in a session
+  </Step>
+</Steps>
+
+## Skill Format
+
+Skills are written in markdown with optional front matter:
+
+```markdown
+---
+name: Code Review
+description: Thorough code review with security focus
+tags: [code, security, review]
+---
+
+# Code Review Instructions
+
+When reviewing code, follow these steps:
+
+1. **Security Analysis**
+   - Check for common vulnerabilities (OWASP Top 10)
+   - Review authentication and authorization
+   - Look for injection risks
+
+2. **Code Quality**
+   - Assess readability and maintainability
+   - Check for code duplication
+   - Verify error handling
+
+3. **Performance**
+   - Identify potential bottlenecks
+   - Review database query efficiency
+   - Check for unnecessary computations
+
+4. **Best Practices**
+   - Verify adherence to language idioms
+   - Check test coverage
+   - Review documentation
+```
+
+## Using Skills
+
+### Invoke in Chat
+
+Skills can be invoked using slash commands:
+
+```
+/skill code-review
+```
+
+Or referenced by name:
+
+```
+Use the code-review skill to review this PR
+```
+
+### Auto-Activation
+
+Skills can be configured to auto-activate based on:
+- File types being edited
+- Keywords in messages
+- Specific directories
+- Custom rules
+
+## Example Skills
+
+### Code Review
+
+Focus on security, performance, and best practices when reviewing code.
+
+### Documentation Writer
+
+Generate comprehensive documentation with examples and proper formatting.
+
+### Debugging Assistant
+
+Systematic debugging approach with logging, hypothesis testing, and root cause analysis.
+
+### API Design
+
+RESTful API design principles, versioning, and documentation standards.
+
+### Test Writer
+
+Generate thorough test cases covering edge cases and error conditions.
+
+## Skill Variables
+
+Skills can use variables that are filled in at runtime:
+
+```markdown
+# Project: {{workspace.name}}
+
+Working directory: {{workspace.path}}
+Current branch: {{git.branch}}
+```
+
+Available variables:
+- `workspace.name`: Workspace display name
+- `workspace.path`: Working directory path
+- `git.branch`: Current Git branch
+- `git.pr`: Current PR (if exists)
+- `session.name`: Session name
+
+## Sharing Skills
+
+### Export
+
+Skills can be exported as markdown files for sharing:
+
+1. Navigate to Skills settings
+2. Select the skill to export
+3. Click "Export"
+4. Save the `.md` file
+
+### Import
+
+Import skills from other workspaces or shared files:
+
+1. Navigate to Skills settings
+2. Click "Import Skill"
+3. Select the `.md` file
+4. Skill is added to your workspace
+
+### Skill Library
+
+Consider creating a shared skill library:
+
+```bash
+~/kata-skills/
+├── code-review.md
+├── documentation.md
+├── api-design.md
+└── debugging.md
+```
+
+Import skills from this library as needed.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Be Specific">
+    The more specific your instructions, the better the agent can follow them. Include examples and counter-examples.
+  </Accordion>
+  <Accordion title="Keep Skills Focused">
+    Each skill should address one area of expertise. Don't create mega-skills that try to do everything.
+  </Accordion>
+  <Accordion title="Use Structured Format">
+    Organize instructions with headings, lists, and clear sections. This makes them easier to follow.
+  </Accordion>
+  <Accordion title="Test and Iterate">
+    Test your skills in real sessions and refine based on results. Skills improve with use.
+  </Accordion>
+  <Accordion title="Document Assumptions">
+    If your skill assumes certain context or tools are available, document that clearly.
+  </Accordion>
+</AccordionGroup>
+
+## Advanced Features
+
+### Skill Composition
+
+Skills can reference other skills:
+
+```markdown
+Use the code-review skill for security analysis, then apply
+the documentation skill to update the README.
+```
+
+### Conditional Logic
+
+Skills can include conditional instructions:
+
+```markdown
+If working with Python:
+- Follow PEP 8 style guide
+- Use type hints
+
+If working with TypeScript:
+- Follow strict mode
+- Use explicit return types
+```
+
+### Dynamic Content
+
+Skills can generate content based on workspace state:
+
+```markdown
+Current project uses {{detected.language}} with {{detected.framework}}.
+Apply language-specific best practices.
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Workspaces"
+    icon="briefcase"
+    href="/concepts/workspaces"
+  >
+    Skills are workspace-specific
+  </Card>
+  <Card
+    title="Sessions"
+    icon="message"
+    href="/concepts/sessions"
+  >
+    Invoke skills in sessions
+  </Card>
+</CardGroup>

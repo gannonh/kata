@@ -1,0 +1,94 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "Kata Agents",
+  "logo": {
+    "dark": "/logo/dark.svg",
+    "light": "/logo/light.svg"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#0D9373",
+    "light": "#07C983",
+    "dark": "#0D9373",
+    "anchors": {
+      "from": "#0D9373",
+      "to": "#07C983"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "Support",
+      "url": "mailto:hi@kata.sh"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Download",
+    "url": "https://github.com/gannonh/kata-agents/releases"
+  },
+  "tabs": [
+    {
+      "name": "API Reference",
+      "url": "api-reference"
+    }
+  ],
+  "anchors": [
+    {
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/gannonh/kata-agents"
+    },
+    {
+      "name": "Kata Ecosystem",
+      "icon": "book-open-cover",
+      "url": "https://kata.sh"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Get Started",
+      "pages": [
+        "introduction",
+        "quickstart",
+        "installation"
+      ]
+    },
+    {
+      "group": "Core Concepts",
+      "pages": [
+        "concepts/sessions",
+        "concepts/workspaces",
+        "concepts/permissions",
+        "concepts/sources"
+      ]
+    },
+    {
+      "group": "Features",
+      "pages": [
+        "features/git-integration",
+        "features/mcp-servers",
+        "features/skills",
+        "features/status-workflow",
+        "features/themes"
+      ]
+    },
+    {
+      "group": "Development",
+      "pages": [
+        "development/architecture",
+        "development/building",
+        "development/testing",
+        "development/contributing"
+      ]
+    },
+    {
+      "group": "API Reference",
+      "pages": [
+        "api-reference/configuration",
+        "api-reference/deep-linking"
+      ]
+    }
+  ],
+  "footerSocials": {
+    "github": "https://github.com/gannonh/kata-agents"
+  }
+}

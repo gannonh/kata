@@ -1,0 +1,16 @@
+## Codebase Patterns
+- Preferences are stored in `packages/shared/src/config/preferences.ts` with interface types
+- `updatePreferences()` merges nested objects (location, diffViewer, messageDisplay) - always add merge logic when adding new nested preference types
+- Typecheck command: `bun run typecheck:all`
+
+---
+
+## 2026-02-01 - US-001
+- What was implemented: Added messageDisplay.expandContent preference to the preferences schema
+- Files changed:
+  - packages/shared/src/config/preferences.ts - Added MessageDisplayPreferences interface, added messageDisplay merge logic to updatePreferences()
+- **Learnings for future iterations:**
+  - The MessageDisplayPreferences interface was already partially added in a previous session
+  - When adding new nested preference types, remember to add merge logic in updatePreferences() function
+  - Default value for expandContent is undefined (falsy), consumer code should treat undefined/true as expanded
+---

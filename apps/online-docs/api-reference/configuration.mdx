@@ -1,0 +1,349 @@
+---
+title: 'Configuration'
+description: 'Configuration files and storage locations'
+---
+
+## Configuration Directory
+
+All configuration is stored at `~/.kata-agents/`:
+
+```
+~/.kata-agents/
+├── config.json              # Main configuration
+├── credentials.enc          # Encrypted credentials (AES-256-GCM)
+├── preferences.json         # User preferences
+├── theme.json               # App-level theme
+└── workspaces/
+    └── {workspace-id}/
+        ├── config.json      # Workspace settings
+        ├── theme.json       # Workspace theme override
+        ├── sessions/        # Session data (JSONL)
+        ├── sources/         # Connected sources
+        ├── skills/          # Custom skills
+        └── statuses/        # Status configuration
+```
+
+## Main Configuration (config.json)
+
+The main configuration file stores global app settings:
+
+```json
+{
+  "version": "1.0.0",
+  "authType": "api_key",
+  "workspaces": [
+    {
+      "id": "workspace-1",
+      "name": "My Workspace",
+      "path": "/Users/username/projects/my-project",
+      "createdAt": "2024-01-01T00:00:00Z",
+      "updatedAt": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "activeWorkspaceId": "workspace-1"
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `version` | string | Config schema version |
+| `authType` | `"api_key"` \| `"oauth"` | Authentication method |
+| `workspaces` | Workspace[] | List of workspaces |
+| `activeWorkspaceId` | string | Currently active workspace |
+
+## Credentials (credentials.enc)
+
+Credentials are stored encrypted using AES-256-GCM:
+
+```json
+{
+  "anthropic": {
+    "apiKey": "sk-ant-..."
+  },
+  "google": {
+    "accessToken": "ya29.a0...",
+    "refreshToken": "1//...",
+    "expiresAt": 1234567890
+  }
+}
+```
+
+<Warning>
+  Never manually edit `credentials.enc`. Use the app's authentication flows to manage credentials.
+</Warning>
+
+### Supported Credentials
+
+- **Anthropic**: API key
+- **Google**: OAuth tokens (Gmail, Calendar, Drive)
+- **Slack**: OAuth tokens
+- **Microsoft**: OAuth tokens (Outlook, Calendar, OneDrive)
+
+## Preferences (preferences.json)
+
+User preferences for app behavior:
+
+```json
+{
+  "theme": "dark",
+  "defaultPermissionMode": "ask",
+  "notifications": {
+    "enabled": true,
+    "sessionComplete": true,
+    "errors": true
+  },
+  "updates": {
+    "autoCheck": true,
+    "autoDownload": false
+  },
+  "ui": {
+    "sidebarWidth": 250,
+    "chatListWidth": 300
+  }
+}
+```
+
+### Available Preferences
+
+#### Theme
+- `"light"`, `"dark"`, or custom theme name
+
+#### Default Permission Mode
+- `"safe"`: Read-only
+- `"ask"`: Prompt for approval (default)
+- `"allow-all"`: Auto-approve
+
+#### Notifications
+- `enabled`: Master notification toggle
+- `sessionComplete`: Notify when session completes
+- `errors`: Notify on errors
+
+#### Updates
+- `autoCheck`: Check for updates on launch
+- `autoDownload`: Auto-download updates
+
+#### UI
+- `sidebarWidth`: Width of sidebar in pixels
+- `chatListWidth`: Width of chat list in pixels
+
+## Workspace Configuration
+
+Each workspace has its own configuration file:
+
+```json
+{
+  "id": "workspace-1",
+  "name": "My Workspace",
+  "path": "/Users/username/projects/my-project",
+  "settings": {
+    "defaultPermissionMode": "ask",
+    "autoSaveSessions": true
+  },
+  "createdAt": "2024-01-01T00:00:00Z",
+  "updatedAt": "2024-01-01T00:00:00Z"
+}
+```
+
+### Workspace Settings
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `defaultPermissionMode` | string | Default permission level for new sessions |
+| `autoSaveSessions` | boolean | Auto-save sessions to disk |
+
+## Sources Configuration
+
+Sources are configured per workspace:
+
+```json
+{
+  "sources": [
+    {
+      "id": "filesystem-1",
+      "name": "Project Files",
+      "type": "mcp",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/dir"],
+      "enabled": true
+    },
+    {
+      "id": "github-1",
+      "name": "GitHub",
+      "type": "mcp",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "ghp_..."
+      },
+      "enabled": true
+    }
+  ]
+}
+```
+
+### Source Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier |
+| `name` | string | Display name |
+| `type` | `"mcp"` \| `"rest"` | Source type |
+| `transport` | `"stdio"` \| `"sse"` | MCP transport (if MCP) |
+| `command` | string | Command to run (stdio only) |
+| `args` | string[] | Command arguments |
+| `env` | object | Environment variables |
+| `enabled` | boolean | Whether source is active |
+
+## Status Configuration
+
+Custom status workflow per workspace:
+
+```json
+{
+  "statuses": [
+    {
+      "id": "todo",
+      "name": "Todo",
+      "icon": "circle",
+      "color": "#808080",
+      "order": 0,
+      "type": "inbox"
+    },
+    {
+      "id": "in-progress",
+      "name": "In Progress",
+      "icon": "clock",
+      "color": "#3b82f6",
+      "order": 1,
+      "type": "active"
+    },
+    {
+      "id": "done",
+      "name": "Done",
+      "icon": "check-circle",
+      "color": "#10b981",
+      "order": 2,
+      "type": "done"
+    }
+  ]
+}
+```
+
+### Status Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier |
+| `name` | string | Display name |
+| `icon` | string | Icon name (Lucide icon) |
+| `color` | string | Hex color code |
+| `order` | number | Display order |
+| `type` | string | Status type (`inbox`, `active`, `done`, etc.) |
+
+## Theme Configuration
+
+Themes can be configured at app or workspace level:
+
+```json
+{
+  "name": "My Custom Theme",
+  "colors": {
+    "primary": "#3b82f6",
+    "background": "#ffffff",
+    "foreground": "#000000",
+    "muted": "#f3f4f6",
+    "accent": "#10b981",
+    "border": "#e5e7eb"
+  },
+  "fonts": {
+    "sans": "Inter, system-ui, sans-serif",
+    "mono": "JetBrains Mono, monospace"
+  }
+}
+```
+
+## Session Storage
+
+Sessions are stored as JSONL (JSON Lines) files:
+
+```jsonl
+{"type":"message","role":"user","content":"Hello"}
+{"type":"message","role":"assistant","content":"Hi there!"}
+{"type":"tool_use","tool":"read_file","input":{"path":"README.md"}}
+{"type":"tool_result","result":{"content":"# My Project..."}}
+```
+
+Each line is a JSON object representing a turn in the conversation.
+
+### Session Metadata
+
+Session metadata is stored in the filename:
+
+```
+{session-id}_{timestamp}.jsonl
+```
+
+## Environment Variables
+
+Some configuration can be overridden with environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `KATA_AGENTS_CONFIG_DIR` | Override config directory |
+| `KATA_AGENTS_LOG_LEVEL` | Set log level (`debug`, `info`, `warn`, `error`) |
+| `ANTHROPIC_API_KEY` | Override API key (for testing) |
+
+## Migration
+
+Configuration is automatically migrated when schema versions change:
+
+1. App detects old config version
+2. Runs migration script
+3. Backs up old config to `config.json.backup`
+4. Writes new config
+
+## Backup and Restore
+
+### Backup
+
+To backup your configuration:
+
+```bash
+cp -r ~/.kata-agents ~/.kata-agents.backup
+```
+
+### Restore
+
+To restore from backup:
+
+```bash
+rm -rf ~/.kata-agents
+cp -r ~/.kata-agents.backup ~/.kata-agents
+```
+
+<Warning>
+  Make sure Kata Agents is not running when restoring from backup.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Deep Linking"
+    icon="link"
+    href="/api-reference/deep-linking"
+  >
+    External app navigation with URLs
+  </Card>
+  <Card
+    title="Workspaces"
+    icon="briefcase"
+    href="/concepts/workspaces"
+  >
+    Learn about workspace organization
+  </Card>
+</CardGroup>

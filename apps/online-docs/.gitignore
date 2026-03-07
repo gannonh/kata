@@ -1,0 +1,13 @@
+# Mintlify
+.mintlify
+node_modules
+.next
+.cache
+
+# Build output
+out/
+build/
+
+# Logs
+*.log
+npm-debug.log*
