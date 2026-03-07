@@ -69,8 +69,8 @@ credentials.enc
 *.credentials
 .secrets/
 demos/
-sources/
-sessions/
-statuses/config.json
-labels/
-config.json
+/sources/
+/sessions/
+/statuses/config.json
+/labels/
+/config.json
