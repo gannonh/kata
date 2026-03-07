@@ -52,8 +52,6 @@ export class ChannelRunner {
   private triggerMatchers: Map<string, TriggerMatcher> = new Map();
   private resetCounters: Map<string, number> = new Map();
   private adapterFactory: AdapterFactory;
-  private lastHealthState: Map<string, boolean> = new Map();
-  private healthTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private queue: MessageQueue,
@@ -161,42 +159,6 @@ export class ChannelRunner {
     }
 
     this.log(`Started ${startedCount} adapter(s)`);
-
-    // Start health polling only if there are running adapters
-    if (this.adapters.size > 0) {
-      this.healthTimer = setInterval(() => this.pollHealth(), 30_000);
-    }
-  }
-
-  private pollHealth(): void {
-    for (const [slug, { adapter }] of this.adapters) {
-      try {
-        const healthy = adapter.isHealthy();
-        const previous = this.lastHealthState.get(slug);
-
-        // Only emit on state change (or first poll)
-        if (previous === undefined || previous !== healthy) {
-          this.lastHealthState.set(slug, healthy);
-          this.emit({
-            type: 'channel_health',
-            channelId: slug,
-            healthy,
-            error: healthy ? null : adapter.getLastError(),
-          });
-        }
-      } catch (err) {
-        this.log(`Health check failed for ${slug}: ${err instanceof Error ? err.message : String(err)}`);
-        if (this.lastHealthState.get(slug) !== false) {
-          this.lastHealthState.set(slug, false);
-          this.emit({
-            type: 'channel_health',
-            channelId: slug,
-            healthy: false,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-      }
-    }
   }
 
   private handleMessage(slug: string, workspaceId: string, msg: ChannelMessage): void {
@@ -249,12 +211,6 @@ export class ChannelRunner {
   }
 
   async stopAll(): Promise<void> {
-    if (this.healthTimer) {
-      clearInterval(this.healthTimer);
-      this.healthTimer = null;
-    }
-    this.lastHealthState.clear();
-
     for (const [slug, { adapter }] of this.adapters) {
       try {
         await adapter.stop();

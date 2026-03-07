@@ -130,15 +130,6 @@ export type DaemonEvent =
       workspaceId: string;
     }
   | {
-      type: 'channel_health';
-      /** Channel adapter slug */
-      channelId: string;
-      /** Whether the adapter is currently healthy */
-      healthy: boolean;
-      /** Error message if unhealthy, null if healthy */
-      error: string | null;
-    }
-  | {
       type: 'process_message';
       /** Queue row ID of the message to process */
       messageId: number;

@@ -145,24 +145,6 @@ async function main(): Promise<void> {
           state.pluginManager = new PluginManager([...enabledPluginIds], log);
           state.pluginManager.loadBuiltinPlugins();
           log(`PluginManager loaded with ${enabledPluginIds.size} enabled plugin(s)`);
-          // The daemon serves all workspaces so there is no single workspace root.
-          // Passing configDir (~/.kata-agents/) as workspaceRootPath; plugins that
-          // need per-workspace paths should not rely on this value.
-          try {
-            await state.pluginManager.initializeAll({
-              workspaceRootPath: configDir,
-              getCredential: async () => null,
-              logger: {
-                info: (msg: string) => log(`[plugin] ${msg}`),
-                warn: (msg: string) => log(`[plugin:warn] ${msg}`),
-                error: (msg: string) => log(`[plugin:error] ${msg}`),
-                debug: (msg: string) => log(`[plugin:debug] ${msg}`),
-              },
-            });
-            log('PluginManager initialized');
-          } catch (err) {
-            log(`[ERROR] Plugin initialization failed: ${err instanceof Error ? err.message : String(err)}`);
-          }
           // Build workspace configs map
           const workspaceConfigs = new Map<
             string,
