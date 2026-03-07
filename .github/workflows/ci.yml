@@ -32,6 +32,20 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Debug tsc resolution
+        run: |
+          echo "=== tsc binary ==="
+          which tsc || echo "tsc not in PATH"
+          ls -la node_modules/.bin/tsc
+          echo "=== tsc version ==="
+          cd packages/shared && ../../node_modules/.bin/tsc --version
+          echo "=== effective config ==="
+          ../../node_modules/.bin/tsc --showConfig | head -30
+          echo "=== list files (first 10) ==="
+          ../../node_modules/.bin/tsc --listFiles --noEmit 2>&1 | head -10
+          echo "=== check a source file exists ==="
+          ls -la src/sources/types.ts src/sources/storage.ts src/sessions/index.ts
+
       - name: Typecheck all packages
         run: bun run typecheck:all
 
