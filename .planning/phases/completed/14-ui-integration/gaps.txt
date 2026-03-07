@@ -1,0 +1,91 @@
+  ---
+  v0.7.0 Channel Feature: Gap Analysis
+
+  Summary
+
+  The daemon infrastructure (adapters, message queue, channel runner, plugin system) is built and tested. The UI has
+  tray management, status indicators, and a channel settings page. But the pieces aren't connected. There are 3
+  blockers and 1 major gap preventing end-to-end functionality.
+
+  ---
+  Gap 1: Channel Credential Storage — BLOCKER
+
+  Current state: Channel configs reference credentials.sourceSlug to resolve tokens via the source credential system.
+  But sources are MCPs, APIs, and folders. There's no UI or conceptual path for a user to store a Slack bot token for
+  channel use.
+
+  Missing: A credential storage mechanism for channels. Options:
+  - A) Dedicated channel credentials — new credential type channel_credential::{workspaceId}::{channelSlug}, stored via
+   the existing credential manager, with UI in the channel creation/settings flow
+  - B) Inline in channel config — store credential directly in channel config, encrypt at rest
+  - C) Piggyback on sources — create a source type for channel auth (conceptually confusing)
+
+  ---
+  Gap 2: Channel Creation UI — BLOCKER
+
+  Current state: ChannelSettingsPage can list, toggle enable/disable, and delete existing channels. No UI to create a
+  new channel. Users must manually create JSON files on disk.
+
+  Missing: An "Add Channel" flow with:
+  - Adapter type selection (Slack / WhatsApp)
+  - Credential entry (bot token for Slack, auth path for WhatsApp)
+  - Channel IDs to monitor (Slack)
+  - Trigger patterns (optional regex filters)
+  - Poll interval (Slack)
+  - A CHANNELS_CREATE IPC handler
+
+  ---
+  Gap 3: Daemon Never Receives Channel Configs — BLOCKER
+
+  Current state: DaemonManager.start() spawns the daemon and sends { type: 'start' }. The daemon handles a
+  configure_channels command in entry.ts (lines 88-122). But nothing ever sends that command. The daemon starts, runs,
+  and sits idle with zero channel adapters.
+
+  Missing: After daemon reaches running state, the main process needs to:
+  1. Load channel configs from all workspaces ({rootPath}/channels/)
+  2. Resolve credentials for each channel's sourceSlug
+  3. Send configure_channels command to the daemon with configs + resolved tokens
+  4. Reconfigure when channels are added/removed/toggled
+
+  ---
+  Gap 4: Session Channel Attribution — MAJOR
+
+  Current state: The Session type in both core/types/session.ts and shared/types.ts lacks a channel field. Phase 14
+  Plan 01 specifies adding channel?: { adapter, slug, displayName } but the implementation only added it to SessionMeta
+   in the renderer, not the core type or persistence layer.
+
+  Missing:
+  - channel field on core Session type
+  - Session persistence (JSONL) includes channel field
+  - Daemon-created sessions carry channel attribution
+  - UI badge rendering (code exists in SessionList but has no data to render)
+
+  ---
+  Gap 5: End-to-End Message Processing — BLOCKER (depends on Gaps 1-3)
+
+  Current state: When a channel adapter receives a message, ChannelRunner enqueues it in the SQLite MessageQueue.
+  Nothing dequeues messages or creates agent sessions from them.
+
+  Missing: A message consumer that:
+  1. Dequeues inbound messages
+  2. Creates or finds an existing session (with channel attribution)
+  3. Executes the agent (via SessionManager in the main process)
+  4. Returns the agent response to the channel adapter for outbound delivery
+
+  ---
+  Priority Order
+  ┌─────┬─────────────────────────────────┬──────────┬──────────────┐
+  │  #  │               Gap               │ Severity │  Depends On  │
+  ├─────┼─────────────────────────────────┼──────────┼──────────────┤
+  │ 1   │ Channel credential storage      │ Blocker  │ —            │
+  ├─────┼─────────────────────────────────┼──────────┼──────────────┤
+  │ 2   │ Channel creation UI             │ Blocker  │ Gap 1        │
+  ├─────┼─────────────────────────────────┼──────────┼──────────────┤
+  │ 3   │ Daemon receives channel configs │ Blocker  │ Gap 1        │
+  ├─────┼─────────────────────────────────┼──────────┼──────────────┤
+  │ 4   │ Session channel attribution     │ Major    │ —            │
+  ├─────┼─────────────────────────────────┼──────────┼──────────────┤
+  │ 5   │ End-to-end message processing   │ Blocker  │ Gaps 1, 3, 4 │
+  └─────┴─────────────────────────────────┴──────────┴──────────────┘
+  Gaps 1 and 4 can be worked in parallel. Gap 2 and 3 depend on the credential decision from Gap 1. Gap 5 ties
+  everything together.

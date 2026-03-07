@@ -1,0 +1,86 @@
+{
+  "project": "Kata Agents",
+  "branchName": "ralph/expandable-message-content",
+  "description": "Expandable Message Content - Replace fixed 540px max-height with full-height expansion by default, eliminating nested scrolling within messages",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add message display preference to user preferences schema",
+      "description": "As a developer, I need to store the user's message display preference so it persists across sessions.",
+      "acceptanceCriteria": [
+        "Add `messageDisplay?: { expandContent?: boolean }` to `UserPreferences` interface in packages/shared/src/config/preferences.ts",
+        "Default value is `true` (expanded)",
+        "Preference persists in preferences.json",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Implemented in commit 75fb299"
+    },
+    {
+      "id": "US-002",
+      "title": "Remove max-height constraint when expanded mode enabled",
+      "description": "As a user, I want messages to display at full height so I can read content without scrolling inside message cards.",
+      "acceptanceCriteria": [
+        "When `expandContent: true`, response container has no `maxHeight` style",
+        "When `expandContent: true`, `overflow-y-auto` is removed from response container",
+        "When `expandContent: false`, current 540px max-height behavior is preserved",
+        "Fade mask only appears when content is collapsed and truncated",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: long message displays fully without internal scroll"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Implemented in commit 529292b"
+    },
+    {
+      "id": "US-003",
+      "title": "Add per-message collapse toggle for long content",
+      "description": "As a user, I want to collapse exceptionally long messages so they don't dominate my conversation view.",
+      "acceptanceCriteria": [
+        "Messages exceeding ~1500px natural height show a 'Show less' button at bottom-right",
+        "Clicking 'Show less' collapses message to 540px with fade mask",
+        "Collapsed message shows 'Show more' button to re-expand",
+        "Collapse state persists per-message within the session (React state, keyed by message ID)",
+        "Toggle styling is subtle (text button, not prominent)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: toggle works on a long PRD or code block response"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Implemented in commit 1481123"
+    },
+    {
+      "id": "US-004",
+      "title": "Add settings UI toggle for message display mode",
+      "description": "As a user, I want to control whether messages expand by default so I can choose my preferred reading experience.",
+      "acceptanceCriteria": [
+        "Toggle appears in Settings panel → Display section",
+        "Label: 'Expand message content'",
+        "Description: 'Show full message content without scrolling within messages'",
+        "Toggle state reflects current preference value",
+        "Changing toggle immediately updates preference and re-renders messages",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: toggle changes message display behavior"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Implemented in commit f274bba"
+    },
+    {
+      "id": "US-005",
+      "title": "Verify scroll performance with expanded content",
+      "description": "As a user, I want the main conversation to scroll smoothly even when messages are fully expanded.",
+      "acceptanceCriteria": [
+        "Load a conversation with 10+ messages including at least 2 very long ones (5000+ px)",
+        "Scroll through conversation and confirm no visible jank or stutter",
+        "If performance issues observed, add TODO comment in TurnCard.tsx noting virtual scrolling consideration",
+        "Document test results in progress.txt",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Performance analysis complete. Added TODO for virtual scrolling consideration. Current implementation has mitigations (memoization, throttling) but lacks virtualization for very long conversations."
+    }
+  ]
+}

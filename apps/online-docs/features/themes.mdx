@@ -1,0 +1,230 @@
+---
+title: 'Themes'
+description: 'Customize the appearance of Kata Agents'
+---
+
+## Theme System
+
+Kata Agents supports cascading themes at multiple levels:
+
+1. **App-level theme**: Default theme for all workspaces
+2. **Workspace-level theme**: Optional override per workspace
+
+This allows you to visually distinguish workspaces or match project branding.
+
+## Theme Structure
+
+Themes are defined using a JSON format:
+
+```json
+{
+  "name": "My Custom Theme",
+  "colors": {
+    "primary": "#3b82f6",
+    "background": "#ffffff",
+    "foreground": "#000000",
+    "muted": "#f3f4f6",
+    "accent": "#10b981"
+  },
+  "fonts": {
+    "sans": "Inter, system-ui, sans-serif",
+    "mono": "JetBrains Mono, monospace"
+  }
+}
+```
+
+## Theme Properties
+
+### Colors
+
+| Property | Description | Example |
+|----------|-------------|---------|
+| `primary` | Primary brand color | `#3b82f6` |
+| `background` | Main background | `#ffffff` |
+| `foreground` | Main text color | `#000000` |
+| `muted` | Subtle backgrounds | `#f3f4f6` |
+| `accent` | Accent highlights | `#10b981` |
+| `border` | Border color | `#e5e7eb` |
+
+### Fonts
+
+| Property | Description | Example |
+|----------|-------------|---------|
+| `sans` | UI font | `Inter, sans-serif` |
+| `mono` | Code font | `JetBrains Mono, monospace` |
+| `heading` | Heading font | `Poppins, sans-serif` |
+
+## Built-in Themes
+
+Kata Agents includes several built-in themes:
+
+<Tabs>
+  <Tab title="Light">
+    Clean, minimal light theme with excellent readability.
+  </Tab>
+  <Tab title="Dark">
+    Easy on the eyes for late-night coding sessions.
+  </Tab>
+  <Tab title="High Contrast">
+    Maximum contrast for accessibility.
+  </Tab>
+  <Tab title="Solarized">
+    Popular color palette with scientifically optimized colors.
+  </Tab>
+</Tabs>
+
+## Creating Custom Themes
+
+<Steps>
+  <Step title="Open Theme Settings">
+    Navigate to Settings → Appearance → Themes
+  </Step>
+  <Step title="Create New Theme">
+    Click "Create Custom Theme"
+  </Step>
+  <Step title="Configure Colors">
+    Use the color picker to set theme colors
+  </Step>
+  <Step title="Preview">
+    See changes in real-time as you edit
+  </Step>
+  <Step title="Save">
+    Save your theme for use across workspaces
+  </Step>
+</Steps>
+
+## Applying Themes
+
+### App-Level
+
+Set a default theme for all workspaces:
+
+1. Settings → Appearance
+2. Select theme from dropdown
+3. Changes apply globally
+
+### Workspace-Level
+
+Override the app theme for a specific workspace:
+
+1. Workspace settings → Appearance
+2. Enable "Use custom theme"
+3. Select or create workspace theme
+
+## Theme Cascading
+
+Themes cascade from app to workspace:
+
+```
+App Theme (base)
+  ↓
+Workspace Theme (override)
+  ↓
+Final Appearance
+```
+
+Only properties defined in the workspace theme override the app theme. Undefined properties inherit from app theme.
+
+## Exporting and Sharing
+
+### Export Theme
+
+Share your custom theme:
+
+1. Theme settings → Your theme
+2. Click "Export"
+3. Save as `.json` file
+
+### Import Theme
+
+Use a shared theme:
+
+1. Theme settings → "Import"
+2. Select `.json` file
+3. Theme is added to your library
+
+## Theme Examples
+
+### Corporate Branding
+
+Match your company's brand colors:
+
+```json
+{
+  "name": "Acme Corp",
+  "colors": {
+    "primary": "#ff6b35",
+    "accent": "#004e89"
+  }
+}
+```
+
+### Project-Specific
+
+Different theme per project workspace:
+
+- **Production**: Red accents (caution)
+- **Staging**: Yellow accents (test)
+- **Development**: Blue accents (safe)
+
+### Accessibility
+
+High contrast theme for better visibility:
+
+```json
+{
+  "name": "High Contrast",
+  "colors": {
+    "primary": "#0000ff",
+    "background": "#ffffff",
+    "foreground": "#000000",
+    "accent": "#ff0000"
+  }
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Contrast Ratios">
+    Ensure sufficient contrast between text and background colors. Aim for WCAG AA compliance (4.5:1 for normal text).
+  </Accordion>
+  <Accordion title="Test in Both Modes">
+    If you create custom themes, test them in both light and dark environments.
+  </Accordion>
+  <Accordion title="Use System Fonts">
+    System fonts load faster and feel native. Consider using system font stacks for better performance.
+  </Accordion>
+  <Accordion title="Limit Color Palette">
+    Stick to 3-5 main colors for a cohesive look. Too many colors create visual noise.
+  </Accordion>
+</AccordionGroup>
+
+## Syntax Highlighting
+
+Code blocks use [Shiki](https://shiki.style/) for syntax highlighting, which supports:
+
+- 100+ programming languages
+- Multiple built-in themes
+- Custom theme support
+
+The code theme can be configured separately from the UI theme.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Workspaces"
+    icon="briefcase"
+    href="/concepts/workspaces"
+  >
+    Apply themes per workspace
+  </Card>
+  <Card
+    title="Settings"
+    icon="gear"
+    href="/api-reference/configuration"
+  >
+    Configure app-wide settings
+  </Card>
+</CardGroup>

@@ -1,0 +1,61 @@
+{
+  "name": "Expandable Message Content",
+  "branch": "ralph/expandable-message-content",
+  "description": "Replace fixed 540px max-height on message content with full-height expansion by default, with per-message collapse toggle and settings UI",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add message display preference to user preferences schema",
+      "priority": 1,
+      "description": "As a user, I want my message display preference persisted so that my choice survives app restarts.",
+      "acceptanceCriteria": [
+        "Add `messageDisplay?: { expandContent?: boolean }` to PreferencesSchema in `packages/shared/src/config/preferences.ts`",
+        "Default value for `expandContent` is `true` (expanded by default)",
+        "Preference persists to `preferences.json` when changed",
+        "Typecheck passes"
+      ],
+      "passes": true
+    },
+    {
+      "id": "US-002",
+      "title": "Remove max-height constraint when expanded mode enabled",
+      "priority": 2,
+      "description": "As a user, I want message content to display at full height by default so I can see complete responses without clicking 'Show more'.",
+      "acceptanceCriteria": [
+        "When `preferences.messageDisplay.expandContent` is `true`, remove the `MAX_HEIGHT = 540` constraint in `apps/electron/src/renderer/components/chat/turn/TurnCard.tsx`",
+        "When preference is `false`, retain existing 540px max-height behavior with 'Show more' button",
+        "Read preference using existing `usePreferences()` hook pattern",
+        "Typecheck passes"
+      ],
+      "passes": false
+    },
+    {
+      "id": "US-003",
+      "title": "Add per-message collapse toggle for long content",
+      "priority": 3,
+      "description": "As a user, I want to collapse individual long messages so I can manage screen space for specific messages.",
+      "acceptanceCriteria": [
+        "Add collapse/expand toggle button to TurnCard for messages exceeding 540px natural height",
+        "Toggle button appears in top-right corner of TurnCard when content is collapsible",
+        "Collapsed state uses existing 540px max-height with gradient fade",
+        "Per-message collapse state is stored in component local state (not persisted)",
+        "Typecheck passes"
+      ],
+      "passes": false
+    },
+    {
+      "id": "US-004",
+      "title": "Add settings UI toggle for message display mode",
+      "priority": 4,
+      "description": "As a user, I want a settings toggle to control whether messages expand by default.",
+      "acceptanceCriteria": [
+        "Add 'Display' section to `apps/electron/src/renderer/pages/settings/AppearanceSettingsPage.tsx`",
+        "Add toggle labeled 'Expand message content' with description 'Show full message content by default'",
+        "Toggle updates `preferences.messageDisplay.expandContent` using existing `updatePreferences()` pattern",
+        "Follow existing SettingsSection/SettingsCard/SettingsToggle component patterns",
+        "Typecheck passes"
+      ],
+      "passes": false
+    }
+  ]
+}

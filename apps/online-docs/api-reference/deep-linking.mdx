@@ -1,0 +1,362 @@
+---
+title: 'Deep Linking'
+description: 'Navigate Kata Agents using kataagents:// URLs'
+---
+
+## Overview
+
+Kata Agents supports deep linking via `kataagents://` URLs, allowing external applications to navigate directly to specific views or trigger actions.
+
+## URL Scheme
+
+```
+kataagents://{route}/{subRoute}/{id}?{queryParams}
+```
+
+## Available Routes
+
+### All Chats View
+
+Navigate to the main chats list:
+
+```
+kataagents://allChats
+```
+
+### Specific Chat
+
+Open a specific session:
+
+```
+kataagents://allChats/chat/{sessionId}
+```
+
+Example:
+```
+kataagents://allChats/chat/session-123
+```
+
+### Settings
+
+Open app settings:
+
+```
+kataagents://settings
+```
+
+Navigate to a specific settings tab:
+
+```
+kataagents://settings?tab={tabName}
+```
+
+Available tabs:
+- `general`
+- `appearance`
+- `workspaces`
+- `sources`
+- `skills`
+- `statuses`
+
+Example:
+```
+kataagents://settings?tab=appearance
+```
+
+### Source Information
+
+View information about a specific source:
+
+```
+kataagents://sources/source/{sourceId}
+```
+
+Example:
+```
+kataagents://sources/source/github
+```
+
+### Actions
+
+Trigger specific actions:
+
+#### New Chat
+
+Create a new chat session:
+
+```
+kataagents://action/new-chat
+```
+
+With workspace context:
+
+```
+kataagents://action/new-chat?workspace={workspaceId}
+```
+
+#### Switch Workspace
+
+Switch to a different workspace:
+
+```
+kataagents://action/switch-workspace?id={workspaceId}
+```
+
+## Usage Examples
+
+### From Command Line
+
+**macOS/Linux:**
+```bash
+open "kataagents://allChats/chat/session-123"
+```
+
+**Windows:**
+```cmd
+start kataagents://allChats/chat/session-123
+```
+
+### From Web Browser
+
+Create a clickable link:
+
+```html
+<a href="kataagents://allChats/chat/session-123">Open in Kata Agents</a>
+```
+
+### From Another App
+
+**JavaScript:**
+```javascript
+window.location.href = 'kataagents://action/new-chat';
+```
+
+**Python:**
+```python
+import webbrowser
+webbrowser.open('kataagents://allChats')
+```
+
+**Swift (macOS/iOS):**
+```swift
+if let url = URL(string: "kataagents://allChats") {
+    NSWorkspace.shared.open(url)
+}
+```
+
+## URL Parameters
+
+### Query Parameters
+
+Query parameters can be appended to URLs:
+
+```
+kataagents://allChats?filter=flagged
+```
+
+Available query parameters:
+
+| Parameter | Routes | Description |
+|-----------|--------|-------------|
+| `filter` | `allChats` | Filter sessions (`flagged`, `status:{statusId}`) |
+| `tab` | `settings` | Settings tab to open |
+| `workspace` | `action/new-chat` | Workspace context |
+
+### Session Filters
+
+Filter the chat list:
+
+**Flagged sessions only:**
+```
+kataagents://allChats?filter=flagged
+```
+
+**Specific status:**
+```
+kataagents://allChats?filter=status:in-progress
+```
+
+## Integration Examples
+
+### Obsidian Plugin
+
+Create links in Obsidian notes:
+
+```markdown
+[Open Project Chat](kataagents://allChats/chat/session-123)
+[New Chat for This Project](kataagents://action/new-chat?workspace=project-workspace)
+```
+
+### Alfred Workflow
+
+Create an Alfred workflow to open Kata Agents:
+
+```bash
+#!/bin/bash
+query="{query}"
+open "kataagents://action/new-chat"
+```
+
+### Raycast Extension
+
+Build a Raycast extension for quick navigation:
+
+```typescript
+import { open } from "@raycast/api";
+
+export default async function Command() {
+  await open("kataagents://action/new-chat");
+}
+```
+
+### Slack Bot
+
+Link to Kata Agents sessions from Slack:
+
+```json
+{
+  "text": "View session in Kata Agents",
+  "blocks": [
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "<kataagents://allChats/chat/session-123|Open Session>"
+      }
+    }
+  ]
+}
+```
+
+## Security Considerations
+
+### URL Validation
+
+All deep link URLs are validated before execution:
+
+- Valid route patterns only
+- Session IDs must exist
+- Workspace IDs must be valid
+- No arbitrary command execution
+
+### Permission Checks
+
+Some deep links may require confirmation:
+
+- Creating new sessions
+- Switching workspaces
+- Opening external sources
+
+These will show a confirmation dialog before proceeding.
+
+## Error Handling
+
+### Invalid URLs
+
+If a deep link URL is invalid, Kata Agents will:
+
+1. Display an error notification
+2. Log the error
+3. Fallback to the main view
+
+### Missing Resources
+
+If a session or workspace doesn't exist:
+
+1. Show a "Not Found" message
+2. Offer to create a new session or workspace
+3. Navigate to the closest valid view
+
+## Custom URL Handlers
+
+You can register custom URL handlers in external apps:
+
+### macOS (LaunchServices)
+
+Register a handler in your app's `Info.plist`:
+
+```xml
+<key>CFBundleURLTypes</key>
+<array>
+  <dict>
+    <key>CFBundleURLSchemes</key>
+    <array>
+      <string>kataagents</string>
+    </array>
+  </dict>
+</array>
+```
+
+### Windows (Registry)
+
+Register in Windows Registry:
+
+```reg
+HKEY_CLASSES_ROOT\kataagents
+   (Default) = "URL:Kata Agents Protocol"
+   URL Protocol = ""
+   DefaultIcon = "C:\Path\To\KataAgents.exe,1"
+   shell\open\command
+      (Default) = "C:\Path\To\KataAgents.exe" "%1"
+```
+
+## Testing Deep Links
+
+Test deep links without an external app:
+
+**macOS:**
+```bash
+open "kataagents://allChats"
+```
+
+**Windows:**
+```cmd
+start kataagents://allChats
+```
+
+**Linux:**
+```bash
+xdg-open "kataagents://allChats"
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always Encode Parameters">
+    URL-encode query parameters and IDs to avoid parsing issues:
+    ```javascript
+    const url = `kataagents://allChats/chat/${encodeURIComponent(sessionId)}`;
+    ```
+  </Accordion>
+  <Accordion title="Validate Before Opening">
+    Check that session IDs and workspace IDs exist before creating deep links.
+  </Accordion>
+  <Accordion title="Handle Errors Gracefully">
+    External apps should handle cases where Kata Agents is not installed or the URL is invalid.
+  </Accordion>
+  <Accordion title="Use Descriptive Link Text">
+    When creating clickable links, use descriptive text:
+    ```html
+    <a href="kataagents://...">Open "Feature Development" Session</a>
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Configuration"
+    icon="gear"
+    href="/api-reference/configuration"
+  >
+    Learn about configuration files
+  </Card>
+  <Card
+    title="Sessions"
+    icon="message"
+    href="/concepts/sessions"
+  >
+    Understand session management
+  </Card>
+</CardGroup>

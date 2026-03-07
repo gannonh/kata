@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Kata Icon - Amber Background -->
+  <rect width="64" height="64" rx="14" fill="#d4a574"/>
+  <g transform="translate(10, 9)">
+    <rect x="0" y="0" width="44" height="7" rx="3.5" fill="#0d0d0d"/>
+    <rect x="0" y="15" width="24" height="7" rx="3.5" fill="#0d0d0d"/>
+    <rect x="18" y="7" width="7" height="15" rx="3.5" fill="#0d0d0d"/>
+    <rect x="0" y="30" width="44" height="7" rx="3.5" fill="#0d0d0d"/>
+    <rect x="18" y="37" width="7" height="9" rx="3.5" fill="#0d0d0d"/>
+  </g>
+</svg>

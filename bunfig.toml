@@ -1,0 +1,13 @@
+[test]
+preload = ["./packages/shared/src/network-interceptor.ts"]
+coverageSkipTestFiles = true
+coveragePathIgnorePatterns = [
+  "**/release/**",
+  "**/node_modules/**",
+  "**/*.d.ts"
+]
+# Note: Bun doesn't support test ignore patterns yet (see https://github.com/oven-sh/bun/issues/21395)
+# E2E tests use .e2e.ts extension to avoid being picked up by bun test
+
+# Coverage thresholds enforced by scripts/coverage-summary.ts (run via CI)
+# Run: bun run test:coverage:summary

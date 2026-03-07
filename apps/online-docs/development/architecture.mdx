@@ -1,0 +1,267 @@
+---
+title: 'Architecture'
+description: 'Understanding the Kata Agents architecture'
+---
+
+## Overview
+
+Kata Agents is built as a Bun monorepo with an Electron desktop app as the primary interface. The architecture follows a clean separation between the main process (Node.js), renderer process (React), and agent execution (Bun subprocesses).
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  Electron App                        │
+├─────────────────────────────────────────────────────┤
+│                                                      │
+│  ┌──────────────┐         ┌──────────────┐         │
+│  │ Main Process │◄───────►│   Renderer   │         │
+│  │  (Node.js)   │   IPC   │   (React)    │         │
+│  └──────┬───────┘         └──────────────┘         │
+│         │                                            │
+│         │ spawns                                     │
+│         ▼                                            │
+│  ┌──────────────┐                                   │
+│  │ Bun Agent    │                                   │
+│  │ Subprocess   │                                   │
+│  └──────────────┘                                   │
+│                                                      │
+└─────────────────────────────────────────────────────┘
+         │                        │
+         ▼                        ▼
+    MCP Servers              Anthropic API
+```
+
+## Directory Structure
+
+```
+kata-agents/
+├── apps/
+│   └── electron/              # Desktop app (primary)
+│       └── src/
+│           ├── main/          # Electron main process
+│           │   ├── index.ts          # Entry, window lifecycle
+│           │   ├── ipc.ts            # IPC handlers
+│           │   ├── sessions.ts       # SessionManager
+│           │   └── window-manager.ts # Multi-window
+│           ├── preload/       # Context bridge
+│           └── renderer/      # React UI
+│               ├── atoms/            # Jotai state
+│               ├── components/       # React components
+│               ├── event-processor/  # SDK events → UI
+│               └── hooks/            # Custom hooks
+└── packages/
+    ├── core/                  # Shared types
+    ├── shared/                # Business logic
+    │   └── src/
+    │       ├── agent/         # CraftAgent wrapper
+    │       ├── auth/          # OAuth flows
+    │       ├── config/        # Storage, preferences
+    │       ├── credentials/   # Encrypted storage
+    │       ├── mcp/           # MCP client
+    │       ├── prompts/       # System prompts
+    │       ├── sessions/      # Session persistence
+    │       └── sources/       # External connections
+    ├── ui/                    # Shared React components
+    └── mermaid/               # Diagram rendering
+```
+
+## Core Components
+
+### Main Process (apps/electron/src/main/)
+
+The Electron main process handles:
+
+- **Application lifecycle**: Window creation, updates, crashes
+- **Session management**: Spawning agent subprocesses
+- **IPC routing**: Communication with renderer
+- **File system access**: Reading/writing configuration
+- **Native integrations**: Menu bar, notifications, deep links
+
+Key files:
+- `index.ts`: App entry point, window lifecycle, Sentry
+- `ipc.ts`: IPC handlers for renderer communication
+- `sessions.ts`: SessionManager - spawns Bun subprocesses
+- `window-manager.ts`: Multi-window management
+
+### Preload (apps/electron/src/preload/)
+
+The preload script creates a secure context bridge between main and renderer processes:
+
+```typescript
+contextBridge.exposeInMainWorld('electronAPI', {
+  sendMessage: (message) => ipcRenderer.invoke('send-message', message),
+  onAgentEvent: (callback) => ipcRenderer.on('agent-event', callback),
+  // ... other APIs
+});
+```
+
+### Renderer (apps/electron/src/renderer/)
+
+The renderer is a React app built with Vite:
+
+- **State management**: Jotai atoms for global state
+- **Event processing**: Converts SDK events to UI state
+- **Components**: shadcn/ui components
+- **Routing**: Session list, chat view, settings
+
+#### Event Processor
+
+The EventProcessor converts Claude Agent SDK events into UI state:
+
+```typescript
+// SDK event
+{ type: 'tool_use', tool: 'read_file', input: {...} }
+
+// UI state
+{
+  type: 'tool_card',
+  tool: 'read_file',
+  status: 'running',
+  input: {...}
+}
+```
+
+### Shared Packages (packages/)
+
+#### @craft-agent/core
+Type definitions shared across all packages:
+- `Session`, `Message`, `AgentEvent`
+- `Workspace`, `Source`, `Skill`
+
+#### @craft-agent/shared
+Business logic:
+- **agent/**: CraftAgent wrapper around Claude Agent SDK
+- **auth/**: OAuth flows for Google, Slack, Microsoft
+- **config/**: Configuration storage and preferences
+- **credentials/**: AES-256-GCM encrypted credential storage
+- **mcp/**: MCP client and server management
+- **sessions/**: JSONL session persistence
+
+## Agent Execution Model
+
+### Subprocess Architecture
+
+The main process spawns agent sessions as separate Bun subprocesses:
+
+1. **SessionManager** (main process) spawns Bun
+2. Agent runs in isolated subprocess
+3. Events stream via stdout/stderr
+4. Main process parses and forwards to renderer
+5. Renderer updates UI
+
+This provides:
+- **Isolation**: Agent crashes don't affect main app
+- **Background execution**: Sessions can run while app is in background
+- **Resource management**: Easy to terminate runaway agents
+
+### Event Streaming
+
+```
+Agent Subprocess → stdout → Main Process → IPC → Renderer → UI
+```
+
+Events are streamed in real-time, allowing for:
+- Live tool execution updates
+- Streaming message responses
+- Progress indicators
+
+## Data Storage
+
+### Configuration Directory
+
+```
+~/.kata-agents/
+├── config.json              # Main config
+├── credentials.enc          # AES-256-GCM encrypted
+├── preferences.json         # User preferences
+├── theme.json               # App-level theme
+└── workspaces/
+    └── {id}/
+        ├── config.json      # Workspace settings
+        ├── theme.json       # Workspace theme
+        ├── sessions/        # JSONL files
+        ├── sources/         # Source configs
+        ├── skills/          # Skill markdown files
+        └── statuses/        # Status configs
+```
+
+### Session Persistence
+
+Sessions are stored as JSONL (JSON Lines):
+
+```jsonl
+{"type":"message","role":"user","content":"Hello"}
+{"type":"message","role":"assistant","content":"Hi there!"}
+{"type":"tool_use","tool":"read_file","input":{...}}
+{"type":"tool_result","result":{...}}
+```
+
+Benefits:
+- Streamable: Can read/write incrementally
+- Recoverable: Partial reads on crash
+- Debuggable: Human-readable text format
+
+## Permission System
+
+Three-level permission model:
+
+```typescript
+type PermissionMode = 'safe' | 'ask' | 'allow-all';
+```
+
+Implemented at the agent level with customizable rules:
+
+```typescript
+interface PermissionRules {
+  autoApprove: string[];  // Commands to auto-approve
+  alwaysAsk: string[];    // Commands that always prompt
+  blocked: string[];      // Commands to block
+}
+```
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Runtime | [Bun](https://bun.sh/) |
+| Desktop | [Electron](https://electronjs.org/) + React |
+| UI | [shadcn/ui](https://ui.shadcn.com/) + Tailwind CSS v4 |
+| State | [Jotai](https://jotai.org/) |
+| AI | [@anthropic-ai/claude-agent-sdk](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk) |
+| Build | esbuild (main/preload) + Vite (renderer) |
+| MCP | [@modelcontextprotocol/sdk](https://www.npmjs.com/package/@modelcontextprotocol/sdk) |
+
+## Build Process
+
+1. **Main process**: `esbuild` → `apps/electron/dist-main/index.js`
+2. **Preload script**: `esbuild` → `apps/electron/dist-preload/preload.js`
+3. **Renderer**: `vite build` → `apps/electron/dist-renderer/`
+4. **Resources**: Copy assets to `apps/electron/resources/`
+5. **Electron**: Package with `electron-builder`
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Building"
+    icon="hammer"
+    href="/development/building"
+  >
+    Learn how to build from source
+  </Card>
+  <Card
+    title="Testing"
+    icon="flask"
+    href="/development/testing"
+  >
+    Run tests and e2e suites
+  </Card>
+  <Card
+    title="Contributing"
+    icon="code-pull-request"
+    href="/development/contributing"
+  >
+    Contribute to the project
+  </Card>
+</CardGroup>

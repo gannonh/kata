@@ -1,0 +1,100 @@
+---
+title: 'Sessions'
+description: 'Understanding session management in Kata Agents'
+---
+
+## What is a Session?
+
+A session in Kata Agents is a conversation thread with Claude. Each session maintains its own context, message history, and state. Think of sessions as individual chat threads, similar to email threads or Slack conversations.
+
+## Session Features
+
+### Multi-Session Inbox
+
+Kata Agents provides a desktop app interface with session management features:
+
+- **Inbox/Archive**: Sessions organized by workflow status
+- **Flagging**: Mark important sessions for quick access
+- **Status Workflow**: Todo → In Progress → Needs Review → Done
+- **Session Naming**: AI-generated titles or manual naming
+- **Session Persistence**: Full conversation history saved to disk
+
+### Session Organization
+
+Sessions can be organized using several mechanisms:
+
+<CardGroup cols={2}>
+  <Card title="Status System" icon="list-check">
+    Customize workflow states to match your process
+  </Card>
+  <Card title="Flagging" icon="flag">
+    Mark important sessions for quick filtering
+  </Card>
+  <Card title="Labels" icon="tag">
+    Categorize sessions with custom labels
+  </Card>
+  <Card title="Search" icon="magnifying-glass">
+    Find sessions by content or metadata
+  </Card>
+</CardGroup>
+
+## Session Lifecycle
+
+1. **Create**: Start a new session with `Cmd+N` or the "New Chat" button
+2. **Active**: Interact with Claude, send messages, receive responses
+3. **Status Updates**: Move through your workflow (Todo → In Progress → Done)
+4. **Archive**: Completed sessions move to archive but remain searchable
+5. **Persistence**: All sessions are saved to disk in JSONL format
+
+## Session Context
+
+Each session maintains:
+
+- **Message History**: Full conversation thread
+- **Working Directory**: Current filesystem context
+- **Git Context**: Branch and PR information (if available)
+- **Permission Mode**: Current permission level (Explore/Ask/Auto)
+- **Connected Sources**: MCP servers and APIs available to this session
+- **Skills**: Workspace-level agent instructions
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd+N` | New chat |
+| `Cmd+1/2/3` | Focus sidebar/list/chat |
+| `SHIFT+TAB` | Cycle permission modes |
+| `Enter` | Send message |
+| `Shift+Enter` | New line |
+
+## Session Storage
+
+Sessions are persisted as JSONL files in your workspace directory:
+
+```
+~/.kata-agents/workspaces/{workspace-id}/sessions/
+├── session-1.jsonl
+├── session-2.jsonl
+└── session-3.jsonl
+```
+
+Each line in a JSONL file represents a turn in the conversation, allowing for efficient streaming and recovery.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Workspaces"
+    icon="briefcase"
+    href="/concepts/workspaces"
+  >
+    Learn how to organize sessions with workspaces
+  </Card>
+  <Card
+    title="Status Workflow"
+    icon="list-check"
+    href="/features/status-workflow"
+  >
+    Customize your session workflow
+  </Card>
+</CardGroup>

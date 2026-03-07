@@ -1,0 +1,125 @@
+---
+title: 'Workspaces'
+description: 'Organize your work with workspaces in Kata Agents'
+---
+
+## What is a Workspace?
+
+A workspace in Kata Agents is a container for organizing related sessions, sources, skills, and settings. Each workspace has its own:
+
+- **Working Directory**: Filesystem location for file operations
+- **Sessions**: Collection of conversation threads
+- **Sources**: Connected MCP servers, APIs, and filesystems
+- **Skills**: Custom agent instructions
+- **Settings**: Workspace-specific configuration
+- **Theme**: Optional workspace-level theme override
+
+## Why Use Workspaces?
+
+Workspaces help you:
+
+- **Separate contexts**: Keep work projects separate from personal tasks
+- **Organize sessions**: Group related conversations together
+- **Configure sources**: Different MCP servers and APIs per workspace
+- **Customize skills**: Workspace-specific agent behavior
+- **Manage settings**: Independent configuration per workspace
+
+## Creating a Workspace
+
+<Steps>
+  <Step title="Open Workspace Switcher">
+    Click the workspace name in the sidebar or use the keyboard shortcut
+  </Step>
+  <Step title="Create New Workspace">
+    Click "New Workspace" button
+  </Step>
+  <Step title="Configure Workspace">
+    - Enter a name for your workspace
+    - Select a working directory
+    - Optionally configure initial sources
+  </Step>
+  <Step title="Start Working">
+    Begin creating sessions in your new workspace
+  </Step>
+</Steps>
+
+## Workspace Structure
+
+Each workspace is stored in your configuration directory:
+
+```
+~/.kata-agents/workspaces/{workspace-id}/
+├── config.json         # Workspace settings
+├── theme.json          # Optional theme override
+├── sessions/           # Session data (JSONL files)
+├── sources/            # Connected sources configuration
+├── skills/             # Custom agent instructions
+└── statuses/           # Status workflow configuration
+```
+
+## Workspace Settings
+
+Workspaces can be customized with:
+
+- **Working Directory**: Default location for file operations
+- **Display Name**: How the workspace appears in the UI
+- **Icon**: Custom icon (future feature)
+- **Default Permission Mode**: Starting permission level for new sessions
+- **Source Connections**: MCP servers, REST APIs, filesystems
+
+## Switching Workspaces
+
+You can quickly switch between workspaces:
+
+1. Click the workspace name in the sidebar
+2. Select a different workspace from the list
+3. The app will switch context and load that workspace's sessions
+
+<Note>
+  Each workspace maintains independent session history and configuration. Switching workspaces does not affect sessions in other workspaces.
+</Note>
+
+## Workspace Themes
+
+Workspaces support cascading themes:
+
+1. **App-level theme**: Default theme for all workspaces
+2. **Workspace-level theme**: Optional override per workspace
+
+This allows you to visually distinguish workspaces or match project branding.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Project-based Organization">
+    Create a workspace for each major project or client. This keeps sessions, skills, and sources relevant to that project together.
+  </Accordion>
+  <Accordion title="Environment Separation">
+    Use separate workspaces for development, staging, and production environments if working with different API endpoints or configurations.
+  </Accordion>
+  <Accordion title="Context Switching">
+    When switching between different types of work (coding, writing, research), use different workspaces to maintain appropriate context and skills.
+  </Accordion>
+  <Accordion title="Source Management">
+    Connect sources relevant to each workspace. For example, a coding workspace might have GitHub and Linear MCPs, while a writing workspace might have Google Drive and Notion.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Sources"
+    icon="plug"
+    href="/concepts/sources"
+  >
+    Learn about connecting external data sources
+  </Card>
+  <Card
+    title="Skills"
+    icon="wand-magic-sparkles"
+    href="/features/skills"
+  >
+    Customize agent behavior with skills
+  </Card>
+</CardGroup>

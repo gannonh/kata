@@ -1,0 +1,97 @@
+---
+title: 'Installation'
+description: 'Install Kata Agents on macOS, Windows, or Linux'
+---
+
+## Download from GitHub Releases
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/gannonh/kata-agents/releases).
+
+<CardGroup cols={3}>
+  <Card title="macOS (Apple Silicon)" icon="apple">
+    `Kata-Agents-arm64.dmg`
+  </Card>
+  <Card title="macOS (Intel)" icon="apple">
+    `Kata-Agents-x64.dmg`
+  </Card>
+  <Card title="Windows" icon="windows">
+    `Kata-Agents-x64.exe`
+  </Card>
+  <Card title="Linux" icon="linux">
+    `Kata-Agents-x64.AppImage`
+  </Card>
+</CardGroup>
+
+## macOS Installation
+
+<Steps>
+  <Step title="Download the DMG">
+    Download the appropriate DMG file for your Mac:
+    - **Apple Silicon (M1/M2/M3)**: `Kata-Agents-arm64.dmg`
+    - **Intel**: `Kata-Agents-x64.dmg`
+  </Step>
+  <Step title="Open the DMG">
+    Double-click the downloaded DMG file to mount it.
+  </Step>
+  <Step title="Drag to Applications">
+    Drag the Kata Agents app to your Applications folder.
+  </Step>
+  <Step title="First launch">
+    Open Kata Agents from your Applications folder. You may need to right-click and select "Open" on first launch due to macOS Gatekeeper.
+  </Step>
+</Steps>
+
+## Windows Installation
+
+<Steps>
+  <Step title="Download the installer">
+    Download `Kata-Agents-x64.exe` from GitHub Releases.
+  </Step>
+  <Step title="Run the installer">
+    Double-click the installer and follow the installation wizard.
+  </Step>
+  <Step title="Launch">
+    Once installed, launch Kata Agents from your Start menu or desktop shortcut.
+  </Step>
+</Steps>
+
+## Linux Installation
+
+<Steps>
+  <Step title="Download the AppImage">
+    Download `Kata-Agents-x64.AppImage` from GitHub Releases.
+  </Step>
+  <Step title="Make it executable">
+    ```bash
+    chmod +x Kata-Agents-x64.AppImage
+    ```
+  </Step>
+  <Step title="Run the AppImage">
+    ```bash
+    ./Kata-Agents-x64.AppImage
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+  You can move the AppImage to `~/.local/bin` or `/usr/local/bin` for easier access.
+</Tip>
+
+## Build from Source
+
+If you prefer to build from source or contribute to development:
+
+```bash
+git clone https://github.com/gannonh/kata-agents.git
+cd kata-agents
+bun install
+bun run electron:start
+```
+
+<Note>
+  Building from source requires [Bun](https://bun.sh/) runtime. See the [Development Guide](/development/building) for detailed instructions.
+</Note>
+
+## Next Steps
+
+After installation, check out the [Quickstart Guide](/quickstart) to get started with your first workspace.

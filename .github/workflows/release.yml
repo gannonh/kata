@@ -1,0 +1,519 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: release-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 2
+
+      - name: Check if version changed
+        id: check
+        run: |
+          # Get current version from package.json
+          CURRENT_VERSION=$(node -p "require('./apps/electron/package.json').version")
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+          # Check if this version tag already exists
+          if git ls-remote --tags origin | grep -q "refs/tags/v$CURRENT_VERSION"; then
+            echo "Tag v$CURRENT_VERSION already exists, skipping release"
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "New version $CURRENT_VERSION detected, will release"
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          fi
+
+  build-macos:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [arm64, x64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5 # v2.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: '20'
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Import Code Signing Certificate
+        if: env.CSC_LINK != ''
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          # Decode and import the certificate
+          echo "$CSC_LINK" | base64 --decode > certificate.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
+          rm certificate.p12
+
+      - name: Build Electron app
+        run: bun run electron:build
+
+      - name: Prepare packaging dependencies
+        run: |
+          # === These steps mirror what build-dmg.sh does locally ===
+
+          # 1. Download Bun binary for target architecture
+          BUN_VERSION="bun-v1.3.5"
+          ARCH="${{ matrix.arch }}"
+          BUN_DOWNLOAD="bun-darwin-$([ "$ARCH" = "arm64" ] && echo "aarch64" || echo "x64")"
+
+          echo "Downloading Bun ${BUN_VERSION} for darwin-${ARCH}..."
+          mkdir -p apps/electron/vendor/bun
+
+          TEMP_DIR=$(mktemp -d)
+          curl -fSL "https://github.com/oven-sh/bun/releases/download/${BUN_VERSION}/${BUN_DOWNLOAD}.zip" -o "$TEMP_DIR/${BUN_DOWNLOAD}.zip"
+          curl -fSL "https://github.com/oven-sh/bun/releases/download/${BUN_VERSION}/SHASUMS256.txt" -o "$TEMP_DIR/SHASUMS256.txt"
+
+          # Verify checksum
+          echo "Verifying checksum..."
+          cd "$TEMP_DIR"
+          grep "${BUN_DOWNLOAD}.zip" SHASUMS256.txt | shasum -a 256 -c -
+          cd - > /dev/null
+
+          # Extract and install
+          unzip -o "$TEMP_DIR/${BUN_DOWNLOAD}.zip" -d "$TEMP_DIR"
+          cp "$TEMP_DIR/${BUN_DOWNLOAD}/bun" apps/electron/vendor/bun/
+          chmod +x apps/electron/vendor/bun/bun
+          rm -rf "$TEMP_DIR"
+
+          echo "Bun binary installed to apps/electron/vendor/bun/"
+          ls -la apps/electron/vendor/bun/
+
+          # 2. Copy SDK from root node_modules (monorepo hoisting)
+          echo "Copying SDK..."
+          mkdir -p apps/electron/node_modules/@anthropic-ai
+          cp -r node_modules/@anthropic-ai/claude-agent-sdk apps/electron/node_modules/@anthropic-ai/
+
+          # 3. Copy network interceptor
+          echo "Copying interceptor..."
+          mkdir -p apps/electron/packages/shared/src
+          cp packages/shared/src/network-interceptor.ts apps/electron/packages/shared/src/
+
+          echo "=== Packaging dependencies ready ==="
+          echo "vendor/bun:"
+          ls -la apps/electron/vendor/bun/
+          echo "node_modules/@anthropic-ai:"
+          ls -la apps/electron/node_modules/@anthropic-ai/
+          echo "packages/shared/src:"
+          ls -la apps/electron/packages/shared/src/
+
+      - name: Package for macOS ${{ matrix.arch }}
+        run: |
+          cd apps/electron
+          npx electron-builder --mac --${{ matrix.arch }} --publish never
+        env:
+          # Code signing (if secrets are configured)
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # Note: Notarization is done manually below (not via electron-builder)
+          # because Apple's service hangs on DMG submissions but accepts ZIP submissions
+
+      - name: Notarize macOS app
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -e  # Exit on any error
+
+          # FAIL if credentials aren't configured - notarization is REQUIRED
+          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_APP_SPECIFIC_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "::error::Notarization credentials not configured. APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, and APPLE_TEAM_ID secrets are required."
+            exit 1
+          fi
+
+          cd apps/electron/release
+
+          # Find the app bundle inside the mac directory
+          APP_PATH=$(find . -name "*.app" -type d | head -1)
+          if [ -z "$APP_PATH" ]; then
+            # App might be inside mac-$arch directory
+            APP_PATH=$(find mac* -name "*.app" -type d 2>/dev/null | head -1)
+          fi
+
+          # FAIL if no app bundle found
+          if [ -z "$APP_PATH" ]; then
+            echo "::error::No .app bundle found in release directory. Build may have failed."
+            exit 1
+          fi
+
+          echo "Found app bundle: $APP_PATH"
+
+          # Create a ZIP of the app for notarization (Apple accepts ZIPs reliably)
+          ZIP_PATH="notarize-$(basename "$APP_PATH" .app).zip"
+          ditto -c -k --keepParent "$APP_PATH" "$ZIP_PATH"
+          echo "Created ZIP for notarization: $ZIP_PATH"
+
+          # Submit for notarization
+          echo "Submitting for notarization..."
+          xcrun notarytool submit "$ZIP_PATH" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait \
+            --timeout 30m
+
+          # Staple the notarization ticket to the app
+          echo "Stapling notarization ticket..."
+          xcrun stapler staple "$APP_PATH"
+
+          # Clean up the notarization ZIP
+          rm "$ZIP_PATH"
+
+          # Recreate the distribution ZIP with the notarized app
+          DIST_ZIP="Kata-Agents-${{ matrix.arch }}.zip"
+          rm -f "$DIST_ZIP"
+          ditto -c -k --keepParent "$APP_PATH" "$DIST_ZIP"
+          echo "Created distribution ZIP: $DIST_ZIP"
+
+          # Recreate the DMG with the notarized app
+          # electron-builder already created a DMG, but it contains the pre-notarized app
+          # We need to replace the app inside or rebuild the DMG
+          DMG_PATH="Kata-Agents-${{ matrix.arch }}.dmg"
+          if [ -f "$DMG_PATH" ]; then
+            echo "Rebuilding DMG with notarized app..."
+
+            # Mount the existing DMG
+            MOUNT_DIR=$(mktemp -d)
+            hdiutil attach "$DMG_PATH" -mountpoint "$MOUNT_DIR" -nobrowse -quiet
+
+            # Create a new writable DMG
+            TEMP_DMG="temp-${{ matrix.arch }}.dmg"
+            hdiutil create -size 500m -fs HFS+ -volname "Kata Agents" "$TEMP_DMG"
+            TEMP_MOUNT=$(mktemp -d)
+            hdiutil attach "$TEMP_DMG" -mountpoint "$TEMP_MOUNT" -nobrowse -quiet
+
+            # Copy contents, replacing the app with notarized version
+            cp -R "$MOUNT_DIR"/* "$TEMP_MOUNT"/ 2>/dev/null || true
+            rm -rf "$TEMP_MOUNT"/*.app
+            cp -R "$APP_PATH" "$TEMP_MOUNT"/
+
+            # Create Applications symlink if not present
+            if [ ! -e "$TEMP_MOUNT/Applications" ]; then
+              ln -s /Applications "$TEMP_MOUNT/Applications"
+            fi
+
+            # Unmount both
+            hdiutil detach "$MOUNT_DIR" -quiet
+            hdiutil detach "$TEMP_MOUNT" -quiet
+
+            # Convert to compressed read-only DMG
+            rm "$DMG_PATH"
+            hdiutil convert "$TEMP_DMG" -format UDZO -o "$DMG_PATH"
+            rm "$TEMP_DMG"
+
+            echo "DMG rebuilt with notarized app: $DMG_PATH"
+          fi
+
+          # Verify the app is actually notarized
+          echo "Verifying notarization..."
+          if ! spctl -a -v "$APP_PATH" 2>&1 | grep -q "accepted"; then
+            echo "::error::App failed notarization verification"
+            spctl -a -v "$APP_PATH"
+            exit 1
+          fi
+          echo "Notarization verified successfully!"
+
+      - name: Verify macOS artifacts
+        run: |
+          set -e
+          echo "Checking for macOS ${{ matrix.arch }} artifacts..."
+          ls -la apps/electron/release/
+          # Check for this job's specific architecture files (not wildcards)
+          if [ ! -f "apps/electron/release/Kata-Agents-${{ matrix.arch }}.dmg" ]; then
+            echo "::error::DMG file for ${{ matrix.arch }} not found"
+            exit 1
+          fi
+          if [ ! -f "apps/electron/release/Kata-Agents-${{ matrix.arch }}.zip" ]; then
+            echo "::error::ZIP file for ${{ matrix.arch }} not found"
+            exit 1
+          fi
+          echo "Found notarized artifacts for ${{ matrix.arch }}"
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+        with:
+          name: macos-${{ matrix.arch }}
+          # IMPORTANT: Only upload this job's specific architecture files
+          # Each job builds both archs but only notarizes its own - uploading all
+          # would cause un-notarized files to overwrite notarized ones in the release
+          path: |
+            apps/electron/release/Kata-Agents-${{ matrix.arch }}.dmg
+            apps/electron/release/Kata-Agents-${{ matrix.arch }}.zip
+            apps/electron/release/latest-mac.yml
+
+  build-windows:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5 # v2.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: '20'
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build Electron app
+        run: bun run electron:build
+
+      - name: Prepare packaging dependencies
+        shell: bash
+        run: |
+          # === These steps mirror what build-win.ps1 does locally ===
+
+          # 1. Download Bun binary for Windows x64 (baseline build - works on all x64 CPUs)
+          BUN_VERSION="bun-v1.3.5"
+          BUN_DOWNLOAD="bun-windows-x64-baseline"
+
+          echo "Downloading Bun ${BUN_VERSION} for Windows x64..."
+          mkdir -p apps/electron/vendor/bun
+
+          TEMP_DIR=$(mktemp -d)
+          curl -fSL "https://github.com/oven-sh/bun/releases/download/${BUN_VERSION}/${BUN_DOWNLOAD}.zip" -o "$TEMP_DIR/${BUN_DOWNLOAD}.zip"
+          curl -fSL "https://github.com/oven-sh/bun/releases/download/${BUN_VERSION}/SHASUMS256.txt" -o "$TEMP_DIR/SHASUMS256.txt"
+
+          # Verify checksum
+          echo "Verifying checksum..."
+          cd "$TEMP_DIR"
+          grep "${BUN_DOWNLOAD}.zip" SHASUMS256.txt | sha256sum -c -
+          cd - > /dev/null
+
+          # Extract and install
+          unzip -o "$TEMP_DIR/${BUN_DOWNLOAD}.zip" -d "$TEMP_DIR"
+          cp "$TEMP_DIR/${BUN_DOWNLOAD}/bun.exe" apps/electron/vendor/bun/
+          rm -rf "$TEMP_DIR"
+
+          echo "Bun binary installed to apps/electron/vendor/bun/"
+          ls -la apps/electron/vendor/bun/
+
+          # 2. Copy SDK from root node_modules (monorepo hoisting)
+          echo "Copying SDK..."
+          mkdir -p apps/electron/node_modules/@anthropic-ai
+          cp -r node_modules/@anthropic-ai/claude-agent-sdk apps/electron/node_modules/@anthropic-ai/
+
+          # 3. Copy network interceptor
+          echo "Copying interceptor..."
+          mkdir -p apps/electron/packages/shared/src
+          cp packages/shared/src/network-interceptor.ts apps/electron/packages/shared/src/
+
+          echo "=== Packaging dependencies ready ==="
+          ls -la apps/electron/vendor/bun/
+          ls -la apps/electron/node_modules/@anthropic-ai/
+          ls -la apps/electron/packages/shared/src/
+
+      - name: Package for Windows
+        run: |
+          cd apps/electron
+          npx electron-builder --win --x64 --publish never
+
+      - name: Verify Windows artifacts
+        shell: bash
+        run: |
+          echo "Checking for Windows artifacts..."
+          ls -la apps/electron/release/
+          if ! ls apps/electron/release/*.exe 1>/dev/null 2>&1; then
+            echo "Error: EXE file not found"
+            exit 1
+          fi
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+        with:
+          name: windows-x64
+          path: |
+            apps/electron/release/*.exe
+            apps/electron/release/*.yml
+
+  build-linux:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5 # v2.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: '20'
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build Electron app
+        run: bun run electron:build
+
+      - name: Prepare packaging dependencies
+        run: |
+          # === These steps mirror what build-linux.sh does locally ===
+
+          # 1. Download Bun binary for Linux x64
+          BUN_VERSION="bun-v1.3.5"
+          BUN_DOWNLOAD="bun-linux-x64"
+
+          echo "Downloading Bun ${BUN_VERSION} for Linux x64..."
+          mkdir -p apps/electron/vendor/bun
+
+          TEMP_DIR=$(mktemp -d)
+          curl -fSL "https://github.com/oven-sh/bun/releases/download/${BUN_VERSION}/${BUN_DOWNLOAD}.zip" -o "$TEMP_DIR/${BUN_DOWNLOAD}.zip"
+          curl -fSL "https://github.com/oven-sh/bun/releases/download/${BUN_VERSION}/SHASUMS256.txt" -o "$TEMP_DIR/SHASUMS256.txt"
+
+          # Verify checksum
+          echo "Verifying checksum..."
+          cd "$TEMP_DIR"
+          grep "${BUN_DOWNLOAD}.zip" SHASUMS256.txt | sha256sum -c -
+          cd - > /dev/null
+
+          # Extract and install
+          unzip -o "$TEMP_DIR/${BUN_DOWNLOAD}.zip" -d "$TEMP_DIR"
+          cp "$TEMP_DIR/${BUN_DOWNLOAD}/bun" apps/electron/vendor/bun/
+          chmod +x apps/electron/vendor/bun/bun
+          rm -rf "$TEMP_DIR"
+
+          echo "Bun binary installed to apps/electron/vendor/bun/"
+          ls -la apps/electron/vendor/bun/
+
+          # 2. Copy SDK from root node_modules (monorepo hoisting)
+          echo "Copying SDK..."
+          mkdir -p apps/electron/node_modules/@anthropic-ai
+          cp -r node_modules/@anthropic-ai/claude-agent-sdk apps/electron/node_modules/@anthropic-ai/
+
+          # 3. Copy network interceptor
+          echo "Copying interceptor..."
+          mkdir -p apps/electron/packages/shared/src
+          cp packages/shared/src/network-interceptor.ts apps/electron/packages/shared/src/
+
+          echo "=== Packaging dependencies ready ==="
+          ls -la apps/electron/vendor/bun/
+          ls -la apps/electron/node_modules/@anthropic-ai/
+          ls -la apps/electron/packages/shared/src/
+
+      - name: Package for Linux
+        run: |
+          cd apps/electron
+          npx electron-builder --linux --x64 --publish never
+
+      - name: Verify Linux artifacts
+        run: |
+          echo "Checking for Linux artifacts..."
+          ls -la apps/electron/release/
+          if ! ls apps/electron/release/*.AppImage 1>/dev/null 2>&1; then
+            echo "Error: AppImage file not found"
+            exit 1
+          fi
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+        with:
+          name: linux-x64
+          path: |
+            apps/electron/release/*.AppImage
+            apps/electron/release/*.yml
+
+  release:
+    needs: [check-version, build-macos, build-windows, build-linux]
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          path: artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release-files
+
+          # Copy platform-specific binaries (no duplicates possible)
+          cp artifacts/macos-arm64/*.dmg release-files/
+          cp artifacts/macos-arm64/*.zip release-files/
+          cp artifacts/macos-x64/*.dmg release-files/
+          cp artifacts/macos-x64/*.zip release-files/
+          cp artifacts/windows-x64/*.exe release-files/
+          cp artifacts/linux-x64/*.AppImage release-files/
+
+          # Copy update manifests (one per platform)
+          cp artifacts/macos-arm64/latest-mac.yml release-files/
+          cp artifacts/windows-x64/latest.yml release-files/
+          cp artifacts/linux-x64/latest-linux.yml release-files/
+
+          echo "Files to be released:"
+          ls -la release-files/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2.2.1
+        with:
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: v${{ needs.check-version.outputs.version }}
+          generate_release_notes: true
+          make_latest: true
+          files: release-files/*

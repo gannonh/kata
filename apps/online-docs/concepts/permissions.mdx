@@ -1,0 +1,152 @@
+---
+title: 'Permission Modes'
+description: 'Control what actions the agent can take with permission modes'
+---
+
+## Overview
+
+Kata Agents uses a three-level permission system to control what actions the agent can take. This gives you fine-grained control over safety and autonomy.
+
+## Permission Modes
+
+| Mode | Display | Behavior | Use Case |
+|------|---------|----------|----------|
+| `safe` | Explore | Read-only, blocks all write operations | Initial exploration, untrusted contexts |
+| `ask` | Ask to Edit | Prompts for approval before executing commands | Balanced control (default) |
+| `allow-all` | Auto | Auto-approves all commands | Trusted contexts, automation |
+
+## Cycling Through Modes
+
+Press **SHIFT+TAB** during a conversation to cycle through permission modes:
+
+```
+Explore → Ask to Edit → Auto → Explore → ...
+```
+
+The current mode is displayed in the chat interface toolbar.
+
+## Safe Mode (Explore)
+
+**Read-only mode** - Blocks all write operations
+
+### What's Allowed:
+- Reading files
+- Searching code
+- Analyzing existing content
+- Running read-only commands (e.g., `git status`, `ls`)
+
+### What's Blocked:
+- Writing or editing files
+- Running potentially destructive commands
+- Making API calls that modify data
+- Git commits or pushes
+
+<Tip>
+  Use Explore mode when first investigating a codebase or when you want to prevent any modifications.
+</Tip>
+
+## Ask Mode (Ask to Edit)
+
+**Prompt for approval** - Default mode
+
+### How It Works:
+1. Agent attempts an action that requires permission
+2. You see a prompt with details about the action
+3. You approve or deny the action
+4. Agent proceeds based on your decision
+
+### Customizable Rules:
+You can configure which commands require approval and which are auto-approved. This is useful for:
+
+- Auto-approving safe commands (like `git status`)
+- Always prompting for destructive operations (like `rm`)
+- Project-specific command policies
+
+## Allow-All Mode (Auto)
+
+**Auto-approve everything** - Maximum autonomy
+
+### When to Use:
+- Trusted automation tasks
+- Well-defined, bounded operations
+- When you want maximum speed
+
+### Safety Considerations:
+<Warning>
+  Auto mode gives the agent full autonomy. Only use this in contexts where you trust the agent to make decisions, or when the scope is clearly bounded.
+</Warning>
+
+## Permission Prompts
+
+When in Ask mode, permission prompts show:
+
+- **Command**: The exact command to be executed
+- **Context**: Why the agent wants to run this command
+- **Risk Level**: Indication of potential impact
+- **Approve/Deny**: Your decision
+
+You can also:
+- **Remember Decision**: Auto-approve this specific command in the future
+- **Change Mode**: Switch to Auto or Explore mode
+
+## Customizing Permission Rules
+
+You can configure per-workspace rules for which commands require approval:
+
+```json
+{
+  "permissionRules": {
+    "autoApprove": [
+      "git status",
+      "git diff",
+      "ls",
+      "cat"
+    ],
+    "alwaysAsk": [
+      "git push",
+      "rm",
+      "npm publish"
+    ],
+    "blocked": [
+      "rm -rf /",
+      "sudo"
+    ]
+  }
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Start with Explore">
+    When working with a new codebase or unfamiliar context, start in Explore mode to understand what you're working with before allowing modifications.
+  </Accordion>
+  <Accordion title="Use Ask for Most Work">
+    Ask to Edit mode (the default) provides a good balance of control and efficiency. You maintain oversight while not being overwhelmed with prompts for safe operations.
+  </Accordion>
+  <Accordion title="Reserve Auto for Trusted Tasks">
+    Only switch to Auto mode for well-defined tasks in trusted contexts, or when you've already reviewed the agent's plan.
+  </Accordion>
+  <Accordion title="Configure Rules">
+    Take time to configure permission rules for your workspace. This reduces friction while maintaining safety.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Sessions"
+    icon="message"
+    href="/concepts/sessions"
+  >
+    Learn more about session management
+  </Card>
+  <Card
+    title="Workspaces"
+    icon="briefcase"
+    href="/concepts/workspaces"
+  >
+    Configure workspace-level settings
+  </Card>
+</CardGroup>

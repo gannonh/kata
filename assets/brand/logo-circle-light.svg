@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Kata Logo - Circular Light -->
+  <circle cx="100" cy="100" r="98" fill="#faf8f5"/>
+  <circle cx="100" cy="100" r="96" fill="none" stroke="#e5e5e5" stroke-width="2"/>
+  <g transform="translate(45, 42.5) scale(2.5)">
+    <rect x="0" y="0" width="44" height="7" rx="3.5" fill="#0d0d0d"/>
+    <rect x="0" y="15" width="24" height="7" rx="3.5" fill="#0d0d0d"/>
+    <rect x="18" y="7" width="7" height="15" rx="3.5" fill="#0d0d0d"/>
+    <rect x="0" y="30" width="44" height="7" rx="3.5" fill="#0d0d0d"/>
+    <rect x="18" y="37" width="7" height="9" rx="3.5" fill="#0d0d0d"/>
+  </g>
+</svg>

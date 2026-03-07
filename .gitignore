@@ -1,0 +1,76 @@
+# dependencies (bun install)
+node_modules
+
+# output
+out
+dist
+*.tgz
+.build
+apps/electron/release
+apps/electron/packages
+apps/electron/vendor
+
+# code coverage
+coverage
+*.lcov
+
+# Playwright e2e test artifacts
+playwright-report/
+test-results/
+.playwright/
+
+# logs
+logs
+_.log
+report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+
+# dotenv environment variable files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# caches
+.eslintcache
+.cache
+*.tsbuildinfo
+.wrangler
+.mintlify
+
+# OSS sync temp directory
+.oss-sync-temp/
+
+# IntelliJ based IDEs
+.idea
+
+# Finder (MacOS) folder config
+.DS_Store
+
+# Claude Code local settings (user-specific)
+.claude/settings.local.json
+
+# Accidental literal tilde directories (Node.js doesn't expand ~)
+~/
+
+# Lock files from other package managers
+pnpm-lock.yaml
+
+
+# SSH keys and secrets
+*.pem
+*.key
+sshkey
+id_rsa*
+id_ed25519*
+
+# Credentials files & misc
+credentials.enc
+*.credentials
+.secrets/
+demos/
+sources/
+sessions/
+statuses/config.json
+labels/
+config.json
