@@ -14,19 +14,6 @@ import type { StoredMessage, TokenUsage } from './message.ts';
 export type SessionStatus = 'todo' | 'in_progress' | 'needs_review' | 'done' | 'cancelled';
 
 /**
- * Channel origin metadata for daemon-created sessions.
- * Describes which channel adapter and config produced the session.
- */
-export interface ChannelOrigin {
-  /** Adapter type: 'slack', 'whatsapp', etc. */
-  adapter: string;
-  /** Channel config slug */
-  slug: string;
-  /** Display name for the channel source (e.g., '#general', 'Support Group') */
-  displayName?: string;
-}
-
-/**
  * Session represents a conversation scope (SDK session = our scope boundary)
  */
 export interface Session {
@@ -42,8 +29,6 @@ export interface Session {
   status?: SessionStatus;        // Workflow status (todo, in_progress, needs_review, done, cancelled)
   // Read/unread tracking
   lastReadMessageId?: string;    // ID of the last message the user has read
-  // Channel origin for daemon-created sessions
-  channel?: ChannelOrigin;
 }
 
 /**

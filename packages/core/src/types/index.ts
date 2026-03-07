@@ -17,7 +17,6 @@ export type {
   StoredSession,
   SessionMetadata,
   SessionStatus,
-  ChannelOrigin,
 } from './session.ts';
 
 // Message types
