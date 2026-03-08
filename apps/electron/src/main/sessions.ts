@@ -25,6 +25,7 @@ import {
   loadSession as loadStoredSession,
   saveSession as saveStoredSession,
   createSession as createStoredSession,
+  generateSessionId,
   deleteSession as deleteStoredSession,
   updateSessionMetadata,
   setPendingPlanExecution as setStoredPendingPlanExecution,
@@ -492,6 +493,7 @@ interface PendingDelta {
 export class SessionManager {
   private sessions: Map<string, ManagedSession> = new Map()
   private windowManager: WindowManager | null = null
+  private taskChildSessions: Map<string, string> = new Map()
   // Delta batching for performance - reduces IPC events from 50+/sec to ~20/sec
   private pendingDeltas: Map<string, PendingDelta> = new Map()
   private deltaFlushTimers: Map<string, NodeJS.Timeout> = new Map()
@@ -510,6 +512,243 @@ export class SessionManager {
 
   setWindowManager(wm: WindowManager): void {
     this.windowManager = wm
+  }
+
+  private getTaskChildSessionKey(sessionId: string, toolUseId: string): string {
+    return `${sessionId}:${toolUseId}`
+  }
+
+  private getDelegationLabel(
+    toolInput: Record<string, unknown> | undefined,
+    fallbackIntent?: string,
+    fallbackToolUseId?: string
+  ): string {
+    const candidates = [
+      fallbackIntent,
+      typeof toolInput?.description === 'string' ? toolInput.description : undefined,
+      typeof toolInput?.prompt === 'string' ? toolInput.prompt : undefined,
+      typeof toolInput?.task === 'string' ? toolInput.task : undefined,
+    ]
+
+    const match = candidates.find(
+      (candidate): candidate is string => typeof candidate === 'string' && candidate.trim().length > 0
+    )
+
+    return match ?? `Task ${fallbackToolUseId ?? 'subagent'}`
+  }
+
+  private getSubagentRole(toolInput: Record<string, unknown> | undefined): string {
+    if (typeof toolInput?.subagent_type === 'string' && toolInput.subagent_type.trim().length > 0) {
+      return toolInput.subagent_type
+    }
+
+    return 'general-purpose'
+  }
+
+  private generateManagedSessionId(workspaceRootPath: string): string {
+    let sessionId = generateSessionId(workspaceRootPath)
+
+    while (this.sessions.has(sessionId)) {
+      sessionId = generateSessionId(workspaceRootPath)
+    }
+
+    return sessionId
+  }
+
+  private createManagedSubagentSession(
+    parent: ManagedSession,
+    sessionId: string,
+    delegationLabel: string,
+    agentRole: string
+  ): ManagedSession {
+    const now = Date.now()
+    const workspaceRootPath = parent.workspace.rootPath
+    const orchestratorSessionId = parent.orchestratorSessionId ?? parent.id
+
+    return {
+      id: sessionId,
+      workspace: parent.workspace,
+      agent: null,
+      messages: [],
+      isProcessing: false,
+      lastMessageAt: now,
+      streamingText: '',
+      processingGeneration: 0,
+      name: delegationLabel,
+      isFlagged: false,
+      permissionMode: parent.permissionMode,
+      sdkSessionId: undefined,
+      tokenUsage: undefined,
+      todoState: undefined,
+      lastReadMessageId: undefined,
+      hasUnread: false,
+      enabledSourceSlugs: parent.enabledSourceSlugs,
+      labels: parent.labels ? [...parent.labels] : undefined,
+      workingDirectory: parent.workingDirectory,
+      sdkCwd: getSessionStoragePath(workspaceRootPath, sessionId),
+      sharedUrl: undefined,
+      sharedId: undefined,
+      model: parent.model,
+      thinkingLevel: parent.thinkingLevel ?? DEFAULT_THINKING_LEVEL,
+      lastMessageRole: undefined,
+      lastFinalMessageId: undefined,
+      isAsyncOperationOngoing: false,
+      preview: delegationLabel,
+      createdAt: now,
+      messageCount: 0,
+      channel: parent.channel,
+      messageQueue: [],
+      backgroundShellCommands: new Map(),
+      messagesLoaded: true,
+      pendingAuthRequestId: undefined,
+      pendingAuthRequest: undefined,
+      lastSentMessage: undefined,
+      lastSentAttachments: undefined,
+      lastSentStoredAttachments: undefined,
+      lastSentOptions: undefined,
+      authRetryAttempted: false,
+      authRetryInProgress: false,
+      sessionKind: 'subagent',
+      parentSessionId: parent.id,
+      orchestratorSessionId,
+      agentRole,
+      delegatedBySessionId: parent.id,
+      delegationLabel,
+      subagentStatus: 'running',
+    }
+  }
+
+  private findExistingTaskChildSession(
+    parent: ManagedSession,
+    delegationLabel: string,
+    agentRole: string
+  ): ManagedSession | undefined {
+    const orchestratorSessionId = parent.orchestratorSessionId ?? parent.id
+
+    return Array.from(this.sessions.values()).find(session =>
+      session.id !== parent.id
+      && session.sessionKind === 'subagent'
+      && session.parentSessionId === parent.id
+      && session.orchestratorSessionId === orchestratorSessionId
+      && session.agentRole === agentRole
+      && session.delegationLabel === delegationLabel
+    )
+  }
+
+  private ensureTaskChildSession(
+    parent: ManagedSession,
+    toolUseId: string,
+    toolInput: Record<string, unknown> | undefined,
+    intent?: string
+  ): ManagedSession {
+    const linkageKey = this.getTaskChildSessionKey(parent.id, toolUseId)
+    const existingLinkedSessionId = this.taskChildSessions.get(linkageKey)
+    const delegationLabel = this.getDelegationLabel(toolInput, intent, toolUseId)
+    const agentRole = this.getSubagentRole(toolInput)
+    const orchestratorSessionId = parent.orchestratorSessionId ?? parent.id
+    let childSession = existingLinkedSessionId
+      ? this.sessions.get(existingLinkedSessionId)
+      : this.findExistingTaskChildSession(parent, delegationLabel, agentRole)
+    const shouldEmitSpawnedEvent = !this.taskChildSessions.has(linkageKey)
+
+    if (!childSession) {
+      childSession = this.createManagedSubagentSession(
+        parent,
+        this.generateManagedSessionId(parent.workspace.rootPath),
+        delegationLabel,
+        agentRole
+      )
+      this.sessions.set(childSession.id, childSession)
+    }
+
+    this.taskChildSessions.set(linkageKey, childSession.id)
+
+    const metadataChanged =
+      childSession.name !== delegationLabel
+      || childSession.preview !== delegationLabel
+      || childSession.sessionKind !== 'subagent'
+      || childSession.parentSessionId !== parent.id
+      || childSession.orchestratorSessionId !== orchestratorSessionId
+      || childSession.agentRole !== agentRole
+      || childSession.delegatedBySessionId !== parent.id
+      || childSession.delegationLabel !== delegationLabel
+
+    const statusChanged = childSession.subagentStatus !== 'running'
+
+    childSession.name = delegationLabel
+    childSession.preview = delegationLabel
+    childSession.lastMessageAt = Date.now()
+    childSession.sessionKind = 'subagent'
+    childSession.parentSessionId = parent.id
+    childSession.orchestratorSessionId = orchestratorSessionId
+    childSession.agentRole = agentRole
+    childSession.delegatedBySessionId = parent.id
+    childSession.delegationLabel = delegationLabel
+    childSession.subagentStatus = 'running'
+
+    if (metadataChanged || statusChanged || shouldEmitSpawnedEvent) {
+      this.persistSession(childSession)
+    }
+
+    if (shouldEmitSpawnedEvent) {
+      this.sendEvent({
+        type: 'subagent_spawned',
+        sessionId: parent.id,
+        childSessionId: childSession.id,
+        childSessionName: delegationLabel,
+        agentRole,
+        delegationLabel,
+        parentSessionId: parent.id,
+        orchestratorSessionId,
+      }, parent.workspace.id)
+    }
+
+    if (statusChanged || shouldEmitSpawnedEvent) {
+      this.sendEvent({
+        type: 'subagent_status_changed',
+        sessionId: parent.id,
+        childSessionId: childSession.id,
+        subagentStatus: 'running',
+      }, parent.workspace.id)
+    }
+
+    return childSession
+  }
+
+  private updateTaskChildSessionStatus(
+    parent: ManagedSession,
+    toolUseId: string,
+    subagentStatus: 'queued' | 'running' | 'completed' | 'failed'
+  ): void {
+    const linkageKey = this.getTaskChildSessionKey(parent.id, toolUseId)
+    const childSessionId = this.taskChildSessions.get(linkageKey)
+    if (!childSessionId) {
+      return
+    }
+
+    const childSession = this.sessions.get(childSessionId)
+    if (!childSession || childSession.subagentStatus === subagentStatus) {
+      return
+    }
+
+    childSession.subagentStatus = subagentStatus
+    childSession.lastMessageAt = Date.now()
+    this.persistSession(childSession)
+
+    this.sendEvent({
+      type: 'subagent_status_changed',
+      sessionId: parent.id,
+      childSessionId,
+      subagentStatus,
+    }, parent.workspace.id)
+  }
+
+  private clearTaskChildSessionLinks(sessionId: string): void {
+    for (const [key, childSessionId] of this.taskChildSessions.entries()) {
+      if (key.startsWith(`${sessionId}:`) || childSessionId === sessionId) {
+        this.taskChildSessions.delete(key)
+      }
+    }
   }
 
   /**
@@ -2418,6 +2657,7 @@ export class SessionManager {
 
     // Clean up session-scoped tool callbacks to prevent memory accumulation
     unregisterSessionScopedToolCallbacks(sessionId)
+    this.clearTaskChildSessionLinks(sessionId)
 
     // Dispose agent to clean up ConfigWatchers, event listeners, MCP connections
     if (managed.agent) {
@@ -3386,6 +3626,10 @@ To view this task's output:
         // Format tool input paths to relative for better readability
         const formattedToolInput = formatToolInputPaths(event.input)
 
+        if (event.toolName === 'Task') {
+          this.ensureTaskChildSession(managed, event.toolUseId, formattedToolInput, event.intent)
+        }
+
         // Resolve tool display metadata (icon, displayName) for skills/sources
         // Only resolve when we have input (second event for SDK dual-event pattern)
         const workspaceRootPath = managed.workspace.rootPath
@@ -3533,6 +3777,14 @@ To view this task's output:
             parentToolUseId,
             isError: event.isError,
           }, workspaceId)
+        }
+
+        if (toolName === 'Task') {
+          this.updateTaskChildSessionStatus(
+            managed,
+            event.toolUseId,
+            event.isError ? 'failed' : 'completed'
+          )
         }
 
         // Safety net: when a parent Task completes, mark all its still-pending child tools as completed.
