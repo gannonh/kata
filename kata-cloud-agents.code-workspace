@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../kata-cloud-agents.worktrees/wt-a"
+		},
+		{
+			"path": "../kata-cloud-agents.worktrees/wt-b"
+		},
+		{
+			"path": "../kata-cloud-agents.worktrees/wt-c"
+		},
+		{
+			"path": "../kata-cloud-agents.worktrees/wt-d"
+		}
+	],
+	"settings": {}
+}
