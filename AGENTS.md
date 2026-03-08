@@ -152,6 +152,15 @@ import type { Session, Message, AgentEvent } from '@craft-agent/core';
 - MCP servers can be stdio-based (local subprocess) or SSE-based (remote)
 - To reset window state (useful when debugging session display issues): `rm ~/.kata-agents/window-state.json`
 
+## Electron UAT Notes
+
+- Use `agent-browser` / Electron automation for targeted debugging, crash reproduction, and screenshots. Do not insist on owning the full live UAT loop when the human can test faster directly.
+- Prefer a fresh workspace for acceptance testing of session-tree and transcript-projection features. Reused workspaces can hide stale session state and make current behavior ambiguous.
+- Treat user-provided screenshots as high-signal evidence. In this app, screenshots have exposed state mismatches that were not obvious from remote automation alone.
+- For multi-agent orchestration, the critical correctness check is not just whether a child row renders. Opening a child chat must show the dispatched sub-agent's real transcript and tool history.
+- If a selected child chat renders empty or answers as if it has no prior context, treat that as a transcript hydration / binding bug, not a cosmetic UI issue.
+- When using live UAT with the user, let the user handle workspace switching inside the running app when that is faster or more reliable than automation.
+
 ## e2e Testing
 
 @apps/electron/e2e/README.md
