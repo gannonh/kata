@@ -545,8 +545,24 @@ export class SessionManager {
     return 'general-purpose'
   }
 
+  private getAuthoritativeDelegationLabel(
+    toolInput: Record<string, unknown> | undefined
+  ): string | undefined {
+    const candidates = [
+      typeof toolInput?.description === 'string' ? toolInput.description : undefined,
+      typeof toolInput?.prompt === 'string' ? toolInput.prompt : undefined,
+      typeof toolInput?.task === 'string' ? toolInput.task : undefined,
+    ]
+
+    return candidates.find(
+      (candidate): candidate is string => typeof candidate === 'string' && candidate.trim().length > 0
+    )
+  }
+
   private hasAuthoritativeTaskMetadata(toolInput: Record<string, unknown> | undefined): boolean {
-    return !!toolInput && Object.keys(toolInput).length > 0
+    return !!this.getAuthoritativeDelegationLabel(toolInput)
+      && typeof toolInput?.subagent_type === 'string'
+      && toolInput.subagent_type.trim().length > 0
   }
 
   private generateManagedSessionId(workspaceRootPath: string): string {
@@ -663,12 +679,17 @@ export class SessionManager {
       && childSession.agentRole.trim().length > 0
   }
 
-  private ensureTaskChildSession(
+  private async persistTaskChildSession(managed: ManagedSession): Promise<void> {
+    this.persistSession(managed)
+    await this.flushSession(managed.id)
+  }
+
+  private async ensureTaskChildSession(
     parent: ManagedSession,
     toolUseId: string,
     toolInput: Record<string, unknown> | undefined,
     intent?: string
-  ): ManagedSession {
+  ): Promise<ManagedSession> {
     const linkageKey = this.getTaskChildSessionKey(parent.id, toolUseId)
     const hasAuthoritativeMetadata = this.hasAuthoritativeTaskMetadata(toolInput)
     const delegationLabel = this.getDelegationLabel(toolInput, intent, toolUseId)
@@ -723,7 +744,7 @@ export class SessionManager {
     childSession.subagentStatus = 'running'
 
     if (didCreateChildSession || metadataChanged || statusChanged || shouldEmitSpawnedEvent) {
-      this.persistSession(childSession)
+      await this.persistTaskChildSession(childSession)
     }
 
     if (shouldEmitSpawnedEvent) {
@@ -751,11 +772,11 @@ export class SessionManager {
     return childSession
   }
 
-  private updateTaskChildSessionStatus(
+  private async updateTaskChildSessionStatus(
     parent: ManagedSession,
     toolUseId: string,
     subagentStatus: 'queued' | 'running' | 'completed' | 'failed'
-  ): void {
+  ): Promise<void> {
     const childSession = this.resolveTaskChildSession(parent, toolUseId)
     if (!childSession) {
       return
@@ -767,7 +788,7 @@ export class SessionManager {
 
     childSession.subagentStatus = subagentStatus
     childSession.lastMessageAt = Date.now()
-    this.persistSession(childSession)
+    await this.persistTaskChildSession(childSession)
 
     this.sendEvent({
       type: 'subagent_status_changed',
@@ -3110,7 +3131,7 @@ export class SessionManager {
         }
 
         // Process the event first
-        this.processEvent(managed, event)
+        await this.processEvent(managed, event)
 
         // Fallback: Capture SDK session ID if the onSdkSessionIdUpdate callback didn't fire.
         // Primary capture happens in getOrCreateAgent() via onSdkSessionIdUpdate callback,
@@ -3612,7 +3633,7 @@ To view this task's output:
     }
   }
 
-  private processEvent(managed: ManagedSession, event: AgentEvent): void {
+  private async processEvent(managed: ManagedSession, event: AgentEvent): Promise<void> {
     const sessionId = managed.id
     const workspaceId = managed.workspace.id
 
@@ -3662,7 +3683,7 @@ To view this task's output:
         const formattedToolInput = formatToolInputPaths(event.input)
 
         if (event.toolName === 'Task') {
-          this.ensureTaskChildSession(managed, event.toolUseId, formattedToolInput, event.intent)
+          await this.ensureTaskChildSession(managed, event.toolUseId, formattedToolInput, event.intent)
         }
 
         // Resolve tool display metadata (icon, displayName) for skills/sources
@@ -3815,7 +3836,7 @@ To view this task's output:
         }
 
         if (toolName === 'Task') {
-          this.updateTaskChildSessionStatus(
+          await this.updateTaskChildSessionStatus(
             managed,
             event.toolUseId,
             event.isError ? 'failed' : 'completed'

@@ -269,7 +269,7 @@ test('subagent_spawned event carries enough data to create a child session', () 
   expect(event.childSessionId).toBe('260308-child-a')
 })
 
-test('Task lifecycle creates a child session once and emits child session status changes', () => {
+test('Task lifecycle creates a child session once and emits child session status changes', async () => {
   const manager = new SessionManager() as any
   const rootSession = createManagedSession()
   const sessionEvents: SessionEvent[] = []
@@ -280,7 +280,7 @@ test('Task lifecycle creates a child session once and emits child session status
     sessionEvents.push(event)
   }
 
-  manager.processEvent(rootSession, {
+  await manager.processEvent(rootSession, {
     type: 'tool_start',
     toolName: 'Task',
     toolUseId: 'toolu-task-a',
@@ -331,7 +331,7 @@ test('Task lifecycle creates a child session once and emits child session status
     },
   ])
 
-  manager.processEvent(rootSession, {
+  await manager.processEvent(rootSession, {
     type: 'tool_start',
     toolName: 'Task',
     toolUseId: 'toolu-task-a',
@@ -344,7 +344,7 @@ test('Task lifecycle creates a child session once and emits child session status
 
   expect(sessionEvents.filter(event => event.type === 'subagent_spawned')).toHaveLength(1)
 
-  manager.processEvent(rootSession, {
+  await manager.processEvent(rootSession, {
     type: 'tool_result',
     toolUseId: 'toolu-task-a',
     toolName: 'Task',
@@ -362,7 +362,7 @@ test('Task lifecycle creates a child session once and emits child session status
   })
 })
 
-test('Task lifecycle waits for populated Task metadata before emitting subagent_spawned', () => {
+test('Task lifecycle waits for authoritative Task metadata before emitting subagent_spawned', async () => {
   const manager = new SessionManager() as any
   const rootSession = createManagedSession()
   const sessionEvents: SessionEvent[] = []
@@ -373,11 +373,13 @@ test('Task lifecycle waits for populated Task metadata before emitting subagent_
     sessionEvents.push(event)
   }
 
-  manager.processEvent(rootSession, {
+  await manager.processEvent(rootSession, {
     type: 'tool_start',
     toolName: 'Task',
-    toolUseId: 'toolu-task-empty-first',
-    input: {},
+    toolUseId: 'toolu-task-partial-first',
+    input: {
+      description: 'Explore workspace sources',
+    },
     turnId: 'turn-1',
   })
 
@@ -388,10 +390,10 @@ test('Task lifecycle waits for populated Task metadata before emitting subagent_
   expect(sessionEvents.filter(event => event.type === 'subagent_spawned')).toHaveLength(0)
   expect(sessionEvents.filter(event => event.type === 'subagent_status_changed')).toHaveLength(0)
 
-  manager.processEvent(rootSession, {
+  await manager.processEvent(rootSession, {
     type: 'tool_start',
     toolName: 'Task',
-    toolUseId: 'toolu-task-empty-first',
+    toolUseId: 'toolu-task-partial-first',
     input: {
       description: 'Explore workspace sources',
       subagent_type: 'Explore',
@@ -406,7 +408,7 @@ test('Task lifecycle waits for populated Task metadata before emitting subagent_
   expect(childSessions[0]).toMatchObject({
     name: 'Explore workspace sources',
     agentRole: 'Explore',
-    delegatedToolUseId: 'toolu-task-empty-first',
+    delegatedToolUseId: 'toolu-task-partial-first',
     delegationLabel: 'Explore workspace sources',
     subagentStatus: 'running',
   })
@@ -432,7 +434,7 @@ test('Task lifecycle waits for populated Task metadata before emitting subagent_
   ])
 })
 
-test('Task lifecycle scopes child session hydration to parent session and toolUseId', () => {
+test('Task lifecycle scopes child session hydration to parent session and toolUseId', async () => {
   const manager = new SessionManager() as any
   const rootSession = createManagedSession()
   const sessionEvents: SessionEvent[] = []
@@ -448,7 +450,7 @@ test('Task lifecycle scopes child session hydration to parent session and toolUs
     subagent_type: 'Explore',
   }
 
-  manager.processEvent(rootSession, {
+  await manager.processEvent(rootSession, {
     type: 'tool_start',
     toolName: 'Task',
     toolUseId: 'toolu-task-a',
@@ -456,7 +458,7 @@ test('Task lifecycle scopes child session hydration to parent session and toolUs
     turnId: 'turn-1',
   })
 
-  manager.processEvent(rootSession, {
+  await manager.processEvent(rootSession, {
     type: 'tool_start',
     toolName: 'Task',
     toolUseId: 'toolu-task-b',
@@ -492,7 +494,7 @@ test('Task lifecycle scopes child session hydration to parent session and toolUs
   ])
 })
 
-test('Task lifecycle does not re-emit subagent_spawned for a persisted child after restart', () => {
+test('Task lifecycle does not re-emit subagent_spawned for a persisted child after restart', async () => {
   const manager = new SessionManager() as any
   const rootSession = createManagedSession()
   const childSession = createManagedChildSession(rootSession.id, 'toolu-task-a')
@@ -507,7 +509,7 @@ test('Task lifecycle does not re-emit subagent_spawned for a persisted child aft
     sessionEvents.push(event)
   }
 
-  manager.processEvent(rootSession, {
+  await manager.processEvent(rootSession, {
     type: 'tool_start',
     toolName: 'Task',
     toolUseId: 'toolu-task-a',
@@ -528,7 +530,7 @@ test('Task lifecycle does not re-emit subagent_spawned for a persisted child aft
   expect(manager.taskChildSessions.get(`${rootSession.id}:toolu-task-a`)).toBe(childSession.id)
 })
 
-test('Task lifecycle restores terminal child status from persisted linkage when only tool_result arrives', () => {
+test('Task lifecycle restores terminal child status from persisted linkage when only tool_result arrives', async () => {
   const manager = new SessionManager() as any
   const rootSession = createManagedSession()
   const completedChild = createManagedChildSession(rootSession.id, 'toolu-task-complete', '260308-child-complete')
@@ -545,7 +547,7 @@ test('Task lifecycle restores terminal child status from persisted linkage when 
     sessionEvents.push(event)
   }
 
-  manager.processEvent(rootSession, {
+  await manager.processEvent(rootSession, {
     type: 'tool_result',
     toolUseId: 'toolu-task-complete',
     toolName: 'Task',
@@ -554,7 +556,7 @@ test('Task lifecycle restores terminal child status from persisted linkage when 
     turnId: 'turn-1',
   })
 
-  manager.processEvent(rootSession, {
+  await manager.processEvent(rootSession, {
     type: 'tool_result',
     toolUseId: 'toolu-task-fail',
     toolName: 'Task',
@@ -579,4 +581,44 @@ test('Task lifecycle restores terminal child status from persisted linkage when 
     childSessionId: failedChild.id,
     subagentStatus: 'failed',
   })
+})
+
+test('Task lifecycle flushes child session persistence before emitting child-session events', async () => {
+  const manager = new SessionManager() as any
+  const rootSession = createManagedSession()
+  const callOrder: string[] = []
+
+  manager.sessions = new Map([[rootSession.id, rootSession]])
+  manager.persistSession = () => {
+    callOrder.push('persist')
+  }
+  manager.flushSession = async () => {
+    callOrder.push('flush:start')
+    await Promise.resolve()
+    callOrder.push('flush:end')
+  }
+  manager.sendEvent = (event: SessionEvent) => {
+    callOrder.push(`event:${event.type}`)
+  }
+
+  await manager.processEvent(rootSession, {
+    type: 'tool_start',
+    toolName: 'Task',
+    toolUseId: 'toolu-task-flush',
+    input: {
+      description: 'Explore workspace sources',
+      subagent_type: 'Explore',
+    },
+    turnId: 'turn-1',
+  })
+
+  const spawnEventIndex = callOrder.indexOf('event:subagent_spawned')
+  const runningEventIndex = callOrder.indexOf('event:subagent_status_changed')
+
+  expect(callOrder).toContain('flush:start')
+  expect(callOrder).toContain('flush:end')
+  expect(spawnEventIndex).toBeGreaterThan(-1)
+  expect(runningEventIndex).toBeGreaterThan(-1)
+  expect(callOrder.indexOf('flush:end')).toBeLessThan(spawnEventIndex)
+  expect(callOrder.indexOf('flush:end')).toBeLessThan(runningEventIndex)
 })
