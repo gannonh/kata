@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { formatDistanceToNow, formatDistanceToNowStrict, isToday, isYesterday, format, startOfDay } from "date-fns"
 import type { Locale } from "date-fns"
-import { MoreHorizontal, Flag, Search, X, Copy, Link2Off, CloudUpload, Globe, RefreshCw, Inbox, Hash, MessageCircle, Radio } from "lucide-react"
+import { MoreHorizontal, Flag, Search, X, Copy, Link2Off, CloudUpload, Globe, RefreshCw, Inbox, Hash, MessageCircle, Radio, CornerDownRight } from "lucide-react"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
@@ -50,6 +50,7 @@ import { useNavigation, useNavigationState, routes, isChatsNavigation } from "@/
 import { useFocusContext } from "@/context/FocusContext"
 import { getSessionTitle } from "@/utils/session"
 import type { SessionMeta } from "@/atoms/sessions"
+import type { SessionListItem } from "@/lib/session-tree"
 import type { ViewConfig } from "@craft-agent/shared/views"
 import { PERMISSION_MODE_CONFIG, type PermissionMode } from "@craft-agent/shared/agent/modes"
 
@@ -88,11 +89,11 @@ function formatDateHeader(date: Date): string {
  * Group sessions by date (day boundary)
  * Returns array of { date, sessions } sorted by date descending
  */
-function groupSessionsByDate(sessions: SessionMeta[]): Array<{ date: Date; label: string; sessions: SessionMeta[] }> {
-  const groups = new Map<string, { date: Date; sessions: SessionMeta[] }>()
+function groupSessionsByDate(sessions: SessionListItem[]): Array<{ date: Date; label: string; sessions: SessionListItem[] }> {
+  const groups = new Map<string, { date: Date; sessions: SessionListItem[] }>()
 
   for (const session of sessions) {
-    const timestamp = session.lastMessageAt || 0
+    const timestamp = session.rootLastMessageAt ?? session.lastMessageAt ?? 0
     const date = startOfDay(new Date(timestamp))
     const key = date.toISOString()
 
@@ -164,7 +165,7 @@ function highlightMatch(text: string, query: string): React.ReactNode {
 }
 
 interface SessionItemProps {
-  item: SessionMeta
+  item: SessionListItem
   index: number
   itemProps: {
     id: string
@@ -178,7 +179,7 @@ interface SessionItemProps {
   isSelected: boolean
   isLast: boolean
   isFirstInGroup: boolean
-  onKeyDown: (e: React.KeyboardEvent, item: SessionMeta) => void
+  onKeyDown: (e: React.KeyboardEvent, item: SessionListItem) => void
   onRenameClick: (sessionId: string, currentName: string) => void
   onTodoStateChange: (sessionId: string, state: TodoStateId) => void
   onFlag?: (sessionId: string) => void
@@ -244,6 +245,8 @@ function SessionItem({
   const [todoMenuOpen, setTodoMenuOpen] = useState(false)
   // Tracks which label badge's LabelValuePopover is open (by index), null = all closed
   const [openLabelIndex, setOpenLabelIndex] = useState<number | null>(null)
+  const isNestedChild = item.depth > 0 || item.sessionKind === 'subagent'
+  const indentPx = isNestedChild ? 20 : 0
 
   // Get current todo state from session properties
   const currentTodoState = getSessionTodoState(item)
@@ -283,56 +286,62 @@ function SessionItem({
     >
       {/* Separator - only show if not first in group */}
       {!isFirstInGroup && (
-        <div className="session-separator pl-12 pr-4">
+        <div className="session-separator pr-4" style={{ paddingLeft: 48 + indentPx }}>
           <Separator />
         </div>
       )}
       {/* Wrapper for button + dropdown + context menu, group for hover state */}
       <ContextMenu modal={true} onOpenChange={setContextMenuOpen}>
         <ContextMenuTrigger asChild>
-          <div className="session-content relative group select-none pl-2 mr-2">
+          <div className="session-content relative group select-none pl-2 mr-2" style={{ paddingLeft: 8 + indentPx }}>
         {/* Todo State Icon - positioned absolutely, outside the button */}
-        <Popover modal={true} open={todoMenuOpen} onOpenChange={setTodoMenuOpen}>
-          <PopoverTrigger asChild>
-            <div className="absolute left-4 top-3.5 z-10">
-              <div
-                className={cn(
-                  "w-4 h-4 flex items-center justify-center rounded-full transition-colors cursor-pointer",
-                  "hover:bg-foreground/5",
-                )}
-                style={{ color: getStateColor(currentTodoState, todoStates) ?? 'var(--foreground)' }}
-                role="button"
-                aria-haspopup="menu"
-                aria-expanded={todoMenuOpen}
-                aria-label="Change todo state"
-                onContextMenu={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                }}
-              >
-                <div className="w-4 h-4 flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>img]:w-full [&>img]:h-full [&>span]:text-base">
-                  {getStateIcon(currentTodoState, todoStates)}
+        {isNestedChild ? (
+          <div className="absolute left-4 top-3.5 z-10 flex items-center text-foreground/35">
+            <CornerDownRight className="w-3.5 h-3.5" />
+          </div>
+        ) : (
+          <Popover modal={true} open={todoMenuOpen} onOpenChange={setTodoMenuOpen}>
+            <PopoverTrigger asChild>
+              <div className="absolute left-4 top-3.5 z-10">
+                <div
+                  className={cn(
+                    "w-4 h-4 flex items-center justify-center rounded-full transition-colors cursor-pointer",
+                    "hover:bg-foreground/5",
+                  )}
+                  style={{ color: getStateColor(currentTodoState, todoStates) ?? 'var(--foreground)' }}
+                  role="button"
+                  aria-haspopup="menu"
+                  aria-expanded={todoMenuOpen}
+                  aria-label="Change todo state"
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }}
+                >
+                  <div className="w-4 h-4 flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>img]:w-full [&>img]:h-full [&>span]:text-base">
+                    {getStateIcon(currentTodoState, todoStates)}
+                  </div>
                 </div>
               </div>
-            </div>
-          </PopoverTrigger>
-          <PopoverContent
-            className="w-auto p-0 border-0 shadow-none bg-transparent"
-            align="start"
-            side="bottom"
-            sideOffset={4}
-            onContextMenu={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-            }}
-          >
-            <TodoStateMenu
-              activeState={currentTodoState}
-              onSelect={handleTodoStateSelect}
-              states={todoStates}
-            />
-          </PopoverContent>
-        </Popover>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-auto p-0 border-0 shadow-none bg-transparent"
+              align="start"
+              side="bottom"
+              sideOffset={4}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+              }}
+            >
+              <TodoStateMenu
+                activeState={currentTodoState}
+                onSelect={handleTodoStateSelect}
+                states={todoStates}
+              />
+            </PopoverContent>
+          </Popover>
+        )}
         {/* Main content button */}
         <button
           {...itemProps}
@@ -577,9 +586,10 @@ function SessionItem({
                     hasUnreadMessages={hasUnreadMessages(item)}
                     currentTodoState={currentTodoState}
                     todoStates={todoStates}
-                    sessionLabels={item.labels ?? []}
-                    labels={labels}
-                    onLabelsChange={onLabelsChange ? (newLabels) => onLabelsChange(item.id, newLabels) : undefined}
+                    sessionLabels={isNestedChild ? [] : (item.labels ?? [])}
+                    labels={isNestedChild ? [] : labels}
+                    onLabelsChange={isNestedChild ? undefined : (onLabelsChange ? (newLabels) => onLabelsChange(item.id, newLabels) : undefined)}
+                    showWorkflowControls={!isNestedChild}
                     onRename={() => onRenameClick(item.id, getSessionTitle(item))}
                     onFlag={() => onFlag?.(item.id)}
                     onUnflag={() => onUnflag?.(item.id)}
@@ -607,9 +617,10 @@ function SessionItem({
               hasUnreadMessages={hasUnreadMessages(item)}
               currentTodoState={currentTodoState}
               todoStates={todoStates}
-              sessionLabels={item.labels ?? []}
-              labels={labels}
-              onLabelsChange={onLabelsChange ? (newLabels) => onLabelsChange(item.id, newLabels) : undefined}
+              sessionLabels={isNestedChild ? [] : (item.labels ?? [])}
+              labels={isNestedChild ? [] : labels}
+              onLabelsChange={isNestedChild ? undefined : (onLabelsChange ? (newLabels) => onLabelsChange(item.id, newLabels) : undefined)}
+              showWorkflowControls={!isNestedChild}
               onRename={() => onRenameClick(item.id, getSessionTitle(item))}
               onFlag={() => onFlag?.(item.id)}
               onUnflag={() => onUnflag?.(item.id)}
@@ -640,7 +651,7 @@ function DateHeader({ label }: { label: string }) {
 }
 
 interface SessionListProps {
-  items: SessionMeta[]
+  items: SessionListItem[]
   onDelete: (sessionId: string, skipConfirmation?: boolean) => Promise<boolean>
   onFlag?: (sessionId: string) => void
   onUnflag?: (sessionId: string) => void
@@ -650,7 +661,7 @@ interface SessionListProps {
   /** Called when Enter is pressed to focus chat input */
   onFocusChatInput?: () => void
   /** Called when a session is selected */
-  onSessionSelect?: (session: SessionMeta) => void
+  onSessionSelect?: (session: SessionListItem) => void
   /** Called when user wants to open a session in a new window */
   onOpenInNewWindow?: (session: SessionMeta) => void
   /** Called to navigate to a specific view (e.g., 'allChats', 'flagged') */
@@ -738,9 +749,13 @@ export function SessionList({
   }, [searchActive])
 
   // Sort by most recent activity first
-  const sortedItems = [...items].sort((a, b) =>
-    (b.lastMessageAt || 0) - (a.lastMessageAt || 0)
-  )
+  const sortedItems = [...items].sort((a, b) => {
+    const timestampDiff = (b.rootLastMessageAt ?? b.lastMessageAt ?? 0) - (a.rootLastMessageAt ?? a.lastMessageAt ?? 0)
+    if (timestampDiff !== 0) {
+      return timestampDiff
+    }
+    return a.treeIndex - b.treeIndex
+  })
 
   // Filter items by search query — matches title, label names, and label values.
   // '#' characters are stripped when matching labels (so "#bug" finds label "bug").
@@ -749,20 +764,25 @@ export function SessionList({
     if (!searchQuery.trim()) return sortedItems
     const query = searchQuery.toLowerCase()
     const labelQuery = query.replace(/#/g, '')
-    return sortedItems.filter(item => {
-      if (getSessionTitle(item).toLowerCase().includes(query)) return true
-      // Bare '#' (no text after stripping) matches any session with labels
-      if (!labelQuery && item.labels && item.labels.length > 0) return true
-      // Match against label names and values (with # stripped)
-      if (labelQuery && item.labels?.some(entry => {
-        const parsed = parseLabelEntry(entry)
-        const config = flatLabels.find(l => l.id === parsed.id)
-        if (config?.name.toLowerCase().includes(labelQuery)) return true
-        if (parsed.rawValue?.toLowerCase().includes(labelQuery)) return true
-        return false
-      })) return true
-      return false
-    })
+    const matchingRootIds = new Set<string>()
+
+    for (const item of sortedItems) {
+      const matches = getSessionTitle(item).toLowerCase().includes(query)
+        || (!labelQuery && !!item.labels?.length)
+        || (!!labelQuery && !!item.labels?.some(entry => {
+          const parsed = parseLabelEntry(entry)
+          const config = flatLabels.find(l => l.id === parsed.id)
+          if (config?.name.toLowerCase().includes(labelQuery)) return true
+          if (parsed.rawValue?.toLowerCase().includes(labelQuery)) return true
+          return false
+        }))
+
+      if (matches) {
+        matchingRootIds.add(item.rootSessionId)
+      }
+    }
+
+    return sortedItems.filter(item => matchingRootIds.has(item.rootSessionId))
   }, [sortedItems, searchQuery, flatLabels])
 
   // Reset display limit when search query changes
@@ -825,7 +845,7 @@ export function SessionList({
   const { zoneRef, isFocused } = useFocusZone({ zoneId: 'session-list' })
 
   // Handle session selection (immediate on arrow navigation)
-  const handleActiveChange = useCallback((item: SessionMeta) => {
+  const handleActiveChange = useCallback((item: SessionListItem) => {
     // Navigate using view routes to preserve filter context
     if (!currentFilter || currentFilter.kind === 'allChats') {
       navigate(routes.view.allChats(item.id))
@@ -908,7 +928,7 @@ export function SessionList({
   }, [isFocused, focusActiveItem, flatItems.length, searchActive])
 
   // Arrow key shortcuts for zone navigation
-  const handleKeyDown = useCallback((e: React.KeyboardEvent, _item: SessionMeta) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent, _item: SessionListItem) => {
     if (e.key === 'ArrowLeft') {
       e.preventDefault()
       focusZone('sidebar')
@@ -1100,4 +1120,3 @@ export function SessionList({
     </>
   )
 }
-

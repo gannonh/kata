@@ -67,6 +67,8 @@ export interface SessionMenuProps {
   labels?: LabelConfig[]
   /** Callback when labels are toggled (receives full updated labels array) */
   onLabelsChange?: (labels: string[]) => void
+  /** Whether status + labels workflow controls should be shown */
+  showWorkflowControls?: boolean
   /** Callbacks */
   onRename: () => void
   onFlag: () => void
@@ -93,6 +95,7 @@ export function SessionMenu({
   sessionLabels = [],
   labels = [],
   onLabelsChange,
+  showWorkflowControls = true,
   onRename,
   onFlag,
   onUnflag,
@@ -227,65 +230,66 @@ export function SessionMenu({
       )}
       <Separator />
 
-      {/* Status submenu - includes all statuses plus Flag/Unflag at the bottom */}
-      <Sub>
-        <SubTrigger className="pr-2">
-          <span style={{ color: getStateColor(currentTodoState, todoStates) ?? 'var(--foreground)' }}>
-            {(() => {
-              const icon = getStateIcon(currentTodoState, todoStates)
-              return React.isValidElement(icon)
-                ? React.cloneElement(icon as React.ReactElement<{ bare?: boolean }>, { bare: true })
-                : icon
-            })()}
-          </span>
-          <span className="flex-1">Status</span>
-        </SubTrigger>
-        <SubContent>
-          {todoStates.map((state) => {
-            // Only apply color if icon is colorable (uses currentColor)
-            const applyColor = state.iconColorable
-            // Clone icon with bare prop to render without EntityIcon container
-            const bareIcon = React.isValidElement(state.icon)
-              ? React.cloneElement(state.icon as React.ReactElement<{ bare?: boolean }>, { bare: true })
-              : state.icon
-            return (
-              <MenuItem
-                key={state.id}
-                onClick={() => onTodoStateChange(state.id)}
-                className={currentTodoState === state.id ? 'bg-foreground/5' : ''}
-              >
-                <span style={applyColor ? { color: state.resolvedColor } : undefined}>
-                  {bareIcon}
-                </span>
-                <span className="flex-1">{state.label}</span>
-              </MenuItem>
-            )
-          })}
-
-        </SubContent>
-      </Sub>
-
-      {/* Labels submenu - hierarchical label tree with nested sub-menus and toggle checkmarks */}
-      {labels.length > 0 && (
-        <Sub>
-          <SubTrigger className="pr-2">
-            <Tag className="h-3.5 w-3.5" />
-            <span className="flex-1">Labels</span>
-            {sessionLabels.length > 0 && (
-              <span className="text-[10px] text-muted-foreground tabular-nums -mr-2.5">
-                {sessionLabels.length}
+      {showWorkflowControls && (
+        <>
+          {/* Status submenu - includes all statuses plus Flag/Unflag at the bottom */}
+          <Sub>
+            <SubTrigger className="pr-2">
+              <span style={{ color: getStateColor(currentTodoState, todoStates) ?? 'var(--foreground)' }}>
+                {(() => {
+                  const icon = getStateIcon(currentTodoState, todoStates)
+                  return React.isValidElement(icon)
+                    ? React.cloneElement(icon as React.ReactElement<{ bare?: boolean }>, { bare: true })
+                    : icon
+                })()}
               </span>
-            )}
-          </SubTrigger>
-          <SubContent>
-            <LabelMenuItems
-              labels={labels}
-              appliedLabelIds={appliedLabelIds}
-              onToggle={handleLabelToggle}
-              menu={{ MenuItem, Separator, Sub, SubTrigger, SubContent }}
-            />
-          </SubContent>
-        </Sub>
+              <span className="flex-1">Status</span>
+            </SubTrigger>
+            <SubContent>
+              {todoStates.map((state) => {
+                const applyColor = state.iconColorable
+                const bareIcon = React.isValidElement(state.icon)
+                  ? React.cloneElement(state.icon as React.ReactElement<{ bare?: boolean }>, { bare: true })
+                  : state.icon
+                return (
+                  <MenuItem
+                    key={state.id}
+                    onClick={() => onTodoStateChange(state.id)}
+                    className={currentTodoState === state.id ? 'bg-foreground/5' : ''}
+                  >
+                    <span style={applyColor ? { color: state.resolvedColor } : undefined}>
+                      {bareIcon}
+                    </span>
+                    <span className="flex-1">{state.label}</span>
+                  </MenuItem>
+                )
+              })}
+            </SubContent>
+          </Sub>
+
+          {/* Labels submenu - hierarchical label tree with nested sub-menus and toggle checkmarks */}
+          {labels.length > 0 && (
+            <Sub>
+              <SubTrigger className="pr-2">
+                <Tag className="h-3.5 w-3.5" />
+                <span className="flex-1">Labels</span>
+                {sessionLabels.length > 0 && (
+                  <span className="text-[10px] text-muted-foreground tabular-nums -mr-2.5">
+                    {sessionLabels.length}
+                  </span>
+                )}
+              </SubTrigger>
+              <SubContent>
+                <LabelMenuItems
+                  labels={labels}
+                  appliedLabelIds={appliedLabelIds}
+                  onToggle={handleLabelToggle}
+                  menu={{ MenuItem, Separator, Sub, SubTrigger, SubContent }}
+                />
+              </SubContent>
+            </Sub>
+          )}
+        </>
       )}
 
       {/* Flag/Unflag */}

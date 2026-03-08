@@ -60,6 +60,7 @@ import {
   DEFAULT_NAVIGATION_STATE,
 } from '../../shared/types'
 import { sessionMetaMapAtom, updateSessionMetaAtom, type SessionMeta } from '@/atoms/sessions'
+import { getTopLevelSessions } from '@/lib/session-tree'
 import { sourcesAtom } from '@/atoms/sources'
 import { skillsAtom } from '@/atoms/skills'
 
@@ -156,7 +157,7 @@ export function NavigationProvider({
   // Helper: Filter sessions by ChatFilter (scoped to active workspace)
   const filterSessionsByFilter = useCallback(
     (filter: ChatFilter): SessionMeta[] => {
-      return sessionMetas.filter((session) => {
+      return getTopLevelSessions(sessionMetas).filter((session) => {
         // Scope to active workspace to prevent cross-workspace session leaking
         if (workspaceId && session.workspaceId !== workspaceId) return false
         switch (filter.kind) {
