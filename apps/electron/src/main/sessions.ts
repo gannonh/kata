@@ -58,6 +58,7 @@ import { evaluateAutoLabels } from '@craft-agent/shared/labels/auto'
 import { listLabels } from '@craft-agent/shared/labels/storage'
 import { extractLabelId } from '@craft-agent/shared/labels'
 import { getGitStatus, getPrStatus } from '@craft-agent/shared/git'
+import { buildSubagentContinuationContext, mergeSubagentTranscript, projectSubagentTranscript } from '../shared/subagent-transcript'
 import {
   managedSessionToRendererHierarchy,
   managedSessionToStoredHierarchy,
@@ -3051,6 +3052,11 @@ export class SessionManager {
     const agent = await this.getOrCreateAgent(managed)
     sendSpan.mark('agent.ready')
 
+    let agentMessage = message
+    if (managed.sessionKind === 'subagent') {
+      agentMessage = await this.buildSubagentContinuationPrompt(managed, message)
+    }
+
     // Always set all sources for context (even if none are enabled), including built-ins
     const workspaceRootPath = managed.workspace.rootPath
     const allSources = loadAllSources(workspaceRootPath)
@@ -3083,7 +3089,7 @@ export class SessionManager {
     try {
       sessionLog.info('Starting chat for session:', sessionId)
       sessionLog.info('Workspace:', JSON.stringify(managed.workspace, null, 2))
-      sessionLog.info('Message:', message)
+      sessionLog.info('Message:', agentMessage)
       sessionLog.info('Agent model:', agent.getModel())
       sessionLog.info('process.cwd():', process.cwd())
 
@@ -3125,7 +3131,7 @@ export class SessionManager {
       // to qualify short names. No transformation needed here.
 
       sendSpan.mark('chat.starting')
-      const chatIterator = agent.chat(message, attachments)
+      const chatIterator = agent.chat(agentMessage, attachments)
       sessionLog.info('Got chat iterator, starting iteration...')
 
       for await (const event of chatIterator) {
@@ -3256,6 +3262,33 @@ export class SessionManager {
         this.onProcessingStopped(sessionId, 'interrupted')
       }
     }
+  }
+
+  private async buildSubagentContinuationPrompt(
+    managed: ManagedSession,
+    userMessage: string
+  ): Promise<string> {
+    const parentSessionId = managed.parentSessionId
+    const delegatedToolUseId = managed.delegatedToolUseId
+
+    if (!parentSessionId || !delegatedToolUseId) {
+      return userMessage
+    }
+
+    const parentSession = this.sessions.get(parentSessionId)
+    if (parentSession) {
+      await this.ensureMessagesLoaded(parentSession)
+    }
+
+    const projectedMessages = projectSubagentTranscript(parentSession?.messages ?? [], delegatedToolUseId)
+    const transcript = mergeSubagentTranscript(projectedMessages, managed.messages)
+    const contextBlock = buildSubagentContinuationContext({
+      agentRole: managed.agentRole,
+      delegationLabel: managed.delegationLabel,
+      transcript,
+    })
+
+    return contextBlock ? `${contextBlock}\n\n${userMessage}` : userMessage
   }
 
   async cancelProcessing(sessionId: string, silent = false): Promise<void> {

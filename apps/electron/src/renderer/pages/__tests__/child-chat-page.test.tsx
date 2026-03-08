@@ -1,6 +1,7 @@
 import { expect, mock, test } from 'bun:test'
 
 import type { Session } from '../../../shared/types'
+import { finalizeTurnsForIdleSession, groupMessagesByTurn } from '@craft-agent/ui'
 
 const loadedSessionsAtom = Symbol('loadedSessionsAtom')
 const sessionMetaMapAtom = Symbol('sessionMetaMapAtom')
@@ -10,7 +11,7 @@ const sendMessageCalls: Array<{ sessionId: string; message: string }> = []
 const sessionMenuPropsHistory: any[] = []
 const chatDisplayPropsHistory: any[] = []
 
-let currentSession: Session | null = null
+let currentSessions = new Map<string, Session>()
 let currentSessionMeta: Map<string, { id: string; workspaceId: string; name?: string; isFlagged?: boolean; lastMessageAt?: number }> = new Map()
 let currentLoadedSessions = new Set<string>()
 
@@ -209,7 +210,7 @@ mock.module('@/context/AppShellContext', () => ({
     }
   },
   useSession() {
-    return currentSession
+    return currentSessions.get(arguments[0]) ?? null
   },
 }))
 
@@ -259,42 +260,61 @@ function createSession(overrides: Partial<Session> = {}): Session {
   }
 }
 
-function renderChatPage(session: Session) {
-  currentSession = session
-  currentSessionMeta = new Map([[session.id, {
+function renderChatPage(activeSession: Session, sessions: Session[] = [activeSession]) {
+  currentSessions = new Map(sessions.map(session => [session.id, session]))
+  currentSessionMeta = new Map(sessions.map(session => [session.id, {
     id: session.id,
     workspaceId: session.workspaceId,
     name: session.name,
     isFlagged: session.isFlagged,
     lastMessageAt: session.lastMessageAt,
-  }]])
-  currentLoadedSessions = new Set([session.id])
+  }]))
+  currentLoadedSessions = new Set(sessions.map(session => session.id))
   sessionMenuPropsHistory.length = 0
   chatDisplayPropsHistory.length = 0
   sendMessageCalls.length = 0
 
-  return ChatPage({ sessionId: session.id })
+  return ChatPage({ sessionId: activeSession.id })
 }
 
-test('child chat pages use the child transcript, send follow-ups to the child session, and hide workflow controls', () => {
+test('child chat pages project the delegated transcript into the child pane, send follow-ups to the child session, and hide workflow controls', () => {
+  const parentSession = createSession({
+    id: '260308-root',
+    name: 'Coordinator',
+    sessionKind: 'orchestrator',
+    messages: [
+      { id: 'task-1', role: 'tool', content: 'Inspect workspace files', timestamp: 1, toolName: 'Task', toolUseId: 'toolu-task-a', toolStatus: 'completed' },
+      { id: 'tool-1', role: 'tool', content: 'ls -la\nfoobar.txt', timestamp: 2, toolName: 'Terminal', toolUseId: 'toolu-shell-a', toolStatus: 'completed', parentToolUseId: 'toolu-task-a' },
+      { id: 'tool-2', role: 'tool', content: 'Found foobar in workspace', timestamp: 3, toolName: 'Read', toolUseId: 'toolu-read-a', toolStatus: 'completed', parentToolUseId: 'toolu-task-a' },
+    ],
+  })
   const childSession = createSession({
     id: '260308-child-a',
     name: 'Explore workspace sources',
     sessionKind: 'subagent',
     parentSessionId: '260308-root',
     orchestratorSessionId: '260308-root',
-    messages: [
-      { id: 'assistant-1', role: 'assistant', content: 'I found the sources.', timestamp: 1 },
-    ],
+    delegatedToolUseId: 'toolu-task-a',
+    messages: [],
   })
 
-  renderChatPage(childSession)
+  renderChatPage(childSession, [childSession, parentSession])
 
   const chatDisplayProps = chatDisplayPropsHistory.at(-1)
   const sessionMenuProps = sessionMenuPropsHistory.at(-1)
 
   expect(chatDisplayProps.session.id).toBe(childSession.id)
-  expect(chatDisplayProps.session.messages).toEqual(childSession.messages)
+  expect(chatDisplayProps.session.messages.map((message: { id: string }) => message.id)).toEqual([
+    'task-1',
+    'tool-1',
+    'tool-2',
+  ])
+  const normalizedTurns = finalizeTurnsForIdleSession(
+    groupMessagesByTurn(chatDisplayProps.session.messages),
+    chatDisplayProps.session.isProcessing
+  )
+  const assistantTurn = normalizedTurns.find((turn: { type: string }) => turn.type === 'assistant')
+  expect(assistantTurn?.isComplete).toBe(true)
 
   chatDisplayProps.onSendMessage('follow up')
   expect(sendMessageCalls).toEqual([{ sessionId: childSession.id, message: 'follow up' }])

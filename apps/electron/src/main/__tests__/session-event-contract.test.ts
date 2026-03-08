@@ -663,3 +663,79 @@ test('Task lifecycle suppresses child-session lifecycle events when durable writ
     event.type === 'subagent_spawned' || event.type === 'subagent_status_changed'
   )).toHaveLength(0)
 })
+
+test('child follow-ups prepend delegated subagent context instead of starting fresh', async () => {
+  const manager = new SessionManager() as any
+  const rootSession = createManagedSession()
+  rootSession.messages = [
+    {
+      id: 'task-1',
+      role: 'tool',
+      content: 'Inspect workspace files',
+      timestamp: 1,
+      toolName: 'Task',
+      toolUseId: 'toolu-task-a',
+      toolStatus: 'completed',
+    },
+    {
+      id: 'tool-1',
+      role: 'tool',
+      content: 'ls -la\nfoobar.txt',
+      timestamp: 2,
+      toolName: 'Terminal',
+      toolUseId: 'toolu-shell-a',
+      parentToolUseId: 'toolu-task-a',
+      toolStatus: 'completed',
+    },
+    {
+      id: 'tool-2',
+      role: 'tool',
+      content: 'Found foobar in workspace',
+      timestamp: 3,
+      toolName: 'Read',
+      toolUseId: 'toolu-read-a',
+      parentToolUseId: 'toolu-task-a',
+      toolStatus: 'completed',
+    },
+  ]
+
+  const childSession = createManagedChildSession(rootSession.id, 'toolu-task-a')
+  childSession.name = 'Inspect workspace files'
+  childSession.agentRole = 'general-purpose'
+  childSession.delegationLabel = 'Inspect workspace files'
+  childSession.messagesLoaded = true
+
+  let promptSentToAgent = ''
+  const mockAgent = {
+    setAllSources() {},
+    updateGitContext() {},
+    setUltrathinkOverride() {},
+    getModel() { return 'opus' },
+    getSessionId() { return undefined },
+    forceAbort() {},
+    async *chat(prompt: string) {
+      promptSentToAgent = prompt
+      yield { type: 'complete' as const }
+    },
+  }
+
+  manager.sessions = new Map([
+    [rootSession.id, rootSession],
+    [childSession.id, childSession],
+  ])
+  manager.getOrCreateAgent = async () => mockAgent
+  manager.sendEvent = () => {}
+  manager.persistSession = () => {}
+  manager.flushSession = async () => {}
+  manager.onProcessingStopped = () => {}
+
+  await manager.sendMessage(childSession.id, 'What is the first file you found?', [], [], {})
+
+  expect(promptSentToAgent).toContain('Sub-agent type: general-purpose')
+  expect(promptSentToAgent).toContain('Delegated task: Inspect workspace files')
+  expect(promptSentToAgent).toContain('foobar.txt')
+  expect(promptSentToAgent).toContain('Do not say you are starting fresh')
+  expect(childSession.messages.findLast((message: any) => message.role === 'user')?.content).toBe(
+    'What is the first file you found?'
+  )
+})

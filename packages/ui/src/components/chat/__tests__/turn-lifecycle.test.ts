@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'bun:test'
-import { deriveTurnPhase, groupMessagesByTurn, type AssistantTurn } from '../turn-utils'
+import { deriveTurnPhase, finalizeTurnsForIdleSession, groupMessagesByTurn, type AssistantTurn } from '../turn-utils'
 import type { Message } from '@craft-agent/core'
 
 // ============================================================================
@@ -234,6 +234,28 @@ describe('turn lifecycle scenarios', () => {
       turns = groupMessagesByTurn(messages)
       assistantTurn = getLastAssistantTurn(turns)!
       expect(deriveTurnPhase(assistantTurn)).toBe('awaiting')
+    })
+  })
+
+  describe('idle session normalization', () => {
+    it('marks a completed tool-only turn as complete once the session is idle', () => {
+      resetCounters()
+      turnIdCounter++
+
+      const messages: Message[] = [
+        createUserMessage(),
+        createToolMessage('completed', 'Read'),
+      ]
+
+      const groupedTurns = groupMessagesByTurn(messages)
+      const rawAssistantTurn = getLastAssistantTurn(groupedTurns)!
+      expect(deriveTurnPhase(rawAssistantTurn)).toBe('awaiting')
+
+      const normalizedTurns = finalizeTurnsForIdleSession(groupedTurns, false)
+      const normalizedAssistantTurn = getLastAssistantTurn(normalizedTurns)!
+      expect(deriveTurnPhase(normalizedAssistantTurn)).toBe('complete')
+      expect(normalizedAssistantTurn.isComplete).toBe(true)
+      expect(normalizedAssistantTurn.isStreaming).toBe(false)
     })
   })
 
