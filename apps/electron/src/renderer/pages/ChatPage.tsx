@@ -226,7 +226,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
     ? !!(sessionMeta.lastFinalMessageId && sessionMeta.lastFinalMessageId !== sessionMeta.lastReadMessageId)
     : false
   const isChildSession = session?.sessionKind === 'subagent' || sessionMeta?.sessionKind === 'subagent'
-  const delegatedToolUseId = session?.delegatedToolUseId
+  const delegatedToolUseId = session?.delegatedToolUseId || sessionMeta?.delegatedToolUseId
   // Use isAsyncOperationOngoing for shimmer effect (sharing, updating share, revoking, title regeneration)
   const isAsyncOperationOngoing = session?.isAsyncOperationOngoing || sessionMeta?.isAsyncOperationOngoing || false
   const parentMessagesLoaded = !parentSessionId || loadedSessions.has(parentSessionId)

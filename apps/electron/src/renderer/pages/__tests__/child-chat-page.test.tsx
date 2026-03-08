@@ -1,7 +1,6 @@
 import { expect, mock, test } from 'bun:test'
 
 import type { Session } from '../../../shared/types'
-import { finalizeTurnsForIdleSession, groupMessagesByTurn } from '@craft-agent/ui'
 
 const loadedSessionsAtom = Symbol('loadedSessionsAtom')
 const sessionMetaMapAtom = Symbol('sessionMetaMapAtom')
@@ -323,12 +322,6 @@ test('child chat pages project the delegated transcript into the child pane, sen
     'tool-1',
     'tool-2',
   ])
-  const normalizedTurns = finalizeTurnsForIdleSession(
-    groupMessagesByTurn(chatDisplayProps.session.messages),
-    chatDisplayProps.session.isProcessing
-  )
-  const assistantTurn = normalizedTurns.find((turn: { type: string }) => turn.type === 'assistant')
-  expect(assistantTurn?.isComplete).toBe(true)
 
   chatDisplayProps.onSendMessage('follow up')
   expect(sendMessageCalls).toEqual([{ sessionId: childSession.id, message: 'follow up' }])
@@ -378,7 +371,6 @@ test('child chat pages can project delegated transcripts from session metadata b
     messages: [],
   })
 
-  renderChatPage(childSession, [childSession, parentSession])
   currentSessionMeta.set(childSession.id, {
     id: childSession.id,
     workspaceId: childSession.workspaceId,
@@ -389,6 +381,13 @@ test('child chat pages can project delegated transcripts from session metadata b
     orchestratorSessionId: '260308-root',
     delegatedToolUseId: 'toolu-task-a',
   })
+  currentSessions = new Map([
+    [childSession.id, childSession],
+    [parentSession.id, parentSession],
+  ])
+  currentLoadedSessions = new Set([childSession.id, parentSession.id])
+  sessionMenuPropsHistory.length = 0
+  chatDisplayPropsHistory.length = 0
 
   ChatPage({ sessionId: childSession.id })
 

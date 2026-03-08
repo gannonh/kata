@@ -664,7 +664,7 @@ test('Task lifecycle suppresses child-session lifecycle events when durable writ
   )).toHaveLength(0)
 })
 
-test('persistSession routes metadata-only sessions through metadata updates instead of serializing empty transcripts', () => {
+test('persistSession routes metadata-only sessions through metadata updates instead of serializing empty transcripts', async () => {
   const manager = new SessionManager() as any
   const managed = createManagedSession('260308-meta-only')
   let metadataPersisted = 0
@@ -679,6 +679,7 @@ test('persistSession routes metadata-only sessions through metadata updates inst
   }
 
   manager.persistSession(managed)
+  await Promise.resolve()
 
   expect(metadataPersisted).toBe(1)
 })

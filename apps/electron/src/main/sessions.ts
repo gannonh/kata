@@ -1327,7 +1327,9 @@ export class SessionManager {
   private persistSession(managed: ManagedSession): void {
     try {
       if (!managed.messagesLoaded) {
-        void this.persistSessionMetadata(managed)
+        void this.persistSessionMetadata(managed).catch((error) => {
+          sessionLog.error(`Failed to persist metadata-only session ${managed.id}:`, error)
+        })
         return
       }
 
