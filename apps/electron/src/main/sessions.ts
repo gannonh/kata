@@ -55,6 +55,13 @@ import { evaluateAutoLabels } from '@craft-agent/shared/labels/auto'
 import { listLabels } from '@craft-agent/shared/labels/storage'
 import { extractLabelId } from '@craft-agent/shared/labels'
 import { getGitStatus, getPrStatus } from '@craft-agent/shared/git'
+import {
+  managedSessionToRendererHierarchy,
+  managedSessionToStoredHierarchy,
+  sessionMetadataToManagedHierarchy,
+  storedSessionToManagedHierarchy,
+  type SessionHierarchyMetadata,
+} from './session-hierarchy'
 
 /**
  * Sanitize message content for use as session title.
@@ -264,7 +271,7 @@ function resolveToolDisplayMeta(
   return undefined
 }
 
-interface ManagedSession {
+interface ManagedSession extends SessionHierarchyMetadata {
   id: string
   workspace: Workspace
   agent: CraftAgent | null  // Lazy-loaded - null until first message
@@ -917,6 +924,7 @@ export class SessionManager {
             sharedUrl: meta.sharedUrl,
             sharedId: meta.sharedId,
             channel: meta.channel,
+            ...sessionMetadataToManagedHierarchy(meta),
           }
 
           this.sessions.set(meta.id, managed)
@@ -975,6 +983,7 @@ export class SessionManager {
           costUsd: 0,
         },
         channel: managed.channel,
+        ...managedSessionToStoredHierarchy(managed),
       }
 
       // Queue for async persistence with debouncing
@@ -1297,6 +1306,7 @@ export class SessionManager {
         createdAt: m.createdAt,
         messageCount: m.messageCount,
         channel: m.channel,
+        ...managedSessionToRendererHierarchy(m),
       }))
       .sort((a, b) => b.lastMessageAt - a.lastMessageAt)
   }
@@ -1339,6 +1349,7 @@ export class SessionManager {
       lastMessageRole: m.lastMessageRole,
       tokenUsage: m.tokenUsage,
       channel: m.channel,
+      ...managedSessionToRendererHierarchy(m),
     }
   }
 
@@ -1382,6 +1393,7 @@ export class SessionManager {
       managed.sharedId = storedSession.sharedId
       // Sync name from disk - ensures title persistence across lazy loading
       managed.name = storedSession.name
+      Object.assign(managed, storedSessionToManagedHierarchy(storedSession))
       sessionLog.debug(`Lazy-loaded ${managed.messages.length} messages for session ${managed.id}`)
     }
     managed.messagesLoaded = true
