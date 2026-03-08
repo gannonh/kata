@@ -145,6 +145,7 @@ import type { Session, Message, AgentEvent } from '@craft-agent/core';
 
 ## Important Conventions
 
+- `git push --no-verify` is strictly forbidden in this repository. Do not bypass local hooks under any circumstances. If the pre-push gate fails, fix the underlying issue and push normally.
 - Environment variables for OAuth are loaded from `.env` at build time via esbuild `--define`
 - Debug logging writes to `~/Library/Logs/@craft-agent/electron/` on macOS
 - Sessions are persisted as JSONL files in workspace directories
