@@ -163,7 +163,7 @@ import type { Session, Message, AgentEvent } from '@craft-agent/core';
 
 ## e2e Testing
 
-@apps/electron/e2e/README.md
+`apps/electron/e2e/README.md`
 
 ## Merging PRs
 
