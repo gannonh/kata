@@ -15,8 +15,8 @@ export class ChatPage {
 
   constructor(page: Page) {
     this.page = page
-    // The chat input is a contenteditable div
-    this.chatInput = page.locator('[contenteditable="true"]').first()
+    // The chat input is a contenteditable element with textbox semantics
+    this.chatInput = page.getByRole('textbox').first()
     // Send button - look for buttons with SVG icons
     this.sendButton = page.locator('button').filter({ has: page.locator('svg') }).last()
     // Assistant turn cards use data-testid (added in 01-02)
@@ -136,7 +136,7 @@ export class ChatPage {
    * If no conversation is open, starts a new one first.
    */
   async waitForReady(timeout = 30000): Promise<void> {
-    const chatInput = this.page.locator('[contenteditable="true"]')
+    const chatInput = this.page.getByRole('textbox')
 
     // Check if chat input is already visible
     if (await chatInput.isVisible({ timeout: 2000 }).catch(() => false)) {
@@ -151,9 +151,6 @@ export class ChatPage {
     }
 
     // Wait for chat input to appear
-    await this.page.waitForSelector('[contenteditable="true"]', {
-      state: 'visible',
-      timeout
-    })
+    await chatInput.first().waitFor({ state: 'visible', timeout })
   }
 }

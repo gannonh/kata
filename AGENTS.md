@@ -164,38 +164,3 @@ import type { Session, Message, AgentEvent } from '@craft-agent/core';
 ## e2e Testing
 
 `apps/electron/e2e/README.md`
-
-## Merging PRs
-
-### Step 1: Review CI Checks
-
-```bash
-# Run all tests
-bun test
-
-# Build the app
-bun run electron:build
-
-# Test local production build (run from apps/electron directory)
-cd apps/electron && bun run dist:mac
-
-# Check for uncommitted changes
-git status
-```
-
-Ask the user if they want to run e2e tests (optional but recommended):
-
-```bash
-# From monorepo root (recommended)
-bun run test:e2e           # Mock tests
-bun run test:e2e:live      # Live tests with real credentials
-```
-
-**Stop if tests fail.** Fix issues before proceeding.
-
-### Step 2: Merge the PR
-
-```bash
-gh pr merge --merge --delete-branch
-git checkout main && git pull
-```

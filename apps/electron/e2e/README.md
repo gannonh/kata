@@ -2,18 +2,50 @@
 
 End-to-end tests using Playwright with Electron support.
 
+This repo has two distinct Electron e2e lanes:
+
+- mocked e2e: deterministic local app harness using `KATA_TEST_MODE=1`
+- live e2e: real credentials plus the persistent demo profile in `~/.kata-agents-demo`
+
 ## Quick Start
 
 ```bash
 # From monorepo root (recommended)
-bun run test:e2e           # Mock tests
+bun run test:e2e           # Mocked Electron e2e
+bun run test:e2e:headed    # Mocked Electron e2e, headed
 bun run test:e2e:live      # Live tests with real credentials
+bun run test:e2e:live:headed
+bun run validate:local     # Local gate: CI checks + mocked e2e
 
 # Or from apps/electron directory
 cd apps/electron
-bun run test:e2e
-bun run test:e2e:live
+bun run test:e2e           # Uses playwright.config.ts
+bun run test:e2e:live      # Uses playwright.live.config.ts
 ```
+
+There is currently no `test:e2e:all` script. Run `bun run test:e2e:live` explicitly when you want the full live lane.
+
+## Lanes
+
+### Mocked lane
+
+- config: `apps/electron/playwright.config.ts`
+- fixture: `apps/electron/e2e/fixtures/electron.fixture.ts`
+- purpose: fast, deterministic renderer/app coverage
+- worker count:
+  - local: `4`
+  - CI: `2`
+
+### Live lane
+
+- config: `apps/electron/playwright.live.config.ts`
+- fixture: `apps/electron/e2e/fixtures/live.fixture.ts`
+- purpose: real app behavior against real credentials and demo state
+- worker count:
+  - local: `1`
+  - CI: not run
+
+The live lane stays serial because it shares a persistent demo environment.
 
 ## Prerequisites
 
@@ -26,6 +58,9 @@ bun run test:e2e:live
    ```bash
    # Credentials must exist at ~/.kata-agents/credentials.enc
    ```
+3. **For live tests** - Expect a slower opt-in run:
+   - mocked e2e is the default local gate
+   - live e2e currently takes several minutes because it is serial
 
 ## Directory Structure
 
@@ -61,6 +96,9 @@ e2e/
 ## Live Tests
 
 Live tests use real OAuth credentials and the demo environment (`~/.kata-agents-demo/`).
+They do not run in the local pre-push / `validate:local` gate and they are not run in GitHub CI.
+Some live scenarios may surface provider-side handled errors such as rate limiting. Those tests should verify the app handles that state correctly rather than assuming every run gets a successful model response.
+Prefer running focused live files for the surface area you changed instead of rerunning the whole live suite every time.
 
 ### Test Categories
 
@@ -142,6 +180,9 @@ test('my test', async ({ electronApp, mainWindow }) => {
 })
 ```
 
+Use the mocked fixture by default. Only add a live test when the behavior depends on real credentials, real provider flows, or persistent demo-state integration.
+When adding live coverage, prefer small focused files per surface area so targeted reruns stay cheap.
+
 ### Using Page Objects
 
 ```typescript
@@ -169,3 +210,22 @@ test('send message', async ({ mainWindow }) => {
 See `playwright.config.ts` for the mocked/local lane and `playwright.live.config.ts`
 for the live lane. The mocked lane runs with `4` workers locally and `2` in CI;
 the live lane remains serial because it shares a persistent demo environment.
+
+## CI Strategy
+
+- `validate` in GitHub runs the fast code-quality/build gate via `bun run validate:ci`
+- `e2e-mocked` in GitHub runs mocked Electron Playwright only
+- `validate:local` runs `validate:ci` plus mocked e2e only
+- live e2e stays local-only because it depends on real credentials and a persistent demo profile
+
+## Current Gate Summary
+
+- pre-push / local validate:
+  - `bun run validate:local`
+  - includes typecheck, lint, unit tests, coverage summary, Electron build, and mocked e2e
+- GitHub CI:
+  - `validate` job runs `bun run validate:ci`
+  - `e2e-mocked` job runs `bun run test:e2e`
+- manual/full validation:
+  - `bun run test:e2e:live`
+  - use file-targeted runs like `bun run test:e2e:live -- e2e/tests/live/settings.live.e2e.ts` when possible
