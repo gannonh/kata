@@ -42,6 +42,7 @@ Download the latest release for your platform from [GitHub Releases](https://git
 git clone https://github.com/gannonh/kata-agents.git
 cd kata-agents
 bun install
+bun run githooks:install
 bun run electron:start
 ```
 
@@ -224,6 +225,14 @@ Apache License 2.0 - see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 ## Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+To install the repo-managed git hooks locally, run:
+
+```bash
+bun run githooks:install
+```
+
+This enables the versioned [`.githooks/pre-push`](.githooks/pre-push) hook, which mirrors the CI `validate` job before pushes.
 
 ## Security
 

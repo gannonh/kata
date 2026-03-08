@@ -32,20 +32,8 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Typecheck all packages
-        run: bun run typecheck:all
-
-      - name: Lint electron
-        run: bun run lint:electron
-
-      - name: Run unit tests
-        run: bun run test
-
-      - name: Check coverage thresholds
-        run: bun run test:coverage:summary
-
-      - name: Build Electron app
-        run: bun run electron:build
+      - name: Run validate gate
+        run: bun run validate:local
 
   # NOTE: E2E tests disabled to reduce CI time
   # Uncomment to re-enable

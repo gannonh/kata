@@ -24,6 +24,8 @@
     "typecheck": "cd packages/shared && bun run tsc --noEmit",
     "typecheck:all": "cd packages/core && bun run tsc --noEmit && cd ../shared && bun run tsc --noEmit && cd ../mermaid && bun run tsc --noEmit && cd ../ui && bun run tsc --noEmit",
     "lint:electron": "cd apps/electron && bun run lint",
+    "validate:local": "bun run typecheck:all && bun run lint:electron && bun run test && bun run test:coverage:summary && bun run electron:build",
+    "githooks:install": "bash scripts/install-githooks.sh",
     "link": "bun link",
     "electron:clean": "bun run scripts/electron-clean.ts",
     "electron:build:main": "bun run scripts/electron-build-main.ts",
