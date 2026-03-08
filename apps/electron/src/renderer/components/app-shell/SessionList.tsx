@@ -619,7 +619,8 @@ function SessionItem({
         {/* Action buttons - visible on hover or when menu is open */}
         <div
           className={cn(
-            "absolute right-2 top-2 transition-opacity z-10",
+            "absolute right-2 transition-opacity z-10",
+            isNestedChild ? "-top-0.5" : "top-2",
             menuOpen || contextMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
           )}
         >
