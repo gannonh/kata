@@ -12,6 +12,8 @@ import type { StoredMessage, TokenUsage } from './message.ts';
  * Agents can update this to reflect the current state of the conversation
  */
 export type SessionStatus = 'todo' | 'in_progress' | 'needs_review' | 'done' | 'cancelled';
+export type SessionKind = 'orchestrator' | 'subagent';
+export type SubagentStatus = 'queued' | 'running' | 'completed' | 'failed';
 
 /**
  * Session represents a conversation scope (SDK session = our scope boundary)
@@ -29,6 +31,13 @@ export interface Session {
   status?: SessionStatus;        // Workflow status (todo, in_progress, needs_review, done, cancelled)
   // Read/unread tracking
   lastReadMessageId?: string;    // ID of the last message the user has read
+  sessionKind?: SessionKind;
+  parentSessionId?: string;
+  orchestratorSessionId?: string;
+  agentRole?: string;
+  delegatedBySessionId?: string;
+  delegationLabel?: string;
+  subagentStatus?: SubagentStatus;
 }
 
 /**
@@ -56,4 +65,11 @@ export interface SessionMetadata {
   isArchived?: boolean;    // Whether this session is archived
   isFlagged?: boolean;     // Whether this session is flagged
   status?: SessionStatus;  // Workflow status
+  sessionKind?: SessionKind;
+  parentSessionId?: string;
+  orchestratorSessionId?: string;
+  agentRole?: string;
+  delegatedBySessionId?: string;
+  delegationLabel?: string;
+  subagentStatus?: SubagentStatus;
 }

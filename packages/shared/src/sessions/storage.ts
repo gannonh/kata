@@ -228,6 +228,13 @@ export async function getOrCreateSessionById(
       lastUsedAt: existing.lastUsedAt,
       sdkCwd: existing.sdkCwd,
       workingDirectory: existing.workingDirectory,
+      sessionKind: existing.sessionKind,
+      parentSessionId: existing.parentSessionId,
+      orchestratorSessionId: existing.orchestratorSessionId,
+      agentRole: existing.agentRole,
+      delegatedBySessionId: existing.delegatedBySessionId,
+      delegationLabel: existing.delegationLabel,
+      subagentStatus: existing.subagentStatus,
     };
   }
 
@@ -402,6 +409,13 @@ function headerToMetadata(header: SessionHeader, workspaceRootPath: string): Ses
       hasUnread: header.hasUnread,
       // Channel origin for daemon-created sessions
       channel: header.channel,
+      sessionKind: header.sessionKind,
+      parentSessionId: header.parentSessionId,
+      orchestratorSessionId: header.orchestratorSessionId,
+      agentRole: header.agentRole,
+      delegatedBySessionId: header.delegatedBySessionId,
+      delegationLabel: header.delegationLabel,
+      subagentStatus: header.subagentStatus,
     };
   } catch {
     return null;
@@ -463,6 +477,13 @@ export async function getOrCreateLatestSession(workspaceRootPath: string): Promi
       name: latest.name,
       createdAt: latest.createdAt,
       lastUsedAt: latest.lastUsedAt,
+      sessionKind: latest.sessionKind,
+      parentSessionId: latest.parentSessionId,
+      orchestratorSessionId: latest.orchestratorSessionId,
+      agentRole: latest.agentRole,
+      delegatedBySessionId: latest.delegatedBySessionId,
+      delegationLabel: latest.delegationLabel,
+      subagentStatus: latest.subagentStatus,
     };
   }
   return createSession(workspaceRootPath);

@@ -17,6 +17,8 @@ export type {
   StoredSession,
   SessionMetadata,
   SessionStatus,
+  SessionKind,
+  SubagentStatus,
 } from './session.ts';
 
 // Message types
@@ -51,4 +53,3 @@ export type {
   TaskType,
   TaskAction,
 } from './daemon.ts';
-

@@ -9,6 +9,8 @@ import type {
   TokenUsage as CoreTokenUsage,
   Workspace as CoreWorkspace,
   SessionMetadata as CoreSessionMetadata,
+  SessionKind as CoreSessionKind,
+  SubagentStatus as CoreSubagentStatus,
   StoredAttachment as CoreStoredAttachment,
   ContentBadge,
   ToolDisplayMeta,
@@ -31,6 +33,8 @@ export type {
   CoreTokenUsage as TokenUsage,
   CoreWorkspace as Workspace,
   CoreSessionMetadata as SessionMetadata,
+  CoreSessionKind as SessionKind,
+  CoreSubagentStatus as SubagentStatus,
   CoreStoredAttachment as StoredAttachment,
   ContentBadge,
   ToolDisplayMeta,
@@ -345,6 +349,13 @@ export interface Session {
     /** Display name for the channel source (e.g., '#general', 'Support Group') */
     displayName?: string
   }
+  sessionKind?: CoreSessionKind
+  parentSessionId?: string
+  orchestratorSessionId?: string
+  agentRole?: string
+  delegatedBySessionId?: string
+  delegationLabel?: string
+  subagentStatus?: CoreSubagentStatus
   // Token usage for context tracking
   tokenUsage?: {
     inputTokens: number
