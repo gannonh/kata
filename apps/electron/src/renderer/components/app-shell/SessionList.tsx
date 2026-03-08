@@ -189,6 +189,7 @@ interface SessionItemProps {
   onDelete: (sessionId: string, skipConfirmation?: boolean) => Promise<boolean>
   onSelect: () => void
   onOpenInNewWindow: () => void
+  itemHasUnread: (item: SessionListItem) => boolean
   /** Current permission mode for this session (from real-time state) */
   permissionMode?: PermissionMode
   /** Current search query for highlighting matches */
@@ -234,6 +235,7 @@ function SessionItem({
   onDelete,
   onSelect,
   onOpenInNewWindow,
+  itemHasUnread,
   permissionMode,
   searchQuery,
   todoStates,
@@ -1121,6 +1123,7 @@ export function SessionList({
                       onSessionSelect?.(item)
                     }}
                     onOpenInNewWindow={() => onOpenInNewWindow?.(item)}
+                    itemHasUnread={itemHasUnread}
                     permissionMode={sessionOptions?.get(item.id)?.permissionMode}
                     searchQuery={searchQuery}
                     todoStates={todoStates}
