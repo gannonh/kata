@@ -162,8 +162,8 @@ export function MainContentPanel({
         <div className="flex items-center justify-center h-full text-muted-foreground">
           <p className="text-sm">
             {navState.filter.kind === 'flagged'
-              ? 'No flagged conversations'
-              : 'No conversations yet'}
+              ? 'No flagged projects'
+              : 'No projects yet'}
           </p>
         </div>
       </Panel>

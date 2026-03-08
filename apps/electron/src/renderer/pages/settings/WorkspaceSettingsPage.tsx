@@ -483,7 +483,7 @@ export default function WorkspaceSettingsPage() {
                   ) : (
                     <SettingsMenuSelectRow
                       label="Default model"
-                      description="AI model for new chats"
+                      description="AI model for new projects"
                       value={wsModel}
                       onValueChange={handleModelChange}
                       options={[
@@ -507,7 +507,7 @@ export default function WorkspaceSettingsPage() {
                   )}
                   <SettingsMenuSelectRow
                     label="Thinking level"
-                    description="Reasoning depth for new chats"
+                    description="Reasoning depth for new projects"
                     value={wsThinkingLevel}
                     onValueChange={(v) =>
                       handleThinkingLevelChange(v as ThinkingLevel)

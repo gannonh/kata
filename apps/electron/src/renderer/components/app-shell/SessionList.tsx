@@ -1036,9 +1036,9 @@ export function SessionList({
           <EmptyMedia variant="icon">
             <Inbox />
           </EmptyMedia>
-          <EmptyTitle>No conversations yet</EmptyTitle>
+          <EmptyTitle>No projects yet</EmptyTitle>
           <EmptyDescription>
-            Conversations with your agent appear here. Start one to get going.
+            Agent projects appear here
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
@@ -1052,7 +1052,7 @@ export function SessionList({
             }}
             className="inline-flex items-center h-7 px-3 text-xs font-medium rounded-[8px] bg-background shadow-minimal hover:bg-foreground/[0.03] transition-colors"
           >
-            New Conversation
+            New Project
           </button>
         </EmptyContent>
       </Empty>
@@ -1097,7 +1097,7 @@ export function SessionList({
           {/* No results message when searching */}
           {searchActive && searchQuery && flatItems.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 px-4">
-              <p className="text-sm text-muted-foreground">No conversations found</p>
+              <p className="text-sm text-muted-foreground">No projects found</p>
               <button
                 onClick={() => onSearchChange?.('')}
                 className="text-xs text-foreground hover:underline mt-1"

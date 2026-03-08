@@ -47,7 +47,7 @@ export function getSessionTitle(session: SessionLike | SessionMeta): string {
     }
   }
 
-  return 'New chat'
+  return 'New project'
 }
 
 /**

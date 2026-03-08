@@ -1754,21 +1754,21 @@ function AppShellContent({
     if (isSettingsNavigation(navState)) return 'Settings'
 
     // Chats navigator - use chatFilter
-    if (!chatFilter) return 'All Chats'
+    if (!chatFilter) return 'All Projects'
 
     switch (chatFilter.kind) {
       case 'flagged':
         return 'Flagged'
       case 'state': {
         const state = effectiveTodoStates.find(s => s.id === chatFilter.stateId)
-        return state?.label || 'All Chats'
+        return state?.label || 'All Projects'
       }
       case 'label':
         return chatFilter.labelId === '__all__' ? 'Labels' : getLabelDisplayName(labelConfigs, chatFilter.labelId)
       case 'view':
         return chatFilter.viewId === '__all__' ? 'Views' : viewConfigs.find(v => v.id === chatFilter.viewId)?.name || 'Views'
       default:
-        return 'All Chats'
+        return 'All Projects'
     }
   }, [navState, chatFilter, effectiveTodoStates, labelConfigs, viewConfigs])
 
@@ -1908,7 +1908,7 @@ function AppShellContent({
                         data-tutorial="new-chat-button"
                       >
                         <SquarePenRounded className="h-3.5 w-3.5 shrink-0" />
-                        New Chat
+                        New Project
                       </Button>
                     </ContextMenuTrigger>
                     <StyledContextMenuContent>
@@ -1929,7 +1929,7 @@ function AppShellContent({
                     // --- Chats Section ---
                     {
                       id: "nav:allChats",
-                      title: "All Chats",
+                      title: "All Projects",
                       label: String(workspaceSessionMetas.length),
                       icon: Inbox,
                       variant: chatFilter?.kind === 'allChats' ? "default" : "ghost",
