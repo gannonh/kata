@@ -441,7 +441,7 @@ function SessionItem({
           {/* Spacer for todo/arrow icon */}
           <div className={cn("shrink-0", isNestedChild ? "w-3.5 h-4" : "w-4 h-5")} />
           {/* Content column */}
-          <div className={cn("flex flex-col min-w-0 flex-1", isNestedChild ? "gap-0.5" : "gap-1.5")}>
+          <div className={cn("flex flex-col min-w-0 flex-1", isNestedChild ? "gap-1" : "gap-1.5")}>
             {/* Title - up to 2 lines (1 line for sub-agents), with shimmer during async operations */}
             <div className="flex items-start gap-2 w-full pr-6 min-w-0">
               <div className={cn(
