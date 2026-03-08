@@ -664,6 +664,50 @@ test('Task lifecycle suppresses child-session lifecycle events when durable writ
   )).toHaveLength(0)
 })
 
+test('persistSession routes metadata-only sessions through metadata updates instead of serializing empty transcripts', () => {
+  const manager = new SessionManager() as any
+  const managed = createManagedSession('260308-meta-only')
+  let metadataPersisted = 0
+
+  managed.messagesLoaded = false
+  managed.messages = []
+  manager.persistSessionMetadata = async () => {
+    metadataPersisted++
+  }
+  manager.toStoredSession = () => {
+    throw new Error('should not serialize metadata-only sessions')
+  }
+
+  manager.persistSession(managed)
+
+  expect(metadataPersisted).toBe(1)
+})
+
+test('toStoredSession preserves persisted metadata fields from managed sessions', () => {
+  const manager = new SessionManager() as any
+  const managed = createManagedSession('260308-persisted-fields')
+
+  managed.createdAt = 123
+  managed.sharedUrl = 'https://example.com/shared'
+  managed.sharedId = 'shared-123'
+  managed.model = 'claude-opus'
+  managed.pendingPlanExecution = {
+    planPath: '/tmp/plan.md',
+    awaitingCompaction: true,
+  }
+
+  const stored = manager.toStoredSession(managed)
+
+  expect(stored.createdAt).toBe(123)
+  expect(stored.sharedUrl).toBe('https://example.com/shared')
+  expect(stored.sharedId).toBe('shared-123')
+  expect(stored.model).toBe('claude-opus')
+  expect(stored.pendingPlanExecution).toEqual({
+    planPath: '/tmp/plan.md',
+    awaitingCompaction: true,
+  })
+})
+
 test('child follow-ups prepend delegated subagent context instead of starting fresh', async () => {
   const manager = new SessionManager() as any
   const rootSession = createManagedSession()

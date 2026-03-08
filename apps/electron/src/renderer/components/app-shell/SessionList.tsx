@@ -51,13 +51,13 @@ import { useFocusContext } from "@/context/FocusContext"
 import { getSessionTitle } from "@/utils/session"
 import type { SessionMeta } from "@/atoms/sessions"
 import type { SessionListItem } from "@/lib/session-tree"
-import { bubbleUnreadToParent } from "@/utils/child-unread-bubble"
 import type { ViewConfig } from "@craft-agent/shared/views"
 import { PERMISSION_MODE_CONFIG, type PermissionMode } from "@craft-agent/shared/agent/modes"
 
 // Pagination constants
 const INITIAL_DISPLAY_LIMIT = 20
 const BATCH_SIZE = 20
+const INDENT_STEP_PX = 20
 
 /** Short relative time locale for date-fns formatDistanceToNowStrict.
  *  Produces compact strings: "7m", "2h", "3d", "2w", "5mo", "1y" */
@@ -249,7 +249,7 @@ function SessionItem({
   // Tracks which label badge's LabelValuePopover is open (by index), null = all closed
   const [openLabelIndex, setOpenLabelIndex] = useState<number | null>(null)
   const isNestedChild = item.depth > 0 || item.sessionKind === 'subagent'
-  const indentPx = isNestedChild ? 20 : 0
+  const indentPx = item.depth * INDENT_STEP_PX
 
   // Get current todo state from session properties
   const currentTodoState = getSessionTodoState(item)
@@ -281,6 +281,45 @@ function SessionItem({
     setTodoMenuOpen(false)
     onTodoStateChange(item.id, state)
   }
+
+  const renderLabelBadge = (label: LabelConfig, displayValue: string | undefined, color: string | null) => (
+    <div
+      role="button"
+      tabIndex={0}
+      className={cn(
+        "shrink-0 h-[18px] max-w-[120px] px-1.5 text-[10px] font-medium rounded flex items-center whitespace-nowrap gap-0.5",
+        !isNestedChild && "cursor-pointer"
+      )}
+      onMouseDown={(e) => {
+        e.stopPropagation()
+        e.preventDefault()
+      }}
+      style={color ? {
+        backgroundColor: `color-mix(in srgb, ${color} 6%, transparent)`,
+        color: `color-mix(in srgb, ${color} 75%, var(--foreground))`,
+      } : {
+        backgroundColor: 'rgba(var(--foreground-rgb), 0.05)',
+        color: 'rgba(var(--foreground-rgb), 0.8)',
+      }}
+    >
+      {label.name}
+      {displayValue ? (
+        <>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span className="font-normal truncate min-w-0" style={{ opacity: 0.75 }}>
+            {displayValue}
+          </span>
+        </>
+      ) : (
+        label.valueType && (
+          <>
+            <span style={{ opacity: 0.4 }}>·</span>
+            <LabelValueTypeIcon valueType={label.valueType} size={10} />
+          </>
+        )
+      )}
+    </div>
+  )
 
   return (
     <div
@@ -439,6 +478,15 @@ function SessionItem({
                 {resolvedLabels.map(({ config: label, rawValue }, labelIndex) => {
                   const color = label.color ? resolveEntityColor(label.color, isDark) : null
                   const displayValue = rawValue ? formatDisplayValue(rawValue, label.valueType) : undefined
+
+                  if (isNestedChild) {
+                    return (
+                      <div key={label.id}>
+                        {renderLabelBadge(label, displayValue, color)}
+                      </div>
+                    )
+                  }
+
                   return (
                     <LabelValuePopover
                       key={label.id}
@@ -466,40 +514,7 @@ function SessionItem({
                         onLabelsChange?.(item.id, updatedLabels)
                       }}
                     >
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        className="shrink-0 h-[18px] max-w-[120px] px-1.5 text-[10px] font-medium rounded flex items-center whitespace-nowrap gap-0.5 cursor-pointer"
-                        onMouseDown={(e) => {
-                          e.stopPropagation()
-                          e.preventDefault()
-                        }}
-                        style={color ? {
-                          backgroundColor: `color-mix(in srgb, ${color} 6%, transparent)`,
-                          color: `color-mix(in srgb, ${color} 75%, var(--foreground))`,
-                        } : {
-                          backgroundColor: 'rgba(var(--foreground-rgb), 0.05)',
-                          color: 'rgba(var(--foreground-rgb), 0.8)',
-                        }}
-                      >
-                        {label.name}
-                        {/* Interpunct + value for typed labels, or placeholder icon if typed but no value set */}
-                        {displayValue ? (
-                          <>
-                            <span style={{ opacity: 0.4 }}>·</span>
-                            <span className="font-normal truncate min-w-0" style={{ opacity: 0.75 }}>
-                              {displayValue}
-                            </span>
-                          </>
-                        ) : (
-                          label.valueType && (
-                            <>
-                              <span style={{ opacity: 0.4 }}>·</span>
-                              <LabelValueTypeIcon valueType={label.valueType} size={10} />
-                            </>
-                          )
-                        )}
-                      </div>
+                      {renderLabelBadge(label, displayValue, color)}
                     </LabelValuePopover>
                   )
                 })}
@@ -794,38 +809,30 @@ export function SessionList({
     return sortedItems.filter(item => matchingRootIds.has(item.rootSessionId))
   }, [sortedItems, searchQuery, flatLabels])
 
-  const unreadByRootId = useMemo(() => {
-    const grouped = new Map<string, { parent?: SessionListItem; children: SessionListItem[] }>()
+  const unreadBySessionId = useMemo(() => {
+    const itemsById = new Map(sortedItems.map(item => [item.id, item]))
+    const unreadMap = new Map<string, boolean>()
 
     for (const item of sortedItems) {
-      const group = grouped.get(item.rootSessionId) ?? { children: [] }
-      if (item.depth === 0) {
-        group.parent = item
-      } else {
-        group.children.push(item)
+      if (!hasUnreadMessages(item)) {
+        continue
       }
-      grouped.set(item.rootSessionId, group)
-    }
 
-    const unreadMap = new Map<string, boolean>()
-    for (const [rootSessionId, group] of grouped.entries()) {
-      if (!group.parent) continue
-      unreadMap.set(
-        rootSessionId,
-        bubbleUnreadToParent({ parent: group.parent, children: group.children }).parentHasUnread
-      )
+      unreadMap.set(item.id, true)
+
+      let ancestorId = item.parentSessionId
+      while (ancestorId) {
+        unreadMap.set(ancestorId, true)
+        ancestorId = itemsById.get(ancestorId)?.parentSessionId
+      }
     }
 
     return unreadMap
   }, [sortedItems])
 
   const itemHasUnread = useCallback((item: SessionListItem): boolean => {
-    if (item.depth > 0 || item.sessionKind === 'subagent') {
-      return hasUnreadMessages(item)
-    }
-
-    return unreadByRootId.get(item.rootSessionId) ?? hasUnreadMessages(item)
-  }, [unreadByRootId])
+    return unreadBySessionId.get(item.id) ?? hasUnreadMessages(item)
+  }, [unreadBySessionId])
 
   // Reset display limit when search query changes
   useEffect(() => {

@@ -45,27 +45,33 @@ function createSubagentSession(
   parent: Session,
   event: SubagentSpawnedEvent | SubagentStatusChangedEvent
 ): Session {
+  const isSpawned = event.type === 'subagent_spawned'
+
   return {
     id: event.childSessionId,
     workspaceId: parent.workspaceId,
     workspaceName: parent.workspaceName,
-    lastMessageAt: Date.now(),
+    lastMessageAt: isSpawned ? Date.now() : parent.lastMessageAt,
     messages: [],
     isProcessing: false,
-    permissionMode: parent.permissionMode,
-    enabledSourceSlugs: parent.enabledSourceSlugs,
-    workingDirectory: parent.workingDirectory,
-    model: parent.model,
-    thinkingLevel: parent.thinkingLevel,
+    ...(isSpawned
+      ? {
+          permissionMode: parent.permissionMode,
+          enabledSourceSlugs: parent.enabledSourceSlugs,
+          workingDirectory: parent.workingDirectory,
+          model: parent.model,
+          thinkingLevel: parent.thinkingLevel,
+        }
+      : {}),
     sessionKind: 'subagent',
-    parentSessionId: event.type === 'subagent_spawned' ? event.parentSessionId : parent.id,
-    orchestratorSessionId: event.type === 'subagent_spawned'
+    parentSessionId: isSpawned ? event.parentSessionId : parent.id,
+    orchestratorSessionId: isSpawned
       ? event.orchestratorSessionId
       : (parent.orchestratorSessionId ?? parent.id),
-    delegatedBySessionId: event.type === 'subagent_spawned' ? event.parentSessionId : parent.id,
+    delegatedBySessionId: isSpawned ? event.parentSessionId : parent.id,
     delegatedToolUseId: event.delegatedToolUseId,
-    subagentStatus: event.type === 'subagent_spawned' ? 'running' : event.subagentStatus,
-    ...(event.type === 'subagent_spawned'
+    subagentStatus: isSpawned ? 'running' : event.subagentStatus,
+    ...(isSpawned
       ? {
           name: event.childSessionName,
           preview: event.delegationLabel,

@@ -31,12 +31,9 @@ import {
   markCompactionComplete as markStoredCompactionComplete,
   clearPendingPlanExecution as clearStoredPendingPlanExecution,
   getPendingPlanExecution as getStoredPendingPlanExecution,
-  ensureSessionDir,
   getSessionAttachmentsPath,
-  getSessionFilePath,
   getSessionPath as getSessionStoragePath,
   sessionPersistenceQueue,
-  writeSessionJsonl,
   type StoredSession,
   type StoredMessage,
   type SessionMetadata,
@@ -337,6 +334,7 @@ interface ManagedSession extends SessionHierarchyMetadata {
   model?: string
   // Thinking level for this session ('off', 'think', 'max')
   thinkingLevel?: ThinkingLevel
+  pendingPlanExecution?: StoredSession['pendingPlanExecution']
   // Role/type of the last message (for badge display without loading messages)
   lastMessageRole?: 'user' | 'assistant' | 'plan' | 'tool' | 'error'
   // ID of the last final (non-intermediate) assistant message - pre-computed for unread detection
@@ -682,12 +680,9 @@ export class SessionManager {
       && childSession.agentRole.trim().length > 0
   }
 
-  private writeTaskChildSessionDurably(managed: ManagedSession): void {
-    const storedSession = this.toStoredSession(managed)
-    const workspaceRootPath = managed.workspace.rootPath
-
-    ensureSessionDir(workspaceRootPath, managed.id)
-    writeSessionJsonl(getSessionFilePath(workspaceRootPath, managed.id), storedSession)
+  private async writeTaskChildSessionDurably(managed: ManagedSession): Promise<void> {
+    this.persistSession(managed)
+    await sessionPersistenceQueue.flush(managed.id)
   }
 
   private async ensureTaskChildSession(
@@ -750,7 +745,7 @@ export class SessionManager {
     childSession.subagentStatus = 'running'
 
     if (didCreateChildSession || metadataChanged || statusChanged || shouldEmitSpawnedEvent) {
-      this.writeTaskChildSessionDurably(childSession)
+      await this.writeTaskChildSessionDurably(childSession)
     }
 
     if (shouldEmitSpawnedEvent) {
@@ -796,7 +791,7 @@ export class SessionManager {
 
     childSession.subagentStatus = subagentStatus
     childSession.lastMessageAt = Date.now()
-    this.writeTaskChildSessionDurably(childSession)
+    await this.writeTaskChildSessionDurably(childSession)
 
     this.sendEvent({
       type: 'subagent_status_changed',
@@ -1249,7 +1244,7 @@ export class SessionManager {
     }
   }
 
-  private toStoredSession(managed: ManagedSession): StoredSession {
+  private toStoredSession(managed: ManagedSession, existingSession?: StoredSession | null): StoredSession {
     // Filter out transient status messages (progress indicators like "Compacting...")
     // Error messages are now persisted with rich fields for diagnostics
     const persistableMessages = managed.messages.filter(m =>
@@ -1258,39 +1253,84 @@ export class SessionManager {
 
     const workspaceRootPath = managed.workspace.rootPath
     return {
+      ...existingSession,
       id: managed.id,
       workspaceRootPath,
       name: managed.name,
-      createdAt: managed.lastMessageAt,  // Approximate, will be overwritten if already exists
+      createdAt: existingSession?.createdAt ?? managed.createdAt ?? managed.lastMessageAt ?? Date.now(),
       lastUsedAt: Date.now(),
-      lastMessageAt: managed.lastMessageAt,  // Preserve actual message time (not persist time)
-      sdkSessionId: managed.sdkSessionId,
+      lastMessageAt: managed.lastMessageAt ?? existingSession?.lastMessageAt,
+      sdkSessionId: managed.sdkSessionId ?? existingSession?.sdkSessionId,
       isFlagged: managed.isFlagged,
       permissionMode: managed.permissionMode,
       todoState: managed.todoState,
-      lastReadMessageId: managed.lastReadMessageId,  // For unread detection
-      hasUnread: managed.hasUnread,  // Explicit unread flag for NEW badge state machine
+      lastReadMessageId: managed.lastReadMessageId,
+      hasUnread: managed.hasUnread,
       enabledSourceSlugs: managed.enabledSourceSlugs,
       labels: managed.labels,
       workingDirectory: managed.workingDirectory,
-      sdkCwd: managed.sdkCwd,
+      sdkCwd: managed.sdkCwd ?? existingSession?.sdkCwd,
+      sharedUrl: managed.sharedUrl,
+      sharedId: managed.sharedId,
+      model: managed.model,
       thinkingLevel: managed.thinkingLevel,
-      messages: persistableMessages.map(messageToStored),
-      tokenUsage: managed.tokenUsage ?? {
-        inputTokens: 0,
-        outputTokens: 0,
-        totalTokens: 0,
-        contextTokens: 0,
-        costUsd: 0,
-      },
-      channel: managed.channel,
+      pendingPlanExecution: managed.pendingPlanExecution ?? existingSession?.pendingPlanExecution,
+      messages: managed.messagesLoaded
+        ? persistableMessages.map(messageToStored)
+        : (existingSession?.messages ?? []),
+      tokenUsage: managed.messagesLoaded
+        ? (managed.tokenUsage ?? {
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+            contextTokens: 0,
+            costUsd: 0,
+          })
+        : (existingSession?.tokenUsage ?? {
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+            contextTokens: 0,
+            costUsd: 0,
+          }),
+      channel: managed.channel ?? existingSession?.channel,
       ...managedSessionToStoredHierarchy(managed),
     }
+  }
+
+  private async persistSessionMetadata(managed: ManagedSession): Promise<void> {
+    await updateSessionMetadata(managed.workspace.rootPath, managed.id, {
+      isFlagged: managed.isFlagged,
+      name: managed.name,
+      todoState: managed.todoState,
+      labels: managed.labels,
+      lastReadMessageId: managed.lastReadMessageId,
+      hasUnread: managed.hasUnread,
+      enabledSourceSlugs: managed.enabledSourceSlugs,
+      workingDirectory: managed.workingDirectory,
+      permissionMode: managed.permissionMode,
+      sharedUrl: managed.sharedUrl,
+      sharedId: managed.sharedId,
+      model: managed.model,
+      sessionKind: managed.sessionKind,
+      parentSessionId: managed.parentSessionId,
+      orchestratorSessionId: managed.orchestratorSessionId,
+      agentRole: managed.agentRole,
+      delegatedBySessionId: managed.delegatedBySessionId,
+      delegatedToolUseId: managed.delegatedToolUseId,
+      delegationLabel: managed.delegationLabel,
+      subagentStatus: managed.subagentStatus,
+    })
   }
 
   // Persist a session to disk (async with debouncing)
   private persistSession(managed: ManagedSession): void {
     try {
+      if (!managed.messagesLoaded) {
+        void this.persistSessionMetadata(managed)
+        return
+      }
+
       // Queue for async persistence with debouncing
       sessionPersistenceQueue.enqueue(this.toStoredSession(managed))
     } catch (error) {

@@ -168,7 +168,60 @@ test('mergeUpsertedSession preserves an existing child transcript when lifecycle
   const merged = mergeUpsertedSession(existingChild, metadataOnlyUpsert)
 
   expect(merged.messages).toEqual(existingChild.messages)
+  expect(merged.lastMessageAt).toBe(existingChild.lastMessageAt)
+  expect(merged.permissionMode).toBe(existingChild.permissionMode)
   expect(merged.subagentStatus).toBe('completed')
   expect(merged.name).toBe('Explore workspace sources')
   expect(merged.delegationLabel).toBe('Explore workspace sources')
+})
+
+test('mergeUpsertedSession preserves child-local settings on metadata-only lifecycle upserts', () => {
+  const existingChild = createSession({
+    id: '260308-child-a',
+    sessionKind: 'subagent',
+    parentSessionId: '260308-root',
+    orchestratorSessionId: '260308-root',
+    delegatedBySessionId: '260308-root',
+    delegatedToolUseId: 'toolu-task-a',
+    delegationLabel: 'Explore workspace sources',
+    subagentStatus: 'running',
+    permissionMode: 'allow-all',
+    enabledSourceSlugs: ['child-source'],
+    workingDirectory: '/tmp/child-workspace',
+    model: 'claude-sonnet',
+    thinkingLevel: 'max',
+    isProcessing: true,
+    lastMessageAt: 100,
+  })
+
+  const metadataOnlyUpsert: Session = {
+    id: '260308-child-a',
+    workspaceId: 'workspace-1',
+    workspaceName: 'Workspace 1',
+    lastMessageAt: 200,
+    isProcessing: false,
+    permissionMode: 'ask',
+    enabledSourceSlugs: ['parent-source'],
+    workingDirectory: '/tmp/parent-workspace',
+    model: 'claude-opus',
+    thinkingLevel: 'think',
+    sessionKind: 'subagent',
+    parentSessionId: '260308-root',
+    orchestratorSessionId: '260308-root',
+    delegatedBySessionId: '260308-root',
+    delegatedToolUseId: 'toolu-task-a',
+    subagentStatus: 'completed',
+    messages: [],
+  }
+
+  const merged = mergeUpsertedSession(existingChild, metadataOnlyUpsert)
+
+  expect(merged.lastMessageAt).toBe(existingChild.lastMessageAt)
+  expect(merged.isProcessing).toBe(true)
+  expect(merged.permissionMode).toBe('allow-all')
+  expect(merged.enabledSourceSlugs).toEqual(['child-source'])
+  expect(merged.workingDirectory).toBe('/tmp/child-workspace')
+  expect(merged.model).toBe('claude-sonnet')
+  expect(merged.thinkingLevel).toBe('max')
+  expect(merged.subagentStatus).toBe('completed')
 })

@@ -2,6 +2,9 @@ import { expect, mock, test } from 'bun:test'
 
 import type { SessionListItem } from '@/lib/session-tree'
 
+const labelValuePopoverPropsHistory: any[] = []
+let mockFlatLabels: Array<{ id: string; name: string; valueType?: string }> = []
+
 mock.module('react', () => ({
   useState<T>(initial: T) {
     return [initial, () => {}] as const
@@ -104,7 +107,7 @@ mock.module('@/lib/perf', () => ({
 }))
 
 mock.module('@craft-agent/shared/labels', () => ({
-  flattenLabels() { return [] },
+  flattenLabels() { return mockFlatLabels },
   parseLabelEntry(entry: string) {
     return { id: entry, rawValue: undefined }
   },
@@ -167,7 +170,10 @@ mock.module('@/components/ui/todo-filter-menu', () => ({
 }))
 
 mock.module('@/components/ui/label-value-popover', () => ({
-  LabelValuePopover: passthrough,
+  LabelValuePopover(props: any) {
+    labelValuePopoverPropsHistory.push(props)
+    return props.children ?? null
+  },
 }))
 
 mock.module('@/components/ui/label-icon', () => ({
@@ -312,4 +318,34 @@ test('SessionList renders top-level unread sessions without crashing', async () 
       onMarkUnread() {},
     })
   ).not.toThrow()
+})
+
+test('SessionList renders nested label badges without editable popovers', async () => {
+  const { SessionList } = await import('../SessionList')
+
+  mockFlatLabels = [{ id: 'priority', name: 'Priority' }]
+  labelValuePopoverPropsHistory.length = 0
+
+  const nestedItem: SessionListItem = {
+    id: 'child-session',
+    workspaceId: 'workspace-1',
+    name: 'Nested child',
+    lastMessageAt: 1,
+    labels: ['priority'],
+    sessionKind: 'subagent',
+    parentSessionId: 'root-session',
+    depth: 1,
+    rootSessionId: 'root-session',
+    rootLastMessageAt: 1,
+    treeIndex: 0,
+  }
+
+  SessionList({
+    items: [nestedItem],
+    onDelete: async () => true,
+    onMarkUnread() {},
+    onLabelsChange() {},
+  })
+
+  expect(labelValuePopoverPropsHistory).toHaveLength(0)
 })

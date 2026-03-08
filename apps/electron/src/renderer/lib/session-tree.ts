@@ -19,10 +19,13 @@ export function projectSessionTree(
   visibleRoots: SessionMeta[],
   allSessions: SessionMeta[]
 ): SessionListItem[] {
+  const visibleIds = new Set(visibleRoots.map(session => session.id))
   const childrenByParent = new Map<string, SessionMeta[]>()
+  const topLevelSessions: SessionMeta[] = []
 
   for (const session of allSessions) {
     if (!session.parentSessionId) {
+      topLevelSessions.push(session)
       continue
     }
 
@@ -34,26 +37,35 @@ export function projectSessionTree(
   const projected: SessionListItem[] = []
   let treeIndex = 0
 
-  for (const root of sortByLastMessageAtDesc(visibleRoots)) {
-    const rootLastMessageAt = root.lastMessageAt ?? 0
+  const buildBranch = (
+    session: SessionMeta,
+    depth: number,
+    rootSessionId: string,
+    rootLastMessageAt: number,
+    ancestorVisible = false
+  ): SessionListItem[] => {
+    const sessionVisible = ancestorVisible || visibleIds.has(session.id)
+    const visibleChildren = sortByLastMessageAtDesc(childrenByParent.get(session.id) ?? [])
+      .flatMap(child => buildBranch(child, depth + 1, rootSessionId, rootLastMessageAt, sessionVisible))
 
-    projected.push({
-      ...root,
-      depth: 0,
-      rootSessionId: root.id,
-      rootLastMessageAt,
-      treeIndex: treeIndex++,
-    })
+    if (!sessionVisible && visibleChildren.length === 0) {
+      return []
+    }
 
-    for (const child of sortByLastMessageAtDesc(childrenByParent.get(root.id) ?? [])) {
-      projected.push({
-        ...child,
-        depth: 1,
-        rootSessionId: root.id,
+    return [
+      {
+        ...session,
+        depth,
+        rootSessionId,
         rootLastMessageAt,
         treeIndex: treeIndex++,
-      })
-    }
+      },
+      ...visibleChildren,
+    ]
+  }
+
+  for (const root of sortByLastMessageAtDesc(topLevelSessions)) {
+    projected.push(...buildBranch(root, 0, root.id, root.lastMessageAt ?? 0))
   }
 
   return projected

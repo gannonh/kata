@@ -115,7 +115,7 @@ import { RightSidebar } from "./RightSidebar"
 import type { RichTextInputHandle } from "@/components/ui/rich-text-input"
 import { hasOpenOverlay } from "@/lib/overlay-detection"
 import { clearSourceIconCaches } from "@/lib/icon-cache"
-import { getTopLevelSessions, projectSessionTree } from "@/lib/session-tree"
+import { projectSessionTree } from "@/lib/session-tree"
 
 /**
  * AppShellProps - Minimal props interface for AppShell component
@@ -1106,14 +1106,9 @@ function AppShellContent({
       : metas
   }, [sessionMetaMap, activeWorkspaceId])
 
-  const topLevelWorkspaceSessionMetas = useMemo(
-    () => getTopLevelSessions(workspaceSessionMetas),
-    [workspaceSessionMetas]
-  )
-
   // Count sessions by todo state (scoped to workspace)
   const isMetaDone = (s: SessionMeta) => s.todoState === 'done' || s.todoState === 'cancelled'
-  const flaggedCount = topLevelWorkspaceSessionMetas.filter(s => s.isFlagged).length
+  const flaggedCount = workspaceSessionMetas.filter(s => s.isFlagged).length
 
   // Compute session counts per label (cumulative: parent includes descendants).
   // Flatten the tree for iteration, use the tree for descendant lookups.
@@ -1122,7 +1117,7 @@ function AppShellContent({
     const counts: Record<string, number> = {}
     for (const label of allLabels) {
       // Direct count: sessions explicitly tagged with this label (handles valued entries like "priority::3")
-      const directCount = topLevelWorkspaceSessionMetas.filter(
+      const directCount = workspaceSessionMetas.filter(
         s => s.labels?.some(l => extractLabelId(l) === label.id)
       ).length
       counts[label.id] = directCount
@@ -1131,14 +1126,14 @@ function AppShellContent({
     for (const label of allLabels) {
       const descendants = getDescendantIds(labelConfigs, label.id)
       if (descendants.length > 0) {
-        const descendantCount = topLevelWorkspaceSessionMetas.filter(
+        const descendantCount = workspaceSessionMetas.filter(
           s => s.labels?.some(l => descendants.includes(extractLabelId(l)))
         ).length
         counts[label.id] = (counts[label.id] || 0) + descendantCount
       }
     }
     return counts
-  }, [topLevelWorkspaceSessionMetas, labelConfigs])
+  }, [workspaceSessionMetas, labelConfigs])
 
   // Count sessions by individual todo state (dynamic based on effectiveTodoStates)
   const todoStateCounts = useMemo(() => {
@@ -1148,13 +1143,13 @@ function AppShellContent({
       counts[state.id] = 0
     }
     // Count sessions
-    for (const s of topLevelWorkspaceSessionMetas) {
+    for (const s of workspaceSessionMetas) {
       const state = (s.todoState || 'todo') as TodoStateId
       // Increment count (initialize to 0 if status not in effectiveTodoStates yet)
       counts[state] = (counts[state] || 0) + 1
     }
     return counts
-  }, [topLevelWorkspaceSessionMetas, effectiveTodoStates])
+  }, [workspaceSessionMetas, effectiveTodoStates])
 
   // Count sources by type for the Sources dropdown subcategories
   const sourceTypeCounts = useMemo(() => {
@@ -1180,24 +1175,24 @@ function AppShellContent({
     switch (chatFilter.kind) {
       case 'allChats':
         // "All Chats" - shows all sessions
-        result = topLevelWorkspaceSessionMetas
+        result = workspaceSessionMetas
         break
       case 'flagged':
-        result = topLevelWorkspaceSessionMetas.filter(s => s.isFlagged)
+        result = workspaceSessionMetas.filter(s => s.isFlagged)
         break
       case 'state':
         // Filter by specific todo state
-        result = topLevelWorkspaceSessionMetas.filter(s => (s.todoState || 'todo') === chatFilter.stateId)
+        result = workspaceSessionMetas.filter(s => (s.todoState || 'todo') === chatFilter.stateId)
         break
       case 'label': {
         if (chatFilter.labelId === '__all__') {
           // "Labels" header: show all sessions that have at least one label
-          result = topLevelWorkspaceSessionMetas.filter(s => s.labels && s.labels.length > 0)
+          result = workspaceSessionMetas.filter(s => s.labels && s.labels.length > 0)
         } else {
           // Specific label: includes sessions tagged with this label or any descendant
           const descendants = getDescendantIds(labelConfigs, chatFilter.labelId)
           const matchIds = new Set([chatFilter.labelId, ...descendants])
-          result = topLevelWorkspaceSessionMetas.filter(
+          result = workspaceSessionMetas.filter(
             s => s.labels?.some(l => matchIds.has(extractLabelId(l)))
           )
         }
@@ -1206,7 +1201,7 @@ function AppShellContent({
       case 'view': {
         // Filter by view: __all__ shows any session matched by any view,
         // otherwise filter to the specific view
-        result = topLevelWorkspaceSessionMetas.filter(s => {
+        result = workspaceSessionMetas.filter(s => {
           const matched = evaluateViews(s)
           if (chatFilter.viewId === '__all__') {
             return matched.length > 0
@@ -1216,7 +1211,7 @@ function AppShellContent({
         break
       }
       default:
-        result = topLevelWorkspaceSessionMetas
+        result = workspaceSessionMetas
     }
 
     // Apply secondary filters (status + labels, AND-ed together) in ALL views.
@@ -1263,7 +1258,7 @@ function AppShellContent({
     }
 
     return result
-  }, [topLevelWorkspaceSessionMetas, chatFilter, listFilter, labelFilter, labelConfigs])
+  }, [workspaceSessionMetas, chatFilter, listFilter, labelFilter, labelConfigs, evaluateViews])
 
   const projectedSessionMetas = useMemo(
     () => projectSessionTree(filteredSessionMetas, workspaceSessionMetas),

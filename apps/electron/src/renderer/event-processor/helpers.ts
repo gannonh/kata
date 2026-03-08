@@ -177,6 +177,30 @@ export function mergeUpsertedSession(
     return incomingSession
   }
 
+  const isMetadataOnlySubagentUpsert =
+    incomingSession.sessionKind === 'subagent'
+    && incomingSession.messages.length === 0
+    && existingSession.sessionKind === 'subagent'
+
+  if (isMetadataOnlySubagentUpsert) {
+    return {
+      ...existingSession,
+      ...incomingSession,
+      lastMessageAt: existingSession.lastMessageAt,
+      isProcessing: existingSession.isProcessing,
+      permissionMode: existingSession.permissionMode,
+      enabledSourceSlugs: existingSession.enabledSourceSlugs,
+      workingDirectory: existingSession.workingDirectory,
+      model: existingSession.model,
+      thinkingLevel: existingSession.thinkingLevel,
+      name: incomingSession.name ?? existingSession.name,
+      preview: incomingSession.preview ?? existingSession.preview,
+      agentRole: incomingSession.agentRole ?? existingSession.agentRole,
+      delegationLabel: incomingSession.delegationLabel ?? existingSession.delegationLabel,
+      messages: existingSession.messages,
+    }
+  }
+
   return {
     ...existingSession,
     ...incomingSession,

@@ -11,6 +11,10 @@ while IFS= read -r git_var; do
   unset "$git_var"
 done < <(git rev-parse --local-env-vars)
 
+stdin_file="$(mktemp)"
+trap 'rm -f "$stdin_file"' EXIT
+cat >"$stdin_file"
+
 if ! command -v bun >/dev/null 2>&1; then
   echo "pre-push: Bun is required but was not found in PATH." >&2
   echo "Install Bun, then run 'bun install' and try pushing again." >&2
@@ -25,3 +29,8 @@ fi
 
 echo "pre-push: running local validate gate..."
 bun run validate:local
+
+if git lfs version >/dev/null 2>&1; then
+  echo "pre-push: running git-lfs pre-push..."
+  git lfs pre-push "$@" <"$stdin_file"
+fi

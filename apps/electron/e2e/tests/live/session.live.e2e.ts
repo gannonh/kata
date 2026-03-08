@@ -5,6 +5,7 @@
 import { test, expect, DEMO_CONFIG_DIR } from '../../fixtures/live.fixture'
 import { _electron as electron } from '@playwright/test'
 import path from 'path'
+import { existsSync, readFileSync, readdirSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { goToAllChats } from './helpers'
 import { ChatPage } from '../../page-objects/ChatPage'
@@ -12,6 +13,34 @@ import { ChatPage } from '../../page-objects/ChatPage'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+function getDemoWorkspaceRootPath(): string {
+  const configPath = path.join(DEMO_CONFIG_DIR, 'config.json')
+  const config = JSON.parse(readFileSync(configPath, 'utf-8')) as {
+    activeWorkspaceId?: string | null
+    workspaces: Array<{ id: string; rootPath: string }>
+  }
+
+  return config.workspaces.find(workspace => workspace.id === config.activeWorkspaceId)?.rootPath
+    ?? config.workspaces[0]?.rootPath
+    ?? ''
+}
+
+function findPersistedSessionId(workspaceRootPath: string, prompt: string): string | null {
+  const sessionsDir = path.join(workspaceRootPath, 'sessions')
+  if (!existsSync(sessionsDir)) {
+    return null
+  }
+
+  for (const sessionId of readdirSync(sessionsDir)) {
+    const sessionFile = path.join(sessionsDir, sessionId, 'session.jsonl')
+    if (existsSync(sessionFile) && readFileSync(sessionFile, 'utf-8').includes(prompt)) {
+      return sessionId
+    }
+  }
+
+  return null
+}
 
 test.describe('Live Session Lifecycle', () => {
   test.setTimeout(120_000)
@@ -38,7 +67,11 @@ test.describe('Live Session Lifecycle', () => {
       .first()
     await expect(createdSession).toBeVisible({ timeout: 15000 })
 
-    await mainWindow.waitForTimeout(1000)
+    const workspaceRootPath = getDemoWorkspaceRootPath()
+    await expect.poll(
+      () => findPersistedSessionId(workspaceRootPath, uniquePrompt),
+      { timeout: 15000 }
+    ).not.toBeNull()
     await electronApp.close()
 
     const app = await electron.launch({

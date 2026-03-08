@@ -77,6 +77,7 @@ export interface SessionMeta {
   orchestratorSessionId?: string
   agentRole?: string
   delegatedBySessionId?: string
+  delegatedToolUseId?: string
   delegationLabel?: string
   subagentStatus?: SubagentStatus
 }
@@ -137,6 +138,7 @@ export function extractSessionMeta(session: Session): SessionMeta {
     orchestratorSessionId: session.orchestratorSessionId,
     agentRole: session.agentRole,
     delegatedBySessionId: session.delegatedBySessionId,
+    delegatedToolUseId: session.delegatedToolUseId,
     delegationLabel: session.delegationLabel,
     subagentStatus: session.subagentStatus,
   }

@@ -12,7 +12,17 @@ const sessionMenuPropsHistory: any[] = []
 const chatDisplayPropsHistory: any[] = []
 
 let currentSessions = new Map<string, Session>()
-let currentSessionMeta: Map<string, { id: string; workspaceId: string; name?: string; isFlagged?: boolean; lastMessageAt?: number }> = new Map()
+let currentSessionMeta: Map<string, {
+  id: string
+  workspaceId: string
+  name?: string
+  isFlagged?: boolean
+  lastMessageAt?: number
+  sessionKind?: Session['sessionKind']
+  parentSessionId?: string
+  orchestratorSessionId?: string
+  delegatedToolUseId?: string
+}> = new Map()
 let currentLoadedSessions = new Set<string>()
 
 mock.module('jotai', () => ({
@@ -268,6 +278,10 @@ function renderChatPage(activeSession: Session, sessions: Session[] = [activeSes
     name: session.name,
     isFlagged: session.isFlagged,
     lastMessageAt: session.lastMessageAt,
+    sessionKind: session.sessionKind,
+    parentSessionId: session.parentSessionId,
+    orchestratorSessionId: session.orchestratorSessionId,
+    delegatedToolUseId: session.delegatedToolUseId,
   }]))
   currentLoadedSessions = new Set(sessions.map(session => session.id))
   sessionMenuPropsHistory.length = 0
@@ -342,4 +356,45 @@ test('orchestrator chat pages keep workflow controls and continue rendering the 
   expect(chatDisplayProps.session.id).toBe(orchestratorSession.id)
   expect(chatDisplayProps.session.messages).toEqual(orchestratorSession.messages)
   expect(sessionMenuProps.showWorkflowControls).toBe(true)
+})
+
+test('child chat pages can project delegated transcripts from session metadata before the child session is fully hydrated', () => {
+  const parentSession = createSession({
+    id: '260308-root',
+    name: 'Coordinator',
+    sessionKind: 'orchestrator',
+    messages: [
+      { id: 'task-1', role: 'tool', content: 'Inspect workspace files', timestamp: 1, toolName: 'Task', toolUseId: 'toolu-task-a', toolStatus: 'completed' },
+      { id: 'tool-1', role: 'tool', content: 'ls -la\nfoobar.txt', timestamp: 2, toolName: 'Terminal', toolUseId: 'toolu-shell-a', toolStatus: 'completed', parentToolUseId: 'toolu-task-a' },
+    ],
+  })
+  const childSession = createSession({
+    id: '260308-child-a',
+    name: 'Explore workspace sources',
+    sessionKind: 'subagent',
+    parentSessionId: '260308-root',
+    orchestratorSessionId: '260308-root',
+    delegatedToolUseId: undefined,
+    messages: [],
+  })
+
+  renderChatPage(childSession, [childSession, parentSession])
+  currentSessionMeta.set(childSession.id, {
+    id: childSession.id,
+    workspaceId: childSession.workspaceId,
+    name: childSession.name,
+    lastMessageAt: childSession.lastMessageAt,
+    sessionKind: 'subagent',
+    parentSessionId: '260308-root',
+    orchestratorSessionId: '260308-root',
+    delegatedToolUseId: 'toolu-task-a',
+  })
+
+  ChatPage({ sessionId: childSession.id })
+
+  const chatDisplayProps = chatDisplayPropsHistory.at(-1)
+  expect(chatDisplayProps.session.messages.map((message: { id: string }) => message.id)).toEqual([
+    'task-1',
+    'tool-1',
+  ])
 })

@@ -25,6 +25,7 @@ test.describe('Live Status', () => {
   })
 
   test('default statuses are available', async ({ mainWindow }) => {
+    await goToAllChats(mainWindow)
     await expect(mainWindow.getByRole('button', { name: 'Todo' }).first()).toBeVisible({ timeout: 5000 })
     await expect(mainWindow.getByRole('button', { name: 'Done' }).first()).toBeVisible({ timeout: 5000 })
   })
