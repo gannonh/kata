@@ -11,8 +11,31 @@ function sortByLastMessageAtDesc<T extends SessionMeta>(sessions: T[]): T[] {
   return [...sessions].sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0))
 }
 
+function resolveParentSessionId(session: SessionMeta): string | undefined {
+  if (session.parentSessionId) {
+    return session.parentSessionId
+  }
+
+  if (session.sessionKind !== 'subagent') {
+    return undefined
+  }
+
+  // Child sessions can briefly arrive with partial hierarchy metadata while
+  // their live session state is still converging. Fall back to the delegation
+  // linkage so they stay nested under the orchestrator tree.
+  if (session.delegatedBySessionId && session.delegatedBySessionId !== session.id) {
+    return session.delegatedBySessionId
+  }
+
+  if (session.orchestratorSessionId && session.orchestratorSessionId !== session.id) {
+    return session.orchestratorSessionId
+  }
+
+  return undefined
+}
+
 export function getTopLevelSessions<T extends SessionMeta>(sessions: T[]): T[] {
-  return sessions.filter(session => !(session.sessionKind === 'subagent' && session.parentSessionId))
+  return sessions.filter(session => !resolveParentSessionId(session))
 }
 
 export function projectSessionTree(
@@ -24,14 +47,16 @@ export function projectSessionTree(
   const topLevelSessions: SessionMeta[] = []
 
   for (const session of allSessions) {
-    if (!session.parentSessionId) {
+    const parentSessionId = resolveParentSessionId(session)
+
+    if (!parentSessionId) {
       topLevelSessions.push(session)
       continue
     }
 
-    const siblings = childrenByParent.get(session.parentSessionId) ?? []
+    const siblings = childrenByParent.get(parentSessionId) ?? []
     siblings.push(session)
-    childrenByParent.set(session.parentSessionId, siblings)
+    childrenByParent.set(parentSessionId, siblings)
   }
 
   const projected: SessionListItem[] = []

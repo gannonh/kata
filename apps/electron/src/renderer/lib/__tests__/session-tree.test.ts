@@ -39,6 +39,21 @@ test('getTopLevelSessions excludes subagents from direct filter ownership', () =
   expect(getTopLevelSessions(sessions).map(session => session.id)).toEqual(['root-a', 'root-b'])
 })
 
+test('getTopLevelSessions excludes subagents when delegated parent metadata is present', () => {
+  const sessions = [
+    createMeta({ id: 'root-a', sessionKind: 'orchestrator', todoState: 'needs_review' }),
+    createMeta({
+      id: 'child-a1',
+      sessionKind: 'subagent',
+      delegatedBySessionId: 'root-a',
+      orchestratorSessionId: 'root-a',
+    }),
+    createMeta({ id: 'root-b', todoState: 'todo' }),
+  ]
+
+  expect(getTopLevelSessions(sessions).map(session => session.id)).toEqual(['root-a', 'root-b'])
+})
+
 test('projectSessionTree nests child sessions under visible orchestrators', () => {
   const rootA = createMeta({
     id: 'root-a',
@@ -80,6 +95,39 @@ test('projectSessionTree nests child sessions under visible orchestrators', () =
     ['child-a2', 1, 'root-a'],
   ])
   expect(projected.every(item => item.rootLastMessageAt === rootA.lastMessageAt)).toBe(true)
+})
+
+test('projectSessionTree nests child sessions when delegated parent metadata is present', () => {
+  const root = createMeta({
+    id: 'root-a',
+    name: 'Coordinator',
+    sessionKind: 'orchestrator',
+    lastMessageAt: 3,
+  })
+  const child = createMeta({
+    id: 'child-a1',
+    name: 'Inspect workspace',
+    sessionKind: 'subagent',
+    delegatedBySessionId: 'root-a',
+    orchestratorSessionId: 'root-a',
+    lastMessageAt: 6,
+  })
+  const grandchild = createMeta({
+    id: 'grandchild-a1',
+    name: 'Inspect package.json',
+    sessionKind: 'subagent',
+    delegatedBySessionId: 'child-a1',
+    orchestratorSessionId: 'root-a',
+    lastMessageAt: 7,
+  })
+
+  const projected = projectSessionTree([root, child, grandchild], [root, child, grandchild])
+
+  expect(projected.map(item => [item.id, item.depth])).toEqual([
+    ['root-a', 0],
+    ['child-a1', 1],
+    ['grandchild-a1', 2],
+  ])
 })
 
 test('projectSessionTree recursively includes descendant subagent sessions', () => {

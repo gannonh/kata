@@ -113,6 +113,36 @@ function groupSessionsByDate(sessions: SessionListItem[]): Array<{ date: Date; l
     }))
 }
 
+export function getSearchFilteredSessionItems(
+  items: SessionListItem[],
+  searchQuery: string,
+  flatLabels: LabelConfig[]
+): SessionListItem[] {
+  if (!searchQuery.trim()) return items
+
+  const query = searchQuery.toLowerCase()
+  const labelQuery = query.replace(/#/g, '')
+  const matchingRootIds = new Set<string>()
+
+  for (const item of items) {
+    const matches = getSessionTitle(item).toLowerCase().includes(query)
+      || (!labelQuery && !!item.labels?.length)
+      || (!!labelQuery && !!item.labels?.some(entry => {
+        const parsed = parseLabelEntry(entry)
+        const config = flatLabels.find(l => l.id === parsed.id)
+        if (config?.name.toLowerCase().includes(labelQuery)) return true
+        if (parsed.rawValue?.toLowerCase().includes(labelQuery)) return true
+        return false
+      }))
+
+    if (matches) {
+      matchingRootIds.add(item.rootSessionId)
+    }
+  }
+
+  return items.filter(item => matchingRootIds.has(item.rootSessionId))
+}
+
 /**
  * Get the current todo state of a session
  * States are user-controlled, never automatic
@@ -772,48 +802,23 @@ export function SessionList({
     }
   }, [searchActive])
 
-  // Sort by most recent activity first
-  const sortedItems = [...items].sort((a, b) => {
-    const timestampDiff = (b.rootLastMessageAt ?? b.lastMessageAt ?? 0) - (a.rootLastMessageAt ?? a.lastMessageAt ?? 0)
-    if (timestampDiff !== 0) {
-      return timestampDiff
-    }
-    return a.treeIndex - b.treeIndex
-  })
+  // Items arrive from projectSessionTree in the correct parent-first order.
+  // Re-sorting here can separate subagent rows from their orchestrator.
+  const orderedItems = items
 
   // Filter items by search query — matches title, label names, and label values.
   // '#' characters are stripped when matching labels (so "#bug" finds label "bug").
   // A bare '#' matches all sessions that have any labels.
-  const searchFilteredItems = useMemo(() => {
-    if (!searchQuery.trim()) return sortedItems
-    const query = searchQuery.toLowerCase()
-    const labelQuery = query.replace(/#/g, '')
-    const matchingRootIds = new Set<string>()
-
-    for (const item of sortedItems) {
-      const matches = getSessionTitle(item).toLowerCase().includes(query)
-        || (!labelQuery && !!item.labels?.length)
-        || (!!labelQuery && !!item.labels?.some(entry => {
-          const parsed = parseLabelEntry(entry)
-          const config = flatLabels.find(l => l.id === parsed.id)
-          if (config?.name.toLowerCase().includes(labelQuery)) return true
-          if (parsed.rawValue?.toLowerCase().includes(labelQuery)) return true
-          return false
-        }))
-
-      if (matches) {
-        matchingRootIds.add(item.rootSessionId)
-      }
-    }
-
-    return sortedItems.filter(item => matchingRootIds.has(item.rootSessionId))
-  }, [sortedItems, searchQuery, flatLabels])
+  const searchFilteredItems = useMemo(
+    () => getSearchFilteredSessionItems(orderedItems, searchQuery, flatLabels),
+    [orderedItems, searchQuery, flatLabels]
+  )
 
   const unreadBySessionId = useMemo(() => {
-    const itemsById = new Map(sortedItems.map(item => [item.id, item]))
+    const itemsById = new Map(orderedItems.map(item => [item.id, item]))
     const unreadMap = new Map<string, boolean>()
 
-    for (const item of sortedItems) {
+    for (const item of orderedItems) {
       if (!hasUnreadMessages(item)) {
         continue
       }
@@ -828,7 +833,7 @@ export function SessionList({
     }
 
     return unreadMap
-  }, [sortedItems])
+  }, [orderedItems])
 
   const itemHasUnread = useCallback((item: SessionListItem): boolean => {
     return unreadBySessionId.get(item.id) ?? hasUnreadMessages(item)
