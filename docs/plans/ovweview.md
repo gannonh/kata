@@ -2,7 +2,11 @@
 
 ## Context
 
-This is a simple vision document describing the next evolution of Kata Agents, not called Kata Cloud Agents
+This is a simple vision document describing the next evolution of Kata Agents, now called Kata Cloud Agents
+
+1. Multi-agent orchestration
+2. Spec-driven development
+3. Cloud Agents (not reflected in this document, coming soon)
 
 ## Introducing Kata Orchestrator
 
@@ -29,8 +33,6 @@ When an agent completes work, the spec updates to reflect reality. When requirem
 ### Spaces
 
 When you create a prompt in Kata , it automatically creates a **Space** with its own dedicated git branch and worktree. This isolated environment allows agents to work on your code without affecting your main branch.
-
-![alt text](intent_prompt_to_create_space.png)
 
 ### Orchestrator of specialized agents
 
@@ -77,8 +79,6 @@ From the Changes tab, you can:
 
 This workflow gives you full visibility and control over agent generated code changes, completing the cycle from Kata to PR.
 
-![alt text](intent_changes_to_pr.png)
-
 ### Specialist agents
 
 Kata includes **6 specialist agent personas**, each designed for specific types of work. You can also create custom specialists in **Settings** to tailor agents to your specific workflow:
@@ -119,8 +119,6 @@ Describe your project in the prompt box and click **Create space** under the pro
 
 Your first session with the Orchestrator
 Your space opens with the Explorer to the left, Orchestrator in the center, and the intial draft of the Spec to the right.
-
-![alt text](intent_prompt_to_create_space.png)
 
 ***
 
