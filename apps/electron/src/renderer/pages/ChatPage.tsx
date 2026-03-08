@@ -217,6 +217,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
   const hasUnreadMessages = sessionMeta
     ? !!(sessionMeta.lastFinalMessageId && sessionMeta.lastFinalMessageId !== sessionMeta.lastReadMessageId)
     : false
+  const isChildSession = session?.sessionKind === 'subagent' || sessionMeta?.sessionKind === 'subagent'
   // Use isAsyncOperationOngoing for shimmer effect (sharing, updating share, revoking, title regeneration)
   const isAsyncOperationOngoing = session?.isAsyncOperationOngoing || sessionMeta?.isAsyncOperationOngoing || false
 
@@ -388,9 +389,10 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
       hasUnreadMessages={hasUnreadMessages}
       currentTodoState={currentTodoState}
       todoStates={todoStates ?? []}
-      sessionLabels={sessionLabels}
-      labels={labels ?? []}
-      onLabelsChange={handleLabelsChange}
+      sessionLabels={isChildSession ? [] : sessionLabels}
+      labels={isChildSession ? [] : (labels ?? [])}
+      onLabelsChange={isChildSession ? undefined : handleLabelsChange}
+      showWorkflowControls={!isChildSession}
       onRename={handleRename}
       onFlag={handleFlag}
       onUnflag={handleUnflag}
@@ -408,6 +410,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
     hasUnreadMessages,
     currentTodoState,
     todoStates,
+    isChildSession,
     sessionLabels,
     labels,
     handleLabelsChange,
