@@ -164,3 +164,24 @@ export function createEmptySession(sessionId: string, workspaceId: string, works
     isProcessing: true,
   }
 }
+
+/**
+ * Merge an upserted session payload into an existing session without wiping
+ * the existing transcript when the incoming payload is metadata-only.
+ */
+export function mergeUpsertedSession(
+  existingSession: Session | null,
+  incomingSession: Session
+): Session {
+  if (!existingSession) {
+    return incomingSession
+  }
+
+  return {
+    ...existingSession,
+    ...incomingSession,
+    messages: incomingSession.messages.length > 0
+      ? incomingSession.messages
+      : existingSession.messages,
+  }
+}

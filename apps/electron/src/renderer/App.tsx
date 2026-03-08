@@ -52,6 +52,7 @@ import {
   JSONPreviewOverlay,
 } from '@craft-agent/ui'
 import { useLinkInterceptor, type FilePreviewState } from '@/hooks/useLinkInterceptor'
+import { mergeUpsertedSession } from './event-processor/helpers'
 
 type AppState = 'loading' | 'onboarding' | 'reauth' | 'ready'
 
@@ -491,26 +492,17 @@ export default function App() {
             break
           }
           case 'upsert_session': {
-            const existingSession = store.get(sessionAtomFamily(effect.session.id))
-            if (!existingSession) {
+            const mergedSession = mergeUpsertedSession(
+              store.get(sessionAtomFamily(effect.session.id)),
+              effect.session
+            )
+
+            if (mergedSession === effect.session) {
               addSession(effect.session)
               break
             }
 
-            const mergedSession = {
-              ...existingSession,
-              ...effect.session,
-              messages: effect.session.messages.length > 0
-                ? effect.session.messages
-                : existingSession.messages,
-            }
-
             updateSessionDirect(effect.session.id, () => mergedSession)
-
-            const metaMap = store.get(sessionMetaMapAtom)
-            const newMetaMap = new Map(metaMap)
-            newMetaMap.set(effect.session.id, extractSessionMeta(mergedSession))
-            store.set(sessionMetaMapAtom, newMetaMap)
             break
           }
         }

@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 
 import type { Message, Session } from '../../../shared/types'
+import { mergeUpsertedSession } from '../helpers'
 import { processEvent } from '../processor'
 import type { SessionState } from '../types'
 
@@ -125,4 +126,49 @@ test('subagent_status_changed emits a child session upsert effect with lifecycle
       isProcessing: false,
     }),
   })
+})
+
+test('mergeUpsertedSession preserves an existing child transcript when lifecycle upserts are metadata-only', () => {
+  const existingChild = createSession({
+    id: '260308-child-a',
+    name: 'Explore workspace sources',
+    preview: 'Explore workspace sources',
+    sessionKind: 'subagent',
+    parentSessionId: '260308-root',
+    orchestratorSessionId: '260308-root',
+    agentRole: 'Explore',
+    delegatedBySessionId: '260308-root',
+    delegatedToolUseId: 'toolu-task-a',
+    delegationLabel: 'Explore workspace sources',
+    subagentStatus: 'running',
+    messages: [
+      createMessage({
+        id: 'assistant-1',
+        role: 'assistant',
+        content: 'Found the workspace sources.',
+      }),
+    ],
+  })
+
+  const metadataOnlyUpsert: Session = {
+    id: '260308-child-a',
+    workspaceId: 'workspace-1',
+    workspaceName: 'Workspace 1',
+    lastMessageAt: 2,
+    isProcessing: false,
+    sessionKind: 'subagent',
+    parentSessionId: '260308-root',
+    orchestratorSessionId: '260308-root',
+    delegatedBySessionId: '260308-root',
+    delegatedToolUseId: 'toolu-task-a',
+    subagentStatus: 'completed',
+    messages: [],
+  }
+
+  const merged = mergeUpsertedSession(existingChild, metadataOnlyUpsert)
+
+  expect(merged.messages).toEqual(existingChild.messages)
+  expect(merged.subagentStatus).toBe('completed')
+  expect(merged.name).toBe('Explore workspace sources')
+  expect(merged.delegationLabel).toBe('Explore workspace sources')
 })
