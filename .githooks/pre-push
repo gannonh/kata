@@ -4,6 +4,13 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
+# Git injects repository-local GIT_* variables into hook processes.
+# Clear them before running local CI so nested git commands in tests can
+# operate on their own temporary repositories instead of this worktree.
+while IFS= read -r git_var; do
+  unset "$git_var"
+done < <(git rev-parse --local-env-vars)
+
 if ! command -v bun >/dev/null 2>&1; then
   echo "pre-push: Bun is required but was not found in PATH." >&2
   echo "Install Bun, then run 'bun install' and try pushing again." >&2
