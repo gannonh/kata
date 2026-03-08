@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build Session — Planning & Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&family=Fragment+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  /* ============ THEME — Dark-first deep blue + amber ============ */
+  :root {
+    --font-body: 'Bricolage Grotesque', system-ui, sans-serif;
+    --font-mono: 'Fragment Mono', 'SF Mono', Consolas, monospace;
+
+    --bg: #0c1220;
+    --surface: #111827;
+    --surface2: #1a2332;
+    --surface-elevated: #1e293b;
+    --border: rgba(255, 255, 255, 0.06);
+    --border-bright: rgba(255, 255, 255, 0.12);
+    --text: #e2e8f0;
+    --text-dim: #7c8ba0;
+    --accent: #d4a73a;
+    --accent-dim: rgba(212, 167, 58, 0.1);
+    --blue: #3b82f6;
+    --blue-dim: rgba(59, 130, 246, 0.1);
+    --teal: #14b8a6;
+    --teal-dim: rgba(20, 184, 166, 0.1);
+    --green: #22c55e;
+    --green-dim: rgba(34, 197, 94, 0.1);
+    --red: #ef4444;
+    --red-dim: rgba(239, 68, 68, 0.1);
+    --orange: #f59e0b;
+    --orange-dim: rgba(245, 158, 11, 0.1);
+    --slate: #475569;
+    --slate-dim: rgba(71, 85, 105, 0.1);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --surface2: #f8fafc;
+      --surface-elevated: #ffffff;
+      --border: rgba(0, 0, 0, 0.07);
+      --border-bright: rgba(0, 0, 0, 0.14);
+      --text: #0f172a;
+      --text-dim: #64748b;
+      --accent: #b8860b;
+      --accent-dim: rgba(184, 134, 11, 0.08);
+      --blue: #2563eb;
+      --blue-dim: rgba(37, 99, 235, 0.07);
+      --teal: #0d9488;
+      --teal-dim: rgba(13, 148, 136, 0.07);
+      --green: #16a34a;
+      --green-dim: rgba(22, 163, 74, 0.07);
+      --red: #dc2626;
+      --red-dim: rgba(220, 38, 38, 0.07);
+      --orange: #d97706;
+      --orange-dim: rgba(217, 119, 6, 0.07);
+      --slate: #94a3b8;
+      --slate-dim: rgba(148, 163, 184, 0.1);
+    }
+  }
+
+  /* ============ RESET ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse at 15% 0%, var(--blue-dim) 0%, transparent 50%),
+      radial-gradient(ellipse at 85% 100%, var(--accent-dim) 0%, transparent 40%);
+    color: var(--text);
+    font-family: var(--font-body);
+    padding: 40px;
+    min-height: 100vh;
+    line-height: 1.55;
+  }
+
+  /* ============ NAV LAYOUT ============ */
+  .wrap {
+    max-width: 1320px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 170px 1fr;
+    gap: 0 40px;
+  }
+  .main { min-width: 0; }
+
+  /* ============ TOC — Desktop ============ */
+  .toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    padding: 14px 0;
+    grid-row: 1 / -1;
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
+  }
+  .toc::-webkit-scrollbar { width: 3px; }
+  .toc::-webkit-scrollbar-thumb { background: var(--surface-elevated); border-radius: 2px; }
+
+  .toc-title {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    padding: 0 0 10px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .toc a {
+    display: block;
+    font-size: 11px;
+    color: var(--text-dim);
+    text-decoration: none;
+    padding: 4px 8px;
+    border-radius: 5px;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+    line-height: 1.4;
+    margin-bottom: 1px;
+  }
+  .toc a:hover { color: var(--text); background: var(--surface2); }
+  .toc a.active { color: var(--accent); border-left-color: var(--accent); }
+
+  /* ============ TOC — Mobile ============ */
+  @media (max-width: 1000px) {
+    .wrap { grid-template-columns: 1fr; padding-top: 0; }
+    body { padding-top: 0; }
+
+    .toc {
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      max-height: none;
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 0;
+      margin: 0 -40px;
+      padding-left: 40px;
+      padding-right: 40px;
+      grid-row: auto;
+    }
+    .toc::-webkit-scrollbar { display: none; }
+    .toc-title { display: none; }
+
+    .toc a {
+      white-space: nowrap;
+      flex-shrink: 0;
+      border-left: none;
+      border-bottom: 2px solid transparent;
+      border-radius: 4px 4px 0 0;
+      padding: 6px 10px;
+      font-size: 10px;
+    }
+    .toc a.active {
+      border-left: none;
+      border-bottom-color: var(--accent);
+      background: var(--surface);
+    }
+
+    .main { padding-top: 20px; }
+    .sec-head { scroll-margin-top: 52px; }
+  }
+
+  /* ============ ANIMATION ============ */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .anim {
+    animation: fadeUp 0.4s ease-out both;
+    animation-delay: calc(var(--i, 0) * 0.05s);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* ============ TYPOGRAPHY ============ */
+  h1 {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    margin-bottom: 6px;
+    text-wrap: balance;
+  }
+  h1 span { color: var(--accent); }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 13px;
+    font-family: var(--font-mono);
+    margin-bottom: 36px;
+    line-height: 1.6;
+    max-width: 680px;
+  }
+
+  /* ============ SECTION HEADS ============ */
+  .sec-head {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 1.8px;
+    color: var(--accent);
+    padding: 10px 0 12px;
+    margin-top: 40px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sec-head .num {
+    background: var(--accent-dim);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+  }
+
+  /* ============ CARDS ============ */
+  .ve-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    transition: border-color 0.15s;
+  }
+  .ve-card:hover { border-color: var(--border-bright); }
+
+  .ve-card--hero {
+    background: var(--surface-elevated);
+    border-color: color-mix(in srgb, var(--border) 50%, var(--accent) 50%);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 24px 28px;
+  }
+
+  .ve-card--recessed {
+    background: var(--surface2);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  .card-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .card-label .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .card-title {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .card-desc {
+    color: var(--text-dim);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .code-blue {
+    background: var(--blue-dim);
+    color: var(--blue);
+  }
+
+  /* ============ THREE-COL LAYOUT DIAGRAM ============ */
+  .layout-diagram {
+    display: grid;
+    grid-template-columns: 220px 1fr 340px;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .layout-panel {
+    border: 2px solid var(--border-bright);
+    border-radius: 10px;
+    padding: 14px 16px;
+    position: relative;
+    min-height: 200px;
+  }
+  .layout-panel::before {
+    content: attr(data-label);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    position: absolute;
+    top: -8px;
+    left: 12px;
+    background: var(--bg);
+    padding: 0 6px;
+  }
+
+  .layout-panel--left { border-color: var(--teal); }
+  .layout-panel--left::before { color: var(--teal); }
+  .layout-panel--center { border-color: var(--blue); }
+  .layout-panel--center::before { color: var(--blue); }
+  .layout-panel--right { border-color: var(--accent); }
+  .layout-panel--right::before { color: var(--accent); }
+
+  .lp-item {
+    font-size: 11px;
+    padding: 5px 8px;
+    border-radius: 5px;
+    margin-bottom: 4px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .lp-item .lp-name {
+    font-weight: 600;
+    font-size: 10px;
+    font-family: var(--font-mono);
+  }
+  .lp-item .lp-desc {
+    color: var(--text-dim);
+    font-size: 10px;
+    margin-top: 1px;
+  }
+
+  .lp-spacer {
+    height: 1px;
+    background: var(--border);
+    margin: 6px 0;
+  }
+
+  .badge-new {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    background: var(--red-dim);
+    color: var(--red);
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 4px;
+  }
+  .badge-partial {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    background: var(--orange-dim);
+    color: var(--orange);
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 4px;
+  }
+  .badge-exists {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    background: var(--green-dim);
+    color: var(--green);
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 4px;
+  }
+
+  /* ============ COMPONENT GRID ============ */
+  .comp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .comp-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    transition: border-color 0.15s;
+  }
+  .comp-card:hover { border-color: var(--border-bright); }
+  .comp-card .comp-name {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 4px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .comp-card .comp-desc {
+    color: var(--text-dim);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .comp-card .comp-src {
+    margin-top: 6px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  /* ============ STATE TIMELINE ============ */
+  .timeline {
+    position: relative;
+    padding-left: 28px;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--teal), var(--blue), var(--accent), var(--green));
+    border-radius: 1px;
+  }
+
+  .tl-item {
+    position: relative;
+    padding: 0 0 24px 0;
+  }
+  .tl-item:last-child { padding-bottom: 0; }
+
+  .tl-dot {
+    position: absolute;
+    left: -24px;
+    top: 6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--border-bright);
+    background: var(--surface);
+  }
+  .tl-item:nth-child(1) .tl-dot { border-color: var(--teal); background: var(--teal-dim); }
+  .tl-item:nth-child(2) .tl-dot { border-color: var(--blue); background: var(--blue-dim); }
+  .tl-item:nth-child(3) .tl-dot { border-color: var(--accent); background: var(--accent-dim); }
+  .tl-item:nth-child(4) .tl-dot { border-color: var(--accent); background: var(--accent-dim); }
+  .tl-item:nth-child(5) .tl-dot { border-color: var(--green); background: var(--green-dim); }
+
+  .tl-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .tl-title {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .tl-body {
+    color: var(--text-dim);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .tl-body strong { color: var(--text); font-weight: 600; }
+
+  .tl-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .tl-tag {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+
+  /* ============ TABLE ============ */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .data-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  .data-table th {
+    background: var(--surface2);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-dim);
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 2px solid var(--border-bright);
+    white-space: nowrap;
+  }
+  .data-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .data-table tbody tr:nth-child(even) { background: var(--accent-dim); }
+  .data-table tbody tr {
+    transition: background 0.15s ease;
+  }
+  .data-table tbody tr:hover { background: var(--border); }
+  .data-table code {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  .data-table small {
+    display: block;
+    color: var(--text-dim);
+    font-size: 10px;
+    margin-top: 2px;
+  }
+  .data-table .wide { min-width: 200px; max-width: 400px; }
+
+  /* ============ STATUS BADGES ============ */
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 400;
+    padding: 2px 8px;
+    border-radius: 5px;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+  }
+  .status::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .status--exists { background: var(--green-dim); color: var(--green); }
+  .status--partial { background: var(--orange-dim); color: var(--orange); }
+  .status--gap { background: var(--red-dim); color: var(--red); }
+  .status--new { background: var(--blue-dim); color: var(--blue); }
+
+  /* ============ COLOR SWATCH ROW ============ */
+  .swatch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+  }
+  .swatch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .swatch-color {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.1);
+    flex-shrink: 0;
+  }
+  .swatch-info {
+    min-width: 0;
+  }
+  .swatch-name {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .swatch-hex {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-dim);
+  }
+
+  /* ============ TYPO TABLE ============ */
+  .typo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .typo-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .typo-sample {
+    font-size: 14px;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .typo-meta {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  /* ============ KPI ROW ============ */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .kpi-card {
+    background: var(--surface-elevated);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .kpi-val {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* ============ COLLAPSIBLE ============ */
+  details.collapsible {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 12px;
+  }
+  details.collapsible summary {
+    padding: 12px 18px;
+    background: var(--surface);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+    transition: background 0.15s;
+  }
+  details.collapsible summary:hover { background: var(--surface-elevated); }
+  details.collapsible summary::-webkit-details-marker { display: none; }
+  details.collapsible summary::before {
+    content: '\25B8';
+    font-size: 10px;
+    color: var(--text-dim);
+    transition: transform 0.15s;
+  }
+  details.collapsible[open] summary::before { transform: rotate(90deg); }
+  details.collapsible .coll-body {
+    padding: 14px 18px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-dim);
+  }
+  details.collapsible .coll-body strong { color: var(--text); }
+
+  /* ============ INTERACTION LIST ============ */
+  .ix-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .ix-item {
+    display: grid;
+    grid-template-columns: 180px 200px 1fr 160px;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 11px;
+    align-items: start;
+    transition: border-color 0.15s;
+  }
+  .ix-item:hover { border-color: var(--border-bright); }
+  .ix-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 2px;
+  }
+  .ix-val { font-size: 11px; line-height: 1.5; }
+
+  /* ============ SIDEBAR SECTIONS DIAGRAM ============ */
+  .sidebar-sections {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .sb-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--teal);
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+  }
+  .sb-section:nth-child(2) { border-left-color: var(--blue); }
+  .sb-section:nth-child(3) { border-left-color: var(--accent); }
+  .sb-section:nth-child(4) { border-left-color: var(--slate); }
+  .sb-name {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 3px;
+  }
+  .sb-desc {
+    color: var(--text-dim);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 900px) {
+    .layout-diagram { grid-template-columns: 1fr; }
+    .comp-grid { grid-template-columns: 1fr; }
+    .typo-grid { grid-template-columns: 1fr; }
+    .ix-item { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    body { padding: 16px; }
+    h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav class="toc" id="toc">
+    <div class="toc-title">Contents</div>
+    <a href="#s1">1. Layout</a>
+    <a href="#s2">2. Components</a>
+    <a href="#s3">3. Sidebar</a>
+    <a href="#s4">4. States</a>
+    <a href="#s5">5. Data</a>
+    <a href="#s6">6. Interactions</a>
+    <a href="#s7">7. Visual Specs</a>
+    <a href="#s8">8. Gap Analysis</a>
+  </nav>
+
+  <div class="main">
+
+    <h1 class="anim" style="--i:0">Build <span>Session</span></h1>
+    <p class="subtitle anim" style="--i:1">Planning & Architecture spec for the primary workspace where users iterate with AI agents on software projects. Three-column layout: sidebar (sessions, agents, tasks), conversation thread, and structured spec document. Five states spanning spec draft review through task tracking.</p>
+
+    <!-- ========== S1: LAYOUT ========== -->
+    <div id="s1" class="sec-head anim" style="--i:2"><span class="num">01</span> Three-Column Layout</div>
+
+    <div class="layout-diagram anim" style="--i:3">
+      <div class="layout-panel layout-panel--left" data-label="Left Sidebar ~220px">
+        <div class="lp-item">
+          <div class="lp-name">SessionListSection <span class="badge-exists">exists</span></div>
+          <div class="lp-desc">Session entries, active highlight</div>
+        </div>
+        <div class="lp-item">
+          <div class="lp-name">AgentListSection <span class="badge-new">new</span></div>
+          <div class="lp-desc">Agent roster with avatar dots</div>
+        </div>
+        <div class="lp-item">
+          <div class="lp-name">TaskChecklistSection <span class="badge-new">new</span></div>
+          <div class="lp-desc">Checkbox + task title, synced</div>
+        </div>
+        <div class="lp-spacer"></div>
+        <div class="lp-item">
+          <div class="lp-name">ConversationEntryList <span class="badge-new">new</span></div>
+          <div class="lp-desc">Timestamped turn index</div>
+        </div>
+      </div>
+
+      <div class="layout-panel layout-panel--center" data-label="Center Panel ~480px">
+        <div class="lp-item">
+          <div class="lp-name">CenterConversationPanel <span class="badge-partial">partial</span></div>
+          <div class="lp-desc">Scrollable multi-turn chat thread</div>
+        </div>
+        <div class="lp-spacer"></div>
+        <div class="lp-item">
+          <div class="lp-name">AgentMessageBubble <span class="badge-new">new</span></div>
+          <div class="lp-desc">Agent name, role label, markdown body</div>
+        </div>
+        <div class="lp-spacer"></div>
+        <div class="lp-item" style="margin-top: auto;">
+          <div class="lp-name">MessageInput <span class="badge-partial">partial</span></div>
+          <div class="lp-desc">Chat input, @ context, model selector</div>
+        </div>
+      </div>
+
+      <div class="layout-panel layout-panel--right" data-label="Right Panel ~340px">
+        <div class="lp-item">
+          <div class="lp-name">RightSpecPanel <span class="badge-partial">partial</span></div>
+          <div class="lp-desc">Structured spec document</div>
+        </div>
+        <div class="lp-spacer"></div>
+        <div class="lp-item">
+          <div class="lp-name">SpecSectionBlock <span class="badge-partial">partial</span></div>
+          <div class="lp-desc">Goal, Tasks, Criteria, Verification...</div>
+        </div>
+        <div class="lp-item">
+          <div class="lp-name">SpecTaskChecklist <span class="badge-partial">partial</span></div>
+          <div class="lp-desc">Interactive checkboxes, synced state</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ve-card ve-card--recessed anim" style="--i:4; font-size: 12px; color: var(--text-dim); line-height: 1.6;">
+      <strong style="color: var(--text)">Grid definition:</strong> <code class="code-blue">grid-template-columns: minmax(250px, 1fr) minmax(360px, 1.4fr) minmax(320px, 1.25fr)</code> with <code class="code-blue">0.75rem</code> gap. Responsive breakpoint at <code class="code-blue">1180px</code> collapses to single column.
+    </div>
+
+    <!-- ========== S2: COMPONENTS ========== -->
+    <div id="s2" class="sec-head anim" style="--i:5"><span class="num">02</span> Component Inventory</div>
+
+    <div class="kpi-row anim" style="--i:6">
+      <div class="kpi-card">
+        <div class="kpi-val">14</div>
+        <div class="kpi-label">Components</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val" style="color: var(--green)">3</div>
+        <div class="kpi-label">Exist</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val" style="color: var(--orange)">5</div>
+        <div class="kpi-label">Partial</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val" style="color: var(--red)">6</div>
+        <div class="kpi-label">New Needed</div>
+      </div>
+    </div>
+
+    <div class="comp-grid anim" style="--i:7">
+      <div class="comp-card">
+        <div class="comp-name">BuildSessionHeader <span class="badge-partial">partial</span></div>
+        <div class="comp-desc">Top bar: space name, product label, breadcrumb session indicator, share/settings toolbar.</div>
+        <div class="comp-src">src/main.tsx L1253-L1270</div>
+      </div>
+      <div class="comp-card">
+        <div class="comp-name">LeftSidebar <span class="badge-partial">partial</span></div>
+        <div class="comp-desc">Container for session list, agent list, task checklist, conversation entries. Collapsible sections with disclosure triangles.</div>
+        <div class="comp-src">src/main.tsx L1278-L1429</div>
+      </div>
+      <div class="comp-card">
+        <div class="comp-name">SessionListSection <span class="badge-exists">exists</span></div>
+        <div class="comp-desc">Expandable "Sessions" list. Active session highlighted with bold or accent border.</div>
+        <div class="comp-src">src/main.tsx L1304-L1321</div>
+      </div>
+      <div class="comp-card">
+        <div class="comp-name">AgentListSection <span class="badge-new">new</span></div>
+        <div class="comp-desc">Expandable "Agents" with colored avatar dots (8-10px). Shows system agents and session-specific agents.</div>
+        <div class="comp-src">Not implemented</div>
+      </div>
+      <div class="comp-card">
+        <div class="comp-name">TaskChecklistSection <span class="badge-new">new</span></div>
+        <div class="comp-desc">Task entries with checkboxes. Derived from spec tasks. Status synced with spec panel.</div>
+        <div class="comp-src">Not implemented</div>
+      </div>
+      <div class="comp-card">
+        <div class="comp-name">ConversationEntryList <span class="badge-new">new</span></div>
+        <div class="comp-desc">Timestamped entries referencing conversation turns. Click scrolls center panel to that message.</div>
+        <div class="comp-src">Not implemented</div>
+      </div>
+      <div class="comp-card">
+        <div class="comp-name">CenterConversationPanel <span class="badge-partial">partial</span></div>
+        <div class="comp-desc">Multi-turn conversation thread with markdown rendering and role labels. Currently renders info-cards instead.</div>
+        <div class="comp-src">src/main.tsx L1431-L1690</div>
+      </div>
+      <div class="comp-card">
+        <div class="comp-name">AgentMessageBubble <span class="badge-new">new</span></div>
+        <div class="comp-desc">Individual message: agent name, role label, markdown body. User messages visually distinct from agent messages.</div>
+        <div class="comp-src">Not implemented</div>
+      </div>
+      <div class="comp-card">
+        <div class="comp-name">MessageInput <span class="badge-partial">partial</span></div>
+        <div class="comp-desc">Bottom-anchored input (~48px). Placeholder "Ask anything or type @ for context". Model selector badge. Currently a textarea + button.</div>
+        <div class="comp-src">src/main.tsx L1438-L1461</div>
+      </div>
+      <div class="comp-card">
+        <div class="comp-name">RightSpecPanel <span class="badge-exists">exists</span></div>
+        <div class="comp-desc">Fixed panel with "Spec" tab header. Contains structured sections: Goal, Tasks, Acceptance Criteria, Non-goals, Assumptions, Verification, Rollback.</div>
+        <div class="comp-src">spec-note-panel.tsx</div>
+      </div>
+      <div class="comp-card">
+        <div class="comp-name">SpecTaskChecklist <span class="badge-exists">exists</span></div>
+        <div class="comp-desc">Checkbox rows with task title and strikethrough for completed. Green checkmark for done.</div>
+        <div class="comp-src">spec-panel/types.ts</div>
+      </div>
+      <div class="comp-card">
+        <div class="comp-name">SpecSectionBlock <span class="badge-partial">partial</span></div>
+        <div class="comp-desc">Reusable block for each spec section heading + body. Currently renders markdown preview but doesn't parse into discrete blocks.</div>
+        <div class="comp-src">SpecNotePanel + main.tsx L164-L177</div>
+      </div>
+    </div>
+
+    <!-- ========== S3: SIDEBAR ========== -->
+    <div id="s3" class="sec-head anim" style="--i:8"><span class="num">03</span> Left Sidebar Structure</div>
+
+    <div class="sidebar-sections anim" style="--i:9">
+      <div class="sb-section">
+        <div class="sb-name">Sessions</div>
+        <div class="sb-desc">Disclosure triangle header. Session name labels, active session highlighted. Click switches <code>activeSessionId</code>. Expanded in Mock 10, collapsed in Mocks 12-14.</div>
+      </div>
+      <div class="sb-section">
+        <div class="sb-name">Agents</div>
+        <div class="sb-desc">Disclosure triangle header. Agent name + colored avatar dot (8-10px circle). "Kata Agents" (system) and "MVP Planning Coordinator" (session). No agent identity entity in current data model.</div>
+      </div>
+      <div class="sb-section">
+        <div class="sb-name">Tasks</div>
+        <div class="sb-desc">Checkbox + title text. Checked = complete. Derived from spec <code>SpecTaskRecord</code>. Maps <code>status: 'complete'</code> to checked state. Content evolves from process items ("Spec submitted") to implementation items ("Bootstrap desktop shell").</div>
+      </div>
+      <div class="sb-section">
+        <div class="sb-name">Conversation Entries</div>
+        <div class="sb-desc">Bottom of sidebar in Mock 10 only. Short label + timestamp ("Spec Updated", "I updated the..."). Click scrolls center panel. Not visible in Mocks 12-14.</div>
+      </div>
+    </div>
+
+    <details class="collapsible anim" style="--i:10">
+      <summary>Expand/Collapse Behavior</summary>
+      <div class="coll-body">
+        Each section has a disclosure triangle to the left of its heading. <strong>Collapsed:</strong> triangle points right, content hidden. <strong>Expanded:</strong> triangle points down, content visible. Mock 10 shows all expanded. Mocks 12-14 show Sessions and Agents collapsed, Tasks expanded. State is local UI only, not persisted.
+      </div>
+    </details>
+
+    <!-- ========== S4: STATES ========== -->
+    <div id="s4" class="sec-head anim" style="--i:11"><span class="num">04</span> Session States</div>
+
+    <div class="timeline anim" style="--i:12">
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-label">Mock 10</div>
+        <div class="tl-title">Spec Draft Review</div>
+        <div class="tl-body">User runs orchestrator with a project prompt. Run transitions <strong>queued &rarr; running &rarr; completed</strong>, generates a draft (<code>OrchestratorSpecDraft</code>). Conversational review begins. All sidebar sections expanded. Center panel shows multi-turn conversation with structured markdown. Right panel displays full spec document.</div>
+        <div class="tl-tags">
+          <span class="tl-tag">all sections expanded</span>
+          <span class="tl-tag">spec: Goal, Tasks, Criteria, Non-goals, Assumptions, Verification, Rollback</span>
+          <span class="tl-tag">message input with model selector</span>
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-label">Mock 11</div>
+        <div class="tl-title">Architecture Proposal</div>
+        <div class="tl-body">Agent posts architecture recommendations. Conversation continues with architecture-focused messages including Electron framework choice and tech stack preferences. Spec document updated to reflect architecture decisions. Same layout, scroll position further down.</div>
+        <div class="tl-tags">
+          <span class="tl-tag">architecture messages</span>
+          <span class="tl-tag">spec updated</span>
+          <span class="tl-tag">same three-col layout</span>
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-label">Mock 12</div>
+        <div class="tl-title">Tech Stack Proposal A</div>
+        <div class="tl-body">Agent proposes tech stack with structured rationale: <strong>"Why"</strong> section (Electron, macOS-only, TypeScript), <strong>"How to keep Tech stable later"</strong> guidance, <strong>"Revised views"</strong> list. Approval prompt with two action buttons appears. Sessions and Agents sections collapsed.</div>
+        <div class="tl-tags">
+          <span class="tl-tag">approval buttons</span>
+          <span class="tl-tag">sidebar collapsed</span>
+          <span class="tl-tag">"Approve the plan..."</span>
+          <span class="tl-tag">"Keep the last switch..."</span>
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-label">Mock 13</div>
+        <div class="tl-title">Tech Stack Proposal B</div>
+        <div class="tl-body">Same state as Mock 12 at a different scroll position. Narrower task entries visible in sidebar. Right panel shows updated task items. Identical layout and interaction model.</div>
+        <div class="tl-tags">
+          <span class="tl-tag">scroll variant</span>
+          <span class="tl-tag">same interactions as Mock 12</span>
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-label">Mock 14</div>
+        <div class="tl-title">Task Tracking</div>
+        <div class="tl-body">Planning phase progresses to accumulated task tracking. Both sidebar and spec panel show the full task list with checked/unchecked states. Implementation items: bootstrap desktop shell, implement space creation, add git branch lifecycle, build spec note panel, implement task block parsing.</div>
+        <div class="tl-tags">
+          <span class="tl-tag">full task list</span>
+          <span class="tl-tag">synced checkboxes</span>
+          <span class="tl-tag">agents collapsed</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== S5: DATA ========== -->
+    <div id="s5" class="sec-head anim" style="--i:13"><span class="num">05</span> Data Dependencies</div>
+
+    <div class="table-wrap anim" style="--i:14">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Source</th>
+              <th>Type</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Space name & metadata</td>
+              <td><code>AppState.spaces</code></td>
+              <td><code>SpaceRecord</code> <small>state.ts L45-L56</small></td>
+              <td><span class="status status--exists">Exists</span></td>
+            </tr>
+            <tr>
+              <td>Active session</td>
+              <td><code>AppState.sessions</code></td>
+              <td><code>SessionRecord</code> <small>state.ts L58-L65</small></td>
+              <td><span class="status status--exists">Exists</span></td>
+            </tr>
+            <tr>
+              <td>Orchestrator run status</td>
+              <td><code>AppState.orchestratorRuns</code></td>
+              <td><code>OrchestratorRunRecord</code> <small>state.ts L67-L87</small></td>
+              <td><span class="status status--exists">Exists</span></td>
+            </tr>
+            <tr>
+              <td>Spec draft content</td>
+              <td><code>OrchestratorRunRecord.draft</code></td>
+              <td><code>OrchestratorSpecDraft</code> <small>state.ts L26-L30</small></td>
+              <td><span class="status status--exists">Exists</span></td>
+            </tr>
+            <tr>
+              <td>Delegated task status</td>
+              <td><code>OrchestratorRunRecord.delegatedTasks</code></td>
+              <td><code>OrchestratorDelegatedTaskRecord[]</code> <small>state.ts L32-L43</small></td>
+              <td><span class="status status--exists">Exists</span></td>
+            </tr>
+            <tr>
+              <td>Spec note document</td>
+              <td><code>loadSpecNote()</code></td>
+              <td><code>SpecNoteDocument</code> <small>spec-panel/types.ts L36-L41</small></td>
+              <td><span class="status status--exists">Exists</span></td>
+            </tr>
+            <tr>
+              <td>Spec tasks (checklist)</td>
+              <td><code>SpecNoteDocument.tasks</code></td>
+              <td><code>SpecTaskRecord[]</code> <small>spec-panel/types.ts L25-L34</small></td>
+              <td><span class="status status--exists">Exists</span></td>
+            </tr>
+            <tr>
+              <td>Context snippets</td>
+              <td><code>OrchestratorRunRecord.contextSnippets</code></td>
+              <td><code>ContextSnippet[]</code> <small>context/types.ts</small></td>
+              <td><span class="status status--exists">Exists</span></td>
+            </tr>
+            <tr>
+              <td>Agent roster</td>
+              <td>Not modeled</td>
+              <td>Requires new type</td>
+              <td><span class="status status--gap">Gap</span></td>
+            </tr>
+            <tr>
+              <td>Conversation messages</td>
+              <td>Not modeled</td>
+              <td>Requires new type</td>
+              <td><span class="status status--gap">Gap</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ========== S6: INTERACTIONS ========== -->
+    <div id="s6" class="sec-head anim" style="--i:15"><span class="num">06</span> Interactions</div>
+
+    <div class="table-wrap anim" style="--i:16">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Trigger</th>
+              <th class="wide">Effect</th>
+              <th>IPC</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Run orchestrator</strong></td>
+              <td>Submit message / click button</td>
+              <td class="wide">Enqueues run (queued &rarr; running), retrieves context, generates spec draft, builds delegated tasks, transitions to completed/failed</td>
+              <td><code>context:retrieve</code>, <code>state:save</code></td>
+            </tr>
+            <tr>
+              <td><strong>Switch session</strong></td>
+              <td>Click session item in sidebar</td>
+              <td class="wide">Updates <code>activeSessionId</code>, re-derives runs and latest run</td>
+              <td><code>state:save</code></td>
+            </tr>
+            <tr>
+              <td><strong>Toggle task (sidebar)</strong></td>
+              <td>Click checkbox</td>
+              <td class="wide">Updates <code>SpecTaskRecord.status</code> between <code>not_started</code> and <code>complete</code></td>
+              <td><code>state:save</code></td>
+            </tr>
+            <tr>
+              <td><strong>Toggle task (spec)</strong></td>
+              <td>Click checkbox in right panel</td>
+              <td class="wide">Same as sidebar toggle, bidirectional sync</td>
+              <td><code>state:save</code></td>
+            </tr>
+            <tr>
+              <td><strong>Collapse section</strong></td>
+              <td>Click disclosure triangle</td>
+              <td class="wide">Toggles section visibility. Local UI state, not persisted.</td>
+              <td>None</td>
+            </tr>
+            <tr>
+              <td><strong>Scroll to entry</strong></td>
+              <td>Click conversation entry</td>
+              <td class="wide">Scrolls center panel to corresponding message</td>
+              <td>None</td>
+            </tr>
+            <tr>
+              <td><strong>Submit message</strong></td>
+              <td>Enter or click submit</td>
+              <td class="wide">Sends user message to orchestrator, appends to conversation, triggers agent response</td>
+              <td>Not implemented</td>
+            </tr>
+            <tr>
+              <td><strong>Approve plan</strong></td>
+              <td>Click approval button</td>
+              <td class="wide">Advances session state, marks tasks, updates spec document</td>
+              <td>Not implemented</td>
+            </tr>
+            <tr>
+              <td><strong>Select model</strong></td>
+              <td>Click model selector badge</td>
+              <td class="wide">Changes active AI model for the session</td>
+              <td>Not implemented</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ========== S7: VISUAL SPECS ========== -->
+    <div id="s7" class="sec-head anim" style="--i:17"><span class="num">07</span> Visual Specifications</div>
+
+    <div class="card-label anim" style="--i:18; color: var(--accent);"><span class="dot" style="background: var(--accent);"></span> Color Tokens</div>
+    <div class="swatch-grid anim" style="--i:19; margin-bottom: 20px;">
+      <div class="swatch">
+        <div class="swatch-color" style="background: #0f1116;"></div>
+        <div class="swatch-info"><div class="swatch-name">--bg</div><div class="swatch-hex">#0f1116</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background: #1a2333;"></div>
+        <div class="swatch-info"><div class="swatch-name">--bg-accent</div><div class="swatch-hex">#1a2333</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background: #141923;"></div>
+        <div class="swatch-info"><div class="swatch-name">--panel-bg</div><div class="swatch-hex">#141923</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background: #2a3347;"></div>
+        <div class="swatch-info"><div class="swatch-name">--panel-border</div><div class="swatch-hex">#2a3347</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background: #55b5ff;"></div>
+        <div class="swatch-info"><div class="swatch-name">--panel-focus</div><div class="swatch-hex">#55b5ff</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background: #dbe2ee;"></div>
+        <div class="swatch-info"><div class="swatch-name">--text</div><div class="swatch-hex">#dbe2ee</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background: #9aaccc;"></div>
+        <div class="swatch-info"><div class="swatch-name">--muted</div><div class="swatch-hex">#9aaccc</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background: #60d394;"></div>
+        <div class="swatch-info"><div class="swatch-name">--green</div><div class="swatch-hex">#60d394</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background: #f2c66d;"></div>
+        <div class="swatch-info"><div class="swatch-name">--amber</div><div class="swatch-hex">#f2c66d</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background: #ff948f;"></div>
+        <div class="swatch-info"><div class="swatch-name">error red</div><div class="swatch-hex">#ff948f</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background: #4ecdc4;"></div>
+        <div class="swatch-info"><div class="swatch-name">agent dot (teal)</div><div class="swatch-hex">#4ecdc4</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background: #5b8def;"></div>
+        <div class="swatch-info"><div class="swatch-name">agent dot (blue)</div><div class="swatch-hex">#5b8def</div></div>
+      </div>
+    </div>
+
+    <div class="card-label anim" style="--i:20; color: var(--blue);"><span class="dot" style="background: var(--blue);"></span> Typography</div>
+    <div class="typo-grid anim" style="--i:21; margin-bottom: 20px;">
+      <div class="typo-item">
+        <div class="typo-sample" style="font-family: 'IBM Plex Sans', sans-serif;">App Title</div>
+        <div class="typo-meta">IBM Plex Sans / 1.1rem / 600<br>Panel heading: 0.95rem / 600<br>Section heading: 0.82rem / 600</div>
+      </div>
+      <div class="typo-item">
+        <div class="typo-sample" style="font-family: 'IBM Plex Sans', sans-serif; font-weight: 400;">Body Text</div>
+        <div class="typo-meta">IBM Plex Sans / 0.79-0.8rem / 400<br>Muted/meta: 0.75-0.78rem / 400<br>Pill button: 0.72rem / 400</div>
+      </div>
+      <div class="typo-item">
+        <div class="typo-sample" style="font-family: 'IBM Plex Mono', monospace;">Code/Mono</div>
+        <div class="typo-meta">IBM Plex Mono / 0.75-0.8rem / 400</div>
+      </div>
+      <div class="typo-item">
+        <div class="typo-sample" style="font-family: system-ui, sans-serif; font-weight: 600; font-size: 12px;">Agent Name Label</div>
+        <div class="typo-meta">System sans-serif / ~12px / 600<br>Messages: ~13-14px / 400</div>
+      </div>
+    </div>
+
+    <details class="collapsible anim" style="--i:22">
+      <summary>Spacing & Layout Values</summary>
+      <div class="coll-body">
+        <strong>Grid gap:</strong> 0.75rem<br>
+        <strong>Panel padding:</strong> 0.95rem (panel-body)<br>
+        <strong>Card padding:</strong> 0.75rem 0.8rem<br>
+        <strong>Border radius:</strong> 10px (info-card), 12px (panel), 8px (space-card, session-section)<br>
+        <strong>Sidebar item spacing:</strong> 0.45rem<br>
+        <strong>Task item gap:</strong> 0.45-0.55rem<br>
+        <strong>Message input:</strong> bottom-anchored, ~48px height, full width<br>
+        <strong>Responsive breakpoint:</strong> 1180px (single column)
+      </div>
+    </details>
+
+    <!-- ========== S8: GAP ANALYSIS ========== -->
+    <div id="s8" class="sec-head anim" style="--i:23"><span class="num">08</span> Implementation Gap Analysis</div>
+
+    <div class="kpi-row anim" style="--i:24">
+      <div class="kpi-card">
+        <div class="kpi-val">12</div>
+        <div class="kpi-label">Features Analyzed</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val" style="color: var(--green)">1</div>
+        <div class="kpi-label">Exists</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val" style="color: var(--orange)">3</div>
+        <div class="kpi-label">Partial</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val" style="color: var(--red)">8</div>
+        <div class="kpi-label">Gap</div>
+      </div>
+    </div>
+
+    <div class="table-wrap anim" style="--i:25">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th class="wide">Mock Shows</th>
+              <th class="wide">Current Code</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Conversation thread</strong></td>
+              <td class="wide">Multi-turn chat with markdown, role labels, timestamps</td>
+              <td class="wide">Single textarea + "Run Orchestrator" button. Runs as info-cards.</td>
+              <td><span class="status status--gap">Gap</span><br><small>New <code>ConversationMessage</code> type needed</small></td>
+            </tr>
+            <tr>
+              <td><strong>Agent roster</strong></td>
+              <td class="wide">Named agents with colored avatar dots</td>
+              <td class="wide">String labels only (<code>implementor</code>, <code>verifier</code>). No entity.</td>
+              <td><span class="status status--gap">Gap</span><br><small>New <code>AgentRecord</code> type needed</small></td>
+            </tr>
+            <tr>
+              <td><strong>Sidebar task checklist</strong></td>
+              <td class="wide">Checkbox + title from spec tasks</td>
+              <td class="wide"><code>SpecTaskRecord</code> exists but not in sidebar</td>
+              <td><span class="status status--gap">Gap</span><br><small>New <code>TaskChecklistSection</code> component</small></td>
+            </tr>
+            <tr>
+              <td><strong>Collapse sections</strong></td>
+              <td class="wide">Disclosure triangles on all sidebar headings</td>
+              <td class="wide">No collapse behavior. Always visible.</td>
+              <td><span class="status status--gap">Gap</span><br><small>Local UI state + triangle rendering</small></td>
+            </tr>
+            <tr>
+              <td><strong>Conversation entry index</strong></td>
+              <td class="wide">Timestamped sidebar entries linking to messages</td>
+              <td class="wide">Not implemented. No conversation data model.</td>
+              <td><span class="status status--gap">Gap</span><br><small>Requires message model + scroll-to</small></td>
+            </tr>
+            <tr>
+              <td><strong>Message input + model</strong></td>
+              <td class="wide">Chat input with @ context, model badge</td>
+              <td class="wide">Textarea + button. No model selector, no @ mention.</td>
+              <td><span class="status status--partial">Partial</span><br><small>Input exists, needs redesign</small></td>
+            </tr>
+            <tr>
+              <td><strong>Approval buttons</strong></td>
+              <td class="wide">Inline action buttons in agent messages</td>
+              <td class="wide"><code>draftAppliedAt</code> field exists, no UI.</td>
+              <td><span class="status status--gap">Gap</span><br><small>Inline action button rendering</small></td>
+            </tr>
+            <tr>
+              <td><strong>Structured spec panel</strong></td>
+              <td class="wide">Discrete sections: Goal, Tasks, Criteria, Non-goals, Assumptions, Verification, Rollback</td>
+              <td class="wide"><code>SpecNotePanel</code> renders markdown. Draft lacks Non-goals, Assumptions, Rollback.</td>
+              <td><span class="status status--partial">Partial</span><br><small>Needs discrete section parsing</small></td>
+            </tr>
+            <tr>
+              <td><strong>Three-column layout</strong></td>
+              <td class="wide">Sidebar ~220px, conversation ~480px, spec ~340px</td>
+              <td class="wide">Grid exists with similar proportions. Three panels present.</td>
+              <td><span class="status status--partial">Partial</span><br><small>Center needs chat, left needs sidebar</small></td>
+            </tr>
+            <tr>
+              <td><strong>Conversation persistence</strong></td>
+              <td class="wide">History preserved across restarts</td>
+              <td class="wide">Runs persisted but not individual messages</td>
+              <td><span class="status status--gap">Gap</span><br><small>Message array on Run or Session</small></td>
+            </tr>
+            <tr>
+              <td><strong>Task status sync</strong></td>
+              <td class="wide">Sidebar and spec checkboxes stay in sync</td>
+              <td class="wide"><code>SpecTaskRecord</code> in doc only, no bidirectional binding</td>
+              <td><span class="status status--gap">Gap</span><br><small>Shared state + event-driven sync</small></td>
+            </tr>
+            <tr>
+              <td><strong>Three-column grid</strong></td>
+              <td class="wide">Layout with responsive collapse</td>
+              <td class="wide"><code>panel-grid</code> CSS exists with minmax columns</td>
+              <td><span class="status status--exists">Exists</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <details class="collapsible anim" style="--i:26">
+      <summary>Critical Path: New Types Needed</summary>
+      <div class="coll-body">
+        Two new types block most features:<br><br>
+        <strong>1. <code>ConversationMessage</code></strong> - Required by: conversation thread, conversation entry index, conversation persistence, approval buttons, message input. Fields: id, role, agentName, content (markdown), timestamp, actionButtons (optional).<br><br>
+        <strong>2. <code>AgentRecord</code></strong> - Required by: agent roster in sidebar. Fields: id, name, avatarColor, role. Currently only string labels exist in <code>OrchestratorDelegatedTaskRecord.specialist</code>.
+      </div>
+    </details>
+
+  </div><!-- /main -->
+</div><!-- /wrap -->
+
+<script>
+(function() {
+  const toc = document.getElementById('toc');
+  const links = toc.querySelectorAll('a');
+  const sections = [];
+
+  links.forEach(link => {
+    const id = link.getAttribute('href').slice(1);
+    const el = document.getElementById(id);
+    if (el) sections.push({ id, el, link });
+  });
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const match = sections.find(s => s.el === entry.target);
+        if (match) {
+          match.link.classList.add('active');
+          if (window.innerWidth <= 1000) {
+            match.link.scrollIntoView({
+              behavior: 'smooth', block: 'nearest', inline: 'center'
+            });
+          }
+        }
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+
+  sections.forEach(s => observer.observe(s.el));
+
+  links.forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const id = link.getAttribute('href').slice(1);
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        history.replaceState(null, '', '#' + id);
+      }
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
