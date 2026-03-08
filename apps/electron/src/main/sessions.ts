@@ -545,6 +545,10 @@ export class SessionManager {
     return 'general-purpose'
   }
 
+  private hasAuthoritativeTaskMetadata(toolInput: Record<string, unknown> | undefined): boolean {
+    return !!toolInput && Object.keys(toolInput).length > 0
+  }
+
   private generateManagedSessionId(workspaceRootPath: string): string {
     let sessionId = generateSessionId(workspaceRootPath)
 
@@ -559,8 +563,8 @@ export class SessionManager {
     parent: ManagedSession,
     sessionId: string,
     delegatedToolUseId: string,
-    delegationLabel: string,
-    agentRole: string
+    delegationLabel?: string,
+    agentRole?: string
   ): ManagedSession {
     const now = Date.now()
     const workspaceRootPath = parent.workspace.rootPath
@@ -635,6 +639,30 @@ export class SessionManager {
     )
   }
 
+  private resolveTaskChildSession(
+    parent: ManagedSession,
+    toolUseId: string
+  ): ManagedSession | undefined {
+    const linkageKey = this.getTaskChildSessionKey(parent.id, toolUseId)
+    const linkedSessionId = this.taskChildSessions.get(linkageKey)
+    const childSession = linkedSessionId
+      ? this.sessions.get(linkedSessionId)
+      : this.findExistingTaskChildSession(parent, toolUseId)
+
+    if (childSession) {
+      this.taskChildSessions.set(linkageKey, childSession.id)
+    }
+
+    return childSession
+  }
+
+  private hasSpawnedTaskChildSession(childSession: ManagedSession): boolean {
+    return typeof childSession.delegationLabel === 'string'
+      && childSession.delegationLabel.trim().length > 0
+      && typeof childSession.agentRole === 'string'
+      && childSession.agentRole.trim().length > 0
+  }
+
   private ensureTaskChildSession(
     parent: ManagedSession,
     toolUseId: string,
@@ -642,54 +670,59 @@ export class SessionManager {
     intent?: string
   ): ManagedSession {
     const linkageKey = this.getTaskChildSessionKey(parent.id, toolUseId)
-    const existingLinkedSessionId = this.taskChildSessions.get(linkageKey)
+    const hasAuthoritativeMetadata = this.hasAuthoritativeTaskMetadata(toolInput)
     const delegationLabel = this.getDelegationLabel(toolInput, intent, toolUseId)
     const agentRole = this.getSubagentRole(toolInput)
     const orchestratorSessionId = parent.orchestratorSessionId ?? parent.id
-    let childSession = existingLinkedSessionId
-      ? this.sessions.get(existingLinkedSessionId)
-      : this.findExistingTaskChildSession(parent, toolUseId)
-    const shouldEmitSpawnedEvent = !childSession
+    let childSession = this.resolveTaskChildSession(parent, toolUseId)
+    const hadSpawnedEvent = childSession ? this.hasSpawnedTaskChildSession(childSession) : false
+    const didCreateChildSession = !childSession
 
     if (!childSession) {
       childSession = this.createManagedSubagentSession(
         parent,
         this.generateManagedSessionId(parent.workspace.rootPath),
         toolUseId,
-        delegationLabel,
-        agentRole
+        hasAuthoritativeMetadata ? delegationLabel : undefined,
+        hasAuthoritativeMetadata ? agentRole : undefined
       )
       this.sessions.set(childSession.id, childSession)
     }
 
     this.taskChildSessions.set(linkageKey, childSession.id)
 
+    const nextName = hasAuthoritativeMetadata ? delegationLabel : childSession.name
+    const nextPreview = hasAuthoritativeMetadata ? delegationLabel : childSession.preview
+    const nextAgentRole = hasAuthoritativeMetadata ? agentRole : childSession.agentRole
+    const nextDelegationLabel = hasAuthoritativeMetadata ? delegationLabel : childSession.delegationLabel
+    const shouldEmitSpawnedEvent = hasAuthoritativeMetadata && !hadSpawnedEvent
+
     const metadataChanged =
-      childSession.name !== delegationLabel
-      || childSession.preview !== delegationLabel
+      childSession.name !== nextName
+      || childSession.preview !== nextPreview
       || childSession.sessionKind !== 'subagent'
       || childSession.parentSessionId !== parent.id
       || childSession.orchestratorSessionId !== orchestratorSessionId
-      || childSession.agentRole !== agentRole
+      || childSession.agentRole !== nextAgentRole
       || childSession.delegatedBySessionId !== parent.id
       || childSession.delegatedToolUseId !== toolUseId
-      || childSession.delegationLabel !== delegationLabel
+      || childSession.delegationLabel !== nextDelegationLabel
 
     const statusChanged = childSession.subagentStatus !== 'running'
 
-    childSession.name = delegationLabel
-    childSession.preview = delegationLabel
+    childSession.name = nextName
+    childSession.preview = nextPreview
     childSession.lastMessageAt = Date.now()
     childSession.sessionKind = 'subagent'
     childSession.parentSessionId = parent.id
     childSession.orchestratorSessionId = orchestratorSessionId
-    childSession.agentRole = agentRole
+    childSession.agentRole = nextAgentRole
     childSession.delegatedBySessionId = parent.id
     childSession.delegatedToolUseId = toolUseId
-    childSession.delegationLabel = delegationLabel
+    childSession.delegationLabel = nextDelegationLabel
     childSession.subagentStatus = 'running'
 
-    if (metadataChanged || statusChanged || shouldEmitSpawnedEvent) {
+    if (didCreateChildSession || metadataChanged || statusChanged || shouldEmitSpawnedEvent) {
       this.persistSession(childSession)
     }
 
@@ -723,14 +756,12 @@ export class SessionManager {
     toolUseId: string,
     subagentStatus: 'queued' | 'running' | 'completed' | 'failed'
   ): void {
-    const linkageKey = this.getTaskChildSessionKey(parent.id, toolUseId)
-    const childSessionId = this.taskChildSessions.get(linkageKey)
-    if (!childSessionId) {
+    const childSession = this.resolveTaskChildSession(parent, toolUseId)
+    if (!childSession) {
       return
     }
 
-    const childSession = this.sessions.get(childSessionId)
-    if (!childSession || childSession.subagentStatus === subagentStatus) {
+    if (childSession.subagentStatus === subagentStatus) {
       return
     }
 
@@ -741,7 +772,7 @@ export class SessionManager {
     this.sendEvent({
       type: 'subagent_status_changed',
       sessionId: parent.id,
-      childSessionId,
+      childSessionId: childSession.id,
       subagentStatus,
     }, parent.workspace.id)
   }

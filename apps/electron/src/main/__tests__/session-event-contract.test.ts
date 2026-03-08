@@ -362,6 +362,76 @@ test('Task lifecycle creates a child session once and emits child session status
   })
 })
 
+test('Task lifecycle waits for populated Task metadata before emitting subagent_spawned', () => {
+  const manager = new SessionManager() as any
+  const rootSession = createManagedSession()
+  const sessionEvents: SessionEvent[] = []
+
+  manager.sessions = new Map([[rootSession.id, rootSession]])
+  manager.persistSession = () => {}
+  manager.sendEvent = (event: SessionEvent) => {
+    sessionEvents.push(event)
+  }
+
+  manager.processEvent(rootSession, {
+    type: 'tool_start',
+    toolName: 'Task',
+    toolUseId: 'toolu-task-empty-first',
+    input: {},
+    turnId: 'turn-1',
+  })
+
+  let childSessions = Array.from(manager.sessions.values()).filter(
+    (session: any) => session.sessionKind === 'subagent'
+  )
+  expect(childSessions).toHaveLength(1)
+  expect(sessionEvents.filter(event => event.type === 'subagent_spawned')).toHaveLength(0)
+  expect(sessionEvents.filter(event => event.type === 'subagent_status_changed')).toHaveLength(0)
+
+  manager.processEvent(rootSession, {
+    type: 'tool_start',
+    toolName: 'Task',
+    toolUseId: 'toolu-task-empty-first',
+    input: {
+      description: 'Explore workspace sources',
+      subagent_type: 'Explore',
+    },
+    turnId: 'turn-1',
+  })
+
+  childSessions = Array.from(manager.sessions.values()).filter(
+    (session: any) => session.sessionKind === 'subagent'
+  )
+  expect(childSessions).toHaveLength(1)
+  expect(childSessions[0]).toMatchObject({
+    name: 'Explore workspace sources',
+    agentRole: 'Explore',
+    delegatedToolUseId: 'toolu-task-empty-first',
+    delegationLabel: 'Explore workspace sources',
+    subagentStatus: 'running',
+  })
+  expect(sessionEvents.filter(event => event.type === 'subagent_spawned')).toEqual([
+    {
+      type: 'subagent_spawned',
+      sessionId: '260308-root',
+      childSessionId: childSessions[0].id,
+      childSessionName: 'Explore workspace sources',
+      agentRole: 'Explore',
+      delegationLabel: 'Explore workspace sources',
+      parentSessionId: '260308-root',
+      orchestratorSessionId: '260308-root',
+    },
+  ])
+  expect(sessionEvents.filter(event => event.type === 'subagent_status_changed')).toEqual([
+    {
+      type: 'subagent_status_changed',
+      sessionId: '260308-root',
+      childSessionId: childSessions[0].id,
+      subagentStatus: 'running',
+    },
+  ])
+})
+
 test('Task lifecycle scopes child session hydration to parent session and toolUseId', () => {
   const manager = new SessionManager() as any
   const rootSession = createManagedSession()
@@ -456,4 +526,57 @@ test('Task lifecycle does not re-emit subagent_spawned for a persisted child aft
   expect(childSessions[0]?.id).toBe(childSession.id)
   expect(sessionEvents.filter(event => event.type === 'subagent_spawned')).toHaveLength(0)
   expect(manager.taskChildSessions.get(`${rootSession.id}:toolu-task-a`)).toBe(childSession.id)
+})
+
+test('Task lifecycle restores terminal child status from persisted linkage when only tool_result arrives', () => {
+  const manager = new SessionManager() as any
+  const rootSession = createManagedSession()
+  const completedChild = createManagedChildSession(rootSession.id, 'toolu-task-complete', '260308-child-complete')
+  const failedChild = createManagedChildSession(rootSession.id, 'toolu-task-fail', '260308-child-fail')
+  const sessionEvents: SessionEvent[] = []
+
+  manager.sessions = new Map([
+    [rootSession.id, rootSession],
+    [completedChild.id, completedChild],
+    [failedChild.id, failedChild],
+  ])
+  manager.persistSession = () => {}
+  manager.sendEvent = (event: SessionEvent) => {
+    sessionEvents.push(event)
+  }
+
+  manager.processEvent(rootSession, {
+    type: 'tool_result',
+    toolUseId: 'toolu-task-complete',
+    toolName: 'Task',
+    result: 'done',
+    isError: false,
+    turnId: 'turn-1',
+  })
+
+  manager.processEvent(rootSession, {
+    type: 'tool_result',
+    toolUseId: 'toolu-task-fail',
+    toolName: 'Task',
+    result: 'failed',
+    isError: true,
+    turnId: 'turn-1',
+  })
+
+  expect(completedChild.subagentStatus).toBe('completed')
+  expect(failedChild.subagentStatus).toBe('failed')
+  expect(manager.taskChildSessions.get(`${rootSession.id}:toolu-task-complete`)).toBe(completedChild.id)
+  expect(manager.taskChildSessions.get(`${rootSession.id}:toolu-task-fail`)).toBe(failedChild.id)
+  expect(sessionEvents.filter(event => event.type === 'subagent_status_changed')).toContainEqual({
+    type: 'subagent_status_changed',
+    sessionId: '260308-root',
+    childSessionId: completedChild.id,
+    subagentStatus: 'completed',
+  })
+  expect(sessionEvents.filter(event => event.type === 'subagent_status_changed')).toContainEqual({
+    type: 'subagent_status_changed',
+    sessionId: '260308-root',
+    childSessionId: failedChild.id,
+    subagentStatus: 'failed',
+  })
 })
