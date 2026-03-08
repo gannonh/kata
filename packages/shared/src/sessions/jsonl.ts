@@ -80,6 +80,7 @@ export function readSessionJsonl(sessionFile: string): StoredSession | null {
       orchestratorSessionId: header.orchestratorSessionId,
       agentRole: header.agentRole,
       delegatedBySessionId: header.delegatedBySessionId,
+      delegatedToolUseId: header.delegatedToolUseId,
       delegationLabel: header.delegationLabel,
       subagentStatus: header.subagentStatus,
       messages,
@@ -145,6 +146,7 @@ export function createSessionHeader(session: StoredSession): SessionHeader {
     orchestratorSessionId: session.orchestratorSessionId,
     agentRole: session.agentRole,
     delegatedBySessionId: session.delegatedBySessionId,
+    delegatedToolUseId: session.delegatedToolUseId,
     delegationLabel: session.delegationLabel,
     subagentStatus: session.subagentStatus,
     // Pre-computed fields

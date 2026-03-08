@@ -169,6 +169,7 @@ export async function createSession(
     | 'orchestratorSessionId'
     | 'agentRole'
     | 'delegatedBySessionId'
+    | 'delegatedToolUseId'
     | 'delegationLabel'
     | 'subagentStatus'
   >
@@ -203,6 +204,7 @@ export async function createSession(
     orchestratorSessionId: options?.orchestratorSessionId,
     agentRole: options?.agentRole,
     delegatedBySessionId: options?.delegatedBySessionId,
+    delegatedToolUseId: options?.delegatedToolUseId,
     delegationLabel: options?.delegationLabel,
     subagentStatus: options?.subagentStatus,
   };
@@ -248,6 +250,7 @@ export async function getOrCreateSessionById(
       orchestratorSessionId: existing.orchestratorSessionId,
       agentRole: existing.agentRole,
       delegatedBySessionId: existing.delegatedBySessionId,
+      delegatedToolUseId: existing.delegatedToolUseId,
       delegationLabel: existing.delegationLabel,
       subagentStatus: existing.subagentStatus,
     };
@@ -429,6 +432,7 @@ function headerToMetadata(header: SessionHeader, workspaceRootPath: string): Ses
       orchestratorSessionId: header.orchestratorSessionId,
       agentRole: header.agentRole,
       delegatedBySessionId: header.delegatedBySessionId,
+      delegatedToolUseId: header.delegatedToolUseId,
       delegationLabel: header.delegationLabel,
       subagentStatus: header.subagentStatus,
     };
@@ -497,6 +501,7 @@ export async function getOrCreateLatestSession(workspaceRootPath: string): Promi
       orchestratorSessionId: latest.orchestratorSessionId,
       agentRole: latest.agentRole,
       delegatedBySessionId: latest.delegatedBySessionId,
+      delegatedToolUseId: latest.delegatedToolUseId,
       delegationLabel: latest.delegationLabel,
       subagentStatus: latest.subagentStatus,
     };
@@ -547,6 +552,7 @@ export async function updateSessionMetadata(
     | 'orchestratorSessionId'
     | 'agentRole'
     | 'delegatedBySessionId'
+    | 'delegatedToolUseId'
     | 'delegationLabel'
     | 'subagentStatus'
   >>
@@ -571,6 +577,7 @@ export async function updateSessionMetadata(
   if ('orchestratorSessionId' in updates) session.orchestratorSessionId = updates.orchestratorSessionId;
   if ('agentRole' in updates) session.agentRole = updates.agentRole;
   if ('delegatedBySessionId' in updates) session.delegatedBySessionId = updates.delegatedBySessionId;
+  if ('delegatedToolUseId' in updates) session.delegatedToolUseId = updates.delegatedToolUseId;
   if ('delegationLabel' in updates) session.delegationLabel = updates.delegationLabel;
   if ('subagentStatus' in updates) session.subagentStatus = updates.subagentStatus;
 

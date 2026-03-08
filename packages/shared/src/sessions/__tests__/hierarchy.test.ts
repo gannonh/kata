@@ -13,6 +13,7 @@ const hierarchy = {
   orchestratorSessionId: '260308-root',
   agentRole: 'Explore',
   delegatedBySessionId: '260308-root',
+  delegatedToolUseId: 'toolu-task-a',
   delegationLabel: 'Explore workspace sources',
   subagentStatus: 'running' as const,
 }
@@ -92,6 +93,7 @@ test('session storage CRUD preserves hierarchy metadata through create update an
       orchestratorSessionId: created.id,
       agentRole: 'Coordinator',
       delegatedBySessionId: undefined,
+      delegatedToolUseId: undefined,
       delegationLabel: 'Coordinate workspace analysis',
       subagentStatus: 'completed',
     })
@@ -105,6 +107,7 @@ test('session storage CRUD preserves hierarchy metadata through create update an
       orchestratorSessionId: created.id,
       agentRole: 'Coordinator',
       delegatedBySessionId: undefined,
+      delegatedToolUseId: undefined,
       delegationLabel: 'Coordinate workspace analysis',
       subagentStatus: 'completed',
     })
@@ -114,6 +117,7 @@ test('session storage CRUD preserves hierarchy metadata through create update an
       orchestratorSessionId: created.id,
       agentRole: 'Coordinator',
       delegatedBySessionId: undefined,
+      delegatedToolUseId: undefined,
       delegationLabel: 'Coordinate workspace analysis',
       subagentStatus: 'completed',
     })

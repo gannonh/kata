@@ -8,6 +8,7 @@ const SESSION_HIERARCHY_KEYS = [
   'orchestratorSessionId',
   'agentRole',
   'delegatedBySessionId',
+  'delegatedToolUseId',
   'delegationLabel',
   'subagentStatus',
 ] as const satisfies ReadonlyArray<keyof SessionConfig>

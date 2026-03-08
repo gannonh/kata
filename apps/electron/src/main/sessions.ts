@@ -558,6 +558,7 @@ export class SessionManager {
   private createManagedSubagentSession(
     parent: ManagedSession,
     sessionId: string,
+    delegatedToolUseId: string,
     delegationLabel: string,
     agentRole: string
   ): ManagedSession {
@@ -613,6 +614,7 @@ export class SessionManager {
       orchestratorSessionId,
       agentRole,
       delegatedBySessionId: parent.id,
+      delegatedToolUseId,
       delegationLabel,
       subagentStatus: 'running',
     }
@@ -620,8 +622,7 @@ export class SessionManager {
 
   private findExistingTaskChildSession(
     parent: ManagedSession,
-    delegationLabel: string,
-    agentRole: string
+    toolUseId: string
   ): ManagedSession | undefined {
     const orchestratorSessionId = parent.orchestratorSessionId ?? parent.id
 
@@ -630,8 +631,7 @@ export class SessionManager {
       && session.sessionKind === 'subagent'
       && session.parentSessionId === parent.id
       && session.orchestratorSessionId === orchestratorSessionId
-      && session.agentRole === agentRole
-      && session.delegationLabel === delegationLabel
+      && session.delegatedToolUseId === toolUseId
     )
   }
 
@@ -648,13 +648,14 @@ export class SessionManager {
     const orchestratorSessionId = parent.orchestratorSessionId ?? parent.id
     let childSession = existingLinkedSessionId
       ? this.sessions.get(existingLinkedSessionId)
-      : this.findExistingTaskChildSession(parent, delegationLabel, agentRole)
+      : this.findExistingTaskChildSession(parent, toolUseId)
     const shouldEmitSpawnedEvent = !this.taskChildSessions.has(linkageKey)
 
     if (!childSession) {
       childSession = this.createManagedSubagentSession(
         parent,
         this.generateManagedSessionId(parent.workspace.rootPath),
+        toolUseId,
         delegationLabel,
         agentRole
       )
@@ -671,6 +672,7 @@ export class SessionManager {
       || childSession.orchestratorSessionId !== orchestratorSessionId
       || childSession.agentRole !== agentRole
       || childSession.delegatedBySessionId !== parent.id
+      || childSession.delegatedToolUseId !== toolUseId
       || childSession.delegationLabel !== delegationLabel
 
     const statusChanged = childSession.subagentStatus !== 'running'
@@ -683,6 +685,7 @@ export class SessionManager {
     childSession.orchestratorSessionId = orchestratorSessionId
     childSession.agentRole = agentRole
     childSession.delegatedBySessionId = parent.id
+    childSession.delegatedToolUseId = toolUseId
     childSession.delegationLabel = delegationLabel
     childSession.subagentStatus = 'running'
 
@@ -1692,6 +1695,7 @@ export class SessionManager {
       orchestratorSessionId: options?.orchestratorSessionId,
       agentRole: options?.agentRole,
       delegatedBySessionId: options?.delegatedBySessionId,
+      delegatedToolUseId: options?.delegatedToolUseId,
       delegationLabel: options?.delegationLabel,
       subagentStatus: options?.subagentStatus,
     })

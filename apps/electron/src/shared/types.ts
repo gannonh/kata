@@ -354,6 +354,7 @@ export interface Session {
   orchestratorSessionId?: string
   agentRole?: string
   delegatedBySessionId?: string
+  delegatedToolUseId?: string
   delegationLabel?: string
   subagentStatus?: CoreSubagentStatus
   // Token usage for context tracking
@@ -389,6 +390,7 @@ export interface CreateSessionOptions {
   orchestratorSessionId?: string
   agentRole?: string
   delegatedBySessionId?: string
+  delegatedToolUseId?: string
   delegationLabel?: string
   subagentStatus?: CoreSubagentStatus
 }

@@ -128,6 +128,7 @@ export interface SessionConfig {
   orchestratorSessionId?: string;
   agentRole?: string;
   delegatedBySessionId?: string;
+  delegatedToolUseId?: string;
   delegationLabel?: string;
   subagentStatus?: SubagentStatus;
 }
@@ -221,6 +222,7 @@ export interface SessionHeader {
   orchestratorSessionId?: string;
   agentRole?: string;
   delegatedBySessionId?: string;
+  delegatedToolUseId?: string;
   delegationLabel?: string;
   subagentStatus?: SubagentStatus;
 }
@@ -287,6 +289,7 @@ export interface SessionMetadata {
   orchestratorSessionId?: string;
   agentRole?: string;
   delegatedBySessionId?: string;
+  delegatedToolUseId?: string;
   delegationLabel?: string;
   subagentStatus?: SubagentStatus;
 }

@@ -226,6 +226,7 @@ function createManagedSession(sessionId = '260308-root') {
     orchestratorSessionId: sessionId,
     agentRole: 'Coordinator',
     delegatedBySessionId: undefined,
+    delegatedToolUseId: undefined,
     delegationLabel: undefined,
     subagentStatus: undefined,
   } as any
@@ -281,6 +282,7 @@ test('Task lifecycle creates a child session once and emits child session status
     orchestratorSessionId: '260308-root',
     agentRole: 'Explore',
     delegatedBySessionId: '260308-root',
+    delegatedToolUseId: 'toolu-task-a',
     delegationLabel: 'Explore workspace sources',
     subagentStatus: 'running',
   })
@@ -336,4 +338,64 @@ test('Task lifecycle creates a child session once and emits child session status
     childSessionId: childSession.id,
     subagentStatus: 'completed',
   })
+})
+
+test('Task lifecycle scopes child session hydration to parent session and toolUseId', () => {
+  const manager = new SessionManager() as any
+  const rootSession = createManagedSession()
+  const sessionEvents: SessionEvent[] = []
+
+  manager.sessions = new Map([[rootSession.id, rootSession]])
+  manager.persistSession = () => {}
+  manager.sendEvent = (event: SessionEvent) => {
+    sessionEvents.push(event)
+  }
+
+  const sharedTaskInput = {
+    description: 'Explore workspace sources',
+    subagent_type: 'Explore',
+  }
+
+  manager.processEvent(rootSession, {
+    type: 'tool_start',
+    toolName: 'Task',
+    toolUseId: 'toolu-task-a',
+    input: sharedTaskInput,
+    turnId: 'turn-1',
+  })
+
+  manager.processEvent(rootSession, {
+    type: 'tool_start',
+    toolName: 'Task',
+    toolUseId: 'toolu-task-b',
+    input: sharedTaskInput,
+    turnId: 'turn-1',
+  })
+
+  const childSessions = Array.from(manager.sessions.values()).filter(
+    (session: any) => session.sessionKind === 'subagent'
+  )
+
+  expect(childSessions).toHaveLength(2)
+  expect(new Set(childSessions.map((session: any) => session.id)).size).toBe(2)
+  expect(childSessions.map((session: any) => session.delegatedToolUseId).sort()).toEqual([
+    'toolu-task-a',
+    'toolu-task-b',
+  ])
+
+  expect(sessionEvents.filter(event => event.type === 'subagent_spawned')).toHaveLength(2)
+  expect(sessionEvents.filter(event => event.type === 'subagent_status_changed')).toEqual([
+    {
+      type: 'subagent_status_changed',
+      sessionId: '260308-root',
+      childSessionId: childSessions.find((session: any) => session.delegatedToolUseId === 'toolu-task-a')!.id,
+      subagentStatus: 'running',
+    },
+    {
+      type: 'subagent_status_changed',
+      sessionId: '260308-root',
+      childSessionId: childSessions.find((session: any) => session.delegatedToolUseId === 'toolu-task-b')!.id,
+      subagentStatus: 'running',
+    },
+  ])
 })

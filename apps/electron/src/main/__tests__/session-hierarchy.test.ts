@@ -16,6 +16,7 @@ const hierarchy = {
   orchestratorSessionId: '260308-root',
   agentRole: 'Explore',
   delegatedBySessionId: '260308-root',
+  delegatedToolUseId: 'toolu-task-a',
   delegationLabel: 'Explore workspace sources',
   subagentStatus: 'running' as const,
 }
