@@ -384,6 +384,13 @@ export interface CreateSessionOptions {
    * - Absolute path string: Use this specific path
    */
   workingDirectory?: string | 'user_default' | 'none'
+  sessionKind?: CoreSessionKind
+  parentSessionId?: string
+  orchestratorSessionId?: string
+  agentRole?: string
+  delegatedBySessionId?: string
+  delegationLabel?: string
+  subagentStatus?: CoreSubagentStatus
 }
 
 // Events sent from main to renderer

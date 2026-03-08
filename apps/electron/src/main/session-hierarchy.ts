@@ -1,50 +1,48 @@
-import type { SessionKind, SubagentStatus } from '@craft-agent/core/types'
-import type { SessionMetadata, StoredSession } from '@craft-agent/shared/sessions'
+import type { SessionConfig, SessionMetadata, StoredSession } from '@craft-agent/shared/sessions'
 
 import type { Session } from '../shared/types'
 
-export interface SessionHierarchyMetadata {
-  sessionKind?: SessionKind
-  parentSessionId?: string
-  orchestratorSessionId?: string
-  agentRole?: string
-  delegatedBySessionId?: string
-  delegationLabel?: string
-  subagentStatus?: SubagentStatus
-}
+const SESSION_HIERARCHY_KEYS = [
+  'sessionKind',
+  'parentSessionId',
+  'orchestratorSessionId',
+  'agentRole',
+  'delegatedBySessionId',
+  'delegationLabel',
+  'subagentStatus',
+] as const satisfies ReadonlyArray<keyof SessionConfig>
+
+type SessionHierarchyKey = typeof SESSION_HIERARCHY_KEYS[number]
+export type SessionHierarchyMetadata = Pick<SessionConfig, SessionHierarchyKey>
 
 export function pickSessionHierarchyMetadata(source: SessionHierarchyMetadata): SessionHierarchyMetadata {
-  return {
-    sessionKind: source.sessionKind,
-    parentSessionId: source.parentSessionId,
-    orchestratorSessionId: source.orchestratorSessionId,
-    agentRole: source.agentRole,
-    delegatedBySessionId: source.delegatedBySessionId,
-    delegationLabel: source.delegationLabel,
-    subagentStatus: source.subagentStatus,
+  const picked: SessionHierarchyMetadata = {}
+  for (const key of SESSION_HIERARCHY_KEYS) {
+    picked[key] = source[key]
   }
+  return picked
 }
 
 export function sessionMetadataToManagedHierarchy(
-  metadata: Pick<SessionMetadata, keyof SessionHierarchyMetadata>
+  metadata: Pick<SessionMetadata, SessionHierarchyKey>
 ): SessionHierarchyMetadata {
   return pickSessionHierarchyMetadata(metadata)
 }
 
 export function storedSessionToManagedHierarchy(
-  session: Pick<StoredSession, keyof SessionHierarchyMetadata>
+  session: Pick<StoredSession, SessionHierarchyKey>
 ): SessionHierarchyMetadata {
   return pickSessionHierarchyMetadata(session)
 }
 
 export function managedSessionToRendererHierarchy(
   managed: SessionHierarchyMetadata
-): Pick<Session, keyof SessionHierarchyMetadata> {
+): Pick<Session, SessionHierarchyKey> {
   return pickSessionHierarchyMetadata(managed)
 }
 
 export function managedSessionToStoredHierarchy(
   managed: SessionHierarchyMetadata
-): Pick<StoredSession, keyof SessionHierarchyMetadata> {
+): Pick<StoredSession, SessionHierarchyKey> {
   return pickSessionHierarchyMetadata(managed)
 }

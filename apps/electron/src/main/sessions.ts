@@ -1448,6 +1448,13 @@ export class SessionManager {
     const storedSession = await createStoredSession(workspaceRootPath, {
       permissionMode: defaultPermissionMode,
       workingDirectory: resolvedWorkingDir,
+      sessionKind: options?.sessionKind,
+      parentSessionId: options?.parentSessionId,
+      orchestratorSessionId: options?.orchestratorSessionId,
+      agentRole: options?.agentRole,
+      delegatedBySessionId: options?.delegatedBySessionId,
+      delegationLabel: options?.delegationLabel,
+      subagentStatus: options?.subagentStatus,
     })
 
     const managed: ManagedSession = {
@@ -1469,6 +1476,7 @@ export class SessionManager {
       messageQueue: [],
       backgroundShellCommands: new Map(),
       messagesLoaded: true,  // New sessions don't need to load messages from disk
+      ...storedSessionToManagedHierarchy(storedSession),
     }
 
     this.sessions.set(storedSession.id, managed)
@@ -1487,6 +1495,7 @@ export class SessionManager {
       model: managed.model,
       thinkingLevel: defaultThinkingLevel,
       sessionFolderPath: getSessionStoragePath(workspaceRootPath, storedSession.id),
+      ...managedSessionToRendererHierarchy(managed),
     }
   }
 

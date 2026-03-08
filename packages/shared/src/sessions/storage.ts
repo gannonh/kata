@@ -163,7 +163,15 @@ export async function createSession(
     enabledSourceSlugs?: string[];
     model?: string;
     channel?: SessionConfig['channel'];
-  }
+  } & Pick<SessionConfig,
+    | 'sessionKind'
+    | 'parentSessionId'
+    | 'orchestratorSessionId'
+    | 'agentRole'
+    | 'delegatedBySessionId'
+    | 'delegationLabel'
+    | 'subagentStatus'
+  >
 ): Promise<SessionConfig> {
   ensureSessionsDir(workspaceRootPath);
 
@@ -190,6 +198,13 @@ export async function createSession(
     enabledSourceSlugs: options?.enabledSourceSlugs,
     model: options?.model,
     channel: options?.channel,
+    sessionKind: options?.sessionKind,
+    parentSessionId: options?.parentSessionId,
+    orchestratorSessionId: options?.orchestratorSessionId,
+    agentRole: options?.agentRole,
+    delegatedBySessionId: options?.delegatedBySessionId,
+    delegationLabel: options?.delegationLabel,
+    subagentStatus: options?.subagentStatus,
   };
 
   // Save empty session
@@ -527,6 +542,13 @@ export async function updateSessionMetadata(
     | 'sharedUrl'
     | 'sharedId'
     | 'model'
+    | 'sessionKind'
+    | 'parentSessionId'
+    | 'orchestratorSessionId'
+    | 'agentRole'
+    | 'delegatedBySessionId'
+    | 'delegationLabel'
+    | 'subagentStatus'
   >>
 ): Promise<void> {
   const session = loadSession(workspaceRootPath, sessionId);
@@ -544,6 +566,13 @@ export async function updateSessionMetadata(
   if ('sharedUrl' in updates) session.sharedUrl = updates.sharedUrl;
   if ('sharedId' in updates) session.sharedId = updates.sharedId;
   if (updates.model !== undefined) session.model = updates.model;
+  if ('sessionKind' in updates) session.sessionKind = updates.sessionKind;
+  if ('parentSessionId' in updates) session.parentSessionId = updates.parentSessionId;
+  if ('orchestratorSessionId' in updates) session.orchestratorSessionId = updates.orchestratorSessionId;
+  if ('agentRole' in updates) session.agentRole = updates.agentRole;
+  if ('delegatedBySessionId' in updates) session.delegatedBySessionId = updates.delegatedBySessionId;
+  if ('delegationLabel' in updates) session.delegationLabel = updates.delegationLabel;
+  if ('subagentStatus' in updates) session.subagentStatus = updates.subagentStatus;
 
   await saveSession(session);
 }
