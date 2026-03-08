@@ -584,7 +584,7 @@ function SessionItem({
                     isFlagged={item.isFlagged ?? false}
                     sharedUrl={item.sharedUrl}
                     hasMessages={hasMessages(item)}
-                    hasUnreadMessages={itemHasUnread(item)}
+                    hasUnreadMessages={hasUnreadMessages(item)}
                     currentTodoState={currentTodoState}
                     todoStates={todoStates}
                     sessionLabels={isNestedChild ? [] : (item.labels ?? [])}
@@ -615,7 +615,7 @@ function SessionItem({
               isFlagged={item.isFlagged ?? false}
               sharedUrl={item.sharedUrl}
               hasMessages={hasMessages(item)}
-              hasUnreadMessages={itemHasUnread(item)}
+              hasUnreadMessages={hasUnreadMessages(item)}
               currentTodoState={currentTodoState}
               todoStates={todoStates}
               sessionLabels={isNestedChild ? [] : (item.labels ?? [])}

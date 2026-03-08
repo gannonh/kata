@@ -29,3 +29,14 @@ test('parent unread stays active even when children are read', () => {
 
   expect(result.parentHasUnread).toBe(true)
 })
+
+test('bubbled unread does not change the parent session unread flag itself', () => {
+  const parent = createMeta({ id: 'root', hasUnread: false })
+  const result = bubbleUnreadToParent({
+    parent,
+    children: [createMeta({ id: 'child-a', hasUnread: true })],
+  })
+
+  expect(result.parentHasUnread).toBe(true)
+  expect(parent.hasUnread).toBe(false)
+})
