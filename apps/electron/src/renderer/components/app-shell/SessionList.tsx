@@ -370,10 +370,10 @@ function SessionItem({
       <ContextMenu modal={true} onOpenChange={setContextMenuOpen}>
         <ContextMenuTrigger asChild>
           <div className="session-content relative group select-none pl-2 mr-2" style={{ paddingLeft: 8 + indentPx }}>
-        {/* Todo State Icon - positioned absolutely, outside the button */}
+        {/* Todo State Icon - positioned absolutely; for nested children, arrow sits inside the indent */}
         {isNestedChild ? (
-          <div className="absolute left-4 top-3.5 z-10 flex items-center text-foreground/35">
-            <CornerDownRight className="w-3.5 h-3.5" />
+          <div className="absolute top-2.5 z-10 flex items-center text-foreground/30" style={{ left: 16 + indentPx }}>
+            <CornerDownRight className="w-3 h-3" />
           </div>
         ) : (
           <Popover modal={true} open={todoMenuOpen} onOpenChange={setTodoMenuOpen}>
@@ -424,9 +424,10 @@ function SessionItem({
           data-testid="session-list-item-button"
           data-session-id={item.id}
           className={cn(
-            "flex w-full items-start gap-2 pl-2 pr-4 py-3 text-left text-sm outline-none rounded-[8px]",
+            "flex w-full items-start gap-2 pl-2 pr-4 text-left outline-none rounded-[8px]",
             // Fast hover transition (75ms vs default 150ms), selection is instant
             "transition-[background-color] duration-75",
+            isNestedChild ? "py-1.5 text-xs" : "py-3 text-sm",
             isSelected
               ? "bg-foreground/5 hover:bg-foreground/7"
               : "hover:bg-foreground/2"
@@ -437,14 +438,15 @@ function SessionItem({
             onKeyDown(e, item)
           }}
         >
-          {/* Spacer for todo icon */}
-          <div className="w-4 h-5 shrink-0" />
+          {/* Spacer for todo/arrow icon */}
+          <div className={cn("shrink-0", isNestedChild ? "w-3.5 h-4" : "w-4 h-5")} />
           {/* Content column */}
-          <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-            {/* Title - up to 2 lines, with shimmer during async operations (sharing, title regen, etc.) */}
+          <div className={cn("flex flex-col min-w-0 flex-1", isNestedChild ? "gap-0.5" : "gap-1.5")}>
+            {/* Title - up to 2 lines (1 line for sub-agents), with shimmer during async operations */}
             <div className="flex items-start gap-2 w-full pr-6 min-w-0">
               <div className={cn(
-                "font-medium font-sans line-clamp-2 min-w-0 -mb-[2px]",
+                "font-sans min-w-0 -mb-[2px]",
+                isNestedChild ? "font-normal text-foreground/70 line-clamp-1" : "font-medium line-clamp-2",
                 item.isAsyncOperationOngoing && "animate-shimmer-text"
               )}>
                 {searchQuery ? highlightMatch(getSessionTitle(item), searchQuery) : getSessionTitle(item)}
