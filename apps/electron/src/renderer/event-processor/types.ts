@@ -78,6 +78,26 @@ export interface ToolResultEvent {
   parentToolUseId?: string
 }
 
+export interface SubagentSpawnedEvent {
+  type: 'subagent_spawned'
+  sessionId: string
+  delegatedToolUseId: string
+  childSessionId: string
+  childSessionName: string
+  agentRole: string
+  delegationLabel: string
+  parentSessionId: string
+  orchestratorSessionId: string
+}
+
+export interface SubagentStatusChangedEvent {
+  type: 'subagent_status_changed'
+  sessionId: string
+  delegatedToolUseId: string
+  childSessionId: string
+  subagentStatus: Session['subagentStatus']
+}
+
 /**
  * Complete event - agent loop finished
  */
@@ -396,6 +416,8 @@ export type AgentEvent =
   | TextCompleteEvent
   | ToolStartEvent
   | ToolResultEvent
+  | SubagentSpawnedEvent
+  | SubagentStatusChangedEvent
   | CompleteEvent
   | ErrorEvent
   | TypedErrorEvent
@@ -436,6 +458,7 @@ export type Effect =
   | { type: 'credential_request'; request: CredentialRequest }
   | { type: 'generate_title'; sessionId: string; userMessage: string }
   | { type: 'permission_mode_changed'; sessionId: string; permissionMode: PermissionMode }
+  | { type: 'upsert_session'; session: Session }
   | { type: 'auto_retry'; sessionId: string; originalMessage: string; sourceSlug: string }
 
 /**

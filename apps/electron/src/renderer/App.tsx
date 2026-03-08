@@ -490,6 +490,29 @@ export default function App() {
             }, 100)
             break
           }
+          case 'upsert_session': {
+            const existingSession = store.get(sessionAtomFamily(effect.session.id))
+            if (!existingSession) {
+              addSession(effect.session)
+              break
+            }
+
+            const mergedSession = {
+              ...existingSession,
+              ...effect.session,
+              messages: effect.session.messages.length > 0
+                ? effect.session.messages
+                : existingSession.messages,
+            }
+
+            updateSessionDirect(effect.session.id, () => mergedSession)
+
+            const metaMap = store.get(sessionMetaMapAtom)
+            const newMetaMap = new Map(metaMap)
+            newMetaMap.set(effect.session.id, extractSessionMeta(mergedSession))
+            store.set(sessionMetaMapAtom, newMetaMap)
+            break
+          }
         }
       }
 
@@ -606,7 +629,7 @@ export default function App() {
     })
 
     return cleanup
-  }, [processAgentEvent, windowWorkspaceId, store, updateSessionDirect, showSessionNotification])
+  }, [processAgentEvent, windowWorkspaceId, store, addSession, updateSessionDirect, showSessionNotification])
 
   // Listen for menu bar events
   useEffect(() => {

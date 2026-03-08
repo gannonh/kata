@@ -43,6 +43,8 @@ import {
   handleAuthRequest,
   handleAuthCompleted,
   handleUsageUpdate,
+  handleSubagentSpawned,
+  handleSubagentStatusChanged,
 } from './handlers/session'
 
 /**
@@ -79,6 +81,12 @@ export function processEvent(
       const newState = handleToolResult(state, event)
       return { state: newState, effects: [] }
     }
+
+    case 'subagent_spawned':
+      return handleSubagentSpawned(state, event)
+
+    case 'subagent_status_changed':
+      return handleSubagentStatusChanged(state, event)
 
     case 'task_backgrounded': {
       const newState = handleTaskBackgrounded(state, event)
