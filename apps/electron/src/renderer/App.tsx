@@ -52,6 +52,7 @@ import {
   JSONPreviewOverlay,
 } from '@craft-agent/ui'
 import { useLinkInterceptor, type FilePreviewState } from '@/hooks/useLinkInterceptor'
+import { mergeUpsertedSession } from './event-processor/helpers'
 
 type AppState = 'loading' | 'onboarding' | 'reauth' | 'ready'
 
@@ -490,6 +491,20 @@ export default function App() {
             }, 100)
             break
           }
+          case 'upsert_session': {
+            const mergedSession = mergeUpsertedSession(
+              store.get(sessionAtomFamily(effect.session.id)),
+              effect.session
+            )
+
+            if (mergedSession === effect.session) {
+              addSession(effect.session)
+              break
+            }
+
+            updateSessionDirect(effect.session.id, () => mergedSession)
+            break
+          }
         }
       }
 
@@ -606,7 +621,7 @@ export default function App() {
     })
 
     return cleanup
-  }, [processAgentEvent, windowWorkspaceId, store, updateSessionDirect, showSessionNotification])
+  }, [processAgentEvent, windowWorkspaceId, store, addSession, updateSessionDirect, showSessionNotification])
 
   // Listen for menu bar events
   useEffect(() => {

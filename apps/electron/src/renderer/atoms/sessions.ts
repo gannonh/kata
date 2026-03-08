@@ -10,7 +10,7 @@
 
 import { atom } from 'jotai'
 import { atomFamily } from 'jotai-family'
-import type { Session, Message } from '../../shared/types'
+import type { Session, Message, SessionKind, SubagentStatus } from '../../shared/types'
 
 /**
  * Session metadata for list display (lightweight, no messages)
@@ -72,6 +72,14 @@ export interface SessionMeta {
     slug: string
     displayName?: string
   }
+  sessionKind?: SessionKind
+  parentSessionId?: string
+  orchestratorSessionId?: string
+  agentRole?: string
+  delegatedBySessionId?: string
+  delegatedToolUseId?: string
+  delegationLabel?: string
+  subagentStatus?: SubagentStatus
 }
 
 /**
@@ -125,6 +133,14 @@ export function extractSessionMeta(session: Session): SessionMeta {
     createdAt: session.createdAt,
     tokenUsage: session.tokenUsage,
     channel: session.channel,
+    sessionKind: session.sessionKind,
+    parentSessionId: session.parentSessionId,
+    orchestratorSessionId: session.orchestratorSessionId,
+    agentRole: session.agentRole,
+    delegatedBySessionId: session.delegatedBySessionId,
+    delegatedToolUseId: session.delegatedToolUseId,
+    delegationLabel: session.delegationLabel,
+    subagentStatus: session.subagentStatus,
   }
 }
 
@@ -555,4 +571,3 @@ export const backgroundTasksAtomFamily = atomFamily(
   (_sessionId: string) => atom<BackgroundTask[]>([]),
   (a, b) => a === b
 )
-

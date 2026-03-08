@@ -36,9 +36,9 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
-    "test:e2e:live": "playwright test tests/live/",
-    "test:e2e:live:debug": "playwright test tests/live/ --debug",
-    "test:e2e:live:headed": "playwright test tests/live/ --headed"
+    "test:e2e:live": "playwright test -c playwright.live.config.ts",
+    "test:e2e:live:debug": "playwright test -c playwright.live.config.ts --debug",
+    "test:e2e:live:headed": "playwright test -c playwright.live.config.ts --headed"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0",

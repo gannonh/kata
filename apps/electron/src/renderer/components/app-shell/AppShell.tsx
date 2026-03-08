@@ -115,6 +115,7 @@ import { RightSidebar } from "./RightSidebar"
 import type { RichTextInputHandle } from "@/components/ui/rich-text-input"
 import { hasOpenOverlay } from "@/lib/overlay-detection"
 import { clearSourceIconCaches } from "@/lib/icon-cache"
+import { projectSessionTree } from "@/lib/session-tree"
 
 /**
  * AppShellProps - Minimal props interface for AppShell component
@@ -1257,7 +1258,12 @@ function AppShellContent({
     }
 
     return result
-  }, [workspaceSessionMetas, chatFilter, listFilter, labelFilter, labelConfigs])
+  }, [workspaceSessionMetas, chatFilter, listFilter, labelFilter, labelConfigs, evaluateViews])
+
+  const projectedSessionMetas = useMemo(
+    () => projectSessionTree(filteredSessionMetas, workspaceSessionMetas),
+    [filteredSessionMetas, workspaceSessionMetas]
+  )
 
   // Derive "pinned" (non-removable) filters from the current chatFilter path.
   // These represent filters that are implicit in the current deeplink/route and
@@ -2782,7 +2788,7 @@ function AppShellContent({
                 {/* Key on sidebarMode forces full remount when switching views, skipping animations */}
                 <SessionList
                   key={chatFilter?.kind}
-                  items={filteredSessionMetas}
+                  items={projectedSessionMetas}
                   onDelete={handleDeleteSession}
                   onFlag={onFlagSession}
                   onUnflag={onUnflagSession}

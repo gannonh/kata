@@ -164,3 +164,48 @@ export function createEmptySession(sessionId: string, workspaceId: string, works
     isProcessing: true,
   }
 }
+
+/**
+ * Merge an upserted session payload into an existing session without wiping
+ * the existing transcript when the incoming payload is metadata-only.
+ */
+export function mergeUpsertedSession(
+  existingSession: Session | null,
+  incomingSession: Session
+): Session {
+  if (!existingSession) {
+    return incomingSession
+  }
+
+  const isMetadataOnlySubagentUpsert =
+    incomingSession.sessionKind === 'subagent'
+    && incomingSession.messages.length === 0
+    && existingSession.sessionKind === 'subagent'
+
+  if (isMetadataOnlySubagentUpsert) {
+    return {
+      ...existingSession,
+      ...incomingSession,
+      lastMessageAt: existingSession.lastMessageAt,
+      isProcessing: existingSession.isProcessing,
+      permissionMode: existingSession.permissionMode,
+      enabledSourceSlugs: existingSession.enabledSourceSlugs,
+      workingDirectory: existingSession.workingDirectory,
+      model: existingSession.model,
+      thinkingLevel: existingSession.thinkingLevel,
+      name: incomingSession.name ?? existingSession.name,
+      preview: incomingSession.preview ?? existingSession.preview,
+      agentRole: incomingSession.agentRole ?? existingSession.agentRole,
+      delegationLabel: incomingSession.delegationLabel ?? existingSession.delegationLabel,
+      messages: existingSession.messages,
+    }
+  }
+
+  return {
+    ...existingSession,
+    ...incomingSession,
+    messages: incomingSession.messages.length > 0
+      ? incomingSession.messages
+      : existingSession.messages,
+  }
+}

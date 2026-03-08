@@ -23,8 +23,8 @@ import {
   // Session persistence functions
   listSessions as listStoredSessions,
   loadSession as loadStoredSession,
-  saveSession as saveStoredSession,
   createSession as createStoredSession,
+  generateSessionId,
   deleteSession as deleteStoredSession,
   updateSessionMetadata,
   setPendingPlanExecution as setStoredPendingPlanExecution,
@@ -55,6 +55,14 @@ import { evaluateAutoLabels } from '@craft-agent/shared/labels/auto'
 import { listLabels } from '@craft-agent/shared/labels/storage'
 import { extractLabelId } from '@craft-agent/shared/labels'
 import { getGitStatus, getPrStatus } from '@craft-agent/shared/git'
+import { buildSubagentContinuationContext, mergeSubagentTranscript, projectSubagentTranscript } from '../shared/subagent-transcript'
+import {
+  managedSessionToRendererHierarchy,
+  managedSessionToStoredHierarchy,
+  sessionMetadataToManagedHierarchy,
+  storedSessionToManagedHierarchy,
+  type SessionHierarchyMetadata,
+} from './session-hierarchy'
 
 /**
  * Sanitize message content for use as session title.
@@ -264,7 +272,7 @@ function resolveToolDisplayMeta(
   return undefined
 }
 
-interface ManagedSession {
+interface ManagedSession extends SessionHierarchyMetadata {
   id: string
   workspace: Workspace
   agent: CraftAgent | null  // Lazy-loaded - null until first message
@@ -326,6 +334,7 @@ interface ManagedSession {
   model?: string
   // Thinking level for this session ('off', 'think', 'max')
   thinkingLevel?: ThinkingLevel
+  pendingPlanExecution?: StoredSession['pendingPlanExecution']
   // Role/type of the last message (for badge display without loading messages)
   lastMessageRole?: 'user' | 'assistant' | 'plan' | 'tool' | 'error'
   // ID of the last final (non-intermediate) assistant message - pre-computed for unread detection
@@ -485,6 +494,7 @@ interface PendingDelta {
 export class SessionManager {
   private sessions: Map<string, ManagedSession> = new Map()
   private windowManager: WindowManager | null = null
+  private taskChildSessions: Map<string, string> = new Map()
   // Delta batching for performance - reduces IPC events from 50+/sec to ~20/sec
   private pendingDeltas: Map<string, PendingDelta> = new Map()
   private deltaFlushTimers: Map<string, NodeJS.Timeout> = new Map()
@@ -503,6 +513,301 @@ export class SessionManager {
 
   setWindowManager(wm: WindowManager): void {
     this.windowManager = wm
+  }
+
+  private getTaskChildSessionKey(sessionId: string, toolUseId: string): string {
+    return `${sessionId}:${toolUseId}`
+  }
+
+  private getDelegationLabel(
+    toolInput: Record<string, unknown> | undefined,
+    fallbackIntent?: string,
+    fallbackToolUseId?: string
+  ): string {
+    const candidates = [
+      fallbackIntent,
+      typeof toolInput?.description === 'string' ? toolInput.description : undefined,
+      typeof toolInput?.prompt === 'string' ? toolInput.prompt : undefined,
+      typeof toolInput?.task === 'string' ? toolInput.task : undefined,
+    ]
+
+    const match = candidates.find(
+      (candidate): candidate is string => typeof candidate === 'string' && candidate.trim().length > 0
+    )
+
+    return match ?? `Task ${fallbackToolUseId ?? 'subagent'}`
+  }
+
+  private getSubagentRole(toolInput: Record<string, unknown> | undefined): string {
+    if (typeof toolInput?.subagent_type === 'string' && toolInput.subagent_type.trim().length > 0) {
+      return toolInput.subagent_type
+    }
+
+    return 'general-purpose'
+  }
+
+  private getAuthoritativeDelegationLabel(
+    toolInput: Record<string, unknown> | undefined
+  ): string | undefined {
+    const candidates = [
+      typeof toolInput?.description === 'string' ? toolInput.description : undefined,
+      typeof toolInput?.prompt === 'string' ? toolInput.prompt : undefined,
+      typeof toolInput?.task === 'string' ? toolInput.task : undefined,
+    ]
+
+    return candidates.find(
+      (candidate): candidate is string => typeof candidate === 'string' && candidate.trim().length > 0
+    )
+  }
+
+  private hasAuthoritativeTaskMetadata(toolInput: Record<string, unknown> | undefined): boolean {
+    return !!this.getAuthoritativeDelegationLabel(toolInput)
+      && typeof toolInput?.subagent_type === 'string'
+      && toolInput.subagent_type.trim().length > 0
+  }
+
+  private generateManagedSessionId(workspaceRootPath: string): string {
+    let sessionId = generateSessionId(workspaceRootPath)
+
+    while (this.sessions.has(sessionId)) {
+      sessionId = generateSessionId(workspaceRootPath)
+    }
+
+    return sessionId
+  }
+
+  private createManagedSubagentSession(
+    parent: ManagedSession,
+    sessionId: string,
+    delegatedToolUseId: string,
+    delegationLabel?: string,
+    agentRole?: string
+  ): ManagedSession {
+    const now = Date.now()
+    const workspaceRootPath = parent.workspace.rootPath
+    const orchestratorSessionId = parent.orchestratorSessionId ?? parent.id
+
+    return {
+      id: sessionId,
+      workspace: parent.workspace,
+      agent: null,
+      messages: [],
+      isProcessing: false,
+      lastMessageAt: now,
+      streamingText: '',
+      processingGeneration: 0,
+      name: delegationLabel,
+      isFlagged: false,
+      permissionMode: parent.permissionMode,
+      sdkSessionId: undefined,
+      tokenUsage: undefined,
+      todoState: undefined,
+      lastReadMessageId: undefined,
+      hasUnread: false,
+      enabledSourceSlugs: parent.enabledSourceSlugs,
+      labels: parent.labels ? [...parent.labels] : undefined,
+      workingDirectory: parent.workingDirectory,
+      sdkCwd: getSessionStoragePath(workspaceRootPath, sessionId),
+      sharedUrl: undefined,
+      sharedId: undefined,
+      model: parent.model,
+      thinkingLevel: parent.thinkingLevel ?? DEFAULT_THINKING_LEVEL,
+      lastMessageRole: undefined,
+      lastFinalMessageId: undefined,
+      isAsyncOperationOngoing: false,
+      preview: delegationLabel,
+      createdAt: now,
+      messageCount: 0,
+      channel: parent.channel,
+      messageQueue: [],
+      backgroundShellCommands: new Map(),
+      messagesLoaded: true,
+      pendingAuthRequestId: undefined,
+      pendingAuthRequest: undefined,
+      lastSentMessage: undefined,
+      lastSentAttachments: undefined,
+      lastSentStoredAttachments: undefined,
+      lastSentOptions: undefined,
+      authRetryAttempted: false,
+      authRetryInProgress: false,
+      sessionKind: 'subagent',
+      parentSessionId: parent.id,
+      orchestratorSessionId,
+      agentRole,
+      delegatedBySessionId: parent.id,
+      delegatedToolUseId,
+      delegationLabel,
+      subagentStatus: 'running',
+    }
+  }
+
+  private findExistingTaskChildSession(
+    parent: ManagedSession,
+    toolUseId: string
+  ): ManagedSession | undefined {
+    const orchestratorSessionId = parent.orchestratorSessionId ?? parent.id
+
+    return Array.from(this.sessions.values()).find(session =>
+      session.id !== parent.id
+      && session.sessionKind === 'subagent'
+      && session.parentSessionId === parent.id
+      && session.orchestratorSessionId === orchestratorSessionId
+      && session.delegatedToolUseId === toolUseId
+    )
+  }
+
+  private resolveTaskChildSession(
+    parent: ManagedSession,
+    toolUseId: string
+  ): ManagedSession | undefined {
+    const linkageKey = this.getTaskChildSessionKey(parent.id, toolUseId)
+    const linkedSessionId = this.taskChildSessions.get(linkageKey)
+    const childSession = linkedSessionId
+      ? this.sessions.get(linkedSessionId)
+      : this.findExistingTaskChildSession(parent, toolUseId)
+
+    if (childSession) {
+      this.taskChildSessions.set(linkageKey, childSession.id)
+    }
+
+    return childSession
+  }
+
+  private hasSpawnedTaskChildSession(childSession: ManagedSession): boolean {
+    return typeof childSession.delegationLabel === 'string'
+      && childSession.delegationLabel.trim().length > 0
+      && typeof childSession.agentRole === 'string'
+      && childSession.agentRole.trim().length > 0
+  }
+
+  private async writeTaskChildSessionDurably(managed: ManagedSession): Promise<void> {
+    this.persistSession(managed)
+    await sessionPersistenceQueue.flush(managed.id)
+  }
+
+  private async ensureTaskChildSession(
+    parent: ManagedSession,
+    toolUseId: string,
+    toolInput: Record<string, unknown> | undefined,
+    intent?: string
+  ): Promise<ManagedSession> {
+    const linkageKey = this.getTaskChildSessionKey(parent.id, toolUseId)
+    const hasAuthoritativeMetadata = this.hasAuthoritativeTaskMetadata(toolInput)
+    const delegationLabel = this.getDelegationLabel(toolInput, intent, toolUseId)
+    const agentRole = this.getSubagentRole(toolInput)
+    const orchestratorSessionId = parent.orchestratorSessionId ?? parent.id
+    let childSession = this.resolveTaskChildSession(parent, toolUseId)
+    const hadSpawnedEvent = childSession ? this.hasSpawnedTaskChildSession(childSession) : false
+    const didCreateChildSession = !childSession
+
+    if (!childSession) {
+      childSession = this.createManagedSubagentSession(
+        parent,
+        this.generateManagedSessionId(parent.workspace.rootPath),
+        toolUseId,
+        hasAuthoritativeMetadata ? delegationLabel : undefined,
+        hasAuthoritativeMetadata ? agentRole : undefined
+      )
+      this.sessions.set(childSession.id, childSession)
+    }
+
+    this.taskChildSessions.set(linkageKey, childSession.id)
+
+    const nextName = hasAuthoritativeMetadata ? delegationLabel : childSession.name
+    const nextPreview = hasAuthoritativeMetadata ? delegationLabel : childSession.preview
+    const nextAgentRole = hasAuthoritativeMetadata ? agentRole : childSession.agentRole
+    const nextDelegationLabel = hasAuthoritativeMetadata ? delegationLabel : childSession.delegationLabel
+    const shouldEmitSpawnedEvent = hasAuthoritativeMetadata && !hadSpawnedEvent
+
+    const metadataChanged =
+      childSession.name !== nextName
+      || childSession.preview !== nextPreview
+      || childSession.sessionKind !== 'subagent'
+      || childSession.parentSessionId !== parent.id
+      || childSession.orchestratorSessionId !== orchestratorSessionId
+      || childSession.agentRole !== nextAgentRole
+      || childSession.delegatedBySessionId !== parent.id
+      || childSession.delegatedToolUseId !== toolUseId
+      || childSession.delegationLabel !== nextDelegationLabel
+
+    const statusChanged = childSession.subagentStatus !== 'running'
+
+    childSession.name = nextName
+    childSession.preview = nextPreview
+    childSession.lastMessageAt = Date.now()
+    childSession.sessionKind = 'subagent'
+    childSession.parentSessionId = parent.id
+    childSession.orchestratorSessionId = orchestratorSessionId
+    childSession.agentRole = nextAgentRole
+    childSession.delegatedBySessionId = parent.id
+    childSession.delegatedToolUseId = toolUseId
+    childSession.delegationLabel = nextDelegationLabel
+    childSession.subagentStatus = 'running'
+
+    if (didCreateChildSession || metadataChanged || statusChanged || shouldEmitSpawnedEvent) {
+      await this.writeTaskChildSessionDurably(childSession)
+    }
+
+    if (shouldEmitSpawnedEvent) {
+      this.sendEvent({
+        type: 'subagent_spawned',
+        sessionId: parent.id,
+        delegatedToolUseId: toolUseId,
+        childSessionId: childSession.id,
+        childSessionName: delegationLabel,
+        agentRole,
+        delegationLabel,
+        parentSessionId: parent.id,
+        orchestratorSessionId,
+      }, parent.workspace.id)
+    }
+
+    if (statusChanged || shouldEmitSpawnedEvent) {
+      this.sendEvent({
+        type: 'subagent_status_changed',
+        sessionId: parent.id,
+        delegatedToolUseId: toolUseId,
+        childSessionId: childSession.id,
+        subagentStatus: 'running',
+      }, parent.workspace.id)
+    }
+
+    return childSession
+  }
+
+  private async updateTaskChildSessionStatus(
+    parent: ManagedSession,
+    toolUseId: string,
+    subagentStatus: 'queued' | 'running' | 'completed' | 'failed'
+  ): Promise<void> {
+    const childSession = this.resolveTaskChildSession(parent, toolUseId)
+    if (!childSession) {
+      return
+    }
+
+    if (childSession.subagentStatus === subagentStatus) {
+      return
+    }
+
+    childSession.subagentStatus = subagentStatus
+    childSession.lastMessageAt = Date.now()
+    await this.writeTaskChildSessionDurably(childSession)
+
+    this.sendEvent({
+      type: 'subagent_status_changed',
+      sessionId: parent.id,
+      delegatedToolUseId: toolUseId,
+      childSessionId: childSession.id,
+      subagentStatus,
+    }, parent.workspace.id)
+  }
+
+  private clearTaskChildSessionLinks(sessionId: string): void {
+    for (const [key, childSessionId] of this.taskChildSessions.entries()) {
+      if (key.startsWith(`${sessionId}:`) || childSessionId === sessionId) {
+        this.taskChildSessions.delete(key)
+      }
+    }
   }
 
   /**
@@ -917,6 +1222,7 @@ export class SessionManager {
             sharedUrl: meta.sharedUrl,
             sharedId: meta.sharedId,
             channel: meta.channel,
+            ...sessionMetadataToManagedHierarchy(meta),
           }
 
           this.sessions.set(meta.id, managed)
@@ -938,47 +1244,97 @@ export class SessionManager {
     }
   }
 
+  private toStoredSession(managed: ManagedSession, existingSession?: StoredSession | null): StoredSession {
+    // Filter out transient status messages (progress indicators like "Compacting...")
+    // Error messages are now persisted with rich fields for diagnostics
+    const persistableMessages = managed.messages.filter(m =>
+      m.role !== 'status'
+    )
+
+    const workspaceRootPath = managed.workspace.rootPath
+    return {
+      ...existingSession,
+      id: managed.id,
+      workspaceRootPath,
+      name: managed.name,
+      createdAt: existingSession?.createdAt ?? managed.createdAt ?? managed.lastMessageAt ?? Date.now(),
+      lastUsedAt: Date.now(),
+      lastMessageAt: managed.lastMessageAt ?? existingSession?.lastMessageAt,
+      sdkSessionId: managed.sdkSessionId ?? existingSession?.sdkSessionId,
+      isFlagged: managed.isFlagged,
+      permissionMode: managed.permissionMode,
+      todoState: managed.todoState,
+      lastReadMessageId: managed.lastReadMessageId,
+      hasUnread: managed.hasUnread,
+      enabledSourceSlugs: managed.enabledSourceSlugs,
+      labels: managed.labels,
+      workingDirectory: managed.workingDirectory,
+      sdkCwd: managed.sdkCwd ?? existingSession?.sdkCwd,
+      sharedUrl: managed.sharedUrl,
+      sharedId: managed.sharedId,
+      model: managed.model,
+      thinkingLevel: managed.thinkingLevel,
+      pendingPlanExecution: managed.pendingPlanExecution ?? existingSession?.pendingPlanExecution,
+      messages: managed.messagesLoaded
+        ? persistableMessages.map(messageToStored)
+        : (existingSession?.messages ?? []),
+      tokenUsage: managed.messagesLoaded
+        ? (managed.tokenUsage ?? {
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+            contextTokens: 0,
+            costUsd: 0,
+          })
+        : (existingSession?.tokenUsage ?? {
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+            contextTokens: 0,
+            costUsd: 0,
+          }),
+      channel: managed.channel ?? existingSession?.channel,
+      ...managedSessionToStoredHierarchy(managed),
+    }
+  }
+
+  private async persistSessionMetadata(managed: ManagedSession): Promise<void> {
+    await updateSessionMetadata(managed.workspace.rootPath, managed.id, {
+      isFlagged: managed.isFlagged,
+      name: managed.name,
+      todoState: managed.todoState,
+      labels: managed.labels,
+      lastReadMessageId: managed.lastReadMessageId,
+      hasUnread: managed.hasUnread,
+      enabledSourceSlugs: managed.enabledSourceSlugs,
+      workingDirectory: managed.workingDirectory,
+      permissionMode: managed.permissionMode,
+      sharedUrl: managed.sharedUrl,
+      sharedId: managed.sharedId,
+      model: managed.model,
+      sessionKind: managed.sessionKind,
+      parentSessionId: managed.parentSessionId,
+      orchestratorSessionId: managed.orchestratorSessionId,
+      agentRole: managed.agentRole,
+      delegatedBySessionId: managed.delegatedBySessionId,
+      delegatedToolUseId: managed.delegatedToolUseId,
+      delegationLabel: managed.delegationLabel,
+      subagentStatus: managed.subagentStatus,
+    })
+  }
+
   // Persist a session to disk (async with debouncing)
   private persistSession(managed: ManagedSession): void {
     try {
-      // Filter out transient status messages (progress indicators like "Compacting...")
-      // Error messages are now persisted with rich fields for diagnostics
-      const persistableMessages = managed.messages.filter(m =>
-        m.role !== 'status'
-      )
-
-      const workspaceRootPath = managed.workspace.rootPath
-      const storedSession: StoredSession = {
-        id: managed.id,
-        workspaceRootPath,
-        name: managed.name,
-        createdAt: managed.lastMessageAt,  // Approximate, will be overwritten if already exists
-        lastUsedAt: Date.now(),
-        lastMessageAt: managed.lastMessageAt,  // Preserve actual message time (not persist time)
-        sdkSessionId: managed.sdkSessionId,
-        isFlagged: managed.isFlagged,
-        permissionMode: managed.permissionMode,
-        todoState: managed.todoState,
-        lastReadMessageId: managed.lastReadMessageId,  // For unread detection
-        hasUnread: managed.hasUnread,  // Explicit unread flag for NEW badge state machine
-        enabledSourceSlugs: managed.enabledSourceSlugs,
-        labels: managed.labels,
-        workingDirectory: managed.workingDirectory,
-        sdkCwd: managed.sdkCwd,
-        thinkingLevel: managed.thinkingLevel,
-        messages: persistableMessages.map(messageToStored),
-        tokenUsage: managed.tokenUsage ?? {
-          inputTokens: 0,
-          outputTokens: 0,
-          totalTokens: 0,
-          contextTokens: 0,
-          costUsd: 0,
-        },
-        channel: managed.channel,
+      if (!managed.messagesLoaded) {
+        void this.persistSessionMetadata(managed).catch((error) => {
+          sessionLog.error(`Failed to persist metadata-only session ${managed.id}:`, error)
+        })
+        return
       }
 
       // Queue for async persistence with debouncing
-      sessionPersistenceQueue.enqueue(storedSession)
+      sessionPersistenceQueue.enqueue(this.toStoredSession(managed))
     } catch (error) {
       sessionLog.error(`Failed to queue session ${managed.id} for persistence:`, error)
     }
@@ -1297,6 +1653,7 @@ export class SessionManager {
         createdAt: m.createdAt,
         messageCount: m.messageCount,
         channel: m.channel,
+        ...managedSessionToRendererHierarchy(m),
       }))
       .sort((a, b) => b.lastMessageAt - a.lastMessageAt)
   }
@@ -1339,6 +1696,7 @@ export class SessionManager {
       lastMessageRole: m.lastMessageRole,
       tokenUsage: m.tokenUsage,
       channel: m.channel,
+      ...managedSessionToRendererHierarchy(m),
     }
   }
 
@@ -1382,6 +1740,7 @@ export class SessionManager {
       managed.sharedId = storedSession.sharedId
       // Sync name from disk - ensures title persistence across lazy loading
       managed.name = storedSession.name
+      Object.assign(managed, storedSessionToManagedHierarchy(storedSession))
       sessionLog.debug(`Lazy-loaded ${managed.messages.length} messages for session ${managed.id}`)
     }
     managed.messagesLoaded = true
@@ -1436,6 +1795,14 @@ export class SessionManager {
     const storedSession = await createStoredSession(workspaceRootPath, {
       permissionMode: defaultPermissionMode,
       workingDirectory: resolvedWorkingDir,
+      sessionKind: options?.sessionKind,
+      parentSessionId: options?.parentSessionId,
+      orchestratorSessionId: options?.orchestratorSessionId,
+      agentRole: options?.agentRole,
+      delegatedBySessionId: options?.delegatedBySessionId,
+      delegatedToolUseId: options?.delegatedToolUseId,
+      delegationLabel: options?.delegationLabel,
+      subagentStatus: options?.subagentStatus,
     })
 
     const managed: ManagedSession = {
@@ -1457,6 +1824,7 @@ export class SessionManager {
       messageQueue: [],
       backgroundShellCommands: new Map(),
       messagesLoaded: true,  // New sessions don't need to load messages from disk
+      ...storedSessionToManagedHierarchy(storedSession),
     }
 
     this.sessions.set(storedSession.id, managed)
@@ -1475,6 +1843,7 @@ export class SessionManager {
       model: managed.model,
       thinkingLevel: defaultThinkingLevel,
       sessionFolderPath: getSessionStoragePath(workspaceRootPath, storedSession.id),
+      ...managedSessionToRendererHierarchy(managed),
     }
   }
 
@@ -2397,6 +2766,7 @@ export class SessionManager {
 
     // Clean up session-scoped tool callbacks to prevent memory accumulation
     unregisterSessionScopedToolCallbacks(sessionId)
+    this.clearTaskChildSessionLinks(sessionId)
 
     // Dispose agent to clean up ConfigWatchers, event listeners, MCP connections
     if (managed.agent) {
@@ -2724,6 +3094,11 @@ export class SessionManager {
     const agent = await this.getOrCreateAgent(managed)
     sendSpan.mark('agent.ready')
 
+    let agentMessage = message
+    if (managed.sessionKind === 'subagent') {
+      agentMessage = await this.buildSubagentContinuationPrompt(managed, message)
+    }
+
     // Always set all sources for context (even if none are enabled), including built-ins
     const workspaceRootPath = managed.workspace.rootPath
     const allSources = loadAllSources(workspaceRootPath)
@@ -2756,7 +3131,7 @@ export class SessionManager {
     try {
       sessionLog.info('Starting chat for session:', sessionId)
       sessionLog.info('Workspace:', JSON.stringify(managed.workspace, null, 2))
-      sessionLog.info('Message:', message)
+      sessionLog.info('Message:', agentMessage)
       sessionLog.info('Agent model:', agent.getModel())
       sessionLog.info('process.cwd():', process.cwd())
 
@@ -2798,7 +3173,7 @@ export class SessionManager {
       // to qualify short names. No transformation needed here.
 
       sendSpan.mark('chat.starting')
-      const chatIterator = agent.chat(message, attachments)
+      const chatIterator = agent.chat(agentMessage, attachments)
       sessionLog.info('Got chat iterator, starting iteration...')
 
       for await (const event of chatIterator) {
@@ -2814,7 +3189,7 @@ export class SessionManager {
         }
 
         // Process the event first
-        this.processEvent(managed, event)
+        await this.processEvent(managed, event)
 
         // Fallback: Capture SDK session ID if the onSdkSessionIdUpdate callback didn't fire.
         // Primary capture happens in getOrCreateAgent() via onSdkSessionIdUpdate callback,
@@ -2929,6 +3304,33 @@ export class SessionManager {
         this.onProcessingStopped(sessionId, 'interrupted')
       }
     }
+  }
+
+  private async buildSubagentContinuationPrompt(
+    managed: ManagedSession,
+    userMessage: string
+  ): Promise<string> {
+    const parentSessionId = managed.parentSessionId
+    const delegatedToolUseId = managed.delegatedToolUseId
+
+    if (!parentSessionId || !delegatedToolUseId) {
+      return userMessage
+    }
+
+    const parentSession = this.sessions.get(parentSessionId)
+    if (parentSession) {
+      await this.ensureMessagesLoaded(parentSession)
+    }
+
+    const projectedMessages = projectSubagentTranscript(parentSession?.messages ?? [], delegatedToolUseId)
+    const transcript = mergeSubagentTranscript(projectedMessages, managed.messages)
+    const contextBlock = buildSubagentContinuationContext({
+      agentRole: managed.agentRole,
+      delegationLabel: managed.delegationLabel,
+      transcript,
+    })
+
+    return contextBlock ? `${contextBlock}\n\n${userMessage}` : userMessage
   }
 
   async cancelProcessing(sessionId: string, silent = false): Promise<void> {
@@ -3316,7 +3718,7 @@ To view this task's output:
     }
   }
 
-  private processEvent(managed: ManagedSession, event: AgentEvent): void {
+  private async processEvent(managed: ManagedSession, event: AgentEvent): Promise<void> {
     const sessionId = managed.id
     const workspaceId = managed.workspace.id
 
@@ -3364,6 +3766,10 @@ To view this task's output:
       case 'tool_start': {
         // Format tool input paths to relative for better readability
         const formattedToolInput = formatToolInputPaths(event.input)
+
+        if (event.toolName === 'Task') {
+          await this.ensureTaskChildSession(managed, event.toolUseId, formattedToolInput, event.intent)
+        }
 
         // Resolve tool display metadata (icon, displayName) for skills/sources
         // Only resolve when we have input (second event for SDK dual-event pattern)
@@ -3512,6 +3918,14 @@ To view this task's output:
             parentToolUseId,
             isError: event.isError,
           }, workspaceId)
+        }
+
+        if (toolName === 'Task') {
+          await this.updateTaskChildSessionStatus(
+            managed,
+            event.toolUseId,
+            event.isError ? 'failed' : 'completed'
+          )
         }
 
         // Safety net: when a parent Task completes, mark all its still-pending child tools as completed.

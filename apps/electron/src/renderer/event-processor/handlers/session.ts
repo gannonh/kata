@@ -35,9 +35,52 @@ import type {
   AuthRequestEvent,
   AuthCompletedEvent,
   UsageUpdateEvent,
+  SubagentSpawnedEvent,
+  SubagentStatusChangedEvent,
 } from '../types'
-import type { Message } from '../../../shared/types'
+import type { Message, Session } from '../../../shared/types'
 import { generateMessageId, appendMessage } from '../helpers'
+
+function createSubagentSession(
+  parent: Session,
+  event: SubagentSpawnedEvent | SubagentStatusChangedEvent
+): Session {
+  const isSpawned = event.type === 'subagent_spawned'
+
+  return {
+    id: event.childSessionId,
+    workspaceId: parent.workspaceId,
+    workspaceName: parent.workspaceName,
+    lastMessageAt: isSpawned ? Date.now() : parent.lastMessageAt,
+    messages: [],
+    isProcessing: false,
+    ...(isSpawned
+      ? {
+          permissionMode: parent.permissionMode,
+          enabledSourceSlugs: parent.enabledSourceSlugs,
+          workingDirectory: parent.workingDirectory,
+          model: parent.model,
+          thinkingLevel: parent.thinkingLevel,
+        }
+      : {}),
+    sessionKind: 'subagent',
+    parentSessionId: isSpawned ? event.parentSessionId : parent.id,
+    orchestratorSessionId: isSpawned
+      ? event.orchestratorSessionId
+      : (parent.orchestratorSessionId ?? parent.id),
+    delegatedBySessionId: isSpawned ? event.parentSessionId : parent.id,
+    delegatedToolUseId: event.delegatedToolUseId,
+    subagentStatus: isSpawned ? 'running' : event.subagentStatus,
+    ...(isSpawned
+      ? {
+          name: event.childSessionName,
+          preview: event.delegationLabel,
+          agentRole: event.agentRole,
+          delegationLabel: event.delegationLabel,
+        }
+      : {}),
+  }
+}
 
 /**
  * Handle complete - agent loop finished
@@ -781,5 +824,38 @@ export function handleUsageUpdate(
       streaming,
     },
     effects: [],
+  }
+}
+
+/**
+ * Handle subagent_spawned by materializing a child session in renderer state.
+ * Parent transcript remains unchanged.
+ */
+export function handleSubagentSpawned(
+  state: SessionState,
+  event: SubagentSpawnedEvent
+): ProcessResult {
+  return {
+    state,
+    effects: [{
+      type: 'upsert_session',
+      session: createSubagentSession(state.session, event),
+    }],
+  }
+}
+
+/**
+ * Handle subagent_status_changed by upserting child lifecycle metadata without touching the parent transcript.
+ */
+export function handleSubagentStatusChanged(
+  state: SessionState,
+  event: SubagentStatusChangedEvent
+): ProcessResult {
+  return {
+    state,
+    effects: [{
+      type: 'upsert_session',
+      session: createSubagentSession(state.session, event),
+    }],
   }
 }

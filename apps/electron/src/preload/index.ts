@@ -50,7 +50,7 @@ const api: ElectronAPI = {
 
   // Event listeners
   onSessionEvent: (callback: (event: SessionEvent) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, sessionEvent: SessionEvent) => {
+    const handler = (_event: Electron.IpcRendererEvent, sessionEvent: SessionEvent): void => {
       callback(sessionEvent)
     }
     ipcRenderer.on(IPC_CHANNELS.SESSION_EVENT, handler)

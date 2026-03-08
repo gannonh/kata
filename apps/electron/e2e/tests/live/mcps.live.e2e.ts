@@ -3,6 +3,7 @@
  * Tests MCP server configuration and connection status.
  */
 import { test, expect } from '../../fixtures/live.fixture'
+import { openSourceFilter, openSettingsSubpage } from './helpers'
 
 test.describe('Live MCPs', () => {
   test.setTimeout(60_000)
@@ -21,94 +22,30 @@ test.describe('Live MCPs', () => {
   })
 
   test('MCP sources list shows configured servers', async ({ mainWindow }) => {
-    await mainWindow.waitForLoadState('networkidle')
+    await openSourceFilter(mainWindow, 'mcps')
 
-    // Navigate to sources panel
-    const sourcesNav = mainWindow.getByRole('button', { name: /sources/i })
-      .or(mainWindow.getByText(/sources/i).first())
-
-    if (await sourcesNav.isVisible({ timeout: 5000 })) {
-      await sourcesNav.click()
-      await mainWindow.waitForTimeout(1000)
-
-      // Look for MCP items or empty state
-      const mcpItem = mainWindow.locator('[class*="source"]')
-        .or(mainWindow.getByText(/mcp|api|local/i))
-      const emptyState = mainWindow.getByText(/no sources|add source/i)
-
-      const hasItems = await mcpItem.first().isVisible({ timeout: 3000 }).catch(() => false)
-      const hasEmpty = await emptyState.first().isVisible({ timeout: 3000 }).catch(() => false)
-
-      expect(hasItems || hasEmpty).toBeTruthy()
-    }
+    const sourceItems = mainWindow.locator('.source-item')
+    await expect(sourceItems.first()).toBeVisible({ timeout: 5000 })
+    await expect(sourceItems.first().getByText('MCP', { exact: true })).toBeVisible({ timeout: 5000 })
   })
 
   test('MCP connection status is displayed', async ({ mainWindow }) => {
-    await mainWindow.waitForLoadState('networkidle')
+    await openSourceFilter(mainWindow, 'mcps')
 
-    // Navigate to sources
-    const sourcesNav = mainWindow.getByRole('button', { name: /sources/i })
-      .or(mainWindow.getByText(/sources/i).first())
+    const firstSource = mainWindow.locator('.source-item').first()
+    await expect(firstSource).toBeVisible({ timeout: 5000 })
+    await firstSource.click()
 
-    if (await sourcesNav.isVisible({ timeout: 5000 })) {
-      await sourcesNav.click()
-      await mainWindow.waitForTimeout(1000)
-
-      // Look for connection status indicators
-      const statusIndicator = mainWindow.getByText(/connected|disconnected|needs auth|error/i)
-        .or(mainWindow.locator('[class*="status"]'))
-
-      const hasStatus = await statusIndicator.first().isVisible({ timeout: 3000 }).catch(() => false)
-
-      expect(hasStatus).toBeTruthy()
-    }
+    await expect(mainWindow.getByRole('heading', { name: /Filesystem Source/i })).toBeVisible({ timeout: 5000 })
   })
 
   test('add source button exists', async ({ mainWindow }) => {
-    await mainWindow.waitForLoadState('networkidle')
-
-    // Navigate to sources
-    const sourcesNav = mainWindow.getByRole('button', { name: /sources/i })
-      .or(mainWindow.getByText(/sources/i).first())
-
-    if (await sourcesNav.isVisible({ timeout: 5000 })) {
-      await sourcesNav.click()
-      await mainWindow.waitForTimeout(1000)
-
-      // Look for add source button
-      const addButton = mainWindow.getByRole('button', { name: /add source/i })
-        .or(mainWindow.getByText(/add source/i))
-        .or(mainWindow.locator('[class*="Plus"]'))
-
-      const hasAdd = await addButton.first().isVisible({ timeout: 3000 }).catch(() => false)
-
-      expect(hasAdd).toBeTruthy()
-    }
+    await openSourceFilter(mainWindow, 'mcps')
+    await expect(mainWindow.locator('[data-tutorial="add-source-button"]')).toBeVisible({ timeout: 5000 })
   })
 
   test('local MCP toggle exists in workspace settings', async ({ mainWindow }) => {
-    await mainWindow.waitForLoadState('networkidle')
-
-    // Open settings
-    await mainWindow.keyboard.press('Meta+,')
-    await mainWindow.waitForTimeout(1000)
-
-    // Navigate to workspace settings
-    const workspaceTab = mainWindow.getByRole('tab', { name: /workspace/i })
-    if (await workspaceTab.isVisible({ timeout: 3000 })) {
-      await workspaceTab.click()
-      await mainWindow.waitForTimeout(500)
-
-      // Look for local MCP toggle in advanced section
-      const mcpToggle = mainWindow.getByText(/local mcp/i)
-        .or(mainWindow.getByText(/mcp servers/i))
-
-      const hasToggle = await mcpToggle.first().isVisible({ timeout: 3000 }).catch(() => false)
-
-      expect(hasToggle).toBeTruthy()
-    }
-
-    // Close settings
-    await mainWindow.keyboard.press('Escape')
+    await openSettingsSubpage(mainWindow, 'workspace')
+    await expect(mainWindow.getByText(/Local MCP Servers/i)).toBeVisible({ timeout: 5000 })
   })
 })

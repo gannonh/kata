@@ -163,7 +163,16 @@ export async function createSession(
     enabledSourceSlugs?: string[];
     model?: string;
     channel?: SessionConfig['channel'];
-  }
+  } & Pick<SessionConfig,
+    | 'sessionKind'
+    | 'parentSessionId'
+    | 'orchestratorSessionId'
+    | 'agentRole'
+    | 'delegatedBySessionId'
+    | 'delegatedToolUseId'
+    | 'delegationLabel'
+    | 'subagentStatus'
+  >
 ): Promise<SessionConfig> {
   ensureSessionsDir(workspaceRootPath);
 
@@ -190,6 +199,14 @@ export async function createSession(
     enabledSourceSlugs: options?.enabledSourceSlugs,
     model: options?.model,
     channel: options?.channel,
+    sessionKind: options?.sessionKind,
+    parentSessionId: options?.parentSessionId,
+    orchestratorSessionId: options?.orchestratorSessionId,
+    agentRole: options?.agentRole,
+    delegatedBySessionId: options?.delegatedBySessionId,
+    delegatedToolUseId: options?.delegatedToolUseId,
+    delegationLabel: options?.delegationLabel,
+    subagentStatus: options?.subagentStatus,
   };
 
   // Save empty session
@@ -228,6 +245,14 @@ export async function getOrCreateSessionById(
       lastUsedAt: existing.lastUsedAt,
       sdkCwd: existing.sdkCwd,
       workingDirectory: existing.workingDirectory,
+      sessionKind: existing.sessionKind,
+      parentSessionId: existing.parentSessionId,
+      orchestratorSessionId: existing.orchestratorSessionId,
+      agentRole: existing.agentRole,
+      delegatedBySessionId: existing.delegatedBySessionId,
+      delegatedToolUseId: existing.delegatedToolUseId,
+      delegationLabel: existing.delegationLabel,
+      subagentStatus: existing.subagentStatus,
     };
   }
 
@@ -402,6 +427,14 @@ function headerToMetadata(header: SessionHeader, workspaceRootPath: string): Ses
       hasUnread: header.hasUnread,
       // Channel origin for daemon-created sessions
       channel: header.channel,
+      sessionKind: header.sessionKind,
+      parentSessionId: header.parentSessionId,
+      orchestratorSessionId: header.orchestratorSessionId,
+      agentRole: header.agentRole,
+      delegatedBySessionId: header.delegatedBySessionId,
+      delegatedToolUseId: header.delegatedToolUseId,
+      delegationLabel: header.delegationLabel,
+      subagentStatus: header.subagentStatus,
     };
   } catch {
     return null;
@@ -463,6 +496,14 @@ export async function getOrCreateLatestSession(workspaceRootPath: string): Promi
       name: latest.name,
       createdAt: latest.createdAt,
       lastUsedAt: latest.lastUsedAt,
+      sessionKind: latest.sessionKind,
+      parentSessionId: latest.parentSessionId,
+      orchestratorSessionId: latest.orchestratorSessionId,
+      agentRole: latest.agentRole,
+      delegatedBySessionId: latest.delegatedBySessionId,
+      delegatedToolUseId: latest.delegatedToolUseId,
+      delegationLabel: latest.delegationLabel,
+      subagentStatus: latest.subagentStatus,
     };
   }
   return createSession(workspaceRootPath);
@@ -506,6 +547,14 @@ export async function updateSessionMetadata(
     | 'sharedUrl'
     | 'sharedId'
     | 'model'
+    | 'sessionKind'
+    | 'parentSessionId'
+    | 'orchestratorSessionId'
+    | 'agentRole'
+    | 'delegatedBySessionId'
+    | 'delegatedToolUseId'
+    | 'delegationLabel'
+    | 'subagentStatus'
   >>
 ): Promise<void> {
   const session = loadSession(workspaceRootPath, sessionId);
@@ -523,6 +572,14 @@ export async function updateSessionMetadata(
   if ('sharedUrl' in updates) session.sharedUrl = updates.sharedUrl;
   if ('sharedId' in updates) session.sharedId = updates.sharedId;
   if (updates.model !== undefined) session.model = updates.model;
+  if ('sessionKind' in updates) session.sessionKind = updates.sessionKind;
+  if ('parentSessionId' in updates) session.parentSessionId = updates.parentSessionId;
+  if ('orchestratorSessionId' in updates) session.orchestratorSessionId = updates.orchestratorSessionId;
+  if ('agentRole' in updates) session.agentRole = updates.agentRole;
+  if ('delegatedBySessionId' in updates) session.delegatedBySessionId = updates.delegatedBySessionId;
+  if ('delegatedToolUseId' in updates) session.delegatedToolUseId = updates.delegatedToolUseId;
+  if ('delegationLabel' in updates) session.delegationLabel = updates.delegationLabel;
+  if ('subagentStatus' in updates) session.subagentStatus = updates.subagentStatus;
 
   await saveSession(session);
 }

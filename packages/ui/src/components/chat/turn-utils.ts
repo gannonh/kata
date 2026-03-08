@@ -629,6 +629,42 @@ export function groupMessagesByTurn(messages: Message[]): Turn[] {
 }
 
 /**
+ * Normalizes grouped turns for an idle session.
+ *
+ * When a session is no longer processing, a tool-only turn may legitimately
+ * end without a final assistant response. In that case the grouped turn would
+ * otherwise remain in the "awaiting" gap state forever and render a stale
+ * "Thinking..." indicator. Normalize those turns to complete once the session
+ * is idle and no running work remains.
+ */
+export function finalizeTurnsForIdleSession(turns: Turn[], isProcessing: boolean): Turn[] {
+  if (isProcessing) return turns
+
+  return turns.map((turn) => {
+    if (turn.type !== 'assistant') return turn
+    if (turn.isComplete) return turn
+
+    const hasRunningActivities = turn.activities.some(
+      (activity) => activity.status === 'running' || activity.status === 'pending'
+    )
+    const hasStreamingResponse = !!turn.response?.isStreaming
+
+    if (hasRunningActivities || hasStreamingResponse) {
+      return turn
+    }
+
+    return {
+      ...turn,
+      isComplete: true,
+      isStreaming: false,
+      response: turn.response
+        ? { ...turn.response, isStreaming: false }
+        : turn.response,
+    }
+  })
+}
+
+/**
  * Get the primary intent for a turn (first available intent from activities)
  */
 export function getTurnIntent(turn: AssistantTurn): string | undefined {

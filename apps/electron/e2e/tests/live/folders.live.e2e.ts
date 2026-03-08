@@ -4,58 +4,19 @@
  */
 import { test, expect } from '../../fixtures/live.fixture'
 import { ChatPage } from '../../page-objects/ChatPage'
+import { openSettingsSubpage } from './helpers'
 
 test.describe('Live Folders', () => {
   test.setTimeout(90_000)
 
   test('working directory is displayed in workspace settings', async ({ mainWindow }) => {
-    await mainWindow.waitForLoadState('networkidle')
-
-    // Open settings
-    await mainWindow.keyboard.press('Meta+,')
-    await mainWindow.waitForTimeout(1000)
-
-    // Navigate to workspace settings
-    const workspaceTab = mainWindow.getByRole('tab', { name: /workspace/i })
-    if (await workspaceTab.isVisible({ timeout: 3000 })) {
-      await workspaceTab.click()
-      await mainWindow.waitForTimeout(500)
-
-      // Look for working directory section
-      const directorySection = mainWindow.getByText(/working directory|folder|path/i)
-      const hasDirectory = await directorySection.first().isVisible({ timeout: 3000 }).catch(() => false)
-
-      expect(hasDirectory).toBeTruthy()
-    }
-
-    // Close settings
-    await mainWindow.keyboard.press('Escape')
+    await openSettingsSubpage(mainWindow, 'workspace')
+    await expect(mainWindow.getByText(/Working Directory/i)).toBeVisible({ timeout: 5000 })
   })
 
   test('change directory button exists in workspace settings', async ({ mainWindow }) => {
-    await mainWindow.waitForLoadState('networkidle')
-
-    // Open settings
-    await mainWindow.keyboard.press('Meta+,')
-    await mainWindow.waitForTimeout(1000)
-
-    // Navigate to workspace settings
-    const workspaceTab = mainWindow.getByRole('tab', { name: /workspace/i })
-    if (await workspaceTab.isVisible({ timeout: 3000 })) {
-      await workspaceTab.click()
-      await mainWindow.waitForTimeout(500)
-
-      // Look for change directory button
-      const changeButton = mainWindow.getByRole('button', { name: /change|browse|select/i })
-        .or(mainWindow.getByText(/change directory/i))
-
-      const hasButton = await changeButton.first().isVisible({ timeout: 3000 }).catch(() => false)
-
-      expect(hasButton).toBeTruthy()
-    }
-
-    // Close settings
-    await mainWindow.keyboard.press('Escape')
+    await openSettingsSubpage(mainWindow, 'workspace')
+    await expect(mainWindow.getByRole('button', { name: 'Change...' })).toBeVisible({ timeout: 5000 })
   })
 
   test('file badge renders in assistant message when file mentioned', async ({ mainWindow }) => {

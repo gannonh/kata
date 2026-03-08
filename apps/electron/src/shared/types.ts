@@ -9,6 +9,8 @@ import type {
   TokenUsage as CoreTokenUsage,
   Workspace as CoreWorkspace,
   SessionMetadata as CoreSessionMetadata,
+  SessionKind as CoreSessionKind,
+  SubagentStatus as CoreSubagentStatus,
   StoredAttachment as CoreStoredAttachment,
   ContentBadge,
   ToolDisplayMeta,
@@ -31,6 +33,8 @@ export type {
   CoreTokenUsage as TokenUsage,
   CoreWorkspace as Workspace,
   CoreSessionMetadata as SessionMetadata,
+  CoreSessionKind as SessionKind,
+  CoreSubagentStatus as SubagentStatus,
   CoreStoredAttachment as StoredAttachment,
   ContentBadge,
   ToolDisplayMeta,
@@ -345,6 +349,14 @@ export interface Session {
     /** Display name for the channel source (e.g., '#general', 'Support Group') */
     displayName?: string
   }
+  sessionKind?: CoreSessionKind
+  parentSessionId?: string
+  orchestratorSessionId?: string
+  agentRole?: string
+  delegatedBySessionId?: string
+  delegatedToolUseId?: string
+  delegationLabel?: string
+  subagentStatus?: CoreSubagentStatus
   // Token usage for context tracking
   tokenUsage?: {
     inputTokens: number
@@ -373,6 +385,14 @@ export interface CreateSessionOptions {
    * - Absolute path string: Use this specific path
    */
   workingDirectory?: string | 'user_default' | 'none'
+  sessionKind?: CoreSessionKind
+  parentSessionId?: string
+  orchestratorSessionId?: string
+  agentRole?: string
+  delegatedBySessionId?: string
+  delegatedToolUseId?: string
+  delegationLabel?: string
+  subagentStatus?: CoreSubagentStatus
 }
 
 // Events sent from main to renderer
@@ -382,6 +402,8 @@ export type SessionEvent =
   | { type: 'text_complete'; sessionId: string; text: string; isIntermediate?: boolean; turnId?: string; parentToolUseId?: string }
   | { type: 'tool_start'; sessionId: string; toolName: string; toolUseId: string; toolInput: Record<string, unknown>; toolIntent?: string; toolDisplayName?: string; toolDisplayMeta?: import('@craft-agent/core').ToolDisplayMeta; turnId?: string; parentToolUseId?: string }
   | { type: 'tool_result'; sessionId: string; toolUseId: string; toolName: string; result: string; turnId?: string; parentToolUseId?: string; isError?: boolean }
+  | { type: 'subagent_spawned'; sessionId: string; delegatedToolUseId: string; childSessionId: string; childSessionName: string; agentRole: string; delegationLabel: string; parentSessionId: string; orchestratorSessionId: string }
+  | { type: 'subagent_status_changed'; sessionId: string; delegatedToolUseId: string; childSessionId: string; subagentStatus: CoreSubagentStatus }
   | { type: 'error'; sessionId: string; error: string }
   | { type: 'typed_error'; sessionId: string; error: TypedError }
   | { type: 'complete'; sessionId: string; tokenUsage?: Session['tokenUsage']; hasUnread?: boolean }

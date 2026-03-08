@@ -3,97 +3,34 @@
  * Tests update checking and notification functionality.
  */
 import { test, expect } from '../../fixtures/live.fixture'
+import { openSettingsSubpage } from './helpers'
 
 test.describe('Live Updates', () => {
   test.setTimeout(60_000)
 
   test('check for updates button exists in app settings', async ({ mainWindow }) => {
-    await mainWindow.waitForLoadState('networkidle')
-
-    // Open settings
-    await mainWindow.keyboard.press('Meta+,')
-    await mainWindow.waitForTimeout(1000)
-
-    // Look for app settings tab (usually first/default)
-    const appTab = mainWindow.getByRole('tab', { name: /app|general/i })
-    if (await appTab.isVisible({ timeout: 3000 })) {
-      await appTab.click()
-      await mainWindow.waitForTimeout(500)
-    }
-
-    // Look for check for updates button
-    const updateButton = mainWindow.getByRole('button', { name: /check for updates|check updates/i })
-      .or(mainWindow.getByText(/check for updates/i))
-
-    const hasButton = await updateButton.first().isVisible({ timeout: 5000 }).catch(() => false)
-
-    // Close settings
-    await mainWindow.keyboard.press('Escape')
-
-    expect(hasButton).toBeTruthy()
+    await openSettingsSubpage(mainWindow, 'app')
+    await expect(mainWindow.getByRole('button', { name: 'Check Now' })).toBeVisible({ timeout: 5000 })
   })
 
   test('version number is displayed in settings', async ({ mainWindow }) => {
-    await mainWindow.waitForLoadState('networkidle')
-
-    // Open settings
-    await mainWindow.keyboard.press('Meta+,')
-    await mainWindow.waitForTimeout(1000)
-
-    // Look for version display (format: v0.0.0 or similar)
-    const versionText = mainWindow.getByText(/v\d+\.\d+\.\d+|version/i)
-
-    const hasVersion = await versionText.first().isVisible({ timeout: 5000 }).catch(() => false)
-
-    // Close settings
-    await mainWindow.keyboard.press('Escape')
-
-    expect(hasVersion).toBeTruthy()
+    await openSettingsSubpage(mainWindow, 'app')
+    await expect(mainWindow.getByText(/\d+\.\d+\.\d+/).first()).toBeVisible({ timeout: 5000 })
   })
 
-  test('update check shows result message', async ({ mainWindow }) => {
-    await mainWindow.waitForLoadState('networkidle')
+  test('manual update check runs and returns control to the button', async ({ mainWindow }) => {
+    await openSettingsSubpage(mainWindow, 'app')
 
-    // Open settings
-    await mainWindow.keyboard.press('Meta+,')
-    await mainWindow.waitForTimeout(1000)
+    const updateButton = mainWindow.getByRole('button', { name: 'Check Now' })
+    await expect(updateButton).toBeVisible({ timeout: 5000 })
+    await updateButton.click()
 
-    // Find and click check for updates button
-    const updateButton = mainWindow.getByRole('button', { name: /check for updates/i })
-      .or(mainWindow.getByText(/check for updates/i))
-
-    if (await updateButton.first().isVisible({ timeout: 5000 })) {
-      await updateButton.first().click()
-      await mainWindow.waitForTimeout(3000)
-
-      // Look for result message (up to date or update available)
-      const resultMessage = mainWindow.getByText(/up to date|update available|latest version|new version/i)
-
-      const hasResult = await resultMessage.first().isVisible({ timeout: 5000 }).catch(() => false)
-
-      expect(hasResult).toBeTruthy()
-    }
-
-    // Close settings
-    await mainWindow.keyboard.press('Escape')
+    await expect(mainWindow.getByRole('button', { name: /Checking\.\.\./i })).toBeVisible({ timeout: 5000 })
+    await expect(mainWindow.getByRole('button', { name: 'Check Now' })).toBeVisible({ timeout: 30000 })
   })
 
   test('notifications toggle exists in app settings', async ({ mainWindow }) => {
-    await mainWindow.waitForLoadState('networkidle')
-
-    // Open settings
-    await mainWindow.keyboard.press('Meta+,')
-    await mainWindow.waitForTimeout(1000)
-
-    // Look for notifications toggle
-    const notificationsToggle = mainWindow.getByText(/notification/i)
-      .or(mainWindow.locator('[class*="notification"]'))
-
-    const hasToggle = await notificationsToggle.first().isVisible({ timeout: 5000 }).catch(() => false)
-
-    // Close settings
-    await mainWindow.keyboard.press('Escape')
-
-    expect(hasToggle).toBeTruthy()
+    await openSettingsSubpage(mainWindow, 'app')
+    await expect(mainWindow.getByText(/Desktop notifications/i)).toBeVisible({ timeout: 5000 })
   })
 })

@@ -11,7 +11,17 @@
 
 import type { PermissionMode } from '../agent/mode-manager.ts';
 import type { ThinkingLevel } from '../agent/thinking-levels.ts';
-import type { StoredAttachment, MessageRole, ToolStatus, AuthRequestType, AuthStatus, CredentialInputMode, StoredMessage } from '@craft-agent/core/types';
+import type {
+  StoredAttachment,
+  MessageRole,
+  ToolStatus,
+  AuthRequestType,
+  AuthStatus,
+  CredentialInputMode,
+  StoredMessage,
+  SessionKind,
+  SubagentStatus,
+} from '@craft-agent/core/types';
 
 /**
  * Todo state for sessions (user-controlled, never automatic)
@@ -48,6 +58,7 @@ export interface SessionTokenUsage {
  * Re-exported from @craft-agent/core for convenience
  */
 export type { StoredMessage } from '@craft-agent/core/types';
+export type { SessionKind, SubagentStatus } from '@craft-agent/core/types';
 
 /**
  * Session configuration (persisted metadata)
@@ -112,6 +123,14 @@ export interface SessionConfig {
     slug: string;
     displayName?: string;
   };
+  sessionKind?: SessionKind;
+  parentSessionId?: string;
+  orchestratorSessionId?: string;
+  agentRole?: string;
+  delegatedBySessionId?: string;
+  delegatedToolUseId?: string;
+  delegationLabel?: string;
+  subagentStatus?: SubagentStatus;
 }
 
 /**
@@ -198,6 +217,14 @@ export interface SessionHeader {
     slug: string;
     displayName?: string;
   };
+  sessionKind?: SessionKind;
+  parentSessionId?: string;
+  orchestratorSessionId?: string;
+  agentRole?: string;
+  delegatedBySessionId?: string;
+  delegatedToolUseId?: string;
+  delegationLabel?: string;
+  subagentStatus?: SubagentStatus;
 }
 
 /**
@@ -257,4 +284,12 @@ export interface SessionMetadata {
     slug: string;
     displayName?: string;
   };
+  sessionKind?: SessionKind;
+  parentSessionId?: string;
+  orchestratorSessionId?: string;
+  agentRole?: string;
+  delegatedBySessionId?: string;
+  delegatedToolUseId?: string;
+  delegationLabel?: string;
+  subagentStatus?: SubagentStatus;
 }

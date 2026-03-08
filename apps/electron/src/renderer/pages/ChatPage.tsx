@@ -21,6 +21,7 @@ import { rendererPerf } from '@/lib/perf'
 import { routes } from '@/lib/navigate'
 import { ensureSessionMessagesLoadedAtom, loadedSessionsAtom, sessionMetaMapAtom } from '@/atoms/sessions'
 import { getSessionTitle } from '@/utils/session'
+import { mergeSubagentTranscript, projectSubagentTranscript } from '../../shared/subagent-transcript'
 
 export interface ChatPageProps {
   sessionId: string
@@ -78,12 +79,19 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
   // Check if session exists in metadata (for loading state detection)
   const sessionMetaMap = useAtomValue(sessionMetaMapAtom)
   const sessionMeta = sessionMetaMap.get(sessionId)
+  const parentSessionId = session?.parentSessionId || sessionMeta?.parentSessionId
+  const parentSession = useSessionData(parentSessionId ?? '__missing_parent_session__')
 
   // Fallback: ensure messages are loaded when session is viewed
   const ensureMessagesLoaded = useSetAtom(ensureSessionMessagesLoadedAtom)
   React.useEffect(() => {
     ensureMessagesLoaded(sessionId)
   }, [sessionId, ensureMessagesLoaded])
+  React.useEffect(() => {
+    if (parentSessionId) {
+      ensureMessagesLoaded(parentSessionId)
+    }
+  }, [parentSessionId, ensureMessagesLoaded])
 
   // Perf: Mark when session data is available
   const sessionLoadedMarkedRef = React.useRef<string | null>(null)
@@ -217,8 +225,26 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
   const hasUnreadMessages = sessionMeta
     ? !!(sessionMeta.lastFinalMessageId && sessionMeta.lastFinalMessageId !== sessionMeta.lastReadMessageId)
     : false
+  const isChildSession = session?.sessionKind === 'subagent' || sessionMeta?.sessionKind === 'subagent'
+  const delegatedToolUseId = session?.delegatedToolUseId || sessionMeta?.delegatedToolUseId
   // Use isAsyncOperationOngoing for shimmer effect (sharing, updating share, revoking, title regeneration)
   const isAsyncOperationOngoing = session?.isAsyncOperationOngoing || sessionMeta?.isAsyncOperationOngoing || false
+  const parentMessagesLoaded = !parentSessionId || loadedSessions.has(parentSessionId)
+
+  const displaySession = React.useMemo(() => {
+    if (!session) return session
+    if (!isChildSession || !delegatedToolUseId) return session
+
+    const projectedMessages = projectSubagentTranscript(parentSession?.messages ?? [], delegatedToolUseId)
+    return {
+      ...session,
+      messages: mergeSubagentTranscript(projectedMessages, session.messages),
+    }
+  }, [session, isChildSession, delegatedToolUseId, parentSession?.messages])
+
+  const displayMessagesLoading = isChildSession
+    ? !messagesLoaded || !parentMessagesLoaded
+    : !messagesLoaded
 
   // Rename dialog state
   const [renameDialogOpen, setRenameDialogOpen] = React.useState(false)
@@ -388,9 +414,10 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
       hasUnreadMessages={hasUnreadMessages}
       currentTodoState={currentTodoState}
       todoStates={todoStates ?? []}
-      sessionLabels={sessionLabels}
-      labels={labels ?? []}
-      onLabelsChange={handleLabelsChange}
+      sessionLabels={isChildSession ? [] : sessionLabels}
+      labels={isChildSession ? [] : (labels ?? [])}
+      onLabelsChange={isChildSession ? undefined : handleLabelsChange}
+      showWorkflowControls={!isChildSession}
       onRename={handleRename}
       onFlag={handleFlag}
       onUnflag={handleUnflag}
@@ -408,6 +435,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
     hasUnreadMessages,
     currentTodoState,
     todoStates,
+    isChildSession,
     sessionLabels,
     labels,
     handleLabelsChange,
@@ -507,7 +535,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
         <PanelHeader  title={displayTitle} titleMenu={titleMenu} actions={shareButton} rightSidebarButton={rightSidebarButton} isRegeneratingTitle={isAsyncOperationOngoing} />
         <div className="flex-1 flex flex-col min-h-0">
           <ChatDisplay
-            session={session}
+            session={displaySession ?? session}
             onSendMessage={(message, attachments, skillSlugs) => {
               if (session) {
                 onSendMessage(session.id, message, attachments, skillSlugs)
@@ -542,7 +570,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
             workingDirectory={workingDirectory}
             onWorkingDirectoryChange={handleWorkingDirectoryChange}
             sessionFolderPath={session?.sessionFolderPath}
-            messagesLoading={!messagesLoaded}
+            messagesLoading={displayMessagesLoading}
           />
         </div>
       </div>
