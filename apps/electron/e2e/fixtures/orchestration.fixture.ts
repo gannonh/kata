@@ -210,7 +210,7 @@ function createOrchestrationTestDataDir(): string {
 }
 
 export const test = base.extend<OrchestrationFixtures>({
-  electronApp: async (_fixtures, use) => {
+  electronApp: async ({ browserName: _browserName }, use) => {
     const testDataDir = createOrchestrationTestDataDir()
     const args = [
       path.join(__dirname, '../../dist/main.cjs'),
