@@ -1,6 +1,11 @@
 import { expect, mock, test } from 'bun:test'
+import { resolve } from 'path'
 
 import type { SessionEvent } from '../../shared/types'
+
+const repoRoot = resolve(import.meta.dir, '../../../../../')
+const sharedAgentModulePath = resolve(repoRoot, 'packages/shared/src/agent/index.ts')
+const sharedLabelsStorageModulePath = resolve(repoRoot, 'packages/shared/src/labels/storage.ts')
 
 mock.module('electron', () => ({
   app: {
@@ -49,7 +54,7 @@ const sharedAgentMock = () => ({
 })
 mock.module('@craft-agent/shared/agent', sharedAgentMock)
 mock.module('@craft-agent/shared/agent/index.ts', sharedAgentMock)
-mock.module('/Users/gannonhall/.codex/worktrees/61e8/kata-cloud-agents/packages/shared/src/agent/index.ts', sharedAgentMock)
+mock.module(sharedAgentModulePath, sharedAgentMock)
 mock.module('@craft-agent/shared/agent/modes', () => ({
   PERMISSION_MODE_CONFIG: {},
 }))
@@ -156,7 +161,7 @@ mock.module('@craft-agent/shared/labels/storage.ts', () => ({
   saveLabelConfig: () => {},
   listLabels: async () => [],
 }))
-mock.module('/Users/gannonhall/.codex/worktrees/61e8/kata-cloud-agents/packages/shared/src/labels/storage.ts', () => ({
+mock.module(sharedLabelsStorageModulePath, () => ({
   getDefaultLabelConfig: () => ({}),
   saveLabelConfig: () => {},
   listLabels: async () => [],
@@ -258,6 +263,7 @@ test('subagent_spawned event carries enough data to create a child session', () 
   const event: SessionEvent = {
     type: 'subagent_spawned',
     sessionId: '260308-root',
+    delegatedToolUseId: 'toolu-task-a',
     childSessionId: '260308-child-a',
     childSessionName: 'Explore workspace sources',
     agentRole: 'Explore',
@@ -267,6 +273,7 @@ test('subagent_spawned event carries enough data to create a child session', () 
   }
 
   expect(event.childSessionId).toBe('260308-child-a')
+  expect(event.delegatedToolUseId).toBe('toolu-task-a')
 })
 
 test('Task lifecycle creates a child session once and emits child session status changes', async () => {
@@ -313,6 +320,7 @@ test('Task lifecycle creates a child session once and emits child session status
     {
       type: 'subagent_spawned',
       sessionId: '260308-root',
+      delegatedToolUseId: 'toolu-task-a',
       childSessionId: childSession.id,
       childSessionName: 'Explore workspace sources',
       agentRole: 'Explore',
@@ -326,6 +334,7 @@ test('Task lifecycle creates a child session once and emits child session status
     {
       type: 'subagent_status_changed',
       sessionId: '260308-root',
+      delegatedToolUseId: 'toolu-task-a',
       childSessionId: childSession.id,
       subagentStatus: 'running',
     },
@@ -357,6 +366,7 @@ test('Task lifecycle creates a child session once and emits child session status
   expect(sessionEvents.filter(event => event.type === 'subagent_status_changed')).toContainEqual({
     type: 'subagent_status_changed',
     sessionId: '260308-root',
+    delegatedToolUseId: 'toolu-task-a',
     childSessionId: childSession.id,
     subagentStatus: 'completed',
   })
@@ -416,6 +426,7 @@ test('Task lifecycle waits for authoritative Task metadata before emitting subag
     {
       type: 'subagent_spawned',
       sessionId: '260308-root',
+      delegatedToolUseId: 'toolu-task-partial-first',
       childSessionId: childSessions[0].id,
       childSessionName: 'Explore workspace sources',
       agentRole: 'Explore',
@@ -428,6 +439,7 @@ test('Task lifecycle waits for authoritative Task metadata before emitting subag
     {
       type: 'subagent_status_changed',
       sessionId: '260308-root',
+      delegatedToolUseId: 'toolu-task-partial-first',
       childSessionId: childSessions[0].id,
       subagentStatus: 'running',
     },
@@ -482,12 +494,14 @@ test('Task lifecycle scopes child session hydration to parent session and toolUs
     {
       type: 'subagent_status_changed',
       sessionId: '260308-root',
+      delegatedToolUseId: 'toolu-task-a',
       childSessionId: childSessions.find((session: any) => session.delegatedToolUseId === 'toolu-task-a')!.id,
       subagentStatus: 'running',
     },
     {
       type: 'subagent_status_changed',
       sessionId: '260308-root',
+      delegatedToolUseId: 'toolu-task-b',
       childSessionId: childSessions.find((session: any) => session.delegatedToolUseId === 'toolu-task-b')!.id,
       subagentStatus: 'running',
     },
@@ -572,30 +586,28 @@ test('Task lifecycle restores terminal child status from persisted linkage when 
   expect(sessionEvents.filter(event => event.type === 'subagent_status_changed')).toContainEqual({
     type: 'subagent_status_changed',
     sessionId: '260308-root',
+    delegatedToolUseId: 'toolu-task-complete',
     childSessionId: completedChild.id,
     subagentStatus: 'completed',
   })
   expect(sessionEvents.filter(event => event.type === 'subagent_status_changed')).toContainEqual({
     type: 'subagent_status_changed',
     sessionId: '260308-root',
+    delegatedToolUseId: 'toolu-task-fail',
     childSessionId: failedChild.id,
     subagentStatus: 'failed',
   })
 })
 
-test('Task lifecycle flushes child session persistence before emitting child-session events', async () => {
+test('Task lifecycle durably writes child session before emitting child-session events', async () => {
   const manager = new SessionManager() as any
   const rootSession = createManagedSession()
   const callOrder: string[] = []
 
   manager.sessions = new Map([[rootSession.id, rootSession]])
-  manager.persistSession = () => {
-    callOrder.push('persist')
-  }
-  manager.flushSession = async () => {
-    callOrder.push('flush:start')
-    await Promise.resolve()
-    callOrder.push('flush:end')
+  manager.writeTaskChildSessionDurably = () => {
+    callOrder.push('write:start')
+    callOrder.push('write:end')
   }
   manager.sendEvent = (event: SessionEvent) => {
     callOrder.push(`event:${event.type}`)
@@ -615,10 +627,39 @@ test('Task lifecycle flushes child session persistence before emitting child-ses
   const spawnEventIndex = callOrder.indexOf('event:subagent_spawned')
   const runningEventIndex = callOrder.indexOf('event:subagent_status_changed')
 
-  expect(callOrder).toContain('flush:start')
-  expect(callOrder).toContain('flush:end')
+  expect(callOrder).toContain('write:start')
+  expect(callOrder).toContain('write:end')
   expect(spawnEventIndex).toBeGreaterThan(-1)
   expect(runningEventIndex).toBeGreaterThan(-1)
-  expect(callOrder.indexOf('flush:end')).toBeLessThan(spawnEventIndex)
-  expect(callOrder.indexOf('flush:end')).toBeLessThan(runningEventIndex)
+  expect(callOrder.indexOf('write:end')).toBeLessThan(spawnEventIndex)
+  expect(callOrder.indexOf('write:end')).toBeLessThan(runningEventIndex)
+})
+
+test('Task lifecycle suppresses child-session lifecycle events when durable write fails', async () => {
+  const manager = new SessionManager() as any
+  const rootSession = createManagedSession()
+  const sessionEvents: SessionEvent[] = []
+
+  manager.sessions = new Map([[rootSession.id, rootSession]])
+  manager.writeTaskChildSessionDurably = () => {
+    throw new Error('disk full')
+  }
+  manager.sendEvent = (event: SessionEvent) => {
+    sessionEvents.push(event)
+  }
+
+  await expect(manager.processEvent(rootSession, {
+    type: 'tool_start',
+    toolName: 'Task',
+    toolUseId: 'toolu-task-write-fail',
+    input: {
+      description: 'Explore workspace sources',
+      subagent_type: 'Explore',
+    },
+    turnId: 'turn-1',
+  })).rejects.toThrow('disk full')
+
+  expect(sessionEvents.filter(event =>
+    event.type === 'subagent_spawned' || event.type === 'subagent_status_changed'
+  )).toHaveLength(0)
 })

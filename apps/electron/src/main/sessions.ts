@@ -23,7 +23,6 @@ import {
   // Session persistence functions
   listSessions as listStoredSessions,
   loadSession as loadStoredSession,
-  saveSession as saveStoredSession,
   createSession as createStoredSession,
   generateSessionId,
   deleteSession as deleteStoredSession,
@@ -32,9 +31,12 @@ import {
   markCompactionComplete as markStoredCompactionComplete,
   clearPendingPlanExecution as clearStoredPendingPlanExecution,
   getPendingPlanExecution as getStoredPendingPlanExecution,
+  ensureSessionDir,
   getSessionAttachmentsPath,
+  getSessionFilePath,
   getSessionPath as getSessionStoragePath,
   sessionPersistenceQueue,
+  writeSessionJsonl,
   type StoredSession,
   type StoredMessage,
   type SessionMetadata,
@@ -679,9 +681,12 @@ export class SessionManager {
       && childSession.agentRole.trim().length > 0
   }
 
-  private async persistTaskChildSession(managed: ManagedSession): Promise<void> {
-    this.persistSession(managed)
-    await this.flushSession(managed.id)
+  private writeTaskChildSessionDurably(managed: ManagedSession): void {
+    const storedSession = this.toStoredSession(managed)
+    const workspaceRootPath = managed.workspace.rootPath
+
+    ensureSessionDir(workspaceRootPath, managed.id)
+    writeSessionJsonl(getSessionFilePath(workspaceRootPath, managed.id), storedSession)
   }
 
   private async ensureTaskChildSession(
@@ -744,13 +749,14 @@ export class SessionManager {
     childSession.subagentStatus = 'running'
 
     if (didCreateChildSession || metadataChanged || statusChanged || shouldEmitSpawnedEvent) {
-      await this.persistTaskChildSession(childSession)
+      this.writeTaskChildSessionDurably(childSession)
     }
 
     if (shouldEmitSpawnedEvent) {
       this.sendEvent({
         type: 'subagent_spawned',
         sessionId: parent.id,
+        delegatedToolUseId: toolUseId,
         childSessionId: childSession.id,
         childSessionName: delegationLabel,
         agentRole,
@@ -764,6 +770,7 @@ export class SessionManager {
       this.sendEvent({
         type: 'subagent_status_changed',
         sessionId: parent.id,
+        delegatedToolUseId: toolUseId,
         childSessionId: childSession.id,
         subagentStatus: 'running',
       }, parent.workspace.id)
@@ -788,11 +795,12 @@ export class SessionManager {
 
     childSession.subagentStatus = subagentStatus
     childSession.lastMessageAt = Date.now()
-    await this.persistTaskChildSession(childSession)
+    this.writeTaskChildSessionDurably(childSession)
 
     this.sendEvent({
       type: 'subagent_status_changed',
       sessionId: parent.id,
+      delegatedToolUseId: toolUseId,
       childSessionId: childSession.id,
       subagentStatus,
     }, parent.workspace.id)
@@ -1240,48 +1248,50 @@ export class SessionManager {
     }
   }
 
+  private toStoredSession(managed: ManagedSession): StoredSession {
+    // Filter out transient status messages (progress indicators like "Compacting...")
+    // Error messages are now persisted with rich fields for diagnostics
+    const persistableMessages = managed.messages.filter(m =>
+      m.role !== 'status'
+    )
+
+    const workspaceRootPath = managed.workspace.rootPath
+    return {
+      id: managed.id,
+      workspaceRootPath,
+      name: managed.name,
+      createdAt: managed.lastMessageAt,  // Approximate, will be overwritten if already exists
+      lastUsedAt: Date.now(),
+      lastMessageAt: managed.lastMessageAt,  // Preserve actual message time (not persist time)
+      sdkSessionId: managed.sdkSessionId,
+      isFlagged: managed.isFlagged,
+      permissionMode: managed.permissionMode,
+      todoState: managed.todoState,
+      lastReadMessageId: managed.lastReadMessageId,  // For unread detection
+      hasUnread: managed.hasUnread,  // Explicit unread flag for NEW badge state machine
+      enabledSourceSlugs: managed.enabledSourceSlugs,
+      labels: managed.labels,
+      workingDirectory: managed.workingDirectory,
+      sdkCwd: managed.sdkCwd,
+      thinkingLevel: managed.thinkingLevel,
+      messages: persistableMessages.map(messageToStored),
+      tokenUsage: managed.tokenUsage ?? {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        contextTokens: 0,
+        costUsd: 0,
+      },
+      channel: managed.channel,
+      ...managedSessionToStoredHierarchy(managed),
+    }
+  }
+
   // Persist a session to disk (async with debouncing)
   private persistSession(managed: ManagedSession): void {
     try {
-      // Filter out transient status messages (progress indicators like "Compacting...")
-      // Error messages are now persisted with rich fields for diagnostics
-      const persistableMessages = managed.messages.filter(m =>
-        m.role !== 'status'
-      )
-
-      const workspaceRootPath = managed.workspace.rootPath
-      const storedSession: StoredSession = {
-        id: managed.id,
-        workspaceRootPath,
-        name: managed.name,
-        createdAt: managed.lastMessageAt,  // Approximate, will be overwritten if already exists
-        lastUsedAt: Date.now(),
-        lastMessageAt: managed.lastMessageAt,  // Preserve actual message time (not persist time)
-        sdkSessionId: managed.sdkSessionId,
-        isFlagged: managed.isFlagged,
-        permissionMode: managed.permissionMode,
-        todoState: managed.todoState,
-        lastReadMessageId: managed.lastReadMessageId,  // For unread detection
-        hasUnread: managed.hasUnread,  // Explicit unread flag for NEW badge state machine
-        enabledSourceSlugs: managed.enabledSourceSlugs,
-        labels: managed.labels,
-        workingDirectory: managed.workingDirectory,
-        sdkCwd: managed.sdkCwd,
-        thinkingLevel: managed.thinkingLevel,
-        messages: persistableMessages.map(messageToStored),
-        tokenUsage: managed.tokenUsage ?? {
-          inputTokens: 0,
-          outputTokens: 0,
-          totalTokens: 0,
-          contextTokens: 0,
-          costUsd: 0,
-        },
-        channel: managed.channel,
-        ...managedSessionToStoredHierarchy(managed),
-      }
-
       // Queue for async persistence with debouncing
-      sessionPersistenceQueue.enqueue(storedSession)
+      sessionPersistenceQueue.enqueue(this.toStoredSession(managed))
     } catch (error) {
       sessionLog.error(`Failed to queue session ${managed.id} for persistence:`, error)
     }
