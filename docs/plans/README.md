@@ -4,17 +4,16 @@ This directory contains desktop app planning artifacts.
 
 ## Source of Truth
 
-- Execution source of truth: Linear project [Kata Desktop App](https://linear.app/kata-sh/project/kata-desktop-app-bf73d7f4dfbb/overview)
-- Workflow contract: Linear document `Desktop App Linear Workflow Contract`
-- Primary requirements and UI acceptance authority: `app/_plans/design/specs/README.md`
+- Execution source of truth: Linear project [Kata Cloud Agents](https://linear.app/kata-sh/project/kata-cloud-agents-b0f5a7be6537/overview)
+- Primary requirements and UI acceptance authority: `docs/plans/design/specs/README.md`
 
 ## Document Roles
 
-- `app/_plans/design/specs/` — Primary product requirements and acceptance criteria for desktop UI.
-- `app/_plans/context-retrieval-contract-v1.md` — Context Engine integration contract reference.
-- `app/_plans/kata-context.md` — Kata Context vision reference.
-- `app/_plans/ovweview.md` — Product overview reference (historical naming retained).
-- `app/_plans/archive/` — Archived plans retained as historical context.
+- `docs/plans/design/specs/` — Primary product requirements and acceptance criteria for desktop UI.
+- `docs/plans/context-retrieval-contract-v1.md` — Context Engine integration contract reference.
+- `docs/plans/kata-context.md` — Kata Context vision reference.
+- `docs/plans/ovweview.md` — Product overview reference (historical naming retained).
+- `docs/plans/archive/` — Archived plans retained as historical context.
 
 ## Working Rules
 
