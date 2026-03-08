@@ -802,6 +802,10 @@ function ActivityRow({ activity, onOpenDetails, isLastChild, sessionFolderPath }
           "group/row flex items-center gap-2 py-0.5 text-muted-foreground flex-1 min-w-0",
           SIZE_CONFIG.fontSize
         )}
+        data-testid="activity-row"
+        data-activity-id={activity.id}
+        data-tool-name={activity.toolName ?? undefined}
+        data-activity-status={activity.status}
         onClick={onOpenDetails && isComplete ? onOpenDetails : undefined}
       >
         <ActivityStatusIcon status={activity.status} toolName={activity.toolName} customIcon={toolDisplay.icon} />
@@ -944,6 +948,10 @@ function ActivityGroupRow({ group, expandedGroups: externalExpandedGroups, onExp
           "hover:text-foreground transition-colors",
           SIZE_CONFIG.fontSize
         )}
+        data-testid="activity-group-row"
+        data-activity-id={group.parent.id}
+        data-tool-name={group.parent.toolName ?? undefined}
+        data-expanded={isExpanded || undefined}
         onClick={toggleExpanded}
       >
         {/* Chevron for expand/collapse - aligned with activity row icons */}
@@ -1668,6 +1676,9 @@ export const TurnCard = React.memo(function TurnCard({
           {/* Collapsed Header / Toggle */}
           <button
             onClick={toggleExpanded}
+            data-testid="assistant-turn-toggle"
+            data-turn-id={turnId}
+            data-expanded={isExpanded || undefined}
             className={cn(
               "flex items-center gap-2 w-full pl-2.5 pr-1.5 py-1.5 rounded-[8px] text-left",
               SIZE_CONFIG.fontSize,

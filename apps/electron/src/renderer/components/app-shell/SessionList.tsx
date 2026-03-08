@@ -286,6 +286,10 @@ function SessionItem({
     <div
       className="session-item"
       data-selected={isSelected || undefined}
+      data-testid="session-list-item"
+      data-session-id={item.id}
+      data-session-kind={item.sessionKind ?? 'session'}
+      data-session-depth={item.depth}
     >
       {/* Separator - only show if not first in group */}
       {!isFirstInGroup && (
@@ -348,6 +352,8 @@ function SessionItem({
         {/* Main content button */}
         <button
           {...itemProps}
+          data-testid="session-list-item-button"
+          data-session-id={item.id}
           className={cn(
             "flex w-full items-start gap-2 pl-2 pr-4 py-3 text-left text-sm outline-none rounded-[8px]",
             // Fast hover transition (75ms vs default 150ms), selection is instant

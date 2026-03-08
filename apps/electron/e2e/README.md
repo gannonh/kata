@@ -166,4 +166,6 @@ test('send message', async ({ mainWindow }) => {
 
 ## Configuration
 
-See `playwright.config.ts` for timeout, retry, and reporter settings.
+See `playwright.config.ts` for the mocked/local lane and `playwright.live.config.ts`
+for the live lane. The mocked lane runs with `4` workers locally and `2` in CI;
+the live lane remains serial because it shares a persistent demo environment.
