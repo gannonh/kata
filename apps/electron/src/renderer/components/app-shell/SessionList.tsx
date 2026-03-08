@@ -51,6 +51,7 @@ import { useFocusContext } from "@/context/FocusContext"
 import { getSessionTitle } from "@/utils/session"
 import type { SessionMeta } from "@/atoms/sessions"
 import type { SessionListItem } from "@/lib/session-tree"
+import { bubbleUnreadToParent } from "@/utils/child-unread-bubble"
 import type { ViewConfig } from "@craft-agent/shared/views"
 import { PERMISSION_MODE_CONFIG, type PermissionMode } from "@craft-agent/shared/agent/modes"
 
@@ -378,7 +379,7 @@ function SessionItem({
               {item.isProcessing && (
                 <Spinner className="text-[8px] text-foreground shrink-0" />
               )}
-              {!item.isProcessing && hasUnreadMessages(item) && (
+              {!item.isProcessing && itemHasUnread(item) && (
                 <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded bg-accent text-white">
                   New
                 </span>
@@ -583,7 +584,7 @@ function SessionItem({
                     isFlagged={item.isFlagged ?? false}
                     sharedUrl={item.sharedUrl}
                     hasMessages={hasMessages(item)}
-                    hasUnreadMessages={hasUnreadMessages(item)}
+                    hasUnreadMessages={itemHasUnread(item)}
                     currentTodoState={currentTodoState}
                     todoStates={todoStates}
                     sessionLabels={isNestedChild ? [] : (item.labels ?? [])}
@@ -614,7 +615,7 @@ function SessionItem({
               isFlagged={item.isFlagged ?? false}
               sharedUrl={item.sharedUrl}
               hasMessages={hasMessages(item)}
-              hasUnreadMessages={hasUnreadMessages(item)}
+              hasUnreadMessages={itemHasUnread(item)}
               currentTodoState={currentTodoState}
               todoStates={todoStates}
               sessionLabels={isNestedChild ? [] : (item.labels ?? [])}
@@ -784,6 +785,39 @@ export function SessionList({
 
     return sortedItems.filter(item => matchingRootIds.has(item.rootSessionId))
   }, [sortedItems, searchQuery, flatLabels])
+
+  const unreadByRootId = useMemo(() => {
+    const grouped = new Map<string, { parent?: SessionListItem; children: SessionListItem[] }>()
+
+    for (const item of sortedItems) {
+      const group = grouped.get(item.rootSessionId) ?? { children: [] }
+      if (item.depth === 0) {
+        group.parent = item
+      } else {
+        group.children.push(item)
+      }
+      grouped.set(item.rootSessionId, group)
+    }
+
+    const unreadMap = new Map<string, boolean>()
+    for (const [rootSessionId, group] of grouped.entries()) {
+      if (!group.parent) continue
+      unreadMap.set(
+        rootSessionId,
+        bubbleUnreadToParent({ parent: group.parent, children: group.children }).parentHasUnread
+      )
+    }
+
+    return unreadMap
+  }, [sortedItems])
+
+  const itemHasUnread = useCallback((item: SessionListItem): boolean => {
+    if (item.depth > 0 || item.sessionKind === 'subagent') {
+      return hasUnreadMessages(item)
+    }
+
+    return unreadByRootId.get(item.rootSessionId) ?? hasUnreadMessages(item)
+  }, [unreadByRootId])
 
   // Reset display limit when search query changes
   useEffect(() => {
