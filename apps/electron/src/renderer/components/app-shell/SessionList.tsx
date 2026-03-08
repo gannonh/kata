@@ -362,7 +362,7 @@ function SessionItem({
     >
       {/* Separator - only show if not first in group */}
       {!isFirstInGroup && (
-        <div className="session-separator pr-4" style={{ paddingLeft: 48 + indentPx }}>
+        <div className="session-separator pr-4" style={{ paddingLeft: (isNestedChild ? 36 : 48) + indentPx }}>
           <Separator />
         </div>
       )}
@@ -427,7 +427,7 @@ function SessionItem({
             "flex w-full items-start gap-2 pl-2 pr-4 text-left outline-none rounded-[8px]",
             // Fast hover transition (75ms vs default 150ms), selection is instant
             "transition-[background-color] duration-75",
-            isNestedChild ? "py-1.5 text-xs" : "py-3 text-sm",
+            isNestedChild ? "pt-1.5 pb-2.5 text-xs" : "py-3 text-sm",
             isSelected
               ? "bg-foreground/5 hover:bg-foreground/7"
               : "hover:bg-foreground/2"
