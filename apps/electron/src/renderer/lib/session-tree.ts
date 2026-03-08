@@ -43,13 +43,14 @@ export function projectSessionTree(
   allSessions: SessionMeta[]
 ): SessionListItem[] {
   const visibleIds = new Set(visibleRoots.map(session => session.id))
+  const sessionIds = new Set(allSessions.map(session => session.id))
   const childrenByParent = new Map<string, SessionMeta[]>()
   const topLevelSessions: SessionMeta[] = []
 
   for (const session of allSessions) {
     const parentSessionId = resolveParentSessionId(session)
 
-    if (!parentSessionId) {
+    if (!parentSessionId || !sessionIds.has(parentSessionId)) {
       topLevelSessions.push(session)
       continue
     }

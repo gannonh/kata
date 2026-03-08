@@ -12,7 +12,6 @@ export async function goToAllChats(page: Page): Promise<void> {
   const button = mainNavigation(page).getByRole('button', { name: /^All Projects\b/i })
   await expect(button).toBeVisible({ timeout: 10000 })
   await button.click()
-  await expect(page.locator('[data-testid="session-list-item"]').first()).toBeVisible({ timeout: 10000 })
 }
 
 export async function ensureChatReady(page: Page): Promise<void> {
@@ -24,9 +23,9 @@ export async function ensureChatReady(page: Page): Promise<void> {
   if (sessionCount > 0) {
     await sessionButtons.first().click()
   } else {
-    const newChatButton = page.getByRole('button', { name: /new project/i })
-    await expect(newChatButton).toBeVisible({ timeout: 10000 })
-    await newChatButton.click()
+    const newProjectButton = page.locator('[data-tutorial="new-chat-button"]')
+    await expect(newProjectButton).toBeVisible({ timeout: 10000 })
+    await newProjectButton.click()
   }
 
   await expect(page.locator('[data-tutorial="chat-input"]')).toBeVisible({ timeout: 10000 })

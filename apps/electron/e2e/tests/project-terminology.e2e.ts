@@ -29,9 +29,11 @@ test.describe('Project Terminology', () => {
 
   test('empty state shows "No projects yet" with "New Project" action', async ({ mainWindow }) => {
     // The mocked fixture creates an empty workspace, so empty state should render
-    // in the session list area
-    const emptyTitle = mainWindow.getByText('No projects yet')
-    const newProjectAction = mainWindow.getByRole('button', { name: /New Project/i })
+    // in the session list area. Scope to the empty-state container so the test
+    // doesn't accidentally pass by matching the always-visible sidebar button.
+    const emptyState = mainWindow.locator('[data-slot="empty"]')
+    const emptyTitle = emptyState.getByText('No projects yet')
+    const newProjectAction = emptyState.getByRole('button', { name: /New Project/i })
 
     // At least one of these should be visible (session list or main content panel)
     const titleVisible = await emptyTitle.first().isVisible({ timeout: 5000 }).catch(() => false)
