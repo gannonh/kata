@@ -649,7 +649,7 @@ export class SessionManager {
     let childSession = existingLinkedSessionId
       ? this.sessions.get(existingLinkedSessionId)
       : this.findExistingTaskChildSession(parent, toolUseId)
-    const shouldEmitSpawnedEvent = !this.taskChildSessions.has(linkageKey)
+    const shouldEmitSpawnedEvent = !childSession
 
     if (!childSession) {
       childSession = this.createManagedSubagentSession(

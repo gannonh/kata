@@ -232,6 +232,28 @@ function createManagedSession(sessionId = '260308-root') {
   } as any
 }
 
+function createManagedChildSession(
+  parentSessionId: string,
+  delegatedToolUseId: string,
+  sessionId = '260308-child-a'
+) {
+  const session = createManagedSession(sessionId)
+
+  return {
+    ...session,
+    name: 'Explore workspace sources',
+    preview: 'Explore workspace sources',
+    sessionKind: 'subagent',
+    parentSessionId,
+    orchestratorSessionId: parentSessionId,
+    agentRole: 'Explore',
+    delegatedBySessionId: parentSessionId,
+    delegatedToolUseId,
+    delegationLabel: 'Explore workspace sources',
+    subagentStatus: 'running',
+  } as any
+}
+
 test('subagent_spawned event carries enough data to create a child session', () => {
   const event: SessionEvent = {
     type: 'subagent_spawned',
@@ -398,4 +420,40 @@ test('Task lifecycle scopes child session hydration to parent session and toolUs
       subagentStatus: 'running',
     },
   ])
+})
+
+test('Task lifecycle does not re-emit subagent_spawned for a persisted child after restart', () => {
+  const manager = new SessionManager() as any
+  const rootSession = createManagedSession()
+  const childSession = createManagedChildSession(rootSession.id, 'toolu-task-a')
+  const sessionEvents: SessionEvent[] = []
+
+  manager.sessions = new Map([
+    [rootSession.id, rootSession],
+    [childSession.id, childSession],
+  ])
+  manager.persistSession = () => {}
+  manager.sendEvent = (event: SessionEvent) => {
+    sessionEvents.push(event)
+  }
+
+  manager.processEvent(rootSession, {
+    type: 'tool_start',
+    toolName: 'Task',
+    toolUseId: 'toolu-task-a',
+    input: {
+      description: 'Explore workspace sources',
+      subagent_type: 'Explore',
+    },
+    turnId: 'turn-1',
+  })
+
+  const childSessions = Array.from(manager.sessions.values()).filter(
+    (session: any) => session.sessionKind === 'subagent'
+  )
+
+  expect(childSessions).toHaveLength(1)
+  expect(childSessions[0]?.id).toBe(childSession.id)
+  expect(sessionEvents.filter(event => event.type === 'subagent_spawned')).toHaveLength(0)
+  expect(manager.taskChildSessions.get(`${rootSession.id}:toolu-task-a`)).toBe(childSession.id)
 })
