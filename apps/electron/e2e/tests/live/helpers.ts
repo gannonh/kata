@@ -9,7 +9,7 @@ function subNavigation(page: Page) {
 }
 
 export async function goToAllChats(page: Page): Promise<void> {
-  const button = mainNavigation(page).getByRole('button', { name: /^All Chats\b/i })
+  const button = mainNavigation(page).getByRole('button', { name: /^All Projects\b/i })
   await expect(button).toBeVisible({ timeout: 10000 })
   await button.click()
   await expect(page.locator('[data-testid="session-list-item"]').first()).toBeVisible({ timeout: 10000 })
@@ -24,7 +24,7 @@ export async function ensureChatReady(page: Page): Promise<void> {
   if (sessionCount > 0) {
     await sessionButtons.first().click()
   } else {
-    const newChatButton = page.getByRole('button', { name: /new chat/i })
+    const newChatButton = page.getByRole('button', { name: /new project/i })
     await expect(newChatButton).toBeVisible({ timeout: 10000 })
     await newChatButton.click()
   }
