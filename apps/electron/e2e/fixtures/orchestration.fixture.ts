@@ -9,6 +9,7 @@ import type { StoredSession } from '../../../../packages/shared/src/sessions/typ
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true'
 
 type OrchestrationFixtures = {
   electronApp: ElectronApplication
@@ -211,12 +212,21 @@ function createOrchestrationTestDataDir(): string {
 export const test = base.extend<OrchestrationFixtures>({
   electronApp: async ({}, use) => {
     const testDataDir = createOrchestrationTestDataDir()
+    const args = [
+      path.join(__dirname, '../../dist/main.cjs'),
+      `--user-data-dir=${testDataDir}`,
+    ]
+
+    if (isCI) {
+      args.push(
+        '--no-sandbox',
+        '--disable-gpu',
+        '--disable-dev-shm-usage',
+      )
+    }
 
     const app = await electron.launch({
-      args: [
-        path.join(__dirname, '../../dist/main.cjs'),
-        `--user-data-dir=${testDataDir}`,
-      ],
+      args,
       env: {
         ...process.env,
         NODE_ENV: 'test',
