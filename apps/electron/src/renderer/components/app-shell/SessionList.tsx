@@ -815,8 +815,9 @@ export function SessionList({
   const [expandedParents, setExpandedParents] = useState<Set<string>>(() => {
     const parentIds = new Set<string>()
     for (const item of items) {
-      if (item.depth > 0 && item.rootSessionId) {
-        parentIds.add(item.rootSessionId)
+      if (item.depth > 0) {
+        const parentId = item.parentSessionId ?? item.delegatedBySessionId ?? item.orchestratorSessionId
+        if (parentId) parentIds.add(parentId)
       }
     }
     return parentIds
