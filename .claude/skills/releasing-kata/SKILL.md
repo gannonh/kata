@@ -1,6 +1,6 @@
 ---
-name: releasing-kata-agents
-description: Use this skill when releasing a new version of Kata Agents, bumping versions, updating changelogs, or creating release PRs. Triggers include "release", "bump version", "publish", "create release PR", "ship it", "cut a release".
+name: releasing-kata
+description: Use this skill when releasing a new version of Kata Cloud Agents, bumping versions, updating changelogs, or creating release PRs. Triggers include "release", "bump version", "publish", "create release PR", "ship it", "cut a release".
 ---
 
 # Releasing Kata Agents
