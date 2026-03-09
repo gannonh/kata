@@ -394,13 +394,13 @@ function SessionItem({
           className="absolute h-px bg-foreground/10"
           style={{ left: stemLeft, top: '50%', width: 12 }}
         />
-        <div className="mr-2 overflow-hidden flex items-center" style={{ paddingLeft: stemLeft + 16, paddingTop: 2, paddingBottom: 2 }}>
+        <div className="mr-2 overflow-hidden" style={{ paddingLeft: stemLeft + 16, paddingTop: 2, paddingBottom: 2 }}>
           <button
             {...itemProps}
             data-testid="session-list-item-button"
             data-session-id={item.id}
             className={cn(
-              "flex items-center gap-2 rounded-md px-2 py-1 mr-2 w-full text-left outline-none cursor-pointer min-w-0",
+              "flex items-center gap-2 rounded-md px-2 py-1 mr-2 w-full text-left outline-none cursor-pointer",
               "transition-[background-color] duration-75",
               isSelected ? "bg-foreground/7" : "bg-foreground/[0.03] hover:bg-foreground/5"
             )}
@@ -698,28 +698,26 @@ function SessionItem({
                   </TooltipContent>
                 </Tooltip>
               )}
+              {childCount > 0 && (
+                <span
+                  className="shrink-0 flex items-center gap-0.5 text-foreground/40 hover:text-foreground/60 cursor-pointer ml-1"
+                  aria-hidden="true"
+                  onMouseDown={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    onToggleExpanded()
+                  }}
+                >
+                  <span className="text-[11px]">{childCount}</span>
+                  {isExpanded
+                    ? <ChevronUp className="w-3 h-3" />
+                    : <ChevronDown className="w-3 h-3" />
+                  }
+                </span>
+              )}
             </div>
           </div>
         </button>
-        {childCount > 0 && (
-          <button
-            type="button"
-            className="shrink-0 flex items-center gap-0.5 text-foreground/40 hover:text-foreground/60 cursor-pointer ml-1 bg-transparent border-none p-0 outline-none"
-            aria-expanded={isExpanded}
-            aria-label={isExpanded ? 'Collapse sub-agents' : 'Expand sub-agents'}
-            onMouseDown={(e) => {
-              e.stopPropagation()
-              e.preventDefault()
-              onToggleExpanded()
-            }}
-          >
-            <span className="text-[11px]">{childCount}</span>
-            {isExpanded
-              ? <ChevronUp className="w-3 h-3" />
-              : <ChevronDown className="w-3 h-3" />
-            }
-          </button>
-        )}
         {/* Action buttons - visible on hover or when menu is open */}
         <div
           className={cn(
