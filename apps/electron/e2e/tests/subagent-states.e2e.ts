@@ -31,6 +31,10 @@ test.describe('Sub-Agent State Indicators', () => {
       // Running sub-agent should not have a status dot
       const dot = chip.locator('.rounded-full')
       await expect(dot).toHaveCount(0)
+
+      // Running sub-agent should show a spinner indicator
+      const spinner = chip.locator('.spinner')
+      await expect(spinner).toBeVisible()
     })
   })
 

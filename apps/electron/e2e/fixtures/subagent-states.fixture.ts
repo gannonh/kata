@@ -258,7 +258,7 @@ export const test = base.extend<SubagentStatesFixtures>({
   mainWindow: async ({ electronApp }, use) => {
     const window = await electronApp.firstWindow()
     await window.waitForLoadState('domcontentloaded')
-    await window.waitForTimeout(3000)
+    await window.waitForSelector('[data-testid="session-list-item"]', { timeout: 10000 })
     await use(window)
   },
 })

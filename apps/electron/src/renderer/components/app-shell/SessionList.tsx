@@ -394,17 +394,16 @@ function SessionItem({
           className="absolute h-px bg-foreground/10"
           style={{ left: stemLeft, top: '50%', width: 12 }}
         />
-        <div className="mr-2 overflow-hidden" style={{ paddingLeft: stemLeft + 16, paddingTop: 2, paddingBottom: 2 }}>
+        <div className="mr-2 overflow-hidden flex items-center" style={{ paddingLeft: stemLeft + 16, paddingTop: 2, paddingBottom: 2 }}>
           <button
             {...itemProps}
             data-testid="session-list-item-button"
             data-session-id={item.id}
             className={cn(
-              "flex items-center gap-2 rounded-md px-2 py-1 mr-2 w-full text-left outline-none cursor-pointer",
+              "flex items-center gap-2 rounded-md px-2 py-1 mr-2 w-full text-left outline-none cursor-pointer min-w-0",
               "transition-[background-color] duration-75",
-              isSelected ? "bg-foreground/7" : "hover:bg-foreground/5"
+              isSelected ? "bg-foreground/7" : "bg-foreground/[0.03] hover:bg-foreground/5"
             )}
-            style={{ backgroundColor: !isSelected ? 'rgba(39, 39, 42, 0.5)' : undefined }}
             onMouseDown={handleClick}
             onKeyDown={(e) => {
               itemProps.onKeyDown(e)
@@ -699,35 +698,28 @@ function SessionItem({
                   </TooltipContent>
                 </Tooltip>
               )}
-              {childCount > 0 && (
-                <div
-                  className="shrink-0 flex items-center gap-0.5 text-foreground/40 hover:text-foreground/60 cursor-pointer ml-1"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={isExpanded ? 'Collapse sub-agents' : 'Expand sub-agents'}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.stopPropagation()
-                      e.preventDefault()
-                      onToggleExpanded()
-                    }
-                  }}
-                  onMouseDown={(e) => {
-                    e.stopPropagation()
-                    e.preventDefault()
-                    onToggleExpanded()
-                  }}
-                >
-                  <span className="text-[11px]">{childCount}</span>
-                  {isExpanded
-                    ? <ChevronUp className="w-3 h-3" />
-                    : <ChevronDown className="w-3 h-3" />
-                  }
-                </div>
-              )}
             </div>
           </div>
         </button>
+        {childCount > 0 && (
+          <button
+            type="button"
+            className="shrink-0 flex items-center gap-0.5 text-foreground/40 hover:text-foreground/60 cursor-pointer ml-1 bg-transparent border-none p-0 outline-none"
+            aria-expanded={isExpanded}
+            aria-label={isExpanded ? 'Collapse sub-agents' : 'Expand sub-agents'}
+            onMouseDown={(e) => {
+              e.stopPropagation()
+              e.preventDefault()
+              onToggleExpanded()
+            }}
+          >
+            <span className="text-[11px]">{childCount}</span>
+            {isExpanded
+              ? <ChevronUp className="w-3 h-3" />
+              : <ChevronDown className="w-3 h-3" />
+            }
+          </button>
+        )}
         {/* Action buttons - visible on hover or when menu is open */}
         <div
           className={cn(
@@ -955,6 +947,12 @@ export function SessionList({
         if (parentId) currentParentIds.add(parentId)
       }
     }
+    // Prune stale IDs from manuallyCollapsedRef that no longer exist as parents
+    for (const id of manuallyCollapsedRef.current) {
+      if (!currentParentIds.has(id)) {
+        manuallyCollapsedRef.current.delete(id)
+      }
+    }
     setExpandedParents(prev => {
       let changed = false
       const next = new Set(prev)
@@ -1018,14 +1016,27 @@ export function SessionList({
     return unreadBySessionId.get(item.id) ?? hasUnreadMessages(item)
   }, [unreadBySessionId])
 
-  // Filter out children of collapsed parents
+  // Filter out children of collapsed parents (check full ancestor chain)
+  // During active search, bypass collapse filtering so matching children are always visible
   const expandedItems = useMemo(() => {
+    if (searchQuery.trim()) {
+      return searchFilteredItems
+    }
+
+    const itemsById = new Map(searchFilteredItems.map(i => [i.id, i]))
     return searchFilteredItems.filter(item => {
       if (item.depth === 0) return true
-      const parentId = item.parentSessionId ?? item.delegatedBySessionId ?? item.orchestratorSessionId
-      return parentId ? expandedParents.has(parentId) : true
+      // Walk up the full ancestor chain; hide if any ancestor is collapsed
+      let current: typeof item | undefined = item
+      while (current && current.depth > 0) {
+        const parentId = current.parentSessionId ?? current.delegatedBySessionId ?? current.orchestratorSessionId
+        if (!parentId) break
+        if (!expandedParents.has(parentId)) return false
+        current = itemsById.get(parentId)
+      }
+      return true
     })
-  }, [searchFilteredItems, expandedParents])
+  }, [searchFilteredItems, expandedParents, searchQuery])
 
   // Reset display limit when search query changes
   useEffect(() => {
@@ -1325,18 +1336,31 @@ export function SessionList({
                       } else if (currentFilter.kind === 'state') {
                         navigate(routes.view.state(currentFilter.stateId, item.id))
                       }
-                      // Collapse all other parents, keep only the selected item's parent expanded
-                      const selectedParent = item.depth > 0
-                        ? (item.parentSessionId ?? item.delegatedBySessionId ?? item.orchestratorSessionId)
-                        : (childCountByParent.has(item.id) ? item.id : null)
-                      // Mark all other parents as manually collapsed so auto-expand won't re-open them
+                      // Build full ancestor chain so nested children stay visible
+                      const ancestorIds = new Set<string>()
+                      // If selected item is itself a parent, keep it expanded
+                      if (childCountByParent.has(item.id)) {
+                        ancestorIds.add(item.id)
+                      }
+                      // Walk up the ancestor chain
+                      const itemsById = new Map(items.map(i => [i.id, i]))
+                      let current: typeof item | undefined = item
+                      while (current && current.depth > 0) {
+                        const pid = current.parentSessionId ?? current.delegatedBySessionId ?? current.orchestratorSessionId
+                        if (!pid) break
+                        ancestorIds.add(pid)
+                        current = itemsById.get(pid)
+                      }
+                      // Mark all non-ancestor parents as manually collapsed
                       for (const [parentId] of childCountByParent) {
-                        if (parentId !== selectedParent) {
+                        if (!ancestorIds.has(parentId)) {
                           manuallyCollapsedRef.current.add(parentId)
                         }
                       }
-                      if (selectedParent) manuallyCollapsedRef.current.delete(selectedParent)
-                      setExpandedParents(selectedParent ? new Set([selectedParent]) : new Set())
+                      for (const id of ancestorIds) {
+                        manuallyCollapsedRef.current.delete(id)
+                      }
+                      setExpandedParents(ancestorIds)
                       // Notify parent
                       onSessionSelect?.(item)
                     }}
