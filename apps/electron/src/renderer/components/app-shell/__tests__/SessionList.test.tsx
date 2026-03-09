@@ -319,6 +319,8 @@ test('SessionList renders top-level unread sessions without crashing', async () 
       items: [item],
       onDelete: async () => true,
       onMarkUnread() {},
+      onTodoStateChange() {},
+      onRename() {},
     })
   ).not.toThrow()
 })
@@ -347,6 +349,8 @@ test('SessionList renders nested label badges without editable popovers', async 
     items: [nestedItem],
     onDelete: async () => true,
     onMarkUnread() {},
+    onTodoStateChange() {},
+    onRename() {},
     onLabelsChange() {},
   })
 
@@ -451,6 +455,8 @@ test('SessionList renders subagent children as chips with status dot', async () 
       items: [parent, child],
       onDelete: async () => true,
       onMarkUnread() {},
+      onTodoStateChange() {},
+      onRename() {},
     })
   ).not.toThrow()
 })
@@ -489,6 +495,8 @@ test('SessionList renders orchestrator parent with child count', async () => {
       items: [parent, ...children],
       onDelete: async () => true,
       onMarkUnread() {},
+      onTodoStateChange() {},
+      onRename() {},
     })
   ).not.toThrow()
 })
