@@ -240,6 +240,12 @@ interface SessionItemProps {
   labels: LabelConfig[]
   /** Callback when session labels are toggled */
   onLabelsChange?: (sessionId: string, labels: string[]) => void
+  /** Number of sub-agent children (0 = no children) */
+  childCount: number
+  /** Whether this parent's children are expanded */
+  isExpanded: boolean
+  /** Toggle expand/collapse for this parent */
+  onToggleExpanded: () => void
 }
 
 /** Channel adapter icon mapping */
@@ -280,6 +286,9 @@ function SessionItem({
   flatLabels,
   labels,
   onLabelsChange,
+  childCount,
+  isExpanded,
+  onToggleExpanded,
 }: SessionItemProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [contextMenuOpen, setContextMenuOpen] = useState(false)
@@ -909,6 +918,15 @@ export function SessionList({
     return unreadBySessionId.get(item.id) ?? hasUnreadMessages(item)
   }, [unreadBySessionId])
 
+  // Filter out children of collapsed parents
+  const expandedItems = useMemo(() => {
+    return searchFilteredItems.filter(item => {
+      if (item.depth === 0) return true
+      const parentId = item.parentSessionId ?? item.delegatedBySessionId ?? item.orchestratorSessionId
+      return parentId ? expandedParents.has(parentId) : true
+    })
+  }, [searchFilteredItems, expandedParents])
+
   // Reset display limit when search query changes
   useEffect(() => {
     setDisplayLimit(INITIAL_DISPLAY_LIMIT)
@@ -916,16 +934,16 @@ export function SessionList({
 
   // Paginate items - only show up to displayLimit
   const paginatedItems = useMemo(() => {
-    return searchFilteredItems.slice(0, displayLimit)
-  }, [searchFilteredItems, displayLimit])
+    return expandedItems.slice(0, displayLimit)
+  }, [expandedItems, displayLimit])
 
   // Check if there are more items to load
-  const hasMore = displayLimit < searchFilteredItems.length
+  const hasMore = displayLimit < expandedItems.length
 
   // Load more items callback
   const loadMore = useCallback(() => {
-    setDisplayLimit(prev => Math.min(prev + BATCH_SIZE, searchFilteredItems.length))
-  }, [searchFilteredItems.length])
+    setDisplayLimit(prev => Math.min(prev + BATCH_SIZE, expandedItems.length))
+  }, [expandedItems.length])
 
   // Intersection observer for infinite scroll
   useEffect(() => {
@@ -1218,6 +1236,9 @@ export function SessionList({
                     flatLabels={flatLabels}
                     labels={labels}
                     onLabelsChange={onLabelsChange}
+                    childCount={childCountByParent.get(item.id) ?? 0}
+                    isExpanded={expandedParents.has(item.id)}
+                    onToggleExpanded={() => toggleParentExpanded(item.id)}
                   />
                 )
               })}
