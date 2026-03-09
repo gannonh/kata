@@ -15,6 +15,22 @@ stdin_file="$(mktemp)"
 trap 'rm -f "$stdin_file"' EXIT
 cat >"$stdin_file"
 
+# Skip validation when only deleting remote branches (local sha is all zeros).
+zero="0000000000000000000000000000000000000000"
+only_deletes=true
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [[ "$local_sha" != "$zero" ]]; then
+    only_deletes=false
+    break
+  fi
+done <"$stdin_file"
+if $only_deletes; then
+  if git lfs version >/dev/null 2>&1; then
+    git lfs pre-push "$@" <"$stdin_file"
+  fi
+  exit 0
+fi
+
 if ! command -v bun >/dev/null 2>&1; then
   echo "pre-push: Bun is required but was not found in PATH." >&2
   echo "Install Bun, then run 'bun install' and try pushing again." >&2
