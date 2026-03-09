@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { formatDistanceToNow, formatDistanceToNowStrict, isToday, isYesterday, format, startOfDay } from "date-fns"
 import type { Locale } from "date-fns"
-import { MoreHorizontal, Flag, Search, X, Copy, Link2Off, CloudUpload, Globe, RefreshCw, Inbox, Hash, MessageCircle, Radio, CornerDownRight } from "lucide-react"
+import { MoreHorizontal, Flag, Search, X, Copy, Link2Off, CloudUpload, Globe, RefreshCw, Inbox, Hash, MessageCircle, Radio, CornerDownRight, ChevronDown, ChevronUp } from "lucide-react"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
@@ -58,6 +58,14 @@ import { PERMISSION_MODE_CONFIG, type PermissionMode } from "@craft-agent/shared
 const INITIAL_DISPLAY_LIMIT = 20
 const BATCH_SIZE = 20
 const INDENT_STEP_PX = 20
+
+/** Sub-agent status → dot color mapping for chip rendering */
+const SUBAGENT_STATUS_COLORS: Record<string, string> = {
+  completed: '#22c55e',
+  running: '#3b82f6',
+  queued: '#71717a',
+  failed: '#f97316',
+}
 
 /** Short relative time locale for date-fns formatDistanceToNowStrict.
  *  Produces compact strings: "7m", "2h", "3d", "2w", "5mo", "1y" */
