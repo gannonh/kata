@@ -112,7 +112,12 @@ mock.module('@craft-agent/shared/sources', () => ({
     AUTH_REQUIRED: 'AUTH_REQUIRED',
   },
 }))
-mock.module('@craft-agent/shared/sources/types', () => ({}))
+mock.module('@craft-agent/shared/sources/types', () => ({
+  inferGoogleServiceFromUrl: () => undefined,
+  inferSlackServiceFromUrl: () => undefined,
+  inferMicrosoftServiceFromUrl: () => undefined,
+  isApiOAuthProvider: () => false,
+}))
 mock.module('@craft-agent/shared/auth', () => ({
   getAuthState: async () => null,
 }))
@@ -136,6 +141,10 @@ mock.module('@craft-agent/shared/utils', () => ({
   regenerateSessionTitle: async () => null,
   formatPathsToRelative: (value: string) => value,
   formatToolInputPaths: (value: Record<string, unknown>) => value,
+  debug() {},
+  enableDebug() {},
+  isDebugEnabled: () => false,
+  createLogger: () => ({ debug() {}, info() {}, warn() {}, error() {} }),
   perf: {
     span: () => ({
       mark() {},

@@ -97,13 +97,27 @@ mock.module('react/jsx-dev-runtime', () => ({
   Fragment: Symbol.for('Fragment'),
 }))
 
+// Must include all icons used by transitively-loaded modules (e.g. SessionList)
+// because Bun's test runner shares the module cache across files.
 mock.module('lucide-react', () => ({
   AlertCircle() { return null },
-  Globe() { return null },
+  ChevronDown() { return null },
+  ChevronUp() { return null },
+  CloudUpload() { return null },
   Copy() { return null },
-  RefreshCw() { return null },
-  Link2Off() { return null },
+  CornerDownRight() { return null },
+  Flag() { return null },
+  Globe() { return null },
+  Hash() { return null },
+  Inbox() { return null },
   Info() { return null },
+  Link2Off() { return null },
+  MessageCircle() { return null },
+  MoreHorizontal() { return null },
+  Radio() { return null },
+  RefreshCw() { return null },
+  Search() { return null },
+  X() { return null },
 }))
 
 mock.module('@/atoms/sessions', () => ({
@@ -153,7 +167,13 @@ mock.module('@/components/ui/dropdown-menu', () => ({
   },
 }))
 
+// Must include all exports used by transitively-loaded modules (e.g. SessionList)
+// because Bun's test runner shares the module cache across files.
 mock.module('@/components/ui/styled-dropdown', () => ({
+  DropdownMenu(props: any) { return props.children ?? null },
+  DropdownMenuTrigger(props: any) { return props.children ?? null },
+  DropdownMenuShortcut() { return null },
+  DropdownMenuSub(props: any) { return props.children ?? null },
   StyledDropdownMenuContent(props: any) {
     return props.children ?? null
   },

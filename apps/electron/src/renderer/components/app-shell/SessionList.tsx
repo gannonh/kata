@@ -701,7 +701,7 @@ function SessionItem({
               {childCount > 0 && (
                 <span
                   className="shrink-0 flex items-center gap-0.5 text-foreground/40 hover:text-foreground/60 cursor-pointer ml-1"
-                  aria-hidden="true"
+                  aria-label={isExpanded ? 'Collapse sub-agents' : 'Expand sub-agents'}
                   onMouseDown={(e) => {
                     e.stopPropagation()
                     e.preventDefault()
