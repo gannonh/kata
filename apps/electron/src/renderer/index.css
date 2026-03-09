@@ -816,7 +816,10 @@ html.dark[data-scenic] .fullscreen-overlay-background {
   opacity: 0;
 }
 
-/* Sub-agent tree lines are rendered inline (not via CSS pseudo-elements) */
+/* Extra gap between parent row and first sub-agent child */
+.session-item:not([data-session-kind="subagent"]) + .session-item[data-session-kind="subagent"] {
+  margin-top: 2px;
+}
 
 /* =============================================================================
    SOURCES LIST - SEPARATOR VISIBILITY

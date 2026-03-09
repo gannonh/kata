@@ -394,13 +394,13 @@ function SessionItem({
           className="absolute h-px bg-foreground/10"
           style={{ left: stemLeft, top: '50%', width: 12 }}
         />
-        <div className="flex items-center mr-2" style={{ paddingLeft: stemLeft + 16, paddingTop: 2, paddingBottom: 2 }}>
+        <div className="mr-2" style={{ paddingLeft: stemLeft + 16, paddingTop: 2, paddingBottom: 2 }}>
           <button
             {...itemProps}
             data-testid="session-list-item-button"
             data-session-id={item.id}
             className={cn(
-              "flex items-center gap-2 rounded-md px-2 py-1 text-left outline-none cursor-pointer",
+              "flex items-center gap-2 rounded-md px-2 py-1 mr-2 text-left outline-none cursor-pointer",
               "transition-[background-color] duration-75",
               isSelected ? "bg-foreground/7" : "hover:bg-foreground/5"
             )}
