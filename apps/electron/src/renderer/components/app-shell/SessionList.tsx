@@ -440,7 +440,7 @@ function SessionItem({
     >
       {/* Separator - only show if not first in group */}
       {!isFirstInGroup && (
-        <div className="session-separator pr-4" style={{ paddingLeft: (isNestedChild ? 36 : 48) + indentPx }}>
+        <div className="session-separator">
           <Separator />
         </div>
       )}
