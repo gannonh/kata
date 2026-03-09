@@ -246,6 +246,8 @@ interface SessionItemProps {
   isExpanded: boolean
   /** Toggle expand/collapse for this parent */
   onToggleExpanded: () => void
+  /** Whether this is the last child in its parent's group */
+  isLastChild: boolean
 }
 
 /** Channel adapter icon mapping */
@@ -289,6 +291,7 @@ function SessionItem({
   childCount,
   isExpanded,
   onToggleExpanded,
+  isLastChild,
 }: SessionItemProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [contextMenuOpen, setContextMenuOpen] = useState(false)
@@ -368,22 +371,30 @@ function SessionItem({
     </div>
   )
 
-  // Sub-agent chip: tree branch + colored status dot + name (no menu, no todo icon)
+  // Sub-agent chip: vertical stem + horizontal branch + status dot + name
   if (isNestedChild) {
     const isRunning = item.subagentStatus === 'running' || item.isProcessing
+    const stemLeft = 36 + indentPx
     return (
       <div
-        className="session-item"
+        className="session-item relative"
         data-selected={isSelected || undefined}
         data-testid="session-list-item"
         data-session-id={item.id}
         data-session-kind="subagent"
         data-session-depth={item.depth}
-        style={{ '--stem-left': `${32 + indentPx}px` } as React.CSSProperties}
       >
-        <div className="flex items-center mr-2 py-0.5" style={{ paddingLeft: 32 + indentPx }}>
-          {/* Horizontal branch line */}
-          <div className="shrink-0 w-4 h-px bg-foreground/10 mr-1" />
+        {/* Vertical stem — runs full height, clipped at center for last child */}
+        <div
+          className="absolute w-px bg-foreground/10"
+          style={{ left: stemLeft, top: 0, bottom: isLastChild ? '50%' : 0 }}
+        />
+        {/* Horizontal branch — from stem to chip */}
+        <div
+          className="absolute h-px bg-foreground/10"
+          style={{ left: stemLeft, top: '50%', width: 12 }}
+        />
+        <div className="flex items-center mr-2" style={{ paddingLeft: stemLeft + 16, paddingTop: 2, paddingBottom: 2 }}>
           <button
             {...itemProps}
             data-testid="session-list-item-button"
@@ -1324,6 +1335,10 @@ export function SessionList({
                     childCount={childCountByParent.get(item.id) ?? 0}
                     isExpanded={expandedParents.has(item.id)}
                     onToggleExpanded={() => toggleParentExpanded(item.id)}
+                    isLastChild={item.depth > 0 && (
+                      indexInGroup === group.sessions.length - 1 ||
+                      group.sessions[indexInGroup + 1]?.depth === 0
+                    )}
                   />
                 )
               })}
