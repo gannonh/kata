@@ -149,7 +149,7 @@ import type { Session, Message, AgentEvent } from '@craft-agent/core';
 - Environment variables for OAuth are loaded from `.env` at build time via esbuild `--define`
 - Debug logging writes to `~/Library/Logs/@craft-agent/electron/` on macOS
 - Sessions are persisted as JSONL files in workspace directories
-- MCP servers can be stdio-based (local subprocess) or SSE-based (remote)
+- MCP servers can be stdio-based (local subprocess) or http/sse-based (remote)
 - To reset window state (useful when debugging session display issues): `rm ~/.kata-agents/window-state.json`
 
 ## Electron UAT Notes
@@ -164,3 +164,7 @@ import type { Session, Message, AgentEvent } from '@craft-agent/core';
 ## e2e Testing
 
 `apps/electron/e2e/README.md`
+
+## Project Management with Linear
+
+- **Project:** <https://linear.app/kata-sh/project/kata-cloud-agents-b0f5a7be6537>
