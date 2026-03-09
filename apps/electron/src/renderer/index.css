@@ -821,6 +821,11 @@ html.dark[data-scenic] .fullscreen-overlay-background {
   margin-top: 2px;
 }
 
+/* Extra gap between last sub-agent child and next parent row */
+.session-item[data-session-kind="subagent"]:has(+ .session-item:not([data-session-kind="subagent"])) {
+  margin-bottom: 6px;
+}
+
 /* =============================================================================
    SOURCES LIST - SEPARATOR VISIBILITY
 

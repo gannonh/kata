@@ -917,6 +917,8 @@ export function SessionList({
     }
     return parentIds
   })
+  // Track parents explicitly collapsed by user so auto-expand doesn't override
+  const manuallyCollapsedRef = useRef<Set<string>>(new Set())
 
   // Compute child count per parent for badge display
   const childCountByParent = useMemo(() => {
@@ -935,14 +937,16 @@ export function SessionList({
       const next = new Set(prev)
       if (next.has(parentId)) {
         next.delete(parentId)
+        manuallyCollapsedRef.current.add(parentId)
       } else {
         next.add(parentId)
+        manuallyCollapsedRef.current.delete(parentId)
       }
       return next
     })
   }, [])
 
-  // Auto-expand newly appearing orchestrator parents
+  // Auto-expand newly appearing orchestrator parents (skip manually collapsed ones)
   useEffect(() => {
     const currentParentIds = new Set<string>()
     for (const item of items) {
@@ -955,7 +959,7 @@ export function SessionList({
       let changed = false
       const next = new Set(prev)
       for (const id of currentParentIds) {
-        if (!next.has(id)) {
+        if (!next.has(id) && !manuallyCollapsedRef.current.has(id)) {
           next.add(id)
           changed = true
         }
@@ -1321,6 +1325,18 @@ export function SessionList({
                       } else if (currentFilter.kind === 'state') {
                         navigate(routes.view.state(currentFilter.stateId, item.id))
                       }
+                      // Collapse all other parents, keep only the selected item's parent expanded
+                      const selectedParent = item.depth > 0
+                        ? (item.parentSessionId ?? item.delegatedBySessionId ?? item.orchestratorSessionId)
+                        : (childCountByParent.has(item.id) ? item.id : null)
+                      // Mark all other parents as manually collapsed so auto-expand won't re-open them
+                      for (const [parentId] of childCountByParent) {
+                        if (parentId !== selectedParent) {
+                          manuallyCollapsedRef.current.add(parentId)
+                        }
+                      }
+                      if (selectedParent) manuallyCollapsedRef.current.delete(selectedParent)
+                      setExpandedParents(selectedParent ? new Set([selectedParent]) : new Set())
                       // Notify parent
                       onSessionSelect?.(item)
                     }}
