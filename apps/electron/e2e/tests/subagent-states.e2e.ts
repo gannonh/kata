@@ -9,8 +9,8 @@ test.describe('Sub-Agent State Indicators', () => {
       const dot = chip.locator('.rounded-full')
       await expect(dot).toBeVisible()
       const color = await dot.evaluate(el => getComputedStyle(el).backgroundColor)
-      // #22c55e = rgb(34, 197, 94)
-      expect(color).toBe('rgb(34, 197, 94)')
+      // Tailwind v4 bg-green-500 uses oklch color space
+      expect(color).toBe('oklch(0.723 0.219 149.579)')
     })
 
     test('failed sub-agent shows orange status dot', async ({ mainWindow }) => {
@@ -20,8 +20,8 @@ test.describe('Sub-Agent State Indicators', () => {
       const dot = chip.locator('.rounded-full')
       await expect(dot).toBeVisible()
       const color = await dot.evaluate(el => getComputedStyle(el).backgroundColor)
-      // #f97316 = rgb(249, 115, 22)
-      expect(color).toBe('rgb(249, 115, 22)')
+      // Tailwind v4 bg-orange-500 uses oklch color space
+      expect(color).toBe('oklch(0.705 0.213 47.604)')
     })
 
     test('running sub-agent shows spinner instead of status dot', async ({ mainWindow }) => {
