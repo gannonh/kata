@@ -391,8 +391,9 @@ function SessionItem({
             className={cn(
               "flex items-center gap-2 rounded-md px-2 py-1 text-left outline-none cursor-pointer",
               "transition-[background-color] duration-75",
-              isSelected ? "bg-foreground/7" : "hover:bg-foreground/3"
+              isSelected ? "bg-foreground/7" : "hover:bg-foreground/5"
             )}
+            style={{ backgroundColor: !isSelected ? 'rgba(39, 39, 42, 0.5)' : undefined }}
             onMouseDown={handleClick}
             onKeyDown={(e) => {
               itemProps.onKeyDown(e)
