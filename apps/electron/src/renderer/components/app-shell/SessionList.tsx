@@ -368,8 +368,9 @@ function SessionItem({
     </div>
   )
 
-  // Sub-agent chip: compact pill with colored status dot + name (no menu, no todo icon)
+  // Sub-agent chip: tree branch + colored status dot + name (no menu, no todo icon)
   if (isNestedChild) {
+    const isRunning = item.subagentStatus === 'running' || item.isProcessing
     return (
       <div
         className="session-item"
@@ -378,28 +379,35 @@ function SessionItem({
         data-session-id={item.id}
         data-session-kind="subagent"
         data-session-depth={item.depth}
+        style={{ '--stem-left': `${32 + indentPx}px` } as React.CSSProperties}
       >
-        <div className="mr-2" style={{ paddingLeft: 8 + indentPx }}>
+        <div className="flex items-center mr-2 py-0.5" style={{ paddingLeft: 32 + indentPx }}>
+          {/* Horizontal branch line */}
+          <div className="shrink-0 w-4 h-px bg-foreground/10 mr-1" />
           <button
             {...itemProps}
             data-testid="session-list-item-button"
             data-session-id={item.id}
             className={cn(
-              "flex items-center gap-2 rounded-md px-2 py-1 w-full text-left outline-none cursor-pointer",
+              "flex items-center gap-2 rounded-md px-2 py-1 text-left outline-none cursor-pointer",
               "transition-[background-color] duration-75",
               isSelected ? "bg-foreground/7" : "hover:bg-foreground/3"
             )}
-            style={{ marginLeft: 28, backgroundColor: !isSelected ? 'rgba(39, 39, 42, 0.5)' : undefined }}
             onMouseDown={handleClick}
             onKeyDown={(e) => {
               itemProps.onKeyDown(e)
               onKeyDown(e, item)
             }}
           >
-            <span
-              className="shrink-0 w-2 h-2 rounded-full"
-              style={{ backgroundColor: SUBAGENT_STATUS_COLORS[item.subagentStatus ?? ''] ?? '#71717a' }}
-            />
+            {/* Status dot or spinner for running */}
+            {isRunning ? (
+              <Spinner className="text-[8px] shrink-0" />
+            ) : (
+              <span
+                className="shrink-0 w-2 h-2 rounded-full"
+                style={{ backgroundColor: SUBAGENT_STATUS_COLORS[item.subagentStatus ?? ''] ?? '#71717a' }}
+              />
+            )}
             <span className="text-xs text-foreground/80 truncate">
               {searchQuery ? highlightMatch(getSessionTitle(item), searchQuery) : getSessionTitle(item)}
             </span>
@@ -487,7 +495,7 @@ function SessionItem({
             "transition-[background-color] duration-75",
             isNestedChild ? "pt-1.5 pb-2.5 text-xs" : "py-3 text-sm",
             isSelected
-              ? "bg-foreground/5 hover:bg-foreground/7"
+              ? childCount > 0 ? "bg-foreground/[0.02]" : "bg-foreground/5 hover:bg-foreground/7"
               : "hover:bg-foreground/2"
           )}
           onMouseDown={handleClick}

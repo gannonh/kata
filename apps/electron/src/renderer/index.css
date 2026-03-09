@@ -817,6 +817,36 @@ html.dark[data-scenic] .fullscreen-overlay-background {
 }
 
 /* =============================================================================
+   SUB-AGENT TREE LINES
+
+   Vertical stem connecting parent to sub-agent chips.
+   Each subagent row draws a vertical segment from its top edge upward,
+   and a horizontal branch to its content. The last child stops the stem.
+============================================================================= */
+
+.session-item[data-session-kind="subagent"] {
+  position: relative;
+}
+
+/* Vertical stem segment — extends from top of chip to bottom, connecting to next sibling */
+.session-item[data-session-kind="subagent"]::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--stem-left, 32px) + 8px);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--foreground-rgb, 255 255 255);
+  opacity: 0.1;
+}
+
+/* Last subagent in a group: stem only extends to the middle of the row */
+.session-item[data-session-kind="subagent"]:has(+ .session-item:not([data-session-kind="subagent"]))::before,
+.session-item[data-session-kind="subagent"]:last-child::before {
+  bottom: 50%;
+}
+
+/* =============================================================================
    SOURCES LIST - SEPARATOR VISIBILITY
 
    Hide separators when source items are hovered or selected.
