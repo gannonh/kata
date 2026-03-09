@@ -379,7 +379,7 @@ function SessionItem({
         data-session-kind="subagent"
         data-session-depth={item.depth}
       >
-        <div className="pl-2 mr-2" style={{ paddingLeft: 8 + indentPx }}>
+        <div className="mr-2" style={{ paddingLeft: 8 + indentPx }}>
           <button
             {...itemProps}
             data-testid="session-list-item-button"
@@ -683,7 +683,15 @@ function SessionItem({
                 <div
                   className="shrink-0 flex items-center gap-0.5 text-foreground/40 hover:text-foreground/60 cursor-pointer ml-1"
                   role="button"
+                  tabIndex={0}
                   aria-label={isExpanded ? 'Collapse sub-agents' : 'Expand sub-agents'}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.stopPropagation()
+                      e.preventDefault()
+                      onToggleExpanded()
+                    }
+                  }}
                   onMouseDown={(e) => {
                     e.stopPropagation()
                     e.preventDefault()
