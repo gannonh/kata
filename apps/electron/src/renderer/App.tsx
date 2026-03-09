@@ -23,6 +23,7 @@ import { useNotifications } from '@/hooks/useNotifications'
 import { useSession } from '@/hooks/useSession'
 import { useUpdateChecker } from '@/hooks/useUpdateChecker'
 import { NavigationProvider } from '@/contexts/NavigationContext'
+import { Agentation } from 'agentation'
 import { navigate, routes } from './lib/navigate'
 import { stripMarkdown } from './utils/text'
 import { initRendererPerf } from './lib/perf'
@@ -1392,6 +1393,7 @@ export default function App() {
         </TooltipProvider>
         </ModalProvider>
       </FocusProvider>
+      {import.meta.env.DEV && <Agentation />}
     </ShikiThemeProvider>
     </PlatformProvider>
   )

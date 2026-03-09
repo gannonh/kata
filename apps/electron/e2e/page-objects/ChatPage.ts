@@ -143,9 +143,9 @@ export class ChatPage {
       return
     }
 
-    // Need to start a new conversation - look for "New Chat" button
+    // Need to start a new conversation - look for "New Project" button
     // Use force:true to click through any splash screen overlay
-    const newChatButton = this.page.getByRole('button', { name: /new chat/i })
+    const newChatButton = this.page.getByRole('button', { name: /new project/i })
     if (await newChatButton.isVisible({ timeout: 2000 }).catch(() => false)) {
       await newChatButton.click({ force: true })
     }

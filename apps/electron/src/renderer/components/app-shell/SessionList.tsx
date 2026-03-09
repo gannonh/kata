@@ -113,6 +113,36 @@ function groupSessionsByDate(sessions: SessionListItem[]): Array<{ date: Date; l
     }))
 }
 
+export function getSearchFilteredSessionItems(
+  items: SessionListItem[],
+  searchQuery: string,
+  flatLabels: LabelConfig[]
+): SessionListItem[] {
+  if (!searchQuery.trim()) return items
+
+  const query = searchQuery.toLowerCase()
+  const labelQuery = query.replace(/#/g, '')
+  const matchingRootIds = new Set<string>()
+
+  for (const item of items) {
+    const matches = getSessionTitle(item).toLowerCase().includes(query)
+      || (!labelQuery && !!item.labels?.length)
+      || (!!labelQuery && !!item.labels?.some(entry => {
+        const parsed = parseLabelEntry(entry)
+        const config = flatLabels.find(l => l.id === parsed.id)
+        if (config?.name.toLowerCase().includes(labelQuery)) return true
+        if (parsed.rawValue?.toLowerCase().includes(labelQuery)) return true
+        return false
+      }))
+
+    if (matches) {
+      matchingRootIds.add(item.rootSessionId)
+    }
+  }
+
+  return items.filter(item => matchingRootIds.has(item.rootSessionId))
+}
+
 /**
  * Get the current todo state of a session
  * States are user-controlled, never automatic
@@ -332,7 +362,7 @@ function SessionItem({
     >
       {/* Separator - only show if not first in group */}
       {!isFirstInGroup && (
-        <div className="session-separator pr-4" style={{ paddingLeft: 48 + indentPx }}>
+        <div className="session-separator pr-4" style={{ paddingLeft: (isNestedChild ? 36 : 48) + indentPx }}>
           <Separator />
         </div>
       )}
@@ -340,10 +370,10 @@ function SessionItem({
       <ContextMenu modal={true} onOpenChange={setContextMenuOpen}>
         <ContextMenuTrigger asChild>
           <div className="session-content relative group select-none pl-2 mr-2" style={{ paddingLeft: 8 + indentPx }}>
-        {/* Todo State Icon - positioned absolutely, outside the button */}
+        {/* Todo State Icon - positioned absolutely; for nested children, arrow sits inside the indent */}
         {isNestedChild ? (
-          <div className="absolute left-4 top-3.5 z-10 flex items-center text-foreground/35">
-            <CornerDownRight className="w-3.5 h-3.5" />
+          <div className="absolute top-2.5 z-10 flex items-center text-foreground/30" style={{ left: 16 + indentPx }}>
+            <CornerDownRight className="w-3 h-3" />
           </div>
         ) : (
           <Popover modal={true} open={todoMenuOpen} onOpenChange={setTodoMenuOpen}>
@@ -394,9 +424,10 @@ function SessionItem({
           data-testid="session-list-item-button"
           data-session-id={item.id}
           className={cn(
-            "flex w-full items-start gap-2 pl-2 pr-4 py-3 text-left text-sm outline-none rounded-[8px]",
+            "flex w-full items-start gap-2 pl-2 pr-4 text-left outline-none rounded-[8px]",
             // Fast hover transition (75ms vs default 150ms), selection is instant
             "transition-[background-color] duration-75",
+            isNestedChild ? "pt-1.5 pb-2.5 text-xs" : "py-3 text-sm",
             isSelected
               ? "bg-foreground/5 hover:bg-foreground/7"
               : "hover:bg-foreground/2"
@@ -407,14 +438,15 @@ function SessionItem({
             onKeyDown(e, item)
           }}
         >
-          {/* Spacer for todo icon */}
-          <div className="w-4 h-5 shrink-0" />
+          {/* Spacer for todo/arrow icon */}
+          <div className={cn("shrink-0", isNestedChild ? "w-3.5 h-4" : "w-4 h-5")} />
           {/* Content column */}
-          <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-            {/* Title - up to 2 lines, with shimmer during async operations (sharing, title regen, etc.) */}
+          <div className={cn("flex flex-col min-w-0 flex-1", isNestedChild ? "gap-1" : "gap-1.5")}>
+            {/* Title - up to 2 lines (1 line for sub-agents), with shimmer during async operations */}
             <div className="flex items-start gap-2 w-full pr-6 min-w-0">
               <div className={cn(
-                "font-medium font-sans line-clamp-2 min-w-0 -mb-[2px]",
+                "font-sans min-w-0 -mb-[2px]",
+                isNestedChild ? "font-normal text-foreground/70 line-clamp-1" : "font-medium line-clamp-2",
                 item.isAsyncOperationOngoing && "animate-shimmer-text"
               )}>
                 {searchQuery ? highlightMatch(getSessionTitle(item), searchQuery) : getSessionTitle(item)}
@@ -587,7 +619,8 @@ function SessionItem({
         {/* Action buttons - visible on hover or when menu is open */}
         <div
           className={cn(
-            "absolute right-2 top-2 transition-opacity z-10",
+            "absolute right-2 transition-opacity z-10",
+            isNestedChild ? "-top-0.5" : "top-2",
             menuOpen || contextMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
           )}
         >
@@ -772,48 +805,23 @@ export function SessionList({
     }
   }, [searchActive])
 
-  // Sort by most recent activity first
-  const sortedItems = [...items].sort((a, b) => {
-    const timestampDiff = (b.rootLastMessageAt ?? b.lastMessageAt ?? 0) - (a.rootLastMessageAt ?? a.lastMessageAt ?? 0)
-    if (timestampDiff !== 0) {
-      return timestampDiff
-    }
-    return a.treeIndex - b.treeIndex
-  })
+  // Items arrive from projectSessionTree in the correct parent-first order.
+  // Re-sorting here can separate subagent rows from their orchestrator.
+  const orderedItems = items
 
   // Filter items by search query — matches title, label names, and label values.
   // '#' characters are stripped when matching labels (so "#bug" finds label "bug").
   // A bare '#' matches all sessions that have any labels.
-  const searchFilteredItems = useMemo(() => {
-    if (!searchQuery.trim()) return sortedItems
-    const query = searchQuery.toLowerCase()
-    const labelQuery = query.replace(/#/g, '')
-    const matchingRootIds = new Set<string>()
-
-    for (const item of sortedItems) {
-      const matches = getSessionTitle(item).toLowerCase().includes(query)
-        || (!labelQuery && !!item.labels?.length)
-        || (!!labelQuery && !!item.labels?.some(entry => {
-          const parsed = parseLabelEntry(entry)
-          const config = flatLabels.find(l => l.id === parsed.id)
-          if (config?.name.toLowerCase().includes(labelQuery)) return true
-          if (parsed.rawValue?.toLowerCase().includes(labelQuery)) return true
-          return false
-        }))
-
-      if (matches) {
-        matchingRootIds.add(item.rootSessionId)
-      }
-    }
-
-    return sortedItems.filter(item => matchingRootIds.has(item.rootSessionId))
-  }, [sortedItems, searchQuery, flatLabels])
+  const searchFilteredItems = useMemo(
+    () => getSearchFilteredSessionItems(orderedItems, searchQuery, flatLabels),
+    [orderedItems, searchQuery, flatLabels]
+  )
 
   const unreadBySessionId = useMemo(() => {
-    const itemsById = new Map(sortedItems.map(item => [item.id, item]))
+    const itemsById = new Map(orderedItems.map(item => [item.id, item]))
     const unreadMap = new Map<string, boolean>()
 
-    for (const item of sortedItems) {
+    for (const item of orderedItems) {
       if (!hasUnreadMessages(item)) {
         continue
       }
@@ -828,7 +836,7 @@ export function SessionList({
     }
 
     return unreadMap
-  }, [sortedItems])
+  }, [orderedItems])
 
   const itemHasUnread = useCallback((item: SessionListItem): boolean => {
     return unreadBySessionId.get(item.id) ?? hasUnreadMessages(item)
@@ -1028,9 +1036,9 @@ export function SessionList({
           <EmptyMedia variant="icon">
             <Inbox />
           </EmptyMedia>
-          <EmptyTitle>No conversations yet</EmptyTitle>
+          <EmptyTitle>No projects yet</EmptyTitle>
           <EmptyDescription>
-            Conversations with your agent appear here. Start one to get going.
+            Agent projects appear here
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
@@ -1044,7 +1052,7 @@ export function SessionList({
             }}
             className="inline-flex items-center h-7 px-3 text-xs font-medium rounded-[8px] bg-background shadow-minimal hover:bg-foreground/[0.03] transition-colors"
           >
-            New Conversation
+            New Project
           </button>
         </EmptyContent>
       </Empty>
@@ -1089,7 +1097,7 @@ export function SessionList({
           {/* No results message when searching */}
           {searchActive && searchQuery && flatItems.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 px-4">
-              <p className="text-sm text-muted-foreground">No conversations found</p>
+              <p className="text-sm text-muted-foreground">No projects found</p>
               <button
                 onClick={() => onSearchChange?.('')}
                 className="text-xs text-foreground hover:underline mt-1"

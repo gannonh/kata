@@ -349,3 +349,67 @@ test('SessionList renders nested label badges without editable popovers', async 
 
   expect(labelValuePopoverPropsHistory).toHaveLength(0)
 })
+
+test('getSearchFilteredSessionItems preserves parent-first tree ordering from projected items', async () => {
+  const { getSearchFilteredSessionItems } = await import('../SessionList')
+
+  const root: SessionListItem = {
+    id: 'root-session',
+    workspaceId: 'workspace-1',
+    name: 'Orchestrator',
+    lastMessageAt: 1,
+    depth: 0,
+    rootSessionId: 'root-session',
+    rootLastMessageAt: 1,
+    treeIndex: 0,
+  }
+
+  const child: SessionListItem = {
+    id: 'child-session',
+    workspaceId: 'workspace-1',
+    name: 'Nested child',
+    lastMessageAt: 10,
+    sessionKind: 'subagent',
+    parentSessionId: 'root-session',
+    depth: 1,
+    rootSessionId: 'root-session',
+    rootLastMessageAt: 10,
+    treeIndex: 1,
+  }
+
+  const filtered = getSearchFilteredSessionItems([root, child], '', [])
+
+  expect(filtered.map(item => item.id)).toEqual(['root-session', 'child-session'])
+})
+
+test('getSearchFilteredSessionItems keeps the orchestrator ahead of a matching subagent', async () => {
+  const { getSearchFilteredSessionItems } = await import('../SessionList')
+
+  const root: SessionListItem = {
+    id: 'root-session',
+    workspaceId: 'workspace-1',
+    name: 'Search workspace and config files',
+    lastMessageAt: 1,
+    depth: 0,
+    rootSessionId: 'root-session',
+    rootLastMessageAt: 10,
+    treeIndex: 0,
+  }
+
+  const child: SessionListItem = {
+    id: 'child-session',
+    workspaceId: 'workspace-1',
+    name: 'Search workspace and config files',
+    lastMessageAt: 10,
+    sessionKind: 'subagent',
+    parentSessionId: 'root-session',
+    depth: 1,
+    rootSessionId: 'root-session',
+    rootLastMessageAt: 10,
+    treeIndex: 1,
+  }
+
+  const filtered = getSearchFilteredSessionItems([root, child], 'config', [])
+
+  expect(filtered.map(item => item.id)).toEqual(['root-session', 'child-session'])
+})

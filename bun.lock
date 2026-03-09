@@ -68,6 +68,7 @@
         "@typescript-eslint/eslint-plugin": "^8.52.0",
         "@typescript-eslint/parser": "^8.52.0",
         "@vitejs/plugin-react": "^5.1.2",
+        "agentation": "^2.3.0",
         "autoprefixer": "^10.4.23",
         "concurrently": "^9.2.1",
         "electron": "^39.2.7",
@@ -1250,6 +1251,8 @@
     "adler-32": ["adler-32@1.3.1", "", {}, "sha512-ynZ4w/nUUv5rrsR8UUGoe1VC9hZj6V5hU9Qw1HlMDJGEJw5S7TfTErWTjMys6M7vr0YWcPqs3qAr4ss0nDfP+A=="],
 
     "agent-base": ["agent-base@7.1.4", "", {}, "sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ=="],
+
+    "agentation": ["agentation@2.3.0", "", { "peerDependencies": { "react": ">=18.0.0", "react-dom": ">=18.0.0" }, "optionalPeers": ["react", "react-dom"] }, "sha512-uGcDel78I5UAVSiWnsNv0pHj+ieuHyZ4GCsL6kqEralKeIW32869JlwfsKoy5S71jseyrI6O5duU+AacJs+CmQ=="],
 
     "ajv": ["ajv@6.12.6", "", { "dependencies": { "fast-deep-equal": "^3.1.1", "fast-json-stable-stringify": "^2.0.0", "json-schema-traverse": "^0.4.1", "uri-js": "^4.2.2" } }, "sha512-j3fVLgvTo527anyYyJOGTYJbG+vnnQYvE0m5mmkc1TK+nxAppkCLMIL0aZ4dblVCNoGShhm+kzE4ZUykBoMg4g=="],
 

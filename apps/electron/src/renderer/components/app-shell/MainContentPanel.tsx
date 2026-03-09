@@ -162,8 +162,8 @@ export function MainContentPanel({
         <div className="flex items-center justify-center h-full text-muted-foreground">
           <p className="text-sm">
             {navState.filter.kind === 'flagged'
-              ? 'No flagged conversations'
-              : 'No conversations yet'}
+              ? 'No flagged projects'
+              : 'No projects yet'}
           </p>
         </div>
       </Panel>
@@ -174,7 +174,7 @@ export function MainContentPanel({
   return wrapWithStoplight(
     <Panel variant="grow" className={className}>
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        <p className="text-sm">Select a conversation to get started</p>
+        <p className="text-sm">Select a project to get started</p>
       </div>
     </Panel>
   )

@@ -103,7 +103,7 @@ export function AppMenu({
           {/* File actions at root level */}
           <StyledDropdownMenuItem onClick={onNewChat}>
             <SquarePenRounded className="h-3.5 w-3.5" />
-            New Chat
+            New Project
             <DropdownMenuShortcut className="pl-6">{modKey}N</DropdownMenuShortcut>
           </StyledDropdownMenuItem>
           {onNewWindow && (

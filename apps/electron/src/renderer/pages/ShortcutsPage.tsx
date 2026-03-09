@@ -31,7 +31,7 @@ const sections: ShortcutSection[] = [
       { keys: [cmdKey, '1'], description: 'Focus sidebar' },
       { keys: [cmdKey, '2'], description: 'Focus session list' },
       { keys: [cmdKey, '3'], description: 'Focus chat input' },
-      { keys: [cmdKey, 'N'], description: 'New chat' },
+      { keys: [cmdKey, 'N'], description: 'New project' },
       { keys: [cmdKey, 'B'], description: 'Toggle sidebar' },
       { keys: [cmdKey, ','], description: 'Open settings' },
       { keys: [cmdKey, '/'], description: 'Show keyboard shortcuts' },
