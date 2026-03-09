@@ -11,7 +11,7 @@ function sortByLastMessageAtDesc<T extends SessionMeta>(sessions: T[]): T[] {
   return [...sessions].sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0))
 }
 
-function resolveParentSessionId(session: SessionMeta): string | undefined {
+export function resolveParentSessionId(session: SessionMeta): string | undefined {
   if (session.parentSessionId) {
     return session.parentSessionId
   }

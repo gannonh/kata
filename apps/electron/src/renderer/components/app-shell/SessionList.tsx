@@ -50,7 +50,8 @@ import { useNavigation, useNavigationState, routes, isChatsNavigation } from "@/
 import { useFocusContext } from "@/context/FocusContext"
 import { getSessionTitle } from "@/utils/session"
 import type { SessionMeta } from "@/atoms/sessions"
-import type { SessionListItem } from "@/lib/session-tree"
+import { resolveParentSessionId, type SessionListItem } from "@/lib/session-tree"
+import type { SubagentStatus } from "@craft-agent/core"
 import type { ViewConfig } from "@craft-agent/shared/views"
 import { PERMISSION_MODE_CONFIG, type PermissionMode } from "@craft-agent/shared/agent/modes"
 
@@ -59,12 +60,12 @@ const INITIAL_DISPLAY_LIMIT = 20
 const BATCH_SIZE = 20
 const INDENT_STEP_PX = 20
 
-/** Sub-agent status → dot color mapping for chip rendering */
-const SUBAGENT_STATUS_COLORS: Record<string, string> = {
-  completed: '#22c55e',
-  running: '#3b82f6',
-  queued: '#71717a',
-  failed: '#f97316',
+/** Sub-agent status → Tailwind bg class for chip status dot */
+const SUBAGENT_STATUS_CLASS: Record<SubagentStatus, string> = {
+  completed: 'bg-green-500',
+  running: 'bg-blue-500',
+  queued: 'bg-zinc-500',
+  failed: 'bg-orange-500',
 }
 
 /** Short relative time locale for date-fns formatDistanceToNowStrict.
@@ -415,8 +416,7 @@ function SessionItem({
               <Spinner className="text-[8px] shrink-0" />
             ) : (
               <span
-                className="shrink-0 w-2 h-2 rounded-full"
-                style={{ backgroundColor: SUBAGENT_STATUS_COLORS[item.subagentStatus ?? ''] ?? '#71717a' }}
+                className={cn("shrink-0 w-2 h-2 rounded-full", SUBAGENT_STATUS_CLASS[item.subagentStatus as SubagentStatus] ?? 'bg-zinc-500')}
               />
             )}
             <span className="text-xs text-foreground/80 truncate">
@@ -901,7 +901,7 @@ export function SessionList({
     const parentIds = new Set<string>()
     for (const item of items) {
       if (item.depth > 0) {
-        const parentId = item.parentSessionId ?? item.delegatedBySessionId ?? item.orchestratorSessionId
+        const parentId = resolveParentSessionId(item)
         if (parentId) parentIds.add(parentId)
       }
     }
@@ -914,13 +914,16 @@ export function SessionList({
   const childCountByParent = useMemo(() => {
     const counts = new Map<string, number>()
     for (const item of items) {
-      const parentId = item.parentSessionId ?? item.delegatedBySessionId ?? item.orchestratorSessionId
+      const parentId = resolveParentSessionId(item)
       if (parentId && item.depth > 0) {
         counts.set(parentId, (counts.get(parentId) ?? 0) + 1)
       }
     }
     return counts
   }, [items])
+
+  // Memoized lookup map for ancestor walks (shared by expandedItems filter and collapse-on-select)
+  const itemsById = useMemo(() => new Map(items.map(i => [i.id, i])), [items])
 
   const toggleParentExpanded = useCallback((parentId: string) => {
     setExpandedParents(prev => {
@@ -936,12 +939,36 @@ export function SessionList({
     })
   }, [])
 
+  // Collapse all parent groups except the selected item's ancestor chain
+  const collapseOtherParents = useCallback((selected: SessionListItem) => {
+    const ancestorIds = new Set<string>()
+    if (childCountByParent.has(selected.id)) {
+      ancestorIds.add(selected.id)
+    }
+    let current: SessionListItem | undefined = selected
+    while (current && current.depth > 0) {
+      const pid = resolveParentSessionId(current)
+      if (!pid) break
+      ancestorIds.add(pid)
+      current = itemsById.get(pid)
+    }
+    for (const [parentId] of childCountByParent) {
+      if (!ancestorIds.has(parentId)) {
+        manuallyCollapsedRef.current.add(parentId)
+      }
+    }
+    for (const id of ancestorIds) {
+      manuallyCollapsedRef.current.delete(id)
+    }
+    setExpandedParents(ancestorIds)
+  }, [childCountByParent, itemsById])
+
   // Auto-expand newly appearing orchestrator parents (skip manually collapsed ones)
   useEffect(() => {
     const currentParentIds = new Set<string>()
     for (const item of items) {
       if (item.depth > 0) {
-        const parentId = item.parentSessionId ?? item.delegatedBySessionId ?? item.orchestratorSessionId
+        const parentId = resolveParentSessionId(item)
         if (parentId) currentParentIds.add(parentId)
       }
     }
@@ -1021,20 +1048,19 @@ export function SessionList({
       return searchFilteredItems
     }
 
-    const itemsById = new Map(searchFilteredItems.map(i => [i.id, i]))
     return searchFilteredItems.filter(item => {
       if (item.depth === 0) return true
       // Walk up the full ancestor chain; hide if any ancestor is collapsed
       let current: typeof item | undefined = item
       while (current && current.depth > 0) {
-        const parentId = current.parentSessionId ?? current.delegatedBySessionId ?? current.orchestratorSessionId
+        const parentId = resolveParentSessionId(current)
         if (!parentId) break
         if (!expandedParents.has(parentId)) return false
         current = itemsById.get(parentId)
       }
       return true
     })
-  }, [searchFilteredItems, expandedParents, searchQuery])
+  }, [searchFilteredItems, expandedParents, searchQuery, itemsById])
 
   // Reset display limit when search query changes
   useEffect(() => {
@@ -1334,31 +1360,7 @@ export function SessionList({
                       } else if (currentFilter.kind === 'state') {
                         navigate(routes.view.state(currentFilter.stateId, item.id))
                       }
-                      // Build full ancestor chain so nested children stay visible
-                      const ancestorIds = new Set<string>()
-                      // If selected item is itself a parent, keep it expanded
-                      if (childCountByParent.has(item.id)) {
-                        ancestorIds.add(item.id)
-                      }
-                      // Walk up the ancestor chain
-                      const itemsById = new Map(items.map(i => [i.id, i]))
-                      let current: typeof item | undefined = item
-                      while (current && current.depth > 0) {
-                        const pid = current.parentSessionId ?? current.delegatedBySessionId ?? current.orchestratorSessionId
-                        if (!pid) break
-                        ancestorIds.add(pid)
-                        current = itemsById.get(pid)
-                      }
-                      // Mark all non-ancestor parents as manually collapsed
-                      for (const [parentId] of childCountByParent) {
-                        if (!ancestorIds.has(parentId)) {
-                          manuallyCollapsedRef.current.add(parentId)
-                        }
-                      }
-                      for (const id of ancestorIds) {
-                        manuallyCollapsedRef.current.delete(id)
-                      }
-                      setExpandedParents(ancestorIds)
+                      collapseOtherParents(item)
                       // Notify parent
                       onSessionSelect?.(item)
                     }}
