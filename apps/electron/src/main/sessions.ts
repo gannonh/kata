@@ -1779,14 +1779,14 @@ export class SessionManager {
     const defaultModel = wsConfig?.defaults?.model
 
     // Resolve working directory from options:
-    // - 'user_default' or undefined: Use workspace's configured default
+    // - 'user_default' or undefined: Use workspace's configured default, fall back to workspace rootPath
     // - 'none': No working directory (empty string means session folder only)
     // - Absolute path: Use as-is
     let resolvedWorkingDir: string | undefined
     if (options?.workingDirectory === 'none') {
       resolvedWorkingDir = undefined  // No working directory
     } else if (options?.workingDirectory === 'user_default' || options?.workingDirectory === undefined) {
-      resolvedWorkingDir = userDefaultWorkingDir
+      resolvedWorkingDir = userDefaultWorkingDir ?? workspaceRootPath
     } else {
       resolvedWorkingDir = options.workingDirectory
     }
