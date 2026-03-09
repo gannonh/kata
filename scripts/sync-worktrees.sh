@@ -12,29 +12,35 @@ STANDBY_PATHS=()
 STANDBY_BRANCHES=()
 record_worktree=""
 record_branch=""
-while IFS= read -r line || [ -n "$line" ]; do
-  if [ -z "$line" ]; then
-    if [ -n "$record_worktree" ]; then
-      if [ "$record_branch" = "main" ] && [ -z "$MAIN_DIR" ]; then
-        MAIN_DIR="$record_worktree"
-      fi
-      case "$record_branch" in
-        wt-*-standby)
-          STANDBY_PATHS+=("$record_worktree")
-          STANDBY_BRANCHES+=("$record_branch")
-          ;;
-      esac
+
+flush_record() {
+  if [ -n "$record_worktree" ]; then
+    if [ -z "$MAIN_DIR" ]; then
+      MAIN_DIR="$record_worktree"
     fi
-    record_worktree=""
-    record_branch=""
+    case "$record_branch" in
+      wt-*-standby)
+        STANDBY_PATHS+=("$record_worktree")
+        STANDBY_BRANCHES+=("$record_branch")
+        ;;
+    esac
+  fi
+  record_worktree=""
+  record_branch=""
+}
+
+while IFS= read -r line; do
+  if [ -z "$line" ]; then
+    flush_record
     continue
   fi
-
   case "$line" in
     worktree\ *) record_worktree="${line#worktree }" ;;
     branch\ refs/heads/*) record_branch="${line#branch refs/heads/}" ;;
   esac
-done < <(git -C "$REPO_DIR" worktree list --porcelain; echo "")
+done < <(git -C "$REPO_DIR" worktree list --porcelain)
+flush_record  # flush final record (porcelain output may not end with blank line)
+
 [ -n "$MAIN_DIR" ] || die "could not detect worktree path for branch 'main'"
 [ "${#STANDBY_PATHS[@]}" -gt 0 ] || die "no standby worktrees found (expected branches named wt-*-standby)"
 
