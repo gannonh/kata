@@ -368,6 +368,47 @@ function SessionItem({
     </div>
   )
 
+  // Sub-agent chip: compact pill with colored status dot + name (no menu, no todo icon)
+  if (isNestedChild) {
+    return (
+      <div
+        className="session-item"
+        data-selected={isSelected || undefined}
+        data-testid="session-list-item"
+        data-session-id={item.id}
+        data-session-kind="subagent"
+        data-session-depth={item.depth}
+      >
+        <div className="pl-2 mr-2" style={{ paddingLeft: 8 + indentPx }}>
+          <button
+            {...itemProps}
+            data-testid="session-list-item-button"
+            data-session-id={item.id}
+            className={cn(
+              "flex items-center gap-2 rounded-md px-2 py-1 w-full text-left outline-none cursor-pointer",
+              "transition-[background-color] duration-75",
+              isSelected ? "bg-foreground/7" : "hover:bg-foreground/3"
+            )}
+            style={{ marginLeft: 28, backgroundColor: !isSelected ? 'rgba(39, 39, 42, 0.5)' : undefined }}
+            onMouseDown={handleClick}
+            onKeyDown={(e) => {
+              itemProps.onKeyDown(e)
+              onKeyDown(e, item)
+            }}
+          >
+            <span
+              className="shrink-0 w-2 h-2 rounded-full"
+              style={{ backgroundColor: SUBAGENT_STATUS_COLORS[item.subagentStatus ?? ''] ?? '#71717a' }}
+            />
+            <span className="text-xs text-foreground/80 truncate">
+              {searchQuery ? highlightMatch(getSessionTitle(item), searchQuery) : getSessionTitle(item)}
+            </span>
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       className="session-item"
@@ -481,6 +522,14 @@ function SessionItem({
                 </span>
               )}
 
+              {childCount > 0 && (
+                <>
+                  <span className="shrink-0 text-foreground/50">
+                    {childCount} sub-agent{childCount !== 1 ? 's' : ''}
+                  </span>
+                  <span className="shrink-0 text-foreground/30">&middot;</span>
+                </>
+              )}
               {/* Scrollable badges container — horizontal scroll with hidden scrollbar,
                   right-edge gradient mask to hint at overflow */}
               <div
@@ -629,6 +678,24 @@ function SessionItem({
                     {formatDistanceToNow(new Date(item.lastMessageAt), { addSuffix: true })}
                   </TooltipContent>
                 </Tooltip>
+              )}
+              {childCount > 0 && (
+                <div
+                  className="shrink-0 flex items-center gap-0.5 text-foreground/40 hover:text-foreground/60 cursor-pointer ml-1"
+                  role="button"
+                  aria-label={isExpanded ? 'Collapse sub-agents' : 'Expand sub-agents'}
+                  onMouseDown={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    onToggleExpanded()
+                  }}
+                >
+                  <span className="text-[11px]">{childCount}</span>
+                  {isExpanded
+                    ? <ChevronUp className="w-3 h-3" />
+                    : <ChevronDown className="w-3 h-3" />
+                  }
+                </div>
               )}
             </div>
           </div>
