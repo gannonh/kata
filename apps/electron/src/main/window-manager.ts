@@ -134,8 +134,11 @@ export class WindowManager {
     })
 
     // Show window when first paint is ready (faster perceived startup)
+    // In test mode, keep the window hidden so e2e tests don't steal focus
     window.once('ready-to-show', () => {
-      window.show()
+      if (process.env.KATA_TEST_MODE !== '1') {
+        window.show()
+      }
     })
 
     // Open external links in default browser

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { formatDistanceToNow, formatDistanceToNowStrict, isToday, isYesterday, format, startOfDay } from "date-fns"
 import type { Locale } from "date-fns"
-import { MoreHorizontal, Flag, Search, X, Copy, Link2Off, CloudUpload, Globe, RefreshCw, Inbox, Hash, MessageCircle, Radio, CornerDownRight } from "lucide-react"
+import { MoreHorizontal, Flag, Search, X, Copy, Link2Off, CloudUpload, Globe, RefreshCw, Inbox, Hash, MessageCircle, Radio, CornerDownRight, ChevronDown, ChevronUp } from "lucide-react"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
@@ -50,7 +50,8 @@ import { useNavigation, useNavigationState, routes, isChatsNavigation } from "@/
 import { useFocusContext } from "@/context/FocusContext"
 import { getSessionTitle } from "@/utils/session"
 import type { SessionMeta } from "@/atoms/sessions"
-import type { SessionListItem } from "@/lib/session-tree"
+import { resolveParentSessionId, type SessionListItem } from "@/lib/session-tree"
+import type { SubagentStatus } from "@craft-agent/core"
 import type { ViewConfig } from "@craft-agent/shared/views"
 import { PERMISSION_MODE_CONFIG, type PermissionMode } from "@craft-agent/shared/agent/modes"
 
@@ -58,6 +59,14 @@ import { PERMISSION_MODE_CONFIG, type PermissionMode } from "@craft-agent/shared
 const INITIAL_DISPLAY_LIMIT = 20
 const BATCH_SIZE = 20
 const INDENT_STEP_PX = 20
+
+/** Sub-agent status → Tailwind bg class for chip status dot */
+const SUBAGENT_STATUS_CLASS: Record<SubagentStatus, string> = {
+  completed: 'bg-green-500',
+  running: 'bg-blue-500',
+  queued: 'bg-zinc-500',
+  failed: 'bg-orange-500',
+}
 
 /** Short relative time locale for date-fns formatDistanceToNowStrict.
  *  Produces compact strings: "7m", "2h", "3d", "2w", "5mo", "1y" */
@@ -232,6 +241,14 @@ interface SessionItemProps {
   labels: LabelConfig[]
   /** Callback when session labels are toggled */
   onLabelsChange?: (sessionId: string, labels: string[]) => void
+  /** Number of sub-agent children (0 = no children) */
+  childCount: number
+  /** Whether this parent's children are expanded */
+  isExpanded: boolean
+  /** Toggle expand/collapse for this parent */
+  onToggleExpanded: () => void
+  /** Whether this is the last child in its parent's group */
+  isLastChild: boolean
 }
 
 /** Channel adapter icon mapping */
@@ -272,6 +289,10 @@ function SessionItem({
   flatLabels,
   labels,
   onLabelsChange,
+  childCount,
+  isExpanded,
+  onToggleExpanded,
+  isLastChild,
 }: SessionItemProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [contextMenuOpen, setContextMenuOpen] = useState(false)
@@ -351,6 +372,62 @@ function SessionItem({
     </div>
   )
 
+  // Sub-agent chip: vertical stem + horizontal branch + status dot + name
+  if (isNestedChild) {
+    const isRunning = item.subagentStatus === 'running' || item.isProcessing
+    const stemLeft = 36 + indentPx
+    return (
+      <div
+        className="session-item relative"
+        data-selected={isSelected || undefined}
+        data-testid="session-list-item"
+        data-session-id={item.id}
+        data-session-kind="subagent"
+        data-session-depth={item.depth}
+      >
+        {/* Vertical stem — runs full height, clipped at center for last child */}
+        <div
+          className="absolute w-px bg-foreground/10"
+          style={{ left: stemLeft, top: 0, bottom: isLastChild ? '50%' : 0 }}
+        />
+        {/* Horizontal branch — from stem to chip */}
+        <div
+          className="absolute h-px bg-foreground/10"
+          style={{ left: stemLeft, top: '50%', width: 12 }}
+        />
+        <div className="mr-2 overflow-hidden" style={{ paddingLeft: stemLeft + 16, paddingTop: 2, paddingBottom: 2 }}>
+          <button
+            {...itemProps}
+            data-testid="session-list-item-button"
+            data-session-id={item.id}
+            className={cn(
+              "flex items-center gap-2 rounded-md px-2 py-1 mr-2 w-full text-left outline-none cursor-pointer",
+              "transition-[background-color] duration-75",
+              isSelected ? "bg-foreground/7" : "bg-foreground/[0.03] hover:bg-foreground/5"
+            )}
+            onMouseDown={handleClick}
+            onKeyDown={(e) => {
+              itemProps.onKeyDown(e)
+              onKeyDown(e, item)
+            }}
+          >
+            {/* Status dot or spinner for running */}
+            {isRunning ? (
+              <Spinner className="text-[8px] shrink-0" />
+            ) : (
+              <span
+                className={cn("shrink-0 w-2 h-2 rounded-full", SUBAGENT_STATUS_CLASS[item.subagentStatus as SubagentStatus] ?? 'bg-zinc-500')}
+              />
+            )}
+            <span className="text-xs text-foreground/80 truncate">
+              {searchQuery ? highlightMatch(getSessionTitle(item), searchQuery) : getSessionTitle(item)}
+            </span>
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       className="session-item"
@@ -362,7 +439,7 @@ function SessionItem({
     >
       {/* Separator - only show if not first in group */}
       {!isFirstInGroup && (
-        <div className="session-separator pr-4" style={{ paddingLeft: (isNestedChild ? 36 : 48) + indentPx }}>
+        <div className="session-separator">
           <Separator />
         </div>
       )}
@@ -429,7 +506,7 @@ function SessionItem({
             "transition-[background-color] duration-75",
             isNestedChild ? "pt-1.5 pb-2.5 text-xs" : "py-3 text-sm",
             isSelected
-              ? "bg-foreground/5 hover:bg-foreground/7"
+              ? childCount > 0 ? "bg-foreground/[0.02]" : "bg-foreground/5 hover:bg-foreground/7"
               : "hover:bg-foreground/2"
           )}
           onMouseDown={handleClick}
@@ -464,6 +541,14 @@ function SessionItem({
                 </span>
               )}
 
+              {childCount > 0 && (
+                <>
+                  <span className="shrink-0 text-foreground/50">
+                    {childCount} sub-agent{childCount !== 1 ? 's' : ''}
+                  </span>
+                  <span className="shrink-0 text-foreground/30">&middot;</span>
+                </>
+              )}
               {/* Scrollable badges container — horizontal scroll with hidden scrollbar,
                   right-edge gradient mask to hint at overflow */}
               <div
@@ -612,6 +697,23 @@ function SessionItem({
                     {formatDistanceToNow(new Date(item.lastMessageAt), { addSuffix: true })}
                   </TooltipContent>
                 </Tooltip>
+              )}
+              {childCount > 0 && (
+                <span
+                  className="shrink-0 flex items-center gap-0.5 text-foreground/40 hover:text-foreground/60 cursor-pointer ml-1"
+                  aria-label={isExpanded ? 'Collapse sub-agents' : 'Expand sub-agents'}
+                  onMouseDown={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    onToggleExpanded()
+                  }}
+                >
+                  <span className="text-[11px]">{childCount}</span>
+                  {isExpanded
+                    ? <ChevronUp className="w-3 h-3" />
+                    : <ChevronDown className="w-3 h-3" />
+                  }
+                </span>
               )}
             </div>
           </div>
@@ -792,6 +894,103 @@ export function SessionList({
   const [renameSessionId, setRenameSessionId] = useState<string | null>(null)
   const [renameName, setRenameName] = useState("")
   const [displayLimit, setDisplayLimit] = useState(INITIAL_DISPLAY_LIMIT)
+
+  // Collapse/expand state for orchestrator parents — tracks which are expanded
+  // Default: all parents start expanded
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(() => {
+    const parentIds = new Set<string>()
+    for (const item of items) {
+      if (item.depth > 0) {
+        const parentId = resolveParentSessionId(item)
+        if (parentId) parentIds.add(parentId)
+      }
+    }
+    return parentIds
+  })
+  // Track parents explicitly collapsed by user so auto-expand doesn't override
+  const manuallyCollapsedRef = useRef<Set<string>>(new Set())
+
+  // Compute child count per parent for badge display
+  const childCountByParent = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const item of items) {
+      const parentId = resolveParentSessionId(item)
+      if (parentId && item.depth > 0) {
+        counts.set(parentId, (counts.get(parentId) ?? 0) + 1)
+      }
+    }
+    return counts
+  }, [items])
+
+  // Memoized lookup map for ancestor walks (shared by expandedItems filter and collapse-on-select)
+  const itemsById = useMemo(() => new Map(items.map(i => [i.id, i])), [items])
+
+  const toggleParentExpanded = useCallback((parentId: string) => {
+    setExpandedParents(prev => {
+      const next = new Set(prev)
+      if (next.has(parentId)) {
+        next.delete(parentId)
+        manuallyCollapsedRef.current.add(parentId)
+      } else {
+        next.add(parentId)
+        manuallyCollapsedRef.current.delete(parentId)
+      }
+      return next
+    })
+  }, [])
+
+  // Collapse all parent groups except the selected item's ancestor chain
+  const collapseOtherParents = useCallback((selected: SessionListItem) => {
+    const ancestorIds = new Set<string>()
+    if (childCountByParent.has(selected.id)) {
+      ancestorIds.add(selected.id)
+    }
+    let current: SessionListItem | undefined = selected
+    while (current && current.depth > 0) {
+      const pid = resolveParentSessionId(current)
+      if (!pid) break
+      ancestorIds.add(pid)
+      current = itemsById.get(pid)
+    }
+    for (const [parentId] of childCountByParent) {
+      if (!ancestorIds.has(parentId)) {
+        manuallyCollapsedRef.current.add(parentId)
+      }
+    }
+    for (const id of ancestorIds) {
+      manuallyCollapsedRef.current.delete(id)
+    }
+    setExpandedParents(ancestorIds)
+  }, [childCountByParent, itemsById])
+
+  // Auto-expand newly appearing orchestrator parents (skip manually collapsed ones)
+  useEffect(() => {
+    const currentParentIds = new Set<string>()
+    for (const item of items) {
+      if (item.depth > 0) {
+        const parentId = resolveParentSessionId(item)
+        if (parentId) currentParentIds.add(parentId)
+      }
+    }
+    // Prune stale IDs from manuallyCollapsedRef that no longer exist as parents
+    for (const id of manuallyCollapsedRef.current) {
+      if (!currentParentIds.has(id)) {
+        manuallyCollapsedRef.current.delete(id)
+      }
+    }
+    setExpandedParents(prev => {
+      let changed = false
+      const next = new Set(prev)
+      for (const id of currentParentIds) {
+        if (!next.has(id) && !manuallyCollapsedRef.current.has(id)) {
+          next.add(id)
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [items])
+
   const searchInputRef = useRef<HTMLInputElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
 
@@ -842,6 +1041,27 @@ export function SessionList({
     return unreadBySessionId.get(item.id) ?? hasUnreadMessages(item)
   }, [unreadBySessionId])
 
+  // Filter out children of collapsed parents (check full ancestor chain)
+  // During active search, bypass collapse filtering so matching children are always visible
+  const expandedItems = useMemo(() => {
+    if (searchQuery.trim()) {
+      return searchFilteredItems
+    }
+
+    return searchFilteredItems.filter(item => {
+      if (item.depth === 0) return true
+      // Walk up the full ancestor chain; hide if any ancestor is collapsed
+      let current: typeof item | undefined = item
+      while (current && current.depth > 0) {
+        const parentId = resolveParentSessionId(current)
+        if (!parentId) break
+        if (!expandedParents.has(parentId)) return false
+        current = itemsById.get(parentId)
+      }
+      return true
+    })
+  }, [searchFilteredItems, expandedParents, searchQuery, itemsById])
+
   // Reset display limit when search query changes
   useEffect(() => {
     setDisplayLimit(INITIAL_DISPLAY_LIMIT)
@@ -849,16 +1069,16 @@ export function SessionList({
 
   // Paginate items - only show up to displayLimit
   const paginatedItems = useMemo(() => {
-    return searchFilteredItems.slice(0, displayLimit)
-  }, [searchFilteredItems, displayLimit])
+    return expandedItems.slice(0, displayLimit)
+  }, [expandedItems, displayLimit])
 
   // Check if there are more items to load
-  const hasMore = displayLimit < searchFilteredItems.length
+  const hasMore = displayLimit < expandedItems.length
 
   // Load more items callback
   const loadMore = useCallback(() => {
-    setDisplayLimit(prev => Math.min(prev + BATCH_SIZE, searchFilteredItems.length))
-  }, [searchFilteredItems.length])
+    setDisplayLimit(prev => Math.min(prev + BATCH_SIZE, expandedItems.length))
+  }, [expandedItems.length])
 
   // Intersection observer for infinite scroll
   useEffect(() => {
@@ -1140,6 +1360,7 @@ export function SessionList({
                       } else if (currentFilter.kind === 'state') {
                         navigate(routes.view.state(currentFilter.stateId, item.id))
                       }
+                      collapseOtherParents(item)
                       // Notify parent
                       onSessionSelect?.(item)
                     }}
@@ -1151,6 +1372,13 @@ export function SessionList({
                     flatLabels={flatLabels}
                     labels={labels}
                     onLabelsChange={onLabelsChange}
+                    childCount={childCountByParent.get(item.id) ?? 0}
+                    isExpanded={expandedParents.has(item.id)}
+                    onToggleExpanded={() => toggleParentExpanded(item.id)}
+                    isLastChild={item.depth > 0 && (
+                      indexInGroup === group.sessions.length - 1 ||
+                      group.sessions[indexInGroup + 1]?.depth === 0
+                    )}
                   />
                 )
               })}

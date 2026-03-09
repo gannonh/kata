@@ -919,14 +919,14 @@ export class SessionManager {
         }
 
         // Todo state
-        if (managed.todoState !== header.todoState) {
+        if (managed.todoState !== header.todoState && header.todoState != null) {
           managed.todoState = header.todoState
           this.sendEvent({ type: 'todo_state_changed', sessionId, todoState: header.todoState }, managed.workspace.id)
           changed = true
         }
 
         // Name
-        if (managed.name !== header.name) {
+        if (managed.name !== header.name && header.name != null) {
           managed.name = header.name
           this.sendEvent({ type: 'name_changed', sessionId, name: header.name }, managed.workspace.id)
           changed = true
@@ -1177,6 +1177,7 @@ export class SessionManager {
 
       // Iterate over each workspace and load its sessions
       for (const workspace of workspaces) {
+        try {
         const workspaceRootPath = workspace.rootPath
         const sessionMetadata = listStoredSessions(workspaceRootPath)
         // Load workspace config once per workspace for default working directory
@@ -1227,6 +1228,9 @@ export class SessionManager {
 
           this.sessions.set(meta.id, managed)
           totalSessions++
+        }
+        } catch (wsError) {
+          sessionLog.error(`Failed to load sessions for workspace "${workspace.name}" (${workspace.rootPath}):`, wsError)
         }
       }
 
@@ -1779,14 +1783,14 @@ export class SessionManager {
     const defaultModel = wsConfig?.defaults?.model
 
     // Resolve working directory from options:
-    // - 'user_default' or undefined: Use workspace's configured default
+    // - 'user_default' or undefined: Use workspace's configured default, fall back to workspace rootPath
     // - 'none': No working directory (empty string means session folder only)
     // - Absolute path: Use as-is
     let resolvedWorkingDir: string | undefined
     if (options?.workingDirectory === 'none') {
       resolvedWorkingDir = undefined  // No working directory
     } else if (options?.workingDirectory === 'user_default' || options?.workingDirectory === undefined) {
-      resolvedWorkingDir = userDefaultWorkingDir
+      resolvedWorkingDir = userDefaultWorkingDir ?? workspaceRootPath
     } else {
       resolvedWorkingDir = options.workingDirectory
     }

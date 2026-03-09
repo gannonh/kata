@@ -6,8 +6,9 @@ const labelValuePopoverPropsHistory: any[] = []
 let mockFlatLabels: Array<{ id: string; name: string; valueType?: string }> = []
 
 mock.module('react', () => ({
-  useState<T>(initial: T) {
-    return [initial, () => {}] as const
+  useState<T>(initial: T | (() => T)) {
+    const value = typeof initial === 'function' ? (initial as () => T)() : initial
+    return [value, () => {}] as const
   },
   useCallback<T>(fn: T) {
     return fn
@@ -87,6 +88,8 @@ mock.module('lucide-react', () => ({
   MessageCircle() { return null },
   Radio() { return null },
   CornerDownRight() { return null },
+  ChevronDown() { return null },
+  ChevronUp() { return null },
 }))
 
 mock.module('sonner', () => ({
@@ -316,6 +319,8 @@ test('SessionList renders top-level unread sessions without crashing', async () 
       items: [item],
       onDelete: async () => true,
       onMarkUnread() {},
+      onTodoStateChange() {},
+      onRename() {},
     })
   ).not.toThrow()
 })
@@ -344,6 +349,8 @@ test('SessionList renders nested label badges without editable popovers', async 
     items: [nestedItem],
     onDelete: async () => true,
     onMarkUnread() {},
+    onTodoStateChange() {},
+    onRename() {},
     onLabelsChange() {},
   })
 
@@ -412,4 +419,84 @@ test('getSearchFilteredSessionItems keeps the orchestrator ahead of a matching s
   const filtered = getSearchFilteredSessionItems([root, child], 'config', [])
 
   expect(filtered.map(item => item.id)).toEqual(['root-session', 'child-session'])
+})
+
+test('SessionList renders subagent children as chips with status dot', async () => {
+  const { SessionList } = await import('../SessionList')
+
+  const parent: SessionListItem = {
+    id: 'parent-session',
+    workspaceId: 'workspace-1',
+    name: 'Orchestrator',
+    lastMessageAt: 1,
+    sessionKind: 'orchestrator',
+    depth: 0,
+    rootSessionId: 'parent-session',
+    rootLastMessageAt: 1,
+    treeIndex: 0,
+  }
+
+  const child: SessionListItem = {
+    id: 'child-session',
+    workspaceId: 'workspace-1',
+    name: 'Search files',
+    lastMessageAt: 1,
+    sessionKind: 'subagent',
+    parentSessionId: 'parent-session',
+    subagentStatus: 'completed',
+    depth: 1,
+    rootSessionId: 'parent-session',
+    rootLastMessageAt: 1,
+    treeIndex: 1,
+  }
+
+  expect(() =>
+    SessionList({
+      items: [parent, child],
+      onDelete: async () => true,
+      onMarkUnread() {},
+      onTodoStateChange() {},
+      onRename() {},
+    })
+  ).not.toThrow()
+})
+
+test('SessionList renders orchestrator parent with child count', async () => {
+  const { SessionList } = await import('../SessionList')
+
+  const parent: SessionListItem = {
+    id: 'parent-session',
+    workspaceId: 'workspace-1',
+    name: 'Orchestrator',
+    lastMessageAt: 1,
+    sessionKind: 'orchestrator',
+    depth: 0,
+    rootSessionId: 'parent-session',
+    rootLastMessageAt: 1,
+    treeIndex: 0,
+  }
+
+  const children: SessionListItem[] = [1, 2, 3].map((i) => ({
+    id: `child-${i}`,
+    workspaceId: 'workspace-1',
+    name: `Sub-agent ${i}`,
+    lastMessageAt: 1,
+    sessionKind: 'subagent' as const,
+    parentSessionId: 'parent-session',
+    subagentStatus: 'running' as const,
+    depth: 1,
+    rootSessionId: 'parent-session',
+    rootLastMessageAt: 1,
+    treeIndex: i,
+  }))
+
+  expect(() =>
+    SessionList({
+      items: [parent, ...children],
+      onDelete: async () => true,
+      onMarkUnread() {},
+      onTodoStateChange() {},
+      onRename() {},
+    })
+  ).not.toThrow()
 })

@@ -149,7 +149,7 @@ import type { Session, Message, AgentEvent } from '@craft-agent/core';
 - Environment variables for OAuth are loaded from `.env` at build time via esbuild `--define`
 - Debug logging writes to `~/Library/Logs/@craft-agent/electron/` on macOS
 - Sessions are persisted as JSONL files in workspace directories
-- MCP servers can be stdio-based (local subprocess) or SSE-based (remote)
+- MCP servers can be stdio-based (local subprocess) or http/sse-based (remote)
 - To reset window state (useful when debugging session display issues): `rm ~/.kata-agents/window-state.json`
 
 ## Electron UAT Notes
@@ -164,3 +164,22 @@ import type { Session, Message, AgentEvent } from '@craft-agent/core';
 ## e2e Testing
 
 `apps/electron/e2e/README.md`
+
+## Project Management with Linear
+
+- **Project:** Kata Cloud Agents
+- **Project URL:** <https://linear.app/kata-sh/project/kata-cloud-agents-b0f5a7be6537>
+- **Team:** Kata-sh (ID: `a47bcacd-54f3-4472-a4b4-d6933248b605`)
+- **Issue prefix:** KAT
+
+### Linear MCP Usage
+
+Use the `save_issue` tool for both creating and updating issues. When creating, `title` and `team` are required.
+
+**Common pitfalls:**
+
+- Always use `team: "Kata-sh"` (not "Kata"). Call `list_teams` first if unsure.
+- The `labels` parameter on `save_issue` can cause validation errors. Apply labels after creation using a separate `save_issue` update call with the issue `id`.
+- Use `state` values like `Backlog`, `Todo`, `In Progress`, `Done`. Call `list_issue_statuses` to confirm available states.
+- When fetching issues, always pass `includeRelations: true` to `get_issue` to see blocking dependencies.
+- The `project` parameter accepts name, ID, or slug. Use the name `"Kata Agents"` for this project.

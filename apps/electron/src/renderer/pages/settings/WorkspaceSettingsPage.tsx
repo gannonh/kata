@@ -597,7 +597,7 @@ export default function WorkspaceSettingsPage() {
                   <SettingsRow
                     label="Default Working Directory"
                     description={
-                      workingDirectory || "Not set (uses session folder)"
+                      workingDirectory || "Not set (uses workspace folder)"
                     }
                     action={
                       <div className="flex items-center gap-2">
