@@ -800,6 +800,65 @@ export function SessionList({
   const [renameSessionId, setRenameSessionId] = useState<string | null>(null)
   const [renameName, setRenameName] = useState("")
   const [displayLimit, setDisplayLimit] = useState(INITIAL_DISPLAY_LIMIT)
+
+  // Collapse/expand state for orchestrator parents — tracks which are expanded
+  // Default: all parents start expanded
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(() => {
+    const parentIds = new Set<string>()
+    for (const item of items) {
+      if (item.depth > 0 && item.rootSessionId) {
+        parentIds.add(item.rootSessionId)
+      }
+    }
+    return parentIds
+  })
+
+  // Compute child count per parent for badge display
+  const childCountByParent = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const item of items) {
+      const parentId = item.parentSessionId ?? item.delegatedBySessionId ?? item.orchestratorSessionId
+      if (parentId && item.depth > 0) {
+        counts.set(parentId, (counts.get(parentId) ?? 0) + 1)
+      }
+    }
+    return counts
+  }, [items])
+
+  const toggleParentExpanded = useCallback((parentId: string) => {
+    setExpandedParents(prev => {
+      const next = new Set(prev)
+      if (next.has(parentId)) {
+        next.delete(parentId)
+      } else {
+        next.add(parentId)
+      }
+      return next
+    })
+  }, [])
+
+  // Auto-expand newly appearing orchestrator parents
+  useEffect(() => {
+    const currentParentIds = new Set<string>()
+    for (const item of items) {
+      if (item.depth > 0) {
+        const parentId = item.parentSessionId ?? item.delegatedBySessionId ?? item.orchestratorSessionId
+        if (parentId) currentParentIds.add(parentId)
+      }
+    }
+    setExpandedParents(prev => {
+      let changed = false
+      const next = new Set(prev)
+      for (const id of currentParentIds) {
+        if (!next.has(id)) {
+          next.add(id)
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [items])
+
   const searchInputRef = useRef<HTMLInputElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
 
