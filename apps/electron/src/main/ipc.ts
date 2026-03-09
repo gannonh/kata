@@ -247,6 +247,16 @@ export function registerIpcHandlers(sessionManager: SessionManager, windowManage
   ipcMain.handle(IPC_CHANNELS.CREATE_WORKSPACE, async (_event, folderPath: string, name: string) => {
     const rootPath = folderPath
     const workspace = addWorkspace({ name, rootPath })
+    // Set default working directory to the workspace root so agents always have a sensible cwd
+    const { loadWorkspaceConfig, saveWorkspaceConfig } = await import('@craft-agent/shared/workspaces')
+    const config = loadWorkspaceConfig(rootPath)
+    if (config) {
+      config.defaults = config.defaults || {}
+      if (!config.defaults.workingDirectory) {
+        config.defaults.workingDirectory = rootPath
+        saveWorkspaceConfig(rootPath, config)
+      }
+    }
     // Make it active
     setActiveWorkspace(workspace.id)
     ipcLog.info(`Created workspace "${name}" at ${rootPath}`)

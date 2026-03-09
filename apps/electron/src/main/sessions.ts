@@ -1177,6 +1177,7 @@ export class SessionManager {
 
       // Iterate over each workspace and load its sessions
       for (const workspace of workspaces) {
+        try {
         const workspaceRootPath = workspace.rootPath
         const sessionMetadata = listStoredSessions(workspaceRootPath)
         // Load workspace config once per workspace for default working directory
@@ -1227,6 +1228,9 @@ export class SessionManager {
 
           this.sessions.set(meta.id, managed)
           totalSessions++
+        }
+        } catch (wsError) {
+          sessionLog.error(`Failed to load sessions for workspace "${workspace.name}" (${workspace.rootPath}):`, wsError)
         }
       }
 
