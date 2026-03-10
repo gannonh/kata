@@ -366,7 +366,9 @@ function getTemplatesDir(): string {
 function getCraftAssistantPrompt(workspaceRootPath?: string): string {
   const workspacePath = workspaceRootPath || `${APP_ROOT}/workspaces/{id}`;
   const pathParts = workspacePath.split('/');
-  const workspaceId = pathParts[pathParts.length - 1] || '{workspaceId}';
+  const dirName = pathParts[pathParts.length - 1] || '{workspaceId}';
+  // Plugin name must match what ensurePluginManifest writes to plugin.json
+  const workspaceId = `craft-workspace-${dirName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
   const environmentMarker = getCraftAgentEnvironmentMarker();
 
