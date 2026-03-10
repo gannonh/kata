@@ -19,9 +19,9 @@
 
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
-import { existsSync, readFileSync, statSync } from 'fs';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { basename, join } from 'path';
-import { getSessionPlansPath } from '../sessions/storage.ts';
+import { getSessionPlansPath, getSessionPath } from '../sessions/storage.ts';
 import { debug } from '../utils/debug.ts';
 import { getCredentialManager } from '../credentials/index.ts';
 import {
@@ -343,6 +343,35 @@ Brief description of what this plan accomplishes.
         isError: false,
       };
     }
+  );
+}
+
+// ============================================================
+// Save Spec Tool
+// ============================================================
+
+/**
+ * Create the save_spec tool for persisting project specifications.
+ * Saves the spec as a markdown file in the session directory.
+ */
+export function createSaveSpecTool(sessionPath: string) {
+  return tool(
+    'save_spec',
+    'Save the project specification as a durable markdown file in the session directory. Call this after outputting the spec in chat to persist it as a reusable artifact.',
+    {
+      content: z.string().describe('The full spec content in markdown format'),
+    },
+    async (args) => {
+      const specPath = join(sessionPath, 'spec.md');
+      writeFileSync(specPath, args.content, 'utf-8');
+      debug('[save_spec] Spec saved to:', specPath);
+      return {
+        content: [{
+          type: 'text' as const,
+          text: `Spec saved to ${specPath}`,
+        }],
+      };
+    },
   );
 }
 
@@ -2016,6 +2045,7 @@ export function getSessionScopedTools(sessionId: string, workspaceRootPath: stri
       version: '1.0.0',
       tools: [
         createSubmitPlanTool(sessionId),
+        createSaveSpecTool(getSessionPath(workspaceRootPath, sessionId)),
         // Config validation tool
         createConfigValidateTool(sessionId, workspaceRootPath),
         // Skill validation tool
