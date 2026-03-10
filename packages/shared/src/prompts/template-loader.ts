@@ -23,9 +23,9 @@ export function interpolateVariables(
   template: string,
   variables: Record<string, string>
 ): string {
-  return template.replace(/\{\{([^}]+)\}\}/g, (match, key: string) => {
+  return template.replace(/\{\{([^}]+)\}\}/g, (match: string, key: string): string => {
     const trimmed = key.trim();
-    return trimmed in variables ? variables[trimmed] : match;
+    return trimmed in variables ? variables[trimmed]! : match;
   });
 }
 
