@@ -29,11 +29,12 @@ Create `packages/shared/src/prompts/__tests__/template-loader.test.ts`:
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { mkdirSync, writeFileSync, rmSync } from 'fs'
 import { join } from 'path'
-import { loadPromptTemplates, interpolateVariables } from '../template-loader'
+import { loadPromptTemplates, interpolateVariables, clearTemplateCache } from '../template-loader'
 
 const TEST_DIR = join(import.meta.dir, '__fixtures__', 'templates')
 
 beforeEach(() => {
+  clearTemplateCache()
   mkdirSync(TEST_DIR, { recursive: true })
 })
 
@@ -782,6 +783,7 @@ afterEach(() => {
 describe('createSaveSpecTool', () => {
   test('creates a tool with name save_spec', () => {
     const toolDef = createSaveSpecTool(TEST_SESSION_PATH)
+    // SdkMcpToolDefinition has .name property
     expect(toolDef.name).toBe('save_spec')
   })
 
@@ -789,8 +791,8 @@ describe('createSaveSpecTool', () => {
     const toolDef = createSaveSpecTool(TEST_SESSION_PATH)
     const specContent = '# My Spec\n\n## Goal\nBuild something great'
 
-    // Execute the tool
-    const result = await toolDef.execute({ content: specContent })
+    // SdkMcpToolDefinition exposes .handler (not .execute)
+    await toolDef.handler({ content: specContent }, {})
 
     // Verify file was written
     const specPath = join(TEST_SESSION_PATH, 'spec.md')
@@ -801,8 +803,8 @@ describe('createSaveSpecTool', () => {
   test('overwrites existing spec on re-save', async () => {
     const toolDef = createSaveSpecTool(TEST_SESSION_PATH)
 
-    await toolDef.execute({ content: 'Version 1' })
-    await toolDef.execute({ content: 'Version 2' })
+    await toolDef.handler({ content: 'Version 1' }, {})
+    await toolDef.handler({ content: 'Version 2' }, {})
 
     const specPath = join(TEST_SESSION_PATH, 'spec.md')
     expect(readFileSync(specPath, 'utf-8')).toBe('Version 2')
@@ -860,7 +862,7 @@ export function createSaveSpecTool(sessionPath: string) {
 createSaveSpecTool(getSessionPath(workspaceRootPath, sessionId)),
 ```
 
-Add `getSessionPath` to the import from `../sessions/storage.ts` if not already present.
+`getSessionPath` is already imported at line 43: `import { getSessionPlansPath, getSessionPath } from '../sessions/storage.ts'`. Verify it's present; add it if not.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -887,6 +889,7 @@ git commit -m "feat(agent): add save_spec session-scoped tool for spec persisten
 **Files:**
 - Create: `packages/shared/assets/system-skills/spec-elicitation/SKILL.md`
 - Create: `packages/shared/assets/system-skills/spec-elicitation/references/example-feature-spec.md`
+- Create: `packages/shared/assets/system-skills/spec-elicitation/references/example-investigation.md`
 - Create: `packages/shared/assets/system-skills/spec-elicitation/references/guidance.md`
 
 - [ ] **Step 1: Create SKILL.md**
@@ -922,13 +925,33 @@ Keep the SKILL.md body under 500 lines per the Agent Skills spec. Detailed guida
 
 - [ ] **Step 2: Create references/guidance.md**
 
-Extended guidance on spec sections, when to include/exclude them, and how to structure content. Reference for the agent to read when it needs more detail on a specific phase.
+Extended guidance on spec sections. Must cover:
+- When to include/exclude each phase (e.g., skip Architecture for content-only projects)
+- How to write good acceptance criteria (observable, testable, specific)
+- How to scope tasks (1-3 day units, clear boundaries, parallelizable when possible)
+- When to use mermaid diagrams (architecture, data flow, state machines)
+- How to handle non-goals (prevent scope creep by naming what's out)
+- Guidance on adapting sections to project type
 
 - [ ] **Step 3: Create references/example-feature-spec.md**
 
-A condensed example spec for a feature build project (similar to the GitHub TUI example from the reference notes, but shorter and more template-like). Shows the structure the agent should aim for.
+A condensed (~60 line) example spec for a feature build. Model it after `docs/references/notes/spec.md` but simplified. Must include:
+- Goal (2-3 sentences)
+- Architecture section with a mermaid diagram
+- Tasks as markdown checklist items
+- Acceptance criteria (5-8 concrete items)
+- Non-goals (3-4 items)
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: Create references/example-investigation.md**
+
+A condensed (~40 line) example spec for a bug investigation or research project. Different structure from a feature build:
+- Problem statement instead of Goal
+- Investigation scope instead of Architecture
+- Hypotheses to test instead of Tasks
+- Success criteria (what constitutes a resolved investigation)
+- Out of scope
+
+- [ ] **Step 5: Commit**
 
 ```bash
 git add packages/shared/assets/system-skills/
@@ -947,7 +970,7 @@ Create `packages/shared/src/workspaces/__tests__/system-skills.test.ts`:
 
 ```typescript
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
-import { mkdirSync, rmSync, existsSync, readFileSync } from 'fs'
+import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { seedSystemSkills } from '../storage'
 
@@ -985,7 +1008,6 @@ describe('seedSystemSkills', () => {
     mkdirSync(skillDir, { recursive: true })
     const skillPath = join(skillDir, 'SKILL.md')
     const customContent = '---\nname: spec-elicitation\n---\nCustom user modifications'
-    const { writeFileSync } = require('fs')
     writeFileSync(skillPath, customContent)
 
     seedSystemSkills(TEST_WORKSPACE)
@@ -1003,12 +1025,15 @@ Expected: FAIL — `seedSystemSkills` does not exist
 
 - [ ] **Step 3: Implement seedSystemSkills**
 
-In `packages/shared/src/workspaces/storage.ts`, add:
+In `packages/shared/src/workspaces/storage.ts`:
+
+1. Add `cpSync` to the existing `fs` import (line ~1): `import { ..., cpSync } from 'fs'`
+2. Add `resolve` to the existing `path` import (line ~2): `import { join, resolve } from 'path'`
+3. Add debug import: `import { debug } from '../utils/debug.ts'`
+
+Then add the function:
 
 ```typescript
-import { cpSync } from 'fs';
-import { resolve } from 'path';
-
 /** Path to bundled system skills */
 const SYSTEM_SKILLS_DIR = resolve(import.meta.dir, '..', '..', 'assets', 'system-skills');
 
