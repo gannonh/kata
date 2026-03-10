@@ -1,0 +1,92 @@
+<h2>Three Approaches for Intent Capture & Spec Elicitation</h2>
+<p class="subtitle">How the orchestrator turns user intent into a rich spec</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Skill-Only: Pure Prompt Engineering</h3>
+      <p>A single system skill (SKILL.md) contains the entire elicitation flow: phase definitions, checkpoint list, spec template guidance, and examples. The system prompt gets a small addition that detects new-project lifecycle and auto-invokes the skill.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Minimal code changes — mostly prompt/skill authoring</li>
+            <li>Easy to iterate on elicitation behavior by editing markdown</li>
+            <li>Ships fast, validates the concept</li>
+            <li>Same pattern as superpowers brainstorming skill</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>No spec state tracking — agent relies on conversation context alone</li>
+            <li>No persistence — spec only exists inline in chat</li>
+            <li>Lifecycle detection is fragile (prompt-based heuristic)</li>
+            <li>Can't resume elicitation across sessions</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Skill + Lifecycle Signal + File Persistence</h3>
+      <p>Same system skill approach, but with two code-level additions: (1) inject session lifecycle context into user messages so the orchestrator knows it's a new project, and (2) persist the finished spec as a markdown file in the workspace directory.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Reliable lifecycle detection via injected context (not heuristic)</li>
+            <li>Spec persists as a file — ready for KAT-273 spec panel</li>
+            <li>Skill still drives the elicitation behavior (easy to iterate)</li>
+            <li>Moderate code changes, focused and contained</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>More moving parts than pure skill approach</li>
+            <li>Need to define spec file format and storage location</li>
+            <li>Spec state tracking still limited (file exists or doesn't)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Skill + Lifecycle + State Machine + Persistence</h3>
+      <p>Full infrastructure: system skill for elicitation, lifecycle context injection, spec file persistence, AND a spec state model (gathering → draft → approved) tracked on session metadata alongside todoState.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Complete foundation for the spec-driven workflow</li>
+            <li>Orchestrator can resume elicitation where it left off</li>
+            <li>State visible in UI (center panel status indicators)</li>
+            <li>Clean handoff to KAT-273 and KAT-275</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Largest scope — touches session metadata, event processor, UI</li>
+            <li>Risk of over-building before validating the elicitation flow itself</li>
+            <li>State machine design may change once spec panel (KAT-273) lands</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 2rem; padding: 1.5rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
+  <h3 style="margin-top:0">Recommendation: Approach B</h3>
+  <p>B hits the right balance. The skill drives the elicitation (easy to iterate), the lifecycle signal makes detection reliable (not a prompt hack), and file persistence means the spec survives as an artifact for follow-on epics. It avoids building a state machine that may change shape once KAT-273 lands.</p>
+  <p>The elicitation skill itself is the high-value deliverable. Lifecycle injection and file persistence are small, focused code changes that make the skill work reliably.</p>
+</div>
