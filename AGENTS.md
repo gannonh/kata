@@ -161,6 +161,70 @@ import type { Session, Message, AgentEvent } from '@craft-agent/core';
 - If a selected child chat renders empty or answers as if it has no prior context, treat that as a transcript hydration / binding bug, not a cosmetic UI issue.
 - When using live UAT with the user, let the user handle workspace switching inside the running app when that is faster or more reliable than automation.
 
+## Agent Browser + Electron CDP
+
+The dev script supports `ELECTRON_EXTRA_ARGS` to pass flags to the Electron binary:
+
+```bash
+# Launch with Chrome DevTools Protocol on port 9222
+ELECTRON_EXTRA_ARGS="--remote-debugging-port=9222" bun run electron:dev
+```
+
+Once CDP is active, connect `agent-browser`:
+
+```bash
+agent-browser connect 9222
+agent-browser tab                    # List targets (windows/webviews)
+agent-browser snapshot -i            # Accessibility tree with refs
+agent-browser screenshot output.png  # Capture current state
+agent-browser eval "expression"      # Run JS in the renderer
+```
+
+Key details:
+
+- The app must be quit and relaunched with the `--remote-debugging-port` flag; it cannot be added after launch.
+- `agent-browser eval` does not support top-level `await`. Wrap async code in an IIFE: `(async () => { ... })()`
+- Avoid smart quotes in eval strings; they cause `SyntaxError: Invalid or unexpected token`.
+- The `eval` command is useful for reading computed styles, injecting scripts, and triggering actions in the running app.
+
+## Figma Capture for Electron Apps
+
+The Figma MCP `generate_figma_design` tool captures live pages and converts them to editable Figma designs. For Electron apps, the standard "open in browser" approach fails because the app depends on `window.electronAPI` and other Electron-only APIs. Use the CDP injection method instead.
+
+### Workflow
+
+1. Launch the app with CDP enabled (see above).
+2. Connect `agent-browser connect 9222`.
+3. Get a capture ID from `generate_figma_design` with `outputMode: "existingFile"` (or `"newFile"`).
+4. Inject the Figma capture script via eval:
+
+   ```
+   agent-browser eval "(function(){var r=new XMLHttpRequest();r.open('GET','https://mcp.figma.com/mcp/html-to-design/capture.js',false);r.send();var el=document.createElement('script');el.textContent=r.responseText;document.head.appendChild(el);return 'injected'})()"
+   ```
+
+5. Trigger the capture:
+
+   ```
+   agent-browser eval "(function(){window.figma.captureForDesign({captureId:'<ID>',endpoint:'https://mcp.figma.com/mcp/capture/<ID>/submit',selector:'body'});return 'triggered'})()"
+   ```
+
+6. Poll with `generate_figma_design(captureId: '<ID>')` every 5s until `completed`.
+
+### Dark background fix
+
+The app uses Electron's transparent window with OS-level vibrancy. The Figma capture script sees `rgba(0, 0, 0, 0)` on `<html>` and `<body>`, producing a transparent/white background. Fix by setting an explicit background before capture:
+
+```
+agent-browser eval "(function(){document.documentElement.style.backgroundColor='#27272c';document.body.style.backgroundColor='#27272c';return 'set'})()"
+```
+
+The color `#27272c` corresponds to the dark theme's `--background: oklch(0.2 0.005 270)`.
+
+### Existing Figma file
+
+- **File:** `cloud agents` (fileKey: `CodOOXxIAJ0Tsd3ll6ulz6`)
+- Captures are added as new pages/frames. Each capture ID is single-use.
+
 ## e2e Testing
 
 `apps/electron/e2e/README.md`
@@ -175,6 +239,10 @@ import type { Session, Message, AgentEvent } from '@craft-agent/core';
 ### Linear MCP Usage
 
 Use the `save_issue` tool for both creating and updating issues. When creating, `title` and `team` are required.
+
+### PR Naming
+
+Always prefix the PR name with the ticket number for traceability, e.g. `KAT-1234: Implement new agent execution model`. This ensures the PR is linked to the correct issue in Linear and maintains a clear history of changes.
 
 **Common pitfalls:**
 
