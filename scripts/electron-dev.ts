@@ -376,8 +376,10 @@ async function main(): Promise<void> {
   // 4. Start Electron (build already verified)
   console.log("🚀 Starting Electron...\n");
 
+  // Pass extra Electron args (e.g., --remote-debugging-port) from env
+  const extraArgs = process.env.ELECTRON_EXTRA_ARGS?.split(" ").filter(Boolean) ?? [];
   const electronProc = spawn({
-    cmd: [ELECTRON_BIN, "apps/electron"],
+    cmd: [ELECTRON_BIN, "apps/electron", ...extraArgs],
     cwd: ROOT_DIR,
     stdin: "ignore",
     stdout: "inherit",
