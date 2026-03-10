@@ -1,7 +1,9 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { mkdirSync, writeFileSync, rmSync } from 'fs'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import { loadPromptTemplates, interpolateVariables, clearTemplateCache } from '../template-loader'
+import { DOC_REFS } from '../../docs/index.ts'
+import { PERMISSION_MODE_CONFIG } from '../../agent/mode-types.ts'
 
 const TEST_DIR = join(import.meta.dir, '__fixtures__', 'templates')
 
@@ -100,5 +102,38 @@ describe('loadPromptTemplates', () => {
 
     // Should return cached version
     expect(result1).toBe(result2)
+  })
+})
+
+describe('production templates', () => {
+  const templatesDir = resolve(import.meta.dir, '..', 'templates')
+
+  test('loads all production template sections', () => {
+    clearTemplateCache()
+    const variables: Record<string, string> = {
+      workspacePath: '/test/workspace',
+      workspaceId: 'test-ws',
+      'DOC_REFS.sources': DOC_REFS.sources,
+      'DOC_REFS.permissions': DOC_REFS.permissions,
+      'DOC_REFS.skills': DOC_REFS.skills,
+      'DOC_REFS.themes': DOC_REFS.themes,
+      'DOC_REFS.statuses': DOC_REFS.statuses,
+      'DOC_REFS.labels': DOC_REFS.labels,
+      'DOC_REFS.toolIcons': DOC_REFS.toolIcons,
+      'DOC_REFS.mermaid': DOC_REFS.mermaid,
+      'PERMISSION_MODE.safe': PERMISSION_MODE_CONFIG['safe'].displayName,
+      'PERMISSION_MODE.ask': PERMISSION_MODE_CONFIG['ask'].displayName,
+      'PERMISSION_MODE.allowAll': PERMISSION_MODE_CONFIG['allow-all'].displayName,
+    }
+
+    const result = loadPromptTemplates(templatesDir, variables)
+    // Should contain key sections
+    expect(result).toContain('Kata Agents')
+    expect(result).toContain('External Sources')
+    expect(result).toContain('Permission Modes')
+    expect(result).toContain('/test/workspace')
+    // Should not have unresolved variables
+    expect(result).not.toMatch(/\{\{workspacePath\}\}/)
+    expect(result).not.toMatch(/\{\{DOC_REFS\./)
   })
 })
