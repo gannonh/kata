@@ -105,7 +105,7 @@ export function seedSystemSkills(workspaceRootPath: string): void {
   const skillsDir = getWorkspaceSkillsPath(workspaceRootPath);
 
   try {
-    const systemSkills = readdirSync(SYSTEM_SKILLS_DIR);
+    const systemSkills = readdirSync(SYSTEM_SKILLS_DIR).filter(name => !name.startsWith('.'));
     for (const skillSlug of systemSkills) {
       const targetDir = join(skillsDir, skillSlug);
       if (existsSync(targetDir)) {
