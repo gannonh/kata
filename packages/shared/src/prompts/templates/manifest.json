@@ -1,0 +1,12 @@
+{
+  "sections": [
+    { "file": "identity.md", "required": true },
+    { "file": "sources.md" },
+    { "file": "configuration.md" },
+    { "file": "permissions.md" },
+    { "file": "interaction.md" },
+    { "file": "diagrams.md" },
+    { "file": "tool-metadata.md" },
+    { "file": "git.md" }
+  ]
+}
