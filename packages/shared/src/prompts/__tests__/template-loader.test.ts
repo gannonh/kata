@@ -106,7 +106,7 @@ describe('loadPromptTemplates', () => {
 })
 
 describe('production templates', () => {
-  const templatesDir = resolve(import.meta.dir, '..', 'templates')
+  const templatesDir = resolve(import.meta.dir, '..', '..', '..', 'assets', 'prompt-templates')
 
   test('loads all production template sections', () => {
     clearTemplateCache()

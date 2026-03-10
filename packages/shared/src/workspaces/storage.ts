@@ -16,10 +16,10 @@ import {
   rmSync,
   statSync,
 } from 'fs';
-import { join, resolve } from 'path';
+import { join } from 'path';
 import { homedir } from 'os';
 import { randomUUID } from 'crypto';
-import { expandPath, toPortablePath } from '../utils/paths.ts';
+import { expandPath, toPortablePath, getBundledAssetsDir } from '../utils/paths.ts';
 import { debug } from '../utils/debug.ts';
 import { getDefaultStatusConfig, saveStatusConfig, ensureDefaultIconFiles } from '../statuses/storage.ts';
 import { getDefaultLabelConfig, saveLabelConfig } from '../labels/storage.ts';
@@ -88,8 +88,13 @@ export function getWorkspaceSkillsPath(rootPath: string): string {
   return join(rootPath, 'skills');
 }
 
-/** Path to bundled system skills */
-const SYSTEM_SKILLS_DIR = resolve(import.meta.dir, '..', '..', 'assets', 'system-skills');
+/**
+ * Resolve the bundled system skills directory.
+ * Uses the same asset resolution as docs, tool-icons, etc.
+ */
+function getSystemSkillsDir(): string | undefined {
+  return getBundledAssetsDir('system-skills');
+}
 
 /**
  * Seed system skills into a workspace's skills directory.
@@ -97,7 +102,8 @@ const SYSTEM_SKILLS_DIR = resolve(import.meta.dir, '..', '..', 'assets', 'system
  * Does not overwrite user-modified skills.
  */
 export function seedSystemSkills(workspaceRootPath: string): void {
-  if (!existsSync(SYSTEM_SKILLS_DIR)) {
+  const systemSkillsDir = getSystemSkillsDir();
+  if (!systemSkillsDir || !existsSync(systemSkillsDir)) {
     debug('[seedSystemSkills] No system skills directory found, skipping');
     return;
   }
@@ -105,14 +111,14 @@ export function seedSystemSkills(workspaceRootPath: string): void {
   const skillsDir = getWorkspaceSkillsPath(workspaceRootPath);
 
   try {
-    const systemSkills = readdirSync(SYSTEM_SKILLS_DIR).filter(name => !name.startsWith('.'));
+    const systemSkills = readdirSync(systemSkillsDir).filter(name => !name.startsWith('.'));
     for (const skillSlug of systemSkills) {
       const targetDir = join(skillsDir, skillSlug);
       if (existsSync(targetDir)) {
         debug(`[seedSystemSkills] Skipping existing skill: ${skillSlug}`);
         continue;
       }
-      const sourceDir = join(SYSTEM_SKILLS_DIR, skillSlug);
+      const sourceDir = join(systemSkillsDir, skillSlug);
       cpSync(sourceDir, targetDir, { recursive: true });
       debug(`[seedSystemSkills] Seeded system skill: ${skillSlug}`);
     }

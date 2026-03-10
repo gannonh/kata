@@ -1,9 +1,10 @@
 import { formatPreferencesForPrompt } from '../config/preferences.ts';
 import { debug } from '../utils/debug.ts';
 import { existsSync, readFileSync, readdirSync } from 'fs';
-import { join, relative, resolve } from 'path';
+import { join, relative } from 'path';
 import { loadPromptTemplates } from './template-loader.ts';
 import { DOC_REFS, APP_ROOT } from '../docs/index.ts';
+import { getBundledAssetsDir } from '../utils/paths.ts';
 import { PERMISSION_MODE_CONFIG } from '../agent/mode-types.ts';
 import { APP_VERSION } from '../version/index.ts';
 import { globSync } from 'glob';
@@ -347,7 +348,14 @@ function getCraftAgentEnvironmentMarker(): string {
   return `<craft_agent_environment version="${APP_VERSION}" platform="${platform}" arch="${arch}" os_version="${osVersion}" />`;
 }
 
-const TEMPLATES_DIR = resolve(import.meta.dir, 'templates');
+/**
+ * Resolve the prompt templates directory.
+ * Uses the same asset resolution as docs, tool-icons, etc.
+ */
+function getTemplatesDir(): string {
+  return getBundledAssetsDir('prompt-templates')
+    ?? join(process.cwd(), 'packages', 'shared', 'assets', 'prompt-templates');
+}
 
 /**
  * Get the Craft Assistant system prompt with workspace-specific paths.
@@ -378,7 +386,7 @@ function getCraftAssistantPrompt(workspaceRootPath?: string): string {
     'PERMISSION_MODE.allowAll': PERMISSION_MODE_CONFIG['allow-all'].displayName,
   };
 
-  const templateContent = loadPromptTemplates(TEMPLATES_DIR, variables);
+  const templateContent = loadPromptTemplates(getTemplatesDir(), variables);
   return `${environmentMarker}\n\n${templateContent}`;
 }
 
