@@ -38,6 +38,9 @@ mock.module('electron-log/main', () => ({
 }))
 mock.module('@anthropic-ai/claude-agent-sdk', () => ({
   createSdkMcpServer: () => ({}),
+  query: async function* () {},
+  tool: () => ({}),
+  AbortError: class extends Error {},
 }))
 const sharedAgentMock = () => ({
   CraftAgent: class {},
