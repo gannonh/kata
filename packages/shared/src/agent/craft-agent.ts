@@ -3,6 +3,7 @@ import { getDefaultOptions, resetClaudeConfigCheck } from './options.ts';
 import type { ContentBlockParam } from '@anthropic-ai/sdk/resources';
 import { z } from 'zod';
 import { getSystemPrompt, getDateTimeContext, getWorkingDirectoryContext, formatGitContext, formatChannelContext } from '../prompts/system.ts';
+import { formatSessionLifecycleContext } from '../prompts/lifecycle.ts';
 import type { GitState, PrInfo } from '../git/types.ts';
 // Plan types are used by UI components; not needed in craft-agent.ts since Safe Mode is user-controlled
 import { parseError, type AgentError } from './errors.ts';
@@ -362,6 +363,7 @@ export class CraftAgent {
   private currentQueryAbortController: AbortController | null = null;
   private lastAbortReason: AbortReason | null = null;
   private sessionId: string | null = null;
+  private hasReceivedMessage = false;
   private isHeadless: boolean = false;
   private pendingPermissions: Map<string, PendingPermission> = new Map();
   private alwaysAllowedCommands: Set<string> = new Set(); // Base commands allowed for this session (e.g., "ls", "cat")
@@ -779,6 +781,10 @@ export class CraftAgent {
   ): AsyncGenerator<AgentEvent> {
     try {
       const sessionId = this.config.session?.id || `temp-${Date.now()}`;
+
+      // Detect new session: first message with no prior SDK session to resume
+      const isNewSession = !this.hasReceivedMessage && !this.sessionId && !_isRetry;
+      this.hasReceivedMessage = true;
 
       // Pin system prompt components on first chat() call for consistency after compaction
       // The SDK's resume mechanism expects system prompt consistency within a session
@@ -1527,14 +1533,14 @@ export class CraftAgent {
         debug(`[chat] Detected SDK slash command: ${trimmedMessage}`);
         this.currentQuery = query({ prompt: trimmedMessage, options: optionsWithAbort });
       } else if (hasBinaryAttachments) {
-        const sdkMessage = this.buildSDKUserMessage(userMessage, attachments);
+        const sdkMessage = this.buildSDKUserMessage(userMessage, attachments, isNewSession);
         async function* singleMessage(): AsyncIterable<SDKUserMessage> {
           yield sdkMessage;
         }
         this.currentQuery = query({ prompt: singleMessage(), options: optionsWithAbort });
       } else {
         // Simple string prompt for text-only messages (may include text file contents)
-        const prompt = this.buildTextPrompt(userMessage, attachments);
+        const prompt = this.buildTextPrompt(userMessage, attachments, isNewSession);
         this.currentQuery = query({ prompt, options: optionsWithAbort });
       }
 
@@ -2185,7 +2191,7 @@ Please continue the conversation naturally from where we left off.
    * Prepends date/time context for prompt caching optimization (keeps system prompt static)
    * Injects session state (including mode state) for every message
    */
-  private buildTextPrompt(text: string, attachments?: FileAttachment[]): string {
+  private buildTextPrompt(text: string, attachments?: FileAttachment[], isNewSession: boolean = false): string {
     const parts: string[] = [];
 
     // Add date/time context first (moved from system prompt to enable caching)
@@ -2219,6 +2225,12 @@ Please continue the conversation naturally from where we left off.
       parts.push(this.gitContext);
     }
 
+    // Add session lifecycle context (new project detection)
+    const lifecycleContext = formatSessionLifecycleContext(isNewSession, this.workspaceRootPath);
+    if (lifecycleContext) {
+      parts.push(lifecycleContext);
+    }
+
     // Add file attachments with stored path info (agent uses Read tool to access content)
     // Text files are NOT embedded inline to prevent context overflow from large files
     if (attachments) {
@@ -2247,7 +2259,7 @@ Please continue the conversation naturally from where we left off.
    * Prepends date/time context for prompt caching optimization (keeps system prompt static)
    * Injects session state (including mode state) for every message
    */
-  private buildSDKUserMessage(text: string, attachments?: FileAttachment[]): SDKUserMessage {
+  private buildSDKUserMessage(text: string, attachments?: FileAttachment[], isNewSession: boolean = false): SDKUserMessage {
     const contentBlocks: ContentBlockParam[] = [];
 
     // Add date/time context first (moved from system prompt to enable caching)
@@ -2279,6 +2291,12 @@ Please continue the conversation naturally from where we left off.
     // Add git context (branch, PR info) for AI awareness
     if (this.gitContext) {
       contentBlocks.push({ type: 'text', text: this.gitContext });
+    }
+
+    // Add session lifecycle context (new project detection)
+    const lifecycleContextSdk = formatSessionLifecycleContext(isNewSession, this.workspaceRootPath);
+    if (lifecycleContextSdk) {
+      contentBlocks.push({ type: 'text', text: lifecycleContextSdk });
     }
 
     // Add attachments - images/PDFs are uploaded inline, text files are path-only
