@@ -371,6 +371,148 @@ test('orchestrator chat pages keep workflow controls and continue rendering the 
   expect(sessionMenuProps.showWorkflowControls).toBe(true)
 })
 
+test('navigation round-trip: parent → child → parent → child preserves transcript each time', () => {
+  const parentSession = createSession({
+    id: '260308-root',
+    name: 'Coordinator',
+    sessionKind: 'orchestrator',
+    messages: [
+      { id: 'task-1', role: 'tool', content: 'Inspect workspace files', timestamp: 1, toolName: 'Task', toolUseId: 'toolu-task-a', toolStatus: 'completed' },
+      { id: 'tool-1', role: 'tool', content: 'ls -la\nfoobar.txt', timestamp: 2, toolName: 'Terminal', toolUseId: 'toolu-shell-a', toolStatus: 'completed', parentToolUseId: 'toolu-task-a' },
+    ],
+  })
+  const childSession = createSession({
+    id: '260308-child-a',
+    name: 'Explore workspace sources',
+    sessionKind: 'subagent',
+    parentSessionId: '260308-root',
+    orchestratorSessionId: '260308-root',
+    delegatedToolUseId: 'toolu-task-a',
+    messages: [
+      { id: 'child-assistant-1', role: 'assistant', content: 'Found workspace files.', timestamp: 10 },
+    ],
+  })
+
+  const allSessions = [childSession, parentSession]
+
+  // First visit to child
+  renderChatPage(childSession, allSessions)
+  const firstVisit = chatDisplayPropsHistory.at(-1)
+  const firstVisitIds = firstVisit.session.messages.map((m: { id: string }) => m.id)
+
+  // Visit parent
+  renderChatPage(parentSession, allSessions)
+  const parentVisit = chatDisplayPropsHistory.at(-1)
+  expect(parentVisit.session.id).toBe(parentSession.id)
+
+  // Return to child
+  renderChatPage(childSession, allSessions)
+  const secondVisit = chatDisplayPropsHistory.at(-1)
+  const secondVisitIds = secondVisit.session.messages.map((m: { id: string }) => m.id)
+
+  // Transcript is identical across visits
+  expect(secondVisitIds).toEqual(firstVisitIds)
+  expect(secondVisitIds).toEqual(['task-1', 'tool-1', 'child-assistant-1'])
+})
+
+test('child chat merges projected parent history with child follow-up messages in timestamp order', () => {
+  const parentSession = createSession({
+    id: '260308-root',
+    name: 'Coordinator',
+    sessionKind: 'orchestrator',
+    messages: [
+      { id: 'task-1', role: 'tool', content: 'Inspect workspace files', timestamp: 1, toolName: 'Task', toolUseId: 'toolu-task-a', toolStatus: 'completed' },
+      { id: 'tool-1', role: 'tool', content: 'ls -la\nfoobar.txt', timestamp: 2, toolName: 'Terminal', toolUseId: 'toolu-shell-a', toolStatus: 'completed', parentToolUseId: 'toolu-task-a' },
+      { id: 'tool-2', role: 'tool', content: 'cat README.md', timestamp: 3, toolName: 'Read', toolUseId: 'toolu-read-a', toolStatus: 'completed', parentToolUseId: 'toolu-task-a' },
+    ],
+  })
+  const childSession = createSession({
+    id: '260308-child-a',
+    name: 'Explore workspace sources',
+    sessionKind: 'subagent',
+    parentSessionId: '260308-root',
+    orchestratorSessionId: '260308-root',
+    delegatedToolUseId: 'toolu-task-a',
+    messages: [
+      { id: 'child-user-1', role: 'user', content: 'What did you find?', timestamp: 10 },
+      { id: 'child-assistant-1', role: 'assistant', content: 'I found foobar.txt and README.md.', timestamp: 11 },
+    ],
+  })
+
+  renderChatPage(childSession, [childSession, parentSession])
+
+  const chatDisplayProps = chatDisplayPropsHistory.at(-1)
+  expect(chatDisplayProps.session.messages.map((m: { id: string }) => m.id)).toEqual([
+    'task-1',
+    'tool-1',
+    'tool-2',
+    'child-user-1',
+    'child-assistant-1',
+  ])
+})
+
+test('child chat rehydrates correctly after simulated reload with persisted session fields', () => {
+  // Simulate post-reload state: sessions loaded from JSONL with all linkage fields intact
+  const parentSession = createSession({
+    id: '260308-root',
+    name: 'Coordinator',
+    sessionKind: 'orchestrator',
+    messages: [
+      { id: 'task-1', role: 'tool', content: 'Inspect workspace files', timestamp: 1, toolName: 'Task', toolUseId: 'toolu-task-a', toolStatus: 'completed' },
+      { id: 'tool-1', role: 'tool', content: 'ls -la\nfoobar.txt', timestamp: 2, toolName: 'Terminal', toolUseId: 'toolu-shell-a', toolStatus: 'completed', parentToolUseId: 'toolu-task-a' },
+    ],
+  })
+  const childSession = createSession({
+    id: '260308-child-a',
+    name: 'Explore workspace sources',
+    sessionKind: 'subagent',
+    parentSessionId: '260308-root',
+    orchestratorSessionId: '260308-root',
+    delegatedToolUseId: 'toolu-task-a',
+    // After reload, child may have its own messages from a previous follow-up
+    messages: [
+      { id: 'child-assistant-1', role: 'assistant', content: 'Found workspace files.', timestamp: 10 },
+    ],
+  })
+
+  // Simulate: both sessions loaded fresh (as if from disk)
+  currentSessions = new Map([
+    [childSession.id, childSession],
+    [parentSession.id, parentSession],
+  ])
+  currentSessionMeta = new Map([
+    [childSession.id, {
+      id: childSession.id,
+      workspaceId: childSession.workspaceId,
+      name: childSession.name,
+      lastMessageAt: childSession.lastMessageAt,
+      sessionKind: 'subagent',
+      parentSessionId: '260308-root',
+      orchestratorSessionId: '260308-root',
+      delegatedToolUseId: 'toolu-task-a',
+    }],
+    [parentSession.id, {
+      id: parentSession.id,
+      workspaceId: parentSession.workspaceId,
+      name: parentSession.name,
+      lastMessageAt: parentSession.lastMessageAt,
+      sessionKind: 'orchestrator',
+    }],
+  ])
+  currentLoadedSessions = new Set([childSession.id, parentSession.id])
+  chatDisplayPropsHistory.length = 0
+
+  ChatPage({ sessionId: childSession.id })
+
+  const chatDisplayProps = chatDisplayPropsHistory.at(-1)
+  // Should show projected parent transcript merged with child's own messages
+  expect(chatDisplayProps.session.messages.map((m: { id: string }) => m.id)).toEqual([
+    'task-1',
+    'tool-1',
+    'child-assistant-1',
+  ])
+})
+
 test('child chat pages can project delegated transcripts from session metadata before the child session is fully hydrated', () => {
   const parentSession = createSession({
     id: '260308-root',
