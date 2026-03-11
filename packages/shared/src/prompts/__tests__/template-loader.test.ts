@@ -3,7 +3,6 @@ import { mkdirSync, writeFileSync, rmSync } from 'fs'
 import { join, resolve } from 'path'
 import { loadPromptTemplates, interpolateVariables, clearTemplateCache } from '../template-loader'
 import { DOC_REFS } from '../../docs/index.ts'
-import { PERMISSION_MODE_CONFIG } from '../../agent/mode-types.ts'
 
 const TEST_DIR = join(import.meta.dir, '__fixtures__', 'templates')
 
@@ -121,9 +120,9 @@ describe('production templates', () => {
       'DOC_REFS.labels': DOC_REFS.labels,
       'DOC_REFS.toolIcons': DOC_REFS.toolIcons,
       'DOC_REFS.mermaid': DOC_REFS.mermaid,
-      'PERMISSION_MODE.safe': PERMISSION_MODE_CONFIG['safe'].displayName,
-      'PERMISSION_MODE.ask': PERMISSION_MODE_CONFIG['ask'].displayName,
-      'PERMISSION_MODE.allowAll': PERMISSION_MODE_CONFIG['allow-all'].displayName,
+      'PERMISSION_MODE.safe': 'Explore',
+      'PERMISSION_MODE.ask': 'Ask to Edit',
+      'PERMISSION_MODE.allowAll': 'Auto',
     }
 
     const result = loadPromptTemplates(templatesDir, variables)
