@@ -1,291 +1,244 @@
-# Kata Agentss Electron App
+# Kata Desktop
 
-The primary desktop interface for Kata Agentss, built with Electron + React. Provides a multi-session inbox with chat interface for interacting with Claude via Craft workspaces.
+Kata Desktop is a powerful productivity app for working with AI agents. Built on the Claude Agent SDK, it enables intuitive multitasking, seamless connection to APIs and services, and a document-centric workflow in a polished, natural language driven UI. **It's like Claude Code meets Slack.**
+
+[kata.sh](https://kata.sh/)
+
+![Kata Desktop Demo](assets/supercut.gif)
+
+## Features
+
+- **Multi-Session Inbox**: Desktop app with session management, status workflow, and flagging
+- **Claude Code Experience**: Streaming responses, tool visualization, real-time updates
+- **Git Integration**: Live branch display, PR status badge, real-time updates, worktree and submodule support
+- **Agent Skills**: Specialized agent instructions stored per-workspace
+- **MCP Integration**: Connect to any MCP server (Linear, GitHub, Notion, and more)
+- **Sources**: Connect to REST APIs (Google, Slack, Microsoft), and local filesystems
+- **Permission Modes**: Three-level system (Explore, Ask to Edit, Auto) with customizable rules
+- **Background Tasks**: Run long-running operations with progress tracking
+- **Dynamic Status System**: Customizable session workflow states (Todo, In Progress, Done, etc.)
+- **Theme System**: Cascading themes at app and workspace levels
+- **Multi-File Diff**: VS Code-style window for viewing all file changes in a turn
+- **File Attachments**: Drag-drop images, PDFs, Office documents with auto-conversion
+
+## Installation
+
+### Download from GitHub Releases
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/gannonh/kata/releases).
+
+- **macOS**: `Kata-Desktop-arm64.dmg` (Apple Silicon) or `Kata-Desktop-x64.dmg` (Intel)
+- **Windows**: `Kata-Desktop-x64.exe`
+- **Linux**: `Kata-Desktop-x64.AppImage`
+
+### Build from Source
+
+```bash
+git clone https://github.com/gannonh/kata.git
+cd kata
+bun install
+bun run githooks:install
+bun run electron:start
+```
 
 ## Quick Start
 
-```bash
-# From the project root
-bun run electron:build   # Build the app
-bun run electron:start   # Build and run
-```
+1. **Launch the app** after installation
+2. **Choose API Connection**: Use your own Anthropic API key or Claude Max subscription
+3. **Create a workspace**: Set up a workspace to organize your sessions
+4. **Connect sources** (optional): Add MCP servers, REST APIs, or local filesystems
+5. **Start chatting**: Create sessions and interact with Claude
+
+## Desktop App Features
+
+### Session Management
+
+- **Inbox/Archive**: Sessions organized by workflow status
+- **Flagging**: Mark important sessions for quick access
+- **Status Workflow**: Todo -> In Progress -> Needs Review -> Done
+- **Session Naming**: AI-generated titles or manual naming
+- **Session Persistence**: Full conversation history saved to disk
+
+### Sources
+
+Connect external data sources to your workspace:
+
+| Type            | Examples                                          |
+| --------------- | ------------------------------------------------- |
+| **MCP Servers** | Linear, GitHub, Notion, custom servers            |
+| **REST APIs**   | Google (Gmail, Calendar, Drive), Slack, Microsoft |
+| **Local Files** | Filesystem, Obsidian vaults, Git repos            |
+
+### Channels
+
+Connect communication platforms for always-on, background message processing:
+
+| Channel   | Mode             | Features                         |
+| --------- | ---------------- | -------------------------------- |
+| **Slack** | Poll + Subscribe | Channel messages, slash commands |
+
+See [Slack Setup Guide](docs/slack-setup.md) for configuration instructions.
+
+### Permission Modes
+
+| Mode        | Display     | Behavior                               |
+| ----------- | ----------- | -------------------------------------- |
+| `safe`      | Explore     | Read-only, blocks all write operations |
+| `ask`       | Ask to Edit | Prompts for approval (default)         |
+| `allow-all` | Auto        | Auto-approves all commands             |
+
+Use **SHIFT+TAB** to cycle through modes in the chat interface.
+
+### Git Integration
+
+Git context is displayed in the chat input toolbar and injected into agent conversations:
+
+- **Branch badge**: Current git branch name, updates in real-time via file watching
+- **PR badge**: Linked pull request title and status (open/draft/merged/closed), click to open in browser
+- **AI awareness**: Agent receives branch and PR context per message
+- **Worktree/submodule support**: Handles `.git` file gitdir pointers transparently
+- **Graceful degradation**: No git indicator for non-git directories, helpful message when `gh` CLI is unavailable
+
+### Keyboard Shortcuts
+
+| Shortcut      | Action                    |
+| ------------- | ------------------------- |
+| `Cmd+N`       | New chat                  |
+| `Cmd+1/2/3`   | Focus sidebar/list/chat   |
+| `Cmd+/`       | Keyboard shortcuts dialog |
+| `SHIFT+TAB`   | Cycle permission modes    |
+| `Enter`       | Send message              |
+| `Shift+Enter` | New line                  |
 
 ## Architecture
 
 ```
-apps/electron/
-├── src/
-│   ├── main/              # Electron main process
-│   │   ├── index.ts       # Window creation, app lifecycle
-│   │   ├── ipc.ts         # IPC handler registration
-│   │   ├── menu.ts        # Application menu (File, Edit, View, Help)
-│   │   ├── sessions.ts    # Session management, CraftAgent integration
-│   │   ├── deep-link.ts   # Deep link URL parsing and handling
-│   │   ├── agent-service.ts # Agent listing, caching, auth checking
-│   │   └── sources-service.ts # Source and authentication service
-│   ├── preload/           # Context bridge (main ↔ renderer)
-│   │   └── index.ts       # Exposes electronAPI to renderer
-│   ├── renderer/          # React UI
-│   │   ├── App.tsx        # Main app, event handling
-│   │   ├── components/
-│   │   │   ├── chat/      # Chat UI (ChatInput, ChatDisplay)
-│   │   │   ├── markdown/  # Markdown renderer with Shiki
-│   │   │   └── ui/        # shadcn/ui components (incl. source-avatar.tsx)
-│   │   ├── contexts/
-│   │   │   └── NavigationContext.tsx  # Type-safe routing and navigation
-│   │   ├── lib/
-│   │   │   └── navigate.ts  # Global navigate() function
-│   │   ├── hooks/
-│   │   │   └── useAgentState.ts  # Agent activation state machine
-│   │   └── playground/    # Component development playground
-│   └── shared/
-│       ├── types.ts       # Shared TypeScript interfaces
-│       ├── routes.ts      # Type-safe route definitions
-│       └── route-parser.ts # Route string parsing
-├── dist/                  # Build output
-└── resources/             # App icons
+kata/
+├── apps/
+│   └── electron/              # Desktop GUI (primary)
+│       └── src/
+│           ├── main/          # Electron main process
+│           ├── preload/       # Context bridge
+│           └── renderer/      # React UI (Vite + shadcn)
+└── packages/
+    ├── core/                  # Shared types
+    └── shared/                # Business logic
+        └── src/
+            ├── agent/         # Kata agent, permissions
+            ├── auth/          # OAuth, tokens
+            ├── config/        # Storage, preferences, themes
+            ├── credentials/   # AES-256-GCM encrypted storage
+            ├── git/           # Git service, PR service
+            ├── sessions/      # Session persistence
+            ├── sources/       # MCP, API, local sources
+            └── statuses/      # Dynamic status system
 ```
 
-## Key Learnings & Gotchas
-
-### 1. SDK Path Resolution (CRITICAL)
-
-The Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`) works by spawning a subprocess that runs `cli.js`. When esbuild bundles the SDK into `main.js`, the SDK's auto-detection of `cli.js` breaks.
-
-**Problem:**
-```
-Error: The "path" argument must be of type string or an instance of URL. Received undefined
-```
-
-**Root cause:** The SDK uses `import.meta.url` to find `cli.js`. After bundling, this path is invalid.
-
-**Solution:** Explicitly set the path before creating any agents:
-```typescript
-import { setPathToClaudeCodeExecutable } from '../../../src/agent/options'
-
-// In initialize():
-const cliPath = join(process.cwd(), 'node_modules', '@anthropic-ai', 'claude-agent-sdk', 'cli.js')
-setPathToClaudeCodeExecutable(cliPath)
-```
-
-### 2. Authentication Environment Setup (CRITICAL)
-
-The SDK requires authentication environment variables to be set BEFORE creating agents. The Electron app must do this explicitly during initialization.
-
-```typescript
-import { getAuthState } from '../../../src/auth/state'
-
-// In initialize():
-const authState = await getAuthState()
-const { billing } = authState
-
-if (billing.type === 'oauth_token' && billing.claudeOAuthToken) {
-  process.env.CLAUDE_CODE_OAUTH_TOKEN = billing.claudeOAuthToken
-} else if (billing.apiKey) {
-  process.env.ANTHROPIC_API_KEY = billing.apiKey
-}
-```
-
-### 3. AgentEvent Type Mismatches
-
-The `AgentEvent` types from `CraftAgent` use different property names than you might expect:
-
-| Event Type | Wrong | Correct |
-|------------|-------|---------|
-| `text_delta` | `event.delta` | `event.text` |
-| `error` | `event.error` | `event.message` |
-| `tool_result` | `event.toolName` | Only has `event.toolUseId` |
-
-**Solution for tool_result:** Track `toolUseId → toolName` mapping from `tool_start` events:
-```typescript
-interface ManagedSession {
-  // ...
-  pendingTools: Map<string, string>  // toolUseId -> toolName
-}
-
-// In tool_start handler:
-managed.pendingTools.set(event.toolUseId, event.toolName)
-
-// In tool_result handler:
-const toolName = managed.pendingTools.get(event.toolUseId) || 'unknown'
-managed.pendingTools.delete(event.toolUseId)
-```
-
-### 4. CraftAgent Constructor
-
-`CraftAgent` expects the full `Workspace` object, not just the ID:
-
-```typescript
-// Wrong:
-new CraftAgent({ workspaceId: workspace.id, model })
-
-// Correct:
-new CraftAgent({ workspace, model })
-```
-
-### 5. esbuild Configuration
-
-Only `electron` is externalized. The SDK is bundled into `main.js`:
-
-```json
-"electron:build:main": "esbuild ... --external:electron"
-```
-
-This means:
-- SDK code is inlined (~950KB)
-- SDK's runtime path resolution breaks (see #1)
-- Native modules would need explicit externalization
-
-## Environment Variables
-
-### Gmail OAuth (via 1Password CLI)
-
-Gmail OAuth credentials are synced from 1Password to a local `.env` file.
-
-**One-time setup:**
-```bash
-# 1. Install 1Password CLI
-brew install 1password-cli
-
-# 2. Enable CLI integration: 1Password app → Settings → Developer → CLI Integration
-
-# 3. Sync secrets (requires Touch ID once)
-bun run sync-secrets
-```
-
-**That's it!** Now `bun run electron:dev` and `bun run electron:start` work without prompts.
-
-**How it works:**
-- `.env.1password` contains `op://` references to the `Dev_Craft_Agents` vault
-- `bun run sync-secrets` resolves references → writes `.env` (gitignored)
-- Secrets are baked into the build at compile time via esbuild `--define` flags
-
-**Creating your own OAuth credentials:**
-1. Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials
-2. Create OAuth Client ID (Desktop app type)
-3. Enable required scopes in OAuth consent screen:
-   - `https://www.googleapis.com/auth/gmail.readonly`
-   - `https://www.googleapis.com/auth/userinfo.email`
-
-## Build Process
+## Development
 
 ```bash
-bun run electron:build:main      # Bundle main process (esbuild)
-bun run electron:build:preload   # Bundle preload script (esbuild)
-bun run electron:build:renderer  # Bundle React app (Vite)
-bun run electron:build:resources # Copy icons
-bun run electron:build           # All of the above
+# Hot reload development
+bun run electron:dev
+
+# Build and run
+bun run electron:start
+
+# Type checking
+bun run typecheck:all
+
+# Debug logging (writes to ~/Library/Logs/Kata Desktop/)
+# Logs are automatically enabled in development
 ```
 
-## macOS Liquid Glass Icon
+### Environment Variables
 
-The app includes a pre-compiled `Assets.car` for macOS 26+ Liquid Glass icons. This enables the layered glass effect on macOS Tahoe. On older macOS versions, the app falls back to `icon.icns`.
-
-**Regenerating after icon changes:**
-
-If you modify `resources/icon.icon`, regenerate the Assets.car:
+OAuth integrations (Google, Slack, Microsoft) require credentials. Create a `.env` file:
 
 ```bash
-cd apps/electron
-xcrun actool "resources/icon.icon" --compile "resources" \
-  --app-icon AppIcon --minimum-deployment-target 26.0 \
-  --platform macosx --output-partial-info-plist /dev/null
+MICROSOFT_OAUTH_CLIENT_ID=your-client-id
+GOOGLE_OAUTH_CLIENT_SECRET=your-google-client-secret
+GOOGLE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
+SLACK_OAUTH_CLIENT_ID=your-slack-client-id
+SLACK_OAUTH_CLIENT_SECRET=your-slack-client-secret
 ```
 
-> **Note:** This requires macOS 26 with Xcode 26 (macOS 26 SDK). The pre-compiled Assets.car is committed to the repo so CI builds work without the SDK.
+See [Google Cloud Console](https://console.cloud.google.com/apis/credentials) to create OAuth credentials.
 
-## Debugging
+## Configuration
 
-Enable console logging by checking the terminal where you ran `electron:start`. Key log prefixes:
-- `[SessionManager]` - Session lifecycle, auth setup
-- `[IPC]` - Inter-process communication
-
-DevTools opens automatically (configured in `index.ts`). Remove `mainWindow.webContents.openDevTools()` for production.
-
-## Current Limitations
-
-1. **In development only** - No electron-builder config for distribution
-
-## Implemented Features
-
-- **Session persistence** - Sessions, messages, and names are saved to disk
-- **File attachments** - Attach images, PDFs, and code files to messages
-- **AI-generated titles** - Sessions get automatic titles after first exchange
-- **Subagent support** - Load and apply agent definitions from Craft documents
-- **Shell integration** - Open URLs in browser, open files in default apps
-- **Permission modes** - Three-level permission system (Explore, Ask to Edit, Auto)
-- **Background tasks** - Run long-running tasks in background with progress tracking
-- **Multi-file diff** - VS Code-style window for viewing all file changes in a turn
-- **Dynamic statuses** - Workspace-customizable session workflow states
-- **Theme system** - Cascading themes (app → workspace → agent)
-- **Agent state machine** - useAgentState hook manages activation flow
-- **Application menu** - Standard macOS/Windows menus with keyboard shortcuts
-- **Component playground** - Development tool for testing UI components in isolation
-- **Type-safe navigation** - Unified routing system for tabs, actions, and deep links
-
-## Navigation System
-
-The app uses a type-safe routing system for all internal navigation and deep links.
-
-### Quick Start
-
-```typescript
-import { navigate, routes } from '@/lib/navigate'
-
-// Tab routes
-navigate(routes.tab.settings())           // Open settings
-navigate(routes.tab.chat('session123'))   // Open chat
-navigate(routes.tab.agentInfo('claude'))  // Open agent info
-
-// Action routes
-navigate(routes.action.newChat({ agentId: 'claude' }))  // New chat with agent
-navigate(routes.action.deleteSession('id'))             // Delete session
-
-// Sidebar routes
-navigate(routes.sidebar.inbox())          // Show inbox
-navigate(routes.sidebar.flagged())        // Show flagged
-```
-
-### Deep Links
-
-External apps can navigate using `craftagents://` URLs:
+Configuration is stored at `~/.kata/`:
 
 ```
-craftagents://settings
-craftagents://allChats/chat/session123
-craftagents://sources/source/github
-craftagents://action/new-chat
-craftagents://workspace/{id}/allChats/chat/abc123
+~/.kata/
+├── config.json              # Main config (workspaces, auth type)
+├── credentials.enc          # Encrypted credentials (AES-256-GCM)
+├── preferences.json         # User preferences
+├── theme.json               # App-level theme
+└── workspaces/
+    └── {id}/
+        ├── config.json      # Workspace settings
+        ├── theme.json       # Workspace theme override
+        ├── sessions/        # Session data (JSONL)
+        ├── sources/         # Connected sources
+        ├── skills/          # Custom skills
+        └── statuses/        # Status configuration
 ```
 
-See `CLAUDE.md` for complete route reference.
+## Advanced Features
 
-## File Overview
+### Large Response Handling
 
-| File | Purpose |
-|------|---------|
-| `main/index.ts` | App entry, window creation |
-| `main/sessions.ts` | CraftAgent wrapper, event processing, source integration |
-| `main/ipc.ts` | IPC channel handlers (sessions, files, shell) |
-| `main/menu.ts` | Application menu (File, Edit, View, Help) |
-| `main/deep-link.ts` | Deep link URL parsing and handling |
-| `main/sources-service.ts` | Source loading and authentication service |
-| `preload/index.ts` | Context bridge API |
-| `renderer/App.tsx` | React root, state management |
-| `renderer/contexts/NavigationContext.tsx` | Type-safe routing and navigation handler |
-| `renderer/lib/navigate.ts` | Global navigate() function |
-| `renderer/hooks/useAgentState.ts` | Agent activation state machine (IPC-based) |
-| `renderer/hooks/useBackgroundTasks.ts` | Background task tracking |
-| `renderer/hooks/useStatuses.ts` | Workspace status configuration |
-| `renderer/hooks/useTheme.ts` | Cascading theme resolution |
-| `renderer/components/chat/Chat.tsx` | Main chat layout with resizable panels |
-| `renderer/components/chat/ChatInput.tsx` | Message input with file attachments |
-| `renderer/components/chat/ChatDisplay.tsx` | Message list with markdown rendering |
-| `renderer/components/app-shell/input/structured/PermissionRequest.tsx` | Bash command approval UI |
-| `renderer/components/chat/SessionList.tsx` | Session sidebar with rename support |
-| `renderer/components/chat/AttachmentPreview.tsx` | File attachment bubbles |
-| `renderer/components/ui/source-avatar.tsx` | Unified source icon component |
-| `renderer/playground/` | Component development playground |
-| `shared/types.ts` | IPC channels, Message/Session/FileAttachment types |
-| `shared/routes.ts` | Type-safe route definitions and builders |
-| `shared/route-parser.ts` | Route string parsing utilities |
+Tool responses exceeding ~60KB are automatically summarized using Claude Haiku with intent-aware context. The `_intent` field is injected into MCP tool schemas to preserve summarization focus.
+
+### Deep Linking
+
+External apps can navigate using `kata://` URLs:
+
+```
+kata://allChats                    # All chats view
+kata://allChats/chat/session123    # Specific chat
+kata://settings                    # Settings
+kata://sources/source/github       # Source info
+kata://action/new-chat             # Create new chat
+```
+
+## Tech Stack
+
+| Layer       | Technology                                                                                     |
+| ----------- | ---------------------------------------------------------------------------------------------- |
+| Runtime     | [Bun](https://bun.sh/)                                                                         |
+| AI          | [@anthropic-ai/claude-agent-sdk](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk) |
+| Desktop     | [Electron](https://www.electronjs.org/) + React                                                |
+| UI          | [shadcn/ui](https://ui.shadcn.com/) + Tailwind CSS v4                                          |
+| Build       | esbuild (main) + Vite (renderer)                                                               |
+| Credentials | AES-256-GCM encrypted file storage                                                             |
+
+## License
+
+Apache License 2.0 - see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+To install the repo-managed git hooks locally, run:
+
+```bash
+bun run githooks:install
+```
+
+This enables the versioned [`.githooks/pre-push`](.githooks/pre-push) hook, which mirrors the CI `validate` job before pushes.
+
+## Security
+
+### Local MCP Server Isolation
+
+When spawning local MCP servers (stdio transport), sensitive environment variables are filtered out to prevent credential leakage to subprocesses. Blocked variables include:
+
+- `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN` (app auth)
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`
+- `GITHUB_TOKEN`, `GH_TOKEN`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `STRIPE_SECRET_KEY`, `NPM_TOKEN`
+
+To explicitly pass an env var to a specific MCP server, use the `env` field in the source config.
+
+To report security vulnerabilities, please see [SECURITY.md](SECURITY.md).
