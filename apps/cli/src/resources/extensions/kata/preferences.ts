@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { getAgentDir } from "@mariozechner/pi-coding-agent";
 
-const GLOBAL_PREFERENCES_PATH = join(homedir(), ".kata", "preferences.md");
+const GLOBAL_PREFERENCES_PATH = join(homedir(), ".kata-cli", "preferences.md");
 const LEGACY_GLOBAL_PREFERENCES_PATH = join(
   homedir(),
   ".pi",
