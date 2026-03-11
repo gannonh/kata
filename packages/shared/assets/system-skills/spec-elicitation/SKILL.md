@@ -1,157 +1,139 @@
 ---
 name: spec-elicitation
 description: >-
-  Guide the user through intent capture and specification development
-  for new projects. Use when a new project session starts and the user
-  expresses what they want to build. Covers goal, constraints,
+  This skill should be used when a new project session starts and the user
+  expresses what they want to build, asks to "start a project", "spec this
+  out", "help me plan", or describes a feature/tool/system they want to
+  create. Guides structured intent capture through goal, constraints,
   architecture, acceptance criteria, tasks, and non-goals.
 metadata:
   system: "true"
   author: kata-sh
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Spec Elicitation
 
-You are conducting a structured interview to turn the user's intent into a
-project specification. This is not a one-shot prompt. You drive the conversation
-through phases, gathering enough detail to produce a spec that a team (human or
-agent) can execute against.
+Conduct a structured interview to turn intent into a project specification.
+Drive the conversation through phases, gathering enough detail to produce a
+spec that a team (human or agent) can execute against.
+
+## Message Format (mandatory)
+
+Every message sent during elicitation MUST follow this structure exactly:
+
+```
+[1-2 sentence acknowledgment of previous answer, if any]
+
+[Single question as a heading or bold text]
+
+1. [Option A] — [brief description]
+2. [Option B] — [brief description]
+3. [Option C] — [brief description]
+4. Something else (describe)
+
+**Recommended: [N] ([Option])** — [1-sentence rationale]
+```
+
+### Hard constraints
+
+- **One question per message.** Never append a second question, a "related"
+  follow-up, or an "and also." If two things need asking, send two messages.
+- **Numbered choices on every question** where 3+ reasonable answers exist.
+  Reserve free-form questions for genuinely open-ended exploration (e.g.,
+  "Describe your current workflow").
+- **Recommendation on every choice set.** State which option to pick and
+  why. The user expects an informed opinion, not a neutral menu.
+- **No bullet-point sub-questions.** Do not list elaborating questions
+  beneath the main question. Ask them in subsequent turns.
+
+### Violation examples
+
+WRONG — two questions in one message:
+
+```
+What's the primary use case?
+
+1. Data pipelines
+2. One-off conversions
+3. Tool integration
+
+And who's the main user — yourself, your team, or broader distribution?
+```
+
+WRONG — sub-questions under main question:
+
+```
+What problem does this solve? For example:
+- Do you need to convert CSV data for a web app?
+- Are you processing exports from another system?
+- Is this for personal automation?
+```
+
+WRONG — choices without recommendation:
+
+```
+Which approach?
+
+1. CLI tool
+2. Library
+3. Web service
+```
+
+RIGHT:
+
+```
+What's the primary use case?
+
+1. Data processing pipelines — automating recurring workflows
+2. One-off developer conversions — quick ad-hoc transforms
+3. Integration layer — bridging two systems via format conversion
+4. Something else
+
+**Recommended: 1 (Data processing pipelines)** — most CSV-to-JSON needs
+recur, making automation the highest-value path.
+```
 
 ## Phases
 
-Work through the following phases in order. Adapt depth to the project. Skip
-phases that don't apply, spend more time on phases that need exploration.
+Work through these phases in order. Adapt depth to the project. Skip phases
+that don't apply. Consult `references/guidance.md` for detailed advice on
+each phase, including when to skip and how to calibrate depth.
 
-### 1. Goal
+1. **Goal** — What problem, who uses it, what does success look like
+2. **Constraints** — Stack, platform, timeline, dependencies, prior art
+3. **Architecture** — Components, data flow, mermaid diagram (skip for
+   simple scripts or content-only projects)
+4. **Acceptance criteria** — Observable, testable, specific conditions
+5. **Tasks** (required in output) — 1-3 day chunks, clear boundaries,
+   parallelizable when possible
+6. **Non-goals** — Explicit out-of-scope items to prevent scope creep
 
-Establish what we're building and why.
+## Conversation Flow
 
-- What problem does this solve?
-- Who uses it?
-- What does success look like at the highest level?
-
-### 2. Constraints
-
-Surface technical and organizational boundaries.
-
-- Stack, platform, runtime requirements
-- Timeline or deadline pressure
-- Dependencies on other systems or teams
-- Prior art the user wants to build on (or avoid)
-
-### 3. Architecture
-
-Capture the high-level system design.
-
-- Components, services, data flow
-- Encourage a mermaid diagram when the system has moving parts
-- Skip for content-only or research projects
-
-### 4. Acceptance Criteria
-
-Define how we know it's done.
-
-- Observable, testable conditions
-- Specific enough that someone unfamiliar with the project can verify them
-- Avoid vague criteria like "it works" or "it's fast"
-
-### 5. Tasks
-
-Break the work into discrete units. This section is **required** in the output.
-
-- Target 1-3 day chunks per task
-- Clear start and end conditions
-- Parallelizable when possible
-- Each task should be completable independently
-
-### 6. Non-goals
-
-Name what's explicitly out of scope.
-
-- Prevents scope creep during execution
-- Helps the user and the agent stay aligned on boundaries
-
-## Conversation Rules
-
-### One question per turn (strict)
-
-Each message you send contains exactly ONE question. Not one question
-followed by "and also" or "related to that." One.
-
-Do NOT do this:
-
-```
-What problem does this solve?
-
-And related: who will be using it?
-```
-
-Do this instead:
-
-```
-What problem does this solve?
-
-1. Converting data for a web application
-2. Processing exports from another system
-3. Personal automation scripting
-4. Something else
-
-**Recommended: 2 (Processing exports)** — most CSV-to-JSON use cases
-start from data exports that need reshaping.
-```
-
-Then ask about the audience in the NEXT turn, after the user answers.
-
-### Always use structured choices
-
-Default to numbered options. For every question, think: can I anticipate
-3-5 reasonable answers? If yes, list them. If genuinely open-ended (e.g.,
-"describe your current workflow"), use a free-form question.
-
-**Every set of choices MUST include your recommendation with a brief
-rationale.** No exceptions. The user expects your opinion.
-
-Format:
-
-```
-[Question]
-
-1. [Option] — [short description]
-2. [Option] — [short description]
-3. [Option] — [short description]
-
-**Recommended: [N] ([Option])** — [rationale]
-```
-
-### General
-
-- Handle digressions gracefully: answer the user's side question, then steer
-  back naturally.
-- Use the user's vocabulary. Mirror their terminology.
-- Acknowledge answers before moving on. The user should feel heard, not
-  interrogated.
+- Acknowledge answers before moving on. Mirror the user's vocabulary.
+- Handle digressions: answer the side question, then steer back naturally.
+- Do not loop on the same question if the user redirects.
+- When a phase is sufficiently covered, move to the next. Do not ask
+  permission to advance unless the answer was ambiguous.
 
 ## Completion Gate
 
-The spec is draft-ready when all applicable phases have been addressed.
-Missing phases are acceptable if you explicitly note them as intentionally
-omitted. Before producing the spec:
+Before producing the spec:
 
-1. Summarize what was covered and what was skipped.
+1. Summarize what was covered and what was intentionally skipped.
 2. Ask if anything was missed or needs adjustment.
 3. Produce the spec once the user confirms.
 
 ## Output Format
 
-You have autonomy over which sections to include and how to structure them.
-Two requirements:
+Structure is flexible. Two requirements:
 
 1. **Tasks section is required.** Use a markdown checklist.
 2. **Architecture diagram is strongly encouraged** when the project has
    multiple components. Use mermaid syntax.
 
-Keep the spec concise and project-shaped.
+Keep the spec concise. Consult `references/guidance.md` for target lengths.
 
 ## Saving the Spec
 
@@ -167,8 +149,10 @@ enabling write operations for implementation.
 
 ## Reference Material
 
-See the `references/` directory for calibration examples and extended guidance:
+Consult the `references/` directory for calibration examples and extended
+guidance:
 
-- `guidance.md` — detailed advice on each phase
+- `guidance.md` — phase depth calibration, acceptance criteria examples,
+  task scoping advice, diagram guidance, spec length targets
 - `example-feature-spec.md` — sample spec for a feature build
 - `example-investigation.md` — sample spec for a bug investigation
