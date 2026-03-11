@@ -1,0 +1,583 @@
+{
+  "noteId": "spec",
+  "workspaceId": "tui-app",
+  "computedAt": "2026-02-22T20:31:18.362Z",
+  "attributions": {
+    "1": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "2": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "3": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "4": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "5": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "6": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "7": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "8": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "9": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "10": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "11": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "12": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "13": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "14": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "15": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "16": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "17": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "18": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "19": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "20": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "21": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "22": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "23": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "24": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "25": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "26": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "27": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "28": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "29": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "30": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "31": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "32": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "33": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "34": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "35": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "36": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "37": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "39": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "41": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "43": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "45": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "47": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "48": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "49": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "50": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "51": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "52": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "53": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "54": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "55": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "56": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "57": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "58": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "59": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "60": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "61": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "62": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "63": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "64": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "65": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "66": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "67": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "68": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "69": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "70": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "71": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "72": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "73": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "74": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "75": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "76": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    },
+    "77": {
+      "timestamp": 1771545037147,
+      "author": {
+        "id": "user",
+        "name": "User",
+        "type": "user"
+      }
+    }
+  }
+}

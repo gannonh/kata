@@ -153,6 +153,11 @@ Sources are external data connections (MCP servers, APIs, local filesystems). St
 - `@craft-agent/core` - Shared types
 - `@anthropic-ai/claude-agent-sdk` - Claude Agent SDK
 
+## Testing Gotchas
+
+- **Cross-file module ordering:** Importing `PERMISSION_MODE_CONFIG` from `mode-types.ts` in test files can resolve to `undefined` when running the full suite (`bun test`). Inline display name values instead of importing.
+- **`AskUserQuestion`:** Currently blocked in `disallowedTools` in `craft-agent.ts` (~line 824) because the renderer has no UI support. See KAT-293.
+
 ## Type Checking
 
 ```bash

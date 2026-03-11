@@ -1,0 +1,24 @@
+node:internal/modules/cjs/loader:1408
+  throw err;
+  ^
+
+Error: Cannot find module 'express'
+Require stack:
+- /Users/gannonhall/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.0/lib/brainstorm-server/index.js
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1405:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1061:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1066:22)
+    at Function._load (node:internal/modules/cjs/loader:1215:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Module.require (node:internal/modules/cjs/loader:1491:12)
+    at require (node:internal/modules/helpers:135:16)
+    at Object.<anonymous> (/Users/gannonhall/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.0/lib/brainstorm-server/index.js:1:17)
+    at Module._compile (node:internal/modules/cjs/loader:1734:14) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/Users/gannonhall/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.0/lib/brainstorm-server/index.js'
+  ]
+}
+
+Node.js v23.11.0

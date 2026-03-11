@@ -47,6 +47,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # Finder (MacOS) folder config
 .DS_Store
 
+# Superpowers runtime artifacts
+.superpowers/
+
 # Claude Code local settings (user-specific)
 .claude/settings.local.json
 

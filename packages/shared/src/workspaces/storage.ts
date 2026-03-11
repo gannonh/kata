@@ -7,6 +7,7 @@
  */
 
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -18,7 +19,8 @@ import {
 import { join } from 'path';
 import { homedir } from 'os';
 import { randomUUID } from 'crypto';
-import { expandPath, toPortablePath } from '../utils/paths.ts';
+import { expandPath, toPortablePath, getBundledAssetsDir } from '../utils/paths.ts';
+import { debug } from '../utils/debug.ts';
 import { getDefaultStatusConfig, saveStatusConfig, ensureDefaultIconFiles } from '../statuses/storage.ts';
 import { getDefaultLabelConfig, saveLabelConfig } from '../labels/storage.ts';
 import { loadConfigDefaults } from '../config/storage.ts';
@@ -84,6 +86,45 @@ export function getWorkspaceSessionsPath(rootPath: string): string {
  */
 export function getWorkspaceSkillsPath(rootPath: string): string {
   return join(rootPath, 'skills');
+}
+
+/**
+ * Resolve the bundled system skills directory.
+ * Uses the same asset resolution as docs, tool-icons, etc.
+ */
+function getSystemSkillsDir(): string | undefined {
+  return getBundledAssetsDir('system-skills');
+}
+
+/**
+ * Seed system skills into a workspace's skills directory.
+ * Copies bundled system skills that don't already exist.
+ * Does not overwrite user-modified skills.
+ */
+export function seedSystemSkills(workspaceRootPath: string): void {
+  const systemSkillsDir = getSystemSkillsDir();
+  if (!systemSkillsDir || !existsSync(systemSkillsDir)) {
+    debug('[seedSystemSkills] No system skills directory found, skipping');
+    return;
+  }
+
+  const skillsDir = getWorkspaceSkillsPath(workspaceRootPath);
+
+  try {
+    const systemSkills = readdirSync(systemSkillsDir).filter(name => !name.startsWith('.'));
+    for (const skillSlug of systemSkills) {
+      const targetDir = join(skillsDir, skillSlug);
+      if (existsSync(targetDir)) {
+        debug(`[seedSystemSkills] Skipping existing skill: ${skillSlug}`);
+        continue;
+      }
+      const sourceDir = join(systemSkillsDir, skillSlug);
+      cpSync(sourceDir, targetDir, { recursive: true });
+      debug(`[seedSystemSkills] Seeded system skill: ${skillSlug}`);
+    }
+  } catch (error) {
+    debug('[seedSystemSkills] Error seeding skills:', error);
+  }
 }
 
 // ============================================================
@@ -178,11 +219,12 @@ export function loadWorkspace(rootPath: string): LoadedWorkspace | null {
   // Ensure plugin manifest exists (migration for existing workspaces)
   ensurePluginManifest(rootPath, config.name);
 
-  // Ensure skills directory exists (migration for existing workspaces)
+  // Ensure skills directory exists and seed system skills (migration for existing workspaces)
   const skillsPath = getWorkspaceSkillsPath(rootPath);
   if (!existsSync(skillsPath)) {
     mkdirSync(skillsPath, { recursive: true });
   }
+  seedSystemSkills(rootPath);
 
   return {
     config,
@@ -313,6 +355,9 @@ export function createWorkspaceAtPath(
 
   // Initialize plugin manifest for SDK integration (enables skills, commands, agents)
   ensurePluginManifest(rootPath, name);
+
+  // Seed system skills (spec-elicitation, etc.)
+  seedSystemSkills(rootPath);
 
   return config;
 }

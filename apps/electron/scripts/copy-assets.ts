@@ -30,7 +30,7 @@ mkdirSync('dist/assets', { recursive: true });
 
 // Shared assets from packages/shared/assets/
 const sharedAssetsRoot = '../../packages/shared/assets';
-for (const dir of ['docs', 'tool-icons']) {
+for (const dir of ['docs', 'tool-icons', 'prompt-templates', 'system-skills']) {
   const src = `${sharedAssetsRoot}/${dir}`;
   if (existsSync(src)) {
     cpSync(src, `dist/assets/${dir}`, { recursive: true });

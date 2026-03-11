@@ -146,11 +146,15 @@ import type { Session, Message, AgentEvent } from '@craft-agent/core';
 ## Important Conventions
 
 - `git push --no-verify` is strictly forbidden in this repository. Do not bypass local hooks under any circumstances. If the pre-push gate fails, fix the underlying issue and push normally.
+- **Before creating a PR**, run `/claude-md-management:revise-claude-md` to capture session learnings into CLAUDE.md. This is mandatory, not optional.
 - Environment variables for OAuth are loaded from `.env` at build time via esbuild `--define`
 - Debug logging writes to `~/Library/Logs/@craft-agent/electron/` on macOS
 - Sessions are persisted as JSONL files in workspace directories
 - MCP servers can be stdio-based (local subprocess) or http/sse-based (remote)
 - To reset window state (useful when debugging session display issues): `rm ~/.kata-agents/window-state.json`
+- **Bundled assets:** Files that must work in both dev and Electron go in `packages/shared/assets/<subfolder>/`, are copied by `apps/electron/scripts/copy-assets.ts`, and resolve at runtime via `getBundledAssetsDir(subfolder)`. Never use `import.meta.dir` for asset paths — it is Bun-only and crashes in Node.js/Electron.
+- **System skills:** Bundled at `packages/shared/assets/system-skills/`. Seeded into workspaces on creation via `seedSystemSkills()`. Filter dotfiles (`.DS_Store`) when reading skill directories.
+- **SDK plugin qualification:** Skills are invoked as `{pluginName}:skill-slug`. The pluginName comes from `.claude-plugin/plugin.json` `name` field, not the directory name. Pattern: `craft-workspace-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
 
 ## Electron UAT Notes
 
