@@ -137,7 +137,7 @@ import type { Session, Message, AgentEvent } from '@craft-agent/core';
 
 ## Releases
 
-- **Version files to bump:** `package.json` (root) AND `apps/electron/package.json` — both must match
+- **Version file to bump:** `apps/electron/package.json` only (root `package.json` is `0.0.0` and not used for releases)
 - **No `.claude-plugin/plugin.json`** — this project is an Electron app, not a Claude Code plugin
 - **CHANGELOG.md** follows Keep a Changelog format
 - **Only bump versions when there are end-user-facing changes.** Internal milestones (test infrastructure, docs-only) should not trigger version bumps or build releases.

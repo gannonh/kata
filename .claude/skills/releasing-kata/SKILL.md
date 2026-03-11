@@ -9,8 +9,10 @@ Kata has two independently versioned release targets:
 
 | Target | Package | Version Source | Tag Format | CI Workflow |
 |--------|---------|---------------|------------|-------------|
-| **Desktop** | `@kata/desktop` | `apps/electron/package.json` + root `package.json` (must match) | `v0.6.1` | `desktop-release.yml` |
-| **CLI** | `@kata/cli` | `apps/cli/package.json` (independent) | `cli-v0.1.0` | `cli-release.yml` |
+| **Desktop** | `@kata/desktop` | `apps/electron/package.json` only | `desktop-v0.6.1` | `desktop-release.yml` |
+| **CLI** | `@kata/cli` | `apps/cli/package.json` only | `cli-v0.1.0` | `cli-release.yml` |
+
+**Root `package.json` version is `0.0.0` — it is not used for releases.** Each app owns its own version.
 
 **Ask the user which target they're releasing** if not clear from context.
 
@@ -48,31 +50,27 @@ cd apps/electron && bun run dist:mac
 
 ### Version Bump
 
-**Both files must match:**
+Only `apps/electron/package.json`:
 
 ```bash
-# Update both
-# package.json (root) → version
-# apps/electron/package.json → version
-
-# Verify
-diff <(grep '"version"' package.json | head -1) <(grep '"version"' apps/electron/package.json)
+# Update apps/electron/package.json → version
+# Do NOT touch root package.json
 ```
 
 ### Create Release PR
 
 ```bash
-git checkout -b release/vX.Y.Z
-git add package.json apps/electron/package.json CHANGELOG.md
+git checkout -b release/desktop-vX.Y.Z
+git add apps/electron/package.json CHANGELOG.md
 git commit -m "chore(release): bump desktop to X.Y.Z"
-git push -u origin release/vX.Y.Z
-gh pr create --title "Release vX.Y.Z" --body "Desktop release vX.Y.Z"
+git push -u origin release/desktop-vX.Y.Z
+gh pr create --title "Desktop vX.Y.Z" --body "Desktop release vX.Y.Z"
 ```
 
 ### After Merge
 
 CI triggers `desktop-release.yml`:
-1. Detects version change (compares `apps/electron/package.json` to existing `v*` tags)
+1. Detects version change (compares `apps/electron/package.json` to existing `desktop-v*` tags)
 2. Builds for all platforms
 3. Code signs and notarizes macOS builds
 4. Creates GitHub Release with artifacts
@@ -86,8 +84,8 @@ Expected artifacts:
 ### Verify
 
 ```bash
-gh release view vX.Y.Z
-gh release view vX.Y.Z --json assets --jq '.assets[].name'
+gh release view desktop-vX.Y.Z
+gh release view desktop-vX.Y.Z --json assets --jq '.assets[].name'
 ```
 
 ---
@@ -165,9 +163,9 @@ npm view @kata/cli version
 ## Acceptance Criteria
 
 **Desktop:**
-- [ ] Root `package.json` and `apps/electron/package.json` versions match
+- [ ] `apps/electron/package.json` version bumped
 - [ ] CHANGELOG.md updated
-- [ ] GitHub Release created with all platform artifacts
+- [ ] GitHub Release created with tag `desktop-vX.Y.Z` and all platform artifacts
 
 **CLI:**
 - [ ] `apps/cli/package.json` version bumped

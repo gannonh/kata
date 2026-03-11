@@ -1,6 +1,6 @@
 {
   "name": "kata",
-  "version": "0.6.1",
+  "version": "0.0.0",
   "description": "Kata monorepo",
   "type": "module",
   "private": true,
