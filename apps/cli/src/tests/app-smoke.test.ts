@@ -31,26 +31,26 @@ const projectRoot = join(fileURLToPath(import.meta.url), "..", "..", "..");
 // 1. app-paths
 // ═══════════════════════════════════════════════════════════════════════════
 
-test("app-paths resolve to ~/.kata/", async () => {
+test("app-paths resolve to ~/.kata-cli/", async () => {
   const { appRoot, agentDir, sessionsDir, authFilePath } =
     await import("../app-paths.ts");
   const home = process.env.HOME!;
 
-  assert.equal(appRoot, join(home, ".kata"), "appRoot is ~/.kata/");
+  assert.equal(appRoot, join(home, ".kata-cli"), "appRoot is ~/.kata-cli/");
   assert.equal(
     agentDir,
-    join(home, ".kata", "agent"),
-    "agentDir is ~/.kata/agent/",
+    join(home, ".kata-cli", "agent"),
+    "agentDir is ~/.kata-cli/agent/",
   );
   assert.equal(
     sessionsDir,
-    join(home, ".kata", "sessions"),
-    "sessionsDir is ~/.kata/sessions/",
+    join(home, ".kata-cli", "sessions"),
+    "sessionsDir is ~/.kata-cli/sessions/",
   );
   assert.equal(
     authFilePath,
-    join(home, ".kata", "agent", "auth.json"),
-    "authFilePath is ~/.kata/agent/auth.json",
+    join(home, ".kata-cli", "agent", "auth.json"),
+    "authFilePath is ~/.kata-cli/agent/auth.json",
   );
 });
 
@@ -102,7 +102,7 @@ test("loader sets all 4 KATA_ env vars and PI_PACKAGE_DIR", async () => {
 
   // Direct logic verification (no subprocess needed)
   const { agentDir: ad } = await import("../app-paths.ts");
-  assert.ok(ad.endsWith(".kata/agent"), "agentDir ends with .kata/agent");
+  assert.ok(ad.endsWith(".kata-cli/agent"), "agentDir ends with .kata-cli/agent");
 
   // Verify the env var names are in loader.ts source
   const loaderSrc = readFileSync(
@@ -128,15 +128,15 @@ test("loader sets all 4 KATA_ env vars and PI_PACKAGE_DIR", async () => {
   // Loader uses join() calls like join(agentDir, 'extensions', 'kata', 'index.ts')
   // so we check for the distinguishing directory name of each extension
   const extNames = [
-    "'kata'",
-    "'bg-shell'",
-    "'browser-tools'",
-    "'context7'",
-    "'search-the-web'",
-    "'slash-commands'",
-    "'subagent'",
-    "'ask-user-questions.ts'",
-    "'get-secrets-from-user.ts'",
+    '"kata"',
+    '"bg-shell"',
+    '"browser-tools"',
+    '"context7"',
+    '"search-the-web"',
+    '"slash-commands"',
+    '"subagent"',
+    '"ask-user-questions.ts"',
+    '"get-secrets-from-user.ts"',
   ];
   for (const name of extNames) {
     assert.ok(loaderSrc.includes(name), `loader references extension ${name}`);
@@ -381,8 +381,8 @@ test("npm pack produces tarball with required files", async () => {
     );
     assert.equal(
       pkg.piConfig?.configDir,
-      ".kata",
-      "pkg/package.json piConfig.configDir is .kata",
+      ".kata-cli",
+      "pkg/package.json piConfig.configDir is .kata-cli",
     );
   } finally {
     // Clean up tarball
@@ -415,7 +415,7 @@ test("tarball installs and kata-cli binary resolves", async () => {
     });
 
     // Verify the kata bin exists in the installed package
-    const installedBin = join(tmp, "node_modules", ".bin", "kata");
+    const installedBin = join(tmp, "node_modules", ".bin", "kata-cli");
     assert.ok(
       existsSync(installedBin),
       "kata-cli binary exists in node_modules/.bin/",
@@ -425,7 +425,8 @@ test("tarball installs and kata-cli binary resolves", async () => {
     const installedLoader = join(
       tmp,
       "node_modules",
-      "kata-cli",
+      "@kata",
+      "cli",
       "dist",
       "loader.js",
     );
@@ -439,7 +440,8 @@ test("tarball installs and kata-cli binary resolves", async () => {
     const installedKataExt = join(
       tmp,
       "node_modules",
-      "kata-cli",
+      "@kata",
+      "cli",
       "src",
       "resources",
       "extensions",

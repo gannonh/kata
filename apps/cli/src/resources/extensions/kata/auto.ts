@@ -66,7 +66,6 @@ import {
   clearUnitRuntimeRecord,
   formatExecuteTaskRecoveryStatus,
   inspectExecuteTaskDurability,
-  recordUnitProgress,
   readUnitRuntimeRecord,
   writeUnitRuntimeRecord,
 } from "./unit-runtime.js";
