@@ -79,10 +79,28 @@ Name what's explicitly out of scope.
   back naturally. Do not loop robotically on the same question if the user
   redirects.
 - Use the user's vocabulary. Mirror their terminology.
-- Offer multiple choice when it reduces ambiguity. Use open-ended questions
-  when exploring new territory.
 - Acknowledge answers before moving on. The user should feel heard, not
   interrogated.
+
+### Structured Choices
+
+When a question has a finite set of reasonable answers, present numbered
+options instead of asking open-ended. Always include your recommendation
+and a brief rationale:
+
+```
+Which database approach fits best?
+
+1. SQLite (embedded, no server needed)
+2. PostgreSQL (full relational, good for concurrent access)
+3. DynamoDB (serverless, pay-per-request)
+
+**Recommended: 1 (SQLite)** — single-user desktop app, embedded storage
+avoids deployment complexity.
+```
+
+Use open-ended questions only when exploring new territory where you
+cannot anticipate the answer space.
 
 ## Completion Gate
 
@@ -103,8 +121,19 @@ Two requirements:
 2. **Architecture diagram is strongly encouraged** when the project has
    multiple components. Use mermaid syntax.
 
-Keep the spec concise and project-shaped. After outputting the spec in chat,
-call `save_spec` to persist it to the workspace.
+Keep the spec concise and project-shaped.
+
+## Saving the Spec
+
+After outputting the spec in chat:
+
+1. Write the spec to `plans/spec.md` in the session directory using the
+   Write tool.
+2. Call `SubmitPlan` with the path to the written file.
+
+`SubmitPlan` presents the spec to the user with an accept/reject UI. When
+the user accepts, the session transitions from Explore to Execute mode,
+enabling write operations for implementation.
 
 ## Reference Material
 
