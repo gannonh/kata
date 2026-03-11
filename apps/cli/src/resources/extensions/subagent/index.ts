@@ -331,13 +331,13 @@ async function runSingleAgent(
     let wasAborted = false;
 
     const exitCode = await new Promise<number>((resolve) => {
-      const bundledPaths = (process.env.kata_BUNDLED_EXTENSION_PATHS ?? "")
+      const bundledPaths = (process.env.KATA_BUNDLED_EXTENSION_PATHS ?? "")
         .split(":")
         .filter(Boolean);
       const extensionArgs = bundledPaths.flatMap((p) => ["--extension", p]);
       const proc = spawn(
         process.execPath,
-        [process.env.kata_BIN_PATH!, ...extensionArgs, ...args],
+        [process.env.KATA_BIN_PATH!, ...extensionArgs, ...args],
         {
           cwd: cwd ?? defaultCwd,
           shell: false,

@@ -14,7 +14,7 @@ const bundledExtensionsDir = join(resourcesDir, 'extensions')
  * - extensions/ → ~/.kata-cli/agent/extensions/   (always overwrite)
  * - agents/     → ~/.kata-cli/agent/agents/        (always overwrite)
  * - AGENTS.md   → ~/.kata-cli/agent/AGENTS.md      (always overwrite)
- * - GSD-WORKFLOW.md is read directly from bundled path via GSD_WORKFLOW_PATH env var
+ * - KATA-WORKFLOW.md is read directly from bundled path via KATA_WORKFLOW_PATH env var
  *
  * Always-overwrite ensures updates take effect immediately.
  */

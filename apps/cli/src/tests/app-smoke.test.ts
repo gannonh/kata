@@ -1,5 +1,5 @@
 /**
- * App-level smoke tests for the gsd CLI package.
+ * App-level smoke tests for the kata CLI package.
  *
  * Tests the glue code that IS the product:
  * - app-paths resolve to ~/.kata/
@@ -58,7 +58,7 @@ test("app-paths resolve to ~/.kata/", async () => {
 // 2. loader env vars
 // ═══════════════════════════════════════════════════════════════════════════
 
-test("loader sets all 4 GSD_ env vars and PI_PACKAGE_DIR", async () => {
+test("loader sets all 4 KATA_ env vars and PI_PACKAGE_DIR", async () => {
   // Run loader in a subprocess that prints env vars and exits before TUI starts
   const script = `
     import { fileURLToPath } from 'url';
@@ -67,23 +67,23 @@ test("loader sets all 4 GSD_ env vars and PI_PACKAGE_DIR", async () => {
 
     const pkgDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'pkg');
     process.env.PI_PACKAGE_DIR = pkgDir;
-    process.env.kata_CODING_AGENT_DIR = agentDir;
-    process.env.kata_BIN_PATH = process.argv[1];
+    process.env.KATA_CODING_AGENT_DIR = agentDir;
+    process.env.KATA_BIN_PATH = process.argv[1];
     const resourcesDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'resources');
-    process.env.kata_WORKFLOW_PATH = join(resourcesDir, 'GSD-WORKFLOW.md');
-    const exts = ['extensions/gsd/index.ts'].map(r => join(resourcesDir, r));
-    process.env.kata_BUNDLED_EXTENSION_PATHS = exts.join(':');
+    process.env.KATA_WORKFLOW_PATH = join(resourcesDir, 'KATA-WORKFLOW.md');
+    const exts = ['extensions/kata/index.ts'].map(r => join(resourcesDir, r));
+    process.env.KATA_BUNDLED_EXTENSION_PATHS = exts.join(':');
 
     // Print for verification
     console.log('PI_PACKAGE_DIR=' + process.env.PI_PACKAGE_DIR);
-    console.log('GSD_CODING_AGENT_DIR=' + process.env.kata_CODING_AGENT_DIR);
-    console.log('GSD_BIN_PATH=' + process.env.kata_BIN_PATH);
-    console.log('GSD_WORKFLOW_PATH=' + process.env.kata_WORKFLOW_PATH);
-    console.log('GSD_BUNDLED_EXTENSION_PATHS=' + process.env.kata_BUNDLED_EXTENSION_PATHS);
+    console.log('KATA_CODING_AGENT_DIR=' + process.env.KATA_CODING_AGENT_DIR);
+    console.log('KATA_BIN_PATH=' + process.env.KATA_BIN_PATH);
+    console.log('KATA_WORKFLOW_PATH=' + process.env.KATA_WORKFLOW_PATH);
+    console.log('KATA_BUNDLED_EXTENSION_PATHS=' + process.env.KATA_BUNDLED_EXTENSION_PATHS);
     process.exit(0);
   `;
 
-  const tmp = mkdtempSync(join(tmpdir(), "gsd-loader-test-"));
+  const tmp = mkdtempSync(join(tmpdir(), "kata-loader-test-"));
   const scriptPath = join(tmp, "check-env.ts");
   writeFileSync(scriptPath, script);
 
@@ -111,24 +111,24 @@ test("loader sets all 4 GSD_ env vars and PI_PACKAGE_DIR", async () => {
   );
   assert.ok(loaderSrc.includes("PI_PACKAGE_DIR"), "loader sets PI_PACKAGE_DIR");
   assert.ok(
-    loaderSrc.includes("GSD_CODING_AGENT_DIR"),
-    "loader sets GSD_CODING_AGENT_DIR",
+    loaderSrc.includes("KATA_CODING_AGENT_DIR"),
+    "loader sets KATA_CODING_AGENT_DIR",
   );
-  assert.ok(loaderSrc.includes("GSD_BIN_PATH"), "loader sets GSD_BIN_PATH");
+  assert.ok(loaderSrc.includes("KATA_BIN_PATH"), "loader sets KATA_BIN_PATH");
   assert.ok(
-    loaderSrc.includes("GSD_WORKFLOW_PATH"),
-    "loader sets GSD_WORKFLOW_PATH",
+    loaderSrc.includes("KATA_WORKFLOW_PATH"),
+    "loader sets KATA_WORKFLOW_PATH",
   );
   assert.ok(
-    loaderSrc.includes("GSD_BUNDLED_EXTENSION_PATHS"),
-    "loader sets GSD_BUNDLED_EXTENSION_PATHS",
+    loaderSrc.includes("KATA_BUNDLED_EXTENSION_PATHS"),
+    "loader sets KATA_BUNDLED_EXTENSION_PATHS",
   );
 
   // Verify all 11 extension entry points are referenced in loader
-  // Loader uses join() calls like join(agentDir, 'extensions', 'gsd', 'index.ts')
+  // Loader uses join() calls like join(agentDir, 'extensions', 'kata', 'index.ts')
   // so we check for the distinguishing directory name of each extension
   const extNames = [
-    "'gsd'",
+    "'kata'",
     "'bg-shell'",
     "'browser-tools'",
     "'context7'",
@@ -151,7 +151,7 @@ test("loader sets all 4 GSD_ env vars and PI_PACKAGE_DIR", async () => {
 
 test("initResources syncs extensions, agents, and AGENTS.md to target dir", async () => {
   const { initResources } = await import("../resource-loader.ts");
-  const tmp = mkdtempSync(join(tmpdir(), "gsd-resources-test-"));
+  const tmp = mkdtempSync(join(tmpdir(), "kata-resources-test-"));
   const fakeAgentDir = join(tmp, "agent");
 
   try {
@@ -159,8 +159,8 @@ test("initResources syncs extensions, agents, and AGENTS.md to target dir", asyn
 
     // Extensions synced
     assert.ok(
-      existsSync(join(fakeAgentDir, "extensions", "gsd", "index.ts")),
-      "gsd extension synced",
+      existsSync(join(fakeAgentDir, "extensions", "kata", "index.ts")),
+      "kata extension synced",
     );
     assert.ok(
       existsSync(join(fakeAgentDir, "extensions", "browser-tools", "index.ts")),
@@ -195,7 +195,7 @@ test("initResources syncs extensions, agents, and AGENTS.md to target dir", asyn
     // Idempotent: run again, no crash
     initResources(fakeAgentDir);
     assert.ok(
-      existsSync(join(fakeAgentDir, "extensions", "gsd", "index.ts")),
+      existsSync(join(fakeAgentDir, "extensions", "kata", "index.ts")),
       "idempotent re-sync works",
     );
   } finally {
@@ -211,7 +211,7 @@ test("loadStoredEnvKeys hydrates process.env from auth.json", async () => {
   const { loadStoredEnvKeys } = await import("../wizard.ts");
   const { AuthStorage } = await import("@mariozechner/pi-coding-agent");
 
-  const tmp = mkdtempSync(join(tmpdir(), "gsd-wizard-test-"));
+  const tmp = mkdtempSync(join(tmpdir(), "kata-wizard-test-"));
   const authPath = join(tmp, "auth.json");
   writeFileSync(
     authPath,
@@ -278,7 +278,7 @@ test("loadStoredEnvKeys does not overwrite existing env vars", async () => {
   const { loadStoredEnvKeys } = await import("../wizard.ts");
   const { AuthStorage } = await import("@mariozechner/pi-coding-agent");
 
-  const tmp = mkdtempSync(join(tmpdir(), "gsd-wizard-nooverwrite-"));
+  const tmp = mkdtempSync(join(tmpdir(), "kata-wizard-nooverwrite-"));
   const authPath = join(tmp, "auth.json");
   writeFileSync(
     authPath,
@@ -356,8 +356,8 @@ test("npm pack produces tarball with required files", async () => {
       "tarball contains pkg/package.json",
     );
     assert.ok(
-      files.some((f) => f.includes("src/resources/extensions/gsd/index.ts")),
-      "tarball contains bundled gsd extension",
+      files.some((f) => f.includes("src/resources/extensions/kata/index.ts")),
+      "tarball contains bundled kata extension",
     );
     assert.ok(
       files.some((f) => f.includes("src/resources/AGENTS.md")),
@@ -376,7 +376,7 @@ test("npm pack produces tarball with required files", async () => {
     const pkg = JSON.parse(pkgJson);
     assert.equal(
       pkg.piConfig?.name,
-      "gsd",
+      "kata",
       "pkg/package.json piConfig.name is gsd",
     );
     assert.equal(
@@ -391,10 +391,10 @@ test("npm pack produces tarball with required files", async () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 7. npm pack → install → gsd binary resolves
+// 7. npm pack → install → kata-cli binary resolves
 // ═══════════════════════════════════════════════════════════════════════════
 
-test("tarball installs and gsd binary resolves", async () => {
+test("tarball installs and kata-cli binary resolves", async () => {
   // Build and pack
   execSync("npm run build", { cwd: projectRoot, stdio: "pipe" });
   const packOutput = execSync("npm pack --json 2>/dev/null", {
@@ -405,7 +405,7 @@ test("tarball installs and gsd binary resolves", async () => {
   const tarball = packInfo[0].filename;
   const tarballPath = join(projectRoot, tarball);
 
-  const tmp = mkdtempSync(join(tmpdir(), "gsd-install-test-"));
+  const tmp = mkdtempSync(join(tmpdir(), "kata-install-test-"));
 
   try {
     // Install from tarball into a temp prefix
@@ -415,17 +415,17 @@ test("tarball installs and gsd binary resolves", async () => {
     });
 
     // Verify the gsd bin exists in the installed package
-    const installedBin = join(tmp, "node_modules", ".bin", "gsd");
+    const installedBin = join(tmp, "node_modules", ".bin", "kata");
     assert.ok(
       existsSync(installedBin),
-      "gsd binary exists in node_modules/.bin/",
+      "kata-cli binary exists in node_modules/.bin/",
     );
 
     // Verify loader.js is executable (has shebang)
     const installedLoader = join(
       tmp,
       "node_modules",
-      "gsd-pi",
+      "kata-cli",
       "dist",
       "loader.js",
     );
@@ -439,16 +439,16 @@ test("tarball installs and gsd binary resolves", async () => {
     const installedGsdExt = join(
       tmp,
       "node_modules",
-      "gsd-pi",
+      "kata-cli",
       "src",
       "resources",
       "extensions",
-      "gsd",
+      "kata",
       "index.ts",
     );
     assert.ok(
       existsSync(installedGsdExt),
-      "bundled gsd extension present in installed package",
+      "bundled kata extension present in installed package",
     );
   } finally {
     rmSync(tarballPath, { force: true });
@@ -460,11 +460,11 @@ test("tarball installs and gsd binary resolves", async () => {
 // 8. Launch → extensions load → no errors on stderr
 // ═══════════════════════════════════════════════════════════════════════════
 
-test("gsd launches and loads extensions without errors", async () => {
+test("kata launches and loads extensions without errors", async () => {
   // Build first
   execSync("npm run build", { cwd: projectRoot, stdio: "pipe" });
 
-  // Launch gsd with all optional keys set (skip wizard) and capture stderr.
+  // Launch kata with all optional keys set (skip wizard) and capture stderr.
   // Kill after 5 seconds — we just need to see if extensions load.
   const output = await new Promise<string>((resolve) => {
     let stderr = "";

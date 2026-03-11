@@ -76,7 +76,7 @@ ${goal}
 <!-- What's missing, incomplete, or problematic relative to this goal? Be specific: file paths, patterns, missing abstractions. -->
 
 ## Next Steps
-<!-- Concrete, prioritised actions. These should be directly usable as input to /gsd-roadmap. -->
+<!-- Concrete, prioritised actions. These should be directly usable as input to /kata-roadmap. -->
 
 ---
 

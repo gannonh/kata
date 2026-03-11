@@ -1,5 +1,5 @@
 /**
- * Shared UI design system for GSD/interview TUI components.
+ * Shared UI design system for Kata/interview TUI components.
  *
  * Centralises all colours, glyphs, spacing, and layout helpers so every
  * screen looks consistent and can be restyled from one place.

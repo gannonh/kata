@@ -6,7 +6,7 @@ This document proposes a comprehensive evolution of `agent/extensions/browser-to
 
 - autonomous verification
 - end-to-end testing
-- GSD slice validation
+- Kata slice validation
 - debugging and observability
 - general internet task execution
 - low-token, high-reliability browser interaction
@@ -46,7 +46,7 @@ However, the current system still operates mostly as a **toolbox of action primi
 
 If implemented well, these changes would make browser-tools materially better for both:
 
-- **GSD automatic verification and UAT generation**
+- **Kata automatic verification and UAT generation**
 - **general-purpose agentic browser use on arbitrary websites and apps**
 
 ---
@@ -231,7 +231,7 @@ State deltas are often more useful than fresh full state.
 
 Trace files, HAR data, visual diffs, and debug bundles should generally be persisted and summarized, not inlined.
 
-### 7. Optimize for GSD verification
+### 7. Optimize for Kata verification
 
 The browser device should be excellent at producing:
 
@@ -252,14 +252,14 @@ Add a `browser_assert` tool and a small assertion language built around common b
 
 ## Why it matters
 
-This is the single most important missing capability for GSD and autonomous QA.
+This is the single most important missing capability for Kata and autonomous QA.
 
 Today the agent must infer correctness from prose and heuristics. That is weaker than explicit pass/fail evaluation.
 
 ## What it enables
 
 - deterministic verification
-- clean GSD artifact generation
+- clean Kata artifact generation
 - structured failure reporting
 - simpler agent reasoning
 - less repeated browser inspection
@@ -493,7 +493,7 @@ Forms are one of the highest-leverage abstractions in browser automation.
 - stronger semantic mapping between labels and inputs
 - automatic handling of required fields and validation messages
 - better submit targeting
-- more robust GSD verification of user flows
+- more robust Kata verification of user flows
 
 ## `browser_analyze_form` should return
 
@@ -741,7 +741,7 @@ Add explicit debug artifact tools.
 
 ## Why it matters
 
-For GSD and for hard UI debugging, you need failure evidence that survives the current context window.
+For Kata and for hard UI debugging, you need failure evidence that survives the current context window.
 
 ## What it enables
 
@@ -969,7 +969,7 @@ This makes the system far more debuggable and composable.
 - request correlation
 - failure bundle generation
 - concise flow summaries
-- better GSD verification records
+- better Kata verification records
 
 ## Suggested stored fields per action
 
@@ -1061,15 +1061,15 @@ rather than always restating the whole page summary.
 
 ---
 
-# 16. Add GSD-Native Verification Outputs
+# 16. Add Kata-Native Verification Outputs
 
 ## Proposal
 
-Make browser-tools able to emit outputs that directly support GSD slice/task completion.
+Make browser-tools able to emit outputs that directly support Kata slice/task completion.
 
 ## Why it matters
 
-You explicitly want browser tools to power automatic verification and testing during `@agent/extensions/gsd/` use.
+You explicitly want browser tools to power automatic verification and testing during `@agent/extensions/kata/` use.
 
 ## What it enables
 
@@ -1100,7 +1100,7 @@ Write a markdown or JSON artifact summarizing:
 - outcome
 - diagnostics
 
-This is especially useful for GSD artifacts.
+This is especially useful for Kata artifacts.
 
 ---
 
@@ -1185,7 +1185,7 @@ These are the ideas that move the extension from excellent tooling into a genuin
 5. `browser_verify_flow`
 6. `browser_run_task`
 
-## Biggest wins for GSD
+## Biggest wins for Kata
 
 1. explicit verification outputs
 2. debug bundles on failure
@@ -1266,7 +1266,7 @@ The most important changes are:
 If these are implemented well, browser-tools can become not just a useful extension, but a foundational AI-native capability for both:
 
 - **agentic browser use across the web**
-- **automatic verification inside GSD workflows**
+- **automatic verification inside Kata workflows**
 
 ---
 

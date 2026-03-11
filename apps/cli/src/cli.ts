@@ -42,7 +42,7 @@ if (settingsManager.getDefaultThinkingLevel() !== 'off' && !configuredExists) {
   settingsManager.setDefaultThinkingLevel('off')
 }
 
-// Quiet startup — the gsd extension renders its own branded header
+// Quiet startup — the kata extension renders its own branded header
 if (!settingsManager.getQuietStartup()) {
   settingsManager.setQuietStartup(true)
 }

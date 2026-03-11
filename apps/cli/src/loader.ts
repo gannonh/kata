@@ -51,8 +51,8 @@ if (!existsSync(appRoot)) {
   );
 }
 
-// GSD_CODING_AGENT_DIR — tells pi's getAgentDir() to return ~/.kata-cli/agent/
-process.env.kata_CODING_AGENT_DIR = agentDir;
+// KATA_CODING_AGENT_DIR — tells pi's getAgentDir() to return ~/.kata-cli/agent/
+process.env.KATA_CODING_AGENT_DIR = agentDir;
 
 // NODE_PATH — make kata's own node_modules available to extensions loaded via jiti.
 // Without this, extensions (e.g. browser-tools) can't resolve dependencies like
@@ -68,21 +68,21 @@ process.env.NODE_PATH = process.env.NODE_PATH
 const { Module } = await import("module");
 (Module as any)._initPaths?.();
 
-// GSD_VERSION — expose package version so extensions can display it
+// KATA_VERSION — expose package version so extensions can display it
 try {
   const kataPkg = JSON.parse(
     readFileSync(join(kataRoot, "package.json"), "utf-8"),
   );
-  process.env.kata_VERSION = kataPkg.version || "0.0.0";
+  process.env.KATA_VERSION = kataPkg.version || "0.0.0";
 } catch {
-  process.env.kata_VERSION = "0.0.0";
+  process.env.KATA_VERSION = "0.0.0";
 }
 
-// GSD_BIN_PATH — absolute path to this loader (dist/loader.js), used by subagent
+// KATA_BIN_PATH — absolute path to this loader (dist/loader.js), used by subagent
 // to spawn kata instead of pi when dispatching workflow tasks
-process.env.kata_BIN_PATH = process.argv[1];
+process.env.KATA_BIN_PATH = process.argv[1];
 
-// GSD_WORKFLOW_PATH — absolute path to bundled GSD-WORKFLOW.md, used by the gsd extension
+// KATA_WORKFLOW_PATH — absolute path to bundled KATA-WORKFLOW.md
 // when dispatching workflow prompts
 const resourcesDir = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -90,18 +90,18 @@ const resourcesDir = resolve(
   "src",
   "resources",
 );
-process.env.kata_WORKFLOW_PATH = join(resourcesDir, "GSD-WORKFLOW.md");
+process.env.KATA_WORKFLOW_PATH = join(resourcesDir, "KATA-WORKFLOW.md");
 
-// GSD_BUNDLED_EXTENSION_PATHS — colon-joined list of all bundled extension entry point absolute
+// KATA_BUNDLED_EXTENSION_PATHS — colon-joined list of all bundled extension entry point absolute
 // paths, used by subagent to pass --extension <path> to spawned processes.
 // IMPORTANT: paths point to agentDir (~/.kata-cli/agent/extensions/) NOT src/resources/extensions/.
 // initResources() syncs bundled extensions to agentDir before any extension loading occurs,
 // so these paths are always valid at runtime. Using agentDir paths matches what buildResourceLoader
 // discovers (it scans agentDir), so pi's deduplication works correctly and extensions are not
 // double-loaded in subagent child processes.
-// Note: shared/ is NOT included — it's a library imported by gsd and ask-user-questions, not an entry point.
-process.env.kata_BUNDLED_EXTENSION_PATHS = [
-  join(agentDir, "extensions", "gsd", "index.ts"),
+// Note: shared/ is NOT included — it's a library imported by kata and ask-user-questions, not an entry point.
+process.env.KATA_BUNDLED_EXTENSION_PATHS = [
+  join(agentDir, "extensions", "kata", "index.ts"),
   join(agentDir, "extensions", "bg-shell", "index.ts"),
   join(agentDir, "extensions", "browser-tools", "index.ts"),
   join(agentDir, "extensions", "context7", "index.ts"),
