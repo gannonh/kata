@@ -1,15 +1,12 @@
 #!/bin/bash
 
-# Kata Agents Installer
+# Kata Desktop Installer
 # Downloads and installs from GitHub Releases
-#
-# NOTE: This script was adapted from the original Craft Agents installer.
-# It now downloads from GitHub Releases instead of agents.craft.do.
 
 set -e
 
 # GitHub Release URL base
-GITHUB_REPO="gannonh/kata-agents"
+GITHUB_REPO="gannonh/kata"
 GITHUB_RELEASES_URL="https://github.com/$GITHUB_REPO/releases"
 DOWNLOAD_DIR="$HOME/.kata-agents/downloads"
 
@@ -92,20 +89,20 @@ esac
 # Set platform-specific variables
 if [ "$OS_TYPE" = "darwin" ]; then
     platform="darwin-${arch}"
-    APP_NAME="Kata Agents.app"
+    APP_NAME="Kata Desktop.app"
     INSTALL_DIR="/Applications"
     ext="dmg"
-    filename="Kata-Agents-${arch}.dmg"
+    filename="Kata-Desktop-${arch}.dmg"
 else
     # Linux only supports x64 currently
     if [ "$arch" != "x64" ]; then
         error "Linux currently only supports x64 architecture. Your architecture: $arch"
     fi
     platform="linux-${arch}"
-    APP_NAME="Kata-Agents-x64.AppImage"
+    APP_NAME="Kata-Desktop-x64.AppImage"
     INSTALL_DIR="$HOME/.local/bin"
     ext="AppImage"
-    filename="Kata-Agents-x64.AppImage"
+    filename="Kata-Desktop-x64.AppImage"
 fi
 
 echo ""
@@ -153,22 +150,22 @@ if [ "$OS_TYPE" = "darwin" ]; then
 
     # Quit the app if it's running (use bundle ID for reliability)
     APP_BUNDLE_ID="sh.kata.desktop"
-    if pgrep -x "Kata Agents" >/dev/null 2>&1; then
-        info "Quitting Kata Agents..."
+    if pgrep -x "Kata Desktop" >/dev/null 2>&1; then
+        info "Quitting Kata Desktop..."
         osascript -e "tell application id \"$APP_BUNDLE_ID\" to quit" 2>/dev/null || true
         # Wait for app to quit (max 5 seconds) - POSIX compatible loop
         i=0
         while [ $i -lt 10 ]; do
-            if ! pgrep -x "Kata Agents" >/dev/null 2>&1; then
+            if ! pgrep -x "Kata Desktop" >/dev/null 2>&1; then
                 break
             fi
             sleep 0.5
             i=$((i + 1))
         done
         # Force kill if still running
-        if pgrep -x "Kata Agents" >/dev/null 2>&1; then
+        if pgrep -x "Kata Desktop" >/dev/null 2>&1; then
             warn "App didn't quit gracefully. Force quitting (unsaved data may be lost)..."
-            pkill -9 -x "Kata Agents" 2>/dev/null || true
+            pkill -9 -x "Kata Desktop" 2>/dev/null || true
             # Wait longer for macOS to release file handles
             sleep 3
         fi
@@ -215,10 +212,10 @@ if [ "$OS_TYPE" = "darwin" ]; then
     echo ""
     success "Installation complete!"
     echo ""
-    printf "%b\n" "  Kata Agents has been installed to ${BOLD}$INSTALL_DIR/$APP_NAME${NC}"
+    printf "%b\n" "  Kata Desktop has been installed to ${BOLD}$INSTALL_DIR/$APP_NAME${NC}"
     echo ""
     printf "%b\n" "  You can launch it from ${BOLD}Applications${NC} or by running:"
-    printf "%b\n" "    ${BOLD}open -a 'Kata Agents'${NC}"
+    printf "%b\n" "    ${BOLD}open -a 'Kata Desktop'${NC}"
     echo ""
 
 else
@@ -227,13 +224,13 @@ else
 
     # New paths
     APP_DIR="$HOME/.kata-agents/app"
-    WRAPPER_PATH="$INSTALL_DIR/kata-agents"
-    APPIMAGE_INSTALL_PATH="$APP_DIR/Kata-Agents-x64.AppImage"
+    WRAPPER_PATH="$INSTALL_DIR/kata-desktop"
+    APPIMAGE_INSTALL_PATH="$APP_DIR/Kata-Desktop-x64.AppImage"
 
     # Kill the app if it's running
-    if pgrep -f "Kata-Agents.*AppImage" >/dev/null 2>&1; then
-        info "Stopping Kata Agents..."
-        pkill -f "Kata-Agents.*AppImage" 2>/dev/null || true
+    if pgrep -f "Kata-Desktop.*AppImage" >/dev/null 2>&1; then
+        info "Stopping Kata Desktop..."
+        pkill -f "Kata-Desktop.*AppImage" 2>/dev/null || true
         sleep 2
     fi
 
@@ -253,16 +250,16 @@ else
     info "Creating launcher at $WRAPPER_PATH..."
     cat > "$WRAPPER_PATH" << 'WRAPPER_EOF'
 #!/bin/bash
-# Kata Agents launcher - handles Linux-specific AppImage issues
+# Kata Desktop launcher - handles Linux-specific AppImage issues
 
-APPIMAGE_PATH="$HOME/.kata-agents/app/Kata-Agents-x64.AppImage"
+APPIMAGE_PATH="$HOME/.kata-agents/app/Kata-Desktop-x64.AppImage"
 ELECTRON_CACHE="$HOME/.config/@kata-agents"
 ELECTRON_CACHE_ALT="$HOME/.cache/@kata-agents"
 
 # Verify AppImage exists
 if [ ! -f "$APPIMAGE_PATH" ]; then
-    echo "Error: Kata Agents not found at $APPIMAGE_PATH"
-    echo "Reinstall from: https://github.com/gannonh/kata-agents/releases"
+    echo "Error: Kata Desktop not found at $APPIMAGE_PATH"
+    echo "Reinstall from: https://github.com/gannonh/kata/releases"
     exit 1
 fi
 
@@ -289,7 +286,7 @@ WRAPPER_EOF
     chmod +x "$WRAPPER_PATH"
 
     # Migrate old installation
-    OLD_APPIMAGE="$INSTALL_DIR/Kata-Agents-x64.AppImage"
+    OLD_APPIMAGE="$INSTALL_DIR/Kata-Desktop-x64.AppImage"
     [ -f "$OLD_APPIMAGE" ] && rm -f "$OLD_APPIMAGE"
 
     echo ""
@@ -300,7 +297,7 @@ WRAPPER_EOF
     printf "%b\n" "  AppImage: ${BOLD}$APPIMAGE_INSTALL_PATH${NC}"
     printf "%b\n" "  Launcher: ${BOLD}$WRAPPER_PATH${NC}"
     echo ""
-    printf "%b\n" "  Run with: ${BOLD}kata-agents${NC}"
+    printf "%b\n" "  Run with: ${BOLD}kata-desktop${NC}"
     echo ""
     printf "%b\n" "  Add to PATH if needed:"
     printf "%b\n" "    ${BOLD}echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc${NC}"

@@ -425,7 +425,7 @@ test("tarball installs and kata-cli binary resolves", async () => {
     const installedLoader = join(
       tmp,
       "node_modules",
-      "@kata",
+      "@kata-sh",
       "cli",
       "dist",
       "loader.js",
@@ -440,7 +440,7 @@ test("tarball installs and kata-cli binary resolves", async () => {
     const installedKataExt = join(
       tmp,
       "node_modules",
-      "@kata",
+      "@kata-sh",
       "cli",
       "src",
       "resources",
