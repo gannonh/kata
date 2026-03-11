@@ -15,10 +15,24 @@ const { readFileSync, writeFileSync } = require('fs')
 const { resolve, join } = require('path')
 
 const root = resolve(__dirname, '..')
-const piPkgPath = join(root, 'node_modules', '@mariozechner', 'pi-coding-agent', 'package.json')
 const kataPkgPath = join(root, 'pkg', 'package.json')
 
-const piPkg = JSON.parse(readFileSync(piPkgPath, 'utf-8'))
+// Walk up from workspace root to find hoisted dependency (bun/npm hoist to monorepo root)
+function findPiPkgJson() {
+  let dir = root
+  while (true) {
+    const candidate = join(dir, 'node_modules', '@mariozechner', 'pi-coding-agent', 'package.json')
+    try {
+      readFileSync(candidate, 'utf-8')
+      return candidate
+    } catch {}
+    const parent = resolve(dir, '..')
+    if (parent === dir) throw new Error('Could not find @mariozechner/pi-coding-agent in any node_modules')
+    dir = parent
+  }
+}
+
+const piPkg = JSON.parse(readFileSync(findPiPkgJson(), 'utf-8'))
 const kataPkg = JSON.parse(readFileSync(kataPkgPath, 'utf-8'))
 
 if (kataPkg.version !== piPkg.version) {

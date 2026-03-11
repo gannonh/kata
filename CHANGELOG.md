@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] - 2026-03-11
+
+### Added
+- Multi-agent orchestration: sub-agent sessions nested under orchestrators in session list
+- Sub-agent state indicators with status dots (running/completed/failed) and tree lines
+- Expand/collapse controls for orchestrator parent sessions with child count badges
+- Sub-agent lifecycle events (spawn, complete, fail) with durable resume support
+- Hierarchy metadata threaded through session CRUD for parent-child relationships
+- Child chat navigation continuity and transcript rehydration
+- Spec elicitation system skill with structured choices and one-question-per-turn flow
+- Session lifecycle context injection on first message for new-project detection
+- Template loader for externalized system prompt sections (markdown templates)
+- `save_spec` session-scoped tool for spec persistence
+- System skills seeded on workspace creation
+- E2E tests for sub-agent state indicators, orchestration session tree, and project terminology
+- Claude Code Review and PR Assistant GitHub Actions workflows
+
+### Fixed
+- Session list: full-width sub-agent chips with text ellipsis and proper tree lines
+- Session list: collapse other parent groups on chat select
+- Workspace: set default working directory at creation, handle EPERM gracefully
+- Sessions: use workspace rootPath as fallback working directory
+- Child transcript state preserved across idle and resume
+- Session list unread crash prevented; child unread bubbles to orchestrators
+- Duplicate subagent spawn on resume suppressed
+- Pre-push hook skips validation for remote branch deletions
+- E2E: hide windows in test mode to prevent focus stealing
+- E2E: update color assertions for Tailwind v4 oklch output
+
+### Changed
+- Renamed "chats/conversations" to "projects" across UI
+- Rebranded to Kata Desktop (package name, artifact names, electron-builder config)
+- Release workflow split: `desktop-release.yml` (desktop-v* tags) and `cli-release.yml` (cli-v* tags)
+- Independent versioning per app (root package.json version is 0.0.0, unused)
+- Monorepo restructured: desktop at `apps/electron/`, CLI at `apps/cli/`
+
 ## [0.6.1] - 2026-02-07
 
 ### Changed
