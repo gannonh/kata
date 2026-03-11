@@ -18,20 +18,10 @@ describe('formatSessionLifecycleContext', () => {
     expect(formatSessionLifecycleContext(false, TEST_WORKSPACE)).toBe('')
   })
 
-  test('returns lifecycle block for new session without spec skill', () => {
+  test('returns lifecycle block with skill reference (seeded from bundled assets)', () => {
     const result = formatSessionLifecycleContext(true, TEST_WORKSPACE)
     expect(result).toContain('<session_lifecycle>')
     expect(result).toContain('new project session')
-    expect(result).not.toContain('spec-elicitation')
-  })
-
-  test('returns lifecycle block with skill reference when spec skill exists', () => {
-    const skillDir = join(TEST_WORKSPACE, 'skills', 'spec-elicitation')
-    mkdirSync(skillDir, { recursive: true })
-    writeFileSync(join(skillDir, 'SKILL.md'), '---\nname: spec-elicitation\n---\nContent')
-
-    const result = formatSessionLifecycleContext(true, TEST_WORKSPACE)
-    expect(result).toContain('<session_lifecycle>')
     expect(result).toContain('spec-elicitation skill is available')
   })
 })

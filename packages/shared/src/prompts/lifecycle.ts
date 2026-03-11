@@ -1,5 +1,6 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { seedSystemSkills } from '../workspaces/storage.ts';
 
 /**
  * Format session lifecycle context for injection into user messages.
@@ -13,6 +14,9 @@ export function formatSessionLifecycleContext(
   workspaceRootPath: string
 ): string {
   if (!isNewSession) return '';
+
+  // Backfill system skills into workspaces created before seeding existed
+  seedSystemSkills(workspaceRootPath);
 
   const specSkillPath = join(workspaceRootPath, 'skills', 'spec-elicitation', 'SKILL.md');
   const hasSpecSkill = existsSync(specSkillPath);

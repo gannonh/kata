@@ -219,11 +219,12 @@ export function loadWorkspace(rootPath: string): LoadedWorkspace | null {
   // Ensure plugin manifest exists (migration for existing workspaces)
   ensurePluginManifest(rootPath, config.name);
 
-  // Ensure skills directory exists (migration for existing workspaces)
+  // Ensure skills directory exists and seed system skills (migration for existing workspaces)
   const skillsPath = getWorkspaceSkillsPath(rootPath);
   if (!existsSync(skillsPath)) {
     mkdirSync(skillsPath, { recursive: true });
   }
+  seedSystemSkills(rootPath);
 
   return {
     config,
