@@ -1,0 +1,51 @@
+{
+  "name": "@kata/cli",
+  "version": "0.1.0",
+  "description": "Kata CLI coding agent",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gannonh/kata.git",
+    "directory": "apps/cli"
+  },
+  "type": "module",
+  "bin": {
+    "kata-cli": "dist/loader.js"
+  },
+  "files": [
+    "dist",
+    "pkg",
+    "src/resources",
+    "scripts/postinstall.js",
+    "package.json",
+    "README.md"
+  ],
+  "piConfig": {
+    "name": "kata",
+    "configDir": ".kata-cli"
+  },
+  "engines": {
+    "node": ">=20.6.0"
+  },
+  "scripts": {
+    "build": "tsc && npm run copy-themes",
+    "copy-themes": "node -e \"const{mkdirSync,cpSync}=require('fs');const{resolve}=require('path');const candidates=[resolve(__dirname,'node_modules/@mariozechner/pi-coding-agent/dist/modes/interactive/theme'),resolve(__dirname,'..','..','node_modules/@mariozechner/pi-coding-agent/dist/modes/interactive/theme')];const src=candidates.find(p=>{try{require('fs').statSync(p);return true}catch{return false}});if(!src)throw new Error('theme dir not found');mkdirSync('pkg/dist/modes/interactive/theme',{recursive:true});cpSync(src,'pkg/dist/modes/interactive/theme',{recursive:true})\"",
+    "test": "node --import ./src/resources/extensions/gsd/tests/resolve-ts.mjs --experimental-strip-types --test 'src/resources/extensions/gsd/tests/*.test.ts' 'src/resources/extensions/gsd/tests/*.test.mjs' 'src/tests/*.test.ts'",
+    "dev": "tsc --watch",
+    "postinstall": "node scripts/postinstall.js",
+    "sync-pkg-version": "node scripts/sync-pkg-version.cjs",
+    "prepublishOnly": "npm run sync-pkg-version && npm run build"
+  },
+  "dependencies": {
+    "@mariozechner/pi-coding-agent": "^0.57.1",
+    "playwright": "^1.58.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.4.0"
+  },
+  "overrides": {
+    "gaxios": "7.1.4"
+  }
+}
