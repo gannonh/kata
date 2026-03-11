@@ -19,19 +19,19 @@ const reset   = '\x1b[0m'
 const banner =
   '\n' +
   cyan +
-  '   ██████╗ ███████╗██████╗ \n' +
-  '  ██╔════╝ ██╔════╝██╔══██╗\n' +
-  '  ██║  ███╗███████╗██║  ██║\n' +
-  '  ██║   ██║╚════██║██║  ██║\n' +
-  '  ╚██████╔╝███████║██████╔╝\n' +
-  '   ╚═════╝ ╚══════╝╚═════╝ ' +
+  '  ██╗  ██╗ █████╗ ████████╗ █████╗ \n' +
+  '  ██║ ██╔╝██╔══██╗╚══██╔══╝██╔══██╗\n' +
+  '  █████╔╝ ███████║   ██║   ███████║\n' +
+  '  ██╔═██╗ ██╔══██║   ██║   ██╔══██║\n' +
+  '  ██║  ██╗██║  ██║   ██║   ██║  ██║\n' +
+  '  ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝' +
   reset + '\n' +
   '\n' +
-  `  Get Shit Done ${dim}v${pkg.version}${reset}\n` +
-  `  A standalone coding agent that plans, executes, and ships.\n` +
+  `  Kata CLI ${dim}v${pkg.version}${reset}\n` +
+  `  A coding agent that plans, executes, and ships.\n` +
   '\n' +
   `  ${green}✓${reset} Installed successfully\n` +
-  `  ${dim}Run ${reset}${cyan}gsd${reset}${dim} to get started.${reset}\n`
+  `  ${dim}Run ${reset}${cyan}kata-cli${reset}${dim} to get started.${reset}\n`
 
 process.stderr.write(banner)
 

@@ -144,7 +144,7 @@ export async function runWizardIfNeeded(authStorage: AuthStorage): Promise<void>
   if (!process.stdin.isTTY) {
     const names = missing.map(k => k.label).join(', ')
     process.stderr.write(
-      `[gsd] Warning: optional tool API keys not configured (${names}). Some tools may not work.\n`
+      `[kata] Warning: optional tool API keys not configured (${names}). Some tools may not work.\n`
     )
     return
   }
@@ -177,13 +177,13 @@ export async function runWizardIfNeeded(authStorage: AuthStorage): Promise<void>
   )
   if (savedCount > 0) {
     process.stdout.write(
-      `  ${green}✓${reset} ${savedCount} key${savedCount > 1 ? 's' : ''} saved to ${dim}~/.gsd/agent/auth.json${reset}\n` +
-      `  ${dim}Run ${reset}${cyan}/login${reset}${dim} inside gsd to connect your LLM provider.${reset}\n\n`
+      `  ${green}✓${reset} ${savedCount} key${savedCount > 1 ? 's' : ''} saved to ${dim}~/.kata-cli/agent/auth.json${reset}\n` +
+      `  ${dim}Run ${reset}${cyan}/login${reset}${dim} inside kata to connect your LLM provider.${reset}\n\n`
     )
   } else {
     process.stdout.write(
-      `  ${yellow}↷${reset}  All keys skipped — you can add them later via ${dim}~/.gsd/agent/auth.json${reset}\n` +
-      `  ${dim}Run ${reset}${cyan}/login${reset}${dim} inside gsd to connect your LLM provider.${reset}\n\n`
+      `  ${yellow}↷${reset}  All keys skipped — you can add them later via ${dim}~/.kata-cli/agent/auth.json${reset}\n` +
+      `  ${dim}Run ${reset}${cyan}/login${reset}${dim} inside kata to connect your LLM provider.${reset}\n\n`
     )
   }
 }
