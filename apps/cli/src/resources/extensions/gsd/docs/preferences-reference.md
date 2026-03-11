@@ -1,6 +1,6 @@
 # GSD Preferences Reference
 
-Full documentation for `~/.gsd/preferences.md` (global) and `.gsd/preferences.md` (project).
+Full documentation for `~/.kata/preferences.md` (global) and `.kata/preferences.md` (project).
 
 ---
 

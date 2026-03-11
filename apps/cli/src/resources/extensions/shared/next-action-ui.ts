@@ -11,7 +11,7 @@
  *      [optional extra content block]
  *
  *   Files written:
- *      .gsd/phases/01-foo/01-RESEARCH.md
+ *      .kata/phases/01-foo/01-RESEARCH.md
  *
  *   › 1. Plan phase 1           ← recommended, pre-selected
  *        Create PLAN.md files for execution
@@ -49,149 +49,187 @@ import { makeUI } from "./ui.js";
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export interface NextAction {
-	/** Unique id returned when this action is chosen. */
-	id: string;
-	/** Short label shown in the list (e.g. "Plan phase 1"). */
-	label: string;
-	/** One-line description shown below the label. */
-	description: string;
-	/** Pre-selects this item and renders it with a (recommended) marker. At most one. */
-	recommended?: boolean;
+  /** Unique id returned when this action is chosen. */
+  id: string;
+  /** Short label shown in the list (e.g. "Plan phase 1"). */
+  label: string;
+  /** One-line description shown below the label. */
+  description: string;
+  /** Pre-selects this item and renders it with a (recommended) marker. At most one. */
+  recommended?: boolean;
 }
 
 export interface NextActionOptions {
-	/** Bold heading after the ✓ — e.g. "Phase 1 research complete". */
-	title: string;
-	/**
-	 * Stage-specific narrative lines rendered below the title.
-	 * Keep these short and informative.
-	 */
-	summary?: string[];
-	/**
-	 * Absolute paths to files that were written this step.
-	 * Displayed as relative paths from cwd when possible.
-	 */
-	files?: string[];
-	/**
-	 * Optional extra content rendered between the file list and the actions.
-	 * Each string is one display line — already formatted by the caller.
-	 */
-	extra?: string[];
-	/** The action choices. "Not yet" is always appended automatically. */
-	actions: NextAction[];
-	/**
-	 * Message shown in the "Not yet" description line.
-	 * e.g. "Run /gsd-plan-phase 1 when ready."
-	 */
-	notYetMessage?: string;
-	/**
-	 * Current working directory — used to make file paths relative.
-	 * Defaults to process.cwd().
-	 */
-	cwd?: string;
+  /** Bold heading after the ✓ — e.g. "Phase 1 research complete". */
+  title: string;
+  /**
+   * Stage-specific narrative lines rendered below the title.
+   * Keep these short and informative.
+   */
+  summary?: string[];
+  /**
+   * Absolute paths to files that were written this step.
+   * Displayed as relative paths from cwd when possible.
+   */
+  files?: string[];
+  /**
+   * Optional extra content rendered between the file list and the actions.
+   * Each string is one display line — already formatted by the caller.
+   */
+  extra?: string[];
+  /** The action choices. "Not yet" is always appended automatically. */
+  actions: NextAction[];
+  /**
+   * Message shown in the "Not yet" description line.
+   * e.g. "Run /gsd-plan-phase 1 when ready."
+   */
+  notYetMessage?: string;
+  /**
+   * Current working directory — used to make file paths relative.
+   * Defaults to process.cwd().
+   */
+  cwd?: string;
 }
 
 /**
  * Show the next-action prompt and return the chosen action id, or "not_yet".
  */
 export async function showNextAction(
-	ctx: ExtensionCommandContext,
-	opts: NextActionOptions,
+  ctx: ExtensionCommandContext,
+  opts: NextActionOptions,
 ): Promise<string> {
-	const cwd = opts.cwd ?? process.cwd();
-	const notYetMessage = opts.notYetMessage ?? "Continue when ready.";
+  const cwd = opts.cwd ?? process.cwd();
+  const notYetMessage = opts.notYetMessage ?? "Continue when ready.";
 
-	const allActions: NextAction[] = [
-		...opts.actions,
-		{ id: "not_yet", label: "Not yet", description: notYetMessage },
-	];
+  const allActions: NextAction[] = [
+    ...opts.actions,
+    { id: "not_yet", label: "Not yet", description: notYetMessage },
+  ];
 
-	const recommendedIdx = allActions.findIndex((a) => a.recommended);
-	const defaultIdx = recommendedIdx >= 0 ? recommendedIdx : 0;
+  const recommendedIdx = allActions.findIndex((a) => a.recommended);
+  const defaultIdx = recommendedIdx >= 0 ? recommendedIdx : 0;
 
-	const relativeFiles = (opts.files ?? []).map((f) => {
-		try {
-			const rel = f.startsWith(cwd) ? f.slice(cwd.length).replace(/^\//, "") : f;
-			return rel || f;
-		} catch {
-			return f;
-		}
-	});
+  const relativeFiles = (opts.files ?? []).map((f) => {
+    try {
+      const rel = f.startsWith(cwd)
+        ? f.slice(cwd.length).replace(/^\//, "")
+        : f;
+      return rel || f;
+    } catch {
+      return f;
+    }
+  });
 
-	return ctx.ui.custom<string>((_tui: TUI, theme: Theme, _kb, done) => {
-		let cursorIdx = defaultIdx;
-		let cachedLines: string[] | undefined;
+  return ctx.ui.custom<string>((_tui: TUI, theme: Theme, _kb, done) => {
+    let cursorIdx = defaultIdx;
+    let cachedLines: string[] | undefined;
 
-		function refresh() { cachedLines = undefined; _tui.requestRender(); }
+    function refresh() {
+      cachedLines = undefined;
+      _tui.requestRender();
+    }
 
-		function handleInput(data: string) {
-			if (matchesKey(data, Key.up)) { cursorIdx = Math.max(0, cursorIdx - 1); refresh(); return; }
-			if (matchesKey(data, Key.down)) { cursorIdx = Math.min(allActions.length - 1, cursorIdx + 1); refresh(); return; }
-			const num = parseInt(data, 10);
-			if (!isNaN(num) && num >= 1 && num <= allActions.length) { done(allActions[num - 1].id); return; }
-			if (matchesKey(data, Key.enter) || matchesKey(data, Key.space)) { done(allActions[cursorIdx].id); return; }
-			if (matchesKey(data, Key.escape)) { done("not_yet"); return; }
-		}
+    function handleInput(data: string) {
+      if (matchesKey(data, Key.up)) {
+        cursorIdx = Math.max(0, cursorIdx - 1);
+        refresh();
+        return;
+      }
+      if (matchesKey(data, Key.down)) {
+        cursorIdx = Math.min(allActions.length - 1, cursorIdx + 1);
+        refresh();
+        return;
+      }
+      const num = parseInt(data, 10);
+      if (!isNaN(num) && num >= 1 && num <= allActions.length) {
+        done(allActions[num - 1].id);
+        return;
+      }
+      if (matchesKey(data, Key.enter) || matchesKey(data, Key.space)) {
+        done(allActions[cursorIdx].id);
+        return;
+      }
+      if (matchesKey(data, Key.escape)) {
+        done("not_yet");
+        return;
+      }
+    }
 
-		function render(width: number): string[] {
-			if (cachedLines) return cachedLines;
-			const ui = makeUI(theme, width);
-			const lines: string[] = [];
-			const push = (...rows: string[][]) => { for (const r of rows) lines.push(...r); };
+    function render(width: number): string[] {
+      if (cachedLines) return cachedLines;
+      const ui = makeUI(theme, width);
+      const lines: string[] = [];
+      const push = (...rows: string[][]) => {
+        for (const r of rows) lines.push(...r);
+      };
 
-			// ── Header — uses success colour to signal completion ────────────
-			// Note: next-action intentionally uses "success" for its bar/title
-			// to distinguish it from regular accent-coloured screens.
-			push(ui.bar());
-			push(ui.blank());
-			push(ui.header(`  ✓  ${opts.title}`));
+      // ── Header — uses success colour to signal completion ────────────
+      // Note: next-action intentionally uses "success" for its bar/title
+      // to distinguish it from regular accent-coloured screens.
+      push(ui.bar());
+      push(ui.blank());
+      push(ui.header(`  ✓  ${opts.title}`));
 
-			// ── Summary ──────────────────────────────────────────────────────
-			if (opts.summary && opts.summary.length > 0) {
-				push(ui.blank());
-				for (const line of opts.summary) push(ui.subtitle(`     ${line}`));
-			}
+      // ── Summary ──────────────────────────────────────────────────────
+      if (opts.summary && opts.summary.length > 0) {
+        push(ui.blank());
+        for (const line of opts.summary) push(ui.subtitle(`     ${line}`));
+      }
 
-			// ── Files written ─────────────────────────────────────────────────
-			if (relativeFiles.length > 0) {
-				push(ui.blank());
-				push(ui.meta("  Files written:"));
-				for (const f of relativeFiles) push(ui.meta(`     ${f}`));
-			}
+      // ── Files written ─────────────────────────────────────────────────
+      if (relativeFiles.length > 0) {
+        push(ui.blank());
+        push(ui.meta("  Files written:"));
+        for (const f of relativeFiles) push(ui.meta(`     ${f}`));
+      }
 
-			// ── Extra content ─────────────────────────────────────────────────
-			if (opts.extra && opts.extra.length > 0) {
-				push(ui.blank());
-				for (const line of opts.extra) push(ui.subtitle(`  ${line}`));
-			}
+      // ── Extra content ─────────────────────────────────────────────────
+      if (opts.extra && opts.extra.length > 0) {
+        push(ui.blank());
+        for (const line of opts.extra) push(ui.subtitle(`  ${line}`));
+      }
 
-			// ── Actions ───────────────────────────────────────────────────────
-			push(ui.blank());
-			for (let i = 0; i < allActions.length; i++) {
-				const action = allActions[i];
-				const isSelected = i === cursorIdx;
-				const isNotYet = action.id === "not_yet";
-				const tag = action.recommended ? "(recommended)" : undefined;
+      // ── Actions ───────────────────────────────────────────────────────
+      push(ui.blank());
+      for (let i = 0; i < allActions.length; i++) {
+        const action = allActions[i];
+        const isSelected = i === cursorIdx;
+        const isNotYet = action.id === "not_yet";
+        const tag = action.recommended ? "(recommended)" : undefined;
 
-				if (isSelected) {
-					push(ui.actionSelected(i + 1, action.label, action.description, tag));
-				} else if (isNotYet) {
-					push(ui.actionDim(i + 1, action.label, action.description));
-				} else {
-					push(ui.actionUnselected(i + 1, action.label, action.description, tag));
-				}
-				push(ui.blank());
-			}
+        if (isSelected) {
+          push(ui.actionSelected(i + 1, action.label, action.description, tag));
+        } else if (isNotYet) {
+          push(ui.actionDim(i + 1, action.label, action.description));
+        } else {
+          push(
+            ui.actionUnselected(i + 1, action.label, action.description, tag),
+          );
+        }
+        push(ui.blank());
+      }
 
-			// ── Footer ────────────────────────────────────────────────────────
-			const numHint = allActions.map((_, i) => `${i + 1}`).join("/");
-			push(ui.hints([`↑/↓ to choose`, `${numHint} to quick-select`, `enter to confirm`]));
-			push(ui.bar());
+      // ── Footer ────────────────────────────────────────────────────────
+      const numHint = allActions.map((_, i) => `${i + 1}`).join("/");
+      push(
+        ui.hints([
+          `↑/↓ to choose`,
+          `${numHint} to quick-select`,
+          `enter to confirm`,
+        ]),
+      );
+      push(ui.bar());
 
-			cachedLines = lines;
-			return lines;
-		}
+      cachedLines = lines;
+      return lines;
+    }
 
-		return { render, invalidate: () => { cachedLines = undefined; }, handleInput };
-	});
+    return {
+      render,
+      invalidate: () => {
+        cachedLines = undefined;
+      },
+      handleInput,
+    };
+  });
 }

@@ -3,9 +3,14 @@ import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { getAgentDir } from "@mariozechner/pi-coding-agent";
 
-const GLOBAL_PREFERENCES_PATH = join(homedir(), ".gsd", "preferences.md");
-const LEGACY_GLOBAL_PREFERENCES_PATH = join(homedir(), ".pi", "agent", "gsd-preferences.md");
-const PROJECT_PREFERENCES_PATH = join(process.cwd(), ".gsd", "preferences.md");
+const GLOBAL_PREFERENCES_PATH = join(homedir(), ".kata", "preferences.md");
+const LEGACY_GLOBAL_PREFERENCES_PATH = join(
+  homedir(),
+  ".pi",
+  "agent",
+  "gsd-preferences.md",
+);
+const PROJECT_PREFERENCES_PATH = join(process.cwd(), ".kata", "preferences.md");
 const SKILL_ACTIONS = new Set(["use", "prefer", "avoid"]);
 
 export interface GSDSkillRule {
@@ -16,9 +21,9 @@ export interface GSDSkillRule {
 }
 
 export interface GSDModelConfig {
-  research?: string;   // e.g. "claude-sonnet-4-6"
-  planning?: string;   // e.g. "claude-opus-4-6"
-  execution?: string;  // e.g. "claude-sonnet-4-6"
+  research?: string; // e.g. "claude-sonnet-4-6"
+  planning?: string; // e.g. "claude-opus-4-6"
+  execution?: string; // e.g. "claude-sonnet-4-6"
   completion?: string; // e.g. "claude-sonnet-4-6"
 }
 
@@ -64,8 +69,10 @@ export function getProjectGSDPreferencesPath(): string {
 }
 
 export function loadGlobalGSDPreferences(): LoadedGSDPreferences | null {
-  return loadPreferencesFile(GLOBAL_PREFERENCES_PATH, "global")
-    ?? loadPreferencesFile(LEGACY_GLOBAL_PREFERENCES_PATH, "global");
+  return (
+    loadPreferencesFile(GLOBAL_PREFERENCES_PATH, "global") ??
+    loadPreferencesFile(LEGACY_GLOBAL_PREFERENCES_PATH, "global")
+  );
 }
 
 export function loadProjectGSDPreferences(): LoadedGSDPreferences | null {
@@ -83,7 +90,10 @@ export function loadEffectiveGSDPreferences(): LoadedGSDPreferences | null {
   return {
     path: projectPreferences.path,
     scope: "project",
-    preferences: mergePreferences(globalPreferences.preferences, projectPreferences.preferences),
+    preferences: mergePreferences(
+      globalPreferences.preferences,
+      projectPreferences.preferences,
+    ),
   };
 }
 
@@ -95,7 +105,12 @@ export interface SkillResolution {
   /** The resolved absolute path to the SKILL.md file, or null if unresolved. */
   resolvedPath: string | null;
   /** How it was resolved. */
-  method: "absolute-path" | "absolute-dir" | "user-skill" | "project-skill" | "unresolved";
+  method:
+    | "absolute-path"
+    | "absolute-dir"
+    | "user-skill"
+    | "project-skill"
+    | "unresolved";
 }
 
 export interface SkillResolutionReport {
@@ -107,9 +122,11 @@ export interface SkillResolutionReport {
 
 /**
  * Known skill directories, in priority order.
- * User skills (~/.gsd/agent/skills/) take precedence over project skills.
+ * User skills (~/.kata/agent/skills/) take precedence over project skills.
  */
-function getSkillSearchDirs(cwd: string): Array<{ dir: string; method: SkillResolution["method"] }> {
+function getSkillSearchDirs(
+  cwd: string,
+): Array<{ dir: string; method: SkillResolution["method"] }> {
   return [
     { dir: join(getAgentDir(), "skills"), method: "user-skill" },
     { dir: join(cwd, ".pi", "agent", "skills"), method: "project-skill" },
@@ -142,17 +159,27 @@ function resolveSkillReference(ref: string, cwd: string): SkillResolution {
         if (stat.isDirectory()) {
           const skillFile = join(expanded, "SKILL.md");
           if (existsSync(skillFile)) {
-            return { original: ref, resolvedPath: skillFile, method: "absolute-dir" };
+            return {
+              original: ref,
+              resolvedPath: skillFile,
+              method: "absolute-dir",
+            };
           }
           return { original: ref, resolvedPath: null, method: "unresolved" };
         }
-      } catch { /* fall through */ }
+      } catch {
+        /* fall through */
+      }
       return { original: ref, resolvedPath: expanded, method: "absolute-path" };
     }
     // Maybe it's a directory path without SKILL.md suffix
     const withSkillMd = join(expanded, "SKILL.md");
     if (existsSync(withSkillMd)) {
-      return { original: ref, resolvedPath: withSkillMd, method: "absolute-dir" };
+      return {
+        original: ref,
+        resolvedPath: withSkillMd,
+        method: "absolute-dir",
+      };
     }
     return { original: ref, resolvedPath: null, method: "unresolved" };
   }
@@ -171,7 +198,9 @@ function resolveSkillReference(ref: string, cwd: string): SkillResolution {
           }
         }
       }
-    } catch { /* directory not readable — skip */ }
+    } catch {
+      /* directory not readable — skip */
+    }
   }
 
   return { original: ref, resolvedPath: null, method: "unresolved" };
@@ -181,7 +210,10 @@ function resolveSkillReference(ref: string, cwd: string): SkillResolution {
  * Resolve all skill references in a preferences object.
  * Caches resolution per reference string to avoid redundant filesystem scans.
  */
-export function resolveAllSkillReferences(preferences: GSDPreferences, cwd: string): SkillResolutionReport {
+export function resolveAllSkillReferences(
+  preferences: GSDPreferences,
+  cwd: string,
+): SkillResolutionReport {
   const validated = validatePreferences(preferences).preferences;
   preferences = validated;
 
@@ -219,13 +251,19 @@ export function resolveAllSkillReferences(preferences: GSDPreferences, cwd: stri
  * If resolved, shows the path so the agent knows exactly where to read.
  * If unresolved, marks it clearly.
  */
-function formatSkillRef(ref: string, resolutions: Map<string, SkillResolution>): string {
+function formatSkillRef(
+  ref: string,
+  resolutions: Map<string, SkillResolution>,
+): string {
   const resolution = resolutions.get(ref);
   if (!resolution || resolution.method === "unresolved") {
     return `${ref} (⚠ not found — check skill name or path)`;
   }
   // For absolute paths where SKILL.md is just appended, don't clutter the output
-  if (resolution.method === "absolute-path" || resolution.method === "absolute-dir") {
+  if (
+    resolution.method === "absolute-path" ||
+    resolution.method === "absolute-dir"
+  ) {
     return ref;
   }
   // For bare names resolved from skill directories, show the resolved path
@@ -234,12 +272,17 @@ function formatSkillRef(ref: string, resolutions: Map<string, SkillResolution>):
 
 // ─── System Prompt Rendering ──────────────────────────────────────────────────
 
-export function renderPreferencesForSystemPrompt(preferences: GSDPreferences, resolutions?: Map<string, SkillResolution>): string {
+export function renderPreferencesForSystemPrompt(
+  preferences: GSDPreferences,
+  resolutions?: Map<string, SkillResolution>,
+): string {
   const validated = validatePreferences(preferences);
   const lines: string[] = ["## GSD Skill Preferences"];
 
   if (validated.errors.length > 0) {
-    lines.push("- Validation: some preference values were ignored because they were invalid.");
+    lines.push(
+      "- Validation: some preference values were ignored because they were invalid.",
+    );
   }
 
   preferences = validated.preferences;
@@ -250,9 +293,13 @@ export function renderPreferencesForSystemPrompt(preferences: GSDPreferences, re
     "- Current user instructions still override these defaults.",
   );
 
-  const fmt = (ref: string) => resolutions ? formatSkillRef(ref, resolutions) : ref;
+  const fmt = (ref: string) =>
+    resolutions ? formatSkillRef(ref, resolutions) : ref;
 
-  if (preferences.always_use_skills && preferences.always_use_skills.length > 0) {
+  if (
+    preferences.always_use_skills &&
+    preferences.always_use_skills.length > 0
+  ) {
     lines.push("- Always use these skills when relevant:");
     for (const skill of preferences.always_use_skills) {
       lines.push(`  - ${fmt(skill)}`);
@@ -289,7 +336,10 @@ export function renderPreferencesForSystemPrompt(preferences: GSDPreferences, re
     }
   }
 
-  if (preferences.custom_instructions && preferences.custom_instructions.length > 0) {
+  if (
+    preferences.custom_instructions &&
+    preferences.custom_instructions.length > 0
+  ) {
     lines.push("- Additional instructions:");
     for (const instruction of preferences.custom_instructions) {
       lines.push(`  - ${instruction}`);
@@ -299,7 +349,10 @@ export function renderPreferencesForSystemPrompt(preferences: GSDPreferences, re
   return lines.join("\n");
 }
 
-function loadPreferencesFile(path: string, scope: "global" | "project"): LoadedGSDPreferences | null {
+function loadPreferencesFile(
+  path: string,
+  scope: "global" | "project",
+): LoadedGSDPreferences | null {
   if (!existsSync(path)) return null;
 
   const raw = readFileSync(path, "utf-8");
@@ -321,7 +374,9 @@ function parsePreferencesMarkdown(content: string): GSDPreferences | null {
 
 function parseFrontmatterBlock(frontmatter: string): GSDPreferences {
   const root: Record<string, unknown> = {};
-  const stack: Array<{ indent: number; value: Record<string, unknown> }> = [{ indent: -1, value: root }];
+  const stack: Array<{ indent: number; value: Record<string, unknown> }> = [
+    { indent: -1, value: root },
+  ];
 
   const lines = frontmatter.split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
@@ -356,14 +411,19 @@ function parseFrontmatterBlock(frontmatter: string): GSDPreferences {
             j++;
             continue;
           }
-          if (candidateIndent <= indent || !candidateTrimmed.startsWith("- ")) break;
+          if (candidateIndent <= indent || !candidateTrimmed.startsWith("- "))
+            break;
 
           const itemText = candidateTrimmed.slice(2).trim();
           const nextCandidate = lines[j + 1] ?? "";
-          const nextCandidateIndent = nextCandidate.match(/^\s*/)?.[0].length ?? 0;
+          const nextCandidateIndent =
+            nextCandidate.match(/^\s*/)?.[0].length ?? 0;
           const nextCandidateTrimmed = nextCandidate.trim();
 
-          if (itemText.includes(":") || (nextCandidateTrimmed && nextCandidateIndent > candidateIndent)) {
+          if (
+            itemText.includes(":") ||
+            (nextCandidateTrimmed && nextCandidateIndent > candidateIndent)
+          ) {
             const obj: Record<string, unknown> = {};
             const firstMatch = itemText.match(/^([A-Za-z0-9_]+):(.*)$/);
             if (firstMatch) {
@@ -387,14 +447,21 @@ function parseFrontmatterBlock(frontmatter: string): GSDPreferences {
                   j++;
                   while (j < lines.length) {
                     const nestedArrayLine = lines[j];
-                    const nestedArrayIndent = nestedArrayLine.match(/^\s*/)?.[0].length ?? 0;
+                    const nestedArrayIndent =
+                      nestedArrayLine.match(/^\s*/)?.[0].length ?? 0;
                     const nestedArrayTrimmed = nestedArrayLine.trim();
                     if (!nestedArrayTrimmed) {
                       j++;
                       continue;
                     }
-                    if (nestedArrayIndent <= nestedIndent || !nestedArrayTrimmed.startsWith("- ")) break;
-                    nestedItems.push(String(parseScalar(nestedArrayTrimmed.slice(2).trim())));
+                    if (
+                      nestedArrayIndent <= nestedIndent ||
+                      !nestedArrayTrimmed.startsWith("- ")
+                    )
+                      break;
+                    nestedItems.push(
+                      String(parseScalar(nestedArrayTrimmed.slice(2).trim())),
+                    );
                     j++;
                   }
                   obj[nestedMatch[1]] = nestedItems;
@@ -482,17 +549,29 @@ export function resolveAutoSupervisorConfig(): AutoSupervisorConfig {
   };
 }
 
-function mergePreferences(base: GSDPreferences, override: GSDPreferences): GSDPreferences {
+function mergePreferences(
+  base: GSDPreferences,
+  override: GSDPreferences,
+): GSDPreferences {
   return {
     version: override.version ?? base.version,
-    always_use_skills: mergeStringLists(base.always_use_skills, override.always_use_skills),
+    always_use_skills: mergeStringLists(
+      base.always_use_skills,
+      override.always_use_skills,
+    ),
     prefer_skills: mergeStringLists(base.prefer_skills, override.prefer_skills),
     avoid_skills: mergeStringLists(base.avoid_skills, override.avoid_skills),
     skill_rules: [...(base.skill_rules ?? []), ...(override.skill_rules ?? [])],
-    custom_instructions: mergeStringLists(base.custom_instructions, override.custom_instructions),
+    custom_instructions: mergeStringLists(
+      base.custom_instructions,
+      override.custom_instructions,
+    ),
     models: { ...(base.models ?? {}), ...(override.models ?? {}) },
     skill_discovery: override.skill_discovery ?? base.skill_discovery,
-    auto_supervisor: { ...(base.auto_supervisor ?? {}), ...(override.auto_supervisor ?? {}) },
+    auto_supervisor: {
+      ...(base.auto_supervisor ?? {}),
+      ...(override.auto_supervisor ?? {}),
+    },
     uat_dispatch: override.uat_dispatch ?? base.uat_dispatch,
     budget_ceiling: override.budget_ceiling ?? base.budget_ceiling,
   };
@@ -518,14 +597,20 @@ function validatePreferences(preferences: GSDPreferences): {
     if (validDiscoveryModes.has(preferences.skill_discovery)) {
       validated.skill_discovery = preferences.skill_discovery;
     } else {
-      errors.push(`invalid skill_discovery value: ${preferences.skill_discovery}`);
+      errors.push(
+        `invalid skill_discovery value: ${preferences.skill_discovery}`,
+      );
     }
   }
 
-  validated.always_use_skills = normalizeStringList(preferences.always_use_skills);
+  validated.always_use_skills = normalizeStringList(
+    preferences.always_use_skills,
+  );
   validated.prefer_skills = normalizeStringList(preferences.prefer_skills);
   validated.avoid_skills = normalizeStringList(preferences.avoid_skills);
-  validated.custom_instructions = normalizeStringList(preferences.custom_instructions);
+  validated.custom_instructions = normalizeStringList(
+    preferences.custom_instructions,
+  );
 
   if (preferences.skill_rules) {
     const validRules: GSDSkillRule[] = [];
@@ -541,7 +626,9 @@ function validatePreferences(preferences: GSDPreferences): {
       }
       const validatedRule: GSDSkillRule = { when };
       for (const action of SKILL_ACTIONS) {
-        const values = normalizeStringList((rule as Record<string, unknown>)[action]);
+        const values = normalizeStringList(
+          (rule as Record<string, unknown>)[action],
+        );
         if (values.length > 0) {
           validatedRule[action as keyof GSDSkillRule] = values as never;
         }
@@ -557,7 +644,12 @@ function validatePreferences(preferences: GSDPreferences): {
     }
   }
 
-  for (const key of ["always_use_skills", "prefer_skills", "avoid_skills", "custom_instructions"] as const) {
+  for (const key of [
+    "always_use_skills",
+    "prefer_skills",
+    "avoid_skills",
+    "custom_instructions",
+  ] as const) {
     if (validated[key] && validated[key]!.length === 0) {
       delete validated[key];
     }
@@ -581,7 +673,10 @@ function validatePreferences(preferences: GSDPreferences): {
   return { preferences: validated, errors };
 }
 
-function mergeStringLists(base?: unknown, override?: unknown): string[] | undefined {
+function mergeStringLists(
+  base?: unknown,
+  override?: unknown,
+): string[] | undefined {
   const merged = [
     ...normalizeStringList(base),
     ...normalizeStringList(override),

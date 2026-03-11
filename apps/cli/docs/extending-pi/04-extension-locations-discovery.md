@@ -3,12 +3,12 @@
 
 ### Auto-Discovery Paths
 
-| Location | Scope |
-|----------|-------|
-| `~/.gsd/agent/extensions/*.ts` | Global (all projects) |
-| `~/.gsd/agent/extensions/*/index.ts` | Global (subdirectory) |
-| `.gsd/extensions/*.ts` | Project-local |
-| `.gsd/extensions/*/index.ts` | Project-local (subdirectory) |
+| Location                              | Scope                        |
+| ------------------------------------- | ---------------------------- |
+| `~/.kata/agent/extensions/*.ts`       | Global (all projects)        |
+| `~/.kata/agent/extensions/*/index.ts` | Global (subdirectory)        |
+| `.kata/extensions/*.ts`               | Project-local                |
+| `.kata/extensions/*/index.ts`         | Project-local (subdirectory) |
 
 ### Additional Paths (via settings.json)
 

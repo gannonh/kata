@@ -9,7 +9,7 @@ import type {
   RoadmapSliceEntry,
   SlicePlan,
   MilestoneRegistryEntry,
-} from './types.ts';
+} from "./types.ts";
 
 import {
   parseRoadmap,
@@ -18,7 +18,7 @@ import {
   loadFile,
   parseRequirementCounts,
   parseContextDependsOn,
-} from './files.ts';
+} from "./files.ts";
 
 import {
   milestonesDir,
@@ -28,11 +28,11 @@ import {
   resolveSliceFile,
   resolveTaskFile,
   resolveGsdRootFile,
-} from './paths.ts';
-import { getActiveSliceBranch } from './worktree.ts';
+} from "./paths.ts";
+import { getActiveSliceBranch } from "./worktree.ts";
 
-import { readdirSync } from 'fs';
-import { join } from 'path';
+import { readdirSync } from "fs";
+import { join } from "path";
 
 // ─── Query Functions ───────────────────────────────────────────────────────
 
@@ -40,28 +40,28 @@ import { join } from 'path';
  * Check if all tasks in a slice plan are done.
  */
 export function isSliceComplete(plan: SlicePlan): boolean {
-  return plan.tasks.length > 0 && plan.tasks.every(t => t.done);
+  return plan.tasks.length > 0 && plan.tasks.every((t) => t.done);
 }
 
 /**
  * Check if all slices in a roadmap are done.
  */
 export function isMilestoneComplete(roadmap: Roadmap): boolean {
-  return roadmap.slices.length > 0 && roadmap.slices.every(s => s.done);
+  return roadmap.slices.length > 0 && roadmap.slices.every((s) => s.done);
 }
 
 // ─── State Derivation ──────────────────────────────────────────────────────
 
 /**
- * Find all milestone directory IDs by scanning .gsd/milestones/.
+ * Find all milestone directory IDs by scanning .kata/milestones/.
  * Extracts the ID prefix (e.g. "M001") from directory names like "M001-PAYMENT-INTEGRATIONS".
  */
 function findMilestoneIds(basePath: string): string[] {
   const dir = milestonesDir(basePath);
   try {
     return readdirSync(dir, { withFileTypes: true })
-      .filter(d => d.isDirectory())
-      .map(d => {
+      .filter((d) => d.isDirectory())
+      .map((d) => {
         const match = d.name.match(/^(M\d+)/);
         return match ? match[1] : d.name;
       })
@@ -74,7 +74,9 @@ function findMilestoneIds(basePath: string): string[] {
 /**
  * Returns the ID of the first incomplete milestone, or null if all are complete.
  */
-export async function getActiveMilestoneId(basePath: string): Promise<string | null> {
+export async function getActiveMilestoneId(
+  basePath: string,
+): Promise<string | null> {
   const milestoneIds = findMilestoneIds(basePath);
   for (const mid of milestoneIds) {
     const roadmapFile = resolveMilestoneFile(basePath, mid, "ROADMAP");
@@ -97,17 +99,19 @@ export async function getActiveMilestoneId(basePath: string): Promise<string | n
  */
 export async function deriveState(basePath: string): Promise<GSDState> {
   const milestoneIds = findMilestoneIds(basePath);
-  const requirements = parseRequirementCounts(await loadFile(resolveGsdRootFile(basePath, "REQUIREMENTS")));
+  const requirements = parseRequirementCounts(
+    await loadFile(resolveGsdRootFile(basePath, "REQUIREMENTS")),
+  );
 
   if (milestoneIds.length === 0) {
     return {
       activeMilestone: null,
       activeSlice: null,
       activeTask: null,
-      phase: 'pre-planning',
+      phase: "pre-planning",
       recentDecisions: [],
       blockers: [],
-      nextAction: 'No milestones found. Run /gsd to create one.',
+      nextAction: "No milestones found. Run /gsd to create one.",
       registry: [],
       requirements,
       progress: {
@@ -149,9 +153,9 @@ export async function deriveState(basePath: string): Promise<GSDState> {
       if (summaryFile) {
         const summaryContent = await loadFile(summaryFile);
         const summaryTitle = summaryContent
-          ? (parseSummary(summaryContent).title || mid)
+          ? parseSummary(summaryContent).title || mid
           : mid;
-        registry.push({ id: mid, title: summaryTitle, status: 'complete' });
+        registry.push({ id: mid, title: summaryTitle, status: "complete" });
         completeMilestoneIds.add(mid);
         continue;
       }
@@ -159,15 +163,15 @@ export async function deriveState(basePath: string): Promise<GSDState> {
       if (!activeMilestoneFound) {
         activeMilestone = { id: mid, title: mid };
         activeMilestoneFound = true;
-        registry.push({ id: mid, title: mid, status: 'active' });
+        registry.push({ id: mid, title: mid, status: "active" });
       } else {
-        registry.push({ id: mid, title: mid, status: 'pending' });
+        registry.push({ id: mid, title: mid, status: "pending" });
       }
       continue;
     }
 
     const roadmap = parseRoadmap(content);
-    const title = roadmap.title.replace(/^M\d+[^:]*:\s*/, '');
+    const title = roadmap.title.replace(/^M\d+[^:]*:\s*/, "");
     const complete = isMilestoneComplete(roadmap);
 
     if (complete) {
@@ -178,56 +182,76 @@ export async function deriveState(basePath: string): Promise<GSDState> {
         activeMilestone = { id: mid, title };
         activeRoadmap = roadmap;
         activeMilestoneFound = true;
-        registry.push({ id: mid, title, status: 'active' });
+        registry.push({ id: mid, title, status: "active" });
       } else {
-        registry.push({ id: mid, title, status: 'complete' });
+        registry.push({ id: mid, title, status: "complete" });
       }
     } else if (!activeMilestoneFound) {
       // Check milestone-level dependencies before promoting to active
       const contextFile = resolveMilestoneFile(basePath, mid, "CONTEXT");
       const contextContent = contextFile ? await loadFile(contextFile) : null;
       const deps = parseContextDependsOn(contextContent);
-      const depsUnmet = deps.some(dep => !completeMilestoneIds.has(dep));
+      const depsUnmet = deps.some((dep) => !completeMilestoneIds.has(dep));
       if (depsUnmet) {
-        registry.push({ id: mid, title, status: 'pending', dependsOn: deps });
+        registry.push({ id: mid, title, status: "pending", dependsOn: deps });
         // Do NOT set activeMilestoneFound — let the loop continue to the next milestone
       } else {
         activeMilestone = { id: mid, title };
         activeRoadmap = roadmap;
         activeMilestoneFound = true;
-        registry.push({ id: mid, title, status: 'active', ...(deps.length > 0 ? { dependsOn: deps } : {}) });
+        registry.push({
+          id: mid,
+          title,
+          status: "active",
+          ...(deps.length > 0 ? { dependsOn: deps } : {}),
+        });
       }
     } else {
       const contextFile2 = resolveMilestoneFile(basePath, mid, "CONTEXT");
-      const contextContent2 = contextFile2 ? await loadFile(contextFile2) : null;
+      const contextContent2 = contextFile2
+        ? await loadFile(contextFile2)
+        : null;
       const deps2 = parseContextDependsOn(contextContent2);
-      registry.push({ id: mid, title, status: 'pending', ...(deps2.length > 0 ? { dependsOn: deps2 } : {}) });
+      registry.push({
+        id: mid,
+        title,
+        status: "pending",
+        ...(deps2.length > 0 ? { dependsOn: deps2 } : {}),
+      });
     }
   }
 
   const milestoneProgress = {
-    done: registry.filter(entry => entry.status === 'complete').length,
+    done: registry.filter((entry) => entry.status === "complete").length,
     total: registry.length,
   };
 
   if (!activeMilestone) {
     // Check whether any milestones are pending (dep-blocked) vs all complete
-    const pendingEntries = registry.filter(entry => entry.status === 'pending');
+    const pendingEntries = registry.filter(
+      (entry) => entry.status === "pending",
+    );
     if (pendingEntries.length > 0) {
       // All incomplete milestones are dep-blocked — no progress possible
       const blockerDetails = pendingEntries
-        .filter(entry => entry.dependsOn && entry.dependsOn.length > 0)
-        .map(entry => `${entry.id} is waiting on unmet deps: ${entry.dependsOn!.join(', ')}`);
+        .filter((entry) => entry.dependsOn && entry.dependsOn.length > 0)
+        .map(
+          (entry) =>
+            `${entry.id} is waiting on unmet deps: ${entry.dependsOn!.join(", ")}`,
+        );
       return {
         activeMilestone: null,
         activeSlice: null,
         activeTask: null,
-        phase: 'blocked',
+        phase: "blocked",
         recentDecisions: [],
-        blockers: blockerDetails.length > 0
-          ? blockerDetails
-          : ['All remaining milestones are dep-blocked but no deps listed — check CONTEXT.md files'],
-        nextAction: 'Resolve milestone dependencies before proceeding.',
+        blockers:
+          blockerDetails.length > 0
+            ? blockerDetails
+            : [
+                "All remaining milestones are dep-blocked but no deps listed — check CONTEXT.md files",
+              ],
+        nextAction: "Resolve milestone dependencies before proceeding.",
         registry,
         requirements,
         progress: {
@@ -238,13 +262,15 @@ export async function deriveState(basePath: string): Promise<GSDState> {
     // All milestones complete
     const lastEntry = registry[registry.length - 1];
     return {
-      activeMilestone: lastEntry ? { id: lastEntry.id, title: lastEntry.title } : null,
+      activeMilestone: lastEntry
+        ? { id: lastEntry.id, title: lastEntry.title }
+        : null,
       activeSlice: null,
       activeTask: null,
-      phase: 'complete',
+      phase: "complete",
       recentDecisions: [],
       blockers: [],
-      nextAction: 'All milestones complete.',
+      nextAction: "All milestones complete.",
       registry,
       requirements,
       progress: {
@@ -259,7 +285,7 @@ export async function deriveState(basePath: string): Promise<GSDState> {
       activeMilestone,
       activeSlice: null,
       activeTask: null,
-      phase: 'pre-planning',
+      phase: "pre-planning",
       recentDecisions: [],
       blockers: [],
       nextAction: `Plan milestone ${activeMilestone.id}.`,
@@ -281,7 +307,7 @@ export async function deriveState(basePath: string): Promise<GSDState> {
       activeMilestone,
       activeSlice: null,
       activeTask: null,
-      phase: 'completing-milestone',
+      phase: "completing-milestone",
       recentDecisions: [],
       blockers: [],
       nextAction: `All slices complete in ${activeMilestone.id}. Write milestone summary.`,
@@ -295,17 +321,19 @@ export async function deriveState(basePath: string): Promise<GSDState> {
   }
 
   const sliceProgress = {
-    done: activeRoadmap.slices.filter(s => s.done).length,
+    done: activeRoadmap.slices.filter((s) => s.done).length,
     total: activeRoadmap.slices.length,
   };
 
   // Find the active slice (first incomplete with deps satisfied)
-  const doneSliceIds = new Set(activeRoadmap.slices.filter(s => s.done).map(s => s.id));
+  const doneSliceIds = new Set(
+    activeRoadmap.slices.filter((s) => s.done).map((s) => s.id),
+  );
   let activeSlice: ActiveRef | null = null;
 
   for (const s of activeRoadmap.slices) {
     if (s.done) continue;
-    if (s.depends.every(dep => doneSliceIds.has(dep))) {
+    if (s.depends.every((dep) => doneSliceIds.has(dep))) {
       activeSlice = { id: s.id, title: s.title };
       break;
     }
@@ -316,10 +344,10 @@ export async function deriveState(basePath: string): Promise<GSDState> {
       activeMilestone,
       activeSlice: null,
       activeTask: null,
-      phase: 'blocked',
+      phase: "blocked",
       recentDecisions: [],
-      blockers: ['No slice eligible — check dependency ordering'],
-      nextAction: 'Resolve dependency blockers or plan next slice.',
+      blockers: ["No slice eligible — check dependency ordering"],
+      nextAction: "Resolve dependency blockers or plan next slice.",
       registry,
       requirements,
       progress: {
@@ -332,7 +360,12 @@ export async function deriveState(basePath: string): Promise<GSDState> {
   const activeBranch = getActiveSliceBranch(basePath);
 
   // Check if the slice has a plan
-  const planFile = resolveSliceFile(basePath, activeMilestone.id, activeSlice.id, "PLAN");
+  const planFile = resolveSliceFile(
+    basePath,
+    activeMilestone.id,
+    activeSlice.id,
+    "PLAN",
+  );
   const slicePlanContent = planFile ? await loadFile(planFile) : null;
 
   if (!slicePlanContent) {
@@ -340,7 +373,7 @@ export async function deriveState(basePath: string): Promise<GSDState> {
       activeMilestone,
       activeSlice,
       activeTask: null,
-      phase: 'planning',
+      phase: "planning",
       recentDecisions: [],
       blockers: [],
       nextAction: `Plan slice ${activeSlice.id} (${activeSlice.title}).`,
@@ -356,10 +389,10 @@ export async function deriveState(basePath: string): Promise<GSDState> {
 
   const slicePlan = parsePlan(slicePlanContent);
   const taskProgress = {
-    done: slicePlan.tasks.filter(t => t.done).length,
+    done: slicePlan.tasks.filter((t) => t.done).length,
     total: slicePlan.tasks.length,
   };
-  const activeTaskEntry = slicePlan.tasks.find(t => !t.done);
+  const activeTaskEntry = slicePlan.tasks.find((t) => !t.done);
 
   if (!activeTaskEntry) {
     // All tasks done but slice not marked complete
@@ -367,7 +400,7 @@ export async function deriveState(basePath: string): Promise<GSDState> {
       activeMilestone,
       activeSlice,
       activeTask: null,
-      phase: 'summarizing',
+      phase: "summarizing",
       recentDecisions: [],
       blockers: [],
       nextAction: `All tasks done in ${activeSlice.id}. Write slice summary and complete slice.`,
@@ -390,10 +423,16 @@ export async function deriveState(basePath: string): Promise<GSDState> {
   // ── Blocker detection: scan completed task summaries ──────────────────
   // If any completed task has blocker_discovered: true and no REPLAN.md
   // exists yet, transition to replanning-slice instead of executing.
-  const completedTasks = slicePlan.tasks.filter(t => t.done);
+  const completedTasks = slicePlan.tasks.filter((t) => t.done);
   let blockerTaskId: string | null = null;
   for (const ct of completedTasks) {
-    const summaryFile = resolveTaskFile(basePath, activeMilestone.id, activeSlice.id, ct.id, "SUMMARY");
+    const summaryFile = resolveTaskFile(
+      basePath,
+      activeMilestone.id,
+      activeSlice.id,
+      ct.id,
+      "SUMMARY",
+    );
     if (!summaryFile) continue;
     const summaryContent = await loadFile(summaryFile);
     if (!summaryContent) continue;
@@ -407,15 +446,22 @@ export async function deriveState(basePath: string): Promise<GSDState> {
   if (blockerTaskId) {
     // Loop protection: if REPLAN.md already exists, a replan was already
     // performed for this slice — skip further replanning and continue executing.
-    const replanFile = resolveSliceFile(basePath, activeMilestone.id, activeSlice.id, "REPLAN");
+    const replanFile = resolveSliceFile(
+      basePath,
+      activeMilestone.id,
+      activeSlice.id,
+      "REPLAN",
+    );
     if (!replanFile) {
       return {
         activeMilestone,
         activeSlice,
         activeTask,
-        phase: 'replanning-slice',
+        phase: "replanning-slice",
         recentDecisions: [],
-        blockers: [`Task ${blockerTaskId} discovered a blocker requiring slice replan`],
+        blockers: [
+          `Task ${blockerTaskId} discovered a blocker requiring slice replan`,
+        ],
         nextAction: `Task ${blockerTaskId} reported blocker_discovered. Replan slice ${activeSlice.id} before continuing.`,
         activeBranch: activeBranch ?? undefined,
         activeWorkspace: undefined,
@@ -433,16 +479,19 @@ export async function deriveState(basePath: string): Promise<GSDState> {
 
   // Check for interrupted work
   const sDir = resolveSlicePath(basePath, activeMilestone.id, activeSlice.id);
-  const continueFile = sDir ? resolveSliceFile(basePath, activeMilestone.id, activeSlice.id, "CONTINUE") : null;
+  const continueFile = sDir
+    ? resolveSliceFile(basePath, activeMilestone.id, activeSlice.id, "CONTINUE")
+    : null;
   // Also check legacy continue.md
-  const hasInterrupted = !!(continueFile && await loadFile(continueFile)) ||
-    !!(sDir && await loadFile(join(sDir, "continue.md")));
+  const hasInterrupted =
+    !!(continueFile && (await loadFile(continueFile))) ||
+    !!(sDir && (await loadFile(join(sDir, "continue.md"))));
 
   return {
     activeMilestone,
     activeSlice,
     activeTask,
-    phase: 'executing',
+    phase: "executing",
     recentDecisions: [],
     blockers: [],
     nextAction: hasInterrupted

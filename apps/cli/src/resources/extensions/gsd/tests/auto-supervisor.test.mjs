@@ -46,7 +46,7 @@ test('writeUnitRuntimeRecord keeps explicit recovery attempt fields', () => {
     lastProgressKind: 'recovery-retry',
   });
 
-  const runtime = JSON.parse(readFileSync(join(base, '.gsd/runtime/units/research-milestone-M011.json'), 'utf8'));
+  const runtime = JSON.parse(readFileSync(join(base, '.kata/runtime/units/research-milestone-M011.json'), 'utf8'));
   assert.equal(runtime.recoveryAttempts, 2);
   assert.equal(runtime.lastRecoveryReason, 'idle');
   assert.equal(runtime.lastProgressKind, 'recovery-retry');

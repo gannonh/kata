@@ -21,7 +21,7 @@
 
 ## Capability Contract
 
-See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement status, and coverage mapping.
+See `.kata/REQUIREMENTS.md` for the explicit capability contract, requirement status, and coverage mapping.
 
 ## Milestone Sequence
 

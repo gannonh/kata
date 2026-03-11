@@ -6,7 +6,11 @@
  * No execution state, no hooks, no tools — the LLM does the rest.
  */
 
-import type { ExtensionAPI, ExtensionContext, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+  ExtensionCommandContext,
+} from "@mariozechner/pi-coding-agent";
 import { showNextAction } from "../shared/next-action-ui.js";
 import { loadFile, parseRoadmap } from "./files.js";
 import { loadPrompt } from "./prompt-loader.js";
@@ -14,9 +18,16 @@ import { deriveState } from "./state.js";
 import { startAuto } from "./auto.js";
 import { readCrashLock, clearLock, formatCrashInfo } from "./crash-recovery.js";
 import {
-  gsdRoot, milestonesDir, resolveMilestoneFile,
-  resolveSliceFile, resolveSlicePath, resolveGsdRootFile, relGsdRootFile,
-  relMilestoneFile, relSliceFile, relSlicePath,
+  gsdRoot,
+  milestonesDir,
+  resolveMilestoneFile,
+  resolveSliceFile,
+  resolveSlicePath,
+  resolveGsdRootFile,
+  relGsdRootFile,
+  relMilestoneFile,
+  relSliceFile,
+  relSlicePath,
 } from "./paths.js";
 import { join } from "node:path";
 import { readFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
@@ -61,8 +72,14 @@ type UIContext = ExtensionContext;
  * Read GSD-WORKFLOW.md and dispatch it to the LLM with a contextual note.
  * This is the only way the wizard triggers work — everything else is the LLM's job.
  */
-function dispatchWorkflow(pi: ExtensionAPI, note: string, customType = "gsd-run"): void {
-  const workflowPath = process.env.GSD_WORKFLOW_PATH ?? join(process.env.HOME ?? "~", ".pi", "GSD-WORKFLOW.md");
+function dispatchWorkflow(
+  pi: ExtensionAPI,
+  note: string,
+  customType = "gsd-run",
+): void {
+  const workflowPath =
+    process.env.kata_WORKFLOW_PATH ??
+    join(process.env.HOME ?? "~", ".pi", "GSD-WORKFLOW.md");
   const workflow = readFileSync(workflowPath, "utf-8");
 
   pi.sendMessage(
@@ -79,8 +96,12 @@ function dispatchWorkflow(pi: ExtensionAPI, note: string, customType = "gsd-run"
  * Build the discuss-and-plan prompt for a new milestone.
  * Used by all three "new milestone" paths (first ever, no active, all complete).
  */
-function buildDiscussPrompt(nextId: string, preamble: string, basePath: string): string {
-  const milestoneDirAbs = join(basePath, ".gsd", "milestones", nextId);
+function buildDiscussPrompt(
+  nextId: string,
+  preamble: string,
+  basePath: string,
+): string {
+  const milestoneDirAbs = join(basePath, ".kata", "milestones", nextId);
   return loadPrompt("discuss", {
     milestoneId: nextId,
     preamble,
@@ -126,10 +147,13 @@ export async function showQueue(
   pi: ExtensionAPI,
   basePath: string,
 ): Promise<void> {
-  // ── Ensure .gsd/ exists ─────────────────────────────────────────────
+  // ── Ensure .kata/ exists ─────────────────────────────────────────────
   const gsd = gsdRoot(basePath);
   if (!existsSync(gsd)) {
-    ctx.ui.notify("No GSD project found. Run /gsd to start one first.", "warning");
+    ctx.ui.notify(
+      "No GSD project found. Run /gsd to start one first.",
+      "warning",
+    );
     return;
   }
 
@@ -137,12 +161,19 @@ export async function showQueue(
   const milestoneIds = findMilestoneIds(basePath);
 
   if (milestoneIds.length === 0) {
-    ctx.ui.notify("No milestones exist yet. Run /gsd to create the first one.", "warning");
+    ctx.ui.notify(
+      "No milestones exist yet. Run /gsd to create the first one.",
+      "warning",
+    );
     return;
   }
 
   // ── Build existing milestones context for the prompt ────────────────
-  const existingContext = await buildExistingMilestonesContext(basePath, milestoneIds, state);
+  const existingContext = await buildExistingMilestonesContext(
+    basePath,
+    milestoneIds,
+    state,
+  );
 
   // ── Determine next milestone ID ─────────────────────────────────────
   const maxNum = milestoneIds.reduce((max, id) => {
@@ -157,8 +188,12 @@ export async function showQueue(
     ? `Currently executing: ${state.activeMilestone.id} — ${state.activeMilestone.title} (phase: ${state.phase}).`
     : "No milestone currently active.";
 
-  const pendingCount = state.registry.filter(m => m.status === "pending").length;
-  const completeCount = state.registry.filter(m => m.status === "complete").length;
+  const pendingCount = state.registry.filter(
+    (m) => m.status === "pending",
+  ).length;
+  const completeCount = state.registry.filter(
+    (m) => m.status === "complete",
+  ).length;
 
   const preamble = [
     `Queuing new work onto an existing GSD project.`,
@@ -192,7 +227,7 @@ export async function showQueue(
 async function buildExistingMilestonesContext(
   basePath: string,
   milestoneIds: string[],
-  state: import("./types.js").GSDState,
+  state: import("./types.js").kataState,
 ): Promise<string> {
   const sections: string[] = [];
 
@@ -201,7 +236,9 @@ async function buildExistingMilestonesContext(
   if (existsSync(projectPath)) {
     const projectContent = await loadFile(projectPath);
     if (projectContent) {
-      sections.push(`### Project Overview\nSource: \`${relGsdRootFile("PROJECT")}\`\n\n${projectContent.trim()}`);
+      sections.push(
+        `### Project Overview\nSource: \`${relGsdRootFile("PROJECT")}\`\n\n${projectContent.trim()}`,
+      );
     }
   }
 
@@ -210,13 +247,15 @@ async function buildExistingMilestonesContext(
   if (existsSync(decisionsPath)) {
     const decisionsContent = await loadFile(decisionsPath);
     if (decisionsContent) {
-      sections.push(`### Decisions Register\nSource: \`${relGsdRootFile("DECISIONS")}\`\n\n${decisionsContent.trim()}`);
+      sections.push(
+        `### Decisions Register\nSource: \`${relGsdRootFile("DECISIONS")}\`\n\n${decisionsContent.trim()}`,
+      );
     }
   }
 
   // For each milestone, include context and status
   for (const mid of milestoneIds) {
-    const registryEntry = state.registry.find(m => m.id === mid);
+    const registryEntry = state.registry.find((m) => m.id === mid);
     const status = registryEntry?.status ?? "unknown";
     const title = registryEntry?.title ?? mid;
 
@@ -263,7 +302,9 @@ async function buildExistingMilestonesContext(
   if (existsSync(queuePath)) {
     const queueContent = await loadFile(queuePath);
     if (queueContent) {
-      sections.push(`### Previous Queue Entries\nSource: \`${relGsdRootFile("QUEUE")}\`\n\n${queueContent.trim()}`);
+      sections.push(
+        `### Previous Queue Entries\nSource: \`${relGsdRootFile("QUEUE")}\`\n\n${queueContent.trim()}`,
+      );
     }
   }
 
@@ -291,7 +332,9 @@ async function buildDiscussSlicePrompt(
   const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
   const roadmapContent = roadmapPath ? await loadFile(roadmapPath) : null;
   if (roadmapContent) {
-    inlined.push(`### Milestone Roadmap\nSource: \`${roadmapRel}\`\n\n${roadmapContent.trim()}`);
+    inlined.push(
+      `### Milestone Roadmap\nSource: \`${roadmapRel}\`\n\n${roadmapContent.trim()}`,
+    );
   }
 
   // Milestone context — understanding the full milestone intent
@@ -299,7 +342,9 @@ async function buildDiscussSlicePrompt(
   const contextRel = relMilestoneFile(base, mid, "CONTEXT");
   const contextContent = contextPath ? await loadFile(contextPath) : null;
   if (contextContent) {
-    inlined.push(`### Milestone Context\nSource: \`${contextRel}\`\n\n${contextContent.trim()}`);
+    inlined.push(
+      `### Milestone Context\nSource: \`${contextRel}\`\n\n${contextContent.trim()}`,
+    );
   }
 
   // Milestone research — technical grounding
@@ -307,7 +352,9 @@ async function buildDiscussSlicePrompt(
   const researchRel = relMilestoneFile(base, mid, "RESEARCH");
   const researchContent = researchPath ? await loadFile(researchPath) : null;
   if (researchContent) {
-    inlined.push(`### Milestone Research\nSource: \`${researchRel}\`\n\n${researchContent.trim()}`);
+    inlined.push(
+      `### Milestone Research\nSource: \`${researchRel}\`\n\n${researchContent.trim()}`,
+    );
   }
 
   // Decisions — architectural context that constrains this slice
@@ -315,7 +362,9 @@ async function buildDiscussSlicePrompt(
   if (existsSync(decisionsPath)) {
     const decisionsContent = await loadFile(decisionsPath);
     if (decisionsContent) {
-      inlined.push(`### Decisions Register\nSource: \`${relGsdRootFile("DECISIONS")}\`\n\n${decisionsContent.trim()}`);
+      inlined.push(
+        `### Decisions Register\nSource: \`${relGsdRootFile("DECISIONS")}\`\n\n${decisionsContent.trim()}`,
+      );
     }
   }
 
@@ -328,16 +377,19 @@ async function buildDiscussSlicePrompt(
       const summaryRel = relSliceFile(base, mid, s.id, "SUMMARY");
       const summaryContent = summaryPath ? await loadFile(summaryPath) : null;
       if (summaryContent) {
-        inlined.push(`### ${s.id} Summary (completed)\nSource: \`${summaryRel}\`\n\n${summaryContent.trim()}`);
+        inlined.push(
+          `### ${s.id} Summary (completed)\nSource: \`${summaryRel}\`\n\n${summaryContent.trim()}`,
+        );
       }
     }
   }
 
-  const inlinedContext = inlined.length > 0
-    ? `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`
-    : `## Inlined Context\n\n_(no context files found yet — go in blind and ask broad questions)_`;
+  const inlinedContext =
+    inlined.length > 0
+      ? `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`
+      : `## Inlined Context\n\n_(no context files found yet — go in blind and ask broad questions)_`;
 
-  const sliceDirAbsPath = join(base, ".gsd", "milestones", mid, "slices", sid);
+  const sliceDirAbsPath = join(base, ".kata", "milestones", mid, "slices", sid);
   const contextAbsPath = join(sliceDirAbsPath, `${sid}-CONTEXT.md`);
 
   return loadPrompt("guided-discuss-slice", {
@@ -361,9 +413,12 @@ export async function showDiscuss(
   pi: ExtensionAPI,
   basePath: string,
 ): Promise<void> {
-  // Guard: no .gsd/ project
-  if (!existsSync(join(basePath, ".gsd"))) {
-    ctx.ui.notify("No GSD project found. Run /gsd to start one first.", "warning");
+  // Guard: no .kata/ project
+  if (!existsSync(join(basePath, ".kata"))) {
+    ctx.ui.notify(
+      "No GSD project found. Run /gsd to start one first.",
+      "warning",
+    );
     return;
   }
 
@@ -371,7 +426,10 @@ export async function showDiscuss(
 
   // Guard: no active milestone
   if (!state.activeMilestone) {
-    ctx.ui.notify("No active milestone. Run /gsd to create one first.", "warning");
+    ctx.ui.notify(
+      "No active milestone. Run /gsd to create one first.",
+      "warning",
+    );
     return;
   }
 
@@ -382,12 +440,15 @@ export async function showDiscuss(
   const roadmapFile = resolveMilestoneFile(basePath, mid, "ROADMAP");
   const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
   if (!roadmapContent) {
-    ctx.ui.notify("No roadmap yet for this milestone. Run /gsd to plan first.", "warning");
+    ctx.ui.notify(
+      "No roadmap yet for this milestone. Run /gsd to plan first.",
+      "warning",
+    );
     return;
   }
 
   const roadmap = parseRoadmap(roadmapContent);
-  const pendingSlices = roadmap.slices.filter(s => !s.done);
+  const pendingSlices = roadmap.slices.filter((s) => !s.done);
 
   if (pendingSlices.length === 0) {
     ctx.ui.notify("All slices are complete — nothing to discuss.", "info");
@@ -415,10 +476,15 @@ export async function showDiscuss(
 
     if (choice === "not_yet") return;
 
-    const chosen = pendingSlices.find(s => s.id === choice);
+    const chosen = pendingSlices.find((s) => s.id === choice);
     if (!chosen) return;
 
-    const prompt = await buildDiscussSlicePrompt(mid, chosen.id, chosen.title, basePath);
+    const prompt = await buildDiscussSlicePrompt(
+      mid,
+      chosen.id,
+      chosen.title,
+      basePath,
+    );
     dispatchWorkflow(pi, prompt, "gsd-discuss");
 
     // Wait for the discuss session to finish, then loop back to the picker
@@ -436,7 +502,6 @@ export async function showSmartEntry(
   pi: ExtensionAPI,
   basePath: string,
 ): Promise<void> {
-
   // ── Ensure git repo exists — GSD needs it for branch-per-slice ──────
   try {
     execSync("git rev-parse --git-dir", { cwd: basePath, stdio: "pipe" });
@@ -448,18 +513,21 @@ export async function showSmartEntry(
   ensureGitignore(basePath);
 
   // ── No GSD project OR no milestone → Create first/next milestone ────
-  if (!existsSync(join(basePath, ".gsd"))) {
-    // Bootstrap .gsd/ silently — the user wants a milestone, not to "init"
+  if (!existsSync(join(basePath, ".kata"))) {
+    // Bootstrap .kata/ silently — the user wants a milestone, not to "init"
     const gsd = gsdRoot(basePath);
     mkdirSync(join(gsd, "milestones"), { recursive: true });
 
     // ── Create PREFERENCES.md template ────────────────────────────────
     ensurePreferences(basePath);
     try {
-      execSync("git add -A .gsd .gitignore && git commit -m 'chore: init gsd'", {
-        cwd: basePath,
-        stdio: "pipe",
-      });
+      execSync(
+        "git add -A .kata .gitignore && git commit -m 'chore: init gsd'",
+        {
+          cwd: basePath,
+          stdio: "pipe",
+        },
+      );
     } catch {
       // nothing to commit — that's fine
     }
@@ -473,8 +541,17 @@ export async function showSmartEntry(
       title: "GSD — Interrupted Session Detected",
       summary: [formatCrashInfo(crashLock)],
       actions: [
-        { id: "resume", label: "Resume with /gsd auto", description: "Pick up where it left off", recommended: true },
-        { id: "continue", label: "Continue manually", description: "Open the wizard as normal" },
+        {
+          id: "resume",
+          label: "Resume with /gsd auto",
+          description: "Pick up where it left off",
+          recommended: true,
+        },
+        {
+          id: "continue",
+          label: "Continue manually",
+          description: "Open the wizard as normal",
+        },
       ],
     });
     if (resume === "resume") {
@@ -491,7 +568,10 @@ export async function showSmartEntry(
     // Without this guard, every subsequent /gsd call overwrites pendingAutoStart
     // and fires another dispatchWorkflow, resetting the conversation mid-interview.
     if (pendingAutoStart) {
-      ctx.ui.notify("Discussion already in progress — answer the question above to continue.", "info");
+      ctx.ui.notify(
+        "Discussion already in progress — answer the question above to continue.",
+        "info",
+      );
       return;
     }
 
@@ -502,10 +582,14 @@ export async function showSmartEntry(
     if (isFirst) {
       // First ever — skip wizard, just ask directly
       pendingAutoStart = { ctx, pi, basePath, milestoneId: nextId };
-      dispatchWorkflow(pi, buildDiscussPrompt(nextId,
-        `New project, milestone ${nextId}. Do NOT read or explore .gsd/ — it's empty scaffolding.`,
-        basePath
-      ));
+      dispatchWorkflow(
+        pi,
+        buildDiscussPrompt(
+          nextId,
+          `New project, milestone ${nextId}. Do NOT read or explore .kata/ — it's empty scaffolding.`,
+          basePath,
+        ),
+      );
     } else {
       const choice = await showNextAction(ctx as any, {
         title: "GSD — Get Stuff Done",
@@ -523,10 +607,10 @@ export async function showSmartEntry(
 
       if (choice === "new_milestone") {
         pendingAutoStart = { ctx, pi, basePath, milestoneId: nextId };
-        dispatchWorkflow(pi, buildDiscussPrompt(nextId,
-          `New milestone ${nextId}.`,
-          basePath
-        ));
+        dispatchWorkflow(
+          pi,
+          buildDiscussPrompt(nextId, `New milestone ${nextId}.`, basePath),
+        );
       }
     }
     return;
@@ -561,10 +645,10 @@ export async function showSmartEntry(
       const nextId = `M${String(milestoneIds.length + 1).padStart(3, "0")}`;
 
       pendingAutoStart = { ctx, pi, basePath, milestoneId: nextId };
-      dispatchWorkflow(pi, buildDiscussPrompt(nextId,
-        `New milestone ${nextId}.`,
-        basePath
-      ));
+      dispatchWorkflow(
+        pi,
+        buildDiscussPrompt(nextId, `New milestone ${nextId}.`, basePath),
+      );
     } else if (choice === "status") {
       const { fireStatusViaCommand } = await import("./commands.js");
       await fireStatusViaCommand(ctx);
@@ -575,12 +659,16 @@ export async function showSmartEntry(
   // ── No active slice ──────────────────────────────────────────────────
   if (!state.activeSlice) {
     const roadmapFile = resolveMilestoneFile(basePath, milestoneId, "ROADMAP");
-    const hasRoadmap = !!(roadmapFile && await loadFile(roadmapFile));
+    const hasRoadmap = !!(roadmapFile && (await loadFile(roadmapFile)));
 
     if (!hasRoadmap) {
       // No roadmap → discuss or plan
-      const contextFile = resolveMilestoneFile(basePath, milestoneId, "CONTEXT");
-      const hasContext = !!(contextFile && await loadFile(contextFile));
+      const contextFile = resolveMilestoneFile(
+        basePath,
+        milestoneId,
+        "CONTEXT",
+      );
+      const hasContext = !!(contextFile && (await loadFile(contextFile)));
 
       const actions = [
         {
@@ -591,28 +679,44 @@ export async function showSmartEntry(
             : "Decompose the milestone into slices with a boundary map.",
           recommended: true,
         },
-        ...(!hasContext ? [{
-          id: "discuss",
-          label: "Discuss first",
-          description: "Capture decisions on gray areas before planning.",
-        }] : []),
+        ...(!hasContext
+          ? [
+              {
+                id: "discuss",
+                label: "Discuss first",
+                description: "Capture decisions on gray areas before planning.",
+              },
+            ]
+          : []),
       ];
 
       const choice = await showNextAction(ctx as any, {
         title: `GSD — ${milestoneId}: ${milestoneTitle}`,
-        summary: [hasContext ? "Context captured. Ready to create roadmap." : "New milestone — no roadmap yet."],
+        summary: [
+          hasContext
+            ? "Context captured. Ready to create roadmap."
+            : "New milestone — no roadmap yet.",
+        ],
         actions,
         notYetMessage: "Run /gsd when ready.",
       });
 
       if (choice === "plan") {
-        dispatchWorkflow(pi, loadPrompt("guided-plan-milestone", {
-          milestoneId, milestoneTitle,
-        }));
+        dispatchWorkflow(
+          pi,
+          loadPrompt("guided-plan-milestone", {
+            milestoneId,
+            milestoneTitle,
+          }),
+        );
       } else if (choice === "discuss") {
-        dispatchWorkflow(pi, loadPrompt("guided-discuss-milestone", {
-          milestoneId, milestoneTitle,
-        }));
+        dispatchWorkflow(
+          pi,
+          loadPrompt("guided-discuss-milestone", {
+            milestoneId,
+            milestoneTitle,
+          }),
+        );
       }
     } else {
       // Roadmap exists — either blocked or ready for auto
@@ -620,7 +724,8 @@ export async function showSmartEntry(
         {
           id: "auto",
           label: "Go auto",
-          description: "Execute everything automatically until milestone complete.",
+          description:
+            "Execute everything automatically until milestone complete.",
           recommended: true,
         },
         {
@@ -652,10 +757,20 @@ export async function showSmartEntry(
 
   // ── Slice needs planning ─────────────────────────────────────────────
   if (state.phase === "planning") {
-    const contextFile = resolveSliceFile(basePath, milestoneId, sliceId, "CONTEXT");
-    const researchFile = resolveSliceFile(basePath, milestoneId, sliceId, "RESEARCH");
-    const hasContext = !!(contextFile && await loadFile(contextFile));
-    const hasResearch = !!(researchFile && await loadFile(researchFile));
+    const contextFile = resolveSliceFile(
+      basePath,
+      milestoneId,
+      sliceId,
+      "CONTEXT",
+    );
+    const researchFile = resolveSliceFile(
+      basePath,
+      milestoneId,
+      sliceId,
+      "RESEARCH",
+    );
+    const hasContext = !!(contextFile && (await loadFile(contextFile)));
+    const hasResearch = !!(researchFile && (await loadFile(researchFile)));
 
     const actions = [
       {
@@ -664,16 +779,24 @@ export async function showSmartEntry(
         description: `Decompose "${sliceTitle}" into tasks with must-haves.`,
         recommended: true,
       },
-      ...(!hasContext ? [{
-        id: "discuss",
-        label: `Discuss ${sliceId} first`,
-        description: "Capture context and decisions for this slice.",
-      }] : []),
-      ...(!hasResearch ? [{
-        id: "research",
-        label: `Research ${sliceId} first`,
-        description: "Scout codebase and relevant docs.",
-      }] : []),
+      ...(!hasContext
+        ? [
+            {
+              id: "discuss",
+              label: `Discuss ${sliceId} first`,
+              description: "Capture context and decisions for this slice.",
+            },
+          ]
+        : []),
+      ...(!hasResearch
+        ? [
+            {
+              id: "research",
+              label: `Research ${sliceId} first`,
+              description: "Scout codebase and relevant docs.",
+            },
+          ]
+        : []),
       {
         id: "status",
         label: "View status",
@@ -684,9 +807,10 @@ export async function showSmartEntry(
     const summaryParts = [];
     if (hasContext) summaryParts.push("context ✓");
     if (hasResearch) summaryParts.push("research ✓");
-    const summaryLine = summaryParts.length > 0
-      ? `${sliceId}: ${sliceTitle} (${summaryParts.join(", ")})`
-      : `${sliceId}: ${sliceTitle} — ready for planning.`;
+    const summaryLine =
+      summaryParts.length > 0
+        ? `${sliceId}: ${sliceTitle} (${summaryParts.join(", ")})`
+        : `${sliceId}: ${sliceTitle} — ready for planning.`;
 
     const choice = await showNextAction(ctx as any, {
       title: `GSD — ${milestoneId} / ${sliceId}: ${sliceTitle}`,
@@ -696,15 +820,33 @@ export async function showSmartEntry(
     });
 
     if (choice === "plan") {
-      dispatchWorkflow(pi, loadPrompt("guided-plan-slice", {
-        milestoneId, sliceId, sliceTitle,
-      }));
+      dispatchWorkflow(
+        pi,
+        loadPrompt("guided-plan-slice", {
+          milestoneId,
+          sliceId,
+          sliceTitle,
+        }),
+      );
     } else if (choice === "discuss") {
-      dispatchWorkflow(pi, await buildDiscussSlicePrompt(milestoneId, sliceId, sliceTitle, basePath));
+      dispatchWorkflow(
+        pi,
+        await buildDiscussSlicePrompt(
+          milestoneId,
+          sliceId,
+          sliceTitle,
+          basePath,
+        ),
+      );
     } else if (choice === "research") {
-      dispatchWorkflow(pi, loadPrompt("guided-research-slice", {
-        milestoneId, sliceId, sliceTitle,
-      }));
+      dispatchWorkflow(
+        pi,
+        loadPrompt("guided-research-slice", {
+          milestoneId,
+          sliceId,
+          sliceTitle,
+        }),
+      );
     } else if (choice === "status") {
       const { fireStatusViaCommand } = await import("./commands.js");
       await fireStatusViaCommand(ctx);
@@ -721,7 +863,8 @@ export async function showSmartEntry(
         {
           id: "complete",
           label: `Complete ${sliceId}`,
-          description: "Write slice summary, UAT, mark done, and squash-merge to main.",
+          description:
+            "Write slice summary, UAT, mark done, and squash-merge to main.",
           recommended: true,
         },
         {
@@ -734,9 +877,14 @@ export async function showSmartEntry(
     });
 
     if (choice === "complete") {
-      dispatchWorkflow(pi, loadPrompt("guided-complete-slice", {
-        milestoneId, sliceId, sliceTitle,
-      }));
+      dispatchWorkflow(
+        pi,
+        loadPrompt("guided-complete-slice", {
+          milestoneId,
+          sliceId,
+          sliceTitle,
+        }),
+      );
     } else if (choice === "status") {
       const { fireStatusViaCommand } = await import("./commands.js");
       await fireStatusViaCommand(ctx);
@@ -749,10 +897,16 @@ export async function showSmartEntry(
     const taskId = state.activeTask.id;
     const taskTitle = state.activeTask.title;
 
-    const continueFile = resolveSliceFile(basePath, milestoneId, sliceId, "CONTINUE");
+    const continueFile = resolveSliceFile(
+      basePath,
+      milestoneId,
+      sliceId,
+      "CONTINUE",
+    );
     const sDir = resolveSlicePath(basePath, milestoneId, sliceId);
-    const hasInterrupted = !!(continueFile && await loadFile(continueFile)) ||
-      !!(sDir && await loadFile(join(sDir, "continue.md")));
+    const hasInterrupted =
+      !!(continueFile && (await loadFile(continueFile))) ||
+      !!(sDir && (await loadFile(join(sDir, "continue.md"))));
 
     const choice = await showNextAction(ctx as any, {
       title: `GSD — ${milestoneId} / ${sliceId}: ${sliceTitle}`,
@@ -791,13 +945,23 @@ export async function showSmartEntry(
 
     if (choice === "execute") {
       if (hasInterrupted) {
-        dispatchWorkflow(pi, loadPrompt("guided-resume-task", {
-          milestoneId, sliceId,
-        }));
+        dispatchWorkflow(
+          pi,
+          loadPrompt("guided-resume-task", {
+            milestoneId,
+            sliceId,
+          }),
+        );
       } else {
-        dispatchWorkflow(pi, loadPrompt("guided-execute-task", {
-          milestoneId, sliceId, taskId, taskTitle,
-        }));
+        dispatchWorkflow(
+          pi,
+          loadPrompt("guided-execute-task", {
+            milestoneId,
+            sliceId,
+            taskId,
+            taskTitle,
+          }),
+        );
       }
     } else if (choice === "status") {
       const { fireStatusViaCommand } = await import("./commands.js");

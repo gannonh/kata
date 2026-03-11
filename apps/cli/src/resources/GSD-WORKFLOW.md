@@ -4,7 +4,7 @@
 >
 > **When to read this:** At the start of any session working on GSD-managed work, or when told `read @GSD-WORKFLOW.md`.
 >
-> **After reading this, always read `.gsd/state.md` to find out what's next.**
+> **After reading this, always read `.kata/state.md` to find out what's next.**
 > If the milestone has a `context.md`, read that too — it contains project-specific decisions, reference paths, and implementation guidance that this generic methodology doc does not.
 
 ---
@@ -13,9 +13,9 @@
 
 Read these files in order and act on what they say:
 
-1. **`.gsd/state.md`** — Where are we? What's the next action?
-2. **`.gsd/milestones/<active>/roadmap.md`** — What's the plan? Which slices are done? (state.md tells you which milestone is active)
-3. **`.gsd/milestones/<active>/context.md`** — Project-specific decisions, reference paths, constraints. Read this before doing implementation work.
+1. **`.kata/state.md`** — Where are we? What's the next action?
+2. **`.kata/milestones/<active>/roadmap.md`** — What's the plan? Which slices are done? (state.md tells you which milestone is active)
+3. **`.kata/milestones/<active>/context.md`** — Project-specific decisions, reference paths, constraints. Read this before doing implementation work.
 4. If a slice is active, read its **`plan.md`** — Which tasks exist? Which are done?
 5. If a task was interrupted, check for **`continue.md`** in the active slice directory — Resume from there.
 
@@ -37,10 +37,10 @@ Milestone  →  a shippable version (4-10 slices)
 
 ## File Locations
 
-All artifacts live in `.gsd/` at the project root:
+All artifacts live in `.kata/` at the project root:
 
 ```
-.gsd/
+.kata/
   state.md                                  # Dashboard — always read first
   decisions.md                              # Append-only decisions register
   milestones/
@@ -237,13 +237,13 @@ Exact next thing to do.
      To reverse a decision, add a new row that supersedes it.
      Read this file at the start of any planning or research phase. -->
 
-| # | When | Scope | Decision | Choice | Rationale | Revisable? |
-|---|------|-------|----------|--------|-----------|------------|
-| D001 | M001/S01 | library | Validation library | Zod | Type inference, already in deps | No |
-| D002 | M001/S01 | arch | Session storage | HTTP-only cookies | Security, SSR compat | Yes — if mobile added |
-| D003 | M001/S02 | api | API versioning | URL prefix /v1 | Simple, fits scale | Yes |
-| D004 | M001/S03 | convention | Error format | RFC 7807 | Standard, client-friendly | No |
-| D005 | M002/S01 | arch | Session storage | JWT in Authorization header | Mobile client needs it (supersedes D002) | No |
+| #    | When     | Scope      | Decision           | Choice                      | Rationale                                | Revisable?            |
+| ---- | -------- | ---------- | ------------------ | --------------------------- | ---------------------------------------- | --------------------- |
+| D001 | M001/S01 | library    | Validation library | Zod                         | Type inference, already in deps          | No                    |
+| D002 | M001/S01 | arch       | Session storage    | HTTP-only cookies           | Security, SSR compat                     | Yes — if mobile added |
+| D003 | M001/S02 | api        | API versioning     | URL prefix /v1              | Simple, fits scale                       | Yes                   |
+| D004 | M001/S03 | convention | Error format       | RFC 7807                    | Standard, client-friendly                | No                    |
+| D005 | M002/S01 | arch       | Session storage    | JWT in Authorization header | Mobile client needs it (supersedes D002) | No                    |
 ```
 
 **Rules:**
@@ -301,7 +301,7 @@ Work flows through these phases. Each phase produces a file.
 
 ## Don't Hand-Roll
 | Problem | Don't Build | Use Instead | Why |
-|---------|-------------|-------------|-----|
+| ------- | ----------- | ----------- | --- |
 Problems that look simple but have existing solutions.
 
 ## Common Pitfalls
@@ -327,7 +327,7 @@ The **Don't Hand-Roll** and **Common Pitfalls** sections prevent the most expens
 **Produces:** `plan.md` + individual `T01-plan.md` files.
 
 **For a milestone (roadmap):**
-1. Read `context.md`, `research.md`, and `.gsd/decisions.md` if they exist.
+1. Read `context.md`, `research.md`, and `.kata/decisions.md` if they exist.
 2. Decompose the vision into 4-10 demoable vertical slices.
 3. Order by risk (high-risk first to validate feasibility early).
 4. Write `roadmap.md` with checkboxes, risk levels, dependencies, demo sentences.
@@ -335,7 +335,7 @@ The **Don't Hand-Roll** and **Common Pitfalls** sections prevent the most expens
 
 **For a slice (task decomposition):**
 1. Read the slice's entry in `roadmap.md` **and its boundary map section** — know what interfaces this slice must produce and consume.
-2. Read `context.md`, `research.md`, and `.gsd/decisions.md` if they exist for this slice.
+2. Read `context.md`, `research.md`, and `.kata/decisions.md` if they exist for this slice.
 3. Read summaries from dependency slices (check `depends:[]` in roadmap).
 4. Verify that upstream slices' actual outputs match what the boundary map says this slice consumes. If they diverge, update the boundary map.
 5. Decompose into 1-7 tasks, each fitting one context window.
@@ -352,7 +352,7 @@ The **Don't Hand-Roll** and **Common Pitfalls** sections prevent the most expens
 1. Read the task's `TNN-plan.md`.
 2. Read relevant summaries from prior tasks (for context on what's already built).
 3. Execute each step. Mark progress with `[DONE:n]` in responses.
-4. If you made an architectural, pattern, or library decision, append it to `.gsd/decisions.md`.
+4. If you made an architectural, pattern, or library decision, append it to `.kata/decisions.md`.
 5. If interrupted or context is getting full, write `continue.md` (see below).
 
 ### Phase 5: Verify
@@ -372,27 +372,27 @@ The **Don't Hand-Roll** and **Common Pitfalls** sections prevent the most expens
 
 ```
 ### Observable Truths
-| # | Truth | Status | Evidence |
-|---|-------|--------|----------|
-| 1 | User can sign up | ✓ PASS | POST /api/auth/signup returns 201 |
-| 2 | Login returns JWT | ✗ FAIL | Returns 500 — missing env var |
+| #   | Truth             | Status | Evidence                          |
+| --- | ----------------- | ------ | --------------------------------- |
+| 1   | User can sign up  | ✓ PASS | POST /api/auth/signup returns 201 |
+| 2   | Login returns JWT | ✗ FAIL | Returns 500 — missing env var     |
 
 ### Artifacts
-| File | Expected | Status | Evidence |
-|------|----------|--------|---------|
-| src/lib/auth.ts | JWT helpers, min 30 lines | ✓ SUBSTANTIVE | 87 lines, exports generateTokens |
-| src/lib/email.ts | Email sending | ✗ STUB | 8 lines, console.log instead of sending |
+| File             | Expected                  | Status        | Evidence                                |
+| ---------------- | ------------------------- | ------------- | --------------------------------------- |
+| src/lib/auth.ts  | JWT helpers, min 30 lines | ✓ SUBSTANTIVE | 87 lines, exports generateTokens        |
+| src/lib/email.ts | Email sending             | ✗ STUB        | 8 lines, console.log instead of sending |
 
 ### Key Links
-| From | To | Via | Status |
-|------|----|----|--------|
-| login/route.ts | auth.ts | import generateTokens | ✓ WIRED |
-| email.ts | Resend API | resend.emails.send() | ✗ NOT WIRED |
+| From           | To         | Via                   | Status      |
+| -------------- | ---------- | --------------------- | ----------- |
+| login/route.ts | auth.ts    | import generateTokens | ✓ WIRED     |
+| email.ts       | Resend API | resend.emails.send()  | ✗ NOT WIRED |
 
 ### Anti-Patterns Found
-| File | Line | Pattern | Severity |
-|------|------|---------|----------|
-| src/lib/email.ts | 5 | console.log stub | 🛑 Blocker |
+| File             | Line | Pattern          | Severity  |
+| ---------------- | ---- | ---------------- | --------- |
+| src/lib/email.ts | 5    | console.log stub | 🛑 Blocker |
 ```
 
 When verification finds gaps, include a **Gaps** section with what's missing, impact, and suggested fix.
@@ -421,7 +421,7 @@ key_decisions:
 patterns_established:
   - "Pattern name and where it lives"
 drill_down_paths:
-  - .gsd/milestones/M001/slices/S01/tasks/T01-plan.md
+  - .kata/milestones/M001/slices/S01/tasks/T01-plan.md
 duration: 15min
 verification_result: pass
 completed_at: 2026-03-07T16:00:00Z
@@ -445,7 +445,7 @@ What differed from the plan and why (or "None").
 
 The one-liner must be substantive: "JWT auth with refresh rotation using jose" not "Authentication implemented."
 
-**Slice summary:** Written when all tasks in a slice complete. Compresses all task summaries. Includes `drill_down_paths` to each task summary. During slice completion, review task summaries for `key_decisions` and ensure any significant ones are captured in `.gsd/decisions.md`.
+**Slice summary:** Written when all tasks in a slice complete. Compresses all task summaries. Includes `drill_down_paths` to each task summary. During slice completion, review task summaries for `key_decisions` and ensure any significant ones are captured in `.kata/decisions.md`.
 
 **Milestone summary:** Updated each time a slice completes. Compresses all slice summaries. This is what gets injected into later slice planning instead of loading many individual summaries.
 
@@ -575,12 +575,12 @@ gsd/M001/S01:
 
 ### Commit Conventions
 
-| When | Format | Example |
-|------|--------|---------|
-| Before each task | `checkpoint(S01/T02): pre-task` | Safety net for `git reset` |
-| After task verified | `feat(S01/T02): <what was built>` | The real work |
-| Plan/docs committed | `docs(S01): add slice plan` | Bundled with first task |
-| Slice squash to main | `feat(M001/S01): <slice title>` | Clean one-liner on main |
+| When                 | Format                            | Example                    |
+| -------------------- | --------------------------------- | -------------------------- |
+| Before each task     | `checkpoint(S01/T02): pre-task`   | Safety net for `git reset` |
+| After task verified  | `feat(S01/T02): <what was built>` | The real work              |
+| Plan/docs committed  | `docs(S01): add slice plan`       | Bundled with first task    |
+| Slice squash to main | `feat(M001/S01): <slice title>`   | Clean one-liner on main    |
 
 Commit types: `feat`, `fix`, `test`, `refactor`, `docs`, `chore`
 
@@ -599,10 +599,10 @@ Tasks completed:
 
 ### Rollback
 
-| Problem | Fix |
-|---------|-----|
-| Bad task | `git reset --hard` to checkpoint on the branch |
-| Bad slice | `git revert <squash commit>` on main |
+| Problem                 | Fix                                                                      |
+| ----------------------- | ------------------------------------------------------------------------ |
+| Bad task                | `git reset --hard` to checkpoint on the branch                           |
+| Bad slice               | `git revert <squash commit>` on main                                     |
 | UAT failure after merge | Fix tasks on `gsd/M001/S01-fix` branch, squash as `fix(M001/S01): <fix>` |
 
 ---
@@ -632,7 +632,7 @@ These are soft caps — exceed them when genuinely needed, but don't let summari
 
 This methodology doc is generic. Project-specific guidance belongs in the milestone's `context.md`:
 
-- **`.gsd/milestones/<active>/context.md`** — Architecture decisions, reference file paths, per-slice doc reading guides, implementation constraints, and any project-specific protocols (worktrees, testing, etc.)
+- **`.kata/milestones/<active>/context.md`** — Architecture decisions, reference file paths, per-slice doc reading guides, implementation constraints, and any project-specific protocols (worktrees, testing, etc.)
 
 **Always read the active milestone's `context.md` before starting implementation work.** It tells you what decisions are locked, what files to reference, and how to verify your work in this specific project.
 
@@ -640,11 +640,11 @@ This methodology doc is generic. Project-specific guidance belongs in the milest
 
 ## Checklist for a Fresh Session
 
-1. Read `.gsd/state.md` — what's the next action?
+1. Read `.kata/state.md` — what's the next action?
 2. Check for `continue.md` in the active slice — is there interrupted work?
 3. If resuming: read `continue.md`, delete it, pick up from "Next Action".
 4. If starting fresh: read the active slice's `plan.md`, find the next incomplete task.
-5. If in a planning or research phase, read `.gsd/decisions.md` — respect existing decisions.
+5. If in a planning or research phase, read `.kata/decisions.md` — respect existing decisions.
 6. Read relevant summaries from prior tasks/slices for context.
 7. Do the work.
 8. Verify the must-haves.

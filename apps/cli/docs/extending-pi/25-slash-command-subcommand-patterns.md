@@ -175,7 +175,7 @@ This is how `/wt switch`, `/wt merge`, and `/wt rm` can suggest current worktree
 
 The worktree extension uses this exact structure in:
 
-- `/Users/lexchristopherson/.gsd/agent/extensions/worktree/index.ts`
+- `/Users/lexchristopherson/.kata/agent/extensions/worktree/index.ts`
 
 It defines:
 
@@ -307,9 +307,9 @@ description: "Manage foo items: /foo new|list|delete [name]"
 
 Read these alongside this pattern:
 
-- `/Users/lexchristopherson/.gsd/docs/extending-pi/11-custom-commands-user-facing-actions.md`
-- `/Users/lexchristopherson/.gsd/docs/extending-pi/09-extensionapi-what-you-can-do.md`
-- `/Users/lexchristopherson/.gsd/agent/extensions/worktree/index.ts`
+- `/Users/lexchristopherson/.kata/docs/extending-pi/11-custom-commands-user-facing-actions.md`
+- `/Users/lexchristopherson/.kata/docs/extending-pi/09-extensionapi-what-you-can-do.md`
+- `/Users/lexchristopherson/.kata/agent/extensions/worktree/index.ts`
 
 ## Summary
 

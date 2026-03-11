@@ -147,7 +147,7 @@ Future additions (not in this plan):
    ```
 
 2. **Rebrand**
-   - Find-replace: `gsd` → `kata`, `GSD` → `Kata`, `.gsd` → `.kata`
+   - Find-replace: `gsd` → `kata`, `GSD` → `Kata`, `.kata` → `.kata`
    - Update `pkg/package.json`: `piConfig.name` → `"kata"`, `piConfig.configDir` → `".kata"`
    - Update `loader.ts`: process title, banner, env var names (`KATA_*` instead of `GSD_*`)
    - Update `cli.ts`: default model preferences, startup config

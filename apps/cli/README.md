@@ -32,19 +32,19 @@ The original GSD was a collection of markdown prompts installed into `~/.claude/
 
 GSD v2 solves all of these because it's not a prompt framework anymore — it's a TypeScript application that *controls* the agent session.
 
-| | v1 (Prompt Framework) | v2 (Agent Application) |
-|---|---|---|
-| Runtime | Claude Code slash commands | Standalone CLI via Pi SDK |
-| Context management | Hope the LLM doesn't fill up | Fresh session per task, programmatic |
-| Auto mode | LLM self-loop | State machine reading `.gsd/` files |
-| Crash recovery | None | Lock files + session forensics |
-| Git strategy | LLM writes git commands | Programmatic branch-per-slice, squash merge |
-| Cost tracking | None | Per-unit token/cost ledger with dashboard |
-| Stuck detection | None | Retry once, then stop with diagnostics |
-| Timeout supervision | None | Soft/idle/hard timeouts with recovery steering |
-| Context injection | "Read this file" | Pre-inlined into dispatch prompt |
-| Roadmap reassessment | Manual | Automatic after each slice completes |
-| Skill discovery | None | Auto-detect and install relevant skills during research |
+|                      | v1 (Prompt Framework)        | v2 (Agent Application)                                  |
+| -------------------- | ---------------------------- | ------------------------------------------------------- |
+| Runtime              | Claude Code slash commands   | Standalone CLI via Pi SDK                               |
+| Context management   | Hope the LLM doesn't fill up | Fresh session per task, programmatic                    |
+| Auto mode            | LLM self-loop                | State machine reading `.kata/` files                    |
+| Crash recovery       | None                         | Lock files + session forensics                          |
+| Git strategy         | LLM writes git commands      | Programmatic branch-per-slice, squash merge             |
+| Cost tracking        | None                         | Per-unit token/cost ledger with dashboard               |
+| Stuck detection      | None                         | Retry once, then stop with diagnostics                  |
+| Timeout supervision  | None                         | Soft/idle/hard timeouts with recovery steering          |
+| Context injection    | "Read this file"             | Pre-inlined into dispatch prompt                        |
+| Roadmap reassessment | Manual                       | Automatic after each slice completes                    |
+| Skill discovery      | None                         | Auto-detect and install relevant skills during research |
 
 ---
 
@@ -78,7 +78,7 @@ This is what makes GSD different. Run it, walk away, come back to built software
 /gsd auto
 ```
 
-Auto mode is a state machine driven by files on disk. It reads `.gsd/STATE.md`, determines the next unit of work, creates a fresh agent session, injects a focused prompt with all relevant context pre-inlined, and lets the LLM execute. When the LLM finishes, auto mode reads disk state again and dispatches the next unit.
+Auto mode is a state machine driven by files on disk. It reads `.kata/STATE.md`, determines the next unit of work, creates a fresh agent session, injects a focused prompt with all relevant context pre-inlined, and lets the LLM execute. When the LLM finishes, auto mode reads disk state again and dispatches the next unit.
 
 **What happens under the hood:**
 
@@ -104,7 +104,7 @@ Auto mode is a state machine driven by files on disk. It reads `.gsd/STATE.md`, 
 
 When you're not in auto mode, `/gsd` reads disk state and shows contextual options:
 
-- **No `.gsd/` directory** → Start a new project. Discussion flow captures your vision, constraints, and preferences.
+- **No `.kata/` directory** → Start a new project. Discussion flow captures your vision, constraints, and preferences.
 - **Milestone exists, no roadmap** → Discuss or research the milestone.
 - **Roadmap exists, slices pending** → Plan the next slice, or jump straight to auto.
 - **Mid-task** → Resume from where you left off.
@@ -170,7 +170,7 @@ gsd
 /gsd queue      # queue the next milestone
 ```
 
-Both terminals read and write the same `.gsd/` files on disk. Your decisions in terminal 2 are picked up automatically at the next phase boundary — no need to stop auto mode.
+Both terminals read and write the same `.kata/` files on disk. Your decisions in terminal 2 are picked up automatically at the next phase boundary — no need to stop auto mode.
 
 ### First launch
 
@@ -178,17 +178,17 @@ On first run, GSD prompts for optional API keys (Brave Search, Context7, Jina) f
 
 ### Commands
 
-| Command | What it does |
-|---------|-------------|
-| `/gsd` | Guided mode — reads project state, walks you through what's next |
-| `/gsd auto` | Autonomous mode — researches, plans, executes, commits, repeats |
-| `/gsd stop` | Stop auto mode gracefully |
-| `/gsd discuss` | Discuss architecture and decisions (works alongside auto mode) |
-| `/gsd status` | Progress dashboard |
-| `/gsd queue` | Queue future milestones (safe during auto mode) |
-| `/gsd prefs` | Model selection, timeouts, budget ceiling |
-| `/gsd doctor` | Validate `.gsd/` integrity, find and fix issues |
-| `Ctrl+Alt+G` | Toggle dashboard overlay |
+| Command        | What it does                                                     |
+| -------------- | ---------------------------------------------------------------- |
+| `/gsd`         | Guided mode — reads project state, walks you through what's next |
+| `/gsd auto`    | Autonomous mode — researches, plans, executes, commits, repeats  |
+| `/gsd stop`    | Stop auto mode gracefully                                        |
+| `/gsd discuss` | Discuss architecture and decisions (works alongside auto mode)   |
+| `/gsd status`  | Progress dashboard                                               |
+| `/gsd queue`   | Queue future milestones (safe during auto mode)                  |
+| `/gsd prefs`   | Model selection, timeouts, budget ceiling                        |
+| `/gsd doctor`  | Validate `.kata/` integrity, find and fix issues                 |
+| `Ctrl+Alt+G`   | Toggle dashboard overlay                                         |
 
 ---
 
@@ -198,18 +198,18 @@ On first run, GSD prompts for optional API keys (Brave Search, Context7, Jina) f
 
 Every dispatch is carefully constructed. The LLM never wastes tool calls on orientation.
 
-| Artifact | Purpose |
-|----------|---------|
-| `PROJECT.md` | Living doc — what the project is right now |
-| `DECISIONS.md` | Append-only register of architectural decisions |
-| `STATE.md` | Quick-glance dashboard — always read first |
-| `M001-ROADMAP.md` | Milestone plan with slice checkboxes, risk levels, dependencies |
-| `M001-CONTEXT.md` | User decisions from the discuss phase |
-| `M001-RESEARCH.md` | Codebase and ecosystem research |
-| `S01-PLAN.md` | Slice task decomposition with must-haves |
-| `T01-PLAN.md` | Individual task plan with verification criteria |
-| `T01-SUMMARY.md` | What happened — YAML frontmatter + narrative |
-| `S01-UAT.md` | Human test script derived from slice outcomes |
+| Artifact           | Purpose                                                         |
+| ------------------ | --------------------------------------------------------------- |
+| `PROJECT.md`       | Living doc — what the project is right now                      |
+| `DECISIONS.md`     | Append-only register of architectural decisions                 |
+| `STATE.md`         | Quick-glance dashboard — always read first                      |
+| `M001-ROADMAP.md`  | Milestone plan with slice checkboxes, risk levels, dependencies |
+| `M001-CONTEXT.md`  | User decisions from the discuss phase                           |
+| `M001-RESEARCH.md` | Codebase and ecosystem research                                 |
+| `S01-PLAN.md`      | Slice task decomposition with must-haves                        |
+| `T01-PLAN.md`      | Individual task plan with verification criteria                 |
+| `T01-SUMMARY.md`   | What happened — YAML frontmatter + narrative                    |
+| `S01-UAT.md`       | Human test script derived from slice outcomes                   |
 
 ### Git Strategy
 
@@ -255,7 +255,7 @@ The verification ladder: static checks → command execution → behavioral test
 
 ### Preferences
 
-GSD preferences live in `~/.gsd/preferences.md` (global) or `.gsd/preferences.md` (project). Manage with `/gsd prefs`.
+GSD preferences live in `~/.kata/preferences.md` (global) or `.kata/preferences.md` (project). Manage with `/gsd prefs`.
 
 ```yaml
 ---
@@ -276,41 +276,41 @@ budget_ceiling: 50.00
 
 **Key settings:**
 
-| Setting | What it controls |
-|---------|-----------------|
-| `models.*` | Per-phase model selection (Opus for planning, Sonnet for execution, etc.) |
-| `skill_discovery` | `auto` / `suggest` / `off` — how GSD finds and applies skills |
-| `auto_supervisor.*` | Timeout thresholds for auto mode supervision |
-| `budget_ceiling` | USD ceiling — auto mode pauses when reached |
-| `uat_dispatch` | Enable automatic UAT runs after slice completion |
-| `always_use_skills` | Skills to always load when relevant |
-| `skill_rules` | Situational rules for skill routing |
+| Setting             | What it controls                                                          |
+| ------------------- | ------------------------------------------------------------------------- |
+| `models.*`          | Per-phase model selection (Opus for planning, Sonnet for execution, etc.) |
+| `skill_discovery`   | `auto` / `suggest` / `off` — how GSD finds and applies skills             |
+| `auto_supervisor.*` | Timeout thresholds for auto mode supervision                              |
+| `budget_ceiling`    | USD ceiling — auto mode pauses when reached                               |
+| `uat_dispatch`      | Enable automatic UAT runs after slice completion                          |
+| `always_use_skills` | Skills to always load when relevant                                       |
+| `skill_rules`       | Situational rules for skill routing                                       |
 
 ### Bundled Tools
 
 GSD ships with 9 extensions, all loaded automatically:
 
-| Extension | What it provides |
-|-----------|-----------------|
-| **GSD** | Core workflow engine, auto mode, commands, dashboard |
-| **Browser Tools** | Playwright-based browser for UI verification |
-| **Search the Web** | Brave Search + Jina page extraction |
-| **Context7** | Up-to-date library/framework documentation |
-| **Background Shell** | Long-running process management with readiness detection |
-| **Subagent** | Delegated tasks with isolated context windows |
-| **Slash Commands** | Custom command creation |
-| **Ask User Questions** | Structured user input with single/multi-select |
-| **Secure Env Collect** | Masked secret collection without manual .env editing |
+| Extension              | What it provides                                         |
+| ---------------------- | -------------------------------------------------------- |
+| **GSD**                | Core workflow engine, auto mode, commands, dashboard     |
+| **Browser Tools**      | Playwright-based browser for UI verification             |
+| **Search the Web**     | Brave Search + Jina page extraction                      |
+| **Context7**           | Up-to-date library/framework documentation               |
+| **Background Shell**   | Long-running process management with readiness detection |
+| **Subagent**           | Delegated tasks with isolated context windows            |
+| **Slash Commands**     | Custom command creation                                  |
+| **Ask User Questions** | Structured user input with single/multi-select           |
+| **Secure Env Collect** | Masked secret collection without manual .env editing     |
 
 ### Bundled Agents
 
 Three specialized subagents for delegated work:
 
-| Agent | Role |
-|-------|------|
-| **Scout** | Fast codebase recon — returns compressed context for handoff |
-| **Researcher** | Web research — finds and synthesizes current information |
-| **Worker** | General-purpose execution in an isolated context window |
+| Agent          | Role                                                         |
+| -------------- | ------------------------------------------------------------ |
+| **Scout**      | Fast codebase recon — returns compressed context for handoff |
+| **Researcher** | Web research — finds and synthesizes current information     |
+| **Worker**     | General-purpose execution in an isolated context window      |
 
 ---
 
@@ -323,8 +323,8 @@ gsd (CLI binary)
   └─ loader.ts          Sets PI_PACKAGE_DIR, GSD env vars, dynamic-imports cli.ts
       └─ cli.ts         Wires SDK managers, loads extensions, starts InteractiveMode
           ├─ wizard.ts       First-run API key collection (Brave/Context7/Jina)
-          ├─ app-paths.ts    ~/.gsd/agent/, ~/.gsd/sessions/, auth.json
-          ├─ resource-loader.ts  Syncs bundled extensions + agents to ~/.gsd/agent/
+          ├─ app-paths.ts    ~/.kata/agent/, ~/.kata/sessions/, auth.json
+          ├─ resource-loader.ts  Syncs bundled extensions + agents to ~/.kata/agent/
           └─ src/resources/
               ├─ extensions/gsd/    Core GSD extension (auto, state, commands, ...)
               ├─ extensions/...     10 supporting extensions
@@ -337,8 +337,8 @@ gsd (CLI binary)
 
 - **`pkg/` shim directory** — `PI_PACKAGE_DIR` points here (not project root) to avoid Pi's theme resolution collision with our `src/` directory. Contains only `piConfig` and theme assets.
 - **Two-file loader pattern** — `loader.ts` sets all env vars with zero SDK imports, then dynamic-imports `cli.ts` which does static SDK imports. This ensures `PI_PACKAGE_DIR` is set before any SDK code evaluates.
-- **Always-overwrite sync** — `npm update -g` takes effect immediately. Bundled extensions and agents are synced to `~/.gsd/agent/` on every launch, not just first run.
-- **State lives on disk** — `.gsd/` is the source of truth. Auto mode reads it, writes it, and advances based on what it finds. No in-memory state survives across sessions.
+- **Always-overwrite sync** — `npm update -g` takes effect immediately. Bundled extensions and agents are synced to `~/.kata/agent/` on every launch, not just first run.
+- **State lives on disk** — `.kata/` is the source of truth. Auto mode reads it, writes it, and advances based on what it finds. No in-memory state survives across sessions.
 
 ---
 

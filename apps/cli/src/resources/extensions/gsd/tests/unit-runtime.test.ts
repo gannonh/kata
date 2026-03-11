@@ -1,4 +1,10 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -24,25 +30,51 @@ function assertEq<T>(actual: T, expected: T, message: string): void {
   if (JSON.stringify(actual) === JSON.stringify(expected)) passed++;
   else {
     failed++;
-    console.error(`  FAIL: ${message} — expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+    console.error(
+      `  FAIL: ${message} — expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+    );
   }
 }
 
 const base = mkdtempSync(join(tmpdir(), "gsd-unit-runtime-test-"));
-const tasksDir = join(base, ".gsd", "milestones", "M100", "slices", "S02", "tasks");
+const tasksDir = join(
+  base,
+  ".kata",
+  "milestones",
+  "M100",
+  "slices",
+  "S02",
+  "tasks",
+);
 mkdirSync(tasksDir, { recursive: true });
-writeFileSync(join(base, ".gsd", "STATE.md"), "## Next Action\nExecute T09 for S02: do the thing\n", "utf-8");
 writeFileSync(
-  join(base, ".gsd", "milestones", "M100", "slices", "S02", "S02-PLAN.md"),
+  join(base, ".kata", "STATE.md"),
+  "## Next Action\nExecute T09 for S02: do the thing\n",
+  "utf-8",
+);
+writeFileSync(
+  join(base, ".kata", "milestones", "M100", "slices", "S02", "S02-PLAN.md"),
   "# S02: Test Slice\n\n## Tasks\n\n- [ ] **T09: Do the thing** `est:10m`\n  Description.\n",
   "utf-8",
 );
 
 console.log("\n=== runtime record write/read/update ===");
 {
-  const first = writeUnitRuntimeRecord(base, "execute-task", "M100/S02/T09", 1000, { phase: "dispatched" });
+  const first = writeUnitRuntimeRecord(
+    base,
+    "execute-task",
+    "M100/S02/T09",
+    1000,
+    { phase: "dispatched" },
+  );
   assertEq(first.phase, "dispatched", "initial phase");
-  const second = writeUnitRuntimeRecord(base, "execute-task", "M100/S02/T09", 1000, { phase: "wrapup-warning-sent", wrapupWarningSent: true });
+  const second = writeUnitRuntimeRecord(
+    base,
+    "execute-task",
+    "M100/S02/T09",
+    1000,
+    { phase: "wrapup-warning-sent", wrapupWarningSent: true },
+  );
   assertEq(second.wrapupWarningSent, true, "warning persisted");
   const loaded = readUnitRuntimeRecord(base, "execute-task", "M100/S02/T09");
   assert(loaded !== null, "record readable");
@@ -56,21 +88,36 @@ console.log("\n=== execute-task durability inspection ===");
   assertEq(status!.summaryExists, false, "summary initially missing");
   assertEq(status!.taskChecked, false, "task initially unchecked");
   assertEq(status!.nextActionAdvanced, false, "next action initially stale");
-  assert(/summary missing/i.test(formatExecuteTaskRecoveryStatus(status!)), "diagnostic mentions summary");
+  assert(
+    /summary missing/i.test(formatExecuteTaskRecoveryStatus(status!)),
+    "diagnostic mentions summary",
+  );
 
   writeFileSync(join(tasksDir, "T09-SUMMARY.md"), "# done\n", "utf-8");
   writeFileSync(
-    join(base, ".gsd", "milestones", "M100", "slices", "S02", "S02-PLAN.md"),
+    join(base, ".kata", "milestones", "M100", "slices", "S02", "S02-PLAN.md"),
     "# S02: Test Slice\n\n## Tasks\n\n- [x] **T09: Do the thing** `est:10m`\n  Description.\n",
     "utf-8",
   );
-  writeFileSync(join(base, ".gsd", "STATE.md"), "## Next Action\nExecute T10 for S02: next thing\n", "utf-8");
+  writeFileSync(
+    join(base, ".kata", "STATE.md"),
+    "## Next Action\nExecute T10 for S02: next thing\n",
+    "utf-8",
+  );
 
   status = await inspectExecuteTaskDurability(base, "M100/S02/T09");
   assertEq(status!.summaryExists, true, "summary found after write");
   assertEq(status!.taskChecked, true, "task checked after update");
-  assertEq(status!.nextActionAdvanced, true, "next action advanced after update");
-  assertEq(formatExecuteTaskRecoveryStatus(status!), "all durable task artifacts present", "clean diagnostic when complete");
+  assertEq(
+    status!.nextActionAdvanced,
+    true,
+    "next action advanced after update",
+  );
+  assertEq(
+    formatExecuteTaskRecoveryStatus(status!),
+    "all durable task artifacts present",
+    "clean diagnostic when complete",
+  );
 }
 
 console.log("\n=== runtime record cleanup ===");
@@ -87,12 +134,20 @@ const mhBase = mkdtempSync(join(tmpdir(), "gsd-unit-runtime-mh-test-"));
 
 console.log("\n=== must-haves: all mentioned in summary ===");
 {
-  const tasksDir2 = join(mhBase, ".gsd", "milestones", "M200", "slices", "S01", "tasks");
+  const tasksDir2 = join(
+    mhBase,
+    ".kata",
+    "milestones",
+    "M200",
+    "slices",
+    "S01",
+    "tasks",
+  );
   mkdirSync(tasksDir2, { recursive: true });
 
   // Slice plan with T01 checked
   writeFileSync(
-    join(mhBase, ".gsd", "milestones", "M200", "slices", "S01", "S01-PLAN.md"),
+    join(mhBase, ".kata", "milestones", "M200", "slices", "S01", "S01-PLAN.md"),
     "# S01: Test\n\n## Tasks\n\n- [x] **T01: Build parser** `est:10m`\n  Build the parser.\n",
     "utf-8",
   );
@@ -109,25 +164,45 @@ console.log("\n=== must-haves: all mentioned in summary ===");
     "utf-8",
   );
   // STATE.md with next action advanced past T01
-  writeFileSync(join(mhBase, ".gsd", "STATE.md"), "## Next Action\nExecute T02 for S01: next thing\n", "utf-8");
+  writeFileSync(
+    join(mhBase, ".kata", "STATE.md"),
+    "## Next Action\nExecute T02 for S01: next thing\n",
+    "utf-8",
+  );
 
   const status = await inspectExecuteTaskDurability(mhBase, "M200/S01/T01");
   assert(status !== null, "mh-all: status exists");
   assertEq(status!.mustHaveCount, 3, "mh-all: mustHaveCount is 3");
-  assertEq(status!.mustHavesMentionedInSummary, 3, "mh-all: all 3 must-haves mentioned");
+  assertEq(
+    status!.mustHavesMentionedInSummary,
+    3,
+    "mh-all: all 3 must-haves mentioned",
+  );
   assertEq(status!.summaryExists, true, "mh-all: summary exists");
   assertEq(status!.taskChecked, true, "mh-all: task checked");
   const diag = formatExecuteTaskRecoveryStatus(status!);
-  assertEq(diag, "all durable task artifacts present", "mh-all: diagnostic is clean when all must-haves met");
+  assertEq(
+    diag,
+    "all durable task artifacts present",
+    "mh-all: diagnostic is clean when all must-haves met",
+  );
 }
 
 console.log("\n=== must-haves: partially mentioned in summary ===");
 {
-  const tasksDir3 = join(mhBase, ".gsd", "milestones", "M200", "slices", "S02", "tasks");
+  const tasksDir3 = join(
+    mhBase,
+    ".kata",
+    "milestones",
+    "M200",
+    "slices",
+    "S02",
+    "tasks",
+  );
   mkdirSync(tasksDir3, { recursive: true });
 
   writeFileSync(
-    join(mhBase, ".gsd", "milestones", "M200", "slices", "S02", "S02-PLAN.md"),
+    join(mhBase, ".kata", "milestones", "M200", "slices", "S02", "S02-PLAN.md"),
     "# S02: Test\n\n## Tasks\n\n- [x] **T01: Build thing** `est:10m`\n  Build.\n",
     "utf-8",
   );
@@ -143,24 +218,43 @@ console.log("\n=== must-haves: partially mentioned in summary ===");
     "# T01: Build thing\n\nAdded computeScore function with full test coverage.\n",
     "utf-8",
   );
-  writeFileSync(join(mhBase, ".gsd", "STATE.md"), "## Next Action\nExecute T02 for S02: next thing\n", "utf-8");
+  writeFileSync(
+    join(mhBase, ".kata", "STATE.md"),
+    "## Next Action\nExecute T02 for S02: next thing\n",
+    "utf-8",
+  );
 
   const status = await inspectExecuteTaskDurability(mhBase, "M200/S02/T01");
   assert(status !== null, "mh-partial: status exists");
   assertEq(status!.mustHaveCount, 3, "mh-partial: mustHaveCount is 3");
-  assertEq(status!.mustHavesMentionedInSummary, 1, "mh-partial: only 1 must-have mentioned");
+  assertEq(
+    status!.mustHavesMentionedInSummary,
+    1,
+    "mh-partial: only 1 must-have mentioned",
+  );
   const diag = formatExecuteTaskRecoveryStatus(status!);
-  assert(diag.includes("must-have gap"), "mh-partial: diagnostic includes 'must-have gap'");
+  assert(
+    diag.includes("must-have gap"),
+    "mh-partial: diagnostic includes 'must-have gap'",
+  );
   assert(diag.includes("1 of 3"), "mh-partial: diagnostic includes '1 of 3'");
 }
 
 console.log("\n=== must-haves: no task plan file ===");
 {
-  const tasksDir4 = join(mhBase, ".gsd", "milestones", "M200", "slices", "S03", "tasks");
+  const tasksDir4 = join(
+    mhBase,
+    ".kata",
+    "milestones",
+    "M200",
+    "slices",
+    "S03",
+    "tasks",
+  );
   mkdirSync(tasksDir4, { recursive: true });
 
   writeFileSync(
-    join(mhBase, ".gsd", "milestones", "M200", "slices", "S03", "S03-PLAN.md"),
+    join(mhBase, ".kata", "milestones", "M200", "slices", "S03", "S03-PLAN.md"),
     "# S03: Test\n\n## Tasks\n\n- [x] **T01: Quick fix** `est:5m`\n  Fix.\n",
     "utf-8",
   );
@@ -170,21 +264,41 @@ console.log("\n=== must-haves: no task plan file ===");
     "# T01: Quick fix\n\nFixed the thing.\n",
     "utf-8",
   );
-  writeFileSync(join(mhBase, ".gsd", "STATE.md"), "## Next Action\nExecute T02 for S03: next thing\n", "utf-8");
+  writeFileSync(
+    join(mhBase, ".kata", "STATE.md"),
+    "## Next Action\nExecute T02 for S03: next thing\n",
+    "utf-8",
+  );
 
   const status = await inspectExecuteTaskDurability(mhBase, "M200/S03/T01");
   assert(status !== null, "mh-noplan: status exists");
-  assertEq(status!.mustHaveCount, 0, "mh-noplan: mustHaveCount is 0 when no task plan");
-  assertEq(status!.mustHavesMentionedInSummary, 0, "mh-noplan: mustHavesMentionedInSummary is 0");
+  assertEq(
+    status!.mustHaveCount,
+    0,
+    "mh-noplan: mustHaveCount is 0 when no task plan",
+  );
+  assertEq(
+    status!.mustHavesMentionedInSummary,
+    0,
+    "mh-noplan: mustHavesMentionedInSummary is 0",
+  );
 }
 
 console.log("\n=== must-haves: present but no summary file ===");
 {
-  const tasksDir5 = join(mhBase, ".gsd", "milestones", "M200", "slices", "S04", "tasks");
+  const tasksDir5 = join(
+    mhBase,
+    ".kata",
+    "milestones",
+    "M200",
+    "slices",
+    "S04",
+    "tasks",
+  );
   mkdirSync(tasksDir5, { recursive: true });
 
   writeFileSync(
-    join(mhBase, ".gsd", "milestones", "M200", "slices", "S04", "S04-PLAN.md"),
+    join(mhBase, ".kata", "milestones", "M200", "slices", "S04", "S04-PLAN.md"),
     "# S04: Test\n\n## Tasks\n\n- [ ] **T01: Build parser** `est:10m`\n  Build.\n",
     "utf-8",
   );
@@ -194,22 +308,38 @@ console.log("\n=== must-haves: present but no summary file ===");
     "# T01: Build parser\n\n## Must-Haves\n\n- [ ] `parseData` function exported\n- [ ] Error handling covers edge cases\n\n## Steps\n\n1. Do stuff\n",
     "utf-8",
   );
-  writeFileSync(join(mhBase, ".gsd", "STATE.md"), "## Next Action\nExecute T01 for S04: build parser\n", "utf-8");
+  writeFileSync(
+    join(mhBase, ".kata", "STATE.md"),
+    "## Next Action\nExecute T01 for S04: build parser\n",
+    "utf-8",
+  );
 
   const status = await inspectExecuteTaskDurability(mhBase, "M200/S04/T01");
   assert(status !== null, "mh-nosummary: status exists");
   assertEq(status!.mustHaveCount, 2, "mh-nosummary: mustHaveCount is 2");
-  assertEq(status!.mustHavesMentionedInSummary, 0, "mh-nosummary: mustHavesMentionedInSummary is 0 with no summary");
+  assertEq(
+    status!.mustHavesMentionedInSummary,
+    0,
+    "mh-nosummary: mustHavesMentionedInSummary is 0 with no summary",
+  );
   assertEq(status!.summaryExists, false, "mh-nosummary: summary doesn't exist");
 }
 
 console.log("\n=== must-haves: substring matching (no backtick tokens) ===");
 {
-  const tasksDir6 = join(mhBase, ".gsd", "milestones", "M200", "slices", "S05", "tasks");
+  const tasksDir6 = join(
+    mhBase,
+    ".kata",
+    "milestones",
+    "M200",
+    "slices",
+    "S05",
+    "tasks",
+  );
   mkdirSync(tasksDir6, { recursive: true });
 
   writeFileSync(
-    join(mhBase, ".gsd", "milestones", "M200", "slices", "S05", "S05-PLAN.md"),
+    join(mhBase, ".kata", "milestones", "M200", "slices", "S05", "S05-PLAN.md"),
     "# S05: Test\n\n## Tasks\n\n- [x] **T01: Add diagnostics** `est:10m`\n  Add.\n",
     "utf-8",
   );
@@ -225,18 +355,29 @@ console.log("\n=== must-haves: substring matching (no backtick tokens) ===");
     "# T01: Add diagnostics\n\nImplemented heuristic matching for must-have items. Recovery diagnostic string now includes gap counts.\n",
     "utf-8",
   );
-  writeFileSync(join(mhBase, ".gsd", "STATE.md"), "## Next Action\nExecute T02 for S05: next thing\n", "utf-8");
+  writeFileSync(
+    join(mhBase, ".kata", "STATE.md"),
+    "## Next Action\nExecute T02 for S05: next thing\n",
+    "utf-8",
+  );
 
   const status = await inspectExecuteTaskDurability(mhBase, "M200/S05/T01");
   assert(status !== null, "mh-substr: status exists");
   assertEq(status!.mustHaveCount, 3, "mh-substr: mustHaveCount is 3");
-  // "heuristic" appears in summary for item 1, "diagnostic" for item 2, 
+  // "heuristic" appears in summary for item 1, "diagnostic" for item 2,
   // "assertions" appears in summary? No — let's check
   // Item 3: "All assertions pass" — words: "assertions", "pass" (<4 chars excluded)
   // summary doesn't contain "assertions" → not matched
-  assertEq(status!.mustHavesMentionedInSummary, 2, "mh-substr: 2 of 3 matched via substring");
+  assertEq(
+    status!.mustHavesMentionedInSummary,
+    2,
+    "mh-substr: 2 of 3 matched via substring",
+  );
   const diag = formatExecuteTaskRecoveryStatus(status!);
-  assert(diag.includes("must-have gap"), "mh-substr: diagnostic includes gap info");
+  assert(
+    diag.includes("must-have gap"),
+    "mh-substr: diagnostic includes gap info",
+  );
   assert(diag.includes("2 of 3"), "mh-substr: diagnostic includes '2 of 3'");
 }
 

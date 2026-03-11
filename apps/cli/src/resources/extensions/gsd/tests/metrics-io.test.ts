@@ -1,6 +1,6 @@
 /**
  * Tests for GSD metrics disk I/O — init, snapshot, load/save cycle.
- * Uses a temp directory to avoid touching real .gsd/ state.
+ * Uses a temp directory to avoid touching real .kata/ state.
  */
 
 import { mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
@@ -31,14 +31,16 @@ function assertEq<T>(actual: T, expected: T, message: string): void {
     passed++;
   } else {
     failed++;
-    console.error(`  FAIL: ${message} — expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+    console.error(
+      `  FAIL: ${message} — expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+    );
   }
 }
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
 const tmpBase = mkdtempSync(join(tmpdir(), "gsd-metrics-test-"));
-mkdirSync(join(tmpBase, ".gsd"), { recursive: true });
+mkdirSync(join(tmpBase, ".kata"), { recursive: true });
 
 // Mock ExtensionContext with session entries
 function mockCtx(messages: any[] = []): any {
@@ -93,10 +95,20 @@ console.log("\n=== snapshotUnitMetrics ===");
         cacheRead: 3000,
         cacheWrite: 500,
         totalTokens: 10500,
-        cost: { input: 0.015, output: 0.03, cacheRead: 0.003, cacheWrite: 0.002, total: 0.05 },
+        cost: {
+          input: 0.015,
+          output: 0.03,
+          cacheRead: 0.003,
+          cacheWrite: 0.002,
+          total: 0.05,
+        },
       },
     },
-    { role: "toolResult", toolCallId: "tc1", content: [{ type: "text", text: "ok" }] },
+    {
+      role: "toolResult",
+      toolCallId: "tc1",
+      content: [{ type: "text", text: "ok" }],
+    },
     {
       role: "assistant",
       content: [{ type: "text", text: "Done!" }],
@@ -106,12 +118,24 @@ console.log("\n=== snapshotUnitMetrics ===");
         cacheRead: 6000,
         cacheWrite: 200,
         totalTokens: 15200,
-        cost: { input: 0.024, output: 0.015, cacheRead: 0.006, cacheWrite: 0.001, total: 0.046 },
+        cost: {
+          input: 0.024,
+          output: 0.015,
+          cacheRead: 0.006,
+          cacheWrite: 0.001,
+          total: 0.046,
+        },
       },
     },
   ]);
 
-  const unit = snapshotUnitMetrics(ctx, "execute-task", "M001/S01/T01", Date.now() - 5000, "claude-sonnet-4-20250514");
+  const unit = snapshotUnitMetrics(
+    ctx,
+    "execute-task",
+    "M001/S01/T01",
+    Date.now() - 5000,
+    "claude-sonnet-4-20250514",
+  );
 
   assert(unit !== null, "unit returned");
   assertEq(unit!.type, "execute-task", "type");
@@ -120,7 +144,10 @@ console.log("\n=== snapshotUnitMetrics ===");
   assertEq(unit!.tokens.output, 3000, "output tokens (2000+1000)");
   assertEq(unit!.tokens.cacheRead, 9000, "cacheRead (3000+6000)");
   assertEq(unit!.tokens.total, 25700, "total tokens (10500+15200)");
-  assert(Math.abs(unit!.cost - 0.096) < 0.001, `cost ~0.096 (got ${unit!.cost})`);
+  assert(
+    Math.abs(unit!.cost - 0.096) < 0.001,
+    `cost ~0.096 (got ${unit!.cost})`,
+  );
   assertEq(unit!.toolCalls, 1, "1 tool call");
   assertEq(unit!.assistantMessages, 2, "2 assistant messages");
   assertEq(unit!.userMessages, 1, "1 user message");
@@ -147,13 +174,29 @@ console.log("\n=== Persistence across init/reset cycles ===");
       role: "assistant",
       content: [{ type: "text", text: "Research complete" }],
       usage: {
-        input: 3000, output: 1500, cacheRead: 1000, cacheWrite: 300, totalTokens: 5800,
-        cost: { input: 0.009, output: 0.023, cacheRead: 0.001, cacheWrite: 0.001, total: 0.034 },
+        input: 3000,
+        output: 1500,
+        cacheRead: 1000,
+        cacheWrite: 300,
+        totalTokens: 5800,
+        cost: {
+          input: 0.009,
+          output: 0.023,
+          cacheRead: 0.001,
+          cacheWrite: 0.001,
+          total: 0.034,
+        },
       },
     },
   ]);
 
-  snapshotUnitMetrics(ctx, "research-slice", "M001/S02", Date.now() - 3000, "claude-sonnet-4-20250514");
+  snapshotUnitMetrics(
+    ctx,
+    "research-slice",
+    "M001/S02",
+    Date.now() - 3000,
+    "claude-sonnet-4-20250514",
+  );
 
   // Verify both units persisted
   resetMetrics();
@@ -165,7 +208,7 @@ console.log("\n=== Persistence across init/reset cycles ===");
 console.log("\n=== File content verification ===");
 
 {
-  const raw = readFileSync(join(tmpBase, ".gsd", "metrics.json"), "utf-8");
+  const raw = readFileSync(join(tmpBase, ".kata", "metrics.json"), "utf-8");
   const parsed: MetricsLedger = JSON.parse(raw);
   assertEq(parsed.version, 1, "file version is 1");
   assertEq(parsed.units.length, 2, "file has 2 units");
@@ -180,11 +223,21 @@ console.log("\n=== Empty session handling ===");
 
   // Empty session — no messages
   const ctx = mockCtx([]);
-  const unit = snapshotUnitMetrics(ctx, "plan-slice", "M001/S01", Date.now(), "test-model");
+  const unit = snapshotUnitMetrics(
+    ctx,
+    "plan-slice",
+    "M001/S01",
+    Date.now(),
+    "test-model",
+  );
   assert(unit === null, "returns null for empty session");
 
   // Ledger shouldn't have grown
-  assertEq(getLedger()!.units.length, 2, "still 2 units (empty session not added)");
+  assertEq(
+    getLedger()!.units.length,
+    2,
+    "still 2 units (empty session not added)",
+  );
 }
 
 // ─── Cleanup ──────────────────────────────────────────────────────────────────

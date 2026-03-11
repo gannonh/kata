@@ -20,7 +20,9 @@ function assertEq<T>(actual: T, expected: T, message: string): void {
   if (JSON.stringify(actual) === JSON.stringify(expected)) passed++;
   else {
     failed++;
-    console.error(`  FAIL: ${message} — expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+    console.error(
+      `  FAIL: ${message} — expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+    );
   }
 }
 
@@ -59,12 +61,14 @@ console.log("\n=== requirement counts parser ===");
 }
 
 const base = mkdtempSync(join(tmpdir(), "gsd-requirements-test-"));
-const gsd = join(base, ".gsd");
+const gsd = join(base, ".kata");
 const mDir = join(gsd, "milestones", "M001");
 const sDir = join(mDir, "slices", "S01");
 const tDir = join(sDir, "tasks");
 mkdirSync(tDir, { recursive: true });
-writeFileSync(join(gsd, "REQUIREMENTS.md"), `# Requirements
+writeFileSync(
+  join(gsd, "REQUIREMENTS.md"),
+  `# Requirements
 
 ## Active
 
@@ -86,14 +90,22 @@ writeFileSync(join(gsd, "REQUIREMENTS.md"), `# Requirements
 ## Out of Scope
 
 ## Traceability
-`, "utf-8");
-writeFileSync(join(mDir, "M001-ROADMAP.md"), `# M001: Demo
+`,
+  "utf-8",
+);
+writeFileSync(
+  join(mDir, "M001-ROADMAP.md"),
+  `# M001: Demo
 
 ## Slices
 - [ ] **S01: Demo Slice** \`risk:low\` \`depends:[]\`
   > After this: demo works
-`, "utf-8");
-writeFileSync(join(sDir, "S01-PLAN.md"), `# S01: Demo Slice
+`,
+  "utf-8",
+);
+writeFileSync(
+  join(sDir, "S01-PLAN.md"),
+  `# S01: Demo Slice
 
 **Goal:** Demo
 **Demo:** Demo
@@ -104,19 +116,33 @@ writeFileSync(join(sDir, "S01-PLAN.md"), `# S01: Demo Slice
 ## Tasks
 - [ ] **T01: Implement thing** \`est:10m\`
   Task is in progress.
-`, "utf-8");
+`,
+  "utf-8",
+);
 
 console.log("\n=== deriveState includes requirements counts ===");
 {
   const state = await deriveState(base);
-  assert(state.requirements !== undefined, "state includes requirements summary");
-  assertEq(state.requirements?.active, 1, "state reports active requirement count");
+  assert(
+    state.requirements !== undefined,
+    "state includes requirements summary",
+  );
+  assertEq(
+    state.requirements?.active,
+    1,
+    "state reports active requirement count",
+  );
 }
 
 console.log("\n=== doctor flags orphaned active requirement ===");
 {
   const report = await runGSDDoctor(base);
-  assert(report.issues.some(issue => issue.code === "active_requirement_missing_owner"), "doctor flags missing owner");
+  assert(
+    report.issues.some(
+      (issue) => issue.code === "active_requirement_missing_owner",
+    ),
+    "doctor flags missing owner",
+  );
 }
 
 rmSync(base, { recursive: true, force: true });

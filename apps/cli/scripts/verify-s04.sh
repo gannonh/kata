@@ -2,7 +2,7 @@
 # S04 verification — npm pack tarball install smoke test
 # Checks: dist integrity, GSD_BUNDLED_EXTENSION_PATHS, prepublishOnly,
 #         npm pack dry-run, tarball install, binary exists, launch (no extension
-#         errors, "gsd" branding), ~/.gsd/ untouched, non-TTY warning/no exit 1.
+#         errors, "gsd" branding), ~/.kata/ untouched, non-TTY warning/no exit 1.
 
 set -uo pipefail
 
@@ -13,8 +13,8 @@ fail() { echo "  FAIL: $1"; FAIL=1; }
 SMOKE_PREFIX=/tmp/gsd-smoke-prefix
 TARBALL=""
 
-# Capture ~/.gsd/agent/sessions/ count before any smoke runs (for Check 9)
-PI_SESSIONS_BEFORE=$(ls ~/.gsd/agent/sessions/ 2>/dev/null | wc -l | tr -d ' ')
+# Capture ~/.kata/agent/sessions/ count before any smoke runs (for Check 9)
+PI_SESSIONS_BEFORE=$(ls ~/.kata/agent/sessions/ 2>/dev/null | wc -l | tr -d ' ')
 
 cleanup() {
   rm -rf "$SMOKE_PREFIX"
@@ -186,17 +186,17 @@ fi
 rm -f "$smoke_out"
 
 echo ""
-echo "--- ~/.gsd/ isolation ---"
+echo "--- ~/.kata/ isolation ---"
 
 # ----------------------------------------------------------------
-# Check 9 — ~/.gsd/ session count unchanged before/after smoke run
+# Check 9 — ~/.kata/ session count unchanged before/after smoke run
 # PI_SESSIONS_BEFORE captured at script start (before any binary invocation).
 # ----------------------------------------------------------------
-pi_after=$(ls ~/.gsd/agent/sessions/ 2>/dev/null | wc -l | tr -d ' ')
+pi_after=$(ls ~/.kata/agent/sessions/ 2>/dev/null | wc -l | tr -d ' ')
 if [ "$PI_SESSIONS_BEFORE" = "$pi_after" ]; then
-  pass "9 — ~/.gsd/agent/sessions/ count unchanged (${pi_after} sessions before and after)"
+  pass "9 — ~/.kata/agent/sessions/ count unchanged (${pi_after} sessions before and after)"
 else
-  fail "9 — ~/.gsd/agent/sessions/ count changed: was ${PI_SESSIONS_BEFORE}, now ${pi_after}"
+  fail "9 — ~/.kata/agent/sessions/ count changed: was ${PI_SESSIONS_BEFORE}, now ${pi_after}"
 fi
 
 echo ""

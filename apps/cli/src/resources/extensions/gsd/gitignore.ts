@@ -15,11 +15,11 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
  */
 const BASELINE_PATTERNS = [
   // ── GSD runtime (not source artifacts) ──
-  ".gsd/activity/",
-  ".gsd/runtime/",
-  ".gsd/auto.lock",
-  ".gsd/metrics.json",
-  ".gsd/STATE.md",
+  ".kata/activity/",
+  ".kata/runtime/",
+  ".kata/auto.lock",
+  ".kata/metrics.json",
+  ".kata/STATE.md",
 
   // ── OS junk ──
   ".DS_Store",
@@ -105,12 +105,12 @@ export function ensureGitignore(basePath: string): boolean {
 }
 
 /**
- * Ensure basePath/.gsd/PREFERENCES.md exists as an empty template.
+ * Ensure basePath/.kata/PREFERENCES.md exists as an empty template.
  * Creates the file with frontmatter only if it doesn't exist.
  * Returns true if created, false if already exists.
  */
 export function ensurePreferences(basePath: string): boolean {
-  const preferencesPath = join(basePath, ".gsd", "PREFERENCES.md");
+  const preferencesPath = join(basePath, ".kata", "PREFERENCES.md");
 
   if (existsSync(preferencesPath)) {
     return false;
@@ -132,7 +132,7 @@ auto_supervisor: {}
 
 Project-specific guidance for skill selection and execution preferences.
 
-See \`~/.gsd/agent/extensions/gsd/docs/preferences-reference.md\` for full field documentation and examples.
+See \`~/.kata/agent/extensions/gsd/docs/preferences-reference.md\` for full field documentation and examples.
 
 ## Fields
 
@@ -163,4 +163,3 @@ custom_instructions:
   writeFileSync(preferencesPath, template, "utf-8");
   return true;
 }
-

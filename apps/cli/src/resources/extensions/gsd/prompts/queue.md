@@ -21,7 +21,7 @@ Don't go deep — just enough that your next question reflects what's actually t
 - Integration surfaces — external systems, APIs, libraries, or internal modules this work touches
 - What needs to be proven before committing — the things that, if they don't work, mean the plan is wrong
 - How the new work relates to existing milestones — overlap, dependencies, prerequisites
-- If `.gsd/REQUIREMENTS.md` exists: which unmet Active or Deferred requirements this queued work advances
+- If `.kata/REQUIREMENTS.md` exists: which unmet Active or Deferred requirements this queued work advances
 
 **Then use ask_user_questions** to dig into gray areas — architecture choices, scope boundaries, tech preferences, what's in vs out. 1-3 questions per round.
 
@@ -42,7 +42,7 @@ Before writing anything, assess the new work against what already exists:
 1. **Dedup check** — Is this already covered (fully or partially) by an existing milestone? If so, tell the user and explain what's already planned. Don't create duplicate milestones.
 2. **Extension check** — Should this be added to an existing *pending* (not yet started) milestone rather than creating a new one? If the scope naturally belongs with existing pending work, propose extending that milestone's context instead.
 3. **Dependency check** — Does the new work depend on something that's currently in progress or planned? Note the dependency so context files capture it.
-4. **Requirement check** — If `.gsd/REQUIREMENTS.md` exists, identify whether this queued work advances unmet Active requirements, promotes Deferred work, or introduces entirely new scope that should also update the requirement contract.
+4. **Requirement check** — If `.kata/REQUIREMENTS.md` exists, identify whether this queued work advances unmet Active requirements, promotes Deferred work, or introduces entirely new scope that should also update the requirement contract.
 
 If the new work is already fully covered, say so and stop — don't create anything.
 
@@ -68,18 +68,18 @@ Determine where the new milestones should go in the overall sequence. Consider d
 
 Once the user is satisfied, in a single pass for **each** new milestone (starting from {{nextId}}):
 
-1. `mkdir -p .gsd/milestones/<ID>/slices`
-2. Write `.gsd/milestones/<ID>/<ID>-CONTEXT.md` — read the template at `~/.gsd/agent/extensions/gsd/templates/context.md` first. Capture intent, scope, risks, constraints, integration points, and relevant requirements. Mark the status as "Queued — pending auto-mode execution."
+1. `mkdir -p .kata/milestones/<ID>/slices`
+2. Write `.kata/milestones/<ID>/<ID>-CONTEXT.md` — read the template at `~/.kata/agent/extensions/gsd/templates/context.md` first. Capture intent, scope, risks, constraints, integration points, and relevant requirements. Mark the status as "Queued — pending auto-mode execution."
 
 Then, after all milestone directories and context files are written:
 
-3. Update `.gsd/PROJECT.md` — add the new milestones to the Milestone Sequence. Keep existing entries exactly as they are. Only add new lines.
-4. If `.gsd/REQUIREMENTS.md` exists and the queued work introduces new in-scope capabilities or promotes Deferred items, update it.
-5. If discussion produced decisions relevant to existing work, append to `.gsd/DECISIONS.md`.
-6. Append to `.gsd/QUEUE.md`.
+3. Update `.kata/PROJECT.md` — add the new milestones to the Milestone Sequence. Keep existing entries exactly as they are. Only add new lines.
+4. If `.kata/REQUIREMENTS.md` exists and the queued work introduces new in-scope capabilities or promotes Deferred items, update it.
+5. If discussion produced decisions relevant to existing work, append to `.kata/DECISIONS.md`.
+6. Append to `.kata/QUEUE.md`.
 7. Commit: `docs: queue <milestone list>`
 
 **Do NOT write roadmaps for queued milestones.**
-**Do NOT update `.gsd/STATE.md`.**
+**Do NOT update `.kata/STATE.md`.**
 
 After writing the files and committing, say exactly: "Queued N milestone(s). Auto-mode will pick them up after current work completes." — nothing else.

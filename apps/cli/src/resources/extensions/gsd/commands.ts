@@ -4,7 +4,10 @@
  * One command, one wizard. Routes to smart entry or status.
  */
 
-import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionCommandContext,
+} from "@mariozechner/pi-coding-agent";
 import { existsSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,8 +34,15 @@ import {
 } from "./doctor.js";
 import { loadPrompt } from "./prompt-loader.js";
 
-function dispatchDoctorHeal(pi: ExtensionAPI, scope: string | undefined, reportText: string, structuredIssues: string): void {
-  const workflowPath = process.env.GSD_WORKFLOW_PATH ?? join(process.env.HOME ?? "~", ".pi", "GSD-WORKFLOW.md");
+function dispatchDoctorHeal(
+  pi: ExtensionAPI,
+  scope: string | undefined,
+  reportText: string,
+  structuredIssues: string,
+): void {
+  const workflowPath =
+    process.env.kata_WORKFLOW_PATH ??
+    join(process.env.HOME ?? "~", ".pi", "GSD-WORKFLOW.md");
   const workflow = readFileSync(workflowPath, "utf-8");
   const prompt = loadPrompt("doctor-heal", {
     doctorSummary: reportText,
@@ -51,10 +61,19 @@ function dispatchDoctorHeal(pi: ExtensionAPI, scope: string | undefined, reportT
 
 export function registerGSDCommand(pi: ExtensionAPI): void {
   pi.registerCommand("gsd", {
-    description: "GSD — Get Stuff Done: /gsd auto|stop|status|queue|prefs|doctor",
+    description:
+      "GSD — Get Stuff Done: /gsd auto|stop|status|queue|prefs|doctor",
 
     getArgumentCompletions: (prefix: string) => {
-      const subcommands = ["auto", "stop", "status", "queue", "discuss", "prefs", "doctor"];
+      const subcommands = [
+        "auto",
+        "stop",
+        "status",
+        "queue",
+        "discuss",
+        "prefs",
+        "doctor",
+      ];
       const parts = prefix.trim().split(/\s+/);
 
       if (parts.length <= 1) {
@@ -180,7 +199,10 @@ export async function fireStatusViaCommand(
   await handleStatus(ctx as ExtensionCommandContext);
 }
 
-async function handlePrefs(args: string, ctx: ExtensionCommandContext): Promise<void> {
+async function handlePrefs(
+  args: string,
+  ctx: ExtensionCommandContext,
+): Promise<void> {
   const trimmed = args.trim();
 
   if (trimmed === "" || trimmed === "global") {
@@ -201,18 +223,29 @@ async function handlePrefs(args: string, ctx: ExtensionCommandContext): Promise<
     const globalStatus = globalPrefs
       ? `present: ${globalPrefs.path}${globalPrefs.path === legacyGlobal ? " (legacy fallback)" : ""}`
       : `missing: ${canonicalGlobal}`;
-    const projectStatus = projectPrefs ? `present: ${projectPrefs.path}` : `missing: ${getProjectGSDPreferencesPath()}`;
+    const projectStatus = projectPrefs
+      ? `present: ${projectPrefs.path}`
+      : `missing: ${getProjectGSDPreferencesPath()}`;
 
-    const lines = [`GSD skill prefs — global ${globalStatus}; project ${projectStatus}`];
+    const lines = [
+      `GSD skill prefs — global ${globalStatus}; project ${projectStatus}`,
+    ];
 
     const effective = loadEffectiveGSDPreferences();
     let hasUnresolved = false;
     if (effective) {
-      const report = resolveAllSkillReferences(effective.preferences, process.cwd());
-      const resolved = [...report.resolutions.values()].filter(r => r.method !== "unresolved");
+      const report = resolveAllSkillReferences(
+        effective.preferences,
+        process.cwd(),
+      );
+      const resolved = [...report.resolutions.values()].filter(
+        (r) => r.method !== "unresolved",
+      );
       hasUnresolved = report.warnings.length > 0;
       if (resolved.length > 0 || hasUnresolved) {
-        lines.push(`Skills: ${resolved.length} resolved, ${report.warnings.length} unresolved`);
+        lines.push(
+          `Skills: ${resolved.length} resolved, ${report.warnings.length} unresolved`,
+        );
       }
       if (hasUnresolved) {
         lines.push(`Unresolved: ${report.warnings.join(", ")}`);
@@ -226,10 +259,17 @@ async function handlePrefs(args: string, ctx: ExtensionCommandContext): Promise<
   ctx.ui.notify("Usage: /gsd prefs [global|project|status]", "info");
 }
 
-async function handleDoctor(args: string, ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
+async function handleDoctor(
+  args: string,
+  ctx: ExtensionCommandContext,
+  pi: ExtensionAPI,
+): Promise<void> {
   const trimmed = args.trim();
   const parts = trimmed ? trimmed.split(/\s+/) : [];
-  const mode = parts[0] === "fix" || parts[0] === "heal" || parts[0] === "audit" ? parts[0] : "doctor";
+  const mode =
+    parts[0] === "fix" || parts[0] === "heal" || parts[0] === "audit"
+      ? parts[0]
+      : "doctor";
   const requestedScope = mode === "doctor" ? parts[0] : parts[1];
   const scope = await selectDoctorScope(process.cwd(), requestedScope);
   const effectiveScope = mode === "audit" ? requestedScope : scope;
@@ -242,7 +282,12 @@ async function handleDoctor(args: string, ctx: ExtensionCommandContext, pi: Exte
     scope: effectiveScope,
     includeWarnings: mode === "audit",
     maxIssues: mode === "audit" ? 50 : 12,
-    title: mode === "audit" ? "GSD doctor audit." : mode === "heal" ? "GSD doctor heal prep." : undefined,
+    title:
+      mode === "audit"
+        ? "GSD doctor audit."
+        : mode === "heal"
+          ? "GSD doctor heal prep."
+          : undefined,
   });
 
   ctx.ui.notify(reportText, report.ok ? "info" : "warning");
@@ -252,15 +297,26 @@ async function handleDoctor(args: string, ctx: ExtensionCommandContext, pi: Exte
       scope: effectiveScope,
       includeWarnings: true,
     });
-    const actionable = unresolved.filter(issue => issue.severity === "error" || issue.code === "all_tasks_done_missing_slice_uat" || issue.code === "slice_checked_missing_uat");
+    const actionable = unresolved.filter(
+      (issue) =>
+        issue.severity === "error" ||
+        issue.code === "all_tasks_done_missing_slice_uat" ||
+        issue.code === "slice_checked_missing_uat",
+    );
     if (actionable.length === 0) {
-      ctx.ui.notify("Doctor heal found nothing actionable to hand off to the LLM.", "info");
+      ctx.ui.notify(
+        "Doctor heal found nothing actionable to hand off to the LLM.",
+        "info",
+      );
       return;
     }
 
     const structuredIssues = formatDoctorIssuesForPrompt(actionable);
     dispatchDoctorHeal(pi, effectiveScope, reportText, structuredIssues);
-    ctx.ui.notify(`Doctor heal dispatched ${actionable.length} issue(s) to the LLM.`, "info");
+    ctx.ui.notify(
+      `Doctor heal dispatched ${actionable.length} issue(s) to the LLM.`,
+      "info",
+    );
   }
 }
 
@@ -270,7 +326,13 @@ async function ensurePreferencesFile(
   scope: "global" | "project",
 ): Promise<void> {
   if (!existsSync(path)) {
-    const template = await loadFile(join(dirname(fileURLToPath(import.meta.url)), "templates", "preferences.md"));
+    const template = await loadFile(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        "templates",
+        "preferences.md",
+      ),
+    );
     if (!template) {
       ctx.ui.notify("Could not load GSD preferences template.", "error");
       return;
@@ -278,10 +340,16 @@ async function ensurePreferencesFile(
     await saveFile(path, template);
     ctx.ui.notify(`Created ${scope} GSD skill preferences at ${path}`, "info");
   } else {
-    ctx.ui.notify(`Using existing ${scope} GSD skill preferences at ${path}`, "info");
+    ctx.ui.notify(
+      `Using existing ${scope} GSD skill preferences at ${path}`,
+      "info",
+    );
   }
 
   await ctx.waitForIdle();
   await ctx.reload();
-  ctx.ui.notify(`Edit ${path} to update ${scope} GSD skill preferences.`, "info");
+  ctx.ui.notify(
+    `Edit ${path} to update ${scope} GSD skill preferences.`,
+    "info",
+  );
 }

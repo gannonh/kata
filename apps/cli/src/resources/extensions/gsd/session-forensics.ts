@@ -63,10 +63,17 @@ export interface RecoveryBriefing {
 // ─── JSONL Parsing ────────────────────────────────────────────────────────────
 
 function parseJSONL(raw: string): unknown[] {
-  return raw.trim().split("\n").map(line => {
-    try { return JSON.parse(line); }
-    catch { return null; }
-  }).filter(Boolean) as unknown[];
+  return raw
+    .trim()
+    .split("\n")
+    .map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean) as unknown[];
 }
 
 /**
@@ -101,7 +108,10 @@ export function extractTrace(entries: unknown[]): ExecutionTrace {
   let lastReasoning = "";
 
   // Track pending tool calls by ID for matching with results
-  const pendingTools = new Map<string, { name: string; input: Record<string, unknown> }>();
+  const pendingTools = new Map<
+    string,
+    { name: string; input: Record<string, unknown> }
+  >();
 
   const seenWritten = new Set<string>();
   const seenRead = new Set<string>();
@@ -123,7 +133,10 @@ export function extractTrace(entries: unknown[]): ExecutionTrace {
         // Pi format: { type: "toolCall", name: "bash", id: "toolu_...", arguments: { command: "..." } }
         if (part.type === "toolCall") {
           const name = String(part.name || "unknown").toLowerCase();
-          const input = (part.arguments || part.input || {}) as Record<string, unknown>;
+          const input = (part.arguments || part.input || {}) as Record<
+            string,
+            unknown
+          >;
           const id = String(part.id || "");
 
           if (id) {
@@ -134,9 +147,15 @@ export function extractTrace(entries: unknown[]): ExecutionTrace {
           const path = input.path ? String(input.path) : null;
           if (path) {
             if (name === "write" || name === "edit") {
-              if (!seenWritten.has(path)) { seenWritten.add(path); filesWritten.push(path); }
+              if (!seenWritten.has(path)) {
+                seenWritten.add(path);
+                filesWritten.push(path);
+              }
             } else if (name === "read") {
-              if (!seenRead.has(path)) { seenRead.add(path); filesRead.push(path); }
+              if (!seenRead.has(path)) {
+                seenRead.add(path);
+                filesRead.push(path);
+              }
             }
           }
 
@@ -166,8 +185,14 @@ export function extractTrace(entries: unknown[]): ExecutionTrace {
         pendingTools.delete(id);
 
         // Mark failed commands
-        if (isError && (pending.name === "bash" || pending.name === "bg_shell")) {
-          const lastCmd = findLast(commandsRun, c => c.command === String(pending.input.command));
+        if (
+          isError &&
+          (pending.name === "bash" || pending.name === "bg_shell")
+        ) {
+          const lastCmd = findLast(
+            commandsRun,
+            (c) => c.command === String(pending.input.command),
+          );
           if (lastCmd) lastCmd.failed = true;
         }
       }
@@ -202,11 +227,26 @@ export function extractTrace(entries: unknown[]): ExecutionTrace {
 
 function getGitChanges(basePath: string): string | null {
   try {
-    const status = execSync("git status --porcelain", { cwd: basePath, stdio: "pipe" }).toString().trim();
+    const status = execSync("git status --porcelain", {
+      cwd: basePath,
+      stdio: "pipe",
+    })
+      .toString()
+      .trim();
     if (!status) return null;
 
-    const diffStat = execSync("git diff --stat HEAD 2>/dev/null || true", { cwd: basePath, stdio: "pipe" }).toString().trim();
-    const stagedStat = execSync("git diff --stat --cached HEAD 2>/dev/null || true", { cwd: basePath, stdio: "pipe" }).toString().trim();
+    const diffStat = execSync("git diff --stat HEAD 2>/dev/null || true", {
+      cwd: basePath,
+      stdio: "pipe",
+    })
+      .toString()
+      .trim();
+    const stagedStat = execSync(
+      "git diff --stat --cached HEAD 2>/dev/null || true",
+      { cwd: basePath, stdio: "pipe" },
+    )
+      .toString()
+      .trim();
 
     const parts: string[] = [];
     if (status) parts.push(`Status:\n${status}`);
@@ -256,8 +296,13 @@ export function synthesizeCrashRecovery(
     // If no trace from either source, still provide git state
     if (!trace) {
       trace = {
-        toolCalls: [], filesWritten: [], filesRead: [],
-        commandsRun: [], errors: [], lastReasoning: "", toolCallCount: 0,
+        toolCalls: [],
+        filesWritten: [],
+        filesRead: [],
+        commandsRun: [],
+        errors: [],
+        lastReasoning: "",
+        toolCallCount: 0,
       };
     }
 
@@ -275,7 +320,7 @@ export function synthesizeCrashRecovery(
  * Replaces the old shallow getLastActivityDiagnostic().
  */
 export function getDeepDiagnostic(basePath: string): string | null {
-  const activityDir = join(basePath, ".gsd", "activity");
+  const activityDir = join(basePath, ".kata", "activity");
   const trace = readLastActivityLog(activityDir);
   if (!trace || trace.toolCallCount === 0) return null;
   return formatTraceSummary(trace);
@@ -309,16 +354,17 @@ function formatRecoveryPrompt(
   // Files written
   if (trace.filesWritten.length > 0) {
     sections.push(
-      "", "### Files Already Written/Edited",
-      ...trace.filesWritten.map(f => `- \`${f}\``),
+      "",
+      "### Files Already Written/Edited",
+      ...trace.filesWritten.map((f) => `- \`${f}\``),
       "",
       "These files exist on disk from the previous run. Verify they look correct before continuing.",
     );
   }
 
   // Commands run
-  const significantCommands = trace.commandsRun.filter(c =>
-    !c.command.startsWith("git ") || c.failed,
+  const significantCommands = trace.commandsRun.filter(
+    (c) => !c.command.startsWith("git ") || c.failed,
   );
   if (significantCommands.length > 0) {
     sections.push("", "### Commands Already Run");
@@ -331,23 +377,28 @@ function formatRecoveryPrompt(
   // Errors
   if (trace.errors.length > 0) {
     sections.push(
-      "", "### Errors Before Crash",
-      ...trace.errors.slice(-3).map(e => `- ${truncate(e, 200)}`),
+      "",
+      "### Errors Before Crash",
+      ...trace.errors.slice(-3).map((e) => `- ${truncate(e, 200)}`),
     );
   }
 
   // Git state
   if (gitChanges) {
     sections.push(
-      "", "### Current Git State (filesystem truth)",
-      "```", gitChanges, "```",
+      "",
+      "### Current Git State (filesystem truth)",
+      "```",
+      gitChanges,
+      "```",
     );
   }
 
   // Last reasoning
   if (trace.lastReasoning) {
     sections.push(
-      "", "### Last Agent Reasoning Before Crash",
+      "",
+      "### Last Agent Reasoning Before Crash",
       `> ${trace.lastReasoning.replace(/\n/g, "\n> ")}`,
     );
   }
@@ -377,7 +428,9 @@ function compressToolCallTrace(calls: ToolCall[]): string {
     if (readBatch.length <= 2) {
       for (const path of readBatch) lines.push(`  read \`${path}\``);
     } else {
-      lines.push(`  read ${readBatch.length} files: ${readBatch.map(p => `\`${basename(p)}\``).join(", ")}`);
+      lines.push(
+        `  read ${readBatch.length} files: ${readBatch.map((p) => `\`${basename(p)}\``).join(", ")}`,
+      );
     }
     readBatch = [];
   }
@@ -414,10 +467,14 @@ function formatTraceSummary(trace: ExecutionTrace): string {
   parts.push(`Tool calls completed: ${trace.toolCallCount}`);
 
   if (trace.filesWritten.length > 0) {
-    parts.push(`Files written: ${trace.filesWritten.map(f => `\`${f}\``).join(", ")}`);
+    parts.push(
+      `Files written: ${trace.filesWritten.map((f) => `\`${f}\``).join(", ")}`,
+    );
   }
   if (trace.commandsRun.length > 0) {
-    const cmds = trace.commandsRun.slice(-5).map(c => `\`${truncate(c.command, 80)}\`${c.failed ? " ❌" : ""}`);
+    const cmds = trace.commandsRun
+      .slice(-5)
+      .map((c) => `\`${truncate(c.command, 80)}\`${c.failed ? " ❌" : ""}`);
     parts.push(`Commands run: ${cmds.join(", ")}`);
   }
   if (trace.errors.length > 0) {
@@ -435,7 +492,9 @@ function readLastActivityLog(activityDir?: string): ExecutionTrace | null {
   if (!activityDir) return null;
   try {
     if (!existsSync(activityDir)) return null;
-    const files = readdirSync(activityDir).filter(f => f.endsWith(".jsonl")).sort();
+    const files = readdirSync(activityDir)
+      .filter((f) => f.endsWith(".jsonl"))
+      .sort();
     if (files.length === 0) return null;
 
     const lastFile = files[files.length - 1]!;
@@ -462,11 +521,15 @@ function extractResultText(msg: Record<string, unknown>): string {
  * Redact sensitive fields from tool inputs.
  * Keep paths and commands, drop large content bodies.
  */
-function redactInput(name: string, input: Record<string, unknown>): Record<string, unknown> {
+function redactInput(
+  name: string,
+  input: Record<string, unknown>,
+): Record<string, unknown> {
   const safe: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(input)) {
     if (key === "content" || key === "oldText" || key === "newText") {
-      safe[key] = typeof value === "string" ? truncate(value, 100) : "[redacted]";
+      safe[key] =
+        typeof value === "string" ? truncate(value, 100) : "[redacted]";
     } else {
       safe[key] = value;
     }

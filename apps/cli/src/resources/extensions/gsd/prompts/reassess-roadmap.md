@@ -18,8 +18,8 @@ Ask yourself:
 - Are the boundary contracts in the boundary map still accurate given what was actually built?
 - Should any remaining slices be reordered, merged, split, or adjusted based on concrete evidence?
 - Did assumptions in remaining slice descriptions turn out wrong?
-- If `.gsd/REQUIREMENTS.md` exists: did this slice validate, invalidate, defer, block, or newly surface requirements?
-- If `.gsd/REQUIREMENTS.md` exists: does the remaining roadmap still provide credible coverage for Active requirements, including launchability, primary user loop, continuity, and failure visibility where relevant?
+- If `.kata/REQUIREMENTS.md` exists: did this slice validate, invalidate, defer, block, or newly surface requirements?
+- If `.kata/REQUIREMENTS.md` exists: does the remaining roadmap still provide credible coverage for Active requirements, including launchability, primary user loop, continuity, and failure visibility where relevant?
 
 ### Success-Criterion Coverage Check
 
@@ -40,7 +40,7 @@ Write `{{assessmentAbsPath}}` with a brief confirmation that roadmap coverage st
 
 1. Rewrite the remaining (unchecked) slices in `{{roadmapPath}}`. Keep completed slices exactly as they are (`[x]`). Update the boundary map for changed slices. Update the proof strategy if risks changed. Update requirement coverage if ownership or scope changed.
 2. Write `{{assessmentAbsPath}}` explaining what changed and why — keep it brief and concrete.
-3. If `.gsd/REQUIREMENTS.md` exists and requirement ownership or status changed, update it.
+3. If `.kata/REQUIREMENTS.md` exists and requirement ownership or status changed, update it.
 4. Commit: `docs({{milestoneId}}): reassess roadmap after {{completedSliceId}}`
 
 **You MUST write the file `{{assessmentAbsPath}}` before finishing.**

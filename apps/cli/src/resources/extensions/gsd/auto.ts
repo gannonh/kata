@@ -1,7 +1,7 @@
 /**
  * GSD Auto Mode — Fresh Session Per Unit
  *
- * State machine driven by .gsd/ files on disk. Each "unit" of work
+ * State machine driven by .kata/ files on disk. Each "unit" of work
  * (plan slice, execute task, complete slice) gets a fresh session via
  * the stashed ctx.newSession() pattern.
  *
@@ -18,20 +18,50 @@ import type {
 
 import { deriveState } from "./state.js";
 import type { GSDState } from "./types.js";
-import { loadFile, parseContinue, parseRoadmap, parseSummary, extractUatType, inlinePriorMilestoneSummary } from "./files.js";
+import {
+  loadFile,
+  parseContinue,
+  parseRoadmap,
+  parseSummary,
+  extractUatType,
+  inlinePriorMilestoneSummary,
+} from "./files.js";
 export { inlinePriorMilestoneSummary };
 import type { UatType } from "./files.js";
 import { loadPrompt } from "./prompt-loader.js";
 import {
-  gsdRoot, resolveMilestoneFile, resolveSliceFile, resolveSlicePath,
-  resolveMilestonePath, resolveDir, resolveTasksDir, resolveTaskFiles, resolveTaskFile,
-  relMilestoneFile, relSliceFile, relTaskFile, relSlicePath, relMilestonePath,
-  milestonesDir, resolveGsdRootFile, relGsdRootFile,
-  buildMilestoneFileName, buildSliceFileName, buildTaskFileName,
+  gsdRoot,
+  resolveMilestoneFile,
+  resolveSliceFile,
+  resolveSlicePath,
+  resolveMilestonePath,
+  resolveDir,
+  resolveTasksDir,
+  resolveTaskFiles,
+  resolveTaskFile,
+  relMilestoneFile,
+  relSliceFile,
+  relTaskFile,
+  relSlicePath,
+  relMilestonePath,
+  milestonesDir,
+  resolveGsdRootFile,
+  relGsdRootFile,
+  buildMilestoneFileName,
+  buildSliceFileName,
+  buildTaskFileName,
 } from "./paths.js";
 import { saveActivityLog } from "./activity-log.js";
-import { synthesizeCrashRecovery, getDeepDiagnostic } from "./session-forensics.js";
-import { writeLock, clearLock, readCrashLock, formatCrashInfo } from "./crash-recovery.js";
+import {
+  synthesizeCrashRecovery,
+  getDeepDiagnostic,
+} from "./session-forensics.js";
+import {
+  writeLock,
+  clearLock,
+  readCrashLock,
+  formatCrashInfo,
+} from "./crash-recovery.js";
 import {
   clearUnitRuntimeRecord,
   formatExecuteTaskRecoveryStatus,
@@ -40,7 +70,12 @@ import {
   readUnitRuntimeRecord,
   writeUnitRuntimeRecord,
 } from "./unit-runtime.js";
-import { resolveAutoSupervisorConfig, resolveModelForUnit, resolveSkillDiscoveryMode, loadEffectiveGSDPreferences } from "./preferences.js";
+import {
+  resolveAutoSupervisorConfig,
+  resolveModelForUnit,
+  resolveSkillDiscoveryMode,
+  loadEffectiveGSDPreferences,
+} from "./preferences.js";
 import type { GSDPreferences } from "./preferences.js";
 import {
   validatePlanBoundary,
@@ -51,11 +86,22 @@ import {
 import { ensureGitignore } from "./gitignore.js";
 import { snapshotSkills, clearSkillSnapshot } from "./skill-discovery.js";
 import {
-  initMetrics, resetMetrics, snapshotUnitMetrics, getLedger,
-  getProjectTotals, formatCost, formatTokenCount,
+  initMetrics,
+  resetMetrics,
+  snapshotUnitMetrics,
+  getLedger,
+  getProjectTotals,
+  formatCost,
+  formatTokenCount,
 } from "./metrics.js";
 import { join } from "node:path";
-import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import {
+  readdirSync,
+  readFileSync,
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+} from "node:fs";
 import { execSync } from "node:child_process";
 import {
   autoCommitCurrentBranch,
@@ -84,7 +130,12 @@ let pendingCrashRecovery: string | null = null;
 
 /** Dashboard tracking */
 let autoStartTime: number = 0;
-let completedUnits: { type: string; id: string; startedAt: number; finishedAt: number }[] = [];
+let completedUnits: {
+  type: string;
+  id: string;
+  startedAt: number;
+  finishedAt: number;
+}[] = [];
 let currentUnit: { type: string; id: string; startedAt: number } | null = null;
 
 /** Track current milestone to detect transitions */
@@ -105,7 +156,12 @@ export interface AutoDashboardData {
   startTime: number;
   elapsed: number;
   currentUnit: { type: string; id: string; startedAt: number } | null;
-  completedUnits: { type: string; id: string; startedAt: number; finishedAt: number }[];
+  completedUnits: {
+    type: string;
+    id: string;
+    startedAt: number;
+    finishedAt: number;
+  }[];
   basePath: string;
   /** Running cost and token totals from metrics ledger */
   totalCost: number;
@@ -119,7 +175,7 @@ export function getAutoDashboardData(): AutoDashboardData {
     active,
     paused,
     startTime: autoStartTime,
-    elapsed: (active || paused) ? Date.now() - autoStartTime : 0,
+    elapsed: active || paused ? Date.now() - autoStartTime : 0,
     currentUnit: currentUnit ? { ...currentUnit } : null,
     completedUnits: [...completedUnits],
     basePath,
@@ -153,7 +209,10 @@ function clearUnitTimeout(): void {
   }
 }
 
-export async function stopAuto(ctx?: ExtensionContext, pi?: ExtensionAPI): Promise<void> {
+export async function stopAuto(
+  ctx?: ExtensionContext,
+  pi?: ExtensionAPI,
+): Promise<void> {
   if (!active && !paused) return;
   clearUnitTimeout();
   if (basePath) clearLock(basePath);
@@ -197,7 +256,10 @@ export async function stopAuto(ctx?: ExtensionContext, pi?: ExtensionAPI): Promi
  * The user can interact with the agent, then `/gsd auto` resumes
  * from disk state. Called when the user presses Escape during auto-mode.
  */
-export async function pauseAuto(ctx?: ExtensionContext, _pi?: ExtensionAPI): Promise<void> {
+export async function pauseAuto(
+  ctx?: ExtensionContext,
+  _pi?: ExtensionAPI,
+): Promise<void> {
   if (!active) return;
   clearUnitTimeout();
   if (basePath) clearLock(basePath);
@@ -246,15 +308,21 @@ export async function startAuto(
   // Ensure .gitignore has baseline patterns
   ensureGitignore(base);
 
-  // Bootstrap .gsd/ if it doesn't exist
-  const gsdDir = join(base, ".gsd");
+  // Bootstrap .kata/ if it doesn't exist
+  const gsdDir = join(base, ".kata");
   if (!existsSync(gsdDir)) {
     mkdirSync(join(gsdDir, "milestones"), { recursive: true });
     try {
-      execSync("git add -A .gsd .gitignore && git commit -m 'chore: init gsd'", {
-        cwd: base, stdio: "pipe",
-      });
-    } catch { /* nothing to commit */ }
+      execSync(
+        "git add -A .kata .gitignore && git commit -m 'chore: init gsd'",
+        {
+          cwd: base,
+          stdio: "pipe",
+        },
+      );
+    } catch {
+      /* nothing to commit */
+    }
   }
 
   // Check for crash from previous session
@@ -264,8 +332,11 @@ export async function startAuto(
     // (pi writes entries incrementally, so it contains every tool call up to the crash)
     const activityDir = join(gsdRoot(base), "activity");
     const recovery = synthesizeCrashRecovery(
-      base, crashLock.unitType, crashLock.unitId,
-      crashLock.sessionFile, activityDir,
+      base,
+      crashLock.unitType,
+      crashLock.unitId,
+      crashLock.sessionFile,
+      activityDir,
     );
     if (recovery && recovery.trace.toolCallCount > 0) {
       pendingCrashRecovery = recovery.prompt;
@@ -295,8 +366,12 @@ export async function startAuto(
   // If context was pre-written (multi-milestone planning), auto-mode can
   // research and plan it. If no context either, need user discussion.
   if (state.phase === "pre-planning") {
-    const contextFile = resolveMilestoneFile(base, state.activeMilestone.id, "CONTEXT");
-    const hasContext = !!(contextFile && await loadFile(contextFile));
+    const contextFile = resolveMilestoneFile(
+      base,
+      state.activeMilestone.id,
+      "CONTEXT",
+    );
+    const hasContext = !!(contextFile && (await loadFile(contextFile)));
     if (!hasContext) {
       const { showSmartEntry } = await import("./guided-flow.js");
       await showSmartEntry(ctx, pi, base);
@@ -326,10 +401,13 @@ export async function startAuto(
   }
 
   ctx.ui.setStatus("gsd-auto", "auto");
-  const pendingCount = state.registry.filter(m => m.status !== 'complete').length;
-  const scopeMsg = pendingCount > 1
-    ? `Will loop through ${pendingCount} milestones.`
-    : "Will loop until milestone complete.";
+  const pendingCount = state.registry.filter(
+    (m) => m.status !== "complete",
+  ).length;
+  const scopeMsg =
+    pendingCount > 1
+      ? `Will loop through ${pendingCount} milestones.`
+      : "Will loop until milestone complete.";
   ctx.ui.notify(`Auto-mode started. ${scopeMsg}`, "info");
 
   // Dispatch the first unit
@@ -348,12 +426,16 @@ export async function handleAgentEnd(
   clearUnitTimeout();
 
   // Small delay to let files settle (git commits, file writes)
-  await new Promise(r => setTimeout(r, 500));
+  await new Promise((r) => setTimeout(r, 500));
 
   // Auto-commit any dirty files the LLM left behind on the current branch.
   if (currentUnit) {
     try {
-      const commitMsg = autoCommitCurrentBranch(basePath, currentUnit.type, currentUnit.id);
+      const commitMsg = autoCommitCurrentBranch(
+        basePath,
+        currentUnit.type,
+        currentUnit.id,
+      );
       if (commitMsg) {
         ctx.ui.notify(`Auto-committed uncommitted changes.`, "info");
       }
@@ -370,50 +452,76 @@ export async function handleAgentEnd(
 function unitVerb(unitType: string): string {
   switch (unitType) {
     case "research-milestone":
-    case "research-slice": return "researching";
+    case "research-slice":
+      return "researching";
     case "plan-milestone":
-    case "plan-slice": return "planning";
-    case "execute-task": return "executing";
-    case "complete-slice": return "completing";
-    case "replan-slice": return "replanning";
-    case "reassess-roadmap": return "reassessing";
-    case "run-uat": return "running UAT";
-    default: return unitType;
+    case "plan-slice":
+      return "planning";
+    case "execute-task":
+      return "executing";
+    case "complete-slice":
+      return "completing";
+    case "replan-slice":
+      return "replanning";
+    case "reassess-roadmap":
+      return "reassessing";
+    case "run-uat":
+      return "running UAT";
+    default:
+      return unitType;
   }
 }
 
 function unitPhaseLabel(unitType: string): string {
   switch (unitType) {
-    case "research-milestone": return "RESEARCH";
-    case "research-slice": return "RESEARCH";
-    case "plan-milestone": return "PLAN";
-    case "plan-slice": return "PLAN";
-    case "execute-task": return "EXECUTE";
-    case "complete-slice": return "COMPLETE";
-    case "replan-slice": return "REPLAN";
-    case "reassess-roadmap": return "REASSESS";
-    case "run-uat": return "UAT";
-    default: return unitType.toUpperCase();
+    case "research-milestone":
+      return "RESEARCH";
+    case "research-slice":
+      return "RESEARCH";
+    case "plan-milestone":
+      return "PLAN";
+    case "plan-slice":
+      return "PLAN";
+    case "execute-task":
+      return "EXECUTE";
+    case "complete-slice":
+      return "COMPLETE";
+    case "replan-slice":
+      return "REPLAN";
+    case "reassess-roadmap":
+      return "REASSESS";
+    case "run-uat":
+      return "UAT";
+    default:
+      return unitType.toUpperCase();
   }
 }
 
 function peekNext(unitType: string, state: GSDState): string {
   const sid = state.activeSlice?.id ?? "";
   switch (unitType) {
-    case "research-milestone": return "plan milestone roadmap";
-    case "plan-milestone": return "research first slice";
-    case "research-slice": return `plan ${sid}`;
-    case "plan-slice": return "execute first task";
-    case "execute-task": return `continue ${sid}`;
-    case "complete-slice": return "reassess roadmap";
-    case "replan-slice": return `re-execute ${sid}`;
-    case "reassess-roadmap": return "advance to next slice";
-    case "run-uat": return "reassess roadmap";
-    default: return "";
+    case "research-milestone":
+      return "plan milestone roadmap";
+    case "plan-milestone":
+      return "research first slice";
+    case "research-slice":
+      return `plan ${sid}`;
+    case "plan-slice":
+      return "execute first task";
+    case "execute-task":
+      return `continue ${sid}`;
+    case "complete-slice":
+      return "reassess roadmap";
+    case "replan-slice":
+      return `re-execute ${sid}`;
+    case "reassess-roadmap":
+      return "advance to next slice";
+    case "run-uat":
+      return "reassess roadmap";
+    default:
+      return "";
   }
 }
-
-
 
 /** Right-align helper: build a line with left content and right content. */
 function rightAlign(left: string, right: string, width: number): string {
@@ -472,14 +580,22 @@ function updateProgressWidget(
         lines.push("");
 
         if (mid) {
-          lines.push(truncateToWidth(`${pad}${theme.fg("dim", mid.title)}`, width));
+          lines.push(
+            truncateToWidth(`${pad}${theme.fg("dim", mid.title)}`, width),
+          );
         }
 
-        if (slice && unitType !== "research-milestone" && unitType !== "plan-milestone") {
-          lines.push(truncateToWidth(
-            `${pad}${theme.fg("text", theme.bold(`${slice.id}: ${slice.title}`))}`,
-            width,
-          ));
+        if (
+          slice &&
+          unitType !== "research-milestone" &&
+          unitType !== "plan-milestone"
+        ) {
+          lines.push(
+            truncateToWidth(
+              `${pad}${theme.fg("text", theme.bold(`${slice.id}: ${slice.title}`))}`,
+              width,
+            ),
+          );
         }
 
         lines.push("");
@@ -497,13 +613,17 @@ function updateProgressWidget(
             const barWidth = Math.max(8, Math.min(24, Math.floor(width * 0.3)));
             const pct = total > 0 ? done / total : 0;
             const filled = Math.round(pct * barWidth);
-            const bar = theme.fg("success", "█".repeat(filled))
-              + theme.fg("dim", "░".repeat(barWidth - filled));
+            const bar =
+              theme.fg("success", "█".repeat(filled)) +
+              theme.fg("dim", "░".repeat(barWidth - filled));
 
             let meta = theme.fg("dim", `${done}/${total} slices`);
 
             if (activeSliceTasks && activeSliceTasks.total > 0) {
-              meta += theme.fg("dim", `  ·  task ${activeSliceTasks.done + 1}/${activeSliceTasks.total}`);
+              meta += theme.fg(
+                "dim",
+                `  ·  task ${activeSliceTasks.done + 1}/${activeSliceTasks.total}`,
+              );
             }
 
             lines.push(truncateToWidth(`${pad}${bar}  ${meta}`, width));
@@ -513,10 +633,12 @@ function updateProgressWidget(
         lines.push("");
 
         if (next) {
-          lines.push(truncateToWidth(
-            `${pad}${theme.fg("dim", "→")} ${theme.fg("dim", `then ${next}`)}`,
-            width,
-          ));
+          lines.push(
+            truncateToWidth(
+              `${pad}${theme.fg("dim", "→")} ${theme.fg("dim", `then ${next}`)}`,
+              width,
+            ),
+          );
         }
 
         const hintParts: string[] = [];
@@ -565,7 +687,11 @@ let cachedSliceProgress: {
   activeSliceTasks: { done: number; total: number } | null;
 } | null = null;
 
-function updateSliceProgressCache(base: string, mid: string, activeSid?: string): void {
+function updateSliceProgressCache(
+  base: string,
+  mid: string,
+  activeSid?: string,
+): void {
   try {
     const roadmapFile = resolveMilestoneFile(base, mid, "ROADMAP");
     if (!roadmapFile) return;
@@ -580,7 +706,7 @@ function updateSliceProgressCache(base: string, mid: string, activeSid?: string)
           const planContent = readFileSync(planFile, "utf-8");
           const plan = parsePlan(planContent);
           activeSliceTasks = {
-            done: plan.tasks.filter(t => t.done).length,
+            done: plan.tasks.filter((t) => t.done).length,
             total: plan.tasks.length,
           };
         }
@@ -590,7 +716,7 @@ function updateSliceProgressCache(base: string, mid: string, activeSid?: string)
     }
 
     cachedSliceProgress = {
-      done: roadmap.slices.filter(s => s.done).length,
+      done: roadmap.slices.filter((s) => s.done).length,
       total: roadmap.slices.length,
       milestoneId: mid,
       activeSliceTasks,
@@ -600,7 +726,11 @@ function updateSliceProgressCache(base: string, mid: string, activeSid?: string)
   }
 }
 
-function getRoadmapSlicesSync(): { done: number; total: number; activeSliceTasks: { done: number; total: number } | null } | null {
+function getRoadmapSlicesSync(): {
+  done: number;
+  total: number;
+  activeSliceTasks: { done: number; total: number } | null;
+} | null {
   return cachedSliceProgress;
 }
 
@@ -632,7 +762,13 @@ async function dispatchNextUnit(
     // Save final session before stopping
     if (currentUnit) {
       const modelId = ctx.model?.id ?? "unknown";
-      snapshotUnitMetrics(ctx, currentUnit.type, currentUnit.id, currentUnit.startedAt, modelId);
+      snapshotUnitMetrics(
+        ctx,
+        currentUnit.type,
+        currentUnit.id,
+        currentUnit.startedAt,
+        modelId,
+      );
       saveActivityLog(ctx, basePath, currentUnit.type, currentUnit.id);
     }
     await stopAuto(ctx, pi);
@@ -646,28 +782,29 @@ async function dispatchNextUnit(
     try {
       const [completedMid, completedSid] = currentUnit.id.split("/");
       // Look up actual slice title from roadmap (on current branch, before switching)
-      const roadmapFile = resolveMilestoneFile(basePath, completedMid!, "ROADMAP");
+      const roadmapFile = resolveMilestoneFile(
+        basePath,
+        completedMid!,
+        "ROADMAP",
+      );
       const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
       let sliceTitleForMerge = completedSid!;
       if (roadmapContent) {
         const roadmap = parseRoadmap(roadmapContent);
-        const sliceEntry = roadmap.slices.find(s => s.id === completedSid);
+        const sliceEntry = roadmap.slices.find((s) => s.id === completedSid);
         if (sliceEntry) sliceTitleForMerge = sliceEntry.title;
       }
       switchToMain(basePath);
       const mergeResult = mergeSliceToMain(
-        basePath, completedMid!, completedSid!, sliceTitleForMerge,
+        basePath,
+        completedMid!,
+        completedSid!,
+        sliceTitleForMerge,
       );
-      ctx.ui.notify(
-        `Merged ${mergeResult.branch} → main.`,
-        "info",
-      );
+      ctx.ui.notify(`Merged ${mergeResult.branch} → main.`, "info");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      ctx.ui.notify(
-        `Slice merge failed: ${message}`,
-        "error",
-      );
+      ctx.ui.notify(`Slice merge failed: ${message}`, "error");
       // Re-derive state so dispatch can figure out what to do
       state = await deriveState(basePath);
       mid = state.activeMilestone?.id;
@@ -683,7 +820,13 @@ async function dispatchNextUnit(
   if (state.phase === "complete") {
     if (currentUnit) {
       const modelId = ctx.model?.id ?? "unknown";
-      snapshotUnitMetrics(ctx, currentUnit.type, currentUnit.id, currentUnit.startedAt, modelId);
+      snapshotUnitMetrics(
+        ctx,
+        currentUnit.type,
+        currentUnit.id,
+        currentUnit.startedAt,
+        modelId,
+      );
       saveActivityLog(ctx, basePath, currentUnit.type, currentUnit.id);
     }
     await stopAuto(ctx, pi);
@@ -693,11 +836,20 @@ async function dispatchNextUnit(
   if (state.phase === "blocked") {
     if (currentUnit) {
       const modelId = ctx.model?.id ?? "unknown";
-      snapshotUnitMetrics(ctx, currentUnit.type, currentUnit.id, currentUnit.startedAt, modelId);
+      snapshotUnitMetrics(
+        ctx,
+        currentUnit.type,
+        currentUnit.id,
+        currentUnit.startedAt,
+        modelId,
+      );
       saveActivityLog(ctx, basePath, currentUnit.type, currentUnit.id);
     }
     await stopAuto(ctx, pi);
-    ctx.ui.notify(`Blocked: ${state.blockers.join(", ")}. Fix and run /gsd auto.`, "warning");
+    ctx.ui.notify(
+      `Blocked: ${state.blockers.join(", ")}. Fix and run /gsd auto.`,
+      "warning",
+    );
     return;
   }
 
@@ -709,7 +861,9 @@ async function dispatchNextUnit(
   const budgetCeiling = prefs?.budget_ceiling;
   if (budgetCeiling !== undefined) {
     const currentLedger = getLedger();
-    const totalCost = currentLedger ? getProjectTotals(currentLedger.units).cost : 0;
+    const totalCost = currentLedger
+      ? getProjectTotals(currentLedger.units).cost
+      : 0;
     if (totalCost >= budgetCeiling) {
       ctx.ui.notify(
         `Budget ceiling ${formatCost(budgetCeiling)} reached (spent ${formatCost(totalCost)}). Pausing auto-mode — /gsd auto to continue.`,
@@ -736,7 +890,11 @@ async function dispatchNextUnit(
     const uatFile = resolveSliceFile(basePath, mid, sliceId, "UAT")!;
     const uatContent = await loadFile(uatFile);
     prompt = await buildRunUatPrompt(
-      mid, sliceId, relSliceFile(basePath, mid, sliceId, "UAT"), uatContent ?? "", basePath,
+      mid,
+      sliceId,
+      relSliceFile(basePath, mid, sliceId, "UAT"),
+      uatContent ?? "",
+      basePath,
     );
     // For non-artifact-driven UAT types, pause after the prompt is dispatched.
     // The agent receives the prompt, writes S0x-UAT-RESULT.md surfacing the UAT,
@@ -747,21 +905,29 @@ async function dispatchNextUnit(
   } else if (needsReassess) {
     unitType = "reassess-roadmap";
     unitId = `${mid}/${needsReassess.sliceId}`;
-    prompt = await buildReassessRoadmapPrompt(mid, midTitle!, needsReassess.sliceId, basePath);
+    prompt = await buildReassessRoadmapPrompt(
+      mid,
+      midTitle!,
+      needsReassess.sliceId,
+      basePath,
+    );
   } else if (state.phase === "pre-planning") {
     // Need roadmap — check if context exists
     const contextFile = resolveMilestoneFile(basePath, mid, "CONTEXT");
-    const hasContext = !!(contextFile && await loadFile(contextFile));
+    const hasContext = !!(contextFile && (await loadFile(contextFile)));
 
     if (!hasContext) {
       await stopAuto(ctx, pi);
-      ctx.ui.notify("No context or roadmap yet. Run /gsd to discuss first.", "warning");
+      ctx.ui.notify(
+        "No context or roadmap yet. Run /gsd to discuss first.",
+        "warning",
+      );
       return;
     }
 
     // Research before roadmap if no research exists
     const researchFile = resolveMilestoneFile(basePath, mid, "RESEARCH");
-    const hasResearch = !!(researchFile && await loadFile(researchFile));
+    const hasResearch = !!(researchFile && (await loadFile(researchFile)));
 
     if (!hasResearch) {
       unitType = "research-milestone";
@@ -772,32 +938,47 @@ async function dispatchNextUnit(
       unitId = mid;
       prompt = await buildPlanMilestonePrompt(mid, midTitle!, basePath);
     }
-
   } else if (state.phase === "planning") {
     // Slice needs planning — but research first if no research exists
     const sid = state.activeSlice!.id;
     const sTitle = state.activeSlice!.title;
     const researchFile = resolveSliceFile(basePath, mid, sid, "RESEARCH");
-    const hasResearch = !!(researchFile && await loadFile(researchFile));
+    const hasResearch = !!(researchFile && (await loadFile(researchFile)));
 
     if (!hasResearch) {
       unitType = "research-slice";
       unitId = `${mid}/${sid}`;
-      prompt = await buildResearchSlicePrompt(mid, midTitle!, sid, sTitle, basePath);
+      prompt = await buildResearchSlicePrompt(
+        mid,
+        midTitle!,
+        sid,
+        sTitle,
+        basePath,
+      );
     } else {
       unitType = "plan-slice";
       unitId = `${mid}/${sid}`;
-      prompt = await buildPlanSlicePrompt(mid, midTitle!, sid, sTitle, basePath);
+      prompt = await buildPlanSlicePrompt(
+        mid,
+        midTitle!,
+        sid,
+        sTitle,
+        basePath,
+      );
     }
-
   } else if (state.phase === "replanning-slice") {
     // Blocker discovered — replan the slice before continuing
     const sid = state.activeSlice!.id;
     const sTitle = state.activeSlice!.title;
     unitType = "replan-slice";
     unitId = `${mid}/${sid}`;
-    prompt = await buildReplanSlicePrompt(mid, midTitle!, sid, sTitle, basePath);
-
+    prompt = await buildReplanSlicePrompt(
+      mid,
+      midTitle!,
+      sid,
+      sTitle,
+      basePath,
+    );
   } else if (state.phase === "executing" && state.activeTask) {
     // Execute next task
     const sid = state.activeSlice!.id;
@@ -806,30 +987,49 @@ async function dispatchNextUnit(
     const tTitle = state.activeTask.title;
     unitType = "execute-task";
     unitId = `${mid}/${sid}/${tid}`;
-    prompt = await buildExecuteTaskPrompt(mid, sid, sTitle, tid, tTitle, basePath);
-
+    prompt = await buildExecuteTaskPrompt(
+      mid,
+      sid,
+      sTitle,
+      tid,
+      tTitle,
+      basePath,
+    );
   } else if (state.phase === "summarizing") {
     // All tasks done — complete the slice
     const sid = state.activeSlice!.id;
     const sTitle = state.activeSlice!.title;
     unitType = "complete-slice";
     unitId = `${mid}/${sid}`;
-    prompt = await buildCompleteSlicePrompt(mid, midTitle!, sid, sTitle, basePath);
-
+    prompt = await buildCompleteSlicePrompt(
+      mid,
+      midTitle!,
+      sid,
+      sTitle,
+      basePath,
+    );
   } else if (state.phase === "completing-milestone") {
     // All slices done — complete the milestone
     unitType = "complete-milestone";
     unitId = mid;
     prompt = await buildCompleteMilestonePrompt(mid, midTitle!, basePath);
-
   } else {
     if (currentUnit) {
       const modelId = ctx.model?.id ?? "unknown";
-      snapshotUnitMetrics(ctx, currentUnit.type, currentUnit.id, currentUnit.startedAt, modelId);
+      snapshotUnitMetrics(
+        ctx,
+        currentUnit.type,
+        currentUnit.id,
+        currentUnit.startedAt,
+        modelId,
+      );
       saveActivityLog(ctx, basePath, currentUnit.type, currentUnit.id);
     }
     await stopAuto(ctx, pi);
-    ctx.ui.notify(`Unexpected phase: ${state.phase}. Stopping auto-mode.`, "warning");
+    ctx.ui.notify(
+      `Unexpected phase: ${state.phase}. Stopping auto-mode.`,
+      "warning",
+    );
     return;
   }
 
@@ -844,7 +1044,13 @@ async function dispatchNextUnit(
     if (retryCount > MAX_RETRIES) {
       if (currentUnit) {
         const modelId = ctx.model?.id ?? "unknown";
-        snapshotUnitMetrics(ctx, currentUnit.type, currentUnit.id, currentUnit.startedAt, modelId);
+        snapshotUnitMetrics(
+          ctx,
+          currentUnit.type,
+          currentUnit.id,
+          currentUnit.startedAt,
+          modelId,
+        );
       }
       saveActivityLog(ctx, basePath, lastUnit.type, lastUnit.id);
 
@@ -852,7 +1058,7 @@ async function dispatchNextUnit(
       const expected = diagnoseExpectedArtifact(unitType, unitId, basePath);
       await stopAuto(ctx, pi);
       ctx.ui.notify(
-        `Stuck: ${unitType} ${unitId} fired ${retryCount + 1} times. Expected artifact not found.${expected ? `\n   Expected: ${expected}` : ""}\n   Check .gsd/ and activity logs.`,
+        `Stuck: ${unitType} ${unitId} fired ${retryCount + 1} times. Expected artifact not found.${expected ? `\n   Expected: ${expected}` : ""}\n   Check .kata/ and activity logs.`,
         "error",
       );
       return;
@@ -868,7 +1074,13 @@ async function dispatchNextUnit(
   // The session still holds the previous unit's data (newSession hasn't fired yet).
   if (currentUnit) {
     const modelId = ctx.model?.id ?? "unknown";
-    snapshotUnitMetrics(ctx, currentUnit.type, currentUnit.id, currentUnit.startedAt, modelId);
+    snapshotUnitMetrics(
+      ctx,
+      currentUnit.type,
+      currentUnit.id,
+      currentUnit.startedAt,
+      modelId,
+    );
     saveActivityLog(ctx, basePath, currentUnit.type, currentUnit.id);
 
     completedUnits.push({
@@ -936,7 +1148,7 @@ async function dispatchNextUnit(
   if (preferredModelId) {
     // Try to find the model across all providers
     const allModels = ctx.modelRegistry.getAll();
-    const model = allModels.find(m => m.id === preferredModelId);
+    const model = allModels.find((m) => m.id === preferredModelId);
     if (model) {
       const ok = await pi.setModel(model);
       if (ok) {
@@ -987,11 +1199,23 @@ async function dispatchNextUnit(
 
     if (currentUnit) {
       const modelId = ctx.model?.id ?? "unknown";
-      snapshotUnitMetrics(ctx, currentUnit.type, currentUnit.id, currentUnit.startedAt, modelId);
+      snapshotUnitMetrics(
+        ctx,
+        currentUnit.type,
+        currentUnit.id,
+        currentUnit.startedAt,
+        modelId,
+      );
     }
     saveActivityLog(ctx, basePath, unitType, unitId);
 
-    const recovery = await recoverTimedOutUnit(ctx, pi, unitType, unitId, "idle");
+    const recovery = await recoverTimedOutUnit(
+      ctx,
+      pi,
+      unitType,
+      unitId,
+      "idle",
+    );
     if (recovery === "recovered") return;
 
     writeUnitRuntimeRecord(basePath, unitType, unitId, currentUnit.startedAt, {
@@ -1008,16 +1232,34 @@ async function dispatchNextUnit(
     unitTimeoutHandle = null;
     if (!active) return;
     if (currentUnit) {
-      writeUnitRuntimeRecord(basePath, unitType, unitId, currentUnit.startedAt, {
-        phase: "timeout",
-        timeoutAt: Date.now(),
-      });
+      writeUnitRuntimeRecord(
+        basePath,
+        unitType,
+        unitId,
+        currentUnit.startedAt,
+        {
+          phase: "timeout",
+          timeoutAt: Date.now(),
+        },
+      );
       const modelId = ctx.model?.id ?? "unknown";
-      snapshotUnitMetrics(ctx, currentUnit.type, currentUnit.id, currentUnit.startedAt, modelId);
+      snapshotUnitMetrics(
+        ctx,
+        currentUnit.type,
+        currentUnit.id,
+        currentUnit.startedAt,
+        modelId,
+      );
     }
     saveActivityLog(ctx, basePath, unitType, unitId);
 
-    const recovery = await recoverTimedOutUnit(ctx, pi, unitType, unitId, "hard");
+    const recovery = await recoverTimedOutUnit(
+      ctx,
+      pi,
+      unitType,
+      unitId,
+      "hard",
+    );
     if (recovery === "recovered") return;
 
     ctx.ui.notify(
@@ -1051,13 +1293,17 @@ async function dispatchNextUnit(
  * Build the skill discovery template variables for research prompts.
  * Returns { skillDiscoveryMode, skillDiscoveryInstructions } for template substitution.
  */
-function buildSkillDiscoveryVars(): { skillDiscoveryMode: string; skillDiscoveryInstructions: string } {
+function buildSkillDiscoveryVars(): {
+  skillDiscoveryMode: string;
+  skillDiscoveryInstructions: string;
+} {
   const mode = resolveSkillDiscoveryMode();
 
   if (mode === "off") {
     return {
       skillDiscoveryMode: "off",
-      skillDiscoveryInstructions: " Skill discovery is disabled. Skip this step.",
+      skillDiscoveryInstructions:
+        " Skill discovery is disabled. Skip this step.",
     };
   }
 
@@ -1068,15 +1314,16 @@ function buildSkillDiscoveryVars(): { skillDiscoveryMode: string; skillDiscovery
    - First check \`<available_skills>\` in your system prompt — a skill may already be installed.
    - For technologies without an installed skill, run: \`npx skills find "<technology>"\`
    - Only consider skills that are **directly relevant** to core technologies — not tangentially related.
-   - Evaluate results by install count and relevance to the actual work.${autoInstall
-    ? `
+   - Evaluate results by install count and relevance to the actual work.${
+     autoInstall
+       ? `
    - Install relevant skills: \`npx skills add <owner/repo@skill> -g -y\`
    - Record installed skills in the "Skills Discovered" section of your research output.
    - Installed skills will automatically appear in subsequent units' system prompts — no manual steps needed.`
-    : `
+       : `
    - Note promising skills in your research output with their install commands, but do NOT install them.
    - The user will decide which to install.`
-  }`;
+   }`;
 
   return {
     skillDiscoveryMode: mode,
@@ -1093,7 +1340,9 @@ function buildSkillDiscoveryVars(): { skillDiscoveryMode: string; skillDiscovery
  * gets the content directly instead of "Read this file:".
  */
 async function inlineFile(
-  absPath: string | null, relPath: string, label: string,
+  absPath: string | null,
+  relPath: string,
+  label: string,
 ): Promise<string> {
   const content = absPath ? await loadFile(absPath) : null;
   if (!content) {
@@ -1107,7 +1356,9 @@ async function inlineFile(
  * Use when the file is optional and should be omitted entirely if absent.
  */
 async function inlineFileOptional(
-  absPath: string | null, relPath: string, label: string,
+  absPath: string | null,
+  relPath: string,
+  label: string,
 ): Promise<string | null> {
   const content = absPath ? await loadFile(absPath) : null;
   if (!content) return null;
@@ -1118,15 +1369,18 @@ async function inlineFileOptional(
  * Load and inline dependency slice summaries (full content, not just paths).
  */
 async function inlineDependencySummaries(
-  mid: string, sid: string, base: string,
+  mid: string,
+  sid: string,
+  base: string,
 ): Promise<string> {
   const roadmapFile = resolveMilestoneFile(base, mid, "ROADMAP");
   const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
   if (!roadmapContent) return "- (no dependencies)";
 
   const roadmap = parseRoadmap(roadmapContent);
-  const sliceEntry = roadmap.slices.find(s => s.id === sid);
-  if (!sliceEntry || sliceEntry.depends.length === 0) return "- (no dependencies)";
+  const sliceEntry = roadmap.slices.find((s) => s.id === sid);
+  if (!sliceEntry || sliceEntry.depends.length === 0)
+    return "- (no dependencies)";
 
   const sections: string[] = [];
   for (const dep of sliceEntry.depends) {
@@ -1134,7 +1388,9 @@ async function inlineDependencySummaries(
     const summaryContent = summaryFile ? await loadFile(summaryFile) : null;
     const relPath = relSliceFile(base, mid, dep, "SUMMARY");
     if (summaryContent) {
-      sections.push(`#### ${dep} Summary\nSource: \`${relPath}\`\n\n${summaryContent.trim()}`);
+      sections.push(
+        `#### ${dep} Summary\nSource: \`${relPath}\`\n\n${summaryContent.trim()}`,
+      );
     } else {
       sections.push(`- \`${relPath}\` _(not found)_`);
     }
@@ -1143,13 +1399,20 @@ async function inlineDependencySummaries(
 }
 
 /**
- * Load a well-known .gsd/ root file for optional inlining.
+ * Load a well-known .kata/ root file for optional inlining.
  * Handles the existsSync check internally.
  */
 async function inlineGsdRootFile(
-  base: string, filename: string, label: string,
+  base: string,
+  filename: string,
+  label: string,
 ): Promise<string | null> {
-  const key = filename.replace(/\.md$/i, "").toUpperCase() as "PROJECT" | "DECISIONS" | "QUEUE" | "STATE" | "REQUIREMENTS";
+  const key = filename.replace(/\.md$/i, "").toUpperCase() as
+    | "PROJECT"
+    | "DECISIONS"
+    | "QUEUE"
+    | "STATE"
+    | "REQUIREMENTS";
   const absPath = resolveGsdRootFile(base, key);
   if (!existsSync(absPath)) return null;
   return inlineFileOptional(absPath, relGsdRootFile(key), label);
@@ -1157,7 +1420,11 @@ async function inlineGsdRootFile(
 
 // ─── Prompt Builders ──────────────────────────────────────────────────────────
 
-async function buildResearchMilestonePrompt(mid: string, midTitle: string, base: string): Promise<string> {
+async function buildResearchMilestonePrompt(
+  mid: string,
+  midTitle: string,
+  base: string,
+): Promise<string> {
   const contextPath = resolveMilestoneFile(base, mid, "CONTEXT");
   const contextRel = relMilestoneFile(base, mid, "CONTEXT");
 
@@ -1165,17 +1432,27 @@ async function buildResearchMilestonePrompt(mid: string, midTitle: string, base:
   inlined.push(await inlineFile(contextPath, contextRel, "Milestone Context"));
   const projectInline = await inlineGsdRootFile(base, "project.md", "Project");
   if (projectInline) inlined.push(projectInline);
-  const requirementsInline = await inlineGsdRootFile(base, "requirements.md", "Requirements");
+  const requirementsInline = await inlineGsdRootFile(
+    base,
+    "requirements.md",
+    "Requirements",
+  );
   if (requirementsInline) inlined.push(requirementsInline);
-  const decisionsInline = await inlineGsdRootFile(base, "decisions.md", "Decisions");
+  const decisionsInline = await inlineGsdRootFile(
+    base,
+    "decisions.md",
+    "Decisions",
+  );
   if (decisionsInline) inlined.push(decisionsInline);
 
   const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
   const outputRelPath = relMilestoneFile(base, mid, "RESEARCH");
-  const outputAbsPath = resolveMilestoneFile(base, mid, "RESEARCH") ?? join(base, outputRelPath);
+  const outputAbsPath =
+    resolveMilestoneFile(base, mid, "RESEARCH") ?? join(base, outputRelPath);
   return loadPrompt("research-milestone", {
-    milestoneId: mid, milestoneTitle: midTitle,
+    milestoneId: mid,
+    milestoneTitle: midTitle,
     milestonePath: relMilestonePath(base, mid),
     contextPath: contextRel,
     outputPath: outputRelPath,
@@ -1185,7 +1462,11 @@ async function buildResearchMilestonePrompt(mid: string, midTitle: string, base:
   });
 }
 
-async function buildPlanMilestonePrompt(mid: string, midTitle: string, base: string): Promise<string> {
+async function buildPlanMilestonePrompt(
+  mid: string,
+  midTitle: string,
+  base: string,
+): Promise<string> {
   const contextPath = resolveMilestoneFile(base, mid, "CONTEXT");
   const contextRel = relMilestoneFile(base, mid, "CONTEXT");
   const researchPath = resolveMilestoneFile(base, mid, "RESEARCH");
@@ -1193,23 +1474,37 @@ async function buildPlanMilestonePrompt(mid: string, midTitle: string, base: str
 
   const inlined: string[] = [];
   inlined.push(await inlineFile(contextPath, contextRel, "Milestone Context"));
-  const researchInline = await inlineFileOptional(researchPath, researchRel, "Milestone Research");
+  const researchInline = await inlineFileOptional(
+    researchPath,
+    researchRel,
+    "Milestone Research",
+  );
   if (researchInline) inlined.push(researchInline);
   const priorSummaryInline = await inlinePriorMilestoneSummary(mid, base);
   if (priorSummaryInline) inlined.push(priorSummaryInline);
   const projectInline = await inlineGsdRootFile(base, "project.md", "Project");
   if (projectInline) inlined.push(projectInline);
-  const requirementsInline = await inlineGsdRootFile(base, "requirements.md", "Requirements");
+  const requirementsInline = await inlineGsdRootFile(
+    base,
+    "requirements.md",
+    "Requirements",
+  );
   if (requirementsInline) inlined.push(requirementsInline);
-  const decisionsInline = await inlineGsdRootFile(base, "decisions.md", "Decisions");
+  const decisionsInline = await inlineGsdRootFile(
+    base,
+    "decisions.md",
+    "Decisions",
+  );
   if (decisionsInline) inlined.push(decisionsInline);
 
   const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
   const outputRelPath = relMilestoneFile(base, mid, "ROADMAP");
-  const outputAbsPath = resolveMilestoneFile(base, mid, "ROADMAP") ?? join(base, outputRelPath);
+  const outputAbsPath =
+    resolveMilestoneFile(base, mid, "ROADMAP") ?? join(base, outputRelPath);
   return loadPrompt("plan-milestone", {
-    milestoneId: mid, milestoneTitle: midTitle,
+    milestoneId: mid,
+    milestoneTitle: midTitle,
     milestonePath: relMilestonePath(base, mid),
     contextPath: contextRel,
     researchPath: researchRel,
@@ -1220,7 +1515,11 @@ async function buildPlanMilestonePrompt(mid: string, midTitle: string, base: str
 }
 
 async function buildResearchSlicePrompt(
-  mid: string, _midTitle: string, sid: string, sTitle: string, base: string,
+  mid: string,
+  _midTitle: string,
+  sid: string,
+  sTitle: string,
+  base: string,
 ): Promise<string> {
   const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
   const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
@@ -1231,13 +1530,29 @@ async function buildResearchSlicePrompt(
 
   const inlined: string[] = [];
   inlined.push(await inlineFile(roadmapPath, roadmapRel, "Milestone Roadmap"));
-  const contextInline = await inlineFileOptional(contextPath, contextRel, "Milestone Context");
+  const contextInline = await inlineFileOptional(
+    contextPath,
+    contextRel,
+    "Milestone Context",
+  );
   if (contextInline) inlined.push(contextInline);
-  const researchInline = await inlineFileOptional(milestoneResearchPath, milestoneResearchRel, "Milestone Research");
+  const researchInline = await inlineFileOptional(
+    milestoneResearchPath,
+    milestoneResearchRel,
+    "Milestone Research",
+  );
   if (researchInline) inlined.push(researchInline);
-  const decisionsInline = await inlineGsdRootFile(base, "decisions.md", "Decisions");
+  const decisionsInline = await inlineGsdRootFile(
+    base,
+    "decisions.md",
+    "Decisions",
+  );
   if (decisionsInline) inlined.push(decisionsInline);
-  const requirementsInline = await inlineGsdRootFile(base, "requirements.md", "Requirements");
+  const requirementsInline = await inlineGsdRootFile(
+    base,
+    "requirements.md",
+    "Requirements",
+  );
   if (requirementsInline) inlined.push(requirementsInline);
 
   const depContent = await inlineDependencySummaries(mid, sid, base);
@@ -1245,9 +1560,12 @@ async function buildResearchSlicePrompt(
   const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
   const outputRelPath = relSliceFile(base, mid, sid, "RESEARCH");
-  const outputAbsPath = resolveSliceFile(base, mid, sid, "RESEARCH") ?? join(base, outputRelPath);
+  const outputAbsPath =
+    resolveSliceFile(base, mid, sid, "RESEARCH") ?? join(base, outputRelPath);
   return loadPrompt("research-slice", {
-    milestoneId: mid, sliceId: sid, sliceTitle: sTitle,
+    milestoneId: mid,
+    sliceId: sid,
+    sliceTitle: sTitle,
     slicePath: relSlicePath(base, mid, sid),
     roadmapPath: roadmapRel,
     contextPath: contextRel,
@@ -1261,7 +1579,11 @@ async function buildResearchSlicePrompt(
 }
 
 async function buildPlanSlicePrompt(
-  mid: string, _midTitle: string, sid: string, sTitle: string, base: string,
+  mid: string,
+  _midTitle: string,
+  sid: string,
+  sTitle: string,
+  base: string,
 ): Promise<string> {
   const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
   const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
@@ -1270,11 +1592,23 @@ async function buildPlanSlicePrompt(
 
   const inlined: string[] = [];
   inlined.push(await inlineFile(roadmapPath, roadmapRel, "Milestone Roadmap"));
-  const researchInline = await inlineFileOptional(researchPath, researchRel, "Slice Research");
+  const researchInline = await inlineFileOptional(
+    researchPath,
+    researchRel,
+    "Slice Research",
+  );
   if (researchInline) inlined.push(researchInline);
-  const decisionsInline = await inlineGsdRootFile(base, "decisions.md", "Decisions");
+  const decisionsInline = await inlineGsdRootFile(
+    base,
+    "decisions.md",
+    "Decisions",
+  );
   if (decisionsInline) inlined.push(decisionsInline);
-  const requirementsInline = await inlineGsdRootFile(base, "requirements.md", "Requirements");
+  const requirementsInline = await inlineGsdRootFile(
+    base,
+    "requirements.md",
+    "Requirements",
+  );
   if (requirementsInline) inlined.push(requirementsInline);
 
   const depContent = await inlineDependencySummaries(mid, sid, base);
@@ -1282,10 +1616,15 @@ async function buildPlanSlicePrompt(
   const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
   const outputRelPath = relSliceFile(base, mid, sid, "PLAN");
-  const outputAbsPath = resolveSliceFile(base, mid, sid, "PLAN") ?? join(base, outputRelPath);
-  const sliceAbsPath = resolveSlicePath(base, mid, sid) ?? join(base, relSlicePath(base, mid, sid));
+  const outputAbsPath =
+    resolveSliceFile(base, mid, sid, "PLAN") ?? join(base, outputRelPath);
+  const sliceAbsPath =
+    resolveSlicePath(base, mid, sid) ??
+    join(base, relSlicePath(base, mid, sid));
   return loadPrompt("plan-slice", {
-    milestoneId: mid, sliceId: sid, sliceTitle: sTitle,
+    milestoneId: mid,
+    sliceId: sid,
+    sliceTitle: sTitle,
     slicePath: relSlicePath(base, mid, sid),
     sliceAbsPath,
     roadmapPath: roadmapRel,
@@ -1298,40 +1637,52 @@ async function buildPlanSlicePrompt(
 }
 
 async function buildExecuteTaskPrompt(
-  mid: string, sid: string, sTitle: string,
-  tid: string, tTitle: string, base: string,
+  mid: string,
+  sid: string,
+  sTitle: string,
+  tid: string,
+  tTitle: string,
+  base: string,
 ): Promise<string> {
-
   const priorSummaries = await getPriorTaskSummaryPaths(mid, sid, tid, base);
-  const priorLines = priorSummaries.length > 0
-    ? priorSummaries.map(p => `- \`${p}\``).join("\n")
-    : "- (no prior tasks)";
+  const priorLines =
+    priorSummaries.length > 0
+      ? priorSummaries.map((p) => `- \`${p}\``).join("\n")
+      : "- (no prior tasks)";
 
   const taskPlanPath = resolveTaskFile(base, mid, sid, tid, "PLAN");
   const taskPlanContent = taskPlanPath ? await loadFile(taskPlanPath) : null;
   const taskPlanRelPath = relTaskFile(base, mid, sid, tid, "PLAN");
   const taskPlanInline = taskPlanContent
     ? [
-      "## Inlined Task Plan (authoritative local execution contract)",
-      `Source: \`${taskPlanRelPath}\``,
-      "",
-      taskPlanContent.trim(),
-    ].join("\n")
+        "## Inlined Task Plan (authoritative local execution contract)",
+        `Source: \`${taskPlanRelPath}\``,
+        "",
+        taskPlanContent.trim(),
+      ].join("\n")
     : [
-      "## Inlined Task Plan (authoritative local execution contract)",
-      `Task plan not found at dispatch time. Read \`${taskPlanRelPath}\` before executing.`,
-    ].join("\n");
+        "## Inlined Task Plan (authoritative local execution contract)",
+        `Task plan not found at dispatch time. Read \`${taskPlanRelPath}\` before executing.`,
+      ].join("\n");
 
   const slicePlanPath = resolveSliceFile(base, mid, sid, "PLAN");
   const slicePlanContent = slicePlanPath ? await loadFile(slicePlanPath) : null;
-  const slicePlanExcerpt = extractSliceExecutionExcerpt(slicePlanContent, relSliceFile(base, mid, sid, "PLAN"));
+  const slicePlanExcerpt = extractSliceExecutionExcerpt(
+    slicePlanContent,
+    relSliceFile(base, mid, sid, "PLAN"),
+  );
 
   // Check for continue file (new naming or legacy)
   const continueFile = resolveSliceFile(base, mid, sid, "CONTINUE");
   const legacyContinueDir = resolveSlicePath(base, mid, sid);
-  const legacyContinuePath = legacyContinueDir ? join(legacyContinueDir, "continue.md") : null;
+  const legacyContinuePath = legacyContinueDir
+    ? join(legacyContinueDir, "continue.md")
+    : null;
   const continueContent = continueFile ? await loadFile(continueFile) : null;
-  const legacyContinueContent = !continueContent && legacyContinuePath ? await loadFile(legacyContinuePath) : null;
+  const legacyContinueContent =
+    !continueContent && legacyContinuePath
+      ? await loadFile(legacyContinuePath)
+      : null;
   const continueRelPath = relSliceFile(base, mid, sid, "CONTINUE");
   const resumeSection = buildResumeSection(
     continueContent,
@@ -1340,13 +1691,22 @@ async function buildExecuteTaskPrompt(
     legacyContinuePath ? `${relSlicePath(base, mid, sid)}/continue.md` : null,
   );
 
-  const carryForwardSection = await buildCarryForwardSection(priorSummaries, base);
+  const carryForwardSection = await buildCarryForwardSection(
+    priorSummaries,
+    base,
+  );
 
-  const sliceDirAbs = resolveSlicePath(base, mid, sid) ?? join(base, relSlicePath(base, mid, sid));
+  const sliceDirAbs =
+    resolveSlicePath(base, mid, sid) ??
+    join(base, relSlicePath(base, mid, sid));
   const taskSummaryAbsPath = join(sliceDirAbs, "tasks", `${tid}-SUMMARY.md`);
 
   return loadPrompt("execute-task", {
-    milestoneId: mid, sliceId: sid, sliceTitle: sTitle, taskId: tid, taskTitle: tTitle,
+    milestoneId: mid,
+    sliceId: sid,
+    sliceTitle: sTitle,
+    taskId: tid,
+    taskTitle: tTitle,
     planPath: relSliceFile(base, mid, sid, "PLAN"),
     slicePath: relSlicePath(base, mid, sid),
     taskPlanPath: taskPlanRelPath,
@@ -1360,9 +1720,12 @@ async function buildExecuteTaskPrompt(
 }
 
 async function buildCompleteSlicePrompt(
-  mid: string, _midTitle: string, sid: string, sTitle: string, base: string,
+  mid: string,
+  _midTitle: string,
+  sid: string,
+  sTitle: string,
+  base: string,
 ): Promise<string> {
-
   const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
   const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
   const slicePlanPath = resolveSliceFile(base, mid, sid, "PLAN");
@@ -1371,7 +1734,11 @@ async function buildCompleteSlicePrompt(
   const inlined: string[] = [];
   inlined.push(await inlineFile(roadmapPath, roadmapRel, "Milestone Roadmap"));
   inlined.push(await inlineFile(slicePlanPath, slicePlanRel, "Slice Plan"));
-  const requirementsInline = await inlineGsdRootFile(base, "requirements.md", "Requirements");
+  const requirementsInline = await inlineGsdRootFile(
+    base,
+    "requirements.md",
+    "Requirements",
+  );
   if (requirementsInline) inlined.push(requirementsInline);
 
   // Inline all task summaries for this slice
@@ -1384,19 +1751,25 @@ async function buildCompleteSlicePrompt(
       const sRel = relSlicePath(base, mid, sid);
       const relPath = `${sRel}/tasks/${file}`;
       if (content) {
-        inlined.push(`### Task Summary: ${file.replace(/-SUMMARY\.md$/i, "")}\nSource: \`${relPath}\`\n\n${content.trim()}`);
+        inlined.push(
+          `### Task Summary: ${file.replace(/-SUMMARY\.md$/i, "")}\nSource: \`${relPath}\`\n\n${content.trim()}`,
+        );
       }
     }
   }
 
   const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
-  const sliceDirAbs = resolveSlicePath(base, mid, sid) ?? join(base, relSlicePath(base, mid, sid));
+  const sliceDirAbs =
+    resolveSlicePath(base, mid, sid) ??
+    join(base, relSlicePath(base, mid, sid));
   const sliceSummaryAbsPath = join(sliceDirAbs, `${sid}-SUMMARY.md`);
   const sliceUatAbsPath = join(sliceDirAbs, `${sid}-UAT.md`);
 
   return loadPrompt("complete-slice", {
-    milestoneId: mid, sliceId: sid, sliceTitle: sTitle,
+    milestoneId: mid,
+    sliceId: sid,
+    sliceTitle: sTitle,
     slicePath: relSlicePath(base, mid, sid),
     roadmapPath: roadmapRel,
     inlinedContext,
@@ -1406,7 +1779,9 @@ async function buildCompleteSlicePrompt(
 }
 
 async function buildCompleteMilestonePrompt(
-  mid: string, midTitle: string, base: string,
+  mid: string,
+  midTitle: string,
+  base: string,
 ): Promise<string> {
   const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
   const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
@@ -1421,26 +1796,41 @@ async function buildCompleteMilestonePrompt(
     for (const slice of roadmap.slices) {
       const summaryPath = resolveSliceFile(base, mid, slice.id, "SUMMARY");
       const summaryRel = relSliceFile(base, mid, slice.id, "SUMMARY");
-      inlined.push(await inlineFile(summaryPath, summaryRel, `${slice.id} Summary`));
+      inlined.push(
+        await inlineFile(summaryPath, summaryRel, `${slice.id} Summary`),
+      );
     }
   }
 
   // Inline root GSD files
-  const requirementsInline = await inlineGsdRootFile(base, "requirements.md", "Requirements");
+  const requirementsInline = await inlineGsdRootFile(
+    base,
+    "requirements.md",
+    "Requirements",
+  );
   if (requirementsInline) inlined.push(requirementsInline);
-  const decisionsInline = await inlineGsdRootFile(base, "decisions.md", "Decisions");
+  const decisionsInline = await inlineGsdRootFile(
+    base,
+    "decisions.md",
+    "Decisions",
+  );
   if (decisionsInline) inlined.push(decisionsInline);
   const projectInline = await inlineGsdRootFile(base, "project.md", "Project");
   if (projectInline) inlined.push(projectInline);
   // Inline milestone context file (milestone-level, not GSD root)
   const contextPath = resolveMilestoneFile(base, mid, "CONTEXT");
   const contextRel = relMilestoneFile(base, mid, "CONTEXT");
-  const contextInline = await inlineFileOptional(contextPath, contextRel, "Milestone Context");
+  const contextInline = await inlineFileOptional(
+    contextPath,
+    contextRel,
+    "Milestone Context",
+  );
   if (contextInline) inlined.push(contextInline);
 
   const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
-  const milestoneDirAbs = resolveMilestonePath(base, mid) ?? join(base, relMilestonePath(base, mid));
+  const milestoneDirAbs =
+    resolveMilestonePath(base, mid) ?? join(base, relMilestonePath(base, mid));
   const milestoneSummaryAbsPath = join(milestoneDirAbs, `${mid}-SUMMARY.md`);
 
   return loadPrompt("complete-milestone", {
@@ -1455,7 +1845,11 @@ async function buildCompleteMilestonePrompt(
 // ─── Replan Slice Prompt ───────────────────────────────────────────────────────
 
 async function buildReplanSlicePrompt(
-  mid: string, midTitle: string, sid: string, sTitle: string, base: string,
+  mid: string,
+  midTitle: string,
+  sid: string,
+  sTitle: string,
+  base: string,
 ): Promise<string> {
   const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
   const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
@@ -1464,7 +1858,9 @@ async function buildReplanSlicePrompt(
 
   const inlined: string[] = [];
   inlined.push(await inlineFile(roadmapPath, roadmapRel, "Milestone Roadmap"));
-  inlined.push(await inlineFile(slicePlanPath, slicePlanRel, "Current Slice Plan"));
+  inlined.push(
+    await inlineFile(slicePlanPath, slicePlanRel, "Current Slice Plan"),
+  );
 
   // Find the blocker task summary — the completed task with blocker_discovered: true
   let blockerTaskId = "";
@@ -1479,19 +1875,28 @@ async function buildReplanSlicePrompt(
       const sRel = relSlicePath(base, mid, sid);
       const relPath = `${sRel}/tasks/${file}`;
       if (summary.frontmatter.blocker_discovered) {
-        blockerTaskId = summary.frontmatter.id || file.replace(/-SUMMARY\.md$/i, "");
-        inlined.push(`### Blocker Task Summary: ${blockerTaskId}\nSource: \`${relPath}\`\n\n${content.trim()}`);
+        blockerTaskId =
+          summary.frontmatter.id || file.replace(/-SUMMARY\.md$/i, "");
+        inlined.push(
+          `### Blocker Task Summary: ${blockerTaskId}\nSource: \`${relPath}\`\n\n${content.trim()}`,
+        );
       }
     }
   }
 
   // Inline decisions
-  const decisionsInline = await inlineGsdRootFile(base, "decisions.md", "Decisions");
+  const decisionsInline = await inlineGsdRootFile(
+    base,
+    "decisions.md",
+    "Decisions",
+  );
   if (decisionsInline) inlined.push(decisionsInline);
 
   const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
-  const sliceDirAbs = resolveSlicePath(base, mid, sid) ?? join(base, relSlicePath(base, mid, sid));
+  const sliceDirAbs =
+    resolveSlicePath(base, mid, sid) ??
+    join(base, relSlicePath(base, mid, sid));
   const replanAbsPath = join(sliceDirAbs, `${sid}-REPLAN.md`);
 
   return loadPrompt("replan-slice", {
@@ -1519,29 +1924,37 @@ async function buildReplanSlicePrompt(
  * - All slices are complete (milestone done — no point reassessing)
  */
 async function checkNeedsReassessment(
-  base: string, mid: string, state: GSDState,
+  base: string,
+  mid: string,
+  state: GSDState,
 ): Promise<{ sliceId: string } | null> {
   const roadmapFile = resolveMilestoneFile(base, mid, "ROADMAP");
   const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
   if (!roadmapContent) return null;
 
   const roadmap = parseRoadmap(roadmapContent);
-  const completedSlices = roadmap.slices.filter(s => s.done);
-  const incompleteSlices = roadmap.slices.filter(s => !s.done);
+  const completedSlices = roadmap.slices.filter((s) => s.done);
+  const incompleteSlices = roadmap.slices.filter((s) => !s.done);
 
   // No completed slices or all slices done — skip
-  if (completedSlices.length === 0 || incompleteSlices.length === 0) return null;
+  if (completedSlices.length === 0 || incompleteSlices.length === 0)
+    return null;
 
   // Check the last completed slice
   const lastCompleted = completedSlices[completedSlices.length - 1];
-  const assessmentFile = resolveSliceFile(base, mid, lastCompleted.id, "ASSESSMENT");
-  const hasAssessment = !!(assessmentFile && await loadFile(assessmentFile));
+  const assessmentFile = resolveSliceFile(
+    base,
+    mid,
+    lastCompleted.id,
+    "ASSESSMENT",
+  );
+  const hasAssessment = !!(assessmentFile && (await loadFile(assessmentFile)));
 
   if (hasAssessment) return null;
 
   // Also need a summary to reassess against
   const summaryFile = resolveSliceFile(base, mid, lastCompleted.id, "SUMMARY");
-  const hasSummary = !!(summaryFile && await loadFile(summaryFile));
+  const hasSummary = !!(summaryFile && (await loadFile(summaryFile)));
 
   if (!hasSummary) return null;
 
@@ -1560,15 +1973,18 @@ async function checkNeedsReassessment(
  * - UAT result file already exists (idempotent — already ran)
  */
 async function checkNeedsRunUat(
-  base: string, mid: string, state: GSDState, prefs: GSDPreferences | undefined,
+  base: string,
+  mid: string,
+  state: GSDState,
+  prefs: GSDPreferences | undefined,
 ): Promise<{ sliceId: string; uatType: UatType } | null> {
   const roadmapFile = resolveMilestoneFile(base, mid, "ROADMAP");
   const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
   if (!roadmapContent) return null;
 
   const roadmap = parseRoadmap(roadmapContent);
-  const completedSlices = roadmap.slices.filter(s => s.done);
-  const incompleteSlices = roadmap.slices.filter(s => !s.done);
+  const completedSlices = roadmap.slices.filter((s) => s.done);
+  const incompleteSlices = roadmap.slices.filter((s) => !s.done);
 
   // No completed slices — nothing to UAT yet
   if (completedSlices.length === 0) return null;
@@ -1603,15 +2019,29 @@ async function checkNeedsRunUat(
 }
 
 async function buildRunUatPrompt(
-  mid: string, sliceId: string, uatPath: string, uatContent: string, base: string,
+  mid: string,
+  sliceId: string,
+  uatPath: string,
+  uatContent: string,
+  base: string,
 ): Promise<string> {
   const inlined: string[] = [];
-  inlined.push(await inlineFile(resolveSliceFile(base, mid, sliceId, "UAT"), uatPath, `${sliceId} UAT`));
+  inlined.push(
+    await inlineFile(
+      resolveSliceFile(base, mid, sliceId, "UAT"),
+      uatPath,
+      `${sliceId} UAT`,
+    ),
+  );
 
   const summaryPath = resolveSliceFile(base, mid, sliceId, "SUMMARY");
   const summaryRel = relSliceFile(base, mid, sliceId, "SUMMARY");
   if (summaryPath) {
-    const summaryInline = await inlineFileOptional(summaryPath, summaryRel, `${sliceId} Summary`);
+    const summaryInline = await inlineFileOptional(
+      summaryPath,
+      summaryRel,
+      `${sliceId} Summary`,
+    );
     if (summaryInline) inlined.push(summaryInline);
   }
 
@@ -1620,7 +2050,9 @@ async function buildRunUatPrompt(
 
   const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
-  const sliceDirAbs = resolveSlicePath(base, mid, sliceId) ?? join(base, relSlicePath(base, mid, sliceId));
+  const sliceDirAbs =
+    resolveSlicePath(base, mid, sliceId) ??
+    join(base, relSlicePath(base, mid, sliceId));
   const uatResultAbsPath = join(sliceDirAbs, `${sliceId}-UAT-RESULT.md`);
   const uatResultPath = relSliceFile(base, mid, sliceId, "UAT-RESULT");
   const uatType = extractUatType(uatContent) ?? "human-experience";
@@ -1637,7 +2069,10 @@ async function buildRunUatPrompt(
 }
 
 async function buildReassessRoadmapPrompt(
-  mid: string, midTitle: string, completedSliceId: string, base: string,
+  mid: string,
+  midTitle: string,
+  completedSliceId: string,
+  base: string,
 ): Promise<string> {
   const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
   const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
@@ -1646,19 +2081,34 @@ async function buildReassessRoadmapPrompt(
 
   const inlined: string[] = [];
   inlined.push(await inlineFile(roadmapPath, roadmapRel, "Current Roadmap"));
-  inlined.push(await inlineFile(summaryPath, summaryRel, `${completedSliceId} Summary`));
+  inlined.push(
+    await inlineFile(summaryPath, summaryRel, `${completedSliceId} Summary`),
+  );
   const projectInline = await inlineGsdRootFile(base, "project.md", "Project");
   if (projectInline) inlined.push(projectInline);
-  const requirementsInline = await inlineGsdRootFile(base, "requirements.md", "Requirements");
+  const requirementsInline = await inlineGsdRootFile(
+    base,
+    "requirements.md",
+    "Requirements",
+  );
   if (requirementsInline) inlined.push(requirementsInline);
-  const decisionsInline = await inlineGsdRootFile(base, "decisions.md", "Decisions");
+  const decisionsInline = await inlineGsdRootFile(
+    base,
+    "decisions.md",
+    "Decisions",
+  );
   if (decisionsInline) inlined.push(decisionsInline);
 
   const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
   const assessmentRel = relSliceFile(base, mid, completedSliceId, "ASSESSMENT");
-  const sliceDirAbs = resolveSlicePath(base, mid, completedSliceId) ?? join(base, relSlicePath(base, mid, completedSliceId));
-  const assessmentAbsPath = join(sliceDirAbs, `${completedSliceId}-ASSESSMENT.md`);
+  const sliceDirAbs =
+    resolveSlicePath(base, mid, completedSliceId) ??
+    join(base, relSlicePath(base, mid, completedSliceId));
+  const assessmentAbsPath = join(
+    sliceDirAbs,
+    `${completedSliceId}-ASSESSMENT.md`,
+  );
 
   return loadPrompt("reassess-roadmap", {
     milestoneId: mid,
@@ -1672,7 +2122,10 @@ async function buildReassessRoadmapPrompt(
   });
 }
 
-function extractSliceExecutionExcerpt(content: string | null, relPath: string): string {
+function extractSliceExecutionExcerpt(
+  content: string | null,
+  relPath: string,
+): string {
   if (!content) {
     return [
       "## Slice Plan Excerpt",
@@ -1681,11 +2134,14 @@ function extractSliceExecutionExcerpt(content: string | null, relPath: string): 
   }
 
   const lines = content.split("\n");
-  const goalLine = lines.find(l => l.startsWith("**Goal:**"))?.trim();
-  const demoLine = lines.find(l => l.startsWith("**Demo:**"))?.trim();
+  const goalLine = lines.find((l) => l.startsWith("**Goal:**"))?.trim();
+  const demoLine = lines.find((l) => l.startsWith("**Demo:**"))?.trim();
 
   const verification = extractMarkdownSection(content, "Verification");
-  const observability = extractMarkdownSection(content, "Observability / Diagnostics");
+  const observability = extractMarkdownSection(
+    content,
+    "Observability / Diagnostics",
+  );
 
   const parts = ["## Slice Plan Excerpt", `Source: \`${relPath}\``];
   if (goalLine) parts.push(goalLine);
@@ -1694,14 +2150,23 @@ function extractSliceExecutionExcerpt(content: string | null, relPath: string): 
     parts.push("", "### Slice Verification", verification.trim());
   }
   if (observability) {
-    parts.push("", "### Slice Observability / Diagnostics", observability.trim());
+    parts.push(
+      "",
+      "### Slice Observability / Diagnostics",
+      observability.trim(),
+    );
   }
 
   return parts.join("\n");
 }
 
-function extractMarkdownSection(content: string, heading: string): string | null {
-  const match = new RegExp(`^## ${escapeRegExp(heading)}\\s*$`, "m").exec(content);
+function extractMarkdownSection(
+  content: string,
+  heading: string,
+): string | null {
+  const match = new RegExp(`^## ${escapeRegExp(heading)}\\s*$`, "m").exec(
+    content,
+  );
   if (!match) return null;
 
   const start = match.index + match[0].length;
@@ -1722,10 +2187,15 @@ function buildResumeSection(
   legacyContinueRelPath: string | null,
 ): string {
   const resolvedContent = continueContent ?? legacyContinueContent;
-  const resolvedRelPath = continueContent ? continueRelPath : legacyContinueRelPath;
+  const resolvedRelPath = continueContent
+    ? continueRelPath
+    : legacyContinueRelPath;
 
   if (!resolvedContent || !resolvedRelPath) {
-    return ["## Resume State", "- No continue file present. Start from the top of the task plan."].join("\n");
+    return [
+      "## Resume State",
+      "- No continue file present. Start from the top of the task plan.",
+    ].join("\n");
   }
 
   const cont = parseContinue(resolvedContent);
@@ -1736,41 +2206,57 @@ function buildResumeSection(
   ];
 
   if (cont.frontmatter.step && cont.frontmatter.totalSteps) {
-    lines.push(`- Progress: step ${cont.frontmatter.step} of ${cont.frontmatter.totalSteps}`);
+    lines.push(
+      `- Progress: step ${cont.frontmatter.step} of ${cont.frontmatter.totalSteps}`,
+    );
   }
-  if (cont.completedWork) lines.push(`- Completed: ${oneLine(cont.completedWork)}`);
-  if (cont.remainingWork) lines.push(`- Remaining: ${oneLine(cont.remainingWork)}`);
+  if (cont.completedWork)
+    lines.push(`- Completed: ${oneLine(cont.completedWork)}`);
+  if (cont.remainingWork)
+    lines.push(`- Remaining: ${oneLine(cont.remainingWork)}`);
   if (cont.decisions) lines.push(`- Decisions: ${oneLine(cont.decisions)}`);
   if (cont.nextAction) lines.push(`- Next action: ${oneLine(cont.nextAction)}`);
 
   return lines.join("\n");
 }
 
-async function buildCarryForwardSection(priorSummaryPaths: string[], base: string): Promise<string> {
+async function buildCarryForwardSection(
+  priorSummaryPaths: string[],
+  base: string,
+): Promise<string> {
   if (priorSummaryPaths.length === 0) {
-    return ["## Carry-Forward Context", "- No prior task summaries in this slice."].join("\n");
+    return [
+      "## Carry-Forward Context",
+      "- No prior task summaries in this slice.",
+    ].join("\n");
   }
 
-  const items = await Promise.all(priorSummaryPaths.map(async (relPath) => {
-    const absPath = join(base, relPath);
-    const content = await loadFile(absPath);
-    if (!content) return `- \`${relPath}\``;
+  const items = await Promise.all(
+    priorSummaryPaths.map(async (relPath) => {
+      const absPath = join(base, relPath);
+      const content = await loadFile(absPath);
+      if (!content) return `- \`${relPath}\``;
 
-    const summary = parseSummary(content);
-    const provided = summary.frontmatter.provides.slice(0, 2).join("; ");
-    const decisions = summary.frontmatter.key_decisions.slice(0, 2).join("; ");
-    const patterns = summary.frontmatter.patterns_established.slice(0, 2).join("; ");
-    const diagnostics = extractMarkdownSection(content, "Diagnostics");
+      const summary = parseSummary(content);
+      const provided = summary.frontmatter.provides.slice(0, 2).join("; ");
+      const decisions = summary.frontmatter.key_decisions
+        .slice(0, 2)
+        .join("; ");
+      const patterns = summary.frontmatter.patterns_established
+        .slice(0, 2)
+        .join("; ");
+      const diagnostics = extractMarkdownSection(content, "Diagnostics");
 
-    const parts = [summary.title || relPath];
-    if (summary.oneLiner) parts.push(summary.oneLiner);
-    if (provided) parts.push(`provides: ${provided}`);
-    if (decisions) parts.push(`decisions: ${decisions}`);
-    if (patterns) parts.push(`patterns: ${patterns}`);
-    if (diagnostics) parts.push(`diagnostics: ${oneLine(diagnostics)}`);
+      const parts = [summary.title || relPath];
+      if (summary.oneLiner) parts.push(summary.oneLiner);
+      if (provided) parts.push(`provides: ${provided}`);
+      if (decisions) parts.push(`decisions: ${decisions}`);
+      if (patterns) parts.push(`patterns: ${patterns}`);
+      if (diagnostics) parts.push(`diagnostics: ${oneLine(diagnostics)}`);
 
-    return `- \`${relPath}\` — ${parts.join(" | ")}`;
-  }));
+      return `- \`${relPath}\` — ${parts.join(" | ")}`;
+    }),
+  );
 
   return ["## Carry-Forward Context", ...items].join("\n");
 }
@@ -1780,7 +2266,10 @@ function oneLine(text: string): string {
 }
 
 async function getPriorTaskSummaryPaths(
-  mid: string, sid: string, currentTid: string, base: string,
+  mid: string,
+  sid: string,
+  currentTid: string,
+  base: string,
 ): Promise<string[]> {
   const tDir = resolveTasksDir(base, mid, sid);
   if (!tDir) return [];
@@ -1790,11 +2279,11 @@ async function getPriorTaskSummaryPaths(
   const sRel = relSlicePath(base, mid, sid);
 
   return summaryFiles
-    .filter(f => {
+    .filter((f) => {
       const num = parseInt(f.replace(/^T/, ""), 10);
       return num < currentNum;
     })
-    .map(f => `${sRel}/tasks/${f}`);
+    .map((f) => `${sRel}/tasks/${f}`);
 }
 
 // ─── Preconditions ────────────────────────────────────────────────────────────
@@ -1804,7 +2293,10 @@ async function getPriorTaskSummaryPaths(
  * dispatching a unit. The LLM should never need to mkdir or git checkout.
  */
 function ensurePreconditions(
-  unitType: string, unitId: string, base: string, state: GSDState,
+  unitType: string,
+  unitId: string,
+  base: string,
+  state: GSDState,
 ): void {
   const parts = unitId.split("/");
   const mid = parts[0]!;
@@ -1839,7 +2331,16 @@ function ensurePreconditions(
     }
   }
 
-  if (["research-slice", "plan-slice", "execute-task", "complete-slice", "replan-slice"].includes(unitType) && parts.length >= 2) {
+  if (
+    [
+      "research-slice",
+      "plan-slice",
+      "execute-task",
+      "complete-slice",
+      "replan-slice",
+    ].includes(unitType) &&
+    parts.length >= 2
+  ) {
     const sid = parts[1]!;
     ensureSliceBranch(base, mid, sid);
   }
@@ -1898,12 +2399,19 @@ async function recoverTimedOutUnit(
       recovery: status,
     });
 
-    const durableComplete = status.summaryExists && status.taskChecked && status.nextActionAdvanced;
+    const durableComplete =
+      status.summaryExists && status.taskChecked && status.nextActionAdvanced;
     if (durableComplete) {
-      writeUnitRuntimeRecord(basePath, unitType, unitId, currentUnit.startedAt, {
-        phase: "finalized",
-        recovery: status,
-      });
+      writeUnitRuntimeRecord(
+        basePath,
+        unitType,
+        unitId,
+        currentUnit.startedAt,
+        {
+          phase: "finalized",
+          recovery: status,
+        },
+      );
       ctx.ui.notify(
         `${reason === "idle" ? "Idle" : "Timeout"} recovery: ${unitType} ${unitId} already completed on disk. Continuing auto-mode.`,
         "info",
@@ -1914,15 +2422,22 @@ async function recoverTimedOutUnit(
 
     if (recoveryAttempts < maxRecoveryAttempts) {
       const isEscalation = recoveryAttempts > 0;
-      writeUnitRuntimeRecord(basePath, unitType, unitId, currentUnit.startedAt, {
-        phase: "recovered",
-        recovery: status,
-        recoveryAttempts: recoveryAttempts + 1,
-        lastRecoveryReason: reason,
-        lastProgressAt: Date.now(),
-        progressCount: (runtime?.progressCount ?? 0) + 1,
-        lastProgressKind: reason === "idle" ? "idle-recovery-retry" : "hard-recovery-retry",
-      });
+      writeUnitRuntimeRecord(
+        basePath,
+        unitType,
+        unitId,
+        currentUnit.startedAt,
+        {
+          phase: "recovered",
+          recovery: status,
+          recoveryAttempts: recoveryAttempts + 1,
+          lastRecoveryReason: reason,
+          lastProgressAt: Date.now(),
+          progressCount: (runtime?.progressCount ?? 0) + 1,
+          lastProgressKind:
+            reason === "idle" ? "idle-recovery-retry" : "hard-recovery-retry",
+        },
+      );
 
       const steeringLines = isEscalation
         ? [
@@ -1963,17 +2478,32 @@ async function recoverTimedOutUnit(
     // Retries exhausted — write missing durable artifacts and advance.
     const diagnostic = formatExecuteTaskRecoveryStatus(status);
     const [mid, sid, tid] = unitId.split("/");
-    const skipped = mid && sid && tid
-      ? skipExecuteTask(basePath, mid, sid, tid, status, reason, maxRecoveryAttempts)
-      : false;
+    const skipped =
+      mid && sid && tid
+        ? skipExecuteTask(
+            basePath,
+            mid,
+            sid,
+            tid,
+            status,
+            reason,
+            maxRecoveryAttempts,
+          )
+        : false;
 
     if (skipped) {
-      writeUnitRuntimeRecord(basePath, unitType, unitId, currentUnit.startedAt, {
-        phase: "skipped",
-        recovery: status,
-        recoveryAttempts: recoveryAttempts + 1,
-        lastRecoveryReason: reason,
-      });
+      writeUnitRuntimeRecord(
+        basePath,
+        unitType,
+        unitId,
+        currentUnit.startedAt,
+        {
+          phase: "skipped",
+          recovery: status,
+          recoveryAttempts: recoveryAttempts + 1,
+          lastRecoveryReason: reason,
+        },
+      );
       ctx.ui.notify(
         `${unitType} ${unitId} skipped after ${maxRecoveryAttempts} recovery attempts (${diagnostic}). Blocker artifacts written. Advancing pipeline.`,
         "warning",
@@ -1996,7 +2526,9 @@ async function recoverTimedOutUnit(
     return "paused";
   }
 
-  const expected = diagnoseExpectedArtifact(unitType, unitId, basePath) ?? "required durable artifact";
+  const expected =
+    diagnoseExpectedArtifact(unitType, unitId, basePath) ??
+    "required durable artifact";
 
   // Check if the artifact already exists on disk — agent may have written it
   // without signaling completion.
@@ -2023,7 +2555,8 @@ async function recoverTimedOutUnit(
       lastRecoveryReason: reason,
       lastProgressAt: Date.now(),
       progressCount: (runtime?.progressCount ?? 0) + 1,
-      lastProgressKind: reason === "idle" ? "idle-recovery-retry" : "hard-recovery-retry",
+      lastProgressKind:
+        reason === "idle" ? "idle-recovery-retry" : "hard-recovery-retry",
     });
 
     const steeringLines = isEscalation
@@ -2065,7 +2598,9 @@ async function recoverTimedOutUnit(
   // Retries exhausted — write a blocker placeholder and advance the pipeline
   // instead of silently stalling.
   const placeholder = writeBlockerPlaceholder(
-    unitType, unitId, basePath,
+    unitType,
+    unitId,
+    basePath,
     `${reason} recovery exhausted ${maxRecoveryAttempts} attempts without producing the artifact.`,
   );
 
@@ -2097,9 +2632,13 @@ async function recoverTimedOutUnit(
  * the [x] checkbox in the slice plan. Returns true if artifacts were written.
  */
 export function skipExecuteTask(
-  base: string, mid: string, sid: string, tid: string,
+  base: string,
+  mid: string,
+  sid: string,
+  tid: string,
   status: { summaryExists: boolean; taskChecked: boolean },
-  reason: string, maxAttempts: number,
+  reason: string,
+  maxAttempts: number,
 ): boolean {
   // Write a blocker task summary if missing.
   if (!status.summaryExists) {
@@ -2141,7 +2680,11 @@ export function skipExecuteTask(
  * Returns null for unit types that don't produce a single file (execute-task,
  * complete-slice, replan-slice).
  */
-export function resolveExpectedArtifactPath(unitType: string, unitId: string, base: string): string | null {
+export function resolveExpectedArtifactPath(
+  unitType: string,
+  unitId: string,
+  base: string,
+): string | null {
   const parts = unitId.split("/");
   const mid = parts[0]!;
   const sid = parts[1];
@@ -2183,7 +2726,12 @@ export function resolveExpectedArtifactPath(unitType: string, unitId: string, ba
  * Write a placeholder artifact so the pipeline can advance past a stuck unit.
  * Returns the relative path written, or null if the path couldn't be resolved.
  */
-export function writeBlockerPlaceholder(unitType: string, unitId: string, base: string, reason: string): string | null {
+export function writeBlockerPlaceholder(
+  unitType: string,
+  unitId: string,
+  base: string,
+  reason: string,
+): string | null {
   const absPath = resolveExpectedArtifactPath(unitType, unitId, base);
   if (!absPath) return null;
   const dir = absPath.substring(0, absPath.lastIndexOf("/"));
@@ -2202,7 +2750,11 @@ export function writeBlockerPlaceholder(unitType: string, unitId: string, base: 
   return diagnoseExpectedArtifact(unitType, unitId, base);
 }
 
-function diagnoseExpectedArtifact(unitType: string, unitId: string, base: string): string | null {
+function diagnoseExpectedArtifact(
+  unitType: string,
+  unitId: string,
+  base: string,
+): string | null {
   const parts = unitId.split("/");
   const mid = parts[0];
   const sid = parts[1];

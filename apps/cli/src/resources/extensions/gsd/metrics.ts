@@ -3,7 +3,7 @@
  *
  * Accumulates per-unit usage data across auto-mode sessions.
  * Data is extracted from session entries before each context wipe,
- * written to .gsd/metrics.json, and surfaced in the dashboard.
+ * written to .kata/metrics.json, and surfaced in the dashboard.
  *
  * Data flow:
  *   1. Before newSession() wipes context, snapshotUnitMetrics() scans
@@ -29,13 +29,13 @@ export interface TokenCounts {
 }
 
 export interface UnitMetrics {
-  type: string;            // e.g. "research-milestone", "execute-task"
-  id: string;              // e.g. "M001/S01/T01"
-  model: string;           // model ID used
-  startedAt: number;       // ms timestamp
-  finishedAt: number;      // ms timestamp
+  type: string; // e.g. "research-milestone", "execute-task"
+  id: string; // e.g. "M001/S01/T01"
+  model: string; // model ID used
+  startedAt: number; // ms timestamp
+  finishedAt: number; // ms timestamp
   tokens: TokenCounts;
-  cost: number;            // total USD cost
+  cost: number; // total USD cost
   toolCalls: number;
   assistantMessages: number;
   userMessages: number;
@@ -49,7 +49,12 @@ export interface MetricsLedger {
 
 // ─── Phase classification ─────────────────────────────────────────────────────
 
-export type MetricsPhase = "research" | "planning" | "execution" | "completion" | "reassessment";
+export type MetricsPhase =
+  | "research"
+  | "planning"
+  | "execution"
+  | "completion"
+  | "reassessment";
 
 export function classifyUnitPhase(unitType: string): MetricsPhase {
   switch (unitType) {
@@ -110,7 +115,13 @@ export function snapshotUnitMetrics(
   const entries = ctx.sessionManager.getEntries();
   if (!entries || entries.length === 0) return null;
 
-  const tokens: TokenCounts = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
+  const tokens: TokenCounts = {
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    total: 0,
+  };
   let cost = 0;
   let toolCalls = 0;
   let assistantMessages = 0;
@@ -177,7 +188,7 @@ export interface PhaseAggregate {
   units: number;
   tokens: TokenCounts;
   cost: number;
-  duration: number;  // ms
+  duration: number; // ms
 }
 
 export interface SliceAggregate {
@@ -234,8 +245,14 @@ export function aggregateByPhase(units: UnitMetrics[]): PhaseAggregate[] {
     agg.duration += u.finishedAt - u.startedAt;
   }
   // Return in a stable order
-  const order: MetricsPhase[] = ["research", "planning", "execution", "completion", "reassessment"];
-  return order.map(p => map.get(p)).filter((a): a is PhaseAggregate => !!a);
+  const order: MetricsPhase[] = [
+    "research",
+    "planning",
+    "execution",
+    "completion",
+    "reassessment",
+  ];
+  return order.map((p) => map.get(p)).filter((a): a is PhaseAggregate => !!a);
 }
 
 export function aggregateBySlice(units: UnitMetrics[]): SliceAggregate[] {
@@ -254,7 +271,9 @@ export function aggregateBySlice(units: UnitMetrics[]): SliceAggregate[] {
     agg.cost += u.cost;
     agg.duration += u.finishedAt - u.startedAt;
   }
-  return Array.from(map.values()).sort((a, b) => a.sliceId.localeCompare(b.sliceId));
+  return Array.from(map.values()).sort((a, b) =>
+    a.sliceId.localeCompare(b.sliceId),
+  );
 }
 
 export function aggregateByModel(units: UnitMetrics[]): ModelAggregate[] {
@@ -316,7 +335,7 @@ export function formatCostProjection(
   remainingCount: number,
   budgetCeiling?: number,
 ): string[] {
-  const sliceLevel = completedSlices.filter(s => s.sliceId.includes("/"));
+  const sliceLevel = completedSlices.filter((s) => s.sliceId.includes("/"));
   if (sliceLevel.length < 2) return [];
 
   const totalCost = sliceLevel.reduce((sum, s) => sum + s.cost, 0);
@@ -327,7 +346,9 @@ export function formatCostProjection(
   const result: string[] = [projLine];
 
   if (budgetCeiling !== undefined && totalCost >= budgetCeiling) {
-    result.push(`Budget ceiling ${formatCost(budgetCeiling)} reached (spent ${formatCost(totalCost)})`);
+    result.push(
+      `Budget ceiling ${formatCost(budgetCeiling)} reached (spent ${formatCost(totalCost)})`,
+    );
   }
 
   return result;
@@ -365,7 +386,11 @@ function loadLedger(base: string): MetricsLedger {
 function saveLedger(base: string, data: MetricsLedger): void {
   try {
     mkdirSync(gsdRoot(base), { recursive: true });
-    writeFileSync(metricsPath(base), JSON.stringify(data, null, 2) + "\n", "utf-8");
+    writeFileSync(
+      metricsPath(base),
+      JSON.stringify(data, null, 2) + "\n",
+      "utf-8",
+    );
   } catch {
     // Don't let metrics failures break auto-mode
   }

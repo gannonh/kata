@@ -20,7 +20,7 @@ When `buildSystemPrompt()` runs, it assembles sections in this exact order:
 │ 2. Append system prompt (APPEND_SYSTEM.md)       │
 │                                                  │
 │ 3. Project context files                         │
-│    ├── ~/.gsd/agent/AGENTS.md (global)            │
+│    ├── ~/.kata/agent/AGENTS.md (global)            │
 │    ├── Ancestor AGENTS.md / CLAUDE.md files      │
 │    └── cwd AGENTS.md / CLAUDE.md                 │
 │                                                  │
@@ -72,7 +72,7 @@ Pi documentation (read only when the user asks about pi itself...):
 
 ### SYSTEM.md Override (full replacement)
 
-If `.gsd/SYSTEM.md` (project) or `~/.gsd/agent/SYSTEM.md` (global) exists, its contents **completely replace** the default base prompt above. The tools list, guidelines, pi docs pointers — all gone. You own the entire base.
+If `.kata/SYSTEM.md` (project) or `~/.kata/agent/SYSTEM.md` (global) exists, its contents **completely replace** the default base prompt above. The tools list, guidelines, pi docs pointers — all gone. You own the entire base.
 
 Project takes precedence over global. Only one SYSTEM.md is used (first found wins).
 
@@ -107,16 +107,16 @@ The description is determined by priority:
 
 Guidelines are assembled dynamically based on which tools are active:
 
-| Condition | Guideline |
-|---|---|
-| bash active, no grep/find/ls | "Use bash for file operations like ls, rg, find" |
-| bash active + grep/find/ls | "Prefer grep/find/ls tools over bash for file exploration" |
-| read + edit active | "Use read to examine files before editing" |
-| edit active | "Use edit for precise changes (old text must match exactly)" |
-| write active | "Use write only for new files or complete rewrites" |
-| edit or write active | "When summarizing your actions, output plain text directly" |
-| Always | "Be concise in your responses" |
-| Always | "Show file paths clearly when working with files" |
+| Condition                    | Guideline                                                    |
+| ---------------------------- | ------------------------------------------------------------ |
+| bash active, no grep/find/ls | "Use bash for file operations like ls, rg, find"             |
+| bash active + grep/find/ls   | "Prefer grep/find/ls tools over bash for file exploration"   |
+| read + edit active           | "Use read to examine files before editing"                   |
+| edit active                  | "Use edit for precise changes (old text must match exactly)" |
+| write active                 | "Use write only for new files or complete rewrites"          |
+| edit or write active         | "When summarizing your actions, output plain text directly"  |
+| Always                       | "Be concise in your responses"                               |
+| Always                       | "Show file paths clearly when working with files"            |
 
 **Extension tool guidelines** from `promptGuidelines` are appended after the built-in guidelines. They're deduplicated (same string appears only once even if multiple tools register it).
 
@@ -124,7 +124,7 @@ Guidelines are assembled dynamically based on which tools are active:
 
 ## Section 2: Append System Prompt
 
-If `.gsd/APPEND_SYSTEM.md` (project) or `~/.gsd/agent/APPEND_SYSTEM.md` (global) exists, its contents are appended after the base prompt.
+If `.kata/APPEND_SYSTEM.md` (project) or `~/.kata/agent/APPEND_SYSTEM.md` (global) exists, its contents are appended after the base prompt.
 
 This is the safe way to add project-wide instructions without replacing the default prompt. It works with both the default base and a custom SYSTEM.md.
 
@@ -135,7 +135,7 @@ This is the safe way to add project-wide instructions without replacing the defa
 Pi walks the filesystem collecting context files:
 
 ```
-1. ~/.gsd/agent/AGENTS.md (global)
+1. ~/.kata/agent/AGENTS.md (global)
 2. Walk from cwd upward to root:
    - Each directory: check for AGENTS.md, then CLAUDE.md (first found wins per directory)
    - Files are collected root-down (ancestors first, cwd last)
@@ -148,7 +148,7 @@ All found files are concatenated under a "# Project Context" header:
 
 Project-specific instructions and guidelines:
 
-## /Users/you/.gsd/agent/AGENTS.md
+## /Users/you/.kata/agent/AGENTS.md
 
 [global AGENTS.md content]
 
@@ -174,7 +174,7 @@ When a skill file references a relative path, resolve it against the skill direc
   <skill>
     <name>commit-outstanding</name>
     <description>Commit all uncommitted files in logical groups</description>
-    <location>/Users/you/.gsd/agent/skills/commit-outstanding/SKILL.md</location>
+    <location>/Users/you/.kata/agent/skills/commit-outstanding/SKILL.md</location>
   </skill>
 </available_skills>
 ```
@@ -200,13 +200,13 @@ Current working directory: /Users/you/projects/myapp
 
 The base system prompt (`_baseSystemPrompt`) is rebuilt in these situations:
 
-| Trigger | What happens |
-|---|---|
-| **Startup** (`_buildRuntime`) | Full rebuild with initial tool set |
-| **`setActiveToolsByName()`** | Rebuild with new tool set (guidelines and snippets change) |
-| **`reload()`** (`/reload`) | Full rebuild — reloads SYSTEM.md, APPEND_SYSTEM.md, context files, skills, extensions |
-| **`extendResourcesFromExtensions()`** | Rebuild after `resources_discover` adds new skills/prompts/themes |
-| **`_refreshToolRegistry()`** | Rebuild when extension tools change dynamically |
+| Trigger                               | What happens                                                                          |
+| ------------------------------------- | ------------------------------------------------------------------------------------- |
+| **Startup** (`_buildRuntime`)         | Full rebuild with initial tool set                                                    |
+| **`setActiveToolsByName()`**          | Rebuild with new tool set (guidelines and snippets change)                            |
+| **`reload()`** (`/reload`)            | Full rebuild — reloads SYSTEM.md, APPEND_SYSTEM.md, context files, skills, extensions |
+| **`extendResourcesFromExtensions()`** | Rebuild after `resources_discover` adds new skills/prompts/themes                     |
+| **`_refreshToolRegistry()`**          | Rebuild when extension tools change dynamically                                       |
 
 ### Per-Prompt Modifications
 
@@ -230,32 +230,32 @@ From static configuration to dynamic extension hooks, ordered from broadest to m
 
 ### Static (file-based, loaded at startup)
 
-| Mechanism | Scope | Effect |
-|---|---|---|
-| `SYSTEM.md` | Replace base prompt entirely | Nuclear option — you own everything |
-| `APPEND_SYSTEM.md` | Append to base prompt | Safe additive instructions |
-| `AGENTS.md` / `CLAUDE.md` | Project context section | Per-project conventions and rules |
-| Skill `SKILL.md` files | Skills listing | On-demand capability descriptions |
+| Mechanism                 | Scope                        | Effect                              |
+| ------------------------- | ---------------------------- | ----------------------------------- |
+| `SYSTEM.md`               | Replace base prompt entirely | Nuclear option — you own everything |
+| `APPEND_SYSTEM.md`        | Append to base prompt        | Safe additive instructions          |
+| `AGENTS.md` / `CLAUDE.md` | Project context section      | Per-project conventions and rules   |
+| Skill `SKILL.md` files    | Skills listing               | On-demand capability descriptions   |
 
 ### Dynamic (extension-based, runtime)
 
-| Mechanism | Scope | Timing | Effect |
-|---|---|---|---|
-| `before_agent_start` → `systemPrompt` | Full prompt | Per user prompt | Modify/append/replace system prompt |
-| `promptSnippet` on tools | Tool description line | When tool set changes | Custom one-liner in "Available tools" |
-| `promptGuidelines` on tools | Guidelines section | When tool set changes | Add behavioral bullets |
-| `pi.setActiveTools()` | Tool list + guidelines | Immediate, next prompt | Add/remove tools (rebuilds prompt) |
-| `resources_discover` event | Skills listing | Startup + reload | Inject additional skills from extensions |
+| Mechanism                             | Scope                  | Timing                 | Effect                                   |
+| ------------------------------------- | ---------------------- | ---------------------- | ---------------------------------------- |
+| `before_agent_start` → `systemPrompt` | Full prompt            | Per user prompt        | Modify/append/replace system prompt      |
+| `promptSnippet` on tools              | Tool description line  | When tool set changes  | Custom one-liner in "Available tools"    |
+| `promptGuidelines` on tools           | Guidelines section     | When tool set changes  | Add behavioral bullets                   |
+| `pi.setActiveTools()`                 | Tool list + guidelines | Immediate, next prompt | Add/remove tools (rebuilds prompt)       |
+| `resources_discover` event            | Skills listing         | Startup + reload       | Inject additional skills from extensions |
 
 ### Per-Turn (message-based, not system prompt)
 
 These don't modify the system prompt but add to what the LLM sees:
 
-| Mechanism | Timing | Effect |
-|---|---|---|
+| Mechanism                        | Timing          | Effect                                    |
+| -------------------------------- | --------------- | ----------------------------------------- |
 | `before_agent_start` → `message` | Per user prompt | Inject custom message (becomes user role) |
-| `context` event | Per LLM turn | Filter/inject/transform message array |
-| `pi.sendMessage()` | Anytime | Inject custom message into conversation |
+| `context` event                  | Per LLM turn    | Filter/inject/transform message array     |
+| `pi.sendMessage()`               | Anytime         | Inject custom message into conversation   |
 
 ---
 
@@ -263,12 +263,12 @@ These don't modify the system prompt but add to what the LLM sees:
 
 ### SYSTEM.md vs before_agent_start
 
-| | SYSTEM.md | before_agent_start |
-|---|---|---|
-| **Persistence** | Permanent until file changes | Per-prompt, must re-apply |
-| **Dynamism** | Static file content | Can compute based on state |
-| **Tool awareness** | Loses built-in tool guidelines | Preserves base prompt, appends |
-| **Composability** | Only one SYSTEM.md (project or global) | Multiple extensions can chain |
+|                    | SYSTEM.md                              | before_agent_start             |
+| ------------------ | -------------------------------------- | ------------------------------ |
+| **Persistence**    | Permanent until file changes           | Per-prompt, must re-apply      |
+| **Dynamism**       | Static file content                    | Can compute based on state     |
+| **Tool awareness** | Loses built-in tool guidelines         | Preserves base prompt, appends |
+| **Composability**  | Only one SYSTEM.md (project or global) | Multiple extensions can chain  |
 
 **Recommendation:** Use SYSTEM.md only when you genuinely need to replace the entire prompt (e.g., custom agent personality, non-coding use case). Use `before_agent_start` for everything else.
 
@@ -283,11 +283,11 @@ Functionally equivalent for the LLM. Use APPEND_SYSTEM.md for instructions that 
 
 ### promptGuidelines vs before_agent_start
 
-| | promptGuidelines | before_agent_start |
-|---|---|---|
-| **Scope** | Only when the tool is active | Always (or conditionally in your code) |
-| **Positioning** | Inside "Guidelines" section | Appended to end (or wherever you put it) |
-| **Tool coupling** | Automatically appears/disappears with tool | Independent of tool state |
+|                   | promptGuidelines                           | before_agent_start                       |
+| ----------------- | ------------------------------------------ | ---------------------------------------- |
+| **Scope**         | Only when the tool is active               | Always (or conditionally in your code)   |
+| **Positioning**   | Inside "Guidelines" section                | Appended to end (or wherever you put it) |
+| **Tool coupling** | Automatically appears/disappears with tool | Independent of tool state                |
 
 **Recommendation:** Use `promptGuidelines` for instructions directly related to tool usage. Use `before_agent_start` for behavioral modifications independent of tool state.
 

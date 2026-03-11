@@ -32,7 +32,7 @@ All relevant context has been preloaded below — the roadmap, current slice pla
    - Update the Files Likely Touched section if the replan changes which files are affected
 5. If any incomplete task had a `T0x-PLAN.md`, remove or rewrite it to match the new task description.
 6. Commit all changes: `git add -A && git commit -m 'refactor({{sliceId}}): replan after blocker in {{blockerTaskId}}'`
-7. Update `.gsd/STATE.md`
+7. Update `.kata/STATE.md`
 
 **You MUST write `{{replanAbsPath}}` and the updated slice plan before finishing.**
 

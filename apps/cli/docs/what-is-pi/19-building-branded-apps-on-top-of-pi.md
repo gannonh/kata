@@ -14,7 +14,7 @@ The short answer is:
 
 - **Yes, you can build your own branded app on top of pi**
 - **No, end users do not need to install pi globally** if you ship your own app that depends on pi packages
-- **No, you do not have to rely on `~/.gsd`** if you embed pi with custom paths and storage
+- **No, you do not have to rely on `~/.kata`** if you embed pi with custom paths and storage
 - **Yes, you can bundle your own extensions, prompts, themes, skills, and providers** inside your app
 
 The rest of this document explains the architecture choices, storage choices, packaging strategies, and practical tradeoffs.
@@ -86,9 +86,9 @@ And inside `gsd`, you import pi packages and create your own session, UI, storag
 
 ---
 
-## 19.3 The Second Biggest Misconception: `~/.gsd` Is a Default, Not a Requirement
+## 19.3 The Second Biggest Misconception: `~/.kata` Is a Default, Not a Requirement
 
-Pi CLI defaults to `~/.gsd/agent`, but embedded applications are not forced to use it.
+Pi CLI defaults to `~/.kata/agent`, but embedded applications are not forced to use it.
 
 When you use `createAgentSession()`, you can control:
 
@@ -102,13 +102,13 @@ When you use `createAgentSession()`, you can control:
 
 That means your app can store state under:
 
-- `~/.gsd/agent`
+- `~/.kata/agent`
 - `~/Library/Application Support/GSD`
 - `%APPDATA%/GSD`
 - an app-local portable directory
 - a project-local directory
 
-instead of `~/.gsd`.
+instead of `~/.kata`.
 
 ### Things you can relocate
 
@@ -152,7 +152,7 @@ You create your own executable and call `createAgentSession()` directly.
 - type-safe
 - no subprocess management
 - easy to customize storage and discovery
-- easiest way to remove dependency on `~/.gsd`
+- easiest way to remove dependency on `~/.kata`
 - easiest way to bundle built-in resources
 
 #### Typical stack
@@ -209,28 +209,28 @@ This is for cases where you want pi's model and agent infrastructure but not nec
 
 Use this decision table.
 
-| Goal | Best Starting Point |
-|------|---------------------|
-| Branded CLI like `gsd` | `@mariozechner/pi-coding-agent` SDK |
-| Branded TUI with coding tools | `@mariozechner/pi-coding-agent` SDK |
-| Desktop app with subprocess boundary | pi RPC mode |
-| Non-Node integration | pi RPC mode |
-| Browser chat app | `@mariozechner/pi-web-ui` + `@mariozechner/pi-agent-core` |
-| Generic agent engine with custom infrastructure | `@mariozechner/pi-agent-core` |
-| Want pi sessions/resources/extensions but app-owned directories | `@mariozechner/pi-coding-agent` SDK |
+| Goal                                                            | Best Starting Point                                       |
+| --------------------------------------------------------------- | --------------------------------------------------------- |
+| Branded CLI like `gsd`                                          | `@mariozechner/pi-coding-agent` SDK                       |
+| Branded TUI with coding tools                                   | `@mariozechner/pi-coding-agent` SDK                       |
+| Desktop app with subprocess boundary                            | pi RPC mode                                               |
+| Non-Node integration                                            | pi RPC mode                                               |
+| Browser chat app                                                | `@mariozechner/pi-web-ui` + `@mariozechner/pi-agent-core` |
+| Generic agent engine with custom infrastructure                 | `@mariozechner/pi-agent-core`                             |
+| Want pi sessions/resources/extensions but app-owned directories | `@mariozechner/pi-coding-agent` SDK                       |
 
 ### More detailed tradeoff matrix
 
-| Concern | SDK | RPC | agent-core |
-|--------|-----|-----|------------|
-| Type safety | Excellent | Weak at protocol boundary | Excellent |
-| Process isolation | No | Yes | No |
-| Language agnostic | No | Yes | No |
-| Full pi session/resource system | Yes | Yes | No |
-| App-owned storage | Yes | Partial / external orchestration | Yes |
-| Rich custom UI | Strong | Moderate | Strong |
-| Uses pi extension ecosystem easily | Yes | Yes | No, not directly |
-| Simplest branded CLI path | Yes | No | No |
+| Concern                            | SDK       | RPC                              | agent-core       |
+| ---------------------------------- | --------- | -------------------------------- | ---------------- |
+| Type safety                        | Excellent | Weak at protocol boundary        | Excellent        |
+| Process isolation                  | No        | Yes                              | No               |
+| Language agnostic                  | No        | Yes                              | No               |
+| Full pi session/resource system    | Yes       | Yes                              | No               |
+| App-owned storage                  | Yes       | Partial / external orchestration | Yes              |
+| Rich custom UI                     | Strong    | Moderate                         | Strong           |
+| Uses pi extension ecosystem easily | Yes       | Yes                              | No, not directly |
+| Simplest branded CLI path          | Yes       | No                               | No               |
 
 ---
 
@@ -269,7 +269,7 @@ A branded app should usually own its own storage hierarchy.
 Example:
 
 ```text
-~/.gsd/
+~/.kata/
   agent/
     auth.json
     models.json
@@ -291,7 +291,7 @@ Or on macOS:
 
 ### Why this matters
 
-If your product uses `~/.gsd`, then:
+If your product uses `~/.kata`, then:
 - it shares state with the user's pi installation
 - branding becomes muddy
 - support/debugging becomes more confusing
@@ -312,7 +312,7 @@ import {
   SettingsManager,
 } from "@mariozechner/pi-coding-agent";
 
-const appRoot = path.join(os.homedir(), ".gsd");
+const appRoot = path.join(os.homedir(), ".kata");
 const agentDir = path.join(appRoot, "agent");
 const sessionsDir = path.join(appRoot, "sessions");
 
@@ -337,7 +337,7 @@ This is the core pattern for “my app uses pi, but not as global pi.”
 
 ## 19.8 Bundling Resources Inside Your App
 
-This is another place where people often assume they must rely on discovery from `~/.gsd` or `.gsd/`.
+This is another place where people often assume they must rely on discovery from `~/.kata` or `.kata/`.
 
 You do not.
 
@@ -414,8 +414,8 @@ These are different product strategies.
 
 ### Discovery-driven product
 You intentionally load from:
-- `~/.gsd/agent/...`
-- `.gsd/...`
+- `~/.kata/agent/...`
+- `.kata/...`
 - installed pi packages
 
 #### Good when
@@ -742,7 +742,7 @@ import {
   SettingsManager,
 } from "@mariozechner/pi-coding-agent";
 
-const appRoot = path.join(os.homedir(), ".gsd");
+const appRoot = path.join(os.homedir(), ".kata");
 const agentDir = path.join(appRoot, "agent");
 const sessionsDir = path.join(appRoot, "sessions");
 
@@ -809,14 +809,14 @@ For a white-labeled product, `InteractiveMode` is a good prototyping step, not a
 ## 19.21 What to Avoid in a Branded Product
 
 ### Avoid accidental dependence on ambient user state
-If your app silently loads from a user's `~/.gsd`, you may get:
+If your app silently loads from a user's `~/.kata`, you may get:
 - surprising extensions
 - strange prompts
 - odd themes
 - hard-to-debug behavior differences
 
 ### Avoid mixing branding and storage casually
-If your app is called `gsd`, but state lives in `~/.gsd`, users will notice.
+If your app is called `gsd`, but state lives in `~/.kata`, users will notice.
 
 ### Avoid choosing RPC just because it sounds generic
 If your app is already Node/TypeScript, SDK embedding is usually simpler and more powerful.
@@ -880,7 +880,7 @@ Then read the source package docs for exact API details:
 
 If your goal is:
 
-> “I want users to download and run `gsd`, and have it use pi internally without requiring a separate pi install or `~/.gsd` setup.”
+> “I want users to download and run `gsd`, and have it use pi internally without requiring a separate pi install or `~/.kata` setup.”
 
 Then the answer is:
 

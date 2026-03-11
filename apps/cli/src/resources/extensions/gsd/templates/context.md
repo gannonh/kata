@@ -47,7 +47,7 @@ To call this milestone complete, we must prove:
 - `{{fileOrModule}}` — {{howItRelates}}
 - `{{fileOrModule}}` — {{howItRelates}}
 
-> See `.gsd/DECISIONS.md` for all architectural and pattern decisions — it is an append-only register; read it during planning, append to it during execution.
+> See `.kata/DECISIONS.md` for all architectural and pattern decisions — it is an append-only register; read it during planning, append to it during execution.
 
 ## Relevant Requirements
 

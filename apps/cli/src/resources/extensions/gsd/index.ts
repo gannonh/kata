@@ -24,10 +24,22 @@ import type {
 } from "@mariozechner/pi-coding-agent";
 
 import { registerGSDCommand } from "./commands.js";
-import { saveFile, formatContinue, loadFile, parseContinue, parseSummary } from "./files.js";
+import {
+  saveFile,
+  formatContinue,
+  loadFile,
+  parseContinue,
+  parseSummary,
+} from "./files.js";
 import { loadPrompt } from "./prompt-loader.js";
 import { deriveState } from "./state.js";
-import { isAutoActive, isAutoPaused, handleAgentEnd, pauseAuto, getAutoDashboardData } from "./auto.js";
+import {
+  isAutoActive,
+  isAutoPaused,
+  handleAgentEnd,
+  pauseAuto,
+  getAutoDashboardData,
+} from "./auto.js";
 import { saveActivityLog } from "./activity-log.js";
 import { checkAutoStartAfterDiscuss } from "./guided-flow.js";
 import { GSDDashboardOverlay } from "./dashboard-overlay.js";
@@ -36,11 +48,22 @@ import {
   renderPreferencesForSystemPrompt,
   resolveAllSkillReferences,
 } from "./preferences.js";
-import { hasSkillSnapshot, detectNewSkills, formatSkillsXml } from "./skill-discovery.js";
 import {
-  resolveSlicePath, resolveSliceFile, resolveTaskFile, resolveTaskFiles, resolveTasksDir,
-  relSliceFile, relSlicePath, relTaskFile,
-  buildSliceFileName, gsdRoot,
+  hasSkillSnapshot,
+  detectNewSkills,
+  formatSkillsXml,
+} from "./skill-discovery.js";
+import {
+  resolveSlicePath,
+  resolveSliceFile,
+  resolveTaskFile,
+  resolveTaskFiles,
+  resolveTasksDir,
+  relSliceFile,
+  relSlicePath,
+  relTaskFile,
+  buildSliceFileName,
+  gsdRoot,
 } from "./paths.js";
 import { Key } from "@mariozechner/pi-tui";
 import { join } from "node:path";
@@ -63,9 +86,11 @@ export default function (pi: ExtensionAPI) {
   // ── session_start: render branded GSD header ───────────────────────────
   pi.on("session_start", async (_event, ctx) => {
     const theme = ctx.ui.theme;
-    const version = process.env.GSD_VERSION || "0.0.0";
+    const version = process.env.kata_VERSION || "0.0.0";
 
-    const logoText = GSD_LOGO_LINES.map((line) => theme.fg("accent", line)).join("\n");
+    const logoText = GSD_LOGO_LINES.map((line) =>
+      theme.fg("accent", line),
+    ).join("\n");
     const titleLine = `  ${theme.bold("Kata CLI")} ${theme.fg("dim", `v${version}`)}`;
 
     const headerContent = `${logoText}\n${titleLine}`;
@@ -76,9 +101,9 @@ export default function (pi: ExtensionAPI) {
   pi.registerShortcut(Key.ctrlAlt("g"), {
     description: "Open GSD dashboard",
     handler: async (ctx) => {
-      // Only show if .gsd/ exists
-      if (!existsSync(join(process.cwd(), ".gsd"))) {
-        ctx.ui.notify("No .gsd/ directory found. Run /gsd to start.", "info");
+      // Only show if .kata/ exists
+      if (!existsSync(join(process.cwd(), ".kata"))) {
+        ctx.ui.notify("No .kata/ directory found. Run /gsd to start.", "info");
         return;
       }
 
@@ -101,14 +126,17 @@ export default function (pi: ExtensionAPI) {
 
   // ── before_agent_start: inject GSD contract into true system prompt ─────
   pi.on("before_agent_start", async (event, ctx: ExtensionContext) => {
-    if (!existsSync(join(process.cwd(), ".gsd"))) return;
+    if (!existsSync(join(process.cwd(), ".kata"))) return;
 
     const systemContent = loadPrompt("system");
     const loadedPreferences = loadEffectiveGSDPreferences();
     let preferenceBlock = "";
     if (loadedPreferences) {
       const cwd = process.cwd();
-      const report = resolveAllSkillReferences(loadedPreferences.preferences, cwd);
+      const report = resolveAllSkillReferences(
+        loadedPreferences.preferences,
+        cwd,
+      );
       preferenceBlock = `\n\n${renderPreferencesForSystemPrompt(loadedPreferences.preferences, report.resolutions)}`;
 
       // Emit warnings for unresolved skill references
@@ -129,18 +157,21 @@ export default function (pi: ExtensionAPI) {
       }
     }
 
-    const injection = await buildGuidedExecuteContextInjection(event.prompt, process.cwd());
+    const injection = await buildGuidedExecuteContextInjection(
+      event.prompt,
+      process.cwd(),
+    );
 
     return {
       systemPrompt: `${event.systemPrompt}\n\n[SYSTEM CONTEXT — GSD]\n\n${systemContent}${preferenceBlock}${newSkillsBlock}`,
       ...(injection
         ? {
-          message: {
-            customType: "gsd-guided-context",
-            content: injection,
-            display: false,
-          },
-        }
+            message: {
+              customType: "gsd-guided-context",
+              content: injection,
+              display: false,
+            },
+          }
         : {}),
     };
   });
@@ -157,7 +188,11 @@ export default function (pi: ExtensionAPI) {
     // instead of advancing. This preserves the conversation so the user
     // can inspect what happened, interact with the agent, or resume.
     const lastMsg = event.messages[event.messages.length - 1];
-    if (lastMsg && "stopReason" in lastMsg && lastMsg.stopReason === "aborted") {
+    if (
+      lastMsg &&
+      "stopReason" in lastMsg &&
+      lastMsg.stopReason === "aborted"
+    ) {
       await pauseAuto(ctx, pi);
       return;
     }
@@ -177,19 +212,32 @@ export default function (pi: ExtensionAPI) {
     const state = await deriveState(basePath);
 
     // Only save continue.md if we're actively executing a task
-    if (!state.activeMilestone || !state.activeSlice || !state.activeTask) return;
+    if (!state.activeMilestone || !state.activeSlice || !state.activeTask)
+      return;
     if (state.phase !== "executing") return;
 
-    const sDir = resolveSlicePath(basePath, state.activeMilestone.id, state.activeSlice.id);
+    const sDir = resolveSlicePath(
+      basePath,
+      state.activeMilestone.id,
+      state.activeSlice.id,
+    );
     if (!sDir) return;
 
     // Check for existing continue file (new naming or legacy)
-    const existingFile = resolveSliceFile(basePath, state.activeMilestone.id, state.activeSlice.id, "CONTINUE");
-    if (existingFile && await loadFile(existingFile)) return;
+    const existingFile = resolveSliceFile(
+      basePath,
+      state.activeMilestone.id,
+      state.activeSlice.id,
+      "CONTINUE",
+    );
+    if (existingFile && (await loadFile(existingFile))) return;
     const legacyContinue = join(sDir, "continue.md");
     if (await loadFile(legacyContinue)) return;
 
-    const continuePath = join(sDir, buildSliceFileName(state.activeSlice.id, "CONTINUE"));
+    const continuePath = join(
+      sDir,
+      buildSliceFileName(state.activeSlice.id, "CONTINUE"),
+    );
 
     const continueData = {
       frontmatter: {
@@ -219,19 +267,37 @@ export default function (pi: ExtensionAPI) {
     // so the next /gsd auto knows it was interrupted
     const dash = getAutoDashboardData();
     if (dash.currentUnit) {
-      saveActivityLog(ctx, dash.basePath, dash.currentUnit.type, dash.currentUnit.id);
+      saveActivityLog(
+        ctx,
+        dash.basePath,
+        dash.currentUnit.type,
+        dash.currentUnit.id,
+      );
     }
   });
 }
 
-async function buildGuidedExecuteContextInjection(prompt: string, basePath: string): Promise<string | null> {
-  const executeMatch = prompt.match(/Execute the next task:\s+(T\d+)\s+\("([^"]+)"\)\s+in slice\s+(S\d+)\s+of milestone\s+(M\d+)/i);
+async function buildGuidedExecuteContextInjection(
+  prompt: string,
+  basePath: string,
+): Promise<string | null> {
+  const executeMatch = prompt.match(
+    /Execute the next task:\s+(T\d+)\s+\("([^"]+)"\)\s+in slice\s+(S\d+)\s+of milestone\s+(M\d+)/i,
+  );
   if (executeMatch) {
     const [, taskId, taskTitle, sliceId, milestoneId] = executeMatch;
-    return buildTaskExecutionContextInjection(basePath, milestoneId, sliceId, taskId, taskTitle);
+    return buildTaskExecutionContextInjection(
+      basePath,
+      milestoneId,
+      sliceId,
+      taskId,
+      taskTitle,
+    );
   }
 
-  const resumeMatch = prompt.match(/Resume interrupted work\.[\s\S]*?slice\s+(S\d+)\s+of milestone\s+(M\d+)/i);
+  const resumeMatch = prompt.match(
+    /Resume interrupted work\.[\s\S]*?slice\s+(S\d+)\s+of milestone\s+(M\d+)/i,
+  );
   if (resumeMatch) {
     const [, sliceId, milestoneId] = resumeMatch;
     const state = await deriveState(basePath);
@@ -260,28 +326,57 @@ async function buildTaskExecutionContextInjection(
   taskId: string,
   taskTitle: string,
 ): Promise<string> {
-  const taskPlanPath = resolveTaskFile(basePath, milestoneId, sliceId, taskId, "PLAN");
-  const taskPlanRelPath = relTaskFile(basePath, milestoneId, sliceId, taskId, "PLAN");
+  const taskPlanPath = resolveTaskFile(
+    basePath,
+    milestoneId,
+    sliceId,
+    taskId,
+    "PLAN",
+  );
+  const taskPlanRelPath = relTaskFile(
+    basePath,
+    milestoneId,
+    sliceId,
+    taskId,
+    "PLAN",
+  );
   const taskPlanContent = taskPlanPath ? await loadFile(taskPlanPath) : null;
   const taskPlanInline = taskPlanContent
     ? [
-      "## Inlined Task Plan (authoritative local execution contract)",
-      `Source: \`${taskPlanRelPath}\``,
-      "",
-      taskPlanContent.trim(),
-    ].join("\n")
+        "## Inlined Task Plan (authoritative local execution contract)",
+        `Source: \`${taskPlanRelPath}\``,
+        "",
+        taskPlanContent.trim(),
+      ].join("\n")
     : [
-      "## Inlined Task Plan (authoritative local execution contract)",
-      `Task plan not found at dispatch time. Read \`${taskPlanRelPath}\` before executing.`,
-    ].join("\n");
+        "## Inlined Task Plan (authoritative local execution contract)",
+        `Task plan not found at dispatch time. Read \`${taskPlanRelPath}\` before executing.`,
+      ].join("\n");
 
-  const slicePlanPath = resolveSliceFile(basePath, milestoneId, sliceId, "PLAN");
+  const slicePlanPath = resolveSliceFile(
+    basePath,
+    milestoneId,
+    sliceId,
+    "PLAN",
+  );
   const slicePlanRelPath = relSliceFile(basePath, milestoneId, sliceId, "PLAN");
   const slicePlanContent = slicePlanPath ? await loadFile(slicePlanPath) : null;
-  const slicePlanExcerpt = extractSliceExecutionExcerpt(slicePlanContent, slicePlanRelPath);
+  const slicePlanExcerpt = extractSliceExecutionExcerpt(
+    slicePlanContent,
+    slicePlanRelPath,
+  );
 
-  const priorTaskLines = await buildCarryForwardLines(basePath, milestoneId, sliceId, taskId);
-  const resumeSection = await buildResumeSection(basePath, milestoneId, sliceId);
+  const priorTaskLines = await buildCarryForwardLines(
+    basePath,
+    milestoneId,
+    sliceId,
+    taskId,
+  );
+  const resumeSection = await buildResumeSection(
+    basePath,
+    milestoneId,
+    sliceId,
+  );
 
   return [
     "[GSD Guided Execute Context]",
@@ -317,46 +412,68 @@ async function buildCarryForwardLines(
     .filter((file) => parseInt(file.replace(/^T/, ""), 10) < currentNum)
     .sort();
 
-  if (summaryFiles.length === 0) return ["- No prior task summaries in this slice."];
+  if (summaryFiles.length === 0)
+    return ["- No prior task summaries in this slice."];
 
-  const lines = await Promise.all(summaryFiles.map(async (file) => {
-    const absPath = join(tDir, file);
-    const content = await loadFile(absPath);
-    const relPath = `${sRel}/tasks/${file}`;
-    if (!content) return `- \`${relPath}\``;
+  const lines = await Promise.all(
+    summaryFiles.map(async (file) => {
+      const absPath = join(tDir, file);
+      const content = await loadFile(absPath);
+      const relPath = `${sRel}/tasks/${file}`;
+      if (!content) return `- \`${relPath}\``;
 
-    const summary = parseSummary(content);
-    const provided = summary.frontmatter.provides.slice(0, 2).join("; ");
-    const decisions = summary.frontmatter.key_decisions.slice(0, 2).join("; ");
-    const patterns = summary.frontmatter.patterns_established.slice(0, 2).join("; ");
-    const diagnostics = extractMarkdownSection(content, "Diagnostics");
+      const summary = parseSummary(content);
+      const provided = summary.frontmatter.provides.slice(0, 2).join("; ");
+      const decisions = summary.frontmatter.key_decisions
+        .slice(0, 2)
+        .join("; ");
+      const patterns = summary.frontmatter.patterns_established
+        .slice(0, 2)
+        .join("; ");
+      const diagnostics = extractMarkdownSection(content, "Diagnostics");
 
-    const parts = [summary.title || relPath];
-    if (summary.oneLiner) parts.push(summary.oneLiner);
-    if (provided) parts.push(`provides: ${provided}`);
-    if (decisions) parts.push(`decisions: ${decisions}`);
-    if (patterns) parts.push(`patterns: ${patterns}`);
-    if (diagnostics) parts.push(`diagnostics: ${oneLine(diagnostics)}`);
+      const parts = [summary.title || relPath];
+      if (summary.oneLiner) parts.push(summary.oneLiner);
+      if (provided) parts.push(`provides: ${provided}`);
+      if (decisions) parts.push(`decisions: ${decisions}`);
+      if (patterns) parts.push(`patterns: ${patterns}`);
+      if (diagnostics) parts.push(`diagnostics: ${oneLine(diagnostics)}`);
 
-    return `- \`${relPath}\` — ${parts.join(" | ")}`;
-  }));
+      return `- \`${relPath}\` — ${parts.join(" | ")}`;
+    }),
+  );
 
   return lines;
 }
 
-async function buildResumeSection(basePath: string, milestoneId: string, sliceId: string): Promise<string> {
-  const continueFile = resolveSliceFile(basePath, milestoneId, sliceId, "CONTINUE");
+async function buildResumeSection(
+  basePath: string,
+  milestoneId: string,
+  sliceId: string,
+): Promise<string> {
+  const continueFile = resolveSliceFile(
+    basePath,
+    milestoneId,
+    sliceId,
+    "CONTINUE",
+  );
   const legacyDir = resolveSlicePath(basePath, milestoneId, sliceId);
   const legacyPath = legacyDir ? join(legacyDir, "continue.md") : null;
   const continueContent = continueFile ? await loadFile(continueFile) : null;
-  const legacyContent = !continueContent && legacyPath ? await loadFile(legacyPath) : null;
+  const legacyContent =
+    !continueContent && legacyPath ? await loadFile(legacyPath) : null;
   const resolvedContent = continueContent ?? legacyContent;
   const resolvedRelPath = continueContent
     ? relSliceFile(basePath, milestoneId, sliceId, "CONTINUE")
-    : (legacyPath ? `${relSlicePath(basePath, milestoneId, sliceId)}/continue.md` : null);
+    : legacyPath
+      ? `${relSlicePath(basePath, milestoneId, sliceId)}/continue.md`
+      : null;
 
   if (!resolvedContent || !resolvedRelPath) {
-    return ["## Resume State", "- No continue file present. Start from the top of the task plan."].join("\n");
+    return [
+      "## Resume State",
+      "- No continue file present. Start from the top of the task plan.",
+    ].join("\n");
   }
 
   const cont = parseContinue(resolvedContent);
@@ -367,17 +484,24 @@ async function buildResumeSection(basePath: string, milestoneId: string, sliceId
   ];
 
   if (cont.frontmatter.step && cont.frontmatter.totalSteps) {
-    lines.push(`- Progress: step ${cont.frontmatter.step} of ${cont.frontmatter.totalSteps}`);
+    lines.push(
+      `- Progress: step ${cont.frontmatter.step} of ${cont.frontmatter.totalSteps}`,
+    );
   }
-  if (cont.completedWork) lines.push(`- Completed: ${oneLine(cont.completedWork)}`);
-  if (cont.remainingWork) lines.push(`- Remaining: ${oneLine(cont.remainingWork)}`);
+  if (cont.completedWork)
+    lines.push(`- Completed: ${oneLine(cont.completedWork)}`);
+  if (cont.remainingWork)
+    lines.push(`- Remaining: ${oneLine(cont.remainingWork)}`);
   if (cont.decisions) lines.push(`- Decisions: ${oneLine(cont.decisions)}`);
   if (cont.nextAction) lines.push(`- Next action: ${oneLine(cont.nextAction)}`);
 
   return lines.join("\n");
 }
 
-function extractSliceExecutionExcerpt(content: string | null, relPath: string): string {
+function extractSliceExecutionExcerpt(
+  content: string | null,
+  relPath: string,
+): string {
   if (!content) {
     return [
       "## Slice Plan Excerpt",
@@ -389,18 +513,32 @@ function extractSliceExecutionExcerpt(content: string | null, relPath: string): 
   const goalLine = lines.find((line) => line.startsWith("**Goal:**"))?.trim();
   const demoLine = lines.find((line) => line.startsWith("**Demo:**"))?.trim();
   const verification = extractMarkdownSection(content, "Verification");
-  const observability = extractMarkdownSection(content, "Observability / Diagnostics");
+  const observability = extractMarkdownSection(
+    content,
+    "Observability / Diagnostics",
+  );
 
   const parts = ["## Slice Plan Excerpt", `Source: \`${relPath}\``];
   if (goalLine) parts.push(goalLine);
   if (demoLine) parts.push(demoLine);
-  if (verification) parts.push("", "### Slice Verification", verification.trim());
-  if (observability) parts.push("", "### Slice Observability / Diagnostics", observability.trim());
+  if (verification)
+    parts.push("", "### Slice Verification", verification.trim());
+  if (observability)
+    parts.push(
+      "",
+      "### Slice Observability / Diagnostics",
+      observability.trim(),
+    );
   return parts.join("\n");
 }
 
-function extractMarkdownSection(content: string, heading: string): string | null {
-  const match = new RegExp(`^## ${escapeRegExp(heading)}\\s*$`, "m").exec(content);
+function extractMarkdownSection(
+  content: string,
+  heading: string,
+): string | null {
+  const match = new RegExp(`^## ${escapeRegExp(heading)}\\s*$`, "m").exec(
+    content,
+  );
   if (!match) return null;
   const start = match.index + match[0].length;
   const rest = content.slice(start);

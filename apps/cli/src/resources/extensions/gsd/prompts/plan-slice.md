@@ -15,8 +15,8 @@ Pay particular attention to **Forward Intelligence** sections — they contain h
 Then:
 0. If `REQUIREMENTS.md` was preloaded above, identify which Active requirements the roadmap says this slice owns or supports. These are the requirements this plan must deliver — every owned requirement needs at least one task that directly advances it, and verification must prove the requirement is met.
 1. Read the templates:
-   - `~/.gsd/agent/extensions/gsd/templates/plan.md`
-   - `~/.gsd/agent/extensions/gsd/templates/task-plan.md`
+   - `~/.kata/agent/extensions/gsd/templates/plan.md`
+   - `~/.kata/agent/extensions/gsd/templates/task-plan.md`
 2. If a `GSD Skill Preferences` block is present in system context, use it to decide which skills to load and follow during planning, without overriding required plan formatting
 3. Define slice-level verification first — the objective stopping condition for this slice:
    - For non-trivial slices: plan actual test files with real assertions. Name the files. The first task creates them (initially failing). Remaining tasks make them pass.
@@ -48,13 +48,13 @@ Then:
     - **Dependency correctness:** Task ordering is consistent. No task references work from a later task.
     - **Key links planned:** For every pair of artifacts that must connect (component → API, API → database, form → handler), there is an explicit step that wires them — not just "create X" and "create Y" in separate tasks with no connection step.
     - **Scope sanity:** Target 2–5 steps and 3–8 files per task. 6–8 steps or 8–10 files is a warning — consider splitting. 10+ steps or 12+ files — must split. Each task must be completable in a single fresh context window.
-    - **Context compliance:** If context/research artifacts or `.gsd/DECISIONS.md` exist, the plan honors locked decisions and doesn't include deferred or out-of-scope items.
+    - **Context compliance:** If context/research artifacts or `.kata/DECISIONS.md` exist, the plan honors locked decisions and doesn't include deferred or out-of-scope items.
     - **Requirement coverage:** If `REQUIREMENTS.md` exists, every Active requirement this slice owns (per the roadmap) maps to at least one task with verification that proves the requirement is met. No owned requirement is left without a task. No task claims to satisfy a requirement that is Deferred or Out of Scope.
     - **Proof honesty:** The `Proof Level` and `Integration Closure` sections match what this slice will actually prove, and they do not imply live end-to-end completion if only fixture or contract proof is planned.
     - **Feature completeness:** Every task produces real, user-facing progress — not just internal scaffolding. If the slice has a UI surface, at least one task builds the real UI (not a placeholder). If the slice has an API, at least one task connects it to a real data source (not hardcoded returns). If every task were completed and you showed the result to a non-technical stakeholder, they should see real product progress, not developer artifacts.
-13. If planning produced structural decisions (e.g. verification strategy, observability strategy, technology choices, patterns to follow), append them to `.gsd/DECISIONS.md`
+13. If planning produced structural decisions (e.g. verification strategy, observability strategy, technology choices, patterns to follow), append them to `.kata/DECISIONS.md`
 14. Commit: `docs({{sliceId}}): add slice plan`
-15. Update `.gsd/STATE.md`
+15. Update `.kata/STATE.md`
 
 The slice directory and tasks/ subdirectory already exist. Do NOT mkdir. You are on the slice branch; all work stays here.
 

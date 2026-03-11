@@ -2,7 +2,7 @@
  * App-level smoke tests for the gsd CLI package.
  *
  * Tests the glue code that IS the product:
- * - app-paths resolve to ~/.gsd/
+ * - app-paths resolve to ~/.kata/
  * - loader sets all required env vars
  * - resource-loader syncs bundled resources
  * - wizard loadStoredEnvKeys hydrates env
@@ -13,7 +13,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execSync, spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -24,14 +31,27 @@ const projectRoot = join(fileURLToPath(import.meta.url), "..", "..", "..");
 // 1. app-paths
 // ═══════════════════════════════════════════════════════════════════════════
 
-test("app-paths resolve to ~/.gsd/", async () => {
-  const { appRoot, agentDir, sessionsDir, authFilePath } = await import("../app-paths.ts");
+test("app-paths resolve to ~/.kata/", async () => {
+  const { appRoot, agentDir, sessionsDir, authFilePath } =
+    await import("../app-paths.ts");
   const home = process.env.HOME!;
 
-  assert.equal(appRoot, join(home, ".gsd"), "appRoot is ~/.gsd/");
-  assert.equal(agentDir, join(home, ".gsd", "agent"), "agentDir is ~/.gsd/agent/");
-  assert.equal(sessionsDir, join(home, ".gsd", "sessions"), "sessionsDir is ~/.gsd/sessions/");
-  assert.equal(authFilePath, join(home, ".gsd", "agent", "auth.json"), "authFilePath is ~/.gsd/agent/auth.json");
+  assert.equal(appRoot, join(home, ".kata"), "appRoot is ~/.kata/");
+  assert.equal(
+    agentDir,
+    join(home, ".kata", "agent"),
+    "agentDir is ~/.kata/agent/",
+  );
+  assert.equal(
+    sessionsDir,
+    join(home, ".kata", "sessions"),
+    "sessionsDir is ~/.kata/sessions/",
+  );
+  assert.equal(
+    authFilePath,
+    join(home, ".kata", "agent", "auth.json"),
+    "authFilePath is ~/.kata/agent/auth.json",
+  );
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -47,19 +67,19 @@ test("loader sets all 4 GSD_ env vars and PI_PACKAGE_DIR", async () => {
 
     const pkgDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'pkg');
     process.env.PI_PACKAGE_DIR = pkgDir;
-    process.env.GSD_CODING_AGENT_DIR = agentDir;
-    process.env.GSD_BIN_PATH = process.argv[1];
+    process.env.kata_CODING_AGENT_DIR = agentDir;
+    process.env.kata_BIN_PATH = process.argv[1];
     const resourcesDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'resources');
-    process.env.GSD_WORKFLOW_PATH = join(resourcesDir, 'GSD-WORKFLOW.md');
+    process.env.kata_WORKFLOW_PATH = join(resourcesDir, 'GSD-WORKFLOW.md');
     const exts = ['extensions/gsd/index.ts'].map(r => join(resourcesDir, r));
-    process.env.GSD_BUNDLED_EXTENSION_PATHS = exts.join(':');
+    process.env.kata_BUNDLED_EXTENSION_PATHS = exts.join(':');
 
     // Print for verification
     console.log('PI_PACKAGE_DIR=' + process.env.PI_PACKAGE_DIR);
-    console.log('GSD_CODING_AGENT_DIR=' + process.env.GSD_CODING_AGENT_DIR);
-    console.log('GSD_BIN_PATH=' + process.env.GSD_BIN_PATH);
-    console.log('GSD_WORKFLOW_PATH=' + process.env.GSD_WORKFLOW_PATH);
-    console.log('GSD_BUNDLED_EXTENSION_PATHS=' + process.env.GSD_BUNDLED_EXTENSION_PATHS);
+    console.log('GSD_CODING_AGENT_DIR=' + process.env.kata_CODING_AGENT_DIR);
+    console.log('GSD_BIN_PATH=' + process.env.kata_BIN_PATH);
+    console.log('GSD_WORKFLOW_PATH=' + process.env.kata_WORKFLOW_PATH);
+    console.log('GSD_BUNDLED_EXTENSION_PATHS=' + process.env.kata_BUNDLED_EXTENSION_PATHS);
     process.exit(0);
   `;
 
@@ -82,15 +102,27 @@ test("loader sets all 4 GSD_ env vars and PI_PACKAGE_DIR", async () => {
 
   // Direct logic verification (no subprocess needed)
   const { agentDir: ad } = await import("../app-paths.ts");
-  assert.ok(ad.endsWith(".gsd/agent"), "agentDir ends with .gsd/agent");
+  assert.ok(ad.endsWith(".kata/agent"), "agentDir ends with .kata/agent");
 
   // Verify the env var names are in loader.ts source
-  const loaderSrc = readFileSync(join(projectRoot, "src", "loader.ts"), "utf-8");
+  const loaderSrc = readFileSync(
+    join(projectRoot, "src", "loader.ts"),
+    "utf-8",
+  );
   assert.ok(loaderSrc.includes("PI_PACKAGE_DIR"), "loader sets PI_PACKAGE_DIR");
-  assert.ok(loaderSrc.includes("GSD_CODING_AGENT_DIR"), "loader sets GSD_CODING_AGENT_DIR");
+  assert.ok(
+    loaderSrc.includes("GSD_CODING_AGENT_DIR"),
+    "loader sets GSD_CODING_AGENT_DIR",
+  );
   assert.ok(loaderSrc.includes("GSD_BIN_PATH"), "loader sets GSD_BIN_PATH");
-  assert.ok(loaderSrc.includes("GSD_WORKFLOW_PATH"), "loader sets GSD_WORKFLOW_PATH");
-  assert.ok(loaderSrc.includes("GSD_BUNDLED_EXTENSION_PATHS"), "loader sets GSD_BUNDLED_EXTENSION_PATHS");
+  assert.ok(
+    loaderSrc.includes("GSD_WORKFLOW_PATH"),
+    "loader sets GSD_WORKFLOW_PATH",
+  );
+  assert.ok(
+    loaderSrc.includes("GSD_BUNDLED_EXTENSION_PATHS"),
+    "loader sets GSD_BUNDLED_EXTENSION_PATHS",
+  );
 
   // Verify all 11 extension entry points are referenced in loader
   // Loader uses join() calls like join(agentDir, 'extensions', 'gsd', 'index.ts')
@@ -126,14 +158,34 @@ test("initResources syncs extensions, agents, and AGENTS.md to target dir", asyn
     initResources(fakeAgentDir);
 
     // Extensions synced
-    assert.ok(existsSync(join(fakeAgentDir, "extensions", "gsd", "index.ts")), "gsd extension synced");
-    assert.ok(existsSync(join(fakeAgentDir, "extensions", "browser-tools", "index.ts")), "browser-tools synced");
-    assert.ok(existsSync(join(fakeAgentDir, "extensions", "search-the-web", "index.ts")), "search-the-web synced");
-    assert.ok(existsSync(join(fakeAgentDir, "extensions", "context7", "index.ts")), "context7 synced");
-    assert.ok(existsSync(join(fakeAgentDir, "extensions", "subagent", "index.ts")), "subagent synced");
+    assert.ok(
+      existsSync(join(fakeAgentDir, "extensions", "gsd", "index.ts")),
+      "gsd extension synced",
+    );
+    assert.ok(
+      existsSync(join(fakeAgentDir, "extensions", "browser-tools", "index.ts")),
+      "browser-tools synced",
+    );
+    assert.ok(
+      existsSync(
+        join(fakeAgentDir, "extensions", "search-the-web", "index.ts"),
+      ),
+      "search-the-web synced",
+    );
+    assert.ok(
+      existsSync(join(fakeAgentDir, "extensions", "context7", "index.ts")),
+      "context7 synced",
+    );
+    assert.ok(
+      existsSync(join(fakeAgentDir, "extensions", "subagent", "index.ts")),
+      "subagent synced",
+    );
 
     // Agents synced
-    assert.ok(existsSync(join(fakeAgentDir, "agents", "scout.md")), "scout agent synced");
+    assert.ok(
+      existsSync(join(fakeAgentDir, "agents", "scout.md")),
+      "scout agent synced",
+    );
 
     // AGENTS.md synced
     assert.ok(existsSync(join(fakeAgentDir, "AGENTS.md")), "AGENTS.md synced");
@@ -142,7 +194,10 @@ test("initResources syncs extensions, agents, and AGENTS.md to target dir", asyn
 
     // Idempotent: run again, no crash
     initResources(fakeAgentDir);
-    assert.ok(existsSync(join(fakeAgentDir, "extensions", "gsd", "index.ts")), "idempotent re-sync works");
+    assert.ok(
+      existsSync(join(fakeAgentDir, "extensions", "gsd", "index.ts")),
+      "idempotent re-sync works",
+    );
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -158,11 +213,14 @@ test("loadStoredEnvKeys hydrates process.env from auth.json", async () => {
 
   const tmp = mkdtempSync(join(tmpdir(), "gsd-wizard-test-"));
   const authPath = join(tmp, "auth.json");
-  writeFileSync(authPath, JSON.stringify({
-    brave: { type: "api_key", key: "test-brave-key" },
-    brave_answers: { type: "api_key", key: "test-answers-key" },
-    context7: { type: "api_key", key: "test-ctx7-key" },
-  }));
+  writeFileSync(
+    authPath,
+    JSON.stringify({
+      brave: { type: "api_key", key: "test-brave-key" },
+      brave_answers: { type: "api_key", key: "test-answers-key" },
+      context7: { type: "api_key", key: "test-ctx7-key" },
+    }),
+  );
 
   // Clear any existing env vars
   const origBrave = process.env.BRAVE_API_KEY;
@@ -178,16 +236,36 @@ test("loadStoredEnvKeys hydrates process.env from auth.json", async () => {
     const auth = AuthStorage.create(authPath);
     loadStoredEnvKeys(auth);
 
-    assert.equal(process.env.BRAVE_API_KEY, "test-brave-key", "BRAVE_API_KEY hydrated");
-    assert.equal(process.env.BRAVE_ANSWERS_KEY, "test-answers-key", "BRAVE_ANSWERS_KEY hydrated");
-    assert.equal(process.env.CONTEXT7_API_KEY, "test-ctx7-key", "CONTEXT7_API_KEY hydrated");
-    assert.equal(process.env.JINA_API_KEY, undefined, "JINA_API_KEY not set (not in auth)");
+    assert.equal(
+      process.env.BRAVE_API_KEY,
+      "test-brave-key",
+      "BRAVE_API_KEY hydrated",
+    );
+    assert.equal(
+      process.env.BRAVE_ANSWERS_KEY,
+      "test-answers-key",
+      "BRAVE_ANSWERS_KEY hydrated",
+    );
+    assert.equal(
+      process.env.CONTEXT7_API_KEY,
+      "test-ctx7-key",
+      "CONTEXT7_API_KEY hydrated",
+    );
+    assert.equal(
+      process.env.JINA_API_KEY,
+      undefined,
+      "JINA_API_KEY not set (not in auth)",
+    );
   } finally {
     // Restore original env
-    if (origBrave) process.env.BRAVE_API_KEY = origBrave; else delete process.env.BRAVE_API_KEY;
-    if (origBraveAnswers) process.env.BRAVE_ANSWERS_KEY = origBraveAnswers; else delete process.env.BRAVE_ANSWERS_KEY;
-    if (origCtx7) process.env.CONTEXT7_API_KEY = origCtx7; else delete process.env.CONTEXT7_API_KEY;
-    if (origJina) process.env.JINA_API_KEY = origJina; else delete process.env.JINA_API_KEY;
+    if (origBrave) process.env.BRAVE_API_KEY = origBrave;
+    else delete process.env.BRAVE_API_KEY;
+    if (origBraveAnswers) process.env.BRAVE_ANSWERS_KEY = origBraveAnswers;
+    else delete process.env.BRAVE_ANSWERS_KEY;
+    if (origCtx7) process.env.CONTEXT7_API_KEY = origCtx7;
+    else delete process.env.CONTEXT7_API_KEY;
+    if (origJina) process.env.JINA_API_KEY = origJina;
+    else delete process.env.JINA_API_KEY;
     rmSync(tmp, { recursive: true, force: true });
   }
 });
@@ -202,9 +280,12 @@ test("loadStoredEnvKeys does not overwrite existing env vars", async () => {
 
   const tmp = mkdtempSync(join(tmpdir(), "gsd-wizard-nooverwrite-"));
   const authPath = join(tmp, "auth.json");
-  writeFileSync(authPath, JSON.stringify({
-    brave: { type: "api_key", key: "stored-key" },
-  }));
+  writeFileSync(
+    authPath,
+    JSON.stringify({
+      brave: { type: "api_key", key: "stored-key" },
+    }),
+  );
 
   const origBrave = process.env.BRAVE_API_KEY;
   process.env.BRAVE_API_KEY = "existing-env-key";
@@ -213,9 +294,14 @@ test("loadStoredEnvKeys does not overwrite existing env vars", async () => {
     const auth = AuthStorage.create(authPath);
     loadStoredEnvKeys(auth);
 
-    assert.equal(process.env.BRAVE_API_KEY, "existing-env-key", "existing env var not overwritten");
+    assert.equal(
+      process.env.BRAVE_API_KEY,
+      "existing-env-key",
+      "existing env var not overwritten",
+    );
   } finally {
-    if (origBrave) process.env.BRAVE_API_KEY = origBrave; else delete process.env.BRAVE_API_KEY;
+    if (origBrave) process.env.BRAVE_API_KEY = origBrave;
+    else delete process.env.BRAVE_API_KEY;
     rmSync(tmp, { recursive: true, force: true });
   }
 });
@@ -245,21 +331,59 @@ test("npm pack produces tarball with required files", async () => {
     const files = contents.split("\n").filter(Boolean);
 
     // Critical files must be present
-    assert.ok(files.some(f => f.includes("dist/loader.js")), "tarball contains dist/loader.js");
-    assert.ok(files.some(f => f.includes("dist/cli.js")), "tarball contains dist/cli.js");
-    assert.ok(files.some(f => f.includes("dist/app-paths.js")), "tarball contains dist/app-paths.js");
-    assert.ok(files.some(f => f.includes("dist/wizard.js")), "tarball contains dist/wizard.js");
-    assert.ok(files.some(f => f.includes("dist/resource-loader.js")), "tarball contains dist/resource-loader.js");
-    assert.ok(files.some(f => f.includes("pkg/package.json")), "tarball contains pkg/package.json");
-    assert.ok(files.some(f => f.includes("src/resources/extensions/gsd/index.ts")), "tarball contains bundled gsd extension");
-    assert.ok(files.some(f => f.includes("src/resources/AGENTS.md")), "tarball contains AGENTS.md");
-    assert.ok(files.some(f => f.includes("scripts/postinstall.js")), "tarball contains postinstall script");
+    assert.ok(
+      files.some((f) => f.includes("dist/loader.js")),
+      "tarball contains dist/loader.js",
+    );
+    assert.ok(
+      files.some((f) => f.includes("dist/cli.js")),
+      "tarball contains dist/cli.js",
+    );
+    assert.ok(
+      files.some((f) => f.includes("dist/app-paths.js")),
+      "tarball contains dist/app-paths.js",
+    );
+    assert.ok(
+      files.some((f) => f.includes("dist/wizard.js")),
+      "tarball contains dist/wizard.js",
+    );
+    assert.ok(
+      files.some((f) => f.includes("dist/resource-loader.js")),
+      "tarball contains dist/resource-loader.js",
+    );
+    assert.ok(
+      files.some((f) => f.includes("pkg/package.json")),
+      "tarball contains pkg/package.json",
+    );
+    assert.ok(
+      files.some((f) => f.includes("src/resources/extensions/gsd/index.ts")),
+      "tarball contains bundled gsd extension",
+    );
+    assert.ok(
+      files.some((f) => f.includes("src/resources/AGENTS.md")),
+      "tarball contains AGENTS.md",
+    );
+    assert.ok(
+      files.some((f) => f.includes("scripts/postinstall.js")),
+      "tarball contains postinstall script",
+    );
 
     // pkg/package.json must have piConfig
-    const pkgJson = readFileSync(join(projectRoot, "pkg", "package.json"), "utf-8");
+    const pkgJson = readFileSync(
+      join(projectRoot, "pkg", "package.json"),
+      "utf-8",
+    );
     const pkg = JSON.parse(pkgJson);
-    assert.equal(pkg.piConfig?.name, "gsd", "pkg/package.json piConfig.name is gsd");
-    assert.equal(pkg.piConfig?.configDir, ".gsd", "pkg/package.json piConfig.configDir is .gsd");
+    assert.equal(
+      pkg.piConfig?.name,
+      "gsd",
+      "pkg/package.json piConfig.name is gsd",
+    );
+    assert.equal(
+      pkg.piConfig?.configDir,
+      ".kata",
+      "pkg/package.json piConfig.configDir is .kata",
+    );
   } finally {
     // Clean up tarball
     rmSync(tarballPath, { force: true });
@@ -292,16 +416,40 @@ test("tarball installs and gsd binary resolves", async () => {
 
     // Verify the gsd bin exists in the installed package
     const installedBin = join(tmp, "node_modules", ".bin", "gsd");
-    assert.ok(existsSync(installedBin), "gsd binary exists in node_modules/.bin/");
+    assert.ok(
+      existsSync(installedBin),
+      "gsd binary exists in node_modules/.bin/",
+    );
 
     // Verify loader.js is executable (has shebang)
-    const installedLoader = join(tmp, "node_modules", "gsd-pi", "dist", "loader.js");
+    const installedLoader = join(
+      tmp,
+      "node_modules",
+      "gsd-pi",
+      "dist",
+      "loader.js",
+    );
     const loaderContent = readFileSync(installedLoader, "utf-8");
-    assert.ok(loaderContent.startsWith("#!/usr/bin/env node"), "loader.js has node shebang");
+    assert.ok(
+      loaderContent.startsWith("#!/usr/bin/env node"),
+      "loader.js has node shebang",
+    );
 
     // Verify bundled resources are present
-    const installedGsdExt = join(tmp, "node_modules", "gsd-pi", "src", "resources", "extensions", "gsd", "index.ts");
-    assert.ok(existsSync(installedGsdExt), "bundled gsd extension present in installed package");
+    const installedGsdExt = join(
+      tmp,
+      "node_modules",
+      "gsd-pi",
+      "src",
+      "resources",
+      "extensions",
+      "gsd",
+      "index.ts",
+    );
+    assert.ok(
+      existsSync(installedGsdExt),
+      "bundled gsd extension present in installed package",
+    );
   } finally {
     rmSync(tarballPath, { force: true });
     rmSync(tmp, { recursive: true, force: true });

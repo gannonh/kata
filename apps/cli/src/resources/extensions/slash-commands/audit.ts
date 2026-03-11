@@ -1,49 +1,53 @@
-import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionCommandContext,
+} from "@mariozechner/pi-coding-agent";
 
 export default function auditCommand(pi: ExtensionAPI) {
-	pi.registerCommand("audit", {
-		description: "Audit the current codebase against a specific goal and write a structured report to .gsd/audits/",
-		async handler(args: string, ctx: ExtensionCommandContext) {
-			// ── Step 1: Get the audit goal ────────────────────────────────────────
+  pi.registerCommand("audit", {
+    description:
+      "Audit the current codebase against a specific goal and write a structured report to .kata/audits/",
+    async handler(args: string, ctx: ExtensionCommandContext) {
+      // ── Step 1: Get the audit goal ────────────────────────────────────────
 
-			let goal = (typeof args === "string" ? args : "").trim();
+      let goal = (typeof args === "string" ? args : "").trim();
 
-			if (!goal) {
-				const input = await ctx.ui.input(
-					"What is the audit goal?",
-					"e.g. understand performance bottlenecks before planning a roadmap",
-				);
-				if (!input?.trim()) {
-					ctx.ui.notify("audit: No goal provided — cancelled.", "error");
-					return;
-				}
-				goal = input.trim();
-			}
+      if (!goal) {
+        const input = await ctx.ui.input(
+          "What is the audit goal?",
+          "e.g. understand performance bottlenecks before planning a roadmap",
+        );
+        if (!input?.trim()) {
+          ctx.ui.notify("audit: No goal provided — cancelled.", "error");
+          return;
+        }
+        goal = input.trim();
+      }
 
-			// ── Step 2: Build output path (.gsd/audits/<timestamp>-<slug>.md) ────
+      // ── Step 2: Build output path (.kata/audits/<timestamp>-<slug>.md) ────
 
-			const now = new Date();
-			const timestamp = now
-				.toISOString()
-				.replace(/T/, "-")
-				.replace(/:/g, "")
-				.replace(/\..+/, "");
+      const now = new Date();
+      const timestamp = now
+        .toISOString()
+        .replace(/T/, "-")
+        .replace(/:/g, "")
+        .replace(/\..+/, "");
 
-			const slug = goal
-				.toLowerCase()
-				.replace(/[^a-z0-9]+/g, "-")
-				.replace(/^-+|-+$/g, "")
-				.slice(0, 40);
+      const slug = goal
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 40);
 
-			const outputPath = `.gsd/audits/${timestamp}-${slug}.md`;
+      const outputPath = `.kata/audits/${timestamp}-${slug}.md`;
 
-			// ── Step 3: Ensure the output directory exists ───────────────────────
+      // ── Step 3: Ensure the output directory exists ───────────────────────
 
-			await pi.exec("mkdir", ["-p", ".gsd/audits"]);
+      await pi.exec("mkdir", ["-p", ".kata/audits"]);
 
-			// ── Step 4: Send the audit prompt to the agent ───────────────────────
+      // ── Step 4: Send the audit prompt to the agent ───────────────────────
 
-			const prompt = `You are conducting a codebase audit. This is a **read-only recce** — you will explore the codebase deeply and produce a structured report. You must NOT edit any code or create any files other than the audit report itself.
+      const prompt = `You are conducting a codebase audit. This is a **read-only recce** — you will explore the codebase deeply and produce a structured report. You must NOT edit any code or create any files other than the audit report itself.
 
 ## Audit Goal
 ${goal}
@@ -81,8 +85,8 @@ ${goal}
 
 After writing the file, confirm with: "✅ Audit complete — report saved to \`${outputPath}\`"`;
 
-			ctx.ui.notify(`Starting audit: "${goal}"`, "info");
-			pi.sendUserMessage(prompt);
-		},
-	});
+      ctx.ui.notify(`Starting audit: "${goal}"`, "info");
+      pi.sendUserMessage(prompt);
+    },
+  });
 }

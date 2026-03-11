@@ -3,7 +3,7 @@
  * Sync pkg/package.json version with the installed @mariozechner/pi-coding-agent version.
  *
  * gsd-pi sets PI_PACKAGE_DIR=pkg/ so that pi's config.js reads piConfig from
- * pkg/package.json (for branding: name="gsd", configDir=".gsd"). However, config.js
+ * pkg/package.json (for branding: name="gsd", configDir=".kata"). However, config.js
  * also reads `version` from that same file and uses it for the update check
  * (comparing against npm registry). If pkg/package.json has a stale version,
  * pi's update banner fires even when the user is already on the latest release.

@@ -26,8 +26,8 @@ Pi has four layers of customization, each serving a different purpose:
 TypeScript modules with full runtime access. They can hook into every event, register tools the LLM can call, add commands, render custom UI, override built-in behavior, and register model providers. Extensions are the most powerful customization mechanism.
 
 **Placement:**
-- `~/.gsd/agent/extensions/` (global)
-- `.gsd/extensions/` (project-local)
+- `~/.kata/agent/extensions/` (global)
+- `.kata/extensions/` (project-local)
 
 See the companion doc **Pi-Extensions-Complete-Guide.md** for the full 50KB reference.
 
@@ -48,8 +48,8 @@ On-demand capability packages following the [Agent Skills standard](https://agen
 ```
 
 **Placement:**
-- `~/.gsd/agent/skills/` or `~/.agents/skills/` (global)
-- `.gsd/skills/` or `.agents/skills/` (project, searched up to git root)
+- `~/.kata/agent/skills/` or `~/.agents/skills/` (global)
+- `.kata/skills/` or `.agents/skills/` (project, searched up to git root)
 
 **Skill structure:**
 ```
@@ -66,7 +66,7 @@ my-skill/
 Markdown files that expand into prompts via `/name`. Simple text expansion with positional argument support (`$1`, `$2`, `$@`).
 
 ```markdown
-<!-- ~/.gsd/agent/prompts/review.md -->
+<!-- ~/.kata/agent/prompts/review.md -->
 ---
 description: Review staged git changes
 ---
@@ -80,8 +80,8 @@ Focus area: $1
 Usage: `/review "error handling"` → expands with `$1` = "error handling"
 
 **Placement:**
-- `~/.gsd/agent/prompts/` (global)
-- `.gsd/prompts/` (project-local)
+- `~/.kata/agent/prompts/` (global)
+- `.kata/prompts/` (project-local)
 
 ### Themes
 
@@ -90,7 +90,7 @@ JSON files defining the color palette for the TUI. Hot-reload: edit the file and
 **Built-in:** `dark`, `light`
 
 **Placement:**
-- `~/.gsd/agent/themes/` (global)
-- `.gsd/themes/` (project-local)
+- `~/.kata/agent/themes/` (global)
+- `.kata/themes/` (project-local)
 
 ---
