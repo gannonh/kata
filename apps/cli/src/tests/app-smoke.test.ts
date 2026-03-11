@@ -436,7 +436,7 @@ test("tarball installs and kata-cli binary resolves", async () => {
     );
 
     // Verify bundled resources are present
-    const installedGsdExt = join(
+    const installedKataExt = join(
       tmp,
       "node_modules",
       "kata-cli",
@@ -447,7 +447,7 @@ test("tarball installs and kata-cli binary resolves", async () => {
       "index.ts",
     );
     assert.ok(
-      existsSync(installedGsdExt),
+      existsSync(installedKataExt),
       "bundled kata extension present in installed package",
     );
   } finally {

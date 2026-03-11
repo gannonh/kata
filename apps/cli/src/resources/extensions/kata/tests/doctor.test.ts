@@ -185,8 +185,8 @@ async function main(): Promise<void> {
   console.log("\n=== doctor detects missing milestone summary ===");
   {
     const msBase = mkdtempSync(join(tmpdir(), "kata-doctor-ms-test-"));
-    const msGsd = join(msBase, ".kata");
-    const msMDir = join(msGsd, "milestones", "M001");
+    const msKata = join(msBase, ".kata");
+    const msMDir = join(msKata, "milestones", "M001");
     const msSDir = join(msMDir, "slices", "S01");
     const msTDir = join(msSDir, "tasks");
     mkdirSync(msTDir, { recursive: true });
@@ -284,8 +284,8 @@ parent: M001
   console.log("\n=== doctor does NOT flag milestone with summary ===");
   {
     const msBase = mkdtempSync(join(tmpdir(), "kata-doctor-ms-ok-test-"));
-    const msGsd = join(msBase, ".kata");
-    const msMDir = join(msGsd, "milestones", "M001");
+    const msKata = join(msBase, ".kata");
+    const msMDir = join(msKata, "milestones", "M001");
     const msSDir = join(msMDir, "slices", "S01");
     const msTDir = join(msSDir, "tasks");
     mkdirSync(msTDir, { recursive: true });
@@ -361,8 +361,8 @@ parent: M001
   console.log("\n=== doctor detects blocker_discovered_no_replan ===");
   {
     const bBase = mkdtempSync(join(tmpdir(), "kata-doctor-blocker-test-"));
-    const bGsd = join(bBase, ".kata");
-    const bMDir = join(bGsd, "milestones", "M001");
+    const bKata = join(bBase, ".kata");
+    const bMDir = join(bKata, "milestones", "M001");
     const bSDir = join(bMDir, "slices", "S01");
     const bTDir = join(bSDir, "tasks");
     mkdirSync(bTDir, { recursive: true });
@@ -449,8 +449,8 @@ Discovered an issue.
   console.log("\n=== doctor does NOT flag blocker when REPLAN.md exists ===");
   {
     const bBase = mkdtempSync(join(tmpdir(), "kata-doctor-blocker-ok-test-"));
-    const bGsd = join(bBase, ".kata");
-    const bMDir = join(bGsd, "milestones", "M001");
+    const bKata = join(bBase, ".kata");
+    const bMDir = join(bKata, "milestones", "M001");
     const bSDir = join(bMDir, "slices", "S01");
     const bTDir = join(bSDir, "tasks");
     mkdirSync(bTDir, { recursive: true });
@@ -526,8 +526,8 @@ Discovered an issue.
   );
   {
     const mhBase = mkdtempSync(join(tmpdir(), "kata-doctor-mh-ok-"));
-    const mhGsd = join(mhBase, ".kata");
-    const mhMDir = join(mhGsd, "milestones", "M001");
+    const mhKata = join(mhBase, ".kata");
+    const mhMDir = join(mhKata, "milestones", "M001");
     const mhSDir = join(mhMDir, "slices", "S01");
     const mhTDir = join(mhSDir, "tasks");
     mkdirSync(mhTDir, { recursive: true });
@@ -570,8 +570,8 @@ Discovered an issue.
   );
   {
     const mhBase = mkdtempSync(join(tmpdir(), "kata-doctor-mh-fail-"));
-    const mhGsd = join(mhBase, ".kata");
-    const mhMDir = join(mhGsd, "milestones", "M001");
+    const mhKata = join(mhBase, ".kata");
+    const mhMDir = join(mhKata, "milestones", "M001");
     const mhSDir = join(mhMDir, "slices", "S01");
     const mhTDir = join(mhSDir, "tasks");
     mkdirSync(mhTDir, { recursive: true });
@@ -628,8 +628,8 @@ Discovered an issue.
   console.log("\n=== doctor: done task with no task plan file → no issue ===");
   {
     const mhBase = mkdtempSync(join(tmpdir(), "kata-doctor-mh-noplan-"));
-    const mhGsd = join(mhBase, ".kata");
-    const mhMDir = join(mhGsd, "milestones", "M001");
+    const mhKata = join(mhBase, ".kata");
+    const mhMDir = join(mhKata, "milestones", "M001");
     const mhSDir = join(mhMDir, "slices", "S01");
     const mhTDir = join(mhSDir, "tasks");
     mkdirSync(mhTDir, { recursive: true });
@@ -666,8 +666,8 @@ Discovered an issue.
   );
   {
     const mhBase = mkdtempSync(join(tmpdir(), "kata-doctor-mh-nosect-"));
-    const mhGsd = join(mhBase, ".kata");
-    const mhMDir = join(mhGsd, "milestones", "M001");
+    const mhKata = join(mhBase, ".kata");
+    const mhMDir = join(mhKata, "milestones", "M001");
     const mhSDir = join(mhMDir, "slices", "S01");
     const mhTDir = join(mhSDir, "tasks");
     mkdirSync(mhTDir, { recursive: true });

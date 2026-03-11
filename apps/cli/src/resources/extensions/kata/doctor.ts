@@ -2,7 +2,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { loadFile, parsePlan, parseRoadmap, parseSummary, saveFile, parseTaskPlanMustHaves, countMustHavesMentionedInSummary } from "./files.js";
-import { resolveMilestoneFile, resolveMilestonePath, resolveSliceFile, resolveSlicePath, resolveTaskFile, resolveTaskFiles, resolveTasksDir, milestonesDir, kataRoot, relMilestoneFile, relSliceFile, relTaskFile, relSlicePath, relGsdRootFile, resolveGsdRootFile } from "./paths.js";
+import { resolveMilestoneFile, resolveMilestonePath, resolveSliceFile, resolveSlicePath, resolveTaskFile, resolveTaskFiles, resolveTasksDir, milestonesDir, kataRoot, relMilestoneFile, relSliceFile, relTaskFile, relSlicePath, relKataRootFile, resolveKataRootFile } from "./paths.js";
 import { deriveState, isMilestoneComplete } from "./state.js";
 import { loadEffectiveKataPreferences, type KataPreferences } from "./preferences.js";
 
@@ -142,7 +142,7 @@ function buildStateMarkdown(state: Awaited<ReturnType<typeof deriveState>>): str
 
 async function updateStateFile(basePath: string, fixesApplied: string[]): Promise<void> {
   const state = await deriveState(basePath);
-  const path = resolveGsdRootFile(basePath, "STATE");
+  const path = resolveKataRootFile(basePath, "STATE");
   await saveFile(path, buildStateMarkdown(state));
   fixesApplied.push(`updated ${path}`);
 }
@@ -297,7 +297,7 @@ function auditRequirements(content: string | null): DoctorIssue[] {
         scope: "project",
         unitId: requirementId,
         message: `${requirementId} is Active but has no primary owning slice`,
-        file: relGsdRootFile("REQUIREMENTS"),
+        file: relKataRootFile("REQUIREMENTS"),
         fixable: false,
       });
     }
@@ -309,7 +309,7 @@ function auditRequirements(content: string | null): DoctorIssue[] {
         scope: "project",
         unitId: requirementId,
         message: `${requirementId} is Blocked but has no reason in Notes`,
-        file: relGsdRootFile("REQUIREMENTS"),
+        file: relKataRootFile("REQUIREMENTS"),
         fixable: false,
       });
     }
@@ -441,7 +441,7 @@ export async function runKataDoctor(basePath: string, options?: { fix?: boolean;
     return { ok: issues.every(issue => issue.severity !== "error"), basePath, issues, fixesApplied };
   }
 
-  const requirementsPath = resolveGsdRootFile(basePath, "REQUIREMENTS");
+  const requirementsPath = resolveKataRootFile(basePath, "REQUIREMENTS");
   const requirementsContent = await loadFile(requirementsPath);
   issues.push(...auditRequirements(requirementsContent));
 

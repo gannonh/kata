@@ -27,7 +27,7 @@ import {
   resolveSlicePath,
   resolveSliceFile,
   resolveTaskFile,
-  resolveGsdRootFile,
+  resolveKataRootFile,
 } from "./paths.ts";
 import { getActiveSliceBranch } from "./worktree.ts";
 
@@ -100,7 +100,7 @@ export async function getActiveMilestoneId(
 export async function deriveState(basePath: string): Promise<KataState> {
   const milestoneIds = findMilestoneIds(basePath);
   const requirements = parseRequirementCounts(
-    await loadFile(resolveGsdRootFile(basePath, "REQUIREMENTS")),
+    await loadFile(resolveKataRootFile(basePath, "REQUIREMENTS")),
   );
 
   if (milestoneIds.length === 0) {

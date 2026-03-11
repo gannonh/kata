@@ -45,8 +45,8 @@ import {
   relSlicePath,
   relMilestonePath,
   milestonesDir,
-  resolveGsdRootFile,
-  relGsdRootFile,
+  resolveKataRootFile,
+  relKataRootFile,
   buildMilestoneFileName,
   buildSliceFileName,
   buildTaskFileName,
@@ -1402,7 +1402,7 @@ async function inlineDependencySummaries(
  * Load a well-known .kata/ root file for optional inlining.
  * Handles the existsSync check internally.
  */
-async function inlineGsdRootFile(
+async function inlineKataRootFile(
   base: string,
   filename: string,
   label: string,
@@ -1413,9 +1413,9 @@ async function inlineGsdRootFile(
     | "QUEUE"
     | "STATE"
     | "REQUIREMENTS";
-  const absPath = resolveGsdRootFile(base, key);
+  const absPath = resolveKataRootFile(base, key);
   if (!existsSync(absPath)) return null;
-  return inlineFileOptional(absPath, relGsdRootFile(key), label);
+  return inlineFileOptional(absPath, relKataRootFile(key), label);
 }
 
 // ─── Prompt Builders ──────────────────────────────────────────────────────────
@@ -1430,15 +1430,15 @@ async function buildResearchMilestonePrompt(
 
   const inlined: string[] = [];
   inlined.push(await inlineFile(contextPath, contextRel, "Milestone Context"));
-  const projectInline = await inlineGsdRootFile(base, "project.md", "Project");
+  const projectInline = await inlineKataRootFile(base, "project.md", "Project");
   if (projectInline) inlined.push(projectInline);
-  const requirementsInline = await inlineGsdRootFile(
+  const requirementsInline = await inlineKataRootFile(
     base,
     "requirements.md",
     "Requirements",
   );
   if (requirementsInline) inlined.push(requirementsInline);
-  const decisionsInline = await inlineGsdRootFile(
+  const decisionsInline = await inlineKataRootFile(
     base,
     "decisions.md",
     "Decisions",
@@ -1482,15 +1482,15 @@ async function buildPlanMilestonePrompt(
   if (researchInline) inlined.push(researchInline);
   const priorSummaryInline = await inlinePriorMilestoneSummary(mid, base);
   if (priorSummaryInline) inlined.push(priorSummaryInline);
-  const projectInline = await inlineGsdRootFile(base, "project.md", "Project");
+  const projectInline = await inlineKataRootFile(base, "project.md", "Project");
   if (projectInline) inlined.push(projectInline);
-  const requirementsInline = await inlineGsdRootFile(
+  const requirementsInline = await inlineKataRootFile(
     base,
     "requirements.md",
     "Requirements",
   );
   if (requirementsInline) inlined.push(requirementsInline);
-  const decisionsInline = await inlineGsdRootFile(
+  const decisionsInline = await inlineKataRootFile(
     base,
     "decisions.md",
     "Decisions",
@@ -1542,13 +1542,13 @@ async function buildResearchSlicePrompt(
     "Milestone Research",
   );
   if (researchInline) inlined.push(researchInline);
-  const decisionsInline = await inlineGsdRootFile(
+  const decisionsInline = await inlineKataRootFile(
     base,
     "decisions.md",
     "Decisions",
   );
   if (decisionsInline) inlined.push(decisionsInline);
-  const requirementsInline = await inlineGsdRootFile(
+  const requirementsInline = await inlineKataRootFile(
     base,
     "requirements.md",
     "Requirements",
@@ -1598,13 +1598,13 @@ async function buildPlanSlicePrompt(
     "Slice Research",
   );
   if (researchInline) inlined.push(researchInline);
-  const decisionsInline = await inlineGsdRootFile(
+  const decisionsInline = await inlineKataRootFile(
     base,
     "decisions.md",
     "Decisions",
   );
   if (decisionsInline) inlined.push(decisionsInline);
-  const requirementsInline = await inlineGsdRootFile(
+  const requirementsInline = await inlineKataRootFile(
     base,
     "requirements.md",
     "Requirements",
@@ -1734,7 +1734,7 @@ async function buildCompleteSlicePrompt(
   const inlined: string[] = [];
   inlined.push(await inlineFile(roadmapPath, roadmapRel, "Milestone Roadmap"));
   inlined.push(await inlineFile(slicePlanPath, slicePlanRel, "Slice Plan"));
-  const requirementsInline = await inlineGsdRootFile(
+  const requirementsInline = await inlineKataRootFile(
     base,
     "requirements.md",
     "Requirements",
@@ -1803,19 +1803,19 @@ async function buildCompleteMilestonePrompt(
   }
 
   // Inline root Kata files
-  const requirementsInline = await inlineGsdRootFile(
+  const requirementsInline = await inlineKataRootFile(
     base,
     "requirements.md",
     "Requirements",
   );
   if (requirementsInline) inlined.push(requirementsInline);
-  const decisionsInline = await inlineGsdRootFile(
+  const decisionsInline = await inlineKataRootFile(
     base,
     "decisions.md",
     "Decisions",
   );
   if (decisionsInline) inlined.push(decisionsInline);
-  const projectInline = await inlineGsdRootFile(base, "project.md", "Project");
+  const projectInline = await inlineKataRootFile(base, "project.md", "Project");
   if (projectInline) inlined.push(projectInline);
   // Inline milestone context file (milestone-level, not Kata root)
   const contextPath = resolveMilestoneFile(base, mid, "CONTEXT");
@@ -1885,7 +1885,7 @@ async function buildReplanSlicePrompt(
   }
 
   // Inline decisions
-  const decisionsInline = await inlineGsdRootFile(
+  const decisionsInline = await inlineKataRootFile(
     base,
     "decisions.md",
     "Decisions",
@@ -2045,7 +2045,7 @@ async function buildRunUatPrompt(
     if (summaryInline) inlined.push(summaryInline);
   }
 
-  const projectInline = await inlineGsdRootFile(base, "project.md", "Project");
+  const projectInline = await inlineKataRootFile(base, "project.md", "Project");
   if (projectInline) inlined.push(projectInline);
 
   const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
@@ -2084,15 +2084,15 @@ async function buildReassessRoadmapPrompt(
   inlined.push(
     await inlineFile(summaryPath, summaryRel, `${completedSliceId} Summary`),
   );
-  const projectInline = await inlineGsdRootFile(base, "project.md", "Project");
+  const projectInline = await inlineKataRootFile(base, "project.md", "Project");
   if (projectInline) inlined.push(projectInline);
-  const requirementsInline = await inlineGsdRootFile(
+  const requirementsInline = await inlineKataRootFile(
     base,
     "requirements.md",
     "Requirements",
   );
   if (requirementsInline) inlined.push(requirementsInline);
-  const decisionsInline = await inlineGsdRootFile(
+  const decisionsInline = await inlineKataRootFile(
     base,
     "decisions.md",
     "Decisions",

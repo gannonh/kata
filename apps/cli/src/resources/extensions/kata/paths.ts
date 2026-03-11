@@ -156,7 +156,7 @@ export function milestonesDir(basePath: string): string {
   return join(kataRoot(basePath), "milestones");
 }
 
-export function resolveGsdRootFile(
+export function resolveKataRootFile(
   basePath: string,
   key: KataRootFileKey,
 ): string {
@@ -168,7 +168,7 @@ export function resolveGsdRootFile(
   return canonical;
 }
 
-export function relGsdRootFile(key: KataRootFileKey): string {
+export function relKataRootFile(key: KataRootFileKey): string {
   return `.kata/${KATA_ROOT_FILES[key]}`;
 }
 

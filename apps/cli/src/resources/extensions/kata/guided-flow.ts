@@ -23,8 +23,8 @@ import {
   resolveMilestoneFile,
   resolveSliceFile,
   resolveSlicePath,
-  resolveGsdRootFile,
-  relGsdRootFile,
+  resolveKataRootFile,
+  relKataRootFile,
   relMilestoneFile,
   relSliceFile,
   relSlicePath,
@@ -232,23 +232,23 @@ async function buildExistingMilestonesContext(
   const sections: string[] = [];
 
   // Include PROJECT.md if it exists — it has the milestone sequence and project description
-  const projectPath = resolveGsdRootFile(basePath, "PROJECT");
+  const projectPath = resolveKataRootFile(basePath, "PROJECT");
   if (existsSync(projectPath)) {
     const projectContent = await loadFile(projectPath);
     if (projectContent) {
       sections.push(
-        `### Project Overview\nSource: \`${relGsdRootFile("PROJECT")}\`\n\n${projectContent.trim()}`,
+        `### Project Overview\nSource: \`${relKataRootFile("PROJECT")}\`\n\n${projectContent.trim()}`,
       );
     }
   }
 
   // Include DECISIONS.md if it exists — architectural decisions inform new milestone scoping
-  const decisionsPath = resolveGsdRootFile(basePath, "DECISIONS");
+  const decisionsPath = resolveKataRootFile(basePath, "DECISIONS");
   if (existsSync(decisionsPath)) {
     const decisionsContent = await loadFile(decisionsPath);
     if (decisionsContent) {
       sections.push(
-        `### Decisions Register\nSource: \`${relGsdRootFile("DECISIONS")}\`\n\n${decisionsContent.trim()}`,
+        `### Decisions Register\nSource: \`${relKataRootFile("DECISIONS")}\`\n\n${decisionsContent.trim()}`,
       );
     }
   }
@@ -298,12 +298,12 @@ async function buildExistingMilestonesContext(
   }
 
   // Include queue log if it exists — shows what's been queued before
-  const queuePath = resolveGsdRootFile(basePath, "QUEUE");
+  const queuePath = resolveKataRootFile(basePath, "QUEUE");
   if (existsSync(queuePath)) {
     const queueContent = await loadFile(queuePath);
     if (queueContent) {
       sections.push(
-        `### Previous Queue Entries\nSource: \`${relGsdRootFile("QUEUE")}\`\n\n${queueContent.trim()}`,
+        `### Previous Queue Entries\nSource: \`${relKataRootFile("QUEUE")}\`\n\n${queueContent.trim()}`,
       );
     }
   }
@@ -358,12 +358,12 @@ async function buildDiscussSlicePrompt(
   }
 
   // Decisions — architectural context that constrains this slice
-  const decisionsPath = resolveGsdRootFile(base, "DECISIONS");
+  const decisionsPath = resolveKataRootFile(base, "DECISIONS");
   if (existsSync(decisionsPath)) {
     const decisionsContent = await loadFile(decisionsPath);
     if (decisionsContent) {
       inlined.push(
-        `### Decisions Register\nSource: \`${relGsdRootFile("DECISIONS")}\`\n\n${decisionsContent.trim()}`,
+        `### Decisions Register\nSource: \`${relKataRootFile("DECISIONS")}\`\n\n${decisionsContent.trim()}`,
       );
     }
   }
@@ -592,7 +592,7 @@ export async function showSmartEntry(
       );
     } else {
       const choice = await showNextAction(ctx as any, {
-        title: "Kata — Get Stuff Done",
+        title: "Kata — Kata Workflow",
         summary: ["No active milestone."],
         actions: [
           {
