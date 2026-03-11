@@ -131,7 +131,7 @@ tmp6=$(mktemp)
 (
   env -i HOME="$HOME" PATH="$PATH" \
     ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}" \
-    GSD_TEST_AUTH_PATH="$tmp_auth" \
+    Kata_TEST_AUTH_PATH="$tmp_auth" \
     node -e "
       import('./dist/app-paths.js').then(async (paths) => {
         // Override authFilePath for test

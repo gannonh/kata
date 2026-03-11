@@ -44,7 +44,7 @@ function assertEq<T>(actual: T, expected: T, message: string): void {
 // ─── Fixture helpers ───────────────────────────────────────────────────────
 
 function createFixtureBase(): string {
-  const base = mkdtempSync(join(tmpdir(), "gsd-plan-ms-test-"));
+  const base = mkdtempSync(join(tmpdir(), "kata-plan-ms-test-"));
   mkdirSync(join(base, ".kata", "milestones"), { recursive: true });
   return base;
 }

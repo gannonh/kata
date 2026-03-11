@@ -36,7 +36,7 @@ function assertEq<T>(actual: T, expected: T, message: string): void {
 }
 
 function createFixtureBase(): string {
-  const base = mkdtempSync(join(tmpdir(), "gsd-idle-recovery-test-"));
+  const base = mkdtempSync(join(tmpdir(), "kata-idle-recovery-test-"));
   mkdirSync(
     join(base, ".kata", "milestones", "M001", "slices", "S01", "tasks"),
     { recursive: true },
@@ -192,7 +192,7 @@ function cleanup(base: string): void {
   console.log(
     "\n=== writeBlockerPlaceholder: creates directory if missing ===",
   );
-  const base = mkdtempSync(join(tmpdir(), "gsd-idle-recovery-test-"));
+  const base = mkdtempSync(join(tmpdir(), "kata-idle-recovery-test-"));
   try {
     // Only create milestone dir, not slice dir
     mkdirSync(join(base, ".kata", "milestones", "M001"), { recursive: true });

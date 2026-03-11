@@ -1,5 +1,5 @@
 /**
- * Tests for GSD metrics aggregation logic.
+ * Tests for Kata metrics aggregation logic.
  * Tests the pure functions — no file I/O, no extension context.
  */
 

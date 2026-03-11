@@ -29,9 +29,9 @@ function assertEq<T>(actual: T, expected: T, message: string): void {
   }
 }
 
-const base = mkdtempSync(join(tmpdir(), "gsd-workspace-index-test-"));
-const gsd = join(base, ".kata");
-const mDir = join(gsd, "milestones", "M001");
+const base = mkdtempSync(join(tmpdir(), "kata-workspace-index-test-"));
+const kata = join(base, ".kata");
+const mDir = join(kata, "milestones", "M001");
 const sDir = join(mDir, "slices", "S01");
 const tDir = join(sDir, "tasks");
 mkdirSync(tDir, { recursive: true });
@@ -101,9 +101,9 @@ async function main(): Promise<void> {
   console.log("\n=== next command suggestions ===");
   {
     const commands = await getSuggestedNextCommands(base);
-    assert(commands.includes("/gsd auto"), "suggests auto during execution");
-    assert(commands.includes("/gsd doctor M001/S01"), "suggests scoped doctor");
-    assert(commands.includes("/gsd status"), "suggests status");
+    assert(commands.includes("/kata auto"), "suggests auto during execution");
+    assert(commands.includes("/kata doctor M001/S01"), "suggests scoped doctor");
+    assert(commands.includes("/kata status"), "suggests status");
   }
 
   rmSync(base, { recursive: true, force: true });

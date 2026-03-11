@@ -221,7 +221,7 @@ estimated_files: 3
 
 ## Description
 
-Add the \`completing-milestone\` phase to the GSD state machine.
+Add the \`completing-milestone\` phase to the Kata state machine.
 
 ## Steps
 
@@ -249,11 +249,11 @@ Add the \`completing-milestone\` phase to the GSD state machine.
 
 ## Inputs
 
-- \`agent/extensions/gsd/types.ts\` — Phase type definition
+- \`agent/extensions/kata/types.ts\` — Phase type definition
 
 ## Expected Output
 
-- \`agent/extensions/gsd/types.ts\` — Phase union includes \`'completing-milestone'\`
+- \`agent/extensions/kata/types.ts\` — Phase union includes \`'completing-milestone'\`
 `;
   const result = parseTaskPlanMustHaves(content);
   assertEq(result.length, 5, 'real plan has 5 must-haves');

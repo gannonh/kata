@@ -1,5 +1,5 @@
 /**
- * Tests for GSD metrics disk I/O — init, snapshot, load/save cycle.
+ * Tests for Kata metrics disk I/O — init, snapshot, load/save cycle.
  * Uses a temp directory to avoid touching real .kata/ state.
  */
 
@@ -39,7 +39,7 @@ function assertEq<T>(actual: T, expected: T, message: string): void {
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
-const tmpBase = mkdtempSync(join(tmpdir(), "gsd-metrics-test-"));
+const tmpBase = mkdtempSync(join(tmpdir(), "kata-metrics-test-"));
 mkdirSync(join(tmpBase, ".kata"), { recursive: true });
 
 // Mock ExtensionContext with session entries

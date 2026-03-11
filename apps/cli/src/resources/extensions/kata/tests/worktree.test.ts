@@ -50,7 +50,7 @@ function run(command: string, cwd: string): string {
   }).trim();
 }
 
-const base = mkdtempSync(join(tmpdir(), "gsd-branch-test-"));
+const base = mkdtempSync(join(tmpdir(), "kata-branch-test-"));
 run("git init -b main", base);
 run("git config user.name 'Pi Test'", base);
 run("git config user.email 'pi@example.com'", base);
@@ -75,28 +75,28 @@ async function main(): Promise<void> {
   console.log("\n=== ensureSliceBranch ===");
   const created = ensureSliceBranch(base, "M001", "S01");
   assert(created, "branch created on first ensure");
-  assertEq(getCurrentBranch(base), "gsd/M001/S01", "switched to slice branch");
+  assertEq(getCurrentBranch(base), "kata/M001/S01", "switched to slice branch");
 
   console.log("\n=== idempotent ensure ===");
   const secondCreate = ensureSliceBranch(base, "M001", "S01");
   assertEq(secondCreate, false, "branch not recreated on second ensure");
-  assertEq(getCurrentBranch(base), "gsd/M001/S01", "still on slice branch");
+  assertEq(getCurrentBranch(base), "kata/M001/S01", "still on slice branch");
 
   console.log("\n=== getActiveSliceBranch ===");
   assertEq(
     getActiveSliceBranch(base),
-    "gsd/M001/S01",
+    "kata/M001/S01",
     "getActiveSliceBranch returns current slice branch",
   );
 
   console.log("\n=== state surfaces active branch ===");
   const state = await deriveState(base);
-  assertEq(state.activeBranch, "gsd/M001/S01", "state exposes active branch");
+  assertEq(state.activeBranch, "kata/M001/S01", "state exposes active branch");
 
   console.log("\n=== workspace index surfaces branch ===");
   const index = await indexWorkspace(base);
   const slice = index.milestones[0]?.slices[0];
-  assertEq(slice?.branch, "gsd/M001/S01", "workspace index exposes branch");
+  assertEq(slice?.branch, "kata/M001/S01", "workspace index exposes branch");
 
   console.log("\n=== autoCommitCurrentBranch ===");
   // Clean — should return null
@@ -143,7 +143,7 @@ async function main(): Promise<void> {
   switchToMain(base);
 
   const merge = mergeSliceToMain(base, "M001", "S01", "Slice One");
-  assertEq(merge.branch, "gsd/M001/S01", "merge reports branch");
+  assertEq(merge.branch, "kata/M001/S01", "merge reports branch");
   assertEq(getCurrentBranch(base), "main", "still on main after merge");
   assert(
     readFileSync(join(base, "README.md"), "utf-8").includes("slice"),
@@ -153,7 +153,7 @@ async function main(): Promise<void> {
 
   // Verify branch is actually gone
   const branches = run("git branch", base);
-  assert(!branches.includes("gsd/M001/S01"), "slice branch no longer exists");
+  assert(!branches.includes("kata/M001/S01"), "slice branch no longer exists");
 
   console.log("\n=== switchToMain auto-commits dirty files ===");
   // Set up S02
@@ -206,7 +206,7 @@ async function main(): Promise<void> {
   console.log("\n=== getSliceBranchName ===");
   assertEq(
     getSliceBranchName("M001", "S01"),
-    "gsd/M001/S01",
+    "kata/M001/S01",
     "branch name format correct",
   );
 

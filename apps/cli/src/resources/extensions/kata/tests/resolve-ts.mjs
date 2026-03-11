@@ -1,5 +1,5 @@
 // Custom ESM resolver: rewrites .js imports to .ts for node --test with TypeScript sources.
-// Usage: node --import ./agent/extensions/gsd/tests/resolve-ts.mjs --test ...
+// Usage: node --import ./agent/extensions/kata/tests/resolve-ts.mjs --test ...
 //
 // This is needed because pi extension source files use .js import specifiers
 // (the pi runtime bundler convention), but only .ts files exist on disk.

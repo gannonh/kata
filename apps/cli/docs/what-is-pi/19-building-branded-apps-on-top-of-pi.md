@@ -5,7 +5,7 @@ This document covers the part that the extension docs, SDK docs, RPC docs, and p
 **How do you build your own product on top of pi** so users run **your** app, **your** command, and **your** UI rather than installing and managing pi directly?
 
 Examples:
-- a branded CLI like `gsd`
+- a branded CLI like `kata`
 - a desktop app that uses pi as its backend engine
 - a web or Electron app that uses pi sessions, tools, and event streaming
 - an internal company agent product built on pi primitives
@@ -59,7 +59,7 @@ You can ship your own app that depends on:
 That means a branded command like:
 
 ```bash
-gsd
+kata
 ```
 
 can be **your** executable, backed by pi internals, without asking users to separately install and run `pi`.
@@ -76,13 +76,13 @@ pi
 you can ship:
 
 ```bash
-npm install -g my-gsd
+npm install -g my-kata
 # or a standalone binary / packaged desktop app
 
-gsd
+kata
 ```
 
-And inside `gsd`, you import pi packages and create your own session, UI, storage, and resource loading behavior.
+And inside `kata`, you import pi packages and create your own session, UI, storage, and resource loading behavior.
 
 ---
 
@@ -103,8 +103,8 @@ When you use `createAgentSession()`, you can control:
 That means your app can store state under:
 
 - `~/.kata/agent`
-- `~/Library/Application Support/GSD`
-- `%APPDATA%/GSD`
+- `~/Library/Application Support/kata`
+- `%APPDATA%/kata`
 - an app-local portable directory
 - a project-local directory
 
@@ -138,7 +138,7 @@ Before writing code, decide which of these architectures you actually want.
 
 ### Architecture A: Branded Node CLI or TUI using the SDK
 
-This is the most natural fit for tools like `gsd`.
+This is the most natural fit for tools like `kata`.
 
 You create your own executable and call `createAgentSession()` directly.
 
@@ -211,7 +211,7 @@ Use this decision table.
 
 | Goal                                                            | Best Starting Point                                       |
 | --------------------------------------------------------------- | --------------------------------------------------------- |
-| Branded CLI like `gsd`                                          | `@mariozechner/pi-coding-agent` SDK                       |
+| Branded CLI like `kata`                                          | `@mariozechner/pi-coding-agent` SDK                       |
 | Branded TUI with coding tools                                   | `@mariozechner/pi-coding-agent` SDK                       |
 | Desktop app with subprocess boundary                            | pi RPC mode                                               |
 | Non-Node integration                                            | pi RPC mode                                               |
@@ -234,12 +234,12 @@ Use this decision table.
 
 ---
 
-## 19.6 The Recommended Path for a Branded CLI Like `gsd`
+## 19.6 The Recommended Path for a Branded CLI Like `kata`
 
 If you want users to run:
 
 ```bash
-gsd
+kata
 ```
 
 and you want it to feel like your product rather than "pi but renamed," the default recommendation is:
@@ -284,7 +284,7 @@ Example:
 Or on macOS:
 
 ```text
-~/Library/Application Support/GSD/
+~/Library/Application Support/kata/
   agent/
   sessions/
 ```
@@ -377,7 +377,7 @@ const loader = new DefaultResourceLoader({
     (pi) => {
       pi.registerCommand("hello", {
         description: "My branded command",
-        handler: async (_args, ctx) => ctx.ui.notify("Hello from GSD", "info"),
+        handler: async (_args, ctx) => ctx.ui.notify("Hello from Kata", "info"),
       });
     },
   ],
@@ -393,7 +393,7 @@ const loader = new DefaultResourceLoader({
   promptsOverride: () => ({ prompts: [], diagnostics: [] }),
   skillsOverride: () => ({ skills: [], diagnostics: [] }),
   agentsFilesOverride: () => ({ agentsFiles: [] }),
-  systemPromptOverride: () => "You are GSD, a specialized software delivery agent.",
+  systemPromptOverride: () => "You are Kata, a specialized software delivery agent.",
 });
 ```
 
@@ -432,7 +432,7 @@ You intentionally ship your own resources and avoid implicit user-level discover
 - you do not want random user extensions affecting behavior
 
 ### Recommendation
-For a branded tool like `gsd`, default to **bundled-app product** behavior.
+For a branded tool like `kata`, default to **bundled-app product** behavior.
 
 If you later add plugin support, make it explicit.
 
@@ -671,14 +671,14 @@ A branded app should decide whether users:
 Use custom `AuthStorage` paths.
 
 ```typescript
-const authStorage = AuthStorage.create("/path/to/gsd/auth.json");
+const authStorage = AuthStorage.create("/path/to/kata/auth.json");
 ```
 
 ### App-owned model config
 Use your own `models.json` location or register providers dynamically.
 
 ```typescript
-const modelRegistry = new ModelRegistry(authStorage, "/path/to/gsd/models.json");
+const modelRegistry = new ModelRegistry(authStorage, "/path/to/kata/models.json");
 ```
 
 ### Custom provider strategy
@@ -688,12 +688,12 @@ That keeps the app experience aligned with your branding and infrastructure.
 
 ---
 
-## 19.18 Building a Branded `gsd` CLI: Recommended Shape
+## 19.18 Building a Branded `kata` CLI: Recommended Shape
 
 A practical architecture looks like this:
 
 ```text
-my-gsd/
+my-kata/
   package.json
   src/
     cli.ts
@@ -756,7 +756,7 @@ const resourceLoader = new DefaultResourceLoader({
   agentDir,
   settingsManager,
   systemPromptOverride: () =>
-    "You are GSD, a branded software delivery agent. Prefer project-specific workflows and terminology.",
+    "You are Kata, a branded software delivery agent. Prefer project-specific workflows and terminology.",
   additionalExtensionPaths: [
     path.resolve("resources/extensions/index.ts"),
   ],
@@ -816,7 +816,7 @@ If your app silently loads from a user's `~/.kata`, you may get:
 - hard-to-debug behavior differences
 
 ### Avoid mixing branding and storage casually
-If your app is called `gsd`, but state lives in `~/.kata`, users will notice.
+If your app is called `kata`, but state lives in `~/.kata`, users will notice.
 
 ### Avoid choosing RPC just because it sounds generic
 If your app is already Node/TypeScript, SDK embedding is usually simpler and more powerful.
@@ -842,7 +842,7 @@ You do not need to expose:
 - Uses pi internally
 - App-owned directories and resources
 - Explicit plugins only
-- Good for productized tools like `gsd`
+- Good for productized tools like `kata`
 
 ### Posture C: “Custom agent product using pi primitives”
 - Uses `pi-agent-core` or selective libraries
@@ -880,7 +880,7 @@ Then read the source package docs for exact API details:
 
 If your goal is:
 
-> “I want users to download and run `gsd`, and have it use pi internally without requiring a separate pi install or `~/.kata` setup.”
+> “I want users to download and run `kata`, and have it use pi internally without requiring a separate pi install or `~/.kata` setup.”
 
 Then the answer is:
 

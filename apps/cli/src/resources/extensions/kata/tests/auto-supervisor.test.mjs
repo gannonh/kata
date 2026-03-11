@@ -14,7 +14,7 @@ test('resolveAutoSupervisorConfig provides safe timeout defaults', () => {
 });
 
 test('writeUnitRuntimeRecord persists progress and recovery metadata defaults', () => {
-  const base = mkdtempSync(join(tmpdir(), 'gsd-auto-supervisor-'));
+  const base = mkdtempSync(join(tmpdir(), 'kata-auto-supervisor-'));
   const startedAt = 1234567890;
 
   writeUnitRuntimeRecord(base, 'plan-milestone', 'M010', startedAt, {
@@ -34,7 +34,7 @@ test('writeUnitRuntimeRecord persists progress and recovery metadata defaults', 
 });
 
 test('writeUnitRuntimeRecord keeps explicit recovery attempt fields', () => {
-  const base = mkdtempSync(join(tmpdir(), 'gsd-auto-supervisor-'));
+  const base = mkdtempSync(join(tmpdir(), 'kata-auto-supervisor-'));
   const startedAt = 2234567890;
 
   writeUnitRuntimeRecord(base, 'research-milestone', 'M011', startedAt, {

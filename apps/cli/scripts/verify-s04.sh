@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # S04 verification — npm pack tarball install smoke test
-# Checks: dist integrity, GSD_BUNDLED_EXTENSION_PATHS, prepublishOnly,
+# Checks: dist integrity, Kata_BUNDLED_EXTENSION_PATHS, prepublishOnly,
 #         npm pack dry-run, tarball install, binary exists, launch (no extension
-#         errors, "gsd" branding), ~/.kata/ untouched, non-TTY warning/no exit 1.
+#         errors, "kata" branding), ~/.kata/ untouched, non-TTY warning/no exit 1.
 
 set -uo pipefail
 
@@ -10,7 +10,7 @@ FAIL=0
 pass() { echo "  PASS: $1"; }
 fail() { echo "  FAIL: $1"; FAIL=1; }
 
-SMOKE_PREFIX=/tmp/gsd-smoke-prefix
+SMOKE_PREFIX=/tmp/kata-smoke-prefix
 TARBALL=""
 
 # Capture ~/.kata/agent/sessions/ count before any smoke runs (for Check 9)
@@ -38,20 +38,20 @@ else
 fi
 
 # ----------------------------------------------------------------
-# Check 2 — GSD_BUNDLED_EXTENSION_PATHS does NOT reference src/resources
+# Check 2 — Kata_BUNDLED_EXTENSION_PATHS does NOT reference src/resources
 # ----------------------------------------------------------------
 # The variable must be present and must use agentDir-based paths only.
-paths_line=$(grep "GSD_BUNDLED_EXTENSION_PATHS" dist/loader.js | grep -v "src/resources" | head -1)
+paths_line=$(grep "Kata_BUNDLED_EXTENSION_PATHS" dist/loader.js | grep -v "src/resources" | head -1)
 if [ -n "$paths_line" ]; then
   # Double-check: none of the actual join() lines (not comments) reference src/resources.
   # We look only at lines containing join( to avoid matching comment lines like "NOT src/resources".
-  if grep -A 15 "GSD_BUNDLED_EXTENSION_PATHS" dist/loader.js | grep "join(" | grep -q "src/resources"; then
-    fail "2 — GSD_BUNDLED_EXTENSION_PATHS still references src/resources path(s)"
+  if grep -A 15 "Kata_BUNDLED_EXTENSION_PATHS" dist/loader.js | grep "join(" | grep -q "src/resources"; then
+    fail "2 — Kata_BUNDLED_EXTENSION_PATHS still references src/resources path(s)"
   else
-    pass "2 — GSD_BUNDLED_EXTENSION_PATHS uses agentDir-based paths (no src/resources)"
+    pass "2 — Kata_BUNDLED_EXTENSION_PATHS uses agentDir-based paths (no src/resources)"
   fi
 else
-  fail "2 — GSD_BUNDLED_EXTENSION_PATHS line not found or still references src/resources"
+  fail "2 — Kata_BUNDLED_EXTENSION_PATHS line not found or still references src/resources"
 fi
 
 echo ""
@@ -106,7 +106,7 @@ echo "--- tarball pack ---"
 # ----------------------------------------------------------------
 # Note: prepublishOnly triggers a build here (expected).
 npm pack --silent 2>/dev/null || npm pack 2>&1 | tail -5
-TARBALL=$(ls glittercowboy-gsd-*.tgz 2>/dev/null | head -1 || true)
+TARBALL=$(ls glittercowboy-kata-*.tgz 2>/dev/null | head -1 || true)
 if [ -n "$TARBALL" ] && [ -f "$TARBALL" ]; then
   pass "5 — tarball produced: $TARBALL"
 else
@@ -134,10 +134,10 @@ fi
 # ----------------------------------------------------------------
 # Check 7 — binary exists at expected path after install
 # ----------------------------------------------------------------
-if [ -f "$SMOKE_PREFIX/bin/gsd" ] || [ -L "$SMOKE_PREFIX/bin/gsd" ]; then
-  pass "7 — $SMOKE_PREFIX/bin/gsd exists after install"
+if [ -f "$SMOKE_PREFIX/bin/kata" ] || [ -L "$SMOKE_PREFIX/bin/kata" ]; then
+  pass "7 — $SMOKE_PREFIX/bin/kata exists after install"
 else
-  fail "7 — $SMOKE_PREFIX/bin/gsd not found after install"
+  fail "7 — $SMOKE_PREFIX/bin/kata not found after install"
   ls -la "$SMOKE_PREFIX/bin/" 2>/dev/null || echo "    (bin/ dir does not exist)"
 fi
 
@@ -145,14 +145,14 @@ echo ""
 echo "--- launch smoke ---"
 
 # ----------------------------------------------------------------
-# Check 8 — launch: "gsd" branding + zero extension load errors
+# Check 8 — launch: "kata" branding + zero extension load errors
 # Use background kill pattern (macOS has no GNU timeout).
 # Allow 8s for extensions to load.
 # ----------------------------------------------------------------
 smoke_out=$(mktemp)
 (
   env -i HOME="$HOME" PATH="$PATH" \
-    "$SMOKE_PREFIX/bin/gsd" < /dev/null > "$smoke_out" 2>&1
+    "$SMOKE_PREFIX/bin/kata" < /dev/null > "$smoke_out" 2>&1
 ) &
 smoke_pid=$!
 sleep 8
@@ -162,7 +162,7 @@ wait "$smoke_pid" 2>/dev/null || true
 ext_errors=$(grep "Extension load error" "$smoke_out" 2>/dev/null | wc -l | tr -d ' ')
 # Strip ANSI escape codes for branding check
 plain_out=$(sed 's/\x1b\[[0-9;]*m//g' "$smoke_out" 2>/dev/null || cat "$smoke_out")
-has_gsd=$(echo "$plain_out" | grep -qi "gsd\|get stuff done" && echo "yes" || echo "no")
+has_kata=$(echo "$plain_out" | grep -qi "kata\|get stuff done" && echo "yes" || echo "no")
 
 if [ "$ext_errors" -eq 0 ]; then
   pass "8a — zero Extension load errors on launch"
@@ -171,15 +171,15 @@ else
   grep "Extension load error" "$smoke_out" | head -5 | sed 's/^/    /'
 fi
 
-if [ "$has_gsd" = "yes" ]; then
-  pass "8b — \"gsd\" / \"get stuff done\" branding found in launch output"
+if [ "$has_kata" = "yes" ]; then
+  pass "8b — \"kata\" / \"get stuff done\" branding found in launch output"
 else
   # Fallback: check if binary self-identifies differently (not "pi")
   has_pi_only=$(echo "$plain_out" | grep -qi "^pi\b" && echo "yes" || echo "no")
   if [ "$has_pi_only" = "no" ]; then
-    pass "8b — output does not show \"pi\" branding (gsd branding likely in ANSI sequences)"
+    pass "8b — output does not show \"pi\" branding (kata branding likely in ANSI sequences)"
   else
-    fail "8b — output shows \"pi\" branding instead of \"gsd\""
+    fail "8b — output shows \"pi\" branding instead of \"kata\""
     head -5 "$smoke_out" | sed 's/^/    /'
   fi
 fi
@@ -211,7 +211,7 @@ exit10_tmp=$(mktemp)
 echo "" > "$exit10_tmp"
 (
   env -i HOME="$HOME" PATH="$PATH" \
-    "$SMOKE_PREFIX/bin/gsd" < /dev/null > "$tmp10" 2>&1
+    "$SMOKE_PREFIX/bin/kata" < /dev/null > "$tmp10" 2>&1
   echo "$?" > "$exit10_tmp"
 ) &
 pid10=$!

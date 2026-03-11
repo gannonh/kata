@@ -50,7 +50,7 @@ function assertEq<T>(actual: T, expected: T, message: string): void {
 let tmpDirs: string[] = [];
 
 function createTmpActivityDir(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'gsd-prune-test-'));
+  const dir = mkdtempSync(join(tmpdir(), 'kata-prune-test-'));
   tmpDirs.push(dir);
   return dir;
 }

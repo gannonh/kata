@@ -9,7 +9,7 @@ import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 
-// loadPrompt reads from ~/.kata/agent/extensions/gsd/prompts/ (main checkout).
+// loadPrompt reads from ~/.kata/agent/extensions/kata/prompts/ (main checkout).
 // In a worktree the file may not exist there yet, so we resolve prompts
 // relative to this test file's location (the worktree copy).
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -57,7 +57,7 @@ function loadPromptFromWorktree(
 // ─── Fixture Helpers ───────────────────────────────────────────────────────
 
 function createFixtureBase(): string {
-  const base = mkdtempSync(join(tmpdir(), "gsd-complete-ms-test-"));
+  const base = mkdtempSync(join(tmpdir(), "kata-complete-ms-test-"));
   mkdirSync(join(base, ".kata", "milestones"), { recursive: true });
   return base;
 }

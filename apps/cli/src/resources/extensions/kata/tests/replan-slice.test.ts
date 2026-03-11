@@ -57,7 +57,7 @@ function assertEq<T>(actual: T, expected: T, message: string): void {
 // ─── Fixture Helpers ───────────────────────────────────────────────────────
 
 function createFixtureBase(): string {
-  const base = mkdtempSync(join(tmpdir(), "gsd-replan-test-"));
+  const base = mkdtempSync(join(tmpdir(), "kata-replan-test-"));
   mkdirSync(join(base, ".kata", "milestones"), { recursive: true });
   return base;
 }
@@ -591,7 +591,7 @@ console.log(
 // Doctor: blocker_discovered_no_replan diagnostics
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { runGSDDoctor } from "../doctor.ts";
+import { runKataDoctor } from "../doctor.ts";
 
 // (a) blocker + no REPLAN.md → issue emitted
 console.log(
@@ -603,7 +603,7 @@ console.log(
   writePlan(base, "M001", "S01", makePlanT01DoneT02Pending());
   writeTaskSummary(base, "M001", "S01", "T01", makeTaskSummary("T01", true));
 
-  const report = await runGSDDoctor(base, { fix: false, scope: "M001/S01" });
+  const report = await runKataDoctor(base, { fix: false, scope: "M001/S01" });
   const blockerIssues = report.issues.filter(
     (i) => i.code === "blocker_discovered_no_replan",
   );
@@ -639,7 +639,7 @@ console.log(
   writeTaskSummary(base, "M001", "S01", "T01", makeTaskSummary("T01", true));
   writeReplanFile(base, "M001", "S01", "# Replan\n\nAlready replanned.");
 
-  const report = await runGSDDoctor(base, { fix: false, scope: "M001/S01" });
+  const report = await runKataDoctor(base, { fix: false, scope: "M001/S01" });
   const blockerIssues = report.issues.filter(
     (i) => i.code === "blocker_discovered_no_replan",
   );
@@ -661,7 +661,7 @@ console.log(
   writePlan(base, "M001", "S01", makePlanT01DoneT02Pending());
   writeTaskSummary(base, "M001", "S01", "T01", makeTaskSummary("T01", false));
 
-  const report = await runGSDDoctor(base, { fix: false, scope: "M001/S01" });
+  const report = await runKataDoctor(base, { fix: false, scope: "M001/S01" });
   const blockerIssues = report.issues.filter(
     (i) => i.code === "blocker_discovered_no_replan",
   );

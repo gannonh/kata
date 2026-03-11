@@ -7,7 +7,7 @@
  * - resource-loader syncs bundled resources
  * - wizard loadStoredEnvKeys hydrates env
  * - npm pack produces a valid tarball
- * - tarball installs and the `gsd` binary resolves
+ * - tarball installs and the `kata` binary resolves
  */
 
 import test from "node:test";
@@ -377,7 +377,7 @@ test("npm pack produces tarball with required files", async () => {
     assert.equal(
       pkg.piConfig?.name,
       "kata",
-      "pkg/package.json piConfig.name is gsd",
+      "pkg/package.json piConfig.name is kata",
     );
     assert.equal(
       pkg.piConfig?.configDir,
@@ -414,7 +414,7 @@ test("tarball installs and kata-cli binary resolves", async () => {
       env: { ...process.env, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" },
     });
 
-    // Verify the gsd bin exists in the installed package
+    // Verify the kata bin exists in the installed package
     const installedBin = join(tmp, "node_modules", ".bin", "kata");
     assert.ok(
       existsSync(installedBin),
@@ -500,7 +500,7 @@ test("kata launches and loads extensions without errors", async () => {
 
   // No extension load errors
   assert.ok(
-    !output.includes("[gsd] Extension load error"),
+    !output.includes("[kata] Extension load error"),
     `no extension load errors on stderr (got: ${output.slice(0, 500)})`,
   );
 

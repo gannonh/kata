@@ -25,7 +25,7 @@ function assertEq<T>(actual: T, expected: T, message: string): void {
 
 console.log('\n=== parseRoadmap: full roadmap ===');
 {
-  const content = `# M001: GSD Extension — Hierarchical Planning
+  const content = `# M001: Kata Extension — Hierarchical Planning
 
 **Vision:** Build a structured planning system for coding agents.
 
@@ -73,7 +73,7 @@ Consumes from S03:
 
   const r = parseRoadmap(content);
 
-  assertEq(r.title, 'M001: GSD Extension — Hierarchical Planning', 'roadmap title');
+  assertEq(r.title, 'M001: Kata Extension — Hierarchical Planning', 'roadmap title');
   assertEq(r.vision, 'Build a structured planning system for coding agents.', 'roadmap vision');
   assertEq(r.successCriteria.length, 3, 'success criteria count');
   assertEq(r.successCriteria[0], 'All parsers have test coverage', 'first success criterion');
@@ -831,7 +831,7 @@ Used manual assert pattern instead of node:assert.
 
 ## Context
 
-Working in the gsd-s01 worktree. All imports use .ts extensions.
+Working in the kata-s01 worktree. All imports use .ts extensions.
 
 ## Next Action
 
@@ -853,7 +853,7 @@ Run the full test suite with node --test.
   assert(c.completedWork.includes('Steps 1-3 are done'), 'completedWork content');
   assert(c.remainingWork.includes('Steps 4-5'), 'remainingWork content');
   assert(c.decisions.includes('manual assert pattern'), 'decisions content');
-  assert(c.context.includes('gsd-s01 worktree'), 'context content');
+  assert(c.context.includes('kata-s01 worktree'), 'context content');
   assert(c.nextAction.includes('node --test'), 'nextAction content');
 }
 

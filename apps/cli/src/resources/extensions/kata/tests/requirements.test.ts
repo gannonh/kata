@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { deriveState } from "../state.ts";
-import { runGSDDoctor } from "../doctor.ts";
+import { runKataDoctor } from "../doctor.ts";
 
 let passed = 0;
 let failed = 0;
@@ -60,14 +60,14 @@ console.log("\n=== requirement counts parser ===");
   assertEq(counts.blocked, 1, "counts blocked statuses");
 }
 
-const base = mkdtempSync(join(tmpdir(), "gsd-requirements-test-"));
-const gsd = join(base, ".kata");
-const mDir = join(gsd, "milestones", "M001");
+const base = mkdtempSync(join(tmpdir(), "kata-requirements-test-"));
+const kata = join(base, ".kata");
+const mDir = join(kata, "milestones", "M001");
 const sDir = join(mDir, "slices", "S01");
 const tDir = join(sDir, "tasks");
 mkdirSync(tDir, { recursive: true });
 writeFileSync(
-  join(gsd, "REQUIREMENTS.md"),
+  join(kata, "REQUIREMENTS.md"),
   `# Requirements
 
 ## Active
@@ -136,7 +136,7 @@ console.log("\n=== deriveState includes requirements counts ===");
 
 console.log("\n=== doctor flags orphaned active requirement ===");
 {
-  const report = await runGSDDoctor(base);
+  const report = await runKataDoctor(base);
   assert(
     report.issues.some(
       (issue) => issue.code === "active_requirement_missing_owner",

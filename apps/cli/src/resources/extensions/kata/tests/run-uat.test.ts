@@ -68,7 +68,7 @@ function assertEq<T>(actual: T, expected: T, message: string): void {
 // ─── Fixture helpers ───────────────────────────────────────────────────────
 
 function createFixtureBase(): string {
-  const base = mkdtempSync(join(tmpdir(), "gsd-run-uat-test-"));
+  const base = mkdtempSync(join(tmpdir(), "kata-run-uat-test-"));
   mkdirSync(join(base, ".kata", "milestones"), { recursive: true });
   return base;
 }
@@ -236,7 +236,7 @@ async function main(): Promise<void> {
   const milestoneId = "M001";
   const sliceId = "S01";
   const uatPath = ".kata/milestones/M001/slices/S01/S01-UAT.md";
-  const uatResultAbsPath = "/tmp/gsd-test/S01-UAT-RESULT.md";
+  const uatResultAbsPath = "/tmp/kata-test/S01-UAT-RESULT.md";
   const uatResultPath = ".kata/milestones/M001/slices/S01/S01-UAT-RESULT.md";
   const uatType = "artifact-driven";
   const inlinedContext = "<!-- no context -->";

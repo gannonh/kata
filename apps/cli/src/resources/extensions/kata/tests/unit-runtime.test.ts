@@ -36,7 +36,7 @@ function assertEq<T>(actual: T, expected: T, message: string): void {
   }
 }
 
-const base = mkdtempSync(join(tmpdir(), "gsd-unit-runtime-test-"));
+const base = mkdtempSync(join(tmpdir(), "kata-unit-runtime-test-"));
 const tasksDir = join(
   base,
   ".kata",
@@ -130,7 +130,7 @@ console.log("\n=== runtime record cleanup ===");
 // ─── Must-have durability integration tests ───────────────────────────────
 
 // Create a separate temp base for must-have tests to avoid interference
-const mhBase = mkdtempSync(join(tmpdir(), "gsd-unit-runtime-mh-test-"));
+const mhBase = mkdtempSync(join(tmpdir(), "kata-unit-runtime-mh-test-"));
 
 console.log("\n=== must-haves: all mentioned in summary ===");
 {

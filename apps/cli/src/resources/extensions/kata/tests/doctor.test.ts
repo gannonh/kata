@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 
 import {
   formatDoctorReport,
-  runGSDDoctor,
+  runKataDoctor,
   summarizeDoctorIssues,
   filterDoctorIssues,
   selectDoctorScope,
@@ -40,9 +40,9 @@ function assertEq<T>(actual: T, expected: T, message: string): void {
   }
 }
 
-const tmpBase = mkdtempSync(join(tmpdir(), "gsd-doctor-test-"));
-const gsd = join(tmpBase, ".kata");
-const mDir = join(gsd, "milestones", "M001");
+const tmpBase = mkdtempSync(join(tmpdir(), "kata-doctor-test-"));
+const kata = join(tmpBase, ".kata");
+const mDir = join(kata, "milestones", "M001");
 const sDir = join(mDir, "slices", "S01");
 const tDir = join(sDir, "tasks");
 mkdirSync(tDir, { recursive: true });
@@ -107,7 +107,7 @@ Implemented.
 async function main(): Promise<void> {
   console.log("\n=== doctor diagnose ===");
   {
-    const report = await runGSDDoctor(tmpBase, { fix: false });
+    const report = await runKataDoctor(tmpBase, { fix: false });
     assert(
       !report.ok,
       "report is not ok when completion artifacts are missing",
@@ -128,7 +128,7 @@ async function main(): Promise<void> {
 
   console.log("\n=== doctor formatting ===");
   {
-    const report = await runGSDDoctor(tmpBase, { fix: false });
+    const report = await runKataDoctor(tmpBase, { fix: false });
     const summary = summarizeDoctorIssues(report.issues);
     assertEq(summary.errors, 2, "two blocking errors in summary");
     const scoped = filterDoctorIssues(report.issues, {
@@ -160,7 +160,7 @@ async function main(): Promise<void> {
 
   console.log("\n=== doctor fix ===");
   {
-    const report = await runGSDDoctor(tmpBase, { fix: true });
+    const report = await runKataDoctor(tmpBase, { fix: true });
     if (report.fixesApplied.length < 3) console.error(report);
     assert(report.fixesApplied.length >= 3, "applies multiple fixes");
     assert(
@@ -175,8 +175,8 @@ async function main(): Promise<void> {
     const roadmap = readFileSync(join(mDir, "M001-ROADMAP.md"), "utf-8");
     assert(roadmap.includes("- [x] **S01:"), "marks slice checkbox done");
 
-    const state = readFileSync(join(gsd, "STATE.md"), "utf-8");
-    assert(state.includes("# GSD State"), "writes state file");
+    const state = readFileSync(join(kata, "STATE.md"), "utf-8");
+    assert(state.includes("# Kata State"), "writes state file");
   }
 
   rmSync(tmpBase, { recursive: true, force: true });
@@ -184,7 +184,7 @@ async function main(): Promise<void> {
   // ─── Milestone summary detection: missing summary ──────────────────────
   console.log("\n=== doctor detects missing milestone summary ===");
   {
-    const msBase = mkdtempSync(join(tmpdir(), "gsd-doctor-ms-test-"));
+    const msBase = mkdtempSync(join(tmpdir(), "kata-doctor-ms-test-"));
     const msGsd = join(msBase, ".kata");
     const msMDir = join(msGsd, "milestones", "M001");
     const msSDir = join(msMDir, "slices", "S01");
@@ -247,7 +247,7 @@ parent: M001
 
     // NO milestone summary — this is the condition we're detecting
 
-    const report = await runGSDDoctor(msBase, { fix: false });
+    const report = await runKataDoctor(msBase, { fix: false });
     assert(
       report.issues.some(
         (issue) => issue.code === "all_slices_done_missing_milestone_summary",
@@ -283,7 +283,7 @@ parent: M001
   // ─── Milestone summary detection: summary present (no false positive) ──
   console.log("\n=== doctor does NOT flag milestone with summary ===");
   {
-    const msBase = mkdtempSync(join(tmpdir(), "gsd-doctor-ms-ok-test-"));
+    const msBase = mkdtempSync(join(tmpdir(), "kata-doctor-ms-ok-test-"));
     const msGsd = join(msBase, ".kata");
     const msMDir = join(msGsd, "milestones", "M001");
     const msSDir = join(msMDir, "slices", "S01");
@@ -346,7 +346,7 @@ parent: M001
       `# M001 Summary\n\nMilestone complete.`,
     );
 
-    const report = await runGSDDoctor(msBase, { fix: false });
+    const report = await runKataDoctor(msBase, { fix: false });
     assert(
       !report.issues.some(
         (issue) => issue.code === "all_slices_done_missing_milestone_summary",
@@ -360,7 +360,7 @@ parent: M001
   // ─── blocker_discovered_no_replan detection ────────────────────────────
   console.log("\n=== doctor detects blocker_discovered_no_replan ===");
   {
-    const bBase = mkdtempSync(join(tmpdir(), "gsd-doctor-blocker-test-"));
+    const bBase = mkdtempSync(join(tmpdir(), "kata-doctor-blocker-test-"));
     const bGsd = join(bBase, ".kata");
     const bMDir = join(bGsd, "milestones", "M001");
     const bSDir = join(bMDir, "slices", "S01");
@@ -422,7 +422,7 @@ Discovered an issue.
     );
 
     // No REPLAN.md — should trigger the issue
-    const report = await runGSDDoctor(bBase, { fix: false });
+    const report = await runKataDoctor(bBase, { fix: false });
     const blockerIssues = report.issues.filter(
       (i) => i.code === "blocker_discovered_no_replan",
     );
@@ -448,7 +448,7 @@ Discovered an issue.
   // ─── blocker_discovered with REPLAN.md (no false positive) ─────────────
   console.log("\n=== doctor does NOT flag blocker when REPLAN.md exists ===");
   {
-    const bBase = mkdtempSync(join(tmpdir(), "gsd-doctor-blocker-ok-test-"));
+    const bBase = mkdtempSync(join(tmpdir(), "kata-doctor-blocker-ok-test-"));
     const bGsd = join(bBase, ".kata");
     const bMDir = join(bGsd, "milestones", "M001");
     const bSDir = join(bMDir, "slices", "S01");
@@ -507,7 +507,7 @@ Discovered an issue.
       `# Replan\n\nAlready replanned.`,
     );
 
-    const report = await runGSDDoctor(bBase, { fix: false });
+    const report = await runKataDoctor(bBase, { fix: false });
     const blockerIssues = report.issues.filter(
       (i) => i.code === "blocker_discovered_no_replan",
     );
@@ -525,7 +525,7 @@ Discovered an issue.
     "\n=== doctor: done task with must-haves all addressed → no issue ===",
   );
   {
-    const mhBase = mkdtempSync(join(tmpdir(), "gsd-doctor-mh-ok-"));
+    const mhBase = mkdtempSync(join(tmpdir(), "kata-doctor-mh-ok-"));
     const mhGsd = join(mhBase, ".kata");
     const mhMDir = join(mhGsd, "milestones", "M001");
     const mhSDir = join(mhMDir, "slices", "S01");
@@ -553,7 +553,7 @@ Discovered an issue.
       `---\nid: T01\nparent: S01\nmilestone: M001\n---\n# T01: Implement\n\n## What Happened\nAdded parseWidgets function. Unit tests pass with zero failures.\n`,
     );
 
-    const report = await runGSDDoctor(mhBase, { fix: false });
+    const report = await runKataDoctor(mhBase, { fix: false });
     assert(
       !report.issues.some(
         (i) => i.code === "task_done_must_haves_not_verified",
@@ -569,7 +569,7 @@ Discovered an issue.
     "\n=== doctor: done task with must-haves NOT addressed → warning ===",
   );
   {
-    const mhBase = mkdtempSync(join(tmpdir(), "gsd-doctor-mh-fail-"));
+    const mhBase = mkdtempSync(join(tmpdir(), "kata-doctor-mh-fail-"));
     const mhGsd = join(mhBase, ".kata");
     const mhMDir = join(mhGsd, "milestones", "M001");
     const mhSDir = join(mhMDir, "slices", "S01");
@@ -597,7 +597,7 @@ Discovered an issue.
       `---\nid: T01\nparent: S01\nmilestone: M001\n---\n# T01: Implement\n\n## What Happened\nAdded parseWidgets function.\n`,
     );
 
-    const report = await runGSDDoctor(mhBase, { fix: false });
+    const report = await runKataDoctor(mhBase, { fix: false });
     const mhIssue = report.issues.find(
       (i) => i.code === "task_done_must_haves_not_verified",
     );
@@ -627,7 +627,7 @@ Discovered an issue.
   // ─── Must-have verification: no task plan → no issue ─────────────────
   console.log("\n=== doctor: done task with no task plan file → no issue ===");
   {
-    const mhBase = mkdtempSync(join(tmpdir(), "gsd-doctor-mh-noplan-"));
+    const mhBase = mkdtempSync(join(tmpdir(), "kata-doctor-mh-noplan-"));
     const mhGsd = join(mhBase, ".kata");
     const mhMDir = join(mhGsd, "milestones", "M001");
     const mhSDir = join(mhMDir, "slices", "S01");
@@ -649,7 +649,7 @@ Discovered an issue.
       `---\nid: T01\nparent: S01\nmilestone: M001\n---\n# T01: Implement\n\n## What Happened\nDone.\n`,
     );
 
-    const report = await runGSDDoctor(mhBase, { fix: false });
+    const report = await runKataDoctor(mhBase, { fix: false });
     assert(
       !report.issues.some(
         (i) => i.code === "task_done_must_haves_not_verified",
@@ -665,7 +665,7 @@ Discovered an issue.
     "\n=== doctor: done task with plan but no Must-Haves section → no issue ===",
   );
   {
-    const mhBase = mkdtempSync(join(tmpdir(), "gsd-doctor-mh-nosect-"));
+    const mhBase = mkdtempSync(join(tmpdir(), "kata-doctor-mh-nosect-"));
     const mhGsd = join(mhBase, ".kata");
     const mhMDir = join(mhGsd, "milestones", "M001");
     const mhSDir = join(mhMDir, "slices", "S01");
@@ -692,7 +692,7 @@ Discovered an issue.
       `---\nid: T01\nparent: S01\nmilestone: M001\n---\n# T01: Implement\n\n## What Happened\nDone.\n`,
     );
 
-    const report = await runGSDDoctor(mhBase, { fix: false });
+    const report = await runKataDoctor(mhBase, { fix: false });
     assert(
       !report.issues.some(
         (i) => i.code === "task_done_must_haves_not_verified",
