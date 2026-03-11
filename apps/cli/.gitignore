@@ -1,10 +1,10 @@
 
 # ── GSD baseline (auto-generated) ──
-.gsd/activity/
-.gsd/runtime/
-.gsd/auto.lock
-.gsd/metrics.json
-.gsd/STATE.md
+.kata/activity/
+.kata/runtime/
+.kata/auto.lock
+.kata/metrics.json
+.kata/STATE.md
 .DS_Store
 Thumbs.db
 *.swp
@@ -35,7 +35,7 @@ tmp/
 # ── GSD baseline (auto-generated) ──
 dist/
 .bg_shell
-.gsd*.tgz
-.gsd
+.kata*.tgz
+.kata
 .artifacts/
 AGENTS.md
