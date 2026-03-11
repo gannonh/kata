@@ -1,306 +1,175 @@
 ---
 name: releasing-kata
-description: Use this skill when releasing a new version of Kata Cloud Agents, bumping versions, updating changelogs, or creating release PRs. Triggers include "release", "bump version", "publish", "create release PR", "ship it", "cut a release".
+description: Use this skill when releasing Kata Desktop or Kata CLI, bumping versions, updating changelogs, or creating release PRs. Triggers include "release", "bump version", "publish", "create release PR", "ship it", "cut a release".
 ---
 
-# Releasing Kata Agents
+# Releasing Kata
 
-Guide the release process for the Kata Agents Electron desktop application.
+Kata has two independently versioned release targets:
 
-## Release Flow Overview
+| Target | Package | Version Source | Tag Format | CI Workflow |
+|--------|---------|---------------|------------|-------------|
+| **Desktop** | `@kata/desktop` | `apps/electron/package.json` + root `package.json` (must match) | `v0.6.1` | `desktop-release.yml` |
+| **CLI** | `@kata/cli` | `apps/cli/package.json` (independent) | `cli-v0.1.0` | `cli-release.yml` |
+
+**Ask the user which target they're releasing** if not clear from context.
+
+---
+
+## Desktop Release
+
+The Electron desktop app. Builds for macOS (arm64 + x64), Windows, and Linux.
+
+### Release Flow
 
 ```
-1. Check status / run checks
-2. Bump version in package.json AND apps/electron/package.json
+1. Pre-release checks
+2. Bump version in package.json AND apps/electron/package.json (must match)
 3. Update CHANGELOG.md
 4. Create release branch and PR
 5. Merge PR to main
-6. CI automatically: detects version → builds all platforms → code signs/notarizes macOS → creates GitHub Release
+6. CI: detects version → builds all platforms → code signs/notarizes macOS → creates GitHub Release
 ```
 
-## Step 1: Pre-Release Verification
-
-Our workflow is PR-driven:
-
-- **Development** happens on feature branches
-- **Releases** happen on release branches created from main
-
-### 1a. Ensure you're ready to release
-
-Before creating a release branch, verify:
-
-1. **Check current branch**: Must be on `main` (not a feature branch)
-
-   ```bash
-   git branch --show-current
-   ```
-
-2. **If on a feature branch**: The PR must pass CI and be merged first
-
-   ```bash
-   # Check PR status
-   gh pr status
-
-   # Monitor PR CI checks
-   gh pr checks --watch 2>&1 | tail -10
-
-   # After PR merges, switch to main
-   git checkout main && git pull
-   ```
-
-3. **Verify working directory is clean**:
-   ```bash
-   git status  # Should show "nothing to commit, working tree clean"
-   ```
-
-### 1b. Run pre-release checks
-
-Once on main with a clean working directory, verify the codebase is ready:
+### Pre-Release Verification
 
 ```bash
-# Run all tests
-bun test
+# Must be on main with clean working directory
+git branch --show-current  # → main
+git status                 # → clean
 
-# Build the app
+# Run checks
+bun test
 bun run electron:build
 
-# Test local production build (run from apps/electron directory)
+# Optional: local production build
 cd apps/electron && bun run dist:mac
-
-# Check for uncommitted changes
-git status
 ```
 
-Ask the user if they want to run e2e tests (optional but recommended):
+### Version Bump
+
+**Both files must match:**
 
 ```bash
-# From monorepo root (recommended)
-bun run test:e2e           # Mock tests
-bun run test:e2e:live      # Live tests with real credentials
-```
+# Update both
+# package.json (root) → version
+# apps/electron/package.json → version
 
-**Stop if tests fail.** Fix issues before proceeding.
-
-## Step 2: Determine Version Bump
-
-Ask the user what type of release this is:
-
-| Type    | When to Use                       | Example        |
-| ------- | --------------------------------- | -------------- |
-| `patch` | Bug fixes, small improvements     | 0.4.9 → 0.4.10 |
-| `minor` | New features, backward compatible | 0.4.9 → 0.5.0  |
-| `major` | Breaking changes                  | 0.4.9 → 1.0.0  |
-
-## Step 3: Bump Versions
-
-**Both files must have matching versions:**
-
-1. Update `package.json` (root) version field
-2. Update `apps/electron/package.json` version field
-
-```bash
-# Get current versions
-cat package.json | grep '"version"' | head -1
-cat apps/electron/package.json | grep '"version"'
-
-# After updating both files, verify they match
+# Verify
 diff <(grep '"version"' package.json | head -1) <(grep '"version"' apps/electron/package.json)
 ```
 
-## Step 4: Update Docs
-
-### 1: Update CHANGELOG
-
-Add entry to `CHANGELOG.md` following Keep a Changelog format:
-
-```markdown
-## [X.Y.Z] - YYYY-MM-DD
-
-### Added
-
-- New feature descriptions
-
-### Fixed
-
-- Bug fix descriptions
-
-### Changed
-
-- Modification descriptions
-```
-
-**Guidelines:**
-
-- Use today's date
-- Group changes by type (Added, Fixed, Changed, Removed)
-- Write user-facing descriptions (what changed, not how)
-- Reference issue numbers if applicable
-
-### 2: Update README (if needed)
-
-If there are significant changes affecting usage, update `README.md` accordingly.
-
-## Step 5: Run Tests Again
-
-After version bump, rebuild and test:
+### Create Release PR
 
 ```bash
-bun run electron:build && bun test
-```
-
-## Step 6: Create Release PR
-
-```bash
-# Create release branch
 git checkout -b release/vX.Y.Z
-
-# Stage release files
 git add package.json apps/electron/package.json CHANGELOG.md
-
-# Commit with conventional format
-git commit -m "chore(release): bump version to X.Y.Z"
-
-# Push and create PR
+git commit -m "chore(release): bump desktop to X.Y.Z"
 git push -u origin release/vX.Y.Z
-gh pr create --title "Release vX.Y.Z" --body "## Release vX.Y.Z
-
-### Changes
-- [List key changes from CHANGELOG]
-
-### Checklist
-- [ ] Version bumped in package.json
-- [ ] Version bumped in apps/electron/package.json (matches root)
-- [ ] CHANGELOG updated
-- [ ] Tests passing
-- [ ] Local production build tested"
+gh pr create --title "Release vX.Y.Z" --body "Desktop release vX.Y.Z"
 ```
 
-## Step 7a: Monitor PR Status Checks
+### After Merge
 
-- PR cannot be merged unless `validate` GitHub Actions CI workflow passes
-- Monitor status checks on the PR before merging
+CI triggers `desktop-release.yml`:
+1. Detects version change (compares `apps/electron/package.json` to existing `v*` tags)
+2. Builds for all platforms
+3. Code signs and notarizes macOS builds
+4. Creates GitHub Release with artifacts
 
-## Step 7b: Merge and Monitor CI
+Expected artifacts:
+- `Kata-Desktop-arm64.dmg` / `Kata-Desktop-arm64.zip` (macOS Apple Silicon)
+- `Kata-Desktop-x64.dmg` / `Kata-Desktop-x64.zip` (macOS Intel)
+- `Kata-Desktop-x64.exe` (Windows)
+- `Kata-Desktop-x64.AppImage` (Linux)
 
-```bash
-# Merge the PR (after review if required)
-gh pr merge --merge --delete-branch
-
-# Monitor CI workflows
-gh run list --limit 5
-gh run watch  # Watch the latest run
-```
-
-**CI Pipeline:**
-
-1. `release.yml` triggers on push to main
-2. Detects version change (compares package.json to existing tags)
-3. Builds for macOS (arm64 + x64), Windows (x64), Linux (x64)
-4. Code signs and notarizes macOS builds
-5. Creates GitHub Release with all platform artifacts
-
-## Step 8: Verify Release
-
-After CI completes (~10-15 minutes for all platforms), verify the release.
-
-### 8a. Verify GitHub Release
+### Verify
 
 ```bash
-# Verify GitHub Release created with tag
 gh release view vX.Y.Z
-
-# Check all artifacts are attached
 gh release view vX.Y.Z --json assets --jq '.assets[].name'
 ```
 
-Expected artifacts:
+---
 
-- `Kata-Agents-arm64.dmg` (macOS Apple Silicon)
-- `Kata-Agents-x64.dmg` (macOS Intel)
-- `Kata-Agents-arm64.zip` / `Kata-Agents-x64.zip`
-- `Kata-Agents-x64.exe` (Windows)
-- `Kata-Agents-x64.AppImage` (Linux)
+## CLI Release
 
-### 8b. Verify CI Workflow Success
+The terminal coding agent, published to npm as `@kata/cli`.
 
-```bash
-# Check release workflow ran successfully
-gh run list --workflow=release.yml --limit 3
+### Release Flow
+
+```
+1. Pre-release checks
+2. Bump version in apps/cli/package.json
+3. Update apps/cli/CHANGELOG.md (if it exists)
+4. Commit and push to main
+5. CI: detects version → tests → publishes to npm → creates git tag + GitHub Release
 ```
 
-### 8c. Manual App Test
-
-**This is the one test that can't be fully automated.** Download and test the released app:
+### Pre-Release Verification
 
 ```bash
-# Download the release artifact
-gh release download vX.Y.Z --pattern "Kata-Agents-arm64.dmg" --dir /tmp
-
-# Mount and test
-open /tmp/Kata-Agents-arm64.dmg
+cd apps/cli
+npx tsc        # TypeScript check
+npm test       # Run tests
 ```
 
-**Verify:**
+### Version Bump
 
-- App launches without errors
-- Sessions load and display correctly
-- Agent execution works
-- No code signing warnings
+Only one file:
 
 ```bash
-# Cleanup
-rm /tmp/Kata-Agents-arm64.dmg
+# apps/cli/package.json → version
 ```
 
-## Local Production Builds
+The CLI version is **independent** of the desktop version. They do not need to match.
 
-For testing production builds without releasing:
+### Publish
 
 ```bash
-# IMPORTANT: Run from apps/electron directory, not repo root
-cd apps/electron && bun run dist:mac          # Apple Silicon
-cd apps/electron && bun run dist:mac:x64      # Intel
-cd apps/electron && bun run dist:win          # Windows
+git add apps/cli/package.json
+git commit -m "chore(release): bump cli to X.Y.Z"
+git push
 ```
 
-Output: `apps/electron/release/Kata-Agents-{arch}.dmg`
+CI triggers `cli-release.yml` (on push to main with changes in `apps/cli/`):
+1. Checks if `cli-v*` tag exists for the version
+2. Runs TypeScript check and tests
+3. Builds and publishes to npm (`npm publish --access public`)
+4. Creates git tag `cli-vX.Y.Z` and GitHub Release
 
-**Testing the local build:**
+### Verify
 
 ```bash
-# Clear stale window state first
-rm ~/.kata-agents/window-state.json
-
-# Open the built app
-open "apps/electron/release/mac-arm64/Kata Agents.app"
+gh release view cli-vX.Y.Z
+npm view @kata/cli version
 ```
+
+---
+
+## Version Semantics
+
+| Type | When | Example |
+|------|------|---------|
+| `patch` | Bug fixes, small improvements | 0.4.9 → 0.4.10 |
+| `minor` | New features, backward compatible | 0.4.9 → 0.5.0 |
+| `major` | Breaking changes | 0.4.9 → 1.0.0 |
 
 ## Troubleshooting
 
-See `./release-troubleshooting.md` for common issues:
-
-- CI workflow failures
-- Build path errors (must run from `apps/electron`)
-- Code signing issues
-- Sessions not displaying after build
+- **Desktop CI fails**: Check `gh run list --workflow=desktop-release.yml --limit 3`
+- **CLI publish fails**: Ensure `NPM_TOKEN` secret is set, and `private: false` in `apps/cli/package.json`
+- **macOS notarization fails**: Verify `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` secrets
+- **Version not detected**: CI compares package.json version against existing git tags. If tag already exists, it skips.
 
 ## Acceptance Criteria
 
-**Pre-release:**
+**Desktop:**
+- [ ] Root `package.json` and `apps/electron/package.json` versions match
+- [ ] CHANGELOG.md updated
+- [ ] GitHub Release created with all platform artifacts
 
-- [ ] package.json version updated
-- [ ] apps/electron/package.json version updated (matches root)
-- [ ] CHANGELOG.md has entry for new version
-- [ ] All tests pass locally (`bun test`)
-- [ ] Local production build works (`cd apps/electron && bun run dist:mac`)
-
-**Release:**
-
-- [ ] PR merged to main
-- [ ] GitHub Release created with correct tag (`gh release view vX.Y.Z`)
-
-**Post-release verification:**
-
-- [ ] GitHub Release created with tag (`gh release view vX.Y.Z`)
-- [ ] All platform artifacts attached to release
-- [ ] Manual app test passes (download, launch, verify sessions)
+**CLI:**
+- [ ] `apps/cli/package.json` version bumped
+- [ ] Published to npm (`npm view @kata/cli version`)
+- [ ] Git tag `cli-vX.Y.Z` created
