@@ -71,6 +71,7 @@ id_ed25519*
 credentials.enc
 *.credentials
 .secrets/
+.superpowers/
 demos/
 /sources/
 /sessions/
@@ -78,3 +79,4 @@ demos/
 /labels/
 /config.json
 kata-cloud-agents.code-workspace
+.superpowers/

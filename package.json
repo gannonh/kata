@@ -1,7 +1,7 @@
 {
-  "name": "kata-agents",
-  "version": "0.6.1",
-  "description": "AI agent desktop application for the Kata ecosystem",
+  "name": "kata",
+  "version": "0.0.0",
+  "description": "Kata monorepo",
   "type": "module",
   "private": true,
   "workspaces": [

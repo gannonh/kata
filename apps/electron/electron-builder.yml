@@ -1,6 +1,6 @@
 appId: sh.kata.desktop
-productName: Kata Agents
-copyright: Copyright © 2025 Kata Agents Contributors
+productName: Kata Desktop
+copyright: Copyright © 2025 Kata Contributors
 
 electronVersion: "39.2.7"
 
@@ -43,7 +43,7 @@ extraMetadata:
 publish:
   provider: github
   owner: gannonh
-  repo: kata-agents
+  repo: kata
 
 # Disable ASAR to avoid decompression overhead and click delays
 asar: false
@@ -77,20 +77,20 @@ mac:
     - from: packages/shared/src/network-interceptor.ts
       to: app/packages/shared/src/network-interceptor.ts
   # Use predictable naming for macOS packages (applies to zip; dmg uses its own config below)
-  artifactName: "Kata-Agents-${arch}.${ext}"
+  artifactName: "Kata-Desktop-${arch}.${ext}"
   # Code signing: set CSC_NAME="Your Name (TEAMID)"
   # Notarization: set APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
   # Notarization auto-enabled when env vars are present
 
 dmg:
-  # Use predictable naming: Kata-Agents-arm64.dmg, Kata-Agents-x64.dmg
-  artifactName: "Kata-Agents-${arch}.dmg"
+  # Use predictable naming: Kata-Desktop-arm64.dmg, Kata-Desktop-x64.dmg
+  artifactName: "Kata-Desktop-${arch}.dmg"
   # Custom background (multi-resolution TIFF with 1x+2x for retina support)
   background: resources/dmg-background.tiff
   # Use app icon as the mounted volume icon in Finder
   icon: resources/AppIcon.icns
   iconSize: 80
-  title: "Kata Agents"
+  title: "Kata Desktop"
   contents:
     - x: 130
       y: 200
@@ -108,8 +108,8 @@ win:
     - target: nsis
       arch:
         - x64
-  # Use predictable naming: Kata-Agents-x64.exe
-  artifactName: "Kata-Agents-${arch}.${ext}"
+  # Use predictable naming: Kata-Desktop-x64.exe
+  artifactName: "Kata-Desktop-${arch}.${ext}"
   files:
     # Exclude ripgrep binaries for other platforms
     - "!node_modules/@anthropic-ai/claude-agent-sdk/vendor/ripgrep/arm64-linux"
@@ -142,7 +142,7 @@ linux:
     - target: AppImage
       arch:
         - x64
-  artifactName: "Kata-Agents-${arch}.${ext}"
+  artifactName: "Kata-Desktop-${arch}.${ext}"
   # Exclude ripgrep binaries for other platforms
   files:
     - "!node_modules/@anthropic-ai/claude-agent-sdk/vendor/ripgrep/arm64-darwin"

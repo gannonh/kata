@@ -150,8 +150,8 @@ else
     LINUX_ARCH="aarch64"
 fi
 
-# electron-builder outputs: Kata-Agents-x86_64.AppImage or Kata-Agents-aarch64.AppImage
-BUILT_APPIMAGE_NAME="Kata-Agents-${LINUX_ARCH}.AppImage"
+# electron-builder outputs: Kata-Desktop-x86_64.AppImage or Kata-Desktop-aarch64.AppImage
+BUILT_APPIMAGE_NAME="Kata-Desktop-${LINUX_ARCH}.AppImage"
 BUILT_APPIMAGE_PATH="$ELECTRON_DIR/release/$BUILT_APPIMAGE_NAME"
 
 if [ ! -f "$BUILT_APPIMAGE_PATH" ]; then
@@ -161,8 +161,8 @@ if [ ! -f "$BUILT_APPIMAGE_PATH" ]; then
     exit 1
 fi
 
-# Rename to our standard naming convention: Kata-Agents-x64.AppImage, Kata-Agents-arm64.AppImage
-APPIMAGE_NAME="Kata-Agents-${ARCH}.AppImage"
+# Rename to our standard naming convention: Kata-Desktop-x64.AppImage, Kata-Desktop-arm64.AppImage
+APPIMAGE_NAME="Kata-Desktop-${ARCH}.AppImage"
 APPIMAGE_PATH="$ELECTRON_DIR/release/$APPIMAGE_NAME"
 mv "$BUILT_APPIMAGE_PATH" "$APPIMAGE_PATH"
 echo "Renamed $BUILT_APPIMAGE_NAME -> $APPIMAGE_NAME"
