@@ -4,7 +4,7 @@ This file provides guidance to coding agents when working with code in this repo
 
 ## Project Overview
 
-Kata Agents is a desktop application for working with AI agents, built on the Claude Agent SDK. It provides multi-session management, MCP server integration, REST API connections, and a document-centric workflow in a polished Electron-based UI.
+Kata Desktop is a desktop application for working with AI agents, built on the Claude Agent SDK. It provides multi-session management, MCP server integration, REST API connections, and a document-centric workflow in a polished Electron-based UI.
 
 ## Build and Development Commands
 
@@ -104,7 +104,7 @@ Three-level permission system per session (cycle with SHIFT+TAB):
 
 ### Configuration Storage
 
-All configuration is stored at `~/.kata-agents/`:
+All configuration is stored at `~/.kata/`:
 
 - `config.json` - Main config (workspaces, auth type)
 - `credentials.enc` - AES-256-GCM encrypted credentials
@@ -151,7 +151,7 @@ import type { Session, Message, AgentEvent } from '@craft-agent/core';
 - Debug logging writes to `~/Library/Logs/@craft-agent/electron/` on macOS
 - Sessions are persisted as JSONL files in workspace directories
 - MCP servers can be stdio-based (local subprocess) or http/sse-based (remote)
-- To reset window state (useful when debugging session display issues): `rm ~/.kata-agents/window-state.json`
+- To reset window state (useful when debugging session display issues): `rm ~/.kata/window-state.json`
 - **Bundled assets:** Files that must work in both dev and Electron go in `packages/shared/assets/<subfolder>/`, are copied by `apps/electron/scripts/copy-assets.ts`, and resolve at runtime via `getBundledAssetsDir(subfolder)`. Never use `import.meta.dir` for asset paths — it is Bun-only and crashes in Node.js/Electron.
 - **System skills:** Bundled at `packages/shared/assets/system-skills/`. Seeded into workspaces on creation via `seedSystemSkills()`. Filter dotfiles (`.DS_Store`) when reading skill directories.
 - **SDK plugin qualification:** Skills are invoked as `{pluginName}:skill-slug`. The pluginName comes from `.claude-plugin/plugin.json` `name` field, not the directory name. Pattern: `craft-workspace-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
@@ -254,4 +254,4 @@ Always prefix the PR name with the ticket number for traceability, e.g. `KAT-123
 - The `labels` parameter on `save_issue` can cause validation errors. Apply labels after creation using a separate `save_issue` update call with the issue `id`.
 - Use `state` values like `Backlog`, `Todo`, `In Progress`, `Done`. Call `list_issue_statuses` to confirm available states.
 - When fetching issues, always pass `includeRelations: true` to `get_issue` to see blocking dependencies.
-- The `project` parameter accepts name, ID, or slug. Use the name `"Kata Agents"` for this project.
+- The `project` parameter accepts name, ID, or slug. Use the name `"Kata Desktop"` for this project.

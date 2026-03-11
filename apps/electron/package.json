@@ -1,14 +1,14 @@
 {
-  "name": "@craft-agent/electron",
+  "name": "@kata/desktop",
   "version": "0.6.1",
-  "description": "Electron desktop app for Kata Agents",
+  "description": "Kata Desktop — AI coding agent for desktop",
   "main": "dist/main.cjs",
   "private": true,
   "author": {
-    "name": "Kata Agents Contributors",
+    "name": "Kata Contributors",
     "email": "hello@kata.sh"
   },
-  "homepage": "https://github.com/gannonh/kata-agents",
+  "homepage": "https://github.com/gannonh/kata",
   "license": "MIT",
   "type": "module",
   "engines": {
