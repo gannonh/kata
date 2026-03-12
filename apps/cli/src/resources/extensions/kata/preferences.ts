@@ -481,9 +481,19 @@ function parseFrontmatterBlock(frontmatter: string): KataPreferences {
         current[key] = items;
         i = j - 1;
       } else {
-        const obj: Record<string, unknown> = {};
-        current[key] = obj;
-        stack.push({ indent, value: obj });
+        // Check if the next non-empty line is actually indented deeper (a real nested block).
+        // If not, this key simply has no value — skip it rather than creating an empty object.
+        const nextNonEmptyLine = lines
+          .slice(i + 1)
+          .find((l) => l.trim() !== "");
+        const nextIndent =
+          nextNonEmptyLine?.match(/^\s*/)?.[0].length ?? indent;
+        if (nextIndent > indent) {
+          const obj: Record<string, unknown> = {};
+          current[key] = obj;
+          stack.push({ indent, value: obj });
+        }
+        // else: key with no value and no nested block — leave it undefined
       }
       continue;
     }
@@ -494,9 +504,13 @@ function parseFrontmatterBlock(frontmatter: string): KataPreferences {
   return root as KataPreferences;
 }
 
-function parseScalar(value: string): string | number | boolean {
+function parseScalar(
+  value: string,
+): string | number | boolean | unknown[] | Record<string, never> {
   if (value === "true") return true;
   if (value === "false") return false;
+  if (value === "[]") return [];
+  if (value === "{}") return {};
   if (/^-?\d+$/.test(value)) return Number(value);
   return value.replace(/^['\"]|['\"]$/g, "");
 }
