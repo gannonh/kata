@@ -129,15 +129,18 @@ describe('GitWatcher', () => {
       watcher.start()
 
       // Wait for chokidar to be ready
-      await sleep(300)
+      await sleep(500)
 
       // Make a git change (commit modifies .git/index, .git/refs/heads/*, .git/HEAD)
       writeFileSync(join(tempDir, 'file.txt'), 'hello')
       execSync('git add .', { cwd: tempDir, stdio: 'pipe' })
       execSync('git commit -m "test commit"', { cwd: tempDir, stdio: 'pipe' })
 
-      // Wait for debounce + watcher propagation
-      await sleep(500)
+      // Poll for callback instead of fixed sleep — CI file watchers can be slow
+      const deadline = Date.now() + 5000
+      while (callCount === 0 && Date.now() < deadline) {
+        await sleep(100)
+      }
 
       expect(callCount).toBeGreaterThanOrEqual(1)
     })
