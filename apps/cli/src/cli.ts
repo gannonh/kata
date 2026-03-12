@@ -66,6 +66,16 @@ initResources(agentDir)
 const resourceLoader = buildResourceLoader(agentDir)
 await resourceLoader.reload()
 
+// Inject --mcp-config flag value into the extension runtime.
+// pi-mcp-adapter reads this via pi.getFlag("mcp-config") at session_start.
+// Kata doesn't call pi's main() which does the two-pass argv parsing that
+// normally populates flagValues, so we must do it manually here.
+const mcpConfigPath = process.env.KATA_MCP_CONFIG_PATH
+if (mcpConfigPath) {
+  const extResult = resourceLoader.getExtensions()
+  extResult.runtime.flagValues.set('mcp-config', mcpConfigPath)
+}
+
 const { session, extensionsResult } = await createAgentSession({
   authStorage,
   modelRegistry,
