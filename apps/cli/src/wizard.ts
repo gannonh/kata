@@ -74,6 +74,7 @@ export function loadStoredEnvKeys(authStorage: AuthStorage): void {
     ['brave_answers', 'BRAVE_ANSWERS_KEY'],
     ['context7',      'CONTEXT7_API_KEY'],
     ['jina',          'JINA_API_KEY'],
+    ['linear',        'LINEAR_API_KEY'],
   ]
   for (const [provider, envVar] of providers) {
     if (!process.env[envVar]) {
@@ -123,6 +124,13 @@ const API_KEYS: ApiKeyConfig[] = [
     label:       'Jina AI',
     hint:        '(clean page extraction)',
     description: 'High-quality web page content extraction',
+  },
+  {
+    provider:    'linear',
+    envVar:      'LINEAR_API_KEY',
+    label:       'Linear',
+    hint:        '(native Linear integration)',
+    description: 'Linear project management API access',
   },
 ]
 

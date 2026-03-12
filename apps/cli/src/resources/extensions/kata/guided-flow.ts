@@ -45,7 +45,7 @@ let pendingAutoStart: {
 } | null = null;
 
 /** Called from agent_end to check if auto-mode should start after discuss */
-export function checkAutoStartAfterDiscuss(): boolean {
+export async function checkAutoStartAfterDiscuss(): Promise<boolean> {
   if (!pendingAutoStart) return false;
 
   const { ctx, pi, basePath, milestoneId } = pendingAutoStart;
@@ -58,7 +58,37 @@ export function checkAutoStartAfterDiscuss(): boolean {
   if (!contextFile) return false; // no context yet — keep waiting
 
   pendingAutoStart = null;
-  startAuto(ctx, pi, basePath, false).catch(() => {});
+
+  // Ask the user whether to start auto-mode — don't assume they want it.
+  // This was previously an unconditional startAuto() call, which caused
+  // auto-mode to fire without explicit user opt-in after every discuss phase.
+  const choice = await showNextAction(ctx as any, {
+    title: `Kata — ${milestoneId} Ready`,
+    summary: [`Context written for ${milestoneId}. Ready to plan and execute.`],
+    actions: [
+      {
+        id: "auto",
+        label: "Go auto",
+        description:
+          "Start auto-mode — research, plan, and execute automatically.",
+        recommended: true,
+      },
+    ],
+    notYetMessage: "Continue manually. Run /kata auto when ready.",
+  });
+
+  if (choice === "auto") {
+    try {
+      await startAuto(ctx, pi, basePath, false);
+    } catch (error) {
+      ctx.ui.notify(
+        `Failed to start auto-mode: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        "error",
+      );
+    }
+  }
   return true;
 }
 

@@ -178,8 +178,8 @@ export default function (pi: ExtensionAPI) {
 
   // ── agent_end: auto-mode advancement or auto-start after discuss ───────────
   pi.on("agent_end", async (event, ctx: ExtensionContext) => {
-    // If discuss phase just finished, start auto-mode
-    if (checkAutoStartAfterDiscuss()) return;
+    // If discuss phase just finished, ask user whether to start auto-mode
+    if (await checkAutoStartAfterDiscuss()) return;
 
     // If auto-mode is already running, advance to next unit
     if (!isAutoActive()) return;

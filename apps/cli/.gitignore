@@ -1,9 +1,3 @@
-
-# ── Kata runtime (ephemeral, not tracked) ──
-.kata/activity/
-.kata/runtime/
-.kata/auto.lock
-.kata/metrics.json
 .DS_Store
 Thumbs.db
 *.swp
@@ -31,15 +25,19 @@ coverage/
 .cache/
 tmp/
 
-dist/
+# ── Build artifacts ──
+pkg/CHANGELOG.md
 .bg_shell
 .kata*.tgz
 .artifacts/
-AGENTS.md
-!src/resources/AGENTS.md
 
-# ── Build artifacts ──
-pkg/CHANGELOG.md
+# ── Kata runtime (ephemeral, not tracked) ──
+.kata/activity/
+.kata/runtime/
+.kata/auto.lock
+.kata/metrics.json
+
+
 
 # ── Kata baseline (auto-generated) ──
 .kata/STATE.md
