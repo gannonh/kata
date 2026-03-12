@@ -1,12 +1,12 @@
 # Kata State
 
 **Active Milestone:** M002 — Linear Mode
-**Active Slice:** (none — planning complete, ready for slice planning)
-**Active Task:** (none)
-**Phase:** pre-planning
-**Slice Branch:** (none)
+**Active Slice:** S01 — Linear GraphQL Client Extension
+**Active Task:** T01 — Extension scaffold, types, and LinearClient core with team and project operations
+**Phase:** Executing
+**Slice Branch:** (create `kata/M002/S01` before starting T01)
 **Active Workspace:** /Volumes/EVO/kata/kata-mono/apps/cli
-**Next Action:** Plan S01 (Linear GraphQL Client Extension) — create slice plan and task decomposition.
+**Next Action:** Create branch `kata/M002/S01` from main, then execute T01 — create extension directory, types, HTTP utilities, and LinearClient core with team/project operations.
 **Last Updated:** 2026-03-12
 **Requirements Status:** 10 active · 3 validated · 0 deferred · 3 out of scope
 
