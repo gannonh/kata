@@ -205,6 +205,16 @@ Kata comes with extensions for:
 - **macOS tools** — Native app automation via Accessibility APIs
 - **MCP servers** — Connect to any [Model Context Protocol](https://modelcontextprotocol.io/) server
 
+## Bundled Agents
+
+Three specialized subagents for delegated work:
+
+| Agent | Role |
+|-------|------|
+| **Scout** | Fast codebase recon — returns compressed context for handoff |
+| **Researcher** | Web research — finds and synthesizes current information |
+| **Worker** | General-purpose execution in an isolated context window |
+
 ## MCP Support
 
 Kata integrates with MCP servers via [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter), auto-installed on first launch. Connect to Linear, Figma, or any MCP-compatible service.
