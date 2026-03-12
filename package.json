@@ -10,9 +10,13 @@
     "!apps/online-docs"
   ],
   "scripts": {
-    "test": "bun test ./packages/ ./apps/electron/src/renderer/lib/",
-    "test:watch": "bun test --watch ./packages/ ./apps/electron/src/renderer/lib/",
-    "test:coverage": "bun test --coverage ./packages/ ./apps/electron/src/renderer/lib/",
+    "test": "bun run test:packages && bun run test:desktop",
+    "test:packages": "bun test ./packages/",
+    "test:desktop": "bun test ./apps/electron/src/",
+    "test:cli": "cd apps/cli && npm test",
+    "test:all": "bun run test && bun run test:cli",
+    "test:watch": "bun test --watch ./packages/ ./apps/electron/src/",
+    "test:coverage": "bun test --coverage ./packages/ ./apps/electron/src/",
     "test:coverage:summary": "bun run scripts/coverage-summary.ts",
     "test:e2e": "cd apps/electron && bun run test:e2e",
     "test:e2e:ui": "cd apps/electron && bun run test:e2e:ui",
