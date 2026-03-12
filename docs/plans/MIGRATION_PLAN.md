@@ -79,11 +79,10 @@
 - [x] Releasing skill updated to cover both targets
 - [x] `.gitignore` updated (`.superpowers/`)
 
-### Phase 3: Import Skills from Kata Orchestrator — NOT STARTED
+### Phase 3: Import Kata Orchestrator — NOT STARTED
 
-- [ ] Create `packages/skills/` from `kata-orchestrator/skills/`
-- [ ] Wire skills into CLI via `resource-loader.ts`
-- [ ] Update `kata-marketplace` and `kata-skills` dist repos
+- [ ] Wait for Orchestrator 2.0 release (cursor, plugin support, etc.) for cleaner import
+- [ ] Integrate orchestrator release workflows in CI (migrate from orchestrator repo and adapt)
 - [ ] Archive `kata-orchestrator`
 
 ### Phase 4: Import Symphony — NOT STARTED
@@ -128,6 +127,7 @@ kata/
 ```
 
 Independent repos:
+
 - `kata-marketplace` — Claude Code plugin distribution
 - `kata-skills` — skills.sh package distribution
 - `kata-site` — Marketing site (Vercel)
@@ -141,7 +141,7 @@ Independent repos:
 | `kata-cloud-agents` | Renamed → `kata`                                   | ✅ Done  |
 | `kata-agents`       | Deleted                                            | ✅ Done  |
 | `kata-cloud`        | Deleted                                            | ✅ Done  |
-| `kata-orchestrator` | Extract skills → archive                           | Phase 3 |
+| `kata-orchestrator` | Import → archive                                   | Phase 3 |
 | `kata-symphony`     | Import → archive                                   | Phase 4 |
 | `kata-marketplace`  | Keep independent (dist repo, builds from monorepo) | Ongoing |
 | `kata-skills`       | Keep independent (dist repo, builds from monorepo) | Ongoing |
