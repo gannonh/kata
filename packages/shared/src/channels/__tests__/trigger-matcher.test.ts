@@ -27,10 +27,10 @@ describe("TriggerMatcher", () => {
   });
 
   test("patterns are case-insensitive", () => {
-    const matcher = new TriggerMatcher(["@KATA"]);
+    const matcher = new TriggerMatcher(["@KATA-SH"]);
     expect(matcher.matches("hey @kata-sh")).toBe(true);
-    expect(matcher.matches("hey @Kata")).toBe(true);
-    expect(matcher.matches("hey @KATA")).toBe(true);
+    expect(matcher.matches("hey @Kata-Sh")).toBe(true);
+    expect(matcher.matches("hey @KATA-SH")).toBe(true);
   });
 
   test("regex anchors work", () => {

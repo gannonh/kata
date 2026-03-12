@@ -128,6 +128,10 @@ if [ -z "$version" ]; then
     error "Failed to get latest version"
 fi
 
+if [ -z "$download_url" ]; then
+    error "Release $version does not contain asset: $filename (platform: $platform)"
+fi
+
 info "Latest version: $version"
 
 # Download installer
@@ -285,8 +289,8 @@ WRAPPER_EOF
 
     chmod +x "$WRAPPER_PATH"
 
-    # Migrate old installation
-    OLD_APPIMAGE="$INSTALL_DIR/Kata-Desktop-x64.AppImage"
+    # Migrate old installation (remove legacy Kata-Agents AppImage)
+    OLD_APPIMAGE="$INSTALL_DIR/Kata-Agents-x64.AppImage"
     [ -f "$OLD_APPIMAGE" ] && rm -f "$OLD_APPIMAGE"
 
     echo ""
