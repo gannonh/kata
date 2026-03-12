@@ -5,7 +5,7 @@
  * Gated by LINEAR_API_KEY env var — skips with clear message if not set.
  *
  * Usage:
- *   LINEAR_API_KEY=<key> node --import ./src/resources/extensions/linear/tests/resolve-ts.mjs \
+ *   LINEAR_API_KEY=<key> node --import ./src/resources/extensions/kata/tests/resolve-ts.mjs \
  *     --experimental-strip-types --test src/resources/extensions/linear/tests/integration.test.ts
  */
 

@@ -83,7 +83,16 @@ export async function checkAutoStartAfterDiscuss(): Promise<boolean> {
   });
 
   if (choice === "auto") {
-    await startAuto(ctx, pi, basePath, false);
+    try {
+      await startAuto(ctx, pi, basePath, false);
+    } catch (error) {
+      ctx.ui.notify(
+        `Failed to start auto-mode: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        "error",
+      );
+    }
   }
   return true;
 }

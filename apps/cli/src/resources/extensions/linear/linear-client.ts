@@ -9,6 +9,7 @@
 import {
   fetchWithRetry,
   LinearGraphQLError,
+  classifyLinearError,
   extractRateLimitInfo,
   type RateLimitInfo,
 } from "./http.js";
@@ -65,6 +66,11 @@ export class LinearClient {
     return this.lastRateLimit;
   }
 
+  /** Returns true only for genuine "not found" errors (404, GraphQL "not found"). */
+  private isNotFound(err: unknown): boolean {
+    return classifyLinearError(err).kind === "not_found";
+  }
+
   /**
    * Execute a GraphQL query or mutation against the Linear API.
    * Returns the typed `data` field from the response.
@@ -72,14 +78,18 @@ export class LinearClient {
    * Throws LinearHttpError for HTTP-level errors (via fetchWithRetry).
    */
   async graphql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
-    const response = await fetchWithRetry(this.endpoint, {
+    const isMutation = /^\s*mutation\b/.test(query);
+    const fetchOptions: RequestInit = {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: this.apiKey,  // No "Bearer" prefix per Linear API convention
       },
       body: JSON.stringify({ query, variables }),
-    });
+    };
+    // Don't retry mutations — they are not idempotent and retrying
+    // after a timeout could duplicate creates or double-apply updates.
+    const response = await fetchWithRetry(this.endpoint, fetchOptions, isMutation ? 0 : 2);
 
     this.lastRateLimit = extractRateLimitInfo(response);
 
@@ -196,7 +206,8 @@ export class LinearClient {
         }
       `, { key: idOrKey });
       if (data.teams.nodes.length > 0) return data.teams.nodes[0];
-    } catch {
+    } catch (err) {
+      if (!this.isNotFound(err)) throw err;
       // Fall through to ID lookup
     }
 
@@ -213,8 +224,9 @@ export class LinearClient {
         }
       `, { id: idOrKey });
       return data.team ?? null;
-    } catch {
-      return null;
+    } catch (err) {
+      if (this.isNotFound(err)) return null;
+      throw err;
     }
   }
 
@@ -261,8 +273,9 @@ export class LinearClient {
         }
       `, { id });
       return data.project ?? null;
-    } catch {
-      return null;
+    } catch (err) {
+      if (this.isNotFound(err)) return null;
+      throw err;
     }
   }
 
@@ -293,6 +306,15 @@ export class LinearClient {
       });
       return data.projects;
     });
+  }
+
+  async deleteProject(id: string): Promise<boolean> {
+    const data = await this.graphql<{ projectDelete: { success: boolean } }>(`
+      mutation DeleteProject($id: String!) {
+        projectDelete(id: $id) { success }
+      }
+    `, { id });
+    return data.projectDelete.success;
   }
 
   async updateProject(id: string, input: ProjectUpdateInput): Promise<LinearProject> {
@@ -351,27 +373,44 @@ export class LinearClient {
         }
       `, { id });
       return data.projectMilestone ?? null;
-    } catch {
-      return null;
+    } catch (err) {
+      if (this.isNotFound(err)) return null;
+      throw err;
     }
   }
 
   async listMilestones(projectId: string): Promise<LinearMilestone[]> {
-    // Milestones are accessed through the project
-    const data = await this.graphql<{
-      project: { projectMilestones: { nodes: LinearMilestone[] } };
-    }>(`
-      query ListMilestones($projectId: String!) {
-        project(id: $projectId) {
-          projectMilestones {
-            nodes {
-              ${LinearClient.MILESTONE_FIELDS}
+    return this.paginate(async (cursor) => {
+      const data = await this.graphql<{
+        project: {
+          projectMilestones: { nodes: LinearMilestone[]; pageInfo: LinearPageInfo };
+        };
+      }>(`
+        query ListMilestones($projectId: String!, $after: String) {
+          project(id: $projectId) {
+            projectMilestones(first: 100, after: $after) {
+              nodes {
+                ${LinearClient.MILESTONE_FIELDS}
+              }
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
             }
           }
         }
+      `, { projectId, after: cursor });
+      return data.project?.projectMilestones ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
+    });
+  }
+
+  async deleteMilestone(id: string): Promise<boolean> {
+    const data = await this.graphql<{ projectMilestoneDelete: { success: boolean } }>(`
+      mutation DeleteMilestone($id: String!) {
+        projectMilestoneDelete(id: $id) { success }
       }
-    `, { projectId });
-    return data.project?.projectMilestones?.nodes ?? [];
+    `, { id });
+    return data.projectMilestoneDelete.success;
   }
 
   async updateMilestone(id: string, input: MilestoneUpdateInput): Promise<LinearMilestone> {
@@ -479,8 +518,9 @@ export class LinearClient {
         }
       `, { id });
       return data.issue ? this.normalizeIssue(data.issue) : null;
-    } catch {
-      return null;
+    } catch (err) {
+      if (this.isNotFound(err)) return null;
+      throw err;
     }
   }
 
@@ -517,6 +557,15 @@ export class LinearClient {
       });
       return data.issues;
     });
+  }
+
+  async deleteIssue(id: string): Promise<boolean> {
+    const data = await this.graphql<{ issueDelete: { success: boolean } }>(`
+      mutation DeleteIssue($id: String!) {
+        issueDelete(id: $id) { success }
+      }
+    `, { id });
+    return data.issueDelete.success;
   }
 
   async updateIssue(id: string, input: IssueUpdateInput): Promise<LinearIssue> {
@@ -633,6 +682,15 @@ export class LinearClient {
     });
   }
 
+  async deleteLabel(id: string): Promise<boolean> {
+    const data = await this.graphql<{ issueLabelDelete: { success: boolean } }>(`
+      mutation DeleteLabel($id: String!) {
+        issueLabelDelete(id: $id) { success }
+      }
+    `, { id });
+    return data.issueLabelDelete.success;
+  }
+
   async getLabel(id: string): Promise<LinearLabel | null> {
     try {
       const data = await this.graphql<{ issueLabel: LinearLabel }>(`
@@ -647,8 +705,9 @@ export class LinearClient {
         }
       `, { id });
       return data.issueLabel ?? null;
-    } catch {
-      return null;
+    } catch (err) {
+      if (this.isNotFound(err)) return null;
+      throw err;
     }
   }
 
@@ -718,8 +777,9 @@ export class LinearClient {
         }
       `, { id });
       return data.document ?? null;
-    } catch {
-      return null;
+    } catch (err) {
+      if (this.isNotFound(err)) return null;
+      throw err;
     }
   }
 
@@ -750,6 +810,15 @@ export class LinearClient {
       });
       return data.documents;
     });
+  }
+
+  async deleteDocument(id: string): Promise<boolean> {
+    const data = await this.graphql<{ documentDelete: { success: boolean } }>(`
+      mutation DeleteDocument($id: String!) {
+        documentDelete(id: $id) { success }
+      }
+    `, { id });
+    return data.documentDelete.success;
   }
 
   async updateDocument(id: string, input: DocumentUpdateInput): Promise<LinearDocument> {

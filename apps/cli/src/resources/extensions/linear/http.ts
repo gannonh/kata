@@ -196,7 +196,17 @@ export async function fetchWithRetry(
       clearTimeout(timeoutId);
       lastError = err;
 
-      if (!isRetryable(err)) throw err;
+      // Distinguish caller-initiated cancellation (non-retryable) from
+      // our own timeout abort (retryable). AbortError from fetch is a
+      // DOMException with name "AbortError".
+      const isAbortError = (err as { name?: string }).name === "AbortError";
+      if (isAbortError) {
+        // Caller explicitly cancelled — don't retry
+        if (callerSignal?.aborted) throw err;
+        // Our timeout fired — treat as retryable (fall through)
+      } else if (!isRetryable(err)) {
+        throw err;
+      }
 
       if (attempt < maxRetries) {
         let delayMs: number;

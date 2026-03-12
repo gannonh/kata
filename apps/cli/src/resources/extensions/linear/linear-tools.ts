@@ -125,6 +125,16 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     },
   });
 
+  pi.registerTool({
+    name: "linear_delete_project",
+    label: "Linear: Delete Project",
+    description: "Delete a project by UUID.",
+    parameters: Type.Object({
+      id: Type.String({ description: "Project UUID" }),
+    }),
+    async execute(_id, params) { return run(() => client.deleteProject(params.id)); },
+  });
+
   // =========================================================================
   // Milestones
   // =========================================================================
@@ -178,6 +188,16 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       const { id, ...input } = params;
       return run(() => client.updateMilestone(id, input));
     },
+  });
+
+  pi.registerTool({
+    name: "linear_delete_milestone",
+    label: "Linear: Delete Milestone",
+    description: "Delete a milestone by UUID.",
+    parameters: Type.Object({
+      id: Type.String({ description: "Milestone UUID" }),
+    }),
+    async execute(_id, params) { return run(() => client.deleteMilestone(params.id)); },
   });
 
   // =========================================================================
@@ -238,11 +258,11 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       id: Type.String({ description: "Issue UUID" }),
       title: Type.Optional(Type.String({ description: "New title" })),
       description: Type.Optional(Type.String({ description: "New description (markdown)" })),
-      parentId: Type.Optional(Type.String({ description: "New parent issue UUID (or null to unset)" })),
-      projectId: Type.Optional(Type.String({ description: "New project UUID (or null to unset)" })),
-      projectMilestoneId: Type.Optional(Type.String({ description: "New milestone UUID (or null to unset)" })),
+      parentId: Type.Optional(Type.Union([Type.String(), Type.Null()], { description: "New parent issue UUID (or null to unset)" })),
+      projectId: Type.Optional(Type.Union([Type.String(), Type.Null()], { description: "New project UUID (or null to unset)" })),
+      projectMilestoneId: Type.Optional(Type.Union([Type.String(), Type.Null()], { description: "New milestone UUID (or null to unset)" })),
       stateId: Type.Optional(Type.String({ description: "New workflow state UUID" })),
-      assigneeId: Type.Optional(Type.String({ description: "New assignee UUID (or null to unset)" })),
+      assigneeId: Type.Optional(Type.Union([Type.String(), Type.Null()], { description: "New assignee UUID (or null to unset)" })),
       labelIds: Type.Optional(Type.Array(Type.String(), { description: "New label UUIDs (replaces all labels)" })),
       priority: Type.Optional(Type.Number({ description: "New priority" })),
       estimate: Type.Optional(Type.Number({ description: "New estimate" })),
@@ -251,6 +271,16 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       const { id, ...input } = params;
       return run(() => client.updateIssue(id, input));
     },
+  });
+
+  pi.registerTool({
+    name: "linear_delete_issue",
+    label: "Linear: Delete Issue",
+    description: "Delete an issue by UUID.",
+    parameters: Type.Object({
+      id: Type.String({ description: "Issue UUID" }),
+    }),
+    async execute(_id, params) { return run(() => client.deleteIssue(params.id)); },
   });
 
   // =========================================================================
@@ -294,6 +324,16 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     async execute(_id, params) {
       return run(() => client.listLabels(params.teamId ? { teamId: params.teamId } : undefined));
     },
+  });
+
+  pi.registerTool({
+    name: "linear_delete_label",
+    label: "Linear: Delete Label",
+    description: "Delete a label by UUID.",
+    parameters: Type.Object({
+      id: Type.String({ description: "Label UUID" }),
+    }),
+    async execute(_id, params) { return run(() => client.deleteLabel(params.id)); },
   });
 
   pi.registerTool({
@@ -354,6 +394,16 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
         params.projectId || params.first ? params : undefined,
       ));
     },
+  });
+
+  pi.registerTool({
+    name: "linear_delete_document",
+    label: "Linear: Delete Document",
+    description: "Delete a document by UUID.",
+    parameters: Type.Object({
+      id: Type.String({ description: "Document UUID" }),
+    }),
+    async execute(_id, params) { return run(() => client.deleteDocument(params.id)); },
   });
 
   pi.registerTool({

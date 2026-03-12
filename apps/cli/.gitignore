@@ -27,7 +27,6 @@ tmp/
 
 # ── Build artifacts ──
 pkg/CHANGELOG.md
-dist/
 .bg_shell
 .kata*.tgz
 .artifacts/
