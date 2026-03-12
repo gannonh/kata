@@ -10,7 +10,7 @@ Kata has two independently versioned release targets. **Ask the user which targe
 | Target | Package | Version Source | Changelog | Tag Format | CI Workflow |
 |--------|---------|---------------|-----------|------------|-------------|
 | **Desktop** | `@kata-sh/desktop` | `apps/electron/package.json` | `apps/electron/CHANGELOG.md` | `desktop-v0.6.1` | `desktop-release.yml` |
-| **CLI** | `@kata-sh/cli` | `apps/cli/package.json` | None (GitHub release notes) | `cli-v0.1.0` | `cli-release.yml` |
+| **CLI** | `@kata-sh/cli` | `apps/cli/package.json` | `apps/cli/CHANGELOG.md` | `cli-v0.1.0` | `cli-release.yml` |
 
 Root `package.json` version is `0.0.0` — never touch it. Each app owns its own version. Desktop and CLI versions are independent and do not need to match.
 
@@ -108,14 +108,16 @@ The terminal coding agent, published to npm as `@kata-sh/cli`.
 
 3. **Bump version** in `apps/cli/package.json` only
 
-4. **Commit and push to main**
+4. **Update `apps/cli/CHANGELOG.md`** with the new version's changes
+
+5. **Commit and push to main**
    ```bash
-   git add apps/cli/package.json
+   git add apps/cli/package.json apps/cli/CHANGELOG.md
    git commit -m "chore(release): bump cli to X.Y.Z"
    git push
    ```
 
-5. **Verify the release**
+6. **Verify the release**
    ```bash
    gh release view cli-vX.Y.Z
    npm view @kata-sh/cli version
@@ -132,6 +134,7 @@ The terminal coding agent, published to npm as `@kata-sh/cli`.
 ### CLI acceptance criteria
 
 - [ ] `apps/cli/package.json` version bumped
+- [ ] `apps/cli/CHANGELOG.md` updated
 - [ ] Published to npm (`npm view @kata-sh/cli version`)
 - [ ] Git tag `cli-vX.Y.Z` created
 
