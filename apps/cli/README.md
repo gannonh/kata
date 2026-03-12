@@ -49,7 +49,27 @@ Pick from available models across your authenticated providers.
 
 ### 4. Start working
 
-Tell Kata what you want to build, or use `/kata` to enter the structured planning workflow.
+Tell Kata what you want to build. Kata has three modes of operation:
+
+**Step mode** — `/kata` — human in the loop (recommended for new or risk-averse users). Kata proposes each step, you approve or redirect.
+
+**Autonomous mode** — `/kata auto` — researches, plans, executes, verifies, commits, and advances through every slice until the milestone is complete.
+
+**Steering mode** — two terminals for supervised autonomy:
+
+```
+# Terminal 1: autonomous execution
+/kata auto
+
+# Terminal 2: observe and steer
+/kata status          — check progress
+/kata discuss         — discuss decisions
+/kata queue           — manage upcoming work
+
+# When you need to interrupt and redirect:
+# Terminal 1:
+/kata stop
+```
 
 ## How It Works
 
@@ -72,36 +92,6 @@ Each slice flows through phases automatically:
 - **Reassess** checks if the roadmap still makes sense given what was learned
 
 All planning state lives in `.kata/` at the project root — human-readable markdown files that track milestones, slices, tasks, decisions, and progress.
-
-## Modes
-
-### Interactive: `/kata`
-
-The default mode. A contextual wizard that looks at your project state and suggests the next step — whether that's creating a milestone, planning a slice, or executing a task.
-
-You drive each step. Kata proposes, you approve or redirect. Good for:
-
-- Starting a new project or milestone
-- Working through complex decisions that need human judgment
-- Tasks where you want to stay in the loop
-
-### Autonomous: `/kata auto`
-
-Hands-off mode. Kata loops through the full workflow — research, plan, execute, complete, reassess — in fresh context windows until the milestone is done.
-
-Each task gets a clean context window with only what it needs. Summaries compress prior work so context stays sharp. If something goes wrong, Kata writes a blocker and replans.
-
-```
-/kata auto       — start autonomous execution
-/kata stop       — stop gracefully after the current task
-/kata status     — check progress while it runs
-```
-
-Good for:
-
-- Well-scoped milestones with clear requirements
-- Overnight or background execution
-- Grinding through implementation after the architecture is settled
 
 ## Commands
 
@@ -146,6 +136,37 @@ Good for:
 | `/hotkeys` | Show all keyboard shortcuts |
 | `/create-extension` | Scaffold a new extension with interview-driven setup |
 | `/create-slash-command` | Generate a new slash command from a plain-English description |
+
+## Preferences
+
+Kata preferences live in `~/.kata-cli/preferences.md` (global) or `.kata-cli/preferences.md` (project-local). Manage with `/kata prefs`.
+
+```yaml
+---
+version: 1
+models:
+  research: claude-sonnet-4-6
+  planning: claude-opus-4-6
+  execution: claude-sonnet-4-6
+  completion: claude-sonnet-4-6
+skill_discovery: suggest
+auto_supervisor:
+  soft_timeout_minutes: 20
+  idle_timeout_minutes: 10
+  hard_timeout_minutes: 30
+budget_ceiling: 50.00
+---
+```
+
+| Setting | What it controls |
+|---------|-----------------|
+| `models.*` | Per-phase model selection (Opus for planning, Sonnet for execution, etc.) |
+| `skill_discovery` | `auto` / `suggest` / `off` — how Kata finds and applies skills |
+| `auto_supervisor.*` | Timeout thresholds for auto-mode supervision |
+| `budget_ceiling` | USD ceiling — auto mode pauses when reached |
+| `uat_dispatch` | Enable automatic UAT runs after slice completion |
+| `always_use_skills` | Skills to always load when relevant |
+| `skill_rules` | Situational rules for skill routing |
 
 ## Project State
 
