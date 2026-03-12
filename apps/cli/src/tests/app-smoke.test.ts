@@ -459,7 +459,94 @@ test("tarball installs and kata-cli binary resolves", async () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 8. Launch → extensions load → no errors on stderr
+// 8. MCP integration: mcp.json scaffolding, adapter seeding, flag injection
+// ═══════════════════════════════════════════════════════════════════════════
+
+test("initResources scaffolds starter mcp.json on first launch", async () => {
+  const { initResources } = await import("../resource-loader.ts");
+  const tmp = mkdtempSync(join(tmpdir(), "kata-mcp-scaffold-"));
+  const fakeAgentDir = join(tmp, "agent");
+
+  try {
+    initResources(fakeAgentDir);
+
+    const mcpPath = join(fakeAgentDir, "mcp.json");
+    assert.ok(existsSync(mcpPath), "mcp.json created on first launch");
+
+    const config = JSON.parse(readFileSync(mcpPath, "utf-8"));
+    assert.ok(config.settings, "mcp.json has settings section");
+    assert.equal(config.settings.toolPrefix, "server", "toolPrefix is 'server'");
+    assert.ok(config.mcpServers !== undefined, "mcp.json has mcpServers section");
+
+    // Verify it's not overwritten on second launch
+    writeFileSync(mcpPath, JSON.stringify({ mcpServers: { custom: { url: "http://test" } } }));
+    initResources(fakeAgentDir);
+    const afterSecondRun = JSON.parse(readFileSync(mcpPath, "utf-8"));
+    assert.ok(afterSecondRun.mcpServers.custom, "mcp.json not overwritten on re-run");
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("cli.ts seeds pi-mcp-adapter into settings.json packages", () => {
+  const cliSrc = readFileSync(join(projectRoot, "src", "cli.ts"), "utf-8");
+  assert.ok(
+    cliSrc.includes("npm:pi-mcp-adapter"),
+    "cli.ts references npm:pi-mcp-adapter package",
+  );
+  assert.ok(
+    cliSrc.includes("settingsManager.setPackages"),
+    "cli.ts calls setPackages to seed the adapter",
+  );
+});
+
+test("cli.ts injects mcp-config flag into extension runtime", () => {
+  const cliSrc = readFileSync(join(projectRoot, "src", "cli.ts"), "utf-8");
+  assert.ok(
+    cliSrc.includes("flagValues.set('mcp-config'"),
+    "cli.ts sets mcp-config flag value on runtime",
+  );
+  assert.ok(
+    cliSrc.includes("KATA_MCP_CONFIG_PATH"),
+    "cli.ts reads KATA_MCP_CONFIG_PATH env var",
+  );
+});
+
+test("loader.ts injects --mcp-config into process.argv", () => {
+  const loaderSrc = readFileSync(join(projectRoot, "src", "loader.ts"), "utf-8");
+  assert.ok(
+    loaderSrc.includes("--mcp-config"),
+    "loader.ts pushes --mcp-config to process.argv",
+  );
+  assert.ok(
+    loaderSrc.includes("KATA_MCP_CONFIG_PATH"),
+    "loader.ts sets KATA_MCP_CONFIG_PATH",
+  );
+  assert.ok(
+    loaderSrc.includes("mcp.json"),
+    "loader.ts references mcp.json config file",
+  );
+});
+
+test("pi-mcp-adapter is globally installed and loadable", async () => {
+  // Verify the package exists at the expected global npm path
+  const globalRoot = execSync("npm root -g", { encoding: "utf-8" }).trim();
+  const adapterPath = join(globalRoot, "pi-mcp-adapter");
+  assert.ok(existsSync(adapterPath), "pi-mcp-adapter installed in global npm root");
+
+  // Verify its package.json has the pi extension config
+  const pkgPath = join(adapterPath, "package.json");
+  assert.ok(existsSync(pkgPath), "pi-mcp-adapter has package.json");
+  const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+  assert.ok(pkg.pi?.extensions, "pi-mcp-adapter declares pi.extensions");
+
+  // Verify the extension entry point exists
+  const extEntry = join(adapterPath, pkg.pi.extensions[0]);
+  assert.ok(existsSync(extEntry), `extension entry point ${pkg.pi.extensions[0]} exists`);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 9. Launch → extensions load → no errors on stderr
 // ═══════════════════════════════════════════════════════════════════════════
 
 test("kata launches and loads extensions without errors", async () => {
