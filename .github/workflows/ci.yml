@@ -59,6 +59,9 @@ jobs:
       - name: TypeScript check
         run: cd apps/cli && npx tsc
 
+      - name: Install pi-mcp-adapter globally
+        run: npm install -g pi-mcp-adapter
+
       - name: Run CLI tests
         run: cd apps/cli && npm test
 
