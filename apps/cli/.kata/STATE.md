@@ -2,11 +2,11 @@
 
 **Active Milestone:** M002 — Linear Mode
 **Active Slice:** S02 — Project Configuration & Mode Switching
-**Active Task:** T02 — Build centralized Linear config resolution and live validation helpers
+**Active Task:** T03 — Expose active mode and config health in `/kata prefs status`
 **Phase:** Executing
 **Slice Branch:** kata/M002/S02
 **Active Workspace:** /Volumes/EVO/kata/kata-mono/apps/cli
-**Next Action:** Execute T02 in S02 — add centralized Linear mode/config resolution plus validation helpers and test coverage.
+**Next Action:** Execute T03 in S02 — wire `linear-config.ts` into `/kata prefs status` so mode, binding, and validation health are visible without exposing secrets.
 **Last Updated:** 2026-03-12
 **Requirements Status:** 10 active · 3 validated · 0 deferred · 3 out of scope
 

@@ -46,7 +46,7 @@
   - Verify: `node --import ./src/resources/extensions/kata/tests/resolve-ts.mjs --experimental-strip-types --test src/resources/extensions/kata/tests/preferences-frontmatter.test.mjs`
   - Done when: A project can declare `workflow.mode: linear` and a `linear` block in preferences, the config loads from both supported filenames, and the docs/template match the real schema.
 
-- [ ] **T02: Build centralized Linear config resolution and live validation helpers** `est:45m`
+- [x] **T02: Build centralized Linear config resolution and live validation helpers** `est:45m`
   - Why: Downstream slices need one source of truth for mode detection and team/project lookup, and this slice's proof depends on validating the configured binding against the real Linear workspace.
   - Files: `src/resources/extensions/kata/linear-config.ts`, `src/resources/extensions/kata/preferences.ts`, `src/resources/extensions/kata/tests/linear-config.test.ts`, `src/resources/extensions/kata/tests/linear-config.integration.test.ts`, `src/resources/extensions/linear/linear-client.ts`
   - Do: Create `linear-config.ts` with `getWorkflowMode()`, `isLinearMode()`, `getLinearTeamId()`, `getLinearProjectId()`, effective-config loading, and `validateLinearProjectConfig()` that uses `LinearClient` to resolve configured team/project IDs or keys and returns structured diagnostic codes without leaking secrets.
