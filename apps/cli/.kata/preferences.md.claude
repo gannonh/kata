@@ -8,10 +8,10 @@ avoid_skills: []
 skill_rules: []
 custom_instructions: []
 models: 
-    research: gpt-5.3-codex-spark
-    planning: gpt-5.4
-    execution: gpt-5.3-codex-spark
-    completion: gpt-5.3-codex-spark
+    research: claude-sonnet-4-6
+    planning: claude-opus-4-6
+    execution: claude-opus-4-6
+    completion: claude-sonnet-4-6
 skill_discovery:
 auto_supervisor: {}
 ---
