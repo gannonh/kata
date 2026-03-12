@@ -84,6 +84,7 @@
 Adopt Turborepo for build orchestration, caching, and task parallelization. Switching costs increase as more packages, scripts, and CI patterns accumulate around the current manual orchestration.
 
 **Why now:**
+
 - 4 apps + 4 packages is the right size to adopt — complex enough to benefit, small enough that migration is low-risk
 - Root `package.json` already has ~50 scripts with manual `cd` chains and sequential `&&` orchestration
 - `typecheck:all`, `electron:build`, `validate:ci` all encode implicit dependency ordering by hand
@@ -91,6 +92,7 @@ Adopt Turborepo for build orchestration, caching, and task parallelization. Swit
 - No code changes required — only build config and script simplification
 
 **Scope:**
+
 - [ ] Install `turbo` as a root dev dependency
 - [ ] Create `turbo.json` with pipeline definitions for: `build`, `test`, `typecheck`, `lint`
 - [ ] Define task dependencies (e.g., `build` in `apps/electron` depends on `build` in `packages/*`)
@@ -104,15 +106,16 @@ Adopt Turborepo for build orchestration, caching, and task parallelization. Swit
 
 **Scripts to migrate (current → target):**
 
-| Current script | Current command | Turbo equivalent |
-|---|---|---|
-| `typecheck:all` | `cd packages/core && tsc && cd ../shared && tsc && ...` | `turbo typecheck` |
-| `validate:ci` | `typecheck:all && lint:electron && test && ...` | `turbo build test typecheck lint` |
-| `electron:build` | 5 sequential `&&`-chained sub-builds | `turbo build --filter=@kata-sh/desktop` |
-| `test` | `test:packages && test:desktop` | `turbo test` |
-| `test:all` | `test && test:cli` | `turbo test` |
+| Current script   | Current command                                         | Turbo equivalent                        |
+| ---------------- | ------------------------------------------------------- | --------------------------------------- |
+| `typecheck:all`  | `cd packages/core && tsc && cd ../shared && tsc && ...` | `turbo typecheck`                       |
+| `validate:ci`    | `typecheck:all && lint:electron && test && ...`         | `turbo build test typecheck lint`       |
+| `electron:build` | 5 sequential `&&`-chained sub-builds                    | `turbo build --filter=@kata-sh/desktop` |
+| `test`           | `test:packages && test:desktop`                         | `turbo test`                            |
+| `test:all`       | `test && test:cli`                                      | `turbo test`                            |
 
 **Not in scope:**
+
 - No package restructuring or code changes
 - No changes to individual package build commands (those stay as-is)
 - Remote caching is optional / can be added later
@@ -129,7 +132,7 @@ Adopt Turborepo for build orchestration, caching, and task parallelization. Swit
 - [ ] Adapt from pnpm/vitest to bun workspace
 - [ ] Archive `kata-symphony`
 
-### Phase 6: Swap Agent Engine — NOT STARTED (Future)
+### Phase 6: Kata Desktop - Swap Agent Engine — NOT STARTED (Future)
 
 - [ ] Replace `@anthropic-ai/claude-agent-sdk` with `@mariozechner/pi-ai` + `@mariozechner/pi-agent-core`
 - [ ] Multi-provider support across all apps
@@ -202,7 +205,7 @@ Independent repos:
 | Distribution repos      | kata-marketplace and kata-skills stay independent | They're dist targets for different ecosystems (Claude Code, skills.sh) |
 | Site migration          | Deferred (keep independent)                       | Vercel deploy pipeline; no code sharing benefit                        |
 | Old repo handling       | Delete obsolete, archive after extraction         | Stars/forks preserved on archive; clean break for obsolete             |
-| Build orchestration     | Turborepo (Phase 3, up next)                       | Switching costs compound — more scripts/packages = harder migration    |
+| Build orchestration     | Turborepo (Phase 3, up next)                      | Switching costs compound — more scripts/packages = harder migration    |
 | Agent engine swap       | Deferred to Phase 6                               | Get monorepo structure right first; engine swap is high-risk           |
 | Git history for imports | Clean copy, not subtree                           | Simpler; low-star repos don't need preserved history                   |
 | Versioning              | Independent per app                               | Desktop `desktop-v*`, CLI `cli-v*`; root version unused                |
