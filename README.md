@@ -64,11 +64,11 @@ CI runs on every pull request with path-based filtering:
 
 | Job            | Runs when                              | What it does                                          |
 | -------------- | -------------------------------------- | ----------------------------------------------------- |
-| `validate`     | Always | Typecheck, lint, unit tests, coverage, electron build |
+| `validate`     | Always                                 | Typecheck, lint, unit tests, coverage, electron build |
+| `validate-cli` | Always                                 | TypeScript check + CLI tests                          |
 | `e2e-mocked`   | `apps/electron/` or `packages/` change | Playwright E2E tests (headless, mocked)               |
-| `validate-cli` | `apps/cli/` changes                    | TypeScript check + CLI tests                          |
 
-The pre-push git hook mirrors this behavior — it always runs `validate:ci`, then conditionally runs E2E and CLI tests based on what files changed.
+The pre-push git hook mirrors this behavior — it always runs `validate:ci` and CLI tests, then conditionally runs desktop E2E based on what files changed.
 
 ### Validation Scripts
 

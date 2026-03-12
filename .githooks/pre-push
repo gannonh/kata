@@ -68,13 +68,9 @@ else
   echo "pre-push: no desktop/packages changes, skipping E2E tests"
 fi
 
-# CLI tests only when CLI changed
-if $cli_changed; then
-  echo "pre-push: CLI changed, running CLI tests..."
-  bun run test:cli
-else
-  echo "pre-push: no CLI changes, skipping CLI tests"
-fi
+# CLI tests always run
+echo "pre-push: running CLI tests..."
+bun run test:cli
 
 if git lfs version >/dev/null 2>&1; then
   echo "pre-push: running git-lfs pre-push..."

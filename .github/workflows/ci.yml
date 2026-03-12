@@ -109,10 +109,8 @@ jobs:
           path: apps/electron/playwright-report/
           retention-days: 7
 
-  # CLI: typecheck + tests, only when CLI changes
+  # CLI: typecheck + tests, always runs
   validate-cli:
-    needs: changes
-    if: needs.changes.outputs.cli == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
