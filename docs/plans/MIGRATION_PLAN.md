@@ -41,13 +41,13 @@
 - [x] Root README rewritten as monorepo index
 - [x] Desktop README moved to `apps/electron/README.md`, rebranded "Kata Desktop"
 - [x] Desktop AGENTS.md moved to `apps/electron/AGENTS.md`
-- [x] `apps/electron/package.json`: name → `@kata/desktop`, homepage → `gannonh/kata`
+- [x] `apps/electron/package.json`: name → `@kata-sh-sh/desktop`, homepage → `gannonh/kata`
 - [x] `electron-builder.yml`: productName → "Kata Desktop", artifacts → `Kata-Desktop-*`
 
 ### Phase 2: Add the CLI ✅ COMPLETE
 
 - [x] GSD-Pi copied into `apps/cli/` with full source
-- [x] `package.json`: name → `@kata/cli`, bin → `kata-cli`, piConfig → `".kata-cli"`
+- [x] `package.json`: name → `@kata-sh-sh/cli`, bin → `kata-cli`, piConfig → `".kata-cli"`
 - [x] Full GSD → Kata rebrand across all files:
   - [x] Env vars: `GSD_*` → `KATA_*`
   - [x] Types/classes: `GSDState` → `KataState`, `GSDPreferences` → `KataPreferences`, etc.
@@ -99,7 +99,7 @@
 
 ### Other Deferred Work
 
-- [ ] Rename `@craft-agent/*` packages to `@kata/*` (core, shared, ui)
+- [ ] Rename `@craft-agent/*` packages to `@kata-sh/*` (core, shared, ui)
 - [ ] Rename `apps/electron/` → `apps/desktop/` (directory name)
 - [ ] `apps/cloud/` — containerized cloud agents
 - [ ] `kata-site` import (Vercel pipeline makes it complex)
@@ -136,19 +136,19 @@ Independent repos:
 
 ## Repo Disposition Summary
 
-| GitHub repo         | Action                                             | Status    |
-| ------------------- | -------------------------------------------------- | --------- |
-| `kata-cloud-agents` | Renamed → `kata`                                   | ✅ Done   |
-| `kata-agents`       | Deleted                                            | ✅ Done   |
-| `kata-cloud`        | Deleted                                            | ✅ Done   |
-| `kata-orchestrator` | Extract skills → archive                           | Phase 3   |
-| `kata-symphony`     | Import → archive                                   | Phase 4   |
-| `kata-marketplace`  | Keep independent (dist repo, builds from monorepo) | Ongoing   |
-| `kata-skills`       | Keep independent (dist repo, builds from monorepo) | Ongoing   |
-| `kata-site`         | Keep independent (Vercel deploy)                   | Ongoing   |
-| `kata-context`      | Restart as `packages/context/` in monorepo         | Future    |
-| `kata-shadcn`       | Ignore                                             | —         |
-| `kata-tui`          | Ignore                                             | —         |
+| GitHub repo         | Action                                             | Status  |
+| ------------------- | -------------------------------------------------- | ------- |
+| `kata-cloud-agents` | Renamed → `kata`                                   | ✅ Done  |
+| `kata-agents`       | Deleted                                            | ✅ Done  |
+| `kata-cloud`        | Deleted                                            | ✅ Done  |
+| `kata-orchestrator` | Extract skills → archive                           | Phase 3 |
+| `kata-symphony`     | Import → archive                                   | Phase 4 |
+| `kata-marketplace`  | Keep independent (dist repo, builds from monorepo) | Ongoing |
+| `kata-skills`       | Keep independent (dist repo, builds from monorepo) | Ongoing |
+| `kata-site`         | Keep independent (Vercel deploy)                   | Ongoing |
+| `kata-context`      | Restart as `packages/context/` in monorepo         | Future  |
+| `kata-shadcn`       | Ignore                                             | —       |
+| `kata-tui`          | Ignore                                             | —       |
 
 ---
 
@@ -167,5 +167,5 @@ Independent repos:
 | Agent engine swap       | Deferred to Phase 5                               | Get monorepo structure right first; engine swap is high-risk           |
 | Git history for imports | Clean copy, not subtree                           | Simpler; low-star repos don't need preserved history                   |
 | Versioning              | Independent per app                               | Desktop `desktop-v*`, CLI `cli-v*`; root version unused                |
-| `@craft-agent/*` rename| Deferred                                          | Broad impact across electron app; not blocking                         |
-| `apps/electron/` rename| Deferred                                          | Would break CI, build scripts; cosmetic                                |
+| `@craft-agent/*` rename | Deferred                                          | Broad impact across electron app; not blocking                         |
+| `apps/electron/` rename | Deferred                                          | Would break CI, build scripts; cosmetic                                |

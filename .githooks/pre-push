@@ -43,8 +43,22 @@ if [[ ! -d node_modules ]]; then
   exit 1
 fi
 
-echo "pre-push: running local validate gate..."
-bun run validate:local
+# Always run core validation (typecheck, lint, unit tests, build)
+echo "pre-push: running validate gate..."
+bun run validate:ci
+
+# CLI tests always run
+echo "pre-push: running CLI tests..."
+bun run test:cli
+
+# Desktop E2E only when version is bumped (release PR)
+current_version=$(node -p "require('./apps/electron/package.json').version")
+if git ls-remote --tags origin | grep -q "refs/tags/desktop-v$current_version"; then
+  echo "pre-push: desktop version $current_version already released, skipping E2E"
+else
+  echo "pre-push: desktop version $current_version is new, running E2E tests..."
+  bun run test:e2e
+fi
 
 if git lfs version >/dev/null 2>&1; then
   echo "pre-push: running git-lfs pre-push..."

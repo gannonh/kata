@@ -9,8 +9,8 @@ Kata has two independently versioned release targets:
 
 | Target | Package | Version Source | Tag Format | CI Workflow |
 |--------|---------|---------------|------------|-------------|
-| **Desktop** | `@kata/desktop` | `apps/electron/package.json` only | `desktop-v0.6.1` | `desktop-release.yml` |
-| **CLI** | `@kata/cli` | `apps/cli/package.json` only | `cli-v0.1.0` | `cli-release.yml` |
+| **Desktop** | `@kata-sh/desktop` | `apps/electron/package.json` only | `desktop-v0.6.1` | `desktop-release.yml` |
+| **CLI** | `@kata-sh/cli` | `apps/cli/package.json` only | `cli-v0.1.0` | `cli-release.yml` |
 
 **Root `package.json` version is `0.0.0` — it is not used for releases.** Each app owns its own version.
 
@@ -92,7 +92,7 @@ gh release view desktop-vX.Y.Z --json assets --jq '.assets[].name'
 
 ## CLI Release
 
-The terminal coding agent, published to npm as `@kata/cli`.
+The terminal coding agent, published to npm as `@kata-sh/cli`.
 
 ### Release Flow
 
@@ -140,7 +140,7 @@ CI triggers `cli-release.yml` (on push to main with changes in `apps/cli/`):
 
 ```bash
 gh release view cli-vX.Y.Z
-npm view @kata/cli version
+npm view @kata-sh/cli version
 ```
 
 ---
@@ -169,5 +169,5 @@ npm view @kata/cli version
 
 **CLI:**
 - [ ] `apps/cli/package.json` version bumped
-- [ ] Published to npm (`npm view @kata/cli version`)
+- [ ] Published to npm (`npm view @kata-sh/cli version`)
 - [ ] Git tag `cli-vX.Y.Z` created

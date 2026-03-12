@@ -1,5 +1,5 @@
 {
-  "name": "@kata/cli",
+  "name": "@kata-sh/cli",
   "version": "0.1.0",
   "piConfig": {
     "name": "kata",
