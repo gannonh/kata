@@ -80,3 +80,6 @@ demos/
 /config.json
 kata-cloud-agents.code-workspace
 .superpowers/
+.kata/
+.bg-shell/
+kata-mono.code-workspace

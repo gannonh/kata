@@ -1,6 +1,6 @@
 # Kata Preferences Reference
 
-Full documentation for `~/.kata/preferences.md` (global) and `.kata/preferences.md` (project).
+Full documentation for `~/.kata-cli/preferences.md` (global) and `.kata/preferences.md` (project).
 
 ---
 

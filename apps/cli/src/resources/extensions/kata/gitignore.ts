@@ -132,7 +132,7 @@ auto_supervisor: {}
 
 Project-specific guidance for skill selection and execution preferences.
 
-See \`~/.kata/agent/extensions/kata/docs/preferences-reference.md\` for full field documentation and examples.
+See \`~/.kata-cli/agent/extensions/kata/docs/preferences-reference.md\` for full field documentation and examples.
 
 ## Fields
 

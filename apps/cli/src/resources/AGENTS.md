@@ -9,7 +9,7 @@ Kata CLI is a thin wrapper around pi-coding-agent that provides:
 - **Branded entry point**: `src/loader.ts` sets env vars and launches `src/cli.ts`
 - **Bundled extensions**: `src/resources/extensions/` contains all built-in extensions
 - **Resource syncing**: `src/resource-loader.ts` copies bundled extensions to `~/.kata-cli/agent/` on startup
-- **Config directory**: `~/.kata-cli/` (not `~/.kata/` to avoid collision with other Kata apps)
+- **Config directory**: `~/.kata-cli/` (not `~/.kata-cli/` to avoid collision with other Kata apps)
 - **Package shim**: `pkg/package.json` provides `piConfig` with `name: "kata"` and `configDir: ".kata-cli"`
 
 ## Directory Structure
