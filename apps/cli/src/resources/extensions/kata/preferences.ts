@@ -10,7 +10,12 @@ const LEGACY_GLOBAL_PREFERENCES_PATH = join(
   "agent",
   "kata-preferences.md",
 );
-const PROJECT_PREFERENCES_PATH = join(process.cwd(), ".kata", "preferences.md");
+const PROJECT_PREFERENCES_DIR = join(process.cwd(), ".kata");
+const PROJECT_PREFERENCES_PATH = join(PROJECT_PREFERENCES_DIR, "preferences.md");
+const LEGACY_PROJECT_PREFERENCES_PATH = join(
+  PROJECT_PREFERENCES_DIR,
+  "PREFERENCES.md",
+);
 const SKILL_ACTIONS = new Set(["use", "prefer", "avoid"]);
 
 export interface KataSkillRule {
@@ -36,6 +41,18 @@ export interface AutoSupervisorConfig {
   hard_timeout_minutes?: number;
 }
 
+export type WorkflowMode = "file" | "linear";
+
+export interface KataWorkflowPreferences {
+  mode?: WorkflowMode;
+}
+
+export interface KataLinearPreferences {
+  teamId?: string;
+  teamKey?: string;
+  projectId?: string;
+}
+
 export interface KataPreferences {
   version?: number;
   always_use_skills?: string[];
@@ -45,6 +62,8 @@ export interface KataPreferences {
   custom_instructions?: string[];
   models?: KataModelConfig;
   skill_discovery?: SkillDiscoveryMode;
+  workflow?: KataWorkflowPreferences;
+  linear?: KataLinearPreferences;
   auto_supervisor?: AutoSupervisorConfig;
   uat_dispatch?: boolean;
   budget_ceiling?: number;
@@ -68,6 +87,10 @@ export function getProjectKataPreferencesPath(): string {
   return PROJECT_PREFERENCES_PATH;
 }
 
+export function getLegacyProjectKataPreferencesPath(): string {
+  return LEGACY_PROJECT_PREFERENCES_PATH;
+}
+
 export function loadGlobalKataPreferences(): LoadedKataPreferences | null {
   return (
     loadPreferencesFile(GLOBAL_PREFERENCES_PATH, "global") ??
@@ -76,7 +99,9 @@ export function loadGlobalKataPreferences(): LoadedKataPreferences | null {
 }
 
 export function loadProjectKataPreferences(): LoadedKataPreferences | null {
-  return loadPreferencesFile(PROJECT_PREFERENCES_PATH, "project");
+  const path = resolveProjectPreferencesPath();
+  if (!path) return null;
+  return loadPreferencesFile(path, "project");
 }
 
 export function loadEffectiveKataPreferences(): LoadedKataPreferences | null {
@@ -349,6 +374,24 @@ export function renderPreferencesForSystemPrompt(
   return lines.join("\n");
 }
 
+function resolveProjectPreferencesPath(): string | null {
+  if (!existsSync(PROJECT_PREFERENCES_DIR)) return null;
+
+  try {
+    const entries = new Set(readdirSync(PROJECT_PREFERENCES_DIR));
+    if (entries.has("preferences.md")) return PROJECT_PREFERENCES_PATH;
+    if (entries.has("PREFERENCES.md")) return LEGACY_PROJECT_PREFERENCES_PATH;
+  } catch {
+    // Fall through to direct existence checks below.
+  }
+
+  if (existsSync(PROJECT_PREFERENCES_PATH)) return PROJECT_PREFERENCES_PATH;
+  if (existsSync(LEGACY_PROJECT_PREFERENCES_PATH)) {
+    return LEGACY_PROJECT_PREFERENCES_PATH;
+  }
+  return null;
+}
+
 function loadPreferencesFile(
   path: string,
   scope: "global" | "project",
@@ -356,8 +399,10 @@ function loadPreferencesFile(
   if (!existsSync(path)) return null;
 
   const raw = readFileSync(path, "utf-8");
-  const preferences = parsePreferencesMarkdown(raw);
-  if (!preferences) return null;
+  const parsed = parsePreferencesMarkdown(raw);
+  if (!parsed) return null;
+
+  const { preferences } = validatePreferences(parsed);
 
   return {
     path,
@@ -580,6 +625,14 @@ function mergePreferences(
     ),
     models: { ...(base.models ?? {}), ...(override.models ?? {}) },
     skill_discovery: override.skill_discovery ?? base.skill_discovery,
+    workflow: {
+      ...(base.workflow ?? {}),
+      ...(override.workflow ?? {}),
+    },
+    linear: {
+      ...(base.linear ?? {}),
+      ...(override.linear ?? {}),
+    },
     auto_supervisor: {
       ...(base.auto_supervisor ?? {}),
       ...(override.auto_supervisor ?? {}),
@@ -613,6 +666,22 @@ function validatePreferences(preferences: KataPreferences): {
         `invalid skill_discovery value: ${preferences.skill_discovery}`,
       );
     }
+  }
+
+  const normalizedWorkflow = normalizeWorkflowPreferences(preferences.workflow);
+  if (normalizedWorkflow.errors.length > 0) {
+    errors.push(...normalizedWorkflow.errors);
+  }
+  if (normalizedWorkflow.value) {
+    validated.workflow = normalizedWorkflow.value;
+  }
+
+  const normalizedLinear = normalizeLinearPreferences(preferences.linear);
+  if (normalizedLinear.errors.length > 0) {
+    errors.push(...normalizedLinear.errors);
+  }
+  if (normalizedLinear.value) {
+    validated.linear = normalizedLinear.value;
   }
 
   validated.always_use_skills = normalizeStringList(
@@ -683,6 +752,62 @@ function validatePreferences(preferences: KataPreferences): {
   }
 
   return { preferences: validated, errors };
+}
+
+function normalizeWorkflowPreferences(value: unknown): {
+  value?: KataWorkflowPreferences;
+  errors: string[];
+} {
+  if (value === undefined) return { errors: [] };
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { errors: ["workflow must be an object"] };
+  }
+
+  const rawMode = (value as Record<string, unknown>).mode;
+  if (rawMode === undefined) return { value: {}, errors: [] };
+  if (typeof rawMode !== "string") {
+    return { errors: ["workflow.mode must be a string"] };
+  }
+
+  const mode = rawMode.trim().toLowerCase();
+  if (mode === "file" || mode === "linear") {
+    return { value: { mode }, errors: [] };
+  }
+
+  return {
+    errors: ["workflow.mode must be one of: file, linear"],
+  };
+}
+
+function normalizeLinearPreferences(value: unknown): {
+  value?: KataLinearPreferences;
+  errors: string[];
+} {
+  if (value === undefined) return { errors: [] };
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { errors: ["linear must be an object"] };
+  }
+
+  const normalized: KataLinearPreferences = {};
+  const errors: string[] = [];
+
+  for (const key of ["teamId", "teamKey", "projectId"] as const) {
+    const raw = (value as Record<string, unknown>)[key];
+    if (raw === undefined) continue;
+    if (typeof raw !== "string") {
+      errors.push(`linear.${key} must be a string`);
+      continue;
+    }
+    const trimmed = raw.trim();
+    if (trimmed) {
+      normalized[key] = trimmed;
+    }
+  }
+
+  return {
+    value: Object.keys(normalized).length > 0 ? normalized : undefined,
+    errors,
+  };
 }
 
 function mergeStringLists(

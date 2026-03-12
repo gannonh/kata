@@ -2,11 +2,11 @@
 
 **Active Milestone:** M002 — Linear Mode
 **Active Slice:** S02 — Project Configuration & Mode Switching
-**Active Task:** T01 — Extend project preferences for workflow mode and Linear binding
+**Active Task:** T02 — Build centralized Linear config resolution and live validation helpers
 **Phase:** Executing
 **Slice Branch:** kata/M002/S02
 **Active Workspace:** /Volumes/EVO/kata/kata-mono/apps/cli
-**Next Action:** Execute T01 in S02 — extend `.kata/preferences.md` schema/template/docs for `workflow.mode` + `linear` config and add parser compatibility tests.
+**Next Action:** Execute T02 in S02 — add centralized Linear mode/config resolution plus validation helpers and test coverage.
 **Last Updated:** 2026-03-12
 **Requirements Status:** 10 active · 3 validated · 0 deferred · 3 out of scope
 

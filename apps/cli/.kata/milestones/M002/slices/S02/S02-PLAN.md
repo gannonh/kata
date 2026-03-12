@@ -39,7 +39,7 @@
 
 ## Tasks
 
-- [ ] **T01: Extend project preferences for workflow mode and Linear binding** `est:35m`
+- [x] **T01: Extend project preferences for workflow mode and Linear binding** `est:35m`
   - Why: The mode switch has to live in a durable per-project config surface before any runtime code can branch on it, and the current lowercase/uppercase preferences filename split must be reconciled first.
   - Files: `src/resources/extensions/kata/preferences.ts`, `src/resources/extensions/kata/gitignore.ts`, `src/resources/extensions/kata/templates/preferences.md`, `src/resources/extensions/kata/docs/preferences-reference.md`, `src/resources/extensions/kata/tests/preferences-frontmatter.test.mjs`
   - Do: Add typed `workflow` and `linear` config sections to the preferences schema, make project preference loading accept canonical `.kata/preferences.md` with fallback to legacy `.kata/PREFERENCES.md`, update the generated template/docs to show the new fields, and add parser tests for nested frontmatter plus legacy filename compatibility.

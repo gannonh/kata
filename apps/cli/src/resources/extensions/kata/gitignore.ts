@@ -1,8 +1,8 @@
 /**
- * Kata bootstrappers for .gitignore and PREFERENCES.md
+ * Kata bootstrappers for .gitignore and preferences.md
  *
  * Ensures baseline .gitignore exists with universally-correct patterns.
- * Creates an empty PREFERENCES.md template if it doesn't exist.
+ * Creates an empty preferences.md template if it doesn't exist.
  * Both idempotent — non-destructive if already present.
  */
 
@@ -105,58 +105,59 @@ export function ensureGitignore(basePath: string): boolean {
 }
 
 /**
- * Ensure basePath/.kata/PREFERENCES.md exists as an empty template.
- * Creates the file with frontmatter only if it doesn't exist.
- * Returns true if created, false if already exists.
+ * Ensure basePath/.kata/preferences.md exists as an empty template.
+ * Creates the canonical lowercase file if neither the canonical nor legacy file exists.
+ * Returns true if created, false if a preferences file already exists.
  */
 export function ensurePreferences(basePath: string): boolean {
-  const preferencesPath = join(basePath, ".kata", "PREFERENCES.md");
+  const preferencesPath = join(basePath, ".kata", "preferences.md");
+  const legacyPreferencesPath = join(basePath, ".kata", "PREFERENCES.md");
 
-  if (existsSync(preferencesPath)) {
+  if (existsSync(preferencesPath) || existsSync(legacyPreferencesPath)) {
     return false;
   }
 
   const template = `---
 version: 1
+workflow:
+  mode: file
+linear: {}
 always_use_skills: []
 prefer_skills: []
 avoid_skills: []
 skill_rules: []
 custom_instructions: []
 models: {}
-skill_discovery: {}
+skill_discovery:
 auto_supervisor: {}
 ---
 
 # Kata Skill Preferences
 
-Project-specific guidance for skill selection and execution preferences.
+Project-specific guidance for skill selection and workflow configuration.
 
 See \`~/.kata-cli/agent/extensions/kata/docs/preferences-reference.md\` for full field documentation and examples.
 
 ## Fields
 
-- \`always_use_skills\`: Skills that must be available during all Kata operations
-- \`prefer_skills\`: Skills to prioritize when multiple options exist
-- \`avoid_skills\`: Skills to minimize or avoid (with lower priority than prefer)
-- \`skill_rules\`: Context-specific rules (e.g., "use tool X for Y type of work")
-- \`custom_instructions\`: Append-only project guidance (do not override system rules)
-- \`models\`: Model preferences for specific task types
-- \`skill_discovery\`: Automatic skill detection preferences
-- \`auto_supervisor\`: Supervision and gating rules for autonomous modes
+- \`workflow.mode\`: Choose \`file\` (default) or \`linear\`
+- \`linear.teamId\`: Optional Linear team UUID when a project is bound directly to a team
+- \`linear.teamKey\`: Optional Linear team key (for example \`KAT\`) when you prefer stable human-readable binding
+- \`linear.projectId\`: Optional Linear project UUID for the project Kata should validate against
+- Keep API keys and other secrets in environment variables such as \`LINEAR_API_KEY\`, never in preferences files
 
-## Examples
+## Example
 
 \`\`\`yaml
+workflow:
+  mode: linear
+linear:
+  teamKey: KAT
+  projectId: 12345678-1234-1234-1234-1234567890ab
 prefer_skills:
-  - playwright
-  - resolve_library
-avoid_skills:
-  - subagent  # prefer direct execution in this project
-
+  - verification-before-completion
 custom_instructions:
-  - "Always verify with browser_assert before marking UI work done"
-  - "Use Context7 for all library/framework decisions"
+  - "Use Linear as the workflow source of truth for this project"
 \`\`\`
 `;
 
