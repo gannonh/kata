@@ -37,3 +37,9 @@ dist/
 .artifacts/
 AGENTS.md
 !src/resources/AGENTS.md
+
+# ── Build artifacts ──
+pkg/CHANGELOG.md
+
+# ── Kata baseline (auto-generated) ──
+.kata/STATE.md

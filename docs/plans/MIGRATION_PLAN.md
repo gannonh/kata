@@ -79,20 +79,60 @@
 - [x] Releasing skill updated to cover both targets
 - [x] `.gitignore` updated (`.superpowers/`)
 
-### Phase 3: Import Skills from Kata Orchestrator — NOT STARTED
+### Phase 3: Adopt Turborepo — UP NEXT
 
-- [ ] Create `packages/skills/` from `kata-orchestrator/skills/`
-- [ ] Wire skills into CLI via `resource-loader.ts`
-- [ ] Update `kata-marketplace` and `kata-skills` dist repos
+Adopt Turborepo for build orchestration, caching, and task parallelization. Switching costs increase as more packages, scripts, and CI patterns accumulate around the current manual orchestration.
+
+**Why now:**
+
+- 4 apps + 4 packages is the right size to adopt — complex enough to benefit, small enough that migration is low-risk
+- Root `package.json` already has ~50 scripts with manual `cd` chains and sequential `&&` orchestration
+- `typecheck:all`, `electron:build`, `validate:ci` all encode implicit dependency ordering by hand
+- Every new package/app added without Turbo copies the manual pattern, increasing future migration surface
+- No code changes required — only build config and script simplification
+
+**Scope:**
+
+- [ ] Install `turbo` as a root dev dependency
+- [ ] Create `turbo.json` with pipeline definitions for: `build`, `test`, `typecheck`, `lint`
+- [ ] Define task dependencies (e.g., `build` in `apps/electron` depends on `build` in `packages/*`)
+- [ ] Handle mixed runtimes: CLI uses `npm test` (Node), everything else uses `bun`
+- [ ] Simplify root scripts: `validate:ci` → `turbo build test typecheck lint`
+- [ ] Simplify `electron:build` chain (5 sequential sub-builds → Turbo pipeline with deps)
+- [ ] Simplify `typecheck:all` (4 sequential `cd && tsc` → `turbo typecheck`)
+- [ ] Update CI workflows (`desktop-release.yml`, `cli-release.yml`) to use `turbo`
+- [ ] Verify local caching works (`.turbo/` in `.gitignore`)
+- [ ] Optional: enable remote caching for CI ↔ local cache sharing
+
+**Scripts to migrate (current → target):**
+
+| Current script   | Current command                                         | Turbo equivalent                        |
+| ---------------- | ------------------------------------------------------- | --------------------------------------- |
+| `typecheck:all`  | `cd packages/core && tsc && cd ../shared && tsc && ...` | `turbo typecheck`                       |
+| `validate:ci`    | `typecheck:all && lint:electron && test && ...`         | `turbo build test typecheck lint`       |
+| `electron:build` | 5 sequential `&&`-chained sub-builds                    | `turbo build --filter=@kata-sh/desktop` |
+| `test`           | `test:packages && test:desktop`                         | `turbo test`                            |
+| `test:all`       | `test && test:cli`                                      | `turbo test`                            |
+
+**Not in scope:**
+
+- No package restructuring or code changes
+- No changes to individual package build commands (those stay as-is)
+- Remote caching is optional / can be added later
+
+### Phase 4: Import Kata Orchestrator — NOT STARTED
+
+- [ ] Wait for Orchestrator 2.0 release (cursor, plugin support, etc.) for cleaner import
+- [ ] Integrate orchestrator release workflows in CI (migrate from orchestrator repo and adapt)
 - [ ] Archive `kata-orchestrator`
 
-### Phase 4: Import Symphony — NOT STARTED
+### Phase 5: Import Symphony — NOT STARTED
 
 - [ ] Create `packages/symphony-core/` + `apps/symphony/`
 - [ ] Adapt from pnpm/vitest to bun workspace
 - [ ] Archive `kata-symphony`
 
-### Phase 5: Swap Agent Engine — NOT STARTED (Future)
+### Phase 6: Kata Desktop - Swap Agent Engine — NOT STARTED (Future)
 
 - [ ] Replace `@anthropic-ai/claude-agent-sdk` with `@mariozechner/pi-ai` + `@mariozechner/pi-agent-core`
 - [ ] Multi-provider support across all apps
@@ -128,6 +168,7 @@ kata/
 ```
 
 Independent repos:
+
 - `kata-marketplace` — Claude Code plugin distribution
 - `kata-skills` — skills.sh package distribution
 - `kata-site` — Marketing site (Vercel)
@@ -141,8 +182,8 @@ Independent repos:
 | `kata-cloud-agents` | Renamed → `kata`                                   | ✅ Done  |
 | `kata-agents`       | Deleted                                            | ✅ Done  |
 | `kata-cloud`        | Deleted                                            | ✅ Done  |
-| `kata-orchestrator` | Extract skills → archive                           | Phase 3 |
-| `kata-symphony`     | Import → archive                                   | Phase 4 |
+| `kata-orchestrator` | Import → archive                                   | Phase 4 |
+| `kata-symphony`     | Import → archive                                   | Phase 5 |
 | `kata-marketplace`  | Keep independent (dist repo, builds from monorepo) | Ongoing |
 | `kata-skills`       | Keep independent (dist repo, builds from monorepo) | Ongoing |
 | `kata-site`         | Keep independent (Vercel deploy)                   | Ongoing |
@@ -164,7 +205,8 @@ Independent repos:
 | Distribution repos      | kata-marketplace and kata-skills stay independent | They're dist targets for different ecosystems (Claude Code, skills.sh) |
 | Site migration          | Deferred (keep independent)                       | Vercel deploy pipeline; no code sharing benefit                        |
 | Old repo handling       | Delete obsolete, archive after extraction         | Stars/forks preserved on archive; clean break for obsolete             |
-| Agent engine swap       | Deferred to Phase 5                               | Get monorepo structure right first; engine swap is high-risk           |
+| Build orchestration     | Turborepo (Phase 3, up next)                      | Switching costs compound — more scripts/packages = harder migration    |
+| Agent engine swap       | Deferred to Phase 6                               | Get monorepo structure right first; engine swap is high-risk           |
 | Git history for imports | Clean copy, not subtree                           | Simpler; low-star repos don't need preserved history                   |
 | Versioning              | Independent per app                               | Desktop `desktop-v*`, CLI `cli-v*`; root version unused                |
 | `@craft-agent/*` rename | Deferred                                          | Broad impact across electron app; not blocking                         |

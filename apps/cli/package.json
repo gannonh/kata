@@ -1,6 +1,6 @@
 {
   "name": "@kata-sh/cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Kata CLI coding agent",
   "license": "MIT",
   "private": false,
@@ -29,7 +29,8 @@
     "node": ">=20.6.0"
   },
   "scripts": {
-    "build": "tsc && npm run copy-themes",
+    "build": "tsc && npm run copy-themes && npm run copy-changelog",
+    "copy-changelog": "node -e \"require('fs').cpSync('CHANGELOG.md','pkg/CHANGELOG.md')\"",
     "copy-themes": "node -e \"const{mkdirSync,cpSync}=require('fs');const{resolve}=require('path');const candidates=[resolve(__dirname,'node_modules/@mariozechner/pi-coding-agent/dist/modes/interactive/theme'),resolve(__dirname,'..','..','node_modules/@mariozechner/pi-coding-agent/dist/modes/interactive/theme')];const src=candidates.find(p=>{try{require('fs').statSync(p);return true}catch{return false}});if(!src)throw new Error('theme dir not found');mkdirSync('pkg/dist/modes/interactive/theme',{recursive:true});cpSync(src,'pkg/dist/modes/interactive/theme',{recursive:true})\"",
     "test": "node --import ./src/resources/extensions/kata/tests/resolve-ts.mjs --experimental-strip-types --test 'src/resources/extensions/kata/tests/*.test.ts' 'src/resources/extensions/kata/tests/*.test.mjs' 'src/tests/*.test.ts'",
     "dev": "tsc --watch",

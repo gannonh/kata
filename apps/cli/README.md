@@ -1,106 +1,230 @@
 # Kata CLI
 
-A terminal coding agent built on [pi](https://github.com/badlogic/pi-mono) (`@mariozechner/pi-coding-agent`). Kata CLI bundles a curated set of extensions for structured planning, browser automation, web search, subagent orchestration, MCP server integration, and more.
+A terminal coding agent that decomposes projects into milestones, slices, and tasks — then executes them autonomously with structured planning, verification, and fresh context windows.
+
+Built on [pi](https://github.com/badlogic/pi-mono) (`@mariozechner/pi-coding-agent`).
 
 ## Quick Start
 
 ```bash
-# From the monorepo root
-bun install
-cd apps/cli
-npx tsc
-npm run copy-themes
-node dist/loader.js
+npx @kata-sh/cli
 ```
 
-Authenticate with an API key:
+Or install globally:
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-node dist/loader.js
+npm install -g @kata-sh/cli
+kata-cli
 ```
 
-## Architecture
+On first launch, Kata will prompt you to authenticate with an AI provider.
 
-Kata CLI is a thin wrapper around pi-coding-agent. It does not fork pi — it consumes it as an npm dependency and layers on branding, config, and bundled extensions.
+## Getting Started
 
-```
-apps/cli/
-  src/
-    loader.ts              — Entry point: sets KATA_* env vars, imports cli.ts
-    cli.ts                 — Calls createAgentSession() + InteractiveMode
-    app-paths.ts           — ~/.kata-cli/ path constants
-    resource-loader.ts     — Syncs bundled resources to ~/.kata-cli/agent/
-    wizard.ts              — First-run setup, env key hydration
-    resources/
-      KATA-WORKFLOW.md     — The Kata planning methodology
-      AGENTS.md            — System prompt instructions (synced to agent dir)
-      agents/              — Agent templates (worker, scout, researcher)
-      extensions/          — Bundled extensions (see below)
-      skills/              — Bundled skills
-  pkg/
-    package.json           — piConfig shim (name: "kata", configDir: ".kata-cli")
-    dist/                  — Theme assets copied from pi-coding-agent
+### 1. Start Kata
+
+```bash
+npx @kata-sh/cli
 ```
 
-### How It Works
+### 2. Log in to a provider
 
-1. `loader.ts` sets `PI_PACKAGE_DIR` to `pkg/` so pi reads Kata's branding config
-2. `loader.ts` sets `KATA_CODING_AGENT_DIR` so pi uses `~/.kata-cli/agent/` instead of `~/.pi/agent/`
-3. `loader.ts` injects `--mcp-config ~/.kata-cli/agent/mcp.json` into `process.argv` for the MCP adapter
-4. `resource-loader.ts` syncs bundled extensions, agents, skills, and `AGENTS.md` to `~/.kata-cli/agent/` on every launch
-5. `resource-loader.ts` scaffolds a starter `mcp.json` on first launch (never overwrites existing config)
-6. `cli.ts` seeds `npm:pi-mcp-adapter` into settings so pi auto-installs it
-7. `cli.ts` injects the `mcp-config` flag into the extension runtime (required because Kata bypasses pi's `main()` and its two-pass argv parsing)
-8. `cli.ts` calls `createAgentSession()` + `InteractiveMode` — pi handles everything from there
+```
+/login
+```
 
-## Bundled Extensions
+This opens an interactive prompt to authenticate with Anthropic, OpenAI, Google, or any supported provider. You can also set an API key directly:
 
-| Extension | Description |
-|-----------|-------------|
-| `kata/` | Main extension: `/kata` command, auto-mode, planning, state management |
-| `browser-tools/` | Playwright-based browser automation |
-| `subagent/` | Spawns child Kata processes for parallel work |
-| `slash-commands/` | `/kata-run` and other slash commands |
-| `bg-shell/` | Background shell execution |
-| `context7/` | Context7 library documentation lookup |
-| `search-the-web/` | Web search via Brave API |
-| `mac-tools/` | macOS-specific utilities |
-| `shared/` | Shared UI components (library, not an entry point) |
+```bash
+ANTHROPIC_API_KEY=sk-ant-... npx @kata-sh/cli
+```
+
+### 3. Select a model
+
+```
+/model
+```
+
+Pick from available models across your authenticated providers.
+
+### 4. Start working
+
+Tell Kata what you want to build. Kata has three modes of operation:
+
+**Step mode** — `/kata` — human in the loop (recommended for new or risk-averse users). Kata proposes each step, you approve or redirect.
+
+**Autonomous mode** — `/kata auto` — researches, plans, executes, verifies, commits, and advances through every slice until the milestone is complete.
+
+**Steering mode** — two terminals for supervised autonomy:
+
+```
+# Terminal 1: autonomous execution
+/kata auto
+
+# Terminal 2: observe and steer
+/kata status          — check progress
+/kata discuss         — discuss decisions
+/kata queue           — manage upcoming work
+
+# When you need to interrupt and redirect:
+# Terminal 1:
+/kata stop
+```
+
+## How It Works
+
+Kata breaks work into three levels:
+
+```
+Milestone  →  a shippable version (4–10 slices)
+  Slice    →  one demoable vertical capability (1–7 tasks)
+    Task   →  one context-window-sized unit of work
+```
+
+Each slice flows through phases automatically:
+
+**Research** → **Plan** → **Execute** (per task) → **Complete** → **Reassess** → **Next Slice**
+
+- **Research** scouts the codebase and relevant docs
+- **Plan** decomposes the slice into tasks with must-haves — mechanically verifiable outcomes
+- **Execute** runs each task in a fresh context window with only the relevant files pre-loaded
+- **Complete** writes the summary, UAT script, marks the roadmap, and commits
+- **Reassess** checks if the roadmap still makes sense given what was learned
+
+All planning state lives in `.kata/` at the project root — human-readable markdown files that track milestones, slices, tasks, decisions, and progress.
+
+## Commands
+
+### Kata workflow
+
+| Command | Description |
+|---------|-------------|
+| `/kata` | Contextual wizard — suggests next step based on project state |
+| `/kata auto` | Start autonomous mode |
+| `/kata stop` | Stop auto-mode after current task |
+| `/kata status` | Progress dashboard |
+| `/kata queue` | View/manage milestone queue |
+| `/kata discuss` | Discuss gray areas before planning |
+| `/kata prefs` | Manage preferences (global/project) |
+| `/kata doctor` | Diagnose and fix project state |
+| `/audit` | Audit the codebase against a goal, writes report to `.kata/audits/` |
+
+### Session & model
+
+| Command | Description |
+|---------|-------------|
+| `/login` | Authenticate with an AI provider (OAuth) |
+| `/model` | Select a model |
+| `/scoped-models` | Enable/disable models for `Ctrl+P` cycling |
+| `/new` | Start a new session |
+| `/resume` | Resume a previous session |
+| `/compact` | Manually compact the session context |
+| `/fork` | Create a new fork from a previous message |
+| `/tree` | Navigate session tree (switch branches) |
+| `/session` | Show session info and stats |
+
+### Utilities
+
+| Command | Description |
+|---------|-------------|
+| `/mcp` | Show MCP server status and tools |
+| `/gh` | GitHub helper — issues, PRs, labels, milestones, status |
+| `/subagent` | List available subagents |
+| `/export` | Export session to HTML file |
+| `/share` | Share session as a secret GitHub gist |
+| `/copy` | Copy last agent message to clipboard |
+| `/hotkeys` | Show all keyboard shortcuts |
+| `/create-extension` | Scaffold a new extension with interview-driven setup |
+| `/create-slash-command` | Generate a new slash command from a plain-English description |
+
+## Preferences
+
+Kata preferences live in `~/.kata-cli/preferences.md` (global) or `.kata-cli/preferences.md` (project-local). Manage with `/kata prefs`.
+
+```yaml
+---
+version: 1
+models:
+  research: claude-sonnet-4-6
+  planning: claude-opus-4-6
+  execution: claude-sonnet-4-6
+  completion: claude-sonnet-4-6
+skill_discovery: suggest
+auto_supervisor:
+  soft_timeout_minutes: 20
+  idle_timeout_minutes: 10
+  hard_timeout_minutes: 30
+budget_ceiling: 50.00
+---
+```
+
+| Setting | What it controls |
+|---------|-----------------|
+| `models.*` | Per-phase model selection (Opus for planning, Sonnet for execution, etc.) |
+| `skill_discovery` | `auto` / `suggest` / `off` — how Kata finds and applies skills |
+| `auto_supervisor.*` | Timeout thresholds for auto-mode supervision |
+| `budget_ceiling` | USD ceiling — auto mode pauses when reached |
+| `uat_dispatch` | Enable automatic UAT runs after slice completion |
+| `always_use_skills` | Skills to always load when relevant |
+| `skill_rules` | Situational rules for skill routing |
+
+## Project State
+
+Kata stores all planning artifacts in `.kata/` at the project root:
+
+```
+.kata/
+  STATE.md                — Quick-glance dashboard
+  PROJECT.md              — What the project is (living doc)
+  DECISIONS.md            — Append-only architecture decisions
+  REQUIREMENTS.md         — Requirements tracking
+  milestones/
+    M001/
+      M001-ROADMAP.md     — Slices with risk levels and dependencies
+      M001-SUMMARY.md     — Milestone rollup
+      slices/
+        S01/
+          S01-PLAN.md     — Tasks with must-haves and estimates
+          S01-SUMMARY.md  — What was built, what changed
+          tasks/
+            T01-PLAN.md   — Steps, verification, files touched
+            T01-SUMMARY.md
+```
+
+Everything is markdown. You can read it, edit it, or use it as context for other tools.
+
+## Bundled Tools
+
+Kata comes with extensions for:
+
+- **Browser automation** — Playwright-based interaction with web pages
+- **Subagents** — Spawn parallel Kata processes for independent tasks
+- **Background shell** — Long-running processes (servers, watchers, builds)
+- **Web search** — Brave Search API for current external facts
+- **Library docs** — Context7 for up-to-date framework/library documentation
+- **macOS tools** — Native app automation via Accessibility APIs
+- **MCP servers** — Connect to any [Model Context Protocol](https://modelcontextprotocol.io/) server
+
+## Bundled Agents
+
+Three specialized subagents for delegated work:
+
+| Agent | Role |
+|-------|------|
+| **Scout** | Fast codebase recon — returns compressed context for handoff |
+| **Researcher** | Web research — finds and synthesizes current information |
+| **Worker** | General-purpose execution in an isolated context window |
 
 ## MCP Support
 
-Kata ships with [MCP](https://modelcontextprotocol.io/) (Model Context Protocol) support via [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter), auto-installed on first launch. One proxy `mcp` tool (~200 tokens in context) gives the agent on-demand access to any MCP server's tools without burning context on individual tool definitions.
+Kata integrates with MCP servers via [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter), auto-installed on first launch. Connect to Linear, Figma, or any MCP-compatible service.
 
-### How It Works
-
-The MCP integration has three parts:
-
-1. **Package seeding**: `cli.ts` ensures `npm:pi-mcp-adapter` is in the settings packages list on every startup. Pi's package manager auto-installs it globally if missing.
-2. **Config path injection**: `loader.ts` pushes `--mcp-config` into `process.argv` and `cli.ts` sets the flag on `runtime.flagValues` — both are needed because the adapter reads the config path at two different points in its lifecycle.
-3. **Config scaffolding**: `resource-loader.ts` creates a starter `~/.kata-cli/agent/mcp.json` on first launch. Never overwrites existing config.
-
-### Adding MCP Servers
+### Adding a server
 
 Edit `~/.kata-cli/agent/mcp.json`:
 
 ```json
 {
-  "settings": {
-    "toolPrefix": "server",
-    "idleTimeout": 10
-  },
-  "mcpServers": {}
-}
-```
-
-#### Example: Linear (OAuth via mcp-remote)
-
-Many hosted MCP servers (Linear, etc.) use OAuth 2.1 authentication. These require [`mcp-remote`](https://github.com/geelen/mcp-remote) as a stdio proxy that handles the browser-based OAuth flow:
-
-```json
-{
-  "settings": { "toolPrefix": "server", "idleTimeout": 10 },
   "mcpServers": {
     "linear": {
       "command": "npx",
@@ -110,57 +234,17 @@ Many hosted MCP servers (Linear, etc.) use OAuth 2.1 authentication. These requi
 }
 ```
 
-After adding the config and restarting Kata:
+Restart Kata, then connect:
 
-1. Connect the server (opens browser for OAuth):
-   ```
-   mcp({ connect: "linear" })
-   ```
-2. Authorize in the browser when prompted by Linear.
-3. Use tools:
-   ```
-   mcp({ server: "linear" })              — list all Linear tools
-   mcp({ search: "issues" })              — search for issue-related tools
-   mcp({ tool: "linear_list_teams" })     — call a tool
-   ```
-
-Tokens are cached in `~/.mcp-auth/` for subsequent sessions. If you hit errors, clear cached auth with `rm -rf ~/.mcp-auth` and reconnect.
-
-#### Example: Stdio server with env vars
-
-```json
-{
-  "mcpServers": {
-    "my-server": {
-      "command": "npx",
-      "args": ["-y", "some-mcp-server"],
-      "env": {
-        "API_KEY": "${MY_API_KEY}"
-      }
-    }
-  }
-}
+```
+mcp({ connect: "linear" })
 ```
 
-Environment variables support `${VAR}` interpolation from `process.env`.
+OAuth servers (Linear, etc.) open a browser window for authorization on first connect. Tokens are cached for subsequent sessions.
 
-#### Example: HTTP server with bearer token
+### Importing existing configs
 
-```json
-{
-  "mcpServers": {
-    "my-api": {
-      "url": "https://api.example.com/mcp",
-      "auth": "bearer",
-      "bearerTokenEnv": "MY_API_KEY"
-    }
-  }
-}
-```
-
-#### Importing existing configs
-
-Pull in your existing Claude Code, Cursor, or VS Code MCP configuration:
+Pull in MCP configs from other tools:
 
 ```json
 {
@@ -171,121 +255,50 @@ Pull in your existing Claude Code, Cursor, or VS Code MCP configuration:
 
 Supported: `cursor`, `claude-code`, `claude-desktop`, `vscode`, `windsurf`, `codex`.
 
-### Server Lifecycle
-
-| Mode | Behavior |
-|------|----------|
-| `lazy` (default) | Connect on first tool call. Disconnect after idle timeout. Cached metadata keeps search/list working offline. |
-| `eager` | Connect at startup. No auto-reconnect on drop. |
-| `keep-alive` | Connect at startup. Auto-reconnect via health checks. |
-
-### Usage Reference
+### Usage
 
 | Command | Description |
 |---------|-------------|
 | `mcp({ })` | Show server status |
 | `mcp({ server: "name" })` | List tools from a server |
-| `mcp({ search: "query" })` | Search tools (space-separated words OR'd) |
-| `mcp({ describe: "tool_name" })` | Show tool parameters |
-| `mcp({ tool: "name", args: '{}' })` | Call a tool (args is a JSON string) |
-| `mcp({ connect: "name" })` | Force connect/reconnect a server |
-| `/mcp` | Interactive panel (status, tools, reconnect) |
+| `mcp({ search: "query" })` | Search tools across servers |
+| `mcp({ tool: "name", args: '{}' })` | Call a tool |
+| `/mcp` | Interactive panel |
 
-### Known Limitations
+## Configuration
 
-- **OAuth servers require `mcp-remote`**: The adapter doesn't implement the MCP OAuth browser flow natively. Use `mcp-remote` as a stdio proxy for OAuth servers.
-- **Figma remote MCP** (`mcp.figma.com`): Blocks dynamic client registration — only whitelisted clients can connect via OAuth. Use Figma's desktop app local MCP server instead (`http://127.0.0.1:3845/mcp`), which requires Dev Mode (paid plan).
-- **Metadata cache**: `pi-mcp-adapter` caches tool metadata to `~/.pi/agent/mcp-cache.json` (hardcoded path, doesn't affect functionality).
-- **OAuth token storage**: `mcp-remote` stores tokens in `~/.mcp-auth/`, separate from Kata's config dir.
-
-## The /kata Command
-
-The main extension registers `/kata` with subcommands:
-
-| Command | Description |
-|---------|-------------|
-| `/kata` | Contextual wizard — smart entry point based on project state |
-| `/kata auto` | Start auto-mode (loops fresh sessions until milestone complete) |
-| `/kata stop` | Stop auto-mode gracefully |
-| `/kata status` | Progress dashboard |
-| `/kata queue` | View/manage work queue |
-| `/kata discuss` | Discuss gray areas before planning |
-| `/kata prefs` | Manage preferences (global/project/status) |
-| `/kata doctor` | Diagnose and fix project state |
-
-### Project State
-
-Kata stores planning state in `.kata/` at the project root:
-
-```
-.kata/
-  STATE.md              — Dashboard (read first)
-  DECISIONS.md          — Append-only decisions register
-  PROJECT.md            — Project description
-  REQUIREMENTS.md       — Requirements tracking
-  milestones/
-    M001/
-      M001-ROADMAP.md   — Milestone plan with slices
-      slices/
-        S01/
-          S01-PLAN.md   — Task decomposition
-          tasks/
-            T01-PLAN.md
-            T01-SUMMARY.md
-```
-
-## Config Directory
-
-Kata uses `~/.kata-cli/` (not `~/.kata/`) to avoid collision with other Kata apps (desktop, etc.):
+Kata stores config in `~/.kata-cli/`:
 
 ```
 ~/.kata-cli/
   agent/
-    extensions/          — Synced from src/resources/extensions/
-    agents/              — Synced from src/resources/agents/
-    skills/              — Synced from src/resources/skills/
-    AGENTS.md            — Synced from src/resources/AGENTS.md
-    mcp.json             — MCP server configuration (scaffolded on first launch, never overwritten)
-    auth.json            — API keys
-    settings.json        — User settings (includes packages: ["npm:pi-mcp-adapter"])
-    models.json          — Custom model definitions
+    mcp.json             — MCP server configuration
+    auth.json            — Provider API keys
+    settings.json        — User settings
+    extensions/          — Bundled extensions (synced on launch)
+    skills/              — Bundled skills
   sessions/              — Session history
-  preferences.md         — Global Kata preferences
+  preferences.md         — Global preferences
 ```
-
-## Environment Variables
-
-Set by `loader.ts` before pi starts:
-
-| Variable | Purpose |
-|----------|---------|
-| `PI_PACKAGE_DIR` | Points to `pkg/` for Kata's piConfig |
-| `KATA_CODING_AGENT_DIR` | Tells pi to use `~/.kata-cli/agent/` |
-| `KATA_VERSION` | Package version for display |
-| `KATA_BIN_PATH` | Absolute path to loader, used by subagent |
-| `KATA_WORKFLOW_PATH` | Absolute path to bundled KATA-WORKFLOW.md |
-| `KATA_BUNDLED_EXTENSION_PATHS` | Colon-joined extension entry points for subagent |
-| `KATA_MCP_CONFIG_PATH` | Absolute path to `~/.kata-cli/agent/mcp.json` |
 
 ## Development
 
+For contributing or running from source:
+
 ```bash
-# Build
+# From the monorepo root
+bun install
+cd apps/cli
 npx tsc
-
-# Copy theme assets (required once, or after pi-coding-agent updates)
 npm run copy-themes
-
-# Run
 node dist/loader.js
-
-# Test (37 tests: app smoke, resource sync, MCP integration, package validation)
-npm test
 ```
 
-### Key Dependency
+Run tests:
 
-`@mariozechner/pi-coding-agent` is consumed via npm (hoisted to monorepo root `node_modules/`). Never fork — run `npm update` to pick up upstream changes.
+```bash
+cd apps/cli && npm test
+```
 
 ## License
 
