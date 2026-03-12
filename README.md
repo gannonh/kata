@@ -68,14 +68,7 @@ CI runs on every pull request with path-based filtering:
 | `validate-cli` | Always                                 | TypeScript check + CLI tests                          |
 | `e2e-mocked`   | `apps/electron/` or `packages/` change | Playwright E2E tests (headless, mocked)               |
 
-The pre-push git hook mirrors this behavior — it always runs `validate:ci` and CLI tests, then conditionally runs desktop E2E based on what files changed.
-
-### Validation Scripts
-
-| Script                   | Description                                                             |
-| ------------------------ | ----------------------------------------------------------------------- |
-| `bun run validate:ci`    | Full CI gate: typecheck + lint + unit tests + coverage + electron build |
-| `bun run validate:local` | CI gate + desktop E2E                                                   |
+The pre-push git hook runs the same checks locally: typecheck, lint, unit tests, CLI tests, electron build — always. Desktop E2E only runs if `apps/electron/` or `packages/` files changed.
 
 ## License
 
