@@ -40,28 +40,28 @@
 
 ## Tasks
 
-- [ ] **T01: Extension scaffold, types, and LinearClient core with team and project operations** `est:45m`
+- [x] **T01: Extension scaffold, types, and LinearClient core with team and project operations** `est:45m`
   - Why: Establishes the extension structure, core client with auth/error handling, and first real entity operations (teams, projects) — proves the client pattern works against live API
   - Files: `src/resources/extensions/linear/index.ts`, `src/resources/extensions/linear/linear-types.ts`, `src/resources/extensions/linear/linear-client.ts`, `src/resources/extensions/linear/http.ts`
   - Do: Create extension directory. Define TypeScript interfaces for all Linear entities. Implement LinearClient with constructor(apiKey), raw `graphql<T>(query, variables)` executor using native fetch, error classification mirroring search-the-web/http.ts. Add team list/get and project CRUD methods. Stub index.ts with extension entry point. Use `.js` import extensions for Node ESM.
   - Verify: `npx tsc --noEmit` passes. Manual test: instantiate LinearClient with real key, call `listTeams()` and `createProject()` / `getProject()` — results match Linear UI.
   - Done when: LinearClient can authenticate, execute GraphQL, classify errors, and CRUD teams and projects against real Linear API.
 
-- [ ] **T02: Issue, sub-issue, milestone, and label CRUD operations** `est:40m`
+- [x] **T02: Issue, sub-issue, milestone, and label CRUD operations** `est:40m`
   - Why: Adds the entity operations that S03 (hierarchy mapping) and S05 (state derivation) depend on — issues with parentId for sub-issues, milestones under projects, and idempotent label management
   - Files: `src/resources/extensions/linear/linear-client.ts`, `src/resources/extensions/linear/linear-types.ts`
   - Do: Add milestone CRUD (create under project, get, list, update). Add issue CRUD (create with optional parentId/labelIds/projectId/milestoneId, get, list with filters, update). Add label CRUD (create with optional teamId, list, get) plus `ensureLabel(name, opts)` get-or-create helper. Add workflow state query (list states for a team). All methods return typed results.
   - Verify: Manual test: create a milestone under a project, create a parent issue, create a sub-issue under it, create a label and attach it, query back — all match Linear UI.
   - Done when: LinearClient can CRUD milestones, issues (including sub-issues via parentId), labels (including idempotent ensureLabel), and query workflow states.
 
-- [ ] **T03: Document CRUD, cursor pagination, and integration test** `est:40m`
+- [x] **T03: Document CRUD, cursor pagination, and integration test** `est:40m`
   - Why: Completes the client's entity coverage (documents are how artifacts are stored in S04), adds pagination for large result sets (needed by S05), and produces the integration test that proves all operations work — retiring the "API coverage" and "DocumentCreateInput.issueId" risks from the roadmap
   - Files: `src/resources/extensions/linear/linear-client.ts`, `src/resources/extensions/linear/linear-types.ts`, `src/resources/extensions/linear/tests/integration.test.ts`, `src/resources/extensions/linear/tests/resolve-ts.mjs`
   - Do: Add document CRUD (create with projectId and/or issueId, get, list, update). Add generic cursor pagination helper method `paginate<T>()` that handles `pageInfo.hasNextPage` / `endCursor` loops. Refactor list methods to use paginate internally. Write integration test script that exercises every operation type against a real Linear workspace (gated by `LINEAR_API_KEY`). Explicitly test `documentCreate` with `issueId` to retire the `[Internal]` field risk.
   - Verify: `LINEAR_API_KEY=<key> node --experimental-strip-types src/resources/extensions/linear/tests/integration.test.ts` — all operations pass. Document-to-issue attachment confirmed working.
   - Done when: All entity CRUD operations pass integration tests against real Linear. DocumentCreateInput.issueId risk retired. Cursor pagination works for list operations.
 
-- [ ] **T04: Pi extension tools registration and Kata wiring** `est:35m`
+- [x] **T04: Pi extension tools registration and Kata wiring** `est:35m`
   - Why: Makes the client user-facing — without tool registration and loader wiring, the client exists but the agent can't use it. This is the task that delivers the slice's demo outcome.
   - Files: `src/resources/extensions/linear/index.ts`, `src/resources/extensions/linear/linear-tools.ts`, `src/loader.ts`, `src/resource-loader.ts`
   - Do: Create `linear-tools.ts` with tool definition functions — one pi tool per operation (e.g., `linear_list_teams`, `linear_create_project`, `linear_create_issue`, `linear_create_document`, etc.). Each tool: validates inputs, calls LinearClient method, returns structured JSON result. Tools only register when `LINEAR_API_KEY` is present (skip registration with info log if missing). Wire `index.ts` to register all tools via `pi.addTool()`. Add linear extension path to `KATA_BUNDLED_EXTENSION_PATHS` in `loader.ts`. Add linear extension to resource sync in `resource-loader.ts`. Verify end-to-end: start a Kata session and confirm `linear_*` tools appear.
