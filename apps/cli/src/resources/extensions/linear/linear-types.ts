@@ -66,7 +66,7 @@ export interface LinearMilestone {
 export interface LinearWorkflowState {
   id: string;
   name: string;
-  type: "backlog" | "unstarted" | "started" | "completed" | "cancelled";
+  type: "backlog" | "unstarted" | "started" | "completed" | "canceled";
   color: string;
   position: number;
 }
