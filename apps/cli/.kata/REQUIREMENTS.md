@@ -40,7 +40,7 @@ This file is the explicit capability and coverage contract for the project.
 ### R103 — Rich artifacts stored as Linear Documents
 - Class: core-capability
 - Status: active
-- Description: Roadmaps, context, research, summaries, and decisions are stored as Linear Documents attached to the relevant project or milestone
+- Description: Roadmaps, context, research, summaries, and decisions are stored as Linear Documents attached to the relevant project or issue
 - Why it matters: All planning artifacts are searchable, editable, and visible in Linear's UI alongside the issues they describe
 - Source: user
 - Primary owning slice: M002/S04
@@ -68,7 +68,7 @@ This file is the explicit capability and coverage contract for the project.
 - Primary owning slice: M002/S02
 - Supporting slices: none
 - Validation: unmapped
-- Notes: Config stored in .kata/preferences.md or a dedicated .kata/linear.toml
+- Notes: Config stored in `.kata/preferences.md`; legacy `.kata/PREFERENCES.md` remains a read-only fallback during the transition
 
 ### R106 — Personal API key authentication
 - Class: integration

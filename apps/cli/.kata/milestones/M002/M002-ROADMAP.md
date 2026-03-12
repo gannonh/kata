@@ -12,16 +12,15 @@
 
 ## Key Risks / Unknowns
 
-- Linear GraphQL API surface coverage — do all needed mutations exist for our entity model? Could block the hierarchy mapping
 - Sub-issue parent auto-close behavior — if Linear doesn't auto-close parents when children complete, auto-mode advancement needs manual status transitions
-- Document attachment semantics — can Documents be attached to milestones, or only projects and issues? Affects where roadmaps and context live
 - State derivation latency — querying Linear on every state check may be noticeably slower than file reads
+- Preference-path compatibility during mode switching — the codebase currently has lowercase `.kata/preferences.md` plus legacy `.kata/PREFERENCES.md` expectations; a bad migration would silently miss project config or break file-mode projects
 
 ## Proof Strategy
 
-- Linear GraphQL API coverage → retire in S01 by proving all CRUD operations work against real Linear workspace
 - Sub-issue / parent-issue behavior → retire in S03 by proving parent issues can be created with sub-issues and status transitions work correctly
-- Document attachment → retire in S01 by proving documents can be attached to projects and issues
+- State derivation latency → retire in S05 by proving `/kata status` and dashboard queries stay correct and acceptably responsive against live Linear data
+- Preference-path compatibility during mode switching → retire in S02 by proving canonical `.kata/preferences.md` config plus legacy `.kata/PREFERENCES.md` fallback both resolve through one centralized mode/config seam
 
 ## Verification Classes
 
@@ -54,7 +53,7 @@ This milestone is complete only when all are true:
   > After this: agent can authenticate with Linear API key and perform CRUD on projects, milestones, issues, sub-issues, documents, and labels against a real Linear workspace via extension tools.
 
 - [ ] **S02: Project Configuration & Mode Switching** `risk:medium` `depends:[S01]`
-  > After this: user can configure a project for Linear mode (team, API key) via preferences and Kata detects the mode to dispatch file-based or Linear-based operations.
+  > After this: user can opt into Linear mode in `.kata/preferences.md`, legacy `.kata/PREFERENCES.md` remains readable, `/kata prefs status` validates the configured team/project binding, and Kata entrypoints detect the mode through one shared resolver.
 
 - [ ] **S03: Entity Mapping — Hierarchy & Labels** `risk:high` `depends:[S01]`
   > After this: agent can create a Kata milestone as a Linear milestone, slices as parent issues, tasks as sub-issues, with Kata labels for filtering — and the hierarchy is visible in Linear's UI.
@@ -101,9 +100,9 @@ Consumes:
 ### S02 → S06
 
 Produces:
-- `linear-config.ts` → `getLinearMode()`, `getLinearTeamId()`, `getLinearProjectId()`
-- Mode detection: `isLinearMode(basePath)` returns boolean
-- Config storage in `.kata/preferences.md` or `.kata/linear.toml`
+- `linear-config.ts` → `getWorkflowMode()`, `isLinearMode()`, `getLinearTeamId()`, `getLinearProjectId()`, `validateLinearProjectConfig()`
+- Preferences schema adds `workflow.mode` plus a `linear` config block in canonical `.kata/preferences.md`
+- Legacy `.kata/PREFERENCES.md` accepted as a read-only fallback during config loading
 
 Consumes from S01:
 - `LinearClient` for validating team/project config during setup
@@ -152,10 +151,10 @@ Consumes from S04:
 ### S02, S05 → S06
 
 Produces:
-- Mode-aware prompt injection: `LINEAR-WORKFLOW.md` loaded when `isLinearMode()` is true
+- Mode-aware prompt injection: `LINEAR-WORKFLOW.md` loaded when `getWorkflowMode()` resolves `linear`
 - Mode-aware auto-mode: advancement reads/writes Linear instead of files
 
 Consumes from S02:
-- `isLinearMode()`, project config
+- `getWorkflowMode()`, `isLinearMode()`, validated project config
 Consumes from S05:
 - `deriveLinearState()` for auto-mode state checks
