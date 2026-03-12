@@ -14,7 +14,8 @@ A coding agent that executes structured, multi-session development work reliably
 - Full extension bundle synced to `~/.kata-cli/agent/` on every launch
 - Wizard for API key setup on first run
 - Default model: anthropic/claude-sonnet-4-6
-- No MCP support yet
+- MCP support shipped via pi-mcp-adapter auto-bundled (M001 complete)
+- File-based Kata workflow fully operational (local `.kata/` artifacts)
 
 ## Architecture / Key Patterns
 
@@ -22,8 +23,8 @@ A coding agent that executes structured, multi-session development work reliably
 - `src/cli.ts` — thin wrapper: configures pi session, calls `initResources()`, then `InteractiveMode.run()`
 - `src/resource-loader.ts` — syncs `src/resources/` to `~/.kata-cli/agent/` on every launch
 - `src/resources/extensions/` — bundled extensions (kata, browser-tools, subagent, context7, search-the-web, bg-shell, slash-commands, mac-tools, shared)
+- `src/resources/extensions/kata/` — the core Kata extension: state derivation, file parsing, auto-mode, dashboard, preferences, prompts, templates
 - `pkg/package.json` — piConfig shim: `name: "kata"`, `configDir: ".kata-cli"` — tells pi the branded config dir
-- `src/wizard.ts` — first-run setup, env key hydration from auth.json
 - Config dir: `~/.kata-cli/agent/` (not `~/.pi/agent/`)
 - Extensions are loaded by pi's DefaultResourceLoader from agentDir
 
@@ -33,4 +34,5 @@ See `.kata/REQUIREMENTS.md` for the explicit capability contract, requirement st
 
 ## Milestone Sequence
 
-- [ ] M001: MCP Support — ship pi-mcp-adapter auto-bundled in Kata so users get MCP tool access out of the box
+- [x] M001: MCP Support — ship pi-mcp-adapter auto-bundled in Kata so users get MCP tool access out of the box
+- [ ] M002: Linear Mode — native Linear integration as a switchable workflow mode, replacing local file artifacts with Linear projects/milestones/issues/documents
