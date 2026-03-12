@@ -37,3 +37,6 @@ dist/
 .artifacts/
 AGENTS.md
 !src/resources/AGENTS.md
+
+# ── Kata baseline (auto-generated) ──
+.kata/STATE.md
