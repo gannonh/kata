@@ -14,10 +14,12 @@ export interface LinearPageInfo {
   endCursor: string | null;
 }
 
-export interface LinearConnection<T> {
-  nodes: T[];
-  pageInfo: LinearPageInfo;
-}
+// =============================================================================
+// Shared Unions
+// =============================================================================
+
+export type ProjectState = "planned" | "started" | "paused" | "completed" | "canceled" | "backlog";
+export type LinearPriority = 0 | 1 | 2 | 3 | 4;
 
 // =============================================================================
 // Entities
@@ -45,7 +47,7 @@ export interface LinearProject {
   slugId: string;
   description?: string;
   url: string;
-  state: string;
+  state: ProjectState;
   startDate?: string;
   targetDate?: string;
   createdAt: string;
@@ -85,7 +87,7 @@ export interface LinearIssue {
   identifier: string;
   title: string;
   description?: string;
-  priority: number;
+  priority: LinearPriority;
   estimate?: number;
   url: string;
   state: LinearWorkflowState;
@@ -117,8 +119,8 @@ export interface LinearDocument {
 export interface ProjectCreateInput {
   name: string;
   description?: string;
-  teamIds: string[];       // at least one team UUID
-  state?: string;          // "planned" | "started" | "paused" | "completed" | "canceled" | "backlog"
+  teamIds: [string, ...string[]];
+  state?: ProjectState;
   startDate?: string;      // ISO date
   targetDate?: string;     // ISO date
 }
@@ -126,7 +128,7 @@ export interface ProjectCreateInput {
 export interface ProjectUpdateInput {
   name?: string;
   description?: string;
-  state?: string;
+  state?: ProjectState;
   startDate?: string;
   targetDate?: string;
 }
@@ -156,7 +158,7 @@ export interface IssueCreateInput {
   stateId?: string;
   assigneeId?: string;
   labelIds?: string[];
-  priority?: number;       // 0=none, 1=urgent, 2=high, 3=medium, 4=low
+  priority?: LinearPriority;
   estimate?: number;
 }
 
@@ -169,7 +171,7 @@ export interface IssueUpdateInput {
   stateId?: string;
   assigneeId?: string | null;
   labelIds?: string[];
-  priority?: number;
+  priority?: LinearPriority;
   estimate?: number;
 }
 

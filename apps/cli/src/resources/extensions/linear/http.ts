@@ -106,7 +106,7 @@ export function classifyLinearError(err: unknown): ClassifiedError {
     return { kind: "graphql_error", message: firstMsg };
   }
 
-  if (err instanceof TypeError) {
+  if (err instanceof TypeError && (err as TypeError).message.includes("fetch")) {
     return { kind: "network_error", message: `Network error: ${(err as Error).message}` };
   }
 
@@ -148,7 +148,7 @@ function isRetryable(error: unknown): boolean {
   if (error instanceof LinearHttpError) {
     return error.statusCode === 429 || error.statusCode >= 500;
   }
-  if (error instanceof TypeError) return true;
+  if (error instanceof TypeError) return (error as TypeError).message.includes("fetch");
   return false;
 }
 

@@ -2,7 +2,7 @@
  * Linear GraphQL Client.
  *
  * Thin wrapper around native fetch — zero external dependencies.
- * Auth: LINEAR_API_KEY as Authorization header (no Bearer prefix).
+ * Auth: LINEAR_API_KEY passed directly as Authorization header (Linear accepts bare keys).
  * Endpoint: https://api.linear.app/graphql (single POST endpoint).
  */
 
@@ -57,6 +57,7 @@ export class LinearClient {
   private lastRateLimit?: RateLimitInfo;
 
   constructor(apiKey: string, endpoint?: string) {
+    if (!apiKey) throw new Error("LinearClient requires a non-empty apiKey");
     this.apiKey = apiKey;
     this.endpoint = endpoint ?? LINEAR_API_ENDPOINT;
   }
@@ -71,6 +72,13 @@ export class LinearClient {
     return classifyLinearError(err).kind === "not_found";
   }
 
+  /** Assert a mutation succeeded, throw if Linear returned success: false. */
+  private assertSuccess(mutationName: string, success: boolean): void {
+    if (!success) {
+      throw new LinearGraphQLError(`${mutationName} returned success: false`, []);
+    }
+  }
+
   /**
    * Execute a GraphQL query or mutation against the Linear API.
    * Returns the typed `data` field from the response.
@@ -83,7 +91,7 @@ export class LinearClient {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: this.apiKey,  // No "Bearer" prefix per Linear API convention
+        Authorization: this.apiKey,
       },
       body: JSON.stringify({ query, variables }),
     };
@@ -116,7 +124,7 @@ export class LinearClient {
    * pageInfo.hasNextPage / endCursor.
    *
    * @param queryFn — Function that takes an optional cursor and returns a page
-   * @param maxPages — Safety cap to prevent runaway pagination (default: 10, ~2500 results)
+   * @param maxPages — Safety cap to prevent runaway pagination (default: 10, ~500–1000 results depending on page size)
    */
   async paginate<T>(
     queryFn: (cursor?: string) => Promise<{ nodes: T[]; pageInfo: LinearPageInfo }>,
@@ -260,6 +268,7 @@ export class LinearClient {
         }
       }
     `, { input });
+    this.assertSuccess("projectCreate", data.projectCreate.success);
     return data.projectCreate.project;
   }
 
@@ -330,6 +339,7 @@ export class LinearClient {
         }
       }
     `, { id, input });
+    this.assertSuccess("projectUpdate", data.projectUpdate.success);
     return data.projectUpdate.project;
   }
 
@@ -360,6 +370,7 @@ export class LinearClient {
         }
       }
     `, { input });
+    this.assertSuccess("projectMilestoneCreate", data.projectMilestoneCreate.success);
     return data.projectMilestoneCreate.projectMilestone;
   }
 
@@ -400,7 +411,10 @@ export class LinearClient {
           }
         }
       `, { projectId, after: cursor });
-      return data.project?.projectMilestones ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
+      if (!data.project) {
+        throw new LinearGraphQLError(`Project not found: ${projectId}`, []);
+      }
+      return data.project.projectMilestones;
     });
   }
 
@@ -426,6 +440,7 @@ export class LinearClient {
         }
       }
     `, { id, input });
+    this.assertSuccess("projectMilestoneUpdate", data.projectMilestoneUpdate.success);
     return data.projectMilestoneUpdate.projectMilestone;
   }
 
@@ -505,6 +520,7 @@ export class LinearClient {
         }
       }
     `, { input });
+    this.assertSuccess("issueCreate", data.issueCreate.success);
     return this.normalizeIssue(data.issueCreate.issue);
   }
 
@@ -581,16 +597,15 @@ export class LinearClient {
         }
       }
     `, { id, input });
+    this.assertSuccess("issueUpdate", data.issueUpdate.success);
     return this.normalizeIssue(data.issueUpdate.issue);
   }
 
   /** Normalize issue labels from connection format to flat array. */
   private normalizeIssue(issue: LinearIssue): LinearIssue {
-    // Labels come back as { nodes: [...] } — flatten to array
-    if (issue.labels && "nodes" in issue.labels) {
-      issue.labels = (issue.labels as unknown as { nodes: LinearLabel[] }).nodes;
-    }
-    return issue;
+    const raw = issue.labels as unknown as { nodes?: LinearLabel[] } | LinearLabel[];
+    const labels = Array.isArray(raw) ? raw : (raw?.nodes ?? []);
+    return { ...issue, labels };
   }
 
   // ===========================================================================
@@ -646,6 +661,7 @@ export class LinearClient {
         }
       }
     `, { input });
+    this.assertSuccess("issueLabelCreate", data.issueLabelCreate.success);
     return data.issueLabelCreate.issueLabel;
   }
 
@@ -764,6 +780,7 @@ export class LinearClient {
         }
       }
     `, { input });
+    this.assertSuccess("documentCreate", data.documentCreate.success);
     return data.documentCreate.document;
   }
 
@@ -834,6 +851,7 @@ export class LinearClient {
         }
       }
     `, { id, input });
+    this.assertSuccess("documentUpdate", data.documentUpdate.success);
     return data.documentUpdate.document;
   }
 }

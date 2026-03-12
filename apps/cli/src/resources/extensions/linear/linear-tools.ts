@@ -1,5 +1,5 @@
 /**
- * Pi tool definitions for the Linear extension.
+ * Tool definitions for the Linear extension.
  *
  * Each tool wraps a LinearClient method with parameter validation,
  * structured JSON output, and classified error handling.
@@ -218,7 +218,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       stateId: Type.Optional(Type.String({ description: "Workflow state UUID" })),
       assigneeId: Type.Optional(Type.String({ description: "Assignee user UUID" })),
       labelIds: Type.Optional(Type.Array(Type.String(), { description: "Label UUIDs to attach" })),
-      priority: Type.Optional(Type.Number({ description: "Priority: 0=none, 1=urgent, 2=high, 3=medium, 4=low" })),
+      priority: Type.Optional(Type.Integer({ minimum: 0, maximum: 4, description: "Priority: 0=none, 1=urgent, 2=high, 3=medium, 4=low" })),
       estimate: Type.Optional(Type.Number({ description: "Issue estimate" })),
     }),
     async execute(_id, params) { return run(() => client.createIssue(params)); },

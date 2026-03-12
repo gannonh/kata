@@ -337,14 +337,20 @@ describe("Linear GraphQL Client — Integration", { skip: !API_KEY ? "LINEAR_API
   // Cleanup
   // =========================================================================
 
-  after(() => {
-    // Log created entities for manual cleanup if needed
-    console.log(`\n  Test entities created (manual cleanup may be needed):`);
-    console.log(`    Project: ${projectId}`);
-    console.log(`    Milestone: ${milestoneId}`);
-    console.log(`    Parent Issue: ${parentIssueId}`);
-    console.log(`    Child Issue: ${childIssueId}`);
-    console.log(`    Label: ${labelId}`);
-    console.log(`    Documents: ${doc1Id}, ${doc2Id}`);
+  after(async () => {
+    const cleanup: Array<[string, () => Promise<unknown>]> = [
+      ["doc1", () => client.deleteDocument(doc1Id)],
+      ["doc2", () => client.deleteDocument(doc2Id)],
+      ["child issue", () => client.deleteIssue(childIssueId)],
+      ["parent issue", () => client.deleteIssue(parentIssueId)],
+      ["milestone", () => client.deleteMilestone(milestoneId)],
+      ["project", () => client.deleteProject(projectId)],
+      ["label", () => client.deleteLabel(labelId)],
+    ];
+    for (const [name, fn] of cleanup) {
+      try { await fn(); } catch (e) {
+        console.log(`  Cleanup failed for ${name}: ${(e as Error).message}`);
+      }
+    }
   });
 });
