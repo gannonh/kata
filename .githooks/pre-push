@@ -43,8 +43,38 @@ if [[ ! -d node_modules ]]; then
   exit 1
 fi
 
-echo "pre-push: running local validate gate..."
-bun run validate:local
+# Detect what changed compared to the remote tracking branch
+remote_branch="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo 'origin/main')"
+changed_files="$(git diff --name-only "$remote_branch"...HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD 2>/dev/null || echo '')"
+
+desktop_changed=false
+cli_changed=false
+if echo "$changed_files" | grep -qE '^(apps/electron/|packages/)'; then
+  desktop_changed=true
+fi
+if echo "$changed_files" | grep -qE '^apps/cli/'; then
+  cli_changed=true
+fi
+
+# Always run core validation (typecheck, lint, unit tests, build)
+echo "pre-push: running validate gate..."
+bun run validate:ci
+
+# Desktop E2E only when desktop or packages changed
+if $desktop_changed; then
+  echo "pre-push: desktop/packages changed, running E2E tests..."
+  bun run test:e2e
+else
+  echo "pre-push: no desktop/packages changes, skipping E2E tests"
+fi
+
+# CLI tests only when CLI changed
+if $cli_changed; then
+  echo "pre-push: CLI changed, running CLI tests..."
+  bun run test:cli
+else
+  echo "pre-push: no CLI changes, skipping CLI tests"
+fi
 
 if git lfs version >/dev/null 2>&1; then
   echo "pre-push: running git-lfs pre-push..."
