@@ -1,10 +1,9 @@
 
-# ── GSD baseline (auto-generated) ──
+# ── Kata runtime (ephemeral, not tracked) ──
 .kata/activity/
 .kata/runtime/
 .kata/auto.lock
 .kata/metrics.json
-.kata/STATE.md
 .DS_Store
 Thumbs.db
 *.swp
@@ -32,11 +31,9 @@ coverage/
 .cache/
 tmp/
 
-# ── GSD baseline (auto-generated) ──
 dist/
 .bg_shell
 .kata*.tgz
-.kata
 .artifacts/
 AGENTS.md
 !src/resources/AGENTS.md

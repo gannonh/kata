@@ -113,5 +113,18 @@ process.env.KATA_BUNDLED_EXTENSION_PATHS = [
   join(agentDir, "extensions", "get-secrets-from-user.ts"),
 ].join(":");
 
+// KATA_MCP_CONFIG_PATH — absolute path to Kata's MCP config file.
+// pi-mcp-adapter reads --mcp-config from process.argv directly (before session_start fires).
+// We inject it here so the adapter uses ~/.kata-cli/agent/mcp.json instead of the
+// default ~/.pi/agent/mcp.json.
+const mcpConfigPath = join(agentDir, "mcp.json");
+process.env.KATA_MCP_CONFIG_PATH = mcpConfigPath;
+const hasMcpConfigArg = process.argv.some(
+  (arg) => arg === "--mcp-config" || arg.startsWith("--mcp-config="),
+);
+if (!hasMcpConfigArg) {
+  process.argv.push("--mcp-config", mcpConfigPath);
+}
+
 // Dynamic import defers ESM evaluation — config.js will see PI_PACKAGE_DIR above
 await import("./cli.js");

@@ -1,6 +1,6 @@
 # Kata CLI
 
-A terminal coding agent built on [pi](https://github.com/badlogic/pi-mono) (`@mariozechner/pi-coding-agent`). Kata CLI bundles a curated set of extensions for structured planning, browser automation, web search, subagent orchestration, and more.
+A terminal coding agent built on [pi](https://github.com/badlogic/pi-mono) (`@mariozechner/pi-coding-agent`). Kata CLI bundles a curated set of extensions for structured planning, browser automation, web search, subagent orchestration, MCP server integration, and more.
 
 ## Quick Start
 
@@ -28,7 +28,7 @@ Kata CLI is a thin wrapper around pi-coding-agent. It does not fork pi — it co
 apps/cli/
   src/
     loader.ts              — Entry point: sets KATA_* env vars, imports cli.ts
-    cli.ts                 — Calls pi-coding-agent's main()
+    cli.ts                 — Calls createAgentSession() + InteractiveMode
     app-paths.ts           — ~/.kata-cli/ path constants
     resource-loader.ts     — Syncs bundled resources to ~/.kata-cli/agent/
     wizard.ts              — First-run setup, env key hydration
@@ -47,8 +47,12 @@ apps/cli/
 
 1. `loader.ts` sets `PI_PACKAGE_DIR` to `pkg/` so pi reads Kata's branding config
 2. `loader.ts` sets `KATA_CODING_AGENT_DIR` so pi uses `~/.kata-cli/agent/` instead of `~/.pi/agent/`
-3. `resource-loader.ts` syncs bundled extensions, agents, skills, and `AGENTS.md` to `~/.kata-cli/agent/` on every launch
-4. `cli.ts` calls pi-coding-agent's `main()` — pi handles everything from there
+3. `loader.ts` injects `--mcp-config ~/.kata-cli/agent/mcp.json` into `process.argv` for the MCP adapter
+4. `resource-loader.ts` syncs bundled extensions, agents, skills, and `AGENTS.md` to `~/.kata-cli/agent/` on every launch
+5. `resource-loader.ts` scaffolds a starter `mcp.json` on first launch (never overwrites existing config)
+6. `cli.ts` seeds `npm:pi-mcp-adapter` into settings so pi auto-installs it
+7. `cli.ts` injects the `mcp-config` flag into the extension runtime (required because Kata bypasses pi's `main()` and its two-pass argv parsing)
+8. `cli.ts` calls `createAgentSession()` + `InteractiveMode` — pi handles everything from there
 
 ## Bundled Extensions
 
@@ -63,6 +67,136 @@ apps/cli/
 | `search-the-web/` | Web search via Brave API |
 | `mac-tools/` | macOS-specific utilities |
 | `shared/` | Shared UI components (library, not an entry point) |
+
+## MCP Support
+
+Kata ships with [MCP](https://modelcontextprotocol.io/) (Model Context Protocol) support via [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter), auto-installed on first launch. One proxy `mcp` tool (~200 tokens in context) gives the agent on-demand access to any MCP server's tools without burning context on individual tool definitions.
+
+### How It Works
+
+The MCP integration has three parts:
+
+1. **Package seeding**: `cli.ts` ensures `npm:pi-mcp-adapter` is in the settings packages list on every startup. Pi's package manager auto-installs it globally if missing.
+2. **Config path injection**: `loader.ts` pushes `--mcp-config` into `process.argv` and `cli.ts` sets the flag on `runtime.flagValues` — both are needed because the adapter reads the config path at two different points in its lifecycle.
+3. **Config scaffolding**: `resource-loader.ts` creates a starter `~/.kata-cli/agent/mcp.json` on first launch. Never overwrites existing config.
+
+### Adding MCP Servers
+
+Edit `~/.kata-cli/agent/mcp.json`:
+
+```json
+{
+  "settings": {
+    "toolPrefix": "server",
+    "idleTimeout": 10
+  },
+  "mcpServers": {}
+}
+```
+
+#### Example: Linear (OAuth via mcp-remote)
+
+Many hosted MCP servers (Linear, etc.) use OAuth 2.1 authentication. These require [`mcp-remote`](https://github.com/geelen/mcp-remote) as a stdio proxy that handles the browser-based OAuth flow:
+
+```json
+{
+  "settings": { "toolPrefix": "server", "idleTimeout": 10 },
+  "mcpServers": {
+    "linear": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.linear.app/mcp"]
+    }
+  }
+}
+```
+
+After adding the config and restarting Kata:
+
+1. Connect the server (opens browser for OAuth):
+   ```
+   mcp({ connect: "linear" })
+   ```
+2. Authorize in the browser when prompted by Linear.
+3. Use tools:
+   ```
+   mcp({ server: "linear" })              — list all Linear tools
+   mcp({ search: "issues" })              — search for issue-related tools
+   mcp({ tool: "linear_list_teams" })     — call a tool
+   ```
+
+Tokens are cached in `~/.mcp-auth/` for subsequent sessions. If you hit errors, clear cached auth with `rm -rf ~/.mcp-auth` and reconnect.
+
+#### Example: Stdio server with env vars
+
+```json
+{
+  "mcpServers": {
+    "my-server": {
+      "command": "npx",
+      "args": ["-y", "some-mcp-server"],
+      "env": {
+        "API_KEY": "${MY_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+Environment variables support `${VAR}` interpolation from `process.env`.
+
+#### Example: HTTP server with bearer token
+
+```json
+{
+  "mcpServers": {
+    "my-api": {
+      "url": "https://api.example.com/mcp",
+      "auth": "bearer",
+      "bearerTokenEnv": "MY_API_KEY"
+    }
+  }
+}
+```
+
+#### Importing existing configs
+
+Pull in your existing Claude Code, Cursor, or VS Code MCP configuration:
+
+```json
+{
+  "imports": ["claude-code", "cursor"],
+  "mcpServers": {}
+}
+```
+
+Supported: `cursor`, `claude-code`, `claude-desktop`, `vscode`, `windsurf`, `codex`.
+
+### Server Lifecycle
+
+| Mode | Behavior |
+|------|----------|
+| `lazy` (default) | Connect on first tool call. Disconnect after idle timeout. Cached metadata keeps search/list working offline. |
+| `eager` | Connect at startup. No auto-reconnect on drop. |
+| `keep-alive` | Connect at startup. Auto-reconnect via health checks. |
+
+### Usage Reference
+
+| Command | Description |
+|---------|-------------|
+| `mcp({ })` | Show server status |
+| `mcp({ server: "name" })` | List tools from a server |
+| `mcp({ search: "query" })` | Search tools (space-separated words OR'd) |
+| `mcp({ describe: "tool_name" })` | Show tool parameters |
+| `mcp({ tool: "name", args: '{}' })` | Call a tool (args is a JSON string) |
+| `mcp({ connect: "name" })` | Force connect/reconnect a server |
+| `/mcp` | Interactive panel (status, tools, reconnect) |
+
+### Known Limitations
+
+- **OAuth servers require `mcp-remote`**: The adapter doesn't implement the MCP OAuth browser flow natively. Use `mcp-remote` as a stdio proxy for OAuth servers.
+- **Figma remote MCP** (`mcp.figma.com`): Blocks dynamic client registration — only whitelisted clients can connect via OAuth. Use Figma's desktop app local MCP server instead (`http://127.0.0.1:3845/mcp`), which requires Dev Mode (paid plan).
+- **Metadata cache**: `pi-mcp-adapter` caches tool metadata to `~/.pi/agent/mcp-cache.json` (hardcoded path, doesn't affect functionality).
+- **OAuth token storage**: `mcp-remote` stores tokens in `~/.mcp-auth/`, separate from Kata's config dir.
 
 ## The /kata Command
 
@@ -111,8 +245,9 @@ Kata uses `~/.kata-cli/` (not `~/.kata/`) to avoid collision with other Kata app
     agents/              — Synced from src/resources/agents/
     skills/              — Synced from src/resources/skills/
     AGENTS.md            — Synced from src/resources/AGENTS.md
+    mcp.json             — MCP server configuration (scaffolded on first launch, never overwritten)
     auth.json            — API keys
-    settings.json        — User settings
+    settings.json        — User settings (includes packages: ["npm:pi-mcp-adapter"])
     models.json          — Custom model definitions
   sessions/              — Session history
   preferences.md         — Global Kata preferences
@@ -130,6 +265,7 @@ Set by `loader.ts` before pi starts:
 | `KATA_BIN_PATH` | Absolute path to loader, used by subagent |
 | `KATA_WORKFLOW_PATH` | Absolute path to bundled KATA-WORKFLOW.md |
 | `KATA_BUNDLED_EXTENSION_PATHS` | Colon-joined extension entry points for subagent |
+| `KATA_MCP_CONFIG_PATH` | Absolute path to `~/.kata-cli/agent/mcp.json` |
 
 ## Development
 
@@ -143,7 +279,7 @@ npm run copy-themes
 # Run
 node dist/loader.js
 
-# Test
+# Test (37 tests: app smoke, resource sync, MCP integration, package validation)
 npm test
 ```
 

@@ -52,11 +52,33 @@ if (!settingsManager.getCollapseChangelog()) {
   settingsManager.setCollapseChangelog(true)
 }
 
+// Ensure pi-mcp-adapter is in the packages list so pi auto-installs it on startup.
+// Bootstrap only when packages have never been configured. If users later remove the
+// adapter from settings.json, that opt-out should persist.
+const MCP_ADAPTER_PACKAGE = 'npm:pi-mcp-adapter'
+const globalSettings = settingsManager.getGlobalSettings()
+const globalPackages = [...(globalSettings.packages ?? [])]
+const hasConfiguredPackages = Object.prototype.hasOwnProperty.call(globalSettings, "packages")
+if (!hasConfiguredPackages && !globalPackages.includes(MCP_ADAPTER_PACKAGE)) {
+  settingsManager.setPackages([...globalPackages, MCP_ADAPTER_PACKAGE])
+}
+await settingsManager.flush()
+
 const sessionManager = SessionManager.create(process.cwd(), sessionsDir)
 
 initResources(agentDir)
 const resourceLoader = buildResourceLoader(agentDir)
 await resourceLoader.reload()
+
+// Inject --mcp-config flag value into the extension runtime.
+// pi-mcp-adapter reads this via pi.getFlag("mcp-config") at session_start.
+// Kata doesn't call pi's main() which does the two-pass argv parsing that
+// normally populates flagValues, so we must do it manually here.
+const mcpConfigPath = process.env.KATA_MCP_CONFIG_PATH
+if (mcpConfigPath) {
+  const extResult = resourceLoader.getExtensions()
+  extResult.runtime.flagValues.set('mcp-config', mcpConfigPath)
+}
 
 const { session, extensionsResult } = await createAgentSession({
   authStorage,
