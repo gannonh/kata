@@ -67,7 +67,7 @@ CI runs on every pull request with path-based filtering:
 | `validate`     | Always                                 | Typecheck, lint, unit tests, coverage, electron build |
 | `validate-cli` | Always                                 | TypeScript check + CLI tests                          |
 
-Desktop E2E tests (Playwright, headless) run as a gate in `desktop-release.yml` before platform builds — not on every PR.
+Desktop E2E tests (Playwright, headless) only run during releases — when `apps/electron/package.json` version is bumped, triggering `desktop-release.yml`. They do not run on PRs.
 
 The pre-push git hook runs the same checks locally: typecheck, lint, unit tests, CLI tests, electron build — always. Desktop E2E only runs if `apps/electron/` or `packages/` files changed.
 
