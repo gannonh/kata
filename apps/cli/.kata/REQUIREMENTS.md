@@ -4,42 +4,44 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Active
 
+## Active
+
+(none — all requirements delivered in M001)
+
+## Validated
+
 ### R001 — MCP tool access out of the box
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: Users of Kata CLI get a working `mcp` tool and `/mcp` commands without any manual install step
 - Why it matters: MCP ecosystem has useful tools (databases, browsers, APIs); users should access them without friction
 - Source: user
 - Primary owning slice: M001/S01
 - Supporting slices: none
-- Validation: unmapped
-- Notes: Delivered via auto-seeding pi-mcp-adapter into settings.json packages
+- Validation: validated
+- Notes: settingsManager.setPackages() seeds npm:pi-mcp-adapter; pi auto-installs on resourceLoader.reload()
 
 ### R002 — MCP config lives in Kata's config dir
 - Class: integration
-- Status: active
+- Status: validated
 - Description: MCP server config reads from `~/.kata-cli/agent/mcp.json`, not `~/.pi/agent/mcp.json`
 - Why it matters: Kata uses `~/.kata-cli/` as its config root; using `~/.pi/` would confuse users and mix configs
 - Source: inferred
 - Primary owning slice: M001/S01
 - Supporting slices: none
-- Validation: unmapped
-- Notes: Requires `--mcp-config` injection in loader.ts since pi-mcp-adapter defaults to `~/.pi/agent/mcp.json`
+- Validation: validated
+- Notes: --mcp-config injected via process.argv in loader.ts; adapter reads it at session_start
 
 ### R003 — Starter mcp.json scaffolded for new installs
 - Class: primary-user-loop
-- Status: active
-- Description: A commented starter `mcp.json` is created in `~/.kata-cli/agent/` on first launch if one doesn't exist
+- Status: validated
+- Description: A starter `mcp.json` is created in `~/.kata-cli/agent/` on first launch if one doesn't exist
 - Why it matters: Users need to know where and how to configure MCP servers; an empty/example file provides the entry point
 - Source: inferred
 - Primary owning slice: M001/S01
 - Supporting slices: none
-- Validation: unmapped
-- Notes: Created by initResources() only if file doesn't exist (don't overwrite user configs)
-
-## Validated
-
-(none yet)
+- Validation: validated
+- Notes: initResources() writes starter mcp.json only if absent; verified by runtime test
 
 ## Deferred
 
@@ -62,14 +64,14 @@ This file is the explicit capability and coverage contract for the project.
 
 | ID | Class | Status | Primary owner | Supporting | Proof |
 |---|---|---|---|---|---|
-| R001 | core-capability | active | M001/S01 | none | unmapped |
-| R002 | integration | active | M001/S01 | none | unmapped |
-| R003 | primary-user-loop | active | M001/S01 | none | unmapped |
+| R001 | core-capability | validated | M001/S01 | none | validated |
+| R002 | integration | validated | M001/S01 | none | validated |
+| R003 | primary-user-loop | validated | M001/S01 | none | validated |
 | R010 | anti-feature | out-of-scope | none | none | n/a |
 
 ## Coverage Summary
 
-- Active requirements: 3
+- Active requirements: 0
 - Mapped to slices: 3
-- Validated: 0
+- Validated: 3
 - Unmapped active requirements: 0

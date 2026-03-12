@@ -14,7 +14,7 @@
 
 ## Tasks
 
-- [ ] **T01: Implement MCP wiring**
+- [x] **T01: Implement MCP wiring**
   Three-file change: loader.ts injects --mcp-config argv, cli.ts seeds packages, resource-loader.ts scaffolds mcp.json. Update AGENTS.md.
 
 ## Files Likely Touched

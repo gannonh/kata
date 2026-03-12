@@ -43,7 +43,7 @@ This milestone is complete only when all are true:
 
 ## Slices
 
-- [ ] **S01: Wire pi-mcp-adapter into Kata** `risk:low` `depends:[]`
+- [x] **S01: Wire pi-mcp-adapter into Kata** `risk:low` `depends:[]`
   > After this: launching `kata` gives the `mcp` tool, `/mcp` works, config reads from `~/.kata-cli/agent/mcp.json`, and a starter mcp.json is scaffolded on first run.
 
 ## Boundary Map

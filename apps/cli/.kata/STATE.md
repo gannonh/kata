@@ -1,14 +1,14 @@
 # Kata State
 
-**Active Milestone:** M001 — MCP Support
-**Active Slice:** S01 — Wire pi-mcp-adapter into Kata
-**Active Task:** T01 — Implement MCP wiring
-**Phase:** Planning
+**Active Milestone:** M001 — MCP Support ✅ COMPLETE
+**Active Slice:** (none — milestone complete)
+**Active Task:** (none)
+**Phase:** Complete
 **Slice Branch:** kata/M001/S01
 **Active Workspace:** /Volumes/EVO/kata/kata-mono/apps/cli
-**Next Action:** Write slice plan and task plan, then execute — wire pi-mcp-adapter into Kata (loader.ts argv injection, cli.ts package seeding, resource-loader.ts mcp.json scaffold)
+**Next Action:** Squash-merge kata/M001/S01 to main. Then run UAT from S01-UAT.md.
 **Last Updated:** 2026-03-11
-**Requirements Status:** 3 active · 0 validated · 0 deferred · 1 out of scope
+**Requirements Status:** 0 active · 3 validated · 0 deferred · 1 out of scope
 
 ## Recent Decisions
 

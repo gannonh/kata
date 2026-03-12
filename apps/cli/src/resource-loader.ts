@@ -3,6 +3,23 @@ import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+/**
+ * Starter mcp.json written to agentDir on first launch.
+ * Uses the `imports` field so users can pull in their existing Claude/Cursor config.
+ * mcpServers is intentionally empty — users add their own servers here.
+ */
+const STARTER_MCP_JSON = JSON.stringify(
+  {
+    settings: {
+      toolPrefix: 'server',
+      idleTimeout: 10,
+    },
+    mcpServers: {},
+  },
+  null,
+  2,
+) + '\n'
+
 // Resolves to the bundled src/resources/ inside the npm package at runtime:
 //   dist/resource-loader.js → .. → package root → src/resources/
 const resourcesDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'resources')
@@ -44,6 +61,13 @@ export function initResources(agentDir: string): void {
   const destAgentsMd = join(agentDir, 'AGENTS.md')
   if (existsSync(srcAgentsMd)) {
     writeFileSync(destAgentsMd, readFileSync(srcAgentsMd))
+  }
+
+  // Scaffold starter mcp.json — only if it doesn't exist yet.
+  // Never overwrite: preserve the user's MCP server configuration.
+  const mcpConfigPath = join(agentDir, 'mcp.json')
+  if (!existsSync(mcpConfigPath)) {
+    writeFileSync(mcpConfigPath, STARTER_MCP_JSON, 'utf-8')
   }
 }
 

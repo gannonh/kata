@@ -52,6 +52,14 @@ if (!settingsManager.getCollapseChangelog()) {
   settingsManager.setCollapseChangelog(true)
 }
 
+// Ensure pi-mcp-adapter is in the packages list so pi auto-installs it on startup.
+// Idempotent: only adds if not already present. Users can remove it by editing settings.json.
+const MCP_ADAPTER_PACKAGE = 'npm:pi-mcp-adapter'
+const currentPackages = settingsManager.getPackages()
+if (!currentPackages.includes(MCP_ADAPTER_PACKAGE)) {
+  settingsManager.setPackages([...currentPackages, MCP_ADAPTER_PACKAGE])
+}
+
 const sessionManager = SessionManager.create(process.cwd(), sessionsDir)
 
 initResources(agentDir)

@@ -55,6 +55,7 @@ Kata sets these env vars in `loader.ts` before importing `cli.ts`:
 | `KATA_BIN_PATH` | Absolute path to loader, used by subagent to spawn Kata |
 | `KATA_WORKFLOW_PATH` | Absolute path to bundled KATA-WORKFLOW.md |
 | `KATA_BUNDLED_EXTENSION_PATHS` | Colon-joined list of extension entry points |
+| `KATA_MCP_CONFIG_PATH` | Absolute path to `~/.kata-cli/agent/mcp.json` (also injected as `--mcp-config` argv) |
 
 ## The /kata Command
 
@@ -99,6 +100,50 @@ Kata stores project state in `.kata/` at the project root:
 - **Copy themes**: `npm run copy-themes` (copies theme assets from pi-coding-agent)
 - **Dependencies**: Consumed via npm from `@mariozechner/pi-coding-agent` — never fork
 
+## MCP Support
+
+Kata ships with MCP (Model Context Protocol) support via `pi-mcp-adapter`, which is auto-installed on first launch.
+
+### How it works
+
+- `pi-mcp-adapter` is seeded into `settings.json` packages on every startup — pi auto-installs it if missing
+- `--mcp-config ~/.kata-cli/agent/mcp.json` is injected into `process.argv` in `loader.ts` so the adapter uses Kata's config dir
+- A starter `~/.kata-cli/agent/mcp.json` is scaffolded on first launch (never overwritten after that)
+
+### Configuring MCP servers
+
+Edit `~/.kata-cli/agent/mcp.json` to add servers:
+
+```json
+{
+  "mcpServers": {
+    "my-server": {
+      "command": "npx",
+      "args": ["-y", "some-mcp-server"]
+    }
+  }
+}
+```
+
+To import your existing Claude Code or Cursor MCP config:
+
+```json
+{
+  "imports": ["claude-code"],
+  "mcpServers": {}
+}
+```
+
+### Usage
+
+```
+mcp({ search: "screenshot" })            — search available tools
+mcp({ tool: "tool_name", args: "{}" })   — call a tool
+/mcp                                      — interactive panel (status, toggles)
+```
+
+One proxy `mcp` tool in context (~200 tokens) instead of hundreds. Servers start lazily on first use.
+
 ## Key Conventions
 
 - All env var names use `KATA_` prefix (not `GSD_` or `PI_`)
@@ -106,3 +151,4 @@ Kata stores project state in `.kata/` at the project root:
 - Extensions are synced from `src/resources/extensions/` to `~/.kata-cli/agent/extensions/` on every launch
 - The `shared/` extension directory is a library, not an entry point — it's imported by other extensions
 - Branch naming for workflow: `kata/M001/S01` (milestone/slice)
+- MCP config lives at `~/.kata-cli/agent/mcp.json` (not `~/.pi/agent/mcp.json`)
