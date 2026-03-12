@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- Fix `/changelog` command — symlink `pkg/CHANGELOG.md` so Kata can find it
+- Rewrite README for consumers: quick start with `npx`, getting started flow, how it works, mode comparison, full command reference
+
 ## 0.2.0
 
 - Add MCP (Model Context Protocol) support via `pi-mcp-adapter` — connect to any MCP server (Linear, Figma, custom tools) from Kata
