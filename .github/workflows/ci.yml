@@ -35,8 +35,6 @@ jobs:
 
   # Always runs: typechecks, lints, and unit tests for packages + desktop
   validate:
-    needs: changes
-    if: needs.changes.outputs.desktop == 'true' || needs.changes.outputs.packages == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
