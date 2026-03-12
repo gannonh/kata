@@ -12,11 +12,12 @@
 
 ## Recent Decisions
 
-- D004: Switchable file mode vs Linear mode per-project
-- D005: Project→Project, Milestone→Milestone, Slice→Parent Issue, Task→Sub-Issue
-- D007: Port GraphQL client from schpet/linear-cli to Node TS
-- D008: Personal API key auth via secure_env_collect
-- Linear uses "canceled" (American spelling) not "cancelled" for workflow state types
+- D011: PR lifecycle as separate milestone (M003), independent of M002
+- D012: One PR per slice — slices are the right granularity
+- D013: Bundled custom subagents for PR reviewers (same pattern as worker/scout/researcher)
+- D014: Tasks done → PR created → merge is separate action → merge confirms completion
+- D015: All GitHub operations via `gh` CLI
+- D016: File-backed PR body creation via `create_pr_safe.py`
 
 ## Blockers
 

@@ -36,3 +36,4 @@ See `.kata/REQUIREMENTS.md` for the explicit capability contract, requirement st
 
 - [x] M001: MCP Support — ship pi-mcp-adapter auto-bundled in Kata so users get MCP tool access out of the box
 - [ ] M002: Linear Mode — native Linear integration as a switchable workflow mode, replacing local file artifacts with Linear projects/milestones/issues/documents
+- [ ] M003: PR Lifecycle — built-in PR creation, specialized review via bundled subagents, comment addressing, and merge integrated into slice workflow for both file-mode and Linear-mode projects

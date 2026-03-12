@@ -114,6 +114,105 @@ This file is the explicit capability and coverage contract for the project.
 - Validation: unmapped
 - Notes: Dashboard queries Linear API for progress data
 
+### R200 — PR creation as part of slice completion
+- Class: core-capability
+- Status: active
+- Description: When a slice's tasks are all complete, Kata can create a GitHub PR for the slice branch with body auto-composed from slice artifacts
+- Why it matters: Closes the gap between "code done" and "PR open" — the agent handles the full loop
+- Source: user
+- Primary owning slice: M003/S01
+- Supporting slices: M003/S05
+- Validation: unmapped
+- Notes: Auto-create controlled by `pr.auto_create` preference. Uses file-backed body creation to prevent shell interpolation
+
+### R201 — Specialized parallel PR review via subagents
+- Class: core-capability
+- Status: active
+- Description: `/kata pr review` dispatches 6 specialized reviewer subagents in parallel against the PR diff, producing aggregated findings ranked by severity
+- Why it matters: Thorough code review from multiple perspectives (quality, tests, errors, types, comments, simplification) catches issues a single pass would miss
+- Source: user
+- Primary owning slice: M003/S02
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Reviewers are bundled subagent definitions. Scoping heuristics skip irrelevant reviewers based on what changed
+
+### R202 — PR review comment addressing workflow
+- Class: core-capability
+- Status: active
+- Description: `/kata pr address` fetches PR review comments, presents them for triage, applies fixes for selected items, resolves GitHub threads, and pushes updates
+- Why it matters: Review feedback loop is a major time sink; agent can handle mechanical fixes and thread management
+- Source: user
+- Primary owning slice: M003/S03
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Uses GraphQL to fetch all comment types (conversation, review, inline threads). Agent asks user which to address before acting
+
+### R203 — PR merge with CI validation
+- Class: core-capability
+- Status: active
+- Description: `/kata pr merge` runs local CI checks, merges the PR, deletes the branch, and marks the slice complete
+- Why it matters: Merge is the final step in slice completion; automating it with CI gating ensures quality
+- Source: user
+- Primary owning slice: M003/S04
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Merge is a separate human/agent action after PR creation — slice tasks done → PR created → merge confirms completion
+
+### R204 — PR lifecycle preferences
+- Class: integration
+- Status: active
+- Description: PR behavior is configurable per-project: enabled/disabled, auto-create on slice completion, base branch, review on create, Linear linking
+- Why it matters: Different projects have different PR workflows; one-size-fits-all won't work
+- Source: user
+- Primary owning slice: M003/S05
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Preferences: pr.enabled, pr.auto_create, pr.base_branch, pr.review_on_create, pr.linear_link
+
+### R205 — `/kata pr` command surface
+- Class: primary-user-loop
+- Status: active
+- Description: `/kata pr` provides subcommands for create, review, address, merge, and status — the unified entry point for all PR operations
+- Why it matters: Consistent command surface; discoverability; works with `/kata` wizard
+- Source: inferred
+- Primary owning slice: M003/S05
+- Supporting slices: M003/S01, M003/S02, M003/S03, M003/S04
+- Validation: unmapped
+- Notes: Onboarding detects git + GitHub remote and offers PR setup
+
+### R206 — PR body composition from slice artifacts
+- Class: core-capability
+- Status: active
+- Description: PR body is auto-composed from Kata slice plan, task summaries, and verification results — not written from scratch by the agent each time
+- Why it matters: Consistent, high-quality PR descriptions that surface the right context for reviewers
+- Source: inferred
+- Primary owning slice: M003/S01
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Works in both file-mode (reads .kata/ files) and Linear-mode (reads Linear documents). Template-driven
+
+### R207 — Bundled PR reviewer subagents
+- Class: core-capability
+- Status: active
+- Description: Kata ships 6 specialized reviewer subagents: code-reviewer, failure-finder, test-analyzer, type-design-analyzer, comment-analyzer, code-simplifier
+- Why it matters: Each reviewer has a focused mandate and isolated context window; proper subagents, not skill-based role-play
+- Source: user
+- Primary owning slice: M003/S02
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Bundled in src/resources/agents/, synced to ~/.kata-cli/agent/agents/ via resource-loader. Ported from user's existing pr-review-plugin agents
+
+### R208 — Linear cross-linking for PRs
+- Class: integration
+- Status: active
+- Description: When both Linear mode and PR lifecycle are active, PRs include Linear issue references and Linear issues are updated with PR links
+- Why it matters: Bidirectional traceability between code (GitHub) and planning (Linear)
+- Source: user
+- Primary owning slice: M003/S06
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Depends on M002 Linear mode being available. Additive — PR lifecycle works without it
+
 ## Validated
 
 ### R001 — MCP tool access out of the box
@@ -208,10 +307,19 @@ This file is the explicit capability and coverage contract for the project.
 | R109 | primary-user-loop | active | M002/S05 | none | unmapped |
 | R110 | constraint | out-of-scope | none | none | n/a |
 | R111 | anti-feature | out-of-scope | none | none | n/a |
+| R200 | core-capability | active | M003/S01 | M003/S05 | unmapped |
+| R201 | core-capability | active | M003/S02 | none | unmapped |
+| R202 | core-capability | active | M003/S03 | none | unmapped |
+| R203 | core-capability | active | M003/S04 | none | unmapped |
+| R204 | integration | active | M003/S05 | none | unmapped |
+| R205 | primary-user-loop | active | M003/S05 | M003/S01–S04 | unmapped |
+| R206 | core-capability | active | M003/S01 | none | unmapped |
+| R207 | core-capability | active | M003/S02 | none | unmapped |
+| R208 | integration | active | M003/S06 | none | unmapped |
 
 ## Coverage Summary
 
-- Active requirements: 10
-- Mapped to slices: 10
+- Active requirements: 19
+- Mapped to slices: 19
 - Validated: 3
 - Unmapped active requirements: 0

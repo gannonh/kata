@@ -16,3 +16,9 @@
 | D008 | M002 | integration | Linear auth | Personal API key via secure_env_collect | Simpler than OAuth, works headlessly for agents, no browser flow | Yes — if team OAuth is needed later |
 | D009 | M002 | arch | State derivation in Linear mode | Derive from Linear API queries, no local state files | Linear is single source of truth; no sync/cache complexity | No |
 | D010 | M002 | arch | Workflow prompt strategy | Separate LINEAR-WORKFLOW.md prompt | Clean separation from file-mode prompt; no complex conditionals in one document | No |
+| D011 | M003 | arch | PR lifecycle as separate milestone | M003 independent of M002 | PR lifecycle is mode-agnostic (works in file-mode and Linear-mode); Linear cross-linking is additive in S06 | No |
+| D012 | M003 | arch | PR granularity | One PR per slice | Slices are demoable vertical increments with their own branch; tasks are too granular, milestones too coarse | No |
+| D013 | M003 | arch | PR reviewer implementation | Bundled custom subagents, not skill-based role-play | Kata already ships 3 custom subagents; each reviewer gets isolated context with focused prompt; same resource-loader sync pattern | No |
+| D014 | M003 | arch | Slice completion → PR → merge flow | Tasks done → PR created → merge is separate action → merge confirms completion | PR creation and merge are decoupled; human or agent can review between creation and merge | No |
+| D015 | M003 | integration | GitHub CLI dependency | All GitHub operations via `gh` CLI | Proven in user's existing skills; avoids building a GitHub API client; `gh` handles auth, pagination, rate limiting | Yes — if native GitHub API is needed later |
+| D016 | M003 | arch | PR body creation | File-backed via `create_pr_safe.py` | Prevents shell interpolation corruption of markdown in PR bodies; proven pattern from user's existing tooling | No |
