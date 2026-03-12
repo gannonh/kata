@@ -43,34 +43,22 @@ if [[ ! -d node_modules ]]; then
   exit 1
 fi
 
-# Detect what changed compared to the remote tracking branch
-remote_branch="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo 'origin/main')"
-changed_files="$(git diff --name-only "$remote_branch"...HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD 2>/dev/null || echo '')"
-
-desktop_changed=false
-cli_changed=false
-if echo "$changed_files" | grep -qE '^(apps/electron/|packages/)'; then
-  desktop_changed=true
-fi
-if echo "$changed_files" | grep -qE '^apps/cli/'; then
-  cli_changed=true
-fi
-
 # Always run core validation (typecheck, lint, unit tests, build)
 echo "pre-push: running validate gate..."
 bun run validate:ci
 
-# Desktop E2E only when desktop or packages changed
-if $desktop_changed; then
-  echo "pre-push: desktop/packages changed, running E2E tests..."
-  bun run test:e2e
-else
-  echo "pre-push: no desktop/packages changes, skipping E2E tests"
-fi
-
 # CLI tests always run
 echo "pre-push: running CLI tests..."
 bun run test:cli
+
+# Desktop E2E only when version is bumped (release PR)
+current_version=$(node -p "require('./apps/electron/package.json').version")
+if git ls-remote --tags origin | grep -q "refs/tags/desktop-v$current_version"; then
+  echo "pre-push: desktop version $current_version already released, skipping E2E"
+else
+  echo "pre-push: desktop version $current_version is new, running E2E tests..."
+  bun run test:e2e
+fi
 
 if git lfs version >/dev/null 2>&1; then
   echo "pre-push: running git-lfs pre-push..."

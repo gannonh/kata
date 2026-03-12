@@ -62,14 +62,13 @@ The CLI uses Node's built-in test runner (`node --test`) because it depends on `
 
 CI runs on every pull request with path-based filtering:
 
-| Job            | Runs when                              | What it does                                          |
-| -------------- | -------------------------------------- | ----------------------------------------------------- |
-| `validate`     | Always                                 | Typecheck, lint, unit tests, coverage, electron build |
-| `validate-cli` | Always                                 | TypeScript check + CLI tests                          |
+| Job            | Runs when                                              | What it does                                          |
+| -------------- | ------------------------------------------------------ | ----------------------------------------------------- |
+| `validate`     | Every PR                                               | Typecheck, lint, unit tests, coverage, electron build |
+| `validate-cli` | Every PR                                               | TypeScript check + CLI tests                          |
+| `e2e-mocked`   | PR bumps `apps/electron/package.json` version (release) | Playwright E2E tests (headless, mocked)               |
 
-Desktop E2E tests (Playwright, headless) only run during releases — when `apps/electron/package.json` version is bumped, triggering `desktop-release.yml`. They do not run on PRs.
-
-The pre-push git hook runs the same checks locally: typecheck, lint, unit tests, CLI tests, electron build — always. Desktop E2E only runs if `apps/electron/` or `packages/` files changed.
+The pre-push git hook mirrors this: validate and CLI tests always run, desktop E2E only runs when the desktop version is bumped.
 
 ## License
 
