@@ -57,7 +57,7 @@ The Electron desktop app. Builds for macOS (arm64 + x64), Windows, and Linux.
    gh pr create --title "Desktop vX.Y.Z" --body "Desktop release vX.Y.Z"
    ```
 
-6. **Merge PR to main** — CI takes over from here
+6. **When approved, merge PR to main** — CI takes over from here
 
 7. **Verify the release**
    ```bash
@@ -110,7 +110,9 @@ The terminal coding agent, published to npm as `@kata-sh/cli`.
 
 4. **Update `apps/cli/CHANGELOG.md`** with the new version's changes
 
-5. **Create release branch and PR**
+5. **Update `apps/cli/src/resources/AGENTS.md`** with any relevant changes to agent capabilities or instructions.
+
+6. **Create release branch and PR**
    ```bash
    git checkout -b release/cli-vX.Y.Z
    git add apps/cli/package.json apps/cli/CHANGELOG.md
@@ -119,9 +121,9 @@ The terminal coding agent, published to npm as `@kata-sh/cli`.
    gh pr create --title "CLI vX.Y.Z" --body "CLI release vX.Y.Z"
    ```
 
-6. **Merge PR to main** — CI takes over from here
+7. **When approved, merge PR to main** — CI takes over from here
 
-7. **Verify the release**
+8. **Verify the release**
    ```bash
    gh release view cli-vX.Y.Z
    npm view @kata-sh/cli version
