@@ -476,7 +476,8 @@ test("initResources scaffolds starter mcp.json on first launch", async () => {
     const config = JSON.parse(readFileSync(mcpPath, "utf-8"));
     assert.ok(config.settings, "mcp.json has settings section");
     assert.equal(config.settings.toolPrefix, "server", "toolPrefix is 'server'");
-    assert.ok(config.mcpServers !== undefined, "mcp.json has mcpServers section");
+    assert.deepEqual(config.imports, [], "mcp.json includes an empty imports array");
+    assert.deepEqual(config.mcpServers, {}, "mcp.json has empty mcpServers object");
 
     // Verify it's not overwritten on second launch
     writeFileSync(mcpPath, JSON.stringify({ mcpServers: { custom: { url: "http://test" } } }));
@@ -495,8 +496,12 @@ test("cli.ts seeds pi-mcp-adapter into settings.json packages", () => {
     "cli.ts references npm:pi-mcp-adapter package",
   );
   assert.ok(
-    cliSrc.includes("settingsManager.setPackages"),
-    "cli.ts calls setPackages to seed the adapter",
+    cliSrc.includes("settingsManager.getGlobalSettings"),
+    "cli.ts inspects global settings before seeding the adapter",
+  );
+  assert.ok(
+    cliSrc.includes('hasOwnProperty.call(globalSettings, "packages")'),
+    "cli.ts seeds the adapter only during first-run bootstrap",
   );
 });
 
@@ -519,6 +524,10 @@ test("loader.ts injects --mcp-config into process.argv", () => {
     "loader.ts pushes --mcp-config to process.argv",
   );
   assert.ok(
+    loaderSrc.includes('startsWith("--mcp-config=")'),
+    "loader.ts honors inline --mcp-config=/path arguments",
+  );
+  assert.ok(
     loaderSrc.includes("KATA_MCP_CONFIG_PATH"),
     "loader.ts sets KATA_MCP_CONFIG_PATH",
   );
@@ -528,11 +537,58 @@ test("loader.ts injects --mcp-config into process.argv", () => {
   );
 });
 
-test("pi-mcp-adapter is globally installed and loadable", async () => {
-  // Verify the package exists at the expected global npm path
-  const globalRoot = execSync("npm root -g", { encoding: "utf-8" }).trim();
-  const adapterPath = join(globalRoot, "pi-mcp-adapter");
-  assert.ok(existsSync(adapterPath), "pi-mcp-adapter installed in global npm root");
+test("kata startup installs pi-mcp-adapter into an isolated npm prefix", async () => {
+  execSync("npm run build", { cwd: projectRoot, stdio: "pipe" });
+
+  const tmp = mkdtempSync(join(tmpdir(), "kata-mcp-install-"));
+  const fakeHome = join(tmp, "home");
+  const npmPrefix = join(tmp, "npm-prefix");
+  mkdirSync(fakeHome, { recursive: true });
+  mkdirSync(npmPrefix, { recursive: true });
+
+  const env = {
+    ...process.env,
+    HOME: fakeHome,
+    npm_config_prefix: npmPrefix,
+    BRAVE_API_KEY: "test",
+    BRAVE_ANSWERS_KEY: "test",
+    CONTEXT7_API_KEY: "test",
+    JINA_API_KEY: "test",
+  };
+
+  const output = await new Promise<{ stderr: string }>((resolve) => {
+    let stderr = "";
+    const child = spawn("node", ["dist/loader.js"], {
+      cwd: projectRoot,
+      env,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    child.stderr.on("data", (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    child.stdin.end();
+
+    const timer = setTimeout(() => {
+      child.kill("SIGTERM");
+    }, 20000);
+
+    child.on("close", () => {
+      clearTimeout(timer);
+      resolve({ stderr });
+    });
+  });
+
+  const isolatedGlobalRoot = execSync("npm root -g", {
+    encoding: "utf-8",
+    env,
+  }).trim();
+  const adapterPath = join(isolatedGlobalRoot, "pi-mcp-adapter");
+  assert.ok(
+    existsSync(adapterPath),
+    `pi-mcp-adapter installed via kata startup (stderr: ${output.stderr.slice(0, 500)})`,
+  );
 
   // Verify its package.json has the pi extension config
   const pkgPath = join(adapterPath, "package.json");

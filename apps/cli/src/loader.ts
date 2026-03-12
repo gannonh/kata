@@ -119,7 +119,10 @@ process.env.KATA_BUNDLED_EXTENSION_PATHS = [
 // default ~/.pi/agent/mcp.json.
 const mcpConfigPath = join(agentDir, "mcp.json");
 process.env.KATA_MCP_CONFIG_PATH = mcpConfigPath;
-if (!process.argv.includes("--mcp-config")) {
+const hasMcpConfigArg = process.argv.some(
+  (arg) => arg === "--mcp-config" || arg.startsWith("--mcp-config="),
+);
+if (!hasMcpConfigArg) {
   process.argv.push("--mcp-config", mcpConfigPath);
 }
 

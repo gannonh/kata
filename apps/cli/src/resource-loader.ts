@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url'
  */
 const STARTER_MCP_JSON = JSON.stringify(
   {
+    imports: [],
     settings: {
       toolPrefix: 'server',
       idleTimeout: 10,
