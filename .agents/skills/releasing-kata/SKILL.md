@@ -110,22 +110,26 @@ The terminal coding agent, published to npm as `@kata-sh/cli`.
 
 4. **Update `apps/cli/CHANGELOG.md`** with the new version's changes
 
-5. **Commit and push to main**
+5. **Create release branch and PR**
    ```bash
+   git checkout -b release/cli-vX.Y.Z
    git add apps/cli/package.json apps/cli/CHANGELOG.md
    git commit -m "chore(release): bump cli to X.Y.Z"
-   git push
+   git push -u origin release/cli-vX.Y.Z
+   gh pr create --title "CLI vX.Y.Z" --body "CLI release vX.Y.Z"
    ```
 
-6. **Verify the release**
+6. **Merge PR to main** — CI takes over from here
+
+7. **Verify the release**
    ```bash
    gh release view cli-vX.Y.Z
    npm view @kata-sh/cli version
    ```
 
-### What CI does after push
+### What CI does after merge
 
-`cli-release.yml` triggers on push to main with changes in `apps/cli/`:
+`cli-release.yml` triggers on push to main:
 1. Compares `apps/cli/package.json` version against existing `cli-v*` tags — skips if tag exists
 2. Runs TypeScript check and tests
 3. Builds and publishes to npm (`npm publish --access public`)
