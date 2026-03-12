@@ -73,13 +73,8 @@ export async function checkAutoStartAfterDiscuss(): Promise<boolean> {
           "Start auto-mode — research, plan, and execute automatically.",
         recommended: true,
       },
-      {
-        id: "manual",
-        label: "Continue manually",
-        description: "Stay in the current session. Run /kata auto when ready.",
-      },
     ],
-    notYetMessage: "Run /kata auto when ready to start.",
+    notYetMessage: "Continue manually. Run /kata auto when ready.",
   });
 
   if (choice === "auto") {

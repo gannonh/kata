@@ -26,6 +26,7 @@ describe("Linear GraphQL Client — Integration", { skip: !API_KEY ? "LINEAR_API
   let parentIssueId: string;
   let childIssueId: string;
   let labelId: string;
+  let ensureLabelId: string;
   let doc1Id: string;
   let doc2Id: string;
 
@@ -250,9 +251,9 @@ describe("Linear GraphQL Client — Integration", { skip: !API_KEY ? "LINEAR_API
     it("ensureLabel creates new label if not found", async () => {
       const unique = `kata-ensure-${Date.now()}`;
       const label = await client.ensureLabel(unique, { color: "#00FF00" });
+      ensureLabelId = label.id;
       assert.ok(label.id, "new label created");
       assert.equal(label.name, unique);
-      // Cleanup: we can't delete labels via API easily, but they're workspace-level
     });
   });
 
@@ -339,13 +340,14 @@ describe("Linear GraphQL Client — Integration", { skip: !API_KEY ? "LINEAR_API
 
   after(async () => {
     const cleanup: Array<[string, () => Promise<unknown>]> = [
-      ["doc1", () => client.deleteDocument(doc1Id)],
-      ["doc2", () => client.deleteDocument(doc2Id)],
-      ["child issue", () => client.deleteIssue(childIssueId)],
-      ["parent issue", () => client.deleteIssue(parentIssueId)],
-      ["milestone", () => client.deleteMilestone(milestoneId)],
-      ["project", () => client.deleteProject(projectId)],
-      ["label", () => client.deleteLabel(labelId)],
+      ["doc1", () => (doc1Id ? client.deleteDocument(doc1Id) : Promise.resolve())],
+      ["doc2", () => (doc2Id ? client.deleteDocument(doc2Id) : Promise.resolve())],
+      ["child issue", () => (childIssueId ? client.deleteIssue(childIssueId) : Promise.resolve())],
+      ["parent issue", () => (parentIssueId ? client.deleteIssue(parentIssueId) : Promise.resolve())],
+      ["milestone", () => (milestoneId ? client.deleteMilestone(milestoneId) : Promise.resolve())],
+      ["project", () => (projectId ? client.deleteProject(projectId) : Promise.resolve())],
+      ["label", () => (labelId ? client.deleteLabel(labelId) : Promise.resolve())],
+      ["ensure label", () => (ensureLabelId ? client.deleteLabel(ensureLabelId) : Promise.resolve())],
     ];
     for (const [name, fn] of cleanup) {
       try { await fn(); } catch (e) {

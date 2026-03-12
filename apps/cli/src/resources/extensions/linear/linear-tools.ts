@@ -103,7 +103,8 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       first: Type.Optional(Type.Number({ description: "Max results per page (default: 50)" })),
     }),
     async execute(_id, params) {
-      return run(() => client.listProjects(params.teamId || params.first ? params : undefined));
+      const hasParams = params.teamId !== undefined || params.first !== undefined;
+      return run(() => client.listProjects(hasParams ? params : undefined));
     },
   });
 
@@ -264,7 +265,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       stateId: Type.Optional(Type.String({ description: "New workflow state UUID" })),
       assigneeId: Type.Optional(Type.Union([Type.String(), Type.Null()], { description: "New assignee UUID (or null to unset)" })),
       labelIds: Type.Optional(Type.Array(Type.String(), { description: "New label UUIDs (replaces all labels)" })),
-      priority: Type.Optional(Type.Number({ description: "New priority" })),
+      priority: Type.Optional(Type.Integer({ minimum: 0, maximum: 4, description: "New priority: 0=none, 1=urgent, 2=high, 3=medium, 4=low" })),
       estimate: Type.Optional(Type.Number({ description: "New estimate" })),
     }),
     async execute(_id, params) {
@@ -390,9 +391,8 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       first: Type.Optional(Type.Number({ description: "Max results per page (default: 50)" })),
     }),
     async execute(_id, params) {
-      return run(() => client.listDocuments(
-        params.projectId || params.first ? params : undefined,
-      ));
+      const hasParams = params.projectId !== undefined || params.first !== undefined;
+      return run(() => client.listDocuments(hasParams ? params : undefined));
     },
   });
 

@@ -571,7 +571,10 @@ export class LinearClient {
         after: cursor,
         filter: Object.keys(gqlFilter).length > 0 ? gqlFilter : undefined,
       });
-      return data.issues;
+      return {
+        ...data.issues,
+        nodes: data.issues.nodes.map((issue) => this.normalizeIssue(issue)),
+      };
     });
   }
 
