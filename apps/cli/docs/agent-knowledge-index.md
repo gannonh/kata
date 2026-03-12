@@ -1,7 +1,7 @@
 # Agent Knowledge Index
 
 Use this file as a machine-operational routing table for pi docs and research references.
-tt
+
 Rules:
 
 - Read only the specific files relevant to the current task.
