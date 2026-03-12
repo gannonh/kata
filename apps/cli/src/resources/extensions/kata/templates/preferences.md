@@ -12,4 +12,4 @@ auto_supervisor: {}
 
 # Kata Skill Preferences
 
-See `~/.kata/agent/extensions/kata/docs/preferences-reference.md` for full field documentation and examples.
+See `~/.kata-cli/agent/extensions/kata/docs/preferences-reference.md` for full field documentation and examples.

@@ -2,7 +2,7 @@
  * App-level smoke tests for the kata CLI package.
  *
  * Tests the glue code that IS the product:
- * - app-paths resolve to ~/.kata/
+ * - app-paths resolve to ~/.kata-cli/
  * - loader sets all required env vars
  * - resource-loader syncs bundled resources
  * - wizard loadStoredEnvKeys hydrates env

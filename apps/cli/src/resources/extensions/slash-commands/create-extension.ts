@@ -273,66 +273,66 @@ function sendPrompt(
     : "";
 
   const docHints: string[] = [
-    "- `~/.kata/agent/docs/extending-pi/01-what-are-extensions.md` — capabilities overview",
-    "- `~/.kata/agent/docs/extending-pi/03-getting-started.md` — minimal extension, hot reload",
-    "- `~/.kata/agent/docs/extending-pi/08-extensioncontext-what-you-can-access.md` — ExtensionContext API",
-    "- `~/.kata/agent/docs/extending-pi/09-extensionapi-what-you-can-do.md` — ExtensionAPI: registration, messaging",
-    "- `~/.kata/agent/docs/extending-pi/22-key-rules-gotchas.md` — must-read rules before shipping",
+    "- `~/.kata-cli/agent/docs/extending-pi/01-what-are-extensions.md` — capabilities overview",
+    "- `~/.kata-cli/agent/docs/extending-pi/03-getting-started.md` — minimal extension, hot reload",
+    "- `~/.kata-cli/agent/docs/extending-pi/08-extensioncontext-what-you-can-access.md` — ExtensionContext API",
+    "- `~/.kata-cli/agent/docs/extending-pi/09-extensionapi-what-you-can-do.md` — ExtensionAPI: registration, messaging",
+    "- `~/.kata-cli/agent/docs/extending-pi/22-key-rules-gotchas.md` — must-read rules before shipping",
   ];
 
   if (uiSelected.includes("custom component")) {
     docHints.push(
-      "- `~/.kata/agent/docs/extending-pi/12-custom-ui-visual-components.md` — dialogs, widgets, overlays",
+      "- `~/.kata-cli/agent/docs/extending-pi/12-custom-ui-visual-components.md` — dialogs, widgets, overlays",
     );
     docHints.push(
-      "- `~/.kata/agent/docs/pi-ui-tui/06-ctx-ui-custom-full-custom-components.md` — ctx.ui.custom() API",
+      "- `~/.kata-cli/agent/docs/pi-ui-tui/06-ctx-ui-custom-full-custom-components.md` — ctx.ui.custom() API",
     );
     docHints.push(
-      "- `~/.kata/agent/docs/pi-ui-tui/07-built-in-components-the-building-blocks.md` — Text, Box, SelectList",
+      "- `~/.kata-cli/agent/docs/pi-ui-tui/07-built-in-components-the-building-blocks.md` — Text, Box, SelectList",
     );
     docHints.push(
-      "- `~/.kata/agent/docs/pi-ui-tui/09-keyboard-input-how-to-handle-keys.md` — Key, matchesKey",
+      "- `~/.kata-cli/agent/docs/pi-ui-tui/09-keyboard-input-how-to-handle-keys.md` — Key, matchesKey",
     );
     docHints.push(
-      "- `~/.kata/agent/docs/pi-ui-tui/10-line-width-the-cardinal-rule.md` — truncation, width rules",
+      "- `~/.kata-cli/agent/docs/pi-ui-tui/10-line-width-the-cardinal-rule.md` — truncation, width rules",
     );
     docHints.push(
-      "- `~/.kata/agent/docs/pi-ui-tui/19-building-a-complete-component-step-by-step.md` — step-by-step guide",
+      "- `~/.kata-cli/agent/docs/pi-ui-tui/19-building-a-complete-component-step-by-step.md` — step-by-step guide",
     );
     docHints.push(
-      "- `~/.kata/agent/docs/pi-ui-tui/21-common-mistakes-and-how-to-avoid-them.md` — pitfalls",
+      "- `~/.kata-cli/agent/docs/pi-ui-tui/21-common-mistakes-and-how-to-avoid-them.md` — pitfalls",
     );
   } else if (uiSelected.includes("Dialogs")) {
     docHints.push(
-      "- `~/.kata/agent/docs/pi-ui-tui/04-built-in-dialog-methods.md` — select, confirm, input, editor",
+      "- `~/.kata-cli/agent/docs/pi-ui-tui/04-built-in-dialog-methods.md` — select, confirm, input, editor",
     );
   } else if (uiSelected.includes("Status")) {
     docHints.push(
-      "- `~/.kata/agent/docs/pi-ui-tui/05-persistent-ui-elements.md` — status, widgets, footer, header",
+      "- `~/.kata-cli/agent/docs/pi-ui-tui/05-persistent-ui-elements.md` — status, widgets, footer, header",
     );
   }
 
   if (uiSelected.includes("tool") || result.answers["purpose"]) {
     docHints.push(
-      "- `~/.kata/agent/docs/extending-pi/14-custom-rendering-controlling-what-the-user-sees.md` — renderCall / renderResult",
+      "- `~/.kata-cli/agent/docs/extending-pi/14-custom-rendering-controlling-what-the-user-sees.md` — renderCall / renderResult",
     );
   }
 
   if (eventsSelected && !eventsSelected.includes("standalone")) {
     docHints.push(
-      "- `~/.kata/agent/docs/extending-pi/07-events-the-nervous-system.md` — all events reference",
+      "- `~/.kata-cli/agent/docs/extending-pi/07-events-the-nervous-system.md` — all events reference",
     );
   }
 
   if (eventsSelected.includes("context / prompt")) {
     docHints.push(
-      "- `~/.kata/agent/docs/extending-pi/15-system-prompt-modification.md` — system prompt hooks",
+      "- `~/.kata-cli/agent/docs/extending-pi/15-system-prompt-modification.md` — system prompt hooks",
     );
   }
 
   if (persistenceSelected.includes("session")) {
     docHints.push(
-      "- `~/.kata/agent/docs/extending-pi/13-state-management-persistence.md` — pi.appendEntry, session state",
+      "- `~/.kata-cli/agent/docs/extending-pi/13-state-management-persistence.md` — pi.appendEntry, session state",
     );
   }
 
@@ -350,11 +350,11 @@ ${docHints.join("\n")}
 
 Write the complete implementation as a single self-contained extension file:
 
-\`~/.kata/agent/extensions/<kebab-case-name>.ts\`
+\`~/.kata-cli/agent/extensions/<kebab-case-name>.ts\`
 
 Then register it in the main extensions index:
 
-\`~/.kata/agent/extensions/index.ts\` — import and call the new extension's default export alongside existing ones
+\`~/.kata-cli/agent/extensions/index.ts\` — import and call the new extension's default export alongside existing ones
 
 ## Rules you must follow exactly
 

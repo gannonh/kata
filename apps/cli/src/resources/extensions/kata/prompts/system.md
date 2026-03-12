@@ -12,9 +12,9 @@ Kata ships with bundled skills. Load the relevant skill file with the `read` too
 
 | Trigger                                                                                          | Skill to load                                     |
 | ------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
-| Frontend UI — web components, pages, landing pages, dashboards, React/HTML/CSS, styling          | `~/.kata/agent/skills/frontend-design/SKILL.md`   |
-| macOS or iOS apps — SwiftUI, Xcode, App Store                                                    | `~/.kata/agent/skills/swiftui/SKILL.md`           |
-| Debugging — complex bugs, failing tests, root-cause investigation after standard approaches fail | `~/.kata/agent/skills/debug-like-expert/SKILL.md` |
+| Frontend UI — web components, pages, landing pages, dashboards, React/HTML/CSS, styling          | `~/.kata-cli/agent/skills/frontend-design/SKILL.md`   |
+| macOS or iOS apps — SwiftUI, Xcode, App Store                                                    | `~/.kata-cli/agent/skills/swiftui/SKILL.md`           |
+| Debugging — complex bugs, failing tests, root-cause investigation after standard approaches fail | `~/.kata-cli/agent/skills/debug-like-expert/SKILL.md` |
 
 ## Hard Rules
 
@@ -84,7 +84,7 @@ Titles live inside file content (headings, frontmatter), not in file or director
 ### Artifact Templates
 
 Templates showing the expected format for each artifact type are in:
-`~/.kata/agent/extensions/kata/templates/`
+`~/.kata-cli/agent/extensions/kata/templates/`
 
 **Always read the relevant template before writing an artifact** to match the expected structure exactly. The parsers that read these files depend on specific formatting:
 

@@ -122,7 +122,7 @@ export interface SkillResolutionReport {
 
 /**
  * Known skill directories, in priority order.
- * User skills (~/.kata/agent/skills/) take precedence over project skills.
+ * User skills (~/.kata-cli/agent/skills/) take precedence over project skills.
  */
 function getSkillSearchDirs(
   cwd: string,
