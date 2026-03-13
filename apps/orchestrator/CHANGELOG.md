@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.1] - 2026-03-13
+
+### Fixed
+
+- CI workflow now uses `bun install` from monorepo root instead of `npm install` in the app directory, fixing `EUNSUPPORTEDPROTOCOL` error caused by `workspace:*` dependencies in other monorepo packages
+
 ## [2.0.0] - 2026-03-13
 
 ### Changed
