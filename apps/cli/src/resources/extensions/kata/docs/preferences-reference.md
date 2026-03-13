@@ -53,6 +53,33 @@ Full documentation for `~/.kata-cli/preferences.md` (global) and `.kata/preferen
 
 ---
 
+## Inspecting Active Mode
+
+Run `/kata prefs status` to see the active workflow mode, which preferences file is currently winning, and whether a Linear binding is ready.
+
+Typical file-mode output:
+
+```text
+Kata prefs status
+mode: file
+effective preferences: /path/to/project/.kata/preferences.md (project)
+linear: inactive (file mode)
+```
+
+Typical Linear-mode output:
+
+```text
+Kata prefs status
+mode: linear
+LINEAR_API_KEY: present
+linear.teamKey: KAT
+linear.projectId: 12345678-1234-1234-1234-1234567890ab
+validation: valid
+resolved team: Kata-sh (KAT · a47bcacd-54f3-4472-a4b4-d6933248b605)
+```
+
+If Linear mode is configured but not ready, the status output stays redacted and actionable — for example `LINEAR_API_KEY: missing`, `diagnostic: missing_linear_team`, or `diagnostic: invalid_linear_project`.
+
 ## Best Practices
 
 - Keep `always_use_skills` short.

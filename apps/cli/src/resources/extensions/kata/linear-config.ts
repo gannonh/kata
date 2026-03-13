@@ -53,6 +53,11 @@ export interface LinearConfigValidationResult {
   };
 }
 
+export interface LinearConfigStatusReport {
+  level: "info" | "warning";
+  lines: string[];
+}
+
 export interface LinearConfigValidationClient {
   getTeam(idOrKey: string): Promise<LinearTeam | null>;
   getProject(id: string): Promise<LinearProject | null>;
@@ -280,4 +285,94 @@ function summarizeProject(
     state: project.state,
     url: project.url,
   };
+}
+
+export function formatLinearConfigStatus(
+  result: LinearConfigValidationResult,
+): LinearConfigStatusReport {
+  if (!result.isLinearMode) {
+    return {
+      level: "info",
+      lines: ["linear: inactive (file mode)"],
+    };
+  }
+
+  const lines: string[] = [
+    `LINEAR_API_KEY: ${result.apiKeyPresent ? "present" : "missing"}`,
+  ];
+
+  if (result.config.linear.teamId) {
+    lines.push(`linear.teamId: ${result.config.linear.teamId}`);
+  }
+  if (result.config.linear.teamKey) {
+    lines.push(`linear.teamKey: ${result.config.linear.teamKey}`);
+  }
+  if (result.config.linear.projectId) {
+    lines.push(`linear.projectId: ${result.config.linear.projectId}`);
+  }
+
+  lines.push(`validation: ${result.status}`);
+
+  if (result.resolved.team) {
+    lines.push(`resolved team: ${formatResolvedTeam(result.resolved.team)}`);
+  }
+  if (result.resolved.project) {
+    lines.push(`resolved project: ${formatResolvedProject(result.resolved.project)}`);
+  }
+
+  for (const diagnostic of result.diagnostics) {
+    lines.push(`diagnostic: ${diagnostic.code} — ${diagnostic.message}`);
+    const action = getLinearDiagnosticAction(diagnostic);
+    if (action) lines.push(`action: ${action}`);
+  }
+
+  return {
+    level: result.ok ? "info" : "warning",
+    lines,
+  };
+}
+
+function formatResolvedTeam(
+  team: NonNullable<LinearConfigValidationResult["resolved"]["team"]>,
+): string {
+  const name = team.name || team.key || team.id;
+  const detailParts = [team.key, team.id].filter(Boolean);
+  return detailParts.length > 0
+    ? `${name} (${detailParts.join(" · ")})`
+    : name;
+}
+
+function formatResolvedProject(
+  project: NonNullable<LinearConfigValidationResult["resolved"]["project"]>,
+): string {
+  const name = project.name || project.slugId || project.id;
+  const detailParts = [project.id, project.state].filter(Boolean);
+  return detailParts.length > 0
+    ? `${name} (${detailParts.join(" · ")})`
+    : name;
+}
+
+function getLinearDiagnosticAction(
+  diagnostic: LinearConfigDiagnostic,
+): string | null {
+  switch (diagnostic.code) {
+    case "missing_linear_api_key":
+      return "set LINEAR_API_KEY to validate this Linear binding.";
+    case "missing_linear_team":
+      return "set linear.teamId or linear.teamKey in .kata/preferences.md.";
+    case "invalid_linear_team":
+      return diagnostic.field === "linear.teamId"
+        ? "update linear.teamId to a valid Linear team." 
+        : "update linear.teamKey to a valid Linear team.";
+    case "invalid_linear_project":
+      return "update linear.projectId to a valid Linear project or remove it.";
+    case "linear_auth_error":
+      return "refresh LINEAR_API_KEY before retrying validation.";
+    case "linear_network_error":
+      return diagnostic.retryable
+        ? "retry validation after the Linear API/network recovers."
+        : "check Linear connectivity and retry validation.";
+    default:
+      return null;
+  }
 }

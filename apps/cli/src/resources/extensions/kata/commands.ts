@@ -23,7 +23,14 @@ import {
   loadProjectKataPreferences,
   loadEffectiveKataPreferences,
   resolveAllSkillReferences,
+  type LoadedKataPreferences,
 } from "./preferences.js";
+import {
+  formatLinearConfigStatus,
+  validateLinearProjectConfig,
+  type LinearConfigValidationResult,
+  type ValidateLinearProjectConfigOptions,
+} from "./linear-config.js";
 import { loadFile, saveFile } from "./files.js";
 import {
   formatDoctorIssuesForPrompt,
@@ -57,6 +64,112 @@ function dispatchDoctorHeal(
     { customType: "kata-doctor-heal", content, display: false },
     { triggerTurn: true },
   );
+}
+
+export interface PrefsStatusReport {
+  level: "info" | "warning";
+  message: string;
+}
+
+export interface PrefsStatusDependencies {
+  getGlobalKataPreferencesPath: typeof getGlobalKataPreferencesPath;
+  getLegacyGlobalKataPreferencesPath: typeof getLegacyGlobalKataPreferencesPath;
+  getProjectKataPreferencesPath: typeof getProjectKataPreferencesPath;
+  loadGlobalKataPreferences: typeof loadGlobalKataPreferences;
+  loadProjectKataPreferences: typeof loadProjectKataPreferences;
+  loadEffectiveKataPreferences: typeof loadEffectiveKataPreferences;
+  resolveAllSkillReferences: typeof resolveAllSkillReferences;
+  validateLinearProjectConfig: (
+    options?: ValidateLinearProjectConfigOptions,
+  ) => Promise<LinearConfigValidationResult>;
+}
+
+const defaultPrefsStatusDependencies: PrefsStatusDependencies = {
+  getGlobalKataPreferencesPath,
+  getLegacyGlobalKataPreferencesPath,
+  getProjectKataPreferencesPath,
+  loadGlobalKataPreferences,
+  loadProjectKataPreferences,
+  loadEffectiveKataPreferences,
+  resolveAllSkillReferences,
+  validateLinearProjectConfig,
+};
+
+export async function buildPrefsStatusReport(
+  deps: PrefsStatusDependencies = defaultPrefsStatusDependencies,
+): Promise<PrefsStatusReport> {
+  const globalPrefs = deps.loadGlobalKataPreferences();
+  const projectPrefs = deps.loadProjectKataPreferences();
+  const effective = deps.loadEffectiveKataPreferences();
+  const validation = await deps.validateLinearProjectConfig({
+    loadedPreferences: effective,
+  });
+
+  const globalStatus = describeGlobalPreferences(globalPrefs, deps);
+  const projectStatus = projectPrefs
+    ? `present: ${projectPrefs.path}`
+    : `missing: ${deps.getProjectKataPreferencesPath()}`;
+  const effectiveStatus = effective
+    ? `${effective.path} (${effective.scope})`
+    : "none (defaults only)";
+
+  const lines = [
+    "Kata prefs status",
+    `mode: ${validation.mode}`,
+    `effective preferences: ${effectiveStatus}`,
+    `global preferences: ${globalStatus}`,
+    `project preferences: ${projectStatus}`,
+    ...formatLinearConfigStatus(validation).lines,
+  ];
+
+  let hasUnresolvedSkills = false;
+  if (effective) {
+    const skillStatus = describeSkillResolution(effective, deps);
+    hasUnresolvedSkills = skillStatus.hasUnresolvedSkills;
+    lines.push(...skillStatus.lines);
+  }
+
+  return {
+    level:
+      validation.status === "invalid" || hasUnresolvedSkills ? "warning" : "info",
+    message: lines.join("\n"),
+  };
+}
+
+function describeGlobalPreferences(
+  globalPrefs: LoadedKataPreferences | null,
+  deps: PrefsStatusDependencies,
+): string {
+  if (!globalPrefs) {
+    return `missing: ${deps.getGlobalKataPreferencesPath()}`;
+  }
+
+  const legacyGlobal = deps.getLegacyGlobalKataPreferencesPath();
+  return `present: ${globalPrefs.path}${globalPrefs.path === legacyGlobal ? " (legacy fallback)" : ""}`;
+}
+
+function describeSkillResolution(
+  effective: LoadedKataPreferences,
+  deps: PrefsStatusDependencies,
+): { hasUnresolvedSkills: boolean; lines: string[] } {
+  const report = deps.resolveAllSkillReferences(effective.preferences, process.cwd());
+  const resolved = [...report.resolutions.values()].filter(
+    (resolution) => resolution.method !== "unresolved",
+  );
+  const hasUnresolvedSkills = report.warnings.length > 0;
+
+  if (resolved.length === 0 && !hasUnresolvedSkills) {
+    return { hasUnresolvedSkills: false, lines: [] };
+  }
+
+  const lines = [
+    `skills: ${resolved.length} resolved, ${report.warnings.length} unresolved`,
+  ];
+  if (hasUnresolvedSkills) {
+    lines.push(`unresolved skills: ${report.warnings.join(", ")}`);
+  }
+
+  return { hasUnresolvedSkills, lines };
 }
 
 export function registerKataCommand(pi: ExtensionAPI): void {
@@ -216,43 +329,8 @@ async function handlePrefs(
   }
 
   if (trimmed === "status") {
-    const globalPrefs = loadGlobalKataPreferences();
-    const projectPrefs = loadProjectKataPreferences();
-    const canonicalGlobal = getGlobalKataPreferencesPath();
-    const legacyGlobal = getLegacyGlobalKataPreferencesPath();
-    const globalStatus = globalPrefs
-      ? `present: ${globalPrefs.path}${globalPrefs.path === legacyGlobal ? " (legacy fallback)" : ""}`
-      : `missing: ${canonicalGlobal}`;
-    const projectStatus = projectPrefs
-      ? `present: ${projectPrefs.path}`
-      : `missing: ${getProjectKataPreferencesPath()}`;
-
-    const lines = [
-      `Kata skill prefs — global ${globalStatus}; project ${projectStatus}`,
-    ];
-
-    const effective = loadEffectiveKataPreferences();
-    let hasUnresolved = false;
-    if (effective) {
-      const report = resolveAllSkillReferences(
-        effective.preferences,
-        process.cwd(),
-      );
-      const resolved = [...report.resolutions.values()].filter(
-        (r) => r.method !== "unresolved",
-      );
-      hasUnresolved = report.warnings.length > 0;
-      if (resolved.length > 0 || hasUnresolved) {
-        lines.push(
-          `Skills: ${resolved.length} resolved, ${report.warnings.length} unresolved`,
-        );
-      }
-      if (hasUnresolved) {
-        lines.push(`Unresolved: ${report.warnings.join(", ")}`);
-      }
-    }
-
-    ctx.ui.notify(lines.join("\n"), hasUnresolved ? "warning" : "info");
+    const report = await buildPrefsStatusReport();
+    ctx.ui.notify(report.message, report.level);
     return;
   }
 
