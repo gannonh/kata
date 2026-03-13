@@ -28,13 +28,13 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R102 — Kata hierarchy maps to Linear entities
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: Kata's planning hierarchy maps to Linear as: Project → Linear Project, Milestone → Linear Milestone, Slice → Parent Issue, Task → Sub-Issue
 - Why it matters: This mapping preserves Kata's structured decomposition while using Linear's native hierarchy. Sub-issues give tasks their own status, assignee, and comment threads
 - Source: user
 - Primary owning slice: M002/S03
 - Supporting slices: M002/S04
-- Validation: unmapped
+- Validation: validated — M002/S03 integration test creates full M001→S01→T01 hierarchy; asserts task.parent.id === slice.id; proves hierarchy is queryable via label-filtered and parent-filtered API queries; parseKataEntityTitle recovers Kata IDs from Linear issue titles
 - Notes: Parent issue (slice) with sub-issues (tasks) uses Linear's native sub-issue support
 
 ### R103 — Rich artifacts stored as Linear Documents
@@ -297,7 +297,7 @@ This file is the explicit capability and coverage contract for the project.
 | R010 | anti-feature | out-of-scope | none | none | n/a |
 | R100 | core-capability | active | M002/S01 | none | unmapped |
 | R101 | core-capability | active | M002/S03 | M002/S04, S05, S06 | unmapped |
-| R102 | core-capability | active | M002/S03 | M002/S04 | unmapped |
+| R102 | core-capability | validated | M002/S03 | M002/S04 | validated |
 | R103 | core-capability | active | M002/S04 | none | unmapped |
 | R104 | core-capability | active | M002/S05 | none | unmapped |
 | R105 | integration | validated | M002/S02 | none | validated |
@@ -319,7 +319,7 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Coverage Summary
 
-- Active requirements: 18
+- Active requirements: 17
 - Mapped to slices: 19
-- Validated: 4
+- Validated: 5
 - Unmapped active requirements: 0

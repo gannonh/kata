@@ -113,6 +113,45 @@ export interface LinearDocument {
 }
 
 // =============================================================================
+// Kata Entity Mapping
+// =============================================================================
+
+/**
+ * Kata execution phase — maps to Linear workflow state types.
+ *
+ * Phase → state type:
+ *   backlog    → backlog
+ *   planning   → unstarted
+ *   executing  → started
+ *   verifying  → started  (sub-issue completion distinguishes verifying from executing — S05)
+ *   done       → completed
+ */
+export type KataPhase = "backlog" | "planning" | "executing" | "verifying" | "done";
+
+/** Kata entity kind — determines title prefix and label applied on creation. */
+export type KataEntityType = "milestone" | "slice" | "task";
+
+/**
+ * The three Linear labels provisioned by ensureKataLabels.
+ * Each maps to a Kata entity kind.
+ */
+export interface KataLabelSet {
+  milestone: LinearLabel;
+  slice: LinearLabel;
+  task: LinearLabel;
+}
+
+/**
+ * Shared config passed to entity-creation functions.
+ * Holds the resolved IDs that creation calls need.
+ */
+export interface KataEntityCreationConfig {
+  teamId: string;
+  projectId: string;
+  labelSet: KataLabelSet;
+}
+
+// =============================================================================
 // Input Types
 // =============================================================================
 

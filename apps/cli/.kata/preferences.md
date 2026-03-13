@@ -19,3 +19,13 @@ auto_supervisor: {}
 # Kata Skill Preferences
 
 See `~/.kata-cli/agent/extensions/kata/docs/preferences-reference.md` for full field documentation and examples.
+
+<!-- codex models
+
+models: 
+    research: gpt-5.3-codex-spark
+    planning: gpt-5.4
+    execution: gpt-5.3-codex-spark
+    completion: gpt-5.3-codex-spark
+
+-->

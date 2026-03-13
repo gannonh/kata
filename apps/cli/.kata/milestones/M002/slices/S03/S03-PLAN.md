@@ -69,28 +69,28 @@ npx tsc --noEmit
 
 ## Tasks
 
-- [ ] **T01: Types, title conventions, and phase-state mapping** `est:45m`
+- [x] **T01: Types, title conventions, and phase-state mapping** `est:45m`
   - Why: Foundation types and pure functions that T02–T04 build on; must be unit-tested before create functions depend on them
   - Files: `src/resources/extensions/linear/linear-types.ts`, `src/resources/extensions/linear/linear-entities.ts` (create), `src/resources/extensions/linear/tests/entity-mapping.test.ts` (create)
   - Do: Add `KataPhase`, `KataEntityType`, `KataLabelSet`, `KataEntityCreationConfig` to `linear-types.ts`; create `linear-entities.ts` with `formatKataEntityTitle`, `parseKataEntityTitle`, `getLinearStateTypeForKataPhase`, `getKataPhaseFromLinearStateType`, `getLinearStateForKataPhase`; write unit tests covering title round-trips, phase mapping, and edge cases (unknown state types, missing match)
   - Verify: unit test suite passes; `npx tsc --noEmit` clean
   - Done when: all unit tests pass and TypeScript builds without errors
 
-- [ ] **T02: ensureKataLabels + createKataMilestone + createKataSlice + createKataTask** `est:1h`
+- [x] **T02: ensureKataLabels + createKataMilestone + createKataSlice + createKataTask** `est:1h`
   - Why: Core entity-creation logic from the boundary map contract — the functions that make Kata→Linear entity mapping real
   - Files: `src/resources/extensions/linear/linear-entities.ts` (extend), `src/resources/extensions/linear/tests/entity-mapping.test.ts` (extend)
   - Do: Implement `ensureKataLabels(client, teamId)` using `LinearClient.ensureLabel` with fixed label names (`kata:milestone`, `kata:slice`, `kata:task`) and fixed colors; implement `createKataMilestone(client, { projectId }, opts)` using `client.createMilestone` with `[M001] Title` formatted name; implement `createKataSlice(client, { teamId, projectId, labelSet }, opts)` using `client.createIssue` with `projectMilestoneId`, `labelIds: [labelSet.slice.id]`, and formatted title; implement `createKataTask(client, { teamId, projectId, labelSet }, opts)` using `client.createIssue` with `parentId: opts.sliceIssueId`, `labelIds: [labelSet.task.id]`; write unit tests using a minimal mock `LinearClient` verifying label IDs are applied, title format is correct, and parentId is set
   - Verify: unit tests pass; `npx tsc --noEmit` clean
   - Done when: all unit tests pass with mock client verifying structural invariants
 
-- [ ] **T03: listKataSlices + listKataTasks + integration test** `est:1h30m`
+- [x] **T03: listKataSlices + listKataTasks + integration test** `est:1h30m`
   - Why: Proves the full hierarchy (milestone→slice→task) actually works in a real Linear workspace and the query functions return the right entities — retires the S03 risk in the roadmap
   - Files: `src/resources/extensions/linear/linear-entities.ts` (extend), `src/resources/extensions/linear/tests/entity-hierarchy.integration.test.ts` (create)
   - Do: Implement `listKataSlices(client, projectId, sliceLabelId)` using `client.listIssues({ projectId, labelIds: [sliceLabelId] })`; implement `listKataTasks(client, sliceIssueId)` using `client.listIssues({ parentId: sliceIssueId })`; write integration test that: (1) gets team + project via client, (2) calls `ensureKataLabels`, (3) creates a milestone with `createKataMilestone` using tag-stamped name, (4) gets workflow states, (5) creates a slice issue with `createKataSlice`, (6) creates a task sub-issue with `createKataTask`, (7) asserts `task.parent.id === slice.id`, (8) calls `listKataSlices` and finds the created slice, (9) calls `listKataTasks(sliceId)` and finds the created task, (10) asserts `parseKataEntityTitle` recovers the Kata IDs from the issue titles, (11) cleans up all created entities
   - Verify: `LINEAR_API_KEY=<key> node ... entity-hierarchy.integration.test.ts` passes end-to-end
   - Done when: integration test creates, verifies, and cleans up the full hierarchy with all assertions passing
 
-- [ ] **T04: Register kata_* pi tools in linear-tools.ts** `est:30m`
+- [x] **T04: Register kata_* pi tools in linear-tools.ts** `est:30m`
   - Why: Makes the entity-mapping functions available as pi agent tools — this is how the agent will call them in S06; closes the S03 demo requirement
   - Files: `src/resources/extensions/linear/linear-tools.ts`
   - Do: Import from `linear-entities.ts`; add 6 tools using the existing `ok(data)/fail(err)` pattern: `kata_ensure_labels` (input: `teamId`), `kata_create_milestone` (input: `projectId`, `kataId`, `title`, optional `description`/`targetDate`), `kata_create_slice` (input: `teamId`, `projectId`, `labelSet`, `kataId`, `title`, optional `milestoneId`/`description`/`initialPhase`), `kata_create_task` (input: `teamId`, `projectId`, `labelSet`, `sliceIssueId`, `kataId`, `title`, optional `description`/`initialPhase`), `kata_list_slices` (input: `projectId`, `sliceLabelId`), `kata_list_tasks` (input: `sliceIssueId`); verify `npx tsc --noEmit` still passes; smoke-check with `node -e "import('./src/resources/extensions/linear/linear-tools.ts').then(m => console.log(Object.keys(m)))"` (or equivalent import check)
