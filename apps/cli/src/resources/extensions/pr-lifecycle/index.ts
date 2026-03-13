@@ -12,7 +12,7 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { execSync } from "node:child_process";
-import { writeFileSync, unlinkSync } from "node:fs";
+import { writeFileSync, unlinkSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
@@ -24,14 +24,50 @@ import {
   parseBranchToSlice,
 } from "./gh-utils.js";
 import { composePRBody } from "./pr-body-composer.js";
+import {
+  fetchPRContext,
+  scopeReviewers,
+  buildReviewerTaskPrompt,
+} from "./pr-review-utils.js";
 
 /** Shell-escape a single argument (single-quote wrapping with embedded-quote escaping). */
 function shellEscape(arg: string): string {
   return "'" + arg.replace(/'/g, "'\\''") + "'";
 }
 
+// ---------------------------------------------------------------------------
+// Reviewer instructions — loaded from bundled agent .md files at module init
+// ---------------------------------------------------------------------------
+
+const agentsDir = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "agents",
+);
+
+function loadReviewerInstructions(agentName: string): string {
+  try {
+    const raw = readFileSync(join(agentsDir, `${agentName}.md`), "utf8");
+    // Strip YAML frontmatter (everything between the first two --- delimiters)
+    const match = raw.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/);
+    return match ? match[1].trim() : raw.trim();
+  } catch {
+    return `You are a ${agentName} reviewer. Review the provided diff for issues.`;
+  }
+}
+
+const REVIEWER_INSTRUCTIONS: Record<string, string> = {
+  "pr-code-reviewer": loadReviewerInstructions("pr-code-reviewer"),
+  "pr-failure-finder": loadReviewerInstructions("pr-failure-finder"),
+  "pr-test-analyzer": loadReviewerInstructions("pr-test-analyzer"),
+  "pr-code-simplifier": loadReviewerInstructions("pr-code-simplifier"),
+  "pr-type-design-analyzer": loadReviewerInstructions("pr-type-design-analyzer"),
+  "pr-comment-analyzer": loadReviewerInstructions("pr-comment-analyzer"),
+};
+
 export default function (pi: ExtensionAPI): void {
-  pi.addTool({
+  pi.registerTool({
     name: "kata_create_pr",
     description: [
       "Create a GitHub PR for the current Kata slice branch.",
@@ -190,6 +226,7 @@ export default function (pi: ExtensionAPI): void {
           const stdout = execSync(cmd, {
             encoding: "utf8",
             stdio: ["pipe", "pipe", "pipe"],
+            cwd: cwd ?? process.cwd(),
           });
           prUrl = stdout.trim();
         } catch (err) {
@@ -215,6 +252,191 @@ export default function (pi: ExtensionAPI): void {
       }
 
       return { ok: true, url: prUrl };
+    },
+  });
+
+  // ── kata_review_pr ─────────────────────────────────────────────────────────
+
+  pi.registerTool({
+    name: "kata_review_pr",
+    description: [
+      "Prepares a parallel PR review dispatch plan.",
+      "Pre-flights gh CLI, fetches the open PR diff for the current branch,",
+      "scopes which of the 6 bundled reviewer subagents to run based on diff content,",
+      "and builds a per-reviewer task prompt.",
+      "Returns { ok: true, prNumber, selectedReviewers, reviewerTasks } on success —",
+      "pass reviewerTasks to the `subagent` tool in parallel mode to dispatch reviewers.",
+      "Returns { ok: false, phase, error, hint } for: gh-missing, gh-unauth, not-in-pr, diff-empty.",
+    ].join(" "),
+    parameters: {
+      type: "object" as const,
+      properties: {
+        cwd: {
+          type: "string",
+          description: "Project root directory. Defaults to process.cwd().",
+        },
+        reviewers: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Override reviewer list. When omitted, scopeReviewers auto-selects based on diff content.",
+        },
+      },
+      required: [],
+    },
+    handler: async (params: { cwd?: string; reviewers?: string[] }) => {
+      const cwd = params.cwd ?? process.cwd();
+
+      if (!isGhInstalled()) {
+        return {
+          ok: false,
+          phase: "gh-missing",
+          error: "gh CLI not found in PATH",
+          hint: "Install gh CLI: https://cli.github.com",
+        };
+      }
+      if (!isGhAuthenticated()) {
+        return {
+          ok: false,
+          phase: "gh-unauth",
+          error: "gh CLI not authenticated",
+          hint: "Run: gh auth login",
+        };
+      }
+
+      const ctx = fetchPRContext(cwd);
+      if (!ctx) {
+        return {
+          ok: false,
+          phase: "not-in-pr",
+          error: "No open PR found for current branch",
+          hint: "Ensure the branch has been pushed and has an open PR on GitHub.",
+        };
+      }
+      if (!ctx.diff.trim()) {
+        return {
+          ok: false,
+          phase: "diff-empty",
+          error: "PR diff is empty — no changes to review",
+          hint: "Ensure the PR branch has commits not in the base branch.",
+        };
+      }
+
+      const selectedReviewers =
+        params.reviewers ??
+        scopeReviewers({ diff: ctx.diff, changedFiles: ctx.changedFiles });
+
+      const reviewerTasks = selectedReviewers.map((reviewerName) => ({
+        agent: reviewerName,
+        task: buildReviewerTaskPrompt({
+          reviewer: reviewerName,
+          prTitle: ctx.title,
+          prNumber: ctx.prNumber,
+          diff: ctx.diff,
+          changedFiles: ctx.changedFiles,
+          prBody: ctx.body,
+          reviewerInstructions:
+            REVIEWER_INSTRUCTIONS[reviewerName] ??
+            `Review the PR diff as ${reviewerName}.`,
+        }),
+      }));
+
+      return {
+        ok: true,
+        prNumber: ctx.prNumber,
+        title: ctx.title,
+        diff: ctx.diff,
+        selectedReviewers,
+        reviewerTasks,
+      };
+    },
+  });
+
+  // ── kata_fetch_pr_comments ─────────────────────────────────────────────────
+
+  pi.registerTool({
+    name: "kata_fetch_pr_comments",
+    description: [
+      "Fetches all PR comments for the open PR on the current branch.",
+      "Runs the bundled fetch_comments.py script and returns structured JSON with:",
+      "pull_request metadata, conversation_comments, reviews, and review_threads.",
+      "Pre-flight checks: gh CLI installed, gh authenticated, python3 available.",
+      "Returns { ok: true, pull_request, conversation_comments, reviews, review_threads } on success.",
+      "Returns { ok: false, phase, error, hint } on any failure.",
+    ].join(" "),
+    parameters: {
+      type: "object" as const,
+      properties: {
+        cwd: {
+          type: "string",
+          description: "Project root directory. Defaults to process.cwd().",
+        },
+      },
+      required: [],
+    },
+    handler: async (params: { cwd?: string }) => {
+      const cwd = params.cwd ?? process.cwd();
+
+      // ── Pre-flight checks ────────────────────────────────────────────────
+
+      if (!isGhInstalled()) {
+        return {
+          ok: false,
+          phase: "gh-missing",
+          error: "gh CLI not found in PATH",
+          hint: "Install gh CLI: https://cli.github.com",
+        };
+      }
+
+      if (!isGhAuthenticated()) {
+        return {
+          ok: false,
+          phase: "gh-unauth",
+          error: "gh CLI not authenticated",
+          hint: "Run: gh auth login",
+        };
+      }
+
+      try {
+        execSync("python3 --version", {
+          stdio: ["pipe", "pipe", "pipe"],
+          encoding: "utf8",
+        });
+      } catch {
+        return {
+          ok: false,
+          phase: "python3-missing",
+          error: "python3 not found in PATH",
+          hint: "Install Python 3: https://python.org",
+        };
+      }
+
+      // ── Resolve script path and run fetch_comments.py ────────────────────
+
+      const scriptPath = join(
+        dirname(fileURLToPath(import.meta.url)),
+        "scripts",
+        "fetch_comments.py",
+      );
+
+      try {
+        const stdout = execSync("python3 " + shellEscape(scriptPath), {
+          cwd,
+          encoding: "utf8",
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+
+        const parsed = JSON.parse(stdout) as Record<string, unknown>;
+        return { ok: true, ...parsed };
+      } catch (err) {
+        const stderr = (err as NodeJS.ErrnoException & { stderr?: string }).stderr;
+        return {
+          ok: false,
+          phase: "fetch-failed",
+          error: stderr || String(err),
+          hint: "Ensure the current branch has an open PR and gh is authenticated.",
+        };
+      }
     },
   });
 }

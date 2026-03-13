@@ -55,7 +55,7 @@ This milestone is complete only when all are true:
 - [x] **S01: PR Creation & Body Composition** `risk:medium` `depends:[]`
   > After this: agent can create a PR for the current slice branch with body auto-composed from slice artifacts (plan, task summaries, verification results) via `gh` CLI, with `gh` detection, auth checking, and file-backed body creation.
 
-- [ ] **S02: Bundled Reviewer Subagents & Parallel Dispatch** `risk:high` `depends:[S01]`
+- [x] **S02: Bundled Reviewer Subagents & Parallel Dispatch** `risk:high` `depends:[S01]`
   > After this: agent can run `/kata pr review` which dispatches 6 specialized reviewer subagents in parallel against the PR diff, aggregates findings by severity, and presents a structured review report.
 
 - [ ] **S03: Address Review Comments** `risk:low` `depends:[S01]`

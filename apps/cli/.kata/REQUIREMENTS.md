@@ -127,13 +127,13 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R201 — Specialized parallel PR review via subagents
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: `/kata pr review` dispatches 6 specialized reviewer subagents in parallel against the PR diff, producing aggregated findings ranked by severity
 - Why it matters: Thorough code review from multiple perspectives (quality, tests, errors, types, comments, simplification) catches issues a single pass would miss
 - Source: user
 - Primary owning slice: M003/S02
 - Supporting slices: none
-- Validation: unmapped
+- Validation: validated — M003/S02: `kata_review_pr` tool returns structured dispatch plan `{ ok, prNumber, selectedReviewers, reviewerTasks }` ready for `subagent({ tasks: [...] })` parallel dispatch; `scopeReviewers` heuristics proven by 5 contract tests; `aggregateFindings` deduplication and severity ranking proven by 2 contract tests; `buildReviewerTaskPrompt` tested; TypeScript clean; all 8/8 pr-review tests pass. Live parallel dispatch deferred to S05 operational verification.
 - Notes: Reviewers are bundled subagent definitions. Scoping heuristics skip irrelevant reviewers based on what changed
 
 ### R202 — PR review comment addressing workflow
@@ -193,13 +193,13 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R207 — Bundled PR reviewer subagents
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: Kata ships 6 specialized reviewer subagents: code-reviewer, failure-finder, test-analyzer, type-design-analyzer, comment-analyzer, code-simplifier
 - Why it matters: Each reviewer has a focused mandate and isolated context window; proper subagents, not skill-based role-play
 - Source: user
 - Primary owning slice: M003/S02
 - Supporting slices: none
-- Validation: unmapped
+- Validation: validated — M003/S02: 6 agent `.md` files in `src/resources/agents/pr-*.md`; all 6 have correct `name:` frontmatter matching `scopeReviewers` return values; content ported verbatim from pull-requests skill references; `ls src/resources/agents/pr-*.md | wc -l` → 6; synced to `~/.kata-cli/agent/agents/` via existing `resource-loader.ts` agents sync path
 - Notes: Bundled in src/resources/agents/, synced to ~/.kata-cli/agent/agents/ via resource-loader. Ported from user's existing pr-review-plugin agents
 
 ### R208 — Linear cross-linking for PRs
@@ -308,18 +308,18 @@ This file is the explicit capability and coverage contract for the project.
 | R110 | constraint | out-of-scope | none | none | n/a |
 | R111 | anti-feature | out-of-scope | none | none | n/a |
 | R200 | core-capability | active | M003/S01 | M003/S05 | unmapped |
-| R201 | core-capability | active | M003/S02 | none | unmapped |
+| R201 | core-capability | validated | M003/S02 | none | validated |
 | R202 | core-capability | active | M003/S03 | none | unmapped |
 | R203 | core-capability | active | M003/S04 | none | unmapped |
 | R204 | integration | validated | M003/S05 | M003/S01 | validated |
 | R205 | primary-user-loop | active | M003/S05 | M003/S01–S04 | unmapped |
 | R206 | core-capability | validated | M003/S01 | none | validated |
-| R207 | core-capability | active | M003/S02 | none | unmapped |
+| R207 | core-capability | validated | M003/S02 | none | validated |
 | R208 | integration | active | M003/S06 | none | unmapped |
 
 ## Coverage Summary
 
-- Active requirements: 9 (R100, R106 from M002; R200–R203, R205, R207, R208 from M003)
+- Active requirements: 7 (R100, R106 from M002; R200, R202, R203, R205, R208 from M003)
 - Mapped to slices: 19
-- Validated: 13 (R001–R003, R101–R109, R204, R206)
+- Validated: 15 (R001–R003, R101–R109, R201, R204, R206, R207)
 - Unmapped active requirements: 0
