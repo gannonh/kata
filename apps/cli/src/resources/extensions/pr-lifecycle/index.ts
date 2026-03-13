@@ -12,7 +12,7 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { execSync } from "node:child_process";
-import { writeFileSync, unlinkSync } from "node:fs";
+import { writeFileSync, unlinkSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
@@ -24,11 +24,47 @@ import {
   parseBranchToSlice,
 } from "./gh-utils.js";
 import { composePRBody } from "./pr-body-composer.js";
+import {
+  fetchPRContext,
+  scopeReviewers,
+  buildReviewerTaskPrompt,
+} from "./pr-review-utils.js";
 
 /** Shell-escape a single argument (single-quote wrapping with embedded-quote escaping). */
 function shellEscape(arg: string): string {
   return "'" + arg.replace(/'/g, "'\\''") + "'";
 }
+
+// ---------------------------------------------------------------------------
+// Reviewer instructions — loaded from bundled agent .md files at module init
+// ---------------------------------------------------------------------------
+
+const agentsDir = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "agents",
+);
+
+function loadReviewerInstructions(agentName: string): string {
+  try {
+    const raw = readFileSync(join(agentsDir, `${agentName}.md`), "utf8");
+    // Strip YAML frontmatter (everything between the first two --- delimiters)
+    const match = raw.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/);
+    return match ? match[1].trim() : raw.trim();
+  } catch {
+    return `You are a ${agentName} reviewer. Review the provided diff for issues.`;
+  }
+}
+
+const REVIEWER_INSTRUCTIONS: Record<string, string> = {
+  "pr-code-reviewer": loadReviewerInstructions("pr-code-reviewer"),
+  "pr-failure-finder": loadReviewerInstructions("pr-failure-finder"),
+  "pr-test-analyzer": loadReviewerInstructions("pr-test-analyzer"),
+  "pr-code-simplifier": loadReviewerInstructions("pr-code-simplifier"),
+  "pr-type-design-analyzer": loadReviewerInstructions("pr-type-design-analyzer"),
+  "pr-comment-analyzer": loadReviewerInstructions("pr-comment-analyzer"),
+};
 
 export default function (pi: ExtensionAPI): void {
   pi.addTool({
@@ -215,6 +251,103 @@ export default function (pi: ExtensionAPI): void {
       }
 
       return { ok: true, url: prUrl };
+    },
+  });
+
+  // ── kata_review_pr ─────────────────────────────────────────────────────────
+
+  pi.addTool({
+    name: "kata_review_pr",
+    description: [
+      "Prepares a parallel PR review dispatch plan.",
+      "Pre-flights gh CLI, fetches the open PR diff for the current branch,",
+      "scopes which of the 6 bundled reviewer subagents to run based on diff content,",
+      "and builds a per-reviewer task prompt.",
+      "Returns { ok: true, prNumber, selectedReviewers, reviewerTasks } on success —",
+      "pass reviewerTasks to the `subagent` tool in parallel mode to dispatch reviewers.",
+      "Returns { ok: false, phase, error, hint } for: gh-missing, gh-unauth, not-in-pr, diff-empty.",
+    ].join(" "),
+    parameters: {
+      type: "object" as const,
+      properties: {
+        cwd: {
+          type: "string",
+          description: "Project root directory. Defaults to process.cwd().",
+        },
+        reviewers: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Override reviewer list. When omitted, scopeReviewers auto-selects based on diff content.",
+        },
+      },
+      required: [],
+    },
+    handler: async (params: { cwd?: string; reviewers?: string[] }) => {
+      const cwd = params.cwd ?? process.cwd();
+
+      if (!isGhInstalled()) {
+        return {
+          ok: false,
+          phase: "gh-missing",
+          error: "gh CLI not found in PATH",
+          hint: "Install gh CLI: https://cli.github.com",
+        };
+      }
+      if (!isGhAuthenticated()) {
+        return {
+          ok: false,
+          phase: "gh-unauth",
+          error: "gh CLI not authenticated",
+          hint: "Run: gh auth login",
+        };
+      }
+
+      const ctx = fetchPRContext(cwd);
+      if (!ctx) {
+        return {
+          ok: false,
+          phase: "not-in-pr",
+          error: "No open PR found for current branch",
+          hint: "Ensure the branch has been pushed and has an open PR on GitHub.",
+        };
+      }
+      if (!ctx.diff.trim()) {
+        return {
+          ok: false,
+          phase: "diff-empty",
+          error: "PR diff is empty — no changes to review",
+          hint: "Ensure the PR branch has commits not in the base branch.",
+        };
+      }
+
+      const selectedReviewers =
+        params.reviewers ??
+        scopeReviewers({ diff: ctx.diff, changedFiles: ctx.changedFiles });
+
+      const reviewerTasks = selectedReviewers.map((reviewerName) => ({
+        agent: reviewerName,
+        task: buildReviewerTaskPrompt({
+          reviewer: reviewerName,
+          prTitle: ctx.title,
+          prNumber: ctx.prNumber,
+          diff: ctx.diff,
+          changedFiles: ctx.changedFiles,
+          prBody: ctx.body,
+          reviewerInstructions:
+            REVIEWER_INSTRUCTIONS[reviewerName] ??
+            `Review the PR diff as ${reviewerName}.`,
+        }),
+      }));
+
+      return {
+        ok: true,
+        prNumber: ctx.prNumber,
+        title: ctx.title,
+        diff: ctx.diff,
+        selectedReviewers,
+        reviewerTasks,
+      };
     },
   });
 }
