@@ -2,20 +2,20 @@
 
 **Active Milestone:** M002 — Linear Mode
 **Active Slice:** S03 — Entity Mapping — Hierarchy & Labels
-**Active Task:** none — Slice not planned yet
-**Phase:** Planning
-**Slice Branch:** kata/M002/S02
+**Active Task:** T01 — Types, Title Conventions, and Phase-State Mapping
+**Phase:** Executing
+**Slice Branch:** kata/M002/S03
 **Active Workspace:** /Volumes/EVO/kata/kata-mono/apps/cli
-**Next Action:** Plan S03 — map Kata milestones/slices/tasks onto Linear milestones/issues/sub-issues and define label/status conventions.
+**Next Action:** Execute T01 — extend `linear-types.ts` with `KataPhase`/`KataLabelSet`/`KataEntityCreationConfig`, create `linear-entities.ts` with title format/parse functions and phase-state mapping, write unit tests in `tests/entity-mapping.test.ts`.
 **Last Updated:** 2026-03-12
 **Requirements Status:** 9 active · 4 validated · 0 deferred · 3 out of scope
 
 ## Recent Decisions
 
-- D017: Linear mode config lives in `.kata/preferences.md` with legacy uppercase fallback
-- D018: Mode/config branching is centralized in `linear-config.ts`
-- D019: `/kata prefs status` is the canonical inspection surface for active workflow mode and Linear config health
-- D020: Workflow-sensitive entrypoints gate through `linear-config.ts` before touching file-backed Kata state or prompts
+- D021: Kata entity title format is `[M001] Title` bracket prefix (parseable, visually distinct)
+- D022: Three Kata labels — `kata:milestone` (provisioned), `kata:slice` (applied to slices), `kata:task` (applied to tasks)
+- D023: Kata phase→Linear state type: `backlog`→`backlog`, `planning`→`unstarted`, `executing`/`verifying`→`started`, `done`→`completed`
+- D024: `linear-entities.ts` lives in the linear extension, takes explicit client+config args, no kata-extension imports
 
 ## Blockers
 
