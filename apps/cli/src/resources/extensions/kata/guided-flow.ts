@@ -668,8 +668,10 @@ export async function showSmartEntry(
           "kata-run",
           "smart-entry",
         )
-      )
+      ) {
+        pendingAutoStart = null;
         return;
+      }
     } else {
       const choice = await showNextAction(ctx as any, {
         title: "Kata — Kata Workflow",
@@ -695,8 +697,10 @@ export async function showSmartEntry(
             "kata-run",
             "smart-entry",
           )
-        )
+        ) {
+          pendingAutoStart = null;
           return;
+        }
       }
     }
     return;
@@ -739,8 +743,10 @@ export async function showSmartEntry(
           "kata-run",
           "smart-entry",
         )
-      )
+      ) {
+        pendingAutoStart = null;
         return;
+      }
     } else if (choice === "status") {
       const { fireStatusViaCommand } = await import("./commands.js");
       await fireStatusViaCommand(ctx);
