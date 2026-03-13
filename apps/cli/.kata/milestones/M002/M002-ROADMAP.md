@@ -129,8 +129,10 @@ Consumes from S01:
 ### S04 → S05
 
 Produces:
-- `linear-documents.ts` → `writeRoadmap()`, `writeContext()`, `writeSummary()`, `readRoadmap()`, `readPlan()`
-- Document naming convention: `"M001-ROADMAP"`, `"S01-PLAN"`, etc. as document titles
+- `linear-documents.ts` → `writeKataDocument(client, title, content, attachment)` (title-scoped upsert), `readKataDocument(client, title, attachment)` (returns `LinearDocument | null`), `listKataDocuments(client, attachment)` (zero-side-effect enumeration)
+- `linear-documents.ts` → `buildDocumentTitle(kataId, artifactType)` / `parseDocumentTitle(title)` — canonical encode/decode for all document title operations (e.g. `buildDocumentTitle("M001", "ROADMAP")` → `"M001-ROADMAP"`)
+- `DocumentAttachment = { projectId: string } | { issueId: string }` discriminated union — milestone/root artifacts use `projectId`; slice/task artifacts use `issueId`
+- Linear markdown normalization (D028): `- ` bullets are stored as `* `, trailing newlines stripped — S05 parsers must handle `* [ ]` checkbox syntax in addition to `- [ ]`; `readKataDocument` returning `null` is the canonical "document not yet written" signal
 
 Consumes from S01:
 - `LinearClient` → document CRUD
