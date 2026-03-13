@@ -4,7 +4,7 @@ always_use_skills:
     - /Volumes/EVO/kata/kata-mono/.agents/skills/releasing-kata/SKILL.md
     - /Users/gannonhall/.agents/skills/pull-requests/SKILL.md
 prefer_skills: []
-avoid_skills: []
+avoid_skills: 
 skill_rules: []
 custom_instructions: []
 models: 
@@ -18,4 +18,4 @@ auto_supervisor: {}
 
 # Kata Skill Preferences
 
-See `~/.kata-cli/agent/extensions/kata/docs/preferences-reference.md` for full field documentation and examples.
+See `/Users/gannonhall/.kata-cli/agent/extensions/kata/docs/preferences-reference.md` for full field documentation and examples.
