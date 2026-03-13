@@ -60,7 +60,7 @@
   - Verify: `node --import ./src/resources/extensions/kata/tests/resolve-ts.mjs --experimental-strip-types --test src/resources/extensions/kata/tests/prefs-status.test.ts`
   - Done when: Running `/kata prefs status` clearly tells the user whether the project is in file mode or Linear mode and whether the configured Linear binding is ready for downstream slices.
 
-- [ ] **T04: Wire centralized mode detection into Kata entrypoints without breaking file mode** `est:40m`
+- [x] **T04: Wire centralized mode detection into Kata entrypoints without breaking file mode** `est:40m`
   - Why: Mode switching is only real if the main Kata entrypoints stop hard-coding file-mode assumptions and instead consult the shared resolver before dispatch.
   - Files: `src/resources/extensions/kata/index.ts`, `src/resources/extensions/kata/guided-flow.ts`, `src/resources/extensions/kata/commands.ts`, `src/resources/extensions/kata/auto.ts`, `src/resources/extensions/kata/linear-config.ts`, `src/resources/extensions/kata/tests/mode-switching.test.ts`
   - Do: Replace scattered implicit file-mode assumptions with `getWorkflowMode()` / `isLinearMode()` checks in the command dispatch and entrypoint helpers that need workflow awareness. Keep existing file-mode behavior unchanged, surface clear mode-aware notices or guarded branching for Linear-configured projects, and make the wiring explicit instead of letting callers parse preferences ad hoc.

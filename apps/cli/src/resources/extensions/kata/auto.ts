@@ -83,6 +83,7 @@ import {
   formatValidationIssues,
 } from "./observability-validator.js";
 import { ensureGitignore } from "./gitignore.js";
+import { getWorkflowEntrypointGuard } from "./linear-config.js";
 import { snapshotSkills, clearSkillSnapshot } from "./skill-discovery.js";
 import {
   initMetrics,
@@ -281,6 +282,15 @@ export async function startAuto(
   base: string,
   verboseMode: boolean,
 ): Promise<void> {
+  const modeGate = getWorkflowEntrypointGuard("auto");
+  if (!modeGate.allow) {
+    ctx.ui.notify(
+      modeGate.notice ?? "Workflow mode is not supported here.",
+      modeGate.noticeLevel,
+    );
+    return;
+  }
+
   // If resuming from paused state, just re-activate and dispatch next unit.
   // The conversation is still intact — no need to reinitialize everything.
   if (paused) {

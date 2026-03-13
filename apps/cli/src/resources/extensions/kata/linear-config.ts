@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { classifyLinearError } from "../linear/http.js";
 import { LinearClient } from "../linear/linear-client.js";
 import type { LinearProject, LinearTeam } from "../linear/linear-types.js";
@@ -69,6 +71,33 @@ export interface ValidateLinearProjectConfigOptions {
   createClient?: (apiKey: string) => LinearConfigValidationClient;
 }
 
+export type WorkflowEntrypoint =
+  | "smart-entry"
+  | "queue"
+  | "discuss"
+  | "status"
+  | "dashboard"
+  | "auto"
+  | "doctor"
+  | "doctor-heal"
+  | "system-prompt";
+
+export interface WorkflowProtocolResolution {
+  mode: WorkflowMode;
+  documentName: "KATA-WORKFLOW.md" | "LINEAR-WORKFLOW.md";
+  path: string | null;
+  ready: boolean;
+}
+
+export interface WorkflowEntrypointGuard {
+  mode: WorkflowMode;
+  isLinearMode: boolean;
+  allow: boolean;
+  noticeLevel: "info" | "warning";
+  notice: string | null;
+  protocol: WorkflowProtocolResolution;
+}
+
 export function normalizeWorkflowMode(mode: unknown): WorkflowMode {
   if (typeof mode !== "string") return "file";
   const normalized = mode.trim().toLowerCase();
@@ -122,6 +151,57 @@ export function getLinearProjectId(
   loadedPreferences: LoadedKataPreferences | null = loadEffectiveKataPreferences(),
 ): string | null {
   return loadEffectiveLinearProjectConfig(loadedPreferences).linear.projectId;
+}
+
+export function resolveWorkflowProtocol(
+  loadedPreferences: LoadedKataPreferences | null = loadEffectiveKataPreferences(),
+): WorkflowProtocolResolution {
+  const mode = getWorkflowMode(loadedPreferences);
+
+  if (mode === "linear") {
+    const linearPath =
+      process.env.LINEAR_WORKFLOW_PATH ??
+      join(process.env.HOME ?? "~", ".kata-cli", "LINEAR-WORKFLOW.md");
+    const ready = existsSync(linearPath);
+    return {
+      mode,
+      documentName: "LINEAR-WORKFLOW.md",
+      path: ready ? linearPath : null,
+      ready,
+    };
+  }
+
+  const kataPath =
+    process.env.KATA_WORKFLOW_PATH ??
+    join(process.env.HOME ?? "~", ".kata-cli", "KATA-WORKFLOW.md");
+  const ready = existsSync(kataPath);
+  return {
+    mode,
+    documentName: "KATA-WORKFLOW.md",
+    path: ready ? kataPath : null,
+    ready,
+  };
+}
+
+export function getWorkflowEntrypointGuard(
+  entrypoint: WorkflowEntrypoint,
+  loadedPreferences: LoadedKataPreferences | null = loadEffectiveKataPreferences(),
+): WorkflowEntrypointGuard {
+  const mode = getWorkflowMode(loadedPreferences);
+  const protocol = resolveWorkflowProtocol(loadedPreferences);
+
+  if (mode !== "linear") {
+    return {
+      mode,
+      isLinearMode: false,
+      allow: true,
+      noticeLevel: "info",
+      notice: null,
+      protocol,
+    };
+  }
+
+  return buildLinearEntrypointGuard(entrypoint, protocol);
 }
 
 export async function validateLinearProjectConfig(
@@ -243,6 +323,82 @@ export async function validateLinearProjectConfig(
       },
     ], resolved);
   }
+}
+
+function buildLinearEntrypointGuard(
+  entrypoint: WorkflowEntrypoint,
+  protocol: WorkflowProtocolResolution,
+): WorkflowEntrypointGuard {
+  switch (entrypoint) {
+    case "smart-entry":
+      return blockedLinearEntrypoint(
+        protocol,
+        "This project is configured for Linear mode. /kata still routes through the file-backed workflow wizard, so it stops here instead of silently falling back to .kata files. Use `/kata prefs status` to inspect the active mode and config health until S06 wires Linear dispatch.",
+      );
+    case "queue":
+      return blockedLinearEntrypoint(
+        protocol,
+        "This project is configured for Linear mode. /kata queue still appends file-backed Kata artifacts and is blocked until Linear document storage is wired.",
+      );
+    case "discuss":
+      return blockedLinearEntrypoint(
+        protocol,
+        "This project is configured for Linear mode. /kata discuss still dispatches the file-backed Kata workflow and is blocked until the Linear workflow prompt is available.",
+      );
+    case "status":
+    case "dashboard":
+      return blockedLinearEntrypoint(
+        protocol,
+        "This project is configured for Linear mode. /kata status and the dashboard still derive progress from local .kata files. Use `/kata prefs status` for mode/config inspection until S05 wires Linear state derivation.",
+        "info",
+      );
+    case "auto":
+      return blockedLinearEntrypoint(
+        protocol,
+        "This project is configured for Linear mode. /kata auto still executes the file-backed workflow and is blocked until S06 wires Linear execution.",
+      );
+    case "doctor":
+      return blockedLinearEntrypoint(
+        protocol,
+        "This project is configured for Linear mode. /kata doctor still audits file-backed .kata artifacts and is blocked until Linear workflow storage and state derivation land.",
+      );
+    case "doctor-heal":
+      return blockedLinearEntrypoint(
+        protocol,
+        "This project is configured for Linear mode. /kata doctor heal still dispatches the file-backed Kata workflow and is blocked until a Linear workflow prompt exists.",
+      );
+    case "system-prompt":
+      return {
+        mode: "linear",
+        isLinearMode: true,
+        allow: true,
+        noticeLevel: "warning",
+        notice: protocol.ready
+          ? `Workflow mode is linear. Prefer ${protocol.documentName} and Linear-backed runtime surfaces instead of the file-backed .kata workflow. Do not silently fall back to KATA-WORKFLOW.md.`
+          : "Workflow mode is linear. Do not silently fall back to the file-backed .kata workflow. Linear prompt/runtime wiring is still pending, so use `/kata prefs status` to inspect mode and config health until the Linear workflow prompt lands.",
+        protocol,
+      };
+    default:
+      return blockedLinearEntrypoint(
+        protocol,
+        "This project is configured for Linear mode. This file-backed Kata entrypoint is blocked until the Linear workflow runtime is wired.",
+      );
+  }
+}
+
+function blockedLinearEntrypoint(
+  protocol: WorkflowProtocolResolution,
+  notice: string,
+  noticeLevel: WorkflowEntrypointGuard["noticeLevel"] = "warning",
+): WorkflowEntrypointGuard {
+  return {
+    mode: "linear",
+    isLinearMode: true,
+    allow: false,
+    noticeLevel,
+    notice,
+    protocol,
+  };
 }
 
 function invalidResult(

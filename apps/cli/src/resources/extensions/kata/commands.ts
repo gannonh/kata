@@ -27,6 +27,7 @@ import {
 } from "./preferences.js";
 import {
   formatLinearConfigStatus,
+  getWorkflowEntrypointGuard,
   validateLinearProjectConfig,
   type LinearConfigValidationResult,
   type ValidateLinearProjectConfigOptions,
@@ -42,15 +43,26 @@ import {
 import { loadPrompt } from "./prompt-loader.js";
 
 function dispatchDoctorHeal(
+  ctx: ExtensionCommandContext,
   pi: ExtensionAPI,
   scope: string | undefined,
   reportText: string,
   structuredIssues: string,
-): void {
-  const workflowPath =
-    process.env.KATA_WORKFLOW_PATH ??
-    join(process.env.HOME ?? "~", ".kata-cli", "KATA-WORKFLOW.md");
-  const workflow = readFileSync(workflowPath, "utf-8");
+): boolean {
+  const gate = getWorkflowEntrypointGuard("doctor-heal");
+  if (!gate.allow) {
+    ctx.ui.notify(gate.notice ?? "Workflow mode is not supported here.", gate.noticeLevel);
+    return false;
+  }
+  if (!gate.protocol.path) {
+    ctx.ui.notify(
+      `Could not load ${gate.protocol.documentName} for ${gate.mode} mode.`,
+      "error",
+    );
+    return false;
+  }
+
+  const workflow = readFileSync(gate.protocol.path, "utf-8");
   const prompt = loadPrompt("doctor-heal", {
     doctorSummary: reportText,
     structuredIssues,
@@ -64,6 +76,7 @@ function dispatchDoctorHeal(
     { customType: "kata-doctor-heal", content, display: false },
     { triggerTurn: true },
   );
+  return true;
 }
 
 export interface PrefsStatusReport {
@@ -282,6 +295,15 @@ export function registerKataCommand(pi: ExtensionAPI): void {
 }
 
 async function handleStatus(ctx: ExtensionCommandContext): Promise<void> {
+  const modeGate = getWorkflowEntrypointGuard("status");
+  if (!modeGate.allow) {
+    ctx.ui.notify(
+      modeGate.notice ?? "Workflow mode is not supported here.",
+      modeGate.noticeLevel,
+    );
+    return;
+  }
+
   const basePath = process.cwd();
   const state = await deriveState(basePath);
 
@@ -342,6 +364,15 @@ async function handleDoctor(
   ctx: ExtensionCommandContext,
   pi: ExtensionAPI,
 ): Promise<void> {
+  const modeGate = getWorkflowEntrypointGuard("doctor");
+  if (!modeGate.allow) {
+    ctx.ui.notify(
+      modeGate.notice ?? "Workflow mode is not supported here.",
+      modeGate.noticeLevel,
+    );
+    return;
+  }
+
   const trimmed = args.trim();
   const parts = trimmed ? trimmed.split(/\s+/) : [];
   const mode =
@@ -390,11 +421,19 @@ async function handleDoctor(
     }
 
     const structuredIssues = formatDoctorIssuesForPrompt(actionable);
-    dispatchDoctorHeal(pi, effectiveScope, reportText, structuredIssues);
-    ctx.ui.notify(
-      `Doctor heal dispatched ${actionable.length} issue(s) to the LLM.`,
-      "info",
+    const dispatched = dispatchDoctorHeal(
+      ctx,
+      pi,
+      effectiveScope,
+      reportText,
+      structuredIssues,
     );
+    if (dispatched) {
+      ctx.ui.notify(
+        `Doctor heal dispatched ${actionable.length} issue(s) to the LLM.`,
+        "info",
+      );
+    }
   }
 }
 
