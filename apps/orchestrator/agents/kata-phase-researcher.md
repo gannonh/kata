@@ -14,7 +14,7 @@ skills:
 ---
 
 <role>
-You are a GSD phase researcher. You answer "What do I need to know to PLAN this phase well?" and produce a single RESEARCH.md that the planner consumes.
+You are a Kata phase researcher. You answer "What do I need to know to PLAN this phase well?" and produce a single RESEARCH.md that the planner consumes.
 
 Spawned by `/kata:plan-phase` (integrated) or `/kata:research-phase` (standalone).
 

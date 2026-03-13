@@ -24,7 +24,7 @@ NYQUIST_CFG=$(node "$HOME/.claude/kata-orchestrator/bin/kata-tools.cjs" config g
 
 If `NYQUIST_CFG` is `false`: exit with "Nyquist validation is disabled. Enable via /kata:settings."
 
-Display banner: `GSD > VALIDATE PHASE {N}: {name}`
+Display banner: `Kata > VALIDATE PHASE {N}: {name}`
 
 ## 1. Detect Input State
 
@@ -135,14 +135,14 @@ node "$HOME/.claude/kata-orchestrator/bin/kata-tools.cjs" commit-docs "docs(phas
 
 **Compliant:**
 ```
-GSD > PHASE {N} IS NYQUIST-COMPLIANT
+Kata > PHASE {N} IS NYQUIST-COMPLIANT
 All requirements have automated verification.
 ▶ Next: /kata:audit-milestone
 ```
 
 **Partial:**
 ```
-GSD > PHASE {N} VALIDATED (PARTIAL)
+Kata > PHASE {N} VALIDATED (PARTIAL)
 {M} automated, {K} manual-only.
 ▶ Retry: /kata:validate-phase {N}
 ```

@@ -1,12 +1,12 @@
 /**
- * GSD Tools Tests - Verify
+ * Kata Tools Tests - Verify
  */
 
 const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { runGsdTools, createTempProject, createTempGitProject, cleanup } = require('./helpers.cjs');
+const { runKataTools, createTempProject, createTempGitProject, cleanup } = require('./helpers.cjs');
 const { execSync } = require('child_process');
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ describe('validate consistency command', () => {
     fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', '02-b'), { recursive: true });
     fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', '03-c'), { recursive: true });
 
-    const result = runGsdTools('validate consistency', tmpDir);
+    const result = runKataTools('validate consistency', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -78,7 +78,7 @@ describe('validate consistency command', () => {
     fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', '01-a'), { recursive: true });
     fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', '02-orphan'), { recursive: true });
 
-    const result = runGsdTools('validate consistency', tmpDir);
+    const result = runKataTools('validate consistency', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -97,7 +97,7 @@ describe('validate consistency command', () => {
     fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', '01-a'), { recursive: true });
     fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', '03-c'), { recursive: true });
 
-    const result = runGsdTools('validate consistency', tmpDir);
+    const result = runKataTools('validate consistency', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -128,7 +128,7 @@ describe('verify plan-structure command', () => {
     const planPath = path.join(tmpDir, '.planning', 'phases', '01-test', '01-01-PLAN.md');
     fs.writeFileSync(planPath, '# No frontmatter here\n\nJust a plan without YAML.\n');
 
-    const result = runGsdTools('verify plan-structure .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify plan-structure .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -143,7 +143,7 @@ describe('verify plan-structure command', () => {
     const planPath = path.join(tmpDir, '.planning', 'phases', '01-test', '01-01-PLAN.md');
     fs.writeFileSync(planPath, validPlanContent());
 
-    const result = runGsdTools('verify plan-structure .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify plan-structure .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -179,7 +179,7 @@ describe('verify plan-structure command', () => {
     const planPath = path.join(tmpDir, '.planning', 'phases', '01-test', '01-01-PLAN.md');
     fs.writeFileSync(planPath, content);
 
-    const result = runGsdTools('verify plan-structure .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify plan-structure .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -216,7 +216,7 @@ describe('verify plan-structure command', () => {
     const planPath = path.join(tmpDir, '.planning', 'phases', '01-test', '01-01-PLAN.md');
     fs.writeFileSync(planPath, content);
 
-    const result = runGsdTools('verify plan-structure .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify plan-structure .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -230,7 +230,7 @@ describe('verify plan-structure command', () => {
     const planPath = path.join(tmpDir, '.planning', 'phases', '01-test', '01-01-PLAN.md');
     fs.writeFileSync(planPath, validPlanContent({ wave: 2, dependsOn: '[]' }));
 
-    const result = runGsdTools('verify plan-structure .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify plan-structure .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -276,7 +276,7 @@ describe('verify plan-structure command', () => {
     const planPath = path.join(tmpDir, '.planning', 'phases', '01-test', '01-01-PLAN.md');
     fs.writeFileSync(planPath, content);
 
-    const result = runGsdTools('verify plan-structure .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify plan-structure .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -287,7 +287,7 @@ describe('verify plan-structure command', () => {
   });
 
   test('returns error for nonexistent file', () => {
-    const result = runGsdTools('verify plan-structure .planning/phases/01-test/nonexistent.md', tmpDir);
+    const result = runKataTools('verify plan-structure .planning/phases/01-test/nonexistent.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -325,7 +325,7 @@ describe('verify phase-completeness command', () => {
     fs.writeFileSync(path.join(phaseDir, '01-01-PLAN.md'), '# Plan\n');
     fs.writeFileSync(path.join(phaseDir, '01-01-SUMMARY.md'), '# Summary\n');
 
-    const result = runGsdTools('verify phase-completeness 01', tmpDir);
+    const result = runKataTools('verify phase-completeness 01', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -339,7 +339,7 @@ describe('verify phase-completeness command', () => {
     const phaseDir = path.join(tmpDir, '.planning', 'phases', '01-test');
     fs.writeFileSync(path.join(phaseDir, '01-01-PLAN.md'), '# Plan\n');
 
-    const result = runGsdTools('verify phase-completeness 01', tmpDir);
+    const result = runKataTools('verify phase-completeness 01', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -358,7 +358,7 @@ describe('verify phase-completeness command', () => {
     const phaseDir = path.join(tmpDir, '.planning', 'phases', '01-test');
     fs.writeFileSync(path.join(phaseDir, '01-01-SUMMARY.md'), '# Summary\n');
 
-    const result = runGsdTools('verify phase-completeness 01', tmpDir);
+    const result = runKataTools('verify phase-completeness 01', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -369,7 +369,7 @@ describe('verify phase-completeness command', () => {
   });
 
   test('returns error for nonexistent phase', () => {
-    const result = runGsdTools('verify phase-completeness 99', tmpDir);
+    const result = runKataTools('verify phase-completeness 99', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -394,7 +394,7 @@ describe('verify summary command', () => {
   });
 
   test('returns not found for nonexistent summary', () => {
-    const result = runGsdTools('verify-summary .planning/phases/01-test/nonexistent.md', tmpDir);
+    const result = runKataTools('verify-summary .planning/phases/01-test/nonexistent.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -425,7 +425,7 @@ describe('verify summary command', () => {
       `Commit: ${hash}`,
     ].join('\n'));
 
-    const result = runGsdTools('verify-summary .planning/phases/01-test/01-01-SUMMARY.md', tmpDir);
+    const result = runKataTools('verify-summary .planning/phases/01-test/01-01-SUMMARY.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -442,7 +442,7 @@ describe('verify summary command', () => {
       'Created: `src/nonexistent.js`',
     ].join('\n'));
 
-    const result = runGsdTools('verify-summary .planning/phases/01-test/01-01-SUMMARY.md', tmpDir);
+    const result = runKataTools('verify-summary .planning/phases/01-test/01-01-SUMMARY.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -462,7 +462,7 @@ describe('verify summary command', () => {
       'All tests pass',
     ].join('\n'));
 
-    const result = runGsdTools('verify-summary .planning/phases/01-test/01-01-SUMMARY.md', tmpDir);
+    const result = runKataTools('verify-summary .planning/phases/01-test/01-01-SUMMARY.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -479,7 +479,7 @@ describe('verify summary command', () => {
       'Tests failed',
     ].join('\n'));
 
-    const result = runGsdTools('verify-summary .planning/phases/01-test/01-01-SUMMARY.md', tmpDir);
+    const result = runKataTools('verify-summary .planning/phases/01-test/01-01-SUMMARY.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -496,7 +496,7 @@ describe('verify summary command', () => {
       'Everything went well.',
     ].join('\n'));
 
-    const result = runGsdTools('verify-summary .planning/phases/01-test/01-01-SUMMARY.md', tmpDir);
+    const result = runKataTools('verify-summary .planning/phases/01-test/01-01-SUMMARY.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -516,7 +516,7 @@ describe('verify summary command', () => {
       'Some content here without a self-check heading.',
     ].join('\n'));
 
-    const result = runGsdTools('verify-summary .planning/phases/01-test/01-01-SUMMARY.md', tmpDir);
+    const result = runKataTools('verify-summary .planning/phases/01-test/01-01-SUMMARY.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -534,7 +534,7 @@ describe('verify summary command', () => {
     ].join('\n'));
 
     // Pass checkFileCount = 1 so only 1 file is checked
-    const result = runGsdTools('verify-summary .planning/phases/01-test/01-01-SUMMARY.md --check-count 1', tmpDir);
+    const result = runKataTools('verify-summary .planning/phases/01-test/01-01-SUMMARY.md --check-count 1', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -567,7 +567,7 @@ describe('verify references command', () => {
     const filePath = path.join(tmpDir, '.planning', 'phases', '01-test', 'doc.md');
     fs.writeFileSync(filePath, '@src/app.js\n');
 
-    const result = runGsdTools('verify references .planning/phases/01-test/doc.md', tmpDir);
+    const result = runKataTools('verify references .planning/phases/01-test/doc.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -579,7 +579,7 @@ describe('verify references command', () => {
     const filePath = path.join(tmpDir, '.planning', 'phases', '01-test', 'doc.md');
     fs.writeFileSync(filePath, '@src/missing.js\n');
 
-    const result = runGsdTools('verify references .planning/phases/01-test/doc.md', tmpDir);
+    const result = runKataTools('verify references .planning/phases/01-test/doc.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -595,7 +595,7 @@ describe('verify references command', () => {
     const filePath = path.join(tmpDir, '.planning', 'phases', '01-test', 'doc.md');
     fs.writeFileSync(filePath, 'See `src/utils/helper.js` for details.\n');
 
-    const result = runGsdTools('verify references .planning/phases/01-test/doc.md', tmpDir);
+    const result = runKataTools('verify references .planning/phases/01-test/doc.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -608,7 +608,7 @@ describe('verify references command', () => {
     const filePath = path.join(tmpDir, '.planning', 'phases', '01-test', 'doc.md');
     fs.writeFileSync(filePath, '`${variable}/path/file.js`\n');
 
-    const result = runGsdTools('verify references .planning/phases/01-test/doc.md', tmpDir);
+    const result = runKataTools('verify references .planning/phases/01-test/doc.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -617,7 +617,7 @@ describe('verify references command', () => {
   });
 
   test('returns error for nonexistent file', () => {
-    const result = runGsdTools('verify references .planning/phases/01-test/nonexistent.md', tmpDir);
+    const result = runKataTools('verify references .planning/phases/01-test/nonexistent.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -643,7 +643,7 @@ describe('verify commits command', () => {
   test('validates real commit hashes', () => {
     const hash = execSync('git rev-parse --short HEAD', { cwd: tmpDir, encoding: 'utf-8' }).trim();
 
-    const result = runGsdTools(`verify commits ${hash}`, tmpDir);
+    const result = runKataTools(`verify commits ${hash}`, tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -652,7 +652,7 @@ describe('verify commits command', () => {
   });
 
   test('reports invalid for fake hashes', () => {
-    const result = runGsdTools('verify commits abcdef1234567', tmpDir);
+    const result = runKataTools('verify commits abcdef1234567', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -666,7 +666,7 @@ describe('verify commits command', () => {
   test('handles mixed valid and invalid hashes', () => {
     const hash = execSync('git rev-parse --short HEAD', { cwd: tmpDir, encoding: 'utf-8' }).trim();
 
-    const result = runGsdTools(`verify commits ${hash} abcdef1234567`, tmpDir);
+    const result = runKataTools(`verify commits ${hash} abcdef1234567`, tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -731,7 +731,7 @@ describe('verify artifacts command', () => {
     ]);
     fs.writeFileSync(path.join(tmpDir, 'src', 'app.js'), 'const x = 1;\nexport default x;\nconst y = 2;\n');
 
-    const result = runGsdTools('verify artifacts .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify artifacts .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -743,7 +743,7 @@ describe('verify artifacts command', () => {
       '- path: "src/nonexistent.js"',
     ]);
 
-    const result = runGsdTools('verify artifacts .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify artifacts .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -761,7 +761,7 @@ describe('verify artifacts command', () => {
     ]);
     fs.writeFileSync(path.join(tmpDir, 'src', 'app.js'), 'const x = 1;\n');
 
-    const result = runGsdTools('verify artifacts .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify artifacts .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -779,7 +779,7 @@ describe('verify artifacts command', () => {
     ]);
     fs.writeFileSync(path.join(tmpDir, 'src', 'app.js'), 'const x = 1;\n');
 
-    const result = runGsdTools('verify artifacts .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify artifacts .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -798,7 +798,7 @@ describe('verify artifacts command', () => {
     ]);
     fs.writeFileSync(path.join(tmpDir, 'src', 'app.js'), 'const x = 1;\nexport const POST = () => {};\n');
 
-    const result = runGsdTools('verify artifacts .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify artifacts .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -829,7 +829,7 @@ describe('verify artifacts command', () => {
     const planPath = path.join(tmpDir, '.planning', 'phases', '01-test', '01-01-PLAN.md');
     fs.writeFileSync(planPath, content);
 
-    const result = runGsdTools('verify artifacts .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify artifacts .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -897,7 +897,7 @@ describe('verify key-links command', () => {
     fs.writeFileSync(path.join(tmpDir, 'src', 'a.js'), "import { x } from './b';\n");
     fs.writeFileSync(path.join(tmpDir, 'src', 'b.js'), 'exports.x = 1;\n');
 
-    const result = runGsdTools('verify key-links .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify key-links .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -914,7 +914,7 @@ describe('verify key-links command', () => {
     fs.writeFileSync(path.join(tmpDir, 'src', 'a.js'), 'const x = 1;\n');
     fs.writeFileSync(path.join(tmpDir, 'src', 'b.js'), 'exports.targetFunc = () => {};\n');
 
-    const result = runGsdTools('verify key-links .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify key-links .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -934,7 +934,7 @@ describe('verify key-links command', () => {
     fs.writeFileSync(path.join(tmpDir, 'src', 'a.js'), 'const x = 1;\n');
     fs.writeFileSync(path.join(tmpDir, 'src', 'b.js'), 'const y = 2;\n');
 
-    const result = runGsdTools('verify key-links .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify key-links .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -951,7 +951,7 @@ describe('verify key-links command', () => {
     fs.writeFileSync(path.join(tmpDir, 'src', 'a.js'), "const b = require('./src/b.js');\n");
     fs.writeFileSync(path.join(tmpDir, 'src', 'b.js'), 'module.exports = {};\n');
 
-    const result = runGsdTools('verify key-links .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify key-links .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -970,7 +970,7 @@ describe('verify key-links command', () => {
     ]);
     fs.writeFileSync(path.join(tmpDir, 'src', 'b.js'), 'module.exports = {};\n');
 
-    const result = runGsdTools('verify key-links .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify key-links .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -1000,7 +1000,7 @@ describe('verify key-links command', () => {
     const planPath = path.join(tmpDir, '.planning', 'phases', '01-test', '01-01-PLAN.md');
     fs.writeFileSync(planPath, content);
 
-    const result = runGsdTools('verify key-links .planning/phases/01-test/01-01-PLAN.md', tmpDir);
+    const result = runKataTools('verify key-links .planning/phases/01-test/01-01-PLAN.md', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);

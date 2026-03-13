@@ -1,5 +1,5 @@
 /**
- * GSD Tools Tests - frontmatter.cjs
+ * Kata Tools Tests - frontmatter.cjs
  *
  * Tests for the hand-rolled YAML parser's pure function exports:
  * extractFrontmatter, reconstructFrontmatter, spliceFrontmatter,

@@ -14,7 +14,7 @@ const dim = '\x1b[2m';
 const reset = '\x1b[0m';
 
 // Codex config.toml constants
-const KATA_CODEX_MARKER = '# GSD Agent Configuration \u2014 managed by kata-orchestrator installer';
+const KATA_CODEX_MARKER = '# Kata Agent Configuration \u2014 managed by kata-orchestrator installer';
 
 const CODEX_AGENT_SANDBOX = {
   'kata-executor': 'workspace-write',
@@ -218,7 +218,7 @@ console.log(banner);
 
 // Show help if requested
 if (hasHelp) {
-  console.log(`  ${yellow}Usage:${reset} npx kata-orchestrator [options]\n\n  ${yellow}Options:${reset}\n    ${cyan}-g, --global${reset}              Install globally (to config directory)\n    ${cyan}-l, --local${reset}               Install locally (to current directory)\n    ${cyan}--claude${reset}                  Install for Claude Code only\n    ${cyan}--opencode${reset}                Install for OpenCode only\n    ${cyan}--gemini${reset}                  Install for Gemini only\n    ${cyan}--codex${reset}                   Install for Codex only\n    ${cyan}--all${reset}                     Install for all runtimes\n    ${cyan}-u, --uninstall${reset}           Uninstall GSD (remove all GSD files)\n    ${cyan}-c, --config-dir <path>${reset}   Specify custom config directory\n    ${cyan}-h, --help${reset}                Show this help message\n    ${cyan}--force-statusline${reset}        Replace existing statusline config\n\n  ${yellow}Examples:${reset}\n    ${dim}# Interactive install (prompts for runtime and location)${reset}\n    npx kata-orchestrator\n\n    ${dim}# Install for Claude Code globally${reset}\n    npx kata-orchestrator --claude --global\n\n    ${dim}# Install for Gemini globally${reset}\n    npx kata-orchestrator --gemini --global\n\n    ${dim}# Install for Codex globally${reset}\n    npx kata-orchestrator --codex --global\n\n    ${dim}# Install for all runtimes globally${reset}\n    npx kata-orchestrator --all --global\n\n    ${dim}# Install to custom config directory${reset}\n    npx kata-orchestrator --codex --global --config-dir ~/.codex-work\n\n    ${dim}# Install to current project only${reset}\n    npx kata-orchestrator --claude --local\n\n    ${dim}# Uninstall GSD from Codex globally${reset}\n    npx kata-orchestrator --codex --global --uninstall\n\n  ${yellow}Notes:${reset}\n    The --config-dir option is useful when you have multiple configurations.\n    It takes priority over CLAUDE_CONFIG_DIR / GEMINI_CONFIG_DIR / CODEX_HOME environment variables.\n`);
+  console.log(`  ${yellow}Usage:${reset} npx kata-orchestrator [options]\n\n  ${yellow}Options:${reset}\n    ${cyan}-g, --global${reset}              Install globally (to config directory)\n    ${cyan}-l, --local${reset}               Install locally (to current directory)\n    ${cyan}--claude${reset}                  Install for Claude Code only\n    ${cyan}--opencode${reset}                Install for OpenCode only\n    ${cyan}--gemini${reset}                  Install for Gemini only\n    ${cyan}--codex${reset}                   Install for Codex only\n    ${cyan}--all${reset}                     Install for all runtimes\n    ${cyan}-u, --uninstall${reset}           Uninstall Kata (remove all Kata files)\n    ${cyan}-c, --config-dir <path>${reset}   Specify custom config directory\n    ${cyan}-h, --help${reset}                Show this help message\n    ${cyan}--force-statusline${reset}        Replace existing statusline config\n\n  ${yellow}Examples:${reset}\n    ${dim}# Interactive install (prompts for runtime and location)${reset}\n    npx kata-orchestrator\n\n    ${dim}# Install for Claude Code globally${reset}\n    npx kata-orchestrator --claude --global\n\n    ${dim}# Install for Gemini globally${reset}\n    npx kata-orchestrator --gemini --global\n\n    ${dim}# Install for Codex globally${reset}\n    npx kata-orchestrator --codex --global\n\n    ${dim}# Install for all runtimes globally${reset}\n    npx kata-orchestrator --all --global\n\n    ${dim}# Install to custom config directory${reset}\n    npx kata-orchestrator --codex --global --config-dir ~/.codex-work\n\n    ${dim}# Install to current project only${reset}\n    npx kata-orchestrator --claude --local\n\n    ${dim}# Uninstall Kata from Codex globally${reset}\n    npx kata-orchestrator --codex --global --uninstall\n\n  ${yellow}Notes:${reset}\n    The --config-dir option is useful when you have multiple configurations.\n    It takes priority over CLAUDE_CONFIG_DIR / GEMINI_CONFIG_DIR / CODEX_HOME environment variables.\n`);
   process.exit(0);
 }
 
@@ -462,7 +462,7 @@ function convertSlashCommandsToCodexSkillMentions(content) {
 
 function convertClaudeToCodexMarkdown(content) {
   let converted = convertSlashCommandsToCodexSkillMentions(content);
-  converted = converted.replace(/\$ARGUMENTS\b/g, '{{GSD_ARGS}}');
+  converted = converted.replace(/\$ARGUMENTS\b/g, '{{Kata_ARGS}}');
   return converted;
 }
 
@@ -471,11 +471,11 @@ function getCodexSkillAdapterHeader(skillName) {
   return `<codex_skill_adapter>
 ## A. Skill Invocation
 - This skill is invoked by mentioning \`${invocation}\`.
-- Treat all user text after \`${invocation}\` as \`{{GSD_ARGS}}\`.
-- If no arguments are present, treat \`{{GSD_ARGS}}\` as empty.
+- Treat all user text after \`${invocation}\` as \`{{Kata_ARGS}}\`.
+- If no arguments are present, treat \`{{Kata_ARGS}}\` as empty.
 
 ## B. AskUserQuestion → request_user_input Mapping
-GSD workflows use \`AskUserQuestion\` (Claude Code syntax). Translate to Codex \`request_user_input\`:
+Kata workflows use \`AskUserQuestion\` (Claude Code syntax). Translate to Codex \`request_user_input\`:
 
 Parameter mapping:
 - \`header\` → \`header\`
@@ -493,12 +493,12 @@ Execute mode fallback:
 - When \`request_user_input\` is rejected (Execute mode), present a plain-text numbered list and pick a reasonable default.
 
 ## C. Task() → spawn_agent Mapping
-GSD workflows use \`Task(...)\` (Claude Code syntax). Translate to Codex collaboration tools:
+Kata workflows use \`Task(...)\` (Claude Code syntax). Translate to Codex collaboration tools:
 
 Direct mapping:
 - \`Task(subagent_type="X", prompt="Y")\` → \`spawn_agent(agent_type="X", message="Y")\`
 - \`Task(model="...")\` → omit (Codex uses per-role config, not inline model selection)
-- \`fork_context: false\` by default — GSD agents load their own context via \`<files_to_read>\` blocks
+- \`fork_context: false\` by default — Kata agents load their own context via \`<files_to_read>\` blocks
 
 Parallel fan-out:
 - Spawn multiple agents → collect agent IDs → \`wait(ids)\` for all to complete
@@ -512,7 +512,7 @@ Result parsing:
 function convertClaudeCommandToCodexSkill(content, skillName) {
   const converted = convertClaudeToCodexMarkdown(content);
   const { frontmatter, body } = extractFrontmatterAndBody(converted);
-  let description = `Run GSD workflow ${skillName}.`;
+  let description = `Run Kata workflow ${skillName}.`;
   if (frontmatter) {
     const maybeDescription = extractFrontmatterField(frontmatter, 'description');
     if (maybeDescription) {
@@ -571,7 +571,7 @@ function generateCodexAgentToml(agentName, agentContent) {
 }
 
 /**
- * Generate the GSD config block for Codex config.toml.
+ * Generate the Kata config block for Codex config.toml.
  * @param {Array<{name: string, description: string}>} agents
  */
 function generateCodexConfigBlock(agents) {
@@ -598,16 +598,16 @@ function generateCodexConfigBlock(agents) {
 }
 
 /**
- * Strip GSD sections from Codex config.toml content.
+ * Strip Kata sections from Codex config.toml content.
  * Returns cleaned content, or null if file would be empty.
  */
-function stripGsdFromCodexConfig(content) {
+function stripKataFromCodexConfig(content) {
   const markerIndex = content.indexOf(KATA_CODEX_MARKER);
 
   if (markerIndex !== -1) {
-    // Has GSD marker — remove everything from marker to EOF
+    // Has Kata marker — remove everything from marker to EOF
     let before = content.substring(0, markerIndex).trimEnd();
-    // Also strip GSD-injected feature keys above the marker (Case 3 inject)
+    // Also strip Kata-injected feature keys above the marker (Case 3 inject)
     before = before.replace(/^multi_agent\s*=\s*true\s*\n?/m, '');
     before = before.replace(/^default_mode_request_user_input\s*=\s*true\s*\n?/m, '');
     before = before.replace(/^\[features\]\s*\n(?=\[|$)/m, '');
@@ -616,7 +616,7 @@ function stripGsdFromCodexConfig(content) {
     return before + '\n';
   }
 
-  // No marker but may have GSD-injected feature keys
+  // No marker but may have Kata-injected feature keys
   let cleaned = content;
   cleaned = cleaned.replace(/^multi_agent\s*=\s*true\s*\n?/m, '');
   cleaned = cleaned.replace(/^default_mode_request_user_input\s*=\s*true\s*\n?/m, '');
@@ -638,8 +638,8 @@ function stripGsdFromCodexConfig(content) {
 }
 
 /**
- * Merge GSD config block into an existing or new config.toml.
- * Three cases: new file, existing with GSD marker, existing without marker.
+ * Merge Kata config block into an existing or new config.toml.
+ * Three cases: new file, existing with Kata marker, existing without marker.
  */
 function mergeCodexConfig(configPath, kataBlock) {
   // Case 1: No config.toml — create fresh
@@ -651,11 +651,11 @@ function mergeCodexConfig(configPath, kataBlock) {
   const existing = fs.readFileSync(configPath, 'utf8');
   const markerIndex = existing.indexOf(KATA_CODEX_MARKER);
 
-  // Case 2: Has GSD marker — truncate and re-append
+  // Case 2: Has Kata marker — truncate and re-append
   if (markerIndex !== -1) {
     let before = existing.substring(0, markerIndex).trimEnd();
     if (before) {
-      // Strip any GSD-managed sections that leaked above the marker from previous installs
+      // Strip any Kata-managed sections that leaked above the marker from previous installs
       before = before.replace(/^\[agents\.kata-[^\]]+\]\n(?:(?!\[)[^\n]*\n?)*/gm, '');
       before = before.replace(/^\[agents\]\n(?:(?!\[)[^\n]*\n?)*/m, '');
       before = before.replace(/\n{3,}/g, '\n\n').trimEnd();
@@ -828,7 +828,7 @@ function convertClaudeToGeminiAgent(content) {
   // Escape ${VAR} patterns in agent body for Gemini CLI compatibility.
   // Gemini's templateString() treats all ${word} patterns as template variables
   // and throws "Template validation failed: Missing required input parameters"
-  // when they can't be resolved. GSD agents use ${PHASE}, ${PLAN}, etc. as
+  // when they can't be resolved. Kata agents use ${PHASE}, ${PLAN}, etc. as
   // shell variables in bash code blocks — convert to $VAR (no braces) which
   // is equivalent bash and invisible to Gemini's /\$\{(\w+)\}/g regex.
   const escapedBody = body.replace(/\$\{(\w+)\}/g, '$$$1');
@@ -1060,7 +1060,7 @@ function copyCommandsAsCodexSkills(srcDir, skillsDir, prefix, pathPrefix, runtim
 
   fs.mkdirSync(skillsDir, { recursive: true });
 
-  // Remove previous GSD Codex skills to avoid stale command skills.
+  // Remove previous Kata Codex skills to avoid stale command skills.
   const existing = fs.readdirSync(skillsDir, { withFileTypes: true });
   for (const entry of existing) {
     if (entry.isDirectory() && entry.name.startsWith(`${prefix}-`)) {
@@ -1172,7 +1172,7 @@ function copyWithPathReplacement(srcDir, destDir, pathPrefix, runtime, isCommand
 }
 
 /**
- * Clean up orphaned files from previous GSD versions
+ * Clean up orphaned files from previous Kata versions
  */
 function cleanupOrphanedFiles(configDir) {
   const orphanedFiles = [
@@ -1231,8 +1231,8 @@ function cleanupOrphanedHooks(settings) {
     console.log(`  ${green}✓${reset} Removed orphaned hook registrations`);
   }
 
-  // Fix #330: Update statusLine if it points to old GSD statusline.js path
-  // Only match the specific old GSD path pattern (hooks/statusline.js),
+  // Fix #330: Update statusLine if it points to old Kata statusline.js path
+  // Only match the specific old Kata path pattern (hooks/statusline.js),
   // not third-party statusline scripts that happen to contain 'statusline.js'
   if (settings.statusLine && settings.statusLine.command &&
       /hooks[\/\\]statusline\.js/.test(settings.statusLine.command)) {
@@ -1247,8 +1247,8 @@ function cleanupOrphanedHooks(settings) {
 }
 
 /**
- * Uninstall GSD from the specified directory for a specific runtime
- * Removes only GSD-specific files/directories, preserves user content
+ * Uninstall Kata from the specified directory for a specific runtime
+ * Removes only Kata-specific files/directories, preserves user content
  * @param {boolean} isGlobal - Whether to uninstall from global or local
  * @param {string} runtime - Target runtime ('claude', 'opencode', 'gemini', 'codex')
  */
@@ -1271,7 +1271,7 @@ function uninstall(isGlobal, runtime = 'claude') {
   if (runtime === 'gemini') runtimeLabel = 'Gemini';
   if (runtime === 'codex') runtimeLabel = 'Codex';
 
-  console.log(`  Uninstalling GSD from ${cyan}${runtimeLabel}${reset} at ${cyan}${locationLabel}${reset}\n`);
+  console.log(`  Uninstalling Kata from ${cyan}${runtimeLabel}${reset} at ${cyan}${locationLabel}${reset}\n`);
 
   // Check if target directory exists
   if (!fs.existsSync(targetDir)) {
@@ -1282,7 +1282,7 @@ function uninstall(isGlobal, runtime = 'claude') {
 
   let removedCount = 0;
 
-  // 1. Remove GSD commands/skills
+  // 1. Remove Kata commands/skills
   if (isOpencode) {
     // OpenCode: remove command/kata-*.md files
     const commandDir = path.join(targetDir, 'command');
@@ -1294,7 +1294,7 @@ function uninstall(isGlobal, runtime = 'claude') {
           removedCount++;
         }
       }
-      console.log(`  ${green}✓${reset} Removed GSD commands from command/`);
+      console.log(`  ${green}✓${reset} Removed Kata commands from command/`);
     }
   } else if (isCodex) {
     // Codex: remove skills/kata-*/SKILL.md skill directories
@@ -1314,7 +1314,7 @@ function uninstall(isGlobal, runtime = 'claude') {
       }
     }
 
-    // Codex: remove GSD agent .toml config files
+    // Codex: remove Kata agent .toml config files
     const codexAgentsDir = path.join(targetDir, 'agents');
     if (fs.existsSync(codexAgentsDir)) {
       const tomlFiles = fs.readdirSync(codexAgentsDir);
@@ -1331,20 +1331,20 @@ function uninstall(isGlobal, runtime = 'claude') {
       }
     }
 
-    // Codex: clean GSD sections from config.toml
+    // Codex: clean Kata sections from config.toml
     const configPath = path.join(targetDir, 'config.toml');
     if (fs.existsSync(configPath)) {
       const content = fs.readFileSync(configPath, 'utf8');
-      const cleaned = stripGsdFromCodexConfig(content);
+      const cleaned = stripKataFromCodexConfig(content);
       if (cleaned === null) {
         // File is empty after stripping — delete it
         fs.unlinkSync(configPath);
         removedCount++;
-        console.log(`  ${green}✓${reset} Removed config.toml (was GSD-only)`);
+        console.log(`  ${green}✓${reset} Removed config.toml (was Kata-only)`);
       } else if (cleaned !== content) {
         fs.writeFileSync(configPath, cleaned);
         removedCount++;
-        console.log(`  ${green}✓${reset} Cleaned GSD sections from config.toml`);
+        console.log(`  ${green}✓${reset} Cleaned Kata sections from config.toml`);
       }
     }
   } else {
@@ -1365,7 +1365,7 @@ function uninstall(isGlobal, runtime = 'claude') {
     console.log(`  ${green}✓${reset} Removed kata-orchestrator/`);
   }
 
-  // 3. Remove GSD agents (kata-*.md files only)
+  // 3. Remove Kata agents (kata-*.md files only)
   const agentsDir = path.join(targetDir, 'agents');
   if (fs.existsSync(agentsDir)) {
     const files = fs.readdirSync(agentsDir);
@@ -1378,11 +1378,11 @@ function uninstall(isGlobal, runtime = 'claude') {
     }
     if (agentCount > 0) {
       removedCount++;
-      console.log(`  ${green}✓${reset} Removed ${agentCount} GSD agents`);
+      console.log(`  ${green}✓${reset} Removed ${agentCount} Kata agents`);
     }
   }
 
-  // 4. Remove GSD hooks
+  // 4. Remove Kata hooks
   const hooksDir = path.join(targetDir, 'hooks');
   if (fs.existsSync(hooksDir)) {
     const kataHooks = ['.js', 'kata-check-update.js', 'kata-check-update.sh', 'kata-context-monitor.js'];
@@ -1396,11 +1396,11 @@ function uninstall(isGlobal, runtime = 'claude') {
     }
     if (hookCount > 0) {
       removedCount++;
-      console.log(`  ${green}✓${reset} Removed ${hookCount} GSD hooks`);
+      console.log(`  ${green}✓${reset} Removed ${hookCount} Kata hooks`);
     }
   }
 
-  // 5. Remove GSD package.json (CommonJS mode marker)
+  // 5. Remove Kata package.json (CommonJS mode marker)
   const pkgJsonPath = path.join(targetDir, 'package.json');
   if (fs.existsSync(pkgJsonPath)) {
     try {
@@ -1409,43 +1409,43 @@ function uninstall(isGlobal, runtime = 'claude') {
       if (content === '{"type":"commonjs"}') {
         fs.unlinkSync(pkgJsonPath);
         removedCount++;
-        console.log(`  ${green}✓${reset} Removed GSD package.json`);
+        console.log(`  ${green}✓${reset} Removed Kata package.json`);
       }
     } catch (e) {
       // Ignore read errors
     }
   }
 
-  // 6. Clean up settings.json (remove GSD hooks and statusline)
+  // 6. Clean up settings.json (remove Kata hooks and statusline)
   const settingsPath = path.join(targetDir, 'settings.json');
   if (fs.existsSync(settingsPath)) {
     let settings = readSettings(settingsPath);
     let settingsModified = false;
 
-    // Remove GSD statusline if it references our hook
+    // Remove Kata statusline if it references our hook
     if (settings.statusLine && settings.statusLine.command &&
         settings.statusLine.command.includes('')) {
       delete settings.statusLine;
       settingsModified = true;
-      console.log(`  ${green}✓${reset} Removed GSD statusline from settings`);
+      console.log(`  ${green}✓${reset} Removed Kata statusline from settings`);
     }
 
-    // Remove GSD hooks from SessionStart
+    // Remove Kata hooks from SessionStart
     if (settings.hooks && settings.hooks.SessionStart) {
       const before = settings.hooks.SessionStart.length;
       settings.hooks.SessionStart = settings.hooks.SessionStart.filter(entry => {
         if (entry.hooks && Array.isArray(entry.hooks)) {
-          // Filter out GSD hooks
-          const hasGsdHook = entry.hooks.some(h =>
+          // Filter out Kata hooks
+          const hasKataHook = entry.hooks.some(h =>
             h.command && (h.command.includes('kata-check-update') || h.command.includes(''))
           );
-          return !hasGsdHook;
+          return !hasKataHook;
         }
         return true;
       });
       if (settings.hooks.SessionStart.length < before) {
         settingsModified = true;
-        console.log(`  ${green}✓${reset} Removed GSD hooks from settings`);
+        console.log(`  ${green}✓${reset} Removed Kata hooks from settings`);
       }
       // Clean up empty array
       if (settings.hooks.SessionStart.length === 0) {
@@ -1453,16 +1453,16 @@ function uninstall(isGlobal, runtime = 'claude') {
       }
     }
 
-    // Remove GSD hooks from PostToolUse and AfterTool (Gemini uses AfterTool)
+    // Remove Kata hooks from PostToolUse and AfterTool (Gemini uses AfterTool)
     for (const eventName of ['PostToolUse', 'AfterTool']) {
       if (settings.hooks && settings.hooks[eventName]) {
         const before = settings.hooks[eventName].length;
         settings.hooks[eventName] = settings.hooks[eventName].filter(entry => {
           if (entry.hooks && Array.isArray(entry.hooks)) {
-            const hasGsdHook = entry.hooks.some(h =>
+            const hasKataHook = entry.hooks.some(h =>
               h.command && h.command.includes('kata-context-monitor')
             );
-            return !hasGsdHook;
+            return !hasKataHook;
           }
           return true;
         });
@@ -1500,7 +1500,7 @@ function uninstall(isGlobal, runtime = 'claude') {
         const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
         let modified = false;
 
-        // Remove GSD permission entries
+        // Remove Kata permission entries
         if (config.permission) {
           for (const permType of ['read', 'external_directory']) {
             if (config.permission[permType]) {
@@ -1525,7 +1525,7 @@ function uninstall(isGlobal, runtime = 'claude') {
         if (modified) {
           fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
           removedCount++;
-          console.log(`  ${green}✓${reset} Removed GSD permissions from opencode.json`);
+          console.log(`  ${green}✓${reset} Removed Kata permissions from opencode.json`);
         }
       } catch (e) {
         // Ignore JSON parse errors
@@ -1534,11 +1534,11 @@ function uninstall(isGlobal, runtime = 'claude') {
   }
 
   if (removedCount === 0) {
-    console.log(`  ${yellow}⚠${reset} No GSD files found to remove.`);
+    console.log(`  ${yellow}⚠${reset} No Kata files found to remove.`);
   }
 
   console.log(`
-  ${green}Done!${reset} GSD has been uninstalled from ${runtimeLabel}.
+  ${green}Done!${reset} Kata has been uninstalled from ${runtimeLabel}.
   Your other files and settings have been preserved.
 `);
 }
@@ -1605,8 +1605,8 @@ function parseJsonc(content) {
 }
 
 /**
- * Configure OpenCode permissions to allow reading GSD reference docs
- * This prevents permission prompts when GSD accesses the kata-orchestrator directory
+ * Configure OpenCode permissions to allow reading Kata reference docs
+ * This prevents permission prompts when Kata accesses the kata-orchestrator directory
  * @param {boolean} isGlobal - Whether this is a global or local install
  */
 function configureOpencodePermissions(isGlobal = true) {
@@ -1640,7 +1640,7 @@ function configureOpencodePermissions(isGlobal = true) {
     config.permission = {};
   }
 
-  // Build the GSD path using the actual config directory
+  // Build the Kata path using the actual config directory
   // Use ~ shorthand if it's in the default location, otherwise use full path
   const defaultConfigDir = path.join(os.homedir(), '.config', 'opencode');
   const kataPath = opencodeConfigDir === defaultConfigDir
@@ -1673,7 +1673,7 @@ function configureOpencodePermissions(isGlobal = true) {
 
   // Write config back
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
-  console.log(`  ${green}✓${reset} Configured read permission for GSD docs`);
+  console.log(`  ${green}✓${reset} Configured read permission for Kata docs`);
 }
 
 /**
@@ -1801,7 +1801,7 @@ function writeManifest(configDir, runtime = 'claude') {
 }
 
 /**
- * Detect user-modified GSD files by comparing against install manifest.
+ * Detect user-modified Kata files by comparing against install manifest.
  * Backs up modified files to kata-local-patches/ for reapply after update.
  */
 function saveLocalPatches(configDir) {
@@ -1833,7 +1833,7 @@ function saveLocalPatches(configDir) {
       files: modified
     };
     fs.writeFileSync(path.join(patchesDir, 'backup-meta.json'), JSON.stringify(meta, null, 2));
-    console.log('  ' + yellow + 'i' + reset + '  Found ' + modified.length + ' locally modified GSD file(s) — backed up to ' + PATCHES_DIR_NAME + '/');
+    console.log('  ' + yellow + 'i' + reset + '  Found ' + modified.length + ' locally modified Kata file(s) — backed up to ' + PATCHES_DIR_NAME + '/');
     for (const f of modified) {
       console.log('     ' + dim + f + reset);
     }
@@ -1905,7 +1905,7 @@ function install(isGlobal, runtime = 'claude') {
   // Track installation failures
   const failures = [];
 
-  // Save any locally modified GSD files before they get wiped
+  // Save any locally modified Kata files before they get wiped
   saveLocalPatches(targetDir);
 
   // Clean up orphaned files from previous versions
@@ -1967,7 +1967,7 @@ function install(isGlobal, runtime = 'claude') {
     const agentsDest = path.join(targetDir, 'agents');
     fs.mkdirSync(agentsDest, { recursive: true });
 
-    // Remove old GSD agents (kata-*.md) before copying new ones
+    // Remove old Kata agents (kata-*.md) before copying new ones
     if (fs.existsSync(agentsDest)) {
       for (const file of fs.readdirSync(agentsDest)) {
         if (file.startsWith('kata-') && file.endsWith('.md')) {
@@ -2027,7 +2027,7 @@ function install(isGlobal, runtime = 'claude') {
   }
 
   if (!isCodex) {
-    // Write package.json to force CommonJS mode for GSD scripts
+    // Write package.json to force CommonJS mode for Kata scripts
     // Prevents "require is not defined" errors when project has "type": "module"
     // Node.js walks up looking for package.json - this stops inheritance from project
     const pkgJsonDest = path.join(targetDir, 'package.json');
@@ -2152,11 +2152,11 @@ function install(isGlobal, runtime = 'claude') {
       settings.hooks.SessionStart = [];
     }
 
-    const hasGsdUpdateHook = settings.hooks.SessionStart.some(entry =>
+    const hasKataUpdateHook = settings.hooks.SessionStart.some(entry =>
       entry.hooks && entry.hooks.some(h => h.command && h.command.includes('kata-check-update'))
     );
 
-    if (!hasGsdUpdateHook) {
+    if (!hasKataUpdateHook) {
       settings.hooks.SessionStart.push({
         hooks: [
           {
@@ -2266,13 +2266,13 @@ function handleStatusline(settings, isInteractive, callback) {
   Your current statusline:
     ${dim}command: ${existingCmd}${reset}
 
-  GSD includes a statusline showing:
+  Kata includes a statusline showing:
     • Model name
     • Current task (from todo list)
     • Context window usage (color-coded)
 
   ${cyan}1${reset}) Keep existing
-  ${cyan}2${reset}) Replace with GSD statusline
+  ${cyan}2${reset}) Replace with Kata statusline
 `);
 
   rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
@@ -2372,7 +2372,7 @@ function promptLocation(runtimes) {
 }
 
 /**
- * Install GSD for all selected runtimes
+ * Install Kata for all selected runtimes
  */
 function installAllRuntimes(runtimes, isGlobal, isInteractive) {
   const results = [];
@@ -2403,13 +2403,13 @@ function installAllRuntimes(runtimes, isGlobal, isInteractive) {
 }
 
 // Test-only exports — skip main logic when loaded as a module for testing
-if (process.env.GSD_TEST_MODE) {
+if (process.env.Kata_TEST_MODE) {
   module.exports = {
     getCodexSkillAdapterHeader,
     convertClaudeAgentToCodexAgent,
     generateCodexAgentToml,
     generateCodexConfigBlock,
-    stripGsdFromCodexConfig,
+    stripKataFromCodexConfig,
     mergeCodexConfig,
     installCodexConfig,
     convertClaudeCommandToCodexSkill,
@@ -2455,4 +2455,4 @@ if (hasGlobal && hasLocal) {
   }
 }
 
-} // end of else block for GSD_TEST_MODE
+} // end of else block for Kata_TEST_MODE

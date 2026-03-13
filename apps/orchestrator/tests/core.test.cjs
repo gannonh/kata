@@ -1,5 +1,5 @@
 /**
- * GSD Tools Tests - core.cjs
+ * Kata Tools Tests - core.cjs
  *
  * Tests for the foundational module's exports including regressions
  * for known bugs (REG-01: loadConfig model_overrides, REG-02: getRoadmapPhaseInternal export).

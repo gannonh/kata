@@ -21,7 +21,7 @@ All steps execute in sequence in a single context window. Partial completion is 
 3. Rename agent files: `for f in agents/gsd-*.md; do mv "$f" "agents/kata-${f#agents/gsd-}"; done`
 4. Remove statusline hook: `rm hooks/gsd-statusline.js`
 5. Rename remaining hooks: `mv hooks/gsd-check-update.js hooks/kata-check-update.js && mv hooks/gsd-context-monitor.js hooks/kata-context-monitor.js`
-6. Mass string replacement via `find` + `sed -i ''` across all `.js`, `.cjs`, `.mjs`, `.json`, `.md`, `.yaml`, `.yml` files (excluding `node_modules`, `.git`, `CHANGELOG.md`): replace `get-shit-done-cc` → `kata-orchestrator`, `get-shit-done` → `kata-orchestrator`, `gsd-tools` → `kata-tools`, `gsd-check-update` → `kata-check-update`, `gsd-context-monitor` → `kata-context-monitor`, `gsd-statusline` → remove references, `\bgsd\b` → `kata`, `TÂCHES` → `kata-orchestrator`, `GSD_CODEX_MARKER` → `KATA_CODEX_MARKER`
+6. Mass string replacement via `find` + `sed -i ''` across all `.js`, `.cjs`, `.mjs`, `.json`, `.md`, `.yaml`, `.yml` files (excluding `node_modules`, `.git`, `CHANGELOG.md`): replace `get-shit-done-cc` → `kata-orchestrator`, `get-shit-done` → `kata-orchestrator`, `gsd-tools` → `kata-tools`, `gsd-check-update` → `kata-check-update`, `gsd-context-monitor` → `kata-context-monitor`, `gsd-statusline` → remove references, `\bgsd\b` → `kata`, `TÂCHES` → `kata-orchestrator`, `Kata_CODEX_MARKER` → `KATA_CODEX_MARKER`
 7. Manually verify and update `package.json`: name, bin key (`get-shit-done-cc` → `kata`), files array entries, description, author, repository, homepage, bugs URLs
 8. Verify and update `scripts/build-hooks.js`: remove `gsd-statusline.js` entry from `HOOKS_TO_COPY`; confirm remaining entries reference `kata-check-update` and `kata-context-monitor`
 9. Delete stale build output and rebuild: `rm -rf hooks/dist/ && npm run build:hooks`
@@ -64,7 +64,7 @@ All steps execute in sequence in a single context window. Partial completion is 
 - `package.json` — current metadata to update
 - `scripts/build-hooks.js` — build script to update
 - `bin/install.js` — ~134 gsd occurrences; requires thorough sed pass
-- `tests/helpers.cjs` — exports `runGsdTools()` with hardcoded path to `get-shit-done/bin/gsd-tools.cjs`; both function name and path must update
+- `tests/helpers.cjs` — exports `runKataTools()` with hardcoded path to `get-shit-done/bin/gsd-tools.cjs`; both function name and path must update
 - S01-RESEARCH.md — complete list of affected files and patterns
 
 ## Expected Output

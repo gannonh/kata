@@ -1,5 +1,5 @@
 /**
- * GSD Agent Frontmatter Tests
+ * Kata Agent Frontmatter Tests
  *
  * Validates that all agent .md files have correct frontmatter fields:
  * - Anti-heredoc instruction present in file-writing agents

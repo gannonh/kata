@@ -1,16 +1,16 @@
 ---
 name: kata:join-discord
-description: Join the GSD Discord community
+description: Join the Kata Discord community
 ---
 
 <objective>
-Display the Discord invite link for the GSD community server.
+Display the Discord invite link for the Kata community server.
 </objective>
 
 <output>
-# Join the GSD Discord
+# Join the Kata Discord
 
-Connect with other GSD users, get help, share what you're building, and stay updated.
+Connect with other Kata users, get help, share what you're building, and stay updated.
 
 **Invite link:** https://discord.gg/kata
 

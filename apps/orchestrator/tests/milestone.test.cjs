@@ -1,12 +1,12 @@
 /**
- * GSD Tools Tests - Milestone
+ * Kata Tools Tests - Milestone
  */
 
 const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { runGsdTools, createTempProject, cleanup } = require('./helpers.cjs');
+const { runKataTools, createTempProject, cleanup } = require('./helpers.cjs');
 
 describe('milestone complete command', () => {
   let tmpDir;
@@ -40,7 +40,7 @@ describe('milestone complete command', () => {
       `---\none-liner: Set up project infrastructure\n---\n# Summary\n`
     );
 
-    const result = runGsdTools('milestone complete v1.0 --name MVP Foundation', tmpDir);
+    const result = runKataTools('milestone complete v1.0 --name MVP Foundation', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -83,7 +83,7 @@ describe('milestone complete command', () => {
       `# State\n\n**Status:** In progress\n**Last Activity:** 2025-01-01\n**Last Activity Description:** Working\n`
     );
 
-    const result = runGsdTools('milestone complete v1.0 --name Beta', tmpDir);
+    const result = runKataTools('milestone complete v1.0 --name Beta', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const milestones = fs.readFileSync(path.join(tmpDir, '.planning', 'MILESTONES.md'), 'utf-8');
@@ -109,7 +109,7 @@ describe('milestone complete command', () => {
       `# State\n\n**Status:** In progress\n**Last Activity:** 2025-01-01\n**Last Activity Description:** Working\n`
     );
 
-    let result = runGsdTools('milestone complete v1.1 --name Second', tmpDir);
+    let result = runKataTools('milestone complete v1.1 --name Second', tmpDir);
     assert.ok(result.success, `v1.1 failed: ${result.error}`);
 
     fs.writeFileSync(
@@ -117,7 +117,7 @@ describe('milestone complete command', () => {
       `# Roadmap v1.2\n`
     );
 
-    result = runGsdTools('milestone complete v1.2 --name Third', tmpDir);
+    result = runKataTools('milestone complete v1.2 --name Third', tmpDir);
     assert.ok(result.success, `v1.2 failed: ${result.error}`);
 
     const milestones = fs.readFileSync(
@@ -152,7 +152,7 @@ describe('milestone complete command', () => {
       `---\none-liner: Set up project infrastructure\n---\n# Summary\n`
     );
 
-    const result = runGsdTools('milestone complete v1.0 --name MVP --archive-phases', tmpDir);
+    const result = runKataTools('milestone complete v1.0 --name MVP --archive-phases', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -185,7 +185,7 @@ describe('milestone complete command', () => {
       `# State\n\n**Status:** In progress\n**Last Activity:** 2025-01-01\n**Last Activity Description:** Working\n`
     );
 
-    const result = runGsdTools('milestone complete v1.0 --name MVP', tmpDir);
+    const result = runKataTools('milestone complete v1.0 --name MVP', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const archivedReq = fs.readFileSync(
@@ -209,7 +209,7 @@ describe('milestone complete command', () => {
       `# State\n\n**Status:** In progress\n**Last Activity:** 2025-01-01\n**Last Activity Description:** Working\n`
     );
 
-    const result = runGsdTools('milestone complete v1.0 --name Test', tmpDir);
+    const result = runKataTools('milestone complete v1.0 --name Test', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -230,7 +230,7 @@ describe('milestone complete command', () => {
       `# State\n\n**Status:** In progress\n**Last Activity:** 2025-01-01\n**Last Activity Description:** Working\n`
     );
 
-    const result = runGsdTools('milestone complete v1.0 --name NoRoadmap', tmpDir);
+    const result = runKataTools('milestone complete v1.0 --name NoRoadmap', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -276,7 +276,7 @@ describe('milestone complete command', () => {
     fs.writeFileSync(path.join(p4, '04-02-PLAN.md'), '# Plan 2\n');
     fs.writeFileSync(path.join(p4, '04-01-SUMMARY.md'), '---\none-liner: Polished UI\n---\n# Summary\n');
 
-    const result = runGsdTools('milestone complete v1.1 --name "Second Release"', tmpDir);
+    const result = runKataTools('milestone complete v1.1 --name "Second Release"', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -310,7 +310,7 @@ describe('milestone complete command', () => {
     fs.mkdirSync(p2, { recursive: true });
     fs.writeFileSync(path.join(p2, '02-01-PLAN.md'), '# Plan\n');
 
-    const result = runGsdTools('milestone complete v1.1 --name Test --archive-phases', tmpDir);
+    const result = runKataTools('milestone complete v1.1 --name Test --archive-phases', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     // Phase 2 should be archived
@@ -351,7 +351,7 @@ describe('milestone complete command', () => {
       '---\none-liner: Scaling work\n---\n'
     );
 
-    const result = runGsdTools('milestone complete v1.0 --name MVP', tmpDir);
+    const result = runKataTools('milestone complete v1.0 --name MVP', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -386,7 +386,7 @@ describe('milestone complete command', () => {
     fs.mkdirSync(misc, { recursive: true });
     fs.writeFileSync(path.join(misc, 'PLAN.md'), '# Not a phase\n');
 
-    const result = runGsdTools('milestone complete v1.0 --name Test', tmpDir);
+    const result = runKataTools('milestone complete v1.0 --name Test', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -417,7 +417,7 @@ describe('milestone complete command', () => {
     fs.mkdirSync(p45, { recursive: true });
     fs.writeFileSync(path.join(p45, 'PLAN.md'), '# Plan\n');
 
-    const result = runGsdTools('milestone complete v1.49 --name DACP', tmpDir);
+    const result = runKataTools('milestone complete v1.49 --name DACP', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -435,7 +435,7 @@ describe('milestone complete command', () => {
     );
     // phases directory exists but is empty (from createTempProject)
 
-    const result = runGsdTools('milestone complete v1.0 --name EmptyPhases', tmpDir);
+    const result = runKataTools('milestone complete v1.0 --name EmptyPhases', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -499,7 +499,7 @@ describe('requirements mark-complete command', () => {
   test('marks single requirement complete (checkbox + table)', () => {
     writeRequirements(tmpDir, STANDARD_REQUIREMENTS);
 
-    const result = runGsdTools('requirements mark-complete TEST-01', tmpDir);
+    const result = runKataTools('requirements mark-complete TEST-01', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -516,7 +516,7 @@ describe('requirements mark-complete command', () => {
   test('handles mixed prefixes in single call (TEST-XX, REG-XX, INFRA-XX)', () => {
     writeRequirements(tmpDir, STANDARD_REQUIREMENTS);
 
-    const result = runGsdTools('requirements mark-complete TEST-01,REG-01,INFRA-01', tmpDir);
+    const result = runKataTools('requirements mark-complete TEST-01,REG-01,INFRA-01', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -537,7 +537,7 @@ describe('requirements mark-complete command', () => {
   test('accepts space-separated IDs', () => {
     writeRequirements(tmpDir, STANDARD_REQUIREMENTS);
 
-    const result = runGsdTools('requirements mark-complete TEST-01 TEST-02', tmpDir);
+    const result = runKataTools('requirements mark-complete TEST-01 TEST-02', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -551,7 +551,7 @@ describe('requirements mark-complete command', () => {
   test('accepts bracket-wrapped IDs [REQ-01, REQ-02]', () => {
     writeRequirements(tmpDir, STANDARD_REQUIREMENTS);
 
-    const result = runGsdTools('requirements mark-complete [TEST-01,TEST-02]', tmpDir);
+    const result = runKataTools('requirements mark-complete [TEST-01,TEST-02]', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -565,7 +565,7 @@ describe('requirements mark-complete command', () => {
   test('returns not_found for invalid IDs while updating valid ones', () => {
     writeRequirements(tmpDir, STANDARD_REQUIREMENTS);
 
-    const result = runGsdTools('requirements mark-complete TEST-01,FAKE-99', tmpDir);
+    const result = runKataTools('requirements mark-complete TEST-01,FAKE-99', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -579,7 +579,7 @@ describe('requirements mark-complete command', () => {
     writeRequirements(tmpDir, STANDARD_REQUIREMENTS);
 
     // TEST-03 already has [x] and Complete in the fixture
-    const result = runGsdTools('requirements mark-complete TEST-03', tmpDir);
+    const result = runKataTools('requirements mark-complete TEST-03', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -596,7 +596,7 @@ describe('requirements mark-complete command', () => {
   test('missing REQUIREMENTS.md returns expected error structure', () => {
     // createTempProject does not create REQUIREMENTS.md — so it's already missing
 
-    const result = runGsdTools('requirements mark-complete TEST-01', tmpDir);
+    const result = runKataTools('requirements mark-complete TEST-01', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);

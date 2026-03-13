@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.2] - 2026-03-13
+
+### Changed
+
+- Complete rebrand cleanup across orchestrator codebase
+
 ## [2.0.1] - 2026-03-13
 
 ### Fixed
@@ -675,7 +681,7 @@ Kata 1.0 ships with **Claude Code plugin support** as the recommended installati
 ### Fixed
 
 - Hooks installation now handles subdirectories correctly
-- GSD reference validation in transform workflow
+- Kata reference validation in transform workflow
 
 ## [0.1.5] - 2026-01-22
 

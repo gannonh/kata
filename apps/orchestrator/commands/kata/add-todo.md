@@ -10,7 +10,7 @@ allowed-tools:
 ---
 
 <objective>
-Capture an idea, task, or issue that surfaces during a GSD session as a structured todo for later work.
+Capture an idea, task, or issue that surfaces during a Kata session as a structured todo for later work.
 
 Routes to the add-todo workflow which handles:
 - Directory structure creation

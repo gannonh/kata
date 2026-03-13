@@ -1,5 +1,5 @@
 <overview>
-Git integration for GSD framework.
+Git integration for Kata framework.
 </overview>
 
 <core_principle>
@@ -29,7 +29,7 @@ The git log should read like a changelog of what shipped, not a diary of plannin
 [ -d .git ] && echo "GIT_EXISTS" || echo "NO_GIT"
 ```
 
-If NO_GIT: Run `git init` silently. GSD projects always get their own repo.
+If NO_GIT: Run `git init` silently. Kata projects always get their own repo.
 </git_check>
 
 <commit_formats>

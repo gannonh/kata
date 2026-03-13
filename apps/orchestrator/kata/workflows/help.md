@@ -1,11 +1,11 @@
 <purpose>
-Display the complete GSD command reference. Output ONLY the reference content. Do NOT add project-specific analysis, git status, next-step suggestions, or any commentary beyond the reference.
+Display the complete Kata command reference. Output ONLY the reference content. Do NOT add project-specific analysis, git status, next-step suggestions, or any commentary beyond the reference.
 </purpose>
 
 <reference>
-# GSD Command Reference
+# Kata Command Reference
 
-**GSD** (Get Shit Done) creates hierarchical project plans optimized for solo agentic development with Claude Code.
+**Kata** (Get Shit Done) creates hierarchical project plans optimized for solo agentic development with Claude Code.
 
 ## Quick Start
 
@@ -15,7 +15,7 @@ Display the complete GSD command reference. Output ONLY the reference content. D
 
 ## Staying Updated
 
-GSD evolves fast. Update periodically:
+Kata evolves fast. Update periodically:
 
 ```bash
 npx kata-orchestrator@latest
@@ -116,7 +116,7 @@ Usage: `/kata:execute-phase 5`
 ### Quick Mode
 
 **`/kata:quick`**
-Execute small, ad-hoc tasks with GSD guarantees but skip optional agents.
+Execute small, ad-hoc tasks with Kata guarantees but skip optional agents.
 
 Quick mode uses the same system with a shorter path:
 - Spawns planner + executor (skips researcher, checker, verifier)
@@ -304,7 +304,7 @@ Configure workflow toggles and model profile interactively.
 Usage: `/kata:settings`
 
 **`/kata:set-profile <profile>`**
-Quick switch model profile for GSD agents.
+Quick switch model profile for Kata agents.
 
 - `quality` — Opus everywhere except verification
 - `balanced` — Opus for planning, Sonnet for execution (default)
@@ -328,7 +328,7 @@ Usage: `/kata:cleanup`
 Show this command reference.
 
 **`/kata:update`**
-Update GSD to latest version with changelog preview.
+Update Kata to latest version with changelog preview.
 
 - Shows installed vs latest version comparison
 - Displays changelog entries for versions you've missed
@@ -339,10 +339,10 @@ Update GSD to latest version with changelog preview.
 Usage: `/kata:update`
 
 **`/kata:join-discord`**
-Join the GSD Discord community.
+Join the Kata Discord community.
 
 - Get help, share what you're building, stay updated
-- Connect with other GSD users
+- Connect with other Kata users
 
 Usage: `/kata:join-discord`
 

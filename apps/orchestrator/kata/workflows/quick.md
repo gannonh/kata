@@ -1,5 +1,5 @@
 <purpose>
-Execute small, ad-hoc tasks with GSD guarantees (atomic commits, STATE.md tracking). Quick mode spawns kata-planner (quick mode) + kata-executor(s), tracks tasks in `.planning/quick/`, and updates STATE.md's "Quick Tasks Completed" table.
+Execute small, ad-hoc tasks with Kata guarantees (atomic commits, STATE.md tracking). Quick mode spawns kata-planner (quick mode) + kata-executor(s), tracks tasks in `.planning/quick/`, and updates STATE.md's "Quick Tasks Completed" table.
 
 With `--discuss` flag: lightweight discussion phase before planning. Surfaces assumptions, clarifies gray areas, captures decisions in CONTEXT.md so the planner treats them as locked.
 
@@ -39,7 +39,7 @@ Display banner based on active flags:
 If `$DISCUSS_MODE` and `$FULL_MODE`:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► QUICK TASK (DISCUSS + FULL)
+ Kata ► QUICK TASK (DISCUSS + FULL)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Discussion + plan checking + verification enabled
@@ -48,7 +48,7 @@ If `$DISCUSS_MODE` and `$FULL_MODE`:
 If `$DISCUSS_MODE` only:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► QUICK TASK (DISCUSS)
+ Kata ► QUICK TASK (DISCUSS)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Discussion phase enabled — surfacing gray areas before planning
@@ -57,7 +57,7 @@ If `$DISCUSS_MODE` only:
 If `$FULL_MODE` only:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► QUICK TASK (FULL MODE)
+ Kata ► QUICK TASK (FULL MODE)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Plan checking + verification enabled
@@ -114,7 +114,7 @@ Skip this step entirely if NOT `$DISCUSS_MODE`.
 Display banner:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► DISCUSSING QUICK TASK
+ Kata ► DISCUSSING QUICK TASK
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Surfacing gray areas for: ${DESCRIPTION}
@@ -286,7 +286,7 @@ Skip this step entirely if NOT `$FULL_MODE`.
 Display banner:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► CHECKING PLAN
+ Kata ► CHECKING PLAN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Spawning plan checker...
@@ -434,7 +434,7 @@ Skip this step entirely if NOT `$FULL_MODE`.
 Display banner:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► VERIFYING RESULTS
+ Kata ► VERIFYING RESULTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Spawning verifier...
@@ -553,7 +553,7 @@ Display completion output:
 ```
 ---
 
-GSD > QUICK TASK COMPLETE (FULL MODE)
+Kata > QUICK TASK COMPLETE (FULL MODE)
 
 Quick Task ${next_num}: ${DESCRIPTION}
 
@@ -570,7 +570,7 @@ Ready for next task: /kata:quick
 ```
 ---
 
-GSD > QUICK TASK COMPLETE
+Kata > QUICK TASK COMPLETE
 
 Quick Task ${next_num}: ${DESCRIPTION}
 

@@ -54,9 +54,9 @@ The bridge file is a simple JSON object:
 }
 ```
 
-## Integration with GSD
+## Integration with Kata
 
-GSD's `/kata:pause-work` command saves execution state. The WARNING message suggests using it. The CRITICAL message instructs immediate state save.
+Kata's `/kata:pause-work` command saves execution state. The WARNING message suggests using it. The CRITICAL message instructs immediate state save.
 
 ## Setup
 

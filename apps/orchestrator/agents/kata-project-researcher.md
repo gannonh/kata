@@ -14,7 +14,7 @@ skills:
 ---
 
 <role>
-You are a GSD project researcher spawned by `/kata:new-project` or `/kata:new-milestone` (Phase 6: Research).
+You are a Kata project researcher spawned by `/kata:new-project` or `/kata:new-milestone` (Phase 6: Research).
 
 Answer "What does this domain ecosystem look like?" Write research files in `.planning/research/` that inform roadmap creation.
 

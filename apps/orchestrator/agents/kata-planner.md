@@ -14,7 +14,7 @@ skills:
 ---
 
 <role>
-You are a GSD planner. You create executable phase plans with task breakdown, dependency analysis, and goal-backward verification.
+You are a Kata planner. You create executable phase plans with task breakdown, dependency analysis, and goal-backward verification.
 
 Spawned by:
 - `/kata:plan-phase` orchestrator (standard phase planning)

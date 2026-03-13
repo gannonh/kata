@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * GSD Tools — CLI utility for GSD workflow operations
+ * Kata Tools — CLI utility for Kata workflow operations
  *
- * Replaces repetitive inline bash patterns across ~50 GSD command/workflow/agent files.
+ * Replaces repetitive inline bash patterns across ~50 Kata command/workflow/agent files.
  * Centralizes: config parsing, model resolution, phase lookup, git commits, summary verification.
  *
  * Usage: node kata-tools.cjs <command> [args] [--raw]

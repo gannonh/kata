@@ -40,7 +40,7 @@ Executed the full atomic rename sweep in sequence:
 1. Renamed `get-shit-done/` → `kata/`, `commands/gsd/` → `commands/kata/`
 2. Renamed all `agents/gsd-*.md` → `agents/kata-*.md` (12 files)
 3. Deleted `hooks/gsd-statusline.js`; renamed remaining two hooks to `kata-check-update.js` and `kata-context-monitor.js`
-4. Mass sed replacement across all .js/.cjs/.mjs/.json/.md/.yaml files: `get-shit-done-cc` → `kata-orchestrator`, `get-shit-done` → `kata-orchestrator`, `gsd-tools` → `kata-tools`, `gsd-check-update` → `kata-check-update`, `gsd-context-monitor` → `kata-context-monitor`, `\bgsd\b` → `kata`, `TÂCHES` → `kata-orchestrator`, `GSD_CODEX_MARKER` → `KATA_CODEX_MARKER`
+4. Mass sed replacement across all .js/.cjs/.mjs/.json/.md/.yaml files: `get-shit-done-cc` → `kata-orchestrator`, `get-shit-done` → `kata-orchestrator`, `gsd-tools` → `kata-tools`, `gsd-check-update` → `kata-check-update`, `gsd-context-monitor` → `kata-context-monitor`, `\bgsd\b` → `kata`, `TÂCHES` → `kata-orchestrator`, `Kata_CODEX_MARKER` → `KATA_CODEX_MARKER`
 5. Updated `package.json`: bin key `kata-orchestrator` → `kata`, files array `kata-orchestrator` → `kata`, removed TÂCHES from description/author
 6. Updated `scripts/build-hooks.js`: removed statusline entry, renamed hooks to `kata-*`
 7. Rebuilt `hooks/dist/` via `npm run build:hooks`

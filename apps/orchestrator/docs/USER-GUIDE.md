@@ -1,4 +1,4 @@
-# GSD User Guide
+# Kata User Guide
 
 A detailed reference for workflows, troubleshooting, and configuration. For quick-start setup, see the [README](../README.md).
 
@@ -99,7 +99,7 @@ A detailed reference for workflows, troubleshooting, and configuration. For quic
 
 ### Validation Architecture (Nyquist Layer)
 
-During plan-phase research, GSD now maps automated test coverage to each phase
+During plan-phase research, Kata now maps automated test coverage to each phase
 requirement before any code is written. This ensures that when Claude's executor
 commits a task, a feedback mechanism already exists to verify it within seconds.
 
@@ -208,7 +208,7 @@ enabled, or after `/kata:audit-milestone` surfaces Nyquist compliance gaps.
 | `/kata:resume-work` | Restore full context from last session | Starting a new session |
 | `/kata:pause-work` | Save context handoff | Stopping mid-phase |
 | `/kata:help` | Show all commands | Quick reference |
-| `/kata:update` | Update GSD with changelog preview | Check for new versions |
+| `/kata:update` | Update Kata with changelog preview | Check for new versions |
 | `/kata:join-discord` | Open Discord community invite | Questions or community |
 
 ### Phase Management
@@ -227,7 +227,7 @@ enabled, or after `/kata:audit-milestone` surfaces Nyquist compliance gaps.
 | Command | Purpose | When to Use |
 |---------|---------|-------------|
 | `/kata:map-codebase` | Analyze existing codebase | Before `/kata:new-project` on existing code |
-| `/kata:quick` | Ad-hoc task with GSD guarantees | Bug fixes, small features, config changes |
+| `/kata:quick` | Ad-hoc task with Kata guarantees | Bug fixes, small features, config changes |
 | `/kata:debug [desc]` | Systematic debugging with persistent state | When something breaks |
 | `/kata:add-todo [desc]` | Capture an idea for later | Think of something during a session |
 | `/kata:check-todos` | List pending todos | Review captured ideas |
@@ -239,7 +239,7 @@ enabled, or after `/kata:audit-milestone` surfaces Nyquist compliance gaps.
 
 ## Configuration Reference
 
-GSD stores project settings in `.planning/config.json`. Configure during `/kata:new-project` or update later with `/kata:settings`.
+Kata stores project settings in `.planning/config.json`. Configure during `/kata:new-project` or update later with `/kata:settings`.
 
 ### Full config.json Schema
 
@@ -421,7 +421,7 @@ You ran `/kata:new-project` but `.planning/PROJECT.md` already exists. This is a
 
 ### Context Degradation During Long Sessions
 
-Clear your context window between major commands: `/clear` in Claude Code. GSD is designed around fresh contexts -- every subagent gets a clean 200K window. If quality is dropping in the main session, clear and use `/kata:resume-work` or `/kata:progress` to restore state.
+Clear your context window between major commands: `/clear` in Claude Code. Kata is designed around fresh contexts -- every subagent gets a clean 200K window. If quality is dropping in the main session, clear and use `/kata:resume-work` or `/kata:progress` to restore state.
 
 ### Plans Seem Wrong or Misaligned
 
@@ -447,13 +447,13 @@ Switch to budget profile: `/kata:set-profile budget`. Disable research and plan-
 
 Set `commit_docs: false` during `/kata:new-project` or via `/kata:settings`. Add `.planning/` to your `.gitignore`. Planning artifacts stay local and never touch git.
 
-### GSD Update Overwrote My Local Changes
+### Kata Update Overwrote My Local Changes
 
 Since v1.17, the installer backs up locally modified files to `kata-local-patches/`. Run `/kata:reapply-patches` to merge your changes back.
 
 ### Subagent Appears to Fail but Work Was Done
 
-A known workaround exists for a Claude Code classification bug. GSD's orchestrators (execute-phase, quick) spot-check actual output before reporting failure. If you see a failure message but commits were made, check `git log` -- the work may have succeeded.
+A known workaround exists for a Claude Code classification bug. Kata's orchestrators (execute-phase, quick) spot-check actual output before reporting failure. If you see a failure message but commits were made, check `git log` -- the work may have succeeded.
 
 ---
 
@@ -475,7 +475,7 @@ A known workaround exists for a Claude Code classification bug. GSD's orchestrat
 
 ## Project File Structure
 
-For reference, here is what GSD creates in your project:
+For reference, here is what Kata creates in your project:
 
 ```
 .planning/

@@ -61,7 +61,7 @@ Exit.
 Present banner:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► ADD TESTS — Phase ${phase_number}: ${phase_name}
+ Kata ► ADD TESTS — Phase ${phase_number}: ${phase_name}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 </step>
@@ -275,7 +275,7 @@ Create a test coverage report and present to user:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► TEST GENERATION COMPLETE
+ Kata ► TEST GENERATION COMPLETE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## Results

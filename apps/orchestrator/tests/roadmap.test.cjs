@@ -1,12 +1,12 @@
 /**
- * GSD Tools Tests - Roadmap
+ * Kata Tools Tests - Roadmap
  */
 
 const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { runGsdTools, createTempProject, cleanup } = require('./helpers.cjs');
+const { runKataTools, createTempProject, cleanup } = require('./helpers.cjs');
 
 describe('roadmap get-phase command', () => {
   let tmpDir;
@@ -38,7 +38,7 @@ Some description here.
 `
     );
 
-    const result = runGsdTools('roadmap get-phase 1', tmpDir);
+    const result = runKataTools('roadmap get-phase 1', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -58,7 +58,7 @@ Some description here.
 `
     );
 
-    const result = runGsdTools('roadmap get-phase 5', tmpDir);
+    const result = runKataTools('roadmap get-phase 5', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -78,7 +78,7 @@ Some description here.
 `
     );
 
-    const result = runGsdTools('roadmap get-phase 2.1', tmpDir);
+    const result = runKataTools('roadmap get-phase 2.1', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -105,7 +105,7 @@ This phase covers:
 `
     );
 
-    const result = runGsdTools('roadmap get-phase 1', tmpDir);
+    const result = runKataTools('roadmap get-phase 1', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -115,7 +115,7 @@ This phase covers:
   });
 
   test('handles missing ROADMAP.md gracefully', () => {
-    const result = runGsdTools('roadmap get-phase 1', tmpDir);
+    const result = runKataTools('roadmap get-phase 1', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -137,7 +137,7 @@ This phase covers:
 `
     );
 
-    const result = runGsdTools('roadmap get-phase 1', tmpDir);
+    const result = runKataTools('roadmap get-phase 1', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -158,7 +158,7 @@ This phase covers:
 `
     );
 
-    const result = runGsdTools('roadmap get-phase 1', tmpDir);
+    const result = runKataTools('roadmap get-phase 1', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -185,7 +185,7 @@ describe('roadmap analyze command', () => {
   });
 
   test('missing ROADMAP.md returns error', () => {
-    const result = runGsdTools('roadmap analyze', tmpDir);
+    const result = runKataTools('roadmap analyze', tmpDir);
     assert.ok(result.success, `Command should succeed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -218,7 +218,7 @@ describe('roadmap analyze command', () => {
     fs.mkdirSync(p2, { recursive: true });
     fs.writeFileSync(path.join(p2, '02-01-PLAN.md'), '# Plan');
 
-    const result = runGsdTools('roadmap analyze', tmpDir);
+    const result = runKataTools('roadmap analyze', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -248,7 +248,7 @@ describe('roadmap analyze command', () => {
 `
     );
 
-    const result = runGsdTools('roadmap analyze', tmpDir);
+    const result = runKataTools('roadmap analyze', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -288,7 +288,7 @@ describe('roadmap analyze disk status variants', () => {
     fs.mkdirSync(p1, { recursive: true });
     fs.writeFileSync(path.join(p1, '01-RESEARCH.md'), '# Research notes');
 
-    const result = runGsdTools('roadmap analyze', tmpDir);
+    const result = runKataTools('roadmap analyze', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -310,7 +310,7 @@ describe('roadmap analyze disk status variants', () => {
     fs.mkdirSync(p1, { recursive: true });
     fs.writeFileSync(path.join(p1, '01-CONTEXT.md'), '# Context notes');
 
-    const result = runGsdTools('roadmap analyze', tmpDir);
+    const result = runKataTools('roadmap analyze', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -331,7 +331,7 @@ describe('roadmap analyze disk status variants', () => {
     const p1 = path.join(tmpDir, '.planning', 'phases', '01-empty');
     fs.mkdirSync(p1, { recursive: true });
 
-    const result = runGsdTools('roadmap analyze', tmpDir);
+    const result = runKataTools('roadmap analyze', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -371,7 +371,7 @@ describe('roadmap analyze milestone extraction', () => {
 `
     );
 
-    const result = runGsdTools('roadmap analyze', tmpDir);
+    const result = runKataTools('roadmap analyze', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -412,7 +412,7 @@ describe('roadmap analyze missing phase details', () => {
 `
     );
 
-    const result = runGsdTools('roadmap analyze', tmpDir);
+    const result = runKataTools('roadmap analyze', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -437,7 +437,7 @@ describe('roadmap analyze missing phase details', () => {
 `
     );
 
-    const result = runGsdTools('roadmap analyze', tmpDir);
+    const result = runKataTools('roadmap analyze', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -477,7 +477,7 @@ describe('roadmap get-phase success criteria', () => {
 `
     );
 
-    const result = runGsdTools('roadmap get-phase 1', tmpDir);
+    const result = runKataTools('roadmap get-phase 1', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -499,7 +499,7 @@ describe('roadmap get-phase success criteria', () => {
 `
     );
 
-    const result = runGsdTools('roadmap get-phase 1', tmpDir);
+    const result = runKataTools('roadmap get-phase 1', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -525,7 +525,7 @@ describe('roadmap update-plan-progress command', () => {
   });
 
   test('missing phase number returns error', () => {
-    const result = runGsdTools('roadmap update-plan-progress', tmpDir);
+    const result = runKataTools('roadmap update-plan-progress', tmpDir);
     assert.strictEqual(result.success, false, 'should fail without phase number');
     assert.ok(result.error.includes('phase number required'), 'error should mention phase number required');
   });
@@ -540,7 +540,7 @@ describe('roadmap update-plan-progress command', () => {
 `
     );
 
-    const result = runGsdTools('roadmap update-plan-progress 99', tmpDir);
+    const result = runKataTools('roadmap update-plan-progress 99', tmpDir);
     assert.strictEqual(result.success, false, 'should fail for nonexistent phase');
     assert.ok(result.error.includes('not found'), 'error should mention not found');
   });
@@ -560,7 +560,7 @@ describe('roadmap update-plan-progress command', () => {
     fs.mkdirSync(p1, { recursive: true });
     fs.writeFileSync(path.join(p1, '01-CONTEXT.md'), '# Context');
 
-    const result = runGsdTools('roadmap update-plan-progress 1', tmpDir);
+    const result = runKataTools('roadmap update-plan-progress 1', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -593,7 +593,7 @@ describe('roadmap update-plan-progress command', () => {
     fs.writeFileSync(path.join(p1, '01-02-PLAN.md'), '# Plan 2');
     fs.writeFileSync(path.join(p1, '01-01-SUMMARY.md'), '# Summary 1');
 
-    const result = runGsdTools('roadmap update-plan-progress 1', tmpDir);
+    const result = runKataTools('roadmap update-plan-progress 1', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -633,7 +633,7 @@ describe('roadmap update-plan-progress command', () => {
     fs.writeFileSync(path.join(p1, '01-01-PLAN.md'), '# Plan 1');
     fs.writeFileSync(path.join(p1, '01-01-SUMMARY.md'), '# Summary 1');
 
-    const result = runGsdTools('roadmap update-plan-progress 1', tmpDir);
+    const result = runKataTools('roadmap update-plan-progress 1', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
@@ -655,7 +655,7 @@ describe('roadmap update-plan-progress command', () => {
     fs.writeFileSync(path.join(p1, '01-01-PLAN.md'), '# Plan 1');
     fs.writeFileSync(path.join(p1, '01-01-SUMMARY.md'), '# Summary 1');
 
-    const result = runGsdTools('roadmap update-plan-progress 1', tmpDir);
+    const result = runKataTools('roadmap update-plan-progress 1', tmpDir);
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);

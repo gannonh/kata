@@ -1,6 +1,6 @@
 {
   "name": "@kata-sh/orc",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "A meta-prompting, context engineering and spec-driven development system for Claude Code, OpenCode, Gemini and Codex.",
   "bin": {
     "kata": "bin/install.js"
