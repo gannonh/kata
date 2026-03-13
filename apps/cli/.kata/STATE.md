@@ -2,12 +2,12 @@
 
 **Active Milestone:** M003 — PR Lifecycle
 **Active Slice:** S03 — Address Review Comments (planned)
-**Active Task:** T01
-**Phase:** planning → executing
+**Active Task:** T02
+**Phase:** executing
 **Slice Branch:** kata/M003/S03
 **Active Workspace:** /Volumes/EVO/kata/kata-mono/apps/cli
-**Next Action:** Execute T01 (create failing pr-address.test.ts)
-**Last Updated:** 2026-03-12T22:53
+**Next Action:** Execute T02 (implement pr-address-utils.ts — makes T01 tests pass)
+**Last Updated:** 2026-03-12T23:10
 **Requirements Status:** 7 active (R100, R106 from M002; R200, R202, R203, R205, R208 from M003) · 2 validated this slice (R201, R207) · 15 validated total · 0 deferred · 3 out of scope
 
 ## Recent Decisions
