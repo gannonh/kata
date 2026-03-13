@@ -53,6 +53,7 @@ import {
   detectNewSkills,
   formatSkillsXml,
 } from "./skill-discovery.js";
+import { getWorkflowEntrypointGuard } from "./linear-config.js";
 import {
   resolveSlicePath,
   resolveSliceFile,
@@ -101,6 +102,15 @@ export default function (pi: ExtensionAPI) {
   pi.registerShortcut(Key.ctrlAlt("g"), {
     description: "Open Kata dashboard",
     handler: async (ctx) => {
+      const modeGate = getWorkflowEntrypointGuard("dashboard");
+      if (!modeGate.allow) {
+        ctx.ui.notify(
+          modeGate.notice ?? "Workflow mode is not supported here.",
+          modeGate.noticeLevel,
+        );
+        return;
+      }
+
       // Only show if .kata/ exists
       if (!existsSync(join(process.cwd(), ".kata"))) {
         ctx.ui.notify("No .kata/ directory found. Run /kata to start.", "info");
@@ -130,6 +140,13 @@ export default function (pi: ExtensionAPI) {
 
     const systemContent = loadPrompt("system");
     const loadedPreferences = loadEffectiveKataPreferences();
+    const modeGate = getWorkflowEntrypointGuard(
+      "system-prompt",
+      loadedPreferences,
+    );
+    const workflowModeBlock = modeGate.notice
+      ? `\n\n## Workflow Mode\n\n- mode: ${modeGate.mode}\n- ${modeGate.notice}`
+      : "";
     let preferenceBlock = "";
     if (loadedPreferences) {
       const cwd = process.cwd();
@@ -163,7 +180,7 @@ export default function (pi: ExtensionAPI) {
     );
 
     return {
-      systemPrompt: `${event.systemPrompt}\n\n[SYSTEM CONTEXT — Kata]\n\n${systemContent}${preferenceBlock}${newSkillsBlock}`,
+      systemPrompt: `${event.systemPrompt}\n\n[SYSTEM CONTEXT — Kata]\n\n${systemContent}${workflowModeBlock}${preferenceBlock}${newSkillsBlock}`,
       ...(injection
         ? {
             message: {

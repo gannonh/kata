@@ -12,7 +12,7 @@ models:
     planning: claude-opus-4-6
     execution: claude-opus-4-6
     completion: claude-sonnet-4-6
-skill_discovery:
+skill_discovery: auto
 auto_supervisor: {}
 ---
 

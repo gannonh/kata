@@ -40,7 +40,7 @@ This file is the explicit capability and coverage contract for the project.
 ### R103 — Rich artifacts stored as Linear Documents
 - Class: core-capability
 - Status: active
-- Description: Roadmaps, context, research, summaries, and decisions are stored as Linear Documents attached to the relevant project or milestone
+- Description: Roadmaps, context, research, summaries, and decisions are stored as Linear Documents attached to the relevant project or issue
 - Why it matters: All planning artifacts are searchable, editable, and visible in Linear's UI alongside the issues they describe
 - Source: user
 - Primary owning slice: M002/S04
@@ -61,14 +61,14 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R105 — Per-project team configuration
 - Class: integration
-- Status: active
+- Status: validated
 - Description: Each project configures which Linear team it maps to, similar to linear-cli's .linear.toml
 - Why it matters: Issues are created under the correct team with the correct workflow states
 - Source: user
 - Primary owning slice: M002/S02
 - Supporting slices: none
-- Validation: unmapped
-- Notes: Config stored in .kata/preferences.md or a dedicated .kata/linear.toml
+- Validation: validated
+- Notes: Config stored in `.kata/preferences.md`; legacy `.kata/PREFERENCES.md` remains a read-only fallback during the transition
 
 ### R106 — Personal API key authentication
 - Class: integration
@@ -300,7 +300,7 @@ This file is the explicit capability and coverage contract for the project.
 | R102 | core-capability | active | M002/S03 | M002/S04 | unmapped |
 | R103 | core-capability | active | M002/S04 | none | unmapped |
 | R104 | core-capability | active | M002/S05 | none | unmapped |
-| R105 | integration | active | M002/S02 | none | unmapped |
+| R105 | integration | validated | M002/S02 | none | validated |
 | R106 | integration | active | M002/S01 | none | unmapped |
 | R107 | core-capability | active | M002/S06 | none | unmapped |
 | R108 | primary-user-loop | active | M002/S06 | none | unmapped |
@@ -319,7 +319,7 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Coverage Summary
 
-- Active requirements: 19
+- Active requirements: 18
 - Mapped to slices: 19
-- Validated: 3
+- Validated: 4
 - Unmapped active requirements: 0

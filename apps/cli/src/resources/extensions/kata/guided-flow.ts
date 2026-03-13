@@ -33,6 +33,10 @@ import { join } from "node:path";
 import { readFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { ensureGitignore, ensurePreferences } from "./gitignore.js";
+import {
+  getWorkflowEntrypointGuard,
+  type WorkflowEntrypoint,
+} from "./linear-config.js";
 
 // ─── Auto-start after discuss ─────────────────────────────────────────────────
 
@@ -99,18 +103,30 @@ type UIContext = ExtensionContext;
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Read KATA-WORKFLOW.md and dispatch it to the LLM with a contextual note.
+ * Read the active workflow protocol and dispatch it to the LLM with a contextual note.
  * This is the only way the wizard triggers work — everything else is the LLM's job.
  */
 function dispatchWorkflow(
+  ctx: UIContext,
   pi: ExtensionAPI,
   note: string,
   customType = "kata-run",
-): void {
-  const workflowPath =
-    process.env.KATA_WORKFLOW_PATH ??
-    join(process.env.HOME ?? "~", ".kata-cli", "KATA-WORKFLOW.md");
-  const workflow = readFileSync(workflowPath, "utf-8");
+  entrypoint: WorkflowEntrypoint = "smart-entry",
+): boolean {
+  const gate = getWorkflowEntrypointGuard(entrypoint);
+  if (!gate.allow) {
+    ctx.ui.notify(gate.notice ?? "Workflow mode is not supported here.", gate.noticeLevel);
+    return false;
+  }
+  if (!gate.protocol.path) {
+    ctx.ui.notify(
+      `Could not load ${gate.protocol.documentName} for ${gate.mode} mode.`,
+      "error",
+    );
+    return false;
+  }
+
+  const workflow = readFileSync(gate.protocol.path, "utf-8");
 
   pi.sendMessage(
     {
@@ -120,6 +136,7 @@ function dispatchWorkflow(
     },
     { triggerTurn: true },
   );
+  return true;
 }
 
 /**
@@ -177,6 +194,15 @@ export async function showQueue(
   pi: ExtensionAPI,
   basePath: string,
 ): Promise<void> {
+  const modeGate = getWorkflowEntrypointGuard("queue");
+  if (!modeGate.allow) {
+    ctx.ui.notify(
+      modeGate.notice ?? "Workflow mode is not supported here.",
+      modeGate.noticeLevel,
+    );
+    return;
+  }
+
   // ── Ensure .kata/ exists ─────────────────────────────────────────────
   const kataDir = kataRoot(basePath);
   if (!existsSync(kataDir)) {
@@ -443,6 +469,15 @@ export async function showDiscuss(
   pi: ExtensionAPI,
   basePath: string,
 ): Promise<void> {
+  const modeGate = getWorkflowEntrypointGuard("discuss");
+  if (!modeGate.allow) {
+    ctx.ui.notify(
+      modeGate.notice ?? "Workflow mode is not supported here.",
+      modeGate.noticeLevel,
+    );
+    return;
+  }
+
   // Guard: no .kata/ project
   if (!existsSync(join(basePath, ".kata"))) {
     ctx.ui.notify(
@@ -515,7 +550,7 @@ export async function showDiscuss(
       chosen.title,
       basePath,
     );
-    dispatchWorkflow(pi, prompt, "kata-discuss");
+    if (!dispatchWorkflow(ctx, pi, prompt, "kata-discuss", "discuss")) return;
 
     // Wait for the discuss session to finish, then loop back to the picker
     await ctx.waitForIdle();
@@ -532,6 +567,15 @@ export async function showSmartEntry(
   pi: ExtensionAPI,
   basePath: string,
 ): Promise<void> {
+  const modeGate = getWorkflowEntrypointGuard("smart-entry");
+  if (!modeGate.allow) {
+    ctx.ui.notify(
+      modeGate.notice ?? "Workflow mode is not supported here.",
+      modeGate.noticeLevel,
+    );
+    return;
+  }
+
   // ── Ensure git repo exists — Kata needs it for branch-per-slice ──────
   try {
     execSync("git rev-parse --git-dir", { cwd: basePath, stdio: "pipe" });
@@ -612,14 +656,22 @@ export async function showSmartEntry(
     if (isFirst) {
       // First ever — skip wizard, just ask directly
       pendingAutoStart = { ctx, pi, basePath, milestoneId: nextId };
-      dispatchWorkflow(
-        pi,
-        buildDiscussPrompt(
-          nextId,
-          `New project, milestone ${nextId}. Do NOT read or explore .kata/ — it's empty scaffolding.`,
-          basePath,
-        ),
-      );
+      if (
+        !dispatchWorkflow(
+          ctx,
+          pi,
+          buildDiscussPrompt(
+            nextId,
+            `New project, milestone ${nextId}. Do NOT read or explore .kata/ — it's empty scaffolding.`,
+            basePath,
+          ),
+          "kata-run",
+          "smart-entry",
+        )
+      ) {
+        pendingAutoStart = null;
+        return;
+      }
     } else {
       const choice = await showNextAction(ctx as any, {
         title: "Kata — Kata Workflow",
@@ -637,10 +689,18 @@ export async function showSmartEntry(
 
       if (choice === "new_milestone") {
         pendingAutoStart = { ctx, pi, basePath, milestoneId: nextId };
-        dispatchWorkflow(
-          pi,
-          buildDiscussPrompt(nextId, `New milestone ${nextId}.`, basePath),
-        );
+        if (
+          !dispatchWorkflow(
+            ctx,
+            pi,
+            buildDiscussPrompt(nextId, `New milestone ${nextId}.`, basePath),
+            "kata-run",
+            "smart-entry",
+          )
+        ) {
+          pendingAutoStart = null;
+          return;
+        }
       }
     }
     return;
@@ -675,10 +735,18 @@ export async function showSmartEntry(
       const nextId = `M${String(milestoneIds.length + 1).padStart(3, "0")}`;
 
       pendingAutoStart = { ctx, pi, basePath, milestoneId: nextId };
-      dispatchWorkflow(
-        pi,
-        buildDiscussPrompt(nextId, `New milestone ${nextId}.`, basePath),
-      );
+      if (
+        !dispatchWorkflow(
+          ctx,
+          pi,
+          buildDiscussPrompt(nextId, `New milestone ${nextId}.`, basePath),
+          "kata-run",
+          "smart-entry",
+        )
+      ) {
+        pendingAutoStart = null;
+        return;
+      }
     } else if (choice === "status") {
       const { fireStatusViaCommand } = await import("./commands.js");
       await fireStatusViaCommand(ctx);
@@ -732,21 +800,33 @@ export async function showSmartEntry(
       });
 
       if (choice === "plan") {
-        dispatchWorkflow(
-          pi,
-          loadPrompt("guided-plan-milestone", {
-            milestoneId,
-            milestoneTitle,
-          }),
-        );
+        if (
+          !dispatchWorkflow(
+            ctx,
+            pi,
+            loadPrompt("guided-plan-milestone", {
+              milestoneId,
+              milestoneTitle,
+            }),
+            "kata-run",
+            "smart-entry",
+          )
+        )
+          return;
       } else if (choice === "discuss") {
-        dispatchWorkflow(
-          pi,
-          loadPrompt("guided-discuss-milestone", {
-            milestoneId,
-            milestoneTitle,
-          }),
-        );
+        if (
+          !dispatchWorkflow(
+            ctx,
+            pi,
+            loadPrompt("guided-discuss-milestone", {
+              milestoneId,
+              milestoneTitle,
+            }),
+            "kata-run",
+            "smart-entry",
+          )
+        )
+          return;
       }
     } else {
       // Roadmap exists — either blocked or ready for auto
@@ -850,33 +930,51 @@ export async function showSmartEntry(
     });
 
     if (choice === "plan") {
-      dispatchWorkflow(
-        pi,
-        loadPrompt("guided-plan-slice", {
-          milestoneId,
-          sliceId,
-          sliceTitle,
-        }),
-      );
+      if (
+        !dispatchWorkflow(
+          ctx,
+          pi,
+          loadPrompt("guided-plan-slice", {
+            milestoneId,
+            sliceId,
+            sliceTitle,
+          }),
+          "kata-run",
+          "smart-entry",
+        )
+      )
+        return;
     } else if (choice === "discuss") {
-      dispatchWorkflow(
-        pi,
-        await buildDiscussSlicePrompt(
-          milestoneId,
-          sliceId,
-          sliceTitle,
-          basePath,
-        ),
-      );
+      if (
+        !dispatchWorkflow(
+          ctx,
+          pi,
+          await buildDiscussSlicePrompt(
+            milestoneId,
+            sliceId,
+            sliceTitle,
+            basePath,
+          ),
+          "kata-run",
+          "smart-entry",
+        )
+      )
+        return;
     } else if (choice === "research") {
-      dispatchWorkflow(
-        pi,
-        loadPrompt("guided-research-slice", {
-          milestoneId,
-          sliceId,
-          sliceTitle,
-        }),
-      );
+      if (
+        !dispatchWorkflow(
+          ctx,
+          pi,
+          loadPrompt("guided-research-slice", {
+            milestoneId,
+            sliceId,
+            sliceTitle,
+          }),
+          "kata-run",
+          "smart-entry",
+        )
+      )
+        return;
     } else if (choice === "status") {
       const { fireStatusViaCommand } = await import("./commands.js");
       await fireStatusViaCommand(ctx);
@@ -907,14 +1005,20 @@ export async function showSmartEntry(
     });
 
     if (choice === "complete") {
-      dispatchWorkflow(
-        pi,
-        loadPrompt("guided-complete-slice", {
-          milestoneId,
-          sliceId,
-          sliceTitle,
-        }),
-      );
+      if (
+        !dispatchWorkflow(
+          ctx,
+          pi,
+          loadPrompt("guided-complete-slice", {
+            milestoneId,
+            sliceId,
+            sliceTitle,
+          }),
+          "kata-run",
+          "smart-entry",
+        )
+      )
+        return;
     } else if (choice === "status") {
       const { fireStatusViaCommand } = await import("./commands.js");
       await fireStatusViaCommand(ctx);
@@ -975,23 +1079,35 @@ export async function showSmartEntry(
 
     if (choice === "execute") {
       if (hasInterrupted) {
-        dispatchWorkflow(
-          pi,
-          loadPrompt("guided-resume-task", {
-            milestoneId,
-            sliceId,
-          }),
-        );
+        if (
+          !dispatchWorkflow(
+            ctx,
+            pi,
+            loadPrompt("guided-resume-task", {
+              milestoneId,
+              sliceId,
+            }),
+            "kata-run",
+            "smart-entry",
+          )
+        )
+          return;
       } else {
-        dispatchWorkflow(
-          pi,
-          loadPrompt("guided-execute-task", {
-            milestoneId,
-            sliceId,
-            taskId,
-            taskTitle,
-          }),
-        );
+        if (
+          !dispatchWorkflow(
+            ctx,
+            pi,
+            loadPrompt("guided-execute-task", {
+              milestoneId,
+              sliceId,
+              taskId,
+              taskTitle,
+            }),
+            "kata-run",
+            "smart-entry",
+          )
+        )
+          return;
       }
     } else if (choice === "status") {
       const { fireStatusViaCommand } = await import("./commands.js");
