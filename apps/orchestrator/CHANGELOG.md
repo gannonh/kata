@@ -2,11 +2,13 @@
 
 ## [2.0.0] - 2026-03-13
 
-### Added
+### Changed
 
-- New npm distribution (`kata-orchestrator` package)
-- New build system
-- Support for OpenCode, Gemini, and Codex runtimes
+- Rebranded and moved into Kata mono-repo as `apps/orchestrator`
+- Package renamed to `@kata-sh/orc`
+- README rewritten: removed marketing copy, direct functional documentation
+- Repository, homepage, and bugs URLs updated to mono-repo
+- Release CI workflow added (`orc-release.yml`)
 
 ## [1.12.0] - 2026-02-18
 
