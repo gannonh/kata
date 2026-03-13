@@ -53,6 +53,14 @@ export interface KataLinearPreferences {
   projectId?: string;
 }
 
+export interface KataPrPreferences {
+  enabled?: boolean;
+  auto_create?: boolean;
+  base_branch?: string;
+  review_on_create?: boolean;
+  linear_link?: boolean;
+}
+
 export interface KataPreferences {
   version?: number;
   always_use_skills?: string[];
@@ -64,6 +72,7 @@ export interface KataPreferences {
   skill_discovery?: SkillDiscoveryMode;
   workflow?: KataWorkflowPreferences;
   linear?: KataLinearPreferences;
+  pr?: KataPrPreferences;
   auto_supervisor?: AutoSupervisorConfig;
   uat_dispatch?: boolean;
   budget_ceiling?: number;
@@ -656,6 +665,14 @@ function mergePreferences(
           },
         }
       : {}),
+    ...(base.pr || override.pr
+      ? {
+          pr: {
+            ...(base.pr ?? {}),
+            ...(override.pr ?? {}),
+          },
+        }
+      : {}),
     auto_supervisor: {
       ...(base.auto_supervisor ?? {}),
       ...(override.auto_supervisor ?? {}),
@@ -705,6 +722,14 @@ function validatePreferences(preferences: KataPreferences): {
   }
   if (normalizedLinear.value) {
     validated.linear = normalizedLinear.value;
+  }
+
+  const normalizedPr = normalizePrPreferences(preferences.pr);
+  if (normalizedPr.errors.length > 0) {
+    errors.push(...normalizedPr.errors);
+  }
+  if (normalizedPr.value) {
+    validated.pr = normalizedPr.value;
   }
 
   validated.always_use_skills = normalizeStringList(
@@ -824,6 +849,53 @@ function normalizeLinearPreferences(value: unknown): {
     const trimmed = raw.trim();
     if (trimmed) {
       normalized[key] = trimmed;
+    }
+  }
+
+  return {
+    value: Object.keys(normalized).length > 0 ? normalized : undefined,
+    errors,
+  };
+}
+
+function normalizePrPreferences(value: unknown): {
+  value?: KataPrPreferences;
+  errors: string[];
+} {
+  if (value === undefined) return { errors: [] };
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { errors: ["pr must be an object"] };
+  }
+
+  const normalized: KataPrPreferences = {};
+  const errors: string[] = [];
+
+  for (const key of [
+    "enabled",
+    "auto_create",
+    "review_on_create",
+    "linear_link",
+  ] as const) {
+    const raw = (value as Record<string, unknown>)[key];
+    if (raw === undefined) continue;
+    if (typeof raw !== "boolean") {
+      errors.push(`pr.${key} must be a boolean`);
+      continue;
+    }
+    normalized[key] = raw;
+  }
+
+  const rawBranch = (value as Record<string, unknown>).base_branch;
+  if (rawBranch !== undefined) {
+    if (typeof rawBranch !== "string") {
+      errors.push("pr.base_branch must be a string");
+    } else {
+      const trimmed = rawBranch.trim();
+      if (!trimmed) {
+        errors.push("pr.base_branch must not be empty");
+      } else {
+        normalized.base_branch = trimmed;
+      }
     }
   }
 
