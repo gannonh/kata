@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.2] - 2026-03-13
+
+### Changed
+
+- Complete rebrand cleanup across orchestrator codebase
+
 ## [2.0.1] - 2026-03-13
 
 ### Fixed
