@@ -42,7 +42,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0",
-    "electron-playwright-helpers": "^1.7.0"
+    "electron-playwright-helpers": "^2.1.0"
   },
   "dependencies": {
     "@craft-agent/core": "workspace:*",
