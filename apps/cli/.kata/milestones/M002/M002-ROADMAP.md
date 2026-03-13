@@ -64,7 +64,7 @@ This milestone is complete only when all are true:
 - [x] **S05: State Derivation from Linear API** `risk:medium` `depends:[S03, S04]`
   > After this: `/kata status` and the dashboard overlay show correct progress derived from Linear API queries — active milestone, slice, task, phase, completion counts — with no local state files.
 
-- [ ] **S06: Workflow Prompt & Auto-Mode Integration** `risk:medium` `depends:[S02, S05]`
+- [x] **S06: Workflow Prompt & Auto-Mode Integration** `risk:medium` `depends:[S02, S05]`
   > After this: `/kata auto` runs a complete task cycle in Linear mode — the agent reads plans from Linear, executes work, writes summaries to Linear, advances tasks/slices, and auto-mode loops correctly with fresh context per task.
 
 ## Boundary Map

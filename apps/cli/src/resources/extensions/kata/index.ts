@@ -68,7 +68,7 @@ import {
 } from "./paths.js";
 import { Key } from "@mariozechner/pi-tui";
 import { join } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { Text } from "@mariozechner/pi-tui";
 
 // ── ASCII logo ────────────────────────────────────────────────────────────
@@ -174,13 +174,24 @@ export default function (pi: ExtensionAPI) {
       }
     }
 
+    // Inject workflow protocol doc when protocol is ready (Linear mode)
+    let workflowDocBlock = "";
+    if (modeGate.protocol.ready && modeGate.protocol.path) {
+      try {
+        const workflowDoc = readFileSync(modeGate.protocol.path, "utf-8");
+        workflowDocBlock = `\n\n${workflowDoc}`;
+      } catch {
+        // File disappeared between the existsSync check and the read — skip injection silently
+      }
+    }
+
     const injection = await buildGuidedExecuteContextInjection(
       event.prompt,
       process.cwd(),
     );
 
     return {
-      systemPrompt: `${event.systemPrompt}\n\n[SYSTEM CONTEXT — Kata]\n\n${systemContent}${workflowModeBlock}${preferenceBlock}${newSkillsBlock}`,
+      systemPrompt: `${event.systemPrompt}\n\n[SYSTEM CONTEXT — Kata]\n\n${systemContent}${workflowModeBlock}${preferenceBlock}${newSkillsBlock}${workflowDocBlock}`,
       ...(injection
         ? {
             message: {

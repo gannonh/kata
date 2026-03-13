@@ -17,13 +17,13 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R101 — Linear mode as switchable workflow alternative
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: Users can configure a project to use "Linear mode" instead of file mode. In Linear mode, all Kata artifacts (state, roadmaps, plans, summaries, decisions) live in Linear instead of local `.kata/` files
 - Why it matters: Teams already using Linear shouldn't have to maintain a parallel set of local planning files. Linear becomes the single source of truth
 - Source: user
 - Primary owning slice: M002/S03
 - Supporting slices: M002/S04, M002/S05, M002/S06
-- Validation: unmapped
+- Validation: validated — all supporting slices complete: S02 provides mode switching + config; S03 provides entity hierarchy; S04 provides document storage; S05 provides state derivation + dashboard; S06 provides workflow prompt + auto-mode dispatch. Full Linear-mode pipeline is operational.
 - Notes: Mode configured per-project. File mode remains the default
 
 ### R102 — Kata hierarchy maps to Linear entities
@@ -83,25 +83,25 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R107 — Separate LINEAR-WORKFLOW.md prompt
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: Linear mode gets its own workflow prompt document (LINEAR-WORKFLOW.md) that instructs agents to use Linear API operations instead of file I/O
 - Why it matters: Clean separation from file-mode workflow. Agent instructions reference Linear entities and API calls, not file paths
 - Source: user
 - Primary owning slice: M002/S06
 - Supporting slices: none
-- Validation: unmapped
-- Notes: Injected via prompt-loader when project is in Linear mode. Parallel to KATA-WORKFLOW.md for file mode
+- Validation: validated — M002/S06: `src/resources/LINEAR-WORKFLOW.md` (265 lines, 7 sections) written and bundled; `loader.ts` sets `LINEAR_WORKFLOW_PATH`; `index.ts` `before_agent_start` injects full content into system prompt when `protocol.ready` is true; mode-switching tests confirm system prompt wiring; `wc -l` = 265
+- Notes: Injected via protocol.ready gate in before_agent_start when project is in Linear mode. Parallel to KATA-WORKFLOW.md for file mode
 
 ### R108 — Auto-mode works in Linear mode
 - Class: primary-user-loop
-- Status: active
+- Status: validated
 - Description: /kata auto works in Linear mode — creating issues, advancing through tasks, writing summaries to Linear, just as it does with local files
 - Why it matters: Auto-mode is Kata's primary execution loop. It must work in both modes
 - Source: inferred
 - Primary owning slice: M002/S06
 - Supporting slices: none
-- Validation: unmapped
-- Notes: Auto-mode advancement reads/writes Linear instead of local files
+- Validation: validated — M002/S06: `getWorkflowEntrypointGuard("auto")` returns `allow: true` in Linear mode; `selectLinearPrompt` routes all 5 phases to correct builders (executing, verifying → execute-task; planning → plan-slice; pre-planning → plan-milestone; summarizing → complete-slice; complete/blocked → null); `auto.ts` skips git operations in Linear mode; 22 unit tests pass; TypeScript clean
+- Notes: Auto-mode advancement reads/writes Linear instead of local files. End-to-end live run against real workspace is optional; routing behavior is fully unit-tested
 
 ### R109 — Dashboard and status work in Linear mode
 - Class: primary-user-loop
@@ -296,14 +296,14 @@ This file is the explicit capability and coverage contract for the project.
 | R003 | primary-user-loop | validated | M001/S01 | none | validated |
 | R010 | anti-feature | out-of-scope | none | none | n/a |
 | R100 | core-capability | active | M002/S01 | none | unmapped |
-| R101 | core-capability | active | M002/S03 | M002/S04, S05, S06 | unmapped |
+| R101 | core-capability | validated | M002/S03 | M002/S04, S05, S06 | validated |
 | R102 | core-capability | validated | M002/S03 | M002/S04 | validated |
 | R103 | core-capability | validated | M002/S04 | none | validated |
 | R104 | core-capability | validated | M002/S05 | none | validated |
 | R105 | integration | validated | M002/S02 | none | validated |
 | R106 | integration | active | M002/S01 | none | unmapped |
-| R107 | core-capability | active | M002/S06 | none | unmapped |
-| R108 | primary-user-loop | active | M002/S06 | none | unmapped |
+| R107 | core-capability | validated | M002/S06 | none | validated |
+| R108 | primary-user-loop | validated | M002/S06 | none | validated |
 | R109 | primary-user-loop | validated | M002/S05 | none | validated |
 | R110 | constraint | out-of-scope | none | none | n/a |
 | R111 | anti-feature | out-of-scope | none | none | n/a |
@@ -319,7 +319,7 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Coverage Summary
 
-- Active requirements: 14
+- Active requirements: 11 (R100, R106 from M002; R200–R208 from M003)
 - Mapped to slices: 19
-- Validated: 8
+- Validated: 11 (R001–R003, R101–R109)
 - Unmapped active requirements: 0

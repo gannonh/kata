@@ -118,7 +118,7 @@ Kata loads skills from:
   - `~/.kata-cli/agent/skills/`
   - `~/.agents/skills/`
 - Project:
-  - `.kata/skills/`
+  - `.kata-cli/skills/`
   - `.agents/skills/` in `cwd` and ancestor directories (up to git repo root, or filesystem root when not in a repo)
 - CLI: `--skill <path>` (repeatable, additive even with `--no-skills`)
 
@@ -140,7 +140,7 @@ To use skills from Claude Code or OpenAI Codex, add their directories to setting
 }
 ```
 
-For project-level Claude Code skills, add to `.kata/settings.json`:
+For project-level Claude Code skills, add to `.kata-cli/settings.json`:
 
 ```json
 {
@@ -246,6 +246,74 @@ Unknown frontmatter fields are ignored.
 **Exception:** Skills with missing description are not loaded.
 
 Name collisions (same name from different locations) warn and keep the first skill found.
+
+## Custom Agents
+
+Custom agents are specialized subagents with isolated context windows and distinct system prompts. They are plain `.md` files with YAML frontmatter that Kata invokes via the `subagent` tool.
+
+### Locations
+
+- **User (global):** `~/.kata-cli/agent/agents/`
+- **Project-local:** `.kata/agents/`
+
+Agents in both locations are discovered automatically. Use `/subagent` to list all available agents.
+
+### Agent File Format
+
+An agent is a `.md` file with frontmatter and a body that becomes the system prompt:
+
+```markdown
+---
+name: my-agent
+description: What this agent does and when to use it.
+tools: read, bash, edit, write
+model: anthropic/claude-sonnet-4-5
+---
+
+You are a specialized agent. Your job is to...
+
+## Strategy
+
+1. Do this first
+2. Then do that
+
+## Output format
+
+Return your findings as...
+```
+
+### Frontmatter Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Agent identifier used when invoking it |
+| `description` | Yes | What it does — determines when Kata selects it |
+| `tools` | No | Comma-separated list of allowed tools (default: all) |
+| `model` | No | Override the model for this agent (e.g. `anthropic/claude-haiku-3-5`) |
+
+The file body (below the frontmatter) is the agent's full system prompt.
+
+### Bundled Agents
+
+Kata ships three built-in agents (synced to `~/.kata-cli/agent/agents/` on launch):
+
+| Agent | Description |
+|-------|-------------|
+| `scout` | Fast codebase recon — returns compressed context for handoff |
+| `worker` | General-purpose agent with full capabilities, isolated context |
+| `researcher` | Web researcher using Brave Search |
+
+### Usage
+
+The `subagent` tool invokes agents:
+
+```
+subagent({ agent: "my-agent", task: "Do this specific thing" })
+```
+
+For parallel execution or chaining, see the `subagent` tool description in the tool list.
+
+To see all available agents, run `/subagent` in the Kata prompt.
 
 ## MCP Support
 

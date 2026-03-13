@@ -16,7 +16,7 @@ A coding agent that executes structured, multi-session development work reliably
 - Default model: anthropic/claude-sonnet-4-6
 - MCP support shipped via pi-mcp-adapter auto-bundled (M001 complete)
 - File-based Kata workflow fully operational (local `.kata/` artifacts)
-- M002 Linear Mode in progress: S01 (GraphQL client), S02 (config/mode switching), S03 (entity mapping), S04 (document storage), S05 (state derivation) complete; S06 (workflow prompt + auto-mode) next
+- M002 Linear Mode complete: all 6 slices done (S01 GraphQL client, S02 config/mode switching, S03 entity mapping, S04 document storage, S05 state derivation, S06 workflow prompt + auto-mode); 86 tests pass; R101–R109 all validated
 
 ## Architecture / Key Patterns
 
@@ -36,5 +36,5 @@ See `.kata/REQUIREMENTS.md` for the explicit capability contract, requirement st
 ## Milestone Sequence
 
 - [x] M001: MCP Support — ship pi-mcp-adapter auto-bundled in Kata so users get MCP tool access out of the box
-- [ ] M002: Linear Mode — native Linear integration as a switchable workflow mode, replacing local file artifacts with Linear projects/milestones/issues/documents
+- [x] M002: Linear Mode — native Linear integration as a switchable workflow mode, replacing local file artifacts with Linear projects/milestones/issues/documents
 - [ ] M003: PR Lifecycle — built-in PR creation, specialized review via bundled subagents, comment addressing, and merge integrated into slice workflow for both file-mode and Linear-mode projects

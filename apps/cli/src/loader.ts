@@ -91,6 +91,7 @@ const resourcesDir = resolve(
   "resources",
 );
 process.env.KATA_WORKFLOW_PATH = join(resourcesDir, "KATA-WORKFLOW.md");
+process.env.LINEAR_WORKFLOW_PATH = join(resourcesDir, "LINEAR-WORKFLOW.md");
 
 // KATA_BUNDLED_EXTENSION_PATHS — colon-joined list of all bundled extension entry point absolute
 // paths, used by subagent to pass --extension <path> to spawned processes.

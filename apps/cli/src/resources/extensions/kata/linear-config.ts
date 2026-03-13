@@ -357,10 +357,14 @@ function buildLinearEntrypointGuard(
         protocol,
       };
     case "auto":
-      return blockedLinearEntrypoint(
+      return {
+        mode: "linear",
+        isLinearMode: true,
+        allow: true,
+        noticeLevel: "info",
+        notice: "Running in Linear mode. State derived from Linear API.",
         protocol,
-        "This project is configured for Linear mode. /kata auto still executes the file-backed workflow and is blocked until S06 wires Linear execution.",
-      );
+      };
     case "doctor":
       return blockedLinearEntrypoint(
         protocol,

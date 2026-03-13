@@ -28,7 +28,7 @@ import type { DocumentAttachment } from "./linear-documents.js";
 import type { KataLabelSet } from "./linear-types.js";
 import type { KataPhase } from "./linear-types.js";
 import { deriveLinearState } from "./linear-state.js";
-import { loadEffectiveLinearProjectConfig } from "../../kata/linear-config.js";
+import { loadEffectiveLinearProjectConfig } from "../kata/linear-config.js";
 
 // Re-export entity functions under kata_* names so module consumers and
 // smoke-checks can confirm they are importable without loading the pi runtime.
