@@ -160,13 +160,13 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R204 — PR lifecycle preferences
 - Class: integration
-- Status: active
+- Status: validated
 - Description: PR behavior is configurable per-project: enabled/disabled, auto-create on slice completion, base branch, review on create, Linear linking
 - Why it matters: Different projects have different PR workflows; one-size-fits-all won't work
 - Source: user
 - Primary owning slice: M003/S05
-- Supporting slices: none
-- Validation: unmapped
+- Supporting slices: M003/S01
+- Validation: validated — M003/S01: KataPrPreferences (5 fields: enabled, auto_create, base_branch, review_on_create, linear_link) round-trips through loadEffectiveKataPreferences(); normalizePrPreferences emits named errors; mergePreferences spreads pr block correctly; 3/3 unit tests pass. Auto-create hook deferred to S05.
 - Notes: Preferences: pr.enabled, pr.auto_create, pr.base_branch, pr.review_on_create, pr.linear_link
 
 ### R205 — `/kata pr` command surface
@@ -182,14 +182,14 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R206 — PR body composition from slice artifacts
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: PR body is auto-composed from Kata slice plan, task summaries, and verification results — not written from scratch by the agent each time
 - Why it matters: Consistent, high-quality PR descriptions that surface the right context for reviewers
 - Source: inferred
 - Primary owning slice: M003/S01
 - Supporting slices: none
-- Validation: unmapped
-- Notes: Works in both file-mode (reads .kata/ files) and Linear-mode (reads Linear documents). Template-driven
+- Validation: validated — M003/S01: composePRBody reads slice plan (title + must-haves), task plan files (titles), and optional slice summary; produces ## What Changed / ## Must-Haves / ## Tasks sections; degrades gracefully on missing artifacts; 4/4 unit tests pass with real artifact fixtures. Linear-mode (reads Linear documents) deferred to S05/S06.
+- Notes: Works in file-mode (reads .kata/ files). Linear-mode body composition deferred to S06 (Linear cross-linking). Template-driven
 
 ### R207 — Bundled PR reviewer subagents
 - Class: core-capability
@@ -311,15 +311,15 @@ This file is the explicit capability and coverage contract for the project.
 | R201 | core-capability | active | M003/S02 | none | unmapped |
 | R202 | core-capability | active | M003/S03 | none | unmapped |
 | R203 | core-capability | active | M003/S04 | none | unmapped |
-| R204 | integration | active | M003/S05 | none | unmapped |
+| R204 | integration | validated | M003/S05 | M003/S01 | validated |
 | R205 | primary-user-loop | active | M003/S05 | M003/S01–S04 | unmapped |
-| R206 | core-capability | active | M003/S01 | none | unmapped |
+| R206 | core-capability | validated | M003/S01 | none | validated |
 | R207 | core-capability | active | M003/S02 | none | unmapped |
 | R208 | integration | active | M003/S06 | none | unmapped |
 
 ## Coverage Summary
 
-- Active requirements: 11 (R100, R106 from M002; R200–R208 from M003)
+- Active requirements: 9 (R100, R106 from M002; R200–R203, R205, R207, R208 from M003)
 - Mapped to slices: 19
-- Validated: 11 (R001–R003, R101–R109)
+- Validated: 13 (R001–R003, R101–R109, R204, R206)
 - Unmapped active requirements: 0

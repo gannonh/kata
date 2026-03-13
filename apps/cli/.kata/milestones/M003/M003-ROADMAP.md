@@ -52,7 +52,7 @@ This milestone is complete only when all are true:
 
 ## Slices
 
-- [ ] **S01: PR Creation & Body Composition** `risk:medium` `depends:[]`
+- [x] **S01: PR Creation & Body Composition** `risk:medium` `depends:[]`
   > After this: agent can create a PR for the current slice branch with body auto-composed from slice artifacts (plan, task summaries, verification results) via `gh` CLI, with `gh` detection, auth checking, and file-backed body creation.
 
 - [ ] **S02: Bundled Reviewer Subagents & Parallel Dispatch** `risk:high` `depends:[S01]`
