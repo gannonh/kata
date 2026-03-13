@@ -1,20 +1,20 @@
 # Kata State
 
 **Active Milestone:** M003 — PR Lifecycle
-**Active Slice:** S03 — Address Review Comments (unstarted)
-**Active Task:** none
-**Phase:** planning
-**Slice Branch:** kata/M003/S02 (complete, pending squash-merge) → next: kata/M003/S03
+**Active Slice:** S03 — Address Review Comments (planned)
+**Active Task:** T01
+**Phase:** planning → executing
+**Slice Branch:** kata/M003/S03
 **Active Workspace:** /Volumes/EVO/kata/kata-mono/apps/cli
-**Next Action:** Squash-merge S02 branch to main; start S03 slice branch
-**Last Updated:** 2026-03-12T20:15
+**Next Action:** Execute T01 (create failing pr-address.test.ts)
+**Last Updated:** 2026-03-12T22:53
 **Requirements Status:** 7 active (R100, R106 from M002; R200, R202, R203, R205, R208 from M003) · 2 validated this slice (R201, R207) · 15 validated total · 0 deferred · 3 out of scope
 
 ## Recent Decisions
 
-- D039: `kata_review_pr` returns dispatch plan — agent orchestrates parallel execution via `subagent` pi tool
-- D040: reviewer instructions loaded at module init time (one-time I/O, static content)
-- D041: reviewer agent names use `pr-` prefix to prevent collision and clarify scope
+- D042: `pr-address.test.ts` in `kata/tests/`; MODULE_NOT_FOUND TDD gate (same as S02)
+- D043: `actionableCount` excludes both isResolved and isOutdated entries
+- D044: `shellEscape` copied locally into `pr-address-utils.ts` (not exported from index.ts)
 
 ## Blockers
 
