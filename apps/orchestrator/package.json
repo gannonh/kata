@@ -1,0 +1,52 @@
+{
+  "name": "@kata-sh/orc",
+  "version": "2.0.0",
+  "description": "A meta-prompting, context engineering and spec-driven development system for Claude Code, OpenCode, Gemini and Codex.",
+  "bin": {
+    "kata": "bin/install.js"
+  },
+  "files": [
+    "bin",
+    "commands",
+    "kata",
+    "agents",
+    "hooks/dist",
+    "scripts"
+  ],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "ai",
+    "meta-prompting",
+    "context-engineering",
+    "spec-driven-development",
+    "gemini",
+    "gemini-cli",
+    "codex",
+    "codex-cli"
+  ],
+  "author": "kata-orchestrator",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gannonh/kata.git",
+    "directory": "apps/orchestrator"
+  },
+  "homepage": "https://github.com/gannonh/kata/tree/main/apps/orchestrator",
+  "bugs": {
+    "url": "https://github.com/gannonh/kata/issues"
+  },
+  "engines": {
+    "node": ">=16.7.0"
+  },
+  "devDependencies": {
+    "c8": "^11.0.0",
+    "esbuild": "^0.24.0"
+  },
+  "scripts": {
+    "build:hooks": "node scripts/build-hooks.js",
+    "prepublishOnly": "npm run build:hooks",
+    "test": "node scripts/run-tests.cjs",
+    "test:coverage": "c8 --check-coverage --lines 70 --reporter text --include 'kata-orchestrator/bin/lib/*.cjs' --exclude 'tests/**' --all node scripts/run-tests.cjs"
+  }
+}
