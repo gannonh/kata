@@ -2,10 +2,15 @@
 
 ## Project Management with Linear
 
-- **Project:** Kata Cloud Agents
+- **Project:** Kata CLI
+- **Project ID:** `c7e76979-df58-407a-bf64-09bfccfef9c4`
+- **Project Slug ID:** `459f9835e809`
 - **Project URL:** <https://linear.app/kata-sh/project/kata-cli-459f9835e809>
-- **Team:** Kata-sh (ID: `a47bcacd-54f3-4472-a4b4-d6933248b605`)
-- **Issue prefix:** KAT
+- **Team:** Kata-sh
+- **Team ID:** `a47bcacd-54f3-4472-a4b4-d6933248b605`
+- **Issue prefix:** `KAT`
+- **Default new issue state:** Backlog
+- **Backlog State ID:** `07123b71-708f-4232-b965-67c082e254e7`  
 
 ## Pi architecture
 
