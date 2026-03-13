@@ -123,11 +123,11 @@ def gh_pr_view_json(fields: str) -> dict[str, Any]:
 def get_current_pr_ref() -> tuple[str, str, int]:
     """
     Resolve the PR for the current branch (whatever gh considers associated).
-    Works for cross-repo PRs too, by reading head repository owner/name.
+    Use the base repository for GraphQL lookups so fork-based PRs resolve correctly.
     """
-    pr = gh_pr_view_json("number,headRepositoryOwner,headRepository")
-    owner = pr["headRepositoryOwner"]["login"]
-    repo = pr["headRepository"]["name"]
+    pr = gh_pr_view_json("number,baseRepositoryOwner,baseRepository")
+    owner = pr["baseRepositoryOwner"]["login"]
+    repo = pr["baseRepository"]["name"]
     number = int(pr["number"])
     return owner, repo, number
 
@@ -172,6 +172,10 @@ def fetch_all(owner: str, repo: str, number: int) -> dict[str, Any]:
     reviews: list[dict[str, Any]] = []
     review_threads: list[dict[str, Any]] = []
 
+    comments_done = False
+    reviews_done = False
+    threads_done = False
+
     comments_cursor: str | None = None
     reviews_cursor: str | None = None
     threads_cursor: str | None = None
@@ -183,9 +187,9 @@ def fetch_all(owner: str, repo: str, number: int) -> dict[str, Any]:
             owner=owner,
             repo=repo,
             number=number,
-            comments_cursor=comments_cursor,
-            reviews_cursor=reviews_cursor,
-            threads_cursor=threads_cursor,
+            comments_cursor=comments_cursor if not comments_done else None,
+            reviews_cursor=reviews_cursor if not reviews_done else None,
+            threads_cursor=threads_cursor if not threads_done else None,
         )
 
         if "errors" in payload and payload["errors"]:
@@ -210,11 +214,25 @@ def fetch_all(owner: str, repo: str, number: int) -> dict[str, Any]:
         reviews.extend(r.get("nodes") or [])
         review_threads.extend(t.get("nodes") or [])
 
-        comments_cursor = c["pageInfo"]["endCursor"] if c["pageInfo"]["hasNextPage"] else None
-        reviews_cursor = r["pageInfo"]["endCursor"] if r["pageInfo"]["hasNextPage"] else None
-        threads_cursor = t["pageInfo"]["endCursor"] if t["pageInfo"]["hasNextPage"] else None
+        if c["pageInfo"]["hasNextPage"]:
+            comments_cursor = c["pageInfo"]["endCursor"]
+        else:
+            comments_cursor = None
+            comments_done = True
 
-        if not (comments_cursor or reviews_cursor or threads_cursor):
+        if r["pageInfo"]["hasNextPage"]:
+            reviews_cursor = r["pageInfo"]["endCursor"]
+        else:
+            reviews_cursor = None
+            reviews_done = True
+
+        if t["pageInfo"]["hasNextPage"]:
+            threads_cursor = t["pageInfo"]["endCursor"]
+        else:
+            threads_cursor = None
+            threads_done = True
+
+        if comments_done and reviews_done and threads_done:
             break
 
     assert pr_meta is not None

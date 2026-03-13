@@ -226,6 +226,7 @@ export default function (pi: ExtensionAPI): void {
           const stdout = execSync(cmd, {
             encoding: "utf8",
             stdio: ["pipe", "pipe", "pipe"],
+            cwd: cwd ?? process.cwd(),
           });
           prUrl = stdout.trim();
         } catch (err) {

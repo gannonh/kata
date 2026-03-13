@@ -52,8 +52,17 @@ export interface ReviewThread {
   };
 }
 
+export interface PrMeta {
+  number: number;
+  url: string;
+  title: string;
+  state: string;
+  owner: string;
+  repo: string;
+}
+
 export interface FetchCommentsResult {
-  pull_request: object;
+  pull_request: PrMeta;
   conversation_comments: ConversationComment[];
   reviews: PrReview[];
   review_threads: ReviewThread[];
@@ -145,6 +154,44 @@ function shellEscape(arg: string): string {
   return "'" + arg.replace(/'/g, "'\\''") + "'";
 }
 
+type GraphqlError = {
+  message: string;
+};
+
+type ResolveThreadResponse = {
+  errors?: GraphqlError[];
+  data?: {
+    resolveReviewThread?: {
+      thread?: {
+        id: string;
+        isResolved: boolean;
+      };
+    };
+  };
+};
+
+type ReplyThreadResponse = {
+  errors?: GraphqlError[];
+  data?: {
+    addPullRequestReviewThreadReply?: {
+      comment?: {
+        id: string;
+        body: string;
+      };
+    };
+  };
+};
+
+function buildGraphqlErrorMessage(
+  errors: readonly GraphqlError[] | undefined,
+  fallback: string,
+): string {
+  if (errors?.length) {
+    return errors.map((error) => error.message).join("; ");
+  }
+  return fallback;
+}
+
 // ---------------------------------------------------------------------------
 // GraphQL mutations
 // ---------------------------------------------------------------------------
@@ -194,12 +241,38 @@ export function resolveThread(
       encoding: "utf8",
       ...PIPE,
     });
-    const parsed = JSON.parse(raw) as {
-      data: {
-        resolveReviewThread: { thread: { id: string; isResolved: boolean } };
+    const parsed = JSON.parse(raw) as ResolveThreadResponse;
+    if (parsed.errors?.length) {
+      return {
+        ok: false,
+        phase: "resolve-failed",
+        error: buildGraphqlErrorMessage(
+          parsed.errors,
+          "GitHub GraphQL reported a failure while resolving thread",
+        ),
       };
-    };
+    }
+    if (!parsed.data || parsed.data.resolveReviewThread == null) {
+      return {
+        ok: false,
+        phase: "resolve-failed",
+        error: buildGraphqlErrorMessage(
+          parsed.errors,
+          "GitHub GraphQL response missing resolveReviewThread payload",
+        ),
+      };
+    }
     const thread = parsed.data.resolveReviewThread.thread;
+    if (!thread) {
+      return {
+        ok: false,
+        phase: "resolve-failed",
+        error: buildGraphqlErrorMessage(
+          parsed.errors,
+          "GitHub GraphQL response missing resolveReviewThread thread",
+        ),
+      };
+    }
     return { ok: true, thread: { id: thread.id, isResolved: thread.isResolved } };
   } catch (err) {
     const e = err as { stderr?: string; message?: string };
@@ -247,12 +320,38 @@ export function replyToThread(
       encoding: "utf8",
       ...PIPE,
     });
-    const parsed = JSON.parse(raw) as {
-      data: {
-        addPullRequestReviewThreadReply: { comment: { id: string; body: string } };
+    const parsed = JSON.parse(raw) as ReplyThreadResponse;
+    if (parsed.errors?.length) {
+      return {
+        ok: false,
+        phase: "reply-failed",
+        error: buildGraphqlErrorMessage(
+          parsed.errors,
+          "GitHub GraphQL reported a failure while posting thread reply",
+        ),
       };
-    };
+    }
+    if (!parsed.data || parsed.data.addPullRequestReviewThreadReply == null) {
+      return {
+        ok: false,
+        phase: "reply-failed",
+        error: buildGraphqlErrorMessage(
+          parsed.errors,
+          "GitHub GraphQL response missing addPullRequestReviewThreadReply payload",
+        ),
+      };
+    }
     const comment = parsed.data.addPullRequestReviewThreadReply.comment;
+    if (!comment) {
+      return {
+        ok: false,
+        phase: "reply-failed",
+        error: buildGraphqlErrorMessage(
+          parsed.errors,
+          "GitHub GraphQL response missing reply comment payload",
+        ),
+      };
+    }
     return { ok: true, comment: { id: comment.id, body: comment.body } };
   } catch (err) {
     const e = err as { stderr?: string; message?: string };
