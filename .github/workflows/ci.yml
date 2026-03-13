@@ -62,7 +62,7 @@ jobs:
       - name: Run CLI tests
         run: cd apps/cli && npm test
 
-  # Orchestrator dry-run: only on release PRs (version bump in apps/orchestrator/package.json)
+  # Orchestrator dry-run: runs when the current orchestrator version has not yet been tagged/released
   orc-publish-dry-run:
     runs-on: ubuntu-latest
     steps:
