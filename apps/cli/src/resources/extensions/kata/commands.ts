@@ -30,6 +30,11 @@ import {
   type LoadedKataPreferences,
 } from "./preferences.js";
 import {
+  getPrSubcommandCompletions,
+  buildPrStatusReport,
+  type PrStatusDependencies,
+} from "./pr-command.js";
+import {
   formatLinearConfigStatus,
   getWorkflowEntrypointGuard,
   isLinearMode,
@@ -39,6 +44,8 @@ import {
   type ValidateLinearProjectConfigOptions,
 } from "./linear-config.js";
 import { loadFile, saveFile } from "./files.js";
+import { getCurrentBranch } from "../pr-lifecycle/gh-utils.js";
+import { getPRNumber } from "../pr-lifecycle/pr-merge-utils.js";
 import {
   formatDoctorIssuesForPrompt,
   formatDoctorReport,
@@ -206,7 +213,7 @@ function describeSkillResolution(
 export function registerKataCommand(pi: ExtensionAPI): void {
   pi.registerCommand("kata", {
     description:
-      "Kata — Kata Workflow: /kata auto|stop|status|queue|prefs|doctor",
+      "Kata — Kata Workflow: /kata auto|stop|status|queue|prefs|doctor|pr",
 
     getArgumentCompletions: (prefix: string) => {
       const subcommands = [
@@ -217,6 +224,7 @@ export function registerKataCommand(pi: ExtensionAPI): void {
         "discuss",
         "prefs",
         "doctor",
+        "pr",
       ];
       const parts = prefix.trim().split(/\s+/);
 
@@ -251,6 +259,14 @@ export function registerKataCommand(pi: ExtensionAPI): void {
         }
 
         return [];
+      }
+
+      if (parts[0] === "pr" && parts.length <= 2) {
+        const subPrefix = parts[1] ?? "";
+        return getPrSubcommandCompletions(subPrefix).map((c) => ({
+          value: `pr ${c.value}`,
+          label: c.label,
+        }));
       }
 
       return [];
@@ -299,13 +315,18 @@ export function registerKataCommand(pi: ExtensionAPI): void {
         return;
       }
 
+      if (trimmed === "pr" || trimmed.startsWith("pr ")) {
+        await handlePr(trimmed.replace(/^pr\s*/, "").trim(), ctx, pi);
+        return;
+      }
+
       if (trimmed === "") {
         await showSmartEntry(ctx, pi, process.cwd());
         return;
       }
 
       ctx.ui.notify(
-        `Unknown: /kata ${trimmed}. Use /kata, /kata auto, /kata stop, /kata status, /kata queue, /kata discuss, /kata prefs [global|project|status], or /kata doctor [audit|fix|heal] [M###/S##].`,
+        `Unknown: /kata ${trimmed}. Use /kata, /kata auto, /kata stop, /kata status, /kata queue, /kata discuss, /kata prefs [global|project|status], /kata doctor [audit|fix|heal] [M###/S##], or /kata pr [status|create|review|address|merge].`,
         "warning",
       );
     },
@@ -449,6 +470,106 @@ async function handlePrefs(
   }
 
   ctx.ui.notify("Usage: /kata prefs [global|project|status]", "info");
+}
+
+/**
+ * Builds the real PrStatusDependencies using live accessors.
+ *
+ * - getCurrentBranch: reads from git via gh-utils
+ * - getOpenPrNumber: queries `gh pr view` via pr-merge-utils
+ * - getPrEnabled / getPrAutoCreate / getPrBaseBranch: read from effective preferences
+ */
+function buildLivePrStatusDeps(): PrStatusDependencies {
+  return {
+    getCurrentBranch: () => getCurrentBranch(process.cwd()),
+    getOpenPrNumber: async () => {
+      // getPRNumber is synchronous — wrap in a resolved Promise for interface compat
+      return getPRNumber(process.cwd());
+    },
+    getPrEnabled: () => {
+      const effective = loadEffectiveKataPreferences();
+      return effective?.preferences.pr?.enabled === true;
+    },
+    getPrAutoCreate: () => {
+      const effective = loadEffectiveKataPreferences();
+      return effective?.preferences.pr?.auto_create === true;
+    },
+    getPrBaseBranch: () => {
+      const effective = loadEffectiveKataPreferences();
+      return effective?.preferences.pr?.base_branch ?? "main";
+    },
+  };
+}
+
+async function handlePr(
+  args: string,
+  ctx: ExtensionCommandContext,
+  pi: ExtensionAPI,
+): Promise<void> {
+  const trimmed = args.trim();
+
+  // `status` is deterministic — no LLM turn required
+  if (trimmed === "status" || trimmed === "") {
+    const report = await buildPrStatusReport(buildLivePrStatusDeps());
+    ctx.ui.notify(report.message, report.level);
+    return;
+  }
+
+  if (trimmed === "create") {
+    const effective = loadEffectiveKataPreferences();
+    const prPrefs = effective?.preferences.pr;
+    const baseBranch = prPrefs?.base_branch ?? "main";
+    const reviewOnCreate = prPrefs?.review_on_create === true;
+
+    const reviewOnCreateSection = reviewOnCreate
+      ? "After the PR is created successfully, immediately continue with `/kata pr review` " +
+        "to run the parallel review workflow (pr.review_on_create is enabled)."
+      : "After the PR is created, inform the user of the PR URL. " +
+        "They can run `/kata pr review` manually when ready.";
+
+    const prompt = loadPrompt("pr-create", {
+      baseBranch,
+      reviewOnCreate: reviewOnCreateSection,
+    });
+
+    pi.sendMessage(
+      { customType: "kata-pr-create", content: prompt, display: false },
+      { triggerTurn: true },
+    );
+    return;
+  }
+
+  if (trimmed === "review") {
+    const prompt = loadPrompt("pr-review");
+    pi.sendMessage(
+      { customType: "kata-pr-review", content: prompt, display: false },
+      { triggerTurn: true },
+    );
+    return;
+  }
+
+  if (trimmed === "address") {
+    const prompt = loadPrompt("pr-address");
+    pi.sendMessage(
+      { customType: "kata-pr-address", content: prompt, display: false },
+      { triggerTurn: true },
+    );
+    return;
+  }
+
+  if (trimmed === "merge") {
+    const prompt = loadPrompt("pr-merge");
+    pi.sendMessage(
+      { customType: "kata-pr-merge", content: prompt, display: false },
+      { triggerTurn: true },
+    );
+    return;
+  }
+
+  ctx.ui.notify(
+    "Usage: /kata pr [status|create|review|address|merge]",
+    "info",
+  );
 }
 
 async function handleDoctor(

@@ -55,7 +55,7 @@
   - Verify: targeted `pr-command` / `pr-auto` tests pass; existing `pr-preferences`, `pr-body-composer`, `pr-review`, `pr-address`, and `pr-merge` tests still pass.
   - Done when: the shared helpers exist, `kata_create_pr` is refactored onto the shared runner, and status/auto decisions are test-covered instead of being embedded ad hoc in handlers.
 
-- [ ] **T03: Add `/kata pr` subcommands and dispatch into the existing workflows** `est:1h`
+- [x] **T03: Add `/kata pr` subcommands and dispatch into the existing workflows** `est:1h`
   - Why: This is the real user-facing slice outcome. Without it, the milestone still depends on hidden tools instead of a coherent Kata command surface.
   - Files: `src/resources/extensions/kata/commands.ts`, `src/resources/extensions/kata/prompts/pr-create.md`, `src/resources/extensions/kata/prompts/pr-review.md`, `src/resources/extensions/kata/prompts/pr-address.md`, `src/resources/extensions/kata/prompts/pr-merge.md`
   - Do: Extend `/kata` completions so `pr` behaves like a nested command family and exposes `create`, `review`, `address`, `merge`, and `status`. Implement `handlePr(...)` in `commands.ts`: `status` should render deterministic status directly via the helper from T02; the mutating subcommands should dispatch hidden prompts that tell the agent to call the existing tools, with the user's slash-command invocation treated as explicit permission for the outward GitHub action. The `create` path must thread through `pr.base_branch` and, when `pr.review_on_create` is true, automatically continue into the review prompt after successful creation rather than stopping at the URL.
