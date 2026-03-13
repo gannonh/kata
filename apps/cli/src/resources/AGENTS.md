@@ -47,15 +47,15 @@ apps/cli/
 
 Kata sets these env vars in `loader.ts` before importing `cli.ts`:
 
-| Variable | Purpose |
-|----------|---------|
-| `PI_PACKAGE_DIR` | Points to `pkg/` so pi reads Kata's piConfig |
-| `KATA_CODING_AGENT_DIR` | Tells pi's `getAgentDir()` to return `~/.kata-cli/agent/` |
-| `KATA_VERSION` | Package version for display |
-| `KATA_BIN_PATH` | Absolute path to loader, used by subagent to spawn Kata |
-| `KATA_WORKFLOW_PATH` | Absolute path to bundled KATA-WORKFLOW.md |
-| `KATA_BUNDLED_EXTENSION_PATHS` | Colon-joined list of extension entry points |
-| `KATA_MCP_CONFIG_PATH` | Absolute path to `~/.kata-cli/agent/mcp.json` (also injected as `--mcp-config` argv) |
+| Variable                       | Purpose                                                                              |
+| ------------------------------ | ------------------------------------------------------------------------------------ |
+| `PI_PACKAGE_DIR`               | Points to `pkg/` so pi reads Kata's piConfig                                         |
+| `KATA_CODING_AGENT_DIR`        | Tells pi's `getAgentDir()` to return `~/.kata-cli/agent/`                            |
+| `KATA_VERSION`                 | Package version for display                                                          |
+| `KATA_BIN_PATH`                | Absolute path to loader, used by subagent to spawn Kata                              |
+| `KATA_WORKFLOW_PATH`           | Absolute path to bundled KATA-WORKFLOW.md                                            |
+| `KATA_BUNDLED_EXTENSION_PATHS` | Colon-joined list of extension entry points                                          |
+| `KATA_MCP_CONFIG_PATH`         | Absolute path to `~/.kata-cli/agent/mcp.json` (also injected as `--mcp-config` argv) |
 
 ## The /kata Command
 
@@ -99,6 +99,221 @@ Kata stores project state in `.kata/` at the project root:
 - **Test**: `node --import ./src/resources/extensions/kata/tests/resolve-ts.mjs --experimental-strip-types --test 'src/resources/extensions/kata/tests/*.test.ts' 'src/tests/*.test.ts'`
 - **Copy themes**: `npm run copy-themes` (copies theme assets from pi-coding-agent)
 - **Dependencies**: Consumed via npm from `@mariozechner/pi-coding-agent` — never fork
+
+## Agent Skills
+
+Agent Skills are self-contained capability packages that the agent loads on-demand. A skill provides specialized workflows, setup instructions, helper scripts, and reference documentation for specific tasks.
+
+Kata implements the [Agent Skills standard](https://agentskills.io/specification), warning about violations but remaining lenient.
+
+Kata can create skills. Ask it to build one for your use case.
+
+### Locations
+
+> **Security:** Skills can instruct the model to perform any action and may include executable code the model invokes. Review skill content before use.
+
+Kata loads skills from:
+
+- Global:
+  - `~/.kata-cli/agent/skills/`
+  - `~/.agents/skills/`
+- Project:
+  - `.kata-cli/skills/`
+  - `.agents/skills/` in `cwd` and ancestor directories (up to git repo root, or filesystem root when not in a repo)
+- CLI: `--skill <path>` (repeatable, additive even with `--no-skills`)
+
+Discovery rules:
+
+- Direct `.md` files in the skills directory root
+- Recursive `SKILL.md` files under subdirectories
+
+#### Using Skills from Other Harnesses
+
+To use skills from Claude Code or OpenAI Codex, add their directories to settings:
+
+```json
+{
+  "skills": [
+    "~/.claude/skills",
+    "~/.codex/skills"
+  ]
+}
+```
+
+For project-level Claude Code skills, add to `.kata-cli/settings.json`:
+
+```json
+{
+  "skills": ["../.claude/skills"]
+}
+```
+
+### Skill Commands
+
+Skills register as `/skill:name` commands:
+
+```bash
+/skill:brave-search           # Load and execute the skill
+/skill:pdf-tools extract      # Load skill with arguments
+```
+
+Arguments after the command are appended to the skill content as `User: <args>`.
+
+Toggle skill commands via `/settings` in interactive mode or in `settings.json`:
+
+```json
+{
+  "enableSkillCommands": true
+}
+```
+
+### Skill Structure
+
+A skill is a directory with a `SKILL.md` file. Everything else is freeform.
+
+```
+my-skill/
+├── SKILL.md              # Required: frontmatter + instructions
+├── scripts/              # Helper scripts
+│   └── process.sh
+├── references/           # Detailed docs loaded on-demand
+│   └── api-reference.md
+└── assets/
+    └── template.json
+```
+
+#### SKILL.md Format
+
+```markdown
+---
+name: my-skill
+description: What this skill does and when to use it. Be specific.
+---
+```
+
+### Frontmatter
+
+Per the [Agent Skills specification](https://agentskills.io/specification#frontmatter-required):
+
+| Field                      | Required | Description                                                                    |
+| -------------------------- | -------- | ------------------------------------------------------------------------------ |
+| `name`                     | Yes      | Max 64 chars. Lowercase a-z, 0-9, hyphens. Must match parent directory.        |
+| `description`              | Yes      | Max 1024 chars. What the skill does and when to use it.                        |
+| `license`                  | No       | License name or reference to bundled file.                                     |
+| `compatibility`            | No       | Max 500 chars. Environment requirements.                                       |
+| `metadata`                 | No       | Arbitrary key-value mapping.                                                   |
+| `allowed-tools`            | No       | Space-delimited list of pre-approved tools (experimental).                     |
+| `disable-model-invocation` | No       | When `true`, skill is hidden from system prompt. Users must use `/skill:name`. |
+
+#### Name Rules
+
+- 1-64 characters
+- Lowercase letters, numbers, hyphens only
+- No leading/trailing hyphens
+- No consecutive hyphens
+- Must match parent directory name
+
+Valid: `pdf-processing`, `data-analysis`, `code-review`
+Invalid: `PDF-Processing`, `-pdf`, `pdf--processing`
+
+#### Description Best Practices
+
+The description determines when the agent loads the skill. Be specific.
+
+Good:
+
+```yaml
+description: Extracts text and tables from PDF files, fills PDF forms, and merges multiple PDFs. Use when working with PDF documents.
+```
+
+Poor:
+
+```yaml
+description: Helps with PDFs.
+```
+
+### Validation
+
+Kata validates skills against the Agent Skills standard. Most issues produce warnings but still load the skill:
+
+- Name doesn't match parent directory
+- Name exceeds 64 characters or contains invalid characters
+- Name starts/ends with hyphen or has consecutive hyphens
+- Description exceeds 1024 characters
+
+Unknown frontmatter fields are ignored.
+
+**Exception:** Skills with missing description are not loaded.
+
+Name collisions (same name from different locations) warn and keep the first skill found.
+
+## Custom Agents
+
+Custom agents are specialized subagents with isolated context windows and distinct system prompts. They are plain `.md` files with YAML frontmatter that Kata invokes via the `subagent` tool.
+
+### Locations
+
+- **User (global):** `~/.kata-cli/agent/agents/`
+- **Project-local:** `.kata/agents/`
+
+Agents in both locations are discovered automatically. Use `/subagent` to list all available agents.
+
+### Agent File Format
+
+An agent is a `.md` file with frontmatter and a body that becomes the system prompt:
+
+```markdown
+---
+name: my-agent
+description: What this agent does and when to use it.
+tools: read, bash, edit, write
+model: anthropic/claude-sonnet-4-5
+---
+
+You are a specialized agent. Your job is to...
+
+## Strategy
+
+1. Do this first
+2. Then do that
+
+## Output format
+
+Return your findings as...
+```
+
+### Frontmatter Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Agent identifier used when invoking it |
+| `description` | Yes | What it does — determines when Kata selects it |
+| `tools` | No | Comma-separated list of allowed tools (default: all) |
+| `model` | No | Override the model for this agent (e.g. `anthropic/claude-haiku-3-5`) |
+
+The file body (below the frontmatter) is the agent's full system prompt.
+
+### Bundled Agents
+
+Kata ships three built-in agents (synced to `~/.kata-cli/agent/agents/` on launch):
+
+| Agent | Description |
+|-------|-------------|
+| `scout` | Fast codebase recon — returns compressed context for handoff |
+| `worker` | General-purpose agent with full capabilities, isolated context |
+| `researcher` | Web researcher using Brave Search |
+
+### Usage
+
+The `subagent` tool invokes agents:
+
+```
+subagent({ agent: "my-agent", task: "Do this specific thing" })
+```
+
+For parallel execution or chaining, see the `subagent` tool description in the tool list.
+
+To see all available agents, run `/subagent` in the Kata prompt.
 
 ## MCP Support
 
@@ -160,6 +375,7 @@ On first connection, `mcp-remote` opens a browser window for OAuth consent. Toke
 **Linear MCP setup (complete example):**
 
 1. Add the server to `~/.kata-cli/agent/mcp.json`:
+
    ```json
    {
      "settings": { "toolPrefix": "server", "idleTimeout": 10 },
@@ -175,6 +391,7 @@ On first connection, `mcp-remote` opens a browser window for OAuth consent. Toke
 2. Restart Kata.
 
 3. Connect the server (triggers the OAuth flow in your browser):
+
    ```
    mcp({ connect: "linear" })
    ```
@@ -182,6 +399,7 @@ On first connection, `mcp-remote` opens a browser window for OAuth consent. Toke
 4. Authorize Kata in the browser when prompted by Linear.
 
 5. Use Linear tools:
+
    ```
    mcp({ server: "linear" })          — list all Linear tools
    mcp({ search: "issues" })          — search for issue-related tools
@@ -189,6 +407,7 @@ On first connection, `mcp-remote` opens a browser window for OAuth consent. Toke
    ```
 
 **Troubleshooting OAuth:**
+
 - If you see `internal server error`, clear cached auth: `rm -rf ~/.mcp-auth` and reconnect.
 - Make sure you're running a recent version of Node.js.
 - Use `/mcp` to check server status interactively.
@@ -224,11 +443,11 @@ Supported sources: `cursor`, `claude-code`, `claude-desktop`, `vscode`, `windsur
 
 ### Server lifecycle
 
-| Mode | Behavior |
-|------|----------|
+| Mode             | Behavior                                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------- |
 | `lazy` (default) | Connect on first tool call. Disconnect after idle timeout. Cached metadata keeps search/list working offline. |
-| `eager` | Connect at startup. No auto-reconnect on drop. |
-| `keep-alive` | Connect at startup. Auto-reconnect via health checks. |
+| `eager`          | Connect at startup. No auto-reconnect on drop.                                                                |
+| `keep-alive`     | Connect at startup. Auto-reconnect via health checks.                                                         |
 
 ### Usage
 

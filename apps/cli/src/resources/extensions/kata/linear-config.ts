@@ -348,16 +348,23 @@ function buildLinearEntrypointGuard(
       );
     case "status":
     case "dashboard":
-      return blockedLinearEntrypoint(
+      return {
+        mode: "linear",
+        isLinearMode: true,
+        allow: true,
+        noticeLevel: "info",
+        notice: "Showing live progress derived from Linear API.",
         protocol,
-        "This project is configured for Linear mode. /kata status and the dashboard still derive progress from local .kata files. Use `/kata prefs status` for mode/config inspection until S05 wires Linear state derivation.",
-        "info",
-      );
+      };
     case "auto":
-      return blockedLinearEntrypoint(
+      return {
+        mode: "linear",
+        isLinearMode: true,
+        allow: true,
+        noticeLevel: "info",
+        notice: "Running in Linear mode. State derived from Linear API.",
         protocol,
-        "This project is configured for Linear mode. /kata auto still executes the file-backed workflow and is blocked until S06 wires Linear execution.",
-      );
+      };
     case "doctor":
       return blockedLinearEntrypoint(
         protocol,

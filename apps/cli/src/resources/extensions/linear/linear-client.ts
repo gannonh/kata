@@ -766,6 +766,8 @@ export class LinearClient {
     content
     icon
     color
+    project { id name }
+    issue { id identifier }
     createdAt
     updatedAt
   `;
@@ -803,12 +805,19 @@ export class LinearClient {
     }
   }
 
-  async listDocuments(opts?: { projectId?: string; first?: number }): Promise<LinearDocument[]> {
+  async listDocuments(opts?: {
+    projectId?: string;
+    issueId?: string;
+    title?: string;
+    first?: number;
+  }): Promise<LinearDocument[]> {
     return this.paginate(async (cursor) => {
       const filter: Record<string, unknown> = {};
       if (opts?.projectId) {
         filter.project = { id: { eq: opts.projectId } };
       }
+      if (opts?.issueId) filter.issue = { id: { eq: opts.issueId } };
+      if (opts?.title)   filter.title = { eq: opts.title };
       const data = await this.graphql<{
         documents: { nodes: LinearDocument[]; pageInfo: LinearPageInfo };
       }>(`

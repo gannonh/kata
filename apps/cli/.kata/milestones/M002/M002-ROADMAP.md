@@ -55,16 +55,16 @@ This milestone is complete only when all are true:
 - [x] **S02: Project Configuration & Mode Switching** `risk:medium` `depends:[S01]`
   > After this: user can opt into Linear mode in `.kata/preferences.md`, legacy `.kata/PREFERENCES.md` remains readable, `/kata prefs status` validates the configured team/project binding, and Kata entrypoints detect the mode through one shared resolver.
 
-- [ ] **S03: Entity Mapping — Hierarchy & Labels** `risk:high` `depends:[S01]`
+- [x] **S03: Entity Mapping — Hierarchy & Labels** `risk:high` `depends:[S01]`
   > After this: agent can create a Kata milestone as a Linear milestone, slices as parent issues, tasks as sub-issues, with Kata labels for filtering — and the hierarchy is visible in Linear's UI.
 
-- [ ] **S04: Document Storage — Artifacts as Linear Documents** `risk:medium` `depends:[S01, S03]`
+- [x] **S04: Document Storage — Artifacts as Linear Documents** `risk:medium` `depends:[S01, S03]`
   > After this: agent can create and update roadmaps, context, research, summaries, and decisions as Linear Documents attached to the correct project/issue — and read them back with full markdown fidelity.
 
-- [ ] **S05: State Derivation from Linear API** `risk:medium` `depends:[S03, S04]`
+- [x] **S05: State Derivation from Linear API** `risk:medium` `depends:[S03, S04]`
   > After this: `/kata status` and the dashboard overlay show correct progress derived from Linear API queries — active milestone, slice, task, phase, completion counts — with no local state files.
 
-- [ ] **S06: Workflow Prompt & Auto-Mode Integration** `risk:medium` `depends:[S02, S05]`
+- [x] **S06: Workflow Prompt & Auto-Mode Integration** `risk:medium` `depends:[S02, S05]`
   > After this: `/kata auto` runs a complete task cycle in Linear mode — the agent reads plans from Linear, executes work, writes summaries to Linear, advances tasks/slices, and auto-mode loops correctly with fresh context per task.
 
 ## Boundary Map
@@ -129,8 +129,10 @@ Consumes from S01:
 ### S04 → S05
 
 Produces:
-- `linear-documents.ts` → `writeRoadmap()`, `writeContext()`, `writeSummary()`, `readRoadmap()`, `readPlan()`
-- Document naming convention: `"M001-ROADMAP"`, `"S01-PLAN"`, etc. as document titles
+- `linear-documents.ts` → `writeKataDocument(client, title, content, attachment)` (title-scoped upsert), `readKataDocument(client, title, attachment)` (returns `LinearDocument | null`), `listKataDocuments(client, attachment)` (zero-side-effect enumeration)
+- `linear-documents.ts` → `buildDocumentTitle(kataId, artifactType)` / `parseDocumentTitle(title)` — canonical encode/decode for all document title operations (e.g. `buildDocumentTitle("M001", "ROADMAP")` → `"M001-ROADMAP"`)
+- `DocumentAttachment = { projectId: string } | { issueId: string }` discriminated union — milestone/root artifacts use `projectId`; slice/task artifacts use `issueId`
+- Linear markdown normalization (D028): `- ` bullets are stored as `* `, trailing newlines stripped — S05 parsers must handle `* [ ]` checkbox syntax in addition to `- [ ]`; `readKataDocument` returning `null` is the canonical "document not yet written" signal
 
 Consumes from S01:
 - `LinearClient` → document CRUD

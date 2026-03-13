@@ -83,7 +83,8 @@ import {
   formatValidationIssues,
 } from "./observability-validator.js";
 import { ensureGitignore } from "./gitignore.js";
-import { getWorkflowEntrypointGuard } from "./linear-config.js";
+import { getWorkflowEntrypointGuard, isLinearMode } from "./linear-config.js";
+import { resolveLinearKataState, selectLinearPrompt } from "./linear-auto.js";
 import { snapshotSkills, clearSkillSnapshot } from "./skill-discovery.js";
 import {
   initMetrics,
@@ -307,6 +308,41 @@ export async function startAuto(
     return;
   }
 
+  // ── Linear mode: skip git + .kata bootstrap — state is in Linear API ──
+  if (isLinearMode()) {
+    const state = await resolveLinearKataState(base);
+    if (!state.activeMilestone || state.phase === "complete") {
+      ctx.ui.notify(
+        "Linear project has no active milestone. Run /kata to set up a milestone first.",
+        "info",
+      );
+      return;
+    }
+    if (state.phase === "blocked") {
+      ctx.ui.notify(
+        `Blocked: ${state.blockers?.join(", ")}. Fix and run /kata auto.`,
+        "warning",
+      );
+      return;
+    }
+    active = true;
+    verbose = verboseMode;
+    cmdCtx = ctx;
+    basePath = base;
+    lastUnit = null;
+    retryCount = 0;
+    autoStartTime = Date.now();
+    completedUnits = [];
+    currentUnit = null;
+    currentMilestoneId = state.activeMilestone?.id ?? null;
+    originalModelId = ctx.model?.id ?? null;
+    initMetrics(base);
+    ctx.ui.setStatus("kata-auto", "auto");
+    ctx.ui.notify("Auto-mode started (Linear mode). Looping until milestone complete.", "info");
+    await dispatchNextUnit(ctx, pi);
+    return;
+  }
+
   // Ensure git repo exists — Kata needs it for branch-per-slice
   try {
     execSync("git rev-parse --git-dir", { cwd: base, stdio: "pipe" });
@@ -438,7 +474,8 @@ export async function handleAgentEnd(
   await new Promise((r) => setTimeout(r, 500));
 
   // Auto-commit any dirty files the LLM left behind on the current branch.
-  if (currentUnit) {
+  // Skipped in Linear mode — no slice branches exist.
+  if (!isLinearMode() && currentUnit) {
     try {
       const commitMsg = autoCommitCurrentBranch(
         basePath,
@@ -750,6 +787,171 @@ async function dispatchNextUnit(
   pi: ExtensionAPI,
 ): Promise<void> {
   if (!active || !cmdCtx) return;
+
+  // ── Linear mode: use API-backed state derivation + prompt dispatch ──
+  if (isLinearMode()) {
+    const linearState = await resolveLinearKataState(basePath);
+    const linearMid = linearState.activeMilestone?.id;
+    const linearMidTitle = linearState.activeMilestone?.title;
+
+    // Detect milestone transition
+    if (linearMid && currentMilestoneId && linearMid !== currentMilestoneId) {
+      ctx.ui.notify(
+        `Milestone ${currentMilestoneId} complete. Advancing to ${linearMid}: ${linearMidTitle}.`,
+        "info",
+      );
+      lastUnit = null;
+      retryCount = 0;
+    }
+    if (linearMid) currentMilestoneId = linearMid;
+
+    if (linearState.phase === "complete") {
+      if (currentUnit) {
+        const modelId = ctx.model?.id ?? "unknown";
+        snapshotUnitMetrics(
+          ctx,
+          currentUnit.type,
+          currentUnit.id,
+          currentUnit.startedAt,
+          modelId,
+        );
+        saveActivityLog(ctx, basePath, currentUnit.type, currentUnit.id);
+      }
+      await stopAuto(ctx, pi);
+      return;
+    }
+
+    if (linearState.phase === "blocked") {
+      if (currentUnit) {
+        const modelId = ctx.model?.id ?? "unknown";
+        snapshotUnitMetrics(
+          ctx,
+          currentUnit.type,
+          currentUnit.id,
+          currentUnit.startedAt,
+          modelId,
+        );
+        saveActivityLog(ctx, basePath, currentUnit.type, currentUnit.id);
+      }
+      await stopAuto(ctx, pi);
+      ctx.ui.notify(
+        `Blocked: ${linearState.blockers.join(", ")}. Fix and run /kata auto.`,
+        "warning",
+      );
+      return;
+    }
+
+    const linearPrompt = selectLinearPrompt(linearState);
+    if (!linearPrompt) {
+      await stopAuto(ctx, pi);
+      return;
+    }
+
+    const linearUnitPhase = linearState.phase;
+    const linearMidId = linearState.activeMilestone?.id ?? "unknown";
+    const linearSid = linearState.activeSlice?.id ?? "";
+    const linearTid = linearState.activeTask?.id ?? "";
+    const linearUnitType = `linear-${linearUnitPhase}`;
+    const linearUnitId = linearTid
+      ? `${linearMidId}/${linearSid}/${linearTid}`
+      : linearSid
+        ? `${linearMidId}/${linearSid}`
+        : linearMidId;
+
+    ctx.ui.notify(
+      `Linear auto-mode: ${linearUnitPhase} — ${linearUnitId}`,
+      "info",
+    );
+
+    // Stuck detection
+    if (lastUnit && lastUnit.type === linearUnitType && lastUnit.id === linearUnitId) {
+      retryCount++;
+      if (retryCount > MAX_RETRIES) {
+        if (currentUnit) {
+          const modelId = ctx.model?.id ?? "unknown";
+          snapshotUnitMetrics(
+            ctx,
+            currentUnit.type,
+            currentUnit.id,
+            currentUnit.startedAt,
+            modelId,
+          );
+        }
+        saveActivityLog(ctx, basePath, linearUnitType, linearUnitId);
+        await stopAuto(ctx, pi);
+        ctx.ui.notify(
+          `Stuck: ${linearUnitType} ${linearUnitId} fired ${retryCount + 1} times. Check Linear state.`,
+          "error",
+        );
+        return;
+      }
+      ctx.ui.notify(
+        `${linearUnitType} ${linearUnitId} didn't advance. Retrying (${retryCount}/${MAX_RETRIES}).`,
+        "warning",
+      );
+    } else {
+      retryCount = 0;
+    }
+
+    // Snapshot + activity log for the PREVIOUS unit
+    if (currentUnit) {
+      const modelId = ctx.model?.id ?? "unknown";
+      snapshotUnitMetrics(
+        ctx,
+        currentUnit.type,
+        currentUnit.id,
+        currentUnit.startedAt,
+        modelId,
+      );
+      saveActivityLog(ctx, basePath, currentUnit.type, currentUnit.id);
+      completedUnits.push({
+        type: currentUnit.type,
+        id: currentUnit.id,
+        startedAt: currentUnit.startedAt,
+        finishedAt: Date.now(),
+      });
+    }
+
+    lastUnit = { type: linearUnitType, id: linearUnitId };
+    currentUnit = { type: linearUnitType, id: linearUnitId, startedAt: Date.now() };
+
+    ctx.ui.setStatus("kata-auto", "auto");
+
+    // Fresh session
+    const linearResult = await cmdCtx!.newSession();
+    if (linearResult.cancelled) {
+      await stopAuto(ctx, pi);
+      ctx.ui.notify("New session cancelled — auto-mode stopped.", "warning");
+      return;
+    }
+
+    // Apply retry diagnostic if stuck
+    let linearFinalPrompt = linearPrompt;
+    if (retryCount > 0) {
+      const diagnostic = getDeepDiagnostic(basePath);
+      if (diagnostic) {
+        linearFinalPrompt = `**RETRY — previous attempt did not advance the Linear phase.**\n\nDiagnostic:\n${diagnostic}\n\n---\n\n${linearFinalPrompt}`;
+      }
+    }
+
+    // Switch model if preferences specify one for this unit type
+    const linearPreferredModelId = resolveModelForUnit(linearUnitType);
+    if (linearPreferredModelId) {
+      const allModels = ctx.modelRegistry.getAll();
+      const model = allModels.find((m) => m.id === linearPreferredModelId);
+      if (model) {
+        const ok = await pi.setModel(model);
+        if (ok) {
+          ctx.ui.notify(`Model: ${linearPreferredModelId}`, "info");
+        }
+      }
+    }
+
+    pi.sendMessage({ content: linearFinalPrompt }, { triggerTurn: true });
+    return;
+  }
+
+  // ── File mode ──
 
   let state = await deriveState(basePath);
   let mid = state.activeMilestone?.id;

@@ -12,6 +12,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deriveState } from "./state.js";
+import type { KataState } from "./types.js";
+import { LinearClient } from "../linear/linear-client.js";
+import { ensureKataLabels } from "../linear/linear-entities.js";
+import { deriveLinearState } from "../linear/linear-state.js";
 import { KataDashboardOverlay } from "./dashboard-overlay.js";
 import { showSmartEntry, showQueue, showDiscuss } from "./guided-flow.js";
 import { startAuto, stopAuto, isAutoActive, isAutoPaused } from "./auto.js";
@@ -28,6 +32,8 @@ import {
 import {
   formatLinearConfigStatus,
   getWorkflowEntrypointGuard,
+  isLinearMode,
+  loadEffectiveLinearProjectConfig,
   validateLinearProjectConfig,
   type LinearConfigValidationResult,
   type ValidateLinearProjectConfigOptions,
@@ -294,6 +300,80 @@ export function registerKataCommand(pi: ExtensionAPI): void {
   });
 }
 
+/**
+ * Mode-aware state derivation.
+ *
+ * In Linear mode: queries the Linear API via `deriveLinearState`.
+ * In file mode: reads `.kata/` files via `deriveState`.
+ *
+ * Errors from the Linear API are caught and returned as a "blocked" KataState
+ * with a diagnostic message in `blockers[]` — the overlay surfaces this rather
+ * than crashing.
+ */
+async function deriveKataState(basePath: string): Promise<KataState> {
+  if (!isLinearMode()) {
+    return deriveState(basePath);
+  }
+
+  const config = loadEffectiveLinearProjectConfig();
+  const apiKey = process.env.LINEAR_API_KEY;
+
+  if (!apiKey) {
+    return {
+      phase: "blocked",
+      activeMilestone: null,
+      activeSlice: null,
+      activeTask: null,
+      blockers: ["LINEAR_API_KEY is not set"],
+      recentDecisions: [],
+      nextAction: "Set LINEAR_API_KEY to use Linear mode.",
+      registry: [],
+      progress: { milestones: { done: 0, total: 0 } },
+    };
+  }
+
+  const { projectId, teamId } = config.linear;
+  if (!projectId || !teamId) {
+    return {
+      phase: "blocked",
+      activeMilestone: null,
+      activeSlice: null,
+      activeTask: null,
+      blockers: [
+        "Linear project not configured — set linear.teamId and linear.projectId in .kata/preferences.md.",
+      ],
+      recentDecisions: [],
+      nextAction: "Run /kata prefs project to configure the Linear project.",
+      registry: [],
+      progress: { milestones: { done: 0, total: 0 } },
+    };
+  }
+
+  try {
+    const client = new LinearClient(apiKey);
+    const labelSet = await ensureKataLabels(client, teamId);
+    return await deriveLinearState(client, {
+      projectId,
+      teamId,
+      sliceLabelId: labelSet.slice.id,
+      basePath,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      phase: "blocked",
+      activeMilestone: null,
+      activeSlice: null,
+      activeTask: null,
+      blockers: [`Linear API error: ${message}`],
+      recentDecisions: [],
+      nextAction: "Check LINEAR_API_KEY and Linear project config, then retry.",
+      registry: [],
+      progress: { milestones: { done: 0, total: 0 } },
+    };
+  }
+}
+
 async function handleStatus(ctx: ExtensionCommandContext): Promise<void> {
   const modeGate = getWorkflowEntrypointGuard("status");
   if (!modeGate.allow) {
@@ -305,7 +385,7 @@ async function handleStatus(ctx: ExtensionCommandContext): Promise<void> {
   }
 
   const basePath = process.cwd();
-  const state = await deriveState(basePath);
+  const state = await deriveKataState(basePath);
 
   if (state.registry.length === 0) {
     ctx.ui.notify("No Kata milestones found. Run /kata to start.", "info");

@@ -87,7 +87,7 @@ test("file mode remains the default and resolves KATA-WORKFLOW.md", () => {
   );
 });
 
-test("linear mode selects LINEAR-WORKFLOW.md and blocks file-backed entrypoints", () => {
+test("linear mode selects LINEAR-WORKFLOW.md and blocks unsupported entrypoints (status and auto now allowed)", () => {
   const loaded = makeLoadedPreferences({
     workflow: { mode: "linear" },
     linear: { teamKey: "KAT" },
@@ -115,12 +115,12 @@ test("linear mode selects LINEAR-WORKFLOW.md and blocks file-backed entrypoints"
       assert.match(smartEntry.notice ?? "", /silently falling back to \.kata files/i);
 
       const status = getWorkflowEntrypointGuard("status", loaded);
-      assert.equal(status.allow, false);
-      assert.match(status.notice ?? "", /\/kata prefs status/i);
+      assert.equal(status.allow, true);
+      assert.match(status.notice ?? "", /live progress/i);
 
       const auto = getWorkflowEntrypointGuard("auto", loaded);
-      assert.equal(auto.allow, false);
-      assert.match(auto.notice ?? "", /\/kata auto still executes the file-backed workflow/i);
+      assert.equal(auto.allow, true);
+      assert.match(auto.notice ?? "", /linear mode/i);
     },
   );
 });
