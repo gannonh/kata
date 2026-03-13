@@ -41,7 +41,7 @@
 
 ## Tasks
 
-- [ ] **T01: Write failing tests for PR command routing and auto-create decisions** `est:45m`
+- [x] **T01: Write failing tests for PR command routing and auto-create decisions** `est:45m`
   - Why: Establishes the concrete stopping condition for the slice before any wiring changes land. The tests pin the command surface, deterministic status report, and auto-create gating rules so later tasks can refactor safely.
   - Files: `src/resources/extensions/kata/tests/pr-command.test.ts`, `src/resources/extensions/kata/tests/pr-auto.test.ts`, `src/resources/extensions/kata/tests/prefs-status.test.ts`
   - Do: Add `pr-command.test.ts` with a top-level import of the not-yet-existing `../pr-command.js` and assertions for `/kata pr` completions, usage parsing, and deterministic status formatting. Add `pr-auto.test.ts` with a top-level import of the not-yet-existing `../pr-auto.js` and assertions for the slice-completion decision matrix (`PR disabled` → squash merge, `PR enabled + auto_create` → create PR + pause, `create failed` → stop/pause with diagnostics). Extend `prefs-status.test.ts` so PR config lines become part of the canonical prefs-status contract. Keep the initial failure mode at MODULE_NOT_FOUND or assertion failure — not syntax errors.

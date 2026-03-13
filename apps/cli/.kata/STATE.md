@@ -2,21 +2,21 @@
 
 **Active Milestone:** M003 — PR Lifecycle
 **Active Slice:** S05 — Preferences, Onboarding & `/kata pr` Command
-**Active Task:** T01 — Write failing tests for PR command routing and auto-create decisions
+**Active Task:** T02 — Extract shared PR status and orchestration helpers
 **Phase:** executing
 **Slice Branch:** kata/M003/S05
 **Active Workspace:** /Volumes/EVO/kata/kata-mono.worktrees/wt-cli/apps/cli
-**Next Action:** Start S05/T01 — add failing tests for `/kata pr` completions/status and the auto-create decision matrix.
+**Next Action:** Start S05/T02 — create pr-command.ts and pr-auto.ts with the pure helpers that make T01's failing tests pass, then run npm test to verify all 5 new tests now pass.
 **Last Updated:** 2026-03-13T12:23
 **Requirements Status:** 6 active (R100, R106 from M002; R200, R203, R205, R208 from M003) · 16 validated total · 0 deferred · 3 out of scope
 
 ## Recent Decisions
 
-- D046: `updateSliceInRoadmap()` uses an anchored multiline regex instead of a missing formatter helper.
-- D047: `parseCIChecks()` fails closed on invalid JSON, while `kata_merge_pr` treats `gh pr checks` exec failures as "no CI configured / allow merge".
 - D048: `/kata pr` uses one deterministic subcommand family; `status` renders directly while mutating paths dispatch hidden prompts into the existing PR tools.
 - D049: auto-mode creates a PR and pauses when `pr.enabled && pr.auto_create`; legacy squash-merge remains only for PR-disabled projects.
 - D050: `/kata pr status` is the canonical PR lifecycle inspection surface.
+- D051: PostCompleteSliceDecision = "legacy-squash-merge" | "auto-create-and-pause" | "skip-notify"; "skip-notify" is the safe default for pr.enabled=true without auto_create.
+- D052: PrStatusDependencies uses four injected accessors (getCurrentBranch, getOpenPrNumber, getPrEnabled, getPrAutoCreate, getPrBaseBranch) — keeps buildPrStatusReport fully testable without filesystem or gh CLI calls.
 
 ## Blockers
 
