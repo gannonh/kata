@@ -84,6 +84,16 @@ export function getLegacyGlobalKataPreferencesPath(): string {
 }
 
 export function getProjectKataPreferencesPath(): string {
+  // If the canonical file doesn't exist yet but the legacy file does, return the
+  // legacy path so callers (e.g. /kata prefs project) open the existing file
+  // instead of creating a new empty canonical file that would shadow the legacy
+  // settings on the next reload.
+  if (
+    !existsSync(PROJECT_PREFERENCES_PATH) &&
+    existsSync(LEGACY_PROJECT_PREFERENCES_PATH)
+  ) {
+    return LEGACY_PROJECT_PREFERENCES_PATH;
+  }
   return PROJECT_PREFERENCES_PATH;
 }
 
@@ -402,7 +412,12 @@ function loadPreferencesFile(
   const parsed = parsePreferencesMarkdown(raw);
   if (!parsed) return null;
 
-  const { preferences } = validatePreferences(parsed);
+  const { preferences, errors } = validatePreferences(parsed);
+  if (errors.length > 0) {
+    process.stderr.write(
+      `[kata] preferences validation warnings in ${path}:\n${errors.map((e) => `  - ${e}`).join("\n")}\n`,
+    );
+  }
 
   return {
     path,
@@ -625,14 +640,22 @@ function mergePreferences(
     ),
     models: { ...(base.models ?? {}), ...(override.models ?? {}) },
     skill_discovery: override.skill_discovery ?? base.skill_discovery,
-    workflow: {
-      ...(base.workflow ?? {}),
-      ...(override.workflow ?? {}),
-    },
-    linear: {
-      ...(base.linear ?? {}),
-      ...(override.linear ?? {}),
-    },
+    ...(base.workflow || override.workflow
+      ? {
+          workflow: {
+            ...(base.workflow ?? {}),
+            ...(override.workflow ?? {}),
+          },
+        }
+      : {}),
+    ...(base.linear || override.linear
+      ? {
+          linear: {
+            ...(base.linear ?? {}),
+            ...(override.linear ?? {}),
+          },
+        }
+      : {}),
     auto_supervisor: {
       ...(base.auto_supervisor ?? {}),
       ...(override.auto_supervisor ?? {}),

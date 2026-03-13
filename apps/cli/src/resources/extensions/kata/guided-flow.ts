@@ -550,7 +550,7 @@ export async function showDiscuss(
       chosen.title,
       basePath,
     );
-    dispatchWorkflow(ctx, pi, prompt, "kata-discuss", "discuss");
+    if (!dispatchWorkflow(ctx, pi, prompt, "kata-discuss", "discuss")) return;
 
     // Wait for the discuss session to finish, then loop back to the picker
     await ctx.waitForIdle();
@@ -656,17 +656,20 @@ export async function showSmartEntry(
     if (isFirst) {
       // First ever — skip wizard, just ask directly
       pendingAutoStart = { ctx, pi, basePath, milestoneId: nextId };
-      dispatchWorkflow(
-        ctx,
-        pi,
-        buildDiscussPrompt(
-          nextId,
-          `New project, milestone ${nextId}. Do NOT read or explore .kata/ — it's empty scaffolding.`,
-          basePath,
-        ),
-        "kata-run",
-        "smart-entry",
-      );
+      if (
+        !dispatchWorkflow(
+          ctx,
+          pi,
+          buildDiscussPrompt(
+            nextId,
+            `New project, milestone ${nextId}. Do NOT read or explore .kata/ — it's empty scaffolding.`,
+            basePath,
+          ),
+          "kata-run",
+          "smart-entry",
+        )
+      )
+        return;
     } else {
       const choice = await showNextAction(ctx as any, {
         title: "Kata — Kata Workflow",
@@ -684,13 +687,16 @@ export async function showSmartEntry(
 
       if (choice === "new_milestone") {
         pendingAutoStart = { ctx, pi, basePath, milestoneId: nextId };
-        dispatchWorkflow(
-          ctx,
-          pi,
-          buildDiscussPrompt(nextId, `New milestone ${nextId}.`, basePath),
-          "kata-run",
-          "smart-entry",
-        );
+        if (
+          !dispatchWorkflow(
+            ctx,
+            pi,
+            buildDiscussPrompt(nextId, `New milestone ${nextId}.`, basePath),
+            "kata-run",
+            "smart-entry",
+          )
+        )
+          return;
       }
     }
     return;
@@ -725,13 +731,16 @@ export async function showSmartEntry(
       const nextId = `M${String(milestoneIds.length + 1).padStart(3, "0")}`;
 
       pendingAutoStart = { ctx, pi, basePath, milestoneId: nextId };
-      dispatchWorkflow(
-        ctx,
-        pi,
-        buildDiscussPrompt(nextId, `New milestone ${nextId}.`, basePath),
-        "kata-run",
-        "smart-entry",
-      );
+      if (
+        !dispatchWorkflow(
+          ctx,
+          pi,
+          buildDiscussPrompt(nextId, `New milestone ${nextId}.`, basePath),
+          "kata-run",
+          "smart-entry",
+        )
+      )
+        return;
     } else if (choice === "status") {
       const { fireStatusViaCommand } = await import("./commands.js");
       await fireStatusViaCommand(ctx);
@@ -785,27 +794,33 @@ export async function showSmartEntry(
       });
 
       if (choice === "plan") {
-        dispatchWorkflow(
-          ctx,
-          pi,
-          loadPrompt("guided-plan-milestone", {
-            milestoneId,
-            milestoneTitle,
-          }),
-          "kata-run",
-          "smart-entry",
-        );
+        if (
+          !dispatchWorkflow(
+            ctx,
+            pi,
+            loadPrompt("guided-plan-milestone", {
+              milestoneId,
+              milestoneTitle,
+            }),
+            "kata-run",
+            "smart-entry",
+          )
+        )
+          return;
       } else if (choice === "discuss") {
-        dispatchWorkflow(
-          ctx,
-          pi,
-          loadPrompt("guided-discuss-milestone", {
-            milestoneId,
-            milestoneTitle,
-          }),
-          "kata-run",
-          "smart-entry",
-        );
+        if (
+          !dispatchWorkflow(
+            ctx,
+            pi,
+            loadPrompt("guided-discuss-milestone", {
+              milestoneId,
+              milestoneTitle,
+            }),
+            "kata-run",
+            "smart-entry",
+          )
+        )
+          return;
       }
     } else {
       // Roadmap exists — either blocked or ready for auto
@@ -909,42 +924,51 @@ export async function showSmartEntry(
     });
 
     if (choice === "plan") {
-      dispatchWorkflow(
-        ctx,
-        pi,
-        loadPrompt("guided-plan-slice", {
-          milestoneId,
-          sliceId,
-          sliceTitle,
-        }),
-        "kata-run",
-        "smart-entry",
-      );
+      if (
+        !dispatchWorkflow(
+          ctx,
+          pi,
+          loadPrompt("guided-plan-slice", {
+            milestoneId,
+            sliceId,
+            sliceTitle,
+          }),
+          "kata-run",
+          "smart-entry",
+        )
+      )
+        return;
     } else if (choice === "discuss") {
-      dispatchWorkflow(
-        ctx,
-        pi,
-        await buildDiscussSlicePrompt(
-          milestoneId,
-          sliceId,
-          sliceTitle,
-          basePath,
-        ),
-        "kata-run",
-        "smart-entry",
-      );
+      if (
+        !dispatchWorkflow(
+          ctx,
+          pi,
+          await buildDiscussSlicePrompt(
+            milestoneId,
+            sliceId,
+            sliceTitle,
+            basePath,
+          ),
+          "kata-run",
+          "smart-entry",
+        )
+      )
+        return;
     } else if (choice === "research") {
-      dispatchWorkflow(
-        ctx,
-        pi,
-        loadPrompt("guided-research-slice", {
-          milestoneId,
-          sliceId,
-          sliceTitle,
-        }),
-        "kata-run",
-        "smart-entry",
-      );
+      if (
+        !dispatchWorkflow(
+          ctx,
+          pi,
+          loadPrompt("guided-research-slice", {
+            milestoneId,
+            sliceId,
+            sliceTitle,
+          }),
+          "kata-run",
+          "smart-entry",
+        )
+      )
+        return;
     } else if (choice === "status") {
       const { fireStatusViaCommand } = await import("./commands.js");
       await fireStatusViaCommand(ctx);
@@ -975,17 +999,20 @@ export async function showSmartEntry(
     });
 
     if (choice === "complete") {
-      dispatchWorkflow(
-        ctx,
-        pi,
-        loadPrompt("guided-complete-slice", {
-          milestoneId,
-          sliceId,
-          sliceTitle,
-        }),
-        "kata-run",
-        "smart-entry",
-      );
+      if (
+        !dispatchWorkflow(
+          ctx,
+          pi,
+          loadPrompt("guided-complete-slice", {
+            milestoneId,
+            sliceId,
+            sliceTitle,
+          }),
+          "kata-run",
+          "smart-entry",
+        )
+      )
+        return;
     } else if (choice === "status") {
       const { fireStatusViaCommand } = await import("./commands.js");
       await fireStatusViaCommand(ctx);
@@ -1046,29 +1073,35 @@ export async function showSmartEntry(
 
     if (choice === "execute") {
       if (hasInterrupted) {
-        dispatchWorkflow(
-          ctx,
-          pi,
-          loadPrompt("guided-resume-task", {
-            milestoneId,
-            sliceId,
-          }),
-          "kata-run",
-          "smart-entry",
-        );
+        if (
+          !dispatchWorkflow(
+            ctx,
+            pi,
+            loadPrompt("guided-resume-task", {
+              milestoneId,
+              sliceId,
+            }),
+            "kata-run",
+            "smart-entry",
+          )
+        )
+          return;
       } else {
-        dispatchWorkflow(
-          ctx,
-          pi,
-          loadPrompt("guided-execute-task", {
-            milestoneId,
-            sliceId,
-            taskId,
-            taskTitle,
-          }),
-          "kata-run",
-          "smart-entry",
-        );
+        if (
+          !dispatchWorkflow(
+            ctx,
+            pi,
+            loadPrompt("guided-execute-task", {
+              milestoneId,
+              sliceId,
+              taskId,
+              taskTitle,
+            }),
+            "kata-run",
+            "smart-entry",
+          )
+        )
+          return;
       }
     } else if (choice === "status") {
       const { fireStatusViaCommand } = await import("./commands.js");

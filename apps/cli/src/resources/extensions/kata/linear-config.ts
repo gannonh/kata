@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { classifyLinearError } from "../linear/http.js";
 import { LinearClient } from "../linear/linear-client.js";
@@ -161,7 +162,7 @@ export function resolveWorkflowProtocol(
   if (mode === "linear") {
     const linearPath =
       process.env.LINEAR_WORKFLOW_PATH ??
-      join(process.env.HOME ?? "~", ".kata-cli", "LINEAR-WORKFLOW.md");
+      join(process.env.HOME ?? homedir(), ".kata-cli", "LINEAR-WORKFLOW.md");
     const ready = existsSync(linearPath);
     return {
       mode,
@@ -173,7 +174,7 @@ export function resolveWorkflowProtocol(
 
   const kataPath =
     process.env.KATA_WORKFLOW_PATH ??
-    join(process.env.HOME ?? "~", ".kata-cli", "KATA-WORKFLOW.md");
+    join(process.env.HOME ?? homedir(), ".kata-cli", "KATA-WORKFLOW.md");
   const ready = existsSync(kataPath);
   return {
     mode,

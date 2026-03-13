@@ -68,15 +68,17 @@ test(
   { skip: !API_KEY ? "LINEAR_API_KEY not set" : undefined },
   async (t) => {
     const client = new LinearClient(API_KEY!);
-    const projects = await client.listProjects({ first: 25 });
-
-    if (projects.length === 0) {
-      t.skip("No Linear projects available for integration validation");
-      return;
-    }
-
     const teams = await client.listTeams();
     assert.ok(teams.length > 0, "expected at least one Linear team");
+
+    // Fetch projects scoped to the first team so team and project are guaranteed
+    // to be associated (avoids a test that passes with incompatible config).
+    const projects = await client.listProjects({ teamId: teams[0].id, first: 25 });
+
+    if (projects.length === 0) {
+      t.skip("No Linear projects available for the first team in integration validation");
+      return;
+    }
 
     const loaded: LoadedKataPreferences = {
       path: "/tmp/project/.kata/preferences.md",
