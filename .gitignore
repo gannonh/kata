@@ -81,4 +81,5 @@ demos/
 kata-cloud-agents.code-workspace
 .superpowers/
 .bg-shell/
-kata-mono.code-workspace
+*.code-workspace
+
