@@ -675,7 +675,7 @@ Kata 1.0 ships with **Claude Code plugin support** as the recommended installati
 ### Fixed
 
 - Hooks installation now handles subdirectories correctly
-- GSD reference validation in transform workflow
+- Kata reference validation in transform workflow
 
 ## [0.1.5] - 2026-01-22
 

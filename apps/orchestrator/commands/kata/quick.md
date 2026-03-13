@@ -1,6 +1,6 @@
 ---
 name: kata:quick
-description: Execute a quick task with GSD guarantees (atomic commits, state tracking) but skip optional agents
+description: Execute a quick task with Kata guarantees (atomic commits, state tracking) but skip optional agents
 argument-hint: "[--full] [--discuss]"
 allowed-tools:
   - Read
@@ -13,7 +13,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 <objective>
-Execute small, ad-hoc tasks with GSD guarantees (atomic commits, STATE.md tracking).
+Execute small, ad-hoc tasks with Kata guarantees (atomic commits, STATE.md tracking).
 
 Quick mode is the same system with a shorter path:
 - Spawns kata-planner (quick mode) + kata-executor(s)

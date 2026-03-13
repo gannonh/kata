@@ -1,13 +1,13 @@
 ---
 name: kata:update
-description: Update GSD to latest version with changelog display
+description: Update Kata to latest version with changelog display
 allowed-tools:
   - Bash
   - AskUserQuestion
 ---
 
 <objective>
-Check for GSD updates, install if available, and display what changed.
+Check for Kata updates, install if available, and display what changed.
 
 Routes to the update workflow which handles:
 - Version detection (local vs global installation)

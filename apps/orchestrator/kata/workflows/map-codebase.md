@@ -312,5 +312,5 @@ End workflow.
 - Read agent output files to collect confirmations
 - All 7 codebase documents exist
 - Clear completion summary with line counts
-- User offered clear next steps in GSD style
+- User offered clear next steps in Kata style
 </success_criteria>

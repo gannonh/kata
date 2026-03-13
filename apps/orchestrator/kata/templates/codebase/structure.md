@@ -126,7 +126,7 @@ Template for `.planning/codebase/STRUCTURE.md` - captures physical file organiza
 kata-orchestrator/
 ├── bin/                # Executable entry points
 ├── commands/           # Slash command definitions
-│   └── kata/           # GSD-specific commands
+│   └── kata/           # Kata-specific commands
 ├── kata-orchestrator/     # Skill resources
 │   ├── references/    # Principle documents
 │   ├── templates/     # File templates

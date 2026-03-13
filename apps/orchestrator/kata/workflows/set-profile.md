@@ -1,5 +1,5 @@
 <purpose>
-Switch the model profile used by GSD agents. Controls which Claude model each agent uses, balancing quality vs token spend.
+Switch the model profile used by Kata agents. Controls which Claude model each agent uses, balancing quality vs token spend.
 </purpose>
 
 <required_reading>

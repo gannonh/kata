@@ -1,12 +1,12 @@
 /**
- * GSD Tools Tests - codex-config.cjs
+ * Kata Tools Tests - codex-config.cjs
  *
  * Tests for Codex adapter header, agent conversion, config.toml generation/merge,
  * per-agent .toml generation, and uninstall cleanup.
  */
 
 // Enable test exports from install.js (skips main CLI logic)
-process.env.GSD_TEST_MODE = '1';
+process.env.Kata_TEST_MODE = '1';
 
 const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
@@ -19,7 +19,7 @@ const {
   convertClaudeAgentToCodexAgent,
   generateCodexAgentToml,
   generateCodexConfigBlock,
-  stripGsdFromCodexConfig,
+  stripKataFromCodexConfig,
   mergeCodexConfig,
   KATA_CODEX_MARKER,
   CODEX_AGENT_SANDBOX,
@@ -40,7 +40,7 @@ describe('getCodexSkillAdapterHeader', () => {
   test('includes correct invocation syntax', () => {
     const result = getCodexSkillAdapterHeader('kata-plan-phase');
     assert.ok(result.includes('`$kata-plan-phase`'), 'has $skillName invocation');
-    assert.ok(result.includes('{{GSD_ARGS}}'), 'has GSD_ARGS variable');
+    assert.ok(result.includes('{{Kata_ARGS}}'), 'has Kata_ARGS variable');
   });
 
   test('section B maps AskUserQuestion parameters', () => {
@@ -71,13 +71,13 @@ describe('convertClaudeAgentToCodexAgent', () => {
   test('adds codex_agent_role header and cleans frontmatter', () => {
     const input = `---
 name: kata-executor
-description: Executes GSD plans with atomic commits
+description: Executes Kata plans with atomic commits
 tools: Read, Write, Edit, Bash, Grep, Glob
 color: yellow
 ---
 
 <role>
-You are a GSD plan executor.
+You are a Kata plan executor.
 </role>`;
 
     const result = convertClaudeAgentToCodexAgent(input);
@@ -85,7 +85,7 @@ You are a GSD plan executor.
     // Frontmatter rebuilt with only name and description
     assert.ok(result.startsWith('---\n'), 'starts with frontmatter');
     assert.ok(result.includes('"kata-executor"'), 'has quoted name');
-    assert.ok(result.includes('"Executes GSD plans with atomic commits"'), 'has quoted description');
+    assert.ok(result.includes('"Executes Kata plans with atomic commits"'), 'has quoted description');
     assert.ok(!result.includes('color: yellow'), 'drops color field');
     // Tools should be in <codex_agent_role> but NOT in frontmatter
     const fmEnd = result.indexOf('---', 4);
@@ -96,7 +96,7 @@ You are a GSD plan executor.
     assert.ok(result.includes('<codex_agent_role>'), 'has role header');
     assert.ok(result.includes('role: kata-executor'), 'role matches agent name');
     assert.ok(result.includes('tools: Read, Write, Edit, Bash, Grep, Glob'), 'tools in role block');
-    assert.ok(result.includes('purpose: Executes GSD plans with atomic commits'), 'purpose from description');
+    assert.ok(result.includes('purpose: Executes Kata plans with atomic commits'), 'purpose from description');
     assert.ok(result.includes('</codex_agent_role>'), 'has closing tag');
 
     // Body preserved
@@ -201,7 +201,7 @@ describe('generateCodexConfigBlock', () => {
     { name: 'kata-planner', description: 'Creates plans' },
   ];
 
-  test('starts with GSD marker', () => {
+  test('starts with Kata marker', () => {
     const result = generateCodexConfigBlock(agents);
     assert.ok(result.startsWith(KATA_CODEX_MARKER), 'starts with marker');
   });
@@ -229,27 +229,27 @@ describe('generateCodexConfigBlock', () => {
   });
 });
 
-// ─── stripGsdFromCodexConfig ────────────────────────────────────────────────────
+// ─── stripKataFromCodexConfig ────────────────────────────────────────────────────
 
-describe('stripGsdFromCodexConfig', () => {
-  test('returns null for GSD-only config', () => {
+describe('stripKataFromCodexConfig', () => {
+  test('returns null for Kata-only config', () => {
     const content = `${KATA_CODEX_MARKER}\n[features]\nmulti_agent = true\n`;
-    const result = stripGsdFromCodexConfig(content);
-    assert.strictEqual(result, null, 'returns null when GSD-only');
+    const result = stripKataFromCodexConfig(content);
+    assert.strictEqual(result, null, 'returns null when Kata-only');
   });
 
   test('preserves user content before marker', () => {
     const content = `[model]\nname = "o3"\n\n${KATA_CODEX_MARKER}\n[features]\nmulti_agent = true\n`;
-    const result = stripGsdFromCodexConfig(content);
+    const result = stripKataFromCodexConfig(content);
     assert.ok(result.includes('[model]'), 'preserves user section');
     assert.ok(result.includes('name = "o3"'), 'preserves user values');
-    assert.ok(!result.includes('multi_agent'), 'removes GSD content');
+    assert.ok(!result.includes('multi_agent'), 'removes Kata content');
     assert.ok(!result.includes(KATA_CODEX_MARKER), 'removes marker');
   });
 
   test('strips injected feature keys without marker', () => {
     const content = `[features]\nmulti_agent = true\ndefault_mode_request_user_input = true\nother_feature = false\n`;
-    const result = stripGsdFromCodexConfig(content);
+    const result = stripKataFromCodexConfig(content);
     assert.ok(!result.includes('multi_agent'), 'removes multi_agent');
     assert.ok(!result.includes('default_mode_request_user_input'), 'removes request_user_input');
     assert.ok(result.includes('other_feature = false'), 'preserves user features');
@@ -257,7 +257,7 @@ describe('stripGsdFromCodexConfig', () => {
 
   test('removes empty [features] section', () => {
     const content = `[features]\nmulti_agent = true\n[model]\nname = "o3"\n`;
-    const result = stripGsdFromCodexConfig(content);
+    const result = stripKataFromCodexConfig(content);
     assert.ok(!result.includes('[features]'), 'removes empty features section');
     assert.ok(result.includes('[model]'), 'preserves other sections');
   });
@@ -265,7 +265,7 @@ describe('stripGsdFromCodexConfig', () => {
   test('strips injected keys above marker on uninstall', () => {
     // Case 3 install injects keys into [features] AND appends marker block
     const content = `[model]\nname = "o3"\n\n[features]\nmulti_agent = true\ndefault_mode_request_user_input = true\nsome_custom_flag = true\n\n${KATA_CODEX_MARKER}\n[agents]\nmax_threads = 4\n`;
-    const result = stripGsdFromCodexConfig(content);
+    const result = stripKataFromCodexConfig(content);
     assert.ok(result.includes('[model]'), 'preserves user model section');
     assert.ok(result.includes('some_custom_flag = true'), 'preserves user feature');
     assert.ok(!result.includes('multi_agent'), 'strips injected multi_agent');
@@ -275,8 +275,8 @@ describe('stripGsdFromCodexConfig', () => {
 
   test('removes [agents.kata-*] sections', () => {
     const content = `[agents.kata-executor]\ndescription = "test"\nconfig_file = "agents/kata-executor.toml"\n\n[agents.custom-agent]\ndescription = "user agent"\n`;
-    const result = stripGsdFromCodexConfig(content);
-    assert.ok(!result.includes('[agents.kata-executor]'), 'removes GSD agent section');
+    const result = stripKataFromCodexConfig(content);
+    assert.ok(!result.includes('[agents.kata-executor]'), 'removes Kata agent section');
     assert.ok(result.includes('[agents.custom-agent]'), 'preserves user agent section');
   });
 });
@@ -309,7 +309,7 @@ describe('mergeCodexConfig', () => {
     assert.ok(content.includes('[agents.kata-executor]'), 'has agent');
   });
 
-  test('case 2: replaces existing GSD block', () => {
+  test('case 2: replaces existing Kata block', () => {
     const configPath = path.join(tmpDir, 'config.toml');
     const userContent = '[model]\nname = "o3"\n';
     fs.writeFileSync(configPath, userContent + '\n' + sampleBlock + '\n');
@@ -330,7 +330,7 @@ describe('mergeCodexConfig', () => {
     assert.strictEqual(markerCount, 1, 'exactly one marker');
   });
 
-  test('case 3: appends to config without GSD marker', () => {
+  test('case 3: appends to config without Kata marker', () => {
     const configPath = path.join(tmpDir, 'config.toml');
     fs.writeFileSync(configPath, '[model]\nname = "o3"\n');
 
@@ -379,7 +379,7 @@ describe('mergeCodexConfig', () => {
     assert.strictEqual(featuresCount, 1, 'exactly one [features] section');
     assert.strictEqual(agentsCount, 1, 'exactly one [agents] section');
     assert.ok(content.includes('other_feature = true'), 'preserves user feature keys');
-    assert.ok(content.includes('multi_agent = true'), 'has GSD feature key');
+    assert.ok(content.includes('multi_agent = true'), 'has Kata feature key');
     assert.ok(content.includes('[agents.kata-executor]'), 'has agent');
   });
 

@@ -1,10 +1,10 @@
 ---
-description: Reapply local modifications after a GSD update
+description: Reapply local modifications after a Kata update
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
 ---
 
 <purpose>
-After a GSD update wipes and reinstalls files, this command merges user's previously saved local modifications back into the new version. Uses intelligent comparison to handle cases where the upstream file also changed.
+After a Kata update wipes and reinstalls files, this command merges user's previously saved local modifications back into the new version. Uses intelligent comparison to handle cases where the upstream file also changed.
 </purpose>
 
 <process>
@@ -42,7 +42,7 @@ Read `backup-meta.json` from the patches directory.
 No local patches found. Nothing to reapply.
 
 Local patches are automatically saved when you run /kata:update
-after modifying any GSD workflow, command, or agent files.
+after modifying any Kata workflow, command, or agent files.
 ```
 Exit.
 

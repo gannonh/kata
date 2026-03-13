@@ -1,5 +1,5 @@
 /**
- * GSD Tools Test Helpers
+ * Kata Tools Test Helpers
  */
 
 const { execSync, execFileSync } = require('child_process');
@@ -15,7 +15,7 @@ const TOOLS_PATH = path.join(__dirname, '..', 'kata', 'bin', 'kata-tools.cjs');
  *   of arguments (shell-bypassed via execFileSync, safe for JSON and dollar signs).
  * @param {string} cwd - Working directory.
  */
-function runGsdTools(args, cwd = process.cwd()) {
+function runKataTools(args, cwd = process.cwd()) {
   try {
     let result;
     if (Array.isArray(args)) {
@@ -72,4 +72,4 @@ function cleanup(tmpDir) {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 }
 
-module.exports = { runGsdTools, createTempProject, createTempGitProject, cleanup, TOOLS_PATH };
+module.exports = { runKataTools, createTempProject, createTempGitProject, cleanup, TOOLS_PATH };

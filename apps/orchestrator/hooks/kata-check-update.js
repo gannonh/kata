@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Check for GSD updates in background, write result to cache
+// Check for Kata updates in background, write result to cache
 // Called by SessionStart hook - runs once per session
 
 const fs = require('fs');

@@ -1,6 +1,6 @@
 ---
 name: kata:set-profile
-description: Switch model profile for GSD agents (quality/balanced/budget)
+description: Switch model profile for Kata agents (quality/balanced/budget)
 argument-hint: <profile>
 allowed-tools:
   - Read
@@ -9,7 +9,7 @@ allowed-tools:
 ---
 
 <objective>
-Switch the model profile used by GSD agents. Controls which Claude model each agent uses, balancing quality vs token spend.
+Switch the model profile used by Kata agents. Controls which Claude model each agent uses, balancing quality vs token spend.
 
 Routes to the set-profile workflow which handles:
 - Argument validation (quality/balanced/budget)
