@@ -1,135 +1,69 @@
-<div align="center">
+# Kata Orchestrator
 
-# GET SHIT DONE
+A spec-driven development system for Claude Code, OpenCode, Gemini CLI, and Codex. Structures AI-assisted development into discrete planning, execution, and verification phases so context stays fresh and output stays consistent.
 
-**A light-weight and powerful meta-prompting, context engineering and spec-driven development system for Claude Code, OpenCode, Gemini CLI, and Codex.**
+```bash
+npx @kata-sh/orc@latest
+```
 
-**Solves context rot — the quality degradation that happens as Claude fills its context window.**
+Works on Mac, Windows, and Linux.
 
-[![npm version](https://img.shields.io/npm/v/kata-orchestrator?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/kata-orchestrator)
-[![npm downloads](https://img.shields.io/npm/dm/kata-orchestrator?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/kata-orchestrator)
+[![npm version](https://img.shields.io/npm/v/%40kata-sh%2Forc?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@kata-sh/orc)
+[![npm downloads](https://img.shields.io/npm/dm/%40kata-sh%2Forc?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@kata-sh/orc)
 [![Tests](https://img.shields.io/github/actions/workflow/status/glittercowboy/kata-orchestrator/test.yml?branch=main&style=for-the-badge&logo=github&label=Tests)](https://github.com/glittercowboy/kata-orchestrator/actions/workflows/test.yml)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/kata)
-[![X (Twitter)](https://img.shields.io/badge/X-@kata_orchestrator-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/kata_orchestrator)
-[![$GSD Token](https://img.shields.io/badge/$GSD-Dexscreener-1C1C1C?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzAwRkYwMCIvPjwvc3ZnPg==&logoColor=00FF00)](https://dexscreener.com/solana/dwudwjvan7bzkw9zwlbyv6kspdlvhwzrqy6ebk8xzxkv)
-[![GitHub stars](https://img.shields.io/github/stars/glittercowboy/kata-orchestrator?style=for-the-badge&logo=github&color=181717)](https://github.com/glittercowboy/kata-orchestrator)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
 
-<br>
+---
+
+## Overview
+
+Kata Orchestrator is part of the Kata mono-repo. It installs a set of slash commands and agents into your AI coding runtime that structure development work into phases: discuss, plan, execute, verify.
+
+Each execution phase runs in a fresh subagent context with a dedicated 200k token window. The main session stays light. Work accumulates as structured files on disk rather than in the context window.
+
+---
+
+## Installation
 
 ```bash
-npx kata-orchestrator@latest
+npx @kata-sh/orc@latest
 ```
 
-**Works on Mac, Windows, and Linux.**
+The installer prompts for runtime and scope:
 
-<br>
-
-![GSD Install](assets/terminal.svg)
-
-<br>
-
-*"If you know clearly what you want, this WILL build it for you. No bs."*
-
-*"I've done SpecKit, OpenSpec and Taskmaster — this has produced the best results for me."*
-
-*"By far the most powerful addition to my Claude Code. Nothing over-engineered. Literally just gets shit done."*
-
-<br>
-
-**Trusted by engineers at Amazon, Google, Shopify, and Webflow.**
-
-[Why I Built This](#why-i-built-this) · [How It Works](#how-it-works) · [Commands](#commands) · [Why It Works](#why-it-works) · [User Guide](docs/USER-GUIDE.md)
-
-</div>
-
----
-
-## Why I Built This
-
-I'm a solo developer. I don't write code — Claude Code does.
-
-Other spec-driven development tools exist; BMAD, Speckit... But they all seem to make things way more complicated than they need to be (sprint ceremonies, story points, stakeholder syncs, retrospectives, Jira workflows) or lack real big picture understanding of what you're building. I'm not a 50-person software company. I don't want to play enterprise theater. I'm just a creative person trying to build great things that work.
-
-So I built GSD. The complexity is in the system, not in your workflow. Behind the scenes: context engineering, XML prompt formatting, subagent orchestration, state management. What you see: a few commands that just work.
-
-The system gives Claude everything it needs to do the work *and* verify it. I trust the workflow. It just does a good job.
-
-That's what this is. No enterprise roleplay bullshit. Just an incredibly effective system for building cool stuff consistently using Claude Code.
-
-— **kata-orchestrator**
-
----
-
-Vibecoding has a bad reputation. You describe what you want, AI generates code, and you get inconsistent garbage that falls apart at scale.
-
-GSD fixes that. It's the context engineering layer that makes Claude Code reliable. Describe your idea, let the system extract everything it needs to know, and let Claude Code get to work.
-
----
-
-## Who This Is For
-
-People who want to describe what they want and have it built correctly — without pretending they're running a 50-person engineering org.
-
----
-
-## Getting Started
-
-```bash
-npx kata-orchestrator@latest
-```
-
-The installer prompts you to choose:
 1. **Runtime** — Claude Code, OpenCode, Gemini, Codex, or all
 2. **Location** — Global (all projects) or local (current project only)
 
-Verify with:
+Verify the install:
 - Claude Code / Gemini: `/kata:help`
 - OpenCode: `/kata-help`
 - Codex: `$kata-help`
 
-> [!NOTE]
-> Codex installation uses skills (`skills/kata-*/SKILL.md`) rather than custom prompts.
+Codex installation uses skills (`skills/kata-*/SKILL.md`) rather than custom prompts.
 
-### Staying Updated
-
-GSD evolves fast. Update periodically:
-
-```bash
-npx kata-orchestrator@latest
-```
-
-<details>
-<summary><strong>Non-interactive Install (Docker, CI, Scripts)</strong></summary>
+**Non-interactive install:**
 
 ```bash
 # Claude Code
-npx kata-orchestrator --claude --global   # Install to ~/.claude/
-npx kata-orchestrator --claude --local    # Install to ./.claude/
+npx @kata-sh/orc --claude --global
+npx @kata-sh/orc --claude --local
 
-# OpenCode (open source, free models)
-npx kata-orchestrator --opencode --global # Install to ~/.config/opencode/
+# OpenCode
+npx @kata-sh/orc --opencode --global
 
 # Gemini CLI
-npx kata-orchestrator --gemini --global   # Install to ~/.gemini/
+npx @kata-sh/orc --gemini --global
 
-# Codex (skills-first)
-npx kata-orchestrator --codex --global    # Install to ~/.codex/
-npx kata-orchestrator --codex --local     # Install to ./.codex/
+# Codex
+npx @kata-sh/orc --codex --global
+npx @kata-sh/orc --codex --local
 
 # All runtimes
-npx kata-orchestrator --all --global      # Install to all directories
+npx @kata-sh/orc --all --global
 ```
 
-Use `--global` (`-g`) or `--local` (`-l`) to skip the location prompt.
-Use `--claude`, `--opencode`, `--gemini`, `--codex`, or `--all` to skip the runtime prompt.
-
-</details>
-
-<details>
-<summary><strong>Development Installation</strong></summary>
-
-Clone the repository and run the installer locally:
+**Development install:**
 
 ```bash
 git clone https://github.com/glittercowboy/kata-orchestrator.git
@@ -137,200 +71,101 @@ cd kata-orchestrator
 node bin/install.js --claude --local
 ```
 
-Installs to `./.claude/` for testing modifications before contributing.
+**Permissions:**
 
-</details>
-
-### Recommended: Skip Permissions Mode
-
-GSD is designed for frictionless automation. Run Claude Code with:
-
-```bash
-claude --dangerously-skip-permissions
-```
-
-> [!TIP]
-> This is how GSD is intended to be used — stopping to approve `date` and `git commit` 50 times defeats the purpose.
-
-<details>
-<summary><strong>Alternative: Granular Permissions</strong></summary>
-
-If you prefer not to use that flag, add this to your project's `.claude/settings.json`:
+Run Claude Code with `--dangerously-skip-permissions` to avoid approval prompts on every file operation. Alternatively, add specific permissions to `.claude/settings.json`:
 
 ```json
 {
   "permissions": {
     "allow": [
-      "Bash(date:*)",
-      "Bash(echo:*)",
-      "Bash(cat:*)",
-      "Bash(ls:*)",
-      "Bash(mkdir:*)",
-      "Bash(wc:*)",
-      "Bash(head:*)",
-      "Bash(tail:*)",
-      "Bash(sort:*)",
-      "Bash(grep:*)",
-      "Bash(tr:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git status:*)",
-      "Bash(git log:*)",
-      "Bash(git diff:*)",
-      "Bash(git tag:*)"
+      "Bash(date:*)", "Bash(echo:*)", "Bash(cat:*)", "Bash(ls:*)",
+      "Bash(mkdir:*)", "Bash(wc:*)", "Bash(head:*)", "Bash(tail:*)",
+      "Bash(sort:*)", "Bash(grep:*)", "Bash(tr:*)",
+      "Bash(git add:*)", "Bash(git commit:*)", "Bash(git status:*)",
+      "Bash(git log:*)", "Bash(git diff:*)", "Bash(git tag:*)"
     ]
   }
 }
 ```
 
-</details>
-
 ---
 
 ## How It Works
 
-> **Already have code?** Run `/kata:map-codebase` first. It spawns parallel agents to analyze your stack, architecture, conventions, and concerns. Then `/kata:new-project` knows your codebase — questions focus on what you're adding, and planning automatically loads your patterns.
-
-### 1. Initialize Project
+### 1. Initialize project
 
 ```
 /kata:new-project
 ```
 
-One command, one flow. The system:
+Runs an interview to capture goals, constraints, and tech preferences. Optionally spawns parallel research agents. Produces scoped requirements and a phase roadmap.
 
-1. **Questions** — Asks until it understands your idea completely (goals, constraints, tech preferences, edge cases)
-2. **Research** — Spawns parallel agents to investigate the domain (optional but recommended)
-3. **Requirements** — Extracts what's v1, v2, and out of scope
-4. **Roadmap** — Creates phases mapped to requirements
+**Output:** `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md`
 
-You approve the roadmap. Now you're ready to build.
-
-**Creates:** `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md`, `.planning/research/`
+For existing codebases, run `/kata:map-codebase` first. It analyzes the stack and conventions so planning questions focus on what's being added.
 
 ---
 
-### 2. Discuss Phase
+### 2. Discuss phase
 
 ```
 /kata:discuss-phase 1
 ```
 
-**This is where you shape the implementation.**
+Captures implementation decisions before planning. The system identifies gray areas based on what's being built and asks targeted questions. Output feeds directly into the research and planning steps.
 
-Your roadmap has a sentence or two per phase. That's not enough context to build something the way *you* imagine it. This step captures your preferences before anything gets researched or planned.
-
-The system analyzes the phase and identifies gray areas based on what's being built:
-
-- **Visual features** → Layout, density, interactions, empty states
-- **APIs/CLIs** → Response format, flags, error handling, verbosity
-- **Content systems** → Structure, tone, depth, flow
-- **Organization tasks** → Grouping criteria, naming, duplicates, exceptions
-
-For each area you select, it asks until you're satisfied. The output — `CONTEXT.md` — feeds directly into the next two steps:
-
-1. **Researcher reads it** — Knows what patterns to investigate ("user wants card layout" → research card component libraries)
-2. **Planner reads it** — Knows what decisions are locked ("infinite scroll decided" → plan includes scroll handling)
-
-The deeper you go here, the more the system builds what you actually want. Skip it and you get reasonable defaults. Use it and you get *your* vision.
-
-**Creates:** `{phase_num}-CONTEXT.md`
+**Output:** `{phase_num}-CONTEXT.md`
 
 ---
 
-### 3. Plan Phase
+### 3. Plan phase
 
 ```
 /kata:plan-phase 1
 ```
 
-The system:
+Researches the implementation domain, produces 2-3 atomic task plans, then validates plans against requirements. Plans are sized to fit a single context window.
 
-1. **Researches** — Investigates how to implement this phase, guided by your CONTEXT.md decisions
-2. **Plans** — Creates 2-3 atomic task plans with XML structure
-3. **Verifies** — Checks plans against requirements, loops until they pass
-
-Each plan is small enough to execute in a fresh context window. No degradation, no "I'll be more concise now."
-
-**Creates:** `{phase_num}-RESEARCH.md`, `{phase_num}-{N}-PLAN.md`
+**Output:** `{phase_num}-RESEARCH.md`, `{phase_num}-{N}-PLAN.md`
 
 ---
 
-### 4. Execute Phase
+### 4. Execute phase
 
 ```
 /kata:execute-phase 1
 ```
 
-The system:
+Groups plans into waves by dependency. Plans in the same wave run in parallel; waves run sequentially. Each plan executes in a fresh subagent context. Each completed task gets an atomic git commit.
 
-1. **Runs plans in waves** — Parallel where possible, sequential when dependent
-2. **Fresh context per plan** — 200k tokens purely for implementation, zero accumulated garbage
-3. **Commits per task** — Every task gets its own atomic commit
-4. **Verifies against goals** — Checks the codebase delivers what the phase promised
+**Output:** `{phase_num}-{N}-SUMMARY.md`, `{phase_num}-VERIFICATION.md`
 
-Walk away, come back to completed work with clean git history.
-
-**How Wave Execution Works:**
-
-Plans are grouped into "waves" based on dependencies. Within each wave, plans run in parallel. Waves run sequentially.
+Wave structure example:
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│  PHASE EXECUTION                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  WAVE 1 (parallel)          WAVE 2 (parallel)          WAVE 3       │
-│  ┌─────────┐ ┌─────────┐    ┌─────────┐ ┌─────────┐    ┌─────────┐ │
-│  │ Plan 01 │ │ Plan 02 │ →  │ Plan 03 │ │ Plan 04 │ →  │ Plan 05 │ │
-│  │         │ │         │    │         │ │         │    │         │ │
-│  │ User    │ │ Product │    │ Orders  │ │ Cart    │    │ Checkout│ │
-│  │ Model   │ │ Model   │    │ API     │ │ API     │    │ UI      │ │
-│  └─────────┘ └─────────┘    └─────────┘ └─────────┘    └─────────┘ │
-│       │           │              ↑           ↑              ↑       │
-│       └───────────┴──────────────┴───────────┘              │       │
-│              Dependencies: Plan 03 needs Plan 01            │       │
-│                          Plan 04 needs Plan 02              │       │
-│                          Plan 05 needs Plans 03 + 04        │       │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
+WAVE 1 (parallel)        WAVE 2 (parallel)      WAVE 3
+  Plan 01: User Model      Plan 03: Orders API    Plan 05: Checkout UI
+  Plan 02: Product Model   Plan 04: Cart API
 ```
 
-**Why waves matter:**
-- Independent plans → Same wave → Run in parallel
-- Dependent plans → Later wave → Wait for dependencies
-- File conflicts → Sequential plans or same plan
-
-This is why "vertical slices" (Plan 01: User feature end-to-end) parallelize better than "horizontal layers" (Plan 01: All models, Plan 02: All APIs).
-
-**Creates:** `{phase_num}-{N}-SUMMARY.md`, `{phase_num}-VERIFICATION.md`
+Plans 03 and 04 wait for their respective model plans. Plan 05 waits for both APIs.
 
 ---
 
-### 5. Verify Work
+### 5. Verify work
 
 ```
 /kata:verify-work 1
 ```
 
-**This is where you confirm it actually works.**
+Extracts testable deliverables from the phase and walks through them one at a time. Failures trigger automated debug agents that diagnose root causes and produce fix plans ready for re-execution.
 
-Automated verification checks that code exists and tests pass. But does the feature *work* the way you expected? This is your chance to use it.
-
-The system:
-
-1. **Extracts testable deliverables** — What you should be able to do now
-2. **Walks you through one at a time** — "Can you log in with email?" Yes/no, or describe what's wrong
-3. **Diagnoses failures automatically** — Spawns debug agents to find root causes
-4. **Creates verified fix plans** — Ready for immediate re-execution
-
-If everything passes, you move on. If something's broken, you don't manually debug — you just run `/kata:execute-phase` again with the fix plans it created.
-
-**Creates:** `{phase_num}-UAT.md`, fix plans if issues found
+**Output:** `{phase_num}-UAT.md`, fix plans if issues found
 
 ---
 
-### 6. Repeat → Complete → Next Milestone
+### 6. Continue
 
 ```
 /kata:discuss-phase 2
@@ -342,201 +177,125 @@ If everything passes, you move on. If something's broken, you don't manually deb
 /kata:new-milestone
 ```
 
-Loop **discuss → plan → execute → verify** until milestone complete.
-
-Each phase gets your input (discuss), proper research (plan), clean execution (execute), and human verification (verify). Context stays fresh. Quality stays high.
-
-When all phases are done, `/kata:complete-milestone` archives the milestone and tags the release.
-
-Then `/kata:new-milestone` starts the next version — same flow as `new-project` but for your existing codebase. You describe what you want to build next, the system researches the domain, you scope requirements, and it creates a fresh roadmap. Each milestone is a clean cycle: define → build → ship.
+Repeat discuss, plan, execute, verify for each phase. When all phases are done, `/kata:complete-milestone` archives the milestone and tags the release. `/kata:new-milestone` starts the next iteration.
 
 ---
 
-### Quick Mode
+### Quick mode
 
 ```
 /kata:quick
 ```
 
-**For ad-hoc tasks that don't need full planning.**
-
-Quick mode gives you GSD guarantees (atomic commits, state tracking) with a faster path:
-
-- **Same agents** — Planner + executor, same quality
-- **Skips optional steps** — No research, no plan checker, no verifier
-- **Separate tracking** — Lives in `.planning/quick/`, not phases
-
-Use for: bug fixes, small features, config changes, one-off tasks.
+For ad-hoc tasks that don't need full planning. Skips research, plan checking, and verification. Uses the same agents and produces the same git commits and summaries.
 
 ```
 /kata:quick
 > What do you want to do? "Add dark mode toggle to settings"
 ```
 
-**Creates:** `.planning/quick/001-add-dark-mode-toggle/PLAN.md`, `SUMMARY.md`
+**Output:** `.planning/quick/001-task-name/PLAN.md`, `SUMMARY.md`
 
 ---
 
-## Why It Works
+## File Structure
 
-### Context Engineering
+Kata stores all planning artifacts in `.planning/`:
 
-Claude Code is incredibly powerful *if* you give it the context it needs. Most people don't.
-
-GSD handles it for you:
-
-| File | What it does |
-|------|--------------|
-| `PROJECT.md` | Project vision, always loaded |
-| `research/` | Ecosystem knowledge (stack, features, architecture, pitfalls) |
-| `REQUIREMENTS.md` | Scoped v1/v2 requirements with phase traceability |
-| `ROADMAP.md` | Where you're going, what's done |
-| `STATE.md` | Decisions, blockers, position — memory across sessions |
-| `PLAN.md` | Atomic task with XML structure, verification steps |
-| `SUMMARY.md` | What happened, what changed, committed to history |
-| `todos/` | Captured ideas and tasks for later work |
-
-Size limits based on where Claude's quality degrades. Stay under, get consistent excellence.
-
-### XML Prompt Formatting
-
-Every plan is structured XML optimized for Claude:
-
-```xml
-<task type="auto">
-  <name>Create login endpoint</name>
-  <files>src/app/api/auth/login/route.ts</files>
-  <action>
-    Use jose for JWT (not jsonwebtoken - CommonJS issues).
-    Validate credentials against users table.
-    Return httpOnly cookie on success.
-  </action>
-  <verify>curl -X POST localhost:3000/api/auth/login returns 200 + Set-Cookie</verify>
-  <done>Valid credentials return cookie, invalid return 401</done>
-</task>
 ```
-
-Precise instructions. No guessing. Verification built in.
-
-### Multi-Agent Orchestration
-
-Every stage uses the same pattern: a thin orchestrator spawns specialized agents, collects results, and routes to the next step.
-
-| Stage | Orchestrator does | Agents do |
-|-------|------------------|-----------|
-| Research | Coordinates, presents findings | 4 parallel researchers investigate stack, features, architecture, pitfalls |
-| Planning | Validates, manages iteration | Planner creates plans, checker verifies, loop until pass |
-| Execution | Groups into waves, tracks progress | Executors implement in parallel, each with fresh 200k context |
-| Verification | Presents results, routes next | Verifier checks codebase against goals, debuggers diagnose failures |
-
-The orchestrator never does heavy lifting. It spawns agents, waits, integrates results.
-
-**The result:** You can run an entire phase — deep research, multiple plans created and verified, thousands of lines of code written across parallel executors, automated verification against goals — and your main context window stays at 30-40%. The work happens in fresh subagent contexts. Your session stays fast and responsive.
-
-### Atomic Git Commits
-
-Each task gets its own commit immediately after completion:
-
-```bash
-abc123f docs(08-02): complete user registration plan
-def456g feat(08-02): add email confirmation flow
-hij789k feat(08-02): implement password hashing
-lmn012o feat(08-02): create registration endpoint
+.planning/
+  config.json
+  PROJECT.md
+  REQUIREMENTS.md
+  ROADMAP.md
+  STATE.md
+  research/
+  1-CONTEXT.md
+  1-RESEARCH.md
+  1-1-PLAN.md
+  1-1-SUMMARY.md
+  1-VERIFICATION.md
+  1-UAT.md
+  quick/
+    001-task-name/
+      PLAN.md
+      SUMMARY.md
 ```
-
-> [!NOTE]
-> **Benefits:** Git bisect finds exact failing task. Each task independently revertable. Clear history for Claude in future sessions. Better observability in AI-automated workflow.
-
-Every commit is surgical, traceable, and meaningful.
-
-### Modular by Design
-
-- Add phases to current milestone
-- Insert urgent work between phases
-- Complete milestones and start fresh
-- Adjust plans without rebuilding everything
-
-You're never locked in. The system adapts.
 
 ---
 
 ## Commands
 
-### Core Workflow
+**Core workflow:**
 
 | Command | What it does |
 |---------|--------------|
-| `/kata:new-project [--auto]` | Full initialization: questions → research → requirements → roadmap |
-| `/kata:discuss-phase [N] [--auto]` | Capture implementation decisions before planning |
-| `/kata:plan-phase [N] [--auto]` | Research + plan + verify for a phase |
-| `/kata:execute-phase <N>` | Execute all plans in parallel waves, verify when complete |
-| `/kata:verify-work [N]` | Manual user acceptance testing ¹ |
-| `/kata:audit-milestone` | Verify milestone achieved its definition of done |
-| `/kata:complete-milestone` | Archive milestone, tag release |
-| `/kata:new-milestone [name]` | Start next version: questions → research → requirements → roadmap |
+| `/kata:new-project [--auto]` | Interview, research, requirements, roadmap |
+| `/kata:discuss-phase [N] [--auto]` | Capture decisions before planning |
+| `/kata:plan-phase [N] [--auto]` | Research, plan, validate |
+| `/kata:execute-phase <N>` | Execute in parallel waves, verify |
+| `/kata:verify-work [N]` | User acceptance walkthrough |
+| `/kata:audit-milestone` | Verify milestone definition of done |
+| `/kata:complete-milestone` | Archive and tag |
+| `/kata:new-milestone [name]` | Start next iteration |
 
-### Navigation
-
-| Command | What it does |
-|---------|--------------|
-| `/kata:progress` | Where am I? What's next? |
-| `/kata:help` | Show all commands and usage guide |
-| `/kata:update` | Update GSD with changelog preview |
-| `/kata:join-discord` | Join the GSD Discord community |
-
-### Brownfield
+**Navigation:**
 
 | Command | What it does |
 |---------|--------------|
-| `/kata:map-codebase` | Analyze existing codebase before new-project |
+| `/kata:progress` | Current position and next action |
+| `/kata:help` | All commands |
+| `/kata:update` | Update with changelog preview |
 
-### Phase Management
+**Brownfield:**
+
+| Command | What it does |
+|---------|--------------|
+| `/kata:map-codebase` | Analyze existing codebase before planning |
+
+**Phase management:**
 
 | Command | What it does |
 |---------|--------------|
 | `/kata:add-phase` | Append phase to roadmap |
-| `/kata:insert-phase [N]` | Insert urgent work between phases |
-| `/kata:remove-phase [N]` | Remove future phase, renumber |
-| `/kata:list-phase-assumptions [N]` | See Claude's intended approach before planning |
-| `/kata:plan-milestone-gaps` | Create phases to close gaps from audit |
+| `/kata:insert-phase [N]` | Insert between phases |
+| `/kata:remove-phase [N]` | Remove and renumber |
+| `/kata:list-phase-assumptions [N]` | Preview approach before planning |
+| `/kata:plan-milestone-gaps` | Create phases to close audit gaps |
 
-### Session
+**Session:**
 
 | Command | What it does |
 |---------|--------------|
-| `/kata:pause-work` | Create handoff when stopping mid-phase |
+| `/kata:pause-work` | Save handoff state |
 | `/kata:resume-work` | Restore from last session |
 
-### Utilities
+**Utilities:**
 
 | Command | What it does |
 |---------|--------------|
-| `/kata:settings` | Configure model profile and workflow agents |
-| `/kata:set-profile <profile>` | Switch model profile (quality/balanced/budget) |
+| `/kata:settings` | Configure model profile and agents |
+| `/kata:set-profile <profile>` | Switch quality/balanced/budget |
 | `/kata:add-todo [desc]` | Capture idea for later |
 | `/kata:check-todos` | List pending todos |
 | `/kata:debug [desc]` | Systematic debugging with persistent state |
-| `/kata:quick [--full] [--discuss]` | Execute ad-hoc task with GSD guarantees (`--full` adds plan-checking and verification, `--discuss` gathers context first) |
-| `/kata:health [--repair]` | Validate `.planning/` directory integrity, auto-repair with `--repair` |
-
-<sup>¹ Contributed by reddit user OracleGreyBeard</sup>
+| `/kata:quick [--full] [--discuss]` | Ad-hoc task (`--full` adds checking and verification) |
+| `/kata:health [--repair]` | Validate `.planning/` integrity |
 
 ---
 
 ## Configuration
 
-GSD stores project settings in `.planning/config.json`. Configure during `/kata:new-project` or update later with `/kata:settings`. For the full config schema, workflow toggles, git branching options, and per-agent model breakdown, see the [User Guide](docs/USER-GUIDE.md#configuration-reference).
+Settings are stored in `.planning/config.json`. Configure during `/kata:new-project` or update with `/kata:settings`.
 
-### Core Settings
+**Core settings:**
 
-| Setting | Options | Default | What it controls |
-|---------|---------|---------|------------------|
-| `mode` | `yolo`, `interactive` | `interactive` | Auto-approve vs confirm at each step |
-| `granularity` | `coarse`, `standard`, `fine` | `standard` | Phase granularity — how finely scope is sliced (phases × plans) |
+| Setting | Options | Default | Description |
+|---------|---------|---------|-------------|
+| `mode` | `yolo`, `interactive` | `interactive` | Auto-approve vs confirm |
+| `granularity` | `coarse`, `standard`, `fine` | `standard` | Phase and plan granularity |
 
-### Model Profiles
-
-Control which Claude model each agent uses. Balance quality vs token spend.
+**Model profiles:**
 
 | Profile | Planning | Execution | Verification |
 |---------|----------|-----------|--------------|
@@ -544,62 +303,32 @@ Control which Claude model each agent uses. Balance quality vs token spend.
 | `balanced` (default) | Opus | Sonnet | Sonnet |
 | `budget` | Sonnet | Sonnet | Haiku |
 
-Switch profiles:
-```
-/kata:set-profile budget
-```
+Switch with `/kata:set-profile budget`.
 
-Or configure via `/kata:settings`.
+**Workflow agents:**
 
-### Workflow Agents
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `workflow.research` | `true` | Research before planning |
+| `workflow.plan_check` | `true` | Validate plans before execution |
+| `workflow.verifier` | `true` | Confirm deliverables after execution |
+| `workflow.auto_advance` | `false` | Chain steps without stopping |
 
-These spawn additional agents during planning/execution. They improve quality but add tokens and time.
+Override per-invocation with `--skip-research` or `--skip-verify`.
 
-| Setting | Default | What it does |
-|---------|---------|--------------|
-| `workflow.research` | `true` | Researches domain before planning each phase |
-| `workflow.plan_check` | `true` | Verifies plans achieve phase goals before execution |
-| `workflow.verifier` | `true` | Confirms must-haves were delivered after execution |
-| `workflow.auto_advance` | `false` | Auto-chain discuss → plan → execute without stopping |
+**Git branching:**
 
-Use `/kata:settings` to toggle these, or override per-invocation:
-- `/kata:plan-phase --skip-research`
-- `/kata:plan-phase --skip-verify`
-
-### Execution
-
-| Setting | Default | What it controls |
-|---------|---------|------------------|
-| `parallelization.enabled` | `true` | Run independent plans simultaneously |
-| `planning.commit_docs` | `true` | Track `.planning/` in git |
-
-### Git Branching
-
-Control how GSD handles branches during execution.
-
-| Setting | Options | Default | What it does |
-|---------|---------|---------|--------------|
+| Setting | Options | Default | Description |
+|---------|---------|---------|-------------|
 | `git.branching_strategy` | `none`, `phase`, `milestone` | `none` | Branch creation strategy |
-| `git.phase_branch_template` | string | `kata/phase-{phase}-{slug}` | Template for phase branches |
-| `git.milestone_branch_template` | string | `kata/{milestone}-{slug}` | Template for milestone branches |
-
-**Strategies:**
-- **`none`** — Commits to current branch (default GSD behavior)
-- **`phase`** — Creates a branch per phase, merges at phase completion
-- **`milestone`** — Creates one branch for entire milestone, merges at completion
-
-At milestone completion, GSD offers squash merge (recommended) or merge with history.
+| `git.phase_branch_template` | string | `kata/phase-{phase}-{slug}` | Phase branch name |
+| `git.milestone_branch_template` | string | `kata/{milestone}-{slug}` | Milestone branch name |
 
 ---
 
 ## Security
 
-### Protecting Sensitive Files
-
-GSD's codebase mapping and analysis commands read files to understand your project. **Protect files containing secrets** by adding them to Claude Code's deny list:
-
-1. Open Claude Code settings (`.claude/settings.json` or global)
-2. Add sensitive file patterns to the deny list:
+Add sensitive file patterns to Claude Code's deny list to prevent them from being read during codebase analysis:
 
 ```json
 {
@@ -616,90 +345,47 @@ GSD's codebase mapping and analysis commands read files to understand your proje
 }
 ```
 
-This prevents Claude from reading these files entirely, regardless of what commands you run.
-
-> [!IMPORTANT]
-> GSD includes built-in protections against committing secrets, but defense-in-depth is best practice. Deny read access to sensitive files as a first line of defense.
-
 ---
 
 ## Troubleshooting
 
-**Commands not found after install?**
-- Restart your runtime to reload commands/skills
-- Verify files exist in `~/.claude/commands/kata/` (global) or `./.claude/commands/kata/` (local)
-- For Codex, verify skills exist in `~/.codex/skills/kata-*/SKILL.md` (global) or `./.codex/skills/kata-*/SKILL.md` (local)
+**Commands not found after install** — Restart your runtime. Verify files exist in `~/.claude/commands/kata/` (global) or `./.claude/commands/kata/` (local). For Codex, check `~/.codex/skills/kata-*/SKILL.md`.
 
-**Commands not working as expected?**
-- Run `/kata:help` to verify installation
-- Re-run `npx kata-orchestrator` to reinstall
+**Commands not working as expected** — Run `/kata:help` to verify installation. Re-run `npx @kata-sh/orc` to reinstall.
 
-**Updating to the latest version?**
-```bash
-npx kata-orchestrator@latest
-```
-
-**Using Docker or containerized environments?**
-
-If file reads fail with tilde paths (`~/.claude/...`), set `CLAUDE_CONFIG_DIR` before installing:
-```bash
-CLAUDE_CONFIG_DIR=/home/youruser/.claude npx kata-orchestrator --global
-```
-This ensures absolute paths are used instead of `~` which may not expand correctly in containers.
-
-### Uninstalling
-
-To remove GSD completely:
+**Docker or containerized environments** — If tilde paths fail, set `CLAUDE_CONFIG_DIR` before installing:
 
 ```bash
-# Global installs
-npx kata-orchestrator --claude --global --uninstall
-npx kata-orchestrator --opencode --global --uninstall
-npx kata-orchestrator --codex --global --uninstall
-
-# Local installs (current project)
-npx kata-orchestrator --claude --local --uninstall
-npx kata-orchestrator --opencode --local --uninstall
-npx kata-orchestrator --codex --local --uninstall
+CLAUDE_CONFIG_DIR=/home/youruser/.claude npx @kata-sh/orc --global
 ```
 
-This removes all GSD commands, agents, hooks, and settings while preserving your other configurations.
+**Uninstall:**
+
+```bash
+npx @kata-sh/orc --claude --global --uninstall
+npx @kata-sh/orc --claude --local --uninstall
+npx @kata-sh/orc --opencode --global --uninstall
+npx @kata-sh/orc --codex --global --uninstall
+npx @kata-sh/orc --codex --local --uninstall
+```
+
+Removes all commands, agents, hooks, and settings without affecting other configurations.
 
 ---
 
 ## Community Ports
 
-OpenCode, Gemini CLI, and Codex are now natively supported via `npx kata-orchestrator`.
+OpenCode, Gemini CLI, and Codex are natively supported via `npx @kata-sh/orc`.
 
-These community ports pioneered multi-runtime support:
+Earlier community ports that pioneered multi-runtime support:
 
-| Project | Platform | Description |
-|---------|----------|-------------|
-| [kata-opencode](https://github.com/rokicool/kata-opencode) | OpenCode | Original OpenCode adaptation |
-| kata-gemini (archived) | Gemini CLI | Original Gemini adaptation by uberfuzzy |
-
----
-
-## Star History
-
-<a href="https://star-history.com/#glittercowboy/kata-orchestrator&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=glittercowboy/kata-orchestrator&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=glittercowboy/kata-orchestrator&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=glittercowboy/kata-orchestrator&type=Date" />
- </picture>
-</a>
+| Project | Platform |
+|---------|----------|
+| [kata-opencode](https://github.com/rokicool/kata-opencode) | OpenCode |
+| kata-gemini (archived) | Gemini CLI |
 
 ---
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
-
----
-
-<div align="center">
-
-**Claude Code is powerful. GSD makes it reliable.**
-
-</div>
+MIT — see [LICENSE](LICENSE).

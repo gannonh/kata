@@ -1,5 +1,5 @@
 {
-  "name": "kata-orchestrator",
+  "name": "@kata-sh/orc",
   "version": "2.0.0",
   "description": "A meta-prompting, context engineering and spec-driven development system for Claude Code, OpenCode, Gemini and Codex.",
   "bin": {
@@ -29,11 +29,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/glittercowboy/kata-orchestrator.git"
+    "url": "git+https://github.com/gannonh/kata.git",
+    "directory": "apps/orchestrator"
   },
-  "homepage": "https://github.com/glittercowboy/kata-orchestrator",
+  "homepage": "https://github.com/gannonh/kata/tree/main/apps/orchestrator",
   "bugs": {
-    "url": "https://github.com/glittercowboy/kata-orchestrator/issues"
+    "url": "https://github.com/gannonh/kata/issues"
   },
   "engines": {
     "node": ">=16.7.0"
