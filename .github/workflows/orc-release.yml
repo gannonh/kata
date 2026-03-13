@@ -50,8 +50,11 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5 # v2.0.1
+
       - name: Install dependencies
-        run: cd apps/orchestrator && npm install
+        run: bun install
 
       - name: Run tests
         run: cd apps/orchestrator && npm test
@@ -72,8 +75,11 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5 # v2.0.1
+
       - name: Install dependencies
-        run: cd apps/orchestrator && npm install
+        run: bun install
 
       - name: Publish to npm
         run: cd apps/orchestrator && npm publish --access public
