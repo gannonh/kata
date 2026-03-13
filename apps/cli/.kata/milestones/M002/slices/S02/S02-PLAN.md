@@ -53,7 +53,7 @@
   - Verify: `node --import ./src/resources/extensions/kata/tests/resolve-ts.mjs --experimental-strip-types --test src/resources/extensions/kata/tests/linear-config.test.ts` and `LINEAR_API_KEY=<key> node --import ./src/resources/extensions/kata/tests/resolve-ts.mjs --experimental-strip-types --test src/resources/extensions/kata/tests/linear-config.integration.test.ts`
   - Done when: Callers can ask one module whether the project is in Linear mode and whether its Linear binding is valid, and the integration test proves the configured team/project can be resolved against the live API.
 
-- [ ] **T03: Expose active mode and config health in `/kata prefs status`** `est:35m`
+- [x] **T03: Expose active mode and config health in `/kata prefs status`** `est:35m`
   - Why: This slice needs a real user-visible result, not just internal helpers; `/kata prefs status` is the lightest existing surface for showing that a project is configured for Linear mode and whether the binding is usable.
   - Files: `src/resources/extensions/kata/commands.ts`, `src/resources/extensions/kata/linear-config.ts`, `src/resources/extensions/kata/tests/prefs-status.test.ts`, `src/resources/extensions/kata/docs/preferences-reference.md`
   - Do: Update `/kata prefs status` to report the effective workflow mode, preference file path in use, team/project identifiers, and config-validation summary. Wire it to the centralized validation helper, degrade gracefully when `LINEAR_API_KEY` is missing, and make the output explicitly say when the project remains in file mode.
