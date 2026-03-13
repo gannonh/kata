@@ -50,14 +50,14 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R104 — State derived from Linear API queries
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: In Linear mode, Kata derives its state (active milestone, slice, task, phase) by querying Linear's API — no local state files
 - Why it matters: Linear is the single source of truth. No sync, no cache, no stale local state
 - Source: user
 - Primary owning slice: M002/S05
 - Supporting slices: none
-- Validation: unmapped
-- Notes: Queries project milestones, issue status, sub-issue completion to derive equivalent of state.md
+- Validation: validated — M002/S05 integration test creates full milestone→slice→task hierarchy, calls deriveLinearState, asserts correct activeMilestone/activeSlice/activeTask/phase/progress; advances task state and re-derives to confirm phase transition; 4/4 integration tests pass against real Linear workspace
+- Notes: Queries project milestones, issue status, sub-issue completion to derive equivalent of state.md; phase derived from Linear state type + children completion ratio (pure-issue-state, no document parsing)
 
 ### R105 — Per-project team configuration
 - Class: integration
@@ -105,14 +105,14 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R109 — Dashboard and status work in Linear mode
 - Class: primary-user-loop
-- Status: active
+- Status: validated
 - Description: /kata status and the dashboard overlay show progress derived from Linear in Linear mode
 - Why it matters: Users need the same quick-glance status experience regardless of mode
 - Source: inferred
 - Primary owning slice: M002/S05
 - Supporting slices: none
-- Validation: unmapped
-- Notes: Dashboard queries Linear API for progress data
+- Validation: validated — M002/S05: buildLinearEntrypointGuard "status"/"dashboard" cases return allow:true; handleStatus() dispatches to deriveLinearState in Linear mode; KataDashboardOverlay.loadData() is mode-aware; TypeScript clean; entrypoint guard grep confirmed
+- Notes: Dashboard caches LinearClient + sliceLabelId in instance fields; refreshes from Linear API every 2s without re-creating the client
 
 ### R200 — PR creation as part of slice completion
 - Class: core-capability
@@ -299,12 +299,12 @@ This file is the explicit capability and coverage contract for the project.
 | R101 | core-capability | active | M002/S03 | M002/S04, S05, S06 | unmapped |
 | R102 | core-capability | validated | M002/S03 | M002/S04 | validated |
 | R103 | core-capability | validated | M002/S04 | none | validated |
-| R104 | core-capability | active | M002/S05 | none | unmapped |
+| R104 | core-capability | validated | M002/S05 | none | validated |
 | R105 | integration | validated | M002/S02 | none | validated |
 | R106 | integration | active | M002/S01 | none | unmapped |
 | R107 | core-capability | active | M002/S06 | none | unmapped |
 | R108 | primary-user-loop | active | M002/S06 | none | unmapped |
-| R109 | primary-user-loop | active | M002/S05 | none | unmapped |
+| R109 | primary-user-loop | validated | M002/S05 | none | validated |
 | R110 | constraint | out-of-scope | none | none | n/a |
 | R111 | anti-feature | out-of-scope | none | none | n/a |
 | R200 | core-capability | active | M003/S01 | M003/S05 | unmapped |
@@ -319,7 +319,7 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Coverage Summary
 
-- Active requirements: 16
+- Active requirements: 14
 - Mapped to slices: 19
-- Validated: 6
+- Validated: 8
 - Unmapped active requirements: 0

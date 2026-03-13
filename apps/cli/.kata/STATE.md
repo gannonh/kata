@@ -1,22 +1,21 @@
 # Kata State
 
 **Active Milestone:** M002 — Linear Mode
-**Active Slice:** S05 — State Derivation from Linear API
-**Active Task:** (none — planning S05)
+**Active Slice:** S06 — Workflow Prompt & Auto-Mode Integration
+**Active Task:** (none — S06 not yet started)
 **Phase:** Planning
-**Slice Branch:** kata/M002/S04 (to be merged; S05 branch forthcoming)
+**Slice Branch:** kata/M002/S05 (pending squash-merge to main; S06 branch not yet cut)
 **Active Workspace:** /Volumes/EVO/kata/kata-mono/apps/cli
-**Next Action:** Begin S05 — State Derivation from Linear API
-**Last Updated:** 2026-03-12
-**Requirements Status:** 16 active · 6 validated · 0 deferred · 3 out of scope
+**Next Action:** Squash-merge S05 to main, cut kata/M002/S06 branch, begin S06
+**Last Updated:** 2026-03-12T19:00
+**Requirements Status:** 14 active · 8 validated · 0 deferred · 3 out of scope
 
 ## Recent Decisions
 
-- D024: `linear-entities.ts` lives in the linear extension, takes explicit client+config args, no kata-extension imports
-- D025: `LinearEntityClient` interface exported from `linear-entities.ts` as the structural contract for mock clients
-- D026: `DocumentAttachment = { projectId: string } | { issueId: string }` discriminated union enforces "attach to one target only" at type level
-- D027: Document upsert strategy — title-scoped first-match: list by scope+title → update if found, create if not
-- D028: Linear normalizes `- ` bullets to `* ` and strips trailing newlines on document write — downstream parsers must handle `* ` list syntax
+- D029: `LinearStateClient` interface from `linear-state.ts` — 2 methods (listMilestones + listIssues); same pattern as D025
+- D030: `deriveLinearState` is pure-issue-state — no document parsing; aligns with D009 and avoids D028 pitfall
+- D031: `started` state type → `executing`/`verifying`/`summarizing` by children completion ratio
+- D032: `kata_derive_state` tool is zero-ceremony — reads config from preferences, resolves labels internally
 
 ## Blockers
 
@@ -28,5 +27,5 @@
 - [x] S02: Project Configuration & Mode Switching
 - [x] S03: Entity Mapping — Hierarchy & Labels
 - [x] S04: Document Storage — Artifacts as Linear Documents
-- [ ] S05: State Derivation from Linear API ← next
+- [x] S05: State Derivation from Linear API
 - [ ] S06: Workflow Prompt & Auto-Mode Integration

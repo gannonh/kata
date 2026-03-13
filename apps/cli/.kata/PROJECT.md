@@ -16,7 +16,7 @@ A coding agent that executes structured, multi-session development work reliably
 - Default model: anthropic/claude-sonnet-4-6
 - MCP support shipped via pi-mcp-adapter auto-bundled (M001 complete)
 - File-based Kata workflow fully operational (local `.kata/` artifacts)
-- M002 Linear Mode in progress: S01 (GraphQL client), S02 (config/mode switching), S03 (entity mapping), S04 (document storage) complete; S05 (state derivation) next
+- M002 Linear Mode in progress: S01 (GraphQL client), S02 (config/mode switching), S03 (entity mapping), S04 (document storage), S05 (state derivation) complete; S06 (workflow prompt + auto-mode) next
 
 ## Architecture / Key Patterns
 

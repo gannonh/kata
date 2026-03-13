@@ -7,7 +7,7 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
-import type { LinearClient } from "./linear-client.js";
+import { LinearClient } from "./linear-client.js";
 import { classifyLinearError } from "./http.js";
 import {
   ensureKataLabels,
@@ -16,6 +16,8 @@ import {
   createKataTask,
   listKataSlices,
   listKataTasks,
+  listKataMilestones,
+  getLinearStateForKataPhase,
 } from "./linear-entities.js";
 import {
   writeKataDocument,
@@ -24,6 +26,9 @@ import {
 } from "./linear-documents.js";
 import type { DocumentAttachment } from "./linear-documents.js";
 import type { KataLabelSet } from "./linear-types.js";
+import type { KataPhase } from "./linear-types.js";
+import { deriveLinearState } from "./linear-state.js";
+import { loadEffectiveLinearProjectConfig } from "../../kata/linear-config.js";
 
 // Re-export entity functions under kata_* names so module consumers and
 // smoke-checks can confirm they are importable without loading the pi runtime.
@@ -34,9 +39,11 @@ export {
   createKataTask as kata_create_task,
   listKataSlices as kata_list_slices,
   listKataTasks as kata_list_tasks,
+  listKataMilestones as kata_list_milestones,
   writeKataDocument as kata_write_document,
   readKataDocument as kata_read_document,
   listKataDocuments as kata_list_documents,
+  deriveLinearState as kata_derive_linear_state,
 };
 
 // =============================================================================
@@ -734,6 +741,120 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
         ? { projectId: params.projectId! }
         : { issueId: params.issueId! };
       return run(() => listKataDocuments(client, attachment));
+    },
+  });
+
+  // =========================================================================
+  // Kata state-derivation and advancement tools
+  // =========================================================================
+
+  pi.registerTool({
+    name: "kata_list_milestones",
+    label: "Kata: List Milestones",
+    description:
+      "List all Linear project milestones for a Kata project, sorted by sortOrder. " +
+      "Zero-side-effect inspection surface — does not modify any state.",
+    parameters: Type.Object({
+      projectId: Type.String({ description: "Linear project UUID" }),
+    }),
+    async execute(_id, params) {
+      return run(() => listKataMilestones(client, params.projectId));
+    },
+  });
+
+  pi.registerTool({
+    name: "kata_derive_state",
+    label: "Kata: Derive Linear State",
+    description:
+      "Derive a full KataState from the Linear API. " +
+      "Reads projectId and teamId from project preferences (loadEffectiveLinearProjectConfig). " +
+      "Reads LINEAR_API_KEY from process.env. " +
+      "Returns a KataState JSON with activeMilestone, activeSlice, activeTask, phase, progress, and blockers. " +
+      "Returns phase 'blocked' (not an error) when LINEAR_API_KEY or project config is missing.",
+    parameters: Type.Object({}),
+    async execute() {
+      const apiKey = process.env.LINEAR_API_KEY;
+      if (!apiKey) {
+        return ok({
+          phase: "blocked",
+          activeMilestone: null,
+          activeSlice: null,
+          activeTask: null,
+          blockers: ["LINEAR_API_KEY not set"],
+          recentDecisions: [],
+          nextAction: "Set LINEAR_API_KEY before calling kata_derive_state.",
+          registry: [],
+        });
+      }
+
+      const config = loadEffectiveLinearProjectConfig();
+      const { projectId, teamId } = config.linear;
+
+      if (!projectId || !teamId) {
+        return ok({
+          phase: "blocked",
+          activeMilestone: null,
+          activeSlice: null,
+          activeTask: null,
+          blockers: ["Linear project not configured — set linear.projectId and linear.teamId in kata preferences"],
+          recentDecisions: [],
+          nextAction: "Run /kata prefs to configure the Linear project.",
+          registry: [],
+        });
+      }
+
+      const derivationClient = new LinearClient(apiKey);
+      const labelSet = await ensureKataLabels(derivationClient, teamId);
+
+      return run(() =>
+        deriveLinearState(derivationClient, {
+          projectId,
+          teamId,
+          sliceLabelId: labelSet.slice.id,
+        })
+      );
+    },
+  });
+
+  pi.registerTool({
+    name: "kata_update_issue_state",
+    label: "Kata: Update Issue State",
+    description:
+      "Advance a Linear issue to the workflow state corresponding to a given Kata phase. " +
+      "Resolves the correct Linear stateId from the team's workflow states, then updates the issue. " +
+      "Returns the updated issue with its new state.",
+    parameters: Type.Object({
+      issueId: Type.String({ description: "Linear issue UUID to update" }),
+      phase: Type.Union(
+        [
+          Type.Literal("backlog"),
+          Type.Literal("planning"),
+          Type.Literal("executing"),
+          Type.Literal("verifying"),
+          Type.Literal("done"),
+        ],
+        { description: "Kata phase to advance the issue to" }
+      ),
+      teamId: Type.Optional(
+        Type.String({ description: "Team UUID — resolved from project preferences when omitted" })
+      ),
+    }),
+    async execute(_id, params) {
+      const resolvedTeamId =
+        params.teamId ?? loadEffectiveLinearProjectConfig().linear.teamId;
+
+      if (!resolvedTeamId) {
+        return fail(new Error("teamId required — pass it explicitly or configure linear.teamId in kata preferences"));
+      }
+
+      return run(async () => {
+        const states = await client.listWorkflowStates(resolvedTeamId);
+        const targetState = getLinearStateForKataPhase(states, params.phase as KataPhase);
+        if (!targetState) {
+          throw new Error(`No workflow state found for phase: ${params.phase}`);
+        }
+        return client.updateIssue(params.issueId, { stateId: targetState.id });
+      });
     },
   });
 }

@@ -61,7 +61,7 @@ This milestone is complete only when all are true:
 - [x] **S04: Document Storage — Artifacts as Linear Documents** `risk:medium` `depends:[S01, S03]`
   > After this: agent can create and update roadmaps, context, research, summaries, and decisions as Linear Documents attached to the correct project/issue — and read them back with full markdown fidelity.
 
-- [ ] **S05: State Derivation from Linear API** `risk:medium` `depends:[S03, S04]`
+- [x] **S05: State Derivation from Linear API** `risk:medium` `depends:[S03, S04]`
   > After this: `/kata status` and the dashboard overlay show correct progress derived from Linear API queries — active milestone, slice, task, phase, completion counts — with no local state files.
 
 - [ ] **S06: Workflow Prompt & Auto-Mode Integration** `risk:medium` `depends:[S02, S05]`

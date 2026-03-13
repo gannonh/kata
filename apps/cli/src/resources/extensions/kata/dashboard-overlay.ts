@@ -17,6 +17,10 @@ import {
   aggregateByModel, formatCost, formatTokenCount, formatCostProjection,
 } from "./metrics.js";
 import { loadEffectiveKataPreferences } from "./preferences.js";
+import { isLinearMode, loadEffectiveLinearProjectConfig } from "./linear-config.js";
+import { LinearClient } from "../linear/linear-client.js";
+import { ensureKataLabels } from "../linear/linear-entities.js";
+import { deriveLinearState } from "../linear/linear-state.js";
 
 function formatDuration(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -86,6 +90,8 @@ export class KataDashboardOverlay {
   private dashData: AutoDashboardData;
   private milestoneData: MilestoneView | null = null;
   private loading = true;
+  private linearClient?: LinearClient;
+  private sliceLabelId?: string;
 
   constructor(
     tui: { requestRender: () => void },
@@ -114,6 +120,117 @@ export class KataDashboardOverlay {
 
   private async loadData(): Promise<void> {
     const base = this.dashData.basePath || process.cwd();
+
+    if (isLinearMode()) {
+      await this.loadLinearData(base);
+      return;
+    }
+
+    await this.loadFileData(base);
+  }
+
+  private async loadLinearData(base: string): Promise<void> {
+    const config = loadEffectiveLinearProjectConfig();
+    const apiKey = process.env.LINEAR_API_KEY;
+
+    if (!apiKey) {
+      // No key — leave milestoneData as-is (don't crash)
+      return;
+    }
+
+    const { projectId, teamId } = config.linear;
+    if (!projectId || !teamId) {
+      return;
+    }
+
+    try {
+      // Reuse the cached client — avoid re-construction on every 2s refresh
+      if (!this.linearClient) {
+        this.linearClient = new LinearClient(apiKey);
+      }
+
+      // Resolve slice label once, then cache it
+      if (!this.sliceLabelId) {
+        const labelSet = await ensureKataLabels(this.linearClient, teamId);
+        this.sliceLabelId = labelSet.slice.id;
+      }
+
+      const state = await deriveLinearState(this.linearClient, {
+        projectId,
+        teamId,
+        sliceLabelId: this.sliceLabelId,
+        basePath: base,
+      });
+
+      if (!state.activeMilestone) {
+        this.milestoneData = null;
+        return;
+      }
+
+      const milestoneDone =
+        state.progress?.milestones.done ??
+        state.registry.filter((e) => e.status === "complete").length;
+      const milestoneTotal =
+        state.progress?.milestones.total ?? state.registry.length;
+
+      const sliceDone = state.progress?.slices?.done ?? 0;
+      const sliceTotal = state.progress?.slices?.total ?? 0;
+      const taskDone = state.progress?.tasks?.done ?? 0;
+      const taskTotal = state.progress?.tasks?.total ?? 0;
+
+      // Build a slim slice list from the registry for the overlay.
+      // The registry entries track status but not slice IDs; we derive
+      // active/done flags from the state's activeSlice reference.
+      const sliceViews: SliceView[] = state.registry.map((entry) => {
+        const isActive = entry.id === state.activeSlice?.id;
+        const isDone = entry.status === "complete";
+        const sliceView: SliceView = {
+          id: entry.id,
+          title: entry.title,
+          done: isDone,
+          risk: "",
+          active: isActive,
+          tasks: [],
+        };
+
+        // For the active slice, inject task-level progress from state
+        if (isActive && taskTotal > 0) {
+          sliceView.taskProgress = { done: taskDone, total: taskTotal };
+
+          // We don't have a full task list from deriveLinearState's return
+          // value (it only surfaces the activeTask). Show the active task as
+          // a single entry so the overlay can display it.
+          if (state.activeTask) {
+            sliceView.tasks.push({
+              id: state.activeTask.id,
+              title: state.activeTask.title,
+              done: false,
+              active: true,
+            });
+          }
+        }
+
+        return sliceView;
+      });
+
+      const view: MilestoneView = {
+        id: state.activeMilestone.id,
+        title: state.activeMilestone.title,
+        phase: state.phase,
+        slices: sliceViews,
+        progress: {
+          milestones: { done: milestoneDone, total: milestoneTotal },
+          slices: sliceTotal > 0 ? { done: sliceDone, total: sliceTotal } : undefined,
+        },
+      };
+
+      this.milestoneData = view;
+    } catch {
+      // Don't crash the overlay on API error — keep showing stale data
+    }
+  }
+
+  private async loadFileData(base: string): Promise<void> {
     try {
       const state = await deriveState(base);
       if (!state.activeMilestone) {
@@ -492,6 +609,10 @@ interface MilestoneView {
   phase: string;
   progress: {
     milestones: {
+      total: number;
+      done: number;
+    };
+    slices?: {
       total: number;
       done: number;
     };

@@ -172,6 +172,7 @@ export interface LinearEntityClient {
     stateId?: string;
     first?: number;
   }): Promise<LinearIssue[]>;
+  listMilestones(projectId: string): Promise<LinearMilestone[]>;
 }
 
 // =============================================================================
@@ -450,4 +451,27 @@ export async function listKataTasks(
   sliceIssueId: string
 ): Promise<LinearIssue[]> {
   return client.listIssues({ parentId: sliceIssueId });
+}
+
+// =============================================================================
+// listKataMilestones
+// =============================================================================
+
+/**
+ * List all Linear ProjectMilestones for a given project.
+ *
+ * Delegates directly to `client.listMilestones(projectId)`.
+ * Results are already sorted by `sortOrder` as returned by the Linear API.
+ *
+ * @param client - Any client that satisfies `{ listMilestones(projectId): Promise<LinearMilestone[]> }`
+ * @param projectId - Linear project UUID
+ *
+ * @example
+ *   const milestones = await listKataMilestones(client, "proj-uuid");
+ */
+export async function listKataMilestones(
+  client: Pick<LinearEntityClient, "listMilestones">,
+  projectId: string
+): Promise<LinearMilestone[]> {
+  return client.listMilestones(projectId);
 }
