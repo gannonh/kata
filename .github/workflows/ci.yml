@@ -75,7 +75,7 @@ jobs:
         id: version-check
         run: |
           CURRENT_VERSION=$(node -p "require('./apps/orchestrator/package.json').version")
-          if git ls-remote --tags origin | grep -q "refs/tags/orc-v$CURRENT_VERSION"; then
+          if git ls-remote --tags origin "refs/tags/orc-v$CURRENT_VERSION" | grep -q .; then
             echo "Version $CURRENT_VERSION already tagged, skipping dry-run"
             echo "should_run=false" >> $GITHUB_OUTPUT
           else
