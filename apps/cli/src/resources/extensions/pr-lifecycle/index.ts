@@ -29,6 +29,14 @@ import {
   scopeReviewers,
   buildReviewerTaskPrompt,
 } from "./pr-review-utils.js";
+import {
+  parseCIChecks,
+  getPRNumber,
+  mergeGitHubPR,
+  syncLocalAfterMerge,
+  markSliceDoneInRoadmap,
+} from "./pr-merge-utils.js";
+import { resolveThread, replyToThread } from "./pr-address-utils.js";
 
 /** Shell-escape a single argument (single-quote wrapping with embedded-quote escaping). */
 function shellEscape(arg: string): string {
@@ -437,6 +445,318 @@ export default function (pi: ExtensionAPI): void {
           hint: "Ensure the current branch has an open PR and gh is authenticated.",
         };
       }
+    },
+  });
+
+  // ── kata_resolve_thread ────────────────────────────────────────────────────
+
+  pi.registerTool({
+    name: "kata_resolve_thread",
+    description: [
+      "Resolves an inline GitHub PR review thread via the `resolveReviewThread` GraphQL mutation.",
+      "Pre-flights gh CLI and auth.",
+      "Returns { ok: true, thread: { id, isResolved } } on success,",
+      "or { ok: false, phase, error } on failure.",
+      "Phase enum: gh-missing | gh-unauth | resolve-failed.",
+      "Note: check isResolved before calling — GitHub returns an error if the thread is already resolved.",
+    ].join(" "),
+    parameters: {
+      type: "object" as const,
+      properties: {
+        threadId: {
+          type: "string",
+          description: "The GitHub node ID of the review thread to resolve.",
+        },
+        cwd: {
+          type: "string",
+          description: "Project root directory. Defaults to process.cwd().",
+        },
+      },
+      required: ["threadId"],
+    },
+    handler: async (params: { threadId: string; cwd?: string }) => {
+      const { threadId } = params;
+      const cwd = params.cwd ?? process.cwd();
+
+      if (!isGhInstalled()) {
+        return {
+          ok: false,
+          phase: "gh-missing",
+          error: "gh CLI not found in PATH",
+          hint: "Install gh CLI: https://cli.github.com",
+        };
+      }
+
+      if (!isGhAuthenticated()) {
+        return {
+          ok: false,
+          phase: "gh-unauth",
+          error: "gh CLI not authenticated",
+          hint: "Run: gh auth login",
+        };
+      }
+
+      return resolveThread(threadId, cwd);
+    },
+  });
+
+  // ── kata_reply_to_thread ───────────────────────────────────────────────────
+
+  pi.registerTool({
+    name: "kata_reply_to_thread",
+    description: [
+      "Replies to an inline GitHub PR review thread via the",
+      "`addPullRequestReviewThreadReply` GraphQL mutation.",
+      "Writes reply body to a temp file to prevent shell interpolation of newlines and quotes.",
+      "Pre-flights gh CLI and auth.",
+      "Returns { ok: true, comment: { id, body } } on success,",
+      "or { ok: false, phase, error } on failure.",
+      "Phase enum: gh-missing | gh-unauth | reply-failed.",
+    ].join(" "),
+    parameters: {
+      type: "object" as const,
+      properties: {
+        threadId: {
+          type: "string",
+          description: "The GitHub node ID of the review thread to reply to.",
+        },
+        body: {
+          type: "string",
+          description: "The reply comment body text (markdown supported).",
+        },
+        cwd: {
+          type: "string",
+          description: "Project root directory. Defaults to process.cwd().",
+        },
+      },
+      required: ["threadId", "body"],
+    },
+    handler: async (params: { threadId: string; body: string; cwd?: string }) => {
+      const { threadId, body } = params;
+      const cwd = params.cwd ?? process.cwd();
+
+      if (!isGhInstalled()) {
+        return {
+          ok: false,
+          phase: "gh-missing",
+          error: "gh CLI not found in PATH",
+          hint: "Install gh CLI: https://cli.github.com",
+        };
+      }
+
+      if (!isGhAuthenticated()) {
+        return {
+          ok: false,
+          phase: "gh-unauth",
+          error: "gh CLI not authenticated",
+          hint: "Run: gh auth login",
+        };
+      }
+
+      return replyToThread(threadId, body, cwd);
+    },
+  });
+
+  // ── kata_merge_pr ──────────────────────────────────────────────────────────
+
+  pi.registerTool({
+    name: "kata_merge_pr",
+    description: [
+      "Merge the open GitHub PR for the current Kata slice branch.",
+      "Validates CI checks, squash-merges the PR via `gh pr merge`,",
+      "deletes the branch, syncs the local repo to the default branch,",
+      "and marks the slice done in the milestone roadmap.md checkbox.",
+      "Pre-flight checks: gh CLI installed, gh authenticated.",
+      "Auto-detects PR number from the current branch when prNumber is omitted.",
+      "Returns { ok: true, url, branch, milestoneId, sliceId } on success;",
+      "{ ok: false, phase, error, hint } on any failure.",
+      "Phase enum: gh-missing | gh-unauth | branch-parse-failed | pr-detect-failed |",
+      "ci-failing | ci-pending | merge-failed.",
+    ].join(" "),
+    parameters: {
+      type: "object" as const,
+      properties: {
+        prNumber: {
+          type: "number",
+          description:
+            "PR number to merge. Auto-detected from `gh pr view --json number` when omitted.",
+        },
+        strategy: {
+          type: "string",
+          enum: ["squash", "merge", "rebase"],
+          description: 'Merge strategy (default: "squash").',
+        },
+        skipCICheck: {
+          type: "boolean",
+          description:
+            "Skip CI status check (default: false). Use when repo has no CI or CI is flaky.",
+        },
+        cwd: {
+          type: "string",
+          description:
+            "Project root directory (must contain .kata/). Defaults to process.cwd().",
+        },
+      },
+      required: [],
+    },
+    handler: async (params: {
+      prNumber?: number;
+      strategy?: "squash" | "merge" | "rebase";
+      skipCICheck?: boolean;
+      cwd?: string;
+    }) => {
+      const cwd = params.cwd ?? process.cwd();
+      const strategy = params.strategy ?? "squash";
+
+      // ── (a) Pre-flight: gh installed + authenticated ────────────────────────
+
+      if (!isGhInstalled()) {
+        return {
+          ok: false,
+          phase: "gh-missing",
+          error: "gh CLI not found in PATH",
+          hint: "Install gh CLI: https://cli.github.com",
+        };
+      }
+
+      if (!isGhAuthenticated()) {
+        return {
+          ok: false,
+          phase: "gh-unauth",
+          error: "gh CLI not authenticated",
+          hint: "Run: gh auth login",
+        };
+      }
+
+      // ── (b) Detect branch + milestone/slice IDs ────────────────────────────
+
+      const branch = getCurrentBranch(cwd);
+      if (!branch) {
+        return {
+          ok: false,
+          phase: "branch-parse-failed",
+          error: "Could not determine current git branch",
+          hint: "Run from a git repository, or pass milestoneId and sliceId explicitly.",
+        };
+      }
+
+      const parsed = parseBranchToSlice(branch);
+      if (!parsed) {
+        return {
+          ok: false,
+          phase: "branch-parse-failed",
+          error: `Current branch '${branch}' does not match kata/<MilestoneId>/<SliceId> pattern`,
+          hint:
+            "Switch to a Kata slice branch (e.g. kata/M003/S04) or pass milestoneId and sliceId explicitly.",
+        };
+      }
+
+      const { milestoneId, sliceId } = parsed;
+
+      // ── (c) Detect PR number ───────────────────────────────────────────────
+
+      let prNumber: number;
+      if (params.prNumber != null) {
+        prNumber = params.prNumber;
+      } else {
+        const detected = getPRNumber(cwd);
+        if (detected == null) {
+          return {
+            ok: false,
+            phase: "pr-detect-failed",
+            error: "Could not detect open PR for current branch",
+            hint: "Ensure the branch has been pushed and has an open PR. You can also pass prNumber explicitly.",
+          };
+        }
+        prNumber = detected;
+      }
+
+      // ── (d) CI check (unless skipCICheck) ─────────────────────────────────
+
+      if (!params.skipCICheck) {
+        let ciResult = { allPassing: true, failing: [] as string[], pending: [] as string[] };
+
+        try {
+          const ciOutput = execSync(
+            `gh pr checks ${prNumber} --json name,status,conclusion`,
+            {
+              cwd,
+              encoding: "utf8",
+              stdio: ["pipe", "pipe", "pipe"],
+            },
+          );
+          ciResult = parseCIChecks(ciOutput);
+        } catch {
+          // execSync throw → no CI configured or gh error → treat as allPassing (D047)
+          ciResult = { allPassing: true, failing: [], pending: [] };
+        }
+
+        if (!ciResult.allPassing) {
+          if (ciResult.failing.length > 0) {
+            return {
+              ok: false,
+              phase: "ci-failing",
+              error: "CI checks failing: " + ciResult.failing.join(", "),
+              hint: "Fix failing checks or pass skipCICheck: true to override.",
+            };
+          }
+          if (ciResult.pending.length > 0) {
+            return {
+              ok: false,
+              phase: "ci-pending",
+              error: "CI checks still running: " + ciResult.pending.join(", "),
+              hint: "Wait for CI to complete or pass skipCICheck: true to override.",
+            };
+          }
+        }
+      }
+
+      // ── (e) Merge ──────────────────────────────────────────────────────────
+
+      const mergeResult = await mergeGitHubPR(prNumber, strategy, cwd);
+      if (!mergeResult.ok) {
+        return {
+          ok: false,
+          phase: mergeResult.phase,
+          error: mergeResult.error,
+          hint: "Check gh auth status and ensure PR is open and mergeable.",
+        };
+      }
+
+      // ── (f) Sync local state (best-effort, never blocks return) ────────────
+
+      try {
+        syncLocalAfterMerge(branch, cwd);
+      } catch {
+        // syncLocalAfterMerge should never throw, but guard anyway
+      }
+
+      // ── (g) Update roadmap ─────────────────────────────────────────────────
+
+      const roadmapUpdated = markSliceDoneInRoadmap(milestoneId, sliceId, cwd);
+
+      // ── (h) Return ─────────────────────────────────────────────────────────
+
+      const result: {
+        ok: true;
+        url: string;
+        branch: string;
+        milestoneId: string;
+        sliceId: string;
+        roadmapUpdateFailed?: boolean;
+      } = {
+        ok: true,
+        url: mergeResult.url,
+        branch,
+        milestoneId,
+        sliceId,
+      };
+
+      if (!roadmapUpdated) {
+        result.roadmapUpdateFailed = true;
+      }
+
+      return result;
     },
   });
 }
