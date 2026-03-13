@@ -39,14 +39,14 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R103 — Rich artifacts stored as Linear Documents
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: Roadmaps, context, research, summaries, and decisions are stored as Linear Documents attached to the relevant project or issue
 - Why it matters: All planning artifacts are searchable, editable, and visible in Linear's UI alongside the issues they describe
 - Source: user
 - Primary owning slice: M002/S04
 - Supporting slices: none
-- Validation: unmapped
-- Notes: Documents are markdown-native in Linear. Attach to project for milestone-level, to parent issue for slice-level
+- Validation: validated — M002/S04 integration tests prove project-level and issue-level document writes round-trip with byte-identical content; upsert idempotency confirmed (1 document, not 2); scope isolation verified (project docs don't appear in issue scope); null-on-miss behavior confirmed; 6/6 integration test cases pass against real Linear workspace
+- Notes: Documents are markdown-native in Linear. Attach to project for milestone-level, to parent issue for slice-level. Linear normalizes `- ` bullets to `* ` on storage
 
 ### R104 — State derived from Linear API queries
 - Class: core-capability
@@ -298,7 +298,7 @@ This file is the explicit capability and coverage contract for the project.
 | R100 | core-capability | active | M002/S01 | none | unmapped |
 | R101 | core-capability | active | M002/S03 | M002/S04, S05, S06 | unmapped |
 | R102 | core-capability | validated | M002/S03 | M002/S04 | validated |
-| R103 | core-capability | active | M002/S04 | none | unmapped |
+| R103 | core-capability | validated | M002/S04 | none | validated |
 | R104 | core-capability | active | M002/S05 | none | unmapped |
 | R105 | integration | validated | M002/S02 | none | validated |
 | R106 | integration | active | M002/S01 | none | unmapped |
@@ -319,7 +319,7 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Coverage Summary
 
-- Active requirements: 17
+- Active requirements: 16
 - Mapped to slices: 19
-- Validated: 5
+- Validated: 6
 - Unmapped active requirements: 0

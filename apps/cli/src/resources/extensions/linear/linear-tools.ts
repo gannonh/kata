@@ -17,6 +17,12 @@ import {
   listKataSlices,
   listKataTasks,
 } from "./linear-entities.js";
+import {
+  writeKataDocument,
+  readKataDocument,
+  listKataDocuments,
+} from "./linear-documents.js";
+import type { DocumentAttachment } from "./linear-documents.js";
 import type { KataLabelSet } from "./linear-types.js";
 
 // Re-export entity functions under kata_* names so module consumers and
@@ -28,6 +34,9 @@ export {
   createKataTask as kata_create_task,
   listKataSlices as kata_list_slices,
   listKataTasks as kata_list_tasks,
+  writeKataDocument as kata_write_document,
+  readKataDocument as kata_read_document,
+  listKataDocuments as kata_list_documents,
 };
 
 // =============================================================================
@@ -642,6 +651,89 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     }),
     async execute(_id, params) {
       return run(() => listKataTasks(client, params.sliceIssueId));
+    },
+  });
+
+  // =========================================================================
+  // Kata document tools — artifact storage as Linear Documents
+  // =========================================================================
+
+  pi.registerTool({
+    name: "kata_write_document",
+    label: "Kata: Write Document",
+    description:
+      "Write a Kata artifact as a Linear Document (upsert by title). " +
+      "If a document with the given title already exists in the attachment target, its content is updated. " +
+      "If no matching document exists, a new one is created. " +
+      "Exactly one of projectId or issueId must be provided. " +
+      "Returns the full LinearDocument including id, title, content, createdAt, updatedAt.",
+    parameters: Type.Object({
+      title: Type.String({ description: "Document title, e.g. 'M001-ROADMAP' or 'DECISIONS'" }),
+      content: Type.String({ description: "Markdown content to write" }),
+      projectId: Type.Optional(Type.String({ description: "Project UUID — attach document to this project" })),
+      issueId: Type.Optional(Type.String({ description: "Issue UUID — attach document to this issue" })),
+    }),
+    async execute(_id, params) {
+      const hasProject = params.projectId !== undefined;
+      const hasIssue = params.issueId !== undefined;
+      if (hasProject === hasIssue) {
+        return fail(new Error("Exactly one of projectId or issueId is required"));
+      }
+      const attachment: DocumentAttachment = hasProject
+        ? { projectId: params.projectId! }
+        : { issueId: params.issueId! };
+      return run(() => writeKataDocument(client, params.title, params.content, attachment));
+    },
+  });
+
+  pi.registerTool({
+    name: "kata_read_document",
+    label: "Kata: Read Document",
+    description:
+      "Read a Kata artifact document by title from the attachment target. " +
+      "Returns the document (with full markdown content) if found, or null if not yet written. " +
+      "null is the canonical signal for 'document does not exist yet'. " +
+      "Exactly one of projectId or issueId must be provided.",
+    parameters: Type.Object({
+      title: Type.String({ description: "Document title to look up, e.g. 'M001-ROADMAP'" }),
+      projectId: Type.Optional(Type.String({ description: "Project UUID — scope the lookup to this project" })),
+      issueId: Type.Optional(Type.String({ description: "Issue UUID — scope the lookup to this issue" })),
+    }),
+    async execute(_id, params) {
+      const hasProject = params.projectId !== undefined;
+      const hasIssue = params.issueId !== undefined;
+      if (hasProject === hasIssue) {
+        return fail(new Error("Exactly one of projectId or issueId is required"));
+      }
+      const attachment: DocumentAttachment = hasProject
+        ? { projectId: params.projectId! }
+        : { issueId: params.issueId! };
+      return run(() => readKataDocument(client, params.title, attachment));
+    },
+  });
+
+  pi.registerTool({
+    name: "kata_list_documents",
+    label: "Kata: List Documents",
+    description:
+      "List all Kata documents attached to a given project or issue. " +
+      "Zero-side-effect inspection surface — does not modify any state. " +
+      "Returns an array of LinearDocument objects; empty array means no documents exist. " +
+      "Exactly one of projectId or issueId must be provided.",
+    parameters: Type.Object({
+      projectId: Type.Optional(Type.String({ description: "Project UUID — list documents attached to this project" })),
+      issueId: Type.Optional(Type.String({ description: "Issue UUID — list documents attached to this issue" })),
+    }),
+    async execute(_id, params) {
+      const hasProject = params.projectId !== undefined;
+      const hasIssue = params.issueId !== undefined;
+      if (hasProject === hasIssue) {
+        return fail(new Error("Exactly one of projectId or issueId is required"));
+      }
+      const attachment: DocumentAttachment = hasProject
+        ? { projectId: params.projectId! }
+        : { issueId: params.issueId! };
+      return run(() => listKataDocuments(client, attachment));
     },
   });
 }

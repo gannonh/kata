@@ -58,7 +58,7 @@ This milestone is complete only when all are true:
 - [x] **S03: Entity Mapping — Hierarchy & Labels** `risk:high` `depends:[S01]`
   > After this: agent can create a Kata milestone as a Linear milestone, slices as parent issues, tasks as sub-issues, with Kata labels for filtering — and the hierarchy is visible in Linear's UI.
 
-- [ ] **S04: Document Storage — Artifacts as Linear Documents** `risk:medium` `depends:[S01, S03]`
+- [x] **S04: Document Storage — Artifacts as Linear Documents** `risk:medium` `depends:[S01, S03]`
   > After this: agent can create and update roadmaps, context, research, summaries, and decisions as Linear Documents attached to the correct project/issue — and read them back with full markdown fidelity.
 
 - [ ] **S05: State Derivation from Linear API** `risk:medium` `depends:[S03, S04]`

@@ -107,10 +107,18 @@ export interface LinearDocument {
   content: string;
   icon?: string;
   color?: string;
-  projectId?: string;
+  project?: { id: string; name: string } | null;
+  issue?: { id: string; identifier: string } | null;
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * Discriminated union for document attachment targets.
+ * A document attaches to exactly one: a project or an issue.
+ * Never set both — Linear accepts only one attachment target per document.
+ */
+export type DocumentAttachment = { projectId: string } | { issueId: string };
 
 // =============================================================================
 // Kata Entity Mapping
