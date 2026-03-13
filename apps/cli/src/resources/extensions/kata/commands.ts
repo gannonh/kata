@@ -148,6 +148,18 @@ export async function buildPrefsStatusReport(
     lines.push(...skillStatus.lines);
   }
 
+  // ── PR lifecycle config ──────────────────────────────────────────────────────
+  const prPrefs = effective?.preferences.pr;
+  if (prPrefs?.enabled) {
+    lines.push(`pr.enabled: ${prPrefs.enabled}`);
+    lines.push(`pr.auto_create: ${prPrefs.auto_create ?? false}`);
+    if (prPrefs.base_branch) {
+      lines.push(`pr.base_branch: ${prPrefs.base_branch}`);
+    }
+  } else {
+    lines.push("pr: disabled");
+  }
+
   return {
     level:
       validation.status === "invalid" || hasUnresolvedSkills ? "warning" : "info",

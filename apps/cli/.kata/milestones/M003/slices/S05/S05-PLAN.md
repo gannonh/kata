@@ -48,7 +48,7 @@
   - Verify: `node --import ./src/resources/extensions/kata/tests/resolve-ts.mjs --experimental-strip-types --test 'src/resources/extensions/kata/tests/pr-command.test.ts' 'src/resources/extensions/kata/tests/pr-auto.test.ts'` fails cleanly before implementation.
   - Done when: the new tests exist, are discovered by the runner, and fail for the missing helpers/behavior they are meant to define.
 
-- [ ] **T02: Extract shared PR status and orchestration helpers** `est:1h`
+- [x] **T02: Extract shared PR status and orchestration helpers** `est:1h`
   - Why: S05 needs one deterministic seam that both the slash command and auto-mode can reuse. Without that seam, the command layer would duplicate logic from the existing tools and drift from their behavior.
   - Files: `src/resources/extensions/kata/pr-command.ts`, `src/resources/extensions/kata/pr-auto.ts`, `src/resources/extensions/pr-lifecycle/pr-runner.ts`, `src/resources/extensions/pr-lifecycle/index.ts`, `src/resources/extensions/pr-lifecycle/gh-utils.ts`
   - Do: Create `pr-command.ts` with pure helpers for `/kata pr` completions, status gathering, and formatting. Create `pr-auto.ts` with pure decision helpers for post-`complete-slice` behavior and pause reasons. Extract the existing PR creation logic from `pr-lifecycle/index.ts` into `pr-runner.ts` so both the tool handler and auto-mode can call the same deterministic implementation. Reuse the existing gh-utils primitives instead of re-shelling from new call sites. Make the new tests from T01 pass without regressing the S01–S04 tool contracts.
