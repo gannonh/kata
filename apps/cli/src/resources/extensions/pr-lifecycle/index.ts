@@ -67,7 +67,7 @@ const REVIEWER_INSTRUCTIONS: Record<string, string> = {
 };
 
 export default function (pi: ExtensionAPI): void {
-  pi.addTool({
+  pi.registerTool({
     name: "kata_create_pr",
     description: [
       "Create a GitHub PR for the current Kata slice branch.",
@@ -256,7 +256,7 @@ export default function (pi: ExtensionAPI): void {
 
   // ── kata_review_pr ─────────────────────────────────────────────────────────
 
-  pi.addTool({
+  pi.registerTool({
     name: "kata_review_pr",
     description: [
       "Prepares a parallel PR review dispatch plan.",
@@ -353,7 +353,7 @@ export default function (pi: ExtensionAPI): void {
 
   // ── kata_fetch_pr_comments ─────────────────────────────────────────────────
 
-  pi.addTool({
+  pi.registerTool({
     name: "kata_fetch_pr_comments",
     description: [
       "Fetches all PR comments for the open PR on the current branch.",
