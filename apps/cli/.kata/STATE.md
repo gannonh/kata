@@ -2,12 +2,12 @@
 
 **Active Milestone:** M003 — PR Lifecycle
 **Active Slice:** S05 — Preferences, Onboarding & `/kata pr` Command
-**Active Task:** T03 — Add `/kata pr` subcommands and dispatch into the existing workflows
-**Phase:** executing
+**Active Task:** (all tasks complete — slice ready for completion)
+**Phase:** verifying
 **Slice Branch:** kata/M003/S05
 **Active Workspace:** /Volumes/EVO/kata/kata-mono.worktrees/wt-cli/apps/cli
-**Next Action:** Start S05/T03 — extend /kata command with pr subcommand family (status/create/review/address/merge), implement handlePr() in commands.ts routing status to buildPrStatusReport and mutating paths to prompt dispatch, make remaining pr-command.test.ts assertions pass.
-**Last Updated:** 2026-03-13T12:30
+**Next Action:** Complete S05 — run slice-level verification (all 3 test files + TypeScript + extension load + npm test), write S05-SUMMARY.md, write S05-UAT.md, mark S05 done in M003-ROADMAP.md, then start S06.
+**Last Updated:** 2026-03-13T20:30
 **Requirements Status:** 6 active (R100, R106 from M002; R200, R203, R205, R208 from M003) · 16 validated total · 0 deferred · 3 out of scope
 
 ## Recent Decisions
