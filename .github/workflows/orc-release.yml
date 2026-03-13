@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'apps/orchestrator/**'
+  workflow_dispatch:
 
 concurrency:
   group: orc-release-${{ github.sha }}
