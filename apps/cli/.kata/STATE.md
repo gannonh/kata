@@ -1,14 +1,14 @@
 # Kata State
 
 **Active Milestone:** M002 — Linear Mode
-**Active Slice:** S02 — Project Configuration & Mode Switching
-**Active Task:** none — All S02 tasks complete
-**Phase:** Summarizing
+**Active Slice:** S03 — Entity Mapping — Hierarchy & Labels
+**Active Task:** none — Slice not planned yet
+**Phase:** Planning
 **Slice Branch:** kata/M002/S02
 **Active Workspace:** /Volumes/EVO/kata/kata-mono/apps/cli
-**Next Action:** Complete S02 — write the slice summary and UAT, mark S02 done in M002-ROADMAP.md, update M002-SUMMARY.md, and advance to S03.
+**Next Action:** Plan S03 — map Kata milestones/slices/tasks onto Linear milestones/issues/sub-issues and define label/status conventions.
 **Last Updated:** 2026-03-12
-**Requirements Status:** 10 active · 3 validated · 0 deferred · 3 out of scope
+**Requirements Status:** 9 active · 4 validated · 0 deferred · 3 out of scope
 
 ## Recent Decisions
 

@@ -52,7 +52,7 @@ This milestone is complete only when all are true:
 - [x] **S01: Linear GraphQL Client Extension** `risk:high` `depends:[]`
   > After this: agent can authenticate with Linear API key and perform CRUD on projects, milestones, issues, sub-issues, documents, and labels against a real Linear workspace via extension tools.
 
-- [ ] **S02: Project Configuration & Mode Switching** `risk:medium` `depends:[S01]`
+- [x] **S02: Project Configuration & Mode Switching** `risk:medium` `depends:[S01]`
   > After this: user can opt into Linear mode in `.kata/preferences.md`, legacy `.kata/PREFERENCES.md` remains readable, `/kata prefs status` validates the configured team/project binding, and Kata entrypoints detect the mode through one shared resolver.
 
 - [ ] **S03: Entity Mapping — Hierarchy & Labels** `risk:high` `depends:[S01]`
