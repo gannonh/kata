@@ -350,4 +350,92 @@ export default function (pi: ExtensionAPI): void {
       };
     },
   });
+
+  // ── kata_fetch_pr_comments ─────────────────────────────────────────────────
+
+  pi.addTool({
+    name: "kata_fetch_pr_comments",
+    description: [
+      "Fetches all PR comments for the open PR on the current branch.",
+      "Runs the bundled fetch_comments.py script and returns structured JSON with:",
+      "pull_request metadata, conversation_comments, reviews, and review_threads.",
+      "Pre-flight checks: gh CLI installed, gh authenticated, python3 available.",
+      "Returns { ok: true, pull_request, conversation_comments, reviews, review_threads } on success.",
+      "Returns { ok: false, phase, error, hint } on any failure.",
+    ].join(" "),
+    parameters: {
+      type: "object" as const,
+      properties: {
+        cwd: {
+          type: "string",
+          description: "Project root directory. Defaults to process.cwd().",
+        },
+      },
+      required: [],
+    },
+    handler: async (params: { cwd?: string }) => {
+      const cwd = params.cwd ?? process.cwd();
+
+      // ── Pre-flight checks ────────────────────────────────────────────────
+
+      if (!isGhInstalled()) {
+        return {
+          ok: false,
+          phase: "gh-missing",
+          error: "gh CLI not found in PATH",
+          hint: "Install gh CLI: https://cli.github.com",
+        };
+      }
+
+      if (!isGhAuthenticated()) {
+        return {
+          ok: false,
+          phase: "gh-unauth",
+          error: "gh CLI not authenticated",
+          hint: "Run: gh auth login",
+        };
+      }
+
+      try {
+        execSync("python3 --version", {
+          stdio: ["pipe", "pipe", "pipe"],
+          encoding: "utf8",
+        });
+      } catch {
+        return {
+          ok: false,
+          phase: "python3-missing",
+          error: "python3 not found in PATH",
+          hint: "Install Python 3: https://python.org",
+        };
+      }
+
+      // ── Resolve script path and run fetch_comments.py ────────────────────
+
+      const scriptPath = join(
+        dirname(fileURLToPath(import.meta.url)),
+        "scripts",
+        "fetch_comments.py",
+      );
+
+      try {
+        const stdout = execSync("python3 " + shellEscape(scriptPath), {
+          cwd,
+          encoding: "utf8",
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+
+        const parsed = JSON.parse(stdout) as Record<string, unknown>;
+        return { ok: true, ...parsed };
+      } catch (err) {
+        const stderr = (err as NodeJS.ErrnoException & { stderr?: string }).stderr;
+        return {
+          ok: false,
+          phase: "fetch-failed",
+          error: stderr || String(err),
+          hint: "Ensure the current branch has an open PR and gh is authenticated.",
+        };
+      }
+    },
+  });
 }

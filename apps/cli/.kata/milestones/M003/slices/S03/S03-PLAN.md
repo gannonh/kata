@@ -54,7 +54,7 @@
   - Verify: `npm test -- --test-name-pattern "summarizeComments"` → 4 tests pass; `npx tsc --noEmit` → no errors on `pr-address-utils.ts`
   - Done when: all 4 `pr-address.test.ts` tests pass; TypeScript type-checks clean
 
-- [ ] **T03: Register `kata_fetch_pr_comments` tool** `est:30m`
+- [x] **T03: Register `kata_fetch_pr_comments` tool** `est:30m`
   - Why: Exposes `fetch_comments.py` as a structured tool with pre-flight checks and machine-readable failure phases, enabling the agent to fetch all PR comment types
   - Files: `src/resources/extensions/pr-lifecycle/index.ts`
   - Do: Add `kata_fetch_pr_comments` tool registration inside `export default function(pi)` following the `kata_create_pr` pre-flight pattern exactly. Pre-flight sequence: (1) `isGhInstalled()` → `{ ok: false, phase: "gh-missing", error, hint }`; (2) `isGhAuthenticated()` → `{ ok: false, phase: "gh-unauth", error, hint }`; (3) `execSync("python3 --version", PIPE)` in try/catch → `{ ok: false, phase: "python3-missing", error, hint }`. Resolve script path: `join(dirname(fileURLToPath(import.meta.url)), "scripts", "fetch_comments.py")`. Run `execSync("python3 " + shellEscape(scriptPath), { cwd, encoding: "utf8", stdio: ["pipe","pipe","pipe"] })`. Parse stdout with `JSON.parse`. Return `{ ok: true, ...parsed }` on success. Catch script errors and return `{ ok: false, phase: "fetch-failed", error: stderr_or_message, hint: "Ensure the current branch has an open PR and gh is authenticated." }`. Tool params: `{ cwd?: string }`.

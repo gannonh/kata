@@ -2,12 +2,12 @@
 
 **Active Milestone:** M003 — PR Lifecycle
 **Active Slice:** S03 — Address Review Comments (planned)
-**Active Task:** T03
+**Active Task:** T04
 **Phase:** executing
 **Slice Branch:** kata/M003/S03
 **Active Workspace:** /Volumes/EVO/kata/kata-mono/apps/cli
-**Next Action:** Execute T03 (register kata_fetch_pr_comments tool in index.ts)
-**Last Updated:** 2026-03-12T23:20
+**Next Action:** Execute T04 (register kata_resolve_thread + kata_reply_to_thread tools in index.ts; full verification)
+**Last Updated:** 2026-03-13T01:53
 **Requirements Status:** 7 active (R100, R106 from M002; R200, R202, R203, R205, R208 from M003) · 2 validated this slice (R201, R207) · 15 validated total · 0 deferred · 3 out of scope
 
 ## Recent Decisions
