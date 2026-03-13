@@ -40,7 +40,7 @@
 
 ## Tasks
 
-- [ ] **T01: Create failing unit tests for `summarizeComments`** `est:20m`
+- [x] **T01: Create failing unit tests for `summarizeComments`** `est:20m`
   - Why: TDD gate — pins the `summarizeComments` contract before implementation; failing import is expected until T02 creates `pr-address-utils.ts`
   - Files: `src/resources/extensions/kata/tests/pr-address.test.ts`
   - Do: Create the file following the `pr-review.test.ts` structure. Top-level `await import("../../pr-lifecycle/pr-address-utils.js")` throws `ERR_MODULE_NOT_FOUND` until T02 — this is the TDD gate. Write 4 tests: (1) empty input (`conversation_comments: [], reviews: [], review_threads: []`) → `{ totalCount: 0, actionableCount: 0, numbered: [] }`; (2) resolved thread (single thread with `isResolved: true`) → entry in `numbered` has `isResolved: true`, `actionableCount: 0`; (3) outdated thread (single thread with `isOutdated: true, isResolved: false`) → entry in `numbered` has `isOutdated: true`, `actionableCount: 0`; (4) sequential numbering — one conversation comment + one review + one unresolved thread → `numbered[0].n === 1`, `numbered[1].n === 2`, `numbered[2].n === 3`. Include helper `makeThread(overrides)` to build minimal thread fixtures without repetition.
