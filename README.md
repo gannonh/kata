@@ -1,6 +1,20 @@
+<div align="center">
+
 # Kata
 
-Kata is a monorepo for three AI agent products:
+**型** · /ˈkɑːtɑː/ · *noun* - a choreographed pattern practiced repeatedly until perfected
+
+![alt text](assets/brand/logo-circle-dark.png)
+<br>
+[kata.sh](https://kata.sh)
+
+</div>
+
+---
+
+## Kata Monorepo
+
+This is the Kata monorepo for three AI agent products:
 
 - Kata CLI in `apps/cli`
 - Kata Desktop in `apps/electron`
@@ -10,11 +24,11 @@ The repo also contains shared packages that support the product apps.
 
 ## Products
 
-| Product | Path | Use it for | Quick start |
-| --- | --- | --- | --- |
-| [Kata CLI](apps/cli/README.md) | `apps/cli` | Terminal-based coding work with guided and autonomous execution modes | `npx @kata-sh/cli` |
-| [Kata Desktop](apps/electron/README.md) | `apps/electron` | Desktop-based agent work with workspaces, session management, sources, and approval controls | [GitHub Releases](https://github.com/gannonh/kata/releases) |
-| [Kata Orchestrator](apps/orchestrator/README.md) | `apps/orchestrator` | Spec-driven workflows for Claude Code, OpenCode, Gemini CLI, and Codex | `npx @kata-sh/orc@latest` |
+| Product                                          | Path                | Use it for                                                                                   | Quick start                                                 |
+| ------------------------------------------------ | ------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| [Kata CLI](apps/cli/README.md)                   | `apps/cli`          | Terminal-based coding work with guided and autonomous execution modes                        | `npx @kata-sh/cli`                                          |
+| [Kata Desktop](apps/electron/README.md)          | `apps/electron`     | Desktop-based agent work with workspaces, session management, sources, and approval controls | [GitHub Releases](https://github.com/gannonh/kata/releases) |
+| [Kata Orchestrator](apps/orchestrator/README.md) | `apps/orchestrator` | Spec-driven workflows for Claude Code, OpenCode, Gemini CLI, and Codex                       | `npx @kata-sh/orc@latest`                                   |
 
 ## Kata CLI
 
@@ -86,17 +100,17 @@ Use Kata Orchestrator when you want:
 
 Read more in [apps/orchestrator/README.md](apps/orchestrator/README.md).
 
-| Path | Purpose |
-| --- | --- |
-| `apps/cli` | Kata CLI |
-| `apps/electron` | Kata Desktop |
-| `apps/orchestrator` | Kata Orchestrator |
-| `apps/online-docs` | Online documentation site |
-| `apps/viewer` | Viewer app |
-| `packages/core` | Shared types |
-| `packages/shared` | Shared agent, auth, config, git, session, and source logic |
-| `packages/ui` | Shared UI code |
-| `packages/mermaid` | Shared Mermaid package |
+| Path                | Purpose                                                    |
+| ------------------- | ---------------------------------------------------------- |
+| `apps/cli`          | Kata CLI                                                   |
+| `apps/electron`     | Kata Desktop                                               |
+| `apps/orchestrator` | Kata Orchestrator                                          |
+| `apps/online-docs`  | Online documentation site                                  |
+| `apps/viewer`       | Viewer app                                                 |
+| `packages/core`     | Shared types                                               |
+| `packages/shared`   | Shared agent, auth, config, git, session, and source logic |
+| `packages/ui`       | Shared UI code                                             |
+| `packages/mermaid`  | Shared Mermaid package                                     |
 
 ## Local Development
 
@@ -114,21 +128,21 @@ bun run githooks:install
 
 Common commands:
 
-| Command | Purpose |
-| --- | --- |
-| `bun run electron:dev` | Start Kata Desktop in development mode |
-| `cd apps/cli && npm run build` | Build Kata CLI |
-| `cd apps/orchestrator && npm test` | Run Kata Orchestrator tests |
-| `bun run typecheck:all` | Run TypeScript checks across shared packages |
+| Command                            | Purpose                                      |
+| ---------------------------------- | -------------------------------------------- |
+| `bun run electron:dev`             | Start Kata Desktop in development mode       |
+| `cd apps/cli && npm run build`     | Build Kata CLI                               |
+| `cd apps/orchestrator && npm test` | Run Kata Orchestrator tests                  |
+| `bun run typecheck:all`            | Run TypeScript checks across shared packages |
 
 ## Testing
 
-| Command | Runs |
-| --- | --- |
-| `bun run test` | Shared package and desktop unit tests |
-| `bun run test:cli` | Kata CLI tests |
+| Command            | Runs                                   |
+| ------------------ | -------------------------------------- |
+| `bun run test`     | Shared package and desktop unit tests  |
+| `bun run test:cli` | Kata CLI tests                         |
 | `bun run test:all` | Shared package, desktop, and CLI tests |
-| `bun run test:e2e` | Desktop Playwright tests |
+| `bun run test:e2e` | Desktop Playwright tests               |
 
 The CLI uses Node's built-in test runner. The shared packages and desktop tests use Bun.
 
