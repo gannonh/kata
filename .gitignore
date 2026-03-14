@@ -83,3 +83,4 @@ kata-cloud-agents.code-workspace
 .bg-shell/
 *.code-workspace
 
+.planning/
