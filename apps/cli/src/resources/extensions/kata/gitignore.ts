@@ -122,6 +122,12 @@ version: 1
 workflow:
   mode: file
 linear: {}
+pr:
+  enabled: false
+  auto_create: false
+  base_branch: main
+  review_on_create: false
+  linear_link: false
 always_use_skills: []
 prefer_skills: []
 avoid_skills: []
@@ -144,6 +150,11 @@ See \`~/.kata-cli/agent/extensions/kata/docs/preferences-reference.md\` for full
 - \`linear.teamId\`: Optional Linear team UUID when a project is bound directly to a team
 - \`linear.teamKey\`: Optional Linear team key (for example \`KAT\`) when you prefer stable human-readable binding
 - \`linear.projectId\`: Optional Linear project UUID for the project Kata should validate against
+- \`pr.enabled\`: Set to \`true\` to activate the PR lifecycle (create, review, address, merge via \`gh\` CLI)
+- \`pr.auto_create\`: Set to \`true\` to automatically open a PR after each slice completes in auto-mode
+- \`pr.base_branch\`: Target branch for PRs (default: \`main\`)
+- \`pr.review_on_create\`: Set to \`true\` to auto-run parallel review immediately after PR creation
+- \`pr.linear_link\`: Set to \`true\` to include Linear issue references in PR body (requires Linear mode)
 - Keep API keys and other secrets in environment variables such as \`LINEAR_API_KEY\`, never in preferences files
 
 ## Example
@@ -154,6 +165,10 @@ workflow:
 linear:
   teamKey: KAT
   projectId: 12345678-1234-1234-1234-1234567890ab
+pr:
+  enabled: true
+  auto_create: true
+  base_branch: main
 prefer_skills:
   - verification-before-completion
 custom_instructions:

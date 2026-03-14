@@ -28,6 +28,13 @@ Full documentation for `~/.kata-cli/preferences.md` (global) and `.kata/preferen
   - `linear.projectId`: optional Linear project UUID.
   - These fields identify which Linear team/project Kata should validate and operate against.
 
+- `pr`: PR lifecycle configuration. Controls whether and how Kata manages GitHub pull requests.
+  - `pr.enabled`: set to `true` to activate the PR lifecycle. Requires `gh` CLI installed and authenticated.
+  - `pr.auto_create`: set to `true` to automatically open a PR after each slice completes in auto-mode. Only takes effect when `pr.enabled` is true.
+  - `pr.base_branch`: target branch for PRs (default: `main`).
+  - `pr.review_on_create`: set to `true` to automatically run the parallel reviewer subagents immediately after a PR is created.
+  - `pr.linear_link`: set to `true` to include Linear issue references (`Closes KAT-N`) in PR bodies and update Linear issues on merge. Requires `workflow.mode: linear`. **Pending — will be activated in M003/S06.**
+
 - `always_use_skills`: skills Kata should use whenever they are relevant.
 
 - `prefer_skills`: soft defaults Kata should prefer when relevant.
@@ -80,6 +87,24 @@ resolved team: Kata-sh (KAT · a47bcacd-54f3-4472-a4b4-d6933248b605)
 
 If Linear mode is configured but not ready, the status output stays redacted and actionable — for example `LINEAR_API_KEY: missing`, `diagnostic: missing_linear_team`, or `diagnostic: invalid_linear_project`.
 
+Run `/kata pr status` to inspect the PR lifecycle configuration:
+
+```text
+PR lifecycle: enabled
+branch: kata/M003/S05
+base_branch: main
+auto_create: true
+open PR: #70 — kata/M003/S05
+```
+
+When PR lifecycle is disabled or not configured:
+
+```text
+PR lifecycle: pr.enabled is false (disabled)
+branch: kata/M003/S05
+Set pr.enabled: true in .kata/preferences.md to activate the PR workflow.
+```
+
 ## Best Practices
 
 - Keep `always_use_skills` short.
@@ -121,3 +146,21 @@ custom_instructions:
 ```
 
 This opts the project into Linear mode without storing `LINEAR_API_KEY` in the preferences file.
+
+## PR lifecycle example
+
+```yaml
+---
+version: 1
+workflow:
+  mode: file
+pr:
+  enabled: true
+  auto_create: true
+  base_branch: main
+  review_on_create: false
+  linear_link: false
+---
+```
+
+Set `auto_create: true` for fully automated PR creation after each slice in auto-mode. Set `review_on_create: true` to chain into a parallel review immediately after creation.
