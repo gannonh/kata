@@ -28,7 +28,7 @@ import type { KataState } from "./types.js";
 
 // ─── Shared Preamble ──────────────────────────────────────────────────────────
 
-const HARD_RULE = `Hard rule: In Linear mode, never use bash/read/find/rg/git to locate workflow artifacts. Use only kata_read_document/kata_write_document for plan and summary artifacts. Always specify { projectId } scope.`;
+const HARD_RULE = `Hard rule: In Linear mode, never use bash/read/find/rg/git to locate workflow artifacts. Use only kata_read_document/kata_write_document for plan and summary artifacts. Scope: milestone-level docs (ROADMAP, CONTEXT, SUMMARY, DECISIONS) use { projectId }. Task-level docs (T01-PLAN, T01-SUMMARY) use { issueId } scoped to the slice issue — this prevents collisions when multiple slices have a T01.`;
 
 const REFERENCE = `**Reference:** Consult \`KATA-WORKFLOW.md\` (injected into your system prompt) for full operation steps, entity conventions, artifact storage format, and phase transition rules.`;
 
@@ -272,7 +272,8 @@ export function buildLinearPlanSlicePrompt(state: KataState): string {
     `   - Each task: title, must-haves (truths, artifacts, key links), steps.`,
     ``,
     `7. Create task sub-issues: call \`kata_create_task\` for each task (T01, T02, ...).`,
-    `   - Write individual task plans: \`kata_write_document("T01-PLAN", content)\` for each task.`,
+    `   - Write individual task plans: \`kata_write_document("T01-PLAN", content, { issueId: "<slice-issue-uuid>" })\` for each task.`,
+    `   - Task docs MUST use { issueId } scoped to the slice issue, NOT { projectId }. This prevents T01-PLAN collisions across slices.`,
     ``,
     `8. Advance the slice to executing: \`kata_update_issue_state({ issueId: "<slice-uuid>", phase: "executing" })\``,
     ``,
@@ -305,18 +306,19 @@ export function buildLinearExecuteTaskPrompt(state: KataState): string {
     ``,
     `1. Call \`kata_derive_state\` to confirm the active milestone, slice, and task.`,
     ``,
-    `2. Read the task plan:`,
-    `   - Call \`kata_read_document("${tid}-PLAN")\` — **required**. If null, stop: task plan is missing. Planning phase did not complete correctly.`,
+    `2. Read the task plan (scoped to the slice issue, NOT the project):`,
+    `   - Call \`kata_read_document("${tid}-PLAN", { issueId: "<slice-issue-uuid>" })\` — **required**. If null, stop: task plan is missing.`,
+    `   - Get the slice issue UUID from \`kata_derive_state\` → \`activeSlice\` or from \`kata_list_slices\`.`,
     ``,
     `3. Read optional slice context:`,
-    `   - Call \`kata_read_document("${sid}-PLAN")\` for slice-level goal, demo, and verification criteria.`,
+    `   - Call \`kata_read_document("${sid}-PLAN", { projectId })\` for slice-level goal, demo, and verification criteria.`,
     ``,
     `4. Carry-forward from prior tasks:`,
     `   - Call \`kata_list_tasks\` with the slice issue UUID.`,
-    `   - For each completed prior task, call \`kata_read_document("Txx-SUMMARY")\` to understand what's already built.`,
+    `   - For each completed prior task, call \`kata_read_document("Txx-SUMMARY", { issueId: "<slice-issue-uuid>" })\` to understand what's already built.`,
     ``,
     `5. Check for partial progress:`,
-    `   - Call \`kata_read_document("${tid}-SUMMARY")\`. If it exists with partial content, resume from where it left off.`,
+    `   - Call \`kata_read_document("${tid}-SUMMARY", { issueId: "<slice-issue-uuid>" })\`. If it exists with partial content, resume from where it left off.`,
     ``,
     `6. Execute the task as specified in the plan. Build real implementation — no stubs.`,
     ``,
@@ -324,7 +326,7 @@ export function buildLinearExecuteTaskPrompt(state: KataState): string {
     `   - Read current: \`kata_read_document("DECISIONS")\``,
     `   - Append and write: \`kata_write_document("DECISIONS", updatedContent)\``,
     ``,
-    `8. Write the task summary: \`kata_write_document("${tid}-SUMMARY", content)\``,
+    `8. Write the task summary (scoped to slice issue): \`kata_write_document("${tid}-SUMMARY", content, { issueId: "<slice-issue-uuid>" })\``,
     `   - Include: what shipped (one-liner), what happened, deviations, files modified, verification result.`,
     ``,
     `9. Advance the task to done: \`kata_update_issue_state({ issueId: "<task-uuid>", phase: "done" })\``,
@@ -364,9 +366,9 @@ export function buildLinearCompleteSlicePrompt(state: KataState): string {
     `3. Read optional context:`,
     `   - \`kata_read_document("REQUIREMENTS")\``,
     ``,
-    `4. Collect all task summaries:`,
+    `4. Collect all task summaries (scoped to slice issue):`,
     `   - Call \`kata_list_tasks\` with the slice issue UUID.`,
-    `   - For each task, call \`kata_read_document("Txx-SUMMARY")\`.`,
+    `   - For each task, call \`kata_read_document("Txx-SUMMARY", { issueId: "<slice-issue-uuid>" })\`.`,
     ``,
     `5. Write the slice summary: \`kata_write_document("${sid}-SUMMARY", content)\``,
     `   - Synthesize work across all tasks: what was built, key decisions, key files, patterns established.`,
