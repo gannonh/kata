@@ -64,7 +64,7 @@ This milestone is complete only when all are true:
 - [x] **S04: Merge & Slice Completion** `risk:low` `depends:[S01]`
   > After this: agent can run `/kata pr merge` which runs local CI checks, merges the PR via `gh`, deletes the branch, and updates slice status to complete.
 
-- [ ] **S05: Preferences, Onboarding & `/kata pr` Command** `risk:medium` `depends:[S01, S02, S03, S04]`
+- [x] **S05: Preferences, Onboarding & `/kata pr` Command** `risk:medium` `depends:[S01, S02, S03, S04]`
   > After this: user can configure PR behavior via preferences (enabled, auto-create, base branch, review on create), `/kata` wizard detects GitHub remote and offers PR setup, and `/kata pr` provides unified command surface for all PR operations.
 
 - [ ] **S06: Linear Cross-linking** `risk:low` `depends:[S05]`

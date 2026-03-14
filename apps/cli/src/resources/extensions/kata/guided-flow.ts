@@ -30,13 +30,56 @@ import {
   relSlicePath,
 } from "./paths.js";
 import { join } from "node:path";
-import { readFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { ensureGitignore, ensurePreferences } from "./gitignore.js";
+import { loadEffectiveKataPreferences } from "./preferences.js";
+import { enablePrPreferencesInContent } from "./pr-preferences-content.js";
 import {
   getWorkflowEntrypointGuard,
   type WorkflowEntrypoint,
 } from "./linear-config.js";
+
+// ─── PR onboarding helpers ────────────────────────────────────────────────────
+
+/**
+ * Returns true if the current git repo has a GitHub remote (origin contains github.com).
+ * Never throws — returns false on any error.
+ */
+function detectGithubRemote(basePath: string): boolean {
+  try {
+    const url = execSync("git remote get-url origin", {
+      cwd: basePath,
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+    return url.includes("github.com");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Enables the PR lifecycle in project preferences by setting `pr.enabled: true`.
+ * Never throws — logs nothing on error. Returns:
+ * - "enabled" when preferences were updated
+ * - "already-enabled" when no change was needed
+ * - "failed" when preferences could not be updated safely
+ */
+function enablePrPreferences(basePath: string): "enabled" | "already-enabled" | "failed" {
+  const preferencesPath = join(basePath, ".kata", "preferences.md");
+  try {
+    const content = readFileSync(preferencesPath, "utf-8");
+    const transformed = enablePrPreferencesInContent(content);
+    if (!transformed.enabled) return "failed";
+    if (!transformed.changed) return "already-enabled";
+    writeFileSync(preferencesPath, transformed.content, "utf-8");
+    return "enabled";
+  } catch {
+    // Best-effort — guided-flow never throws on preference write failure
+    return "failed";
+  }
+}
 
 // ─── Auto-start after discuss ─────────────────────────────────────────────────
 
@@ -830,6 +873,16 @@ export async function showSmartEntry(
       }
     } else {
       // Roadmap exists — either blocked or ready for auto
+      // ── PR onboarding check ────────────────────────────────────────
+      const hasGithubRemote = detectGithubRemote(basePath);
+      const effectivePrefs = loadEffectiveKataPreferences();
+      const prEnabled = effectivePrefs?.preferences?.pr?.enabled === true;
+      const { getPrOnboardingRecommendation } = await import("./pr-command.js");
+      const prRecommendation = getPrOnboardingRecommendation(prEnabled, hasGithubRemote);
+
+      const summaryLines = ["Roadmap exists. Ready to execute."];
+      if (prRecommendation) summaryLines.push(prRecommendation);
+
       const actions = [
         {
           id: "auto",
@@ -838,6 +891,16 @@ export async function showSmartEntry(
             "Execute everything automatically until milestone complete.",
           recommended: true,
         },
+        ...(prRecommendation && hasGithubRemote && !prEnabled
+          ? [
+              {
+                id: "setup_pr",
+                label: "Set up PR lifecycle",
+                description:
+                  "Enable PR creation, review, and merge for this project.",
+              },
+            ]
+          : []),
         {
           id: "status",
           label: "View status",
@@ -847,13 +910,31 @@ export async function showSmartEntry(
 
       const choice = await showNextAction(ctx as any, {
         title: `Kata — ${milestoneId}: ${milestoneTitle}`,
-        summary: ["Roadmap exists. Ready to execute."],
+        summary: summaryLines,
         actions,
         notYetMessage: "Run /kata status for details.",
       });
 
       if (choice === "auto") {
         await startAuto(ctx, pi, basePath, false);
+      } else if (choice === "setup_pr") {
+        const enableResult = enablePrPreferences(basePath);
+        if (enableResult === "enabled") {
+          ctx.ui.notify(
+            "PR lifecycle enabled. Set auto_create, base_branch, and review_on_create in .kata/preferences.md as needed.",
+            "info",
+          );
+        } else if (enableResult === "already-enabled") {
+          ctx.ui.notify(
+            "PR lifecycle is already enabled in .kata/preferences.md.",
+            "info",
+          );
+        } else {
+          ctx.ui.notify(
+            "Could not update .kata/preferences.md automatically. Please set pr.enabled: true manually.",
+            "warning",
+          );
+        }
       } else if (choice === "status") {
         const { fireStatusViaCommand } = await import("./commands.js");
         await fireStatusViaCommand(ctx);
