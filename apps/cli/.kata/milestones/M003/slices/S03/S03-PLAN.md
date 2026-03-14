@@ -61,7 +61,7 @@
   - Verify: `npx tsc --noEmit` → exits 0; extension loads: `node --import ./src/resources/extensions/kata/tests/resolve-ts.mjs --experimental-strip-types -e "import('./src/resources/extensions/pr-lifecycle/index.ts').then(() => console.log('ok'))"` → prints `ok`
   - Done when: `kata_fetch_pr_comments` tool registered in `index.ts`; TypeScript clean; extension loads without error
 
-- [ ] **T04: Register `kata_resolve_thread` + `kata_reply_to_thread` tools; full verification** `est:30m`
+- [x] **T04: Register `kata_resolve_thread` + `kata_reply_to_thread` tools; full verification** `est:30m`
   - Why: Completes S03's tool surface; closes the slice with TypeScript clean and full test suite passing
   - Files: `src/resources/extensions/pr-lifecycle/index.ts`
   - Do: Add `import { resolveThread, replyToThread } from "./pr-address-utils.js"` to `index.ts` imports. Register `kata_resolve_thread` tool: params `{ threadId: string, cwd?: string }`; pre-flight `isGhInstalled` → `gh-missing`; `isGhAuthenticated` → `gh-unauth`; call `resolveThread(threadId, cwd)`; return its result directly. Register `kata_reply_to_thread` tool: params `{ threadId: string, body: string, cwd?: string }`; pre-flights gh + auth; call `replyToThread(threadId, body, cwd)`; return its result directly. Run `npx tsc --noEmit` and fix any type errors before declaring done. Run full `npm test` and fix any regressions.
