@@ -33,7 +33,7 @@ Full documentation for `~/.kata-cli/preferences.md` (global) and `.kata/preferen
   - `pr.auto_create`: set to `true` to automatically open a PR after each slice completes in auto-mode. Only takes effect when `pr.enabled` is true.
   - `pr.base_branch`: target branch for PRs (default: `main`).
   - `pr.review_on_create`: set to `true` to automatically run the parallel reviewer subagents immediately after a PR is created.
-  - `pr.linear_link`: set to `true` to include Linear issue references (`Closes KAT-N`) in PR bodies and update Linear issues on merge. Requires `workflow.mode: linear`. **Pending — will be activated in M003/S06.**
+  - `pr.linear_link`: set to `true` to include Linear issue references (`Closes KAT-N`) in PR bodies and update Linear issues on merge. Requires `workflow.mode: linear`.
 
 - `always_use_skills`: skills Kata should use whenever they are relevant.
 

@@ -21,7 +21,7 @@ import {
   getCurrentBranch,
   parseBranchToSlice,
 } from "./gh-utils.js";
-import { runCreatePr } from "./pr-runner.js";
+import { runCreatePr, type PrCreateOptions } from "./pr-runner.js";
 import {
   fetchPRContext,
   scopeReviewers,
@@ -35,6 +35,13 @@ import {
   markSliceDoneInRoadmap,
 } from "./pr-merge-utils.js";
 import { resolveThread, replyToThread } from "./pr-address-utils.js";
+import {
+  shouldCrossLink,
+  resolveSliceLinearIdentifier,
+  advanceSliceIssueState,
+} from "../kata/linear-crosslink.js";
+import { loadEffectiveKataPreferences } from "../kata/preferences.js";
+import { loadEffectiveLinearProjectConfig, isLinearMode } from "../kata/linear-config.js";
 
 // ---------------------------------------------------------------------------
 // Reviewer instructions — loaded from bundled agent .md files at module init
@@ -113,12 +120,38 @@ export default function (pi: ExtensionAPI): void {
       sliceId?: string;
       cwd?: string;
     }) => {
+      // Build Linear cross-linking config when applicable
+      let linearConfig: PrCreateOptions["linearConfig"];
+      try {
+        const effectivePrefs = loadEffectiveKataPreferences();
+        const prPrefs = effectivePrefs?.preferences?.pr;
+        const config = loadEffectiveLinearProjectConfig(effectivePrefs);
+        const apiKey = process.env.LINEAR_API_KEY;
+
+        if (
+          shouldCrossLink(prPrefs, config.workflowMode) &&
+          config.isLinearMode &&
+          apiKey &&
+          config.linear.projectId
+        ) {
+          linearConfig = {
+            prPrefs: prPrefs!,
+            workflowMode: config.workflowMode,
+            projectId: config.linear.projectId,
+            apiKey,
+          };
+        }
+      } catch {
+        // Best-effort — proceed without Linear config
+      }
+
       return runCreatePr({
         title: params.title,
         baseBranch: params.base_branch,
         milestoneId: params.milestoneId,
         sliceId: params.sliceId,
         cwd: params.cwd,
+        linearConfig,
       });
     },
   });
@@ -595,7 +628,46 @@ export default function (pi: ExtensionAPI): void {
 
       const roadmapUpdated = markSliceDoneInRoadmap(milestoneId, sliceId, cwd);
 
-      // ── (h) Return ─────────────────────────────────────────────────────────
+      // ── (h) Linear cross-linking: advance slice issue to done (best-effort) ──
+
+      let linearStateAdvance: "done" | "failed" | "skipped" = "skipped";
+
+      try {
+        const effectivePrefs = loadEffectiveKataPreferences();
+        const prPrefs = effectivePrefs?.preferences?.pr;
+        const config = loadEffectiveLinearProjectConfig(effectivePrefs);
+
+        if (
+          shouldCrossLink(prPrefs, config.workflowMode) &&
+          config.isLinearMode &&
+          process.env.LINEAR_API_KEY
+        ) {
+          const { LinearClient } = await import("../linear/linear-client.js");
+          const client = new LinearClient(process.env.LINEAR_API_KEY);
+          const teamId = config.linear.teamId;
+          const projectId = config.linear.projectId;
+
+          if (teamId && projectId) {
+            const resolved = await resolveSliceLinearIdentifier(
+              client,
+              projectId,
+              sliceId,
+            );
+            if (resolved) {
+              const advResult = await advanceSliceIssueState(
+                client,
+                resolved.issueId,
+                teamId,
+              );
+              linearStateAdvance = advResult.ok ? "done" : "failed";
+            }
+          }
+        }
+      } catch {
+        linearStateAdvance = "failed";
+      }
+
+      // ── (i) Return ─────────────────────────────────────────────────────────
 
       const result: {
         ok: true;
@@ -604,12 +676,14 @@ export default function (pi: ExtensionAPI): void {
         milestoneId: string;
         sliceId: string;
         roadmapUpdateFailed?: boolean;
+        linearStateAdvance?: "done" | "failed" | "skipped";
       } = {
         ok: true,
         url: mergeResult.url,
         branch,
         milestoneId,
         sliceId,
+        linearStateAdvance,
       };
 
       if (!roadmapUpdated) {

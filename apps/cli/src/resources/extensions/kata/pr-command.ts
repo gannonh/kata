@@ -49,6 +49,8 @@ export interface PrStatusDependencies {
   getPrAutoCreate: () => boolean;
   /** Returns the configured pr.base_branch (default: 'main'). */
   getPrBaseBranch: () => string;
+  /** Returns the linear_link preference and workflow mode for status display. */
+  getLinearLinkStatus?: () => { linearLink: boolean; workflowMode: string };
 }
 
 export interface PrStatusReport {
@@ -92,6 +94,18 @@ export async function buildPrStatusReport(
     lines.push(`open PR: #${prNumber} — ${branch ?? "(unknown)"}`);
   } else {
     lines.push("no open PR — not created yet");
+  }
+
+  // Linear cross-linking status
+  if (deps.getLinearLinkStatus) {
+    const { linearLink, workflowMode } = deps.getLinearLinkStatus();
+    if (linearLink && workflowMode === "linear") {
+      lines.push("linear_link: active");
+    } else if (linearLink && workflowMode !== "linear") {
+      lines.push("linear_link: requires linear mode");
+    } else {
+      lines.push("linear_link: disabled");
+    }
   }
 
   return {

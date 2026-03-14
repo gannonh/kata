@@ -21,11 +21,16 @@ import {
   parseBranchToSlice,
 } from "./gh-utils.js";
 import { composePRBody } from "./pr-body-composer.js";
+import {
+  shouldCrossLink,
+  resolveSliceLinearIdentifier,
+  postPrLinkComment,
+} from "../kata/linear-crosslink.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type PrCreateResult =
-  | { ok: true; url: string }
+  | { ok: true; url: string; linearComment?: "added" | "failed" | "skipped" }
   | { ok: false; phase: string; error: string; hint: string };
 
 export interface PrCreateOptions {
@@ -34,6 +39,15 @@ export interface PrCreateOptions {
   milestoneId?: string;
   sliceId?: string;
   cwd?: string;
+  /** Linear cross-linking configuration. When provided and shouldCrossLink is true,
+   *  PR body includes Linear references and a comment is posted to the Linear issue. */
+  linearConfig?: {
+    prPrefs: { linear_link?: boolean };
+    workflowMode: string;
+    projectId: string;
+    sliceLabelId?: string;
+    apiKey: string;
+  };
 }
 
 // ─── Shell escaping ───────────────────────────────────────────────────────────
@@ -132,11 +146,40 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
     sliceId = parsed.sliceId;
   }
 
+  // ── Resolve Linear cross-linking (best-effort) ───────────────────────────────
+
+  let linearReferences: string[] | undefined;
+  let linearIssueId: string | undefined;
+  const lc = options.linearConfig;
+  const crossLinkActive = lc && shouldCrossLink(lc.prPrefs, lc.workflowMode);
+
+  if (crossLinkActive && lc) {
+    try {
+      // Dynamically import LinearClient to avoid hard dependency when not in Linear mode
+      const { LinearClient } = await import("../linear/linear-client.js");
+      const client = new LinearClient(lc.apiKey);
+      const resolved = await resolveSliceLinearIdentifier(
+        client,
+        lc.projectId,
+        sliceId!,
+        lc.sliceLabelId,
+      );
+      if (resolved) {
+        linearReferences = [resolved.identifier];
+        linearIssueId = resolved.issueId;
+      }
+    } catch {
+      // Best-effort — proceed without Linear references
+    }
+  }
+
   // ── Compose PR body ──────────────────────────────────────────────────────────
 
   let body: string;
   try {
-    body = await composePRBody(milestoneId, sliceId, cwd);
+    body = await composePRBody(milestoneId, sliceId, cwd, {
+      linearReferences,
+    });
   } catch (err) {
     return {
       ok: false,
@@ -200,5 +243,20 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
     }
   }
 
-  return { ok: true, url: prUrl };
+  // ── Post Linear comment (best-effort) ────────────────────────────────────────
+
+  let linearComment: "added" | "failed" | "skipped" = "skipped";
+
+  if (crossLinkActive && linearIssueId && lc) {
+    try {
+      const { LinearClient } = await import("../linear/linear-client.js");
+      const client = new LinearClient(lc.apiKey);
+      const result = await postPrLinkComment(client, linearIssueId, prUrl);
+      linearComment = result.ok ? "added" : "failed";
+    } catch {
+      linearComment = "failed";
+    }
+  }
+
+  return { ok: true, url: prUrl, linearComment };
 }
