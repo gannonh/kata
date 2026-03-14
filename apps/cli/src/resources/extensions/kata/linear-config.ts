@@ -154,6 +154,58 @@ export function getLinearProjectId(
   return loadEffectiveLinearProjectConfig(loadedPreferences).linear.projectId;
 }
 
+export interface ResolveConfiguredLinearTeamIdResult {
+  teamId: string | null;
+  teamLookup: string | null;
+  error: string | null;
+}
+
+/**
+ * Resolve the configured Linear team to a concrete team UUID.
+ *
+ * Preference order:
+ * 1) linear.teamId (already concrete)
+ * 2) linear.teamKey (resolved via API lookup)
+ */
+export async function resolveConfiguredLinearTeamId(
+  client: Pick<LinearConfigValidationClient, "getTeam">,
+  loadedPreferences: LoadedKataPreferences | null = loadEffectiveKataPreferences(),
+): Promise<ResolveConfiguredLinearTeamIdResult> {
+  const config = loadEffectiveLinearProjectConfig(loadedPreferences);
+
+  if (config.linear.teamId) {
+    return {
+      teamId: config.linear.teamId,
+      teamLookup: config.linear.teamId,
+      error: null,
+    };
+  }
+
+  const teamKey = config.linear.teamKey;
+  if (!teamKey) {
+    return {
+      teamId: null,
+      teamLookup: null,
+      error: "Linear team not configured — set linear.teamId or linear.teamKey in kata preferences.",
+    };
+  }
+
+  const team = await client.getTeam(teamKey);
+  if (!team) {
+    return {
+      teamId: null,
+      teamLookup: teamKey,
+      error: `Linear team could not be resolved: ${JSON.stringify(teamKey)}. Check linear.teamKey in preferences.`,
+    };
+  }
+
+  return {
+    teamId: team.id,
+    teamLookup: teamKey,
+    error: null,
+  };
+}
+
 export function resolveWorkflowProtocol(
   loadedPreferences: LoadedKataPreferences | null = loadEffectiveKataPreferences(),
 ): WorkflowProtocolResolution {
