@@ -21,24 +21,17 @@ function makeLoadedPreferences(
 }
 
 function withWorkflowEnv<T>(
-  env: Partial<Record<"KATA_WORKFLOW_PATH" | "LINEAR_WORKFLOW_PATH", string | undefined>>,
+  env: Partial<Record<"KATA_WORKFLOW_PATH", string | undefined>>,
   run: () => T,
 ): T {
   const previous = {
     KATA_WORKFLOW_PATH: process.env.KATA_WORKFLOW_PATH,
-    LINEAR_WORKFLOW_PATH: process.env.LINEAR_WORKFLOW_PATH,
   };
 
   if (env.KATA_WORKFLOW_PATH === undefined) {
     delete process.env.KATA_WORKFLOW_PATH;
   } else {
     process.env.KATA_WORKFLOW_PATH = env.KATA_WORKFLOW_PATH;
-  }
-
-  if (env.LINEAR_WORKFLOW_PATH === undefined) {
-    delete process.env.LINEAR_WORKFLOW_PATH;
-  } else {
-    process.env.LINEAR_WORKFLOW_PATH = env.LINEAR_WORKFLOW_PATH;
   }
 
   try {
@@ -48,12 +41,6 @@ function withWorkflowEnv<T>(
       delete process.env.KATA_WORKFLOW_PATH;
     } else {
       process.env.KATA_WORKFLOW_PATH = previous.KATA_WORKFLOW_PATH;
-    }
-
-    if (previous.LINEAR_WORKFLOW_PATH === undefined) {
-      delete process.env.LINEAR_WORKFLOW_PATH;
-    } else {
-      process.env.LINEAR_WORKFLOW_PATH = previous.LINEAR_WORKFLOW_PATH;
     }
   }
 }
@@ -66,7 +53,6 @@ test("file mode remains the default and resolves KATA-WORKFLOW.md", () => {
   withWorkflowEnv(
     {
       KATA_WORKFLOW_PATH: workflowPath,
-      LINEAR_WORKFLOW_PATH: undefined,
     },
     () => {
       const protocol = resolveWorkflowProtocol(null);
@@ -87,24 +73,24 @@ test("file mode remains the default and resolves KATA-WORKFLOW.md", () => {
   );
 });
 
-test("linear mode selects LINEAR-WORKFLOW.md and blocks unsupported entrypoints (status and auto now allowed)", () => {
+test("linear mode also resolves KATA-WORKFLOW.md (unified doc) and blocks unsupported entrypoints", () => {
   const loaded = makeLoadedPreferences({
     workflow: { mode: "linear" },
     linear: { teamKey: "KAT" },
   });
   const tmp = mkdtempSync(join(tmpdir(), "kata-mode-switching-"));
-  const missingLinearWorkflow = join(tmp, "LINEAR-WORKFLOW.md");
+  // No workflow file on disk — ready should be false
+  const missingWorkflow = join(tmp, "KATA-WORKFLOW.md");
 
   withWorkflowEnv(
     {
-      LINEAR_WORKFLOW_PATH: missingLinearWorkflow,
-      KATA_WORKFLOW_PATH: join(tmp, "KATA-WORKFLOW.md"),
+      KATA_WORKFLOW_PATH: missingWorkflow,
     },
     () => {
       const protocol = resolveWorkflowProtocol(loaded);
       assert.deepEqual(protocol, {
         mode: "linear",
-        documentName: "LINEAR-WORKFLOW.md",
+        documentName: "KATA-WORKFLOW.md",
         path: null,
         ready: false,
       });
@@ -112,7 +98,6 @@ test("linear mode selects LINEAR-WORKFLOW.md and blocks unsupported entrypoints 
       const smartEntry = getWorkflowEntrypointGuard("smart-entry", loaded);
       assert.equal(smartEntry.allow, false);
       assert.equal(smartEntry.mode, "linear");
-      assert.match(smartEntry.notice ?? "", /silently falling back to \.kata files/i);
 
       const status = getWorkflowEntrypointGuard("status", loaded);
       assert.equal(status.allow, true);
@@ -125,28 +110,28 @@ test("linear mode selects LINEAR-WORKFLOW.md and blocks unsupported entrypoints 
   );
 });
 
-test("system prompt wiring stays mode-aware and becomes ready when LINEAR-WORKFLOW.md exists", () => {
+test("system prompt wiring stays mode-aware and becomes ready when KATA-WORKFLOW.md exists", () => {
   const loaded = makeLoadedPreferences({
     workflow: { mode: "linear" },
     linear: { teamId: "team-123" },
   });
   const tmp = mkdtempSync(join(tmpdir(), "kata-mode-switching-"));
-  const linearWorkflowPath = join(tmp, "LINEAR-WORKFLOW.md");
-  writeFileSync(linearWorkflowPath, "# linear workflow\n", "utf-8");
+  const workflowPath = join(tmp, "KATA-WORKFLOW.md");
+  writeFileSync(workflowPath, "# unified workflow\n", "utf-8");
 
   withWorkflowEnv(
     {
-      LINEAR_WORKFLOW_PATH: linearWorkflowPath,
-      KATA_WORKFLOW_PATH: undefined,
+      KATA_WORKFLOW_PATH: workflowPath,
     },
     () => {
       const guard = getWorkflowEntrypointGuard("system-prompt", loaded);
       assert.equal(guard.allow, true);
       assert.equal(guard.mode, "linear");
       assert.equal(guard.protocol.ready, true);
-      assert.equal(guard.protocol.path, linearWorkflowPath);
-      assert.match(guard.notice ?? "", /Prefer LINEAR-WORKFLOW\.md/i);
-      assert.match(guard.notice ?? "", /Do not silently fall back to KATA-WORKFLOW\.md/i);
+      assert.equal(guard.protocol.path, workflowPath);
+      assert.equal(guard.protocol.documentName, "KATA-WORKFLOW.md");
+      assert.match(guard.notice ?? "", /linear/i);
+      assert.match(guard.notice ?? "", /KATA-WORKFLOW\.md/i);
     },
   );
 });

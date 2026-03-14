@@ -33,7 +33,6 @@ const bundledExtensionsDir = join(resourcesDir, 'extensions')
  * - agents/     → ~/.kata-cli/agent/agents/        (always overwrite)
  * - AGENTS.md   → ~/.kata-cli/agent/AGENTS.md      (always overwrite)
  * - KATA-WORKFLOW.md   → ~/.kata-cli/agent/KATA-WORKFLOW.md   (always overwrite)
- * - LINEAR-WORKFLOW.md → ~/.kata-cli/agent/LINEAR-WORKFLOW.md (always overwrite)
  *
  * Always-overwrite ensures updates take effect immediately.
  */
@@ -66,13 +65,11 @@ export function initResources(agentDir: string): void {
   }
 
   // Sync workflow protocol docs
-  const workflowFiles = ['KATA-WORKFLOW.md', 'LINEAR-WORKFLOW.md']
-  for (const fileName of workflowFiles) {
-    const srcPath = join(resourcesDir, fileName)
-    const destPath = join(agentDir, fileName)
-    if (existsSync(srcPath)) {
-      writeFileSync(destPath, readFileSync(srcPath))
-    }
+  // Sync workflow protocol doc
+  const srcWorkflow = join(resourcesDir, 'KATA-WORKFLOW.md')
+  const destWorkflow = join(agentDir, 'KATA-WORKFLOW.md')
+  if (existsSync(srcWorkflow)) {
+    writeFileSync(destWorkflow, readFileSync(srcWorkflow))
   }
 
   // Scaffold starter mcp.json — only if it doesn't exist yet.

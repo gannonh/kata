@@ -200,10 +200,10 @@ test("buildLinearExecuteTaskPrompt references kata_update_issue_state", () => {
   assert.match(prompt, /kata_update_issue_state/);
 });
 
-test("buildLinearExecuteTaskPrompt references LINEAR-WORKFLOW.md", () => {
+test("buildLinearExecuteTaskPrompt references KATA-WORKFLOW.md", () => {
   const state = makeState();
   const prompt = buildLinearExecuteTaskPrompt(state);
-  assert.match(prompt, /LINEAR-WORKFLOW\.md/);
+  assert.match(prompt, /KATA-WORKFLOW\.md/);
 });
 
 // ─── buildLinearPlanSlicePrompt ───────────────────────────────────────────────

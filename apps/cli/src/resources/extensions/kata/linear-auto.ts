@@ -6,7 +6,7 @@
  * would cycle back to commands.ts if auto.ts imported deriveKataState from there).
  *
  * Prompt builders orient the agent for each workflow phase and tell it to use
- * LINEAR-WORKFLOW.md for detailed operation steps.
+ * KATA-WORKFLOW.md (Linear mode sections) for detailed operation steps.
  */
 
 import { LinearClient } from "../linear/linear-client.js";
@@ -112,7 +112,7 @@ export async function resolveLinearKataState(basePath: string): Promise<KataStat
 
 /**
  * Execute-task prompt (phases: executing, verifying).
- * Orients the agent to the active task and tells it to follow LINEAR-WORKFLOW.md.
+ * Orients the agent to the active task and tells it to follow KATA-WORKFLOW.md.
  */
 export function buildLinearExecuteTaskPrompt(state: KataState): string {
   const mid = state.activeMilestone?.id ?? "unknown";
@@ -150,7 +150,7 @@ export function buildLinearExecuteTaskPrompt(state: KataState): string {
     `6. Advance the task to done: call \`kata_update_issue_state({ issueId: "<task-uuid>", phase: "done" })\`.`,
     `   - Resolve the task UUID from step 2 if you haven't already.`,
     ``,
-    `**Reference:** Consult \`LINEAR-WORKFLOW.md\` (injected into your system prompt) for full operation steps, entity conventions, artifact storage format, and phase transition rules.`,
+    `**Reference:** Consult \`KATA-WORKFLOW.md\` (injected into your system prompt) for full operation steps, entity conventions, artifact storage format, and phase transition rules.`,
   ].join("\n");
 }
 
@@ -195,7 +195,7 @@ export function buildLinearPlanSlicePrompt(state: KataState): string {
     `5. Advance the slice to executing: call \`kata_update_issue_state({ issueId: "<slice-uuid>", phase: "executing" })\`.`,
     `   - Resolve the slice UUID via \`kata_list_slices\` if needed.`,
     ``,
-    `**Reference:** Consult \`LINEAR-WORKFLOW.md\` for artifact storage format, entity conventions, and phase transition rules.`,
+    `**Reference:** Consult \`KATA-WORKFLOW.md\` for artifact storage format, entity conventions, and phase transition rules.`,
   ].join("\n");
 }
 
@@ -232,7 +232,7 @@ export function buildLinearPlanMilestonePrompt(state: KataState): string {
     `   - For each slice: call \`kata_create_slice\` with the milestone issue UUID and slice details.`,
     `   - For each task within a slice: call \`kata_create_task\` with the slice issue UUID and task details.`,
     ``,
-    `**Reference:** Consult \`LINEAR-WORKFLOW.md\` for entity conventions, artifact storage format, and phase transition rules.`,
+    `**Reference:** Consult \`KATA-WORKFLOW.md\` for entity conventions, artifact storage format, and phase transition rules.`,
   ].join("\n");
 }
 
@@ -270,7 +270,7 @@ export function buildLinearCompleteSlicePrompt(state: KataState): string {
     `4. Advance the slice to done: call \`kata_update_issue_state({ issueId: "<slice-uuid>", phase: "done" })\`.`,
     `   - Resolve the slice UUID via \`kata_list_slices\` if needed.`,
     ``,
-    `**Reference:** Consult \`LINEAR-WORKFLOW.md\` for artifact storage format and phase transition rules.`,
+    `**Reference:** Consult \`KATA-WORKFLOW.md\` for artifact storage format and phase transition rules.`,
   ].join("\n");
 }
 
