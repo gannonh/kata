@@ -17,6 +17,7 @@
 | G004 | M002 | `ensureLabel` fails when workspace-level labels exist | **high** | FIXED. Team-scoped search missed workspace-level `kata:*` labels, then create failed with "duplicate label name". Now falls back to workspace label search. |
 | G005 | M002 | `/kata` smart-entry is blocked in Linear mode | medium | Warning text confirms `/kata` still routes file-backed wizard and hard-stops in Linear mode. This breaks discoverability/onboarding in manual mode; users must know to use `/kata status`/`/kata auto`/`/kata prefs status`. |
 | G006 | M002 | Linear empty-state guidance points to blocked `/kata` entrypoint | medium | `/kata status` and `kata_derive_state` can report "Run /kata to start" even though `/kata` is blocked in Linear mode, creating a dead-end instruction path. |
+| G007 | M002 | Linear dashboard selected active slice/task from unsorted API order | medium | FIXED. `deriveLinearState` now sorts slices/tasks by Kata ID (`S01`, `T01`) before picking active entries, and dashboard uses `progress.slices` totals instead of milestone registry length.
 
 ---
 

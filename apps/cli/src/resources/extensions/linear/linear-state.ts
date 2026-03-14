@@ -104,6 +104,36 @@ function issueRef(issue: { id: string; title: string }): ActiveRef {
   };
 }
 
+/** Parse numeric suffix from Kata IDs like S01/T03 for deterministic ordering. */
+function parseKataOrdinal(title: string, expectedPrefix: "S" | "T"): number | null {
+  const parsed = parseKataEntityTitle(title);
+  if (!parsed?.kataId) return null;
+  const match = parsed.kataId.match(/^([A-Z])(\d+)$/);
+  if (!match) return null;
+  const [, prefix, digits] = match;
+  if (prefix !== expectedPrefix) return null;
+  const n = Number.parseInt(digits, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Deterministic ordering for slices/tasks:
+ * 1) Kata ordinal (S01 < S02, T01 < T02)
+ * 2) title locale compare fallback
+ */
+function compareByKataOrder(
+  a: { title: string },
+  b: { title: string },
+  expectedPrefix: "S" | "T",
+): number {
+  const aOrd = parseKataOrdinal(a.title, expectedPrefix);
+  const bOrd = parseKataOrdinal(b.title, expectedPrefix);
+  if (aOrd !== null && bOrd !== null && aOrd !== bOrd) return aOrd - bOrd;
+  if (aOrd !== null && bOrd === null) return -1;
+  if (aOrd === null && bOrd !== null) return 1;
+  return a.title.localeCompare(b.title);
+}
+
 // =============================================================================
 // deriveLinearState
 // =============================================================================
@@ -238,7 +268,11 @@ export async function deriveLinearState(
   }
 
   // ── Find active slice (first non-terminal in active milestone's group) ────
-  const activeSliceLinear = activeMilestoneSlices.find(s => !isTerminal(s.state.type));
+  // Sort by Kata ID (S01, S02, ...) so active slice selection is stable.
+  const orderedSlices = [...activeMilestoneSlices].sort((a, b) =>
+    compareByKataOrder(a, b, "S"),
+  );
+  const activeSliceLinear = orderedSlices.find(s => !isTerminal(s.state.type));
 
   if (!activeSliceLinear) {
     // Edge case: all slices in active milestone are terminal, but milestone
@@ -265,7 +299,9 @@ export async function deriveLinearState(
   const activeSliceRef = issueRef(activeSliceLinear);
 
   // ── Derive phase from active slice state + children ratio ─────────────────
-  const children = activeSliceLinear.children.nodes;
+  const children = [...activeSliceLinear.children.nodes].sort((a, b) =>
+    compareByKataOrder(a, b, "T"),
+  );
   const terminalChildren = children.filter(c => isTerminal(c.state.type));
   const nonTerminalChildren = children.filter(c => !isTerminal(c.state.type));
 
