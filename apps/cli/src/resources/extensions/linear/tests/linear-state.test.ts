@@ -275,6 +275,20 @@ describe("deriveLinearState: active slice with state backlog → planning", () =
     assert.equal(state.activeSlice.title, "Planning slice");
   });
 
+  it("selects the lowest non-terminal slice ID when API returns unsorted slices", async () => {
+    const m1 = makeMilestone("[M001] Active milestone", 0, "mid-1");
+    const s3 = makeIssue("[S03] Later slice", "backlog", { milestoneId: "mid-1" });
+    const s1 = makeIssue("[S01] First slice", "backlog", { milestoneId: "mid-1" });
+    const s2 = makeIssue("[S02] Middle slice", "backlog", { milestoneId: "mid-1" });
+    // Intentionally unsorted API order
+    const client = makeMockStateClient([m1], [s3, s1, s2]);
+    const state = await deriveLinearState(client, BASE_CONFIG);
+
+    assert.ok(state.activeSlice);
+    assert.equal(state.activeSlice.id, "S01");
+    assert.equal(state.activeSlice.title, "First slice");
+  });
+
   it("activeTask is null in planning phase (no children inspected)", async () => {
     const m1 = makeMilestone("[M001] Milestone", 0, "mid-1");
     const s1 = makeIssue("[S01] Backlog slice", "backlog", {
@@ -343,6 +357,25 @@ describe("deriveLinearState: active slice started, children exist but none termi
     const s1 = makeIssue("[S01] In progress", "started", {
       milestoneId: "mid-1",
       children: [
+        makeChildNode("[T01] First task", "started"),
+        makeChildNode("[T02] Second task", "backlog"),
+      ],
+    });
+    const client = makeMockStateClient([m1], [s1]);
+    const state = await deriveLinearState(client, BASE_CONFIG);
+
+    assert.equal(state.phase, "executing");
+    assert.ok(state.activeTask, "activeTask should be set");
+    assert.equal(state.activeTask.id, "T01");
+    assert.equal(state.activeTask.title, "First task");
+  });
+
+  it("selects the lowest non-terminal task ID when children are unsorted", async () => {
+    const m1 = makeMilestone("[M001] Milestone", 0, "mid-1");
+    const s1 = makeIssue("[S01] In progress", "started", {
+      milestoneId: "mid-1",
+      children: [
+        makeChildNode("[T03] Third task", "backlog"),
         makeChildNode("[T01] First task", "started"),
         makeChildNode("[T02] Second task", "backlog"),
       ],
