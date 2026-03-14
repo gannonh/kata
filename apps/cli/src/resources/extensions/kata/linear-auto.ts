@@ -12,7 +12,11 @@
 import { LinearClient } from "../linear/linear-client.js";
 import { ensureKataLabels } from "../linear/linear-entities.js";
 import { deriveLinearState } from "../linear/linear-state.js";
-import { isLinearMode, loadEffectiveLinearProjectConfig } from "./linear-config.js";
+import {
+  isLinearMode,
+  loadEffectiveLinearProjectConfig,
+  resolveConfiguredLinearTeamId,
+} from "./linear-config.js";
 import { deriveState } from "./state.js";
 import type { KataState } from "./types.js";
 
@@ -47,15 +51,14 @@ export async function resolveLinearKataState(basePath: string): Promise<KataStat
   }
 
   const { projectId } = config.linear;
-  const teamLookup = config.linear.teamId ?? config.linear.teamKey;
-  if (!projectId || !teamLookup) {
+  if (!projectId) {
     return {
       phase: "blocked",
       activeMilestone: null,
       activeSlice: null,
       activeTask: null,
       blockers: [
-        "Linear project not configured — set linear.teamId (or linear.teamKey) and linear.projectId in .kata/preferences.md.",
+        "Linear project not configured — set linear.projectId in .kata/preferences.md.",
       ],
       recentDecisions: [],
       nextAction: "Run /kata prefs project to configure the Linear project.",
@@ -66,29 +69,22 @@ export async function resolveLinearKataState(basePath: string): Promise<KataStat
 
   try {
     const client = new LinearClient(apiKey);
-
-    // Resolve teamKey → teamId if only teamKey was provided
-    let teamId = config.linear.teamId;
-    if (!teamId) {
-      const team = await client.getTeam(teamLookup);
-      if (!team) {
-        return {
-          phase: "blocked",
-          activeMilestone: null,
-          activeSlice: null,
-          activeTask: null,
-          blockers: [
-            `Linear team could not be resolved: ${JSON.stringify(teamLookup)}. Check linear.teamKey in preferences.`,
-          ],
-          recentDecisions: [],
-          nextAction: "Fix linear.teamKey or set linear.teamId directly.",
-          registry: [],
-          progress: { milestones: { done: 0, total: 0 } },
-        };
-      }
-      teamId = team.id;
+    const teamResolution = await resolveConfiguredLinearTeamId(client);
+    if (!teamResolution.teamId) {
+      return {
+        phase: "blocked",
+        activeMilestone: null,
+        activeSlice: null,
+        activeTask: null,
+        blockers: [teamResolution.error ?? "Linear team could not be resolved."],
+        recentDecisions: [],
+        nextAction: "Fix linear.teamId or linear.teamKey in preferences.",
+        registry: [],
+        progress: { milestones: { done: 0, total: 0 } },
+      };
     }
 
+    const teamId = teamResolution.teamId;
     const labelSet = await ensureKataLabels(client, teamId);
     return await deriveLinearState(client, {
       projectId,
