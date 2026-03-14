@@ -16,7 +16,7 @@
 | G003 | M002 | `teamKey` not resolved to `teamId` in 4 call sites | **high** | FIXED. `linear-auto.ts`, `commands.ts`, `linear-tools.ts`, `dashboard-overlay.ts` all destructured `config.linear.teamId` without falling back to `teamKey`. |
 | G004 | M002 | `ensureLabel` fails when workspace-level labels exist | **high** | FIXED. Team-scoped search missed workspace-level `kata:*` labels, then create failed with "duplicate label name". Now falls back to workspace label search. |
 | G005 | M002 | `/kata` smart-entry is blocked in Linear mode | medium | Warning text confirms `/kata` still routes file-backed wizard and hard-stops in Linear mode. This breaks discoverability/onboarding in manual mode; users must know to use `/kata status`/`/kata auto`/`/kata prefs status`. |
-| G003 | M002 | `teamKey` not resolved to `teamId` in `resolveLinearKataState` | **high** | Prefs use `teamKey: KAT` but `linear-auto.ts:49` destructures `config.linear.teamId` which is null. `validateLinearProjectConfig` resolves teamKey→UUID via API but `resolveLinearKataState` doesn't. Linear mode is completely broken when configured with `teamKey` instead of `teamId`. |
+| G006 | M002 | Linear empty-state guidance points to blocked `/kata` entrypoint | medium | `/kata status` and `kata_derive_state` can report "Run /kata to start" even though `/kata` is blocked in Linear mode, creating a dead-end instruction path. |
 
 ---
 
