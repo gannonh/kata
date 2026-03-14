@@ -62,14 +62,14 @@
   - Verify: `pr-command.test.ts` passes; `node --import ./src/resources/extensions/kata/tests/resolve-ts.mjs --experimental-strip-types -e "Promise.all([import('./src/resources/extensions/kata/index.ts'), import('./src/resources/extensions/pr-lifecycle/index.ts')]).then(() => console.log('ok'))"` prints `ok`.
   - Done when: `/kata pr` is discoverable, all five subcommands route correctly, and the command surface reuses S01–S04 implementations instead of reimplementing GitHub behavior.
 
-- [ ] **T04: Surface PR setup in preferences, status, and onboarding** `est:1h`
+- [x] **T04: Surface PR setup in preferences, status, and onboarding** `est:1h`
   - Why: The PR lifecycle is not actually adoptable until a user can discover it, inspect it, and enable it without reverse-engineering the preferences schema.
   - Files: `src/resources/extensions/kata/templates/preferences.md`, `src/resources/extensions/kata/gitignore.ts`, `src/resources/extensions/kata/docs/preferences-reference.md`, `src/resources/extensions/kata/guided-flow.ts`, `src/resources/extensions/kata/pr-command.ts`
   - Do: Add a documented `pr:` block with defaults to both the canonical preferences template and the bootstrap template in `ensurePreferences()`. Update the preferences reference docs and deterministic status formatter so `pr.enabled`, `pr.auto_create`, `pr.base_branch`, `pr.review_on_create`, and `pr.linear_link` are inspectable. In `guided-flow.ts`, detect GitHub remotes and offer a PR setup action when the repo is GitHub-backed but PR lifecycle is not configured; the action should edit project preferences directly (for example, seed a default `pr:` block) instead of just telling the user to do it later.
   - Verify: `prefs-status.test.ts` and `pr-command.test.ts` pass; `/kata pr status` output includes the configured PR block and the onboarding recommendation disappears once PR setup is enabled.
   - Done when: new projects get a discoverable PR configuration path, and existing projects can inspect whether PR lifecycle is configured or still pending.
 
-- [ ] **T05: Gate auto-mode slice completion through PR creation when enabled** `est:1h`
+- [x] **T05: Gate auto-mode slice completion through PR creation when enabled** `est:1h`
   - Why: This is the requirement-closing integration for R200. As long as auto-mode keeps squash-merging completed slice branches directly to main, the PR lifecycle is optional ceremony instead of the real workflow.
   - Files: `src/resources/extensions/kata/auto.ts`, `src/resources/extensions/kata/pr-auto.ts`, `src/resources/extensions/pr-lifecycle/pr-runner.ts`, `src/resources/extensions/kata/tests/pr-auto.test.ts`
   - Do: Replace the unconditional post-`complete-slice` squash merge in `auto.ts` with the decision helper from T02. When PR lifecycle is disabled, keep the current `switchToMain()` + `mergeSliceToMain()` path unchanged. When `pr.enabled && pr.auto_create`, call the shared PR runner on the slice branch after summary/UAT/commit, surface structured success or failure, and pause auto-mode so the PR can be reviewed and merged explicitly. On create failure, stop or pause with the exact diagnostic from the shared runner rather than falling through to the legacy merge path.
