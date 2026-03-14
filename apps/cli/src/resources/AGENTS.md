@@ -36,6 +36,7 @@ apps/cli/
         context7/          — Context7 library documentation lookup
         search-the-web/    — Web search via Brave API
         mac-tools/         — macOS-specific utilities
+        linear/            — Built-in Linear integration (GraphQL client + tools)
       skills/              — Bundled skills
   pkg/
     package.json           — piConfig shim (name: "kata", configDir: ".kata-cli")
@@ -468,6 +469,59 @@ mcp({ connect: "linear" })               — force connect/reconnect a server
 - **Figma remote MCP (`mcp.figma.com`)**: Blocks dynamic client registration — only whitelisted clients (Cursor, Claude Code, VS Code) can connect via OAuth. Use the Figma desktop app's local MCP server instead (`http://127.0.0.1:3845/mcp`), which requires Figma desktop with Dev Mode (paid plan).
 - **Metadata cache path**: `pi-mcp-adapter` caches tool metadata to `~/.pi/agent/mcp-cache.json` (hardcoded). This doesn't affect functionality — just means the cache lives outside Kata's config dir.
 - **OAuth token storage**: `mcp-remote` stores tokens in `~/.mcp-auth/`, separate from Kata's config dir.
+
+## Built-in Linear Integration
+
+Kata ships a built-in Linear extension with a custom GraphQL client — no MCP server required. It provides native tools that are always available when `LINEAR_API_KEY` is set.
+
+### Setup
+
+Set `LINEAR_API_KEY` in your environment (a Linear personal API key). That's it — the tools are immediately available.
+
+### Tools
+
+**Workspace & Teams:**
+`linear_list_teams`, `linear_get_team`, `linear_get_viewer`
+
+**Projects:**
+`linear_create_project`, `linear_get_project`, `linear_list_projects`, `linear_update_project`, `linear_delete_project`
+
+**Milestones** (belong to projects):
+`linear_create_milestone`, `linear_get_milestone`, `linear_list_milestones`, `linear_update_milestone`, `linear_delete_milestone`
+
+**Issues:**
+`linear_create_issue`, `linear_get_issue`, `linear_list_issues`, `linear_update_issue`, `linear_delete_issue`
+
+**Workflow:**
+`linear_list_workflow_states`, `linear_create_label`, `linear_list_labels`, `linear_delete_label`, `linear_ensure_label`
+
+**Documents:**
+`linear_create_document`, `linear_get_document`, `linear_list_documents`, `linear_update_document`, `linear_delete_document`
+
+**Kata workflow tools** (used by Linear workflow mode):
+`kata_derive_state`, `kata_ensure_labels`, `kata_create_milestone`, `kata_create_slice`, `kata_create_task`, `kata_list_slices`, `kata_list_tasks`, `kata_list_milestones`, `kata_list_documents`, `kata_read_document`, `kata_write_document`, `kata_update_issue_state`
+
+### Linear workflow mode
+
+When a project's preferences set `workflow.mode: linear`, Kata uses Linear as the backing store for its planning methodology instead of `.kata/` files on disk. Milestones, slices, tasks, plans, and summaries all live in Linear.
+
+To configure Linear workflow mode, set these in `.kata/preferences.md`:
+
+```yaml
+---
+workflow:
+  mode: linear
+linear:
+  teamKey: KAT
+  projectId: <project-uuid>
+---
+```
+
+To find your project UUID, use the `linear_list_projects` tool to list all projects in the workspace.
+
+### Built-in vs MCP Linear
+
+The built-in extension is separate from the Linear MCP server. You do **not** need to configure MCP to use Linear — the built-in tools work directly. The MCP setup described in the MCP Support section is an alternative approach using Linear's official MCP server with OAuth; the built-in extension uses a personal API key instead.
 
 ## Key Conventions
 
