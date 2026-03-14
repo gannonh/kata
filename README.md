@@ -86,13 +86,13 @@ Use Kata Orchestrator when you want:
 
 Read more in [apps/orchestrator/README.md](apps/orchestrator/README.md).
 
-## Monorepo Layout
-
 | Path | Purpose |
 | --- | --- |
 | `apps/cli` | Kata CLI |
 | `apps/electron` | Kata Desktop |
 | `apps/orchestrator` | Kata Orchestrator |
+| `apps/online-docs` | Online documentation site |
+| `apps/viewer` | Viewer app |
 | `packages/core` | Shared types |
 | `packages/shared` | Shared agent, auth, config, git, session, and source logic |
 | `packages/ui` | Shared UI code |
