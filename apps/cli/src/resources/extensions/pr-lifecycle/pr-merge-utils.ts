@@ -134,7 +134,7 @@ export async function mergeGitHubPR(
   cwd: string,
 ): Promise<MergeResult> {
   // Fetch PR URL before merging (branch deletion would invalidate `gh pr view` after merge)
-  let url = `https://github.com/pulls/${prNumber}`;
+  let url = "";
   try {
     const prData = execSync(`gh pr view ${prNumber} --json url`, {
       cwd,
@@ -206,7 +206,7 @@ export function syncLocalAfterMerge(branch: string, cwd: string): void {
     }
 
     // Checkout default branch
-    execSync(`git checkout ${mainBranch}`, {
+    execSync(`git checkout '${mainBranch.replace(/'/g, "'\\''")}'`, {
       cwd,
       encoding: "utf8",
       ...PIPE,
@@ -221,7 +221,7 @@ export function syncLocalAfterMerge(branch: string, cwd: string): void {
 
     // Delete the slice branch locally (may already be deleted by gh pr merge --delete-branch)
     try {
-      execSync(`git branch -D ${branch}`, {
+      execSync(`git branch -D '${branch.replace(/'/g, "'\\''")}'`, {
         cwd,
         encoding: "utf8",
         ...PIPE,

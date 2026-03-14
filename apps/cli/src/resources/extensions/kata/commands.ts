@@ -480,24 +480,17 @@ async function handlePrefs(
  * - getPrEnabled / getPrAutoCreate / getPrBaseBranch: read from effective preferences
  */
 function buildLivePrStatusDeps(): PrStatusDependencies {
+  const effective = loadEffectiveKataPreferences();
+  const pr = effective?.preferences.pr;
   return {
     getCurrentBranch: () => getCurrentBranch(process.cwd()),
     getOpenPrNumber: async () => {
       // getPRNumber is synchronous — wrap in a resolved Promise for interface compat
       return getPRNumber(process.cwd());
     },
-    getPrEnabled: () => {
-      const effective = loadEffectiveKataPreferences();
-      return effective?.preferences.pr?.enabled === true;
-    },
-    getPrAutoCreate: () => {
-      const effective = loadEffectiveKataPreferences();
-      return effective?.preferences.pr?.auto_create === true;
-    },
-    getPrBaseBranch: () => {
-      const effective = loadEffectiveKataPreferences();
-      return effective?.preferences.pr?.base_branch ?? "main";
-    },
+    getPrEnabled: () => pr?.enabled === true,
+    getPrAutoCreate: () => pr?.auto_create === true,
+    getPrBaseBranch: () => pr?.base_branch ?? "main",
   };
 }
 
