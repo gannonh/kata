@@ -13,6 +13,8 @@
 |---|-------|-----|----------|-------|
 | G001 | M002 | No guided migration wizard from file→linear mode | medium | User must manually edit YAML frontmatter, set env var, and know the fields exist. No `/kata` wizard prompt equivalent to the PR "Set up PR lifecycle" action. |
 | G002 | M002 | No project-level auth.json override | medium | Only `~/.kata-cli/agent/auth.json` is checked. Need `.kata-cli/auth.json` at project level to override globals — e.g. different Linear workspaces per project. |
+| G003 | M002 | `teamKey` not resolved to `teamId` in 4 call sites | **high** | FIXED. `linear-auto.ts`, `commands.ts`, `linear-tools.ts`, `dashboard-overlay.ts` all destructured `config.linear.teamId` without falling back to `teamKey`. |
+| G004 | M002 | `ensureLabel` fails when workspace-level labels exist | **high** | FIXED. Team-scoped search missed workspace-level `kata:*` labels, then create failed with "duplicate label name". Now falls back to workspace label search. |
 | G003 | M002 | `teamKey` not resolved to `teamId` in `resolveLinearKataState` | **high** | Prefs use `teamKey: KAT` but `linear-auto.ts:49` destructures `config.linear.teamId` which is null. `validateLinearProjectConfig` resolves teamKey→UUID via API but `resolveLinearKataState` doesn't. Linear mode is completely broken when configured with `teamKey` instead of `teamId`. |
 
 ---
