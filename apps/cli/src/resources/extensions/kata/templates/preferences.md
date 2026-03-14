@@ -3,6 +3,12 @@ version: 1
 workflow:
   mode: file
 linear: {}
+pr:
+  enabled: false
+  auto_create: false
+  base_branch: main
+  review_on_create: false
+  linear_link: false
 always_use_skills: []
 prefer_skills: []
 avoid_skills: []
@@ -22,6 +28,18 @@ See `~/.kata-cli/agent/extensions/kata/docs/preferences-reference.md` for full f
 - Leave `workflow.mode: file` for the default file-backed Kata workflow.
 - Set `workflow.mode: linear` and fill in the `linear` block to opt this project into Linear-backed workflow mode.
 - Keep secrets like `LINEAR_API_KEY` in environment variables, not in this file.
+- Set `pr.enabled: true` to activate the PR lifecycle (create, review, address, merge via `gh` CLI).
+
+## PR lifecycle example
+
+```yaml
+pr:
+  enabled: true
+  auto_create: true      # auto-create PR after slice completes in auto-mode
+  base_branch: main      # target branch for PRs
+  review_on_create: false # auto-run parallel review after PR is created
+  linear_link: false      # add Linear issue references to PR body (requires S06)
+```
 
 ## Linear example
 
