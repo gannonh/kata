@@ -505,19 +505,19 @@ Set `LINEAR_API_KEY` in your environment (a Linear personal API key). That's it 
 
 When a project's preferences set `workflow.mode: linear`, Kata uses Linear as the backing store for its planning methodology instead of `.kata/` files on disk. Milestones, slices, tasks, plans, and summaries all live in Linear.
 
-To configure Linear workflow mode, set these in `.kata/preferences.md`:
+To configure Linear workflow mode, update these fields in `.kata/preferences.md`:
 
 ```yaml
----
 workflow:
   mode: linear
 linear:
   teamKey: KAT
   projectId: <project-uuid>
----
 ```
 
-To find your project UUID, use the `linear_list_projects` tool to list all projects in the workspace.
+Use `linear_list_projects` to find the project UUID.
+
+**Important:** When editing `.kata/preferences.md`, use `edit` to change individual fields — never overwrite the file with `write`. The preferences file contains many settings (PR config, skills, models, supervisor timeouts) and overwriting it destroys everything except what you're adding.
 
 ### Built-in vs MCP Linear
 
