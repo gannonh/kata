@@ -44,10 +44,10 @@
 ## M002: Linear Workflow (included in this UAT pass)
 
 ### Linear Mode Setup & Discovery
-- [ ] Pending
+- [x] Validated with gaps (G001, G002): feature is operable but onboarding/migration UX is insufficient
 
 ### Linear Tools & State Derivation
-- [ ] Pending
+- [x] Pass: `kata_derive_state` now works in Linear mode with `teamKey`, returning `phase: pre-planning` when no milestones exist
 
 ---
 
