@@ -740,12 +740,22 @@ export class LinearClient {
     name: string,
     opts?: { teamId?: string; color?: string; description?: string },
   ): Promise<LinearLabel> {
-    // Search for existing label by name
+    // Search for existing label by name in team scope
     const existing = await this.listLabels({ teamId: opts?.teamId });
     const match = existing.find(
       (l) => l.name.toLowerCase() === name.toLowerCase(),
     );
     if (match) return match;
+
+    // Also check workspace-level labels — Linear rejects team-scoped creates
+    // when a workspace-level label with the same name already exists.
+    if (opts?.teamId) {
+      const workspaceLabels = await this.listLabels();
+      const wsMatch = workspaceLabels.find(
+        (l) => l.name.toLowerCase() === name.toLowerCase(),
+      );
+      if (wsMatch) return wsMatch;
+    }
 
     // Create if not found
     return this.createLabel({
