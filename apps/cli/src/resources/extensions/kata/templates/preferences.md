@@ -38,7 +38,7 @@ pr:
   auto_create: true      # auto-create PR after slice completes in auto-mode
   base_branch: main      # target branch for PRs
   review_on_create: false # auto-run parallel review after PR is created
-  linear_link: false      # add Linear issue references to PR body (requires S06)
+  linear_link: false      # add Linear issue references to PR body (requires linear mode)
 ```
 
 ## Linear example

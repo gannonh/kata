@@ -482,6 +482,7 @@ async function handlePrefs(
 function buildLivePrStatusDeps(): PrStatusDependencies {
   const effective = loadEffectiveKataPreferences();
   const pr = effective?.preferences.pr;
+  const config = loadEffectiveLinearProjectConfig(effective);
   return {
     getCurrentBranch: () => getCurrentBranch(process.cwd()),
     getOpenPrNumber: async () => {
@@ -491,6 +492,10 @@ function buildLivePrStatusDeps(): PrStatusDependencies {
     getPrEnabled: () => pr?.enabled === true,
     getPrAutoCreate: () => pr?.auto_create === true,
     getPrBaseBranch: () => pr?.base_branch ?? "main",
+    getLinearLinkStatus: () => ({
+      linearLink: pr?.linear_link === true,
+      workflowMode: config.workflowMode,
+    }),
   };
 }
 

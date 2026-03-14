@@ -16,6 +16,12 @@ import {
   resolveTaskFiles,
 } from "../kata/paths.js";
 import { parsePlan, parseSummary, loadFile } from "../kata/files.js";
+import { buildLinearReferencesSection } from "../kata/linear-crosslink.js";
+
+export interface ComposePRBodyOptions {
+  /** Linear issue identifiers (e.g. ["KAT-42"]) to include as references. */
+  linearReferences?: string[];
+}
 
 /**
  * Compose a markdown PR body from Kata slice artifacts.
@@ -23,12 +29,14 @@ import { parsePlan, parseSummary, loadFile } from "../kata/files.js";
  * @param milestoneId - e.g. "M001"
  * @param sliceId     - e.g. "S01"
  * @param cwd         - project root (directory that contains `.kata/`)
+ * @param options     - optional: Linear references to append
  * @returns           - non-empty markdown string
  */
 export async function composePRBody(
   milestoneId: string,
   sliceId: string,
   cwd: string,
+  options?: ComposePRBodyOptions,
 ): Promise<string> {
   // ── Slice Plan ────────────────────────────────────────────────────────────
   const planPath = resolveSliceFile(cwd, milestoneId, sliceId, "PLAN");
@@ -99,6 +107,12 @@ export async function composePRBody(
   } else if (planContent) {
     // Ultra-thin slice with no task entries at all — include raw plan content
     sections.push(`## Tasks\n- (see slice plan for details)`);
+  }
+
+  // ## Linear Issues (optional — only when cross-linking is active)
+  const linearSection = buildLinearReferencesSection(options?.linearReferences);
+  if (linearSection) {
+    sections.push(linearSection);
   }
 
   const body = sections.join("\n\n");
