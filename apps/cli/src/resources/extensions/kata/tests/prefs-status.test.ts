@@ -212,3 +212,81 @@ test("buildPrefsStatusReport redacts failures while keeping them actionable", as
   );
   assert.doesNotMatch(report.message, /super-secret-linear-key/);
 });
+
+// ─── PR lifecycle config visibility (failing until T02 adds PR lines) ─────────
+
+test("buildPrefsStatusReport includes pr.enabled line when PR lifecycle is configured", async () => {
+  const projectPrefs = makeLoadedPreferences({
+    preferences: {
+      workflow: { mode: "file" },
+      pr: { enabled: true, auto_create: true, base_branch: "main" },
+    },
+  });
+
+  const report = await buildPrefsStatusReport(
+    makeDeps({
+      loadProjectKataPreferences: () => projectPrefs,
+      loadEffectiveKataPreferences: () => projectPrefs,
+    }),
+  );
+
+  // These assertions FAIL until buildPrefsStatusReport appends PR lifecycle lines.
+  assert.match(
+    report.message,
+    /^pr\.enabled: true$/m,
+    "report must include pr.enabled line",
+  );
+  assert.match(
+    report.message,
+    /^pr\.auto_create: true$/m,
+    "report must include pr.auto_create line",
+  );
+  assert.match(
+    report.message,
+    /^pr\.base_branch: main$/m,
+    "report must include pr.base_branch line",
+  );
+});
+
+test("buildPrefsStatusReport includes pr: disabled when PR lifecycle is not configured", async () => {
+  const projectPrefs = makeLoadedPreferences({
+    preferences: { workflow: { mode: "file" } },
+  });
+
+  const report = await buildPrefsStatusReport(
+    makeDeps({
+      loadProjectKataPreferences: () => projectPrefs,
+      loadEffectiveKataPreferences: () => projectPrefs,
+    }),
+  );
+
+  // FAILS until buildPrefsStatusReport adds a PR section for unconfigured state.
+  assert.match(
+    report.message,
+    /^pr: disabled$/m,
+    "report must show 'pr: disabled' when PR lifecycle is not configured",
+  );
+});
+
+test("buildPrefsStatusReport includes pr: disabled when pr.enabled is explicitly false", async () => {
+  const projectPrefs = makeLoadedPreferences({
+    preferences: {
+      workflow: { mode: "file" },
+      pr: { enabled: false },
+    },
+  });
+
+  const report = await buildPrefsStatusReport(
+    makeDeps({
+      loadProjectKataPreferences: () => projectPrefs,
+      loadEffectiveKataPreferences: () => projectPrefs,
+    }),
+  );
+
+  // FAILS until buildPrefsStatusReport adds a PR section.
+  assert.match(
+    report.message,
+    /^pr: disabled$/m,
+    "report must show 'pr: disabled' when pr.enabled is false",
+  );
+});

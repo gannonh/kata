@@ -1,0 +1,60 @@
+node_modules/
+.DS_Store
+TO-DOS.md
+CLAUDE.md
+/research.claude/
+commands.html
+
+# Local test installs
+.claude/
+
+# Build artifacts (committed to npm, not git)
+hooks/dist/
+
+# Coverage artifacts
+coverage/
+
+# Animation assets
+animation/
+*.gif
+
+# Internal planning documents
+reports/
+RAILROAD_ARCHITECTURE.md
+.planning/
+analysis/
+docs/GSD-MASTER-ARCHITECTURE.md
+docs/GSD-RUST-IMPLEMENTATION-GUIDE.md
+docs/GSD-SYSTEM-SPECIFICATION.md
+gaps.md
+improve.md
+philosophy.md
+
+# ── Kata baseline (auto-generated) ──
+.kata/activity/
+.kata/runtime/
+.kata/auto.lock
+.kata/metrics.json
+.kata/STATE.md
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.code-workspace
+.env
+.env.*
+!.env.example
+.next/
+dist/
+build/
+__pycache__/
+*.pyc
+.venv/
+venv/
+target/
+vendor/
+*.log
+.cache/
+tmp/

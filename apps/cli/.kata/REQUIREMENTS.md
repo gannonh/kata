@@ -138,14 +138,14 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R202 — PR review comment addressing workflow
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: `/kata pr address` fetches PR review comments, presents them for triage, applies fixes for selected items, resolves GitHub threads, and pushes updates
 - Why it matters: Review feedback loop is a major time sink; agent can handle mechanical fixes and thread management
 - Source: user
 - Primary owning slice: M003/S03
 - Supporting slices: none
-- Validation: unmapped
-- Notes: Uses GraphQL to fetch all comment types (conversation, review, inline threads). Agent asks user which to address before acting
+- Validation: validated — M003/S03: `kata_fetch_pr_comments` tool fetches all PR comment types (conversation, review, inline threads) via `fetch_comments.py` GraphQL; `summarizeComments` produces numbered, actionable comment list with resolved/outdated filtering; `kata_resolve_thread` resolves inline review threads via `resolveReviewThread` GraphQL mutation; `kata_reply_to_thread` posts replies via `addPullRequestReviewThreadReply` mutation; all 4 contract tests pass; TypeScript clean; full tool surface registered and loads without error
+- Notes: Uses GraphQL to fetch all comment types (conversation, review, inline threads). Agent asks user which to address before acting. `/kata pr address` command surface deferred to S05.
 
 ### R203 — PR merge with CI validation
 - Class: core-capability
@@ -309,7 +309,7 @@ This file is the explicit capability and coverage contract for the project.
 | R111 | anti-feature | out-of-scope | none | none | n/a |
 | R200 | core-capability | active | M003/S01 | M003/S05 | unmapped |
 | R201 | core-capability | validated | M003/S02 | none | validated |
-| R202 | core-capability | active | M003/S03 | none | unmapped |
+| R202 | core-capability | validated | M003/S03 | none | validated |
 | R203 | core-capability | active | M003/S04 | none | unmapped |
 | R204 | integration | validated | M003/S05 | M003/S01 | validated |
 | R205 | primary-user-loop | active | M003/S05 | M003/S01–S04 | unmapped |
@@ -319,7 +319,7 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Coverage Summary
 
-- Active requirements: 7 (R100, R106 from M002; R200, R202, R203, R205, R208 from M003)
+- Active requirements: 6 (R100, R106 from M002; R200, R203, R205, R208 from M003)
 - Mapped to slices: 19
-- Validated: 15 (R001–R003, R101–R109, R201, R204, R206, R207)
+- Validated: 16 (R001–R003, R101–R109, R201, R202, R204, R206, R207)
 - Unmapped active requirements: 0

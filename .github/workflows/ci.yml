@@ -62,6 +62,37 @@ jobs:
       - name: Run CLI tests
         run: cd apps/cli && npm test
 
+  # Orchestrator dry-run: runs when the current orchestrator version has not yet been tagged/released
+  orc-publish-dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 1
+
+      - name: Check if orchestrator version bumped
+        id: version-check
+        run: |
+          CURRENT_VERSION=$(node -p "require('./apps/orchestrator/package.json').version")
+          if git ls-remote --tags origin "refs/tags/orc-v$CURRENT_VERSION" | grep -q .; then
+            echo "Version $CURRENT_VERSION already tagged, skipping dry-run"
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          else
+            echo "New orchestrator version $CURRENT_VERSION detected, running publish dry-run"
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        if: steps.version-check.outputs.should_run == 'true'
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: '22'
+
+      - name: Publish dry-run
+        if: steps.version-check.outputs.should_run == 'true'
+        run: cd apps/orchestrator && npm publish --dry-run --access public
+
   # Desktop E2E: only on release PRs (version bump in apps/electron/package.json)
   e2e-mocked:
     needs: validate

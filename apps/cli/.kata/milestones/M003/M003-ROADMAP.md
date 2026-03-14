@@ -58,10 +58,10 @@ This milestone is complete only when all are true:
 - [x] **S02: Bundled Reviewer Subagents & Parallel Dispatch** `risk:high` `depends:[S01]`
   > After this: agent can run `/kata pr review` which dispatches 6 specialized reviewer subagents in parallel against the PR diff, aggregates findings by severity, and presents a structured review report.
 
-- [ ] **S03: Address Review Comments** `risk:low` `depends:[S01]`
+- [x] **S03: Address Review Comments** `risk:low` `depends:[S01]`
   > After this: agent can run `/kata pr address` which fetches PR review comments via GraphQL, presents them for triage, applies selected fixes, resolves GitHub threads, and pushes updates.
 
-- [ ] **S04: Merge & Slice Completion** `risk:low` `depends:[S01]`
+- [x] **S04: Merge & Slice Completion** `risk:low` `depends:[S01]`
   > After this: agent can run `/kata pr merge` which runs local CI checks, merges the PR via `gh`, deletes the branch, and updates slice status to complete.
 
 - [ ] **S05: Preferences, Onboarding & `/kata pr` Command** `risk:medium` `depends:[S01, S02, S03, S04]`

@@ -19,6 +19,7 @@ A coding agent that executes structured, multi-session development work reliably
 - M002 Linear Mode complete: all 6 slices done (S01 GraphQL client, S02 config/mode switching, S03 entity mapping, S04 document storage, S05 state derivation, S06 workflow prompt + auto-mode); 86 tests pass; R101–R109 all validated
 - M003/S01 PR Creation complete: kata_create_pr tool, gh-utils.ts, PR body composition from slice artifacts, bundled create_pr_safe.py and fetch_comments.py scripts; R204, R206 validated
 - M003/S02 Reviewer Subagents complete: 6 bundled pr-*.md reviewer agent definitions, pr-review-utils.ts (scopeReviewers, buildReviewerTaskPrompt, aggregateFindings), kata_review_pr tool with parallel dispatch plan; 8 contract tests pass; R201, R207 validated
+- M003/S03 Address Review Comments complete: kata_fetch_pr_comments, kata_resolve_thread, kata_reply_to_thread tools registered; pr-address-utils.ts (summarizeComments + GraphQL mutation wrappers); 4 unit tests pass; TypeScript clean; 112/112 tests pass; R202 validated
 
 ## Architecture / Key Patterns
 
