@@ -191,30 +191,24 @@ export class KataDashboardOverlay {
       const taskDone = state.progress?.tasks?.done ?? 0;
       const taskTotal = state.progress?.tasks?.total ?? 0;
 
-      // Build a slim slice list from the registry for the overlay.
-      // The registry entries track status but not slice IDs; we derive
-      // active/done flags from the state's activeSlice reference.
-      const sliceViews: SliceView[] = state.registry.map((entry) => {
-        const isActive = entry.id === state.activeSlice?.id;
-        const isDone = entry.status === "complete";
-        const sliceView: SliceView = {
-          id: entry.id,
-          title: entry.title,
-          done: isDone,
+      // Build slice list from active slice only.
+      // `state.registry` holds milestones, not slices, so using it here causes
+      // incorrect "Slices" counts and labels in the overlay.
+      const sliceViews: SliceView[] = [];
+      if (state.activeSlice) {
+        const activeSliceView: SliceView = {
+          id: state.activeSlice.id,
+          title: state.activeSlice.title,
+          done: false,
           risk: "",
-          active: isActive,
+          active: true,
           tasks: [],
         };
 
-        // For the active slice, inject task-level progress from state
-        if (isActive && taskTotal > 0) {
-          sliceView.taskProgress = { done: taskDone, total: taskTotal };
-
-          // We don't have a full task list from deriveLinearState's return
-          // value (it only surfaces the activeTask). Show the active task as
-          // a single entry so the overlay can display it.
+        if (taskTotal > 0) {
+          activeSliceView.taskProgress = { done: taskDone, total: taskTotal };
           if (state.activeTask) {
-            sliceView.tasks.push({
+            activeSliceView.tasks.push({
               id: state.activeTask.id,
               title: state.activeTask.title,
               done: false,
@@ -223,8 +217,8 @@ export class KataDashboardOverlay {
           }
         }
 
-        return sliceView;
-      });
+        sliceViews.push(activeSliceView);
+      }
 
       const view: MilestoneView = {
         id: state.activeMilestone.id,
@@ -434,8 +428,8 @@ export class KataDashboardOverlay {
       lines.push(row(th.fg("text", th.bold(`${mv.id}: ${mv.title}`))));
       lines.push(blank());
 
-      const totalSlices = mv.slices.length;
-      const doneSlices = mv.slices.filter(s => s.done).length;
+      const totalSlices = mv.progress.slices?.total ?? mv.slices.length;
+      const doneSlices = mv.progress.slices?.done ?? mv.slices.filter(s => s.done).length;
       const totalMilestones = mv.progress.milestones.total;
       const doneMilestones = mv.progress.milestones.done;
       const activeSlice = mv.slices.find(s => s.active);
@@ -544,8 +538,8 @@ export class KataDashboardOverlay {
       // Cost projection — only when active milestone data is available
       if (this.milestoneData) {
         const mv = this.milestoneData;
-        const msTotalSlices = mv.slices.length;
-        const msDoneSlices = mv.slices.filter(s => s.done).length;
+        const msTotalSlices = mv.progress.slices?.total ?? mv.slices.length;
+        const msDoneSlices = mv.progress.slices?.done ?? mv.slices.filter(s => s.done).length;
         const remainingCount = msTotalSlices - msDoneSlices;
         const overlayPrefs = loadEffectiveKataPreferences()?.preferences;
         const projLines = formatCostProjection(slices, remainingCount, overlayPrefs?.budget_ceiling);
