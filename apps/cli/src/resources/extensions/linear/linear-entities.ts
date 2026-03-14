@@ -132,11 +132,15 @@ export function getKataPhaseFromLinearStateType(
 }
 
 /**
- * Pick the first workflow state whose type matches the given Kata phase.
+ * Pick a workflow state whose type matches the given Kata phase.
  * Returns `null` when the list is empty or no state matches the required type.
  *
+ * When multiple states share the same type (common for `started`), this uses
+ * lightweight name heuristics so we don't accidentally move work into
+ * "In Review" when we intended "In Progress".
+ *
  * @example
- *   getLinearStateForKataPhase(states, "executing") → first state with type "started"
+ *   getLinearStateForKataPhase(states, "executing") → preferred `started` state
  *   getLinearStateForKataPhase([], "executing")     → null
  */
 export function getLinearStateForKataPhase(
@@ -144,7 +148,69 @@ export function getLinearStateForKataPhase(
   phase: KataPhase
 ): LinearWorkflowState | null {
   const targetType = getLinearStateTypeForKataPhase(phase);
-  return states.find((s) => s.type === targetType) ?? null;
+  const candidates = states.filter((s) => s.type === targetType);
+  if (candidates.length === 0) return null;
+
+  // Most phases are 1:1 by state type. Ambiguity only appears for "started"
+  // because many teams have multiple started states (In Progress, In Review, QA).
+  if (targetType !== "started") {
+    return candidates[0];
+  }
+
+  const preferred = pickPreferredStartedState(candidates, phase);
+  return preferred ?? candidates[0];
+}
+
+const STARTED_PROGRESS_PATTERNS = [
+  /in\s*progress/i,
+  /doing/i,
+  /active/i,
+  /development/i,
+  /dev/i,
+  /building/i,
+  /implement/i,
+  /working/i,
+];
+
+const STARTED_REVIEW_PATTERNS = [
+  /in\s*review/i,
+  /review/i,
+  /qa/i,
+  /verify/i,
+  /validation/i,
+  /testing/i,
+  /test/i,
+  /ready\s*for\s*(qa|review|test)/i,
+];
+
+function pickPreferredStartedState(
+  candidates: LinearWorkflowState[],
+  phase: KataPhase,
+): LinearWorkflowState | null {
+  if (phase === "executing" || phase === "verifying") {
+    // Kata's verifying phase is an internal execution-state distinction, not a
+    // PR-review status transition. Prefer progress-like started states for both
+    // phases and avoid explicit review buckets (which Linear automation may set
+    // when a PR is opened).
+    const progress = findByPatterns(candidates, STARTED_PROGRESS_PATTERNS);
+    if (progress) return progress;
+
+    const nonReview = candidates.find((s) => !matchesAnyPattern(s.name, STARTED_REVIEW_PATTERNS));
+    if (nonReview) return nonReview;
+  }
+
+  return null;
+}
+
+function findByPatterns(
+  states: LinearWorkflowState[],
+  patterns: RegExp[],
+): LinearWorkflowState | null {
+  return states.find((s) => matchesAnyPattern(s.name, patterns)) ?? null;
+}
+
+function matchesAnyPattern(value: string, patterns: RegExp[]): boolean {
+  return patterns.some((pattern) => pattern.test(value));
 }
 
 // =============================================================================
