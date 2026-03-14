@@ -14,6 +14,11 @@ models:
     completion: claude-sonnet-4-6
 skill_discovery: auto
 auto_supervisor: {}
+workflow:                                                                                                                                                        
+    mode: linear                                                                                                                                                   
+linear:                                                                                                                                                          
+    teamKey: KAT                                                                                                                                                   
+    projectId: c7e76979-df58-407a-bf64-09bfccfef9c4   
 ---
 
 # Kata Skill Preferences
