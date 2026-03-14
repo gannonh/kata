@@ -83,3 +83,8 @@ kata-cloud-agents.code-workspace
 .bg-shell/
 *.code-workspace
 
+.planning/
+!.planning/upstream-evals/
+
+# skill eval workspaces
+.agents/skills/*-workspace/
