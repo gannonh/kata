@@ -36,7 +36,8 @@ Linear. Always start here:
    let `kata_derive_state` move to the next task on the next call.
 
 **Do not read `.kata/` files. Do not fall back to `KATA-WORKFLOW.md`. All state and artifacts
-are in Linear.**
+are in Linear. Never use shell/file-search tools (`bash`, `find`, `rg`, `git`) to look for
+`*-PLAN`/`*-SUMMARY` artifacts on disk in Linear mode.**
 
 ---
 
@@ -169,6 +170,8 @@ follow this contract:
    - Call `kata_read_document` with the task plan title (e.g. `T01-PLAN`) to load the contract.
    - If no plan doc exists yet (null result), check `activeTask` and derive intent from the
      slice roadmap (`kata_read_document("M001-ROADMAP")`) or slice plan (`kata_read_document("S01-PLAN")`).
+   - If those are also null, create the missing task plan via `kata_write_document("T01-PLAN", ...)`
+     and continue. Do not search local files or git history for plans.
 
 ### During execution
 

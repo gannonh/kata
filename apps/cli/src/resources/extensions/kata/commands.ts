@@ -19,6 +19,7 @@ import { deriveLinearState } from "../linear/linear-state.js";
 import { KataDashboardOverlay } from "./dashboard-overlay.js";
 import { showSmartEntry, showQueue, showDiscuss } from "./guided-flow.js";
 import { startAuto, stopAuto, isAutoActive, isAutoPaused } from "./auto.js";
+import { selectLinearPrompt } from "./linear-auto.js";
 import {
   getGlobalKataPreferencesPath,
   getLegacyGlobalKataPreferencesPath,
@@ -321,6 +322,11 @@ export function registerKataCommand(pi: ExtensionAPI): void {
       }
 
       if (trimmed === "") {
+        if (isLinearMode()) {
+          await showLinearSmartEntry(ctx, pi, process.cwd());
+          return;
+        }
+
         await showSmartEntry(ctx, pi, process.cwd());
         return;
       }
@@ -331,6 +337,50 @@ export function registerKataCommand(pi: ExtensionAPI): void {
       );
     },
   });
+}
+
+/**
+ * `/kata` smart entry for Linear mode.
+ *
+ * Unlike file mode's interactive wizard, Linear mode dispatches a single
+ * phase-scoped prompt so users can step through planning/execution manually
+ * without enabling auto-mode.
+ */
+async function showLinearSmartEntry(
+  ctx: ExtensionCommandContext,
+  pi: ExtensionAPI,
+  basePath: string,
+): Promise<void> {
+  const state = await deriveKataState(basePath);
+
+  if (state.phase === "blocked") {
+    const blockers = state.blockers.length > 0 ? state.blockers.join("\n- ") : "unknown blocker";
+    ctx.ui.notify(`Linear mode is blocked:\n- ${blockers}`, "warning");
+    return;
+  }
+
+  if (state.phase === "complete") {
+    ctx.ui.notify("All milestones are complete in Linear mode.", "info");
+    return;
+  }
+
+  const prompt = selectLinearPrompt(state);
+  if (!prompt) {
+    ctx.ui.notify(`No Linear prompt available for phase: ${state.phase}`, "warning");
+    return;
+  }
+
+  const unitId = state.activeTask
+    ? `${state.activeMilestone?.id ?? "M???"}/${state.activeSlice?.id ?? "S??"}/${state.activeTask.id}`
+    : state.activeSlice
+      ? `${state.activeMilestone?.id ?? "M???"}/${state.activeSlice.id}`
+      : state.activeMilestone?.id ?? "M???";
+
+  ctx.ui.notify(`Linear /kata step: ${state.phase} — ${unitId}`, "info");
+  pi.sendMessage(
+    { customType: "kata-linear-step", content: prompt, display: false },
+    { triggerTurn: true },
+  );
 }
 
 /**

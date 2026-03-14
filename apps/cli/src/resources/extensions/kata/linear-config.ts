@@ -162,7 +162,7 @@ export function resolveWorkflowProtocol(
   if (mode === "linear") {
     const linearPath =
       process.env.LINEAR_WORKFLOW_PATH ??
-      join(process.env.HOME ?? homedir(), ".kata-cli", "LINEAR-WORKFLOW.md");
+      join(process.env.HOME ?? homedir(), ".kata-cli", "agent", "LINEAR-WORKFLOW.md");
     const ready = existsSync(linearPath);
     return {
       mode,
@@ -174,7 +174,7 @@ export function resolveWorkflowProtocol(
 
   const kataPath =
     process.env.KATA_WORKFLOW_PATH ??
-    join(process.env.HOME ?? homedir(), ".kata-cli", "KATA-WORKFLOW.md");
+    join(process.env.HOME ?? homedir(), ".kata-cli", "agent", "KATA-WORKFLOW.md");
   const ready = existsSync(kataPath);
   return {
     mode,
