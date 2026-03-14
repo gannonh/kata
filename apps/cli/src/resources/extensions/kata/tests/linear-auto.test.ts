@@ -81,13 +81,37 @@ test("resolveLinearKataState returns blocked when LINEAR_API_KEY is not set", as
 });
 
 test("resolveLinearKataState falls back to deriveState in file mode", async () => {
-  // Current project preferences do not set workflow.mode: linear,
-  // so isLinearMode() returns false and the function delegates to deriveState().
-  const tmp = mkdtempSync(join(tmpdir(), "kata-linear-auto-"));
-  const state = await resolveLinearKataState(tmp);
-  // Empty temp dir has no .kata/ → pre-planning phase with no active milestone.
-  assert.equal(state.phase, "pre-planning");
-  assert.equal(state.activeMilestone, null);
+  // isLinearMode() reads PROJECT_PREFERENCES_PATH which is captured at module
+  // load time from process.cwd(), so we cannot override it with process.chdir().
+  // Instead, temporarily flip the project preferences to file mode.
+  const prefsPath = join(process.cwd(), ".kata", "preferences.md");
+  let originalPrefs: string | undefined;
+  try {
+    originalPrefs = readFileSync(prefsPath, "utf-8");
+  } catch {
+    // No project prefs — isLinearMode() returns false by default
+  }
+
+  try {
+    if (originalPrefs) {
+      // Temporarily set workflow.mode: file
+      const filePrefs = originalPrefs.replace(
+        /mode:\s*linear/,
+        "mode: file",
+      );
+      writeFileSync(prefsPath, filePrefs, "utf-8");
+    }
+
+    const tmp = mkdtempSync(join(tmpdir(), "kata-linear-auto-"));
+    const state = await resolveLinearKataState(tmp);
+    // Empty temp dir has no .kata/ → pre-planning phase with no active milestone.
+    assert.equal(state.phase, "pre-planning");
+    assert.equal(state.activeMilestone, null);
+  } finally {
+    if (originalPrefs) {
+      writeFileSync(prefsPath, originalPrefs, "utf-8");
+    }
+  }
 });
 
 // ─── selectLinearPrompt dispatcher ───────────────────────────────────────────
