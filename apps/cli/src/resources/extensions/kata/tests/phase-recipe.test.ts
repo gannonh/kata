@@ -68,19 +68,25 @@ test("every file-mode dispatch unit type has a recipe", () => {
 
 /**
  * These are the phases handled in selectLinearPrompt() in linear-auto.ts.
+ * Includes direct phase mappings and dispatch-time override routing.
  * Non-actionable phases (complete, blocked) are excluded — they don't need recipes.
  */
 const LINEAR_MODE_ACTIONABLE_PHASES = [
-  "pre-planning",     // maps to plan-milestone
-  "planning",         // maps to plan-slice
-  "executing",        // maps to execute-task
-  "verifying",        // maps to execute-task
-  "summarizing",      // maps to complete-slice
+  "pre-planning",         // maps to plan-milestone (or research-milestone via override)
+  "planning",             // maps to plan-slice (or research-slice via override)
+  "executing",            // maps to execute-task
+  "verifying",            // maps to execute-task
+  "summarizing",          // maps to complete-slice
+  "completing-milestone", // maps to complete-milestone
+  "replanning-slice",     // maps to replan-slice
 ] as const;
 
 /**
  * Map from Linear actionable phase → recipe phase name.
  * This mapping is what selectLinearPrompt uses to select the right builder.
+ *
+ * Dispatch-time overrides (research, reassess, UAT) are also listed
+ * to ensure full recipe coverage.
  */
 const LINEAR_PHASE_TO_RECIPE: Record<string, string> = {
   "pre-planning": "plan-milestone",
@@ -88,7 +94,20 @@ const LINEAR_PHASE_TO_RECIPE: Record<string, string> = {
   "executing": "execute-task",
   "verifying": "execute-task",
   "summarizing": "complete-slice",
+  "completing-milestone": "complete-milestone",
+  "replanning-slice": "replan-slice",
 };
+
+/**
+ * Dispatch-time override recipes (not direct phase mappings but routed
+ * by the caller before selectLinearPrompt is invoked).
+ */
+const LINEAR_OVERRIDE_RECIPES = [
+  "research-milestone",  // dispatched when pre-planning + no research exists
+  "research-slice",      // dispatched when planning + no slice research exists
+  "reassess-roadmap",    // dispatched after slice completion
+  "run-uat",             // dispatched when UAT file exists without result
+] as const;
 
 test("every Linear-mode actionable phase maps to a recipe", () => {
   const recipePhases = new Set(getRecipePhases());
@@ -98,6 +117,16 @@ test("every Linear-mode actionable phase maps to a recipe", () => {
     assert.ok(
       recipePhases.has(recipePhase),
       `Linear phase "${phase}" maps to recipe "${recipePhase}" which doesn't exist in PHASE_RECIPES`,
+    );
+  }
+});
+
+test("every Linear-mode dispatch-time override has a recipe", () => {
+  const recipePhases = new Set(getRecipePhases());
+  for (const override of LINEAR_OVERRIDE_RECIPES) {
+    assert.ok(
+      recipePhases.has(override),
+      `Linear dispatch override "${override}" has no recipe in PHASE_RECIPES`,
     );
   }
 });
