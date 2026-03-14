@@ -11,6 +11,8 @@ import assert from "node:assert/strict";
 import {
   shouldCrossLink,
   buildLinearReferencesSection,
+  postPrLinkComment,
+  advanceSliceIssueState,
 } from "../linear-crosslink.js";
 
 // ─── shouldCrossLink gate ─────────────────────────────────────────────────────
@@ -85,6 +87,54 @@ test("composePRBody does not include Linear section when linearReferences is emp
   });
 
   assert.doesNotMatch(body, /## Linear Issues/, "body must not include Linear Issues section when empty");
+});
+
+// ─── postPrLinkComment ────────────────────────────────────────────────────────
+
+test("postPrLinkComment returns ok:true when commentCreate success is true", async () => {
+  const client = {
+    graphql: async () => ({ commentCreate: { success: true } }),
+  };
+  const result = await postPrLinkComment(client, "issue-1", "https://github.com/pr/1");
+  assert.equal(result.ok, true);
+});
+
+test("postPrLinkComment returns ok:false when commentCreate success is false", async () => {
+  const client = {
+    graphql: async () => ({ commentCreate: { success: false } }),
+  };
+  const result = await postPrLinkComment(client, "issue-1", "https://github.com/pr/1");
+  assert.equal(result.ok, false);
+  assert.ok(result.error, "error field must be set");
+});
+
+// ─── advanceSliceIssueState ───────────────────────────────────────────────────
+
+test("advanceSliceIssueState returns ok:true when issueUpdate success is true", async () => {
+  let call = 0;
+  const client = {
+    graphql: async () => {
+      call++;
+      if (call === 1) return { workflowStates: { nodes: [{ id: "s1", name: "Done", type: "completed" }] } };
+      return { issueUpdate: { success: true } };
+    },
+  };
+  const result = await advanceSliceIssueState(client, "issue-1", "team-1");
+  assert.equal(result.ok, true);
+});
+
+test("advanceSliceIssueState returns ok:false when issueUpdate success is false", async () => {
+  let call = 0;
+  const client = {
+    graphql: async () => {
+      call++;
+      if (call === 1) return { workflowStates: { nodes: [{ id: "s1", name: "Done", type: "completed" }] } };
+      return { issueUpdate: { success: false } };
+    },
+  };
+  const result = await advanceSliceIssueState(client, "issue-1", "team-1");
+  assert.equal(result.ok, false);
+  assert.ok(result.error, "error field must be set");
 });
 
 test("composePRBody does not include Linear section when no options provided", async () => {

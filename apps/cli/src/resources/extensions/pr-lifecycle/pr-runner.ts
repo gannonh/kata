@@ -150,6 +150,7 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
 
   let linearReferences: string[] | undefined;
   let linearIssueId: string | undefined;
+  let linearClient: { graphql: (query: string, variables?: Record<string, unknown>) => Promise<unknown> } | undefined;
   const lc = options.linearConfig;
   const crossLinkActive = lc && shouldCrossLink(lc.prPrefs, lc.workflowMode);
 
@@ -157,9 +158,9 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
     try {
       // Dynamically import LinearClient to avoid hard dependency when not in Linear mode
       const { LinearClient } = await import("../linear/linear-client.js");
-      const client = new LinearClient(lc.apiKey);
+      linearClient = new LinearClient(lc.apiKey);
       const resolved = await resolveSliceLinearIdentifier(
-        client,
+        linearClient,
         lc.projectId,
         sliceId!,
         lc.sliceLabelId,
@@ -247,11 +248,9 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
 
   let linearComment: "added" | "failed" | "skipped" = "skipped";
 
-  if (crossLinkActive && linearIssueId && lc) {
+  if (crossLinkActive && linearIssueId && lc && linearClient) {
     try {
-      const { LinearClient } = await import("../linear/linear-client.js");
-      const client = new LinearClient(lc.apiKey);
-      const result = await postPrLinkComment(client, linearIssueId, prUrl);
+      const result = await postPrLinkComment(linearClient, linearIssueId, prUrl);
       linearComment = result.ok ? "added" : "failed";
     } catch {
       linearComment = "failed";

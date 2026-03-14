@@ -60,7 +60,7 @@ export async function postPrLinkComment(
   prUrl: string,
 ): Promise<CrossLinkResult> {
   try {
-    await client.graphql(
+    const result = await client.graphql(
       `mutation CreateComment($input: CommentCreateInput!) {
         commentCreate(input: $input) {
           success
@@ -72,7 +72,10 @@ export async function postPrLinkComment(
           body: `🔗 **Pull Request:** ${prUrl}`,
         },
       },
-    );
+    ) as { commentCreate: { success: boolean } };
+    if (!result.commentCreate.success) {
+      return { ok: false, error: "Linear commentCreate returned success: false" };
+    }
     return { ok: true };
   } catch (err) {
     return {
@@ -118,7 +121,7 @@ export async function advanceSliceIssueState(
     }
 
     // Update the issue state
-    await client.graphql(
+    const updateResult = await client.graphql(
       `mutation UpdateIssue($id: String!, $input: IssueUpdateInput!) {
         issueUpdate(id: $id, input: $input) { success }
       }`,
@@ -126,8 +129,11 @@ export async function advanceSliceIssueState(
         id: issueId,
         input: { stateId: completedState.id },
       },
-    );
+    ) as { issueUpdate: { success: boolean } };
 
+    if (!updateResult.issueUpdate.success) {
+      return { ok: false, error: "Linear issueUpdate returned success: false" };
+    }
     return { ok: true };
   } catch (err) {
     return {
@@ -165,7 +171,7 @@ export async function resolveSliceLinearIdentifier(
 
     const data = await client.graphql(
       `query FindSliceIssue($filter: IssueFilter) {
-        issues(first: 50, filter: $filter) {
+        issues(first: 250, filter: $filter) {
           nodes {
             id
             identifier

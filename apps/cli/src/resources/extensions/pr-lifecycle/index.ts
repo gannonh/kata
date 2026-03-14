@@ -130,7 +130,6 @@ export default function (pi: ExtensionAPI): void {
 
         if (
           shouldCrossLink(prPrefs, config.workflowMode) &&
-          config.isLinearMode &&
           apiKey &&
           config.linear.projectId
         ) {
@@ -639,7 +638,6 @@ export default function (pi: ExtensionAPI): void {
 
         if (
           shouldCrossLink(prPrefs, config.workflowMode) &&
-          config.isLinearMode &&
           process.env.LINEAR_API_KEY
         ) {
           const { LinearClient } = await import("../linear/linear-client.js");
