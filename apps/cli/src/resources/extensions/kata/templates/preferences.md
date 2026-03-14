@@ -19,7 +19,9 @@ skill_discovery:
 auto_supervisor: {}
 ---
 
-# Kata Skill Preferences
+# Kata Preferences
+
+> **Agent: do NOT overwrite this file.** Use `edit` to change individual fields. This file contains many settings — overwriting it with only the fields you care about destroys the rest.
 
 See `~/.kata-cli/agent/extensions/kata/docs/preferences-reference.md` for full field documentation and examples.
 
