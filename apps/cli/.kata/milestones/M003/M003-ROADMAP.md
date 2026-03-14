@@ -67,7 +67,7 @@ This milestone is complete only when all are true:
 - [x] **S05: Preferences, Onboarding & `/kata pr` Command** `risk:medium` `depends:[S01, S02, S03, S04]`
   > After this: user can configure PR behavior via preferences (enabled, auto-create, base branch, review on create), `/kata` wizard detects GitHub remote and offers PR setup, and `/kata pr` provides unified command surface for all PR operations.
 
-- [ ] **S06: Linear Cross-linking** `risk:low` `depends:[S05]`
+- [x] **S06: Linear Cross-linking** `risk:low` `depends:[S05]`
   > After this: when both Linear mode and PR lifecycle are active, PRs include Linear issue references in the body, and Linear issues are updated with PR links on creation and status on merge.
 
 ## Boundary Map
