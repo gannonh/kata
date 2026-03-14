@@ -275,17 +275,20 @@ export async function deriveLinearState(
   const activeSliceLinear = orderedSlices.find(s => !isTerminal(s.state.type));
 
   if (!activeSliceLinear) {
-    // Edge case: all slices in active milestone are terminal, but milestone
-    // wasn't flagged complete (e.g., milestone has zero slices mapped to it
-    // but slicesByMilestone has entries). Shouldn't happen with correct data.
+    // All slices in active milestone are terminal.
+    // If slices exist → milestone is ready for completion summary.
+    // If no slices exist → milestone still needs planning (pre-planning).
+    const hasSlices = activeMilestoneSlices.length > 0;
     return {
       activeMilestone: activeMilestoneRef,
       activeSlice: null,
       activeTask: null,
-      phase: "pre-planning",
+      phase: hasSlices ? "completing-milestone" : "pre-planning",
       recentDecisions: [],
       blockers: [],
-      nextAction: "",
+      nextAction: hasSlices
+        ? "Write the milestone completion summary."
+        : "",
       activeBranch,
       registry,
       requirements: undefined,
