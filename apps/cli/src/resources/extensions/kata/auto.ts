@@ -77,6 +77,11 @@ import {
 } from "./preferences.js";
 import type { KataPreferences } from "./preferences.js";
 import {
+  decidePostCompleteSliceAction,
+  formatPrAutoCreateFailure,
+} from "./pr-auto.js";
+import { runCreatePr } from "../pr-lifecycle/pr-runner.js";
+import {
   validatePlanBoundary,
   validateExecuteBoundary,
   validateCompleteBoundary,
@@ -986,40 +991,80 @@ async function dispatchNextUnit(
     return;
   }
 
-  // ── Post-completion merge: merge the slice branch after complete-slice finishes ──
+  // ── Post-completion: preference-aware slice transition after complete-slice ──
   // The complete-slice unit writes the summary, UAT, marks roadmap [x], and commits.
-  // Now we switch to main and squash-merge the slice branch.
+  // What happens next depends on pr.enabled / pr.auto_create (D049).
   if (currentUnit?.type === "complete-slice") {
-    try {
-      const [completedMid, completedSid] = currentUnit.id.split("/");
-      // Look up actual slice title from roadmap (on current branch, before switching)
-      const roadmapFile = resolveMilestoneFile(
-        basePath,
-        completedMid!,
-        "ROADMAP",
-      );
-      const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
-      let sliceTitleForMerge = completedSid!;
-      if (roadmapContent) {
-        const roadmap = parseRoadmap(roadmapContent);
-        const sliceEntry = roadmap.slices.find((s) => s.id === completedSid);
-        if (sliceEntry) sliceTitleForMerge = sliceEntry.title;
+    const [completedMid, completedSid] = currentUnit.id.split("/");
+    const postPrefs = loadEffectiveKataPreferences()?.preferences;
+    const postDecision = decidePostCompleteSliceAction(postPrefs?.pr);
+
+    if (postDecision === "legacy-squash-merge") {
+      // PR lifecycle disabled — keep existing squash-merge behavior unchanged.
+      try {
+        const roadmapFile = resolveMilestoneFile(
+          basePath,
+          completedMid!,
+          "ROADMAP",
+        );
+        const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
+        let sliceTitleForMerge = completedSid!;
+        if (roadmapContent) {
+          const roadmap = parseRoadmap(roadmapContent);
+          const sliceEntry = roadmap.slices.find((s) => s.id === completedSid);
+          if (sliceEntry) sliceTitleForMerge = sliceEntry.title;
+        }
+        switchToMain(basePath);
+        const mergeResult = mergeSliceToMain(
+          basePath,
+          completedMid!,
+          completedSid!,
+          sliceTitleForMerge,
+        );
+        ctx.ui.notify(`Merged ${mergeResult.branch} → main.`, "info");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        ctx.ui.notify(`Slice merge failed: ${message}`, "error");
+        state = await deriveState(basePath);
+        mid = state.activeMilestone?.id;
+        midTitle = state.activeMilestone?.title;
       }
-      switchToMain(basePath);
-      const mergeResult = mergeSliceToMain(
-        basePath,
-        completedMid!,
-        completedSid!,
-        sliceTitleForMerge,
+    } else if (postDecision === "auto-create-and-pause") {
+      // PR lifecycle enabled with auto_create — create PR then pause for review/merge.
+      const prResult = await runCreatePr({
+        cwd: basePath,
+        milestoneId: completedMid!,
+        sliceId: completedSid!,
+        baseBranch: postPrefs?.pr?.base_branch ?? "main",
+      });
+      if (prResult.ok) {
+        ctx.ui.notify(
+          `PR created: ${prResult.url}\nAuto-mode paused — review and merge the PR, then run /kata auto to continue.`,
+          "info",
+        );
+        await stopAuto(ctx, pi);
+        return;
+      } else {
+        // PR creation failed — surface diagnostics and stop. Never fall through to legacy merge.
+        const diagnostic = formatPrAutoCreateFailure({
+          phase: prResult.phase,
+          error: prResult.error,
+          hint: prResult.hint ?? "",
+        });
+        ctx.ui.notify(
+          `PR auto-create failed — auto-mode stopped.\n${diagnostic}`,
+          "error",
+        );
+        await stopAuto(ctx, pi);
+        return;
+      }
+    } else {
+      // skip-notify — PR lifecycle enabled but auto_create is off.
+      // Do not squash-merge. Notify and let the user create the PR manually.
+      ctx.ui.notify(
+        `Slice ${completedSid} complete. PR lifecycle is enabled — run /kata pr create to open a PR, then merge before continuing.`,
+        "info",
       );
-      ctx.ui.notify(`Merged ${mergeResult.branch} → main.`, "info");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      ctx.ui.notify(`Slice merge failed: ${message}`, "error");
-      // Re-derive state so dispatch can figure out what to do
-      state = await deriveState(basePath);
-      mid = state.activeMilestone?.id;
-      midTitle = state.activeMilestone?.title;
     }
   }
 
