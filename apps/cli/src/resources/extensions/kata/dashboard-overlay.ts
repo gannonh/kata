@@ -138,8 +138,9 @@ export class KataDashboardOverlay {
       return;
     }
 
-    const { projectId, teamId } = config.linear;
-    if (!projectId || !teamId) {
+    const { projectId } = config.linear;
+    const teamLookup = config.linear.teamId ?? config.linear.teamKey;
+    if (!projectId || !teamLookup) {
       return;
     }
 
@@ -148,6 +149,18 @@ export class KataDashboardOverlay {
       if (!this.linearClient) {
         this.linearClient = new LinearClient(apiKey);
       }
+
+      // Resolve teamKey → teamId once, then cache via this.resolvedTeamId
+      if (!(this as any).resolvedTeamId) {
+        if (config.linear.teamId) {
+          (this as any).resolvedTeamId = config.linear.teamId;
+        } else {
+          const team = await this.linearClient.getTeam(teamLookup);
+          if (!team) return;
+          (this as any).resolvedTeamId = team.id;
+        }
+      }
+      const teamId = (this as any).resolvedTeamId as string;
 
       // Resolve slice label once, then cache it
       if (!this.sliceLabelId) {

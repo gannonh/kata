@@ -788,15 +788,16 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       }
 
       const config = loadEffectiveLinearProjectConfig();
-      const { projectId, teamId } = config.linear;
+      const { projectId } = config.linear;
+      const teamLookup = config.linear.teamId ?? config.linear.teamKey;
 
-      if (!projectId || !teamId) {
+      if (!projectId || !teamLookup) {
         return ok({
           phase: "blocked",
           activeMilestone: null,
           activeSlice: null,
           activeTask: null,
-          blockers: ["Linear project not configured — set linear.projectId and linear.teamId in kata preferences"],
+          blockers: ["Linear project not configured — set linear.projectId and linear.teamId (or linear.teamKey) in kata preferences"],
           recentDecisions: [],
           nextAction: "Run /kata prefs to configure the Linear project.",
           registry: [],
@@ -804,6 +805,26 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       }
 
       const derivationClient = new LinearClient(apiKey);
+
+      // Resolve teamKey → teamId if only teamKey was provided
+      let teamId = config.linear.teamId;
+      if (!teamId) {
+        const team = await derivationClient.getTeam(teamLookup);
+        if (!team) {
+          return ok({
+            phase: "blocked",
+            activeMilestone: null,
+            activeSlice: null,
+            activeTask: null,
+            blockers: [`Linear team could not be resolved: ${JSON.stringify(teamLookup)}. Check linear.teamKey in preferences.`],
+            recentDecisions: [],
+            nextAction: "Fix linear.teamKey or set linear.teamId directly.",
+            registry: [],
+          });
+        }
+        teamId = team.id;
+      }
+
       const labelSet = await ensureKataLabels(derivationClient, teamId);
 
       return run(() =>
