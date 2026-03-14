@@ -73,6 +73,7 @@ find "$NORM_GSD" -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -na
     -e 's/\/gsd /\/kata /g' \
     -e 's/\/gsd:/\/kata:/g' \
     -e 's/gsd-/kata-/g' \
+    -e 's/extensions\/gsd\//extensions\/kata\//g' \
     -e 's/GSD /Kata /g' \
     -e 's/GSD$/Kata/g' \
     "$file" 2>/dev/null || true

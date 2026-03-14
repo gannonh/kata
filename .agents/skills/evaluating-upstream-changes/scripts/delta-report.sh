@@ -77,10 +77,10 @@ cat >> "$REPORT" << EOF
 
 | Category | Count | Description |
 |----------|-------|-------------|
-| Only in gsd-pi | $(echo "$ONLY_GSD" | grep -c '.' || echo 0) | Features kata could adopt |
-| Only in kata | $(echo "$ONLY_KATA" | grep -c '.' || echo 0) | Kata-specific additions |
-| Diverged | $(echo "$DIVERGED" | grep -c '.' || echo 0) | Same file, different content |
-| Identical | $(echo "$IDENTICAL" | grep -c '.' || echo 0) | No action needed |
+| Only in gsd-pi | $(echo "$ONLY_GSD" | grep -c '.' 2>/dev/null || true) | Features kata could adopt |
+| Only in kata | $(echo "$ONLY_KATA" | grep -c '.' 2>/dev/null || true) | Kata-specific additions |
+| Diverged | $(echo "$DIVERGED" | grep -c '.' 2>/dev/null || true) | Same file, different content |
+| Identical | $(echo "$IDENTICAL" | grep -c '.' 2>/dev/null || true) | No action needed |
 
 ## Files Only in gsd-pi
 
@@ -205,7 +205,7 @@ echo ""
 
 # Print summary to console
 echo "=== Quick Summary ==="
-echo "Only in gsd-pi: $(echo "$ONLY_GSD" | grep -c '.' || echo 0) files"
-echo "Only in kata:   $(echo "$ONLY_KATA" | grep -c '.' || echo 0) files"
-echo "Diverged:       $(echo "$DIVERGED" | grep -c '.' || echo 0) files"
-echo "Identical:      $(echo "$IDENTICAL" | grep -c '.' || echo 0) files"
+echo "Only in gsd-pi: $(echo "$ONLY_GSD" | grep -c '.' 2>/dev/null || true) files"
+echo "Only in kata:   $(echo "$ONLY_KATA" | grep -c '.' 2>/dev/null || true) files"
+echo "Diverged:       $(echo "$DIVERGED" | grep -c '.' 2>/dev/null || true) files"
+echo "Identical:      $(echo "$IDENTICAL" | grep -c '.' 2>/dev/null || true) files"

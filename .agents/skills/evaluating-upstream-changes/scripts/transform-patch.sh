@@ -44,7 +44,7 @@ else
   git -C "$GSD_PI_ROOT" format-patch -1 "$RANGE" -o "$OUTPUT_DIR/raw" --no-stat
 fi
 
-RAW_COUNT=$(ls "$OUTPUT_DIR/raw"/*.patch 2>/dev/null | wc -l | tr -d ' ')
+RAW_COUNT=$(find "$OUTPUT_DIR/raw" -name '*.patch' 2>/dev/null | wc -l | tr -d ' ')
 echo "Generated $RAW_COUNT raw patch(es)"
 
 if [ "$RAW_COUNT" -eq 0 ]; then
@@ -93,6 +93,8 @@ for patch in "$OUTPUT_DIR/raw"/*.patch; do
     -e 's|/gsd:|/kata:|g' \
     -e 's|gsd-|kata-|g' \
     -e 's|extensions/gsd/|extensions/kata/|g' \
+    -e 's|GSD |Kata |g' \
+    -e 's|GSD$|Kata|g' \
     "$patch" > "$out"
 
   echo "  $basename -> transformed"

@@ -15,7 +15,7 @@
 #
 # Marker file: /Volumes/EVO/kata/kata-mono/.planning/upstream-evals/LAST-EVAL.json
 
-set -uo pipefail
+set -euo pipefail
 
 KATA_MONO_ROOT="/Volumes/EVO/kata/kata-mono"
 GSD_PI_ROOT="/Volumes/EVO/kata/gsd-pi"
