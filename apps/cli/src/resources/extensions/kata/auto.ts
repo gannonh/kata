@@ -998,28 +998,34 @@ async function dispatchNextUnit(
     const [completedMid, completedSid] = currentUnit.id.split("/");
     const postPrefs = loadEffectiveKataPreferences()?.preferences;
     const postDecision = decidePostCompleteSliceAction(postPrefs?.pr);
+    let sliceTitleForPr = completedSid!;
+
+    // Best-effort title resolution for merge/PR title. Never blocks post-completion flow.
+    try {
+      const roadmapFile = resolveMilestoneFile(
+        basePath,
+        completedMid!,
+        "ROADMAP",
+      );
+      const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
+      if (roadmapContent) {
+        const roadmap = parseRoadmap(roadmapContent);
+        const sliceEntry = roadmap.slices.find((s) => s.id === completedSid);
+        if (sliceEntry) sliceTitleForPr = sliceEntry.title;
+      }
+    } catch {
+      // Keep fallback title (slice ID) if roadmap parsing fails.
+    }
 
     if (postDecision === "legacy-squash-merge") {
       // PR lifecycle disabled — keep existing squash-merge behavior unchanged.
       try {
-        const roadmapFile = resolveMilestoneFile(
-          basePath,
-          completedMid!,
-          "ROADMAP",
-        );
-        const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
-        let sliceTitleForMerge = completedSid!;
-        if (roadmapContent) {
-          const roadmap = parseRoadmap(roadmapContent);
-          const sliceEntry = roadmap.slices.find((s) => s.id === completedSid);
-          if (sliceEntry) sliceTitleForMerge = sliceEntry.title;
-        }
         switchToMain(basePath);
         const mergeResult = mergeSliceToMain(
           basePath,
           completedMid!,
           completedSid!,
-          sliceTitleForMerge,
+          sliceTitleForPr,
         );
         ctx.ui.notify(`Merged ${mergeResult.branch} → main.`, "info");
       } catch (error) {
@@ -1036,6 +1042,7 @@ async function dispatchNextUnit(
         milestoneId: completedMid!,
         sliceId: completedSid!,
         baseBranch: postPrefs?.pr?.base_branch ?? "main",
+        title: sliceTitleForPr,
       });
       if (prResult.ok) {
         ctx.ui.notify(
@@ -1060,11 +1067,13 @@ async function dispatchNextUnit(
       }
     } else {
       // skip-notify — PR lifecycle enabled but auto_create is off.
-      // Do not squash-merge. Notify and let the user create the PR manually.
+      // Do not squash-merge. Notify, then pause until PR is manually created/merged.
       ctx.ui.notify(
-        `Slice ${completedSid} complete. PR lifecycle is enabled — run /kata pr create to open a PR, then merge before continuing.`,
+        `Slice ${completedSid} complete. PR lifecycle is enabled — run /kata pr create to open a PR, then merge before continuing.\nAuto-mode paused.`,
         "info",
       );
+      await stopAuto(ctx, pi);
+      return;
     }
   }
 

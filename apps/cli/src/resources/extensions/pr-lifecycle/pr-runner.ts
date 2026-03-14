@@ -60,6 +60,15 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
   const { title, baseBranch = "main" } = options;
   const cwd = options.cwd ?? process.cwd();
 
+  if (typeof title !== "string" || title.trim().length === 0) {
+    return {
+      ok: false,
+      phase: "title-missing",
+      error: "PR title is required",
+      hint: "Pass a non-empty title when calling runCreatePr().",
+    };
+  }
+
   // ── Pre-flight checks ────────────────────────────────────────────────────────
 
   if (!isGhInstalled()) {

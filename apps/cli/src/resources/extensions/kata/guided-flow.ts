@@ -34,6 +34,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 
 import { execSync } from "node:child_process";
 import { ensureGitignore, ensurePreferences } from "./gitignore.js";
 import { loadEffectiveKataPreferences } from "./preferences.js";
+import { enablePrPreferencesInContent } from "./pr-preferences-content.js";
 import {
   getWorkflowEntrypointGuard,
   type WorkflowEntrypoint,
@@ -60,32 +61,23 @@ function detectGithubRemote(basePath: string): boolean {
 
 /**
  * Enables the PR lifecycle in project preferences by setting `pr.enabled: true`.
- * If the `pr:` block exists, flips `enabled: false` to `enabled: true`.
- * If it doesn't exist, appends a default `pr:` block with `enabled: true`.
- * Never throws — logs nothing on error.
+ * Never throws — logs nothing on error. Returns:
+ * - "enabled" when preferences were updated
+ * - "already-enabled" when no change was needed
+ * - "failed" when preferences could not be updated safely
  */
-function enablePrPreferences(basePath: string): void {
+function enablePrPreferences(basePath: string): "enabled" | "already-enabled" | "failed" {
   const preferencesPath = join(basePath, ".kata", "preferences.md");
   try {
-    let content = readFileSync(preferencesPath, "utf-8");
-    if (/^pr:/m.test(content)) {
-      // Flip enabled: false → enabled: true within the pr: block
-      content = content.replace(/^(pr:\s*\n(?:[ \t]+\S[^\n]*\n)*[ \t]+enabled:)\s*false/m, "$1 true");
-    } else {
-      // Append a default pr: block before the closing --- of the frontmatter
-      const prBlock = [
-        "pr:",
-        "  enabled: true",
-        "  auto_create: false",
-        "  base_branch: main",
-        "  review_on_create: false",
-        "  linear_link: false",
-      ].join("\n");
-      content = content.replace(/^(---\s*\n)/m, (_, first) => first).replace(/\n(---\n# )/, `\n${prBlock}\n$1`);
-    }
-    writeFileSync(preferencesPath, content, "utf-8");
+    const content = readFileSync(preferencesPath, "utf-8");
+    const transformed = enablePrPreferencesInContent(content);
+    if (!transformed.enabled) return "failed";
+    if (!transformed.changed) return "already-enabled";
+    writeFileSync(preferencesPath, transformed.content, "utf-8");
+    return "enabled";
   } catch {
     // Best-effort — guided-flow never throws on preference write failure
+    return "failed";
   }
 }
 
@@ -926,11 +918,23 @@ export async function showSmartEntry(
       if (choice === "auto") {
         await startAuto(ctx, pi, basePath, false);
       } else if (choice === "setup_pr") {
-        enablePrPreferences(basePath);
-        ctx.ui.notify(
-          "PR lifecycle enabled. Set auto_create, base_branch, and review_on_create in .kata/preferences.md as needed.",
-          "info",
-        );
+        const enableResult = enablePrPreferences(basePath);
+        if (enableResult === "enabled") {
+          ctx.ui.notify(
+            "PR lifecycle enabled. Set auto_create, base_branch, and review_on_create in .kata/preferences.md as needed.",
+            "info",
+          );
+        } else if (enableResult === "already-enabled") {
+          ctx.ui.notify(
+            "PR lifecycle is already enabled in .kata/preferences.md.",
+            "info",
+          );
+        } else {
+          ctx.ui.notify(
+            "Could not update .kata/preferences.md automatically. Please set pr.enabled: true manually.",
+            "warning",
+          );
+        }
       } else if (choice === "status") {
         const { fireStatusViaCommand } = await import("./commands.js");
         await fireStatusViaCommand(ctx);
