@@ -65,9 +65,6 @@ export async function buildPrStatusReport(
 ): Promise<PrStatusReport> {
   const branch = deps.getCurrentBranch();
   const prEnabled = deps.getPrEnabled();
-  const autoCreate = deps.getPrAutoCreate();
-  const baseBranch = deps.getPrBaseBranch();
-  const prNumber = await deps.getOpenPrNumber();
 
   if (!prEnabled) {
     return {
@@ -79,6 +76,10 @@ export async function buildPrStatusReport(
       ].join("\n"),
     };
   }
+
+  const autoCreate = deps.getPrAutoCreate();
+  const baseBranch = deps.getPrBaseBranch();
+  const prNumber = await deps.getOpenPrNumber();
 
   const lines: string[] = [
     `PR lifecycle: enabled`,

@@ -1,18 +1,10 @@
 /**
  * Contract tests for `/kata pr` subcommand routing and status surface.
- *
- * These tests FAIL until T02 creates `pr-command.ts` and exports:
- *   - getPrSubcommandCompletions(prefix)
- *   - buildPrStatusReport(deps)
- *   - getPrOnboardingRecommendation(prEnabled, hasGithubRemote)
- *
- * Expected failure: MODULE_NOT_FOUND for ../pr-command.js
  */
 
 import test from "node:test";
 import assert from "node:assert/strict";
 
-// This import intentionally fails until T02 creates the module.
 import {
   getPrSubcommandCompletions,
   buildPrStatusReport,
@@ -107,6 +99,22 @@ test("buildPrStatusReport shows 'no open PR' when none exists", async () => {
 
   assert.equal(report.level, "info");
   assert.match(report.message, /no open PR|no PR|not created/i, "must indicate no open PR");
+});
+
+test("buildPrStatusReport does not call getOpenPrNumber when PR is disabled", async () => {
+  let prNumberCalled = false;
+  const report = await buildPrStatusReport(
+    makePrStatusDeps({
+      getPrEnabled: () => false,
+      getOpenPrNumber: async () => {
+        prNumberCalled = true;
+        return 42;
+      },
+    }),
+  );
+
+  assert.equal(prNumberCalled, false, "getOpenPrNumber must NOT be called when PR is disabled");
+  assert.match(report.message, /disabled|not enabled|pr\.enabled/i, "message must mention disabled state");
 });
 
 test("buildPrStatusReport level is warning when PR is disabled", async () => {

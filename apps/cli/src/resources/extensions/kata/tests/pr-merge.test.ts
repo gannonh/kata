@@ -102,6 +102,19 @@ test("updateSliceInRoadmap leaves other slice checkboxes untouched", () => {
   );
 });
 
+test("parseCIChecks returns allPassing:false for non-array input (fail-closed)", () => {
+  // JSON.parse of an object literal returns a non-array — must fail closed
+  const result = parseCIChecks(JSON.stringify({ checks: [] }));
+  assert.equal(result.allPassing, false, "non-array input must be fail-closed");
+  assert.deepEqual(result.failing, [], "failing should be empty (unknown, not a named check)");
+  assert.deepEqual(result.pending, [], "pending should be empty");
+});
+
+test("parseCIChecks returns allPassing:false for null JSON input (fail-closed)", () => {
+  const result = parseCIChecks(JSON.stringify(null));
+  assert.equal(result.allPassing, false, "null input must be fail-closed");
+});
+
 test("updateSliceInRoadmap is a no-op when the target slice is already [x]", () => {
   const before = [
     "## Slices",

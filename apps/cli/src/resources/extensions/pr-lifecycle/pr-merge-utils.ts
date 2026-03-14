@@ -69,7 +69,12 @@ export function parseCIChecks(rawJson: string): CICheckResult {
       conclusion: string | null;
     }>;
 
-    if (!Array.isArray(checks) || checks.length === 0) {
+    // Non-array input (unexpected API shape, JSON object, null) → fail-closed.
+    // An empty array means no checks are configured → all passing.
+    if (!Array.isArray(checks)) {
+      return { allPassing: false, failing: [], pending: [] };
+    }
+    if (checks.length === 0) {
       return { allPassing: true, failing: [], pending: [] };
     }
 
@@ -196,10 +201,11 @@ export function syncLocalAfterMerge(branch: string, cwd: string): void {
         encoding: "utf8",
         ...PIPE,
       }).trim();
-      // ref is e.g. "refs/remotes/origin/main"
-      const refParts = ref.split("/");
-      if (refParts.length >= 1) {
-        mainBranch = refParts[refParts.length - 1];
+      // ref is e.g. "refs/remotes/origin/main" or "refs/remotes/origin/release/1.x"
+      // Strip the well-known prefix to preserve the full branch name (handles slashes).
+      const prefix = "refs/remotes/origin/";
+      if (ref.startsWith(prefix)) {
+        mainBranch = ref.slice(prefix.length);
       }
     } catch {
       // Fall back to "main"

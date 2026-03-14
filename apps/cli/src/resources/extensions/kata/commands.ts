@@ -213,7 +213,7 @@ function describeSkillResolution(
 export function registerKataCommand(pi: ExtensionAPI): void {
   pi.registerCommand("kata", {
     description:
-      "Kata — Kata Workflow: /kata auto|stop|status|queue|prefs|doctor|pr",
+      "Kata — Kata Workflow: /kata auto|stop|status|queue|discuss|prefs|doctor|pr",
 
     getArgumentCompletions: (prefix: string) => {
       const subcommands = [
