@@ -82,10 +82,9 @@ try {
 // to spawn kata instead of pi when dispatching workflow tasks
 process.env.KATA_BIN_PATH = process.argv[1];
 
-// Workflow protocol docs — resolved from synced agent resources.
-// initResources() copies these files into agentDir on startup.
+// Workflow protocol doc — resolved from synced agent resources.
+// initResources() copies this file into agentDir on startup.
 process.env.KATA_WORKFLOW_PATH = join(agentDir, "KATA-WORKFLOW.md");
-process.env.LINEAR_WORKFLOW_PATH = join(agentDir, "LINEAR-WORKFLOW.md");
 
 // KATA_BUNDLED_EXTENSION_PATHS — colon-joined list of all bundled extension entry point absolute
 // paths, used by subagent to pass --extension <path> to spawned processes.

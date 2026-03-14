@@ -85,7 +85,7 @@ export type WorkflowEntrypoint =
 
 export interface WorkflowProtocolResolution {
   mode: WorkflowMode;
-  documentName: "KATA-WORKFLOW.md" | "LINEAR-WORKFLOW.md";
+  documentName: "KATA-WORKFLOW.md";
   path: string | null;
   ready: boolean;
 }
@@ -211,19 +211,8 @@ export function resolveWorkflowProtocol(
 ): WorkflowProtocolResolution {
   const mode = getWorkflowMode(loadedPreferences);
 
-  if (mode === "linear") {
-    const linearPath =
-      process.env.LINEAR_WORKFLOW_PATH ??
-      join(process.env.HOME ?? homedir(), ".kata-cli", "agent", "LINEAR-WORKFLOW.md");
-    const ready = existsSync(linearPath);
-    return {
-      mode,
-      documentName: "LINEAR-WORKFLOW.md",
-      path: ready ? linearPath : null,
-      ready,
-    };
-  }
-
+  // Both modes use the same unified workflow document.
+  // KATA-WORKFLOW.md contains mode-conditional blocks for Linear vs file mode.
   const kataPath =
     process.env.KATA_WORKFLOW_PATH ??
     join(process.env.HOME ?? homedir(), ".kata-cli", "agent", "KATA-WORKFLOW.md");
@@ -434,8 +423,8 @@ function buildLinearEntrypointGuard(
         allow: true,
         noticeLevel: "warning",
         notice: protocol.ready
-          ? `Workflow mode is linear. Prefer ${protocol.documentName} and Linear-backed runtime surfaces instead of the file-backed .kata workflow. Do not silently fall back to KATA-WORKFLOW.md.`
-          : "Workflow mode is linear. Do not silently fall back to the file-backed .kata workflow. Linear prompt/runtime wiring is still pending, so use `/kata prefs status` to inspect mode and config health until the Linear workflow prompt lands.",
+          ? "Workflow mode is linear. Follow the Linear mode instructions in KATA-WORKFLOW.md. Do not fall back to file-backed .kata artifacts."
+          : "Workflow mode is linear. Do not fall back to file-backed .kata artifacts. Workflow document not found — use `/kata prefs status` to inspect config.",
         protocol,
       };
     default:
