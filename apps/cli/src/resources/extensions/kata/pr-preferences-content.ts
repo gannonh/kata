@@ -23,7 +23,7 @@ const FRONTMATTER_RE =
   /^(---[ \t]*\r?\n)([\s\S]*?)(\r?\n---[ \t]*)([\s\S]*)$/;
 
 function findPrBlock(lines: string[]): { start: number; end: number } | null {
-  const start = lines.findIndex((line) => /^pr:\s*$/.test(line));
+  const start = lines.findIndex((line) => /^pr:\s*(?:#.*)?$/i.test(line));
   if (start < 0) return null;
   let end = start + 1;
   while (end < lines.length && /^[ \t]+/.test(lines[end])) end += 1;

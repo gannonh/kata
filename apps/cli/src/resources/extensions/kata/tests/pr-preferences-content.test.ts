@@ -73,6 +73,23 @@ pr:
   assert.equal(result.content, input);
 });
 
+test("enablePrPreferencesInContent handles pr key with inline comment without duplicating blocks", () => {
+  const input = `---
+version: 1
+pr: # lifecycle settings
+  auto_create: false
+---
+
+# Title
+`;
+
+  const result = enablePrPreferencesInContent(input);
+  assert.equal(result.enabled, true);
+  assert.equal(result.changed, true);
+  assert.match(result.content, /pr: # lifecycle settings\n  enabled: true\n  auto_create: false/);
+  assert.equal((result.content.match(/^pr:/gm) ?? []).length, 1);
+});
+
 test("enablePrPreferencesInContent returns enabled=false when no frontmatter exists", () => {
   const input = `# Kata Skill Preferences
 No frontmatter here.
