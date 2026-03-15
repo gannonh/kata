@@ -917,6 +917,52 @@ async function dispatchNextUnit(
       });
     }
 
+    // ── Post-completion: PR gating for Linear mode after slice completion ──
+    // Linear equivalent of the file-mode complete-slice PR check (D049).
+    // The previous unit was linear-summarizing — the slice is done.
+    if (currentUnit?.type === "linear-summarizing") {
+      const postPrefs = loadEffectiveKataPreferences()?.preferences;
+      const postDecision = decidePostCompleteSliceAction(postPrefs?.pr);
+
+      if (postDecision === "auto-create-and-pause") {
+        const [completedMid, completedSid] = currentUnit.id.split("/");
+        const prResult = await runCreatePr({
+          cwd: basePath,
+          milestoneId: completedMid!,
+          sliceId: completedSid!,
+          baseBranch: postPrefs?.pr?.base_branch ?? "main",
+          title: completedSid!,
+        });
+        if (prResult.ok) {
+          ctx.ui.notify(
+            `PR created: ${prResult.url}\nAuto-mode paused — review and merge the PR, then run /kata auto to continue.`,
+            "info",
+          );
+        } else {
+          const diagnostic = formatPrAutoCreateFailure({
+            phase: prResult.phase,
+            error: prResult.error,
+            hint: prResult.hint ?? "",
+          });
+          ctx.ui.notify(
+            `PR auto-create failed — auto-mode stopped.\n${diagnostic}`,
+            "error",
+          );
+        }
+        await stopAuto(ctx, pi);
+        return;
+      } else if (postDecision === "skip-notify") {
+        ctx.ui.notify(
+          `Slice complete. PR lifecycle is enabled — run /kata pr create to open a PR, then merge before continuing.\nAuto-mode paused.`,
+          "info",
+        );
+        await stopAuto(ctx, pi);
+        return;
+      }
+      // "legacy-squash-merge" falls through — no PR gating, continue to next unit.
+      // In Linear mode there's no squash-merge (Linear state is the truth), just advance.
+    }
+
     lastUnit = { type: linearUnitType, id: linearUnitId };
     currentUnit = { type: linearUnitType, id: linearUnitId, startedAt: Date.now() };
 
