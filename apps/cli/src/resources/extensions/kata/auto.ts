@@ -920,7 +920,12 @@ async function dispatchNextUnit(
     // ── Post-completion: PR gating for Linear mode after slice completion ──
     // Linear equivalent of the file-mode complete-slice PR check (D049).
     // The previous unit was linear-summarizing — the slice is done.
-    if (currentUnit?.type === "linear-summarizing") {
+    // Also check completing-milestone — milestone completion is also a PR boundary.
+    ctx.ui.notify(
+      `[PR-gate debug] prev=${currentUnit?.type ?? "null"} next=${linearUnitType}`,
+      "info",
+    );
+    if (currentUnit?.type === "linear-summarizing" || currentUnit?.type === "linear-completing-milestone") {
       const postPrefs = loadEffectiveKataPreferences()?.preferences;
       const postDecision = decidePostCompleteSliceAction(postPrefs?.pr);
 
