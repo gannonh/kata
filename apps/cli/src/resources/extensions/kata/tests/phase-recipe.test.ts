@@ -67,7 +67,7 @@ test("every file-mode dispatch unit type has a recipe", () => {
 // ─── Coverage: Linear-Mode Dispatch ───────────────────────────────────────────
 
 /**
- * These are the phases handled in selectLinearPrompt() in linear-auto.ts.
+ * These are the phases handled in LinearBackend.buildPrompt().
  * Includes direct phase mappings and dispatch-time override routing.
  * Non-actionable phases (complete, blocked) are excluded — they don't need recipes.
  */
