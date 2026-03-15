@@ -259,6 +259,14 @@ const KATA_LABEL_NAMES = {
   task: "kata:task",
 } as const;
 
+/**
+ * Process-local cache for resolved Kata label sets by team.
+ *
+ * This removes repeated list/create label traffic from hot paths like
+ * createBackend() and kata_derive_state, which may be called frequently.
+ */
+const kataLabelSetCache = new Map<string, Promise<KataLabelSet>>();
+
 // =============================================================================
 // ensureKataLabels
 // =============================================================================
@@ -281,21 +289,36 @@ export async function ensureKataLabels(
   client: Pick<LinearEntityClient, "ensureLabel">,
   teamId: string
 ): Promise<KataLabelSet> {
-  const [milestone, slice, task] = await Promise.all([
-    client.ensureLabel(KATA_LABEL_NAMES.milestone, {
-      teamId,
-      color: KATA_LABEL_COLORS.milestone,
-    }),
-    client.ensureLabel(KATA_LABEL_NAMES.slice, {
-      teamId,
-      color: KATA_LABEL_COLORS.slice,
-    }),
-    client.ensureLabel(KATA_LABEL_NAMES.task, {
-      teamId,
-      color: KATA_LABEL_COLORS.task,
-    }),
-  ]);
-  return { milestone, slice, task };
+  const cached = kataLabelSetCache.get(teamId);
+  if (cached) return cached;
+
+  const inFlight = (async () => {
+    const [milestone, slice, task] = await Promise.all([
+      client.ensureLabel(KATA_LABEL_NAMES.milestone, {
+        teamId,
+        color: KATA_LABEL_COLORS.milestone,
+      }),
+      client.ensureLabel(KATA_LABEL_NAMES.slice, {
+        teamId,
+        color: KATA_LABEL_COLORS.slice,
+      }),
+      client.ensureLabel(KATA_LABEL_NAMES.task, {
+        teamId,
+        color: KATA_LABEL_COLORS.task,
+      }),
+    ]);
+    return { milestone, slice, task };
+  })();
+
+  kataLabelSetCache.set(teamId, inFlight);
+
+  try {
+    return await inFlight;
+  } catch (error) {
+    // Avoid poisoning cache with failed lookups.
+    kataLabelSetCache.delete(teamId);
+    throw error;
+  }
 }
 
 // =============================================================================

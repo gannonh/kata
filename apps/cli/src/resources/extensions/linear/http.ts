@@ -83,6 +83,13 @@ export function classifyLinearError(err: unknown): ClassifiedError {
       };
     }
     if (code === 400) {
+      const msg = err.message.toLowerCase();
+      if (msg.includes("rate limit") || msg.includes("ratelimited")) {
+        return {
+          kind: "rate_limited",
+          message: `Rate limited (HTTP 400 from Linear ratelimit proxy): ${err.message}`,
+        };
+      }
       return { kind: "invalid_request", message: `Bad request (HTTP 400): ${err.message}` };
     }
     if (code === 404) {
@@ -95,12 +102,38 @@ export function classifyLinearError(err: unknown): ClassifiedError {
   }
 
   if (err instanceof LinearGraphQLError) {
-    const firstMsg = err.errors[0]?.message ?? err.message;
+    const first = err.errors[0];
+    const firstMsg = first?.message ?? err.message;
+    const extensions = (first?.extensions ?? {}) as Record<string, unknown>;
+
+    const extCode = String(extensions.code ?? "").toUpperCase();
+    const extType = String(extensions.type ?? "").toLowerCase();
+    const extStatus = Number(extensions.statusCode ?? NaN);
+    const lowerMsg = firstMsg.toLowerCase();
+
+    if (
+      extCode === "RATELIMITED" ||
+      extType === "ratelimited" ||
+      extStatus === 429 ||
+      lowerMsg.includes("rate limit")
+    ) {
+      const meta = (extensions.meta ?? {}) as Record<string, unknown>;
+      const rateLimitResult = (meta.rateLimitResult ?? {}) as Record<string, unknown>;
+      const duration = Number(rateLimitResult.duration ?? NaN);
+      const retryAfterMs = Number.isFinite(duration) && duration > 0 ? duration : undefined;
+
+      return {
+        kind: "rate_limited",
+        message: `Rate limited: ${firstMsg}`,
+        retryAfterMs,
+      };
+    }
+
     // Check for common GraphQL error patterns
-    if (firstMsg.toLowerCase().includes("not found") || firstMsg.toLowerCase().includes("does not exist")) {
+    if (lowerMsg.includes("not found") || lowerMsg.includes("does not exist")) {
       return { kind: "not_found", message: firstMsg };
     }
-    if (firstMsg.toLowerCase().includes("authentication") || firstMsg.toLowerCase().includes("unauthorized")) {
+    if (lowerMsg.includes("authentication") || lowerMsg.includes("unauthorized")) {
       return { kind: "auth_error", message: `Authentication error: ${firstMsg}. Use secure_env_collect to set LINEAR_API_KEY.` };
     }
     return { kind: "graphql_error", message: firstMsg };
@@ -129,9 +162,16 @@ export interface RateLimitInfo {
 
 /** Extract rate limit headers from a Linear API response. */
 export function extractRateLimitInfo(response: Response): RateLimitInfo | undefined {
-  const remaining = response.headers.get("x-ratelimit-remaining");
-  const limit = response.headers.get("x-ratelimit-limit");
-  const reset = response.headers.get("x-ratelimit-reset");
+  const remaining =
+    response.headers.get("x-ratelimit-requests-remaining") ??
+    response.headers.get("x-ratelimit-remaining");
+  const limit =
+    response.headers.get("x-ratelimit-requests-limit") ??
+    response.headers.get("x-ratelimit-limit");
+  const reset =
+    response.headers.get("x-ratelimit-requests-reset") ??
+    response.headers.get("x-ratelimit-reset");
+
   if (!remaining && !limit) return undefined;
   return {
     remaining: remaining ? parseInt(remaining, 10) : undefined,
@@ -185,6 +225,28 @@ export async function fetchWithRetry(
       clearTimeout(timeoutId);
 
       if (!response.ok) {
+        // Linear sometimes encodes GraphQL errors (including ratelimit) in a
+        // non-200 response body. Parse and preserve those details when possible.
+        let parsed: unknown;
+        try {
+          parsed = await response.clone().json();
+        } catch {
+          parsed = undefined;
+        }
+
+        const errors =
+          parsed &&
+          typeof parsed === "object" &&
+          Array.isArray((parsed as { errors?: unknown }).errors)
+            ? ((parsed as { errors: Array<{ message?: string; extensions?: Record<string, unknown> }> }).errors)
+                .filter((e) => e && typeof e.message === "string")
+                .map((e) => ({ message: e.message as string, extensions: e.extensions }))
+            : [];
+
+        if (errors.length > 0) {
+          throw new LinearGraphQLError(errors[0].message, errors);
+        }
+
         throw new LinearHttpError(
           `HTTP ${response.status}: ${response.statusText}`,
           response.status,
