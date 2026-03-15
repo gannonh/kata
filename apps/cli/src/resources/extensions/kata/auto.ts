@@ -495,7 +495,13 @@ export async function handleAgentEnd(
     }
   }
 
-  await dispatchNextUnit(ctx, pi);
+  try {
+    await dispatchNextUnit(ctx, pi);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    ctx.ui.notify(`Auto-mode error: ${message}`, "error");
+    await stopAuto(ctx, pi);
+  }
 }
 
 // ─── Progress Widget ──────────────────────────────────────────────────────
