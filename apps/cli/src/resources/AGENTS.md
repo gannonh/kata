@@ -69,6 +69,7 @@ The main extension registers the `/kata` slash command with subcommands:
 - `/kata queue` — View/manage work queue
 - `/kata discuss` — Discuss gray areas before planning
 - `/kata prefs [global|project|status]` — Manage preferences
+- `/kata pr [status|create|review|address|merge]` — PR lifecycle management
 - `/kata doctor [audit|fix|heal]` — Diagnose and fix project state
 
 ## Project State
@@ -93,6 +94,37 @@ Kata stores project state in `.kata/` at the project root:
             T01-PLAN.md
             T01-SUMMARY.md
 ```
+
+## PR Lifecycle
+
+When `pr.enabled: true` in preferences, auto-mode gates slice completion on PR creation instead of squash-merging directly to main.
+
+Three modes based on preferences:
+
+- **PR disabled** (`pr.enabled: false`, default) -- auto-mode squash-merges to main and continues
+- **Auto-create** (`pr.enabled: true`, `pr.auto_create: true`) -- auto-mode creates PR via `gh`, then stops. User merges, then resumes with `/kata auto`
+- **Manual** (`pr.enabled: true`, `pr.auto_create: false`) -- auto-mode stops and prompts user to run `/kata pr create`
+
+### Subcommands
+
+- `/kata pr status` -- deterministic status check (no LLM turn). Shows enabled state, current branch, base branch, open PR if any.
+- `/kata pr create` -- dispatches prompt to create PR with configured base branch. Chains into review if `review_on_create: true`.
+- `/kata pr review` -- runs parallel multi-agent code review on the open PR.
+- `/kata pr address` -- dispatches prompt to address review comments and fix feedback.
+- `/kata pr merge` -- dispatches prompt to merge the PR, sync local branches, and advance Linear issues if `linear_link: true`.
+
+### Preferences
+
+```yaml
+pr:
+  enabled: true
+  auto_create: true
+  base_branch: main
+  review_on_create: false
+  linear_link: false
+```
+
+Set `linear_link: true` with `workflow.mode: linear` to include `Closes KAT-N` references in PR bodies and advance Linear issue state on merge.
 
 ## Development
 
