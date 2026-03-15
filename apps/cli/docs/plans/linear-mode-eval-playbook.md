@@ -33,7 +33,14 @@ In **Linear mode**, `/kata` calls `showLinearSmartEntry()` which:
 - Kata CLI built from the branch under test
 - A Linear workspace with API key (`LINEAR_API_KEY` in env)
 - A Linear team (know the key, e.g. `KAT`)
-- A Linear project in that team (note the UUID from URL)
+- A Linear project in that team
+
+> **Note:** The preferences system requires `linear.projectId` as a UUID. There is no
+> project-name or project-slug resolution (unlike teams, which support `teamKey`). A new
+> user has no obvious way to get this ID. Part of this eval is testing whether Kata helps
+> them find it. If you need to get it manually: open the project in Linear → the URL
+> contains `/project/<name>-<slugId>` → call `linear_list_projects` in Kata to find the
+> UUID. This UX gap is itself a finding.
 
 ---
 
