@@ -16,7 +16,7 @@ import { loadFile, parseRoadmap } from "./files.js";
 import { loadPrompt } from "./prompt-loader.js";
 import { deriveState } from "./state.js";
 import { startAuto } from "./auto.js";
-import { resolveLinearKataState, buildLinearDiscussPrompt } from "./linear-auto.js";
+import { createBackend } from "./backend-factory.js";
 import { readCrashLock, clearLock, formatCrashInfo } from "./crash-recovery.js";
 import {
   kataRoot,
@@ -38,7 +38,6 @@ import { loadEffectiveKataPreferences } from "./preferences.js";
 import { enablePrPreferencesInContent } from "./pr-preferences-content.js";
 import {
   getWorkflowEntrypointGuard,
-  isLinearMode,
   type WorkflowEntrypoint,
 } from "./linear-config.js";
 
@@ -103,16 +102,9 @@ export async function checkAutoStartAfterDiscuss(): Promise<boolean> {
   // agent_end fires after every LLM turn, including the initial "What do you
   // want to build?" response — we need to wait for the full conversation to
   // complete and the LLM to write the milestone context.
-  if (isLinearMode()) {
-    // In Linear mode, check whether the milestone now exists in Linear
-    const state = await resolveLinearKataState(basePath);
-    if (!state.activeMilestone || state.activeMilestone.id !== milestoneId) {
-      return false; // discuss not finished yet — milestone not created in Linear
-    }
-  } else {
-    const contextFile = resolveMilestoneFile(basePath, milestoneId, "CONTEXT");
-    if (!contextFile) return false; // no context yet — keep waiting
-  }
+  const checkBackend = await createBackend(basePath);
+  const created = await checkBackend.checkMilestoneCreated(milestoneId);
+  if (!created) return false;
 
   pendingAutoStart = null;
 
@@ -201,11 +193,6 @@ function buildDiscussPrompt(
   preamble: string,
   basePath: string,
 ): string {
-  if (isLinearMode()) {
-    throw new Error(
-      "buildDiscussPrompt called in Linear mode — use buildLinearDiscussPrompt instead",
-    );
-  }
   const milestoneDirAbs = join(basePath, ".kata", "milestones", nextId);
   return loadPrompt("discuss", {
     milestoneId: nextId,
@@ -634,19 +621,11 @@ export async function showSmartEntry(
     return;
   }
 
-  // ── Linear mode: skip .kata/milestones creation, use Linear API for state ──
+  // ── Linear mode: use backend for bootstrap, state, and discuss ──
   if (modeGate.isLinearMode) {
-    // Git init + .gitignore still needed (code lives in git)
-    try {
-      execSync("git rev-parse --git-dir", { cwd: basePath, stdio: "pipe" });
-    } catch {
-      execSync("git init", { cwd: basePath, stdio: "pipe" });
-    }
-    ensureGitignore(basePath);
-    // preferences.md is always local — it defines the mode itself
-    ensurePreferences(basePath);
-
-    const state = await resolveLinearKataState(basePath);
+    const backend = await createBackend(basePath);
+    await backend.bootstrap();
+    const state = await backend.deriveState();
 
     if (state.phase === "blocked") {
       ctx.ui.notify(
@@ -671,11 +650,7 @@ export async function showSmartEntry(
         : `New milestone ${nextId}. Planning artifacts live in Linear.`;
 
       pendingAutoStart = { ctx, pi, basePath, milestoneId: nextId };
-      // Send discuss-linear prompt directly — do NOT inject KATA-WORKFLOW.md.
-      // The discuss prompt is self-contained, and injecting the full workflow doc
-      // (872 lines of file-mode patterns) causes the agent to follow file-mode
-      // Output Phase instructions instead of the Linear API Output Phase.
-      const discussPrompt = buildLinearDiscussPrompt(nextId, preamble);
+      const discussPrompt = backend.buildDiscussPrompt(nextId, preamble);
       pi.sendMessage(
         {
           customType: "kata-run",
