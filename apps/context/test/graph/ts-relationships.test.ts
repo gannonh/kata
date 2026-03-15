@@ -15,7 +15,7 @@ import { RelationshipKind, SymbolKind } from "../../src/types.js";
 
 // ── Setup ──
 
-const FIXTURE_ROOT = resolve(__dirname, "../fixtures/relationships/ts");
+const FIXTURE_ROOT = resolve(import.meta.dirname, "../fixtures/relationships/ts");
 
 function parseFixture(filename: string): ParsedFile {
   return parseFile(filename, { rootPath: FIXTURE_ROOT });
