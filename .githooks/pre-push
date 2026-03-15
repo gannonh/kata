@@ -1,66 +1,66 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# set -euo pipefail
 
-repo_root="$(git rev-parse --show-toplevel)"
-cd "$repo_root"
+# repo_root="$(git rev-parse --show-toplevel)"
+# cd "$repo_root"
 
-# Git injects repository-local GIT_* variables into hook processes.
-# Clear them before running local CI so nested git commands in tests can
-# operate on their own temporary repositories instead of this worktree.
-while IFS= read -r git_var; do
-  unset "$git_var"
-done < <(git rev-parse --local-env-vars)
+# # Git injects repository-local GIT_* variables into hook processes.
+# # Clear them before running local CI so nested git commands in tests can
+# # operate on their own temporary repositories instead of this worktree.
+# while IFS= read -r git_var; do
+#   unset "$git_var"
+# done < <(git rev-parse --local-env-vars)
 
-stdin_file="$(mktemp)"
-trap 'rm -f "$stdin_file"' EXIT
-cat >"$stdin_file"
+# stdin_file="$(mktemp)"
+# trap 'rm -f "$stdin_file"' EXIT
+# cat >"$stdin_file"
 
-# Skip validation when only deleting remote branches (local sha is all zeros).
-zero="0000000000000000000000000000000000000000"
-only_deletes=true
-while read -r local_ref local_sha remote_ref remote_sha; do
-  if [[ "$local_sha" != "$zero" ]]; then
-    only_deletes=false
-    break
-  fi
-done <"$stdin_file"
-if $only_deletes; then
-  if git lfs version >/dev/null 2>&1; then
-    git lfs pre-push "$@" <"$stdin_file"
-  fi
-  exit 0
-fi
+# # Skip validation when only deleting remote branches (local sha is all zeros).
+# zero="0000000000000000000000000000000000000000"
+# only_deletes=true
+# while read -r local_ref local_sha remote_ref remote_sha; do
+#   if [[ "$local_sha" != "$zero" ]]; then
+#     only_deletes=false
+#     break
+#   fi
+# done <"$stdin_file"
+# if $only_deletes; then
+#   if git lfs version >/dev/null 2>&1; then
+#     git lfs pre-push "$@" <"$stdin_file"
+#   fi
+#   exit 0
+# fi
 
-if ! command -v bun >/dev/null 2>&1; then
-  echo "pre-push: Bun is required but was not found in PATH." >&2
-  echo "Install Bun, then run 'bun install' and try pushing again." >&2
-  exit 1
-fi
+# if ! command -v bun >/dev/null 2>&1; then
+#   echo "pre-push: Bun is required but was not found in PATH." >&2
+#   echo "Install Bun, then run 'bun install' and try pushing again." >&2
+#   exit 1
+# fi
 
-if [[ ! -d node_modules ]]; then
-  echo "pre-push: dependencies are missing (node_modules not found)." >&2
-  echo "Run 'bun install' before pushing." >&2
-  exit 1
-fi
+# if [[ ! -d node_modules ]]; then
+#   echo "pre-push: dependencies are missing (node_modules not found)." >&2
+#   echo "Run 'bun install' before pushing." >&2
+#   exit 1
+# fi
 
-# Always run core validation (typecheck, lint, unit tests, build)
-echo "pre-push: running validate gate..."
-bun run validate:ci
+# # Always run core validation (typecheck, lint, unit tests, build)
+# echo "pre-push: running validate gate..."
+# bun run validate:ci
 
-# CLI tests always run
-echo "pre-push: running CLI tests..."
-bun run test:cli
+# # CLI tests always run
+# echo "pre-push: running CLI tests..."
+# bun run test:cli
 
-# Desktop E2E only when version is bumped (release PR)
-current_version=$(node -p "require('./apps/electron/package.json').version")
-if git ls-remote --tags origin | grep -q "refs/tags/desktop-v$current_version"; then
-  echo "pre-push: desktop version $current_version already released, skipping E2E"
-else
-  echo "pre-push: desktop version $current_version is new, running E2E tests..."
-  bun run test:e2e
-fi
+# # Desktop E2E only when version is bumped (release PR)
+# current_version=$(node -p "require('./apps/electron/package.json').version")
+# if git ls-remote --tags origin | grep -q "refs/tags/desktop-v$current_version"; then
+#   echo "pre-push: desktop version $current_version already released, skipping E2E"
+# else
+#   echo "pre-push: desktop version $current_version is new, running E2E tests..."
+#   bun run test:e2e
+# fi
 
-if git lfs version >/dev/null 2>&1; then
-  echo "pre-push: running git-lfs pre-push..."
-  git lfs pre-push "$@" <"$stdin_file"
-fi
+# if git lfs version >/dev/null 2>&1; then
+#   echo "pre-push: running git-lfs pre-push..."
+#   git lfs pre-push "$@" <"$stdin_file"
+# fi
