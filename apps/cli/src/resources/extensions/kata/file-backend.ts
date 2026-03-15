@@ -264,11 +264,28 @@ export class FileBackend implements KataBackend {
   // ── Stubs ─────────────────────────────────────────────────────────────
 
   async loadDashboardData(): Promise<DashboardData> {
-    throw new Error("FileBackend.loadDashboardData is not yet implemented");
+    const state = await this.deriveState();
+
+    return {
+      state,
+      sliceProgress: state.progress?.slices ?? null,
+      taskProgress: state.progress?.tasks ?? null,
+    };
   }
 
-  async preparePrContext(_milestoneId: string, _sliceId: string): Promise<PrContext> {
-    throw new Error("FileBackend.preparePrContext is not yet implemented");
+  async preparePrContext(milestoneId: string, sliceId: string): Promise<PrContext> {
+    const { ensureSliceBranch } = await import("./worktree.js");
+    ensureSliceBranch(this.basePath, milestoneId, sliceId);
+
+    const branch = `kata/${milestoneId}/${sliceId}`;
+    const documents: Record<string, string> = {};
+
+    const plan = await this.readDocument(`${sliceId}-PLAN`);
+    if (plan) documents["PLAN"] = plan;
+    const summary = await this.readDocument(`${sliceId}-SUMMARY`);
+    if (summary) documents["SUMMARY"] = summary;
+
+    return { branch, documents };
   }
 
   // ── Private Prompt Builders ───────────────────────────────────────────
