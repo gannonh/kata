@@ -1003,32 +1003,51 @@ async function dispatchNextUnit(
           linearDocuments: prCtx.documents,
         });
         if (prResult.ok) {
-          // stopAuto first so its message appears, then PR message appears last (visible to user)
           await stopAuto(ctx, pi);
           ctx.ui.notify(
             `PR created: ${prResult.url}\n\nReview and merge the PR, then run /kata auto to continue.`,
             "info",
           );
-        } else {
-          const diagnostic = formatPrAutoCreateFailure({
-            phase: prResult.phase,
-            error: prResult.error,
-            hint: prResult.hint ?? "",
-          });
-          await stopAuto(ctx, pi);
-          ctx.ui.notify(
-            `PR auto-create failed.\n${diagnostic}`,
-            "error",
-          );
+          return;
         }
-      } catch (err) {
+        // PR failed — pause and ask the agent to help the user recover
         await stopAuto(ctx, pi);
-        ctx.ui.notify(
-          `PR context failed: ${err instanceof Error ? err.message : String(err)}`,
-          "error",
-        );
+        const diagnostic = formatPrAutoCreateFailure({
+          phase: prResult.phase,
+          error: prResult.error,
+          hint: prResult.hint ?? "",
+        });
+        pi.sendMessage({
+          content: [
+            `PR auto-create failed for slice ${completedSid}. The code is committed on branch \`kata/${completedMid}/${completedSid}\` — no work was lost.`,
+            ``,
+            `**Error:** ${prResult.error}`,
+            ``,
+            `Help the user resolve this. Common causes:`,
+            `- No git remote configured → offer to set up a GitHub remote (\`gh repo create\` or \`git remote add origin\`)`,
+            `- \`gh\` CLI not authenticated → guide them through \`gh auth login\``,
+            `- Branch not pushed → push the branch and retry`,
+            `- Network/rate limit → suggest waiting and retrying with \`/kata pr create\``,
+            ``,
+            `Once resolved, the user can run \`/kata pr create\` to create the PR manually, then \`/kata auto\` to continue.`,
+          ].join("\n"),
+        }, { triggerTurn: true });
+        return;
+      } catch (err) {
+        // preparePrContext failed — pause and surface the error conversationally
+        await stopAuto(ctx, pi);
+        const msg = err instanceof Error ? err.message : String(err);
+        pi.sendMessage({
+          content: [
+            `PR preparation failed for the completed slice. The code is committed — no work was lost.`,
+            ``,
+            `**Error:** ${msg}`,
+            ``,
+            `Help the user resolve this, then they can run \`/kata pr create\` followed by \`/kata auto\` to continue.`,
+          ].join("\n"),
+        }, { triggerTurn: true });
+        return;
       }
-      return;
     } else if (postDecision === "skip-notify") {
       ctx.ui.notify(
         `Slice complete. PR lifecycle is enabled — run /kata pr create to open a PR, then merge before continuing.\nAuto-mode paused.`,
