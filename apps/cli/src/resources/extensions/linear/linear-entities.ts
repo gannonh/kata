@@ -526,8 +526,8 @@ export async function listKataTasks(
 /**
  * List all Linear ProjectMilestones for a given project.
  *
- * Delegates directly to `client.listMilestones(projectId)`.
- * Results are already sorted by `sortOrder` as returned by the Linear API.
+ * Delegates to `client.listMilestones(projectId)` and sorts client-side
+ * by `sortOrder` (ascending). The Linear API does not guarantee sort order.
  *
  * @param client - Any client that satisfies `{ listMilestones(projectId): Promise<LinearMilestone[]> }`
  * @param projectId - Linear project UUID
@@ -539,5 +539,6 @@ export async function listKataMilestones(
   client: Pick<LinearEntityClient, "listMilestones">,
   projectId: string
 ): Promise<LinearMilestone[]> {
-  return client.listMilestones(projectId);
+  const milestones = await client.listMilestones(projectId);
+  return milestones.sort((a, b) => a.sortOrder - b.sortOrder);
 }

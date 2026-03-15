@@ -772,7 +772,8 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       "Derive a full KataState from the Linear API. " +
       "Reads projectId and teamId from project preferences (loadEffectiveLinearProjectConfig). " +
       "Reads LINEAR_API_KEY from process.env. " +
-      "Returns a KataState JSON with activeMilestone, activeSlice, activeTask, phase, progress, and blockers. " +
+      "Returns a KataState JSON with activeMilestone, activeSlice, activeTask, phase, progress, blockers, " +
+      "plus projectId and teamId (use these for kata_read_document / kata_list_documents calls). " +
       "Returns phase 'blocked' (not an error) when LINEAR_API_KEY or project config is missing.",
     parameters: Type.Object({}),
     async execute() {
@@ -824,13 +825,14 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       const teamId = teamResolution.teamId;
       const labelSet = await ensureKataLabels(derivationClient, teamId);
 
-      return run(() =>
-        deriveLinearState(derivationClient, {
+      return run(async () => {
+        const state = await deriveLinearState(derivationClient, {
           projectId,
           teamId,
           sliceLabelId: labelSet.slice.id,
-        })
-      );
+        });
+        return { ...state, projectId, teamId };
+      });
     },
   });
 
