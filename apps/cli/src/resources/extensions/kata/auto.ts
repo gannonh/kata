@@ -479,8 +479,7 @@ export async function handleAgentEnd(
   await new Promise((r) => setTimeout(r, 500));
 
   // Auto-commit any dirty files the LLM left behind on the current branch.
-  // Skipped in Linear mode — no slice branches exist.
-  if (!isLinearMode() && currentUnit) {
+  if (currentUnit) {
     try {
       const commitMsg = autoCommitCurrentBranch(
         basePath,
@@ -925,25 +924,74 @@ async function dispatchNextUnit(
 
     // ── Post-completion: PR gating for Linear mode after slice completion ──
     // Linear equivalent of the file-mode complete-slice PR check (D049).
-    // The previous unit was linear-summarizing — the slice is done.
+    // Detect slice completion by checking:
+    //   1. The previous unit was linear-summarizing (normal flow), OR
+    //   2. The previous unit was on a different slice than the current one
+    //      (agent skipped summarizing by marking slice done during task execution)
     // Also check completing-milestone — milestone completion is also a PR boundary.
     try {
       const { appendFileSync } = await import("node:fs");
       const logLine = `${new Date().toISOString()} prev=${currentUnit?.type ?? "null"} next=${linearUnitType} id=${currentUnit?.id ?? "null"}\n`;
       appendFileSync(join(basePath, ".kata", "auto-debug.log"), logLine);
     } catch { /* ignore */ }
-    if (currentUnit?.type === "linear-summarizing" || currentUnit?.type === "linear-completing-milestone") {
+
+    // Extract the slice portion (M00x/S0x) from the unit IDs to detect slice transitions.
+    const prevSliceKey = currentUnit?.id ? currentUnit.id.split("/").slice(0, 2).join("/") : null;
+    const nextSliceKey = linearUnitId.split("/").slice(0, 2).join("/");
+    const sliceChanged = prevSliceKey !== null && prevSliceKey !== nextSliceKey
+      && currentUnit?.type?.startsWith("linear-");
+    const wasSummarizingOrCompleting =
+      currentUnit?.type === "linear-summarizing" || currentUnit?.type === "linear-completing-milestone";
+
+    if (wasSummarizingOrCompleting || sliceChanged) {
       const postPrefs = loadEffectiveKataPreferences()?.preferences;
       const postDecision = decidePostCompleteSliceAction(postPrefs?.pr);
 
       if (postDecision === "auto-create-and-pause") {
         const [completedMid, completedSid] = currentUnit.id.split("/");
+
+        // Ensure a slice branch exists at HEAD and is pushed before PR creation.
+        // In Linear mode the agent commits to whatever branch the worktree is on.
+        // We create (or reset) a slice branch pointing at HEAD so the PR has the right commits.
+        try {
+          const sliceBranch = `kata/${completedMid}/${completedSid}`;
+          // Create or reset the slice branch to current HEAD
+          execSync(`git branch -f ${sliceBranch} HEAD`, { cwd: basePath, stdio: "pipe" });
+          execSync(`git checkout ${sliceBranch}`, { cwd: basePath, stdio: "pipe" });
+          execSync(`git push -u origin ${sliceBranch}`, { cwd: basePath, stdio: "pipe" });
+        } catch (branchErr) {
+          const msg = branchErr instanceof Error ? branchErr.message : String(branchErr);
+          ctx.ui.notify(`Branch setup for PR failed: ${msg}`, "error");
+        }
+
+        // Fetch Linear documents for PR body (best-effort)
+        let linearDocs: Record<string, string> | undefined;
+        try {
+          const apiKey = process.env.LINEAR_API_KEY;
+          const { loadEffectiveLinearProjectConfig } = await import("./linear-config.js");
+          const cfg = loadEffectiveLinearProjectConfig();
+          const pid = cfg.linear.projectId;
+          if (apiKey && pid) {
+            const { LinearClient } = await import("../linear/linear-client.js");
+            const { readKataDocument } = await import("../linear/linear-documents.js");
+            const lc = new LinearClient(apiKey);
+            linearDocs = {};
+            const planDoc = await readKataDocument(lc, `${completedSid}-PLAN`, { projectId: pid });
+            if (planDoc) linearDocs["PLAN"] = planDoc.content;
+            const summaryDoc = await readKataDocument(lc, `${completedSid}-SUMMARY`, { projectId: pid });
+            if (summaryDoc) linearDocs["SUMMARY"] = summaryDoc.content;
+          }
+        } catch {
+          // Best-effort — proceed with empty PR body if fetch fails
+        }
+
         const prResult = await runCreatePr({
           cwd: basePath,
           milestoneId: completedMid!,
           sliceId: completedSid!,
           baseBranch: postPrefs?.pr?.base_branch ?? "main",
           title: completedSid!,
+          linearDocuments: linearDocs,
         });
         if (prResult.ok) {
           ctx.ui.notify(

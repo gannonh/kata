@@ -21,6 +21,11 @@ import { buildLinearReferencesSection } from "../kata/linear-crosslink.js";
 export interface ComposePRBodyOptions {
   /** Linear issue identifiers (e.g. ["KAT-42"]) to include as references. */
   linearReferences?: string[];
+  /**
+   * Pre-fetched Linear document content for Linear mode (bypasses disk reads).
+   * Keys: "PLAN", "SUMMARY". Values: raw markdown content.
+   */
+  linearDocuments?: Record<string, string>;
 }
 
 /**
@@ -41,13 +46,14 @@ export async function composePRBody(
   // ── Slice Plan ────────────────────────────────────────────────────────────
   const planPath = resolveSliceFile(cwd, milestoneId, sliceId, "PLAN");
   const planContent = planPath ? await loadFile(planPath) : null;
+  const effectivePlanContent = planContent ?? options?.linearDocuments?.["PLAN"] ?? null;
 
   let sliceTitle = `${sliceId}: (no slice plan found)`;
   let mustHaves: string[] = [];
   let planTaskTitles: string[] = [];
 
-  if (planContent) {
-    const plan = parsePlan(planContent);
+  if (effectivePlanContent) {
+    const plan = parsePlan(effectivePlanContent);
     sliceTitle = plan.title
       ? `${plan.id ? plan.id + ": " : ""}${plan.title}`
       : sliceTitle;
@@ -58,10 +64,11 @@ export async function composePRBody(
   // ── Slice Summary (optional) ──────────────────────────────────────────────
   const summaryPath = resolveSliceFile(cwd, milestoneId, sliceId, "SUMMARY");
   const summaryContent = summaryPath ? await loadFile(summaryPath) : null;
+  const effectiveSummaryContent = summaryContent ?? options?.linearDocuments?.["SUMMARY"] ?? null;
 
   let oneLiner: string | null = null;
-  if (summaryContent) {
-    const summary = parseSummary(summaryContent);
+  if (effectiveSummaryContent) {
+    const summary = parseSummary(effectiveSummaryContent);
     oneLiner = summary.oneLiner || null;
   }
 

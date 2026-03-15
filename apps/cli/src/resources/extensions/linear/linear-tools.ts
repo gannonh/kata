@@ -878,6 +878,23 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       }
 
       return run(async () => {
+        // Guard: prevent the agent from marking a slice "done" directly.
+        // Slices must go through the summarizing phase (orchestrator-driven),
+        // which writes the summary/UAT docs and triggers the PR gate.
+        if (params.phase === "done") {
+          const issue = await client.getIssue(params.issueId);
+          const isSlice = issue?.labels?.some(
+            (l: { name: string }) => l.name === "kata:slice",
+          );
+          if (isSlice) {
+            throw new Error(
+              "Cannot advance a slice to done directly. " +
+              "The orchestrator handles slice completion after the summarizing phase. " +
+              "Only advance individual tasks to done — the slice will be completed automatically."
+            );
+          }
+        }
+
         const states = await client.listWorkflowStates(resolvedTeamId);
         const targetState = getLinearStateForKataPhase(states, params.phase as KataPhase);
         if (!targetState) {
