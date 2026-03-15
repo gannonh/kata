@@ -46,7 +46,7 @@ In Linear mode, **there are no `.kata/` files to read**. State, plans, and artif
 
 6. **Advance the issue state** — call `kata_update_issue_state` to mark the task done.
 
-**Do not read `.kata/` files. Do not fall back to file-backed artifacts. Never use shell/file-search tools (`bash`, `find`, `rg`, `git`) to look for `*-PLAN`/`*-SUMMARY` artifacts on disk in Linear mode.**
+**Do not read or write `.kata/` files. Do not create `.kata/milestones/` directories. Do not fall back to file-backed artifacts. Never use shell/file-search tools (`bash`, `find`, `rg`, `git`) to look for or create `*-PLAN`/`*-SUMMARY` artifacts on disk in Linear mode. Never run `mkdir` for `.kata/` paths. All artifacts are stored via `kata_write_document` and `kata_read_document`.**
 
 ---
 
@@ -88,6 +88,10 @@ Milestone  →  a shippable version (4-10 slices)
 ---
 
 ## File Locations
+
+> **Linear mode: skip this section entirely.** In Linear mode, artifacts do NOT live in `.kata/`. They are stored as LinearDocuments via `kata_write_document`/`kata_read_document`. See "Artifact Storage (Linear Mode)" below.
+
+### File Mode
 
 All artifacts live in `.kata/` at the project root:
 
@@ -363,6 +367,8 @@ Work flows through these phases. Each phase produces a file (or a LinearDocument
 3. Use `ask_user_questions` to discuss each area.
 4. Write decisions to `context.md`.
 5. Do NOT discuss how to implement — only what the user wants.
+
+> **Linear mode:** Do NOT create `.kata/milestones/` directories. Do NOT write files to disk. Do NOT run `mkdir` or `git commit` for planning artifacts. Write all documents (PROJECT, REQUIREMENTS, CONTEXT, ROADMAP, DECISIONS) via `kata_write_document`. Create milestones via `kata_create_milestone`. Linear IS the store — no local files.
 
 ### Phase 2: Research (Optional)
 
