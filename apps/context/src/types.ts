@@ -119,6 +119,123 @@ export interface ProviderConfig {
   };
 }
 
+// ── Query result types ──
+
+/**
+ * A symbol with its relationship context — used in dependency/dependent results.
+ */
+export interface SymbolWithRelations {
+  /** The related symbol */
+  symbol: Symbol;
+  /** The kind of relationship connecting this symbol to the target */
+  relationship: RelationshipKind;
+  /** File where the relationship was found */
+  filePath: string;
+  /** Line number where the relationship occurs */
+  lineNumber: number;
+}
+
+/**
+ * Result of a dependents() or dependencies() query.
+ */
+export interface DependencyResult {
+  /** The target symbol that was queried */
+  symbol: Symbol;
+  /** Symbols related to the target (dependents or dependencies) */
+  related: SymbolWithRelations[];
+}
+
+/**
+ * A symbol with its edge counts — used in symbolsInFile() results.
+ */
+export interface FileSymbolResult {
+  /** The symbol */
+  symbol: Symbol;
+  /** Number of incoming edges (other symbols depend on this) */
+  incomingEdges: number;
+  /** Number of outgoing edges (this symbol depends on others) */
+  outgoingEdges: number;
+}
+
+/**
+ * Union type for all query results.
+ */
+export type QueryResult = DependencyResult | FileSymbolResult[];
+
+// ── Fuzzy find result types ──
+
+/**
+ * Options for fuzzyFind().
+ */
+export interface FuzzyOptions {
+  /** Maximum number of results to return (default: 20) */
+  limit?: number;
+  /** Filter results to a specific symbol kind */
+  kind?: SymbolKind;
+  /** Filter results to symbols within files matching this path prefix */
+  fileScope?: string;
+}
+
+/**
+ * A single fuzzy match result from FTS5.
+ */
+export interface FuzzyResult {
+  /** The matched symbol */
+  symbol: Symbol;
+  /** BM25 relevance score (lower = more relevant in SQLite FTS5) */
+  score?: number;
+}
+
+// ── Grep result types ──
+
+/**
+ * Options for grepSearch().
+ */
+export interface GrepOptions {
+  /** File glob patterns to include (e.g. ['*.ts', '*.py']) */
+  globs?: string[];
+  /** Number of context lines before and after each match */
+  contextLines?: number;
+  /** Whether the search is case sensitive (default: true) */
+  caseSensitive?: boolean;
+  /** Maximum number of matches to return */
+  maxResults?: number;
+  /** Ripgrep file type filter (e.g. 'ts', 'py') */
+  fileType?: string;
+}
+
+/**
+ * A single match result from ripgrep.
+ */
+export interface GrepResult {
+  /** Repo-relative file path */
+  filePath: string;
+  /** 1-based line number of the match */
+  lineNumber: number;
+  /** 0-based column number of the first match on the line */
+  columnNumber: number;
+  /** The matched text (the substring that matched the pattern) */
+  matchText: string;
+  /** Full content of the matching line */
+  lineContent: string;
+  /** Context lines before the match (when contextLines > 0) */
+  contextBefore: string[];
+  /** Context lines after the match (when contextLines > 0) */
+  contextAfter: string[];
+}
+
+/**
+ * Error returned when ripgrep is not available.
+ */
+export class GrepNotFoundError extends Error {
+  constructor() {
+    super(
+      "ripgrep (rg) is not installed or not found in PATH. Install it from https://github.com/BurntSushi/ripgrep"
+    );
+    this.name = "GrepNotFoundError";
+  }
+}
+
 // ── Default config values ──
 
 export const DEFAULT_EXCLUDES: readonly string[] = [
