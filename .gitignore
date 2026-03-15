@@ -66,6 +66,7 @@ pnpm-lock.yaml
 sshkey
 id_rsa*
 id_ed25519*
+.secrets/
 
 # Credentials files & misc
 credentials.enc
