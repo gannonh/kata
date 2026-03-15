@@ -373,20 +373,28 @@ function buildLinearEntrypointGuard(
 ): WorkflowEntrypointGuard {
   switch (entrypoint) {
     case "smart-entry":
-      return blockedLinearEntrypoint(
+      return {
+        mode: "linear",
+        isLinearMode: true,
+        allow: true,
+        noticeLevel: "info",
+        notice: "Running in Linear mode. Milestone artifacts stored in Linear.",
         protocol,
-        "This project is configured for Linear mode. /kata still routes through the file-backed workflow wizard, so it stops here instead of silently falling back to .kata files. Use `/kata prefs status` to inspect the active mode and config health until S06 wires Linear dispatch.",
-      );
+      };
     case "queue":
       return blockedLinearEntrypoint(
         protocol,
         "This project is configured for Linear mode. /kata queue still appends file-backed Kata artifacts and is blocked until Linear document storage is wired.",
       );
     case "discuss":
-      return blockedLinearEntrypoint(
+      return {
+        mode: "linear",
+        isLinearMode: true,
+        allow: true,
+        noticeLevel: "info",
+        notice: "Running in Linear mode. Discussion artifacts stored in Linear.",
         protocol,
-        "This project is configured for Linear mode. /kata discuss still dispatches the file-backed Kata workflow and is blocked until the Linear workflow prompt is available.",
-      );
+      };
     case "status":
     case "dashboard":
       return {

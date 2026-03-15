@@ -73,31 +73,38 @@ test("file mode remains the default and resolves KATA-WORKFLOW.md", () => {
   );
 });
 
-test("linear mode also resolves KATA-WORKFLOW.md (unified doc) and blocks unsupported entrypoints", () => {
+test("linear mode resolves KATA-WORKFLOW.md (unified doc) and allows smart-entry, discuss, status, auto", () => {
   const loaded = makeLoadedPreferences({
     workflow: { mode: "linear" },
     linear: { teamKey: "KAT" },
   });
   const tmp = mkdtempSync(join(tmpdir(), "kata-mode-switching-"));
-  // No workflow file on disk — ready should be false
-  const missingWorkflow = join(tmp, "KATA-WORKFLOW.md");
+  const workflowPath = join(tmp, "KATA-WORKFLOW.md");
+  writeFileSync(workflowPath, "# unified workflow\n", "utf-8");
 
   withWorkflowEnv(
     {
-      KATA_WORKFLOW_PATH: missingWorkflow,
+      KATA_WORKFLOW_PATH: workflowPath,
     },
     () => {
       const protocol = resolveWorkflowProtocol(loaded);
       assert.deepEqual(protocol, {
         mode: "linear",
         documentName: "KATA-WORKFLOW.md",
-        path: null,
-        ready: false,
+        path: workflowPath,
+        ready: true,
       });
 
       const smartEntry = getWorkflowEntrypointGuard("smart-entry", loaded);
-      assert.equal(smartEntry.allow, false);
+      assert.equal(smartEntry.allow, true);
       assert.equal(smartEntry.mode, "linear");
+      assert.equal(smartEntry.isLinearMode, true);
+      assert.match(smartEntry.notice ?? "", /linear mode/i);
+
+      const discuss = getWorkflowEntrypointGuard("discuss", loaded);
+      assert.equal(discuss.allow, true);
+      assert.equal(discuss.isLinearMode, true);
+      assert.match(discuss.notice ?? "", /linear mode/i);
 
       const status = getWorkflowEntrypointGuard("status", loaded);
       assert.equal(status.allow, true);
@@ -106,6 +113,10 @@ test("linear mode also resolves KATA-WORKFLOW.md (unified doc) and blocks unsupp
       const auto = getWorkflowEntrypointGuard("auto", loaded);
       assert.equal(auto.allow, true);
       assert.match(auto.notice ?? "", /linear mode/i);
+
+      // queue, doctor, doctor-heal remain blocked
+      const queue = getWorkflowEntrypointGuard("queue", loaded);
+      assert.equal(queue.allow, false);
     },
   );
 });

@@ -23,6 +23,7 @@ import {
   loadEffectiveLinearProjectConfig,
   resolveConfiguredLinearTeamId,
 } from "./linear-config.js";
+import { loadPrompt } from "./prompt-loader.js";
 import { deriveState } from "./state.js";
 import type { KataState } from "./types.js";
 
@@ -111,6 +112,15 @@ function blockedState(blockers: string[], nextAction: string): KataState {
 }
 
 // ─── Prompt Builders ──────────────────────────────────────────────────────────
+
+/**
+ * Discuss-and-plan prompt for Linear mode.
+ * Loads the Linear-specific discuss template that writes artifacts via
+ * kata_write_document / kata_create_milestone instead of local files.
+ */
+export function buildLinearDiscussPrompt(nextId: string, preamble: string): string {
+  return loadPrompt("discuss-linear", { milestoneId: nextId, preamble });
+}
 
 /**
  * Research-milestone prompt (pre-planning, no research exists yet).
