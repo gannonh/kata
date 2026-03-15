@@ -671,17 +671,19 @@ export async function showSmartEntry(
         : `New milestone ${nextId}. Planning artifacts live in Linear.`;
 
       pendingAutoStart = { ctx, pi, basePath, milestoneId: nextId };
-      if (
-        !dispatchWorkflow(
-          ctx,
-          pi,
-          buildLinearDiscussPrompt(nextId, preamble),
-          "kata-run",
-          "smart-entry",
-        )
-      ) {
-        pendingAutoStart = null;
-      }
+      // Send discuss-linear prompt directly — do NOT inject KATA-WORKFLOW.md.
+      // The discuss prompt is self-contained, and injecting the full workflow doc
+      // (872 lines of file-mode patterns) causes the agent to follow file-mode
+      // Output Phase instructions instead of the Linear API Output Phase.
+      const discussPrompt = buildLinearDiscussPrompt(nextId, preamble);
+      pi.sendMessage(
+        {
+          customType: "kata-run",
+          content: discussPrompt,
+          display: false,
+        },
+        { triggerTurn: true },
+      );
       return;
     }
 
