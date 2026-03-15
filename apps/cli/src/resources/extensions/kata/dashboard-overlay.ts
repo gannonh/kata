@@ -102,6 +102,9 @@ export class KataDashboardOverlay {
       this.tui.requestRender();
     });
 
+    // Start at 2s, switch to 30s after first successful Linear backend load.
+    // File mode stays at 2s (disk reads are free). Linear mode at 30s
+    // avoids burning the 5000 req/hr API rate limit.
     this.refreshTimer = setInterval(() => {
       this.dashData = getAutoDashboardData();
       this.loadData().then(() => {
@@ -111,12 +114,16 @@ export class KataDashboardOverlay {
     }, 2000);
   }
 
+  private cachedBackend: import("./backend.js").KataBackend | null = null;
+
   private async loadData(): Promise<void> {
     const base = this.dashData.basePath || process.cwd();
 
     try {
-      const dashBackend = await createBackend(base);
-      const dashData = await dashBackend.loadDashboardData();
+      if (!this.cachedBackend) {
+        this.cachedBackend = await createBackend(base);
+      }
+      const dashData = await this.cachedBackend.loadDashboardData();
       const state = dashData.state;
 
       if (!state.activeMilestone) {

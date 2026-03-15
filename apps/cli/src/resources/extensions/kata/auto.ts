@@ -301,10 +301,8 @@ export async function startAuto(
   try {
     backend = await createBackend(base);
   } catch (err) {
-    ctx.ui.notify(
-      `Backend init failed: ${err instanceof Error ? err.message : String(err)}`,
-      "error",
-    );
+    const msg = err instanceof Error ? err.message : String(err);
+    ctx.ui.notify(`Backend init failed: ${msg}`, "error");
     return;
   }
 
@@ -413,6 +411,13 @@ export async function handleAgentEnd(
   // Small delay to let files settle (git commits, file writes)
   await new Promise((r) => setTimeout(r, 500));
 
+  // Debug: log agent_end firing
+  try {
+    const { appendFileSync } = await import("node:fs");
+    appendFileSync(join(basePath, ".kata", "auto-debug.log"),
+      `${new Date().toISOString()} AGENT-END unit=${currentUnit?.type ?? "null"}(${currentUnit?.id ?? "null"}) basePath=${basePath}\n`);
+  } catch { /* ignore */ }
+
   // Auto-commit any dirty files the LLM left behind on the current branch.
   if (currentUnit) {
     try {
@@ -424,8 +429,13 @@ export async function handleAgentEnd(
       if (commitMsg) {
         ctx.ui.notify(`Auto-committed uncommitted changes.`, "info");
       }
-    } catch {
-      // Non-fatal
+    } catch (commitErr) {
+      // Debug: log commit failure
+      try {
+        const { appendFileSync } = await import("node:fs");
+        appendFileSync(join(basePath, ".kata", "auto-debug.log"),
+          `${new Date().toISOString()} AUTO-COMMIT-FAIL ${commitErr instanceof Error ? commitErr.message : String(commitErr)}\n`);
+      } catch { /* ignore */ }
     }
   }
 
@@ -986,6 +996,13 @@ async function dispatchNextUnit(
   const wasCompletingMilestone =
     currentUnit?.type === "complete-milestone" ||
     currentUnit?.type === "linear-completing-milestone";
+
+  // Debug: log PR gate evaluation
+  try {
+    const { appendFileSync } = await import("node:fs");
+    const debugLine = `${new Date().toISOString()} PR-GATE prev=${currentUnit?.type ?? "null"}(${prevSliceKey ?? "null"}) next=${unitType}(${nextSliceKey}) sliceChanged=${sliceChanged} wasSummarizing=${wasSummarizing} wasCompleting=${wasCompletingMilestone}\n`;
+    appendFileSync(join(basePath, ".kata", "auto-debug.log"), debugLine);
+  } catch { /* ignore */ }
 
   if (wasSummarizing || wasCompletingMilestone || sliceChanged) {
     const postPrefs = loadEffectiveKataPreferences()?.preferences;

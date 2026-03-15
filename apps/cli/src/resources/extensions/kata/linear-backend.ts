@@ -60,6 +60,10 @@ export class LinearBackend implements KataBackend {
   private client: LinearClient;
   private config: LinearBackendConfig;
 
+  /** Cached state with TTL to avoid redundant API calls from dashboard polling. */
+  private stateCache: { state: KataState; timestamp: number } | null = null;
+  private static STATE_CACHE_TTL_MS = 10_000; // 10 seconds
+
   constructor(basePath: string, config: LinearBackendConfig) {
     this.basePath = basePath;
     this.config = config;
@@ -69,12 +73,23 @@ export class LinearBackend implements KataBackend {
   // ── State ─────────────────────────────────────────────────────────────
 
   async deriveState(): Promise<KataState> {
-    return deriveLinearState(this.client, {
+    // Return cached state if fresh (avoids redundant API calls from dashboard + dispatch)
+    if (this.stateCache && Date.now() - this.stateCache.timestamp < LinearBackend.STATE_CACHE_TTL_MS) {
+      return this.stateCache.state;
+    }
+    const state = await deriveLinearState(this.client, {
       projectId: this.config.projectId,
       teamId: this.config.teamId,
       sliceLabelId: this.config.sliceLabelId,
       basePath: this.basePath,
     });
+    this.stateCache = { state, timestamp: Date.now() };
+    return state;
+  }
+
+  /** Invalidate the state cache (call after state-changing operations). */
+  invalidateStateCache(): void {
+    this.stateCache = null;
   }
 
   // ── Document I/O ──────────────────────────────────────────────────────
@@ -174,8 +189,12 @@ export class LinearBackend implements KataBackend {
 
   async preparePrContext(milestoneId: string, sliceId: string): Promise<PrContext> {
     const branch = `kata/${milestoneId}/${sliceId}`;
-    execSync(`git branch -f ${branch} HEAD`, { cwd: this.basePath, stdio: "pipe" });
-    execSync(`git checkout ${branch}`, { cwd: this.basePath, stdio: "pipe" });
+    // Check if already on the target branch
+    const current = execSync("git branch --show-current", { cwd: this.basePath, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+    if (current !== branch) {
+      execSync(`git branch -f ${branch} HEAD`, { cwd: this.basePath, stdio: "pipe" });
+      execSync(`git checkout ${branch}`, { cwd: this.basePath, stdio: "pipe" });
+    }
     execSync(`git push -u origin ${branch}`, { cwd: this.basePath, stdio: "pipe" });
 
     const documents: Record<string, string> = {};
