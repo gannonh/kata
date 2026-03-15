@@ -147,5 +147,9 @@
     "shiki": "^3.19.0",
     "tailwind-merge": "^3.4.0",
     "zod": "^4.0.0"
-  }
+  },
+  "trustedDependencies": [
+    "tree-sitter-javascript",
+    "tree-sitter-python"
+  ]
 }
