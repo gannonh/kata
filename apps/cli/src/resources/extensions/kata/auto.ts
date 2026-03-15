@@ -1022,8 +1022,10 @@ async function dispatchNextUnit(
           linearDocuments: prCtx.documents,
         });
         if (prResult.ok) {
+          // stopAuto first so its message appears, then PR message appears last (visible to user)
+          await stopAuto(ctx, pi);
           ctx.ui.notify(
-            `PR created: ${prResult.url}\nAuto-mode paused — review and merge the PR, then run /kata auto to continue.`,
+            `PR created: ${prResult.url}\n\nReview and merge the PR, then run /kata auto to continue.`,
             "info",
           );
         } else {
@@ -1032,18 +1034,19 @@ async function dispatchNextUnit(
             error: prResult.error,
             hint: prResult.hint ?? "",
           });
+          await stopAuto(ctx, pi);
           ctx.ui.notify(
-            `PR auto-create failed — auto-mode stopped.\n${diagnostic}`,
+            `PR auto-create failed.\n${diagnostic}`,
             "error",
           );
         }
       } catch (err) {
+        await stopAuto(ctx, pi);
         ctx.ui.notify(
           `PR context failed: ${err instanceof Error ? err.message : String(err)}`,
           "error",
         );
       }
-      await stopAuto(ctx, pi);
       return;
     } else if (postDecision === "skip-notify") {
       ctx.ui.notify(
