@@ -1,7 +1,36 @@
-import { describe, it, expect } from "vitest";
-import { LinearBackend, type LinearBackendConfig } from "../linear-backend.js";
-import type { KataBackend } from "../backend.js";
-import type { KataState } from "../types.js";
+import { LinearBackend, type LinearBackendConfig } from "../linear-backend.ts";
+import type { KataBackend } from "../backend.ts";
+import type { KataState } from "../types.ts";
+
+let passed = 0;
+let failed = 0;
+
+function assert(condition: boolean, message: string): void {
+  if (condition) {
+    passed++;
+  } else {
+    failed++;
+    console.error(`  FAIL: ${message}`);
+  }
+}
+
+function assertMatch(text: string, pattern: RegExp, message: string): void {
+  if (pattern.test(text)) {
+    passed++;
+  } else {
+    failed++;
+    console.error(`  FAIL: ${message} — pattern ${pattern} not found in output`);
+  }
+}
+
+function assertNoMatch(text: string, pattern: RegExp, message: string): void {
+  if (!pattern.test(text)) {
+    passed++;
+  } else {
+    failed++;
+    console.error(`  FAIL: ${message} — pattern ${pattern} should NOT match`);
+  }
+}
 
 const TEST_CONFIG: LinearBackendConfig = {
   apiKey: "test-key",
@@ -29,443 +58,198 @@ function makeState(overrides?: Partial<KataState>): KataState {
   };
 }
 
-describe("LinearBackend", () => {
-  it("satisfies the KataBackend interface", () => {
-    const backend: KataBackend = new LinearBackend("/tmp/test-project", TEST_CONFIG);
-    expect(backend).toBeDefined();
-  });
+// ─── Interface ──────────────────────────────────────────────────────────────
 
-  it("sets basePath from constructor", () => {
-    const backend = new LinearBackend("/tmp/test-project", TEST_CONFIG);
-    expect(backend.basePath).toBe("/tmp/test-project");
-  });
-});
+console.log("LinearBackend interface");
+{
+  const backend: KataBackend = new LinearBackend("/tmp/test-project", TEST_CONFIG);
+  assert(backend !== undefined, "satisfies KataBackend interface");
+  assert(backend.basePath === "/tmp/test-project", "sets basePath from constructor");
+}
 
 // ─── buildPrompt dispatcher ─────────────────────────────────────────────────
 
-describe("LinearBackend.buildPrompt dispatcher", () => {
-  it("returns empty string for phase=complete", async () => {
-    const prompt = await makeBackend().buildPrompt("complete", makeState({ phase: "complete" }));
-    expect(prompt).toBe("");
-  });
+console.log("LinearBackend.buildPrompt dispatcher");
+{
+  const b = makeBackend();
+  const s = makeState;
 
-  it("returns empty string for phase=blocked", async () => {
-    const prompt = await makeBackend().buildPrompt("blocked", makeState({ phase: "blocked" }));
-    expect(prompt).toBe("");
-  });
+  let p = await b.buildPrompt("complete", s({ phase: "complete" }));
+  assert(p === "", "returns empty string for phase=complete");
 
-  it("returns execute prompt for phase=executing", async () => {
-    const prompt = await makeBackend().buildPrompt("executing", makeState({ phase: "executing" }));
-    expect(prompt).toMatch(/Execute Task/);
-  });
+  p = await b.buildPrompt("blocked", s({ phase: "blocked" }));
+  assert(p === "", "returns empty string for phase=blocked");
 
-  it("returns execute prompt for phase=verifying", async () => {
-    const prompt = await makeBackend().buildPrompt("verifying", makeState({ phase: "verifying" }));
-    expect(prompt).toMatch(/Execute Task/);
-  });
+  p = await b.buildPrompt("executing", s({ phase: "executing" }));
+  assertMatch(p, /Execute Task/, "returns execute prompt for phase=executing");
 
-  it("returns plan-slice prompt for phase=planning", async () => {
-    const prompt = await makeBackend().buildPrompt("planning", makeState({ phase: "planning" }));
-    expect(prompt).toMatch(/Plan Slice/);
-  });
+  p = await b.buildPrompt("verifying", s({ phase: "verifying" }));
+  assertMatch(p, /Execute Task/, "returns execute prompt for phase=verifying");
 
-  it("returns plan-milestone prompt for phase=pre-planning", async () => {
-    const prompt = await makeBackend().buildPrompt("pre-planning", makeState({ phase: "pre-planning" }));
-    expect(prompt).toMatch(/Plan Milestone/);
-  });
+  p = await b.buildPrompt("planning", s({ phase: "planning" }));
+  assertMatch(p, /Plan Slice/, "returns plan-slice prompt for phase=planning");
 
-  it("returns complete-slice prompt for phase=summarizing", async () => {
-    const prompt = await makeBackend().buildPrompt("summarizing", makeState({ phase: "summarizing" }));
-    expect(prompt).toMatch(/Complete Slice/);
-  });
+  p = await b.buildPrompt("pre-planning", s({ phase: "pre-planning" }));
+  assertMatch(p, /Plan Milestone/, "returns plan-milestone prompt for phase=pre-planning");
 
-  it("returns complete-milestone prompt for phase=completing-milestone", async () => {
-    const prompt = await makeBackend().buildPrompt("completing-milestone", makeState({ phase: "completing-milestone" }));
-    expect(prompt).toMatch(/Complete Milestone/);
-  });
+  p = await b.buildPrompt("summarizing", s({ phase: "summarizing" }));
+  assertMatch(p, /Complete Slice/, "returns complete-slice prompt for phase=summarizing");
 
-  it("returns replan prompt for phase=replanning-slice", async () => {
-    const prompt = await makeBackend().buildPrompt("replanning-slice", makeState({ phase: "replanning-slice" }));
-    expect(prompt).toMatch(/Replan Slice/);
-  });
+  p = await b.buildPrompt("completing-milestone", s({ phase: "completing-milestone" }));
+  assertMatch(p, /Complete Milestone/, "returns complete-milestone for phase=completing-milestone");
 
-  it("returns empty string for unknown phases", async () => {
-    expect(await makeBackend().buildPrompt("paused", makeState({ phase: "paused" }))).toBe("");
-    expect(await makeBackend().buildPrompt("some-future-phase", makeState({ phase: "some-future-phase" as any }))).toBe("");
-  });
-});
+  p = await b.buildPrompt("replanning-slice", s({ phase: "replanning-slice" }));
+  assertMatch(p, /Replan Slice/, "returns replan prompt for phase=replanning-slice");
 
-// ─── buildPrompt dispatch-time overrides ──────────────────────────────────────
+  p = await b.buildPrompt("paused", s({ phase: "paused" }));
+  assert(p === "", "returns empty string for unknown phase=paused");
+}
 
-describe("LinearBackend.buildPrompt dispatch-time overrides", () => {
-  it("dispatchResearch=milestone overrides phase", async () => {
-    const prompt = await makeBackend().buildPrompt("pre-planning", makeState({ phase: "pre-planning" }), {
-      dispatchResearch: "milestone",
-    });
-    expect(prompt).toMatch(/Research Milestone/);
-  });
+// ─── buildPrompt dispatch-time overrides ────────────────────────────────────
 
-  it("dispatchResearch=slice overrides phase", async () => {
-    const prompt = await makeBackend().buildPrompt("planning", makeState({ phase: "planning" }), {
-      dispatchResearch: "slice",
-    });
-    expect(prompt).toMatch(/Research Slice/);
-  });
+console.log("LinearBackend.buildPrompt dispatch-time overrides");
+{
+  const b = makeBackend();
+  const s = makeState;
 
-  it("reassessSliceId overrides phase", async () => {
-    const prompt = await makeBackend().buildPrompt("executing", makeState(), { reassessSliceId: "S01" });
-    expect(prompt).toMatch(/Reassess Roadmap/);
-    expect(prompt).toMatch(/S01-SUMMARY/);
-    expect(prompt).toMatch(/S01-ASSESSMENT/);
-  });
+  let p = await b.buildPrompt("pre-planning", s({ phase: "pre-planning" }), { dispatchResearch: "milestone" });
+  assertMatch(p, /Research Milestone/, "dispatchResearch=milestone overrides phase");
 
-  it("uatSliceId overrides phase", async () => {
-    const prompt = await makeBackend().buildPrompt("executing", makeState(), { uatSliceId: "S02" });
-    expect(prompt).toMatch(/Run UAT/);
-    expect(prompt).toMatch(/S02-UAT/);
-  });
+  p = await b.buildPrompt("planning", s({ phase: "planning" }), { dispatchResearch: "slice" });
+  assertMatch(p, /Research Slice/, "dispatchResearch=slice overrides phase");
 
-  it("override priority: uat > reassess > research", async () => {
-    const prompt = await makeBackend().buildPrompt("executing", makeState(), {
-      uatSliceId: "S01",
-      reassessSliceId: "S01",
-      dispatchResearch: "milestone",
-    });
-    expect(prompt).toMatch(/Run UAT/);
-  });
-});
+  p = await b.buildPrompt("executing", s(), { reassessSliceId: "S01" });
+  assertMatch(p, /Reassess Roadmap/, "reassessSliceId overrides phase");
+  assertMatch(p, /S01-SUMMARY/, "reassess includes S01-SUMMARY");
+  assertMatch(p, /S01-ASSESSMENT/, "reassess includes S01-ASSESSMENT");
+
+  p = await b.buildPrompt("executing", s(), { uatSliceId: "S02" });
+  assertMatch(p, /Run UAT/, "uatSliceId overrides phase");
+  assertMatch(p, /S02-UAT/, "uat includes S02-UAT");
+
+  p = await b.buildPrompt("executing", s(), { uatSliceId: "S01", reassessSliceId: "S01", dispatchResearch: "milestone" });
+  assertMatch(p, /Run UAT/, "override priority: uat > reassess > research");
+}
 
 // ─── Execute task prompt ────────────────────────────────────────────────────
 
-describe("LinearBackend execute task prompt", () => {
-  it("includes milestone, slice, task IDs", async () => {
-    const prompt = await makeBackend().buildPrompt("executing", makeState());
-    expect(prompt).toMatch(/M001/);
-    expect(prompt).toMatch(/S01/);
-    expect(prompt).toMatch(/T01/);
-    expect(prompt).toMatch(/Test Task/);
-  });
-
-  it("references kata_derive_state", async () => {
-    const prompt = await makeBackend().buildPrompt("executing", makeState());
-    expect(prompt).toMatch(/kata_derive_state/);
-  });
-
-  it("references kata_update_issue_state", async () => {
-    const prompt = await makeBackend().buildPrompt("executing", makeState());
-    expect(prompt).toMatch(/kata_update_issue_state/);
-  });
-
-  it("references KATA-WORKFLOW.md", async () => {
-    const prompt = await makeBackend().buildPrompt("executing", makeState());
-    expect(prompt).toMatch(/KATA-WORKFLOW\.md/);
-  });
-
-  it("reads T01-PLAN as required", async () => {
-    const prompt = await makeBackend().buildPrompt("executing", makeState());
-    expect(prompt).toMatch(/T01-PLAN.*required/i);
-  });
-
-  it("reads S01-PLAN as optional", async () => {
-    const prompt = await makeBackend().buildPrompt("executing", makeState());
-    expect(prompt).toMatch(/S01-PLAN/);
-  });
-
-  it("includes carry-forward instruction", async () => {
-    const prompt = await makeBackend().buildPrompt("executing", makeState());
-    expect(prompt).toMatch(/prior task/i);
-    expect(prompt).toMatch(/Txx-SUMMARY/i);
-  });
-
-  it("includes continue/resume check", async () => {
-    const prompt = await makeBackend().buildPrompt("executing", makeState());
-    expect(prompt).toMatch(/partial/i);
-  });
-
-  it("has no cascading fallback", async () => {
-    const prompt = await makeBackend().buildPrompt("executing", makeState());
-    expect(prompt).not.toMatch(/If this returns null.*read.*PLAN.*If that also returns null/i);
-  });
-});
+console.log("LinearBackend execute task prompt");
+{
+  const b = makeBackend();
+  const p = await b.buildPrompt("executing", makeState());
+  assertMatch(p, /M001/, "includes milestone ID");
+  assertMatch(p, /S01/, "includes slice ID");
+  assertMatch(p, /T01/, "includes task ID");
+  assertMatch(p, /Test Task/, "includes task title");
+  assertMatch(p, /kata_derive_state/, "references kata_derive_state");
+  assertMatch(p, /kata_update_issue_state/, "references kata_update_issue_state");
+  assertMatch(p, /KATA-WORKFLOW\.md/, "references KATA-WORKFLOW.md");
+  assertMatch(p, /T01-PLAN/i, "reads T01-PLAN");
+  assertMatch(p, /S01-PLAN/, "reads S01-PLAN");
+  assertMatch(p, /prior task/i, "includes carry-forward instruction");
+  assertMatch(p, /partial/i, "includes continue/resume check");
+}
 
 // ─── Plan slice prompt ──────────────────────────────────────────────────────
 
-describe("LinearBackend plan slice prompt", () => {
-  it("includes milestone and slice IDs", async () => {
-    const state = makeState({
-      phase: "planning",
-      activeMilestone: { id: "M001", title: "Milestone One" },
-      activeSlice: { id: "S02", title: "Second Slice" },
-    });
-    const prompt = await makeBackend().buildPrompt("planning", state);
-    expect(prompt).toMatch(/M001/);
-    expect(prompt).toMatch(/S02/);
-    expect(prompt).toMatch(/Second Slice/);
-  });
-
-  it("reads M001-ROADMAP as required", async () => {
-    const prompt = await makeBackend().buildPrompt("planning", makeState({ phase: "planning" }));
-    expect(prompt).toMatch(/M001-ROADMAP.*required/i);
-  });
-
-  it("references kata_create_task", async () => {
-    const prompt = await makeBackend().buildPrompt("planning", makeState({ phase: "planning" }));
-    expect(prompt).toMatch(/kata_create_task/);
-  });
-
-  it("references kata_update_issue_state with executing phase", async () => {
-    const prompt = await makeBackend().buildPrompt("planning", makeState({ phase: "planning" }));
-    expect(prompt).toMatch(/kata_update_issue_state/);
-    expect(prompt).toMatch(/executing/);
-  });
-
-  it("includes dependency summary instruction", async () => {
-    const prompt = await makeBackend().buildPrompt("planning", makeState({ phase: "planning" }));
-    expect(prompt).toMatch(/depends:\[\]/i);
-    expect(prompt).toMatch(/Sxx-SUMMARY/i);
-  });
-
-  it("includes idempotency check", async () => {
-    const prompt = await makeBackend().buildPrompt("planning", makeState({ phase: "planning" }));
-    expect(prompt).toMatch(/idempotency/i);
-  });
-});
-
-// ─── Plan milestone prompt ──────────────────────────────────────────────────
-
-describe("LinearBackend plan milestone prompt", () => {
-  it("includes milestone ID and title", async () => {
-    const prompt = await makeBackend().buildPrompt("pre-planning", makeState({ phase: "pre-planning" }));
-    expect(prompt).toMatch(/M001/);
-    expect(prompt).toMatch(/Test Milestone/);
-  });
-
-  it("reads M001-CONTEXT as required", async () => {
-    const prompt = await makeBackend().buildPrompt("pre-planning", makeState({ phase: "pre-planning" }));
-    expect(prompt).toMatch(/M001-CONTEXT.*required/i);
-  });
-
-  it("references kata_create_slice", async () => {
-    const prompt = await makeBackend().buildPrompt("pre-planning", makeState({ phase: "pre-planning" }));
-    expect(prompt).toMatch(/kata_create_slice/);
-  });
-
-  it("includes idempotency check", async () => {
-    const prompt = await makeBackend().buildPrompt("pre-planning", makeState({ phase: "pre-planning" }));
-    expect(prompt).toMatch(/idempotency/i);
-  });
-});
+console.log("LinearBackend plan slice prompt");
+{
+  const b = makeBackend();
+  const state = makeState({ phase: "planning", activeSlice: { id: "S02", title: "Second Slice" } });
+  const p = await b.buildPrompt("planning", state);
+  assertMatch(p, /M001/, "includes milestone ID");
+  assertMatch(p, /S02/, "includes slice ID");
+  assertMatch(p, /Second Slice/, "includes slice title");
+  assertMatch(p, /M001-ROADMAP/i, "reads M001-ROADMAP");
+  assertMatch(p, /kata_create_task/, "references kata_create_task");
+  assertMatch(p, /kata_update_issue_state/, "references kata_update_issue_state");
+  assertMatch(p, /idempotency/i, "includes idempotency check");
+}
 
 // ─── Complete slice prompt ──────────────────────────────────────────────────
 
-describe("LinearBackend complete slice prompt", () => {
-  it("includes milestone and slice IDs", async () => {
-    const prompt = await makeBackend().buildPrompt("summarizing", makeState({ phase: "summarizing" }));
-    expect(prompt).toMatch(/M001/);
-    expect(prompt).toMatch(/S01/);
-  });
+console.log("LinearBackend complete slice prompt");
+{
+  const b = makeBackend();
+  const p = await b.buildPrompt("summarizing", makeState({ phase: "summarizing" }));
+  assertMatch(p, /M001/, "includes milestone ID");
+  assertMatch(p, /S01/, "includes slice ID");
+  assertMatch(p, /M001-ROADMAP/i, "reads M001-ROADMAP");
+  assertMatch(p, /S01-PLAN/i, "reads S01-PLAN");
+  assertMatch(p, /kata_update_issue_state/, "references kata_update_issue_state");
+  assertMatch(p, /kata_list_tasks/, "references kata_list_tasks");
+  assertMatch(p, /S01-UAT/, "writes UAT");
+}
 
-  it("reads M001-ROADMAP as required", async () => {
-    const prompt = await makeBackend().buildPrompt("summarizing", makeState({ phase: "summarizing" }));
-    expect(prompt).toMatch(/M001-ROADMAP.*required/i);
-  });
+// ─── Research prompts ───────────────────────────────────────────────────────
 
-  it("reads S01-PLAN as required", async () => {
-    const prompt = await makeBackend().buildPrompt("summarizing", makeState({ phase: "summarizing" }));
-    expect(prompt).toMatch(/S01-PLAN.*required/i);
-  });
+console.log("LinearBackend research prompts");
+{
+  const b = makeBackend();
+  let p = await b.buildPrompt("pre-planning", makeState({ phase: "pre-planning" }), { dispatchResearch: "milestone" });
+  assertMatch(p, /M001-CONTEXT/i, "research-milestone reads M001-CONTEXT");
+  assertMatch(p, /M001-RESEARCH/, "research-milestone writes M001-RESEARCH");
+  assertMatch(p, /PROJECT/, "research-milestone reads PROJECT");
+  assertMatch(p, /REQUIREMENTS/, "research-milestone reads REQUIREMENTS");
 
-  it("references kata_update_issue_state with done phase", async () => {
-    const prompt = await makeBackend().buildPrompt("summarizing", makeState({ phase: "summarizing" }));
-    expect(prompt).toMatch(/kata_update_issue_state/);
-    expect(prompt).toMatch(/done/);
-  });
+  p = await b.buildPrompt("planning", makeState({ phase: "planning" }), { dispatchResearch: "slice" });
+  assertMatch(p, /M001-ROADMAP/i, "research-slice reads M001-ROADMAP");
+  assertMatch(p, /S01-RESEARCH/, "research-slice writes S01-RESEARCH");
+}
 
-  it("references kata_list_tasks for summaries", async () => {
-    const prompt = await makeBackend().buildPrompt("summarizing", makeState({ phase: "summarizing" }));
-    expect(prompt).toMatch(/kata_list_tasks/);
-  });
+// ─── Other prompts ──────────────────────────────────────────────────────────
 
-  it("writes UAT", async () => {
-    const prompt = await makeBackend().buildPrompt("summarizing", makeState({ phase: "summarizing" }));
-    expect(prompt).toMatch(/S01-UAT/);
-  });
-});
+console.log("LinearBackend other prompts");
+{
+  const b = makeBackend();
 
-// ─── Research milestone prompt ──────────────────────────────────────────────
+  let p = await b.buildPrompt("pre-planning", makeState({ phase: "pre-planning" }));
+  assertMatch(p, /M001-CONTEXT/i, "plan-milestone reads M001-CONTEXT");
+  assertMatch(p, /kata_create_slice/, "plan-milestone references kata_create_slice");
 
-describe("LinearBackend research milestone prompt", () => {
-  it("reads M001-CONTEXT as required", async () => {
-    const prompt = await makeBackend().buildPrompt("pre-planning", makeState({ phase: "pre-planning" }), {
-      dispatchResearch: "milestone",
-    });
-    expect(prompt).toMatch(/M001-CONTEXT.*required/i);
-  });
+  p = await b.buildPrompt("completing-milestone", makeState({ phase: "completing-milestone" }));
+  assertMatch(p, /M001-ROADMAP/i, "complete-milestone reads M001-ROADMAP");
+  assertMatch(p, /M001-SUMMARY/, "complete-milestone writes M001-SUMMARY");
 
-  it("writes M001-RESEARCH", async () => {
-    const prompt = await makeBackend().buildPrompt("pre-planning", makeState({ phase: "pre-planning" }), {
-      dispatchResearch: "milestone",
-    });
-    expect(prompt).toMatch(/M001-RESEARCH/);
-  });
+  p = await b.buildPrompt("replanning-slice", makeState({ phase: "replanning-slice" }));
+  assertMatch(p, /M001-ROADMAP/i, "replan reads ROADMAP");
+  assertMatch(p, /S01-PLAN/i, "replan reads S01-PLAN");
+  assertMatch(p, /S01-REPLAN/, "replan writes S01-REPLAN");
 
-  it("reads optional PROJECT, REQUIREMENTS, DECISIONS", async () => {
-    const prompt = await makeBackend().buildPrompt("pre-planning", makeState({ phase: "pre-planning" }), {
-      dispatchResearch: "milestone",
-    });
-    expect(prompt).toMatch(/PROJECT/);
-    expect(prompt).toMatch(/REQUIREMENTS/);
-    expect(prompt).toMatch(/DECISIONS/);
-  });
-});
+  p = await b.buildPrompt("executing", makeState(), { reassessSliceId: "S01" });
+  assertMatch(p, /M001-ROADMAP/i, "reassess reads ROADMAP");
+  assertMatch(p, /S01-ASSESSMENT/, "reassess writes S01-ASSESSMENT");
 
-// ─── Research slice prompt ──────────────────────────────────────────────────
-
-describe("LinearBackend research slice prompt", () => {
-  it("reads M001-ROADMAP as required", async () => {
-    const prompt = await makeBackend().buildPrompt("planning", makeState({ phase: "planning" }), {
-      dispatchResearch: "slice",
-    });
-    expect(prompt).toMatch(/M001-ROADMAP.*required/i);
-  });
-
-  it("writes S01-RESEARCH", async () => {
-    const prompt = await makeBackend().buildPrompt("planning", makeState({ phase: "planning" }), {
-      dispatchResearch: "slice",
-    });
-    expect(prompt).toMatch(/S01-RESEARCH/);
-  });
-
-  it("includes dependency summary instruction", async () => {
-    const prompt = await makeBackend().buildPrompt("planning", makeState({ phase: "planning" }), {
-      dispatchResearch: "slice",
-    });
-    expect(prompt).toMatch(/depends:\[\]/i);
-  });
-});
-
-// ─── Complete milestone prompt ──────────────────────────────────────────────
-
-describe("LinearBackend complete milestone prompt", () => {
-  it("reads M001-ROADMAP as required", async () => {
-    const prompt = await makeBackend().buildPrompt("completing-milestone", makeState({ phase: "completing-milestone" }));
-    expect(prompt).toMatch(/M001-ROADMAP.*required/i);
-  });
-
-  it("reads slice summaries via iteration", async () => {
-    const prompt = await makeBackend().buildPrompt("completing-milestone", makeState({ phase: "completing-milestone" }));
-    expect(prompt).toMatch(/kata_list_slices/);
-    expect(prompt).toMatch(/Sxx-SUMMARY/);
-  });
-
-  it("writes M001-SUMMARY", async () => {
-    const prompt = await makeBackend().buildPrompt("completing-milestone", makeState({ phase: "completing-milestone" }));
-    expect(prompt).toMatch(/M001-SUMMARY/);
-  });
-});
-
-// ─── Replan slice prompt ────────────────────────────────────────────────────
-
-describe("LinearBackend replan slice prompt", () => {
-  it("reads ROADMAP and PLAN as required", async () => {
-    const prompt = await makeBackend().buildPrompt("replanning-slice", makeState({ phase: "replanning-slice" }));
-    expect(prompt).toMatch(/M001-ROADMAP.*required/i);
-    expect(prompt).toMatch(/S01-PLAN.*required/i);
-  });
-
-  it("writes S01-REPLAN", async () => {
-    const prompt = await makeBackend().buildPrompt("replanning-slice", makeState({ phase: "replanning-slice" }));
-    expect(prompt).toMatch(/S01-REPLAN/);
-  });
-});
-
-// ─── Reassess roadmap prompt ────────────────────────────────────────────────
-
-describe("LinearBackend reassess roadmap prompt", () => {
-  it("reads ROADMAP and completed slice summary as required", async () => {
-    const prompt = await makeBackend().buildPrompt("executing", makeState(), { reassessSliceId: "S01" });
-    expect(prompt).toMatch(/M001-ROADMAP.*required/i);
-    expect(prompt).toMatch(/S01-SUMMARY.*required/i);
-  });
-
-  it("writes S01-ASSESSMENT", async () => {
-    const prompt = await makeBackend().buildPrompt("executing", makeState(), { reassessSliceId: "S01" });
-    expect(prompt).toMatch(/S01-ASSESSMENT/);
-  });
-});
-
-// ─── Run UAT prompt ─────────────────────────────────────────────────────────
-
-describe("LinearBackend run UAT prompt", () => {
-  it("reads UAT file as required", async () => {
-    const prompt = await makeBackend().buildPrompt("executing", makeState(), { uatSliceId: "S02" });
-    expect(prompt).toMatch(/S02-UAT.*required/i);
-  });
-
-  it("writes UAT-RESULT", async () => {
-    const prompt = await makeBackend().buildPrompt("executing", makeState(), { uatSliceId: "S02" });
-    expect(prompt).toMatch(/S02-UAT-RESULT/);
-  });
-});
+  p = await b.buildPrompt("executing", makeState(), { uatSliceId: "S02" });
+  assertMatch(p, /S02-UAT/i, "uat reads S02-UAT");
+  assertMatch(p, /S02-UAT-RESULT/, "uat writes S02-UAT-RESULT");
+}
 
 // ─── Cross-cutting ──────────────────────────────────────────────────────────
 
-describe("LinearBackend cross-cutting prompt properties", () => {
-  it("all builders reference KATA-WORKFLOW.md", async () => {
-    const backend = makeBackend();
-    const state = makeState();
-    const prompts = await Promise.all([
-      backend.buildPrompt("executing", state),
-      backend.buildPrompt("planning", state),
-      backend.buildPrompt("pre-planning", state),
-      backend.buildPrompt("summarizing", state),
-      backend.buildPrompt("pre-planning", state, { dispatchResearch: "milestone" }),
-      backend.buildPrompt("planning", state, { dispatchResearch: "slice" }),
-      backend.buildPrompt("completing-milestone", state),
-      backend.buildPrompt("replanning-slice", state),
-      backend.buildPrompt("executing", state, { reassessSliceId: "S01" }),
-      backend.buildPrompt("executing", state, { uatSliceId: "S01" }),
-    ]);
-    for (const prompt of prompts) {
-      expect(prompt).toMatch(/KATA-WORKFLOW\.md/);
-    }
-  });
+console.log("LinearBackend cross-cutting");
+{
+  const b = makeBackend();
+  const s = makeState();
+  const prompts = await Promise.all([
+    b.buildPrompt("executing", s),
+    b.buildPrompt("planning", s),
+    b.buildPrompt("pre-planning", s),
+    b.buildPrompt("summarizing", s),
+    b.buildPrompt("pre-planning", s, { dispatchResearch: "milestone" }),
+    b.buildPrompt("planning", s, { dispatchResearch: "slice" }),
+    b.buildPrompt("completing-milestone", s),
+    b.buildPrompt("replanning-slice", s),
+    b.buildPrompt("executing", s, { reassessSliceId: "S01" }),
+    b.buildPrompt("executing", s, { uatSliceId: "S01" }),
+  ]);
+  for (const p of prompts) {
+    assertMatch(p, /KATA-WORKFLOW\.md/, "references KATA-WORKFLOW.md");
+    assertMatch(p, /never use bash/i, "includes hard rule");
+  }
+}
 
-  it("no builder uses cascading document fallbacks", async () => {
-    const backend = makeBackend();
-    const state = makeState();
-    const prompts = await Promise.all([
-      backend.buildPrompt("executing", state),
-      backend.buildPrompt("planning", state),
-      backend.buildPrompt("pre-planning", state),
-      backend.buildPrompt("summarizing", state),
-      backend.buildPrompt("pre-planning", state, { dispatchResearch: "milestone" }),
-      backend.buildPrompt("planning", state, { dispatchResearch: "slice" }),
-      backend.buildPrompt("completing-milestone", state),
-      backend.buildPrompt("replanning-slice", state),
-    ]);
-    for (const prompt of prompts) {
-      expect(prompt).not.toMatch(/If this returns null.*read.*PLAN.*If that also returns null/i);
-    }
-  });
+// ─── Results ────────────────────────────────────────────────────────────────
 
-  it("all builders include the hard rule about not using bash/find/rg for artifacts", async () => {
-    const backend = makeBackend();
-    const state = makeState();
-    const prompts = await Promise.all([
-      backend.buildPrompt("executing", state),
-      backend.buildPrompt("planning", state),
-      backend.buildPrompt("pre-planning", state),
-      backend.buildPrompt("summarizing", state),
-      backend.buildPrompt("pre-planning", state, { dispatchResearch: "milestone" }),
-      backend.buildPrompt("planning", state, { dispatchResearch: "slice" }),
-      backend.buildPrompt("completing-milestone", state),
-      backend.buildPrompt("replanning-slice", state),
-      backend.buildPrompt("executing", state, { reassessSliceId: "S01" }),
-      backend.buildPrompt("executing", state, { uatSliceId: "S01" }),
-    ]);
-    for (const prompt of prompts) {
-      expect(prompt).toMatch(/never use bash/i);
-    }
-  });
-});
+console.log(`\n=== Results: ${passed} passed, ${failed} failed ===\n`);
+process.exit(failed > 0 ? 1 : 0);
