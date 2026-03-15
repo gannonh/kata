@@ -6,7 +6,7 @@
  * file-based Kata extension.
  *
  * Algorithm (pure-issue-state — no document parsing, no `.kata/` reads):
- *   1. Fetch milestones (sorted by sortOrder from API)
+ *   1. Fetch milestones (sorted client-side by sortOrder in listKataMilestones)
  *   2. Fetch all slice issues for the project in one query
  *   3. Group slices client-side by `projectMilestone?.id`
  *   4. Build registry: milestone is "complete" when all its slices are terminal
