@@ -1,26 +1,20 @@
 ---
 version: 1
 workflow:
-  mode: linear
-linear:
-  teamKey: KAT
-  projectId: 48560650-1707-43b5-ac22-e8a01047b242
+  mode: file
+linear: {}
 pr:
-  enabled: true
-  auto_create: true
+  enabled: false
+  auto_create: false
   base_branch: main
   review_on_create: false
-  linear_link: true
+  linear_link: false
 always_use_skills: []
 prefer_skills: []
 avoid_skills: []
 skill_rules: []
 custom_instructions: []
-models:
-  research: claude-sonnet-4-6
-  planning: claude-opus-4-6     # Opus for architectural decisions
-  execution: claude-sonnet-4-6
-  completion: claude-sonnet-4-6
+models: {}
 skill_discovery:
 auto_supervisor: {}
 ---
