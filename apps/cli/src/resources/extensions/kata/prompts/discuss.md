@@ -115,14 +115,62 @@ If Vision Mapping classified the work as Task but discussion revealed Project-sc
 
 ## Output Phase
 
-### Naming Convention
+**Before writing any artifacts, read `.kata/preferences.md` and check the `workflow.mode` field.** The user may have switched modes during the discussion. The mode at output time determines where artifacts are stored.
+
+- If `workflow.mode: linear` → follow the **Linear Mode Output Phase** below.
+- If `workflow.mode: file` (or no mode set) → follow the **File Mode Output Phase** below.
+
+---
+
+### Linear Mode Output Phase
+
+**Do NOT create `.kata/milestones/` directories. Do NOT write files to disk. Do NOT run `mkdir` or `git commit` for planning artifacts. All artifacts are written to Linear via `kata_write_document` and `kata_create_milestone`.**
+
+Read the template files at `~/.kata-cli/agent/extensions/kata/templates/` to understand the expected structure of each document before writing it. Use those structures as a guide, but write the content via `kata_write_document`.
+
+Use these exact titles when calling `kata_write_document`:
+- `PROJECT` — project overview
+- `REQUIREMENTS` — capability contract
+- `DECISIONS` — architectural decisions register
+- `{{milestoneId}}-CONTEXT` — milestone context (e.g. `M001-CONTEXT`)
+- `{{milestoneId}}-ROADMAP` — milestone roadmap (e.g. `M001-ROADMAP`)
+
+#### Single Milestone (Linear)
+
+Once the user is satisfied, in a single pass:
+1. Call `kata_create_milestone` with the milestone title to create `{{milestoneId}}` in Linear.
+2. Call `kata_write_document` with title `PROJECT` — read the template at `~/.kata-cli/agent/extensions/kata/templates/project.md` first.
+3. Call `kata_write_document` with title `REQUIREMENTS` — read the template at `~/.kata-cli/agent/extensions/kata/templates/requirements.md` first.
+4. Call `kata_write_document` with title `{{milestoneId}}-CONTEXT` — read the template at `~/.kata-cli/agent/extensions/kata/templates/context.md` first.
+5. Call `kata_write_document` with title `{{milestoneId}}-ROADMAP` — read the template at `~/.kata-cli/agent/extensions/kata/templates/roadmap.md` first. Decompose into demoable vertical slices with checkboxes, risk, depends, demo sentences, proof strategy, verification classes, milestone definition of done, requirement coverage, and a boundary map.
+6. Call `kata_write_document` with title `DECISIONS` — read the template at `~/.kata-cli/agent/extensions/kata/templates/decisions.md` first.
+
+After writing all documents, say exactly: "Milestone {{milestoneId}} ready." — nothing else. Auto-mode will start automatically.
+
+#### Multi-Milestone (Linear)
+
+Once the user confirms the milestone split, in a single pass:
+1. Call `kata_create_milestone` for each milestone with its title.
+2. Call `kata_write_document` with title `PROJECT`.
+3. Call `kata_write_document` with title `REQUIREMENTS`.
+4. Call `kata_write_document` with title `{milestoneId}-CONTEXT` for **every** milestone.
+5. Call `kata_write_document` with title `M001-ROADMAP` for **only the first milestone**.
+6. Call `kata_write_document` with title `DECISIONS`.
+
+After writing all documents, say exactly: "Milestone M001 ready." — nothing else. Auto-mode will start automatically.
+
+---
+
+### File Mode Output Phase
+
+#### Naming Convention
 
 Directories use bare IDs. Files use ID-SUFFIX format. Titles live inside file content, not in names.
 - Milestone dir: `.kata/milestones/{{milestoneId}}/`
 - Milestone files: `{{milestoneId}}-CONTEXT.md`, `{{milestoneId}}-ROADMAP.md`
 - Slice dirs: `S01/`, `S02/`, etc.
 
-### Single Milestone
+#### Single Milestone (File)
 
 Once the user is satisfied, in a single pass:
 1. `mkdir -p .kata/milestones/{{milestoneId}}/slices`
@@ -136,7 +184,7 @@ Once the user is satisfied, in a single pass:
 
 After writing the files and committing, say exactly: "Milestone {{milestoneId}} ready." — nothing else. Auto-mode will start automatically.
 
-### Multi-Milestone
+#### Multi-Milestone (File)
 
 Once the user confirms the milestone split, in a single pass:
 1. `mkdir -p .kata/milestones/{{milestoneId}}/slices` for each milestone

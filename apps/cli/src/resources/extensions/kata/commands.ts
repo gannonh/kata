@@ -19,7 +19,7 @@ import { deriveLinearState } from "../linear/linear-state.js";
 import { KataDashboardOverlay } from "./dashboard-overlay.js";
 import { showSmartEntry, showQueue, showDiscuss } from "./guided-flow.js";
 import { startAuto, stopAuto, isAutoActive, isAutoPaused } from "./auto.js";
-import { selectLinearPrompt } from "./linear-auto.js";
+import { selectLinearPrompt, buildLinearDiscussPrompt } from "./linear-auto.js";
 import {
   getGlobalKataPreferencesPath,
   getLegacyGlobalKataPreferencesPath,
@@ -360,8 +360,27 @@ async function showLinearSmartEntry(
     return;
   }
 
-  if (state.phase === "complete") {
+  if (state.phase === "complete" && state.activeMilestone) {
     ctx.ui.notify("All milestones are complete in Linear mode.", "info");
+    return;
+  }
+
+  // No active milestone — start the discuss flow for a new project/milestone.
+  // Send discuss-linear prompt directly (not through selectLinearPrompt, which
+  // handles execution phases, not the initial discuss/bootstrap intake).
+  if (!state.activeMilestone) {
+    const total = state.progress?.milestones?.total ?? 0;
+    const nextId = `M${String(total + 1).padStart(3, "0")}`;
+    const preamble = total === 0
+      ? `New project, milestone ${nextId}. Do NOT read or explore .kata/ — planning artifacts live in Linear.`
+      : `New milestone ${nextId}. Planning artifacts live in Linear.`;
+
+    const discussPrompt = buildLinearDiscussPrompt(nextId, preamble);
+    ctx.ui.notify(`Linear /kata: starting discuss for ${nextId}`, "info");
+    pi.sendMessage(
+      { customType: "kata-run", content: discussPrompt, display: false },
+      { triggerTurn: true },
+    );
     return;
   }
 
