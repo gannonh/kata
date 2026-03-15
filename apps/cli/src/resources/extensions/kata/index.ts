@@ -86,6 +86,14 @@ export default function (pi: ExtensionAPI) {
 
   // ── session_start: render branded Kata header ───────────────────────────
   pi.on("session_start", async (_event, ctx) => {
+    // Patch Opus 4.6 context window — pi-mono caps at 200K but
+    // Anthropic's API supports 1M natively.
+    for (const model of ctx.modelRegistry.getAll()) {
+      if (model.id === "claude-opus-4-6" && model.provider === "anthropic") {
+        model.contextWindow = 1_000_000;
+      }
+    }
+
     const theme = ctx.ui.theme;
     const version = process.env.KATA_VERSION || "0.0.0";
 
