@@ -640,13 +640,16 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     label: "Kata: List Slices",
     description:
       "List all Linear issues representing Kata slices in a project. " +
-      "Filters by the kata:slice label. Use kata_ensure_labels to obtain sliceLabelId.",
+      "Resolves the kata:slice label automatically from the team.",
     parameters: Type.Object({
       projectId: Type.String({ description: "Project UUID to scope the query" }),
-      sliceLabelId: Type.String({ description: "Label UUID for kata:slice (from kata_ensure_labels)" }),
+      teamId: Type.String({ description: "Team UUID (from kata_derive_state or preferences)" }),
     }),
     async execute(_id, params) {
-      return run(() => listKataSlices(client, params.projectId, params.sliceLabelId));
+      return run(async () => {
+        const labelSet = await ensureKataLabels(client, params.teamId);
+        return listKataSlices(client, params.projectId, labelSet.slice.id);
+      });
     },
   });
 
