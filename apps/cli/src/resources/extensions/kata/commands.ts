@@ -215,10 +215,11 @@ function describeSkillResolution(
 export function registerKataCommand(pi: ExtensionAPI): void {
   pi.registerCommand("kata", {
     description:
-      "Kata — Kata Workflow: /kata auto|stop|status|queue|discuss|prefs|doctor|pr",
+      "Kata — Kata Workflow: /kata step|auto|stop|status|queue|discuss|prefs|doctor|pr",
 
     getArgumentCompletions: (prefix: string) => {
       const subcommands = [
+        "step",
         "auto",
         "stop",
         "status",
@@ -322,7 +323,7 @@ export function registerKataCommand(pi: ExtensionAPI): void {
         return;
       }
 
-      if (trimmed === "") {
+      if (trimmed === "" || trimmed === "step") {
         if (isLinearMode()) {
           await showLinearSmartEntry(ctx, pi, process.cwd());
           return;
@@ -333,7 +334,7 @@ export function registerKataCommand(pi: ExtensionAPI): void {
       }
 
       ctx.ui.notify(
-        `Unknown: /kata ${trimmed}. Use /kata, /kata auto, /kata stop, /kata status, /kata queue, /kata discuss, /kata prefs [global|project|status], /kata doctor [audit|fix|heal] [M###/S##], or /kata pr [status|create|review|address|merge].`,
+        `Unknown: /kata ${trimmed}. Use /kata step, /kata auto, /kata stop, /kata status, /kata queue, /kata discuss, /kata prefs [global|project|status], /kata doctor [audit|fix|heal] [M###/S##], or /kata pr [status|create|review|address|merge].`,
         "warning",
       );
     },
