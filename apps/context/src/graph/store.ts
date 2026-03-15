@@ -49,6 +49,33 @@ const SCHEMA_DDL = `
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+
+  -- FTS5 external content table for full-text search on symbols
+  CREATE VIRTUAL TABLE IF NOT EXISTS symbols_fts USING fts5(
+    name,
+    file_path,
+    docstring,
+    content=symbols,
+    content_rowid=rowid
+  );
+
+  -- Triggers to keep FTS5 index in sync with symbols table
+  CREATE TRIGGER IF NOT EXISTS symbols_ai AFTER INSERT ON symbols BEGIN
+    INSERT INTO symbols_fts(rowid, name, file_path, docstring)
+    VALUES (new.rowid, new.name, new.file_path, COALESCE(new.docstring, ''));
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS symbols_ad AFTER DELETE ON symbols BEGIN
+    INSERT INTO symbols_fts(symbols_fts, rowid, name, file_path, docstring)
+    VALUES ('delete', old.rowid, old.name, old.file_path, COALESCE(old.docstring, ''));
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS symbols_au AFTER UPDATE ON symbols BEGIN
+    INSERT INTO symbols_fts(symbols_fts, rowid, name, file_path, docstring)
+    VALUES ('delete', old.rowid, old.name, old.file_path, COALESCE(old.docstring, ''));
+    INSERT INTO symbols_fts(rowid, name, file_path, docstring)
+    VALUES (new.rowid, new.name, new.file_path, COALESCE(new.docstring, ''));
+  END;
 `;
 
 // ── Row types (what SQLite returns) ──
@@ -106,6 +133,26 @@ function rowToRelationship(row: EdgeRow): Relationship {
     filePath: row.file_path,
     lineNumber: row.line_number,
   };
+}
+
+// ── FTS5 helpers ──
+
+/**
+ * Sanitize a user query for FTS5 MATCH syntax.
+ * If the query contains FTS5 operators (* prefix at end, OR, AND, NOT, quotes),
+ * pass it through as-is. Otherwise, wrap each token in double quotes to prevent
+ * syntax errors from special characters (dots, hyphens, slashes, etc.).
+ */
+function sanitizeFtsQuery(query: string): string {
+  // Pass through queries that already use FTS5 syntax
+  if (/[*"]/.test(query) || /\b(OR|AND|NOT)\b/.test(query)) {
+    return query;
+  }
+  // Wrap each whitespace-separated token in double quotes
+  return query
+    .split(/\s+/)
+    .map((token) => `"${token}"`)
+    .join(" ");
 }
 
 // ── GraphStore ──
@@ -248,5 +295,94 @@ export class GraphStore {
         "INSERT OR REPLACE INTO metadata (key, value) VALUES ('last_indexed_sha', ?)",
       )
       .run(sha);
+  }
+
+  // ── FTS5 Search ──
+
+  /**
+   * Full-text search on symbol names, file paths, and docstrings.
+   * Uses FTS5 MATCH with BM25 relevance ranking.
+   *
+   * @param query - FTS5 query string (supports prefix matching with *)
+   * @param options - Optional limit and kind filter
+   */
+  ftsSearch(
+    query: string,
+    options?: { limit?: number; kind?: SymbolKind },
+  ): Symbol[] {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+
+    const limit = options?.limit ?? 20;
+
+    // Sanitize query: if it doesn't already contain FTS5 operators (* OR AND NOT),
+    // wrap tokens in double quotes to prevent syntax errors from dots, hyphens, etc.
+    const ftsQuery = sanitizeFtsQuery(trimmed);
+
+    if (options?.kind) {
+      const rows = this.db
+        .prepare(
+          `SELECT s.* FROM symbols s
+           JOIN symbols_fts fts ON s.rowid = fts.rowid
+           WHERE symbols_fts MATCH ?
+             AND s.kind = ?
+           ORDER BY bm25(symbols_fts)
+           LIMIT ?`,
+        )
+        .all(ftsQuery, options.kind, limit) as SymbolRow[];
+      return rows.map(rowToSymbol);
+    }
+
+    const rows = this.db
+      .prepare(
+        `SELECT s.* FROM symbols s
+         JOIN symbols_fts fts ON s.rowid = fts.rowid
+         WHERE symbols_fts MATCH ?
+         ORDER BY bm25(symbols_fts)
+         LIMIT ?`,
+      )
+      .all(ftsQuery, limit) as SymbolRow[];
+    return rows.map(rowToSymbol);
+  }
+
+  // ── Edge Queries ──
+
+  /** Get all edges originating from a symbol (outgoing relationships). */
+  getEdgesFrom(symbolId: string): Relationship[] {
+    const rows = this.db
+      .prepare("SELECT * FROM edges WHERE source_id = ?")
+      .all(symbolId) as EdgeRow[];
+    return rows.map(rowToRelationship);
+  }
+
+  /** Get all edges pointing to a symbol (incoming relationships). */
+  getEdgesTo(symbolId: string): Relationship[] {
+    const rows = this.db
+      .prepare("SELECT * FROM edges WHERE target_id = ?")
+      .all(symbolId) as EdgeRow[];
+    return rows.map(rowToRelationship);
+  }
+
+  // ── Stats ──
+
+  /** Get summary counts of the graph contents. */
+  getStats(): { symbols: number; edges: number; files: number } {
+    const symbolCount = (
+      this.db.prepare("SELECT COUNT(*) as cnt FROM symbols").get() as {
+        cnt: number;
+      }
+    ).cnt;
+    const edgeCount = (
+      this.db.prepare("SELECT COUNT(*) as cnt FROM edges").get() as {
+        cnt: number;
+      }
+    ).cnt;
+    const fileCount = (
+      this.db
+        .prepare("SELECT COUNT(DISTINCT file_path) as cnt FROM symbols")
+        .get() as { cnt: number }
+    ).cnt;
+
+    return { symbols: symbolCount, edges: edgeCount, files: fileCount };
   }
 }
