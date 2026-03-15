@@ -927,10 +927,11 @@ async function dispatchNextUnit(
     // Linear equivalent of the file-mode complete-slice PR check (D049).
     // The previous unit was linear-summarizing — the slice is done.
     // Also check completing-milestone — milestone completion is also a PR boundary.
-    ctx.ui.notify(
-      `[PR-gate debug] prev=${currentUnit?.type ?? "null"} next=${linearUnitType}`,
-      "info",
-    );
+    try {
+      const { appendFileSync } = await import("node:fs");
+      const logLine = `${new Date().toISOString()} prev=${currentUnit?.type ?? "null"} next=${linearUnitType} id=${currentUnit?.id ?? "null"}\n`;
+      appendFileSync(join(basePath, ".kata", "auto-debug.log"), logLine);
+    } catch { /* ignore */ }
     if (currentUnit?.type === "linear-summarizing" || currentUnit?.type === "linear-completing-milestone") {
       const postPrefs = loadEffectiveKataPreferences()?.preferences;
       const postDecision = decidePostCompleteSliceAction(postPrefs?.pr);
