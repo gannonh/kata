@@ -1,13 +1,9 @@
 /**
  * Kata Auto Mode — Fresh Session Per Unit
  *
- * State machine driven by .kata/ files on disk. Each "unit" of work
- * (plan slice, execute task, complete slice) gets a fresh session via
- * the stashed ctx.newSession() pattern.
- *
- * The extension reads disk state after each agent_end, determines the
- * next unit type, creates a fresh session, and injects a focused prompt
- * telling the LLM which files to read and what to do.
+ * Unified dispatch loop backed by KataBackend. No isLinearMode() forks.
+ * The backend (FileBackend or LinearBackend) handles mode-specific state
+ * derivation, prompt building, and document I/O.
  */
 
 import type {
@@ -16,41 +12,9 @@ import type {
   ExtensionCommandContext,
 } from "@mariozechner/pi-coding-agent";
 
-import { deriveState } from "./state.js";
 import type { KataState } from "./types.js";
-import {
-  loadFile,
-  parseContinue,
-  parseRoadmap,
-  parseSummary,
-  extractUatType,
-  inlinePriorMilestoneSummary,
-} from "./files.js";
-export { inlinePriorMilestoneSummary };
-import type { UatType } from "./files.js";
-import { loadPrompt } from "./prompt-loader.js";
-import {
-  kataRoot,
-  resolveMilestoneFile,
-  resolveSliceFile,
-  resolveSlicePath,
-  resolveMilestonePath,
-  resolveDir,
-  resolveTasksDir,
-  resolveTaskFiles,
-  resolveTaskFile,
-  relMilestoneFile,
-  relSliceFile,
-  relTaskFile,
-  relSlicePath,
-  relMilestonePath,
-  milestonesDir,
-  resolveKataRootFile,
-  relKataRootFile,
-  buildMilestoneFileName,
-  buildSliceFileName,
-  buildTaskFileName,
-} from "./paths.js";
+import type { KataBackend, PromptOptions } from "./backend.js";
+import { createBackend } from "./backend-factory.js";
 import { saveActivityLog } from "./activity-log.js";
 import {
   synthesizeCrashRecovery,
@@ -75,7 +39,6 @@ import {
   resolveSkillDiscoveryMode,
   loadEffectiveKataPreferences,
 } from "./preferences.js";
-import type { KataPreferences } from "./preferences.js";
 import {
   decidePostCompleteSliceAction,
   formatPrAutoCreateFailure,
@@ -87,9 +50,7 @@ import {
   validateCompleteBoundary,
   formatValidationIssues,
 } from "./observability-validator.js";
-import { ensureGitignore } from "./gitignore.js";
-import { getWorkflowEntrypointGuard, isLinearMode } from "./linear-config.js";
-import { resolveLinearKataState, selectLinearPrompt } from "./linear-auto.js";
+import { getWorkflowEntrypointGuard } from "./linear-config.js";
 import { snapshotSkills, clearSkillSnapshot } from "./skill-discovery.js";
 import {
   initMetrics,
@@ -102,13 +63,34 @@ import {
 } from "./metrics.js";
 import { join } from "node:path";
 import {
-  readdirSync,
-  readFileSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   writeFileSync,
 } from "node:fs";
-import { execSync } from "node:child_process";
+import {
+  kataRoot,
+  resolveMilestoneFile,
+  resolveSliceFile,
+  resolveSlicePath,
+  resolveMilestonePath,
+  resolveDir,
+  resolveTasksDir,
+  resolveTaskFiles,
+  relMilestoneFile,
+  relSliceFile,
+  relSlicePath,
+  relMilestonePath,
+  milestonesDir,
+  buildMilestoneFileName,
+  buildSliceFileName,
+  buildTaskFileName,
+} from "./paths.js";
+import {
+  loadFile,
+  parseRoadmap,
+  parsePlan,
+} from "./files.js";
 import {
   autoCommitCurrentBranch,
   ensureSliceBranch,
@@ -125,6 +107,7 @@ let paused = false;
 let verbose = false;
 let cmdCtx: ExtensionCommandContext | null = null;
 let basePath = "";
+let backend: KataBackend | null = null;
 
 /** Track last dispatched unit to detect stuck loops */
 let lastUnit: { type: string; id: string } | null = null;
@@ -244,6 +227,7 @@ export async function stopAuto(
   currentMilestoneId = null;
   cachedSliceProgress = null;
   pendingCrashRecovery = null;
+  backend = null;
   ctx?.ui.setStatus("kata-auto", undefined);
   ctx?.ui.setWidget("kata-progress", undefined);
 
@@ -272,7 +256,7 @@ export async function pauseAuto(
   active = false;
   paused = true;
   // Preserve: lastUnit, currentUnit, basePath, verbose, cmdCtx,
-  // completedUnits, autoStartTime, currentMilestoneId, originalModelId
+  // completedUnits, autoStartTime, currentMilestoneId, originalModelId, backend
   // — all needed for resume and dashboard display
   ctx?.ui.setStatus("kata-auto", "paused");
   ctx?.ui.setWidget("kata-progress", undefined);
@@ -313,73 +297,23 @@ export async function startAuto(
     return;
   }
 
-  // ── Linear mode: skip git + .kata bootstrap — state is in Linear API ──
-  if (isLinearMode()) {
-    const state = await resolveLinearKataState(base);
-    if (!state.activeMilestone || state.phase === "complete") {
-      ctx.ui.notify(
-        "Linear project has no active milestone. Run /kata to set up a milestone first.",
-        "info",
-      );
-      return;
-    }
-    if (state.phase === "blocked") {
-      ctx.ui.notify(
-        `Blocked: ${state.blockers?.join(", ")}. Fix and run /kata auto.`,
-        "warning",
-      );
-      return;
-    }
-    active = true;
-    verbose = verboseMode;
-    cmdCtx = ctx;
-    basePath = base;
-    lastUnit = null;
-    retryCount = 0;
-    autoStartTime = Date.now();
-    completedUnits = [];
-    currentUnit = null;
-    currentMilestoneId = state.activeMilestone?.id ?? null;
-    originalModelId = ctx.model?.id ?? null;
-    initMetrics(base);
-    ctx.ui.setStatus("kata-auto", "auto");
-    ctx.ui.notify("Auto-mode started (Linear mode). Looping until milestone complete.", "info");
-    await dispatchNextUnit(ctx, pi);
+  // Create backend (handles mode detection internally)
+  try {
+    backend = await createBackend(base);
+  } catch (err) {
+    ctx.ui.notify(
+      `Backend init failed: ${err instanceof Error ? err.message : String(err)}`,
+      "error",
+    );
     return;
   }
 
-  // Ensure git repo exists — Kata needs it for branch-per-slice
-  try {
-    execSync("git rev-parse --git-dir", { cwd: base, stdio: "pipe" });
-  } catch {
-    execSync("git init", { cwd: base, stdio: "pipe" });
-  }
+  // Bootstrap (git init, .kata/ dir, etc. — backend handles mode-specific setup)
+  await backend.bootstrap();
 
-  // Ensure .gitignore has baseline patterns
-  ensureGitignore(base);
-
-  // Bootstrap .kata/ if it doesn't exist
-  const kataDir = join(base, ".kata");
-  if (!existsSync(kataDir)) {
-    mkdirSync(join(kataDir, "milestones"), { recursive: true });
-    try {
-      execSync(
-        "git add -A .kata .gitignore && git commit -m 'chore: init kata'",
-        {
-          cwd: base,
-          stdio: "pipe",
-        },
-      );
-    } catch {
-      /* nothing to commit */
-    }
-  }
-
-  // Check for crash from previous session
+  // Check for crash recovery (shared — crash lock is always in .kata/)
   const crashLock = readCrashLock(base);
   if (crashLock) {
-    // Synthesize a rich recovery briefing from the surviving pi session file
-    // (pi writes entries incrementally, so it contains every tool call up to the crash)
     const activityDir = join(kataRoot(base), "activity");
     const recovery = synthesizeCrashRecovery(
       base,
@@ -403,31 +337,32 @@ export async function startAuto(
     clearLock(base);
   }
 
-  const state = await deriveState(base);
+  // Derive state
+  const state = await backend.deriveState();
 
-  // No active work at all — start a new milestone via the discuss flow.
   if (!state.activeMilestone || state.phase === "complete") {
     const { showSmartEntry } = await import("./guided-flow.js");
     await showSmartEntry(ctx, pi, base);
     return;
   }
 
-  // Active milestone exists but has no roadmap — check if context exists.
-  // If context was pre-written (multi-milestone planning), auto-mode can
-  // research and plan it. If no context either, need user discussion.
-  if (state.phase === "pre-planning") {
-    const contextFile = resolveMilestoneFile(
-      base,
-      state.activeMilestone.id,
-      "CONTEXT",
+  if (state.phase === "blocked") {
+    ctx.ui.notify(
+      `Blocked: ${state.blockers?.join(", ")}. Fix and run /kata auto.`,
+      "warning",
     );
-    const hasContext = !!(contextFile && (await loadFile(contextFile)));
+    return;
+  }
+
+  if (state.phase === "pre-planning") {
+    const hasContext = await backend.documentExists(
+      `${state.activeMilestone.id}-CONTEXT`,
+    );
     if (!hasContext) {
       const { showSmartEntry } = await import("./guided-flow.js");
       await showSmartEntry(ctx, pi, base);
       return;
     }
-    // Has context, no roadmap — auto-mode will research + plan it
   }
 
   active = true;
@@ -782,6 +717,26 @@ function updateSliceProgressCache(
   }
 }
 
+/**
+ * Update the cached slice progress from KataState.progress if available.
+ * Used when the backend provides progress data directly (e.g., LinearBackend).
+ */
+function updateSliceProgressFromState(
+  state: KataState,
+  mid: string,
+): void {
+  if (state.progress?.slices) {
+    cachedSliceProgress = {
+      done: state.progress.slices.done,
+      total: state.progress.slices.total,
+      milestoneId: mid,
+      activeSliceTasks: state.progress?.tasks
+        ? { done: state.progress.tasks.done, total: state.progress.tasks.total }
+        : null,
+    };
+  }
+}
+
 function getRoadmapSlicesSync(): {
   done: number;
   total: number;
@@ -790,405 +745,114 @@ function getRoadmapSlicesSync(): {
   return cachedSliceProgress;
 }
 
+// ─── Dispatch Helpers ─────────────────────────────────────────────────────────
+
+async function resolveDispatchOptions(
+  be: KataBackend,
+  state: KataState,
+  prevUnit: { type: string; id: string } | null,
+): Promise<PromptOptions> {
+  const options: PromptOptions = {};
+  const mid = state.activeMilestone?.id;
+  const sid = state.activeSlice?.id;
+
+  // Research-before-plan
+  if (state.phase === "pre-planning" && mid) {
+    if (!(await be.documentExists(`${mid}-RESEARCH`))) {
+      options.dispatchResearch = "milestone";
+    }
+  } else if (state.phase === "planning" && sid) {
+    if (!(await be.documentExists(`${sid}-RESEARCH`))) {
+      options.dispatchResearch = "slice";
+    }
+  }
+
+  // UAT + reassessment on slice transition
+  const prevSliceKey = prevUnit?.id
+    ? prevUnit.id.split("/").slice(0, 2).join("/")
+    : null;
+  const nextSliceKey = [mid, sid].filter(Boolean).join("/");
+  const sliceChanged = prevSliceKey !== null && prevSliceKey !== nextSliceKey;
+
+  if (sliceChanged && prevSliceKey) {
+    const [, prevSid] = prevSliceKey.split("/");
+    if (prevSid) {
+      const prefs = loadEffectiveKataPreferences()?.preferences;
+      if (prefs?.uat_dispatch) {
+        const hasUat = await be.documentExists(`${prevSid}-UAT`);
+        const hasResult = await be.documentExists(`${prevSid}-UAT-RESULT`);
+        if (hasUat && !hasResult) options.uatSliceId = prevSid;
+      }
+      if (!options.uatSliceId) {
+        const hasSummary = await be.documentExists(`${prevSid}-SUMMARY`);
+        const hasAssessment = await be.documentExists(`${prevSid}-ASSESSMENT`);
+        if (hasSummary && !hasAssessment) options.reassessSliceId = prevSid;
+      }
+    }
+  }
+
+  return options;
+}
+
+function deriveUnitType(state: KataState, options: PromptOptions): string {
+  if (options.uatSliceId) return "run-uat";
+  if (options.reassessSliceId) return "reassess-roadmap";
+  if (options.dispatchResearch === "milestone") return "research-milestone";
+  if (options.dispatchResearch === "slice") return "research-slice";
+  switch (state.phase) {
+    case "pre-planning":
+      return "plan-milestone";
+    case "planning":
+      return "plan-slice";
+    case "executing":
+    case "verifying":
+      return "execute-task";
+    case "summarizing":
+      return "complete-slice";
+    case "completing-milestone":
+      return "complete-milestone";
+    case "replanning-slice":
+      return "replan-slice";
+    default:
+      return `unknown-${state.phase}`;
+  }
+}
+
+function deriveUnitId(state: KataState): string {
+  const mid = state.activeMilestone?.id ?? "unknown";
+  const sid = state.activeSlice?.id;
+  const tid = state.activeTask?.id;
+  if (tid && sid) return `${mid}/${sid}/${tid}`;
+  if (sid) return `${mid}/${sid}`;
+  return mid;
+}
+
 // ─── Core Loop ────────────────────────────────────────────────────────────────
 
 async function dispatchNextUnit(
   ctx: ExtensionContext,
   pi: ExtensionAPI,
 ): Promise<void> {
-  if (!active || !cmdCtx) return;
+  if (!active || !cmdCtx || !backend) return;
 
-  // ── Linear mode: use API-backed state derivation + prompt dispatch ──
-  if (isLinearMode()) {
-    const linearState = await resolveLinearKataState(basePath);
-    const linearMid = linearState.activeMilestone?.id;
-    const linearMidTitle = linearState.activeMilestone?.title;
+  // 1. Derive state (backend handles file vs Linear)
+  const state = await backend.deriveState();
+  const mid = state.activeMilestone?.id;
+  const midTitle = state.activeMilestone?.title;
 
-    // Detect milestone transition
-    if (linearMid && currentMilestoneId && linearMid !== currentMilestoneId) {
-      ctx.ui.notify(
-        `Milestone ${currentMilestoneId} complete. Advancing to ${linearMid}: ${linearMidTitle}.`,
-        "info",
-      );
-      lastUnit = null;
-      retryCount = 0;
-    }
-    if (linearMid) currentMilestoneId = linearMid;
-
-    if (linearState.phase === "complete") {
-      if (currentUnit) {
-        const modelId = ctx.model?.id ?? "unknown";
-        snapshotUnitMetrics(
-          ctx,
-          currentUnit.type,
-          currentUnit.id,
-          currentUnit.startedAt,
-          modelId,
-        );
-        saveActivityLog(ctx, basePath, currentUnit.type, currentUnit.id);
-      }
-      await stopAuto(ctx, pi);
-      return;
-    }
-
-    if (linearState.phase === "blocked") {
-      if (currentUnit) {
-        const modelId = ctx.model?.id ?? "unknown";
-        snapshotUnitMetrics(
-          ctx,
-          currentUnit.type,
-          currentUnit.id,
-          currentUnit.startedAt,
-          modelId,
-        );
-        saveActivityLog(ctx, basePath, currentUnit.type, currentUnit.id);
-      }
-      await stopAuto(ctx, pi);
-      ctx.ui.notify(
-        `Blocked: ${linearState.blockers.join(", ")}. Fix and run /kata auto.`,
-        "warning",
-      );
-      return;
-    }
-
-    const linearPrompt = selectLinearPrompt(linearState);
-    if (!linearPrompt) {
-      await stopAuto(ctx, pi);
-      return;
-    }
-
-    const linearUnitPhase = linearState.phase;
-    const linearMidId = linearState.activeMilestone?.id ?? "unknown";
-    const linearSid = linearState.activeSlice?.id ?? "";
-    const linearTid = linearState.activeTask?.id ?? "";
-    const linearUnitType = `linear-${linearUnitPhase}`;
-    const linearUnitId = linearTid
-      ? `${linearMidId}/${linearSid}/${linearTid}`
-      : linearSid
-        ? `${linearMidId}/${linearSid}`
-        : linearMidId;
-
-    ctx.ui.notify(
-      `Linear auto-mode: ${linearUnitPhase} — ${linearUnitId}`,
-      "info",
-    );
-
-    // Stuck detection
-    if (lastUnit && lastUnit.type === linearUnitType && lastUnit.id === linearUnitId) {
-      retryCount++;
-      if (retryCount > MAX_RETRIES) {
-        if (currentUnit) {
-          const modelId = ctx.model?.id ?? "unknown";
-          snapshotUnitMetrics(
-            ctx,
-            currentUnit.type,
-            currentUnit.id,
-            currentUnit.startedAt,
-            modelId,
-          );
-        }
-        saveActivityLog(ctx, basePath, linearUnitType, linearUnitId);
-        await stopAuto(ctx, pi);
-        ctx.ui.notify(
-          `Stuck: ${linearUnitType} ${linearUnitId} fired ${retryCount + 1} times. Check Linear state.`,
-          "error",
-        );
-        return;
-      }
-      ctx.ui.notify(
-        `${linearUnitType} ${linearUnitId} didn't advance. Retrying (${retryCount}/${MAX_RETRIES}).`,
-        "warning",
-      );
-    } else {
-      retryCount = 0;
-    }
-
-    // Snapshot + activity log for the PREVIOUS unit
-    if (currentUnit) {
-      const modelId = ctx.model?.id ?? "unknown";
-      snapshotUnitMetrics(
-        ctx,
-        currentUnit.type,
-        currentUnit.id,
-        currentUnit.startedAt,
-        modelId,
-      );
-      saveActivityLog(ctx, basePath, currentUnit.type, currentUnit.id);
-      completedUnits.push({
-        type: currentUnit.type,
-        id: currentUnit.id,
-        startedAt: currentUnit.startedAt,
-        finishedAt: Date.now(),
-      });
-    }
-
-    // ── Post-completion: PR gating for Linear mode after slice completion ──
-    // Linear equivalent of the file-mode complete-slice PR check (D049).
-    // Detect slice completion by checking:
-    //   1. The previous unit was linear-summarizing (normal flow), OR
-    //   2. The previous unit was on a different slice than the current one
-    //      (agent skipped summarizing by marking slice done during task execution)
-    // Also check completing-milestone — milestone completion is also a PR boundary.
-    try {
-      const { appendFileSync } = await import("node:fs");
-      const logLine = `${new Date().toISOString()} prev=${currentUnit?.type ?? "null"} next=${linearUnitType} id=${currentUnit?.id ?? "null"}\n`;
-      appendFileSync(join(basePath, ".kata", "auto-debug.log"), logLine);
-    } catch { /* ignore */ }
-
-    // Extract the slice portion (M00x/S0x) from the unit IDs to detect slice transitions.
-    const prevSliceKey = currentUnit?.id ? currentUnit.id.split("/").slice(0, 2).join("/") : null;
-    const nextSliceKey = linearUnitId.split("/").slice(0, 2).join("/");
-    const sliceChanged = prevSliceKey !== null && prevSliceKey !== nextSliceKey
-      && currentUnit?.type?.startsWith("linear-");
-    const wasSummarizingOrCompleting =
-      currentUnit?.type === "linear-summarizing" || currentUnit?.type === "linear-completing-milestone";
-
-    if (wasSummarizingOrCompleting || sliceChanged) {
-      const postPrefs = loadEffectiveKataPreferences()?.preferences;
-      const postDecision = decidePostCompleteSliceAction(postPrefs?.pr);
-
-      if (postDecision === "auto-create-and-pause") {
-        const [completedMid, completedSid] = currentUnit.id.split("/");
-
-        // Ensure a slice branch exists at HEAD and is pushed before PR creation.
-        // In Linear mode the agent commits to whatever branch the worktree is on.
-        // We create (or reset) a slice branch pointing at HEAD so the PR has the right commits.
-        try {
-          const sliceBranch = `kata/${completedMid}/${completedSid}`;
-          // Create or reset the slice branch to current HEAD
-          execSync(`git branch -f ${sliceBranch} HEAD`, { cwd: basePath, stdio: "pipe" });
-          execSync(`git checkout ${sliceBranch}`, { cwd: basePath, stdio: "pipe" });
-          execSync(`git push -u origin ${sliceBranch}`, { cwd: basePath, stdio: "pipe" });
-        } catch (branchErr) {
-          const msg = branchErr instanceof Error ? branchErr.message : String(branchErr);
-          ctx.ui.notify(`Branch setup for PR failed: ${msg}`, "error");
-        }
-
-        // Fetch Linear documents for PR body (best-effort)
-        let linearDocs: Record<string, string> | undefined;
-        try {
-          const apiKey = process.env.LINEAR_API_KEY;
-          const { loadEffectiveLinearProjectConfig } = await import("./linear-config.js");
-          const cfg = loadEffectiveLinearProjectConfig();
-          const pid = cfg.linear.projectId;
-          if (apiKey && pid) {
-            const { LinearClient } = await import("../linear/linear-client.js");
-            const { readKataDocument } = await import("../linear/linear-documents.js");
-            const lc = new LinearClient(apiKey);
-            linearDocs = {};
-            const planDoc = await readKataDocument(lc, `${completedSid}-PLAN`, { projectId: pid });
-            if (planDoc) linearDocs["PLAN"] = planDoc.content;
-            const summaryDoc = await readKataDocument(lc, `${completedSid}-SUMMARY`, { projectId: pid });
-            if (summaryDoc) linearDocs["SUMMARY"] = summaryDoc.content;
-          }
-        } catch {
-          // Best-effort — proceed with empty PR body if fetch fails
-        }
-
-        const prResult = await runCreatePr({
-          cwd: basePath,
-          milestoneId: completedMid!,
-          sliceId: completedSid!,
-          baseBranch: postPrefs?.pr?.base_branch ?? "main",
-          title: completedSid!,
-          linearDocuments: linearDocs,
-        });
-        if (prResult.ok) {
-          ctx.ui.notify(
-            `PR created: ${prResult.url}\nAuto-mode paused — review and merge the PR, then run /kata auto to continue.`,
-            "info",
-          );
-        } else {
-          const diagnostic = formatPrAutoCreateFailure({
-            phase: prResult.phase,
-            error: prResult.error,
-            hint: prResult.hint ?? "",
-          });
-          ctx.ui.notify(
-            `PR auto-create failed — auto-mode stopped.\n${diagnostic}`,
-            "error",
-          );
-        }
-        await stopAuto(ctx, pi);
-        return;
-      } else if (postDecision === "skip-notify") {
-        ctx.ui.notify(
-          `Slice complete. PR lifecycle is enabled — run /kata pr create to open a PR, then merge before continuing.\nAuto-mode paused.`,
-          "info",
-        );
-        await stopAuto(ctx, pi);
-        return;
-      }
-      // "legacy-squash-merge" falls through — no PR gating, continue to next unit.
-      // In Linear mode there's no squash-merge (Linear state is the truth), just advance.
-    }
-
-    lastUnit = { type: linearUnitType, id: linearUnitId };
-    currentUnit = { type: linearUnitType, id: linearUnitId, startedAt: Date.now() };
-
-    ctx.ui.setStatus("kata-auto", "auto");
-
-    // Fresh session
-    const linearResult = await cmdCtx!.newSession();
-    if (linearResult.cancelled) {
-      await stopAuto(ctx, pi);
-      ctx.ui.notify("New session cancelled — auto-mode stopped.", "warning");
-      return;
-    }
-
-    // Apply retry diagnostic if stuck
-    let linearFinalPrompt = linearPrompt;
-    if (retryCount > 0) {
-      const diagnostic = getDeepDiagnostic(basePath);
-      if (diagnostic) {
-        linearFinalPrompt = `**RETRY — previous attempt did not advance the Linear phase.**\n\nDiagnostic:\n${diagnostic}\n\n---\n\n${linearFinalPrompt}`;
-      }
-    }
-
-    // Switch model if preferences specify one for this unit type
-    const linearPreferredModelId = resolveModelForUnit(linearUnitType);
-    if (linearPreferredModelId) {
-      const allModels = ctx.modelRegistry.getAll();
-      const model = allModels.find((m) => m.id === linearPreferredModelId);
-      if (model) {
-        const ok = await pi.setModel(model);
-        if (ok) {
-          ctx.ui.notify(`Model: ${linearPreferredModelId}`, "info");
-        }
-      }
-    }
-
-    pi.sendMessage({ content: linearFinalPrompt }, { triggerTurn: true });
-    return;
-  }
-
-  // ── File mode ──
-
-  let state = await deriveState(basePath);
-  let mid = state.activeMilestone?.id;
-  let midTitle = state.activeMilestone?.title;
-
-  // Detect milestone transition
+  // 2. Milestone transition detection
   if (mid && currentMilestoneId && mid !== currentMilestoneId) {
     ctx.ui.notify(
       `Milestone ${currentMilestoneId} complete. Advancing to ${mid}: ${midTitle}.`,
       "info",
     );
-    // Reset stuck detection for new milestone
     lastUnit = null;
     retryCount = 0;
   }
   if (mid) currentMilestoneId = mid;
 
-  if (!mid) {
-    // Save final session before stopping
-    if (currentUnit) {
-      const modelId = ctx.model?.id ?? "unknown";
-      snapshotUnitMetrics(
-        ctx,
-        currentUnit.type,
-        currentUnit.id,
-        currentUnit.startedAt,
-        modelId,
-      );
-      saveActivityLog(ctx, basePath, currentUnit.type, currentUnit.id);
-    }
-    await stopAuto(ctx, pi);
-    return;
-  }
-
-  // ── Post-completion: preference-aware slice transition after complete-slice ──
-  // The complete-slice unit writes the summary, UAT, marks roadmap [x], and commits.
-  // What happens next depends on pr.enabled / pr.auto_create (D049).
-  if (currentUnit?.type === "complete-slice") {
-    const [completedMid, completedSid] = currentUnit.id.split("/");
-    const postPrefs = loadEffectiveKataPreferences()?.preferences;
-    const postDecision = decidePostCompleteSliceAction(postPrefs?.pr);
-    let sliceTitleForPr = completedSid!;
-
-    // Best-effort title resolution for merge/PR title. Never blocks post-completion flow.
-    try {
-      const roadmapFile = resolveMilestoneFile(
-        basePath,
-        completedMid!,
-        "ROADMAP",
-      );
-      const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
-      if (roadmapContent) {
-        const roadmap = parseRoadmap(roadmapContent);
-        const sliceEntry = roadmap.slices.find((s) => s.id === completedSid);
-        if (sliceEntry) sliceTitleForPr = sliceEntry.title;
-      }
-    } catch {
-      // Keep fallback title (slice ID) if roadmap parsing fails.
-    }
-
-    if (postDecision === "legacy-squash-merge") {
-      // PR lifecycle disabled — keep existing squash-merge behavior unchanged.
-      try {
-        switchToMain(basePath);
-        const mergeResult = mergeSliceToMain(
-          basePath,
-          completedMid!,
-          completedSid!,
-          sliceTitleForPr,
-        );
-        ctx.ui.notify(`Merged ${mergeResult.branch} → main.`, "info");
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        ctx.ui.notify(`Slice merge failed: ${message}`, "error");
-        state = await deriveState(basePath);
-        mid = state.activeMilestone?.id;
-        midTitle = state.activeMilestone?.title;
-      }
-    } else if (postDecision === "auto-create-and-pause") {
-      // PR lifecycle enabled with auto_create — create PR then pause for review/merge.
-      const prResult = await runCreatePr({
-        cwd: basePath,
-        milestoneId: completedMid!,
-        sliceId: completedSid!,
-        baseBranch: postPrefs?.pr?.base_branch ?? "main",
-        title: sliceTitleForPr,
-      });
-      if (prResult.ok) {
-        ctx.ui.notify(
-          `PR created: ${prResult.url}\nAuto-mode paused — review and merge the PR, then run /kata auto to continue.`,
-          "info",
-        );
-        await stopAuto(ctx, pi);
-        return;
-      } else {
-        // PR creation failed — surface diagnostics and stop. Never fall through to legacy merge.
-        const diagnostic = formatPrAutoCreateFailure({
-          phase: prResult.phase,
-          error: prResult.error,
-          hint: prResult.hint ?? "",
-        });
-        ctx.ui.notify(
-          `PR auto-create failed — auto-mode stopped.\n${diagnostic}`,
-          "error",
-        );
-        await stopAuto(ctx, pi);
-        return;
-      }
-    } else {
-      // skip-notify — PR lifecycle enabled but auto_create is off.
-      // Do not squash-merge. Notify, then pause until PR is manually created/merged.
-      ctx.ui.notify(
-        `Slice ${completedSid} complete. PR lifecycle is enabled — run /kata pr create to open a PR, then merge before continuing.\nAuto-mode paused.`,
-        "info",
-      );
-      await stopAuto(ctx, pi);
-      return;
-    }
-  }
-
-  // Determine next unit
-  let unitType: string;
-  let unitId: string;
-  let prompt: string;
-
-  if (state.phase === "complete") {
+  // 3. Complete/blocked/no-milestone checks
+  if (!mid || state.phase === "complete") {
     if (currentUnit) {
       const modelId = ctx.model?.id ?? "unknown";
       snapshotUnitMetrics(
@@ -1224,167 +888,12 @@ async function dispatchNextUnit(
     return;
   }
 
-  // ── UAT Dispatch: run-uat fires after complete-slice merge, before reassessment ──
-  // Ensures the UAT file and slice summary are both on main when UAT runs.
-  const prefs = loadEffectiveKataPreferences()?.preferences;
+  // 4. Dispatch-time routing
+  const dispatchOptions = await resolveDispatchOptions(backend, state, currentUnit);
 
-  // Budget ceiling guard — pause before starting next unit if ceiling is hit
-  const budgetCeiling = prefs?.budget_ceiling;
-  if (budgetCeiling !== undefined) {
-    const currentLedger = getLedger();
-    const totalCost = currentLedger
-      ? getProjectTotals(currentLedger.units).cost
-      : 0;
-    if (totalCost >= budgetCeiling) {
-      ctx.ui.notify(
-        `Budget ceiling ${formatCost(budgetCeiling)} reached (spent ${formatCost(totalCost)}). Pausing auto-mode — /kata auto to continue.`,
-        "warning",
-      );
-      await pauseAuto(ctx, pi);
-      return;
-    }
-  }
-
-  const needsRunUat = await checkNeedsRunUat(basePath, mid, state, prefs);
-  // Flag: for human/mixed UAT, pause auto-mode after the prompt is sent so the user
-  // can perform the UAT manually. On next resume, result file will exist → skip.
-  let pauseAfterUatDispatch = false;
-
-  // ── Adaptive Replanning: check if last completed slice needs reassessment ──
-  // After a slice completes, we reassess the roadmap before moving to the next slice.
-  // Skip reassessment for the final slice (milestone complete) or if already assessed.
-  const needsReassess = await checkNeedsReassessment(basePath, mid, state);
-  if (needsRunUat) {
-    const { sliceId, uatType } = needsRunUat;
-    unitType = "run-uat";
-    unitId = `${mid}/${sliceId}`;
-    const uatFile = resolveSliceFile(basePath, mid, sliceId, "UAT")!;
-    const uatContent = await loadFile(uatFile);
-    prompt = await buildRunUatPrompt(
-      mid,
-      sliceId,
-      relSliceFile(basePath, mid, sliceId, "UAT"),
-      uatContent ?? "",
-      basePath,
-    );
-    // For non-artifact-driven UAT types, pause after the prompt is dispatched.
-    // The agent receives the prompt, writes S0x-UAT-RESULT.md surfacing the UAT,
-    // then auto-mode pauses for human execution. On resume, result file exists → skip.
-    if (uatType !== "artifact-driven") {
-      pauseAfterUatDispatch = true;
-    }
-  } else if (needsReassess) {
-    unitType = "reassess-roadmap";
-    unitId = `${mid}/${needsReassess.sliceId}`;
-    prompt = await buildReassessRoadmapPrompt(
-      mid,
-      midTitle!,
-      needsReassess.sliceId,
-      basePath,
-    );
-  } else if (state.phase === "pre-planning") {
-    // Need roadmap — check if context exists
-    const contextFile = resolveMilestoneFile(basePath, mid, "CONTEXT");
-    const hasContext = !!(contextFile && (await loadFile(contextFile)));
-
-    if (!hasContext) {
-      await stopAuto(ctx, pi);
-      ctx.ui.notify(
-        "No context or roadmap yet. Run /kata to discuss first.",
-        "warning",
-      );
-      return;
-    }
-
-    // Research before roadmap if no research exists
-    const researchFile = resolveMilestoneFile(basePath, mid, "RESEARCH");
-    const hasResearch = !!(researchFile && (await loadFile(researchFile)));
-
-    if (!hasResearch) {
-      unitType = "research-milestone";
-      unitId = mid;
-      prompt = await buildResearchMilestonePrompt(mid, midTitle!, basePath);
-    } else {
-      unitType = "plan-milestone";
-      unitId = mid;
-      prompt = await buildPlanMilestonePrompt(mid, midTitle!, basePath);
-    }
-  } else if (state.phase === "planning") {
-    // Slice needs planning — but research first if no research exists
-    const sid = state.activeSlice!.id;
-    const sTitle = state.activeSlice!.title;
-    const researchFile = resolveSliceFile(basePath, mid, sid, "RESEARCH");
-    const hasResearch = !!(researchFile && (await loadFile(researchFile)));
-
-    if (!hasResearch) {
-      unitType = "research-slice";
-      unitId = `${mid}/${sid}`;
-      prompt = await buildResearchSlicePrompt(
-        mid,
-        midTitle!,
-        sid,
-        sTitle,
-        basePath,
-      );
-    } else {
-      unitType = "plan-slice";
-      unitId = `${mid}/${sid}`;
-      prompt = await buildPlanSlicePrompt(
-        mid,
-        midTitle!,
-        sid,
-        sTitle,
-        basePath,
-      );
-    }
-  } else if (state.phase === "replanning-slice") {
-    // Blocker discovered — replan the slice before continuing
-    const sid = state.activeSlice!.id;
-    const sTitle = state.activeSlice!.title;
-    unitType = "replan-slice";
-    unitId = `${mid}/${sid}`;
-    prompt = await buildReplanSlicePrompt(
-      mid,
-      midTitle!,
-      sid,
-      sTitle,
-      basePath,
-    );
-  } else if (state.phase === "executing" && state.activeTask) {
-    // Execute next task
-    const sid = state.activeSlice!.id;
-    const sTitle = state.activeSlice!.title;
-    const tid = state.activeTask.id;
-    const tTitle = state.activeTask.title;
-    unitType = "execute-task";
-    unitId = `${mid}/${sid}/${tid}`;
-    prompt = await buildExecuteTaskPrompt(
-      mid,
-      sid,
-      sTitle,
-      tid,
-      tTitle,
-      basePath,
-    );
-  } else if (state.phase === "summarizing") {
-    // All tasks done — complete the slice
-    const sid = state.activeSlice!.id;
-    const sTitle = state.activeSlice!.title;
-    unitType = "complete-slice";
-    unitId = `${mid}/${sid}`;
-    prompt = await buildCompleteSlicePrompt(
-      mid,
-      midTitle!,
-      sid,
-      sTitle,
-      basePath,
-    );
-  } else if (state.phase === "completing-milestone") {
-    // All slices done — complete the milestone
-    unitType = "complete-milestone";
-    unitId = mid;
-    prompt = await buildCompleteMilestonePrompt(mid, midTitle!, basePath);
-  } else {
+  // 5. Build prompt (backend handles file-inline vs Linear instructions)
+  const prompt = await backend.buildPrompt(state.phase, state, dispatchOptions);
+  if (!prompt) {
     if (currentUnit) {
       const modelId = ctx.model?.id ?? "unknown";
       snapshotUnitMetrics(
@@ -1404,14 +913,17 @@ async function dispatchNextUnit(
     return;
   }
 
+  // 6. Derive unit type and ID
+  const unitType = deriveUnitType(state, dispatchOptions);
+  const unitId = deriveUnitId(state);
+
+  ctx.ui.notify(`Auto-mode: ${unitType} — ${unitId}`, "info");
+
   await emitObservabilityWarnings(ctx, unitType, unitId);
 
-  // Stuck detection — same unit dispatched again means the LLM didn't produce
-  // the expected artifact. Retry once (the LLM may have hit an error or run out
-  // of context), then stop with a diagnostic.
+  // 7. Stuck detection
   if (lastUnit && lastUnit.type === unitType && lastUnit.id === unitId) {
     retryCount++;
-
     if (retryCount > MAX_RETRIES) {
       if (currentUnit) {
         const modelId = ctx.model?.id ?? "unknown";
@@ -1425,7 +937,6 @@ async function dispatchNextUnit(
       }
       saveActivityLog(ctx, basePath, lastUnit.type, lastUnit.id);
 
-      // Diagnostic: what file was expected?
       const expected = diagnoseExpectedArtifact(unitType, unitId, basePath);
       await stopAuto(ctx, pi);
       ctx.ui.notify(
@@ -1441,8 +952,8 @@ async function dispatchNextUnit(
   } else {
     retryCount = 0;
   }
-  // Snapshot metrics + activity log for the PREVIOUS unit before we reassign.
-  // The session still holds the previous unit's data (newSession hasn't fired yet).
+
+  // 8. Snapshot + activity log for PREVIOUS unit
   if (currentUnit) {
     const modelId = ctx.model?.id ?? "unknown";
     snapshotUnitMetrics(
@@ -1453,7 +964,6 @@ async function dispatchNextUnit(
       modelId,
     );
     saveActivityLog(ctx, basePath, currentUnit.type, currentUnit.id);
-
     completedUnits.push({
       type: currentUnit.type,
       id: currentUnit.id,
@@ -1463,8 +973,109 @@ async function dispatchNextUnit(
     clearUnitRuntimeRecord(basePath, currentUnit.type, currentUnit.id);
   }
 
+  // 9. PR gate on slice transition
+  const prevSliceKey = currentUnit?.id
+    ? currentUnit.id.split("/").slice(0, 2).join("/")
+    : null;
+  const nextSliceKey = unitId.split("/").slice(0, 2).join("/");
+  const sliceChanged =
+    prevSliceKey !== null && prevSliceKey !== nextSliceKey;
+  const wasSummarizing =
+    currentUnit?.type === "complete-slice" ||
+    currentUnit?.type === "linear-summarizing";
+  const wasCompletingMilestone =
+    currentUnit?.type === "complete-milestone" ||
+    currentUnit?.type === "linear-completing-milestone";
+
+  if (wasSummarizing || wasCompletingMilestone || sliceChanged) {
+    const postPrefs = loadEffectiveKataPreferences()?.preferences;
+    const postDecision = decidePostCompleteSliceAction(postPrefs?.pr);
+
+    if (postDecision === "auto-create-and-pause") {
+      const [completedMid, completedSid] = currentUnit!.id.split("/");
+
+      try {
+        const prCtx = await backend.preparePrContext(completedMid!, completedSid!);
+        const prResult = await runCreatePr({
+          cwd: basePath,
+          milestoneId: completedMid!,
+          sliceId: completedSid!,
+          baseBranch: postPrefs?.pr?.base_branch ?? "main",
+          title: completedSid!,
+          linearDocuments: prCtx.documents,
+        });
+        if (prResult.ok) {
+          ctx.ui.notify(
+            `PR created: ${prResult.url}\nAuto-mode paused — review and merge the PR, then run /kata auto to continue.`,
+            "info",
+          );
+        } else {
+          const diagnostic = formatPrAutoCreateFailure({
+            phase: prResult.phase,
+            error: prResult.error,
+            hint: prResult.hint ?? "",
+          });
+          ctx.ui.notify(
+            `PR auto-create failed — auto-mode stopped.\n${diagnostic}`,
+            "error",
+          );
+        }
+      } catch (err) {
+        ctx.ui.notify(
+          `PR context failed: ${err instanceof Error ? err.message : String(err)}`,
+          "error",
+        );
+      }
+      await stopAuto(ctx, pi);
+      return;
+    } else if (postDecision === "skip-notify") {
+      ctx.ui.notify(
+        `Slice complete. PR lifecycle is enabled — run /kata pr create to open a PR, then merge before continuing.\nAuto-mode paused.`,
+        "info",
+      );
+      await stopAuto(ctx, pi);
+      return;
+    } else if (postDecision === "legacy-squash-merge" && currentUnit) {
+      // legacy-squash-merge: file-mode only — merge slice branch to main
+      const [cMid, cSid] = currentUnit.id.split("/");
+      if (cMid && cSid) {
+        try {
+          switchToMain(basePath);
+          const mergeResult = mergeSliceToMain(basePath, cMid, cSid, cSid);
+          ctx.ui.notify(`Merged ${mergeResult.branch} → main.`, "info");
+        } catch (error) {
+          ctx.ui.notify(
+            `Slice merge failed: ${error instanceof Error ? error.message : String(error)}`,
+            "error",
+          );
+        }
+      }
+    }
+  }
+
+  // 10. Budget ceiling
+  const prefs = loadEffectiveKataPreferences()?.preferences;
+  const budgetCeiling = prefs?.budget_ceiling;
+  if (budgetCeiling !== undefined) {
+    const currentLedger = getLedger();
+    const totalCost = currentLedger
+      ? getProjectTotals(currentLedger.units).cost
+      : 0;
+    if (totalCost >= budgetCeiling) {
+      ctx.ui.notify(
+        `Budget ceiling ${formatCost(budgetCeiling)} reached (spent ${formatCost(totalCost)}). Pausing auto-mode — /kata auto to continue.`,
+        "warning",
+      );
+      await pauseAuto(ctx, pi);
+      return;
+    }
+  }
+
+  // 11. Update tracking state
   lastUnit = { type: unitType, id: unitId };
   currentUnit = { type: unitType, id: unitId, startedAt: Date.now() };
+
+  // 12. Unit runtime record
   writeUnitRuntimeRecord(basePath, unitType, unitId, currentUnit.startedAt, {
     phase: "dispatched",
     wrapupWarningSent: false,
@@ -1474,16 +1085,25 @@ async function dispatchNextUnit(
     lastProgressKind: "dispatch",
   });
 
-  // Status bar + progress widget
+  // 13. Status + progress widget
   ctx.ui.setStatus("kata-auto", "auto");
-  if (mid) updateSliceProgressCache(basePath, mid, state.activeSlice?.id);
+  if (mid) {
+    // Try file-based cache first (works for FileBackend), fall back to state.progress
+    updateSliceProgressCache(basePath, mid, state.activeSlice?.id);
+    if (!cachedSliceProgress) {
+      updateSliceProgressFromState(state, mid);
+    }
+  }
   updateProgressWidget(ctx, unitType, unitId, state);
 
-  // Ensure preconditions — create directories, branches, etc.
-  // so the LLM doesn't have to get these right
-  ensurePreconditions(unitType, unitId, basePath, state);
+  // 14. ensurePreconditions — file-mode creates directories and branches
+  try {
+    ensurePreconditions(unitType, unitId, basePath, state);
+  } catch {
+    /* non-fatal */
+  }
 
-  // Fresh session
+  // 15. Fresh session
   const result = await cmdCtx!.newSession();
   if (result.cancelled) {
     await stopAuto(ctx, pi);
@@ -1491,18 +1111,11 @@ async function dispatchNextUnit(
     return;
   }
 
-  // NOTE: Slice merge happens AFTER the complete-slice unit finishes,
-  // not here at dispatch time. See the merge logic at the top of
-  // dispatchNextUnit where we check if the previous unit was complete-slice.
-
-  // Write lock AFTER newSession so we capture the session file path.
-  // Pi appends entries incrementally via appendFileSync, so on crash the
-  // session file survives with every tool call up to the crash point.
+  // 16. Lock file
   const sessionFile = ctx.sessionManager.getSessionFile();
   writeLock(basePath, unitType, unitId, completedUnits.length, sessionFile);
 
-  // On crash recovery, prepend the full recovery briefing
-  // On retry (stuck detection), prepend deep diagnostic from last attempt
+  // 17. Crash recovery + retry diagnostic
   let finalPrompt = prompt;
   if (pendingCrashRecovery) {
     finalPrompt = `${pendingCrashRecovery}\n\n---\n\n${finalPrompt}`;
@@ -1514,23 +1127,18 @@ async function dispatchNextUnit(
     }
   }
 
-  // Switch model if preferences specify one for this unit type
+  // 18. Model switching
   const preferredModelId = resolveModelForUnit(unitType);
   if (preferredModelId) {
-    // Try to find the model across all providers
     const allModels = ctx.modelRegistry.getAll();
     const model = allModels.find((m) => m.id === preferredModelId);
     if (model) {
       const ok = await pi.setModel(model);
-      if (ok) {
-        ctx.ui.notify(`Model: ${preferredModelId}`, "info");
-      }
+      if (ok) ctx.ui.notify(`Model: ${preferredModelId}`, "info");
     }
   }
 
-  // Start progress-aware supervision: a soft warning, an idle watchdog, and
-  // a larger hard ceiling. Productive long-running tasks may continue past the
-  // soft timeout; only idle/stalled tasks pause early.
+  // 19. Timeout supervision
   clearUnitTimeout();
   const supervisor = resolveAutoSupervisorConfig();
   const softTimeoutMs = supervisor.soft_timeout_minutes * 60 * 1000;
@@ -1640,1021 +1248,28 @@ async function dispatchNextUnit(
     await pauseAuto(ctx, pi);
   }, hardTimeoutMs);
 
-  // Inject prompt
+  // 20. Dispatch
   pi.sendMessage(
     { customType: "kata-auto", content: finalPrompt, display: verbose },
     { triggerTurn: true },
   );
 
   // For non-artifact-driven UAT types, pause auto-mode after sending the prompt.
-  // The agent will write the UAT result file surfacing it for human review,
-  // then on resume the result file exists and run-uat is skipped automatically.
-  if (pauseAfterUatDispatch) {
-    ctx.ui.notify(
-      "UAT requires human execution. Auto-mode will pause after this unit writes the result file.",
-      "info",
-    );
-    await pauseAuto(ctx, pi);
-  }
-}
-
-// ─── Skill Discovery ──────────────────────────────────────────────────────────
-
-/**
- * Build the skill discovery template variables for research prompts.
- * Returns { skillDiscoveryMode, skillDiscoveryInstructions } for template substitution.
- */
-function buildSkillDiscoveryVars(): {
-  skillDiscoveryMode: string;
-  skillDiscoveryInstructions: string;
-} {
-  const mode = resolveSkillDiscoveryMode();
-
-  if (mode === "off") {
-    return {
-      skillDiscoveryMode: "off",
-      skillDiscoveryInstructions:
-        " Skill discovery is disabled. Skip this step.",
-    };
-  }
-
-  const autoInstall = mode === "auto";
-  const instructions = `
-   Identify the key technologies, frameworks, and services this work depends on (e.g. Stripe, Clerk, Supabase, JUCE, SwiftUI).
-   For each, check if a professional agent skill already exists:
-   - First check \`<available_skills>\` in your system prompt — a skill may already be installed.
-   - For technologies without an installed skill, run: \`npx skills find "<technology>"\`
-   - Only consider skills that are **directly relevant** to core technologies — not tangentially related.
-   - Evaluate results by install count and relevance to the actual work.${
-     autoInstall
-       ? `
-   - Install relevant skills: \`npx skills add <owner/repo@skill> -g -y\`
-   - Record installed skills in the "Skills Discovered" section of your research output.
-   - Installed skills will automatically appear in subsequent units' system prompts — no manual steps needed.`
-       : `
-   - Note promising skills in your research output with their install commands, but do NOT install them.
-   - The user will decide which to install.`
-   }`;
-
-  return {
-    skillDiscoveryMode: mode,
-    skillDiscoveryInstructions: instructions,
-  };
-}
-
-// ─── Inline Helpers ───────────────────────────────────────────────────────────
-
-/**
- * Load a file and format it for inlining into a prompt.
- * Returns the content wrapped with a source path header, or a fallback
- * message if the file doesn't exist. This eliminates tool calls — the LLM
- * gets the content directly instead of "Read this file:".
- */
-async function inlineFile(
-  absPath: string | null,
-  relPath: string,
-  label: string,
-): Promise<string> {
-  const content = absPath ? await loadFile(absPath) : null;
-  if (!content) {
-    return `### ${label}\nSource: \`${relPath}\`\n\n_(not found — file does not exist yet)_`;
-  }
-  return `### ${label}\nSource: \`${relPath}\`\n\n${content.trim()}`;
-}
-
-/**
- * Load a file for inlining, returning null if it doesn't exist.
- * Use when the file is optional and should be omitted entirely if absent.
- */
-async function inlineFileOptional(
-  absPath: string | null,
-  relPath: string,
-  label: string,
-): Promise<string | null> {
-  const content = absPath ? await loadFile(absPath) : null;
-  if (!content) return null;
-  return `### ${label}\nSource: \`${relPath}\`\n\n${content.trim()}`;
-}
-
-/**
- * Load and inline dependency slice summaries (full content, not just paths).
- */
-async function inlineDependencySummaries(
-  mid: string,
-  sid: string,
-  base: string,
-): Promise<string> {
-  const roadmapFile = resolveMilestoneFile(base, mid, "ROADMAP");
-  const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
-  if (!roadmapContent) return "- (no dependencies)";
-
-  const roadmap = parseRoadmap(roadmapContent);
-  const sliceEntry = roadmap.slices.find((s) => s.id === sid);
-  if (!sliceEntry || sliceEntry.depends.length === 0)
-    return "- (no dependencies)";
-
-  const sections: string[] = [];
-  for (const dep of sliceEntry.depends) {
-    const summaryFile = resolveSliceFile(base, mid, dep, "SUMMARY");
-    const summaryContent = summaryFile ? await loadFile(summaryFile) : null;
-    const relPath = relSliceFile(base, mid, dep, "SUMMARY");
-    if (summaryContent) {
-      sections.push(
-        `#### ${dep} Summary\nSource: \`${relPath}\`\n\n${summaryContent.trim()}`,
-      );
-    } else {
-      sections.push(`- \`${relPath}\` _(not found)_`);
-    }
-  }
-  return sections.join("\n\n");
-}
-
-/**
- * Load a well-known .kata/ root file for optional inlining.
- * Handles the existsSync check internally.
- */
-async function inlineKataRootFile(
-  base: string,
-  filename: string,
-  label: string,
-): Promise<string | null> {
-  const key = filename.replace(/\.md$/i, "").toUpperCase() as
-    | "PROJECT"
-    | "DECISIONS"
-    | "QUEUE"
-    | "STATE"
-    | "REQUIREMENTS";
-  const absPath = resolveKataRootFile(base, key);
-  if (!existsSync(absPath)) return null;
-  return inlineFileOptional(absPath, relKataRootFile(key), label);
-}
-
-// ─── Prompt Builders ──────────────────────────────────────────────────────────
-
-async function buildResearchMilestonePrompt(
-  mid: string,
-  midTitle: string,
-  base: string,
-): Promise<string> {
-  const contextPath = resolveMilestoneFile(base, mid, "CONTEXT");
-  const contextRel = relMilestoneFile(base, mid, "CONTEXT");
-
-  const inlined: string[] = [];
-  inlined.push(await inlineFile(contextPath, contextRel, "Milestone Context"));
-  const projectInline = await inlineKataRootFile(base, "project.md", "Project");
-  if (projectInline) inlined.push(projectInline);
-  const requirementsInline = await inlineKataRootFile(
-    base,
-    "requirements.md",
-    "Requirements",
-  );
-  if (requirementsInline) inlined.push(requirementsInline);
-  const decisionsInline = await inlineKataRootFile(
-    base,
-    "decisions.md",
-    "Decisions",
-  );
-  if (decisionsInline) inlined.push(decisionsInline);
-
-  const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
-
-  const outputRelPath = relMilestoneFile(base, mid, "RESEARCH");
-  const outputAbsPath =
-    resolveMilestoneFile(base, mid, "RESEARCH") ?? join(base, outputRelPath);
-  return loadPrompt("research-milestone", {
-    milestoneId: mid,
-    milestoneTitle: midTitle,
-    milestonePath: relMilestonePath(base, mid),
-    contextPath: contextRel,
-    outputPath: outputRelPath,
-    outputAbsPath,
-    inlinedContext,
-    ...buildSkillDiscoveryVars(),
-  });
-}
-
-async function buildPlanMilestonePrompt(
-  mid: string,
-  midTitle: string,
-  base: string,
-): Promise<string> {
-  const contextPath = resolveMilestoneFile(base, mid, "CONTEXT");
-  const contextRel = relMilestoneFile(base, mid, "CONTEXT");
-  const researchPath = resolveMilestoneFile(base, mid, "RESEARCH");
-  const researchRel = relMilestoneFile(base, mid, "RESEARCH");
-
-  const inlined: string[] = [];
-  inlined.push(await inlineFile(contextPath, contextRel, "Milestone Context"));
-  const researchInline = await inlineFileOptional(
-    researchPath,
-    researchRel,
-    "Milestone Research",
-  );
-  if (researchInline) inlined.push(researchInline);
-  const priorSummaryInline = await inlinePriorMilestoneSummary(mid, base);
-  if (priorSummaryInline) inlined.push(priorSummaryInline);
-  const projectInline = await inlineKataRootFile(base, "project.md", "Project");
-  if (projectInline) inlined.push(projectInline);
-  const requirementsInline = await inlineKataRootFile(
-    base,
-    "requirements.md",
-    "Requirements",
-  );
-  if (requirementsInline) inlined.push(requirementsInline);
-  const decisionsInline = await inlineKataRootFile(
-    base,
-    "decisions.md",
-    "Decisions",
-  );
-  if (decisionsInline) inlined.push(decisionsInline);
-
-  const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
-
-  const outputRelPath = relMilestoneFile(base, mid, "ROADMAP");
-  const outputAbsPath =
-    resolveMilestoneFile(base, mid, "ROADMAP") ?? join(base, outputRelPath);
-  return loadPrompt("plan-milestone", {
-    milestoneId: mid,
-    milestoneTitle: midTitle,
-    milestonePath: relMilestonePath(base, mid),
-    contextPath: contextRel,
-    researchPath: researchRel,
-    outputPath: outputRelPath,
-    outputAbsPath,
-    inlinedContext,
-  });
-}
-
-async function buildResearchSlicePrompt(
-  mid: string,
-  _midTitle: string,
-  sid: string,
-  sTitle: string,
-  base: string,
-): Promise<string> {
-  const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
-  const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
-  const contextPath = resolveMilestoneFile(base, mid, "CONTEXT");
-  const contextRel = relMilestoneFile(base, mid, "CONTEXT");
-  const milestoneResearchPath = resolveMilestoneFile(base, mid, "RESEARCH");
-  const milestoneResearchRel = relMilestoneFile(base, mid, "RESEARCH");
-
-  const inlined: string[] = [];
-  inlined.push(await inlineFile(roadmapPath, roadmapRel, "Milestone Roadmap"));
-  const contextInline = await inlineFileOptional(
-    contextPath,
-    contextRel,
-    "Milestone Context",
-  );
-  if (contextInline) inlined.push(contextInline);
-  const researchInline = await inlineFileOptional(
-    milestoneResearchPath,
-    milestoneResearchRel,
-    "Milestone Research",
-  );
-  if (researchInline) inlined.push(researchInline);
-  const decisionsInline = await inlineKataRootFile(
-    base,
-    "decisions.md",
-    "Decisions",
-  );
-  if (decisionsInline) inlined.push(decisionsInline);
-  const requirementsInline = await inlineKataRootFile(
-    base,
-    "requirements.md",
-    "Requirements",
-  );
-  if (requirementsInline) inlined.push(requirementsInline);
-
-  const depContent = await inlineDependencySummaries(mid, sid, base);
-
-  const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
-
-  const outputRelPath = relSliceFile(base, mid, sid, "RESEARCH");
-  const outputAbsPath =
-    resolveSliceFile(base, mid, sid, "RESEARCH") ?? join(base, outputRelPath);
-  return loadPrompt("research-slice", {
-    milestoneId: mid,
-    sliceId: sid,
-    sliceTitle: sTitle,
-    slicePath: relSlicePath(base, mid, sid),
-    roadmapPath: roadmapRel,
-    contextPath: contextRel,
-    milestoneResearchPath: milestoneResearchRel,
-    outputPath: outputRelPath,
-    outputAbsPath,
-    inlinedContext,
-    dependencySummaries: depContent,
-    ...buildSkillDiscoveryVars(),
-  });
-}
-
-async function buildPlanSlicePrompt(
-  mid: string,
-  _midTitle: string,
-  sid: string,
-  sTitle: string,
-  base: string,
-): Promise<string> {
-  const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
-  const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
-  const researchPath = resolveSliceFile(base, mid, sid, "RESEARCH");
-  const researchRel = relSliceFile(base, mid, sid, "RESEARCH");
-
-  const inlined: string[] = [];
-  inlined.push(await inlineFile(roadmapPath, roadmapRel, "Milestone Roadmap"));
-  const researchInline = await inlineFileOptional(
-    researchPath,
-    researchRel,
-    "Slice Research",
-  );
-  if (researchInline) inlined.push(researchInline);
-  const decisionsInline = await inlineKataRootFile(
-    base,
-    "decisions.md",
-    "Decisions",
-  );
-  if (decisionsInline) inlined.push(decisionsInline);
-  const requirementsInline = await inlineKataRootFile(
-    base,
-    "requirements.md",
-    "Requirements",
-  );
-  if (requirementsInline) inlined.push(requirementsInline);
-
-  const depContent = await inlineDependencySummaries(mid, sid, base);
-
-  const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
-
-  const outputRelPath = relSliceFile(base, mid, sid, "PLAN");
-  const outputAbsPath =
-    resolveSliceFile(base, mid, sid, "PLAN") ?? join(base, outputRelPath);
-  const sliceAbsPath =
-    resolveSlicePath(base, mid, sid) ??
-    join(base, relSlicePath(base, mid, sid));
-  return loadPrompt("plan-slice", {
-    milestoneId: mid,
-    sliceId: sid,
-    sliceTitle: sTitle,
-    slicePath: relSlicePath(base, mid, sid),
-    sliceAbsPath,
-    roadmapPath: roadmapRel,
-    researchPath: researchRel,
-    outputPath: outputRelPath,
-    outputAbsPath,
-    inlinedContext,
-    dependencySummaries: depContent,
-  });
-}
-
-async function buildExecuteTaskPrompt(
-  mid: string,
-  sid: string,
-  sTitle: string,
-  tid: string,
-  tTitle: string,
-  base: string,
-): Promise<string> {
-  const priorSummaries = await getPriorTaskSummaryPaths(mid, sid, tid, base);
-  const priorLines =
-    priorSummaries.length > 0
-      ? priorSummaries.map((p) => `- \`${p}\``).join("\n")
-      : "- (no prior tasks)";
-
-  const taskPlanPath = resolveTaskFile(base, mid, sid, tid, "PLAN");
-  const taskPlanContent = taskPlanPath ? await loadFile(taskPlanPath) : null;
-  const taskPlanRelPath = relTaskFile(base, mid, sid, tid, "PLAN");
-  const taskPlanInline = taskPlanContent
-    ? [
-        "## Inlined Task Plan (authoritative local execution contract)",
-        `Source: \`${taskPlanRelPath}\``,
-        "",
-        taskPlanContent.trim(),
-      ].join("\n")
-    : [
-        "## Inlined Task Plan (authoritative local execution contract)",
-        `Task plan not found at dispatch time. Read \`${taskPlanRelPath}\` before executing.`,
-      ].join("\n");
-
-  const slicePlanPath = resolveSliceFile(base, mid, sid, "PLAN");
-  const slicePlanContent = slicePlanPath ? await loadFile(slicePlanPath) : null;
-  const slicePlanExcerpt = extractSliceExecutionExcerpt(
-    slicePlanContent,
-    relSliceFile(base, mid, sid, "PLAN"),
-  );
-
-  // Check for continue file (new naming or legacy)
-  const continueFile = resolveSliceFile(base, mid, sid, "CONTINUE");
-  const legacyContinueDir = resolveSlicePath(base, mid, sid);
-  const legacyContinuePath = legacyContinueDir
-    ? join(legacyContinueDir, "continue.md")
-    : null;
-  const continueContent = continueFile ? await loadFile(continueFile) : null;
-  const legacyContinueContent =
-    !continueContent && legacyContinuePath
-      ? await loadFile(legacyContinuePath)
-      : null;
-  const continueRelPath = relSliceFile(base, mid, sid, "CONTINUE");
-  const resumeSection = buildResumeSection(
-    continueContent,
-    legacyContinueContent,
-    continueRelPath,
-    legacyContinuePath ? `${relSlicePath(base, mid, sid)}/continue.md` : null,
-  );
-
-  const carryForwardSection = await buildCarryForwardSection(
-    priorSummaries,
-    base,
-  );
-
-  const sliceDirAbs =
-    resolveSlicePath(base, mid, sid) ??
-    join(base, relSlicePath(base, mid, sid));
-  const taskSummaryAbsPath = join(sliceDirAbs, "tasks", `${tid}-SUMMARY.md`);
-
-  return loadPrompt("execute-task", {
-    milestoneId: mid,
-    sliceId: sid,
-    sliceTitle: sTitle,
-    taskId: tid,
-    taskTitle: tTitle,
-    planPath: relSliceFile(base, mid, sid, "PLAN"),
-    slicePath: relSlicePath(base, mid, sid),
-    taskPlanPath: taskPlanRelPath,
-    taskPlanInline,
-    slicePlanExcerpt,
-    carryForwardSection,
-    resumeSection,
-    priorTaskLines: priorLines,
-    taskSummaryAbsPath,
-  });
-}
-
-async function buildCompleteSlicePrompt(
-  mid: string,
-  _midTitle: string,
-  sid: string,
-  sTitle: string,
-  base: string,
-): Promise<string> {
-  const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
-  const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
-  const slicePlanPath = resolveSliceFile(base, mid, sid, "PLAN");
-  const slicePlanRel = relSliceFile(base, mid, sid, "PLAN");
-
-  const inlined: string[] = [];
-  inlined.push(await inlineFile(roadmapPath, roadmapRel, "Milestone Roadmap"));
-  inlined.push(await inlineFile(slicePlanPath, slicePlanRel, "Slice Plan"));
-  const requirementsInline = await inlineKataRootFile(
-    base,
-    "requirements.md",
-    "Requirements",
-  );
-  if (requirementsInline) inlined.push(requirementsInline);
-
-  // Inline all task summaries for this slice
-  const tDir = resolveTasksDir(base, mid, sid);
-  if (tDir) {
-    const summaryFiles = resolveTaskFiles(tDir, "SUMMARY").sort();
-    for (const file of summaryFiles) {
-      const absPath = join(tDir, file);
-      const content = await loadFile(absPath);
-      const sRel = relSlicePath(base, mid, sid);
-      const relPath = `${sRel}/tasks/${file}`;
-      if (content) {
-        inlined.push(
-          `### Task Summary: ${file.replace(/-SUMMARY\.md$/i, "")}\nSource: \`${relPath}\`\n\n${content.trim()}`,
+  if (dispatchOptions.uatSliceId && prefs?.uat_dispatch) {
+    // Check UAT type to decide if we should pause for human execution
+    const uatContent = await backend.readDocument(`${dispatchOptions.uatSliceId}-UAT`);
+    if (uatContent) {
+      const { extractUatType } = await import("./files.js");
+      const uatType = extractUatType(uatContent) ?? "human-experience";
+      if (uatType !== "artifact-driven") {
+        ctx.ui.notify(
+          "UAT requires human execution. Auto-mode will pause after this unit writes the result file.",
+          "info",
         );
+        await pauseAuto(ctx, pi);
       }
     }
   }
-
-  const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
-
-  const sliceDirAbs =
-    resolveSlicePath(base, mid, sid) ??
-    join(base, relSlicePath(base, mid, sid));
-  const sliceSummaryAbsPath = join(sliceDirAbs, `${sid}-SUMMARY.md`);
-  const sliceUatAbsPath = join(sliceDirAbs, `${sid}-UAT.md`);
-
-  return loadPrompt("complete-slice", {
-    milestoneId: mid,
-    sliceId: sid,
-    sliceTitle: sTitle,
-    slicePath: relSlicePath(base, mid, sid),
-    roadmapPath: roadmapRel,
-    inlinedContext,
-    sliceSummaryAbsPath,
-    sliceUatAbsPath,
-  });
-}
-
-async function buildCompleteMilestonePrompt(
-  mid: string,
-  midTitle: string,
-  base: string,
-): Promise<string> {
-  const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
-  const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
-
-  const inlined: string[] = [];
-  inlined.push(await inlineFile(roadmapPath, roadmapRel, "Milestone Roadmap"));
-
-  // Inline all slice summaries
-  const roadmapContent = roadmapPath ? await loadFile(roadmapPath) : null;
-  if (roadmapContent) {
-    const roadmap = parseRoadmap(roadmapContent);
-    for (const slice of roadmap.slices) {
-      const summaryPath = resolveSliceFile(base, mid, slice.id, "SUMMARY");
-      const summaryRel = relSliceFile(base, mid, slice.id, "SUMMARY");
-      inlined.push(
-        await inlineFile(summaryPath, summaryRel, `${slice.id} Summary`),
-      );
-    }
-  }
-
-  // Inline root Kata files
-  const requirementsInline = await inlineKataRootFile(
-    base,
-    "requirements.md",
-    "Requirements",
-  );
-  if (requirementsInline) inlined.push(requirementsInline);
-  const decisionsInline = await inlineKataRootFile(
-    base,
-    "decisions.md",
-    "Decisions",
-  );
-  if (decisionsInline) inlined.push(decisionsInline);
-  const projectInline = await inlineKataRootFile(base, "project.md", "Project");
-  if (projectInline) inlined.push(projectInline);
-  // Inline milestone context file (milestone-level, not Kata root)
-  const contextPath = resolveMilestoneFile(base, mid, "CONTEXT");
-  const contextRel = relMilestoneFile(base, mid, "CONTEXT");
-  const contextInline = await inlineFileOptional(
-    contextPath,
-    contextRel,
-    "Milestone Context",
-  );
-  if (contextInline) inlined.push(contextInline);
-
-  const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
-
-  const milestoneDirAbs =
-    resolveMilestonePath(base, mid) ?? join(base, relMilestonePath(base, mid));
-  const milestoneSummaryAbsPath = join(milestoneDirAbs, `${mid}-SUMMARY.md`);
-
-  return loadPrompt("complete-milestone", {
-    milestoneId: mid,
-    milestoneTitle: midTitle,
-    roadmapPath: roadmapRel,
-    inlinedContext,
-    milestoneSummaryAbsPath,
-  });
-}
-
-// ─── Replan Slice Prompt ───────────────────────────────────────────────────────
-
-async function buildReplanSlicePrompt(
-  mid: string,
-  midTitle: string,
-  sid: string,
-  sTitle: string,
-  base: string,
-): Promise<string> {
-  const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
-  const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
-  const slicePlanPath = resolveSliceFile(base, mid, sid, "PLAN");
-  const slicePlanRel = relSliceFile(base, mid, sid, "PLAN");
-
-  const inlined: string[] = [];
-  inlined.push(await inlineFile(roadmapPath, roadmapRel, "Milestone Roadmap"));
-  inlined.push(
-    await inlineFile(slicePlanPath, slicePlanRel, "Current Slice Plan"),
-  );
-
-  // Find the blocker task summary — the completed task with blocker_discovered: true
-  let blockerTaskId = "";
-  const tDir = resolveTasksDir(base, mid, sid);
-  if (tDir) {
-    const summaryFiles = resolveTaskFiles(tDir, "SUMMARY").sort();
-    for (const file of summaryFiles) {
-      const absPath = join(tDir, file);
-      const content = await loadFile(absPath);
-      if (!content) continue;
-      const summary = parseSummary(content);
-      const sRel = relSlicePath(base, mid, sid);
-      const relPath = `${sRel}/tasks/${file}`;
-      if (summary.frontmatter.blocker_discovered) {
-        blockerTaskId =
-          summary.frontmatter.id || file.replace(/-SUMMARY\.md$/i, "");
-        inlined.push(
-          `### Blocker Task Summary: ${blockerTaskId}\nSource: \`${relPath}\`\n\n${content.trim()}`,
-        );
-      }
-    }
-  }
-
-  // Inline decisions
-  const decisionsInline = await inlineKataRootFile(
-    base,
-    "decisions.md",
-    "Decisions",
-  );
-  if (decisionsInline) inlined.push(decisionsInline);
-
-  const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
-
-  const sliceDirAbs =
-    resolveSlicePath(base, mid, sid) ??
-    join(base, relSlicePath(base, mid, sid));
-  const replanAbsPath = join(sliceDirAbs, `${sid}-REPLAN.md`);
-
-  return loadPrompt("replan-slice", {
-    milestoneId: mid,
-    sliceId: sid,
-    sliceTitle: sTitle,
-    slicePath: relSlicePath(base, mid, sid),
-    planPath: slicePlanRel,
-    blockerTaskId,
-    inlinedContext,
-    replanAbsPath,
-  });
-}
-
-// ─── Adaptive Replanning ──────────────────────────────────────────────────────
-
-/**
- * Check if the most recently completed slice needs reassessment.
- * Returns { sliceId } if reassessment is needed, null otherwise.
- *
- * Skips reassessment when:
- * - No roadmap exists yet
- * - No slices are completed
- * - The last completed slice already has an assessment file
- * - All slices are complete (milestone done — no point reassessing)
- */
-async function checkNeedsReassessment(
-  base: string,
-  mid: string,
-  state: KataState,
-): Promise<{ sliceId: string } | null> {
-  const roadmapFile = resolveMilestoneFile(base, mid, "ROADMAP");
-  const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
-  if (!roadmapContent) return null;
-
-  const roadmap = parseRoadmap(roadmapContent);
-  const completedSlices = roadmap.slices.filter((s) => s.done);
-  const incompleteSlices = roadmap.slices.filter((s) => !s.done);
-
-  // No completed slices or all slices done — skip
-  if (completedSlices.length === 0 || incompleteSlices.length === 0)
-    return null;
-
-  // Check the last completed slice
-  const lastCompleted = completedSlices[completedSlices.length - 1];
-  const assessmentFile = resolveSliceFile(
-    base,
-    mid,
-    lastCompleted.id,
-    "ASSESSMENT",
-  );
-  const hasAssessment = !!(assessmentFile && (await loadFile(assessmentFile)));
-
-  if (hasAssessment) return null;
-
-  // Also need a summary to reassess against
-  const summaryFile = resolveSliceFile(base, mid, lastCompleted.id, "SUMMARY");
-  const hasSummary = !!(summaryFile && (await loadFile(summaryFile)));
-
-  if (!hasSummary) return null;
-
-  return { sliceId: lastCompleted.id };
-}
-
-/**
- * Check if the most recently completed slice needs a UAT run.
- * Returns { sliceId, uatType } if UAT should be dispatched, null otherwise.
- *
- * Skips when:
- * - No roadmap or no completed slices
- * - All slices are done (milestone complete path — reassessment handles it)
- * - uat_dispatch preference is not enabled
- * - No UAT file exists for the slice
- * - UAT result file already exists (idempotent — already ran)
- */
-async function checkNeedsRunUat(
-  base: string,
-  mid: string,
-  state: KataState,
-  prefs: KataPreferences | undefined,
-): Promise<{ sliceId: string; uatType: UatType } | null> {
-  const roadmapFile = resolveMilestoneFile(base, mid, "ROADMAP");
-  const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
-  if (!roadmapContent) return null;
-
-  const roadmap = parseRoadmap(roadmapContent);
-  const completedSlices = roadmap.slices.filter((s) => s.done);
-  const incompleteSlices = roadmap.slices.filter((s) => !s.done);
-
-  // No completed slices — nothing to UAT yet
-  if (completedSlices.length === 0) return null;
-
-  // All slices done — milestone complete path, skip (reassessment handles)
-  if (incompleteSlices.length === 0) return null;
-
-  // uat_dispatch must be opted in
-  if (!prefs?.uat_dispatch) return null;
-
-  // Take the last completed slice
-  const lastCompleted = completedSlices[completedSlices.length - 1];
-  const sid = lastCompleted.id;
-
-  // UAT file must exist
-  const uatFile = resolveSliceFile(base, mid, sid, "UAT");
-  if (!uatFile) return null;
-  const uatContent = await loadFile(uatFile);
-  if (!uatContent) return null;
-
-  // If UAT result already exists, skip (idempotent)
-  const uatResultFile = resolveSliceFile(base, mid, sid, "UAT-RESULT");
-  if (uatResultFile) {
-    const hasResult = !!(await loadFile(uatResultFile));
-    if (hasResult) return null;
-  }
-
-  // Classify UAT type; unknown type → treat as human-experience (human review)
-  const uatType = extractUatType(uatContent) ?? "human-experience";
-
-  return { sliceId: sid, uatType };
-}
-
-async function buildRunUatPrompt(
-  mid: string,
-  sliceId: string,
-  uatPath: string,
-  uatContent: string,
-  base: string,
-): Promise<string> {
-  const inlined: string[] = [];
-  inlined.push(
-    await inlineFile(
-      resolveSliceFile(base, mid, sliceId, "UAT"),
-      uatPath,
-      `${sliceId} UAT`,
-    ),
-  );
-
-  const summaryPath = resolveSliceFile(base, mid, sliceId, "SUMMARY");
-  const summaryRel = relSliceFile(base, mid, sliceId, "SUMMARY");
-  if (summaryPath) {
-    const summaryInline = await inlineFileOptional(
-      summaryPath,
-      summaryRel,
-      `${sliceId} Summary`,
-    );
-    if (summaryInline) inlined.push(summaryInline);
-  }
-
-  const projectInline = await inlineKataRootFile(base, "project.md", "Project");
-  if (projectInline) inlined.push(projectInline);
-
-  const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
-
-  const sliceDirAbs =
-    resolveSlicePath(base, mid, sliceId) ??
-    join(base, relSlicePath(base, mid, sliceId));
-  const uatResultAbsPath = join(sliceDirAbs, `${sliceId}-UAT-RESULT.md`);
-  const uatResultPath = relSliceFile(base, mid, sliceId, "UAT-RESULT");
-  const uatType = extractUatType(uatContent) ?? "human-experience";
-
-  return loadPrompt("run-uat", {
-    milestoneId: mid,
-    sliceId,
-    uatPath,
-    uatResultAbsPath,
-    uatResultPath,
-    uatType,
-    inlinedContext,
-  });
-}
-
-async function buildReassessRoadmapPrompt(
-  mid: string,
-  midTitle: string,
-  completedSliceId: string,
-  base: string,
-): Promise<string> {
-  const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
-  const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
-  const summaryPath = resolveSliceFile(base, mid, completedSliceId, "SUMMARY");
-  const summaryRel = relSliceFile(base, mid, completedSliceId, "SUMMARY");
-
-  const inlined: string[] = [];
-  inlined.push(await inlineFile(roadmapPath, roadmapRel, "Current Roadmap"));
-  inlined.push(
-    await inlineFile(summaryPath, summaryRel, `${completedSliceId} Summary`),
-  );
-  const projectInline = await inlineKataRootFile(base, "project.md", "Project");
-  if (projectInline) inlined.push(projectInline);
-  const requirementsInline = await inlineKataRootFile(
-    base,
-    "requirements.md",
-    "Requirements",
-  );
-  if (requirementsInline) inlined.push(requirementsInline);
-  const decisionsInline = await inlineKataRootFile(
-    base,
-    "decisions.md",
-    "Decisions",
-  );
-  if (decisionsInline) inlined.push(decisionsInline);
-
-  const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
-
-  const assessmentRel = relSliceFile(base, mid, completedSliceId, "ASSESSMENT");
-  const sliceDirAbs =
-    resolveSlicePath(base, mid, completedSliceId) ??
-    join(base, relSlicePath(base, mid, completedSliceId));
-  const assessmentAbsPath = join(
-    sliceDirAbs,
-    `${completedSliceId}-ASSESSMENT.md`,
-  );
-
-  return loadPrompt("reassess-roadmap", {
-    milestoneId: mid,
-    milestoneTitle: midTitle,
-    completedSliceId,
-    roadmapPath: roadmapRel,
-    completedSliceSummaryPath: summaryRel,
-    assessmentPath: assessmentRel,
-    assessmentAbsPath,
-    inlinedContext,
-  });
-}
-
-function extractSliceExecutionExcerpt(
-  content: string | null,
-  relPath: string,
-): string {
-  if (!content) {
-    return [
-      "## Slice Plan Excerpt",
-      `Slice plan not found at dispatch time. Read \`${relPath}\` before running slice-level verification.`,
-    ].join("\n");
-  }
-
-  const lines = content.split("\n");
-  const goalLine = lines.find((l) => l.startsWith("**Goal:**"))?.trim();
-  const demoLine = lines.find((l) => l.startsWith("**Demo:**"))?.trim();
-
-  const verification = extractMarkdownSection(content, "Verification");
-  const observability = extractMarkdownSection(
-    content,
-    "Observability / Diagnostics",
-  );
-
-  const parts = ["## Slice Plan Excerpt", `Source: \`${relPath}\``];
-  if (goalLine) parts.push(goalLine);
-  if (demoLine) parts.push(demoLine);
-  if (verification) {
-    parts.push("", "### Slice Verification", verification.trim());
-  }
-  if (observability) {
-    parts.push(
-      "",
-      "### Slice Observability / Diagnostics",
-      observability.trim(),
-    );
-  }
-
-  return parts.join("\n");
-}
-
-function extractMarkdownSection(
-  content: string,
-  heading: string,
-): string | null {
-  const match = new RegExp(`^## ${escapeRegExp(heading)}\\s*$`, "m").exec(
-    content,
-  );
-  if (!match) return null;
-
-  const start = match.index + match[0].length;
-  const rest = content.slice(start);
-  const nextHeading = rest.match(/^##\s+/m);
-  const end = nextHeading?.index ?? rest.length;
-  return rest.slice(0, end).trim();
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function buildResumeSection(
-  continueContent: string | null,
-  legacyContinueContent: string | null,
-  continueRelPath: string,
-  legacyContinueRelPath: string | null,
-): string {
-  const resolvedContent = continueContent ?? legacyContinueContent;
-  const resolvedRelPath = continueContent
-    ? continueRelPath
-    : legacyContinueRelPath;
-
-  if (!resolvedContent || !resolvedRelPath) {
-    return [
-      "## Resume State",
-      "- No continue file present. Start from the top of the task plan.",
-    ].join("\n");
-  }
-
-  const cont = parseContinue(resolvedContent);
-  const lines = [
-    "## Resume State",
-    `Source: \`${resolvedRelPath}\``,
-    `- Status: ${cont.frontmatter.status || "in_progress"}`,
-  ];
-
-  if (cont.frontmatter.step && cont.frontmatter.totalSteps) {
-    lines.push(
-      `- Progress: step ${cont.frontmatter.step} of ${cont.frontmatter.totalSteps}`,
-    );
-  }
-  if (cont.completedWork)
-    lines.push(`- Completed: ${oneLine(cont.completedWork)}`);
-  if (cont.remainingWork)
-    lines.push(`- Remaining: ${oneLine(cont.remainingWork)}`);
-  if (cont.decisions) lines.push(`- Decisions: ${oneLine(cont.decisions)}`);
-  if (cont.nextAction) lines.push(`- Next action: ${oneLine(cont.nextAction)}`);
-
-  return lines.join("\n");
-}
-
-async function buildCarryForwardSection(
-  priorSummaryPaths: string[],
-  base: string,
-): Promise<string> {
-  if (priorSummaryPaths.length === 0) {
-    return [
-      "## Carry-Forward Context",
-      "- No prior task summaries in this slice.",
-    ].join("\n");
-  }
-
-  const items = await Promise.all(
-    priorSummaryPaths.map(async (relPath) => {
-      const absPath = join(base, relPath);
-      const content = await loadFile(absPath);
-      if (!content) return `- \`${relPath}\``;
-
-      const summary = parseSummary(content);
-      const provided = summary.frontmatter.provides.slice(0, 2).join("; ");
-      const decisions = summary.frontmatter.key_decisions
-        .slice(0, 2)
-        .join("; ");
-      const patterns = summary.frontmatter.patterns_established
-        .slice(0, 2)
-        .join("; ");
-      const diagnostics = extractMarkdownSection(content, "Diagnostics");
-
-      const parts = [summary.title || relPath];
-      if (summary.oneLiner) parts.push(summary.oneLiner);
-      if (provided) parts.push(`provides: ${provided}`);
-      if (decisions) parts.push(`decisions: ${decisions}`);
-      if (patterns) parts.push(`patterns: ${patterns}`);
-      if (diagnostics) parts.push(`diagnostics: ${oneLine(diagnostics)}`);
-
-      return `- \`${relPath}\` — ${parts.join(" | ")}`;
-    }),
-  );
-
-  return ["## Carry-Forward Context", ...items].join("\n");
-}
-
-function oneLine(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
-}
-
-async function getPriorTaskSummaryPaths(
-  mid: string,
-  sid: string,
-  currentTid: string,
-  base: string,
-): Promise<string[]> {
-  const tDir = resolveTasksDir(base, mid, sid);
-  if (!tDir) return [];
-
-  const summaryFiles = resolveTaskFiles(tDir, "SUMMARY");
-  const currentNum = parseInt(currentTid.replace(/^T/, ""), 10);
-  const sRel = relSlicePath(base, mid, sid);
-
-  return summaryFiles
-    .filter((f) => {
-      const num = parseInt(f.replace(/^T/, ""), 10);
-      return num < currentNum;
-    })
-    .map((f) => `${sRel}/tasks/${f}`);
 }
 
 // ─── Preconditions ────────────────────────────────────────────────────────────
@@ -2667,7 +1282,7 @@ function ensurePreconditions(
   unitType: string,
   unitId: string,
   base: string,
-  state: KataState,
+  _state: KataState,
 ): void {
   const parts = unitId.split("/");
   const mid = parts[0]!;
@@ -2967,7 +1582,6 @@ async function recoverTimedOutUnit(
   }
 
   // Retries exhausted — write a blocker placeholder and advance the pipeline
-  // instead of silently stalling.
   const placeholder = writeBlockerPlaceholder(
     unitType,
     unitId,
