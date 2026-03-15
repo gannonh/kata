@@ -100,9 +100,17 @@ function parseDocName(name: string): ParsedDocName {
 
 export class FileBackend implements KataBackend {
   readonly basePath: string;
+  readonly gitRoot: string;
 
   constructor(basePath: string) {
     this.basePath = basePath;
+    try {
+      this.gitRoot = execSync("git rev-parse --show-toplevel", {
+        cwd: basePath, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
+      }).trim();
+    } catch {
+      this.gitRoot = basePath;
+    }
   }
 
   // ── State ─────────────────────────────────────────────────────────────
@@ -183,30 +191,33 @@ export class FileBackend implements KataBackend {
   // ── Lifecycle ─────────────────────────────────────────────────────────
 
   async bootstrap(): Promise<void> {
-    const root = kataRoot(this.basePath);
     const msDir = milestonesDir(this.basePath);
 
-    // Git init if needed
-    if (!existsSync(join(this.basePath, ".git"))) {
-      execSync("git init", { cwd: this.basePath, stdio: "ignore" });
+    // Only git init if no repo exists anywhere above basePath.
+    // In monorepos, the repo root is a parent directory — never init a nested repo.
+    if (this.gitRoot === this.basePath) {
+      try {
+        execSync("git rev-parse --git-dir", { cwd: this.basePath, stdio: "pipe" });
+      } catch {
+        execSync("git init", { cwd: this.basePath, stdio: "pipe" });
+      }
     }
 
     // Ensure directory structure
     mkdirSync(msDir, { recursive: true });
 
     // Ensure gitignore and preferences
-    ensureGitignore(this.basePath);
+    ensureGitignore(this.gitRoot);
     ensurePreferences(this.basePath);
 
     // Initial commit if no commits exist
     try {
-      execSync("git rev-parse HEAD", { cwd: this.basePath, stdio: "ignore" });
+      execSync("git rev-parse HEAD", { cwd: this.gitRoot, stdio: "pipe" });
     } catch {
-      // No commits yet — stage and commit
-      execSync("git add -A", { cwd: this.basePath, stdio: "ignore" });
+      execSync("git add -A", { cwd: this.gitRoot, stdio: "pipe" });
       execSync('git commit -m "kata: bootstrap project" --allow-empty', {
-        cwd: this.basePath,
-        stdio: "ignore",
+        cwd: this.gitRoot,
+        stdio: "pipe",
       });
     }
   }

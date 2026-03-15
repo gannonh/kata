@@ -57,6 +57,7 @@ export interface LinearBackendConfig {
 
 export class LinearBackend implements KataBackend {
   readonly basePath: string;
+  readonly gitRoot: string;
   private client: LinearClient;
   private config: LinearBackendConfig;
 
@@ -68,6 +69,15 @@ export class LinearBackend implements KataBackend {
     this.basePath = basePath;
     this.config = config;
     this.client = new LinearClient(config.apiKey);
+    // Resolve git root — walk up from basePath to find existing repo.
+    // In monorepos, basePath is a subdirectory of the actual git root.
+    try {
+      this.gitRoot = execSync("git rev-parse --show-toplevel", {
+        cwd: basePath, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
+      }).trim();
+    } catch {
+      this.gitRoot = basePath;
+    }
   }
 
   // ── State ─────────────────────────────────────────────────────────────
@@ -133,14 +143,19 @@ export class LinearBackend implements KataBackend {
   // ── Lifecycle ─────────────────────────────────────────────────────────
 
   async bootstrap(): Promise<void> {
-    // Git init if needed
-    if (!existsSync(join(this.basePath, ".git"))) {
-      execSync("git init", { cwd: this.basePath, stdio: "ignore" });
+    // Only git init if no repo exists anywhere above basePath.
+    // In monorepos, the repo root is a parent directory — never init a nested repo.
+    if (this.gitRoot === this.basePath) {
+      try {
+        execSync("git rev-parse --git-dir", { cwd: this.basePath, stdio: "pipe" });
+      } catch {
+        execSync("git init", { cwd: this.basePath, stdio: "pipe" });
+      }
     }
 
-    ensureGitignore(this.basePath);
+    ensureGitignore(this.gitRoot);
 
-    // Ensure .kata/ directory exists
+    // Ensure .kata/ directory exists (in basePath, not gitRoot)
     const kataDir = join(this.basePath, ".kata");
     mkdirSync(kataDir, { recursive: true });
   }
@@ -189,13 +204,14 @@ export class LinearBackend implements KataBackend {
 
   async preparePrContext(milestoneId: string, sliceId: string): Promise<PrContext> {
     const branch = `kata/${milestoneId}/${sliceId}`;
+    const cwd = this.gitRoot;
     // Check if already on the target branch
-    const current = execSync("git branch --show-current", { cwd: this.basePath, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+    const current = execSync("git branch --show-current", { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
     if (current !== branch) {
-      execSync(`git branch -f ${branch} HEAD`, { cwd: this.basePath, stdio: "pipe" });
-      execSync(`git checkout ${branch}`, { cwd: this.basePath, stdio: "pipe" });
+      execSync(`git branch -f ${branch} HEAD`, { cwd, stdio: "pipe" });
+      execSync(`git checkout ${branch}`, { cwd, stdio: "pipe" });
     }
-    execSync(`git push -u origin ${branch}`, { cwd: this.basePath, stdio: "pipe" });
+    execSync(`git push -u origin ${branch}`, { cwd, stdio: "pipe" });
 
     const documents: Record<string, string> = {};
     const plan = await this.readDocument(`${sliceId}-PLAN`);

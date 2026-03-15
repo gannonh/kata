@@ -50,7 +50,10 @@ export interface PrContext {
 // ─── Interface ────────────────────────────────────────────────────────────────
 
 export interface KataBackend {
+  /** App/project directory where .kata/ lives. */
   readonly basePath: string;
+  /** Git repository root (may differ from basePath in monorepos). */
+  readonly gitRoot: string;
 
   deriveState(): Promise<KataState>;
   readDocument(name: string, scope?: DocumentScope): Promise<string | null>;
