@@ -90,7 +90,7 @@ export function formatTable(
 
   // Build data rows
   const dataLines = rows.map((row) =>
-    row.map((cell, i) => (cell ?? "").padEnd(colWidths[i]!)).join("  "),
+    headers.map((_, i) => (row[i] ?? "").padEnd(colWidths[i]!)).join("  "),
   );
 
   return ["  " + headerLine, "  " + separator, ...dataLines.map((l) => "  " + l)].join(

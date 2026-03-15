@@ -145,13 +145,14 @@ function rowToRelationship(row: EdgeRow): Relationship {
  */
 function sanitizeFtsQuery(query: string): string {
   // Pass through queries that already use FTS5 syntax
-  if (/[*"]/.test(query) || /\b(OR|AND|NOT)\b/.test(query)) {
+  if (/\*/.test(query) || /\b(OR|AND|NOT)\b/.test(query)) {
     return query;
   }
-  // Wrap each whitespace-separated token in double quotes
+  // Wrap each whitespace-separated token in double quotes, escaping internal quotes
   return query
     .split(/\s+/)
-    .map((token) => `"${token}"`)
+    .filter((token) => token.length > 0)
+    .map((token) => `"${token.replace(/"/g, '""')}"`)
     .join(" ");
 }
 
@@ -361,6 +362,48 @@ export class GraphStore {
       .prepare("SELECT * FROM edges WHERE target_id = ?")
       .all(symbolId) as EdgeRow[];
     return rows.map(rowToRelationship);
+  }
+
+  /**
+   * Batch-count incoming and outgoing edges for a set of symbol IDs.
+   * Returns a Map from symbolId → { incoming, outgoing }.
+   * Uses two aggregating queries instead of 2N individual queries.
+   */
+  getEdgeCountsBatch(
+    symbolIds: string[],
+  ): Map<string, { incoming: number; outgoing: number }> {
+    const result = new Map<string, { incoming: number; outgoing: number }>();
+    for (const id of symbolIds) {
+      result.set(id, { incoming: 0, outgoing: 0 });
+    }
+    if (symbolIds.length === 0) return result;
+
+    // Build placeholders for IN clause
+    const placeholders = symbolIds.map(() => "?").join(",");
+
+    // Count outgoing edges (source_id IN ids)
+    const outRows = this.db
+      .prepare(
+        `SELECT source_id, COUNT(*) AS cnt FROM edges WHERE source_id IN (${placeholders}) GROUP BY source_id`,
+      )
+      .all(...symbolIds) as { source_id: string; cnt: number }[];
+    for (const row of outRows) {
+      const entry = result.get(row.source_id);
+      if (entry) entry.outgoing = row.cnt;
+    }
+
+    // Count incoming edges (target_id IN ids)
+    const inRows = this.db
+      .prepare(
+        `SELECT target_id, COUNT(*) AS cnt FROM edges WHERE target_id IN (${placeholders}) GROUP BY target_id`,
+      )
+      .all(...symbolIds) as { target_id: string; cnt: number }[];
+    for (const row of inRows) {
+      const entry = result.get(row.target_id);
+      if (entry) entry.incoming = row.cnt;
+    }
+
+    return result;
   }
 
   // ── Stats ──

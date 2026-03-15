@@ -515,7 +515,7 @@ function getExtendsClause(node: Parser.SyntaxNode): string {
  */
 function getSourceText(
   node: Parser.SyntaxNode,
-  fullSource: string,
+  _fullSource?: string,
 ): string {
-  return fullSource.slice(node.startIndex, node.endIndex);
+  return node.text;
 }

@@ -126,6 +126,7 @@ describe("discoverFiles", () => {
     const files = discoverFiles(tmp, configWith());
     // Should find the real file but not follow the symlink directory
     expect(files).toContain("real/file.ts");
-    // The symlink dir is not followed (it's a directory symlink)
+    // The symlink dir is not followed — assert its contents are not duplicated
+    expect(files).not.toContain("link/file.ts");
   });
 });

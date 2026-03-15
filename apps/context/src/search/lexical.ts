@@ -360,7 +360,7 @@ export function fuzzyFind(
     // Add * to each whitespace-separated token for prefix matching
     ftsQuery = trimmed
       .split(/\s+/)
-      .map((token) => `"${token}"*`)
+      .map((token) => `"${token.replace(/"/g, '""')}"*`)
       .join(" ");
   }
 

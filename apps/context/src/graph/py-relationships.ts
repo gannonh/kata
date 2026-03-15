@@ -7,6 +7,7 @@
 
 import { readFileSync } from "node:fs";
 import { dirname, resolve, join } from "node:path";
+import { createRequire } from "node:module";
 import Parser from "tree-sitter";
 import type { ParsedFile, Relationship } from "../types.js";
 import { RelationshipKind, SymbolKind } from "../types.js";
@@ -14,6 +15,7 @@ import { generateSymbolId } from "../parser/common.js";
 
 // ── Parser singleton ──
 
+const require = createRequire(import.meta.url);
 const PythonLang = require("tree-sitter-python") as Parser.Language;
 const pyParser = new Parser();
 pyParser.setLanguage(PythonLang);
@@ -120,7 +122,7 @@ function buildSymbolLookup(parsedFiles: ParsedFile[]): SymbolLookup {
 function resolveModulePath(
   moduleName: string,
   fromFile: string,
-  _rootPath: string,
+  rootPath: string,
   knownFiles: Set<string>,
 ): string | null {
   const parts = moduleName.split(".");
@@ -134,9 +136,10 @@ function resolveModulePath(
   }
 
   // Try from root (absolute import)
-  const absBase = join(...parts);
+  const absBase = join(rootPath, ...parts);
   for (const candidate of [`${absBase}.py`, join(absBase, "__init__.py")]) {
-    const normalized = candidate.replace(/\\/g, "/");
+    const stripped = candidate.startsWith(rootPath + "/") ? candidate.slice(rootPath.length + 1) : candidate;
+    const normalized = stripped.replace(/\\/g, "/");
     if (knownFiles.has(normalized)) return normalized;
   }
 

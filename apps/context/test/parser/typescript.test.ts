@@ -124,7 +124,7 @@ describe("class with methods", () => {
     expect(sym.signature).toBe("get count(): number");
   });
 
-  it("does not extract constructor as a named method", () => {
+  it("extracts constructor as a method with qualified name", () => {
     const result = parseTypeScript("class-with-methods.ts", source);
     const constructorSym = result.symbols.find((s) =>
       s.name.includes("constructor"),

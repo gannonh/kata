@@ -141,10 +141,18 @@ export function symbolsInFile(
   filePath: string,
 ): FileSymbolResult[] {
   const symbols = store.getSymbolsByFile(filePath);
+  if (symbols.length === 0) return [];
 
-  return symbols.map((symbol) => ({
-    symbol,
-    incomingEdges: store.getEdgesTo(symbol.id).length,
-    outgoingEdges: store.getEdgesFrom(symbol.id).length,
-  }));
+  // Batch-count edges in 2 queries instead of 2N
+  const ids = symbols.map((s) => s.id);
+  const edgeCounts = store.getEdgeCountsBatch(ids);
+
+  return symbols.map((symbol) => {
+    const counts = edgeCounts.get(symbol.id) ?? { incoming: 0, outgoing: 0 };
+    return {
+      symbol,
+      incomingEdges: counts.incoming,
+      outgoingEdges: counts.outgoing,
+    };
+  });
 }

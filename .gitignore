@@ -66,7 +66,6 @@ pnpm-lock.yaml
 sshkey
 id_rsa*
 id_ed25519*
-.secrets/
 
 # Credentials files & misc
 credentials.enc
@@ -80,7 +79,6 @@ demos/
 /labels/
 /config.json
 kata-cloud-agents.code-workspace
-.superpowers/
 .bg-shell/
 *.code-workspace
 
@@ -100,13 +98,10 @@ Thumbs.db
 *.swp
 *.swo
 *~
-.idea/
 .vscode/
 .env.*
 !.env.example
-node_modules/
 .next/
-dist/
 build/
 __pycache__/
 *.pyc
@@ -115,6 +110,4 @@ venv/
 target/
 vendor/
 *.log
-coverage/
-.cache/
 tmp/

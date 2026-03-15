@@ -15,7 +15,7 @@ class Child(Base):
         pass
 
 
-class Multi(Base, Child):
+class Multi(Child, Base):
     """Multiple inheritance."""
 
     def method(self) -> None:

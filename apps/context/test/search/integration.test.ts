@@ -166,7 +166,7 @@ describe("integration: edge cases", () => {
     });
     for (const r of results) {
       expect(r.symbol.kind).toBe(SymbolKind.Function);
-      expect(r.symbol.filePath).toMatch(/^utils\.ts/);
+      expect(r.symbol.filePath).toMatch(/utils\.ts$/);
     }
   });
 
@@ -194,12 +194,8 @@ describe("integration: relationship chains", () => {
     // consumer.ts depends on AppService (from service.ts)
     const consumerDeps = dependencies(store, "run");
     expect(consumerDeps).not.toBeNull();
-    const dependsOnAppService = consumerDeps!.related.some(
-      (r) => r.symbol.name === "AppService",
-    );
-    // run() calls AppService constructor and greet - check at least one
-    const dependsOnSomething = consumerDeps!.related.length > 0;
-    expect(dependsOnSomething).toBe(true);
+    // run() calls AppService constructor and greet - verify dependencies exist
+    expect(consumerDeps!.related.length).toBeGreaterThan(0);
 
     // AppService inherits from BaseService
     const appServiceDeps = dependencies(store, "AppService");

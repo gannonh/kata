@@ -603,10 +603,10 @@ program
           lines.push("  No matches found.");
         } else {
           for (const r of results) {
-            lines.push(`  ${r.filePath}:${r.lineNumber}:${r.columnNumber}  ${r.lineContent}`);
             for (const ctx of r.contextBefore) {
               lines.push(`    | ${ctx}`);
             }
+            lines.push(`  ${r.filePath}:${r.lineNumber}:${r.columnNumber}  ${r.lineContent}`);
             for (const ctx of r.contextAfter) {
               lines.push(`    | ${ctx}`);
             }
@@ -721,9 +721,8 @@ export { program };
 // ── Parse and run (only when executed directly) ──
 
 // Detect if this module is the main entry point
-const isMain =
-  process.argv[1] &&
-  (process.argv[1].endsWith("cli.js") || process.argv[1].endsWith("cli.ts"));
+import { fileURLToPath } from "node:url";
+const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 
 if (isMain) {
   program.parse();

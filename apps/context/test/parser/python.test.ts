@@ -224,7 +224,7 @@ describe("inheritance", () => {
 
   it("extracts class with multiple bases", () => {
     const sym = findSymbol("inheritance.py", source, "Multi");
-    expect(sym.signature).toBe("class Multi(Base, Child)");
+    expect(sym.signature).toBe("class Multi(Child, Base)");
     expect(sym.docstring).toBe("Multiple inheritance.");
   });
 });

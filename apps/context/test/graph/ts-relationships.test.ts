@@ -144,13 +144,12 @@ describe("extractTsRelationships", () => {
   // ── Call expressions ──
 
   describe("call expressions", () => {
-    it("should extract call edge for greet() in utils.ts welcome function", () => {
-      const welcomeId = symId("utils.ts", "welcome", SymbolKind.Function);
+    it("should NOT extract call edge for local greet() in utils.ts (same-file calls are excluded)", () => {
       const greetId = symId("utils.ts", "greet", SymbolKind.Function);
+      const callEdges = findEdges(RelationshipKind.Calls, "utils.ts");
 
-      // greet is called within welcome, but greet is a local function (not imported)
-      // The call extractor only tracks calls to imported symbols
-      // This is expected behavior — local calls within the same file are not cross-file relationships
+      // Local calls within the same file are not cross-file relationships
+      expect(callEdges.some((e) => e.targetId === greetId)).toBe(false);
     });
 
     it("should extract call edge for createConfig() imported call in service.ts", () => {

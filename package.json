@@ -149,7 +149,7 @@
     "zod": "^4.0.0"
   },
   "trustedDependencies": [
-    "tree-sitter-javascript",
+    "tree-sitter-typescript",
     "tree-sitter-python"
   ]
 }

@@ -6,7 +6,7 @@
  * Resolves import paths to target file paths and matches to symbol IDs.
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve, join } from "node:path";
 import Parser from "tree-sitter";
 // @ts-expect-error — tree-sitter grammars lack type declarations
@@ -592,7 +592,6 @@ function generateFileSymbolId(filePath: string): string {
 /** Get source text for a parsed file by reading from disk. */
 function getSource(file: ParsedFile, rootPath: string): string | null {
   try {
-    const { readFileSync } = require("node:fs");
     const absPath = resolve(rootPath, file.filePath);
     return readFileSync(absPath, "utf-8");
   } catch {

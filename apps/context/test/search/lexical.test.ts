@@ -45,7 +45,7 @@ describe("grepSearch", () => {
     expect(results.length).toBeGreaterThan(0);
     for (const r of results) {
       // Column should point to the start of "BaseService" in the line
-      expect(r.lineContent.indexOf(r.matchText)).toBe(r.columnNumber);
+      expect(r.lineContent.substring(r.columnNumber, r.columnNumber + r.matchText.length)).toBe(r.matchText);
     }
   });
 

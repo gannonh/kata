@@ -6,7 +6,8 @@
  */
 
 import Parser from "tree-sitter";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
 const PythonLang = require("tree-sitter-python") as Parser.Language;
 import type { ParsedFile, Symbol } from "../types.js";
 import { SymbolKind } from "../types.js";
@@ -285,6 +286,11 @@ function getDocstring(node: Parser.SyntaxNode): string | null {
 function cleanDocstring(raw: string): string {
   // Remove triple-quote delimiters (both """ and ''')
   let text = raw;
+  // Handle string prefixes like r, f, b, u and combinations
+  const prefixMatch = text.match(/^[rRfFbBuU]{0,2}/);
+  if (prefixMatch && prefixMatch[0]) {
+    text = text.slice(prefixMatch[0].length);
+  }
   if (text.startsWith('"""') && text.endsWith('"""')) {
     text = text.slice(3, -3);
   } else if (text.startsWith("'''") && text.endsWith("'''")) {

@@ -33,7 +33,7 @@ describe("loadConfig", () => {
     expect(config.providers.openai.model).toBe("text-embedding-3-small");
   });
 
-  it("falls back to defaults for invalid JSON", () => {
+  it("returns defaults when .kata subdir is missing", () => {
     // Pass a directory that exists but whose config.json is not valid JSON
     // We'll test this by creating a scenario — for now, test that
     // a directory with no .kata subdir works (same as no config)

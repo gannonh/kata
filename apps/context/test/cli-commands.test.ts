@@ -529,7 +529,7 @@ describe("CLI commands — graph, grep, find", () => {
   // ── Ambiguous symbol resolution ──
 
   describe("ambiguous symbol resolution", () => {
-    it("resolveSymbol returns multiple for ambiguous names", () => {
+    it("resolveSymbol returns results for known symbols", () => {
       const store = new GraphStore(dbPath);
       try {
         // "getName" might appear as a method in BaseService
@@ -548,6 +548,15 @@ describe("CLI commands — graph, grep, find", () => {
     it("graph commands detect missing database", () => {
       const fakePath = join(tempDir, "nonexistent.db");
       expect(existsSync(fakePath)).toBe(false);
+      // GraphStore creates the DB file if missing (SQLite behavior)
+      const store = new GraphStore(fakePath);
+      try {
+        expect(existsSync(fakePath)).toBe(true);
+        const stats = store.getStats();
+        expect(stats.symbols).toBe(0);
+      } finally {
+        store.close();
+      }
     });
   });
 

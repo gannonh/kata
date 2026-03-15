@@ -114,12 +114,19 @@ export function indexProject(
   }
 
   try {
-    // 7. Upsert symbols into the graph
+    // 7. Delete stale data for files being re-indexed
+    const indexedFiles = new Set(parsedFiles.map((f) => f.filePath));
+    for (const filePath of indexedFiles) {
+      store.deleteEdgesByFile(filePath);
+      store.deleteSymbolsByFile(filePath);
+    }
+
+    // 8. Upsert symbols into the graph
     if (allSymbols.length > 0) {
       store.upsertSymbols(allSymbols);
     }
 
-    // 8. Upsert edges into the graph
+    // 9. Upsert edges into the graph
     if (relationships.length > 0) {
       store.upsertEdges(relationships);
     }
