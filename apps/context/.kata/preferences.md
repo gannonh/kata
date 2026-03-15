@@ -1,14 +1,16 @@
 ---
 version: 1
 workflow:
-  mode: file
-linear: {}
+  mode: linear
+linear:
+  teamKey: KAT
+  projectId: b7b09300-4c5f-41fa-b28a-cc0da83d5d23
 pr:
-  enabled: false
-  auto_create: false
+  enabled: true
+  auto_create: true
   base_branch: main
   review_on_create: false
-  linear_link: false
+  linear_link: true
 always_use_skills: []
 prefer_skills: []
 avoid_skills: []
