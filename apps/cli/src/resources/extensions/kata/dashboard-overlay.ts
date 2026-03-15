@@ -8,19 +8,14 @@
 
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth, matchesKey, Key } from "@mariozechner/pi-tui";
-import { deriveState } from "./state.js";
-import { loadFile, parseRoadmap, parsePlan } from "./files.js";
-import { resolveMilestoneFile, resolveSliceFile } from "./paths.js";
 import { getAutoDashboardData, type AutoDashboardData } from "./auto.js";
 import {
   getLedger, getProjectTotals, aggregateByPhase, aggregateBySlice,
   aggregateByModel, formatCost, formatTokenCount, formatCostProjection,
 } from "./metrics.js";
 import { loadEffectiveKataPreferences } from "./preferences.js";
-import { isLinearMode, loadEffectiveLinearProjectConfig } from "./linear-config.js";
-import { LinearClient } from "../linear/linear-client.js";
-import { ensureKataLabels } from "../linear/linear-entities.js";
-import { deriveLinearState } from "../linear/linear-state.js";
+import { createBackend } from "./backend-factory.js";
+import type { DashboardSliceView } from "./backend.js";
 
 function formatDuration(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -90,8 +85,6 @@ export class KataDashboardOverlay {
   private dashData: AutoDashboardData;
   private milestoneData: MilestoneView | null = null;
   private loading = true;
-  private linearClient?: LinearClient;
-  private sliceLabelId?: string;
 
   constructor(
     tui: { requestRender: () => void },
@@ -121,59 +114,10 @@ export class KataDashboardOverlay {
   private async loadData(): Promise<void> {
     const base = this.dashData.basePath || process.cwd();
 
-    if (isLinearMode()) {
-      await this.loadLinearData(base);
-      return;
-    }
-
-    await this.loadFileData(base);
-  }
-
-  private async loadLinearData(base: string): Promise<void> {
-    const config = loadEffectiveLinearProjectConfig();
-    const apiKey = process.env.LINEAR_API_KEY;
-
-    if (!apiKey) {
-      // No key — leave milestoneData as-is (don't crash)
-      return;
-    }
-
-    const { projectId } = config.linear;
-    const teamLookup = config.linear.teamId ?? config.linear.teamKey;
-    if (!projectId || !teamLookup) {
-      return;
-    }
-
     try {
-      // Reuse the cached client — avoid re-construction on every 2s refresh
-      if (!this.linearClient) {
-        this.linearClient = new LinearClient(apiKey);
-      }
-
-      // Resolve teamKey → teamId once, then cache via this.resolvedTeamId
-      if (!(this as any).resolvedTeamId) {
-        if (config.linear.teamId) {
-          (this as any).resolvedTeamId = config.linear.teamId;
-        } else {
-          const team = await this.linearClient.getTeam(teamLookup);
-          if (!team) return;
-          (this as any).resolvedTeamId = team.id;
-        }
-      }
-      const teamId = (this as any).resolvedTeamId as string;
-
-      // Resolve slice label once, then cache it
-      if (!this.sliceLabelId) {
-        const labelSet = await ensureKataLabels(this.linearClient, teamId);
-        this.sliceLabelId = labelSet.slice.id;
-      }
-
-      const state = await deriveLinearState(this.linearClient, {
-        projectId,
-        teamId,
-        sliceLabelId: this.sliceLabelId,
-        basePath: base,
-      });
+      const dashBackend = await createBackend(base);
+      const dashData = await dashBackend.loadDashboardData();
+      const state = dashData.state;
 
       if (!state.activeMilestone) {
         this.milestoneData = null;
@@ -186,39 +130,23 @@ export class KataDashboardOverlay {
       const milestoneTotal =
         state.progress?.milestones.total ?? state.registry.length;
 
-      const sliceDone = state.progress?.slices?.done ?? 0;
-      const sliceTotal = state.progress?.slices?.total ?? 0;
-      const taskDone = state.progress?.tasks?.done ?? 0;
-      const taskTotal = state.progress?.tasks?.total ?? 0;
+      const sliceDone = dashData.sliceProgress?.done ?? 0;
+      const sliceTotal = dashData.sliceProgress?.total ?? 0;
 
-      // Build slice list from active slice only.
-      // `state.registry` holds milestones, not slices, so using it here causes
-      // incorrect "Slices" counts and labels in the overlay.
-      const sliceViews: SliceView[] = [];
-      if (state.activeSlice) {
-        const activeSliceView: SliceView = {
-          id: state.activeSlice.id,
-          title: state.activeSlice.title,
-          done: false,
-          risk: "",
-          active: true,
-          tasks: [],
-        };
-
-        if (taskTotal > 0) {
-          activeSliceView.taskProgress = { done: taskDone, total: taskTotal };
-          if (state.activeTask) {
-            activeSliceView.tasks.push({
-              id: state.activeTask.id,
-              title: state.activeTask.title,
-              done: false,
-              active: true,
-            });
-          }
-        }
-
-        sliceViews.push(activeSliceView);
-      }
+      const sliceViews: SliceView[] = (dashData.sliceViews ?? []).map((sv) => ({
+        id: sv.id,
+        title: sv.title,
+        done: sv.done,
+        risk: sv.risk,
+        active: sv.active,
+        tasks: sv.tasks.map((t) => ({
+          id: t.id,
+          title: t.title,
+          done: t.done,
+          active: t.active,
+        })),
+        taskProgress: sv.taskProgress,
+      }));
 
       const view: MilestoneView = {
         id: state.activeMilestone.id,
@@ -233,73 +161,7 @@ export class KataDashboardOverlay {
 
       this.milestoneData = view;
     } catch {
-      // Don't crash the overlay on API error — keep showing stale data
-    }
-  }
-
-  private async loadFileData(base: string): Promise<void> {
-    try {
-      const state = await deriveState(base);
-      if (!state.activeMilestone) {
-        this.milestoneData = null;
-        return;
-      }
-
-      const mid = state.activeMilestone.id;
-      const view: MilestoneView = {
-        id: mid,
-        title: state.activeMilestone.title,
-        slices: [],
-        phase: state.phase,
-        progress: {
-          milestones: {
-            total: state.progress?.milestones.total ?? state.registry.length,
-            done: state.progress?.milestones.done ?? state.registry.filter(entry => entry.status === "complete").length,
-          },
-        },
-      };
-
-      const roadmapFile = resolveMilestoneFile(base, mid, "ROADMAP");
-      const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
-      if (roadmapContent) {
-        const roadmap = parseRoadmap(roadmapContent);
-        for (const s of roadmap.slices) {
-          const sliceView: SliceView = {
-            id: s.id,
-            title: s.title,
-            done: s.done,
-            risk: s.risk,
-            active: state.activeSlice?.id === s.id,
-            tasks: [],
-          };
-
-          if (sliceView.active) {
-            const planFile = resolveSliceFile(base, mid, s.id, "PLAN");
-            const planContent = planFile ? await loadFile(planFile) : null;
-            if (planContent) {
-              const plan = parsePlan(planContent);
-              sliceView.taskProgress = {
-                done: plan.tasks.filter(t => t.done).length,
-                total: plan.tasks.length,
-              };
-              for (const t of plan.tasks) {
-                sliceView.tasks.push({
-                  id: t.id,
-                  title: t.title,
-                  done: t.done,
-                  active: state.activeTask?.id === t.id,
-                });
-              }
-            }
-          }
-
-          view.slices.push(sliceView);
-        }
-      }
-
-      this.milestoneData = view;
-    } catch {
-      // Don't crash the overlay
+      // Don't crash the overlay — keep showing stale data
     }
   }
 

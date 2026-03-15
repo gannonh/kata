@@ -137,10 +137,38 @@ export class LinearBackend implements KataBackend {
 
   async loadDashboardData(): Promise<DashboardData> {
     const state = await this.deriveState();
+    const sliceViews: import("./backend.js").DashboardSliceView[] = [];
+
+    if (state.activeSlice) {
+      const taskDone = state.progress?.tasks?.done ?? 0;
+      const taskTotal = state.progress?.tasks?.total ?? 0;
+      const sv: import("./backend.js").DashboardSliceView = {
+        id: state.activeSlice.id,
+        title: state.activeSlice.title,
+        done: false,
+        risk: "",
+        active: true,
+        tasks: [],
+      };
+      if (taskTotal > 0) {
+        sv.taskProgress = { done: taskDone, total: taskTotal };
+        if (state.activeTask) {
+          sv.tasks.push({
+            id: state.activeTask.id,
+            title: state.activeTask.title,
+            done: false,
+            active: true,
+          });
+        }
+      }
+      sliceViews.push(sv);
+    }
+
     return {
       state,
       sliceProgress: state.progress?.slices ?? null,
       taskProgress: state.progress?.tasks ?? null,
+      sliceViews,
     };
   }
 

@@ -21,11 +21,24 @@ export interface PromptOptions {
   uatSliceId?: string;
 }
 
+/** Slice view for the dashboard overlay. */
+export interface DashboardSliceView {
+  id: string;
+  title: string;
+  done: boolean;
+  risk: string;
+  active: boolean;
+  tasks: { id: string; title: string; done: boolean; active: boolean }[];
+  taskProgress?: { done: number; total: number };
+}
+
 /** Data shape for the dashboard overlay. */
 export interface DashboardData {
   state: KataState;
   sliceProgress: { done: number; total: number } | null;
   taskProgress: { done: number; total: number } | null;
+  /** Full slice breakdown for rendering. Populated by both backends. */
+  sliceViews?: DashboardSliceView[];
 }
 
 /** PR preparation result. */

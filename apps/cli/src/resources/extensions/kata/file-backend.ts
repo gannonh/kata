@@ -23,6 +23,7 @@ import { deriveState } from "./state.js";
 import {
   loadFile,
   parseContinue,
+  parsePlan,
   parseRoadmap,
   parseSummary,
   extractUatType,
@@ -265,11 +266,54 @@ export class FileBackend implements KataBackend {
 
   async loadDashboardData(): Promise<DashboardData> {
     const state = await this.deriveState();
+    const sliceViews: import("./backend.js").DashboardSliceView[] = [];
+
+    if (state.activeMilestone) {
+      const mid = state.activeMilestone.id;
+      const roadmapFile = resolveMilestoneFile(this.basePath, mid, "ROADMAP");
+      const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
+      if (roadmapContent) {
+        const roadmap = parseRoadmap(roadmapContent);
+        for (const s of roadmap.slices) {
+          const sv: import("./backend.js").DashboardSliceView = {
+            id: s.id,
+            title: s.title,
+            done: s.done,
+            risk: s.risk,
+            active: state.activeSlice?.id === s.id,
+            tasks: [],
+          };
+
+          if (sv.active) {
+            const planFile = resolveSliceFile(this.basePath, mid, s.id, "PLAN");
+            const planContent = planFile ? await loadFile(planFile) : null;
+            if (planContent) {
+              const plan = parsePlan(planContent);
+              sv.taskProgress = {
+                done: plan.tasks.filter((t) => t.done).length,
+                total: plan.tasks.length,
+              };
+              for (const t of plan.tasks) {
+                sv.tasks.push({
+                  id: t.id,
+                  title: t.title,
+                  done: t.done,
+                  active: state.activeTask?.id === t.id,
+                });
+              }
+            }
+          }
+
+          sliceViews.push(sv);
+        }
+      }
+    }
 
     return {
       state,
       sliceProgress: state.progress?.slices ?? null,
       taskProgress: state.progress?.tasks ?? null,
+      sliceViews,
     };
   }
 
