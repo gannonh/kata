@@ -27,6 +27,22 @@ import {
 } from "../linear/linear-documents.js";
 import type { DocumentAttachment } from "../linear/linear-types.js";
 import { ensureGitignore } from "./gitignore.js";
+import { loadPrompt } from "./prompt-loader.js";
+
+// ─── Prompt Constants ─────────────────────────────────────────────────────────
+
+const HARD_RULE = `Hard rule: In Linear mode, never use bash/read/find/rg/git to locate workflow artifacts. Use only kata_read_document/kata_write_document for plan and summary artifacts. Scope: milestone-level docs (ROADMAP, CONTEXT, SUMMARY, DECISIONS) use { projectId }. Task-level docs (T01-PLAN, T01-SUMMARY) use { issueId } scoped to the slice issue — this prevents collisions when multiple slices have a T01.`;
+
+const REFERENCE = `**Reference:** Consult \`KATA-WORKFLOW.md\` (injected into your system prompt) for full operation steps, entity conventions, artifact storage format, and phase transition rules.`;
+
+const DISCOVER_PROJECT_DOCS = [
+  `   - Call \`kata_list_documents({ projectId })\` to inventory existing project-level documents.`,
+  `   - Use the result to know which optional reads will succeed vs return null.`,
+].join("\n");
+
+const DISCOVER_SLICE_DOCS = [
+  `   - For slice-scoped documents, also call \`kata_list_documents({ issueId: "<slice-issue-uuid>" })\`.`,
+].join("\n");
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -143,17 +159,455 @@ export class LinearBackend implements KataBackend {
     return { branch, documents };
   }
 
-  // ── Prompt Builders (stubs) ───────────────────────────────────────────
+  // ── Prompt Builders ──────────────────────────────────────────────────
 
   async buildPrompt(
-    _phase: string,
-    _state: KataState,
-    _options?: PromptOptions,
+    phase: string,
+    state: KataState,
+    options?: PromptOptions,
   ): Promise<string> {
-    throw new Error("LinearBackend.buildPrompt is not yet implemented");
+    // Dispatch-time overrides take priority
+    if (options?.uatSliceId) return this._buildRunUatPrompt(state, options.uatSliceId);
+    if (options?.reassessSliceId) return this._buildReassessRoadmapPrompt(state, options.reassessSliceId);
+    if (options?.dispatchResearch === "milestone") return this._buildResearchMilestonePrompt(state);
+    if (options?.dispatchResearch === "slice") return this._buildResearchSlicePrompt(state);
+
+    switch (phase) {
+      case "pre-planning": return this._buildPlanMilestonePrompt(state);
+      case "planning": return this._buildPlanSlicePrompt(state);
+      case "executing":
+      case "verifying": return this._buildExecuteTaskPrompt(state);
+      case "summarizing": return this._buildCompleteSlicePrompt(state);
+      case "completing-milestone": return this._buildCompleteMilestonePrompt(state);
+      case "replanning-slice": return this._buildReplanSlicePrompt(state);
+      default: return "";
+    }
   }
 
-  buildDiscussPrompt(_nextId: string, _preamble: string): string {
-    throw new Error("LinearBackend.buildDiscussPrompt is not yet implemented");
+  buildDiscussPrompt(nextId: string, preamble: string): string {
+    return loadPrompt("discuss-linear", { milestoneId: nextId, preamble });
+  }
+
+  // ── Private Prompt Builders ─────────────────────────────────────────
+
+  private _buildResearchMilestonePrompt(state: KataState): string {
+    const mid = state.activeMilestone?.id ?? "unknown";
+    const mTitle = state.activeMilestone?.title ?? "unknown";
+
+    return [
+      `# Research Milestone — Linear Mode`,
+      ``,
+      `**Milestone:** ${mid} — ${mTitle}`,
+      ``,
+      `## Instructions`,
+      ``,
+      HARD_RULE,
+      ``,
+      `1. Call \`kata_derive_state\` to confirm the active milestone and obtain \`projectId\`.`,
+      ``,
+      `2. Discover available documents:`,
+      DISCOVER_PROJECT_DOCS,
+      ``,
+      `3. Read required context:`,
+      `   - Call \`kata_read_document("${mid}-CONTEXT")\` — **required**. If null, stop: milestone context is missing.`,
+      ``,
+      `4. Read optional context (skip if null):`,
+      `   - \`kata_read_document("PROJECT")\``,
+      `   - \`kata_read_document("REQUIREMENTS")\``,
+      `   - \`kata_read_document("DECISIONS")\``,
+      ``,
+      `5. Scout the codebase and relevant docs. Use \`rg\`, \`find\`, \`resolve_library\` / \`get_library_docs\` as needed.`,
+      ``,
+      `6. Write research findings: \`kata_write_document("${mid}-RESEARCH", content)\``,
+      `   - Include: Summary, Don't Hand-Roll table, Common Pitfalls, Relevant Code, Sources.`,
+      ``,
+      REFERENCE,
+    ].join("\n");
+  }
+
+  private _buildPlanMilestonePrompt(state: KataState): string {
+    const mid = state.activeMilestone?.id ?? "unknown";
+    const mTitle = state.activeMilestone?.title ?? "unknown";
+
+    return [
+      `# Plan Milestone — Linear Mode`,
+      ``,
+      `**Milestone:** ${mid} — ${mTitle}`,
+      ``,
+      `## Instructions`,
+      ``,
+      HARD_RULE,
+      ``,
+      `1. Call \`kata_derive_state\` to confirm the active milestone and obtain \`projectId\`.`,
+      ``,
+      `2. Discover available documents:`,
+      DISCOVER_PROJECT_DOCS,
+      ``,
+      `3. Read required context:`,
+      `   - Call \`kata_read_document("${mid}-CONTEXT")\` — **required**. If null, stop: milestone context is missing.`,
+      ``,
+      `4. Read optional context (skip if null):`,
+      `   - \`kata_read_document("${mid}-RESEARCH")\``,
+      `   - \`kata_read_document("DECISIONS")\``,
+      `   - \`kata_read_document("REQUIREMENTS")\``,
+      `   - \`kata_read_document("PROJECT")\``,
+      ``,
+      `5. Idempotency check:`,
+      `   - Call \`kata_list_slices\` for the project. If slices already exist for this milestone, do NOT create duplicates.`,
+      `   - Call \`kata_read_document("${mid}-ROADMAP")\`. If it already exists, review and advance rather than rewriting.`,
+      ``,
+      `6. Write the milestone roadmap: \`kata_write_document("${mid}-ROADMAP", content)\``,
+      `   - Define slices (S01, S02, ...) ordered by risk — riskiest first.`,
+      `   - Each slice: demoable vertical increment with risk level and dependencies.`,
+      `   - Include a Boundary Map showing what each slice produces/consumes.`,
+      ``,
+      `7. Create slice issues in Linear for each slice in the roadmap:`,
+      `   - Call \`kata_create_slice\` for each slice.`,
+      ``,
+      REFERENCE,
+    ].join("\n");
+  }
+
+  private _buildResearchSlicePrompt(state: KataState): string {
+    const mid = state.activeMilestone?.id ?? "unknown";
+    const sid = state.activeSlice?.id ?? "unknown";
+    const sTitle = state.activeSlice?.title ?? "unknown";
+
+    return [
+      `# Research Slice — Linear Mode`,
+      ``,
+      `**Milestone:** ${mid}`,
+      `**Slice:** ${sid} — ${sTitle}`,
+      ``,
+      `## Instructions`,
+      ``,
+      HARD_RULE,
+      ``,
+      `1. Call \`kata_derive_state\` to confirm the active milestone and slice, and obtain \`projectId\`.`,
+      ``,
+      `2. Discover available documents:`,
+      DISCOVER_PROJECT_DOCS,
+      ``,
+      `3. Read required context:`,
+      `   - Call \`kata_read_document("${mid}-ROADMAP")\` — **required**. If null, stop: roadmap is missing.`,
+      ``,
+      `4. Read optional context (skip if null):`,
+      `   - \`kata_read_document("${mid}-CONTEXT")\``,
+      `   - \`kata_read_document("${mid}-RESEARCH")\``,
+      `   - \`kata_read_document("DECISIONS")\``,
+      `   - \`kata_read_document("REQUIREMENTS")\``,
+      ``,
+      `5. Read dependency slice summaries:`,
+      `   - Check the roadmap for \`depends:[]\` on this slice.`,
+      `   - For each dependency, call \`kata_read_document("Sxx-SUMMARY")\`.`,
+      ``,
+      `6. Scout the codebase and relevant docs for this slice's scope.`,
+      ``,
+      `7. Write slice research: \`kata_write_document("${sid}-RESEARCH", content)\``,
+      `   - Include: Summary, Don't Hand-Roll, Common Pitfalls, Relevant Code, Sources.`,
+      ``,
+      REFERENCE,
+    ].join("\n");
+  }
+
+  private _buildPlanSlicePrompt(state: KataState): string {
+    const mid = state.activeMilestone?.id ?? "unknown";
+    const sid = state.activeSlice?.id ?? "unknown";
+    const sTitle = state.activeSlice?.title ?? "unknown";
+
+    return [
+      `# Plan Slice — Linear Mode`,
+      ``,
+      `**Milestone:** ${mid}`,
+      `**Slice:** ${sid} — ${sTitle}`,
+      ``,
+      `## Instructions`,
+      ``,
+      HARD_RULE,
+      ``,
+      `1. Call \`kata_derive_state\` to confirm the active milestone and slice, and obtain \`projectId\`.`,
+      ``,
+      `2. Discover available documents:`,
+      DISCOVER_PROJECT_DOCS,
+      ``,
+      `3. Read required context:`,
+      `   - Call \`kata_read_document("${mid}-ROADMAP")\` — **required**. If null, stop: roadmap is missing.`,
+      ``,
+      `4. Read optional context (skip if null):`,
+      `   - \`kata_read_document("${sid}-RESEARCH")\``,
+      `   - \`kata_read_document("DECISIONS")\``,
+      `   - \`kata_read_document("REQUIREMENTS")\``,
+      ``,
+      `5. Read dependency slice summaries:`,
+      `   - Check the roadmap for \`depends:[]\` on this slice.`,
+      `   - For each dependency, call \`kata_read_document("Sxx-SUMMARY")\`.`,
+      ``,
+      `6. Idempotency check:`,
+      `   - Call \`kata_read_document("${sid}-PLAN")\`. If it exists, review rather than rewrite.`,
+      `   - Call \`kata_list_tasks\` for the slice issue. If tasks exist, do NOT create duplicates.`,
+      ``,
+      `7. Write the slice plan: \`kata_write_document("${sid}-PLAN", content)\``,
+      `   - Decompose into 1-7 tasks, each fitting one context window.`,
+      `   - Each task: title, must-haves (truths, artifacts, key links), steps.`,
+      ``,
+      `8. Create task sub-issues: call \`kata_create_task\` for each task (T01, T02, ...).`,
+      `   - Write individual task plans: \`kata_write_document("T01-PLAN", content, { issueId: "<slice-issue-uuid>" })\` for each task.`,
+      `   - Task docs MUST use { issueId } scoped to the slice issue, NOT { projectId }. This prevents T01-PLAN collisions across slices.`,
+      ``,
+      `9. Advance the slice to executing: \`kata_update_issue_state({ issueId: "<slice-uuid>", phase: "executing" })\``,
+      ``,
+      REFERENCE,
+    ].join("\n");
+  }
+
+  private _buildExecuteTaskPrompt(state: KataState): string {
+    const mid = state.activeMilestone?.id ?? "unknown";
+    const sid = state.activeSlice?.id ?? "unknown";
+    const tid = state.activeTask?.id ?? "unknown";
+    const tTitle = state.activeTask?.title ?? "unknown";
+
+    return [
+      `# Execute Task — Linear Mode`,
+      ``,
+      `**Milestone:** ${mid}`,
+      `**Slice:** ${sid}`,
+      `**Task:** ${tid} — ${tTitle}`,
+      ``,
+      `## Instructions`,
+      ``,
+      HARD_RULE,
+      ``,
+      `1. Call \`kata_derive_state\` to confirm the active milestone, slice, and task. Obtain \`projectId\`.`,
+      ``,
+      `2. Discover available documents:`,
+      DISCOVER_PROJECT_DOCS,
+      DISCOVER_SLICE_DOCS,
+      ``,
+      `3. Read the task plan (scoped to the slice issue, NOT the project):`,
+      `   - Call \`kata_read_document("${tid}-PLAN", { issueId: "<slice-issue-uuid>" })\` — **required**. If null, stop: task plan is missing.`,
+      `   - Get the slice issue UUID from \`kata_derive_state\` → \`activeSlice\` or from \`kata_list_slices\`.`,
+      ``,
+      `4. Read optional slice context:`,
+      `   - Call \`kata_read_document("${sid}-PLAN", { projectId })\` for slice-level goal, demo, and verification criteria.`,
+      ``,
+      `5. Carry-forward from prior tasks:`,
+      `   - Call \`kata_list_tasks\` with the slice issue UUID.`,
+      `   - For each completed prior task, call \`kata_read_document("Txx-SUMMARY", { issueId: "<slice-issue-uuid>" })\` to understand what's already built.`,
+      ``,
+      `6. Check for partial progress:`,
+      `   - Call \`kata_read_document("${tid}-SUMMARY", { issueId: "<slice-issue-uuid>" })\`. If it exists with partial content, resume from where it left off.`,
+      ``,
+      `7. Execute the task as specified in the plan. Build real implementation — no stubs.`,
+      ``,
+      `8. If you make an architectural decision, append it to the \`DECISIONS\` document:`,
+      `   - Read current: \`kata_read_document("DECISIONS")\``,
+      `   - Append and write: \`kata_write_document("DECISIONS", updatedContent)\``,
+      ``,
+      `9. Commit your work:`,
+      `   - Stage all changed files: \`git add -A\``,
+      `   - Commit with message: \`feat(${sid}/${tid}): <short description of what was built>\``,
+      `   - Do NOT push. Do NOT advance the slice — only advance the task.`,
+      ``,
+      `10. Write the task summary (scoped to slice issue): \`kata_write_document("${tid}-SUMMARY", content, { issueId: "<slice-issue-uuid>" })\``,
+      `   - Include: what shipped (one-liner), what happened, deviations, files modified, verification result.`,
+      ``,
+      `11. Advance the task to done: \`kata_update_issue_state({ issueId: "<task-uuid>", phase: "done" })\``,
+      `   - Resolve the task UUID via \`kata_list_tasks\` if needed.`,
+      `   - Do NOT advance the slice to done. The orchestrator handles slice completion.`,
+      ``,
+      REFERENCE,
+    ].join("\n");
+  }
+
+  private _buildCompleteSlicePrompt(state: KataState): string {
+    const mid = state.activeMilestone?.id ?? "unknown";
+    const sid = state.activeSlice?.id ?? "unknown";
+    const sTitle = state.activeSlice?.title ?? "unknown";
+
+    return [
+      `# Complete Slice — Linear Mode`,
+      ``,
+      `**Milestone:** ${mid}`,
+      `**Slice:** ${sid} — ${sTitle}`,
+      ``,
+      `## Instructions`,
+      ``,
+      HARD_RULE,
+      ``,
+      `1. Call \`kata_derive_state\` to confirm the active milestone and slice. Obtain \`projectId\`.`,
+      ``,
+      `2. Discover available documents:`,
+      DISCOVER_PROJECT_DOCS,
+      DISCOVER_SLICE_DOCS,
+      ``,
+      `3. Read required context:`,
+      `   - Call \`kata_read_document("${mid}-ROADMAP")\` — **required**. Needed for success criteria and boundary map.`,
+      `   - Call \`kata_read_document("${sid}-PLAN")\` — **required**. Needed for slice must-haves and verification criteria.`,
+      ``,
+      `4. Read optional context:`,
+      `   - \`kata_read_document("REQUIREMENTS")\``,
+      ``,
+      `5. Collect all task summaries (scoped to slice issue):`,
+      `   - Call \`kata_list_tasks\` with the slice issue UUID.`,
+      `   - For each task, call \`kata_read_document("Txx-SUMMARY", { issueId: "<slice-issue-uuid>" })\`.`,
+      ``,
+      `6. Write the slice summary: \`kata_write_document("${sid}-SUMMARY", content)\``,
+      `   - Synthesize work across all tasks: what was built, key decisions, key files, patterns established.`,
+      `   - Review task summaries for key_decisions and ensure significant ones are in the DECISIONS document.`,
+      ``,
+      `7. Write the UAT script: \`kata_write_document("${sid}-UAT", content)\``,
+      `   - Derive from the slice's must-haves and demo sentence.`,
+      `   - Non-blocking — the agent does NOT wait for UAT results.`,
+      ``,
+      `8. Commit any remaining uncommitted work:`,
+      `   - Stage all changed files: \`git add -A\``,
+      `   - Commit with message: \`feat(${sid}): complete slice — ${sTitle}\``,
+      `   - Do NOT push.`,
+      ``,
+      `9. Advance the slice to done: \`kata_update_issue_state({ issueId: "<slice-uuid>", phase: "done" })\``,
+      ``,
+      REFERENCE,
+    ].join("\n");
+  }
+
+  private _buildCompleteMilestonePrompt(state: KataState): string {
+    const mid = state.activeMilestone?.id ?? "unknown";
+    const mTitle = state.activeMilestone?.title ?? "unknown";
+
+    return [
+      `# Complete Milestone — Linear Mode`,
+      ``,
+      `**Milestone:** ${mid} — ${mTitle}`,
+      ``,
+      `## Instructions`,
+      ``,
+      HARD_RULE,
+      ``,
+      `1. Call \`kata_derive_state\` to confirm all slices are complete. Obtain \`projectId\`.`,
+      ``,
+      `2. Discover available documents:`,
+      DISCOVER_PROJECT_DOCS,
+      ``,
+      `3. Read required context:`,
+      `   - Call \`kata_read_document("${mid}-ROADMAP")\` — **required**.`,
+      ``,
+      `4. Read all slice summaries:`,
+      `   - Call \`kata_list_slices\` to enumerate all slices in this milestone.`,
+      `   - For each slice, call \`kata_read_document("Sxx-SUMMARY")\`.`,
+      ``,
+      `5. Read optional context:`,
+      `   - \`kata_read_document("REQUIREMENTS")\``,
+      `   - \`kata_read_document("DECISIONS")\``,
+      `   - \`kata_read_document("PROJECT")\``,
+      `   - \`kata_read_document("${mid}-CONTEXT")\``,
+      ``,
+      `6. Write the milestone summary: \`kata_write_document("${mid}-SUMMARY", content)\``,
+      `   - Compress all slice summaries into a milestone-level narrative.`,
+      `   - Include: what the milestone delivered, key decisions, architectural patterns, files modified.`,
+      ``,
+      REFERENCE,
+    ].join("\n");
+  }
+
+  private _buildReplanSlicePrompt(state: KataState): string {
+    const mid = state.activeMilestone?.id ?? "unknown";
+    const sid = state.activeSlice?.id ?? "unknown";
+    const sTitle = state.activeSlice?.title ?? "unknown";
+
+    return [
+      `# Replan Slice — Linear Mode`,
+      ``,
+      `**Milestone:** ${mid}`,
+      `**Slice:** ${sid} — ${sTitle}`,
+      ``,
+      `## Instructions`,
+      ``,
+      HARD_RULE,
+      ``,
+      `1. Call \`kata_derive_state\` to confirm the active slice context.`,
+      ``,
+      `2. Read required context:`,
+      `   - Call \`kata_read_document("${mid}-ROADMAP")\` — **required**.`,
+      `   - Call \`kata_read_document("${sid}-PLAN")\` — **required**.`,
+      ``,
+      `3. Read optional context:`,
+      `   - \`kata_read_document("DECISIONS")\``,
+      ``,
+      `4. Find the blocker:`,
+      `   - Call \`kata_list_tasks\` for the slice.`,
+      `   - Read task summaries to find which task discovered the blocker.`,
+      ``,
+      `5. Write the replan: \`kata_write_document("${sid}-REPLAN", content)\``,
+      `   - Describe the blocker, its impact, and the revised task decomposition.`,
+      `   - Create new task sub-issues if needed via \`kata_create_task\`.`,
+      ``,
+      REFERENCE,
+    ].join("\n");
+  }
+
+  private _buildReassessRoadmapPrompt(state: KataState, completedSliceId: string): string {
+    const mid = state.activeMilestone?.id ?? "unknown";
+    const mTitle = state.activeMilestone?.title ?? "unknown";
+
+    return [
+      `# Reassess Roadmap — Linear Mode`,
+      ``,
+      `**Milestone:** ${mid} — ${mTitle}`,
+      `**Completed Slice:** ${completedSliceId}`,
+      ``,
+      `## Instructions`,
+      ``,
+      HARD_RULE,
+      ``,
+      `1. Call \`kata_derive_state\` to confirm the active milestone.`,
+      ``,
+      `2. Read required context:`,
+      `   - Call \`kata_read_document("${mid}-ROADMAP")\` — **required**.`,
+      `   - Call \`kata_read_document("${completedSliceId}-SUMMARY")\` — **required**.`,
+      ``,
+      `3. Read optional context:`,
+      `   - \`kata_read_document("PROJECT")\``,
+      `   - \`kata_read_document("REQUIREMENTS")\``,
+      `   - \`kata_read_document("DECISIONS")\``,
+      ``,
+      `4. Assess whether the roadmap needs changes based on what was learned during the completed slice.`,
+      ``,
+      `5. Write the assessment: \`kata_write_document("${completedSliceId}-ASSESSMENT", content)\``,
+      `   - Include: what changed, what's confirmed, any new risks or scope adjustments.`,
+      `   - If the roadmap needs updating, update it via \`kata_write_document("${mid}-ROADMAP", ...)\`.`,
+      ``,
+      REFERENCE,
+    ].join("\n");
+  }
+
+  private _buildRunUatPrompt(state: KataState, sliceId: string): string {
+    const mid = state.activeMilestone?.id ?? "unknown";
+
+    return [
+      `# Run UAT — Linear Mode`,
+      ``,
+      `**Milestone:** ${mid}`,
+      `**Slice:** ${sliceId}`,
+      ``,
+      `## Instructions`,
+      ``,
+      HARD_RULE,
+      ``,
+      `1. Call \`kata_derive_state\` to confirm context.`,
+      ``,
+      `2. Read required context:`,
+      `   - Call \`kata_read_document("${sliceId}-UAT")\` — **required**. Contains the test script.`,
+      ``,
+      `3. Read optional context:`,
+      `   - \`kata_read_document("${sliceId}-SUMMARY")\``,
+      `   - \`kata_read_document("PROJECT")\``,
+      ``,
+      `4. Execute the UAT test script. Verify each acceptance criterion.`,
+      ``,
+      `5. Write the UAT result: \`kata_write_document("${sliceId}-UAT-RESULT", content)\``,
+      `   - Include: pass/fail for each criterion, evidence, any issues found.`,
+      ``,
+      REFERENCE,
+    ].join("\n");
   }
 }
