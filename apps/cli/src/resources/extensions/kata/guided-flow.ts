@@ -184,23 +184,6 @@ function dispatchWorkflow(
   return true;
 }
 
-/**
- * Build the discuss-and-plan prompt for a new milestone.
- * Used by all three "new milestone" paths (first ever, no active, all complete).
- */
-function buildDiscussPrompt(
-  nextId: string,
-  preamble: string,
-  basePath: string,
-): string {
-  const milestoneDirAbs = join(basePath, ".kata", "milestones", nextId);
-  return loadPrompt("discuss", {
-    milestoneId: nextId,
-    preamble,
-    contextAbsPath: join(milestoneDirAbs, `${nextId}-CONTEXT.md`),
-    roadmapAbsPath: join(milestoneDirAbs, `${nextId}-ROADMAP.md`),
-  });
-}
 
 function findMilestoneIds(basePath: string): string[] {
   const dir = milestonesDir(basePath);
@@ -621,82 +604,9 @@ export async function showSmartEntry(
     return;
   }
 
-  // ── Linear mode: use backend for bootstrap, state, and discuss ──
-  if (modeGate.isLinearMode) {
-    const backend = await createBackend(basePath);
-    await backend.bootstrap();
-    const state = await backend.deriveState();
-
-    if (state.phase === "blocked") {
-      ctx.ui.notify(
-        `Blocked: ${state.blockers?.join(", ")}. Fix and run /kata.`,
-        "warning",
-      );
-      return;
-    }
-
-    if (!state.activeMilestone || state.phase === "complete") {
-      if (pendingAutoStart) {
-        ctx.ui.notify(
-          "Discussion already in progress — answer the question above to continue.",
-          "info",
-        );
-        return;
-      }
-      const total = state.progress?.milestones?.total ?? 0;
-      const nextId = `M${String(total + 1).padStart(3, "0")}`;
-      const preamble = total === 0
-        ? `New project, milestone ${nextId}. Do NOT read or explore .kata/ — planning artifacts live in Linear.`
-        : `New milestone ${nextId}. Planning artifacts live in Linear.`;
-
-      pendingAutoStart = { ctx, pi, basePath, milestoneId: nextId };
-      const discussPrompt = backend.buildDiscussPrompt(nextId, preamble);
-      pi.sendMessage(
-        {
-          customType: "kata-run",
-          content: discussPrompt,
-          display: false,
-        },
-        { triggerTurn: true },
-      );
-      return;
-    }
-
-    // Active milestone with work in progress — delegate to auto
-    await startAuto(ctx, pi, basePath, false);
-    return;
-  }
-
-  // ── File mode: Ensure git repo exists — Kata needs it for branch-per-slice ──
-  try {
-    execSync("git rev-parse --git-dir", { cwd: basePath, stdio: "pipe" });
-  } catch {
-    execSync("git init", { cwd: basePath, stdio: "pipe" });
-  }
-
-  // ── Ensure .gitignore has baseline patterns ──────────────────────────
-  ensureGitignore(basePath);
-
-  // ── No Kata project OR no milestone → Create first/next milestone ────
-  if (!existsSync(join(basePath, ".kata"))) {
-    // Bootstrap .kata/ silently — the user wants a milestone, not to "init"
-    const kataDir = kataRoot(basePath);
-    mkdirSync(join(kataDir, "milestones"), { recursive: true });
-
-    // ── Create PREFERENCES.md template ────────────────────────────────
-    ensurePreferences(basePath);
-    try {
-      execSync(
-        "git add -A .kata .gitignore && git commit -m 'chore: init kata'",
-        {
-          cwd: basePath,
-          stdio: "pipe",
-        },
-      );
-    } catch {
-      // nothing to commit — that's fine
-    }
-  }
+  // ── Bootstrap via backend (handles file vs Linear mode) ──
+  const backend = await createBackend(basePath);
+  await backend.bootstrap();
 
   // Check for crash from previous auto-mode session
   const crashLock = readCrashLock(basePath);
@@ -725,7 +635,15 @@ export async function showSmartEntry(
     }
   }
 
-  const state = await deriveState(basePath);
+  const state = await backend.deriveState();
+
+  if (state.phase === "blocked") {
+    ctx.ui.notify(
+      `Blocked: ${state.blockers?.join(", ")}. Fix and run /kata.`,
+      "warning",
+    );
+    return;
+  }
 
   if (!state.activeMilestone) {
     // Guard: if a discuss session is already in flight, don't re-inject the prompt.
@@ -751,10 +669,9 @@ export async function showSmartEntry(
         !dispatchWorkflow(
           ctx,
           pi,
-          buildDiscussPrompt(
+          backend.buildDiscussPrompt(
             nextId,
-            `New project, milestone ${nextId}. Do NOT read or explore .kata/ — it's empty scaffolding.`,
-            basePath,
+            `New project, milestone ${nextId}.`,
           ),
           "kata-run",
           "smart-entry",
@@ -784,7 +701,7 @@ export async function showSmartEntry(
           !dispatchWorkflow(
             ctx,
             pi,
-            buildDiscussPrompt(nextId, `New milestone ${nextId}.`, basePath),
+            backend.buildDiscussPrompt(nextId, `New milestone ${nextId}.`),
             "kata-run",
             "smart-entry",
           )
@@ -830,7 +747,7 @@ export async function showSmartEntry(
         !dispatchWorkflow(
           ctx,
           pi,
-          buildDiscussPrompt(nextId, `New milestone ${nextId}.`, basePath),
+          backend.buildDiscussPrompt(nextId, `New milestone ${nextId}.`),
           "kata-run",
           "smart-entry",
         )
