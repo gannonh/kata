@@ -79,7 +79,6 @@ demos/
 /labels/
 /config.json
 kata-cloud-agents.code-workspace
-.superpowers/
 .bg-shell/
 *.code-workspace
 
@@ -88,3 +87,27 @@ kata-cloud-agents.code-workspace
 
 # skill eval workspaces
 .agents/skills/*-workspace/
+
+# ── Kata baseline (auto-generated) ──
+.kata/activity/
+.kata/runtime/
+.kata/auto.lock
+.kata/metrics.json
+.kata/STATE.md
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.env.*
+!.env.example
+.next/
+build/
+__pycache__/
+*.pyc
+.venv/
+venv/
+target/
+vendor/
+*.log
+tmp/

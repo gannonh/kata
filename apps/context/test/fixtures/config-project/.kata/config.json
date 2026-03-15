@@ -1,0 +1,6 @@
+{
+  "languages": ["typescript"],
+  "excludes": ["node_modules", ".git", "vendor"],
+  "summaryThreshold": 10,
+  "watch": true
+}

@@ -1,0 +1,39 @@
+{
+  "name": "@kata/context",
+  "version": "0.1.0",
+  "description": "Structural, semantic, and memory-based codebase understanding for AI coding agents",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "kata-context": "./dist/cli.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "commander": "^13.1.0",
+    "tree-sitter": "^0.22.4",
+    "tree-sitter-python": "^0.23.6",
+    "tree-sitter-typescript": "^0.23.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.13.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "MIT"
+}
