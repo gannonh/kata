@@ -10,7 +10,7 @@
  * object — the tool never throws.
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -42,6 +42,34 @@ import {
 } from "../kata/linear-crosslink.js";
 import { loadEffectiveKataPreferences } from "../kata/preferences.js";
 import { loadEffectiveLinearProjectConfig, isLinearMode } from "../kata/linear-config.js";
+
+// ---------------------------------------------------------------------------
+// Shell escaping
+// ---------------------------------------------------------------------------
+
+/** Shell-escape a single argument (single-quote wrapping with embedded-quote escaping). */
+function shellEscape(arg: string): string {
+  return "'" + arg.replace(/'/g, "'\\''") + "'";
+}
+
+// ---------------------------------------------------------------------------
+// Tool result helpers — pi agent-core requires { content: [...], details? }
+// ---------------------------------------------------------------------------
+
+function toolOk(data: unknown) {
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+    details: data,
+  };
+}
+
+function toolFail(data: unknown) {
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+    details: data,
+    isError: true,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Reviewer instructions — loaded from bundled agent .md files at module init
@@ -119,7 +147,7 @@ export default function (pi: ExtensionAPI): void {
       milestoneId?: string;
       sliceId?: string;
       cwd?: string;
-    }) {
+    }, _signal: unknown, _onUpdate: unknown, ctx: ExtensionContext) {
       // Build Linear cross-linking config when applicable
       let linearConfig: PrCreateOptions["linearConfig"];
       try {
@@ -144,14 +172,15 @@ export default function (pi: ExtensionAPI): void {
         // Best-effort — proceed without Linear config
       }
 
-      return runCreatePr({
+      const result = await runCreatePr({
         title: params.title,
         baseBranch: params.base_branch,
         milestoneId: params.milestoneId,
         sliceId: params.sliceId,
-        cwd: params.cwd,
+        cwd: params.cwd ?? ctx.cwd,
         linearConfig,
       });
+      return result.ok ? toolOk(result) : toolFail(result);
     },
   });
 
@@ -184,71 +213,71 @@ export default function (pi: ExtensionAPI): void {
       },
       required: [],
     },
-    async execute(_id: string, params: { cwd?: string; reviewers?: string[] }) {
-      const cwd = params.cwd ?? process.cwd();
+    async execute(_id: string, params: { cwd?: string; reviewers?: string[] }, _signal: unknown, _onUpdate: unknown, ctx: ExtensionContext) {
+      const cwd = params.cwd ?? ctx.cwd;
 
       if (!isGhInstalled()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-missing",
           error: "gh CLI not found in PATH",
           hint: "Install gh CLI: https://cli.github.com",
-        };
+        });
       }
       if (!isGhAuthenticated()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-unauth",
           error: "gh CLI not authenticated",
           hint: "Run: gh auth login",
-        };
+        });
       }
 
-      const ctx = fetchPRContext(cwd);
-      if (!ctx) {
-        return {
+      const prCtx = fetchPRContext(cwd);
+      if (!prCtx) {
+        return toolFail({
           ok: false,
           phase: "not-in-pr",
           error: "No open PR found for current branch",
           hint: "Ensure the branch has been pushed and has an open PR on GitHub.",
-        };
+        });
       }
-      if (!ctx.diff.trim()) {
-        return {
+      if (!prCtx.diff.trim()) {
+        return toolFail({
           ok: false,
           phase: "diff-empty",
           error: "PR diff is empty — no changes to review",
           hint: "Ensure the PR branch has commits not in the base branch.",
-        };
+        });
       }
 
       const selectedReviewers =
         params.reviewers ??
-        scopeReviewers({ diff: ctx.diff, changedFiles: ctx.changedFiles });
+        scopeReviewers({ diff: prCtx.diff, changedFiles: prCtx.changedFiles });
 
       const reviewerTasks = selectedReviewers.map((reviewerName) => ({
         agent: reviewerName,
         task: buildReviewerTaskPrompt({
           reviewer: reviewerName,
-          prTitle: ctx.title,
-          prNumber: ctx.prNumber,
-          diff: ctx.diff,
-          changedFiles: ctx.changedFiles,
-          prBody: ctx.body,
+          prTitle: prCtx.title,
+          prNumber: prCtx.prNumber,
+          diff: prCtx.diff,
+          changedFiles: prCtx.changedFiles,
+          prBody: prCtx.body,
           reviewerInstructions:
             REVIEWER_INSTRUCTIONS[reviewerName] ??
             `Review the PR diff as ${reviewerName}.`,
         }),
       }));
 
-      return {
+      return toolOk({
         ok: true,
-        prNumber: ctx.prNumber,
-        title: ctx.title,
-        diff: ctx.diff,
+        prNumber: prCtx.prNumber,
+        title: prCtx.title,
+        diff: prCtx.diff,
         selectedReviewers,
         reviewerTasks,
-      };
+      });
     },
   });
 
@@ -274,27 +303,27 @@ export default function (pi: ExtensionAPI): void {
       },
       required: [],
     },
-    async execute(_id: string, params: { cwd?: string }) {
-      const cwd = params.cwd ?? process.cwd();
+    async execute(_id: string, params: { cwd?: string }, _signal: unknown, _onUpdate: unknown, ctx: ExtensionContext) {
+      const cwd = params.cwd ?? ctx.cwd;
 
       // ── Pre-flight checks ────────────────────────────────────────────────
 
       if (!isGhInstalled()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-missing",
           error: "gh CLI not found in PATH",
           hint: "Install gh CLI: https://cli.github.com",
-        };
+        });
       }
 
       if (!isGhAuthenticated()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-unauth",
           error: "gh CLI not authenticated",
           hint: "Run: gh auth login",
-        };
+        });
       }
 
       try {
@@ -303,12 +332,12 @@ export default function (pi: ExtensionAPI): void {
           encoding: "utf8",
         });
       } catch {
-        return {
+        return toolFail({
           ok: false,
           phase: "python3-missing",
           error: "python3 not found in PATH",
           hint: "Install Python 3: https://python.org",
-        };
+        });
       }
 
       // ── Resolve script path and run fetch_comments.py ────────────────────
@@ -327,15 +356,15 @@ export default function (pi: ExtensionAPI): void {
         });
 
         const parsed = JSON.parse(stdout) as Record<string, unknown>;
-        return { ok: true, ...parsed };
+        return toolOk({ ok: true, ...parsed });
       } catch (err) {
         const stderr = (err as NodeJS.ErrnoException & { stderr?: string }).stderr;
-        return {
+        return toolFail({
           ok: false,
           phase: "fetch-failed",
           error: stderr || String(err),
           hint: "Ensure the current branch has an open PR and gh is authenticated.",
-        };
+        });
       }
     },
   });
@@ -366,29 +395,30 @@ export default function (pi: ExtensionAPI): void {
       },
       required: ["threadId"],
     },
-    async execute(_id: string, params: { threadId: string; cwd?: string }) {
+    async execute(_id: string, params: { threadId: string; cwd?: string }, _signal: unknown, _onUpdate: unknown, ctx: ExtensionContext) {
       const { threadId } = params;
-      const cwd = params.cwd ?? process.cwd();
+      const cwd = params.cwd ?? ctx.cwd;
 
       if (!isGhInstalled()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-missing",
           error: "gh CLI not found in PATH",
           hint: "Install gh CLI: https://cli.github.com",
-        };
+        });
       }
 
       if (!isGhAuthenticated()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-unauth",
           error: "gh CLI not authenticated",
           hint: "Run: gh auth login",
-        };
+        });
       }
 
-      return resolveThread(threadId, cwd);
+      const result = resolveThread(threadId, cwd);
+      return (result as any).ok ? toolOk(result) : toolFail(result);
     },
   });
 
@@ -423,29 +453,30 @@ export default function (pi: ExtensionAPI): void {
       },
       required: ["threadId", "body"],
     },
-    async execute(_id: string, params: { threadId: string; body: string; cwd?: string }) {
+    async execute(_id: string, params: { threadId: string; body: string; cwd?: string }, _signal: unknown, _onUpdate: unknown, ctx: ExtensionContext) {
       const { threadId, body } = params;
-      const cwd = params.cwd ?? process.cwd();
+      const cwd = params.cwd ?? ctx.cwd;
 
       if (!isGhInstalled()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-missing",
           error: "gh CLI not found in PATH",
           hint: "Install gh CLI: https://cli.github.com",
-        };
+        });
       }
 
       if (!isGhAuthenticated()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-unauth",
           error: "gh CLI not authenticated",
           hint: "Run: gh auth login",
-        };
+        });
       }
 
-      return replyToThread(threadId, body, cwd);
+      const result = replyToThread(threadId, body, cwd);
+      return (result as any).ok ? toolOk(result) : toolFail(result);
     },
   });
 
@@ -496,51 +527,51 @@ export default function (pi: ExtensionAPI): void {
       strategy?: "squash" | "merge" | "rebase";
       skipCICheck?: boolean;
       cwd?: string;
-    }) {
-      const cwd = params.cwd ?? process.cwd();
+    }, _signal: unknown, _onUpdate: unknown, ctx: ExtensionContext) {
+      const cwd = params.cwd ?? ctx.cwd;
       const strategy = params.strategy ?? "squash";
 
       // ── (a) Pre-flight: gh installed + authenticated ────────────────────────
 
       if (!isGhInstalled()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-missing",
           error: "gh CLI not found in PATH",
           hint: "Install gh CLI: https://cli.github.com",
-        };
+        });
       }
 
       if (!isGhAuthenticated()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-unauth",
           error: "gh CLI not authenticated",
           hint: "Run: gh auth login",
-        };
+        });
       }
 
       // ── (b) Detect branch + milestone/slice IDs ────────────────────────────
 
       const branch = getCurrentBranch(cwd);
       if (!branch) {
-        return {
+        return toolFail({
           ok: false,
           phase: "branch-parse-failed",
           error: "Could not determine current git branch",
           hint: "Run from a git repository, or pass milestoneId and sliceId explicitly.",
-        };
+        });
       }
 
       const parsed = parseBranchToSlice(branch);
       if (!parsed) {
-        return {
+        return toolFail({
           ok: false,
           phase: "branch-parse-failed",
           error: `Current branch '${branch}' does not match kata/<MilestoneId>/<SliceId> pattern`,
           hint:
             "Switch to a Kata slice branch (e.g. kata/M003/S04) or pass milestoneId and sliceId explicitly.",
-        };
+        });
       }
 
       const { milestoneId, sliceId } = parsed;
@@ -553,12 +584,12 @@ export default function (pi: ExtensionAPI): void {
       } else {
         const detected = getPRNumber(cwd);
         if (detected == null) {
-          return {
+          return toolFail({
             ok: false,
             phase: "pr-detect-failed",
             error: "Could not detect open PR for current branch",
             hint: "Ensure the branch has been pushed and has an open PR. You can also pass prNumber explicitly.",
-          };
+          });
         }
         prNumber = detected;
       }
@@ -585,20 +616,20 @@ export default function (pi: ExtensionAPI): void {
 
         if (!ciResult.allPassing) {
           if (ciResult.failing.length > 0) {
-            return {
+            return toolFail({
               ok: false,
               phase: "ci-failing",
               error: "CI checks failing: " + ciResult.failing.join(", "),
               hint: "Fix failing checks or pass skipCICheck: true to override.",
-            };
+            });
           }
           if (ciResult.pending.length > 0) {
-            return {
+            return toolFail({
               ok: false,
               phase: "ci-pending",
               error: "CI checks still running: " + ciResult.pending.join(", "),
               hint: "Wait for CI to complete or pass skipCICheck: true to override.",
-            };
+            });
           }
         }
       }
@@ -607,12 +638,12 @@ export default function (pi: ExtensionAPI): void {
 
       const mergeResult = await mergeGitHubPR(prNumber, strategy, cwd);
       if (!mergeResult.ok) {
-        return {
+        return toolFail({
           ok: false,
           phase: mergeResult.phase,
           error: mergeResult.error,
           hint: "Check gh auth status and ensure PR is open and mergeable.",
-        };
+        });
       }
 
       // ── (f) Sync local state (best-effort, never blocks return) ────────────
@@ -667,7 +698,7 @@ export default function (pi: ExtensionAPI): void {
 
       // ── (i) Return ─────────────────────────────────────────────────────────
 
-      const result: {
+      const finalResult: {
         ok: true;
         url: string;
         branch: string;
@@ -685,10 +716,10 @@ export default function (pi: ExtensionAPI): void {
       };
 
       if (!roadmapUpdated) {
-        result.roadmapUpdateFailed = true;
+        finalResult.roadmapUpdateFailed = true;
       }
 
-      return result;
+      return toolOk(finalResult);
     },
   });
 }

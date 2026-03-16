@@ -54,20 +54,17 @@ export function fetchPRContext(cwd: string): PrContext | null {
       ...PIPE,
     });
 
-    // Parse changed file paths from diff --stat
-    const statOutput = execSync("gh pr diff --stat", {
+    // Parse changed file paths via --name-only
+    const nameOnlyOutput = execSync("gh pr diff --name-only", {
       cwd,
       encoding: "utf8",
       ...PIPE,
     });
 
-    const changedFiles: string[] = [];
-    for (const line of statOutput.split("\n")) {
-      const match = line.match(/^\s*(\S+)\s+\|/);
-      if (match) {
-        changedFiles.push(match[1].trimEnd());
-      }
-    }
+    const changedFiles: string[] = nameOnlyOutput
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
 
     return {
       prNumber: prJson.number,
