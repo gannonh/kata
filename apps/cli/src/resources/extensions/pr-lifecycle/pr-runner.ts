@@ -10,8 +10,7 @@
 
 import { execSync } from "node:child_process";
 import { writeFileSync, unlinkSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 import {
@@ -64,10 +63,10 @@ function shellEscape(arg: string): string {
 /**
  * Creates a GitHub PR for the current Kata slice.
  *
- * Performs pre-flight checks (gh installed, gh authenticated, python3 available),
+ * Performs pre-flight checks (gh installed, gh authenticated),
  * resolves milestone/slice IDs from the current branch when not provided,
- * composes the PR body from Kata slice artifacts, and delegates to the bundled
- * `create_pr_safe.py` script.
+ * composes the PR body from Kata slice artifacts, creates the PR via `gh pr create`,
+ * and verifies/repairs body integrity.
  *
  * Returns `{ ok: true, url }` on success; `{ ok: false, phase, error, hint }` on
  * any failure. Never throws.
@@ -102,20 +101,6 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
       phase: "gh-unauth",
       error: "gh CLI not authenticated",
       hint: "Run: gh auth login",
-    };
-  }
-
-  try {
-    execSync("python3 --version", {
-      stdio: ["pipe", "pipe", "pipe"],
-      encoding: "utf8",
-    });
-  } catch {
-    return {
-      ok: false,
-      phase: "python3-missing",
-      error: "python3 not found in PATH",
-      hint: "Install Python 3: https://python.org",
     };
   }
 
@@ -193,7 +178,7 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
     };
   }
 
-  // ── Write body to temp file and invoke create_pr_safe.py ────────────────────
+  // ── Create PR via gh CLI with body-file ──────────────────────────────────────
 
   const tmpPath = join(tmpdir(), randomUUID() + ".md");
   let prUrl: string;
@@ -201,50 +186,68 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
   try {
     writeFileSync(tmpPath, body, "utf8");
 
-    const scriptPath = join(
-      dirname(fileURLToPath(import.meta.url)),
-      "scripts",
-      "create_pr_safe.py",
-    );
+    const PIPE = { stdio: ["pipe", "pipe", "pipe"] as ["pipe", "pipe", "pipe"] };
+    const ghEnv = { ...process.env, GH_PAGER: "" };
 
-    const cmd = [
-      "python3",
-      shellEscape(scriptPath),
-      "--title",
-      shellEscape(title),
-      "--base",
-      shellEscape(baseBranch),
-      "--body-file",
-      shellEscape(tmpPath),
-    ].join(" ");
-
+    // Create the PR
+    const head = getCurrentBranch(cwd) ?? "";
     try {
-      const stdout = execSync(cmd, {
-        encoding: "utf8",
-        stdio: ["pipe", "pipe", "pipe"],
-        cwd,
-      });
-      prUrl = stdout.trim();
+      execSync(
+        [
+          "gh", "pr", "create",
+          "--title", shellEscape(title),
+          "--base", shellEscape(baseBranch),
+          "--head", shellEscape(head),
+          "--body-file", shellEscape(tmpPath),
+        ].join(" "),
+        { encoding: "utf8", cwd, env: ghEnv, ...PIPE },
+      );
     } catch (err) {
-      const stderr =
-        err instanceof Error && "stderr" in err
-          ? String((err as NodeJS.ErrnoException & { stderr?: string }).stderr)
-          : String(err);
+      const e = err as { stderr?: string; message?: string };
       return {
         ok: false,
         phase: "create-failed",
-        error: `create_pr_safe.py failed: ${stderr || String(err)}`,
-        hint:
-          "Verify the branch has been pushed and the repo is accessible. Check gh auth status.",
+        error: e.stderr ?? e.message ?? String(err),
+        hint: "Verify the branch has been pushed and the repo is accessible. Check gh auth status.",
       };
     }
-  } finally {
-    // Always clean up the temp file regardless of success or failure
+
+    // Verify body integrity — gh can mangle markdown in rare cases
+    const normalize = (s: string) => s.replace(/\r\n/g, "\n").trimEnd() + "\n";
+    const expected = normalize(body);
+
     try {
-      unlinkSync(tmpPath);
+      const actualBody = execSync(
+        "gh pr view --json body --jq .body",
+        { encoding: "utf8", cwd, env: ghEnv, ...PIPE },
+      );
+
+      if (normalize(actualBody) !== expected) {
+        // Auto-repair via gh pr edit
+        const prNumber = execSync(
+          "gh pr view --json number --jq .number",
+          { encoding: "utf8", cwd, env: ghEnv, ...PIPE },
+        ).trim();
+        execSync(
+          ["gh", "pr", "edit", prNumber, "--body-file", shellEscape(tmpPath)].join(" "),
+          { encoding: "utf8", cwd, env: ghEnv, ...PIPE },
+        );
+      }
     } catch {
-      // missing_ok — ignore if already gone
+      // Body verification is best-effort — PR was already created
     }
+
+    // Get the PR URL
+    try {
+      prUrl = execSync(
+        "gh pr view --json url --jq .url",
+        { encoding: "utf8", cwd, env: ghEnv, ...PIPE },
+      ).trim();
+    } catch {
+      prUrl = "(PR created but could not retrieve URL)";
+    }
+  } finally {
+    try { unlinkSync(tmpPath); } catch { /* ignore */ }
   }
 
   // ── Post Linear comment (best-effort) ────────────────────────────────────────

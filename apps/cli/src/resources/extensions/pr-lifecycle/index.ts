@@ -2,9 +2,8 @@
  * pr-lifecycle extension — registers the `kata_create_pr` tool.
  *
  * The tool runs a three-stage pre-flight (gh installed, gh authenticated,
- * python3 available), composes the PR body from Kata slice artifacts, writes
- * it to a temp file, and delegates to the bundled `create_pr_safe.py` script
- * to create the GitHub PR safely.
+ * gh authenticated), composes the PR body from Kata slice artifacts, and
+ * creates the GitHub PR via `gh pr create` with body integrity verification.
  *
  * All failure paths return a structured `{ ok: false, phase, error, hint }`
  * object — the tool never throws.
@@ -109,7 +108,7 @@ export default function (pi: ExtensionAPI): void {
     description: [
       "Create a GitHub PR for the current Kata slice branch.",
       "Composes the PR body from .kata/ slice artifacts (S01-PLAN.md, S01-SUMMARY.md, task plans).",
-      "Pre-flight checks: gh CLI installed, gh authenticated, python3 available.",
+      "Pre-flight checks: gh CLI installed, gh authenticated.",
       "Uses `milestoneId`/`sliceId` from params when provided; auto-detects from branch name otherwise.",
       "Returns { ok: true, url } on success; { ok: false, phase, error, hint } on any failure.",
     ].join(" "),
