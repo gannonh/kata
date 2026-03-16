@@ -23,6 +23,7 @@ models:
     planning: claude-opus-4-6
     execution: claude-opus-4-6
     completion: claude-sonnet-4-6
+    review: claude-sonnet-4-6 
 skill_discovery: auto
 auto_supervisor: {}
 
@@ -30,7 +31,7 @@ auto_supervisor: {}
 
 # Kata Preferences
 
-> **Agent: do NOT overwrite this file.** Use `edit` to change individual fields. This file contains many settings — overwriting it with only the fields you care about destroys the rest.
+> **Agent: do NOT overwrite this file.** Use `edit` to change individual fields. This file contains many settings — overwstatyuriting it with only the fields you care about destroys the rest.
 
 See `~/.kata-cli/agent/extensions/kata/docs/preferences-reference.md` for full field documentation and examples.
 
