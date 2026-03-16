@@ -833,6 +833,9 @@ async function dispatchNextUnit(
 ): Promise<void> {
   if (!active || !cmdCtx || !backend) return;
 
+  // Invalidate cached state before each dispatch to avoid stale re-dispatches
+  backend.invalidateStateCache?.();
+
   // 1. Derive state (backend handles file vs Linear)
   const state = await backend.deriveState();
   const mid = state.activeMilestone?.id;
@@ -989,17 +992,26 @@ async function dispatchNextUnit(
     const postPrefs = loadEffectiveKataPreferences()?.preferences;
     const postDecision = decidePostCompleteSliceAction(postPrefs?.pr);
 
-    if (postDecision === "auto-create-and-pause") {
+    if (postDecision === "auto-create-and-pause" && !wasCompletingMilestone) {
       const [completedMid, completedSid] = currentUnit!.id.split("/");
+      if (!completedSid) {
+        // Milestone-only ID — no slice to create a PR for
+        return;
+      }
 
       try {
+        // Resolve human-readable slice title from dashboard data
+        const dashData = await backend.loadDashboardData();
+        const sliceTitle = dashData.sliceViews
+          ?.find((s) => s.id === completedSid)?.title ?? completedSid!;
+
         const prCtx = await backend.preparePrContext(completedMid!, completedSid!);
         const prResult = await runCreatePr({
           cwd: backend.gitRoot,
           milestoneId: completedMid!,
           sliceId: completedSid!,
           baseBranch: postPrefs?.pr?.base_branch ?? "main",
-          title: completedSid!,
+          title: sliceTitle,
           linearDocuments: prCtx.documents,
         });
         if (prResult.ok) {
@@ -1060,8 +1072,11 @@ async function dispatchNextUnit(
       const [cMid, cSid] = currentUnit.id.split("/");
       if (cMid && cSid) {
         try {
+          const legacyDash = await backend.loadDashboardData();
+          const legacyTitle = legacyDash.sliceViews
+            ?.find((s) => s.id === cSid)?.title ?? cSid;
           switchToMain(backend.gitRoot);
-          const mergeResult = mergeSliceToMain(backend.gitRoot, cMid, cSid, cSid);
+          const mergeResult = mergeSliceToMain(backend.gitRoot, cMid, cSid, legacyTitle);
           ctx.ui.notify(`Merged ${mergeResult.branch} → main.`, "info");
         } catch (error) {
           ctx.ui.notify(

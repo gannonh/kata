@@ -56,6 +56,8 @@ export interface KataBackend {
   readonly gitRoot: string;
 
   deriveState(): Promise<KataState>;
+  /** Clear cached state so the next deriveState() fetches fresh data. No-op if not cached. */
+  invalidateStateCache?(): void;
   readDocument(name: string, scope?: DocumentScope): Promise<string | null>;
   writeDocument(name: string, content: string, scope?: DocumentScope): Promise<void>;
   documentExists(name: string, scope?: DocumentScope): Promise<boolean>;

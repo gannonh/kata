@@ -605,8 +605,15 @@ export async function showSmartEntry(
   }
 
   // ── Bootstrap via backend (handles file vs Linear mode) ──
-  const backend = await createBackend(basePath);
-  await backend.bootstrap();
+  let backend: Awaited<ReturnType<typeof createBackend>>;
+  try {
+    backend = await createBackend(basePath);
+    await backend.bootstrap();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    ctx.ui.notify(`Backend init failed: ${msg}`, "error");
+    return;
+  }
 
   // Check for crash from previous auto-mode session
   const crashLock = readCrashLock(basePath);
