@@ -39,7 +39,7 @@
     "prepublishOnly": "npm run sync-pkg-version && npm run build"
   },
   "dependencies": {
-    "@mariozechner/pi-coding-agent": "^0.57.1",
+    "@mariozechner/pi-coding-agent": "^0.58.4",
     "playwright": "^1.58.2"
   },
   "devDependencies": {

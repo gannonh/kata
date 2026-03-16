@@ -18,9 +18,9 @@
     "deploy": "bun run build && wrangler pages deploy dist --project-name craft-agents-mermaid"
   },
   "dependencies": {
-    "@dagrejs/dagre": "^1.1.8"
+    "@dagrejs/dagre": "^2.0.4"
   },
   "devDependencies": {
-    "shiki": "^3.19.0"
+    "shiki": "^4.0.2"
   }
 }
