@@ -35,7 +35,7 @@ import {
   syncLocalAfterMerge,
   markSliceDoneInRoadmap,
 } from "./pr-merge-utils.js";
-import { resolveThread, replyToThread } from "./pr-address-utils.js";
+import { resolveThread, replyToThread, fetchPrComments } from "./pr-address-utils.js";
 import {
   shouldCrossLink,
   resolveSliceLinearIdentifier,
@@ -323,9 +323,9 @@ export default function (pi: ExtensionAPI): void {
     name: "kata_fetch_pr_comments",
     description: [
       "Fetches all PR comments for the open PR on the current branch.",
-      "Runs the bundled fetch_comments.py script and returns structured JSON with:",
+      "Returns structured JSON with:",
       "pull_request metadata, conversation_comments, reviews, and review_threads.",
-      "Pre-flight checks: gh CLI installed, gh authenticated, python3 available.",
+      "Pre-flight checks: gh CLI installed, gh authenticated.",
       "Returns { ok: true, pull_request, conversation_comments, reviews, review_threads } on success.",
       "Returns { ok: false, phase, error, hint } on any failure.",
     ].join(" "),
@@ -341,8 +341,6 @@ export default function (pi: ExtensionAPI): void {
     },
     async execute(_id: string, params: { cwd?: string }, _signal: unknown, _onUpdate: unknown, ctx: ExtensionContext) {
       const cwd = params.cwd ?? ctx.cwd;
-
-      // ── Pre-flight checks ────────────────────────────────────────────────
 
       if (!isGhInstalled()) {
         return toolFail({
@@ -362,46 +360,16 @@ export default function (pi: ExtensionAPI): void {
         });
       }
 
-      try {
-        execSync("python3 --version", {
-          stdio: ["pipe", "pipe", "pipe"],
-          encoding: "utf8",
-        });
-      } catch {
-        return toolFail({
-          ok: false,
-          phase: "python3-missing",
-          error: "python3 not found in PATH",
-          hint: "Install Python 3: https://python.org",
-        });
-      }
-
-      // ── Resolve script path and run fetch_comments.py ────────────────────
-
-      const scriptPath = join(
-        dirname(fileURLToPath(import.meta.url)),
-        "scripts",
-        "fetch_comments.py",
-      );
-
-      try {
-        const stdout = execSync("python3 " + shellEscape(scriptPath), {
-          cwd,
-          encoding: "utf8",
-          stdio: ["pipe", "pipe", "pipe"],
-        });
-
-        const parsed = JSON.parse(stdout) as Record<string, unknown>;
-        return toolOk({ ok: true, ...parsed });
-      } catch (err) {
-        const stderr = (err as NodeJS.ErrnoException & { stderr?: string }).stderr;
+      const result = fetchPrComments(cwd);
+      if ("ok" in result && result.ok === false) {
         return toolFail({
           ok: false,
           phase: "fetch-failed",
-          error: stderr || String(err),
+          error: result.error,
           hint: "Ensure the current branch has an open PR and gh is authenticated.",
         });
       }
+      return toolOk({ ok: true, ...result });
     },
   });
 

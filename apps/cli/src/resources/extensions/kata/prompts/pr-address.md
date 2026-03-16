@@ -6,6 +6,6 @@ Then work through the feedback:
 1. Triage: identify which comments require code changes versus those that are informational, already addressed, or out of scope
 2. Fix: make the required code changes, one comment thread at a time
 3. Verify: run relevant tests to confirm fixes do not break existing behavior
-4. Respond: use the `subagent` tool if you need to post replies to specific threads
+4. Respond: use `kata_reply_to_thread` to post replies and `kata_resolve_thread` to resolve addressed threads
 
 Surface any `kata_fetch_pr_comments` failure (`{ ok: false, phase, error, hint }`) directly to the user.
