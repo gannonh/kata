@@ -767,11 +767,14 @@ function deriveUnitType(state: KataState, options: PromptOptions): string {
   }
 }
 
-function deriveUnitId(state: KataState): string {
+function deriveUnitId(state: KataState, options?: PromptOptions): string {
   const mid = state.activeMilestone?.id ?? "unknown";
-  const sid = state.activeSlice?.id;
+  // UAT and reassessment target the *previous* (completed) slice, not the
+  // now-active one. Use the dispatch option IDs when available so the unit
+  // key correctly identifies the work being done.
+  const sid = options?.uatSliceId ?? options?.reassessSliceId ?? state.activeSlice?.id;
   const tid = state.activeTask?.id;
-  if (tid && sid) return `${mid}/${sid}/${tid}`;
+  if (tid && sid && !options?.uatSliceId && !options?.reassessSliceId) return `${mid}/${sid}/${tid}`;
   if (sid) return `${mid}/${sid}`;
   return mid;
 }
@@ -867,7 +870,7 @@ async function dispatchNextUnit(
 
   // 6. Derive unit type and ID
   const unitType = deriveUnitType(state, dispatchOptions);
-  const unitId = deriveUnitId(state);
+  const unitId = deriveUnitId(state, dispatchOptions);
 
   ctx.ui.notify(`Auto-mode: ${unitType} — ${unitId}`, "info");
 
@@ -946,70 +949,70 @@ async function dispatchNextUnit(
     if (postDecision === "auto-create-and-pause" && !wasCompletingMilestone) {
       const [completedMid, completedSid] = currentUnit!.id.split("/");
       if (!completedSid) {
-        // Milestone-only ID — no slice to create a PR for
-        return;
-      }
+        // Milestone-only ID — no slice to create a PR for; fall through
+        // to let the dispatch loop continue instead of stalling.
+      } else {
+        try {
+          // Resolve human-readable slice title from dashboard data
+          const dashData = await backend.loadDashboardData();
+          const sliceTitle = dashData.sliceViews
+            ?.find((s) => s.id === completedSid)?.title ?? completedSid!;
 
-      try {
-        // Resolve human-readable slice title from dashboard data
-        const dashData = await backend.loadDashboardData();
-        const sliceTitle = dashData.sliceViews
-          ?.find((s) => s.id === completedSid)?.title ?? completedSid!;
-
-        const prCtx = await backend.preparePrContext(completedMid!, completedSid!);
-        const prResult = await runCreatePr({
-          cwd: backend.gitRoot,
-          milestoneId: completedMid!,
-          sliceId: completedSid!,
-          baseBranch: postPrefs?.pr?.base_branch ?? "main",
-          title: sliceTitle,
-          linearDocuments: prCtx.documents,
-        });
-        if (prResult.ok) {
+          const prCtx = await backend.preparePrContext(completedMid!, completedSid!);
+          const prResult = await runCreatePr({
+            cwd: backend.gitRoot,
+            milestoneId: completedMid!,
+            sliceId: completedSid!,
+            baseBranch: postPrefs?.pr?.base_branch ?? "main",
+            title: sliceTitle,
+            linearDocuments: prCtx.documents,
+          });
+          if (prResult.ok) {
+            await stopAuto(ctx, pi);
+            ctx.ui.notify(
+              `PR created: ${prResult.url}\n\nReview and merge the PR, then run /kata auto to continue.`,
+              "info",
+            );
+            return;
+          }
+          // PR failed — pause and ask the agent to help the user recover
           await stopAuto(ctx, pi);
-          ctx.ui.notify(
-            `PR created: ${prResult.url}\n\nReview and merge the PR, then run /kata auto to continue.`,
-            "info",
-          );
+          const diagnostic = formatPrAutoCreateFailure({
+            phase: prResult.phase,
+            error: prResult.error,
+            hint: prResult.hint ?? "",
+          });
+          pi.sendMessage({
+            content: [
+              `PR auto-create failed for slice ${completedSid}. The code is committed on branch \`kata/${completedMid}/${completedSid}\` — no work was lost.`,
+              ``,
+              `**Error:** ${prResult.error}`,
+              ``,
+              `Help the user resolve this. Common causes:`,
+              `- No git remote configured → offer to set up a GitHub remote (\`gh repo create\` or \`git remote add origin\`)`,
+              `- \`gh\` CLI not authenticated → guide them through \`gh auth login\``,
+              `- Branch not pushed → push the branch and retry`,
+              `- Network/rate limit → suggest waiting and retrying with \`/kata pr create\``,
+              ``,
+              `Once resolved, the user can run \`/kata pr create\` to create the PR manually, then \`/kata auto\` to continue.`,
+            ].join("\n"),
+          }, { triggerTurn: true });
+          return;
+        } catch (err) {
+          // preparePrContext failed — pause and surface the error conversationally
+          await stopAuto(ctx, pi);
+          const msg = err instanceof Error ? err.message : String(err);
+          pi.sendMessage({
+            content: [
+              `PR preparation failed for the completed slice. The code is committed — no work was lost.`,
+              ``,
+              `**Error:** ${msg}`,
+              ``,
+              `Help the user resolve this, then they can run \`/kata pr create\` followed by \`/kata auto\` to continue.`,
+            ].join("\n"),
+          }, { triggerTurn: true });
           return;
         }
-        // PR failed — pause and ask the agent to help the user recover
-        await stopAuto(ctx, pi);
-        const diagnostic = formatPrAutoCreateFailure({
-          phase: prResult.phase,
-          error: prResult.error,
-          hint: prResult.hint ?? "",
-        });
-        pi.sendMessage({
-          content: [
-            `PR auto-create failed for slice ${completedSid}. The code is committed on branch \`kata/${completedMid}/${completedSid}\` — no work was lost.`,
-            ``,
-            `**Error:** ${prResult.error}`,
-            ``,
-            `Help the user resolve this. Common causes:`,
-            `- No git remote configured → offer to set up a GitHub remote (\`gh repo create\` or \`git remote add origin\`)`,
-            `- \`gh\` CLI not authenticated → guide them through \`gh auth login\``,
-            `- Branch not pushed → push the branch and retry`,
-            `- Network/rate limit → suggest waiting and retrying with \`/kata pr create\``,
-            ``,
-            `Once resolved, the user can run \`/kata pr create\` to create the PR manually, then \`/kata auto\` to continue.`,
-          ].join("\n"),
-        }, { triggerTurn: true });
-        return;
-      } catch (err) {
-        // preparePrContext failed — pause and surface the error conversationally
-        await stopAuto(ctx, pi);
-        const msg = err instanceof Error ? err.message : String(err);
-        pi.sendMessage({
-          content: [
-            `PR preparation failed for the completed slice. The code is committed — no work was lost.`,
-            ``,
-            `**Error:** ${msg}`,
-            ``,
-            `Help the user resolve this, then they can run \`/kata pr create\` followed by \`/kata auto\` to continue.`,
-          ].join("\n"),
-        }, { triggerTurn: true });
-        return;
       }
     } else if (postDecision === "skip-notify") {
       ctx.ui.notify(

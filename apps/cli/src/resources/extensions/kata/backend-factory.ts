@@ -30,9 +30,9 @@ export async function createBackend(basePath: string): Promise<KataBackend> {
   }
 
   const config = loadEffectiveLinearProjectConfig();
-  const apiKey = process.env.LINEAR_API_KEY;
+  const apiKey = process.env.KATA_LINEAR_API_KEY ?? process.env.LINEAR_API_KEY;
   if (!apiKey) {
-    throw new Error("LINEAR_API_KEY is not set. Set it in your environment to use Linear mode.");
+    throw new Error("LINEAR_API_KEY is not set. Set it in your environment to use Linear mode (KATA_LINEAR_API_KEY or LINEAR_API_KEY).");
   }
 
   const { projectId } = config.linear;
@@ -62,8 +62,9 @@ export async function createBackend(basePath: string): Promise<KataBackend> {
     } catch (err) {
       lastError = err;
       const msg = err instanceof Error ? err.message : String(err);
-      // Don't retry config errors or rate limits
-      if (msg.includes("not set") || msg.includes("not configured") || msg.includes("could not be resolved") || msg.includes("Rate limit")) {
+      // Don't retry config errors — they won't resolve on retry.
+      // Rate-limit errors ARE retriable (backoff handles the wait).
+      if (msg.includes("not set") || msg.includes("not configured") || msg.includes("could not be resolved")) {
         throw err;
       }
       if (attempt < 2) {

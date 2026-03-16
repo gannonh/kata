@@ -102,8 +102,16 @@ export async function checkAutoStartAfterDiscuss(): Promise<boolean> {
   // agent_end fires after every LLM turn, including the initial "What do you
   // want to build?" response — we need to wait for the full conversation to
   // complete and the LLM to write the milestone context.
-  const checkBackend = await createBackend(basePath);
-  const created = await checkBackend.checkMilestoneCreated(milestoneId);
+  let created: boolean;
+  try {
+    const checkBackend = await createBackend(basePath);
+    created = await checkBackend.checkMilestoneCreated(milestoneId);
+  } catch {
+    // Backend creation or API call failed (e.g. Linear unavailable, config
+    // incomplete). Treat as "not yet created" — the hook will retry on the
+    // next agent_end event.
+    return false;
+  }
   if (!created) return false;
 
   pendingAutoStart = null;

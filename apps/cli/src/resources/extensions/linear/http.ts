@@ -161,7 +161,7 @@ export function classifyLinearError(err: unknown): ClassifiedError {
 export interface RateLimitInfo {
   remaining?: number;
   limit?: number;
-  reset?: number; // epoch seconds
+  reset?: number; // epoch milliseconds (UTC) — matches Linear's header format
 }
 
 /** Extract rate limit headers from a Linear API response. */
@@ -177,10 +177,15 @@ export function extractRateLimitInfo(response: Response): RateLimitInfo | undefi
     response.headers.get("x-ratelimit-reset");
 
   if (!remaining && !limit) return undefined;
+
+  // Linear's X-RateLimit-Requests-Reset is a UTC epoch in milliseconds.
+  // Store as-is so callers can compute `reset - Date.now()` for wait time.
+  const rawReset = reset ? parseInt(reset, 10) : undefined;
+
   return {
     remaining: remaining ? parseInt(remaining, 10) : undefined,
     limit: limit ? parseInt(limit, 10) : undefined,
-    reset: reset ? parseInt(reset, 10) : undefined,
+    reset: rawReset,
   };
 }
 
@@ -191,6 +196,12 @@ export function extractRateLimitInfo(response: Response): RateLimitInfo | undefi
 function isRetryable(error: unknown): boolean {
   if (error instanceof LinearHttpError) {
     return error.statusCode === 429 || error.statusCode >= 500;
+  }
+  if (error instanceof LinearGraphQLError) {
+    // GraphQL-level rate-limit or server errors should be retried.
+    // classifyError() identifies these via extensions.code / message patterns.
+    const classified = classifyError(error);
+    return classified.kind === "rate_limited" || classified.kind === "server_error";
   }
   if (error instanceof TypeError) return (error as TypeError).message.includes("fetch");
   return false;

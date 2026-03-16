@@ -403,7 +403,7 @@ export function spawnReviewerAgent(opts: {
     }
 
     const bundledPaths = (process.env.KATA_BUNDLED_EXTENSION_PATHS ?? "")
-      .split(":")
+      .split(path.delimiter)
       .filter(Boolean);
     const extensionArgs = bundledPaths.flatMap((p) => ["--extension", p]);
 

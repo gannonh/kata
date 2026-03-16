@@ -25,6 +25,7 @@ import {
   writeKataDocument,
   listKataDocuments,
 } from "../linear/linear-documents.js";
+import { listKataSlices, parseKataEntityTitle } from "../linear/linear-entities.js";
 import type { DocumentAttachment } from "../linear/linear-types.js";
 import { ensureGitignore } from "./gitignore.js";
 import { loadPrompt } from "./prompt-loader.js";
@@ -153,29 +154,73 @@ export class LinearBackend implements KataBackend {
     const state = await this.deriveState();
     const sliceViews: import("./backend.js").DashboardSliceView[] = [];
 
-    if (state.activeSlice) {
-      const taskDone = state.progress?.tasks?.done ?? 0;
-      const taskTotal = state.progress?.tasks?.total ?? 0;
-      const sv: import("./backend.js").DashboardSliceView = {
-        id: state.activeSlice.id,
-        title: state.activeSlice.title,
-        done: false,
-        risk: "",
-        active: true,
-        tasks: [],
-      };
-      if (taskTotal > 0) {
-        sv.taskProgress = { done: taskDone, total: taskTotal };
-        if (state.activeTask) {
-          sv.tasks.push({
-            id: state.activeTask.id,
-            title: state.activeTask.title,
-            done: false,
-            active: true,
-          });
+    // Fetch all slices for the current milestone so completed slices remain
+    // visible in the dashboard and available for PR title resolution.
+    try {
+      const allSlices = await listKataSlices(this.client, this.config.projectId, this.config.sliceLabelId);
+      const activeSliceId = state.activeSlice?.id;
+
+      for (const issue of allSlices) {
+        const parsed = parseKataEntityTitle(issue.title);
+        const sliceKataId = parsed?.kataId ?? issue.identifier;
+        const sliceTitle = parsed?.title ?? issue.title;
+        const isDone = issue.state.type === "completed" || issue.state.type === "canceled";
+        const isActive = sliceKataId === activeSliceId || issue.identifier === activeSliceId;
+
+        const sv: import("./backend.js").DashboardSliceView = {
+          id: sliceKataId,
+          title: sliceTitle,
+          done: isDone,
+          risk: "",
+          active: isActive,
+          tasks: [],
+        };
+
+        // Add task progress for the active slice from the derived state
+        if (isActive) {
+          const taskDone = state.progress?.tasks?.done ?? 0;
+          const taskTotal = state.progress?.tasks?.total ?? 0;
+          if (taskTotal > 0) {
+            sv.taskProgress = { done: taskDone, total: taskTotal };
+            if (state.activeTask) {
+              sv.tasks.push({
+                id: state.activeTask.id,
+                title: state.activeTask.title,
+                done: false,
+                active: true,
+              });
+            }
+          }
         }
+
+        sliceViews.push(sv);
       }
-      sliceViews.push(sv);
+    } catch {
+      // API failure — fall back to active-only view so dashboard still renders
+      if (state.activeSlice) {
+        const taskDone = state.progress?.tasks?.done ?? 0;
+        const taskTotal = state.progress?.tasks?.total ?? 0;
+        const sv: import("./backend.js").DashboardSliceView = {
+          id: state.activeSlice.id,
+          title: state.activeSlice.title,
+          done: false,
+          risk: "",
+          active: true,
+          tasks: [],
+        };
+        if (taskTotal > 0) {
+          sv.taskProgress = { done: taskDone, total: taskTotal };
+          if (state.activeTask) {
+            sv.tasks.push({
+              id: state.activeTask.id,
+              title: state.activeTask.title,
+              done: false,
+              active: true,
+            });
+          }
+        }
+        sliceViews.push(sv);
+      }
     }
 
     return {

@@ -19,6 +19,13 @@ export function ensureGitRepo(basePath: string, gitRoot: string): void {
   try {
     execSync("git rev-parse --git-dir", { cwd: basePath, stdio: "pipe" });
   } catch {
-    execSync("git init", { cwd: basePath, stdio: "pipe" });
+    // Use --initial-branch=main so the default branch matches downstream
+    // expectations (switchToMain, PR base branch). Older Git versions that
+    // don't support the flag fall back to a plain `git init`.
+    try {
+      execSync("git init --initial-branch=main", { cwd: basePath, stdio: "pipe" });
+    } catch {
+      execSync("git init", { cwd: basePath, stdio: "pipe" });
+    }
   }
 }

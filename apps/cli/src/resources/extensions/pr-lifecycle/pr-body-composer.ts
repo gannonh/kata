@@ -44,9 +44,11 @@ export async function composePRBody(
   options?: ComposePRBodyOptions,
 ): Promise<string> {
   // ── Slice Plan ────────────────────────────────────────────────────────────
+  // Linear documents take precedence (Linear mode is the source of truth);
+  // fall back to disk files for file-backed mode.
   const planPath = resolveSliceFile(cwd, milestoneId, sliceId, "PLAN");
   const planContent = planPath ? await loadFile(planPath) : null;
-  const effectivePlanContent = planContent ?? options?.linearDocuments?.["PLAN"] ?? null;
+  const effectivePlanContent = options?.linearDocuments?.["PLAN"] ?? planContent ?? null;
 
   let sliceTitle = `${sliceId}: (no slice plan found)`;
   let mustHaves: string[] = [];
@@ -64,7 +66,7 @@ export async function composePRBody(
   // ── Slice Summary (optional) ──────────────────────────────────────────────
   const summaryPath = resolveSliceFile(cwd, milestoneId, sliceId, "SUMMARY");
   const summaryContent = summaryPath ? await loadFile(summaryPath) : null;
-  const effectiveSummaryContent = summaryContent ?? options?.linearDocuments?.["SUMMARY"] ?? null;
+  const effectiveSummaryContent = options?.linearDocuments?.["SUMMARY"] ?? summaryContent ?? null;
 
   let oneLiner: string | null = null;
   if (effectiveSummaryContent) {
