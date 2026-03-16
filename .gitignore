@@ -111,10 +111,3 @@ target/
 vendor/
 *.log
 tmp/
-
-# ── Kata baseline (auto-generated) ──
-.idea/
-node_modules/
-dist/
-coverage/
-.cache/

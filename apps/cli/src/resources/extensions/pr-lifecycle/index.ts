@@ -281,19 +281,30 @@ export default function (pi: ExtensionAPI): void {
 
       // Dispatch reviewers internally — diff never enters parent context
       ctx.ui.setWorkingMessage(`PR Review: dispatching ${tasks.length} reviewers${reviewModel ? ` (model: ${reviewModel})` : ""}...`);
-      const result = await runReviewers({
-        tasks,
-        cwd,
-        model: reviewModel,
-        signal: signal ?? undefined,
-        onProgress: (completed, total, agent) => {
-          ctx.ui.setWorkingMessage(`PR Review: ${completed}/${total} reviewers complete (latest: ${agent})`);
-        },
-        onActivity: (agent, activity) => {
-          ctx.ui.setWorkingMessage(`PR Review: ${activity}`);
-        },
-      });
-      ctx.ui.setWorkingMessage(); // restore default
+      let result: Awaited<ReturnType<typeof runReviewers>>;
+      try {
+        result = await runReviewers({
+          tasks,
+          cwd,
+          model: reviewModel,
+          signal: signal ?? undefined,
+          onProgress: (completed, total, agent) => {
+            ctx.ui.setWorkingMessage(`PR Review: ${completed}/${total} reviewers complete (latest: ${agent})`);
+          },
+          onActivity: (agent, activity) => {
+            ctx.ui.setWorkingMessage(`PR Review: ${activity}`);
+          },
+        });
+      } catch (err) {
+        return toolFail({
+          ok: false,
+          phase: "review-failed",
+          error: err instanceof Error ? err.message : String(err),
+          hint: "Reviewer dispatch failed. Retry or inspect reviewer agent logs.",
+        });
+      } finally {
+        ctx.ui.setWorkingMessage(); // always restore default
+      }
 
       const diffLines = prCtx.diff.split("\n").length;
       const diffChars = prCtx.diff.length;

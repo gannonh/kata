@@ -5,6 +5,7 @@
  * the linear-documents module, and git operations to local exec.
  */
 
+import { execSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 

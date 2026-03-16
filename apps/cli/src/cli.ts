@@ -196,7 +196,12 @@ if (extensionsResult.errors.length > 0) {
 // Mode routing
 // ---------------------------------------------------------------------------
 
-if (isPrintMode && cliFlags.messages.length > 0) {
+if (isPrintMode) {
+  if (cliFlags.messages.length === 0) {
+    process.stderr.write('[kata] --print/--mode requires a message argument\n')
+    process.exit(2)
+  }
+
   // Apply --model override if provided
   if (cliFlags.model) {
     const match = modelRegistry.getAll().find(

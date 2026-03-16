@@ -413,7 +413,7 @@ export function spawnReviewerAgent(opts: {
       "--mode", "json",
       "-p",
       "--no-session",
-      "--tools", "read,bash,edit,write",
+      "--tools", "read,bash",
       "--append-system-prompt", promptPath,
       ...(model ? ["--model", model] : []),
       `Task: ${task}`,
@@ -439,9 +439,10 @@ export function spawnReviewerAgent(opts: {
         try {
           const event = JSON.parse(line);
           if (event.type === "message_end" && event.message?.role === "assistant") {
-            for (const part of event.message.content) {
-              if (part.type === "text") lastAssistantText = part.text;
-            }
+            lastAssistantText = (event.message.content ?? [])
+              .filter((p: { type: string }) => p.type === "text")
+              .map((p: { text: string }) => p.text)
+              .join("\n");
             turnCount++;
             onActivity?.(`[${agentName}] turn ${turnCount} complete`);
           } else if (event.type === "message_start" && event.message?.role === "assistant") {
@@ -469,9 +470,10 @@ export function spawnReviewerAgent(opts: {
         try {
           const event = JSON.parse(buffer);
           if (event.type === "message_end" && event.message?.role === "assistant") {
-            for (const part of event.message.content) {
-              if (part.type === "text") lastAssistantText = part.text;
-            }
+            lastAssistantText = (event.message.content ?? [])
+              .filter((p: { type: string }) => p.type === "text")
+              .map((p: { text: string }) => p.text)
+              .join("\n");
           }
         } catch { /* ignore */ }
       }
@@ -489,7 +491,7 @@ export function spawnReviewerAgent(opts: {
     if (signal) {
       const kill = () => {
         proc.kill("SIGTERM");
-        setTimeout(() => { if (!proc.killed) proc.kill("SIGKILL"); }, 5000);
+        setTimeout(() => { if (proc.exitCode === null) proc.kill("SIGKILL"); }, 5000);
       };
       if (signal.aborted) kill();
       else signal.addEventListener("abort", kill, { once: true });
