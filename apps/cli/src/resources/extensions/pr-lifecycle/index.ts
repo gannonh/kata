@@ -270,11 +270,21 @@ export default function (pi: ExtensionAPI): void {
         }),
       }));
 
+      const diffLines = prCtx.diff.split("\n").length;
+      const diffChars = prCtx.diff.length;
+      const { MAX_DIFF_CHARS: maxChars } = await import("./pr-review-utils.js");
+      const truncatedInPrompts = diffChars > maxChars;
+
       return toolOk({
         ok: true,
         prNumber: prCtx.prNumber,
         title: prCtx.title,
-        diff: prCtx.diff,
+        diffStats: {
+          lines: diffLines,
+          files: prCtx.changedFiles.length,
+          chars: diffChars,
+          truncatedInReviewerPrompts: truncatedInPrompts,
+        },
         selectedReviewers,
         reviewerTasks,
       });

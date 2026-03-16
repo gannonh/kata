@@ -138,8 +138,19 @@ export function scopeReviewers({
 // ---------------------------------------------------------------------------
 
 /**
+ * Maximum characters of diff to embed directly in a reviewer prompt.
+ * ~100K tokens — leaves headroom for system prompt, tools, and instructions.
+ * Beyond this, the prompt tells reviewers to use tools (bash/read) for the rest.
+ */
+export const MAX_DIFF_CHARS = 400_000;
+
+/**
  * Builds a self-contained task prompt for a specific reviewer subagent.
  * Embeds PR number, title, diff, and reviewer-specific instructions.
+ *
+ * When the diff exceeds `maxDiffChars`, the embedded diff is truncated and
+ * the reviewer is instructed to use `bash("gh pr diff")` or `read` to
+ * inspect the remaining changes.
  */
 export function buildReviewerTaskPrompt({
   reviewer,
@@ -149,6 +160,7 @@ export function buildReviewerTaskPrompt({
   changedFiles,
   prBody,
   reviewerInstructions,
+  maxDiffChars = MAX_DIFF_CHARS,
 }: {
   reviewer: string;
   prTitle: string;
@@ -157,6 +169,7 @@ export function buildReviewerTaskPrompt({
   changedFiles: string[];
   prBody?: string;
   reviewerInstructions?: string;
+  maxDiffChars?: number;
 }): string {
   const body = prBody && prBody.trim() ? prBody : "(no description)";
   const filesSection =
@@ -164,6 +177,35 @@ export function buildReviewerTaskPrompt({
   const instructions =
     reviewerInstructions ??
     `You are the ${reviewer}. Review the PR changes carefully and report any issues you find.`;
+
+  const isTruncated = diff.length > maxDiffChars;
+
+  let diffSection: string;
+  if (isTruncated) {
+    // Truncate at a newline boundary to avoid cutting mid-line
+    let cutoff = maxDiffChars;
+    const newlineIdx = diff.lastIndexOf("\n", cutoff);
+    if (newlineIdx > maxDiffChars * 0.8) cutoff = newlineIdx;
+
+    const truncatedDiff = diff.slice(0, cutoff);
+    const totalLines = diff.split("\n").length;
+    const shownLines = truncatedDiff.split("\n").length;
+    const remainingChars = diff.length - cutoff;
+
+    diffSection = `Diff (showing first ~${shownLines.toLocaleString()} of ${totalLines.toLocaleString()} lines — truncated, ${remainingChars.toLocaleString()} chars remaining):
+${truncatedDiff}
+
+... [DIFF TRUNCATED — ${remainingChars.toLocaleString()} more characters not shown]
+
+IMPORTANT: This diff was too large to include in full. You MUST use tools to review the remaining changes:
+- bash("gh pr diff -- path/to/file.ts") — get the diff for a specific file
+- bash("gh pr diff | head -n 5000")     — get more lines from the full diff
+- read("path/to/file.ts")              — read the current version of any changed file
+Review ALL changed files listed above, not just what's shown in the truncated diff.`;
+  } else {
+    diffSection = `Full diff:
+${diff}`;
+  }
 
   return `You are reviewing PR #${prNumber}: "${prTitle}"
 
@@ -173,8 +215,7 @@ ${body}
 Changed files:
 ${filesSection}
 
-Full diff:
-${diff}
+${diffSection}
 
 Review instructions:
 ${instructions}
