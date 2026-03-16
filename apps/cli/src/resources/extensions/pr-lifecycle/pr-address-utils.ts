@@ -262,17 +262,31 @@ function ghGraphql(
 }
 
 function getPrRef(cwd: string): { owner: string; repo: string; number: number } {
-  const raw = execSync("gh pr view --json number,baseRepositoryOwner,baseRepository", {
+  // Get PR number
+  const prRaw = execSync("gh pr view --json number,headRepositoryOwner,headRepository", {
     cwd,
     encoding: "utf8",
     ...PIPE,
   });
-  const pr = JSON.parse(raw);
-  return {
-    owner: pr.baseRepositoryOwner.login,
-    repo: pr.baseRepository.name,
-    number: pr.number,
-  };
+  const pr = JSON.parse(prRaw);
+
+  // headRepositoryOwner/headRepository work for same-repo PRs.
+  // For fork-based PRs, fall back to gh repo view for the base repo.
+  let owner: string | undefined = pr.headRepositoryOwner?.login;
+  let repo: string | undefined = pr.headRepository?.name;
+
+  if (!owner || !repo) {
+    const repoRaw = execSync("gh repo view --json owner,name", {
+      cwd,
+      encoding: "utf8",
+      ...PIPE,
+    });
+    const repoInfo = JSON.parse(repoRaw);
+    owner = owner ?? repoInfo.owner.login;
+    repo = repo ?? repoInfo.name;
+  }
+
+  return { owner: owner!, repo: repo!, number: pr.number };
 }
 
 /**
