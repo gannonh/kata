@@ -83,7 +83,15 @@ export function initResources(agentDir: string): void {
  * Constructs a DefaultResourceLoader with no additionalExtensionPaths.
  * Extensions are synced to agentDir by initResources() and pi auto-discovers
  * them from ~/.kata-cli/agent/extensions/ via its normal agentDir scan.
+ *
+ * Optional overrides allow subagent spawns to inject --append-system-prompt
+ * content before reload().
  */
-export function buildResourceLoader(agentDir: string): DefaultResourceLoader {
-  return new DefaultResourceLoader({ agentDir })
+export function buildResourceLoader(agentDir: string, overrides?: {
+  appendSystemPrompt?: string;
+}): DefaultResourceLoader {
+  return new DefaultResourceLoader({
+    agentDir,
+    ...(overrides?.appendSystemPrompt ? { appendSystemPrompt: overrides.appendSystemPrompt } : {}),
+  })
 }

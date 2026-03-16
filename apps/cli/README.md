@@ -161,7 +161,7 @@ budget_ceiling: 50.00
 
 | Setting | What it controls |
 |---------|-----------------|
-| `models.*` | Per-phase model selection (Opus for planning, Sonnet for execution, etc.) |
+| `models.*` | Per-phase model selection (Opus for planning, Sonnet for execution, `review` for PR reviewer subagents, etc.) |
 | `pr.*` | PR lifecycle settings (see [PR Mode](#pr-mode)) |
 | `skill_discovery` | `auto` / `suggest` / `off` — how Kata finds and applies skills |
 | `auto_supervisor.*` | Timeout thresholds for auto-mode supervision |

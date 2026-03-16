@@ -39,7 +39,8 @@
    - **Option B:** Spawn kata child processes directly using the same pattern as the subagent extension (copy the spawn logic)
    - **Option C:** Use `ctx` to call the subagent tool programmatically if pi's extension API supports tool-to-tool calls
 
-   → Need to check if `ctx` exposes a `callTool` or similar API. If not, Option B (spawn directly) is cleanest.
+   → **Investigated:** `ExtensionContext` has no `callTool`/`executeTool` API. `ExtensionAPI.getAllTools()` returns metadata only (name/description/params), not execute functions. `sendUserMessage()` goes through LLM round-trip. **Option C is ruled out.**
+   → **Decision:** Option B — copy spawn logic into pr-lifecycle. ~60 lines of self-contained spawn/JSONL parsing. No cross-extension coupling. Extract as `spawnReviewerAgent()` in `pr-review-utils.ts`.
 
 2. **Refactor `kata_review_pr` execute function:**
    - Keep everything up to building `reviewerTasks` the same

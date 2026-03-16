@@ -40,6 +40,7 @@ models:
   planning: claude-opus-4-6     # Opus for architectural decisions
   execution: claude-sonnet-4-6
   completion: claude-sonnet-4-6
+  review: claude-sonnet-4-6     # Model for PR reviewer subagents
 ```
 
 Omit any key to use the currently selected model.

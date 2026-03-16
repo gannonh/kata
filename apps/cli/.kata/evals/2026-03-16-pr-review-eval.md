@@ -67,10 +67,37 @@ This same issue likely affects any agent file with colons in the description. Sh
 
 ## Next Steps
 
-1. **Fix Bug 3 first** (YAML quoting) — it blocks all subagent dispatch. Quick fix, high impact.
-2. **Fix Bug 2** (reviewerTasks flooding parent context) — architectural change to `kata_review_pr` tool.
-3. **Re-run the eval** — call `kata_review_pr` on PR #78, dispatch subagents, verify the full pipeline works end-to-end.
+1. ~~**Fix Bug 3 first** (YAML quoting) — it blocks all subagent dispatch. Quick fix, high impact.~~ ✅ DONE
+2. ~~**Fix Bug 2** (reviewerTasks flooding parent context) — architectural change to `kata_review_pr` tool.~~ ✅ DONE
+3. ~~**Re-run the eval** — verify the full pipeline works end-to-end.~~ ✅ DONE (see below)
 4. **Commit and push** all fixes to `refactor/unified-backend` branch.
+
+## Eval Run — 2026-03-16 (successful)
+
+**Target:** PR #2 "Workflow Loader and Config Layer" on a separate project (Rust codebase)
+**Diff:** 2,660 lines, 25 files, 136K chars (not truncated)
+**Reviewers:** 5 (pr-code-reviewer, pr-failure-finder, pr-code-simplifier, pr-type-design-analyzer, pr-comment-analyzer)
+**Result:** 5 critical, 6 important, 15 suggestions — all substantive with file:line references and concrete fixes
+
+### Additional bugs found and fixed during eval
+
+**Bug 4: `cli.ts` didn't route `--mode json` to print mode (FIXED)**
+Kata's custom `cli.ts` called `InteractiveMode` unconditionally. Subagent spawns with `--mode json` launched full TUI instead of JSON mode. Added `parseCliFlags()` and mode routing to `runPrintMode`.
+
+**Bug 5: Concurrent `initResources()` causes ENOENT races (FIXED)**
+Multiple subagent processes calling `initResources()` simultaneously race on file copy/delete operations. Skip `initResources()` in print mode — subagents inherit the already-synced agent directory.
+
+**Bug 6: Subprocess hangs after `runPrintMode` completes (FIXED)**
+Open handles (MCP adapter, timers) keep the Node event loop alive. Added `process.exit(0)` after `runPrintMode`.
+
+**Bug 7: Opus 4.6 context window set to 200K instead of 1M (FIXED)**
+Upstream `pi-ai` has wrong `contextWindow: 200000`. Patched in `cli.ts`. Tracked as KAT-487.
+
+### Feature additions during eval
+
+- **Observability:** `setWorkingMessage` shows live per-reviewer activity (tool calls, thinking, completion progress)
+- **Model config:** `models.review` preference controls reviewer subagent model
+- **Docs:** Updated preferences template, preferences-reference.md, README.md, AGENTS.md
 
 ## Test Command
 

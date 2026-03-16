@@ -6,7 +6,10 @@
  * Called by the `kata_review_pr` tool (T04) and tested independently.
  */
 
-import { execSync } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
 const PIPE = { stdio: ["pipe", "pipe", "pipe"] as [string, string, string] };
 
@@ -359,4 +362,203 @@ ${suggestionsSection}`;
   }
 
   return output;
+}
+
+// ---------------------------------------------------------------------------
+// spawnReviewerAgent — runs a single reviewer subagent as a child process
+// ---------------------------------------------------------------------------
+
+export interface ReviewerResult {
+  agent: string;
+  exitCode: number;
+  output: string;
+  stderr: string;
+}
+
+/**
+ * Spawns a kata child process in JSON mode with the given system prompt and task.
+ * Collects the final assistant text output. Returns structured result.
+ */
+export function spawnReviewerAgent(opts: {
+  agentName: string;
+  systemPrompt: string;
+  task: string;
+  cwd: string;
+  model?: string;
+  signal?: AbortSignal;
+  onActivity?: (activity: string) => void;
+}): Promise<ReviewerResult> {
+  return new Promise((resolve) => {
+    const { agentName, systemPrompt, task, cwd, model, signal, onActivity } = opts;
+
+    // Write system prompt to temp file
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "kata-reviewer-"));
+    const promptPath = path.join(tmpDir, `${agentName}.md`);
+    fs.writeFileSync(promptPath, systemPrompt, { encoding: "utf-8", mode: 0o600 });
+
+    const binPath = process.env.KATA_BIN_PATH;
+    if (!binPath) {
+      resolve({ agent: agentName, exitCode: 1, output: "", stderr: "KATA_BIN_PATH not set" });
+      return;
+    }
+
+    const bundledPaths = (process.env.KATA_BUNDLED_EXTENSION_PATHS ?? "")
+      .split(":")
+      .filter(Boolean);
+    const extensionArgs = bundledPaths.flatMap((p) => ["--extension", p]);
+
+    const args = [
+      binPath,
+      ...extensionArgs,
+      "--mode", "json",
+      "-p",
+      "--no-session",
+      "--tools", "read,bash,edit,write",
+      "--append-system-prompt", promptPath,
+      ...(model ? ["--model", model] : []),
+      `Task: ${task}`,
+    ];
+
+    const proc = spawn(process.execPath, args, {
+      cwd,
+      shell: false,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let buffer = "";
+    let lastAssistantText = "";
+    let stderr = "";
+    let turnCount = 0;
+
+    proc.stdout.on("data", (data: Buffer) => {
+      buffer += data.toString();
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const event = JSON.parse(line);
+          if (event.type === "message_end" && event.message?.role === "assistant") {
+            for (const part of event.message.content) {
+              if (part.type === "text") lastAssistantText = part.text;
+            }
+            turnCount++;
+            onActivity?.(`[${agentName}] turn ${turnCount} complete`);
+          } else if (event.type === "message_start" && event.message?.role === "assistant") {
+            onActivity?.(`[${agentName}] thinking...`);
+          } else if (event.type === "tool_execution_start") {
+            const toolName = event.toolName ?? "unknown";
+            const args = event.args ?? {};
+            let detail = toolName;
+            if (toolName === "bash") detail = `bash: ${(args.command ?? "").slice(0, 60)}`;
+            else if (toolName === "read") detail = `read: ${args.path ?? args.file_path ?? ""}`;
+            else if (toolName === "edit") detail = `edit: ${args.path ?? args.file_path ?? ""}`;
+            onActivity?.(`[${agentName}] → ${detail}`);
+          } else if (event.type === "tool_execution_end") {
+            onActivity?.(`[${agentName}] thinking...`);
+          }
+        } catch { /* skip non-JSON lines */ }
+      }
+    });
+
+    proc.stderr.on("data", (data: Buffer) => { stderr += data.toString(); });
+
+    proc.on("close", (code) => {
+      // Process any remaining buffer
+      if (buffer.trim()) {
+        try {
+          const event = JSON.parse(buffer);
+          if (event.type === "message_end" && event.message?.role === "assistant") {
+            for (const part of event.message.content) {
+              if (part.type === "text") lastAssistantText = part.text;
+            }
+          }
+        } catch { /* ignore */ }
+      }
+      // Clean up temp files
+      try { fs.unlinkSync(promptPath); } catch { /* ignore */ }
+      try { fs.rmdirSync(tmpDir); } catch { /* ignore */ }
+
+      resolve({ agent: agentName, exitCode: code ?? 1, output: lastAssistantText, stderr });
+    });
+
+    proc.on("error", () => {
+      resolve({ agent: agentName, exitCode: 1, output: "", stderr: "Failed to spawn process" });
+    });
+
+    if (signal) {
+      const kill = () => {
+        proc.kill("SIGTERM");
+        setTimeout(() => { if (!proc.killed) proc.kill("SIGKILL"); }, 5000);
+      };
+      if (signal.aborted) kill();
+      else signal.addEventListener("abort", kill, { once: true });
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// runReviewers — orchestrates parallel reviewer dispatch
+// ---------------------------------------------------------------------------
+
+const MAX_REVIEW_CONCURRENCY = 4;
+
+export interface RunReviewersResult {
+  findings: string;
+  reviewerOutputs: { agent: string; exitCode: number; outputPreview: string }[];
+}
+
+/**
+ * Runs reviewer subagents in parallel and returns aggregated findings.
+ * `onProgress` is called each time a reviewer completes.
+ * `onActivity` is called when a reviewer starts a new tool call or turn.
+ */
+export async function runReviewers(opts: {
+  tasks: { agent: string; task: string; systemPrompt: string }[];
+  cwd: string;
+  model?: string;
+  signal?: AbortSignal;
+  onProgress?: (completed: number, total: number, agent: string) => void;
+  onActivity?: (agent: string, activity: string) => void;
+}): Promise<RunReviewersResult> {
+  const { tasks, cwd, model, signal, onProgress, onActivity } = opts;
+  const results: ReviewerResult[] = new Array(tasks.length);
+  let nextIndex = 0;
+  let completed = 0;
+
+  const workers = Array.from(
+    { length: Math.min(MAX_REVIEW_CONCURRENCY, tasks.length) },
+    async () => {
+      while (true) {
+        const idx = nextIndex++;
+        if (idx >= tasks.length) return;
+        const t = tasks[idx];
+        results[idx] = await spawnReviewerAgent({
+          agentName: t.agent,
+          systemPrompt: t.systemPrompt,
+          task: t.task,
+          cwd,
+          model,
+          signal,
+          onActivity: onActivity ? (activity) => onActivity(t.agent, activity) : undefined,
+        });
+        completed++;
+        onProgress?.(completed, tasks.length, t.agent);
+      }
+    },
+  );
+  await Promise.all(workers);
+
+  const outputs = results.map((r) => r.output).filter(Boolean);
+  const findings = aggregateFindings(outputs);
+
+  const MAX_PREVIEW = 500;
+  const reviewerOutputs = results.map((r) => ({
+    agent: r.agent,
+    exitCode: r.exitCode,
+    outputPreview: r.output.slice(0, MAX_PREVIEW) + (r.output.length > MAX_PREVIEW ? "..." : ""),
+    stderr: r.stderr.slice(0, MAX_PREVIEW) + (r.stderr.length > MAX_PREVIEW ? "..." : ""),
+  }));
+
+  return { findings, reviewerOutputs };
 }

@@ -26,6 +26,7 @@ import {
   fetchPRContext,
   scopeReviewers,
   buildReviewerTaskPrompt,
+  runReviewers,
 } from "./pr-review-utils.js";
 import {
   parseCIChecks,
@@ -189,12 +190,10 @@ export default function (pi: ExtensionAPI): void {
   pi.registerTool({
     name: "kata_review_pr",
     description: [
-      "Prepares a parallel PR review dispatch plan.",
-      "Pre-flights gh CLI, fetches the open PR diff for the current branch,",
-      "scopes which of the 6 bundled reviewer subagents to run based on diff content,",
-      "and builds a per-reviewer task prompt.",
-      "Returns { ok: true, prNumber, selectedReviewers, reviewerTasks } on success —",
-      "pass reviewerTasks to the `subagent` tool in parallel mode to dispatch reviewers.",
+      "Runs a parallel PR review for the open GitHub PR on the current branch.",
+      "Pre-flights gh CLI, fetches the PR diff, selects reviewer subagents based on diff content,",
+      "spawns them in parallel, and returns aggregated findings.",
+      "Returns { ok: true, prNumber, selectedReviewers, findings } on success.",
       "Returns { ok: false, phase, error, hint } for: gh-missing, gh-unauth, not-in-pr, diff-empty.",
     ].join(" "),
     parameters: {
@@ -213,7 +212,7 @@ export default function (pi: ExtensionAPI): void {
       },
       required: [],
     },
-    async execute(_id: string, params: { cwd?: string; reviewers?: string[] }, _signal: unknown, _onUpdate: unknown, ctx: ExtensionContext) {
+    async execute(_id: string, params: { cwd?: string; reviewers?: string[] }, signal: AbortSignal | undefined, onUpdate: ((partial: any) => void) | undefined, ctx: ExtensionContext) {
       const cwd = params.cwd ?? ctx.cwd;
 
       if (!isGhInstalled()) {
@@ -255,8 +254,12 @@ export default function (pi: ExtensionAPI): void {
         params.reviewers ??
         scopeReviewers({ diff: prCtx.diff, changedFiles: prCtx.changedFiles });
 
-      const reviewerTasks = selectedReviewers.map((reviewerName) => ({
+      // Build tasks with system prompts for internal dispatch
+      const tasks = selectedReviewers.map((reviewerName) => ({
         agent: reviewerName,
+        systemPrompt:
+          REVIEWER_INSTRUCTIONS[reviewerName] ??
+          `You are a ${reviewerName} reviewer. Review the provided diff for issues.`,
         task: buildReviewerTaskPrompt({
           reviewer: reviewerName,
           prTitle: prCtx.title,
@@ -270,10 +273,32 @@ export default function (pi: ExtensionAPI): void {
         }),
       }));
 
+      // Resolve review model from preferences (pr.review_model or models.review)
+      let reviewModel: string | undefined;
+      try {
+        const prefs = loadEffectiveKataPreferences();
+        reviewModel = prefs?.preferences?.models?.review;
+      } catch { /* best-effort */ }
+
+      // Dispatch reviewers internally — diff never enters parent context
+      ctx.ui.setWorkingMessage(`PR Review: dispatching ${tasks.length} reviewers${reviewModel ? ` (model: ${reviewModel})` : ""}...`);
+      const result = await runReviewers({
+        tasks,
+        cwd,
+        model: reviewModel,
+        signal: signal ?? undefined,
+        onProgress: (completed, total, agent) => {
+          ctx.ui.setWorkingMessage(`PR Review: ${completed}/${total} reviewers complete (latest: ${agent})`);
+        },
+        onActivity: (agent, activity) => {
+          ctx.ui.setWorkingMessage(`PR Review: ${activity}`);
+        },
+      });
+      ctx.ui.setWorkingMessage(); // restore default
+
       const diffLines = prCtx.diff.split("\n").length;
       const diffChars = prCtx.diff.length;
       const { MAX_DIFF_CHARS: maxChars } = await import("./pr-review-utils.js");
-      const truncatedInPrompts = diffChars > maxChars;
 
       return toolOk({
         ok: true,
@@ -283,10 +308,11 @@ export default function (pi: ExtensionAPI): void {
           lines: diffLines,
           files: prCtx.changedFiles.length,
           chars: diffChars,
-          truncatedInReviewerPrompts: truncatedInPrompts,
+          truncatedInReviewerPrompts: diffChars > maxChars,
         },
         selectedReviewers,
-        reviewerTasks,
+        reviewerOutputs: result.reviewerOutputs,
+        findings: result.findings,
       });
     },
   });

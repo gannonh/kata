@@ -122,9 +122,13 @@ pr:
   base_branch: main
   review_on_create: false
   linear_link: false
+models:
+  review: claude-sonnet-4-6   # model for PR reviewer subagents
 ```
 
 Set `linear_link: true` with `workflow.mode: linear` to include `Closes KAT-N` references in PR bodies and advance Linear issue state on merge.
+
+Set `models.review` to control which model the PR reviewer subagents use. Sonnet is recommended (faster, parallel-friendly). Omit to use the default model.
 
 ## Development
 
