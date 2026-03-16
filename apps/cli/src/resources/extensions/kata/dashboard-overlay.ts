@@ -16,30 +16,8 @@ import {
 import { loadEffectiveKataPreferences } from "./preferences.js";
 import { createBackend } from "./backend-factory.js";
 import type { DashboardSliceView } from "./backend.js";
-
-function formatDuration(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  const rs = s % 60;
-  if (m < 60) return `${m}m ${rs}s`;
-  const h = Math.floor(m / 60);
-  const rm = m % 60;
-  return `${h}h ${rm}m`;
-}
-
-function unitLabel(type: string): string {
-  switch (type) {
-    case "research-milestone": return "Research";
-    case "plan-milestone": return "Plan";
-    case "research-slice": return "Research";
-    case "plan-slice": return "Plan";
-    case "execute-task": return "Execute";
-    case "complete-slice": return "Complete";
-    case "reassess-roadmap": return "Reassess";
-    default: return type;
-  }
-}
+import { unitLabel } from "./unit-display.js";
+import { formatDuration } from "./markdown-utils.js";
 
 function centerLine(content: string, width: number): string {
   const vis = visibleWidth(content);

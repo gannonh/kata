@@ -31,8 +31,8 @@ export interface DocumentRef {
 }
 
 export interface PhaseRecipe {
-  /** Phase name matching the unit type in dispatch (e.g. "execute-task", "plan-slice") */
-  phase: string;
+  /** Phase name matching the workflow phase (e.g. "executing", "planning") */
+  phase: string; // kept as string: values here are unit types, not Phase literals
   /** Human description of what this phase does */
   description: string;
   /** Documents to read before executing the phase */

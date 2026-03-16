@@ -6,7 +6,7 @@
  * call backend methods — no isLinearMode() forks.
  */
 
-import type { KataState } from "./types.js";
+import type { KataState, Phase } from "./types.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -64,7 +64,7 @@ export interface KataBackend {
   listDocuments(scope?: DocumentScope): Promise<string[]>;
 
   /** Async — FileBackend reads files to inline, LinearBackend may need API lookups. */
-  buildPrompt(phase: string, state: KataState, options?: PromptOptions): Promise<string>;
+  buildPrompt(phase: Phase, state: KataState, options?: PromptOptions): Promise<string>;
   buildDiscussPrompt(nextId: string, preamble: string): string;
 
   bootstrap(): Promise<void>;

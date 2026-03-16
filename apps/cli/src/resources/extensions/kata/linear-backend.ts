@@ -5,8 +5,7 @@
  * the linear-documents module, and git operations to local exec.
  */
 
-import { existsSync, mkdirSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 import type {
@@ -16,7 +15,7 @@ import type {
   DashboardData,
   PrContext,
 } from "./backend.js";
-import type { KataState } from "./types.js";
+import type { KataState, Phase } from "./types.js";
 
 import { LinearClient } from "../linear/linear-client.js";
 import { deriveLinearState } from "../linear/linear-state.js";
@@ -28,6 +27,7 @@ import {
 import type { DocumentAttachment } from "../linear/linear-types.js";
 import { ensureGitignore } from "./gitignore.js";
 import { loadPrompt } from "./prompt-loader.js";
+import { resolveGitRoot, ensureGitRepo } from "./git-utils.js";
 
 // ─── Prompt Constants ─────────────────────────────────────────────────────────
 
@@ -69,15 +69,7 @@ export class LinearBackend implements KataBackend {
     this.basePath = basePath;
     this.config = config;
     this.client = new LinearClient(config.apiKey);
-    // Resolve git root — walk up from basePath to find existing repo.
-    // In monorepos, basePath is a subdirectory of the actual git root.
-    try {
-      this.gitRoot = execSync("git rev-parse --show-toplevel", {
-        cwd: basePath, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
-      }).trim();
-    } catch {
-      this.gitRoot = basePath;
-    }
+    this.gitRoot = resolveGitRoot(basePath);
   }
 
   // ── State ─────────────────────────────────────────────────────────────
@@ -143,16 +135,7 @@ export class LinearBackend implements KataBackend {
   // ── Lifecycle ─────────────────────────────────────────────────────────
 
   async bootstrap(): Promise<void> {
-    // Only git init if no repo exists anywhere above basePath.
-    // In monorepos, the repo root is a parent directory — never init a nested repo.
-    if (this.gitRoot === this.basePath) {
-      try {
-        execSync("git rev-parse --git-dir", { cwd: this.basePath, stdio: "pipe" });
-      } catch {
-        execSync("git init", { cwd: this.basePath, stdio: "pipe" });
-      }
-    }
-
+    ensureGitRepo(this.basePath, this.gitRoot);
     ensureGitignore(this.gitRoot);
 
     // Ensure .kata/ directory exists (in basePath, not gitRoot)
@@ -225,7 +208,7 @@ export class LinearBackend implements KataBackend {
   // ── Prompt Builders ──────────────────────────────────────────────────
 
   async buildPrompt(
-    phase: string,
+    phase: Phase,
     state: KataState,
     options?: PromptOptions,
   ): Promise<string> {

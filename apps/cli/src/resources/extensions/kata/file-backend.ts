@@ -17,7 +17,7 @@ import type {
   DashboardData,
   PrContext,
 } from "./backend.js";
-import type { KataState } from "./types.js";
+import type { KataState, Phase } from "./types.js";
 
 import { deriveState } from "./state.js";
 import {
@@ -51,6 +51,12 @@ import {
 } from "./paths.js";
 import { resolveSkillDiscoveryMode } from "./preferences.js";
 import { ensureGitignore, ensurePreferences } from "./gitignore.js";
+import { resolveGitRoot, ensureGitRepo } from "./git-utils.js";
+import {
+  extractMarkdownSection,
+  extractSliceExecutionExcerpt,
+  oneLine,
+} from "./markdown-utils.js";
 
 // ─── Document name parsing ────────────────────────────────────────────────
 
@@ -104,13 +110,7 @@ export class FileBackend implements KataBackend {
 
   constructor(basePath: string) {
     this.basePath = basePath;
-    try {
-      this.gitRoot = execSync("git rev-parse --show-toplevel", {
-        cwd: basePath, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
-      }).trim();
-    } catch {
-      this.gitRoot = basePath;
-    }
+    this.gitRoot = resolveGitRoot(basePath);
   }
 
   // ── State ─────────────────────────────────────────────────────────────
@@ -166,9 +166,31 @@ export class FileBackend implements KataBackend {
     throw new Error("FileBackend.writeDocument is not yet implemented");
   }
 
-  async documentExists(name: string, scope?: DocumentScope): Promise<boolean> {
-    const content = await this.readDocument(name, scope);
-    return content != null && content.length > 0;
+  async documentExists(name: string, _scope?: DocumentScope): Promise<boolean> {
+    const parsed = parseDocName(name);
+    switch (parsed.kind) {
+      case "root":
+        return existsSync(resolveKataRootFile(this.basePath, parsed.docType as KataRootFileKey));
+      case "milestone": {
+        const p = resolveMilestoneFile(this.basePath, parsed.prefix!, parsed.docType);
+        return p != null;
+      }
+      case "slice": {
+        const state = await this.deriveState();
+        const mid = state.activeMilestone?.id;
+        if (!mid) return false;
+        return resolveSliceFile(this.basePath, mid, parsed.prefix!, parsed.docType) != null;
+      }
+      case "task": {
+        const state = await this.deriveState();
+        const mid = state.activeMilestone?.id;
+        const sid = state.activeSlice?.id;
+        if (!mid || !sid) return false;
+        return resolveTaskFile(this.basePath, mid, sid, parsed.prefix!, parsed.docType) != null;
+      }
+      default:
+        return false;
+    }
   }
 
   async listDocuments(_scope?: DocumentScope): Promise<string[]> {
@@ -193,15 +215,7 @@ export class FileBackend implements KataBackend {
   async bootstrap(): Promise<void> {
     const msDir = milestonesDir(this.basePath);
 
-    // Only git init if no repo exists anywhere above basePath.
-    // In monorepos, the repo root is a parent directory — never init a nested repo.
-    if (this.gitRoot === this.basePath) {
-      try {
-        execSync("git rev-parse --git-dir", { cwd: this.basePath, stdio: "pipe" });
-      } catch {
-        execSync("git init", { cwd: this.basePath, stdio: "pipe" });
-      }
-    }
+    ensureGitRepo(this.basePath, this.gitRoot);
 
     // Ensure directory structure
     mkdirSync(msDir, { recursive: true });
@@ -229,7 +243,7 @@ export class FileBackend implements KataBackend {
 
   // ── Prompt Builders ───────────────────────────────────────────────────
 
-  async buildPrompt(phase: string, state: KataState, options?: PromptOptions): Promise<string> {
+  async buildPrompt(phase: Phase, state: KataState, options?: PromptOptions): Promise<string> {
     // Dispatch-time overrides take priority
     if (options?.uatSliceId) {
       return this._buildRunUatPrompt(state, options.uatSliceId);
@@ -702,11 +716,16 @@ export class FileBackend implements KataBackend {
     const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
     const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
 
+    const roadmapContent = roadmapPath ? await loadFile(roadmapPath) : null;
+
     const inlined: string[] = [];
-    inlined.push(await this._inlineFile(roadmapPath, roadmapRel, "Milestone Roadmap"));
+    if (roadmapContent) {
+      inlined.push(`### Milestone Roadmap\nSource: \`${roadmapRel}\`\n\n${roadmapContent.trim()}`);
+    } else {
+      inlined.push(`### Milestone Roadmap\nSource: \`${roadmapRel}\`\n\n_(not found — file does not exist yet)_`);
+    }
 
     // Inline all slice summaries
-    const roadmapContent = roadmapPath ? await loadFile(roadmapPath) : null;
     if (roadmapContent) {
       const roadmap = parseRoadmap(roadmapContent);
       for (const slice of roadmap.slices) {
@@ -887,13 +906,11 @@ export class FileBackend implements KataBackend {
     const uatContent = uatFile ? await loadFile(uatFile) : null;
 
     const inlined: string[] = [];
-    inlined.push(
-      await this._inlineFile(
-        resolveSliceFile(base, mid, sliceId, "UAT"),
-        uatPath,
-        `${sliceId} UAT`,
-      ),
-    );
+    if (uatContent) {
+      inlined.push(`### ${sliceId} UAT\nSource: \`${uatPath}\`\n\n${uatContent.trim()}`);
+    } else {
+      inlined.push(`### ${sliceId} UAT\nSource: \`${uatPath}\`\n\n_(not found — file does not exist yet)_`);
+    }
 
     const summaryPath = resolveSliceFile(base, mid, sliceId, "SUMMARY");
     const summaryRel = relSliceFile(base, mid, sliceId, "SUMMARY");
@@ -1101,64 +1118,6 @@ export class FileBackend implements KataBackend {
 
 // ─── Module-level helpers (used by prompt builders) ───────────────────────
 
-function extractSliceExecutionExcerpt(
-  content: string | null,
-  relPath: string,
-): string {
-  if (!content) {
-    return [
-      "## Slice Plan Excerpt",
-      `Slice plan not found at dispatch time. Read \`${relPath}\` before running slice-level verification.`,
-    ].join("\n");
-  }
-
-  const lines = content.split("\n");
-  const goalLine = lines.find((l) => l.startsWith("**Goal:**"))?.trim();
-  const demoLine = lines.find((l) => l.startsWith("**Demo:**"))?.trim();
-
-  const verification = extractMarkdownSection(content, "Verification");
-  const observability = extractMarkdownSection(
-    content,
-    "Observability / Diagnostics",
-  );
-
-  const parts = ["## Slice Plan Excerpt", `Source: \`${relPath}\``];
-  if (goalLine) parts.push(goalLine);
-  if (demoLine) parts.push(demoLine);
-  if (verification) {
-    parts.push("", "### Slice Verification", verification.trim());
-  }
-  if (observability) {
-    parts.push(
-      "",
-      "### Slice Observability / Diagnostics",
-      observability.trim(),
-    );
-  }
-
-  return parts.join("\n");
-}
-
-function extractMarkdownSection(
-  content: string,
-  heading: string,
-): string | null {
-  const match = new RegExp(`^## ${escapeRegExp(heading)}\\s*$`, "m").exec(
-    content,
-  );
-  if (!match) return null;
-
-  const start = match.index + match[0].length;
-  const rest = content.slice(start);
-  const nextHeading = rest.match(/^##\s+/m);
-  const end = nextHeading?.index ?? rest.length;
-  return rest.slice(0, end).trim();
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function buildResumeSection(
   continueContent: string | null,
   legacyContinueContent: string | null,
@@ -1199,6 +1158,3 @@ function buildResumeSection(
   return lines.join("\n");
 }
 
-function oneLine(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
-}

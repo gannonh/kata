@@ -91,6 +91,8 @@ import {
   parseRoadmap,
   parsePlan,
 } from "./files.js";
+import { unitVerb, unitPhaseLabel } from "./unit-display.js";
+import { formatDuration } from "./markdown-utils.js";
 import {
   autoCommitCurrentBranch,
   ensureSliceBranch,
@@ -438,53 +440,6 @@ export async function handleAgentEnd(
 
 // ─── Progress Widget ──────────────────────────────────────────────────────
 
-function unitVerb(unitType: string): string {
-  switch (unitType) {
-    case "research-milestone":
-    case "research-slice":
-      return "researching";
-    case "plan-milestone":
-    case "plan-slice":
-      return "planning";
-    case "execute-task":
-      return "executing";
-    case "complete-slice":
-      return "completing";
-    case "replan-slice":
-      return "replanning";
-    case "reassess-roadmap":
-      return "reassessing";
-    case "run-uat":
-      return "running UAT";
-    default:
-      return unitType;
-  }
-}
-
-function unitPhaseLabel(unitType: string): string {
-  switch (unitType) {
-    case "research-milestone":
-      return "RESEARCH";
-    case "research-slice":
-      return "RESEARCH";
-    case "plan-milestone":
-      return "PLAN";
-    case "plan-slice":
-      return "PLAN";
-    case "execute-task":
-      return "EXECUTE";
-    case "complete-slice":
-      return "COMPLETE";
-    case "replan-slice":
-      return "REPLAN";
-    case "reassess-roadmap":
-      return "REASSESS";
-    case "run-uat":
-      return "UAT";
-    default:
-      return unitType.toUpperCase();
-  }
-}
 
 function peekNext(unitType: string, state: KataState): string {
   const sid = state.activeSlice?.id ?? "";
@@ -653,18 +608,9 @@ function updateProgressWidget(
   });
 }
 
-/** Format elapsed time since auto-mode started */
 function formatAutoElapsed(): string {
   if (!autoStartTime) return "";
-  const ms = Date.now() - autoStartTime;
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  const rs = s % 60;
-  if (m < 60) return `${m}m${rs > 0 ? ` ${rs}s` : ""}`;
-  const h = Math.floor(m / 60);
-  const rm = m % 60;
-  return `${h}h ${rm}m`;
+  return formatDuration(Date.now() - autoStartTime);
 }
 
 /** Cached slice progress for the widget — avoid async in render */
