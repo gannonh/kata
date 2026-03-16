@@ -8,19 +8,14 @@
 
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth, matchesKey, Key } from "@mariozechner/pi-tui";
-import { deriveState } from "./state.js";
-import { loadFile, parseRoadmap, parsePlan } from "./files.js";
-import { resolveMilestoneFile, resolveSliceFile } from "./paths.js";
 import { getAutoDashboardData, type AutoDashboardData } from "./auto.js";
 import {
   getLedger, getProjectTotals, aggregateByPhase, aggregateBySlice,
   aggregateByModel, formatCost, formatTokenCount, formatCostProjection,
 } from "./metrics.js";
 import { loadEffectiveKataPreferences } from "./preferences.js";
-import { isLinearMode, loadEffectiveLinearProjectConfig } from "./linear-config.js";
-import { LinearClient } from "../linear/linear-client.js";
-import { ensureKataLabels } from "../linear/linear-entities.js";
-import { deriveLinearState } from "../linear/linear-state.js";
+import { createBackend } from "./backend-factory.js";
+import type { DashboardSliceView } from "./backend.js";
 
 function formatDuration(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -90,8 +85,6 @@ export class KataDashboardOverlay {
   private dashData: AutoDashboardData;
   private milestoneData: MilestoneView | null = null;
   private loading = true;
-  private linearClient?: LinearClient;
-  private sliceLabelId?: string;
 
   constructor(
     tui: { requestRender: () => void },
@@ -109,6 +102,9 @@ export class KataDashboardOverlay {
       this.tui.requestRender();
     });
 
+    // Start at 2s, switch to 30s after first successful Linear backend load.
+    // File mode stays at 2s (disk reads are free). Linear mode at 30s
+    // avoids burning the 5000 req/hr API rate limit.
     this.refreshTimer = setInterval(() => {
       this.dashData = getAutoDashboardData();
       this.loadData().then(() => {
@@ -118,49 +114,17 @@ export class KataDashboardOverlay {
     }, 2000);
   }
 
+  private cachedBackend: import("./backend.js").KataBackend | null = null;
+
   private async loadData(): Promise<void> {
     const base = this.dashData.basePath || process.cwd();
 
-    if (isLinearMode()) {
-      await this.loadLinearData(base);
-      return;
-    }
-
-    await this.loadFileData(base);
-  }
-
-  private async loadLinearData(base: string): Promise<void> {
-    const config = loadEffectiveLinearProjectConfig();
-    const apiKey = process.env.LINEAR_API_KEY;
-
-    if (!apiKey) {
-      // No key — leave milestoneData as-is (don't crash)
-      return;
-    }
-
-    const { projectId, teamId } = config.linear;
-    if (!projectId || !teamId) {
-      return;
-    }
-
     try {
-      // Reuse the cached client — avoid re-construction on every 2s refresh
-      if (!this.linearClient) {
-        this.linearClient = new LinearClient(apiKey);
+      if (!this.cachedBackend) {
+        this.cachedBackend = await createBackend(base);
       }
-
-      // Resolve slice label once, then cache it
-      if (!this.sliceLabelId) {
-        const labelSet = await ensureKataLabels(this.linearClient, teamId);
-        this.sliceLabelId = labelSet.slice.id;
-      }
-
-      const state = await deriveLinearState(this.linearClient, {
-        projectId,
-        teamId,
-        sliceLabelId: this.sliceLabelId,
-        basePath: base,
-      });
+      const dashData = await this.cachedBackend.loadDashboardData();
+      const state = dashData.state;
 
       if (!state.activeMilestone) {
         this.milestoneData = null;
@@ -173,45 +137,23 @@ export class KataDashboardOverlay {
       const milestoneTotal =
         state.progress?.milestones.total ?? state.registry.length;
 
-      const sliceDone = state.progress?.slices?.done ?? 0;
-      const sliceTotal = state.progress?.slices?.total ?? 0;
-      const taskDone = state.progress?.tasks?.done ?? 0;
-      const taskTotal = state.progress?.tasks?.total ?? 0;
+      const sliceDone = dashData.sliceProgress?.done ?? 0;
+      const sliceTotal = dashData.sliceProgress?.total ?? 0;
 
-      // Build a slim slice list from the registry for the overlay.
-      // The registry entries track status but not slice IDs; we derive
-      // active/done flags from the state's activeSlice reference.
-      const sliceViews: SliceView[] = state.registry.map((entry) => {
-        const isActive = entry.id === state.activeSlice?.id;
-        const isDone = entry.status === "complete";
-        const sliceView: SliceView = {
-          id: entry.id,
-          title: entry.title,
-          done: isDone,
-          risk: "",
-          active: isActive,
-          tasks: [],
-        };
-
-        // For the active slice, inject task-level progress from state
-        if (isActive && taskTotal > 0) {
-          sliceView.taskProgress = { done: taskDone, total: taskTotal };
-
-          // We don't have a full task list from deriveLinearState's return
-          // value (it only surfaces the activeTask). Show the active task as
-          // a single entry so the overlay can display it.
-          if (state.activeTask) {
-            sliceView.tasks.push({
-              id: state.activeTask.id,
-              title: state.activeTask.title,
-              done: false,
-              active: true,
-            });
-          }
-        }
-
-        return sliceView;
-      });
+      const sliceViews: SliceView[] = (dashData.sliceViews ?? []).map((sv) => ({
+        id: sv.id,
+        title: sv.title,
+        done: sv.done,
+        risk: sv.risk,
+        active: sv.active,
+        tasks: sv.tasks.map((t) => ({
+          id: t.id,
+          title: t.title,
+          done: t.done,
+          active: t.active,
+        })),
+        taskProgress: sv.taskProgress,
+      }));
 
       const view: MilestoneView = {
         id: state.activeMilestone.id,
@@ -226,73 +168,7 @@ export class KataDashboardOverlay {
 
       this.milestoneData = view;
     } catch {
-      // Don't crash the overlay on API error — keep showing stale data
-    }
-  }
-
-  private async loadFileData(base: string): Promise<void> {
-    try {
-      const state = await deriveState(base);
-      if (!state.activeMilestone) {
-        this.milestoneData = null;
-        return;
-      }
-
-      const mid = state.activeMilestone.id;
-      const view: MilestoneView = {
-        id: mid,
-        title: state.activeMilestone.title,
-        slices: [],
-        phase: state.phase,
-        progress: {
-          milestones: {
-            total: state.progress?.milestones.total ?? state.registry.length,
-            done: state.progress?.milestones.done ?? state.registry.filter(entry => entry.status === "complete").length,
-          },
-        },
-      };
-
-      const roadmapFile = resolveMilestoneFile(base, mid, "ROADMAP");
-      const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
-      if (roadmapContent) {
-        const roadmap = parseRoadmap(roadmapContent);
-        for (const s of roadmap.slices) {
-          const sliceView: SliceView = {
-            id: s.id,
-            title: s.title,
-            done: s.done,
-            risk: s.risk,
-            active: state.activeSlice?.id === s.id,
-            tasks: [],
-          };
-
-          if (sliceView.active) {
-            const planFile = resolveSliceFile(base, mid, s.id, "PLAN");
-            const planContent = planFile ? await loadFile(planFile) : null;
-            if (planContent) {
-              const plan = parsePlan(planContent);
-              sliceView.taskProgress = {
-                done: plan.tasks.filter(t => t.done).length,
-                total: plan.tasks.length,
-              };
-              for (const t of plan.tasks) {
-                sliceView.tasks.push({
-                  id: t.id,
-                  title: t.title,
-                  done: t.done,
-                  active: state.activeTask?.id === t.id,
-                });
-              }
-            }
-          }
-
-          view.slices.push(sliceView);
-        }
-      }
-
-      this.milestoneData = view;
-    } catch {
-      // Don't crash the overlay
+      // Don't crash the overlay — keep showing stale data
     }
   }
 
@@ -421,8 +297,8 @@ export class KataDashboardOverlay {
       lines.push(row(th.fg("text", th.bold(`${mv.id}: ${mv.title}`))));
       lines.push(blank());
 
-      const totalSlices = mv.slices.length;
-      const doneSlices = mv.slices.filter(s => s.done).length;
+      const totalSlices = mv.progress.slices?.total ?? mv.slices.length;
+      const doneSlices = mv.progress.slices?.done ?? mv.slices.filter(s => s.done).length;
       const totalMilestones = mv.progress.milestones.total;
       const doneMilestones = mv.progress.milestones.done;
       const activeSlice = mv.slices.find(s => s.active);
@@ -531,8 +407,8 @@ export class KataDashboardOverlay {
       // Cost projection — only when active milestone data is available
       if (this.milestoneData) {
         const mv = this.milestoneData;
-        const msTotalSlices = mv.slices.length;
-        const msDoneSlices = mv.slices.filter(s => s.done).length;
+        const msTotalSlices = mv.progress.slices?.total ?? mv.slices.length;
+        const msDoneSlices = mv.progress.slices?.done ?? mv.slices.filter(s => s.done).length;
         const remainingCount = msTotalSlices - msDoneSlices;
         const overlayPrefs = loadEffectiveKataPreferences()?.preferences;
         const projLines = formatCostProjection(slices, remainingCount, overlayPrefs?.budget_ceiling);

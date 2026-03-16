@@ -207,13 +207,15 @@ describe(
       });
 
       // Phase must have advanced from "executing" after the task was marked done.
-      // Two outcomes are valid:
-      //   "summarizing" — slice stays started; all children terminal → summarizing
-      //   "complete"    — workspace auto-advanced slice/milestone when all tasks completed
-      const validPhases = ["summarizing", "complete"];
+      // Several outcomes are valid depending on Linear automation timing:
+      //   "summarizing"          — slice stays started; all children terminal → summarizing
+      //   "completing-milestone" — Linear auto-advanced slice to done; all slices now terminal
+      //   "complete"             — Linear auto-advanced everything to done
+      //   "pre-planning"         — Linear auto-completed milestone; next milestone has no slices
+      const validPhases = ["summarizing", "completing-milestone", "complete", "pre-planning"];
       assert.ok(
         validPhases.includes(state.phase),
-        `phase should be "summarizing" or "complete" after task marked done, got "${state.phase}"`
+        `phase should be one of ${validPhases.join("/")} after task marked done, got "${state.phase}"`
       );
       assert.notEqual(state.phase, "executing", "phase must have advanced from executing");
 

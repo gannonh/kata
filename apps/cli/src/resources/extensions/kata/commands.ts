@@ -13,12 +13,11 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deriveState } from "./state.js";
 import type { KataState } from "./types.js";
-import { LinearClient } from "../linear/linear-client.js";
-import { ensureKataLabels } from "../linear/linear-entities.js";
-import { deriveLinearState } from "../linear/linear-state.js";
 import { KataDashboardOverlay } from "./dashboard-overlay.js";
 import { showSmartEntry, showQueue, showDiscuss } from "./guided-flow.js";
 import { startAuto, stopAuto, isAutoActive, isAutoPaused } from "./auto.js";
+import type { KataBackend } from "./backend.js";
+import { createBackend } from "./backend-factory.js";
 import {
   getGlobalKataPreferencesPath,
   getLegacyGlobalKataPreferencesPath,
@@ -37,7 +36,6 @@ import {
 import {
   formatLinearConfigStatus,
   getWorkflowEntrypointGuard,
-  isLinearMode,
   loadEffectiveLinearProjectConfig,
   validateLinearProjectConfig,
   type LinearConfigValidationResult,
@@ -213,10 +211,11 @@ function describeSkillResolution(
 export function registerKataCommand(pi: ExtensionAPI): void {
   pi.registerCommand("kata", {
     description:
-      "Kata — Kata Workflow: /kata auto|stop|status|queue|discuss|prefs|doctor|pr",
+      "Kata — Kata Workflow: /kata step|auto|stop|status|queue|discuss|prefs|doctor|pr",
 
     getArgumentCompletions: (prefix: string) => {
       const subcommands = [
+        "step",
         "auto",
         "stop",
         "status",
@@ -320,92 +319,50 @@ export function registerKataCommand(pi: ExtensionAPI): void {
         return;
       }
 
-      if (trimmed === "") {
-        await showSmartEntry(ctx, pi, process.cwd());
+      if (trimmed === "" || trimmed === "step") {
+        let stepBackend: KataBackend;
+        try {
+          stepBackend = await createBackend(process.cwd());
+        } catch (err) {
+          ctx.ui.notify(`Kata backend init failed: ${err instanceof Error ? err.message : String(err)}`, "error");
+          return;
+        }
+        const state = await stepBackend.deriveState();
+
+        if (state.phase === "blocked") {
+          ctx.ui.notify(`Blocked: ${state.blockers.join(", ")}`, "warning");
+          return;
+        }
+        if (state.phase === "complete" || !state.activeMilestone) {
+          await showSmartEntry(ctx, pi, process.cwd());
+          return;
+        }
+
+        const prompt = await stepBackend.buildPrompt(state.phase, state);
+        if (!prompt) {
+          ctx.ui.notify(`No prompt for phase: ${state.phase}`, "warning");
+          return;
+        }
+
+        const unitId = state.activeTask
+          ? `${state.activeMilestone.id}/${state.activeSlice?.id ?? "?"}/${state.activeTask.id}`
+          : state.activeSlice
+            ? `${state.activeMilestone.id}/${state.activeSlice.id}`
+            : state.activeMilestone.id;
+
+        ctx.ui.notify(`/kata step: ${state.phase} — ${unitId}`, "info");
+        pi.sendMessage({ customType: "kata-step", content: prompt, display: false }, { triggerTurn: true });
         return;
       }
 
       ctx.ui.notify(
-        `Unknown: /kata ${trimmed}. Use /kata, /kata auto, /kata stop, /kata status, /kata queue, /kata discuss, /kata prefs [global|project|status], /kata doctor [audit|fix|heal] [M###/S##], or /kata pr [status|create|review|address|merge].`,
+        `Unknown: /kata ${trimmed}. Use /kata step, /kata auto, /kata stop, /kata status, /kata queue, /kata discuss, /kata prefs [global|project|status], /kata doctor [audit|fix|heal] [M###/S##], or /kata pr [status|create|review|address|merge].`,
         "warning",
       );
     },
   });
 }
 
-/**
- * Mode-aware state derivation.
- *
- * In Linear mode: queries the Linear API via `deriveLinearState`.
- * In file mode: reads `.kata/` files via `deriveState`.
- *
- * Errors from the Linear API are caught and returned as a "blocked" KataState
- * with a diagnostic message in `blockers[]` — the overlay surfaces this rather
- * than crashing.
- */
-async function deriveKataState(basePath: string): Promise<KataState> {
-  if (!isLinearMode()) {
-    return deriveState(basePath);
-  }
-
-  const config = loadEffectiveLinearProjectConfig();
-  const apiKey = process.env.LINEAR_API_KEY;
-
-  if (!apiKey) {
-    return {
-      phase: "blocked",
-      activeMilestone: null,
-      activeSlice: null,
-      activeTask: null,
-      blockers: ["LINEAR_API_KEY is not set"],
-      recentDecisions: [],
-      nextAction: "Set LINEAR_API_KEY to use Linear mode.",
-      registry: [],
-      progress: { milestones: { done: 0, total: 0 } },
-    };
-  }
-
-  const { projectId, teamId } = config.linear;
-  if (!projectId || !teamId) {
-    return {
-      phase: "blocked",
-      activeMilestone: null,
-      activeSlice: null,
-      activeTask: null,
-      blockers: [
-        "Linear project not configured — set linear.teamId and linear.projectId in .kata/preferences.md.",
-      ],
-      recentDecisions: [],
-      nextAction: "Run /kata prefs project to configure the Linear project.",
-      registry: [],
-      progress: { milestones: { done: 0, total: 0 } },
-    };
-  }
-
-  try {
-    const client = new LinearClient(apiKey);
-    const labelSet = await ensureKataLabels(client, teamId);
-    return await deriveLinearState(client, {
-      projectId,
-      teamId,
-      sliceLabelId: labelSet.slice.id,
-      basePath,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return {
-      phase: "blocked",
-      activeMilestone: null,
-      activeSlice: null,
-      activeTask: null,
-      blockers: [`Linear API error: ${message}`],
-      recentDecisions: [],
-      nextAction: "Check LINEAR_API_KEY and Linear project config, then retry.",
-      registry: [],
-      progress: { milestones: { done: 0, total: 0 } },
-    };
-  }
-}
 
 async function handleStatus(ctx: ExtensionCommandContext): Promise<void> {
   const modeGate = getWorkflowEntrypointGuard("status");
@@ -418,7 +375,13 @@ async function handleStatus(ctx: ExtensionCommandContext): Promise<void> {
   }
 
   const basePath = process.cwd();
-  const state = await deriveKataState(basePath);
+  let state: KataState;
+  try {
+    const statusBackend = await createBackend(basePath);
+    state = await statusBackend.deriveState();
+  } catch {
+    state = await deriveState(basePath);
+  }
 
   if (state.registry.length === 0) {
     ctx.ui.notify("No Kata milestones found. Run /kata to start.", "info");

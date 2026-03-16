@@ -6,7 +6,7 @@
  * file-based Kata extension.
  *
  * Algorithm (pure-issue-state — no document parsing, no `.kata/` reads):
- *   1. Fetch milestones (sorted by sortOrder from API)
+ *   1. Fetch milestones (sorted client-side by sortOrder in listKataMilestones)
  *   2. Fetch all slice issues for the project in one query
  *   3. Group slices client-side by `projectMilestone?.id`
  *   4. Build registry: milestone is "complete" when all its slices are terminal
@@ -102,6 +102,36 @@ function issueRef(issue: { id: string; title: string }): ActiveRef {
     id: parsed?.kataId ?? issue.id,
     title: parsed?.title ?? issue.title,
   };
+}
+
+/** Parse numeric suffix from Kata IDs like S01/T03 for deterministic ordering. */
+function parseKataOrdinal(title: string, expectedPrefix: "S" | "T"): number | null {
+  const parsed = parseKataEntityTitle(title);
+  if (!parsed?.kataId) return null;
+  const match = parsed.kataId.match(/^([A-Z])(\d+)$/);
+  if (!match) return null;
+  const [, prefix, digits] = match;
+  if (prefix !== expectedPrefix) return null;
+  const n = Number.parseInt(digits, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Deterministic ordering for slices/tasks:
+ * 1) Kata ordinal (S01 < S02, T01 < T02)
+ * 2) title locale compare fallback
+ */
+function compareByKataOrder(
+  a: { title: string },
+  b: { title: string },
+  expectedPrefix: "S" | "T",
+): number {
+  const aOrd = parseKataOrdinal(a.title, expectedPrefix);
+  const bOrd = parseKataOrdinal(b.title, expectedPrefix);
+  if (aOrd !== null && bOrd !== null && aOrd !== bOrd) return aOrd - bOrd;
+  if (aOrd !== null && bOrd === null) return -1;
+  if (aOrd === null && bOrd !== null) return 1;
+  return a.title.localeCompare(b.title);
 }
 
 // =============================================================================
@@ -238,20 +268,27 @@ export async function deriveLinearState(
   }
 
   // ── Find active slice (first non-terminal in active milestone's group) ────
-  const activeSliceLinear = activeMilestoneSlices.find(s => !isTerminal(s.state.type));
+  // Sort by Kata ID (S01, S02, ...) so active slice selection is stable.
+  const orderedSlices = [...activeMilestoneSlices].sort((a, b) =>
+    compareByKataOrder(a, b, "S"),
+  );
+  const activeSliceLinear = orderedSlices.find(s => !isTerminal(s.state.type));
 
   if (!activeSliceLinear) {
-    // Edge case: all slices in active milestone are terminal, but milestone
-    // wasn't flagged complete (e.g., milestone has zero slices mapped to it
-    // but slicesByMilestone has entries). Shouldn't happen with correct data.
+    // All slices in active milestone are terminal.
+    // If slices exist → milestone is ready for completion summary.
+    // If no slices exist → milestone still needs planning (pre-planning).
+    const hasSlices = activeMilestoneSlices.length > 0;
     return {
       activeMilestone: activeMilestoneRef,
       activeSlice: null,
       activeTask: null,
-      phase: "pre-planning",
+      phase: hasSlices ? "completing-milestone" : "pre-planning",
       recentDecisions: [],
       blockers: [],
-      nextAction: "",
+      nextAction: hasSlices
+        ? "Write the milestone completion summary."
+        : "",
       activeBranch,
       registry,
       requirements: undefined,
@@ -265,7 +302,9 @@ export async function deriveLinearState(
   const activeSliceRef = issueRef(activeSliceLinear);
 
   // ── Derive phase from active slice state + children ratio ─────────────────
-  const children = activeSliceLinear.children.nodes;
+  const children = [...activeSliceLinear.children.nodes].sort((a, b) =>
+    compareByKataOrder(a, b, "T"),
+  );
   const terminalChildren = children.filter(c => isTerminal(c.state.type));
   const nonTerminalChildren = children.filter(c => !isTerminal(c.state.type));
 

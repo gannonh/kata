@@ -48,6 +48,8 @@ export interface PrCreateOptions {
     sliceLabelId?: string;
     apiKey: string;
   };
+  /** Pre-fetched Linear document content for PR body (bypasses disk reads). */
+  linearDocuments?: Record<string, string>;
 }
 
 // ─── Shell escaping ───────────────────────────────────────────────────────────
@@ -180,6 +182,7 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
   try {
     body = await composePRBody(milestoneId, sliceId, cwd, {
       linearReferences,
+      linearDocuments: options.linearDocuments,
     });
   } catch (err) {
     return {

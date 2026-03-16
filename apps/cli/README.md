@@ -106,6 +106,7 @@ All planning state lives in `.kata/` at the project root — human-readable mark
 | `/kata queue` | View/manage milestone queue |
 | `/kata discuss` | Discuss gray areas before planning |
 | `/kata prefs` | Manage preferences (global/project) |
+| `/kata pr` | PR lifecycle (create, review, address, merge) |
 | `/kata doctor` | Diagnose and fix project state |
 | `/audit` | Audit the codebase against a goal, writes report to `.kata/audits/` |
 
@@ -161,12 +162,62 @@ budget_ceiling: 50.00
 | Setting | What it controls |
 |---------|-----------------|
 | `models.*` | Per-phase model selection (Opus for planning, Sonnet for execution, etc.) |
+| `pr.*` | PR lifecycle settings (see [PR Mode](#pr-mode)) |
 | `skill_discovery` | `auto` / `suggest` / `off` — how Kata finds and applies skills |
 | `auto_supervisor.*` | Timeout thresholds for auto-mode supervision |
 | `budget_ceiling` | USD ceiling — auto mode pauses when reached |
 | `uat_dispatch` | Enable automatic UAT runs after slice completion |
 | `always_use_skills` | Skills to always load when relevant |
 | `skill_rules` | Situational rules for skill routing |
+
+## PR Mode
+
+Kata can manage GitHub pull requests as part of the slice lifecycle. When enabled, auto-mode stops at slice boundaries so you can review changes before merging.
+
+### Setup
+
+Requires `gh` CLI installed and authenticated (`gh auth login`).
+
+Enable in `.kata/preferences.md`:
+
+```yaml
+pr:
+  enabled: true
+  auto_create: true       # create PR automatically after slice completes
+  base_branch: main       # target branch for PRs
+  review_on_create: false # run parallel code review after PR creation
+  linear_link: false      # add Linear issue refs to PR body (requires linear mode)
+```
+
+### How it works with auto-mode
+
+Without PR mode, auto-mode squash-merges each slice branch to main and continues. With PR mode enabled, the behavior changes:
+
+**`auto_create: true`** -- After slice completion, auto-mode creates a PR via `gh`, notifies you with the URL, and stops. Merge the PR (manually or via `/kata pr merge`), then run `/kata auto` to resume.
+
+**`auto_create: false`** -- After slice completion, auto-mode stops and tells you to run `/kata pr create`. You manage the full lifecycle, then resume.
+
+In both cases, auto-mode pauses at the slice boundary. It never merges automatically when PRs are on.
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/kata pr status` | Show PR lifecycle state (no LLM call) |
+| `/kata pr create` | Create a PR for the current slice branch |
+| `/kata pr review` | Run parallel multi-agent code review |
+| `/kata pr address` | Address review comments |
+| `/kata pr merge` | Merge PR and sync local state |
+
+### Typical flow
+
+```
+/kata auto                    # work proceeds, slice completes, PR created, auto stops
+/kata pr review               # run code review
+/kata pr address              # fix review feedback
+/kata pr merge                # merge and cleanup
+/kata auto                    # resume next slice
+```
 
 ## Project State
 
@@ -197,6 +248,7 @@ Everything is markdown. You can read it, edit it, or use it as context for other
 
 Kata comes with extensions for:
 
+- **Linear** — Built-in project management with 40 native tools (issues, projects, documents, labels)
 - **Browser automation** — Playwright-based interaction with web pages
 - **Subagents** — Spawn parallel Kata processes for independent tasks
 - **Background shell** — Long-running processes (servers, watchers, builds)
@@ -214,6 +266,62 @@ Three specialized subagents for delegated work:
 | **Scout** | Fast codebase recon — returns compressed context for handoff |
 | **Researcher** | Web research — finds and synthesizes current information |
 | **Worker** | General-purpose execution in an isolated context window |
+
+## Linear Integration
+
+Kata ships with built-in Linear support — 40 native tools for managing issues, projects, milestones, documents, and labels directly from the agent. No MCP server or OAuth setup required.
+
+### Setup
+
+1. Create a [Linear personal API key](https://linear.app/settings/api)
+2. Start Kata and provide the key when prompted, or set it in your environment:
+   ```bash
+   LINEAR_API_KEY=lin_api_... npx @kata-sh/cli
+   ```
+3. Ask Kata to configure your project:
+   ```
+   Configure this project to use Linear
+   ```
+   Kata will list your teams and projects, ask which to use, and write the preferences file for you.
+
+### What you can do
+
+Once configured, Kata can manage your Linear workspace conversationally:
+
+- Create and update issues, sub-issues, and labels
+- List and search across projects, milestones, and workflow states
+- Read and write documents attached to projects or issues
+- Check team workflow states and transition issues between them
+
+### Linear workflow mode
+
+Beyond ad-hoc Linear operations, Kata can use Linear as the **backing store for its entire planning methodology**. Instead of `.kata/` files on disk, milestones, slices, tasks, plans, and summaries all live as Linear entities and documents.
+
+In Linear workflow mode:
+- Milestones → Linear project milestones
+- Slices → Linear parent issues with `kata:slice` label
+- Tasks → Linear sub-issues with `kata:task` label
+- Plans and summaries → Linear documents attached to the project
+
+`/kata auto` works the same way — research, plan, execute, verify — but all state is read from and written to Linear. Progress is visible in the Linear UI alongside your team's other work.
+
+To enable Linear workflow mode, ask Kata:
+```
+Configure this project to use Linear workflow mode
+```
+
+Or set it manually in `.kata/preferences.md`:
+```yaml
+---
+workflow:
+  mode: linear
+linear:
+  teamKey: KAT
+  projectId: <your-project-uuid>
+---
+```
+
+Use `linear_list_projects` or ask Kata to find your project UUID.
 
 ## MCP Support
 

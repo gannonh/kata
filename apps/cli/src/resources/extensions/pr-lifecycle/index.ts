@@ -113,13 +113,13 @@ export default function (pi: ExtensionAPI): void {
       },
       required: ["title"],
     },
-    handler: async (params: {
+    async execute(_id: string, params: {
       title: string;
       base_branch?: string;
       milestoneId?: string;
       sliceId?: string;
       cwd?: string;
-    }) => {
+    }) {
       // Build Linear cross-linking config when applicable
       let linearConfig: PrCreateOptions["linearConfig"];
       try {
@@ -184,7 +184,7 @@ export default function (pi: ExtensionAPI): void {
       },
       required: [],
     },
-    handler: async (params: { cwd?: string; reviewers?: string[] }) => {
+    async execute(_id: string, params: { cwd?: string; reviewers?: string[] }) {
       const cwd = params.cwd ?? process.cwd();
 
       if (!isGhInstalled()) {
@@ -274,7 +274,7 @@ export default function (pi: ExtensionAPI): void {
       },
       required: [],
     },
-    handler: async (params: { cwd?: string }) => {
+    async execute(_id: string, params: { cwd?: string }) {
       const cwd = params.cwd ?? process.cwd();
 
       // ── Pre-flight checks ────────────────────────────────────────────────
@@ -366,7 +366,7 @@ export default function (pi: ExtensionAPI): void {
       },
       required: ["threadId"],
     },
-    handler: async (params: { threadId: string; cwd?: string }) => {
+    async execute(_id: string, params: { threadId: string; cwd?: string }) {
       const { threadId } = params;
       const cwd = params.cwd ?? process.cwd();
 
@@ -423,7 +423,7 @@ export default function (pi: ExtensionAPI): void {
       },
       required: ["threadId", "body"],
     },
-    handler: async (params: { threadId: string; body: string; cwd?: string }) => {
+    async execute(_id: string, params: { threadId: string; body: string; cwd?: string }) {
       const { threadId, body } = params;
       const cwd = params.cwd ?? process.cwd();
 
@@ -491,12 +491,12 @@ export default function (pi: ExtensionAPI): void {
       },
       required: [],
     },
-    handler: async (params: {
+    async execute(_id: string, params: {
       prNumber?: number;
       strategy?: "squash" | "merge" | "rebase";
       skipCICheck?: boolean;
       cwd?: string;
-    }) => {
+    }) {
       const cwd = params.cwd ?? process.cwd();
       const strategy = params.strategy ?? "squash";
 

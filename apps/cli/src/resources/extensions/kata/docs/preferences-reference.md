@@ -116,7 +116,26 @@ Set pr.enabled: true in .kata/preferences.md to activate the PR workflow.
 
 ---
 
-## File-mode example
+## Models Example
+
+```yaml
+---
+version: 1
+models:
+  research: claude-sonnet-4-6
+  planning: claude-opus-4-6
+  execution: claude-sonnet-4-6
+  completion: claude-sonnet-4-6
+---
+```
+
+Opus for planning (where architectural decisions matter most), Sonnet for everything else (faster, cheaper). Omit any key to use the currently selected model.
+
+---
+
+## Example Variations
+
+**File-mode — minimal skill routing:**
 
 ```yaml
 ---
@@ -128,7 +147,7 @@ prefer_skills:
 ---
 ```
 
-## Linear-mode example
+**Linear-mode — project bound to Linear:**
 
 ```yaml
 ---
@@ -147,13 +166,11 @@ custom_instructions:
 
 This opts the project into Linear mode without storing `LINEAR_API_KEY` in the preferences file.
 
-## PR lifecycle example
+**PR lifecycle — auto-create PRs after each slice:**
 
 ```yaml
 ---
 version: 1
-workflow:
-  mode: file
 pr:
   enabled: true
   auto_create: true
@@ -164,3 +181,35 @@ pr:
 ```
 
 Set `auto_create: true` for fully automated PR creation after each slice in auto-mode. Set `review_on_create: true` to chain into a parallel review immediately after creation.
+
+**Skill routing — always load a UAT skill and route Clerk tasks:**
+
+```yaml
+---
+version: 1
+always_use_skills:
+  - /Users/you/.claude/skills/verify-uat
+skill_rules:
+  - when: finishing implementation and human judgment matters
+    use:
+      - /Users/you/.claude/skills/verify-uat
+---
+```
+
+**Richer routing — prefer cleanup and authentication skills:**
+
+```yaml
+---
+version: 1
+prefer_skills:
+  - commit-ignore
+skill_rules:
+  - when: task involves Clerk authentication
+    use:
+      - clerk
+      - clerk-setup
+  - when: the user is looking for installable capability rather than implementation
+    prefer:
+      - find-skills
+---
+```

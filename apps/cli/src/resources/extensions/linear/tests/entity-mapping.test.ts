@@ -221,14 +221,24 @@ describe("getLinearStateForKataPhase", () => {
     assert.equal(result.id, "id-backlog");
   });
 
-  it("returns the first match when multiple states have the same type", () => {
+  it("prefers progress-like started state for executing", () => {
     const twoStarted: LinearWorkflowState[] = [
-      makeState("started", "In Progress", "started-1"),
-      makeState("started", "In Review", "started-2"),
+      makeState("started", "In Review", "started-review"),
+      makeState("started", "In Progress", "started-progress"),
     ];
     const result = getLinearStateForKataPhase(twoStarted, "executing");
     assert.ok(result, "should find a state");
-    assert.equal(result.id, "started-1");
+    assert.equal(result.id, "started-progress");
+  });
+
+  it("also prefers progress-like started state for verifying", () => {
+    const twoStarted: LinearWorkflowState[] = [
+      makeState("started", "In Review", "started-review"),
+      makeState("started", "In Progress", "started-progress"),
+    ];
+    const result = getLinearStateForKataPhase(twoStarted, "verifying");
+    assert.ok(result, "should find a state");
+    assert.equal(result.id, "started-progress");
   });
 });
 
