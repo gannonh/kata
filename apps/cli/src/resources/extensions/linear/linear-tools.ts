@@ -810,25 +810,25 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
         });
       }
 
-      const derivationClient = new LinearClient(apiKey);
-      const teamResolution = await resolveConfiguredLinearTeamId(derivationClient);
-      if (!teamResolution.teamId) {
-        return ok({
-          phase: "blocked",
-          activeMilestone: null,
-          activeSlice: null,
-          activeTask: null,
-          blockers: [teamResolution.error ?? "Linear team could not be resolved."],
-          recentDecisions: [],
-          nextAction: "Fix linear.teamId or linear.teamKey in preferences.",
-          registry: [],
-        });
-      }
-
-      const teamId = teamResolution.teamId;
-      const labelSet = await ensureKataLabels(derivationClient, teamId);
-
       return run(async () => {
+        const derivationClient = new LinearClient(apiKey);
+        const teamResolution = await resolveConfiguredLinearTeamId(derivationClient);
+        if (!teamResolution.teamId) {
+          return {
+            phase: "blocked",
+            activeMilestone: null,
+            activeSlice: null,
+            activeTask: null,
+            blockers: [teamResolution.error ?? "Linear team could not be resolved."],
+            recentDecisions: [],
+            nextAction: "Fix linear.teamId or linear.teamKey in preferences.",
+            registry: [],
+          };
+        }
+
+        const teamId = teamResolution.teamId;
+        const labelSet = await ensureKataLabels(derivationClient, teamId);
+
         const state = await deriveLinearState(derivationClient, {
           projectId,
           teamId,
@@ -863,21 +863,19 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       ),
     }),
     async execute(_id, params) {
-      let resolvedTeamId = params.teamId ?? null;
-      if (!resolvedTeamId) {
-        const teamResolution = await resolveConfiguredLinearTeamId(client);
-        if (!teamResolution.teamId) {
-          return fail(
-            new Error(
+      return run(async () => {
+        let resolvedTeamId = params.teamId ?? null;
+        if (!resolvedTeamId) {
+          const teamResolution = await resolveConfiguredLinearTeamId(client);
+          if (!teamResolution.teamId) {
+            throw new Error(
               teamResolution.error ??
                 "teamId required — pass it explicitly or configure linear.teamId (or linear.teamKey) in kata preferences"
-            )
-          );
+            );
+          }
+          resolvedTeamId = teamResolution.teamId;
         }
-        resolvedTeamId = teamResolution.teamId;
-      }
 
-      return run(async () => {
         // Guard: prevent the agent from marking a slice "done" directly.
         // Slices must go through the summarizing phase (orchestrator-driven),
         // which writes the summary/UAT docs and triggers the PR gate.

@@ -732,6 +732,11 @@ function updateSliceProgressFromState(
         ? { done: state.progress.tasks.done, total: state.progress.tasks.total }
         : null,
     };
+    return;
+  }
+  // Clear stale cache when milestone changes and no slice progress is available
+  if (!cachedSliceProgress || cachedSliceProgress.milestoneId !== mid) {
+    cachedSliceProgress = null;
   }
 }
 

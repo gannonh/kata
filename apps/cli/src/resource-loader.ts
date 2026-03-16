@@ -64,7 +64,6 @@ export function initResources(agentDir: string): void {
     writeFileSync(destAgentsMd, readFileSync(srcAgentsMd))
   }
 
-  // Sync workflow protocol docs
   // Sync workflow protocol doc
   const srcWorkflow = join(resourcesDir, 'KATA-WORKFLOW.md')
   const destWorkflow = join(agentDir, 'KATA-WORKFLOW.md')

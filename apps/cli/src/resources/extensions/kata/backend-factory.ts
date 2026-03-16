@@ -71,5 +71,5 @@ export async function createBackend(basePath: string): Promise<KataBackend> {
       }
     }
   }
-  throw lastError;
+  throw lastError ?? new Error("LinearBackend initialization failed after retries");
 }

@@ -23,15 +23,6 @@ function assertMatch(text: string, pattern: RegExp, message: string): void {
   }
 }
 
-function assertNoMatch(text: string, pattern: RegExp, message: string): void {
-  if (!pattern.test(text)) {
-    passed++;
-  } else {
-    failed++;
-    console.error(`  FAIL: ${message} — pattern ${pattern} should NOT match`);
-  }
-}
-
 const TEST_CONFIG: LinearBackendConfig = {
   apiKey: "test-key",
   projectId: "proj-123",

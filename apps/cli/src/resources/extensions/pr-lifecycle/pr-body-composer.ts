@@ -111,7 +111,7 @@ export async function composePRBody(
   if (resolvedTaskTitles.length > 0) {
     const bullets = resolvedTaskTitles.map((t) => `- ${t}`).join("\n");
     sections.push(`## Tasks\n${bullets}`);
-  } else if (planContent) {
+  } else if (effectivePlanContent) {
     // Ultra-thin slice with no task entries at all — include raw plan content
     sections.push(`## Tasks\n- (see slice plan for details)`);
   }

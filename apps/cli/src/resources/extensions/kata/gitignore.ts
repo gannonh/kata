@@ -124,9 +124,14 @@ export function ensurePreferences(basePath: string): boolean {
   let template: string;
   try {
     template = readFileSync(templatePath, "utf-8");
-  } catch {
-    // Fallback: minimal valid preferences if template file is missing (shouldn't happen).
-    template = `---\nversion: 1\nworkflow:\n  mode: file\n---\n`;
+  } catch (error) {
+    const err = error as NodeJS.ErrnoException;
+    if (err.code === "ENOENT") {
+      // Fallback: minimal valid preferences if template file is missing (shouldn't happen).
+      template = `---\nversion: 1\nworkflow:\n  mode: file\n---\n`;
+    } else {
+      throw error;
+    }
   }
 
   writeFileSync(preferencesPath, template, "utf-8");

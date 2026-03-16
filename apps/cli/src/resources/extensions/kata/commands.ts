@@ -327,7 +327,16 @@ export function registerKataCommand(pi: ExtensionAPI): void {
           ctx.ui.notify(`Kata backend init failed: ${err instanceof Error ? err.message : String(err)}`, "error");
           return;
         }
-        const state = await stepBackend.deriveState();
+        let state: KataState;
+        try {
+          state = await stepBackend.deriveState();
+        } catch (err) {
+          ctx.ui.notify(
+            `Kata state derivation failed: ${err instanceof Error ? err.message : String(err)}`,
+            "error",
+          );
+          return;
+        }
 
         if (state.phase === "blocked") {
           ctx.ui.notify(`Blocked: ${state.blockers.join(", ")}`, "warning");
@@ -338,7 +347,16 @@ export function registerKataCommand(pi: ExtensionAPI): void {
           return;
         }
 
-        const prompt = await stepBackend.buildPrompt(state.phase, state);
+        let prompt: string | null;
+        try {
+          prompt = await stepBackend.buildPrompt(state.phase, state);
+        } catch (err) {
+          ctx.ui.notify(
+            `Prompt generation failed: ${err instanceof Error ? err.message : String(err)}`,
+            "error",
+          );
+          return;
+        }
         if (!prompt) {
           ctx.ui.notify(`No prompt for phase: ${state.phase}`, "warning");
           return;

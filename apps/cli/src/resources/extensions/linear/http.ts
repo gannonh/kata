@@ -117,10 +117,14 @@ export function classifyLinearError(err: unknown): ClassifiedError {
       extStatus === 429 ||
       lowerMsg.includes("rate limit")
     ) {
+      // Linear's documented rate-limit info is in HTTP headers (X-RateLimit-Requests-Reset),
+      // not in a GraphQL extensions.meta.rateLimitResult field. Try the undocumented path
+      // defensively, but fall back to a sensible default (5 seconds) when unavailable.
       const meta = (extensions.meta ?? {}) as Record<string, unknown>;
       const rateLimitResult = (meta.rateLimitResult ?? {}) as Record<string, unknown>;
       const duration = Number(rateLimitResult.duration ?? NaN);
-      const retryAfterMs = Number.isFinite(duration) && duration > 0 ? duration : undefined;
+      const DEFAULT_RATE_LIMIT_RETRY_MS = 5_000;
+      const retryAfterMs = Number.isFinite(duration) && duration > 0 ? duration : DEFAULT_RATE_LIMIT_RETRY_MS;
 
       return {
         kind: "rate_limited",

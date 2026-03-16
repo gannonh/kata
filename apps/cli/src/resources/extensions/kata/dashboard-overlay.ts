@@ -102,9 +102,8 @@ export class KataDashboardOverlay {
       this.tui.requestRender();
     });
 
-    // Start at 2s, switch to 30s after first successful Linear backend load.
-    // File mode stays at 2s (disk reads are free). Linear mode at 30s
-    // avoids burning the 5000 req/hr API rate limit.
+    // Refresh every 2s. Backend implementations are responsible for internal
+    // caching/throttling of expensive data fetches (e.g. Linear TTL cache).
     this.refreshTimer = setInterval(() => {
       this.dashData = getAutoDashboardData();
       this.loadData().then(() => {

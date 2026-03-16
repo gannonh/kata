@@ -335,9 +335,13 @@ export class FileBackend implements KataBackend {
     const branch = `kata/${milestoneId}/${sliceId}`;
     const documents: Record<string, string> = {};
 
-    const plan = await this.readDocument(`${sliceId}-PLAN`);
+    // Use explicit path resolution instead of readDocument to avoid stale active-state lookups
+    const planPath = resolveSliceFile(this.basePath, milestoneId, sliceId, "PLAN");
+    const plan = planPath ? await loadFile(planPath) : null;
     if (plan) documents["PLAN"] = plan;
-    const summary = await this.readDocument(`${sliceId}-SUMMARY`);
+
+    const summaryPath = resolveSliceFile(this.basePath, milestoneId, sliceId, "SUMMARY");
+    const summary = summaryPath ? await loadFile(summaryPath) : null;
     if (summary) documents["SUMMARY"] = summary;
 
     return { branch, documents };
