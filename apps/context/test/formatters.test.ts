@@ -2,7 +2,7 @@
  * Tests for output formatters.
  */
 
-import { mock, spyOn } from "bun:test";
+import { vi } from "vitest";
 import {
   outputJson,
   outputQuiet,
@@ -19,13 +19,13 @@ let logOutput: string[];
 
 beforeEach(() => {
   logOutput = [];
-  spyOn(console, "log").mockImplementation((...args: unknown[]) => {
+  vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
     logOutput.push(args.map(String).join(" "));
   });
 });
 
 afterEach(() => {
-  mock.restore();
+  vi.restoreAllMocks();
 });
 
 // ── outputJson ──

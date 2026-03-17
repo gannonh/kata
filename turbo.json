@@ -14,7 +14,7 @@
     },
     "test": {
       "outputs": [],
-      "inputs": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "test/**/*.ts"]
+      "inputs": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.js", "src/**/*.cjs", "src/**/*.mjs", "tests/**/*.ts", "tests/**/*.js", "tests/**/*.cjs", "test/**/*.ts", "test/**/*.js"]
     },
     "build": {
       "dependsOn": ["^build"],
