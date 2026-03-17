@@ -359,9 +359,10 @@ export function registerKataCommand(pi: ExtensionAPI): void {
             ensureSliceBranch(process.cwd(), state.activeMilestone.id, state.activeSlice.id);
           } catch (err) {
             ctx.ui.notify(
-              `Branch setup warning: ${err instanceof Error ? err.message : String(err)}`,
-              "warning",
+              `Branch setup failed: ${err instanceof Error ? err.message : String(err)}`,
+              "error",
             );
+            return;
           }
         }
 

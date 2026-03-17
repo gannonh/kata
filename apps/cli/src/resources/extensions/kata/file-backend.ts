@@ -307,11 +307,11 @@ export class FileBackend implements KataBackend {
       `### Multi-Milestone`,
       ``,
       `Once the user confirms the milestone split, in a single pass:`,
-      `1. \`mkdir -p .kata/milestones/${nextId}/slices\` for each milestone`,
+      `1. \`mkdir -p .kata/milestones/<milestoneId>/slices\` for each milestone`,
       `2. Write \`.kata/PROJECT.md\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/project.md\` first.`,
       `3. Write \`.kata/REQUIREMENTS.md\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/requirements.md\` first. Capture Active, Deferred, Out of Scope, and any already Validated requirements. Later milestones may have provisional ownership where slice plans do not exist yet.`,
-      `4. Write a \`CONTEXT.md\` for **every** milestone — capture the intent, scope, risks, constraints, user-visible outcome, completion class, final integrated acceptance, and relevant requirements for each. Each future milestone's CONTEXT.md should be rich enough that a planning agent encountering it fresh — with no memory of this conversation — can understand the intent, constraints, dependencies, what this milestone unlocks, and what "done" looks like.`,
-      `5. Write a \`ROADMAP.md\` for **only the first milestone** — detail-planning later milestones now is waste because the codebase will change. Include requirement coverage and a milestone definition of done.`,
+      `4. Write \`<milestoneId>-CONTEXT.md\` in each milestone directory — capture the intent, scope, risks, constraints, user-visible outcome, completion class, final integrated acceptance, and relevant requirements for each. Each future milestone's context should be rich enough that a planning agent encountering it fresh — with no memory of this conversation — can understand the intent, constraints, dependencies, what this milestone unlocks, and what "done" looks like.`,
+      `5. Write \`${nextId}-ROADMAP.md\` for **only the first milestone** — detail-planning later milestones now is waste because the codebase will change. Include requirement coverage and a milestone definition of done.`,
       `6. Seed \`.kata/DECISIONS.md\`.`,
       `7. Update \`.kata/STATE.md\``,
       `8. Commit: \`docs: project plan — N milestones\` (replace N with the actual milestone count)`,
@@ -1030,7 +1030,7 @@ export class FileBackend implements KataBackend {
       `   - Ensure the slice Goal and Demo sections are still achievable with the new tasks, or update them if the blocker fundamentally changes what the slice can deliver`,
       `   - Update the Files Likely Touched section if the replan changes which files are affected`,
       `5. If any incomplete task had a \`T0x-PLAN.md\`, remove or rewrite it to match the new task description.`,
-      `6. Commit all changes: \`git add -A && git commit -m 'refactor(${sid}): replan after blocker in ${blockerTaskId}'\``,
+      `6. Commit all changes: \`git add -A && git commit -m 'refactor(${sid}): replan after blocker in ${blockerTaskId || "unknown-task"}'\``,
       `7. Update \`.kata/STATE.md\``,
     ].join("\n");
 
