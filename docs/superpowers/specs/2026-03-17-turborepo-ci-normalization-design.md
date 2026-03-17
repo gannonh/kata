@@ -221,6 +221,11 @@ Turborepo remote cache enabled via Vercel (free tier). CI and local dev share th
 - Update root `package.json` convenience scripts to delegate to Turborepo
 - Clean up old root-level scripts that Turborepo replaces (`validate:ci`, `test:packages`, `typecheck:all`, etc.)
 
+### Phase 6: Monorepo agent skills
+- Create monorepo-aware skills for Claude Code agents using `/skill-creator`
+- Candidates: Turborepo task runner skill (lint/test/build with --affected), release workflow skill, per-app validation skill, Symphony-specific skill
+- Skills encode the conventions established in Phases 1-5 so agents follow them automatically
+
 ### Risk Mitigation
 
 - Phase 1 is additive-only. Nothing breaks, existing CI keeps working.
