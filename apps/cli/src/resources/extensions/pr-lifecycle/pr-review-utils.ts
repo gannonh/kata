@@ -6,7 +6,10 @@
  * Called by the `kata_review_pr` tool (T04) and tested independently.
  */
 
-import { execSync } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
 const PIPE = { stdio: ["pipe", "pipe", "pipe"] as [string, string, string] };
 
@@ -54,20 +57,17 @@ export function fetchPRContext(cwd: string): PrContext | null {
       ...PIPE,
     });
 
-    // Parse changed file paths from diff --stat
-    const statOutput = execSync("gh pr diff --stat", {
+    // Parse changed file paths via --name-only
+    const nameOnlyOutput = execSync("gh pr diff --name-only", {
       cwd,
       encoding: "utf8",
       ...PIPE,
     });
 
-    const changedFiles: string[] = [];
-    for (const line of statOutput.split("\n")) {
-      const match = line.match(/^\s*(\S+)\s+\|/);
-      if (match) {
-        changedFiles.push(match[1].trimEnd());
-      }
-    }
+    const changedFiles: string[] = nameOnlyOutput
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
 
     return {
       prNumber: prJson.number,
@@ -141,8 +141,19 @@ export function scopeReviewers({
 // ---------------------------------------------------------------------------
 
 /**
+ * Maximum characters of diff to embed directly in a reviewer prompt.
+ * ~100K tokens — leaves headroom for system prompt, tools, and instructions.
+ * Beyond this, the prompt tells reviewers to use tools (bash/read) for the rest.
+ */
+export const MAX_DIFF_CHARS = 400_000;
+
+/**
  * Builds a self-contained task prompt for a specific reviewer subagent.
  * Embeds PR number, title, diff, and reviewer-specific instructions.
+ *
+ * When the diff exceeds `maxDiffChars`, the embedded diff is truncated and
+ * the reviewer is instructed to use `bash("gh pr diff")` or `read` to
+ * inspect the remaining changes.
  */
 export function buildReviewerTaskPrompt({
   reviewer,
@@ -152,6 +163,7 @@ export function buildReviewerTaskPrompt({
   changedFiles,
   prBody,
   reviewerInstructions,
+  maxDiffChars = MAX_DIFF_CHARS,
 }: {
   reviewer: string;
   prTitle: string;
@@ -160,6 +172,7 @@ export function buildReviewerTaskPrompt({
   changedFiles: string[];
   prBody?: string;
   reviewerInstructions?: string;
+  maxDiffChars?: number;
 }): string {
   const body = prBody && prBody.trim() ? prBody : "(no description)";
   const filesSection =
@@ -167,6 +180,35 @@ export function buildReviewerTaskPrompt({
   const instructions =
     reviewerInstructions ??
     `You are the ${reviewer}. Review the PR changes carefully and report any issues you find.`;
+
+  const isTruncated = diff.length > maxDiffChars;
+
+  let diffSection: string;
+  if (isTruncated) {
+    // Truncate at a newline boundary to avoid cutting mid-line
+    let cutoff = maxDiffChars;
+    const newlineIdx = diff.lastIndexOf("\n", cutoff);
+    if (newlineIdx > maxDiffChars * 0.8) cutoff = newlineIdx;
+
+    const truncatedDiff = diff.slice(0, cutoff);
+    const totalLines = diff.split("\n").length;
+    const shownLines = truncatedDiff.split("\n").length;
+    const remainingChars = diff.length - cutoff;
+
+    diffSection = `Diff (showing first ~${shownLines.toLocaleString()} of ${totalLines.toLocaleString()} lines — truncated, ${remainingChars.toLocaleString()} chars remaining):
+${truncatedDiff}
+
+... [DIFF TRUNCATED — ${remainingChars.toLocaleString()} more characters not shown]
+
+IMPORTANT: This diff was too large to include in full. You MUST use tools to review the remaining changes:
+- bash("gh pr diff -- path/to/file.ts") — get the diff for a specific file
+- bash("gh pr diff | head -n 5000")     — get more lines from the full diff
+- read("path/to/file.ts")              — read the current version of any changed file
+Review ALL changed files listed above, not just what's shown in the truncated diff.`;
+  } else {
+    diffSection = `Full diff:
+${diff}`;
+  }
 
   return `You are reviewing PR #${prNumber}: "${prTitle}"
 
@@ -176,8 +218,7 @@ ${body}
 Changed files:
 ${filesSection}
 
-Full diff:
-${diff}
+${diffSection}
 
 Review instructions:
 ${instructions}
@@ -321,4 +362,205 @@ ${suggestionsSection}`;
   }
 
   return output;
+}
+
+// ---------------------------------------------------------------------------
+// spawnReviewerAgent — runs a single reviewer subagent as a child process
+// ---------------------------------------------------------------------------
+
+export interface ReviewerResult {
+  agent: string;
+  exitCode: number;
+  output: string;
+  stderr: string;
+}
+
+/**
+ * Spawns a kata child process in JSON mode with the given system prompt and task.
+ * Collects the final assistant text output. Returns structured result.
+ */
+export function spawnReviewerAgent(opts: {
+  agentName: string;
+  systemPrompt: string;
+  task: string;
+  cwd: string;
+  model?: string;
+  signal?: AbortSignal;
+  onActivity?: (activity: string) => void;
+}): Promise<ReviewerResult> {
+  return new Promise((resolve) => {
+    const { agentName, systemPrompt, task, cwd, model, signal, onActivity } = opts;
+
+    // Write system prompt to temp file
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "kata-reviewer-"));
+    const promptPath = path.join(tmpDir, `${agentName}.md`);
+    fs.writeFileSync(promptPath, systemPrompt, { encoding: "utf-8", mode: 0o600 });
+
+    const binPath = process.env.KATA_BIN_PATH;
+    if (!binPath) {
+      resolve({ agent: agentName, exitCode: 1, output: "", stderr: "KATA_BIN_PATH not set" });
+      return;
+    }
+
+    const bundledPaths = (process.env.KATA_BUNDLED_EXTENSION_PATHS ?? "")
+      .split(path.delimiter)
+      .filter(Boolean);
+    const extensionArgs = bundledPaths.flatMap((p) => ["--extension", p]);
+
+    const args = [
+      binPath,
+      ...extensionArgs,
+      "--mode", "json",
+      "-p",
+      "--no-session",
+      "--tools", "read,bash",
+      "--append-system-prompt", promptPath,
+      ...(model ? ["--model", model] : []),
+      `Task: ${task}`,
+    ];
+
+    const proc = spawn(process.execPath, args, {
+      cwd,
+      shell: false,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let buffer = "";
+    let lastAssistantText = "";
+    let stderr = "";
+    let turnCount = 0;
+
+    proc.stdout.on("data", (data: Buffer) => {
+      buffer += data.toString();
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const event = JSON.parse(line);
+          if (event.type === "message_end" && event.message?.role === "assistant") {
+            lastAssistantText = (event.message.content ?? [])
+              .filter((p: { type: string }) => p.type === "text")
+              .map((p: { text: string }) => p.text)
+              .join("\n");
+            turnCount++;
+            onActivity?.(`[${agentName}] turn ${turnCount} complete`);
+          } else if (event.type === "message_start" && event.message?.role === "assistant") {
+            onActivity?.(`[${agentName}] thinking...`);
+          } else if (event.type === "tool_execution_start") {
+            const toolName = event.toolName ?? "unknown";
+            const args = event.args ?? {};
+            let detail = toolName;
+            if (toolName === "bash") detail = `bash: ${(args.command ?? "").slice(0, 60)}`;
+            else if (toolName === "read") detail = `read: ${args.path ?? args.file_path ?? ""}`;
+            else if (toolName === "edit") detail = `edit: ${args.path ?? args.file_path ?? ""}`;
+            onActivity?.(`[${agentName}] → ${detail}`);
+          } else if (event.type === "tool_execution_end") {
+            onActivity?.(`[${agentName}] thinking...`);
+          }
+        } catch { /* skip non-JSON lines */ }
+      }
+    });
+
+    proc.stderr.on("data", (data: Buffer) => { stderr += data.toString(); });
+
+    proc.on("close", (code) => {
+      // Process any remaining buffer
+      if (buffer.trim()) {
+        try {
+          const event = JSON.parse(buffer);
+          if (event.type === "message_end" && event.message?.role === "assistant") {
+            lastAssistantText = (event.message.content ?? [])
+              .filter((p: { type: string }) => p.type === "text")
+              .map((p: { text: string }) => p.text)
+              .join("\n");
+          }
+        } catch { /* ignore */ }
+      }
+      // Clean up temp files
+      try { fs.unlinkSync(promptPath); } catch { /* ignore */ }
+      try { fs.rmdirSync(tmpDir); } catch { /* ignore */ }
+
+      resolve({ agent: agentName, exitCode: code ?? 1, output: lastAssistantText, stderr });
+    });
+
+    proc.on("error", () => {
+      resolve({ agent: agentName, exitCode: 1, output: "", stderr: "Failed to spawn process" });
+    });
+
+    if (signal) {
+      const kill = () => {
+        proc.kill("SIGTERM");
+        setTimeout(() => { if (proc.exitCode === null) proc.kill("SIGKILL"); }, 5000);
+      };
+      if (signal.aborted) kill();
+      else signal.addEventListener("abort", kill, { once: true });
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// runReviewers — orchestrates parallel reviewer dispatch
+// ---------------------------------------------------------------------------
+
+const MAX_REVIEW_CONCURRENCY = 4;
+
+export interface RunReviewersResult {
+  findings: string;
+  reviewerOutputs: { agent: string; exitCode: number; outputPreview: string }[];
+}
+
+/**
+ * Runs reviewer subagents in parallel and returns aggregated findings.
+ * `onProgress` is called each time a reviewer completes.
+ * `onActivity` is called when a reviewer starts a new tool call or turn.
+ */
+export async function runReviewers(opts: {
+  tasks: { agent: string; task: string; systemPrompt: string }[];
+  cwd: string;
+  model?: string;
+  signal?: AbortSignal;
+  onProgress?: (completed: number, total: number, agent: string) => void;
+  onActivity?: (agent: string, activity: string) => void;
+}): Promise<RunReviewersResult> {
+  const { tasks, cwd, model, signal, onProgress, onActivity } = opts;
+  const results: ReviewerResult[] = new Array(tasks.length);
+  let nextIndex = 0;
+  let completed = 0;
+
+  const workers = Array.from(
+    { length: Math.min(MAX_REVIEW_CONCURRENCY, tasks.length) },
+    async () => {
+      while (true) {
+        const idx = nextIndex++;
+        if (idx >= tasks.length) return;
+        const t = tasks[idx];
+        results[idx] = await spawnReviewerAgent({
+          agentName: t.agent,
+          systemPrompt: t.systemPrompt,
+          task: t.task,
+          cwd,
+          model,
+          signal,
+          onActivity: onActivity ? (activity) => onActivity(t.agent, activity) : undefined,
+        });
+        completed++;
+        onProgress?.(completed, tasks.length, t.agent);
+      }
+    },
+  );
+  await Promise.all(workers);
+
+  const outputs = results.map((r) => r.output).filter(Boolean);
+  const findings = aggregateFindings(outputs);
+
+  const MAX_PREVIEW = 500;
+  const reviewerOutputs = results.map((r) => ({
+    agent: r.agent,
+    exitCode: r.exitCode,
+    outputPreview: r.output.slice(0, MAX_PREVIEW) + (r.output.length > MAX_PREVIEW ? "..." : ""),
+    stderr: r.stderr.slice(0, MAX_PREVIEW) + (r.stderr.length > MAX_PREVIEW ? "..." : ""),
+  }));
+
+  return { findings, reviewerOutputs };
 }

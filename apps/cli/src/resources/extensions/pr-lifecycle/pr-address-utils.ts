@@ -146,6 +146,229 @@ export function summarizeComments(data: FetchCommentsResult): SummarizeResult {
 }
 
 // ---------------------------------------------------------------------------
+// fetchPrComments — replaces fetch_comments.py with native TypeScript
+// ---------------------------------------------------------------------------
+
+const FETCH_COMMENTS_QUERY = `query(
+  $owner: String!,
+  $repo: String!,
+  $number: Int!,
+  $commentsCursor: String,
+  $reviewsCursor: String,
+  $threadsCursor: String
+) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      number
+      url
+      title
+      state
+      comments(first: 100, after: $commentsCursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id
+          body
+          createdAt
+          updatedAt
+          author { login }
+        }
+      }
+      reviews(first: 100, after: $reviewsCursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id
+          state
+          body
+          submittedAt
+          author { login }
+        }
+      }
+      reviewThreads(first: 100, after: $threadsCursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id
+          isResolved
+          isOutdated
+          path
+          line
+          diffSide
+          startLine
+          startDiffSide
+          originalLine
+          originalStartLine
+          resolvedBy { login }
+          comments(first: 100) {
+            nodes {
+              id
+              body
+              createdAt
+              updatedAt
+              author { login }
+            }
+          }
+        }
+      }
+    }
+  }
+}`;
+
+interface PageInfo {
+  hasNextPage: boolean;
+  endCursor: string | null;
+}
+
+interface FetchCommentsGraphqlResponse {
+  errors?: Array<{ message: string }>;
+  data?: {
+    repository?: {
+      pullRequest?: {
+        number: number;
+        url: string;
+        title: string;
+        state: string;
+        comments: { pageInfo: PageInfo; nodes: ConversationComment[] };
+        reviews: { pageInfo: PageInfo; nodes: PrReview[] };
+        reviewThreads: { pageInfo: PageInfo; nodes: ReviewThread[] };
+      };
+    };
+  };
+}
+
+function ghGraphql(
+  owner: string,
+  repo: string,
+  number: number,
+  cursors: { comments?: string; reviews?: string; threads?: string },
+  cwd: string,
+): FetchCommentsGraphqlResponse {
+  const args = [
+    "gh", "api", "graphql",
+    "-F", "query=@-",
+    "-F", `owner=${owner}`,
+    "-F", `repo=${repo}`,
+    "-F", `number=${number}`,
+  ];
+  if (cursors.comments) args.push("-F", `commentsCursor=${cursors.comments}`);
+  if (cursors.reviews) args.push("-F", `reviewsCursor=${cursors.reviews}`);
+  if (cursors.threads) args.push("-F", `threadsCursor=${cursors.threads}`);
+
+  const raw = execSync(args.map(shellEscape).join(" "), {
+    input: FETCH_COMMENTS_QUERY,
+    cwd,
+    encoding: "utf8",
+    ...PIPE,
+  });
+  return JSON.parse(raw);
+}
+
+function getPrRef(cwd: string): { owner: string; repo: string; number: number } {
+  // Get PR number
+  const prRaw = execSync("gh pr view --json number,headRepositoryOwner,headRepository", {
+    cwd,
+    encoding: "utf8",
+    ...PIPE,
+  });
+  const pr = JSON.parse(prRaw);
+
+  // headRepositoryOwner/headRepository work for same-repo PRs.
+  // For fork-based PRs, fall back to gh repo view for the base repo.
+  let owner: string | undefined = pr.headRepositoryOwner?.login;
+  let repo: string | undefined = pr.headRepository?.name;
+
+  if (!owner || !repo) {
+    const repoRaw = execSync("gh repo view --json owner,name", {
+      cwd,
+      encoding: "utf8",
+      ...PIPE,
+    });
+    const repoInfo = JSON.parse(repoRaw);
+    owner = owner ?? repoInfo.owner.login;
+    repo = repo ?? repoInfo.name;
+  }
+
+  return { owner: owner!, repo: repo!, number: pr.number };
+}
+
+/**
+ * Fetches all PR comments, reviews, and review threads via GitHub GraphQL API.
+ * Handles pagination automatically. Returns null on failure.
+ */
+export function fetchPrComments(cwd: string):
+  | FetchCommentsResult
+  | { ok: false; error: string } {
+  try {
+    const { owner, repo, number } = getPrRef(cwd);
+
+    const allComments: ConversationComment[] = [];
+    const allReviews: PrReview[] = [];
+    const allThreads: ReviewThread[] = [];
+    let prMeta: PrMeta | null = null;
+
+    let commentsCursor: string | undefined;
+    let reviewsCursor: string | undefined;
+    let threadsCursor: string | undefined;
+    let commentsDone = false;
+    let reviewsDone = false;
+    let threadsDone = false;
+
+    while (true) {
+      const response = ghGraphql(owner, repo, number, {
+        comments: commentsDone ? undefined : commentsCursor,
+        reviews: reviewsDone ? undefined : reviewsCursor,
+        threads: threadsDone ? undefined : threadsCursor,
+      }, cwd);
+
+      if (response.errors?.length) {
+        return { ok: false, error: response.errors.map(e => e.message).join("; ") };
+      }
+
+      const pr = response.data?.repository?.pullRequest;
+      if (!pr) {
+        return { ok: false, error: "No pull request found in GraphQL response" };
+      }
+
+      if (!prMeta) {
+        prMeta = { number: pr.number, url: pr.url, title: pr.title, state: pr.state, owner, repo };
+      }
+
+      allComments.push(...(pr.comments.nodes || []));
+      allReviews.push(...(pr.reviews.nodes || []));
+      allThreads.push(...(pr.reviewThreads.nodes || []));
+
+      if (pr.comments.pageInfo.hasNextPage) {
+        commentsCursor = pr.comments.pageInfo.endCursor ?? undefined;
+      } else {
+        commentsDone = true;
+      }
+
+      if (pr.reviews.pageInfo.hasNextPage) {
+        reviewsCursor = pr.reviews.pageInfo.endCursor ?? undefined;
+      } else {
+        reviewsDone = true;
+      }
+
+      if (pr.reviewThreads.pageInfo.hasNextPage) {
+        threadsCursor = pr.reviewThreads.pageInfo.endCursor ?? undefined;
+      } else {
+        threadsDone = true;
+      }
+
+      if (commentsDone && reviewsDone && threadsDone) break;
+    }
+
+    return {
+      pull_request: prMeta!,
+      conversation_comments: allComments,
+      reviews: allReviews,
+      review_threads: allThreads,
+    };
+  } catch (err) {
+    const e = err as { stderr?: string; message?: string };
+    return { ok: false, error: e.stderr ?? e.message ?? String(err) };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // shellEscape (local copy — not re-exported from index.ts)
 // ---------------------------------------------------------------------------
 

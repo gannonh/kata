@@ -16,6 +16,7 @@ import { loadFile, parseRoadmap } from "./files.js";
 import { loadPrompt } from "./prompt-loader.js";
 import { deriveState } from "./state.js";
 import { startAuto } from "./auto.js";
+import { createBackend } from "./backend-factory.js";
 import { readCrashLock, clearLock, formatCrashInfo } from "./crash-recovery.js";
 import {
   kataRoot,
@@ -97,12 +98,21 @@ export async function checkAutoStartAfterDiscuss(): Promise<boolean> {
 
   const { ctx, pi, basePath, milestoneId } = pendingAutoStart;
 
-  // Don't fire until the discuss phase has actually produced a context file
-  // for the milestone being discussed. agent_end fires after every LLM turn,
-  // including the initial "What do you want to build?" response — we need to
-  // wait for the full conversation to complete and the LLM to write CONTEXT.md.
-  const contextFile = resolveMilestoneFile(basePath, milestoneId, "CONTEXT");
-  if (!contextFile) return false; // no context yet — keep waiting
+  // Don't fire until the discuss phase has actually produced artifacts.
+  // agent_end fires after every LLM turn, including the initial "What do you
+  // want to build?" response — we need to wait for the full conversation to
+  // complete and the LLM to write the milestone context.
+  let created: boolean;
+  try {
+    const checkBackend = await createBackend(basePath);
+    created = await checkBackend.checkMilestoneCreated(milestoneId);
+  } catch {
+    // Backend creation or API call failed (e.g. Linear unavailable, config
+    // incomplete). Treat as "not yet created" — the hook will retry on the
+    // next agent_end event.
+    return false;
+  }
+  if (!created) return false;
 
   pendingAutoStart = null;
 
@@ -182,23 +192,6 @@ function dispatchWorkflow(
   return true;
 }
 
-/**
- * Build the discuss-and-plan prompt for a new milestone.
- * Used by all three "new milestone" paths (first ever, no active, all complete).
- */
-function buildDiscussPrompt(
-  nextId: string,
-  preamble: string,
-  basePath: string,
-): string {
-  const milestoneDirAbs = join(basePath, ".kata", "milestones", nextId);
-  return loadPrompt("discuss", {
-    milestoneId: nextId,
-    preamble,
-    contextAbsPath: join(milestoneDirAbs, `${nextId}-CONTEXT.md`),
-    roadmapAbsPath: join(milestoneDirAbs, `${nextId}-ROADMAP.md`),
-  });
-}
 
 function findMilestoneIds(basePath: string): string[] {
   const dir = milestonesDir(basePath);
@@ -619,35 +612,15 @@ export async function showSmartEntry(
     return;
   }
 
-  // ── Ensure git repo exists — Kata needs it for branch-per-slice ──────
+  // ── Bootstrap via backend (handles file vs Linear mode) ──
+  let backend: Awaited<ReturnType<typeof createBackend>>;
   try {
-    execSync("git rev-parse --git-dir", { cwd: basePath, stdio: "pipe" });
-  } catch {
-    execSync("git init", { cwd: basePath, stdio: "pipe" });
-  }
-
-  // ── Ensure .gitignore has baseline patterns ──────────────────────────
-  ensureGitignore(basePath);
-
-  // ── No Kata project OR no milestone → Create first/next milestone ────
-  if (!existsSync(join(basePath, ".kata"))) {
-    // Bootstrap .kata/ silently — the user wants a milestone, not to "init"
-    const kataDir = kataRoot(basePath);
-    mkdirSync(join(kataDir, "milestones"), { recursive: true });
-
-    // ── Create PREFERENCES.md template ────────────────────────────────
-    ensurePreferences(basePath);
-    try {
-      execSync(
-        "git add -A .kata .gitignore && git commit -m 'chore: init kata'",
-        {
-          cwd: basePath,
-          stdio: "pipe",
-        },
-      );
-    } catch {
-      // nothing to commit — that's fine
-    }
+    backend = await createBackend(basePath);
+    await backend.bootstrap();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    ctx.ui.notify(`Backend init failed: ${msg}`, "error");
+    return;
   }
 
   // Check for crash from previous auto-mode session
@@ -677,7 +650,15 @@ export async function showSmartEntry(
     }
   }
 
-  const state = await deriveState(basePath);
+  const state = await backend.deriveState();
+
+  if (state.phase === "blocked") {
+    ctx.ui.notify(
+      `Blocked: ${state.blockers?.join(", ")}. Fix and run /kata.`,
+      "warning",
+    );
+    return;
+  }
 
   if (!state.activeMilestone) {
     // Guard: if a discuss session is already in flight, don't re-inject the prompt.
@@ -703,10 +684,9 @@ export async function showSmartEntry(
         !dispatchWorkflow(
           ctx,
           pi,
-          buildDiscussPrompt(
+          backend.buildDiscussPrompt(
             nextId,
-            `New project, milestone ${nextId}. Do NOT read or explore .kata/ — it's empty scaffolding.`,
-            basePath,
+            `New project, milestone ${nextId}.`,
           ),
           "kata-run",
           "smart-entry",
@@ -736,7 +716,7 @@ export async function showSmartEntry(
           !dispatchWorkflow(
             ctx,
             pi,
-            buildDiscussPrompt(nextId, `New milestone ${nextId}.`, basePath),
+            backend.buildDiscussPrompt(nextId, `New milestone ${nextId}.`),
             "kata-run",
             "smart-entry",
           )
@@ -782,7 +762,7 @@ export async function showSmartEntry(
         !dispatchWorkflow(
           ctx,
           pi,
-          buildDiscussPrompt(nextId, `New milestone ${nextId}.`, basePath),
+          backend.buildDiscussPrompt(nextId, `New milestone ${nextId}.`),
           "kata-run",
           "smart-entry",
         )

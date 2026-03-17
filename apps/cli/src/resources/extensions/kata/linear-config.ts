@@ -85,7 +85,7 @@ export type WorkflowEntrypoint =
 
 export interface WorkflowProtocolResolution {
   mode: WorkflowMode;
-  documentName: "KATA-WORKFLOW.md" | "LINEAR-WORKFLOW.md";
+  documentName: "KATA-WORKFLOW.md";
   path: string | null;
   ready: boolean;
 }
@@ -154,27 +154,68 @@ export function getLinearProjectId(
   return loadEffectiveLinearProjectConfig(loadedPreferences).linear.projectId;
 }
 
+export interface ResolveConfiguredLinearTeamIdResult {
+  teamId: string | null;
+  teamLookup: string | null;
+  error: string | null;
+}
+
+/**
+ * Resolve the configured Linear team to a concrete team UUID.
+ *
+ * Preference order:
+ * 1) linear.teamId (already concrete)
+ * 2) linear.teamKey (resolved via API lookup)
+ */
+export async function resolveConfiguredLinearTeamId(
+  client: Pick<LinearConfigValidationClient, "getTeam">,
+  loadedPreferences: LoadedKataPreferences | null = loadEffectiveKataPreferences(),
+): Promise<ResolveConfiguredLinearTeamIdResult> {
+  const config = loadEffectiveLinearProjectConfig(loadedPreferences);
+
+  if (config.linear.teamId) {
+    return {
+      teamId: config.linear.teamId,
+      teamLookup: config.linear.teamId,
+      error: null,
+    };
+  }
+
+  const teamKey = config.linear.teamKey;
+  if (!teamKey) {
+    return {
+      teamId: null,
+      teamLookup: null,
+      error: "Linear team not configured — set linear.teamId or linear.teamKey in kata preferences.",
+    };
+  }
+
+  const team = await client.getTeam(teamKey);
+  if (!team) {
+    return {
+      teamId: null,
+      teamLookup: teamKey,
+      error: `Linear team could not be resolved: ${JSON.stringify(teamKey)}. Check linear.teamKey in preferences.`,
+    };
+  }
+
+  return {
+    teamId: team.id,
+    teamLookup: teamKey,
+    error: null,
+  };
+}
+
 export function resolveWorkflowProtocol(
   loadedPreferences: LoadedKataPreferences | null = loadEffectiveKataPreferences(),
 ): WorkflowProtocolResolution {
   const mode = getWorkflowMode(loadedPreferences);
 
-  if (mode === "linear") {
-    const linearPath =
-      process.env.LINEAR_WORKFLOW_PATH ??
-      join(process.env.HOME ?? homedir(), ".kata-cli", "LINEAR-WORKFLOW.md");
-    const ready = existsSync(linearPath);
-    return {
-      mode,
-      documentName: "LINEAR-WORKFLOW.md",
-      path: ready ? linearPath : null,
-      ready,
-    };
-  }
-
+  // Both modes use the same unified workflow document.
+  // KATA-WORKFLOW.md contains mode-conditional blocks for Linear vs file mode.
   const kataPath =
     process.env.KATA_WORKFLOW_PATH ??
-    join(process.env.HOME ?? homedir(), ".kata-cli", "KATA-WORKFLOW.md");
+    join(process.env.HOME ?? homedir(), ".kata-cli", "agent", "KATA-WORKFLOW.md");
   const ready = existsSync(kataPath);
   return {
     mode,
@@ -332,20 +373,28 @@ function buildLinearEntrypointGuard(
 ): WorkflowEntrypointGuard {
   switch (entrypoint) {
     case "smart-entry":
-      return blockedLinearEntrypoint(
+      return {
+        mode: "linear",
+        isLinearMode: true,
+        allow: true,
+        noticeLevel: "info",
+        notice: "Running in Linear mode. Milestone artifacts stored in Linear.",
         protocol,
-        "This project is configured for Linear mode. /kata still routes through the file-backed workflow wizard, so it stops here instead of silently falling back to .kata files. Use `/kata prefs status` to inspect the active mode and config health until S06 wires Linear dispatch.",
-      );
+      };
     case "queue":
       return blockedLinearEntrypoint(
         protocol,
         "This project is configured for Linear mode. /kata queue still appends file-backed Kata artifacts and is blocked until Linear document storage is wired.",
       );
     case "discuss":
-      return blockedLinearEntrypoint(
+      return {
+        mode: "linear",
+        isLinearMode: true,
+        allow: true,
+        noticeLevel: "info",
+        notice: "Running in Linear mode. Discussion artifacts stored in Linear.",
         protocol,
-        "This project is configured for Linear mode. /kata discuss still dispatches the file-backed Kata workflow and is blocked until the Linear workflow prompt is available.",
-      );
+      };
     case "status":
     case "dashboard":
       return {
@@ -382,8 +431,8 @@ function buildLinearEntrypointGuard(
         allow: true,
         noticeLevel: "warning",
         notice: protocol.ready
-          ? `Workflow mode is linear. Prefer ${protocol.documentName} and Linear-backed runtime surfaces instead of the file-backed .kata workflow. Do not silently fall back to KATA-WORKFLOW.md.`
-          : "Workflow mode is linear. Do not silently fall back to the file-backed .kata workflow. Linear prompt/runtime wiring is still pending, so use `/kata prefs status` to inspect mode and config health until the Linear workflow prompt lands.",
+          ? "Workflow mode is linear. Follow the Linear mode instructions in KATA-WORKFLOW.md. Do not fall back to file-backed .kata artifacts."
+          : "Workflow mode is linear. Do not fall back to file-backed .kata artifacts. Workflow document not found — use `/kata prefs status` to inspect config.",
         protocol,
       };
     default:

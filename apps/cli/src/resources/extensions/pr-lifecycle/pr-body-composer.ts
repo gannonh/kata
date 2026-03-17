@@ -21,6 +21,11 @@ import { buildLinearReferencesSection } from "../kata/linear-crosslink.js";
 export interface ComposePRBodyOptions {
   /** Linear issue identifiers (e.g. ["KAT-42"]) to include as references. */
   linearReferences?: string[];
+  /**
+   * Pre-fetched Linear document content for Linear mode (bypasses disk reads).
+   * Keys: "PLAN", "SUMMARY". Values: raw markdown content.
+   */
+  linearDocuments?: Record<string, string>;
 }
 
 /**
@@ -39,15 +44,18 @@ export async function composePRBody(
   options?: ComposePRBodyOptions,
 ): Promise<string> {
   // ── Slice Plan ────────────────────────────────────────────────────────────
+  // Linear documents take precedence (Linear mode is the source of truth);
+  // fall back to disk files for file-backed mode.
   const planPath = resolveSliceFile(cwd, milestoneId, sliceId, "PLAN");
   const planContent = planPath ? await loadFile(planPath) : null;
+  const effectivePlanContent = options?.linearDocuments?.["PLAN"] ?? planContent ?? null;
 
   let sliceTitle = `${sliceId}: (no slice plan found)`;
   let mustHaves: string[] = [];
   let planTaskTitles: string[] = [];
 
-  if (planContent) {
-    const plan = parsePlan(planContent);
+  if (effectivePlanContent) {
+    const plan = parsePlan(effectivePlanContent);
     sliceTitle = plan.title
       ? `${plan.id ? plan.id + ": " : ""}${plan.title}`
       : sliceTitle;
@@ -58,10 +66,11 @@ export async function composePRBody(
   // ── Slice Summary (optional) ──────────────────────────────────────────────
   const summaryPath = resolveSliceFile(cwd, milestoneId, sliceId, "SUMMARY");
   const summaryContent = summaryPath ? await loadFile(summaryPath) : null;
+  const effectiveSummaryContent = options?.linearDocuments?.["SUMMARY"] ?? summaryContent ?? null;
 
   let oneLiner: string | null = null;
-  if (summaryContent) {
-    const summary = parseSummary(summaryContent);
+  if (effectiveSummaryContent) {
+    const summary = parseSummary(effectiveSummaryContent);
     oneLiner = summary.oneLiner || null;
   }
 
@@ -104,7 +113,7 @@ export async function composePRBody(
   if (resolvedTaskTitles.length > 0) {
     const bullets = resolvedTaskTitles.map((t) => `- ${t}`).join("\n");
     sections.push(`## Tasks\n${bullets}`);
-  } else if (planContent) {
+  } else if (effectivePlanContent) {
     // Ultra-thin slice with no task entries at all — include raw plan content
     sections.push(`## Tasks\n- (see slice plan for details)`);
   }

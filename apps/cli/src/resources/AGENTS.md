@@ -36,6 +36,7 @@ apps/cli/
         context7/          — Context7 library documentation lookup
         search-the-web/    — Web search via Brave API
         mac-tools/         — macOS-specific utilities
+        linear/            — Built-in Linear integration (GraphQL client + tools)
       skills/              — Bundled skills
   pkg/
     package.json           — piConfig shim (name: "kata", configDir: ".kata-cli")
@@ -68,6 +69,7 @@ The main extension registers the `/kata` slash command with subcommands:
 - `/kata queue` — View/manage work queue
 - `/kata discuss` — Discuss gray areas before planning
 - `/kata prefs [global|project|status]` — Manage preferences
+- `/kata pr [status|create|review|address|merge]` — PR lifecycle management
 - `/kata doctor [audit|fix|heal]` — Diagnose and fix project state
 
 ## Project State
@@ -92,6 +94,41 @@ Kata stores project state in `.kata/` at the project root:
             T01-PLAN.md
             T01-SUMMARY.md
 ```
+
+## PR Lifecycle
+
+When `pr.enabled: true` in preferences, auto-mode gates slice completion on PR creation instead of squash-merging directly to main.
+
+Three modes based on preferences:
+
+- **PR disabled** (`pr.enabled: false`, default) -- auto-mode squash-merges to main and continues
+- **Auto-create** (`pr.enabled: true`, `pr.auto_create: true`) -- auto-mode creates PR via `gh`, then stops. User merges, then resumes with `/kata auto`
+- **Manual** (`pr.enabled: true`, `pr.auto_create: false`) -- auto-mode stops and prompts user to run `/kata pr create`
+
+### Subcommands
+
+- `/kata pr status` -- deterministic status check (no LLM turn). Shows enabled state, current branch, base branch, open PR if any.
+- `/kata pr create` -- dispatches prompt to create PR with configured base branch. Chains into review if `review_on_create: true`.
+- `/kata pr review` -- runs parallel multi-agent code review on the open PR.
+- `/kata pr address` -- dispatches prompt to address review comments and fix feedback.
+- `/kata pr merge` -- dispatches prompt to merge the PR, sync local branches, and advance Linear issues if `linear_link: true`.
+
+### Preferences
+
+```yaml
+pr:
+  enabled: true
+  auto_create: true
+  base_branch: main
+  review_on_create: false
+  linear_link: false
+models:
+  review: claude-sonnet-4-6   # model for PR reviewer subagents
+```
+
+Set `linear_link: true` with `workflow.mode: linear` to include `Closes KAT-N` references in PR bodies and advance Linear issue state on merge.
+
+Set `models.review` to control which model the PR reviewer subagents use. Sonnet is recommended (faster, parallel-friendly). Omit to use the default model.
 
 ## Development
 
@@ -468,6 +505,59 @@ mcp({ connect: "linear" })               — force connect/reconnect a server
 - **Figma remote MCP (`mcp.figma.com`)**: Blocks dynamic client registration — only whitelisted clients (Cursor, Claude Code, VS Code) can connect via OAuth. Use the Figma desktop app's local MCP server instead (`http://127.0.0.1:3845/mcp`), which requires Figma desktop with Dev Mode (paid plan).
 - **Metadata cache path**: `pi-mcp-adapter` caches tool metadata to `~/.pi/agent/mcp-cache.json` (hardcoded). This doesn't affect functionality — just means the cache lives outside Kata's config dir.
 - **OAuth token storage**: `mcp-remote` stores tokens in `~/.mcp-auth/`, separate from Kata's config dir.
+
+## Built-in Linear Integration
+
+Kata ships a built-in Linear extension with a custom GraphQL client — no MCP server required. It provides native tools that are always available when `LINEAR_API_KEY` is set.
+
+### Setup
+
+Set `LINEAR_API_KEY` in your environment (a Linear personal API key). That's it — the tools are immediately available.
+
+### Tools
+
+**Workspace & Teams:**
+`linear_list_teams`, `linear_get_team`, `linear_get_viewer`
+
+**Projects:**
+`linear_create_project`, `linear_get_project`, `linear_list_projects`, `linear_update_project`, `linear_delete_project`
+
+**Milestones** (belong to projects):
+`linear_create_milestone`, `linear_get_milestone`, `linear_list_milestones`, `linear_update_milestone`, `linear_delete_milestone`
+
+**Issues:**
+`linear_create_issue`, `linear_get_issue`, `linear_list_issues`, `linear_update_issue`, `linear_delete_issue`
+
+**Workflow:**
+`linear_list_workflow_states`, `linear_create_label`, `linear_list_labels`, `linear_delete_label`, `linear_ensure_label`
+
+**Documents:**
+`linear_create_document`, `linear_get_document`, `linear_list_documents`, `linear_update_document`, `linear_delete_document`
+
+**Kata workflow tools** (used by Linear workflow mode):
+`kata_derive_state`, `kata_ensure_labels`, `kata_create_milestone`, `kata_create_slice`, `kata_create_task`, `kata_list_slices`, `kata_list_tasks`, `kata_list_milestones`, `kata_list_documents`, `kata_read_document`, `kata_write_document`, `kata_update_issue_state`
+
+### Linear workflow mode
+
+When a project's preferences set `workflow.mode: linear`, Kata uses Linear as the backing store for its planning methodology instead of `.kata/` files on disk. Milestones, slices, tasks, plans, and summaries all live in Linear.
+
+To configure Linear workflow mode, update these fields in `.kata/preferences.md`:
+
+```yaml
+workflow:
+  mode: linear
+linear:
+  teamKey: KAT
+  projectId: <project-uuid>
+```
+
+Use `linear_list_projects` to find the project UUID.
+
+**Important:** When editing `.kata/preferences.md`, use `edit` to change individual fields — never overwrite the file with `write`. The preferences file contains many settings (PR config, skills, models, supervisor timeouts) and overwriting it destroys everything except what you're adding.
+
+### Built-in vs MCP Linear
+
+The built-in extension is separate from the Linear MCP server. You do **not** need to configure MCP to use Linear — the built-in tools work directly. The MCP setup described in the MCP Support section is an alternative approach using Linear's official MCP server with OAuth; the built-in extension uses a personal API key instead.
 
 ## Key Conventions
 

@@ -32,7 +32,7 @@ const bundledExtensionsDir = join(resourcesDir, 'extensions')
  * - extensions/ → ~/.kata-cli/agent/extensions/   (always overwrite)
  * - agents/     → ~/.kata-cli/agent/agents/        (always overwrite)
  * - AGENTS.md   → ~/.kata-cli/agent/AGENTS.md      (always overwrite)
- * - KATA-WORKFLOW.md is read directly from bundled path via KATA_WORKFLOW_PATH env var
+ * - KATA-WORKFLOW.md   → ~/.kata-cli/agent/KATA-WORKFLOW.md   (always overwrite)
  *
  * Always-overwrite ensures updates take effect immediately.
  */
@@ -64,6 +64,13 @@ export function initResources(agentDir: string): void {
     writeFileSync(destAgentsMd, readFileSync(srcAgentsMd))
   }
 
+  // Sync workflow protocol doc
+  const srcWorkflow = join(resourcesDir, 'KATA-WORKFLOW.md')
+  const destWorkflow = join(agentDir, 'KATA-WORKFLOW.md')
+  if (existsSync(srcWorkflow)) {
+    writeFileSync(destWorkflow, readFileSync(srcWorkflow))
+  }
+
   // Scaffold starter mcp.json — only if it doesn't exist yet.
   // Never overwrite: preserve the user's MCP server configuration.
   const mcpConfigPath = join(agentDir, 'mcp.json')
@@ -76,7 +83,15 @@ export function initResources(agentDir: string): void {
  * Constructs a DefaultResourceLoader with no additionalExtensionPaths.
  * Extensions are synced to agentDir by initResources() and pi auto-discovers
  * them from ~/.kata-cli/agent/extensions/ via its normal agentDir scan.
+ *
+ * Optional overrides allow subagent spawns to inject --append-system-prompt
+ * content before reload().
  */
-export function buildResourceLoader(agentDir: string): DefaultResourceLoader {
-  return new DefaultResourceLoader({ agentDir })
+export function buildResourceLoader(agentDir: string, overrides?: {
+  appendSystemPrompt?: string;
+}): DefaultResourceLoader {
+  return new DefaultResourceLoader({
+    agentDir,
+    ...(overrides?.appendSystemPrompt ? { appendSystemPrompt: overrides.appendSystemPrompt } : {}),
+  })
 }

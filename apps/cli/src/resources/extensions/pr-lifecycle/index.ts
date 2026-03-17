@@ -2,15 +2,14 @@
  * pr-lifecycle extension — registers the `kata_create_pr` tool.
  *
  * The tool runs a three-stage pre-flight (gh installed, gh authenticated,
- * python3 available), composes the PR body from Kata slice artifacts, writes
- * it to a temp file, and delegates to the bundled `create_pr_safe.py` script
- * to create the GitHub PR safely.
+ * gh authenticated), composes the PR body from Kata slice artifacts, and
+ * creates the GitHub PR via `gh pr create` with body integrity verification.
  *
  * All failure paths return a structured `{ ok: false, phase, error, hint }`
  * object — the tool never throws.
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -26,6 +25,7 @@ import {
   fetchPRContext,
   scopeReviewers,
   buildReviewerTaskPrompt,
+  runReviewers,
 } from "./pr-review-utils.js";
 import {
   parseCIChecks,
@@ -34,7 +34,7 @@ import {
   syncLocalAfterMerge,
   markSliceDoneInRoadmap,
 } from "./pr-merge-utils.js";
-import { resolveThread, replyToThread } from "./pr-address-utils.js";
+import { resolveThread, replyToThread, fetchPrComments } from "./pr-address-utils.js";
 import {
   shouldCrossLink,
   resolveSliceLinearIdentifier,
@@ -42,6 +42,34 @@ import {
 } from "../kata/linear-crosslink.js";
 import { loadEffectiveKataPreferences } from "../kata/preferences.js";
 import { loadEffectiveLinearProjectConfig, isLinearMode } from "../kata/linear-config.js";
+
+// ---------------------------------------------------------------------------
+// Shell escaping
+// ---------------------------------------------------------------------------
+
+/** Shell-escape a single argument (single-quote wrapping with embedded-quote escaping). */
+function shellEscape(arg: string): string {
+  return "'" + arg.replace(/'/g, "'\\''") + "'";
+}
+
+// ---------------------------------------------------------------------------
+// Tool result helpers — pi agent-core requires { content: [...], details? }
+// ---------------------------------------------------------------------------
+
+function toolOk(data: unknown) {
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+    details: data,
+  };
+}
+
+function toolFail(data: unknown) {
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+    details: data,
+    isError: true,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Reviewer instructions — loaded from bundled agent .md files at module init
@@ -80,7 +108,7 @@ export default function (pi: ExtensionAPI): void {
     description: [
       "Create a GitHub PR for the current Kata slice branch.",
       "Composes the PR body from .kata/ slice artifacts (S01-PLAN.md, S01-SUMMARY.md, task plans).",
-      "Pre-flight checks: gh CLI installed, gh authenticated, python3 available.",
+      "Pre-flight checks: gh CLI installed, gh authenticated.",
       "Uses `milestoneId`/`sliceId` from params when provided; auto-detects from branch name otherwise.",
       "Returns { ok: true, url } on success; { ok: false, phase, error, hint } on any failure.",
     ].join(" "),
@@ -113,13 +141,13 @@ export default function (pi: ExtensionAPI): void {
       },
       required: ["title"],
     },
-    handler: async (params: {
+    async execute(_id: string, params: {
       title: string;
       base_branch?: string;
       milestoneId?: string;
       sliceId?: string;
       cwd?: string;
-    }) => {
+    }, _signal: unknown, _onUpdate: unknown, ctx: ExtensionContext) {
       // Build Linear cross-linking config when applicable
       let linearConfig: PrCreateOptions["linearConfig"];
       try {
@@ -144,14 +172,15 @@ export default function (pi: ExtensionAPI): void {
         // Best-effort — proceed without Linear config
       }
 
-      return runCreatePr({
+      const result = await runCreatePr({
         title: params.title,
         baseBranch: params.base_branch,
         milestoneId: params.milestoneId,
         sliceId: params.sliceId,
-        cwd: params.cwd,
+        cwd: params.cwd ?? ctx.cwd,
         linearConfig,
       });
+      return result.ok ? toolOk(result) : toolFail(result);
     },
   });
 
@@ -160,12 +189,10 @@ export default function (pi: ExtensionAPI): void {
   pi.registerTool({
     name: "kata_review_pr",
     description: [
-      "Prepares a parallel PR review dispatch plan.",
-      "Pre-flights gh CLI, fetches the open PR diff for the current branch,",
-      "scopes which of the 6 bundled reviewer subagents to run based on diff content,",
-      "and builds a per-reviewer task prompt.",
-      "Returns { ok: true, prNumber, selectedReviewers, reviewerTasks } on success —",
-      "pass reviewerTasks to the `subagent` tool in parallel mode to dispatch reviewers.",
+      "Runs a parallel PR review for the open GitHub PR on the current branch.",
+      "Pre-flights gh CLI, fetches the PR diff, selects reviewer subagents based on diff content,",
+      "spawns them in parallel, and returns aggregated findings.",
+      "Returns { ok: true, prNumber, selectedReviewers, findings } on success.",
       "Returns { ok: false, phase, error, hint } for: gh-missing, gh-unauth, not-in-pr, diff-empty.",
     ].join(" "),
     parameters: {
@@ -184,71 +211,119 @@ export default function (pi: ExtensionAPI): void {
       },
       required: [],
     },
-    handler: async (params: { cwd?: string; reviewers?: string[] }) => {
-      const cwd = params.cwd ?? process.cwd();
+    async execute(_id: string, params: { cwd?: string; reviewers?: string[] }, signal: AbortSignal | undefined, onUpdate: ((partial: any) => void) | undefined, ctx: ExtensionContext) {
+      const cwd = params.cwd ?? ctx.cwd;
 
       if (!isGhInstalled()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-missing",
           error: "gh CLI not found in PATH",
           hint: "Install gh CLI: https://cli.github.com",
-        };
+        });
       }
       if (!isGhAuthenticated()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-unauth",
           error: "gh CLI not authenticated",
           hint: "Run: gh auth login",
-        };
+        });
       }
 
-      const ctx = fetchPRContext(cwd);
-      if (!ctx) {
-        return {
+      const prCtx = fetchPRContext(cwd);
+      if (!prCtx) {
+        return toolFail({
           ok: false,
           phase: "not-in-pr",
           error: "No open PR found for current branch",
           hint: "Ensure the branch has been pushed and has an open PR on GitHub.",
-        };
+        });
       }
-      if (!ctx.diff.trim()) {
-        return {
+      if (!prCtx.diff.trim()) {
+        return toolFail({
           ok: false,
           phase: "diff-empty",
           error: "PR diff is empty — no changes to review",
           hint: "Ensure the PR branch has commits not in the base branch.",
-        };
+        });
       }
 
       const selectedReviewers =
         params.reviewers ??
-        scopeReviewers({ diff: ctx.diff, changedFiles: ctx.changedFiles });
+        scopeReviewers({ diff: prCtx.diff, changedFiles: prCtx.changedFiles });
 
-      const reviewerTasks = selectedReviewers.map((reviewerName) => ({
+      // Build tasks with system prompts for internal dispatch
+      const tasks = selectedReviewers.map((reviewerName) => ({
         agent: reviewerName,
+        systemPrompt:
+          REVIEWER_INSTRUCTIONS[reviewerName] ??
+          `You are a ${reviewerName} reviewer. Review the provided diff for issues.`,
         task: buildReviewerTaskPrompt({
           reviewer: reviewerName,
-          prTitle: ctx.title,
-          prNumber: ctx.prNumber,
-          diff: ctx.diff,
-          changedFiles: ctx.changedFiles,
-          prBody: ctx.body,
+          prTitle: prCtx.title,
+          prNumber: prCtx.prNumber,
+          diff: prCtx.diff,
+          changedFiles: prCtx.changedFiles,
+          prBody: prCtx.body,
           reviewerInstructions:
             REVIEWER_INSTRUCTIONS[reviewerName] ??
             `Review the PR diff as ${reviewerName}.`,
         }),
       }));
 
-      return {
+      // Resolve review model from preferences (pr.review_model or models.review)
+      let reviewModel: string | undefined;
+      try {
+        const prefs = loadEffectiveKataPreferences();
+        reviewModel = prefs?.preferences?.models?.review;
+      } catch { /* best-effort */ }
+
+      // Dispatch reviewers internally — diff never enters parent context
+      ctx.ui.setWorkingMessage(`PR Review: dispatching ${tasks.length} reviewers${reviewModel ? ` (model: ${reviewModel})` : ""}...`);
+      let result: Awaited<ReturnType<typeof runReviewers>>;
+      try {
+        result = await runReviewers({
+          tasks,
+          cwd,
+          model: reviewModel,
+          signal: signal ?? undefined,
+          onProgress: (completed, total, agent) => {
+            ctx.ui.setWorkingMessage(`PR Review: ${completed}/${total} reviewers complete (latest: ${agent})`);
+          },
+          onActivity: (agent, activity) => {
+            ctx.ui.setWorkingMessage(`PR Review: ${activity}`);
+          },
+        });
+      } catch (err) {
+        return toolFail({
+          ok: false,
+          phase: "review-failed",
+          error: err instanceof Error ? err.message : String(err),
+          hint: "Reviewer dispatch failed. Retry or inspect reviewer agent logs.",
+        });
+      } finally {
+        ctx.ui.setWorkingMessage(); // always restore default
+      }
+
+      const diffLines = prCtx.diff.split("\n").length;
+      const diffChars = prCtx.diff.length;
+      const { MAX_DIFF_CHARS: maxChars } = await import("./pr-review-utils.js");
+
+      return toolOk({
         ok: true,
-        prNumber: ctx.prNumber,
-        title: ctx.title,
-        diff: ctx.diff,
+        prNumber: prCtx.prNumber,
+        title: prCtx.title,
+        diffStats: {
+          lines: diffLines,
+          files: prCtx.changedFiles.length,
+          chars: diffChars,
+          truncatedInReviewerPrompts: diffChars > maxChars,
+        },
         selectedReviewers,
-        reviewerTasks,
-      };
+        reviewerOutputs: result.reviewerOutputs,
+        findings: result.findings,
+      });
     },
   });
 
@@ -258,9 +333,9 @@ export default function (pi: ExtensionAPI): void {
     name: "kata_fetch_pr_comments",
     description: [
       "Fetches all PR comments for the open PR on the current branch.",
-      "Runs the bundled fetch_comments.py script and returns structured JSON with:",
+      "Returns structured JSON with:",
       "pull_request metadata, conversation_comments, reviews, and review_threads.",
-      "Pre-flight checks: gh CLI installed, gh authenticated, python3 available.",
+      "Pre-flight checks: gh CLI installed, gh authenticated.",
       "Returns { ok: true, pull_request, conversation_comments, reviews, review_threads } on success.",
       "Returns { ok: false, phase, error, hint } on any failure.",
     ].join(" "),
@@ -274,69 +349,37 @@ export default function (pi: ExtensionAPI): void {
       },
       required: [],
     },
-    handler: async (params: { cwd?: string }) => {
-      const cwd = params.cwd ?? process.cwd();
-
-      // ── Pre-flight checks ────────────────────────────────────────────────
+    async execute(_id: string, params: { cwd?: string }, _signal: unknown, _onUpdate: unknown, ctx: ExtensionContext) {
+      const cwd = params.cwd ?? ctx.cwd;
 
       if (!isGhInstalled()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-missing",
           error: "gh CLI not found in PATH",
           hint: "Install gh CLI: https://cli.github.com",
-        };
+        });
       }
 
       if (!isGhAuthenticated()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-unauth",
           error: "gh CLI not authenticated",
           hint: "Run: gh auth login",
-        };
+        });
       }
 
-      try {
-        execSync("python3 --version", {
-          stdio: ["pipe", "pipe", "pipe"],
-          encoding: "utf8",
-        });
-      } catch {
-        return {
-          ok: false,
-          phase: "python3-missing",
-          error: "python3 not found in PATH",
-          hint: "Install Python 3: https://python.org",
-        };
-      }
-
-      // ── Resolve script path and run fetch_comments.py ────────────────────
-
-      const scriptPath = join(
-        dirname(fileURLToPath(import.meta.url)),
-        "scripts",
-        "fetch_comments.py",
-      );
-
-      try {
-        const stdout = execSync("python3 " + shellEscape(scriptPath), {
-          cwd,
-          encoding: "utf8",
-          stdio: ["pipe", "pipe", "pipe"],
-        });
-
-        const parsed = JSON.parse(stdout) as Record<string, unknown>;
-        return { ok: true, ...parsed };
-      } catch (err) {
-        const stderr = (err as NodeJS.ErrnoException & { stderr?: string }).stderr;
-        return {
+      const result = fetchPrComments(cwd);
+      if ("ok" in result && result.ok === false) {
+        return toolFail({
           ok: false,
           phase: "fetch-failed",
-          error: stderr || String(err),
+          error: result.error,
           hint: "Ensure the current branch has an open PR and gh is authenticated.",
-        };
+        });
       }
+      return toolOk({ ok: true, ...result });
     },
   });
 
@@ -366,29 +409,30 @@ export default function (pi: ExtensionAPI): void {
       },
       required: ["threadId"],
     },
-    handler: async (params: { threadId: string; cwd?: string }) => {
+    async execute(_id: string, params: { threadId: string; cwd?: string }, _signal: unknown, _onUpdate: unknown, ctx: ExtensionContext) {
       const { threadId } = params;
-      const cwd = params.cwd ?? process.cwd();
+      const cwd = params.cwd ?? ctx.cwd;
 
       if (!isGhInstalled()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-missing",
           error: "gh CLI not found in PATH",
           hint: "Install gh CLI: https://cli.github.com",
-        };
+        });
       }
 
       if (!isGhAuthenticated()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-unauth",
           error: "gh CLI not authenticated",
           hint: "Run: gh auth login",
-        };
+        });
       }
 
-      return resolveThread(threadId, cwd);
+      const result = resolveThread(threadId, cwd);
+      return (result as any).ok ? toolOk(result) : toolFail(result);
     },
   });
 
@@ -423,29 +467,30 @@ export default function (pi: ExtensionAPI): void {
       },
       required: ["threadId", "body"],
     },
-    handler: async (params: { threadId: string; body: string; cwd?: string }) => {
+    async execute(_id: string, params: { threadId: string; body: string; cwd?: string }, _signal: unknown, _onUpdate: unknown, ctx: ExtensionContext) {
       const { threadId, body } = params;
-      const cwd = params.cwd ?? process.cwd();
+      const cwd = params.cwd ?? ctx.cwd;
 
       if (!isGhInstalled()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-missing",
           error: "gh CLI not found in PATH",
           hint: "Install gh CLI: https://cli.github.com",
-        };
+        });
       }
 
       if (!isGhAuthenticated()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-unauth",
           error: "gh CLI not authenticated",
           hint: "Run: gh auth login",
-        };
+        });
       }
 
-      return replyToThread(threadId, body, cwd);
+      const result = replyToThread(threadId, body, cwd);
+      return (result as any).ok ? toolOk(result) : toolFail(result);
     },
   });
 
@@ -491,56 +536,56 @@ export default function (pi: ExtensionAPI): void {
       },
       required: [],
     },
-    handler: async (params: {
+    async execute(_id: string, params: {
       prNumber?: number;
       strategy?: "squash" | "merge" | "rebase";
       skipCICheck?: boolean;
       cwd?: string;
-    }) => {
-      const cwd = params.cwd ?? process.cwd();
+    }, _signal: unknown, _onUpdate: unknown, ctx: ExtensionContext) {
+      const cwd = params.cwd ?? ctx.cwd;
       const strategy = params.strategy ?? "squash";
 
       // ── (a) Pre-flight: gh installed + authenticated ────────────────────────
 
       if (!isGhInstalled()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-missing",
           error: "gh CLI not found in PATH",
           hint: "Install gh CLI: https://cli.github.com",
-        };
+        });
       }
 
       if (!isGhAuthenticated()) {
-        return {
+        return toolFail({
           ok: false,
           phase: "gh-unauth",
           error: "gh CLI not authenticated",
           hint: "Run: gh auth login",
-        };
+        });
       }
 
       // ── (b) Detect branch + milestone/slice IDs ────────────────────────────
 
       const branch = getCurrentBranch(cwd);
       if (!branch) {
-        return {
+        return toolFail({
           ok: false,
           phase: "branch-parse-failed",
           error: "Could not determine current git branch",
           hint: "Run from a git repository, or pass milestoneId and sliceId explicitly.",
-        };
+        });
       }
 
       const parsed = parseBranchToSlice(branch);
       if (!parsed) {
-        return {
+        return toolFail({
           ok: false,
           phase: "branch-parse-failed",
           error: `Current branch '${branch}' does not match kata/<MilestoneId>/<SliceId> pattern`,
           hint:
             "Switch to a Kata slice branch (e.g. kata/M003/S04) or pass milestoneId and sliceId explicitly.",
-        };
+        });
       }
 
       const { milestoneId, sliceId } = parsed;
@@ -553,12 +598,12 @@ export default function (pi: ExtensionAPI): void {
       } else {
         const detected = getPRNumber(cwd);
         if (detected == null) {
-          return {
+          return toolFail({
             ok: false,
             phase: "pr-detect-failed",
             error: "Could not detect open PR for current branch",
             hint: "Ensure the branch has been pushed and has an open PR. You can also pass prNumber explicitly.",
-          };
+          });
         }
         prNumber = detected;
       }
@@ -585,20 +630,20 @@ export default function (pi: ExtensionAPI): void {
 
         if (!ciResult.allPassing) {
           if (ciResult.failing.length > 0) {
-            return {
+            return toolFail({
               ok: false,
               phase: "ci-failing",
               error: "CI checks failing: " + ciResult.failing.join(", "),
               hint: "Fix failing checks or pass skipCICheck: true to override.",
-            };
+            });
           }
           if (ciResult.pending.length > 0) {
-            return {
+            return toolFail({
               ok: false,
               phase: "ci-pending",
               error: "CI checks still running: " + ciResult.pending.join(", "),
               hint: "Wait for CI to complete or pass skipCICheck: true to override.",
-            };
+            });
           }
         }
       }
@@ -607,12 +652,12 @@ export default function (pi: ExtensionAPI): void {
 
       const mergeResult = await mergeGitHubPR(prNumber, strategy, cwd);
       if (!mergeResult.ok) {
-        return {
+        return toolFail({
           ok: false,
           phase: mergeResult.phase,
           error: mergeResult.error,
           hint: "Check gh auth status and ensure PR is open and mergeable.",
-        };
+        });
       }
 
       // ── (f) Sync local state (best-effort, never blocks return) ────────────
@@ -667,7 +712,7 @@ export default function (pi: ExtensionAPI): void {
 
       // ── (i) Return ─────────────────────────────────────────────────────────
 
-      const result: {
+      const finalResult: {
         ok: true;
         url: string;
         branch: string;
@@ -685,10 +730,10 @@ export default function (pi: ExtensionAPI): void {
       };
 
       if (!roadmapUpdated) {
-        result.roadmapUpdateFailed = true;
+        finalResult.roadmapUpdateFailed = true;
       }
 
-      return result;
+      return toolOk(finalResult);
     },
   });
 }

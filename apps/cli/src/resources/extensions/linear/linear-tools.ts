@@ -28,7 +28,10 @@ import type { DocumentAttachment } from "./linear-documents.js";
 import type { KataLabelSet } from "./linear-types.js";
 import type { KataPhase } from "./linear-types.js";
 import { deriveLinearState } from "./linear-state.js";
-import { loadEffectiveLinearProjectConfig } from "../kata/linear-config.js";
+import {
+  loadEffectiveLinearProjectConfig,
+  resolveConfiguredLinearTeamId,
+} from "../kata/linear-config.js";
 
 // Re-export entity functions under kata_* names so module consumers and
 // smoke-checks can confirm they are importable without loading the pi runtime.
@@ -637,13 +640,16 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     label: "Kata: List Slices",
     description:
       "List all Linear issues representing Kata slices in a project. " +
-      "Filters by the kata:slice label. Use kata_ensure_labels to obtain sliceLabelId.",
+      "Resolves the kata:slice label automatically from the team.",
     parameters: Type.Object({
       projectId: Type.String({ description: "Project UUID to scope the query" }),
-      sliceLabelId: Type.String({ description: "Label UUID for kata:slice (from kata_ensure_labels)" }),
+      teamId: Type.String({ description: "Team UUID (from kata_derive_state or preferences)" }),
     }),
     async execute(_id, params) {
-      return run(() => listKataSlices(client, params.projectId, params.sliceLabelId));
+      return run(async () => {
+        const labelSet = await ensureKataLabels(client, params.teamId);
+        return listKataSlices(client, params.projectId, labelSet.slice.id);
+      });
     },
   });
 
@@ -769,7 +775,8 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       "Derive a full KataState from the Linear API. " +
       "Reads projectId and teamId from project preferences (loadEffectiveLinearProjectConfig). " +
       "Reads LINEAR_API_KEY from process.env. " +
-      "Returns a KataState JSON with activeMilestone, activeSlice, activeTask, phase, progress, and blockers. " +
+      "Returns a KataState JSON with activeMilestone, activeSlice, activeTask, phase, progress, blockers, " +
+      "plus projectId and teamId (use these for kata_read_document / kata_list_documents calls). " +
       "Returns phase 'blocked' (not an error) when LINEAR_API_KEY or project config is missing.",
     parameters: Type.Object({}),
     async execute() {
@@ -788,31 +795,47 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       }
 
       const config = loadEffectiveLinearProjectConfig();
-      const { projectId, teamId } = config.linear;
+      const { projectId } = config.linear;
 
-      if (!projectId || !teamId) {
+      if (!projectId) {
         return ok({
           phase: "blocked",
           activeMilestone: null,
           activeSlice: null,
           activeTask: null,
-          blockers: ["Linear project not configured — set linear.projectId and linear.teamId in kata preferences"],
+          blockers: ["Linear project not configured — set linear.projectId in kata preferences"],
           recentDecisions: [],
           nextAction: "Run /kata prefs to configure the Linear project.",
           registry: [],
         });
       }
 
-      const derivationClient = new LinearClient(apiKey);
-      const labelSet = await ensureKataLabels(derivationClient, teamId);
+      return run(async () => {
+        const derivationClient = new LinearClient(apiKey);
+        const teamResolution = await resolveConfiguredLinearTeamId(derivationClient);
+        if (!teamResolution.teamId) {
+          return {
+            phase: "blocked",
+            activeMilestone: null,
+            activeSlice: null,
+            activeTask: null,
+            blockers: [teamResolution.error ?? "Linear team could not be resolved."],
+            recentDecisions: [],
+            nextAction: "Fix linear.teamId or linear.teamKey in preferences.",
+            registry: [],
+          };
+        }
 
-      return run(() =>
-        deriveLinearState(derivationClient, {
+        const teamId = teamResolution.teamId;
+        const labelSet = await ensureKataLabels(derivationClient, teamId);
+
+        const state = await deriveLinearState(derivationClient, {
           projectId,
           teamId,
           sliceLabelId: labelSet.slice.id,
-        })
-      );
+        });
+        return { ...state, projectId, teamId };
+      });
     },
   });
 
@@ -840,14 +863,36 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       ),
     }),
     async execute(_id, params) {
-      const resolvedTeamId =
-        params.teamId ?? loadEffectiveLinearProjectConfig().linear.teamId;
-
-      if (!resolvedTeamId) {
-        return fail(new Error("teamId required — pass it explicitly or configure linear.teamId in kata preferences"));
-      }
-
       return run(async () => {
+        let resolvedTeamId = params.teamId ?? null;
+        if (!resolvedTeamId) {
+          const teamResolution = await resolveConfiguredLinearTeamId(client);
+          if (!teamResolution.teamId) {
+            throw new Error(
+              teamResolution.error ??
+                "teamId required — pass it explicitly or configure linear.teamId (or linear.teamKey) in kata preferences"
+            );
+          }
+          resolvedTeamId = teamResolution.teamId;
+        }
+
+        // Guard: prevent the agent from marking a slice "done" directly.
+        // Slices must go through the summarizing phase (orchestrator-driven),
+        // which writes the summary/UAT docs and triggers the PR gate.
+        if (params.phase === "done") {
+          const issue = await client.getIssue(params.issueId);
+          const isSlice = issue?.labels?.some(
+            (l: { name: string }) => l.name === "kata:slice",
+          );
+          if (isSlice) {
+            throw new Error(
+              "Cannot advance a slice to done directly. " +
+              "The orchestrator handles slice completion after the summarizing phase. " +
+              "Only advance individual tasks to done — the slice will be completed automatically."
+            );
+          }
+        }
+
         const states = await client.listWorkflowStates(resolvedTeamId);
         const targetState = getLinearStateForKataPhase(states, params.phase as KataPhase);
         if (!targetState) {

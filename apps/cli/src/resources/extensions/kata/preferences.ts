@@ -30,6 +30,7 @@ export interface KataModelConfig {
   planning?: string; // e.g. "claude-opus-4-6"
   execution?: string; // e.g. "claude-sonnet-4-6"
   completion?: string; // e.g. "claude-sonnet-4-6"
+  review?: string; // e.g. "claude-sonnet-4-6" — model for PR reviewer subagents
 }
 
 export type SkillDiscoveryMode = "auto" | "suggest" | "off";

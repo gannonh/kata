@@ -131,6 +131,24 @@ describe("listKataMilestones", () => {
     assert.equal(result[1].id, m2.id);
   });
 
+  it("sorts milestones by sortOrder regardless of API return order", async () => {
+    const m3 = makeMilestone("[M003] Third", 2111);
+    const m1 = makeMilestone("[M001] First", -8);
+    const m2 = makeMilestone("[M002] Second", 1041);
+
+    const client = {
+      async listMilestones(_projectId: string): Promise<LinearMilestone[]> {
+        return [m3, m1, m2]; // API returns out of order
+      },
+    };
+
+    const result = await listKataMilestones(client, "proj-test");
+    assert.equal(result.length, 3);
+    assert.equal(result[0].sortOrder, -8);
+    assert.equal(result[1].sortOrder, 1041);
+    assert.equal(result[2].sortOrder, 2111);
+  });
+
   it("returns empty array when no milestones exist", async () => {
     const client = {
       async listMilestones(_projectId: string): Promise<LinearMilestone[]> {
@@ -202,6 +220,24 @@ describe("deriveLinearState: milestones with no slices", () => {
 
     assert.equal(state.registry[0].status, "active");
     assert.equal(state.registry[1].status, "pending");
+  });
+
+  it("selects M001 as active when milestones arrive out of sortOrder", async () => {
+    // Simulates the real bug: API returns M003 first (highest sortOrder)
+    const m3 = makeMilestone("[M003] Polish", 2111, "mid-3");
+    const m1 = makeMilestone("[M001] Core Shell", -8, "mid-1");
+    const m2 = makeMilestone("[M002] Extended Views", 1041, "mid-2");
+    const client = makeMockStateClient([m3, m1, m2], []);
+    const state = await deriveLinearState(client, BASE_CONFIG);
+
+    assert.ok(state.activeMilestone);
+    assert.equal(state.activeMilestone.id, "M001");
+    assert.equal(state.registry[0].id, "M001");
+    assert.equal(state.registry[0].status, "active");
+    assert.equal(state.registry[1].id, "M002");
+    assert.equal(state.registry[1].status, "pending");
+    assert.equal(state.registry[2].id, "M003");
+    assert.equal(state.registry[2].status, "pending");
   });
 });
 
@@ -275,6 +311,20 @@ describe("deriveLinearState: active slice with state backlog → planning", () =
     assert.equal(state.activeSlice.title, "Planning slice");
   });
 
+  it("selects the lowest non-terminal slice ID when API returns unsorted slices", async () => {
+    const m1 = makeMilestone("[M001] Active milestone", 0, "mid-1");
+    const s3 = makeIssue("[S03] Later slice", "backlog", { milestoneId: "mid-1" });
+    const s1 = makeIssue("[S01] First slice", "backlog", { milestoneId: "mid-1" });
+    const s2 = makeIssue("[S02] Middle slice", "backlog", { milestoneId: "mid-1" });
+    // Intentionally unsorted API order
+    const client = makeMockStateClient([m1], [s3, s1, s2]);
+    const state = await deriveLinearState(client, BASE_CONFIG);
+
+    assert.ok(state.activeSlice);
+    assert.equal(state.activeSlice.id, "S01");
+    assert.equal(state.activeSlice.title, "First slice");
+  });
+
   it("activeTask is null in planning phase (no children inspected)", async () => {
     const m1 = makeMilestone("[M001] Milestone", 0, "mid-1");
     const s1 = makeIssue("[S01] Backlog slice", "backlog", {
@@ -343,6 +393,25 @@ describe("deriveLinearState: active slice started, children exist but none termi
     const s1 = makeIssue("[S01] In progress", "started", {
       milestoneId: "mid-1",
       children: [
+        makeChildNode("[T01] First task", "started"),
+        makeChildNode("[T02] Second task", "backlog"),
+      ],
+    });
+    const client = makeMockStateClient([m1], [s1]);
+    const state = await deriveLinearState(client, BASE_CONFIG);
+
+    assert.equal(state.phase, "executing");
+    assert.ok(state.activeTask, "activeTask should be set");
+    assert.equal(state.activeTask.id, "T01");
+    assert.equal(state.activeTask.title, "First task");
+  });
+
+  it("selects the lowest non-terminal task ID when children are unsorted", async () => {
+    const m1 = makeMilestone("[M001] Milestone", 0, "mid-1");
+    const s1 = makeIssue("[S01] In progress", "started", {
+      milestoneId: "mid-1",
+      children: [
+        makeChildNode("[T03] Third task", "backlog"),
         makeChildNode("[T01] First task", "started"),
         makeChildNode("[T02] Second task", "backlog"),
       ],

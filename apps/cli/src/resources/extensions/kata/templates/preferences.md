@@ -19,7 +19,9 @@ skill_discovery:
 auto_supervisor: {}
 ---
 
-# Kata Skill Preferences
+# Kata Preferences
+
+> **Agent: do NOT overwrite this file.** Use `edit` to change individual fields. This file contains many settings — overwriting it with only the fields you care about destroys the rest.
 
 See `~/.kata-cli/agent/extensions/kata/docs/preferences-reference.md` for full field documentation and examples.
 
@@ -29,6 +31,19 @@ See `~/.kata-cli/agent/extensions/kata/docs/preferences-reference.md` for full f
 - Set `workflow.mode: linear` and fill in the `linear` block to opt this project into Linear-backed workflow mode.
 - Keep secrets like `LINEAR_API_KEY` in environment variables, not in this file.
 - Set `pr.enabled: true` to activate the PR lifecycle (create, review, address, merge via `gh` CLI).
+
+## Models example
+
+```yaml
+models:
+  research: claude-sonnet-4-6
+  planning: claude-opus-4-6     # Opus for architectural decisions
+  execution: claude-sonnet-4-6
+  completion: claude-sonnet-4-6
+  review: claude-sonnet-4-6     # Model for PR reviewer subagents
+```
+
+Omit any key to use the currently selected model.
 
 ## PR lifecycle example
 

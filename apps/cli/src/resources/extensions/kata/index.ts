@@ -70,6 +70,12 @@ import { Key } from "@mariozechner/pi-tui";
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { Text } from "@mariozechner/pi-tui";
+import {
+  extractMarkdownSection,
+  escapeRegExp,
+  oneLine,
+  extractSliceExecutionExcerpt,
+} from "./markdown-utils.js";
 
 // ── ASCII logo ────────────────────────────────────────────────────────────
 const KATA_LOGO_LINES = [
@@ -86,6 +92,14 @@ export default function (pi: ExtensionAPI) {
 
   // ── session_start: render branded Kata header ───────────────────────────
   pi.on("session_start", async (_event, ctx) => {
+    // Patch Opus 4.6 context window — pi-mono caps at 200K but
+    // Anthropic's API supports 1M natively.
+    for (const model of ctx.modelRegistry.getAll()) {
+      if (model.id === "claude-opus-4-6" && model.provider === "anthropic") {
+        model.contextWindow = 1_000_000;
+      }
+    }
+
     const theme = ctx.ui.theme;
     const version = process.env.KATA_VERSION || "0.0.0";
 
@@ -526,59 +540,3 @@ async function buildResumeSection(
   return lines.join("\n");
 }
 
-function extractSliceExecutionExcerpt(
-  content: string | null,
-  relPath: string,
-): string {
-  if (!content) {
-    return [
-      "## Slice Plan Excerpt",
-      `Slice plan not found at dispatch time. Read \`${relPath}\` before running slice-level verification.`,
-    ].join("\n");
-  }
-
-  const lines = content.split("\n");
-  const goalLine = lines.find((line) => line.startsWith("**Goal:**"))?.trim();
-  const demoLine = lines.find((line) => line.startsWith("**Demo:**"))?.trim();
-  const verification = extractMarkdownSection(content, "Verification");
-  const observability = extractMarkdownSection(
-    content,
-    "Observability / Diagnostics",
-  );
-
-  const parts = ["## Slice Plan Excerpt", `Source: \`${relPath}\``];
-  if (goalLine) parts.push(goalLine);
-  if (demoLine) parts.push(demoLine);
-  if (verification)
-    parts.push("", "### Slice Verification", verification.trim());
-  if (observability)
-    parts.push(
-      "",
-      "### Slice Observability / Diagnostics",
-      observability.trim(),
-    );
-  return parts.join("\n");
-}
-
-function extractMarkdownSection(
-  content: string,
-  heading: string,
-): string | null {
-  const match = new RegExp(`^## ${escapeRegExp(heading)}\\s*$`, "m").exec(
-    content,
-  );
-  if (!match) return null;
-  const start = match.index + match[0].length;
-  const rest = content.slice(start);
-  const nextHeading = rest.match(/^##\s+/m);
-  const end = nextHeading?.index ?? rest.length;
-  return rest.slice(0, end).trim();
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function oneLine(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
-}

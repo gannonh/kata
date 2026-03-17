@@ -1,15 +1,18 @@
 # Kata Workflow — Manual Bootstrap Protocol
 
-> This document teaches you how to operate the Kata planning methodology manually using files on disk.
+> This document teaches you how to operate the Kata planning methodology.
 >
 > **When to read this:** At the start of any session working on Kata-managed work, or when told `read @KATA-WORKFLOW.md`.
 >
-> **After reading this, always read `.kata/state.md` to find out what's next.**
-> If the milestone has a `context.md`, read that too — it contains project-specific decisions, reference paths, and implementation guidance that this generic methodology doc does not.
+> **After reading this:**
+> - **File mode:** Read `.kata/state.md` to find out what's next. If the milestone has a `context.md`, read that too.
+> - **Linear mode:** Call `kata_derive_state` to find out what's next. Do not read `.kata/` files — all state and artifacts live in Linear.
 
 ---
 
 ## Quick Start: "What's next?"
+
+### File Mode
 
 Read these files in order and act on what they say:
 
@@ -20,6 +23,30 @@ Read these files in order and act on what they say:
 5. If a task was interrupted, check for **`continue.md`** in the active slice directory — Resume from there.
 
 Then do the thing `state.md` says to do next.
+
+### Linear Mode
+
+In Linear mode, **there are no `.kata/` files to read**. State, plans, and artifacts live in Linear. Always start here:
+
+1. **Call `kata_derive_state` (no arguments)** — returns a `KataState` JSON telling you:
+   - `phase` — what stage of work the project is in right now
+   - `activeMilestone` — the current milestone (`id`, `identifier`, `title`)
+   - `activeSlice` — the current slice/parent-issue (`id`, `identifier`, `title`)
+   - `activeTask` — the current task/sub-issue to execute (`id`, `identifier`, `title`)
+   - `progress` — completion counts across milestones, slices, tasks
+   - `blockers` — list of strings describing why work is blocked (if `phase:"blocked"`)
+
+2. **Act on `phase`** — see Phase Transitions (Linear Mode) below for the exact action each phase requires.
+
+3. **Read the active task plan** — call `kata_read_document` with the task's plan title (e.g. `T01-PLAN`) to load the task execution contract.
+
+4. **Execute the work** — do the coding/writing/testing described in the task plan.
+
+5. **Write the summary** — call `kata_write_document` to persist the outcome.
+
+6. **Advance the issue state** — call `kata_update_issue_state` to mark the task done.
+
+**Do not read or write `.kata/` files. Do not create `.kata/milestones/` directories. Do not fall back to file-backed artifacts. Never use shell/file-search tools (`bash`, `find`, `rg`, `git`) to look for or create `*-PLAN`/`*-SUMMARY` artifacts on disk in Linear mode. Never run `mkdir` for `.kata/` paths. All artifacts are stored via `kata_write_document` and `kata_read_document`.**
 
 ---
 
@@ -33,9 +60,38 @@ Milestone  →  a shippable version (4-10 slices)
 
 **The iron rule:** A task MUST fit in one context window. If it can't, it's two tasks.
 
+> **Linear mode — entity mapping:**
+>
+> | Kata Concept   | Linear Entity          | Notes                                             |
+> | -------------- | ---------------------- | ------------------------------------------------- |
+> | Milestone      | ProjectMilestone       | Attached to the configured project                |
+> | Slice          | Issue (parent)         | In the configured team; has milestone set         |
+> | Task           | Sub-issue              | Child of the slice issue                          |
+> | Artifact       | LinearDocument         | Attached to project or slice issue                |
+> | Workflow state | Issue state            | `backlog→planning→executing→verifying→done`       |
+> | Labels         | Issue labels           | `kata:milestone`, `kata:slice`, `kata:task`       |
+
+> **Linear mode — entity title convention (D021):**
+>
+> All Kata entities in Linear use a bracket prefix. The regex is `/^\[([A-Z]\d+)\] (.+)$/`.
+>
+> | Entity    | Format               | Example                         |
+> | --------- | -------------------- | ------------------------------- |
+> | Milestone | `[M001] Title`       | `[M001] Auth & Session Layer`   |
+> | Slice     | `[S01] Title`        | `[S01] JWT Token Foundation`    |
+> | Task      | `[T01] Title`        | `[T01] Core types and helpers`  |
+>
+> When calling `kata_create_milestone`, `kata_create_slice`, or `kata_create_task`, pass only
+> the human-readable title (e.g. `"Auth & Session Layer"`) — the tool automatically adds the
+> bracket prefix.
+
 ---
 
 ## File Locations
+
+> **Linear mode: skip this section entirely.** In Linear mode, artifacts do NOT live in `.kata/`. They are stored as LinearDocuments via `kata_write_document`/`kata_read_document`. See "Artifact Storage (Linear Mode)" below.
+
+### File Mode
 
 All artifacts live in `.kata/` at the project root:
 
@@ -61,6 +117,36 @@ All artifacts live in `.kata/` at the project root:
             T01-plan.md                     # Individual task plan
             T01-summary.md                  # Task summary with frontmatter
 ```
+
+### Artifact Storage (Linear Mode)
+
+In Linear mode, artifacts are stored as **LinearDocuments** attached to the project or slice issue. The same formats apply — same markdown structure, same content — but stored via API instead of files.
+
+Use these tools to read and write:
+```
+kata_read_document(title, { projectId })    → read an artifact by title
+kata_write_document(title, content, { projectId })  → write (upsert) an artifact
+```
+
+**Document title format:**
+
+| Artifact           | Title            | Example          |
+| ------------------ | ---------------- | ---------------- |
+| Milestone roadmap  | `M001-ROADMAP`   | `M001-ROADMAP`   |
+| Milestone context  | `M001-CONTEXT`   | `M001-CONTEXT`   |
+| Milestone research | `M001-RESEARCH`  | `M001-RESEARCH`  |
+| Slice plan         | `S01-PLAN`       | `S01-PLAN`       |
+| Slice research     | `S01-RESEARCH`   | `S01-RESEARCH`   |
+| Task plan          | `T01-PLAN`       | `T01-PLAN`       |
+| Task summary       | `T01-SUMMARY`    | `T01-SUMMARY`    |
+| Slice summary      | `S01-SUMMARY`    | `S01-SUMMARY`    |
+| Decisions register | `DECISIONS`      | `DECISIONS`      |
+
+Titles are unique within the project scope. `kata_write_document` is an upsert — creates on first write, updates on subsequent writes.
+
+**D028 — markdown normalization:** Linear normalizes document content on write. Use `* ` (asterisk + space) for list bullets, not `- `. Checkboxes use `* [ ]` and `* [x]`. Always accept both when parsing.
+
+**`requirements` field:** `kata_derive_state` returns a `requirements` field. In Linear mode, this is always `undefined`. Derive what needs to be done from the task plan document instead.
 
 ---
 
@@ -92,6 +178,8 @@ All artifacts live in `.kata/` at the project root:
 ```
 
 **Parsing rules:** `- [x]` = done, `- [ ]` = not done. The `risk:` and `depends:[]` tags are inline metadata parsed from the line. `depends:[]` lists slice IDs this slice requires to be complete first.
+
+> **Linear mode:** Same format, stored as `M001-ROADMAP` document. In Linear mode, use `* [ ]` and `* [x]` instead of `- [ ]` and `- [x]` for D028 compatibility.
 
 **Boundary Map** (required section in roadmap.md):
 
@@ -209,6 +297,8 @@ Critical wiring between artifacts:
 Exact next thing to do.
 ```
 
+> **Linear mode:** There is no `state.md`. Call `kata_derive_state` instead — it returns equivalent information as a JSON object.
+
 ### `context.md` (from discuss phase)
 
 ```markdown
@@ -256,11 +346,13 @@ Exact next thing to do.
 **When to read:** At the start of any planning or research phase.
 **When to write:** During discussion (seed from context), during planning (structural choices), during task execution (if an architectural choice was made), and during slice completion (catch-all for missed decisions).
 
+> **Linear mode:** Same format, stored as a `DECISIONS` document via `kata_write_document`.
+
 ---
 
 ## The Phases
 
-Work flows through these phases. Each phase produces a file.
+Work flows through these phases. Each phase produces a file (or a LinearDocument in Linear mode).
 
 ### Phase 1: Discuss (Optional)
 
@@ -275,6 +367,8 @@ Work flows through these phases. Each phase produces a file.
 3. Use `ask_user_questions` to discuss each area.
 4. Write decisions to `context.md`.
 5. Do NOT discuss how to implement — only what the user wants.
+
+> **Linear mode:** Do NOT create `.kata/milestones/` directories. Do NOT write files to disk. Do NOT run `mkdir` or `git commit` for planning artifacts. Write all documents (PROJECT, REQUIREMENTS, CONTEXT, ROADMAP, DECISIONS) via `kata_write_document`. Create milestones via `kata_create_milestone`. Linear IS the store — no local files.
 
 ### Phase 2: Research (Optional)
 
@@ -354,6 +448,8 @@ The **Don't Hand-Roll** and **Common Pitfalls** sections prevent the most expens
 3. Execute each step. Mark progress with `[DONE:n]` in responses.
 4. If you made an architectural, pattern, or library decision, append it to `.kata/decisions.md`.
 5. If interrupted or context is getting full, write `continue.md` (see below).
+
+> **Linear mode:** Read the task plan via `kata_read_document("T01-PLAN")`. Append decisions via `kata_write_document("DECISIONS", ...)`. There is no `continue.md` — issue state is the continue protocol (see below).
 
 ### Phase 5: Verify
 
@@ -449,6 +545,8 @@ The one-liner must be substantive: "JWT auth with refresh rotation using jose" n
 
 **Milestone summary:** Updated each time a slice completes. Compresses all slice summaries. This is what gets injected into later slice planning instead of loading many individual summaries.
 
+> **Linear mode:** Write summaries via `kata_write_document("T01-SUMMARY", content)`. After writing, advance the issue state via `kata_update_issue_state(issueId, { phase: "done" })`. Always write the summary AND advance state before context ends.
+
 ### Phase 7: Advance
 
 **Purpose:** Mark work done and move to the next thing.
@@ -467,6 +565,25 @@ The one-liner must be substantive: "JWT auth with refresh rotation using jose" n
 6. Continue to next slice immediately. The user tests the UAT whenever convenient.
 7. If the user reports UAT failures later, create fix tasks in the current or a new slice.
 8. If all slices done → milestone complete.
+
+> **Linear mode:** Advance issue state via `kata_update_issue_state`. When all sub-issues under a slice are terminal, advance the slice issue to `done`. On the next `kata_derive_state` call, the next slice becomes active.
+
+### Phase Transitions (Linear Mode)
+
+`kata_derive_state` returns a `phase` field. Here is what each phase means and what to do:
+
+| Phase              | What it means                                              | What to do                                                   |
+| ------------------ | ---------------------------------------------------------- | ------------------------------------------------------------ |
+| `pre-planning`     | Active milestone exists but has no slices                  | Create slices with `kata_create_slice`; write roadmap doc    |
+| `planning`         | Active slice is in backlog/unstarted state; no tasks       | Create tasks with `kata_create_task`; write slice plan doc   |
+| `executing`        | Slice is started; active task exists, none terminal yet    | Read task plan doc, execute work, write summary, advance     |
+| `verifying`        | Slice is started; some but not all tasks are terminal      | Same as `executing` — pick the first non-terminal task       |
+| `summarizing`      | All tasks terminal; slice summary not yet written          | Write slice summary, advance slice to done                   |
+| `completing-milestone` | All slices complete                                    | Write milestone summary                                      |
+| `complete`         | All milestones complete                                    | Nothing left; inform user                                    |
+| `blocked`          | `LINEAR_API_KEY` missing, config invalid, or API error     | Surface `blockers[]` to user; do not retry without fixing    |
+
+**`verifying` phase:** Treat exactly the same as `executing`. The phase name reflects that some tasks are done and some remain. Pick the first non-terminal sub-issue and continue executing.
 
 ---
 
@@ -509,6 +626,8 @@ The EXACT first thing to do when resuming. Not vague. Specific.
 2. Delete `continue.md` (it's consumed, not permanent).
 3. Pick up from "Next Action".
 
+> **Linear mode:** There is no `continue.md`. Issue state is the continue protocol. If you cannot finish a task: write a partial summary describing what was completed and what remains, then advance the issue state to `"verifying"` (not `"done"`). Auto-mode will re-read the task on the next session.
+
 ---
 
 ## State Management
@@ -528,6 +647,8 @@ It is NOT the source of truth. It's a convenience dashboard.
 - Recent decisions (last 3-5)
 - Blockers
 - Next action (most important — this is what a fresh session reads first)
+
+> **Linear mode:** `kata_derive_state` replaces `state.md`. It derives state from Linear issue states and milestone structure. No need to manually update state — Linear issue state IS the source of truth.
 
 ### Reconciliation
 
@@ -626,6 +747,8 @@ When planning or executing a task, load relevant prior context:
 
 These are soft caps — exceed them when genuinely needed, but don't let summaries become essays.
 
+> **Linear mode:** Use `kata_read_document` to load summaries. Same injection rules apply.
+
 ---
 
 ## Project-Specific Context
@@ -636,9 +759,13 @@ This methodology doc is generic. Project-specific guidance belongs in the milest
 
 **Always read the active milestone's `context.md` before starting implementation work.** It tells you what decisions are locked, what files to reference, and how to verify your work in this specific project.
 
+> **Linear mode:** Call `kata_read_document("M001-CONTEXT")` before starting implementation work on any milestone.
+
 ---
 
 ## Checklist for a Fresh Session
+
+### File Mode
 
 1. Read `.kata/state.md` — what's the next action?
 2. Check for `continue.md` in the active slice — is there interrupted work?
@@ -652,10 +779,100 @@ This methodology doc is generic. Project-specific guidance belongs in the milest
 10. Mark done, update `state.md`, advance.
 11. If context is getting full or you're done for now: write `continue.md` if mid-task, or update `state.md` with next action if between tasks.
 
+### Linear Mode
+
+1. Call `kata_derive_state` — no exceptions.
+2. Check `phase` and act per Phase Transitions table.
+3. If `phase: "blocked"`, surface `blockers[]` to user and stop.
+4. If executing/verifying: read the task plan doc, do the work, verify must-haves.
+5. Write task summary doc before session ends.
+6. Advance task issue state to `done`.
+7. If slice complete: write slice summary doc, advance slice to `done`.
+
+---
+
 ## When Context Gets Large
 
 If you sense context pressure (many files read, long execution, lots of tool output):
 
+### File Mode
+
 1. **If mid-task:** Write `continue.md` with exact resume state. Tell the user: "Context is getting full. I've saved progress to continue.md. Start a new session and say `read @KATA-WORKFLOW.md - what's next?`"
 2. **If between tasks:** Just update `state.md` with the next action. No continue file needed — the next session will read state.md and pick up the next task cleanly.
 3. **Don't fight it.** The whole system is designed for this. A fresh session with the right files loaded is better than a stale session with degraded reasoning.
+
+### Linear Mode
+
+1. **Prioritize the summary write and state advance above all else.** A written summary and a `done` state on the task issue is a clean handoff.
+2. Do not write a `continue.md` file — Linear issue state IS the continue protocol.
+3. If you cannot finish the task: write a partial summary describing what was completed and what remains, advance the issue to `"verifying"` (not `"done"`), and auto-mode will re-read the task on the next session.
+
+---
+
+## Auto-Mode Contract (Linear Mode)
+
+Auto-mode runs fresh context windows in a loop until the slice is complete. Each session MUST follow this contract:
+
+### At the start of every session
+
+1. Call `kata_derive_state` — always, no exceptions. Never assume state from prior context.
+2. Act on `phase` as described in Phase Transitions.
+3. If `phase: "blocked"`, surface `blockers[]` to the user and stop.
+4. If `phase: "executing"` or `phase: "verifying"`:
+   - Get `activeTask.id` and `activeTask.title` from the result.
+   - Call `kata_read_document` with the task plan title (e.g. `T01-PLAN`) to load the contract.
+   - If no plan doc exists (null result), the planning phase did not complete correctly. Stop and surface the error.
+
+### During execution
+
+1. Execute the work described in the task plan — write code, run tests, fix bugs.
+2. Verify the task's must-haves are actually met.
+3. If you make an architectural decision, append it to the `DECISIONS` document via `kata_write_document`.
+
+### At the end of every session (before context window closes)
+
+1. **Write the task summary** — call `kata_write_document` with the task summary content.
+2. **Advance the task state** — call `kata_update_issue_state` with `phase: "done"`.
+3. If this was the last task in the slice:
+   - Write the slice summary via `kata_write_document`.
+   - Advance the slice issue via `kata_update_issue_state(sliceIssueId, { phase: "done" })`.
+
+**Never finish a session without writing the summary and advancing the issue state.**
+
+---
+
+## Tool Reference (Linear Mode)
+
+All Kata-specific tools use the `kata_` prefix.
+
+### State and Navigation
+
+| Tool                    | Description                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------- |
+| `kata_derive_state`     | Derive full KataState from Linear API. Returns `phase`, `activeMilestone`, `activeSlice`, `activeTask`, `progress`, `blockers`. Call first at every session start. |
+| `kata_list_milestones`  | List all milestones (ProjectMilestones) on the configured project.                                |
+| `kata_list_slices`      | List slice issues (parent issues with `kata:slice` label) for a given milestone.                  |
+| `kata_list_tasks`       | List task sub-issues for a given slice issue.                                                     |
+
+### Issue State Advancement
+
+| Tool                       | Description                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| `kata_update_issue_state`  | Advance a Linear issue to the workflow state for a given Kata phase. Takes `issueId` and `phase`. |
+
+### Document Storage
+
+| Tool                    | Description                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------- |
+| `kata_write_document`   | Write (upsert) a Kata artifact as a LinearDocument. Takes `title` and `content`.                  |
+| `kata_read_document`    | Read a Kata artifact document by title. Returns document with content, or `null` if not found.    |
+| `kata_list_documents`   | List all Kata artifact documents in the attachment scope.                                         |
+
+### Entity Creation
+
+| Tool                    | Description                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------- |
+| `kata_create_milestone` | Create a new milestone. Pass human-readable title; bracket prefix is added automatically.         |
+| `kata_create_slice`     | Create a new slice issue with the `kata:slice` label and milestone assignment.                    |
+| `kata_create_task`      | Create a new task sub-issue under a slice.                                                        |
+| `kata_ensure_labels`    | Ensure the required Kata labels exist in the team.                                                |
