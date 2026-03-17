@@ -30,6 +30,7 @@ import { listKataSlices, parseKataEntityTitle } from "../linear/linear-entities.
 import type { DocumentAttachment } from "../linear/linear-types.js";
 import { ensureGitignore } from "./gitignore.js";
 import { loadPrompt } from "./prompt-loader.js";
+import { buildSkillDiscoveryVars } from "./preferences.js";
 import { resolveGitRoot, ensureGitRepo } from "./git-utils.js";
 
 // ─── Prompt Constants ─────────────────────────────────────────────────────────
@@ -283,18 +284,25 @@ export class LinearBackend implements KataBackend {
 
   // ── Private Prompt Builders ─────────────────────────────────────────
 
+  private _buildResearchMilestoneOps(mid: string): OpsBlock {
+    const backendOps = [
+      `7. Write research findings: \`kata_write_document("${mid}-RESEARCH", content)\``,
+      `   - Include: Summary, Don't Hand-Roll table, Common Pitfalls, Relevant Code, Sources.`,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${mid}-RESEARCH\` document before finishing.**\n\n${REFERENCE}`,
+    };
+  }
+
   private _buildResearchMilestonePrompt(state: KataState): string {
     const mid = state.activeMilestone?.id ?? "unknown";
     const mTitle = state.activeMilestone?.title ?? "unknown";
 
-    return [
-      `# Research Milestone — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid} — ${mTitle}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm the active milestone and obtain \`projectId\`.`,
       ``,
@@ -308,14 +316,19 @@ export class LinearBackend implements KataBackend {
       `   - \`kata_read_document("PROJECT")\``,
       `   - \`kata_read_document("REQUIREMENTS")\``,
       `   - \`kata_read_document("DECISIONS")\``,
-      ``,
-      `5. Scout the codebase and relevant docs. Use \`rg\`, \`find\`, \`resolve_library\` / \`get_library_docs\` as needed.`,
-      ``,
-      `6. Write research findings: \`kata_write_document("${mid}-RESEARCH", content)\``,
-      `   - Include: Summary, Don't Hand-Roll table, Common Pitfalls, Relevant Code, Sources.`,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildResearchMilestoneOps(mid);
+
+    return loadPrompt("research-milestone", {
+      milestoneId: mid,
+      milestoneTitle: mTitle,
+      inlinedContext,
+      ...buildSkillDiscoveryVars(),
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
   }
 
   private _buildPlanMilestonePrompt(state: KataState): string {

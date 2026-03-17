@@ -50,7 +50,7 @@ import {
   relKataRootFile,
   type KataRootFileKey,
 } from "./paths.js";
-import { resolveSkillDiscoveryMode } from "./preferences.js";
+import { buildSkillDiscoveryVars } from "./preferences.js";
 import { ensureGitignore, ensurePreferences } from "./gitignore.js";
 import { resolveGitRoot, ensureGitRepo } from "./git-utils.js";
 import {
@@ -364,6 +364,28 @@ export class FileBackend implements KataBackend {
 
   // ── Private Prompt Builders ───────────────────────────────────────────
 
+  private _buildResearchMilestoneOps(mid: string): OpsBlock {
+    const base = this.basePath;
+    const outputRelPath = relMilestoneFile(base, mid, "RESEARCH");
+    const outputAbsPath =
+      resolveMilestoneFile(base, mid, "RESEARCH") ?? join(base, outputRelPath);
+
+    const backendOps = [
+      `7. Write \`${outputRelPath}\` with:`,
+      `   - Summary (2-3 paragraphs, primary recommendation)`,
+      `   - Don't Hand-Roll table (problems with existing solutions)`,
+      `   - Common Pitfalls (what goes wrong, how to avoid)`,
+      `   - Relevant Code (existing files, patterns, integration points)`,
+      `   - Sources`,
+    ].join("\n");
+
+    return {
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST write the file \`${outputAbsPath}\` before finishing.**`,
+    };
+  }
+
   private async _buildResearchMilestonePrompt(state: KataState): Promise<string> {
     const mid = state.activeMilestone!.id;
     const midTitle = state.activeMilestone!.title;
@@ -389,18 +411,16 @@ export class FileBackend implements KataBackend {
 
     const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
-    const outputRelPath = relMilestoneFile(base, mid, "RESEARCH");
-    const outputAbsPath =
-      resolveMilestoneFile(base, mid, "RESEARCH") ?? join(base, outputRelPath);
+    const ops = this._buildResearchMilestoneOps(mid);
+
     return loadPrompt("research-milestone", {
       milestoneId: mid,
       milestoneTitle: midTitle,
-      milestonePath: relMilestonePath(base, mid),
-      contextPath: contextRel,
-      outputPath: outputRelPath,
-      outputAbsPath,
       inlinedContext,
-      ...this._buildSkillDiscoveryVars(),
+      ...buildSkillDiscoveryVars(),
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
   }
 
@@ -511,7 +531,7 @@ export class FileBackend implements KataBackend {
       outputAbsPath,
       inlinedContext,
       dependencySummaries: depContent,
-      ...this._buildSkillDiscoveryVars(),
+      ...buildSkillDiscoveryVars(),
     });
   }
 
@@ -1153,43 +1173,6 @@ export class FileBackend implements KataBackend {
     return this._inlineFileOptional(absPath, relKataRootFile(key), label);
   }
 
-  private _buildSkillDiscoveryVars(): {
-    skillDiscoveryMode: string;
-    skillDiscoveryInstructions: string;
-  } {
-    const mode = resolveSkillDiscoveryMode();
-
-    if (mode === "off") {
-      return {
-        skillDiscoveryMode: "off",
-        skillDiscoveryInstructions:
-          " Skill discovery is disabled. Skip this step.",
-      };
-    }
-
-    const autoInstall = mode === "auto";
-    const instructions = `
-   Identify the key technologies, frameworks, and services this work depends on (e.g. Stripe, Clerk, Supabase, JUCE, SwiftUI).
-   For each, check if a professional agent skill already exists:
-   - First check \`<available_skills>\` in your system prompt — a skill may already be installed.
-   - For technologies without an installed skill, run: \`npx skills find "<technology>"\`
-   - Only consider skills that are **directly relevant** to core technologies — not tangentially related.
-   - Evaluate results by install count and relevance to the actual work.${
-     autoInstall
-       ? `
-   - Install relevant skills: \`npx skills add <owner/repo@skill> -g -y\`
-   - Record installed skills in the "Skills Discovered" section of your research output.
-   - Installed skills will automatically appear in subsequent units' system prompts — no manual steps needed.`
-       : `
-   - Note promising skills in your research output with their install commands, but do NOT install them.
-   - The user will decide which to install.`
-   }`;
-
-    return {
-      skillDiscoveryMode: mode,
-      skillDiscoveryInstructions: instructions,
-    };
-  }
 
   private async _getPriorTaskSummaryPaths(
     mid: string,

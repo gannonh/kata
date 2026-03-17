@@ -593,6 +593,48 @@ export function resolveSkillDiscoveryMode(): SkillDiscoveryMode {
 }
 
 /**
+ * Build template variables for skill discovery instructions.
+ * Returns `skillDiscoveryMode` and `skillDiscoveryInstructions` for prompt templates.
+ */
+export function buildSkillDiscoveryVars(): {
+  skillDiscoveryMode: string;
+  skillDiscoveryInstructions: string;
+} {
+  const mode = resolveSkillDiscoveryMode();
+
+  if (mode === "off") {
+    return {
+      skillDiscoveryMode: "off",
+      skillDiscoveryInstructions:
+        " Skill discovery is disabled. Skip this step.",
+    };
+  }
+
+  const autoInstall = mode === "auto";
+  const instructions = `
+   Identify the key technologies, frameworks, and services this work depends on (e.g. Stripe, Clerk, Supabase, JUCE, SwiftUI).
+   For each, check if a professional agent skill already exists:
+   - First check \`<available_skills>\` in your system prompt — a skill may already be installed.
+   - For technologies without an installed skill, run: \`npx skills find "<technology>"\`
+   - Only consider skills that are **directly relevant** to core technologies — not tangentially related.
+   - Evaluate results by install count and relevance to the actual work.${
+     autoInstall
+       ? `
+   - Install relevant skills: \`npx skills add <owner/repo@skill> -g -y\`
+   - Record installed skills in the "Skills Discovered" section of your research output.
+   - Installed skills will automatically appear in subsequent units' system prompts — no manual steps needed.`
+       : `
+   - Note promising skills in your research output with their install commands, but do NOT install them.
+   - The user will decide which to install.`
+   }`;
+
+  return {
+    skillDiscoveryMode: mode,
+    skillDiscoveryInstructions: instructions,
+  };
+}
+
+/**
  * Resolve which model ID to use for a given auto-mode unit type.
  * Returns undefined if no model preference is set for this unit type.
  */
