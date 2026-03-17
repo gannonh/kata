@@ -9,7 +9,7 @@
  *   parse changed → extract relationships → store → set SHA.
  */
 
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { loadConfig } from "./config.js";
@@ -120,14 +120,14 @@ export function getChangedFiles(
   baseSha: string,
 ): FileChange[] | null {
   try {
-    const output = execSync(
-      `git diff --name-status --diff-filter=ACDMR ${baseSha} HEAD`,
-      {
-        cwd: rootPath,
-        encoding: "utf-8",
-        stdio: ["pipe", "pipe", "pipe"],
-      },
-    ).trim();
+    // Use spawnSync with argument array to avoid shell injection via baseSha
+    const result = spawnSync(
+      "git",
+      ["diff", "--name-status", "--diff-filter=ACDMR", baseSha, "HEAD"],
+      { cwd: rootPath, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
+    );
+    if (result.status !== 0 || result.error) return null;
+    const output = (result.stdout as string).trim();
 
     if (!output) return [];
 
@@ -261,20 +261,24 @@ function incrementalIndex(
   errors: Array<{ filePath: string; error: string }>;
   deletedCount: number;
 } {
-  // Partition changes into delete-targets and parse-targets
-  const pathsToDelete: string[] = [];
+  // Partition changes into:
+  //   pathsRemoved — truly gone (deleted files, renamed old paths): clean up all edges
+  //   pathsToRefresh — modified files: clean outgoing edges only (inbound preserved)
+  //   pathsToParse — files to re-parse
+  const pathsRemoved: string[] = [];
+  const pathsToRefresh: string[] = [];
   const pathsToParse: string[] = [];
 
   for (const change of changes) {
     switch (change.status) {
       case "deleted":
-        pathsToDelete.push(change.filePath);
+        pathsRemoved.push(change.filePath);
         break;
 
       case "renamed":
-        // Delete old path data
+        // Old path is truly removed
         if (change.oldPath) {
-          pathsToDelete.push(change.oldPath);
+          pathsRemoved.push(change.oldPath);
         }
         // Parse new path (if supported)
         if (isSupportedFile(change.filePath)) {
@@ -289,8 +293,8 @@ function incrementalIndex(
         break;
 
       case "modified":
-        // Delete old data then re-parse
-        pathsToDelete.push(change.filePath);
+        // Modified: refresh outgoing edges but preserve inbound
+        pathsToRefresh.push(change.filePath);
         if (isSupportedFile(change.filePath)) {
           pathsToParse.push(change.filePath);
         }
@@ -298,8 +302,18 @@ function incrementalIndex(
     }
   }
 
-  // 1. Delete graph data for removed/modified files
-  for (const filePath of pathsToDelete) {
+  // 1a. For truly removed files: clean up ALL edges (outgoing + inbound) and symbols.
+  //     Inbound edges must be deleted BEFORE symbols so the subquery can resolve target IDs.
+  for (const filePath of pathsRemoved) {
+    store.deleteEdgesTargetingFile(filePath);
+    store.deleteEdgesByFile(filePath);
+    store.deleteSymbolsByFile(filePath);
+  }
+
+  // 1b. For modified files: clean outgoing edges and symbols (will be re-created).
+  //     Inbound edges from other files are preserved — their target IDs remain valid
+  //     when the symbol's deterministic hash doesn't change (common case).
+  for (const filePath of pathsToRefresh) {
     store.deleteEdgesByFile(filePath);
     store.deleteSymbolsByFile(filePath);
   }

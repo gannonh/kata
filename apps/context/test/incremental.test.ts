@@ -4,8 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, unlinkSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -16,57 +15,13 @@ import {
   type IndexResult,
 } from "../src/indexer.js";
 import { GraphStore } from "../src/graph/store.js";
-
-// ── Helpers ──
-
-/** Create a temporary git repo with initial commit and return its path. */
-function createTempGitRepo(): string {
-  const dir = mkdtempSync(join(tmpdir(), "kata-inc-test-"));
-  execSync("git init", { cwd: dir, stdio: "pipe" });
-  execSync("git config user.email 'test@test.com'", { cwd: dir, stdio: "pipe" });
-  execSync("git config user.name 'Test'", { cwd: dir, stdio: "pipe" });
-
-  // Initial empty commit so we have a HEAD
-  execSync("git commit --allow-empty -m 'init'", { cwd: dir, stdio: "pipe" });
-
-  return dir;
-}
-
-/** Write a file, git add, and commit. */
-function commitFile(repoDir: string, relPath: string, content: string, message: string): void {
-  const fullPath = join(repoDir, relPath);
-  const dir = fullPath.substring(0, fullPath.lastIndexOf("/"));
-  if (dir !== repoDir) {
-    mkdirSync(dir, { recursive: true });
-  }
-  writeFileSync(fullPath, content, "utf-8");
-  execSync(`git add "${relPath}"`, { cwd: repoDir, stdio: "pipe" });
-  execSync(`git commit -m "${message}"`, { cwd: repoDir, stdio: "pipe" });
-}
-
-/** Delete a file, git add, and commit. */
-function deleteAndCommit(repoDir: string, relPath: string, message: string): void {
-  const fullPath = join(repoDir, relPath);
-  unlinkSync(fullPath);
-  execSync(`git add "${relPath}"`, { cwd: repoDir, stdio: "pipe" });
-  execSync(`git commit -m "${message}"`, { cwd: repoDir, stdio: "pipe" });
-}
-
-/** Rename a file, git add, and commit. */
-function renameAndCommit(
-  repoDir: string,
-  oldPath: string,
-  newPath: string,
-  message: string,
-): void {
-  execSync(`git mv "${oldPath}" "${newPath}"`, { cwd: repoDir, stdio: "pipe" });
-  execSync(`git commit -m "${message}"`, { cwd: repoDir, stdio: "pipe" });
-}
-
-/** Get HEAD SHA of a repo. */
-function headSha(repoDir: string): string {
-  return execSync("git rev-parse HEAD", { cwd: repoDir, encoding: "utf-8" }).trim();
-}
+import {
+  createTempGitRepo,
+  commitFile,
+  deleteAndCommit,
+  renameAndCommit,
+  headSha,
+} from "./helpers/git-fixtures.js";
 
 // ── Sample TypeScript source files ──
 
@@ -370,7 +325,6 @@ describe("indexProject — incremental change handling", () => {
     try {
       indexProject(repoDir, { store });
 
-      const statsBefore = store.getStats();
       const symbolsBefore = store.getSymbolsByFile("utils.ts");
       const hasMultiply = symbolsBefore.some((s) => s.name === "multiply");
       expect(hasMultiply).toBe(false);
@@ -399,8 +353,6 @@ describe("indexProject — incremental change handling", () => {
     const store = new GraphStore(":memory:");
     try {
       indexProject(repoDir, { store });
-
-      const statsBefore = store.getStats();
 
       // Add a Python file
       commitFile(repoDir, "helper.py", PY_HELPER, "add helper");

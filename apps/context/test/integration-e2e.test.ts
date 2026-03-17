@@ -11,81 +11,16 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import {
-  mkdtempSync,
-  writeFileSync,
-  mkdirSync,
-  rmSync,
-  unlinkSync,
-} from "node:fs";
-import { execSync } from "node:child_process";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { rmSync } from "node:fs";
 import { indexProject, type IndexResult } from "../src/indexer.js";
 import { GraphStore } from "../src/graph/store.js";
-
-// ── Git helpers ──
-
-function createTempGitRepo(): string {
-  const dir = mkdtempSync(join(tmpdir(), "kata-e2e-int-"));
-  execSync("git init", { cwd: dir, stdio: "pipe" });
-  execSync("git config user.email 'test@test.com'", {
-    cwd: dir,
-    stdio: "pipe",
-  });
-  execSync("git config user.name 'Test'", { cwd: dir, stdio: "pipe" });
-  execSync("git commit --allow-empty -m 'init'", {
-    cwd: dir,
-    stdio: "pipe",
-  });
-  return dir;
-}
-
-function commitFile(
-  repoDir: string,
-  relPath: string,
-  content: string,
-  message: string,
-): void {
-  const fullPath = join(repoDir, relPath);
-  const dir = fullPath.substring(0, fullPath.lastIndexOf("/"));
-  if (dir !== repoDir) {
-    mkdirSync(dir, { recursive: true });
-  }
-  writeFileSync(fullPath, content, "utf-8");
-  execSync(`git add "${relPath}"`, { cwd: repoDir, stdio: "pipe" });
-  execSync(`git commit -m "${message}"`, { cwd: repoDir, stdio: "pipe" });
-}
-
-function deleteAndCommit(
-  repoDir: string,
-  relPath: string,
-  message: string,
-): void {
-  unlinkSync(join(repoDir, relPath));
-  execSync(`git add "${relPath}"`, { cwd: repoDir, stdio: "pipe" });
-  execSync(`git commit -m "${message}"`, { cwd: repoDir, stdio: "pipe" });
-}
-
-function renameAndCommit(
-  repoDir: string,
-  oldPath: string,
-  newPath: string,
-  message: string,
-): void {
-  execSync(`git mv "${oldPath}" "${newPath}"`, {
-    cwd: repoDir,
-    stdio: "pipe",
-  });
-  execSync(`git commit -m "${message}"`, { cwd: repoDir, stdio: "pipe" });
-}
-
-function headSha(repoDir: string): string {
-  return execSync("git rev-parse HEAD", {
-    cwd: repoDir,
-    encoding: "utf-8",
-  }).trim();
-}
+import {
+  createTempGitRepo,
+  commitFile,
+  deleteAndCommit,
+  renameAndCommit,
+  headSha,
+} from "./helpers/git-fixtures.js";
 
 // ── Snapshot helpers ──
 
