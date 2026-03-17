@@ -1,12 +1,13 @@
 /**
  * ESLint Configuration for Electron App
  *
+ * Extends root monorepo config, then adds Electron-specific rules.
  * Uses flat config format (ESLint 9+).
  * Includes custom navigation rule to enforce navigate() usage.
  */
 
+import rootConfig from '../../eslint.config.ts'
 import tsParser from '@typescript-eslint/parser'
-import tsPlugin from '@typescript-eslint/eslint-plugin'
 import reactPlugin from 'eslint-plugin-react'
 import reactHooksPlugin from 'eslint-plugin-react-hooks'
 import noDirectNavigationState from './eslint-rules/no-direct-navigation-state.cjs'
@@ -16,6 +17,9 @@ import noHardcodedPathSeparator from './eslint-rules/no-hardcoded-path-separator
 import noDirectFileOpen from './eslint-rules/no-direct-file-open.cjs'
 
 export default [
+  // Root monorepo config (shared rules)
+  ...rootConfig,
+
   // Ignore patterns
   {
     ignores: [
@@ -41,7 +45,6 @@ export default [
       },
     },
     plugins: {
-      '@typescript-eslint': tsPlugin,
       react: reactPlugin,
       'react-hooks': reactHooksPlugin,
       // Custom plugin for Craft Agent rules

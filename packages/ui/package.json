@@ -16,6 +16,9 @@
     "./context": "./src/context/index.ts",
     "./styles": "./src/styles/index.css"
   },
+  "scripts": {
+    "lint": "eslint src/ --max-warnings=50"
+  },
   "dependencies": {
     "@craft-agent/core": "workspace:*",
     "@craft-agent/mermaid": "workspace:*",

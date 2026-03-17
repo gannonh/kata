@@ -8,7 +8,8 @@
   "types": "src/index.ts",
   "scripts": {
     "test": "bun test",
-    "test:watch": "bun test --watch"
+    "test:watch": "bun test --watch",
+    "lint": "eslint src/ --max-warnings=150"
   },
   "exports": {
     ".": "./src/index.ts",

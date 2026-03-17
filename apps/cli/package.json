@@ -36,7 +36,8 @@
     "dev": "tsc --watch",
     "postinstall": "node scripts/postinstall.js",
     "sync-pkg-version": "node scripts/sync-pkg-version.cjs",
-    "prepublishOnly": "npm run sync-pkg-version && npm run build"
+    "prepublishOnly": "npm run sync-pkg-version && npm run build",
+    "lint": "eslint src/ --max-warnings=500"
   },
   "dependencies": {
     "@mariozechner/pi-coding-agent": "^0.57.1",
