@@ -9,13 +9,14 @@ description: Manage kata-mono git worktrees — switching branches, syncing stan
 
 kata-mono uses a multi-worktree layout where each worktree maps to a monorepo app:
 
-| Worktree | Path | Standby Branch | App |
-|----------|------|----------------|-----|
-| main (root) | `kata-mono/` | `main` | — (no direct work) |
-| wt-cli | `kata-mono.worktrees/wt-cli/` | `wt-cli-standby` | `apps/cli` |
-| wt-context | `kata-mono.worktrees/wt-context/` | `wt-context-standby` | `apps/context` |
-| wt-desktop | `kata-mono.worktrees/wt-desktop/` | `wt-desktop-standby` | `apps/desktop` |
-| wt-orc | `kata-mono.worktrees/wt-orc/` | `wt-orc-standby` | `apps/orc` |
+| Worktree    | Path                               | Standby Branch        | App                |
+| ----------- | ---------------------------------- | --------------------- | ------------------ |
+| main (root) | `kata-mono/`                       | `main`                | — (no direct work) |
+| wt-cli      | `kata-mono.worktrees/wt-cli/`      | `wt-cli-standby`      | `apps/cli`         |
+| wt-context  | `kata-mono.worktrees/wt-context/`  | `wt-context-standby`  | `apps/context`     |
+| wt-desktop  | `kata-mono.worktrees/wt-desktop/`  | `wt-desktop-standby`  | `apps/desktop`     |
+| wt-orc      | `kata-mono.worktrees/wt-orc/`      | `wt-orc-standby`      | `apps/orc`         |
+| wt-symphony | `kata-mono.worktrees/wt-symphony/` | `wt-symphony-standby` | `apps/symphony`    |
 
 **Why standby branches exist:** Git prohibits checking out the same branch in multiple worktrees. Since all worktrees need to track main when idle, each has a local "standby" branch that mirrors `origin/main`. No work happens directly on main in any worktree.
 
