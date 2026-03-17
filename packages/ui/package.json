@@ -18,7 +18,8 @@
   },
   "scripts": {
     "lint": "eslint src/ --max-warnings=50",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test src/"
   },
   "dependencies": {
     "@craft-agent/core": "workspace:*",
