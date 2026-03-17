@@ -481,20 +481,16 @@ console.log(
     milestoneId: "M001",
     sliceId: "S01",
     sliceTitle: "Test Slice",
-    slicePath: ".kata/milestones/M001/slices/S01",
-    planPath: ".kata/milestones/M001/slices/S01/S01-PLAN.md",
-    blockerTaskId: "T02",
     inlinedContext: "## Inlined Context\n\nTest context here.",
+    backendRules: "",
+    backendOps: "T02",
+    backendMustComplete: "",
   });
 
   assert(prompt.includes("M001"), "prompt contains milestoneId");
   assert(prompt.includes("S01"), "prompt contains sliceId");
   assert(prompt.includes("Test Slice"), "prompt contains sliceTitle");
-  assert(
-    prompt.includes(".kata/milestones/M001/slices/S01/S01-PLAN.md"),
-    "prompt contains planPath",
-  );
-  assert(prompt.includes("T02"), "prompt contains blockerTaskId");
+  assert(prompt.includes("T02"), "prompt contains blockerTaskId via backendOps");
   assert(
     prompt.includes("Test context here"),
     "prompt contains inlined context",
@@ -509,10 +505,10 @@ console.log(
     milestoneId: "M001",
     sliceId: "S01",
     sliceTitle: "Test Slice",
-    slicePath: ".kata/milestones/M001/slices/S01",
-    planPath: ".kata/milestones/M001/slices/S01/S01-PLAN.md",
-    blockerTaskId: "T01",
     inlinedContext: "",
+    backendRules: "",
+    backendOps: "Write REPLAN document",
+    backendMustComplete: "",
   });
 
   assert(
@@ -521,8 +517,8 @@ console.log(
   );
   assert(prompt.includes("[x]"), "prompt mentions [x] checkmarks");
   assert(
-    prompt.includes("replanAbsPath") || prompt.includes("REPLAN"),
-    "prompt references replan output path",
+    prompt.includes("REPLAN"),
+    "prompt references replan output via backendOps",
   );
   assert(
     prompt.includes("blocker_discovered"),
@@ -571,10 +567,10 @@ console.log(
     milestoneId: "M001",
     sliceId: "S01",
     sliceTitle: "Test Slice",
-    slicePath: ".kata/milestones/M001/slices/S01",
-    planPath: ".kata/milestones/M001/slices/S01/S01-PLAN.md",
-    blockerTaskId: "T01",
     inlinedContext: "",
+    backendRules: "",
+    backendOps: "",
+    backendMustComplete: "",
   });
 
   assert(

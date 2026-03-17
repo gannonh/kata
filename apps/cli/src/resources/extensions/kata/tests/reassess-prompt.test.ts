@@ -58,9 +58,10 @@ async function main(): Promise<void> {
     const testVars = {
       milestoneId: "M099",
       completedSliceId: "S03",
-      assessmentAbsPath: ".kata/milestones/M099/slices/S03/S03-ASSESSMENT.md",
-      roadmapPath: ".kata/milestones/M099/M099-ROADMAP.md",
       inlinedContext: "--- test inlined context block ---",
+      backendRules: "",
+      backendOps: ".kata/milestones/M099/slices/S03/S03-ASSESSMENT.md",
+      backendMustComplete: ".kata/milestones/M099/M099-ROADMAP.md",
     };
 
     let result: string;
@@ -84,11 +85,11 @@ async function main(): Promise<void> {
     assert(result.includes("S03"), "prompt contains completedSliceId 'S03'");
     assert(
       result.includes(".kata/milestones/M099/slices/S03/S03-ASSESSMENT.md"),
-      "prompt contains assessmentAbsPath",
+      "prompt contains assessment path via backendOps",
     );
     assert(
       result.includes(".kata/milestones/M099/M099-ROADMAP.md"),
-      "prompt contains roadmapPath",
+      "prompt contains roadmap path via backendMustComplete",
     );
     assert(
       result.includes("--- test inlined context block ---"),
@@ -105,12 +106,12 @@ async function main(): Promise<void> {
       "no un-substituted {{completedSliceId}}",
     );
     assert(
-      !result.includes("{{assessmentAbsPath}}"),
-      "no un-substituted {{assessmentAbsPath}}",
+      !result.includes("{{backendOps}}"),
+      "no un-substituted {{backendOps}}",
     );
     assert(
-      !result.includes("{{roadmapPath}}"),
-      "no un-substituted {{roadmapPath}}",
+      !result.includes("{{backendMustComplete}}"),
+      "no un-substituted {{backendMustComplete}}",
     );
     assert(
       !result.includes("{{inlinedContext}}"),
@@ -124,9 +125,10 @@ async function main(): Promise<void> {
     const prompt = loadPromptFromWorktree("reassess-roadmap", {
       milestoneId: "M001",
       completedSliceId: "S01",
-      assessmentAbsPath: ".kata/milestones/M001/slices/S01/S01-ASSESSMENT.md",
-      roadmapPath: ".kata/milestones/M001/M001-ROADMAP.md",
       inlinedContext: "context",
+      backendRules: "",
+      backendOps: "",
+      backendMustComplete: "",
     });
 
     // Normalize to lowercase for case-insensitive matching
@@ -166,9 +168,10 @@ async function main(): Promise<void> {
     const prompt = loadPromptFromWorktree("reassess-roadmap", {
       milestoneId: "M001",
       completedSliceId: "S01",
-      assessmentAbsPath: ".kata/milestones/M001/slices/S01/S01-ASSESSMENT.md",
-      roadmapPath: ".kata/milestones/M001/M001-ROADMAP.md",
       inlinedContext: "context",
+      backendRules: "",
+      backendOps: "",
+      backendMustComplete: "",
     });
 
     const lower = prompt.toLowerCase();
