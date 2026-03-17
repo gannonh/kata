@@ -8,11 +8,10 @@
  * Requirements: DISP-01, DISP-02
  */
 
-const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { runKataTools, createTempProject, cleanup } = require('./helpers.cjs');
+const { runKataTools, createTempProject, cleanup } = require('./helpers.js');
 
 // ─── Dispatcher Error Paths ──────────────────────────────────────────────────
 

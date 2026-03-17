@@ -5,11 +5,10 @@
  * and the repair path.
  */
 
-const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { runKataTools, createTempProject, cleanup } = require('./helpers.cjs');
+const { runKataTools, createTempProject, cleanup } = require('./helpers.js');
 
 // ─── Helpers for setting up minimal valid projects ────────────────────────────
 

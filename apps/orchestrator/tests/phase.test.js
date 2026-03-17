@@ -2,11 +2,10 @@
  * Kata Tools Tests - Phase
  */
 
-const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { runKataTools, createTempProject, cleanup } = require('./helpers.cjs');
+const { runKataTools, createTempProject, cleanup } = require('./helpers.js');
 
 describe('phases list command', () => {
   let tmpDir;

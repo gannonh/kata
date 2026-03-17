@@ -5,7 +5,6 @@
  * for known bugs (REG-01: loadConfig model_overrides, REG-02: getRoadmapPhaseInternal export).
  */
 
-const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');

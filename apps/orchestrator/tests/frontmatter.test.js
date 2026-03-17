@@ -8,7 +8,6 @@
  * Includes REG-04 regression: quoted comma inline array edge case.
  */
 
-const { test, describe } = require('node:test');
 const assert = require('node:assert');
 
 const {

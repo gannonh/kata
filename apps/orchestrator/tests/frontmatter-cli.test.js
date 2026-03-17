@@ -8,12 +8,11 @@
  * and cleans up in afterEach (per-test cleanup with individual temp files).
  */
 
-const { test, describe, afterEach } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { runKataTools } = require('./helpers.cjs');
+const { runKataTools } = require('./helpers.js');
 
 // Track temp files for cleanup
 let tempFiles = [];

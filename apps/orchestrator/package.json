@@ -40,14 +40,12 @@
     "node": ">=16.7.0"
   },
   "devDependencies": {
-    "c8": "^11.0.0",
     "esbuild": "^0.24.0"
   },
   "scripts": {
     "build:hooks": "node scripts/build-hooks.js",
     "prepublishOnly": "npm run build:hooks",
-    "test": "node scripts/run-tests.cjs",
-    "test:coverage": "c8 --check-coverage --lines 70 --reporter text --include 'kata-orchestrator/bin/lib/*.cjs' --exclude 'tests/**' --all node scripts/run-tests.cjs",
+    "test": "bun test tests/",
     "lint": "eslint . --max-warnings=200 --no-error-on-unmatched-pattern"
   }
 }

@@ -8,7 +8,6 @@
 // Enable test exports from install.js (skips main CLI logic)
 process.env.Kata_TEST_MODE = '1';
 
-const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');

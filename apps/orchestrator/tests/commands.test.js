@@ -2,11 +2,10 @@
  * Kata Tools Tests - Commands
  */
 
-const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { runKataTools, createTempProject, cleanup } = require('./helpers.cjs');
+const { runKataTools, createTempProject, cleanup } = require('./helpers.js');
 
 describe('history-digest command', () => {
   let tmpDir;
@@ -973,7 +972,7 @@ describe('resolve-model command', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('commit command', () => {
-  const { createTempGitProject } = require('./helpers.cjs');
+  const { createTempGitProject } = require('./helpers.js');
   const { execSync } = require('child_process');
   let tmpDir;
 
@@ -1072,14 +1071,19 @@ describe('websearch command', () => {
   let origFetch;
   let origApiKey;
   let origStdoutWrite;
+  let origExit;
   let captured;
 
   beforeEach(() => {
     origFetch = global.fetch;
     origApiKey = process.env.BRAVE_API_KEY;
     origStdoutWrite = process.stdout.write;
+    origExit = process.exit;
     captured = '';
     process.stdout.write = (chunk) => { captured += chunk; return true; };
+    // The output() helper in core.cjs calls process.exit(0) after writing.
+    // Under Bun test (in-process), that would kill the runner. Stub it out.
+    process.exit = () => {};
   });
 
   afterEach(() => {
@@ -1090,6 +1094,7 @@ describe('websearch command', () => {
       delete process.env.BRAVE_API_KEY;
     }
     process.stdout.write = origStdoutWrite;
+    process.exit = origExit;
   });
 
   test('returns available=false when BRAVE_API_KEY is unset', async () => {
