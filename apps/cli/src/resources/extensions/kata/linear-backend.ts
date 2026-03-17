@@ -442,20 +442,45 @@ export class LinearBackend implements KataBackend {
     });
   }
 
+  private _buildPlanSliceOps(sid: string): OpsBlock {
+    const backendOps = [
+      `10. Idempotency check:`,
+      `    - Call \`kata_read_document("${sid}-PLAN")\`. If it exists, review rather than rewrite.`,
+      `    - Call \`kata_list_tasks\` for the slice issue. If tasks exist, do NOT create duplicates.`,
+      `11. Write the slice plan: \`kata_write_document("${sid}-PLAN", content)\``,
+      `    - Decompose into 1-7 tasks, each fitting one context window.`,
+      `    - Each task: title, must-haves (truths, artifacts, key links), steps.`,
+      `12. **Self-audit the plan before continuing.** Walk through each check — if any fail, fix the plan before moving on:`,
+      `    - **Completion semantics:** If every task were completed exactly as written, the slice goal/demo should actually be true at the claimed proof level.`,
+      `    - **Requirement coverage:** Every must-have in the slice maps to at least one task. No must-have is orphaned.`,
+      `    - **Task completeness:** Every task has steps, must-haves, verification, observability impact, inputs, and expected output.`,
+      `    - **Dependency correctness:** Task ordering is consistent. No task references work from a later task.`,
+      `    - **Scope sanity:** Target 2-5 steps and 3-8 files per task. 10+ steps or 12+ files: must split.`,
+      `13. Create task sub-issues: call \`kata_create_task\` for each task (T01, T02, ...).`,
+      `    - Write individual task plans: \`kata_write_document("T01-PLAN", content, { issueId: "<slice-issue-uuid>" })\` for each task.`,
+      `    - Task docs MUST use { issueId } scoped to the slice issue, NOT { projectId }. This prevents T01-PLAN collisions across slices.`,
+      `14. Advance the slice to executing: \`kata_update_issue_state({ issueId: "<slice-uuid>", phase: "executing" })\``,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${sid}-PLAN\` document before finishing.**\n\n${REFERENCE}`,
+    };
+  }
+
   private _buildPlanSlicePrompt(state: KataState): string {
     const mid = state.activeMilestone?.id ?? "unknown";
     const sid = state.activeSlice?.id ?? "unknown";
     const sTitle = state.activeSlice?.title ?? "unknown";
 
-    return [
-      `# Plan Slice — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid}`,
-      `**Slice:** ${sid} — ${sTitle}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const dependencySummaries = [
+      `- Check the roadmap for \`depends:[]\` on this slice.`,
+      `- For each dependency, call \`kata_read_document("Sxx-SUMMARY")\`.`,
+    ].join("\n");
+
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm the active milestone and slice, and obtain \`projectId\`.`,
       ``,
@@ -469,27 +494,20 @@ export class LinearBackend implements KataBackend {
       `   - \`kata_read_document("${sid}-RESEARCH")\``,
       `   - \`kata_read_document("DECISIONS")\``,
       `   - \`kata_read_document("REQUIREMENTS")\``,
-      ``,
-      `5. Read dependency slice summaries:`,
-      `   - Check the roadmap for \`depends:[]\` on this slice.`,
-      `   - For each dependency, call \`kata_read_document("Sxx-SUMMARY")\`.`,
-      ``,
-      `6. Idempotency check:`,
-      `   - Call \`kata_read_document("${sid}-PLAN")\`. If it exists, review rather than rewrite.`,
-      `   - Call \`kata_list_tasks\` for the slice issue. If tasks exist, do NOT create duplicates.`,
-      ``,
-      `7. Write the slice plan: \`kata_write_document("${sid}-PLAN", content)\``,
-      `   - Decompose into 1-7 tasks, each fitting one context window.`,
-      `   - Each task: title, must-haves (truths, artifacts, key links), steps.`,
-      ``,
-      `8. Create task sub-issues: call \`kata_create_task\` for each task (T01, T02, ...).`,
-      `   - Write individual task plans: \`kata_write_document("T01-PLAN", content, { issueId: "<slice-issue-uuid>" })\` for each task.`,
-      `   - Task docs MUST use { issueId } scoped to the slice issue, NOT { projectId }. This prevents T01-PLAN collisions across slices.`,
-      ``,
-      `9. Advance the slice to executing: \`kata_update_issue_state({ issueId: "<slice-uuid>", phase: "executing" })\``,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildPlanSliceOps(sid);
+
+    return loadPrompt("plan-slice", {
+      milestoneId: mid,
+      sliceId: sid,
+      sliceTitle: sTitle,
+      inlinedContext,
+      dependencySummaries,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
   }
 
   private _buildExecuteTaskPrompt(state: KataState): string {
