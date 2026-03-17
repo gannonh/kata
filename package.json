@@ -8,8 +8,7 @@
   "workspaces": [
     "packages/*",
     "apps/*",
-    "!apps/online-docs",
-    "!apps/symphony"
+    "!apps/online-docs"
   ],
   "scripts": {
     "lint": "turbo run lint",

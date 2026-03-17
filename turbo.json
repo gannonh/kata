@@ -5,7 +5,7 @@
   "tasks": {
     "lint": {
       "outputs": [],
-      "inputs": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.mjs", "eslint.config.*"]
+      "inputs": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.mjs", "src/**/*.rs", "eslint.config.*", "Cargo.toml"]
     },
     "typecheck": {
       "dependsOn": ["^typecheck"],
@@ -14,12 +14,12 @@
     },
     "test": {
       "outputs": [],
-      "inputs": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.js", "src/**/*.cjs", "src/**/*.mjs", "tests/**/*.ts", "tests/**/*.js", "tests/**/*.cjs", "test/**/*.ts", "test/**/*.js"]
+      "inputs": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.js", "src/**/*.cjs", "src/**/*.mjs", "src/**/*.rs", "tests/**/*.ts", "tests/**/*.js", "tests/**/*.cjs", "tests/**/*.rs", "test/**/*.ts", "test/**/*.js", "Cargo.toml"]
     },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"],
-      "inputs": ["src/**/*.ts", "src/**/*.tsx", "tsconfig.json"]
+      "outputs": ["dist/**", "target/release/**"],
+      "inputs": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.rs", "tsconfig.json", "Cargo.toml"]
     },
     "dev": {
       "cache": false,

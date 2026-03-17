@@ -26,38 +26,12 @@ jobs:
         with:
           bun-version: '1.3.8'
 
-      - name: Install dependencies
-        run: bun install
-
-      - name: Run Turborepo validation
-        run: bunx turbo run lint typecheck test --affected
-
-  validate-symphony:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Check if Symphony files changed
-        id: changes
-        run: |
-          CHANGED=$(git diff --name-only origin/main...HEAD -- apps/symphony/)
-          if [ -z "$CHANGED" ]; then
-            echo "changed=false" >> $GITHUB_OUTPUT
-          else
-            echo "changed=true" >> $GITHUB_OUTPUT
-          fi
-
       - name: Setup Rust
-        if: steps.changes.outputs.changed == 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
 
       - name: Cache Cargo
-        if: steps.changes.outputs.changed == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -68,17 +42,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Check formatting
-        if: steps.changes.outputs.changed == 'true'
-        run: cd apps/symphony && cargo fmt --check
+      - name: Install dependencies
+        run: bun install
 
-      - name: Run clippy
-        if: steps.changes.outputs.changed == 'true'
-        run: cd apps/symphony && cargo clippy -- -D warnings
-
-      - name: Run tests
-        if: steps.changes.outputs.changed == 'true'
-        run: cd apps/symphony && cargo test
+      - name: Run Turborepo validation
+        run: bunx turbo run lint typecheck test --affected
 
   e2e-mocked:
     needs: validate
@@ -141,18 +109,16 @@ jobs:
           retention-days: 7
 
   gate:
-    needs: [validate, validate-symphony, e2e-mocked]
+    needs: [validate, e2e-mocked]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Check job results
         run: |
           echo "validate: ${{ needs.validate.result }}"
-          echo "validate-symphony: ${{ needs.validate-symphony.result }}"
           echo "e2e-mocked: ${{ needs.e2e-mocked.result }}"
 
           if [[ "${{ needs.validate.result }}" == "failure" || \
-                "${{ needs.validate-symphony.result }}" == "failure" || \
                 "${{ needs.e2e-mocked.result }}" == "failure" ]]; then
             echo "One or more jobs failed"
             exit 1
