@@ -652,6 +652,39 @@ export class FileBackend implements KataBackend {
     });
   }
 
+  private _buildExecuteTaskOps(
+    mid: string,
+    sid: string,
+    tid: string,
+    planRelPath: string,
+    taskPlanRelPath: string,
+    taskSummaryAbsPath: string,
+    priorLines: string,
+  ): OpsBlock & { backingArtifacts: string } {
+    const backingArtifacts = [
+      `## Backing Source Artifacts`,
+      `- Slice plan: \`${planRelPath}\``,
+      `- Task plan source: \`${taskPlanRelPath}\``,
+      `- Prior task summaries in this slice:`,
+      priorLines,
+    ].join("\n");
+
+    const backendOps = [
+      `13. Read the template at \`~/.kata-cli/agent/extensions/kata/templates/task-summary.md\``,
+      `14. Write \`${taskSummaryAbsPath}\``,
+      `15. Mark ${tid} done in \`${planRelPath}\` (change \`[ ]\` to \`[x]\`)`,
+      `16. Commit your work: \`git add -A && git commit -m 'feat(${sid}/${tid}): <what was built>'\`. If \`git add\` silently fails to stage files (a known git worktree stat-cache bug), use this workaround per file: \`git update-index --cacheinfo 100644,$(git hash-object -w <file>),<file>\` then commit. If that also fails, move on — the system will auto-commit remaining changes after your session ends.`,
+      `17. Update \`.kata/STATE.md\``,
+    ].join("\n");
+
+    return {
+      backingArtifacts,
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST mark ${tid} as \`[x]\` in \`${planRelPath}\` AND write \`${taskSummaryAbsPath}\` before finishing.**`,
+    };
+  }
+
   private async _buildExecuteTaskPrompt(state: KataState): Promise<string> {
     const mid = state.activeMilestone!.id;
     const sid = state.activeSlice!.id;
@@ -715,6 +748,11 @@ export class FileBackend implements KataBackend {
       resolveSlicePath(base, mid, sid) ??
       join(base, relSlicePath(base, mid, sid));
     const taskSummaryAbsPath = join(sliceDirAbs, "tasks", `${tid}-SUMMARY.md`);
+    const planRelPath = relSliceFile(base, mid, sid, "PLAN");
+
+    const ops = this._buildExecuteTaskOps(
+      mid, sid, tid, planRelPath, taskPlanRelPath, taskSummaryAbsPath, priorLines,
+    );
 
     return loadPrompt("execute-task", {
       milestoneId: mid,
@@ -722,15 +760,14 @@ export class FileBackend implements KataBackend {
       sliceTitle: sTitle,
       taskId: tid,
       taskTitle: tTitle,
-      planPath: relSliceFile(base, mid, sid, "PLAN"),
-      slicePath: relSlicePath(base, mid, sid),
-      taskPlanPath: taskPlanRelPath,
       taskPlanInline,
       slicePlanExcerpt,
       carryForwardSection,
       resumeSection,
-      priorTaskLines: priorLines,
-      taskSummaryAbsPath,
+      backingArtifacts: ops.backingArtifacts,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
   }
 

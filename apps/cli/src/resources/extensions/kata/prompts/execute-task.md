@@ -12,11 +12,9 @@ Start with the inlined context below. Treat the inlined task plan as the authori
 
 {{slicePlanExcerpt}}
 
-## Backing Source Artifacts
-- Slice plan: `{{planPath}}`
-- Task plan source: `{{taskPlanPath}}`
-- Prior task summaries in this slice:
-{{priorTaskLines}}
+{{backingArtifacts}}
+
+{{backendRules}}
 
 Then:
 1. If a `Kata Skill Preferences` block is present in system context, use it to decide which skills to load and follow during execution, without relaxing required verification or artifact rules
@@ -51,14 +49,10 @@ Then:
     - Don't fix symptoms. Understand *why* something fails before changing code. A test that passes after a change you don't understand is luck, not a fix.
 11. **Blocker discovery:** If execution reveals that the remaining slice plan is fundamentally invalid — not just a bug or minor deviation, but a plan-invalidating finding like a wrong API, missing capability, or architectural mismatch — set `blocker_discovered: true` in the task summary frontmatter and describe the blocker clearly in the summary narrative. Do NOT set `blocker_discovered: true` for ordinary debugging, minor deviations, or issues that can be fixed within the current task or the remaining plan. This flag triggers an automatic replan of the slice.
 12. If you made an architectural, pattern, library, or observability decision during this task that downstream work should know about, append it to `.kata/DECISIONS.md` (read the template at `~/.kata-cli/agent/extensions/kata/templates/decisions.md` if the file doesn't exist yet). Not every task produces decisions — only append when a meaningful choice was made.
-13. Read the template at `~/.kata-cli/agent/extensions/kata/templates/task-summary.md`
-14. Write `{{taskSummaryAbsPath}}`
-15. Mark {{taskId}} done in `{{planPath}}` (change `[ ]` to `[x]`)
-16. Commit your work: `git add -A && git commit -m 'feat({{sliceId}}/{{taskId}}): <what was built>'`. If `git add` silently fails to stage files (a known git worktree stat-cache bug), use this workaround per file: `git update-index --cacheinfo 100644,$(git hash-object -w <file>),<file>` then commit. If that also fails, move on — the system will auto-commit remaining changes after your session ends.
-17. Update `.kata/STATE.md`
+{{backendOps}}
 
 You are on the slice branch. All work stays here.
 
-**You MUST mark {{taskId}} as `[x]` in `{{planPath}}` AND write `{{taskSummaryAbsPath}}` before finishing.**
+{{backendMustComplete}}
 
 When done, say: "Task {{taskId}} complete."

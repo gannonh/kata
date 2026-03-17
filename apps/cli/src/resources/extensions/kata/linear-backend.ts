@@ -510,22 +510,47 @@ export class LinearBackend implements KataBackend {
     });
   }
 
+  private _buildExecuteTaskOps(
+    sid: string,
+    tid: string,
+  ): OpsBlock & { backingArtifacts: string } {
+    const backingArtifacts = [
+      `## Backing Source Artifacts`,
+      `- Task plan: \`${tid}-PLAN\` (scoped to slice issue)`,
+      `- Slice plan: \`${sid}-PLAN\` (project-scoped)`,
+      `- Prior task summaries: call \`kata_list_tasks\` then read each completed task's summary`,
+    ].join("\n");
+
+    const backendOps = [
+      `13. Read the task summary template: \`kata_read_document("task-summary-template")\` or use the standard task-summary format.`,
+      `14. Write the task summary (scoped to slice issue): \`kata_write_document("${tid}-SUMMARY", content, { issueId: "<slice-issue-uuid>" })\``,
+      `   - Include: what shipped (one-liner), what happened, deviations, files modified, verification result.`,
+      `15. Commit your work:`,
+      `   - Stage all changed files: \`git add -A\``,
+      `   - Commit with message: \`feat(${sid}/${tid}): <short description of what was built>\``,
+      `   - Do NOT push. Do NOT advance the slice — only advance the task.`,
+      `16. Advance the task to done: \`kata_update_issue_state({ issueId: "<task-uuid>", phase: "done" })\``,
+      `   - Resolve the task UUID via \`kata_list_tasks\` if needed.`,
+      `   - Do NOT advance the slice to done. The orchestrator handles slice completion.`,
+    ].join("\n");
+
+    return {
+      backingArtifacts,
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${tid}-SUMMARY\` document AND advance the task to done before finishing.**\n\n${REFERENCE}`,
+    };
+  }
+
   private _buildExecuteTaskPrompt(state: KataState): string {
     const mid = state.activeMilestone?.id ?? "unknown";
     const sid = state.activeSlice?.id ?? "unknown";
+    const sTitle = state.activeSlice?.title ?? "unknown";
     const tid = state.activeTask?.id ?? "unknown";
     const tTitle = state.activeTask?.title ?? "unknown";
 
-    return [
-      `# Execute Task — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid}`,
-      `**Slice:** ${sid}`,
-      `**Task:** ${tid} — ${tTitle}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const taskPlanInline = [
+      `## Inlined Task Plan (authoritative local execution contract)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm the active milestone, slice, and task. Obtain \`projectId\`.`,
       ``,
@@ -536,37 +561,47 @@ export class LinearBackend implements KataBackend {
       `3. Read the task plan (scoped to the slice issue, NOT the project):`,
       `   - Call \`kata_read_document("${tid}-PLAN", { issueId: "<slice-issue-uuid>" })\` — **required**. If null, stop: task plan is missing.`,
       `   - Get the slice issue UUID from \`kata_derive_state\` → \`activeSlice\` or from \`kata_list_slices\`.`,
-      ``,
-      `4. Read optional slice context:`,
-      `   - Call \`kata_read_document("${sid}-PLAN", { projectId })\` for slice-level goal, demo, and verification criteria.`,
-      ``,
-      `5. Carry-forward from prior tasks:`,
-      `   - Call \`kata_list_tasks\` with the slice issue UUID.`,
-      `   - For each completed prior task, call \`kata_read_document("Txx-SUMMARY", { issueId: "<slice-issue-uuid>" })\` to understand what's already built.`,
-      ``,
-      `6. Check for partial progress:`,
-      `   - Call \`kata_read_document("${tid}-SUMMARY", { issueId: "<slice-issue-uuid>" })\`. If it exists with partial content, resume from where it left off.`,
-      ``,
-      `7. Execute the task as specified in the plan. Build real implementation — no stubs.`,
-      ``,
-      `8. If you make an architectural decision, append it to the \`DECISIONS\` document:`,
-      `   - Read current: \`kata_read_document("DECISIONS")\``,
-      `   - Append and write: \`kata_write_document("DECISIONS", updatedContent)\``,
-      ``,
-      `9. Commit your work:`,
-      `   - Stage all changed files: \`git add -A\``,
-      `   - Commit with message: \`feat(${sid}/${tid}): <short description of what was built>\``,
-      `   - Do NOT push. Do NOT advance the slice — only advance the task.`,
-      ``,
-      `10. Write the task summary (scoped to slice issue): \`kata_write_document("${tid}-SUMMARY", content, { issueId: "<slice-issue-uuid>" })\``,
-      `   - Include: what shipped (one-liner), what happened, deviations, files modified, verification result.`,
-      ``,
-      `11. Advance the task to done: \`kata_update_issue_state({ issueId: "<task-uuid>", phase: "done" })\``,
-      `   - Resolve the task UUID via \`kata_list_tasks\` if needed.`,
-      `   - Do NOT advance the slice to done. The orchestrator handles slice completion.`,
-      ``,
-      REFERENCE,
+      `   - Treat the returned content as the authoritative execution steps.`,
     ].join("\n");
+
+    const slicePlanExcerpt = [
+      `## Slice Plan Excerpt`,
+      ``,
+      `Read the slice plan for goal, demo, and verification criteria:`,
+      `- Call \`kata_read_document("${sid}-PLAN", { projectId })\``,
+    ].join("\n");
+
+    const resumeSection = [
+      `## Resume Check`,
+      ``,
+      `Check for partial progress:`,
+      `- Call \`kata_read_document("${tid}-SUMMARY", { issueId: "<slice-issue-uuid>" })\`. If it exists with partial content, resume from where it left off.`,
+    ].join("\n");
+
+    const carryForwardSection = [
+      `## Carry-Forward from Prior Tasks`,
+      ``,
+      `- Call \`kata_list_tasks\` with the slice issue UUID.`,
+      `- For each completed prior task, call \`kata_read_document("Txx-SUMMARY", { issueId: "<slice-issue-uuid>" })\` to understand what's already built.`,
+    ].join("\n");
+
+    const ops = this._buildExecuteTaskOps(sid, tid);
+
+    return loadPrompt("execute-task", {
+      milestoneId: mid,
+      sliceId: sid,
+      sliceTitle: sTitle,
+      taskId: tid,
+      taskTitle: tTitle,
+      taskPlanInline,
+      slicePlanExcerpt,
+      resumeSection,
+      carryForwardSection,
+      backingArtifacts: ops.backingArtifacts,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
   }
 
   private _buildCompleteSlicePrompt(state: KataState): string {
