@@ -7,6 +7,7 @@ import type { LoadedSkill, LoadedSource, FileSearchResult } from '../../../share
 
 // Re-export pure function from separate file (avoids loading React deps in tests)
 export { isValidMentionTrigger } from './mention-trigger'
+import { isValidMentionTrigger } from './mention-trigger'
 
 // ============================================================================
 // Types

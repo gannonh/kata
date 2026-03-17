@@ -11,7 +11,7 @@ import { settingsUI } from './SettingsUIConstants'
 
 export interface SettingsRowProps {
   /** Row label */
-  label: string
+  label: React.ReactNode
   /** Optional description below label */
   description?: string
   /** Content on the right side */

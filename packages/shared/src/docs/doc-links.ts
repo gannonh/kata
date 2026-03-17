@@ -18,6 +18,8 @@ export type DocFeature =
   | 'labels'
   | 'workspaces'
   | 'themes'
+  | 'appearance'
+  | 'channels'
   | 'app-settings'
   | 'preferences'
 
@@ -90,6 +92,18 @@ export const DOCS: Record<DocFeature, DocInfo> = {
     title: 'Themes',
     summary:
       'Customize the visual appearance with a 6-color system. Override specific colors in theme.json or install preset themes for complete visual styles.',
+  },
+  appearance: {
+    path: '/go-further/appearance',
+    title: 'Appearance',
+    summary:
+      'Customize the visual appearance of the app including themes, fonts, and display options.',
+  },
+  channels: {
+    path: '/channels/overview',
+    title: 'Channels',
+    summary:
+      'Connect messaging platforms like Slack and WhatsApp so your agent can receive and respond to messages.',
   },
   'app-settings': {
     path: '/reference/config/config-file',

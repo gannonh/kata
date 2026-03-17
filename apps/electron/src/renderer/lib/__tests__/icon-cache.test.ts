@@ -59,7 +59,7 @@ describe('icon-cache null handling', () => {
       // The function should handle null gracefully
       // We can't directly test loadWorkspaceIcon since it's not exported,
       // but we can verify the IPC is called and returns null
-      const result = await mockReadWorkspaceImage('test-workspace', './icon.svg')
+      const result = await (mockReadWorkspaceImage as any)('test-workspace', './icon.svg')
       expect(result).toBeNull()
     })
 
@@ -68,7 +68,7 @@ describe('icon-cache null handling', () => {
 
       // Verify the mock doesn't throw
       await expect(
-        mockReadWorkspaceImage('workspace-id', 'sources/test/icon.svg')
+        (mockReadWorkspaceImage as any)('workspace-id', 'sources/test/icon.svg')
       ).resolves.toBeNull()
     })
   })
@@ -76,17 +76,17 @@ describe('icon-cache null handling', () => {
   describe('when IPC returns valid content', () => {
     it('should return the content for SVG files', async () => {
       const testSvg = '<svg xmlns="http://www.w3.org/2000/svg"><circle/></svg>'
-      mockReadWorkspaceImage.mockResolvedValue(testSvg)
+      mockReadWorkspaceImage.mockResolvedValue(testSvg as any)
 
-      const result = await mockReadWorkspaceImage('workspace-id', 'icon.svg')
+      const result = await (mockReadWorkspaceImage as any)('workspace-id', 'icon.svg')
       expect(result).toBe(testSvg)
     })
 
     it('should return the data URL for PNG files', async () => {
       const testDataUrl = 'data:image/png;base64,iVBORw0KGgo...'
-      mockReadWorkspaceImage.mockResolvedValue(testDataUrl)
+      mockReadWorkspaceImage.mockResolvedValue(testDataUrl as any)
 
-      const result = await mockReadWorkspaceImage('workspace-id', 'icon.png')
+      const result = await (mockReadWorkspaceImage as any)('workspace-id', 'icon.png')
       expect(result).toBe(testDataUrl)
     })
   })
@@ -96,7 +96,7 @@ describe('icon-cache null handling', () => {
       mockReadWorkspaceImage.mockRejectedValue(new Error('IPC failed'))
 
       await expect(
-        mockReadWorkspaceImage('workspace-id', 'icon.svg')
+        (mockReadWorkspaceImage as any)('workspace-id', 'icon.svg')
       ).rejects.toThrow('IPC failed')
     })
   })
@@ -269,7 +269,7 @@ describe('string method null safety', () => {
 
     expect(() => {
       // This is what was crashing
-      ;(content as string).includes('currentColor')
+      ;(content as unknown as string).includes('currentColor')
     }).toThrow(TypeError)
   })
 
@@ -277,12 +277,12 @@ describe('string method null safety', () => {
     const content: string | null = null
 
     expect(() => {
-      ;(content as string).startsWith('data:')
+      ;(content as unknown as string).startsWith('data:')
     }).toThrow(TypeError)
   })
 
   it('null check prevents .includes() crash', () => {
-    const content: string | null = null
+    const content: string | null = null as string | null
 
     // Safe pattern
     if (!content) {
@@ -296,7 +296,7 @@ describe('string method null safety', () => {
   })
 
   it('null check prevents .startsWith() crash', () => {
-    const content: string | null = null
+    const content: string | null = null as string | null
 
     // Safe pattern
     if (!content) {
