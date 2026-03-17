@@ -58,7 +58,7 @@ If the user wants to keep going, keep asking. If they're ready, proceed.
 
 ## Focused Research
 
-For a new project or any project that does not yet have `.kata/REQUIREMENTS.md`, do a focused research pass before roadmap creation.
+For a new project or any project that does not yet have a REQUIREMENTS document, do a focused research pass before roadmap creation.
 
 Research is advisory, not auto-binding. Use the discussion output to identify:
 - table stakes the product space usually expects
@@ -73,7 +73,7 @@ For multi-milestone visions, research should cover the full landscape, not just 
 
 ## Capability Contract
 
-Before writing a roadmap, produce or update `.kata/REQUIREMENTS.md`.
+Before writing a roadmap, produce or update the REQUIREMENTS document.
 
 Use it as the project's explicit capability contract.
 
@@ -105,7 +105,7 @@ Rules:
 
 For multi-milestone projects, requirements should span the full vision. Requirements owned by later milestones get provisional ownership. The full requirement set captures the user's complete vision — milestones are the sequencing strategy, not the scope boundary.
 
-If the project is new or has no `REQUIREMENTS.md`, confirm candidate requirements with the user before writing the roadmap. Keep the confirmation lightweight: confirm, defer, reject, or add.
+If the project is new or has no REQUIREMENTS document, confirm candidate requirements with the user before writing the roadmap. Keep the confirmation lightweight: confirm, defer, reject, or add.
 
 ## Scope Assessment
 
@@ -115,85 +115,6 @@ If Vision Mapping classified the work as Task but discussion revealed Project-sc
 
 ## Output Phase
 
-**Before writing any artifacts, read `.kata/preferences.md` and check the `workflow.mode` field.** The user may have switched modes during the discussion. The mode at output time determines where artifacts are stored.
+{{backendOps}}
 
-- If `workflow.mode: linear` → follow the **Linear Mode Output Phase** below.
-- If `workflow.mode: file` (or no mode set) → follow the **File Mode Output Phase** below.
-
----
-
-### Linear Mode Output Phase
-
-**Do NOT create `.kata/milestones/` directories. Do NOT write files to disk. Do NOT run `mkdir` or `git commit` for planning artifacts. All artifacts are written to Linear via `kata_write_document` and `kata_create_milestone`.**
-
-Read the template files at `~/.kata-cli/agent/extensions/kata/templates/` to understand the expected structure of each document before writing it. Use those structures as a guide, but write the content via `kata_write_document`.
-
-Use these exact titles when calling `kata_write_document`:
-- `PROJECT` — project overview
-- `REQUIREMENTS` — capability contract
-- `DECISIONS` — architectural decisions register
-- `{{milestoneId}}-CONTEXT` — milestone context (e.g. `M001-CONTEXT`)
-- `{{milestoneId}}-ROADMAP` — milestone roadmap (e.g. `M001-ROADMAP`)
-
-#### Single Milestone (Linear)
-
-Once the user is satisfied, in a single pass:
-1. Call `kata_create_milestone` with the milestone title to create `{{milestoneId}}` in Linear.
-2. Call `kata_write_document` with title `PROJECT` — read the template at `~/.kata-cli/agent/extensions/kata/templates/project.md` first.
-3. Call `kata_write_document` with title `REQUIREMENTS` — read the template at `~/.kata-cli/agent/extensions/kata/templates/requirements.md` first.
-4. Call `kata_write_document` with title `{{milestoneId}}-CONTEXT` — read the template at `~/.kata-cli/agent/extensions/kata/templates/context.md` first.
-5. Call `kata_write_document` with title `{{milestoneId}}-ROADMAP` — read the template at `~/.kata-cli/agent/extensions/kata/templates/roadmap.md` first. Decompose into demoable vertical slices with checkboxes, risk, depends, demo sentences, proof strategy, verification classes, milestone definition of done, requirement coverage, and a boundary map.
-6. Call `kata_write_document` with title `DECISIONS` — read the template at `~/.kata-cli/agent/extensions/kata/templates/decisions.md` first.
-
-After writing all documents, say exactly: "Milestone {{milestoneId}} ready." — nothing else. Auto-mode will start automatically.
-
-#### Multi-Milestone (Linear)
-
-Once the user confirms the milestone split, in a single pass:
-1. Call `kata_create_milestone` for each milestone with its title.
-2. Call `kata_write_document` with title `PROJECT`.
-3. Call `kata_write_document` with title `REQUIREMENTS`.
-4. Call `kata_write_document` with title `{milestoneId}-CONTEXT` for **every** milestone.
-5. Call `kata_write_document` with title `M001-ROADMAP` for **only the first milestone**.
-6. Call `kata_write_document` with title `DECISIONS`.
-
-After writing all documents, say exactly: "Milestone M001 ready." — nothing else. Auto-mode will start automatically.
-
----
-
-### File Mode Output Phase
-
-#### Naming Convention
-
-Directories use bare IDs. Files use ID-SUFFIX format. Titles live inside file content, not in names.
-- Milestone dir: `.kata/milestones/{{milestoneId}}/`
-- Milestone files: `{{milestoneId}}-CONTEXT.md`, `{{milestoneId}}-ROADMAP.md`
-- Slice dirs: `S01/`, `S02/`, etc.
-
-#### Single Milestone (File)
-
-Once the user is satisfied, in a single pass:
-1. `mkdir -p .kata/milestones/{{milestoneId}}/slices`
-2. Write or update `.kata/PROJECT.md` — read the template at `~/.kata-cli/agent/extensions/kata/templates/project.md` first. Describe what the project is, its current state, and list the milestone sequence.
-3. Write or update `.kata/REQUIREMENTS.md` — read the template at `~/.kata-cli/agent/extensions/kata/templates/requirements.md` first. Confirm requirement states, ownership, and traceability before roadmap creation.
-4. Write `{{contextAbsPath}}` — read the template at `~/.kata-cli/agent/extensions/kata/templates/context.md` first. Preserve key risks, unknowns, existing codebase constraints, integration points, and relevant requirements surfaced during discussion.
-5. Write `{{roadmapAbsPath}}` — read the template at `~/.kata-cli/agent/extensions/kata/templates/roadmap.md` first. Decompose into demoable vertical slices with checkboxes, risk, depends, demo sentences, proof strategy, verification classes, milestone definition of done, requirement coverage, and a boundary map. If the milestone crosses multiple runtime boundaries, include an explicit final integration slice that proves the assembled system works end-to-end in a real environment.
-6. Seed `.kata/DECISIONS.md` — read the template at `~/.kata-cli/agent/extensions/kata/templates/decisions.md` first. Append rows for any architectural or pattern decisions made during discussion.
-7. Update `.kata/STATE.md`
-8. Commit: `docs({{milestoneId}}): context, requirements, and roadmap`
-
-After writing the files and committing, say exactly: "Milestone {{milestoneId}} ready." — nothing else. Auto-mode will start automatically.
-
-#### Multi-Milestone (File)
-
-Once the user confirms the milestone split, in a single pass:
-1. `mkdir -p .kata/milestones/{{milestoneId}}/slices` for each milestone
-2. Write `.kata/PROJECT.md` — read the template at `~/.kata-cli/agent/extensions/kata/templates/project.md` first.
-3. Write `.kata/REQUIREMENTS.md` — read the template at `~/.kata-cli/agent/extensions/kata/templates/requirements.md` first. Capture Active, Deferred, Out of Scope, and any already Validated requirements. Later milestones may have provisional ownership where slice plans do not exist yet.
-4. Write a `CONTEXT.md` for **every** milestone — capture the intent, scope, risks, constraints, user-visible outcome, completion class, final integrated acceptance, and relevant requirements for each. Each future milestone's CONTEXT.md should be rich enough that a planning agent encountering it fresh — with no memory of this conversation — can understand the intent, constraints, dependencies, what this milestone unlocks, and what "done" looks like.
-5. Write a `ROADMAP.md` for **only the first milestone** — detail-planning later milestones now is waste because the codebase will change. Include requirement coverage and a milestone definition of done.
-6. Seed `.kata/DECISIONS.md`.
-7. Update `.kata/STATE.md`
-8. Commit: `docs: project plan — N milestones` (replace N with the actual milestone count)
-
-After writing the files and committing, say exactly: "Milestone M001 ready." — nothing else. Auto-mode will start automatically.
+{{backendMustComplete}}

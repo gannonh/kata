@@ -279,7 +279,48 @@ export class LinearBackend implements KataBackend {
   }
 
   buildDiscussPrompt(nextId: string, preamble: string): string {
-    return loadPrompt("discuss-linear", { milestoneId: nextId, preamble });
+    const backendOps = [
+      `**CRITICAL: Do NOT create local \`.kata/milestones/\` directories. Do NOT write files to disk. Do NOT run \`mkdir\`. Do NOT run \`git commit\` for planning artifacts. All artifacts are written to Linear via \`kata_write_document\` and \`kata_create_milestone\`.**`,
+      ``,
+      `Read the template files at \`~/.kata-cli/agent/extensions/kata/templates/\` to understand the expected structure of each document before writing it. Use those structures as a guide, but write the content via \`kata_write_document\`.`,
+      ``,
+      `### Document Title Convention`,
+      ``,
+      `Use these exact titles when calling \`kata_write_document\`:`,
+      `- \`PROJECT\` — project overview`,
+      `- \`REQUIREMENTS\` — capability contract`,
+      `- \`DECISIONS\` — architectural decisions register`,
+      `- \`${nextId}-CONTEXT\` — milestone context (e.g. \`M001-CONTEXT\`)`,
+      `- \`${nextId}-ROADMAP\` — milestone roadmap (e.g. \`M001-ROADMAP\`)`,
+      ``,
+      `### Single Milestone`,
+      ``,
+      `Once the user is satisfied, in a single pass:`,
+      `1. Call \`kata_create_milestone\` with the milestone title to create \`${nextId}\` in Linear.`,
+      `2. Call \`kata_write_document\` with title \`PROJECT\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/project.md\` first. Describe what the project is, its current state, and list the milestone sequence.`,
+      `3. Call \`kata_write_document\` with title \`REQUIREMENTS\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/requirements.md\` first. Confirm requirement states, ownership, and traceability before roadmap creation.`,
+      `4. Call \`kata_write_document\` with title \`${nextId}-CONTEXT\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/context.md\` first. Preserve key risks, unknowns, existing codebase constraints, integration points, and relevant requirements surfaced during discussion.`,
+      `5. Call \`kata_write_document\` with title \`${nextId}-ROADMAP\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/roadmap.md\` first. Decompose into demoable vertical slices with checkboxes, risk, depends, demo sentences, proof strategy, verification classes, milestone definition of done, requirement coverage, and a boundary map. If the milestone crosses multiple runtime boundaries, include an explicit final integration slice that proves the assembled system works end-to-end in a real environment.`,
+      `6. Call \`kata_write_document\` with title \`DECISIONS\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/decisions.md\` first. Append rows for any architectural or pattern decisions made during discussion.`,
+      ``,
+      `### Multi-Milestone`,
+      ``,
+      `Once the user confirms the milestone split, in a single pass:`,
+      `1. Call \`kata_create_milestone\` for each milestone with its title.`,
+      `2. Call \`kata_write_document\` with title \`PROJECT\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/project.md\` first.`,
+      `3. Call \`kata_write_document\` with title \`REQUIREMENTS\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/requirements.md\` first. Capture Active, Deferred, Out of Scope, and any already Validated requirements. Later milestones may have provisional ownership where slice plans do not exist yet.`,
+      `4. Call \`kata_write_document\` with title \`{milestoneId}-CONTEXT\` for **every** milestone — capture the intent, scope, risks, constraints, user-visible outcome, completion class, final integrated acceptance, and relevant requirements for each. Each future milestone's CONTEXT should be rich enough that a planning agent encountering it fresh — with no memory of this conversation — can understand the intent, constraints, dependencies, what this milestone unlocks, and what "done" looks like.`,
+      `5. Call \`kata_write_document\` with title \`M001-ROADMAP\` for **only the first milestone** — detail-planning later milestones now is waste because the codebase will change. Include requirement coverage and a milestone definition of done.`,
+      `6. Call \`kata_write_document\` with title \`DECISIONS\`.`,
+    ].join("\n");
+
+    return loadPrompt("discuss", {
+      milestoneId: nextId,
+      preamble,
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `After writing all documents, say exactly: "Milestone ${nextId} ready." — nothing else. Auto-mode will start automatically.`,
+    });
   }
 
   // ── Private Prompt Builders ─────────────────────────────────────────
