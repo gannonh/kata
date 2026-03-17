@@ -1,12 +1,13 @@
 /**
- * Golden snapshot tests for FileBackend.buildPrompt()
+ * Smoke tests for FileBackend.buildPrompt()
  *
- * Captures the current output for every phase and dispatch override
- * before any template changes. Verifies prompts are non-empty and
- * have no unresolved {{varName}} placeholders.
+ * Exercises every phase and dispatch override, verifying prompts are
+ * non-empty and have no unresolved {{varName}} placeholders.
+ * NOT snapshot-comparison tests — these guard against template
+ * rendering failures, not content regressions.
  */
 
-import test from "node:test";
+import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import {
   mkdtempSync,
@@ -311,113 +312,111 @@ function baseState(overrides: Partial<KataState> = {}): KataState {
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
-let basePath: string;
-let backend: FileBackend;
+describe("golden-prompts", () => {
+  let basePath: string;
+  let backend: FileBackend;
 
-test("golden-prompts setup", () => {
-  basePath = createFixture();
-  backend = new FileBackend(basePath);
-});
-
-// ── Phase prompts ───────────────────────────────────────────────────────────
-
-test("phase: executing", async () => {
-  const state = baseState({ phase: "executing" });
-  const prompt = await backend.buildPrompt("executing", state);
-  assertPromptValid(prompt, "executing");
-});
-
-test("phase: verifying", async () => {
-  const state = baseState({ phase: "verifying" });
-  const prompt = await backend.buildPrompt("verifying", state);
-  assertPromptValid(prompt, "verifying");
-});
-
-test("phase: planning", async () => {
-  const state = baseState({ phase: "planning" });
-  const prompt = await backend.buildPrompt("planning", state);
-  assertPromptValid(prompt, "planning");
-});
-
-test("phase: pre-planning", async () => {
-  const state = baseState({ phase: "pre-planning" });
-  const prompt = await backend.buildPrompt("pre-planning", state);
-  assertPromptValid(prompt, "pre-planning");
-});
-
-test("phase: summarizing", async () => {
-  const state = baseState({ phase: "summarizing" });
-  const prompt = await backend.buildPrompt("summarizing", state);
-  assertPromptValid(prompt, "summarizing");
-});
-
-test("phase: completing-milestone", async () => {
-  const state = baseState({
-    phase: "completing-milestone",
-    activeSlice: null,
-    activeTask: null,
+  before(() => {
+    basePath = createFixture();
+    backend = new FileBackend(basePath);
   });
-  const prompt = await backend.buildPrompt("completing-milestone", state);
-  assertPromptValid(prompt, "completing-milestone");
-});
 
-test("phase: replanning-slice", async () => {
-  const state = baseState({
-    phase: "replanning-slice",
-    activeTask: { id: "T02", title: "Implement logic" },
+  after(() => {
+    if (basePath) rmSync(basePath, { recursive: true, force: true });
   });
-  const prompt = await backend.buildPrompt("replanning-slice", state);
-  assertPromptValid(prompt, "replanning-slice");
-});
 
-// ── Dispatch overrides ──────────────────────────────────────────────────────
+  // ── Phase prompts ─────────────────────────────────────────────────────────
 
-test("dispatch: research-milestone", async () => {
-  const state = baseState({ phase: "pre-planning" });
-  const prompt = await backend.buildPrompt("pre-planning", state, {
-    dispatchResearch: "milestone",
+  it("phase: executing", async () => {
+    const state = baseState({ phase: "executing" });
+    const prompt = await backend.buildPrompt("executing", state);
+    assertPromptValid(prompt, "executing");
   });
-  assertPromptValid(prompt, "research-milestone");
-});
 
-test("dispatch: research-slice", async () => {
-  const state = baseState({ phase: "planning" });
-  const prompt = await backend.buildPrompt("planning", state, {
-    dispatchResearch: "slice",
+  it("phase: verifying", async () => {
+    const state = baseState({ phase: "verifying" });
+    const prompt = await backend.buildPrompt("verifying", state);
+    assertPromptValid(prompt, "verifying");
   });
-  assertPromptValid(prompt, "research-slice");
-});
 
-test("dispatch: reassess-roadmap", async () => {
-  const state = baseState({ phase: "summarizing" });
-  const prompt = await backend.buildPrompt("summarizing", state, {
-    reassessSliceId: "S01",
+  it("phase: planning", async () => {
+    const state = baseState({ phase: "planning" });
+    const prompt = await backend.buildPrompt("planning", state);
+    assertPromptValid(prompt, "planning");
   });
-  assertPromptValid(prompt, "reassess-roadmap");
-});
 
-test("dispatch: run-uat", async () => {
-  const state = baseState({ phase: "summarizing" });
-  const prompt = await backend.buildPrompt("summarizing", state, {
-    uatSliceId: "S01",
+  it("phase: pre-planning", async () => {
+    const state = baseState({ phase: "pre-planning" });
+    const prompt = await backend.buildPrompt("pre-planning", state);
+    assertPromptValid(prompt, "pre-planning");
   });
-  assertPromptValid(prompt, "run-uat");
-});
 
-// ── buildDiscussPrompt ──────────────────────────────────────────────────────
+  it("phase: summarizing", async () => {
+    const state = baseState({ phase: "summarizing" });
+    const prompt = await backend.buildPrompt("summarizing", state);
+    assertPromptValid(prompt, "summarizing");
+  });
 
-test("buildDiscussPrompt", () => {
-  const prompt = backend.buildDiscussPrompt(
-    "M001",
-    "Let's discuss milestone M001.",
-  );
-  assertPromptValid(prompt, "buildDiscussPrompt");
-});
+  it("phase: completing-milestone", async () => {
+    const state = baseState({
+      phase: "completing-milestone",
+      activeSlice: null,
+      activeTask: null,
+    });
+    const prompt = await backend.buildPrompt("completing-milestone", state);
+    assertPromptValid(prompt, "completing-milestone");
+  });
 
-// ── Cleanup ─────────────────────────────────────────────────────────────────
+  it("phase: replanning-slice", async () => {
+    const state = baseState({
+      phase: "replanning-slice",
+      activeTask: { id: "T02", title: "Implement logic" },
+    });
+    const prompt = await backend.buildPrompt("replanning-slice", state);
+    assertPromptValid(prompt, "replanning-slice");
+  });
 
-test("golden-prompts cleanup", () => {
-  if (basePath) {
-    rmSync(basePath, { recursive: true, force: true });
-  }
+  // ── Dispatch overrides ────────────────────────────────────────────────────
+
+  it("dispatch: research-milestone", async () => {
+    const state = baseState({ phase: "pre-planning" });
+    const prompt = await backend.buildPrompt("pre-planning", state, {
+      dispatchResearch: "milestone",
+    });
+    assertPromptValid(prompt, "research-milestone");
+  });
+
+  it("dispatch: research-slice", async () => {
+    const state = baseState({ phase: "planning" });
+    const prompt = await backend.buildPrompt("planning", state, {
+      dispatchResearch: "slice",
+    });
+    assertPromptValid(prompt, "research-slice");
+  });
+
+  it("dispatch: reassess-roadmap", async () => {
+    const state = baseState({ phase: "summarizing" });
+    const prompt = await backend.buildPrompt("summarizing", state, {
+      reassessSliceId: "S01",
+    });
+    assertPromptValid(prompt, "reassess-roadmap");
+  });
+
+  it("dispatch: run-uat", async () => {
+    const state = baseState({ phase: "summarizing" });
+    const prompt = await backend.buildPrompt("summarizing", state, {
+      uatSliceId: "S01",
+    });
+    assertPromptValid(prompt, "run-uat");
+  });
+
+  // ── buildDiscussPrompt ────────────────────────────────────────────────────
+
+  it("buildDiscussPrompt", () => {
+    const prompt = backend.buildDiscussPrompt(
+      "M001",
+      "Let's discuss milestone M001.",
+    );
+    assertPromptValid(prompt, "buildDiscussPrompt");
+  });
 });
