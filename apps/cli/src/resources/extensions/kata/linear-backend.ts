@@ -678,19 +678,35 @@ export class LinearBackend implements KataBackend {
     });
   }
 
+  private _buildReassessRoadmapOps(completedSliceId: string, mid: string): OpsBlock {
+    const backendOps = [
+      `**If the roadmap is still good:**`,
+      ``,
+      `Write the assessment: \`kata_write_document("${completedSliceId}-ASSESSMENT", content)\` with a brief confirmation that roadmap coverage still holds after ${completedSliceId}. If requirements exist, explicitly note whether requirement coverage remains sound.`,
+      ``,
+      `**If changes are needed:**`,
+      ``,
+      `1. Update the roadmap: \`kata_write_document("${mid}-ROADMAP", content)\`. Keep completed slices exactly as they are (\`[x]\`). Update the boundary map, proof strategy, and requirement coverage as needed.`,
+      `2. Write the assessment: \`kata_write_document("${completedSliceId}-ASSESSMENT", content)\` explaining what changed and why — keep it brief and concrete.`,
+      `3. If requirements changed: \`kata_write_document("REQUIREMENTS", content)\``,
+      `4. Commit all remaining uncommitted work:`,
+      `   - Stage all changed files: \`git add -A\``,
+      `   - Commit with message: \`docs(${mid}): reassess roadmap after ${completedSliceId}\``,
+      `   - Do NOT push.`,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${completedSliceId}-ASSESSMENT\` document before finishing.**\n\n${REFERENCE}`,
+    };
+  }
+
   private _buildReassessRoadmapPrompt(state: KataState, completedSliceId: string): string {
     const mid = state.activeMilestone?.id ?? "unknown";
-    const mTitle = state.activeMilestone?.title ?? "unknown";
 
-    return [
-      `# Reassess Roadmap — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid} — ${mTitle}`,
-      `**Completed Slice:** ${completedSliceId}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm the active milestone.`,
       ``,
@@ -702,15 +718,18 @@ export class LinearBackend implements KataBackend {
       `   - \`kata_read_document("PROJECT")\``,
       `   - \`kata_read_document("REQUIREMENTS")\``,
       `   - \`kata_read_document("DECISIONS")\``,
-      ``,
-      `4. Assess whether the roadmap needs changes based on what was learned during the completed slice.`,
-      ``,
-      `5. Write the assessment: \`kata_write_document("${completedSliceId}-ASSESSMENT", content)\``,
-      `   - Include: what changed, what's confirmed, any new risks or scope adjustments.`,
-      `   - If the roadmap needs updating, update it via \`kata_write_document("${mid}-ROADMAP", ...)\`.`,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildReassessRoadmapOps(completedSliceId, mid);
+
+    return loadPrompt("reassess-roadmap", {
+      milestoneId: mid,
+      completedSliceId,
+      inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
   }
 
   private _buildRunUatPrompt(state: KataState, sliceId: string): string {

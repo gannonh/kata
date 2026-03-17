@@ -915,12 +915,44 @@ export class FileBackend implements KataBackend {
     });
   }
 
+  private _buildReassessRoadmapOps(state: KataState, completedSliceId: string): OpsBlock {
+    const mid = state.activeMilestone!.id;
+    const base = this.basePath;
+
+    const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
+    const sliceDirAbs =
+      resolveSlicePath(base, mid, completedSliceId) ??
+      join(base, relSlicePath(base, mid, completedSliceId));
+    const assessmentAbsPath = join(
+      sliceDirAbs,
+      `${completedSliceId}-ASSESSMENT.md`,
+    );
+
+    const backendOps = [
+      `**If the roadmap is still good:**`,
+      ``,
+      `Write \`${assessmentAbsPath}\` with a brief confirmation that roadmap coverage still holds after ${completedSliceId}. If requirements exist, explicitly note whether requirement coverage remains sound.`,
+      ``,
+      `**If changes are needed:**`,
+      ``,
+      `1. Rewrite the remaining (unchecked) slices in \`${roadmapRel}\`. Keep completed slices exactly as they are (\`[x]\`). Update the boundary map for changed slices. Update the proof strategy if risks changed. Update requirement coverage if ownership or scope changed.`,
+      `2. Write \`${assessmentAbsPath}\` explaining what changed and why — keep it brief and concrete.`,
+      `3. If \`.kata/REQUIREMENTS.md\` exists and requirement ownership or status changed, update it.`,
+      `4. Commit: \`docs(${mid}): reassess roadmap after ${completedSliceId}\``,
+    ].join("\n");
+
+    return {
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST write the file \`${assessmentAbsPath}\` before finishing.**`,
+    };
+  }
+
   private async _buildReassessRoadmapPrompt(
     state: KataState,
     completedSliceId: string,
   ): Promise<string> {
     const mid = state.activeMilestone!.id;
-    const midTitle = state.activeMilestone!.title;
     const base = this.basePath;
 
     const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
@@ -948,24 +980,15 @@ export class FileBackend implements KataBackend {
 
     const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
-    const assessmentRel = relSliceFile(base, mid, completedSliceId, "ASSESSMENT");
-    const sliceDirAbs =
-      resolveSlicePath(base, mid, completedSliceId) ??
-      join(base, relSlicePath(base, mid, completedSliceId));
-    const assessmentAbsPath = join(
-      sliceDirAbs,
-      `${completedSliceId}-ASSESSMENT.md`,
-    );
+    const ops = this._buildReassessRoadmapOps(state, completedSliceId);
 
     return loadPrompt("reassess-roadmap", {
       milestoneId: mid,
-      milestoneTitle: midTitle,
       completedSliceId,
-      roadmapPath: roadmapRel,
-      completedSliceSummaryPath: summaryRel,
-      assessmentPath: assessmentRel,
-      assessmentAbsPath,
       inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
   }
 
