@@ -40,4 +40,8 @@ Quick checks:
 - **CLI publish fails**: Ensure `NPM_TOKEN` secret is set and `private: false` in `apps/cli/package.json`
 - **Orchestrator CI didn't trigger**: Changes must be under `apps/orchestrator/**`; version must differ from existing `orc-v*` tags
 - **Orchestrator publish fails**: Ensure `NPM_TOKEN` secret is set; check `apps/orchestrator/package.json` has no `private: true`
+- **Context CI didn't trigger**: Changes must be under `apps/context/**`; version must differ from existing `context-v*` tags
+- **Context publish fails**: Ensure `NPM_TOKEN` secret is set; check `apps/context/package.json` has no `private: true`
+- **Symphony CI didn't trigger**: Changes must be under `apps/symphony/**`; version in `Cargo.toml` must differ from existing `symphony-v*` tags
+- **Symphony build fails**: Ensure Rust toolchain is installed; check `cargo build --release` locally first
 - **macOS notarization fails**: Verify `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` secrets
