@@ -21,6 +21,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Fetch main branch for --affected comparison
+        run: git fetch origin main:main
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:

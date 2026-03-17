@@ -6,7 +6,7 @@
  * Includes custom navigation rule to enforce navigate() usage.
  */
 
-import rootConfig from '../../eslint.config.ts'
+import rootConfig from '../../eslint.config.mjs'
 import tsParser from '@typescript-eslint/parser'
 import reactPlugin from 'eslint-plugin-react'
 import reactHooksPlugin from 'eslint-plugin-react-hooks'
