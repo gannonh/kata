@@ -62,10 +62,13 @@ When neither `--json` nor `--quiet` is set, output is human-readable with format
 
 Index a project directory into the knowledge graph. Parses all TypeScript and Python files, extracts symbols and cross-file relationships (imports, calls, inheritance), and stores them in SQLite.
 
+Supports **incremental indexing**: after the first full index, subsequent runs only process files changed since the last indexed git commit. Use `--full` to force a complete re-index.
+
 ```bash
 kata-context index .
 kata-context index /path/to/project
 kata-context index . --json
+kata-context index . --full          # Force full re-index
 ```
 
 **Output (human):**
