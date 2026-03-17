@@ -73,7 +73,8 @@ After all fixes, run relevant tests to confirm nothing breaks. Commit the change
 
 After completion, provide:
 
-```
+---
+
 📋 PR Comment Review Summary
 
 Threads evaluated: {total}
@@ -85,6 +86,7 @@ Threads evaluated: {total}
 
 Files modified: {list}
 Tests: {pass/fail status}
-```
+
+---
 
 Surface any `kata_fetch_pr_comments` failure (`{ ok: false, phase, error, hint }`) directly to the user.
