@@ -32,7 +32,6 @@ import {
 } from "./files.js";
 import { loadPrompt } from "./prompt-loader.js";
 import {
-  kataRoot,
   milestonesDir,
   resolveKataRootFile,
   resolveMilestoneFile,
