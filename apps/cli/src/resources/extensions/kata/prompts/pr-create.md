@@ -1,7 +1,7 @@
 Create a GitHub PR for the current Kata slice branch.
 
 Use the `kata_create_pr` tool with these settings:
-- `title`: derive from the active slice title in the slice's `S##-PLAN.md`, or ask the user if ambiguous
+- `title`: derive from the active slice title (read the slice plan via the appropriate backend method), or ask the user if ambiguous
 - `base_branch`: {{baseBranch}}
 - Auto-detect `milestoneId` and `sliceId` from the current branch name
 
