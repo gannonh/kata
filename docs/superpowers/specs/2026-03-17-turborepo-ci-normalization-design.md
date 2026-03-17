@@ -193,9 +193,11 @@ Turborepo remote cache enabled via Vercel (free tier). CI and local dev share th
 - Create root `eslint.config.ts` shared config
 - Add local ESLint configs to apps/packages extending root
 - Verify `turbo run lint typecheck test --affected` works locally
+- Validate whether any package actually needs `^build` as a test dependency; remove if none do to avoid unnecessary serial work in the task graph
 
 ### Phase 2: Pull in Symphony
 - Move `kata-symphony-rust` into `apps/symphony`
+- Archive the `kata-symphony-rust` repo after migration (no further commits there)
 - Verify `cargo test` / `cargo clippy` / `cargo fmt --check` pass in new location
 - Update any path references in Symphony's code or configs
 
@@ -214,7 +216,7 @@ Turborepo remote cache enabled via Vercel (free tier). CI and local dev share th
 - Add `symphony-release.yml`
 
 ### Phase 5: Local DX
-- Re-enable pre-push hook using `turbo run lint typecheck test --affected`
+- Re-enable pre-push hook using `turbo run lint typecheck test --affected` (compares against the merge-base with `origin/main`, so it covers all commits on the current branch)
 - Set up remote cache for local dev (`turbo login` / Vercel account link)
 - Update root `package.json` convenience scripts to delegate to Turborepo
 - Clean up old root-level scripts that Turborepo replaces (`validate:ci`, `test:packages`, `typecheck:all`, etc.)
