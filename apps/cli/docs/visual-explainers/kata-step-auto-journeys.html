@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kata Step & Auto — User Journey Flows</title>
+<title>Kata Run, Step & Auto — User Journey Flows</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -624,34 +624,51 @@
   <nav class="toc" id="toc">
     <div class="toc-title">Sections</div>
     <a href="#s1">1. Overview</a>
-    <a href="#s2">2. Step Mode</a>
-    <a href="#s3">3. Auto Mode</a>
-    <a href="#s4">4. State Machine</a>
-    <a href="#s5">5. Data Pipelines</a>
-    <a href="#s6">6. Prompt Templates</a>
-    <a href="#s7">7. File Structure</a>
-    <a href="#s8">8. Supervision</a>
+    <a href="#s2">2. Run Mode</a>
+    <a href="#s3">3. Step Mode</a>
+    <a href="#s4">4. Auto Mode</a>
+    <a href="#s5">5. State Machine</a>
+    <a href="#s6">6. Data Pipelines</a>
+    <a href="#s7">7. Prompt Templates</a>
+    <a href="#s8">8. File Structure</a>
+    <a href="#s9">9. Supervision</a>
   </nav>
 
   <div class="main">
 
-    <h1 class="anim" style="--i:0">Kata Step &amp; Auto</h1>
+    <h1 class="anim" style="--i:0">Kata Run, Step &amp; Auto</h1>
     <p class="subtitle anim" style="--i:1">user journey flows &middot; i/o data pipelines &middot; prompt architecture</p>
 
     <p class="lead anim" style="--i:2">
+      <code>/kata-run</code> injects the full workflow protocol into the LLM and lets it self-direct.
       <code>/kata step</code> executes a single unit of work (plan, execute, verify, summarize).
       <code>/kata auto</code> wraps that in a supervised loop with crash recovery, budget control,
-      stuck detection, and PR lifecycle management. Both share the same backend, state derivation,
-      and prompt template system.
+      stuck detection, and PR lifecycle management. Step and auto share the same backend, state derivation,
+      and prompt template system. Run mode bypasses all of that.
     </p>
 
     <!-- ============================== SECTION 1: OVERVIEW ============================== -->
 
     <div id="s1" class="sec-head anim" style="--i:3"><span class="dot" style="background:var(--blue)"></span>1 — Overview</div>
 
-    <h2>Step vs Auto at a Glance</h2>
+    <h2>Run vs Step vs Auto at a Glance</h2>
 
-    <div class="comparison-grid anim" style="--i:4">
+    <div class="grid-3 anim" style="--i:4">
+      <div class="ve-card ve-card--hero">
+        <div class="card-label">Run Mode</div>
+        <p style="font-size:13px;margin-bottom:8px;font-weight:600">Protocol injection, LLM self-directs</p>
+        <p style="font-size:12px;color:var(--text-dim);line-height:1.6">
+          User invokes <code style="font-family:var(--font-mono);font-size:10px;background:var(--blue-dim);color:var(--blue);padding:1px 4px;border-radius:2px">/kata-run</code>.
+          The command reads <code style="font-family:var(--font-mono);font-size:10px;background:var(--slate-dim);color:var(--slate);padding:1px 4px;border-radius:2px">KATA-WORKFLOW.md</code>
+          and sends it to the LLM as instructions. The LLM reads state files itself, figures out the phase,
+          and executes accordingly. No backend factory, no programmatic state derivation, no prompt templates.
+        </p>
+        <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
+          <span class="badge badge--slate">Protocol-driven</span>
+          <span class="badge badge--teal">LLM self-directed</span>
+          <span class="badge badge--amber">No backend</span>
+        </div>
+      </div>
       <div class="ve-card ve-card--hero">
         <div class="card-label">Step Mode</div>
         <p style="font-size:13px;margin-bottom:8px;font-weight:600">Single unit, no loop</p>
@@ -694,7 +711,11 @@
       </div>
       <pre class="mermaid">
 graph TD
-  USER["User: /kata step or /kata auto"] --> CMD["Command Router"]
+  USER["User invokes command"] --> ROUTE{"Which command?"}
+  ROUTE -->|"/kata-run"| READ["Read KATA-WORKFLOW.md"]
+  READ --> INJECT["Inject protocol + user note"]
+  INJECT --> LLM_RUN["LLM self-directs"]
+  ROUTE -->|"/kata step or /kata auto"| CMD["Command Router"]
   CMD --> BE["Backend Factory"]
   BE --> FB["FileBackend"]
   BE --> LB["LinearBackend"]
@@ -717,9 +738,139 @@ graph TD
       <div class="legend-item"><div class="legend-swatch" style="background:var(--amber)"></div> Decision gate</div>
     </div>
 
-    <!-- ============================== SECTION 2: STEP MODE ============================== -->
+    <!-- ============================== SECTION 2: RUN MODE ============================== -->
 
-    <div id="s2" class="sec-head anim" style="--i:8"><span class="dot" style="background:var(--teal)"></span>2 — Step Mode Journey</div>
+    <div id="s2" class="sec-head anim" style="--i:8"><span class="dot" style="background:var(--slate)"></span>2 — Run Mode Journey</div>
+
+    <h2>User Journey: <code style="font-size:16px">/kata-run</code></h2>
+
+    <div class="pipeline anim" style="--i:9">
+      <div class="pipeline-step" style="border-top:3px solid var(--slate)">
+        <div class="step-num">Step 1</div>
+        <div class="step-title">Resolve Path</div>
+        <div class="step-desc">Read <code>KATA_WORKFLOW_PATH</code> env var (set by loader to <code>~/.kata-cli/agent/KATA-WORKFLOW.md</code>)</div>
+      </div>
+      <div class="pipeline-step" style="border-top:3px solid var(--blue)">
+        <div class="step-num">Step 2</div>
+        <div class="step-title">Read Protocol</div>
+        <div class="step-desc">Load the full KATA-WORKFLOW.md from disk (~880 lines of methodology)</div>
+      </div>
+      <div class="pipeline-step" style="border-top:3px solid var(--amber)">
+        <div class="step-num">Step 3</div>
+        <div class="step-title">Append Note</div>
+        <div class="step-desc">If user passed arguments, append as a "User Note" section to the prompt</div>
+      </div>
+      <div class="pipeline-step" style="border-top:3px solid var(--emerald)">
+        <div class="step-num">Step 4</div>
+        <div class="step-title">Dispatch</div>
+        <div class="step-desc">Send as <code>customType: "kata-run"</code> with <code>display: false</code>, <code>triggerTurn: true</code></div>
+      </div>
+    </div>
+
+    <div class="diagram-label anim" style="--i:10">Run mode flow</div>
+    <div class="mermaid-wrap anim" style="--i:11">
+      <div class="zoom-controls">
+        <button onclick="zoomDiagram(this, 1.2)" title="Zoom in">+</button>
+        <button onclick="zoomDiagram(this, 0.8)" title="Zoom out">&minus;</button>
+        <button onclick="resetZoom(this)" title="Reset">&#8634;</button>
+      </div>
+      <pre class="mermaid">
+flowchart TD
+  START["/kata-run [optional note]"] --> ENV["Read KATA_WORKFLOW_PATH"]
+  ENV --> LOADER["Set by loader.ts: ~/.kata-cli/agent/KATA-WORKFLOW.md"]
+  LOADER --> LOAD["Load workflow protocol"]
+  LOAD --> FAIL{"File readable?"}
+  FAIL -->|no| ERR["Show error, exit"]
+  FAIL -->|yes| NOTE{"User note?"}
+  NOTE -->|yes| APPEND["Append user note section"]
+  NOTE -->|no| SEND
+  APPEND --> SEND["sendMessage: kata-run"]
+  SEND --> LLM["LLM receives full protocol"]
+  LLM --> SELF["LLM reads state files"]
+  SELF --> PHASE["LLM derives phase"]
+  PHASE --> WORK["LLM executes work"]
+      </pre>
+    </div>
+
+    <h3>What the LLM Receives</h3>
+
+    <div class="ve-card ve-card--recessed anim" style="--i:12">
+      <div class="card-label">Message payload</div>
+      <div class="data-row">
+        <div class="data-source">Protocol</div>
+        <div class="data-content">
+          The full <code>KATA-WORKFLOW.md</code> from <code>~/.kata-cli/agent/</code> (~880 lines): hierarchy,
+          file formats, phases, continue-here protocol, git strategy, summary injection rules,
+          auto-mode contract. The LLM uses this as its operating manual.
+        </div>
+        <div class="data-sink">Instructions</div>
+      </div>
+      <div class="data-row">
+        <div class="data-source">User Note</div>
+        <div class="data-content">
+          Optional free-text appended as <code>## User Note</code>.
+          Lets the user steer focus: "focus on error handling", "skip research", "start with S03".
+        </div>
+        <div class="data-sink">Guidance</div>
+      </div>
+    </div>
+
+    <h3>How Run Mode Differs from Step/Auto</h3>
+
+    <div class="ve-card anim" style="--i:13">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Aspect</th>
+            <th><code>/kata-run</code></th>
+            <th><code>/kata step</code> / <code>/kata auto</code></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>State derivation</td>
+            <td>LLM reads <code>.kata/state.md</code> or calls <code>kata_derive_state</code> itself</td>
+            <td>Backend computes state programmatically</td>
+          </tr>
+          <tr>
+            <td>Phase routing</td>
+            <td>LLM follows protocol instructions to determine phase</td>
+            <td>Code routes to the correct prompt template by phase</td>
+          </tr>
+          <tr>
+            <td>Prompt construction</td>
+            <td>Raw protocol document, no templates or variable injection</td>
+            <td>Template loaded, variables injected, context inlined</td>
+          </tr>
+          <tr>
+            <td>Backend dependency</td>
+            <td>None. No FileBackend or LinearBackend involved</td>
+            <td>Requires backend factory and backend instance</td>
+          </tr>
+          <tr>
+            <td>Scope per invocation</td>
+            <td>Open-ended. LLM decides what and how much to do</td>
+            <td>One unit (step) or supervised loop of units (auto)</td>
+          </tr>
+          <tr>
+            <td>Visibility</td>
+            <td>Message hidden (<code>display: false</code>), LLM output visible</td>
+            <td>Prompt injected per unit, output visible per unit</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout anim" style="--i:14">
+      <strong>When to use run mode:</strong> Best for sessions where you want the LLM to have the full methodology
+      in context and self-direct its work, including reading state, deciding phases, and executing across multiple
+      phases within a single conversation. Step and auto mode handle this programmatically, constraining the LLM
+      to one unit at a time.
+    </div>
+
+    <!-- ============================== SECTION 3: STEP MODE ============================== -->
+
+    <div id="s3" class="sec-head anim" style="--i:15"><span class="dot" style="background:var(--teal)"></span>3 — Step Mode Journey</div>
 
     <h2>User Journey: <code style="font-size:16px">/kata step</code></h2>
 
@@ -788,9 +939,9 @@ flowchart TD
       derives state from disk, so the user can freely edit files between steps without breaking the flow.
     </div>
 
-    <!-- ============================== SECTION 3: AUTO MODE ============================== -->
+    <!-- ============================== SECTION 4: AUTO MODE ============================== -->
 
-    <div id="s3" class="sec-head anim" style="--i:13"><span class="dot" style="background:var(--rose)"></span>3 — Auto Mode Journey</div>
+    <div id="s4" class="sec-head anim" style="--i:20"><span class="dot" style="background:var(--rose)"></span>4 — Auto Mode Journey</div>
 
     <h2>User Journey: <code style="font-size:16px">/kata auto</code></h2>
 
@@ -914,9 +1065,9 @@ flowchart TD
       </table>
     </div>
 
-    <!-- ============================== SECTION 4: STATE MACHINE ============================== -->
+    <!-- ============================== SECTION 5: STATE MACHINE ============================== -->
 
-    <div id="s4" class="sec-head anim" style="--i:19"><span class="dot" style="background:var(--amber)"></span>4 — State Machine</div>
+    <div id="s5" class="sec-head anim" style="--i:26"><span class="dot" style="background:var(--amber)"></span>5 — State Machine</div>
 
     <h2>Phase Transitions</h2>
 
@@ -1023,9 +1174,9 @@ flowchart TD
       </table>
     </div>
 
-    <!-- ============================== SECTION 5: DATA PIPELINES ============================== -->
+    <!-- ============================== SECTION 6: DATA PIPELINES ============================== -->
 
-    <div id="s5" class="sec-head anim" style="--i:24"><span class="dot" style="background:var(--emerald)"></span>5 — Data Pipelines</div>
+    <div id="s6" class="sec-head anim" style="--i:31"><span class="dot" style="background:var(--emerald)"></span>6 — Data Pipelines</div>
 
     <h2>I/O Data Flow</h2>
 
@@ -1158,9 +1309,9 @@ flowchart TD
       </table>
     </div>
 
-    <!-- ============================== SECTION 6: PROMPT TEMPLATES ============================== -->
+    <!-- ============================== SECTION 7: PROMPT TEMPLATES ============================== -->
 
-    <div id="s6" class="sec-head anim" style="--i:29"><span class="dot" style="background:var(--blue)"></span>6 — Prompt Templates</div>
+    <div id="s7" class="sec-head anim" style="--i:36"><span class="dot" style="background:var(--blue)"></span>7 — Prompt Templates</div>
 
     <h2>Template Architecture</h2>
 
@@ -1315,9 +1466,9 @@ flowchart TD
       </div>
     </div>
 
-    <!-- ============================== SECTION 7: FILE STRUCTURE ============================== -->
+    <!-- ============================== SECTION 8: FILE STRUCTURE ============================== -->
 
-    <div id="s7" class="sec-head anim" style="--i:33"><span class="dot" style="background:var(--slate)"></span>7 — Artifact Structure</div>
+    <div id="s8" class="sec-head anim" style="--i:40"><span class="dot" style="background:var(--slate)"></span>8 — Artifact Structure</div>
 
     <h2>.kata/ Directory Layout</h2>
 
@@ -1363,9 +1514,9 @@ flowchart TD
       The state machine advances when the LLM writes the expected artifact.
     </div>
 
-    <!-- ============================== SECTION 8: SUPERVISION ============================== -->
+    <!-- ============================== SECTION 9: SUPERVISION ============================== -->
 
-    <div id="s8" class="sec-head anim" style="--i:36"><span class="dot" style="background:var(--rose)"></span>8 — Auto-Mode Supervision</div>
+    <div id="s9" class="sec-head anim" style="--i:43"><span class="dot" style="background:var(--rose)"></span>9 — Auto-Mode Supervision</div>
 
     <h2>Safety &amp; Durability Mechanisms</h2>
 
