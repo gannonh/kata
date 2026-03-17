@@ -1,4 +1,3 @@
-import { describe, it, expect } from "vitest";
 import { join } from "node:path";
 import { loadConfig } from "../src/config.js";
 import { DEFAULT_CONFIG, DEFAULT_EXCLUDES } from "../src/types.js";

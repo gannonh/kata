@@ -4,7 +4,6 @@
  * Uses the TS relationship fixtures indexed into an in-memory GraphStore.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { resolve } from "node:path";
 import { GraphStore } from "../../src/graph/store.js";
 import { indexProject } from "../../src/indexer.js";

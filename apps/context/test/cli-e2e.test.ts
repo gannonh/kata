@@ -8,7 +8,7 @@
  * the compiled dist/ has ESM resolution issues with native tree-sitter modules.
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi, beforeEach, afterEach } from "vitest";
+import { spyOn } from "bun:test";
 import { mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { tmpdir } from "node:os";
@@ -61,7 +61,7 @@ afterAll(() => {
 
 function captureOutput(fn: () => void): string[] {
   const lines: string[] = [];
-  const spy = vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
+  const spy = spyOn(console, "log").mockImplementation((...args: unknown[]) => {
     lines.push(args.map(String).join(" "));
   });
   try {

@@ -6,7 +6,7 @@
  * command's core logic + output formatting in all three modes.
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi, beforeEach, afterEach } from "vitest";
+import { mock, spyOn } from "bun:test";
 import { mkdirSync, rmSync, existsSync, writeFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { tmpdir } from "node:os";
@@ -567,13 +567,13 @@ describe("CLI commands — graph, grep, find", () => {
 
     beforeEach(() => {
       logOutput = [];
-      vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
+      spyOn(console, "log").mockImplementation((...args: unknown[]) => {
         logOutput.push(args.map(String).join(" "));
       });
     });
 
     afterEach(() => {
-      vi.restoreAllMocks();
+      mock.restore();
     });
 
     it("graph dependents through JSON dispatcher", () => {

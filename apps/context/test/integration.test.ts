@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { spyOn } from "bun:test";
 import { join } from "node:path";
 import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -116,7 +116,7 @@ describe("parseFiles", () => {
 
   it("gracefully handles unparseable files in batch", () => {
     // Spy on console.error to suppress warning output in test
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleSpy = spyOn(console, "error").mockImplementation(() => {});
 
     const results = parseFiles(
       ["utils.ts", "nonexistent.ts", "helpers.py"],

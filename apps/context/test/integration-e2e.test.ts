@@ -10,7 +10,6 @@
  *   5. SHA persistence across both paths
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { rmSync } from "node:fs";
 import { indexProject, type IndexResult } from "../src/indexer.js";
 import { GraphStore } from "../src/graph/store.js";

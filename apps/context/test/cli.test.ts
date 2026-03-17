@@ -6,7 +6,7 @@
  * Also includes integration tests that exercise the full index→status flow.
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi, beforeEach, afterEach } from "vitest";
+import { mock, spyOn } from "bun:test";
 import { mkdirSync, rmSync, existsSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { tmpdir } from "node:os";
@@ -229,13 +229,13 @@ describe("CLI integration", () => {
 
     beforeEach(() => {
       logOutput = [];
-      vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
+      spyOn(console, "log").mockImplementation((...args: unknown[]) => {
         logOutput.push(args.map(String).join(" "));
       });
     });
 
     afterEach(() => {
-      vi.restoreAllMocks();
+      mock.restore();
     });
 
     it("index result through JSON dispatcher", () => {
