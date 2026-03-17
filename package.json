@@ -8,7 +8,8 @@
   "workspaces": [
     "packages/*",
     "apps/*",
-    "!apps/online-docs"
+    "!apps/online-docs",
+    "!apps/symphony"
   ],
   "scripts": {
     "test": "bun run test:packages && bun run test:desktop",

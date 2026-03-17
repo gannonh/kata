@@ -110,6 +110,7 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+# Rust (apps/symphony)
 target/
 vendor/
 *.log
