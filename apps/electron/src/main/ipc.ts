@@ -1369,9 +1369,8 @@ export function registerIpcHandlers(sessionManager: SessionManager, windowManage
       if (authType === 'api_key') {
         await manager.setApiKey(credential)
       } else if (authType === 'oauth_token') {
-        // Import full credentials including refresh token and expiry from Claude CLI
-        const { getExistingClaudeCredentials } = await import('@craft-agent/shared/auth')
-        const cliCreds = getExistingClaudeCredentials()
+        // Import full credentials including refresh token and expiry from existing storage
+        const cliCreds = await manager.getClaudeOAuthCredentials()
         if (cliCreds) {
           await manager.setClaudeOAuthCredentials({
             accessToken: cliCreds.accessToken,
