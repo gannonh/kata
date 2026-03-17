@@ -279,6 +279,20 @@ export class GraphStore {
     return result.changes;
   }
 
+  /**
+   * Delete all edges targeting symbols in a file (inbound edges).
+   * Must be called BEFORE deleteSymbolsByFile to resolve target IDs.
+   * Prevents orphan edges when a file is deleted or renamed.
+   */
+  deleteEdgesTargetingFile(filePath: string): number {
+    const result = this.db
+      .prepare(
+        "DELETE FROM edges WHERE target_id IN (SELECT id FROM symbols WHERE file_path = ?)",
+      )
+      .run(filePath);
+    return result.changes;
+  }
+
   // ── Metadata ──
 
   /** Get the last indexed git SHA. Returns null if never indexed. */

@@ -92,11 +92,13 @@ program
 program
   .command("index")
   .argument("[path]", "Project root to index", ".")
+  .option("--full", "Force full re-index (ignore incremental cache)")
   .description("Index a project into the knowledge graph")
-  .action(async (pathArg: string, _opts: unknown, cmd: Command) => {
+  .action(async (pathArg: string, opts: { full?: boolean }, cmd: Command) => {
     const rootPath = resolve(pathArg);
     const outputOpts = getOutputOptions(cmd);
     const dbPath = getDbPath(cmd, rootPath);
+    const full = opts.full ?? false;
 
     try {
       if (!existsSync(rootPath)) {
@@ -105,31 +107,41 @@ program
       }
 
       const config = loadConfig(rootPath);
-      const result = indexProject(rootPath, { dbPath, config });
+      const result = indexProject(rootPath, { dbPath, config, full });
 
-      const jsonData = {
+      const jsonData: Record<string, unknown> = {
         filesIndexed: result.filesIndexed,
         symbolsExtracted: result.symbolsExtracted,
         edgesCreated: result.edgesCreated,
         duration: result.duration,
         errors: result.errors,
+        incremental: result.incremental,
         dbPath,
       };
+      if (result.incremental) {
+        jsonData.changedFiles = result.changedFiles;
+        jsonData.deletedFiles = result.deletedFiles;
+      }
 
       const quietLines = [String(result.filesIndexed)];
 
       const humanFn = () => {
         const lines: string[] = [];
-        lines.push(formatHeader("Index Complete"));
-        lines.push(
-          formatKeyValue([
-            ["Files indexed", result.filesIndexed],
-            ["Symbols extracted", result.symbolsExtracted],
-            ["Edges created", result.edgesCreated],
-            ["Duration", `${result.duration}ms`],
-            ["Database", dbPath],
-          ]),
-        );
+        const mode = result.incremental ? "Index Complete (incremental)" : "Index Complete (full)";
+        lines.push(formatHeader(mode));
+
+        const kvPairs: Array<[string, string | number]> = [
+          ["Files indexed", result.filesIndexed],
+          ["Symbols extracted", result.symbolsExtracted],
+          ["Edges created", result.edgesCreated],
+          ["Duration", `${result.duration}ms`],
+          ["Database", dbPath],
+        ];
+        if (result.incremental) {
+          kvPairs.splice(1, 0, ["Changed files", result.changedFiles ?? 0]);
+          kvPairs.splice(2, 0, ["Deleted files", result.deletedFiles ?? 0]);
+        }
+        lines.push(formatKeyValue(kvPairs));
 
         if (result.errors.length > 0) {
           lines.push(formatHeader("Errors"));

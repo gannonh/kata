@@ -16,7 +16,11 @@ prefer_skills: []
 avoid_skills: []
 skill_rules: []
 custom_instructions: []
-models: {}
+models:
+  research: claude-sonnet-4-6
+  planning: claude-opus-4-6     # Opus for architectural decisions
+  execution: claude-sonnet-4-6
+  completion: claude-sonnet-4-6
 skill_discovery:
 auto_supervisor: {}
 ---
