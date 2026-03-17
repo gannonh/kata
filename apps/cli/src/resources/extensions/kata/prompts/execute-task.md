@@ -51,7 +51,7 @@ Then:
 12. If you made an architectural, pattern, library, or observability decision during this task that downstream work should know about, append it to `.kata/DECISIONS.md` (read the template at `~/.kata-cli/agent/extensions/kata/templates/decisions.md` if the file doesn't exist yet). Not every task produces decisions — only append when a meaningful choice was made.
 {{backendOps}}
 
-You are on the slice branch. All work stays here.
+**Branch pre-flight:** Run `git branch --show-current` before starting work. You should be on `kata/{{milestoneId}}/{{sliceId}}`. If you are not, create it from the default branch and check it out before proceeding. All work stays on the slice branch.
 
 {{backendMustComplete}}
 

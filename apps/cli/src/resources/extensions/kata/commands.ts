@@ -347,6 +347,24 @@ export function registerKataCommand(pi: ExtensionAPI): void {
           return;
         }
 
+        // Ensure slice branch for slice-scoped phases (mirrors auto.ts ensurePreconditions)
+        const sliceScopedPhases = ["planning", "executing", "verifying", "summarizing", "replanning-slice"];
+        if (
+          sliceScopedPhases.includes(state.phase) &&
+          state.activeMilestone &&
+          state.activeSlice
+        ) {
+          try {
+            const { ensureSliceBranch } = await import("./worktree.js");
+            ensureSliceBranch(process.cwd(), state.activeMilestone.id, state.activeSlice.id);
+          } catch (err) {
+            ctx.ui.notify(
+              `Branch setup warning: ${err instanceof Error ? err.message : String(err)}`,
+              "warning",
+            );
+          }
+        }
+
         let prompt: string | null;
         try {
           prompt = await stepBackend.buildPrompt(state.phase, state);
