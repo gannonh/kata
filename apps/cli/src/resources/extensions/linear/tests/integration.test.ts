@@ -9,7 +9,6 @@
  *     --experimental-strip-types --test src/resources/extensions/linear/tests/integration.test.ts
  */
 
-import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { LinearClient } from "../linear-client.ts";
 
@@ -30,7 +29,7 @@ describe("Linear GraphQL Client — Integration", { skip: !API_KEY ? "LINEAR_API
   let doc1Id: string;
   let doc2Id: string;
 
-  before(() => {
+  beforeAll(() => {
     client = new LinearClient(API_KEY!);
   });
 
@@ -338,7 +337,7 @@ describe("Linear GraphQL Client — Integration", { skip: !API_KEY ? "LINEAR_API
   // Cleanup
   // =========================================================================
 
-  after(async () => {
+  afterAll(async () => {
     const cleanup: Array<[string, () => Promise<unknown>]> = [
       ["doc1", () => (doc1Id ? client.deleteDocument(doc1Id) : Promise.resolve())],
       ["doc2", () => (doc2Id ? client.deleteDocument(doc2Id) : Promise.resolve())],

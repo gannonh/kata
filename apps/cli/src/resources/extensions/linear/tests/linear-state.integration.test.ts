@@ -21,7 +21,6 @@
  *     src/resources/extensions/linear/tests/linear-state.integration.test.ts
  */
 
-import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { LinearClient } from "../linear-client.ts";
 import {
@@ -52,7 +51,7 @@ describe(
     let sliceIssue: LinearIssue | undefined;
     let taskIssue: LinearIssue | undefined;
 
-    before(async () => {
+    beforeAll(async () => {
       client = new LinearClient(API_KEY!);
 
       // Resolve team and project — same pattern as entity-hierarchy integration test
@@ -247,7 +246,7 @@ describe(
     // Cleanup
     // =========================================================================
 
-    after(async () => {
+    afterAll(async () => {
       // Cleanup order: task → slice → milestone (reverse creation order)
       // Labels are NOT deleted — they are idempotent and shared across runs
       const results = await Promise.allSettled([

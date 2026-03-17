@@ -21,7 +21,6 @@
  *     src/resources/extensions/linear/tests/document-storage.integration.test.ts
  */
 
-import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { LinearClient } from "../linear-client.ts";
 import {
@@ -95,7 +94,7 @@ describe(
     // Setup
     // =========================================================================
 
-    before(async () => {
+    beforeAll(async () => {
       client = new LinearClient(API_KEY!);
 
       // Resolve team and project — prefer env vars over API lookup for speed
@@ -295,7 +294,7 @@ describe(
     // Cleanup
     // =========================================================================
 
-    after(async () => {
+    afterAll(async () => {
       // Delete all tracked documents — use Promise.allSettled so one failure
       // doesn't abort cleanup of the rest
       const docDeleteResults = await Promise.allSettled(

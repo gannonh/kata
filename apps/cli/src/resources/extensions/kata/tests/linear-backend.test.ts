@@ -1,4 +1,3 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { LinearBackend, type LinearBackendConfig } from "../linear-backend.ts";
 import type { KataBackend } from "../backend.ts";

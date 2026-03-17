@@ -8,7 +8,6 @@
  * Expected failure: Cannot find module '../../pr-lifecycle/pr-merge-utils.js'
  */
 
-import test from "node:test";
 import assert from "node:assert/strict";
 
 // This import intentionally fails until T02 creates the file.

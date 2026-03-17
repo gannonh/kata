@@ -10,7 +10,6 @@
  *     src/resources/extensions/linear/tests/linear-state.test.ts
  */
 
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { listKataMilestones } from "../linear-entities.ts";
 import { deriveLinearState } from "../linear-state.ts";

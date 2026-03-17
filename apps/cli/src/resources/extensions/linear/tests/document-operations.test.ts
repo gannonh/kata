@@ -10,7 +10,6 @@
  *     src/resources/extensions/linear/tests/document-operations.test.ts
  */
 
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   writeKataDocument,

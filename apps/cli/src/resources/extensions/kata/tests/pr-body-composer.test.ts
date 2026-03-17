@@ -8,7 +8,6 @@
  * Expected failure: Cannot find module '../../extensions/pr-lifecycle/pr-body-composer.js'
  */
 
-import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

@@ -11,7 +11,6 @@
  * legacy squash-merge remains only for PR-disabled projects.
  */
 
-import test from "node:test";
 import assert from "node:assert/strict";
 
 // This import intentionally fails until T03 creates the module.

@@ -8,7 +8,6 @@
  * does not yet copy the `pr` field into the validated output.
  */
 
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
@@ -23,7 +22,7 @@ const preferencesPath = fileURLToPath(new URL('../preferences.ts', import.meta.u
  * Runs a Node script with the ts resolve hook, using tmp as HOME so that
  * ~/.kata-cli/preferences.md resolves to tmp/.kata-cli/preferences.md.
  */
-function runPreferencesScript(tmp, script) {
+function runPreferencesScript(tmp: string, script: string) {
   return execFileSync(
     'node',
     ['--import', resolveTsHookPath, '--experimental-strip-types', '-e', script],

@@ -1,4 +1,3 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
@@ -10,7 +9,7 @@ const resolveTsHookPath = fileURLToPath(new URL('./resolve-ts.mjs', import.meta.
 const preferencesPath = fileURLToPath(new URL('../preferences.ts', import.meta.url));
 const gitignorePath = fileURLToPath(new URL('../gitignore.ts', import.meta.url));
 
-function runPreferencesScript(tmp, script) {
+function runPreferencesScript(tmp: string, script: string) {
   return execFileSync(
     'node',
     ['--import', resolveTsHookPath, '--experimental-strip-types', '-e', script],
@@ -25,7 +24,7 @@ function runPreferencesScript(tmp, script) {
   ).trim();
 }
 
-function mockPreferenceFilesScript(filesSource) {
+function mockPreferenceFilesScript(filesSource: string) {
   return `
     import fs from 'node:fs';
     import { join } from 'node:path';
