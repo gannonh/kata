@@ -22,13 +22,19 @@ kata-mono uses a multi-worktree layout where each worktree maps to a monorepo ap
 
 ## Standby branch tracking
 
-Each standby branch must track `origin/main` so `git pull` works:
+Each standby branch must track `origin/main` so `git pull` works, and its pointer must be at `origin/main`:
 
 ```bash
+# Set tracking (tells git what to compare against)
 git branch --set-upstream-to=origin/main wt-cli-standby
+
+# Move the branch pointer to origin/main (actually syncs the commit)
+git update-ref refs/heads/wt-cli-standby refs/remotes/origin/main
 ```
 
-If `git pull` reports "no tracking information," re-run that command. Tracking can be lost if a branch is recreated.
+`--set-upstream-to` only sets the tracking reference. It does not move the branch pointer. A newly created standby branch can track `origin/main` but still point at whatever commit it was created from. Always run both commands when setting up a new standby branch.
+
+If `git pull` reports "no tracking information," re-run the `--set-upstream-to` command. Tracking can be lost if a branch is recreated.
 
 ## Starting work on a ticket
 
@@ -89,7 +95,7 @@ Quick verification that everything is in sync:
 
 ```bash
 MAIN_SHA=$(git rev-parse main)
-for wt in wt-cli wt-context wt-desktop wt-orc; do
+for wt in wt-cli wt-context wt-desktop wt-orc wt-symphony; do
   WT_SHA=$(git -C /Volumes/EVO/kata/kata-mono.worktrees/$wt rev-parse HEAD)
   if [ "$WT_SHA" = "$MAIN_SHA" ]; then
     echo "$wt: current"
