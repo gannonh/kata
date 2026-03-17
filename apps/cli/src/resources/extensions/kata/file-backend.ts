@@ -771,6 +771,33 @@ export class FileBackend implements KataBackend {
     });
   }
 
+  private _buildCompleteSliceOps(
+    mid: string,
+    sid: string,
+    roadmapRel: string,
+    sliceSummaryAbsPath: string,
+    sliceUatAbsPath: string,
+  ): OpsBlock {
+    const backendOps = [
+      `5. Read the templates:`,
+      `   - \`~/.kata-cli/agent/extensions/kata/templates/slice-summary.md\``,
+      `   - \`~/.kata-cli/agent/extensions/kata/templates/uat.md\``,
+      `6. Write \`${sliceSummaryAbsPath}\` (compress all task summaries). Fill the requirement-related sections explicitly.`,
+      `7. Write \`${sliceUatAbsPath}\`. Fill the new \`UAT Type\`, \`Requirements Proved By This UAT\`, and \`Not Proven By This UAT\` sections explicitly.`,
+      `8. Review task summaries for \`key_decisions\`. Ensure any significant architectural, pattern, or observability decisions are in \`.kata/DECISIONS.md\`. If any are missing, append them now.`,
+      `9. Mark ${sid} done in \`${roadmapRel}\` (change \`[ ]\` to \`[x]\`)`,
+      `10. Commit all remaining slice changes: \`git add -A && git commit -m 'feat(kata): complete ${sid}'\`. Do not squash-merge manually; the extension will merge the slice branch back to main after this unit succeeds.`,
+      `11. Update \`.kata/PROJECT.md\` if it exists — refresh current state if needed.`,
+      `12. Update \`.kata/STATE.md\``,
+    ].join("\n");
+
+    return {
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST mark ${sid} as \`[x]\` in \`${roadmapRel}\` AND write \`${sliceSummaryAbsPath}\` before finishing.**`,
+    };
+  }
+
   private async _buildCompleteSlicePrompt(state: KataState): Promise<string> {
     const mid = state.activeMilestone!.id;
     const sid = state.activeSlice!.id;
@@ -816,15 +843,18 @@ export class FileBackend implements KataBackend {
     const sliceSummaryAbsPath = join(sliceDirAbs, `${sid}-SUMMARY.md`);
     const sliceUatAbsPath = join(sliceDirAbs, `${sid}-UAT.md`);
 
+    const ops = this._buildCompleteSliceOps(
+      mid, sid, roadmapRel, sliceSummaryAbsPath, sliceUatAbsPath,
+    );
+
     return loadPrompt("complete-slice", {
       milestoneId: mid,
       sliceId: sid,
       sliceTitle: sTitle,
-      slicePath: relSlicePath(base, mid, sid),
-      roadmapPath: roadmapRel,
       inlinedContext,
-      sliceSummaryAbsPath,
-      sliceUatAbsPath,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
   }
 

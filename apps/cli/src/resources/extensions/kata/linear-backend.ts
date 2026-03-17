@@ -604,20 +604,41 @@ export class LinearBackend implements KataBackend {
     });
   }
 
+  private _buildCompleteSliceOps(
+    mid: string,
+    sid: string,
+    sTitle: string,
+  ): OpsBlock {
+    const backendOps = [
+      `5. Read the slice-summary and UAT templates (if available via \`kata_read_document\`), or use the standard formats.`,
+      `6. Write the slice summary: \`kata_write_document("${sid}-SUMMARY", content)\``,
+      `   - Synthesize work across all tasks: what was built, key decisions, key files, patterns established.`,
+      `   - Fill the requirement-related sections explicitly.`,
+      `7. Write the UAT script: \`kata_write_document("${sid}-UAT", content)\``,
+      `   - Derive from the slice's must-haves and demo sentence.`,
+      `   - Fill the new \`UAT Type\`, \`Requirements Proved By This UAT\`, and \`Not Proven By This UAT\` sections explicitly.`,
+      `8. Review task summaries for \`key_decisions\`. Ensure any significant architectural, pattern, or observability decisions are in the \`DECISIONS\` document. If any are missing, append them now via \`kata_write_document("DECISIONS", updatedContent)\`.`,
+      `9. Commit all remaining slice changes:`,
+      `   - Stage all changed files: \`git add -A\``,
+      `   - Commit with message: \`feat(${sid}): complete slice — ${sTitle}\``,
+      `   - Do NOT push.`,
+      `10. Advance the slice to done: \`kata_update_issue_state({ issueId: "<slice-uuid>", phase: "done" })\``,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${sid}-SUMMARY\` document AND advance the slice to done before finishing.**\n\n${REFERENCE}`,
+    };
+  }
+
   private _buildCompleteSlicePrompt(state: KataState): string {
     const mid = state.activeMilestone?.id ?? "unknown";
     const sid = state.activeSlice?.id ?? "unknown";
     const sTitle = state.activeSlice?.title ?? "unknown";
 
-    return [
-      `# Complete Slice — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid}`,
-      `**Slice:** ${sid} — ${sTitle}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm the active milestone and slice. Obtain \`projectId\`.`,
       ``,
@@ -635,24 +656,19 @@ export class LinearBackend implements KataBackend {
       `5. Collect all task summaries (scoped to slice issue):`,
       `   - Call \`kata_list_tasks\` with the slice issue UUID.`,
       `   - For each task, call \`kata_read_document("Txx-SUMMARY", { issueId: "<slice-issue-uuid>" })\`.`,
-      ``,
-      `6. Write the slice summary: \`kata_write_document("${sid}-SUMMARY", content)\``,
-      `   - Synthesize work across all tasks: what was built, key decisions, key files, patterns established.`,
-      `   - Review task summaries for key_decisions and ensure significant ones are in the DECISIONS document.`,
-      ``,
-      `7. Write the UAT script: \`kata_write_document("${sid}-UAT", content)\``,
-      `   - Derive from the slice's must-haves and demo sentence.`,
-      `   - Non-blocking — the agent does NOT wait for UAT results.`,
-      ``,
-      `8. Commit any remaining uncommitted work:`,
-      `   - Stage all changed files: \`git add -A\``,
-      `   - Commit with message: \`feat(${sid}): complete slice — ${sTitle}\``,
-      `   - Do NOT push.`,
-      ``,
-      `9. Advance the slice to done: \`kata_update_issue_state({ issueId: "<slice-uuid>", phase: "done" })\``,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildCompleteSliceOps(mid, sid, sTitle);
+
+    return loadPrompt("complete-slice", {
+      milestoneId: mid,
+      sliceId: sid,
+      sliceTitle: sTitle,
+      inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
   }
 
   private _buildCompleteMilestoneOps(state: KataState): OpsBlock {
