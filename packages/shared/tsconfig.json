@@ -25,6 +25,7 @@
     "paths": {
       "@craft-agent/core": ["../core/src/index.ts"],
       "@craft-agent/core/*": ["../core/src/*"],
+      "@craft-agent/mermaid": ["../mermaid/src/index.ts"],
       "@craft-agent/shared": ["./src/index.ts"],
       "@craft-agent/shared/*": ["./src/*"]
     }

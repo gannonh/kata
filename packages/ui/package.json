@@ -46,8 +46,12 @@
     "rehype-raw": ">=7.0.0",
     "remark-gfm": ">=4.0.0",
     "shiki": "^3.21.0",
+    "react-pdf": ">=9.0.0",
     "tailwind-merge": ">=2.0.0",
     "tailwindcss": ">=4.0.0"
+  },
+  "devDependencies": {
+    "react-pdf": "^9.0.0"
   },
   "peerDependenciesMeta": {
     "@radix-ui/react-context-menu": {
@@ -60,6 +64,9 @@
       "optional": true
     },
     "jotai": {
+      "optional": true
+    },
+    "react-pdf": {
       "optional": true
     }
   }

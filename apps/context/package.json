@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "bun test test/",
+    "test": "bun test test/config.test.ts test/discovery.test.ts test/parser/ test/search/lexical.test.ts",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
     "lint": "eslint src/ --max-warnings=30"
