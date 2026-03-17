@@ -6,7 +6,7 @@
  * via the paths module.
  */
 
-import { existsSync, mkdirSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join } from "node:path";
 
@@ -799,6 +799,61 @@ export class FileBackend implements KataBackend {
     });
   }
 
+  private _buildReplanSliceOps(state: KataState): OpsBlock {
+    const mid = state.activeMilestone!.id;
+    const sid = state.activeSlice!.id;
+    const base = this.basePath;
+
+    const slicePlanRel = relSliceFile(base, mid, sid, "PLAN");
+    const sliceDirAbs =
+      resolveSlicePath(base, mid, sid) ??
+      join(base, relSlicePath(base, mid, sid));
+    const replanAbsPath = join(sliceDirAbs, `${sid}-REPLAN.md`);
+
+    // Find blocker task ID for commit message
+    let blockerTaskId = "";
+    const tDir = resolveTasksDir(base, mid, sid);
+    if (tDir) {
+      const summaryFiles = resolveTaskFiles(tDir, "SUMMARY").sort();
+      for (const file of summaryFiles) {
+        const absPath = join(tDir, file);
+        // Synchronous-safe: we only need the frontmatter ID
+        try {
+          const content = readFileSync(absPath, "utf-8");
+          const summary = parseSummary(content);
+          if (summary.frontmatter.blocker_discovered) {
+            blockerTaskId =
+              summary.frontmatter.id || file.replace(/-SUMMARY\.md$/i, "");
+          }
+        } catch {
+          // skip unreadable files
+        }
+      }
+    }
+
+    const backendOps = [
+      `3. Write \`${replanAbsPath}\` documenting:`,
+      `   - What blocker was discovered and in which task`,
+      `   - What changed in the plan and why`,
+      `   - Which incomplete tasks were modified, added, or removed`,
+      `   - Any new risks or considerations introduced by the replan`,
+      `4. Rewrite \`${slicePlanRel}\` with the updated slice plan:`,
+      `   - Keep all \`[x]\` tasks exactly as they were (same IDs, same descriptions, same checkmarks)`,
+      `   - Update the \`[ ]\` tasks to address the blocker`,
+      `   - Ensure the slice Goal and Demo sections are still achievable with the new tasks, or update them if the blocker fundamentally changes what the slice can deliver`,
+      `   - Update the Files Likely Touched section if the replan changes which files are affected`,
+      `5. If any incomplete task had a \`T0x-PLAN.md\`, remove or rewrite it to match the new task description.`,
+      `6. Commit all changes: \`git add -A && git commit -m 'refactor(${sid}): replan after blocker in ${blockerTaskId}'\``,
+      `7. Update \`.kata/STATE.md\``,
+    ].join("\n");
+
+    return {
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST write \`${replanAbsPath}\` and the updated slice plan before finishing.**`,
+    };
+  }
+
   private async _buildReplanSlicePrompt(state: KataState): Promise<string> {
     const mid = state.activeMilestone!.id;
     const sid = state.activeSlice!.id;
@@ -847,20 +902,16 @@ export class FileBackend implements KataBackend {
 
     const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
-    const sliceDirAbs =
-      resolveSlicePath(base, mid, sid) ??
-      join(base, relSlicePath(base, mid, sid));
-    const replanAbsPath = join(sliceDirAbs, `${sid}-REPLAN.md`);
+    const ops = this._buildReplanSliceOps(state);
 
     return loadPrompt("replan-slice", {
       milestoneId: mid,
       sliceId: sid,
       sliceTitle: sTitle,
-      slicePath: relSlicePath(base, mid, sid),
-      planPath: slicePlanRel,
-      blockerTaskId,
       inlinedContext,
-      replanAbsPath,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
   }
 

@@ -625,20 +625,35 @@ export class LinearBackend implements KataBackend {
     });
   }
 
+  private _buildReplanSliceOps(state: KataState): OpsBlock {
+    const sid = state.activeSlice?.id ?? "unknown";
+
+    const backendOps = [
+      `3. Find the blocker:`,
+      `   - Call \`kata_list_tasks\` for the slice.`,
+      `   - Read task summaries to find which task discovered the blocker.`,
+      `4. Write the replan: \`kata_write_document("${sid}-REPLAN", content)\``,
+      `   - Describe the blocker, its impact, and the revised task decomposition.`,
+      `5. Rewrite the slice plan: \`kata_write_document("${sid}-PLAN", content)\``,
+      `   - Keep all \`[x]\` tasks exactly as they were`,
+      `   - Update the \`[ ]\` tasks to address the blocker`,
+      `   - Create new task sub-issues if needed via \`kata_create_task\``,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${sid}-REPLAN\` document and the updated slice plan before finishing.**\n\n${REFERENCE}`,
+    };
+  }
+
   private _buildReplanSlicePrompt(state: KataState): string {
     const mid = state.activeMilestone?.id ?? "unknown";
     const sid = state.activeSlice?.id ?? "unknown";
     const sTitle = state.activeSlice?.title ?? "unknown";
 
-    return [
-      `# Replan Slice — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid}`,
-      `**Slice:** ${sid} — ${sTitle}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm the active slice context.`,
       ``,
@@ -648,17 +663,19 @@ export class LinearBackend implements KataBackend {
       ``,
       `3. Read optional context:`,
       `   - \`kata_read_document("DECISIONS")\``,
-      ``,
-      `4. Find the blocker:`,
-      `   - Call \`kata_list_tasks\` for the slice.`,
-      `   - Read task summaries to find which task discovered the blocker.`,
-      ``,
-      `5. Write the replan: \`kata_write_document("${sid}-REPLAN", content)\``,
-      `   - Describe the blocker, its impact, and the revised task decomposition.`,
-      `   - Create new task sub-issues if needed via \`kata_create_task\`.`,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildReplanSliceOps(state);
+
+    return loadPrompt("replan-slice", {
+      milestoneId: mid,
+      sliceId: sid,
+      sliceTitle: sTitle,
+      inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
   }
 
   private _buildReassessRoadmapPrompt(state: KataState, completedSliceId: string): string {
