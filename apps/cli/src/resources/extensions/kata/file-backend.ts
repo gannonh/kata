@@ -992,6 +992,43 @@ export class FileBackend implements KataBackend {
     });
   }
 
+  private _buildRunUatOps(state: KataState, sliceId: string, uatResultAbsPath: string, uatType: string): OpsBlock {
+    const backendOps = [
+      `Write \`${uatResultAbsPath}\` with:`,
+      ``,
+      "```markdown",
+      `---`,
+      `sliceId: ${sliceId}`,
+      `uatType: ${uatType}`,
+      `verdict: PASS | FAIL | PARTIAL`,
+      `date: <ISO 8601 timestamp>`,
+      `---`,
+      ``,
+      `# UAT Result — ${sliceId}`,
+      ``,
+      `## Checks`,
+      ``,
+      `| Check | Result | Notes |`,
+      `|-------|--------|-------|`,
+      `| <check description> | PASS / FAIL | <observed output or reason> |`,
+      ``,
+      `## Overall Verdict`,
+      ``,
+      `<PASS / FAIL / PARTIAL> — <one sentence summary>`,
+      ``,
+      `## Notes`,
+      ``,
+      `<any additional context, errors encountered, or follow-up items>`,
+      "```",
+    ].join("\n");
+
+    return {
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST write \`${uatResultAbsPath}\` before finishing.**`,
+    };
+  }
+
   private async _buildRunUatPrompt(
     state: KataState,
     sliceId: string,
@@ -1030,17 +1067,20 @@ export class FileBackend implements KataBackend {
       resolveSlicePath(base, mid, sliceId) ??
       join(base, relSlicePath(base, mid, sliceId));
     const uatResultAbsPath = join(sliceDirAbs, `${sliceId}-UAT-RESULT.md`);
-    const uatResultPath = relSliceFile(base, mid, sliceId, "UAT-RESULT");
     const uatType = (uatContent ? extractUatType(uatContent) : null) ?? "human-experience";
+
+    const ops = this._buildRunUatOps(state, sliceId, uatResultAbsPath, uatType);
 
     return loadPrompt("run-uat", {
       milestoneId: mid,
       sliceId,
-      uatPath,
-      uatResultAbsPath,
-      uatResultPath,
+      uatRef: uatPath,
+      uatResultRef: uatResultAbsPath,
       uatType,
       inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
   }
 

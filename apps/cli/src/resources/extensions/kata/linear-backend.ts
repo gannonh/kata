@@ -732,18 +732,25 @@ export class LinearBackend implements KataBackend {
     });
   }
 
+  private _buildRunUatOps(sliceId: string): OpsBlock {
+    const backendOps = [
+      `Write the UAT result: \`kata_write_document("${sliceId}-UAT-RESULT", content)\``,
+      ``,
+      `Use the same markdown format as described for artifact-driven UATs (frontmatter with sliceId, uatType, verdict, date; Checks table; Overall Verdict; Notes).`,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${sliceId}-UAT-RESULT\` document before finishing.**\n\n${REFERENCE}`,
+    };
+  }
+
   private _buildRunUatPrompt(state: KataState, sliceId: string): string {
     const mid = state.activeMilestone?.id ?? "unknown";
 
-    return [
-      `# Run UAT — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid}`,
-      `**Slice:** ${sliceId}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm context.`,
       ``,
@@ -753,13 +760,20 @@ export class LinearBackend implements KataBackend {
       `3. Read optional context:`,
       `   - \`kata_read_document("${sliceId}-SUMMARY")\``,
       `   - \`kata_read_document("PROJECT")\``,
-      ``,
-      `4. Execute the UAT test script. Verify each acceptance criterion.`,
-      ``,
-      `5. Write the UAT result: \`kata_write_document("${sliceId}-UAT-RESULT", content)\``,
-      `   - Include: pass/fail for each criterion, evidence, any issues found.`,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildRunUatOps(sliceId);
+
+    return loadPrompt("run-uat", {
+      milestoneId: mid,
+      sliceId,
+      uatRef: `${sliceId}-UAT (Linear document)`,
+      uatResultRef: `${sliceId}-UAT-RESULT (Linear document)`,
+      uatType: "artifact-driven",
+      inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
   }
 }
