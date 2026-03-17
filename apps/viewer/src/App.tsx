@@ -25,6 +25,7 @@ import {
   type OverlayData,
   type FileChange,
 } from '@craft-agent/ui'
+import { FileText } from 'lucide-react'
 import { SessionUpload } from './components/SessionUpload'
 import { Header } from './components/Header'
 
@@ -284,7 +285,7 @@ export function App() {
           onClose={handleCloseOverlay}
           content={overlayData.content}
           filePath={overlayData.filePath}
-          typeBadge={{ label: overlayData.toolName, variant: 'default' }}
+          typeBadge={{ icon: FileText, label: overlayData.toolName, variant: 'default' }}
           onOpenUrl={platformActions.onOpenUrl}
           error={overlayData.error}
         />
