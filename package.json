@@ -102,6 +102,7 @@
     "tar": "^7.5.2",
     "turbo": "^2.8.17",
     "typescript": "^5.0.0",
+    "typescript-eslint": "^8.57.1",
     "vite": "^6.2.4"
   },
   "dependencies": {
