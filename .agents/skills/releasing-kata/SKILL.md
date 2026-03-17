@@ -1,27 +1,29 @@
 ---
 name: releasing-kata
-description: Use this skill when releasing Kata Desktop, Kata CLI, or Kata Orchestrator, bumping versions, updating changelogs, or creating release PRs. Triggers include "release", "bump version", "publish", "create release PR", "ship it", "cut a release".
+description: Use this skill when releasing Kata Desktop, Kata CLI, Kata Orchestrator, Kata Context, or Symphony, bumping versions, updating changelogs, or creating release PRs. Triggers include "release", "bump version", "publish", "create release PR", "ship it", "cut a release".
 ---
 
 # Releasing Kata
 
-Kata has three independently versioned release targets. Ask which target if not clear from context.
+Kata has five independently versioned release targets. Ask which target if not clear from context.
 
-| Target | Package | Tag Format | Reference |
-|--------|---------|------------|-----------|
-| **Desktop** | `@kata-sh/desktop` | `desktop-vX.Y.Z` | `references/desktop-release.md` |
-| **CLI** | `@kata-sh/cli` | `cli-vX.Y.Z` | `references/cli-release.md` |
-| **Orchestrator** | `@kata-sh/orc` | `orc-vX.Y.Z` | `references/orc-release.md` |
+| Target           | Package                  | Tag Format        | Reference                        |
+| ---------------- | ------------------------ | ----------------- | -------------------------------- |
+| **Desktop**      | `@kata-sh/desktop`       | `desktop-vX.Y.Z`  | `references/desktop-release.md`  |
+| **CLI**          | `@kata-sh/cli`           | `cli-vX.Y.Z`      | `references/cli-release.md`      |
+| **Orchestrator** | `@kata-sh/orc`           | `orc-vX.Y.Z`      | `references/orc-release.md`      |
+| **Context**      | `@kata/context`          | `context-vX.Y.Z`  | `references/context-release.md`  |
+| **Symphony**     | `symphony` (Rust binary) | `symphony-vX.Y.Z` | `references/symphony-release.md` |
 
 Root `package.json` version is `0.0.0` — never touch it. Each app owns its own version. Versions are independent and do not need to match.
 
 ## Version semantics
 
-| Type | When | Example |
-|------|------|---------|
-| `patch` | Bug fixes, small improvements | 0.4.9 → 0.4.10 |
-| `minor` | New features, backward compatible | 0.4.9 → 0.5.0 |
-| `major` | Breaking changes | 0.4.9 → 1.0.0 |
+| Type    | When                              | Example        |
+| ------- | --------------------------------- | -------------- |
+| `patch` | Bug fixes, small improvements     | 0.4.9 → 0.4.10 |
+| `minor` | New features, backward compatible | 0.4.9 → 0.5.0  |
+| `major` | Breaking changes                  | 0.4.9 → 1.0.0  |
 
 ## Workflow
 
@@ -32,6 +34,7 @@ Once the target is identified, read the corresponding reference file for the ful
 For build failures, code signing, notarization, and CI issues, read `release-troubleshooting.md`.
 
 Quick checks:
+
 - **CI didn't trigger**: Version in `package.json` must differ from existing git tags
 - **Desktop CI fails**: `gh run list --workflow=desktop-release.yml --limit 3`
 - **CLI publish fails**: Ensure `NPM_TOKEN` secret is set and `private: false` in `apps/cli/package.json`
