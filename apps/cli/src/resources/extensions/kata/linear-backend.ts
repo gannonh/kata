@@ -374,20 +374,31 @@ export class LinearBackend implements KataBackend {
     ].join("\n");
   }
 
+  private _buildResearchSliceOps(sid: string): OpsBlock {
+    const backendOps = [
+      `6. Write slice research: \`kata_write_document("${sid}-RESEARCH", content)\``,
+      `   - Include: Summary, Don't Hand-Roll, Common Pitfalls, Relevant Code, Sources.`,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${sid}-RESEARCH\` document before finishing.**\n\n${REFERENCE}`,
+    };
+  }
+
   private _buildResearchSlicePrompt(state: KataState): string {
     const mid = state.activeMilestone?.id ?? "unknown";
     const sid = state.activeSlice?.id ?? "unknown";
     const sTitle = state.activeSlice?.title ?? "unknown";
 
-    return [
-      `# Research Slice — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid}`,
-      `**Slice:** ${sid} — ${sTitle}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const dependencySummaries = [
+      `- Check the roadmap for \`depends:[]\` on this slice.`,
+      `- For each dependency, call \`kata_read_document("Sxx-SUMMARY")\`.`,
+    ].join("\n");
+
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm the active milestone and slice, and obtain \`projectId\`.`,
       ``,
@@ -402,18 +413,21 @@ export class LinearBackend implements KataBackend {
       `   - \`kata_read_document("${mid}-RESEARCH")\``,
       `   - \`kata_read_document("DECISIONS")\``,
       `   - \`kata_read_document("REQUIREMENTS")\``,
-      ``,
-      `5. Read dependency slice summaries:`,
-      `   - Check the roadmap for \`depends:[]\` on this slice.`,
-      `   - For each dependency, call \`kata_read_document("Sxx-SUMMARY")\`.`,
-      ``,
-      `6. Scout the codebase and relevant docs for this slice's scope.`,
-      ``,
-      `7. Write slice research: \`kata_write_document("${sid}-RESEARCH", content)\``,
-      `   - Include: Summary, Don't Hand-Roll, Common Pitfalls, Relevant Code, Sources.`,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildResearchSliceOps(sid);
+
+    return loadPrompt("research-slice", {
+      milestoneId: mid,
+      sliceId: sid,
+      sliceTitle: sTitle,
+      inlinedContext,
+      dependencySummaries,
+      ...buildSkillDiscoveryVars(),
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
   }
 
   private _buildPlanSlicePrompt(state: KataState): string {

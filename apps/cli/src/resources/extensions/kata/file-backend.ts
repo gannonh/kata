@@ -474,6 +474,26 @@ export class FileBackend implements KataBackend {
     });
   }
 
+  private _buildResearchSliceOps(mid: string, sid: string): OpsBlock {
+    const base = this.basePath;
+    const outputRelPath = relSliceFile(base, mid, sid, "RESEARCH");
+    const outputAbsPath =
+      resolveSliceFile(base, mid, sid, "RESEARCH") ?? join(base, outputRelPath);
+    const slicePath = relSlicePath(base, mid, sid);
+
+    const backendOps = [
+      `6. Write \`${outputRelPath}\``,
+      ``,
+      `The slice directory already exists at \`${slicePath}/\`. Do NOT mkdir — just write the file.`,
+    ].join("\n");
+
+    return {
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST write the file \`${outputAbsPath}\` before finishing.**`,
+    };
+  }
+
   private async _buildResearchSlicePrompt(state: KataState): Promise<string> {
     const mid = state.activeMilestone!.id;
     const sid = state.activeSlice!.id;
@@ -516,22 +536,18 @@ export class FileBackend implements KataBackend {
 
     const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
-    const outputRelPath = relSliceFile(base, mid, sid, "RESEARCH");
-    const outputAbsPath =
-      resolveSliceFile(base, mid, sid, "RESEARCH") ?? join(base, outputRelPath);
+    const ops = this._buildResearchSliceOps(mid, sid);
+
     return loadPrompt("research-slice", {
       milestoneId: mid,
       sliceId: sid,
       sliceTitle: sTitle,
-      slicePath: relSlicePath(base, mid, sid),
-      roadmapPath: roadmapRel,
-      contextPath: contextRel,
-      milestoneResearchPath: milestoneResearchRel,
-      outputPath: outputRelPath,
-      outputAbsPath,
       inlinedContext,
       dependencySummaries: depContent,
       ...buildSkillDiscoveryVars(),
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
   }
 
