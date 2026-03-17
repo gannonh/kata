@@ -9,7 +9,8 @@
   "scripts": {
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "lint": "eslint src/ --max-warnings=150"
+    "lint": "eslint src/ --max-warnings=150",
+    "typecheck": "tsc --noEmit"
   },
   "exports": {
     ".": "./src/index.ts",

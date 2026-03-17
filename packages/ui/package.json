@@ -17,7 +17,8 @@
     "./styles": "./src/styles/index.css"
   },
   "scripts": {
-    "lint": "eslint src/ --max-warnings=50"
+    "lint": "eslint src/ --max-warnings=50",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@craft-agent/core": "workspace:*",
