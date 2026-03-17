@@ -1,0 +1,31 @@
+# Decisions Register
+
+<!-- Append-only. Never edit or remove existing rows.
+     To reverse a decision, add a new row that supersedes it.
+     Read this file at the start of any planning or research phase. -->
+
+| # | When | Scope | Decision | Choice | Rationale | Revisable? |
+|---|------|-------|----------|--------|-----------|------------|
+| D001 | M001 | arch | Async runtime | tokio (full features) | Industry standard for Rust async, already in Cargo.toml | No |
+| D002 | M001 | arch | Concurrency model | Single orchestrator task + mpsc channels | Mirrors OTP GenServer pattern without actor framework overhead. Orchestrator owns all mutable state in select! loop. | No |
+| D003 | M001 | library | HTTP framework | axum | Lightweight, tokio-native, widely adopted. Good fit for JSON API + server-rendered HTML. | No |
+| D004 | M001 | library | Template engine | liquid crate | Liquid-compatible as spec requires. Already in Cargo.toml. | Yes — if strict mode doesn't work |
+| D005 | M001 | arch | Dashboard approach | Server-rendered HTML with auto-refresh | Simpler than LiveView equivalent. Spec allows server-generated HTML. | Yes — could add SSE later |
+| D006 | M001 | convention | Test strategy | Spec §17 validation matrix driven | Write idiomatic Rust tests guided by spec behavioral contract, not 1:1 Elixir port | No |
+| D007 | M001 | arch | No TUI dashboard | HTTP dashboard only | Elixir's 1952-line terminal dashboard is out of scope. HTTP covers observability needs. | Yes — if operator demand |
+| D008 | M001/S01 | arch | RetryEntry timer_handle type | Option<String> placeholder | Concrete async timer type unknown until S06 wires orchestrator loop. Placeholder avoids premature coupling. | Yes — S06 replaces with real type |
+| D009 | M001/S01 | convention | Snapshot type serialization ordering | BTreeMap (not HashMap) | Deterministic JSON key ordering for API responses and test assertions | No |
+| D010 | M001/S01 | pattern | AgentEvent payload shape | Per-variant typed payloads | Each variant carries its own fields instead of a single generic data bag. Compiler enforces exhaustive matching. | No |
+| D011 | M001/S01 | pattern | Mutable state vs API view separation | Separate struct hierarchies | OrchestratorState (HashMap, mutable) vs OrchestratorSnapshot (BTreeMap, serializable). Different derive sets prevent accidental mutation through API types. | No |
+| D012 | M001/S02 | library | File-watch strategy | notify v7 events + 400ms debounce | Elixir uses polling (mtime+size+hash). notify native FS events are more responsive. 400ms debounce handles editor atomic-rename multi-write saves. | Yes — if FSEvents misses events |
+| D013 | M001/S02 | pattern | WorkflowStore watcher lifetime | _watcher field inside struct | RecommendedWatcher must be kept alive for the duration of the store. Storing inside struct (with _ prefix) prevents silent drop-on-return bugs. | No |
+| D014 | M001/S02 | convention | api_key log redaction | Never log ServiceConfig directly | api_key values must not appear in tracing output. Log field names and error messages only; never log the config struct or api_key field value. | No |
+| D015 | M001/S02/T03 | pattern | Config serde strategy | Intermediate raw structs in config.rs | Added serde::Deserialize to intermediate Option<T> raw structs inside config.rs rather than deriving Deserialize on domain types. Keeps domain.rs free of serde coupling; raw structs own the YAML field mapping. | No |
+| D016 | M001/S02/T03 | behaviour | LINEAR_API_KEY fallback scope | Only when explicit $VAR resolves empty | The LINEAR_API_KEY canonical fallback is applied only when api_key is explicitly set to a $VAR reference that resolves to empty. If api_key is absent from YAML, it stays None (no implicit env var injection). | No |
+| D017 | M001/S02/T04 | behaviour | WorkflowStore validation boundary | WorkflowStore does NOT call config::validate() | Validation is the orchestrator's dispatch-preflight responsibility; the store accepts any parseable config so operators can iteratively fix WORKFLOW.md via hot-reload without taking the process down. Tests confirmed this boundary. | No |
+| D018 | M001/S02/T04 | arch | WorkflowStore concurrency primitives | std::sync::RwLock + std::thread (not tokio) | test_workflow_store_initial_load is a plain #[test] with no tokio runtime; tokio::spawn inside new() would panic. std::thread is simpler and compatible with both sync and async callers. | Yes — could wrap in tokio::task::spawn_blocking for pure-async callers |
+| D019 | M001/S03/T02 | convention | normalize_issue and AssigneeFilter visibility | pub (not pub(crate)) | Integration tests in tests/ are external crates and require pub visibility. T01 used pub(crate) expecting internal test modules; T02 corrected to pub for the standard Rust integration test pattern. | No |
+| D020 | M001/S03/T02 | library | async-trait for TrackerAdapter | async-trait crate | Rust doesn't yet support async fn in traits with dyn dispatch. async-trait is the standard solution, used by axum, tower, and most async Rust ecosystems. | Yes — when Rust stabilizes native async trait dyn dispatch |
+| D021 | M001/S03/T02 | library | HTTP mocking strategy | mockito crate | Tests the full HTTP stack (client → transport → normalization → response) without injecting closures or trait-based transports. Each test gets its own server via Server::new_async(). FIFO mock ordering handles multi-request sequences (pagination, viewer+candidates). | No |
+| D022 | M001/S04/T01 | arch | Hook timeout kill mechanism | extern "C" kill(2) FFI | Used raw FFI `kill(pid, SIGKILL)` for hook timeout enforcement instead of adding `libc` crate dependency. Minimal unsafe surface — PID obtained from `Child::id()` immediately before use. Unix-only (acceptable for Linux/macOS target). | Yes — could switch to libc crate if more syscalls needed |
+| D023 | M001/S04/T02 | pattern | Issue → Liquid Object conversion | liquid::to_object via serde | Used `liquid::to_object(&issue)` for automatic serde-based serialization rather than manual field-by-field mapping. DateTime<Utc> → ISO 8601, Option::None → Nil, Vec<BlockerRef> → Array. Scales automatically when new fields are added to Issue. | No |
