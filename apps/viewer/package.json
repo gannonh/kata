@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/ --max-warnings=20",
-    "test": "echo 'No tests yet'"
+    "test": "bun test src/"
   },
   "dependencies": {
     "@craft-agent/core": "workspace:*",

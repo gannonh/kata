@@ -19,7 +19,7 @@
   "scripts": {
     "lint": "eslint src/ --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test": "echo 'No tests yet'"
+    "test": "bun test src/"
   },
   "devDependencies": {
     "@types/uuid": "^11.0.0"
