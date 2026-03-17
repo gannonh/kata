@@ -15,6 +15,7 @@ import type {
   PromptOptions,
   DashboardData,
   PrContext,
+  OpsBlock,
 } from "./backend.js";
 import type { KataState, Phase } from "./types.js";
 
@@ -562,18 +563,35 @@ export class LinearBackend implements KataBackend {
     ].join("\n");
   }
 
+  private _buildCompleteMilestoneOps(state: KataState): OpsBlock {
+    const mid = state.activeMilestone?.id ?? "unknown";
+
+    const backendOps = [
+      `5. Write the milestone summary: \`kata_write_document("${mid}-SUMMARY", content)\``,
+      `   - Fill all frontmatter fields and narrative sections. The \`requirement_outcomes\` field must list every requirement that changed status with \`from_status\`, \`to_status\`, and \`proof\`.`,
+      `6. Update requirements: \`kata_write_document("REQUIREMENTS", content)\` if any requirement status transitions were validated in step 4.`,
+      `7. Update project doc: \`kata_write_document("PROJECT", content)\` to reflect milestone completion and current project state.`,
+      `8. Commit all remaining uncommitted work:`,
+      `   - Stage all changed files: \`git add -A\``,
+      `   - Commit with message: \`feat(kata): complete ${mid}\``,
+      `   - Do NOT push.`,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${mid}-SUMMARY\` document AND update PROJECT before finishing.**\n\n${REFERENCE}`,
+    };
+  }
+
   private _buildCompleteMilestonePrompt(state: KataState): string {
     const mid = state.activeMilestone?.id ?? "unknown";
     const mTitle = state.activeMilestone?.title ?? "unknown";
 
-    return [
-      `# Complete Milestone — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid} — ${mTitle}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    // LinearBackend does not pre-fetch: the agent reads docs via tool calls.
+    // Build inlinedContext as fetch instructions (steps the agent must run first).
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm all slices are complete. Obtain \`projectId\`.`,
       ``,
@@ -592,13 +610,19 @@ export class LinearBackend implements KataBackend {
       `   - \`kata_read_document("DECISIONS")\``,
       `   - \`kata_read_document("PROJECT")\``,
       `   - \`kata_read_document("${mid}-CONTEXT")\``,
-      ``,
-      `6. Write the milestone summary: \`kata_write_document("${mid}-SUMMARY", content)\``,
-      `   - Compress all slice summaries into a milestone-level narrative.`,
-      `   - Include: what the milestone delivered, key decisions, architectural patterns, files modified.`,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildCompleteMilestoneOps(state);
+
+    return loadPrompt("complete-milestone", {
+      milestoneId: mid,
+      milestoneTitle: mTitle,
+      roadmapPath: `${mid}-ROADMAP (Linear document)`,
+      inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
   }
 
   private _buildReplanSlicePrompt(state: KataState): string {

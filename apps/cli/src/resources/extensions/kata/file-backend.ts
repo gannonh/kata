@@ -16,6 +16,7 @@ import type {
   PromptOptions,
   DashboardData,
   PrContext,
+  OpsBlock,
 } from "./backend.js";
 import type { KataState, Phase } from "./types.js";
 
@@ -708,6 +709,29 @@ export class FileBackend implements KataBackend {
     });
   }
 
+  private _buildCompleteMilestoneOps(state: KataState): OpsBlock {
+    const mid = state.activeMilestone!.id;
+    const base = this.basePath;
+    const milestoneDirAbs =
+      resolveMilestonePath(base, mid) ?? join(base, relMilestonePath(base, mid));
+    const milestoneSummaryAbsPath = join(milestoneDirAbs, `${mid}-SUMMARY.md`);
+
+    const backendOps = [
+      `5. Read the milestone-summary template at \`~/.kata-cli/agent/extensions/kata/templates/milestone-summary.md\``,
+      `6. Write \`${milestoneSummaryAbsPath}\` using the milestone-summary template. Fill all frontmatter fields and narrative sections. The \`requirement_outcomes\` field must list every requirement that changed status with \`from_status\`, \`to_status\`, and \`proof\`.`,
+      `7. Update \`.kata/REQUIREMENTS.md\` if any requirement status transitions were validated in step 4.`,
+      `8. Update \`.kata/PROJECT.md\` to reflect milestone completion and current project state.`,
+      `9. Commit all changes: \`git add -A && git commit -m 'feat(kata): complete ${mid}'\``,
+      `10. Update \`.kata/STATE.md\``,
+    ].join("\n");
+
+    return {
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST write \`${milestoneSummaryAbsPath}\` AND update PROJECT.md before finishing.**`,
+    };
+  }
+
   private async _buildCompleteMilestonePrompt(state: KataState): Promise<string> {
     const mid = state.activeMilestone!.id;
     const midTitle = state.activeMilestone!.title;
@@ -762,16 +786,16 @@ export class FileBackend implements KataBackend {
 
     const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
-    const milestoneDirAbs =
-      resolveMilestonePath(base, mid) ?? join(base, relMilestonePath(base, mid));
-    const milestoneSummaryAbsPath = join(milestoneDirAbs, `${mid}-SUMMARY.md`);
+    const ops = this._buildCompleteMilestoneOps(state);
 
     return loadPrompt("complete-milestone", {
       milestoneId: mid,
       milestoneTitle: midTitle,
       roadmapPath: roadmapRel,
       inlinedContext,
-      milestoneSummaryAbsPath,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
   }
 

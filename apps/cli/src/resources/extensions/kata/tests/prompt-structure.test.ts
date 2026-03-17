@@ -319,6 +319,20 @@ describe("LinearBackend prompt structure", () => {
     );
   });
 
+  it("completing-milestone prompt uses template with ops vars", async () => {
+    const state = baseState({
+      phase: "completing-milestone",
+      activeSlice: null,
+      activeTask: null,
+    });
+    const prompt = await lb.buildPrompt("completing-milestone", state);
+    assert.match(prompt, /success criterion/i, "contains verification instructions from template");
+    assert.match(prompt, /definition of done/i, "contains definition of done check from template");
+    assert.match(prompt, /kata_write_document/, "contains linear-specific ops");
+    assert.match(prompt, /never use bash/i, "contains hard rule in backendRules");
+    assert.doesNotMatch(prompt, /\{\{[a-zA-Z]/, "no unresolved vars");
+  });
+
   it("all non-empty prompts reference KATA-WORKFLOW.md", async () => {
     const phases: { phase: Phase; stateOverrides?: Partial<KataState> }[] = [
       { phase: "executing" },
