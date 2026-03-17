@@ -6,6 +6,8 @@ All relevant context has been preloaded below — start working immediately with
 
 {{inlinedContext}}
 
+{{backendRules}}
+
 Then research the codebase and relevant technologies:
 1. If a `Kata Skill Preferences` block is present in system context, use it to decide which skills to load and follow during research, without relaxing required verification or artifact rules
 2. **Skill Discovery ({{skillDiscoveryMode}}):**{{skillDiscoveryInstructions}}
@@ -13,12 +15,7 @@ Then research the codebase and relevant technologies:
 4. Use `resolve_library` / `get_library_docs` for unfamiliar libraries
 5. Read the template at `~/.kata-cli/agent/extensions/kata/templates/research.md`
 6. If `.kata/REQUIREMENTS.md` exists, research against it. Identify which Active requirements are table stakes, likely omissions, overbuilt risks, or domain-standard behaviors the user may or may not want.
-7. Write `{{outputPath}}` with:
-   - Summary (2-3 paragraphs, primary recommendation)
-   - Don't Hand-Roll table (problems with existing solutions)
-   - Common Pitfalls (what goes wrong, how to avoid)
-   - Relevant Code (existing files, patterns, integration points)
-   - Sources
+{{backendOps}}
 
 ## Strategic Questions to Answer
 
@@ -32,6 +29,6 @@ Then research the codebase and relevant technologies:
 
 **Research is advisory, not auto-binding.** Surface candidate requirements clearly instead of silently expanding scope.
 
-**You MUST write the file `{{outputAbsPath}}` before finishing.**
+{{backendMustComplete}}
 
 When done, say: "Milestone {{milestoneId}} researched."

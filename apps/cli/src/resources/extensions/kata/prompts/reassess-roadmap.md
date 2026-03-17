@@ -6,6 +6,8 @@ All relevant context has been preloaded below — the current roadmap, completed
 
 {{inlinedContext}}
 
+{{backendRules}}
+
 If a `Kata Skill Preferences` block is present in system context, use it to decide which skills to load and follow during reassessment, without relaxing required verification or artifact rules.
 
 Then assess whether the remaining roadmap still makes sense given what was just built.
@@ -32,17 +34,8 @@ Format each criterion as a single line:
 
 If all criteria have at least one remaining owning slice, the coverage check passes. If any criterion has no remaining owner, resolve it before finalizing the assessment — either by keeping a slice that was going to be removed, adding coverage to another slice, or explaining why the criterion is no longer relevant.
 
-**If the roadmap is still good:**
+{{backendOps}}
 
-Write `{{assessmentAbsPath}}` with a brief confirmation that roadmap coverage still holds after {{completedSliceId}}. If requirements exist, explicitly note whether requirement coverage remains sound.
-
-**If changes are needed:**
-
-1. Rewrite the remaining (unchecked) slices in `{{roadmapPath}}`. Keep completed slices exactly as they are (`[x]`). Update the boundary map for changed slices. Update the proof strategy if risks changed. Update requirement coverage if ownership or scope changed.
-2. Write `{{assessmentAbsPath}}` explaining what changed and why — keep it brief and concrete.
-3. If `.kata/REQUIREMENTS.md` exists and requirement ownership or status changed, update it.
-4. Commit: `docs({{milestoneId}}): reassess roadmap after {{completedSliceId}}`
-
-**You MUST write the file `{{assessmentAbsPath}}` before finishing.**
+{{backendMustComplete}}
 
 When done, say: "Roadmap reassessed."

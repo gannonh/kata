@@ -21,6 +21,16 @@ export interface PromptOptions {
   uatSliceId?: string;
 }
 
+/** Backend-specific operation instructions injected into prompt templates. */
+export interface OpsBlock {
+  /** Hard constraints (e.g. "never use bash for artifacts"). Empty string if none. */
+  backendRules: string;
+  /** All read/write/advance/commit operations as a single block. */
+  backendOps: string;
+  /** Must-complete assertion for end of prompt. */
+  backendMustComplete: string;
+}
+
 /** Slice view for the dashboard overlay. */
 export interface DashboardSliceView {
   id: string;

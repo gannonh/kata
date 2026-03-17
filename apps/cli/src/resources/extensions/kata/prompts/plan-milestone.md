@@ -6,15 +6,15 @@ All relevant context has been preloaded below — start working immediately with
 
 {{inlinedContext}}
 
+{{backendRules}}
+
 Then:
 1. Read the template at `~/.kata-cli/agent/extensions/kata/templates/roadmap.md`
 2. Read `.kata/REQUIREMENTS.md` if it exists. Treat **Active** requirements as the capability contract for planning. If it does not exist, continue in legacy compatibility mode but explicitly note that requirement coverage is operating without a contract.
 3. If a `Kata Skill Preferences` block is present in system context, use it to decide which skills to load and follow during planning, without overriding required roadmap formatting
 4. Create the roadmap: decompose into demoable vertical slices — as many as the work needs, no more
 5. Order by risk (high-risk first)
-6. Write `{{outputPath}}` with checkboxes, risk, depends, demo sentences, proof strategy, verification classes, milestone definition of done, **requirement coverage**, and a boundary map. Write success criteria as observable truths, not implementation tasks. If the milestone crosses multiple runtime boundaries, include an explicit final integration slice that proves the assembled system works end-to-end in a real environment
-7. If planning produced structural decisions (e.g. slice ordering rationale, technology choices, scope exclusions), append them to `.kata/DECISIONS.md` (read the template at `~/.kata-cli/agent/extensions/kata/templates/decisions.md` if the file doesn't exist yet)
-8. Update `.kata/STATE.md`
+{{backendOps}}
 
 ## Requirement Mapping Rules
 
@@ -42,6 +42,6 @@ Apply these when decomposing and ordering slices:
 - **Ship features, not proofs.** A completed slice should leave the product in a state where the new capability is actually usable through its real interface. A login flow slice ends with a working login page, not a middleware function. An API slice ends with endpoints that return real data from a real store, not hardcoded fixtures. A dashboard slice ends with a real dashboard rendering real data, not a component that renders mock props. If a slice can't ship the real thing yet because a dependency isn't built, it should ship with realistic stubs that are clearly marked for replacement — but the user-facing surface must be real.
 - **Ambition matches the milestone.** The number and depth of slices should match the milestone's ambition. A milestone promising "core platform with auth, data model, and primary user loop" should have enough slices to actually deliver all three as working features — not two proof-of-concept slices and a note that "the rest will come in the next milestone." If the milestone's context promises an outcome, the roadmap must deliver it.
 
-**You MUST write the file `{{outputAbsPath}}` before finishing.**
+{{backendMustComplete}}
 
 When done, say: "Milestone {{milestoneId}} planned."

@@ -235,9 +235,8 @@ async function main(): Promise<void> {
 
   const milestoneId = "M001";
   const sliceId = "S01";
-  const uatPath = ".kata/milestones/M001/slices/S01/S01-UAT.md";
-  const uatResultAbsPath = "/tmp/kata-test/S01-UAT-RESULT.md";
-  const uatResultPath = ".kata/milestones/M001/slices/S01/S01-UAT-RESULT.md";
+  const uatRef = ".kata/milestones/M001/slices/S01/S01-UAT.md";
+  const uatResultRef = "/tmp/kata-test/S01-UAT-RESULT.md";
   const uatType = "artifact-driven";
   const inlinedContext = "<!-- no context -->";
 
@@ -247,11 +246,13 @@ async function main(): Promise<void> {
     promptResult = loadPromptFromWorktree("run-uat", {
       milestoneId,
       sliceId,
-      uatPath,
-      uatResultAbsPath,
-      uatResultPath,
+      uatRef,
+      uatResultRef,
       uatType,
       inlinedContext,
+      backendRules: "",
+      backendOps: "",
+      backendMustComplete: "",
     });
   } catch {
     promptThrew = true;
@@ -274,8 +275,8 @@ async function main(): Promise<void> {
     `prompt contains sliceId value "${sliceId}" after substitution`,
   );
   assert(
-    promptResult?.includes(uatResultAbsPath) ?? false,
-    `prompt contains uatResultAbsPath value after substitution`,
+    promptResult?.includes(uatResultRef) ?? false,
+    `prompt contains uatResultRef value after substitution`,
   );
   assert(
     !/\{\{[^}]+\}\}/.test(promptResult ?? ""),

@@ -15,6 +15,7 @@ import type {
   PromptOptions,
   DashboardData,
   PrContext,
+  OpsBlock,
 } from "./backend.js";
 import type { KataState, Phase } from "./types.js";
 
@@ -29,6 +30,7 @@ import { listKataSlices, parseKataEntityTitle } from "../linear/linear-entities.
 import type { DocumentAttachment } from "../linear/linear-types.js";
 import { ensureGitignore } from "./gitignore.js";
 import { loadPrompt } from "./prompt-loader.js";
+import { buildSkillDiscoveryVars } from "./preferences.js";
 import { resolveGitRoot, ensureGitRepo } from "./git-utils.js";
 
 // ─── Prompt Constants ─────────────────────────────────────────────────────────
@@ -277,23 +279,71 @@ export class LinearBackend implements KataBackend {
   }
 
   buildDiscussPrompt(nextId: string, preamble: string): string {
-    return loadPrompt("discuss-linear", { milestoneId: nextId, preamble });
+    const backendOps = [
+      `**CRITICAL: Do NOT create local \`.kata/milestones/\` directories. Do NOT write files to disk. Do NOT run \`mkdir\`. Do NOT run \`git commit\` for planning artifacts. All artifacts are written to Linear via \`kata_write_document\` and \`kata_create_milestone\`.**`,
+      ``,
+      `Read the template files at \`~/.kata-cli/agent/extensions/kata/templates/\` to understand the expected structure of each document before writing it. Use those structures as a guide, but write the content via \`kata_write_document\`.`,
+      ``,
+      `### Document Title Convention`,
+      ``,
+      `Use these exact titles when calling \`kata_write_document\`:`,
+      `- \`PROJECT\` — project overview`,
+      `- \`REQUIREMENTS\` — capability contract`,
+      `- \`DECISIONS\` — architectural decisions register`,
+      `- \`${nextId}-CONTEXT\` — milestone context (e.g. \`M001-CONTEXT\`)`,
+      `- \`${nextId}-ROADMAP\` — milestone roadmap (e.g. \`M001-ROADMAP\`)`,
+      ``,
+      `### Single Milestone`,
+      ``,
+      `Once the user is satisfied, in a single pass:`,
+      `1. Call \`kata_create_milestone\` with the milestone title to create \`${nextId}\` in Linear.`,
+      `2. Call \`kata_write_document\` with title \`PROJECT\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/project.md\` first. Describe what the project is, its current state, and list the milestone sequence.`,
+      `3. Call \`kata_write_document\` with title \`REQUIREMENTS\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/requirements.md\` first. Confirm requirement states, ownership, and traceability before roadmap creation.`,
+      `4. Call \`kata_write_document\` with title \`${nextId}-CONTEXT\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/context.md\` first. Preserve key risks, unknowns, existing codebase constraints, integration points, and relevant requirements surfaced during discussion.`,
+      `5. Call \`kata_write_document\` with title \`${nextId}-ROADMAP\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/roadmap.md\` first. Decompose into demoable vertical slices with checkboxes, risk, depends, demo sentences, proof strategy, verification classes, milestone definition of done, requirement coverage, and a boundary map. If the milestone crosses multiple runtime boundaries, include an explicit final integration slice that proves the assembled system works end-to-end in a real environment.`,
+      `6. Call \`kata_write_document\` with title \`DECISIONS\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/decisions.md\` first. Append rows for any architectural or pattern decisions made during discussion.`,
+      ``,
+      `### Multi-Milestone`,
+      ``,
+      `Once the user confirms the milestone split, in a single pass:`,
+      `1. Call \`kata_create_milestone\` for each milestone with its title.`,
+      `2. Call \`kata_write_document\` with title \`PROJECT\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/project.md\` first.`,
+      `3. Call \`kata_write_document\` with title \`REQUIREMENTS\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/requirements.md\` first. Capture Active, Deferred, Out of Scope, and any already Validated requirements. Later milestones may have provisional ownership where slice plans do not exist yet.`,
+      `4. Call \`kata_write_document\` with title \`{milestoneId}-CONTEXT\` for **every** milestone — capture the intent, scope, risks, constraints, user-visible outcome, completion class, final integrated acceptance, and relevant requirements for each. Each future milestone's CONTEXT should be rich enough that a planning agent encountering it fresh — with no memory of this conversation — can understand the intent, constraints, dependencies, what this milestone unlocks, and what "done" looks like.`,
+      `5. Call \`kata_write_document\` with title \`M001-ROADMAP\` for **only the first milestone** — detail-planning later milestones now is waste because the codebase will change. Include requirement coverage and a milestone definition of done.`,
+      `6. Call \`kata_write_document\` with title \`DECISIONS\`.`,
+    ].join("\n");
+
+    return loadPrompt("discuss", {
+      milestoneId: nextId,
+      preamble,
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `After writing all documents, say exactly: "Milestone ${nextId} ready." — nothing else. Auto-mode will start automatically.`,
+    });
   }
 
   // ── Private Prompt Builders ─────────────────────────────────────────
+
+  private _buildResearchMilestoneOps(mid: string): OpsBlock {
+    const backendOps = [
+      `7. Write research findings: \`kata_write_document("${mid}-RESEARCH", content)\``,
+      `   - Include: Summary, Don't Hand-Roll table, Common Pitfalls, Relevant Code, Sources.`,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${mid}-RESEARCH\` document before finishing.**\n\n${REFERENCE}`,
+    };
+  }
 
   private _buildResearchMilestonePrompt(state: KataState): string {
     const mid = state.activeMilestone?.id ?? "unknown";
     const mTitle = state.activeMilestone?.title ?? "unknown";
 
-    return [
-      `# Research Milestone — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid} — ${mTitle}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm the active milestone and obtain \`projectId\`.`,
       ``,
@@ -307,28 +357,48 @@ export class LinearBackend implements KataBackend {
       `   - \`kata_read_document("PROJECT")\``,
       `   - \`kata_read_document("REQUIREMENTS")\``,
       `   - \`kata_read_document("DECISIONS")\``,
-      ``,
-      `5. Scout the codebase and relevant docs. Use \`rg\`, \`find\`, \`resolve_library\` / \`get_library_docs\` as needed.`,
-      ``,
-      `6. Write research findings: \`kata_write_document("${mid}-RESEARCH", content)\``,
-      `   - Include: Summary, Don't Hand-Roll table, Common Pitfalls, Relevant Code, Sources.`,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildResearchMilestoneOps(mid);
+
+    return loadPrompt("research-milestone", {
+      milestoneId: mid,
+      milestoneTitle: mTitle,
+      inlinedContext,
+      ...buildSkillDiscoveryVars(),
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
+  }
+
+  private _buildPlanMilestoneOps(mid: string): OpsBlock {
+    const backendOps = [
+      `6. Idempotency check:`,
+      `   - Call \`kata_list_slices\` for the project. If slices already exist for this milestone, do NOT create duplicates.`,
+      `   - Call \`kata_read_document("${mid}-ROADMAP")\`. If it already exists, review and advance rather than rewriting.`,
+      `7. Write the milestone roadmap: \`kata_write_document("${mid}-ROADMAP", content)\``,
+      `   - Define slices (S01, S02, ...) ordered by risk — riskiest first.`,
+      `   - Each slice: demoable vertical increment with risk level and dependencies.`,
+      `   - Include a Boundary Map showing what each slice produces/consumes.`,
+      `   - Include checkboxes, risk, depends, demo sentences, proof strategy, verification classes, milestone definition of done, **requirement coverage**, and a boundary map. Write success criteria as observable truths, not implementation tasks.`,
+      `8. Create slice issues in Linear for each slice in the roadmap:`,
+      `   - Call \`kata_create_slice\` for each slice.`,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${mid}-ROADMAP\` document before finishing.**\n\n${REFERENCE}`,
+    };
   }
 
   private _buildPlanMilestonePrompt(state: KataState): string {
     const mid = state.activeMilestone?.id ?? "unknown";
     const mTitle = state.activeMilestone?.title ?? "unknown";
 
-    return [
-      `# Plan Milestone — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid} — ${mTitle}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm the active milestone and obtain \`projectId\`.`,
       ``,
@@ -343,21 +413,31 @@ export class LinearBackend implements KataBackend {
       `   - \`kata_read_document("DECISIONS")\``,
       `   - \`kata_read_document("REQUIREMENTS")\``,
       `   - \`kata_read_document("PROJECT")\``,
-      ``,
-      `5. Idempotency check:`,
-      `   - Call \`kata_list_slices\` for the project. If slices already exist for this milestone, do NOT create duplicates.`,
-      `   - Call \`kata_read_document("${mid}-ROADMAP")\`. If it already exists, review and advance rather than rewriting.`,
-      ``,
-      `6. Write the milestone roadmap: \`kata_write_document("${mid}-ROADMAP", content)\``,
-      `   - Define slices (S01, S02, ...) ordered by risk — riskiest first.`,
-      `   - Each slice: demoable vertical increment with risk level and dependencies.`,
-      `   - Include a Boundary Map showing what each slice produces/consumes.`,
-      ``,
-      `7. Create slice issues in Linear for each slice in the roadmap:`,
-      `   - Call \`kata_create_slice\` for each slice.`,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildPlanMilestoneOps(mid);
+
+    return loadPrompt("plan-milestone", {
+      milestoneId: mid,
+      milestoneTitle: mTitle,
+      inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
+  }
+
+  private _buildResearchSliceOps(sid: string): OpsBlock {
+    const backendOps = [
+      `6. Write slice research: \`kata_write_document("${sid}-RESEARCH", content)\``,
+      `   - Include: Summary, Don't Hand-Roll, Common Pitfalls, Relevant Code, Sources.`,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${sid}-RESEARCH\` document before finishing.**\n\n${REFERENCE}`,
+    };
   }
 
   private _buildResearchSlicePrompt(state: KataState): string {
@@ -365,15 +445,13 @@ export class LinearBackend implements KataBackend {
     const sid = state.activeSlice?.id ?? "unknown";
     const sTitle = state.activeSlice?.title ?? "unknown";
 
-    return [
-      `# Research Slice — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid}`,
-      `**Slice:** ${sid} — ${sTitle}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const dependencySummaries = [
+      `- Check the roadmap for \`depends:[]\` on this slice.`,
+      `- For each dependency, call \`kata_read_document("Sxx-SUMMARY")\`.`,
+    ].join("\n");
+
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm the active milestone and slice, and obtain \`projectId\`.`,
       ``,
@@ -388,18 +466,48 @@ export class LinearBackend implements KataBackend {
       `   - \`kata_read_document("${mid}-RESEARCH")\``,
       `   - \`kata_read_document("DECISIONS")\``,
       `   - \`kata_read_document("REQUIREMENTS")\``,
-      ``,
-      `5. Read dependency slice summaries:`,
-      `   - Check the roadmap for \`depends:[]\` on this slice.`,
-      `   - For each dependency, call \`kata_read_document("Sxx-SUMMARY")\`.`,
-      ``,
-      `6. Scout the codebase and relevant docs for this slice's scope.`,
-      ``,
-      `7. Write slice research: \`kata_write_document("${sid}-RESEARCH", content)\``,
-      `   - Include: Summary, Don't Hand-Roll, Common Pitfalls, Relevant Code, Sources.`,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildResearchSliceOps(sid);
+
+    return loadPrompt("research-slice", {
+      milestoneId: mid,
+      sliceId: sid,
+      sliceTitle: sTitle,
+      inlinedContext,
+      dependencySummaries,
+      ...buildSkillDiscoveryVars(),
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
+  }
+
+  private _buildPlanSliceOps(sid: string): OpsBlock {
+    const backendOps = [
+      `10. Idempotency check:`,
+      `    - Call \`kata_read_document("${sid}-PLAN")\`. If it exists, review rather than rewrite.`,
+      `    - Call \`kata_list_tasks\` for the slice issue. If tasks exist, do NOT create duplicates.`,
+      `11. Write the slice plan: \`kata_write_document("${sid}-PLAN", content)\``,
+      `    - Decompose into 1-7 tasks, each fitting one context window.`,
+      `    - Each task: title, must-haves (truths, artifacts, key links), steps.`,
+      `12. **Self-audit the plan before continuing.** Walk through each check — if any fail, fix the plan before moving on:`,
+      `    - **Completion semantics:** If every task were completed exactly as written, the slice goal/demo should actually be true at the claimed proof level.`,
+      `    - **Requirement coverage:** Every must-have in the slice maps to at least one task. No must-have is orphaned.`,
+      `    - **Task completeness:** Every task has steps, must-haves, verification, observability impact, inputs, and expected output.`,
+      `    - **Dependency correctness:** Task ordering is consistent. No task references work from a later task.`,
+      `    - **Scope sanity:** Target 2-5 steps and 3-8 files per task. 10+ steps or 12+ files: must split.`,
+      `13. Create task sub-issues: call \`kata_create_task\` for each task (T01, T02, ...).`,
+      `    - Write individual task plans: \`kata_write_document("T01-PLAN", content, { issueId: "<slice-issue-uuid>" })\` for each task.`,
+      `    - Task docs MUST use { issueId } scoped to the slice issue, NOT { projectId }. This prevents T01-PLAN collisions across slices.`,
+      `14. Advance the slice to executing: \`kata_update_issue_state({ issueId: "<slice-uuid>", phase: "executing" })\``,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${sid}-PLAN\` document before finishing.**\n\n${REFERENCE}`,
+    };
   }
 
   private _buildPlanSlicePrompt(state: KataState): string {
@@ -407,15 +515,13 @@ export class LinearBackend implements KataBackend {
     const sid = state.activeSlice?.id ?? "unknown";
     const sTitle = state.activeSlice?.title ?? "unknown";
 
-    return [
-      `# Plan Slice — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid}`,
-      `**Slice:** ${sid} — ${sTitle}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const dependencySummaries = [
+      `- Check the roadmap for \`depends:[]\` on this slice.`,
+      `- For each dependency, call \`kata_read_document("Sxx-SUMMARY")\`.`,
+    ].join("\n");
+
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm the active milestone and slice, and obtain \`projectId\`.`,
       ``,
@@ -429,45 +535,63 @@ export class LinearBackend implements KataBackend {
       `   - \`kata_read_document("${sid}-RESEARCH")\``,
       `   - \`kata_read_document("DECISIONS")\``,
       `   - \`kata_read_document("REQUIREMENTS")\``,
-      ``,
-      `5. Read dependency slice summaries:`,
-      `   - Check the roadmap for \`depends:[]\` on this slice.`,
-      `   - For each dependency, call \`kata_read_document("Sxx-SUMMARY")\`.`,
-      ``,
-      `6. Idempotency check:`,
-      `   - Call \`kata_read_document("${sid}-PLAN")\`. If it exists, review rather than rewrite.`,
-      `   - Call \`kata_list_tasks\` for the slice issue. If tasks exist, do NOT create duplicates.`,
-      ``,
-      `7. Write the slice plan: \`kata_write_document("${sid}-PLAN", content)\``,
-      `   - Decompose into 1-7 tasks, each fitting one context window.`,
-      `   - Each task: title, must-haves (truths, artifacts, key links), steps.`,
-      ``,
-      `8. Create task sub-issues: call \`kata_create_task\` for each task (T01, T02, ...).`,
-      `   - Write individual task plans: \`kata_write_document("T01-PLAN", content, { issueId: "<slice-issue-uuid>" })\` for each task.`,
-      `   - Task docs MUST use { issueId } scoped to the slice issue, NOT { projectId }. This prevents T01-PLAN collisions across slices.`,
-      ``,
-      `9. Advance the slice to executing: \`kata_update_issue_state({ issueId: "<slice-uuid>", phase: "executing" })\``,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildPlanSliceOps(sid);
+
+    return loadPrompt("plan-slice", {
+      milestoneId: mid,
+      sliceId: sid,
+      sliceTitle: sTitle,
+      inlinedContext,
+      dependencySummaries,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
+  }
+
+  private _buildExecuteTaskOps(
+    sid: string,
+    tid: string,
+  ): OpsBlock & { backingArtifacts: string } {
+    const backingArtifacts = [
+      `## Backing Source Artifacts`,
+      `- Task plan: \`${tid}-PLAN\` (scoped to slice issue)`,
+      `- Slice plan: \`${sid}-PLAN\` (project-scoped)`,
+      `- Prior task summaries: call \`kata_list_tasks\` then read each completed task's summary`,
+    ].join("\n");
+
+    const backendOps = [
+      `13. Read the task summary template: \`kata_read_document("task-summary-template")\` or use the standard task-summary format.`,
+      `14. Write the task summary (scoped to slice issue): \`kata_write_document("${tid}-SUMMARY", content, { issueId: "<slice-issue-uuid>" })\``,
+      `   - Include: what shipped (one-liner), what happened, deviations, files modified, verification result.`,
+      `15. Commit your work:`,
+      `   - Stage all changed files: \`git add -A\``,
+      `   - Commit with message: \`feat(${sid}/${tid}): <short description of what was built>\``,
+      `   - Do NOT push. Do NOT advance the slice — only advance the task.`,
+      `16. Advance the task to done: \`kata_update_issue_state({ issueId: "<task-uuid>", phase: "done" })\``,
+      `   - Resolve the task UUID via \`kata_list_tasks\` if needed.`,
+      `   - Do NOT advance the slice to done. The orchestrator handles slice completion.`,
+    ].join("\n");
+
+    return {
+      backingArtifacts,
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${tid}-SUMMARY\` document AND advance the task to done before finishing.**\n\n${REFERENCE}`,
+    };
   }
 
   private _buildExecuteTaskPrompt(state: KataState): string {
     const mid = state.activeMilestone?.id ?? "unknown";
     const sid = state.activeSlice?.id ?? "unknown";
+    const sTitle = state.activeSlice?.title ?? "unknown";
     const tid = state.activeTask?.id ?? "unknown";
     const tTitle = state.activeTask?.title ?? "unknown";
 
-    return [
-      `# Execute Task — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid}`,
-      `**Slice:** ${sid}`,
-      `**Task:** ${tid} — ${tTitle}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const taskPlanInline = [
+      `## Inlined Task Plan (authoritative local execution contract)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm the active milestone, slice, and task. Obtain \`projectId\`.`,
       ``,
@@ -478,37 +602,75 @@ export class LinearBackend implements KataBackend {
       `3. Read the task plan (scoped to the slice issue, NOT the project):`,
       `   - Call \`kata_read_document("${tid}-PLAN", { issueId: "<slice-issue-uuid>" })\` — **required**. If null, stop: task plan is missing.`,
       `   - Get the slice issue UUID from \`kata_derive_state\` → \`activeSlice\` or from \`kata_list_slices\`.`,
-      ``,
-      `4. Read optional slice context:`,
-      `   - Call \`kata_read_document("${sid}-PLAN", { projectId })\` for slice-level goal, demo, and verification criteria.`,
-      ``,
-      `5. Carry-forward from prior tasks:`,
-      `   - Call \`kata_list_tasks\` with the slice issue UUID.`,
-      `   - For each completed prior task, call \`kata_read_document("Txx-SUMMARY", { issueId: "<slice-issue-uuid>" })\` to understand what's already built.`,
-      ``,
-      `6. Check for partial progress:`,
-      `   - Call \`kata_read_document("${tid}-SUMMARY", { issueId: "<slice-issue-uuid>" })\`. If it exists with partial content, resume from where it left off.`,
-      ``,
-      `7. Execute the task as specified in the plan. Build real implementation — no stubs.`,
-      ``,
-      `8. If you make an architectural decision, append it to the \`DECISIONS\` document:`,
-      `   - Read current: \`kata_read_document("DECISIONS")\``,
-      `   - Append and write: \`kata_write_document("DECISIONS", updatedContent)\``,
-      ``,
-      `9. Commit your work:`,
-      `   - Stage all changed files: \`git add -A\``,
-      `   - Commit with message: \`feat(${sid}/${tid}): <short description of what was built>\``,
-      `   - Do NOT push. Do NOT advance the slice — only advance the task.`,
-      ``,
-      `10. Write the task summary (scoped to slice issue): \`kata_write_document("${tid}-SUMMARY", content, { issueId: "<slice-issue-uuid>" })\``,
-      `   - Include: what shipped (one-liner), what happened, deviations, files modified, verification result.`,
-      ``,
-      `11. Advance the task to done: \`kata_update_issue_state({ issueId: "<task-uuid>", phase: "done" })\``,
-      `   - Resolve the task UUID via \`kata_list_tasks\` if needed.`,
-      `   - Do NOT advance the slice to done. The orchestrator handles slice completion.`,
-      ``,
-      REFERENCE,
+      `   - Treat the returned content as the authoritative execution steps.`,
     ].join("\n");
+
+    const slicePlanExcerpt = [
+      `## Slice Plan Excerpt`,
+      ``,
+      `Read the slice plan for goal, demo, and verification criteria:`,
+      `- Call \`kata_read_document("${sid}-PLAN", { projectId })\``,
+    ].join("\n");
+
+    const resumeSection = [
+      `## Resume Check`,
+      ``,
+      `Check for partial progress:`,
+      `- Call \`kata_read_document("${tid}-SUMMARY", { issueId: "<slice-issue-uuid>" })\`. If it exists with partial content, resume from where it left off.`,
+    ].join("\n");
+
+    const carryForwardSection = [
+      `## Carry-Forward from Prior Tasks`,
+      ``,
+      `- Call \`kata_list_tasks\` with the slice issue UUID.`,
+      `- For each completed prior task, call \`kata_read_document("Txx-SUMMARY", { issueId: "<slice-issue-uuid>" })\` to understand what's already built.`,
+    ].join("\n");
+
+    const ops = this._buildExecuteTaskOps(sid, tid);
+
+    return loadPrompt("execute-task", {
+      milestoneId: mid,
+      sliceId: sid,
+      sliceTitle: sTitle,
+      taskId: tid,
+      taskTitle: tTitle,
+      taskPlanInline,
+      slicePlanExcerpt,
+      resumeSection,
+      carryForwardSection,
+      backingArtifacts: ops.backingArtifacts,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
+  }
+
+  private _buildCompleteSliceOps(
+    mid: string,
+    sid: string,
+    sTitle: string,
+  ): OpsBlock {
+    const backendOps = [
+      `5. Read the slice-summary and UAT templates (if available via \`kata_read_document\`), or use the standard formats.`,
+      `6. Write the slice summary: \`kata_write_document("${sid}-SUMMARY", content)\``,
+      `   - Synthesize work across all tasks: what was built, key decisions, key files, patterns established.`,
+      `   - Fill the requirement-related sections explicitly.`,
+      `7. Write the UAT script: \`kata_write_document("${sid}-UAT", content)\``,
+      `   - Derive from the slice's must-haves and demo sentence.`,
+      `   - Fill the new \`UAT Type\`, \`Requirements Proved By This UAT\`, and \`Not Proven By This UAT\` sections explicitly.`,
+      `8. Review task summaries for \`key_decisions\`. Ensure any significant architectural, pattern, or observability decisions are in the \`DECISIONS\` document. If any are missing, append them now via \`kata_write_document("DECISIONS", updatedContent)\`.`,
+      `9. Commit all remaining slice changes:`,
+      `   - Stage all changed files: \`git add -A\``,
+      `   - Commit with message: \`feat(${sid}): complete slice — ${sTitle}\``,
+      `   - Do NOT push.`,
+      `10. Advance the slice to done: \`kata_update_issue_state({ issueId: "<slice-uuid>", phase: "done" })\``,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${sid}-SUMMARY\` document AND advance the slice to done before finishing.**\n\n${REFERENCE}`,
+    };
   }
 
   private _buildCompleteSlicePrompt(state: KataState): string {
@@ -516,15 +678,8 @@ export class LinearBackend implements KataBackend {
     const sid = state.activeSlice?.id ?? "unknown";
     const sTitle = state.activeSlice?.title ?? "unknown";
 
-    return [
-      `# Complete Slice — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid}`,
-      `**Slice:** ${sid} — ${sTitle}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm the active milestone and slice. Obtain \`projectId\`.`,
       ``,
@@ -542,38 +697,50 @@ export class LinearBackend implements KataBackend {
       `5. Collect all task summaries (scoped to slice issue):`,
       `   - Call \`kata_list_tasks\` with the slice issue UUID.`,
       `   - For each task, call \`kata_read_document("Txx-SUMMARY", { issueId: "<slice-issue-uuid>" })\`.`,
-      ``,
-      `6. Write the slice summary: \`kata_write_document("${sid}-SUMMARY", content)\``,
-      `   - Synthesize work across all tasks: what was built, key decisions, key files, patterns established.`,
-      `   - Review task summaries for key_decisions and ensure significant ones are in the DECISIONS document.`,
-      ``,
-      `7. Write the UAT script: \`kata_write_document("${sid}-UAT", content)\``,
-      `   - Derive from the slice's must-haves and demo sentence.`,
-      `   - Non-blocking — the agent does NOT wait for UAT results.`,
-      ``,
-      `8. Commit any remaining uncommitted work:`,
-      `   - Stage all changed files: \`git add -A\``,
-      `   - Commit with message: \`feat(${sid}): complete slice — ${sTitle}\``,
-      `   - Do NOT push.`,
-      ``,
-      `9. Advance the slice to done: \`kata_update_issue_state({ issueId: "<slice-uuid>", phase: "done" })\``,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildCompleteSliceOps(mid, sid, sTitle);
+
+    return loadPrompt("complete-slice", {
+      milestoneId: mid,
+      sliceId: sid,
+      sliceTitle: sTitle,
+      inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
+  }
+
+  private _buildCompleteMilestoneOps(state: KataState): OpsBlock {
+    const mid = state.activeMilestone?.id ?? "unknown";
+
+    const backendOps = [
+      `5. Write the milestone summary: \`kata_write_document("${mid}-SUMMARY", content)\``,
+      `   - Fill all frontmatter fields and narrative sections. The \`requirement_outcomes\` field must list every requirement that changed status with \`from_status\`, \`to_status\`, and \`proof\`.`,
+      `6. Update requirements: \`kata_write_document("REQUIREMENTS", content)\` if any requirement status transitions were validated in step 4.`,
+      `7. Update project doc: \`kata_write_document("PROJECT", content)\` to reflect milestone completion and current project state.`,
+      `8. Commit all remaining uncommitted work:`,
+      `   - Stage all changed files: \`git add -A\``,
+      `   - Commit with message: \`feat(kata): complete ${mid}\``,
+      `   - Do NOT push.`,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${mid}-SUMMARY\` document AND update PROJECT before finishing.**\n\n${REFERENCE}`,
+    };
   }
 
   private _buildCompleteMilestonePrompt(state: KataState): string {
     const mid = state.activeMilestone?.id ?? "unknown";
     const mTitle = state.activeMilestone?.title ?? "unknown";
 
-    return [
-      `# Complete Milestone — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid} — ${mTitle}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    // LinearBackend does not pre-fetch: the agent reads docs via tool calls.
+    // Build inlinedContext as fetch instructions (steps the agent must run first).
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm all slices are complete. Obtain \`projectId\`.`,
       ``,
@@ -592,13 +759,41 @@ export class LinearBackend implements KataBackend {
       `   - \`kata_read_document("DECISIONS")\``,
       `   - \`kata_read_document("PROJECT")\``,
       `   - \`kata_read_document("${mid}-CONTEXT")\``,
-      ``,
-      `6. Write the milestone summary: \`kata_write_document("${mid}-SUMMARY", content)\``,
-      `   - Compress all slice summaries into a milestone-level narrative.`,
-      `   - Include: what the milestone delivered, key decisions, architectural patterns, files modified.`,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildCompleteMilestoneOps(state);
+
+    return loadPrompt("complete-milestone", {
+      milestoneId: mid,
+      milestoneTitle: mTitle,
+      roadmapPath: `${mid}-ROADMAP (Linear document)`,
+      inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
+  }
+
+  private _buildReplanSliceOps(state: KataState): OpsBlock {
+    const sid = state.activeSlice?.id ?? "unknown";
+
+    const backendOps = [
+      `3. Find the blocker:`,
+      `   - Call \`kata_list_tasks\` for the slice.`,
+      `   - Read task summaries to find which task discovered the blocker.`,
+      `4. Write the replan: \`kata_write_document("${sid}-REPLAN", content)\``,
+      `   - Describe the blocker, its impact, and the revised task decomposition.`,
+      `5. Rewrite the slice plan: \`kata_write_document("${sid}-PLAN", content)\``,
+      `   - Keep all \`[x]\` tasks exactly as they were`,
+      `   - Update the \`[ ]\` tasks to address the blocker`,
+      `   - Create new task sub-issues if needed via \`kata_create_task\``,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${sid}-REPLAN\` document and the updated slice plan before finishing.**\n\n${REFERENCE}`,
+    };
   }
 
   private _buildReplanSlicePrompt(state: KataState): string {
@@ -606,15 +801,8 @@ export class LinearBackend implements KataBackend {
     const sid = state.activeSlice?.id ?? "unknown";
     const sTitle = state.activeSlice?.title ?? "unknown";
 
-    return [
-      `# Replan Slice — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid}`,
-      `**Slice:** ${sid} — ${sTitle}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm the active slice context.`,
       ``,
@@ -624,32 +812,50 @@ export class LinearBackend implements KataBackend {
       ``,
       `3. Read optional context:`,
       `   - \`kata_read_document("DECISIONS")\``,
-      ``,
-      `4. Find the blocker:`,
-      `   - Call \`kata_list_tasks\` for the slice.`,
-      `   - Read task summaries to find which task discovered the blocker.`,
-      ``,
-      `5. Write the replan: \`kata_write_document("${sid}-REPLAN", content)\``,
-      `   - Describe the blocker, its impact, and the revised task decomposition.`,
-      `   - Create new task sub-issues if needed via \`kata_create_task\`.`,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildReplanSliceOps(state);
+
+    return loadPrompt("replan-slice", {
+      milestoneId: mid,
+      sliceId: sid,
+      sliceTitle: sTitle,
+      inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
+  }
+
+  private _buildReassessRoadmapOps(completedSliceId: string, mid: string): OpsBlock {
+    const backendOps = [
+      `**If the roadmap is still good:**`,
+      ``,
+      `Write the assessment: \`kata_write_document("${completedSliceId}-ASSESSMENT", content)\` with a brief confirmation that roadmap coverage still holds after ${completedSliceId}. If requirements exist, explicitly note whether requirement coverage remains sound.`,
+      ``,
+      `**If changes are needed:**`,
+      ``,
+      `1. Update the roadmap: \`kata_write_document("${mid}-ROADMAP", content)\`. Keep completed slices exactly as they are (\`[x]\`). Update the boundary map, proof strategy, and requirement coverage as needed.`,
+      `2. Write the assessment: \`kata_write_document("${completedSliceId}-ASSESSMENT", content)\` explaining what changed and why — keep it brief and concrete.`,
+      `3. If requirements changed: \`kata_write_document("REQUIREMENTS", content)\``,
+      `4. Commit all remaining uncommitted work:`,
+      `   - Stage all changed files: \`git add -A\``,
+      `   - Commit with message: \`docs(${mid}): reassess roadmap after ${completedSliceId}\``,
+      `   - Do NOT push.`,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${completedSliceId}-ASSESSMENT\` document before finishing.**\n\n${REFERENCE}`,
+    };
   }
 
   private _buildReassessRoadmapPrompt(state: KataState, completedSliceId: string): string {
     const mid = state.activeMilestone?.id ?? "unknown";
-    const mTitle = state.activeMilestone?.title ?? "unknown";
 
-    return [
-      `# Reassess Roadmap — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid} — ${mTitle}`,
-      `**Completed Slice:** ${completedSliceId}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm the active milestone.`,
       ``,
@@ -661,29 +867,39 @@ export class LinearBackend implements KataBackend {
       `   - \`kata_read_document("PROJECT")\``,
       `   - \`kata_read_document("REQUIREMENTS")\``,
       `   - \`kata_read_document("DECISIONS")\``,
-      ``,
-      `4. Assess whether the roadmap needs changes based on what was learned during the completed slice.`,
-      ``,
-      `5. Write the assessment: \`kata_write_document("${completedSliceId}-ASSESSMENT", content)\``,
-      `   - Include: what changed, what's confirmed, any new risks or scope adjustments.`,
-      `   - If the roadmap needs updating, update it via \`kata_write_document("${mid}-ROADMAP", ...)\`.`,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildReassessRoadmapOps(completedSliceId, mid);
+
+    return loadPrompt("reassess-roadmap", {
+      milestoneId: mid,
+      completedSliceId,
+      inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
+  }
+
+  private _buildRunUatOps(sliceId: string): OpsBlock {
+    const backendOps = [
+      `Write the UAT result: \`kata_write_document("${sliceId}-UAT-RESULT", content)\``,
+      ``,
+      `Use the same markdown format as described for artifact-driven UATs (frontmatter with sliceId, uatType, verdict, date; Checks table; Overall Verdict; Notes).`,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${sliceId}-UAT-RESULT\` document before finishing.**\n\n${REFERENCE}`,
+    };
   }
 
   private _buildRunUatPrompt(state: KataState, sliceId: string): string {
     const mid = state.activeMilestone?.id ?? "unknown";
 
-    return [
-      `# Run UAT — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid}`,
-      `**Slice:** ${sliceId}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm context.`,
       ``,
@@ -693,13 +909,20 @@ export class LinearBackend implements KataBackend {
       `3. Read optional context:`,
       `   - \`kata_read_document("${sliceId}-SUMMARY")\``,
       `   - \`kata_read_document("PROJECT")\``,
-      ``,
-      `4. Execute the UAT test script. Verify each acceptance criterion.`,
-      ``,
-      `5. Write the UAT result: \`kata_write_document("${sliceId}-UAT-RESULT", content)\``,
-      `   - Include: pass/fail for each criterion, evidence, any issues found.`,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildRunUatOps(sliceId);
+
+    return loadPrompt("run-uat", {
+      milestoneId: mid,
+      sliceId,
+      uatRef: `${sliceId}-UAT (Linear document)`,
+      uatResultRef: `${sliceId}-UAT-RESULT (Linear document)`,
+      uatType: "artifact-driven",
+      inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
   }
 }

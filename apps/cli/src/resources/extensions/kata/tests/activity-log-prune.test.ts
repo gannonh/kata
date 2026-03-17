@@ -299,12 +299,15 @@ async function main(): Promise<void> {
 
   {
     const { readFileSync } = await import('node:fs');
-    const promptPath = join(__dirname, '..', 'prompts', 'complete-slice.md');
-    const content = readFileSync(promptPath, 'utf-8');
+    // The "refresh current state if needed" instruction now lives in
+    // FileBackend._buildCompleteSliceOps (backendOps), injected into the
+    // complete-slice template at render time. Verify it exists in the backend.
+    const backendPath = join(__dirname, '..', 'file-backend.ts');
+    const content = readFileSync(backendPath, 'utf-8');
 
     assert(
       content.includes('refresh current state if needed'),
-      '(j) complete-slice.md step 11 contains "refresh current state if needed"',
+      '(j) file-backend.ts complete-slice ops contains "refresh current state if needed"',
     );
   }
 

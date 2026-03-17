@@ -6,7 +6,7 @@
  * via the paths module.
  */
 
-import { existsSync, mkdirSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join } from "node:path";
 
@@ -16,6 +16,7 @@ import type {
   PromptOptions,
   DashboardData,
   PrContext,
+  OpsBlock,
 } from "./backend.js";
 import type { KataState, Phase } from "./types.js";
 
@@ -31,7 +32,6 @@ import {
 } from "./files.js";
 import { loadPrompt } from "./prompt-loader.js";
 import {
-  kataRoot,
   milestonesDir,
   resolveKataRootFile,
   resolveMilestoneFile,
@@ -49,7 +49,7 @@ import {
   relKataRootFile,
   type KataRootFileKey,
 } from "./paths.js";
-import { resolveSkillDiscoveryMode } from "./preferences.js";
+import { buildSkillDiscoveryVars } from "./preferences.js";
 import { ensureGitignore, ensurePreferences } from "./gitignore.js";
 import { resolveGitRoot, ensureGitRepo } from "./git-utils.js";
 import {
@@ -279,11 +279,50 @@ export class FileBackend implements KataBackend {
 
   buildDiscussPrompt(nextId: string, preamble: string): string {
     const milestoneDirAbs = join(this.basePath, ".kata", "milestones", nextId);
+    const contextAbsPath = join(milestoneDirAbs, `${nextId}-CONTEXT.md`);
+    const roadmapAbsPath = join(milestoneDirAbs, `${nextId}-ROADMAP.md`);
+
+    const backendOps = [
+      `**Before writing any artifacts, read \`.kata/preferences.md\` and check the \`workflow.mode\` field.** The mode at output time determines where artifacts are stored.`,
+      ``,
+      `### Naming Convention`,
+      ``,
+      `Directories use bare IDs. Files use ID-SUFFIX format. Titles live inside file content, not in names.`,
+      `- Milestone dir: \`.kata/milestones/${nextId}/\``,
+      `- Milestone files: \`${nextId}-CONTEXT.md\`, \`${nextId}-ROADMAP.md\``,
+      `- Slice dirs: \`S01/\`, \`S02/\`, etc.`,
+      ``,
+      `### Single Milestone`,
+      ``,
+      `Once the user is satisfied, in a single pass:`,
+      `1. \`mkdir -p .kata/milestones/${nextId}/slices\``,
+      `2. Write or update \`.kata/PROJECT.md\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/project.md\` first. Describe what the project is, its current state, and list the milestone sequence.`,
+      `3. Write or update \`.kata/REQUIREMENTS.md\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/requirements.md\` first. Confirm requirement states, ownership, and traceability before roadmap creation.`,
+      `4. Write \`${contextAbsPath}\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/context.md\` first. Preserve key risks, unknowns, existing codebase constraints, integration points, and relevant requirements surfaced during discussion.`,
+      `5. Write \`${roadmapAbsPath}\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/roadmap.md\` first. Decompose into demoable vertical slices with checkboxes, risk, depends, demo sentences, proof strategy, verification classes, milestone definition of done, requirement coverage, and a boundary map. If the milestone crosses multiple runtime boundaries, include an explicit final integration slice that proves the assembled system works end-to-end in a real environment.`,
+      `6. Seed \`.kata/DECISIONS.md\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/decisions.md\` first. Append rows for any architectural or pattern decisions made during discussion.`,
+      `7. Update \`.kata/STATE.md\``,
+      `8. Commit: \`docs(${nextId}): context, requirements, and roadmap\``,
+      ``,
+      `### Multi-Milestone`,
+      ``,
+      `Once the user confirms the milestone split, in a single pass:`,
+      `1. \`mkdir -p .kata/milestones/<milestoneId>/slices\` for each milestone`,
+      `2. Write \`.kata/PROJECT.md\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/project.md\` first.`,
+      `3. Write \`.kata/REQUIREMENTS.md\` — read the template at \`~/.kata-cli/agent/extensions/kata/templates/requirements.md\` first. Capture Active, Deferred, Out of Scope, and any already Validated requirements. Later milestones may have provisional ownership where slice plans do not exist yet.`,
+      `4. Write \`<milestoneId>-CONTEXT.md\` in each milestone directory — capture the intent, scope, risks, constraints, user-visible outcome, completion class, final integrated acceptance, and relevant requirements for each. Each future milestone's context should be rich enough that a planning agent encountering it fresh — with no memory of this conversation — can understand the intent, constraints, dependencies, what this milestone unlocks, and what "done" looks like.`,
+      `5. Write \`${nextId}-ROADMAP.md\` for **only the first milestone** — detail-planning later milestones now is waste because the codebase will change. Include requirement coverage and a milestone definition of done.`,
+      `6. Seed \`.kata/DECISIONS.md\`.`,
+      `7. Update \`.kata/STATE.md\``,
+      `8. Commit: \`docs: project plan — N milestones\` (replace N with the actual milestone count)`,
+    ].join("\n");
+
     return loadPrompt("discuss", {
       milestoneId: nextId,
       preamble,
-      contextAbsPath: join(milestoneDirAbs, `${nextId}-CONTEXT.md`),
-      roadmapAbsPath: join(milestoneDirAbs, `${nextId}-ROADMAP.md`),
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `After writing the files and committing, say exactly: "Milestone ${nextId} ready." — nothing else. Auto-mode will start automatically.`,
     });
   }
 
@@ -363,6 +402,28 @@ export class FileBackend implements KataBackend {
 
   // ── Private Prompt Builders ───────────────────────────────────────────
 
+  private _buildResearchMilestoneOps(mid: string): OpsBlock {
+    const base = this.basePath;
+    const outputRelPath = relMilestoneFile(base, mid, "RESEARCH");
+    const outputAbsPath =
+      resolveMilestoneFile(base, mid, "RESEARCH") ?? join(base, outputRelPath);
+
+    const backendOps = [
+      `7. Write \`${outputRelPath}\` with:`,
+      `   - Summary (2-3 paragraphs, primary recommendation)`,
+      `   - Don't Hand-Roll table (problems with existing solutions)`,
+      `   - Common Pitfalls (what goes wrong, how to avoid)`,
+      `   - Relevant Code (existing files, patterns, integration points)`,
+      `   - Sources`,
+    ].join("\n");
+
+    return {
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST write the file \`${outputAbsPath}\` before finishing.**`,
+    };
+  }
+
   private async _buildResearchMilestonePrompt(state: KataState): Promise<string> {
     const mid = state.activeMilestone!.id;
     const midTitle = state.activeMilestone!.title;
@@ -388,19 +449,36 @@ export class FileBackend implements KataBackend {
 
     const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
-    const outputRelPath = relMilestoneFile(base, mid, "RESEARCH");
-    const outputAbsPath =
-      resolveMilestoneFile(base, mid, "RESEARCH") ?? join(base, outputRelPath);
+    const ops = this._buildResearchMilestoneOps(mid);
+
     return loadPrompt("research-milestone", {
       milestoneId: mid,
       milestoneTitle: midTitle,
-      milestonePath: relMilestonePath(base, mid),
-      contextPath: contextRel,
-      outputPath: outputRelPath,
-      outputAbsPath,
       inlinedContext,
-      ...this._buildSkillDiscoveryVars(),
+      ...buildSkillDiscoveryVars(),
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
+  }
+
+  private _buildPlanMilestoneOps(mid: string): OpsBlock {
+    const base = this.basePath;
+    const outputRelPath = relMilestoneFile(base, mid, "ROADMAP");
+    const outputAbsPath =
+      resolveMilestoneFile(base, mid, "ROADMAP") ?? join(base, outputRelPath);
+
+    const backendOps = [
+      `6. Write \`${outputRelPath}\` with checkboxes, risk, depends, demo sentences, proof strategy, verification classes, milestone definition of done, **requirement coverage**, and a boundary map. Write success criteria as observable truths, not implementation tasks. If the milestone crosses multiple runtime boundaries, include an explicit final integration slice that proves the assembled system works end-to-end in a real environment`,
+      `7. If planning produced structural decisions (e.g. slice ordering rationale, technology choices, scope exclusions), append them to \`.kata/DECISIONS.md\` (read the template at \`~/.kata-cli/agent/extensions/kata/templates/decisions.md\` if the file doesn't exist yet)`,
+      `8. Update \`.kata/STATE.md\``,
+    ].join("\n");
+
+    return {
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST write the file \`${outputAbsPath}\` before finishing.**`,
+    };
   }
 
   private async _buildPlanMilestonePrompt(state: KataState): Promise<string> {
@@ -438,19 +516,36 @@ export class FileBackend implements KataBackend {
 
     const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
-    const outputRelPath = relMilestoneFile(base, mid, "ROADMAP");
-    const outputAbsPath =
-      resolveMilestoneFile(base, mid, "ROADMAP") ?? join(base, outputRelPath);
+    const ops = this._buildPlanMilestoneOps(mid);
+
     return loadPrompt("plan-milestone", {
       milestoneId: mid,
       milestoneTitle: midTitle,
-      milestonePath: relMilestonePath(base, mid),
-      contextPath: contextRel,
-      researchPath: researchRel,
-      outputPath: outputRelPath,
-      outputAbsPath,
       inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
+  }
+
+  private _buildResearchSliceOps(mid: string, sid: string): OpsBlock {
+    const base = this.basePath;
+    const outputRelPath = relSliceFile(base, mid, sid, "RESEARCH");
+    const outputAbsPath =
+      resolveSliceFile(base, mid, sid, "RESEARCH") ?? join(base, outputRelPath);
+    const slicePath = relSlicePath(base, mid, sid);
+
+    const backendOps = [
+      `6. Write \`${outputRelPath}\``,
+      ``,
+      `The slice directory already exists at \`${slicePath}/\`. Do NOT mkdir — just write the file.`,
+    ].join("\n");
+
+    return {
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST write the file \`${outputAbsPath}\` before finishing.**`,
+    };
   }
 
   private async _buildResearchSlicePrompt(state: KataState): Promise<string> {
@@ -495,23 +590,56 @@ export class FileBackend implements KataBackend {
 
     const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
-    const outputRelPath = relSliceFile(base, mid, sid, "RESEARCH");
-    const outputAbsPath =
-      resolveSliceFile(base, mid, sid, "RESEARCH") ?? join(base, outputRelPath);
+    const ops = this._buildResearchSliceOps(mid, sid);
+
     return loadPrompt("research-slice", {
       milestoneId: mid,
       sliceId: sid,
       sliceTitle: sTitle,
-      slicePath: relSlicePath(base, mid, sid),
-      roadmapPath: roadmapRel,
-      contextPath: contextRel,
-      milestoneResearchPath: milestoneResearchRel,
-      outputPath: outputRelPath,
-      outputAbsPath,
       inlinedContext,
       dependencySummaries: depContent,
-      ...this._buildSkillDiscoveryVars(),
+      ...buildSkillDiscoveryVars(),
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
+  }
+
+  private _buildPlanSliceOps(mid: string, sid: string): OpsBlock {
+    const base = this.basePath;
+    const outputRelPath = relSliceFile(base, mid, sid, "PLAN");
+    const outputAbsPath =
+      resolveSliceFile(base, mid, sid, "PLAN") ?? join(base, outputRelPath);
+    const sliceAbsPath =
+      resolveSlicePath(base, mid, sid) ??
+      join(base, relSlicePath(base, mid, sid));
+
+    const backendOps = [
+      `10. Write \`${outputRelPath}\``,
+      `11. Write individual task plans in \`${sliceAbsPath}/tasks/\`: \`T01-PLAN.md\`, \`T02-PLAN.md\`, etc.`,
+      `12. **Self-audit the plan before continuing.** Walk through each check — if any fail, fix the plan files before moving on:`,
+      `    - **Completion semantics:** If every task were completed exactly as written, the slice goal/demo should actually be true at the claimed proof level. Do not allow a task plan that only scaffolds toward a future working state.`,
+      `    - **Requirement coverage:** Every must-have in the slice maps to at least one task. No must-have is orphaned.`,
+      `    - **Task completeness:** Every task has steps, must-haves, verification, observability impact, inputs, and expected output — none are blank or vague.`,
+      `    - **Dependency correctness:** Task ordering is consistent. No task references work from a later task.`,
+      `    - **Key links planned:** For every pair of artifacts that must connect (component → API, API → database, form → handler), there is an explicit step that wires them — not just "create X" and "create Y" in separate tasks with no connection step.`,
+      `    - **Scope sanity:** Target 2–5 steps and 3–8 files per task. 6–8 steps or 8–10 files is a warning — consider splitting. 10+ steps or 12+ files — must split. Each task must be completable in a single fresh context window.`,
+      `    - **Context compliance:** If context/research artifacts or \`.kata/DECISIONS.md\` exist, the plan honors locked decisions and doesn't include deferred or out-of-scope items.`,
+      `    - **Requirement coverage:** If \`REQUIREMENTS.md\` exists, every Active requirement this slice owns (per the roadmap) maps to at least one task with verification that proves the requirement is met. No owned requirement is left without a task. No task claims to satisfy a requirement that is Deferred or Out of Scope.`,
+      `    - **Proof honesty:** The \`Proof Level\` and \`Integration Closure\` sections match what this slice will actually prove, and they do not imply live end-to-end completion if only fixture or contract proof is planned.`,
+      `    - **Feature completeness:** Every task produces real, user-facing progress — not just internal scaffolding. If the slice has a UI surface, at least one task builds the real UI (not a placeholder). If the slice has an API, at least one task connects it to a real data source (not hardcoded returns). If every task were completed and you showed the result to a non-technical stakeholder, they should see real product progress, not developer artifacts.`,
+      `13. If planning produced structural decisions (e.g. verification strategy, observability strategy, technology choices, patterns to follow), append them to \`.kata/DECISIONS.md\``,
+      `14. Commit: \`docs(${sid}): add slice plan\``,
+      `15. Update \`.kata/STATE.md\``,
+      ``,
+      `The slice directory and tasks/ subdirectory already exist. Do NOT mkdir. You are on the slice branch; all work stays here.`,
+    ].join("\n");
+
+    return {
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST write the file \`${outputAbsPath}\` before finishing.**`,
+    };
   }
 
   private async _buildPlanSlicePrompt(state: KataState): Promise<string> {
@@ -548,25 +676,51 @@ export class FileBackend implements KataBackend {
 
     const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
-    const outputRelPath = relSliceFile(base, mid, sid, "PLAN");
-    const outputAbsPath =
-      resolveSliceFile(base, mid, sid, "PLAN") ?? join(base, outputRelPath);
-    const sliceAbsPath =
-      resolveSlicePath(base, mid, sid) ??
-      join(base, relSlicePath(base, mid, sid));
+    const ops = this._buildPlanSliceOps(mid, sid);
+
     return loadPrompt("plan-slice", {
       milestoneId: mid,
       sliceId: sid,
       sliceTitle: sTitle,
-      slicePath: relSlicePath(base, mid, sid),
-      sliceAbsPath,
-      roadmapPath: roadmapRel,
-      researchPath: researchRel,
-      outputPath: outputRelPath,
-      outputAbsPath,
       inlinedContext,
       dependencySummaries: depContent,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
+  }
+
+  private _buildExecuteTaskOps(
+    mid: string,
+    sid: string,
+    tid: string,
+    planRelPath: string,
+    taskPlanRelPath: string,
+    taskSummaryAbsPath: string,
+    priorLines: string,
+  ): OpsBlock & { backingArtifacts: string } {
+    const backingArtifacts = [
+      `## Backing Source Artifacts`,
+      `- Slice plan: \`${planRelPath}\``,
+      `- Task plan source: \`${taskPlanRelPath}\``,
+      `- Prior task summaries in this slice:`,
+      priorLines,
+    ].join("\n");
+
+    const backendOps = [
+      `13. Read the template at \`~/.kata-cli/agent/extensions/kata/templates/task-summary.md\``,
+      `14. Write \`${taskSummaryAbsPath}\``,
+      `15. Mark ${tid} done in \`${planRelPath}\` (change \`[ ]\` to \`[x]\`)`,
+      `16. Commit your work: \`git add -A && git commit -m 'feat(${sid}/${tid}): <what was built>'\`. If \`git add\` silently fails to stage files (a known git worktree stat-cache bug), use this workaround per file: \`git update-index --cacheinfo 100644,$(git hash-object -w <file>),<file>\` then commit. If that also fails, move on — the system will auto-commit remaining changes after your session ends.`,
+      `17. Update \`.kata/STATE.md\``,
+    ].join("\n");
+
+    return {
+      backingArtifacts,
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST mark ${tid} as \`[x]\` in \`${planRelPath}\` AND write \`${taskSummaryAbsPath}\` before finishing.**`,
+    };
   }
 
   private async _buildExecuteTaskPrompt(state: KataState): Promise<string> {
@@ -632,6 +786,11 @@ export class FileBackend implements KataBackend {
       resolveSlicePath(base, mid, sid) ??
       join(base, relSlicePath(base, mid, sid));
     const taskSummaryAbsPath = join(sliceDirAbs, "tasks", `${tid}-SUMMARY.md`);
+    const planRelPath = relSliceFile(base, mid, sid, "PLAN");
+
+    const ops = this._buildExecuteTaskOps(
+      mid, sid, tid, planRelPath, taskPlanRelPath, taskSummaryAbsPath, priorLines,
+    );
 
     return loadPrompt("execute-task", {
       milestoneId: mid,
@@ -639,16 +798,42 @@ export class FileBackend implements KataBackend {
       sliceTitle: sTitle,
       taskId: tid,
       taskTitle: tTitle,
-      planPath: relSliceFile(base, mid, sid, "PLAN"),
-      slicePath: relSlicePath(base, mid, sid),
-      taskPlanPath: taskPlanRelPath,
       taskPlanInline,
       slicePlanExcerpt,
       carryForwardSection,
       resumeSection,
-      priorTaskLines: priorLines,
-      taskSummaryAbsPath,
+      backingArtifacts: ops.backingArtifacts,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
+  }
+
+  private _buildCompleteSliceOps(
+    mid: string,
+    sid: string,
+    roadmapRel: string,
+    sliceSummaryAbsPath: string,
+    sliceUatAbsPath: string,
+  ): OpsBlock {
+    const backendOps = [
+      `5. Read the templates:`,
+      `   - \`~/.kata-cli/agent/extensions/kata/templates/slice-summary.md\``,
+      `   - \`~/.kata-cli/agent/extensions/kata/templates/uat.md\``,
+      `6. Write \`${sliceSummaryAbsPath}\` (compress all task summaries). Fill the requirement-related sections explicitly.`,
+      `7. Write \`${sliceUatAbsPath}\`. Fill the new \`UAT Type\`, \`Requirements Proved By This UAT\`, and \`Not Proven By This UAT\` sections explicitly.`,
+      `8. Review task summaries for \`key_decisions\`. Ensure any significant architectural, pattern, or observability decisions are in \`.kata/DECISIONS.md\`. If any are missing, append them now.`,
+      `9. Mark ${sid} done in \`${roadmapRel}\` (change \`[ ]\` to \`[x]\`)`,
+      `10. Commit all remaining slice changes: \`git add -A && git commit -m 'feat(kata): complete ${sid}'\`. Do not squash-merge manually; the extension will merge the slice branch back to main after this unit succeeds.`,
+      `11. Update \`.kata/PROJECT.md\` if it exists — refresh current state if needed.`,
+      `12. Update \`.kata/STATE.md\``,
+    ].join("\n");
+
+    return {
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST mark ${sid} as \`[x]\` in \`${roadmapRel}\` AND write \`${sliceSummaryAbsPath}\` before finishing.**`,
+    };
   }
 
   private async _buildCompleteSlicePrompt(state: KataState): Promise<string> {
@@ -696,16 +881,42 @@ export class FileBackend implements KataBackend {
     const sliceSummaryAbsPath = join(sliceDirAbs, `${sid}-SUMMARY.md`);
     const sliceUatAbsPath = join(sliceDirAbs, `${sid}-UAT.md`);
 
+    const ops = this._buildCompleteSliceOps(
+      mid, sid, roadmapRel, sliceSummaryAbsPath, sliceUatAbsPath,
+    );
+
     return loadPrompt("complete-slice", {
       milestoneId: mid,
       sliceId: sid,
       sliceTitle: sTitle,
-      slicePath: relSlicePath(base, mid, sid),
-      roadmapPath: roadmapRel,
       inlinedContext,
-      sliceSummaryAbsPath,
-      sliceUatAbsPath,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
+  }
+
+  private _buildCompleteMilestoneOps(state: KataState): OpsBlock {
+    const mid = state.activeMilestone!.id;
+    const base = this.basePath;
+    const milestoneDirAbs =
+      resolveMilestonePath(base, mid) ?? join(base, relMilestonePath(base, mid));
+    const milestoneSummaryAbsPath = join(milestoneDirAbs, `${mid}-SUMMARY.md`);
+
+    const backendOps = [
+      `5. Read the milestone-summary template at \`~/.kata-cli/agent/extensions/kata/templates/milestone-summary.md\``,
+      `6. Write \`${milestoneSummaryAbsPath}\` using the milestone-summary template. Fill all frontmatter fields and narrative sections. The \`requirement_outcomes\` field must list every requirement that changed status with \`from_status\`, \`to_status\`, and \`proof\`.`,
+      `7. Update \`.kata/REQUIREMENTS.md\` if any requirement status transitions were validated in step 4.`,
+      `8. Update \`.kata/PROJECT.md\` to reflect milestone completion and current project state.`,
+      `9. Commit all changes: \`git add -A && git commit -m 'feat(kata): complete ${mid}'\``,
+      `10. Update \`.kata/STATE.md\``,
+    ].join("\n");
+
+    return {
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST write \`${milestoneSummaryAbsPath}\` AND update PROJECT.md before finishing.**`,
+    };
   }
 
   private async _buildCompleteMilestonePrompt(state: KataState): Promise<string> {
@@ -762,17 +973,72 @@ export class FileBackend implements KataBackend {
 
     const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
-    const milestoneDirAbs =
-      resolveMilestonePath(base, mid) ?? join(base, relMilestonePath(base, mid));
-    const milestoneSummaryAbsPath = join(milestoneDirAbs, `${mid}-SUMMARY.md`);
+    const ops = this._buildCompleteMilestoneOps(state);
 
     return loadPrompt("complete-milestone", {
       milestoneId: mid,
       milestoneTitle: midTitle,
       roadmapPath: roadmapRel,
       inlinedContext,
-      milestoneSummaryAbsPath,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
+  }
+
+  private _buildReplanSliceOps(state: KataState): OpsBlock {
+    const mid = state.activeMilestone!.id;
+    const sid = state.activeSlice!.id;
+    const base = this.basePath;
+
+    const slicePlanRel = relSliceFile(base, mid, sid, "PLAN");
+    const sliceDirAbs =
+      resolveSlicePath(base, mid, sid) ??
+      join(base, relSlicePath(base, mid, sid));
+    const replanAbsPath = join(sliceDirAbs, `${sid}-REPLAN.md`);
+
+    // Find blocker task ID for commit message
+    let blockerTaskId = "";
+    const tDir = resolveTasksDir(base, mid, sid);
+    if (tDir) {
+      const summaryFiles = resolveTaskFiles(tDir, "SUMMARY").sort();
+      for (const file of summaryFiles) {
+        const absPath = join(tDir, file);
+        // Synchronous-safe: we only need the frontmatter ID
+        try {
+          const content = readFileSync(absPath, "utf-8");
+          const summary = parseSummary(content);
+          if (summary.frontmatter.blocker_discovered) {
+            blockerTaskId =
+              summary.frontmatter.id || file.replace(/-SUMMARY\.md$/i, "");
+          }
+        } catch {
+          // skip unreadable files
+        }
+      }
+    }
+
+    const backendOps = [
+      `3. Write \`${replanAbsPath}\` documenting:`,
+      `   - What blocker was discovered and in which task`,
+      `   - What changed in the plan and why`,
+      `   - Which incomplete tasks were modified, added, or removed`,
+      `   - Any new risks or considerations introduced by the replan`,
+      `4. Rewrite \`${slicePlanRel}\` with the updated slice plan:`,
+      `   - Keep all \`[x]\` tasks exactly as they were (same IDs, same descriptions, same checkmarks)`,
+      `   - Update the \`[ ]\` tasks to address the blocker`,
+      `   - Ensure the slice Goal and Demo sections are still achievable with the new tasks, or update them if the blocker fundamentally changes what the slice can deliver`,
+      `   - Update the Files Likely Touched section if the replan changes which files are affected`,
+      `5. If any incomplete task had a \`T0x-PLAN.md\`, remove or rewrite it to match the new task description.`,
+      `6. Commit all changes: \`git add -A && git commit -m 'refactor(${sid}): replan after blocker in ${blockerTaskId || "unknown-task"}'\``,
+      `7. Update \`.kata/STATE.md\``,
+    ].join("\n");
+
+    return {
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST write \`${replanAbsPath}\` and the updated slice plan before finishing.**`,
+    };
   }
 
   private async _buildReplanSlicePrompt(state: KataState): Promise<string> {
@@ -823,21 +1089,50 @@ export class FileBackend implements KataBackend {
 
     const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
-    const sliceDirAbs =
-      resolveSlicePath(base, mid, sid) ??
-      join(base, relSlicePath(base, mid, sid));
-    const replanAbsPath = join(sliceDirAbs, `${sid}-REPLAN.md`);
+    const ops = this._buildReplanSliceOps(state);
 
     return loadPrompt("replan-slice", {
       milestoneId: mid,
       sliceId: sid,
       sliceTitle: sTitle,
-      slicePath: relSlicePath(base, mid, sid),
-      planPath: slicePlanRel,
-      blockerTaskId,
       inlinedContext,
-      replanAbsPath,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
+  }
+
+  private _buildReassessRoadmapOps(state: KataState, completedSliceId: string): OpsBlock {
+    const mid = state.activeMilestone!.id;
+    const base = this.basePath;
+
+    const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
+    const sliceDirAbs =
+      resolveSlicePath(base, mid, completedSliceId) ??
+      join(base, relSlicePath(base, mid, completedSliceId));
+    const assessmentAbsPath = join(
+      sliceDirAbs,
+      `${completedSliceId}-ASSESSMENT.md`,
+    );
+
+    const backendOps = [
+      `**If the roadmap is still good:**`,
+      ``,
+      `Write \`${assessmentAbsPath}\` with a brief confirmation that roadmap coverage still holds after ${completedSliceId}. If requirements exist, explicitly note whether requirement coverage remains sound.`,
+      ``,
+      `**If changes are needed:**`,
+      ``,
+      `1. Rewrite the remaining (unchecked) slices in \`${roadmapRel}\`. Keep completed slices exactly as they are (\`[x]\`). Update the boundary map for changed slices. Update the proof strategy if risks changed. Update requirement coverage if ownership or scope changed.`,
+      `2. Write \`${assessmentAbsPath}\` explaining what changed and why — keep it brief and concrete.`,
+      `3. If \`.kata/REQUIREMENTS.md\` exists and requirement ownership or status changed, update it.`,
+      `4. Commit: \`docs(${mid}): reassess roadmap after ${completedSliceId}\``,
+    ].join("\n");
+
+    return {
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST write the file \`${assessmentAbsPath}\` before finishing.**`,
+    };
   }
 
   private async _buildReassessRoadmapPrompt(
@@ -845,7 +1140,6 @@ export class FileBackend implements KataBackend {
     completedSliceId: string,
   ): Promise<string> {
     const mid = state.activeMilestone!.id;
-    const midTitle = state.activeMilestone!.title;
     const base = this.basePath;
 
     const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
@@ -873,25 +1167,53 @@ export class FileBackend implements KataBackend {
 
     const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
-    const assessmentRel = relSliceFile(base, mid, completedSliceId, "ASSESSMENT");
-    const sliceDirAbs =
-      resolveSlicePath(base, mid, completedSliceId) ??
-      join(base, relSlicePath(base, mid, completedSliceId));
-    const assessmentAbsPath = join(
-      sliceDirAbs,
-      `${completedSliceId}-ASSESSMENT.md`,
-    );
+    const ops = this._buildReassessRoadmapOps(state, completedSliceId);
 
     return loadPrompt("reassess-roadmap", {
       milestoneId: mid,
-      milestoneTitle: midTitle,
       completedSliceId,
-      roadmapPath: roadmapRel,
-      completedSliceSummaryPath: summaryRel,
-      assessmentPath: assessmentRel,
-      assessmentAbsPath,
       inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
+  }
+
+  private _buildRunUatOps(state: KataState, sliceId: string, uatResultAbsPath: string, uatType: string): OpsBlock {
+    const backendOps = [
+      `Write \`${uatResultAbsPath}\` with:`,
+      ``,
+      "```markdown",
+      `---`,
+      `sliceId: ${sliceId}`,
+      `uatType: ${uatType}`,
+      `verdict: PASS | FAIL | PARTIAL`,
+      `date: <ISO 8601 timestamp>`,
+      `---`,
+      ``,
+      `# UAT Result — ${sliceId}`,
+      ``,
+      `## Checks`,
+      ``,
+      `| Check | Result | Notes |`,
+      `|-------|--------|-------|`,
+      `| <check description> | PASS / FAIL | <observed output or reason> |`,
+      ``,
+      `## Overall Verdict`,
+      ``,
+      `<PASS / FAIL / PARTIAL> — <one sentence summary>`,
+      ``,
+      `## Notes`,
+      ``,
+      `<any additional context, errors encountered, or follow-up items>`,
+      "```",
+    ].join("\n");
+
+    return {
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST write \`${uatResultAbsPath}\` before finishing.**`,
+    };
   }
 
   private async _buildRunUatPrompt(
@@ -932,17 +1254,20 @@ export class FileBackend implements KataBackend {
       resolveSlicePath(base, mid, sliceId) ??
       join(base, relSlicePath(base, mid, sliceId));
     const uatResultAbsPath = join(sliceDirAbs, `${sliceId}-UAT-RESULT.md`);
-    const uatResultPath = relSliceFile(base, mid, sliceId, "UAT-RESULT");
     const uatType = (uatContent ? extractUatType(uatContent) : null) ?? "human-experience";
+
+    const ops = this._buildRunUatOps(state, sliceId, uatResultAbsPath, uatType);
 
     return loadPrompt("run-uat", {
       milestoneId: mid,
       sliceId,
-      uatPath,
-      uatResultAbsPath,
-      uatResultPath,
+      uatRef: uatPath,
+      uatResultRef: uatResultAbsPath,
       uatType,
       inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
   }
 
@@ -1015,43 +1340,6 @@ export class FileBackend implements KataBackend {
     return this._inlineFileOptional(absPath, relKataRootFile(key), label);
   }
 
-  private _buildSkillDiscoveryVars(): {
-    skillDiscoveryMode: string;
-    skillDiscoveryInstructions: string;
-  } {
-    const mode = resolveSkillDiscoveryMode();
-
-    if (mode === "off") {
-      return {
-        skillDiscoveryMode: "off",
-        skillDiscoveryInstructions:
-          " Skill discovery is disabled. Skip this step.",
-      };
-    }
-
-    const autoInstall = mode === "auto";
-    const instructions = `
-   Identify the key technologies, frameworks, and services this work depends on (e.g. Stripe, Clerk, Supabase, JUCE, SwiftUI).
-   For each, check if a professional agent skill already exists:
-   - First check \`<available_skills>\` in your system prompt — a skill may already be installed.
-   - For technologies without an installed skill, run: \`npx skills find "<technology>"\`
-   - Only consider skills that are **directly relevant** to core technologies — not tangentially related.
-   - Evaluate results by install count and relevance to the actual work.${
-     autoInstall
-       ? `
-   - Install relevant skills: \`npx skills add <owner/repo@skill> -g -y\`
-   - Record installed skills in the "Skills Discovered" section of your research output.
-   - Installed skills will automatically appear in subsequent units' system prompts — no manual steps needed.`
-       : `
-   - Note promising skills in your research output with their install commands, but do NOT install them.
-   - The user will decide which to install.`
-   }`;
-
-    return {
-      skillDiscoveryMode: mode,
-      skillDiscoveryInstructions: instructions,
-    };
-  }
 
   private async _getPriorTaskSummaryPaths(
     mid: string,

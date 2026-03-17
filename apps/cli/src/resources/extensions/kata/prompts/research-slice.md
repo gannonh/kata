@@ -12,6 +12,8 @@ Pay particular attention to **Forward Intelligence** sections — they contain h
 
 {{dependencySummaries}}
 
+{{backendRules}}
+
 Then research what this slice needs:
 0. If `REQUIREMENTS.md` was preloaded above, identify which Active requirements this slice owns or supports. Research should target these requirements — surfacing risks, unknowns, and implementation constraints that could affect whether the slice actually delivers them.
 1. If a `Kata Skill Preferences` block is present in system context, use it to decide which skills to load and follow during research, without relaxing required verification or artifact rules
@@ -19,10 +21,8 @@ Then research what this slice needs:
 3. Explore relevant code for this slice's scope. For targeted exploration, use `rg`, `find`, and reads. For broad or unfamiliar subsystems, use `scout` to map the relevant area first.
 4. Use `resolve_library` / `get_library_docs` for unfamiliar libraries
 5. Read the template at `~/.kata-cli/agent/extensions/kata/templates/research.md`
-6. Write `{{outputPath}}`
+{{backendOps}}
 
-The slice directory already exists at `{{slicePath}}/`. Do NOT mkdir — just write the file.
-
-**You MUST write the file `{{outputAbsPath}}` before finishing.**
+{{backendMustComplete}}
 
 When done, say: "Slice {{sliceId}} researched."

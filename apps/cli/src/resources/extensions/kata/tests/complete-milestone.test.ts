@@ -98,6 +98,9 @@ async function main(): Promise<void> {
         milestoneTitle: "Test Milestone",
         roadmapPath: ".kata/milestones/M001/M001-ROADMAP.md",
         inlinedContext: "test context block",
+        backendRules: "",
+        backendOps: "5. Write the summary\n6. Update requirements",
+        backendMustComplete: "**You MUST write the summary.**",
       });
     } catch (err) {
       threw = true;
@@ -120,6 +123,9 @@ async function main(): Promise<void> {
       milestoneTitle: "Integration Feature",
       roadmapPath: ".kata/milestones/M001/M001-ROADMAP.md",
       inlinedContext: "--- inlined slice summaries and context ---",
+      backendRules: "Some backend rule here",
+      backendOps: "5. Write the summary file\n6. Update requirements",
+      backendMustComplete: "**You MUST write the summary.**",
     });
 
     assert(prompt.includes("M001"), "prompt contains milestoneId 'M001'");
@@ -134,6 +140,18 @@ async function main(): Promise<void> {
     assert(
       prompt.includes("--- inlined slice summaries and context ---"),
       "prompt contains inlinedContext",
+    );
+    assert(
+      prompt.includes("Some backend rule here"),
+      "prompt contains backendRules",
+    );
+    assert(
+      prompt.includes("Write the summary file"),
+      "prompt contains backendOps",
+    );
+    assert(
+      prompt.includes("You MUST write the summary"),
+      "prompt contains backendMustComplete",
     );
     assert(
       !prompt.includes("{{milestoneId}}"),
@@ -151,6 +169,18 @@ async function main(): Promise<void> {
       !prompt.includes("{{inlinedContext}}"),
       "no un-substituted {{inlinedContext}}",
     );
+    assert(
+      !prompt.includes("{{backendRules}}"),
+      "no un-substituted {{backendRules}}",
+    );
+    assert(
+      !prompt.includes("{{backendOps}}"),
+      "no un-substituted {{backendOps}}",
+    );
+    assert(
+      !prompt.includes("{{backendMustComplete}}"),
+      "no un-substituted {{backendMustComplete}}",
+    );
   }
 
   // ─── Prompt Content Integrity ──────────────────────────────────────────
@@ -161,6 +191,9 @@ async function main(): Promise<void> {
       milestoneTitle: "Completion Workflow",
       roadmapPath: ".kata/milestones/M002/M002-ROADMAP.md",
       inlinedContext: "context",
+      backendRules: "",
+      backendOps: "5. Write milestone-summary\n6. Update requirements",
+      backendMustComplete: "**You MUST write the summary.**",
     });
 
     assert(
