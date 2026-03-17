@@ -331,18 +331,33 @@ export class LinearBackend implements KataBackend {
     });
   }
 
+  private _buildPlanMilestoneOps(mid: string): OpsBlock {
+    const backendOps = [
+      `6. Idempotency check:`,
+      `   - Call \`kata_list_slices\` for the project. If slices already exist for this milestone, do NOT create duplicates.`,
+      `   - Call \`kata_read_document("${mid}-ROADMAP")\`. If it already exists, review and advance rather than rewriting.`,
+      `7. Write the milestone roadmap: \`kata_write_document("${mid}-ROADMAP", content)\``,
+      `   - Define slices (S01, S02, ...) ordered by risk — riskiest first.`,
+      `   - Each slice: demoable vertical increment with risk level and dependencies.`,
+      `   - Include a Boundary Map showing what each slice produces/consumes.`,
+      `   - Include checkboxes, risk, depends, demo sentences, proof strategy, verification classes, milestone definition of done, **requirement coverage**, and a boundary map. Write success criteria as observable truths, not implementation tasks.`,
+      `8. Create slice issues in Linear for each slice in the roadmap:`,
+      `   - Call \`kata_create_slice\` for each slice.`,
+    ].join("\n");
+
+    return {
+      backendRules: HARD_RULE,
+      backendOps,
+      backendMustComplete: `**You MUST write the \`${mid}-ROADMAP\` document before finishing.**\n\n${REFERENCE}`,
+    };
+  }
+
   private _buildPlanMilestonePrompt(state: KataState): string {
     const mid = state.activeMilestone?.id ?? "unknown";
     const mTitle = state.activeMilestone?.title ?? "unknown";
 
-    return [
-      `# Plan Milestone — Linear Mode`,
-      ``,
-      `**Milestone:** ${mid} — ${mTitle}`,
-      ``,
-      `## Instructions`,
-      ``,
-      HARD_RULE,
+    const inlinedContext = [
+      `## Context Retrieval (read these before proceeding)`,
       ``,
       `1. Call \`kata_derive_state\` to confirm the active milestone and obtain \`projectId\`.`,
       ``,
@@ -357,21 +372,18 @@ export class LinearBackend implements KataBackend {
       `   - \`kata_read_document("DECISIONS")\``,
       `   - \`kata_read_document("REQUIREMENTS")\``,
       `   - \`kata_read_document("PROJECT")\``,
-      ``,
-      `5. Idempotency check:`,
-      `   - Call \`kata_list_slices\` for the project. If slices already exist for this milestone, do NOT create duplicates.`,
-      `   - Call \`kata_read_document("${mid}-ROADMAP")\`. If it already exists, review and advance rather than rewriting.`,
-      ``,
-      `6. Write the milestone roadmap: \`kata_write_document("${mid}-ROADMAP", content)\``,
-      `   - Define slices (S01, S02, ...) ordered by risk — riskiest first.`,
-      `   - Each slice: demoable vertical increment with risk level and dependencies.`,
-      `   - Include a Boundary Map showing what each slice produces/consumes.`,
-      ``,
-      `7. Create slice issues in Linear for each slice in the roadmap:`,
-      `   - Call \`kata_create_slice\` for each slice.`,
-      ``,
-      REFERENCE,
     ].join("\n");
+
+    const ops = this._buildPlanMilestoneOps(mid);
+
+    return loadPrompt("plan-milestone", {
+      milestoneId: mid,
+      milestoneTitle: mTitle,
+      inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
+    });
   }
 
   private _buildResearchSliceOps(sid: string): OpsBlock {

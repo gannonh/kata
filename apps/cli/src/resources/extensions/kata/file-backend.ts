@@ -424,6 +424,25 @@ export class FileBackend implements KataBackend {
     });
   }
 
+  private _buildPlanMilestoneOps(mid: string): OpsBlock {
+    const base = this.basePath;
+    const outputRelPath = relMilestoneFile(base, mid, "ROADMAP");
+    const outputAbsPath =
+      resolveMilestoneFile(base, mid, "ROADMAP") ?? join(base, outputRelPath);
+
+    const backendOps = [
+      `6. Write \`${outputRelPath}\` with checkboxes, risk, depends, demo sentences, proof strategy, verification classes, milestone definition of done, **requirement coverage**, and a boundary map. Write success criteria as observable truths, not implementation tasks. If the milestone crosses multiple runtime boundaries, include an explicit final integration slice that proves the assembled system works end-to-end in a real environment`,
+      `7. If planning produced structural decisions (e.g. slice ordering rationale, technology choices, scope exclusions), append them to \`.kata/DECISIONS.md\` (read the template at \`~/.kata-cli/agent/extensions/kata/templates/decisions.md\` if the file doesn't exist yet)`,
+      `8. Update \`.kata/STATE.md\``,
+    ].join("\n");
+
+    return {
+      backendRules: "",
+      backendOps,
+      backendMustComplete: `**You MUST write the file \`${outputAbsPath}\` before finishing.**`,
+    };
+  }
+
   private async _buildPlanMilestonePrompt(state: KataState): Promise<string> {
     const mid = state.activeMilestone!.id;
     const midTitle = state.activeMilestone!.title;
@@ -459,18 +478,15 @@ export class FileBackend implements KataBackend {
 
     const inlinedContext = `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`;
 
-    const outputRelPath = relMilestoneFile(base, mid, "ROADMAP");
-    const outputAbsPath =
-      resolveMilestoneFile(base, mid, "ROADMAP") ?? join(base, outputRelPath);
+    const ops = this._buildPlanMilestoneOps(mid);
+
     return loadPrompt("plan-milestone", {
       milestoneId: mid,
       milestoneTitle: midTitle,
-      milestonePath: relMilestonePath(base, mid),
-      contextPath: contextRel,
-      researchPath: researchRel,
-      outputPath: outputRelPath,
-      outputAbsPath,
       inlinedContext,
+      backendRules: ops.backendRules,
+      backendOps: ops.backendOps,
+      backendMustComplete: ops.backendMustComplete,
     });
   }
 
