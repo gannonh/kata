@@ -254,7 +254,7 @@ async function main(): Promise<void> {
 
   console.log("\n=== getSliceBranchName namespaced contract ===");
   assertEq(
-    getSliceBranchName("M001", "S01"),
+    getSliceBranchName(base, "M001", "S01"),
     "kata/root/M001/S01",
     "branch name format includes project scope",
   );

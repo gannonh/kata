@@ -112,7 +112,7 @@ async function indexSlice(basePath: string, milestoneId: string, sliceId: string
     summaryPath,
     uatPath,
     tasksDir,
-    branch: getSliceBranchName(milestoneId, sliceId),
+    branch: getSliceBranchName(basePath, milestoneId, sliceId),
     tasks,
   };
 }

@@ -11,8 +11,18 @@
  *   3. mergeSliceToMain() — checkout main, squash-merge, delete branch
  */
 
-import { existsSync } from "node:fs";
-import { execSync } from "node:child_process";
+import path from "node:path";
+
+import {
+  autoCommitCurrentBranch as autoCommitCurrentBranchFromGitService,
+  getCurrentBranch as getCurrentBranchFromGitService,
+  getMainBranch as getMainBranchFromGitService,
+  runGit,
+} from "./git-service.ts";
+import { resolveGitRoot } from "./git-utils.ts";
+
+const LEGACY_SLICE_BRANCH_RE = /^kata\/([A-Z]\d+)\/([A-Z]\d+)$/;
+const NAMESPACED_SLICE_BRANCH_RE = /^kata\/([^/]+)\/([A-Z]\d+)\/([A-Z]\d+)$/;
 
 export interface MergeSliceResult {
   branch: string;
@@ -20,51 +30,138 @@ export interface MergeSliceResult {
   deletedBranch: boolean;
 }
 
-function runGit(basePath: string, args: string[], options: { allowFailure?: boolean } = {}): string {
-  try {
-    return execSync(`git ${args.join(" ")}`, {
-      cwd: basePath,
-      stdio: ["ignore", "pipe", "pipe"],
-      encoding: "utf-8",
-    }).trim();
-  } catch (error) {
-    if (options.allowFailure) return "";
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`git ${args.join(" ")} failed in ${basePath}: ${message}`);
-  }
+function normalizeScopeSegment(scope: string): string {
+  const sanitized = scope
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return sanitized || "root";
 }
 
-export function getSliceBranchName(milestoneId: string, sliceId: string): string {
+export function getProjectScope(basePath: string): string {
+  const gitRoot = resolveGitRoot(basePath);
+  const relative = path.relative(gitRoot, basePath);
+
+  // If basePath is not inside gitRoot (e.g. a polluted GIT_DIR env),
+  // avoid leaking absolute path structure into branch names.
+  if (
+    !relative
+    || relative === "."
+    || relative.startsWith(`..${path.sep}`)
+    || relative === ".."
+    || path.isAbsolute(relative)
+  ) {
+    return "root";
+  }
+
+  const normalized = relative
+    .split(path.sep)
+    .filter(Boolean)
+    .join("-");
+
+  return normalizeScopeSegment(normalized);
+}
+
+function getLegacySliceBranchName(milestoneId: string, sliceId: string): string {
   return `kata/${milestoneId}/${sliceId}`;
 }
 
+export function getSliceBranchName(basePath: string, milestoneId: string, sliceId: string): string {
+  return `kata/${getProjectScope(basePath)}/${milestoneId}/${sliceId}`;
+}
+
 export function getMainBranch(basePath: string): string {
-  const symbolic = runGit(basePath, ["symbolic-ref", "refs/remotes/origin/HEAD"], { allowFailure: true });
-  if (symbolic) {
-    const match = symbolic.match(/refs\/remotes\/origin\/(.+)$/);
-    if (match) return match[1]!;
-  }
-
-  const mainExists = runGit(basePath, ["show-ref", "--verify", "refs/heads/main"], { allowFailure: true });
-  if (mainExists) return "main";
-
-  const masterExists = runGit(basePath, ["show-ref", "--verify", "refs/heads/master"], { allowFailure: true });
-  if (masterExists) return "master";
-
-  return runGit(basePath, ["branch", "--show-current"]);
+  return getMainBranchFromGitService(basePath);
 }
 
 export function getCurrentBranch(basePath: string): string {
-  return runGit(basePath, ["branch", "--show-current"]);
+  return getCurrentBranchFromGitService(basePath);
 }
 
 function branchExists(basePath: string, branch: string): boolean {
   try {
-    runGit(basePath, ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`]);
+    runGit(basePath, ["show-ref", "--verify", `refs/heads/${branch}`]);
     return true;
   } catch {
     return false;
   }
+}
+
+function parseNamespacedSliceBranch(branch: string): {
+  scope: string;
+  milestoneId: string;
+  sliceId: string;
+} | null {
+  const match = branch.match(NAMESPACED_SLICE_BRANCH_RE);
+  if (!match) return null;
+  const [, scope, milestoneId, sliceId] = match;
+  return {
+    scope: scope!,
+    milestoneId: milestoneId!,
+    sliceId: sliceId!,
+  };
+}
+
+function parseLegacySliceBranch(branch: string): {
+  milestoneId: string;
+  sliceId: string;
+} | null {
+  const match = branch.match(LEGACY_SLICE_BRANCH_RE);
+  if (!match) return null;
+  const [, milestoneId, sliceId] = match;
+  return {
+    milestoneId: milestoneId!,
+    sliceId: sliceId!,
+  };
+}
+
+function listKataBranches(basePath: string): string[] {
+  const refs = runGit(
+    basePath,
+    ["for-each-ref", "--format=%(refname:short)", "refs/heads/kata"],
+    { allowFailure: true },
+  );
+  if (!refs) return [];
+  return refs
+    .split("\n")
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
+function findConflictingNamespacedBranch(
+  basePath: string,
+  milestoneId: string,
+  sliceId: string,
+  expectedScope: string,
+): string | null {
+  for (const branch of listKataBranches(basePath)) {
+    const parsed = parseNamespacedSliceBranch(branch);
+    if (!parsed) continue;
+    if (parsed.milestoneId !== milestoneId) continue;
+    if (parsed.sliceId !== sliceId) continue;
+    if (parsed.scope === expectedScope) continue;
+    return branch;
+  }
+
+  return null;
+}
+
+function resolvePreferredSliceBranch(
+  basePath: string,
+  milestoneId: string,
+  sliceId: string,
+): string | null {
+  const namespacedBranch = getSliceBranchName(basePath, milestoneId, sliceId);
+  if (branchExists(basePath, namespacedBranch)) {
+    return namespacedBranch;
+  }
+
+  const legacyBranch = getLegacySliceBranchName(milestoneId, sliceId);
+  if (branchExists(basePath, legacyBranch)) {
+    return legacyBranch;
+  }
+
+  return null;
 }
 
 /**
@@ -73,21 +170,35 @@ function branchExists(basePath: string, branch: string): boolean {
  * Returns true if the branch was newly created.
  */
 export function ensureSliceBranch(basePath: string, milestoneId: string, sliceId: string): boolean {
-  const branch = getSliceBranchName(milestoneId, sliceId);
+  const namespacedBranch = getSliceBranchName(basePath, milestoneId, sliceId);
+  const legacyBranch = getLegacySliceBranchName(milestoneId, sliceId);
   const current = getCurrentBranch(basePath);
 
-  if (current === branch) return false;
+  if (current === namespacedBranch || current === legacyBranch) return false;
 
-  const mainBranch = getMainBranch(basePath);
-  let created = false;
-
-  if (!branchExists(basePath, branch)) {
-    runGit(basePath, ["branch", branch, mainBranch]);
-    created = true;
+  const preferredExisting = resolvePreferredSliceBranch(basePath, milestoneId, sliceId);
+  if (preferredExisting) {
+    runGit(basePath, ["checkout", preferredExisting]);
+    return false;
   }
 
-  runGit(basePath, ["checkout", branch]);
-  return created;
+  const expectedScope = getProjectScope(basePath);
+  const conflictingBranch = findConflictingNamespacedBranch(
+    basePath,
+    milestoneId,
+    sliceId,
+    expectedScope,
+  );
+  if (conflictingBranch) {
+    throw new Error(
+      `Refusing to reuse slice branch from a different project scope: found ${conflictingBranch}; expected scope ${expectedScope} for M/S ${milestoneId}/${sliceId}`,
+    );
+  }
+
+  const mainBranch = getMainBranch(basePath);
+  runGit(basePath, ["branch", namespacedBranch, mainBranch]);
+  runGit(basePath, ["checkout", namespacedBranch]);
+  return true;
 }
 
 /**
@@ -97,17 +208,7 @@ export function ensureSliceBranch(basePath: string, milestoneId: string, sliceId
 export function autoCommitCurrentBranch(
   basePath: string, unitType: string, unitId: string,
 ): string | null {
-  const status = runGit(basePath, ["status", "--short"]);
-  if (!status.trim()) return null;
-
-  runGit(basePath, ["add", "-A"]);
-
-  const staged = runGit(basePath, ["diff", "--cached", "--stat"]);
-  if (!staged.trim()) return null;
-
-  const message = `chore(${unitId}): auto-commit after ${unitType}`;
-  runGit(basePath, ["commit", "-m", JSON.stringify(message)]);
-  return message;
+  return autoCommitCurrentBranchFromGitService(basePath, unitType, unitId);
 }
 
 /**
@@ -132,7 +233,12 @@ export function switchToMain(basePath: string): void {
 export function mergeSliceToMain(
   basePath: string, milestoneId: string, sliceId: string, sliceTitle: string,
 ): MergeSliceResult {
-  const branch = getSliceBranchName(milestoneId, sliceId);
+  const namespacedBranch = getSliceBranchName(basePath, milestoneId, sliceId);
+  const legacyBranch = getLegacySliceBranchName(milestoneId, sliceId);
+  const branch = branchExists(basePath, namespacedBranch)
+    ? namespacedBranch
+    : legacyBranch;
+
   const mainBranch = getMainBranch(basePath);
 
   const current = getCurrentBranch(basePath);
@@ -179,4 +285,32 @@ export function getActiveSliceBranch(basePath: string): string | null {
   } catch {
     return null;
   }
+}
+
+export function parseSliceBranchName(branch: string): {
+  scope?: string;
+  milestoneId: string;
+  sliceId: string;
+  namespaced: boolean;
+} | null {
+  const namespaced = parseNamespacedSliceBranch(branch);
+  if (namespaced) {
+    return {
+      scope: namespaced.scope,
+      milestoneId: namespaced.milestoneId,
+      sliceId: namespaced.sliceId,
+      namespaced: true,
+    };
+  }
+
+  const legacy = parseLegacySliceBranch(branch);
+  if (legacy) {
+    return {
+      milestoneId: legacy.milestoneId,
+      sliceId: legacy.sliceId,
+      namespaced: false,
+    };
+  }
+
+  return null;
 }
