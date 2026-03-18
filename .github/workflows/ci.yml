@@ -24,6 +24,11 @@ jobs:
       - name: Fetch main branch for --affected comparison
         run: git fetch origin main:main
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -47,6 +52,9 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+
+      - name: Rebuild native addons
+        run: cd apps/context && npm rebuild better-sqlite3
 
       - name: Run Turborepo validation
         run: bunx turbo run lint typecheck test --affected
