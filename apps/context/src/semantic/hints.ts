@@ -20,9 +20,9 @@ export function semanticHintForCode(errorCode?: string): string | undefined {
     case "SEMANTIC_ANTHROPIC_PROVIDER_UNAVAILABLE":
       return "Anthropic provider unavailable. Retry shortly and check provider status.";
     case "SEMANTIC_SEARCH_EMPTY_INDEX":
-      return "No semantic data indexed. Run `kata context index` first to generate embeddings.";
+      return "No semantic data indexed. Run `kata-context index` first to generate embeddings.";
     case "SEMANTIC_SEARCH_MODEL_MISMATCH":
-      return "Embedding model mismatch between config and indexed data. Re-index with `kata context index --full` to align.";
+      return "Embedding model mismatch between config and indexed data. Re-index with `kata-context index --full` to align.";
     default:
       return undefined;
   }

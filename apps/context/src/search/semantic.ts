@@ -61,7 +61,7 @@ export async function semanticSearch(
   const vectorCount = store.countSemanticVectors();
   if (vectorCount === 0) {
     throw new SemanticDomainError(
-      "No semantic vectors indexed. Run `kata context index` first.",
+      "No semantic vectors indexed. Run `kata-context index` first.",
       {
         code: "SEMANTIC_SEARCH_EMPTY_INDEX" as SemanticDomainErrorCode,
         provider: "openai",
@@ -77,9 +77,9 @@ export async function semanticSearch(
   if (!invariant) {
     // Vectors exist but invariant is missing — inconsistent state
     throw new SemanticDomainError(
-      "Semantic vectors exist but model invariant is missing. Re-index with `kata context index --full`.",
+      "Semantic vectors exist but model invariant is missing. Re-index with `kata-context index --full`.",
       {
-        code: "SEMANTIC_SEARCH_EMPTY_INDEX" as SemanticDomainErrorCode,
+        code: "SEMANTIC_SEARCH_MODEL_MISMATCH" as SemanticDomainErrorCode,
         provider: "openai",
         phase: "query",
         retryable: false,
@@ -92,7 +92,7 @@ export async function semanticSearch(
   const configModel = config.providers.openai.model;
   if (configModel !== invariant.model) {
     throw new SemanticDomainError(
-      `Model mismatch: config specifies "${configModel}" but index was built with "${invariant.model}". Re-index with \`kata context index --full\` to align.`,
+      `Model mismatch: config specifies "${configModel}" but index was built with "${invariant.model}". Re-index with \`kata-context index --full\` to align.`,
       {
         code: "SEMANTIC_SEARCH_MODEL_MISMATCH" as SemanticDomainErrorCode,
         provider: "openai",
