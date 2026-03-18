@@ -12,6 +12,8 @@ import {
   getMainBranch,
   autoCommitCurrentBranch,
   commit,
+  mergeSliceToMain,
+  MergeConflictError,
   RUNTIME_EXCLUSION_PATHS,
   VALID_BRANCH_NAME,
   type GitPreferences,
@@ -691,6 +693,108 @@ describe("getMainBranch", () => {
       // No 'main' or 'master' branch — should fall back
       const branch = getMainBranch(repo);
       assert.equal(branch, "trunk");
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+});
+
+// ─── mergeSliceToMain ─────────────────────────────────────────────────────────
+
+describe("mergeSliceToMain", () => {
+  it("happy path: squash-merges slice commits onto main and returns result", () => {
+    const repo = initRepo("main");
+    try {
+      // Create a slice branch with one new commit
+      execFileSync("git", ["checkout", "-b", "kata/M001/S01"], { cwd: repo });
+      createFile(repo, "src/feature.ts", "export const feature = 1;");
+      execFileSync("git", ["add", "-A"], { cwd: repo });
+      execFileSync("git", ["commit", "-m", "feat: add feature"], { cwd: repo });
+
+      const result = mergeSliceToMain(repo, "M001", "S01", "Feature slice");
+
+      assert.equal(result.branch, "kata/M001/S01", "returns slice branch name");
+      assert.equal(
+        result.mergedCommitMessage,
+        "feat(M001/S01): Feature slice",
+        "returns conventional squash commit message",
+      );
+      assert.equal(result.deletedBranch, false);
+
+      // Should now be on main
+      assert.equal(getCurrentBranch(repo), "main");
+
+      // The squash commit must appear in main's log
+      const log = gitRaw(["log", "--oneline", "-1"], repo);
+      assert.ok(
+        log.includes("feat(M001/S01): Feature slice"),
+        `squash commit is in main log: "${log}"`,
+      );
+
+      // The feature file must be present on main
+      const showStat = gitRaw(["show", "--stat", "--format=", "HEAD"], repo);
+      assert.ok(showStat.includes("src/feature.ts"), "feature file is in the squash commit");
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("throws when slice has no new commits (empty squash stages nothing)", () => {
+    const repo = initRepo("main");
+    try {
+      // Create slice branch with NO additional commits — identical to main
+      execFileSync("git", ["checkout", "-b", "kata/M001/S01"], { cwd: repo });
+
+      assert.throws(
+        () => mergeSliceToMain(repo, "M001", "S01", "Empty slice"),
+        (err: unknown) => {
+          assert.ok(err instanceof Error, "throws an Error");
+          assert.ok(
+            (err as Error).message.includes("staged nothing"),
+            `error mentions 'staged nothing': "${(err as Error).message}"`,
+          );
+          return true;
+        },
+      );
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("throws MergeConflictError with populated conflictedFiles on conflict", () => {
+    const repo = initRepo("main");
+    try {
+      // Create a conflicting edit on the slice branch
+      execFileSync("git", ["checkout", "-b", "kata/M001/S01"], { cwd: repo });
+      createFile(repo, "conflict.txt", "slice version\n");
+      execFileSync("git", ["add", "-A"], { cwd: repo });
+      execFileSync("git", ["commit", "-m", "feat: slice edit"], { cwd: repo });
+
+      // Create a conflicting edit on main
+      execFileSync("git", ["checkout", "main"], { cwd: repo });
+      createFile(repo, "conflict.txt", "main version\n");
+      execFileSync("git", ["add", "-A"], { cwd: repo });
+      execFileSync("git", ["commit", "-m", "chore: main edit"], { cwd: repo });
+
+      // Switch back to slice so mergeSliceToMain captures the right current branch
+      execFileSync("git", ["checkout", "kata/M001/S01"], { cwd: repo });
+
+      assert.throws(
+        () => mergeSliceToMain(repo, "M001", "S01", "Conflicting slice"),
+        (err: unknown) => {
+          assert.ok(err instanceof MergeConflictError, "throws MergeConflictError");
+          const mce = err as MergeConflictError;
+          assert.ok(mce.conflictedFiles.length > 0, "conflictedFiles is non-empty");
+          assert.ok(
+            mce.conflictedFiles.includes("conflict.txt"),
+            `conflictedFiles includes conflict.txt: ${JSON.stringify(mce.conflictedFiles)}`,
+          );
+          assert.equal(mce.strategy, "squash", "strategy is always 'squash'");
+          assert.equal(mce.branch, "kata/M001/S01", "records the slice branch");
+          assert.equal(mce.mainBranch, "main", "records the main branch");
+          return true;
+        },
+      );
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }

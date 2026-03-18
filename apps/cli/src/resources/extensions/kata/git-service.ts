@@ -223,7 +223,9 @@ export function buildTaskCommitMessage(ctx: TaskCommitContext): string {
   const type = inferCommitType(ctx.taskTitle, ctx.oneLiner);
 
   // Truncate description to keep subject line under ~72 chars
-  const maxDescLen = 68 - type.length - scope.length;
+  // Math.max(1, ...) guards against negative values when taskId is unusually long,
+  // which would cause slice(0, negative) to strip from the end instead of truncating.
+  const maxDescLen = Math.max(1, 68 - type.length - scope.length);
   const truncated =
     description.length > maxDescLen
       ? description.slice(0, maxDescLen - 1).trimEnd() + "…"
@@ -458,9 +460,10 @@ export function mergeSliceToMain(
 
   runGit(basePath, ["switch", mainBranch]);
 
+  // Only squash-merge is implemented; non-squash strategy is a future TODO.
   try {
     runGit(basePath, ["merge", "--squash", sliceBranch]);
-  } catch {
+  } catch (mergeErr) {
     // Collect conflicted files for the caller to act on
     const conflictedFiles = runGit(
       basePath,
@@ -470,17 +473,28 @@ export function mergeSliceToMain(
       .split("\n")
       .filter(Boolean);
 
+    // Non-conflict failure (missing branch, dirty index, invalid ref, etc.)
+    // — rethrow the original git error rather than misclassifying it as a conflict.
+    if (conflictedFiles.length === 0) {
+      throw mergeErr;
+    }
+
     throw new MergeConflictError({
       message: `Merge conflict while squashing ${sliceBranch} into ${mainBranch}`,
       conflictedFiles,
-      strategy: prefs?.merge_strategy ?? "squash",
+      strategy: "squash", // always squash — non-squash merge path not yet implemented
       branch: sliceBranch,
       mainBranch,
     });
   }
 
   const squashMsg = `feat(${milestoneId}/${sliceId}): ${sliceTitle}`;
-  commit(basePath, { message: squashMsg });
+  const committed = commit(basePath, { message: squashMsg });
+  if (!committed) {
+    throw new Error(
+      `Squash of ${sliceBranch} into ${mainBranch} staged nothing — slice may be empty or already merged`,
+    );
+  }
 
   return { branch: sliceBranch, mergedCommitMessage: squashMsg, deletedBranch: false };
 }
