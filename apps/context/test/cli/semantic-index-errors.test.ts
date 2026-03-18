@@ -35,18 +35,26 @@ function seedRepoFromFixture(): string {
 
 describe("CLI semantic diagnostics contract (T01 red-first)", () => {
   let repoDir: string;
+  let previousOpenAiKey: string | undefined;
 
   beforeEach(() => {
+    previousOpenAiKey = process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
     repoDir = seedRepoFromFixture();
   });
 
   afterEach(() => {
+    if (previousOpenAiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = previousOpenAiKey;
+    }
     rmSync(repoDir, { recursive: true, force: true });
   });
 
   it("exports dedicated semantic diagnostic formatters for CLI output modes", () => {
-    expect(typeof (formatters as any).formatSemanticDiagnostics).toBe("function");
-    expect(typeof (formatters as any).formatSemanticDiagnosticHint).toBe("function");
+    expect(typeof formatters.formatSemanticDiagnostics).toBe("function");
+    expect(typeof formatters.formatSemanticDiagnosticHint).toBe("function");
   });
 
   it("index JSON payload includes semantic status, code, phase, and hint", () => {
@@ -92,10 +100,7 @@ describe("CLI semantic diagnostics contract (T01 red-first)", () => {
         },
       }) as any;
 
-      const formatSemanticDiagnostics = (formatters as any).formatSemanticDiagnostics;
-      expect(typeof formatSemanticDiagnostics).toBe("function");
-
-      const section = formatSemanticDiagnostics(result.semantic);
+      const section = formatters.formatSemanticDiagnostics(result.semantic);
       expect(section).toContain("Semantic Diagnostics");
       expect(section).toContain("SEMANTIC_OPENAI_MISSING_KEY");
       expect(section).toContain("embedding");
@@ -106,7 +111,7 @@ describe("CLI semantic diagnostics contract (T01 red-first)", () => {
   });
 
   it("CLI module exports a semantic-code-to-remediation mapper", () => {
-    const mapper = (cliModule as any).semanticRemediationForCode;
+    const mapper = cliModule.semanticRemediationForCode;
     expect(typeof mapper).toBe("function");
 
     expect(mapper("SEMANTIC_OPENAI_MISSING_KEY")).toContain("OPENAI_API_KEY");

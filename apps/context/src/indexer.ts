@@ -21,6 +21,7 @@ import { parseFiles } from "./parser/index.js";
 import { isSupportedFile } from "./parser/languages.js";
 import { mapEmbeddingProviderError } from "./semantic/embedding.js";
 import { shouldSummarizeSymbol } from "./semantic/summary.js";
+import { semanticHintOrDefault } from "./semantic/hints.js";
 import {
   type Config,
   type ParsedFile,
@@ -167,29 +168,6 @@ function deterministicEmbeddingVector(text: string, dimensions: number): number[
   return vector;
 }
 
-function semanticHintForCode(errorCode?: string): string | undefined {
-  switch (errorCode) {
-    case "SEMANTIC_OPENAI_MISSING_KEY":
-      return "Set OPENAI_API_KEY to enable semantic embeddings.";
-    case "SEMANTIC_OPENAI_AUTH":
-      return "Verify OPENAI_API_KEY and account permissions.";
-    case "SEMANTIC_OPENAI_RATE_LIMIT":
-      return "OpenAI rate limit hit. Retry shortly or reduce embedding batch size.";
-    case "SEMANTIC_OPENAI_PROVIDER_UNAVAILABLE":
-      return "OpenAI provider unavailable. Retry shortly and check provider status.";
-    case "SEMANTIC_ANTHROPIC_MISSING_KEY":
-      return "Set ANTHROPIC_API_KEY to enable provider-backed summaries.";
-    case "SEMANTIC_ANTHROPIC_AUTH":
-      return "Verify ANTHROPIC_API_KEY and account permissions.";
-    case "SEMANTIC_ANTHROPIC_RATE_LIMIT":
-      return "Anthropic rate limit hit. Retry shortly or reduce summary batch size.";
-    case "SEMANTIC_ANTHROPIC_PROVIDER_UNAVAILABLE":
-      return "Anthropic provider unavailable. Retry shortly and check provider status.";
-    default:
-      return undefined;
-  }
-}
-
 function createSemanticEvent(params: {
   phase: SemanticStageEvent["phase"];
   provider: SemanticStageEvent["provider"];
@@ -222,7 +200,7 @@ function toSemanticDiagnostics(
     timestamp: status.timestamp,
     errorCode: status.errorCode,
     message: status.message,
-    hint: semanticHintForCode(status.errorCode),
+    hint: status.errorCode ? semanticHintOrDefault(status.errorCode) : undefined,
     events,
   };
 }
@@ -821,7 +799,17 @@ export function indexProject(
           store.setLastIndexedSha(currentSha);
         }
 
-        const semantic = toSemanticDiagnostics(store.getSemanticStatus(), []);
+        const semantic = toSemanticDiagnostics(
+          {
+            status: "ok",
+            phase: "summary",
+            provider: "none",
+            timestamp: new Date().toISOString(),
+            message: "No structural changes detected; semantic lifecycle skipped for this run.",
+            retryable: false,
+          },
+          [],
+        );
 
         return {
           filesIndexed: 0,

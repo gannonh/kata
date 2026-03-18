@@ -203,16 +203,18 @@ function parseStoredVector(vectorJson: string): number[] {
 }
 
 function computeL2Distance(lhs: number[], rhs: number[]): number {
+  if (lhs.length !== rhs.length) {
+    throw new RangeError(
+      `computeL2Distance: vector length mismatch (${lhs.length} vs ${rhs.length})`,
+    );
+  }
+
   let sum = 0;
   for (let i = 0; i < lhs.length; i += 1) {
     const delta = lhs[i]! - rhs[i]!;
     sum += delta * delta;
   }
   return Math.sqrt(sum);
-}
-
-function asSemanticStoreCode(code: SemanticStoreErrorCode): SemanticStoreErrorCode {
-  return code;
 }
 
 // ── GraphStore ──
@@ -262,7 +264,7 @@ export class GraphStore {
       return true;
     } catch (error) {
       const err = new SemanticStoreError(
-        asSemanticStoreCode("SEMANTIC_VEC_EXTENSION_LOAD_FAILED"),
+        "SEMANTIC_VEC_EXTENSION_LOAD_FAILED",
         "Failed to load sqlite-vec extension",
         {
           phase: "extension-load",
@@ -441,6 +443,13 @@ export class GraphStore {
     persist();
   }
 
+  private clearSemanticVectorInvariant(): void {
+    const clear = this.db.prepare(
+      "DELETE FROM metadata WHERE key IN (?, ?)",
+    );
+    clear.run(SEMANTIC_MODEL_KEY, SEMANTIC_DIMENSIONS_KEY);
+  }
+
   private assertSemanticVectorInvariant(model: string, dimensions: number): void {
     const invariant = this.getSemanticVectorInvariant();
 
@@ -451,7 +460,7 @@ export class GraphStore {
 
     if (invariant.model !== model || invariant.dimensions !== dimensions) {
       throw new SemanticStoreError(
-        asSemanticStoreCode("SEMANTIC_VECTOR_INVARIANT_MISMATCH"),
+        "SEMANTIC_VECTOR_INVARIANT_MISMATCH",
         `Semantic vector invariant mismatch: expected ${invariant.model}/${invariant.dimensions}, received ${model}/${dimensions}`,
         {
           phase: "persist",
@@ -472,7 +481,7 @@ export class GraphStore {
     for (const item of vectors) {
       if (item.model !== first.model || item.dimensions !== first.dimensions) {
         throw new SemanticStoreError(
-          asSemanticStoreCode("SEMANTIC_VECTOR_INVARIANT_MISMATCH"),
+          "SEMANTIC_VECTOR_INVARIANT_MISMATCH",
           `Semantic vector invariant mismatch: expected ${first.model}/${first.dimensions}, received ${item.model}/${item.dimensions}`,
           {
             phase: "persist",
@@ -483,7 +492,7 @@ export class GraphStore {
 
       if (item.vector.length !== item.dimensions) {
         throw new SemanticStoreError(
-          asSemanticStoreCode("SEMANTIC_VECTOR_DIMENSION_MISMATCH"),
+          "SEMANTIC_VECTOR_DIMENSION_MISMATCH",
           `Semantic vector dimension mismatch for symbol ${item.symbolId}: expected ${item.dimensions}, received ${item.vector.length}`,
           {
             phase: "persist",
@@ -534,7 +543,7 @@ export class GraphStore {
     if (invariant) {
       if (invariant.model !== options.model) {
         throw new SemanticStoreError(
-          asSemanticStoreCode("SEMANTIC_VECTOR_QUERY_MODEL_MISMATCH"),
+          "SEMANTIC_VECTOR_QUERY_MODEL_MISMATCH",
           `Semantic query model mismatch: expected ${invariant.model}, received ${options.model}`,
           {
             phase: "query",
@@ -545,7 +554,7 @@ export class GraphStore {
 
       if (invariant.dimensions !== options.queryVector.length) {
         throw new SemanticStoreError(
-          asSemanticStoreCode("SEMANTIC_VECTOR_QUERY_DIMENSION_MISMATCH"),
+          "SEMANTIC_VECTOR_QUERY_DIMENSION_MISMATCH",
           `Semantic query dimension mismatch: expected ${invariant.dimensions}, received ${options.queryVector.length}`,
           {
             phase: "query",
@@ -586,6 +595,11 @@ export class GraphStore {
     const result = this.db
       .prepare("DELETE FROM semantic_vectors WHERE file_path = ?")
       .run(filePath);
+
+    if (result.changes > 0 && this.countSemanticVectors() === 0) {
+      this.clearSemanticVectorInvariant();
+    }
+
     return result.changes;
   }
 
