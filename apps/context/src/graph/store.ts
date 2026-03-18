@@ -405,7 +405,7 @@ export class GraphStore {
 
   // ── Semantic vector lifecycle ──
 
-  private getSemanticVectorInvariant(): { model: string; dimensions: number } | null {
+  getSemanticVectorInvariant(): { model: string; dimensions: number } | null {
     const modelRow = this.db
       .prepare("SELECT value FROM metadata WHERE key = ?")
       .get(SEMANTIC_MODEL_KEY) as { value: string } | undefined;

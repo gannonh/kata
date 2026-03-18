@@ -357,3 +357,62 @@ export async function embedSummariesBatched(
 export function getDefaultEmbeddingModel(): string {
   return DEFAULT_CONFIG.providers.openai.model;
 }
+
+/**
+ * Embed a single text query using the given provider.
+ *
+ * Wraps `provider.embedBatch()` with a single-text interface using a
+ * synthetic symbolId. Returns the raw embedding vector.
+ *
+ * @throws SemanticDomainError on missing key, auth, or provider errors.
+ */
+export async function embedQuery(
+  text: string,
+  provider: EmbeddingProvider,
+  model: string,
+  dimensions: number,
+): Promise<number[]> {
+  const syntheticId = `query-${Date.now()}`;
+
+  let responses: EmbeddingProviderResponse[];
+  try {
+    responses = await provider.embedBatch(
+      [{ symbolId: syntheticId, text, filePath: "<query>" }],
+      { model, expectedDimensions: dimensions },
+    );
+  } catch (error) {
+    throw mapEmbeddingProviderError(error, {
+      provider: "openai",
+      phase: "query",
+    });
+  }
+
+  if (responses.length !== 1) {
+    throw new SemanticDomainError(
+      `Expected 1 embedding response for query, received ${responses.length}`,
+      {
+        code: "SEMANTIC_OPENAI_PROVIDER_UNAVAILABLE",
+        provider: "openai",
+        phase: "query",
+        retryable: false,
+        partialWritesCommitted: false,
+      },
+    );
+  }
+
+  const vector = responses[0]!.embedding;
+  if (vector.length !== dimensions) {
+    throw new SemanticDomainError(
+      `Query embedding dimensions mismatch: expected ${dimensions}, received ${vector.length}`,
+      {
+        code: "SEMANTIC_OPENAI_PROVIDER_UNAVAILABLE",
+        provider: "openai",
+        phase: "query",
+        retryable: false,
+        partialWritesCommitted: false,
+      },
+    );
+  }
+
+  return vector;
+}

@@ -267,6 +267,37 @@ export type QueryResult = DependencyResult | FileSymbolResult[];
 
 // ── Fuzzy find result types ──
 
+// ── Semantic search result types ──
+
+/**
+ * Options for semanticSearch().
+ */
+export interface SemanticSearchOptions {
+  /** Maximum number of results to return (default: 10) */
+  topK?: number;
+  /** Filter results to a specific symbol kind */
+  kind?: SymbolKind;
+  /** Filter results to symbols within files matching this path prefix */
+  fileScope?: string;
+  /**
+   * Injectable embedding provider for testability.
+   * When omitted, creates the default OpenAI provider from config.
+   */
+  provider?: import("./semantic/contracts.js").EmbeddingProvider;
+}
+
+/**
+ * A single semantic search result with hydrated symbol metadata and score.
+ */
+export interface SemanticSearchResult {
+  /** The hydrated symbol */
+  symbol: Symbol;
+  /** L2 distance from query vector (lower = more similar) */
+  distance: number;
+  /** Similarity score: 1 / (1 + distance), range [0, 1] */
+  score: number;
+}
+
 /**
  * Options for fuzzyFind().
  */
