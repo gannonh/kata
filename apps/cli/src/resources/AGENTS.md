@@ -532,6 +532,9 @@ Set `LINEAR_API_KEY` in your environment (a Linear personal API key). That's it 
 **Workflow:**
 `linear_list_workflow_states`, `linear_create_label`, `linear_list_labels`, `linear_delete_label`, `linear_ensure_label`
 
+**Comments:**
+`linear_add_comment`
+
 **Documents:**
 `linear_create_document`, `linear_get_document`, `linear_list_documents`, `linear_update_document`, `linear_delete_document`
 
@@ -566,5 +569,5 @@ The built-in extension is separate from the Linear MCP server. You do **not** ne
 - Config directory is `.kata-cli` (the `-cli` suffix avoids collision)
 - Extensions are synced from `src/resources/extensions/` to `~/.kata-cli/agent/extensions/` on every launch
 - The `shared/` extension directory is a library, not an entry point — it's imported by other extensions
-- Branch naming for workflow: `kata/M001/S01` (milestone/slice)
+- Branch naming for workflow: `kata/<scope>/M001/S01` (namespaced; legacy `kata/M001/S01` remains compatible)
 - MCP config lives at `~/.kata-cli/agent/mcp.json` (not `~/.pi/agent/mcp.json`)

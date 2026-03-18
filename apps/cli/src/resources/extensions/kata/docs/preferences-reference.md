@@ -45,7 +45,7 @@ Full documentation for `~/.kata-cli/preferences.md` (global) and `.kata/preferen
 
 - `custom_instructions`: extra durable instructions related to skill use.
 
-- `models`: per-stage model selection for auto-mode and PR review. Keys: `research`, `planning`, `execution`, `completion`, `review`. Values: model IDs (for example `claude-sonnet-4-6`, `claude-opus-4-6`). The `review` key controls which model PR reviewer subagents use (via `/kata pr review`). Omit a key to use whatever model is currently active.
+- `models`: per-stage model selection for auto-mode, step mode, and PR review. Keys: `research`, `planning`, `execution`, `completion`, `review`. Values: model IDs (for example `claude-sonnet-4-6`, `claude-opus-4-6`). The `review` key controls which model PR reviewer subagents use (via `/kata pr review`). Applied in both `/kata auto` and `/kata step`. Omit a key to use whatever model is currently active.
 
 - `skill_discovery`: controls how Kata discovers and applies skills during auto-mode. Valid values:
   - `auto` — skills are found and applied automatically without prompting.
@@ -130,7 +130,7 @@ models:
 ---
 ```
 
-Opus for planning (where architectural decisions matter most), Sonnet for everything else (faster, cheaper). The `review` key sets the model for PR reviewer subagents — Sonnet is recommended (faster, parallel-friendly). Omit any key to use the currently selected model.
+Opus for planning (where architectural decisions matter most), Sonnet for everything else (faster, cheaper). The `review` key sets the model for PR reviewer subagents — Sonnet is recommended (faster, parallel-friendly). Model preferences apply to both `/kata auto` and `/kata step`. Omit any key to use the currently selected model.
 
 ---
 
