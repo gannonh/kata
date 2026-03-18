@@ -2,6 +2,10 @@
 # Pre-push hook: run the same validation as CI
 # Uses Turborepo --affected to only check what changed
 
+# Load full PATH for GUI apps (Fork, Tower, etc.) that don't inherit shell config
+eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null)" || true
+export PATH="$HOME/.bun/bin:$PATH"
+
 echo "Running pre-push validation..."
 bunx turbo run lint typecheck test --affected
 
