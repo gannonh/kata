@@ -126,12 +126,14 @@ describe("semanticSearch() function contract", () => {
     it("returns SemanticSearchResult[] with symbol name, kind, filePath, lineStart, lineEnd, distance, and score", async () => {
       seedStoreWithSemanticData(store);
       const config = makeConfig();
+      const provider = createMockEmbeddingProvider();
 
       // Import the function under test — will fail until T02 implements it
       const { semanticSearch } = await import("../../src/search/semantic.js");
 
       const results = await semanticSearch("authentication handling", store, config, {
         topK: 10,
+        provider,
       });
 
       expect(Array.isArray(results)).toBe(true);
@@ -156,11 +158,13 @@ describe("semanticSearch() function contract", () => {
     it("returns results ordered by ascending L2 distance (most similar first)", async () => {
       seedStoreWithSemanticData(store);
       const config = makeConfig();
+      const provider = createMockEmbeddingProvider();
 
       const { semanticSearch } = await import("../../src/search/semantic.js");
 
       const results = await semanticSearch("authentication handling", store, config, {
         topK: 10,
+        provider,
       });
 
       expect(results.length).toBeGreaterThanOrEqual(2);
@@ -174,11 +178,13 @@ describe("semanticSearch() function contract", () => {
     it("respects topK limit on result count", async () => {
       seedStoreWithSemanticData(store);
       const config = makeConfig();
+      const provider = createMockEmbeddingProvider();
 
       const { semanticSearch } = await import("../../src/search/semantic.js");
 
       const results = await semanticSearch("authentication handling", store, config, {
         topK: 1,
+        provider,
       });
 
       expect(results.length).toBeLessThanOrEqual(1);
@@ -189,12 +195,14 @@ describe("semanticSearch() function contract", () => {
     it("reduces results to only symbols of the specified kind", async () => {
       seedStoreWithSemanticData(store);
       const config = makeConfig();
+      const provider = createMockEmbeddingProvider();
 
       const { semanticSearch } = await import("../../src/search/semantic.js");
 
       const results = await semanticSearch("authentication handling", store, config, {
         topK: 10,
         kind: SymbolKind.Function,
+        provider,
       });
 
       expect(results.length).toBeGreaterThan(0);
@@ -206,6 +214,7 @@ describe("semanticSearch() function contract", () => {
     it("returns empty array when kind filter matches no results", async () => {
       seedStoreWithSemanticData(store);
       const config = makeConfig();
+      const provider = createMockEmbeddingProvider();
 
       const { semanticSearch } = await import("../../src/search/semantic.js");
 
@@ -213,6 +222,7 @@ describe("semanticSearch() function contract", () => {
       const results = await semanticSearch("authentication handling", store, config, {
         topK: 10,
         kind: SymbolKind.Enum,
+        provider,
       });
 
       expect(results).toEqual([]);
@@ -236,9 +246,11 @@ describe("semanticSearch() function contract", () => {
       ]);
 
       const { semanticSearch } = await import("../../src/search/semantic.js");
+      const provider = createMockEmbeddingProvider();
 
       const results = await semanticSearch("authentication handling", store, config, {
         topK: 10,
+        provider,
       });
 
       // Should return results but none should have orphan-id
