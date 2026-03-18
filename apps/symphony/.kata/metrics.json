@@ -649,6 +649,24 @@
       "toolCalls": 0,
       "assistantMessages": 21,
       "userMessages": 0
+    },
+    {
+      "type": "research-slice",
+      "id": "M001/S06",
+      "model": "gpt-5.3-codex",
+      "startedAt": 1773861324955,
+      "finishedAt": 1773861902209,
+      "tokens": {
+        "input": 321781,
+        "output": 12864,
+        "cacheRead": 7586304,
+        "cacheWrite": 0,
+        "total": 7920949
+      },
+      "cost": 2.070815949999999,
+      "toolCalls": 0,
+      "assistantMessages": 68,
+      "userMessages": 0
     }
   ]
 }
