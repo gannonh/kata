@@ -1,9 +1,9 @@
 # Kata State
 
 **Active Milestone:** M001 — Full Spec Conformance
-**Active Slice:** S06 — Orchestrator Core (next)
-**Active Task:** T04 — Wire CLI bootstrap/shutdown semantics and finalize S06 verification
-**Phase:** Executing
+**Active Slice:** S06 — Orchestrator Core
+**Active Task:** None (all S06 tasks complete)
+**Phase:** Summarizing
 
 ## Progress
 
@@ -12,16 +12,16 @@
 - [x] S03: Linear Tracker Client — TrackerAdapter trait + LinearAdapter + 33 integration tests; all slice verification items pass; 80 total tests
 - [x] S04: Workspace Manager and Prompt Builder — 28 tests; path_safety, prompt_builder, workspace modules; 111 total tests; R004+R007 validated
 - [x] S05: Codex App-Server Client — 32 integration tests pass; approval, tool dispatch, user-input, token accounting all done; zero warnings
-- [ ] S06: Orchestrator Core
+- [ ] S06: Orchestrator Core (all tasks complete; slice summary + roadmap closeout pending)
 - [ ] S07: HTTP Dashboard and JSON API
 - [ ] S08: SSH Remote Worker Extension
 - [ ] S09: Conformance Sweep and Integration Polish
 
 ## Recent Decisions
 
-- D035: Establish dedicated S06 proof harness in `tests/orchestrator_tests.rs` and `tests/cli_tests.rs`
 - D036: Track normalized running issue states inside orchestrator state for deterministic per-state slot accounting
 - D037: Preserve worker session IDs in orchestrator runtime state for retry/stall/completion diagnostics without widening domain structs yet
+- D038: Emit JSON-structured CLI bootstrap lifecycle logs keyed by phase/stage/workflow_path for deterministic startup diagnostics
 
 ## Blockers
 
@@ -29,7 +29,7 @@
 
 ## Next Action
 
-Execute S06/T04: wire CLI bootstrap validation + orchestrator startup flow so `tests/cli_tests.rs` passes, then re-run full slice gate (`cargo test --test orchestrator_tests --test cli_tests` and `cargo build`) to close S06.
+Write S06 slice summary + UAT artifacts, mark S06 done in `M001-ROADMAP.md`, update milestone summary, then begin S07 planning/execution.
 
 ## Validated Requirements
 
@@ -37,5 +37,8 @@ Execute S06/T04: wire CLI bootstrap validation + orchestrator startup flow so `t
 - R002 (Typed Config Layer) — S02
 - R004 (Workspace Manager with Safety Invariants) — S04
 - R005 (Codex App-Server Client) — S05: 32 tests; subprocess, handshake, turn streaming, approval, tool dispatch, user-input, token accounting
+- R006 (Orchestrator State Machine) — S06: 14 orchestrator conformance tests passing
 - R007 (Prompt Builder with Strict Liquid Rendering) — S04
+- R008 (CLI Entry Point) — S06: CLI bootstrap/exit tests passing for default path, overrides, startup failures, and successful runtime start call-order
 - R012 (linear_graphql dynamic tool) — S05: 14 tests; argument normalisation, GraphQL execution, error formatting
+- R014 (Dispatch Preflight Validation) — S06: reconciliation continues while invalid-preflight deterministically skips dispatch

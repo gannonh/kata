@@ -107,7 +107,7 @@
   - Verify: `cargo test --test orchestrator_tests test_retry` + `cargo test --test orchestrator_tests test_stall` + `cargo test --test orchestrator_tests test_token`
   - Done when: Retry/stall/token tests pass, snapshot exposes retry diagnostics, and failure-path signals include issue/session context.
 
-- [ ] **T04: Wire CLI bootstrap/shutdown semantics and finalize S06 verification** `est:45m`
+- [x] **T04: Wire CLI bootstrap/shutdown semantics and finalize S06 verification** `est:45m`
   - Why: R008 requires a real operator entrypoint; S06 is not complete until the binary can bootstrap orchestrator runtime with deterministic failure behavior.
   - Files: `src/main.rs`, `src/orchestrator.rs`, `tests/cli_tests.rs`, `tests/orchestrator_tests.rs`
   - Do: Replace placeholder main with testable bootstrap function, validate workflow path before startup, instantiate WorkflowStore + Linear adapter + orchestrator, wire graceful shutdown handling, and ensure startup failures return non-zero while preserving structured diagnostics.

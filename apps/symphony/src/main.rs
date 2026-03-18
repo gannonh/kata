@@ -1,8 +1,14 @@
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
+use std::sync::Once;
 
 use clap::Parser;
-use symphony::{config, workflow};
+use symphony::linear::adapter::LinearAdapter;
+use symphony::linear::client::LinearClient;
+use symphony::orchestrator::Orchestrator;
+use symphony::workflow_store::WorkflowStore;
+use symphony::{config, domain::ServiceConfig};
+use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug, Clone)]
 #[command(
@@ -33,8 +39,47 @@ pub trait BootstrapDeps {
     fn start_orchestrator(&mut self, workflow_path: &Path, cli: &Cli) -> Result<(), String>;
 }
 
+struct StartupContext {
+    workflow_path: PathBuf,
+    workflow_store: WorkflowStore,
+    effective_config: ServiceConfig,
+}
+
 #[derive(Default)]
-pub struct RuntimeBootstrapDeps;
+pub struct RuntimeBootstrapDeps {
+    startup_context: Option<StartupContext>,
+}
+
+impl RuntimeBootstrapDeps {
+    fn load_startup_context(workflow_path: &Path) -> Result<StartupContext, String> {
+        let workflow_store = WorkflowStore::new(workflow_path)
+            .map_err(|err| format!("failed to load workflow store: {err}"))?;
+
+        let (_, effective_config) = workflow_store.effective_config();
+
+        Ok(StartupContext {
+            workflow_path: workflow_path.to_path_buf(),
+            workflow_store,
+            effective_config,
+        })
+    }
+
+    fn take_or_load_validated_context(
+        &mut self,
+        workflow_path: &Path,
+    ) -> Result<StartupContext, String> {
+        if let Some(context) = self.startup_context.take() {
+            if context.workflow_path == workflow_path {
+                return Ok(context);
+            }
+        }
+
+        let context = Self::load_startup_context(workflow_path)?;
+        config::validate(&context.effective_config)
+            .map_err(|err| format!("invalid startup config: {err}"))?;
+        Ok(context)
+    }
+}
 
 impl BootstrapDeps for RuntimeBootstrapDeps {
     fn workflow_exists(&mut self, workflow_path: &Path) -> bool {
@@ -42,18 +87,56 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
     }
 
     fn startup_validate(&mut self, workflow_path: &Path) -> Result<(), String> {
-        let definition = workflow::parse_workflow(workflow_path)
-            .map_err(|err| format!("failed to parse workflow: {err}"))?;
+        tracing::info!(
+            phase = "startup",
+            stage = "validate",
+            workflow_path = %workflow_path.display(),
+            "validating startup workflow and config"
+        );
 
-        let config = config::from_workflow(&definition.config)
-            .map_err(|err| format!("failed to decode workflow config: {err}"))?;
+        let context = Self::load_startup_context(workflow_path)?;
+        config::validate(&context.effective_config)
+            .map_err(|err| format!("invalid startup config: {err}"))?;
 
-        config::validate(&config).map_err(|err| format!("invalid startup config: {err}"))?;
+        self.startup_context = Some(context);
+
+        tracing::info!(
+            phase = "startup",
+            stage = "validate",
+            workflow_path = %workflow_path.display(),
+            "startup workflow and config validation succeeded"
+        );
+
         Ok(())
     }
 
-    fn start_orchestrator(&mut self, _workflow_path: &Path, _cli: &Cli) -> Result<(), String> {
-        Err("orchestrator startup is not implemented yet".to_string())
+    fn start_orchestrator(&mut self, workflow_path: &Path, cli: &Cli) -> Result<(), String> {
+        let mut context = self.take_or_load_validated_context(workflow_path)?;
+
+        if let Some(port) = cli.port {
+            context.effective_config.server.port = Some(port);
+        }
+
+        // Build runtime dependencies so startup failures surface at bootstrap time.
+        // Keep these explicit even if portions are consumed in later slices.
+        let tracker_client = LinearClient::new(context.effective_config.tracker.clone());
+        let _tracker_adapter = LinearAdapter::new(tracker_client);
+        let mut orchestrator = Orchestrator::new(context.effective_config.clone());
+
+        tracing::info!(
+            phase = "startup",
+            stage = "runtime_init",
+            workflow_path = %workflow_path.display(),
+            server_port = ?context.effective_config.server.port,
+            logs_root_configured = cli.logs_root.is_some(),
+            guardrails_acknowledged = cli.acknowledge_guardrails,
+            "constructed orchestrator runtime"
+        );
+
+        // Keep the watcher-backed store alive for the lifetime of the run.
+        let _workflow_store = context.workflow_store;
+
+        run_orchestrator_until_shutdown(&mut orchestrator, workflow_path)
     }
 }
 
@@ -72,6 +155,13 @@ pub fn resolve_workflow_path(cli: &Cli) -> PathBuf {
 pub fn execute_cli(cli: &Cli, deps: &mut dyn BootstrapDeps) -> Result<(), String> {
     let workflow_path = resolve_workflow_path(cli);
 
+    tracing::info!(
+        phase = "startup",
+        stage = "bootstrap",
+        workflow_path = %workflow_path.display(),
+        "starting CLI bootstrap"
+    );
+
     if !deps.workflow_exists(&workflow_path) {
         return Err(format!(
             "workflow file not found: {}",
@@ -79,19 +169,115 @@ pub fn execute_cli(cli: &Cli, deps: &mut dyn BootstrapDeps) -> Result<(), String
         ));
     }
 
-    // Intentionally incomplete in T01:
-    // - startup validation is not invoked yet
-    // - orchestrator startup is not invoked yet
-    Ok(())
+    deps.startup_validate(&workflow_path).map_err(|err| {
+        format!(
+            "startup validation failed for {}: {err}",
+            workflow_path.display()
+        )
+    })?;
+
+    deps.start_orchestrator(&workflow_path, cli).map_err(|err| {
+        format!(
+            "orchestrator startup failed for {}: {err}",
+            workflow_path.display()
+        )
+    })
+}
+
+fn run_orchestrator_until_shutdown(
+    orchestrator: &mut Orchestrator,
+    workflow_path: &Path,
+) -> Result<(), String> {
+    let handle = tokio::runtime::Handle::try_current()
+        .map_err(|err| format!("missing tokio runtime for orchestrator startup: {err}"))?;
+
+    tokio::task::block_in_place(|| {
+        handle.block_on(async {
+            tracing::info!(
+                phase = "runtime",
+                stage = "start",
+                workflow_path = %workflow_path.display(),
+                "starting orchestrator loop"
+            );
+
+            tokio::select! {
+                run_result = orchestrator.run() => {
+                    run_result.map_err(|err| format!("orchestrator runtime failed: {err}"))?;
+                    tracing::info!(
+                        phase = "runtime",
+                        stage = "stopped",
+                        reason = "run_returned",
+                        workflow_path = %workflow_path.display(),
+                        "orchestrator loop stopped"
+                    );
+                    Ok(())
+                }
+                signal_result = tokio::signal::ctrl_c() => {
+                    match signal_result {
+                        Ok(()) => {
+                            tracing::info!(
+                                phase = "runtime",
+                                stage = "stopped",
+                                reason = "ctrl_c",
+                                workflow_path = %workflow_path.display(),
+                                "received shutdown signal"
+                            );
+                            Ok(())
+                        }
+                        Err(err) => Err(format!("failed to listen for ctrl_c: {err}")),
+                    }
+                }
+            }
+        })
+    })
+}
+
+fn init_tracing() {
+    static INIT: Once = Once::new();
+
+    INIT.call_once(|| {
+        let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+
+        let _ = tracing_subscriber::fmt()
+            .with_env_filter(filter)
+            .with_target(false)
+            .json()
+            .try_init();
+    });
+}
+
+fn run_entrypoint(args: impl IntoIterator<Item = OsString>) -> i32 {
+    let cli = match parse_cli_from(args) {
+        Ok(cli) => cli,
+        Err(err) => {
+            eprintln!("{err}");
+            return 2;
+        }
+    };
+
+    let mut deps = RuntimeBootstrapDeps::default();
+
+    match execute_cli(&cli, &mut deps) {
+        Ok(()) => 0,
+        Err(err) => {
+            tracing::error!(
+                phase = "startup",
+                workflow_path = %cli.workflow_path,
+                error = %err,
+                "startup failed"
+            );
+            eprintln!("{err}");
+            1
+        }
+    }
 }
 
 #[tokio::main]
 async fn main() {
-    let cli = Cli::parse();
-    let mut deps = RuntimeBootstrapDeps;
+    init_tracing();
 
-    if let Err(err) = execute_cli(&cli, &mut deps) {
-        eprintln!("{err}");
-        std::process::exit(1);
+    let code = run_entrypoint(std::env::args_os());
+    if code != 0 {
+        std::process::exit(code);
     }
 }
