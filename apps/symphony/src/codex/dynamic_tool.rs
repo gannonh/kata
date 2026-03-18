@@ -91,11 +91,7 @@ pub fn tool_specs() -> Vec<Value> {
 /// - `Value::String(s)` — treated as a raw query; must be non-empty after trimming
 /// - `Value::Object(m)` — must have `"query"` key (non-empty string) + optional `"variables"` (object)
 /// - anything else — `invalid_arguments` error
-pub async fn execute<F, Fut>(
-    tool_name: &str,
-    arguments: Value,
-    executor: F,
-) -> ToolResult
+pub async fn execute<F, Fut>(tool_name: &str, arguments: Value, executor: F) -> ToolResult
 where
     F: FnOnce(String, Value) -> Fut,
     Fut: Future<Output = Result<Value, SymphonyError>>,
@@ -133,9 +129,7 @@ where
 /// 1. Binary (string) → trim and use as query with empty variables
 /// 2. Map → extract `query` (required, non-empty) + `variables` (optional object)
 /// 3. Anything else → `invalid_arguments`
-fn normalize_linear_graphql_arguments(
-    arguments: Value,
-) -> Result<(String, Value), SymphonyError> {
+fn normalize_linear_graphql_arguments(arguments: Value) -> Result<(String, Value), SymphonyError> {
     match arguments {
         Value::String(s) => {
             let trimmed = s.trim().to_string();

@@ -55,18 +55,12 @@ pub struct TokenDelta {
 pub fn extract_token_delta(last_state: &TokenState, event_payload: &Value) -> TokenDelta {
     let usage = extract_token_usage(event_payload);
 
-    let (input_delta, input_reported) = compute_delta(
-        get_token_usage_input(&usage),
-        last_state.last_input,
-    );
-    let (output_delta, output_reported) = compute_delta(
-        get_token_usage_output(&usage),
-        last_state.last_output,
-    );
-    let (total_delta, total_reported) = compute_delta(
-        get_token_usage_total(&usage),
-        last_state.last_total,
-    );
+    let (input_delta, input_reported) =
+        compute_delta(get_token_usage_input(&usage), last_state.last_input);
+    let (output_delta, output_reported) =
+        compute_delta(get_token_usage_output(&usage), last_state.last_output);
+    let (total_delta, total_reported) =
+        compute_delta(get_token_usage_total(&usage), last_state.last_total);
 
     TokenDelta {
         input_tokens: input_delta,
@@ -121,9 +115,7 @@ fn extract_token_usage(payload: &Value) -> Value {
             // Check direct "usage" field and params.usage
             let usage_candidates = [
                 payload.get("usage"),
-                payload
-                    .get("params")
-                    .and_then(|p| p.get("usage")),
+                payload.get("params").and_then(|p| p.get("usage")),
             ];
             for u in usage_candidates.into_iter().flatten() {
                 if is_integer_token_map(u) {
@@ -196,9 +188,8 @@ fn is_rate_limits_map(value: &Value) -> bool {
     };
 
     let has_limit_id = obj.contains_key("limit_id") || obj.contains_key("limit_name");
-    let has_bucket = obj.contains_key("primary")
-        || obj.contains_key("secondary")
-        || obj.contains_key("credits");
+    let has_bucket =
+        obj.contains_key("primary") || obj.contains_key("secondary") || obj.contains_key("credits");
 
     has_limit_id && has_bucket
 }
@@ -359,7 +350,10 @@ mod tests {
         });
         let delta = extract_token_delta(&state, &payload);
         assert_eq!(delta.total_tokens, 0, "delta must be 0 when next < prev");
-        assert_eq!(delta.total_reported, 100, "reported should update even on decrease");
+        assert_eq!(
+            delta.total_reported, 100,
+            "reported should update even on decrease"
+        );
     }
 
     #[test]

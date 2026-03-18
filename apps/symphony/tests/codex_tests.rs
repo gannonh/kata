@@ -6,11 +6,11 @@
 //! - `app_server`: workspace cwd validation, subprocess handshake, turn streaming
 
 use serde_json::{json, Value};
-use symphony::codex::dynamic_tool::{self, ContentItem};
+use std::path::Path;
 use symphony::codex::app_server;
+use symphony::codex::dynamic_tool::{self, ContentItem};
 use symphony::domain::{AgentEvent, CodexConfig, Issue};
 use symphony::error::SymphonyError;
-use std::path::Path;
 
 // ══════════════════════════════════════════════════════════════════════
 // Dynamic tool tests (~12)
@@ -53,12 +53,7 @@ fn tool_specs_contract() {
 
 #[tokio::test]
 async fn unsupported_tool_returns_failure_with_supported_list() {
-    let result = dynamic_tool::execute(
-        "not_a_real_tool",
-        json!({}),
-        never_executor,
-    )
-    .await;
+    let result = dynamic_tool::execute("not_a_real_tool", json!({}), never_executor).await;
 
     assert!(!result.success);
 
@@ -121,7 +116,11 @@ async fn linear_graphql_accepts_raw_query_string() {
         Value::String("  query Viewer { viewer { id } }  ".to_string()),
         |query, variables| async move {
             assert_eq!(query, "query Viewer { viewer { id } }");
-            assert_eq!(variables, json!({}), "variables should default to empty object");
+            assert_eq!(
+                variables,
+                json!({}),
+                "variables should default to empty object"
+            );
             Ok(json!({"data": {"viewer": {"id": "usr_456"}}}))
         },
     )
@@ -143,7 +142,11 @@ async fn linear_graphql_ignores_operation_name_field() {
         }),
         |query, variables| async move {
             assert_eq!(query, "query Viewer { viewer { id } }");
-            assert_eq!(variables, json!({}), "variables should default to empty object when omitted");
+            assert_eq!(
+                variables,
+                json!({}),
+                "variables should default to empty object when omitted"
+            );
             Ok(json!({"data": {"viewer": {"id": "usr_789"}}}))
         },
     )
@@ -191,12 +194,8 @@ async fn linear_graphql_rejects_missing_and_blank_query_in_object() {
     );
 
     // Blank query field
-    let result2 = dynamic_tool::execute(
-        "linear_graphql",
-        json!({"query": "   "}),
-        never_executor,
-    )
-    .await;
+    let result2 =
+        dynamic_tool::execute("linear_graphql", json!({"query": "   "}), never_executor).await;
 
     assert!(!result2.success);
     let payload2: Value = serde_json::from_str(&result2.output).unwrap();
@@ -211,12 +210,8 @@ async fn linear_graphql_rejects_missing_and_blank_query_in_object() {
 #[tokio::test]
 async fn linear_graphql_rejects_invalid_argument_types() {
     // Array is not valid (neither string nor object)
-    let result = dynamic_tool::execute(
-        "linear_graphql",
-        json!(["not", "valid"]),
-        never_executor,
-    )
-    .await;
+    let result =
+        dynamic_tool::execute("linear_graphql", json!(["not", "valid"]), never_executor).await;
 
     assert!(!result.success);
     let payload: Value = serde_json::from_str(&result.output).unwrap();
@@ -226,12 +221,7 @@ async fn linear_graphql_rejects_invalid_argument_types() {
     );
 
     // Number is also invalid
-    let result2 = dynamic_tool::execute(
-        "linear_graphql",
-        json!(42),
-        never_executor,
-    )
-    .await;
+    let result2 = dynamic_tool::execute("linear_graphql", json!(42), never_executor).await;
 
     assert!(!result2.success);
     let payload2: Value = serde_json::from_str(&result2.output).unwrap();
@@ -302,7 +292,10 @@ async fn linear_graphql_treats_empty_errors_array_as_success() {
     )
     .await;
 
-    assert!(result.success, "empty errors array should not set success=false");
+    assert!(
+        result.success,
+        "empty errors array should not set success=false"
+    );
 }
 
 // ── transport / auth failures ─────────────────────────────────────────
@@ -344,9 +337,7 @@ async fn linear_graphql_formats_transport_and_auth_failures() {
     let request_error = dynamic_tool::execute(
         "linear_graphql",
         json!({"query": "query Viewer { viewer { id } }"}),
-        |_, _| async {
-            Err(SymphonyError::LinearApiRequest(":timeout".to_string()))
-        },
+        |_, _| async { Err(SymphonyError::LinearApiRequest(":timeout".to_string())) },
     )
     .await;
 
@@ -528,10 +519,7 @@ async fn test_app_server_cwd_rejects_workspace_root() {
     // workspace_path == workspace_root → error
     let result = app_server::start_session(&config, &issue, root, root).await;
 
-    assert!(
-        result.is_err(),
-        "expected error when workspace is the root"
-    );
+    assert!(result.is_err(), "expected error when workspace is the root");
     assert!(
         matches!(result, Err(SymphonyError::InvalidWorkspaceCwd(_))),
         "expected InvalidWorkspaceCwd"
@@ -546,13 +534,8 @@ async fn test_app_server_cwd_rejects_outside_root() {
     let issue = make_test_issue();
 
     // workspace is completely outside root → error
-    let result = app_server::start_session(
-        &config,
-        &issue,
-        outside_dir.path(),
-        root_dir.path(),
-    )
-    .await;
+    let result =
+        app_server::start_session(&config, &issue, outside_dir.path(), root_dir.path()).await;
 
     assert!(
         matches!(result, Err(SymphonyError::InvalidWorkspaceCwd(_))),
@@ -573,8 +556,7 @@ async fn test_app_server_cwd_rejects_symlink_escape() {
     std::os::unix::fs::symlink(outside_dir.path(), &symlink_path).unwrap();
 
     // workspace_path is the symlink (resolves outside root) → error
-    let result =
-        app_server::start_session(&config, &issue, &symlink_path, root_dir.path()).await;
+    let result = app_server::start_session(&config, &issue, &symlink_path, root_dir.path()).await;
 
     assert!(
         matches!(result, Err(SymphonyError::InvalidWorkspaceCwd(_))),
@@ -601,7 +583,10 @@ async fn test_app_server_basic_handshake_and_completion() {
         .await
         .expect("start_session should succeed");
 
-    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
+        collected.push(ev)
+    })
+    .await;
     app_server::stop_session(handle).await.ok();
 
     assert!(result.is_ok(), "run_turn failed: {:?}", result.err());
@@ -611,16 +596,25 @@ async fn test_app_server_basic_handshake_and_completion() {
         matches!(e, AgentEvent::SessionStarted { session_id, .. }
             if session_id == "thread-abc-123-turn-xyz-456")
     });
-    assert!(session_started.is_some(), "expected SessionStarted event with correct session_id");
+    assert!(
+        session_started.is_some(),
+        "expected SessionStarted event with correct session_id"
+    );
 
     // TurnCompleted with correct turn_id
-    let turn_completed = collected.iter().find(|e| {
-        matches!(e, AgentEvent::TurnCompleted { turn_id, .. } if turn_id == "turn-xyz-456")
-    });
-    assert!(turn_completed.is_some(), "expected TurnCompleted event with correct turn_id");
+    let turn_completed = collected.iter().find(
+        |e| matches!(e, AgentEvent::TurnCompleted { turn_id, .. } if turn_id == "turn-xyz-456"),
+    );
+    assert!(
+        turn_completed.is_some(),
+        "expected TurnCompleted event with correct turn_id"
+    );
 
     // events also in TurnResult
-    assert!(result.unwrap().events.len() >= 2, "expected at least 2 events in TurnResult");
+    assert!(
+        result.unwrap().events.len() >= 2,
+        "expected at least 2 events in TurnResult"
+    );
 }
 
 // ── Turn failure ──────────────────────────────────────────────────────
@@ -642,16 +636,22 @@ async fn test_app_server_turn_failure() {
         .await
         .expect("start_session should succeed");
 
-    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
+        collected.push(ev)
+    })
+    .await;
     app_server::stop_session(handle).await.ok();
 
     assert!(
         matches!(result, Err(SymphonyError::TurnFailed(_))),
-        "expected TurnFailed error, got: {:?}", result
+        "expected TurnFailed error, got: {:?}",
+        result
     );
 
     assert!(
-        collected.iter().any(|e| matches!(e, AgentEvent::TurnFailed { .. })),
+        collected
+            .iter()
+            .any(|e| matches!(e, AgentEvent::TurnFailed { .. })),
         "expected TurnFailed event in callback"
     );
 }
@@ -675,16 +675,22 @@ async fn test_app_server_turn_cancellation() {
         .await
         .expect("start_session should succeed");
 
-    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
+        collected.push(ev)
+    })
+    .await;
     app_server::stop_session(handle).await.ok();
 
     assert!(
         matches!(result, Err(SymphonyError::TurnCancelled(_))),
-        "expected TurnCancelled error, got: {:?}", result
+        "expected TurnCancelled error, got: {:?}",
+        result
     );
 
     assert!(
-        collected.iter().any(|e| matches!(e, AgentEvent::TurnCancelled { .. })),
+        collected
+            .iter()
+            .any(|e| matches!(e, AgentEvent::TurnCancelled { .. })),
         "expected TurnCancelled event in callback"
     );
 }
@@ -711,7 +717,8 @@ async fn test_app_server_subprocess_exit() {
 
     assert!(
         matches!(result, Err(SymphonyError::PortExit(_))),
-        "expected PortExit error, got: {:?}", result
+        "expected PortExit error, got: {:?}",
+        result
     );
 }
 
@@ -736,12 +743,21 @@ async fn test_app_server_partial_line_buffering() {
         .await
         .expect("start_session should succeed");
 
-    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
+        collected.push(ev)
+    })
+    .await;
     app_server::stop_session(handle).await.ok();
 
-    assert!(result.is_ok(), "partial line buffering failed: {:?}", result.err());
     assert!(
-        collected.iter().any(|e| matches!(e, AgentEvent::TurnCompleted { .. })),
+        result.is_ok(),
+        "partial line buffering failed: {:?}",
+        result.err()
+    );
+    assert!(
+        collected
+            .iter()
+            .any(|e| matches!(e, AgentEvent::TurnCompleted { .. })),
         "expected TurnCompleted event for large-line test"
     );
 }
@@ -794,17 +810,31 @@ async fn test_app_server_auto_approves_command_execution() {
         .await
         .expect("start_session should succeed");
 
-    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
+        collected.push(ev)
+    })
+    .await;
     app_server::stop_session(handle).await.ok();
 
-    assert!(result.is_ok(), "expected turn completion, got: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "expected turn completion, got: {:?}",
+        result.err()
+    );
 
     // Must have seen ApprovalAutoApproved with the correct method
     let approved = collected.iter().find(|e| {
         matches!(e, AgentEvent::ApprovalAutoApproved { tool_call, .. }
             if tool_call == "item/commandExecution/requestApproval")
     });
-    assert!(approved.is_some(), "expected ApprovalAutoApproved event, got: {:?}", collected.iter().map(|e| format!("{:?}", e)).collect::<Vec<_>>());
+    assert!(
+        approved.is_some(),
+        "expected ApprovalAutoApproved event, got: {:?}",
+        collected
+            .iter()
+            .map(|e| format!("{:?}", e))
+            .collect::<Vec<_>>()
+    );
 }
 
 // ── test_app_server_rejects_approval_when_not_auto ────────────────────
@@ -828,7 +858,11 @@ async fn test_app_server_rejects_approval_when_not_auto() {
     let workspace = root_dir.path().join("workspace");
     std::fs::create_dir_all(&workspace).unwrap();
 
-    let script_path = write_script(scripts_dir.path(), "codex.sh", SCRIPT_COMMAND_APPROVAL_REJECT);
+    let script_path = write_script(
+        scripts_dir.path(),
+        "codex.sh",
+        SCRIPT_COMMAND_APPROVAL_REJECT,
+    );
     // Default config: approval_policy is NOT "never" → auto_approve_requests=false
     let config = make_codex_config(&script_path);
     let issue = make_test_issue();
@@ -838,7 +872,10 @@ async fn test_app_server_rejects_approval_when_not_auto() {
         .await
         .expect("start_session should succeed");
 
-    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
+        collected.push(ev)
+    })
+    .await;
     app_server::stop_session(handle).await.ok();
 
     // Should return an error (approval_required)
@@ -846,7 +883,9 @@ async fn test_app_server_rejects_approval_when_not_auto() {
 
     // ApprovalRequired event must have been emitted
     assert!(
-        collected.iter().any(|e| matches!(e, AgentEvent::ApprovalRequired { .. })),
+        collected
+            .iter()
+            .any(|e| matches!(e, AgentEvent::ApprovalRequired { .. })),
         "expected ApprovalRequired event"
     );
 }
@@ -882,12 +921,17 @@ async fn test_app_server_auto_approves_mcp_tool_prompts() {
         .await
         .expect("start_session should succeed");
 
-    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
+        collected.push(ev)
+    })
+    .await;
     app_server::stop_session(handle).await.ok();
 
     assert!(result.is_ok(), "expected success, got: {:?}", result.err());
     assert!(
-        collected.iter().any(|e| matches!(e, AgentEvent::ApprovalAutoApproved { .. })),
+        collected
+            .iter()
+            .any(|e| matches!(e, AgentEvent::ApprovalAutoApproved { .. })),
         "expected ApprovalAutoApproved for MCP tool prompt"
     );
 }
@@ -924,12 +968,21 @@ async fn test_app_server_non_interactive_freeform_input() {
         .await
         .expect("start_session should succeed");
 
-    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
+        collected.push(ev)
+    })
+    .await;
     app_server::stop_session(handle).await.ok();
 
-    assert!(result.is_ok(), "expected success with non-interactive answer, got: {:?}", result.err());
     assert!(
-        collected.iter().any(|e| matches!(e, AgentEvent::ToolInputAutoAnswered { .. })),
+        result.is_ok(),
+        "expected success with non-interactive answer, got: {:?}",
+        result.err()
+    );
+    assert!(
+        collected
+            .iter()
+            .any(|e| matches!(e, AgentEvent::ToolInputAutoAnswered { .. })),
         "expected ToolInputAutoAnswered event"
     );
 }
@@ -965,13 +1018,23 @@ async fn test_app_server_rejects_unsupported_tool_calls() {
         .await
         .expect("start_session should succeed");
 
-    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
+        collected.push(ev)
+    })
+    .await;
     app_server::stop_session(handle).await.ok();
 
     // Turn should still complete (unsupported tool does NOT terminate the turn)
-    assert!(result.is_ok(), "expected turn to complete despite unsupported tool, got: {:?}", result.err());
     assert!(
-        collected.iter().any(|e| matches!(e, AgentEvent::ToolCallFailed { .. } | AgentEvent::UnsupportedToolCall { .. })),
+        result.is_ok(),
+        "expected turn to complete despite unsupported tool, got: {:?}",
+        result.err()
+    );
+    assert!(
+        collected.iter().any(|e| matches!(
+            e,
+            AgentEvent::ToolCallFailed { .. } | AgentEvent::UnsupportedToolCall { .. }
+        )),
         "expected ToolCallFailed or UnsupportedToolCall event"
     );
 }
@@ -1012,10 +1075,15 @@ async fn test_app_server_dispatches_supported_tool_calls() {
         Ok(serde_json::json!({"data": {"viewer": {"id": "usr-test"}}}))
     };
 
-    let result = app_server::run_turn(&mut handle, "hello", executor, |ev| collected.push(ev)).await;
+    let result =
+        app_server::run_turn(&mut handle, "hello", executor, |ev| collected.push(ev)).await;
     app_server::stop_session(handle).await.ok();
 
-    assert!(result.is_ok(), "expected successful turn, got: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "expected successful turn, got: {:?}",
+        result.err()
+    );
     assert!(
         collected.iter().any(|e| matches!(e, AgentEvent::ToolCallCompleted { tool_name, .. } if tool_name == "linear_graphql")),
         "expected ToolCallCompleted for linear_graphql"
@@ -1054,15 +1122,18 @@ async fn test_app_server_emits_tool_call_failed_event() {
         .expect("start_session should succeed");
 
     // Inject executor that returns an error
-    let executor = |_q: String, _v: Value| async move {
-        Err(SymphonyError::MissingLinearApiToken)
-    };
+    let executor = |_q: String, _v: Value| async move { Err(SymphonyError::MissingLinearApiToken) };
 
-    let result = app_server::run_turn(&mut handle, "hello", executor, |ev| collected.push(ev)).await;
+    let result =
+        app_server::run_turn(&mut handle, "hello", executor, |ev| collected.push(ev)).await;
     app_server::stop_session(handle).await.ok();
 
     // Turn should still complete — tool failures don't terminate the turn
-    assert!(result.is_ok(), "expected turn to complete despite tool failure, got: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "expected turn to complete despite tool failure, got: {:?}",
+        result.err()
+    );
     assert!(
         collected.iter().any(|e| matches!(e, AgentEvent::ToolCallFailed { tool_name, .. } if tool_name.as_deref() == Some("linear_graphql"))),
         "expected ToolCallFailed event with tool_name=linear_graphql"
@@ -1098,15 +1169,21 @@ async fn test_app_server_input_required_hard_failure() {
         .await
         .expect("start_session should succeed");
 
-    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
+        collected.push(ev)
+    })
+    .await;
     app_server::stop_session(handle).await.ok();
 
     assert!(
         matches!(result, Err(SymphonyError::TurnInputRequired)),
-        "expected TurnInputRequired error, got: {:?}", result
+        "expected TurnInputRequired error, got: {:?}",
+        result
     );
     assert!(
-        collected.iter().any(|e| matches!(e, AgentEvent::TurnInputRequired { .. })),
+        collected
+            .iter()
+            .any(|e| matches!(e, AgentEvent::TurnInputRequired { .. })),
         "expected TurnInputRequired event emitted"
     );
 }
@@ -1187,7 +1264,10 @@ async fn test_token_delta_zero_on_decrease() {
     let turn = result.expect("expected successful turn");
     // First event: delta = 200 - 0 = 200. Second event: 100 < 200 → delta = 0.
     // Total accumulated = 200 (not 200 + negative).
-    assert_eq!(turn.total_tokens, 200, "total_tokens should be 200 (decrease does not subtract)");
+    assert_eq!(
+        turn.total_tokens, 200,
+        "total_tokens should be 200 (decrease does not subtract)"
+    );
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────

@@ -164,21 +164,15 @@ pub async fn start_session(
     let mut stdout_reader = BufReader::new(stdout);
 
     // ── Step 3: Perform startup handshake ────────────────────────────
-    let thread_id = match do_start_session(
-        &mut stdin,
-        &mut stdout_reader,
-        config,
-        &workspace_str,
-    )
-    .await
-    {
-        Ok(id) => id,
-        Err(e) => {
-            // Kill the subprocess before propagating the error
-            let _ = child.kill().await;
-            return Err(e);
-        }
-    };
+    let thread_id =
+        match do_start_session(&mut stdin, &mut stdout_reader, config, &workspace_str).await {
+            Ok(id) => id,
+            Err(e) => {
+                // Kill the subprocess before propagating the error
+                let _ = child.kill().await;
+                return Err(e);
+            }
+        };
 
     // `auto_approve_requests` mirrors Elixir:
     // `auto_approve_requests: session_policies.approval_policy == "never"`
@@ -250,8 +244,12 @@ where
     send_message(&mut handle.stdin, &turn_start_msg).await?;
 
     // ── Await turn/start response, extract turn_id ────────────────────
-    let turn_result =
-        await_response(&mut handle.stdout_reader, TURN_START_ID, handle.read_timeout_ms).await?;
+    let turn_result = await_response(
+        &mut handle.stdout_reader,
+        TURN_START_ID,
+        handle.read_timeout_ms,
+    )
+    .await?;
 
     let turn_id = turn_result
         .get("turn")
@@ -319,15 +317,12 @@ where
 
             // ── EOF — subprocess exited ───────────────────────────────
             Ok(Ok(0)) => {
-                let status = tokio::time::timeout(
-                    Duration::from_secs(5),
-                    handle.child.wait(),
-                )
-                .await
-                .ok()
-                .and_then(|r| r.ok())
-                .and_then(|s| s.code())
-                .unwrap_or(-1);
+                let status = tokio::time::timeout(Duration::from_secs(5), handle.child.wait())
+                    .await
+                    .ok()
+                    .and_then(|r| r.ok())
+                    .and_then(|s| s.code())
+                    .unwrap_or(-1);
 
                 tracing::warn!(
                     issue_id = %handle.issue_id,
@@ -398,8 +393,7 @@ where
 
                             // ── turn/failed ───────────────────────────
                             Some("turn/failed") => {
-                                let params =
-                                    payload.get("params").cloned().unwrap_or(Value::Null);
+                                let params = payload.get("params").cloned().unwrap_or(Value::Null);
                                 let error_msg = serde_json::to_string(&params)
                                     .unwrap_or_else(|_| format!("{params:?}"));
 
@@ -424,8 +418,7 @@ where
 
                             // ── turn/cancelled ────────────────────────
                             Some("turn/cancelled") => {
-                                let params =
-                                    payload.get("params").cloned().unwrap_or(Value::Null);
+                                let params = payload.get("params").cloned().unwrap_or(Value::Null);
                                 let reason = serde_json::to_string(&params)
                                     .unwrap_or_else(|_| format!("{params:?}"));
 
@@ -570,9 +563,7 @@ where
                                         codex_app_server_pid: handle.pid.clone(),
                                         turn_id: turn_id.clone(),
                                         prompt: Some(
-                                            text.chars()
-                                                .take(MAX_STREAM_LOG_BYTES)
-                                                .collect(),
+                                            text.chars().take(MAX_STREAM_LOG_BYTES).collect(),
                                         ),
                                     };
                                     event_callback(event.clone());
@@ -601,9 +592,7 @@ where
                                         codex_app_server_pid: handle.pid.clone(),
                                         turn_id: turn_id.clone(),
                                         prompt: Some(
-                                            text.chars()
-                                                .take(MAX_STREAM_LOG_BYTES)
-                                                .collect(),
+                                            text.chars().take(MAX_STREAM_LOG_BYTES).collect(),
                                         ),
                                     };
                                     event_callback(event.clone());
@@ -615,10 +604,7 @@ where
                                 let event = AgentEvent::Notification {
                                     timestamp: Utc::now(),
                                     codex_app_server_pid: handle.pid.clone(),
-                                    message: text
-                                        .chars()
-                                        .take(MAX_STREAM_LOG_BYTES)
-                                        .collect(),
+                                    message: text.chars().take(MAX_STREAM_LOG_BYTES).collect(),
                                 };
                                 event_callback(event.clone());
                                 events.push(event);
@@ -758,9 +744,12 @@ where
     let tool_name = extract_tool_name(&params);
     let arguments = extract_tool_arguments(&params);
 
-    let result =
-        dynamic_tool::execute(tool_name.as_deref().unwrap_or(""), arguments, graphql_executor)
-            .await;
+    let result = dynamic_tool::execute(
+        tool_name.as_deref().unwrap_or(""),
+        arguments,
+        graphql_executor,
+    )
+    .await;
 
     let normalized = normalize_tool_result(&result);
 
@@ -877,11 +866,16 @@ async fn handle_request_user_input(
 /// Checks `params.tool`, then `params.name`.  Trims whitespace; returns `None`
 /// if missing or blank — matching Elixir's `tool_call_name/1`.
 fn extract_tool_name(params: &Value) -> Option<String> {
-    let name = params.get("tool")
+    let name = params
+        .get("tool")
         .or_else(|| params.get("name"))
         .and_then(|v| v.as_str())?;
     let trimmed = name.trim();
-    if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
 }
 
 /// Extract tool arguments from `item/tool/call` params.
@@ -889,7 +883,8 @@ fn extract_tool_name(params: &Value) -> Option<String> {
 /// Returns `params.arguments` if present, or an empty object.
 /// Mirrors Elixir's `tool_call_arguments/1`.
 fn extract_tool_arguments(params: &Value) -> Value {
-    params.get("arguments")
+    params
+        .get("arguments")
         .cloned()
         .unwrap_or_else(|| json!({}))
 }
@@ -926,10 +921,7 @@ fn build_approval_answers(params: &Value) -> Option<(Value, String)> {
         let question_id = question.get("id")?.as_str()?;
         let options = question.get("options")?.as_array()?;
         let label = find_approval_option_label(options)?;
-        answers.insert(
-            question_id.to_string(),
-            json!({"answers": [label]}),
-        );
+        answers.insert(question_id.to_string(), json!({"answers": [label]}));
     }
 
     if answers.is_empty() {
@@ -957,10 +949,13 @@ fn find_approval_option_label(options: &[Value]) -> Option<String> {
         return Some(l.to_string());
     }
     // Preference 3: starts with "approve" or "allow" (case-insensitive)
-    labels.iter().find(|&&l| {
-        let lower = l.trim().to_ascii_lowercase();
-        lower.starts_with("approve") || lower.starts_with("allow")
-    }).map(|&l| l.to_string())
+    labels
+        .iter()
+        .find(|&&l| {
+            let lower = l.trim().to_ascii_lowercase();
+            lower.starts_with("approve") || lower.starts_with("allow")
+        })
+        .map(|&l| l.to_string())
 }
 
 /// Build non-interactive answers for all questions.
@@ -1115,10 +1110,7 @@ fn expand_path_no_symlinks(path: &Path) -> PathBuf {
 // ── I/O helpers ───────────────────────────────────────────────────────
 
 /// JSON-encode `message`, append a newline, and write to subprocess stdin.
-async fn send_message(
-    stdin: &mut tokio::process::ChildStdin,
-    message: &Value,
-) -> Result<()> {
+async fn send_message(stdin: &mut tokio::process::ChildStdin, message: &Value) -> Result<()> {
     let encoded = serde_json::to_string(message)
         .map_err(|e| SymphonyError::Other(format!("json_encode_failed: {e}")))?;
     let line = format!("{encoded}\n");
@@ -1250,18 +1242,14 @@ async fn do_start_session(
     send_message(stdin, &thread_start_msg).await?;
 
     // ── Await response to thread/start, extract thread_id ────────────
-    let thread_result =
-        await_response(reader, THREAD_START_ID, config.read_timeout_ms).await?;
+    let thread_result = await_response(reader, THREAD_START_ID, config.read_timeout_ms).await?;
 
     let thread_id = thread_result
         .get("thread")
         .and_then(|t| t.get("id"))
         .and_then(|id| id.as_str())
         .ok_or_else(|| {
-            SymphonyError::ResponseError(format!(
-                "invalid thread payload: {:?}",
-                thread_result
-            ))
+            SymphonyError::ResponseError(format!("invalid thread payload: {:?}", thread_result))
         })?
         .to_string();
 
