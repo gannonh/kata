@@ -2,8 +2,8 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S05 — Codex App-Server Client
-**Active Task:** —
-**Phase:** Ready for S05 planning
+**Active Task:** T01 — Integration test suite and dynamic_tool module
+**Phase:** Executing
 
 ## Progress
 
@@ -11,7 +11,7 @@
 - [x] S02: Workflow Loader and Config Layer — 19 tests; parse_workflow, from_workflow, validate, WorkflowStore hot-reload all proven
 - [x] S03: Linear Tracker Client — TrackerAdapter trait + LinearAdapter + 33 integration tests; all slice verification items pass; 80 total tests
 - [x] S04: Workspace Manager and Prompt Builder — 28 tests; path_safety, prompt_builder, workspace modules; 111 total tests; R004+R007 validated
-- [ ] S05: Codex App-Server Client
+- [ ] S05: Codex App-Server Client — planned (3 tasks: T01 dynamic_tool, T02 subprocess lifecycle, T03 approval/tool/token)
 - [ ] S06: Orchestrator Core
 - [ ] S07: HTTP Dashboard and JSON API
 - [ ] S08: SSH Remote Worker Extension
@@ -19,8 +19,9 @@
 
 ## Recent Decisions
 
-- D022: extern "C" kill(2) FFI for hook timeout kill (avoids libc crate dependency)
-- D023: liquid::to_object serde serialization for Issue → Liquid Object conversion
+- D024: Fake shell scripts for Codex app-server testing (matches Elixir approach)
+- D025: LinearClient::graphql_raw public method for dynamic tool
+- D026: Closure-based executor injection for dynamic_tool testability
 
 ## Blockers
 
@@ -28,7 +29,7 @@
 
 ## Next Action
 
-Begin S05: Codex App-Server Client — subprocess launch, JSON-RPC over stdio, turn streaming, token accounting, linear_graphql dynamic tool.
+Execute T01: Create codex/ module, implement dynamic_tool with linear_graphql, expose LinearClient::graphql_raw, write ≥12 dynamic tool tests.
 
 ## Validated Requirements
 
