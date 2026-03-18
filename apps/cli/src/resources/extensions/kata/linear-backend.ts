@@ -5,7 +5,7 @@
  * the linear-documents module, and git operations to local exec.
  */
 
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -241,7 +241,12 @@ export class LinearBackend implements KataBackend {
     const currentBranch = getCurrentBranch(cwd);
     const branch = currentBranch;
 
-    execSync(`git push -u origin ${branch}`, { cwd, stdio: "pipe" });
+    // Best-effort push — runCreatePr has its own push guard as a safety net
+    try {
+      execFileSync("git", ["push", "-u", "origin", branch], { cwd, stdio: "pipe" });
+    } catch {
+      // Non-fatal: runCreatePr will retry the push if needed
+    }
 
     const documents: Record<string, string> = {};
     const plan = await this.readDocument(`${sliceId}-PLAN`);
