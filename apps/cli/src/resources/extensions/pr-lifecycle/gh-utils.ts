@@ -6,6 +6,7 @@
  */
 
 import { execSync } from "node:child_process";
+import { parseSliceBranchName } from "../kata/worktree.js";
 
 const PIPE = { stdio: ["pipe", "pipe", "pipe"] as [string, string, string] };
 
@@ -68,14 +69,9 @@ export function getCurrentBranch(cwd: string): string | null {
 export function parseBranchToSlice(
   branch: string,
 ): { milestoneId: string; sliceId: string } | null {
-  const namespaced = branch.match(/^kata\/[^/]+\/([A-Z]\d+)\/([A-Z]\d+)$/);
-  if (namespaced) {
-    return { milestoneId: namespaced[1], sliceId: namespaced[2] };
-  }
-
-  const legacy = branch.match(/^kata\/([A-Z]\d+)\/([A-Z]\d+)$/);
-  if (!legacy) return null;
-  return { milestoneId: legacy[1], sliceId: legacy[2] };
+  const parsed = parseSliceBranchName(branch);
+  if (!parsed) return null;
+  return { milestoneId: parsed.milestoneId, sliceId: parsed.sliceId };
 }
 
 /**

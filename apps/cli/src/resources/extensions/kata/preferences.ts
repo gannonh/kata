@@ -650,10 +650,12 @@ export function resolveModelForUnit(unitType: string): string | undefined {
     case "plan-milestone":
     case "plan-slice":
     case "replan-slice":
+    case "reassess-roadmap":
       return m.planning;
     case "execute-task":
       return m.execution;
     case "complete-slice":
+    case "complete-milestone":
     case "run-uat":
       return m.completion;
     default:

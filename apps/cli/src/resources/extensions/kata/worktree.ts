@@ -157,11 +157,22 @@ function resolvePreferredSliceBranch(
   }
 
   const legacyBranch = getLegacySliceBranchName(milestoneId, sliceId);
-  if (branchExists(basePath, legacyBranch)) {
-    return legacyBranch;
+  if (!branchExists(basePath, legacyBranch)) {
+    return null;
   }
 
-  return null;
+  const expectedScope = getProjectScope(basePath);
+  const conflictingBranch = findConflictingNamespacedBranch(
+    basePath,
+    milestoneId,
+    sliceId,
+    expectedScope,
+  );
+  if (conflictingBranch) {
+    return null;
+  }
+
+  return legacyBranch;
 }
 
 /**
@@ -191,7 +202,7 @@ export function ensureSliceBranch(basePath: string, milestoneId: string, sliceId
   );
   if (conflictingBranch) {
     throw new Error(
-      `Refusing to reuse slice branch from a different project scope: found ${conflictingBranch}; expected scope ${expectedScope} for M/S ${milestoneId}/${sliceId}`,
+      `Refusing to use legacy branch ${legacyBranch} for ${milestoneId}/${sliceId} due conflicting scope namespace: found ${conflictingBranch}; expected scope ${expectedScope}`,
     );
   }
 
@@ -235,9 +246,22 @@ export function mergeSliceToMain(
 ): MergeSliceResult {
   const namespacedBranch = getSliceBranchName(basePath, milestoneId, sliceId);
   const legacyBranch = getLegacySliceBranchName(milestoneId, sliceId);
-  const branch = branchExists(basePath, namespacedBranch)
-    ? namespacedBranch
-    : legacyBranch;
+  let branch = namespacedBranch;
+  if (!branchExists(basePath, namespacedBranch)) {
+    const expectedScope = getProjectScope(basePath);
+    const conflictingBranch = findConflictingNamespacedBranch(
+      basePath,
+      milestoneId,
+      sliceId,
+      expectedScope,
+    );
+    if (conflictingBranch) {
+      throw new Error(
+        `Refusing to merge legacy branch ${legacyBranch} for ${milestoneId}/${sliceId} due conflicting scope namespace: found ${conflictingBranch}; expected scope ${expectedScope}`,
+      );
+    }
+    branch = legacyBranch;
+  }
 
   const mainBranch = getMainBranch(basePath);
 

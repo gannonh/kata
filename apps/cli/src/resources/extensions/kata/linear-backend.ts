@@ -234,14 +234,12 @@ export class LinearBackend implements KataBackend {
   }
 
   async preparePrContext(milestoneId: string, sliceId: string): Promise<PrContext> {
-    const cwd = this.gitRoot;
+    const cwd = this.basePath;
     const { ensureSliceBranch, getCurrentBranch, getSliceBranchName } = await import("./worktree.js");
     ensureSliceBranch(cwd, milestoneId, sliceId);
 
     const currentBranch = getCurrentBranch(cwd);
-    const branch = currentBranch.startsWith("kata/")
-      ? currentBranch
-      : getSliceBranchName(cwd, milestoneId, sliceId);
+    const branch = currentBranch;
 
     execSync(`git push -u origin ${branch}`, { cwd, stdio: "pipe" });
 

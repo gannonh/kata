@@ -1075,7 +1075,8 @@ async function dispatchNextUnit(
   });
 
   // 13. Status + progress widget
-  ctx.ui.setStatus("kata-auto", "auto");
+  const statusModelId = resolveModelForUnit(unitType);
+  ctx.ui.setStatus("kata-auto", statusModelId ? `auto · ${statusModelId}` : "auto");
   if (mid) {
     // Try file-based cache first (works for FileBackend), fall back to state.progress
     updateSliceProgressCache(basePath, mid, state.activeSlice?.id);
@@ -1124,6 +1125,11 @@ async function dispatchNextUnit(
     if (model) {
       const ok = await pi.setModel(model);
       if (ok) ctx.ui.notify(`Model: ${preferredModelId}`, "info");
+    } else {
+      ctx.ui.notify(
+        `Model preference '${preferredModelId}' not found in registry — using current model. Available: ${allModels.map((m) => m.id).slice(0, 5).join(", ")}...`,
+        "warning",
+      );
     }
   }
 

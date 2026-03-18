@@ -386,9 +386,7 @@ export class FileBackend implements KataBackend {
     ensureSliceBranch(this.basePath, milestoneId, sliceId);
 
     const currentBranch = getCurrentBranch(this.basePath);
-    const branch = currentBranch.startsWith("kata/")
-      ? currentBranch
-      : getSliceBranchName(this.basePath, milestoneId, sliceId);
+    const branch = currentBranch;
     const documents: Record<string, string> = {};
 
     // Use explicit path resolution instead of readDocument to avoid stale active-state lookups
@@ -1448,4 +1446,3 @@ function buildResumeSection(
 
   return lines.join("\n");
 }
-

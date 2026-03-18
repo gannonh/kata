@@ -252,6 +252,52 @@ async function main(): Promise<void> {
   );
   switchToMain(base);
 
+  console.log("\n=== legacy+namespaced coexistence contract ===");
+  run("git branch kata/M001/S06 main", base);
+  run("git branch kata/other-scope/M001/S06 main", base);
+  let coexistenceError: unknown = null;
+  try {
+    ensureSliceBranch(base, "M001", "S06");
+  } catch (error) {
+    coexistenceError = error;
+  }
+  assert(
+    coexistenceError instanceof Error,
+    "legacy branch is rejected when conflicting namespaced branch exists",
+  );
+  const coexistenceMessage = coexistenceError instanceof Error ? coexistenceError.message : "";
+  assert(
+    coexistenceMessage.includes("kata/root/M001/S06"),
+    "legacy rejection reports expected namespaced target scope",
+  );
+  assert(
+    coexistenceMessage.includes("kata/other-scope/M001/S06"),
+    "legacy rejection reports conflicting namespaced branch",
+  );
+
+  console.log("\n=== mergeSliceToMain rejects legacy with conflicting namespaced branch ===");
+  run("git branch kata/M001/S07 main", base);
+  run("git branch kata/other-scope/M001/S07 main", base);
+  let mergeConflictError: unknown = null;
+  try {
+    mergeSliceToMain(base, "M001", "S07", "Slice Seven");
+  } catch (error) {
+    mergeConflictError = error;
+  }
+  assert(
+    mergeConflictError instanceof Error,
+    "mergeSliceToMain refuses legacy branch when conflicting namespaced branch exists",
+  );
+  const mergeConflictMessage = mergeConflictError instanceof Error ? mergeConflictError.message : "";
+  assert(
+    mergeConflictMessage.includes("kata/other-scope/M001/S07"),
+    "merge conflict error identifies conflicting namespaced branch",
+  );
+  assert(
+    mergeConflictMessage.includes("root"),
+    "merge conflict error reports expected project scope",
+  );
+
   console.log("\n=== getSliceBranchName namespaced contract ===");
   assertEq(
     getSliceBranchName(base, "M001", "S01"),

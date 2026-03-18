@@ -26,6 +26,7 @@ import {
   loadProjectKataPreferences,
   loadEffectiveKataPreferences,
   resolveAllSkillReferences,
+  resolveModelForUnit,
   type LoadedKataPreferences,
 } from "./preferences.js";
 import {
@@ -387,6 +388,23 @@ export function registerKataCommand(pi: ExtensionAPI): void {
             ? `${state.activeMilestone.id}/${state.activeSlice.id}`
             : state.activeMilestone.id;
 
+        // Apply model preference for this phase (mirrors auto.ts step 18)
+        const stepUnitType = phaseToUnitType(state.phase);
+        const preferredModelId = resolveModelForUnit(stepUnitType);
+        if (preferredModelId) {
+          const allModels = ctx.modelRegistry.getAll();
+          const model = allModels.find((m) => m.id === preferredModelId);
+          if (model) {
+            const ok = await pi.setModel(model);
+            if (ok) ctx.ui.notify(`Model: ${preferredModelId}`, "info");
+          } else {
+            ctx.ui.notify(
+              `Model preference '${preferredModelId}' not found in registry — using current model.`,
+              "warning",
+            );
+          }
+        }
+
         ctx.ui.notify(`/kata step: ${state.phase} — ${unitId}`, "info");
         pi.sendMessage({ customType: "kata-step", content: prompt, display: false }, { triggerTurn: true });
         return;
@@ -680,4 +698,29 @@ async function ensurePreferencesFile(
     `Edit ${path} to update ${scope} Kata skill preferences.`,
     "info",
   );
+}
+
+/**
+ * Map a Kata state phase to the auto-mode unit type string used by
+ * resolveModelForUnit(). Mirrors the default branch of deriveUnitType()
+ * in auto.ts without requiring PromptOptions.
+ */
+function phaseToUnitType(phase: string): string {
+  switch (phase) {
+    case "pre-planning":
+      return "plan-milestone";
+    case "planning":
+      return "plan-slice";
+    case "executing":
+    case "verifying":
+      return "execute-task";
+    case "summarizing":
+      return "complete-slice";
+    case "completing-milestone":
+      return "complete-milestone";
+    case "replanning-slice":
+      return "replan-slice";
+    default:
+      return `unknown-${phase}`;
+  }
 }
