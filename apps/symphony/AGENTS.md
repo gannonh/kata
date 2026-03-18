@@ -1,4 +1,14 @@
-# Agent Instructions — Symphony-Rust
+# Symphony
+
+## Commands
+
+```bash
+cargo build                      # Build debug binary
+cargo test                       # Run all tests
+cargo clippy -- -D warnings      # Lint (CI enforces zero warnings)
+cargo check                      # Fast type-check without building
+bun run test                     # Same as cargo test (package.json shim)
+```
 
 ## What This Project Is
 

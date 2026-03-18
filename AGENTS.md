@@ -98,6 +98,7 @@ This repo uses git worktrees. Each worktree has a standby branch (e.g. `wt-cli-s
 
 ## Gotchas
 
+- `CLAUDE.md` files in this repo are symlinks to `AGENTS.md`. Always edit `AGENTS.md`.
 - `apps/online-docs` is excluded from Bun workspaces. It has separate dependency management.
 - `apps/context` uses Vitest (not Bun test) because better-sqlite3 is a native Node addon that Bun doesn't support.
 - Electron main process runs in Node.js, not Bun. Don't use `import.meta.dir` or Bun-only APIs in code that runs there.
