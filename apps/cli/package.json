@@ -41,11 +41,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mariozechner/pi-coding-agent": "^0.57.1",
+    "@mariozechner/pi-coding-agent": "^0.60.0",
     "playwright": "^1.58.2"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "^25.5.0",
     "typescript": "^5.4.0"
   },
   "overrides": {
