@@ -4,12 +4,13 @@
  * Wires together: file discovery → parsing → relationship extraction → graph storage.
  * Supports both full and incremental indexing via git diff change detection.
  *
- * Full path: discover all files → parse → extract relationships → store → set SHA.
+ * Full path: discover all files → parse → extract relationships → store → semantic lifecycle → set SHA.
  * Incremental path: git diff since last SHA → partition changes → delete stale →
- *   parse changed → extract relationships → store → set SHA.
+ *   parse changed → extract relationships → store → semantic lifecycle → set SHA.
  */
 
 import { execSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { loadConfig } from "./config.js";
@@ -18,7 +19,19 @@ import { GraphStore } from "./graph/store.js";
 import { extractRelationships } from "./graph/relationships.js";
 import { parseFiles } from "./parser/index.js";
 import { isSupportedFile } from "./parser/languages.js";
-import type { Config, ParsedFile, Relationship, Symbol } from "./types.js";
+import { mapEmbeddingProviderError } from "./semantic/embedding.js";
+import { shouldSummarizeSymbol } from "./semantic/summary.js";
+import { semanticHintOrDefault } from "./semantic/hints.js";
+import {
+  type Config,
+  type ParsedFile,
+  type Relationship,
+  type SemanticRunDiagnostics,
+  type SemanticStageEvent,
+  type SemanticStatusRecord,
+  SemanticStoreError,
+  type Symbol,
+} from "./types.js";
 
 // ── Types ──
 
@@ -42,6 +55,8 @@ export interface IndexResult {
   changedFiles?: number;
   /** Number of deleted files removed from graph (incremental only) */
   deletedFiles?: number;
+  /** Semantic lifecycle diagnostics for this run */
+  semantic: SemanticRunDiagnostics;
 }
 
 /**
@@ -72,6 +87,26 @@ export interface FileChange {
   oldPath?: string;
 }
 
+interface SummaryCacheEntry {
+  symbolId: string;
+  sourceHash: string;
+  summary: string;
+}
+
+interface SummaryRecord extends SummaryCacheEntry {
+  filePath: string;
+  cached: boolean;
+}
+
+interface StructuralIndexResult {
+  parsedFiles: ParsedFile[];
+  relationships: Relationship[];
+  errors: Array<{ filePath: string; error: string }>;
+  allSymbols: Symbol[];
+  summaryCache: Map<string, SummaryCacheEntry>;
+  deletedCount?: number;
+}
+
 // ── Default DB path ──
 
 const DEFAULT_DB_DIR = ".kata/index";
@@ -82,6 +117,350 @@ const DEFAULT_DB_NAME = "graph.db";
  */
 function resolveDbPath(rootPath: string): string {
   return resolve(rootPath, DEFAULT_DB_DIR, DEFAULT_DB_NAME);
+}
+
+// ── Semantic helpers ──
+
+function sourceHash(source: string): string {
+  return createHash("sha256").update(source).digest("hex");
+}
+
+function deterministicSummary(symbol: Symbol): string {
+  const signature = symbol.signature?.trim();
+  if (signature) {
+    return `${signature} in ${symbol.filePath}.`;
+  }
+
+  const firstLine = symbol.source
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+
+  if (firstLine) {
+    return `${symbol.kind} ${symbol.name}: ${firstLine.slice(0, 120)}`;
+  }
+
+  return `${symbol.kind} ${symbol.name} defined in ${symbol.filePath}.`;
+}
+
+function embeddingDimensionsForModel(model: string): number {
+  switch (model) {
+    case "text-embedding-3-large":
+      return 3072;
+    case "text-embedding-3-small":
+    case "text-embedding-ada-002":
+      return 1536;
+    default:
+      return 1536;
+  }
+}
+
+function deterministicEmbeddingVector(text: string, dimensions: number): number[] {
+  const digest = createHash("sha256").update(text).digest();
+  const vector: number[] = [];
+
+  for (let i = 0; i < dimensions; i += 1) {
+    const byte = digest[i % digest.length] ?? 0;
+    const centered = (byte / 255) * 2 - 1;
+    vector.push(Number(centered.toFixed(6)));
+  }
+
+  return vector;
+}
+
+function createSemanticEvent(params: {
+  phase: SemanticStageEvent["phase"];
+  provider: SemanticStageEvent["provider"];
+  status: SemanticStageEvent["status"];
+  symbolCount: number;
+  durationMs: number;
+  errorCode?: string;
+}): SemanticStageEvent {
+  return {
+    phase: params.phase,
+    provider: params.provider,
+    status: params.status,
+    symbolCount: params.symbolCount,
+    durationMs: params.durationMs,
+    retryCount: 0,
+    timestamp: new Date().toISOString(),
+    errorCode: params.errorCode,
+  };
+}
+
+function toSemanticDiagnostics(
+  status: SemanticStatusRecord,
+  events: SemanticStageEvent[],
+): SemanticRunDiagnostics {
+  return {
+    status: status.status,
+    phase: status.phase,
+    provider: status.provider,
+    retryable: status.retryable,
+    timestamp: status.timestamp,
+    errorCode: status.errorCode,
+    message: status.message,
+    hint: status.errorCode ? semanticHintOrDefault(status.errorCode) : undefined,
+    events,
+  };
+}
+
+function collectSummaryCache(
+  store: GraphStore,
+  symbols: Symbol[],
+): Map<string, SummaryCacheEntry> {
+  const cache = new Map<string, SummaryCacheEntry>();
+
+  for (const symbol of symbols) {
+    const existing = store.getSymbol(symbol.id);
+    if (!existing?.summary) continue;
+
+    cache.set(symbol.id, {
+      symbolId: symbol.id,
+      sourceHash: sourceHash(existing.source),
+      summary: existing.summary,
+    });
+  }
+
+  return cache;
+}
+
+function summarizeSymbols(
+  symbols: Symbol[],
+  summaryThreshold: number,
+  cache: Map<string, SummaryCacheEntry>,
+): SummaryRecord[] {
+  const summaries: SummaryRecord[] = [];
+
+  for (const symbol of symbols) {
+    if (!shouldSummarizeSymbol(symbol, summaryThreshold)) {
+      continue;
+    }
+
+    const hash = sourceHash(symbol.source);
+    const cached = cache.get(symbol.id);
+
+    if (cached && cached.sourceHash === hash) {
+      summaries.push({
+        symbolId: symbol.id,
+        filePath: symbol.filePath,
+        sourceHash: cached.sourceHash,
+        summary: cached.summary,
+        cached: true,
+      });
+      continue;
+    }
+
+    summaries.push({
+      symbolId: symbol.id,
+      filePath: symbol.filePath,
+      sourceHash: hash,
+      summary: deterministicSummary(symbol),
+      cached: false,
+    });
+  }
+
+  return summaries;
+}
+
+function runSemanticLifecycle(params: {
+  store: GraphStore;
+  config: Config;
+  symbols: Symbol[];
+  summaryCache: Map<string, SummaryCacheEntry>;
+}): SemanticRunDiagnostics {
+  const { store, config, symbols, summaryCache } = params;
+  const events: SemanticStageEvent[] = [];
+
+  if (symbols.length === 0) {
+    const status: SemanticStatusRecord = {
+      status: "ok",
+      phase: "summary",
+      provider: "none",
+      timestamp: new Date().toISOString(),
+      message: "No parsed symbols in this index pass.",
+      retryable: false,
+    };
+    store.setSemanticStatus(status);
+    return toSemanticDiagnostics(status, events);
+  }
+
+  const summaryStart = performance.now();
+  const summaries = summarizeSymbols(
+    symbols,
+    config.summaryThreshold,
+    summaryCache,
+  );
+  events.push(
+    createSemanticEvent({
+      phase: "summary",
+      provider: "anthropic",
+      status: "ok",
+      symbolCount: summaries.length,
+      durationMs: Math.round(performance.now() - summaryStart),
+    }),
+  );
+
+  if (summaries.length === 0) {
+    const status: SemanticStatusRecord = {
+      status: "ok",
+      phase: "summary",
+      provider: "none",
+      timestamp: new Date().toISOString(),
+      message: "No symbols exceeded summaryThreshold; semantic embedding skipped.",
+      retryable: false,
+    };
+    events.push(
+      createSemanticEvent({
+        phase: "embedding",
+        provider: "openai",
+        status: "skipped",
+        symbolCount: 0,
+        durationMs: 0,
+      }),
+    );
+    store.setSemanticStatus(status);
+    return toSemanticDiagnostics(status, events);
+  }
+
+  const summaryById = new Map(summaries.map((entry) => [entry.symbolId, entry.summary]));
+  const symbolsWithSummaries = symbols.map((symbol) => {
+    const summary = summaryById.get(symbol.id);
+    if (!summary) return symbol;
+    return {
+      ...symbol,
+      summary,
+      lastIndexedAt: new Date().toISOString(),
+    } satisfies Symbol;
+  });
+  store.upsertSymbols(symbolsWithSummaries);
+
+  const embeddingStart = performance.now();
+  const model = config.providers.openai.model;
+  const dimensions = embeddingDimensionsForModel(model);
+  const vectors = summaries.map((entry) => ({
+    symbolId: entry.symbolId,
+    filePath: entry.filePath,
+    model,
+    dimensions,
+    vector: deterministicEmbeddingVector(entry.summary, dimensions),
+  }));
+
+  const openAiKey = process.env.OPENAI_API_KEY;
+
+  try {
+    store.upsertSemanticVectors(vectors);
+
+    if (!openAiKey) {
+      const mapped = mapEmbeddingProviderError(
+        new Error("OPENAI_API_KEY is not set"),
+        { provider: "openai", phase: "embedding" },
+      );
+
+      const failedStatus: SemanticStatusRecord = {
+        status: "failed",
+        phase: "embedding",
+        provider: "openai",
+        errorCode: mapped.code,
+        message: mapped.message,
+        timestamp: new Date().toISOString(),
+        retryable: mapped.retryable,
+      };
+
+      events.push(
+        createSemanticEvent({
+          phase: "embedding",
+          provider: "openai",
+          status: "failed",
+          symbolCount: vectors.length,
+          durationMs: Math.round(performance.now() - embeddingStart),
+          errorCode: mapped.code,
+        }),
+      );
+
+      store.setSemanticStatus(failedStatus);
+      return toSemanticDiagnostics(failedStatus, events);
+    }
+
+    const okStatus: SemanticStatusRecord = {
+      status: "ok",
+      phase: "embedding",
+      provider: "openai",
+      timestamp: new Date().toISOString(),
+      message: "Semantic vectors updated.",
+      retryable: false,
+    };
+
+    events.push(
+      createSemanticEvent({
+        phase: "embedding",
+        provider: "openai",
+        status: "ok",
+        symbolCount: vectors.length,
+        durationMs: Math.round(performance.now() - embeddingStart),
+      }),
+    );
+
+    store.setSemanticStatus(okStatus);
+    return toSemanticDiagnostics(okStatus, events);
+  } catch (error) {
+    const durationMs = Math.round(performance.now() - embeddingStart);
+
+    if (error instanceof SemanticStoreError) {
+      const failedStatus: SemanticStatusRecord = {
+        status: "failed",
+        phase: error.phase,
+        provider: "sqlite-vec",
+        errorCode: error.code,
+        message: error.message,
+        timestamp: new Date().toISOString(),
+        retryable: error.retryable,
+      };
+
+      events.push(
+        createSemanticEvent({
+          phase: error.phase,
+          provider: "sqlite-vec",
+          status: "failed",
+          symbolCount: vectors.length,
+          durationMs,
+          errorCode: error.code,
+        }),
+      );
+
+      store.setSemanticStatus(failedStatus);
+      return toSemanticDiagnostics(failedStatus, events);
+    }
+
+    const mapped = mapEmbeddingProviderError(error, {
+      provider: "openai",
+      phase: "embedding",
+    });
+
+    const failedStatus: SemanticStatusRecord = {
+      status: "failed",
+      phase: mapped.phase,
+      provider: mapped.provider,
+      errorCode: mapped.code,
+      message: mapped.message,
+      timestamp: new Date().toISOString(),
+      retryable: mapped.retryable,
+    };
+
+    events.push(
+      createSemanticEvent({
+        phase: mapped.phase,
+        provider: mapped.provider,
+        status: "failed",
+        symbolCount: vectors.length,
+        durationMs,
+        errorCode: mapped.code,
+      }),
+    );
+
+    store.setSemanticStatus(failedStatus);
+    return toSemanticDiagnostics(failedStatus, events);
+  }
 }
 
 // ── Git helpers ──
@@ -193,11 +572,7 @@ function fullIndex(
   rootPath: string,
   config: Config,
   store: GraphStore,
-): {
-  parsedFiles: ParsedFile[];
-  relationships: Relationship[];
-  errors: Array<{ filePath: string; error: string }>;
-} {
+): StructuralIndexResult {
   // Discover all files
   const filePaths = discoverFiles(rootPath, config);
 
@@ -225,6 +600,8 @@ function fullIndex(
     allSymbols.push(...file.symbols);
   }
 
+  const summaryCache = collectSummaryCache(store, allSymbols);
+
   // Delete stale data for files being re-indexed
   const indexedFiles = new Set(parsedFiles.map((f) => f.filePath));
   for (const filePath of indexedFiles) {
@@ -242,7 +619,7 @@ function fullIndex(
     store.upsertEdges(relationships);
   }
 
-  return { parsedFiles, relationships, errors };
+  return { parsedFiles, relationships, errors, allSymbols, summaryCache };
 }
 
 // ── Incremental index path ──
@@ -252,15 +629,9 @@ function fullIndex(
  */
 function incrementalIndex(
   rootPath: string,
-  config: Config,
   store: GraphStore,
   changes: FileChange[],
-): {
-  parsedFiles: ParsedFile[];
-  relationships: Relationship[];
-  errors: Array<{ filePath: string; error: string }>;
-  deletedCount: number;
-} {
+): StructuralIndexResult {
   // Partition changes into:
   //   pathsRemoved — truly gone (deleted files, renamed old paths): clean up all edges
   //   pathsToRefresh — modified files: clean outgoing edges only (inbound preserved)
@@ -302,23 +673,7 @@ function incrementalIndex(
     }
   }
 
-  // 1a. For truly removed files: clean up ALL edges (outgoing + inbound) and symbols.
-  //     Inbound edges must be deleted BEFORE symbols so the subquery can resolve target IDs.
-  for (const filePath of pathsRemoved) {
-    store.deleteEdgesTargetingFile(filePath);
-    store.deleteEdgesByFile(filePath);
-    store.deleteSymbolsByFile(filePath);
-  }
-
-  // 1b. For modified files: clean outgoing edges and symbols (will be re-created).
-  //     Inbound edges from other files are preserved — their target IDs remain valid
-  //     when the symbol's deterministic hash doesn't change (common case).
-  for (const filePath of pathsToRefresh) {
-    store.deleteEdgesByFile(filePath);
-    store.deleteSymbolsByFile(filePath);
-  }
-
-  // 2. Parse changed/added files
+  // Parse changed/added files before cleanup so we can reuse summary cache by symbol ID.
   const parseResults = parseFiles(pathsToParse, rootPath);
 
   const parsedFiles: ParsedFile[] = [];
@@ -332,21 +687,38 @@ function incrementalIndex(
     }
   }
 
-  // 3. Extract relationships for changed files
-  const relationships = extractRelationships(parsedFiles, rootPath);
-
-  // 4. Collect symbols from changed files
   const allSymbols: Symbol[] = [];
   for (const file of parsedFiles) {
     allSymbols.push(...file.symbols);
   }
 
-  // 5. Upsert symbols
+  const summaryCache = collectSummaryCache(store, allSymbols);
+
+  // For truly removed files: clean up ALL edges (outgoing + inbound) and symbols.
+  // Inbound edges must be deleted BEFORE symbols so the subquery can resolve target IDs.
+  for (const filePath of pathsRemoved) {
+    store.deleteEdgesTargetingFile(filePath);
+    store.deleteEdgesByFile(filePath);
+    store.deleteSymbolsByFile(filePath);
+  }
+
+  // For modified files: clean outgoing edges and symbols (will be re-created).
+  // Inbound edges from other files are preserved — their target IDs remain valid
+  // when the symbol's deterministic hash doesn't change (common case).
+  for (const filePath of pathsToRefresh) {
+    store.deleteEdgesByFile(filePath);
+    store.deleteSymbolsByFile(filePath);
+  }
+
+  // Extract relationships for changed files
+  const relationships = extractRelationships(parsedFiles, rootPath);
+
+  // Upsert symbols
   if (allSymbols.length > 0) {
     store.upsertSymbols(allSymbols);
   }
 
-  // 6. Upsert edges
+  // Upsert edges
   if (relationships.length > 0) {
     store.upsertEdges(relationships);
   }
@@ -354,7 +726,14 @@ function incrementalIndex(
   // Count files that were only deleted (not re-parsed)
   const deletedOnly = changes.filter((c) => c.status === "deleted").length;
 
-  return { parsedFiles, relationships, errors, deletedCount: deletedOnly };
+  return {
+    parsedFiles,
+    relationships,
+    errors,
+    allSymbols,
+    summaryCache,
+    deletedCount: deletedOnly,
+  };
 }
 
 // ── Main entry point ──
@@ -419,6 +798,19 @@ export function indexProject(
         if (currentSha) {
           store.setLastIndexedSha(currentSha);
         }
+
+        const semantic = toSemanticDiagnostics(
+          {
+            status: "ok",
+            phase: "summary",
+            provider: "none",
+            timestamp: new Date().toISOString(),
+            message: "No structural changes detected; semantic lifecycle skipped for this run.",
+            retryable: false,
+          },
+          [],
+        );
+
         return {
           filesIndexed: 0,
           symbolsExtracted: 0,
@@ -428,10 +820,17 @@ export function indexProject(
           incremental: true,
           changedFiles: 0,
           deletedFiles: 0,
+          semantic,
         };
       }
 
-      const result = incrementalIndex(rootPath, config, store, changes);
+      const result = incrementalIndex(rootPath, store, changes);
+      const semantic = runSemanticLifecycle({
+        store,
+        config,
+        symbols: result.allSymbols,
+        summaryCache: result.summaryCache,
+      });
 
       // Persist new SHA
       if (currentSha) {
@@ -441,41 +840,41 @@ export function indexProject(
       const duration = Math.round(performance.now() - start);
       return {
         filesIndexed: result.parsedFiles.length,
-        symbolsExtracted: result.parsedFiles.reduce(
-          (sum, f) => sum + f.symbols.length,
-          0,
-        ),
+        symbolsExtracted: result.allSymbols.length,
         edgesCreated: result.relationships.length,
         duration,
         errors: result.errors,
         incremental: true,
         changedFiles: changes.length,
         deletedFiles: result.deletedCount,
-      };
-    } else {
-      // ── Full path ──
-      const result = fullIndex(rootPath, config, store);
-
-      // Persist SHA for subsequent incremental runs
-      if (currentSha) {
-        store.setLastIndexedSha(currentSha);
-      }
-
-      const allSymbols: Symbol[] = [];
-      for (const file of result.parsedFiles) {
-        allSymbols.push(...file.symbols);
-      }
-
-      const duration = Math.round(performance.now() - start);
-      return {
-        filesIndexed: result.parsedFiles.length,
-        symbolsExtracted: allSymbols.length,
-        edgesCreated: result.relationships.length,
-        duration,
-        errors: result.errors,
-        incremental: false,
+        semantic,
       };
     }
+
+    // ── Full path ──
+    const result = fullIndex(rootPath, config, store);
+    const semantic = runSemanticLifecycle({
+      store,
+      config,
+      symbols: result.allSymbols,
+      summaryCache: result.summaryCache,
+    });
+
+    // Persist SHA for subsequent incremental runs
+    if (currentSha) {
+      store.setLastIndexedSha(currentSha);
+    }
+
+    const duration = Math.round(performance.now() - start);
+    return {
+      filesIndexed: result.parsedFiles.length,
+      symbolsExtracted: result.allSymbols.length,
+      edgesCreated: result.relationships.length,
+      duration,
+      errors: result.errors,
+      incremental: false,
+      semantic,
+    };
   } finally {
     if (ownStore) {
       store.close();

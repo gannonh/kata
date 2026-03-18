@@ -7,6 +7,9 @@
  * - Human: formatted tables, headers, key-value pairs (default)
  */
 
+import type { SemanticRunDiagnostics } from "./types.js";
+import { semanticHintOrDefault } from "./semantic/hints.js";
+
 // ── Types ──
 
 export interface OutputOptions {
@@ -96,6 +99,46 @@ export function formatTable(
   return ["  " + headerLine, "  " + separator, ...dataLines.map((l) => "  " + l)].join(
     "\n",
   );
+}
+
+// ── Semantic diagnostics formatters ──
+
+export function formatSemanticDiagnosticHint(errorCode?: string): string {
+  return semanticHintOrDefault(errorCode);
+}
+
+export function formatSemanticDiagnostics(
+  semantic: SemanticRunDiagnostics | undefined,
+): string {
+  if (!semantic) {
+    return [
+      formatHeader("Semantic Diagnostics"),
+      "  Semantic stage did not run in this index pass.",
+    ].join("\n");
+  }
+
+  const lines: string[] = [];
+  lines.push(formatHeader("Semantic Diagnostics"));
+  lines.push(
+    formatKeyValue([
+      ["Status", semantic.status],
+      ["Phase", semantic.phase],
+      ["Provider", semantic.provider],
+      ["Retryable", semantic.retryable ? "yes" : "no"],
+      ["Timestamp", semantic.timestamp],
+      ["Error code", semantic.errorCode ?? "(none)"],
+    ]),
+  );
+
+  if (semantic.hint) {
+    lines.push(`  Hint: ${semantic.hint}`);
+  }
+
+  if (semantic.message) {
+    lines.push(`  Message: ${semantic.message}`);
+  }
+
+  return lines.join("\n");
 }
 
 // ── Dispatcher ──
