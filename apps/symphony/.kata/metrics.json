@@ -703,6 +703,42 @@
       "toolCalls": 0,
       "assistantMessages": 1,
       "userMessages": 0
+    },
+    {
+      "type": "plan-slice",
+      "id": "M001/S06",
+      "model": "gpt-5.3-codex",
+      "startedAt": 1773862524208,
+      "finishedAt": 1773862858872,
+      "tokens": {
+        "input": 106347,
+        "output": 11850,
+        "cacheRead": 2279680,
+        "cacheWrite": 0,
+        "total": 2397877
+      },
+      "cost": 0.75095125,
+      "toolCalls": 0,
+      "assistantMessages": 25,
+      "userMessages": 0
+    },
+    {
+      "type": "execute-task",
+      "id": "M001/S06/T01",
+      "model": "gpt-5.3-codex",
+      "startedAt": 1773862858874,
+      "finishedAt": 1773863458922,
+      "tokens": {
+        "input": 269187,
+        "output": 21872,
+        "cacheRead": 2047104,
+        "cacheWrite": 0,
+        "total": 2338163
+      },
+      "cost": 1.1355284499999996,
+      "toolCalls": 0,
+      "assistantMessages": 27,
+      "userMessages": 0
     }
   ]
 }

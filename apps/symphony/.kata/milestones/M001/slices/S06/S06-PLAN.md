@@ -86,7 +86,7 @@
 
 ## Tasks
 
-- [ ] **T01: Author failing orchestrator + CLI conformance tests** `est:45m`
+- [x] **T01: Author failing orchestrator + CLI conformance tests** `est:45m`
   - Why: Lock the S06 behavioral contract first so implementation is guided by executable proofs (including failure-path diagnostics), not ad hoc runtime debugging.
   - Files: `tests/orchestrator_tests.rs`, `tests/cli_tests.rs`, `src/orchestrator.rs`, `src/lib.rs`, `src/main.rs`
   - Do: Create deterministic test fakes (tracker, workflow-store facade, worker runner) and write failing tests for reconcile/dispatch/retry/stall/token semantics plus CLI startup semantics. Add minimal orchestrator/CLI stubs only as needed so tests compile and fail on assertions.

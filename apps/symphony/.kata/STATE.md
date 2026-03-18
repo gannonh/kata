@@ -2,7 +2,7 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S06 — Orchestrator Core (next)
-**Active Task:** T01 — Author failing orchestrator + CLI conformance tests
+**Active Task:** T02 — Implement orchestrator authority loop, reconciliation, and dispatch gating
 **Phase:** Executing
 
 ## Progress
@@ -29,7 +29,7 @@
 
 ## Next Action
 
-Execute S06/T01: create `tests/orchestrator_tests.rs` and `tests/cli_tests.rs` with deterministic failing assertions that lock R006, R008, and R014 behavior before implementing orchestrator runtime logic.
+Execute S06/T02: implement reconcile → validate → dispatch ordering, preflight validation skip behavior, candidate ordering/gating, startup terminal cleanup state updates, and pre-dispatch refresh so `tests/orchestrator_tests.rs` and `tests/cli_tests.rs` begin turning green from the current red baseline.
 
 ## Validated Requirements
 
