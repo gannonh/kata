@@ -100,6 +100,7 @@ All planning state lives in `.kata/` at the project root — human-readable mark
 | Command | Description |
 |---------|-------------|
 | `/kata` | Contextual wizard — suggests next step based on project state |
+| `/kata step` | Execute one step (research, plan, task, etc.) then stop |
 | `/kata auto` | Start autonomous mode |
 | `/kata stop` | Stop auto-mode after current task |
 | `/kata status` | Progress dashboard |

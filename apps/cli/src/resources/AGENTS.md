@@ -63,6 +63,7 @@ Kata sets these env vars in `loader.ts` before importing `cli.ts`:
 The main extension registers the `/kata` slash command with subcommands:
 
 - `/kata` — Contextual wizard (smart entry point based on project state)
+- `/kata step` — Execute one step (research, plan, task, etc.) then stop
 - `/kata auto` — Start auto-mode (loops fresh sessions until milestone complete)
 - `/kata stop` — Stop auto-mode gracefully
 - `/kata status` — Progress dashboard
