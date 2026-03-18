@@ -62,7 +62,7 @@
 
 ## Tasks
 
-- [ ] **T01: Integration test suite and dynamic_tool module** `est:45m`
+- [x] **T01: Integration test suite and dynamic_tool module** `est:45m`
   - Why: Establish the test infrastructure with fake Codex shell scripts, and implement the `linear_graphql` dynamic tool (self-contained, no subprocess needed). Tests for dynamic_tool should pass; app_server tests compile but fail (stubs).
   - Files: `tests/codex_tests.rs`, `src/codex/mod.rs`, `src/codex/dynamic_tool.rs`, `src/codex/app_server.rs` (stub), `src/linear/client.rs`, `src/lib.rs`
   - Do: Create `codex/` module structure. Implement `dynamic_tool.rs` with `tool_specs()` and `execute()` matching Elixir behavior: unsupported tools return failure with supported list, `linear_graphql` validates query/variables, executes via `LinearClient::graphql_raw`, normalizes results with success/output/contentItems. Add `graphql_raw` public method to `LinearClient`. Write all dynamic_tool tests (~12) and the initial app_server test stubs. Register `pub mod codex` in `lib.rs`.
