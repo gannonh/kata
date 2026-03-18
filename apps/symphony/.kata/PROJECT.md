@@ -16,7 +16,7 @@ A single `symphony` binary that reliably polls Linear, dispatches bounded-concur
 
 ## Current State
 
-Foundation + data + workspace layers complete (S01–S04). Domain types, error categories, WORKFLOW.md parser, typed config, WorkflowStore hot-reload, Linear tracker client with pagination/normalization, workspace manager with safety invariants and lifecycle hooks, and prompt builder with strict Liquid rendering are all implemented and tested. 111 tests pass across 5 test suites. R001, R002, R004, R007 validated. Next: S05 Codex App-Server Client (subprocess launch, JSON-RPC protocol, turn streaming, token accounting).
+Five of nine slices complete (S01–S05). The execution layer is now fully implemented: the Codex app-server client handles subprocess launch via `bash -lc`, the 4-message JSON-RPC handshake, line-delimited turn streaming, approval auto-approve/reject (4 methods), `item/tool/call` dispatch to the `linear_graphql` dynamic tool, `item/tool/requestUserInput` with MCP approval and freeform handling, and per-turn token delta accounting. 143 tests pass across 6 test suites (32 in the new codex integration suite). R001, R002, R004, R005, R007, R012 validated. Next: S06 Orchestrator Core — wires the poll→reconcile→dispatch→retry loop.
 
 ## Architecture / Key Patterns
 

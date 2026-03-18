@@ -50,13 +50,13 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R005 — Codex App-Server Client (JSON-RPC over stdio)
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: Launch Codex app-server subprocess, perform startup handshake (initialize, initialized, thread/start, turn/start), stream turn events, handle approvals/tool-calls/user-input, enforce timeouts (read, turn, stall). Extract token usage and rate limits.
 - Why it matters: This is the execution layer — the thing that actually runs coding agent sessions.
 - Source: user
 - Primary owning slice: M001/S05
 - Supporting slices: none
-- Validation: unmapped
+- Validation: M001/S05 — cargo test proves subprocess launch, 4-message handshake, turn streaming (completed/failed/cancelled/timeout/exit), approval auto-approve/reject (4 methods), tool call dispatch, user-input handling (MCP approval + freeform + hard-fail), partial-line buffering; 32 tests total.
 - Notes: Spec §10. Line-delimited JSON protocol on stdout. Multi-turn continuation on same thread.
 
 ### R006 — Orchestrator State Machine
@@ -127,13 +127,13 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R012 — linear_graphql Client-Side Tool Extension
 - Class: integration
-- Status: active
+- Status: validated
 - Description: Expose a `linear_graphql` dynamic tool to the Codex session. Execute GraphQL queries/mutations against Linear using Symphony's configured auth. Validate single-operation documents.
 - Why it matters: Lets the coding agent read/write Linear tickets without raw API key access.
 - Source: user
 - Primary owning slice: M001/S05
 - Supporting slices: none
-- Validation: unmapped
+- Validation: M001/S05 — cargo test proves argument normalisation (string/object/invalid), query validation, variables validation, GraphQL execution via graphql_raw, GraphQL error preservation, transport/auth error formatting, executor injection; 14 linear_graphql tests.
 - Notes: Spec §10.5.
 
 ### R013 — Spec-Driven Test Suite
@@ -166,7 +166,7 @@ This file is the explicit capability and coverage contract for the project.
 - Source: inferred
 - Primary owning slice: M001/S05
 - Supporting slices: M001/S06, M001/S07
-- Validation: unmapped
+- Validation: M001/S05 partial — per-turn delta extraction proven (extract_token_delta, zero-on-decrease guard, rate limit extraction, TurnResult fields); aggregate OrchestratorState.codex_totals accumulation requires S06.
 - Notes: Spec §13.5.
 
 ## Deferred
@@ -225,22 +225,22 @@ This file is the explicit capability and coverage contract for the project.
 | R002 | core-capability | validated | M001/S02 | none | M001/S02 cargo test (7 config tests: $VAR, ~, defaults, validation) |
 | R003 | core-capability | active | M001/S03 | none | unmapped |
 | R004 | core-capability | validated | M001/S04 | none | M001/S04 cargo test (21 tests: sanitize + canonicalize + workspace + hooks + cleanup) |
-| R005 | core-capability | active | M001/S05 | none | unmapped |
+| R005 | core-capability | validated | M001/S05 | none | M001/S05 cargo test (32 tests: subprocess launch + handshake + turn streaming + approvals + tool calls + user-input + token accounting) |
 | R006 | core-capability | active | M001/S06 | M001/S05 | unmapped |
 | R007 | core-capability | validated | M001/S04 | none | M001/S04 cargo test (7 tests: basic + datetime + none + blockers + strict + parse + attempt) |
 | R008 | core-capability | active | M001/S06 | none | unmapped |
 | R009 | operability | active | M001/S03 | M001/S06 | unmapped |
 | R010 | operability | active | M001/S07 | M001/S06 | unmapped |
 | R011 | core-capability | active | M001/S08 | M001/S05,S06 | unmapped |
-| R012 | integration | active | M001/S05 | none | unmapped |
+| R012 | integration | validated | M001/S05 | none | M001/S05 cargo test (14 tests: argument normalisation + query/variables validation + GraphQL error formatting + executor injection) |
 | R013 | quality-attribute | active | M001/S09 | all | unmapped |
 | R014 | failure-visibility | active | M001/S06 | M001/S02 | unmapped (validate() proven in S02; dispatch-preflight wiring is S06) |
 | R015 | operability | active | M001/S05 | M001/S06,S07 | unmapped |
 
 ## Coverage Summary
 
-- Active requirements: 11
-- Validated requirements: 4
+- Active requirements: 9
+- Validated requirements: 6
 - Mapped to slices: 15
-- Validated: 4 (R001, R002, R004, R007)
+- Validated: 6 (R001, R002, R004, R005, R007, R012)
 - Unmapped active requirements: 0
