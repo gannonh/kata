@@ -2,8 +2,8 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S06 — Orchestrator Core (next)
-**Active Task:** —
-**Phase:** Planning
+**Active Task:** T01 — Author failing orchestrator + CLI conformance tests
+**Phase:** Executing
 
 ## Progress
 
@@ -19,9 +19,9 @@
 
 ## Recent Decisions
 
-- D030: auto_approve_requests derived from approval_policy=="never", stored in SessionHandle
-- D031: graphql_executor: Fn+Clone for multi-call turns (FnOnce per dynamic_tool::execute call)
-- D032: TurnResult expanded with input_tokens/output_tokens/total_tokens/rate_limits
+- D033: Add explicit orchestrator runtime seam and deterministic test doubles for S06 operational proof
+- D034: Protect retry queue from stale timer firings via token/nonce matching
+- D035: Establish dedicated S06 proof harness in `tests/orchestrator_tests.rs` and `tests/cli_tests.rs`
 
 ## Blockers
 
@@ -29,7 +29,7 @@
 
 ## Next Action
 
-Begin S06: Orchestrator Core. S05 complete — all 32 tests pass, R005 + R012 validated. S06 depends on S02 (WorkflowStore), S03 (LinearAdapter), S04 (WorkspaceManager + PromptBuilder), S05 (AppServerClient + AgentEvent).
+Execute S06/T01: create `tests/orchestrator_tests.rs` and `tests/cli_tests.rs` with deterministic failing assertions that lock R006, R008, and R014 behavior before implementing orchestrator runtime logic.
 
 ## Validated Requirements
 
