@@ -243,39 +243,244 @@ export function buildTaskCommitMessage(ctx: TaskCommitContext): string {
   return subject;
 }
 
-// ─── Git I/O Stubs (implemented in T03) ──────────────────────────────────────
-// Exported here so the module satisfies all named imports in the test file.
-// T03 replaces these with real implementations.
+// ─── Module-level session state ───────────────────────────────────────────────
 
-/** Get the current branch name. Implemented in T03. */
-export function getCurrentBranch(_basePath: string): string {
-  throw new Error("getCurrentBranch not yet implemented — see T03");
-}
+/**
+ * Tracks repos where the one-time runtime-file index cleanup has already run.
+ * Keyed by basePath. Persists for the process lifetime — this is correct
+ * semantics: the cleanup fires at most once per repo per process.
+ */
+const _runtimeFilesCleanedUp = new Set<string>();
 
-/** Detect the integration (main) branch for the repo. Implemented in T03. */
-export function getMainBranch(_basePath: string): string {
-  throw new Error("getMainBranch not yet implemented — see T03");
+// ─── Internal helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Check whether a local branch exists.
+ *
+ * Uses try/catch instead of { allowFailure: true } because `--quiet` produces
+ * no stdout on either success or failure — the output can't distinguish the
+ * two cases. try/catch on exit code is reliable.
+ */
+function branchExists(basePath: string, branch: string): boolean {
+  try {
+    runGit(basePath, ["show-ref", "--verify", `refs/heads/${branch}`]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
- * Smart-stage and auto-commit dirty working tree, excluding runtime paths.
- * Implemented in T03.
+ * Stage all changes, then unstage each runtime exclusion path.
+ *
+ * On the first call for a given basePath, also removes tracked runtime files
+ * from the git index (one-time cleanup for files that were historically
+ * committed before .kata-cli/ was added to .gitignore).
+ *
+ * Ordering matters:
+ *   1. `git add -A` stages everything (including tracked runtime file modifications)
+ *   2. `git reset HEAD -- <path>` unstages each exclusion path
+ *   3. `git rm --cached -r --force -- <path>` removes tracked runtime files from
+ *      the index entirely (creates a "deleted" staging entry → committed in the
+ *      first autoCommit as "untrack these files"). Guarded by _runtimeFilesCleanedUp.
+ *
+ * allowFailure is set on reset and rm because paths that are not staged or not
+ * tracked simply produce a non-zero exit — not an error condition.
+ */
+function smartStage(basePath: string, extraExclusions: readonly string[] = []): void {
+  const allExclusions = [...RUNTIME_EXCLUSION_PATHS, ...extraExclusions];
+
+  // Stage everything first
+  runGit(basePath, ["add", "-A"]);
+
+  // Unstage each runtime/extra exclusion path
+  for (const path of allExclusions) {
+    runGit(basePath, ["reset", "HEAD", "--", path], { allowFailure: true });
+  }
+
+  // One-time cleanup: remove previously-tracked runtime files from the index.
+  // Runs at most once per basePath per process lifetime.
+  if (!_runtimeFilesCleanedUp.has(basePath)) {
+    for (const path of allExclusions) {
+      runGit(basePath, ["rm", "--cached", "-r", "--force", "--", path], {
+        allowFailure: true,
+      });
+    }
+    _runtimeFilesCleanedUp.add(basePath);
+  }
+}
+
+// ─── Git I/O Functions ────────────────────────────────────────────────────────
+
+/**
+ * Get the current branch name.
+ * Returns the branch name trimmed of whitespace.
+ */
+export function getCurrentBranch(basePath: string): string {
+  return runGit(basePath, ["branch", "--show-current"]);
+}
+
+/**
+ * Detect the integration (main) branch for the repo.
+ *
+ * Resolution order:
+ *   1. Explicit `prefs.main_branch` override (if branch exists locally)
+ *   2. `origin/HEAD` symbolic-ref (the remote's default branch)
+ *   3. `refs/heads/main` — most common default name
+ *   4. `refs/heads/master` — legacy default name
+ *   5. Current branch (last resort / detached HEAD fallback)
+ *
+ * Observability: when no remote is configured (common in test repos), steps 2
+ * and 3/4 fall through naturally and the current branch is returned — which
+ * is correct for single-branch repos and test environments.
+ */
+export function getMainBranch(basePath: string, prefs?: GitPreferences): string {
+  // Step 1: explicit preference override
+  if (prefs?.main_branch && branchExists(basePath, prefs.main_branch)) {
+    return prefs.main_branch;
+  }
+
+  // Step 2: origin/HEAD symbolic ref (remote's default branch)
+  const originHead = runGit(
+    basePath,
+    ["symbolic-ref", "refs/remotes/origin/HEAD"],
+    { allowFailure: true },
+  );
+  if (originHead) {
+    const prefix = "refs/remotes/origin/";
+    if (originHead.startsWith(prefix)) {
+      const branch = originHead.slice(prefix.length).trim();
+      if (branch && branchExists(basePath, branch)) return branch;
+    }
+  }
+
+  // Step 3: check refs/heads/main
+  if (runGit(basePath, ["show-ref", "--verify", "refs/heads/main"], { allowFailure: true })) {
+    return "main";
+  }
+
+  // Step 4: check refs/heads/master
+  if (runGit(basePath, ["show-ref", "--verify", "refs/heads/master"], { allowFailure: true })) {
+    return "master";
+  }
+
+  // Step 5: fall back to current branch (detached HEAD / single-branch repo)
+  return runGit(basePath, ["branch", "--show-current"]);
+}
+
+/**
+ * Commit the current staging area with the given message.
+ *
+ * Returns opts.message on success (the caller can use this as the "what was committed"
+ * signal), or null when nothing is staged and allowEmpty is not set.
+ *
+ * Uses `git commit -F -` (read message from stdin) for multi-line and special-character
+ * safety — avoids shell quoting issues with `-m` and message contents.
+ *
+ * Observability: null return is the explicit "nothing to commit after exclusions"
+ * signal — callers should treat null as a no-op, not an error.
+ */
+export function commit(basePath: string, opts: CommitOptions): string | null {
+  const staged = runGit(basePath, ["diff", "--cached", "--name-only"], {
+    allowFailure: true,
+  });
+  if (!staged && !opts.allowEmpty) return null;
+
+  const args = ["commit", "-F", "-"];
+  if (opts.allowEmpty) args.push("--allow-empty");
+  runGit(basePath, args, { input: opts.message });
+  return opts.message;
+}
+
+/**
+ * Smart-stage all dirty files (excluding RUNTIME_EXCLUSION_PATHS and any
+ * extra exclusions) and auto-commit.
+ *
+ * Returns the commit message string on success, null when nothing to commit
+ * after exclusions (i.e. only runtime files were dirty).
+ *
+ * Commit message:
+ *   - With taskContext: delegates to buildTaskCommitMessage for a meaningful
+ *     conventional commit line derived from the task execution results.
+ *   - Without taskContext: generic `chore(${unitId}): auto-commit after ${unitType}`
+ *
+ * Observability: null return signals the "only runtime files were dirty" condition
+ * — callers can use this to skip logging a commit that didn't happen.
  */
 export function autoCommitCurrentBranch(
-  _basePath: string,
-  _unitType: string,
-  _unitId: string,
-  _taskContext?: TaskCommitContext,
-  _extraExclusions?: readonly string[],
+  basePath: string,
+  unitType: string,
+  unitId: string,
+  taskContext?: TaskCommitContext,
+  extraExclusions?: readonly string[],
 ): string | null {
-  throw new Error("autoCommitCurrentBranch not yet implemented — see T03");
+  smartStage(basePath, extraExclusions ?? []);
+
+  // After exclusion-aware staging, check if anything is actually staged
+  const staged = runGit(basePath, ["diff", "--cached", "--name-only"], {
+    allowFailure: true,
+  });
+  if (!staged) return null;
+
+  const message = taskContext
+    ? buildTaskCommitMessage(taskContext)
+    : `chore(${unitId}): auto-commit after ${unitType}`;
+
+  return commit(basePath, { message });
 }
 
 /**
- * Stage (smart) and commit with the given options.
- * Returns commit message on success, null when nothing to commit.
- * Implemented in T03.
+ * Squash-merge the current slice branch into the main/integration branch.
+ *
+ * Workflow:
+ *   1. Capture current (slice) branch name
+ *   2. Detect main branch
+ *   3. Switch to main
+ *   4. `git merge --squash <sliceBranch>` — stages all slice commits as one
+ *   5. Commit with a conventional feat() message
+ *
+ * Throws MergeConflictError (not a generic Error) when the squash merge
+ * encounters conflicts. The working tree is left in conflicted state so
+ * the caller can dispatch a fix session.
+ *
+ * Observability: MergeConflictError exposes conflictedFiles[], branch, mainBranch,
+ * and strategy — a future agent can inspect this without running git manually.
  */
-export function commit(_basePath: string, _opts: CommitOptions): string | null {
-  throw new Error("commit not yet implemented — see T03");
+export function mergeSliceToMain(
+  basePath: string,
+  milestoneId: string,
+  sliceId: string,
+  sliceTitle: string,
+  prefs?: GitPreferences,
+): MergeSliceResult {
+  const sliceBranch = getCurrentBranch(basePath);
+  const mainBranch = getMainBranch(basePath, prefs);
+
+  runGit(basePath, ["switch", mainBranch]);
+
+  try {
+    runGit(basePath, ["merge", "--squash", sliceBranch]);
+  } catch {
+    // Collect conflicted files for the caller to act on
+    const conflictedFiles = runGit(
+      basePath,
+      ["diff", "--name-only", "--diff-filter=U"],
+      { allowFailure: true },
+    )
+      .split("\n")
+      .filter(Boolean);
+
+    throw new MergeConflictError({
+      message: `Merge conflict while squashing ${sliceBranch} into ${mainBranch}`,
+      conflictedFiles,
+      strategy: prefs?.merge_strategy ?? "squash",
+      branch: sliceBranch,
+      mainBranch,
+    });
+  }
+
+  const squashMsg = `feat(${milestoneId}/${sliceId}): ${sliceTitle}`;
+  commit(basePath, { message: squashMsg });
+
+  return { branch: sliceBranch, mergedCommitMessage: squashMsg, deletedBranch: false };
 }
