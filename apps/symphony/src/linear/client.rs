@@ -248,12 +248,39 @@ impl LinearClient {
 
     // ── GraphQL transport ──────────────────────────────────────────────
 
+    /// Execute a raw GraphQL query against the Linear API, returning the full response body.
+    ///
+    /// Unlike `graphql`, this method does NOT treat a GraphQL-level `errors` field as an error —
+    /// it returns the full body so the caller (e.g., `dynamic_tool`) can inspect and handle errors
+    /// at the application level. Maps transport errors to `LinearApiRequest`, non-200 HTTP status
+    /// to `LinearApiStatus`, and a missing API key to `MissingLinearApiToken`.
+    pub async fn graphql_raw(&self, query: &str, variables: serde_json::Value) -> Result<Value> {
+        self.graphql_http(query, variables).await
+    }
+
     /// Execute a GraphQL query against the Linear API.
     ///
     /// Sends the raw API key in the `Authorization` header (NOT Bearer-prefixed).
     /// Maps transport errors to `LinearApiRequest`, non-200 status to `LinearApiStatus`,
     /// GraphQL `errors` field to `LinearGraphqlErrors`, unknown shapes to `LinearUnknownPayload`.
     async fn graphql(&self, query: &str, variables: Value) -> Result<Value> {
+        let body = self.graphql_http(query, variables).await?;
+
+        // Check for GraphQL-level errors
+        if let Some(errors) = body.get("errors") {
+            let errors_str =
+                serde_json::to_string(errors).unwrap_or_else(|_| "unknown".to_string());
+            return Err(SymphonyError::LinearGraphqlErrors(errors_str));
+        }
+
+        Ok(body)
+    }
+
+    /// Internal HTTP transport for GraphQL requests.
+    ///
+    /// Performs the HTTP request and returns the parsed response body verbatim (including any
+    /// GraphQL-level `errors` field). Callers are responsible for interpreting the body.
+    async fn graphql_http(&self, query: &str, variables: Value) -> Result<Value> {
         let api_key = self
             .config
             .api_key
@@ -294,13 +321,6 @@ impl LinearClient {
             error!(error = %e, "Linear GraphQL response parse error");
             SymphonyError::LinearApiRequest(e.to_string())
         })?;
-
-        // Check for GraphQL-level errors
-        if let Some(errors) = body.get("errors") {
-            let errors_str =
-                serde_json::to_string(errors).unwrap_or_else(|_| "unknown".to_string());
-            return Err(SymphonyError::LinearGraphqlErrors(errors_str));
-        }
 
         Ok(body)
     }
