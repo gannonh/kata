@@ -1,6 +1,6 @@
 {{preamble}}
 
-Say exactly: "What's the vision?" — nothing else. Wait for the user's answer.
+Say exactly: "What would you like to build?" — nothing else. Wait for the user's answer.
 
 ## Discussion Phase
 

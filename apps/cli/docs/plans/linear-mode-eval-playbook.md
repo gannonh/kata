@@ -16,7 +16,7 @@
 
 In **file mode**, `/kata` on a fresh project triggers a full onboarding flow:
 - Creates `.kata/` scaffold
-- Dispatches `buildDiscussPrompt` which asks "What's the vision?"
+- Dispatches `buildDiscussPrompt` which asks "What would you like to build?"
 - Captures decisions → writes `context.md` → kicks off planning
 
 In **Linear mode**, `/kata` calls `showLinearSmartEntry()` which:
@@ -83,7 +83,7 @@ I want to build a CLI tool that converts markdown to HTML
 - Begins the discuss/plan flow
 
 **What PROBABLY happens (current state):**
-- Kata runs file-mode flow (creates `.kata/`, asks "What's the vision?" via file-mode wizard)
+- Kata runs file-mode flow (creates `.kata/`, asks "What would you like to build?" via file-mode wizard)
 - Linear mode is never offered
 
 **Record:** Does the onboarding flow mention Linear mode? Is there a way to choose it without knowing about `/kata prefs`?
@@ -147,7 +147,7 @@ It should use `secure_env_collect`. If not, export directly.
 
 ---
 
-## Phase 2: Milestone Bootstrap — "What's the vision?"
+## Phase 2: Milestone Bootstrap — "What would you like to build?"
 
 ### 2.1 Start the workflow
 
@@ -155,7 +155,7 @@ It should use `secure_env_collect`. If not, export directly.
 /kata
 ```
 
-**What SHOULD happen:** Linear-mode smart entry. Since there are no milestones in the Linear project, Kata should guide the user through creating one — similar to the file-mode discuss flow that asks "What's the vision?"
+**What SHOULD happen:** Linear-mode smart entry. Since there are no milestones in the Linear project, Kata should guide the user through creating one — similar to the file-mode discuss flow that asks "What would you like to build?"
 
 **What PROBABLY happens:** `kata_derive_state` returns a state with no active milestone. `selectLinearPrompt` may return null (no matching phase). The user gets a notification like "No Linear prompt available for phase: ..." or "Linear mode is blocked."
 
@@ -361,7 +361,7 @@ Check at **every** `/kata` dispatch:
 
 Based on code review before the eval:
 
-1. **No Linear onboarding wizard.** File mode has "What's the vision?" via `buildDiscussPrompt`. Linear mode has nothing — `showLinearSmartEntry()` goes straight to `selectLinearPrompt()` which has no handler for "no milestones."
+1. **No Linear onboarding wizard.** File mode has "What would you like to build?" via `buildDiscussPrompt`. Linear mode has nothing — `showLinearSmartEntry()` goes straight to `selectLinearPrompt()` which has no handler for "no milestones."
 
 2. **No `/kata prefs` guided setup.** A new user can't discover Linear mode without knowing the preference key names.
 
