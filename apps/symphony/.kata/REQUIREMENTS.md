@@ -61,13 +61,13 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R006 — Orchestrator State Machine
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: Single-authority poll loop: reconcile running issues (stall detection + tracker state refresh), validate config, fetch candidates, sort by priority, dispatch with concurrency control (global + per-state), handle worker exits (continuation retry + exponential backoff), startup terminal cleanup.
 - Why it matters: The orchestrator is the core scheduling brain. Correctness here prevents duplicate dispatch, missed retries, and stale state.
 - Source: user
 - Primary owning slice: M001/S06
 - Supporting slices: M001/S05
-- Validation: unmapped
+- Validation: M001/S06 — `cargo test --test orchestrator_tests` proves startup terminal cleanup, reconcile→validate→dispatch tick ordering, candidate sorting/gating, pre-dispatch refresh rejection, continuation+failure retry semantics, stale retry suppression, stall recovery, and snapshot diagnostics.
 - Notes: Spec §7, §8. In-memory state, no persistent DB.
 
 ### R007 — Prompt Builder with Strict Liquid Rendering
@@ -83,13 +83,13 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R008 — CLI Entry Point
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: Accept optional positional workflow path, `--port`, `--logs-root`, guardrails acknowledgment flag. Validate config at startup. Exit codes for success/failure.
 - Why it matters: The CLI is the operator interface for launching the daemon.
 - Source: user
 - Primary owning slice: M001/S06
 - Supporting slices: none
-- Validation: unmapped
+- Validation: M001/S06 — `cargo test --test cli_tests` proves default/override workflow path parsing, missing workflow startup failure, startup validation failure gating, and successful bootstrap path invoking orchestrator startup.
 - Notes: Spec §17.7. clap derive already in place.
 
 ### R009 — Structured Logging with Issue/Session Context
@@ -100,7 +100,7 @@ This file is the explicit capability and coverage contract for the project.
 - Source: user
 - Primary owning slice: M001/S03
 - Supporting slices: M001/S06
-- Validation: unmapped
+- Validation: M001/S06 partial — orchestrator tests assert issue/session context on worker lifecycle events and retry diagnostics; runtime startup failure checks confirm actionable structured bootstrap error fields (`phase`, `stage`, `workflow_path`). Human-readable log-format toggle remains to be proven.
 - Notes: Spec §13.1-13.2. tracing + tracing-subscriber already in deps.
 
 ### R010 — HTTP Observability Server (Extension)
@@ -149,24 +149,24 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R014 — Dispatch Preflight Validation
 - Class: failure-visibility
-- Status: active
+- Status: validated
 - Description: Validate workflow/config before dispatch (tracker.kind, api_key, project_slug, codex.command present). Fail startup on validation error. Skip dispatch on per-tick validation failure while keeping reconciliation active.
 - Why it matters: Prevents dispatching work with broken config, which wastes agent time and creates confusing failures.
 - Source: inferred
 - Primary owning slice: M001/S06
 - Supporting slices: M001/S02
-- Validation: unmapped
+- Validation: M001/S06 — `test_preflight_validation_failure_skips_dispatch_but_reconcile_continues` proves reconcile still runs while dispatch is skipped on invalid per-tick preflight; CLI startup validation failure path verified in `cli_tests`.
 - Notes: Spec §6.3.
 
 ### R015 — Token Accounting and Rate Limit Tracking
 - Class: operability
-- Status: active
+- Status: validated
 - Description: Track per-session and aggregate token usage (input/output/total). Extract absolute thread totals, compute deltas to avoid double-counting. Track latest rate-limit payload. Expose in status snapshot.
 - Why it matters: Token accounting is how operators monitor cost and detect runaway sessions.
 - Source: inferred
 - Primary owning slice: M001/S05
 - Supporting slices: M001/S06, M001/S07
-- Validation: M001/S05 partial — per-turn delta extraction proven (extract_token_delta, zero-on-decrease guard, rate limit extraction, TurnResult fields); aggregate OrchestratorState.codex_totals accumulation requires S06.
+- Validation: M001/S05 + M001/S06 — per-turn delta extraction proven in codex tests; `test_token_totals_and_rate_limits_accumulate_into_snapshot` proves orchestrator aggregate accumulation and latest rate-limit snapshot surface.
 - Notes: Spec §13.5.
 
 ## Deferred
@@ -226,21 +226,21 @@ This file is the explicit capability and coverage contract for the project.
 | R003 | core-capability | active | M001/S03 | none | unmapped |
 | R004 | core-capability | validated | M001/S04 | none | M001/S04 cargo test (21 tests: sanitize + canonicalize + workspace + hooks + cleanup) |
 | R005 | core-capability | validated | M001/S05 | none | M001/S05 cargo test (32 tests: subprocess launch + handshake + turn streaming + approvals + tool calls + user-input + token accounting) |
-| R006 | core-capability | active | M001/S06 | M001/S05 | unmapped |
+| R006 | core-capability | validated | M001/S06 | M001/S05 | M001/S06 cargo test (14 orchestrator tests: startup cleanup, tick ordering, dispatch gating, retries, stall, snapshot diagnostics) |
 | R007 | core-capability | validated | M001/S04 | none | M001/S04 cargo test (7 tests: basic + datetime + none + blockers + strict + parse + attempt) |
-| R008 | core-capability | active | M001/S06 | none | unmapped |
-| R009 | operability | active | M001/S03 | M001/S06 | unmapped |
+| R008 | core-capability | validated | M001/S06 | none | M001/S06 cargo test (5 cli tests: default/override path, startup failure gating, orchestrator startup invocation) |
+| R009 | operability | active | M001/S03 | M001/S06 | M001/S06 partial: structured startup/runtime JSON logs + issue/session lifecycle context; human-readable format toggle not yet proven |
 | R010 | operability | active | M001/S07 | M001/S06 | unmapped |
 | R011 | core-capability | active | M001/S08 | M001/S05,S06 | unmapped |
 | R012 | integration | validated | M001/S05 | none | M001/S05 cargo test (14 tests: argument normalisation + query/variables validation + GraphQL error formatting + executor injection) |
 | R013 | quality-attribute | active | M001/S09 | all | unmapped |
-| R014 | failure-visibility | active | M001/S06 | M001/S02 | unmapped (validate() proven in S02; dispatch-preflight wiring is S06) |
-| R015 | operability | active | M001/S05 | M001/S06,S07 | unmapped |
+| R014 | failure-visibility | validated | M001/S06 | M001/S02 | M001/S06 orchestrator+cli tests prove per-tick preflight dispatch skip with reconcile continuity and startup validation failure gating |
+| R015 | operability | validated | M001/S05 | M001/S06,S07 | M001/S05+S06 tests prove token delta extraction plus aggregate codex totals/rate-limit snapshot accumulation |
 
 ## Coverage Summary
 
-- Active requirements: 9
-- Validated requirements: 6
+- Active requirements: 5
+- Validated requirements: 10
 - Mapped to slices: 15
-- Validated: 6 (R001, R002, R004, R005, R007, R012)
+- Validated: 10 (R001, R002, R004, R005, R006, R007, R008, R012, R014, R015)
 - Unmapped active requirements: 0

@@ -21,6 +21,7 @@ models:
   planning: claude-opus-4-6     # Opus for architectural decisions
   execution: claude-opus-4-6
   completion: claude-sonnet-4-6
+  review: claude-sonnet-4-6 
 auto_supervisor: {}
 ---
 

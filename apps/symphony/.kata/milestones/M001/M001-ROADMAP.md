@@ -69,7 +69,7 @@ This milestone is complete only when all are true:
 - [x] **S05: Codex App-Server Client** `risk:high` `depends:[S01,S04]`
   > After this: `cargo test` proves subprocess launch, startup handshake, turn streaming with event extraction, approval/tool-call handling, timeout enforcement, token accounting, and linear_graphql dynamic tool.
 
-- [ ] **S06: Orchestrator Core** `risk:high` `depends:[S02,S03,S04,S05]`
+- [x] **S06: Orchestrator Core** `risk:high` `depends:[S02,S03,S04,S05]`
   > After this: `cargo test` proves the full poll→reconcile→dispatch→retry loop: candidate sorting, concurrency control, stall detection, exponential backoff, continuation retries, startup terminal cleanup, and dispatch preflight validation. CLI starts the service.
 
 - [ ] **S07: HTTP Dashboard and JSON API** `risk:low` `depends:[S06]`
