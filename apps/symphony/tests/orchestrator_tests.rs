@@ -3,11 +3,11 @@ use std::collections::HashMap;
 use chrono::{Duration, Utc};
 
 use symphony::domain::{
-    AgentConfig, BlockerRef, Issue, ServiceConfig, TrackerConfig, WorkflowDefinition,
+    AgentConfig, AgentEvent, BlockerRef, Issue, ServiceConfig, TrackerConfig, WorkflowDefinition,
 };
 use symphony::error::{Result, SymphonyError};
 use symphony::orchestrator::{
-    Orchestrator, OrchestratorPort, RetryKind, RuntimeEvent, TurnMetrics,
+    Orchestrator, OrchestratorPort, RetryKind, RuntimeEvent, TurnMetrics, WorkerCompletion,
     CONTINUATION_RETRY_DELAY_MS,
 };
 
@@ -443,10 +443,17 @@ fn test_stall_detection_schedules_forced_retry() {
         "stalled worker should be moved into retry queue with forced retry"
     );
 
-    let stalled_event = orchestrator
-        .events()
-        .iter()
-        .any(|event| matches!(event, RuntimeEvent::WorkerStalled { issue_id } if issue_id == "issue-stalled"));
+    let stalled_event = orchestrator.events().iter().any(|event| {
+        matches!(
+            event,
+            RuntimeEvent::WorkerStalled {
+                issue_id,
+                issue_identifier,
+                elapsed_ms,
+                ..
+            } if issue_id == "issue-stalled" && issue_identifier == "SIM-60" && *elapsed_ms > 30_000
+        )
+    });
     assert!(
         stalled_event,
         "stalled worker path should emit worker_stalled diagnostic event"
@@ -454,7 +461,7 @@ fn test_stall_detection_schedules_forced_retry() {
 }
 
 #[test]
-fn test_codex_totals_and_rate_limits_accumulate_into_snapshot() {
+fn test_token_totals_and_rate_limits_accumulate_into_snapshot() {
     let mut orchestrator = Orchestrator::new(test_config(2));
 
     orchestrator.apply_turn_metrics(&TurnMetrics {
@@ -517,13 +524,18 @@ fn test_snapshot_exposes_running_and_retry_diagnostics() {
         },
     );
 
-    orchestrator.schedule_retry(
+    orchestrator.schedule_retry_with_context(
         "issue-running",
         "SIM-70",
         3,
         RetryKind::Failure,
         1_000,
         Some("worker failed".to_string()),
+        symphony::orchestrator::RetryContext {
+            worker_host: Some("worker-a".to_string()),
+            workspace_path: Some("/tmp/workspace-running".to_string()),
+            session_id: Some("thread-70-turn-2".to_string()),
+        },
     );
 
     let snapshot = orchestrator.snapshot(1_000);
@@ -534,15 +546,154 @@ fn test_snapshot_exposes_running_and_retry_diagnostics() {
         "snapshot should include currently running entries for diagnostics"
     );
 
-    let retry_error = snapshot
+    let retry_entry = snapshot
         .retry_queue
         .first()
-        .and_then(|entry| entry.error.clone())
-        .unwrap_or_default();
+        .expect("retry entry should exist");
+
+    let retry_error = retry_entry.error.clone().unwrap_or_default();
 
     assert_eq!(
         retry_error, "worker failed",
         "snapshot retry queue should include error diagnostics for failed runs"
+    );
+
+    assert_eq!(
+        retry_entry.worker_host.as_deref(),
+        Some("worker-a"),
+        "snapshot retry queue should preserve worker host diagnostics when available"
+    );
+
+    assert_eq!(
+        retry_entry.workspace_path.as_deref(),
+        Some("/tmp/workspace-running"),
+        "snapshot retry queue should preserve workspace diagnostics when available"
+    );
+}
+
+#[test]
+fn test_worker_completion_schedules_continuation_retry_with_session_context() {
+    let mut orchestrator = Orchestrator::new(test_config(2));
+
+    orchestrator.state_mut().running.insert(
+        "issue-complete".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-complete".to_string(),
+            issue_identifier: "SIM-80".to_string(),
+            attempt: Some(2),
+            workspace_path: "/tmp/workspace-complete".to_string(),
+            started_at: Utc::now(),
+            status: "running".to_string(),
+            error: None,
+            worker_host: Some("worker-b".to_string()),
+        },
+    );
+
+    orchestrator.ingest_agent_event(
+        "issue-complete",
+        &AgentEvent::SessionStarted {
+            timestamp: Utc::now(),
+            codex_app_server_pid: Some("4242".to_string()),
+            session_id: "thread-80-turn-1".to_string(),
+        },
+    );
+
+    orchestrator.handle_worker_completion("issue-complete", WorkerCompletion::Completed, 50_000);
+
+    let retry_entry = orchestrator
+        .state()
+        .retry_attempts
+        .get("issue-complete")
+        .expect("continuation retry should be queued");
+
+    assert_eq!(retry_entry.attempt, 1);
+    assert_eq!(
+        retry_entry.due_at_ms, 51_000,
+        "continuation retries should always use +1s delay"
+    );
+    assert_eq!(retry_entry.worker_host.as_deref(), Some("worker-b"));
+    assert_eq!(
+        retry_entry.workspace_path.as_deref(),
+        Some("/tmp/workspace-complete")
+    );
+
+    let worker_completed = orchestrator.events().iter().any(|event| {
+        matches!(
+            event,
+            RuntimeEvent::WorkerCompleted {
+                issue_id,
+                issue_identifier,
+                session_id,
+            } if issue_id == "issue-complete"
+                && issue_identifier == "SIM-80"
+                && session_id.as_deref() == Some("thread-80-turn-1")
+        )
+    });
+
+    assert!(
+        worker_completed,
+        "worker completion diagnostics should retain issue/session context"
+    );
+}
+
+#[test]
+fn test_worker_failure_preserves_attempt_and_backoff_cap() {
+    let mut orchestrator = Orchestrator::new(test_config(2));
+
+    orchestrator.state_mut().running.insert(
+        "issue-fail".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-fail".to_string(),
+            issue_identifier: "SIM-81".to_string(),
+            attempt: Some(5),
+            workspace_path: "/tmp/workspace-fail".to_string(),
+            started_at: Utc::now(),
+            status: "running".to_string(),
+            error: None,
+            worker_host: Some("worker-c".to_string()),
+        },
+    );
+
+    orchestrator.handle_worker_completion(
+        "issue-fail",
+        WorkerCompletion::Failed {
+            error: "agent exited: :boom".to_string(),
+        },
+        80_000,
+    );
+
+    let retry_entry = orchestrator
+        .state()
+        .retry_attempts
+        .get("issue-fail")
+        .expect("failure retry should be queued");
+
+    assert_eq!(
+        retry_entry.attempt, 6,
+        "failure retries should preserve/increment attempt count from the run"
+    );
+    assert_eq!(
+        retry_entry.due_at_ms, 140_000,
+        "attempt 6 backoff should be capped by max_retry_backoff_ms (60s in test config)"
+    );
+
+    let worker_failed = orchestrator.events().iter().any(|event| {
+        matches!(
+            event,
+            RuntimeEvent::WorkerFailed {
+                issue_id,
+                issue_identifier,
+                error,
+                ..
+            } if issue_id == "issue-fail"
+                && issue_identifier == "SIM-81"
+                && error == "agent exited: :boom"
+        )
+    });
+
+    assert!(
+        worker_failed,
+        "worker failure diagnostics should retain issue context and failure reason"
     );
 }
 

@@ -1,12 +1,16 @@
 use chrono::Utc;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::future::Future;
+use std::path::Path;
 
+use crate::codex::app_server;
 use crate::config;
 use crate::domain::{
-    CodexTotals, Issue, OrchestratorSnapshot, OrchestratorState, PollingSnapshot, RateLimitInfo,
-    RetryEntry, RetrySnapshotEntry, RunAttempt, ServiceConfig,
+    AgentEvent, CodexTotals, Issue, OrchestratorSnapshot, OrchestratorState, PollingSnapshot,
+    RateLimitInfo, RetryEntry, RetrySnapshotEntry, RunAttempt, ServiceConfig,
 };
 use crate::error::Result;
+use crate::{prompt_builder, workspace};
 
 pub const CONTINUATION_RETRY_DELAY_MS: i64 = 1_000;
 pub const FAILURE_RETRY_BASE_MS: i64 = 10_000;
@@ -35,8 +39,22 @@ pub enum RuntimeEvent {
         issue_id: String,
         token: String,
     },
+    WorkerCompleted {
+        issue_id: String,
+        issue_identifier: String,
+        session_id: Option<String>,
+    },
+    WorkerFailed {
+        issue_id: String,
+        issue_identifier: String,
+        session_id: Option<String>,
+        error: String,
+    },
     WorkerStalled {
         issue_id: String,
+        issue_identifier: String,
+        session_id: Option<String>,
+        elapsed_ms: i64,
     },
 }
 
@@ -52,6 +70,19 @@ pub struct TurnMetrics {
     pub output_tokens: u64,
     pub total_tokens: u64,
     pub rate_limits: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct RetryContext {
+    pub worker_host: Option<String>,
+    pub workspace_path: Option<String>,
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub enum WorkerCompletion {
+    Completed,
+    Failed { error: String },
 }
 
 pub trait OrchestratorPort {
@@ -77,6 +108,7 @@ pub struct Orchestrator {
     events: Vec<RuntimeEvent>,
     retry_tokens: HashMap<String, String>,
     worker_last_activity_ms: HashMap<String, i64>,
+    worker_session_ids: HashMap<String, String>,
     /// Normalized running issue state cache used for per-state slot accounting.
     running_issue_states: HashMap<String, String>,
     next_retry_token: u64,
@@ -102,6 +134,7 @@ impl Orchestrator {
             events: vec![],
             retry_tokens: HashMap::new(),
             worker_last_activity_ms: HashMap::new(),
+            worker_session_ids: HashMap::new(),
             running_issue_states: HashMap::new(),
             next_retry_token: 0,
         }
@@ -244,12 +277,30 @@ impl Orchestrator {
         now_ms: i64,
         error: Option<String>,
     ) -> String {
+        self.schedule_retry_with_context(
+            issue_id,
+            identifier,
+            attempt,
+            retry_kind,
+            now_ms,
+            error,
+            RetryContext::default(),
+        )
+    }
+
+    pub fn schedule_retry_with_context(
+        &mut self,
+        issue_id: &str,
+        identifier: &str,
+        attempt: u32,
+        retry_kind: RetryKind,
+        now_ms: i64,
+        error: Option<String>,
+        context: RetryContext,
+    ) -> String {
         self.next_retry_token += 1;
         let token = format!("retry-{}", self.next_retry_token);
-
-        // Intentionally incomplete in T01: failure backoff currently uses the
-        // continuation delay placeholder.
-        let due_at_ms = now_ms + CONTINUATION_RETRY_DELAY_MS;
+        let due_at_ms = now_ms + self.retry_delay_ms(retry_kind, attempt);
 
         self.retry_tokens
             .insert(issue_id.to_string(), token.clone());
@@ -262,10 +313,30 @@ impl Orchestrator {
                 attempt,
                 due_at_ms,
                 timer_handle: Some(token.clone()),
-                error,
-                worker_host: None,
-                workspace_path: None,
+                error: error.clone(),
+                worker_host: context.worker_host.clone(),
+                workspace_path: context.workspace_path.clone(),
             },
+        );
+
+        if let Some(session_id) = context.session_id.as_ref() {
+            self.worker_session_ids
+                .insert(issue_id.to_string(), session_id.clone());
+        }
+
+        tracing::info!(
+            event = "retry_scheduled",
+            issue_id = %issue_id,
+            issue_identifier = %identifier,
+            retry_kind = ?retry_kind,
+            attempt,
+            due_at_ms,
+            token = %token,
+            session_id = context.session_id.as_deref().unwrap_or("n/a"),
+            worker_host = context.worker_host.as_deref().unwrap_or("local"),
+            workspace_path = context.workspace_path.as_deref().unwrap_or("n/a"),
+            error = error.as_deref().unwrap_or(""),
+            "queued issue retry"
         );
 
         self.events.push(RuntimeEvent::RetryScheduled {
@@ -279,9 +350,27 @@ impl Orchestrator {
         token
     }
 
-    pub fn fire_retry(&mut self, issue_id: &str, _token: &str) -> bool {
-        // Intentionally incomplete in T01: stale token suppression is not
-        // implemented yet.
+    pub fn fire_retry(&mut self, issue_id: &str, token: &str) -> bool {
+        let Some(current_token) = self.retry_tokens.get(issue_id).cloned() else {
+            return false;
+        };
+
+        if current_token != token {
+            tracing::info!(
+                event = "retry_ignored_stale",
+                issue_id = %issue_id,
+                token = %token,
+                current_token = %current_token,
+                "ignored stale retry timer firing"
+            );
+
+            self.events.push(RuntimeEvent::RetryIgnoredStale {
+                issue_id: issue_id.to_string(),
+                token: token.to_string(),
+            });
+            return false;
+        }
+
         self.retry_tokens.remove(issue_id);
         self.state.retry_attempts.remove(issue_id).is_some()
     }
@@ -291,14 +380,349 @@ impl Orchestrator {
             .insert(issue_id.to_string(), timestamp_ms);
     }
 
-    pub fn detect_stalled_workers(&mut self, _now_ms: i64, _stall_timeout_ms: i64) {
-        // Intentionally incomplete in T01: stall detection and forced retry
-        // scheduling are implemented in T03.
+    pub fn ingest_agent_event(&mut self, issue_id: &str, event: &AgentEvent) {
+        self.record_worker_activity(issue_id, event_timestamp_ms(event));
+
+        if let Some(session_id) = event_session_id(event) {
+            self.worker_session_ids
+                .insert(issue_id.to_string(), session_id.to_string());
+        }
+
+        if let Some(run_attempt) = self.state.running.get_mut(issue_id) {
+            match event {
+                AgentEvent::TurnFailed { error, .. }
+                | AgentEvent::TurnEndedWithError { error, .. }
+                | AgentEvent::StartupFailed { error, .. } => {
+                    run_attempt.status = "failed".to_string();
+                    run_attempt.error = Some(error.clone());
+                }
+                AgentEvent::TurnCancelled { .. } => {
+                    run_attempt.status = "cancelled".to_string();
+                }
+                _ => {}
+            }
+        }
+
+        tracing::debug!(
+            issue_id = %issue_id,
+            session_id = self
+                .worker_session_ids
+                .get(issue_id)
+                .map(String::as_str)
+                .unwrap_or("n/a"),
+            event = %event_name(event),
+            "ingested codex worker event"
+        );
     }
 
-    pub fn apply_turn_metrics(&mut self, _metrics: &TurnMetrics) {
-        // Intentionally incomplete in T01: codex totals/rate-limit accumulation
-        // is implemented in T03.
+    pub fn handle_worker_completion(
+        &mut self,
+        issue_id: &str,
+        completion: WorkerCompletion,
+        now_ms: i64,
+    ) -> Option<String> {
+        let run_attempt = self.state.running.remove(issue_id)?;
+        self.state.claimed.remove(issue_id);
+        self.running_issue_states.remove(issue_id);
+        self.worker_last_activity_ms.remove(issue_id);
+
+        let issue_identifier = run_attempt.issue_identifier.clone();
+        let session_id = self.worker_session_ids.remove(issue_id);
+        let retry_context = RetryContext {
+            worker_host: run_attempt.worker_host.clone(),
+            workspace_path: Some(run_attempt.workspace_path.clone()),
+            session_id: session_id.clone(),
+        };
+
+        match completion {
+            WorkerCompletion::Completed => {
+                self.state.completed.insert(issue_id.to_string());
+
+                tracing::info!(
+                    event = "worker_completed",
+                    issue_id = %issue_id,
+                    issue_identifier = %issue_identifier,
+                    session_id = session_id.as_deref().unwrap_or("n/a"),
+                    "worker attempt completed; scheduling continuation retry"
+                );
+
+                self.events.push(RuntimeEvent::WorkerCompleted {
+                    issue_id: issue_id.to_string(),
+                    issue_identifier: issue_identifier.clone(),
+                    session_id,
+                });
+
+                Some(self.schedule_retry_with_context(
+                    issue_id,
+                    &issue_identifier,
+                    1,
+                    RetryKind::Continuation,
+                    now_ms,
+                    None,
+                    retry_context,
+                ))
+            }
+            WorkerCompletion::Failed { error } => {
+                self.state.completed.remove(issue_id);
+
+                let attempt = run_attempt.attempt.unwrap_or(0).saturating_add(1).max(1);
+
+                tracing::warn!(
+                    event = "worker_failed",
+                    issue_id = %issue_id,
+                    issue_identifier = %issue_identifier,
+                    session_id = session_id.as_deref().unwrap_or("n/a"),
+                    attempt,
+                    error = %error,
+                    "worker attempt failed; scheduling failure retry"
+                );
+
+                self.events.push(RuntimeEvent::WorkerFailed {
+                    issue_id: issue_id.to_string(),
+                    issue_identifier: issue_identifier.clone(),
+                    session_id,
+                    error: error.clone(),
+                });
+
+                Some(self.schedule_retry_with_context(
+                    issue_id,
+                    &issue_identifier,
+                    attempt,
+                    RetryKind::Failure,
+                    now_ms,
+                    Some(error),
+                    retry_context,
+                ))
+            }
+        }
+    }
+
+    pub async fn execute_worker_attempt<E, EFut>(
+        &mut self,
+        issue: &Issue,
+        prompt_template: &str,
+        attempt: Option<u32>,
+        graphql_executor: E,
+    ) -> Result<()>
+    where
+        E: Fn(String, serde_json::Value) -> EFut + Clone + Send,
+        EFut: Future<Output = Result<serde_json::Value>> + Send,
+    {
+        let workspace_info = workspace::ensure_workspace(
+            &issue.identifier,
+            &self.config.workspace,
+            &self.config.hooks,
+        )?;
+
+        self.state.running.insert(
+            issue.id.clone(),
+            RunAttempt {
+                issue_id: issue.id.clone(),
+                issue_identifier: issue.identifier.clone(),
+                attempt,
+                workspace_path: workspace_info.path.clone(),
+                started_at: Utc::now(),
+                status: "running".to_string(),
+                error: None,
+                worker_host: None,
+            },
+        );
+        self.state.claimed.insert(issue.id.clone());
+        self.running_issue_states
+            .insert(issue.id.clone(), normalize_issue_state(&issue.state));
+        self.state.retry_attempts.remove(&issue.id);
+
+        let workspace_path = Path::new(&workspace_info.path);
+        if let Err(err) = workspace::run_before_run_hook(workspace_path, &self.config.hooks) {
+            self.handle_worker_completion(
+                &issue.id,
+                WorkerCompletion::Failed {
+                    error: err.to_string(),
+                },
+                Utc::now().timestamp_millis(),
+            );
+            return Err(err);
+        }
+
+        let prompt = match prompt_builder::render_prompt(prompt_template, issue, attempt) {
+            Ok(prompt) => prompt,
+            Err(err) => {
+                self.handle_worker_completion(
+                    &issue.id,
+                    WorkerCompletion::Failed {
+                        error: err.to_string(),
+                    },
+                    Utc::now().timestamp_millis(),
+                );
+                return Err(err);
+            }
+        };
+
+        let mut session = match app_server::start_session(
+            &self.config.codex,
+            issue,
+            workspace_path,
+            Path::new(&self.config.workspace.root),
+        )
+        .await
+        {
+            Ok(session) => session,
+            Err(err) => {
+                self.handle_worker_completion(
+                    &issue.id,
+                    WorkerCompletion::Failed {
+                        error: err.to_string(),
+                    },
+                    Utc::now().timestamp_millis(),
+                );
+                return Err(err);
+            }
+        };
+
+        tracing::info!(
+            event = "worker_started",
+            issue_id = %issue.id,
+            issue_identifier = %issue.identifier,
+            session_id = %session.session_id,
+            workspace_path = %workspace_info.path,
+            "worker attempt started"
+        );
+
+        let mut observed_events: Vec<AgentEvent> = Vec::new();
+        let run_result = app_server::run_turn(&mut session, &prompt, graphql_executor, |event| {
+            observed_events.push(event);
+        })
+        .await;
+
+        for event in &observed_events {
+            self.ingest_agent_event(&issue.id, event);
+        }
+
+        if let Err(err) = app_server::stop_session(session).await {
+            tracing::warn!(
+                issue_id = %issue.id,
+                issue_identifier = %issue.identifier,
+                error = %err,
+                "failed to stop codex session cleanly"
+            );
+        }
+
+        let _ = workspace::run_after_run_hook(workspace_path, &self.config.hooks);
+
+        match run_result {
+            Ok(turn_result) => {
+                self.apply_turn_metrics(&TurnMetrics {
+                    input_tokens: turn_result.input_tokens,
+                    output_tokens: turn_result.output_tokens,
+                    total_tokens: turn_result.total_tokens,
+                    rate_limits: turn_result.rate_limits,
+                });
+
+                self.handle_worker_completion(
+                    &issue.id,
+                    WorkerCompletion::Completed,
+                    Utc::now().timestamp_millis(),
+                );
+
+                Ok(())
+            }
+            Err(err) => {
+                self.handle_worker_completion(
+                    &issue.id,
+                    WorkerCompletion::Failed {
+                        error: err.to_string(),
+                    },
+                    Utc::now().timestamp_millis(),
+                );
+                Err(err)
+            }
+        }
+    }
+
+    pub fn detect_stalled_workers(&mut self, now_ms: i64, stall_timeout_ms: i64) {
+        if stall_timeout_ms <= 0 {
+            return;
+        }
+
+        let running_issue_ids: Vec<String> = self.state.running.keys().cloned().collect();
+
+        for issue_id in running_issue_ids {
+            let Some(run_attempt) = self.state.running.get(&issue_id).cloned() else {
+                continue;
+            };
+
+            let last_activity_ms = self
+                .worker_last_activity_ms
+                .get(&issue_id)
+                .copied()
+                .unwrap_or_else(|| run_attempt.started_at.timestamp_millis());
+
+            let elapsed_ms = now_ms.saturating_sub(last_activity_ms);
+            if elapsed_ms <= stall_timeout_ms {
+                continue;
+            }
+
+            let session_id = self.worker_session_ids.get(&issue_id).cloned();
+
+            tracing::warn!(
+                event = "worker_stalled",
+                issue_id = %issue_id,
+                issue_identifier = %run_attempt.issue_identifier,
+                session_id = session_id.as_deref().unwrap_or("n/a"),
+                elapsed_ms,
+                stall_timeout_ms,
+                "detected stalled worker; scheduling failure retry"
+            );
+
+            self.events.push(RuntimeEvent::WorkerStalled {
+                issue_id: issue_id.clone(),
+                issue_identifier: run_attempt.issue_identifier.clone(),
+                session_id,
+                elapsed_ms,
+            });
+
+            self.handle_worker_completion(
+                &issue_id,
+                WorkerCompletion::Failed {
+                    error: format!("stalled for {elapsed_ms}ms without codex activity"),
+                },
+                now_ms,
+            );
+        }
+    }
+
+    pub fn apply_turn_metrics(&mut self, metrics: &TurnMetrics) {
+        self.state.codex_totals.input_tokens = self
+            .state
+            .codex_totals
+            .input_tokens
+            .saturating_add(metrics.input_tokens);
+        self.state.codex_totals.output_tokens = self
+            .state
+            .codex_totals
+            .output_tokens
+            .saturating_add(metrics.output_tokens);
+        self.state.codex_totals.total_tokens = self
+            .state
+            .codex_totals
+            .total_tokens
+            .saturating_add(metrics.total_tokens);
+
+        if let Some(rate_limits) = metrics.rate_limits.clone() {
+            self.state.codex_rate_limits = Some(rate_limit_info(rate_limits));
+        }
+
+        tracing::info!(
+            event = "token_aggregate_updated",
+            input_delta = metrics.input_tokens,
+            output_delta = metrics.output_tokens,
+            total_delta = metrics.total_tokens,
+            input_total = self.state.codex_totals.input_tokens,
+            output_total = self.state.codex_totals.output_tokens,
+            total_total = self.state.codex_totals.total_tokens,
+            has_rate_limits = metrics.rate_limits.is_some(),
+            "updated codex aggregate token totals"
+        );
     }
 
     pub fn events(&self) -> &[RuntimeEvent] {
@@ -492,6 +916,20 @@ impl Orchestrator {
             .count() as u32
     }
 
+    fn retry_delay_ms(&self, retry_kind: RetryKind, attempt: u32) -> i64 {
+        match retry_kind {
+            RetryKind::Continuation => CONTINUATION_RETRY_DELAY_MS,
+            RetryKind::Failure => {
+                let max_backoff_ms =
+                    self.config.agent.max_retry_backoff_ms.min(i64::MAX as u64) as i64;
+                let safe_attempt = attempt.max(1);
+                let power = safe_attempt.saturating_sub(1).min(10);
+                let exponential = FAILURE_RETRY_BASE_MS.saturating_mul(1_i64 << power);
+                exponential.min(max_backoff_ms)
+            }
+        }
+    }
+
     fn dispatch_issue(&mut self, issue: &Issue) {
         let attempt = RunAttempt {
             issue_id: issue.id.clone(),
@@ -517,6 +955,9 @@ impl Orchestrator {
         self.state.claimed.remove(issue_id);
         self.state.retry_attempts.remove(issue_id);
         self.running_issue_states.remove(issue_id);
+        self.retry_tokens.remove(issue_id);
+        self.worker_last_activity_ms.remove(issue_id);
+        self.worker_session_ids.remove(issue_id);
     }
 
     fn release_issue(&mut self, issue_id: &str) {
@@ -524,6 +965,9 @@ impl Orchestrator {
         self.state.claimed.remove(issue_id);
         self.state.retry_attempts.remove(issue_id);
         self.running_issue_states.remove(issue_id);
+        self.retry_tokens.remove(issue_id);
+        self.worker_last_activity_ms.remove(issue_id);
+        self.worker_session_ids.remove(issue_id);
     }
 
     fn active_state_set(&self) -> HashSet<String> {
@@ -544,6 +988,55 @@ impl Orchestrator {
             .map(|state| normalize_issue_state(state))
             .filter(|state| !state.is_empty())
             .collect()
+    }
+}
+
+fn event_timestamp_ms(event: &AgentEvent) -> i64 {
+    match event {
+        AgentEvent::SessionStarted { timestamp, .. }
+        | AgentEvent::StartupFailed { timestamp, .. }
+        | AgentEvent::TurnCompleted { timestamp, .. }
+        | AgentEvent::TurnFailed { timestamp, .. }
+        | AgentEvent::TurnCancelled { timestamp, .. }
+        | AgentEvent::TurnEndedWithError { timestamp, .. }
+        | AgentEvent::TurnInputRequired { timestamp, .. }
+        | AgentEvent::ApprovalAutoApproved { timestamp, .. }
+        | AgentEvent::ApprovalRequired { timestamp, .. }
+        | AgentEvent::ToolCallCompleted { timestamp, .. }
+        | AgentEvent::ToolCallFailed { timestamp, .. }
+        | AgentEvent::ToolInputAutoAnswered { timestamp, .. }
+        | AgentEvent::UnsupportedToolCall { timestamp, .. }
+        | AgentEvent::Notification { timestamp, .. }
+        | AgentEvent::OtherMessage { timestamp, .. }
+        | AgentEvent::Malformed { timestamp, .. } => timestamp.timestamp_millis(),
+    }
+}
+
+fn event_session_id(event: &AgentEvent) -> Option<&str> {
+    match event {
+        AgentEvent::SessionStarted { session_id, .. } => Some(session_id.as_str()),
+        _ => None,
+    }
+}
+
+fn event_name(event: &AgentEvent) -> &'static str {
+    match event {
+        AgentEvent::SessionStarted { .. } => "session_started",
+        AgentEvent::StartupFailed { .. } => "startup_failed",
+        AgentEvent::TurnCompleted { .. } => "turn_completed",
+        AgentEvent::TurnFailed { .. } => "turn_failed",
+        AgentEvent::TurnCancelled { .. } => "turn_cancelled",
+        AgentEvent::TurnEndedWithError { .. } => "turn_ended_with_error",
+        AgentEvent::TurnInputRequired { .. } => "turn_input_required",
+        AgentEvent::ApprovalAutoApproved { .. } => "approval_auto_approved",
+        AgentEvent::ApprovalRequired { .. } => "approval_required",
+        AgentEvent::ToolCallCompleted { .. } => "tool_call_completed",
+        AgentEvent::ToolCallFailed { .. } => "tool_call_failed",
+        AgentEvent::ToolInputAutoAnswered { .. } => "tool_input_auto_answered",
+        AgentEvent::UnsupportedToolCall { .. } => "unsupported_tool_call",
+        AgentEvent::Notification { .. } => "notification",
+        AgentEvent::OtherMessage { .. } => "other_message",
+        AgentEvent::Malformed { .. } => "malformed",
     }
 }
 

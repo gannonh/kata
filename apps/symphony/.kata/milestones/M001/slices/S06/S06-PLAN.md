@@ -100,7 +100,7 @@
   - Verify: `cargo test --test orchestrator_tests test_reconcile` + `cargo test --test orchestrator_tests test_dispatch`
   - Done when: Dispatch/reconcile/preflight tests pass and no candidate can dispatch when blocked by validation, blockers, stale state, or slot limits.
 
-- [ ] **T03: Add worker lifecycle integration, retries, stall recovery, and token accounting** `est:60m`
+- [x] **T03: Add worker lifecycle integration, retries, stall recovery, and token accounting** `est:60m`
   - Why: Completion handling, retries, and observability close the runtime control loop and are the highest-risk correctness surface for S06.
   - Files: `src/orchestrator.rs`, `src/domain.rs`, `tests/orchestrator_tests.rs`, `src/codex/app_server.rs`
   - Do: Wire attempt execution with workspace + prompt + codex runner, ingest `AgentEvent` updates into live session activity timestamps, schedule continuation/failure retries with tokenized timers, ignore stale retry firings, enforce stall timeout retries, and accumulate `TurnResult` token/rate-limit deltas into orchestrator totals.

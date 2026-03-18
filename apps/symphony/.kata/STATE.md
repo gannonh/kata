@@ -2,7 +2,7 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S06 — Orchestrator Core (next)
-**Active Task:** T03 — Add worker lifecycle integration, retries, stall recovery, and token accounting
+**Active Task:** T04 — Wire CLI bootstrap/shutdown semantics and finalize S06 verification
 **Phase:** Executing
 
 ## Progress
@@ -19,9 +19,9 @@
 
 ## Recent Decisions
 
-- D034: Protect retry queue from stale timer firings via token/nonce matching
 - D035: Establish dedicated S06 proof harness in `tests/orchestrator_tests.rs` and `tests/cli_tests.rs`
 - D036: Track normalized running issue states inside orchestrator state for deterministic per-state slot accounting
+- D037: Preserve worker session IDs in orchestrator runtime state for retry/stall/completion diagnostics without widening domain structs yet
 
 ## Blockers
 
@@ -29,7 +29,7 @@
 
 ## Next Action
 
-Execute S06/T03: implement worker lifecycle retry semantics (continuation + exponential backoff), stale retry token suppression, stall detection forced-retry path, and codex token/rate-limit accumulation so the four remaining failing orchestrator tests turn green before T04 CLI wiring.
+Execute S06/T04: wire CLI bootstrap validation + orchestrator startup flow so `tests/cli_tests.rs` passes, then re-run full slice gate (`cargo test --test orchestrator_tests --test cli_tests` and `cargo build`) to close S06.
 
 ## Validated Requirements
 
