@@ -924,10 +924,6 @@ fn build_approval_answers(params: &Value) -> Option<(Value, String)> {
         answers.insert(question_id.to_string(), json!({"answers": [label]}));
     }
 
-    if answers.is_empty() {
-        return None;
-    }
-
     Some((Value::Object(answers), "Approve this Session".to_string()))
 }
 
@@ -977,11 +973,7 @@ fn build_non_interactive_answers(params: &Value) -> Option<Value> {
         );
     }
 
-    if answers.is_empty() {
-        None
-    } else {
-        Some(Value::Object(answers))
-    }
+    Some(Value::Object(answers))
 }
 
 // ── needs_input detection ─────────────────────────────────────────────
@@ -1265,7 +1257,13 @@ fn log_non_json_line(text: &str, stream_label: &str) {
         return;
     }
     let truncated = if trimmed.len() > MAX_STREAM_LOG_BYTES {
-        &trimmed[..MAX_STREAM_LOG_BYTES]
+        // Walk back to a valid UTF-8 char boundary to avoid a panic on
+        // multi-byte characters (e.g. Unicode identifiers, emoji in code).
+        let mut end = MAX_STREAM_LOG_BYTES;
+        while end > 0 && !trimmed.is_char_boundary(end) {
+            end -= 1;
+        }
+        &trimmed[..end]
     } else {
         trimmed
     };

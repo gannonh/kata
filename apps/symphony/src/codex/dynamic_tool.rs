@@ -141,7 +141,7 @@ fn normalize_linear_graphql_arguments(arguments: Value) -> Result<(String, Value
         }
         Value::Object(ref map) => {
             // Extract query
-            let query = match map.get("query").or_else(|| map.get("query")) {
+            let query = match map.get("query") {
                 Some(Value::String(q)) => {
                     let trimmed = q.trim().to_string();
                     if trimmed.is_empty() {
