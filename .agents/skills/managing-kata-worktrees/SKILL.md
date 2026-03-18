@@ -22,19 +22,20 @@ kata-mono uses a multi-worktree layout where each worktree maps to a monorepo ap
 
 ## Standby branch tracking
 
-Each standby branch must track `origin/main` so `git pull` works, and its pointer must be at `origin/main`:
+Each standby branch must track `origin/main` so `git pull` works:
 
 ```bash
-# Set tracking (tells git what to compare against)
 git branch --set-upstream-to=origin/main wt-cli-standby
-
-# Move the branch pointer to origin/main (actually syncs the commit)
-git update-ref refs/heads/wt-cli-standby refs/remotes/origin/main
 ```
 
-`--set-upstream-to` only sets the tracking reference. It does not move the branch pointer. A newly created standby branch can track `origin/main` but still point at whatever commit it was created from. Always run both commands when setting up a new standby branch.
+If `git pull` reports "no tracking information," re-run that command. Tracking can be lost if a branch is recreated.
 
-If `git pull` reports "no tracking information," re-run the `--set-upstream-to` command. Tracking can be lost if a branch is recreated.
+For initial setup of a new standby branch, set tracking and then pull from within the worktree to sync both the ref and working tree:
+
+```bash
+git branch --set-upstream-to=origin/main wt-<name>-standby
+git -C /Volumes/EVO/kata/kata-mono.worktrees/wt-<name> pull
+```
 
 ## Starting work on a ticket
 
@@ -88,6 +89,23 @@ git log --oneline wt-<name>-standby..main
 # See what the standby has that main doesn't (should be empty)
 git log --oneline main..wt-<name>-standby
 ```
+
+## Sync all worktrees after a merge
+
+After merging a PR, pull main from the root repo. Worktrees share the same git object store, so they see the updated refs automatically. Then pull from within each worktree to fast-forward its standby branch:
+
+```bash
+# From the main repo root
+git checkout main && git pull
+
+# Then from each worktree (or using -C)
+for wt in wt-cli wt-context wt-desktop wt-orc wt-symphony; do
+  git -C /Volumes/EVO/kata/kata-mono.worktrees/$wt pull
+  echo "$wt: $(git -C /Volumes/EVO/kata/kata-mono.worktrees/$wt log --oneline -1)"
+done
+```
+
+Do not use `git update-ref` or `git reset --hard` to sync worktrees. These operate on refs or working trees in isolation and cause dirty state. Use `git pull` from within the worktree, which updates both the branch pointer and working tree together.
 
 ## Health check (all worktrees)
 
