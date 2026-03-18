@@ -193,11 +193,18 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
 
     // Create the PR
     const head = getCurrentBranch(cwd) ?? "";
+
+    // Prefix title with branch name for monorepo identification
+    // e.g. "[kata/apps-context/M002/S02] Slice title here"
+    const normalizedTitle = head && !title.includes(head)
+      ? `[${head}] ${title}`
+      : title;
+
     try {
       execSync(
         [
           "gh", "pr", "create",
-          "--title", shellEscape(title),
+          "--title", shellEscape(normalizedTitle),
           "--base", shellEscape(baseBranch),
           "--head", shellEscape(head),
           "--body-file", shellEscape(tmpPath),

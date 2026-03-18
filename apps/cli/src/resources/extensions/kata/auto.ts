@@ -984,7 +984,7 @@ async function dispatchNextUnit(
           });
           pi.sendMessage({
             content: [
-              `PR auto-create failed for slice ${completedSid}. The code is committed on branch \`kata/${completedMid}/${completedSid}\` — no work was lost.`,
+              `PR auto-create failed for slice ${completedSid}. The code is committed on branch \`${prCtx.branch}\` — no work was lost.`,
               ``,
               `**Error:** ${prResult.error}`,
               ``,
