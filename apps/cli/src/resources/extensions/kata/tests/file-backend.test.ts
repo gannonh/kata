@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -34,6 +35,15 @@ function createTmpBase(): string {
   const base = mkdtempSync(join(tmpdir(), "kata-fb-test-"));
   mkdirSync(join(base, ".kata", "milestones"), { recursive: true });
   return base;
+}
+
+function initGitRepo(base: string): void {
+  execSync("git init -b main", { cwd: base, stdio: "pipe" });
+  execSync("git config user.email kata-test@example.com", { cwd: base, stdio: "pipe" });
+  execSync("git config user.name Kata Test", { cwd: base, stdio: "pipe" });
+  writeFileSync(join(base, "README.md"), "# test\n");
+  execSync("git add README.md", { cwd: base, stdio: "pipe" });
+  execSync('git commit -m "init"', { cwd: base, stdio: "pipe" });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -177,6 +187,30 @@ console.log("\n=== FileBackend: listDocuments ===");
   const backend = new FileBackend(base);
   const docs = await backend.listDocuments();
   assertEq(docs.length, 0, "no documents for empty project");
+  rmSync(base, { recursive: true, force: true });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// (j) preparePrContext emits namespaced branch and loads slice docs
+// ═══════════════════════════════════════════════════════════════════════════
+
+console.log("\n=== FileBackend: preparePrContext branch format ===");
+{
+  const base = createTmpBase();
+  initGitRepo(base);
+
+  const sliceDir = join(base, ".kata", "milestones", "M001", "slices", "S02");
+  mkdirSync(sliceDir, { recursive: true });
+  writeFileSync(join(sliceDir, "S02-PLAN.md"), "# S02 Plan\n");
+  writeFileSync(join(sliceDir, "S02-SUMMARY.md"), "# S02 Summary\n");
+
+  const backend = new FileBackend(base);
+  const ctx = await backend.preparePrContext("M001", "S02");
+
+  assertEq(ctx.branch, "kata/root/M001/S02", "preparePrContext emits namespaced branch in repo root scope");
+  assert("PLAN" in ctx.documents, "preparePrContext includes PLAN document content when present");
+  assert("SUMMARY" in ctx.documents, "preparePrContext includes SUMMARY document content when present");
+
   rmSync(base, { recursive: true, force: true });
 }
 

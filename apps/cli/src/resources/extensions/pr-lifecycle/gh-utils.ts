@@ -52,19 +52,30 @@ export function getCurrentBranch(cwd: string): string | null {
 }
 
 /**
- * Parses a Kata-convention branch name (`kata/<MilestoneId>/<SliceId>`) into
- * structured parts. Returns null when the branch does not match the pattern.
+ * Parses a Kata-convention slice branch into structured milestone/slice IDs.
+ *
+ * Accepted formats:
+ * - Namespaced: `kata/<scope>/<MilestoneId>/<SliceId>`
+ * - Legacy:     `kata/<MilestoneId>/<SliceId>`
+ *
+ * Returns null when the branch does not match either accepted pattern.
  *
  * @example
- * parseBranchToSlice("kata/M001/S01") // → { milestoneId: "M001", sliceId: "S01" }
- * parseBranchToSlice("main")           // → null
+ * parseBranchToSlice("kata/apps-cli/M001/S01") // → { milestoneId: "M001", sliceId: "S01" }
+ * parseBranchToSlice("kata/M001/S01")          // → { milestoneId: "M001", sliceId: "S01" }
+ * parseBranchToSlice("main")                   // → null
  */
 export function parseBranchToSlice(
   branch: string,
 ): { milestoneId: string; sliceId: string } | null {
-  const match = branch.match(/^kata\/([A-Z]\d+)\/([A-Z]\d+)$/);
-  if (!match) return null;
-  return { milestoneId: match[1], sliceId: match[2] };
+  const namespaced = branch.match(/^kata\/[^/]+\/([A-Z]\d+)\/([A-Z]\d+)$/);
+  if (namespaced) {
+    return { milestoneId: namespaced[1], sliceId: namespaced[2] };
+  }
+
+  const legacy = branch.match(/^kata\/([A-Z]\d+)\/([A-Z]\d+)$/);
+  if (!legacy) return null;
+  return { milestoneId: legacy[1], sliceId: legacy[2] };
 }
 
 /**

@@ -124,9 +124,11 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
       return {
         ok: false,
         phase: "branch-parse-failed",
-        error: `Current branch '${branch}' does not match kata/<MilestoneId>/<SliceId> pattern`,
+        error:
+          `Current branch '${branch}' does not match supported Kata slice branch formats: `
+          + "kata/<scope>/<MilestoneId>/<SliceId> or legacy kata/<MilestoneId>/<SliceId>",
         hint:
-          "Switch to a Kata slice branch (e.g. kata/M003/S01) or pass milestoneId and sliceId explicitly.",
+          "Switch to a Kata slice branch (e.g. kata/apps-cli/M003/S01, or legacy kata/M003/S01 during transition) or pass milestoneId and sliceId explicitly.",
       };
     }
     milestoneId = parsed.milestoneId;

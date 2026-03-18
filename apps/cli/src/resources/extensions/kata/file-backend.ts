@@ -382,10 +382,13 @@ export class FileBackend implements KataBackend {
   }
 
   async preparePrContext(milestoneId: string, sliceId: string): Promise<PrContext> {
-    const { ensureSliceBranch } = await import("./worktree.js");
+    const { ensureSliceBranch, getCurrentBranch, getSliceBranchName } = await import("./worktree.js");
     ensureSliceBranch(this.basePath, milestoneId, sliceId);
 
-    const branch = `kata/${milestoneId}/${sliceId}`;
+    const currentBranch = getCurrentBranch(this.basePath);
+    const branch = currentBranch.startsWith("kata/")
+      ? currentBranch
+      : getSliceBranchName(this.basePath, milestoneId, sliceId);
     const documents: Record<string, string> = {};
 
     // Use explicit path resolution instead of readDocument to avoid stale active-state lookups
