@@ -453,7 +453,7 @@ export default function (pi: ExtensionAPI): void {
       "or { ok: false, phase, error } on failure.",
       "Phase enum: gh-missing | gh-unauth | reply-failed.",
     ].join(" "),
-    promptSnippet: "Replies to an inline GitHub PR review thread via the",
+    promptSnippet: "Reply to an inline GitHub PR review thread.",
     parameters: {
       type: "object" as const,
       properties: {
@@ -592,7 +592,7 @@ export default function (pi: ExtensionAPI): void {
             `Current branch '${branch}' does not match supported Kata slice branch formats: `
             + "kata/<scope>/<MilestoneId>/<SliceId> or legacy kata/<MilestoneId>/<SliceId>",
           hint:
-            "Switch to a Kata slice branch (e.g. kata/apps-cli/M003/S04, or legacy kata/M003/S04 during transition) or pass milestoneId and sliceId explicitly.",
+            "Switch to a Kata slice branch (e.g. kata/apps-cli/M003/S04, or legacy kata/M003/S04 during transition) before running kata_merge_pr.",
         });
       }
 

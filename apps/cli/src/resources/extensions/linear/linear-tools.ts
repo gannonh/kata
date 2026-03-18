@@ -99,7 +99,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_get_team",
     label: "Linear: Get Team",
     description: "Get a team by key (e.g. 'KAT') or UUID.",
-    promptSnippet: "Get a team by key (e.g.",
+    promptSnippet: "Get a team by key or UUID.",
     parameters: Type.Object({
       idOrKey: Type.String({ description: "Team key (e.g. 'KAT') or UUID" }),
     }),
@@ -281,7 +281,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_get_issue",
     label: "Linear: Get Issue",
     description: "Get an issue by UUID or identifier (e.g. 'KAT-42'). Returns full details including parent, children, labels, and state.",
-    promptSnippet: "Get an issue by UUID or identifier (e.g.",
+    promptSnippet: "Get an issue by UUID or identifier.",
     parameters: Type.Object({
       id: Type.String({ description: "Issue UUID or identifier (e.g. 'KAT-42')" }),
     }),

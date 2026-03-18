@@ -397,7 +397,7 @@ export default function (pi: ExtensionAPI) {
 			"- 'tree': Dump the full accessibility subtree as an indented tree. Use maxDepth/maxCount to bound output.\n" +
 			"- 'focused': Get the currently focused element in the app. No criteria needed.\n" +
 			"The 'app' param accepts an app name (e.g. 'Finder') or bundle ID (e.g. 'com.apple.Finder').",
-		promptSnippet: "Find UI elements in a macOS applications accessibility tree.",
+		promptSnippet: "Find UI elements in a macOS application's accessibility tree.",
 		promptGuidelines: [
 			"Prefer for targeted element search — use role/title/value criteria to narrow results.",
 			"Use mode:focused to check the current focus target without search criteria.",
@@ -530,7 +530,7 @@ export default function (pi: ExtensionAPI) {
 			"Tighter defaults than mac_find's tree mode — designed for quick structure inspection. " +
 			"Each line: `role \"title\" [value]` with 2-space indent per depth level. " +
 			"Omits title/value when nil or empty.",
-		promptSnippet: "Get a compact accessibility tree of a macOS applications UI structure.",
+		promptSnippet: "Get a compact accessibility tree of a macOS application's UI structure.",
 		promptGuidelines: [
 			"Use for understanding app UI structure — start with low limits and increase if needed.",
 			"Prefer mac_find search mode when you know what you're looking for.",

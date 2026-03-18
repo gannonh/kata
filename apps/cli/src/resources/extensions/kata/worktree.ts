@@ -185,7 +185,7 @@ export function ensureSliceBranch(basePath: string, milestoneId: string, sliceId
   const legacyBranch = getLegacySliceBranchName(milestoneId, sliceId);
   const current = getCurrentBranch(basePath);
 
-  if (current === namespacedBranch || current === legacyBranch) return false;
+  if (current === namespacedBranch) return false;
 
   const preferredExisting = resolvePreferredSliceBranch(basePath, milestoneId, sliceId);
   if (preferredExisting) {
