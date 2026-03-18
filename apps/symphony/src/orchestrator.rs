@@ -288,6 +288,7 @@ impl Orchestrator {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn schedule_retry_with_context(
         &mut self,
         issue_id: &str,
