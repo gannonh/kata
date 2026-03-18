@@ -155,7 +155,7 @@ fn normalize_linear_graphql_arguments(arguments: Value) -> Result<(String, Value
             // Extract variables (optional, must be object if present)
             let variables = match map.get("variables") {
                 None => json!({}),
-                Some(Value::Object(_)) => map.get("variables").unwrap().clone(),
+                Some(v @ Value::Object(_)) => v.clone(),
                 Some(Value::Null) => json!({}),
                 Some(_) => return Err(SymphonyError::Other("invalid_variables".to_string())),
             };
