@@ -76,7 +76,7 @@
   - Verify: `cargo test --test codex_tests` — all T02 app_server tests pass (~8 tests)
   - Done when: Full session lifecycle (start→turn→stop) works with fake subprocess, all terminal conditions handled
 
-- [ ] **T03: Approval handling, tool call dispatch, user-input policy, and token accounting** `est:45m`
+- [x] **T03: Approval handling, tool call dispatch, user-input policy, and token accounting** `est:45m`
   - Why: Complete the turn event handler with approval auto-approve/reject, dynamic tool call dispatch, user-input handling (MCP approval prompts and freeform), and token delta extraction from event payloads. This finishes all S05 must-haves.
   - Files: `src/codex/app_server.rs`, `tests/codex_tests.rs`
   - Do: Extend turn stream handler to dispatch approval methods (item/commandExecution/requestApproval, execCommandApproval, applyPatchApproval, item/fileChange/requestApproval) with auto-approve or rejection based on config. Handle `item/tool/call` by extracting tool name/arguments, dispatching to `dynamic_tool::execute`, sending result back on stdin. Handle `item/tool/requestUserInput` with approval-option auto-answer (prefer "Approve this Session") and freeform non-interactive answer. Implement token delta extraction: search nested payload paths for absolute totals (total_token_usage, tokenUsage.total), compute delta vs last-reported. Implement rate limit extraction. Write tests for: approval auto-approve, approval required, MCP tool approval prompt, freeform input non-interactive answer, unsupported tool rejection, supported tool dispatch, tool call failure event, token delta extraction.

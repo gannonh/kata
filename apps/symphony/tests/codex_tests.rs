@@ -601,7 +601,7 @@ async fn test_app_server_basic_handshake_and_completion() {
         .await
         .expect("start_session should succeed");
 
-    let result = app_server::run_turn(&mut handle, "hello", |ev| collected.push(ev)).await;
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
     app_server::stop_session(handle).await.ok();
 
     assert!(result.is_ok(), "run_turn failed: {:?}", result.err());
@@ -642,7 +642,7 @@ async fn test_app_server_turn_failure() {
         .await
         .expect("start_session should succeed");
 
-    let result = app_server::run_turn(&mut handle, "hello", |ev| collected.push(ev)).await;
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
     app_server::stop_session(handle).await.ok();
 
     assert!(
@@ -675,7 +675,7 @@ async fn test_app_server_turn_cancellation() {
         .await
         .expect("start_session should succeed");
 
-    let result = app_server::run_turn(&mut handle, "hello", |ev| collected.push(ev)).await;
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
     app_server::stop_session(handle).await.ok();
 
     assert!(
@@ -706,7 +706,7 @@ async fn test_app_server_subprocess_exit() {
         .await
         .expect("start_session should succeed");
 
-    let result = app_server::run_turn(&mut handle, "hello", |_| {}).await;
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |_| {}).await;
     app_server::stop_session(handle).await.ok();
 
     assert!(
@@ -736,7 +736,7 @@ async fn test_app_server_partial_line_buffering() {
         .await
         .expect("start_session should succeed");
 
-    let result = app_server::run_turn(&mut handle, "hello", |ev| collected.push(ev)).await;
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
     app_server::stop_session(handle).await.ok();
 
     assert!(result.is_ok(), "partial line buffering failed: {:?}", result.err());
@@ -744,6 +744,450 @@ async fn test_app_server_partial_line_buffering() {
         collected.iter().any(|e| matches!(e, AgentEvent::TurnCompleted { .. })),
         "expected TurnCompleted event for large-line test"
     );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// App-server tests (T03) — approval, tool dispatch, user input, tokens
+// ══════════════════════════════════════════════════════════════════════
+
+// Helper: make a CodexConfig with approval_policy="never" (auto-approve everything)
+fn make_auto_approve_config(script_path: &Path) -> CodexConfig {
+    CodexConfig {
+        command: vec![script_path.to_str().unwrap().to_string()],
+        approval_policy: serde_json::json!("never"),
+        turn_timeout_ms: 10_000,
+        read_timeout_ms: 5_000,
+        ..Default::default()
+    }
+}
+
+// ── test_app_server_auto_approves_command_execution ───────────────────
+
+/// Fake script: after turn/start, sends an `item/commandExecution/requestApproval`
+/// then waits for our response, then emits turn/completed.
+const SCRIPT_COMMAND_APPROVAL: &str = r#"#!/bin/bash
+read -r line
+echo '{"id":1,"result":{"capabilities":{}}}'
+read -r line  # initialized
+read -r line  # thread/start
+echo '{"id":2,"result":{"thread":{"id":"thread-approve-1"}}}'
+read -r line  # turn/start
+echo '{"id":3,"result":{"turn":{"id":"turn-approve-1"}}}'
+echo '{"method":"item/commandExecution/requestApproval","id":"req-cmd-1","params":{"command":"ls"}}'
+read -r line  # approval response from us
+echo '{"method":"turn/completed","params":{}}'
+"#;
+
+#[tokio::test]
+async fn test_app_server_auto_approves_command_execution() {
+    let scripts_dir = tempfile::tempdir().unwrap();
+    let root_dir = tempfile::tempdir().unwrap();
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let script_path = write_script(scripts_dir.path(), "codex.sh", SCRIPT_COMMAND_APPROVAL);
+    let config = make_auto_approve_config(&script_path);
+    let issue = make_test_issue();
+
+    let mut collected: Vec<AgentEvent> = Vec::new();
+    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path())
+        .await
+        .expect("start_session should succeed");
+
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
+    app_server::stop_session(handle).await.ok();
+
+    assert!(result.is_ok(), "expected turn completion, got: {:?}", result.err());
+
+    // Must have seen ApprovalAutoApproved with the correct method
+    let approved = collected.iter().find(|e| {
+        matches!(e, AgentEvent::ApprovalAutoApproved { tool_call, .. }
+            if tool_call == "item/commandExecution/requestApproval")
+    });
+    assert!(approved.is_some(), "expected ApprovalAutoApproved event, got: {:?}", collected.iter().map(|e| format!("{:?}", e)).collect::<Vec<_>>());
+}
+
+// ── test_app_server_rejects_approval_when_not_auto ────────────────────
+
+const SCRIPT_COMMAND_APPROVAL_REJECT: &str = r#"#!/bin/bash
+read -r line
+echo '{"id":1,"result":{"capabilities":{}}}'
+read -r line
+read -r line
+echo '{"id":2,"result":{"thread":{"id":"thread-reject-1"}}}'
+read -r line
+echo '{"id":3,"result":{"turn":{"id":"turn-reject-1"}}}'
+echo '{"method":"item/commandExecution/requestApproval","id":"req-rej-1","params":{"command":"ls"}}'
+# script exits — in practice the test returns error before reading
+"#;
+
+#[tokio::test]
+async fn test_app_server_rejects_approval_when_not_auto() {
+    let scripts_dir = tempfile::tempdir().unwrap();
+    let root_dir = tempfile::tempdir().unwrap();
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let script_path = write_script(scripts_dir.path(), "codex.sh", SCRIPT_COMMAND_APPROVAL_REJECT);
+    // Default config: approval_policy is NOT "never" → auto_approve_requests=false
+    let config = make_codex_config(&script_path);
+    let issue = make_test_issue();
+
+    let mut collected: Vec<AgentEvent> = Vec::new();
+    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path())
+        .await
+        .expect("start_session should succeed");
+
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
+    app_server::stop_session(handle).await.ok();
+
+    // Should return an error (approval_required)
+    assert!(result.is_err(), "expected error when approval required");
+
+    // ApprovalRequired event must have been emitted
+    assert!(
+        collected.iter().any(|e| matches!(e, AgentEvent::ApprovalRequired { .. })),
+        "expected ApprovalRequired event"
+    );
+}
+
+// ── test_app_server_auto_approves_mcp_tool_prompts ────────────────────
+
+const SCRIPT_MCP_TOOL_APPROVAL: &str = r#"#!/bin/bash
+read -r line
+echo '{"id":1,"result":{"capabilities":{}}}'
+read -r line
+read -r line
+echo '{"id":2,"result":{"thread":{"id":"thread-mcp-1"}}}'
+read -r line
+echo '{"id":3,"result":{"turn":{"id":"turn-mcp-1"}}}'
+echo '{"method":"item/tool/requestUserInput","id":"req-mcp-1","params":{"questions":[{"id":"q1","options":[{"label":"Approve this Session"},{"label":"Deny"}]}]}}'
+read -r line  # answer from us
+echo '{"method":"turn/completed","params":{}}'
+"#;
+
+#[tokio::test]
+async fn test_app_server_auto_approves_mcp_tool_prompts() {
+    let scripts_dir = tempfile::tempdir().unwrap();
+    let root_dir = tempfile::tempdir().unwrap();
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let script_path = write_script(scripts_dir.path(), "codex.sh", SCRIPT_MCP_TOOL_APPROVAL);
+    let config = make_auto_approve_config(&script_path);
+    let issue = make_test_issue();
+
+    let mut collected: Vec<AgentEvent> = Vec::new();
+    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path())
+        .await
+        .expect("start_session should succeed");
+
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
+    app_server::stop_session(handle).await.ok();
+
+    assert!(result.is_ok(), "expected success, got: {:?}", result.err());
+    assert!(
+        collected.iter().any(|e| matches!(e, AgentEvent::ApprovalAutoApproved { .. })),
+        "expected ApprovalAutoApproved for MCP tool prompt"
+    );
+}
+
+// ── test_app_server_non_interactive_freeform_input ────────────────────
+
+const SCRIPT_FREEFORM_INPUT: &str = r#"#!/bin/bash
+read -r line
+echo '{"id":1,"result":{"capabilities":{}}}'
+read -r line
+read -r line
+echo '{"id":2,"result":{"thread":{"id":"thread-freeform-1"}}}'
+read -r line
+echo '{"id":3,"result":{"turn":{"id":"turn-freeform-1"}}}'
+echo '{"method":"item/tool/requestUserInput","id":"req-free-1","params":{"questions":[{"id":"q1","prompt":"Enter a value:"}]}}'
+read -r line  # non-interactive answer from us
+echo '{"method":"turn/completed","params":{}}'
+"#;
+
+#[tokio::test]
+async fn test_app_server_non_interactive_freeform_input() {
+    let scripts_dir = tempfile::tempdir().unwrap();
+    let root_dir = tempfile::tempdir().unwrap();
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let script_path = write_script(scripts_dir.path(), "codex.sh", SCRIPT_FREEFORM_INPUT);
+    // Use default config (not auto-approve) — freeform should still get answered
+    let config = make_codex_config(&script_path);
+    let issue = make_test_issue();
+
+    let mut collected: Vec<AgentEvent> = Vec::new();
+    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path())
+        .await
+        .expect("start_session should succeed");
+
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
+    app_server::stop_session(handle).await.ok();
+
+    assert!(result.is_ok(), "expected success with non-interactive answer, got: {:?}", result.err());
+    assert!(
+        collected.iter().any(|e| matches!(e, AgentEvent::ToolInputAutoAnswered { .. })),
+        "expected ToolInputAutoAnswered event"
+    );
+}
+
+// ── test_app_server_rejects_unsupported_tool_calls ────────────────────
+
+const SCRIPT_UNSUPPORTED_TOOL: &str = r#"#!/bin/bash
+read -r line
+echo '{"id":1,"result":{"capabilities":{}}}'
+read -r line
+read -r line
+echo '{"id":2,"result":{"thread":{"id":"thread-tool-1"}}}'
+read -r line
+echo '{"id":3,"result":{"turn":{"id":"turn-tool-1"}}}'
+echo '{"method":"item/tool/call","id":"tool-req-1","params":{"name":"some_unknown_tool","arguments":{}}}'
+read -r line  # failure result from us
+echo '{"method":"turn/completed","params":{}}'
+"#;
+
+#[tokio::test]
+async fn test_app_server_rejects_unsupported_tool_calls() {
+    let scripts_dir = tempfile::tempdir().unwrap();
+    let root_dir = tempfile::tempdir().unwrap();
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let script_path = write_script(scripts_dir.path(), "codex.sh", SCRIPT_UNSUPPORTED_TOOL);
+    let config = make_codex_config(&script_path);
+    let issue = make_test_issue();
+
+    let mut collected: Vec<AgentEvent> = Vec::new();
+    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path())
+        .await
+        .expect("start_session should succeed");
+
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
+    app_server::stop_session(handle).await.ok();
+
+    // Turn should still complete (unsupported tool does NOT terminate the turn)
+    assert!(result.is_ok(), "expected turn to complete despite unsupported tool, got: {:?}", result.err());
+    assert!(
+        collected.iter().any(|e| matches!(e, AgentEvent::ToolCallFailed { .. } | AgentEvent::UnsupportedToolCall { .. })),
+        "expected ToolCallFailed or UnsupportedToolCall event"
+    );
+}
+
+// ── test_app_server_dispatches_supported_tool_calls ───────────────────
+
+const SCRIPT_LINEAR_TOOL: &str = r#"#!/bin/bash
+read -r line
+echo '{"id":1,"result":{"capabilities":{}}}'
+read -r line
+read -r line
+echo '{"id":2,"result":{"thread":{"id":"thread-linear-1"}}}'
+read -r line
+echo '{"id":3,"result":{"turn":{"id":"turn-linear-1"}}}'
+echo '{"method":"item/tool/call","id":"tool-gql-1","params":{"name":"linear_graphql","arguments":{"query":"query { viewer { id } }","variables":{}}}}'
+read -r line  # success result from us
+echo '{"method":"turn/completed","params":{}}'
+"#;
+
+#[tokio::test]
+async fn test_app_server_dispatches_supported_tool_calls() {
+    let scripts_dir = tempfile::tempdir().unwrap();
+    let root_dir = tempfile::tempdir().unwrap();
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let script_path = write_script(scripts_dir.path(), "codex.sh", SCRIPT_LINEAR_TOOL);
+    let config = make_codex_config(&script_path);
+    let issue = make_test_issue();
+
+    let mut collected: Vec<AgentEvent> = Vec::new();
+    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path())
+        .await
+        .expect("start_session should succeed");
+
+    // Inject a mock executor that returns a success response
+    let executor = |_query: String, _vars: Value| async move {
+        Ok(serde_json::json!({"data": {"viewer": {"id": "usr-test"}}}))
+    };
+
+    let result = app_server::run_turn(&mut handle, "hello", executor, |ev| collected.push(ev)).await;
+    app_server::stop_session(handle).await.ok();
+
+    assert!(result.is_ok(), "expected successful turn, got: {:?}", result.err());
+    assert!(
+        collected.iter().any(|e| matches!(e, AgentEvent::ToolCallCompleted { tool_name, .. } if tool_name == "linear_graphql")),
+        "expected ToolCallCompleted for linear_graphql"
+    );
+}
+
+// ── test_app_server_emits_tool_call_failed_event ──────────────────────
+
+const SCRIPT_TOOL_FAIL: &str = r#"#!/bin/bash
+read -r line
+echo '{"id":1,"result":{"capabilities":{}}}'
+read -r line
+read -r line
+echo '{"id":2,"result":{"thread":{"id":"thread-fail-tool-1"}}}'
+read -r line
+echo '{"id":3,"result":{"turn":{"id":"turn-fail-tool-1"}}}'
+echo '{"method":"item/tool/call","id":"tool-fail-1","params":{"name":"linear_graphql","arguments":{"query":"query { viewer { id } }"}}}'
+read -r line  # failure result from us
+echo '{"method":"turn/completed","params":{}}'
+"#;
+
+#[tokio::test]
+async fn test_app_server_emits_tool_call_failed_event() {
+    let scripts_dir = tempfile::tempdir().unwrap();
+    let root_dir = tempfile::tempdir().unwrap();
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let script_path = write_script(scripts_dir.path(), "codex.sh", SCRIPT_TOOL_FAIL);
+    let config = make_codex_config(&script_path);
+    let issue = make_test_issue();
+
+    let mut collected: Vec<AgentEvent> = Vec::new();
+    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path())
+        .await
+        .expect("start_session should succeed");
+
+    // Inject executor that returns an error
+    let executor = |_q: String, _v: Value| async move {
+        Err(SymphonyError::MissingLinearApiToken)
+    };
+
+    let result = app_server::run_turn(&mut handle, "hello", executor, |ev| collected.push(ev)).await;
+    app_server::stop_session(handle).await.ok();
+
+    // Turn should still complete — tool failures don't terminate the turn
+    assert!(result.is_ok(), "expected turn to complete despite tool failure, got: {:?}", result.err());
+    assert!(
+        collected.iter().any(|e| matches!(e, AgentEvent::ToolCallFailed { tool_name, .. } if tool_name.as_deref() == Some("linear_graphql"))),
+        "expected ToolCallFailed event with tool_name=linear_graphql"
+    );
+}
+
+// ── test_app_server_input_required_hard_failure ───────────────────────
+
+const SCRIPT_INPUT_REQUIRED: &str = r#"#!/bin/bash
+read -r line
+echo '{"id":1,"result":{"capabilities":{}}}'
+read -r line
+read -r line
+echo '{"id":2,"result":{"thread":{"id":"thread-input-1"}}}'
+read -r line
+echo '{"id":3,"result":{"turn":{"id":"turn-input-1"}}}'
+echo '{"method":"turn/input_required","params":{"message":"Need input"}}'
+"#;
+
+#[tokio::test]
+async fn test_app_server_input_required_hard_failure() {
+    let scripts_dir = tempfile::tempdir().unwrap();
+    let root_dir = tempfile::tempdir().unwrap();
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let script_path = write_script(scripts_dir.path(), "codex.sh", SCRIPT_INPUT_REQUIRED);
+    let config = make_codex_config(&script_path);
+    let issue = make_test_issue();
+
+    let mut collected: Vec<AgentEvent> = Vec::new();
+    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path())
+        .await
+        .expect("start_session should succeed");
+
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| collected.push(ev)).await;
+    app_server::stop_session(handle).await.ok();
+
+    assert!(
+        matches!(result, Err(SymphonyError::TurnInputRequired)),
+        "expected TurnInputRequired error, got: {:?}", result
+    );
+    assert!(
+        collected.iter().any(|e| matches!(e, AgentEvent::TurnInputRequired { .. })),
+        "expected TurnInputRequired event emitted"
+    );
+}
+
+// ── test_token_delta_extraction_absolute_totals ───────────────────────
+
+const SCRIPT_TOKEN_ACCOUNTING: &str = r#"#!/bin/bash
+read -r line
+echo '{"id":1,"result":{"capabilities":{}}}'
+read -r line
+read -r line
+echo '{"id":2,"result":{"thread":{"id":"thread-tok-1"}}}'
+read -r line
+echo '{"id":3,"result":{"turn":{"id":"turn-tok-1"}}}'
+echo '{"method":"some/event","params":{"tokenUsage":{"total":{"input_tokens":100,"output_tokens":50,"total_tokens":150}}}}'
+echo '{"method":"turn/completed","params":{}}'
+"#;
+
+#[tokio::test]
+async fn test_token_delta_extraction_absolute_totals() {
+    let scripts_dir = tempfile::tempdir().unwrap();
+    let root_dir = tempfile::tempdir().unwrap();
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let script_path = write_script(scripts_dir.path(), "codex.sh", SCRIPT_TOKEN_ACCOUNTING);
+    let config = make_codex_config(&script_path);
+    let issue = make_test_issue();
+
+    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path())
+        .await
+        .expect("start_session should succeed");
+
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |_| {}).await;
+    app_server::stop_session(handle).await.ok();
+
+    let turn = result.expect("expected successful turn");
+    assert_eq!(turn.input_tokens, 100, "expected 100 input tokens");
+    assert_eq!(turn.output_tokens, 50, "expected 50 output tokens");
+    assert_eq!(turn.total_tokens, 150, "expected 150 total tokens");
+}
+
+// ── test_token_delta_zero_on_decrease ────────────────────────────────
+
+/// Script that sends a token event with a total, then another with a *lower* total.
+/// Delta on the second event must be 0 (not negative).
+const SCRIPT_TOKEN_DECREASE: &str = r#"#!/bin/bash
+read -r line
+echo '{"id":1,"result":{"capabilities":{}}}'
+read -r line
+read -r line
+echo '{"id":2,"result":{"thread":{"id":"thread-tok-dec-1"}}}'
+read -r line
+echo '{"id":3,"result":{"turn":{"id":"turn-tok-dec-1"}}}'
+echo '{"method":"some/event","params":{"tokenUsage":{"total":{"total_tokens":200}}}}'
+echo '{"method":"some/event2","params":{"tokenUsage":{"total":{"total_tokens":100}}}}'
+echo '{"method":"turn/completed","params":{}}'
+"#;
+
+#[tokio::test]
+async fn test_token_delta_zero_on_decrease() {
+    let scripts_dir = tempfile::tempdir().unwrap();
+    let root_dir = tempfile::tempdir().unwrap();
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let script_path = write_script(scripts_dir.path(), "codex.sh", SCRIPT_TOKEN_DECREASE);
+    let config = make_codex_config(&script_path);
+    let issue = make_test_issue();
+
+    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path())
+        .await
+        .expect("start_session should succeed");
+
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |_| {}).await;
+    app_server::stop_session(handle).await.ok();
+
+    let turn = result.expect("expected successful turn");
+    // First event: delta = 200 - 0 = 200. Second event: 100 < 200 → delta = 0.
+    // Total accumulated = 200 (not 200 + negative).
+    assert_eq!(turn.total_tokens, 200, "total_tokens should be 200 (decrease does not subtract)");
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────

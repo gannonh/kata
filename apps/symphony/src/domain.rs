@@ -499,6 +499,26 @@ pub enum AgentEvent {
         codex_app_server_pid: Option<String>,
         tool_call: String,
     },
+    ApprovalRequired {
+        timestamp: DateTime<Utc>,
+        codex_app_server_pid: Option<String>,
+        method: String,
+        payload: serde_json::Value,
+    },
+    ToolCallCompleted {
+        timestamp: DateTime<Utc>,
+        codex_app_server_pid: Option<String>,
+        tool_name: String,
+    },
+    ToolCallFailed {
+        timestamp: DateTime<Utc>,
+        codex_app_server_pid: Option<String>,
+        tool_name: Option<String>,
+    },
+    ToolInputAutoAnswered {
+        timestamp: DateTime<Utc>,
+        codex_app_server_pid: Option<String>,
+    },
     UnsupportedToolCall {
         timestamp: DateTime<Utc>,
         codex_app_server_pid: Option<String>,

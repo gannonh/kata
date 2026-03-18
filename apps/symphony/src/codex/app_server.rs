@@ -10,6 +10,7 @@
 //! 4. Turn: `turn/start(id=3)` → await response → stream events until `turn/completed` / failure / timeout.
 //! 5. Stop: kill subprocess.
 
+use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
@@ -19,9 +20,15 @@ use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 use crate::codex::dynamic_tool;
+use crate::codex::token_accounting::{extract_rate_limits, extract_token_delta, TokenState};
 use crate::domain::{AgentEvent, CodexConfig, Issue};
 use crate::error::{Result, SymphonyError};
 use crate::path_safety;
+
+/// Answer sent to Codex when the session is non-interactive and cannot provide
+/// operator input.  Matches Elixir's `@non_interactive_tool_input_answer`.
+const NON_INTERACTIVE_ANSWER: &str =
+    "This is a non-interactive session. Operator input is unavailable.";
 
 // ── Constants ─────────────────────────────────────────────────────────
 
@@ -66,6 +73,12 @@ pub struct SessionHandle {
     turn_sandbox_policy: Option<Value>,
     turn_timeout_ms: u64,
     read_timeout_ms: u64,
+    /// Whether approval requests from Codex should be auto-approved.
+    ///
+    /// Set to `true` when `approval_policy == "never"` (i.e., the policy means
+    /// "never require human approval" — auto-approve all requests). Mirrors
+    /// Elixir's `auto_approve_requests: session_policies.approval_policy == "never"`.
+    auto_approve_requests: bool,
 }
 
 /// The outcome of a completed Codex agent turn.
@@ -77,8 +90,14 @@ pub struct TurnResult {
     pub events: Vec<AgentEvent>,
     /// Final text output from the turn (if any).
     pub output_text: Option<String>,
-    /// Total tokens consumed during the turn (input + output).
+    /// Incremental input tokens consumed during this turn.
+    pub input_tokens: u64,
+    /// Incremental output tokens consumed during this turn.
+    pub output_tokens: u64,
+    /// Incremental total tokens consumed during this turn (input + output + any other).
     pub total_tokens: u64,
+    /// Rate-limit info captured from the last event that contained it.
+    pub rate_limits: Option<Value>,
 }
 
 // ── Public API ────────────────────────────────────────────────────────
@@ -161,6 +180,10 @@ pub async fn start_session(
         }
     };
 
+    // `auto_approve_requests` mirrors Elixir:
+    // `auto_approve_requests: session_policies.approval_policy == "never"`
+    let auto_approve_requests = config.approval_policy == Value::String("never".to_string());
+
     Ok(SessionHandle {
         session_id: thread_id.clone(),
         child,
@@ -176,6 +199,7 @@ pub async fn start_session(
         turn_sandbox_policy: config.turn_sandbox_policy.clone(),
         turn_timeout_ms: config.turn_timeout_ms,
         read_timeout_ms: config.read_timeout_ms,
+        auto_approve_requests,
     })
 }
 
@@ -185,18 +209,29 @@ pub async fn start_session(
 /// fails, or times out. Emits `AgentEvent` variants via `event_callback` for
 /// every lifecycle event.
 ///
+/// # Arguments
+/// - `handle`           — session handle from `start_session`
+/// - `prompt`           — text prompt to send as turn input
+/// - `graphql_executor` — injectable async function for `linear_graphql` tool calls.
+///                        Called as `graphql_executor(query, variables)`.
+///                        Clone-able so it can be invoked once per tool call.
+/// - `event_callback`   — called for each `AgentEvent` as it arrives
+///
 /// # Errors
-/// - `TurnFailed`    — turn ended with a `turn/failed` message
-/// - `TurnCancelled` — turn was cancelled (`turn/cancelled` message)
-/// - `TurnTimeout`   — no event received within `turn_timeout_ms`
-/// - `PortExit`      — subprocess exited unexpectedly
-pub async fn run_turn<F>(
+/// - `TurnFailed`       — turn ended with a `turn/failed` message
+/// - `TurnCancelled`    — turn was cancelled (`turn/cancelled` message)
+/// - `TurnInputRequired`— Codex requested operator input in a non-interactive session
+/// - `TurnTimeout`      — no event received within `turn_timeout_ms`
+/// - `PortExit`         — subprocess exited unexpectedly
+pub async fn run_turn<E, EFut>(
     handle: &mut SessionHandle,
     prompt: &str,
-    mut event_callback: F,
+    graphql_executor: E,
+    mut event_callback: impl FnMut(AgentEvent) + Send,
 ) -> Result<TurnResult>
 where
-    F: FnMut(AgentEvent) + Send,
+    E: Fn(String, Value) -> EFut + Clone + Send,
+    EFut: Future<Output = crate::error::Result<Value>> + Send,
 {
     // ── Send turn/start (id=3) ────────────────────────────────────────
     let title = format!("{}: {}", handle.issue_identifier, handle.issue_title);
@@ -249,6 +284,13 @@ where
     event_callback(session_started.clone());
 
     let mut events = vec![session_started];
+
+    // ── Turn-local token state ────────────────────────────────────────
+    let mut token_state = TokenState::default();
+    let mut turn_input_tokens: u64 = 0;
+    let mut turn_output_tokens: u64 = 0;
+    let mut turn_total_tokens: u64 = 0;
+    let mut turn_rate_limits: Option<Value> = None;
 
     // ── Receive loop ──────────────────────────────────────────────────
     loop {
@@ -312,6 +354,18 @@ where
                             .and_then(|m| m.as_str())
                             .map(|s| s.to_string());
 
+                        // ── Token accounting ──────────────────────────
+                        let delta = extract_token_delta(&token_state, &payload);
+                        turn_input_tokens += delta.input_tokens;
+                        turn_output_tokens += delta.output_tokens;
+                        turn_total_tokens += delta.total_tokens;
+                        token_state.last_input = delta.input_reported;
+                        token_state.last_output = delta.output_reported;
+                        token_state.last_total = delta.total_reported;
+                        if let Some(rl) = extract_rate_limits(&payload) {
+                            turn_rate_limits = Some(rl);
+                        }
+
                         match method.as_deref() {
                             // ── turn/completed ────────────────────────
                             Some("turn/completed") => {
@@ -328,13 +382,17 @@ where
                                     issue_id = %handle.issue_id,
                                     issue_identifier = %handle.issue_identifier,
                                     session_id = %session_id,
+                                    total_tokens = turn_total_tokens,
                                     "Codex session completed"
                                 );
 
                                 return Ok(TurnResult {
                                     events,
                                     output_text: None,
-                                    total_tokens: 0,
+                                    input_tokens: turn_input_tokens,
+                                    output_tokens: turn_output_tokens,
+                                    total_tokens: turn_total_tokens,
+                                    rate_limits: turn_rate_limits,
                                 });
                             }
 
@@ -388,8 +446,159 @@ where
                                 return Err(SymphonyError::TurnCancelled(reason));
                             }
 
-                            // ── Other method (notification) ───────────
+                            // ── Approval: item/commandExecution/requestApproval ──
+                            Some(m @ "item/commandExecution/requestApproval") => {
+                                if !handle_approval_or_reject(
+                                    &mut handle.stdin,
+                                    &payload,
+                                    m,
+                                    "acceptForSession",
+                                    handle.auto_approve_requests,
+                                    handle.pid.clone(),
+                                    &mut event_callback,
+                                    &mut events,
+                                )
+                                .await?
+                                {
+                                    return Err(SymphonyError::Other(
+                                        "approval_required".to_string(),
+                                    ));
+                                }
+                            }
+
+                            // ── Approval: execCommandApproval ─────────
+                            Some(m @ "execCommandApproval") => {
+                                if !handle_approval_or_reject(
+                                    &mut handle.stdin,
+                                    &payload,
+                                    m,
+                                    "approved_for_session",
+                                    handle.auto_approve_requests,
+                                    handle.pid.clone(),
+                                    &mut event_callback,
+                                    &mut events,
+                                )
+                                .await?
+                                {
+                                    return Err(SymphonyError::Other(
+                                        "approval_required".to_string(),
+                                    ));
+                                }
+                            }
+
+                            // ── Approval: applyPatchApproval ──────────
+                            Some(m @ "applyPatchApproval") => {
+                                if !handle_approval_or_reject(
+                                    &mut handle.stdin,
+                                    &payload,
+                                    m,
+                                    "approved_for_session",
+                                    handle.auto_approve_requests,
+                                    handle.pid.clone(),
+                                    &mut event_callback,
+                                    &mut events,
+                                )
+                                .await?
+                                {
+                                    return Err(SymphonyError::Other(
+                                        "approval_required".to_string(),
+                                    ));
+                                }
+                            }
+
+                            // ── Approval: item/fileChange/requestApproval ─
+                            Some(m @ "item/fileChange/requestApproval") => {
+                                if !handle_approval_or_reject(
+                                    &mut handle.stdin,
+                                    &payload,
+                                    m,
+                                    "acceptForSession",
+                                    handle.auto_approve_requests,
+                                    handle.pid.clone(),
+                                    &mut event_callback,
+                                    &mut events,
+                                )
+                                .await?
+                                {
+                                    return Err(SymphonyError::Other(
+                                        "approval_required".to_string(),
+                                    ));
+                                }
+                            }
+
+                            // ── Tool call: item/tool/call ─────────────
+                            Some("item/tool/call") => {
+                                dispatch_tool_call(
+                                    &mut handle.stdin,
+                                    &payload,
+                                    graphql_executor.clone(),
+                                    handle.pid.clone(),
+                                    &mut event_callback,
+                                    &mut events,
+                                )
+                                .await?;
+                                // Tool calls do NOT terminate the turn — continue loop
+                            }
+
+                            // ── User input: item/tool/requestUserInput ──
+                            Some("item/tool/requestUserInput") => {
+                                if !handle_request_user_input(
+                                    &mut handle.stdin,
+                                    &payload,
+                                    handle.auto_approve_requests,
+                                    handle.pid.clone(),
+                                    &mut event_callback,
+                                    &mut events,
+                                )
+                                .await?
+                                {
+                                    // Hard failure: questions present but IDs not extractable
+                                    let event = AgentEvent::TurnInputRequired {
+                                        timestamp: Utc::now(),
+                                        codex_app_server_pid: handle.pid.clone(),
+                                        turn_id: turn_id.clone(),
+                                        prompt: Some(
+                                            text.chars()
+                                                .take(MAX_STREAM_LOG_BYTES)
+                                                .collect(),
+                                        ),
+                                    };
+                                    event_callback(event.clone());
+                                    events.push(event);
+                                    tracing::warn!(
+                                        issue_id = %handle.issue_id,
+                                        session_id = %session_id,
+                                        "Codex turn requires unhandleable input"
+                                    );
+                                    return Err(SymphonyError::TurnInputRequired);
+                                }
+                            }
+
+                            // ── Other / notification ──────────────────
                             Some(other_method) => {
+                                // Detect generic needs_input patterns
+                                if needs_input(other_method, &payload) {
+                                    tracing::warn!(
+                                        issue_id = %handle.issue_id,
+                                        session_id = %session_id,
+                                        method = %other_method,
+                                        "Codex turn requires operator input"
+                                    );
+                                    let event = AgentEvent::TurnInputRequired {
+                                        timestamp: Utc::now(),
+                                        codex_app_server_pid: handle.pid.clone(),
+                                        turn_id: turn_id.clone(),
+                                        prompt: Some(
+                                            text.chars()
+                                                .take(MAX_STREAM_LOG_BYTES)
+                                                .collect(),
+                                        ),
+                                    };
+                                    event_callback(event.clone());
+                                    events.push(event);
+                                    return Err(SymphonyError::TurnInputRequired);
+                                }
+
                                 tracing::debug!("Codex notification: {:?}", other_method);
                                 let event = AgentEvent::Notification {
                                     timestamp: Utc::now(),
@@ -445,6 +654,368 @@ pub async fn stop_session(mut handle: SessionHandle) -> Result<()> {
     let _ = handle.child.kill().await;
     let _ = handle.child.wait().await;
     Ok(())
+}
+
+// ── Approval / tool-call / user-input handlers ───────────────────────
+
+/// Handle an approval request from Codex.
+///
+/// When `auto_approve` is `true`:
+/// - Sends `{"id": <id>, "result": {"decision": "<decision>"}}` back to Codex.
+/// - Emits `ApprovalAutoApproved` and returns `Ok(true)` (caller: continue loop).
+///
+/// When `auto_approve` is `false`:
+/// - Emits `ApprovalRequired` and returns `Ok(false)` (caller: return error).
+///
+/// Returns `Err` only on I/O failure while writing the response.
+async fn handle_approval_or_reject(
+    stdin: &mut tokio::process::ChildStdin,
+    payload: &Value,
+    method: &str,
+    decision: &str,
+    auto_approve: bool,
+    pid: Option<String>,
+    event_callback: &mut (impl FnMut(AgentEvent) + Send),
+    events: &mut Vec<AgentEvent>,
+) -> Result<bool> {
+    if auto_approve {
+        let id = payload.get("id").cloned().unwrap_or(Value::Null);
+        let response = json!({
+            "id": id,
+            "result": {"decision": decision}
+        });
+        send_message(stdin, &response).await?;
+
+        let event = AgentEvent::ApprovalAutoApproved {
+            timestamp: Utc::now(),
+            codex_app_server_pid: pid,
+            tool_call: method.to_string(),
+        };
+        event_callback(event.clone());
+        events.push(event);
+
+        tracing::debug!(method = %method, decision = %decision, "Approval auto-approved");
+        Ok(true)
+    } else {
+        let event = AgentEvent::ApprovalRequired {
+            timestamp: Utc::now(),
+            codex_app_server_pid: pid,
+            method: method.to_string(),
+            payload: payload.clone(),
+        };
+        event_callback(event.clone());
+        events.push(event);
+
+        tracing::warn!(method = %method, "Approval required — returning error");
+        Ok(false)
+    }
+}
+
+/// Dispatch an `item/tool/call` payload to `dynamic_tool::execute`.
+///
+/// - Extracts `tool_name` and `arguments` from `params` (lenient, nil if blank).
+/// - Calls `dynamic_tool::execute(name, arguments, executor)`.
+/// - Normalizes the result (ensures `output` and `contentItems`).
+/// - Sends `{"id": <id>, "result": <result>}` back to Codex.
+/// - Emits `ToolCallCompleted`, `ToolCallFailed`, or `UnsupportedToolCall`.
+/// - Returns `Ok(())` — tool calls never terminate the turn.
+async fn dispatch_tool_call<E, EFut>(
+    stdin: &mut tokio::process::ChildStdin,
+    payload: &Value,
+    graphql_executor: E,
+    pid: Option<String>,
+    event_callback: &mut (impl FnMut(AgentEvent) + Send),
+    events: &mut Vec<AgentEvent>,
+) -> Result<()>
+where
+    E: Fn(String, Value) -> EFut,
+    EFut: Future<Output = crate::error::Result<Value>>,
+{
+    let id = payload.get("id").cloned().unwrap_or(Value::Null);
+    let params = payload.get("params").cloned().unwrap_or(Value::Null);
+
+    let tool_name = extract_tool_name(&params);
+    let arguments = extract_tool_arguments(&params);
+
+    let result =
+        dynamic_tool::execute(tool_name.as_deref().unwrap_or(""), arguments, graphql_executor)
+            .await;
+
+    let normalized = normalize_tool_result(&result);
+
+    // Send result back to Codex
+    let response = json!({
+        "id": id,
+        "result": normalized
+    });
+    send_message(stdin, &response).await?;
+
+    // Emit event based on outcome
+    let event = if result.success {
+        AgentEvent::ToolCallCompleted {
+            timestamp: Utc::now(),
+            codex_app_server_pid: pid,
+            tool_name: tool_name.clone().unwrap_or_default(),
+        }
+    } else if tool_name.is_none() {
+        AgentEvent::UnsupportedToolCall {
+            timestamp: Utc::now(),
+            codex_app_server_pid: pid,
+            tool_name: String::new(),
+        }
+    } else {
+        AgentEvent::ToolCallFailed {
+            timestamp: Utc::now(),
+            codex_app_server_pid: pid,
+            tool_name,
+        }
+    };
+
+    event_callback(event.clone());
+    events.push(event);
+
+    Ok(())
+}
+
+/// Handle an `item/tool/requestUserInput` payload.
+///
+/// Returns:
+/// - `Ok(true)` — answered and loop should continue
+/// - `Ok(false)` — hard failure, no IDs extractable (caller must return error)
+///
+/// Behaviour depends on `auto_approve` and question structure:
+/// 1. `auto_approve=true` AND all questions have approval options →
+///    sends option-based answer, emits `ApprovalAutoApproved`.
+/// 2. Otherwise → sends non-interactive answer per question ID,
+///    emits `ToolInputAutoAnswered`.
+/// 3. Question IDs not extractable → returns `Ok(false)`.
+async fn handle_request_user_input(
+    stdin: &mut tokio::process::ChildStdin,
+    payload: &Value,
+    auto_approve: bool,
+    pid: Option<String>,
+    event_callback: &mut (impl FnMut(AgentEvent) + Send),
+    events: &mut Vec<AgentEvent>,
+) -> Result<bool> {
+    let id = payload.get("id").cloned().unwrap_or(Value::Null);
+    let params = payload.get("params").cloned().unwrap_or(Value::Null);
+
+    // Attempt 1: option-based approval auto-answer (only when auto_approve=true)
+    if auto_approve {
+        if let Some((answers, decision)) = build_approval_answers(&params) {
+            let response = json!({
+                "id": id,
+                "result": {"answers": answers}
+            });
+            send_message(stdin, &response).await?;
+
+            let event = AgentEvent::ApprovalAutoApproved {
+                timestamp: Utc::now(),
+                codex_app_server_pid: pid,
+                tool_call: decision,
+            };
+            event_callback(event.clone());
+            events.push(event);
+
+            tracing::debug!("User-input approval auto-answered via option selection");
+            return Ok(true);
+        }
+    }
+
+    // Attempt 2: non-interactive answer per question ID
+    match build_non_interactive_answers(&params) {
+        Some(answers) => {
+            let response = json!({
+                "id": id,
+                "result": {"answers": answers}
+            });
+            send_message(stdin, &response).await?;
+
+            let event = AgentEvent::ToolInputAutoAnswered {
+                timestamp: Utc::now(),
+                codex_app_server_pid: pid,
+            };
+            event_callback(event.clone());
+            events.push(event);
+
+            tracing::debug!("User-input answered with non-interactive response");
+            Ok(true)
+        }
+        None => {
+            // Cannot extract question IDs → hard failure
+            tracing::warn!("Cannot answer user input: question IDs not extractable");
+            Ok(false)
+        }
+    }
+}
+
+// ── Tool-call helpers ─────────────────────────────────────────────────
+
+/// Extract the tool name from `item/tool/call` params.
+///
+/// Checks `params.tool`, then `params.name`.  Trims whitespace; returns `None`
+/// if missing or blank — matching Elixir's `tool_call_name/1`.
+fn extract_tool_name(params: &Value) -> Option<String> {
+    let name = params.get("tool")
+        .or_else(|| params.get("name"))
+        .and_then(|v| v.as_str())?;
+    let trimmed = name.trim();
+    if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }
+}
+
+/// Extract tool arguments from `item/tool/call` params.
+///
+/// Returns `params.arguments` if present, or an empty object.
+/// Mirrors Elixir's `tool_call_arguments/1`.
+fn extract_tool_arguments(params: &Value) -> Value {
+    params.get("arguments")
+        .cloned()
+        .unwrap_or_else(|| json!({}))
+}
+
+/// Normalize a `ToolResult` to the Codex wire format.
+///
+/// Ensures `success`, `output`, and `contentItems` are always present,
+/// matching Elixir's `normalize_dynamic_tool_result/1`.
+fn normalize_tool_result(result: &dynamic_tool::ToolResult) -> Value {
+    json!({
+        "success": result.success,
+        "output": result.output,
+        "contentItems": result.content_items
+    })
+}
+
+// ── User-input helpers ────────────────────────────────────────────────
+
+/// Try to build option-based approval answers for all questions.
+///
+/// Returns `Some((answers_map, decision_label))` if every question has an
+/// approval option.  Returns `None` if any question lacks one.
+///
+/// Preference order: "Approve this Session" > "Approve Once" > any label
+/// starting with "approve" or "allow" (case-insensitive).
+fn build_approval_answers(params: &Value) -> Option<(Value, String)> {
+    let questions = params.get("questions")?.as_array()?;
+    if questions.is_empty() {
+        return None;
+    }
+
+    let mut answers = serde_json::Map::new();
+    for question in questions {
+        let question_id = question.get("id")?.as_str()?;
+        let options = question.get("options")?.as_array()?;
+        let label = find_approval_option_label(options)?;
+        answers.insert(
+            question_id.to_string(),
+            json!({"answers": [label]}),
+        );
+    }
+
+    if answers.is_empty() {
+        return None;
+    }
+
+    Some((Value::Object(answers), "Approve this Session".to_string()))
+}
+
+/// Find the best approval option label from a list of options.
+///
+/// Preference: "Approve this Session" > "Approve Once" > starts with "approve"/"allow".
+fn find_approval_option_label(options: &[Value]) -> Option<String> {
+    let labels: Vec<&str> = options
+        .iter()
+        .filter_map(|opt| opt.get("label")?.as_str())
+        .collect();
+
+    // Preference 1: exact "Approve this Session"
+    if let Some(&l) = labels.iter().find(|&&l| l == "Approve this Session") {
+        return Some(l.to_string());
+    }
+    // Preference 2: exact "Approve Once"
+    if let Some(&l) = labels.iter().find(|&&l| l == "Approve Once") {
+        return Some(l.to_string());
+    }
+    // Preference 3: starts with "approve" or "allow" (case-insensitive)
+    labels.iter().find(|&&l| {
+        let lower = l.trim().to_ascii_lowercase();
+        lower.starts_with("approve") || lower.starts_with("allow")
+    }).map(|&l| l.to_string())
+}
+
+/// Build non-interactive answers for all questions.
+///
+/// Returns `Some(answers_map)` if every question has a string `id` field.
+/// Returns `None` if any question lacks one.
+fn build_non_interactive_answers(params: &Value) -> Option<Value> {
+    let questions = params.get("questions")?.as_array()?;
+    if questions.is_empty() {
+        return None;
+    }
+
+    let mut answers = serde_json::Map::new();
+    for question in questions {
+        let question_id = question.get("id")?.as_str()?;
+        answers.insert(
+            question_id.to_string(),
+            json!({"answers": [NON_INTERACTIVE_ANSWER]}),
+        );
+    }
+
+    if answers.is_empty() {
+        None
+    } else {
+        Some(Value::Object(answers))
+    }
+}
+
+// ── needs_input detection ─────────────────────────────────────────────
+
+/// Detect whether `method` + `payload` indicate a generic input-required event.
+///
+/// Ports Elixir's `needs_input?/2`:
+/// - Method must start with `"turn/"`.
+/// - Method is in the known input-required list, OR payload/params have a
+///   `requiresInput`, `needsInput`, `input_required`, `inputRequired`, `type`
+///   flag set to `true` / `"input_required"` / `"needs_input"`.
+fn needs_input(method: &str, payload: &Value) -> bool {
+    if !method.starts_with("turn/") {
+        return false;
+    }
+    is_input_required_method(method, payload)
+}
+
+fn is_input_required_method(method: &str, payload: &Value) -> bool {
+    const INPUT_METHODS: &[&str] = &[
+        "turn/input_required",
+        "turn/needs_input",
+        "turn/need_input",
+        "turn/request_input",
+        "turn/request_response",
+        "turn/provide_input",
+        "turn/approval_required",
+    ];
+
+    if INPUT_METHODS.contains(&method) {
+        return true;
+    }
+
+    // Check payload and params for input-required flags
+    let params = payload.get("params");
+    payload_needs_input(payload) || params.map(payload_needs_input).unwrap_or(false)
+}
+
+fn payload_needs_input(payload: &Value) -> bool {
+    let obj = match payload.as_object() {
+        Some(o) => o,
+        None => return false,
+    };
+
+    obj.get("requiresInput").and_then(|v| v.as_bool()) == Some(true)
+        || obj.get("needsInput").and_then(|v| v.as_bool()) == Some(true)
+        || obj.get("input_required").and_then(|v| v.as_bool()) == Some(true)
+        || obj.get("inputRequired").and_then(|v| v.as_bool()) == Some(true)
+        || obj.get("type").and_then(|v| v.as_str()) == Some("input_required")
+        || obj.get("type").and_then(|v| v.as_str()) == Some("needs_input")
 }
 
 // ── Workspace cwd validation ──────────────────────────────────────────
