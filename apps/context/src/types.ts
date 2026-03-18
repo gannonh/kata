@@ -119,6 +119,84 @@ export interface ProviderConfig {
   };
 }
 
+// ── Semantic persistence contracts ──
+
+export type SemanticStatusState = "ok" | "failed" | "unknown";
+
+export type SemanticPhase =
+  | "extension-load"
+  | "summary"
+  | "embedding"
+  | "persist"
+  | "query";
+
+export type SemanticProvider = "sqlite-vec" | "openai" | "anthropic" | "none";
+
+export type SemanticStoreErrorCode =
+  | "SEMANTIC_VEC_EXTENSION_LOAD_FAILED"
+  | "SEMANTIC_VECTOR_INVARIANT_MISMATCH"
+  | "SEMANTIC_VECTOR_DIMENSION_MISMATCH"
+  | "SEMANTIC_VECTOR_QUERY_MODEL_MISMATCH"
+  | "SEMANTIC_VECTOR_QUERY_DIMENSION_MISMATCH";
+
+export interface SemanticVectorWrite {
+  symbolId: string;
+  filePath: string;
+  model: string;
+  dimensions: number;
+  vector: number[];
+}
+
+export interface SemanticStoredVector extends SemanticVectorWrite {
+  updatedAt: string;
+}
+
+export interface SemanticQueryOptions {
+  queryVector: number[];
+  topK: number;
+  model: string;
+}
+
+export interface SemanticQueryResult {
+  symbolId: string;
+  filePath: string;
+  model: string;
+  dimensions: number;
+  distance: number;
+}
+
+export interface SemanticStatusRecord {
+  status: SemanticStatusState;
+  phase: SemanticPhase;
+  provider: SemanticProvider;
+  errorCode?: SemanticStoreErrorCode | string;
+  message?: string;
+  timestamp: string;
+  retryable: boolean;
+}
+
+export class SemanticStoreError extends Error {
+  code: SemanticStoreErrorCode;
+  phase: SemanticPhase;
+  retryable: boolean;
+
+  constructor(
+    code: SemanticStoreErrorCode,
+    message: string,
+    options: {
+      phase: SemanticPhase;
+      retryable: boolean;
+      cause?: unknown;
+    },
+  ) {
+    super(message, { cause: options.cause });
+    this.name = "SemanticStoreError";
+    this.code = code;
+    this.phase = options.phase;
+    this.retryable = options.retryable;
+  }
+}
+
 // ── Query result types ──
 
 /**
