@@ -2,7 +2,7 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S05 — Codex App-Server Client
-**Active Task:** T01 — Integration test suite and dynamic_tool module
+**Active Task:** T02 — App-server subprocess launch, handshake, and basic turn streaming
 **Phase:** Executing
 
 ## Progress
@@ -11,7 +11,7 @@
 - [x] S02: Workflow Loader and Config Layer — 19 tests; parse_workflow, from_workflow, validate, WorkflowStore hot-reload all proven
 - [x] S03: Linear Tracker Client — TrackerAdapter trait + LinearAdapter + 33 integration tests; all slice verification items pass; 80 total tests
 - [x] S04: Workspace Manager and Prompt Builder — 28 tests; path_safety, prompt_builder, workspace modules; 111 total tests; R004+R007 validated
-- [ ] S05: Codex App-Server Client — planned (3 tasks: T01 dynamic_tool, T02 subprocess lifecycle, T03 approval/tool/token)
+- [ ] S05: Codex App-Server Client — T01 complete (dynamic_tool + 14 tests); T02/T03 pending
 - [ ] S06: Orchestrator Core
 - [ ] S07: HTTP Dashboard and JSON API
 - [ ] S08: SSH Remote Worker Extension
@@ -29,7 +29,7 @@
 
 ## Next Action
 
-Execute T01: Create codex/ module, implement dynamic_tool with linear_graphql, expose LinearClient::graphql_raw, write ≥12 dynamic tool tests.
+Execute T02: Implement app_server subprocess launch (bash -lc), startup handshake (initialize→initialized→thread/start), line-delimited turn streaming (turn/start→turn/completed|failed|cancelled), stop_session. Write ~8 integration tests using fake Codex shell scripts.
 
 ## Validated Requirements
 
