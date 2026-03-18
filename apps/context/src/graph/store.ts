@@ -14,7 +14,6 @@ import type {
   SemanticQueryResult,
   SemanticStatusRecord,
   SemanticVectorWrite,
-  SemanticStoreErrorCode,
 } from "../types.js";
 import {
   RelationshipKind,
