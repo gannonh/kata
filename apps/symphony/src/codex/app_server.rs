@@ -213,8 +213,8 @@ pub async fn start_session(
 /// - `handle`           — session handle from `start_session`
 /// - `prompt`           — text prompt to send as turn input
 /// - `graphql_executor` — injectable async function for `linear_graphql` tool calls.
-///                        Called as `graphql_executor(query, variables)`.
-///                        Clone-able so it can be invoked once per tool call.
+///   Called as `graphql_executor(query, variables)`.
+///   Clone-able so it can be invoked once per tool call.
 /// - `event_callback`   — called for each `AgentEvent` as it arrives
 ///
 /// # Errors
@@ -448,15 +448,18 @@ where
 
                             // ── Approval: item/commandExecution/requestApproval ──
                             Some(m @ "item/commandExecution/requestApproval") => {
+                                let mut ctx = ApprovalCtx {
+                                    stdin: &mut handle.stdin,
+                                    event_callback: &mut event_callback,
+                                    events: &mut events,
+                                    pid: handle.pid.clone(),
+                                };
                                 if !handle_approval_or_reject(
-                                    &mut handle.stdin,
+                                    &mut ctx,
                                     &payload,
                                     m,
                                     "acceptForSession",
                                     handle.auto_approve_requests,
-                                    handle.pid.clone(),
-                                    &mut event_callback,
-                                    &mut events,
                                 )
                                 .await?
                                 {
@@ -468,15 +471,18 @@ where
 
                             // ── Approval: execCommandApproval ─────────
                             Some(m @ "execCommandApproval") => {
+                                let mut ctx = ApprovalCtx {
+                                    stdin: &mut handle.stdin,
+                                    event_callback: &mut event_callback,
+                                    events: &mut events,
+                                    pid: handle.pid.clone(),
+                                };
                                 if !handle_approval_or_reject(
-                                    &mut handle.stdin,
+                                    &mut ctx,
                                     &payload,
                                     m,
                                     "approved_for_session",
                                     handle.auto_approve_requests,
-                                    handle.pid.clone(),
-                                    &mut event_callback,
-                                    &mut events,
                                 )
                                 .await?
                                 {
@@ -488,15 +494,18 @@ where
 
                             // ── Approval: applyPatchApproval ──────────
                             Some(m @ "applyPatchApproval") => {
+                                let mut ctx = ApprovalCtx {
+                                    stdin: &mut handle.stdin,
+                                    event_callback: &mut event_callback,
+                                    events: &mut events,
+                                    pid: handle.pid.clone(),
+                                };
                                 if !handle_approval_or_reject(
-                                    &mut handle.stdin,
+                                    &mut ctx,
                                     &payload,
                                     m,
                                     "approved_for_session",
                                     handle.auto_approve_requests,
-                                    handle.pid.clone(),
-                                    &mut event_callback,
-                                    &mut events,
                                 )
                                 .await?
                                 {
@@ -508,15 +517,18 @@ where
 
                             // ── Approval: item/fileChange/requestApproval ─
                             Some(m @ "item/fileChange/requestApproval") => {
+                                let mut ctx = ApprovalCtx {
+                                    stdin: &mut handle.stdin,
+                                    event_callback: &mut event_callback,
+                                    events: &mut events,
+                                    pid: handle.pid.clone(),
+                                };
                                 if !handle_approval_or_reject(
-                                    &mut handle.stdin,
+                                    &mut ctx,
                                     &payload,
                                     m,
                                     "acceptForSession",
                                     handle.auto_approve_requests,
-                                    handle.pid.clone(),
-                                    &mut event_callback,
-                                    &mut events,
                                 )
                                 .await?
                                 {
@@ -658,6 +670,14 @@ pub async fn stop_session(mut handle: SessionHandle) -> Result<()> {
 
 // ── Approval / tool-call / user-input handlers ───────────────────────
 
+/// Bundled context for approval handling to stay within the 7-argument limit.
+struct ApprovalCtx<'a, CB: FnMut(AgentEvent) + Send> {
+    stdin: &'a mut tokio::process::ChildStdin,
+    event_callback: &'a mut CB,
+    events: &'a mut Vec<AgentEvent>,
+    pid: Option<String>,
+}
+
 /// Handle an approval request from Codex.
 ///
 /// When `auto_approve` is `true`:
@@ -668,16 +688,17 @@ pub async fn stop_session(mut handle: SessionHandle) -> Result<()> {
 /// - Emits `ApprovalRequired` and returns `Ok(false)` (caller: return error).
 ///
 /// Returns `Err` only on I/O failure while writing the response.
-async fn handle_approval_or_reject(
-    stdin: &mut tokio::process::ChildStdin,
+async fn handle_approval_or_reject<CB: FnMut(AgentEvent) + Send>(
+    ctx: &mut ApprovalCtx<'_, CB>,
     payload: &Value,
     method: &str,
     decision: &str,
     auto_approve: bool,
-    pid: Option<String>,
-    event_callback: &mut (impl FnMut(AgentEvent) + Send),
-    events: &mut Vec<AgentEvent>,
 ) -> Result<bool> {
+    let stdin = &mut ctx.stdin;
+    let event_callback = &mut ctx.event_callback;
+    let events = &mut ctx.events;
+    let pid = ctx.pid.clone();
     if auto_approve {
         let id = payload.get("id").cloned().unwrap_or(Value::Null);
         let response = json!({

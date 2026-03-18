@@ -1,9 +1,0 @@
-{
-  "pid": 52349,
-  "startedAt": "2026-03-18T14:09:38.622Z",
-  "unitType": "complete-slice",
-  "unitId": "M001/S05",
-  "unitStartedAt": "2026-03-18T14:09:38.622Z",
-  "completedUnits": 2,
-  "sessionFile": "/Users/gannonhall/.kata-cli/sessions/2026-03-18T14-09-38-621Z_3b8161e5-6887-4c00-9b5b-9b5cae1bfd0c.jsonl"
-}

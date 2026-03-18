@@ -182,11 +182,8 @@ fn normalize_linear_graphql_arguments(
 fn graphql_result(response: Value) -> ToolResult {
     let has_errors = match &response {
         Value::Object(m) => {
-            if let Some(errors) = m.get("errors") {
-                match errors {
-                    Value::Array(arr) => !arr.is_empty(),
-                    _ => false,
-                }
+            if let Some(Value::Array(arr)) = m.get("errors") {
+                !arr.is_empty()
             } else {
                 false
             }

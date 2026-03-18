@@ -227,7 +227,7 @@ fn is_integer_token_map(value: &Value) -> bool {
 
     token_fields
         .iter()
-        .any(|field| obj.get(*field).and_then(|v| integer_like(v)).is_some())
+        .any(|field| obj.get(*field).and_then(integer_like).is_some())
 }
 
 // ── Token-field getters ───────────────────────────────────────────────
@@ -276,11 +276,7 @@ fn compute_delta(next_total: Option<u64>, prev_reported: u64) -> (u64, u64) {
     match next_total {
         None => (0, prev_reported),
         Some(next) => {
-            let delta = if next >= prev_reported {
-                next - prev_reported
-            } else {
-                0
-            };
+            let delta = next.saturating_sub(prev_reported);
             (delta, next)
         }
     }
