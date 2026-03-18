@@ -5,7 +5,6 @@
  * correct extraction of imports, calls, inherits, and implements edges.
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
 import { resolve, join } from "node:path";
 import { extractTsRelationships } from "../../src/graph/ts-relationships.js";
 import { parseFile } from "../../src/parser/index.js";

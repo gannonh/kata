@@ -1,4 +1,3 @@
-import { describe, it, expect } from "vitest";
 import { generateSymbolId, normalizePath } from "../../src/parser/common.js";
 import { SymbolKind } from "../../src/types.js";
 

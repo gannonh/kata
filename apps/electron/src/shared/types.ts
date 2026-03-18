@@ -822,6 +822,8 @@ export interface ElectronAPI {
   readFile(path: string): Promise<string>
   /** Read a file as a data URL (data:{mime};base64,...) for binary preview (images, PDFs) */
   readFileDataUrl(path: string): Promise<string>
+  /** Read a file as raw binary (Uint8Array) */
+  readFileBinary(path: string): Promise<Uint8Array>
   openFileDialog(): Promise<string[]>
   readFileAttachment(path: string): Promise<FileAttachment | null>
   storeAttachment(sessionId: string, attachment: FileAttachment): Promise<import('../../../../packages/core/src/types/index.ts').StoredAttachment>

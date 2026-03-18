@@ -31,6 +31,7 @@
     "dist:win": "powershell -ExecutionPolicy Bypass -File scripts/build-win.ps1",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
+    "test": "bun test src/",
     "test:e2e": "playwright test",
     "test:e2e:watch": "playwright test --watch",
     "test:e2e:ui": "playwright test --ui",

@@ -1,0 +1,10 @@
+{
+  "name": "@kata/symphony",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "cargo test",
+    "lint": "cargo clippy -- -D warnings && cargo fmt --check",
+    "build": "cargo build --release"
+  }
+}

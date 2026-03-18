@@ -2,7 +2,7 @@
  * Tests for output formatters.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { vi } from "vitest";
 import {
   outputJson,
   outputQuiet,

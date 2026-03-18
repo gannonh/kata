@@ -11,6 +11,7 @@ Common issues and solutions for the Kata Agents release process.
 **Cause:** Running build from the wrong directory. The root-level `bun run electron:dist:mac` has path issues with electron-builder.
 
 **Fix:** Always run from `apps/electron`:
+
 ```bash
 cd apps/electron && bun run dist:mac
 ```
@@ -38,6 +39,7 @@ cd apps/electron && bun run dist:mac
 **Symptom:** `No identity found for signing`
 
 **Check:**
+
 1. Certificate is in Keychain Access
 2. Certificate name matches `APPLE_SIGNING_IDENTITY` exactly
 3. Certificate is not expired
@@ -52,6 +54,7 @@ security find-identity -v -p codesigning
 **Symptom:** `xcrun notarytool submit` fails or hangs
 
 **Check:**
+
 1. Apple ID credentials are correct
 2. App-specific password is valid (generate at appleid.apple.com)
 3. Team ID matches your developer account
@@ -68,6 +71,7 @@ xcrun notarytool history --apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_
 **Symptom:** Pushed to main but no release workflow ran
 
 **Check:**
+
 1. Version in `apps/electron/package.json` actually changed
 2. Tag `vX.Y.Z` doesn't already exist
 
@@ -84,6 +88,7 @@ cat apps/electron/package.json | grep version
 **Symptom:** GitHub Release created but missing some platform builds
 
 **Check:**
+
 1. All build jobs completed (macOS arm64, macOS x64, Windows, Linux)
 2. No failures in individual build jobs
 
@@ -104,6 +109,7 @@ gh run view <run-id>
 **Cause:** Stale `workspaceId` in window-state.json doesn't match session workspace IDs
 
 **Fix:**
+
 ```bash
 rm ~/.kata-agents/window-state.json
 ```
@@ -115,6 +121,7 @@ Then relaunch the app.
 **Symptom:** App opens to wrong workspace or wrong session
 
 **Fix:** Clear window state and let app recreate it:
+
 ```bash
 rm ~/.kata-agents/window-state.json
 ```
@@ -125,13 +132,13 @@ rm ~/.kata-agents/window-state.json
 
 For full CI release functionality, set these GitHub repository secrets:
 
-| Secret | Purpose |
-|--------|---------|
-| `CSC_LINK` | Base64-encoded .p12 certificate |
-| `CSC_KEY_PASSWORD` | Certificate password |
-| `APPLE_ID` | Apple ID email |
-| `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password |
-| `APPLE_TEAM_ID` | Apple Developer Team ID |
+| Secret                        | Purpose                         |
+| ----------------------------- | ------------------------------- |
+| `CSC_LINK`                    | Base64-encoded .p12 certificate |
+| `CSC_KEY_PASSWORD`            | Certificate password            |
+| `APPLE_ID`                    | Apple ID email                  |
+| `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password           |
+| `APPLE_TEAM_ID`               | Apple Developer Team ID         |
 
 ### Required Environment for Local Builds
 

@@ -6,7 +6,7 @@
  * Also includes integration tests that exercise the full index→status flow.
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi, beforeEach, afterEach } from "vitest";
+import { vi } from "vitest";
 import { mkdirSync, rmSync, existsSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { tmpdir } from "node:os";

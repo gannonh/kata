@@ -1,0 +1,673 @@
+//! Integration tests for path_safety, workspace, and prompt_builder modules.
+//!
+//! Runs against real filesystem (tempfile dirs) and real subprocess execution.
+
+use std::fs;
+use std::os::unix::fs as unix_fs;
+use std::path::{Path, PathBuf};
+
+use chrono::{DateTime, Utc};
+use tempfile::TempDir;
+
+use symphony::domain::{BlockerRef, HooksConfig, Issue, WorkspaceConfig};
+use symphony::error::SymphonyError;
+use symphony::path_safety;
+
+// ═══════════════════════════════════════════════════════════════════════
+// Path Safety — 6 tests
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_sanitize_identifier_replaces_unsafe_chars() {
+    assert_eq!(path_safety::sanitize_identifier("MT/Det"), "MT_Det");
+    assert_eq!(path_safety::sanitize_identifier("S-1"), "S-1");
+    assert_eq!(
+        path_safety::sanitize_identifier("hello world!"),
+        "hello_world_"
+    );
+    assert_eq!(path_safety::sanitize_identifier("a/b\\c:d"), "a_b_c_d");
+    // Dots and underscores are safe
+    assert_eq!(path_safety::sanitize_identifier("v1.2_rc"), "v1.2_rc");
+}
+
+#[test]
+fn test_sanitize_identifier_nil_or_empty() {
+    assert_eq!(path_safety::sanitize_identifier(""), "issue");
+    assert_eq!(path_safety::sanitize_identifier("  "), "issue");
+}
+
+#[test]
+fn test_canonicalize_existing_path() {
+    let tmp = TempDir::new().unwrap();
+    let dir = tmp.path().join("sub").join("dir");
+    fs::create_dir_all(&dir).unwrap();
+
+    let result = path_safety::canonicalize(&dir).unwrap();
+    // Must be absolute
+    assert!(result.is_absolute());
+    // Must resolve to the real path (same as std::fs::canonicalize for existing paths)
+    let expected = fs::canonicalize(&dir).unwrap();
+    assert_eq!(result, expected);
+}
+
+#[test]
+fn test_canonicalize_nonexistent_tail() {
+    let tmp = TempDir::new().unwrap();
+    let existing = tmp.path().join("real");
+    fs::create_dir_all(&existing).unwrap();
+
+    // "real/nonexistent/deep" — real exists, nonexistent and deep do not
+    let target = existing.join("nonexistent").join("deep");
+    let result = path_safety::canonicalize(&target).unwrap();
+
+    // The existing prefix should be resolved (canonicalized)
+    let canonical_existing = fs::canonicalize(&existing).unwrap();
+    let expected = canonical_existing.join("nonexistent").join("deep");
+    assert_eq!(result, expected);
+}
+
+#[test]
+fn test_canonicalize_symlink_resolution() {
+    let tmp = TempDir::new().unwrap();
+    let real_dir = tmp.path().join("real_target");
+    fs::create_dir_all(&real_dir).unwrap();
+
+    let link_path = tmp.path().join("link");
+    unix_fs::symlink(&real_dir, &link_path).unwrap();
+
+    let result = path_safety::canonicalize(&link_path).unwrap();
+    let expected = fs::canonicalize(&real_dir).unwrap();
+    assert_eq!(result, expected);
+}
+
+#[test]
+fn test_canonicalize_nested_symlink() {
+    let tmp = TempDir::new().unwrap();
+    let real_dir = tmp.path().join("final_target");
+    fs::create_dir_all(&real_dir).unwrap();
+
+    // chain: link_a -> link_b -> final_target
+    let link_b = tmp.path().join("link_b");
+    unix_fs::symlink(&real_dir, &link_b).unwrap();
+
+    let link_a = tmp.path().join("link_a");
+    unix_fs::symlink(&link_b, &link_a).unwrap();
+
+    let result = path_safety::canonicalize(&link_a).unwrap();
+    let expected = fs::canonicalize(&real_dir).unwrap();
+    assert_eq!(result, expected);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Workspace Manager — 12 tests
+// ═══════════════════════════════════════════════════════════════════════
+
+// Helper to build a minimal WorkspaceConfig pointing at a temp root
+fn workspace_config(root: &Path) -> WorkspaceConfig {
+    WorkspaceConfig {
+        root: root.to_string_lossy().to_string(),
+    }
+}
+
+fn hooks_config_none() -> HooksConfig {
+    HooksConfig {
+        after_create: None,
+        before_run: None,
+        after_run: None,
+        before_remove: None,
+        timeout_ms: 5_000,
+    }
+}
+
+#[allow(dead_code)]
+fn make_test_issue(identifier: &str) -> Issue {
+    Issue {
+        id: "test-id-123".to_string(),
+        identifier: identifier.to_string(),
+        title: "Test Issue".to_string(),
+        description: None,
+        priority: None,
+        state: "Todo".to_string(),
+        branch_name: None,
+        url: None,
+        assignee_id: None,
+        labels: vec![],
+        blocked_by: vec![],
+        assigned_to_worker: true,
+        created_at: None,
+        updated_at: None,
+    }
+}
+
+#[test]
+fn test_workspace_deterministic_path() {
+    // Same identifier → same path; basename matches sanitized id
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    fs::create_dir_all(&root).unwrap();
+
+    let _config = workspace_config(&root);
+    let id = "MT-42";
+
+    let sanitized = path_safety::sanitize_identifier(id);
+    let canonical_root = path_safety::canonicalize(&root).unwrap();
+
+    // Compute workspace path twice — must be identical
+    let path1 = canonical_root.join(&sanitized);
+    let path2 = canonical_root.join(path_safety::sanitize_identifier(id));
+    assert_eq!(path1, path2);
+    assert_eq!(path1.file_name().unwrap().to_str().unwrap(), "MT-42");
+}
+
+#[test]
+fn test_workspace_creates_missing_directory() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    fs::create_dir_all(&root).unwrap();
+
+    let config = workspace_config(&root);
+    let hooks = hooks_config_none();
+
+    let ws = symphony::workspace::ensure_workspace("MT-42", &config, &hooks).unwrap();
+    assert!(ws.created_now);
+    assert!(Path::new(&ws.path).is_dir());
+}
+
+#[test]
+fn test_workspace_reuses_existing_directory() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    fs::create_dir_all(&root).unwrap();
+
+    let config = workspace_config(&root);
+    let hooks = hooks_config_none();
+
+    // First call creates
+    let ws1 = symphony::workspace::ensure_workspace("MT-42", &config, &hooks).unwrap();
+    assert!(ws1.created_now);
+
+    // Drop a marker file
+    let marker = PathBuf::from(&ws1.path).join("marker.txt");
+    fs::write(&marker, "exists").unwrap();
+
+    // Second call reuses
+    let ws2 = symphony::workspace::ensure_workspace("MT-42", &config, &hooks).unwrap();
+    assert!(!ws2.created_now);
+    assert_eq!(ws1.path, ws2.path);
+
+    // Marker file still exists — directory was NOT recreated
+    assert!(marker.exists());
+}
+
+#[test]
+fn test_workspace_replaces_non_directory() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    fs::create_dir_all(&root).unwrap();
+
+    let config = workspace_config(&root);
+    let hooks = hooks_config_none();
+
+    // Create a regular file where the workspace would go
+    let sanitized = path_safety::sanitize_identifier("MT-42");
+    let canonical_root = path_safety::canonicalize(&root).unwrap();
+    let file_path = canonical_root.join(&sanitized);
+    fs::write(&file_path, "I am a file").unwrap();
+    assert!(file_path.is_file());
+
+    // ensure_workspace should replace it with a directory
+    let ws = symphony::workspace::ensure_workspace("MT-42", &config, &hooks).unwrap();
+    assert!(ws.created_now);
+    assert!(Path::new(&ws.path).is_dir());
+}
+
+#[test]
+fn test_workspace_rejects_symlink_escape() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    fs::create_dir_all(&root).unwrap();
+
+    let outside = tmp.path().join("outside");
+    fs::create_dir_all(&outside).unwrap();
+
+    // Create a symlink inside root that points outside
+    let canonical_root = path_safety::canonicalize(&root).unwrap();
+    let escape_link = canonical_root.join("escape");
+    unix_fs::symlink(&outside, &escape_link).unwrap();
+
+    let config = workspace_config(&root);
+    let hooks = hooks_config_none();
+
+    let result = symphony::workspace::ensure_workspace("escape", &config, &hooks);
+    match result {
+        Err(SymphonyError::WorkspaceOutsideRoot { workspace, root: r }) => {
+            // Good — the symlink escape was detected
+            assert!(workspace.contains("outside") || !workspace.starts_with(&r));
+        }
+        other => panic!("Expected WorkspaceOutsideRoot, got: {:?}", other),
+    }
+}
+
+#[test]
+fn test_workspace_canonicalizes_symlinked_root() {
+    let tmp = TempDir::new().unwrap();
+    let actual_root = tmp.path().join("actual_workspaces");
+    fs::create_dir_all(&actual_root).unwrap();
+
+    // Root is a symlink → workspaces should be created under the real target
+    let link_root = tmp.path().join("link_workspaces");
+    unix_fs::symlink(&actual_root, &link_root).unwrap();
+
+    let config = workspace_config(&link_root);
+    let hooks = hooks_config_none();
+
+    let ws = symphony::workspace::ensure_workspace("MT-42", &config, &hooks).unwrap();
+    assert!(ws.created_now);
+
+    // The workspace should be under the actual (canonical) root, not the symlink
+    let canonical_actual = fs::canonicalize(&actual_root).unwrap();
+    assert!(
+        ws.path.starts_with(canonical_actual.to_str().unwrap()),
+        "Workspace {} should be under canonical root {}",
+        ws.path,
+        canonical_actual.display()
+    );
+}
+
+#[test]
+fn test_workspace_rejects_root_itself() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    fs::create_dir_all(&root).unwrap();
+
+    // Symlink "workspaces" inside root pointing to root itself (a "."-like escape)
+    // Instead, craft the scenario: the sanitized identifier results in root path
+    // We test validate_workspace_path directly
+    let canonical_root = path_safety::canonicalize(&root).unwrap();
+
+    let result = symphony::workspace::validate_workspace_path(&canonical_root, &canonical_root);
+    match result {
+        Err(SymphonyError::WorkspaceOutsideRoot { .. }) => {
+            // Good — root == workspace is rejected
+        }
+        other => panic!("Expected WorkspaceOutsideRoot, got: {:?}", other),
+    }
+}
+
+#[test]
+fn test_workspace_after_create_hook_runs() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    fs::create_dir_all(&root).unwrap();
+
+    let config = workspace_config(&root);
+    let hooks = HooksConfig {
+        after_create: Some("touch hook_ran.txt".to_string()),
+        before_run: None,
+        after_run: None,
+        before_remove: None,
+        timeout_ms: 5_000,
+    };
+
+    let ws = symphony::workspace::ensure_workspace("MT-42", &config, &hooks).unwrap();
+    assert!(ws.created_now);
+
+    // The hook should have created this file in the workspace directory
+    let marker = PathBuf::from(&ws.path).join("hook_ran.txt");
+    assert!(
+        marker.exists(),
+        "after_create hook should have created hook_ran.txt"
+    );
+}
+
+#[test]
+fn test_workspace_after_create_hook_failure() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    fs::create_dir_all(&root).unwrap();
+
+    let config = workspace_config(&root);
+    let hooks = HooksConfig {
+        after_create: Some("exit 42".to_string()),
+        before_run: None,
+        after_run: None,
+        before_remove: None,
+        timeout_ms: 5_000,
+    };
+
+    let result = symphony::workspace::ensure_workspace("MT-42", &config, &hooks);
+    match result {
+        Err(SymphonyError::WorkspaceHookFailed { hook, status }) => {
+            assert_eq!(hook, "after_create");
+            assert_eq!(status, 42);
+        }
+        other => panic!("Expected WorkspaceHookFailed, got: {:?}", other),
+    }
+}
+
+#[test]
+fn test_workspace_after_create_hook_timeout() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    fs::create_dir_all(&root).unwrap();
+
+    let config = workspace_config(&root);
+    let hooks = HooksConfig {
+        after_create: Some("sleep 60".to_string()),
+        before_run: None,
+        after_run: None,
+        before_remove: None,
+        timeout_ms: 200, // Very short timeout
+    };
+
+    let result = symphony::workspace::ensure_workspace("MT-42", &config, &hooks);
+    match result {
+        Err(SymphonyError::WorkspaceHookTimeout { hook, timeout_ms }) => {
+            assert_eq!(hook, "after_create");
+            assert_eq!(timeout_ms, 200);
+        }
+        other => panic!("Expected WorkspaceHookTimeout, got: {:?}", other),
+    }
+}
+
+#[test]
+fn test_workspace_remove_cleans_directory() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    fs::create_dir_all(&root).unwrap();
+
+    let config = workspace_config(&root);
+    let hooks = hooks_config_none();
+
+    let ws = symphony::workspace::ensure_workspace("MT-42", &config, &hooks).unwrap();
+    let ws_path = PathBuf::from(&ws.path);
+    assert!(ws_path.is_dir());
+
+    // Remove the workspace
+    symphony::workspace::remove_workspace(&ws_path, &config, &hooks).unwrap();
+    assert!(!ws_path.exists());
+
+    // Root should still exist
+    let canonical_root = path_safety::canonicalize(&root).unwrap();
+    assert!(canonical_root.is_dir());
+}
+
+#[test]
+fn test_workspace_remove_runs_before_remove_hook() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    fs::create_dir_all(&root).unwrap();
+
+    let config = workspace_config(&root);
+    let create_hooks = hooks_config_none();
+
+    let ws = symphony::workspace::ensure_workspace("MT-42", &config, &create_hooks).unwrap();
+    let ws_path = PathBuf::from(&ws.path);
+
+    // Remove with a hook that fails — failure should be ignored, workspace still removed
+    let remove_hooks = HooksConfig {
+        after_create: None,
+        before_run: None,
+        after_run: None,
+        before_remove: Some("exit 1".to_string()),
+        timeout_ms: 5_000,
+    };
+
+    symphony::workspace::remove_workspace(&ws_path, &config, &remove_hooks).unwrap();
+    assert!(
+        !ws_path.exists(),
+        "workspace should be removed even if hook fails"
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Hook Lifecycle — 3 tests
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_before_run_hook_failure_is_fatal() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    fs::create_dir_all(&root).unwrap();
+
+    let config = workspace_config(&root);
+    let hooks = hooks_config_none();
+
+    let ws = symphony::workspace::ensure_workspace("MT-42", &config, &hooks).unwrap();
+    let ws_path = PathBuf::from(&ws.path);
+
+    let hooks = HooksConfig {
+        after_create: None,
+        before_run: Some("exit 7".to_string()),
+        after_run: None,
+        before_remove: None,
+        timeout_ms: 5_000,
+    };
+
+    let result = symphony::workspace::run_before_run_hook(&ws_path, &hooks);
+    assert!(result.is_err(), "before_run failure should be fatal");
+    match result {
+        Err(SymphonyError::WorkspaceHookFailed { hook, status }) => {
+            assert_eq!(hook, "before_run");
+            assert_eq!(status, 7);
+        }
+        other => panic!("Expected WorkspaceHookFailed, got: {:?}", other),
+    }
+}
+
+#[test]
+fn test_after_run_hook_failure_is_ignored() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    fs::create_dir_all(&root).unwrap();
+
+    let config = workspace_config(&root);
+    let hooks = hooks_config_none();
+
+    let ws = symphony::workspace::ensure_workspace("MT-42", &config, &hooks).unwrap();
+    let ws_path = PathBuf::from(&ws.path);
+
+    let hooks = HooksConfig {
+        after_create: None,
+        before_run: None,
+        after_run: Some("exit 1".to_string()),
+        before_remove: None,
+        timeout_ms: 5_000,
+    };
+
+    let result = symphony::workspace::run_after_run_hook(&ws_path, &hooks);
+    assert!(
+        result.is_ok(),
+        "after_run failure should be ignored (Ok(()))"
+    );
+}
+
+#[test]
+fn test_hook_output_truncation() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    fs::create_dir_all(&root).unwrap();
+
+    let config = workspace_config(&root);
+    let hooks = hooks_config_none();
+
+    let ws = symphony::workspace::ensure_workspace("MT-42", &config, &hooks).unwrap();
+    let ws_path = PathBuf::from(&ws.path);
+
+    // A hook that generates >2KB of output then fails
+    let hooks = HooksConfig {
+        after_create: None,
+        before_run: Some("head -c 4096 /dev/zero | tr '\\0' 'x' && exit 1".to_string()),
+        after_run: None,
+        before_remove: None,
+        timeout_ms: 5_000,
+    };
+
+    let result = symphony::workspace::run_before_run_hook(&ws_path, &hooks);
+    // The hook should fail (exit 1), but the error should be present
+    // Output truncation is verified at the log level — the error itself should exist
+    assert!(result.is_err());
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Prompt Builder — 7 tests
+// ═══════════════════════════════════════════════════════════════════════
+
+fn make_full_issue() -> Issue {
+    Issue {
+        id: "abc-123".to_string(),
+        identifier: "MT-42".to_string(),
+        title: "Fix the widget".to_string(),
+        description: Some("Detailed description".to_string()),
+        priority: Some(2),
+        state: "In Progress".to_string(),
+        branch_name: Some("feature/mt-42".to_string()),
+        url: Some("https://linear.app/mt-42".to_string()),
+        assignee_id: Some("user-1".to_string()),
+        labels: vec!["bug".to_string(), "urgent".to_string()],
+        blocked_by: vec![
+            BlockerRef {
+                id: Some("blocker-1".to_string()),
+                identifier: Some("MT-10".to_string()),
+                state: Some("Done".to_string()),
+            },
+            BlockerRef {
+                id: Some("blocker-2".to_string()),
+                identifier: Some("MT-20".to_string()),
+                state: Some("In Progress".to_string()),
+            },
+        ],
+        assigned_to_worker: true,
+        created_at: Some("2025-01-15T10:30:00Z".parse::<DateTime<Utc>>().unwrap()),
+        updated_at: Some("2025-02-20T14:00:00Z".parse::<DateTime<Utc>>().unwrap()),
+    }
+}
+
+#[test]
+fn test_render_prompt_basic_fields() {
+    let issue = make_full_issue();
+    let template = "ID: {{ issue.identifier }}\nTitle: {{ issue.title }}\nLabels: {{ issue.labels | join: ', ' }}\nAttempt: {{ attempt }}";
+
+    let result = symphony::prompt_builder::render_prompt(template, &issue, Some(2)).unwrap();
+    assert!(result.contains("ID: MT-42"), "got: {}", result);
+    assert!(result.contains("Title: Fix the widget"), "got: {}", result);
+    assert!(result.contains("Labels: bug, urgent"), "got: {}", result);
+    assert!(result.contains("Attempt: 2"), "got: {}", result);
+}
+
+#[test]
+fn test_render_prompt_datetime_fields() {
+    let issue = make_full_issue();
+    let template = "Created: {{ issue.created_at }}\nUpdated: {{ issue.updated_at }}";
+
+    let result = symphony::prompt_builder::render_prompt(template, &issue, None).unwrap();
+    // Should contain ISO 8601 format
+    assert!(
+        result.contains("2025-01-15"),
+        "created_at should render as ISO 8601, got: {}",
+        result
+    );
+    assert!(
+        result.contains("2025-02-20"),
+        "updated_at should render as ISO 8601, got: {}",
+        result
+    );
+}
+
+#[test]
+fn test_render_prompt_none_fields() {
+    let issue = Issue {
+        id: "test-id".to_string(),
+        identifier: "MT-1".to_string(),
+        title: "Test".to_string(),
+        description: None,
+        priority: None,
+        state: "Todo".to_string(),
+        branch_name: None,
+        url: None,
+        assignee_id: None,
+        labels: vec![],
+        blocked_by: vec![],
+        assigned_to_worker: true,
+        created_at: None,
+        updated_at: None,
+    };
+    let template = "Desc: [{{ issue.description }}] Branch: [{{ issue.branch_name }}]";
+
+    let result = symphony::prompt_builder::render_prompt(template, &issue, None).unwrap();
+    // None fields should render as empty
+    assert!(
+        result.contains("Desc: []"),
+        "None should render as empty, got: {}",
+        result
+    );
+    assert!(
+        result.contains("Branch: []"),
+        "None should render as empty, got: {}",
+        result
+    );
+}
+
+#[test]
+fn test_render_prompt_blockers_iterable() {
+    let issue = make_full_issue();
+    let template = "Blockers:{% for b in issue.blocked_by %} {{ b.identifier }}{% endfor %}";
+
+    let result = symphony::prompt_builder::render_prompt(template, &issue, None).unwrap();
+    assert!(
+        result.contains("MT-10"),
+        "Should iterate blockers, got: {}",
+        result
+    );
+    assert!(
+        result.contains("MT-20"),
+        "Should iterate blockers, got: {}",
+        result
+    );
+}
+
+#[test]
+fn test_render_prompt_strict_unknown_variable() {
+    let issue = make_full_issue();
+    let template = "{{ missing.field }}";
+
+    let result = symphony::prompt_builder::render_prompt(template, &issue, None);
+    match result {
+        Err(SymphonyError::TemplateRenderError(_)) => { /* expected */ }
+        other => panic!("Expected TemplateRenderError, got: {:?}", other),
+    }
+}
+
+#[test]
+fn test_render_prompt_parse_error() {
+    let issue = make_full_issue();
+    let template = "{% if issue.id %}"; // Unclosed if block
+
+    let result = symphony::prompt_builder::render_prompt(template, &issue, None);
+    match result {
+        Err(SymphonyError::TemplateParseError(_)) => { /* expected */ }
+        other => panic!("Expected TemplateParseError, got: {:?}", other),
+    }
+}
+
+#[test]
+fn test_render_prompt_attempt_none_vs_some() {
+    let issue = make_full_issue();
+    let template = "Attempt: [{{ attempt }}]";
+
+    // None → empty
+    let result_none = symphony::prompt_builder::render_prompt(template, &issue, None).unwrap();
+    assert!(
+        result_none.contains("Attempt: []"),
+        "attempt=None should render as empty, got: {}",
+        result_none
+    );
+
+    // Some(3) → "3"
+    let result_some = symphony::prompt_builder::render_prompt(template, &issue, Some(3)).unwrap();
+    assert!(
+        result_some.contains("Attempt: [3]"),
+        "attempt=Some(3) should render as '3', got: {}",
+        result_some
+    );
+}

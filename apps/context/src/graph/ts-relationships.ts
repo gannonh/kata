@@ -603,7 +603,7 @@ function getSource(file: ParsedFile, rootPath: string): string | null {
  * Find the symbol ID of a named import target in a file's symbols.
  * Returns null if no match (e.g. the symbol isn't defined in this file).
  */
-function findImportingSymbolId(file: ParsedFile, _name: string): string | null {
+function findImportingSymbolId(_file: ParsedFile, _name: string): string | null {
   // For import edges, the source is the file-level module
   return null;
 }

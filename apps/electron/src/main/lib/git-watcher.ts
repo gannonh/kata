@@ -131,7 +131,7 @@ export class GitWatcher {
         }
 
         try {
-          this.onError?.(error)
+          this.onError?.(error instanceof Error ? error : new Error(String(error)))
         } catch (callbackError) {
           debug('[GitWatcher] Error in error handler:', callbackError)
         }

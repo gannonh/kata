@@ -16,7 +16,7 @@ import { loadConfig } from "./config.js";
 import { discoverFiles } from "./discovery.js";
 import { GraphStore } from "./graph/store.js";
 import { extractRelationships } from "./graph/relationships.js";
-import { parseFiles, type ParseResult } from "./parser/index.js";
+import { parseFiles } from "./parser/index.js";
 import { isSupportedFile } from "./parser/languages.js";
 import type { Config, ParsedFile, Relationship, Symbol } from "./types.js";
 

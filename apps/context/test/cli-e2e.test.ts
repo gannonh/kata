@@ -8,7 +8,7 @@
  * the compiled dist/ has ESM resolution issues with native tree-sitter modules.
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi, beforeEach, afterEach } from "vitest";
+import { vi } from "vitest";
 import { mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { tmpdir } from "node:os";

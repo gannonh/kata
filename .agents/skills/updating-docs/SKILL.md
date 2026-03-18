@@ -1,6 +1,6 @@
 ---
 name: updating-docs
-description: Use after making changes to CLI features, preferences, extensions, agent behavior, or configuration. Triggers when modifying code in apps/cli/src/ that affects user-facing behavior, preferences schema, agent context, or CLI capabilities. Also use when adding/removing/renaming commands, skills, extensions, or preference fields. Fires on phrases like "update docs", "sync documentation", or proactively when implementation changes land.
+description: Use after making changes to CLI features (apps/cli), preferences, extensions, agent behavior, or configuration. Triggers when modifying code in apps/cli/src/ that affects user-facing behavior, preferences schema, agent context, or CLI capabilities. Also use when adding/removing/renaming commands, skills, extensions, or preference fields. Fires on phrases like "update docs", "sync documentation", or proactively when implementation changes land.
 ---
 
 # Updating Documentation

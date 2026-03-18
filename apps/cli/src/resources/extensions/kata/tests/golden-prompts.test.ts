@@ -7,7 +7,6 @@
  * rendering failures, not content regressions.
  */
 
-import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import {
   mkdtempSync,
@@ -316,12 +315,12 @@ describe("golden-prompts", () => {
   let basePath: string;
   let backend: FileBackend;
 
-  before(() => {
+  beforeAll(() => {
     basePath = createFixture();
     backend = new FileBackend(basePath);
   });
 
-  after(() => {
+  afterAll(() => {
     if (basePath) rmSync(basePath, { recursive: true, force: true });
   });
 

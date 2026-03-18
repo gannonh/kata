@@ -15,7 +15,9 @@
     "dev": "bun run dev.ts",
     "bench": "bun run bench.ts",
     "build": "bun run index.ts && mkdir -p dist && mv index.html dist/ && cp -r public/* dist/",
-    "deploy": "bun run build && wrangler pages deploy dist --project-name craft-agents-mermaid"
+    "deploy": "bun run build && wrangler pages deploy dist --project-name craft-agents-mermaid",
+    "lint": "eslint src/ --max-warnings=50",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.1.8"

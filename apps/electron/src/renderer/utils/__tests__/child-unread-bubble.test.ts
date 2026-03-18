@@ -5,7 +5,6 @@ import { bubbleUnreadToParent } from '../child-unread-bubble'
 
 function createMeta(overrides: Partial<SessionMeta> & Pick<SessionMeta, 'id'>): SessionMeta {
   return {
-    id: overrides.id,
     workspaceId: overrides.workspaceId ?? 'workspace-1',
     hasUnread: overrides.hasUnread,
     ...overrides,

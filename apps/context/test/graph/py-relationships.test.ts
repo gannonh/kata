@@ -5,7 +5,6 @@
  * correct extraction of imports, inherits edges.
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
 import { resolve } from "node:path";
 import { extractPyRelationships } from "../../src/graph/py-relationships.js";
 import { parseFile } from "../../src/parser/index.js";

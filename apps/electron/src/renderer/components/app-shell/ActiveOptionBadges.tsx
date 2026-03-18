@@ -468,6 +468,10 @@ function PermissionModeDropdown({ permissionMode, ultrathinkEnabled = false, onP
       className: 'bg-accent/5 text-accent',
       shadowVar: 'var(--accent-rgb)',
     },
+    'daemon': {
+      className: 'bg-warning/10 text-warning',
+      shadowVar: 'var(--warning-rgb)',
+    },
   }
   const currentStyle = modeStyles[optimisticMode]
 

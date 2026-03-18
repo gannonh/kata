@@ -2,7 +2,6 @@
  * Contract tests for `/kata pr` subcommand routing and status surface.
  */
 
-import test from "node:test";
 import assert from "node:assert/strict";
 
 import {

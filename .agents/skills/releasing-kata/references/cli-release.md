@@ -9,12 +9,14 @@ CI workflow: `cli-release.yml`
 ## Steps
 
 1. **Verify clean state on main**
+
    ```bash
    git branch --show-current  # → main
    git status                 # → clean
    ```
 
 2. **Run pre-release checks**
+
    ```bash
    cd apps/cli
    npx tsc
@@ -28,6 +30,7 @@ CI workflow: `cli-release.yml`
 5. **Update `apps/cli/src/resources/AGENTS.md`** with any relevant changes to agent capabilities or instructions
 
 6. **Create release branch and PR**
+
    ```bash
    git checkout -b release/cli-vX.Y.Z
    git add apps/cli/package.json apps/cli/CHANGELOG.md
@@ -39,6 +42,7 @@ CI workflow: `cli-release.yml`
 7. **When approved, merge PR to main** — CI takes over from here
 
 8. **Verify the release**
+
    ```bash
    gh release view cli-vX.Y.Z
    npm view @kata-sh/cli version
@@ -47,6 +51,7 @@ CI workflow: `cli-release.yml`
 ## What CI does after merge
 
 `cli-release.yml` triggers on push to main:
+
 1. Compares `apps/cli/package.json` version against existing `cli-v*` tags — skips if tag exists
 2. Runs TypeScript check and tests
 3. Builds and publishes to npm (`npm publish --access public`)

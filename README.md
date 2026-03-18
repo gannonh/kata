@@ -14,11 +14,13 @@
 
 ## Kata Monorepo
 
-This is the Kata monorepo for three AI agent products:
+This is the Kata monorepo for five AI agent products:
 
 - Kata CLI in `apps/cli`
 - Kata Desktop in `apps/electron`
 - Kata Orchestrator in `apps/orchestrator`
+- Kata Context in `apps/context`
+- Symphony in `apps/symphony`
 
 The repo also contains shared packages that support the product apps.
 
@@ -29,6 +31,8 @@ The repo also contains shared packages that support the product apps.
 | [Kata CLI](apps/cli/README.md)                   | `apps/cli`          | Terminal-based coding work with guided and autonomous execution modes                        | `npx @kata-sh/cli`                                          |
 | [Kata Desktop](apps/electron/README.md)          | `apps/electron`     | Desktop-based agent work with workspaces, session management, sources, and approval controls | [GitHub Releases](https://github.com/gannonh/kata/releases) |
 | [Kata Orchestrator](apps/orchestrator/README.md) | `apps/orchestrator` | Spec-driven workflows for Claude Code, OpenCode, Gemini CLI, and Codex                       | `npx @kata-sh/orc@latest`                                   |
+| Kata Context                                     | `apps/context`      | Structural, semantic, and memory-based codebase understanding for AI coding agents           | `npx @kata/context`                                         |
+| Symphony                                         | `apps/symphony`     | Polls Linear, dispatches agent sessions via workflow definitions                             | Rust binary (in development)                                |
 
 ## Kata CLI
 
@@ -100,17 +104,37 @@ Use Kata Orchestrator when you want:
 
 Read more in [apps/orchestrator/README.md](apps/orchestrator/README.md).
 
+## Kata Context
+
+Kata Context provides structural, semantic, and memory-based codebase understanding for AI coding agents. It indexes source files using tree-sitter, builds a dependency graph stored in SQLite, and exposes commands for graph queries, grep, and file discovery.
+
+```bash
+npx @kata/context
+```
+
+## Symphony
+
+Symphony is a Rust binary that polls Linear for workflow-triggering issues and dispatches agent sessions based on workflow definitions. It uses Liquid templates for prompt generation and supports configurable workspace layouts.
+
+Symphony is in active development and not yet published. Build from source:
+
+```bash
+cd apps/symphony && cargo build --release
+```
+
 | Path                | Purpose                                                    |
 | ------------------- | ---------------------------------------------------------- |
 | `apps/cli`          | Kata CLI                                                   |
+| `apps/context`      | Kata Context                                               |
 | `apps/electron`     | Kata Desktop                                               |
 | `apps/orchestrator` | Kata Orchestrator                                          |
+| `apps/symphony`     | Symphony (Rust)                                            |
 | `apps/online-docs`  | Online documentation site                                  |
-| `apps/viewer`       | Viewer app                                                 |
+| `apps/viewer`       | Session viewer                                             |
 | `packages/core`     | Shared types                                               |
 | `packages/shared`   | Shared agent, auth, config, git, session, and source logic |
-| `packages/ui`       | Shared UI code                                             |
-| `packages/mermaid`  | Shared Mermaid package                                     |
+| `packages/ui`       | Shared UI components                                       |
+| `packages/mermaid`  | Mermaid diagram renderer                                   |
 
 ## Local Development
 
@@ -128,23 +152,31 @@ bun run githooks:install
 
 Common commands:
 
-| Command                            | Purpose                                      |
-| ---------------------------------- | -------------------------------------------- |
-| `bun run electron:dev`             | Start Kata Desktop in development mode       |
-| `cd apps/cli && npm run build`     | Build Kata CLI                               |
-| `cd apps/orchestrator && npm test` | Run Kata Orchestrator tests                  |
-| `bun run typecheck:all`            | Run TypeScript checks across shared packages |
+| Command                              | Purpose                                        |
+| ------------------------------------ | ---------------------------------------------- |
+| `bun run validate`                   | Lint + typecheck + test all packages via Turbo  |
+| `bun run validate:affected`          | Same, only changed packages                    |
+| `bun run electron:dev`               | Start Kata Desktop in development mode         |
+| `cd apps/symphony && cargo build`    | Build Symphony                                 |
 
 ## Testing
 
-| Command            | Runs                                   |
-| ------------------ | -------------------------------------- |
-| `bun run test`     | Shared package and desktop unit tests  |
-| `bun run test:cli` | Kata CLI tests                         |
-| `bun run test:all` | Shared package, desktop, and CLI tests |
-| `bun run test:e2e` | Desktop Playwright tests               |
+All testing is orchestrated by Turborepo. Each package owns its test runner.
 
-The CLI uses Node's built-in test runner. The shared packages and desktop tests use Bun.
+| Command                    | Runs                                           |
+| -------------------------- | ---------------------------------------------- |
+| `bun run test`             | All package tests via Turborepo                |
+| `bun run test:affected`    | Only changed packages                          |
+| `bun run test:e2e`         | Desktop Playwright E2E (mocked)                |
+| `bun run test:e2e:live`    | Desktop Playwright E2E (real accounts, local)  |
+
+| Package      | Test runner | Notes                                     |
+| ------------ | ----------- | ----------------------------------------- |
+| context      | Vitest      | Uses better-sqlite3 (native Node addon)   |
+| symphony     | cargo test  | Rust, runs through package.json shim      |
+| all others   | Bun test    | Default for JS/TS packages                |
+
+A pre-push git hook runs `turbo run lint typecheck test --affected` before every push.
 
 ## License
 

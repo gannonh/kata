@@ -9,7 +9,6 @@
  *     src/resources/extensions/linear/tests/document-naming.test.ts
  */
 
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { buildDocumentTitle, parseDocumentTitle } from "../linear-documents.ts";
 

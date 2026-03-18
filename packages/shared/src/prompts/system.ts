@@ -96,7 +96,7 @@ export function findAllProjectContextFiles(directory: string): string[] {
 
     // Sort by depth (fewer slashes = shallower = higher priority), then alphabetically
     // Root files come first, then nested packages
-    const sorted = matches.sort((a, b) => {
+    const sorted = matches.sort((a: string, b: string) => {
       const depthA = (a.match(/\//g) || []).length;
       const depthB = (b.match(/\//g) || []).length;
       if (depthA !== depthB) return depthA - depthB;

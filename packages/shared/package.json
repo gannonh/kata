@@ -8,7 +8,9 @@
   "types": "src/index.ts",
   "scripts": {
     "test": "bun test",
-    "test:watch": "bun test --watch"
+    "test:watch": "bun test --watch",
+    "lint": "eslint src/ --max-warnings=150",
+    "typecheck": "tsc --noEmit"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -59,9 +61,11 @@
   },
   "dependencies": {
     "@craft-agent/core": "workspace:*",
+    "@craft-agent/mermaid": "workspace:*",
     "@isaacs/ttlcache": "^2.1.4",
     "bash-parser": "^0.5.0",
     "filtrex": "^3.1.0",
+    "glob": "^13.0.6",
     "incr-regex-package": "^1.0.4",
     "shell-quote": "^1.8.3",
     "simple-git": "^3.30.0"
@@ -73,7 +77,6 @@
     "zod": ">=3.0.0"
   },
   "devDependencies": {
-    "@types/shell-quote": "^1.7.5",
-    "@types/uuid": "^11.0.0"
+    "@types/shell-quote": "^1.7.5"
   }
 }

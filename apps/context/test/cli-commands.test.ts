@@ -6,7 +6,7 @@
  * command's core logic + output formatting in all three modes.
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi, beforeEach, afterEach } from "vitest";
+import { vi } from "vitest";
 import { mkdirSync, rmSync, existsSync, writeFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { tmpdir } from "node:os";

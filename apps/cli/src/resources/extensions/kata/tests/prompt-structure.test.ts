@@ -5,7 +5,6 @@
  * and workflow doc references without checking exact wording.
  */
 
-import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import {
   mkdtempSync,
@@ -217,12 +216,12 @@ describe("FileBackend prompt structure", () => {
   let basePath: string;
   let fb: FileBackend;
 
-  before(() => {
+  beforeAll(() => {
     basePath = createFixture();
     fb = new FileBackend(basePath);
   });
 
-  after(() => {
+  afterAll(() => {
     if (basePath) rmSync(basePath, { recursive: true, force: true });
   });
 
@@ -274,7 +273,7 @@ describe("LinearBackend prompt structure", () => {
   let lbBasePath: string;
   let lb: LinearBackend;
 
-  before(() => {
+  beforeAll(() => {
     // LinearBackend needs a git repo at basePath for resolveGitRoot
     lbBasePath = mkdtempSync(join(tmpdir(), "kata-struct-linear-"));
     execSync("git init --initial-branch=main", { cwd: lbBasePath, stdio: "pipe" });
@@ -284,7 +283,7 @@ describe("LinearBackend prompt structure", () => {
     lb = new LinearBackend(lbBasePath, LINEAR_CONFIG);
   });
 
-  after(() => {
+  afterAll(() => {
     if (lbBasePath) rmSync(lbBasePath, { recursive: true, force: true });
   });
 

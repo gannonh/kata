@@ -10,7 +10,6 @@
  * - tarball installs and the `kata` binary resolves
  */
 
-import test from "node:test";
 import assert from "node:assert/strict";
 import { execSync, spawn } from "node:child_process";
 import {

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "globalDependencies": ["tsconfig.json"],
+  "globalEnv": ["NODE_ENV", "CI"],
+  "tasks": {
+    "lint": {
+      "outputs": [],
+      "inputs": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.mjs", "src/**/*.rs", "eslint.config.*", "Cargo.toml"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "outputs": [],
+      "inputs": ["src/**/*.ts", "src/**/*.tsx", "tsconfig.json"]
+    },
+    "test": {
+      "outputs": [],
+      "inputs": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.js", "src/**/*.cjs", "src/**/*.mjs", "src/**/*.rs", "tests/**/*.ts", "tests/**/*.js", "tests/**/*.cjs", "tests/**/*.rs", "test/**/*.ts", "test/**/*.js", "Cargo.toml"]
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "target/release/**"],
+      "inputs": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.rs", "tsconfig.json", "Cargo.toml"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

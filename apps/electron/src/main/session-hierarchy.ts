@@ -17,9 +17,9 @@ type SessionHierarchyKey = typeof SESSION_HIERARCHY_KEYS[number]
 export type SessionHierarchyMetadata = Pick<SessionConfig, SessionHierarchyKey>
 
 export function pickSessionHierarchyMetadata(source: SessionHierarchyMetadata): SessionHierarchyMetadata {
-  const picked: SessionHierarchyMetadata = {}
+  const picked = {} as SessionHierarchyMetadata
   for (const key of SESSION_HIERARCHY_KEYS) {
-    picked[key] = source[key]
+    ;(picked as Record<string, unknown>)[key] = source[key]
   }
   return picked
 }

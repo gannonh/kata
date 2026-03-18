@@ -1,0 +1,80 @@
+name: Symphony Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/symphony/**'
+
+concurrency:
+  group: symphony-release-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if Symphony version changed
+        id: check
+        run: |
+          CURRENT_VERSION=$(grep '^version' apps/symphony/Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+          if git ls-remote --tags origin | grep -q "refs/tags/symphony-v$CURRENT_VERSION"; then
+            echo "Tag symphony-v$CURRENT_VERSION already exists, skipping release"
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "New Symphony version $CURRENT_VERSION detected, will release"
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          fi
+
+  build-and-release:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/symphony/target
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('apps/symphony/Cargo.lock') }}
+
+      - name: Run tests
+        run: cd apps/symphony && cargo test
+
+      - name: Build release binary
+        run: cd apps/symphony && cargo build --release
+
+      - name: Create Git tag
+        run: |
+          VERSION=${{ needs.check-version.outputs.version }}
+          git tag "symphony-v$VERSION"
+          git push origin "symphony-v$VERSION"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: symphony-v${{ needs.check-version.outputs.version }}
+          name: Symphony v${{ needs.check-version.outputs.version }}
+          files: apps/symphony/target/release/symphony
+          generate_release_notes: true

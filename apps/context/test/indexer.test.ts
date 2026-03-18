@@ -5,7 +5,6 @@
  * Uses in-memory SQLite databases for speed and isolation.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { resolve } from "node:path";
 import { indexProject, type IndexResult } from "../src/indexer.js";
 import { GraphStore } from "../src/graph/store.js";

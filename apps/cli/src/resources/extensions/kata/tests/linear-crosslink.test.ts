@@ -5,7 +5,6 @@
  * and composePRBody integration with Linear references.
  */
 
-import test from "node:test";
 import assert from "node:assert/strict";
 
 import {

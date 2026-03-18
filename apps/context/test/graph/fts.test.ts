@@ -1,4 +1,3 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { GraphStore } from "../../src/graph/store.js";
 import { SymbolKind, RelationshipKind } from "../../src/types.js";
 import type { Symbol, Relationship } from "../../src/types.js";

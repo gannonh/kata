@@ -8,7 +8,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/ --max-warnings=20",
+    "test": "bun test src/"
   },
   "dependencies": {
     "@craft-agent/core": "workspace:*",

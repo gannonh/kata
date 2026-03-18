@@ -9,12 +9,14 @@ CI workflow: `orc-release.yml`
 ## Steps
 
 1. **Verify clean state on main**
+
    ```bash
    git branch --show-current  # → main
    git status                 # → clean
    ```
 
 2. **Run pre-release checks**
+
    ```bash
    cd apps/orchestrator
    npm test
@@ -25,6 +27,7 @@ CI workflow: `orc-release.yml`
 4. **Update `apps/orchestrator/CHANGELOG.md`** with the new version's changes
 
 5. **Create release branch and PR**
+
    ```bash
    git checkout -b release/orc-vX.Y.Z
    git add apps/orchestrator/package.json apps/orchestrator/CHANGELOG.md
@@ -36,6 +39,7 @@ CI workflow: `orc-release.yml`
 6. **When approved, merge PR to main** — CI takes over from here
 
 7. **Verify the release**
+
    ```bash
    gh release view orc-vX.Y.Z
    npm view @kata-sh/orc version
@@ -44,6 +48,7 @@ CI workflow: `orc-release.yml`
 ## What CI does after merge
 
 `orc-release.yml` triggers on push to main when files under `apps/orchestrator/**` change:
+
 1. Compares `apps/orchestrator/package.json` version against existing `orc-v*` tags — skips if tag exists
 2. Runs `npm test`
 3. Publishes to npm (`npm publish --access public`) — `prepublishOnly` runs `build:hooks` automatically

@@ -1,4 +1,3 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 
 import type { LoadedKataPreferences, KataPreferences } from "../preferences.ts";

@@ -315,7 +315,7 @@ test('Task lifecycle creates a child session once and emits child session status
   )
   expect(childSessions).toHaveLength(1)
 
-  const childSession = childSessions[0]
+  const childSession = childSessions[0] as any
   expect(childSession).toMatchObject({
     name: 'Explore workspace sources',
     sessionKind: 'subagent',
@@ -439,7 +439,7 @@ test('Task lifecycle waits for authoritative Task metadata before emitting subag
       type: 'subagent_spawned',
       sessionId: '260308-root',
       delegatedToolUseId: 'toolu-task-partial-first',
-      childSessionId: childSessions[0].id,
+      childSessionId: (childSessions[0] as any).id,
       childSessionName: 'Explore workspace sources',
       agentRole: 'Explore',
       delegationLabel: 'Explore workspace sources',
@@ -452,7 +452,7 @@ test('Task lifecycle waits for authoritative Task metadata before emitting subag
       type: 'subagent_status_changed',
       sessionId: '260308-root',
       delegatedToolUseId: 'toolu-task-partial-first',
-      childSessionId: childSessions[0].id,
+      childSessionId: (childSessions[0] as any).id,
       subagentStatus: 'running',
     },
   ])
@@ -507,14 +507,14 @@ test('Task lifecycle scopes child session hydration to parent session and toolUs
       type: 'subagent_status_changed',
       sessionId: '260308-root',
       delegatedToolUseId: 'toolu-task-a',
-      childSessionId: childSessions.find((session: any) => session.delegatedToolUseId === 'toolu-task-a')!.id,
+      childSessionId: (childSessions.find((session: any) => session.delegatedToolUseId === 'toolu-task-a') as any)!.id,
       subagentStatus: 'running',
     },
     {
       type: 'subagent_status_changed',
       sessionId: '260308-root',
       delegatedToolUseId: 'toolu-task-b',
-      childSessionId: childSessions.find((session: any) => session.delegatedToolUseId === 'toolu-task-b')!.id,
+      childSessionId: (childSessions.find((session: any) => session.delegatedToolUseId === 'toolu-task-b') as any)!.id,
       subagentStatus: 'running',
     },
   ])
@@ -551,7 +551,7 @@ test('Task lifecycle does not re-emit subagent_spawned for a persisted child aft
   )
 
   expect(childSessions).toHaveLength(1)
-  expect(childSessions[0]?.id).toBe(childSession.id)
+  expect((childSessions[0] as any)?.id).toBe(childSession.id)
   expect(sessionEvents.filter(event => event.type === 'subagent_spawned')).toHaveLength(0)
   expect(manager.taskChildSessions.get(`${rootSession.id}:toolu-task-a`)).toBe(childSession.id)
 })
