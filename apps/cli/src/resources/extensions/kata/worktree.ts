@@ -202,7 +202,7 @@ export function ensureSliceBranch(basePath: string, milestoneId: string, sliceId
   );
   if (conflictingBranch) {
     throw new Error(
-      `Refusing to use legacy branch ${legacyBranch} for ${milestoneId}/${sliceId} due conflicting scope namespace: found ${conflictingBranch}; expected scope ${expectedScope}`,
+      `Refusing to use legacy branch ${legacyBranch} for ${milestoneId}/${sliceId} due conflicting scope namespace: found ${conflictingBranch}; expected ${namespacedBranch} (scope ${expectedScope})`,
     );
   }
 
@@ -257,7 +257,7 @@ export function mergeSliceToMain(
     );
     if (conflictingBranch) {
       throw new Error(
-        `Refusing to merge legacy branch ${legacyBranch} for ${milestoneId}/${sliceId} due conflicting scope namespace: found ${conflictingBranch}; expected scope ${expectedScope}`,
+        `Refusing to merge legacy branch ${legacyBranch} for ${milestoneId}/${sliceId} due conflicting scope namespace: found ${conflictingBranch}; expected ${namespacedBranch} (scope ${expectedScope})`,
       );
     }
     branch = legacyBranch;
