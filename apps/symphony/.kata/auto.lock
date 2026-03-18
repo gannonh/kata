@@ -1,9 +1,9 @@
 {
   "pid": 52349,
-  "startedAt": "2026-03-18T13:55:22.132Z",
-  "unitType": "execute-task",
-  "unitId": "M001/S05/T03",
-  "unitStartedAt": "2026-03-18T13:55:22.132Z",
-  "completedUnits": 1,
-  "sessionFile": "/Users/gannonhall/.kata-cli/sessions/2026-03-18T13-55-22-132Z_b885d6d1-bfff-48d7-803c-98719b86f3de.jsonl"
+  "startedAt": "2026-03-18T14:09:38.622Z",
+  "unitType": "complete-slice",
+  "unitId": "M001/S05",
+  "unitStartedAt": "2026-03-18T14:09:38.622Z",
+  "completedUnits": 2,
+  "sessionFile": "/Users/gannonhall/.kata-cli/sessions/2026-03-18T14-09-38-621Z_3b8161e5-6887-4c00-9b5b-9b5cae1bfd0c.jsonl"
 }

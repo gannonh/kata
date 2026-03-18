@@ -66,7 +66,7 @@ This milestone is complete only when all are true:
 - [x] **S04: Workspace Manager and Prompt Builder** `risk:medium` `depends:[S01,S02]`
   > After this: `cargo test` proves workspace creation/reuse with sanitized paths, root containment validation, all four lifecycle hooks with timeout enforcement, and prompt rendering with issue+attempt variables.
 
-- [ ] **S05: Codex App-Server Client** `risk:high` `depends:[S01,S04]`
+- [x] **S05: Codex App-Server Client** `risk:high` `depends:[S01,S04]`
   > After this: `cargo test` proves subprocess launch, startup handshake, turn streaming with event extraction, approval/tool-call handling, timeout enforcement, token accounting, and linear_graphql dynamic tool.
 
 - [ ] **S06: Orchestrator Core** `risk:high` `depends:[S02,S03,S04,S05]`

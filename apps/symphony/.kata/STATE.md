@@ -1,8 +1,8 @@
 # Kata State
 
 **Active Milestone:** M001 — Full Spec Conformance
-**Active Slice:** S05 — Codex App-Server Client ✅ COMPLETE
-**Active Task:** S06 next
+**Active Slice:** S06 — Orchestrator Core (next)
+**Active Task:** —
 **Phase:** Planning
 
 ## Progress
@@ -29,11 +29,13 @@
 
 ## Next Action
 
-Begin S06: Orchestrator Core. All S05 verification items pass.
+Begin S06: Orchestrator Core. S05 complete — all 32 tests pass, R005 + R012 validated. S06 depends on S02 (WorkflowStore), S03 (LinearAdapter), S04 (WorkspaceManager + PromptBuilder), S05 (AppServerClient + AgentEvent).
 
 ## Validated Requirements
 
 - R001 (WORKFLOW.md Parsing and Dynamic Reload) — S02
 - R002 (Typed Config Layer) — S02
 - R004 (Workspace Manager with Safety Invariants) — S04
+- R005 (Codex App-Server Client) — S05: 32 tests; subprocess, handshake, turn streaming, approval, tool dispatch, user-input, token accounting
 - R007 (Prompt Builder with Strict Liquid Rendering) — S04
+- R012 (linear_graphql dynamic tool) — S05: 14 tests; argument normalisation, GraphQL execution, error formatting
