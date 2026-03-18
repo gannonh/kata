@@ -2,6 +2,7 @@ use chrono::Utc;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::future::Future;
 use std::path::Path;
+use std::time::Duration;
 
 use crate::codex::app_server;
 use crate::config;
@@ -10,7 +11,7 @@ use crate::domain::{
     RateLimitInfo, RetryEntry, RetrySnapshotEntry, RunAttempt, ServiceConfig,
 };
 use crate::error::Result;
-use crate::{prompt_builder, workspace};
+use crate::{path_safety, prompt_builder, workspace};
 
 pub const CONTINUATION_RETRY_DELAY_MS: i64 = 1_000;
 pub const FAILURE_RETRY_BASE_MS: i64 = 10_000;
@@ -140,8 +141,27 @@ impl Orchestrator {
         }
     }
 
-    pub async fn run(&mut self) -> Result<()> {
-        Ok(())
+    pub async fn run(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
+        self.startup_cleanup(port)?;
+
+        loop {
+            let now_ms = Utc::now().timestamp_millis();
+            let stall_timeout_ms = self.config.codex.stall_timeout_ms.min(i64::MAX as u64) as i64;
+
+            self.detect_stalled_workers(now_ms, stall_timeout_ms);
+
+            if let Err(err) = self.tick(port) {
+                tracing::warn!(
+                    phase = "tick",
+                    error = %err,
+                    "orchestrator tick failed; continuing"
+                );
+            }
+
+            self.process_due_retries(port, now_ms);
+
+            tokio::time::sleep(Duration::from_millis(self.state.poll_interval_ms)).await;
+        }
     }
 
     pub fn startup_cleanup(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
@@ -258,7 +278,7 @@ impl Orchestrator {
                 continue;
             }
 
-            self.dispatch_issue(&refreshed_issue);
+            self.dispatch_issue(&refreshed_issue, None, None, None);
             dispatched_issue_ids.push(refreshed_issue.id);
         }
 
@@ -789,7 +809,18 @@ impl Orchestrator {
 
     fn reconcile_running(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
         let running_issue_ids: Vec<String> = self.state.running.keys().cloned().collect();
-        let refreshed_issues = port.reconcile_running_issues(&running_issue_ids)?;
+        let refreshed_issues = match port.reconcile_running_issues(&running_issue_ids) {
+            Ok(issues) => issues,
+            Err(err) => {
+                tracing::warn!(
+                    phase = "reconcile",
+                    issue_count = running_issue_ids.len(),
+                    error = %err,
+                    "reconcile_running: failed to refresh running issues; keeping active workers"
+                );
+                return Ok(());
+            }
+        };
 
         let terminal_states = self.terminal_state_set();
         let active_states = self.active_state_set();
@@ -856,10 +887,7 @@ impl Orchestrator {
             return false;
         }
 
-        if self.state.claimed.contains(&issue.id)
-            || self.state.running.contains_key(&issue.id)
-            || self.state.completed.contains(&issue.id)
-        {
+        if self.state.claimed.contains(&issue.id) || self.state.running.contains_key(&issue.id) {
             return false;
         }
 
@@ -931,16 +959,23 @@ impl Orchestrator {
         }
     }
 
-    fn dispatch_issue(&mut self, issue: &Issue) {
+    fn dispatch_issue(
+        &mut self,
+        issue: &Issue,
+        attempt: Option<u32>,
+        workspace_path: Option<String>,
+        worker_host: Option<String>,
+    ) {
         let attempt = RunAttempt {
             issue_id: issue.id.clone(),
             issue_identifier: issue.identifier.clone(),
-            attempt: None,
-            workspace_path: "/tmp/symphony-workspace-placeholder".to_string(),
+            attempt,
+            workspace_path: workspace_path
+                .unwrap_or_else(|| self.default_workspace_path_for_issue(issue)),
             started_at: Utc::now(),
-            status: "running".to_string(),
+            status: "scheduled".to_string(),
             error: None,
-            worker_host: None,
+            worker_host,
         };
 
         self.state.running.insert(issue.id.clone(), attempt);
@@ -948,6 +983,123 @@ impl Orchestrator {
         self.state.retry_attempts.remove(&issue.id);
         self.running_issue_states
             .insert(issue.id.clone(), normalize_issue_state(&issue.state));
+    }
+
+    fn process_due_retries(&mut self, port: &mut dyn OrchestratorPort, now_ms: i64) {
+        let due_retries: Vec<RetryEntry> = self
+            .state
+            .retry_attempts
+            .values()
+            .filter(|entry| entry.due_at_ms <= now_ms)
+            .cloned()
+            .collect();
+
+        for retry in due_retries {
+            let Some(token) = retry.timer_handle.clone() else {
+                continue;
+            };
+
+            if !self.fire_retry(&retry.issue_id, &token) {
+                continue;
+            }
+
+            let retry_context = RetryContext {
+                worker_host: retry.worker_host.clone(),
+                workspace_path: retry.workspace_path.clone(),
+                session_id: self.worker_session_ids.get(&retry.issue_id).cloned(),
+            };
+
+            let candidates = match port.fetch_candidate_issues() {
+                Ok(issues) => issues,
+                Err(err) => {
+                    tracing::warn!(
+                        event = "retry_poll_failed",
+                        issue_id = %retry.issue_id,
+                        issue_identifier = %retry.identifier,
+                        error = %err,
+                        "retry poll failed; rescheduling"
+                    );
+
+                    self.schedule_retry_with_context(
+                        &retry.issue_id,
+                        &retry.identifier,
+                        retry.attempt.saturating_add(1),
+                        RetryKind::Failure,
+                        now_ms,
+                        Some(format!("retry poll failed: {err}")),
+                        retry_context,
+                    );
+                    continue;
+                }
+            };
+
+            let Some(issue) = candidates
+                .into_iter()
+                .find(|issue| issue.id == retry.issue_id)
+            else {
+                tracing::debug!(
+                    event = "retry_issue_not_visible",
+                    issue_id = %retry.issue_id,
+                    issue_identifier = %retry.identifier,
+                    "retry issue not visible in active candidates; releasing claim"
+                );
+                self.release_issue(&retry.issue_id);
+                continue;
+            };
+
+            let normalized_state = normalize_issue_state(&issue.state);
+            if self.terminal_state_set().contains(&normalized_state) {
+                self.mark_issue_terminal(&issue.id);
+                continue;
+            }
+
+            if self.should_dispatch_issue(&issue) {
+                self.dispatch_issue(
+                    &issue,
+                    Some(retry.attempt),
+                    retry.workspace_path.clone(),
+                    retry.worker_host.clone(),
+                );
+                continue;
+            }
+
+            if !self.active_state_set().contains(&normalized_state) {
+                tracing::debug!(
+                    event = "retry_issue_inactive",
+                    issue_id = %issue.id,
+                    issue_identifier = %issue.identifier,
+                    state = %normalized_state,
+                    "retry issue left active states; releasing claim"
+                );
+                self.release_issue(&issue.id);
+                continue;
+            }
+
+            tracing::debug!(
+                event = "retry_no_slots",
+                issue_id = %issue.id,
+                issue_identifier = %issue.identifier,
+                "retry issue blocked by orchestrator slot constraints; rescheduling"
+            );
+
+            self.schedule_retry_with_context(
+                &issue.id,
+                &issue.identifier,
+                retry.attempt.saturating_add(1),
+                RetryKind::Failure,
+                now_ms,
+                Some("no available orchestrator slots".to_string()),
+                retry_context,
+            );
+        }
+    }
+
+    fn default_workspace_path_for_issue(&self, issue: &Issue) -> String {
+        let safe_identifier = path_safety::sanitize_identifier(&issue.identifier);
+        Path::new(&self.config.workspace.root)
+            .join(safe_identifier)
+            .to_string_lossy()
+            .to_string()
     }
 
     fn mark_issue_terminal(&mut self, issue_id: &str) {

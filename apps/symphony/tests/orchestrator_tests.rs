@@ -2,9 +2,7 @@ use std::collections::HashMap;
 
 use chrono::{Duration, Utc};
 
-use symphony::domain::{
-    AgentConfig, AgentEvent, BlockerRef, Issue, ServiceConfig, TrackerConfig, WorkflowDefinition,
-};
+use symphony::domain::{AgentConfig, AgentEvent, BlockerRef, Issue, ServiceConfig, TrackerConfig};
 use symphony::error::{Result, SymphonyError};
 use symphony::orchestrator::{
     Orchestrator, OrchestratorPort, RetryKind, RuntimeEvent, TurnMetrics, WorkerCompletion,
@@ -19,6 +17,7 @@ struct FakePort {
     candidate_issues: Vec<Issue>,
     refreshed_issues: HashMap<String, Option<Issue>>,
     validate_should_fail: bool,
+    reconcile_should_fail: bool,
 }
 
 impl FakePort {
@@ -35,6 +34,10 @@ impl OrchestratorPort for FakePort {
 
     fn reconcile_running_issues(&mut self, _running_issue_ids: &[String]) -> Result<Vec<Issue>> {
         self.calls.push("reconcile_running_issues".to_string());
+        if self.reconcile_should_fail {
+            return Err(SymphonyError::Other("reconcile failed".to_string()));
+        }
+
         Ok(self.reconciled_issues.clone())
     }
 
@@ -155,6 +158,55 @@ fn test_reconcile_tick_reconcile_before_validate_before_dispatch() {
             "refresh_issue:issue-1"
         ],
         "tick must execute reconcile -> validate -> dispatch fetch ordering"
+    );
+}
+
+#[test]
+fn test_reconcile_refresh_failure_is_non_fatal_and_dispatch_continues() {
+    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut port = FakePort {
+        reconcile_should_fail: true,
+        candidate_issues: vec![issue("issue-1", "SIM-1", "Todo", Some(2), 0)],
+        ..FakePort::default()
+    };
+
+    let result = orchestrator.tick(&mut port);
+    assert!(
+        result.is_ok(),
+        "tick should continue when running-state refresh fails"
+    );
+
+    assert_eq!(
+        port.call_history(),
+        [
+            "reconcile_running_issues",
+            "validate_dispatch_preflight",
+            "fetch_candidate_issues",
+            "refresh_issue:issue-1"
+        ],
+        "reconcile refresh failures should not abort validation/dispatch phases"
+    );
+}
+
+#[test]
+fn test_completed_is_bookkeeping_and_does_not_block_dispatch() {
+    let mut orchestrator = Orchestrator::new(test_config(2));
+    let candidate = issue("issue-1", "SIM-1", "Todo", Some(1), 0);
+    orchestrator
+        .state_mut()
+        .completed
+        .insert(candidate.id.clone());
+
+    let mut port = FakePort {
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+    assert_eq!(
+        tick.dispatched_issue_ids,
+        vec![candidate.id],
+        "completed bookkeeping must not block dispatch eligibility"
     );
 }
 
@@ -694,18 +746,5 @@ fn test_worker_failure_preserves_attempt_and_backoff_cap() {
     assert!(
         worker_failed,
         "worker failure diagnostics should retain issue context and failure reason"
-    );
-}
-
-#[test]
-fn test_contract_inputs_are_wired_from_task_plan() {
-    let workflow = WorkflowDefinition {
-        config: serde_yaml::Value::Mapping(serde_yaml::Mapping::new()),
-        prompt_template: "{{ issue.title }}".to_string(),
-    };
-
-    assert!(
-        workflow.prompt_template.contains("issue"),
-        "test harness keeps WorkflowDefinition available for future worker prompt assertions"
     );
 }

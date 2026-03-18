@@ -85,12 +85,7 @@ fn test_positional_workflow_override_is_respected() {
 fn test_missing_workflow_path_returns_startup_failure() {
     let parsed = main_bin::parse_cli_from(["symphony", "missing/WORKFLOW.md"]);
     assert!(parsed.is_ok(), "CLI parse should succeed");
-    let cli = parsed.ok().unwrap_or_else(|| Cli {
-        workflow_path: "missing/WORKFLOW.md".to_string(),
-        port: None,
-        logs_root: None,
-        acknowledge_guardrails: false,
-    });
+    let cli = parsed.expect("CLI parse should succeed");
 
     let mut deps = FakeDeps {
         workflow_exists: false,
@@ -117,18 +112,22 @@ fn test_missing_workflow_path_returns_startup_failure() {
         !called_validate,
         "startup validation should not run when workflow file does not exist"
     );
+
+    let called_start = deps
+        .call_history()
+        .iter()
+        .any(|call| call.starts_with("start_orchestrator:"));
+    assert!(
+        !called_start,
+        "orchestrator startup should not run when workflow file does not exist"
+    );
 }
 
 #[test]
 fn test_startup_validation_failure_surfaces_error_and_stops_bootstrap() {
     let parsed = main_bin::parse_cli_from(["symphony", "WORKFLOW.md"]);
     assert!(parsed.is_ok(), "CLI parse should succeed");
-    let cli = parsed.ok().unwrap_or_else(|| Cli {
-        workflow_path: "WORKFLOW.md".to_string(),
-        port: None,
-        logs_root: None,
-        acknowledge_guardrails: false,
-    });
+    let cli = parsed.expect("CLI parse should succeed");
 
     let mut deps = FakeDeps {
         workflow_exists: true,
@@ -158,12 +157,7 @@ fn test_startup_validation_failure_surfaces_error_and_stops_bootstrap() {
 fn test_successful_bootstrap_invokes_orchestrator_start() {
     let parsed = main_bin::parse_cli_from(["symphony", "WORKFLOW.md"]);
     assert!(parsed.is_ok(), "CLI parse should succeed");
-    let cli = parsed.ok().unwrap_or_else(|| Cli {
-        workflow_path: "WORKFLOW.md".to_string(),
-        port: None,
-        logs_root: None,
-        acknowledge_guardrails: false,
-    });
+    let cli = parsed.expect("CLI parse should succeed");
 
     let mut deps = FakeDeps {
         workflow_exists: true,
@@ -183,5 +177,41 @@ fn test_successful_bootstrap_invokes_orchestrator_start() {
             "start_orchestrator:WORKFLOW.md"
         ],
         "bootstrap should run existence check, startup validation, then orchestrator start"
+    );
+}
+
+#[test]
+fn test_orchestrator_start_failure_surfaces_error() {
+    let cli =
+        main_bin::parse_cli_from(["symphony", "WORKFLOW.md"]).expect("CLI parse should succeed");
+
+    let mut deps = FakeDeps {
+        workflow_exists: true,
+        startup_validate_result: Ok(()),
+        start_orchestrator_result: Err("bind failed".to_string()),
+        ..FakeDeps::default()
+    };
+
+    let result = main_bin::execute_cli(&cli, &mut deps);
+    assert!(result.is_err(), "startup failure should propagate");
+
+    let message = result.err().unwrap_or_default();
+    assert!(
+        message.contains("orchestrator startup failed"),
+        "error should include startup stage context, got: {message}"
+    );
+    assert!(
+        message.contains("bind failed"),
+        "error should include orchestrator startup failure reason"
+    );
+
+    assert_eq!(
+        deps.call_history(),
+        [
+            "workflow_exists:WORKFLOW.md",
+            "startup_validate:WORKFLOW.md",
+            "start_orchestrator:WORKFLOW.md"
+        ],
+        "bootstrap should invoke orchestrator start before surfacing startup failure"
     );
 }

@@ -1,13 +1,15 @@
 use std::ffi::OsString;
+use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::Once;
 
 use clap::Parser;
-use symphony::linear::adapter::LinearAdapter;
+use symphony::domain::{Issue, ServiceConfig};
+use symphony::linear::adapter::{LinearAdapter, TrackerAdapter};
 use symphony::linear::client::LinearClient;
-use symphony::orchestrator::Orchestrator;
+use symphony::orchestrator::{Orchestrator, OrchestratorPort};
 use symphony::workflow_store::WorkflowStore;
-use symphony::{config, domain::ServiceConfig};
+use symphony::{config, error};
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug, Clone)]
@@ -43,6 +45,51 @@ struct StartupContext {
     workflow_path: PathBuf,
     workflow_store: WorkflowStore,
     effective_config: ServiceConfig,
+}
+
+struct LinearOrchestratorPort {
+    adapter: LinearAdapter,
+}
+
+impl LinearOrchestratorPort {
+    fn new(adapter: LinearAdapter) -> Self {
+        Self { adapter }
+    }
+
+    fn block_on<T>(&self, future: impl Future<Output = error::Result<T>>) -> error::Result<T> {
+        tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(future))
+    }
+}
+
+impl OrchestratorPort for LinearOrchestratorPort {
+    fn startup_terminal_issues(&mut self, terminal_states: &[String]) -> error::Result<Vec<Issue>> {
+        self.block_on(self.adapter.fetch_issues_by_states(terminal_states))
+    }
+
+    fn reconcile_running_issues(
+        &mut self,
+        running_issue_ids: &[String],
+    ) -> error::Result<Vec<Issue>> {
+        if running_issue_ids.is_empty() {
+            return Ok(vec![]);
+        }
+
+        self.block_on(self.adapter.fetch_issue_states_by_ids(running_issue_ids))
+    }
+
+    fn validate_dispatch_preflight(&mut self, config: &ServiceConfig) -> error::Result<()> {
+        config::validate(config).map(|_| ())
+    }
+
+    fn fetch_candidate_issues(&mut self) -> error::Result<Vec<Issue>> {
+        self.block_on(self.adapter.fetch_candidate_issues())
+    }
+
+    fn refresh_issue(&mut self, issue_id: &str) -> error::Result<Option<Issue>> {
+        let issue_ids = vec![issue_id.to_string()];
+        let issues = self.block_on(self.adapter.fetch_issue_states_by_ids(&issue_ids))?;
+        Ok(issues.into_iter().next())
+    }
 }
 
 #[derive(Default)]
@@ -118,9 +165,9 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
         }
 
         // Build runtime dependencies so startup failures surface at bootstrap time.
-        // Keep these explicit even if portions are consumed in later slices.
         let tracker_client = LinearClient::new(context.effective_config.tracker.clone());
-        let _tracker_adapter = LinearAdapter::new(tracker_client);
+        let tracker_adapter = LinearAdapter::new(tracker_client);
+        let mut tracker_port = LinearOrchestratorPort::new(tracker_adapter);
         let mut orchestrator = Orchestrator::new(context.effective_config.clone());
 
         tracing::info!(
@@ -136,7 +183,7 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
         // Keep the watcher-backed store alive for the lifetime of the run.
         let _workflow_store = context.workflow_store;
 
-        run_orchestrator_until_shutdown(&mut orchestrator, workflow_path)
+        run_orchestrator_until_shutdown(&mut orchestrator, &mut tracker_port, workflow_path)
     }
 }
 
@@ -186,6 +233,7 @@ pub fn execute_cli(cli: &Cli, deps: &mut dyn BootstrapDeps) -> Result<(), String
 
 fn run_orchestrator_until_shutdown(
     orchestrator: &mut Orchestrator,
+    port: &mut dyn OrchestratorPort,
     workflow_path: &Path,
 ) -> Result<(), String> {
     let handle = tokio::runtime::Handle::try_current()
@@ -201,7 +249,7 @@ fn run_orchestrator_until_shutdown(
             );
 
             tokio::select! {
-                run_result = orchestrator.run() => {
+                run_result = orchestrator.run(port) => {
                     run_result.map_err(|err| format!("orchestrator runtime failed: {err}"))?;
                     tracing::info!(
                         phase = "runtime",
