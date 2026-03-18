@@ -93,7 +93,7 @@
   - Verify: `cargo test --test orchestrator_tests --test cli_tests` (expected failing assertions for unimplemented runtime behavior)
   - Done when: Test files exist with concrete assertions covering all Must-Haves and owned requirements; failures are behavioral (not compile errors).
 
-- [ ] **T02: Implement orchestrator authority loop, reconciliation, and dispatch gating** `est:60m`
+- [x] **T02: Implement orchestrator authority loop, reconciliation, and dispatch gating** `est:60m`
   - Why: This is the core R006/R014 scheduler spine — without deterministic tick ordering, eligibility logic, and slot checks, all downstream worker logic is unstable.
   - Files: `src/orchestrator.rs`, `src/domain.rs`, `src/lib.rs`, `tests/orchestrator_tests.rs`
   - Do: Implement orchestrator state owner loop, startup terminal cleanup, reconcile-first tick pipeline, per-tick `config::validate` preflight, candidate sorting/eligibility, global+per-state slot accounting, and pre-dispatch issue refresh checks. Expose snapshot reads used by tests/S07.

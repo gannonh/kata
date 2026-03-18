@@ -54,11 +54,16 @@ impl OrchestratorPort for FakePort {
 
     fn refresh_issue(&mut self, issue_id: &str) -> Result<Option<Issue>> {
         self.calls.push(format!("refresh_issue:{issue_id}"));
+
+        if let Some(explicit) = self.refreshed_issues.get(issue_id) {
+            return Ok(explicit.clone());
+        }
+
         Ok(self
-            .refreshed_issues
-            .get(issue_id)
-            .cloned()
-            .unwrap_or_else(|| None))
+            .candidate_issues
+            .iter()
+            .find(|issue| issue.id == issue_id)
+            .cloned())
     }
 }
 
@@ -110,7 +115,7 @@ fn issue(
 }
 
 #[test]
-fn test_startup_terminal_cleanup_marks_terminal_issues_completed() {
+fn test_reconcile_startup_terminal_cleanup_marks_terminal_issues_completed() {
     let mut orchestrator = Orchestrator::new(test_config(2));
     let mut port = FakePort {
         terminal_issues: vec![issue("issue-closed", "SIM-10", "Done", Some(1), 0)],
@@ -131,7 +136,7 @@ fn test_startup_terminal_cleanup_marks_terminal_issues_completed() {
 }
 
 #[test]
-fn test_tick_reconcile_before_validate_before_dispatch() {
+fn test_reconcile_tick_reconcile_before_validate_before_dispatch() {
     let mut orchestrator = Orchestrator::new(test_config(2));
     let mut port = FakePort {
         candidate_issues: vec![issue("issue-1", "SIM-1", "Todo", Some(2), 0)],
@@ -146,7 +151,8 @@ fn test_tick_reconcile_before_validate_before_dispatch() {
         [
             "reconcile_running_issues",
             "validate_dispatch_preflight",
-            "fetch_candidate_issues"
+            "fetch_candidate_issues",
+            "refresh_issue:issue-1"
         ],
         "tick must execute reconcile -> validate -> dispatch fetch ordering"
     );
@@ -193,7 +199,7 @@ fn test_preflight_validation_failure_skips_dispatch_but_reconcile_continues() {
 }
 
 #[test]
-fn test_candidate_sorting_and_gating_rules() {
+fn test_dispatch_candidate_sorting_and_gating_rules() {
     let mut orchestrator = Orchestrator::new(test_config(1));
 
     let mut blocked = issue("issue-blocked", "SIM-20", "Todo", Some(0), 0);
@@ -227,7 +233,46 @@ fn test_candidate_sorting_and_gating_rules() {
 }
 
 #[test]
-fn test_predispatch_refresh_rejects_stale_state() {
+fn test_dispatch_enforces_per_state_concurrency_caps() {
+    let mut orchestrator = Orchestrator::new(test_config(3));
+
+    let seeded_todo = issue("issue-seeded", "SIM-23", "Todo", Some(1), -30);
+    let mut seed_port = FakePort {
+        candidate_issues: vec![seeded_todo.clone()],
+        ..FakePort::default()
+    };
+
+    let seed_tick = orchestrator
+        .tick(&mut seed_port)
+        .expect("seed tick should pass");
+    assert_eq!(
+        seed_tick.dispatched_issue_ids,
+        vec![seeded_todo.id.clone()],
+        "first todo issue should dispatch into the only todo slot"
+    );
+
+    let blocked_todo = issue("issue-todo-overflow", "SIM-24", "Todo", Some(1), -20);
+    let allowed_in_progress = issue("issue-in-progress", "SIM-25", "In Progress", Some(2), -10);
+
+    let mut second_port = FakePort {
+        reconciled_issues: vec![seeded_todo],
+        candidate_issues: vec![blocked_todo, allowed_in_progress.clone()],
+        ..FakePort::default()
+    };
+
+    let second_tick = orchestrator
+        .tick(&mut second_port)
+        .expect("second tick should pass");
+
+    assert_eq!(
+        second_tick.dispatched_issue_ids,
+        vec![allowed_in_progress.id.clone()],
+        "todo overflow should be blocked by per-state cap while in-progress still dispatches"
+    );
+}
+
+#[test]
+fn test_dispatch_predispatch_refresh_rejects_stale_state() {
     let mut orchestrator = Orchestrator::new(test_config(2));
     let stale_candidate = issue("issue-stale", "SIM-30", "In Progress", Some(1), 0);
     let refreshed_terminal = issue("issue-stale", "SIM-30", "Done", Some(1), 0);

@@ -1,6 +1,7 @@
 use chrono::Utc;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
+use crate::config;
 use crate::domain::{
     CodexTotals, Issue, OrchestratorSnapshot, OrchestratorState, PollingSnapshot, RateLimitInfo,
     RetryEntry, RetrySnapshotEntry, RunAttempt, ServiceConfig,
@@ -65,16 +66,19 @@ pub trait OrchestratorPort {
     fn refresh_issue(&mut self, issue_id: &str) -> Result<Option<Issue>>;
 }
 
-/// Minimal S06 T01 placeholder surface.
+/// S06 runtime authority loop state.
 ///
-/// Intentionally incomplete runtime semantics. T01 creates failing contract
-/// tests against this API; T02/T03 will implement real behavior.
+/// The orchestrator is the single mutable owner of dispatch/reconcile/retry
+/// state in this process. State mutation only happens through `&mut self`
+/// methods (startup cleanup, tick, retry handlers).
 pub struct Orchestrator {
     config: ServiceConfig,
     state: OrchestratorState,
     events: Vec<RuntimeEvent>,
     retry_tokens: HashMap<String, String>,
     worker_last_activity_ms: HashMap<String, i64>,
+    /// Normalized running issue state cache used for per-state slot accounting.
+    running_issue_states: HashMap<String, String>,
     next_retry_token: u64,
 }
 
@@ -98,6 +102,7 @@ impl Orchestrator {
             events: vec![],
             retry_tokens: HashMap::new(),
             worker_last_activity_ms: HashMap::new(),
+            running_issue_states: HashMap::new(),
             next_retry_token: 0,
         }
     }
@@ -108,33 +113,120 @@ impl Orchestrator {
 
     pub fn startup_cleanup(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
         self.events.push(RuntimeEvent::StartupCleanup);
-        let _ = port.startup_terminal_issues(&self.config.tracker.terminal_states)?;
+        tracing::info!(
+            phase = "startup_cleanup",
+            "running startup terminal cleanup"
+        );
 
-        // Intentionally left incomplete in T01: terminal issue reconciliation is not
-        // yet applied to state.completed.
+        let terminal_issues = port.startup_terminal_issues(&self.config.tracker.terminal_states)?;
+
+        for issue in terminal_issues {
+            self.mark_issue_terminal(&issue.id);
+        }
+
         Ok(())
     }
 
     pub fn tick(&mut self, port: &mut dyn OrchestratorPort) -> Result<TickResult> {
-        self.events.push(RuntimeEvent::Dispatch);
-        let candidates = port.fetch_candidate_issues()?;
+        self.events.push(RuntimeEvent::Reconcile);
+        tracing::info!(phase = "reconcile", "starting orchestrator tick phase");
+        self.reconcile_running(port)?;
 
         self.events.push(RuntimeEvent::Validate);
-        let _ = port.validate_dispatch_preflight(&self.config);
+        tracing::info!(phase = "validate", "starting orchestrator tick phase");
 
-        self.events.push(RuntimeEvent::Reconcile);
-        let running_issue_ids: Vec<String> = self.state.running.keys().cloned().collect();
-        let _ = port.reconcile_running_issues(&running_issue_ids)?;
+        if let Err(err) = config::validate(&self.config) {
+            tracing::warn!(
+                phase = "dispatch",
+                reason = "preflight_invalid",
+                error = %err,
+                "dispatch skipped due to invalid effective config"
+            );
+            self.events.push(RuntimeEvent::ValidationSkippedDispatch);
+            return Ok(TickResult {
+                dispatched_issue_ids: vec![],
+                dispatch_skipped: true,
+            });
+        }
 
-        // Intentionally left incomplete in T01:
-        // - no ordering guarantees (dispatch currently first)
-        // - no validation skip behavior
-        // - no sorting/gating/blocker checks
-        // - no stale-state refresh checks
+        if let Err(err) = port.validate_dispatch_preflight(&self.config) {
+            tracing::warn!(
+                phase = "dispatch",
+                reason = "preflight_invalid",
+                error = %err,
+                "dispatch skipped due to preflight validation failure"
+            );
+            self.events.push(RuntimeEvent::ValidationSkippedDispatch);
+            return Ok(TickResult {
+                dispatched_issue_ids: vec![],
+                dispatch_skipped: true,
+            });
+        }
+
+        self.events.push(RuntimeEvent::Dispatch);
+        tracing::info!(phase = "dispatch", "starting orchestrator tick phase");
+
+        let candidates = port.fetch_candidate_issues()?;
         let mut dispatched_issue_ids = vec![];
-        if let Some(issue) = candidates.first() {
-            self.dispatch_placeholder(issue);
-            dispatched_issue_ids.push(issue.id.clone());
+
+        for candidate in self.sort_issues_for_dispatch(candidates) {
+            if self.available_slots() == 0 {
+                tracing::debug!(
+                    phase = "dispatch",
+                    reason = "slot_full",
+                    "global concurrency slots exhausted"
+                );
+                break;
+            }
+
+            if !self.should_dispatch_issue(&candidate) {
+                tracing::debug!(
+                    phase = "dispatch",
+                    reason = "blocked",
+                    issue_id = %candidate.id,
+                    issue_identifier = %candidate.identifier,
+                    "candidate rejected before refresh"
+                );
+                continue;
+            }
+
+            let Some(refreshed_issue) = port.refresh_issue(&candidate.id)? else {
+                tracing::debug!(
+                    phase = "dispatch",
+                    reason = "blocked",
+                    issue_id = %candidate.id,
+                    issue_identifier = %candidate.identifier,
+                    "candidate missing at pre-dispatch refresh"
+                );
+                continue;
+            };
+
+            if !self.should_dispatch_issue(&refreshed_issue) {
+                tracing::debug!(
+                    phase = "dispatch",
+                    reason = "blocked",
+                    issue_id = %refreshed_issue.id,
+                    issue_identifier = %refreshed_issue.identifier,
+                    "candidate rejected after pre-dispatch refresh"
+                );
+                continue;
+            }
+
+            let state_key = normalize_issue_state(&refreshed_issue.state);
+            if !self.state_slot_available(&state_key) {
+                tracing::debug!(
+                    phase = "dispatch",
+                    reason = "slot_full",
+                    issue_id = %refreshed_issue.id,
+                    issue_identifier = %refreshed_issue.identifier,
+                    state = %state_key,
+                    "state concurrency slots exhausted"
+                );
+                continue;
+            }
+
+            self.dispatch_issue(&refreshed_issue);
+            dispatched_issue_ids.push(refreshed_issue.id);
         }
 
         Ok(TickResult {
@@ -270,7 +362,137 @@ impl Orchestrator {
         }
     }
 
-    fn dispatch_placeholder(&mut self, issue: &Issue) {
+    fn reconcile_running(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
+        let running_issue_ids: Vec<String> = self.state.running.keys().cloned().collect();
+        let refreshed_issues = port.reconcile_running_issues(&running_issue_ids)?;
+
+        let terminal_states = self.terminal_state_set();
+        let active_states = self.active_state_set();
+        let mut visible_issue_ids: HashSet<String> = HashSet::new();
+
+        for issue in refreshed_issues {
+            visible_issue_ids.insert(issue.id.clone());
+
+            let normalized_state = normalize_issue_state(&issue.state);
+            if terminal_states.contains(&normalized_state) {
+                self.mark_issue_terminal(&issue.id);
+                continue;
+            }
+
+            if !issue.assigned_to_worker || !active_states.contains(&normalized_state) {
+                self.release_issue(&issue.id);
+                continue;
+            }
+
+            self.running_issue_states
+                .insert(issue.id.clone(), normalized_state);
+        }
+
+        for running_id in running_issue_ids {
+            if !visible_issue_ids.contains(&running_id) {
+                self.release_issue(&running_id);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn sort_issues_for_dispatch(&self, mut issues: Vec<Issue>) -> Vec<Issue> {
+        issues.sort_by(|a, b| {
+            priority_rank(a.priority)
+                .cmp(&priority_rank(b.priority))
+                .then_with(|| issue_created_at_sort_key(a).cmp(&issue_created_at_sort_key(b)))
+                .then_with(|| issue_identifier_sort_key(a).cmp(&issue_identifier_sort_key(b)))
+        });
+
+        issues
+    }
+
+    fn should_dispatch_issue(&self, issue: &Issue) -> bool {
+        if !issue_has_required_fields(issue) {
+            return false;
+        }
+
+        if !issue.assigned_to_worker {
+            return false;
+        }
+
+        let normalized_state = normalize_issue_state(&issue.state);
+
+        if self.terminal_state_set().contains(&normalized_state) {
+            return false;
+        }
+
+        if !self.active_state_set().contains(&normalized_state) {
+            return false;
+        }
+
+        if self.todo_issue_blocked_by_non_terminal(issue) {
+            return false;
+        }
+
+        if self.state.claimed.contains(&issue.id)
+            || self.state.running.contains_key(&issue.id)
+            || self.state.completed.contains(&issue.id)
+        {
+            return false;
+        }
+
+        if self.available_slots() == 0 {
+            return false;
+        }
+
+        self.state_slot_available(&normalized_state)
+    }
+
+    fn todo_issue_blocked_by_non_terminal(&self, issue: &Issue) -> bool {
+        if normalize_issue_state(&issue.state) != "todo" {
+            return false;
+        }
+
+        let terminal_states = self.terminal_state_set();
+
+        issue.blocked_by.iter().any(|blocker| {
+            blocker
+                .state
+                .as_ref()
+                .map(|state| !terminal_states.contains(&normalize_issue_state(state)))
+                .unwrap_or(true)
+        })
+    }
+
+    fn available_slots(&self) -> u32 {
+        self.state
+            .max_concurrent_agents
+            .saturating_sub(self.state.running.len() as u32)
+    }
+
+    fn state_slot_available(&self, state_key: &str) -> bool {
+        let limit = self
+            .config
+            .agent
+            .max_concurrent_agents_by_state
+            .get(state_key)
+            .copied()
+            .unwrap_or(self.state.max_concurrent_agents);
+
+        self.running_issue_count_for_state(state_key) < limit
+    }
+
+    fn running_issue_count_for_state(&self, state_key: &str) -> u32 {
+        self.state
+            .running
+            .keys()
+            .filter(|issue_id| {
+                self.running_issue_states
+                    .get(*issue_id)
+                    .map(|running_state| running_state == state_key)
+                    .unwrap_or(false)
+            })
+            .count() as u32
+    }
+
+    fn dispatch_issue(&mut self, issue: &Issue) {
         let attempt = RunAttempt {
             issue_id: issue.id.clone(),
             issue_identifier: issue.identifier.clone(),
@@ -284,7 +506,74 @@ impl Orchestrator {
 
         self.state.running.insert(issue.id.clone(), attempt);
         self.state.claimed.insert(issue.id.clone());
+        self.state.retry_attempts.remove(&issue.id);
+        self.running_issue_states
+            .insert(issue.id.clone(), normalize_issue_state(&issue.state));
     }
+
+    fn mark_issue_terminal(&mut self, issue_id: &str) {
+        self.state.completed.insert(issue_id.to_string());
+        self.state.running.remove(issue_id);
+        self.state.claimed.remove(issue_id);
+        self.state.retry_attempts.remove(issue_id);
+        self.running_issue_states.remove(issue_id);
+    }
+
+    fn release_issue(&mut self, issue_id: &str) {
+        self.state.running.remove(issue_id);
+        self.state.claimed.remove(issue_id);
+        self.state.retry_attempts.remove(issue_id);
+        self.running_issue_states.remove(issue_id);
+    }
+
+    fn active_state_set(&self) -> HashSet<String> {
+        self.config
+            .tracker
+            .active_states
+            .iter()
+            .map(|state| normalize_issue_state(state))
+            .filter(|state| !state.is_empty())
+            .collect()
+    }
+
+    fn terminal_state_set(&self) -> HashSet<String> {
+        self.config
+            .tracker
+            .terminal_states
+            .iter()
+            .map(|state| normalize_issue_state(state))
+            .filter(|state| !state.is_empty())
+            .collect()
+    }
+}
+
+fn normalize_issue_state(state_name: &str) -> String {
+    state_name.trim().to_ascii_lowercase()
+}
+
+fn issue_has_required_fields(issue: &Issue) -> bool {
+    !issue.id.trim().is_empty()
+        && !issue.identifier.trim().is_empty()
+        && !issue.title.trim().is_empty()
+        && !issue.state.trim().is_empty()
+}
+
+fn priority_rank(priority: Option<i32>) -> i32 {
+    match priority {
+        Some(value) if (1..=4).contains(&value) => value,
+        _ => 5,
+    }
+}
+
+fn issue_created_at_sort_key(issue: &Issue) -> i64 {
+    issue
+        .created_at
+        .map(|created_at| created_at.timestamp_micros())
+        .unwrap_or(i64::MAX)
+}
+
+fn issue_identifier_sort_key(issue: &Issue) -> (&str, &str) {
+    (issue.identifier.as_str(), issue.id.as_str())
 }
 
 pub fn rate_limit_info(data: serde_json::Value) -> RateLimitInfo {

@@ -2,7 +2,7 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S06 — Orchestrator Core (next)
-**Active Task:** T02 — Implement orchestrator authority loop, reconciliation, and dispatch gating
+**Active Task:** T03 — Add worker lifecycle integration, retries, stall recovery, and token accounting
 **Phase:** Executing
 
 ## Progress
@@ -19,9 +19,9 @@
 
 ## Recent Decisions
 
-- D033: Add explicit orchestrator runtime seam and deterministic test doubles for S06 operational proof
 - D034: Protect retry queue from stale timer firings via token/nonce matching
 - D035: Establish dedicated S06 proof harness in `tests/orchestrator_tests.rs` and `tests/cli_tests.rs`
+- D036: Track normalized running issue states inside orchestrator state for deterministic per-state slot accounting
 
 ## Blockers
 
@@ -29,7 +29,7 @@
 
 ## Next Action
 
-Execute S06/T02: implement reconcile → validate → dispatch ordering, preflight validation skip behavior, candidate ordering/gating, startup terminal cleanup state updates, and pre-dispatch refresh so `tests/orchestrator_tests.rs` and `tests/cli_tests.rs` begin turning green from the current red baseline.
+Execute S06/T03: implement worker lifecycle retry semantics (continuation + exponential backoff), stale retry token suppression, stall detection forced-retry path, and codex token/rate-limit accumulation so the four remaining failing orchestrator tests turn green before T04 CLI wiring.
 
 ## Validated Requirements
 
