@@ -16,7 +16,7 @@ A single `symphony` binary that reliably polls Linear, dispatches bounded-concur
 
 ## Current State
 
-Five of nine slices complete (S01–S05). The execution layer is now fully implemented: the Codex app-server client handles subprocess launch via `bash -lc`, the 4-message JSON-RPC handshake, line-delimited turn streaming, approval auto-approve/reject (4 methods), `item/tool/call` dispatch to the `linear_graphql` dynamic tool, `item/tool/requestUserInput` with MCP approval and freeform handling, and per-turn token delta accounting. 143 tests pass across 6 test suites (32 in the new codex integration suite). R001, R002, R004, R005, R007, R012 validated. Next: S06 Orchestrator Core — wires the poll→reconcile→dispatch→retry loop.
+Six of nine slices are complete (S01–S06). The orchestrator runtime authority and CLI bootstrap are now implemented and proven: startup terminal cleanup, reconcile→validate→dispatch tick ordering, candidate sorting/gating, global+per-state concurrency control, continuation/failure retry scheduling with stale-token suppression, stall recovery, and aggregate codex token/rate-limit snapshot accounting. CLI startup now performs workflow existence checks, startup validation, staged runtime bootstrap, and deterministic non-zero startup failures. `cargo test --test orchestrator_tests --test cli_tests` (19 tests) and `cargo build` pass. R006, R008, R014, and R015 are now validated in addition to previously validated requirements. Next: S07 HTTP Dashboard and JSON API integration on top of `OrchestratorSnapshot`.
 
 ## Architecture / Key Patterns
 

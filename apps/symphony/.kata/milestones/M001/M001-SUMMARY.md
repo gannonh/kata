@@ -3,18 +3,29 @@
 ## Completed Slices
 
 ### S01: Domain Types and Error Foundation
-All §4.1 domain types (Issue, BlockerRef, WorkflowDefinition, ServiceConfig, OrchestratorState, AgentEvent, etc.), SymphonyError enum with all spec error categories, ApiKey with redacted Debug. 13 contract tests.
+All §4.1 domain types (Issue, BlockerRef, WorkflowDefinition, ServiceConfig, OrchestratorState, AgentEvent, etc.), SymphonyError enum with core error categories, and redacted API-key debug behavior. 13 contract tests.
 
 ### S02: Workflow Loader and Config Layer
-WORKFLOW.md parsing (YAML front matter + Liquid template body), ServiceConfig extraction with defaults/env-var resolution/tilde expansion, config validation, WorkflowStore with hot-reload via notify file watcher (400ms debounce). 19 tests.
+WORKFLOW.md parsing, typed config extraction/defaulting/env resolution, strict validation helpers, and WorkflowStore hot-reload with last-known-good semantics. 19 tests.
 
 ### S03: Linear Tracker Client
-LinearClient with GraphQL transport, 3 async fetch operations (candidates with cursor pagination, by-states, by-IDs with batch-splitting and order preservation), issue normalization (14 fields), assignee routing with "me" viewer resolution. TrackerAdapter trait (5 async methods) + LinearAdapter. 33 integration tests via mockito HTTP mocking. 80 total tests.
+Linear GraphQL client + TrackerAdapter implementation: candidate fetch pagination, fetch-by-states/ids, normalization, assignee filtering, and terminal-state fetch support. 33 integration tests.
+
+### S04: Workspace Manager and Prompt Builder
+Workspace isolation/safety invariants, lifecycle hooks with timeout enforcement, and strict Liquid prompt rendering from issue/attempt context. 28 tests.
+
+### S05: Codex App-Server Client
+Codex subprocess protocol integration: handshake, turn streaming, tool/approval/user-input handling, and per-turn token/rate-limit extraction. 32 tests.
+
+### S06: Orchestrator Core
+Runtime control-loop + CLI bootstrap: reconcile→validate→dispatch sequencing, startup terminal cleanup, candidate gating/order, global+per-state concurrency caps, retry/stall recovery, stale retry suppression, aggregate codex totals/rate-limit snapshot accounting, and deterministic startup failure semantics. 14 orchestrator + 5 CLI conformance tests.
 
 ## Cumulative Stats
-- 80 tests passing
-- Key crates: tokio, reqwest, serde, liquid, chrono, tracing, notify, async-trait
-- Key patterns: GraphQL transport, reverse+prepend pagination, order-index preservation, WorkflowStore hot-reload, typed error mapping
+
+- 162 slice-level tests across S01–S06 proof suites (minimum tracked total)
+- Validated requirements: R001, R002, R004, R005, R006, R007, R008, R012, R014, R015
+- Active requirements remaining: R003, R009, R010, R011, R013
 
 ## Next
-S04: Workspace Manager and Prompt Builder — depends on S01 + S02.
+
+S07: HTTP Dashboard and JSON API — expose `OrchestratorSnapshot` via axum routes (`/`, `/api/v1/state`, `/api/v1/:issue`, `POST /api/v1/refresh`) with operator-focused diagnostics preserved from S06.

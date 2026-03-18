@@ -1,9 +1,9 @@
 # Kata State
 
 **Active Milestone:** M001 — Full Spec Conformance
-**Active Slice:** S06 — Orchestrator Core
-**Active Task:** None (all S06 tasks complete)
-**Phase:** Summarizing
+**Active Slice:** S07 — HTTP Dashboard and JSON API
+**Active Task:** None
+**Phase:** Planning
 
 ## Progress
 
@@ -12,7 +12,7 @@
 - [x] S03: Linear Tracker Client — TrackerAdapter trait + LinearAdapter + 33 integration tests; all slice verification items pass; 80 total tests
 - [x] S04: Workspace Manager and Prompt Builder — 28 tests; path_safety, prompt_builder, workspace modules; 111 total tests; R004+R007 validated
 - [x] S05: Codex App-Server Client — 32 integration tests pass; approval, tool dispatch, user-input, token accounting all done; zero warnings
-- [ ] S06: Orchestrator Core (all tasks complete; slice summary + roadmap closeout pending)
+- [x] S06: Orchestrator Core — runtime authority loop + CLI bootstrap verified; orchestrator+cli conformance suites green
 - [ ] S07: HTTP Dashboard and JSON API
 - [ ] S08: SSH Remote Worker Extension
 - [ ] S09: Conformance Sweep and Integration Polish
@@ -29,7 +29,7 @@
 
 ## Next Action
 
-Write S06 slice summary + UAT artifacts, mark S06 done in `M001-ROADMAP.md`, update milestone summary, then begin S07 planning/execution.
+Start S07 planning: define HTTP dashboard/API test contract and implement `http_server.rs` routes (`/`, `/api/v1/state`, `/api/v1/:issue`, `POST /api/v1/refresh`) using `OrchestratorSnapshot` as the source of truth.
 
 ## Validated Requirements
 
@@ -42,3 +42,4 @@ Write S06 slice summary + UAT artifacts, mark S06 done in `M001-ROADMAP.md`, upd
 - R008 (CLI Entry Point) — S06: CLI bootstrap/exit tests passing for default path, overrides, startup failures, and successful runtime start call-order
 - R012 (linear_graphql dynamic tool) — S05: 14 tests; argument normalisation, GraphQL execution, error formatting
 - R014 (Dispatch Preflight Validation) — S06: reconciliation continues while invalid-preflight deterministically skips dispatch
+- R015 (Token Accounting and Rate Limit Tracking) — S05+S06: per-turn deltas plus aggregate codex totals/rate-limit snapshot accumulation proven
