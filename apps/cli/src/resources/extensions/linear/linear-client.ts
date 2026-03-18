@@ -876,4 +876,26 @@ export class LinearClient {
     this.assertSuccess("documentUpdate", data.documentUpdate.success);
     return data.documentUpdate.document;
   }
+
+  // ── Comments ────────────────────────────────────────────────────────────
+
+  async createComment(issueId: string, body: string): Promise<{ id: string; body: string; createdAt: string; url: string }> {
+    const data = await this.graphql<{
+      commentCreate: { success: boolean; comment: { id: string; body: string; createdAt: string; url: string } };
+    }>(`
+      mutation CreateComment($input: CommentCreateInput!) {
+        commentCreate(input: $input) {
+          success
+          comment {
+            id
+            body
+            createdAt
+            url
+          }
+        }
+      }
+    `, { input: { issueId, body } });
+    this.assertSuccess("commentCreate", data.commentCreate.success);
+    return data.commentCreate.comment;
+  }
 }

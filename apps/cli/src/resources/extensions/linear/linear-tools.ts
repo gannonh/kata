@@ -397,6 +397,20 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     async execute(_id, params) { return run(() => client.deleteLabel(params.id)); },
   });
 
+  // ── Comments ──────────────────────────────────────────────────────────
+
+  pi.registerTool({
+    name: "linear_add_comment",
+    label: "Linear: Add Comment",
+    description: "Post a comment on a Linear issue. Returns the created comment with id, body, createdAt, and url.",
+    promptSnippet: "Post a comment on a Linear issue.",
+    parameters: Type.Object({
+      issueId: Type.String({ description: "Issue UUID to comment on" }),
+      body: Type.String({ description: "Comment body (markdown supported)" }),
+    }),
+    async execute(_id, params) { return run(() => client.createComment(params.issueId, params.body)); },
+  });
+
   pi.registerTool({
     name: "linear_ensure_label",
     label: "Linear: Ensure Label",
