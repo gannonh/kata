@@ -7,6 +7,8 @@
  * - Human: formatted tables, headers, key-value pairs (default)
  */
 
+import type { SemanticRunDiagnostics } from "./types.js";
+
 // ── Types ──
 
 export interface OutputOptions {
@@ -96,6 +98,65 @@ export function formatTable(
   return ["  " + headerLine, "  " + separator, ...dataLines.map((l) => "  " + l)].join(
     "\n",
   );
+}
+
+// ── Semantic diagnostics formatters ──
+
+export function formatSemanticDiagnosticHint(errorCode?: string): string {
+  switch (errorCode) {
+    case "SEMANTIC_OPENAI_MISSING_KEY":
+      return "Set OPENAI_API_KEY to enable semantic embeddings.";
+    case "SEMANTIC_OPENAI_AUTH":
+      return "Verify your OPENAI API key value and account permissions.";
+    case "SEMANTIC_OPENAI_RATE_LIMIT":
+      return "OpenAI rate limit hit. Retry shortly or reduce embedding batch size.";
+    case "SEMANTIC_OPENAI_PROVIDER_UNAVAILABLE":
+      return "OpenAI provider unavailable. Retry shortly and check provider status.";
+    case "SEMANTIC_ANTHROPIC_MISSING_KEY":
+      return "Set ANTHROPIC_API_KEY to enable provider-backed summaries.";
+    case "SEMANTIC_ANTHROPIC_AUTH":
+      return "Verify your ANTHROPIC_API_KEY value and account permissions.";
+    case "SEMANTIC_ANTHROPIC_RATE_LIMIT":
+      return "Anthropic rate limit hit. Retry shortly or reduce summary batch size.";
+    case "SEMANTIC_ANTHROPIC_PROVIDER_UNAVAILABLE":
+      return "Anthropic provider unavailable. Retry shortly and check provider status.";
+    default:
+      return "Check provider configuration and retry semantic indexing.";
+  }
+}
+
+export function formatSemanticDiagnostics(
+  semantic: SemanticRunDiagnostics | undefined,
+): string {
+  if (!semantic) {
+    return [
+      formatHeader("Semantic Diagnostics"),
+      "  Semantic stage did not run in this index pass.",
+    ].join("\n");
+  }
+
+  const lines: string[] = [];
+  lines.push(formatHeader("Semantic Diagnostics"));
+  lines.push(
+    formatKeyValue([
+      ["Status", semantic.status],
+      ["Phase", semantic.phase],
+      ["Provider", semantic.provider],
+      ["Retryable", semantic.retryable ? "yes" : "no"],
+      ["Timestamp", semantic.timestamp],
+      ["Error code", semantic.errorCode ?? "(none)"],
+    ]),
+  );
+
+  if (semantic.hint) {
+    lines.push(`  Hint: ${semantic.hint}`);
+  }
+
+  if (semantic.message) {
+    lines.push(`  Message: ${semantic.message}`);
+  }
+
+  return lines.join("\n");
 }
 
 // ── Dispatcher ──

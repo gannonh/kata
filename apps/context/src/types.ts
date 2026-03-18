@@ -175,6 +175,31 @@ export interface SemanticStatusRecord {
   retryable: boolean;
 }
 
+export type SemanticEventStatus = "ok" | "failed" | "skipped";
+
+export interface SemanticStageEvent {
+  phase: SemanticPhase;
+  provider: SemanticProvider;
+  status: SemanticEventStatus;
+  symbolCount: number;
+  durationMs: number;
+  retryCount: number;
+  timestamp: string;
+  errorCode?: string;
+}
+
+export interface SemanticRunDiagnostics {
+  status: SemanticStatusState;
+  phase: SemanticPhase;
+  provider: SemanticProvider;
+  retryable: boolean;
+  timestamp: string;
+  errorCode?: string;
+  message?: string;
+  hint?: string;
+  events: SemanticStageEvent[];
+}
+
 export class SemanticStoreError extends Error {
   code: SemanticStoreErrorCode;
   phase: SemanticPhase;

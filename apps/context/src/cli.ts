@@ -26,12 +26,18 @@ import {
   symbolsInFile,
 } from "./graph/queries.js";
 import { grepSearch, fuzzyFind } from "./search/lexical.js";
-import { GrepNotFoundError, type SymbolKind } from "./types.js";
+import {
+  GrepNotFoundError,
+  type SymbolKind,
+  type SemanticRunDiagnostics,
+} from "./types.js";
 import {
   output,
   formatHeader,
   formatKeyValue,
   formatTable,
+  formatSemanticDiagnosticHint,
+  formatSemanticDiagnostics,
   type OutputOptions,
 } from "./formatters.js";
 
@@ -73,6 +79,20 @@ function getDbPath(cmd: Command, rootPath?: string): string {
   return defaultDbPath(rootPath ?? process.cwd());
 }
 
+export function semanticRemediationForCode(errorCode?: string): string {
+  return formatSemanticDiagnosticHint(errorCode);
+}
+
+function withSemanticHint(
+  semantic: SemanticRunDiagnostics | undefined,
+): SemanticRunDiagnostics | undefined {
+  if (!semantic) return undefined;
+  return {
+    ...semantic,
+    hint: semantic.hint ?? semanticRemediationForCode(semantic.errorCode),
+  };
+}
+
 // ── Program ──
 
 const program = new Command();
@@ -109,6 +129,8 @@ program
       const config = loadConfig(rootPath);
       const result = indexProject(rootPath, { dbPath, config, full });
 
+      const semantic = withSemanticHint(result.semantic);
+
       const jsonData: Record<string, unknown> = {
         filesIndexed: result.filesIndexed,
         symbolsExtracted: result.symbolsExtracted,
@@ -116,6 +138,7 @@ program
         duration: result.duration,
         errors: result.errors,
         incremental: result.incremental,
+        semantic,
         dbPath,
       };
       if (result.incremental) {
@@ -127,7 +150,9 @@ program
 
       const humanFn = () => {
         const lines: string[] = [];
-        const mode = result.incremental ? "Index Complete (incremental)" : "Index Complete (full)";
+        const mode = result.incremental
+          ? "Index Complete (incremental)"
+          : "Index Complete (full)";
         lines.push(formatHeader(mode));
 
         const kvPairs: Array<[string, string | number]> = [
@@ -142,6 +167,8 @@ program
           kvPairs.splice(2, 0, ["Deleted files", result.deletedFiles ?? 0]);
         }
         lines.push(formatKeyValue(kvPairs));
+
+        lines.push(formatSemanticDiagnostics(semantic));
 
         if (result.errors.length > 0) {
           lines.push(formatHeader("Errors"));
