@@ -69,7 +69,7 @@
   - Verify: `cargo test --test codex_tests` — all dynamic_tool tests pass, app_server stubs compile
   - Done when: `dynamic_tool::execute` handles all Elixir test cases, `linear_graphql` argument validation + execution + error formatting proven
 
-- [ ] **T02: App-server subprocess launch, handshake, and basic turn streaming** `est:45m`
+- [x] **T02: App-server subprocess launch, handshake, and basic turn streaming** `est:45m`
   - Why: Core session lifecycle — launch subprocess, perform the 4-message handshake, stream turn events until completion/failure/cancellation/timeout/exit. This is the backbone that T03 builds approval/tool handling on top of.
   - Files: `src/codex/app_server.rs`, `tests/codex_tests.rs`
   - Do: Implement `start_session` (validate cwd via `path_safety`, spawn `bash -lc` with workspace cwd, send initialize→wait for response→send initialized→send thread/start→extract thread_id). Implement `run_turn` (send turn/start→extract turn_id→stream lines with partial buffering→dispatch on method: turn/completed, turn/failed, turn/cancelled→enforce turn timeout). Implement `stop_session` (kill child process). Emit `AgentEvent` variants via callback. Write fake Codex shell scripts for: basic handshake+completion, turn failure, turn cancellation, subprocess exit, partial-line buffering, cwd validation rejection.

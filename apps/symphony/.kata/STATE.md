@@ -2,7 +2,7 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S05 — Codex App-Server Client
-**Active Task:** T02 — App-server subprocess launch, handshake, and basic turn streaming
+**Active Task:** T03 — Approval handling, tool call dispatch, user-input policy, and token accounting
 **Phase:** Executing
 
 ## Progress
@@ -11,7 +11,7 @@
 - [x] S02: Workflow Loader and Config Layer — 19 tests; parse_workflow, from_workflow, validate, WorkflowStore hot-reload all proven
 - [x] S03: Linear Tracker Client — TrackerAdapter trait + LinearAdapter + 33 integration tests; all slice verification items pass; 80 total tests
 - [x] S04: Workspace Manager and Prompt Builder — 28 tests; path_safety, prompt_builder, workspace modules; 111 total tests; R004+R007 validated
-- [ ] S05: Codex App-Server Client — T01 complete (dynamic_tool + 14 tests); T02/T03 pending
+- [ ] S05: Codex App-Server Client — T01+T02 complete (22 tests: dynamic_tool + app_server lifecycle); T03 pending
 - [ ] S06: Orchestrator Core
 - [ ] S07: HTTP Dashboard and JSON API
 - [ ] S08: SSH Remote Worker Extension
@@ -19,9 +19,9 @@
 
 ## Recent Decisions
 
-- D024: Fake shell scripts for Codex app-server testing (matches Elixir approach)
-- D025: LinearClient::graphql_raw public method for dynamic tool
-- D026: Closure-based executor injection for dynamic_tool testability
+- D027: start_session takes explicit workspace_root parameter (not from CodexConfig)
+- D028: Issue metadata stored in SessionHandle (run_turn has no issue param)
+- D029: stderr drained by fire-and-forget tokio::spawn task (not merged with stdout)
 
 ## Blockers
 
@@ -29,7 +29,7 @@
 
 ## Next Action
 
-Execute T02: Implement app_server subprocess launch (bash -lc), startup handshake (initialize→initialized→thread/start), line-delimited turn streaming (turn/start→turn/completed|failed|cancelled), stop_session. Write ~8 integration tests using fake Codex shell scripts.
+Execute T03: Extend turn stream handler with approval auto-approve/reject, item/tool/call dispatch, item/tool/requestUserInput handling, token delta extraction. Write ~8 more integration tests.
 
 ## Validated Requirements
 
