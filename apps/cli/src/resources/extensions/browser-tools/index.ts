@@ -1561,6 +1561,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Navigate",
 		description:
 			"Open the browser (if not already open) and navigate to a URL. Waits for network idle. Returns page title and current URL. Use ONLY for visually verifying locally-running web apps (e.g. http://localhost:3000). Do NOT use for documentation sites, GitHub, search results, or any external URL — use web_search instead.",
+		promptSnippet: "Open the browser (if not already open) and navigate to a URL.",
 		parameters: Type.Object({
 			url: Type.String({ description: "URL to navigate to, e.g. http://localhost:3000" }),
 		}),
@@ -1635,6 +1636,7 @@ export default function (pi: ExtensionAPI) {
 		name: "browser_go_back",
 		label: "Browser Go Back",
 		description: "Navigate back in browser history. Returns a compact page summary after navigation.",
+		promptSnippet: "Navigate back in browser history.",
 		parameters: Type.Object({}),
 
 		async execute(_toolCallId, _params, _signal, _onUpdate, _ctx) {
@@ -1679,6 +1681,7 @@ export default function (pi: ExtensionAPI) {
 		name: "browser_go_forward",
 		label: "Browser Go Forward",
 		description: "Navigate forward in browser history. Returns a compact page summary after navigation.",
+		promptSnippet: "Navigate forward in browser history.",
 		parameters: Type.Object({}),
 
 		async execute(_toolCallId, _params, _signal, _onUpdate, _ctx) {
@@ -1723,6 +1726,7 @@ export default function (pi: ExtensionAPI) {
 		name: "browser_reload",
 		label: "Browser Reload",
 		description: "Reload the current page. Returns a screenshot, compact page summary, and page metadata (same shape as browser_navigate).", 
+		promptSnippet: "Reload the current page.",
 		parameters: Type.Object({}),
 
 		async execute(_toolCallId, _params, _signal, _onUpdate, _ctx) {
@@ -1778,6 +1782,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Screenshot",
 		description:
 			"Take a screenshot of the current browser page and return it as an inline image. Uses JPEG for viewport/fullpage (smaller, configurable quality) and PNG for element crops (preserves transparency). Optionally crop to a specific element by CSS selector.",
+		promptSnippet: "Take a screenshot of the current browser page and return it as an inline image.",
 		parameters: Type.Object({
 			fullPage: Type.Optional(
 				Type.Boolean({ description: "Capture the full scrollable page (default: false)" })
@@ -1858,6 +1863,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Click",
 		description:
 			"Click an element on the page by CSS selector or by x,y coordinates. Returns a compact page summary plus lightweight verification details after clicking. Provide either selector or both x and y. Prefer selector over coordinates — selectors are more reliable because they handle shadow DOM via getByRole fallbacks. Use coordinates only when you have no other option.", 
+		promptSnippet: "Click an element on the page by CSS selector or by x,y coordinates.",
 		parameters: Type.Object({
 			selector: Type.Optional(
 				Type.String({ description: "CSS selector of the element to click. The tool will try getByRole fallbacks if the CSS selector fails (handles shadow DOM)." })
@@ -1998,6 +2004,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Drag",
 		description:
 			"Drag an element and drop it onto another element. Use for sortable lists, kanban boards, sliders, and any drag-and-drop UI.",
+		promptSnippet: "Drag an element and drop it onto another element.",
 		parameters: Type.Object({
 			sourceSelector: Type.String({
 				description: "CSS selector of the element to drag",
@@ -2043,6 +2050,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Type",
 		description:
 			"Type text into an input element. By default uses atomic fill (clears and sets value instantly). Use 'slowly' for character-by-character typing when you need to trigger key handlers (e.g. search autocomplete). Use 'submit' to press Enter after typing. Returns a compact page summary plus lightweight verification details. IMPORTANT: Always provide a selector — do NOT rely on coordinate clicks to focus an input before calling this. CSS attribute selectors like combobox[aria-label='X'] work for most inputs; for shadow DOM inputs (e.g. Google Search), the tool automatically tries getByRole fallbacks.",
+		promptSnippet: "Type text into an input element.",
 		parameters: Type.Object({
 			text: Type.String({ description: "Text to type" }),
 			selector: Type.Optional(
@@ -2238,6 +2246,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Upload File",
 		description:
 			"Set files on a file input element. The selector must target an <input type=\"file\"> element. Accepts one or more absolute file paths.",
+		promptSnippet: "Set files on a file input element.",
 		parameters: Type.Object({
 			selector: Type.String({
 				description: 'CSS selector targeting the <input type="file"> element',
@@ -2284,6 +2293,7 @@ export default function (pi: ExtensionAPI) {
 		name: "browser_scroll",
 		label: "Browser Scroll",
 		description: "Scroll the page up or down by a given number of pixels. Returns scroll position (px and percentage) and an accessibility snapshot of the visible content.",
+		promptSnippet: "Scroll the page up or down by a given number of pixels.",
 		parameters: Type.Object({
 			direction: StringEnum(["up", "down"] as const),
 			amount: Type.Optional(
@@ -2341,6 +2351,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Console Logs",
 		description:
 			"Get all buffered browser console logs and JavaScript errors captured since the last clear. Each entry includes timestamp and page URL. Note: JS errors are also auto-surfaced in interaction tool responses — use this for the full log.",
+		promptSnippet: "Get all buffered browser console logs and JavaScript errors captured since the last clear.",
 		parameters: Type.Object({
 			clear: Type.Optional(
 				Type.Boolean({
@@ -2393,6 +2404,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Network Logs",
 		description:
 			"Get buffered network requests and responses. Shows method, URL, status code, and resource type for all requests. Includes response body for failed requests (4xx/5xx). Use to debug API failures, CORS issues, missing resources, and auth problems.",
+		promptSnippet: "Get buffered network requests and responses.",
 		parameters: Type.Object({
 			clear: Type.Optional(
 				Type.Boolean({
@@ -2462,6 +2474,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Dialog Logs",
 		description:
 			"Get buffered JavaScript dialog events (alert, confirm, prompt, beforeunload). Dialogs are auto-accepted to prevent page freezes. Use this to see what dialogs appeared and their messages.",
+		promptSnippet: "Get buffered JavaScript dialog events (alert, confirm, prompt, beforeunload).",
 		parameters: Type.Object({
 			clear: Type.Optional(
 				Type.Boolean({
@@ -2519,6 +2532,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Evaluate",
 		description:
 			"Execute a JavaScript expression in the browser context and return the result. Useful for reading DOM state, checking values, etc.",
+		promptSnippet: "Execute a JavaScript expression in the browser context and return the result.",
 		parameters: Type.Object({
 			expression: Type.String({
 				description: "JavaScript expression to evaluate in the page context",
@@ -2571,6 +2585,7 @@ export default function (pi: ExtensionAPI) {
 		name: "browser_close",
 		label: "Browser Close",
 		description: "Close the browser and clean up all resources.",
+		promptSnippet: "Close the browser and clean up all resources.",
 		parameters: Type.Object({}),
 
 		async execute(_toolCallId, _params, _signal, _onUpdate, _ctx) {
@@ -2597,6 +2612,7 @@ export default function (pi: ExtensionAPI) {
 		name: "browser_trace_start",
 		label: "Browser Trace Start",
 		description: "Start a Playwright trace for the current browser session and persist trace metadata under the session artifact directory.",
+		promptSnippet: "Start a Playwright trace for the current browser session and persist trace metadata under the session artifact direct...",
 		parameters: Type.Object({
 			name: Type.Optional(Type.String({ description: "Optional short trace session name for artifact filenames." })),
 			title: Type.Optional(Type.String({ description: "Optional trace title recorded in metadata." })),
@@ -2636,6 +2652,7 @@ export default function (pi: ExtensionAPI) {
 		name: "browser_trace_stop",
 		label: "Browser Trace Stop",
 		description: "Stop the active Playwright trace and write the trace zip to disk under the session artifact directory.",
+		promptSnippet: "Stop the active Playwright trace and write the trace zip to disk under the session artifact directory.",
 		parameters: Type.Object({
 			name: Type.Optional(Type.String({ description: "Optional artifact basename override for the trace zip." })),
 		}),
@@ -2682,6 +2699,7 @@ export default function (pi: ExtensionAPI) {
 		name: "browser_export_har",
 		label: "Browser Export HAR",
 		description: "Export the truthfully recorded session HAR from disk to a stable artifact path and return compact metadata.",
+		promptSnippet: "Export the truthfully recorded session HAR from disk to a stable artifact path and return compact metadata.",
 		parameters: Type.Object({
 			filename: Type.Optional(Type.String({ description: "Optional destination filename within the session artifact directory." })),
 		}),
@@ -2728,6 +2746,7 @@ export default function (pi: ExtensionAPI) {
 		name: "browser_timeline",
 		label: "Browser Timeline",
 		description: "Return a compact structured summary of the tracked browser action timeline and optional on-disk export path.",
+		promptSnippet: "Return a compact structured summary of the tracked browser action timeline and optional on-disk export path.",
 		parameters: Type.Object({
 			writeToDisk: Type.Optional(Type.Boolean({ description: "Write the timeline JSON to disk under the session artifact directory." })),
 			filename: Type.Optional(Type.String({ description: "Optional JSON filename when writeToDisk is true." })),
@@ -2765,6 +2784,7 @@ export default function (pi: ExtensionAPI) {
 		name: "browser_session_summary",
 		label: "Browser Session Summary",
 		description: "Return a compact structured summary of the current browser session, including pages, actions, waits/assertions, bounded-history caveats, and trace/HAR state.",
+		promptSnippet: "Return a compact structured summary of the current browser session, including pages, actions, waits/assertions, bound...",
 		parameters: Type.Object({}),
 		async execute(_toolCallId, _params, _signal, _onUpdate, _ctx) {
 			try {
@@ -2829,6 +2849,7 @@ export default function (pi: ExtensionAPI) {
 		name: "browser_debug_bundle",
 		label: "Browser Debug Bundle",
 		description: "Write a timestamped debug bundle to disk with screenshot, logs, timeline, pages, session summary, and accessibility output, then return compact paths and counts.",
+		promptSnippet: "Write a timestamped debug bundle to disk with screenshot, logs, timeline, pages, session summary, and accessibility o...",
 		parameters: Type.Object({
 			selector: Type.Optional(Type.String({ description: "Optional CSS selector to scope the accessibility snapshot before fallback behavior applies." })),
 			name: Type.Optional(Type.String({ description: "Optional short bundle name suffix for the output directory." })),
@@ -2924,6 +2945,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Assert",
 		description:
 			"Run one or more explicit browser assertions and return structured PASS/FAIL results. Prefer this for verification instead of inferring success from prose summaries.",
+		promptSnippet: "Run one or more explicit browser assertions and return structured PASS/FAIL results.",
 		promptGuidelines: [
 			"Prefer browser_assert for browser verification instead of inferring success from summaries.",
 			"When finishing UI work, explicit browser assertions should usually be the final verification step.",
@@ -2970,6 +2992,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Diff",
 		description:
 			"Report meaningful browser-state changes. By default compares the current page to the most recent tracked action state. Use this to understand what changed after a click, submit, or navigation.",
+		promptSnippet: "Report meaningful browser-state changes.",
 		promptGuidelines: [
 			"Use browser_diff after ambiguous or high-impact actions when you need to know what changed.",
 			"Prefer browser_diff over requesting a broad new page inspection when the question is change detection.",
@@ -3020,6 +3043,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Batch",
 		description:
 			"Execute multiple explicit browser steps in one call. Prefer this for obvious action sequences like click → type → wait → assert to reduce round trips and token usage.",
+		promptSnippet: "Execute multiple explicit browser steps in one call.",
 		promptGuidelines: [
 			"If the next 2-5 browser actions are obvious and low-risk, prefer browser_batch over multiple tiny browser calls.",
 			"Use browser_batch for explicit sequences like click → type → submit → wait → assert.",
@@ -3243,6 +3267,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Accessibility Tree",
 		description:
 			"Get the accessibility tree of the current page as structured text. Shows roles, names, labels, values, and states of all interactive elements. Use this to understand page structure before clicking — it reveals buttons, inputs, links, and their labels without needing to guess CSS selectors or coordinates. Much more reliable than inspecting the DOM directly.",
+		promptSnippet: "Get the accessibility tree of the current page as structured text.",
 		parameters: Type.Object({
 			selector: Type.Optional(
 				Type.String({
@@ -3303,6 +3328,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Find",
 		description:
 			"Find elements on the page by text content, ARIA role, or CSS selector. Returns only the matched nodes as a compact accessibility snapshot — far cheaper than browser_get_accessibility_tree. Use this after any action to locate a specific button, input, heading, or link before clicking it.",
+		promptSnippet: "Find elements on the page by text content, ARIA role, or CSS selector.",
 		promptGuidelines: [
 			"Use browser_find for cheap targeted discovery before requesting the full accessibility tree.",
 			"Prefer browser_find when you need one button, input, heading, dialog, or alert rather than a full-page structure dump.",
@@ -3441,6 +3467,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Snapshot Refs",
 		description:
 			"Capture a compact inventory of interactive elements and assign deterministic versioned refs (@vN:e1, @vN:e2, ...). Use these refs with browser_click_ref, browser_fill_ref, and browser_hover_ref.",
+		promptSnippet: "Capture a compact inventory of interactive elements and assign deterministic versioned refs (@vN:e1, @vN:e2, ...).",
 		parameters: Type.Object({
 			selector: Type.Optional(
 				Type.String({
@@ -3576,6 +3603,7 @@ export default function (pi: ExtensionAPI) {
 		name: "browser_get_ref",
 		label: "Browser Get Ref",
 		description: "Inspect stored metadata for one deterministic element ref (prefer versioned format, e.g. @v3:e1).",
+		promptSnippet: "Inspect stored metadata for one deterministic element ref (prefer versioned format, e.g.",
 		parameters: Type.Object({
 			ref: Type.String({ description: "Reference id, preferably versioned (e.g. '@v3:e1')." }),
 		}),
@@ -3617,6 +3645,7 @@ export default function (pi: ExtensionAPI) {
 		name: "browser_click_ref",
 		label: "Browser Click Ref",
 		description: "Click a previously snapshotted element by deterministic versioned ref (e.g. @v3:e2).",
+		promptSnippet: "Click a previously snapshotted element by deterministic versioned ref (e.g.",
 		parameters: Type.Object({
 			ref: Type.String({ description: "Reference id in versioned format, e.g. '@v3:e2'." }),
 		}),
@@ -3731,6 +3760,7 @@ export default function (pi: ExtensionAPI) {
 		name: "browser_hover_ref",
 		label: "Browser Hover Ref",
 		description: "Hover a previously snapshotted element by deterministic versioned ref (e.g. @v3:e4).",
+		promptSnippet: "Hover a previously snapshotted element by deterministic versioned ref (e.g.",
 		parameters: Type.Object({
 			ref: Type.String({ description: "Reference id in versioned format, e.g. '@v3:e4'." }),
 		}),
@@ -3821,6 +3851,7 @@ export default function (pi: ExtensionAPI) {
 		name: "browser_fill_ref",
 		label: "Browser Fill Ref",
 		description: "Fill/type text into an input-like element by deterministic versioned ref (e.g. @v3:e1).",
+		promptSnippet: "Fill/type text into an input-like element by deterministic versioned ref (e.g.",
 		parameters: Type.Object({
 			ref: Type.String({ description: "Reference id in versioned format, e.g. '@v3:e1'." }),
 			text: Type.String({ description: "Text to enter." }),
@@ -3950,6 +3981,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Wait For",
 		description:
 			"Wait for a condition before continuing. Use after actions that trigger async updates — data fetches, route changes, animations, loading spinners. Choose the appropriate condition: 'selector_visible' waits for an element to appear, 'selector_hidden' waits for it to disappear, 'url_contains' waits for the URL to match, 'network_idle' waits for all network requests to finish, 'delay' waits a fixed number of milliseconds, 'text_visible' waits for text to appear in the page body, 'text_hidden' waits for text to disappear from the page body, 'request_completed' waits for a network response whose URL contains the given substring, 'console_message' waits for a console log message containing the given substring, 'element_count' waits for the number of elements matching the CSS selector in 'value' to satisfy the 'threshold' expression (e.g. '>=3', '==0', '<5'), 'region_stable' waits for the DOM region matching the CSS selector in 'value' to stop changing.",
+		promptSnippet: "Wait for a condition before continuing.",
 		parameters: Type.Object({
 			condition: StringEnum([
 				"selector_visible",
@@ -4188,6 +4220,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Hover",
 		description:
 			"Move the mouse over an element to trigger hover states — reveals tooltips, dropdown menus, CSS :hover effects, and other hover-dependent UI. Returns a compact page summary showing the resulting hover state.", 
+		promptSnippet: "Move the mouse over an element to trigger hover states — reveals tooltips, dropdown menus, CSS :hover effects, and ot...",
 		parameters: Type.Object({
 			selector: Type.String({
 				description: "CSS selector of the element to hover over",
@@ -4231,6 +4264,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Key Press",
 		description:
 			"Press a keyboard key or key combination. Returns a compact page summary plus lightweight verification details after the key press. Use for: submitting forms (Enter), closing modals (Escape), navigating focusable elements (Tab / Shift+Tab), operating dropdowns and menus (ArrowDown, ArrowUp, Space), copying/pasting (Meta+C, Meta+V). Key names follow the DOM KeyboardEvent key convention.", 
+		promptSnippet: "Press a keyboard key or key combination.",
 		parameters: Type.Object({
 			key: Type.String({
 				description:
@@ -4312,6 +4346,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Select Option",
 		description:
 			"Select an option from a <select> dropdown element by its visible label or value. Returns a compact page summary plus lightweight verification details. For custom-built dropdowns use browser_click to open them then browser_click to pick the option.", 
+		promptSnippet: "Select an option from a <select> dropdown element by its visible label or value.",
 		parameters: Type.Object({
 			selector: Type.String({
 				description: "CSS selector targeting the <select> element",
@@ -4411,6 +4446,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Set Checked",
 		description:
 			"Check or uncheck a checkbox or radio button. More reliable than clicking for form elements where you need a specific state.",
+		promptSnippet: "Check or uncheck a checkbox or radio button.",
 		parameters: Type.Object({
 			selector: Type.String({
 				description: "CSS selector targeting the checkbox or radio input",
@@ -4486,6 +4522,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Set Viewport",
 		description:
 			"Resize the browser viewport to test responsive layouts at different screen sizes. Use presets for common breakpoints or specify exact pixel dimensions. Essential for verifying mobile/tablet/desktop layouts.",
+		promptSnippet: "Resize the browser viewport to test responsive layouts at different screen sizes.",
 		parameters: Type.Object({
 			preset: Type.Optional(
 				StringEnum(["mobile", "tablet", "desktop", "wide"] as const)
@@ -4571,6 +4608,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Page Source",
 		description:
 			"Get the current HTML source of the page (or a specific element). Use when you need to inspect the actual DOM structure — verify semantic HTML, check that elements rendered correctly, debug why a selector isn't matching, or audit accessibility markup. Output is truncated for large pages.",
+		promptSnippet: "Get the current HTML source of the page (or a specific element).",
 		parameters: Type.Object({
 			selector: Type.Optional(
 				Type.String({
@@ -4627,6 +4665,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser List Pages",
 		description:
 			"List all open browser pages/tabs with their IDs, titles, URLs, and active status. Use to see what pages are available before switching.",
+		promptSnippet: "List all open browser pages/tabs with their IDs, titles, URLs, and active status.",
 		parameters: Type.Object({}),
 
 		async execute(_toolCallId, _params, _signal, _onUpdate, _ctx) {
@@ -4675,6 +4714,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Switch Page",
 		description:
 			"Switch the active browser page/tab by page ID. Use browser_list_pages to see available IDs. Clears any active frame selection.",
+		promptSnippet: "Switch the active browser page/tab by page ID.",
 		parameters: Type.Object({
 			id: Type.Number({ description: "Page ID to switch to (from browser_list_pages)" }),
 		}),
@@ -4713,6 +4753,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Close Page",
 		description:
 			"Close a specific browser page/tab by ID. Cannot close the last remaining page. The page's close event triggers automatic registry cleanup and active-page fallback.",
+		promptSnippet: "Close a specific browser page/tab by ID.",
 		parameters: Type.Object({
 			id: Type.Number({ description: "Page ID to close (from browser_list_pages)" }),
 		}),
@@ -4775,6 +4816,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser List Frames",
 		description:
 			"List all frames in the active page, including the main frame and any iframes. Shows frame name, URL, and parent frame name. Use before browser_select_frame to identify available frames.",
+		promptSnippet: "List all frames in the active page, including the main frame and any iframes.",
 		parameters: Type.Object({}),
 
 		async execute(_toolCallId, _params, _signal, _onUpdate, _ctx) {
@@ -4824,6 +4866,7 @@ export default function (pi: ExtensionAPI) {
 		label: "Browser Select Frame",
 		description:
 			"Select a frame within the active page to operate on. Find frames by name, URL pattern, or index. Pass null or \"main\" to reset back to the main page frame. Once a frame is selected, tools like browser_evaluate, browser_find, and browser_click will operate within that frame (after T03 migration).",
+		promptSnippet: "Select a frame within the active page to operate on.",
 		parameters: Type.Object({
 			name: Type.Optional(Type.String({ description: "Frame name to select. Use 'main' or 'null' to reset to main frame." })),
 			urlPattern: Type.Optional(Type.String({ description: "URL substring to match against frame URLs." })),

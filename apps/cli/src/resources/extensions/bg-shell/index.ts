@@ -1126,6 +1126,7 @@ export default function (pi: ExtensionAPI) {
 			"send (write stdin), send_and_wait (expect-style: send + wait for output pattern), " +
 			"signal (send OS signal), list (all processes with status), kill (terminate), restart (kill + relaunch), " +
 			"group_status (health of a process group), highlights (significant output lines only).",
+		promptSnippet: "Run shell commands in the background without blocking. Manages persistent background processes with intelligent lifecycle tracking.",
 
 		promptGuidelines: [
 			"Use bg_shell to start long-running processes (servers, watchers, builds) that should not block the agent.",

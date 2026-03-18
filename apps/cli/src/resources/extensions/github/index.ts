@@ -614,7 +614,6 @@ export default function (pi: ExtensionAPI) {
 
 	pi.registerCommand("gh", {
 		description: "GitHub helper: /gh issues|prs|view|create|labels|milestones|status",
-
 		getArgumentCompletions: (prefix: string) => {
 			const subcommands = ["issues", "prs", "view", "create", "labels", "milestones", "status"];
 			const parts = prefix.trim().split(/\s+/);

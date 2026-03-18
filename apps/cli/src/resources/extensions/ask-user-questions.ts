@@ -96,6 +96,7 @@ export default function AskUserQuestions(pi: ExtensionAPI) {
 		label: "Request User Input",
 		description:
 			"Request user input for one to three short questions and wait for the response. Single-select questions have 2-3 mutually exclusive options with a free-form 'None of the above' added automatically. Multi-select questions (allowMultiple: true) let the user toggle multiple options with SPACE and confirm with ENTER.",
+		promptSnippet: "Request user input for one to three short questions and wait for the response.",
 		promptGuidelines: [
 			"Use ask_user_questions when you need the user to choose between concrete alternatives before proceeding.",
 			"Keep questions to 1 when possible; never exceed 3.",
