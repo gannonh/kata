@@ -78,7 +78,7 @@
   - Verify: `cargo test --test orchestrator_tests refresh -- --nocapture` and targeted `http_server_tests` control-seam cases
   - Done when: Refresh requests can be signaled externally, duplicate refresh bursts coalesce deterministically, and published snapshots stay the single source for HTTP responses.
 
-- [ ] **T03: Implement axum HTTP server routes and dashboard renderer** `est:75m`
+- [x] **T03: Implement axum HTTP server routes and dashboard renderer** `est:75m`
   - Why: This delivers the user-visible product increment for R010 (real API + real dashboard), consuming orchestrator state directly.
   - Files: `src/http_server.rs`, `src/lib.rs`, `Cargo.toml`, `tests/http_server_tests.rs`, `src/domain.rs`
   - Do: Implement route handlers for `/`, `/api/v1/state`, `/api/v1/:issue_identifier`, and `POST /api/v1/refresh`; add API fallback/405 JSON envelopes; render server-side HTML dashboard with lightweight polling and real totals/retry/running fields.

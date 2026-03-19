@@ -2,7 +2,7 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S07 — HTTP Dashboard and JSON API
-**Active Task:** T03 — Implement axum HTTP server routes and dashboard renderer
+**Active Task:** T04 — Wire CLI runtime composition and finalize slice verification
 **Phase:** Executing
 
 ## Progress
@@ -29,7 +29,7 @@
 
 ## Next Action
 
-Execute S07/T03: implement real axum HTTP route handlers for dashboard, state API, issue lookup, and refresh endpoint; turn the T01 red suite green.
+Execute S07/T04: wire optional HTTP server startup into CLI runtime composition (effective port + host), preserve CLI `--port` precedence, and run full S07 verification (`http_server_tests`, `cli_tests`, `cargo build`).
 
 ## Validated Requirements
 
