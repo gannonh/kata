@@ -993,10 +993,12 @@ async function runPrGate(
       );
       ctx.ui.notify(`Merged ${mergeResult.branch} → main.`, "info");
     } catch (error) {
+      await stopAuto(ctx, pi);
       ctx.ui.notify(
         `Slice merge failed: ${error instanceof Error ? error.message : String(error)}`,
         "error",
       );
+      return "handled";
     }
   }
 
@@ -1016,7 +1018,7 @@ async function dispatchNextUnit(
 
   // 1. Derive state (backend handles file vs Linear)
   const state = await backend.deriveState();
-  const mid = state.activeMilestone?.id;
+  let mid = state.activeMilestone?.id;
   const midTitle = state.activeMilestone?.title;
 
   dlog("derive-state", {
@@ -1054,7 +1056,11 @@ async function dispatchNextUnit(
   // After complete-slice runs, the next dispatch will hit this block
   // again (phase is still "complete"). At that point, prev unit is
   // complete-slice, so we run the PR gate before stopping.
-  if (!mid || state.phase === "complete") {
+  if (
+    !mid ||
+    state.phase === "complete" ||
+    state.phase === "completing-milestone"
+  ) {
     // Recovery path A: force complete-slice if Linear auto-closed the slice
     if (
       currentUnit?.type === "execute-task" &&
@@ -1088,6 +1094,9 @@ async function dispatchNextUnit(
         };
         state.activeSlice = { id: recoverySid, title: recoverySid };
         state.activeTask = null;
+        // Update mid to reflect the override — stale mid would cause
+        // the normal stop block below to fire and undo the recovery.
+        mid = recoveryMid;
         // Fall through to dispatch logic — don't stop
       }
     }
@@ -1097,11 +1106,22 @@ async function dispatchNextUnit(
     // complete-slice finishes. The normal PR gate at step 9 never runs
     // because this early-exit fires first. Run it here instead.
     if (
-      (state.phase === "complete" || !mid) &&
+      (state.phase === "complete" || state.phase === "completing-milestone" || !mid) &&
       currentUnit &&
       (currentUnit.type === "complete-slice" ||
         currentUnit.type === "linear-summarizing")
     ) {
+      // Finalize the current unit before the PR gate may return early
+      const modelId = ctx.model?.id ?? "unknown";
+      snapshotUnitMetrics(
+        ctx,
+        currentUnit.type,
+        currentUnit.id,
+        currentUnit.startedAt,
+        modelId,
+      );
+      saveActivityLog(ctx, basePath, currentUnit.type, currentUnit.id);
+
       const [completedMid, completedSid] = currentUnit.id.split("/");
       if (completedMid && completedSid) {
         const gateResult = await runPrGate(
@@ -1121,7 +1141,7 @@ async function dispatchNextUnit(
     }
 
     // Normal stop: no recovery needed or recovery already applied above
-    if (state.phase === "complete" || !mid) {
+    if (state.phase === "complete" || state.phase === "completing-milestone" || !mid) {
       if (currentUnit) {
         const modelId = ctx.model?.id ?? "unknown";
         snapshotUnitMetrics(
