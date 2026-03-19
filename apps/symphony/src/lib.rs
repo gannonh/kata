@@ -7,6 +7,7 @@ pub mod workflow_store;
 pub mod linear;
 
 pub mod path_safety;
+pub mod ssh;
 pub mod prompt_builder;
 pub mod workspace;
 

@@ -65,7 +65,7 @@ Tests must include:
 
 ## Tasks
 
-- [ ] **T01: Create `tests/ssh_tests.rs` red suite and `src/ssh.rs` stub** `est:45m`
+- [x] **T01: Create `tests/ssh_tests.rs` red suite and `src/ssh.rs` stub** `est:45m`
   - Why: Establishes the verification target (all tests red) and module skeleton before implementation; follows the red→green discipline used in S05/S06
   - Files: `tests/ssh_tests.rs`, `src/ssh.rs`, `src/lib.rs`
   - Do: Create `src/ssh.rs` with stub signatures (`parse_target`, `shell_escape`, `ssh_args`, `SshRunner::start_process`). Add `pub mod ssh` to `src/lib.rs`. Write all 15 test cases in `tests/ssh_tests.rs` with assertions on expected behavior — they should fail because stubs return `todo!()`. Include fake-ssh-on-PATH helper: write a temp shell script that appends its args to a trace file, prepend its dir to `PATH` env for the subprocess test. Add `SymphonyError::SshLaunchFailed(String)` variant to `src/error.rs`. Add `WorkerHostSelection` enum (`Local`, `Remote(String)`, `NoneAvailable`) to `src/ssh.rs` or `src/domain.rs`.

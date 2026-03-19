@@ -2,7 +2,7 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S08 — SSH Remote Worker Extension
-**Active Task:** T01 — Create `tests/ssh_tests.rs` red suite and `src/ssh.rs` stub
+**Active Task:** T02 — Implement `src/ssh.rs` — arg construction, shell escape, host:port parsing, subprocess launch
 **Phase:** Executing
 
 ## Progress
