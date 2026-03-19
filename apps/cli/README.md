@@ -91,7 +91,7 @@ Each slice flows through phases automatically:
 - **Complete** writes the summary, UAT script, marks the roadmap, and commits
 - **Reassess** checks if the roadmap still makes sense given what was learned
 
-All planning state lives in `.kata/` at the project root — human-readable markdown files that track milestones, slices, tasks, decisions, and progress.
+In file workflow mode, planning state lives in `.kata/` at the project root — human-readable markdown files that track milestones, slices, tasks, decisions, and progress. In Linear workflow mode, those same artifacts are stored in Linear issues/documents instead.
 
 ## Commands
 
@@ -141,7 +141,7 @@ All planning state lives in `.kata/` at the project root — human-readable mark
 
 ## Preferences
 
-Kata preferences live in `~/.kata-cli/preferences.md` (global) or `.kata-cli/preferences.md` (project-local). Manage with `/kata prefs`.
+Kata preferences live in `~/.kata-cli/preferences.md` (global) or `.kata/preferences.md` (project-local). Manage with `/kata prefs`. Legacy `.kata/PREFERENCES.md` is still read for backward compatibility.
 
 ```yaml
 ---
@@ -189,6 +189,8 @@ pr:
   review_on_create: false # run parallel code review after PR creation
   linear_link: false      # add Linear issue refs to PR body (requires linear mode)
 ```
+
+Slice branches use the canonical namespaced format `kata/<scope>/<M>/<S>` (for example `kata/apps-cli/M003/S05`). Legacy `kata/<M>/<S>` branches are still accepted during transition.
 
 ### How it works with auto-mode
 

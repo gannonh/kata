@@ -1593,7 +1593,7 @@ flowchart TD
   PR_PREF -->|skip-notify| NOTIFY["Pause + notify user"]
   NOTIFY --> USER_MANUAL["User handles merge manually"]
   USER_MANUAL --> RESUME
-  PR_PREF -->|legacy-squash-merge| SQUASH["Squash-merge slice branch"]
+  PR_PREF -->|direct-squash-merge| SQUASH["Squash-merge slice branch"]
   SQUASH --> NEXT["Continue to next slice"]
   PR_PREF -->|continue-auto| NEXT
   RESUME --> NEXT

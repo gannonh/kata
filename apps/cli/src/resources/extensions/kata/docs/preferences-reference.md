@@ -89,19 +89,21 @@ If Linear mode is configured but not ready, the status output stays redacted and
 
 Run `/kata pr status` to inspect the PR lifecycle configuration:
 
+Canonical slice branches use the namespaced format `kata/<scope>/<milestone>/<slice>` (for example `kata/apps-cli/M003/S05`). Legacy `kata/<milestone>/<slice>` branches remain supported during transition.
+
 ```text
 PR lifecycle: enabled
-branch: kata/M003/S05
+branch: kata/apps-cli/M003/S05
 base_branch: main
 auto_create: true
-open PR: #70 — kata/M003/S05
+open PR: #70 — kata/apps-cli/M003/S05
 ```
 
 When PR lifecycle is disabled or not configured:
 
 ```text
 PR lifecycle: pr.enabled is false (disabled)
-branch: kata/M003/S05
+branch: kata/apps-cli/M003/S05
 Set pr.enabled: true in .kata/preferences.md to activate the PR workflow.
 ```
 
