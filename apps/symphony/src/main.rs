@@ -177,7 +177,12 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
         let tracker_client = LinearClient::new(context.effective_config.tracker.clone());
         let tracker_adapter = LinearAdapter::new(tracker_client);
         let mut tracker_port = LinearOrchestratorPort::new(tracker_adapter);
-        let mut orchestrator = Orchestrator::new(context.effective_config.clone());
+
+        // Get the prompt template from the workflow store.
+        let (workflow_def, _) = context.workflow_store.effective_config();
+        let prompt_template = workflow_def.prompt_template.clone();
+
+        let mut orchestrator = Orchestrator::new(context.effective_config.clone(), prompt_template);
 
         let snapshot_handle = orchestrator.create_snapshot_handle();
         let refresh_sender = orchestrator.create_refresh_channel();

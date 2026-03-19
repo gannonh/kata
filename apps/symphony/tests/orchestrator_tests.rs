@@ -119,7 +119,7 @@ fn issue(
 
 #[test]
 fn test_reconcile_startup_terminal_cleanup_marks_terminal_issues_completed() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let mut port = FakePort {
         terminal_issues: vec![issue("issue-closed", "SIM-10", "Done", Some(1), 0)],
         ..FakePort::default()
@@ -140,7 +140,7 @@ fn test_reconcile_startup_terminal_cleanup_marks_terminal_issues_completed() {
 
 #[test]
 fn test_reconcile_tick_reconcile_before_validate_before_dispatch() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let mut port = FakePort {
         candidate_issues: vec![issue("issue-1", "SIM-1", "Todo", Some(2), 0)],
         ..FakePort::default()
@@ -163,7 +163,7 @@ fn test_reconcile_tick_reconcile_before_validate_before_dispatch() {
 
 #[test]
 fn test_reconcile_refresh_failure_is_non_fatal_and_dispatch_continues() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let mut port = FakePort {
         reconcile_should_fail: true,
         candidate_issues: vec![issue("issue-1", "SIM-1", "Todo", Some(2), 0)],
@@ -190,7 +190,7 @@ fn test_reconcile_refresh_failure_is_non_fatal_and_dispatch_continues() {
 
 #[test]
 fn test_completed_is_bookkeeping_and_does_not_block_dispatch() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let candidate = issue("issue-1", "SIM-1", "Todo", Some(1), 0);
     orchestrator
         .state_mut()
@@ -212,7 +212,7 @@ fn test_completed_is_bookkeeping_and_does_not_block_dispatch() {
 
 #[test]
 fn test_preflight_validation_failure_skips_dispatch_but_reconcile_continues() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let mut port = FakePort {
         validate_should_fail: true,
         candidate_issues: vec![issue("issue-2", "SIM-2", "Todo", Some(1), 0)],
@@ -252,7 +252,7 @@ fn test_preflight_validation_failure_skips_dispatch_but_reconcile_continues() {
 
 #[test]
 fn test_dispatch_candidate_sorting_and_gating_rules() {
-    let mut orchestrator = Orchestrator::new(test_config(1));
+    let mut orchestrator = Orchestrator::new(test_config(1), String::new());
 
     let mut blocked = issue("issue-blocked", "SIM-20", "Todo", Some(0), 0);
     blocked.blocked_by.push(BlockerRef {
@@ -286,7 +286,7 @@ fn test_dispatch_candidate_sorting_and_gating_rules() {
 
 #[test]
 fn test_dispatch_enforces_per_state_concurrency_caps() {
-    let mut orchestrator = Orchestrator::new(test_config(3));
+    let mut orchestrator = Orchestrator::new(test_config(3), String::new());
 
     let seeded_todo = issue("issue-seeded", "SIM-23", "Todo", Some(1), -30);
     let mut seed_port = FakePort {
@@ -325,7 +325,7 @@ fn test_dispatch_enforces_per_state_concurrency_caps() {
 
 #[test]
 fn test_dispatch_predispatch_refresh_rejects_stale_state() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let stale_candidate = issue("issue-stale", "SIM-30", "In Progress", Some(1), 0);
     let refreshed_terminal = issue("issue-stale", "SIM-30", "Done", Some(1), 0);
 
@@ -356,7 +356,7 @@ fn test_dispatch_predispatch_refresh_rejects_stale_state() {
 
 #[test]
 fn test_retry_scheduling_continuation_and_failure_backoff_rules() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let now_ms = 10_000;
 
     let continuation_token = orchestrator.schedule_retry(
@@ -409,7 +409,7 @@ fn test_retry_scheduling_continuation_and_failure_backoff_rules() {
 
 #[test]
 fn test_stale_retry_timer_is_ignored() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let now_ms = 20_000;
 
     let current_token = orchestrator.schedule_retry(
@@ -466,7 +466,7 @@ fn test_stale_retry_timer_is_ignored() {
 
 #[test]
 fn test_stall_detection_schedules_forced_retry() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
 
     orchestrator.state_mut().running.insert(
         "issue-stalled".to_string(),
@@ -514,7 +514,7 @@ fn test_stall_detection_schedules_forced_retry() {
 
 #[test]
 fn test_token_totals_and_rate_limits_accumulate_into_snapshot() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
 
     orchestrator.apply_turn_metrics(&TurnMetrics {
         input_tokens: 10,
@@ -560,7 +560,7 @@ fn test_token_totals_and_rate_limits_accumulate_into_snapshot() {
 
 #[test]
 fn test_snapshot_exposes_running_and_retry_diagnostics() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
 
     orchestrator.state_mut().running.insert(
         "issue-running".to_string(),
@@ -625,7 +625,7 @@ fn test_snapshot_exposes_running_and_retry_diagnostics() {
 
 #[test]
 fn test_worker_completion_schedules_continuation_retry_with_session_context() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
 
     orchestrator.state_mut().running.insert(
         "issue-complete".to_string(),
@@ -690,7 +690,7 @@ fn test_worker_completion_schedules_continuation_retry_with_session_context() {
 
 #[test]
 fn test_worker_failure_preserves_attempt_and_backoff_cap() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
 
     orchestrator.state_mut().running.insert(
         "issue-fail".to_string(),
@@ -753,7 +753,7 @@ fn test_worker_failure_preserves_attempt_and_backoff_cap() {
 
 #[test]
 fn test_snapshot_handle_read_returns_published_state() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
 
     // Dispatch an issue so the snapshot has running state
     let candidate = issue("issue-snap", "SIM-90", "Todo", Some(1), 0);
@@ -780,7 +780,7 @@ fn test_snapshot_handle_read_returns_published_state() {
 
 #[test]
 fn test_snapshot_handle_updates_after_publish() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let handle = orchestrator.create_snapshot_handle();
 
     // Initially empty running state
@@ -816,7 +816,7 @@ fn test_snapshot_handle_updates_after_publish() {
 
 #[test]
 fn test_snapshot_handle_is_clone_cheap_and_shares_state() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let handle1 = orchestrator.create_snapshot_handle();
     let handle2 = handle1.clone();
 
@@ -842,7 +842,7 @@ fn test_snapshot_handle_is_clone_cheap_and_shares_state() {
 
 #[test]
 fn test_snapshot_handle_preserves_codex_totals_and_rate_limits() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let handle = orchestrator.create_snapshot_handle();
 
     orchestrator.apply_turn_metrics(&TurnMetrics {
@@ -1004,7 +1004,7 @@ async fn test_refresh_channel_notified_wakes_on_request() {
 
 #[test]
 fn test_orchestrator_create_refresh_channel_returns_functional_sender() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let sender = orchestrator.create_refresh_channel();
 
     let outcome = sender.request_refresh();
@@ -1016,7 +1016,7 @@ fn test_orchestrator_create_refresh_channel_returns_functional_sender() {
 
 #[test]
 fn test_orchestrator_create_snapshot_handle_and_refresh_channel_independently() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let handle = orchestrator.create_snapshot_handle();
     let sender = orchestrator.create_refresh_channel();
 
@@ -1030,7 +1030,7 @@ fn test_orchestrator_create_snapshot_handle_and_refresh_channel_independently() 
 
 #[test]
 fn test_snapshot_handle_reflects_retry_queue_for_api_use() {
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let handle = orchestrator.create_snapshot_handle();
 
     orchestrator.schedule_retry(
@@ -1063,7 +1063,7 @@ fn test_reconcile_non_active_state_stops_run_without_cleanup() {
     // in terminal_states ["Done", "Canceled"]).
     // Expected: release_issue path fires → running entry is removed, but the issue is
     // NOT added to `completed` (no terminal cleanup).
-    let mut orchestrator = Orchestrator::new(test_config(2));
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
 
     // Manually seed the running map as if the orchestrator already dispatched this issue.
     let attempt = symphony::domain::RunAttempt {
