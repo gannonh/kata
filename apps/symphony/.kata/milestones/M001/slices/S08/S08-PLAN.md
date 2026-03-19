@@ -86,7 +86,7 @@ Tests must include:
   - Verify: `cargo test --test codex_tests` — all 32 existing tests pass (none regressed); `cargo build` clean
   - Done when: `start_session` compiles with new signature; all codex_tests pass; remote validation unit tests in ssh_tests pass
 
-- [ ] **T04: Implement `select_worker_host` and wire dispatch + retry propagation in `orchestrator.rs`** `est:60m`
+- [x] **T04: Implement `select_worker_host` and wire dispatch + retry propagation in `orchestrator.rs`** `est:60m`
   - Why: Closes the slice goal — host selection, per-host cap enforcement, and retry-preference propagation make SSH dispatch operationally correct
   - Files: `src/orchestrator.rs`
   - Do: Implement `select_worker_host(&self, preferred: Option<&str>) -> WorkerHostSelection`: if `ssh_hosts` empty → `Local`; else count per-host running entries from `self.state.running.values()`; filter hosts where count < `max_concurrent_agents_per_host` (default unlimited = u32::MAX); if preferred host is in filtered set → pick it; else pick least-loaded by `(count, index)` tuple for deterministic tiebreak; if no host available → `NoneAvailable`. In `dispatch_issue`: call `select_worker_host(None)` for fresh dispatch, `select_worker_host(retry.worker_host.as_deref())` for retry dispatch. On `NoneAvailable`: log WARN, return early (same as global cap full). On `Remote(host)`: pass `worker_host: Some(&host)` to `start_session`; store `Some(host)` in `RunAttempt.worker_host`. On `Local`: pass `worker_host: None` (as before). Ensure `RetryEntry.worker_host` is already set from `RunAttempt.worker_host` on failure (it is — line 485); confirm the retry dispatch path reads it and passes to `select_worker_host`.

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "unitType": "execute-task",
+  "unitId": "M001/S08/T04",
+  "startedAt": 1773932795274,
+  "updatedAt": 1773933275336,
+  "phase": "recovered",
+  "wrapupWarningSent": false,
+  "timeoutAt": null,
+  "lastProgressAt": 1773933275336,
+  "progressCount": 1,
+  "lastProgressKind": "idle-recovery-retry",
+  "recovery": {
+    "planPath": ".kata/milestones/M001/slices/S08/S08-PLAN.md",
+    "summaryPath": ".kata/milestones/M001/slices/S08/tasks/T04-SUMMARY.md",
+    "summaryExists": false,
+    "taskChecked": false,
+    "nextActionAdvanced": true,
+    "mustHaveCount": 7,
+    "mustHavesMentionedInSummary": 0
+  },
+  "recoveryAttempts": 1,
+  "lastRecoveryReason": "idle"
+}

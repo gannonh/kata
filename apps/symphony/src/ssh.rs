@@ -3,6 +3,7 @@
 /// Port of the Elixir `SymphonyElixir.SSH` module. Handles SSH argument
 /// construction, POSIX shell escaping, host:port parsing, and subprocess
 /// launch via `tokio::process::Command`.
+use std::collections::HashMap;
 use std::process::Stdio;
 use tokio::process::Child;
 
@@ -111,6 +112,59 @@ pub fn validate_remote_workspace_cwd(workspace: &str) -> Result<String> {
         )));
     }
     Ok(workspace.to_string())
+}
+
+/// Select a worker host from the SSH host pool.
+///
+/// Mirrors the Elixir `select_worker_host/2` in `orchestrator.ex` (lines 973–1010)
+/// and the `candidate_worker_hosts/2` helper in `agent_runner.ex` (lines 191–210).
+///
+/// # Parameters
+/// - `ssh_hosts`: ordered list of configured SSH hosts.
+/// - `load`: current running-task count per host.
+/// - `cap`: maximum tasks allowed per host (`max_concurrent_agents_per_host`).
+/// - `preferred`: optional host to prefer (e.g. from a prior `RunAttempt.worker_host`).
+///
+/// # Returns
+/// - `Local` when `ssh_hosts` is empty.
+/// - `Remote(host)` with the preferred host if it is eligible (under cap).
+/// - `Remote(host)` with the least-loaded eligible host (deterministic tiebreak by index).
+/// - `NoneAvailable` when all hosts are at or above cap.
+pub fn select_worker_host(
+    ssh_hosts: &[String],
+    load: &HashMap<String, usize>,
+    cap: usize,
+    preferred: Option<&str>,
+) -> WorkerHostSelection {
+    if ssh_hosts.is_empty() {
+        return WorkerHostSelection::Local;
+    }
+
+    // Build list of eligible (under-cap) hosts with their index for deterministic tiebreak.
+    let eligible: Vec<(usize, &String)> = ssh_hosts
+        .iter()
+        .enumerate()
+        .filter(|(_, h)| load.get(h.as_str()).copied().unwrap_or(0) < cap)
+        .collect();
+
+    if eligible.is_empty() {
+        return WorkerHostSelection::NoneAvailable;
+    }
+
+    // Honour the preferred host when it is in the eligible list.
+    if let Some(pref) = preferred {
+        if eligible.iter().any(|(_, h)| h.as_str() == pref) {
+            return WorkerHostSelection::Remote(pref.to_string());
+        }
+    }
+
+    // Pick the least-loaded eligible host; break ties by original list index.
+    let best = eligible
+        .into_iter()
+        .min_by_key(|(i, h)| (load.get(h.as_str()).copied().unwrap_or(0), *i))
+        .expect("eligible is non-empty");
+
+    WorkerHostSelection::Remote(best.1.clone())
 }
 
 /// Thin wrapper for launching SSH subprocesses.

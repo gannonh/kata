@@ -7,7 +7,7 @@ use std::io::Write;
 use std::path::Path;
 use tempfile::TempDir;
 
-use symphony::ssh::{parse_target, shell_escape, ssh_args, validate_remote_workspace_cwd, SshRunner, WorkerHostSelection};
+use symphony::ssh::{parse_target, select_worker_host, shell_escape, ssh_args, validate_remote_workspace_cwd, SshRunner, WorkerHostSelection};
 
 // ── Helper ──────────────────────────────────────────────────────────────────
 
@@ -141,7 +141,9 @@ async fn test_fake_ssh_launch() {
         .expect("start_process");
 
     // Give the fake script time to write its trace.
-    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    // Use 500 ms to stay green even when the full `cargo test` suite runs
+    // multiple test binaries in parallel and the process is under load.
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
     let trace = fs::read_to_string(&trace_file).expect("read trace");
     assert!(trace.contains("-T"), "expected -T in args, got: {trace}");
@@ -161,15 +163,7 @@ async fn test_fake_ssh_launch() {
 // function that takes the list of configured hosts, per-host load counts,
 // the cap, and an optional preferred host, and returns a `WorkerHostSelection`.
 
-/// Stub: will be replaced by orchestrator wiring in T02/T03.
-fn select_worker_host(
-    ssh_hosts: &[String],
-    load: &std::collections::HashMap<String, usize>,
-    cap: usize,
-    preferred: Option<&str>,
-) -> WorkerHostSelection {
-    todo!("implement in T02/T03")
-}
+// select_worker_host is now the real implementation from ssh.rs.
 
 #[test]
 fn test_select_worker_host_local_mode() {
