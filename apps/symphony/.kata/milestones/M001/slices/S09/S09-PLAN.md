@@ -47,7 +47,7 @@
   - Verify: `cargo test --test workflow_config_tests test_by_state_concurrency_normalization` passes; `cargo test --test orchestrator_tests test_reconcile_non_active_state_stops_run_without_cleanup` passes
   - Done when: both new tests appear in `cargo test` output with "ok", total test count is 161+
 
-- [ ] **T02: Write operator-grade README** `est:60m`
+- [x] **T02: Write operator-grade README** `est:60m`
   - Why: The current README is a development reference (AGENTS.md clone). Operators need build/run/configure instructions. R013 owns README as the human-usable documentation surface.
   - Files: `README.md`
   - Do: Replace (or fully overwrite) the existing README with an operator guide containing: (1) one-paragraph summary of what Symphony does; (2) Prerequisites (Rust toolchain, `cargo build --release`); (3) Run section — `symphony WORKFLOW.md [--port N] [--logs-root PATH]` with exit code semantics; (4) WORKFLOW.md Format — YAML front-matter schema table with all fields, types, defaults, and notes (tracker, polling_interval_ms, workspace, hooks, agent, codex, server, ssh_hosts, max_concurrent_agents_per_host); (5) Configuration Reference — environment variable override table ($VAR resolution, LINEAR_API_KEY, SYMPHONY_SSH_CONFIG); (6) HTTP Dashboard and API — endpoints list (GET /, GET /api/v1/state, GET /api/v1/:issue, POST /api/v1/refresh) with sample JSON shapes; (7) SSH Pool — ssh_hosts format, max_concurrent_agents_per_host, SYMPHONY_SSH_CONFIG; (8) Testing — `cargo test`, `cargo clippy -- -D warnings`; (9) brief Development Reference pointer to AGENTS.md.
