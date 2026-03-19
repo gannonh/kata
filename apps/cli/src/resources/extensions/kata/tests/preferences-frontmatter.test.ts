@@ -126,6 +126,70 @@ linear:
   });
 });
 
+test('loadEffectiveKataPreferences preserves models and auto_supervisor settings', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'kata-preferences-frontmatter-'));
+  const kataDir = join(tmp, '.kata');
+  mkdirSync(kataDir, { recursive: true });
+  writeFileSync(
+    join(kataDir, 'preferences.md'),
+    `---
+version: 1
+models:
+  research: claude-sonnet-4-6
+  planning: claude-opus-4-6     # Opus for architecture
+  execution: claude-opus-4-6
+  completion: claude-sonnet-4-6
+  review: claude-sonnet-4-6
+auto_supervisor:
+  model: claude-sonnet-4-6
+  soft_timeout_minutes: "25"
+  idle_timeout_minutes: 12
+  hard_timeout_minutes: 40
+---
+`,
+  );
+
+  const script = `
+    import {
+      loadEffectiveKataPreferences,
+      resolveModelForUnit,
+      resolveAutoSupervisorConfig,
+    } from ${JSON.stringify(preferencesPath)};
+
+    const prefs = loadEffectiveKataPreferences();
+    console.log(JSON.stringify({
+      models: prefs?.preferences.models ?? null,
+      researchModel: resolveModelForUnit('research-slice') ?? null,
+      planningModel: resolveModelForUnit('plan-slice') ?? null,
+      executionModel: resolveModelForUnit('execute-task') ?? null,
+      completionModel: resolveModelForUnit('complete-slice') ?? null,
+      supervisor: resolveAutoSupervisorConfig(),
+    }));
+  `;
+
+  const output = runPreferencesScript(tmp, script);
+
+  assert.deepEqual(JSON.parse(output), {
+    models: {
+      research: 'claude-sonnet-4-6',
+      planning: 'claude-opus-4-6',
+      execution: 'claude-opus-4-6',
+      completion: 'claude-sonnet-4-6',
+      review: 'claude-sonnet-4-6',
+    },
+    researchModel: 'claude-sonnet-4-6',
+    planningModel: 'claude-opus-4-6',
+    executionModel: 'claude-opus-4-6',
+    completionModel: 'claude-sonnet-4-6',
+    supervisor: {
+      model: 'claude-sonnet-4-6',
+      soft_timeout_minutes: 25,
+      idle_timeout_minutes: 12,
+      hard_timeout_minutes: 40,
+    },
+  });
+});
+
 test('loadProjectKataPreferences prefers canonical lowercase filename over legacy uppercase filename', () => {
   const tmp = mkdtempSync(join(tmpdir(), 'kata-preferences-frontmatter-'));
   mkdirSync(join(tmp, '.kata'), { recursive: true });
