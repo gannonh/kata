@@ -43,6 +43,7 @@ import {
   decidePostCompleteSliceAction,
   formatPrAutoCreateFailure,
 } from "./pr-auto.js";
+import { initDebugLog, closeDebugLog, dlog } from "./debug-log.js";
 import { runCreatePr } from "../pr-lifecycle/pr-runner.js";
 import {
   validatePlanBoundary,
@@ -115,6 +116,10 @@ let backend: KataBackend | null = null;
 let lastUnit: { type: string; id: string } | null = null;
 let retryCount = 0;
 const MAX_RETRIES = 1;
+
+/** Provider error retry state */
+const MAX_PROVIDER_RETRIES = 10;
+let providerErrorStreak = 0;
 
 /** Crash recovery prompt — set by startAuto, consumed by first dispatchNextUnit */
 let pendingCrashRecovery: string | null = null;
@@ -208,6 +213,10 @@ export async function stopAuto(
   clearUnitTimeout();
   if (basePath) clearLock(basePath);
   clearSkillSnapshot();
+
+  providerErrorStreak = 0;
+  dlog("stop", { reason: "explicit" });
+  closeDebugLog();
 
   // Show final cost summary before resetting
   const ledger = getLedger();
@@ -385,6 +394,17 @@ export async function startAuto(
     snapshotSkills();
   }
 
+  providerErrorStreak = 0;
+  initDebugLog(base);
+  dlog("init", {
+    basePath: base,
+    phase: state.phase,
+    milestone: state.activeMilestone?.id ?? null,
+    slice: state.activeSlice?.id ?? null,
+    task: state.activeTask?.id ?? null,
+    model: ctx.model?.id ?? null,
+  });
+
   ctx.ui.setStatus("kata-auto", "auto");
   const pendingCount = state.registry.filter(
     (m) => m.status !== "complete",
@@ -401,11 +421,77 @@ export async function startAuto(
 
 // ─── Agent End Handler ────────────────────────────────────────────────────────
 
+/** Backoff delay in ms: 5s, 10s, 20s, 40s, 60s, 60s, ... */
+function providerBackoffMs(attempt: number): number {
+  return Math.min(5000 * Math.pow(2, attempt), 60_000);
+}
+
+/**
+ * Handle a provider/network error during auto-mode.
+ * Retries with exponential backoff up to MAX_PROVIDER_RETRIES before pausing.
+ */
+export async function handleProviderError(
+  ctx: ExtensionContext,
+  pi: ExtensionAPI,
+  errorMsg: string,
+): Promise<void> {
+  if (!active || !cmdCtx) return;
+
+  providerErrorStreak++;
+  const delayMs = providerBackoffMs(providerErrorStreak - 1);
+  const delaySec = Math.round(delayMs / 1000);
+
+  dlog("provider-error", {
+    error: errorMsg,
+    streak: providerErrorStreak,
+    backoffSec: delaySec,
+  });
+
+  if (providerErrorStreak >= MAX_PROVIDER_RETRIES) {
+    dlog("pause", { reason: "provider-error-exhausted", streak: providerErrorStreak });
+    ctx.ui.notify(
+      `Auto-mode paused: ${providerErrorStreak} consecutive provider errors (${errorMsg}). Run /kata auto to retry.`,
+      "warning",
+    );
+    providerErrorStreak = 0;
+    await pauseAuto(ctx, pi);
+    return;
+  }
+
+  ctx.ui.notify(
+    `Provider error (${errorMsg}). Retrying in ${delaySec}s (${providerErrorStreak}/${MAX_PROVIDER_RETRIES})...`,
+    "warning",
+  );
+
+  await new Promise((r) => setTimeout(r, delayMs));
+
+  if (!active) return; // user stopped during backoff
+
+  dlog("provider-retry", { streak: providerErrorStreak });
+
+  try {
+    await handleAgentEnd(ctx, pi);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    dlog("provider-retry-error", { error: message });
+    ctx.ui.notify(`Auto-mode error during retry: ${message}`, "error");
+    await stopAuto(ctx, pi);
+  }
+}
+
 export async function handleAgentEnd(
   ctx: ExtensionContext,
   pi: ExtensionAPI,
 ): Promise<void> {
   if (!active || !cmdCtx) return;
+
+  // Successful agent completion — reset provider error streak
+  providerErrorStreak = 0;
+
+  dlog("agent-end", {
+    unit: currentUnit?.type ?? "none",
+    id: currentUnit?.id ?? "none",
+  });
 
   // Unit completed — clear its timeout
   clearUnitTimeout();
@@ -422,9 +508,13 @@ export async function handleAgentEnd(
         currentUnit.id,
       );
       if (commitMsg) {
+        dlog("autocommit", { unit: currentUnit.type, id: currentUnit.id });
         ctx.ui.notify(`Auto-committed uncommitted changes.`, "info");
       }
-    } catch {
+    } catch (err) {
+      dlog("autocommit-error", {
+        error: err instanceof Error ? err.message : String(err),
+      });
       // Non-fatal
     }
   }
@@ -433,6 +523,7 @@ export async function handleAgentEnd(
     await dispatchNextUnit(ctx, pi);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    dlog("dispatch-error", { error: message });
     ctx.ui.notify(`Auto-mode error: ${message}`, "error");
     await stopAuto(ctx, pi);
   }
@@ -795,6 +886,13 @@ async function dispatchNextUnit(
   const mid = state.activeMilestone?.id;
   const midTitle = state.activeMilestone?.title;
 
+  dlog("derive-state", {
+    phase: state.phase,
+    milestone: mid ?? null,
+    slice: state.activeSlice?.id ?? null,
+    task: state.activeTask?.id ?? null,
+  });
+
   // 2. Milestone transition detection
   if (mid && currentMilestoneId && mid !== currentMilestoneId) {
     ctx.ui.notify(
@@ -872,6 +970,13 @@ async function dispatchNextUnit(
   const unitType = deriveUnitType(state, dispatchOptions);
   const unitId = deriveUnitId(state, dispatchOptions);
 
+  dlog("dispatch", {
+    unit: unitType,
+    id: unitId,
+    phase: state.phase,
+    promptLen: prompt.length,
+  });
+
   ctx.ui.notify(`Auto-mode: ${unitType} — ${unitId}`, "info");
 
   await emitObservabilityWarnings(ctx, unitType, unitId);
@@ -879,6 +984,7 @@ async function dispatchNextUnit(
   // 7. Stuck detection
   if (lastUnit && lastUnit.type === unitType && lastUnit.id === unitId) {
     retryCount++;
+    dlog("retry", { unit: unitType, id: unitId, retryCount });
     if (retryCount > MAX_RETRIES) {
       if (currentUnit) {
         const modelId = ctx.model?.id ?? "unknown";
