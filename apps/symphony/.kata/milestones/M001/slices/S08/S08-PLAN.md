@@ -72,7 +72,7 @@ Tests must include:
   - Verify: `cargo test --test ssh_tests 2>&1 | grep "FAILED\|error\[" | head -20` — all tests fail (compile or runtime), none pass yet
   - Done when: All 15 test functions exist, compile with stub bodies, and fail at runtime (not compile-error)
 
-- [ ] **T02: Implement `src/ssh.rs` — arg construction, shell escape, host:port parsing, subprocess launch** `est:60m`
+- [x] **T02: Implement `src/ssh.rs` — arg construction, shell escape, host:port parsing, subprocess launch** `est:60m`
   - Why: Makes the `ssh_tests` SSH-module tests pass; provides the building block that `app_server.rs` uses for remote dispatch
   - Files: `src/ssh.rs`, `src/error.rs`
   - Do: Implement `parse_target(target: &str) -> (String, u16)` matching Elixir regex `^(.*):(\d+)$` with IPv6 bracketing guard (`valid_port_destination?` = destination doesn't start/end with `[`/`]` unless both present). Default port 22 when no port suffix matched. Implement `shell_escape(s: &str) -> String` using POSIX single-quote wrapping with embedded `'` replaced by `'"'"'`. Implement `ssh_args(host: &str, command: &str) -> Vec<String>` building `["-p", port, host_part, "--", "bash", "-lc", shell_escaped_command]` plus optional `-F config_path` from `std::env::var("SYMPHONY_SSH_CONFIG")`. Implement `SshRunner::start_process(host: &str, command: &str) -> Result<tokio::process::Child>` using `tokio::process::Command` with piped stdin/stdout/stderr.
