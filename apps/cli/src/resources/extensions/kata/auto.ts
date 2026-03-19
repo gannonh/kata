@@ -474,7 +474,7 @@ export async function handleProviderError(
   dlog("provider-retry", { streak: providerErrorStreak });
 
   try {
-    await handleAgentEnd(ctx, pi);
+    await handleAgentEnd(ctx, pi, /* resetStreak */ false);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     dlog("provider-retry-error", { error: message });
@@ -486,11 +486,12 @@ export async function handleProviderError(
 export async function handleAgentEnd(
   ctx: ExtensionContext,
   pi: ExtensionAPI,
+  resetStreak = true,
 ): Promise<void> {
   if (!active || !cmdCtx) return;
 
-  // Successful agent completion — reset provider error streak
-  providerErrorStreak = 0;
+  // Reset provider error streak only on normal completion, not during retries
+  if (resetStreak) providerErrorStreak = 0;
 
   dlog("agent-end", {
     unit: currentUnit?.type ?? "none",
