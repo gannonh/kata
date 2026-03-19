@@ -2,8 +2,8 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S08 — SSH Remote Worker Extension
-**Active Task:** Planning (next task to decompose)
-**Phase:** Planning
+**Active Task:** T01 — Create `tests/ssh_tests.rs` red suite and `src/ssh.rs` stub
+**Phase:** Executing
 
 ## Progress
 
@@ -22,6 +22,8 @@
 - D040: Standardize API error envelopes with stable `error.code`, `error.message`, and `error.status` fields
 - D041: Establish dedicated `tests/http_server_tests.rs` red→green harness as the slice-level HTTP contract gate
 - D042: Emit explicit HTTP startup decision events (`http_server_enabled` / `http_server_disabled`) for runtime wiring observability
+- D043: SSH host selection uses WorkerHostSelection enum (Local/Remote/NoneAvailable) in ssh.rs; NoneAvailable blocks dispatch without local fallback
+- D044: Remote workspace validation skips local FS canonicalization; validates only non-empty + absolute path string
 
 ## Blockers
 
@@ -29,7 +31,7 @@
 
 ## Next Action
 
-Start S08 planning: read S08 boundary-map contracts and decompose into task-level plan artifacts with SSH transport, host-pool caps, and continuation-host affinity verification.
+Execute S08/T01: create `tests/ssh_tests.rs` (15 red tests) and `src/ssh.rs` stubs with `WorkerHostSelection` enum and `SymphonyError::SshLaunchFailed`.
 
 ## Validated Requirements
 
