@@ -32,20 +32,20 @@ symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--i-understand-that-thi
 
 ### CLI Flag Reference
 
-| Flag | Type | Default | Description |
-|------|------|---------|-------------|
-| `WORKFLOW.md` (positional) | path | `WORKFLOW.md` | Path to the WORKFLOW.md configuration file |
-| `--port PORT` | u16 | _(none)_ | Bind the HTTP dashboard and API on this port. When omitted, no HTTP server is started. Overrides `server.port` in the workflow file. |
-| `--logs-root PATH` | path | _(none)_ | Directory root for agent log files. |
-| `--i-understand-that-this-will-be-running-without-the-usual-guardrails` | flag | `false` | Acknowledge that Symphony runs Codex sessions without interactive guardrails. |
+| Flag                                                                    | Type | Default       | Description                                                                                                                          |
+| ----------------------------------------------------------------------- | ---- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `WORKFLOW.md` (positional)                                              | path | `WORKFLOW.md` | Path to the WORKFLOW.md configuration file                                                                                           |
+| `--port PORT`                                                           | u16  | _(none)_      | Bind the HTTP dashboard and API on this port. When omitted, no HTTP server is started. Overrides `server.port` in the workflow file. |
+| `--logs-root PATH`                                                      | path | _(none)_      | Directory root for agent log files.                                                                                                  |
+| `--i-understand-that-this-will-be-running-without-the-usual-guardrails` | flag | `false`       | Acknowledge that Symphony runs Codex sessions without interactive guardrails.                                                        |
 
 ### Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| `0` | Clean shutdown (Ctrl-C or orchestrator loop returned normally) |
-| `1` | Startup failure (bad config, missing workflow file, orchestrator error) |
-| `2` | CLI parse error (unrecognised flag, bad argument type) |
+| Code | Meaning                                                                 |
+| ---- | ----------------------------------------------------------------------- |
+| `0`  | Clean shutdown (Ctrl-C or orchestrator loop returned normally)          |
+| `1`  | Startup failure (bad config, missing workflow file, orchestrator error) |
+| `2`  | CLI parse error (unrecognised flag, bad argument type)                  |
 
 ### Log Verbosity
 
@@ -70,72 +70,72 @@ Everything outside the front-matter is ignored by Symphony.
 
 #### `tracker` section
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `tracker.kind` | string | _(required)_ | Must be `"linear"`. |
-| `tracker.api_key` | string | _(required)_ | Linear personal API key. Supports `$VAR` env-var indirection (e.g. `$LINEAR_API_KEY`). Never logged. |
-| `tracker.project_slug` | string | _(required)_ | Linear project URL slug (the identifier shown in project URLs). Supports `$VAR` indirection. |
-| `tracker.endpoint` | string | `https://api.linear.app/graphql` | Linear GraphQL endpoint. Override for self-hosted Linear. |
-| `tracker.assignee` | string | _(none)_ | Filter candidate issues to this Linear username. Supports `$VAR` indirection. |
-| `tracker.active_states` | string[] | `["Todo", "In Progress"]` | Issue states that are eligible for dispatch. |
-| `tracker.terminal_states` | string[] | `["Closed", "Cancelled", "Canceled", "Duplicate", "Done"]` | Issue states that mark an agent run as complete. |
+| Field                     | Type     | Default                                                    | Description                                                                                          |
+| ------------------------- | -------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `tracker.kind`            | string   | _(required)_                                               | Must be `"linear"`.                                                                                  |
+| `tracker.api_key`         | string   | _(required)_                                               | Linear personal API key. Supports `$VAR` env-var indirection (e.g. `$LINEAR_API_KEY`). Never logged. |
+| `tracker.project_slug`    | string   | _(required)_                                               | Linear project URL slug (the identifier shown in project URLs). Supports `$VAR` indirection.         |
+| `tracker.endpoint`        | string   | `https://api.linear.app/graphql`                           | Linear GraphQL endpoint. Override for self-hosted Linear.                                            |
+| `tracker.assignee`        | string   | _(none)_                                                   | Filter candidate issues to this Linear username. Supports `$VAR` indirection.                        |
+| `tracker.active_states`   | string[] | `["Todo", "In Progress"]`                                  | Issue states that are eligible for dispatch.                                                         |
+| `tracker.terminal_states` | string[] | `["Closed", "Cancelled", "Canceled", "Duplicate", "Done"]` | Issue states that mark an agent run as complete.                                                     |
 
 #### `polling` section
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `polling.interval_ms` | u64 | `30000` | Poll interval in milliseconds. |
+| Field                 | Type | Default | Description                    |
+| --------------------- | ---- | ------- | ------------------------------ |
+| `polling.interval_ms` | u64  | `30000` | Poll interval in milliseconds. |
 
 #### `workspace` section
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| Field            | Type   | Default                       | Description                                                                  |
+| ---------------- | ------ | ----------------------------- | ---------------------------------------------------------------------------- |
 | `workspace.root` | string | `$TMPDIR/symphony_workspaces` | Root directory for per-issue agent workspaces. Supports `~` tilde expansion. |
 
 #### `agent` section
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `agent.max_concurrent_agents` | u32 | `10` | Global cap on simultaneously running agent sessions. |
-| `agent.max_turns` | u32 | `20` | Maximum Codex turns per session before the run is considered stalled. |
-| `agent.max_retry_backoff_ms` | u64 | `300000` | Maximum exponential back-off delay (ms) between retries. |
-| `agent.max_concurrent_agents_by_state` | map\<string, u32\> | `{}` | Per-Linear-state concurrency caps. Keys are lowercased state names; zero or negative values are silently ignored (spec §17.1). |
+| Field                                  | Type               | Default  | Description                                                                                                                    |
+| -------------------------------------- | ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `agent.max_concurrent_agents`          | u32                | `10`     | Global cap on simultaneously running agent sessions.                                                                           |
+| `agent.max_turns`                      | u32                | `20`     | Maximum Codex turns per session before the run is considered stalled.                                                          |
+| `agent.max_retry_backoff_ms`           | u64                | `300000` | Maximum exponential back-off delay (ms) between retries.                                                                       |
+| `agent.max_concurrent_agents_by_state` | map\<string, u32\> | `{}`     | Per-Linear-state concurrency caps. Keys are lowercased state names; zero or negative values are silently ignored (spec §17.1). |
 
 #### `codex` section
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `codex.command` | string or string[] | `["codex", "app-server"]` | Codex executable and arguments. Accepts a whitespace-split string or an explicit list. |
-| `codex.approval_policy` | object | _(reject all)_ | JSON/YAML object passed to Codex as the approval policy. Default rejects sandbox approvals, rules, and MCP elicitations. |
-| `codex.thread_sandbox` | string | `"workspace-write"` | Codex sandbox mode for the agent thread. |
-| `codex.turn_sandbox_policy` | object | _(none)_ | Per-turn sandbox policy override passed to Codex. |
-| `codex.turn_timeout_ms` | u64 | `3600000` | Hard timeout per Codex turn (1 hour default). |
-| `codex.read_timeout_ms` | u64 | `5000` | Timeout waiting for Codex process output (ms). |
-| `codex.stall_timeout_ms` | u64 | `300000` | Time before a non-progressing session is considered stalled (5 min default). |
+| Field                       | Type               | Default                   | Description                                                                                                              |
+| --------------------------- | ------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `codex.command`             | string or string[] | `["codex", "app-server"]` | Codex executable and arguments. Accepts a whitespace-split string or an explicit list.                                   |
+| `codex.approval_policy`     | object             | _(reject all)_            | JSON/YAML object passed to Codex as the approval policy. Default rejects sandbox approvals, rules, and MCP elicitations. |
+| `codex.thread_sandbox`      | string             | `"workspace-write"`       | Codex sandbox mode for the agent thread.                                                                                 |
+| `codex.turn_sandbox_policy` | object             | _(none)_                  | Per-turn sandbox policy override passed to Codex.                                                                        |
+| `codex.turn_timeout_ms`     | u64                | `3600000`                 | Hard timeout per Codex turn (1 hour default).                                                                            |
+| `codex.read_timeout_ms`     | u64                | `5000`                    | Timeout waiting for Codex process output (ms).                                                                           |
+| `codex.stall_timeout_ms`    | u64                | `300000`                  | Time before a non-progressing session is considered stalled (5 min default).                                             |
 
 #### `hooks` section
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `hooks.after_create` | string | _(none)_ | Shell command run after the workspace is created. |
-| `hooks.before_run` | string | _(none)_ | Shell command run before the Codex session starts. |
-| `hooks.after_run` | string | _(none)_ | Shell command run after the Codex session ends (success or failure). |
-| `hooks.before_remove` | string | _(none)_ | Shell command run before the workspace is removed. |
-| `hooks.timeout_ms` | u64 | `60000` | Timeout for each hook invocation (ms). |
+| Field                 | Type   | Default  | Description                                                          |
+| --------------------- | ------ | -------- | -------------------------------------------------------------------- |
+| `hooks.after_create`  | string | _(none)_ | Shell command run after the workspace is created.                    |
+| `hooks.before_run`    | string | _(none)_ | Shell command run before the Codex session starts.                   |
+| `hooks.after_run`     | string | _(none)_ | Shell command run after the Codex session ends (success or failure). |
+| `hooks.before_remove` | string | _(none)_ | Shell command run before the workspace is removed.                   |
+| `hooks.timeout_ms`    | u64    | `60000`  | Timeout for each hook invocation (ms).                               |
 
 #### `worker` section (SSH)
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `worker.ssh_hosts` | string[] | `[]` | Remote SSH hosts for distributed agent sessions. Format: `host`, `host:port`, `user@host:port`, or `[::1]:2222` for IPv6. |
-| `worker.max_concurrent_agents_per_host` | u32 | _(none)_ | Per-host concurrency cap. When absent, hosts are treated as having unlimited capacity. |
+| Field                                   | Type     | Default  | Description                                                                                                               |
+| --------------------------------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `worker.ssh_hosts`                      | string[] | `[]`     | Remote SSH hosts for distributed agent sessions. Format: `host`, `host:port`, `user@host:port`, or `[::1]:2222` for IPv6. |
+| `worker.max_concurrent_agents_per_host` | u32      | _(none)_ | Per-host concurrency cap. When absent, hosts are treated as having unlimited capacity.                                    |
 
 #### `server` section
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `server.port` | u16 | _(none)_ | HTTP server port. Equivalent to `--port` on the CLI; `--port` takes precedence. |
-| `server.host` | string | `"127.0.0.1"` | HTTP server bind address. |
+| Field         | Type   | Default       | Description                                                                     |
+| ------------- | ------ | ------------- | ------------------------------------------------------------------------------- |
+| `server.port` | u16    | _(none)_      | HTTP server port. Equivalent to `--port` on the CLI; `--port` takes precedence. |
+| `server.host` | string | `"127.0.0.1"` | HTTP server bind address.                                                       |
 
 ### Minimal Working Example
 
@@ -217,11 +217,11 @@ server:
 
 ### Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `LINEAR_API_KEY` | Linear personal API key. Used directly or as the canonical fallback when `tracker.api_key: $LINEAR_API_KEY` is set in the workflow file. |
-| `RUST_LOG` | Log filter directives for `tracing_subscriber`. Examples: `info`, `debug`, `symphony=trace`. Default: `info`. |
-| `HOME` | Used for tilde (`~`) expansion in `workspace.root`. |
+| Variable              | Description                                                                                                                                                          |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LINEAR_API_KEY`      | Linear personal API key. Used directly or as the canonical fallback when `tracker.api_key: $LINEAR_API_KEY` is set in the workflow file.                             |
+| `RUST_LOG`            | Log filter directives for `tracing_subscriber`. Examples: `info`, `debug`, `symphony=trace`. Default: `info`.                                                        |
+| `HOME`                | Used for tilde (`~`) expansion in `workspace.root`.                                                                                                                  |
 | `SYMPHONY_SSH_CONFIG` | Path to a custom SSH config file. When set, Symphony passes `-F <path>` to every `ssh` invocation. Useful for custom host keys, ProxyJump, or IdentityFile settings. |
 
 ### `$VAR` Indirection Pattern
@@ -256,12 +256,12 @@ workflow file (e.g. `0.0.0.0` to bind all interfaces).
 
 ### Endpoint Reference
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/` | HTML dashboard — auto-refreshes every 2 seconds. Shows running/retry/claimed/completed counts, token totals, rate limit state, and live JSON state. |
-| `GET` | `/api/v1/state` | Full orchestrator state as JSON. |
-| `GET` | `/api/v1/:issue_identifier` | Per-issue projection. `:issue_identifier` must match the pattern `TEAM-NNN` (uppercase prefix, hyphen, digits). Returns 404 when the issue is not running or in the retry queue. |
-| `POST` | `/api/v1/refresh` | Request an immediate Linear poll. Requests are coalesced — multiple concurrent POSTs result in one actual refresh. Returns 202. |
+| Method | Path                        | Description                                                                                                                                                                      |
+| ------ | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/`                         | HTML dashboard — auto-refreshes every 2 seconds. Shows running/retry/claimed/completed counts, token totals, rate limit state, and live JSON state.                              |
+| `GET`  | `/api/v1/state`             | Full orchestrator state as JSON.                                                                                                                                                 |
+| `GET`  | `/api/v1/:issue_identifier` | Per-issue projection. `:issue_identifier` must match the pattern `TEAM-NNN` (uppercase prefix, hyphen, digits). Returns 404 when the issue is not running or in the retry queue. |
+| `POST` | `/api/v1/refresh`           | Request an immediate Linear poll. Requests are coalesced — multiple concurrent POSTs result in one actual refresh. Returns 202.                                                  |
 
 ### Sample JSON — `GET /api/v1/state`
 
@@ -401,15 +401,15 @@ cargo clippy -- -D warnings
 
 ### Test Harness Layout
 
-| Harness | Location | What it covers |
-|---------|----------|----------------|
-| Unit tests | inline `#[cfg(test)]` modules in each `src/*.rs` | Individual function contracts |
-| `orchestrator_tests` | `tests/orchestrator_tests.rs` | Orchestrator loop, dispatch, retry, reconciliation, spec §17 conformance |
-| `workflow_config_tests` | `tests/workflow_config_tests.rs` | Config parsing, env-var resolution, key normalisation, validation |
-| `http_server_tests` | `tests/http_server_tests.rs` | HTTP endpoint routes, response shapes, error cases |
-| `ssh_tests` | `tests/ssh_tests.rs` | SSH arg construction, target parsing, host selection |
-| `path_safety_tests` | `tests/path_safety_tests.rs` | Workspace path validation, traversal rejection |
-| Integration / e2e | `tests/live_e2e_tests.rs` | End-to-end with real subprocesses (requires credentials) |
+| Harness                 | Location                                         | What it covers                                                           |
+| ----------------------- | ------------------------------------------------ | ------------------------------------------------------------------------ |
+| Unit tests              | inline `#[cfg(test)]` modules in each `src/*.rs` | Individual function contracts                                            |
+| `orchestrator_tests`    | `tests/orchestrator_tests.rs`                    | Orchestrator loop, dispatch, retry, reconciliation, spec §17 conformance |
+| `workflow_config_tests` | `tests/workflow_config_tests.rs`                 | Config parsing, env-var resolution, key normalisation, validation        |
+| `http_server_tests`     | `tests/http_server_tests.rs`                     | HTTP endpoint routes, response shapes, error cases                       |
+| `ssh_tests`             | `tests/ssh_tests.rs`                             | SSH arg construction, target parsing, host selection                     |
+| `path_safety_tests`     | `tests/path_safety_tests.rs`                     | Workspace path validation, traversal rejection                           |
+| Integration / e2e       | `tests/live_e2e_tests.rs`                        | End-to-end with real subprocesses (requires credentials)                 |
 
 ---
 
