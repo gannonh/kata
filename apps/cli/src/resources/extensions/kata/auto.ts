@@ -103,6 +103,10 @@ import {
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import { makeUI, GLYPH, INDENT } from "../shared/ui.js";
 
+import { resolveModelSwitch, computeSupervisorTimeouts } from "./auto-helpers.js";
+export { resolveModelSwitch, computeSupervisorTimeouts } from "./auto-helpers.js";
+export type { ModelSwitchResult } from "./auto-helpers.js";
+
 // ─── State ────────────────────────────────────────────────────────────────────
 
 let active = false;
@@ -1223,32 +1227,32 @@ async function dispatchNextUnit(
   }
 
   // 18. Model switching
-  const preferredModelId = resolveModelForUnit(unitType);
-  if (preferredModelId) {
-    const allModels = ctx.modelRegistry.getAll();
-    const model = allModels.find((m) => m.id === preferredModelId);
+  const switchResult = resolveModelSwitch(
+    unitType,
+    ctx.modelRegistry.getAll().map((m) => m.id),
+    ctx.model?.id,
+  );
+  if (switchResult.action === "switch") {
+    const model = ctx.modelRegistry.getAll().find((m) => m.id === switchResult.preferredModelId);
     if (model) {
       const ok = await pi.setModel(model);
-      if (ok) ctx.ui.notify(`Model: ${preferredModelId}`, "info");
-    } else {
-      ctx.ui.notify(
-        `Model preference '${preferredModelId}' not found in registry — using current model. Available: ${allModels.map((m) => m.id).slice(0, 5).join(", ")}...`,
-        "warning",
-      );
+      if (ok) ctx.ui.notify(`Model: ${switchResult.preferredModelId}`, "info");
     }
-    if (preferredModelId && preferredModelId === ctx.model?.id) {
-      ctx.ui.setStatus("kata-auto", `auto · ${preferredModelId}`);
-    } else {
-      ctx.ui.setStatus("kata-auto", "auto");
-    }
+  } else if (switchResult.action === "not-found") {
+    ctx.ui.notify(
+      `Model preference '${switchResult.preferredModelId}' not found in registry — using current model. Available: ${switchResult.availableModels.slice(0, 5).join(", ")}...`,
+      "warning",
+    );
+  }
+  if (switchResult.statusLabel) {
+    ctx.ui.setStatus("kata-auto", switchResult.statusLabel);
   }
 
   // 19. Timeout supervision
   clearUnitTimeout();
   const supervisor = resolveAutoSupervisorConfig();
-  const softTimeoutMs = supervisor.soft_timeout_minutes * 60 * 1000;
-  const idleTimeoutMs = supervisor.idle_timeout_minutes * 60 * 1000;
-  const hardTimeoutMs = supervisor.hard_timeout_minutes * 60 * 1000;
+  const { softMs: softTimeoutMs, idleMs: idleTimeoutMs, hardMs: hardTimeoutMs } =
+    computeSupervisorTimeouts(supervisor);
 
   wrapupWarningHandle = setTimeout(() => {
     wrapupWarningHandle = null;

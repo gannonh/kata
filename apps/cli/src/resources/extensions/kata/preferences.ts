@@ -42,6 +42,14 @@ export interface AutoSupervisorConfig {
   hard_timeout_minutes?: number;
 }
 
+/** AutoSupervisorConfig with defaults applied — timeouts are always numbers. */
+export interface ResolvedAutoSupervisorConfig {
+  model?: string;
+  soft_timeout_minutes: number;
+  idle_timeout_minutes: number;
+  hard_timeout_minutes: number;
+}
+
 export type WorkflowMode = "file" | "linear";
 
 export interface KataWorkflowPreferences {
@@ -693,7 +701,7 @@ export function resolveModelForUnit(unitType: string): string | undefined {
   }
 }
 
-export function resolveAutoSupervisorConfig(): AutoSupervisorConfig {
+export function resolveAutoSupervisorConfig(): ResolvedAutoSupervisorConfig {
   const prefs = loadEffectiveKataPreferences();
   const configured = prefs?.preferences.auto_supervisor ?? {};
 
