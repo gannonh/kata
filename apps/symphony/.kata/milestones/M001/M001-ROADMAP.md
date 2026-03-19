@@ -78,7 +78,7 @@ This milestone is complete only when all are true:
 - [x] **S08: SSH Remote Worker Extension** `risk:medium` `depends:[S05,S06]`
   > After this: `cargo test` proves SSH-based agent launch, per-host concurrency cap, host preference on retry, and continuation turns on same host.
 
-- [ ] **S09: Conformance Sweep and Integration Polish** `risk:low` `depends:[S06,S07,S08]`
+- [x] **S09: Conformance Sweep and Integration Polish** `risk:low` `depends:[S06,S07,S08]`
   > After this: Full spec §17 conformance audit passes. Any gaps found are fixed. README documents build, run, test, and configuration.
 
 ## Boundary Map

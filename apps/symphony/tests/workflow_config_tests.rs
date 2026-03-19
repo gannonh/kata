@@ -466,3 +466,52 @@ async fn test_workflow_store_force_reload_reports_error_on_invalid_workflow() {
         "failed force_reload should preserve last-known-good config"
     );
 }
+
+#[test]
+fn test_by_state_concurrency_normalization() {
+    // Build WORKFLOW.md with a mix of uppercase, zero-value, spaced, and valid entries.
+    let mut file = NamedTempFile::new().unwrap();
+    writeln!(
+        file,
+        "---\nagent:\n  max_concurrent_agents_by_state:\n    InProgress: 2\n    Review: 0\n    in_review: 3\n    In Progress: 4\n---\ntemplate"
+    )
+    .unwrap();
+
+    let workflow = parse_workflow(file.path()).expect("should parse workflow");
+    let config = from_workflow(&workflow.config).expect("should convert workflow to config");
+
+    let by_state = &config.agent.max_concurrent_agents_by_state;
+
+    // Uppercase key must be normalized to lowercase.
+    assert_eq!(
+        by_state.get("inprogress"),
+        Some(&2u32),
+        "InProgress key must be normalized to 'inprogress'"
+    );
+    // Original casing must not appear.
+    assert!(
+        !by_state.contains_key("InProgress"),
+        "original uppercase key 'InProgress' must not survive normalization"
+    );
+
+    // Zero-value entry must be filtered out (spec §17.1: ignores invalid values).
+    assert!(
+        !by_state.contains_key("review"),
+        "zero-value entry 'Review: 0' must be filtered (value 0 is invalid)"
+    );
+
+    // Valid lowercase entry must survive unchanged.
+    assert_eq!(
+        by_state.get("in_review"),
+        Some(&3u32),
+        "valid lowercase entry 'in_review: 3' must be preserved"
+    );
+
+    // Spaced key matching a typical Linear state name must be case-folded
+    // but preserve the space, since Linear states like "In Progress" have spaces.
+    assert_eq!(
+        by_state.get("in progress"),
+        Some(&4u32),
+        "'In Progress: 4' must normalize to 'in progress' (space preserved)"
+    );
+}

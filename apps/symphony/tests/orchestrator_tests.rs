@@ -1055,3 +1055,60 @@ fn test_snapshot_handle_reflects_retry_queue_for_api_use() {
     assert_eq!(entry.attempt, 2);
     assert_eq!(entry.error.as_deref(), Some("timeout"));
 }
+
+#[test]
+fn test_reconcile_non_active_state_stops_run_without_cleanup() {
+    // Issue is running but its tracker state has moved to a non-active, non-terminal
+    // state (e.g. "In Review" — not in active_states ["Todo", "In Progress"] and not
+    // in terminal_states ["Done", "Canceled"]).
+    // Expected: release_issue path fires → running entry is removed, but the issue is
+    // NOT added to `completed` (no terminal cleanup).
+    let mut orchestrator = Orchestrator::new(test_config(2));
+
+    // Manually seed the running map as if the orchestrator already dispatched this issue.
+    let attempt = symphony::domain::RunAttempt {
+        issue_id: "issue-non-active".to_string(),
+        issue_identifier: "SIM-97".to_string(),
+        attempt: None,
+        workspace_path: "/tmp/ws-non-active".to_string(),
+        started_at: Utc::now(),
+        status: "running".to_string(),
+        error: None,
+        worker_host: None,
+    };
+    orchestrator
+        .state_mut()
+        .running
+        .insert("issue-non-active".to_string(), attempt);
+
+    assert!(
+        orchestrator
+            .state()
+            .running
+            .contains_key("issue-non-active"),
+        "precondition: issue must be in running map before reconcile"
+    );
+
+    // Reconcile returns the issue in a non-active, non-terminal state.
+    let mut port = FakePort {
+        reconciled_issues: vec![issue("issue-non-active", "SIM-97", "In Review", Some(1), 0)],
+        ..FakePort::default()
+    };
+
+    orchestrator.tick(&mut port).expect("tick should succeed");
+
+    // The running entry must be removed (release_issue called).
+    assert!(
+        !orchestrator
+            .state()
+            .running
+            .contains_key("issue-non-active"),
+        "running entry must be removed when tracker state is non-active"
+    );
+
+    // The issue must NOT be in completed — non-terminal stop has no workspace cleanup.
+    assert!(
+        !orchestrator.state().completed.contains("issue-non-active"),
+        "non-terminal state stop must not add issue to completed (no cleanup semantic)"
+    );
+}

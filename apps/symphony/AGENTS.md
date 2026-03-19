@@ -1,96 +1,425 @@
 # Symphony
 
-## Commands
+Symphony is a headless orchestrator that polls a Linear project for candidate
+issues and dispatches each one to a Codex agent session running in an isolated
+workspace. It tracks concurrency limits, retries failures with exponential
+back-off, reconciles issue state on each poll cycle, and optionally exposes a
+live HTTP dashboard and JSON API for observability. SSH remote worker pools are
+supported for distributing agent sessions across multiple machines.
 
-```bash
-cargo build                      # Build debug binary
-cargo test                       # Run all tests
-cargo clippy -- -D warnings      # Lint (CI enforces zero warnings)
-cargo check                      # Fast type-check without building
-bun run test                     # Same as cargo test (package.json shim)
+---
+
+## Prerequisites
+
+- **Rust stable toolchain** (install via [rustup](https://rustup.rs/))
+- A Linear personal API key (`LINEAR_API_KEY`)
+- A Codex binary reachable on `PATH` (default command: `codex app-server`)
+
+Build the release binary:
+
+```sh
+cargo build --release
+# binary written to: target/release/symphony
 ```
 
-## What This Project Is
+---
 
-Symphony-Rust is a **feature-parity Rust port** of the Elixir Symphony orchestrator. The goal is not a clean-room reimagining — it is a conforming implementation of the same spec, delivering the same behaviors, with the same edge-case handling.
+## Running
 
-Elixir implementation: `/Volumes/EVO/kata/openai-symphony/elixir/` (lib + tests)
-
-## Reference Materials — Read Before Implementing
-
-Every slice of work must be grounded in these two sources:
-
-| Source               | Path                                        | What It Is                                                                                                                         |
-| -------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **SPEC.md**          | `/Volumes/EVO/kata/openai-symphony/SPEC.md` | Authoritative behavioral contract (2175 lines). Section numbers (§5, §10.4, §14.1, etc.) referenced throughout planning artifacts. |
-| **Elixir reference** | `/Volumes/EVO/kata/openai-symphony/elixir/` | Complete working implementation (~9500 LOC lib, ~9800 LOC tests). This is the behavior to match.                                   |
-
-### Key Elixir Source Files (module → Rust target)
-
-| Elixir module           | Path                                        | Rust equivalent                |
-| ----------------------- | ------------------------------------------- | ------------------------------ |
-| `orchestrator.ex`       | `lib/symphony_elixir/orchestrator.ex`       | `src/orchestrator.rs`          |
-| `workflow.ex`           | `lib/symphony_elixir/workflow.ex`           | `src/workflow.rs`              |
-| `workflow_store.ex`     | `lib/symphony_elixir/workflow_store.ex`     | `src/workflow_store.rs`        |
-| `config.ex`             | `lib/symphony_elixir/config.ex`             | `src/config.rs`                |
-| `linear/client.ex`      | `lib/symphony_elixir/linear/client.ex`      | `src/linear/client.rs`         |
-| `linear/adapter.ex`     | `lib/symphony_elixir/linear/adapter.ex`     | `src/linear/adapter.rs`        |
-| `linear/issue.ex`       | `lib/symphony_elixir/linear/issue.ex`       | `src/domain.rs` (Issue struct) |
-| `workspace.ex`          | `lib/symphony_elixir/workspace.ex`          | `src/workspace.rs`             |
-| `path_safety.ex`        | `lib/symphony_elixir/path_safety.ex`        | `src/path_safety.rs`           |
-| `prompt_builder.ex`     | `lib/symphony_elixir/prompt_builder.ex`     | `src/prompt_builder.rs`        |
-| `codex/app_server.ex`   | `lib/symphony_elixir/codex/app_server.ex`   | `src/codex/app_server.rs`      |
-| `codex/dynamic_tool.ex` | `lib/symphony_elixir/codex/dynamic_tool.ex` | `src/codex/dynamic_tool.rs`    |
-| `http_server.ex`        | `lib/symphony_elixir/http_server.ex`        | `src/http_server.rs`           |
-| `ssh.ex`                | `lib/symphony_elixir/ssh.ex`                | `src/ssh.rs`                   |
-| `cli.ex`                | `lib/symphony_elixir/cli.ex`                | `src/main.rs`                  |
-| `agent_runner.ex`       | `lib/symphony_elixir/agent_runner.ex`       | `src/agent_runner.rs`          |
-
-### Key Elixir Test Files
-
-| Test file                       | What it covers                                     |
-| ------------------------------- | -------------------------------------------------- |
-| `core_test.exs`                 | Orchestrator loop, dispatch, retry, reconciliation |
-| `workspace_and_config_test.exs` | Config parsing, workspace lifecycle, path safety   |
-| `extensions_test.exs`           | HTTP server, SSH, linear_graphql                   |
-| `cli_test.exs`                  | CLI argument parsing, startup validation           |
-| `dynamic_tool_test.exs`         | linear_graphql tool handling                       |
-| `live_e2e_test.exs`             | End-to-end integration with real subprocess        |
-| `specs_check_test.exs`          | Spec §17 conformance validation                    |
-
-## Hard Rules for Every Agent Session
-
-1. **Consult the Elixir reference before implementing any non-trivial behavior.** Read the corresponding Elixir module to understand edge cases, error handling, and behavioral nuances that the spec may describe abstractly. Use `read` on the relevant `.ex` file.
-
-2. **Consult SPEC.md for the authoritative contract.** The spec defines what "correct" means. The Elixir code shows one way to achieve it. When they disagree, the spec wins — but flag the disagreement in `.kata/DECISIONS.md`.
-
-3. **Don't invent new behavior.** If the Elixir implementation handles an edge case a certain way and the spec doesn't contradict it, match that behavior. This is a port, not a redesign.
-
-4. **Check the Elixir tests for cases you might miss.** The Elixir test suite (~9800 LOC) encodes many behavioral expectations. When writing tests for a Rust module, scan the corresponding Elixir test file for cases to port.
-
-5. **Use idiomatic Rust, not transliterated Elixir.** Match the *behavior*, not the code structure. GenServer → tokio task + mpsc. Pattern matching → Rust enums. Supervisor trees → structured error handling. ETS → HashMap/BTreeMap.
-
-6. **Flag parity gaps immediately.** If you discover the Rust implementation is missing a behavior that the Elixir version has, add it to the current task or create a follow-up. Don't silently skip it.
-
-## Consultation Workflow
-
-When starting a new slice or task:
-
-```text
-1. Read the task plan (what to build)
-2. Read SPEC.md sections referenced in the plan (what "correct" means)
-3. Read the corresponding Elixir module(s) (how the reference does it)
-4. Read the corresponding Elixir test(s) (what edge cases exist)
-5. Implement in idiomatic Rust
-6. Verify against the spec contract
+```sh
+symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--i-understand-that-this-will-be-running-without-the-usual-guardrails]
 ```
 
-Steps 2-4 are not optional. Skipping them is how parity drift happens.
+### CLI Flag Reference
 
-## Project-Level Pointers
+| Flag                                                                    | Type | Default       | Description                                                                                                                          |
+| ----------------------------------------------------------------------- | ---- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `WORKFLOW.md` (positional)                                              | path | `WORKFLOW.md` | Path to the WORKFLOW.md configuration file                                                                                           |
+| `--port PORT`                                                           | u16  | _(none)_      | Bind the HTTP dashboard and API on this port. When omitted, no HTTP server is started. Overrides `server.port` in the workflow file. |
+| `--logs-root PATH`                                                      | path | _(none)_      | Directory root for agent log files.                                                                                                  |
+| `--i-understand-that-this-will-be-running-without-the-usual-guardrails` | flag | `false`       | Acknowledge that Symphony runs Codex sessions without interactive guardrails.                                                        |
 
-- Kata planning artifacts: `.kata/` (state, decisions, milestones, slices)
-- Domain types: `src/domain.rs`
-- Error types: `src/error.rs`
-- Decisions register: `.kata/DECISIONS.md` (append-only, read during planning)
-- Requirements: `.kata/REQUIREMENTS.md`
+### Exit Codes
+
+| Code | Meaning                                                                 |
+| ---- | ----------------------------------------------------------------------- |
+| `0`  | Clean shutdown (Ctrl-C or orchestrator loop returned normally)          |
+| `1`  | Startup failure (bad config, missing workflow file, orchestrator error) |
+| `2`  | CLI parse error (unrecognised flag, bad argument type)                  |
+
+### Log Verbosity
+
+Symphony emits structured JSON logs via `tracing`. Control verbosity with
+`RUST_LOG`:
+
+```sh
+RUST_LOG=debug symphony WORKFLOW.md
+RUST_LOG=symphony=trace,info symphony WORKFLOW.md   # trace symphony, info everything else
+```
+
+Default level is `info`.
+
+---
+
+## WORKFLOW.md Format
+
+The workflow file is a Markdown document with a YAML front-matter block.
+Everything outside the front-matter is ignored by Symphony.
+
+### Config Field Reference
+
+#### `tracker` section
+
+| Field                     | Type     | Default                                                    | Description                                                                                          |
+| ------------------------- | -------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `tracker.kind`            | string   | _(required)_                                               | Must be `"linear"`.                                                                                  |
+| `tracker.api_key`         | string   | _(required)_                                               | Linear personal API key. Supports `$VAR` env-var indirection (e.g. `$LINEAR_API_KEY`). Never logged. |
+| `tracker.project_slug`    | string   | _(required)_                                               | Linear project URL slug (the identifier shown in project URLs). Supports `$VAR` indirection.         |
+| `tracker.endpoint`        | string   | `https://api.linear.app/graphql`                           | Linear GraphQL endpoint. Override for self-hosted Linear.                                            |
+| `tracker.assignee`        | string   | _(none)_                                                   | Filter candidate issues to this Linear username. Supports `$VAR` indirection.                        |
+| `tracker.active_states`   | string[] | `["Todo", "In Progress"]`                                  | Issue states that are eligible for dispatch.                                                         |
+| `tracker.terminal_states` | string[] | `["Closed", "Cancelled", "Canceled", "Duplicate", "Done"]` | Issue states that mark an agent run as complete.                                                     |
+
+#### `polling` section
+
+| Field                 | Type | Default | Description                    |
+| --------------------- | ---- | ------- | ------------------------------ |
+| `polling.interval_ms` | u64  | `30000` | Poll interval in milliseconds. |
+
+#### `workspace` section
+
+| Field            | Type   | Default                       | Description                                                                  |
+| ---------------- | ------ | ----------------------------- | ---------------------------------------------------------------------------- |
+| `workspace.root` | string | `$TMPDIR/symphony_workspaces` | Root directory for per-issue agent workspaces. Supports `~` tilde expansion. |
+
+#### `agent` section
+
+| Field                                  | Type               | Default  | Description                                                                                                                    |
+| -------------------------------------- | ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `agent.max_concurrent_agents`          | u32                | `10`     | Global cap on simultaneously running agent sessions.                                                                           |
+| `agent.max_turns`                      | u32                | `20`     | Maximum Codex turns per session before the run is considered stalled.                                                          |
+| `agent.max_retry_backoff_ms`           | u64                | `300000` | Maximum exponential back-off delay (ms) between retries.                                                                       |
+| `agent.max_concurrent_agents_by_state` | map\<string, u32\> | `{}`     | Per-Linear-state concurrency caps. Keys are lowercased state names; zero or negative values are silently ignored (spec §17.1). |
+
+#### `codex` section
+
+| Field                       | Type               | Default                   | Description                                                                                                              |
+| --------------------------- | ------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `codex.command`             | string or string[] | `["codex", "app-server"]` | Codex executable and arguments. Accepts a whitespace-split string or an explicit list.                                   |
+| `codex.approval_policy`     | object             | _(reject all)_            | JSON/YAML object passed to Codex as the approval policy. Default rejects sandbox approvals, rules, and MCP elicitations. |
+| `codex.thread_sandbox`      | string             | `"workspace-write"`       | Codex sandbox mode for the agent thread.                                                                                 |
+| `codex.turn_sandbox_policy` | object             | _(none)_                  | Per-turn sandbox policy override passed to Codex.                                                                        |
+| `codex.turn_timeout_ms`     | u64                | `3600000`                 | Hard timeout per Codex turn (1 hour default).                                                                            |
+| `codex.read_timeout_ms`     | u64                | `5000`                    | Timeout waiting for Codex process output (ms).                                                                           |
+| `codex.stall_timeout_ms`    | u64                | `300000`                  | Time before a non-progressing session is considered stalled (5 min default).                                             |
+
+#### `hooks` section
+
+| Field                 | Type   | Default  | Description                                                          |
+| --------------------- | ------ | -------- | -------------------------------------------------------------------- |
+| `hooks.after_create`  | string | _(none)_ | Shell command run after the workspace is created.                    |
+| `hooks.before_run`    | string | _(none)_ | Shell command run before the Codex session starts.                   |
+| `hooks.after_run`     | string | _(none)_ | Shell command run after the Codex session ends (success or failure). |
+| `hooks.before_remove` | string | _(none)_ | Shell command run before the workspace is removed.                   |
+| `hooks.timeout_ms`    | u64    | `60000`  | Timeout for each hook invocation (ms).                               |
+
+#### `worker` section (SSH)
+
+| Field                                   | Type     | Default  | Description                                                                                                               |
+| --------------------------------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `worker.ssh_hosts`                      | string[] | `[]`     | Remote SSH hosts for distributed agent sessions. Format: `host`, `host:port`, `user@host:port`, or `[::1]:2222` for IPv6. |
+| `worker.max_concurrent_agents_per_host` | u32      | _(none)_ | Per-host concurrency cap. When absent, hosts are treated as having unlimited capacity.                                    |
+
+#### `server` section
+
+| Field         | Type   | Default       | Description                                                                     |
+| ------------- | ------ | ------------- | ------------------------------------------------------------------------------- |
+| `server.port` | u16    | _(none)_      | HTTP server port. Equivalent to `--port` on the CLI; `--port` takes precedence. |
+| `server.host` | string | `"127.0.0.1"` | HTTP server bind address.                                                       |
+
+### Minimal Working Example
+
+```markdown
+---
+tracker:
+  kind: linear
+  api_key: $LINEAR_API_KEY
+  project_slug: my-project
+
+workspace:
+  root: ~/symphony_workspaces
+
+codex:
+  command: codex app-server
+---
+
+# My Workflow
+
+Issues assigned to this project will be dispatched to Codex.
+```
+
+### Full Example with All Sections
+
+```markdown
+---
+tracker:
+  kind: linear
+  api_key: $LINEAR_API_KEY
+  project_slug: eng-infra
+  assignee: alice
+  active_states:
+    - "In Progress"
+    - "Todo"
+  terminal_states:
+    - "Done"
+    - "Cancelled"
+
+polling:
+  interval_ms: 15000
+
+workspace:
+  root: ~/workspaces/symphony
+
+agent:
+  max_concurrent_agents: 5
+  max_turns: 30
+  max_retry_backoff_ms: 120000
+  max_concurrent_agents_by_state:
+    in progress: 3
+    todo: 2
+
+codex:
+  command: [codex, app-server]
+  turn_timeout_ms: 7200000
+  stall_timeout_ms: 600000
+
+hooks:
+  before_run: echo "Starting session for $ISSUE_ID"
+  after_run: notify-send "Session complete"
+  timeout_ms: 30000
+
+worker:
+  ssh_hosts:
+    - worker1.example.com
+    - worker2.example.com:2222
+    - alice@worker3.example.com
+  max_concurrent_agents_per_host: 3
+
+server:
+  port: 8080
+  host: 0.0.0.0
+---
+```
+
+---
+
+## Configuration Reference
+
+### Environment Variables
+
+| Variable              | Description                                                                                                                                                          |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LINEAR_API_KEY`      | Linear personal API key. Used directly or as the canonical fallback when `tracker.api_key: $LINEAR_API_KEY` is set in the workflow file.                             |
+| `RUST_LOG`            | Log filter directives for `tracing_subscriber`. Examples: `info`, `debug`, `symphony=trace`. Default: `info`.                                                        |
+| `HOME`                | Used for tilde (`~`) expansion in `workspace.root`.                                                                                                                  |
+| `SYMPHONY_SSH_CONFIG` | Path to a custom SSH config file. When set, Symphony passes `-F <path>` to every `ssh` invocation. Useful for custom host keys, ProxyJump, or IdentityFile settings. |
+
+### `$VAR` Indirection Pattern
+
+String config fields that accept `$VAR` notation resolve the named environment
+variable at startup. If the variable is unset or empty, Symphony logs a warning
+and treats the field as absent. Example:
+
+```yaml
+tracker:
+  api_key: $MY_LINEAR_TOKEN   # resolved from process environment
+  project_slug: $PROJECT_SLUG
+```
+
+Valid `$VAR` references are bare identifiers (no `/`, spaces, or `:`). A value
+like `$HOME/path` is **not** treated as an env reference — use `workspace.root`
+with tilde expansion instead.
+
+---
+
+## HTTP Dashboard and API
+
+Enable the HTTP server by passing `--port PORT` on the CLI or setting
+`server.port` in the workflow file:
+
+```sh
+symphony WORKFLOW.md --port 8080
+```
+
+By default the server binds to `127.0.0.1`. Override with `server.host` in the
+workflow file (e.g. `0.0.0.0` to bind all interfaces).
+
+### Endpoint Reference
+
+| Method | Path                        | Description                                                                                                                                                                      |
+| ------ | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/`                         | HTML dashboard — auto-refreshes every 2 seconds. Shows running/retry/claimed/completed counts, token totals, rate limit state, and live JSON state.                              |
+| `GET`  | `/api/v1/state`             | Full orchestrator state as JSON.                                                                                                                                                 |
+| `GET`  | `/api/v1/:issue_identifier` | Per-issue projection. `:issue_identifier` must match the pattern `TEAM-NNN` (uppercase prefix, hyphen, digits). Returns 404 when the issue is not running or in the retry queue. |
+| `POST` | `/api/v1/refresh`           | Request an immediate Linear poll. Requests are coalesced — multiple concurrent POSTs result in one actual refresh. Returns 202.                                                  |
+
+### Sample JSON — `GET /api/v1/state`
+
+```json
+{
+  "poll_interval_ms": 30000,
+  "max_concurrent_agents": 10,
+  "running": {
+    "issue-id-123": {
+      "issue_id": "issue-id-123",
+      "issue_identifier": "ENG-42",
+      "attempt": 1,
+      "error": null,
+      "worker_host": null,
+      "workspace_path": "/tmp/symphony_workspaces/ENG-42"
+    }
+  },
+  "claimed": ["issue-id-456"],
+  "retry_queue": [
+    {
+      "issue_id": "issue-id-789",
+      "identifier": "ENG-99",
+      "attempt": 2,
+      "retry_after_ms": 1714000000000,
+      "error": "stall timeout exceeded",
+      "worker_host": null,
+      "workspace_path": "/tmp/symphony_workspaces/ENG-99"
+    }
+  ],
+  "completed": ["issue-id-001", "issue-id-002"],
+  "codex_totals": {
+    "total_tokens": 148230,
+    "input_tokens": 120000,
+    "output_tokens": 28230
+  },
+  "codex_rate_limits": null,
+  "polling": {
+    "last_poll_at": 1714000000000,
+    "poll_count": 12
+  }
+}
+```
+
+### Sample JSON — `GET /api/v1/ENG-42`
+
+```json
+{
+  "issue": {
+    "issue_id": "issue-id-123",
+    "issue_identifier": "ENG-42",
+    "status": "running",
+    "attempt": 1,
+    "error": null,
+    "worker_host": "worker1.example.com",
+    "workspace_path": "/tmp/symphony_workspaces/ENG-42"
+  }
+}
+```
+
+### Sample JSON — `POST /api/v1/refresh`
+
+```json
+{
+  "queued": true,
+  "coalesced": false,
+  "pending_requests": 1
+}
+```
+
+---
+
+## SSH Remote Workers
+
+Symphony can distribute agent sessions across a pool of remote SSH hosts.
+Configure hosts in the `worker` section:
+
+```yaml
+worker:
+  ssh_hosts:
+    - worker1.example.com           # default port 22
+    - worker2.example.com:2222      # custom port
+    - alice@worker3.example.com     # custom user
+    - [::1]:2222                    # bracketed IPv6 with port
+  max_concurrent_agents_per_host: 3
+```
+
+### Host Selection Behaviour
+
+- When `ssh_hosts` is empty, Symphony runs all agent sessions locally.
+- When hosts are configured, each dispatch selects the least-loaded eligible
+  host (deterministic tiebreak by configuration order).
+- If a prior run attempt was on a specific host, Symphony prefers that host
+  for continuation when it is still under cap.
+- When all hosts are at or above `max_concurrent_agents_per_host`, the issue
+  remains in the candidate queue until a slot opens.
+
+### `SYMPHONY_SSH_CONFIG`
+
+Set this environment variable to a custom SSH config file path. Symphony passes
+`-F <path>` to every `ssh` invocation, enabling per-host IdentityFile,
+ProxyJump, StrictHostKeyChecking, and other OpenSSH options:
+
+```sh
+export SYMPHONY_SSH_CONFIG=~/.ssh/symphony_config
+symphony WORKFLOW.md
+```
+
+### Remote Command Execution
+
+Symphony connects via `ssh -T [-F config] -p <port> <host> bash -lc '<command>'`.
+The command string is POSIX single-quote-escaped. The remote host must have
+`bash` available and the Codex binary on its `PATH` (or accessible via the
+configured `codex.command`).
+
+---
+
+## Testing
+
+Run the full test suite:
+
+```sh
+cargo test
+```
+
+Run a specific integration harness with output:
+
+```sh
+cargo test --test orchestrator_tests -- --nocapture
+cargo test --test workflow_config_tests -- --nocapture
+```
+
+Lint (zero-warning gate enforced in CI):
+
+```sh
+cargo clippy -- -D warnings
+```
+
+### Test Harness Layout
+
+| Harness                 | Location                                         | What it covers                                                           |
+| ----------------------- | ------------------------------------------------ | ------------------------------------------------------------------------ |
+| Unit tests              | inline `#[cfg(test)]` modules in each `src/*.rs` | Individual function contracts                                            |
+| `orchestrator_tests`    | `tests/orchestrator_tests.rs`                    | Orchestrator loop, dispatch, retry, reconciliation, spec §17 conformance |
+| `workflow_config_tests` | `tests/workflow_config_tests.rs`                 | Config parsing, env-var resolution, key normalisation, validation        |
+| `http_server_tests`     | `tests/http_server_tests.rs`                     | HTTP endpoint routes, response shapes, error cases                       |
+| `ssh_tests`             | `tests/ssh_tests.rs`                             | SSH arg construction, target parsing, host selection                     |
+| `path_safety_tests`     | `tests/path_safety_tests.rs`                     | Workspace path validation, traversal rejection                           |
+| Integration / e2e       | `tests/live_e2e_tests.rs`                        | End-to-end with real subprocesses (requires credentials)                 |
+
+---
+
+## Development
+
+See **[AGENTS.md](AGENTS.md)** for:
+
+- Full module layout and architecture overview
+- Reference to the Elixir implementation and SPEC.md (authoritative behavioural contract)
+- Module-to-source-file mapping table
+- Hard rules for maintaining spec parity
+- Build, test, and lint commands
+- Git workflow (worktrees, standby branches, commit conventions)
