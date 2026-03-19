@@ -2,7 +2,7 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S08 — SSH Remote Worker Extension
-**Active Task:** T03 — Wire SSH dispatch into `app_server.rs` (optional worker_host field, SSH vs local routing)
+**Active Task:** T04 — Implement `select_worker_host` and wire dispatch + retry in `orchestrator.rs`
 **Phase:** Executing
 
 ## Progress
