@@ -105,13 +105,13 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R010 — HTTP Observability Server (Extension)
 - Class: operability
-- Status: active
+- Status: validated
 - Description: Optional HTTP server on `--port` or `server.port`. Serve HTML dashboard at `/`, JSON API at `/api/v1/state`, `/api/v1/<issue>`, `POST /api/v1/refresh`. Bind loopback by default.
 - Why it matters: The dashboard is how operators monitor multiple concurrent agent runs.
 - Source: user
 - Primary owning slice: M001/S07
 - Supporting slices: M001/S06
-- Validation: unmapped
+- Validation: M001/S07 — `cargo test --test http_server_tests --test cli_tests` proves dashboard shell rendering, live snapshot-backed state/issue APIs, refresh queued/coalesced signaling, API JSON 404/405 envelopes, and CLI `--port` precedence over workflow config.
 - Notes: Spec §13.7. Using axum.
 
 ### R011 — SSH Remote Worker Extension
@@ -230,7 +230,7 @@ This file is the explicit capability and coverage contract for the project.
 | R007 | core-capability | validated | M001/S04 | none | M001/S04 cargo test (7 tests: basic + datetime + none + blockers + strict + parse + attempt) |
 | R008 | core-capability | validated | M001/S06 | none | M001/S06 cargo test (5 cli tests: default/override path, startup failure gating, orchestrator startup invocation) |
 | R009 | operability | active | M001/S03 | M001/S06 | M001/S06 partial: structured startup/runtime JSON logs + issue/session lifecycle context; human-readable format toggle not yet proven |
-| R010 | operability | active | M001/S07 | M001/S06 | unmapped |
+| R010 | operability | validated | M001/S07 | M001/S06 | M001/S07 tests prove dashboard/API contracts, refresh signaling semantics, and CLI HTTP binding precedence |
 | R011 | core-capability | active | M001/S08 | M001/S05,S06 | unmapped |
 | R012 | integration | validated | M001/S05 | none | M001/S05 cargo test (14 tests: argument normalisation + query/variables validation + GraphQL error formatting + executor injection) |
 | R013 | quality-attribute | active | M001/S09 | all | unmapped |
@@ -239,8 +239,8 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Coverage Summary
 
-- Active requirements: 5
-- Validated requirements: 10
+- Active requirements: 4
+- Validated requirements: 11
 - Mapped to slices: 15
-- Validated: 10 (R001, R002, R004, R005, R006, R007, R008, R012, R014, R015)
+- Validated: 11 (R001, R002, R004, R005, R006, R007, R008, R010, R012, R014, R015)
 - Unmapped active requirements: 0

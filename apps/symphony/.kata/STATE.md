@@ -1,9 +1,9 @@
 # Kata State
 
 **Active Milestone:** M001 — Full Spec Conformance
-**Active Slice:** S07 — HTTP Dashboard and JSON API
-**Active Task:** None (all S07 tasks complete)
-**Phase:** Summarizing
+**Active Slice:** S08 — SSH Remote Worker Extension
+**Active Task:** Planning (next task to decompose)
+**Phase:** Planning
 
 ## Progress
 
@@ -29,7 +29,7 @@
 
 ## Next Action
 
-Write S07 slice summary + UAT artifacts, mark S07 complete in `M001-ROADMAP.md`, and advance to S08 planning.
+Start S08 planning: read S08 boundary-map contracts and decompose into task-level plan artifacts with SSH transport, host-pool caps, and continuation-host affinity verification.
 
 ## Validated Requirements
 
@@ -40,6 +40,7 @@ Write S07 slice summary + UAT artifacts, mark S07 complete in `M001-ROADMAP.md`,
 - R006 (Orchestrator State Machine) — S06: 14 orchestrator conformance tests passing
 - R007 (Prompt Builder with Strict Liquid Rendering) — S04
 - R008 (CLI Entry Point) — S06: CLI bootstrap/exit tests passing for default path, overrides, startup failures, and successful runtime start call-order
+- R010 (HTTP Observability Server) — S07: dashboard/API contract tests and CLI HTTP binding precedence tests passing
 - R012 (linear_graphql dynamic tool) — S05: 14 tests; argument normalisation, GraphQL execution, error formatting
 - R014 (Dispatch Preflight Validation) — S06: reconciliation continues while invalid-preflight deterministically skips dispatch
-- R015 (Token Accounting and Rate Limit Tracking) — S05+S06: per-turn deltas plus aggregate codex totals/rate-limit snapshot accumulation proven
+- R015 (Token Accounting and Rate Limit Tracking) — S05+S06+S07: per-turn deltas plus aggregate snapshot exposure via HTTP state/dashboard proven
