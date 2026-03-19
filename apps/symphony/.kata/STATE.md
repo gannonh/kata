@@ -2,8 +2,8 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S08 — SSH Remote Worker Extension
-**Active Task:** Planning (next task to decompose)
-**Phase:** Planning
+**Active Task:** T01 — Author failing SSH extension conformance tests
+**Phase:** Ready for Implementation
 
 ## Progress
 
@@ -19,9 +19,9 @@
 
 ## Recent Decisions
 
-- D040: Standardize API error envelopes with stable `error.code`, `error.message`, and `error.status` fields
-- D041: Establish dedicated `tests/http_server_tests.rs` red→green harness as the slice-level HTTP contract gate
 - D042: Emit explicit HTTP startup decision events (`http_server_enabled` / `http_server_disabled`) for runtime wiring observability
+- D043: Use a dedicated S08 proof gate: `tests/ssh_tests.rs` plus SSH-focused extensions to workspace/codex/orchestrator suites
+- D044: Preserve one shared Codex JSON-RPC loop and swap only the launch transport/workspace path for SSH workers
 
 ## Blockers
 
@@ -29,7 +29,7 @@
 
 ## Next Action
 
-Start S08 planning: read S08 boundary-map contracts and decompose into task-level plan artifacts with SSH transport, host-pool caps, and continuation-host affinity verification.
+Execute T01: add the failing SSH extension conformance harness (`tests/ssh_tests.rs` plus workspace/codex/orchestrator coverage) so S08 implementation is driven by Appendix A contracts.
 
 ## Validated Requirements
 
