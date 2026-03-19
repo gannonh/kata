@@ -182,8 +182,7 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
         let (workflow_def, _) = context.workflow_store.effective_config();
         let prompt_template = workflow_def.prompt_template.clone();
 
-        let mut orchestrator =
-            Orchestrator::new(context.effective_config.clone(), prompt_template);
+        let mut orchestrator = Orchestrator::new(context.effective_config.clone(), prompt_template);
 
         let snapshot_handle = orchestrator.create_snapshot_handle();
         let refresh_sender = orchestrator.create_refresh_channel();

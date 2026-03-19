@@ -37,30 +37,27 @@ async fn run_worker_task(
     let issue_id = issue.id.clone();
 
     // 1. Ensure workspace (create dir + after_create hook)
-    let workspace_info = match workspace::ensure_workspace(
-        &issue.identifier,
-        workspace_config,
-        hooks_config,
-    ) {
-        Ok(info) => info,
-        Err(err) => {
-            tracing::error!(
-                event = "worker_workspace_failed",
-                issue_id = %issue_id,
-                issue_identifier = %issue.identifier,
-                error = %err,
-                "workspace creation failed"
-            );
-            return WorkerResult {
-                issue_id,
-                completion: WorkerCompletion::Failed {
-                    error: format!("workspace creation failed: {err}"),
-                },
-                events: vec![],
-                metrics: None,
-            };
-        }
-    };
+    let workspace_info =
+        match workspace::ensure_workspace(&issue.identifier, workspace_config, hooks_config) {
+            Ok(info) => info,
+            Err(err) => {
+                tracing::error!(
+                    event = "worker_workspace_failed",
+                    issue_id = %issue_id,
+                    issue_identifier = %issue.identifier,
+                    error = %err,
+                    "workspace creation failed"
+                );
+                return WorkerResult {
+                    issue_id,
+                    completion: WorkerCompletion::Failed {
+                        error: format!("workspace creation failed: {err}"),
+                    },
+                    events: vec![],
+                    metrics: None,
+                };
+            }
+        };
 
     let workspace_path = Path::new(&workspace_info.path);
 
