@@ -2,7 +2,7 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S08 — SSH Remote Worker Extension
-**Active Task:** T02 — Implement `src/ssh.rs` — arg construction, shell escape, host:port parsing, subprocess launch
+**Active Task:** T03 — Wire SSH dispatch into `app_server.rs` (optional worker_host field, SSH vs local routing)
 **Phase:** Executing
 
 ## Progress
