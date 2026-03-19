@@ -79,7 +79,7 @@ Tests must include:
   - Verify: `cargo test --test ssh_tests test_parse_target_ test_shell_escape test_ssh_args test_fake_ssh` — all parsing + launch tests pass
   - Done when: 10+ SSH-module tests pass; fake-ssh trace file contains expected args
 
-- [ ] **T03: Add SSH transport branch to `app_server::start_session` and remote workspace validation** `est:45m`
+- [x] **T03: Add SSH transport branch to `app_server::start_session` and remote workspace validation** `est:45m`
   - Why: Wires the SSH module into the Codex session lifecycle so remote agent dispatch is possible without changing the turn-streaming code
   - Files: `src/codex/app_server.rs`
   - Do: Add `worker_host: Option<&str>` parameter to `start_session` (after `workspace_root`). When `None`: keep existing `validate_workspace_cwd` + `tokio::process::Command::new("bash")` path. When `Some(host)`: call `validate_remote_workspace_cwd(workspace_path_str) -> Result<String>` (checks non-empty + absolute path string without local FS canonicalization), then use `SshRunner::start_process(host, &cmd_str)` to spawn the child. The `do_start_session`, turn streaming, `drain_stderr`, and all downstream handlers are unchanged. Log `worker_host` in the session-start trace span. Update all call sites in `orchestrator.rs` to pass `worker_host: None` (preserving current behavior; S08 wires real values in T04).

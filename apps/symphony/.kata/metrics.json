@@ -1081,6 +1081,24 @@
       "toolCalls": 0,
       "assistantMessages": 20,
       "userMessages": 0
+    },
+    {
+      "type": "execute-task",
+      "id": "M001/S08/T02",
+      "model": "claude-sonnet-4-6",
+      "startedAt": 1773932135267,
+      "finishedAt": 1773932459898,
+      "tokens": {
+        "input": 19,
+        "output": 6320,
+        "cacheRead": 961792,
+        "cacheWrite": 19581,
+        "total": 987712
+      },
+      "cost": 0.45682334999999996,
+      "toolCalls": 0,
+      "assistantMessages": 17,
+      "userMessages": 0
     }
   ]
 }

@@ -731,6 +731,7 @@ impl Orchestrator {
             issue,
             workspace_path,
             Path::new(&self.config.workspace.root),
+            None, // worker_host: local dispatch (T04 wires SSH pool)
         )
         .await
         {
