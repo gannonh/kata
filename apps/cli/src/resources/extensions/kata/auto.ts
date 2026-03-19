@@ -111,6 +111,7 @@ export type { ModelSwitchResult } from "./auto-helpers.js";
 
 let active = false;
 let paused = false;
+let stepActive = false;
 let verbose = false;
 let cmdCtx: ExtensionCommandContext | null = null;
 let basePath = "";
@@ -192,6 +193,14 @@ export function isAutoActive(): boolean {
 
 export function isAutoPaused(): boolean {
   return paused;
+}
+
+export function isStepActive(): boolean {
+  return stepActive;
+}
+
+export function setStepActive(v: boolean): void {
+  stepActive = v;
 }
 
 function clearUnitTimeout(): void {
@@ -301,6 +310,7 @@ export async function startAuto(
   if (paused) {
     paused = false;
     active = true;
+    stepActive = false;
     verbose = verboseMode;
     cmdCtx = ctx;
     basePath = base;
@@ -379,6 +389,7 @@ export async function startAuto(
   }
 
   active = true;
+  stepActive = false;
   verbose = verboseMode;
   cmdCtx = ctx;
   basePath = base;
