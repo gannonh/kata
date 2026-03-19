@@ -33,7 +33,7 @@ apps/
 ├── orchestrator/     # @kata-sh/orc — meta-prompting system
 ├── symphony/         # @kata/symphony — Rust binary (Cargo scripts via package.json)
 ├── viewer/           # Session viewer (Vite)
-└── online-docs/      # Mintlify docs (excluded from workspaces)
+└── online-docs/      # @kata/online-docs — documentation site (Fumadocs/Next.js)
 
 packages/
 ├── core/             # @craft-agent/core — shared TypeScript types
@@ -99,7 +99,7 @@ This repo uses git worktrees. Each worktree has a standby branch (e.g. `wt-cli-s
 ## Gotchas
 
 - `CLAUDE.md` files in this repo are symlinks to `AGENTS.md`. Always edit `AGENTS.md`.
-- `apps/online-docs` is excluded from Bun workspaces. It has separate dependency management.
+- `apps/online-docs` uses Fumadocs/Next.js. Run `bun run docs:dev` from the repo root to start it on port 3001.
 - `apps/context` uses Vitest (not Bun test) because better-sqlite3 is a native Node addon that Bun doesn't support.
 - Electron main process runs in Node.js, not Bun. Don't use `import.meta.dir` or Bun-only APIs in code that runs there.
 - Asset paths: use `getBundledAssetsDir(subfolder)` for bundled assets, never `import.meta.dir`.

@@ -116,7 +116,7 @@ export interface AppShellContextType {
   onSessionSourcesChange?: (sessionId: string, sourceSlugs: string[]) => void
 
   // Chat input ref (for focusing)
-  textareaRef?: React.RefObject<RichTextInputHandle>
+  textareaRef?: React.RefObject<RichTextInputHandle | null>
 
   // Open a new chat with optional agent, name, and pre-filled input
   openNewChat?: (params?: NewChatActionParams) => Promise<void>

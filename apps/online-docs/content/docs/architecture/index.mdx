@@ -1,0 +1,22 @@
+---
+title: Architecture
+description: Monorepo structure, apps, packages, and build system.
+---
+
+# Architecture
+
+## Monorepo Layout
+
+Kata uses a Bun monorepo with Turborepo orchestration. Code is organized into `apps/` and `packages/` directories.
+
+## Apps
+
+Five applications live in `apps/`: CLI, Symphony, Electron (Desktop), Viewer, and Context. Each has its own package.json and test configuration.
+
+## Packages
+
+Four shared packages live in `packages/`: core (types), shared (business logic), ui (React components), and mermaid (diagram rendering).
+
+## Build System
+
+Turborepo manages task dependencies and caching. The `turbo.json` config defines lint, typecheck, test, build, and dev tasks with topological ordering where needed.

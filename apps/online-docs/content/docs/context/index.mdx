@@ -1,0 +1,18 @@
+---
+title: Context
+description: Codebase analysis and context indexing tool.
+---
+
+# Context
+
+## Overview
+
+Context (`@kata/context`) analyzes codebases to build a structured index of files, symbols, and relationships. The agent uses this index to ground its responses in your actual code.
+
+## How It Works
+
+Context uses a native Node addon (better-sqlite3) to store indexed data. It scans your repository, parses source files, and builds a queryable database.
+
+## Usage
+
+Context runs automatically when the CLI starts a session. It can also be invoked standalone for indexing tasks.

@@ -13,7 +13,7 @@ interface InputContainerProps extends Omit<FreeFormInputProps, 'inputRef'> {
   /** Callback when user responds to structured input */
   onStructuredResponse?: (response: StructuredResponse) => void
   /** External ref for the input (for focus control) */
-  textareaRef?: React.RefObject<RichTextInputHandle>
+  textareaRef?: React.RefObject<RichTextInputHandle | null>
 }
 
 // Animation timing - synced across height and opacity

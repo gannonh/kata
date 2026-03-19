@@ -129,7 +129,7 @@ cd apps/symphony && cargo build --release
 | `apps/electron`     | Kata Desktop                                               |
 | `apps/orchestrator` | Kata Orchestrator                                          |
 | `apps/symphony`     | Symphony (Rust)                                            |
-| `apps/online-docs`  | Online documentation site                                  |
+| `apps/online-docs`  | Documentation site (Fumadocs/Next.js)                      |
 | `apps/viewer`       | Session viewer                                             |
 | `packages/core`     | Shared types                                               |
 | `packages/shared`   | Shared agent, auth, config, git, session, and source logic |

@@ -26,7 +26,7 @@ export interface FreeFormInputContextBadgeProps {
   /** Additional className for the button */
   className?: string
   /** Ref forwarding for positioning dropdowns */
-  buttonRef?: React.RefObject<HTMLButtonElement>
+  buttonRef?: React.RefObject<HTMLButtonElement | null>
   /** Data attribute for tutorials */
   'data-tutorial'?: string
 }

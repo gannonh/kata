@@ -1,0 +1,21 @@
+{
+  "title": "Kata Docs",
+  "pages": [
+    "---Getting Started---",
+    "getting-started",
+    "---CLI---",
+    "cli",
+    "---Symphony---",
+    "symphony",
+    "---Desktop/Viewer---",
+    "desktop",
+    "---Context---",
+    "context",
+    "---Orchestrator---",
+    "orchestrator",
+    "---Architecture---",
+    "architecture",
+    "---Visual Explainers---",
+    "visual-explainers"
+  ]
+}
