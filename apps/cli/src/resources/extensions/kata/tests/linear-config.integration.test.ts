@@ -6,10 +6,13 @@ import type { LoadedKataPreferences } from "../preferences.ts";
 
 const API_KEY = process.env.LINEAR_API_KEY;
 
-test(
-  "validateLinearProjectConfig resolves a real Linear team by id and key",
-  { skip: !API_KEY ? "LINEAR_API_KEY not set" : undefined },
-  async () => {
+describe("validateLinearProjectConfig — integration", () => {
+  if (!API_KEY) {
+    test.skip("all tests skipped — LINEAR_API_KEY not set", () => {});
+    return;
+  }
+
+  test("resolves a real Linear team by id and key", async () => {
     const client = new LinearClient(API_KEY!);
     const teams = await client.listTeams();
     assert.ok(teams.length > 0, "expected at least one Linear team");
@@ -59,23 +62,17 @@ test(
       key: teams[0].key,
       name: teams[0].name,
     });
-  },
-);
+  });
 
-test(
-  "validateLinearProjectConfig resolves a real Linear project when configured",
-  { skip: !API_KEY ? "LINEAR_API_KEY not set" : undefined },
-  async (t) => {
+  test("resolves a real Linear project when configured", async () => {
     const client = new LinearClient(API_KEY!);
     const teams = await client.listTeams();
     assert.ok(teams.length > 0, "expected at least one Linear team");
 
-    // Fetch projects scoped to the first team so team and project are guaranteed
-    // to be associated (avoids a test that passes with incompatible config).
     const projects = await client.listProjects({ teamId: teams[0].id, first: 25 });
 
     if (projects.length === 0) {
-      t.skip("No Linear projects available for the first team in integration validation");
+      // No projects available — nothing to validate; skip silently
       return;
     }
 
@@ -106,5 +103,5 @@ test(
       state: projects[0].state,
       url: projects[0].url,
     });
-  },
-);
+  });
+});
