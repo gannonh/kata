@@ -75,28 +75,28 @@ async function main(): Promise<void> {
   console.log("\n=== ensureSliceBranch ===");
   const created = ensureSliceBranch(base, "M001", "S01");
   assert(created, "branch created on first ensure");
-  assertEq(getCurrentBranch(base), "kata/M001/S01", "switched to slice branch");
+  assertEq(getCurrentBranch(base), "kata/root/M001/S01", "switched to namespaced slice branch");
 
   console.log("\n=== idempotent ensure ===");
   const secondCreate = ensureSliceBranch(base, "M001", "S01");
   assertEq(secondCreate, false, "branch not recreated on second ensure");
-  assertEq(getCurrentBranch(base), "kata/M001/S01", "still on slice branch");
+  assertEq(getCurrentBranch(base), "kata/root/M001/S01", "still on namespaced slice branch");
 
   console.log("\n=== getActiveSliceBranch ===");
   assertEq(
     getActiveSliceBranch(base),
-    "kata/M001/S01",
-    "getActiveSliceBranch returns current slice branch",
+    "kata/root/M001/S01",
+    "getActiveSliceBranch returns current namespaced slice branch",
   );
 
   console.log("\n=== state surfaces active branch ===");
   const state = await deriveState(base);
-  assertEq(state.activeBranch, "kata/M001/S01", "state exposes active branch");
+  assertEq(state.activeBranch, "kata/root/M001/S01", "state exposes namespaced active branch");
 
   console.log("\n=== workspace index surfaces branch ===");
   const index = await indexWorkspace(base);
   const slice = index.milestones[0]?.slices[0];
-  assertEq(slice?.branch, "kata/M001/S01", "workspace index exposes branch");
+  assertEq(slice?.branch, "kata/root/M001/S01", "workspace index exposes namespaced branch");
 
   console.log("\n=== autoCommitCurrentBranch ===");
   // Clean — should return null
@@ -143,7 +143,7 @@ async function main(): Promise<void> {
   switchToMain(base);
 
   const merge = mergeSliceToMain(base, "M001", "S01", "Slice One");
-  assertEq(merge.branch, "kata/M001/S01", "merge reports branch");
+  assertEq(merge.branch, "kata/root/M001/S01", "merge reports namespaced branch");
   assertEq(getCurrentBranch(base), "main", "still on main after merge");
   assert(
     readFileSync(join(base, "README.md"), "utf-8").includes("slice"),
@@ -153,7 +153,7 @@ async function main(): Promise<void> {
 
   // Verify branch is actually gone
   const branches = run("git branch", base);
-  assert(!branches.includes("kata/M001/S01"), "slice branch no longer exists");
+  assert(!branches.includes("kata/root/M001/S01"), "namespaced slice branch no longer exists");
 
   console.log("\n=== switchToMain auto-commits dirty files ===");
   // Set up S02
@@ -178,6 +178,11 @@ async function main(): Promise<void> {
   run("git commit -m 'chore: add S02'", base);
 
   ensureSliceBranch(base, "M001", "S02");
+  assertEq(
+    getCurrentBranch(base),
+    "kata/root/M001/S02",
+    "S02 uses namespaced branch format",
+  );
   writeFileSync(join(base, "feature.txt"), "new feature\n", "utf-8");
   // Don't commit — switchToMain should auto-commit
   switchToMain(base);
@@ -189,6 +194,11 @@ async function main(): Promise<void> {
 
   // Verify the commit happened on the slice branch
   ensureSliceBranch(base, "M001", "S02");
+  assertEq(
+    getCurrentBranch(base),
+    "kata/root/M001/S02",
+    "auto-commit verification re-enters namespaced S02 branch",
+  );
   assert(
     readFileSync(join(base, "feature.txt"), "utf-8").includes("new feature"),
     "dirty file was committed on slice branch",
@@ -203,11 +213,96 @@ async function main(): Promise<void> {
   );
   assertEq(mergeS02.deletedBranch, true, "S02 branch deleted");
 
-  console.log("\n=== getSliceBranchName ===");
+  console.log("\n=== legacy branch continuity contract ===");
+  run("git branch kata/M001/S03 main", base);
+  const legacyCreated = ensureSliceBranch(base, "M001", "S03");
   assertEq(
-    getSliceBranchName("M001", "S01"),
-    "kata/M001/S01",
-    "branch name format correct",
+    legacyCreated,
+    false,
+    "existing legacy branch remains checkout-compatible during transition",
+  );
+  assertEq(
+    getCurrentBranch(base),
+    "kata/M001/S03",
+    "legacy branch format can still be activated",
+  );
+  switchToMain(base);
+
+  console.log("\n=== provenance mismatch diagnostics contract ===");
+  run("git branch kata/other-scope/M001/S05 main", base);
+  let provenanceError: unknown = null;
+  try {
+    ensureSliceBranch(base, "M001", "S05");
+  } catch (error) {
+    provenanceError = error;
+  }
+  assert(
+    provenanceError instanceof Error,
+    "cross-scope namespaced branch reuse is rejected",
+  );
+  const provenanceMessage =
+    provenanceError instanceof Error ? provenanceError.message : "";
+  assert(
+    provenanceMessage.includes("kata/other-scope/M001/S05"),
+    "provenance rejection includes conflicting branch value",
+  );
+  assert(
+    provenanceMessage.includes("root"),
+    "provenance rejection includes expected project scope",
+  );
+  switchToMain(base);
+
+  console.log("\n=== legacy+namespaced coexistence contract ===");
+  run("git branch kata/M001/S06 main", base);
+  run("git branch kata/other-scope/M001/S06 main", base);
+  let coexistenceError: unknown = null;
+  try {
+    ensureSliceBranch(base, "M001", "S06");
+  } catch (error) {
+    coexistenceError = error;
+  }
+  assert(
+    coexistenceError instanceof Error,
+    "legacy branch is rejected when conflicting namespaced branch exists",
+  );
+  const coexistenceMessage = coexistenceError instanceof Error ? coexistenceError.message : "";
+  assert(
+    coexistenceMessage.includes("kata/root/M001/S06"),
+    "legacy rejection reports expected namespaced target scope",
+  );
+  assert(
+    coexistenceMessage.includes("kata/other-scope/M001/S06"),
+    "legacy rejection reports conflicting namespaced branch",
+  );
+
+  console.log("\n=== mergeSliceToMain rejects legacy with conflicting namespaced branch ===");
+  run("git branch kata/M001/S07 main", base);
+  run("git branch kata/other-scope/M001/S07 main", base);
+  let mergeConflictError: unknown = null;
+  try {
+    mergeSliceToMain(base, "M001", "S07", "Slice Seven");
+  } catch (error) {
+    mergeConflictError = error;
+  }
+  assert(
+    mergeConflictError instanceof Error,
+    "mergeSliceToMain refuses legacy branch when conflicting namespaced branch exists",
+  );
+  const mergeConflictMessage = mergeConflictError instanceof Error ? mergeConflictError.message : "";
+  assert(
+    mergeConflictMessage.includes("kata/other-scope/M001/S07"),
+    "merge conflict error identifies conflicting namespaced branch",
+  );
+  assert(
+    mergeConflictMessage.includes("root"),
+    "merge conflict error reports expected project scope",
+  );
+
+  console.log("\n=== getSliceBranchName namespaced contract ===");
+  assertEq(
+    getSliceBranchName(base, "M001", "S01"),
+    "kata/root/M001/S01",
+    "branch name format includes project scope",
   );
 
   rmSync(base, { recursive: true, force: true });

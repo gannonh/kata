@@ -984,7 +984,7 @@ async function dispatchNextUnit(
           });
           pi.sendMessage({
             content: [
-              `PR auto-create failed for slice ${completedSid}. The code is committed on branch \`kata/${completedMid}/${completedSid}\` — no work was lost.`,
+              `PR auto-create failed for slice ${completedSid}. The code is committed on branch \`${prCtx.branch}\` — no work was lost.`,
               ``,
               `**Error:** ${prResult.error}`,
               ``,
@@ -1124,6 +1124,16 @@ async function dispatchNextUnit(
     if (model) {
       const ok = await pi.setModel(model);
       if (ok) ctx.ui.notify(`Model: ${preferredModelId}`, "info");
+    } else {
+      ctx.ui.notify(
+        `Model preference '${preferredModelId}' not found in registry — using current model. Available: ${allModels.map((m) => m.id).slice(0, 5).join(", ")}...`,
+        "warning",
+      );
+    }
+    if (preferredModelId && preferredModelId === ctx.state.selectedModel?.id) {
+      ctx.ui.setStatus("kata-auto", `auto · ${preferredModelId}`);
+    } else {
+      ctx.ui.setStatus("kata-auto", "auto");
     }
   }
 

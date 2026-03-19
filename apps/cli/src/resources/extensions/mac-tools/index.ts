@@ -166,6 +166,7 @@ export default function (pi: ExtensionAPI) {
 			"Check whether macOS Accessibility and Screen Recording permissions are enabled for the current terminal. " +
 			"Returns { accessibilityEnabled, screenRecordingEnabled }. Accessibility is required for UI automation; " +
 			"Screen Recording is required for mac_screenshot. Both are granted in System Settings > Privacy & Security.",
+		promptSnippet: "Check whether macOS Accessibility and Screen Recording permissions are enabled for the current terminal.",
 		promptGuidelines: [
 			"Run this first if any mac tool returns a permission error.",
 		],
@@ -204,6 +205,7 @@ export default function (pi: ExtensionAPI) {
 			"List all running macOS applications. Returns an array of { name, bundleId, pid, isActive } " +
 			"for user-facing apps (regular activation policy). Set includeBackground to true to also " +
 			"include accessory/background apps.",
+		promptSnippet: "List all running macOS applications.",
 		promptGuidelines: [
 			"Use to discover what apps are running before interacting with them.",
 		],
@@ -235,6 +237,7 @@ export default function (pi: ExtensionAPI) {
 			"Launch a macOS application by name or bundle ID. " +
 			"Returns { launched, name, bundleId, pid } on success. " +
 			"Provide either 'name' (e.g. 'TextEdit') or 'bundleId' (e.g. 'com.apple.TextEdit').",
+		promptSnippet: "Launch a macOS application by name or bundle ID.",
 		promptGuidelines: [
 			"Use app name for well-known apps; use bundleId when the name is ambiguous.",
 		],
@@ -273,6 +276,7 @@ export default function (pi: ExtensionAPI) {
 			"Bring a running macOS application to the front. " +
 			"Returns { activated, name } on success. Errors if the app is not running. " +
 			"Provide either 'name' or 'bundleId'.",
+		promptSnippet: "Bring a running macOS application to the front.",
 		promptGuidelines: [
 			"Activate an app before interacting with its UI to ensure it is frontmost.",
 		],
@@ -310,6 +314,7 @@ export default function (pi: ExtensionAPI) {
 			"Quit a running macOS application. " +
 			"Returns { quit, name } on success. Errors if the app is not running. " +
 			"Provide either 'name' or 'bundleId'.",
+		promptSnippet: "Quit a running macOS application.",
 		promptGuidelines: [
 			"Use to clean up apps launched during automation — don't leave apps running unnecessarily.",
 		],
@@ -349,6 +354,7 @@ export default function (pi: ExtensionAPI) {
 			"The windowId can be used with getWindowInfo for detailed inspection or with screenshotWindow for capture. " +
 			"Returns an empty array (not error) if the app is running but has no visible windows. " +
 			"Errors if the app is not running.",
+		promptSnippet: "List all on-screen windows for a macOS application.",
 		promptGuidelines: [
 			"Use to get windowId values needed by mac_screenshot.",
 		],
@@ -391,6 +397,7 @@ export default function (pi: ExtensionAPI) {
 			"- 'tree': Dump the full accessibility subtree as an indented tree. Use maxDepth/maxCount to bound output.\n" +
 			"- 'focused': Get the currently focused element in the app. No criteria needed.\n" +
 			"The 'app' param accepts an app name (e.g. 'Finder') or bundle ID (e.g. 'com.apple.Finder').",
+		promptSnippet: "Find UI elements in a macOS application's accessibility tree.",
 		promptGuidelines: [
 			"Prefer for targeted element search — use role/title/value criteria to narrow results.",
 			"Use mode:focused to check the current focus target without search criteria.",
@@ -523,6 +530,7 @@ export default function (pi: ExtensionAPI) {
 			"Tighter defaults than mac_find's tree mode — designed for quick structure inspection. " +
 			"Each line: `role \"title\" [value]` with 2-space indent per depth level. " +
 			"Omits title/value when nil or empty.",
+		promptSnippet: "Get a compact accessibility tree of a macOS application's UI structure.",
 		promptGuidelines: [
 			"Use for understanding app UI structure — start with low limits and increase if needed.",
 			"Prefer mac_find search mode when you know what you're looking for.",
@@ -580,6 +588,7 @@ export default function (pi: ExtensionAPI) {
 			"Click a UI element in a macOS application by performing AXPress. " +
 			"Finds the first element matching the given criteria (role, title, value, identifier) and clicks it. " +
 			"At least one criterion is required. Returns the clicked element's attributes.",
+		promptSnippet: "Click a UI element in a macOS application by performing AXPress.",
 		promptGuidelines: [
 			"Verify the click worked by reading the resulting state with mac_find or mac_read.",
 			"Use mac_find first to discover the right role/title/value criteria before clicking.",
@@ -637,6 +646,7 @@ export default function (pi: ExtensionAPI) {
 			"Finds the first element matching the given criteria and sets its value. " +
 			"Returns the actual value after setting (read-back verification). " +
 			"At least one criterion is required.",
+		promptSnippet: "Type text into a UI element in a macOS application by setting its AXValue attribute.",
 		promptGuidelines: [
 			"Read back the value after typing to verify — the return value includes actual content.",
 			"Target text fields/areas by role (AXTextArea, AXTextField) for reliability.",
@@ -696,6 +706,7 @@ export default function (pi: ExtensionAPI) {
 			"Take a screenshot of a macOS application window by its window ID (from mac_list_windows). " +
 			"Returns the screenshot as an image content block for visual analysis, alongside text metadata " +
 			"(dimensions and format). Requires Screen Recording permission — use mac_check_permissions to verify.",
+		promptSnippet: "Take a screenshot of a macOS application window by its window ID (from mac_list_windows).",
 		promptGuidelines: [
 			"Use for visual verification when accessibility attributes aren't sufficient.",
 			"Prefer nominal resolution unless retina detail is needed — retina doubles payload size.",
@@ -747,6 +758,7 @@ export default function (pi: ExtensionAPI) {
 			"Finds the first element matching the given criteria and reads the named attribute(s). " +
 			"AXValue subtypes (CGPoint, CGSize, CGRect, CFRange) are automatically unpacked to structured dicts. " +
 			"Use 'attribute' for a single attribute or 'attributes' for multiple. At least one search criterion is required.",
+		promptSnippet: "Read one or more accessibility attributes from a UI element in a macOS application.",
 		promptGuidelines: [
 			"Use to verify state after actions — read AXValue to confirm text was typed, AXEnabled to check if a button is active.",
 		],

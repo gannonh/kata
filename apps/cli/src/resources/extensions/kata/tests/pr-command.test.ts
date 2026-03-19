@@ -64,7 +64,7 @@ function makePrStatusDeps(
   overrides: Partial<PrStatusDependencies> = {},
 ): PrStatusDependencies {
   return {
-    getCurrentBranch: () => "kata/M003/S05",
+    getCurrentBranch: () => "kata/apps-cli/M003/S05",
     getOpenPrNumber: async () => null,
     getPrEnabled: () => false,
     getPrAutoCreate: () => false,
@@ -76,7 +76,7 @@ function makePrStatusDeps(
 test("buildPrStatusReport includes branch and PR state in message", async () => {
   const report = await buildPrStatusReport(
     makePrStatusDeps({
-      getCurrentBranch: () => "kata/M003/S05",
+      getCurrentBranch: () => "kata/apps-cli/M003/S05",
       getOpenPrNumber: async () => 42,
       getPrEnabled: () => true,
     }),
@@ -84,8 +84,20 @@ test("buildPrStatusReport includes branch and PR state in message", async () => 
 
   assert.ok(typeof report.level === "string", "report must have level");
   assert.ok(typeof report.message === "string", "report must have message");
-  assert.match(report.message, /kata\/M003\/S05/, "message must include branch name");
+  assert.match(report.message, /kata\/apps-cli\/M003\/S05/, "message must include namespaced branch name");
   assert.match(report.message, /42/, "message must include PR number");
+});
+
+test("buildPrStatusReport preserves legacy branch display during transition", async () => {
+  const report = await buildPrStatusReport(
+    makePrStatusDeps({
+      getCurrentBranch: () => "kata/M003/S05",
+      getOpenPrNumber: async () => null,
+      getPrEnabled: () => true,
+    }),
+  );
+
+  assert.match(report.message, /kata\/M003\/S05/, "message must still surface legacy branch names");
 });
 
 test("buildPrStatusReport shows 'no open PR' when none exists", async () => {

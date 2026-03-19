@@ -124,9 +124,11 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
       return {
         ok: false,
         phase: "branch-parse-failed",
-        error: `Current branch '${branch}' does not match kata/<MilestoneId>/<SliceId> pattern`,
+        error:
+          `Current branch '${branch}' does not match supported Kata slice branch formats: `
+          + "kata/<scope>/<MilestoneId>/<SliceId> or legacy kata/<MilestoneId>/<SliceId>",
         hint:
-          "Switch to a Kata slice branch (e.g. kata/M003/S01) or pass milestoneId and sliceId explicitly.",
+          "Switch to a Kata slice branch (e.g. kata/apps-cli/M003/S01, or legacy kata/M003/S01 during transition) or pass milestoneId and sliceId explicitly.",
       };
     }
     milestoneId = parsed.milestoneId;
@@ -189,13 +191,50 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
     const PIPE = { stdio: ["pipe", "pipe", "pipe"] as ["pipe", "pipe", "pipe"] };
     const ghEnv = { ...process.env, GH_PAGER: "" };
 
-    // Create the PR
+    // Resolve branch and ensure it's pushed to the remote
     const head = getCurrentBranch(cwd) ?? "";
+
+    if (head) {
+      // Check if branch exists on remote; push if not
+      try {
+        const remoteRef = execSync(
+          `git ls-remote --heads origin ${head}`,
+          { encoding: "utf8", cwd, ...PIPE },
+        ).trim();
+        if (!remoteRef) {
+          // Branch not on remote — push with upstream tracking
+          try {
+            execSync(
+              `git push -u origin ${head}`,
+              { encoding: "utf8", cwd, ...PIPE },
+            );
+          } catch (pushErr) {
+            const pe = pushErr as { stderr?: string; message?: string };
+            return {
+              ok: false,
+              phase: "push-failed",
+              error: `Branch '${head}' is not on the remote and push failed: ${pe.stderr ?? pe.message ?? String(pushErr)}`,
+              hint: "Check git remote configuration and network connectivity. Run: git remote -v",
+            };
+          }
+        }
+      } catch {
+        // ls-remote failed (no remote configured, network error, etc.)
+        // Proceed anyway — gh pr create will surface the real error
+      }
+    }
+
+    // Prefix title with branch name for monorepo identification
+    // e.g. "[kata/apps-context/M002/S02] Slice title here"
+    const normalizedTitle = head && !title.includes(head)
+      ? `[${head}] ${title}`
+      : title;
+
     try {
       execSync(
         [
           "gh", "pr", "create",
-          "--title", shellEscape(title),
+          "--title", shellEscape(normalizedTitle),
           "--base", shellEscape(baseBranch),
           "--head", shellEscape(head),
           "--body-file", shellEscape(tmpPath),

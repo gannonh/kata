@@ -5,7 +5,7 @@
  * the linear-documents module, and git operations to local exec.
  */
 
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -234,15 +234,19 @@ export class LinearBackend implements KataBackend {
   }
 
   async preparePrContext(milestoneId: string, sliceId: string): Promise<PrContext> {
-    const branch = `kata/${milestoneId}/${sliceId}`;
-    const cwd = this.gitRoot;
-    // Check if already on the target branch
-    const current = execSync("git branch --show-current", { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
-    if (current !== branch) {
-      execSync(`git branch -f ${branch} HEAD`, { cwd, stdio: "pipe" });
-      execSync(`git checkout ${branch}`, { cwd, stdio: "pipe" });
+    const cwd = this.basePath;
+    const { ensureSliceBranch, getCurrentBranch, getSliceBranchName } = await import("./worktree.js");
+    ensureSliceBranch(cwd, milestoneId, sliceId);
+
+    const currentBranch = getCurrentBranch(cwd);
+    const branch = currentBranch;
+
+    // Best-effort push — runCreatePr has its own push guard as a safety net
+    try {
+      execFileSync("git", ["push", "-u", "origin", branch], { cwd, stdio: "pipe" });
+    } catch {
+      // Non-fatal: runCreatePr will retry the push if needed
     }
-    execSync(`git push -u origin ${branch}`, { cwd, stdio: "pipe" });
 
     const documents: Record<string, string> = {};
     const plan = await this.readDocument(`${sliceId}-PLAN`);

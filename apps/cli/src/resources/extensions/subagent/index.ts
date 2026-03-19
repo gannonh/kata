@@ -529,6 +529,7 @@ export default function (pi: ExtensionAPI) {
       "Use the /subagent command to list available agents and their descriptions.",
       "Use chain mode to pipeline: scout finds context, planner designs, worker implements.",
     ].join(" "),
+    promptSnippet: "Delegate tasks to specialized subagents with isolated context windows.",
     promptGuidelines: [
       "Use subagent to delegate self-contained tasks that benefit from an isolated context window.",
       "Use scout agent first when you need codebase context before implementing.",

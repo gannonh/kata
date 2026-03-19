@@ -90,6 +90,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_list_teams",
     label: "Linear: List Teams",
     description: "List all teams in the Linear workspace.",
+    promptSnippet: "List all teams in the Linear workspace.",
     parameters: Type.Object({}),
     async execute() { return run(() => client.listTeams()); },
   });
@@ -98,6 +99,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_get_team",
     label: "Linear: Get Team",
     description: "Get a team by key (e.g. 'KAT') or UUID.",
+    promptSnippet: "Get a team by key or UUID.",
     parameters: Type.Object({
       idOrKey: Type.String({ description: "Team key (e.g. 'KAT') or UUID" }),
     }),
@@ -112,6 +114,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_create_project",
     label: "Linear: Create Project",
     description: "Create a new Linear project.",
+    promptSnippet: "Create a new Linear project.",
     parameters: Type.Object({
       name: Type.String({ description: "Project name" }),
       teamIds: Type.Array(Type.String(), { description: "Team UUIDs to associate with the project" }),
@@ -127,6 +130,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_get_project",
     label: "Linear: Get Project",
     description: "Get a project by UUID or slug ID.",
+    promptSnippet: "Get a project by UUID or slug ID.",
     parameters: Type.Object({
       id: Type.String({ description: "Project UUID or slug ID" }),
     }),
@@ -137,6 +141,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_list_projects",
     label: "Linear: List Projects",
     description: "List projects in the workspace, optionally filtered by team.",
+    promptSnippet: "List projects in the workspace, optionally filtered by team.",
     parameters: Type.Object({
       teamId: Type.Optional(Type.String({ description: "Filter by team UUID" })),
       first: Type.Optional(Type.Number({ description: "Max results per page (default: 50)" })),
@@ -151,6 +156,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_update_project",
     label: "Linear: Update Project",
     description: "Update a project's name, description, state, or dates.",
+    promptSnippet: "Update a projects name, description, state, or dates.",
     parameters: Type.Object({
       id: Type.String({ description: "Project UUID" }),
       name: Type.Optional(Type.String({ description: "New name" })),
@@ -169,6 +175,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_delete_project",
     label: "Linear: Delete Project",
     description: "Delete a project by UUID.",
+    promptSnippet: "Delete a project by UUID.",
     parameters: Type.Object({
       id: Type.String({ description: "Project UUID" }),
     }),
@@ -183,6 +190,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_create_milestone",
     label: "Linear: Create Milestone",
     description: "Create a milestone under a project. Milestones belong to projects, not teams.",
+    promptSnippet: "Create a milestone under a project.",
     parameters: Type.Object({
       name: Type.String({ description: "Milestone name" }),
       projectId: Type.String({ description: "Project UUID (required — milestones belong to projects)" }),
@@ -197,6 +205,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_get_milestone",
     label: "Linear: Get Milestone",
     description: "Get a milestone by UUID.",
+    promptSnippet: "Get a milestone by UUID.",
     parameters: Type.Object({
       id: Type.String({ description: "Milestone UUID" }),
     }),
@@ -207,6 +216,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_list_milestones",
     label: "Linear: List Milestones",
     description: "List milestones under a project.",
+    promptSnippet: "List milestones under a project.",
     parameters: Type.Object({
       projectId: Type.String({ description: "Project UUID" }),
     }),
@@ -217,6 +227,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_update_milestone",
     label: "Linear: Update Milestone",
     description: "Update a milestone's name, description, target date, or sort order.",
+    promptSnippet: "Update a milestones name, description, target date, or sort order.",
     parameters: Type.Object({
       id: Type.String({ description: "Milestone UUID" }),
       name: Type.Optional(Type.String({ description: "New name" })),
@@ -234,6 +245,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_delete_milestone",
     label: "Linear: Delete Milestone",
     description: "Delete a milestone by UUID.",
+    promptSnippet: "Delete a milestone by UUID.",
     parameters: Type.Object({
       id: Type.String({ description: "Milestone UUID" }),
     }),
@@ -248,6 +260,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_create_issue",
     label: "Linear: Create Issue",
     description: "Create an issue. Use parentId (UUID) to create a sub-issue. Supports project, milestone, labels, and state assignment.",
+    promptSnippet: "Create an issue.",
     parameters: Type.Object({
       title: Type.String({ description: "Issue title" }),
       teamId: Type.String({ description: "Team UUID" }),
@@ -268,6 +281,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_get_issue",
     label: "Linear: Get Issue",
     description: "Get an issue by UUID or identifier (e.g. 'KAT-42'). Returns full details including parent, children, labels, and state.",
+    promptSnippet: "Get an issue by UUID or identifier.",
     parameters: Type.Object({
       id: Type.String({ description: "Issue UUID or identifier (e.g. 'KAT-42')" }),
     }),
@@ -278,6 +292,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_list_issues",
     label: "Linear: List Issues",
     description: "List issues with optional filters: team, project, parent (for sub-issues), state, labels, assignee.",
+    promptSnippet: "List issues with optional filters: team, project, parent (for sub-issues), state, labels, assignee.",
     parameters: Type.Object({
       teamId: Type.Optional(Type.String({ description: "Filter by team UUID" })),
       projectId: Type.Optional(Type.String({ description: "Filter by project UUID" })),
@@ -294,6 +309,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_update_issue",
     label: "Linear: Update Issue",
     description: "Update an issue's title, description, state, labels, priority, assignee, parent, project, or milestone.",
+    promptSnippet: "Update an issues title, description, state, labels, priority, assignee, parent, project, or milestone.",
     parameters: Type.Object({
       id: Type.String({ description: "Issue UUID" }),
       title: Type.Optional(Type.String({ description: "New title" })),
@@ -317,6 +333,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_delete_issue",
     label: "Linear: Delete Issue",
     description: "Delete an issue by UUID.",
+    promptSnippet: "Delete an issue by UUID.",
     parameters: Type.Object({
       id: Type.String({ description: "Issue UUID" }),
     }),
@@ -331,6 +348,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_list_workflow_states",
     label: "Linear: List Workflow States",
     description: "List all workflow states for a team. States have types: backlog, unstarted, started, completed, canceled.",
+    promptSnippet: "List all workflow states for a team.",
     parameters: Type.Object({
       teamId: Type.String({ description: "Team UUID" }),
     }),
@@ -345,6 +363,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_create_label",
     label: "Linear: Create Label",
     description: "Create an issue label. Omit teamId for a workspace-level label.",
+    promptSnippet: "Create an issue label.",
     parameters: Type.Object({
       name: Type.String({ description: "Label name" }),
       color: Type.Optional(Type.String({ description: "Label color hex (e.g. '#FF0000')" })),
@@ -358,6 +377,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_list_labels",
     label: "Linear: List Labels",
     description: "List labels, optionally filtered by team.",
+    promptSnippet: "List labels, optionally filtered by team.",
     parameters: Type.Object({
       teamId: Type.Optional(Type.String({ description: "Filter by team UUID" })),
     }),
@@ -370,16 +390,32 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_delete_label",
     label: "Linear: Delete Label",
     description: "Delete a label by UUID.",
+    promptSnippet: "Delete a label by UUID.",
     parameters: Type.Object({
       id: Type.String({ description: "Label UUID" }),
     }),
     async execute(_id, params) { return run(() => client.deleteLabel(params.id)); },
   });
 
+  // ── Comments ──────────────────────────────────────────────────────────
+
+  pi.registerTool({
+    name: "linear_add_comment",
+    label: "Linear: Add Comment",
+    description: "Post a comment on a Linear issue. Returns the created comment with id, body, createdAt, and url.",
+    promptSnippet: "Post a comment on a Linear issue.",
+    parameters: Type.Object({
+      issueId: Type.String({ description: "Issue UUID to comment on" }),
+      body: Type.String({ description: "Comment body (markdown supported)" }),
+    }),
+    async execute(_id, params) { return run(() => client.createComment(params.issueId, params.body)); },
+  });
+
   pi.registerTool({
     name: "linear_ensure_label",
     label: "Linear: Ensure Label",
     description: "Get or create a label by name. Idempotent — returns existing label if name matches, creates new one otherwise.",
+    promptSnippet: "Get or create a label by name.",
     parameters: Type.Object({
       name: Type.String({ description: "Label name" }),
       color: Type.Optional(Type.String({ description: "Label color hex (used only when creating)" })),
@@ -400,6 +436,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_create_document",
     label: "Linear: Create Document",
     description: "Create a document. Attach to a project and/or issue via their UUIDs.",
+    promptSnippet: "Create a document.",
     parameters: Type.Object({
       title: Type.String({ description: "Document title" }),
       content: Type.Optional(Type.String({ description: "Document content (markdown)" })),
@@ -415,6 +452,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_get_document",
     label: "Linear: Get Document",
     description: "Get a document by UUID. Returns full markdown content.",
+    promptSnippet: "Get a document by UUID.",
     parameters: Type.Object({
       id: Type.String({ description: "Document UUID" }),
     }),
@@ -425,6 +463,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_list_documents",
     label: "Linear: List Documents",
     description: "List documents, optionally filtered by project.",
+    promptSnippet: "List documents, optionally filtered by project.",
     parameters: Type.Object({
       projectId: Type.Optional(Type.String({ description: "Filter by project UUID" })),
       first: Type.Optional(Type.Number({ description: "Max results per page (default: 50)" })),
@@ -439,6 +478,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_delete_document",
     label: "Linear: Delete Document",
     description: "Delete a document by UUID.",
+    promptSnippet: "Delete a document by UUID.",
     parameters: Type.Object({
       id: Type.String({ description: "Document UUID" }),
     }),
@@ -449,6 +489,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_update_document",
     label: "Linear: Update Document",
     description: "Update a document's title, content, icon, or color.",
+    promptSnippet: "Update a documents title, content, icon, or color.",
     parameters: Type.Object({
       id: Type.String({ description: "Document UUID" }),
       title: Type.Optional(Type.String({ description: "New title" })),
@@ -470,6 +511,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     name: "linear_get_viewer",
     label: "Linear: Get Viewer",
     description: "Get the authenticated user's profile. Useful for verifying API key and getting user ID.",
+    promptSnippet: "Get the authenticated users profile.",
     parameters: Type.Object({}),
     async execute() { return run(() => client.getViewer()); },
   });
@@ -485,6 +527,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       "Idempotently provision the three Kata labels (kata:milestone, kata:slice, kata:task) " +
       "in the given team. Returns the full KataLabelSet with label IDs. " +
       "Call this once per session; pass the returned label IDs to the kata_create_* tools.",
+    promptSnippet: "Idempotently provision the three Kata labels (kata:milestone, kata:slice, kata:task) in the given team.",
     parameters: Type.Object({
       teamId: Type.String({ description: "Team UUID in which to provision the Kata labels" }),
     }),
@@ -499,6 +542,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     description:
       "Create a Linear ProjectMilestone representing a Kata milestone. " +
       "The name is formatted as '[M001] Title' for round-trip parsing.",
+    promptSnippet: "Create a Linear ProjectMilestone representing a Kata milestone.",
     parameters: Type.Object({
       projectId: Type.String({ description: "Project UUID to attach the milestone to" }),
       kataId: Type.String({ description: "Kata milestone ID, e.g. 'M001'" }),
@@ -529,6 +573,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       "Create a Linear issue representing a Kata slice. " +
       "The title is formatted as '[S01] Title'. Applies the kata:slice label. " +
       "Call kata_ensure_labels first to obtain sliceLabelId and taskLabelId.",
+    promptSnippet: "Create a Linear issue representing a Kata slice.",
     parameters: Type.Object({
       teamId: Type.String({ description: "Team UUID" }),
       projectId: Type.String({ description: "Project UUID" }),
@@ -586,6 +631,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       "The title is formatted as '[T01] Title'. Applies the kata:task label. " +
       "The task is attached as a child of the given slice issue. " +
       "Call kata_ensure_labels first to obtain sliceLabelId and taskLabelId.",
+    promptSnippet: "Create a Linear sub-issue representing a Kata task.",
     parameters: Type.Object({
       teamId: Type.String({ description: "Team UUID" }),
       projectId: Type.String({ description: "Project UUID" }),
@@ -641,6 +687,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     description:
       "List all Linear issues representing Kata slices in a project. " +
       "Resolves the kata:slice label automatically from the team.",
+    promptSnippet: "List all Linear issues representing Kata slices in a project.",
     parameters: Type.Object({
       projectId: Type.String({ description: "Project UUID to scope the query" }),
       teamId: Type.String({ description: "Team UUID (from kata_derive_state or preferences)" }),
@@ -659,6 +706,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     description:
       "List all Linear sub-issues representing Kata tasks for a given slice issue. " +
       "Queries by parentId — returns all direct children of the slice issue.",
+    promptSnippet: "List all Linear sub-issues representing Kata tasks for a given slice issue.",
     parameters: Type.Object({
       sliceIssueId: Type.String({ description: "Linear issue UUID of the parent slice issue" }),
     }),
@@ -680,6 +728,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       "If no matching document exists, a new one is created. " +
       "Exactly one of projectId or issueId must be provided. " +
       "Returns the full LinearDocument including id, title, content, createdAt, updatedAt.",
+    promptSnippet: "Write a Kata artifact as a Linear Document (upsert by title).",
     parameters: Type.Object({
       title: Type.String({ description: "Document title, e.g. 'M001-ROADMAP' or 'DECISIONS'" }),
       content: Type.String({ description: "Markdown content to write" }),
@@ -707,6 +756,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       "Returns the document (with full markdown content) if found, or null if not yet written. " +
       "null is the canonical signal for 'document does not exist yet'. " +
       "Exactly one of projectId or issueId must be provided.",
+    promptSnippet: "Read a Kata artifact document by title from the attachment target.",
     parameters: Type.Object({
       title: Type.String({ description: "Document title to look up, e.g. 'M001-ROADMAP'" }),
       projectId: Type.Optional(Type.String({ description: "Project UUID — scope the lookup to this project" })),
@@ -733,6 +783,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       "Zero-side-effect inspection surface — does not modify any state. " +
       "Returns an array of LinearDocument objects; empty array means no documents exist. " +
       "Exactly one of projectId or issueId must be provided.",
+    promptSnippet: "List all Kata documents attached to a given project or issue.",
     parameters: Type.Object({
       projectId: Type.Optional(Type.String({ description: "Project UUID — list documents attached to this project" })),
       issueId: Type.Optional(Type.String({ description: "Issue UUID — list documents attached to this issue" })),
@@ -760,6 +811,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
     description:
       "List all Linear project milestones for a Kata project, sorted by sortOrder. " +
       "Zero-side-effect inspection surface — does not modify any state.",
+    promptSnippet: "List all Linear project milestones for a Kata project, sorted by sortOrder.",
     parameters: Type.Object({
       projectId: Type.String({ description: "Linear project UUID" }),
     }),
@@ -778,6 +830,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       "Returns a KataState JSON with activeMilestone, activeSlice, activeTask, phase, progress, blockers, " +
       "plus projectId and teamId (use these for kata_read_document / kata_list_documents calls). " +
       "Returns phase 'blocked' (not an error) when LINEAR_API_KEY or project config is missing.",
+    promptSnippet: "Derive a full KataState from the Linear API.",
     parameters: Type.Object({}),
     async execute() {
       const apiKey = process.env.LINEAR_API_KEY;
@@ -846,6 +899,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       "Advance a Linear issue to the workflow state corresponding to a given Kata phase. " +
       "Resolves the correct Linear stateId from the team's workflow states, then updates the issue. " +
       "Returns the updated issue with its new state.",
+    promptSnippet: "Advance a Linear issue to the workflow state corresponding to a given Kata phase.",
     parameters: Type.Object({
       issueId: Type.String({ description: "Linear issue UUID to update" }),
       phase: Type.Union(

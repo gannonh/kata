@@ -1,12 +1,6 @@
 /**
  * Contract tests for auto-mode post-complete-slice decision matrix.
  *
- * These tests FAIL until T03 creates `pr-auto.ts` and exports:
- *   - decidePostCompleteSliceAction(prPrefs)
- *   - formatPrAutoCreateFailure(failure)
- *
- * Expected failure: MODULE_NOT_FOUND for ../pr-auto.js
- *
  * Pins D049: auto-mode creates a PR and pauses when pr.enabled && pr.auto_create;
  * legacy squash-merge remains only for PR-disabled projects.
  */
@@ -150,8 +144,9 @@ test("formatPrAutoCreateFailure includes actionable hint", () => {
 test("formatPrAutoCreateFailure produces diagnostic output inspectable by a future agent", () => {
   const failure: PrAutoCreateFailure = {
     phase: "branch-parse-failed",
-    error: "could not detect slice ID from branch kata/M003/S05",
-    hint: "Ensure the branch follows kata/MXXX/SYY naming convention",
+    error: "could not detect slice ID from branch kata/apps-cli/M003/S05",
+    hint:
+      "Ensure the branch follows kata/<scope>/MXXX/SYY (or legacy kata/MXXX/SYY during transition)",
   };
   const text = formatPrAutoCreateFailure(failure);
 
@@ -160,5 +155,7 @@ test("formatPrAutoCreateFailure produces diagnostic output inspectable by a futu
   // 2. Read the error (what went wrong)
   // 3. Follow the hint (what to do next)
   assert.match(text, /branch-parse-failed|branch/, "must include failure phase");
-  assert.match(text, /kata\/M003\/S05|branch/, "must reference the failing context");
+  assert.match(text, /kata\/apps-cli\/M003\/S05|branch/, "must reference the failing context");
+  assert.match(text, /kata\/<scope>\/MXXX\/SYY/, "must include namespaced branch format guidance");
+  assert.match(text, /legacy kata\/MXXX\/SYY/, "must include legacy branch compatibility guidance");
 });

@@ -112,6 +112,7 @@ export default function (pi: ExtensionAPI): void {
       "Uses `milestoneId`/`sliceId` from params when provided; auto-detects from branch name otherwise.",
       "Returns { ok: true, url } on success; { ok: false, phase, error, hint } on any failure.",
     ].join(" "),
+    promptSnippet: "Create a GitHub PR for the current Kata slice branch.",
     parameters: {
       type: "object" as const,
       properties: {
@@ -195,6 +196,7 @@ export default function (pi: ExtensionAPI): void {
       "Returns { ok: true, prNumber, selectedReviewers, findings } on success.",
       "Returns { ok: false, phase, error, hint } for: gh-missing, gh-unauth, not-in-pr, diff-empty.",
     ].join(" "),
+    promptSnippet: "Runs a parallel PR review for the open GitHub PR on the current branch.",
     parameters: {
       type: "object" as const,
       properties: {
@@ -339,6 +341,7 @@ export default function (pi: ExtensionAPI): void {
       "Returns { ok: true, pull_request, conversation_comments, reviews, review_threads } on success.",
       "Returns { ok: false, phase, error, hint } on any failure.",
     ].join(" "),
+    promptSnippet: "Fetches all PR comments for the open PR on the current branch.",
     parameters: {
       type: "object" as const,
       properties: {
@@ -395,6 +398,7 @@ export default function (pi: ExtensionAPI): void {
       "Phase enum: gh-missing | gh-unauth | resolve-failed.",
       "Note: check isResolved before calling — GitHub returns an error if the thread is already resolved.",
     ].join(" "),
+    promptSnippet: "Resolves an inline GitHub PR review thread via the `resolveReviewThread` GraphQL mutation.",
     parameters: {
       type: "object" as const,
       properties: {
@@ -449,6 +453,7 @@ export default function (pi: ExtensionAPI): void {
       "or { ok: false, phase, error } on failure.",
       "Phase enum: gh-missing | gh-unauth | reply-failed.",
     ].join(" "),
+    promptSnippet: "Reply to an inline GitHub PR review thread.",
     parameters: {
       type: "object" as const,
       properties: {
@@ -510,6 +515,7 @@ export default function (pi: ExtensionAPI): void {
       "Phase enum: gh-missing | gh-unauth | branch-parse-failed | pr-detect-failed |",
       "ci-failing | ci-pending | merge-failed.",
     ].join(" "),
+    promptSnippet: "Merge the open GitHub PR for the current Kata slice branch.",
     parameters: {
       type: "object" as const,
       properties: {
@@ -582,9 +588,11 @@ export default function (pi: ExtensionAPI): void {
         return toolFail({
           ok: false,
           phase: "branch-parse-failed",
-          error: `Current branch '${branch}' does not match kata/<MilestoneId>/<SliceId> pattern`,
+          error:
+            `Current branch '${branch}' does not match supported Kata slice branch formats: `
+            + "kata/<scope>/<MilestoneId>/<SliceId> or legacy kata/<MilestoneId>/<SliceId>",
           hint:
-            "Switch to a Kata slice branch (e.g. kata/M003/S04) or pass milestoneId and sliceId explicitly.",
+            "Switch to a Kata slice branch (e.g. kata/apps-cli/M003/S04, or legacy kata/M003/S04 during transition) before running kata_merge_pr.",
         });
       }
 

@@ -1,4 +1,8 @@
 import assert from "node:assert/strict";
+import { execSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { LinearBackend, type LinearBackendConfig } from "../linear-backend.ts";
 import type { KataBackend } from "../backend.ts";
 import type { KataState } from "../types.ts";
@@ -12,6 +16,23 @@ const TEST_CONFIG: LinearBackendConfig = {
 
 function makeBackend(): LinearBackend {
   return new LinearBackend("/tmp/test-project", TEST_CONFIG);
+}
+
+function initGitRepo(base: string): void {
+  execSync("git init -b main", { cwd: base, stdio: "pipe" });
+  execSync("git config user.email kata-test@example.com", { cwd: base, stdio: "pipe" });
+  execSync("git config user.name Kata Test", { cwd: base, stdio: "pipe" });
+  writeFileSync(join(base, "README.md"), "# test\n");
+  execSync("git add README.md", { cwd: base, stdio: "pipe" });
+  execSync('git commit -m "init"', { cwd: base, stdio: "pipe" });
+}
+
+function initBareRemote(base: string): string {
+  const remote = mkdtempSync(join(tmpdir(), "kata-linear-remote-"));
+  execSync("git init --bare", { cwd: remote, stdio: "pipe" });
+  execSync(`git remote add origin ${remote}`, { cwd: base, stdio: "pipe" });
+  execSync("git push -u origin main", { cwd: base, stdio: "pipe" });
+  return remote;
 }
 
 function makeState(overrides?: Partial<KataState>): KataState {
@@ -40,6 +61,36 @@ describe("LinearBackend interface", () => {
   it("sets basePath from constructor", () => {
     const backend = new LinearBackend("/tmp/test-project", TEST_CONFIG);
     assert.equal(backend.basePath, "/tmp/test-project");
+  });
+});
+
+// ─── preparePrContext ───────────────────────────────────────────────────────
+
+describe("LinearBackend.preparePrContext", () => {
+  it("checks out and returns namespaced slice branch context", async () => {
+    const base = mkdtempSync(join(tmpdir(), "kata-linear-prctx-"));
+    initGitRepo(base);
+    const remote = initBareRemote(base);
+
+    try {
+      const backend = new LinearBackend(base, TEST_CONFIG);
+      backend.readDocument = async (name: string) => {
+        if (name === "S02-PLAN") return "# S02 Plan\n";
+        if (name === "S02-SUMMARY") return "# S02 Summary\n";
+        return null;
+      };
+
+      const ctx = await backend.preparePrContext("M001", "S02");
+      assert.equal(ctx.branch, "kata/root/M001/S02");
+      assert.equal(
+        execSync("git branch --show-current", { cwd: base, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim(),
+        "kata/root/M001/S02",
+      );
+      assert.deepEqual(Object.keys(ctx.documents).sort(), ["PLAN", "SUMMARY"]);
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+      rmSync(remote, { recursive: true, force: true });
+    }
   });
 });
 
