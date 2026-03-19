@@ -15,7 +15,7 @@ import { deriveState } from "./state.js";
 import type { KataState } from "./types.js";
 import { KataDashboardOverlay } from "./dashboard-overlay.js";
 import { showSmartEntry, showQueue, showDiscuss } from "./guided-flow.js";
-import { startAuto, stopAuto, isAutoActive, isAutoPaused } from "./auto.js";
+import { startAuto, stopAuto, isAutoActive, isAutoPaused, setStepActive } from "./auto.js";
 import type { KataBackend } from "./backend.js";
 import { createBackend } from "./backend-factory.js";
 import {
@@ -406,6 +406,8 @@ export function registerKataCommand(pi: ExtensionAPI): void {
         }
 
         ctx.ui.notify(`/kata step: ${state.phase} — ${unitId}`, "info");
+        ctx.ui.setStatus("kata-auto", "step");
+        setStepActive(true);
         pi.sendMessage({ customType: "kata-step", content: prompt, display: false }, { triggerTurn: true });
         return;
       }

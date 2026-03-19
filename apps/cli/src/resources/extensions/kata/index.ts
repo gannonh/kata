@@ -36,6 +36,8 @@ import { deriveState } from "./state.js";
 import {
   isAutoActive,
   isAutoPaused,
+  isStepActive,
+  setStepActive,
   handleAgentEnd,
   handleProviderError,
   pauseAuto,
@@ -226,6 +228,13 @@ export default function (pi: ExtensionAPI) {
   pi.on("agent_end", async (event, ctx: ExtensionContext) => {
     // If discuss phase just finished, ask user whether to start auto-mode
     if (await checkAutoStartAfterDiscuss()) return;
+
+    // If a step turn just finished, clear the step badge and return
+    if (isStepActive()) {
+      setStepActive(false);
+      ctx.ui.setStatus("kata-auto", undefined);
+      return;
+    }
 
     // If auto-mode is already running, advance to next unit
     if (!isAutoActive()) return;
