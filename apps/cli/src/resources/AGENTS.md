@@ -30,7 +30,7 @@ apps/cli/
         kata/              — Main extension: /kata command, auto-mode, planning, state
         browser-tools/     — Playwright-based browser automation
         subagent/          — Spawns child kata processes for parallel work
-        slash-commands/     — /kata-run and other slash commands
+        slash-commands/     — create-slash-command, create-extension, audit slash commands
         shared/            — Shared UI components used by multiple extensions
         bg-shell/          — Background shell execution
         context7/          — Context7 library documentation lookup
