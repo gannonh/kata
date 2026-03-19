@@ -25,11 +25,12 @@ agent:
 
 codex:
   command: ["codex", "app-server"]
+  approval_policy: "never"
   turn_timeout_ms: 3600000
   stall_timeout_ms: 300000
 
 hooks:
-  after_create: "git clone /Volumes/EVO/kata/kata-mono . --single-branch && git checkout -b symphony/$(basename $PWD)"
+  after_create: "git clone /Volumes/EVO/kata/kata-mono . --single-branch --branch elixir-feature-parity && git checkout -b symphony/$(basename $PWD)"
   timeout_ms: 120000
 
 server:
@@ -48,18 +49,20 @@ You are working on a Linear issue for the Symphony project (a Rust orchestrator 
 **Labels:** {{ issue.labels | join: ", " }}
 {% endif %}
 
-{% if issue.blockers != empty %}
+{% if issue.blocked_by != empty %}
 **Blocked by:**
-{% for blocker in issue.blockers %}
+{% for blocker in issue.blocked_by %}
 - {{ blocker.identifier }}: {{ blocker.title }}
 {% endfor %}
 {% endif %}
 
+{% if attempt %}
 {% if attempt.number > 1 %}
 **Retry attempt {{ attempt.number }}.**
-{% if attempt.prior_error != nil %}
+{% if attempt.prior_error %}
 Previous attempt failed with: {{ attempt.prior_error }}
 Take a different approach.
+{% endif %}
 {% endif %}
 {% endif %}
 
