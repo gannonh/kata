@@ -22,7 +22,10 @@ models:
   execution: claude-opus-4-6
   completion: claude-sonnet-4-6
   review: claude-sonnet-4-6 
-auto_supervisor: {}
+auto_supervisor:
+  soft_timeout_minutes: 15
+  idle_timeout_minutes: 8
+  hard_timeout_minutes: 25
 ---
 
 # Kata Preferences
