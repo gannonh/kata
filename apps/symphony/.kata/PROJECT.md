@@ -16,7 +16,7 @@ A single `symphony` binary that reliably polls Linear, dispatches bounded-concur
 
 ## Current State
 
-Seven of nine slices are complete (S01–S07). HTTP observability is now implemented and proven: axum server-backed dashboard at `/`, snapshot/issue APIs at `/api/v1/state` and `/api/v1/:issue_identifier`, refresh control via `POST /api/v1/refresh`, and stable JSON API 404/405 envelopes. CLI runtime composition now starts orchestrator + optional HTTP server with explicit startup decision logs and preserves `--port` precedence over workflow config. Verification is green via `cargo test --test http_server_tests --test cli_tests` (16 tests) and `cargo build`. R010 is now validated. Next: S08 SSH Remote Worker Extension.
+M001 milestone complete — all 9 slices done. 211 tests passing, `cargo clippy -- -D warnings` clean. The full Symphony orchestrator is implemented: poll→reconcile→dispatch→retry loop, dynamic WORKFLOW.md reload, workspace lifecycle hooks, Codex app-server client (JSON-RPC over stdio), linear_graphql dynamic tool, HTTP dashboard + JSON API (axum), SSH remote worker extension with per-host concurrency pool, and spec §17 conformance suite. All 13 active requirements validated (R001, R002, R004–R008, R010–R015). R003 and R009 remain active pending live-integration proof and human-readable log format toggle respectively.
 
 ## Architecture / Key Patterns
 
@@ -38,4 +38,4 @@ See `.kata/REQUIREMENTS.md` for the explicit capability contract, requirement st
 
 ## Milestone Sequence
 
-- [ ] M001: Full Spec Conformance — Complete Rust port of Symphony with all core + extension features, spec-driven test suite
+- [x] M001: Full Spec Conformance — Complete Rust port of Symphony with all core + extension features, spec-driven test suite
