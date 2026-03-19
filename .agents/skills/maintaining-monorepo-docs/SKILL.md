@@ -31,21 +31,21 @@ Update documentation in `apps/online-docs/content/docs/` to reflect code changes
 
 ## Heuristic Mapping Table
 
-| Source path pattern | Target doc page |
-|---|---|
-| `apps/cli/src/resources/extensions/` | `content/docs/cli/extensions.mdx` |
-| `apps/cli/src/resources/extensions/kata/` | `content/docs/cli/kata-workflow.mdx` |
-| `apps/cli/src/commands/` | `content/docs/cli/commands.mdx` |
-| `apps/symphony/` | `content/docs/symphony/index.mdx` |
-| `apps/electron/`, `apps/viewer/` | `content/docs/desktop/index.mdx` |
-| `apps/context/` | `content/docs/context/index.mdx` |
-| `apps/orchestrator/` | `content/docs/orchestrator/index.mdx` |
-| `packages/core/` | `content/docs/architecture/packages.mdx` |
-| `packages/shared/` | `content/docs/architecture/packages.mdx` |
-| `packages/ui/` | `content/docs/architecture/packages.mdx` |
-| `packages/mermaid/` | `content/docs/architecture/packages.mdx` |
-| New preference fields | `content/docs/cli/preferences.mdx` |
-| New skills | Corresponding app section or `content/docs/cli/agents.mdx` |
+| Source path pattern                       | Target doc page                                            |
+| ----------------------------------------- | ---------------------------------------------------------- |
+| `apps/cli/src/resources/extensions/`      | `content/docs/cli/extensions.mdx`                          |
+| `apps/cli/src/resources/extensions/kata/` | `content/docs/cli/kata-workflow.mdx`                       |
+| `apps/cli/src/commands/`                  | `content/docs/cli/commands.mdx`                            |
+| `apps/symphony/`                          | `content/docs/symphony/index.mdx`                          |
+| `apps/electron/`, `apps/viewer/`          | `content/docs/desktop/index.mdx`                           |
+| `apps/context/`                           | `content/docs/context/index.mdx`                           |
+| `apps/orchestrator/`                      | `content/docs/orchestrator/index.mdx`                      |
+| `packages/core/`                          | `content/docs/architecture/packages.mdx`                   |
+| `packages/shared/`                        | `content/docs/architecture/packages.mdx`                   |
+| `packages/ui/`                            | `content/docs/architecture/packages.mdx`                   |
+| `packages/mermaid/`                       | `content/docs/architecture/packages.mdx`                   |
+| New preference fields                     | `content/docs/cli/preferences.mdx`                         |
+| New skills                                | Corresponding app section or `content/docs/cli/agents.mdx` |
 
 If a change doesn't map to an existing page and is significant enough to document, create a new page in the appropriate section directory.
 
@@ -56,7 +56,3 @@ If a change doesn't map to an existing page and is significant enough to documen
 - Keep descriptions factual and concise
 - Link to related pages within the docs using relative paths
 - Do not add content that duplicates inline code comments
-
-## Integration with PR Lifecycle
-
-This skill coordinates with the `pull-requests` skill. It runs during the review phase: after code passes review, before merge. It can also be invoked independently at any time.
