@@ -1082,7 +1082,10 @@ fn test_reconcile_non_active_state_stops_run_without_cleanup() {
         .insert("issue-non-active".to_string(), attempt);
 
     assert!(
-        orchestrator.state().running.contains_key("issue-non-active"),
+        orchestrator
+            .state()
+            .running
+            .contains_key("issue-non-active"),
         "precondition: issue must be in running map before reconcile"
     );
 
@@ -1096,7 +1099,10 @@ fn test_reconcile_non_active_state_stops_run_without_cleanup() {
 
     // The running entry must be removed (release_issue called).
     assert!(
-        !orchestrator.state().running.contains_key("issue-non-active"),
+        !orchestrator
+            .state()
+            .running
+            .contains_key("issue-non-active"),
         "running entry must be removed when tracker state is non-active"
     );
 
