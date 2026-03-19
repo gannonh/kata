@@ -402,11 +402,14 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     };
 
     // ── AgentConfig ───────────────────────────────────────────────────────
-    // Normalize max_concurrent_agents_by_state map keys to lowercase.
+    // Normalize max_concurrent_agents_by_state map keys to lowercase and filter
+    // out invalid (zero) entries per spec §17.1 ("ignores invalid values").
+    // Negative values are already rejected by the `u32` type at deserialization time.
     let by_state: HashMap<String, u32> = raw_agent
         .max_concurrent_agents_by_state
         .unwrap_or_default()
         .into_iter()
+        .filter(|(_, v)| *v > 0)
         .map(|(k, v)| (k.to_lowercase(), v))
         .collect();
 

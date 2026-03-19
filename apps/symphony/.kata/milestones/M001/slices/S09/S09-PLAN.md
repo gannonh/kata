@@ -40,7 +40,7 @@
 
 ## Tasks
 
-- [ ] **T01: Add conformance test gap closure** `est:45m`
+- [x] **T01: Add conformance test gap closure** `est:45m`
   - Why: Two spec §17 behaviors are implemented but have no isolated test — by_state normalization (§17.1) and non-active state stop-without-cleanup (§17.4). These are the only gaps between the current 159-test baseline and full conformance coverage.
   - Files: `tests/workflow_config_tests.rs`, `tests/orchestrator_tests.rs`
   - Do: (1) In `workflow_config_tests.rs`, add `test_by_state_concurrency_normalization` — construct a raw WORKFLOW.md with `max_concurrent_agents_by_state` containing uppercase keys (e.g. `InProgress`), zero-value entries, and a valid entry; parse through `ServiceConfig::from_workflow`; assert keys are lowercased, zero/invalid values are filtered, valid entries survive. (2) In `orchestrator_tests.rs`, add `test_reconcile_non_active_state_stops_run_without_cleanup` — set up orchestrator with a running issue, have the fake tracker return a non-active (but non-terminal) state, run one reconcile tick, assert the running entry is removed but workspace cleanup was NOT called (workspace_cleanup_calls == 0).

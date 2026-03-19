@@ -2,8 +2,8 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S09 — Conformance Sweep and Integration Polish
-**Active Task:** T01 — Add conformance test gap closure
-**Phase:** Planning complete — executing S09
+**Active Task:** T02 — Write operator README
+**Phase:** Executing S09
 
 ## Progress
 
@@ -32,7 +32,7 @@
 
 ## Next Action
 
-Execute S09/T01: add test_by_state_concurrency_normalization to workflow_config_tests.rs and test_reconcile_non_active_state_stops_run_without_cleanup to orchestrator_tests.rs. Then T02: write operator README. Then T03: final verification pass + R013 validated.
+T01 complete (211 tests passing). Execute S09/T02: write operator README.md with sections Build, Run, WORKFLOW.md Format, Configuration Reference, HTTP Dashboard and API, SSH Pool, Testing. Then T03: final verification pass (cargo clippy + R013 validated).
 
 ## Validated Requirements
 
