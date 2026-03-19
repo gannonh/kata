@@ -64,7 +64,7 @@
 
 ## Tasks
 
-- [ ] **T01: Author failing HTTP dashboard/API conformance tests** `est:45m`
+- [x] **T01: Author failing HTTP dashboard/API conformance tests** `est:45m`
   - Why: Lock S07 route/error/refresh contracts first so implementation is driven by executable behavior, not ad hoc manual checks.
   - Files: `tests/http_server_tests.rs`, `tests/cli_tests.rs`, `src/http_server.rs`, `src/lib.rs`
   - Do: Add a red-suite covering `/`, `/api/v1/state`, `/api/v1/:issue_identifier`, `POST /api/v1/refresh`, plus API 404/405 envelopes and refresh coalescing assertions; add minimal module stubs so tests compile and fail behaviorally.

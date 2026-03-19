@@ -2,7 +2,7 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S07 — HTTP Dashboard and JSON API
-**Active Task:** T01 — Author failing HTTP dashboard/API conformance tests
+**Active Task:** T02 — Add orchestrator snapshot handle + refresh control seam
 **Phase:** Executing
 
 ## Progress
@@ -19,9 +19,9 @@
 
 ## Recent Decisions
 
-- D036: Track normalized running issue states inside orchestrator state for deterministic per-state slot accounting
-- D037: Preserve worker session IDs in orchestrator runtime state for retry/stall/completion diagnostics without widening domain structs yet
-- D038: Emit JSON-structured CLI bootstrap lifecycle logs keyed by phase/stage/workflow_path for deterministic startup diagnostics
+- D039: Keep HTTP as a read/control seam (snapshot reads + refresh signal only) so orchestrator remains the single mutable authority
+- D040: Standardize API error envelopes with stable `error.code`, `error.message`, and `error.status` fields
+- D041: Establish dedicated `tests/http_server_tests.rs` red→green harness as the slice-level HTTP contract gate
 
 ## Blockers
 
@@ -29,7 +29,7 @@
 
 ## Next Action
 
-Start S07 planning: define HTTP dashboard/API test contract and implement `http_server.rs` routes (`/`, `/api/v1/state`, `/api/v1/:issue`, `POST /api/v1/refresh`) using `OrchestratorSnapshot` as the source of truth.
+Execute S07/T02: add orchestrator-owned snapshot publication and refresh-control ingestion seams, then wire targeted tests proving queued/coalesced refresh behavior without violating single-authority state ownership.
 
 ## Validated Requirements
 

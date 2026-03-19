@@ -12,6 +12,7 @@ pub mod workspace;
 
 pub mod codex;
 pub mod orchestrator;
+pub mod http_server;
 
 // These modules will be implemented in later slices
 // pub mod agent_runner;
