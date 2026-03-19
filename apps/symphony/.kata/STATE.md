@@ -1,9 +1,9 @@
 # Kata State
 
 **Active Milestone:** M001 — Full Spec Conformance
-**Active Slice:** S08 — SSH Remote Worker Extension
-**Active Task:** Planning (next task to decompose)
-**Phase:** Planning
+**Active Slice:** S09 — Conformance Sweep and Integration Polish (NEXT)
+**Active Task:** none
+**Phase:** S08 complete — ready for S09
 
 ## Progress
 
@@ -14,14 +14,17 @@
 - [x] S05: Codex App-Server Client — 32 integration tests pass; approval, tool dispatch, user-input, token accounting all done; zero warnings
 - [x] S06: Orchestrator Core — runtime authority loop + CLI bootstrap verified; orchestrator+cli conformance suites green
 - [x] S07: HTTP Dashboard and JSON API
-- [ ] S08: SSH Remote Worker Extension
+- [x] S08: SSH Remote Worker Extension — 15 ssh_tests; arg construction, host-selection, per-host cap, prefer-on-retry, pool exhaustion, fake-SSH subprocess; R011 validated
 - [ ] S09: Conformance Sweep and Integration Polish
 
 ## Recent Decisions
 
-- D040: Standardize API error envelopes with stable `error.code`, `error.message`, and `error.status` fields
-- D041: Establish dedicated `tests/http_server_tests.rs` red→green harness as the slice-level HTTP contract gate
-- D042: Emit explicit HTTP startup decision events (`http_server_enabled` / `http_server_disabled`) for runtime wiring observability
+- D043: SSH host selection uses WorkerHostSelection enum (Local/Remote/NoneAvailable) in ssh.rs; NoneAvailable blocks dispatch without local fallback
+- D044: Remote workspace validation skips local FS canonicalization; validates only non-empty + absolute path string
+- D045: Dedicated tests/ssh_tests.rs with fake-ssh-on-PATH pattern as the S08 verification gate
+- D046: SSH uses -T flag (Elixir reference), not -o StrictHostKeyChecking=no
+- D047: select_worker_host as public free function in ssh.rs + orchestrator method delegate
+- D048: NoneAvailable retry path reschedules via schedule_retry_with_context rather than silently dropping
 
 ## Blockers
 
@@ -29,7 +32,7 @@
 
 ## Next Action
 
-Start S08 planning: read S08 boundary-map contracts and decompose into task-level plan artifacts with SSH transport, host-pool caps, and continuation-host affinity verification.
+Execute S09: conformance sweep against Spec §17, gap fixes, README documentation.
 
 ## Validated Requirements
 
@@ -41,6 +44,7 @@ Start S08 planning: read S08 boundary-map contracts and decompose into task-leve
 - R007 (Prompt Builder with Strict Liquid Rendering) — S04
 - R008 (CLI Entry Point) — S06: CLI bootstrap/exit tests passing for default path, overrides, startup failures, and successful runtime start call-order
 - R010 (HTTP Observability Server) — S07: dashboard/API contract tests and CLI HTTP binding precedence tests passing
+- R011 (SSH Remote Worker Extension) — S08: 15 tests; SSH arg construction, host-selection, per-host cap, prefer-on-retry, pool exhaustion blocking, fake-SSH subprocess launch, remote cwd validation
 - R012 (linear_graphql dynamic tool) — S05: 14 tests; argument normalisation, GraphQL execution, error formatting
 - R014 (Dispatch Preflight Validation) — S06: reconciliation continues while invalid-preflight deterministically skips dispatch
 - R015 (Token Accounting and Rate Limit Tracking) — S05+S06+S07: per-turn deltas plus aggregate snapshot exposure via HTTP state/dashboard proven

@@ -24,6 +24,7 @@ use crate::codex::token_accounting::{extract_rate_limits, extract_token_delta, T
 use crate::domain::{AgentEvent, CodexConfig, Issue};
 use crate::error::{Result, SymphonyError};
 use crate::path_safety;
+use crate::ssh::SshRunner;
 
 /// Answer sent to Codex when the session is non-interactive and cannot provide
 /// operator input.  Matches Elixir's `@non_interactive_tool_input_answer`.
@@ -113,10 +114,13 @@ pub struct TurnResult {
 /// - `issue`           — issue being worked on (stored for turn/start and logging)
 /// - `workspace_path`  — path to the workspace directory for this issue
 /// - `workspace_root`  — workspace root used to validate containment
+/// - `worker_host`     — if `Some(host)`, spawn via SSH on the remote host;
+///   if `None`, spawn locally (default behaviour)
 ///
 /// # Errors
 /// - `InvalidWorkspaceCwd` — workspace path fails safety checks
 /// - `CodexNotFound`       — bash or the configured command does not exist
+/// - `SshLaunchFailed`     — SSH subprocess failed to start (remote path only)
 /// - `ResponseTimeout`     — handshake did not complete in time
 /// - `ResponseError`       — subprocess sent an unexpected response
 pub async fn start_session(
@@ -124,34 +128,64 @@ pub async fn start_session(
     issue: &Issue,
     workspace_path: &Path,
     workspace_root: &Path,
+    worker_host: Option<&str>,
 ) -> Result<SessionHandle> {
-    // ── Step 1: Validate workspace cwd ───────────────────────────────
-    let canonical_workspace = validate_workspace_cwd(workspace_path, workspace_root)?;
-    let workspace_str = canonical_workspace.to_string_lossy().to_string();
-
-    // ── Step 2: Spawn subprocess ──────────────────────────────────────
     let cmd_str = config.command.join(" ");
-    tracing::debug!(
-        issue_id = %issue.id,
-        cmd = %cmd_str,
-        cwd = %workspace_str,
-        "Spawning Codex app-server"
-    );
 
-    let mut child = tokio::process::Command::new("bash")
-        .args(["-lc", &cmd_str])
-        .current_dir(&canonical_workspace)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                SymphonyError::CodexNotFound
-            } else {
-                SymphonyError::Io(e)
-            }
-        })?;
+    // ── Step 1 & 2: Validate + Spawn (local or remote) ───────────────
+    let (workspace_str, mut child) = match worker_host {
+        None => {
+            // ── Local path (unchanged behaviour) ─────────────────────
+            let canonical_workspace = validate_workspace_cwd(workspace_path, workspace_root)?;
+            let workspace_str = canonical_workspace.to_string_lossy().to_string();
+
+            tracing::debug!(
+                issue_id = %issue.id,
+                cmd = %cmd_str,
+                cwd = %workspace_str,
+                "Spawning Codex app-server"
+            );
+
+            let child = tokio::process::Command::new("bash")
+                .args(["-lc", &cmd_str])
+                .current_dir(&canonical_workspace)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .map_err(|e| {
+                    if e.kind() == std::io::ErrorKind::NotFound {
+                        SymphonyError::CodexNotFound
+                    } else {
+                        SymphonyError::Io(e)
+                    }
+                })?;
+
+            (workspace_str, child)
+        }
+        Some(host) => {
+            // ── Remote path via SSH ───────────────────────────────────
+            let workspace_str =
+                crate::ssh::validate_remote_workspace_cwd(&workspace_path.to_string_lossy())?;
+
+            tracing::info!(
+                worker_host = %host,
+                issue_id = %issue.id,
+                cmd = %cmd_str,
+                "Spawning remote Codex via SSH"
+            );
+
+            // Prepend `cd <workspace> &&` so the remote shell starts in the
+            // workspace directory — matching the local path's `.current_dir()`.
+            let remote_cmd = format!(
+                "cd {} && {}",
+                crate::ssh::shell_escape(&workspace_str),
+                cmd_str
+            );
+            let child = SshRunner::start_process(host, &remote_cmd).await?;
+            (workspace_str, child)
+        }
+    };
 
     let pid = child.id().map(|p| p.to_string());
     let mut stdin = child.stdin.take().expect("stdin was piped");

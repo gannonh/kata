@@ -8,6 +8,7 @@ pub mod linear;
 
 pub mod path_safety;
 pub mod prompt_builder;
+pub mod ssh;
 pub mod workspace;
 
 pub mod codex;

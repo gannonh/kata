@@ -14,6 +14,7 @@ use crate::domain::{
     ServiceConfig,
 };
 use crate::error::Result;
+use crate::ssh::{self, WorkerHostSelection};
 use crate::{path_safety, prompt_builder, workspace};
 
 // ── Snapshot Handle (S07 read seam) ─────────────────────────────────────
@@ -425,7 +426,22 @@ impl Orchestrator {
                 continue;
             }
 
-            self.dispatch_issue(&refreshed_issue, None, None, None);
+            // Select an SSH host (or local) for this fresh dispatch.
+            let host_selection = self.select_worker_host(None);
+            if matches!(host_selection, WorkerHostSelection::NoneAvailable) {
+                tracing::warn!(
+                    event = "ssh_pool_exhausted",
+                    issue_id = %refreshed_issue.id,
+                    issue_identifier = %refreshed_issue.identifier,
+                    "SSH host pool exhausted, deferring dispatch"
+                );
+                continue;
+            }
+            let worker_host = match host_selection {
+                WorkerHostSelection::Remote(ref host) => Some(host.clone()),
+                _ => None,
+            };
+            self.dispatch_issue(&refreshed_issue, None, None, worker_host);
             dispatched_issue_ids.push(refreshed_issue.id);
         }
 
@@ -682,6 +698,14 @@ impl Orchestrator {
             &self.config.hooks,
         )?;
 
+        // Preserve the worker_host that dispatch_issue() already stored on the
+        // scheduled RunAttempt (if present) so SSH dispatch is honoured here.
+        let prior_worker_host = self
+            .state
+            .running
+            .get(&issue.id)
+            .and_then(|a| a.worker_host.clone());
+
         self.state.running.insert(
             issue.id.clone(),
             RunAttempt {
@@ -692,7 +716,7 @@ impl Orchestrator {
                 started_at: Utc::now(),
                 status: "running".to_string(),
                 error: None,
-                worker_host: None,
+                worker_host: prior_worker_host.clone(),
             },
         );
         self.state.claimed.insert(issue.id.clone());
@@ -731,6 +755,7 @@ impl Orchestrator {
             issue,
             workspace_path,
             Path::new(&self.config.workspace.root),
+            prior_worker_host.as_deref(),
         )
         .await
         {
@@ -1044,6 +1069,31 @@ impl Orchestrator {
         issues
     }
 
+    /// Select a worker host from the SSH pool for the next dispatch attempt.
+    ///
+    /// - Returns `Local` when no SSH hosts are configured.
+    /// - Returns `Remote(host)` with the preferred host when it is still under cap.
+    /// - Returns `Remote(host)` with the least-loaded eligible host otherwise.
+    /// - Returns `NoneAvailable` when all hosts are at or above the per-host cap.
+    fn select_worker_host(&self, preferred: Option<&str>) -> WorkerHostSelection {
+        let ssh_hosts = &self.config.worker.ssh_hosts;
+        let cap = self
+            .config
+            .worker
+            .max_concurrent_agents_per_host
+            .map(|c| c as usize)
+            .unwrap_or(usize::MAX);
+
+        let mut load: HashMap<String, usize> = HashMap::new();
+        for attempt in self.state.running.values() {
+            if let Some(host) = attempt.worker_host.as_deref() {
+                *load.entry(host.to_string()).or_insert(0) += 1;
+            }
+        }
+
+        ssh::select_worker_host(ssh_hosts, &load, cap, preferred)
+    }
+
     fn should_dispatch_issue(&self, issue: &Issue) -> bool {
         if !issue_has_required_fields(issue) {
             return false;
@@ -1234,11 +1284,39 @@ impl Orchestrator {
             }
 
             if self.should_dispatch_issue(&issue) {
+                // Select an SSH host for retry, preferring the prior attempt's host.
+                let host_selection = self.select_worker_host(retry.worker_host.as_deref());
+                if matches!(host_selection, WorkerHostSelection::NoneAvailable) {
+                    tracing::warn!(
+                        event = "ssh_pool_exhausted_retry",
+                        issue_id = %issue.id,
+                        issue_identifier = %issue.identifier,
+                        "SSH host pool exhausted on retry, deferring"
+                    );
+                    // Reschedule at continuation delay WITHOUT incrementing attempt —
+                    // pool exhaustion is transient capacity pressure, not a worker
+                    // failure, so we must not consume retry budget or apply
+                    // exponential backoff.
+                    self.schedule_retry_with_context(
+                        &issue.id,
+                        &issue.identifier,
+                        retry.attempt,
+                        RetryKind::Continuation,
+                        now_ms,
+                        Some("ssh pool exhausted".to_string()),
+                        retry_context,
+                    );
+                    continue;
+                }
+                let worker_host = match host_selection {
+                    WorkerHostSelection::Remote(ref host) => Some(host.clone()),
+                    _ => None,
+                };
                 self.dispatch_issue(
                     &issue,
                     Some(retry.attempt),
                     retry.workspace_path.clone(),
-                    retry.worker_host.clone(),
+                    worker_host,
                 );
                 continue;
             }
