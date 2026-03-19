@@ -450,6 +450,20 @@ pub struct OrchestratorSnapshot {
     pub polling: PollingSnapshot,
 }
 
+// ── RefreshRequestOutcome (S07 HTTP control seam) ─────────────────────
+
+/// Outcome of a refresh request from the HTTP control surface.
+/// Used by both the orchestrator's refresh channel and the HTTP API response.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RefreshRequestOutcome {
+    /// Whether this request was queued for processing (first request).
+    pub queued: bool,
+    /// Whether this request was coalesced with an already-pending request.
+    pub coalesced: bool,
+    /// Number of pending refresh requests (always 0 or 1 due to coalescing).
+    pub pending_requests: u64,
+}
+
 // ── AgentEvent (spec §10.4) ───────────────────────────────────────────
 
 /// Events emitted by a Codex agent session, parsed from the event stream.

@@ -122,3 +122,6 @@ node_modules/
 dist/
 coverage/
 .cache/
+
+# ── Kata baseline (auto-generated) ──
+.kata/debug.log

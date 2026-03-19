@@ -2,13 +2,16 @@ use chrono::Utc;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::future::Future;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use crate::codex::app_server;
 use crate::config;
 use crate::domain::{
     AgentEvent, CodexTotals, Issue, OrchestratorSnapshot, OrchestratorState, PollingSnapshot,
-    RateLimitInfo, RetryEntry, RetrySnapshotEntry, RunAttempt, ServiceConfig,
+    RateLimitInfo, RefreshRequestOutcome, RetryEntry, RetrySnapshotEntry, RunAttempt,
+    ServiceConfig,
 };
 use crate::error::Result;
 use crate::{path_safety, prompt_builder, workspace};
