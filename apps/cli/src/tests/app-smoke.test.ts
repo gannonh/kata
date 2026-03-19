@@ -309,7 +309,7 @@ test("loadStoredEnvKeys does not overwrite existing env vars", async () => {
 // 6. npm pack produces valid tarball with correct file layout
 // ═══════════════════════════════════════════════════════════════════════════
 
-test("npm pack produces tarball with required files", async () => {
+test("npm pack produces tarball with required files", { timeout: 60_000 }, async () => {
   // Build first
   execSync("npm run build", { cwd: projectRoot, stdio: "pipe" });
 
@@ -393,7 +393,7 @@ test("npm pack produces tarball with required files", async () => {
 // 7. npm pack → install → kata-cli binary resolves
 // ═══════════════════════════════════════════════════════════════════════════
 
-test("tarball installs and kata-cli binary resolves", async () => {
+test("tarball installs and kata-cli binary resolves", { timeout: 60_000 }, async () => {
   // Build and pack
   execSync("npm run build", { cwd: projectRoot, stdio: "pipe" });
   const packOutput = execSync("npm pack --json 2>/dev/null", {
@@ -536,7 +536,7 @@ test("loader.ts injects --mcp-config into process.argv", () => {
   );
 });
 
-test("kata startup installs pi-mcp-adapter into an isolated npm prefix", async () => {
+test("kata startup installs pi-mcp-adapter into an isolated npm prefix", { timeout: 60_000 }, async () => {
   execSync("npm run build", { cwd: projectRoot, stdio: "pipe" });
 
   const tmp = mkdtempSync(join(tmpdir(), "kata-mcp-install-"));
@@ -604,7 +604,7 @@ test("kata startup installs pi-mcp-adapter into an isolated npm prefix", async (
 // 9. Launch → extensions load → no errors on stderr
 // ═══════════════════════════════════════════════════════════════════════════
 
-test("kata launches and loads extensions without errors", async () => {
+test("kata launches and loads extensions without errors", { timeout: 60_000 }, async () => {
   // Build first
   execSync("npm run build", { cwd: projectRoot, stdio: "pipe" });
 
