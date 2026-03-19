@@ -9,13 +9,190 @@ use std::time::Duration;
 use crate::codex::app_server;
 use crate::config;
 use crate::domain::{
-    AgentEvent, CodexTotals, Issue, OrchestratorSnapshot, OrchestratorState, PollingSnapshot,
-    RateLimitInfo, RefreshRequestOutcome, RetryEntry, RetrySnapshotEntry, RunAttempt,
-    ServiceConfig,
+    AgentEvent, CodexConfig, CodexTotals, HooksConfig, Issue, OrchestratorSnapshot,
+    OrchestratorState, PollingSnapshot, RateLimitInfo, RefreshRequestOutcome, RetryEntry,
+    RetrySnapshotEntry, RunAttempt, ServiceConfig, WorkspaceConfig,
 };
 use crate::error::Result;
 use crate::ssh::{self, WorkerHostSelection};
 use crate::{path_safety, prompt_builder, workspace};
+
+// ── Standalone Worker Task ──────────────────────────────────────────────
+
+/// Run the full worker lifecycle for a single issue. This function is
+/// designed to run in a spawned tokio task — it takes owned/cloned data
+/// and does not require `&mut Orchestrator`.
+///
+/// Steps: ensure workspace → before_run hook → render prompt → start
+/// Codex session → stream turn → stop session → after_run hook.
+async fn run_worker_task(
+    issue: &Issue,
+    prompt_template: &str,
+    attempt: Option<u32>,
+    worker_host: Option<&str>,
+    workspace_config: &WorkspaceConfig,
+    hooks_config: &HooksConfig,
+    codex_config: &CodexConfig,
+) -> WorkerResult {
+    let issue_id = issue.id.clone();
+
+    // 1. Ensure workspace (create dir + after_create hook)
+    let workspace_info = match workspace::ensure_workspace(
+        &issue.identifier,
+        workspace_config,
+        hooks_config,
+    ) {
+        Ok(info) => info,
+        Err(err) => {
+            tracing::error!(
+                event = "worker_workspace_failed",
+                issue_id = %issue_id,
+                issue_identifier = %issue.identifier,
+                error = %err,
+                "workspace creation failed"
+            );
+            return WorkerResult {
+                issue_id,
+                completion: WorkerCompletion::Failed {
+                    error: format!("workspace creation failed: {err}"),
+                },
+                events: vec![],
+                metrics: None,
+            };
+        }
+    };
+
+    let workspace_path = Path::new(&workspace_info.path);
+
+    // 2. Before-run hook
+    if let Err(err) = workspace::run_before_run_hook(workspace_path, hooks_config) {
+        tracing::error!(
+            event = "worker_before_run_failed",
+            issue_id = %issue_id,
+            error = %err,
+            "before_run hook failed"
+        );
+        return WorkerResult {
+            issue_id,
+            completion: WorkerCompletion::Failed {
+                error: format!("before_run hook failed: {err}"),
+            },
+            events: vec![],
+            metrics: None,
+        };
+    }
+
+    // 3. Render prompt
+    let prompt = match prompt_builder::render_prompt(prompt_template, issue, attempt) {
+        Ok(prompt) => prompt,
+        Err(err) => {
+            tracing::error!(
+                event = "worker_prompt_failed",
+                issue_id = %issue_id,
+                error = %err,
+                "prompt rendering failed"
+            );
+            return WorkerResult {
+                issue_id,
+                completion: WorkerCompletion::Failed {
+                    error: format!("prompt rendering failed: {err}"),
+                },
+                events: vec![],
+                metrics: None,
+            };
+        }
+    };
+
+    // 4. Start Codex session
+    let workspace_root = Path::new(&workspace_config.root);
+    let mut session = match app_server::start_session(
+        codex_config,
+        issue,
+        workspace_path,
+        workspace_root,
+        worker_host,
+    )
+    .await
+    {
+        Ok(session) => session,
+        Err(err) => {
+            tracing::error!(
+                event = "worker_session_start_failed",
+                issue_id = %issue_id,
+                issue_identifier = %issue.identifier,
+                error = %err,
+                "codex session start failed"
+            );
+            return WorkerResult {
+                issue_id,
+                completion: WorkerCompletion::Failed {
+                    error: format!("codex session start failed: {err}"),
+                },
+                events: vec![],
+                metrics: None,
+            };
+        }
+    };
+
+    tracing::info!(
+        event = "worker_started",
+        issue_id = %issue_id,
+        issue_identifier = %issue.identifier,
+        session_id = %session.session_id,
+        workspace_path = %workspace_info.path,
+        "worker attempt started"
+    );
+
+    // 5. Run turn — use a no-op graphql executor (linear_graphql tool
+    //    requires a real LinearClient; wired up separately when needed)
+    let mut observed_events: Vec<AgentEvent> = Vec::new();
+    let graphql_executor = |_query: String, _vars: serde_json::Value| async move {
+        Err(crate::error::SymphonyError::InvalidWorkflowConfig(
+            "linear_graphql not configured in worker task".to_string(),
+        ))
+    };
+
+    let run_result: Result<_> =
+        app_server::run_turn(&mut session, &prompt, graphql_executor, |event| {
+            observed_events.push(event);
+        })
+        .await;
+
+    // 6. Stop session
+    if let Err(err) = app_server::stop_session(session).await {
+        tracing::warn!(
+            issue_id = %issue_id,
+            error = %err,
+            "failed to stop codex session cleanly"
+        );
+    }
+
+    // 7. After-run hook
+    let _ = workspace::run_after_run_hook(workspace_path, hooks_config);
+
+    // 8. Build result
+    match run_result {
+        Ok(turn_result) => WorkerResult {
+            issue_id,
+            completion: WorkerCompletion::Completed,
+            events: observed_events,
+            metrics: Some(TurnMetrics {
+                input_tokens: turn_result.input_tokens,
+                output_tokens: turn_result.output_tokens,
+                total_tokens: turn_result.total_tokens,
+                rate_limits: turn_result.rate_limits,
+            }),
+        },
+        Err(err) => WorkerResult {
+            issue_id,
+            completion: WorkerCompletion::Failed {
+                error: err.to_string(),
+            },
+            events: observed_events,
+            metrics: None,
+        },
+    }
+}
 
 // ── Snapshot Handle (S07 read seam) ─────────────────────────────────────
 
@@ -179,9 +356,26 @@ pub enum RuntimeEvent {
 }
 
 #[derive(Debug, Clone)]
+pub struct DispatchedIssue {
+    pub issue: Issue,
+    pub attempt: Option<u32>,
+    pub worker_host: Option<String>,
+}
+
+#[derive(Debug, Clone)]
 pub struct TickResult {
     pub dispatched_issue_ids: Vec<String>,
+    pub dispatched_issues: Vec<DispatchedIssue>,
     pub dispatch_skipped: bool,
+}
+
+/// Result sent back from a spawned worker task to the orchestrator loop.
+#[derive(Debug)]
+pub struct WorkerResult {
+    pub issue_id: String,
+    pub completion: WorkerCompletion,
+    pub events: Vec<AgentEvent>,
+    pub metrics: Option<TurnMetrics>,
 }
 
 #[derive(Debug, Clone)]
@@ -236,12 +430,19 @@ pub struct Orchestrator {
     snapshot_handle: Option<SnapshotHandle>,
     /// Optional refresh receiver for HTTP control access.
     refresh_receiver: Option<RefreshReceiver>,
+    /// Channel for receiving results from spawned worker tasks.
+    worker_result_rx: tokio::sync::mpsc::UnboundedReceiver<WorkerResult>,
+    /// Sender half cloned into each spawned worker task.
+    worker_result_tx: tokio::sync::mpsc::UnboundedSender<WorkerResult>,
+    /// The prompt template from the WORKFLOW.md body, used to render per-issue prompts.
+    prompt_template: String,
 }
 
 impl Orchestrator {
-    pub fn new(config: ServiceConfig) -> Self {
+    pub fn new(config: ServiceConfig, prompt_template: String) -> Self {
         let poll_interval_ms = config.polling.interval_ms;
         let max_concurrent_agents = config.agent.max_concurrent_agents;
+        let (worker_result_tx, worker_result_rx) = tokio::sync::mpsc::unbounded_channel();
 
         Self {
             config,
@@ -263,6 +464,9 @@ impl Orchestrator {
             next_retry_token: 0,
             snapshot_handle: None,
             refresh_receiver: None,
+            worker_result_rx,
+            worker_result_tx,
+            prompt_template,
         }
     }
 
@@ -276,40 +480,118 @@ impl Orchestrator {
 
             self.detect_stalled_workers(now_ms, stall_timeout_ms);
 
-            if let Err(err) = self.tick(port) {
-                tracing::warn!(
-                    phase = "tick",
-                    error = %err,
-                    "orchestrator tick failed; continuing"
-                );
+            match self.tick(port) {
+                Ok(tick_result) => {
+                    self.spawn_workers_for_dispatched(&tick_result.dispatched_issues);
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        phase = "tick",
+                        error = %err,
+                        "orchestrator tick failed; continuing"
+                    );
+                }
             }
 
-            self.process_due_retries(port, Utc::now().timestamp_millis());
+            let retry_dispatched = self.process_due_retries(port, Utc::now().timestamp_millis());
+            self.spawn_workers_for_dispatched(&retry_dispatched);
             self.publish_snapshot();
 
-            // Sleep until next poll interval, but wake early on refresh request.
+            // Sleep until next poll interval, but wake early on refresh request
+            // or worker result.
             let sleep_duration = Duration::from_millis(self.state.poll_interval_ms);
             let refresh_notify = self.refresh_receiver.as_ref().map(|r| r.notify.clone());
 
-            if let Some(notify) = refresh_notify {
-                tokio::select! {
-                    _ = tokio::time::sleep(sleep_duration) => {},
-                    _ = notify.notified() => {
-                        if let Some(receiver) = &self.refresh_receiver {
-                            if receiver.take_pending() {
-                                tracing::info!(
-                                    event = "refresh_requested",
-                                    "HTTP refresh request woke orchestrator loop; triggering immediate tick"
-                                );
-                                self.events.push(RuntimeEvent::RefreshRequested);
-                            }
+            tokio::select! {
+                _ = tokio::time::sleep(sleep_duration) => {},
+                result = self.worker_result_rx.recv() => {
+                    if let Some(result) = result {
+                        self.handle_worker_result(result);
+                        self.publish_snapshot();
+                    }
+                    // Drain any additional ready results.
+                    while let Ok(result) = self.worker_result_rx.try_recv() {
+                        self.handle_worker_result(result);
+                        self.publish_snapshot();
+                    }
+                },
+                _ = async {
+                    if let Some(notify) = &refresh_notify {
+                        notify.notified().await;
+                    } else {
+                        std::future::pending::<()>().await;
+                    }
+                } => {
+                    if let Some(receiver) = &self.refresh_receiver {
+                        if receiver.take_pending() {
+                            tracing::info!(
+                                event = "refresh_requested",
+                                "HTTP refresh request woke orchestrator loop; triggering immediate tick"
+                            );
+                            self.events.push(RuntimeEvent::RefreshRequested);
                         }
-                    },
-                }
-            } else {
-                tokio::time::sleep(sleep_duration).await;
+                    }
+                },
             }
         }
+    }
+
+    /// Spawn a tokio task for each newly dispatched issue.
+    fn spawn_workers_for_dispatched(&mut self, dispatched: &[DispatchedIssue]) {
+        for d in dispatched {
+            // Update status from "scheduled" to "running"
+            if let Some(attempt) = self.state.running.get_mut(&d.issue.id) {
+                attempt.status = "running".to_string();
+            }
+            let issue = d.issue.clone();
+            let attempt = d.attempt;
+            let worker_host = d.worker_host.clone();
+            let tx = self.worker_result_tx.clone();
+            let prompt_template = self.prompt_template.clone();
+            let workspace_config = self.config.workspace.clone();
+            let hooks_config = self.config.hooks.clone();
+            let codex_config = self.config.codex.clone();
+
+            tokio::spawn(async move {
+                let result = run_worker_task(
+                    &issue,
+                    &prompt_template,
+                    attempt,
+                    worker_host.as_deref(),
+                    &workspace_config,
+                    &hooks_config,
+                    &codex_config,
+                )
+                .await;
+
+                if let Err(err) = tx.send(result) {
+                    tracing::error!(
+                        error = %err,
+                        "failed to send worker result back to orchestrator"
+                    );
+                }
+            });
+        }
+    }
+
+    /// Process a worker result received from a spawned worker task.
+    fn handle_worker_result(&mut self, result: WorkerResult) {
+        // Ingest agent events (for activity tracking, token accounting, etc.)
+        for event in &result.events {
+            self.ingest_agent_event(&result.issue_id, event);
+        }
+
+        // Apply token metrics if present
+        if let Some(metrics) = &result.metrics {
+            self.apply_turn_metrics(metrics);
+        }
+
+        // Handle completion (schedules retry on failure, marks complete on success)
+        self.handle_worker_completion(
+            &result.issue_id,
+            result.completion,
+            Utc::now().timestamp_millis(),
+        );
     }
 
     pub fn startup_cleanup(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
@@ -346,6 +628,7 @@ impl Orchestrator {
             self.events.push(RuntimeEvent::ValidationSkippedDispatch);
             return Ok(TickResult {
                 dispatched_issue_ids: vec![],
+                dispatched_issues: vec![],
                 dispatch_skipped: true,
             });
         }
@@ -360,6 +643,7 @@ impl Orchestrator {
             self.events.push(RuntimeEvent::ValidationSkippedDispatch);
             return Ok(TickResult {
                 dispatched_issue_ids: vec![],
+                dispatched_issues: vec![],
                 dispatch_skipped: true,
             });
         }
@@ -369,6 +653,7 @@ impl Orchestrator {
 
         let candidates = port.fetch_candidate_issues()?;
         let mut dispatched_issue_ids = vec![];
+        let mut dispatched_issues = vec![];
 
         for candidate in self.sort_issues_for_dispatch(candidates) {
             if self.available_slots() == 0 {
@@ -441,12 +726,18 @@ impl Orchestrator {
                 WorkerHostSelection::Remote(ref host) => Some(host.clone()),
                 _ => None,
             };
-            self.dispatch_issue(&refreshed_issue, None, None, worker_host);
-            dispatched_issue_ids.push(refreshed_issue.id);
+            self.dispatch_issue(&refreshed_issue, None, None, worker_host.clone());
+            dispatched_issue_ids.push(refreshed_issue.id.clone());
+            dispatched_issues.push(DispatchedIssue {
+                issue: refreshed_issue,
+                attempt: None,
+                worker_host,
+            });
         }
 
         Ok(TickResult {
             dispatched_issue_ids,
+            dispatched_issues,
             dispatch_skipped: false,
         })
     }
@@ -1215,7 +1506,12 @@ impl Orchestrator {
             .insert(issue.id.clone(), normalize_issue_state(&issue.state));
     }
 
-    fn process_due_retries(&mut self, port: &mut dyn OrchestratorPort, now_ms: i64) {
+    fn process_due_retries(
+        &mut self,
+        port: &mut dyn OrchestratorPort,
+        now_ms: i64,
+    ) -> Vec<DispatchedIssue> {
+        let mut dispatched = Vec::new();
         let due_retries: Vec<RetryEntry> = self
             .state
             .retry_attempts
@@ -1316,8 +1612,13 @@ impl Orchestrator {
                     &issue,
                     Some(retry.attempt),
                     retry.workspace_path.clone(),
-                    worker_host,
+                    worker_host.clone(),
                 );
+                dispatched.push(DispatchedIssue {
+                    issue,
+                    attempt: Some(retry.attempt),
+                    worker_host,
+                });
                 continue;
             }
 
@@ -1350,6 +1651,8 @@ impl Orchestrator {
                 retry_context,
             );
         }
+
+        dispatched
     }
 
     fn default_workspace_path_for_issue(&self, issue: &Issue) -> String {
