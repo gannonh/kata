@@ -2,16 +2,129 @@ use chrono::Utc;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::future::Future;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use crate::codex::app_server;
 use crate::config;
 use crate::domain::{
     AgentEvent, CodexTotals, Issue, OrchestratorSnapshot, OrchestratorState, PollingSnapshot,
-    RateLimitInfo, RetryEntry, RetrySnapshotEntry, RunAttempt, ServiceConfig,
+    RateLimitInfo, RefreshRequestOutcome, RetryEntry, RetrySnapshotEntry, RunAttempt,
+    ServiceConfig,
 };
 use crate::error::Result;
 use crate::{path_safety, prompt_builder, workspace};
+
+// ── Snapshot Handle (S07 read seam) ─────────────────────────────────────
+
+/// Read-only handle to the latest orchestrator snapshot.
+///
+/// Clone-cheap (`Arc`-backed). Multiple HTTP handlers can hold references
+/// and read concurrently without blocking the orchestrator's mutable loop.
+/// The orchestrator publishes a fresh snapshot after every material state
+/// change; readers always see a consistent point-in-time view.
+#[derive(Clone)]
+pub struct SnapshotHandle {
+    inner: Arc<RwLock<OrchestratorSnapshot>>,
+}
+
+impl SnapshotHandle {
+    /// Read the latest published snapshot. Returns a clone so the caller
+    /// owns the data without holding the lock.
+    pub fn read(&self) -> OrchestratorSnapshot {
+        self.inner.read().expect("snapshot rwlock poisoned").clone()
+    }
+
+    /// Create a handle pre-loaded with the given snapshot.
+    pub fn new(snapshot: OrchestratorSnapshot) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(snapshot)),
+        }
+    }
+
+    /// Publish a new snapshot (called by the orchestrator).
+    fn publish(&self, snapshot: OrchestratorSnapshot) {
+        *self.inner.write().expect("snapshot rwlock poisoned") = snapshot;
+    }
+}
+
+// ── Refresh Control Channel (S07 control seam) ──────────────────────────
+
+/// Sender half of the refresh control channel.
+///
+/// Clone-cheap (`Arc`-backed). HTTP handlers hold this to request an
+/// immediate orchestrator tick. Duplicate requests coalesce: if a refresh
+/// is already pending, subsequent requests report `coalesced: true` and
+/// do not queue additional ticks.
+#[derive(Clone)]
+pub struct RefreshSender {
+    pending: Arc<AtomicBool>,
+    notify: Arc<tokio::sync::Notify>,
+}
+
+impl RefreshSender {
+    /// Request an immediate orchestrator refresh cycle.
+    ///
+    /// Returns `RefreshRequestOutcome` indicating whether this request was
+    /// freshly queued or coalesced with an already-pending request.
+    pub fn request_refresh(&self) -> RefreshRequestOutcome {
+        let was_pending = self.pending.swap(true, Ordering::SeqCst);
+        self.notify.notify_one();
+        if was_pending {
+            RefreshRequestOutcome {
+                queued: false,
+                coalesced: true,
+                pending_requests: 1,
+            }
+        } else {
+            RefreshRequestOutcome {
+                queued: true,
+                coalesced: false,
+                pending_requests: 1,
+            }
+        }
+    }
+}
+
+/// Receiver half of the refresh control channel.
+///
+/// Only the orchestrator holds this. It checks for pending refresh
+/// requests in its runtime loop and clears the flag atomically.
+pub struct RefreshReceiver {
+    pending: Arc<AtomicBool>,
+    notify: Arc<tokio::sync::Notify>,
+}
+
+impl RefreshReceiver {
+    /// Atomically check and clear the pending refresh flag.
+    /// Returns `true` if a refresh was requested since the last check.
+    pub fn take_pending(&self) -> bool {
+        self.pending.swap(false, Ordering::SeqCst)
+    }
+
+    /// Wait until a refresh is requested. This is cancel-safe and suitable
+    /// for use inside `tokio::select!`.
+    pub async fn notified(&self) {
+        self.notify.notified().await;
+    }
+}
+
+/// Create a paired refresh control channel (sender + receiver).
+///
+/// The sender is clone-cheap for sharing across HTTP handlers.
+/// The receiver should be held by the orchestrator runtime loop.
+pub fn refresh_channel() -> (RefreshSender, RefreshReceiver) {
+    let pending = Arc::new(AtomicBool::new(false));
+    let notify = Arc::new(tokio::sync::Notify::new());
+    (
+        RefreshSender {
+            pending: pending.clone(),
+            notify: notify.clone(),
+        },
+        RefreshReceiver { pending, notify },
+    )
+}
 
 pub const CONTINUATION_RETRY_DELAY_MS: i64 = 1_000;
 pub const FAILURE_RETRY_BASE_MS: i64 = 10_000;
@@ -57,6 +170,11 @@ pub enum RuntimeEvent {
         session_id: Option<String>,
         elapsed_ms: i64,
     },
+    /// An HTTP refresh request was received and will trigger an immediate tick.
+    RefreshRequested,
+    /// An HTTP refresh request was received but coalesced with an already-pending
+    /// refresh (no additional tick needed).
+    RefreshCoalesced,
 }
 
 #[derive(Debug, Clone)]
@@ -113,6 +231,10 @@ pub struct Orchestrator {
     /// Normalized running issue state cache used for per-state slot accounting.
     running_issue_states: HashMap<String, String>,
     next_retry_token: u64,
+    /// Optional shared snapshot handle for HTTP read access.
+    snapshot_handle: Option<SnapshotHandle>,
+    /// Optional refresh receiver for HTTP control access.
+    refresh_receiver: Option<RefreshReceiver>,
 }
 
 impl Orchestrator {
@@ -138,11 +260,14 @@ impl Orchestrator {
             worker_session_ids: HashMap::new(),
             running_issue_states: HashMap::new(),
             next_retry_token: 0,
+            snapshot_handle: None,
+            refresh_receiver: None,
         }
     }
 
     pub async fn run(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
         self.startup_cleanup(port)?;
+        self.publish_snapshot();
 
         loop {
             let now_ms = Utc::now().timestamp_millis();
@@ -158,9 +283,31 @@ impl Orchestrator {
                 );
             }
 
-            self.process_due_retries(port, now_ms);
+            self.process_due_retries(port, Utc::now().timestamp_millis());
+            self.publish_snapshot();
 
-            tokio::time::sleep(Duration::from_millis(self.state.poll_interval_ms)).await;
+            // Sleep until next poll interval, but wake early on refresh request.
+            let sleep_duration = Duration::from_millis(self.state.poll_interval_ms);
+            let refresh_notify = self.refresh_receiver.as_ref().map(|r| r.notify.clone());
+
+            if let Some(notify) = refresh_notify {
+                tokio::select! {
+                    _ = tokio::time::sleep(sleep_duration) => {},
+                    _ = notify.notified() => {
+                        if let Some(receiver) = &self.refresh_receiver {
+                            if receiver.take_pending() {
+                                tracing::info!(
+                                    event = "refresh_requested",
+                                    "HTTP refresh request woke orchestrator loop; triggering immediate tick"
+                                );
+                                self.events.push(RuntimeEvent::RefreshRequested);
+                            }
+                        }
+                    },
+                }
+            } else {
+                tokio::time::sleep(sleep_duration).await;
+            }
         }
     }
 
@@ -756,6 +903,39 @@ impl Orchestrator {
 
     pub fn state_mut(&mut self) -> &mut OrchestratorState {
         &mut self.state
+    }
+
+    /// Create a shared snapshot handle for concurrent HTTP reads.
+    ///
+    /// The handle is pre-loaded with the current snapshot. The orchestrator
+    /// retains an internal reference and publishes updates after every
+    /// material state change. Returns a clone-cheap handle for HTTP use.
+    pub fn create_snapshot_handle(&mut self) -> SnapshotHandle {
+        let snapshot = self.snapshot(Utc::now().timestamp_millis());
+        let handle = SnapshotHandle::new(snapshot);
+        self.snapshot_handle = Some(handle.clone());
+        handle
+    }
+
+    /// Create a refresh control channel.
+    ///
+    /// Returns the sender half (clone-cheap, for HTTP handlers). The
+    /// orchestrator retains the receiver and checks it in its runtime loop.
+    pub fn create_refresh_channel(&mut self) -> RefreshSender {
+        let (sender, receiver) = refresh_channel();
+        self.refresh_receiver = Some(receiver);
+        sender
+    }
+
+    /// Publish the current snapshot to the shared handle (if created).
+    ///
+    /// Called after every material state change in the runtime loop.
+    /// No-op if `create_snapshot_handle()` was never called.
+    pub fn publish_snapshot(&self) {
+        if let Some(handle) = &self.snapshot_handle {
+            let snapshot = self.snapshot(Utc::now().timestamp_millis());
+            handle.publish(snapshot);
+        }
     }
 
     pub fn snapshot(&self, now_ms: i64) -> OrchestratorSnapshot {

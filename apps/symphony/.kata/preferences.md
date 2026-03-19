@@ -17,12 +17,15 @@ avoid_skills: []
 skill_rules: []
 custom_instructions: []
 models:
-  research: claude-sonnet-4-6
-  planning: claude-opus-4-6     # Opus for architectural decisions
-  execution: claude-opus-4-6
-  completion: claude-sonnet-4-6
-  review: claude-sonnet-4-6 
-auto_supervisor: {}
+  research: gpt-5.3-codex
+  planning: gpt-5.3-codex     
+  execution: gpt-5.3-codex
+  completion: gpt-5.3-codex
+  review: gpt-5.3-codex
+auto_supervisor:
+  soft_timeout_minutes: 15
+  idle_timeout_minutes: 8
+  hard_timeout_minutes: 25
 ---
 
 # Kata Preferences

@@ -1,8 +1,8 @@
 # Kata State
 
 **Active Milestone:** M001 — Full Spec Conformance
-**Active Slice:** S07 — HTTP Dashboard and JSON API
-**Active Task:** None
+**Active Slice:** S08 — SSH Remote Worker Extension
+**Active Task:** Planning (next task to decompose)
 **Phase:** Planning
 
 ## Progress
@@ -13,15 +13,15 @@
 - [x] S04: Workspace Manager and Prompt Builder — 28 tests; path_safety, prompt_builder, workspace modules; 111 total tests; R004+R007 validated
 - [x] S05: Codex App-Server Client — 32 integration tests pass; approval, tool dispatch, user-input, token accounting all done; zero warnings
 - [x] S06: Orchestrator Core — runtime authority loop + CLI bootstrap verified; orchestrator+cli conformance suites green
-- [ ] S07: HTTP Dashboard and JSON API
+- [x] S07: HTTP Dashboard and JSON API
 - [ ] S08: SSH Remote Worker Extension
 - [ ] S09: Conformance Sweep and Integration Polish
 
 ## Recent Decisions
 
-- D036: Track normalized running issue states inside orchestrator state for deterministic per-state slot accounting
-- D037: Preserve worker session IDs in orchestrator runtime state for retry/stall/completion diagnostics without widening domain structs yet
-- D038: Emit JSON-structured CLI bootstrap lifecycle logs keyed by phase/stage/workflow_path for deterministic startup diagnostics
+- D040: Standardize API error envelopes with stable `error.code`, `error.message`, and `error.status` fields
+- D041: Establish dedicated `tests/http_server_tests.rs` red→green harness as the slice-level HTTP contract gate
+- D042: Emit explicit HTTP startup decision events (`http_server_enabled` / `http_server_disabled`) for runtime wiring observability
 
 ## Blockers
 
@@ -29,7 +29,7 @@
 
 ## Next Action
 
-Start S07 planning: define HTTP dashboard/API test contract and implement `http_server.rs` routes (`/`, `/api/v1/state`, `/api/v1/:issue`, `POST /api/v1/refresh`) using `OrchestratorSnapshot` as the source of truth.
+Start S08 planning: read S08 boundary-map contracts and decompose into task-level plan artifacts with SSH transport, host-pool caps, and continuation-host affinity verification.
 
 ## Validated Requirements
 
@@ -40,6 +40,7 @@ Start S07 planning: define HTTP dashboard/API test contract and implement `http_
 - R006 (Orchestrator State Machine) — S06: 14 orchestrator conformance tests passing
 - R007 (Prompt Builder with Strict Liquid Rendering) — S04
 - R008 (CLI Entry Point) — S06: CLI bootstrap/exit tests passing for default path, overrides, startup failures, and successful runtime start call-order
+- R010 (HTTP Observability Server) — S07: dashboard/API contract tests and CLI HTTP binding precedence tests passing
 - R012 (linear_graphql dynamic tool) — S05: 14 tests; argument normalisation, GraphQL execution, error formatting
 - R014 (Dispatch Preflight Validation) — S06: reconciliation continues while invalid-preflight deterministically skips dispatch
-- R015 (Token Accounting and Rate Limit Tracking) — S05+S06: per-turn deltas plus aggregate codex totals/rate-limit snapshot accumulation proven
+- R015 (Token Accounting and Rate Limit Tracking) — S05+S06+S07: per-turn deltas plus aggregate snapshot exposure via HTTP state/dashboard proven

@@ -4,6 +4,7 @@ mod main_bin;
 use std::path::Path;
 
 use main_bin::{BootstrapDeps, Cli};
+use symphony::domain::ServiceConfig;
 
 struct FakeDeps {
     calls: Vec<String>,
@@ -213,5 +214,51 @@ fn test_orchestrator_start_failure_surfaces_error() {
             "start_orchestrator:WORKFLOW.md"
         ],
         "bootstrap should invoke orchestrator start before surfacing startup failure"
+    );
+}
+
+#[test]
+fn test_effective_http_binding_uses_workflow_server_port_when_cli_port_missing() {
+    let mut config = ServiceConfig::default();
+    config.server.host = "127.0.0.1".to_string();
+    config.server.port = Some(8080);
+
+    let cli =
+        main_bin::parse_cli_from(["symphony", "WORKFLOW.md"]).expect("CLI parse should succeed");
+
+    let binding = main_bin::effective_http_binding(&config, &cli)
+        .expect("workflow config port should enable HTTP binding");
+
+    assert_eq!(binding.host, "127.0.0.1");
+    assert_eq!(binding.port, 8080);
+}
+
+#[test]
+fn test_effective_http_binding_prefers_cli_port_override() {
+    let mut config = ServiceConfig::default();
+    config.server.host = "127.0.0.1".to_string();
+    config.server.port = Some(8080);
+
+    let cli = main_bin::parse_cli_from(["symphony", "WORKFLOW.md", "--port", "9090"])
+        .expect("CLI parse should succeed");
+
+    let binding = main_bin::effective_http_binding(&config, &cli)
+        .expect("CLI override should enable HTTP binding");
+
+    assert_eq!(binding.host, "127.0.0.1");
+    assert_eq!(binding.port, 9090);
+}
+
+#[test]
+fn test_effective_http_binding_returns_none_without_any_port() {
+    let mut config = ServiceConfig::default();
+    config.server.port = None;
+
+    let cli =
+        main_bin::parse_cli_from(["symphony", "WORKFLOW.md"]).expect("CLI parse should succeed");
+
+    assert!(
+        main_bin::effective_http_binding(&config, &cli).is_none(),
+        "orchestrator should run without HTTP listener when no effective port is configured"
     );
 }

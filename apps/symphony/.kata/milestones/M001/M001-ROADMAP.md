@@ -72,7 +72,7 @@ This milestone is complete only when all are true:
 - [x] **S06: Orchestrator Core** `risk:high` `depends:[S02,S03,S04,S05]`
   > After this: `cargo test` proves the full poll→reconcile→dispatch→retry loop: candidate sorting, concurrency control, stall detection, exponential backoff, continuation retries, startup terminal cleanup, and dispatch preflight validation. CLI starts the service.
 
-- [ ] **S07: HTTP Dashboard and JSON API** `risk:low` `depends:[S06]`
+- [x] **S07: HTTP Dashboard and JSON API** `risk:low` `depends:[S06]`
   > After this: `symphony WORKFLOW.md --port 8080` serves a live HTML dashboard at `/` and JSON API at `/api/v1/state`, `/api/v1/<issue>`, `POST /api/v1/refresh`.
 
 - [ ] **S08: SSH Remote Worker Extension** `risk:medium` `depends:[S05,S06]`

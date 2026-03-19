@@ -21,6 +21,9 @@ serde_yaml = "0.9"
 # HTTP client
 reqwest = { version = "0.12", features = ["json"] }
 
+# HTTP server
+axum = "0.8"
+
 # Template engine (Liquid-compatible)
 liquid = "0.26"
 liquid-core = "0.26"
@@ -53,3 +56,4 @@ tempfile = "3"
 serial_test = "3"
 mockito = "1"
 tokio-test = "0.4"
+tower = { version = "0.5", features = ["util"] }
