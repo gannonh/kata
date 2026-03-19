@@ -1027,6 +1027,24 @@
       "toolCalls": 0,
       "assistantMessages": 16,
       "userMessages": 0
+    },
+    {
+      "type": "research-slice",
+      "id": "M001/S08",
+      "model": "claude-sonnet-4-6",
+      "startedAt": 1773931120935,
+      "finishedAt": 1773931451681,
+      "tokens": {
+        "input": 24,
+        "output": 7369,
+        "cacheRead": 1565965,
+        "cacheWrite": 65309,
+        "total": 1638667
+      },
+      "cost": 0.8253052500000002,
+      "toolCalls": 0,
+      "assistantMessages": 22,
+      "userMessages": 0
     }
   ]
 }
