@@ -1,9 +1,9 @@
 {
   "pid": 84101,
-  "startedAt": "2026-03-19T17:24:24.194Z",
-  "unitType": "research-slice",
+  "startedAt": "2026-03-19T17:27:58.838Z",
+  "unitType": "plan-slice",
   "unitId": "M001/S08",
-  "unitStartedAt": "2026-03-19T17:24:24.194Z",
-  "completedUnits": 1,
-  "sessionFile": "/Users/gannonhall/.kata-cli/sessions/2026-03-19T17-24-24-194Z_5bf6559a-f9d5-448c-a51d-69c6bb0c4c31.jsonl"
+  "unitStartedAt": "2026-03-19T17:27:58.838Z",
+  "completedUnits": 2,
+  "sessionFile": "/Users/gannonhall/.kata-cli/sessions/2026-03-19T17-27-58-838Z_dc7dde46-87e3-45f6-a32e-8639edd5fda5.jsonl"
 }

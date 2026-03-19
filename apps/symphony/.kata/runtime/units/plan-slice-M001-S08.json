@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "unitType": "research-slice",
+  "unitType": "plan-slice",
   "unitId": "M001/S08",
-  "startedAt": 1773941064182,
-  "updatedAt": 1773941064182,
+  "startedAt": 1773941278826,
+  "updatedAt": 1773941278826,
   "phase": "dispatched",
   "wrapupWarningSent": false,
   "timeoutAt": null,
-  "lastProgressAt": 1773941064182,
+  "lastProgressAt": 1773941278826,
   "progressCount": 0,
   "lastProgressKind": "dispatch",
   "recoveryAttempts": 0
