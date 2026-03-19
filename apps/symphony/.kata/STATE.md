@@ -1,9 +1,9 @@
 # Kata State
 
 **Active Milestone:** M001 — Full Spec Conformance
-**Active Slice:** S08 — SSH Remote Worker Extension
-**Active Task:** T04 — Implement `select_worker_host` and wire dispatch + retry in `orchestrator.rs`
-**Phase:** Executing
+**Active Slice:** S08 — SSH Remote Worker Extension (COMPLETE)
+**Active Task:** T04 — DONE
+**Phase:** Slice Complete — ready for S09
 
 ## Progress
 
@@ -14,7 +14,7 @@
 - [x] S05: Codex App-Server Client — 32 integration tests pass; approval, tool dispatch, user-input, token accounting all done; zero warnings
 - [x] S06: Orchestrator Core — runtime authority loop + CLI bootstrap verified; orchestrator+cli conformance suites green
 - [x] S07: HTTP Dashboard and JSON API
-- [ ] S08: SSH Remote Worker Extension
+- [x] S08: SSH Remote Worker Extension
 - [ ] S09: Conformance Sweep and Integration Polish
 
 ## Recent Decisions
