@@ -37,9 +37,11 @@ import {
   isAutoActive,
   isAutoPaused,
   handleAgentEnd,
+  handleProviderError,
   pauseAuto,
   getAutoDashboardData,
 } from "./auto.js";
+import { dlog } from "./debug-log.js";
 import { saveActivityLog } from "./activity-log.js";
 import { checkAutoStartAfterDiscuss } from "./guided-flow.js";
 import { KataDashboardOverlay } from "./dashboard-overlay.js";
@@ -86,6 +88,8 @@ const KATA_LOGO_LINES = [
   "  ██║  ██╗██║  ██║   ██║   ██║  ██║",
   "  ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝",
 ];
+
+// Provider error retry is handled in auto.ts — see handleProviderError()
 
 export default function (pi: ExtensionAPI) {
   registerKataCommand(pi);
@@ -230,12 +234,29 @@ export default function (pi: ExtensionAPI) {
     // instead of advancing. This preserves the conversation so the user
     // can inspect what happened, interact with the agent, or resume.
     const lastMsg = event.messages[event.messages.length - 1];
-    if (
-      lastMsg &&
-      "stopReason" in lastMsg &&
-      lastMsg.stopReason === "aborted"
-    ) {
+    const stopReason =
+      lastMsg && "stopReason" in lastMsg ? lastMsg.stopReason : undefined;
+
+    dlog("agent-end-event", {
+      stopReason: stopReason ?? "end_turn",
+      messages: event.messages.length,
+    });
+
+    if (stopReason === "aborted") {
+      dlog("pause", { reason: "user-abort" });
       await pauseAuto(ctx, pi);
+      return;
+    }
+
+    // If the agent session ended with a provider/network error, retry
+    // with exponential backoff instead of advancing (which would burn
+    // through the stuck-detection budget on transient failures).
+    if (stopReason === "error") {
+      const errorMsg =
+        lastMsg && "errorMessage" in lastMsg
+          ? (lastMsg as Record<string, unknown>).errorMessage
+          : "unknown";
+      await handleProviderError(ctx, pi, String(errorMsg));
       return;
     }
 

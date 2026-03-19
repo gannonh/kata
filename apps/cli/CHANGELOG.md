@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.4.0
+
+### Features
+
+- **Namespaced slice branches** (`kata/<scope>/<M>/<S>`) for monorepo/worktree safety — branches are scoped by project path, preventing silent collision across projects. Legacy `kata/<M>/<S>` format remains compatible during transition.
+- **Git service** (`git-service.ts`) ported from gsd-pi — typed API for branch management, smart staging (excludes `.kata-cli/` runtime files), auto-commit with conventional commit messages, and squash-merge. Replaces ad-hoc shell git execution.
+- **`linear_add_comment` tool** — post comments on Linear issues from agent workflows (UAT verdicts, status updates).
+- **Model preferences in `/kata step`** — `models.*` preferences now apply to `/kata step` in addition to `/kata auto`. The statusline badge shows the active model (e.g. `auto · claude-opus-4-6`).
+- **Auto-push before PR creation** — `runCreatePr` now checks if the branch exists on the remote and pushes it automatically if not. Returns a structured `push-failed` error instead of the cryptic GitHub GraphQL "Head sha can't be blank" message.
+- **PR titles prefixed with branch name** — PRs are titled `[kata/apps-cli/M001/S01] Slice title`, making them easy to identify per-project in a monorepo.
+- **`promptSnippet` for all custom tools** — upgraded to pi-coding-agent 0.60.0 which made `promptSnippet` opt-in; added snippets to all 109 custom tools so they appear in the agent's "Available tools" list.
+
+### Fixes
+
+- **PR error message** — auto-mode failure message now shows the actual branch name instead of hardcoding legacy `kata/<M>/<S>` format.
+- **`resolveModelForUnit`** — added missing `complete-milestone` and `reassess-roadmap` unit types; added warning when configured model ID is not found in registry.
+- **Provenance guard** — legacy branch fast-path in `ensureSliceBranch` now runs conflict detection even when already checked out on the legacy branch.
+- **Merge hint** — `kata_merge_pr` error hint no longer references `milestoneId`/`sliceId` params that don't exist on that tool.
+- **`promptSnippet` grammar** — fixed truncated and grammatically broken snippets in mac-tools, linear-tools, and pr-lifecycle.
+
+### Dependency
+
+- Upgrade `@mariozechner/pi-coding-agent` from `^0.57.1` to `^0.60.0`
+
 ## 0.3.0
 
 ### Built-in Linear Integration

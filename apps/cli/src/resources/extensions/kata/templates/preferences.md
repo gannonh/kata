@@ -15,7 +15,7 @@ avoid_skills: []
 skill_rules: []
 custom_instructions: []
 models: {}
-skill_discovery:
+skill_discovery: suggest
 auto_supervisor: {}
 ---
 

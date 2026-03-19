@@ -42,6 +42,14 @@ export interface AutoSupervisorConfig {
   hard_timeout_minutes?: number;
 }
 
+/** AutoSupervisorConfig with defaults applied — timeouts are always numbers. */
+export interface ResolvedAutoSupervisorConfig {
+  model?: string;
+  soft_timeout_minutes: number;
+  idle_timeout_minutes: number;
+  hard_timeout_minutes: number;
+}
+
 export type WorkflowMode = "file" | "linear";
 
 export interface KataWorkflowPreferences {
@@ -575,12 +583,42 @@ function parseFrontmatterBlock(frontmatter: string): KataPreferences {
 function parseScalar(
   value: string,
 ): string | number | boolean | unknown[] | Record<string, never> {
-  if (value === "true") return true;
-  if (value === "false") return false;
-  if (value === "[]") return [];
-  if (value === "{}") return {};
-  if (/^-?\d+$/.test(value)) return Number(value);
-  return value.replace(/^['\"]|['\"]$/g, "");
+  const normalizedValue = stripInlineYamlComment(value).trim();
+
+  if (normalizedValue === "true") return true;
+  if (normalizedValue === "false") return false;
+  if (normalizedValue === "[]") return [];
+  if (normalizedValue === "{}") return {};
+  if (/^-?\d+$/.test(normalizedValue)) return Number(normalizedValue);
+
+  return normalizedValue.replace(/^['\"]|['\"]$/g, "");
+}
+
+function stripInlineYamlComment(value: string): string {
+  let inSingle = false;
+  let inDouble = false;
+
+  for (let i = 0; i < value.length; i++) {
+    const char = value[i];
+
+    if (char === "'" && !inDouble) {
+      inSingle = !inSingle;
+      continue;
+    }
+    if (char === '"' && !inSingle) {
+      inDouble = !inDouble;
+      continue;
+    }
+
+    if (!inSingle && !inDouble && char === "#") {
+      const prev = i > 0 ? value[i - 1] : "";
+      if (i === 0 || /\s/.test(prev)) {
+        return value.slice(0, i).trimEnd();
+      }
+    }
+  }
+
+  return value;
 }
 
 /**
@@ -663,7 +701,7 @@ export function resolveModelForUnit(unitType: string): string | undefined {
   }
 }
 
-export function resolveAutoSupervisorConfig(): AutoSupervisorConfig {
+export function resolveAutoSupervisorConfig(): ResolvedAutoSupervisorConfig {
   const prefs = loadEffectiveKataPreferences();
   const configured = prefs?.preferences.auto_supervisor ?? {};
 
@@ -775,6 +813,24 @@ function validatePreferences(preferences: KataPreferences): {
   }
   if (normalizedPr.value) {
     validated.pr = normalizedPr.value;
+  }
+
+  const normalizedModels = normalizeModelPreferences(preferences.models);
+  if (normalizedModels.errors.length > 0) {
+    errors.push(...normalizedModels.errors);
+  }
+  if (normalizedModels.value) {
+    validated.models = normalizedModels.value;
+  }
+
+  const normalizedAutoSupervisor = normalizeAutoSupervisorConfig(
+    preferences.auto_supervisor,
+  );
+  if (normalizedAutoSupervisor.errors.length > 0) {
+    errors.push(...normalizedAutoSupervisor.errors);
+  }
+  if (normalizedAutoSupervisor.value) {
+    validated.auto_supervisor = normalizedAutoSupervisor.value;
   }
 
   validated.always_use_skills = normalizeStringList(
@@ -942,6 +998,103 @@ function normalizePrPreferences(value: unknown): {
         normalized.base_branch = trimmed;
       }
     }
+  }
+
+  return {
+    value: Object.keys(normalized).length > 0 ? normalized : undefined,
+    errors,
+  };
+}
+
+function normalizeModelPreferences(value: unknown): {
+  value?: KataModelConfig;
+  errors: string[];
+} {
+  if (value === undefined) return { errors: [] };
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { errors: ["models must be an object"] };
+  }
+
+  const normalized: KataModelConfig = {};
+  const errors: string[] = [];
+
+  for (const key of [
+    "research",
+    "planning",
+    "execution",
+    "completion",
+    "review",
+  ] as const) {
+    const raw = (value as Record<string, unknown>)[key];
+    if (raw === undefined) continue;
+
+    if (typeof raw !== "string") {
+      errors.push(`models.${key} must be a string`);
+      continue;
+    }
+
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      errors.push(`models.${key} must not be empty`);
+      continue;
+    }
+
+    normalized[key] = trimmed;
+  }
+
+  return {
+    value: Object.keys(normalized).length > 0 ? normalized : undefined,
+    errors,
+  };
+}
+
+function normalizeAutoSupervisorConfig(value: unknown): {
+  value?: AutoSupervisorConfig;
+  errors: string[];
+} {
+  if (value === undefined) return { errors: [] };
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { errors: ["auto_supervisor must be an object"] };
+  }
+
+  const normalized: AutoSupervisorConfig = {};
+  const errors: string[] = [];
+
+  const rawModel = (value as Record<string, unknown>).model;
+  if (rawModel !== undefined) {
+    if (typeof rawModel !== "string") {
+      errors.push("auto_supervisor.model must be a string");
+    } else {
+      const trimmed = rawModel.trim();
+      if (!trimmed) {
+        errors.push("auto_supervisor.model must not be empty");
+      } else {
+        normalized.model = trimmed;
+      }
+    }
+  }
+
+  for (const key of [
+    "soft_timeout_minutes",
+    "idle_timeout_minutes",
+    "hard_timeout_minutes",
+  ] as const) {
+    const raw = (value as Record<string, unknown>)[key];
+    if (raw === undefined) continue;
+
+    const numeric =
+      typeof raw === "number"
+        ? raw
+        : typeof raw === "string"
+          ? Number(raw)
+          : NaN;
+
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      errors.push(`auto_supervisor.${key} must be a positive number`);
+      continue;
+    }
+
+    normalized[key] = numeric;
   }
 
   return {

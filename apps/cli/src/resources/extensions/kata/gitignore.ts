@@ -19,6 +19,7 @@ const BASELINE_PATTERNS = [
   ".kata/activity/",
   ".kata/runtime/",
   ".kata/auto.lock",
+  ".kata/debug.log",
   ".kata/metrics.json",
   ".kata/STATE.md",
 
