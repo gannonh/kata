@@ -14,7 +14,7 @@ interface UseFocusZoneOptions {
 
 interface UseFocusZoneReturn {
   /** Ref to attach to zone container */
-  zoneRef: React.RefObject<HTMLDivElement>
+  zoneRef: React.RefObject<HTMLDivElement | null>
   /** Whether this zone currently has focus */
   isFocused: boolean
   /** Programmatically focus this zone */

@@ -141,7 +141,7 @@ export interface FreeFormInputProps {
   /** Callback to stop processing. Pass silent=true to skip "Response interrupted" message */
   onStop?: (silent?: boolean) => void;
   /** External ref for the input */
-  inputRef?: React.RefObject<RichTextInputHandle>;
+  inputRef?: React.RefObject<RichTextInputHandle | null>;
   /** Current model ID */
   currentModel: string;
   /** Callback when model changes */

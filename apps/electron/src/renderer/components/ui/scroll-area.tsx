@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 
 interface ScrollAreaProps extends React.ComponentProps<typeof ScrollAreaPrimitive.Root> {
   /** Ref to the scrollable viewport element */
-  viewportRef?: React.RefObject<HTMLDivElement>
+  viewportRef?: React.RefObject<HTMLDivElement | null>
 }
 
 function ScrollArea({
