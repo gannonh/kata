@@ -26,11 +26,13 @@ import {
   symbolsInFile,
 } from "./graph/queries.js";
 import { grepSearch, fuzzyFind } from "./search/lexical.js";
+import { semanticSearch } from "./search/semantic.js";
 import {
   GrepNotFoundError,
-  type SymbolKind,
+  SymbolKind,
   type SemanticRunDiagnostics,
 } from "./types.js";
+import { SemanticDomainError } from "./semantic/contracts.js";
 import {
   output,
   formatHeader,
@@ -662,6 +664,142 @@ program
           console.log(JSON.stringify({ error: err.message }));
         } else {
           console.error(`Error: ${err.message}`);
+        }
+        process.exit(1);
+      }
+      if (outputOpts.json) {
+        console.log(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+      } else {
+        console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      process.exit(1);
+    }
+  });
+
+// ── search command ──
+
+program
+  .command("search")
+  .argument("<query>", "Natural language search query")
+  .option("--top-k <n>", "Number of results to return", "10")
+  .option("--kind <kind>", "Filter results by symbol kind (Function, Class, Method, etc.)")
+  .description("Semantic search over indexed symbol embeddings")
+  .action(async (query: string, opts: { topK?: string; kind?: string }, cmd: Command) => {
+    const outputOpts = getOutputOptions(cmd);
+    const dbPath = getDbPath(cmd);
+
+    try {
+      if (!existsSync(dbPath)) {
+        if (outputOpts.json) {
+          console.log(JSON.stringify({ error: "No database found. Run `kata-context index` first." }));
+        } else {
+          console.error(`Error: No database found at ${dbPath}\nRun \`kata-context index\` first.`);
+        }
+        process.exit(1);
+      }
+
+      const store = new GraphStore(dbPath);
+      try {
+        const rootPath = process.cwd();
+        const config = loadConfig(rootPath);
+        const topK = opts.topK ? parseInt(opts.topK, 10) : 10;
+        const kindFilter = opts.kind as SymbolKind | undefined;
+
+        // Validate --kind if provided
+        if (kindFilter && !Object.values(SymbolKind).includes(kindFilter)) {
+          const validKinds = Object.values(SymbolKind).join(", ");
+          if (outputOpts.json) {
+            console.log(JSON.stringify({ error: `Invalid symbol kind: "${kindFilter}". Valid kinds: ${validKinds}` }));
+          } else {
+            console.error(`Error: Invalid symbol kind: "${kindFilter}"\nValid kinds: ${validKinds}`);
+          }
+          process.exit(1);
+        }
+
+        const results = await semanticSearch(query, store, config, {
+          topK,
+          kind: kindFilter,
+        });
+
+        const invariant = store.getSemanticVectorInvariant();
+        const totalVectors = store.countSemanticVectors();
+
+        const jsonData = {
+          query,
+          results: results.map((r, idx) => ({
+            rank: idx + 1,
+            score: r.score,
+            distance: r.distance,
+            symbol: {
+              id: r.symbol.id,
+              name: r.symbol.name,
+              kind: r.symbol.kind,
+              filePath: r.symbol.filePath,
+              lineStart: r.symbol.lineStart,
+              lineEnd: r.symbol.lineEnd,
+              signature: r.symbol.signature,
+              summary: r.symbol.summary,
+            },
+          })),
+          model: invariant?.model ?? null,
+          totalVectors,
+          totalResults: results.length,
+        };
+
+        const quietLines = results.map(
+          (r) => `${r.symbol.filePath}:${r.symbol.lineStart}`,
+        );
+
+        const humanFn = () => {
+          const lines: string[] = [];
+          lines.push(formatHeader(`Semantic Search: "${query}"`));
+          if (results.length === 0) {
+            lines.push("  No results found.");
+          } else {
+            lines.push(
+              formatKeyValue([
+                ["Model", invariant?.model ?? "unknown"],
+                ["Total vectors", totalVectors],
+                ["Results shown", results.length],
+              ]),
+            );
+            lines.push("");
+            lines.push(
+              formatTable(
+                ["#", "Score", "Name", "Kind", "File", "Lines"],
+                results.map((r, idx) => [
+                  String(idx + 1),
+                  r.score.toFixed(4),
+                  r.symbol.name,
+                  r.symbol.kind,
+                  r.symbol.filePath,
+                  `${r.symbol.lineStart}-${r.symbol.lineEnd}`,
+                ]),
+              ),
+            );
+          }
+          return lines.join("\n");
+        };
+
+        output(jsonData, quietLines, humanFn, outputOpts);
+      } finally {
+        store.close();
+      }
+    } catch (err) {
+      if (err instanceof SemanticDomainError) {
+        const hint = semanticRemediationForCode(err.code);
+        if (outputOpts.json) {
+          console.log(JSON.stringify({
+            error: true,
+            code: err.code,
+            message: err.message,
+            hint,
+          }));
+        } else {
+          console.error(`Error: ${err.message}`);
+          if (hint) {
+            console.error(`Hint: ${hint}`);
+          }
         }
         process.exit(1);
       }

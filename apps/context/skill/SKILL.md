@@ -1,16 +1,17 @@
 ---
 name: kata-context
-description: Structural codebase intelligence — index TypeScript and Python repos into a knowledge graph, query symbol dependencies, search code patterns, and fuzzy-find symbols. Use when you need to understand code structure, find what depends on a symbol, trace what a symbol depends on, list symbols in a file, search for code patterns, or find symbols by name.
+description: Structural and semantic codebase intelligence — index TypeScript and Python repos into a knowledge graph with vector embeddings, query symbol dependencies, run semantic search by intent, search code patterns, and fuzzy-find symbols. Use when you need to understand code structure, find what depends on a symbol, trace dependencies, search by meaning ("find authentication handling"), search for code patterns, or find symbols by name.
 ---
 
 # kata-context
 
-Structural codebase intelligence for AI coding agents. Indexes TypeScript and Python repositories into a SQLite knowledge graph, then exposes graph queries, pattern search, and fuzzy symbol lookup via CLI commands.
+Structural and semantic codebase intelligence for AI coding agents. Indexes TypeScript and Python repositories into a SQLite knowledge graph with optional vector embeddings, then exposes graph queries, semantic search, pattern search, and fuzzy symbol lookup via CLI commands.
 
 ## When to Use
 
 Use `kata-context` when you need to:
 
+- **Search by intent** — "find the authentication handler", "where is rate limiting implemented?" (semantic search)
 - **Understand code structure** — what symbols exist in a file, what calls what, what imports what
 - **Find dependents** — "what will break if I change this function/class?"
 - **Trace dependencies** — "what does this symbol depend on?"
@@ -22,22 +23,27 @@ Use `kata-context` when you need to:
 
 - **Node.js** ≥ 20
 - **ripgrep** (`rg`) — required for the `grep` command. Install via `brew install ripgrep` or your package manager. All other commands work without it.
+- **OPENAI_API_KEY** — required for `search` (semantic search) and for generating embeddings during `index`. Set in your environment.
 
 ## Quick Start
 
 ```bash
-# 1. Index the current project
+# 1. Index the current project (includes semantic embeddings if OPENAI_API_KEY is set)
 kata-context index .
 
 # 2. Check what's indexed
 kata-context status
 
-# 3. Query the graph
+# 3. Semantic search — find code by meaning
+kata-context search "authentication handling"
+kata-context search "error recovery patterns" --top-k 5
+
+# 4. Query the graph
 kata-context graph dependents UserService
 kata-context graph dependencies AppService
 kata-context graph symbols src/service.ts
 
-# 4. Search code
+# 5. Search code
 kata-context grep "TODO|FIXME"
 kata-context find "user service"
 ```
@@ -217,6 +223,78 @@ kata-context grep "class.*Service" --json --max-results 20
 
 **Note:** Requires `rg` (ripgrep) to be installed. If not found, the command exits with a helpful error message.
 
+### `kata-context search <query>`
+
+Semantic search over indexed symbol embeddings. Embeds your natural-language query and finds the most similar symbols by vector distance. Requires `OPENAI_API_KEY` and a prior `index` run with semantic embeddings.
+
+Use `search` when you know *what* you're looking for but not *where* it is — e.g., "authentication handling", "database connection pooling", "error retry logic". For exact pattern matching, use `grep`. For symbol name matching, use `find`.
+
+```bash
+kata-context search "authentication handling"
+kata-context search "error recovery patterns" --top-k 5
+kata-context search "database connection" --kind function --json
+kata-context search "rate limiting" --quiet
+```
+
+**Options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--top-k <n>` | Maximum number of results to return | `10` |
+| `--kind <kind>` | Filter results by symbol kind (`function`, `class`, `method`, `interface`, `typeAlias`, `enum`, `module`, `variable`) | all kinds |
+
+**Output (human):**
+```
+Semantic Search: "authentication handling"
+──────────────────────────────────────────
+  Model          text-embedding-3-small
+  Total vectors  187
+  Results shown  3
+
+  #  Score   Name               Kind      File                   Lines
+  ─  ─────   ────               ────      ────                   ─────
+  1  0.8734  authenticateUser   function  src/auth.ts            10-30
+  2  0.7621  UserService        class     src/services/user.ts   5-80
+  3  0.6543  handleLogin        function  src/routes/login.ts    15-45
+```
+
+**Output (JSON):**
+```json
+{
+  "query": "authentication handling",
+  "results": [
+    {
+      "rank": 1,
+      "score": 0.8734,
+      "distance": 0.1449,
+      "symbol": {
+        "id": "abc123",
+        "name": "authenticateUser",
+        "kind": "function",
+        "filePath": "src/auth.ts",
+        "lineStart": 10,
+        "lineEnd": 30,
+        "signature": "function authenticateUser(token: string): Promise<User>",
+        "summary": "Validates a JWT token and returns the authenticated user"
+      }
+    }
+  ],
+  "model": "text-embedding-3-small",
+  "totalVectors": 187,
+  "totalResults": 1
+}
+```
+
+**Output (quiet):** `filePath:lineStart` pairs, one per line (e.g., `src/auth.ts:10`).
+
+**Error handling:**
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `SEMANTIC_SEARCH_EMPTY_INDEX` | No semantic vectors indexed | Run `kata-context index .` with `OPENAI_API_KEY` set |
+| `SEMANTIC_OPENAI_MISSING_KEY` | `OPENAI_API_KEY` not set | Set the environment variable |
+| `SEMANTIC_SEARCH_MODEL_MISMATCH` | Config model differs from indexed model | Re-index with `kata-context index . --full` |
+
 ### `kata-context find <query>`
 
 Fuzzy search for symbols and files by name using FTS5 full-text search.
@@ -249,16 +327,24 @@ kata-context find "app" --limit 5 --json
 
 1. **Always index first.** Run `kata-context index .` before querying. All commands need an indexed database.
 2. **Use `status` to check health.** Verify the index is current before relying on query results.
-3. **Combine grep + graph for full picture.** Use `grep` to find where a pattern appears, then `graph dependents` to understand impact.
-4. **Use `--json` for parsing.** When chaining commands or processing output programmatically, always use `--json`.
-5. **Use `--quiet` for scripting.** When you only need a list of names or paths, `--quiet` gives clean output.
-6. **Re-index after significant changes.** The index is a snapshot — re-index when files have changed.
+3. **Choose the right search:**
+   - `search` — when you know the *intent* ("find error handling code") but not the name
+   - `find` — when you know part of a symbol/file *name* ("user service")
+   - `grep` — when you know the exact *pattern* ("TODO|FIXME")
+4. **Combine search + graph for full picture.** Use `search` to find relevant symbols by meaning, then `graph dependents` to understand impact.
+5. **Use `--json` for parsing.** When chaining commands or processing output programmatically, always use `--json`.
+6. **Use `--quiet` for scripting.** When you only need a list of names or paths, `--quiet` gives clean output.
+7. **Re-index after significant changes.** The index is a snapshot — re-index when files have changed.
+8. **Set `OPENAI_API_KEY` for semantic features.** Without it, `index` still works (structural only) but `search` won't.
 
 ## Troubleshooting
 
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `No database found` | Index hasn't been run yet | Run `kata-context index .` first |
+| `No semantic vectors indexed` | Index was run without `OPENAI_API_KEY` | Set `OPENAI_API_KEY` and run `kata-context index .` |
+| `OPENAI_API_KEY` missing | Key not set in environment | `export OPENAI_API_KEY=sk-...` |
+| `Model mismatch` | Embedding model changed since last index | Run `kata-context index . --full` to re-index |
 | `Symbol not found` | Symbol name doesn't match any indexed symbol | Check spelling, use `find` to search by partial name |
 | `ripgrep (rg) is not installed` | `grep` command requires ripgrep | Install: `brew install ripgrep` or `apt install ripgrep` |
 | `path does not exist` | The specified project path doesn't exist | Check the path argument to `index` |
