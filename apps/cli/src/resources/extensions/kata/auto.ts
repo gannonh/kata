@@ -41,7 +41,6 @@ import {
 } from "./preferences.js";
 import {
   decidePostCompleteSliceAction,
-  formatPrAutoCreateFailure,
 } from "./pr-auto.js";
 import { initDebugLog, closeDebugLog, dlog } from "./debug-log.js";
 import { runCreatePr } from "../pr-lifecycle/pr-runner.js";
@@ -886,6 +885,124 @@ function deriveUnitId(state: KataState, options?: PromptOptions): string {
   return mid;
 }
 
+// ─── PR Gate Helper ───────────────────────────────────────────────────────────
+
+/**
+ * Run the PR gate for a completed slice. Returns "handled" if the gate took
+ * action (created PR, notified user, or merged), "skipped" if PR lifecycle
+ * is disabled or conditions don't apply.
+ *
+ * Extracted so it can be called from both the normal step-9 location AND the
+ * early-exit at step 3 (when Linear auto-closes the last slice and phase
+ * jumps straight to "complete").
+ */
+async function runPrGate(
+  ctx: ExtensionContext,
+  pi: ExtensionAPI,
+  be: KataBackend,
+  completedUnit: { type: string; id: string },
+  completedMid: string,
+  completedSid: string,
+): Promise<"handled" | "skipped"> {
+  const postPrefs = loadEffectiveKataPreferences()?.preferences;
+  const postDecision = decidePostCompleteSliceAction(postPrefs?.pr);
+
+  if (postDecision === "auto-create-and-pause") {
+    try {
+      const dashData = await be.loadDashboardData();
+      const sliceTitle =
+        dashData.sliceViews?.find((s) => s.id === completedSid)?.title ??
+        completedSid;
+
+      const prCtx = await be.preparePrContext(completedMid, completedSid);
+      const prResult = await runCreatePr({
+        cwd: be.gitRoot,
+        milestoneId: completedMid,
+        sliceId: completedSid,
+        baseBranch: postPrefs?.pr?.base_branch ?? "main",
+        title: sliceTitle,
+        linearDocuments: prCtx.documents,
+      });
+      if (prResult.ok) {
+        await stopAuto(ctx, pi);
+        ctx.ui.notify(
+          `PR created: ${prResult.url}\n\nReview and merge the PR, then run /kata auto to continue.`,
+          "info",
+        );
+        return "handled";
+      }
+      // PR failed — pause and ask the agent to help the user recover
+      await stopAuto(ctx, pi);
+      pi.sendMessage(
+        {
+          content: [
+            `PR auto-create failed for slice ${completedSid}. The code is committed on branch \`${prCtx.branch}\` — no work was lost.`,
+            ``,
+            `**Error:** ${prResult.error}`,
+            ``,
+            `Help the user resolve this. Common causes:`,
+            `- No git remote configured → offer to set up a GitHub remote (\`gh repo create\` or \`git remote add origin\`)`,
+            `- \`gh\` CLI not authenticated → guide them through \`gh auth login\``,
+            `- Branch not pushed → push the branch and retry`,
+            `- Network/rate limit → suggest waiting and retrying with \`/kata pr create\``,
+            ``,
+            `Once resolved, the user can run \`/kata pr create\` to create the PR manually, then \`/kata auto\` to continue.`,
+          ].join("\n"),
+        },
+        { triggerTurn: true },
+      );
+      return "handled";
+    } catch (err) {
+      // preparePrContext failed — pause and surface the error conversationally
+      await stopAuto(ctx, pi);
+      const msg = err instanceof Error ? err.message : String(err);
+      pi.sendMessage(
+        {
+          content: [
+            `PR preparation failed for the completed slice. The code is committed — no work was lost.`,
+            ``,
+            `**Error:** ${msg}`,
+            ``,
+            `Help the user resolve this, then they can run \`/kata pr create\` followed by \`/kata auto\` to continue.`,
+          ].join("\n"),
+        },
+        { triggerTurn: true },
+      );
+      return "handled";
+    }
+  } else if (postDecision === "skip-notify") {
+    ctx.ui.notify(
+      `Slice complete. PR lifecycle is enabled — run /kata pr create to open a PR, then merge before continuing.\nAuto-mode paused.`,
+      "info",
+    );
+    await stopAuto(ctx, pi);
+    return "handled";
+  } else if (postDecision === "legacy-squash-merge") {
+    // legacy-squash-merge: file-mode only — merge slice branch to main
+    try {
+      const legacyDash = await be.loadDashboardData();
+      const legacyTitle =
+        legacyDash.sliceViews?.find((s) => s.id === completedSid)?.title ??
+        completedSid;
+      switchToMain(be.gitRoot);
+      const mergeResult = mergeSliceToMain(
+        be.gitRoot,
+        completedMid,
+        completedSid,
+        legacyTitle,
+      );
+      ctx.ui.notify(`Merged ${mergeResult.branch} → main.`, "info");
+    } catch (error) {
+      ctx.ui.notify(
+        `Slice merge failed: ${error instanceof Error ? error.message : String(error)}`,
+        "error",
+      );
+    }
+  }
+
+  return "skipped";
+}
+
 // ─── Core Loop ────────────────────────────────────────────────────────────────
 
 async function dispatchNextUnit(
@@ -921,20 +1038,104 @@ async function dispatchNextUnit(
   if (mid) currentMilestoneId = mid;
 
   // 3. Complete/blocked/no-milestone checks
+  //
+  // ── Auto-close recovery ──────────────────────────────────────────────
+  // Linear can auto-close a parent issue when all its children reach a
+  // terminal state (team setting "Auto-close parent issues"). When this
+  // happens for the last task in a slice, the slice issue transitions to
+  // Done immediately — skipping the complete-slice unit that writes the
+  // slice summary and triggers the PR gate.
+  //
+  // Detection: the previous unit was execute-task, the phase jumped to
+  // "complete" or "completing-milestone", and the slice summary document
+  // doesn't exist yet. In that case, override the derived state to force
+  // a complete-slice dispatch before stopping.
+  //
+  // After complete-slice runs, the next dispatch will hit this block
+  // again (phase is still "complete"). At that point, prev unit is
+  // complete-slice, so we run the PR gate before stopping.
   if (!mid || state.phase === "complete") {
-    if (currentUnit) {
-      const modelId = ctx.model?.id ?? "unknown";
-      snapshotUnitMetrics(
-        ctx,
-        currentUnit.type,
-        currentUnit.id,
-        currentUnit.startedAt,
-        modelId,
-      );
-      saveActivityLog(ctx, basePath, currentUnit.type, currentUnit.id);
+    // Recovery path A: force complete-slice if Linear auto-closed the slice
+    if (
+      currentUnit?.type === "execute-task" &&
+      backend &&
+      currentUnit.id.split("/").length >= 2
+    ) {
+      const parts = currentUnit.id.split("/");
+      const recoveryMid = parts[0]!;
+      const recoverySid = parts[1]!;
+      const hasSummary = await backend.documentExists(`${recoverySid}-SUMMARY`);
+      if (!hasSummary) {
+        dlog("auto-close-recovery", {
+          phase: "force-complete-slice",
+          mid: recoveryMid,
+          sid: recoverySid,
+          reason: "linear-auto-closed-parent",
+        });
+        ctx.ui.notify(
+          `Linear auto-closed slice ${recoverySid} when its last task completed. Dispatching complete-slice.`,
+          "info",
+        );
+        // Override state so the dispatch logic builds a complete-slice prompt.
+        // Titles are cosmetic — the agent reads the plan document for details.
+        const registryEntry = state.registry?.find(
+          (m) => m.id === recoveryMid,
+        );
+        state.phase = "summarizing";
+        state.activeMilestone = {
+          id: recoveryMid,
+          title: registryEntry?.title ?? recoveryMid,
+        };
+        state.activeSlice = { id: recoverySid, title: recoverySid };
+        state.activeTask = null;
+        // Fall through to dispatch logic — don't stop
+      }
     }
-    await stopAuto(ctx, pi);
-    return;
+
+    // Recovery path B: run PR gate before stopping after complete-slice
+    // When the milestone is the last one, phase is "complete" after
+    // complete-slice finishes. The normal PR gate at step 9 never runs
+    // because this early-exit fires first. Run it here instead.
+    if (
+      (state.phase === "complete" || !mid) &&
+      currentUnit &&
+      (currentUnit.type === "complete-slice" ||
+        currentUnit.type === "linear-summarizing")
+    ) {
+      const [completedMid, completedSid] = currentUnit.id.split("/");
+      if (completedMid && completedSid) {
+        const gateResult = await runPrGate(
+          ctx,
+          pi,
+          backend!,
+          currentUnit,
+          completedMid,
+          completedSid,
+        );
+        if (gateResult === "handled") {
+          // PR gate took action (created PR, notified, or merged) — stop
+          return;
+        }
+        // "skipped" — fall through to normal stop
+      }
+    }
+
+    // Normal stop: no recovery needed or recovery already applied above
+    if (state.phase === "complete" || !mid) {
+      if (currentUnit) {
+        const modelId = ctx.model?.id ?? "unknown";
+        snapshotUnitMetrics(
+          ctx,
+          currentUnit.type,
+          currentUnit.id,
+          currentUnit.startedAt,
+          modelId,
+        );
+        saveActivityLog(ctx, basePath, currentUnit.type, currentUnit.id);
+      }
+      await stopAuto(ctx, pi);
+      return;
+    }
   }
 
   if (state.phase === "blocked") {
@@ -1065,102 +1266,18 @@ async function dispatchNextUnit(
     currentUnit?.type === "linear-completing-milestone";
 
   if (wasSummarizing || wasCompletingMilestone || sliceChanged) {
-    const postPrefs = loadEffectiveKataPreferences()?.preferences;
-    const postDecision = decidePostCompleteSliceAction(postPrefs?.pr);
-
-    if (postDecision === "auto-create-and-pause" && !wasCompletingMilestone) {
-      const [completedMid, completedSid] = currentUnit!.id.split("/");
-      if (!completedSid) {
-        // Milestone-only ID — no slice to create a PR for; fall through
-        // to let the dispatch loop continue instead of stalling.
-      } else {
-        try {
-          // Resolve human-readable slice title from dashboard data
-          const dashData = await backend.loadDashboardData();
-          const sliceTitle = dashData.sliceViews
-            ?.find((s) => s.id === completedSid)?.title ?? completedSid!;
-
-          const prCtx = await backend.preparePrContext(completedMid!, completedSid!);
-          const prResult = await runCreatePr({
-            cwd: backend.gitRoot,
-            milestoneId: completedMid!,
-            sliceId: completedSid!,
-            baseBranch: postPrefs?.pr?.base_branch ?? "main",
-            title: sliceTitle,
-            linearDocuments: prCtx.documents,
-          });
-          if (prResult.ok) {
-            await stopAuto(ctx, pi);
-            ctx.ui.notify(
-              `PR created: ${prResult.url}\n\nReview and merge the PR, then run /kata auto to continue.`,
-              "info",
-            );
-            return;
-          }
-          // PR failed — pause and ask the agent to help the user recover
-          await stopAuto(ctx, pi);
-          const diagnostic = formatPrAutoCreateFailure({
-            phase: prResult.phase,
-            error: prResult.error,
-            hint: prResult.hint ?? "",
-          });
-          pi.sendMessage({
-            content: [
-              `PR auto-create failed for slice ${completedSid}. The code is committed on branch \`${prCtx.branch}\` — no work was lost.`,
-              ``,
-              `**Error:** ${prResult.error}`,
-              ``,
-              `Help the user resolve this. Common causes:`,
-              `- No git remote configured → offer to set up a GitHub remote (\`gh repo create\` or \`git remote add origin\`)`,
-              `- \`gh\` CLI not authenticated → guide them through \`gh auth login\``,
-              `- Branch not pushed → push the branch and retry`,
-              `- Network/rate limit → suggest waiting and retrying with \`/kata pr create\``,
-              ``,
-              `Once resolved, the user can run \`/kata pr create\` to create the PR manually, then \`/kata auto\` to continue.`,
-            ].join("\n"),
-          }, { triggerTurn: true });
-          return;
-        } catch (err) {
-          // preparePrContext failed — pause and surface the error conversationally
-          await stopAuto(ctx, pi);
-          const msg = err instanceof Error ? err.message : String(err);
-          pi.sendMessage({
-            content: [
-              `PR preparation failed for the completed slice. The code is committed — no work was lost.`,
-              ``,
-              `**Error:** ${msg}`,
-              ``,
-              `Help the user resolve this, then they can run \`/kata pr create\` followed by \`/kata auto\` to continue.`,
-            ].join("\n"),
-          }, { triggerTurn: true });
-          return;
-        }
-      }
-    } else if (postDecision === "skip-notify") {
-      ctx.ui.notify(
-        `Slice complete. PR lifecycle is enabled — run /kata pr create to open a PR, then merge before continuing.\nAuto-mode paused.`,
-        "info",
+    const [completedMid, completedSid] = currentUnit!.id.split("/");
+    if (completedMid && completedSid && !wasCompletingMilestone) {
+      const gateResult = await runPrGate(
+        ctx,
+        pi,
+        backend,
+        currentUnit!,
+        completedMid,
+        completedSid,
       );
-      await stopAuto(ctx, pi);
-      return;
-    } else if (postDecision === "legacy-squash-merge" && currentUnit) {
-      // legacy-squash-merge: file-mode only — merge slice branch to main
-      const [cMid, cSid] = currentUnit.id.split("/");
-      if (cMid && cSid) {
-        try {
-          const legacyDash = await backend.loadDashboardData();
-          const legacyTitle = legacyDash.sliceViews
-            ?.find((s) => s.id === cSid)?.title ?? cSid;
-          switchToMain(backend.gitRoot);
-          const mergeResult = mergeSliceToMain(backend.gitRoot, cMid, cSid, legacyTitle);
-          ctx.ui.notify(`Merged ${mergeResult.branch} → main.`, "info");
-        } catch (error) {
-          ctx.ui.notify(
-            `Slice merge failed: ${error instanceof Error ? error.message : String(error)}`,
-            "error",
-          );
-        }
-      }
+      if (gateResult === "handled") return;
+      // "skipped" — fall through to dispatch
     }
   }
 
