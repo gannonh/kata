@@ -1,9 +1,9 @@
 # Kata State
 
 **Active Milestone:** M001 — Full Spec Conformance
-**Active Slice:** S09 — Conformance Sweep and Integration Polish
-**Active Task:** T03 — Final verification pass (slice complete after T02)
-**Phase:** Executing S09
+**Active Slice:** none (S09 complete)
+**Active Task:** none
+**Phase:** Complete
 
 ## Progress
 
@@ -15,7 +15,7 @@
 - [x] S06: Orchestrator Core — runtime authority loop + CLI bootstrap verified; orchestrator+cli conformance suites green
 - [x] S07: HTTP Dashboard and JSON API
 - [x] S08: SSH Remote Worker Extension — 15 ssh_tests; arg construction, host-selection, per-host cap, prefer-on-retry, pool exhaustion, fake-SSH subprocess; R011 validated
-- [ ] S09: Conformance Sweep and Integration Polish
+- [x] S09: Conformance Sweep and Integration Polish
 
 ## Recent Decisions
 
@@ -32,7 +32,7 @@
 
 ## Next Action
 
-T01 complete (211 tests passing). Execute S09/T02: write operator README.md with sections Build, Run, WORKFLOW.md Format, Configuration Reference, HTTP Dashboard and API, SSH Pool, Testing. Then T03: final verification pass (cargo clippy + R013 validated).
+M001 milestone complete — all 9 slices done, all requirements validated. 211 tests passing, cargo clippy clean, R013 validated.
 
 ## Validated Requirements
 
@@ -46,5 +46,6 @@ T01 complete (211 tests passing). Execute S09/T02: write operator README.md with
 - R010 (HTTP Observability Server) — S07: dashboard/API contract tests and CLI HTTP binding precedence tests passing
 - R011 (SSH Remote Worker Extension) — S08: 15 tests; SSH arg construction, host-selection, per-host cap, prefer-on-retry, pool exhaustion blocking, fake-SSH subprocess launch, remote cwd validation
 - R012 (linear_graphql dynamic tool) — S05: 14 tests; argument normalisation, GraphQL execution, error formatting
+- R013 (Spec-Driven Test Suite) — S09: 211 tests passing; §17.1 by_state normalization + §17.4 non-active stop semantic gap closure; clippy clean
 - R014 (Dispatch Preflight Validation) — S06: reconciliation continues while invalid-preflight deterministically skips dispatch
 - R015 (Token Accounting and Rate Limit Tracking) — S05+S06+S07: per-turn deltas plus aggregate snapshot exposure via HTTP state/dashboard proven

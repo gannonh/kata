@@ -54,7 +54,7 @@
   - Verify: `grep -c "## " README.md` returns ≥7 (sections present); manual scan confirms WORKFLOW.md schema table, HTTP endpoint list, and SSH section are present
   - Done when: README contains all required sections with accurate content derived from the actual implementation
 
-- [ ] **T03: Final verification, REQUIREMENTS.md update, and summary prep** `est:20m`
+- [x] **T03: Final verification, REQUIREMENTS.md update, and summary prep** `est:20m`
   - Why: Closes the milestone loop — validates R013, marks requirements, and confirms the full suite is green before writing S09-SUMMARY.md.
   - Files: `.kata/REQUIREMENTS.md`, `.kata/STATE.md`
   - Do: (1) Run `cargo test` — record final test count and confirm zero failures. (2) Run `cargo clippy -- -D warnings` — confirm zero warnings. (3) In `REQUIREMENTS.md`, update R013 status from `active` to `validated` with proof note referencing new test names and total test count. (4) Update the R013 traceability row in the coverage table. (5) Update `Coverage Summary` counts. (6) Update `.kata/STATE.md` to reflect S09 complete.

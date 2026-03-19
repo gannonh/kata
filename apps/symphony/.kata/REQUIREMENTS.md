@@ -138,13 +138,13 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R013 — Spec-Driven Test Suite
 - Class: quality-attribute
-- Status: active
+- Status: validated
 - Description: Test suite covering all Core Conformance behaviors in Spec §17.1-17.7. Extension Conformance tests for HTTP server, SSH, and linear_graphql. Idiomatic Rust tests (unit + integration).
 - Why it matters: The spec's Section 17 defines the validation contract for a conforming implementation.
 - Source: user
 - Primary owning slice: M001/S09
 - Supporting slices: all prior slices contribute tests
-- Validation: unmapped
+- Validation: M001/S09 — cargo test passes 211 tests (all green); tests/workflow_config_tests.rs::test_by_state_concurrency_normalization covers §17.1 by_state normalization; tests/orchestrator_tests.rs::test_reconcile_non_active_state_stops_run_without_cleanup covers §17.4 non-active stop semantic; cargo clippy -- -D warnings exits zero
 - Notes: Each slice should include tests for its own behaviors. S09 is the integration/conformance sweep.
 
 ### R014 — Dispatch Preflight Validation
@@ -233,14 +233,14 @@ This file is the explicit capability and coverage contract for the project.
 | R010 | operability | validated | M001/S07 | M001/S06 | M001/S07 tests prove dashboard/API contracts, refresh signaling semantics, and CLI HTTP binding precedence |
 | R011 | core-capability | validated | M001/S08 | M001/S05,S06 | M001/S08 cargo test --test ssh_tests (15 tests: arg construction + host-selection + subprocess launch + pool cap + prefer-on-retry + pool exhaustion) |
 | R012 | integration | validated | M001/S05 | none | M001/S05 cargo test (14 tests: argument normalisation + query/variables validation + GraphQL error formatting + executor injection) |
-| R013 | quality-attribute | active | M001/S09 | all | unmapped |
+| R013 | quality-attribute | validated | M001/S09 | all | M001/S09 cargo test (211 tests: all spec §17 gaps closed; §17.1 by_state normalization + §17.4 non-active stop semantic) |
 | R014 | failure-visibility | validated | M001/S06 | M001/S02 | M001/S06 orchestrator+cli tests prove per-tick preflight dispatch skip with reconcile continuity and startup validation failure gating |
 | R015 | operability | validated | M001/S05 | M001/S06,S07 | M001/S05+S06 tests prove token delta extraction plus aggregate codex totals/rate-limit snapshot accumulation |
 
 ## Coverage Summary
 
-- Active requirements: 3
-- Validated requirements: 12
+- Active requirements: 2
+- Validated requirements: 13
 - Mapped to slices: 15
-- Validated: 12 (R001, R002, R004, R005, R006, R007, R008, R010, R011, R012, R014, R015)
+- Validated: 13 (R001, R002, R004, R005, R006, R007, R008, R010, R011, R012, R013, R014, R015)
 - Unmapped active requirements: 0
