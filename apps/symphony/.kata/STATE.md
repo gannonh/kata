@@ -2,7 +2,7 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S09 — Conformance Sweep and Integration Polish
-**Active Task:** T02 — Write operator README
+**Active Task:** T03 — Final verification pass (slice complete after T02)
 **Phase:** Executing S09
 
 ## Progress
