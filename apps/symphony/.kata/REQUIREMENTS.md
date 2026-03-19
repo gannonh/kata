@@ -105,24 +105,24 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R010 — HTTP Observability Server (Extension)
 - Class: operability
-- Status: active
+- Status: validated
 - Description: Optional HTTP server on `--port` or `server.port`. Serve HTML dashboard at `/`, JSON API at `/api/v1/state`, `/api/v1/<issue>`, `POST /api/v1/refresh`. Bind loopback by default.
 - Why it matters: The dashboard is how operators monitor multiple concurrent agent runs.
 - Source: user
 - Primary owning slice: M001/S07
 - Supporting slices: M001/S06
-- Validation: unmapped
+- Validation: M001/S07 — `cargo test --test http_server_tests --test cli_tests` proves dashboard shell rendering, live snapshot-backed state/issue APIs, refresh queued/coalesced signaling, API JSON 404/405 envelopes, and CLI `--port` precedence over workflow config.
 - Notes: Spec §13.7. Using axum.
 
 ### R011 — SSH Remote Worker Extension
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: Execute agent sessions on remote hosts via SSH stdio. Pool-based dispatch with per-host concurrency cap. Continuation turns stay on same host. Host preference on retry.
 - Why it matters: Enables scaling agent execution across multiple machines.
 - Source: user
 - Primary owning slice: M001/S08
 - Supporting slices: M001/S05, M001/S06
-- Validation: unmapped
+- Validation: M001/S08 — cargo test --test ssh_tests proves SSH arg construction (5 host:port parse tests), shell escaping, SYMPHONY_SSH_CONFIG injection, fake-SSH subprocess launch, remote workspace absolute path validation, per-host cap enforcement, prefer-on-retry, pool exhaustion blocking (NoneAvailable), local-mode fallback; 15 tests total.
 - Notes: Spec Appendix A.
 
 ### R012 — linear_graphql Client-Side Tool Extension
@@ -230,8 +230,8 @@ This file is the explicit capability and coverage contract for the project.
 | R007 | core-capability | validated | M001/S04 | none | M001/S04 cargo test (7 tests: basic + datetime + none + blockers + strict + parse + attempt) |
 | R008 | core-capability | validated | M001/S06 | none | M001/S06 cargo test (5 cli tests: default/override path, startup failure gating, orchestrator startup invocation) |
 | R009 | operability | active | M001/S03 | M001/S06 | M001/S06 partial: structured startup/runtime JSON logs + issue/session lifecycle context; human-readable format toggle not yet proven |
-| R010 | operability | active | M001/S07 | M001/S06 | unmapped |
-| R011 | core-capability | active | M001/S08 | M001/S05,S06 | unmapped |
+| R010 | operability | validated | M001/S07 | M001/S06 | M001/S07 tests prove dashboard/API contracts, refresh signaling semantics, and CLI HTTP binding precedence |
+| R011 | core-capability | validated | M001/S08 | M001/S05,S06 | M001/S08 cargo test --test ssh_tests (15 tests: arg construction + host-selection + subprocess launch + pool cap + prefer-on-retry + pool exhaustion) |
 | R012 | integration | validated | M001/S05 | none | M001/S05 cargo test (14 tests: argument normalisation + query/variables validation + GraphQL error formatting + executor injection) |
 | R013 | quality-attribute | active | M001/S09 | all | unmapped |
 | R014 | failure-visibility | validated | M001/S06 | M001/S02 | M001/S06 orchestrator+cli tests prove per-tick preflight dispatch skip with reconcile continuity and startup validation failure gating |
@@ -239,8 +239,8 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Coverage Summary
 
-- Active requirements: 5
-- Validated requirements: 10
+- Active requirements: 3
+- Validated requirements: 12
 - Mapped to slices: 15
-- Validated: 10 (R001, R002, R004, R005, R006, R007, R008, R012, R014, R015)
+- Validated: 12 (R001, R002, R004, R005, R006, R007, R008, R010, R011, R012, R014, R015)
 - Unmapped active requirements: 0

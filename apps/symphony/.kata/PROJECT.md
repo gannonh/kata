@@ -16,7 +16,7 @@ A single `symphony` binary that reliably polls Linear, dispatches bounded-concur
 
 ## Current State
 
-Six of nine slices are complete (S01–S06). The orchestrator runtime authority and CLI bootstrap are now implemented and proven: startup terminal cleanup, reconcile→validate→dispatch tick ordering, candidate sorting/gating, global+per-state concurrency control, continuation/failure retry scheduling with stale-token suppression, stall recovery, and aggregate codex token/rate-limit snapshot accounting. CLI startup now performs workflow existence checks, startup validation, staged runtime bootstrap, and deterministic non-zero startup failures. `cargo test --test orchestrator_tests --test cli_tests` (19 tests) and `cargo build` pass. R006, R008, R014, and R015 are now validated in addition to previously validated requirements. Next: S07 HTTP Dashboard and JSON API integration on top of `OrchestratorSnapshot`.
+Seven of nine slices are complete (S01–S07). HTTP observability is now implemented and proven: axum server-backed dashboard at `/`, snapshot/issue APIs at `/api/v1/state` and `/api/v1/:issue_identifier`, refresh control via `POST /api/v1/refresh`, and stable JSON API 404/405 envelopes. CLI runtime composition now starts orchestrator + optional HTTP server with explicit startup decision logs and preserves `--port` precedence over workflow config. Verification is green via `cargo test --test http_server_tests --test cli_tests` (16 tests) and `cargo build`. R010 is now validated. Next: S08 SSH Remote Worker Extension.
 
 ## Architecture / Key Patterns
 

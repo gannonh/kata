@@ -5,8 +5,8 @@ use chrono::{Duration, Utc};
 use symphony::domain::{AgentConfig, AgentEvent, BlockerRef, Issue, ServiceConfig, TrackerConfig};
 use symphony::error::{Result, SymphonyError};
 use symphony::orchestrator::{
-    Orchestrator, OrchestratorPort, RetryKind, RuntimeEvent, TurnMetrics, WorkerCompletion,
-    CONTINUATION_RETRY_DELAY_MS,
+    refresh_channel, Orchestrator, OrchestratorPort, RetryKind, RuntimeEvent, TurnMetrics,
+    WorkerCompletion, CONTINUATION_RETRY_DELAY_MS,
 };
 
 #[derive(Default)]
@@ -747,4 +747,311 @@ fn test_worker_failure_preserves_attempt_and_backoff_cap() {
         worker_failed,
         "worker failure diagnostics should retain issue context and failure reason"
     );
+}
+
+// ── Snapshot Handle Tests ──────────────────────────────────────────────
+
+#[test]
+fn test_snapshot_handle_read_returns_published_state() {
+    let mut orchestrator = Orchestrator::new(test_config(2));
+
+    // Dispatch an issue so the snapshot has running state
+    let candidate = issue("issue-snap", "SIM-90", "Todo", Some(1), 0);
+    let mut port = FakePort {
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+    orchestrator.tick(&mut port).expect("tick should succeed");
+
+    // Create handle after state mutation
+    let handle = orchestrator.create_snapshot_handle();
+    let snapshot = handle.read();
+
+    assert!(
+        snapshot.running.contains_key("issue-snap"),
+        "snapshot handle should reflect orchestrator running state at creation time"
+    );
+    assert_eq!(
+        snapshot.running.get("issue-snap").unwrap().issue_identifier,
+        "SIM-90",
+        "snapshot handle should carry full RunAttempt data"
+    );
+}
+
+#[test]
+fn test_snapshot_handle_updates_after_publish() {
+    let mut orchestrator = Orchestrator::new(test_config(2));
+    let handle = orchestrator.create_snapshot_handle();
+
+    // Initially empty running state
+    let snap1 = handle.read();
+    assert!(
+        snap1.running.is_empty(),
+        "initial snapshot should have no running issues"
+    );
+
+    // Dispatch an issue
+    let candidate = issue("issue-pub", "SIM-91", "Todo", Some(1), 0);
+    let mut port = FakePort {
+        candidate_issues: vec![candidate],
+        ..FakePort::default()
+    };
+    orchestrator.tick(&mut port).expect("tick should succeed");
+
+    // Before publish, handle still has old snapshot
+    let snap_before = handle.read();
+    assert!(
+        snap_before.running.is_empty(),
+        "snapshot should not update until publish_snapshot is called"
+    );
+
+    // Publish and verify update
+    orchestrator.publish_snapshot();
+    let snap_after = handle.read();
+    assert!(
+        snap_after.running.contains_key("issue-pub"),
+        "snapshot handle should reflect new state after publish_snapshot"
+    );
+}
+
+#[test]
+fn test_snapshot_handle_is_clone_cheap_and_shares_state() {
+    let mut orchestrator = Orchestrator::new(test_config(2));
+    let handle1 = orchestrator.create_snapshot_handle();
+    let handle2 = handle1.clone();
+
+    // Dispatch and publish
+    let candidate = issue("issue-clone", "SIM-92", "In Progress", Some(2), 0);
+    let mut port = FakePort {
+        candidate_issues: vec![candidate],
+        ..FakePort::default()
+    };
+    orchestrator.tick(&mut port).expect("tick should succeed");
+    orchestrator.publish_snapshot();
+
+    let snap1 = handle1.read();
+    let snap2 = handle2.read();
+    assert_eq!(
+        snap1.running.len(),
+        snap2.running.len(),
+        "cloned handles must share the same underlying snapshot"
+    );
+    assert!(snap1.running.contains_key("issue-clone"));
+    assert!(snap2.running.contains_key("issue-clone"));
+}
+
+#[test]
+fn test_snapshot_handle_preserves_codex_totals_and_rate_limits() {
+    let mut orchestrator = Orchestrator::new(test_config(2));
+    let handle = orchestrator.create_snapshot_handle();
+
+    orchestrator.apply_turn_metrics(&TurnMetrics {
+        input_tokens: 50,
+        output_tokens: 30,
+        total_tokens: 80,
+        rate_limits: Some(serde_json::json!({ "remaining": 42, "limit": 100 })),
+    });
+
+    orchestrator.publish_snapshot();
+    let snap = handle.read();
+
+    assert_eq!(snap.codex_totals.total_tokens, 80);
+    assert_eq!(snap.codex_totals.input_tokens, 50);
+    assert_eq!(snap.codex_totals.output_tokens, 30);
+
+    let remaining = snap
+        .codex_rate_limits
+        .as_ref()
+        .and_then(|rl| rl.data.get("remaining"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or_default();
+    assert_eq!(
+        remaining, 42,
+        "snapshot handle should carry rate limit data for API consumption"
+    );
+}
+
+// ── Refresh Channel Tests ──────────────────────────────────────────────
+
+#[test]
+fn test_refresh_channel_first_request_is_queued() {
+    let (sender, receiver) = refresh_channel();
+
+    let outcome = sender.request_refresh();
+    assert!(
+        outcome.queued,
+        "first refresh request should report queued=true"
+    );
+    assert!(
+        !outcome.coalesced,
+        "first refresh request should report coalesced=false"
+    );
+    assert_eq!(
+        outcome.pending_requests, 1,
+        "pending_requests should be 1 after first request"
+    );
+    assert!(
+        receiver.take_pending(),
+        "receiver should see the pending flag"
+    );
+}
+
+#[test]
+fn test_refresh_channel_duplicate_requests_coalesce() {
+    let (sender, _receiver) = refresh_channel();
+
+    let first = sender.request_refresh();
+    assert!(first.queued, "first request should be queued");
+    assert!(!first.coalesced, "first request should not be coalesced");
+
+    let second = sender.request_refresh();
+    assert!(
+        !second.queued,
+        "duplicate refresh should report queued=false"
+    );
+    assert!(
+        second.coalesced,
+        "duplicate refresh should report coalesced=true"
+    );
+    assert_eq!(
+        second.pending_requests, 1,
+        "pending_requests stays 1 due to coalescing"
+    );
+
+    let third = sender.request_refresh();
+    assert!(
+        third.coalesced,
+        "third consecutive refresh should also coalesce"
+    );
+}
+
+#[test]
+fn test_refresh_channel_take_pending_clears_flag() {
+    let (sender, receiver) = refresh_channel();
+
+    sender.request_refresh();
+    assert!(receiver.take_pending(), "first take should return true");
+    assert!(
+        !receiver.take_pending(),
+        "second take without new request should return false"
+    );
+}
+
+#[test]
+fn test_refresh_channel_resets_after_take_allows_new_queued_request() {
+    let (sender, receiver) = refresh_channel();
+
+    // First cycle
+    let first = sender.request_refresh();
+    assert!(first.queued);
+    assert!(receiver.take_pending());
+
+    // After take, a new request should be queued (not coalesced)
+    let after_take = sender.request_refresh();
+    assert!(
+        after_take.queued,
+        "request after take_pending should be freshly queued"
+    );
+    assert!(
+        !after_take.coalesced,
+        "request after take_pending should not be coalesced"
+    );
+}
+
+#[test]
+fn test_refresh_sender_is_clone_cheap() {
+    let (sender1, receiver) = refresh_channel();
+    let sender2 = sender1.clone();
+
+    // First request from sender1
+    let first = sender1.request_refresh();
+    assert!(first.queued);
+
+    // Duplicate from sender2 should coalesce
+    let second = sender2.request_refresh();
+    assert!(second.coalesced, "cloned sender should share pending state");
+
+    // Receiver sees the combined request
+    assert!(receiver.take_pending());
+}
+
+#[tokio::test]
+async fn test_refresh_channel_notified_wakes_on_request() {
+    let (sender, receiver) = refresh_channel();
+
+    // Spawn a task that sends a refresh after a small delay
+    let sender_clone = sender.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        sender_clone.request_refresh();
+    });
+
+    // Wait for notification with a timeout
+    let result =
+        tokio::time::timeout(std::time::Duration::from_millis(500), receiver.notified()).await;
+
+    assert!(
+        result.is_ok(),
+        "refresh notified() should wake when request_refresh is called"
+    );
+    assert!(
+        receiver.take_pending(),
+        "pending flag should be set after notification"
+    );
+}
+
+// ── Orchestrator + Refresh Integration Tests ───────────────────────────
+
+#[test]
+fn test_orchestrator_create_refresh_channel_returns_functional_sender() {
+    let mut orchestrator = Orchestrator::new(test_config(2));
+    let sender = orchestrator.create_refresh_channel();
+
+    let outcome = sender.request_refresh();
+    assert!(
+        outcome.queued,
+        "sender from orchestrator should be functional"
+    );
+}
+
+#[test]
+fn test_orchestrator_create_snapshot_handle_and_refresh_channel_independently() {
+    let mut orchestrator = Orchestrator::new(test_config(2));
+    let handle = orchestrator.create_snapshot_handle();
+    let sender = orchestrator.create_refresh_channel();
+
+    // Both should work independently
+    let snap = handle.read();
+    assert!(snap.running.is_empty());
+
+    let outcome = sender.request_refresh();
+    assert!(outcome.queued);
+}
+
+#[test]
+fn test_snapshot_handle_reflects_retry_queue_for_api_use() {
+    let mut orchestrator = Orchestrator::new(test_config(2));
+    let handle = orchestrator.create_snapshot_handle();
+
+    orchestrator.schedule_retry(
+        "issue-retry-snap",
+        "SIM-95",
+        2,
+        RetryKind::Failure,
+        10_000,
+        Some("timeout".to_string()),
+    );
+
+    orchestrator.publish_snapshot();
+    let snap = handle.read();
+
+    assert_eq!(
+        snap.retry_queue.len(),
+        1,
+        "snapshot should expose retry queue for API consumption"
+    );
+    let entry = &snap.retry_queue[0];
+    assert_eq!(entry.identifier, "SIM-95");
+    assert_eq!(entry.attempt, 2);
+    assert_eq!(entry.error.as_deref(), Some("timeout"));
 }

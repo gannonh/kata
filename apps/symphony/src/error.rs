@@ -88,6 +88,10 @@ pub enum SymphonyError {
     #[error("codex turn input required")]
     TurnInputRequired,
 
+    // ── SSH ────────────────────────────────────────────────────────────
+    #[error("ssh launch failed: {0}")]
+    SshLaunchFailed(String),
+
     // ── Generic ────────────────────────────────────────────────────────
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),

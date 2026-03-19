@@ -8,9 +8,11 @@ pub mod linear;
 
 pub mod path_safety;
 pub mod prompt_builder;
+pub mod ssh;
 pub mod workspace;
 
 pub mod codex;
+pub mod http_server;
 pub mod orchestrator;
 
 // These modules will be implemented in later slices
