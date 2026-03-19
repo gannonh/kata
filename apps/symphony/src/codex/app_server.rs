@@ -175,7 +175,14 @@ pub async fn start_session(
                 "Spawning remote Codex via SSH"
             );
 
-            let child = SshRunner::start_process(host, &cmd_str).await?;
+            // Prepend `cd <workspace> &&` so the remote shell starts in the
+            // workspace directory — matching the local path's `.current_dir()`.
+            let remote_cmd = format!(
+                "cd {} && {}",
+                crate::ssh::shell_escape(&workspace_str),
+                cmd_str
+            );
+            let child = SshRunner::start_process(host, &remote_cmd).await?;
             (workspace_str, child)
         }
     };

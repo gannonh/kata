@@ -698,6 +698,14 @@ impl Orchestrator {
             &self.config.hooks,
         )?;
 
+        // Preserve the worker_host that dispatch_issue() already stored on the
+        // scheduled RunAttempt (if present) so SSH dispatch is honoured here.
+        let prior_worker_host = self
+            .state
+            .running
+            .get(&issue.id)
+            .and_then(|a| a.worker_host.clone());
+
         self.state.running.insert(
             issue.id.clone(),
             RunAttempt {
@@ -708,7 +716,7 @@ impl Orchestrator {
                 started_at: Utc::now(),
                 status: "running".to_string(),
                 error: None,
-                worker_host: None,
+                worker_host: prior_worker_host.clone(),
             },
         );
         self.state.claimed.insert(issue.id.clone());
@@ -747,7 +755,7 @@ impl Orchestrator {
             issue,
             workspace_path,
             Path::new(&self.config.workspace.root),
-            None, // worker_host: local dispatch (T04 wires SSH pool)
+            prior_worker_host.as_deref(),
         )
         .await
         {
@@ -1285,12 +1293,15 @@ impl Orchestrator {
                         issue_identifier = %issue.identifier,
                         "SSH host pool exhausted on retry, deferring"
                     );
-                    // Reschedule so the retry fires again when capacity frees up.
+                    // Reschedule at continuation delay WITHOUT incrementing attempt —
+                    // pool exhaustion is transient capacity pressure, not a worker
+                    // failure, so we must not consume retry budget or apply
+                    // exponential backoff.
                     self.schedule_retry_with_context(
                         &issue.id,
                         &issue.identifier,
-                        retry.attempt.saturating_add(1),
-                        RetryKind::Failure,
+                        retry.attempt,
+                        RetryKind::Continuation,
                         now_ms,
                         Some("ssh pool exhausted".to_string()),
                         retry_context,

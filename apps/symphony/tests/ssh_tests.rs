@@ -7,6 +7,7 @@ use std::io::Write;
 use std::path::Path;
 use tempfile::TempDir;
 
+use serial_test::serial;
 use symphony::ssh::{
     parse_target, select_worker_host, shell_escape, ssh_args, validate_remote_workspace_cwd,
     SshRunner, WorkerHostSelection,
@@ -14,12 +15,25 @@ use symphony::ssh::{
 
 // ── Helper ──────────────────────────────────────────────────────────────────
 
+/// RAII guard that restores `PATH` to its original value when dropped.
+struct PathGuard {
+    _dir: TempDir,
+    original_path: String,
+}
+
+impl Drop for PathGuard {
+    fn drop(&mut self) {
+        std::env::set_var("PATH", &self.original_path);
+    }
+}
+
 /// Install a fake `ssh` script that writes its arguments to `trace_file` and
-/// returns a `TempDir` whose `bin/` sub-directory is prepended to `PATH`.
+/// prepend its `bin/` directory to `PATH`.
 ///
-/// The caller must keep the returned `TempDir` alive for the duration of the
-/// test (dropping it removes the temporary directory).
-fn fake_ssh_on_path(trace_file: &Path) -> TempDir {
+/// Returns a `PathGuard`; the caller must keep it alive for the duration of the
+/// test. When the guard drops, `PATH` is restored and the temp directory is
+/// removed. Combine with `#[serial]` to prevent env-var races.
+fn fake_ssh_on_path(trace_file: &Path) -> PathGuard {
     let dir = tempfile::tempdir().expect("create tempdir");
     let bin_dir = dir.path().join("bin");
     fs::create_dir_all(&bin_dir).expect("create bin dir");
@@ -42,11 +56,14 @@ fn fake_ssh_on_path(trace_file: &Path) -> TempDir {
         fs::set_permissions(&ssh_path, fs::Permissions::from_mode(0o755)).expect("chmod fake ssh");
     }
 
-    let current_path = std::env::var("PATH").unwrap_or_default();
-    let new_path = format!("{}:{}", bin_dir.display(), current_path);
+    let original_path = std::env::var("PATH").unwrap_or_default();
+    let new_path = format!("{}:{}", bin_dir.display(), original_path);
     std::env::set_var("PATH", &new_path);
 
-    dir
+    PathGuard {
+        _dir: dir,
+        original_path,
+    }
 }
 
 // ── parse_target tests ───────────────────────────────────────────────────────
@@ -103,6 +120,7 @@ fn test_shell_escape_with_single_quote() {
 // ── ssh_args tests ───────────────────────────────────────────────────────────
 
 #[test]
+#[serial]
 fn test_ssh_args_no_config() {
     // Ensure SYMPHONY_SSH_CONFIG is not set for this test.
     std::env::remove_var("SYMPHONY_SSH_CONFIG");
@@ -120,6 +138,7 @@ fn test_ssh_args_no_config() {
 }
 
 #[test]
+#[serial]
 fn test_ssh_args_with_config() {
     std::env::set_var("SYMPHONY_SSH_CONFIG", "/tmp/ssh.conf");
 
@@ -138,6 +157,7 @@ fn test_ssh_args_with_config() {
 // ── fake ssh launch test ─────────────────────────────────────────────────────
 
 #[tokio::test]
+#[serial]
 async fn test_fake_ssh_launch() {
     let trace_dir = tempfile::tempdir().expect("tempdir");
     let trace_file = trace_dir.path().join("ssh.trace");
