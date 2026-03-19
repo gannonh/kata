@@ -177,3 +177,28 @@ When modifying `packages/`:
 
 ### Shared
 - `packages/shared/AGENTS.md` — developer guide. Update when changing module structure or adding new subsystems.
+
+---
+
+## Visual Explainers for the Docs Site
+
+When generating visual-explainer HTML pages intended for embedding in the docs site, use the `visual-explainer` skill with the **Geistdocs preset** defined in `./references/geistdocs-ve-preset.md`.
+
+The preset specifies:
+- Geist Sans + Geist Mono fonts (matching the docs site)
+- Light/dark palettes derived from Fumadocs defaults
+- Mermaid themeVariables for both modes
+- A postMessage theme listener so the iframe syncs with the docs site's dark/light toggle
+- Clean, minimal background atmosphere (no grid dots or noise)
+
+The `VisualExplainerEmbed` component at `apps/online-docs/components/visual-explainer-embed.tsx` handles embedding. It observes `class="dark"` on `<html>` and forwards the theme to the iframe via postMessage. Place generated HTML files in `apps/online-docs/public/visual-explainers/` and embed them in MDX pages using:
+
+```mdx
+import { VisualExplainerEmbed } from '@/components/visual-explainer-embed';
+
+<VisualExplainerEmbed
+  src="/visual-explainers/your-page.html"
+  height={800}
+  title="Description of the visualization"
+/>
+```
