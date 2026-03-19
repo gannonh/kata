@@ -1236,7 +1236,7 @@ async function dispatchNextUnit(
         "warning",
       );
     }
-    if (preferredModelId && preferredModelId === ctx.getModel()?.id) {
+    if (preferredModelId && preferredModelId === ctx.model?.id) {
       ctx.ui.setStatus("kata-auto", `auto · ${preferredModelId}`);
     } else {
       ctx.ui.setStatus("kata-auto", "auto");
