@@ -1,9 +1,9 @@
 # Kata State
 
 **Active Milestone:** M001 — Full Spec Conformance
-**Active Slice:** S09 — Conformance Sweep and Integration Polish (NEXT)
-**Active Task:** none
-**Phase:** S08 complete — ready for S09
+**Active Slice:** S09 — Conformance Sweep and Integration Polish
+**Active Task:** T01 — Add conformance test gap closure
+**Phase:** Planning complete — executing S09
 
 ## Progress
 
@@ -32,7 +32,7 @@
 
 ## Next Action
 
-Execute S09: conformance sweep against Spec §17, gap fixes, README documentation.
+Execute S09/T01: add test_by_state_concurrency_normalization to workflow_config_tests.rs and test_reconcile_non_active_state_stops_run_without_cleanup to orchestrator_tests.rs. Then T02: write operator README. Then T03: final verification pass + R013 validated.
 
 ## Validated Requirements
 
