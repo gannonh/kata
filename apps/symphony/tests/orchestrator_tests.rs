@@ -5,8 +5,8 @@ use chrono::{Duration, Utc};
 use symphony::domain::{AgentConfig, AgentEvent, BlockerRef, Issue, ServiceConfig, TrackerConfig};
 use symphony::error::{Result, SymphonyError};
 use symphony::orchestrator::{
-    Orchestrator, OrchestratorPort, RetryKind, RuntimeEvent, TurnMetrics, WorkerCompletion,
-    refresh_channel, CONTINUATION_RETRY_DELAY_MS,
+    refresh_channel, Orchestrator, OrchestratorPort, RetryKind, RuntimeEvent, TurnMetrics,
+    WorkerCompletion, CONTINUATION_RETRY_DELAY_MS,
 };
 
 #[derive(Default)]
@@ -987,11 +987,8 @@ async fn test_refresh_channel_notified_wakes_on_request() {
     });
 
     // Wait for notification with a timeout
-    let result = tokio::time::timeout(
-        std::time::Duration::from_millis(500),
-        receiver.notified(),
-    )
-    .await;
+    let result =
+        tokio::time::timeout(std::time::Duration::from_millis(500), receiver.notified()).await;
 
     assert!(
         result.is_ok(),
@@ -1011,7 +1008,10 @@ fn test_orchestrator_create_refresh_channel_returns_functional_sender() {
     let sender = orchestrator.create_refresh_channel();
 
     let outcome = sender.request_refresh();
-    assert!(outcome.queued, "sender from orchestrator should be functional");
+    assert!(
+        outcome.queued,
+        "sender from orchestrator should be functional"
+    );
 }
 
 #[test]

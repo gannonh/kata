@@ -147,10 +147,19 @@ pub fn build_router(state: HttpServerState) -> Router {
         .with_state(state)
 }
 
-pub async fn start_http_server(state: HttpServerState, port: u16, host: &str) -> std::io::Result<()> {
+pub async fn start_http_server(
+    state: HttpServerState,
+    port: u16,
+    host: &str,
+) -> std::io::Result<()> {
     let bind_addr = format!("{host}:{port}");
     let listener = TcpListener::bind(&bind_addr).await?;
-    tracing::info!(event = "http_server_started", host = host, port, "HTTP observability server started");
+    tracing::info!(
+        event = "http_server_started",
+        host = host,
+        port,
+        "HTTP observability server started"
+    );
     axum::serve(listener, build_router(state)).await
 }
 
@@ -169,8 +178,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         .codex_rate_limits
         .as_ref()
         .map(|rate_limits| {
-            serde_json::to_string_pretty(&rate_limits.data)
-                .unwrap_or_else(|_| "{}".to_string())
+            serde_json::to_string_pretty(&rate_limits.data).unwrap_or_else(|_| "{}".to_string())
         })
         .unwrap_or_else(|| "{}".to_string());
 

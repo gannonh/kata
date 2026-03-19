@@ -223,7 +223,8 @@ fn test_effective_http_binding_uses_workflow_server_port_when_cli_port_missing()
     config.server.host = "127.0.0.1".to_string();
     config.server.port = Some(8080);
 
-    let cli = main_bin::parse_cli_from(["symphony", "WORKFLOW.md"]).expect("CLI parse should succeed");
+    let cli =
+        main_bin::parse_cli_from(["symphony", "WORKFLOW.md"]).expect("CLI parse should succeed");
 
     let binding = main_bin::effective_http_binding(&config, &cli)
         .expect("workflow config port should enable HTTP binding");
@@ -253,7 +254,8 @@ fn test_effective_http_binding_returns_none_without_any_port() {
     let mut config = ServiceConfig::default();
     config.server.port = None;
 
-    let cli = main_bin::parse_cli_from(["symphony", "WORKFLOW.md"]).expect("CLI parse should succeed");
+    let cli =
+        main_bin::parse_cli_from(["symphony", "WORKFLOW.md"]).expect("CLI parse should succeed");
 
     assert!(
         main_bin::effective_http_binding(&config, &cli).is_none(),

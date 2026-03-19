@@ -11,8 +11,8 @@ pub mod prompt_builder;
 pub mod workspace;
 
 pub mod codex;
-pub mod orchestrator;
 pub mod http_server;
+pub mod orchestrator;
 
 // These modules will be implemented in later slices
 // pub mod agent_runner;

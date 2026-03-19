@@ -288,10 +288,7 @@ impl Orchestrator {
 
             // Sleep until next poll interval, but wake early on refresh request.
             let sleep_duration = Duration::from_millis(self.state.poll_interval_ms);
-            let refresh_notify = self
-                .refresh_receiver
-                .as_ref()
-                .map(|r| r.notify.clone());
+            let refresh_notify = self.refresh_receiver.as_ref().map(|r| r.notify.clone());
 
             if let Some(notify) = refresh_notify {
                 tokio::select! {

@@ -1,12 +1,12 @@
 use std::ffi::OsString;
-use std::future::{Future, pending};
+use std::future::{pending, Future};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::Once;
 
 use clap::Parser;
 use symphony::domain::{Issue, ServiceConfig};
-use symphony::http_server::{HttpServerState, start_http_server};
+use symphony::http_server::{start_http_server, HttpServerState};
 use symphony::linear::adapter::{LinearAdapter, TrackerAdapter};
 use symphony::linear::client::LinearClient;
 use symphony::orchestrator::{Orchestrator, OrchestratorPort};

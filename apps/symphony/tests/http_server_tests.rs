@@ -1,18 +1,16 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
-use axum::body::{Body, to_bytes};
+use axum::body::{to_bytes, Body};
 use axum::http::{Method, Request, StatusCode};
 use chrono::{TimeZone, Utc};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use symphony::domain::{
     CodexTotals, OrchestratorSnapshot, PollingSnapshot, RateLimitInfo, RefreshRequestOutcome,
     RetrySnapshotEntry, RunAttempt,
 };
-use symphony::http_server::{
-    HttpServerState, RefreshControl, SnapshotSource, build_router,
-};
+use symphony::http_server::{build_router, HttpServerState, RefreshControl, SnapshotSource};
 use tower::ServiceExt;
 
 #[derive(Clone)]
@@ -195,7 +193,10 @@ async fn test_get_api_state_returns_snapshot_projection() {
 
     let payload = body_json(response).await;
 
-    assert_eq!(payload["running"]["issue-123"]["issue_identifier"], "SIM-123");
+    assert_eq!(
+        payload["running"]["issue-123"]["issue_identifier"],
+        "SIM-123"
+    );
     assert_eq!(payload["retry_queue"][0]["identifier"], "SIM-777");
     assert_eq!(payload["codex_totals"]["total_tokens"], 200);
     assert_eq!(payload["codex_rate_limits"]["remaining"], 88);
