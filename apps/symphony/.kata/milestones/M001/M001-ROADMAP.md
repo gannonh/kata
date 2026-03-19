@@ -75,7 +75,7 @@ This milestone is complete only when all are true:
 - [x] **S07: HTTP Dashboard and JSON API** `risk:low` `depends:[S06]`
   > After this: `symphony WORKFLOW.md --port 8080` serves a live HTML dashboard at `/` and JSON API at `/api/v1/state`, `/api/v1/<issue>`, `POST /api/v1/refresh`.
 
-- [ ] **S08: SSH Remote Worker Extension** `risk:medium` `depends:[S05,S06]`
+- [x] **S08: SSH Remote Worker Extension** `risk:medium` `depends:[S05,S06]`
   > After this: `cargo test` proves SSH-based agent launch, per-host concurrency cap, host preference on retry, and continuation turns on same host.
 
 - [ ] **S09: Conformance Sweep and Integration Polish** `risk:low` `depends:[S06,S07,S08]`
