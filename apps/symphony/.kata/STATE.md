@@ -2,8 +2,8 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S07 — HTTP Dashboard and JSON API
-**Active Task:** None
-**Phase:** Planning
+**Active Task:** T01 — Author failing HTTP dashboard/API conformance tests
+**Phase:** Executing
 
 ## Progress
 
