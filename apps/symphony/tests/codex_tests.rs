@@ -556,7 +556,8 @@ async fn test_app_server_cwd_rejects_symlink_escape() {
     std::os::unix::fs::symlink(outside_dir.path(), &symlink_path).unwrap();
 
     // workspace_path is the symlink (resolves outside root) → error
-    let result = app_server::start_session(&config, &issue, &symlink_path, root_dir.path(), None).await;
+    let result =
+        app_server::start_session(&config, &issue, &symlink_path, root_dir.path(), None).await;
 
     assert!(
         matches!(result, Err(SymphonyError::InvalidWorkspaceCwd(_))),

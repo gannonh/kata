@@ -8,13 +8,13 @@ use std::time::Duration;
 
 use crate::codex::app_server;
 use crate::config;
-use crate::ssh::{self, WorkerHostSelection};
 use crate::domain::{
     AgentEvent, CodexTotals, Issue, OrchestratorSnapshot, OrchestratorState, PollingSnapshot,
     RateLimitInfo, RefreshRequestOutcome, RetryEntry, RetrySnapshotEntry, RunAttempt,
     ServiceConfig,
 };
 use crate::error::Result;
+use crate::ssh::{self, WorkerHostSelection};
 use crate::{path_safety, prompt_builder, workspace};
 
 // ── Snapshot Handle (S07 read seam) ─────────────────────────────────────
@@ -1277,8 +1277,7 @@ impl Orchestrator {
 
             if self.should_dispatch_issue(&issue) {
                 // Select an SSH host for retry, preferring the prior attempt's host.
-                let host_selection =
-                    self.select_worker_host(retry.worker_host.as_deref());
+                let host_selection = self.select_worker_host(retry.worker_host.as_deref());
                 if matches!(host_selection, WorkerHostSelection::NoneAvailable) {
                     tracing::warn!(
                         event = "ssh_pool_exhausted_retry",

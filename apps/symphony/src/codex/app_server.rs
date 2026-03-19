@@ -115,7 +115,7 @@ pub struct TurnResult {
 /// - `workspace_path`  — path to the workspace directory for this issue
 /// - `workspace_root`  — workspace root used to validate containment
 /// - `worker_host`     — if `Some(host)`, spawn via SSH on the remote host;
-///                       if `None`, spawn locally (default behaviour)
+///   if `None`, spawn locally (default behaviour)
 ///
 /// # Errors
 /// - `InvalidWorkspaceCwd` — workspace path fails safety checks

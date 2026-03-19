@@ -7,7 +7,10 @@ use std::io::Write;
 use std::path::Path;
 use tempfile::TempDir;
 
-use symphony::ssh::{parse_target, select_worker_host, shell_escape, ssh_args, validate_remote_workspace_cwd, SshRunner, WorkerHostSelection};
+use symphony::ssh::{
+    parse_target, select_worker_host, shell_escape, ssh_args, validate_remote_workspace_cwd,
+    SshRunner, WorkerHostSelection,
+};
 
 // ── Helper ──────────────────────────────────────────────────────────────────
 
@@ -36,8 +39,7 @@ fn fake_ssh_on_path(trace_file: &Path) -> TempDir {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&ssh_path, fs::Permissions::from_mode(0o755))
-            .expect("chmod fake ssh");
+        fs::set_permissions(&ssh_path, fs::Permissions::from_mode(0o755)).expect("chmod fake ssh");
     }
 
     let current_path = std::env::var("PATH").unwrap_or_default();
@@ -111,7 +113,10 @@ fn test_ssh_args_no_config() {
     assert!(joined.contains("-p"), "expected -p flag, got: {joined}");
     assert!(joined.contains("2222"), "expected port 2222, got: {joined}");
     assert!(joined.contains("myhost"), "expected host, got: {joined}");
-    assert!(!joined.contains("-F"), "should have no -F flag, got: {joined}");
+    assert!(
+        !joined.contains("-F"),
+        "should have no -F flag, got: {joined}"
+    );
 }
 
 #[test]
@@ -121,7 +126,10 @@ fn test_ssh_args_with_config() {
     let args = ssh_args("myhost", "echo hello");
     let joined = args.join(" ");
 
-    assert!(joined.contains("-F /tmp/ssh.conf"), "expected -F flag, got: {joined}");
+    assert!(
+        joined.contains("-F /tmp/ssh.conf"),
+        "expected -F flag, got: {joined}"
+    );
 
     // Clean up
     std::env::remove_var("SYMPHONY_SSH_CONFIG");
@@ -137,7 +145,8 @@ async fn test_fake_ssh_launch() {
     let _fake_dir = fake_ssh_on_path(&trace_file);
     std::env::remove_var("SYMPHONY_SSH_CONFIG");
 
-    let _child = SshRunner::start_process("myhost:2222", "echo ready").await
+    let _child = SshRunner::start_process("myhost:2222", "echo ready")
+        .await
         .expect("start_process");
 
     // Give the fake script time to write its trace.
@@ -149,8 +158,14 @@ async fn test_fake_ssh_launch() {
     assert!(trace.contains("-T"), "expected -T in args, got: {trace}");
     assert!(trace.contains("-p"), "expected -p in args, got: {trace}");
     assert!(trace.contains("2222"), "expected port 2222, got: {trace}");
-    assert!(trace.contains("myhost"), "expected host in args, got: {trace}");
-    assert!(trace.contains("echo ready"), "expected command in args, got: {trace}");
+    assert!(
+        trace.contains("myhost"),
+        "expected host in args, got: {trace}"
+    );
+    assert!(
+        trace.contains("echo ready"),
+        "expected command in args, got: {trace}"
+    );
 }
 
 // ── WorkerHostSelection / select_worker_host tests ──────────────────────────
