@@ -22,13 +22,14 @@ export function VisualExplainerEmbed({
       const isDark = html.classList.contains('dark');
       iframeRef.current?.contentWindow?.postMessage(
         { theme: isDark ? 'dark' : 'light' },
-        '*',
+        window.location.origin,
       );
     }
 
     const iframe = iframeRef.current;
     if (iframe) {
       iframe.addEventListener('load', sendTheme);
+      sendTheme();
     }
 
     const observer = new MutationObserver(sendTheme);
@@ -50,6 +51,7 @@ export function VisualExplainerEmbed({
       title={title}
       width="100%"
       height={height}
+      sandbox="allow-scripts"
       style={{ border: 'none', borderRadius: '8px' }}
     />
   );

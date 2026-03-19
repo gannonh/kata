@@ -34,7 +34,9 @@
         "geistdocs.tsx",
         "next.config.ts",
         "source.config.ts",
-        "tsconfig.json"
+        "tsconfig.json",
+        "app/**/*.css",
+        "postcss.config.mjs"
       ]
     },
     "dev": {

@@ -561,6 +561,7 @@
   .badge--amber { background: var(--amber-dim); color: var(--amber); }
   .badge--rose { background: var(--rose-dim); color: var(--rose); }
   .badge--emerald { background: var(--emerald-dim); color: var(--emerald); }
+  .badge--slate { background: var(--slate-dim); color: var(--slate); }
 
   /* ============ TABLE ============ */
   .data-table {
@@ -1663,6 +1664,8 @@ flowchart TD
     var target = wrap.querySelector('.mermaid');
     target.dataset.zoom = '1';
     target.style.transform = 'scale(1)';
+    wrap.scrollLeft = 0;
+    wrap.scrollTop = 0;
     updateZoomState(wrap);
   }
   document.querySelectorAll('.mermaid-wrap').forEach(function(wrap) {
