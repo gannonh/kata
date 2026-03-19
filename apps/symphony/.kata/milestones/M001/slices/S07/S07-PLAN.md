@@ -85,7 +85,7 @@
   - Verify: `cargo test --test http_server_tests`
   - Done when: All HTTP contract tests pass, dashboard HTML is non-placeholder and backed by live snapshot data, and API errors are structured/typed.
 
-- [ ] **T04: Wire CLI runtime composition and finalize slice verification** `est:45m`
+- [x] **T04: Wire CLI runtime composition and finalize slice verification** `est:45m`
   - Why: S07 is incomplete until the binary actually composes orchestrator + optional HTTP server using effective config and CLI overrides.
   - Files: `src/main.rs`, `src/http_server.rs`, `tests/cli_tests.rs`, `tests/http_server_tests.rs`
   - Do: Update runtime startup to launch orchestrator loop and HTTP server concurrently when effective port is set, preserve `--port` override precedence, and ensure graceful shutdown semantics cover both tasks.

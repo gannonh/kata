@@ -2,8 +2,8 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S07 — HTTP Dashboard and JSON API
-**Active Task:** T04 — Wire CLI runtime composition and finalize slice verification
-**Phase:** Executing
+**Active Task:** None (all S07 tasks complete)
+**Phase:** Summarizing
 
 ## Progress
 
@@ -13,15 +13,15 @@
 - [x] S04: Workspace Manager and Prompt Builder — 28 tests; path_safety, prompt_builder, workspace modules; 111 total tests; R004+R007 validated
 - [x] S05: Codex App-Server Client — 32 integration tests pass; approval, tool dispatch, user-input, token accounting all done; zero warnings
 - [x] S06: Orchestrator Core — runtime authority loop + CLI bootstrap verified; orchestrator+cli conformance suites green
-- [ ] S07: HTTP Dashboard and JSON API
+- [x] S07: HTTP Dashboard and JSON API
 - [ ] S08: SSH Remote Worker Extension
 - [ ] S09: Conformance Sweep and Integration Polish
 
 ## Recent Decisions
 
-- D039: Keep HTTP as a read/control seam (snapshot reads + refresh signal only) so orchestrator remains the single mutable authority
 - D040: Standardize API error envelopes with stable `error.code`, `error.message`, and `error.status` fields
 - D041: Establish dedicated `tests/http_server_tests.rs` red→green harness as the slice-level HTTP contract gate
+- D042: Emit explicit HTTP startup decision events (`http_server_enabled` / `http_server_disabled`) for runtime wiring observability
 
 ## Blockers
 
@@ -29,7 +29,7 @@
 
 ## Next Action
 
-Execute S07/T04: wire optional HTTP server startup into CLI runtime composition (effective port + host), preserve CLI `--port` precedence, and run full S07 verification (`http_server_tests`, `cli_tests`, `cargo build`).
+Write S07 slice summary + UAT artifacts, mark S07 complete in `M001-ROADMAP.md`, and advance to S08 planning.
 
 ## Validated Requirements
 

@@ -1,10 +1,12 @@
 use std::ffi::OsString;
-use std::future::Future;
+use std::future::{Future, pending};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::Once;
 
 use clap::Parser;
 use symphony::domain::{Issue, ServiceConfig};
+use symphony::http_server::{HttpServerState, start_http_server};
 use symphony::linear::adapter::{LinearAdapter, TrackerAdapter};
 use symphony::linear::client::LinearClient;
 use symphony::orchestrator::{Orchestrator, OrchestratorPort};
@@ -45,6 +47,12 @@ struct StartupContext {
     workflow_path: PathBuf,
     workflow_store: WorkflowStore,
     effective_config: ServiceConfig,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct HttpBinding {
+    pub(crate) host: String,
+    pub(crate) port: u16,
 }
 
 struct LinearOrchestratorPort {
@@ -159,6 +167,7 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
 
     fn start_orchestrator(&mut self, workflow_path: &Path, cli: &Cli) -> Result<(), String> {
         let mut context = self.take_or_load_validated_context(workflow_path)?;
+        let http_binding = effective_http_binding(&context.effective_config, cli);
 
         if let Some(port) = cli.port {
             context.effective_config.server.port = Some(port);
@@ -170,20 +179,47 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
         let mut tracker_port = LinearOrchestratorPort::new(tracker_adapter);
         let mut orchestrator = Orchestrator::new(context.effective_config.clone());
 
+        let snapshot_handle = orchestrator.create_snapshot_handle();
+        let refresh_sender = orchestrator.create_refresh_channel();
+        let http_state = HttpServerState::new(Arc::new(snapshot_handle), Arc::new(refresh_sender));
+
         tracing::info!(
             phase = "startup",
             stage = "runtime_init",
             workflow_path = %workflow_path.display(),
-            server_port = ?context.effective_config.server.port,
+            http_enabled = http_binding.is_some(),
+            http_host = http_binding.as_ref().map(|binding| binding.host.as_str()).unwrap_or("n/a"),
+            http_port = http_binding.as_ref().map(|binding| binding.port),
             logs_root_configured = cli.logs_root.is_some(),
             guardrails_acknowledged = cli.acknowledge_guardrails,
             "constructed orchestrator runtime"
         );
 
+        if let Some(binding) = &http_binding {
+            tracing::info!(
+                event = "http_server_enabled",
+                host = %binding.host,
+                port = binding.port,
+                "HTTP server binding enabled at startup"
+            );
+        } else {
+            tracing::info!(
+                event = "http_server_disabled",
+                reason = "no_port_configured",
+                "HTTP server disabled; running orchestrator-only mode"
+            );
+        }
+
         // Keep the watcher-backed store alive for the lifetime of the run.
         let _workflow_store = context.workflow_store;
 
-        run_orchestrator_until_shutdown(&mut orchestrator, &mut tracker_port, workflow_path)
+        run_runtime_until_shutdown(
+            &mut orchestrator,
+            &mut tracker_port,
+            workflow_path,
+            http_binding,
+            http_state,
+        )
     }
 }
 
@@ -197,6 +233,14 @@ where
 
 pub fn resolve_workflow_path(cli: &Cli) -> PathBuf {
     PathBuf::from(&cli.workflow_path)
+}
+
+pub(crate) fn effective_http_binding(config: &ServiceConfig, cli: &Cli) -> Option<HttpBinding> {
+    let port = cli.port.or(config.server.port)?;
+    Some(HttpBinding {
+        host: config.server.host.clone(),
+        port,
+    })
 }
 
 pub fn execute_cli(cli: &Cli, deps: &mut dyn BootstrapDeps) -> Result<(), String> {
@@ -231,10 +275,12 @@ pub fn execute_cli(cli: &Cli, deps: &mut dyn BootstrapDeps) -> Result<(), String
     })
 }
 
-fn run_orchestrator_until_shutdown(
+fn run_runtime_until_shutdown(
     orchestrator: &mut Orchestrator,
     port: &mut dyn OrchestratorPort,
     workflow_path: &Path,
+    http_binding: Option<HttpBinding>,
+    http_state: HttpServerState,
 ) -> Result<(), String> {
     let handle = tokio::runtime::Handle::try_current()
         .map_err(|err| format!("missing tokio runtime for orchestrator startup: {err}"))?;
@@ -245,8 +291,19 @@ fn run_orchestrator_until_shutdown(
                 phase = "runtime",
                 stage = "start",
                 workflow_path = %workflow_path.display(),
-                "starting orchestrator loop"
+                http_enabled = http_binding.is_some(),
+                "starting orchestrator runtime"
             );
+
+            let http_future = async {
+                if let Some(binding) = http_binding {
+                    start_http_server(http_state, binding.port, &binding.host)
+                        .await
+                        .map_err(|err| format!("http server failed: {err}"))
+                } else {
+                    pending::<Result<(), String>>().await
+                }
+            };
 
             tokio::select! {
                 run_result = orchestrator.run(port) => {
@@ -257,6 +314,17 @@ fn run_orchestrator_until_shutdown(
                         reason = "run_returned",
                         workflow_path = %workflow_path.display(),
                         "orchestrator loop stopped"
+                    );
+                    Ok(())
+                }
+                http_result = http_future => {
+                    http_result?;
+                    tracing::info!(
+                        phase = "runtime",
+                        stage = "stopped",
+                        reason = "http_server_returned",
+                        workflow_path = %workflow_path.display(),
+                        "HTTP server stopped"
                     );
                     Ok(())
                 }
