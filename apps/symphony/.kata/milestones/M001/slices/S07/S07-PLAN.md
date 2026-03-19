@@ -71,7 +71,7 @@
   - Verify: `cargo test --test http_server_tests --test cli_tests` (expected failing assertions for unimplemented HTTP behavior)
   - Done when: Contract tests exist with concrete assertions for all S07 must-haves and failures are behavioral (not missing-symbol compile failures).
 
-- [ ] **T02: Add orchestrator snapshot handle + refresh control seam** `est:60m`
+- [x] **T02: Add orchestrator snapshot handle + refresh control seam** `est:60m`
   - Why: HTTP handlers need read/control access without violating D002 single-authority ownership; this seam is the core S06→S07 boundary closure.
   - Files: `src/orchestrator.rs`, `src/domain.rs`, `tests/orchestrator_tests.rs`, `tests/http_server_tests.rs`
   - Do: Introduce orchestrator-owned snapshot publication and best-effort refresh request ingestion (with duplicate coalescing semantics), keeping all mutable scheduler state inside orchestrator; expose read-only/control handles for HTTP use.

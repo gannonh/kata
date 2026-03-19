@@ -9,7 +9,10 @@ use serde::Serialize;
 use serde_json::json;
 use tokio::net::TcpListener;
 
-use crate::domain::OrchestratorSnapshot;
+use crate::domain::{OrchestratorSnapshot, RefreshRequestOutcome};
+use crate::orchestrator::{RefreshSender, SnapshotHandle};
+
+// ── Traits for testability ─────────────────────────────────────────────
 
 pub trait SnapshotSource: Send + Sync {
     fn snapshot(&self) -> OrchestratorSnapshot;
@@ -24,13 +27,6 @@ where
     }
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct RefreshRequestOutcome {
-    pub queued: bool,
-    pub coalesced: bool,
-    pub pending_requests: u64,
-}
-
 pub trait RefreshControl: Send + Sync {
     fn request_refresh(&self) -> RefreshRequestOutcome;
 }
@@ -43,6 +39,22 @@ where
         (self)()
     }
 }
+
+// ── Trait implementations for orchestrator types ───────────────────────
+
+impl SnapshotSource for SnapshotHandle {
+    fn snapshot(&self) -> OrchestratorSnapshot {
+        self.read()
+    }
+}
+
+impl RefreshControl for RefreshSender {
+    fn request_refresh(&self) -> RefreshRequestOutcome {
+        self.request_refresh()
+    }
+}
+
+// ── HTTP Server State ──────────────────────────────────────────────────
 
 #[derive(Clone)]
 pub struct HttpServerState {
@@ -70,6 +82,8 @@ impl HttpServerState {
     }
 }
 
+// ── Error Envelope ─────────────────────────────────────────────────────
+
 #[derive(Debug, Serialize)]
 struct ApiErrorEnvelope {
     error: ApiError,
@@ -81,6 +95,8 @@ struct ApiError {
     message: String,
     status: u16,
 }
+
+// ── Router ─────────────────────────────────────────────────────────────
 
 pub fn build_router(state: HttpServerState) -> Router {
     Router::new()
@@ -97,6 +113,8 @@ pub async fn start_http_server(state: HttpServerState, port: u16, host: &str) ->
     let listener = TcpListener::bind(format!("{host}:{port}")).await?;
     axum::serve(listener, build_router(state)).await
 }
+
+// ── Route Handlers (stubs — implemented in T03) ───────────────────────
 
 async fn get_dashboard_stub(State(_state): State<HttpServerState>) -> impl IntoResponse {
     Html("<html><body><h1>TODO: dashboard</h1></body></html>")

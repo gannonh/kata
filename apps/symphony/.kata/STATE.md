@@ -2,7 +2,7 @@
 
 **Active Milestone:** M001 — Full Spec Conformance
 **Active Slice:** S07 — HTTP Dashboard and JSON API
-**Active Task:** T02 — Add orchestrator snapshot handle + refresh control seam
+**Active Task:** T03 — Implement axum HTTP server routes and dashboard renderer
 **Phase:** Executing
 
 ## Progress
@@ -29,7 +29,7 @@
 
 ## Next Action
 
-Execute S07/T02: add orchestrator-owned snapshot publication and refresh-control ingestion seams, then wire targeted tests proving queued/coalesced refresh behavior without violating single-authority state ownership.
+Execute S07/T03: implement real axum HTTP route handlers for dashboard, state API, issue lookup, and refresh endpoint; turn the T01 red suite green.
 
 ## Validated Requirements
 
