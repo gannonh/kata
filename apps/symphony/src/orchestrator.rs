@@ -102,10 +102,7 @@ async fn check_issue_still_active(
     {
         Ok(issues) => match issues.first() {
             Some(refreshed) => {
-                if should_continue_issue_in_session(refreshed, tracker_config)
-                    && normalize_issue_state(&refreshed.state)
-                        == normalize_issue_state(&issue.state)
-                {
+                if should_continue_issue_in_session(refreshed, tracker_config) {
                     IssueCheck::Continue(refreshed.clone())
                 } else {
                     IssueCheck::Done(refreshed.clone())
