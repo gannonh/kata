@@ -1108,7 +1108,9 @@ impl Orchestrator {
             WorkerCompletion::Completed {
                 schedule_continuation,
             } => {
-                self.state.completed.insert(issue_id.to_string());
+                if !schedule_continuation {
+                    self.state.completed.insert(issue_id.to_string());
+                }
 
                 tracing::info!(
                     event = "worker_completed",

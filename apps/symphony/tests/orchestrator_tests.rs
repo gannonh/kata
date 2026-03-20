@@ -686,6 +686,21 @@ fn test_worker_completion_schedules_continuation_retry_with_session_context() {
         retry_entry.workspace_path.as_deref(),
         Some("/tmp/workspace-complete")
     );
+    assert!(
+        !orchestrator.state().running.contains_key("issue-complete"),
+        "completed turn should leave running map before retry scheduling"
+    );
+    assert!(
+        !orchestrator.state().completed.contains("issue-complete"),
+        "continuation completions must stay out of completed until terminal state"
+    );
+    assert!(
+        orchestrator.state().running.len()
+            + orchestrator.state().retry_attempts.len()
+            + orchestrator.state().completed.len()
+            <= 1,
+        "running + retry + completed bookkeeping must not exceed dispatched issue count"
+    );
 
     let worker_completed = orchestrator.events().iter().any(|event| {
         matches!(
@@ -747,6 +762,13 @@ fn test_worker_completion_without_continuation_does_not_queue_retry() {
         orchestrator.state().completed.contains("issue-stop"),
         "issue should still be marked completed in orchestrator bookkeeping"
     );
+    assert!(
+        orchestrator.state().running.len()
+            + orchestrator.state().retry_attempts.len()
+            + orchestrator.state().completed.len()
+            <= 1,
+        "running + retry + completed bookkeeping must not exceed dispatched issue count"
+    );
 }
 
 #[test]
@@ -807,6 +829,17 @@ fn test_worker_failure_preserves_attempt_and_backoff_cap() {
     assert!(
         worker_failed,
         "worker failure diagnostics should retain issue context and failure reason"
+    );
+    assert!(
+        !orchestrator.state().completed.contains("issue-fail"),
+        "failed issues must not be retained in completed bookkeeping"
+    );
+    assert!(
+        orchestrator.state().running.len()
+            + orchestrator.state().retry_attempts.len()
+            + orchestrator.state().completed.len()
+            <= 1,
+        "running + retry + completed bookkeeping must not exceed dispatched issue count"
     );
 }
 
