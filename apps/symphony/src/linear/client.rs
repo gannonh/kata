@@ -7,9 +7,11 @@
 //! - `fetch_issue_states_by_ids` — batched ID-based fetch with order preservation
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use serde_json::Value;
+use tokio::sync::{Mutex, OnceCell};
 use tracing::{error, info, warn};
 
 use crate::domain::{BlockerRef, Issue, TrackerConfig};
@@ -18,6 +20,7 @@ use crate::error::{Result, SymphonyError};
 // ── Constants ──────────────────────────────────────────────────────────
 
 const ISSUE_PAGE_SIZE: usize = 50;
+const USER_PAGE_SIZE: usize = 100;
 const REQUEST_TIMEOUT_SECS: u64 = 30;
 const MAX_ERROR_BODY_LOG_BYTES: usize = 1_000;
 
@@ -145,12 +148,37 @@ query SymphonyLinearViewer {
 }
 "#;
 
+const QUERY_LIST_USERS: &str = r#"
+query SymphonyLinearListUsers($first: Int!, $after: String) {
+  users(first: $first, after: $after) {
+    nodes {
+      id
+      displayName
+      name
+      email
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+}
+"#;
+
 // ── AssigneeFilter ─────────────────────────────────────────────────────
 
 /// Filter for routing issues to the current worker based on assignee.
 #[derive(Debug, Clone)]
 pub struct AssigneeFilter {
     pub match_values: HashSet<String>,
+}
+
+#[derive(Debug, Clone)]
+struct LinearUser {
+    id: String,
+    display_name: Option<String>,
+    name: Option<String>,
+    email: Option<String>,
 }
 
 // ── LinearClient ───────────────────────────────────────────────────────
@@ -160,6 +188,8 @@ pub struct AssigneeFilter {
 pub struct LinearClient {
     http: reqwest::Client,
     config: TrackerConfig,
+    assignee_resolution_cache: Arc<Mutex<HashMap<String, String>>>,
+    users_cache: Arc<OnceCell<Vec<LinearUser>>>,
 }
 
 impl LinearClient {
@@ -169,7 +199,12 @@ impl LinearClient {
             .timeout(std::time::Duration::from_secs(REQUEST_TIMEOUT_SECS))
             .build()
             .expect("failed to build reqwest client");
-        Self { http, config }
+        Self {
+            http,
+            config,
+            assignee_resolution_cache: Arc::new(Mutex::new(HashMap::new())),
+            users_cache: Arc::new(OnceCell::new()),
+        }
     }
 
     // ── Public fetch operations ────────────────────────────────────────
@@ -514,7 +549,8 @@ impl LinearClient {
     /// Build the assignee filter from `TrackerConfig.assignee`.
     /// - `None` or empty → no filter (all issues routable)
     /// - `"me"` → resolve via viewer query
-    /// - anything else → literal match
+    /// - lowercase UUID pattern → literal ID match
+    /// - otherwise resolve via Linear users (`displayName`/`name`/`email`)
     async fn routing_assignee_filter(&self) -> Result<Option<AssigneeFilter>> {
         match &self.config.assignee {
             None => Ok(None),
@@ -545,6 +581,78 @@ impl LinearClient {
             )),
         }
     }
+
+    async fn resolve_named_assignee_filter(&self, assignee: &str) -> Result<AssigneeFilter> {
+        let lookup_key = normalize_assignee_lookup_key(assignee);
+
+        if let Some(cached_id) = self
+            .assignee_resolution_cache
+            .lock()
+            .await
+            .get(&lookup_key)
+            .cloned()
+        {
+            return Ok(single_match_filter(cached_id));
+        }
+
+        let users = self.list_linear_users().await?;
+        let matched_user_ids = find_user_ids_by_lookup(&users, &lookup_key);
+        match matched_user_ids.as_slice() {
+            [user_id] => {
+                self.assignee_resolution_cache
+                    .lock()
+                    .await
+                    .insert(lookup_key, user_id.clone());
+                return Ok(single_match_filter(user_id.clone()));
+            }
+            [] => {}
+            _ => {
+                let ids = matched_user_ids.join(", ");
+                return Err(SymphonyError::Other(format!(
+                    "tracker.assignee '{assignee}' matched multiple Linear users ({ids}). Use email or UUID for an exact match."
+                )));
+            }
+        }
+
+        let available = format_available_assignee_identifiers(&users);
+        Err(SymphonyError::Other(format!(
+            "unable to resolve tracker.assignee '{assignee}' to a Linear user id. Available names/emails: {available}"
+        )))
+    }
+
+    async fn list_linear_users(&self) -> Result<Vec<LinearUser>> {
+        let users = self
+            .users_cache
+            .get_or_try_init(|| async { self.fetch_linear_users().await })
+            .await?;
+        Ok(users.clone())
+    }
+
+    async fn fetch_linear_users(&self) -> Result<Vec<LinearUser>> {
+        let mut users: Vec<LinearUser> = Vec::new();
+        let mut after_cursor: Option<String> = None;
+
+        loop {
+            let mut variables = serde_json::json!({
+                "first": USER_PAGE_SIZE,
+            });
+            if let Some(ref cursor) = after_cursor {
+                variables["after"] = Value::String(cursor.clone());
+            }
+
+            let body = self.graphql(QUERY_LIST_USERS, variables).await?;
+            let (page_users, page_info) = decode_linear_users_page_response(&body)?;
+            users.extend(page_users);
+
+            match next_page_cursor(&page_info) {
+                PageCursorResult::Continue(cursor) => after_cursor = Some(cursor),
+                PageCursorResult::Done => break,
+                PageCursorResult::Error => return Err(SymphonyError::LinearMissingEndCursor),
+            }
+        }
+
+        Ok(users)
+    }
 }
 
 // ── Assignee filter construction ───────────────────────────────────────
@@ -564,9 +672,13 @@ async fn build_assignee_filter(
         return Ok(Some(filter));
     }
 
-    let mut match_values = HashSet::new();
-    match_values.insert(trimmed.to_string());
-    Ok(Some(AssigneeFilter { match_values }))
+    let normalized_uuid = trimmed.to_lowercase();
+    if is_uuid_pattern(&normalized_uuid) {
+        return Ok(Some(single_match_filter(normalized_uuid)));
+    }
+
+    let filter = client.resolve_named_assignee_filter(trimmed).await?;
+    Ok(Some(filter))
 }
 
 // ── Normalization ──────────────────────────────────────────────────────
@@ -645,6 +757,13 @@ fn parse_priority(val: Option<&Value>) -> Option<i32> {
             None
         }
     })
+}
+
+fn parse_optional_trimmed_field(val: Option<&Value>) -> Option<String> {
+    val.and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(String::from)
 }
 
 /// Nil-safe nested field access on the assignee object.
@@ -733,6 +852,22 @@ fn parse_datetime(val: Option<&Value>) -> Option<DateTime<Utc>> {
     val.and_then(|v| v.as_str())
         .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
         .map(|dt| dt.with_timezone(&Utc))
+}
+
+fn parse_linear_user(node: &Value) -> Option<LinearUser> {
+    let id = node
+        .get("id")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(String::from)?;
+
+    Some(LinearUser {
+        id,
+        display_name: parse_optional_trimmed_field(node.get("displayName")),
+        name: parse_optional_trimmed_field(node.get("name")),
+        email: parse_optional_trimmed_field(node.get("email")),
+    })
 }
 
 // ── Response decoding ──────────────────────────────────────────────────
@@ -824,6 +959,45 @@ fn decode_linear_page_response(
     Err(SymphonyError::LinearUnknownPayload)
 }
 
+fn decode_linear_users_page_response(body: &Value) -> Result<(Vec<LinearUser>, PageInfo)> {
+    let users_obj = body.get("data").and_then(|d| d.get("users"));
+
+    if let Some(users_val) = users_obj {
+        let nodes = users_val.get("nodes").and_then(|n| n.as_array());
+        let page_info_val = users_val.get("pageInfo");
+
+        if let (Some(nodes), Some(pi)) = (nodes, page_info_val) {
+            let users: Vec<LinearUser> = nodes.iter().filter_map(parse_linear_user).collect();
+
+            let has_next_page = pi
+                .get("hasNextPage")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let end_cursor = pi
+                .get("endCursor")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(String::from);
+
+            return Ok((
+                users,
+                PageInfo {
+                    has_next_page,
+                    end_cursor,
+                },
+            ));
+        }
+    }
+
+    if body.get("errors").is_some() {
+        let errors_str = serde_json::to_string(body.get("errors").unwrap())
+            .unwrap_or_else(|_| "unknown".to_string());
+        return Err(SymphonyError::LinearGraphqlErrors(errors_str));
+    }
+
+    Err(SymphonyError::LinearUnknownPayload)
+}
+
 /// Check the page info to determine if we should continue, stop, or error.
 fn next_page_cursor(page_info: &PageInfo) -> PageCursorResult {
     if page_info.has_next_page {
@@ -872,6 +1046,84 @@ fn dedup_strings(input: &[String]) -> Vec<String> {
         .filter(|s| seen.insert((*s).clone()))
         .cloned()
         .collect()
+}
+
+fn normalize_assignee_lookup_key(raw: &str) -> String {
+    raw.trim().to_lowercase()
+}
+
+fn is_uuid_pattern(value: &str) -> bool {
+    if value.len() != 36 {
+        return false;
+    }
+
+    value.chars().enumerate().all(|(idx, ch)| {
+        if matches!(idx, 8 | 13 | 18 | 23) {
+            ch == '-'
+        } else {
+            ch.is_ascii_hexdigit()
+        }
+    })
+}
+
+fn single_match_filter(id: String) -> AssigneeFilter {
+    let mut match_values = HashSet::new();
+    match_values.insert(id);
+    AssigneeFilter { match_values }
+}
+
+fn find_user_ids_by_lookup(users: &[LinearUser], lookup_key: &str) -> Vec<String> {
+    let mut seen_ids: HashSet<String> = HashSet::new();
+    let mut matched_ids: Vec<String> = Vec::new();
+
+    for user in users {
+        let matches_lookup = [
+            user.display_name.as_deref(),
+            user.name.as_deref(),
+            user.email.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        .any(|candidate| normalize_assignee_lookup_key(candidate) == lookup_key);
+
+        if matches_lookup && seen_ids.insert(user.id.clone()) {
+            matched_ids.push(user.id.clone());
+        }
+    }
+
+    matched_ids
+}
+
+fn format_available_assignee_identifiers(users: &[LinearUser]) -> String {
+    let mut unique_values: HashMap<String, String> = HashMap::new();
+
+    for user in users {
+        for candidate in [
+            user.name.as_deref(),
+            user.display_name.as_deref(),
+            user.email.as_deref(),
+        ] {
+            if let Some(value) = candidate.map(str::trim).filter(|v| !v.is_empty()) {
+                unique_values
+                    .entry(value.to_lowercase())
+                    .or_insert_with(|| value.to_string());
+            }
+        }
+    }
+
+    let mut values: Vec<String> = unique_values.into_values().collect();
+    values.sort_by_key(|value| value.to_lowercase());
+    if values.is_empty() {
+        return "none returned by Linear users query".to_string();
+    }
+
+    const MAX_VALUES: usize = 25;
+    if values.len() <= MAX_VALUES {
+        values.join(", ")
+    } else {
+        let total = values.len();
+        format!("{}, ... ({} total)", values[..MAX_VALUES].join(", "), total)
+    }
 }
 
 /// Truncate an error body to ≤1000 bytes for logging.

@@ -3,7 +3,7 @@
 //! Uses `mockito` to mock the Linear GraphQL endpoint — no live API calls.
 //! Tests cover all verification items from S03-PLAN.md.
 
-use mockito::{Mock, Server, ServerGuard};
+use mockito::{Matcher, Mock, Server, ServerGuard};
 use serde_json::{json, Value};
 use symphony::domain::{ApiKey, TrackerConfig};
 use symphony::error::SymphonyError;
@@ -114,6 +114,35 @@ fn viewer_response(viewer_id: &str) -> Value {
                 "id": viewer_id
             }
         }
+    })
+}
+
+/// Users query response.
+fn users_response(nodes: Vec<Value>, has_next_page: bool, end_cursor: Option<&str>) -> Value {
+    json!({
+        "data": {
+            "users": {
+                "nodes": nodes,
+                "pageInfo": {
+                    "hasNextPage": has_next_page,
+                    "endCursor": end_cursor
+                }
+            }
+        }
+    })
+}
+
+fn user_node(
+    id: &str,
+    display_name: Option<&str>,
+    name: Option<&str>,
+    email: Option<&str>,
+) -> Value {
+    json!({
+        "id": id,
+        "displayName": display_name,
+        "name": name,
+        "email": email
     })
 }
 
@@ -967,4 +996,338 @@ async fn test_fetch_candidates_with_me_filters_out_unassigned() {
     // Issue returned but with assigned_to_worker: false
     assert_eq!(issues.len(), 1);
     assert!(!issues[0].assigned_to_worker);
+}
+
+#[tokio::test]
+async fn test_fetch_candidates_with_username_assignee() {
+    let mut server = Server::new_async().await;
+
+    let users_resp = users_response(
+        vec![user_node(
+            "user-alice",
+            Some("Alice Example"),
+            Some("alice"),
+            Some("alice@example.com"),
+        )],
+        false,
+        None,
+    );
+    let m_users = mock_graphql(&mut server, &users_resp).await;
+
+    let issue = json!({
+        "id": "id-1",
+        "identifier": "PROJ-1",
+        "title": "T",
+        "state": { "name": "Todo" },
+        "assignee": { "id": "user-alice" },
+        "labels": { "nodes": [] },
+        "inverseRelations": { "nodes": [] }
+    });
+    let candidates_resp = paginated_response(vec![issue], false, None);
+    let m_candidates = mock_graphql(&mut server, &candidates_resp).await;
+
+    let client = test_client(&server, Some("alice"));
+    let issues = client.fetch_candidates().await.unwrap();
+
+    m_users.assert_async().await;
+    m_candidates.assert_async().await;
+    assert_eq!(issues.len(), 1);
+    assert!(issues[0].assigned_to_worker);
+}
+
+#[tokio::test]
+async fn test_fetch_candidates_with_email_assignee() {
+    let mut server = Server::new_async().await;
+
+    let users_resp = users_response(
+        vec![user_node(
+            "user-alice",
+            Some("Alice Example"),
+            Some("alice"),
+            Some("alice@example.com"),
+        )],
+        false,
+        None,
+    );
+    let m_users = mock_graphql(&mut server, &users_resp).await;
+
+    let issue = json!({
+        "id": "id-1",
+        "identifier": "PROJ-1",
+        "title": "T",
+        "state": { "name": "Todo" },
+        "assignee": { "id": "user-alice" },
+        "labels": { "nodes": [] },
+        "inverseRelations": { "nodes": [] }
+    });
+    let candidates_resp = paginated_response(vec![issue], false, None);
+    let m_candidates = mock_graphql(&mut server, &candidates_resp).await;
+
+    let client = test_client(&server, Some("alice@example.com"));
+    let issues = client.fetch_candidates().await.unwrap();
+
+    m_users.assert_async().await;
+    m_candidates.assert_async().await;
+    assert_eq!(issues.len(), 1);
+    assert!(issues[0].assigned_to_worker);
+}
+
+#[tokio::test]
+async fn test_fetch_candidates_with_username_assignee_paginates_users_query() {
+    let mut server = Server::new_async().await;
+
+    let users_page_1 = users_response(
+        vec![user_node(
+            "user-bob",
+            Some("Bob Example"),
+            Some("bob"),
+            Some("bob@example.com"),
+        )],
+        true,
+        Some("cursor-1"),
+    );
+    let m_users_page_1 = mock_graphql(&mut server, &users_page_1).await;
+
+    let users_page_2 = users_response(
+        vec![user_node(
+            "user-alice",
+            Some("Alice Example"),
+            Some("alice"),
+            Some("alice@example.com"),
+        )],
+        false,
+        None,
+    );
+    let m_users_page_2 = mock_graphql(&mut server, &users_page_2).await;
+
+    let issue = json!({
+        "id": "id-1",
+        "identifier": "PROJ-1",
+        "title": "T",
+        "state": { "name": "Todo" },
+        "assignee": { "id": "user-alice" },
+        "labels": { "nodes": [] },
+        "inverseRelations": { "nodes": [] }
+    });
+    let candidates_resp = paginated_response(vec![issue], false, None);
+    let m_candidates = mock_graphql(&mut server, &candidates_resp).await;
+
+    let client = test_client(&server, Some("alice"));
+    let issues = client.fetch_candidates().await.unwrap();
+
+    m_users_page_1.assert_async().await;
+    m_users_page_2.assert_async().await;
+    m_candidates.assert_async().await;
+    assert_eq!(issues.len(), 1);
+    assert!(issues[0].assigned_to_worker);
+}
+
+#[tokio::test]
+async fn test_fetch_candidates_with_uuid_assignee_skips_users_query() {
+    let mut server = Server::new_async().await;
+
+    let assignee_id = "123e4567-e89b-12d3-a456-426614174000";
+    let issue = json!({
+        "id": "id-1",
+        "identifier": "PROJ-1",
+        "title": "T",
+        "state": { "name": "Todo" },
+        "assignee": { "id": assignee_id },
+        "labels": { "nodes": [] },
+        "inverseRelations": { "nodes": [] }
+    });
+    let candidates_resp = paginated_response(vec![issue], false, None);
+    let m_candidates = mock_graphql(&mut server, &candidates_resp).await;
+
+    let client = test_client(&server, Some(assignee_id));
+    let issues = client.fetch_candidates().await.unwrap();
+
+    m_candidates.assert_async().await;
+    assert_eq!(issues.len(), 1);
+    assert!(issues[0].assigned_to_worker);
+}
+
+#[tokio::test]
+async fn test_fetch_candidates_with_uppercase_uuid_assignee_normalizes_to_lowercase() {
+    let mut server = Server::new_async().await;
+
+    let assignee_id = "123e4567-e89b-12d3-a456-426614174000";
+    let assignee_upper = assignee_id.to_uppercase();
+    let issue = json!({
+        "id": "id-1",
+        "identifier": "PROJ-1",
+        "title": "T",
+        "state": { "name": "Todo" },
+        "assignee": { "id": assignee_id },
+        "labels": { "nodes": [] },
+        "inverseRelations": { "nodes": [] }
+    });
+    let candidates_resp = paginated_response(vec![issue], false, None);
+    let m_candidates = mock_graphql(&mut server, &candidates_resp).await;
+
+    let client = test_client(&server, Some(assignee_upper.as_str()));
+    let issues = client.fetch_candidates().await.unwrap();
+
+    m_candidates.assert_async().await;
+    assert_eq!(issues.len(), 1);
+    assert!(issues[0].assigned_to_worker);
+}
+
+#[tokio::test]
+async fn test_fetch_candidates_with_unresolvable_assignee_errors_with_identifiers() {
+    let mut server = Server::new_async().await;
+
+    let users_resp = users_response(
+        vec![
+            user_node("user-alice", Some("Alice Example"), Some("alice"), None),
+            user_node("user-bob", Some("Bob Example"), Some("bob"), None),
+        ],
+        false,
+        None,
+    );
+    let m_users = mock_graphql(&mut server, &users_resp).await;
+
+    let client = test_client(&server, Some("carol"));
+    let err = client.fetch_candidates().await.unwrap_err();
+    m_users.assert_async().await;
+
+    match err {
+        SymphonyError::Other(message) => {
+            assert!(message.contains("carol"));
+            assert!(message.contains("Available names/emails"));
+            assert!(message.contains("alice"));
+            assert!(message.contains("bob"));
+        }
+        other => panic!("expected SymphonyError::Other, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn test_fetch_candidates_with_ambiguous_assignee_errors() {
+    let mut server = Server::new_async().await;
+
+    let users_resp = users_response(
+        vec![
+            user_node("user-1", Some("Alex"), Some("alex"), None),
+            user_node("user-2", Some("Alex"), Some("alex"), None),
+        ],
+        false,
+        None,
+    );
+    let m_users = mock_graphql(&mut server, &users_resp).await;
+
+    let client = test_client(&server, Some("alex"));
+    let err = client.fetch_candidates().await.unwrap_err();
+    m_users.assert_async().await;
+
+    match err {
+        SymphonyError::Other(message) => {
+            assert!(message.contains("matched multiple Linear users"));
+            assert!(message.contains("user-1"));
+            assert!(message.contains("user-2"));
+            assert!(message.contains("Use email or UUID"));
+        }
+        other => panic!("expected SymphonyError::Other, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn test_fetch_candidates_named_assignee_uses_session_cache() {
+    let mut server = Server::new_async().await;
+
+    let users_resp = users_response(
+        vec![user_node(
+            "user-alice",
+            Some("Alice Example"),
+            Some("alice"),
+            Some("alice@example.com"),
+        )],
+        false,
+        None,
+    );
+    let m_users = mock_graphql(&mut server, &users_resp).await;
+
+    let issue = json!({
+        "id": "id-1",
+        "identifier": "PROJ-1",
+        "title": "T",
+        "state": { "name": "Todo" },
+        "assignee": { "id": "user-alice" },
+        "labels": { "nodes": [] },
+        "inverseRelations": { "nodes": [] }
+    });
+    let candidates_resp_1 = paginated_response(vec![issue.clone()], false, None);
+    let m_candidates_1 = mock_graphql(&mut server, &candidates_resp_1).await;
+    let candidates_resp_2 = paginated_response(vec![issue], false, None);
+    let m_candidates_2 = mock_graphql(&mut server, &candidates_resp_2).await;
+
+    let client = test_client(&server, Some("alice"));
+    let first = client.fetch_candidates().await.unwrap();
+    let second = client.fetch_candidates().await.unwrap();
+
+    m_users.assert_async().await;
+    m_candidates_1.assert_async().await;
+    m_candidates_2.assert_async().await;
+
+    assert_eq!(first.len(), 1);
+    assert!(first[0].assigned_to_worker);
+    assert_eq!(second.len(), 1);
+    assert!(second[0].assigned_to_worker);
+}
+
+#[tokio::test]
+async fn test_fetch_candidates_named_assignee_concurrent_requests_share_users_fetch() {
+    let mut server = Server::new_async().await;
+
+    let users_resp = users_response(
+        vec![user_node(
+            "user-alice",
+            Some("Alice Example"),
+            Some("alice"),
+            Some("alice@example.com"),
+        )],
+        false,
+        None,
+    );
+    let m_users = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("SymphonyLinearListUsers".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(serde_json::to_string(&users_resp).unwrap())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let issue = json!({
+        "id": "id-1",
+        "identifier": "PROJ-1",
+        "title": "T",
+        "state": { "name": "Todo" },
+        "assignee": { "id": "user-alice" },
+        "labels": { "nodes": [] },
+        "inverseRelations": { "nodes": [] }
+    });
+    let candidates_resp = paginated_response(vec![issue], false, None);
+    let m_candidates = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("SymphonyLinearPoll".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(serde_json::to_string(&candidates_resp).unwrap())
+        .expect(2)
+        .create_async()
+        .await;
+
+    let client = test_client(&server, Some("alice"));
+    let (first, second) = tokio::join!(client.fetch_candidates(), client.fetch_candidates());
+    let first = first.unwrap();
+    let second = second.unwrap();
+
+    m_users.assert_async().await;
+    m_candidates.assert_async().await;
+    assert_eq!(first.len(), 1);
+    assert!(first[0].assigned_to_worker);
+    assert_eq!(second.len(), 1);
+    assert!(second[0].assigned_to_worker);
 }
