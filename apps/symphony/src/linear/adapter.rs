@@ -6,7 +6,7 @@
 use async_trait::async_trait;
 
 use crate::domain::Issue;
-use crate::error::{Result, SymphonyError};
+use crate::error::Result;
 use crate::linear::client::LinearClient;
 
 // ── TrackerAdapter trait (spec §4.1.1, matches Elixir `tracker.ex`) ────
@@ -37,7 +37,7 @@ pub trait TrackerAdapter: Send + Sync {
 // ── LinearAdapter ──────────────────────────────────────────────────────
 
 /// Linear-backed tracker adapter. Delegates read operations to `LinearClient`.
-/// Write operations are not yet implemented (returns `SymphonyError::Other`).
+/// Write operations delegate to `LinearClient`.
 pub struct LinearAdapter {
     client: LinearClient,
 }
@@ -63,11 +63,11 @@ impl TrackerAdapter for LinearAdapter {
         self.client.fetch_issue_states_by_ids(issue_ids).await
     }
 
-    async fn create_comment(&self, _issue_id: &str, _body: &str) -> Result<()> {
-        Err(SymphonyError::Other("not implemented".to_string()))
+    async fn create_comment(&self, issue_id: &str, body: &str) -> Result<()> {
+        self.client.create_comment(issue_id, body).await
     }
 
-    async fn update_issue_state(&self, _issue_id: &str, _state_name: &str) -> Result<()> {
-        Err(SymphonyError::Other("not implemented".to_string()))
+    async fn update_issue_state(&self, issue_id: &str, state_name: &str) -> Result<()> {
+        self.client.update_issue_state(issue_id, state_name).await
     }
 }

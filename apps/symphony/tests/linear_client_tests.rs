@@ -777,30 +777,135 @@ async fn test_adapter_fetch_by_ids() {
 }
 
 #[tokio::test]
-async fn test_adapter_create_comment_not_implemented() {
-    let server = Server::new_async().await;
-    let adapter = test_adapter(&server, None);
+async fn test_resolve_state_id_returns_matching_state() {
+    let mut server = Server::new_async().await;
+    let mock = server
+        .mock("POST", "/graphql")
+        .with_body(
+            json!({
+                "data": {
+                    "issue": {
+                        "team": {
+                            "states": {
+                                "nodes": [{"id": "state-in-progress-123"}]
+                            }
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .create_async()
+        .await;
 
-    let err = adapter.create_comment("id-1", "hello").await.unwrap_err();
-    match err {
-        SymphonyError::Other(msg) => assert_eq!(msg, "not implemented"),
-        other => panic!("expected Other(not implemented), got: {:?}", other),
-    }
+    let client = test_client(&server, None);
+    let result = client.resolve_state_id("issue-1", "In Progress").await;
+    assert!(result.is_ok(), "expected Ok, got: {:?}", result.err());
+    assert_eq!(result.unwrap(), "state-in-progress-123");
+    mock.assert_async().await;
 }
 
 #[tokio::test]
-async fn test_adapter_update_issue_state_not_implemented() {
-    let server = Server::new_async().await;
-    let adapter = test_adapter(&server, None);
+async fn test_resolve_state_id_returns_error_when_not_found() {
+    let mut server = Server::new_async().await;
+    let mock = server
+        .mock("POST", "/graphql")
+        .with_body(
+            json!({
+                "data": {
+                    "issue": {
+                        "team": {
+                            "states": {
+                                "nodes": []
+                            }
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .create_async()
+        .await;
 
-    let err = adapter
-        .update_issue_state("id-1", "Done")
-        .await
-        .unwrap_err();
-    match err {
-        SymphonyError::Other(msg) => assert_eq!(msg, "not implemented"),
-        other => panic!("expected Other(not implemented), got: {:?}", other),
-    }
+    let client = test_client(&server, None);
+    let result = client.resolve_state_id("issue-1", "Nonexistent").await;
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(err.contains("not found"), "expected 'not found' in: {err}");
+    mock.assert_async().await;
+}
+
+#[tokio::test]
+async fn test_update_issue_state_resolves_and_updates() {
+    let mut server = Server::new_async().await;
+
+    // First call: resolve state ID
+    let state_mock = server
+        .mock("POST", "/graphql")
+        .with_body(
+            json!({
+                "data": {
+                    "issue": {
+                        "team": {
+                            "states": {
+                                "nodes": [{"id": "state-done-456"}]
+                            }
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .create_async()
+        .await;
+
+    // Second call: update issue state
+    let update_mock = server
+        .mock("POST", "/graphql")
+        .with_body(
+            json!({
+                "data": {
+                    "issueUpdate": {
+                        "success": true
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .create_async()
+        .await;
+
+    let client = test_client(&server, None);
+    let result = client.update_issue_state("issue-1", "Done").await;
+    assert!(result.is_ok());
+    state_mock.assert_async().await;
+    update_mock.assert_async().await;
+}
+
+#[tokio::test]
+async fn test_create_comment_success() {
+    let mut server = Server::new_async().await;
+    let mock = server
+        .mock("POST", "/graphql")
+        .with_body(
+            json!({
+                "data": {
+                    "commentCreate": {
+                        "success": true
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .create_async()
+        .await;
+
+    let client = test_client(&server, None);
+    let result = client
+        .create_comment("issue-1", "Hello from Symphony")
+        .await;
+    assert!(result.is_ok());
+    mock.assert_async().await;
 }
 
 // ═══════════════════════════════════════════════════════════════════════

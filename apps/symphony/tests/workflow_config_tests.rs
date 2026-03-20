@@ -9,7 +9,9 @@ use std::io::Write;
 use tempfile::NamedTempFile;
 
 use symphony::config::{from_workflow, validate};
-use symphony::domain::{CodexConfig, ServiceConfig, TrackerConfig};
+use symphony::domain::{
+    CodexConfig, ServiceConfig, TrackerConfig, WorkspaceConfig, WorkspaceRepoStrategy,
+};
 use symphony::error::SymphonyError;
 use symphony::workflow::parse_workflow;
 use symphony::workflow_store::WorkflowStore;
@@ -132,6 +134,10 @@ fn test_config_defaults() {
     assert_eq!(config.polling.interval_ms, 30_000);
     assert_eq!(config.agent.max_concurrent_agents, 10);
     assert_eq!(config.agent.max_turns, 20);
+    assert_eq!(config.workspace.repo, None);
+    assert_eq!(config.workspace.strategy, WorkspaceRepoStrategy::Clone);
+    assert_eq!(config.workspace.branch_prefix, "symphony");
+    assert_eq!(config.workspace.clone_branch, None);
 }
 
 #[test]
@@ -193,6 +199,109 @@ fn test_config_tilde_expansion() {
         Some(home) => std::env::set_var("HOME", home),
         None => std::env::remove_var("HOME"),
     }
+}
+
+#[test]
+fn test_workspace_repo_strategy_and_branch_prefix_parse() {
+    let yaml_str = r#"
+workspace:
+  root: ~/workspaces
+  repo: https://github.com/gannonh/kata.git
+  strategy: clone
+  branch_prefix: " symphony "
+  clone_branch: elixir-feature-parity
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("workspace bootstrap config should parse");
+
+    assert_eq!(
+        config.workspace.repo.as_deref(),
+        Some("https://github.com/gannonh/kata.git")
+    );
+    assert_eq!(config.workspace.strategy, WorkspaceRepoStrategy::Clone);
+    assert_eq!(config.workspace.branch_prefix, "symphony");
+    assert_eq!(
+        config.workspace.clone_branch.as_deref(),
+        Some("elixir-feature-parity")
+    );
+}
+
+#[test]
+fn test_workspace_clone_branch_blank_is_ignored() {
+    let yaml_str = r#"
+workspace:
+  clone_branch: "   "
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("workspace clone branch should parse");
+    assert_eq!(config.workspace.clone_branch, None);
+}
+
+#[test]
+fn test_workspace_strategy_invalid_value_errors() {
+    let yaml_str = r#"
+workspace:
+  repo: /tmp/local-repo
+  strategy: invalid
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let result = from_workflow(&raw);
+
+    assert!(
+        matches!(result, Err(SymphonyError::InvalidWorkflowConfig(ref msg)) if msg.contains("workspace.strategy")),
+        "invalid workspace.strategy should return InvalidWorkflowConfig, got: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_config_validation_rejects_worktree_without_repo() {
+    let config = ServiceConfig {
+        tracker: TrackerConfig {
+            kind: Some("linear".to_string()),
+            api_key: Some("test-key".into()),
+            project_slug: Some("my-project".to_string()),
+            ..TrackerConfig::default()
+        },
+        workspace: WorkspaceConfig {
+            strategy: WorkspaceRepoStrategy::Worktree,
+            repo: None,
+            ..WorkspaceConfig::default()
+        },
+        ..ServiceConfig::default()
+    };
+
+    let result = validate(&config);
+    assert!(
+        matches!(result, Err(SymphonyError::InvalidWorkflowConfig(ref msg)) if msg.contains("workspace.repo")),
+        "worktree strategy without repo should fail validation, got: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_config_validation_rejects_worktree_with_remote_repo() {
+    let config = ServiceConfig {
+        tracker: TrackerConfig {
+            kind: Some("linear".to_string()),
+            api_key: Some("test-key".into()),
+            project_slug: Some("my-project".to_string()),
+            ..TrackerConfig::default()
+        },
+        workspace: WorkspaceConfig {
+            strategy: WorkspaceRepoStrategy::Worktree,
+            repo: Some("https://github.com/gannonh/kata.git".to_string()),
+            ..WorkspaceConfig::default()
+        },
+        ..ServiceConfig::default()
+    };
+
+    let result = validate(&config);
+    assert!(
+        matches!(result, Err(SymphonyError::InvalidWorkflowConfig(ref msg)) if msg.contains("workspace.strategy") && msg.contains("local")),
+        "worktree strategy with remote repo should fail validation, got: {:?}",
+        result
+    );
 }
 
 #[test]

@@ -383,6 +383,12 @@ where
                             .and_then(|m| m.as_str())
                             .map(|s| s.to_string());
 
+                        tracing::debug!(
+                            issue_id = %handle.issue_id,
+                            method = method.as_deref().unwrap_or("(none)"),
+                            "codex message received"
+                        );
+
                         // ── Token accounting ──────────────────────────
                         let delta = extract_token_delta(&token_state, &payload);
                         turn_input_tokens += delta.input_tokens;
@@ -398,6 +404,49 @@ where
                         match method.as_deref() {
                             // ── turn/completed ────────────────────────
                             Some("turn/completed") => {
+                                // Check if turn/completed carries a failure status
+                                // (e.g. usageLimitExceeded, model unavailable)
+                                let turn_status = payload
+                                    .pointer("/params/turn/status")
+                                    .and_then(|s| s.as_str())
+                                    .unwrap_or("completed");
+
+                                if turn_status == "failed" {
+                                    let error_msg = payload
+                                        .pointer("/params/turn/error/message")
+                                        .and_then(|m| m.as_str())
+                                        .unwrap_or("turn completed with failed status");
+                                    let error_code = payload
+                                        .pointer("/params/turn/error/codexErrorInfo")
+                                        .map(|c| {
+                                            c.as_str()
+                                                .map(String::from)
+                                                .unwrap_or_else(|| c.to_string())
+                                        })
+                                        .unwrap_or_else(|| "unknown".to_string());
+
+                                    tracing::warn!(
+                                        issue_id = %handle.issue_id,
+                                        session_id = %session_id,
+                                        error_code = %error_code,
+                                        error = %error_msg,
+                                        "Codex turn failed"
+                                    );
+
+                                    let event = AgentEvent::TurnFailed {
+                                        timestamp: Utc::now(),
+                                        codex_app_server_pid: handle.pid.clone(),
+                                        turn_id: turn_id.clone(),
+                                        error: format!("{error_code}: {error_msg}"),
+                                    };
+                                    event_callback(event.clone());
+                                    events.push(event);
+
+                                    return Err(SymphonyError::TurnFailed(format!(
+                                        "{error_code}: {error_msg}"
+                                    )));
+                                }
+
                                 let event = AgentEvent::TurnCompleted {
                                     timestamp: Utc::now(),
                                     codex_app_server_pid: handle.pid.clone(),

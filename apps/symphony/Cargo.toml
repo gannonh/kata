@@ -50,6 +50,7 @@ clap = { version = "4", features = ["derive"] }
 
 # Regex for sanitization
 regex = "1"
+dotenvy = "0.15.7"
 
 [dev-dependencies]
 tempfile = "3"

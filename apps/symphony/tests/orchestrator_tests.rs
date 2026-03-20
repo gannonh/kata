@@ -68,6 +68,12 @@ impl OrchestratorPort for FakePort {
             .find(|issue| issue.id == issue_id)
             .cloned())
     }
+
+    fn update_issue_state(&mut self, issue_id: &str, state_name: &str) -> Result<()> {
+        self.calls
+            .push(format!("update_issue_state:{issue_id}:{state_name}"));
+        Ok(())
+    }
 }
 
 fn test_config(max_concurrent_agents: u32) -> ServiceConfig {

@@ -12,9 +12,10 @@ use serde_yaml::{Mapping, Value};
 
 use crate::domain::{
     AgentConfig, ApiKey, CodexConfig, HooksConfig, PollingConfig, ServerConfig, ServiceConfig,
-    TrackerConfig, WorkerConfig, WorkspaceConfig,
+    TrackerConfig, WorkerConfig, WorkspaceConfig, WorkspaceRepoStrategy,
 };
 use crate::error::{Result, SymphonyError};
+use crate::repo_url::repo_is_remote;
 
 // ── Key normalization and null-dropping ───────────────────────────────────────
 
@@ -177,6 +178,10 @@ struct RawPollingConfig {
 #[serde(default)]
 struct RawWorkspaceConfig {
     root: Option<String>,
+    repo: Option<String>,
+    strategy: Option<String>,
+    branch_prefix: Option<String>,
+    clone_branch: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -391,8 +396,50 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let raw_root = raw_workspace
         .root
         .unwrap_or_else(|| defaults.workspace.root.clone());
+    let strategy = match raw_workspace
+        .strategy
+        .as_deref()
+        .map(str::trim)
+        .unwrap_or("clone")
+    {
+        "clone" => WorkspaceRepoStrategy::Clone,
+        "worktree" => WorkspaceRepoStrategy::Worktree,
+        other => {
+            return Err(SymphonyError::InvalidWorkflowConfig(format!(
+                "workspace.strategy must be 'clone' or 'worktree' (got '{other}')"
+            )));
+        }
+    };
+    let repo = raw_workspace.repo.and_then(|value| {
+        let resolved = resolve_env(&value);
+        let trimmed = resolved.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(expand_tilde(trimmed))
+        }
+    });
+    let branch_prefix = raw_workspace
+        .branch_prefix
+        .map(|value| resolve_env(&value))
+        .unwrap_or_else(|| defaults.workspace.branch_prefix.clone());
+    let clone_branch = raw_workspace
+        .clone_branch
+        .map(|value| resolve_env(&value))
+        .and_then(|value| {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        });
     let workspace = WorkspaceConfig {
         root: expand_tilde(&raw_root),
+        repo,
+        strategy,
+        branch_prefix: branch_prefix.trim().to_string(),
+        clone_branch,
     };
 
     // ── WorkerConfig ──────────────────────────────────────────────────────
@@ -537,9 +584,30 @@ pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
         ));
     }
 
+    // workspace.branch_prefix must be present and non-empty
+    if config.workspace.branch_prefix.trim().is_empty() {
+        return Err(SymphonyError::InvalidWorkflowConfig(
+            "workspace.branch_prefix must be non-empty".to_string(),
+        ));
+    }
+
+    // workspace.strategy=worktree requires a local workspace.repo path
+    if config.workspace.strategy == WorkspaceRepoStrategy::Worktree {
+        let repo = config.workspace.repo.as_deref().ok_or_else(|| {
+            SymphonyError::InvalidWorkflowConfig(
+                "workspace.repo is required when workspace.strategy is 'worktree'".to_string(),
+            )
+        })?;
+        if repo_is_remote(repo) {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "workspace.strategy 'worktree' requires workspace.repo to be a local path"
+                    .to_string(),
+            ));
+        }
+    }
+
     Ok(ValidatedServiceConfig(config.clone()))
 }
-
 // ── Unit tests ────────────────────────────────────────────────────────────────
 
 #[cfg(test)]

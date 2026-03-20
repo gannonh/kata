@@ -24,17 +24,13 @@ pub struct Cli {
     #[arg(default_value = "WORKFLOW.md")]
     pub workflow_path: String,
 
-    /// HTTP server port
-    #[arg(long)]
+    /// HTTP server port (default: 8080)
+    #[arg(long, default_value = "8080")]
     pub port: Option<u16>,
 
     /// Log file root directory
     #[arg(long)]
     pub logs_root: Option<String>,
-
-    /// Acknowledge that this runs without guardrails
-    #[arg(long = "i-understand-that-this-will-be-running-without-the-usual-guardrails")]
-    pub acknowledge_guardrails: bool,
 }
 
 pub trait BootstrapDeps {
@@ -97,6 +93,10 @@ impl OrchestratorPort for LinearOrchestratorPort {
         let issue_ids = vec![issue_id.to_string()];
         let issues = self.block_on(self.adapter.fetch_issue_states_by_ids(&issue_ids))?;
         Ok(issues.into_iter().next())
+    }
+
+    fn update_issue_state(&mut self, issue_id: &str, state_name: &str) -> error::Result<()> {
+        self.block_on(self.adapter.update_issue_state(issue_id, state_name))
     }
 }
 
@@ -196,7 +196,7 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
             http_host = http_binding.as_ref().map(|binding| binding.host.as_str()).unwrap_or("n/a"),
             http_port = http_binding.as_ref().map(|binding| binding.port),
             logs_root_configured = cli.logs_root.is_some(),
-            guardrails_acknowledged = cli.acknowledge_guardrails,
+
             "constructed orchestrator runtime"
         );
 
@@ -395,6 +395,9 @@ fn run_entrypoint(args: impl IntoIterator<Item = OsString>) -> i32 {
 
 #[tokio::main]
 async fn main() {
+    // Load .env file if present (silently ignore if missing)
+    let _ = dotenvy::dotenv();
+
     init_tracing();
 
     let code = run_entrypoint(std::env::args_os());
