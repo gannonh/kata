@@ -6,6 +6,7 @@
 
 use serial_test::serial;
 use std::io::Write;
+use std::path::Path;
 use tempfile::NamedTempFile;
 
 use symphony::config::{from_workflow, validate};
@@ -116,6 +117,29 @@ fn test_parse_workflow_non_map_yaml() {
         matches!(result, Err(SymphonyError::WorkflowFrontMatterNotAMap)),
         "non-map YAML front matter should return WorkflowFrontMatterNotAMap, got: {:?}",
         result
+    );
+}
+
+#[test]
+fn test_repo_workflow_requires_publish_gate_before_human_review() {
+    let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("WORKFLOW.md");
+    let def = parse_workflow(&workflow_path)
+        .expect("repo WORKFLOW.md should parse for publish-gate contract assertions");
+
+    assert!(
+        def.prompt_template
+            .contains("git ls-remote --exit-code --heads origin \"$(git branch --show-current)\""),
+        "WORKFLOW.md must require explicit remote-branch proof before Human Review"
+    );
+    assert!(
+        def.prompt_template
+            .contains("gh pr view --json url,state,headRefName,baseRefName"),
+        "WORKFLOW.md must require explicit PR proof before Human Review"
+    );
+    assert!(
+        def.prompt_template
+            .contains("If either publish proof fails, do not move state"),
+        "WORKFLOW.md must explicitly block Human Review transition until publish checks pass"
     );
 }
 

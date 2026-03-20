@@ -395,7 +395,12 @@ Use this only when completion is blocked by missing required tools or missing au
     - Do not include PR URL in the workpad comment; keep PR linkage on the issue via attachment/link fields.
     - Add a short `### Confusions` section at the bottom when any part of task execution was unclear/confusing, with concise bullets.
     - Do not post any additional completion summary comment.
-11. Before moving to `Human Review`, poll PR feedback and checks:
+11. Before moving to `Human Review`, run publish proofs, then poll PR feedback/checks:
+    - Run and record these publish proofs in the workpad `Notes` section:
+      - `git ls-remote --exit-code --heads origin "$(git branch --show-current)"`
+      - `gh pr view --json url,state,headRefName,baseRefName`
+    - Confirm `gh pr view` reports `state: OPEN` and `headRefName` equals the current branch.
+    - If either publish proof fails, do not move state; fix publish/PR linkage first.
     - Read the PR `Manual QA Plan` comment (when present) and use it to sharpen UI/runtime test coverage for the current change.
     - Run the full PR feedback sweep protocol.
     - Confirm PR checks are passing (green) after the latest changes.
@@ -436,7 +441,8 @@ Use this only when completion is blocked by missing required tools or missing au
 - Acceptance criteria and required ticket-provided validation items are complete.
 - Validation/tests are green for the latest commit.
 - PR feedback sweep is complete and no actionable comments remain.
-- PR checks are green, branch is pushed, and PR is linked on the issue.
+- Publish proof is recorded in the workpad: `git ls-remote --exit-code --heads origin "$(git branch --show-current)"` succeeds and `gh pr view --json url,state,headRefName,baseRefName` confirms an `OPEN` PR for the current branch.
+- PR checks are green and the PR is linked on the issue.
 - Required PR metadata is present (`symphony` label).
 - If app-touching, runtime validation/media requirements from `App runtime validation (required)` are complete.
 
