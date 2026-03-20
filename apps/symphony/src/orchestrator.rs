@@ -1108,7 +1108,9 @@ impl Orchestrator {
             WorkerCompletion::Completed {
                 schedule_continuation,
             } => {
-                self.state.completed.insert(issue_id.to_string());
+                if !schedule_continuation {
+                    self.state.completed.insert(issue_id.to_string());
+                }
 
                 tracing::info!(
                     event = "worker_completed",
@@ -1778,6 +1780,44 @@ impl Orchestrator {
                 .into_iter()
                 .find(|issue| issue.id == retry.issue_id)
             else {
+                let refreshed_issue = match port.refresh_issue(&retry.issue_id) {
+                    Ok(issue) => issue,
+                    Err(err) => {
+                        tracing::warn!(
+                            event = "retry_refresh_failed",
+                            issue_id = %retry.issue_id,
+                            issue_identifier = %retry.identifier,
+                            error = %err,
+                            "retry issue refresh failed; rescheduling"
+                        );
+                        self.schedule_retry_with_context(
+                            &retry.issue_id,
+                            &retry.identifier,
+                            retry.attempt.saturating_add(1),
+                            RetryKind::Failure,
+                            now_ms,
+                            Some(format!("retry refresh failed: {err}")),
+                            retry_context,
+                        );
+                        continue;
+                    }
+                };
+
+                if let Some(hidden_issue) = refreshed_issue {
+                    let hidden_state = normalize_issue_state(&hidden_issue.state);
+                    if self.terminal_state_set().contains(&hidden_state) {
+                        tracing::debug!(
+                            event = "retry_issue_terminal_after_refresh",
+                            issue_id = %hidden_issue.id,
+                            issue_identifier = %hidden_issue.identifier,
+                            state = %hidden_state,
+                            "retry issue became terminal before active-candidate visibility; marking terminal"
+                        );
+                        self.mark_issue_terminal(&hidden_issue.id);
+                        continue;
+                    }
+                }
+
                 tracing::debug!(
                     event = "retry_issue_not_visible",
                     issue_id = %retry.issue_id,
