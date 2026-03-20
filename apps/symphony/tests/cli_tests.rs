@@ -250,15 +250,17 @@ fn test_effective_http_binding_prefers_cli_port_override() {
 }
 
 #[test]
-fn test_effective_http_binding_returns_none_without_any_port() {
+fn test_effective_http_binding_defaults_to_8080() {
     let mut config = ServiceConfig::default();
     config.server.port = None;
 
     let cli =
         main_bin::parse_cli_from(["symphony", "WORKFLOW.md"]).expect("CLI parse should succeed");
 
+    let binding = main_bin::effective_http_binding(&config, &cli);
     assert!(
-        main_bin::effective_http_binding(&config, &cli).is_none(),
-        "orchestrator should run without HTTP listener when no effective port is configured"
+        binding.is_some(),
+        "HTTP binding should default to port 8080"
     );
+    assert_eq!(binding.unwrap().port, 8080);
 }
