@@ -3,6 +3,7 @@ tracker:
   kind: linear
   api_key: $LINEAR_API_KEY
   project_slug: "89d4761fddf0"
+  # assignee: alice
   active_states:
     - Todo
     - In Progress
