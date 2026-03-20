@@ -98,6 +98,10 @@ impl OrchestratorPort for LinearOrchestratorPort {
         let issues = self.block_on(self.adapter.fetch_issue_states_by_ids(&issue_ids))?;
         Ok(issues.into_iter().next())
     }
+
+    fn update_issue_state(&mut self, issue_id: &str, state_name: &str) -> error::Result<()> {
+        self.block_on(self.adapter.update_issue_state(issue_id, state_name))
+    }
 }
 
 #[derive(Default)]

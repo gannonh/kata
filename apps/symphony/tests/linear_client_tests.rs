@@ -901,7 +901,9 @@ async fn test_create_comment_success() {
         .await;
 
     let client = test_client(&server, None);
-    let result = client.create_comment("issue-1", "Hello from Symphony").await;
+    let result = client
+        .create_comment("issue-1", "Hello from Symphony")
+        .await;
     assert!(result.is_ok());
     mock.assert_async().await;
 }

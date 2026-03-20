@@ -19,6 +19,16 @@ use crate::{path_safety, prompt_builder, workspace};
 
 // ── Standalone Worker Task ──────────────────────────────────────────────
 
+/// All configuration needed by a spawned worker task.
+/// Bundled into a struct to avoid too-many-arguments lint.
+struct WorkerTaskConfig {
+    workspace: WorkspaceConfig,
+    hooks: HooksConfig,
+    codex: CodexConfig,
+    tracker: crate::domain::TrackerConfig,
+    prompt_template: String,
+}
+
 /// Run the full worker lifecycle for a single issue. This function is
 /// designed to run in a spawned tokio task — it takes owned/cloned data
 /// and does not require `&mut Orchestrator`.
@@ -27,18 +37,15 @@ use crate::{path_safety, prompt_builder, workspace};
 /// Codex session → stream turn → stop session → after_run hook.
 async fn run_worker_task(
     issue: &Issue,
-    prompt_template: &str,
     attempt: Option<u32>,
     worker_host: Option<&str>,
-    workspace_config: &WorkspaceConfig,
-    hooks_config: &HooksConfig,
-    codex_config: &CodexConfig,
+    config: &WorkerTaskConfig,
 ) -> WorkerResult {
     let issue_id = issue.id.clone();
 
     // 1. Ensure workspace (create dir + after_create hook)
     let workspace_info =
-        match workspace::ensure_workspace(&issue.identifier, workspace_config, hooks_config) {
+        match workspace::ensure_workspace(&issue.identifier, &config.workspace, &config.hooks) {
             Ok(info) => info,
             Err(err) => {
                 tracing::error!(
@@ -62,7 +69,7 @@ async fn run_worker_task(
     let workspace_path = Path::new(&workspace_info.path);
 
     // 2. Before-run hook
-    if let Err(err) = workspace::run_before_run_hook(workspace_path, hooks_config) {
+    if let Err(err) = workspace::run_before_run_hook(workspace_path, &config.hooks) {
         tracing::error!(
             event = "worker_before_run_failed",
             issue_id = %issue_id,
@@ -80,7 +87,7 @@ async fn run_worker_task(
     }
 
     // 3. Render prompt
-    let prompt = match prompt_builder::render_prompt(prompt_template, issue, attempt) {
+    let prompt = match prompt_builder::render_prompt(&config.prompt_template, issue, attempt) {
         Ok(prompt) => prompt,
         Err(err) => {
             tracing::error!(
@@ -101,9 +108,9 @@ async fn run_worker_task(
     };
 
     // 4. Start Codex session
-    let workspace_root = Path::new(&workspace_config.root);
+    let workspace_root = Path::new(&config.workspace.root);
     let mut session = match app_server::start_session(
-        codex_config,
+        &config.codex,
         issue,
         workspace_path,
         workspace_root,
@@ -140,13 +147,12 @@ async fn run_worker_task(
         "worker attempt started"
     );
 
-    // 5. Run turn — use a no-op graphql executor (linear_graphql tool
-    //    requires a real LinearClient; wired up separately when needed)
+    // 5. Run turn — wire real linear_graphql executor via LinearClient
     let mut observed_events: Vec<AgentEvent> = Vec::new();
-    let graphql_executor = |_query: String, _vars: serde_json::Value| async move {
-        Err(crate::error::SymphonyError::InvalidWorkflowConfig(
-            "linear_graphql not configured in worker task".to_string(),
-        ))
+    let linear_client = crate::linear::client::LinearClient::new(config.tracker.clone());
+    let graphql_executor = move |query: String, vars: serde_json::Value| {
+        let client = linear_client.clone();
+        async move { client.graphql_raw(&query, vars).await }
     };
 
     let run_result: Result<_> =
@@ -165,7 +171,7 @@ async fn run_worker_task(
     }
 
     // 7. After-run hook
-    let _ = workspace::run_after_run_hook(workspace_path, hooks_config);
+    let _ = workspace::run_after_run_hook(workspace_path, &config.hooks);
 
     // 8. Build result
     match run_result {
@@ -406,6 +412,9 @@ pub trait OrchestratorPort {
     fn fetch_candidate_issues(&mut self) -> Result<Vec<Issue>>;
 
     fn refresh_issue(&mut self, issue_id: &str) -> Result<Option<Issue>>;
+
+    /// Update an issue's workflow state in the tracker (e.g., move to "In Progress").
+    fn update_issue_state(&mut self, issue_id: &str, state_name: &str) -> Result<()>;
 }
 
 /// S06 runtime authority loop state.
@@ -479,7 +488,7 @@ impl Orchestrator {
 
             match self.tick(port) {
                 Ok(tick_result) => {
-                    self.spawn_workers_for_dispatched(&tick_result.dispatched_issues);
+                    self.spawn_workers_for_dispatched(&tick_result.dispatched_issues, port);
                 }
                 Err(err) => {
                     tracing::warn!(
@@ -491,7 +500,7 @@ impl Orchestrator {
             }
 
             let retry_dispatched = self.process_due_retries(port, Utc::now().timestamp_millis());
-            self.spawn_workers_for_dispatched(&retry_dispatched);
+            self.spawn_workers_for_dispatched(&retry_dispatched, port);
             self.publish_snapshot();
 
             // Sleep until next poll interval, but wake early on refresh request
@@ -534,8 +543,23 @@ impl Orchestrator {
     }
 
     /// Spawn a tokio task for each newly dispatched issue.
-    fn spawn_workers_for_dispatched(&mut self, dispatched: &[DispatchedIssue]) {
+    fn spawn_workers_for_dispatched(
+        &mut self,
+        dispatched: &[DispatchedIssue],
+        port: &mut dyn OrchestratorPort,
+    ) {
         for d in dispatched {
+            // Move issue to "In Progress" in Linear (best-effort)
+            if let Err(err) = port.update_issue_state(&d.issue.id, "In Progress") {
+                tracing::warn!(
+                    event = "writeback_failed",
+                    issue_id = %d.issue.id,
+                    issue_identifier = %d.issue.identifier,
+                    error = %err,
+                    "failed to move issue to In Progress; continuing with dispatch"
+                );
+            }
+
             // Update status from "scheduled" to "running"
             if let Some(attempt) = self.state.running.get_mut(&d.issue.id) {
                 attempt.status = "running".to_string();
@@ -544,22 +568,17 @@ impl Orchestrator {
             let attempt = d.attempt;
             let worker_host = d.worker_host.clone();
             let tx = self.worker_result_tx.clone();
-            let prompt_template = self.prompt_template.clone();
-            let workspace_config = self.config.workspace.clone();
-            let hooks_config = self.config.hooks.clone();
-            let codex_config = self.config.codex.clone();
+            let task_config = WorkerTaskConfig {
+                workspace: self.config.workspace.clone(),
+                hooks: self.config.hooks.clone(),
+                codex: self.config.codex.clone(),
+                tracker: self.config.tracker.clone(),
+                prompt_template: self.prompt_template.clone(),
+            };
 
             tokio::spawn(async move {
-                let result = run_worker_task(
-                    &issue,
-                    &prompt_template,
-                    attempt,
-                    worker_host.as_deref(),
-                    &workspace_config,
-                    &hooks_config,
-                    &codex_config,
-                )
-                .await;
+                let result =
+                    run_worker_task(&issue, attempt, worker_host.as_deref(), &task_config).await;
 
                 if let Err(err) = tx.send(result) {
                     tracing::error!(
