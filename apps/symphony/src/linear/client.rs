@@ -604,9 +604,9 @@ impl LinearClient {
             return Ok(single_match_filter(user_id));
         }
 
-        let available = format_available_usernames(&users);
+        let available = format_available_assignee_identifiers(&users);
         Err(SymphonyError::Other(format!(
-            "unable to resolve tracker.assignee '{assignee}' to a Linear user id. Available usernames: {available}"
+            "unable to resolve tracker.assignee '{assignee}' to a Linear user id. Available names/emails: {available}"
         )))
     }
 
@@ -618,9 +618,14 @@ impl LinearClient {
         let fetched = self.fetch_linear_users().await?;
         let mut cache = self.users_cache.lock().await;
         if cache.is_none() {
-            *cache = Some(fetched.clone());
+            *cache = Some(fetched);
         }
-        Ok(cache.clone().unwrap_or(fetched))
+        match cache.as_ref() {
+            Some(cached) => Ok(cached.clone()),
+            None => Err(SymphonyError::Other(
+                "Linear users cache unexpectedly empty".to_string(),
+            )),
+        }
     }
 
     async fn fetch_linear_users(&self) -> Result<Vec<LinearUser>> {
@@ -667,8 +672,9 @@ async fn build_assignee_filter(
         return Ok(Some(filter));
     }
 
-    if is_lowercase_uuid(trimmed) {
-        return Ok(Some(single_match_filter(trimmed.to_string())));
+    let normalized_uuid = trimmed.to_lowercase();
+    if is_uuid_pattern(&normalized_uuid) {
+        return Ok(Some(single_match_filter(normalized_uuid)));
     }
 
     let filter = client.resolve_named_assignee_filter(trimmed).await?;
@@ -1046,7 +1052,7 @@ fn normalize_assignee_lookup_key(raw: &str) -> String {
     raw.trim().to_lowercase()
 }
 
-fn is_lowercase_uuid(value: &str) -> bool {
+fn is_uuid_pattern(value: &str) -> bool {
     if value.len() != 36 {
         return false;
     }
@@ -1055,7 +1061,7 @@ fn is_lowercase_uuid(value: &str) -> bool {
         if matches!(idx, 8 | 13 | 18 | 23) {
             ch == '-'
         } else {
-            ch.is_ascii_digit() || matches!(ch, 'a'..='f')
+            ch.is_ascii_hexdigit()
         }
     })
 }
@@ -1080,7 +1086,7 @@ fn find_user_id_by_lookup(users: &[LinearUser], lookup_key: &str) -> Option<Stri
     })
 }
 
-fn format_available_usernames(users: &[LinearUser]) -> String {
+fn format_available_assignee_identifiers(users: &[LinearUser]) -> String {
     let mut unique_values: HashMap<String, String> = HashMap::new();
 
     for user in users {

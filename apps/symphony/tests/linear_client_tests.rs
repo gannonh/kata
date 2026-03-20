@@ -1073,6 +1073,56 @@ async fn test_fetch_candidates_with_email_assignee() {
 }
 
 #[tokio::test]
+async fn test_fetch_candidates_with_username_assignee_paginates_users_query() {
+    let mut server = Server::new_async().await;
+
+    let users_page_1 = users_response(
+        vec![user_node(
+            "user-bob",
+            Some("Bob Example"),
+            Some("bob"),
+            Some("bob@example.com"),
+        )],
+        true,
+        Some("cursor-1"),
+    );
+    let m_users_page_1 = mock_graphql(&mut server, &users_page_1).await;
+
+    let users_page_2 = users_response(
+        vec![user_node(
+            "user-alice",
+            Some("Alice Example"),
+            Some("alice"),
+            Some("alice@example.com"),
+        )],
+        false,
+        None,
+    );
+    let m_users_page_2 = mock_graphql(&mut server, &users_page_2).await;
+
+    let issue = json!({
+        "id": "id-1",
+        "identifier": "PROJ-1",
+        "title": "T",
+        "state": { "name": "Todo" },
+        "assignee": { "id": "user-alice" },
+        "labels": { "nodes": [] },
+        "inverseRelations": { "nodes": [] }
+    });
+    let candidates_resp = paginated_response(vec![issue], false, None);
+    let m_candidates = mock_graphql(&mut server, &candidates_resp).await;
+
+    let client = test_client(&server, Some("alice"));
+    let issues = client.fetch_candidates().await.unwrap();
+
+    m_users_page_1.assert_async().await;
+    m_users_page_2.assert_async().await;
+    m_candidates.assert_async().await;
+    assert_eq!(issues.len(), 1);
+    assert!(issues[0].assigned_to_worker);
+}
+
+#[tokio::test]
 async fn test_fetch_candidates_with_uuid_assignee_skips_users_query() {
     let mut server = Server::new_async().await;
 
@@ -1098,7 +1148,33 @@ async fn test_fetch_candidates_with_uuid_assignee_skips_users_query() {
 }
 
 #[tokio::test]
-async fn test_fetch_candidates_with_unresolvable_assignee_errors_with_usernames() {
+async fn test_fetch_candidates_with_uppercase_uuid_assignee_normalizes_to_lowercase() {
+    let mut server = Server::new_async().await;
+
+    let assignee_id = "123e4567-e89b-12d3-a456-426614174000";
+    let assignee_upper = assignee_id.to_uppercase();
+    let issue = json!({
+        "id": "id-1",
+        "identifier": "PROJ-1",
+        "title": "T",
+        "state": { "name": "Todo" },
+        "assignee": { "id": assignee_id },
+        "labels": { "nodes": [] },
+        "inverseRelations": { "nodes": [] }
+    });
+    let candidates_resp = paginated_response(vec![issue], false, None);
+    let m_candidates = mock_graphql(&mut server, &candidates_resp).await;
+
+    let client = test_client(&server, Some(assignee_upper.as_str()));
+    let issues = client.fetch_candidates().await.unwrap();
+
+    m_candidates.assert_async().await;
+    assert_eq!(issues.len(), 1);
+    assert!(issues[0].assigned_to_worker);
+}
+
+#[tokio::test]
+async fn test_fetch_candidates_with_unresolvable_assignee_errors_with_identifiers() {
     let mut server = Server::new_async().await;
 
     let users_resp = users_response(
@@ -1118,7 +1194,7 @@ async fn test_fetch_candidates_with_unresolvable_assignee_errors_with_usernames(
     match err {
         SymphonyError::Other(message) => {
             assert!(message.contains("carol"));
-            assert!(message.contains("Available usernames"));
+            assert!(message.contains("Available names/emails"));
             assert!(message.contains("alice"));
             assert!(message.contains("bob"));
         }
