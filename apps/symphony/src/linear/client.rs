@@ -109,6 +109,34 @@ query SymphonyLinearIssuesById($ids: [ID!]!, $first: Int!, $relationFirst: Int!)
 }
 "#;
 
+const QUERY_RESOLVE_STATE_ID: &str = r#"
+query SymphonyResolveStateId($issueId: String!, $stateName: String!) {
+    issue(id: $issueId) {
+        team {
+            states(filter: {name: {eq: $stateName}}, first: 1) {
+                nodes { id }
+            }
+        }
+    }
+}
+"#;
+
+const MUTATION_UPDATE_ISSUE_STATE: &str = r#"
+mutation SymphonyUpdateIssueState($issueId: String!, $stateId: String!) {
+    issueUpdate(id: $issueId, input: {stateId: $stateId}) {
+        success
+    }
+}
+"#;
+
+const MUTATION_CREATE_COMMENT: &str = r#"
+mutation SymphonyCreateComment($issueId: String!, $body: String!) {
+    commentCreate(input: {issueId: $issueId, body: $body}) {
+        success
+    }
+}
+"#;
+
 const VIEWER_QUERY: &str = r#"
 query SymphonyLinearViewer {
   viewer {
@@ -244,6 +272,98 @@ impl LinearClient {
             "fetched issues by IDs"
         );
         Ok(all_issues)
+    }
+
+    // ── Write operations ──────────────────────────────────────────────
+
+    /// Resolve a workflow state ID by name for the team that owns the given issue.
+    pub async fn resolve_state_id(&self, issue_id: &str, state_name: &str) -> Result<String> {
+        let body = self
+            .graphql(
+                QUERY_RESOLVE_STATE_ID,
+                serde_json::json!({
+                    "issueId": issue_id,
+                    "stateName": state_name,
+                }),
+            )
+            .await?;
+
+        body.get("data")
+            .and_then(|d| d.get("issue"))
+            .and_then(|i| i.get("team"))
+            .and_then(|t| t.get("states"))
+            .and_then(|s| s.get("nodes"))
+            .and_then(|n| n.as_array())
+            .and_then(|nodes| nodes.first())
+            .and_then(|node| node.get("id"))
+            .and_then(|id| id.as_str())
+            .map(String::from)
+            .ok_or_else(|| {
+                SymphonyError::Other(format!(
+                    "state '{}' not found for issue '{}'",
+                    state_name, issue_id
+                ))
+            })
+    }
+
+    /// Update an issue's workflow state by resolving the state name to an ID first.
+    pub async fn update_issue_state(&self, issue_id: &str, state_name: &str) -> Result<()> {
+        let state_id = self.resolve_state_id(issue_id, state_name).await?;
+
+        let body = self
+            .graphql(
+                MUTATION_UPDATE_ISSUE_STATE,
+                serde_json::json!({
+                    "issueId": issue_id,
+                    "stateId": state_id,
+                }),
+            )
+            .await?;
+
+        let success = body
+            .get("data")
+            .and_then(|d| d.get("issueUpdate"))
+            .and_then(|u| u.get("success"))
+            .and_then(|s| s.as_bool())
+            .unwrap_or(false);
+
+        if success {
+            Ok(())
+        } else {
+            Err(SymphonyError::Other(format!(
+                "issueUpdate failed for issue '{}' to state '{}'",
+                issue_id, state_name
+            )))
+        }
+    }
+
+    /// Create a comment on an issue.
+    pub async fn create_comment(&self, issue_id: &str, body: &str) -> Result<()> {
+        let resp = self
+            .graphql(
+                MUTATION_CREATE_COMMENT,
+                serde_json::json!({
+                    "issueId": issue_id,
+                    "body": body,
+                }),
+            )
+            .await?;
+
+        let success = resp
+            .get("data")
+            .and_then(|d| d.get("commentCreate"))
+            .and_then(|c| c.get("success"))
+            .and_then(|s| s.as_bool())
+            .unwrap_or(false);
+
+        if success {
+            Ok(())
+        } else {
+            Err(SymphonyError::Other(format!(
+                "commentCreate failed for issue '{}'",
+                issue_id
+            )))
+        }
     }
 
     // ── GraphQL transport ──────────────────────────────────────────────
