@@ -112,7 +112,7 @@ The agent should be able to talk to Linear, either via a configured Linear MCP s
 - `linear`: interact with Linear. **MANDATORY: read `.codex/skills/linear/SKILL.md` before ANY `linear_graphql` tool call.** It contains the exact correct query shapes, field names, and argument types. Do not guess Linear GraphQL schema — use the skill.
 - `commit`: produce clean, logical commits during implementation.
 - `push`: keep remote branch current and publish updates.
-- `pull`: keep branch updated before handoff. Use `origin/elixir-feature-parity` as the upstream — NOT `origin/elixir-feature-parity`.
+- `pull`: keep branch updated before handoff. Use `origin/elixir-feature-parity` as the upstream — NOT `origin/main`.
 - `land`: when ticket reaches `Merging`, explicitly open and follow `.codex/skills/land/SKILL.md`, which includes the `land` loop.
 
 ## Status map
