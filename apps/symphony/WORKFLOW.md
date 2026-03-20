@@ -118,6 +118,7 @@ The agent should be able to talk to Linear, either via a configured Linear MCP s
 - `pull`: keep branch updated before handoff. Use `origin/main` as the upstream.
 - `land`: when ticket reaches `Merging`, explicitly open and follow `.codex/skills/land/SKILL.md`, which includes the `land` loop.
 - `address-comments`: **MANDATORY when issue is in `Agent Review`.** Read `.codex/skills/address-comments/SKILL.md` and follow its steps to fetch PR comments, address each thread, resolve threads, and push fixes.
+- `fix-ci`: when CI checks fail on a PR, read `.codex/skills/fix-ci/SKILL.md` and follow its steps to diagnose and fix GitHub Actions failures.
 
 ## Status map
 
@@ -148,7 +149,7 @@ Todo -> In Progress -> Human Review -> (human approves) -> Merging -> Done
    - `Todo` -> orchestrator already moved to `In Progress`; verify state, then ensure bootstrap workpad comment exists (create if missing), then start execution flow.
      - If PR is already attached, start by reviewing all open PR comments and deciding required changes vs explicit pushback responses.
    - `In Progress` -> continue execution flow from current scratchpad comment.
-   - `Agent Review` -> run full PR feedback sweep, address comments with code fixes or justified pushback, push to existing branch, then move to `Human Review`.
+   - `Agent Review` -> open and follow `.codex/skills/address-comments/SKILL.md`. Fetch PR comments, address each thread, resolve threads, push fixes, then move to `Human Review`.
    - `Human Review` -> wait and poll for decision/review updates.
    - `Merging` -> on entry, open and follow `.codex/skills/land/SKILL.md`; do not call `gh pr merge` directly.
    - `Rework` -> run rework flow.
