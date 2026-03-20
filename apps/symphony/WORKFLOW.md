@@ -28,6 +28,7 @@ agent:
   max_turns: 20
 codex:
   command: codex --config shell_environment_policy.inherit=all --config model_reasoning_effort=xhigh --model gpt-5.3-codex app-server
+  stall_timeout_ms: 900000
   approval_policy: never
   thread_sandbox: danger-full-access
   turn_sandbox_policy:
