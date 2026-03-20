@@ -117,6 +117,7 @@ The agent should be able to talk to Linear, either via a configured Linear MCP s
 - `push`: keep remote branch current and publish updates.
 - `pull`: keep branch updated before handoff. Use `origin/main` as the upstream.
 - `land`: when ticket reaches `Merging`, explicitly open and follow `.codex/skills/land/SKILL.md`, which includes the `land` loop.
+- `address-comments`: **MANDATORY when issue is in `Agent Review`.** Read `.codex/skills/address-comments/SKILL.md` and follow its steps to fetch PR comments, address each thread, resolve threads, and push fixes.
 
 ## Status map
 
