@@ -34,7 +34,9 @@ description:
 4. If push is not clean/rejected:
    - If the failure is a non-fast-forward or sync problem, run the `pull`
      skill to merge `origin/main`, resolve conflicts, and rerun validation.
-   - Push again; use `--force-with-lease` only when history was rewritten.
+   - Retry with `git push -u origin "$branch"` so upstream is set even when the
+     first push failed before tracking was recorded.
+   - Use `--force-with-lease` only when history was rewritten.
    - If the failure is due to auth, permissions, or workflow restrictions on
      the configured remote, stop and surface the exact error instead of
      rewriting remotes or switching protocols as a workaround.
@@ -70,6 +72,9 @@ git push -u origin "$branch"
 
 # If that failed because the remote moved, use the pull skill. After
 # pull-skill resolution and re-validation, retry the normal push:
+git push -u origin "$branch"
+
+# After upstream is set, routine branch updates can use:
 git push
 
 # If the configured remote rejects the push for auth, permissions, or workflow
