@@ -1563,6 +1563,74 @@ async fn test_execute_worker_attempt_stops_when_issue_leaves_active_state_after_
 }
 
 #[tokio::test]
+async fn test_execute_worker_attempt_stops_when_issue_changes_active_state_between_turns() {
+    let mut server = Server::new_async().await;
+    let issue = issue(
+        "issue-state-change",
+        "SIM-STATECHANGE",
+        "In Progress",
+        Some(1),
+        0,
+    );
+
+    let _state_lookup = server
+        .mock("POST", "/graphql")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::to_string(&state_lookup_response(
+                &issue.id,
+                &issue.identifier,
+                "Todo",
+                None,
+            ))
+            .expect("state response should serialize"),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let scripts_dir = tempdir().expect("scripts dir should be created");
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let prompt_log = scripts_dir.path().join("prompts.log");
+    let script = write_script(
+        scripts_dir.path(),
+        "codex.sh",
+        &script_two_successful_turns(&prompt_log),
+    );
+
+    let mut orchestrator = Orchestrator::new(
+        make_worker_config(&server, &script, workspace_root.path(), 5),
+        String::new(),
+    );
+
+    let result = orchestrator
+        .execute_worker_attempt(
+            &issue,
+            "First prompt {{ issue.identifier }}",
+            Some(1),
+            |_query, _vars| async { Ok(serde_json::json!({ "data": {} })) },
+        )
+        .await;
+
+    assert!(
+        result.is_ok(),
+        "worker should stop cleanly once issue state changes between turns"
+    );
+
+    let prompt_lines: Vec<String> = std::fs::read_to_string(&prompt_log)
+        .expect("prompt log should exist")
+        .lines()
+        .map(|line| line.to_string())
+        .collect();
+    assert_eq!(
+        prompt_lines.len(),
+        1,
+        "state change after turn 1 should end the current session loop"
+    );
+}
+
+#[tokio::test]
 async fn test_execute_worker_attempt_stops_when_issue_unassigned_between_turns() {
     let mut server = Server::new_async().await;
     let issue = issue(
