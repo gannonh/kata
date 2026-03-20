@@ -20,7 +20,7 @@ workspace:
   root: ~/symphony-workspaces
 hooks:
   after_create: |
-    git clone /Volumes/EVO/kata/kata-mono . --single-branch --branch elixir-feature-parity
+    git clone https://github.com/gannonh/kata.git . --single-branch --branch elixir-feature-parity
     git checkout -b symphony/$(basename $PWD)
   timeout_ms: 120000
 agent:
@@ -29,9 +29,9 @@ agent:
 codex:
   command: codex --config shell_environment_policy.inherit=all --config model_reasoning_effort=xhigh --model gpt-5.3-codex app-server
   approval_policy: never
-  thread_sandbox: workspace-write
+  thread_sandbox: danger-full-access
   turn_sandbox_policy:
-    type: workspaceWrite
+    type: dangerFullAccess
 server:
   port: 8080
   host: "127.0.0.1"
