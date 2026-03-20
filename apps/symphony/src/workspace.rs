@@ -199,6 +199,12 @@ fn bootstrap_repository(
                 ));
             }
 
+            // Older git versions require a non-existent target path for
+            // `git worktree add`. remove the pre-created empty directory first.
+            if workspace.exists() {
+                std::fs::remove_dir(workspace)?;
+            }
+
             let mut worktree_cmd = Command::new("git");
             worktree_cmd
                 .arg("-C")
