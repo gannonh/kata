@@ -27,8 +27,10 @@ description:
 
 1. Identify current branch and confirm remote state.
 2. Run local validation (`cd apps/symphony && cargo test && cargo clippy -- -D warnings`) before pushing.
-3. Push branch to `origin` with upstream tracking if needed, using whatever
-   remote URL is already configured.
+3. Push branch to `origin` using explicit first-push upstream setup:
+   - first publish of a new branch: `git push -u origin "$branch"`
+   - subsequent updates: `git push`
+   Use whatever remote URL is already configured.
 4. If push is not clean/rejected:
    - If the failure is a non-fast-forward or sync problem, run the `pull`
      skill to merge `origin/main`, resolve conflicts, and rerun validation.
@@ -63,12 +65,12 @@ branch=$(git branch --show-current)
 # Minimal validation gate
 cd apps/symphony && cargo test && cargo clippy -- -D warnings
 
-# Initial push: respect the current origin remote.
-git push -u origin HEAD
+# Initial push for a new branch: set upstream explicitly.
+git push -u origin "$branch"
 
 # If that failed because the remote moved, use the pull skill. After
 # pull-skill resolution and re-validation, retry the normal push:
-git push -u origin HEAD
+git push
 
 # If the configured remote rejects the push for auth, permissions, or workflow
 # restrictions, stop and surface the exact error.
