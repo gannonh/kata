@@ -787,6 +787,12 @@ async fn test_turn_completed_with_usage_limit_exceeded_surfaces_error_message() 
 
     assert_eq!(turn_failed_errors.len(), 1, "expected one TurnFailed event");
     assert!(
+        !collected
+            .iter()
+            .any(|e| matches!(e, AgentEvent::TurnCompleted { .. })),
+        "did not expect TurnCompleted event for failed turn/completed status"
+    );
+    assert!(
         turn_failed_errors[0].contains("usageLimitExceeded"),
         "expected event error to include codexErrorInfo, got: {}",
         turn_failed_errors[0]
