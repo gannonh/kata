@@ -469,6 +469,30 @@ echo '{"id":3,"result":{"turn":{"id":"turn-fail"}}}'
 echo '{"method":"turn/failed","params":{"reason":"something went wrong"}}'
 "#;
 
+/// Handshake script that emits `turn/completed` with `turn.status=failed`.
+const SCRIPT_TURN_COMPLETED_FAILED_STATUS: &str = r#"#!/bin/bash
+read -r line
+echo '{"id":1,"result":{"capabilities":{}}}'
+read -r line
+read -r line
+echo '{"id":2,"result":{"thread":{"id":"thread-failed-status"}}}'
+read -r line
+echo '{"id":3,"result":{"turn":{"id":"turn-failed-status"}}}'
+echo '{"method":"turn/completed","params":{"turn":{"status":"failed","error":{"message":"Model temporarily unavailable","codexErrorInfo":"modelUnavailable"}}}}'
+"#;
+
+/// Handshake script that emits a usage limit failure via `turn/completed`.
+const SCRIPT_TURN_COMPLETED_USAGE_LIMIT_EXCEEDED: &str = r#"#!/bin/bash
+read -r line
+echo '{"id":1,"result":{"capabilities":{}}}'
+read -r line
+read -r line
+echo '{"id":2,"result":{"thread":{"id":"thread-usage-limit"}}}'
+read -r line
+echo '{"id":3,"result":{"turn":{"id":"turn-usage-limit"}}}'
+echo '{"method":"turn/completed","params":{"turn":{"status":"failed","error":{"message":"Usage limit exceeded for model","codexErrorInfo":"usageLimitExceeded"}}}}'
+"#;
+
 /// Handshake script that emits `turn/cancelled`.
 const SCRIPT_TURN_CANCELLATION: &str = r#"#!/bin/bash
 read -r line
@@ -654,6 +678,129 @@ async fn test_app_server_turn_failure() {
             .iter()
             .any(|e| matches!(e, AgentEvent::TurnFailed { .. })),
         "expected TurnFailed event in callback"
+    );
+}
+
+#[tokio::test]
+async fn test_turn_completed_with_failed_status_treated_as_failure() {
+    let scripts_dir = tempfile::tempdir().unwrap();
+    let root_dir = tempfile::tempdir().unwrap();
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let script_path = write_script(
+        scripts_dir.path(),
+        "codex.sh",
+        SCRIPT_TURN_COMPLETED_FAILED_STATUS,
+    );
+    let config = make_codex_config(&script_path);
+    let issue = make_test_issue();
+
+    let mut collected: Vec<AgentEvent> = Vec::new();
+
+    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
+        .await
+        .expect("start_session should succeed");
+
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
+        collected.push(ev)
+    })
+    .await;
+    app_server::stop_session(handle).await.ok();
+
+    let err = match result {
+        Err(SymphonyError::TurnFailed(msg)) => msg,
+        other => panic!("expected TurnFailed error, got: {other:?}"),
+    };
+    assert!(
+        err.contains("modelUnavailable"),
+        "expected codexErrorInfo in error message, got: {err}"
+    );
+    assert!(
+        err.contains("Model temporarily unavailable"),
+        "expected error message from payload, got: {err}"
+    );
+    assert!(
+        collected
+            .iter()
+            .any(|e| matches!(e, AgentEvent::TurnFailed { .. })),
+        "expected TurnFailed event in callback"
+    );
+    assert!(
+        !collected
+            .iter()
+            .any(|e| matches!(e, AgentEvent::TurnCompleted { .. })),
+        "did not expect TurnCompleted event for failed turn/completed status"
+    );
+}
+
+#[tokio::test]
+async fn test_turn_completed_with_usage_limit_exceeded_surfaces_error_message() {
+    let scripts_dir = tempfile::tempdir().unwrap();
+    let root_dir = tempfile::tempdir().unwrap();
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let script_path = write_script(
+        scripts_dir.path(),
+        "codex.sh",
+        SCRIPT_TURN_COMPLETED_USAGE_LIMIT_EXCEEDED,
+    );
+    let config = make_codex_config(&script_path);
+    let issue = make_test_issue();
+
+    let mut collected: Vec<AgentEvent> = Vec::new();
+
+    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
+        .await
+        .expect("start_session should succeed");
+
+    let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
+        collected.push(ev)
+    })
+    .await;
+    app_server::stop_session(handle).await.ok();
+
+    let err = match result {
+        Err(SymphonyError::TurnFailed(msg)) => msg,
+        other => panic!("expected TurnFailed error, got: {other:?}"),
+    };
+    assert!(
+        err.contains("usageLimitExceeded"),
+        "expected codexErrorInfo to surface, got: {err}"
+    );
+    assert!(
+        err.contains("Usage limit exceeded for model"),
+        "expected payload error message to surface, got: {err}"
+    );
+
+    let turn_failed_errors: Vec<&str> = collected
+        .iter()
+        .filter_map(|e| {
+            if let AgentEvent::TurnFailed { error, .. } = e {
+                Some(error.as_str())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    assert_eq!(turn_failed_errors.len(), 1, "expected one TurnFailed event");
+    assert!(
+        !collected
+            .iter()
+            .any(|e| matches!(e, AgentEvent::TurnCompleted { .. })),
+        "did not expect TurnCompleted event for failed turn/completed status"
+    );
+    assert!(
+        turn_failed_errors[0].contains("usageLimitExceeded"),
+        "expected event error to include codexErrorInfo, got: {}",
+        turn_failed_errors[0]
+    );
+    assert!(
+        turn_failed_errors[0].contains("Usage limit exceeded for model"),
+        "expected event error to include payload message, got: {}",
+        turn_failed_errors[0]
     );
 }
 
