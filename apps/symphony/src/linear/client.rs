@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use serde_json::Value;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, OnceCell};
 use tracing::{error, info, warn};
 
 use crate::domain::{BlockerRef, Issue, TrackerConfig};
@@ -189,7 +189,7 @@ pub struct LinearClient {
     http: reqwest::Client,
     config: TrackerConfig,
     assignee_resolution_cache: Arc<Mutex<HashMap<String, String>>>,
-    users_cache: Arc<Mutex<Option<Vec<LinearUser>>>>,
+    users_cache: Arc<OnceCell<Vec<LinearUser>>>,
 }
 
 impl LinearClient {
@@ -203,7 +203,7 @@ impl LinearClient {
             http,
             config,
             assignee_resolution_cache: Arc::new(Mutex::new(HashMap::new())),
-            users_cache: Arc::new(Mutex::new(None)),
+            users_cache: Arc::new(OnceCell::new()),
         }
     }
 
@@ -621,21 +621,11 @@ impl LinearClient {
     }
 
     async fn list_linear_users(&self) -> Result<Vec<LinearUser>> {
-        if let Some(cached) = self.users_cache.lock().await.clone() {
-            return Ok(cached);
-        }
-
-        let fetched = self.fetch_linear_users().await?;
-        let mut cache = self.users_cache.lock().await;
-        if cache.is_none() {
-            *cache = Some(fetched);
-        }
-        match cache.as_ref() {
-            Some(cached) => Ok(cached.clone()),
-            None => Err(SymphonyError::Other(
-                "Linear users cache unexpectedly empty".to_string(),
-            )),
-        }
+        let users = self
+            .users_cache
+            .get_or_try_init(|| async { self.fetch_linear_users().await })
+            .await?;
+        Ok(users.clone())
     }
 
     async fn fetch_linear_users(&self) -> Result<Vec<LinearUser>> {

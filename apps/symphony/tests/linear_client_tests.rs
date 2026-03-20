@@ -3,7 +3,7 @@
 //! Uses `mockito` to mock the Linear GraphQL endpoint — no live API calls.
 //! Tests cover all verification items from S03-PLAN.md.
 
-use mockito::{Mock, Server, ServerGuard};
+use mockito::{Matcher, Mock, Server, ServerGuard};
 use serde_json::{json, Value};
 use symphony::domain::{ApiKey, TrackerConfig};
 use symphony::error::SymphonyError;
@@ -1269,6 +1269,63 @@ async fn test_fetch_candidates_named_assignee_uses_session_cache() {
     m_candidates_1.assert_async().await;
     m_candidates_2.assert_async().await;
 
+    assert_eq!(first.len(), 1);
+    assert!(first[0].assigned_to_worker);
+    assert_eq!(second.len(), 1);
+    assert!(second[0].assigned_to_worker);
+}
+
+#[tokio::test]
+async fn test_fetch_candidates_named_assignee_concurrent_requests_share_users_fetch() {
+    let mut server = Server::new_async().await;
+
+    let users_resp = users_response(
+        vec![user_node(
+            "user-alice",
+            Some("Alice Example"),
+            Some("alice"),
+            Some("alice@example.com"),
+        )],
+        false,
+        None,
+    );
+    let m_users = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("SymphonyLinearListUsers".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(serde_json::to_string(&users_resp).unwrap())
+        .expect(1)
+        .create_async()
+        .await;
+
+    let issue = json!({
+        "id": "id-1",
+        "identifier": "PROJ-1",
+        "title": "T",
+        "state": { "name": "Todo" },
+        "assignee": { "id": "user-alice" },
+        "labels": { "nodes": [] },
+        "inverseRelations": { "nodes": [] }
+    });
+    let candidates_resp = paginated_response(vec![issue], false, None);
+    let m_candidates = server
+        .mock("POST", "/graphql")
+        .match_body(Matcher::Regex("SymphonyLinearPoll".to_string()))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(serde_json::to_string(&candidates_resp).unwrap())
+        .expect(2)
+        .create_async()
+        .await;
+
+    let client = test_client(&server, Some("alice"));
+    let (first, second) = tokio::join!(client.fetch_candidates(), client.fetch_candidates());
+    let first = first.unwrap();
+    let second = second.unwrap();
+
+    m_users.assert_async().await;
+    m_candidates.assert_async().await;
     assert_eq!(first.len(), 1);
     assert!(first[0].assigned_to_worker);
     assert_eq!(second.len(), 1);
