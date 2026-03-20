@@ -476,6 +476,69 @@ fn test_stale_retry_timer_is_ignored() {
     );
 }
 
+#[tokio::test]
+async fn test_due_continuation_retry_marks_terminal_issue_completed_when_not_visible_in_candidates()
+{
+    let mut config = test_config(1);
+    config.polling.interval_ms = 60_000;
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    orchestrator.schedule_retry(
+        "issue-terminal-before-retry",
+        "SIM-79",
+        1,
+        RetryKind::Continuation,
+        0,
+        None,
+    );
+
+    let mut port = FakePort {
+        candidate_issues: vec![],
+        refreshed_issues: HashMap::from([(
+            "issue-terminal-before-retry".to_string(),
+            Some(issue(
+                "issue-terminal-before-retry",
+                "SIM-79",
+                "Done",
+                Some(1),
+                0,
+            )),
+        )]),
+        ..FakePort::default()
+    };
+
+    let run_result = tokio::time::timeout(
+        tokio::time::Duration::from_millis(200),
+        orchestrator.run(&mut port),
+    )
+    .await;
+    assert!(
+        run_result.is_err(),
+        "orchestrator run loop should be canceled by timeout in test harness"
+    );
+
+    assert!(
+        orchestrator
+            .state()
+            .completed
+            .contains("issue-terminal-before-retry"),
+        "terminal issue reached during retry visibility gap must be tracked as completed"
+    );
+    assert!(
+        !orchestrator
+            .state()
+            .retry_attempts
+            .contains_key("issue-terminal-before-retry"),
+        "terminal issue should be removed from retry queue after terminal refresh"
+    );
+    assert!(
+        port.call_history()
+            .iter()
+            .any(|call| call == "refresh_issue:issue-terminal-before-retry"),
+        "retry handling should refresh hidden issue by id before releasing it"
+    );
+}
+
 #[test]
 fn test_stall_detection_schedules_forced_retry() {
     let mut orchestrator = Orchestrator::new(test_config(2), String::new());
@@ -686,6 +749,21 @@ fn test_worker_completion_schedules_continuation_retry_with_session_context() {
         retry_entry.workspace_path.as_deref(),
         Some("/tmp/workspace-complete")
     );
+    assert!(
+        !orchestrator.state().running.contains_key("issue-complete"),
+        "completed turn should leave running map before retry scheduling"
+    );
+    assert!(
+        !orchestrator.state().completed.contains("issue-complete"),
+        "continuation completions must stay out of completed until terminal state"
+    );
+    assert!(
+        orchestrator.state().running.len()
+            + orchestrator.state().retry_attempts.len()
+            + orchestrator.state().completed.len()
+            <= 1,
+        "running + retry + completed bookkeeping must not exceed dispatched issue count"
+    );
 
     let worker_completed = orchestrator.events().iter().any(|event| {
         matches!(
@@ -747,6 +825,13 @@ fn test_worker_completion_without_continuation_does_not_queue_retry() {
         orchestrator.state().completed.contains("issue-stop"),
         "issue should still be marked completed in orchestrator bookkeeping"
     );
+    assert!(
+        orchestrator.state().running.len()
+            + orchestrator.state().retry_attempts.len()
+            + orchestrator.state().completed.len()
+            <= 1,
+        "running + retry + completed bookkeeping must not exceed dispatched issue count"
+    );
 }
 
 #[test]
@@ -807,6 +892,17 @@ fn test_worker_failure_preserves_attempt_and_backoff_cap() {
     assert!(
         worker_failed,
         "worker failure diagnostics should retain issue context and failure reason"
+    );
+    assert!(
+        !orchestrator.state().completed.contains("issue-fail"),
+        "failed issues must not be retained in completed bookkeeping"
+    );
+    assert!(
+        orchestrator.state().running.len()
+            + orchestrator.state().retry_attempts.len()
+            + orchestrator.state().completed.len()
+            <= 1,
+        "running + retry + completed bookkeeping must not exceed dispatched issue count"
     );
 }
 
