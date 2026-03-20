@@ -75,18 +75,38 @@ fn is_terminal_state(state_name: &str, tracker_config: &TrackerConfig) -> bool {
         .any(|state| normalize_issue_state(state) == normalized)
 }
 
-async fn check_issue_still_active(issue: &Issue, tracker_config: &TrackerConfig) -> IssueCheck {
-    let client = crate::linear::client::LinearClient::new(tracker_config.clone());
+fn is_active_state(state_name: &str, tracker_config: &TrackerConfig) -> bool {
+    let normalized = normalize_issue_state(state_name);
+    tracker_config
+        .active_states
+        .iter()
+        .any(|state| normalize_issue_state(state) == normalized)
+}
+
+fn should_continue_issue_in_session(issue: &Issue, tracker_config: &TrackerConfig) -> bool {
+    issue.assigned_to_worker
+        && is_active_state(&issue.state, tracker_config)
+        && !is_terminal_state(&issue.state, tracker_config)
+}
+
+async fn check_issue_still_active(
+    issue: &Issue,
+    client: &crate::linear::client::LinearClient,
+    tracker_config: &TrackerConfig,
+) -> IssueCheck {
     match client
         .fetch_issue_states_by_ids(std::slice::from_ref(&issue.id))
         .await
     {
         Ok(issues) => match issues.first() {
             Some(refreshed) => {
-                if is_terminal_state(&refreshed.state, tracker_config) {
-                    IssueCheck::Done(refreshed.clone())
-                } else {
+                if should_continue_issue_in_session(refreshed, tracker_config)
+                    && normalize_issue_state(&refreshed.state)
+                        == normalize_issue_state(&issue.state)
+                {
                     IssueCheck::Continue(refreshed.clone())
+                } else {
+                    IssueCheck::Done(refreshed.clone())
                 }
             }
             None => IssueCheck::Done(issue.clone()),
@@ -110,6 +130,7 @@ where
     let capped_max_turns = max_turns.max(1);
     let mut turn_number: u32 = 1;
     let mut current_issue = issue.clone();
+    let issue_state_client = crate::linear::client::LinearClient::new(tracker_config.clone());
     let mut observed_events: Vec<AgentEvent> = Vec::new();
     let mut metrics: Option<TurnMetrics> = None;
     let mut initial_prompt = Some(initial_prompt);
@@ -144,7 +165,7 @@ where
             break;
         }
 
-        match check_issue_still_active(&current_issue, tracker_config).await {
+        match check_issue_still_active(&current_issue, &issue_state_client, tracker_config).await {
             IssueCheck::Continue(refreshed) => {
                 current_issue = refreshed;
                 turn_number = turn_number.saturating_add(1);
@@ -153,6 +174,14 @@ where
                 break;
             }
             IssueCheck::Error(err) => {
+                observed_events.push(AgentEvent::Notification {
+                    timestamp: Utc::now(),
+                    codex_app_server_pid: None,
+                    message: format!(
+                        "inter-turn issue refresh failed for {} ({}): {}",
+                        current_issue.identifier, current_issue.id, err
+                    ),
+                });
                 tracing::warn!(
                     issue_id = %current_issue.id,
                     issue_identifier = %current_issue.identifier,

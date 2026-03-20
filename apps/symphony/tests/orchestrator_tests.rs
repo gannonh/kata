@@ -1142,7 +1142,16 @@ fn write_script(dir: &Path, name: &str, content: &str) -> PathBuf {
     path
 }
 
-fn state_lookup_response(issue_id: &str, identifier: &str, state: &str) -> serde_json::Value {
+fn state_lookup_response(
+    issue_id: &str,
+    identifier: &str,
+    state: &str,
+    assignee_id: Option<&str>,
+) -> serde_json::Value {
+    let assignee = assignee_id
+        .map(|id| json!({ "id": id }))
+        .unwrap_or_else(|| json!(null));
+
     json!({
         "data": {
             "issues": {
@@ -1156,7 +1165,7 @@ fn state_lookup_response(issue_id: &str, identifier: &str, state: &str) -> serde
                         "state": { "name": state },
                         "branchName": null,
                         "url": null,
-                        "assignee": null,
+                        "assignee": assignee,
                         "labels": { "nodes": [] },
                         "inverseRelations": { "nodes": [] },
                         "createdAt": "2026-01-01T00:00:00.000Z",
@@ -1252,6 +1261,7 @@ async fn test_execute_worker_attempt_runs_multiple_turns_in_one_session_and_uses
                 &issue.id,
                 &issue.identifier,
                 "In Progress",
+                None,
             ))
             .expect("state response should serialize"),
         )
@@ -1355,8 +1365,13 @@ async fn test_execute_worker_attempt_stops_when_issue_turns_terminal_after_first
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(
-            serde_json::to_string(&state_lookup_response(&issue.id, &issue.identifier, "Done"))
-                .expect("state response should serialize"),
+            serde_json::to_string(&state_lookup_response(
+                &issue.id,
+                &issue.identifier,
+                "Done",
+                None,
+            ))
+            .expect("state response should serialize"),
         )
         .expect(1)
         .create_async()
@@ -1416,6 +1431,7 @@ async fn test_execute_worker_attempt_failure_on_turn_two_keeps_turn_one_metrics(
                 &issue.id,
                 &issue.identifier,
                 "In Progress",
+                None,
             ))
             .expect("state response should serialize"),
         )
@@ -1475,5 +1491,141 @@ async fn test_execute_worker_attempt_failure_on_turn_two_keeps_turn_one_metrics(
     assert_eq!(
         retry_entry.attempt, 2,
         "failure retry attempt should increment from the running attempt"
+    );
+}
+
+#[tokio::test]
+async fn test_execute_worker_attempt_stops_when_issue_leaves_active_state_after_first_turn() {
+    let mut server = Server::new_async().await;
+    let issue = issue(
+        "issue-non-active",
+        "SIM-NONACTIVE",
+        "In Progress",
+        Some(1),
+        0,
+    );
+
+    let _state_lookup = server
+        .mock("POST", "/graphql")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::to_string(&state_lookup_response(
+                &issue.id,
+                &issue.identifier,
+                "Human Review",
+                None,
+            ))
+            .expect("state response should serialize"),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let scripts_dir = tempdir().expect("scripts dir should be created");
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let prompt_log = scripts_dir.path().join("prompts.log");
+    let script = write_script(
+        scripts_dir.path(),
+        "codex.sh",
+        &script_two_successful_turns(&prompt_log),
+    );
+
+    let mut orchestrator = Orchestrator::new(
+        make_worker_config(&server, &script, workspace_root.path(), 5),
+        String::new(),
+    );
+
+    let result = orchestrator
+        .execute_worker_attempt(
+            &issue,
+            "First prompt {{ issue.identifier }}",
+            Some(1),
+            |_query, _vars| async { Ok(serde_json::json!({ "data": {} })) },
+        )
+        .await;
+
+    assert!(
+        result.is_ok(),
+        "worker should stop cleanly once issue leaves active states"
+    );
+
+    let prompt_lines: Vec<String> = std::fs::read_to_string(&prompt_log)
+        .expect("prompt log should exist")
+        .lines()
+        .map(|line| line.to_string())
+        .collect();
+    assert_eq!(
+        prompt_lines.len(),
+        1,
+        "non-active issue state after turn 1 should prevent turn 2"
+    );
+}
+
+#[tokio::test]
+async fn test_execute_worker_attempt_stops_when_issue_unassigned_between_turns() {
+    let mut server = Server::new_async().await;
+    let issue = issue(
+        "issue-unassigned",
+        "SIM-UNASSIGNED",
+        "In Progress",
+        Some(1),
+        0,
+    );
+
+    let _state_lookup = server
+        .mock("POST", "/graphql")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::to_string(&state_lookup_response(
+                &issue.id,
+                &issue.identifier,
+                "In Progress",
+                None,
+            ))
+            .expect("state response should serialize"),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let scripts_dir = tempdir().expect("scripts dir should be created");
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let prompt_log = scripts_dir.path().join("prompts.log");
+    let script = write_script(
+        scripts_dir.path(),
+        "codex.sh",
+        &script_two_successful_turns(&prompt_log),
+    );
+
+    let mut config = make_worker_config(&server, &script, workspace_root.path(), 5);
+    config.tracker.assignee = Some("00000000-0000-0000-0000-000000000001".to_string());
+
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let result = orchestrator
+        .execute_worker_attempt(
+            &issue,
+            "First prompt {{ issue.identifier }}",
+            Some(1),
+            |_query, _vars| async { Ok(serde_json::json!({ "data": {} })) },
+        )
+        .await;
+
+    assert!(
+        result.is_ok(),
+        "worker should stop cleanly once issue is no longer assigned to this worker"
+    );
+
+    let prompt_lines: Vec<String> = std::fs::read_to_string(&prompt_log)
+        .expect("prompt log should exist")
+        .lines()
+        .map(|line| line.to_string())
+        .collect();
+    assert_eq!(
+        prompt_lines.len(),
+        1,
+        "unassigned issue after turn 1 should prevent turn 2"
     );
 }
