@@ -662,7 +662,13 @@ fn test_worker_completion_schedules_continuation_retry_with_session_context() {
         },
     );
 
-    orchestrator.handle_worker_completion("issue-complete", WorkerCompletion::Completed, 50_000);
+    orchestrator.handle_worker_completion(
+        "issue-complete",
+        WorkerCompletion::Completed {
+            schedule_continuation: true,
+        },
+        50_000,
+    );
 
     let retry_entry = orchestrator
         .state()
@@ -697,6 +703,49 @@ fn test_worker_completion_schedules_continuation_retry_with_session_context() {
     assert!(
         worker_completed,
         "worker completion diagnostics should retain issue/session context"
+    );
+}
+
+#[test]
+fn test_worker_completion_without_continuation_does_not_queue_retry() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+
+    orchestrator.state_mut().running.insert(
+        "issue-stop".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-stop".to_string(),
+            issue_identifier: "SIM-80B".to_string(),
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-stop".to_string(),
+            started_at: Utc::now(),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+        },
+    );
+
+    let scheduled = orchestrator.handle_worker_completion(
+        "issue-stop",
+        WorkerCompletion::Completed {
+            schedule_continuation: false,
+        },
+        50_000,
+    );
+
+    assert!(
+        scheduled.is_none(),
+        "completion without continuation should not enqueue retry"
+    );
+    assert!(
+        !orchestrator
+            .state()
+            .retry_attempts
+            .contains_key("issue-stop"),
+        "retry queue should stay empty when continuation is disabled"
+    );
+    assert!(
+        orchestrator.state().completed.contains("issue-stop"),
+        "issue should still be marked completed in orchestrator bookkeeping"
     );
 }
 
@@ -1246,6 +1295,32 @@ read -r line || true
     )
 }
 
+fn script_second_turn_omits_rate_limits(prompt_log: &Path) -> String {
+    format!(
+        r#"#!/bin/bash
+set -euo pipefail
+PROMPT_LOG="{prompt_log}"
+read -r line
+echo '{{"id":1,"result":{{"capabilities":{{}}}}}}'
+read -r line
+read -r line
+echo '{{"id":2,"result":{{"thread":{{"id":"thread-rate-limits"}}}}}}'
+read -r line
+echo "$line" >> "$PROMPT_LOG"
+echo '{{"id":3,"result":{{"turn":{{"id":"turn-1"}}}}}}'
+echo '{{"method":"token/1","params":{{"tokenUsage":{{"total":{{"input_tokens":5,"output_tokens":2,"total_tokens":7}}}}}}}}'
+echo '{{"method":"turn/completed","params":{{"rate_limits":{{"limit_id":"req","primary":{{"remaining":99}}}}}}}}'
+read -r line
+echo "$line" >> "$PROMPT_LOG"
+echo '{{"id":3,"result":{{"turn":{{"id":"turn-2"}}}}}}'
+echo '{{"method":"token/2","params":{{"tokenUsage":{{"total":{{"input_tokens":6,"output_tokens":3,"total_tokens":9}}}}}}}}'
+echo '{{"method":"turn/completed","params":{{}}}}'
+read -r line || true
+"#,
+        prompt_log = prompt_log.display(),
+    )
+}
+
 #[tokio::test]
 async fn test_execute_worker_attempt_runs_multiple_turns_in_one_session_and_uses_continuation_prompt(
 ) {
@@ -1415,6 +1490,74 @@ async fn test_execute_worker_attempt_stops_when_issue_turns_terminal_after_first
         1,
         "terminal issue state after turn 1 should prevent turn 2"
     );
+    assert!(
+        !orchestrator.state().retry_attempts.contains_key(&issue.id),
+        "terminal stop should not enqueue continuation retry"
+    );
+}
+
+#[tokio::test]
+async fn test_execute_worker_attempt_preserves_last_non_null_rate_limits() {
+    let mut server = Server::new_async().await;
+    let issue = issue("issue-rate-limits", "SIM-RATE", "In Progress", Some(1), 0);
+
+    let _state_lookup = server
+        .mock("POST", "/graphql")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::to_string(&state_lookup_response(
+                &issue.id,
+                &issue.identifier,
+                "In Progress",
+                None,
+            ))
+            .expect("state response should serialize"),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let scripts_dir = tempdir().expect("scripts dir should be created");
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let prompt_log = scripts_dir.path().join("prompts.log");
+    let script = write_script(
+        scripts_dir.path(),
+        "codex.sh",
+        &script_second_turn_omits_rate_limits(&prompt_log),
+    );
+
+    let mut orchestrator = Orchestrator::new(
+        make_worker_config(&server, &script, workspace_root.path(), 2),
+        String::new(),
+    );
+
+    let result = orchestrator
+        .execute_worker_attempt(
+            &issue,
+            "First prompt {{ issue.identifier }}",
+            Some(1),
+            |_query, _vars| async { Ok(serde_json::json!({ "data": {} })) },
+        )
+        .await;
+
+    assert!(
+        result.is_ok(),
+        "worker attempt should complete successfully"
+    );
+
+    let remaining = orchestrator
+        .state()
+        .codex_rate_limits
+        .as_ref()
+        .and_then(|value| value.data.get("primary"))
+        .and_then(|value| value.get("remaining"))
+        .and_then(|value| value.as_u64());
+    assert_eq!(
+        remaining,
+        Some(99),
+        "later turns that omit rate limits should not clear prior payload"
+    );
 }
 
 #[tokio::test]
@@ -1560,6 +1703,10 @@ async fn test_execute_worker_attempt_stops_when_issue_leaves_active_state_after_
         1,
         "non-active issue state after turn 1 should prevent turn 2"
     );
+    assert!(
+        !orchestrator.state().retry_attempts.contains_key(&issue.id),
+        "non-active stop should not enqueue continuation retry"
+    );
 }
 
 #[tokio::test]
@@ -1628,6 +1775,10 @@ async fn test_execute_worker_attempt_stops_when_issue_changes_active_state_betwe
         1,
         "state change after turn 1 should end the current session loop"
     );
+    assert!(
+        !orchestrator.state().retry_attempts.contains_key(&issue.id),
+        "state-transition stop should not enqueue continuation retry"
+    );
 }
 
 #[tokio::test]
@@ -1695,5 +1846,9 @@ async fn test_execute_worker_attempt_stops_when_issue_unassigned_between_turns()
         prompt_lines.len(),
         1,
         "unassigned issue after turn 1 should prevent turn 2"
+    );
+    assert!(
+        !orchestrator.state().retry_attempts.contains_key(&issue.id),
+        "unassigned stop should not enqueue continuation retry"
     );
 }

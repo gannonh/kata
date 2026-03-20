@@ -39,6 +39,7 @@ enum IssueCheck {
 struct SessionTurnLoopSuccess {
     events: Vec<AgentEvent>,
     metrics: Option<TurnMetrics>,
+    schedule_continuation: bool,
 }
 
 struct SessionTurnLoopFailure {
@@ -48,20 +49,21 @@ struct SessionTurnLoopFailure {
 }
 
 fn accumulate_turn_metrics(metrics: &mut Option<TurnMetrics>, turn: &app_server::TurnResult) {
-    let next_rate_limits = turn.rate_limits.clone();
     match metrics {
         Some(total) => {
             total.input_tokens = total.input_tokens.saturating_add(turn.input_tokens);
             total.output_tokens = total.output_tokens.saturating_add(turn.output_tokens);
             total.total_tokens = total.total_tokens.saturating_add(turn.total_tokens);
-            total.rate_limits = next_rate_limits;
+            if let Some(rate_limits) = turn.rate_limits.clone() {
+                total.rate_limits = Some(rate_limits);
+            }
         }
         None => {
             *metrics = Some(TurnMetrics {
                 input_tokens: turn.input_tokens,
                 output_tokens: turn.output_tokens,
                 total_tokens: turn.total_tokens,
-                rate_limits: next_rate_limits,
+                rate_limits: turn.rate_limits.clone(),
             });
         }
     }
@@ -133,6 +135,7 @@ where
     let issue_state_client = crate::linear::client::LinearClient::new(tracker_config.clone());
     let mut observed_events: Vec<AgentEvent> = Vec::new();
     let mut metrics: Option<TurnMetrics> = None;
+    let mut schedule_continuation = true;
     let mut initial_prompt = Some(initial_prompt);
 
     loop {
@@ -171,6 +174,7 @@ where
                 turn_number = turn_number.saturating_add(1);
             }
             IssueCheck::Done(_refreshed) => {
+                schedule_continuation = false;
                 break;
             }
             IssueCheck::Error(err) => {
@@ -196,6 +200,7 @@ where
     Ok(SessionTurnLoopSuccess {
         events: observed_events,
         metrics,
+        schedule_continuation,
     })
 }
 
@@ -351,7 +356,9 @@ async fn run_worker_task(
     match loop_result {
         Ok(success) => WorkerResult {
             issue_id,
-            completion: WorkerCompletion::Completed,
+            completion: WorkerCompletion::Completed {
+                schedule_continuation: success.schedule_continuation,
+            },
             events: success.events,
             metrics: success.metrics,
         },
@@ -567,7 +574,7 @@ pub struct RetryContext {
 
 #[derive(Debug, Clone)]
 pub enum WorkerCompletion {
-    Completed,
+    Completed { schedule_continuation: bool },
     Failed { error: String },
 }
 
@@ -1101,7 +1108,9 @@ impl Orchestrator {
         };
 
         match completion {
-            WorkerCompletion::Completed => {
+            WorkerCompletion::Completed {
+                schedule_continuation,
+            } => {
                 self.state.completed.insert(issue_id.to_string());
 
                 tracing::info!(
@@ -1109,7 +1118,8 @@ impl Orchestrator {
                     issue_id = %issue_id,
                     issue_identifier = %issue_identifier,
                     session_id = session_id.as_deref().unwrap_or("n/a"),
-                    "worker attempt completed; scheduling continuation retry"
+                    schedule_continuation,
+                    "worker attempt completed"
                 );
 
                 self.events.push(RuntimeEvent::WorkerCompleted {
@@ -1118,15 +1128,20 @@ impl Orchestrator {
                     session_id,
                 });
 
-                Some(self.schedule_retry_with_context(
-                    issue_id,
-                    &issue_identifier,
-                    1,
-                    RetryKind::Continuation,
-                    now_ms,
-                    None,
-                    retry_context,
-                ))
+                if schedule_continuation {
+                    Some(self.schedule_retry_with_context(
+                        issue_id,
+                        &issue_identifier,
+                        1,
+                        RetryKind::Continuation,
+                        now_ms,
+                        None,
+                        retry_context,
+                    ))
+                } else {
+                    self.state.retry_attempts.remove(issue_id);
+                    None
+                }
             }
             WorkerCompletion::Failed { error } => {
                 self.state.completed.remove(issue_id);
@@ -1302,7 +1317,9 @@ impl Orchestrator {
                 }
                 self.handle_worker_completion(
                     &issue.id,
-                    WorkerCompletion::Completed,
+                    WorkerCompletion::Completed {
+                        schedule_continuation: success.schedule_continuation,
+                    },
                     Utc::now().timestamp_millis(),
                 );
 
