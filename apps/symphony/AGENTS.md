@@ -66,6 +66,10 @@ Default level is `info`.
 The workflow file is a Markdown document with a YAML front-matter block.
 Everything outside the front-matter is ignored by Symphony.
 
+A fully documented reference template with all settings and inline comments
+is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
+`WORKFLOW.md` and customize the settings.
+
 ### Config Field Reference
 
 #### `tracker` section
