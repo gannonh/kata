@@ -45,7 +45,7 @@ async fn run_worker_task(
 
     // 1. Ensure workspace (create dir + after_create hook)
     let workspace_info =
-        match workspace::ensure_workspace(&issue.identifier, &config.workspace, &config.hooks) {
+        match workspace::ensure_workspace_for_issue(issue, &config.workspace, &config.hooks) {
             Ok(info) => info,
             Err(err) => {
                 tracing::error!(
@@ -69,7 +69,8 @@ async fn run_worker_task(
     let workspace_path = Path::new(&workspace_info.path);
 
     // 2. Before-run hook
-    if let Err(err) = workspace::run_before_run_hook(workspace_path, &config.hooks) {
+    if let Err(err) = workspace::run_before_run_hook_for_issue(workspace_path, &config.hooks, issue)
+    {
         tracing::error!(
             event = "worker_before_run_failed",
             issue_id = %issue_id,
@@ -171,7 +172,7 @@ async fn run_worker_task(
     }
 
     // 7. After-run hook
-    let _ = workspace::run_after_run_hook(workspace_path, &config.hooks);
+    let _ = workspace::run_after_run_hook_for_issue(workspace_path, &config.hooks, issue);
 
     // 8. Build result
     match run_result {
@@ -999,8 +1000,8 @@ impl Orchestrator {
         E: Fn(String, serde_json::Value) -> EFut + Clone + Send,
         EFut: Future<Output = Result<serde_json::Value>> + Send,
     {
-        let workspace_info = workspace::ensure_workspace(
-            &issue.identifier,
+        let workspace_info = workspace::ensure_workspace_for_issue(
+            issue,
             &self.config.workspace,
             &self.config.hooks,
         )?;
@@ -1032,7 +1033,9 @@ impl Orchestrator {
         self.state.retry_attempts.remove(&issue.id);
 
         let workspace_path = Path::new(&workspace_info.path);
-        if let Err(err) = workspace::run_before_run_hook(workspace_path, &self.config.hooks) {
+        if let Err(err) =
+            workspace::run_before_run_hook_for_issue(workspace_path, &self.config.hooks, issue)
+        {
             self.handle_worker_completion(
                 &issue.id,
                 WorkerCompletion::Failed {
@@ -1107,7 +1110,7 @@ impl Orchestrator {
             );
         }
 
-        let _ = workspace::run_after_run_hook(workspace_path, &self.config.hooks);
+        let _ = workspace::run_after_run_hook_for_issue(workspace_path, &self.config.hooks, issue);
 
         match run_result {
             Ok(turn_result) => {

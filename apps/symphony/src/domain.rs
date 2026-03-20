@@ -180,12 +180,25 @@ impl Default for PollingConfig {
 #[derive(Debug, Clone)]
 pub struct WorkspaceConfig {
     pub root: String,
+    pub repo: Option<String>,
+    pub strategy: WorkspaceRepoStrategy,
+    pub branch_prefix: String,
+}
+
+/// Workspace repository bootstrap strategy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkspaceRepoStrategy {
+    Clone,
+    Worktree,
 }
 
 impl Default for WorkspaceConfig {
     fn default() -> Self {
         Self {
             root: default_workspace_root(),
+            repo: None,
+            strategy: WorkspaceRepoStrategy::Clone,
+            branch_prefix: "symphony".to_string(),
         }
     }
 }

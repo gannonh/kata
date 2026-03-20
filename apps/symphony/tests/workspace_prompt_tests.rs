@@ -5,11 +5,12 @@
 use std::fs;
 use std::os::unix::fs as unix_fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use chrono::{DateTime, Utc};
 use tempfile::TempDir;
 
-use symphony::domain::{BlockerRef, HooksConfig, Issue, WorkspaceConfig};
+use symphony::domain::{BlockerRef, HooksConfig, Issue, WorkspaceConfig, WorkspaceRepoStrategy};
 use symphony::error::SymphonyError;
 use symphony::path_safety;
 
@@ -106,6 +107,9 @@ fn test_canonicalize_nested_symlink() {
 fn workspace_config(root: &Path) -> WorkspaceConfig {
     WorkspaceConfig {
         root: root.to_string_lossy().to_string(),
+        repo: None,
+        strategy: WorkspaceRepoStrategy::Clone,
+        branch_prefix: "symphony".to_string(),
     }
 }
 
@@ -137,6 +141,58 @@ fn make_test_issue(identifier: &str) -> Issue {
         created_at: None,
         updated_at: None,
     }
+}
+
+fn command_success(mut cmd: Command, context: &str) -> String {
+    let output = cmd
+        .output()
+        .unwrap_or_else(|e| panic!("{context}: failed to spawn command: {e}"));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "{context}: command failed\nstatus: {:?}\nstdout: {}\nstderr: {}",
+        output.status.code(),
+        stdout,
+        stderr
+    );
+    stdout.trim().to_string()
+}
+
+fn init_git_repo(path: &Path) {
+    fs::create_dir_all(path).unwrap();
+    fs::write(path.join("README.md"), "hello from source repo\n").unwrap();
+
+    let mut init = Command::new("git");
+    init.current_dir(path).arg("init");
+    command_success(init, "git init source repo");
+
+    let mut set_name = Command::new("git");
+    set_name
+        .current_dir(path)
+        .args(["config", "user.name", "Symphony Test"]);
+    command_success(set_name, "git config user.name");
+
+    let mut set_email = Command::new("git");
+    set_email
+        .current_dir(path)
+        .args(["config", "user.email", "symphony-tests@example.com"]);
+    command_success(set_email, "git config user.email");
+
+    let mut add = Command::new("git");
+    add.current_dir(path).args(["add", "."]);
+    command_success(add, "git add source repo files");
+
+    let mut commit = Command::new("git");
+    commit
+        .current_dir(path)
+        .args(["commit", "-m", "initial commit"]);
+    command_success(commit, "git commit source repo files");
+}
+
+fn shell_quote(path: &Path) -> String {
+    let raw = path.to_string_lossy();
+    format!("'{}'", raw.replace('\'', "'\"'\"'"))
 }
 
 #[test]
@@ -368,6 +424,145 @@ fn test_workspace_after_create_hook_timeout() {
         }
         other => panic!("Expected WorkspaceHookTimeout, got: {:?}", other),
     }
+}
+
+#[test]
+fn test_workspace_clone_bootstrap_and_branch_creation() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    let source_repo = tmp.path().join("source-repo");
+    fs::create_dir_all(&root).unwrap();
+    init_git_repo(&source_repo);
+
+    let config = WorkspaceConfig {
+        root: root.to_string_lossy().to_string(),
+        repo: Some(source_repo.to_string_lossy().to_string()),
+        strategy: WorkspaceRepoStrategy::Clone,
+        branch_prefix: "symphony".to_string(),
+    };
+    let hooks = HooksConfig {
+        after_create: Some("git rev-parse --abbrev-ref HEAD > hook_branch.txt".to_string()),
+        before_run: None,
+        after_run: None,
+        before_remove: None,
+        timeout_ms: 5_000,
+    };
+    let issue = make_test_issue("KAT-800");
+
+    let ws = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks).unwrap();
+    let ws_path = PathBuf::from(&ws.path);
+
+    assert!(
+        ws.created_now,
+        "new clone workspace should be newly created"
+    );
+    assert!(
+        ws_path.join("README.md").exists(),
+        "cloned workspace should contain source repo files"
+    );
+
+    let mut branch_cmd = Command::new("git");
+    branch_cmd.args(["-C", &ws.path, "rev-parse", "--abbrev-ref", "HEAD"]);
+    let branch = command_success(branch_cmd, "read clone workspace branch");
+    assert_eq!(
+        branch, "symphony/KAT-800",
+        "clone bootstrap should create and checkout issue branch"
+    );
+
+    let hook_branch = fs::read_to_string(ws_path.join("hook_branch.txt")).unwrap();
+    assert_eq!(
+        hook_branch.trim(),
+        "symphony/KAT-800",
+        "after_create hook should run after bootstrap and see the created branch"
+    );
+}
+
+#[test]
+fn test_workspace_worktree_bootstrap_and_cleanup() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    let source_repo = tmp.path().join("source-repo");
+    fs::create_dir_all(&root).unwrap();
+    init_git_repo(&source_repo);
+
+    let config = WorkspaceConfig {
+        root: root.to_string_lossy().to_string(),
+        repo: Some(source_repo.to_string_lossy().to_string()),
+        strategy: WorkspaceRepoStrategy::Worktree,
+        branch_prefix: "symphony".to_string(),
+    };
+    let hooks = hooks_config_none();
+    let issue = make_test_issue("KAT-801");
+
+    let ws = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks).unwrap();
+    let ws_path = PathBuf::from(&ws.path);
+    assert!(
+        ws_path.join("README.md").exists(),
+        "worktree workspace should expose source repo files"
+    );
+
+    let source_repo_str = source_repo.to_string_lossy().to_string();
+    let mut list_before_cmd = Command::new("git");
+    list_before_cmd.args(["-C", &source_repo_str, "worktree", "list", "--porcelain"]);
+    let list_before = command_success(list_before_cmd, "list worktrees before cleanup");
+    assert!(
+        list_before.contains(&ws.path),
+        "source repo should track new worktree path"
+    );
+
+    symphony::workspace::remove_workspace_for_issue(&ws_path, &config, &hooks, &issue).unwrap();
+    assert!(!ws_path.exists(), "workspace directory should be removed");
+
+    let mut list_after_cmd = Command::new("git");
+    list_after_cmd.args(["-C", &source_repo_str, "worktree", "list", "--porcelain"]);
+    let list_after = command_success(list_after_cmd, "list worktrees after cleanup");
+    assert!(
+        !list_after.contains(&ws.path),
+        "source repo should no longer track removed worktree"
+    );
+}
+
+#[test]
+fn test_workspace_hooks_receive_issue_metadata_env() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    fs::create_dir_all(&root).unwrap();
+    let before_remove_log = tmp.path().join("before_remove_env.txt");
+    let before_remove_log_quoted = shell_quote(&before_remove_log);
+    let env_dump =
+        "printf '%s|%s|%s|%s' \"$SYMPHONY_ISSUE_ID\" \"$SYMPHONY_ISSUE_IDENTIFIER\" \"$SYMPHONY_ISSUE_TITLE\" \"$SYMPHONY_WORKSPACE_PATH\"";
+
+    let hooks = HooksConfig {
+        after_create: Some(format!("{env_dump} > after_create_env.txt")),
+        before_run: Some(format!("{env_dump} > before_run_env.txt")),
+        after_run: Some(format!("{env_dump} > after_run_env.txt")),
+        before_remove: Some(format!("{env_dump} > {before_remove_log_quoted}")),
+        timeout_ms: 5_000,
+    };
+    let config = workspace_config(&root);
+    let issue = make_test_issue("KAT-802");
+
+    let ws = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks).unwrap();
+    let ws_path = PathBuf::from(&ws.path);
+    let expected = format!(
+        "{}|{}|{}|{}",
+        issue.id, issue.identifier, issue.title, ws.path
+    );
+
+    let after_create_env = fs::read_to_string(ws_path.join("after_create_env.txt")).unwrap();
+    assert_eq!(after_create_env, expected);
+
+    symphony::workspace::run_before_run_hook_for_issue(&ws_path, &hooks, &issue).unwrap();
+    let before_run_env = fs::read_to_string(ws_path.join("before_run_env.txt")).unwrap();
+    assert_eq!(before_run_env, expected);
+
+    symphony::workspace::run_after_run_hook_for_issue(&ws_path, &hooks, &issue).unwrap();
+    let after_run_env = fs::read_to_string(ws_path.join("after_run_env.txt")).unwrap();
+    assert_eq!(after_run_env, expected);
+
+    symphony::workspace::remove_workspace_for_issue(&ws_path, &config, &hooks, &issue).unwrap();
+    let before_remove_env = fs::read_to_string(before_remove_log).unwrap();
+    assert_eq!(before_remove_env, expected);
 }
 
 #[test]
