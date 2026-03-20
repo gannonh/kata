@@ -1203,6 +1203,35 @@ async fn test_fetch_candidates_with_unresolvable_assignee_errors_with_identifier
 }
 
 #[tokio::test]
+async fn test_fetch_candidates_with_ambiguous_assignee_errors() {
+    let mut server = Server::new_async().await;
+
+    let users_resp = users_response(
+        vec![
+            user_node("user-1", Some("Alex"), Some("alex"), None),
+            user_node("user-2", Some("Alex"), Some("alex"), None),
+        ],
+        false,
+        None,
+    );
+    let m_users = mock_graphql(&mut server, &users_resp).await;
+
+    let client = test_client(&server, Some("alex"));
+    let err = client.fetch_candidates().await.unwrap_err();
+    m_users.assert_async().await;
+
+    match err {
+        SymphonyError::Other(message) => {
+            assert!(message.contains("matched multiple Linear users"));
+            assert!(message.contains("user-1"));
+            assert!(message.contains("user-2"));
+            assert!(message.contains("Use email or UUID"));
+        }
+        other => panic!("expected SymphonyError::Other, got {other:?}"),
+    }
+}
+
+#[tokio::test]
 async fn test_fetch_candidates_named_assignee_uses_session_cache() {
     let mut server = Server::new_async().await;
 

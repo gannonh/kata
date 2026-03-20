@@ -596,12 +596,22 @@ impl LinearClient {
         }
 
         let users = self.list_linear_users().await?;
-        if let Some(user_id) = find_user_id_by_lookup(&users, &lookup_key) {
-            self.assignee_resolution_cache
-                .lock()
-                .await
-                .insert(lookup_key, user_id.clone());
-            return Ok(single_match_filter(user_id));
+        let matched_user_ids = find_user_ids_by_lookup(&users, &lookup_key);
+        match matched_user_ids.as_slice() {
+            [user_id] => {
+                self.assignee_resolution_cache
+                    .lock()
+                    .await
+                    .insert(lookup_key, user_id.clone());
+                return Ok(single_match_filter(user_id.clone()));
+            }
+            [] => {}
+            _ => {
+                let ids = matched_user_ids.join(", ");
+                return Err(SymphonyError::Other(format!(
+                    "tracker.assignee '{assignee}' matched multiple Linear users ({ids}). Use email or UUID for an exact match."
+                )));
+            }
         }
 
         let available = format_available_assignee_identifiers(&users);
@@ -1072,18 +1082,26 @@ fn single_match_filter(id: String) -> AssigneeFilter {
     AssigneeFilter { match_values }
 }
 
-fn find_user_id_by_lookup(users: &[LinearUser], lookup_key: &str) -> Option<String> {
-    users.iter().find_map(|user| {
-        [
+fn find_user_ids_by_lookup(users: &[LinearUser], lookup_key: &str) -> Vec<String> {
+    let mut seen_ids: HashSet<String> = HashSet::new();
+    let mut matched_ids: Vec<String> = Vec::new();
+
+    for user in users {
+        let matches_lookup = [
             user.display_name.as_deref(),
             user.name.as_deref(),
             user.email.as_deref(),
         ]
         .into_iter()
         .flatten()
-        .find(|candidate| normalize_assignee_lookup_key(candidate) == lookup_key)
-        .map(|_| user.id.clone())
-    })
+        .any(|candidate| normalize_assignee_lookup_key(candidate) == lookup_key);
+
+        if matches_lookup && seen_ids.insert(user.id.clone()) {
+            matched_ids.push(user.id.clone());
+        }
+    }
+
+    matched_ids
 }
 
 fn format_available_assignee_identifiers(users: &[LinearUser]) -> String {
