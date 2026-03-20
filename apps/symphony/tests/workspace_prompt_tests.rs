@@ -932,3 +932,21 @@ fn test_render_prompt_attempt_none_vs_some() {
         result_some
     );
 }
+
+#[test]
+fn test_render_continuation_prompt_includes_turn_context() {
+    let prompt = symphony::prompt_builder::render_continuation_prompt(2, 5);
+
+    assert!(
+        prompt.contains("Continuation guidance"),
+        "continuation prompt should include a stable heading"
+    );
+    assert!(
+        prompt.contains("turn #2 of 5"),
+        "continuation prompt should include turn ordinal context"
+    );
+    assert!(
+        prompt.contains("already present in this thread"),
+        "continuation prompt should remind the agent to use existing thread context"
+    );
+}

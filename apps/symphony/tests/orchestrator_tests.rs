@@ -1,8 +1,14 @@
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use chrono::{Duration, Utc};
+use mockito::{Server, ServerGuard};
+use serde_json::json;
+use tempfile::tempdir;
 
-use symphony::domain::{AgentConfig, AgentEvent, BlockerRef, Issue, ServiceConfig, TrackerConfig};
+use symphony::domain::{
+    AgentConfig, AgentEvent, ApiKey, BlockerRef, Issue, ServiceConfig, TrackerConfig,
+};
 use symphony::error::{Result, SymphonyError};
 use symphony::orchestrator::{
     refresh_channel, Orchestrator, OrchestratorPort, RetryKind, RuntimeEvent, TurnMetrics,
@@ -1116,5 +1122,358 @@ fn test_reconcile_non_active_state_stops_run_without_cleanup() {
     assert!(
         !orchestrator.state().completed.contains("issue-non-active"),
         "non-terminal state stop must not add issue to completed (no cleanup semantic)"
+    );
+}
+
+fn write_script(dir: &Path, name: &str, content: &str) -> PathBuf {
+    let path = dir.join(name);
+    std::fs::write(&path, content).expect("script should be written");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(&path)
+            .expect("script metadata should be readable")
+            .permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&path, perms).expect("script should be executable");
+    }
+
+    path
+}
+
+fn state_lookup_response(issue_id: &str, identifier: &str, state: &str) -> serde_json::Value {
+    json!({
+        "data": {
+            "issues": {
+                "nodes": [
+                    {
+                        "id": issue_id,
+                        "identifier": identifier,
+                        "title": format!("Issue {identifier}"),
+                        "description": "state refresh",
+                        "priority": 2,
+                        "state": { "name": state },
+                        "branchName": null,
+                        "url": null,
+                        "assignee": null,
+                        "labels": { "nodes": [] },
+                        "inverseRelations": { "nodes": [] },
+                        "createdAt": "2026-01-01T00:00:00.000Z",
+                        "updatedAt": "2026-01-01T00:00:00.000Z"
+                    }
+                ]
+            }
+        }
+    })
+}
+
+fn make_worker_config(
+    server: &ServerGuard,
+    script_path: &Path,
+    workspace_root: &Path,
+    max_turns: u32,
+) -> ServiceConfig {
+    let mut config = test_config(1);
+    config.workspace.root = workspace_root.to_string_lossy().to_string();
+    config.workspace.repo = None;
+    config.codex.command = vec![script_path.to_string_lossy().to_string()];
+    config.codex.approval_policy = serde_json::Value::String("never".to_string());
+    config.codex.turn_sandbox_policy = None;
+    config.tracker.endpoint = format!("{}/graphql", server.url());
+    config.tracker.api_key = Some(ApiKey::new("test-api-key"));
+    config.agent.max_turns = max_turns;
+    config
+}
+
+fn script_two_successful_turns(prompt_log: &Path) -> String {
+    format!(
+        r#"#!/bin/bash
+set -euo pipefail
+PROMPT_LOG="{prompt_log}"
+read -r line
+echo '{{"id":1,"result":{{"capabilities":{{}}}}}}'
+read -r line
+read -r line
+echo '{{"id":2,"result":{{"thread":{{"id":"thread-multi-1"}}}}}}'
+read -r line
+echo "$line" >> "$PROMPT_LOG"
+echo '{{"id":3,"result":{{"turn":{{"id":"turn-1"}}}}}}'
+echo '{{"method":"token/1","params":{{"tokenUsage":{{"total":{{"input_tokens":10,"output_tokens":5,"total_tokens":15}}}}}}}}'
+echo '{{"method":"turn/completed","params":{{}}}}'
+read -r line
+echo "$line" >> "$PROMPT_LOG"
+echo '{{"id":3,"result":{{"turn":{{"id":"turn-2"}}}}}}'
+echo '{{"method":"token/2","params":{{"tokenUsage":{{"total":{{"input_tokens":14,"output_tokens":9,"total_tokens":23}}}}}}}}'
+echo '{{"method":"turn/completed","params":{{"rate_limits":{{"limit_id":"req","primary":{{"remaining":42}}}}}}}}'
+read -r line || true
+"#,
+        prompt_log = prompt_log.display(),
+    )
+}
+
+fn script_second_turn_fails(prompt_log: &Path) -> String {
+    format!(
+        r#"#!/bin/bash
+set -euo pipefail
+PROMPT_LOG="{prompt_log}"
+read -r line
+echo '{{"id":1,"result":{{"capabilities":{{}}}}}}'
+read -r line
+read -r line
+echo '{{"id":2,"result":{{"thread":{{"id":"thread-fail-1"}}}}}}'
+read -r line
+echo "$line" >> "$PROMPT_LOG"
+echo '{{"id":3,"result":{{"turn":{{"id":"turn-1"}}}}}}'
+echo '{{"method":"token/1","params":{{"tokenUsage":{{"total":{{"input_tokens":7,"output_tokens":3,"total_tokens":10}}}}}}}}'
+echo '{{"method":"turn/completed","params":{{}}}}'
+read -r line
+echo "$line" >> "$PROMPT_LOG"
+echo '{{"id":3,"result":{{"turn":{{"id":"turn-2"}}}}}}'
+echo '{{"method":"turn/failed","params":{{"message":"boom"}}}}'
+read -r line || true
+"#,
+        prompt_log = prompt_log.display(),
+    )
+}
+
+#[tokio::test]
+async fn test_execute_worker_attempt_runs_multiple_turns_in_one_session_and_uses_continuation_prompt(
+) {
+    let mut server = Server::new_async().await;
+    let issue = issue("issue-multi", "SIM-MULTI", "In Progress", Some(1), 0);
+
+    let _state_lookup = server
+        .mock("POST", "/graphql")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::to_string(&state_lookup_response(
+                &issue.id,
+                &issue.identifier,
+                "In Progress",
+            ))
+            .expect("state response should serialize"),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let scripts_dir = tempdir().expect("scripts dir should be created");
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let prompt_log = scripts_dir.path().join("prompts.log");
+    let script = write_script(
+        scripts_dir.path(),
+        "codex.sh",
+        &script_two_successful_turns(&prompt_log),
+    );
+
+    let mut orchestrator = Orchestrator::new(
+        make_worker_config(&server, &script, workspace_root.path(), 2),
+        String::new(),
+    );
+
+    let prompt_template = "Full prompt for {{ issue.identifier }} attempt={{ attempt }}";
+    let result = orchestrator
+        .execute_worker_attempt(&issue, prompt_template, Some(1), |_query, _vars| async {
+            Ok(serde_json::json!({ "data": {} }))
+        })
+        .await;
+
+    assert!(
+        result.is_ok(),
+        "multi-turn attempt should succeed: {result:?}"
+    );
+
+    let prompt_lines: Vec<String> = std::fs::read_to_string(&prompt_log)
+        .expect("prompt log should exist")
+        .lines()
+        .map(|line| line.to_string())
+        .collect();
+
+    assert_eq!(
+        prompt_lines.len(),
+        2,
+        "worker should execute exactly 2 turns"
+    );
+    assert!(
+        prompt_lines[0].contains("Full prompt for SIM-MULTI attempt=1"),
+        "turn 1 should use rendered issue prompt"
+    );
+    assert!(
+        prompt_lines[1].contains("Continuation guidance"),
+        "turn 2 should use continuation prompt"
+    );
+    assert!(
+        prompt_lines[0].contains("\"threadId\":\"thread-multi-1\"")
+            && prompt_lines[1].contains("\"threadId\":\"thread-multi-1\""),
+        "both turns should run on the same thread/session id"
+    );
+
+    assert_eq!(
+        orchestrator.state().codex_totals.input_tokens,
+        24,
+        "input tokens should accumulate across turns"
+    );
+    assert_eq!(
+        orchestrator.state().codex_totals.output_tokens,
+        14,
+        "output tokens should accumulate across turns"
+    );
+    assert_eq!(
+        orchestrator.state().codex_totals.total_tokens,
+        38,
+        "total tokens should accumulate across turns"
+    );
+
+    let remaining = orchestrator
+        .state()
+        .codex_rate_limits
+        .as_ref()
+        .and_then(|value| value.data.get("primary"))
+        .and_then(|value| value.get("remaining"))
+        .and_then(|value| value.as_u64());
+    assert_eq!(
+        remaining,
+        Some(42),
+        "latest turn rate-limits payload should be retained"
+    );
+
+    assert!(
+        orchestrator.state().retry_attempts.contains_key(&issue.id),
+        "completed worker attempts should hand off to continuation retry scheduling"
+    );
+}
+
+#[tokio::test]
+async fn test_execute_worker_attempt_stops_when_issue_turns_terminal_after_first_turn() {
+    let mut server = Server::new_async().await;
+    let issue = issue("issue-done", "SIM-DONE", "In Progress", Some(1), 0);
+
+    let _state_lookup = server
+        .mock("POST", "/graphql")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::to_string(&state_lookup_response(&issue.id, &issue.identifier, "Done"))
+                .expect("state response should serialize"),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let scripts_dir = tempdir().expect("scripts dir should be created");
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let prompt_log = scripts_dir.path().join("prompts.log");
+    let script = write_script(
+        scripts_dir.path(),
+        "codex.sh",
+        &script_two_successful_turns(&prompt_log),
+    );
+
+    let mut orchestrator = Orchestrator::new(
+        make_worker_config(&server, &script, workspace_root.path(), 5),
+        String::new(),
+    );
+
+    let result = orchestrator
+        .execute_worker_attempt(
+            &issue,
+            "First prompt {{ issue.identifier }}",
+            Some(1),
+            |_query, _vars| async { Ok(serde_json::json!({ "data": {} })) },
+        )
+        .await;
+
+    assert!(
+        result.is_ok(),
+        "worker should stop cleanly when tracker state becomes terminal"
+    );
+
+    let prompt_lines: Vec<String> = std::fs::read_to_string(&prompt_log)
+        .expect("prompt log should exist")
+        .lines()
+        .map(|line| line.to_string())
+        .collect();
+    assert_eq!(
+        prompt_lines.len(),
+        1,
+        "terminal issue state after turn 1 should prevent turn 2"
+    );
+}
+
+#[tokio::test]
+async fn test_execute_worker_attempt_failure_on_turn_two_keeps_turn_one_metrics() {
+    let mut server = Server::new_async().await;
+    let issue = issue("issue-fail2", "SIM-FAIL2", "In Progress", Some(1), 0);
+
+    let _state_lookup = server
+        .mock("POST", "/graphql")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::to_string(&state_lookup_response(
+                &issue.id,
+                &issue.identifier,
+                "In Progress",
+            ))
+            .expect("state response should serialize"),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let scripts_dir = tempdir().expect("scripts dir should be created");
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let prompt_log = scripts_dir.path().join("prompts.log");
+    let script = write_script(
+        scripts_dir.path(),
+        "codex.sh",
+        &script_second_turn_fails(&prompt_log),
+    );
+
+    let mut orchestrator = Orchestrator::new(
+        make_worker_config(&server, &script, workspace_root.path(), 5),
+        String::new(),
+    );
+
+    let result = orchestrator
+        .execute_worker_attempt(
+            &issue,
+            "First prompt {{ issue.identifier }}",
+            Some(1),
+            |_query, _vars| async { Ok(serde_json::json!({ "data": {} })) },
+        )
+        .await;
+
+    assert!(
+        result.is_err(),
+        "turn failure on turn 2 should propagate as worker failure"
+    );
+
+    assert_eq!(
+        orchestrator.state().codex_totals.input_tokens,
+        7,
+        "turn 1 metrics should still be applied before turn 2 failure"
+    );
+    assert_eq!(
+        orchestrator.state().codex_totals.output_tokens,
+        3,
+        "turn 1 metrics should still be applied before turn 2 failure"
+    );
+    assert_eq!(
+        orchestrator.state().codex_totals.total_tokens,
+        10,
+        "turn 1 metrics should still be applied before turn 2 failure"
+    );
+
+    let retry_entry = orchestrator
+        .state()
+        .retry_attempts
+        .get(&issue.id)
+        .expect("failed worker attempt should schedule failure retry");
+    assert_eq!(
+        retry_entry.attempt, 2,
+        "failure retry attempt should increment from the running attempt"
     );
 }

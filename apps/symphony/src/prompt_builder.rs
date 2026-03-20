@@ -46,3 +46,15 @@ pub fn render_prompt(template: &str, issue: &Issue, attempt: Option<u32>) -> Res
         .render(&globals)
         .map_err(|e| SymphonyError::TemplateRenderError(e.to_string()))
 }
+
+/// Build a concise continuation prompt for turn 2+ in a multi-turn session.
+pub fn render_continuation_prompt(turn_number: u32, max_turns: u32) -> String {
+    format!(
+        "Continuation guidance:\n\n\
+- The previous Codex turn completed normally, but the Linear issue is still in an active state.\n\
+- This is continuation turn #{turn_number} of {max_turns} for the current agent run.\n\
+- Resume from the current workspace and workpad state instead of restarting from scratch.\n\
+- The original task instructions and prior turn context are already present in this thread, so do not restate them before acting.\n\
+- Focus on the remaining ticket work and do not end the turn while the issue stays active unless you are truly blocked."
+    )
+}
