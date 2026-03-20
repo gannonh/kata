@@ -1528,7 +1528,7 @@ async fn test_execute_worker_attempt_preserves_last_non_null_rate_limits() {
     );
 
     let mut orchestrator = Orchestrator::new(
-        make_worker_config(&server, &script, workspace_root.path(), 5),
+        make_worker_config(&server, &script, workspace_root.path(), 2),
         String::new(),
     );
 
