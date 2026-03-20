@@ -550,15 +550,20 @@ impl Orchestrator {
         port: &mut dyn OrchestratorPort,
     ) {
         for d in dispatched {
-            // Move issue to "In Progress" in Linear (best-effort)
-            if let Err(err) = port.update_issue_state(&d.issue.id, "In Progress") {
-                tracing::warn!(
-                    event = "writeback_failed",
-                    issue_id = %d.issue.id,
-                    issue_identifier = %d.issue.identifier,
-                    error = %err,
-                    "failed to move issue to In Progress; continuing with dispatch"
-                );
+            // Only move "Todo" issues to "In Progress" on dispatch.
+            // Other active states (Agent Review, Merging, Rework, In Progress)
+            // are preserved so the agent sees the correct state and follows
+            // the matching workflow in WORKFLOW.md Step 0.
+            if normalize_issue_state(&d.issue.state) == "todo" {
+                if let Err(err) = port.update_issue_state(&d.issue.id, "In Progress") {
+                    tracing::warn!(
+                        event = "writeback_failed",
+                        issue_id = %d.issue.id,
+                        issue_identifier = %d.issue.identifier,
+                        error = %err,
+                        "failed to move issue to In Progress; continuing with dispatch"
+                    );
+                }
             }
 
             // Update status from "scheduled" to "running"
