@@ -123,13 +123,21 @@ The agent should be able to talk to Linear, either via a configured Linear MCP s
 
 - `Backlog` -> out of scope for this workflow; do not modify.
 - `Todo` -> queued; the orchestrator moves this to `In Progress` on dispatch. Verify state is `In Progress` before active work.
-  - Special case: if a PR is already attached, treat as feedback/rework loop (run full PR feedback sweep, address or explicitly push back, revalidate, return to `Human Review`).
+  - Special case: if a PR is already attached, treat as feedback loop (run full PR feedback sweep, address or explicitly push back, revalidate, return to `Human Review`).
 - `In Progress` -> implementation actively underway.
 - `Agent Review` -> PR feedback needs addressing. Run full PR feedback sweep, make targeted fixes, push to existing branch, then move to `Human Review`.
 - `Human Review` -> PR is attached and validated; waiting on human approval. Do not code or change ticket content.
 - `Merging` -> approved by human; execute the `land` skill flow (do not call `gh pr merge` directly).
-- `Rework` -> reviewer requested changes; planning + implementation required.
+- `Rework` -> reviewer rejected the current approach; close the current PR and restart from a fresh branch.
 - `Done` -> terminal state; no further action required.
+
+### Full lifecycle
+
+```
+Todo -> In Progress -> Human Review -> (human approves) -> Merging -> Done
+                               -> (human requests changes) -> Agent Review -> Human Review
+                               -> (human rejects approach) -> Rework -> In Progress
+```
 
 ## Step 0: Determine current ticket state and route
 
@@ -262,10 +270,11 @@ Use this only when completion is blocked by missing required tools or missing au
 
 1. When the issue is in `Human Review`, do not code or change ticket content.
 2. Poll for updates as needed, including GitHub PR review comments from humans and bots.
-3. If review feedback requires changes, move the issue to `Rework` and follow the rework flow.
-4. If approved, human moves the issue to `Merging`.
-5. When the issue is in `Merging`, open and follow `.codex/skills/land/SKILL.md`, then run the `land` skill in a loop until the PR is merged. Do not call `gh pr merge` directly.
-6. After merge is complete, move the issue to `Done`.
+3. If review feedback requires changes, move the issue to `Agent Review` and run the full PR feedback sweep loop.
+4. If review feedback rejects the current approach and requires a reset, move the issue to `Rework` and follow the rework flow.
+5. If approved, human moves the issue to `Merging`.
+6. When the issue is in `Merging`, open and follow `.codex/skills/land/SKILL.md`, then run the `land` skill in a loop until the PR is merged. Do not call `gh pr merge` directly.
+7. After merge is complete, move the issue to `Done`.
 
 ## Step 4: Rework handling
 
