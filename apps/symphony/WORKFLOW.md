@@ -123,7 +123,7 @@ The agent should be able to talk to Linear, either via a configured Linear MCP s
 
 - `Backlog` -> out of scope for this workflow; do not modify.
 - `Todo` -> queued; the orchestrator moves this to `In Progress` on dispatch. Verify state is `In Progress` before active work.
-  - Special case: if a PR is already attached, treat as feedback loop (run full PR feedback sweep, address or explicitly push back, revalidate, return to `Human Review`).
+  - Special case: if a PR is already attached, move the issue to `Agent Review` and run the full PR feedback sweep (address or explicitly push back on each comment, revalidate, push updates, then return to `Human Review`).
 - `In Progress` -> implementation actively underway.
 - `Agent Review` -> PR feedback needs addressing. Run full PR feedback sweep, make targeted fixes, push to existing branch, then move to `Human Review`.
 - `Human Review` -> PR is attached and validated; waiting on human approval. Do not code or change ticket content.
