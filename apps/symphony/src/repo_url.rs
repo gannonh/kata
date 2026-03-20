@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 
 /// Returns true when a repo reference looks like a remote URL.
 pub fn repo_is_remote(repo: &str) -> bool {
-    repo.contains("://") || repo.starts_with("git@")
+    repo.contains("://") || repo.contains('@')
 }
 
 /// Redacts URL user-info segments (`scheme://user[:pass]@host`) in command output.

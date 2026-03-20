@@ -383,11 +383,9 @@ where
                             .and_then(|m| m.as_str())
                             .map(|s| s.to_string());
 
-                        // Debug: log every message from Codex
                         tracing::debug!(
                             issue_id = %handle.issue_id,
                             method = method.as_deref().unwrap_or("(none)"),
-                            payload = %text,
                             "codex message received"
                         );
 
@@ -420,8 +418,12 @@ where
                                         .unwrap_or("turn completed with failed status");
                                     let error_code = payload
                                         .pointer("/params/turn/error/codexErrorInfo")
-                                        .and_then(|c| c.as_str())
-                                        .unwrap_or("unknown");
+                                        .map(|c| {
+                                            c.as_str()
+                                                .map(String::from)
+                                                .unwrap_or_else(|| c.to_string())
+                                        })
+                                        .unwrap_or_else(|| "unknown".to_string());
 
                                     tracing::error!(
                                         issue_id = %handle.issue_id,
