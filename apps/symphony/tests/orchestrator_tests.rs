@@ -477,7 +477,8 @@ fn test_stale_retry_timer_is_ignored() {
 }
 
 #[tokio::test]
-async fn test_due_continuation_retry_marks_terminal_issue_completed_when_not_visible_in_candidates() {
+async fn test_due_continuation_retry_marks_terminal_issue_completed_when_not_visible_in_candidates()
+{
     let mut config = test_config(1);
     config.polling.interval_ms = 60_000;
     let mut orchestrator = Orchestrator::new(config, String::new());
