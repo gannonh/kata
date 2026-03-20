@@ -126,8 +126,8 @@ The agent should be able to talk to Linear, either via a configured Linear MCP s
 - `Todo` -> queued; the orchestrator moves this to `In Progress` on dispatch. Verify state is `In Progress` before active work.
   - Special case: if a PR is already attached, move the issue to `Agent Review` and run the full PR feedback sweep (address or explicitly push back on each comment, revalidate, push updates, then return to `Human Review`).
 - `In Progress` -> implementation actively underway.
-- `Agent Review` -> PR feedback needs addressing. Run full PR feedback sweep, make targeted fixes, push to existing branch, then move to `Human Review`.
 - `Human Review` -> PR is attached and validated; waiting on human approval. Do not code or change ticket content.
+- `Agent Review` -> PR feedback needs addressing. Run full PR feedback sweep, make targeted fixes, push to existing branch, then move to `Human Review`.
 - `Merging` -> approved by human; execute the `land` skill flow (do not call `gh pr merge` directly).
 - `Rework` -> reviewer rejected the current approach; close the current PR and restart from a fresh branch.
 - `Done` -> terminal state; no further action required.
@@ -149,8 +149,8 @@ Todo -> In Progress -> Human Review -> (human approves) -> Merging -> Done
    - `Todo` -> orchestrator already moved to `In Progress`; verify state, then ensure bootstrap workpad comment exists (create if missing), then start execution flow.
      - If PR is already attached, start by reviewing all open PR comments and deciding required changes vs explicit pushback responses.
    - `In Progress` -> continue execution flow from current scratchpad comment.
-   - `Agent Review` -> open and follow `.codex/skills/address-comments/SKILL.md`. Fetch PR comments, address each thread, resolve threads, push fixes, then move to `Human Review`.
    - `Human Review` -> wait and poll for decision/review updates.
+   - `Agent Review` -> open and follow `.codex/skills/address-comments/SKILL.md`. Fetch PR comments, address each thread, resolve threads, push fixes, then move to `Human Review`.
    - `Merging` -> on entry, open and follow `.codex/skills/land/SKILL.md`; do not call `gh pr merge` directly.
    - `Rework` -> run rework flow.
    - `Done` -> do nothing and shut down.
