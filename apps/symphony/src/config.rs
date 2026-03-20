@@ -396,7 +396,12 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let raw_root = raw_workspace
         .root
         .unwrap_or_else(|| defaults.workspace.root.clone());
-    let strategy = match raw_workspace.strategy.as_deref().unwrap_or("clone") {
+    let strategy = match raw_workspace
+        .strategy
+        .as_deref()
+        .map(str::trim)
+        .unwrap_or("clone")
+    {
         "clone" => WorkspaceRepoStrategy::Clone,
         "worktree" => WorkspaceRepoStrategy::Worktree,
         other => {
@@ -405,21 +410,30 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
             )));
         }
     };
-    let repo = raw_workspace
-        .repo
-        .map(|value| expand_tilde(&value))
-        .filter(|value| !value.trim().is_empty());
-    let branch_prefix = raw_workspace
-        .branch_prefix
-        .unwrap_or_else(|| defaults.workspace.branch_prefix.clone());
-    let clone_branch = raw_workspace.clone_branch.and_then(|value| {
-        let trimmed = value.trim();
+    let repo = raw_workspace.repo.and_then(|value| {
+        let resolved = resolve_env(&value);
+        let trimmed = resolved.trim();
         if trimmed.is_empty() {
             None
         } else {
-            Some(trimmed.to_string())
+            Some(expand_tilde(trimmed))
         }
     });
+    let branch_prefix = raw_workspace
+        .branch_prefix
+        .map(|value| resolve_env(&value))
+        .unwrap_or_else(|| defaults.workspace.branch_prefix.clone());
+    let clone_branch = raw_workspace
+        .clone_branch
+        .map(|value| resolve_env(&value))
+        .and_then(|value| {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        });
     let workspace = WorkspaceConfig {
         root: expand_tilde(&raw_root),
         repo,

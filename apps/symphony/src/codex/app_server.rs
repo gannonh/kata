@@ -425,7 +425,7 @@ where
                                         })
                                         .unwrap_or_else(|| "unknown".to_string());
 
-                                    tracing::error!(
+                                    tracing::warn!(
                                         issue_id = %handle.issue_id,
                                         session_id = %session_id,
                                         error_code = %error_code,
@@ -437,7 +437,7 @@ where
                                         timestamp: Utc::now(),
                                         codex_app_server_pid: handle.pid.clone(),
                                         turn_id: turn_id.clone(),
-                                        error: error_msg.to_string(),
+                                        error: format!("{error_code}: {error_msg}"),
                                     };
                                     event_callback(event.clone());
                                     events.push(event);
