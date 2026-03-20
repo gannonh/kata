@@ -88,9 +88,13 @@ Everything outside the front-matter is ignored by Symphony.
 
 #### `workspace` section
 
-| Field            | Type   | Default                       | Description                                                                  |
-| ---------------- | ------ | ----------------------------- | ---------------------------------------------------------------------------- |
-| `workspace.root` | string | `$TMPDIR/symphony_workspaces` | Root directory for per-issue agent workspaces. Supports `~` tilde expansion. |
+| Field                     | Type   | Default                       | Description                                                                                                      |
+| ------------------------- | ------ | ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `workspace.root`          | string | `$TMPDIR/symphony_workspaces` | Root directory for per-issue agent workspaces. Supports `~` tilde expansion.                                     |
+| `workspace.repo`          | string | _(none)_                      | Repository URL or local path to bootstrap into each newly-created workspace.                                     |
+| `workspace.strategy`      | string | `"clone"`                     | Bootstrap strategy: `"clone"` (default) or `"worktree"`. `worktree` requires `workspace.repo` to be local path. |
+| `workspace.branch_prefix` | string | `"symphony"`                  | Branch prefix used for auto-created issue branches (`<prefix>/<issue-identifier>`).                             |
+| `workspace.clone_branch`  | string | _(none)_                      | Optional branch name to clone for `workspace.strategy: clone`. When set, Symphony runs clone bootstrap with `--branch <clone_branch>`. |
 
 #### `agent` section
 
@@ -123,6 +127,10 @@ Everything outside the front-matter is ignored by Symphony.
 | `hooks.before_remove` | string | _(none)_ | Shell command run before the workspace is removed.                   |
 | `hooks.timeout_ms`    | u64    | `60000`  | Timeout for each hook invocation (ms).                               |
 
+All hooks receive these environment variables:
+`SYMPHONY_ISSUE_ID`, `SYMPHONY_ISSUE_IDENTIFIER`, `SYMPHONY_ISSUE_TITLE`,
+`SYMPHONY_WORKSPACE_PATH`.
+
 #### `worker` section (SSH)
 
 | Field                                   | Type     | Default  | Description                                                                                                               |
@@ -148,6 +156,10 @@ tracker:
 
 workspace:
   root: ~/symphony_workspaces
+  repo: https://github.com/example/project.git
+  strategy: clone
+  branch_prefix: symphony
+  clone_branch: elixir-feature-parity
 
 codex:
   command: codex app-server
@@ -179,6 +191,9 @@ polling:
 
 workspace:
   root: ~/workspaces/symphony
+  repo: /Users/alice/code/kata
+  strategy: worktree
+  branch_prefix: symphony
 
 agent:
   max_concurrent_agents: 5
@@ -194,7 +209,7 @@ codex:
   stall_timeout_ms: 600000
 
 hooks:
-  before_run: echo "Starting session for $ISSUE_ID"
+  before_run: echo "Starting session for $SYMPHONY_ISSUE_IDENTIFIER"
   after_run: notify-send "Session complete"
   timeout_ms: 30000
 
@@ -223,6 +238,17 @@ server:
 | `RUST_LOG`            | Log filter directives for `tracing_subscriber`. Examples: `info`, `debug`, `symphony=trace`. Default: `info`.                                                        |
 | `HOME`                | Used for tilde (`~`) expansion in `workspace.root`.                                                                                                                  |
 | `SYMPHONY_SSH_CONFIG` | Path to a custom SSH config file. When set, Symphony passes `-F <path>` to every `ssh` invocation. Useful for custom host keys, ProxyJump, or IdentityFile settings. |
+
+### Hook Environment Variables
+
+The following variables are injected for every lifecycle hook invocation:
+
+| Variable                      | Description                                   |
+| ----------------------------- | --------------------------------------------- |
+| `SYMPHONY_ISSUE_ID`           | Linear issue UUID.                            |
+| `SYMPHONY_ISSUE_IDENTIFIER`   | Human-readable issue identifier (for example, `KAT-800`). |
+| `SYMPHONY_ISSUE_TITLE`        | Linear issue title.                           |
+| `SYMPHONY_WORKSPACE_PATH`     | Absolute path to the workspace directory.     |
 
 ### `$VAR` Indirection Pattern
 

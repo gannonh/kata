@@ -18,10 +18,11 @@ polling:
   interval_ms: 30000
 workspace:
   root: ~/symphony-workspaces
+  repo: https://github.com/gannonh/kata.git
+  strategy: clone
+  branch_prefix: symphony
+  clone_branch: elixir-feature-parity
 hooks:
-  after_create: |
-    git clone https://github.com/gannonh/kata.git . --single-branch --branch elixir-feature-parity
-    git checkout -b symphony/$(basename $PWD)
   timeout_ms: 120000
 agent:
   max_concurrent_agents: 1
