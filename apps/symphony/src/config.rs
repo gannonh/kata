@@ -15,6 +15,7 @@ use crate::domain::{
     TrackerConfig, WorkerConfig, WorkspaceConfig, WorkspaceRepoStrategy,
 };
 use crate::error::{Result, SymphonyError};
+use crate::repo_url::repo_is_remote;
 
 // ── Key normalization and null-dropping ───────────────────────────────────────
 
@@ -180,6 +181,7 @@ struct RawWorkspaceConfig {
     repo: Option<String>,
     strategy: Option<String>,
     branch_prefix: Option<String>,
+    clone_branch: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -410,11 +412,20 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let branch_prefix = raw_workspace
         .branch_prefix
         .unwrap_or_else(|| defaults.workspace.branch_prefix.clone());
+    let clone_branch = raw_workspace.clone_branch.and_then(|value| {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    });
     let workspace = WorkspaceConfig {
         root: expand_tilde(&raw_root),
         repo,
         strategy,
-        branch_prefix,
+        branch_prefix: branch_prefix.trim().to_string(),
+        clone_branch,
     };
 
     // ── WorkerConfig ──────────────────────────────────────────────────────
@@ -583,11 +594,6 @@ pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
 
     Ok(ValidatedServiceConfig(config.clone()))
 }
-
-fn repo_is_remote(repo: &str) -> bool {
-    repo.contains("://") || repo.starts_with("git@")
-}
-
 // ── Unit tests ────────────────────────────────────────────────────────────────
 
 #[cfg(test)]

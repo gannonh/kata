@@ -110,6 +110,7 @@ fn workspace_config(root: &Path) -> WorkspaceConfig {
         repo: None,
         strategy: WorkspaceRepoStrategy::Clone,
         branch_prefix: "symphony".to_string(),
+        clone_branch: None,
     }
 }
 
@@ -188,6 +189,24 @@ fn init_git_repo(path: &Path) {
         .current_dir(path)
         .args(["commit", "-m", "initial commit"]);
     command_success(commit, "git commit source repo files");
+}
+
+fn create_branch_with_commit(path: &Path, branch: &str, file: &str, contents: &str) {
+    let mut checkout = Command::new("git");
+    checkout.current_dir(path).args(["checkout", "-b", branch]);
+    command_success(checkout, "git checkout new source branch");
+
+    fs::write(path.join(file), contents).unwrap();
+
+    let mut add = Command::new("git");
+    add.current_dir(path).args(["add", file]);
+    command_success(add, "git add branch-specific file");
+
+    let mut commit = Command::new("git");
+    commit
+        .current_dir(path)
+        .args(["commit", "-m", "branch-specific commit"]);
+    command_success(commit, "git commit branch-specific file");
 }
 
 fn shell_quote(path: &Path) -> String {
@@ -433,12 +452,19 @@ fn test_workspace_clone_bootstrap_and_branch_creation() {
     let source_repo = tmp.path().join("source-repo");
     fs::create_dir_all(&root).unwrap();
     init_git_repo(&source_repo);
+    create_branch_with_commit(
+        &source_repo,
+        "elixir-feature-parity",
+        "BASE_BRANCH.txt",
+        "elixir-feature-parity\n",
+    );
 
     let config = WorkspaceConfig {
         root: root.to_string_lossy().to_string(),
         repo: Some(source_repo.to_string_lossy().to_string()),
         strategy: WorkspaceRepoStrategy::Clone,
         branch_prefix: "symphony".to_string(),
+        clone_branch: Some("elixir-feature-parity".to_string()),
     };
     let hooks = HooksConfig {
         after_create: Some("git rev-parse --abbrev-ref HEAD > hook_branch.txt".to_string()),
@@ -459,6 +485,10 @@ fn test_workspace_clone_bootstrap_and_branch_creation() {
     assert!(
         ws_path.join("README.md").exists(),
         "cloned workspace should contain source repo files"
+    );
+    assert!(
+        ws_path.join("BASE_BRANCH.txt").exists(),
+        "clone bootstrap should clone the configured source branch"
     );
 
     let mut branch_cmd = Command::new("git");
@@ -490,6 +520,7 @@ fn test_workspace_worktree_bootstrap_and_cleanup() {
         repo: Some(source_repo.to_string_lossy().to_string()),
         strategy: WorkspaceRepoStrategy::Worktree,
         branch_prefix: "symphony".to_string(),
+        clone_branch: None,
     };
     let hooks = hooks_config_none();
     let issue = make_test_issue("KAT-801");
@@ -612,6 +643,41 @@ fn test_workspace_remove_runs_before_remove_hook() {
     assert!(
         !ws_path.exists(),
         "workspace should be removed even if hook fails"
+    );
+}
+
+#[test]
+fn test_workspace_remove_continues_when_worktree_cleanup_fails() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    let source_repo = tmp.path().join("source-repo");
+    fs::create_dir_all(&root).unwrap();
+    init_git_repo(&source_repo);
+
+    let config = WorkspaceConfig {
+        root: root.to_string_lossy().to_string(),
+        repo: Some(source_repo.to_string_lossy().to_string()),
+        strategy: WorkspaceRepoStrategy::Worktree,
+        branch_prefix: "symphony".to_string(),
+        clone_branch: None,
+    };
+    let hooks = hooks_config_none();
+    let issue = make_test_issue("KAT-803");
+
+    let ws = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks).unwrap();
+    let ws_path = PathBuf::from(&ws.path);
+
+    // Break worktree cleanup by moving the source repo path away.
+    fs::rename(&source_repo, tmp.path().join("moved-source-repo")).unwrap();
+
+    let result = symphony::workspace::remove_workspace_for_issue(&ws_path, &config, &hooks, &issue);
+    assert!(
+        result.is_ok(),
+        "workspace removal should continue after cleanup failure"
+    );
+    assert!(
+        !ws_path.exists(),
+        "workspace directory should still be deleted if worktree cleanup fails"
     );
 }
 

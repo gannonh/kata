@@ -21,6 +21,7 @@ workspace:
   repo: https://github.com/gannonh/kata.git
   strategy: clone
   branch_prefix: symphony
+  clone_branch: elixir-feature-parity
 hooks:
   timeout_ms: 120000
 agent:

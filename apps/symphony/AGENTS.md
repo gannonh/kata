@@ -94,6 +94,7 @@ Everything outside the front-matter is ignored by Symphony.
 | `workspace.repo`          | string | _(none)_                      | Repository URL or local path to bootstrap into each newly-created workspace.                                     |
 | `workspace.strategy`      | string | `"clone"`                     | Bootstrap strategy: `"clone"` (default) or `"worktree"`. `worktree` requires `workspace.repo` to be local path. |
 | `workspace.branch_prefix` | string | `"symphony"`                  | Branch prefix used for auto-created issue branches (`<prefix>/<issue-identifier>`).                             |
+| `workspace.clone_branch`  | string | _(none)_                      | Optional branch name to clone for `workspace.strategy: clone`. When set, Symphony runs clone bootstrap with `--branch <clone_branch>`. |
 
 #### `agent` section
 
@@ -158,6 +159,7 @@ workspace:
   repo: https://github.com/example/project.git
   strategy: clone
   branch_prefix: symphony
+  clone_branch: elixir-feature-parity
 
 codex:
   command: codex app-server

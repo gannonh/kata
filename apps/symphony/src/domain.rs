@@ -183,6 +183,7 @@ pub struct WorkspaceConfig {
     pub repo: Option<String>,
     pub strategy: WorkspaceRepoStrategy,
     pub branch_prefix: String,
+    pub clone_branch: Option<String>,
 }
 
 /// Workspace repository bootstrap strategy.
@@ -199,6 +200,7 @@ impl Default for WorkspaceConfig {
             repo: None,
             strategy: WorkspaceRepoStrategy::Clone,
             branch_prefix: "symphony".to_string(),
+            clone_branch: None,
         }
     }
 }

@@ -8,6 +8,7 @@ use std::process::Command;
 use crate::domain::{HooksConfig, Issue, Workspace, WorkspaceConfig, WorkspaceRepoStrategy};
 use crate::error::{Result, SymphonyError};
 use crate::path_safety;
+use crate::repo_url::{redact_url_credentials, repo_is_remote};
 
 #[derive(Debug, Clone)]
 struct HookIssueContext {
@@ -175,8 +176,11 @@ fn bootstrap_repository(
                 .arg("clone")
                 .arg(repo)
                 .arg(".")
-                .arg("--single-branch")
-                .current_dir(workspace);
+                .arg("--single-branch");
+            if let Some(clone_branch) = config.clone_branch.as_deref() {
+                clone_cmd.arg("--branch").arg(clone_branch);
+            }
+            clone_cmd.current_dir(workspace);
             run_git_command(clone_cmd, "workspace clone bootstrap")?;
 
             let mut checkout_cmd = Command::new("git");
@@ -231,10 +235,6 @@ fn cleanup_worktree_checkout(workspace: &Path, config: &WorkspaceConfig) -> Resu
     run_git_command(worktree_remove, "workspace worktree cleanup")
 }
 
-fn repo_is_remote(repo: &str) -> bool {
-    repo.contains("://") || repo.starts_with("git@")
-}
-
 fn run_git_command(mut command: Command, context: &str) -> Result<()> {
     let output = command.output().map_err(SymphonyError::Io)?;
     if output.status.success() {
@@ -245,7 +245,8 @@ fn run_git_command(mut command: Command, context: &str) -> Result<()> {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     let combined = format!("{stdout}{stderr}");
-    let truncated = truncate_output(&combined, 2048);
+    let redacted = redact_url_credentials(&combined);
+    let truncated = truncate_output(&redacted, 2048);
 
     Err(SymphonyError::Other(format!(
         "{context} failed (status {status}): {truncated}"
@@ -501,7 +502,13 @@ fn remove_workspace_internal(
             }
         }
 
-        cleanup_worktree_checkout(&canonical_workspace, config)?;
+        if let Err(err) = cleanup_worktree_checkout(&canonical_workspace, config) {
+            tracing::warn!(
+                error = %err,
+                workspace = %canonical_workspace.display(),
+                "worktree cleanup failed; continuing workspace directory removal"
+            );
+        }
 
         if canonical_workspace.exists() {
             std::fs::remove_dir_all(&canonical_workspace)?;

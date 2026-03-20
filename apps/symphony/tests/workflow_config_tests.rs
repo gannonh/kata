@@ -137,6 +137,7 @@ fn test_config_defaults() {
     assert_eq!(config.workspace.repo, None);
     assert_eq!(config.workspace.strategy, WorkspaceRepoStrategy::Clone);
     assert_eq!(config.workspace.branch_prefix, "symphony");
+    assert_eq!(config.workspace.clone_branch, None);
 }
 
 #[test]
@@ -207,7 +208,8 @@ workspace:
   root: ~/workspaces
   repo: https://github.com/gannonh/kata.git
   strategy: clone
-  branch_prefix: symphony
+  branch_prefix: " symphony "
+  clone_branch: elixir-feature-parity
 "#;
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
     let config = from_workflow(&raw).expect("workspace bootstrap config should parse");
@@ -218,6 +220,21 @@ workspace:
     );
     assert_eq!(config.workspace.strategy, WorkspaceRepoStrategy::Clone);
     assert_eq!(config.workspace.branch_prefix, "symphony");
+    assert_eq!(
+        config.workspace.clone_branch.as_deref(),
+        Some("elixir-feature-parity")
+    );
+}
+
+#[test]
+fn test_workspace_clone_branch_blank_is_ignored() {
+    let yaml_str = r#"
+workspace:
+  clone_branch: "   "
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("workspace clone branch should parse");
+    assert_eq!(config.workspace.clone_branch, None);
 }
 
 #[test]
