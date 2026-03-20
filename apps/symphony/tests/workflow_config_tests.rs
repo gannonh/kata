@@ -122,7 +122,8 @@ fn test_parse_workflow_non_map_yaml() {
 
 #[test]
 fn test_repo_workflow_requires_publish_gate_before_human_review() {
-    let def = parse_workflow(Path::new("WORKFLOW.md"))
+    let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("WORKFLOW.md");
+    let def = parse_workflow(&workflow_path)
         .expect("repo WORKFLOW.md should parse for publish-gate contract assertions");
 
     assert!(
@@ -137,7 +138,7 @@ fn test_repo_workflow_requires_publish_gate_before_human_review() {
     );
     assert!(
         def.prompt_template
-            .contains("Do not move to `Human Review`"),
+            .contains("If either publish proof fails, do not move state"),
         "WORKFLOW.md must explicitly block Human Review transition until publish checks pass"
     );
 }
