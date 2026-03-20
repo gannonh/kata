@@ -11,9 +11,9 @@ use crate::config;
 use crate::domain::{
     AgentEvent, CodexConfig, CodexTotals, HooksConfig, Issue, OrchestratorSnapshot,
     OrchestratorState, PollingSnapshot, RateLimitInfo, RefreshRequestOutcome, RetryEntry,
-    RetrySnapshotEntry, RunAttempt, ServiceConfig, WorkspaceConfig,
+    RetrySnapshotEntry, RunAttempt, ServiceConfig, TrackerConfig, WorkspaceConfig,
 };
-use crate::error::Result;
+use crate::error::{Result, SymphonyError};
 use crate::ssh::{self, WorkerHostSelection};
 use crate::{path_safety, prompt_builder, workspace};
 
@@ -25,8 +25,180 @@ struct WorkerTaskConfig {
     workspace: WorkspaceConfig,
     hooks: HooksConfig,
     codex: CodexConfig,
-    tracker: crate::domain::TrackerConfig,
+    max_turns: u32,
+    tracker: TrackerConfig,
     prompt_template: String,
+}
+
+enum IssueCheck {
+    Continue(Issue),
+    Done(Issue),
+    Error(SymphonyError),
+}
+
+struct SessionTurnLoopSuccess {
+    events: Vec<AgentEvent>,
+    metrics: Option<TurnMetrics>,
+    schedule_continuation: bool,
+}
+
+struct SessionTurnLoopFailure {
+    error: SymphonyError,
+    events: Vec<AgentEvent>,
+    metrics: Option<TurnMetrics>,
+}
+
+fn accumulate_turn_metrics(metrics: &mut Option<TurnMetrics>, turn: &app_server::TurnResult) {
+    match metrics {
+        Some(total) => {
+            total.input_tokens = total.input_tokens.saturating_add(turn.input_tokens);
+            total.output_tokens = total.output_tokens.saturating_add(turn.output_tokens);
+            total.total_tokens = total.total_tokens.saturating_add(turn.total_tokens);
+            if let Some(rate_limits) = turn.rate_limits.clone() {
+                total.rate_limits = Some(rate_limits);
+            }
+        }
+        None => {
+            *metrics = Some(TurnMetrics {
+                input_tokens: turn.input_tokens,
+                output_tokens: turn.output_tokens,
+                total_tokens: turn.total_tokens,
+                rate_limits: turn.rate_limits.clone(),
+            });
+        }
+    }
+}
+
+fn is_terminal_state(state_name: &str, tracker_config: &TrackerConfig) -> bool {
+    let normalized = normalize_issue_state(state_name);
+    tracker_config
+        .terminal_states
+        .iter()
+        .any(|state| normalize_issue_state(state) == normalized)
+}
+
+fn is_active_state(state_name: &str, tracker_config: &TrackerConfig) -> bool {
+    let normalized = normalize_issue_state(state_name);
+    tracker_config
+        .active_states
+        .iter()
+        .any(|state| normalize_issue_state(state) == normalized)
+}
+
+fn should_continue_issue_in_session(issue: &Issue, tracker_config: &TrackerConfig) -> bool {
+    issue.assigned_to_worker
+        && is_active_state(&issue.state, tracker_config)
+        && !is_terminal_state(&issue.state, tracker_config)
+}
+
+async fn check_issue_still_active(
+    issue: &Issue,
+    client: &crate::linear::client::LinearClient,
+    tracker_config: &TrackerConfig,
+) -> IssueCheck {
+    match client
+        .fetch_issue_states_by_ids(std::slice::from_ref(&issue.id))
+        .await
+    {
+        Ok(issues) => match issues.first() {
+            Some(refreshed) => {
+                if should_continue_issue_in_session(refreshed, tracker_config) {
+                    IssueCheck::Continue(refreshed.clone())
+                } else {
+                    IssueCheck::Done(refreshed.clone())
+                }
+            }
+            None => IssueCheck::Done(issue.clone()),
+        },
+        Err(err) => IssueCheck::Error(err),
+    }
+}
+
+async fn run_codex_turns_in_session<E, EFut>(
+    session: &mut app_server::SessionHandle,
+    issue: &Issue,
+    initial_prompt: String,
+    max_turns: u32,
+    tracker_config: &TrackerConfig,
+    graphql_executor: E,
+) -> std::result::Result<SessionTurnLoopSuccess, SessionTurnLoopFailure>
+where
+    E: Fn(String, serde_json::Value) -> EFut + Clone + Send,
+    EFut: Future<Output = Result<serde_json::Value>> + Send,
+{
+    let capped_max_turns = max_turns.max(1);
+    let mut turn_number: u32 = 1;
+    let mut current_issue = issue.clone();
+    let issue_state_client = crate::linear::client::LinearClient::new(tracker_config.clone());
+    let mut observed_events: Vec<AgentEvent> = Vec::new();
+    let mut metrics: Option<TurnMetrics> = None;
+    let mut schedule_continuation = true;
+    let mut initial_prompt = Some(initial_prompt);
+
+    loop {
+        let prompt = if turn_number == 1 {
+            initial_prompt.take().unwrap_or_default()
+        } else {
+            prompt_builder::render_continuation_prompt(turn_number, capped_max_turns)
+        };
+
+        let run_result =
+            app_server::run_turn(session, &prompt, graphql_executor.clone(), |event| {
+                observed_events.push(event);
+            })
+            .await;
+
+        match run_result {
+            Ok(turn_result) => {
+                accumulate_turn_metrics(&mut metrics, &turn_result);
+            }
+            Err(err) => {
+                return Err(SessionTurnLoopFailure {
+                    error: err,
+                    events: observed_events,
+                    metrics,
+                });
+            }
+        }
+
+        if turn_number >= capped_max_turns {
+            break;
+        }
+
+        match check_issue_still_active(&current_issue, &issue_state_client, tracker_config).await {
+            IssueCheck::Continue(refreshed) => {
+                current_issue = refreshed;
+                turn_number = turn_number.saturating_add(1);
+            }
+            IssueCheck::Done(_refreshed) => {
+                schedule_continuation = false;
+                break;
+            }
+            IssueCheck::Error(err) => {
+                observed_events.push(AgentEvent::Notification {
+                    timestamp: Utc::now(),
+                    codex_app_server_pid: None,
+                    message: format!(
+                        "inter-turn issue refresh failed for {} ({}): {}",
+                        current_issue.identifier, current_issue.id, err
+                    ),
+                });
+                tracing::warn!(
+                    issue_id = %current_issue.id,
+                    issue_identifier = %current_issue.identifier,
+                    error = %err,
+                    "failed to refresh issue state between worker turns; ending session-level turn loop"
+                );
+                break;
+            }
+        }
+    }
+
+    Ok(SessionTurnLoopSuccess {
+        events: observed_events,
+        metrics,
+        schedule_continuation,
+    })
 }
 
 /// Run the full worker lifecycle for a single issue. This function is
@@ -34,7 +206,7 @@ struct WorkerTaskConfig {
 /// and does not require `&mut Orchestrator`.
 ///
 /// Steps: ensure workspace → before_run hook → render prompt → start
-/// Codex session → stream turn → stop session → after_run hook.
+/// Codex session → run up to max_turns on one session → stop session → after_run hook.
 async fn run_worker_task(
     issue: &Issue,
     attempt: Option<u32>,
@@ -148,19 +320,22 @@ async fn run_worker_task(
         "worker attempt started"
     );
 
-    // 5. Run turn — wire real linear_graphql executor via LinearClient
-    let mut observed_events: Vec<AgentEvent> = Vec::new();
+    // 5. Run up to max_turns within the same session.
     let linear_client = crate::linear::client::LinearClient::new(config.tracker.clone());
     let graphql_executor = move |query: String, vars: serde_json::Value| {
         let client = linear_client.clone();
         async move { client.graphql_raw(&query, vars).await }
     };
 
-    let run_result: Result<_> =
-        app_server::run_turn(&mut session, &prompt, graphql_executor, |event| {
-            observed_events.push(event);
-        })
-        .await;
+    let loop_result = run_codex_turns_in_session(
+        &mut session,
+        issue,
+        prompt,
+        config.max_turns,
+        &config.tracker,
+        graphql_executor,
+    )
+    .await;
 
     // 6. Stop session
     if let Err(err) = app_server::stop_session(session).await {
@@ -175,25 +350,22 @@ async fn run_worker_task(
     let _ = workspace::run_after_run_hook_for_issue(workspace_path, &config.hooks, issue);
 
     // 8. Build result
-    match run_result {
-        Ok(turn_result) => WorkerResult {
+    match loop_result {
+        Ok(success) => WorkerResult {
             issue_id,
-            completion: WorkerCompletion::Completed,
-            events: observed_events,
-            metrics: Some(TurnMetrics {
-                input_tokens: turn_result.input_tokens,
-                output_tokens: turn_result.output_tokens,
-                total_tokens: turn_result.total_tokens,
-                rate_limits: turn_result.rate_limits,
-            }),
+            completion: WorkerCompletion::Completed {
+                schedule_continuation: success.schedule_continuation,
+            },
+            events: success.events,
+            metrics: success.metrics,
         },
-        Err(err) => WorkerResult {
+        Err(failure) => WorkerResult {
             issue_id,
             completion: WorkerCompletion::Failed {
-                error: err.to_string(),
+                error: failure.error.to_string(),
             },
-            events: observed_events,
-            metrics: None,
+            events: failure.events,
+            metrics: failure.metrics,
         },
     }
 }
@@ -399,7 +571,7 @@ pub struct RetryContext {
 
 #[derive(Debug, Clone)]
 pub enum WorkerCompletion {
-    Completed,
+    Completed { schedule_continuation: bool },
     Failed { error: String },
 }
 
@@ -578,6 +750,7 @@ impl Orchestrator {
                 workspace: self.config.workspace.clone(),
                 hooks: self.config.hooks.clone(),
                 codex: self.config.codex.clone(),
+                max_turns: self.config.agent.max_turns,
                 tracker: self.config.tracker.clone(),
                 prompt_template: self.prompt_template.clone(),
             };
@@ -932,7 +1105,9 @@ impl Orchestrator {
         };
 
         match completion {
-            WorkerCompletion::Completed => {
+            WorkerCompletion::Completed {
+                schedule_continuation,
+            } => {
                 self.state.completed.insert(issue_id.to_string());
 
                 tracing::info!(
@@ -940,7 +1115,8 @@ impl Orchestrator {
                     issue_id = %issue_id,
                     issue_identifier = %issue_identifier,
                     session_id = session_id.as_deref().unwrap_or("n/a"),
-                    "worker attempt completed; scheduling continuation retry"
+                    schedule_continuation,
+                    "worker attempt completed"
                 );
 
                 self.events.push(RuntimeEvent::WorkerCompleted {
@@ -949,15 +1125,20 @@ impl Orchestrator {
                     session_id,
                 });
 
-                Some(self.schedule_retry_with_context(
-                    issue_id,
-                    &issue_identifier,
-                    1,
-                    RetryKind::Continuation,
-                    now_ms,
-                    None,
-                    retry_context,
-                ))
+                if schedule_continuation {
+                    Some(self.schedule_retry_with_context(
+                        issue_id,
+                        &issue_identifier,
+                        1,
+                        RetryKind::Continuation,
+                        now_ms,
+                        None,
+                        retry_context,
+                    ))
+                } else {
+                    self.state.retry_attempts.remove(issue_id);
+                    None
+                }
             }
             WorkerCompletion::Failed { error } => {
                 self.state.completed.remove(issue_id);
@@ -1096,13 +1277,22 @@ impl Orchestrator {
             "worker attempt started"
         );
 
-        let mut observed_events: Vec<AgentEvent> = Vec::new();
-        let run_result = app_server::run_turn(&mut session, &prompt, graphql_executor, |event| {
-            observed_events.push(event);
-        })
+        let loop_result = run_codex_turns_in_session(
+            &mut session,
+            issue,
+            prompt,
+            self.config.agent.max_turns,
+            &self.config.tracker,
+            graphql_executor,
+        )
         .await;
 
-        for event in &observed_events {
+        let observed_events = match &loop_result {
+            Ok(success) => &success.events,
+            Err(failure) => &failure.events,
+        };
+
+        for event in observed_events {
             self.ingest_agent_event(&issue.id, event);
         }
 
@@ -1117,32 +1307,33 @@ impl Orchestrator {
 
         let _ = workspace::run_after_run_hook_for_issue(workspace_path, &self.config.hooks, issue);
 
-        match run_result {
-            Ok(turn_result) => {
-                self.apply_turn_metrics(&TurnMetrics {
-                    input_tokens: turn_result.input_tokens,
-                    output_tokens: turn_result.output_tokens,
-                    total_tokens: turn_result.total_tokens,
-                    rate_limits: turn_result.rate_limits,
-                });
-
+        match loop_result {
+            Ok(success) => {
+                if let Some(metrics) = &success.metrics {
+                    self.apply_turn_metrics(metrics);
+                }
                 self.handle_worker_completion(
                     &issue.id,
-                    WorkerCompletion::Completed,
+                    WorkerCompletion::Completed {
+                        schedule_continuation: success.schedule_continuation,
+                    },
                     Utc::now().timestamp_millis(),
                 );
 
                 Ok(())
             }
-            Err(err) => {
+            Err(failure) => {
+                if let Some(metrics) = &failure.metrics {
+                    self.apply_turn_metrics(metrics);
+                }
+                let error = failure.error;
+                let error_text = error.to_string();
                 self.handle_worker_completion(
                     &issue.id,
-                    WorkerCompletion::Failed {
-                        error: err.to_string(),
-                    },
+                    WorkerCompletion::Failed { error: error_text },
                     Utc::now().timestamp_millis(),
                 );
-                Err(err)
+                Err(error)
             }
         }
     }
