@@ -125,9 +125,9 @@ The agent should be able to talk to Linear, either via a configured Linear MCP s
 - `Backlog` -> out of scope for this workflow; do not modify.
 - `Todo` -> queued; the orchestrator moves this to `In Progress` on dispatch. Verify state is `In Progress` before active work.
   - Special case: if a PR is already attached, move the issue to `Agent Review` and run the full PR feedback sweep (address or explicitly push back on each comment, revalidate, push updates, then return to `Human Review`).
-- `In Progress` -> implementation actively underway.
-- `Human Review` -> PR is attached and validated; waiting on human approval. Do not code or change ticket content.
-- `Agent Review` -> PR feedback needs addressing. Run full PR feedback sweep, make targeted fixes, push to existing branch, then move to `Human Review`.
+- `In Progress` -> implementation actively underway. After opening a PR, move to `Agent Review` (not `Human Review`).
+- `Agent Review` -> PR feedback needs addressing. Run full PR feedback sweep, make targeted fixes, push to existing branch. When no unresolved actionable threads remain, move to `Human Review`.
+- `Human Review` -> PR is attached, validated, and all bot/review feedback addressed; waiting on human approval. Do not code or change ticket content.
 - `Merging` -> approved by human; execute the `land` skill flow (do not call `gh pr merge` directly).
 - `Rework` -> reviewer rejected the current approach; close the current PR and restart from a fresh branch.
 - `Done` -> terminal state; no further action required.
@@ -135,9 +135,10 @@ The agent should be able to talk to Linear, either via a configured Linear MCP s
 ### Full lifecycle
 
 ```
-Todo -> In Progress -> Human Review -> (human approves) -> Merging -> Done
-                               -> (human requests changes) -> Agent Review -> Human Review
-                               -> (human rejects approach) -> Rework -> In Progress
+Todo -> In Progress -> Agent Review (auto, address bot feedback) -> Human Review
+                                                                    -> (human approves) -> Merging -> Done
+                                                                    -> (human requests changes) -> Agent Review -> Human Review
+                                                                    -> (human rejects approach) -> Rework -> In Progress
 ```
 
 ## Step 0: Determine current ticket state and route
@@ -149,8 +150,8 @@ Todo -> In Progress -> Human Review -> (human approves) -> Merging -> Done
    - `Todo` -> orchestrator already moved to `In Progress`; verify state, then ensure bootstrap workpad comment exists (create if missing), then start execution flow.
      - If PR is already attached, start by reviewing all open PR comments and deciding required changes vs explicit pushback responses.
    - `In Progress` -> continue execution flow from current scratchpad comment.
+   - `Agent Review` -> open and follow `.codex/skills/address-comments/SKILL.md`. Fetch PR comments, address each thread, resolve threads, push fixes. When no unresolved actionable threads remain, move to `Human Review`.
    - `Human Review` -> wait and poll for decision/review updates.
-   - `Agent Review` -> open and follow `.codex/skills/address-comments/SKILL.md`. Fetch PR comments, address each thread, resolve threads, push fixes, then move to `Human Review`.
    - `Merging` -> on entry, open and follow `.codex/skills/land/SKILL.md`; do not call `gh pr merge` directly.
    - `Rework` -> run rework flow.
    - `Done` -> do nothing and shut down.
@@ -265,7 +266,7 @@ Use this only when completion is blocked by missing required tools or missing au
     - Confirm every required ticket-provided validation/test-plan item is explicitly marked complete in the workpad.
     - Repeat this check-address-verify loop until no outstanding comments remain and checks are fully passing.
     - Re-open and refresh the workpad before state transition so `Plan`, `Acceptance Criteria`, and `Validation` exactly match completed work.
-12. Only then move issue to `Human Review`.
+12. Only then move issue to `Agent Review` to trigger the automated feedback sweep. Do NOT move directly to `Human Review` — the agent review loop will handle that after all feedback is addressed.
     - Exception: if blocked by missing required non-GitHub tools/auth per the blocked-access escape hatch, move to `Human Review` with the blocker brief and explicit unblock actions.
 13. For `Todo` tickets that already had a PR attached at kickoff:
     - Ensure all existing PR feedback was reviewed and resolved, including inline review comments (code changes or explicit, justified pushback response).
