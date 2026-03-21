@@ -164,6 +164,7 @@ fn test_config_defaults() {
     assert_eq!(config.workspace.isolation, WorkspaceIsolation::Local);
     assert_eq!(config.workspace.branch_prefix, "symphony");
     assert_eq!(config.workspace.clone_branch, None);
+    assert_eq!(config.workspace.base_branch.as_deref(), Some("main"));
     assert!(!config.workspace.cleanup_on_done);
 }
 
@@ -254,6 +255,7 @@ workspace:
         config.workspace.clone_branch.as_deref(),
         Some("elixir-feature-parity")
     );
+    assert_eq!(config.workspace.base_branch.as_deref(), Some("main"));
 }
 
 #[test]
@@ -299,6 +301,31 @@ workspace:
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
     let config = from_workflow(&raw).expect("workspace clone branch should parse");
     assert_eq!(config.workspace.clone_branch, None);
+}
+
+#[test]
+fn test_workspace_base_branch_parses_and_trims() {
+    let yaml_str = r#"
+workspace:
+  base_branch: " elixir-feature-parity "
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("workspace base branch should parse");
+    assert_eq!(
+        config.workspace.base_branch.as_deref(),
+        Some("elixir-feature-parity")
+    );
+}
+
+#[test]
+fn test_workspace_base_branch_blank_uses_default_main() {
+    let yaml_str = r#"
+workspace:
+  base_branch: "   "
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("workspace base branch blank should parse");
+    assert_eq!(config.workspace.base_branch.as_deref(), Some("main"));
 }
 
 #[test]

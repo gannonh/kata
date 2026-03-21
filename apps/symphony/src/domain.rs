@@ -185,6 +185,7 @@ pub struct WorkspaceConfig {
     pub isolation: WorkspaceIsolation,
     pub branch_prefix: String,
     pub clone_branch: Option<String>,
+    pub base_branch: Option<String>,
     pub cleanup_on_done: bool,
 }
 
@@ -213,6 +214,7 @@ impl Default for WorkspaceConfig {
             isolation: WorkspaceIsolation::Local,
             branch_prefix: "symphony".to_string(),
             clone_branch: None,
+            base_branch: Some("main".to_string()),
             cleanup_on_done: false,
         }
     }

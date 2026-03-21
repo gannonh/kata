@@ -114,6 +114,7 @@ fn workspace_config(root: &Path) -> WorkspaceConfig {
         isolation: WorkspaceIsolation::Local,
         branch_prefix: "symphony".to_string(),
         clone_branch: None,
+        base_branch: Some("main".to_string()),
         cleanup_on_done: false,
     }
 }
@@ -504,6 +505,7 @@ fn test_workspace_clone_bootstrap_and_branch_creation() {
         isolation: WorkspaceIsolation::Local,
         branch_prefix: "symphony".to_string(),
         clone_branch: Some("elixir-feature-parity".to_string()),
+        base_branch: Some("main".to_string()),
         cleanup_on_done: false,
     };
     let hooks = HooksConfig {
@@ -582,6 +584,7 @@ fn test_workspace_clone_remote_uses_single_branch_behavior() {
         isolation: WorkspaceIsolation::Local,
         branch_prefix: "symphony".to_string(),
         clone_branch: Some("elixir-feature-parity".to_string()),
+        base_branch: Some("main".to_string()),
         cleanup_on_done: false,
     };
     let hooks = hooks_config_none();
@@ -624,6 +627,7 @@ fn test_workspace_auto_strategy_selects_local_clone_for_local_repo_path() {
         isolation: WorkspaceIsolation::Local,
         branch_prefix: "symphony".to_string(),
         clone_branch: Some("elixir-feature-parity".to_string()),
+        base_branch: Some("main".to_string()),
         cleanup_on_done: false,
     };
     let hooks = hooks_config_none();
@@ -668,6 +672,7 @@ fn test_workspace_auto_strategy_selects_remote_clone_for_repo_url() {
         isolation: WorkspaceIsolation::Local,
         branch_prefix: "symphony".to_string(),
         clone_branch: Some("elixir-feature-parity".to_string()),
+        base_branch: Some("main".to_string()),
         cleanup_on_done: false,
     };
     let hooks = hooks_config_none();
@@ -703,6 +708,7 @@ fn test_workspace_worktree_bootstrap_and_cleanup() {
         isolation: WorkspaceIsolation::Local,
         branch_prefix: "symphony".to_string(),
         clone_branch: None,
+        base_branch: Some("main".to_string()),
         cleanup_on_done: false,
     };
     let hooks = hooks_config_none();
@@ -844,6 +850,7 @@ fn test_workspace_remove_continues_when_worktree_cleanup_fails() {
         isolation: WorkspaceIsolation::Local,
         branch_prefix: "symphony".to_string(),
         clone_branch: None,
+        base_branch: Some("main".to_string()),
         cleanup_on_done: false,
     };
     let hooks = hooks_config_none();
@@ -994,7 +1001,8 @@ fn test_render_prompt_basic_fields() {
     let issue = make_full_issue();
     let template = "ID: {{ issue.identifier }}\nTitle: {{ issue.title }}\nLabels: {{ issue.labels | join: ', ' }}\nAttempt: {{ attempt }}";
 
-    let result = symphony::prompt_builder::render_prompt(template, &issue, Some(2)).unwrap();
+    let result =
+        symphony::prompt_builder::render_prompt(template, &issue, Some(2), Some("main")).unwrap();
     assert!(result.contains("ID: MT-42"), "got: {}", result);
     assert!(result.contains("Title: Fix the widget"), "got: {}", result);
     assert!(result.contains("Labels: bug, urgent"), "got: {}", result);
@@ -1002,11 +1010,38 @@ fn test_render_prompt_basic_fields() {
 }
 
 #[test]
+fn test_render_prompt_workspace_base_branch() {
+    let issue = make_full_issue();
+    let template = "Base branch: {{ workspace.base_branch }}";
+
+    let configured = symphony::prompt_builder::render_prompt(
+        template,
+        &issue,
+        None,
+        Some("elixir-feature-parity"),
+    )
+    .unwrap();
+    assert!(
+        configured.contains("Base branch: elixir-feature-parity"),
+        "configured base branch should render, got: {}",
+        configured
+    );
+
+    let defaulted = symphony::prompt_builder::render_prompt(template, &issue, None, None).unwrap();
+    assert!(
+        defaulted.contains("Base branch: main"),
+        "missing workspace base branch should default to main, got: {}",
+        defaulted
+    );
+}
+
+#[test]
 fn test_render_prompt_datetime_fields() {
     let issue = make_full_issue();
     let template = "Created: {{ issue.created_at }}\nUpdated: {{ issue.updated_at }}";
 
-    let result = symphony::prompt_builder::render_prompt(template, &issue, None).unwrap();
+    let result =
+        symphony::prompt_builder::render_prompt(template, &issue, None, Some("main")).unwrap();
     // Should contain ISO 8601 format
     assert!(
         result.contains("2025-01-15"),
@@ -1040,7 +1075,8 @@ fn test_render_prompt_none_fields() {
     };
     let template = "Desc: [{{ issue.description }}] Branch: [{{ issue.branch_name }}]";
 
-    let result = symphony::prompt_builder::render_prompt(template, &issue, None).unwrap();
+    let result =
+        symphony::prompt_builder::render_prompt(template, &issue, None, Some("main")).unwrap();
     // None fields should render as empty
     assert!(
         result.contains("Desc: []"),
@@ -1059,7 +1095,8 @@ fn test_render_prompt_blockers_iterable() {
     let issue = make_full_issue();
     let template = "Blockers:{% for b in issue.blocked_by %} {{ b.identifier }}{% endfor %}";
 
-    let result = symphony::prompt_builder::render_prompt(template, &issue, None).unwrap();
+    let result =
+        symphony::prompt_builder::render_prompt(template, &issue, None, Some("main")).unwrap();
     assert!(
         result.contains("MT-10"),
         "Should iterate blockers, got: {}",
@@ -1077,7 +1114,7 @@ fn test_render_prompt_strict_unknown_variable() {
     let issue = make_full_issue();
     let template = "{{ missing.field }}";
 
-    let result = symphony::prompt_builder::render_prompt(template, &issue, None);
+    let result = symphony::prompt_builder::render_prompt(template, &issue, None, Some("main"));
     match result {
         Err(SymphonyError::TemplateRenderError(_)) => { /* expected */ }
         other => panic!("Expected TemplateRenderError, got: {:?}", other),
@@ -1089,7 +1126,7 @@ fn test_render_prompt_parse_error() {
     let issue = make_full_issue();
     let template = "{% if issue.id %}"; // Unclosed if block
 
-    let result = symphony::prompt_builder::render_prompt(template, &issue, None);
+    let result = symphony::prompt_builder::render_prompt(template, &issue, None, Some("main"));
     match result {
         Err(SymphonyError::TemplateParseError(_)) => { /* expected */ }
         other => panic!("Expected TemplateParseError, got: {:?}", other),
@@ -1102,7 +1139,8 @@ fn test_render_prompt_attempt_none_vs_some() {
     let template = "Attempt: [{{ attempt }}]";
 
     // None → empty
-    let result_none = symphony::prompt_builder::render_prompt(template, &issue, None).unwrap();
+    let result_none =
+        symphony::prompt_builder::render_prompt(template, &issue, None, Some("main")).unwrap();
     assert!(
         result_none.contains("Attempt: []"),
         "attempt=None should render as empty, got: {}",
@@ -1110,7 +1148,8 @@ fn test_render_prompt_attempt_none_vs_some() {
     );
 
     // Some(3) → "3"
-    let result_some = symphony::prompt_builder::render_prompt(template, &issue, Some(3)).unwrap();
+    let result_some =
+        symphony::prompt_builder::render_prompt(template, &issue, Some(3), Some("main")).unwrap();
     assert!(
         result_some.contains("Attempt: [3]"),
         "attempt=Some(3) should render as '3', got: {}",

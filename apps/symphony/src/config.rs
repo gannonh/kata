@@ -184,6 +184,7 @@ struct RawWorkspaceConfig {
     isolation: Option<String>,
     branch_prefix: Option<String>,
     clone_branch: Option<String>,
+    base_branch: Option<String>,
     cleanup_on_done: Option<bool>,
 }
 
@@ -492,6 +493,18 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
                 Some(trimmed.to_string())
             }
         });
+    let base_branch = raw_workspace
+        .base_branch
+        .map(|value| resolve_env(&value))
+        .and_then(|value| {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        })
+        .or_else(|| defaults.workspace.base_branch.clone());
     let workspace = WorkspaceConfig {
         root: expand_tilde(&raw_root),
         repo,
@@ -499,6 +512,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         isolation,
         branch_prefix: branch_prefix.trim().to_string(),
         clone_branch,
+        base_branch,
         cleanup_on_done: raw_workspace
             .cleanup_on_done
             .unwrap_or(defaults.workspace.cleanup_on_done),
