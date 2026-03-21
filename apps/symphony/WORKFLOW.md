@@ -21,7 +21,7 @@ polling:
 workspace:
   root: /Volumes/EVO/symphony-workspaces
   repo: /Volumes/EVO/kata/kata-mono
-  git_strategy: clone-local
+  git_strategy: worktree
   isolation: local
   branch_prefix: symphony
   clone_branch: main
