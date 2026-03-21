@@ -77,9 +77,6 @@ let _lockCompromised = false;
 /** Whether we've registered a process.on("exit") handler already. */
 let _exitHandlerRegistered = false;
 
-/** Snapshotted lock file path captured at acquire time. */
-let _snapshotLockPath: string | null = null;
-
 /** Timestamp when lock was acquired for compromise false-positive suppression. */
 let _lockAcquiredAt = 0;
 
@@ -100,7 +97,6 @@ function kataStateDir(basePath: string): string {
 }
 
 function lockPath(basePath: string): string {
-  if (_snapshotLockPath) return _snapshotLockPath;
   return join(kataStateDir(basePath), LOCK_FILE);
 }
 
@@ -109,7 +105,6 @@ function clearHeldLockState(): void {
   _lockPid = 0;
   _lockCompromised = false;
   _lockAcquiredAt = 0;
-  _snapshotLockPath = null;
 }
 
 // ─── Stray Lock Cleanup ─────────────────────────────────────────────────────
@@ -270,7 +265,6 @@ export function acquireSessionLock(basePath: string): SessionLockResult {
     _lockPid = process.pid;
     _lockCompromised = false;
     _lockAcquiredAt = Date.now();
-    _snapshotLockPath = lp;
 
     ensureExitHandler(stateDir);
 
@@ -280,7 +274,7 @@ export function acquireSessionLock(basePath: string): SessionLockResult {
     const existingData = readExistingLockData(lp);
     const existingPid = existingData?.pid;
 
-    if (!existingData || (existingPid && !isPidAlive(existingPid))) {
+    if (existingPid && !isPidAlive(existingPid)) {
       try {
         const lockDir = `${stateDir}.lock`;
         if (existsSync(lockDir)) rmSync(lockDir, { recursive: true, force: true });
@@ -308,7 +302,6 @@ export function acquireSessionLock(basePath: string): SessionLockResult {
         _lockPid = process.pid;
         _lockCompromised = false;
         _lockAcquiredAt = Date.now();
-        _snapshotLockPath = lp;
 
         ensureExitHandler(stateDir);
 
@@ -358,7 +351,7 @@ export function updateSessionLock(
   sessionFile?: string,
 ): void {
   const normalizedBasePath = normalizeBasePath(basePath);
-  if (_lockedPath !== normalizedBasePath && _lockedPath !== null) return;
+  if (_lockedPath !== normalizedBasePath) return;
 
   const lp = lockPath(normalizedBasePath);
   try {
@@ -437,6 +430,7 @@ export function validateSessionLock(basePath: string): boolean {
 
 export function releaseSessionLock(basePath: string): void {
   const normalizedBasePath = normalizeBasePath(basePath);
+  if (_lockedPath !== normalizedBasePath) return;
 
   if (_releaseFunction) {
     try {

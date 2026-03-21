@@ -230,7 +230,6 @@ export async function stopAuto(
   clearUnitTimeout();
   if (basePath) {
     releaseSessionLock(basePath);
-    clearLock(basePath);
   }
   clearSkillSnapshot();
 
@@ -285,7 +284,6 @@ export async function pauseAuto(
   clearUnitTimeout();
   if (basePath) {
     releaseSessionLock(basePath);
-    clearLock(basePath);
   }
   active = false;
   paused = true;

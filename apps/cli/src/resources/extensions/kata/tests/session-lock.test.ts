@@ -175,6 +175,17 @@ describe("session-lock", () => {
     }
   });
 
+  it("updateSessionLock does not write metadata when no lock is held", () => {
+    const basePath = makeBaseDir();
+    try {
+      updateSessionLock(basePath, "execute-task", "M001/S01/T03", 2);
+      assert.equal(readSessionLockData(basePath), null);
+    } finally {
+      releaseSessionLock(basePath);
+      rmSync(basePath, { recursive: true, force: true });
+    }
+  });
+
   it("normalizes worktree paths to a shared repo lock location", () => {
     const { mainRepo, worktree } = initRepoWithWorktree();
     try {
@@ -207,6 +218,42 @@ describe("session-lock", () => {
     } finally {
       releaseSessionLock(basePath);
       rmSync(basePath, { recursive: true, force: true });
+    }
+  });
+
+  it("does not steal a lock when metadata is missing", () => {
+    const basePath = makeBaseDir();
+    try {
+      mkdirSync(lockDir(basePath), { recursive: true });
+      const result = acquireSessionLock(basePath);
+      assert.equal(result.acquired, false);
+    } finally {
+      releaseSessionLock(basePath);
+      rmSync(basePath, { recursive: true, force: true });
+    }
+  });
+
+  it("releaseSessionLock only releases the lock owner path", () => {
+    const ownerPath = makeBaseDir();
+    const otherPath = makeBaseDir();
+    try {
+      const acquired = acquireSessionLock(ownerPath);
+      assert.equal(acquired.acquired, true);
+      assert.equal(isSessionLockHeld(ownerPath), true);
+
+      seedLockMetadata(otherPath, process.pid + 1);
+      mkdirSync(lockDir(otherPath), { recursive: true });
+
+      releaseSessionLock(otherPath);
+
+      assert.equal(isSessionLockHeld(ownerPath), true);
+      assert.equal(existsSync(lockFile(ownerPath)), true);
+      assert.equal(existsSync(lockFile(otherPath)), true);
+      assert.equal(existsSync(lockDir(otherPath)), true);
+    } finally {
+      releaseSessionLock(ownerPath);
+      rmSync(ownerPath, { recursive: true, force: true });
+      rmSync(otherPath, { recursive: true, force: true });
     }
   });
 });
