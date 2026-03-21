@@ -22,7 +22,7 @@ workspace:
   root: ~/symphony-workspaces
   repo: /Volumes/EVO/kata/kata-mono
   git_strategy: clone-local
-  # isolation: local
+  isolation: local
   branch_prefix: symphony
   clone_branch: main
 hooks:
