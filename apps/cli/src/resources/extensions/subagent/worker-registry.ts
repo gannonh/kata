@@ -20,6 +20,7 @@ export interface WorkerEntry {
 }
 
 const activeWorkers = new Map<string, WorkerEntry>();
+const pendingTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let workerIdCounter = 0;
 
 /**
@@ -54,9 +55,11 @@ export function updateWorker(id: string, status: "completed" | "failed"): void {
   if (entry) {
     entry.status = status;
     // Remove after a brief display window (5 seconds)
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       activeWorkers.delete(id);
+      pendingTimers.delete(id);
     }, 5000);
+    pendingTimers.set(id, timer);
   }
 }
 
@@ -94,6 +97,8 @@ export function hasActiveWorkers(): boolean {
  * Reset registry state. Used for testing.
  */
 export function resetWorkerRegistry(): void {
+  for (const timer of pendingTimers.values()) clearTimeout(timer);
+  pendingTimers.clear();
   activeWorkers.clear();
   workerIdCounter = 0;
 }

@@ -5,10 +5,12 @@
 export function formatElapsed(ms: number): string {
   if (ms < 0) ms = 0;
   const totalSeconds = ms / 1000;
-  if (totalSeconds < 60) {
-    return `${totalSeconds.toFixed(1)}s`;
+  const rounded = Math.round(totalSeconds * 10) / 10;
+  if (rounded < 60) {
+    return `${rounded.toFixed(1)}s`;
   }
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = Math.round(totalSeconds % 60);
+  const totalWholeSeconds = Math.round(totalSeconds);
+  const minutes = Math.floor(totalWholeSeconds / 60);
+  const seconds = totalWholeSeconds % 60;
   return `${minutes}m ${seconds}s`;
 }

@@ -16,7 +16,7 @@ describe("formatElapsed", () => {
   it("formats seconds", () => {
     assert.strictEqual(formatElapsed(1234), "1.2s");
     assert.strictEqual(formatElapsed(12345), "12.3s");
-    assert.strictEqual(formatElapsed(59999), "60.0s");
+    assert.strictEqual(formatElapsed(59999), "1m 0s");
   });
 
   it("formats minutes", () => {

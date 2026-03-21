@@ -14,7 +14,7 @@ import {
   getWorkerBatches,
   hasActiveWorkers,
   resetWorkerRegistry,
-} from "../worker-registry.ts";
+} from "../worker-registry.js";
 
 describe("worker-registry", () => {
   beforeEach(() => {
