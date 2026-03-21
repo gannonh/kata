@@ -27,7 +27,7 @@ workspace:
 hooks:
   timeout_ms: 120000
 agent:
-  max_concurrent_agents: 1
+  max_concurrent_agents: 2
   max_turns: 20
 codex:
   command: codex --config shell_environment_policy.inherit=all --config model_reasoning_effort=xhigh --model gpt-5.3-codex app-server
