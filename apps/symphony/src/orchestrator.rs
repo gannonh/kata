@@ -1738,6 +1738,11 @@ impl Orchestrator {
 
             self.running_issue_states
                 .insert(issue.id.clone(), normalized_state);
+
+            // Keep dashboard linear_state current with actual Linear state.
+            if let Some(attempt) = self.state.running.get_mut(&issue.id) {
+                attempt.linear_state = Some(issue.state.clone());
+            }
         }
 
         for running_id in running_issue_ids {
