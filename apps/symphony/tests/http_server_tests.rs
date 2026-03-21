@@ -7,8 +7,8 @@ use axum::http::{Method, Request, StatusCode};
 use chrono::{TimeZone, Utc};
 use serde_json::{json, Value};
 use symphony::domain::{
-    CodexTotals, OrchestratorSnapshot, PollingSnapshot, RateLimitInfo, RefreshRequestOutcome,
-    RetrySnapshotEntry, RunAttempt,
+    CodexTotals, CompletedEntry, OrchestratorSnapshot, PollingSnapshot, RateLimitInfo,
+    RefreshRequestOutcome, RetrySnapshotEntry, RunAttempt,
 };
 use symphony::http_server::{build_router, HttpServerState, RefreshControl, SnapshotSource};
 use tower::ServiceExt;
@@ -64,12 +64,14 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
                 RunAttempt {
                     issue_id: "issue-123".to_string(),
                     issue_identifier: "SIM-123".to_string(),
+            issue_title: None,
                     attempt: Some(2),
                     workspace_path: "/tmp/symphony/issue-123".to_string(),
                     started_at,
                     status: "running".to_string(),
                     error: None,
                     worker_host: Some("worker-a".to_string()),
+            linear_state: None,
                 },
             );
             running
@@ -84,7 +86,12 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
             worker_host: Some("worker-b".to_string()),
             workspace_path: Some("/tmp/symphony/issue-777".to_string()),
         }],
-        completed: BTreeSet::from(["issue-001".to_string()]),
+        completed: vec![CompletedEntry {
+            issue_id: "issue-001".to_string(),
+            identifier: "KAT-001".to_string(),
+            title: "Completed issue".to_string(),
+            completed_at: chrono::Utc::now(),
+        }],
         codex_totals: CodexTotals {
             input_tokens: 120,
             output_tokens: 80,
@@ -189,11 +196,11 @@ async fn test_get_root_returns_html_dashboard_shell_with_structured_sections() {
         "dashboard shell should include rate-limit diagnostics section"
     );
     assert!(
-        body.contains("id=\"polling-next-poll\">n/a"),
+        body.contains(r#"id="polling-next-poll">n/a"#),
         "dashboard shell should initialize next-poll tile with n/a placeholder"
     );
     assert!(
-        body.contains("id=\"polling-interval\">n/a"),
+        body.contains(r#"id="polling-interval">n/a"#),
         "dashboard shell should initialize poll-interval tile with n/a placeholder"
     );
     assert!(

@@ -332,6 +332,8 @@ pub struct Workspace {
 pub struct RunAttempt {
     pub issue_id: String,
     pub issue_identifier: String,
+    #[serde(default)]
+    pub issue_title: Option<String>,
     /// `None` for first attempt, `Some(n)` for retries.
     #[serde(default)]
     pub attempt: Option<u32>,
@@ -342,6 +344,9 @@ pub struct RunAttempt {
     pub error: Option<String>,
     #[serde(default)]
     pub worker_host: Option<String>,
+    /// Linear issue state at dispatch time (e.g. "In Progress", "Agent Review").
+    #[serde(default)]
+    pub linear_state: Option<String>,
 }
 
 // ── LiveSession (spec §4.1.6) ─────────────────────────────────────────
@@ -425,7 +430,7 @@ pub struct OrchestratorState {
     pub running: HashMap<String, RunAttempt>,
     pub claimed: HashSet<String>,
     pub retry_attempts: HashMap<String, RetryEntry>,
-    pub completed: HashSet<String>,
+    pub completed: HashMap<String, CompletedEntry>,
     pub codex_totals: CodexTotals,
     pub codex_rate_limits: Option<RateLimitInfo>,
 }
@@ -442,6 +447,15 @@ pub struct RetrySnapshotEntry {
     pub error: Option<String>,
     pub worker_host: Option<String>,
     pub workspace_path: Option<String>,
+}
+
+/// A completed issue entry with human-readable metadata.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompletedEntry {
+    pub issue_id: String,
+    pub identifier: String,
+    pub title: String,
+    pub completed_at: DateTime<Utc>,
 }
 
 /// Polling state for the snapshot.
@@ -461,7 +475,7 @@ pub struct OrchestratorSnapshot {
     pub running: BTreeMap<String, RunAttempt>,
     pub claimed: BTreeSet<String>,
     pub retry_queue: Vec<RetrySnapshotEntry>,
-    pub completed: BTreeSet<String>,
+    pub completed: Vec<CompletedEntry>,
     pub codex_totals: CodexTotals,
     pub codex_rate_limits: Option<RateLimitInfo>,
     pub polling: PollingSnapshot,

@@ -105,7 +105,7 @@ struct StateResponse {
     running: std::collections::BTreeMap<String, RunAttempt>,
     claimed: std::collections::BTreeSet<String>,
     retry_queue: Vec<RetrySnapshotEntry>,
-    completed: std::collections::BTreeSet<String>,
+    completed: Vec<crate::domain::CompletedEntry>,
     codex_totals: CodexTotals,
     codex_rate_limits: Option<serde_json::Value>,
     polling: PollingSnapshot,
@@ -249,6 +249,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         <thead>
           <tr>
             <th>Identifier</th>
+            <th>Linear State</th>
             <th>Status</th>
             <th>Attempt</th>
             <th>Elapsed</th>
@@ -257,7 +258,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
           </tr>
         </thead>
         <tbody id="running-table-body">
-          <tr><td class="muted" colspan="6">Loading...</td></tr>
+          <tr><td class="muted" colspan="7">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -357,7 +358,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       }});
 
       if (rows.length === 0) {{
-        return '<tr><td class="muted" colspan="6">No running sessions.</td></tr>';
+        return '<tr><td class="muted" colspan="7">No running sessions.</td></tr>';
       }}
 
       return rows.map(function(run) {{
@@ -366,6 +367,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         const attempt = run.attempt ?? 1;
         return '<tr>' +
           '<td class="mono">' + escapeHtml(run.issue_identifier || '-') + '</td>' +
+          '<td>' + escapeHtml(run.linear_state || '-') + '</td>' +
           '<td>' + escapeHtml(run.status || '-') + '</td>' +
           '<td>' + escapeHtml(attempt) + '</td>' +
           '<td class="mono">' + escapeHtml(elapsed) + '</td>' +
@@ -403,13 +405,18 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
     }}
 
     function renderCompleted(completed) {{
-      const items = Array.isArray(completed) ? completed.slice().sort() : [];
+      const items = Array.isArray(completed) ? completed : [];
       if (items.length === 0) {{
         return '<li class="muted">No completed issues yet.</li>';
       }}
 
-      return items.map(function(issueId) {{
-        return '<li class="mono">' + escapeHtml(issueId) + '</li>';
+      return items.map(function(entry) {{
+        const id = entry.identifier || entry.issue_id || '-';
+        const title = entry.title || '';
+        const date = entry.completed_at ? new Date(entry.completed_at).toLocaleString() : '';
+        const label = title ? id + ' — ' + title : id;
+        const suffix = date ? ' <span class="muted" style="font-size:12px">(' + escapeHtml(date) + ')</span>' : '';
+        return '<li class="mono">' + escapeHtml(label) + suffix + '</li>';
       }}).join('');
     }}
 
