@@ -15,6 +15,7 @@ use crate::domain::{
 };
 use crate::error::{Result, SymphonyError};
 use crate::ssh::{self, WorkerHostSelection};
+use crate::workflow_store::WorkflowStore;
 use crate::{path_safety, prompt_builder, workspace};
 
 // ── Standalone Worker Task ──────────────────────────────────────────────
@@ -609,7 +610,9 @@ pub trait OrchestratorPort {
 /// state in this process. State mutation only happens through `&mut self`
 /// methods (startup cleanup, tick, retry handlers).
 pub struct Orchestrator {
+    workflow_store: Option<Arc<WorkflowStore>>,
     config: ServiceConfig,
+    server_port_override: Option<u16>,
     state: OrchestratorState,
     events: Vec<RuntimeEvent>,
     retry_tokens: HashMap<String, String>,
@@ -635,14 +638,42 @@ pub struct Orchestrator {
 }
 
 impl Orchestrator {
+    pub fn new_with_workflow_store(workflow_store: Arc<WorkflowStore>) -> Self {
+        Self::new_with_workflow_store_and_port_override(workflow_store, None)
+    }
+
+    pub fn new_with_workflow_store_and_port_override(
+        workflow_store: Arc<WorkflowStore>,
+        server_port_override: Option<u16>,
+    ) -> Self {
+        let (workflow_def, config) = workflow_store.effective_config();
+        Self::from_runtime_config(
+            config,
+            workflow_def.prompt_template,
+            Some(workflow_store),
+            server_port_override,
+        )
+    }
+
     pub fn new(config: ServiceConfig, prompt_template: String) -> Self {
+        Self::from_runtime_config(config, prompt_template, None, None)
+    }
+
+    fn from_runtime_config(
+        config: ServiceConfig,
+        prompt_template: String,
+        workflow_store: Option<Arc<WorkflowStore>>,
+        server_port_override: Option<u16>,
+    ) -> Self {
         let poll_interval_ms = config.polling.interval_ms;
         let max_concurrent_agents = config.agent.max_concurrent_agents;
         let (worker_result_tx, worker_result_rx) = tokio::sync::mpsc::unbounded_channel();
         let (worker_event_tx, worker_event_rx) = tokio::sync::mpsc::unbounded_channel();
 
         Self {
+            workflow_store,
             config,
+            server_port_override,
             state: OrchestratorState {
                 poll_interval_ms,
                 max_concurrent_agents,
@@ -669,6 +700,21 @@ impl Orchestrator {
         }
     }
 
+    fn refresh_runtime_config(&mut self) {
+        if let Some(workflow_store) = self.workflow_store.as_ref() {
+            let (workflow_def, config) = workflow_store.effective_config();
+            self.config = config;
+            self.prompt_template = workflow_def.prompt_template;
+        }
+
+        if let Some(port) = self.server_port_override {
+            self.config.server.port = Some(port);
+        }
+
+        self.state.max_concurrent_agents = self.config.agent.max_concurrent_agents;
+        self.state.poll_interval_ms = self.config.polling.interval_ms;
+    }
+
     pub async fn run(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
         self.startup_cleanup(port)?;
         self.publish_snapshot();
@@ -678,13 +724,15 @@ impl Orchestrator {
         loop {
             let now = tokio::time::Instant::now();
             if tick_requested || now >= next_poll_due {
+                self.refresh_runtime_config();
+
                 let now_ms = Utc::now().timestamp_millis();
                 let stall_timeout_ms =
                     self.config.codex.stall_timeout_ms.min(i64::MAX as u64) as i64;
 
                 self.detect_stalled_workers(now_ms, stall_timeout_ms);
 
-                match self.tick(port) {
+                match self.tick_with_refresh(port, false) {
                     Ok(tick_result) => {
                         self.spawn_workers_for_dispatched(&tick_result.dispatched_issues, port);
                     }
@@ -872,6 +920,18 @@ impl Orchestrator {
     }
 
     pub fn tick(&mut self, port: &mut dyn OrchestratorPort) -> Result<TickResult> {
+        self.tick_with_refresh(port, true)
+    }
+
+    fn tick_with_refresh(
+        &mut self,
+        port: &mut dyn OrchestratorPort,
+        refresh_runtime_config: bool,
+    ) -> Result<TickResult> {
+        if refresh_runtime_config {
+            self.refresh_runtime_config();
+        }
+
         self.events.push(RuntimeEvent::Reconcile);
         tracing::info!(phase = "reconcile", "starting orchestrator tick phase");
         self.reconcile_running(port)?;
