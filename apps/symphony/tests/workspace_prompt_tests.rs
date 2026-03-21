@@ -111,6 +111,7 @@ fn workspace_config(root: &Path) -> WorkspaceConfig {
         strategy: WorkspaceRepoStrategy::Clone,
         branch_prefix: "symphony".to_string(),
         clone_branch: None,
+        cleanup_on_done: false,
     }
 }
 
@@ -465,6 +466,7 @@ fn test_workspace_clone_bootstrap_and_branch_creation() {
         strategy: WorkspaceRepoStrategy::Clone,
         branch_prefix: "symphony".to_string(),
         clone_branch: Some("elixir-feature-parity".to_string()),
+        cleanup_on_done: false,
     };
     let hooks = HooksConfig {
         after_create: Some("git rev-parse --abbrev-ref HEAD > hook_branch.txt".to_string()),
@@ -521,6 +523,7 @@ fn test_workspace_worktree_bootstrap_and_cleanup() {
         strategy: WorkspaceRepoStrategy::Worktree,
         branch_prefix: "symphony".to_string(),
         clone_branch: None,
+        cleanup_on_done: false,
     };
     let hooks = hooks_config_none();
     let issue = make_test_issue("KAT-801");
@@ -660,6 +663,7 @@ fn test_workspace_remove_continues_when_worktree_cleanup_fails() {
         strategy: WorkspaceRepoStrategy::Worktree,
         branch_prefix: "symphony".to_string(),
         clone_branch: None,
+        cleanup_on_done: false,
     };
     let hooks = hooks_config_none();
     let issue = make_test_issue("KAT-803");

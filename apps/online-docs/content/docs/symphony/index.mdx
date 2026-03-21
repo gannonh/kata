@@ -16,3 +16,14 @@ Symphony compiles to a standalone binary. It communicates with the rest of the m
 ## Usage
 
 Symphony is invoked through the CLI or directly as a binary. See the monorepo's `apps/symphony/` directory for build instructions.
+
+## Workspace Cleanup
+
+Symphony can automatically clean up per-issue workspaces when an issue reaches a terminal state (`Done`, `Canceled`, etc.).
+
+```yaml
+workspace:
+  cleanup_on_done: true # default: false
+```
+
+When enabled, Symphony runs the `before_remove` hook first, then removes the workspace (including `git worktree remove` for worktree strategy). Cleanup failures are logged and do not stop orchestration.

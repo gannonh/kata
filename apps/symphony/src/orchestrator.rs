@@ -2065,6 +2065,13 @@ impl Orchestrator {
     }
 
     fn mark_issue_terminal(&mut self, issue_id: &str) {
+        if self.config.workspace.cleanup_on_done {
+            if let Some(attempt) = self.state.running.get(issue_id) {
+                let workspace_path = attempt.workspace_path.clone();
+                self.cleanup_workspace(issue_id, &workspace_path);
+            }
+        }
+
         self.state.completed.insert(issue_id.to_string());
         self.state.running.remove(issue_id);
         self.state.claimed.remove(issue_id);
@@ -2073,6 +2080,39 @@ impl Orchestrator {
         self.retry_tokens.remove(issue_id);
         self.worker_last_activity_ms.remove(issue_id);
         self.worker_session_ids.remove(issue_id);
+    }
+
+    fn cleanup_workspace(&self, issue_id: &str, workspace_path: &str) {
+        let workspace = Path::new(workspace_path);
+        if !workspace.exists() {
+            tracing::debug!(
+                event = "terminal_workspace_cleanup_skipped_missing_path",
+                issue_id = %issue_id,
+                workspace_path = %workspace.display(),
+                "workspace cleanup skipped because path does not exist"
+            );
+            return;
+        }
+
+        match workspace::remove_workspace(workspace, &self.config.workspace, &self.config.hooks) {
+            Ok(()) => {
+                tracing::info!(
+                    event = "terminal_workspace_cleanup_succeeded",
+                    issue_id = %issue_id,
+                    workspace_path = %workspace.display(),
+                    "removed workspace after issue reached terminal state"
+                );
+            }
+            Err(err) => {
+                tracing::warn!(
+                    event = "terminal_workspace_cleanup_failed",
+                    issue_id = %issue_id,
+                    workspace_path = %workspace.display(),
+                    error = %err,
+                    "workspace cleanup failed; continuing terminal transition"
+                );
+            }
+        }
     }
 
     fn release_issue(&mut self, issue_id: &str) {
