@@ -569,6 +569,12 @@ pub struct WorkerResult {
 }
 
 #[derive(Debug, Clone)]
+struct PendingTerminalCleanup {
+    issue: Issue,
+    workspace_path: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct TurnMetrics {
     pub input_tokens: u64,
     pub output_tokens: u64,
@@ -618,6 +624,7 @@ pub struct Orchestrator {
     retry_tokens: HashMap<String, String>,
     worker_last_activity_ms: HashMap<String, i64>,
     worker_session_ids: HashMap<String, String>,
+    pending_terminal_cleanup: HashMap<String, PendingTerminalCleanup>,
     /// Normalized running issue state cache used for per-state slot accounting.
     running_issue_states: HashMap<String, String>,
     next_retry_token: u64,
@@ -688,6 +695,7 @@ impl Orchestrator {
             retry_tokens: HashMap::new(),
             worker_last_activity_ms: HashMap::new(),
             worker_session_ids: HashMap::new(),
+            pending_terminal_cleanup: HashMap::new(),
             running_issue_states: HashMap::new(),
             next_retry_token: 0,
             snapshot_handle: None,
@@ -913,7 +921,7 @@ impl Orchestrator {
         let terminal_issues = port.startup_terminal_issues(&self.config.tracker.terminal_states)?;
 
         for issue in terminal_issues {
-            self.mark_issue_terminal(&issue.id);
+            self.mark_issue_terminal(&issue, None);
         }
 
         Ok(())
@@ -1242,7 +1250,16 @@ impl Orchestrator {
         completion: WorkerCompletion,
         now_ms: i64,
     ) -> Option<String> {
-        let run_attempt = self.state.running.remove(issue_id)?;
+        let Some(run_attempt) = self.state.running.remove(issue_id) else {
+            if self.config.workspace.cleanup_on_done {
+                if let Some(pending) = self.pending_terminal_cleanup.remove(issue_id) {
+                    self.cleanup_workspace(&pending.issue, &pending.workspace_path);
+                }
+            } else {
+                self.pending_terminal_cleanup.remove(issue_id);
+            }
+            return None;
+        };
         self.state.claimed.remove(issue_id);
         self.running_issue_states.remove(issue_id);
         self.worker_last_activity_ms.remove(issue_id);
@@ -1690,7 +1707,7 @@ impl Orchestrator {
 
             let normalized_state = normalize_issue_state(&issue.state);
             if terminal_states.contains(&normalized_state) {
-                self.mark_issue_terminal(&issue.id);
+                self.mark_issue_terminal(&issue, None);
                 continue;
             }
 
@@ -1959,7 +1976,7 @@ impl Orchestrator {
                             state = %hidden_state,
                             "retry issue became terminal before active-candidate visibility; marking terminal"
                         );
-                        self.mark_issue_terminal(&hidden_issue.id);
+                        self.mark_issue_terminal(&hidden_issue, retry.workspace_path.as_deref());
                         continue;
                     }
                 }
@@ -1976,7 +1993,7 @@ impl Orchestrator {
 
             let normalized_state = normalize_issue_state(&issue.state);
             if self.terminal_state_set().contains(&normalized_state) {
-                self.mark_issue_terminal(&issue.id);
+                self.mark_issue_terminal(&issue, retry.workspace_path.as_deref());
                 continue;
             }
 
@@ -2064,11 +2081,42 @@ impl Orchestrator {
             .to_string()
     }
 
-    fn mark_issue_terminal(&mut self, issue_id: &str) {
+    fn mark_issue_terminal(&mut self, issue: &Issue, workspace_path_hint: Option<&str>) {
+        let issue_id = issue.id.as_str();
+
         if self.config.workspace.cleanup_on_done {
-            if let Some(attempt) = self.state.running.get(issue_id) {
-                let workspace_path = attempt.workspace_path.clone();
-                self.cleanup_workspace(issue_id, &workspace_path);
+            let workspace_path = self
+                .state
+                .running
+                .get(issue_id)
+                .map(|attempt| attempt.workspace_path.clone())
+                .or_else(|| {
+                    self.state
+                        .retry_attempts
+                        .get(issue_id)
+                        .and_then(|retry| retry.workspace_path.clone())
+                })
+                .or_else(|| workspace_path_hint.map(str::to_string));
+
+            if let Some(workspace_path) = workspace_path {
+                if self.worker_session_ids.contains_key(issue_id) {
+                    self.pending_terminal_cleanup.insert(
+                        issue_id.to_string(),
+                        PendingTerminalCleanup {
+                            issue: issue.clone(),
+                            workspace_path,
+                        },
+                    );
+                    tracing::info!(
+                        event = "terminal_workspace_cleanup_deferred_active_worker",
+                        issue_id = %issue_id,
+                        issue_identifier = %issue.identifier,
+                        "deferring workspace cleanup until worker completion"
+                    );
+                } else {
+                    self.pending_terminal_cleanup.remove(issue_id);
+                    self.cleanup_workspace(issue, &workspace_path);
+                }
             }
         }
 
@@ -2082,23 +2130,30 @@ impl Orchestrator {
         self.worker_session_ids.remove(issue_id);
     }
 
-    fn cleanup_workspace(&self, issue_id: &str, workspace_path: &str) {
+    fn cleanup_workspace(&self, issue: &Issue, workspace_path: &str) {
         let workspace = Path::new(workspace_path);
         if !workspace.exists() {
             tracing::debug!(
                 event = "terminal_workspace_cleanup_skipped_missing_path",
-                issue_id = %issue_id,
+                issue_id = %issue.id,
+                issue_identifier = %issue.identifier,
                 workspace_path = %workspace.display(),
                 "workspace cleanup skipped because path does not exist"
             );
             return;
         }
 
-        match workspace::remove_workspace(workspace, &self.config.workspace, &self.config.hooks) {
+        match workspace::remove_workspace_for_issue(
+            workspace,
+            &self.config.workspace,
+            &self.config.hooks,
+            issue,
+        ) {
             Ok(()) => {
                 tracing::info!(
                     event = "terminal_workspace_cleanup_succeeded",
-                    issue_id = %issue_id,
+                    issue_id = %issue.id,
+                    issue_identifier = %issue.identifier,
                     workspace_path = %workspace.display(),
                     "removed workspace after issue reached terminal state"
                 );
@@ -2106,7 +2161,8 @@ impl Orchestrator {
             Err(err) => {
                 tracing::warn!(
                     event = "terminal_workspace_cleanup_failed",
-                    issue_id = %issue_id,
+                    issue_id = %issue.id,
+                    issue_identifier = %issue.identifier,
                     workspace_path = %workspace.display(),
                     error = %err,
                     "workspace cleanup failed; continuing terminal transition"
