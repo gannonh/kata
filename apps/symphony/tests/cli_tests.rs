@@ -2,6 +2,8 @@
 mod main_bin;
 
 use std::path::Path;
+use std::process::Command;
+use std::{fs, io};
 
 use main_bin::{BootstrapDeps, Cli};
 use symphony::domain::ServiceConfig;
@@ -263,4 +265,79 @@ fn test_effective_http_binding_defaults_to_8080() {
         "HTTP binding should default to port 8080"
     );
     assert_eq!(binding.unwrap().port, 8080);
+}
+
+#[test]
+fn test_logs_root_writes_startup_logs_to_file_and_stdout() {
+    let logs_root = tempfile::tempdir().expect("temp dir should be created");
+    let missing_workflow = logs_root.path().join("missing-workflow.md");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_symphony"))
+        .arg(&missing_workflow)
+        .arg("--logs-root")
+        .arg(logs_root.path())
+        .output()
+        .expect("symphony binary should execute");
+
+    assert!(
+        !output.status.success(),
+        "missing workflow path should still fail startup"
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("starting CLI bootstrap"),
+        "stdout should include startup logs when --logs-root is set; got: {stdout}"
+    );
+
+    let log_file_path = logs_root.path().join("log").join("symphony.log");
+    assert!(
+        log_file_path.is_file(),
+        "expected log file at {}",
+        log_file_path.display()
+    );
+
+    let log_file_contents = read_to_string_or_panic(&log_file_path);
+    assert!(
+        log_file_contents.contains("starting CLI bootstrap"),
+        "log file should mirror startup log events; got: {log_file_contents}"
+    );
+}
+
+#[test]
+fn test_without_logs_root_keeps_stdout_only_behavior() {
+    let run_dir = tempfile::tempdir().expect("temp dir should be created");
+    let missing_workflow = run_dir.path().join("missing-workflow.md");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_symphony"))
+        .current_dir(run_dir.path())
+        .arg(&missing_workflow)
+        .output()
+        .expect("symphony binary should execute");
+
+    assert!(
+        !output.status.success(),
+        "missing workflow path should still fail startup"
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("starting CLI bootstrap"),
+        "stdout should still include startup logs when --logs-root is omitted; got: {stdout}"
+    );
+
+    let log_file_path = run_dir.path().join("log").join("symphony.log");
+    assert!(
+        !log_file_path.exists(),
+        "no log file should be created when --logs-root is omitted, found {}",
+        log_file_path.display()
+    );
+}
+
+fn read_to_string_or_panic(path: &Path) -> String {
+    fs::read_to_string(path).unwrap_or_else(|err| panic_io(path, err))
+}
+
+fn panic_io(path: &Path, err: io::Error) -> ! {
+    panic!("failed to read {}: {err}", path.display());
 }

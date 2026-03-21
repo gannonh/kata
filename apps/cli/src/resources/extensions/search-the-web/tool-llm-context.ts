@@ -19,6 +19,8 @@ import { LRUTTLCache } from "./cache";
 import { fetchWithRetryTimed, HttpError, classifyError, type RateLimitInfo } from "./http";
 import { normalizeQuery, extractDomain } from "./url-utils";
 import { formatLLMContext, type LLMContextSnippet, type LLMContextSource } from "./format";
+import { resolveSearchProvider, getBraveApiKey, braveHeaders, getTavilyApiKey } from "./provider.js";
+import type { TavilySearchResponse } from "./tavily.js";
 
 // =============================================================================
 // Types
@@ -67,6 +69,7 @@ interface LLMContextDetails {
   rateLimit?: RateLimitInfo;
   threshold?: string;
   maxTokens?: number;
+  provider?: string;
   errorKind?: string;
   error?: string;
   retryAfterMs?: number;
@@ -84,21 +87,47 @@ contextCache.startPurgeInterval(60_000);
 // Helpers
 // =============================================================================
 
-function getBraveApiKey(): string {
-  return process.env.BRAVE_API_KEY || "";
-}
-
-function braveHeaders(): Record<string, string> {
-  return {
-    "Accept": "application/json",
-    "Accept-Encoding": "gzip",
-    "X-Subscription-Token": getBraveApiKey(),
-  };
-}
-
 /** Rough token estimate: ~4 chars per token for English text. */
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
+}
+
+/**
+ * Budget grounding snippets to fit within a token limit.
+ * Trims snippet text from the end to stay within budget.
+ */
+function budgetGrounding(grounding: LLMContextSnippet[], maxTokens: number): LLMContextSnippet[] {
+  const maxChars = maxTokens * 4; // inverse of estimateTokens
+  let totalChars = 0;
+  const result: LLMContextSnippet[] = [];
+
+  for (const item of grounding) {
+    if (totalChars >= maxChars) break;
+    const snippets: string[] = [];
+
+    for (const snippet of item.snippets) {
+      if (totalChars >= maxChars) break;
+      const allowance = maxChars - totalChars;
+      if (snippet.length <= allowance) {
+        // Fits entirely
+        snippets.push(snippet);
+        totalChars += snippet.length;
+      } else {
+        // Trim to fit
+        if (allowance > 100) { // only include if meaningful
+          snippets.push(snippet.slice(0, allowance));
+          totalChars += allowance;
+        }
+        break;
+      }
+    }
+
+    if (snippets.length > 0) {
+      result.push({ url: item.url, title: item.title, snippets });
+    }
+  }
+
+  return result;
 }
 
 // =============================================================================
@@ -160,12 +189,12 @@ export function registerLLMContextTool(pi: ExtensionAPI) {
         return { content: [{ type: "text", text: "Search cancelled." }] };
       }
 
-      const apiKey = getBraveApiKey();
-      if (!apiKey) {
+      const provider = resolveSearchProvider();
+      if (!provider) {
         return {
-          content: [{ type: "text", text: "Search unavailable: BRAVE_API_KEY is not set. Use secure_env_collect to set BRAVE_API_KEY." }],
+          content: [{ type: "text", text: "Search unavailable: No search API key set. Set BRAVE_API_KEY or TAVILY_API_KEY. Use secure_env_collect to configure." }],
           isError: true,
-          details: { errorKind: "auth_error", error: "BRAVE_API_KEY not set" } satisfies Partial<LLMContextDetails>,
+          details: { errorKind: "auth_error", error: "No search API key set (BRAVE_API_KEY or TAVILY_API_KEY)" } satisfies Partial<LLMContextDetails>,
         };
       }
 
@@ -210,110 +239,165 @@ export function registerLLMContextTool(pi: ExtensionAPI) {
       onUpdate?.({ content: [{ type: "text", text: `Searching & reading about "${params.query}"...` }] });
 
       try {
-        // ------------------------------------------------------------------
-        // Build LLM Context API request
-        // ------------------------------------------------------------------
-        const url = new URL("https://api.search.brave.com/res/v1/llm/context");
-        url.searchParams.append("q", params.query);
-        url.searchParams.append("count", String(count));
-        url.searchParams.append("maximum_number_of_tokens", String(maxTokens));
-        url.searchParams.append("maximum_number_of_urls", String(maxUrls));
-        url.searchParams.append("context_threshold_mode", threshold);
+        let grounding: LLMContextSnippet[];
+        let sources: Record<string, LLMContextSource>;
+        let estimatedTokens: number;
+        let latencyMs: number | undefined;
+        let rateLimit: RateLimitInfo | undefined;
 
-        // Use a custom fetch flow to read error bodies from the Brave API
-        let timed;
-        try {
-          timed = await fetchWithRetryTimed(url.toString(), {
-            method: "GET",
-            headers: braveHeaders(),
-            signal,
-          }, 2);
-        } catch (fetchErr) {
-          // Try to extract Brave's structured error detail from the response body.
-          // This is especially useful for plan/subscription errors (OPTION_NOT_IN_PLAN).
-          let errorMessage: string | undefined;
-          let errorKindOverride: string | undefined;
-          if (fetchErr instanceof HttpError && fetchErr.response) {
-            try {
-              const body = await fetchErr.response.clone().json().catch(() => null);
-              if (body?.error?.detail) {
-                errorMessage = body.error.detail;
-                if (body.error.code === "OPTION_NOT_IN_PLAN") {
-                  errorKindOverride = "plan_error";
-                  errorMessage = `LLM Context API not available on your current Brave plan. ${body.error.detail} Upgrade at https://api-dashboard.search.brave.com/app/subscriptions — or use search-the-web + fetch_page as an alternative.`;
-                }
-              }
-            } catch { /* body already consumed or parse error — use generic message */ }
-          }
-          const classified = classifyError(fetchErr);
-          const message = errorMessage || classified.message;
-          return {
-            content: [{ type: "text", text: `search_and_read unavailable: ${message}` }],
-            details: {
-              errorKind: errorKindOverride || classified.kind,
-              error: message,
-              retryAfterMs: classified.retryAfterMs,
-              query: params.query,
-            } satisfies Partial<LLMContextDetails>,
-            isError: true,
+        if (provider === 'tavily') {
+          // ----------------------------------------------------------------
+          // Tavily path: use search with raw_content, then budget
+          // ----------------------------------------------------------------
+          const tavilyBody: Record<string, unknown> = {
+            query: params.query,
+            max_results: count,
+            include_raw_content: true,
           };
-        }
 
-        const data: BraveLLMContextResponse = await timed.response.json();
-
-        // ------------------------------------------------------------------
-        // Normalize response
-        // ------------------------------------------------------------------
-        const grounding: LLMContextSnippet[] = [];
-
-        if (data.grounding?.generic) {
-          for (const item of data.grounding.generic) {
-            if (item.snippets && item.snippets.length > 0) {
-              grounding.push({
-                url: item.url,
-                title: item.title,
-                snippets: item.snippets,
-              });
-            }
-          }
-        }
-
-        // Include POI data if present
-        if (data.grounding?.poi && data.grounding.poi.snippets?.length) {
-          grounding.push({
-            url: data.grounding.poi.url,
-            title: data.grounding.poi.title || data.grounding.poi.name,
-            snippets: data.grounding.poi.snippets,
-          });
-        }
-
-        // Include map data if present
-        if (data.grounding?.map) {
-          for (const item of data.grounding.map) {
-            if (item.snippets?.length) {
-              grounding.push({
-                url: item.url,
-                title: item.title || item.name,
-                snippets: item.snippets,
-              });
-            }
-          }
-        }
-
-        const sources: Record<string, LLMContextSource> = {};
-        if (data.sources) {
-          for (const [sourceUrl, sourceInfo] of Object.entries(data.sources)) {
-            sources[sourceUrl] = {
-              title: sourceInfo.title,
-              hostname: sourceInfo.hostname,
-              age: sourceInfo.age,
+          let timed;
+          try {
+            timed = await fetchWithRetryTimed("https://api.tavily.com/search", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${getTavilyApiKey()}`,
+              },
+              body: JSON.stringify(tavilyBody),
+              signal,
+            }, 2);
+          } catch (fetchErr) {
+            const classified = classifyError(fetchErr);
+            return {
+              content: [{ type: "text", text: `search_and_read unavailable: ${classified.message}` }],
+              details: {
+                errorKind: classified.kind,
+                error: classified.message,
+                retryAfterMs: classified.retryAfterMs,
+                query: params.query,
+                provider: 'tavily',
+              } satisfies Partial<LLMContextDetails>,
+              isError: true,
             };
           }
-        }
 
-        // Estimate total token count from all snippets
-        const allText = grounding.map(g => g.snippets.join(" ")).join(" ");
-        const estimatedTokens = estimateTokens(allText);
+          const data: TavilySearchResponse = await timed.response.json();
+
+          // Convert Tavily results to grounding snippets
+          grounding = [];
+          sources = {};
+          for (const item of data.results.slice(0, maxUrls)) {
+            const content = item.raw_content || item.content || "";
+            if (content) {
+              grounding.push({
+                url: item.url,
+                title: item.title || "(untitled)",
+                snippets: [content],
+              });
+            }
+            // Build sources map
+            try {
+              const hostname = new URL(item.url).hostname;
+              sources[item.url] = {
+                title: item.title || "(untitled)",
+                hostname,
+                age: null,
+              };
+            } catch { /* invalid URL — skip source entry */ }
+          }
+
+          // Budget: respect maxTokens by trimming snippets
+          grounding = budgetGrounding(grounding, maxTokens);
+
+          const allText = grounding.map(g => g.snippets.join(" ")).join(" ");
+          estimatedTokens = estimateTokens(allText);
+          latencyMs = timed.latencyMs;
+          rateLimit = timed.rateLimit;
+        } else {
+          // ----------------------------------------------------------------
+          // Brave LLM Context API path (existing logic)
+          // ----------------------------------------------------------------
+          const url = new URL("https://api.search.brave.com/res/v1/llm/context");
+          url.searchParams.append("q", params.query);
+          url.searchParams.append("count", String(count));
+          url.searchParams.append("maximum_number_of_tokens", String(maxTokens));
+          url.searchParams.append("maximum_number_of_urls", String(maxUrls));
+          url.searchParams.append("context_threshold_mode", threshold);
+
+          let timed;
+          try {
+            timed = await fetchWithRetryTimed(url.toString(), {
+              method: "GET",
+              headers: braveHeaders(),
+              signal,
+            }, 2);
+          } catch (fetchErr) {
+            let errorMessage: string | undefined;
+            let errorKindOverride: string | undefined;
+            if (fetchErr instanceof HttpError && fetchErr.response) {
+              try {
+                const body = await fetchErr.response.clone().json().catch(() => null);
+                if (body?.error?.detail) {
+                  errorMessage = body.error.detail;
+                  if (body.error.code === "OPTION_NOT_IN_PLAN") {
+                    errorKindOverride = "plan_error";
+                    errorMessage = `LLM Context API not available on your current Brave plan. ${body.error.detail} Upgrade at https://api-dashboard.search.brave.com/app/subscriptions — or use search-the-web + fetch_page as an alternative.`;
+                  }
+                }
+              } catch { /* body already consumed or parse error — use generic message */ }
+            }
+            const classified = classifyError(fetchErr);
+            const message = errorMessage || classified.message;
+            return {
+              content: [{ type: "text", text: `search_and_read unavailable: ${message}` }],
+              details: {
+                errorKind: errorKindOverride || classified.kind,
+                error: message,
+                retryAfterMs: classified.retryAfterMs,
+                query: params.query,
+                provider: 'brave',
+              } satisfies Partial<LLMContextDetails>,
+              isError: true,
+            };
+          }
+
+          const data: BraveLLMContextResponse = await timed.response.json();
+
+          grounding = [];
+          if (data.grounding?.generic) {
+            for (const item of data.grounding.generic) {
+              if (item.snippets && item.snippets.length > 0) {
+                grounding.push({ url: item.url, title: item.title, snippets: item.snippets });
+              }
+            }
+          }
+          if (data.grounding?.poi && data.grounding.poi.snippets?.length) {
+            grounding.push({
+              url: data.grounding.poi.url,
+              title: data.grounding.poi.title || data.grounding.poi.name,
+              snippets: data.grounding.poi.snippets,
+            });
+          }
+          if (data.grounding?.map) {
+            for (const item of data.grounding.map) {
+              if (item.snippets?.length) {
+                grounding.push({ url: item.url, title: item.title || item.name, snippets: item.snippets });
+              }
+            }
+          }
+
+          sources = {};
+          if (data.sources) {
+            for (const [sourceUrl, sourceInfo] of Object.entries(data.sources)) {
+              sources[sourceUrl] = { title: sourceInfo.title, hostname: sourceInfo.hostname, age: sourceInfo.age };
+            }
+          }
+
+          const allText = grounding.map(g => g.snippets.join(" ")).join(" ");
+          estimatedTokens = estimateTokens(allText);
+          latencyMs = timed.latencyMs;
+          rateLimit = timed.rateLimit;
+        }
 
         // Cache the results
         contextCache.set(cacheKey, { grounding, sources, estimatedTokens });
@@ -340,10 +424,11 @@ export function registerLLMContextTool(pi: ExtensionAPI) {
           snippetCount: totalSnippets,
           estimatedTokens,
           cached: false,
-          latencyMs: timed.latencyMs,
-          rateLimit: timed.rateLimit,
+          latencyMs,
+          rateLimit,
           threshold,
           maxTokens,
+          provider,
         };
 
         return { content: [{ type: "text", text: content }], details };

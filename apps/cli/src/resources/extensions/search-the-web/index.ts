@@ -38,6 +38,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { registerSearchTool } from "./tool-search";
 import { registerFetchPageTool } from "./tool-fetch-page";
 import { registerLLMContextTool } from "./tool-llm-context";
+import { registerNativeSearchHooks } from "./native-search.js";
 
 export default function (pi: ExtensionAPI) {
   // Register all tools
@@ -45,21 +46,26 @@ export default function (pi: ExtensionAPI) {
   registerFetchPageTool(pi);
   registerLLMContextTool(pi);
 
+  // Register native Anthropic web search hooks
+  registerNativeSearchHooks(pi);
+
   // Startup diagnostics
   pi.on("session_start", async (_event, ctx) => {
     const hasBrave = !!process.env.BRAVE_API_KEY;
     const hasJina = !!process.env.JINA_API_KEY;
     const hasAnswers = !!process.env.BRAVE_ANSWERS_KEY;
+    const hasTavily = !!process.env.TAVILY_API_KEY;
 
-    if (!hasBrave) {
+    if (!hasBrave && !hasTavily) {
       ctx.ui.notify(
-        "Web search: Set BRAVE_API_KEY for web search + LLM context capability",
+        "Web search: Set BRAVE_API_KEY or TAVILY_API_KEY for web search capability",
         "warning"
       );
     }
 
     const parts: string[] = ["Web search v3 loaded"];
-    if (hasBrave) parts.push("Search ✓");
+    if (hasBrave) parts.push("Brave ✓");
+    if (hasTavily) parts.push("Tavily ✓");
     if (hasAnswers) parts.push("Answers ✓");
     if (hasJina) parts.push("Jina ✓");
 
