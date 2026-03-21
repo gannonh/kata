@@ -119,6 +119,10 @@ Todo → In Progress → Agent Review (bot feedback) → Human Review → Mergin
 | Rework | Human | Agent scraps current approach, starts fresh |
 | Done | Agent | Terminal — PR merged |
 
+## Linear Setup
+
+**Important:** Disable Linear's "auto-close parent when all sub-issues are done" automation. Symphony agents move child task issues to Done individually during execution, but the parent slice issue must stay active until the PR is created, reviewed, and merged. If Linear auto-closes the parent, the orchestrator will stop dispatching the agent before the work is complete.
+
 ## Configuration
 
 All configuration lives in a `WORKFLOW.md` file — YAML front-matter for settings, markdown body for the agent prompt template.
