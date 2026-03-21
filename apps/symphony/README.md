@@ -69,17 +69,37 @@ When `--logs-root` is set, logs write to rotating files under `<logs-root>/log/s
 
 ## Multiple Workflows
 
-Symphony reads one workflow file per instance. Run different projects with different workflows:
+Symphony reads one workflow file per instance. Use the workflow file as the
+execution contract for each project:
+
+| Workflow file | Project | Dispatch model |
+|---|---|---|
+| `WORKFLOW.md` | Symphony | Flat tickets (single issue per run) |
+| `cli-WORKFLOW.md` | Kata CLI | Slice-aware parent issue with ordered child tasks and hierarchy docs |
+
+`WORKFLOW.md` remains the default flat-ticket workflow for Symphony self-build
+work. `cli-WORKFLOW.md` adds parent/child issue awareness and document-loading
+rules for Kata CLI planned slices.
+
+Run different projects with different workflows:
 
 ```bash
 # Self-build workflow (flat tickets)
 symphony WORKFLOW.md --port 8080
 
 # Kata CLI workflow (slice-aware, parent/child issues)
+symphony cli-WORKFLOW.md --port 8080
+```
+
+If you run both at the same time, use different ports:
+
+```bash
+symphony WORKFLOW.md --port 8080
 symphony cli-WORKFLOW.md --port 8081
 ```
 
-Each workflow has its own tracker config, workspace settings, and prompt template.
+Each workflow has its own tracker configuration, workspace settings, and prompt
+template.
 
 ## Ticket Lifecycle
 
