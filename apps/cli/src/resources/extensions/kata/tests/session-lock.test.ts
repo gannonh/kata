@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -14,6 +15,27 @@ import {
 
 function makeBaseDir(): string {
   return mkdtempSync(join(tmpdir(), "kata-session-lock-"));
+}
+
+function git(cwd: string, args: string[]): string {
+  return execFileSync("git", args, {
+    cwd,
+    encoding: "utf-8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
+}
+
+function initRepoWithWorktree(): { mainRepo: string; worktree: string } {
+  const mainRepo = mkdtempSync(join(tmpdir(), "kata-session-lock-repo-"));
+  const worktree = `${mainRepo}-wt`;
+  git(mainRepo, ["init", "-b", "main"]);
+  git(mainRepo, ["config", "user.name", "Pi Test"]);
+  git(mainRepo, ["config", "user.email", "pi@example.com"]);
+  writeFileSync(join(mainRepo, "README.md"), "hello\n", "utf-8");
+  git(mainRepo, ["add", "README.md"]);
+  git(mainRepo, ["commit", "-m", "init"]);
+  git(mainRepo, ["worktree", "add", worktree]);
+  return { mainRepo, worktree };
 }
 
 function lockFile(basePath: string): string {
@@ -130,6 +152,41 @@ describe("session-lock", () => {
     } finally {
       releaseSessionLock(basePath);
       rmSync(basePath, { recursive: true, force: true });
+    }
+  });
+
+  it("updateSessionLock preserves session startedAt timestamp", () => {
+    const basePath = makeBaseDir();
+    try {
+      const result = acquireSessionLock(basePath);
+      assert.equal(result.acquired, true);
+
+      const before = readSessionLockData(basePath);
+      assert.ok(before);
+
+      updateSessionLock(basePath, "execute-task", "M001/S01/T03", 2);
+
+      const after = readSessionLockData(basePath);
+      assert.ok(after);
+      assert.equal(after.startedAt, before.startedAt);
+    } finally {
+      releaseSessionLock(basePath);
+      rmSync(basePath, { recursive: true, force: true });
+    }
+  });
+
+  it("normalizes worktree paths to a shared repo lock location", () => {
+    const { mainRepo, worktree } = initRepoWithWorktree();
+    try {
+      const acquired = acquireSessionLock(worktree);
+      assert.equal(acquired.acquired, true);
+
+      assert.equal(existsSync(lockFile(mainRepo)), true);
+      assert.equal(existsSync(lockFile(worktree)), false);
+    } finally {
+      releaseSessionLock(worktree);
+      rmSync(worktree, { recursive: true, force: true });
+      rmSync(mainRepo, { recursive: true, force: true });
     }
   });
 

@@ -23,8 +23,13 @@ import { basename, dirname, join } from "node:path";
 
 import { atomicWriteSync } from "./atomic-write.js";
 import { canonicalizeExistingPath } from "./repo-identity.js";
+import { getMainRepoPath } from "./worktree-resolver.js";
 
-const _require = createRequire(import.meta.url);
+const _require = createRequire(
+  process.env.PI_PACKAGE_DIR
+    ? join(process.env.PI_PACKAGE_DIR, "package.json")
+    : import.meta.url,
+);
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -82,7 +87,12 @@ const LOCK_FILE = "auto.lock";
 const STALE_WINDOW_MS = 1_800_000; // 30m
 
 function normalizeBasePath(basePath: string): string {
-  return canonicalizeExistingPath(basePath);
+  const canonicalBasePath = canonicalizeExistingPath(basePath);
+  try {
+    return getMainRepoPath(canonicalBasePath);
+  } catch {
+    return canonicalBasePath;
+  }
 }
 
 function kataStateDir(basePath: string): string {
@@ -92,6 +102,14 @@ function kataStateDir(basePath: string): string {
 function lockPath(basePath: string): string {
   if (_snapshotLockPath) return _snapshotLockPath;
   return join(kataStateDir(basePath), LOCK_FILE);
+}
+
+function clearHeldLockState(): void {
+  _lockedPath = null;
+  _lockPid = 0;
+  _lockCompromised = false;
+  _lockAcquiredAt = 0;
+  _snapshotLockPath = null;
 }
 
 // ─── Stray Lock Cleanup ─────────────────────────────────────────────────────
@@ -192,9 +210,18 @@ export function acquireSessionLock(basePath: string): SessionLockResult {
       // may already be released
     }
     _releaseFunction = null;
-    _lockedPath = null;
-    _lockPid = 0;
-    _lockCompromised = false;
+    clearHeldLockState();
+  }
+
+  // Holding a lock on a different path. Release before acquiring new path.
+  if (_releaseFunction && _lockedPath && _lockedPath !== normalizedBasePath) {
+    try {
+      _releaseFunction();
+    } catch {
+      // may already be released
+    }
+    _releaseFunction = null;
+    clearHeldLockState();
   }
 
   mkdirSync(dirname(lp), { recursive: true });
@@ -335,9 +362,10 @@ export function updateSessionLock(
 
   const lp = lockPath(normalizedBasePath);
   try {
+    const existing = readExistingLockData(lp);
     const data: SessionLockData = {
       pid: process.pid,
-      startedAt: new Date().toISOString(),
+      startedAt: existing?.startedAt ?? new Date().toISOString(),
       unitType,
       unitId,
       unitStartedAt: new Date().toISOString(),
@@ -435,11 +463,7 @@ export function releaseSessionLock(basePath: string): void {
 
   cleanupStrayLockFiles(normalizedBasePath);
 
-  _lockedPath = null;
-  _lockPid = 0;
-  _lockCompromised = false;
-  _lockAcquiredAt = 0;
-  _snapshotLockPath = null;
+  clearHeldLockState();
 }
 
 export function readSessionLockData(basePath: string): SessionLockData | null {

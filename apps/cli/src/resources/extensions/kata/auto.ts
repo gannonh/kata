@@ -318,6 +318,18 @@ export async function startAuto(
   // If resuming from paused state, just re-activate and dispatch next unit.
   // The conversation is still intact — no need to reinitialize everything.
   if (paused) {
+    const lockResult = acquireSessionLock(base);
+    if (!lockResult.acquired) {
+      const pidSuffix = lockResult.existingPid
+        ? ` Existing PID: ${lockResult.existingPid}.`
+        : "";
+      ctx.ui.notify(
+        `Auto-mode resume blocked by session lock: ${lockResult.reason}${pidSuffix}`,
+        "error",
+      );
+      return;
+    }
+
     paused = false;
     active = true;
     stepActive = false;

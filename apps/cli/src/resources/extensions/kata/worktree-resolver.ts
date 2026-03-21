@@ -69,11 +69,13 @@ export function getMainRepoPath(basePath: string): string {
 
 /**
  * Returns the effective basePath:
- * - worktree path when running in a worktree
- * - provided basePath otherwise
+ * - main repository path when running in a worktree
+ * - provided path (canonicalized) otherwise
  */
 export function resolveWorktreeBasePath(basePath: string): string {
   const canonicalBasePath = canonicalizeExistingPath(basePath);
-  if (isInWorktree(canonicalBasePath)) return canonicalBasePath;
+  if (isInWorktree(canonicalBasePath)) {
+    return getMainRepoPath(canonicalBasePath);
+  }
   return canonicalBasePath;
 }

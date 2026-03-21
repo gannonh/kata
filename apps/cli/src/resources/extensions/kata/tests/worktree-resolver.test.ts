@@ -32,8 +32,14 @@ function initMainRepo(): string {
 }
 
 describe("worktree-resolver", () => {
-  it("isInWorktree returns true in this worktree", () => {
-    assert.equal(isInWorktree(process.cwd()), true);
+  it("isInWorktree matches git detection", () => {
+    const cwd = process.cwd();
+    const gitDir = git(cwd, ["rev-parse", "--path-format=absolute", "--git-dir"])
+      .replaceAll("\\", "/");
+    const commonDir = git(cwd, ["rev-parse", "--path-format=absolute", "--git-common-dir"])
+      .replaceAll("\\", "/");
+    const expected = gitDir.includes("/.git/worktrees/") || gitDir !== commonDir;
+    assert.equal(isInWorktree(cwd), expected);
   });
 
   it("getWorktreeName returns current worktree name", () => {
@@ -65,7 +71,10 @@ describe("worktree-resolver", () => {
 
   it("resolveWorktreeBasePath returns the effective base path", () => {
     const cwd = process.cwd();
-    assert.equal(resolveWorktreeBasePath(cwd), canonicalizeExistingPath(cwd));
+    const expectedCwd = isInWorktree(cwd)
+      ? getMainRepoPath(cwd)
+      : canonicalizeExistingPath(cwd);
+    assert.equal(resolveWorktreeBasePath(cwd), expectedCwd);
 
     const repo = initMainRepo();
     try {
