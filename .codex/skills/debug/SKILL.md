@@ -48,23 +48,31 @@ Use them as your join keys during debugging.
 ## Commands
 
 ```bash
-# Set this to your runtime log location from the Symphony startup banner.
-LOG_GLOB="${LOG_GLOB:-log/symphony.log*}"
+# File-log mode (`--logs-root` enabled): expand to active + rotated files.
+LOG_PATHS=( ${LOG_GLOB:-log/symphony.log*} )
 
 # 1) Narrow by ticket key (fastest entry point)
-rg -n "issue_identifier=MT-625" "$LOG_GLOB"
+rg -n "issue_identifier=MT-625" "${LOG_PATHS[@]}"
 
 # 2) If needed, narrow by Linear UUID
-rg -n "issue_id=<linear-uuid>" "$LOG_GLOB"
+rg -n "issue_id=<linear-uuid>" "${LOG_PATHS[@]}"
 
 # 3) Pull session IDs seen for that ticket
-rg -o "session_id=[^ ;]+" "$LOG_GLOB" | sort -u
+rg -o "session_id=[^ ;]+" "${LOG_PATHS[@]}" | sort -u
 
 # 4) Trace one session end-to-end
-rg -n "session_id=<thread>-<turn>" "$LOG_GLOB"
+rg -n "session_id=<thread>-<turn>" "${LOG_PATHS[@]}"
 
 # 5) Focus on stuck/retry signals
-rg -n "Issue stalled|scheduling retry|turn_timeout|turn_failed|Codex session failed|Codex session ended with error" "$LOG_GLOB"
+rg -n "Issue stalled|scheduling retry|turn_timeout|turn_failed|Codex session failed|Codex session ended with error" "${LOG_PATHS[@]}"
+
+# Stdout mode (startup banner shows `Logs: stdout`): use your runtime stream.
+journalctl -u symphony --since "30 minutes ago" --no-pager \
+  | rg -n "issue_identifier=MT-625|issue_id=<linear-uuid>|session_id=<thread>-<turn>|Issue stalled|scheduling retry|turn_timeout|turn_failed|Codex session failed|Codex session ended with error"
+
+# Containerized deploys can use docker logs instead of journalctl.
+docker logs <symphony-container> --since 30m 2>&1 \
+  | rg -n "issue_identifier=MT-625|issue_id=<linear-uuid>|session_id=<thread>-<turn>|Issue stalled|scheduling retry|turn_timeout|turn_failed|Codex session failed|Codex session ended with error"
 ```
 
 ## Investigation Flow
