@@ -268,7 +268,54 @@ fn test_effective_http_binding_defaults_to_8080() {
 }
 
 #[test]
-fn test_logs_root_writes_startup_logs_to_file_and_stdout() {
+fn test_startup_banner_includes_expected_runtime_summary_fields() {
+    let mut config = ServiceConfig::default();
+    config.tracker.project_slug = Some("89d4761fddf0".to_string());
+    config.agent.max_concurrent_agents = 3;
+    config.polling.interval_ms = 30_000;
+
+    let cli = main_bin::parse_cli_from(["symphony", "WORKFLOW.md", "--logs-root", "/tmp/symphony"])
+        .expect("CLI parse should succeed");
+
+    let binding = main_bin::HttpBinding {
+        host: "127.0.0.1".to_string(),
+        port: 8080,
+    };
+
+    let banner = main_bin::build_startup_banner(&cli, &config, Some(&binding));
+
+    assert!(
+        banner.contains("Symphony v"),
+        "banner should include version line, got: {banner}"
+    );
+    assert!(
+        banner.contains("Dashboard: http://127.0.0.1:8080"),
+        "banner should include dashboard URL, got: {banner}"
+    );
+    assert!(
+        banner.contains("Logs: /tmp/symphony/log/symphony.log"),
+        "banner should include resolved log file path, got: {banner}"
+    );
+    assert!(
+        banner.contains("Project: Symphony (89d4761fddf0)"),
+        "banner should include project info, got: {banner}"
+    );
+    assert!(
+        banner.contains("Workers: 3 max concurrent"),
+        "banner should include worker count, got: {banner}"
+    );
+    assert!(
+        banner.contains("Polling: every 30s"),
+        "banner should include polling cadence, got: {banner}"
+    );
+    assert!(
+        banner.contains("Press Ctrl+C to stop."),
+        "banner should include shutdown hint, got: {banner}"
+    );
+}
+
+#[test]
+fn test_logs_root_writes_startup_logs_to_file_and_suppresses_stdout_logs() {
     let logs_root = tempfile::tempdir().expect("temp dir should be created");
     let missing_workflow = logs_root.path().join("missing-workflow.md");
 
@@ -286,8 +333,8 @@ fn test_logs_root_writes_startup_logs_to_file_and_stdout() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("starting CLI bootstrap"),
-        "stdout should include startup logs when --logs-root is set; got: {stdout}"
+        !stdout.contains("starting CLI bootstrap"),
+        "stdout should suppress startup log stream when --logs-root is set; got: {stdout}"
     );
 
     let log_file_path = logs_root.path().join("log").join("symphony.log");
