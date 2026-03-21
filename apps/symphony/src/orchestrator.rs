@@ -672,54 +672,69 @@ impl Orchestrator {
     pub async fn run(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
         self.startup_cleanup(port)?;
         self.publish_snapshot();
+        let mut next_poll_due = tokio::time::Instant::now();
+        let mut tick_requested = true;
 
         loop {
-            let now_ms = Utc::now().timestamp_millis();
-            let stall_timeout_ms = self.config.codex.stall_timeout_ms.min(i64::MAX as u64) as i64;
+            let now = tokio::time::Instant::now();
+            if tick_requested || now >= next_poll_due {
+                let now_ms = Utc::now().timestamp_millis();
+                let stall_timeout_ms =
+                    self.config.codex.stall_timeout_ms.min(i64::MAX as u64) as i64;
 
-            self.detect_stalled_workers(now_ms, stall_timeout_ms);
+                self.detect_stalled_workers(now_ms, stall_timeout_ms);
 
-            match self.tick(port) {
-                Ok(tick_result) => {
-                    self.spawn_workers_for_dispatched(&tick_result.dispatched_issues, port);
+                match self.tick(port) {
+                    Ok(tick_result) => {
+                        self.spawn_workers_for_dispatched(&tick_result.dispatched_issues, port);
+                    }
+                    Err(err) => {
+                        tracing::warn!(
+                            phase = "tick",
+                            error = %err,
+                            "orchestrator tick failed; continuing"
+                        );
+                    }
                 }
-                Err(err) => {
-                    tracing::warn!(
-                        phase = "tick",
-                        error = %err,
-                        "orchestrator tick failed; continuing"
-                    );
-                }
+
+                let retry_dispatched =
+                    self.process_due_retries(port, Utc::now().timestamp_millis());
+                self.spawn_workers_for_dispatched(&retry_dispatched, port);
+                self.publish_snapshot();
+
+                tick_requested = false;
+                next_poll_due = tokio::time::Instant::now()
+                    + Duration::from_millis(self.state.poll_interval_ms);
             }
 
-            let retry_dispatched = self.process_due_retries(port, Utc::now().timestamp_millis());
-            self.spawn_workers_for_dispatched(&retry_dispatched, port);
-            self.publish_snapshot();
-
-            // Sleep until next poll interval, but wake early on refresh request
-            // or worker result.
-            let sleep_duration = Duration::from_millis(self.state.poll_interval_ms);
+            // Sleep until next poll deadline, but wake early on refresh request
+            // or worker channels.
             let refresh_notify = self.refresh_receiver.as_ref().map(|r| r.notify.clone());
 
             tokio::select! {
-                _ = tokio::time::sleep(sleep_duration) => {},
+                _ = tokio::time::sleep_until(next_poll_due) => {
+                    tick_requested = true;
+                },
                 event = self.worker_event_rx.recv() => {
                     if let Some((issue_id, event)) = event {
                         self.ingest_agent_event(&issue_id, &event);
-                        while let Ok((issue_id, event)) = self.worker_event_rx.try_recv() {
-                            self.ingest_agent_event(&issue_id, &event);
-                        }
+                        self.drain_ready_worker_events();
                         self.publish_snapshot();
                     }
                 },
                 result = self.worker_result_rx.recv() => {
                     if let Some(result) = result {
+                        self.drain_ready_worker_events();
                         self.handle_worker_result(result);
                         self.publish_snapshot();
                     }
                     // Drain any additional ready results.
                     while let Ok(result) = self.worker_result_rx.try_recv() {
+                        self.drain_ready_worker_events();
                         self.handle_worker_result(result);
+                        self.publish_snapshot();
+                    }
+                    if self.drain_ready_worker_events() > 0 {
                         self.publish_snapshot();
                     }
                 },
@@ -737,6 +752,7 @@ impl Orchestrator {
                                 "HTTP refresh request woke orchestrator loop; triggering immediate tick"
                             );
                             self.events.push(RuntimeEvent::RefreshRequested);
+                            tick_requested = true;
                         }
                     }
                 },
@@ -825,6 +841,18 @@ impl Orchestrator {
             result.completion,
             Utc::now().timestamp_millis(),
         );
+    }
+
+    /// Drain any worker events already queued by spawned worker tasks.
+    ///
+    /// Returns the number of events ingested.
+    fn drain_ready_worker_events(&mut self) -> usize {
+        let mut drained = 0usize;
+        while let Ok((issue_id, event)) = self.worker_event_rx.try_recv() {
+            self.ingest_agent_event(&issue_id, &event);
+            drained = drained.saturating_add(1);
+        }
+        drained
     }
 
     pub fn startup_cleanup(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
@@ -1089,6 +1117,15 @@ impl Orchestrator {
     }
 
     pub fn ingest_agent_event(&mut self, issue_id: &str, event: &AgentEvent) {
+        if !self.state.running.contains_key(issue_id) {
+            tracing::debug!(
+                issue_id = %issue_id,
+                event = %event_name(event),
+                "ignored codex worker event for non-running issue"
+            );
+            return;
+        }
+
         self.record_worker_activity(issue_id, event_timestamp_ms(event));
 
         if let Some(session_id) = event_session_id(event) {

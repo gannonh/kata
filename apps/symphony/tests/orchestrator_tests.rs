@@ -705,6 +705,20 @@ fn test_streamed_events_keep_refreshing_stall_detection_window() {
 #[test]
 fn test_streamed_turn_completed_events_update_token_totals_in_real_time() {
     let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let now_ms = 3_000_000;
+    orchestrator.state_mut().running.insert(
+        "issue-stream-metrics".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-stream-metrics".to_string(),
+            issue_identifier: "SIM-STREAM-3".to_string(),
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-stream-metrics".to_string(),
+            started_at: utc_ms(now_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+        },
+    );
 
     let event_time = Utc::now();
     orchestrator.ingest_agent_event(
@@ -765,6 +779,59 @@ fn test_streamed_turn_completed_events_update_token_totals_in_real_time() {
         orchestrator.state().codex_totals.total_tokens,
         18,
         "total token count should continue accumulating across streamed turns"
+    );
+}
+
+#[test]
+fn test_late_streamed_event_after_completion_is_ignored() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let now_ms = 4_000_000;
+    let issue_id = "issue-late-stream";
+
+    orchestrator.state_mut().running.insert(
+        issue_id.to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: issue_id.to_string(),
+            issue_identifier: "SIM-STREAM-LATE".to_string(),
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-stream-late".to_string(),
+            started_at: utc_ms(now_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+        },
+    );
+
+    orchestrator.handle_worker_completion(
+        issue_id,
+        WorkerCompletion::Completed {
+            schedule_continuation: false,
+        },
+        now_ms,
+    );
+
+    orchestrator.ingest_agent_event(
+        issue_id,
+        &AgentEvent::TurnCompleted {
+            timestamp: utc_ms(now_ms - 1_000),
+            codex_app_server_pid: Some("4444".to_string()),
+            turn_id: "turn-late".to_string(),
+            message: None,
+            input_tokens: 11,
+            output_tokens: 7,
+            total_tokens: 18,
+            rate_limits: Some(json!({ "remaining": 77 })),
+        },
+    );
+
+    assert!(
+        !orchestrator.state().running.contains_key(issue_id),
+        "late streamed events must not resurrect completed run attempts"
+    );
+    assert_eq!(
+        orchestrator.state().codex_totals.total_tokens,
+        0,
+        "late streamed events for completed issues should be ignored"
     );
 }
 
