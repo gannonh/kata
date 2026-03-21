@@ -7,16 +7,22 @@
 use crate::domain::Issue;
 use crate::error::{Result, SymphonyError};
 
-/// Render a Liquid template with `issue` and `attempt` variables.
+/// Render a Liquid template with `issue`, `attempt`, and `workspace` variables.
 ///
 /// - `template`: Liquid template string (Liquid markup)
 /// - `issue`: Issue data to bind as `issue.*` variables
 /// - `attempt`: Optional attempt number, bound as `attempt`
+/// - `workspace_base_branch`: Optional base branch, bound as `workspace.base_branch`
 ///
 /// Uses strict mode — unknown variables produce `TemplateRenderError`.
 /// DateTime fields render as ISO 8601 strings. `None` fields render as
 /// empty string. `Vec<BlockerRef>` is iterable via `{% for %}`.
-pub fn render_prompt(template: &str, issue: &Issue, attempt: Option<u32>) -> Result<String> {
+pub fn render_prompt(
+    template: &str,
+    issue: &Issue,
+    attempt: Option<u32>,
+    workspace_base_branch: Option<&str>,
+) -> Result<String> {
     // 1. Parse the template
     let parser = liquid::ParserBuilder::with_stdlib()
         .build()
@@ -31,15 +37,28 @@ pub fn render_prompt(template: &str, issue: &Issue, attempt: Option<u32>) -> Res
     let issue_obj = liquid::to_object(issue)
         .map_err(|e| SymphonyError::TemplateRenderError(format!("issue serialization: {e}")))?;
 
-    // 3. Build globals: { "issue": <object>, "attempt": <value> }
+    // 3. Build globals: { "issue": <object>, "attempt": <value>, "workspace": <object> }
     let attempt_val = match attempt {
         None => liquid_core::model::Value::Nil,
         Some(n) => liquid_core::model::Value::scalar(n as i64),
     };
+    let base_branch = workspace_base_branch
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("main");
+    let mut workspace_obj = liquid::Object::new();
+    workspace_obj.insert(
+        "base_branch".into(),
+        liquid_core::model::Value::scalar(base_branch.to_string()),
+    );
 
     let mut globals = liquid::Object::new();
     globals.insert("issue".into(), liquid_core::model::Value::Object(issue_obj));
     globals.insert("attempt".into(), attempt_val);
+    globals.insert(
+        "workspace".into(),
+        liquid_core::model::Value::Object(workspace_obj),
+    );
 
     // 4. Render (liquid-rs is strict by default — unknown variables error)
     compiled

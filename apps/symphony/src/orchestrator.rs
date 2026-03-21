@@ -267,7 +267,12 @@ async fn run_worker_task(
     }
 
     // 3. Render prompt
-    let prompt = match prompt_builder::render_prompt(&config.prompt_template, issue, attempt) {
+    let prompt = match prompt_builder::render_prompt(
+        &config.prompt_template,
+        issue,
+        attempt,
+        config.workspace.base_branch.as_deref(),
+    ) {
         Ok(prompt) => prompt,
         Err(err) => {
             tracing::error!(
@@ -1419,7 +1424,12 @@ impl Orchestrator {
             return Err(err);
         }
 
-        let prompt = match prompt_builder::render_prompt(prompt_template, issue, attempt) {
+        let prompt = match prompt_builder::render_prompt(
+            prompt_template,
+            issue,
+            attempt,
+            self.config.workspace.base_branch.as_deref(),
+        ) {
             Ok(prompt) => prompt,
             Err(err) => {
                 self.handle_worker_completion(

@@ -101,6 +101,7 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 | `workspace.isolation`       | string | `"local"`                     | Workspace runtime isolation model: `"local"` (current behavior) or `"docker"` (accepted but not implemented yet; logs a warning).    |
 | `workspace.branch_prefix`   | string | `"symphony"`                  | Branch prefix used for auto-created issue branches (`<prefix>/<issue-identifier>`).                                                 |
 | `workspace.clone_branch`    | string | _(none)_                      | Optional source branch for clone-based bootstraps (`clone-local`, `clone-remote`, or `auto` when clone is selected).                |
+| `workspace.base_branch`     | string | `"main"`                      | Base branch used by workflow instructions for merge/rebase/pull targets (for example `origin/{{ workspace.base_branch }}`).          |
 | `workspace.cleanup_on_done` | bool   | `false`                       | Remove the issue workspace when the issue reaches a terminal state. Runs `hooks.before_remove` and ignores cleanup failures.         |
 
 #### `agent` section
@@ -168,6 +169,7 @@ workspace:
   isolation: local
   branch_prefix: symphony
   clone_branch: elixir-feature-parity
+  base_branch: main
   cleanup_on_done: true
 
 codex:
@@ -204,6 +206,7 @@ workspace:
   git_strategy: worktree
   isolation: local
   branch_prefix: symphony
+  base_branch: main
   cleanup_on_done: true
 
 agent:

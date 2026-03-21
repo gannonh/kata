@@ -2,7 +2,8 @@
 name: push
 description:
   Push current branch changes to origin and create or update the corresponding
-  pull request; use when asked to push, publish updates, or create pull request.
+  pull request (with the correct base branch); use when asked to push, publish
+  updates, or create pull request.
 ---
 
 # Push
@@ -26,14 +27,19 @@ description:
 ## Steps
 
 1. Identify current branch and confirm remote state.
-2. Run local validation (`cd apps/symphony && cargo test && cargo clippy -- -D warnings`) before pushing.
-3. Push branch to `origin` using explicit first-push upstream setup:
+2. Determine the PR/merge base branch:
+   - Use a workflow-configured base branch when task context provides one (for
+     Symphony workflows, this is `workspace.base_branch`).
+   - Default to `main` when no explicit base branch is available.
+3. Run local validation (`cd apps/symphony && cargo test && cargo clippy -- -D warnings`) before pushing.
+4. Push branch to `origin` using explicit first-push upstream setup:
    - first publish of a new branch: `git push -u origin "$branch"`
    - subsequent updates: `git push`
    Use whatever remote URL is already configured.
-4. If push is not clean/rejected:
+5. If push is not clean/rejected:
    - If the failure is a non-fast-forward or sync problem, run the `pull`
-     skill to merge `origin/main`, resolve conflicts, and rerun validation.
+     skill to merge `origin/<base-branch>`, resolve conflicts, and rerun
+     validation.
    - Retry with `git push -u origin "$branch"` so upstream is set even when the
      first push failed before tracking was recorded.
    - Use `--force-with-lease` only when history was rewritten.
@@ -41,14 +47,14 @@ description:
      the configured remote, stop and surface the exact error instead of
      rewriting remotes or switching protocols as a workaround.
 
-5. Ensure a PR exists for the branch:
+6. Ensure a PR exists for the branch:
    - If no PR exists, create one.
    - If a PR exists and is open, update it.
    - If branch is tied to a closed/merged PR, create a new branch + PR.
    - Write a proper PR title that clearly describes the change outcome
    - For branch updates, explicitly reconsider whether current PR title still
      matches the latest scope; update it if it no longer does.
-6. Write/update PR body explicitly using `.github/pull_request_template.md`:
+7. Write/update PR body explicitly using `.github/pull_request_template.md`:
    - Fill every section with concrete content for this change.
    - Replace all placeholder comments (`<!-- ... -->`).
    - Keep bullets/checkboxes where template expects them.
@@ -63,6 +69,7 @@ description:
 ```sh
 # Identify branch
 branch=$(git branch --show-current)
+base_branch="${BASE_BRANCH:-main}"
 
 # Minimal validation gate
 cd apps/symphony && cargo test && cargo clippy -- -D warnings
@@ -93,10 +100,10 @@ fi
 # Write a clear, human-friendly title that summarizes the shipped change.
 pr_title="<clear PR title written for this change>"
 if [ -z "$pr_state" ]; then
-  gh pr create --title "$pr_title"
+  gh pr create --base "$base_branch" --title "$pr_title"
 else
   # Reconsider title on every branch update; edit if scope shifted.
-  gh pr edit --title "$pr_title"
+  gh pr edit --base "$base_branch" --title "$pr_title"
 fi
 
 # Write/edit PR body to match .github/pull_request_template.md before validation.
