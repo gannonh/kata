@@ -25,7 +25,7 @@ workspace:
   git_strategy: worktree
   isolation: local
   cleanup_on_done: true
-  branch_prefix: symphony
+  branch_prefix: cli
   clone_branch: main
   base_branch: main
 hooks:
@@ -187,7 +187,7 @@ Before implementation starts, load context in this exact order:
 1. Child issues (`issue.children`) to discover task list and ordering.
 2. Slice issue documents (`issue.documents`) to read task-level plans (`T0N-PLAN`).
 3. Project documents (`project.documents`) to read `PROJECT`, `REQUIREMENTS`, `S0N-PLAN`, `S0N-RESEARCH`.
-4. Milestone documents via `issue.projectMilestone` then `projectMilestone.documents` (`M00N-CONTEXT`, `M00N-ROADMAP`).
+4. Milestone context via `issue.projectMilestone` to get the milestone name, then find `M00N-CONTEXT` and `M00N-ROADMAP` in the project documents (milestone docs are attached to the project, not the milestone entity).
 
 Preferred query patterns:
 
@@ -248,19 +248,7 @@ query IssueMilestone($id: String!) {
 }
 ```
 
-```graphql
-query MilestoneDocuments($id: String!) {
-  projectMilestone(id: $id) {
-    documents {
-      nodes {
-        id
-        title
-        content
-      }
-    }
-  }
-}
-```
+Note: `projectMilestone.documents` does not exist in the Linear API. Milestone-related docs (M00N-CONTEXT, M00N-ROADMAP) are stored as project documents. Use the `ProjectDocuments` query above and filter by title prefix matching the milestone ID.
 
 ## Slice Execution Flow
 
