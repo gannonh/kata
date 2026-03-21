@@ -63,7 +63,8 @@ tracker:
 workspace:
   root: ~/symphony-workspaces
   repo: https://github.com/you/repo.git
-  strategy: clone                 # clone or worktree
+  git_strategy: auto              # auto, clone-local, clone-remote, worktree
+  # isolation: local             # local or docker (docker not yet implemented)
   branch_prefix: symphony
 
 agent:
