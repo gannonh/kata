@@ -103,18 +103,17 @@ function budgetGrounding(grounding: LLMContextSnippet[], maxTokens: number): LLM
 
   for (const item of grounding) {
     if (totalChars >= maxChars) break;
-    const remaining = maxChars - totalChars;
     const snippets: string[] = [];
 
     for (const snippet of item.snippets) {
       if (totalChars >= maxChars) break;
-      if (snippet.length <= remaining - totalChars + (totalChars - totalChars)) {
+      const allowance = maxChars - totalChars;
+      if (snippet.length <= allowance) {
         // Fits entirely
         snippets.push(snippet);
         totalChars += snippet.length;
       } else {
         // Trim to fit
-        const allowance = maxChars - totalChars;
         if (allowance > 100) { // only include if meaningful
           snippets.push(snippet.slice(0, allowance));
           totalChars += allowance;
@@ -287,7 +286,7 @@ export function registerLLMContextTool(pi: ExtensionAPI) {
           // Convert Tavily results to grounding snippets
           grounding = [];
           sources = {};
-          for (const item of data.results) {
+          for (const item of data.results.slice(0, maxUrls)) {
             const content = item.raw_content || item.content || "";
             if (content) {
               grounding.push({

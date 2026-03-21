@@ -93,6 +93,7 @@ export function registerNativeSearchHooks(
 ): { getIsAnthropic: () => boolean } {
   let isAnthropicProvider = false;
   let modelSelectFired = false;
+  let activeToolsBeforeNative: string[] | null = null;
 
   // Session-level native search counter.
   // Tracks cumulative web_search_tool_result blocks across all turns in a session.
@@ -111,17 +112,15 @@ export function registerNativeSearchHooks(
     // native web_search is server-side and more reliable.
     if (isAnthropicProvider && !preferBraveSearch()) {
       const active = pi.getActiveTools();
+      if (!wasAnthropic) activeToolsBeforeNative = [...active];
       pi.setActiveTools(
         active.filter((t: string) => !CUSTOM_SEARCH_TOOL_NAMES.includes(t))
       );
     } else if (!isAnthropicProvider && wasAnthropic) {
-      // Switching away from Anthropic — re-enable custom search tools
-      const active = pi.getActiveTools();
-      const toAdd = CUSTOM_SEARCH_TOOL_NAMES.filter(
-        (t) => !active.includes(t)
-      );
-      if (toAdd.length > 0) {
-        pi.setActiveTools([...active, ...toAdd]);
+      // Switching away from Anthropic — restore the exact tool set from before
+      if (activeToolsBeforeNative) {
+        pi.setActiveTools(activeToolsBeforeNative);
+        activeToolsBeforeNative = null;
       }
     }
 
@@ -139,7 +138,9 @@ export function registerNativeSearchHooks(
       !wasAnthropic &&
       event.source !== "restore"
     ) {
-      ctx.ui.notify("Brave search active (PREFER_BRAVE_SEARCH)", "info");
+      const provider = process.env.SEARCH_PROVIDER?.toLowerCase();
+      const label = provider === "tavily" ? "Tavily" : "Brave";
+      ctx.ui.notify(`${label} search active (SEARCH_PROVIDER override)`, "info");
     } else if (!isAnthropicProvider && !hasBrave) {
       ctx.ui.notify(
         "Web search: Set BRAVE_API_KEY or use an Anthropic model for built-in search",

@@ -68,6 +68,8 @@ interface BraveSearchResponse {
 interface CachedSearchResult {
   results: SearchResultFormatted[];
   summarizerKey?: string;
+  summaryText?: string;
+  provider?: string;
   queryCorrected?: boolean;
   originalQuery?: string;
   correctedQuery?: string;
@@ -262,14 +264,16 @@ export function registerSearchTool(pi: ExtensionAPI) {
       // ------------------------------------------------------------------
       // Cache lookup
       // ------------------------------------------------------------------
-      const cacheKey = normalizeQuery(effectiveQuery) + `|f:${freshness || ""}|s:${wantSummary}`;
+      const cacheKey = normalizeQuery(effectiveQuery) + `|p:${provider}|c:${count}|f:${freshness || ""}|s:${wantSummary}`;
       const cached = searchCache.get(cacheKey);
 
       if (cached) {
         const limited = cached.results.slice(0, count);
 
         let summaryText: string | undefined;
-        if (wantSummary && cached.summarizerKey) {
+        if (wantSummary && cached.summaryText) {
+          summaryText = cached.summaryText;
+        } else if (wantSummary && cached.summarizerKey) {
           summaryText = (await fetchSummary(cached.summarizerKey, signal)) ?? undefined;
         }
 
@@ -367,6 +371,8 @@ export function registerSearchTool(pi: ExtensionAPI) {
           searchCache.set(cacheKey, {
             results: deduplicated,
             summarizerKey: undefined,
+            summaryText: data.answer ?? undefined,
+            provider: 'tavily',
             queryCorrected: false,
             originalQuery: undefined,
             correctedQuery: undefined,
