@@ -180,8 +180,6 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
     } else {
         "no"
     };
-    let polling_next_poll_in_ms = snapshot.polling.next_poll_in_ms;
-    let polling_interval_ms = snapshot.polling.poll_interval_ms;
 
     let rate_limit_block = snapshot
         .codex_rate_limits
@@ -298,8 +296,8 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       <div><div class=\"label\">last poll at</div><div class=\"mono\" id=\"polling-last-poll\">n/a</div></div>
       <div><div class=\"label\">poll count</div><div class=\"mono\" id=\"polling-count\">n/a</div></div>
       <div><div class=\"label\">checking</div><div class=\"mono\" id=\"polling-checking\">{polling_checking}</div></div>
-      <div><div class=\"label\">next poll in</div><div class=\"mono\" id=\"polling-next-poll\">{polling_next_poll_in_ms} ms</div></div>
-      <div><div class=\"label\">poll interval</div><div class=\"mono\" id=\"polling-interval\">{polling_interval_ms} ms</div></div>
+      <div><div class=\"label\">next poll in</div><div class=\"mono\" id=\"polling-next-poll\">n/a</div></div>
+      <div><div class=\"label\">poll interval</div><div class=\"mono\" id=\"polling-interval\">n/a</div></div>
     </div>
   </section>
 
@@ -321,6 +319,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
     }}
 
     function formatDuration(ms) {{
+      if (ms === null || ms === undefined) return 'n/a';
       const numeric = Number(ms);
       if (!Number.isFinite(numeric)) return 'n/a';
       const sign = numeric < 0 ? '-' : '';
@@ -378,8 +377,13 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
 
     function renderRetryTable(retryQueue) {{
       const rows = Array.isArray(retryQueue) ? retryQueue.slice() : [];
+
+      function retryDelayValue(entry) {{
+        return entry.retry_after_ms ?? entry.due_in_ms;
+      }}
+
       rows.sort(function(a, b) {{
-        return Number(a.due_in_ms ?? a.retry_after_ms ?? 0) - Number(b.due_in_ms ?? b.retry_after_ms ?? 0);
+        return Number(retryDelayValue(a) ?? 0) - Number(retryDelayValue(b) ?? 0);
       }});
 
       if (rows.length === 0) {{
@@ -387,7 +391,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       }}
 
       return rows.map(function(retry) {{
-        const retryAfterMs = retry.retry_after_ms ?? retry.due_in_ms;
+        const retryAfterMs = retryDelayValue(retry);
         return '<tr>' +
           '<td class=\"mono\">' + escapeHtml(retry.identifier || '-') + '</td>' +
           '<td>' + escapeHtml(retry.attempt ?? '-') + '</td>' +

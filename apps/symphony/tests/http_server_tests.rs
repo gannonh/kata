@@ -189,6 +189,14 @@ async fn test_get_root_returns_html_dashboard_shell_with_structured_sections() {
         "dashboard shell should include rate-limit diagnostics section"
     );
     assert!(
+        body.contains("id=\\\"polling-next-poll\\\">n/a"),
+        "dashboard shell should initialize next-poll tile with n/a placeholder"
+    );
+    assert!(
+        body.contains("id=\\\"polling-interval\\\">n/a"),
+        "dashboard shell should initialize poll-interval tile with n/a placeholder"
+    );
+    assert!(
         !body.contains("Live state"),
         "dashboard shell should no longer expose the raw live-state section"
     );
