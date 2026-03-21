@@ -64,14 +64,14 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
                 RunAttempt {
                     issue_id: "issue-123".to_string(),
                     issue_identifier: "SIM-123".to_string(),
-            issue_title: None,
+                    issue_title: None,
                     attempt: Some(2),
                     workspace_path: "/tmp/symphony/issue-123".to_string(),
                     started_at,
                     status: "running".to_string(),
                     error: None,
                     worker_host: Some("worker-a".to_string()),
-            linear_state: None,
+                    linear_state: None,
                 },
             );
             running

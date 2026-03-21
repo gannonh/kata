@@ -14,6 +14,11 @@ fn log_file_path(logs_root: &Path) -> PathBuf {
     logs_root.join(LOG_SUBDIRECTORY).join(LOG_FILE_NAME)
 }
 
+/// The rolling-file `max_roll` argument counts only archived files and does
+/// not include the active `symphony.log` file.
+///
+/// To retain `total_files` on disk overall (active + archived), pass
+/// `total_files - 1` as `max_roll`.
 fn rollover_file_limit(total_files: usize) -> usize {
     total_files.saturating_sub(1)
 }
@@ -35,7 +40,11 @@ fn build_size_rotating_file_appender(
 
 pub fn build_non_blocking_file_writer(logs_root: &Path) -> io::Result<(NonBlocking, WorkerGuard)> {
     let appender = build_size_rotating_file_appender(logs_root, MAX_LOG_FILE_BYTES, MAX_LOG_FILES)?;
-    Ok(tracing_appender::non_blocking(appender))
+    Ok(
+        tracing_appender::non_blocking::NonBlockingBuilder::default()
+            .lossy(false)
+            .finish(appender),
+    )
 }
 
 #[cfg(test)]
