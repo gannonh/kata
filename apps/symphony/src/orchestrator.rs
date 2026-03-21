@@ -28,6 +28,7 @@ struct WorkerTaskConfig {
     max_turns: u32,
     tracker: TrackerConfig,
     prompt_template: String,
+    event_tx: tokio::sync::mpsc::UnboundedSender<(String, AgentEvent)>,
 }
 
 enum IssueCheck {
@@ -114,17 +115,19 @@ async fn check_issue_still_active(
     }
 }
 
-async fn run_codex_turns_in_session<E, EFut>(
+async fn run_codex_turns_in_session<E, EFut, EventCallback>(
     session: &mut app_server::SessionHandle,
     issue: &Issue,
     initial_prompt: String,
     max_turns: u32,
     tracker_config: &TrackerConfig,
     graphql_executor: E,
+    mut stream_event: EventCallback,
 ) -> std::result::Result<SessionTurnLoopSuccess, SessionTurnLoopFailure>
 where
     E: Fn(String, serde_json::Value) -> EFut + Clone + Send,
     EFut: Future<Output = Result<serde_json::Value>> + Send,
+    EventCallback: FnMut(AgentEvent) + Send,
 {
     let capped_max_turns = max_turns.max(1);
     let mut turn_number: u32 = 1;
@@ -144,6 +147,7 @@ where
 
         let run_result =
             app_server::run_turn(session, &prompt, graphql_executor.clone(), |event| {
+                stream_event(event.clone());
                 observed_events.push(event);
             })
             .await;
@@ -175,14 +179,16 @@ where
                 break;
             }
             IssueCheck::Error(err) => {
-                observed_events.push(AgentEvent::Notification {
+                let event = AgentEvent::Notification {
                     timestamp: Utc::now(),
                     codex_app_server_pid: None,
                     message: format!(
                         "inter-turn issue refresh failed for {} ({}): {}",
                         current_issue.identifier, current_issue.id, err
                     ),
-                });
+                };
+                stream_event(event.clone());
+                observed_events.push(event);
                 tracing::warn!(
                     issue_id = %current_issue.id,
                     issue_identifier = %current_issue.identifier,
@@ -334,6 +340,13 @@ async fn run_worker_task(
         config.max_turns,
         &config.tracker,
         graphql_executor,
+        {
+            let event_tx = config.event_tx.clone();
+            let issue_id = issue.id.clone();
+            move |event| {
+                let _ = event_tx.send((issue_id.clone(), event));
+            }
+        },
     )
     .await;
 
@@ -356,7 +369,7 @@ async fn run_worker_task(
             completion: WorkerCompletion::Completed {
                 schedule_continuation: success.schedule_continuation,
             },
-            events: success.events,
+            events: vec![],
             metrics: success.metrics,
         },
         Err(failure) => WorkerResult {
@@ -364,7 +377,7 @@ async fn run_worker_task(
             completion: WorkerCompletion::Failed {
                 error: failure.error.to_string(),
             },
-            events: failure.events,
+            events: vec![],
             metrics: failure.metrics,
         },
     }
@@ -613,6 +626,10 @@ pub struct Orchestrator {
     worker_result_rx: tokio::sync::mpsc::UnboundedReceiver<WorkerResult>,
     /// Sender half cloned into each spawned worker task.
     worker_result_tx: tokio::sync::mpsc::UnboundedSender<WorkerResult>,
+    /// Channel for receiving streamed worker events from spawned worker tasks.
+    worker_event_rx: tokio::sync::mpsc::UnboundedReceiver<(String, AgentEvent)>,
+    /// Sender half cloned into each spawned worker task for event streaming.
+    worker_event_tx: tokio::sync::mpsc::UnboundedSender<(String, AgentEvent)>,
     /// The prompt template from the WORKFLOW.md body, used to render per-issue prompts.
     prompt_template: String,
 }
@@ -622,6 +639,7 @@ impl Orchestrator {
         let poll_interval_ms = config.polling.interval_ms;
         let max_concurrent_agents = config.agent.max_concurrent_agents;
         let (worker_result_tx, worker_result_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (worker_event_tx, worker_event_rx) = tokio::sync::mpsc::unbounded_channel();
 
         Self {
             config,
@@ -645,6 +663,8 @@ impl Orchestrator {
             refresh_receiver: None,
             worker_result_rx,
             worker_result_tx,
+            worker_event_rx,
+            worker_event_tx,
             prompt_template,
         }
     }
@@ -652,45 +672,69 @@ impl Orchestrator {
     pub async fn run(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
         self.startup_cleanup(port)?;
         self.publish_snapshot();
+        let mut next_poll_due = tokio::time::Instant::now();
+        let mut tick_requested = true;
 
         loop {
-            let now_ms = Utc::now().timestamp_millis();
-            let stall_timeout_ms = self.config.codex.stall_timeout_ms.min(i64::MAX as u64) as i64;
+            let now = tokio::time::Instant::now();
+            if tick_requested || now >= next_poll_due {
+                let now_ms = Utc::now().timestamp_millis();
+                let stall_timeout_ms =
+                    self.config.codex.stall_timeout_ms.min(i64::MAX as u64) as i64;
 
-            self.detect_stalled_workers(now_ms, stall_timeout_ms);
+                self.detect_stalled_workers(now_ms, stall_timeout_ms);
 
-            match self.tick(port) {
-                Ok(tick_result) => {
-                    self.spawn_workers_for_dispatched(&tick_result.dispatched_issues, port);
+                match self.tick(port) {
+                    Ok(tick_result) => {
+                        self.spawn_workers_for_dispatched(&tick_result.dispatched_issues, port);
+                    }
+                    Err(err) => {
+                        tracing::warn!(
+                            phase = "tick",
+                            error = %err,
+                            "orchestrator tick failed; continuing"
+                        );
+                    }
                 }
-                Err(err) => {
-                    tracing::warn!(
-                        phase = "tick",
-                        error = %err,
-                        "orchestrator tick failed; continuing"
-                    );
-                }
+
+                let retry_dispatched =
+                    self.process_due_retries(port, Utc::now().timestamp_millis());
+                self.spawn_workers_for_dispatched(&retry_dispatched, port);
+                self.publish_snapshot();
+
+                tick_requested = false;
+                next_poll_due = tokio::time::Instant::now()
+                    + Duration::from_millis(self.state.poll_interval_ms);
             }
 
-            let retry_dispatched = self.process_due_retries(port, Utc::now().timestamp_millis());
-            self.spawn_workers_for_dispatched(&retry_dispatched, port);
-            self.publish_snapshot();
-
-            // Sleep until next poll interval, but wake early on refresh request
-            // or worker result.
-            let sleep_duration = Duration::from_millis(self.state.poll_interval_ms);
+            // Sleep until next poll deadline, but wake early on refresh request
+            // or worker channels.
             let refresh_notify = self.refresh_receiver.as_ref().map(|r| r.notify.clone());
 
             tokio::select! {
-                _ = tokio::time::sleep(sleep_duration) => {},
+                _ = tokio::time::sleep_until(next_poll_due) => {
+                    tick_requested = true;
+                },
+                event = self.worker_event_rx.recv() => {
+                    if let Some((issue_id, event)) = event {
+                        self.ingest_agent_event(&issue_id, &event);
+                        self.drain_ready_worker_events();
+                        self.publish_snapshot();
+                    }
+                },
                 result = self.worker_result_rx.recv() => {
                     if let Some(result) = result {
+                        self.drain_ready_worker_events();
                         self.handle_worker_result(result);
                         self.publish_snapshot();
                     }
                     // Drain any additional ready results.
                     while let Ok(result) = self.worker_result_rx.try_recv() {
+                        self.drain_ready_worker_events();
                         self.handle_worker_result(result);
+                        self.publish_snapshot();
+                    }
+                    if self.drain_ready_worker_events() > 0 {
                         self.publish_snapshot();
                     }
                 },
@@ -708,6 +752,7 @@ impl Orchestrator {
                                 "HTTP refresh request woke orchestrator loop; triggering immediate tick"
                             );
                             self.events.push(RuntimeEvent::RefreshRequested);
+                            tick_requested = true;
                         }
                     }
                 },
@@ -753,6 +798,7 @@ impl Orchestrator {
                 max_turns: self.config.agent.max_turns,
                 tracker: self.config.tracker.clone(),
                 prompt_template: self.prompt_template.clone(),
+                event_tx: self.worker_event_tx.clone(),
             };
 
             tokio::spawn(async move {
@@ -776,9 +822,17 @@ impl Orchestrator {
             self.ingest_agent_event(&result.issue_id, event);
         }
 
-        // Apply token metrics if present
+        // WorkerResult.metrics is retained as a completion summary payload.
         if let Some(metrics) = &result.metrics {
-            self.apply_turn_metrics(metrics);
+            tracing::info!(
+                event = "worker_result_metrics_summary",
+                issue_id = %result.issue_id,
+                input_tokens = metrics.input_tokens,
+                output_tokens = metrics.output_tokens,
+                total_tokens = metrics.total_tokens,
+                has_rate_limits = metrics.rate_limits.is_some(),
+                "received worker result metrics summary"
+            );
         }
 
         // Handle completion (schedules retry on failure, marks complete on success)
@@ -787,6 +841,18 @@ impl Orchestrator {
             result.completion,
             Utc::now().timestamp_millis(),
         );
+    }
+
+    /// Drain any worker events already queued by spawned worker tasks.
+    ///
+    /// Returns the number of events ingested.
+    fn drain_ready_worker_events(&mut self) -> usize {
+        let mut drained = 0usize;
+        while let Ok((issue_id, event)) = self.worker_event_rx.try_recv() {
+            self.ingest_agent_event(&issue_id, &event);
+            drained = drained.saturating_add(1);
+        }
+        drained
     }
 
     pub fn startup_cleanup(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
@@ -1051,6 +1117,15 @@ impl Orchestrator {
     }
 
     pub fn ingest_agent_event(&mut self, issue_id: &str, event: &AgentEvent) {
+        if !self.state.running.contains_key(issue_id) {
+            tracing::debug!(
+                issue_id = %issue_id,
+                event = %event_name(event),
+                "ignored codex worker event for non-running issue"
+            );
+            return;
+        }
+
         self.record_worker_activity(issue_id, event_timestamp_ms(event));
 
         if let Some(session_id) = event_session_id(event) {
@@ -1071,6 +1146,22 @@ impl Orchestrator {
                 }
                 _ => {}
             }
+        }
+
+        if let AgentEvent::TurnCompleted {
+            input_tokens,
+            output_tokens,
+            total_tokens,
+            rate_limits,
+            ..
+        } = event
+        {
+            self.apply_turn_metrics(&TurnMetrics {
+                input_tokens: *input_tokens,
+                output_tokens: *output_tokens,
+                total_tokens: *total_tokens,
+                rate_limits: rate_limits.clone(),
+            });
         }
 
         tracing::debug!(
@@ -1286,6 +1377,7 @@ impl Orchestrator {
             self.config.agent.max_turns,
             &self.config.tracker,
             graphql_executor,
+            |_event| {},
         )
         .await;
 
@@ -1311,9 +1403,6 @@ impl Orchestrator {
 
         match loop_result {
             Ok(success) => {
-                if let Some(metrics) = &success.metrics {
-                    self.apply_turn_metrics(metrics);
-                }
                 self.handle_worker_completion(
                     &issue.id,
                     WorkerCompletion::Completed {
@@ -1325,9 +1414,6 @@ impl Orchestrator {
                 Ok(())
             }
             Err(failure) => {
-                if let Some(metrics) = &failure.metrics {
-                    self.apply_turn_metrics(metrics);
-                }
                 let error = failure.error;
                 let error_text = error.to_string();
                 self.handle_worker_completion(

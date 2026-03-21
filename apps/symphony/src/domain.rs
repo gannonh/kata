@@ -499,6 +499,10 @@ pub enum AgentEvent {
         codex_app_server_pid: Option<String>,
         turn_id: String,
         message: Option<String>,
+        input_tokens: u64,
+        output_tokens: u64,
+        total_tokens: u64,
+        rate_limits: Option<serde_json::Value>,
     },
     TurnFailed {
         timestamp: DateTime<Utc>,

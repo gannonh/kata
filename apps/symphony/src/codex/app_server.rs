@@ -452,6 +452,10 @@ where
                                     codex_app_server_pid: handle.pid.clone(),
                                     turn_id: turn_id.clone(),
                                     message: None,
+                                    input_tokens: turn_input_tokens,
+                                    output_tokens: turn_output_tokens,
+                                    total_tokens: turn_total_tokens,
+                                    rate_limits: turn_rate_limits.clone(),
                                 };
                                 event_callback(event.clone());
                                 events.push(event);
