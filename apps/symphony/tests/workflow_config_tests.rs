@@ -162,6 +162,7 @@ fn test_config_defaults() {
     assert_eq!(config.workspace.strategy, WorkspaceRepoStrategy::Clone);
     assert_eq!(config.workspace.branch_prefix, "symphony");
     assert_eq!(config.workspace.clone_branch, None);
+    assert!(!config.workspace.cleanup_on_done);
 }
 
 #[test]
@@ -259,6 +260,25 @@ workspace:
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
     let config = from_workflow(&raw).expect("workspace clone branch should parse");
     assert_eq!(config.workspace.clone_branch, None);
+}
+
+#[test]
+fn test_workspace_cleanup_on_done_parses_true_and_false() {
+    let yaml_true = r#"
+workspace:
+  cleanup_on_done: true
+"#;
+    let raw_true: serde_yaml::Value = serde_yaml::from_str(yaml_true).unwrap();
+    let config_true = from_workflow(&raw_true).expect("cleanup_on_done=true should parse");
+    assert!(config_true.workspace.cleanup_on_done);
+
+    let yaml_false = r#"
+workspace:
+  cleanup_on_done: false
+"#;
+    let raw_false: serde_yaml::Value = serde_yaml::from_str(yaml_false).unwrap();
+    let config_false = from_workflow(&raw_false).expect("cleanup_on_done=false should parse");
+    assert!(!config_false.workspace.cleanup_on_done);
 }
 
 #[test]

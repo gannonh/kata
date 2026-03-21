@@ -99,6 +99,7 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 | `workspace.strategy`      | string | `"clone"`                     | Bootstrap strategy: `"clone"` (default) or `"worktree"`. `worktree` requires `workspace.repo` to be local path. |
 | `workspace.branch_prefix` | string | `"symphony"`                  | Branch prefix used for auto-created issue branches (`<prefix>/<issue-identifier>`).                             |
 | `workspace.clone_branch`  | string | _(none)_                      | Optional branch name to clone for `workspace.strategy: clone`. When set, Symphony runs clone bootstrap with `--branch <clone_branch>`. |
+| `workspace.cleanup_on_done` | bool | `false` | Remove the issue workspace when the issue reaches a terminal state. Runs `hooks.before_remove` and ignores cleanup failures. |
 
 #### `agent` section
 
@@ -164,6 +165,7 @@ workspace:
   strategy: clone
   branch_prefix: symphony
   clone_branch: elixir-feature-parity
+  cleanup_on_done: true
 
 codex:
   command: codex app-server
@@ -198,6 +200,7 @@ workspace:
   repo: /Users/alice/code/kata
   strategy: worktree
   branch_prefix: symphony
+  cleanup_on_done: true
 
 agent:
   max_concurrent_agents: 5

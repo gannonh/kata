@@ -182,6 +182,7 @@ struct RawWorkspaceConfig {
     strategy: Option<String>,
     branch_prefix: Option<String>,
     clone_branch: Option<String>,
+    cleanup_on_done: Option<bool>,
 }
 
 #[derive(Deserialize, Default)]
@@ -440,6 +441,9 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         strategy,
         branch_prefix: branch_prefix.trim().to_string(),
         clone_branch,
+        cleanup_on_done: raw_workspace
+            .cleanup_on_done
+            .unwrap_or(defaults.workspace.cleanup_on_done),
     };
 
     // ── WorkerConfig ──────────────────────────────────────────────────────

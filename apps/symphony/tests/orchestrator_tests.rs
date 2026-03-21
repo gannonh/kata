@@ -1,7 +1,8 @@
 use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::Arc;
 use std::time::{Duration as StdDuration, Instant};
 
@@ -15,8 +16,8 @@ use symphony::domain::{
 };
 use symphony::error::{Result, SymphonyError};
 use symphony::orchestrator::{
-    refresh_channel, Orchestrator, OrchestratorPort, RetryKind, RuntimeEvent, TurnMetrics,
-    WorkerCompletion, CONTINUATION_RETRY_DELAY_MS,
+    refresh_channel, Orchestrator, OrchestratorPort, RetryContext, RetryKind, RuntimeEvent,
+    TurnMetrics, WorkerCompletion, CONTINUATION_RETRY_DELAY_MS,
 };
 use symphony::workflow_store::WorkflowStore;
 
@@ -1658,6 +1659,490 @@ fn test_reconcile_non_active_state_stops_run_without_cleanup() {
     assert!(
         !orchestrator.state().completed.contains("issue-non-active"),
         "non-terminal state stop must not add issue to completed (no cleanup semantic)"
+    );
+}
+
+fn command_success(mut cmd: Command, context: &str) -> String {
+    let output = cmd
+        .output()
+        .unwrap_or_else(|err| panic!("{context}: failed to run command: {err}"));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "{context}: command failed\nstatus: {:?}\nstdout: {}\nstderr: {}",
+        output.status.code(),
+        stdout,
+        stderr
+    );
+    stdout.trim().to_string()
+}
+
+fn init_git_repo(path: &Path) {
+    fs::create_dir_all(path).expect("source repo directory should be created");
+    fs::write(path.join("README.md"), "hello\n").expect("source repo file should be written");
+
+    let mut init = Command::new("git");
+    init.current_dir(path).arg("init");
+    command_success(init, "git init source repo");
+
+    let mut set_name = Command::new("git");
+    set_name
+        .current_dir(path)
+        .args(["config", "user.name", "Symphony Test"]);
+    command_success(set_name, "git config user.name");
+
+    let mut set_email = Command::new("git");
+    set_email
+        .current_dir(path)
+        .args(["config", "user.email", "symphony-tests@example.com"]);
+    command_success(set_email, "git config user.email");
+
+    let mut add = Command::new("git");
+    add.current_dir(path).args(["add", "."]);
+    command_success(add, "git add source repo files");
+
+    let mut commit = Command::new("git");
+    commit
+        .current_dir(path)
+        .args(["commit", "-m", "initial commit"]);
+    command_success(commit, "git commit source repo files");
+}
+
+fn shell_quote(path: &Path) -> String {
+    let raw = path.to_string_lossy();
+    format!("'{}'", raw.replace('\'', "'\"'\"'"))
+}
+
+#[test]
+fn test_terminal_state_cleanup_removes_workspace_when_enabled() {
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let workspace_path = workspace_root.path().join("SIM-98");
+    fs::create_dir_all(&workspace_path).expect("workspace should exist before cleanup");
+    fs::write(workspace_path.join("artifact.txt"), "temp")
+        .expect("workspace file should exist before cleanup");
+
+    let mut config = test_config(2);
+    config.workspace.root = workspace_root.path().to_string_lossy().to_string();
+    config.workspace.cleanup_on_done = true;
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let attempt = symphony::domain::RunAttempt {
+        issue_id: "issue-terminal-cleanup".to_string(),
+        issue_identifier: "SIM-98".to_string(),
+        attempt: None,
+        workspace_path: workspace_path.to_string_lossy().to_string(),
+        started_at: Utc::now(),
+        status: "running".to_string(),
+        error: None,
+        worker_host: None,
+    };
+    orchestrator
+        .state_mut()
+        .running
+        .insert("issue-terminal-cleanup".to_string(), attempt);
+
+    let mut port = FakePort {
+        reconciled_issues: vec![issue(
+            "issue-terminal-cleanup",
+            "SIM-98",
+            "Done",
+            Some(1),
+            0,
+        )],
+        ..FakePort::default()
+    };
+
+    orchestrator
+        .tick(&mut port)
+        .expect("tick should succeed while cleaning terminal workspace");
+
+    assert!(
+        !workspace_path.exists(),
+        "terminal cleanup should remove workspace directory when enabled"
+    );
+}
+
+#[test]
+fn test_terminal_state_cleanup_preserves_workspace_when_disabled() {
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let workspace_path = workspace_root.path().join("SIM-99");
+    fs::create_dir_all(&workspace_path).expect("workspace should exist before reconcile");
+
+    let mut config = test_config(2);
+    config.workspace.root = workspace_root.path().to_string_lossy().to_string();
+    config.workspace.cleanup_on_done = false;
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let attempt = symphony::domain::RunAttempt {
+        issue_id: "issue-terminal-no-cleanup".to_string(),
+        issue_identifier: "SIM-99".to_string(),
+        attempt: None,
+        workspace_path: workspace_path.to_string_lossy().to_string(),
+        started_at: Utc::now(),
+        status: "running".to_string(),
+        error: None,
+        worker_host: None,
+    };
+    orchestrator
+        .state_mut()
+        .running
+        .insert("issue-terminal-no-cleanup".to_string(), attempt);
+
+    let mut port = FakePort {
+        reconciled_issues: vec![issue(
+            "issue-terminal-no-cleanup",
+            "SIM-99",
+            "Done",
+            Some(1),
+            0,
+        )],
+        ..FakePort::default()
+    };
+
+    orchestrator
+        .tick(&mut port)
+        .expect("tick should succeed with cleanup disabled");
+
+    assert!(
+        workspace_path.exists(),
+        "workspace should be preserved when cleanup_on_done is false"
+    );
+}
+
+#[test]
+fn test_terminal_state_cleanup_runs_before_remove_hook() {
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let workspace_path = workspace_root.path().join("SIM-100");
+    let before_remove_log = workspace_root.path().join("before_remove.log");
+    fs::create_dir_all(&workspace_path).expect("workspace should exist before cleanup");
+    let expected_workspace_path = fs::canonicalize(&workspace_path)
+        .expect("workspace path should canonicalize")
+        .to_string_lossy()
+        .to_string();
+
+    let mut config = test_config(2);
+    config.workspace.root = workspace_root.path().to_string_lossy().to_string();
+    config.workspace.cleanup_on_done = true;
+    config.hooks.before_remove = Some(format!(
+        "printf 'before-remove|%s|%s|%s|%s' \"$SYMPHONY_ISSUE_ID\" \"$SYMPHONY_ISSUE_IDENTIFIER\" \"$SYMPHONY_ISSUE_TITLE\" \"$SYMPHONY_WORKSPACE_PATH\" > {}",
+        shell_quote(&before_remove_log)
+    ));
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let attempt = symphony::domain::RunAttempt {
+        issue_id: "issue-before-remove-hook".to_string(),
+        issue_identifier: "SIM-100".to_string(),
+        attempt: None,
+        workspace_path: workspace_path.to_string_lossy().to_string(),
+        started_at: Utc::now(),
+        status: "running".to_string(),
+        error: None,
+        worker_host: None,
+    };
+    orchestrator
+        .state_mut()
+        .running
+        .insert("issue-before-remove-hook".to_string(), attempt);
+
+    let mut port = FakePort {
+        reconciled_issues: vec![issue(
+            "issue-before-remove-hook",
+            "SIM-100",
+            "Done",
+            Some(1),
+            0,
+        )],
+        ..FakePort::default()
+    };
+
+    orchestrator
+        .tick(&mut port)
+        .expect("tick should succeed while running before_remove hook");
+
+    let hook_output =
+        fs::read_to_string(&before_remove_log).expect("before_remove hook should write log");
+    let mut fields = hook_output.splitn(5, '|');
+    assert_eq!(fields.next(), Some("before-remove"));
+    assert_eq!(fields.next(), Some("issue-before-remove-hook"));
+    assert_eq!(fields.next(), Some("SIM-100"));
+    assert_eq!(fields.next(), Some("Issue SIM-100"));
+    assert_eq!(fields.next(), Some(expected_workspace_path.as_str()));
+    assert!(
+        !workspace_path.exists(),
+        "workspace should still be removed after before_remove hook runs"
+    );
+}
+
+#[test]
+fn test_terminal_state_cleanup_defers_until_worker_completion() {
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let workspace_path = workspace_root.path().join("SIM-103");
+    fs::create_dir_all(&workspace_path).expect("workspace should exist before cleanup");
+
+    let mut config = test_config(2);
+    config.workspace.root = workspace_root.path().to_string_lossy().to_string();
+    config.workspace.cleanup_on_done = true;
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let issue_id = "issue-terminal-deferred-cleanup";
+    orchestrator.state_mut().running.insert(
+        issue_id.to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: issue_id.to_string(),
+            issue_identifier: "SIM-103".to_string(),
+            attempt: None,
+            workspace_path: workspace_path.to_string_lossy().to_string(),
+            started_at: Utc::now(),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+        },
+    );
+    orchestrator.schedule_retry_with_context(
+        issue_id,
+        "SIM-103",
+        1,
+        RetryKind::Failure,
+        0,
+        None,
+        RetryContext {
+            worker_host: None,
+            workspace_path: None,
+            session_id: Some("session-103".to_string()),
+        },
+    );
+    orchestrator.state_mut().retry_attempts.remove(issue_id);
+
+    let mut port = FakePort {
+        reconciled_issues: vec![issue(issue_id, "SIM-103", "Done", Some(1), 0)],
+        ..FakePort::default()
+    };
+
+    orchestrator
+        .tick(&mut port)
+        .expect("tick should succeed while marking active worker issue terminal");
+
+    assert!(
+        workspace_path.exists(),
+        "workspace cleanup should be deferred while worker is still active"
+    );
+
+    let completion_result = orchestrator.handle_worker_completion(
+        issue_id,
+        WorkerCompletion::Completed {
+            schedule_continuation: false,
+        },
+        0,
+    );
+    assert!(
+        completion_result.is_none(),
+        "terminal issue completion after deferred cleanup should not enqueue follow-up work"
+    );
+    assert!(
+        !workspace_path.exists(),
+        "deferred terminal cleanup should remove workspace when worker completion arrives"
+    );
+}
+
+#[tokio::test]
+async fn test_terminal_state_cleanup_removes_retry_workspace_when_enabled() {
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let workspace_path = workspace_root.path().join("SIM-104");
+    fs::create_dir_all(&workspace_path).expect("retry workspace should exist before cleanup");
+    fs::write(workspace_path.join("artifact.txt"), "retry-temp")
+        .expect("retry workspace artifact should exist before cleanup");
+
+    let mut config = test_config(1);
+    config.workspace.root = workspace_root.path().to_string_lossy().to_string();
+    config.workspace.cleanup_on_done = true;
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let issue_id = "issue-terminal-retry-cleanup";
+    orchestrator.schedule_retry_with_context(
+        issue_id,
+        "SIM-104",
+        1,
+        RetryKind::Continuation,
+        0,
+        None,
+        RetryContext {
+            worker_host: None,
+            workspace_path: Some(workspace_path.to_string_lossy().to_string()),
+            session_id: None,
+        },
+    );
+
+    let mut port = FakePort {
+        refreshed_issues: HashMap::from([(
+            issue_id.to_string(),
+            Some(issue(issue_id, "SIM-104", "Done", Some(1), 0)),
+        )]),
+        ..FakePort::default()
+    };
+
+    let run_result = tokio::time::timeout(
+        tokio::time::Duration::from_millis(200),
+        orchestrator.run(&mut port),
+    )
+    .await;
+    assert!(
+        run_result.is_err(),
+        "orchestrator run loop should be canceled by timeout in test harness"
+    );
+
+    assert!(
+        !workspace_path.exists(),
+        "terminal retry issue should remove retained workspace path when cleanup is enabled"
+    );
+    assert!(
+        !orchestrator.state().retry_attempts.contains_key(issue_id),
+        "terminal retry issue should be removed from retry queue after cleanup"
+    );
+}
+
+#[test]
+fn test_terminal_state_cleanup_removes_worktree_checkout_when_enabled() {
+    let tmp = tempdir().expect("test root should be created");
+    let workspace_root = tmp.path().join("workspaces");
+    let source_repo = tmp.path().join("source-repo");
+    fs::create_dir_all(&workspace_root).expect("workspace root should be created");
+    init_git_repo(&source_repo);
+
+    let mut config = test_config(2);
+    config.workspace.root = workspace_root.to_string_lossy().to_string();
+    config.workspace.repo = Some(source_repo.to_string_lossy().to_string());
+    config.workspace.strategy = symphony::domain::WorkspaceRepoStrategy::Worktree;
+    config.workspace.cleanup_on_done = true;
+
+    let active_issue = issue(
+        "issue-worktree-cleanup",
+        "SIM-101",
+        "In Progress",
+        Some(1),
+        0,
+    );
+    let workspace = symphony::workspace::ensure_workspace_for_issue(
+        &active_issue,
+        &config.workspace,
+        &config.hooks,
+    )
+    .expect("worktree workspace should be created");
+    let workspace_path = PathBuf::from(&workspace.path);
+
+    let source_repo_str = source_repo.to_string_lossy().to_string();
+    let mut list_before_cmd = Command::new("git");
+    list_before_cmd.args(["-C", &source_repo_str, "worktree", "list", "--porcelain"]);
+    let list_before = command_success(list_before_cmd, "list worktrees before cleanup");
+    assert!(
+        list_before.contains(&workspace.path),
+        "source repo should track worktree before terminal cleanup"
+    );
+
+    let mut orchestrator = Orchestrator::new(config, String::new());
+    let attempt = symphony::domain::RunAttempt {
+        issue_id: "issue-worktree-cleanup".to_string(),
+        issue_identifier: "SIM-101".to_string(),
+        attempt: None,
+        workspace_path: workspace.path.clone(),
+        started_at: Utc::now(),
+        status: "running".to_string(),
+        error: None,
+        worker_host: None,
+    };
+    orchestrator
+        .state_mut()
+        .running
+        .insert("issue-worktree-cleanup".to_string(), attempt);
+
+    let mut port = FakePort {
+        reconciled_issues: vec![issue(
+            "issue-worktree-cleanup",
+            "SIM-101",
+            "Done",
+            Some(1),
+            0,
+        )],
+        ..FakePort::default()
+    };
+
+    orchestrator
+        .tick(&mut port)
+        .expect("tick should succeed while cleaning terminal worktree");
+
+    assert!(
+        !workspace_path.exists(),
+        "terminal cleanup should remove worktree directory"
+    );
+
+    let mut list_after_cmd = Command::new("git");
+    list_after_cmd.args(["-C", &source_repo_str, "worktree", "list", "--porcelain"]);
+    let list_after = command_success(list_after_cmd, "list worktrees after cleanup");
+    assert!(
+        !list_after.contains(&workspace.path),
+        "terminal cleanup should detach worktree from source repository"
+    );
+}
+
+#[test]
+fn test_terminal_state_cleanup_failure_is_non_fatal() {
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let outside_root = tempdir().expect("outside root should be created");
+    let outside_workspace = outside_root.path().join("SIM-102");
+    fs::create_dir_all(&outside_workspace).expect("outside workspace should be created");
+
+    let mut config = test_config(2);
+    config.workspace.root = workspace_root.path().to_string_lossy().to_string();
+    config.workspace.cleanup_on_done = true;
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let attempt = symphony::domain::RunAttempt {
+        issue_id: "issue-cleanup-failure".to_string(),
+        issue_identifier: "SIM-102".to_string(),
+        attempt: None,
+        workspace_path: outside_workspace.to_string_lossy().to_string(),
+        started_at: Utc::now(),
+        status: "running".to_string(),
+        error: None,
+        worker_host: None,
+    };
+    orchestrator
+        .state_mut()
+        .running
+        .insert("issue-cleanup-failure".to_string(), attempt);
+
+    let mut port = FakePort {
+        reconciled_issues: vec![issue(
+            "issue-cleanup-failure",
+            "SIM-102",
+            "Done",
+            Some(1),
+            0,
+        )],
+        ..FakePort::default()
+    };
+
+    orchestrator
+        .tick(&mut port)
+        .expect("cleanup failure should not fail orchestrator tick");
+
+    assert!(
+        orchestrator
+            .state()
+            .completed
+            .contains("issue-cleanup-failure"),
+        "issue should still transition to completed despite cleanup failure"
+    );
+    assert!(
+        !orchestrator
+            .state()
+            .running
+            .contains_key("issue-cleanup-failure"),
+        "running entry should still be removed despite cleanup failure"
+    );
+    assert!(
+        outside_workspace.exists(),
+        "cleanup failure scenario should preserve outside-root workspace path"
     );
 }
 
