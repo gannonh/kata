@@ -17,10 +17,10 @@
 This is the Kata monorepo for five AI agent products:
 
 - Kata CLI in `apps/cli`
+- Kata Symphony in `apps/symphony`
 - Kata Desktop in `apps/electron`
 - Kata Orchestrator in `apps/orchestrator`
 - Kata Context in `apps/context`
-- Symphony in `apps/symphony`
 
 The repo also contains shared packages that support the product apps.
 
@@ -29,10 +29,10 @@ The repo also contains shared packages that support the product apps.
 | Product                                          | Path                | Use it for                                                                                   | Quick start                                                 |
 | ------------------------------------------------ | ------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | [Kata CLI](apps/cli/README.md)                   | `apps/cli`          | Terminal-based coding work with guided and autonomous execution modes                        | `npx @kata-sh/cli`                                          |
+| [Kata Symphony](apps/symphony/README.md)         | `apps/symphony`     | Headless orchestrator: polls Linear, dispatches parallel agent sessions, manages full PR lifecycle | `cargo build --release`                               |
 | [Kata Desktop](apps/electron/README.md)          | `apps/electron`     | Desktop-based agent work with workspaces, session management, sources, and approval controls | [GitHub Releases](https://github.com/gannonh/kata/releases) |
 | [Kata Orchestrator](apps/orchestrator/README.md) | `apps/orchestrator` | Spec-driven workflows for Claude Code, OpenCode, Gemini CLI, and Codex                       | `npx @kata-sh/orc@latest`                                   |
 | Kata Context                                     | `apps/context`      | Structural, semantic, and memory-based codebase understanding for AI coding agents           | `npx @kata/context`                                         |
-| Symphony                                         | `apps/symphony`     | Polls Linear, dispatches agent sessions via workflow definitions                             | Rust binary (in development)                                |
 
 ## Kata CLI
 
@@ -58,6 +58,41 @@ Use Kata CLI when you want:
 - guided or autonomous execution inside one tool
 
 Read more in [apps/cli/README.md](apps/cli/README.md).
+
+## Kata Symphony
+
+Kata Symphony is a headless orchestrator that polls a Linear project for candidate issues and dispatches parallel agent sessions to work on them autonomously. It manages the full ticket lifecycle — from Todo through implementation, PR creation, automated code review, human review, and merge — with multi-turn sessions, real-time event streaming, and a live HTTP dashboard.
+
+Quick start:
+
+```bash
+cd apps/symphony
+cargo build --release
+
+# Create a WORKFLOW.md with your Linear project config and agent prompt
+# (see apps/symphony/docs/WORKFLOW-REFERENCE.md for all settings)
+
+LINEAR_API_KEY=lin_api_... ./target/release/symphony WORKFLOW.md --port 8080
+```
+
+Key features:
+
+- **Linear integration** — polls for issues, manages state transitions, respects priorities and dependency graphs
+- **Parallel agents** — configurable concurrency with per-state slot limits
+- **Multi-turn sessions** — agents continue on the same Codex thread across turns, preserving conversation history
+- **Full PR lifecycle** — agents create PRs, address review feedback, resolve comment threads, and merge
+- **Real-time streaming** — events flow from workers to the orchestrator as they happen
+- **Dynamic config reload** — WORKFLOW.md changes take effect without restart
+- **SSH worker pools** — distribute sessions across remote machines
+- **HTTP dashboard + JSON API** — live observability at `localhost:8080`
+
+Use Kata Symphony when you want:
+
+- autonomous ticket-to-merge execution without human intervention
+- parallel agent sessions working through a Linear backlog
+- a headless orchestrator you can run on a server or CI
+
+Read more in [apps/symphony/README.md](apps/symphony/README.md).
 
 ## Kata Desktop
 
@@ -112,23 +147,13 @@ Kata Context provides structural, semantic, and memory-based codebase understand
 npx @kata/context
 ```
 
-## Symphony
-
-Symphony is a Rust binary that polls Linear for workflow-triggering issues and dispatches agent sessions based on workflow definitions. It uses Liquid templates for prompt generation and supports configurable workspace layouts.
-
-Symphony is in active development and not yet published. Build from source:
-
-```bash
-cd apps/symphony && cargo build --release
-```
-
 | Path                | Purpose                                                    |
 | ------------------- | ---------------------------------------------------------- |
 | `apps/cli`          | Kata CLI                                                   |
+| `apps/symphony`     | Kata Symphony (Rust)                                       |
 | `apps/context`      | Kata Context                                               |
 | `apps/electron`     | Kata Desktop                                               |
 | `apps/orchestrator` | Kata Orchestrator                                          |
-| `apps/symphony`     | Symphony (Rust)                                            |
 | `apps/online-docs`  | Documentation site (Fumadocs/Next.js)                      |
 | `apps/viewer`       | Session viewer                                             |
 | `packages/core`     | Shared types                                               |
@@ -157,7 +182,7 @@ Common commands:
 | `bun run validate`                   | Lint + typecheck + test all packages via Turbo  |
 | `bun run validate:affected`          | Same, only changed packages                    |
 | `bun run electron:dev`               | Start Kata Desktop in development mode         |
-| `cd apps/symphony && cargo build`    | Build Symphony                                 |
+| `cd apps/symphony && cargo build`    | Build Kata Symphony                            |
 
 ## Testing
 
