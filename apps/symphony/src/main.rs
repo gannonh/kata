@@ -1,17 +1,19 @@
 use std::ffi::OsString;
 use std::future::{pending, Future};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::Once;
+use std::sync::{Arc, Mutex, Once};
 
 use clap::Parser;
 use symphony::domain::{Issue, ServiceConfig};
 use symphony::http_server::{start_http_server, HttpServerState};
 use symphony::linear::adapter::{LinearAdapter, TrackerAdapter};
 use symphony::linear::client::LinearClient;
+use symphony::logging;
 use symphony::orchestrator::{Orchestrator, OrchestratorPort};
 use symphony::workflow_store::WorkflowStore;
 use symphony::{config, error};
+use tracing_appender::non_blocking::WorkerGuard;
+use tracing_subscriber::fmt::writer::MakeWriterExt;
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug, Clone)]
@@ -352,17 +354,48 @@ fn run_runtime_until_shutdown(
     })
 }
 
-fn init_tracing() {
+static FILE_LOG_GUARD: Mutex<Option<WorkerGuard>> = Mutex::new(None);
+
+fn flush_file_logs() {
+    if let Ok(mut guard_slot) = FILE_LOG_GUARD.lock() {
+        let _ = guard_slot.take();
+    }
+}
+
+fn init_tracing(logs_root: Option<&Path>) {
     static INIT: Once = Once::new();
 
     INIT.call_once(|| {
         let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-
-        let _ = tracing_subscriber::fmt()
+        let subscriber_builder = tracing_subscriber::fmt()
             .with_env_filter(filter)
             .with_target(false)
-            .json()
-            .try_init();
+            .json();
+
+        let init_result = match logs_root {
+            Some(logs_root_path) => match logging::build_non_blocking_file_writer(logs_root_path) {
+                Ok((file_writer, guard)) => {
+                    if let Ok(mut guard_slot) = FILE_LOG_GUARD.lock() {
+                        *guard_slot = Some(guard);
+                    }
+                    subscriber_builder
+                        .with_writer(std::io::stdout.and(file_writer))
+                        .try_init()
+                }
+                Err(err) => {
+                    eprintln!(
+                        "failed to initialize rotating file logging at {}: {err}",
+                        logs_root_path.display()
+                    );
+                    subscriber_builder.try_init()
+                }
+            },
+            None => subscriber_builder.try_init(),
+        };
+
+        if let Err(err) = init_result {
+            eprintln!("failed to initialize tracing subscriber: {err}");
+        }
     });
 }
 
@@ -374,6 +407,8 @@ fn run_entrypoint(args: impl IntoIterator<Item = OsString>) -> i32 {
             return 2;
         }
     };
+
+    init_tracing(cli.logs_root.as_deref().map(Path::new));
 
     let mut deps = RuntimeBootstrapDeps::default();
 
@@ -397,9 +432,8 @@ async fn main() {
     // Load .env file if present (silently ignore if missing)
     let _ = dotenvy::dotenv();
 
-    init_tracing();
-
     let code = run_entrypoint(std::env::args_os());
+    flush_file_logs();
     if code != 0 {
         std::process::exit(code);
     }
