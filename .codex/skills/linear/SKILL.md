@@ -182,6 +182,75 @@ query IssueDetails($id: String!) {
 }
 ```
 
+### Query slice hierarchy and planning documents
+
+Use these when an issue represents a parent slice with child tasks and attached
+plan docs.
+
+Get child issues of a slice:
+
+```graphql
+query SliceChildren($id: String!) {
+  issue(id: $id) {
+    children {
+      nodes {
+        id
+        identifier
+        title
+        state {
+          name
+        }
+      }
+    }
+  }
+}
+```
+
+Get documents attached to an issue:
+
+```graphql
+query IssueDocuments($id: String!) {
+  issue(id: $id) {
+    documents {
+      nodes {
+        id
+        title
+        content
+      }
+    }
+  }
+}
+```
+
+Get project documents:
+
+```graphql
+query ProjectDocuments($id: String!) {
+  project(id: $id) {
+    documents {
+      nodes {
+        id
+        title
+        content
+      }
+    }
+  }
+}
+```
+
+Get milestone from issue:
+
+```graphql
+query IssueMilestone($id: String!) {
+  issue(id: $id) {
+    projectMilestone {
+      id
+      name
+    }
+  }
+}
+```
+
 ### Query team workflow states for an issue
 
 Use this before changing issue state when you need the exact `stateId`:
