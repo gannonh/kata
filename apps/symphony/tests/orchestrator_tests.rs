@@ -354,15 +354,15 @@ fn test_reconcile_refresh_failure_is_non_fatal_and_dispatch_continues() {
 fn test_completed_is_bookkeeping_and_does_not_block_dispatch() {
     let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let candidate = issue("issue-1", "SIM-1", "Todo", Some(1), 0);
-    orchestrator
-        .state_mut()
-        .completed
-        .insert(candidate.id.clone(), symphony::domain::CompletedEntry {
+    orchestrator.state_mut().completed.insert(
+        candidate.id.clone(),
+        symphony::domain::CompletedEntry {
             issue_id: candidate.id.clone(),
             identifier: candidate.identifier.clone(),
             title: candidate.title.clone(),
             completed_at: chrono::Utc::now(),
-        });
+        },
+    );
 
     let mut port = FakePort {
         candidate_issues: vec![candidate.clone()],
@@ -1165,7 +1165,10 @@ fn test_worker_completion_schedules_continuation_retry_with_session_context() {
         "completed turn should leave running map before retry scheduling"
     );
     assert!(
-        !orchestrator.state().completed.contains_key("issue-complete"),
+        !orchestrator
+            .state()
+            .completed
+            .contains_key("issue-complete"),
         "continuation completions must stay out of completed until terminal state"
     );
     assert!(
@@ -1641,14 +1644,14 @@ fn test_reconcile_non_active_state_stops_run_without_cleanup() {
     let attempt = symphony::domain::RunAttempt {
         issue_id: "issue-non-active".to_string(),
         issue_identifier: "SIM-97".to_string(),
-            issue_title: None,
+        issue_title: None,
         attempt: None,
         workspace_path: "/tmp/ws-non-active".to_string(),
         started_at: Utc::now(),
         status: "running".to_string(),
         error: None,
         worker_host: None,
-            linear_state: None,
+        linear_state: None,
     };
     orchestrator
         .state_mut()
@@ -1682,7 +1685,10 @@ fn test_reconcile_non_active_state_stops_run_without_cleanup() {
 
     // The issue must NOT be in completed — non-terminal stop has no workspace cleanup.
     assert!(
-        !orchestrator.state().completed.contains_key("issue-non-active"),
+        !orchestrator
+            .state()
+            .completed
+            .contains_key("issue-non-active"),
         "non-terminal state stop must not add issue to completed (no cleanup semantic)"
     );
 }
@@ -1755,14 +1761,14 @@ fn test_terminal_state_cleanup_removes_workspace_when_enabled() {
     let attempt = symphony::domain::RunAttempt {
         issue_id: "issue-terminal-cleanup".to_string(),
         issue_identifier: "SIM-98".to_string(),
-            issue_title: None,
+        issue_title: None,
         attempt: None,
         workspace_path: workspace_path.to_string_lossy().to_string(),
         started_at: Utc::now(),
         status: "running".to_string(),
         error: None,
         worker_host: None,
-            linear_state: None,
+        linear_state: None,
     };
     orchestrator
         .state_mut()
@@ -1804,14 +1810,14 @@ fn test_terminal_state_cleanup_preserves_workspace_when_disabled() {
     let attempt = symphony::domain::RunAttempt {
         issue_id: "issue-terminal-no-cleanup".to_string(),
         issue_identifier: "SIM-99".to_string(),
-            issue_title: None,
+        issue_title: None,
         attempt: None,
         workspace_path: workspace_path.to_string_lossy().to_string(),
         started_at: Utc::now(),
         status: "running".to_string(),
         error: None,
         worker_host: None,
-            linear_state: None,
+        linear_state: None,
     };
     orchestrator
         .state_mut()
@@ -1862,14 +1868,14 @@ fn test_terminal_state_cleanup_runs_before_remove_hook() {
     let attempt = symphony::domain::RunAttempt {
         issue_id: "issue-before-remove-hook".to_string(),
         issue_identifier: "SIM-100".to_string(),
-            issue_title: None,
+        issue_title: None,
         attempt: None,
         workspace_path: workspace_path.to_string_lossy().to_string(),
         started_at: Utc::now(),
         status: "running".to_string(),
         error: None,
         worker_host: None,
-            linear_state: None,
+        linear_state: None,
     };
     orchestrator
         .state_mut()
@@ -2076,14 +2082,14 @@ fn test_terminal_state_cleanup_removes_worktree_checkout_when_enabled() {
     let attempt = symphony::domain::RunAttempt {
         issue_id: "issue-worktree-cleanup".to_string(),
         issue_identifier: "SIM-101".to_string(),
-            issue_title: None,
+        issue_title: None,
         attempt: None,
         workspace_path: workspace.path.clone(),
         started_at: Utc::now(),
         status: "running".to_string(),
         error: None,
         worker_host: None,
-            linear_state: None,
+        linear_state: None,
     };
     orchestrator
         .state_mut()
@@ -2134,14 +2140,14 @@ fn test_terminal_state_cleanup_failure_is_non_fatal() {
     let attempt = symphony::domain::RunAttempt {
         issue_id: "issue-cleanup-failure".to_string(),
         issue_identifier: "SIM-102".to_string(),
-            issue_title: None,
+        issue_title: None,
         attempt: None,
         workspace_path: outside_workspace.to_string_lossy().to_string(),
         started_at: Utc::now(),
         status: "running".to_string(),
         error: None,
         worker_host: None,
-            linear_state: None,
+        linear_state: None,
     };
     orchestrator
         .state_mut()

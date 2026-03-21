@@ -1284,12 +1284,15 @@ impl Orchestrator {
                 schedule_continuation,
             } => {
                 if !schedule_continuation {
-                    self.state.completed.insert(issue_id.to_string(), CompletedEntry {
-                        issue_id: issue_id.to_string(),
-                        identifier: issue_identifier.clone(),
-                        title: run_attempt.issue_title.clone().unwrap_or_default(),
-                        completed_at: Utc::now(),
-                    });
+                    self.state.completed.insert(
+                        issue_id.to_string(),
+                        CompletedEntry {
+                            issue_id: issue_id.to_string(),
+                            identifier: issue_identifier.clone(),
+                            title: run_attempt.issue_title.clone().unwrap_or_default(),
+                            completed_at: Utc::now(),
+                        },
+                    );
                 }
 
                 tracing::info!(
@@ -2139,12 +2142,15 @@ impl Orchestrator {
             }
         }
 
-        self.state.completed.insert(issue_id.to_string(), CompletedEntry {
-            issue_id: issue_id.to_string(),
-            identifier: issue.identifier.clone(),
-            title: issue.title.clone(),
-            completed_at: Utc::now(),
-        });
+        self.state.completed.insert(
+            issue_id.to_string(),
+            CompletedEntry {
+                issue_id: issue_id.to_string(),
+                identifier: issue.identifier.clone(),
+                title: issue.title.clone(),
+                completed_at: Utc::now(),
+            },
+        );
         self.state.running.remove(issue_id);
         self.state.claimed.remove(issue_id);
         self.state.retry_attempts.remove(issue_id);
