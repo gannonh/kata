@@ -1295,7 +1295,7 @@ impl Orchestrator {
                             issue_id: issue_id.to_string(),
                             identifier: issue_identifier.clone(),
                             title: run_attempt.issue_title.clone().unwrap_or_default(),
-                            completed_at: Utc::now(),
+                            completed_at: Some(Utc::now()),
                         },
                     );
                 }
@@ -2163,7 +2163,7 @@ impl Orchestrator {
                 issue_id: issue_id.to_string(),
                 identifier: issue.identifier.clone(),
                 title: issue.title.clone(),
-                completed_at: Utc::now(),
+                completed_at: None,
             },
         );
         self.state.running.remove(issue_id);

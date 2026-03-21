@@ -90,7 +90,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
             issue_id: "issue-001".to_string(),
             identifier: "KAT-001".to_string(),
             title: "Completed issue".to_string(),
-            completed_at: chrono::Utc::now(),
+            completed_at: Some(chrono::Utc::now()),
         }],
         codex_totals: CodexTotals {
             input_tokens: 120,

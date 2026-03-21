@@ -468,7 +468,7 @@ pub struct CompletedEntry {
     pub issue_id: String,
     pub identifier: String,
     pub title: String,
-    pub completed_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
 }
 
 /// Polling state for the snapshot.

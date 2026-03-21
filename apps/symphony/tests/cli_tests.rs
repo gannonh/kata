@@ -298,8 +298,8 @@ fn test_startup_banner_includes_expected_runtime_summary_fields() {
         "banner should include resolved log file path (raw or home-aliased), got: {banner}"
     );
     assert!(
-        banner.contains("Project: Symphony (89d4761fddf0)"),
-        "banner should include project info, got: {banner}"
+        banner.contains("Project: 89d4761fddf0"),
+        "banner should include project slug, got: {banner}"
     );
     assert!(
         banner.contains("Workers: 3 max concurrent"),

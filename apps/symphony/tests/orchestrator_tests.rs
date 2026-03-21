@@ -360,7 +360,7 @@ fn test_completed_is_bookkeeping_and_does_not_block_dispatch() {
             issue_id: candidate.id.clone(),
             identifier: candidate.identifier.clone(),
             title: candidate.title.clone(),
-            completed_at: chrono::Utc::now(),
+            completed_at: Some(chrono::Utc::now()),
         },
     );
 
