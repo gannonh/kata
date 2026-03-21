@@ -16,11 +16,14 @@ description:
 
 ## Log Sources
 
-- Primary runtime log: `log/symphony.log`
-  - Default comes from `SymphonyElixir.LogFile` (`log/symphony.log`).
+- Primary runtime log file: `<logs-root>/log/symphony.log`
+  - When Symphony runs with `--logs-root`, it writes rotating JSON logs under
+    this path (see `apps/symphony/README.md`).
   - Includes orchestrator, agent runner, and Codex app-server lifecycle logs.
-- Rotated runtime logs: `log/symphony.log*`
-  - Check these when the relevant run is older.
+- Rotated runtime logs: `<logs-root>/log/symphony.log*`
+  - Check these when the relevant run is older than the active file.
+- Stdout fallback: structured JSON log stream
+  - Without `--logs-root`, logs stream to stdout instead of a file.
 
 ## Correlation Keys
 
@@ -28,8 +31,9 @@ description:
 - `issue_id`: Linear UUID (stable internal ID)
 - `session_id`: Codex thread-turn pair (`<thread_id>-<turn_id>`)
 
-`elixir/docs/logging.md` requires these fields for issue/session lifecycle logs. Use
-them as your join keys during debugging.
+These fields are emitted by Symphony runtime lifecycle logs (notably in
+`apps/symphony/src/orchestrator.rs` and `apps/symphony/src/codex/app_server.rs`).
+Use them as your join keys during debugging.
 
 ## Quick Triage (Stuck Run)
 
@@ -44,20 +48,23 @@ them as your join keys during debugging.
 ## Commands
 
 ```bash
+# Set this to your runtime log location from the Symphony startup banner.
+LOG_GLOB="${LOG_GLOB:-log/symphony.log*}"
+
 # 1) Narrow by ticket key (fastest entry point)
-rg -n "issue_identifier=MT-625" log/symphony.log*
+rg -n "issue_identifier=MT-625" "$LOG_GLOB"
 
 # 2) If needed, narrow by Linear UUID
-rg -n "issue_id=<linear-uuid>" log/symphony.log*
+rg -n "issue_id=<linear-uuid>" "$LOG_GLOB"
 
 # 3) Pull session IDs seen for that ticket
-rg -o "session_id=[^ ;]+" log/symphony.log* | sort -u
+rg -o "session_id=[^ ;]+" "$LOG_GLOB" | sort -u
 
 # 4) Trace one session end-to-end
-rg -n "session_id=<thread>-<turn>" log/symphony.log*
+rg -n "session_id=<thread>-<turn>" "$LOG_GLOB"
 
 # 5) Focus on stuck/retry signals
-rg -n "Issue stalled|scheduling retry|turn_timeout|turn_failed|Codex session failed|Codex session ended with error" log/symphony.log*
+rg -n "Issue stalled|scheduling retry|turn_timeout|turn_failed|Codex session failed|Codex session ended with error" "$LOG_GLOB"
 ```
 
 ## Investigation Flow
@@ -99,7 +106,7 @@ For one specific session investigation, keep the trace narrow:
 
 1. Capture one `session_id` for the ticket.
 2. Build a timestamped slice for only that session:
-    - `rg -n "session_id=<thread>-<turn>" log/symphony.log*`
+    - `rg -n "session_id=<thread>-<turn>" "$LOG_GLOB"`
 3. Mark the exact failing stage:
     - Startup failure before stream events (`Codex session failed ...`).
     - Turn/runtime failure after stream events (`turn_*` / `ended with error`).
@@ -113,6 +120,9 @@ concurrent runs.
 ## Notes
 
 - Prefer `rg` over `grep` for speed on large logs.
-- Check rotated logs (`log/symphony.log*`) before concluding data is missing.
+- Check rotated logs (`<logs-root>/log/symphony.log*`) before concluding data is
+  missing.
 - If required context fields are missing in new log statements, align with
-  `elixir/docs/logging.md` conventions.
+  existing structured lifecycle logging in
+  `apps/symphony/src/orchestrator.rs` and
+  `apps/symphony/src/codex/app_server.rs`.
