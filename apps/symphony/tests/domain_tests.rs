@@ -339,6 +339,10 @@ fn test_agent_event_variants() {
             codex_app_server_pid: None,
             turn_id: "t1".into(),
             message: Some("done".into()),
+            input_tokens: 10,
+            output_tokens: 4,
+            total_tokens: 14,
+            rate_limits: None,
         },
         AgentEvent::TurnFailed {
             timestamp: Utc::now(),

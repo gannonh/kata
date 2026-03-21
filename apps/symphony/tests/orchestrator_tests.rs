@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration as StdDuration, Instant};
 
-use chrono::{Duration, Utc};
+use chrono::{Duration, TimeZone, Utc};
 use mockito::{Server, ServerGuard};
 use serde_json::json;
 use tempfile::{tempdir, NamedTempFile};
@@ -270,6 +270,12 @@ fn test_tick_applies_server_port_override_over_workflow_store_config() {
         vec![Some(7777)],
         "CLI override should be preserved in the runtime config passed to preflight validation"
     );
+}
+
+fn utc_ms(ms: i64) -> chrono::DateTime<Utc> {
+    Utc.timestamp_millis_opt(ms)
+        .single()
+        .expect("millisecond timestamp should be representable")
 }
 
 #[test]
@@ -727,6 +733,248 @@ fn test_stall_detection_schedules_forced_retry() {
     assert!(
         stalled_event,
         "stalled worker path should emit worker_stalled diagnostic event"
+    );
+}
+
+#[test]
+fn test_streamed_event_updates_activity_before_worker_completion() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+
+    let now_ms = 1_000_000;
+    orchestrator.state_mut().running.insert(
+        "issue-stream-activity".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-stream-activity".to_string(),
+            issue_identifier: "SIM-STREAM-1".to_string(),
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-stream-activity".to_string(),
+            started_at: utc_ms(now_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+        },
+    );
+
+    orchestrator.ingest_agent_event(
+        "issue-stream-activity",
+        &AgentEvent::SessionStarted {
+            timestamp: utc_ms(now_ms - 5_000),
+            codex_app_server_pid: Some("1234".to_string()),
+            session_id: "thread-stream-1-turn-1".to_string(),
+        },
+    );
+
+    orchestrator.detect_stalled_workers(now_ms, 30_000);
+
+    assert!(
+        orchestrator
+            .state()
+            .running
+            .contains_key("issue-stream-activity"),
+        "recent streamed events should refresh activity and keep the worker running"
+    );
+    assert!(
+        !orchestrator
+            .state()
+            .retry_attempts
+            .contains_key("issue-stream-activity"),
+        "worker should not be retried while streamed activity is within stall timeout"
+    );
+}
+
+#[test]
+fn test_streamed_events_keep_refreshing_stall_detection_window() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+
+    let start_ms = 2_000_000;
+    orchestrator.state_mut().running.insert(
+        "issue-stream-window".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-stream-window".to_string(),
+            issue_identifier: "SIM-STREAM-2".to_string(),
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-stream-window".to_string(),
+            started_at: utc_ms(start_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+        },
+    );
+
+    orchestrator.ingest_agent_event(
+        "issue-stream-window",
+        &AgentEvent::SessionStarted {
+            timestamp: utc_ms(start_ms - 20_000),
+            codex_app_server_pid: Some("2222".to_string()),
+            session_id: "thread-stream-2-turn-1".to_string(),
+        },
+    );
+    orchestrator.detect_stalled_workers(start_ms, 30_000);
+    assert!(
+        orchestrator
+            .state()
+            .running
+            .contains_key("issue-stream-window"),
+        "first streamed event should prevent stall at initial check"
+    );
+
+    let later_ms = start_ms + 35_000;
+    orchestrator.ingest_agent_event(
+        "issue-stream-window",
+        &AgentEvent::Notification {
+            timestamp: utc_ms(later_ms - 5_000),
+            codex_app_server_pid: Some("2222".to_string()),
+            message: "progress update".to_string(),
+        },
+    );
+    orchestrator.detect_stalled_workers(later_ms, 30_000);
+
+    assert!(
+        orchestrator
+            .state()
+            .running
+            .contains_key("issue-stream-window"),
+        "subsequent streamed events should keep extending the non-stalled window"
+    );
+    assert!(
+        !orchestrator
+            .state()
+            .retry_attempts
+            .contains_key("issue-stream-window"),
+        "stalled retry should remain unscheduled when streamed activity continues"
+    );
+}
+
+#[test]
+fn test_streamed_turn_completed_events_update_token_totals_in_real_time() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let now_ms = 3_000_000;
+    orchestrator.state_mut().running.insert(
+        "issue-stream-metrics".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-stream-metrics".to_string(),
+            issue_identifier: "SIM-STREAM-3".to_string(),
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-stream-metrics".to_string(),
+            started_at: utc_ms(now_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+        },
+    );
+
+    let event_time = Utc::now();
+    orchestrator.ingest_agent_event(
+        "issue-stream-metrics",
+        &AgentEvent::TurnCompleted {
+            timestamp: event_time,
+            codex_app_server_pid: Some("3333".to_string()),
+            turn_id: "turn-1".to_string(),
+            message: None,
+            input_tokens: 9,
+            output_tokens: 4,
+            total_tokens: 13,
+            rate_limits: Some(json!({ "remaining": 91 })),
+        },
+    );
+
+    assert_eq!(
+        orchestrator.state().codex_totals.input_tokens,
+        9,
+        "streamed turn-completed events should apply input-token totals immediately"
+    );
+    assert_eq!(
+        orchestrator.state().codex_totals.output_tokens,
+        4,
+        "streamed turn-completed events should apply output-token totals immediately"
+    );
+    assert_eq!(
+        orchestrator.state().codex_totals.total_tokens,
+        13,
+        "streamed turn-completed events should apply total-token totals immediately"
+    );
+
+    orchestrator.ingest_agent_event(
+        "issue-stream-metrics",
+        &AgentEvent::TurnCompleted {
+            timestamp: event_time,
+            codex_app_server_pid: Some("3333".to_string()),
+            turn_id: "turn-2".to_string(),
+            message: None,
+            input_tokens: 3,
+            output_tokens: 2,
+            total_tokens: 5,
+            rate_limits: None,
+        },
+    );
+
+    assert_eq!(
+        orchestrator.state().codex_totals.input_tokens,
+        12,
+        "token totals should continue accumulating across streamed turns"
+    );
+    assert_eq!(
+        orchestrator.state().codex_totals.output_tokens,
+        6,
+        "output totals should continue accumulating across streamed turns"
+    );
+    assert_eq!(
+        orchestrator.state().codex_totals.total_tokens,
+        18,
+        "total token count should continue accumulating across streamed turns"
+    );
+}
+
+#[test]
+fn test_late_streamed_event_after_completion_is_ignored() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let now_ms = 4_000_000;
+    let issue_id = "issue-late-stream";
+
+    orchestrator.state_mut().running.insert(
+        issue_id.to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: issue_id.to_string(),
+            issue_identifier: "SIM-STREAM-LATE".to_string(),
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-stream-late".to_string(),
+            started_at: utc_ms(now_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+        },
+    );
+
+    orchestrator.handle_worker_completion(
+        issue_id,
+        WorkerCompletion::Completed {
+            schedule_continuation: false,
+        },
+        now_ms,
+    );
+
+    orchestrator.ingest_agent_event(
+        issue_id,
+        &AgentEvent::TurnCompleted {
+            timestamp: utc_ms(now_ms - 1_000),
+            codex_app_server_pid: Some("4444".to_string()),
+            turn_id: "turn-late".to_string(),
+            message: None,
+            input_tokens: 11,
+            output_tokens: 7,
+            total_tokens: 18,
+            rate_limits: Some(json!({ "remaining": 77 })),
+        },
+    );
+
+    assert!(
+        !orchestrator.state().running.contains_key(issue_id),
+        "late streamed events must not resurrect completed run attempts"
+    );
+    assert_eq!(
+        orchestrator.state().codex_totals.total_tokens,
+        0,
+        "late streamed events for completed issues should be ignored"
     );
 }
 
