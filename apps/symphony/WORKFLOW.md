@@ -23,6 +23,7 @@ workspace:
   repo: /Volumes/EVO/kata/kata-mono
   git_strategy: worktree
   isolation: local
+  cleanup_on_done: true
   branch_prefix: symphony
   clone_branch: main
   base_branch: main
