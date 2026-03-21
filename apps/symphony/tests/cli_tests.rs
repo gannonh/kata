@@ -293,8 +293,9 @@ fn test_startup_banner_includes_expected_runtime_summary_fields() {
         "banner should include dashboard URL, got: {banner}"
     );
     assert!(
-        banner.contains("Logs: /tmp/symphony/log/symphony.log"),
-        "banner should include resolved log file path, got: {banner}"
+        banner.contains("Logs: /tmp/symphony/log/symphony.log")
+            || banner.contains("Logs: ~/symphony/log/symphony.log"),
+        "banner should include resolved log file path (raw or home-aliased), got: {banner}"
     );
     assert!(
         banner.contains("Project: Symphony (89d4761fddf0)"),
@@ -311,6 +312,46 @@ fn test_startup_banner_includes_expected_runtime_summary_fields() {
     assert!(
         banner.contains("Press Ctrl+C to stop."),
         "banner should include shutdown hint, got: {banner}"
+    );
+}
+
+#[test]
+fn test_startup_banner_brackets_ipv6_dashboard_host() {
+    let mut config = ServiceConfig::default();
+    config.tracker.project_slug = Some("89d4761fddf0".to_string());
+
+    let cli =
+        main_bin::parse_cli_from(["symphony", "WORKFLOW.md"]).expect("CLI parse should succeed");
+
+    let binding = main_bin::HttpBinding {
+        host: "::1".to_string(),
+        port: 8080,
+    };
+
+    let banner = main_bin::build_startup_banner(&cli, &config, Some(&binding));
+    assert!(
+        banner.contains("Dashboard: http://[::1]:8080"),
+        "banner should bracket IPv6 host in URL, got: {banner}"
+    );
+}
+
+#[test]
+fn test_startup_banner_marks_ephemeral_dashboard_port() {
+    let mut config = ServiceConfig::default();
+    config.tracker.project_slug = Some("89d4761fddf0".to_string());
+
+    let cli =
+        main_bin::parse_cli_from(["symphony", "WORKFLOW.md"]).expect("CLI parse should succeed");
+
+    let binding = main_bin::HttpBinding {
+        host: "127.0.0.1".to_string(),
+        port: 0,
+    };
+
+    let banner = main_bin::build_startup_banner(&cli, &config, Some(&binding));
+    assert!(
+        banner.contains("Dashboard: http://127.0.0.1:<ephemeral>"),
+        "banner should mark ephemeral dashboard ports, got: {banner}"
     );
 }
 
@@ -335,6 +376,10 @@ fn test_logs_root_writes_startup_logs_to_file_and_suppresses_stdout_logs() {
     assert!(
         !stdout.contains("starting CLI bootstrap"),
         "stdout should suppress startup log stream when --logs-root is set; got: {stdout}"
+    );
+    assert!(
+        !stdout.contains("\"phase\":\"startup\""),
+        "stdout should not include startup JSON fields when --logs-root is set; got: {stdout}"
     );
 
     let log_file_path = logs_root.path().join("log").join("symphony.log");
