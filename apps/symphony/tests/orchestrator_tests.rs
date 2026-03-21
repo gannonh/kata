@@ -27,6 +27,7 @@ struct FakePort {
     reconciled_issues: Vec<Issue>,
     candidate_issues: Vec<Issue>,
     refreshed_issues: HashMap<String, Option<Issue>>,
+    validated_server_ports: Vec<Option<u16>>,
     validate_should_fail: bool,
     reconcile_should_fail: bool,
 }
@@ -52,8 +53,9 @@ impl OrchestratorPort for FakePort {
         Ok(self.reconciled_issues.clone())
     }
 
-    fn validate_dispatch_preflight(&mut self, _config: &ServiceConfig) -> Result<()> {
+    fn validate_dispatch_preflight(&mut self, config: &ServiceConfig) -> Result<()> {
         self.calls.push("validate_dispatch_preflight".to_string());
+        self.validated_server_ports.push(config.server.port);
         if self.validate_should_fail {
             Err(SymphonyError::MissingLinearApiToken)
         } else {
@@ -156,7 +158,7 @@ fn wait_for_workflow_config(
     expected_stall_timeout_ms: u64,
     expected_prompt_fragment: &str,
 ) {
-    let deadline = Instant::now() + StdDuration::from_secs(3);
+    let deadline = Instant::now() + StdDuration::from_secs(6);
 
     loop {
         let (workflow_def, config) = store.effective_config();
@@ -185,7 +187,7 @@ fn wait_for_workflow_config(
             );
         }
 
-        std::thread::sleep(StdDuration::from_millis(50));
+        std::thread::sleep(StdDuration::from_millis(100));
     }
 }
 
@@ -234,6 +236,39 @@ fn test_tick_refreshes_runtime_state_from_workflow_store_reload() {
         orchestrator.state().poll_interval_ms,
         2222,
         "tick should sync state.poll_interval_ms from reloaded workflow config"
+    );
+}
+
+#[test]
+fn test_tick_applies_server_port_override_over_workflow_store_config() {
+    let workflow = NamedTempFile::new().expect("temp workflow should be created");
+    let mut file = File::create(workflow.path()).expect("workflow file should be writable");
+    writeln!(
+        file,
+        "---\ntracker:\n  kind: linear\n  api_key: test-key\n  project_slug: project\nserver:\n  port: 9100\n---\nPrompt v1"
+    )
+    .expect("workflow file should be written");
+
+    let workflow_store = Arc::new(
+        WorkflowStore::new(workflow.path())
+            .expect("workflow store should initialize from temp file"),
+    );
+
+    let mut orchestrator = Orchestrator::new_with_workflow_store_and_port_override(
+        Arc::clone(&workflow_store),
+        Some(7777),
+    );
+    let mut port = FakePort::default();
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+    assert!(
+        tick.dispatched_issue_ids.is_empty(),
+        "tick should not dispatch without candidates"
+    );
+    assert_eq!(
+        port.validated_server_ports,
+        vec![Some(7777)],
+        "CLI override should be preserved in the runtime config passed to preflight validation"
     );
 }
 

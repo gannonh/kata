@@ -52,22 +52,28 @@ pub(crate) struct HttpBinding {
 }
 
 struct LinearOrchestratorPort {
-    adapter: LinearAdapter,
+    workflow_store: Arc<WorkflowStore>,
 }
 
 impl LinearOrchestratorPort {
-    fn new(adapter: LinearAdapter) -> Self {
-        Self { adapter }
+    fn new(workflow_store: Arc<WorkflowStore>) -> Self {
+        Self { workflow_store }
     }
 
     fn block_on<T>(&self, future: impl Future<Output = error::Result<T>>) -> error::Result<T> {
         tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(future))
     }
+
+    fn tracker_adapter(&self) -> LinearAdapter {
+        let (_, effective_config) = self.workflow_store.effective_config();
+        LinearAdapter::new(LinearClient::new(effective_config.tracker))
+    }
 }
 
 impl OrchestratorPort for LinearOrchestratorPort {
     fn startup_terminal_issues(&mut self, terminal_states: &[String]) -> error::Result<Vec<Issue>> {
-        self.block_on(self.adapter.fetch_issues_by_states(terminal_states))
+        let adapter = self.tracker_adapter();
+        self.block_on(adapter.fetch_issues_by_states(terminal_states))
     }
 
     fn reconcile_running_issues(
@@ -78,7 +84,8 @@ impl OrchestratorPort for LinearOrchestratorPort {
             return Ok(vec![]);
         }
 
-        self.block_on(self.adapter.fetch_issue_states_by_ids(running_issue_ids))
+        let adapter = self.tracker_adapter();
+        self.block_on(adapter.fetch_issue_states_by_ids(running_issue_ids))
     }
 
     fn validate_dispatch_preflight(&mut self, config: &ServiceConfig) -> error::Result<()> {
@@ -86,17 +93,20 @@ impl OrchestratorPort for LinearOrchestratorPort {
     }
 
     fn fetch_candidate_issues(&mut self) -> error::Result<Vec<Issue>> {
-        self.block_on(self.adapter.fetch_candidate_issues())
+        let adapter = self.tracker_adapter();
+        self.block_on(adapter.fetch_candidate_issues())
     }
 
     fn refresh_issue(&mut self, issue_id: &str) -> error::Result<Option<Issue>> {
+        let adapter = self.tracker_adapter();
         let issue_ids = vec![issue_id.to_string()];
-        let issues = self.block_on(self.adapter.fetch_issue_states_by_ids(&issue_ids))?;
+        let issues = self.block_on(adapter.fetch_issue_states_by_ids(&issue_ids))?;
         Ok(issues.into_iter().next())
     }
 
     fn update_issue_state(&mut self, issue_id: &str, state_name: &str) -> error::Result<()> {
-        self.block_on(self.adapter.update_issue_state(issue_id, state_name))
+        let adapter = self.tracker_adapter();
+        self.block_on(adapter.update_issue_state(issue_id, state_name))
     }
 }
 
@@ -166,20 +176,15 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
     }
 
     fn start_orchestrator(&mut self, workflow_path: &Path, cli: &Cli) -> Result<(), String> {
-        let mut context = self.take_or_load_validated_context(workflow_path)?;
+        let context = self.take_or_load_validated_context(workflow_path)?;
         let http_binding = effective_http_binding(&context.effective_config, cli);
 
-        if let Some(port) = cli.port {
-            context.effective_config.server.port = Some(port);
-        }
-
-        // Build runtime dependencies so startup failures surface at bootstrap time.
-        let tracker_client = LinearClient::new(context.effective_config.tracker.clone());
-        let tracker_adapter = LinearAdapter::new(tracker_client);
-        let mut tracker_port = LinearOrchestratorPort::new(tracker_adapter);
-
         let workflow_store = Arc::new(context.workflow_store);
-        let mut orchestrator = Orchestrator::new_with_workflow_store(Arc::clone(&workflow_store));
+        let mut tracker_port = LinearOrchestratorPort::new(Arc::clone(&workflow_store));
+        let mut orchestrator = Orchestrator::new_with_workflow_store_and_port_override(
+            Arc::clone(&workflow_store),
+            cli.port,
+        );
 
         let snapshot_handle = orchestrator.create_snapshot_handle();
         let refresh_sender = orchestrator.create_refresh_channel();

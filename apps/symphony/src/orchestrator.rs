@@ -599,6 +599,7 @@ pub trait OrchestratorPort {
 pub struct Orchestrator {
     workflow_store: Option<Arc<WorkflowStore>>,
     config: ServiceConfig,
+    server_port_override: Option<u16>,
     state: OrchestratorState,
     events: Vec<RuntimeEvent>,
     retry_tokens: HashMap<String, String>,
@@ -621,18 +622,31 @@ pub struct Orchestrator {
 
 impl Orchestrator {
     pub fn new_with_workflow_store(workflow_store: Arc<WorkflowStore>) -> Self {
+        Self::new_with_workflow_store_and_port_override(workflow_store, None)
+    }
+
+    pub fn new_with_workflow_store_and_port_override(
+        workflow_store: Arc<WorkflowStore>,
+        server_port_override: Option<u16>,
+    ) -> Self {
         let (workflow_def, config) = workflow_store.effective_config();
-        Self::from_runtime_config(config, workflow_def.prompt_template, Some(workflow_store))
+        Self::from_runtime_config(
+            config,
+            workflow_def.prompt_template,
+            Some(workflow_store),
+            server_port_override,
+        )
     }
 
     pub fn new(config: ServiceConfig, prompt_template: String) -> Self {
-        Self::from_runtime_config(config, prompt_template, None)
+        Self::from_runtime_config(config, prompt_template, None, None)
     }
 
     fn from_runtime_config(
         config: ServiceConfig,
         prompt_template: String,
         workflow_store: Option<Arc<WorkflowStore>>,
+        server_port_override: Option<u16>,
     ) -> Self {
         let poll_interval_ms = config.polling.interval_ms;
         let max_concurrent_agents = config.agent.max_concurrent_agents;
@@ -641,6 +655,7 @@ impl Orchestrator {
         Self {
             workflow_store,
             config,
+            server_port_override,
             state: OrchestratorState {
                 poll_interval_ms,
                 max_concurrent_agents,
@@ -672,6 +687,10 @@ impl Orchestrator {
             self.prompt_template = workflow_def.prompt_template;
         }
 
+        if let Some(port) = self.server_port_override {
+            self.config.server.port = Some(port);
+        }
+
         self.state.max_concurrent_agents = self.config.agent.max_concurrent_agents;
         self.state.poll_interval_ms = self.config.polling.interval_ms;
     }
@@ -687,7 +706,7 @@ impl Orchestrator {
 
             self.detect_stalled_workers(now_ms, stall_timeout_ms);
 
-            match self.tick(port) {
+            match self.tick_with_refresh(port, false) {
                 Ok(tick_result) => {
                     self.spawn_workers_for_dispatched(&tick_result.dispatched_issues, port);
                 }
@@ -818,7 +837,6 @@ impl Orchestrator {
     }
 
     pub fn startup_cleanup(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
-        self.refresh_runtime_config();
         self.events.push(RuntimeEvent::StartupCleanup);
         tracing::info!(
             phase = "startup_cleanup",
@@ -835,7 +853,18 @@ impl Orchestrator {
     }
 
     pub fn tick(&mut self, port: &mut dyn OrchestratorPort) -> Result<TickResult> {
-        self.refresh_runtime_config();
+        self.tick_with_refresh(port, true)
+    }
+
+    fn tick_with_refresh(
+        &mut self,
+        port: &mut dyn OrchestratorPort,
+        refresh_runtime_config: bool,
+    ) -> Result<TickResult> {
+        if refresh_runtime_config {
+            self.refresh_runtime_config();
+        }
+
         self.events.push(RuntimeEvent::Reconcile);
         tracing::info!(phase = "reconcile", "starting orchestrator tick phase");
         self.reconcile_running(port)?;
