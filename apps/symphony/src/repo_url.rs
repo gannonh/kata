@@ -3,7 +3,40 @@ use std::sync::OnceLock;
 
 /// Returns true when a repo reference looks like a remote URL.
 pub fn repo_is_remote(repo: &str) -> bool {
-    repo.contains("://") || repo.contains('@')
+    let repo = repo.trim();
+
+    if repo.contains("://") {
+        return true;
+    }
+
+    if is_windows_drive_path(repo) {
+        return false;
+    }
+
+    if repo.starts_with('/') || repo.starts_with("./") || repo.starts_with("../") {
+        return false;
+    }
+
+    if let Some((host, path)) = repo.split_once(':') {
+        if !host.is_empty()
+            && !path.is_empty()
+            && !host.contains('/')
+            && !host.contains('\\')
+            && !host.ends_with('.')
+        {
+            return true;
+        }
+    }
+
+    repo.contains('@')
+}
+
+fn is_windows_drive_path(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && (bytes[2] == b'/' || bytes[2] == b'\\')
 }
 
 /// Redacts URL user-info segments (`scheme://user[:pass]@host`) in command output.
@@ -24,7 +57,13 @@ mod tests {
     fn test_repo_is_remote() {
         assert!(repo_is_remote("https://github.com/org/repo.git"));
         assert!(repo_is_remote("git@github.com:org/repo.git"));
+        assert!(repo_is_remote("github.example.com:org/repo.git"));
+        assert!(repo_is_remote("my-ssh-host:org/repo.git"));
         assert!(!repo_is_remote("/tmp/local-repo"));
+        assert!(!repo_is_remote("./local-repo"));
+        assert!(!repo_is_remote("../local-repo"));
+        assert!(!repo_is_remote("C:/work/repo"));
+        assert!(!repo_is_remote("D:\\work\\repo"));
     }
 
     #[test]

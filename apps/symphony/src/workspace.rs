@@ -167,10 +167,43 @@ fn bootstrap_repository(
 
     let branch_name = format!("{}/{}", config.branch_prefix, issue_identifier);
     let workspace_str = workspace.to_string_lossy().to_string();
+    let effective_strategy = match config.strategy {
+        WorkspaceRepoStrategy::Auto => {
+            if repo_is_remote(repo) {
+                WorkspaceRepoStrategy::CloneRemote
+            } else {
+                WorkspaceRepoStrategy::CloneLocal
+            }
+        }
+        other => other,
+    };
 
-    match config.strategy {
-        WorkspaceRepoStrategy::Clone => {
-            // Keep CLI parity with the proposal: git clone <repo> . --single-branch
+    match effective_strategy {
+        WorkspaceRepoStrategy::CloneLocal => {
+            if repo_is_remote(repo) {
+                return Err(SymphonyError::InvalidWorkflowConfig(
+                    "workspace.git_strategy 'clone-local' requires workspace.repo to be a local path"
+                        .to_string(),
+                ));
+            }
+            let mut clone_cmd = Command::new("git");
+            clone_cmd.arg("clone").arg("--local");
+            if let Some(clone_branch) = config.clone_branch.as_deref() {
+                clone_cmd.arg("--branch").arg(clone_branch);
+            }
+            clone_cmd.arg(repo).arg(".");
+            clone_cmd.current_dir(workspace);
+            run_git_command(clone_cmd, "workspace clone-local bootstrap")?;
+
+            let mut checkout_cmd = Command::new("git");
+            checkout_cmd
+                .arg("checkout")
+                .arg("-b")
+                .arg(&branch_name)
+                .current_dir(workspace);
+            run_git_command(checkout_cmd, "workspace branch bootstrap")
+        }
+        WorkspaceRepoStrategy::CloneRemote => {
             let mut clone_cmd = Command::new("git");
             clone_cmd
                 .arg("clone")
@@ -181,7 +214,7 @@ fn bootstrap_repository(
                 clone_cmd.arg("--branch").arg(clone_branch);
             }
             clone_cmd.current_dir(workspace);
-            run_git_command(clone_cmd, "workspace clone bootstrap")?;
+            run_git_command(clone_cmd, "workspace clone-remote bootstrap")?;
 
             let mut checkout_cmd = Command::new("git");
             checkout_cmd
@@ -216,6 +249,7 @@ fn bootstrap_repository(
                 .arg(&branch_name);
             run_git_command(worktree_cmd, "workspace worktree bootstrap")
         }
+        WorkspaceRepoStrategy::Auto => unreachable!("auto strategy must resolve before bootstrap"),
     }
 }
 

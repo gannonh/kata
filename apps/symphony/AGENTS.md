@@ -92,14 +92,16 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 
 #### `workspace` section
 
-| Field                     | Type   | Default                       | Description                                                                                                      |
-| ------------------------- | ------ | ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `workspace.root`          | string | `$TMPDIR/symphony_workspaces` | Root directory for per-issue agent workspaces. Supports `~` tilde expansion.                                     |
-| `workspace.repo`          | string | _(none)_                      | Repository URL or local path to bootstrap into each newly-created workspace.                                     |
-| `workspace.strategy`      | string | `"clone"`                     | Bootstrap strategy: `"clone"` (default) or `"worktree"`. `worktree` requires `workspace.repo` to be local path. |
-| `workspace.branch_prefix` | string | `"symphony"`                  | Branch prefix used for auto-created issue branches (`<prefix>/<issue-identifier>`).                             |
-| `workspace.clone_branch`  | string | _(none)_                      | Optional branch name to clone for `workspace.strategy: clone`. When set, Symphony runs clone bootstrap with `--branch <clone_branch>`. |
-| `workspace.cleanup_on_done` | bool | `false` | Remove the issue workspace when the issue reaches a terminal state. Runs `hooks.before_remove` and ignores cleanup failures. |
+| Field                       | Type   | Default                       | Description                                                                                                                          |
+| --------------------------- | ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `workspace.root`            | string | `$TMPDIR/symphony_workspaces` | Root directory for per-issue agent workspaces. Supports `~` tilde expansion.                                                         |
+| `workspace.repo`            | string | _(none)_                      | Repository URL or local path to bootstrap into each newly-created workspace.                                                         |
+| `workspace.git_strategy`    | string | `"auto"`                      | Git bootstrap strategy: `"clone-local"`, `"clone-remote"`, `"worktree"`, or `"auto"` (detect local path vs remote URL).            |
+| `workspace.strategy`        | string | _(deprecated)_                | Legacy alias accepted for backward compatibility: `"clone"` maps to `git_strategy: auto`, `"worktree"` maps to `git_strategy: worktree`. |
+| `workspace.isolation`       | string | `"local"`                     | Workspace runtime isolation model: `"local"` (current behavior) or `"docker"` (accepted but not implemented yet; logs a warning).    |
+| `workspace.branch_prefix`   | string | `"symphony"`                  | Branch prefix used for auto-created issue branches (`<prefix>/<issue-identifier>`).                                                 |
+| `workspace.clone_branch`    | string | _(none)_                      | Optional source branch for clone-based bootstraps (`clone-local`, `clone-remote`, or `auto` when clone is selected).                |
+| `workspace.cleanup_on_done` | bool   | `false`                       | Remove the issue workspace when the issue reaches a terminal state. Runs `hooks.before_remove` and ignores cleanup failures.         |
 
 #### `agent` section
 
@@ -162,7 +164,8 @@ tracker:
 workspace:
   root: ~/symphony_workspaces
   repo: https://github.com/example/project.git
-  strategy: clone
+  git_strategy: auto
+  isolation: local
   branch_prefix: symphony
   clone_branch: elixir-feature-parity
   cleanup_on_done: true
@@ -198,7 +201,8 @@ polling:
 workspace:
   root: ~/workspaces/symphony
   repo: /Users/alice/code/kata
-  strategy: worktree
+  git_strategy: worktree
+  isolation: local
   branch_prefix: symphony
   cleanup_on_done: true
 

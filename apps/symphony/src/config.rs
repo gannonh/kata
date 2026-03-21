@@ -12,7 +12,7 @@ use serde_yaml::{Mapping, Value};
 
 use crate::domain::{
     AgentConfig, ApiKey, CodexConfig, HooksConfig, PollingConfig, ServerConfig, ServiceConfig,
-    TrackerConfig, WorkerConfig, WorkspaceConfig, WorkspaceRepoStrategy,
+    TrackerConfig, WorkerConfig, WorkspaceConfig, WorkspaceIsolation, WorkspaceRepoStrategy,
 };
 use crate::error::{Result, SymphonyError};
 use crate::repo_url::repo_is_remote;
@@ -180,6 +180,8 @@ struct RawWorkspaceConfig {
     root: Option<String>,
     repo: Option<String>,
     strategy: Option<String>,
+    git_strategy: Option<String>,
+    isolation: Option<String>,
     branch_prefix: Option<String>,
     clone_branch: Option<String>,
     cleanup_on_done: Option<bool>,
@@ -291,6 +293,38 @@ fn parse_codex_command(val: Value) -> Result<Vec<String>> {
     }
 }
 
+fn parse_workspace_git_strategy(value: &str) -> Result<WorkspaceRepoStrategy> {
+    match value {
+        "clone-local" => Ok(WorkspaceRepoStrategy::CloneLocal),
+        "clone-remote" => Ok(WorkspaceRepoStrategy::CloneRemote),
+        "worktree" => Ok(WorkspaceRepoStrategy::Worktree),
+        "auto" => Ok(WorkspaceRepoStrategy::Auto),
+        other => Err(SymphonyError::InvalidWorkflowConfig(format!(
+            "workspace.git_strategy must be 'clone-local', 'clone-remote', 'worktree', or 'auto' (got '{other}')"
+        ))),
+    }
+}
+
+fn parse_legacy_workspace_strategy(value: &str) -> Result<WorkspaceRepoStrategy> {
+    match value {
+        "clone" => Ok(WorkspaceRepoStrategy::Auto),
+        "worktree" => Ok(WorkspaceRepoStrategy::Worktree),
+        other => Err(SymphonyError::InvalidWorkflowConfig(format!(
+            "workspace.strategy must be 'clone' or 'worktree' (got '{other}')"
+        ))),
+    }
+}
+
+fn parse_workspace_isolation(value: &str) -> Result<WorkspaceIsolation> {
+    match value {
+        "local" => Ok(WorkspaceIsolation::Local),
+        "docker" => Ok(WorkspaceIsolation::Docker),
+        other => Err(SymphonyError::InvalidWorkflowConfig(format!(
+            "workspace.isolation must be 'local' or 'docker' (got '{other}')"
+        ))),
+    }
+}
+
 // ── Validated config wrapper ──────────────────────────────────────────────────
 
 /// A [`ServiceConfig`] that has passed [`validate`].
@@ -397,20 +431,43 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let raw_root = raw_workspace
         .root
         .unwrap_or_else(|| defaults.workspace.root.clone());
-    let strategy = match raw_workspace
+    let git_strategy = raw_workspace
+        .git_strategy
+        .map(|value| resolve_env(&value))
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    let legacy_strategy = raw_workspace
         .strategy
-        .as_deref()
-        .map(str::trim)
-        .unwrap_or("clone")
-    {
-        "clone" => WorkspaceRepoStrategy::Clone,
-        "worktree" => WorkspaceRepoStrategy::Worktree,
-        other => {
-            return Err(SymphonyError::InvalidWorkflowConfig(format!(
-                "workspace.strategy must be 'clone' or 'worktree' (got '{other}')"
-            )));
+        .map(|value| resolve_env(&value))
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    let strategy = if let Some(value) = git_strategy.as_deref() {
+        if legacy_strategy.is_some() {
+            tracing::warn!(
+                "workspace.strategy is deprecated and ignored because workspace.git_strategy is set"
+            );
         }
+        parse_workspace_git_strategy(value)?
+    } else if let Some(value) = legacy_strategy.as_deref() {
+        tracing::warn!("workspace.strategy is deprecated; use workspace.git_strategy");
+        parse_legacy_workspace_strategy(value)?
+    } else {
+        WorkspaceRepoStrategy::Auto
     };
+    let isolation = raw_workspace
+        .isolation
+        .map(|value| resolve_env(&value))
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .as_deref()
+        .map(parse_workspace_isolation)
+        .transpose()?
+        .unwrap_or(WorkspaceIsolation::Local);
+    if isolation == WorkspaceIsolation::Docker {
+        tracing::warn!(
+            "workspace.isolation is set to 'docker', but docker isolation is not yet implemented"
+        );
+    }
     let repo = raw_workspace.repo.and_then(|value| {
         let resolved = resolve_env(&value);
         let trimmed = resolved.trim();
@@ -439,6 +496,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         root: expand_tilde(&raw_root),
         repo,
         strategy,
+        isolation,
         branch_prefix: branch_prefix.trim().to_string(),
         clone_branch,
         cleanup_on_done: raw_workspace
@@ -605,6 +663,21 @@ pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
         if repo_is_remote(repo) {
             return Err(SymphonyError::InvalidWorkflowConfig(
                 "workspace.strategy 'worktree' requires workspace.repo to be a local path"
+                    .to_string(),
+            ));
+        }
+    }
+
+    if config.workspace.strategy == WorkspaceRepoStrategy::CloneLocal {
+        let repo = config.workspace.repo.as_deref().ok_or_else(|| {
+            SymphonyError::InvalidWorkflowConfig(
+                "workspace.repo is required when workspace.git_strategy is 'clone-local'"
+                    .to_string(),
+            )
+        })?;
+        if repo_is_remote(repo) {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "workspace.git_strategy 'clone-local' requires workspace.repo to be a local path"
                     .to_string(),
             ));
         }

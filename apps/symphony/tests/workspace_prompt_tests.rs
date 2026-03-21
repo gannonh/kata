@@ -10,7 +10,9 @@ use std::process::Command;
 use chrono::{DateTime, Utc};
 use tempfile::TempDir;
 
-use symphony::domain::{BlockerRef, HooksConfig, Issue, WorkspaceConfig, WorkspaceRepoStrategy};
+use symphony::domain::{
+    BlockerRef, HooksConfig, Issue, WorkspaceConfig, WorkspaceIsolation, WorkspaceRepoStrategy,
+};
 use symphony::error::SymphonyError;
 use symphony::path_safety;
 
@@ -108,7 +110,8 @@ fn workspace_config(root: &Path) -> WorkspaceConfig {
     WorkspaceConfig {
         root: root.to_string_lossy().to_string(),
         repo: None,
-        strategy: WorkspaceRepoStrategy::Clone,
+        strategy: WorkspaceRepoStrategy::Auto,
+        isolation: WorkspaceIsolation::Local,
         branch_prefix: "symphony".to_string(),
         clone_branch: None,
         cleanup_on_done: false,
@@ -208,6 +211,39 @@ fn create_branch_with_commit(path: &Path, branch: &str, file: &str, contents: &s
         .current_dir(path)
         .args(["commit", "-m", "branch-specific commit"]);
     command_success(commit, "git commit branch-specific file");
+}
+
+fn current_branch(path: &Path) -> String {
+    let path_str = path.to_string_lossy().to_string();
+    let mut branch_cmd = Command::new("git");
+    branch_cmd.args(["-C", &path_str, "branch", "--show-current"]);
+    command_success(branch_cmd, "read current branch")
+}
+
+fn init_bare_remote_and_push_all(source_repo: &Path, bare_repo: &Path) -> String {
+    let bare_repo_str = bare_repo.to_string_lossy().to_string();
+    let mut init_bare = Command::new("git");
+    init_bare.args(["init", "--bare", &bare_repo_str]);
+    command_success(init_bare, "init bare remote repo");
+
+    let source_repo_str = source_repo.to_string_lossy().to_string();
+
+    let mut add_remote = Command::new("git");
+    add_remote.args([
+        "-C",
+        &source_repo_str,
+        "remote",
+        "add",
+        "origin",
+        &bare_repo_str,
+    ]);
+    command_success(add_remote, "add source remote");
+
+    let mut push_all = Command::new("git");
+    push_all.args(["-C", &source_repo_str, "push", "--all", "origin"]);
+    command_success(push_all, "push all branches to bare remote");
+
+    format!("file://{bare_repo_str}")
 }
 
 fn shell_quote(path: &Path) -> String {
@@ -453,6 +489,7 @@ fn test_workspace_clone_bootstrap_and_branch_creation() {
     let source_repo = tmp.path().join("source-repo");
     fs::create_dir_all(&root).unwrap();
     init_git_repo(&source_repo);
+    let default_branch = current_branch(&source_repo);
     create_branch_with_commit(
         &source_repo,
         "elixir-feature-parity",
@@ -463,7 +500,8 @@ fn test_workspace_clone_bootstrap_and_branch_creation() {
     let config = WorkspaceConfig {
         root: root.to_string_lossy().to_string(),
         repo: Some(source_repo.to_string_lossy().to_string()),
-        strategy: WorkspaceRepoStrategy::Clone,
+        strategy: WorkspaceRepoStrategy::CloneLocal,
+        isolation: WorkspaceIsolation::Local,
         branch_prefix: "symphony".to_string(),
         clone_branch: Some("elixir-feature-parity".to_string()),
         cleanup_on_done: false,
@@ -492,6 +530,17 @@ fn test_workspace_clone_bootstrap_and_branch_creation() {
         ws_path.join("BASE_BRANCH.txt").exists(),
         "clone bootstrap should clone the configured source branch"
     );
+    let mut remote_branches_cmd = Command::new("git");
+    remote_branches_cmd.args(["-C", &ws.path, "branch", "-r"]);
+    let remote_branches = command_success(remote_branches_cmd, "read clone-local remotes");
+    assert!(
+        remote_branches.contains("origin/elixir-feature-parity"),
+        "clone-local bootstrap should retain selected source branch remote"
+    );
+    assert!(
+        remote_branches.contains(&format!("origin/{default_branch}")),
+        "clone-local bootstrap should not prune default branch remotes"
+    );
 
     let mut branch_cmd = Command::new("git");
     branch_cmd.args(["-C", &ws.path, "rev-parse", "--abbrev-ref", "HEAD"]);
@@ -510,6 +559,136 @@ fn test_workspace_clone_bootstrap_and_branch_creation() {
 }
 
 #[test]
+fn test_workspace_clone_remote_uses_single_branch_behavior() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    let source_repo = tmp.path().join("source-repo");
+    let bare_repo = tmp.path().join("source-remote.git");
+    fs::create_dir_all(&root).unwrap();
+    init_git_repo(&source_repo);
+    let default_branch = current_branch(&source_repo);
+    create_branch_with_commit(
+        &source_repo,
+        "elixir-feature-parity",
+        "BASE_BRANCH.txt",
+        "elixir-feature-parity\n",
+    );
+    let remote_url = init_bare_remote_and_push_all(&source_repo, &bare_repo);
+
+    let config = WorkspaceConfig {
+        root: root.to_string_lossy().to_string(),
+        repo: Some(remote_url),
+        strategy: WorkspaceRepoStrategy::CloneRemote,
+        isolation: WorkspaceIsolation::Local,
+        branch_prefix: "symphony".to_string(),
+        clone_branch: Some("elixir-feature-parity".to_string()),
+        cleanup_on_done: false,
+    };
+    let hooks = hooks_config_none();
+    let issue = make_test_issue("KAT-804");
+
+    let ws = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks).unwrap();
+
+    let mut remote_branches_cmd = Command::new("git");
+    remote_branches_cmd.args(["-C", &ws.path, "branch", "-r"]);
+    let remote_branches = command_success(remote_branches_cmd, "read clone-remote remotes");
+    assert!(
+        remote_branches.contains("origin/elixir-feature-parity"),
+        "clone-remote bootstrap should include selected source branch"
+    );
+    assert!(
+        !remote_branches.contains(&format!("origin/{default_branch}")),
+        "clone-remote bootstrap should prune default branch remotes via --single-branch"
+    );
+}
+
+#[test]
+fn test_workspace_auto_strategy_selects_local_clone_for_local_repo_path() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    let source_repo = tmp.path().join("source-repo");
+    fs::create_dir_all(&root).unwrap();
+    init_git_repo(&source_repo);
+    let default_branch = current_branch(&source_repo);
+    create_branch_with_commit(
+        &source_repo,
+        "elixir-feature-parity",
+        "BASE_BRANCH.txt",
+        "elixir-feature-parity\n",
+    );
+
+    let config = WorkspaceConfig {
+        root: root.to_string_lossy().to_string(),
+        repo: Some(source_repo.to_string_lossy().to_string()),
+        strategy: WorkspaceRepoStrategy::Auto,
+        isolation: WorkspaceIsolation::Local,
+        branch_prefix: "symphony".to_string(),
+        clone_branch: Some("elixir-feature-parity".to_string()),
+        cleanup_on_done: false,
+    };
+    let hooks = hooks_config_none();
+    let issue = make_test_issue("KAT-805");
+
+    let ws = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks).unwrap();
+
+    let mut remote_branches_cmd = Command::new("git");
+    remote_branches_cmd.args(["-C", &ws.path, "branch", "-r"]);
+    let remote_branches = command_success(remote_branches_cmd, "read auto-local remotes");
+    assert!(
+        remote_branches.contains("origin/elixir-feature-parity"),
+        "auto strategy should include selected source branch for local repo"
+    );
+    assert!(
+        remote_branches.contains(&format!("origin/{default_branch}")),
+        "auto strategy should choose clone-local for local repo paths"
+    );
+}
+
+#[test]
+fn test_workspace_auto_strategy_selects_remote_clone_for_repo_url() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("workspaces");
+    let source_repo = tmp.path().join("source-repo");
+    let bare_repo = tmp.path().join("source-remote.git");
+    fs::create_dir_all(&root).unwrap();
+    init_git_repo(&source_repo);
+    let default_branch = current_branch(&source_repo);
+    create_branch_with_commit(
+        &source_repo,
+        "elixir-feature-parity",
+        "BASE_BRANCH.txt",
+        "elixir-feature-parity\n",
+    );
+    let remote_url = init_bare_remote_and_push_all(&source_repo, &bare_repo);
+
+    let config = WorkspaceConfig {
+        root: root.to_string_lossy().to_string(),
+        repo: Some(remote_url),
+        strategy: WorkspaceRepoStrategy::Auto,
+        isolation: WorkspaceIsolation::Local,
+        branch_prefix: "symphony".to_string(),
+        clone_branch: Some("elixir-feature-parity".to_string()),
+        cleanup_on_done: false,
+    };
+    let hooks = hooks_config_none();
+    let issue = make_test_issue("KAT-806");
+
+    let ws = symphony::workspace::ensure_workspace_for_issue(&issue, &config, &hooks).unwrap();
+
+    let mut remote_branches_cmd = Command::new("git");
+    remote_branches_cmd.args(["-C", &ws.path, "branch", "-r"]);
+    let remote_branches = command_success(remote_branches_cmd, "read auto-remote remotes");
+    assert!(
+        remote_branches.contains("origin/elixir-feature-parity"),
+        "auto strategy should include selected source branch for repo URLs"
+    );
+    assert!(
+        !remote_branches.contains(&format!("origin/{default_branch}")),
+        "auto strategy should choose clone-remote for URL repos"
+    );
+}
+
+#[test]
 fn test_workspace_worktree_bootstrap_and_cleanup() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path().join("workspaces");
@@ -521,6 +700,7 @@ fn test_workspace_worktree_bootstrap_and_cleanup() {
         root: root.to_string_lossy().to_string(),
         repo: Some(source_repo.to_string_lossy().to_string()),
         strategy: WorkspaceRepoStrategy::Worktree,
+        isolation: WorkspaceIsolation::Local,
         branch_prefix: "symphony".to_string(),
         clone_branch: None,
         cleanup_on_done: false,
@@ -661,6 +841,7 @@ fn test_workspace_remove_continues_when_worktree_cleanup_fails() {
         root: root.to_string_lossy().to_string(),
         repo: Some(source_repo.to_string_lossy().to_string()),
         strategy: WorkspaceRepoStrategy::Worktree,
+        isolation: WorkspaceIsolation::Local,
         branch_prefix: "symphony".to_string(),
         clone_branch: None,
         cleanup_on_done: false,

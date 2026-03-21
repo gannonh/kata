@@ -101,8 +101,9 @@ workspace:
   # Example: symphony/KAT-814
   branch_prefix: symphony
 
-  # Branch to clone/base off. When set, `git clone --branch <clone_branch>`.
-  # When omitted, clones the repo's default branch.
+  # Branch to clone/base off for clone-based strategies.
+  # When set, clone uses `--branch <clone_branch>`.
+  # When omitted, clone uses the repo's default branch.
   # Supports $VAR indirection.
   clone_branch: main
 
