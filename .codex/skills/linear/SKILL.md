@@ -75,15 +75,18 @@ query CommentCreateInputShape {
 
 Use these progressively:
 
-- Start with `issue(id: $key)` when you have a ticket key such as `MT-686`.
-- Fall back to `issues(filter: ...)` when you need identifier search semantics.
+- Start with `issue(id: $identifier)` when you have a ticket key such as
+  `MT-686` or `KAT-857`.
+- If you must use `issues(filter: ...)`, split `TEAM-NUMBER` and filter with
+  `team.key` + `number` (do not use `IssueFilter.identifier`; it does not
+  exist).
 - Once you have the internal issue id, prefer `issue(id: $id)` for narrower reads.
 
-Lookup by issue key:
+Lookup by issue key/identifier:
 
 ```graphql
-query IssueByKey($key: String!) {
-  issue(id: $key) {
+query IssueByIdentifier($identifier: String!) {
+  issue(id: $identifier) {
     id
     identifier
     title
@@ -100,22 +103,18 @@ query IssueByKey($key: String!) {
     url
     description
     updatedAt
-    links {
-      nodes {
-        id
-        url
-        title
-      }
-    }
   }
 }
 ```
 
-Lookup by identifier filter:
+Lookup by identifier with `issues(filter: ...)` (valid syntax):
 
 ```graphql
-query IssueByIdentifier($identifier: String!) {
-  issues(filter: { identifier: { eq: $identifier } }, first: 1) {
+query IssueByTeamKeyAndNumber($teamKey: String!, $number: Float!) {
+  issues(
+    filter: { team: { key: { eq: $teamKey } }, number: { eq: $number } }
+    first: 1
+  ) {
     nodes {
       id
       identifier
@@ -137,6 +136,8 @@ query IssueByIdentifier($identifier: String!) {
   }
 }
 ```
+
+Given `KAT-857`, use `teamKey = "KAT"` and `number = 857`.
 
 Resolve a key to an internal id:
 
@@ -205,6 +206,30 @@ query IssueTeamStates($id: String!) {
 }
 ```
 
+### Move an issue to a named state (resolve `stateId` first)
+
+Use a two-step flow:
+
+1. Query `issue(id: ...) { team { states { nodes { id name type } } } }`.
+2. Pick the state whose `name` exactly matches your target and pass that
+   `stateId` to `issueUpdate`.
+
+```graphql
+mutation MoveIssueToState($id: String!, $stateId: String!) {
+  issueUpdate(id: $id, input: { stateId: $stateId }) {
+    success
+    issue {
+      id
+      identifier
+      state {
+        id
+        name
+      }
+    }
+  }
+}
+```
+
 ### Edit an existing comment
 
 Use `commentUpdate` through `linear_graphql`:
@@ -237,27 +262,7 @@ mutation CreateComment($issueId: String!, $body: String!) {
 }
 ```
 
-### Move an issue to a different state
-
-Use `issueUpdate` with the destination `stateId`:
-
-```graphql
-mutation MoveIssueToState($id: String!, $stateId: String!) {
-  issueUpdate(id: $id, input: { stateId: $stateId }) {
-    success
-    issue {
-      id
-      identifier
-      state {
-        id
-        name
-      }
-    }
-  }
-}
-```
-
-### Attach a GitHub PR to an issue
+### Create an attachment/link on an issue
 
 Use the GitHub-specific attachment mutation when linking a PR:
 
@@ -294,6 +299,73 @@ mutation AttachURL($issueId: String!, $url: String!, $title: String) {
   }
 }
 ```
+
+### Query issue attachments and relations
+
+```graphql
+query IssueAttachmentsAndRelations($id: String!) {
+  issue(id: $id) {
+    id
+    identifier
+    attachments(first: 20) {
+      nodes {
+        id
+        title
+        url
+        sourceType
+      }
+    }
+    relations(first: 20) {
+      nodes {
+        id
+        type
+        relatedIssue {
+          id
+          identifier
+          title
+          state {
+            name
+            type
+          }
+        }
+      }
+    }
+    inverseRelations(first: 20) {
+      nodes {
+        id
+        type
+        issue {
+          id
+          identifier
+          title
+          state {
+            name
+            type
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Common valid `IssueFilter` fields
+
+Use these common fields inside `issues(filter: ...)`:
+
+- `id`
+- `number` (pair with `team.key` for identifier-style lookups)
+- `team`
+- `state`
+- `project`
+- `assignee`
+- `title`
+- `searchableContent`
+- `createdAt`
+- `updatedAt`
+- `and` / `or`
+
+`IssueFilter.identifier` is invalid.
 
 ### Introspection patterns used during schema discovery
 
@@ -378,7 +450,12 @@ mutation FileUpload(
 - Use `linear_graphql` for comment edits, uploads, and ad-hoc Linear API
   queries.
 - Prefer the narrowest issue lookup that matches what you already know:
-  key -> identifier search -> internal id.
+  `issue(id: TEAM-NUMBER)` -> `issues(filter: { team.key + number })` ->
+  internal id.
+- Do not query `Issue.links`; use `Issue.attachments`, `Issue.relations`, and
+  `Issue.inverseRelations` instead.
+- Do not use `IssueFilter.identifier`; use `IssueFilter.number` with
+  `IssueFilter.team.key` when you need identifier-style filtering.
 - For state transitions, fetch team states first and use the exact `stateId`
   instead of hardcoding names inside mutations.
 - Prefer `attachmentLinkGitHubPR` over a generic URL attachment when linking a

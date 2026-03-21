@@ -90,6 +90,111 @@ Read `apps/symphony/AGENTS.md` for full architecture reference.
 
 The agent should be able to talk to Linear, either via a configured Linear MCP server or injected `linear_graphql` tool. If none are present, stop and ask the user to configure Linear.
 
+## Linear GraphQL schema quick reference (always in context)
+
+Use this as an always-on guardrail to avoid invalid Linear queries.
+
+- `Issue.links` is invalid. Use `attachments`, `relations`, or
+  `inverseRelations`.
+- `IssueFilter.identifier` is invalid. For identifier-style filtering, use
+  `team.key` + `number`.
+
+Query by issue identifier (preferred):
+
+```graphql
+query IssueByIdentifier($identifier: String!) {
+  issue(id: $identifier) {
+    id
+    identifier
+    title
+    state {
+      id
+      name
+      type
+    }
+  }
+}
+```
+
+Query by identifier using `issues(filter: ...)`:
+
+```graphql
+query IssueByTeamKeyAndNumber($teamKey: String!, $number: Float!) {
+  issues(
+    filter: { team: { key: { eq: $teamKey } }, number: { eq: $number } }
+    first: 1
+  ) {
+    nodes {
+      id
+      identifier
+      title
+    }
+  }
+}
+```
+
+Move issue state by name (resolve `stateId` first):
+
+```graphql
+query IssueTeamStates($id: String!) {
+  issue(id: $id) {
+    team {
+      states {
+        nodes {
+          id
+          name
+          type
+        }
+      }
+    }
+  }
+}
+```
+
+```graphql
+mutation MoveIssueToState($id: String!, $stateId: String!) {
+  issueUpdate(id: $id, input: { stateId: $stateId }) {
+    success
+    issue {
+      id
+      state {
+        id
+        name
+      }
+    }
+  }
+}
+```
+
+Add comment:
+
+```graphql
+mutation CreateComment($issueId: String!, $body: String!) {
+  commentCreate(input: { issueId: $issueId, body: $body }) {
+    success
+    comment {
+      id
+      url
+    }
+  }
+}
+```
+
+Attach URL:
+
+```graphql
+mutation AttachURL($issueId: String!, $url: String!, $title: String) {
+  attachmentLinkURL(issueId: $issueId, url: $url, title: $title) {
+    success
+    attachment {
+      id
+      title
+      url
+    }
+  }
+}
+```
+
 ## Default posture
 
 - Start by determining the ticket's current status, then follow the matching flow for that status.
@@ -143,6 +248,7 @@ Todo -> In Progress -> Agent Review (auto, address bot feedback) -> Human Review
 
 ## Step 0: Determine current ticket state and route
 
+0. Before ANY other action, read `.codex/skills/linear/SKILL.md` and keep it in context. Do not guess Linear GraphQL schema.
 1. Fetch the issue by explicit ticket ID.
 2. Read the current state.
 3. Route to the matching flow:
