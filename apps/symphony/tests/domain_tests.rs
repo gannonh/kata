@@ -153,14 +153,14 @@ fn test_run_attempt_construction_and_serialization() {
     let ra = RunAttempt {
         issue_id: "id-1".into(),
         issue_identifier: "PROJ-1".into(),
-            issue_title: None,
+        issue_title: None,
         attempt: None,
         workspace_path: "/tmp/ws".into(),
         started_at: Utc::now(),
         status: "running".into(),
         error: None,
         worker_host: None,
-            linear_state: None,
+        linear_state: None,
     };
     let json = serde_json::to_string(&ra).unwrap();
     let deser: RunAttempt = serde_json::from_str(&json).unwrap();
@@ -228,14 +228,14 @@ fn test_orchestrator_snapshot_serializes() {
                 RunAttempt {
                     issue_id: "id-z".into(),
                     issue_identifier: "PROJ-Z".into(),
-            issue_title: None,
+                    issue_title: None,
                     attempt: Some(1),
                     workspace_path: "/tmp/ws-z".into(),
                     started_at: Utc::now(),
                     status: "running".into(),
                     error: None,
                     worker_host: None,
-            linear_state: None,
+                    linear_state: None,
                 },
             );
             m.insert(
@@ -243,14 +243,14 @@ fn test_orchestrator_snapshot_serializes() {
                 RunAttempt {
                     issue_id: "id-a".into(),
                     issue_identifier: "PROJ-A".into(),
-            issue_title: None,
+                    issue_title: None,
                     attempt: Some(1),
                     workspace_path: "/tmp/ws-a".into(),
                     started_at: Utc::now(),
                     status: "running".into(),
                     error: None,
                     worker_host: None,
-            linear_state: None,
+                    linear_state: None,
                 },
             );
             m
