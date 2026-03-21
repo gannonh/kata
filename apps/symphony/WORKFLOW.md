@@ -21,7 +21,8 @@ polling:
 workspace:
   root: ~/symphony-workspaces
   repo: https://github.com/gannonh/kata.git
-  strategy: clone
+  git_strategy: auto
+  # isolation: local
   branch_prefix: symphony
   clone_branch: main
 hooks:

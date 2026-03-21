@@ -77,15 +77,25 @@ workspace:
   # Supports $VAR indirection and ~ tilde expansion.
   repo: https://github.com/gannonh/kata.git
 
-  # Git bootstrap strategy:
-  #   - "clone": git clone into the workspace (default)
-  #     - Remote URLs: full network clone
-  #     - Local paths: `git clone --local` (fast, inherits remotes)
-  #   - "worktree": git worktree add from the source repo
+  # Git bootstrap strategy (replaces the old `strategy` field):
+  #   - "auto" (default): clone-remote if repo is a URL, clone-local if repo is a local path
+  #   - "clone-local": `git clone --local <path> .` — fast (hard-links), inherits remotes
+  #   - "clone-remote": `git clone <url> . --single-branch` — full network clone
+  #   - "worktree": `git worktree add` from the source repo
   #     - Requires `repo` to be a local path
   #     - Lightweight — shares .git objects with source
   #     - Cleanup runs `git worktree remove`
-  strategy: clone
+  #
+  # The old `strategy: clone | worktree` field is still accepted with a
+  # deprecation warning. `clone` maps to `auto`, `worktree` stays `worktree`.
+  # If both `strategy` and `git_strategy` are set, `git_strategy` wins.
+  git_strategy: auto
+
+  # Workspace isolation mode:
+  #   - "local" (default): run agent directly on the host
+  #   - "docker": run agent in an ephemeral container (not yet implemented, see KAT-821)
+  # Docker is orthogonal to git_strategy — any git strategy works inside a container.
+  # isolation: local
 
   # Prefix for auto-created issue branches: <prefix>/<issue-identifier>
   # Example: symphony/KAT-814
