@@ -342,6 +342,9 @@ pub struct RunAttempt {
     pub error: Option<String>,
     #[serde(default)]
     pub worker_host: Option<String>,
+    /// Linear issue state at dispatch time (e.g. "In Progress", "Agent Review").
+    #[serde(default)]
+    pub linear_state: Option<String>,
 }
 
 // ── LiveSession (spec §4.1.6) ─────────────────────────────────────────

@@ -704,6 +704,7 @@ fn test_stall_detection_schedules_forced_retry() {
             status: "running".to_string(),
             error: None,
             worker_host: None,
+            linear_state: None,
         },
     );
 
@@ -753,6 +754,7 @@ fn test_streamed_event_updates_activity_before_worker_completion() {
             status: "running".to_string(),
             error: None,
             worker_host: None,
+            linear_state: None,
         },
     );
 
@@ -799,6 +801,7 @@ fn test_streamed_events_keep_refreshing_stall_detection_window() {
             status: "running".to_string(),
             error: None,
             worker_host: None,
+            linear_state: None,
         },
     );
 
@@ -861,6 +864,7 @@ fn test_streamed_turn_completed_events_update_token_totals_in_real_time() {
             status: "running".to_string(),
             error: None,
             worker_host: None,
+            linear_state: None,
         },
     );
 
@@ -943,6 +947,7 @@ fn test_late_streamed_event_after_completion_is_ignored() {
             status: "running".to_string(),
             error: None,
             worker_host: None,
+            linear_state: None,
         },
     );
 
@@ -1040,6 +1045,7 @@ fn test_snapshot_exposes_running_and_retry_diagnostics() {
             status: "failed".to_string(),
             error: Some("worker failed".to_string()),
             worker_host: Some("worker-a".to_string()),
+            linear_state: None,
         },
     );
 
@@ -1105,6 +1111,7 @@ fn test_worker_completion_schedules_continuation_retry_with_session_context() {
             status: "running".to_string(),
             error: None,
             worker_host: Some("worker-b".to_string()),
+            linear_state: None,
         },
     );
 
@@ -1191,6 +1198,7 @@ fn test_worker_completion_without_continuation_does_not_queue_retry() {
             status: "running".to_string(),
             error: None,
             worker_host: None,
+            linear_state: None,
         },
     );
 
@@ -1241,6 +1249,7 @@ fn test_worker_failure_preserves_attempt_and_backoff_cap() {
             status: "running".to_string(),
             error: None,
             worker_host: Some("worker-c".to_string()),
+            linear_state: None,
         },
     );
 
@@ -1624,6 +1633,7 @@ fn test_reconcile_non_active_state_stops_run_without_cleanup() {
         status: "running".to_string(),
         error: None,
         worker_host: None,
+            linear_state: None,
     };
     orchestrator
         .state_mut()
@@ -1736,6 +1746,7 @@ fn test_terminal_state_cleanup_removes_workspace_when_enabled() {
         status: "running".to_string(),
         error: None,
         worker_host: None,
+            linear_state: None,
     };
     orchestrator
         .state_mut()
@@ -1783,6 +1794,7 @@ fn test_terminal_state_cleanup_preserves_workspace_when_disabled() {
         status: "running".to_string(),
         error: None,
         worker_host: None,
+            linear_state: None,
     };
     orchestrator
         .state_mut()
@@ -1839,6 +1851,7 @@ fn test_terminal_state_cleanup_runs_before_remove_hook() {
         status: "running".to_string(),
         error: None,
         worker_host: None,
+            linear_state: None,
     };
     orchestrator
         .state_mut()
@@ -1897,6 +1910,7 @@ fn test_terminal_state_cleanup_defers_until_worker_completion() {
             status: "running".to_string(),
             error: None,
             worker_host: None,
+            linear_state: None,
         },
     );
     orchestrator.schedule_retry_with_context(
@@ -2049,6 +2063,7 @@ fn test_terminal_state_cleanup_removes_worktree_checkout_when_enabled() {
         status: "running".to_string(),
         error: None,
         worker_host: None,
+            linear_state: None,
     };
     orchestrator
         .state_mut()
@@ -2105,6 +2120,7 @@ fn test_terminal_state_cleanup_failure_is_non_fatal() {
         status: "running".to_string(),
         error: None,
         worker_host: None,
+            linear_state: None,
     };
     orchestrator
         .state_mut()

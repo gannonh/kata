@@ -249,6 +249,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         <thead>
           <tr>
             <th>Identifier</th>
+            <th>Linear State</th>
             <th>Status</th>
             <th>Attempt</th>
             <th>Elapsed</th>
@@ -257,7 +258,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
           </tr>
         </thead>
         <tbody id="running-table-body">
-          <tr><td class="muted" colspan="6">Loading...</td></tr>
+          <tr><td class="muted" colspan="7">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -357,7 +358,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       }});
 
       if (rows.length === 0) {{
-        return '<tr><td class="muted" colspan="6">No running sessions.</td></tr>';
+        return '<tr><td class="muted" colspan="7">No running sessions.</td></tr>';
       }}
 
       return rows.map(function(run) {{
@@ -366,6 +367,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         const attempt = run.attempt ?? 1;
         return '<tr>' +
           '<td class="mono">' + escapeHtml(run.issue_identifier || '-') + '</td>' +
+          '<td>' + escapeHtml(run.linear_state || '-') + '</td>' +
           '<td>' + escapeHtml(run.status || '-') + '</td>' +
           '<td>' + escapeHtml(attempt) + '</td>' +
           '<td class="mono">' + escapeHtml(elapsed) + '</td>' +

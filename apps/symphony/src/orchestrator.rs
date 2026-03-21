@@ -1381,6 +1381,7 @@ impl Orchestrator {
                 status: "running".to_string(),
                 error: None,
                 worker_host: prior_worker_host.clone(),
+                linear_state: Some(issue.state.clone()),
             },
         );
         self.state.claimed.insert(issue.id.clone());
@@ -1877,6 +1878,7 @@ impl Orchestrator {
             status: "scheduled".to_string(),
             error: None,
             worker_host,
+            linear_state: Some(issue.state.clone()),
         };
 
         self.state.running.insert(issue.id.clone(), attempt);
