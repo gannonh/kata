@@ -105,7 +105,7 @@ struct StateResponse {
     running: std::collections::BTreeMap<String, RunAttempt>,
     claimed: std::collections::BTreeSet<String>,
     retry_queue: Vec<RetrySnapshotEntry>,
-    completed: std::collections::BTreeSet<String>,
+    completed: Vec<crate::domain::CompletedEntry>,
     codex_totals: CodexTotals,
     codex_rate_limits: Option<serde_json::Value>,
     polling: PollingSnapshot,
@@ -405,13 +405,18 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
     }}
 
     function renderCompleted(completed) {{
-      const items = Array.isArray(completed) ? completed.slice().sort() : [];
+      const items = Array.isArray(completed) ? completed : [];
       if (items.length === 0) {{
         return '<li class="muted">No completed issues yet.</li>';
       }}
 
-      return items.map(function(issueId) {{
-        return '<li class="mono">' + escapeHtml(issueId) + '</li>';
+      return items.map(function(entry) {{
+        const id = entry.identifier || entry.issue_id || '-';
+        const title = entry.title || '';
+        const date = entry.completed_at ? new Date(entry.completed_at).toLocaleString() : '';
+        const label = title ? id + ' — ' + title : id;
+        const suffix = date ? ' <span class="muted" style="font-size:12px">(' + escapeHtml(date) + ')</span>' : '';
+        return '<li class="mono">' + escapeHtml(label) + suffix + '</li>';
       }}).join('');
     }}
 
