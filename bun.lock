@@ -88,13 +88,14 @@
     },
     "apps/cli": {
       "name": "@kata-sh/cli",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "bin": {
         "kata-cli": "dist/loader.js",
       },
       "dependencies": {
         "@mariozechner/pi-coding-agent": "^0.60.0",
         "playwright": "^1.58.2",
+        "proper-lockfile": "^4.1.2",
       },
       "devDependencies": {
         "@types/node": "^22.0.0",
