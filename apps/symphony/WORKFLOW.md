@@ -20,8 +20,8 @@ polling:
   interval_ms: 30000
 workspace:
   root: ~/symphony-workspaces
-  repo: https://github.com/gannonh/kata.git
-  git_strategy: auto
+  repo: /Volumes/EVO/kata/kata-mono
+  git_strategy: clone-local
   # isolation: local
   branch_prefix: symphony
   clone_branch: main
