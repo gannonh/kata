@@ -13,7 +13,6 @@ use symphony::orchestrator::{Orchestrator, OrchestratorPort};
 use symphony::workflow_store::WorkflowStore;
 use symphony::{config, error};
 use tracing_appender::non_blocking::WorkerGuard;
-use tracing_subscriber::fmt::writer::MakeWriterExt;
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug, Clone)]
@@ -180,6 +179,7 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
     fn start_orchestrator(&mut self, workflow_path: &Path, cli: &Cli) -> Result<(), String> {
         let context = self.take_or_load_validated_context(workflow_path)?;
         let http_binding = effective_http_binding(&context.effective_config, cli);
+        print_startup_banner(cli, &context.effective_config, http_binding.as_ref());
 
         let workflow_store = Arc::new(context.workflow_store);
         let mut tracker_port = LinearOrchestratorPort::new(Arc::clone(&workflow_store));
@@ -247,6 +247,61 @@ pub(crate) fn effective_http_binding(config: &ServiceConfig, cli: &Cli) -> Optio
         host: config.server.host.clone(),
         port,
     })
+}
+
+fn format_polling_interval(interval_ms: u64) -> String {
+    if interval_ms.is_multiple_of(1_000) {
+        format!("every {}s", interval_ms / 1_000)
+    } else {
+        format!("every {interval_ms}ms")
+    }
+}
+
+fn display_path_with_home_alias(path: &Path) -> String {
+    let home = match std::env::var("HOME") {
+        Ok(home) => PathBuf::from(home),
+        Err(_) => return path.display().to_string(),
+    };
+
+    match path.strip_prefix(&home) {
+        Ok(stripped) if stripped.as_os_str().is_empty() => "~".to_string(),
+        Ok(stripped) => format!("~/{}", stripped.display()),
+        Err(_) => path.display().to_string(),
+    }
+}
+
+pub(crate) fn build_startup_banner(
+    cli: &Cli,
+    config: &ServiceConfig,
+    http_binding: Option<&HttpBinding>,
+) -> String {
+    let dashboard = http_binding
+        .map(|binding| format!("http://{}:{}", binding.host, binding.port))
+        .unwrap_or_else(|| "disabled".to_string());
+
+    let logs = cli
+        .logs_root
+        .as_deref()
+        .map(|logs_root| Path::new(logs_root).join("log").join("symphony.log"))
+        .map(|path| display_path_with_home_alias(&path))
+        .unwrap_or_else(|| "stdout".to_string());
+
+    let project_slug = config
+        .tracker
+        .project_slug
+        .as_deref()
+        .unwrap_or("unknown_project_slug");
+
+    format!(
+        "Symphony v{version}\nDashboard: {dashboard}\nLogs: {logs}\nProject: Symphony ({project_slug})\nWorkers: {workers} max concurrent\nPolling: {polling}\n\nPress Ctrl+C to stop.\n",
+        version = env!("CARGO_PKG_VERSION"),
+        workers = config.agent.max_concurrent_agents,
+        polling = format_polling_interval(config.polling.interval_ms),
+    )
+}
+
+fn print_startup_banner(cli: &Cli, config: &ServiceConfig, http_binding: Option<&HttpBinding>) {
+    print!("{}", build_startup_banner(cli, config, http_binding));
 }
 
 pub fn execute_cli(cli: &Cli, deps: &mut dyn BootstrapDeps) -> Result<(), String> {
@@ -404,9 +459,7 @@ fn init_tracing(logs_root: Option<&Path>) {
                 Ok((file_writer, guard)) => match FILE_LOG_GUARD.lock() {
                     Ok(mut guard_slot) => {
                         *guard_slot = Some(guard);
-                        subscriber_builder
-                            .with_writer(std::io::stdout.and(file_writer))
-                            .try_init()
+                        subscriber_builder.with_writer(file_writer).try_init()
                     }
                     Err(err) => {
                         eprintln!(
