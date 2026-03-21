@@ -78,21 +78,33 @@ workspace:
   repo: https://github.com/gannonh/kata.git
 
   # Git bootstrap strategy:
-  #   - "clone": git clone into the workspace (default)
-  #     - Remote URLs: full network clone
-  #     - Local paths: `git clone --local` (fast, inherits remotes)
+  #   - "clone-local": force local clone (`git clone --local <repo> .`)
+  #     - Requires `repo` to be a local path
+  #     - Keeps remote refs/metadata (no `--single-branch`)
+  #   - "clone-remote": force remote clone (`git clone <repo> . --single-branch`)
   #   - "worktree": git worktree add from the source repo
   #     - Requires `repo` to be a local path
   #     - Lightweight — shares .git objects with source
   #     - Cleanup runs `git worktree remove`
-  strategy: clone
+  #   - "auto" (default): choose clone-local for local paths, clone-remote for URLs
+  git_strategy: auto
+
+  # Legacy field (deprecated): "clone" or "worktree".
+  # If set alongside git_strategy, git_strategy wins.
+  # strategy: clone
+
+  # Runtime isolation model:
+  #   - "local" (default): current behavior
+  #   - "docker": accepted but not implemented yet (startup warning)
+  isolation: local
 
   # Prefix for auto-created issue branches: <prefix>/<issue-identifier>
   # Example: symphony/KAT-814
   branch_prefix: symphony
 
-  # Branch to clone/base off. When set, `git clone --branch <clone_branch>`.
-  # When omitted, clones the repo's default branch.
+  # Branch to clone/base off for clone-based strategies.
+  # When set, clone uses `--branch <clone_branch>`.
+  # When omitted, clone uses the repo's default branch.
   # Supports $VAR indirection.
   clone_branch: main
 

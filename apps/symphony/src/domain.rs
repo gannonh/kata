@@ -182,6 +182,7 @@ pub struct WorkspaceConfig {
     pub root: String,
     pub repo: Option<String>,
     pub strategy: WorkspaceRepoStrategy,
+    pub isolation: WorkspaceIsolation,
     pub branch_prefix: String,
     pub clone_branch: Option<String>,
     pub cleanup_on_done: bool,
@@ -190,8 +191,17 @@ pub struct WorkspaceConfig {
 /// Workspace repository bootstrap strategy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WorkspaceRepoStrategy {
-    Clone,
+    CloneLocal,
+    CloneRemote,
     Worktree,
+    Auto,
+}
+
+/// Workspace runtime isolation strategy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkspaceIsolation {
+    Local,
+    Docker,
 }
 
 impl Default for WorkspaceConfig {
@@ -199,7 +209,8 @@ impl Default for WorkspaceConfig {
         Self {
             root: default_workspace_root(),
             repo: None,
-            strategy: WorkspaceRepoStrategy::Clone,
+            strategy: WorkspaceRepoStrategy::Auto,
+            isolation: WorkspaceIsolation::Local,
             branch_prefix: "symphony".to_string(),
             clone_branch: None,
             cleanup_on_done: false,
