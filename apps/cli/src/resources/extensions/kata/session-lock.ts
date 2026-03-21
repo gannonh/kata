@@ -161,11 +161,17 @@ export function cleanupStrayLockFiles(basePath: string): void {
   }
 }
 
-function ensureExitHandler(stateDir: string): void {
+function ensureExitHandler(): void {
   if (_exitHandlerRegistered) return;
   _exitHandlerRegistered = true;
 
   process.once("exit", () => {
+    const heldPath = _lockedPath;
+    if (!heldPath) return;
+
+    const stateDir = kataStateDir(heldPath);
+    const lp = lockPath(heldPath);
+
     try {
       if (_releaseFunction) {
         _releaseFunction();
@@ -176,8 +182,7 @@ function ensureExitHandler(stateDir: string): void {
     }
 
     try {
-      const lockFile = join(stateDir, LOCK_FILE);
-      if (existsSync(lockFile)) unlinkSync(lockFile);
+      if (existsSync(lp)) unlinkSync(lp);
     } catch {
       // best-effort
     }
@@ -266,7 +271,7 @@ export function acquireSessionLock(basePath: string): SessionLockResult {
     _lockCompromised = false;
     _lockAcquiredAt = Date.now();
 
-    ensureExitHandler(stateDir);
+    ensureExitHandler();
 
     atomicWriteSync(lp, JSON.stringify(lockData, null, 2));
     return { acquired: true };
@@ -303,7 +308,7 @@ export function acquireSessionLock(basePath: string): SessionLockResult {
         _lockCompromised = false;
         _lockAcquiredAt = Date.now();
 
-        ensureExitHandler(stateDir);
+        ensureExitHandler();
 
         atomicWriteSync(lp, JSON.stringify(lockData, null, 2));
         return { acquired: true };
