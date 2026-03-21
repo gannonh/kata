@@ -153,12 +153,14 @@ fn test_run_attempt_construction_and_serialization() {
     let ra = RunAttempt {
         issue_id: "id-1".into(),
         issue_identifier: "PROJ-1".into(),
+        issue_title: None,
         attempt: None,
         workspace_path: "/tmp/ws".into(),
         started_at: Utc::now(),
         status: "running".into(),
         error: None,
         worker_host: None,
+        linear_state: None,
     };
     let json = serde_json::to_string(&ra).unwrap();
     let deser: RunAttempt = serde_json::from_str(&json).unwrap();
@@ -226,12 +228,14 @@ fn test_orchestrator_snapshot_serializes() {
                 RunAttempt {
                     issue_id: "id-z".into(),
                     issue_identifier: "PROJ-Z".into(),
+                    issue_title: None,
                     attempt: Some(1),
                     workspace_path: "/tmp/ws-z".into(),
                     started_at: Utc::now(),
                     status: "running".into(),
                     error: None,
                     worker_host: None,
+                    linear_state: None,
                 },
             );
             m.insert(
@@ -239,12 +243,14 @@ fn test_orchestrator_snapshot_serializes() {
                 RunAttempt {
                     issue_id: "id-a".into(),
                     issue_identifier: "PROJ-A".into(),
+                    issue_title: None,
                     attempt: Some(1),
                     workspace_path: "/tmp/ws-a".into(),
                     started_at: Utc::now(),
                     status: "running".into(),
                     error: None,
                     worker_host: None,
+                    linear_state: None,
                 },
             );
             m
@@ -264,18 +270,28 @@ fn test_orchestrator_snapshot_serializes() {
             worker_host: None,
             workspace_path: Some("/tmp/ws5".into()),
         }],
-        completed: {
-            let mut s = BTreeSet::new();
-            s.insert("z-done".to_string());
-            s.insert("a-done".to_string());
-            s
-        },
+        completed: vec![
+            CompletedEntry {
+                issue_id: "z-done".to_string(),
+                identifier: "KAT-100".to_string(),
+                title: "Done issue Z".to_string(),
+                completed_at: Utc::now(),
+            },
+            CompletedEntry {
+                issue_id: "a-done".to_string(),
+                identifier: "KAT-101".to_string(),
+                title: "Done issue A".to_string(),
+                completed_at: Utc::now(),
+            },
+        ],
         codex_totals: CodexTotals::default(),
         codex_rate_limits: None,
         polling: PollingSnapshot {
             checking: false,
             next_poll_in_ms: 15_000,
             poll_interval_ms: 30_000,
+            last_poll_at: None,
+            poll_count: 0,
         },
     };
     let json = serde_json::to_string(&snap).unwrap();
@@ -311,12 +327,17 @@ fn test_orchestrator_snapshot_serializes() {
     let c_pos = claimed_json.find("\"c-claim\"").unwrap();
     assert!(a_pos < c_pos, "claimed should serialize in sorted order");
 
-    // BTreeSet completed serializes in sorted order
+    // Completed entries serialize as objects with identifier and title
     let completed_start = json.find("\"completed\":[").unwrap();
     let completed_json = &json[completed_start..];
-    let a_pos = completed_json.find("\"a-done\"").unwrap();
-    let z_pos = completed_json.find("\"z-done\"").unwrap();
-    assert!(a_pos < z_pos, "completed should serialize in sorted order");
+    assert!(
+        completed_json.contains("\"identifier\":\"KAT-100\""),
+        "completed should contain identifier field"
+    );
+    assert!(
+        completed_json.contains("\"title\":\"Done issue Z\""),
+        "completed should contain title field"
+    );
 }
 
 // ── AgentEvent enum (T01+T02 must-have) ───────────────────────────────

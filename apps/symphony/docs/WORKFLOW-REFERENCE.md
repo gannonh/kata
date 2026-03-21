@@ -77,26 +77,25 @@ workspace:
   # Supports $VAR indirection and ~ tilde expansion.
   repo: https://github.com/gannonh/kata.git
 
-  # Git bootstrap strategy:
-  #   - "clone-local": force local clone (`git clone --local <repo> .`)
-  #     - Requires `repo` to be a local path
-  #     - Keeps remote refs/metadata (no `--single-branch`)
-  #   - "clone-remote": force remote clone (`git clone <repo> . --single-branch`)
-  #   - "worktree": git worktree add from the source repo
+  # Git bootstrap strategy (replaces the old `strategy` field):
+  #   - "auto" (default): clone-remote if repo is a URL, clone-local if repo is a local path
+  #   - "clone-local": `git clone --local <path> .` — fast (hard-links), inherits remotes
+  #   - "clone-remote": `git clone <url> . --single-branch` — full network clone
+  #   - "worktree": `git worktree add` from the source repo
   #     - Requires `repo` to be a local path
   #     - Lightweight — shares .git objects with source
   #     - Cleanup runs `git worktree remove`
-  #   - "auto" (default): choose clone-local for local paths, clone-remote for URLs
+  #
+  # The old `strategy: clone | worktree` field is still accepted with a
+  # deprecation warning. `clone` maps to `auto`, `worktree` stays `worktree`.
+  # If both `strategy` and `git_strategy` are set, `git_strategy` wins.
   git_strategy: auto
 
-  # Legacy field (deprecated): "clone" or "worktree".
-  # If set alongside git_strategy, git_strategy wins.
-  # strategy: clone
-
-  # Runtime isolation model:
-  #   - "local" (default): current behavior
-  #   - "docker": accepted but not implemented yet (startup warning)
-  isolation: local
+  # Workspace isolation mode:
+  #   - "local" (default): run agent directly on the host
+  #   - "docker": run agent in an ephemeral container (not yet implemented, see KAT-821)
+  # Docker is orthogonal to git_strategy — any git strategy works inside a container.
+  # isolation: local
 
   # Prefix for auto-created issue branches: <prefix>/<issue-identifier>
   # Example: symphony/KAT-814
@@ -254,6 +253,111 @@ Read `apps/symphony/AGENTS.md` for full architecture reference.
 
 The agent should be able to talk to Linear, either via a configured Linear MCP server or injected `linear_graphql` tool. If none are present, stop and ask the user to configure Linear.
 
+## Linear GraphQL schema quick reference (always in context)
+
+Use this as an always-on guardrail to avoid invalid Linear queries.
+
+- `Issue.links` is invalid. Use `attachments`, `relations`, or
+  `inverseRelations`.
+- `IssueFilter.identifier` is invalid. For identifier-style filtering, use
+  `team.key` + `number`.
+
+Query by issue identifier (preferred):
+
+```graphql
+query IssueByIdentifier($identifier: String!) {
+  issue(id: $identifier) {
+    id
+    identifier
+    title
+    state {
+      id
+      name
+      type
+    }
+  }
+}
+```
+
+Query by identifier using `issues(filter: ...)`:
+
+```graphql
+query IssueByTeamKeyAndNumber($teamKey: String!, $number: Float!) {
+  issues(
+    filter: { team: { key: { eq: $teamKey } }, number: { eq: $number } }
+    first: 1
+  ) {
+    nodes {
+      id
+      identifier
+      title
+    }
+  }
+}
+```
+
+Move issue state by name (resolve `stateId` first):
+
+```graphql
+query IssueTeamStates($id: String!) {
+  issue(id: $id) {
+    team {
+      states {
+        nodes {
+          id
+          name
+          type
+        }
+      }
+    }
+  }
+}
+```
+
+```graphql
+mutation MoveIssueToState($id: String!, $stateId: String!) {
+  issueUpdate(id: $id, input: { stateId: $stateId }) {
+    success
+    issue {
+      id
+      state {
+        id
+        name
+      }
+    }
+  }
+}
+```
+
+Add comment:
+
+```graphql
+mutation CreateComment($issueId: String!, $body: String!) {
+  commentCreate(input: { issueId: $issueId, body: $body }) {
+    success
+    comment {
+      id
+      url
+    }
+  }
+}
+```
+
+Attach URL:
+
+```graphql
+mutation AttachURL($issueId: String!, $url: String!, $title: String) {
+  attachmentLinkURL(issueId: $issueId, url: $url, title: $title) {
+    success
+    attachment {
+      id
+      title
+      url
+    }
+  }
+}
+```
+
 ## Default posture
 
 - Start by determining the ticket's current status, then follow the matching flow for that status.
@@ -296,6 +400,7 @@ The agent should be able to talk to Linear, either via a configured Linear MCP s
 
 ## Step 0: Determine current ticket state and route
 
+0. Before ANY other action, read `.codex/skills/linear/SKILL.md` and keep it in context. Do not guess Linear GraphQL schema.
 1. Fetch the issue by explicit ticket ID.
 2. Read the current state.
 3. Route to the matching flow:

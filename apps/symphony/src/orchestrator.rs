@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::future::Future;
 use std::path::Path;
@@ -9,7 +9,7 @@ use std::time::Duration;
 use crate::codex::app_server;
 use crate::config;
 use crate::domain::{
-    AgentEvent, CodexConfig, CodexTotals, HooksConfig, Issue, OrchestratorSnapshot,
+    AgentEvent, CodexConfig, CodexTotals, CompletedEntry, HooksConfig, Issue, OrchestratorSnapshot,
     OrchestratorState, PollingSnapshot, RateLimitInfo, RefreshRequestOutcome, RetryEntry,
     RetrySnapshotEntry, RunAttempt, ServiceConfig, TrackerConfig, WorkspaceConfig,
 };
@@ -628,6 +628,8 @@ pub struct Orchestrator {
     /// Normalized running issue state cache used for per-state slot accounting.
     running_issue_states: HashMap<String, String>,
     next_retry_token: u64,
+    poll_count: u64,
+    last_poll_at: Option<DateTime<Utc>>,
     /// Optional shared snapshot handle for HTTP read access.
     snapshot_handle: Option<SnapshotHandle>,
     /// Optional refresh receiver for HTTP control access.
@@ -687,7 +689,7 @@ impl Orchestrator {
                 running: HashMap::new(),
                 claimed: std::collections::HashSet::new(),
                 retry_attempts: HashMap::new(),
-                completed: std::collections::HashSet::new(),
+                completed: HashMap::new(),
                 codex_totals: CodexTotals::default(),
                 codex_rate_limits: None,
             },
@@ -698,6 +700,8 @@ impl Orchestrator {
             pending_terminal_cleanup: HashMap::new(),
             running_issue_states: HashMap::new(),
             next_retry_token: 0,
+            poll_count: 0,
+            last_poll_at: None,
             snapshot_handle: None,
             refresh_receiver: None,
             worker_result_rx,
@@ -936,6 +940,9 @@ impl Orchestrator {
         port: &mut dyn OrchestratorPort,
         refresh_runtime_config: bool,
     ) -> Result<TickResult> {
+        self.poll_count += 1;
+        self.last_poll_at = Some(Utc::now());
+
         if refresh_runtime_config {
             self.refresh_runtime_config();
         }
@@ -1277,7 +1284,15 @@ impl Orchestrator {
                 schedule_continuation,
             } => {
                 if !schedule_continuation {
-                    self.state.completed.insert(issue_id.to_string());
+                    self.state.completed.insert(
+                        issue_id.to_string(),
+                        CompletedEntry {
+                            issue_id: issue_id.to_string(),
+                            identifier: issue_identifier.clone(),
+                            title: run_attempt.issue_title.clone().unwrap_or_default(),
+                            completed_at: Utc::now(),
+                        },
+                    );
                 }
 
                 tracing::info!(
@@ -1375,12 +1390,14 @@ impl Orchestrator {
             RunAttempt {
                 issue_id: issue.id.clone(),
                 issue_identifier: issue.identifier.clone(),
+                issue_title: Some(issue.title.clone()),
                 attempt,
                 workspace_path: workspace_info.path.clone(),
                 started_at: Utc::now(),
                 status: "running".to_string(),
                 error: None,
                 worker_host: prior_worker_host.clone(),
+                linear_state: Some(issue.state.clone()),
             },
         );
         self.state.claimed.insert(issue.id.clone());
@@ -1643,7 +1660,8 @@ impl Orchestrator {
             .collect();
 
         let claimed: BTreeSet<String> = self.state.claimed.iter().cloned().collect();
-        let completed: BTreeSet<String> = self.state.completed.iter().cloned().collect();
+        let mut completed: Vec<CompletedEntry> = self.state.completed.values().cloned().collect();
+        completed.sort_by(|a, b| b.completed_at.cmp(&a.completed_at));
 
         let mut retry_queue: Vec<RetrySnapshotEntry> = self
             .state
@@ -1679,6 +1697,8 @@ impl Orchestrator {
                 checking: false,
                 next_poll_in_ms: self.state.poll_interval_ms as i64,
                 poll_interval_ms: self.state.poll_interval_ms,
+                last_poll_at: self.last_poll_at.map(|t| t.to_rfc3339()),
+                poll_count: self.poll_count,
             },
         }
     }
@@ -1870,6 +1890,7 @@ impl Orchestrator {
         let attempt = RunAttempt {
             issue_id: issue.id.clone(),
             issue_identifier: issue.identifier.clone(),
+            issue_title: Some(issue.title.clone()),
             attempt,
             workspace_path: workspace_path
                 .unwrap_or_else(|| self.default_workspace_path_for_issue(issue)),
@@ -1877,6 +1898,7 @@ impl Orchestrator {
             status: "scheduled".to_string(),
             error: None,
             worker_host,
+            linear_state: Some(issue.state.clone()),
         };
 
         self.state.running.insert(issue.id.clone(), attempt);
@@ -2120,7 +2142,15 @@ impl Orchestrator {
             }
         }
 
-        self.state.completed.insert(issue_id.to_string());
+        self.state.completed.insert(
+            issue_id.to_string(),
+            CompletedEntry {
+                issue_id: issue_id.to_string(),
+                identifier: issue.identifier.clone(),
+                title: issue.title.clone(),
+                completed_at: Utc::now(),
+            },
+        );
         self.state.running.remove(issue_id);
         self.state.claimed.remove(issue_id);
         self.state.retry_attempts.remove(issue_id);

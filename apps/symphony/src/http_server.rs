@@ -105,7 +105,7 @@ struct StateResponse {
     running: std::collections::BTreeMap<String, RunAttempt>,
     claimed: std::collections::BTreeSet<String>,
     retry_queue: Vec<RetrySnapshotEntry>,
-    completed: std::collections::BTreeSet<String>,
+    completed: Vec<crate::domain::CompletedEntry>,
     codex_totals: CodexTotals,
     codex_rate_limits: Option<serde_json::Value>,
     polling: PollingSnapshot,
@@ -191,10 +191,10 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
 
     let html = format!(
         r#"<!doctype html>
-<html lang=\"en\">
+<html lang="en">
 <head>
-  <meta charset=\"utf-8\" />
-  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Symphony Dashboard</title>
   <style>
     :root {{ color-scheme: dark; }}
@@ -226,29 +226,30 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
 </head>
 <body>
   <h1>Symphony Dashboard</h1>
-  <div class=\"grid summary-grid\">
-    <section class=\"card\"><div class=\"label\">running</div><div class=\"value\" id=\"running-count\">{running_count}</div></section>
-    <section class=\"card\"><div class=\"label\">retry</div><div class=\"value\" id=\"retry-count\">{retry_count}</div></section>
-    <section class=\"card\"><div class=\"label\">claimed</div><div class=\"value\" id=\"claimed-count\">{claimed_count}</div></section>
-    <section class=\"card\"><div class=\"label\">completed</div><div class=\"value\" id=\"completed-count\">{completed_count}</div></section>
+  <div class="grid summary-grid">
+    <section class="card"><div class="label">running</div><div class="value" id="running-count">{running_count}</div></section>
+    <section class="card"><div class="label">retry</div><div class="value" id="retry-count">{retry_count}</div></section>
+    <section class="card"><div class="label">claimed</div><div class="value" id="claimed-count">{claimed_count}</div></section>
+    <section class="card"><div class="label">completed</div><div class="value" id="completed-count">{completed_count}</div></section>
   </div>
 
-  <section class=\"card section\">
+  <section class="card section">
     <h2>Token summary</h2>
-    <div class=\"grid token-grid\">
-      <div><div class=\"label\">input tokens</div><div class=\"value\" id=\"token-input\">{input_tokens}</div></div>
-      <div><div class=\"label\">output tokens</div><div class=\"value\" id=\"token-output\">{output_tokens}</div></div>
-      <div><div class=\"label\">total tokens</div><div class=\"value\" id=\"token-total\">{total_tokens}</div></div>
+    <div class="grid token-grid">
+      <div><div class="label">input tokens</div><div class="value" id="token-input">{input_tokens}</div></div>
+      <div><div class="label">output tokens</div><div class="value" id="token-output">{output_tokens}</div></div>
+      <div><div class="label">total tokens</div><div class="value" id="token-total">{total_tokens}</div></div>
     </div>
   </section>
 
-  <section class=\"card section\">
+  <section class="card section">
     <h2>Running sessions</h2>
-    <div class=\"table-wrap\">
+    <div class="table-wrap">
       <table>
         <thead>
           <tr>
             <th>Identifier</th>
+            <th>Linear State</th>
             <th>Status</th>
             <th>Attempt</th>
             <th>Elapsed</th>
@@ -256,16 +257,16 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
             <th>Worker host</th>
           </tr>
         </thead>
-        <tbody id=\"running-table-body\">
-          <tr><td class=\"muted\" colspan=\"6\">Loading...</td></tr>
+        <tbody id="running-table-body">
+          <tr><td class="muted" colspan="7">Loading...</td></tr>
         </tbody>
       </table>
     </div>
   </section>
 
-  <section class=\"card section\">
+  <section class="card section">
     <h2>Retry queue</h2>
-    <div class=\"table-wrap\">
+    <div class="table-wrap">
       <table>
         <thead>
           <tr>
@@ -276,37 +277,37 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
             <th>Worker host</th>
           </tr>
         </thead>
-        <tbody id=\"retry-table-body\">
-          <tr><td class=\"muted\" colspan=\"5\">Loading...</td></tr>
+        <tbody id="retry-table-body">
+          <tr><td class="muted" colspan="5">Loading...</td></tr>
         </tbody>
       </table>
     </div>
   </section>
 
-  <section class=\"card section\">
+  <section class="card section">
     <h2>Completed issues</h2>
-    <ul id=\"completed-list\" class=\"list\">
-      <li class=\"muted\">Loading...</li>
+    <ul id="completed-list" class="list">
+      <li class="muted">Loading...</li>
     </ul>
   </section>
 
-  <section class=\"card section\">
+  <section class="card section">
     <h2>Polling</h2>
-    <div class=\"polling-grid\">
-      <div><div class=\"label\">last poll at</div><div class=\"mono\" id=\"polling-last-poll\">n/a</div></div>
-      <div><div class=\"label\">poll count</div><div class=\"mono\" id=\"polling-count\">n/a</div></div>
-      <div><div class=\"label\">checking</div><div class=\"mono\" id=\"polling-checking\">{polling_checking}</div></div>
-      <div><div class=\"label\">next poll in</div><div class=\"mono\" id=\"polling-next-poll\">n/a</div></div>
-      <div><div class=\"label\">poll interval</div><div class=\"mono\" id=\"polling-interval\">n/a</div></div>
+    <div class="polling-grid">
+      <div><div class="label">last poll at</div><div class="mono" id="polling-last-poll">n/a</div></div>
+      <div><div class="label">poll count</div><div class="mono" id="polling-count">n/a</div></div>
+      <div><div class="label">checking</div><div class="mono" id="polling-checking">{polling_checking}</div></div>
+      <div><div class="label">next poll in</div><div class="mono" id="polling-next-poll">n/a</div></div>
+      <div><div class="label">poll interval</div><div class="mono" id="polling-interval">n/a</div></div>
     </div>
   </section>
 
-  <details class=\"card section\" open>
+  <details class="card section" open>
     <summary>Rate limits</summary>
-    <pre id=\"rate-limits\" class=\"mono\">{rate_limit_block}</pre>
+    <pre id="rate-limits" class="mono">{rate_limit_block}</pre>
   </details>
 
-  <p id=\"refresh-error\" class=\"error\" hidden></p>
+  <p id="refresh-error" class="error" hidden></p>
 
   <script>
     function escapeHtml(value) {{
@@ -314,7 +315,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/\"/g, '&quot;')
+        .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
     }}
 
@@ -357,7 +358,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       }});
 
       if (rows.length === 0) {{
-        return '<tr><td class=\"muted\" colspan=\"6\">No running sessions.</td></tr>';
+        return '<tr><td class="muted" colspan="7">No running sessions.</td></tr>';
       }}
 
       return rows.map(function(run) {{
@@ -365,11 +366,12 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         const elapsed = Number.isFinite(startedAt) ? formatDuration(Date.now() - startedAt) : 'n/a';
         const attempt = run.attempt ?? 1;
         return '<tr>' +
-          '<td class=\"mono\">' + escapeHtml(run.issue_identifier || '-') + '</td>' +
+          '<td class="mono">' + escapeHtml(run.issue_identifier || '-') + '</td>' +
+          '<td>' + escapeHtml(run.linear_state || '-') + '</td>' +
           '<td>' + escapeHtml(run.status || '-') + '</td>' +
           '<td>' + escapeHtml(attempt) + '</td>' +
-          '<td class=\"mono\">' + escapeHtml(elapsed) + '</td>' +
-          '<td class=\"mono\">' + escapeHtml(run.workspace_path || '-') + '</td>' +
+          '<td class="mono">' + escapeHtml(elapsed) + '</td>' +
+          '<td class="mono">' + escapeHtml(run.workspace_path || '-') + '</td>' +
           '<td>' + escapeHtml(run.worker_host || 'local') + '</td>' +
           '</tr>';
       }}).join('');
@@ -387,29 +389,34 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       }});
 
       if (rows.length === 0) {{
-        return '<tr><td class=\"muted\" colspan=\"5\">No pending retries.</td></tr>';
+        return '<tr><td class="muted" colspan="5">No pending retries.</td></tr>';
       }}
 
       return rows.map(function(retry) {{
         const retryAfterMs = retryDelayValue(retry);
         return '<tr>' +
-          '<td class=\"mono\">' + escapeHtml(retry.identifier || '-') + '</td>' +
+          '<td class="mono">' + escapeHtml(retry.identifier || '-') + '</td>' +
           '<td>' + escapeHtml(retry.attempt ?? '-') + '</td>' +
           '<td>' + escapeHtml(retry.error || '-') + '</td>' +
-          '<td class=\"mono\">' + escapeHtml(formatRetryDelay(retryAfterMs)) + '</td>' +
+          '<td class="mono">' + escapeHtml(formatRetryDelay(retryAfterMs)) + '</td>' +
           '<td>' + escapeHtml(retry.worker_host || 'local') + '</td>' +
           '</tr>';
       }}).join('');
     }}
 
     function renderCompleted(completed) {{
-      const items = Array.isArray(completed) ? completed.slice().sort() : [];
+      const items = Array.isArray(completed) ? completed : [];
       if (items.length === 0) {{
-        return '<li class=\"muted\">No completed issues yet.</li>';
+        return '<li class="muted">No completed issues yet.</li>';
       }}
 
-      return items.map(function(issueId) {{
-        return '<li class=\"mono\">' + escapeHtml(issueId) + '</li>';
+      return items.map(function(entry) {{
+        const id = entry.identifier || entry.issue_id || '-';
+        const title = entry.title || '';
+        const date = entry.completed_at ? new Date(entry.completed_at).toLocaleString() : '';
+        const label = title ? id + ' — ' + title : id;
+        const suffix = date ? ' <span class="muted" style="font-size:12px">(' + escapeHtml(date) + ')</span>' : '';
+        return '<li class="mono">' + escapeHtml(label) + suffix + '</li>';
       }}).join('');
     }}
 
