@@ -199,6 +199,7 @@ query SliceChildren($id: String!) {
         title
         state {
           name
+          type
         }
       }
     }
@@ -246,6 +247,22 @@ query IssueMilestone($id: String!) {
     projectMilestone {
       id
       name
+    }
+  }
+}
+```
+
+Get milestone documents:
+
+```graphql
+query MilestoneDocuments($id: String!) {
+  projectMilestone(id: $id) {
+    documents {
+      nodes {
+        id
+        title
+        content
+      }
     }
   }
 }
