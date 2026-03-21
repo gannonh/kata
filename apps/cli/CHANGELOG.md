@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.1
+
+### Features
+
+- **Step badge in auto-mode** — statusline now shows a `step` badge while a dispatch unit is active, clearing on agent turn end. Makes it visible which phase auto-mode is executing.
+- **Remove `kata-run` slash command** — deleted the unused `/kata-run` command and its registration.
+
+### Fixes
+
+- **Linear auto-close recovery in auto-mode** — when Linear's "Auto-close parent issues" setting moves a slice to Done before the complete-slice unit runs, auto-mode now detects the skip (missing slice summary), overrides state to `summarizing`, and forces the complete-slice dispatch. Also runs the PR gate on final completion when the early exit would otherwise skip it.
+- **Stale milestone ID after recovery** — fixed `mid` staying null after recovery path A, which caused the normal stop block to fire and undo the recovery.
+- **Finalize metrics before PR gate** — snapshot unit metrics and save activity log before the PR gate early return in recovery path B, preventing dropped metrics for the complete-slice unit.
+- **Stop on legacy merge failure** — auto-mode now stops on squash merge failure instead of falling through to `skipped`, which could leave the repo in an inconsistent state.
+- **Test reliability** — added 60s timeouts to four slow smoke tests; fixed linear-config integration test skip gating and done-callback timeout.
+
 ## 0.4.0
 
 ### Features
