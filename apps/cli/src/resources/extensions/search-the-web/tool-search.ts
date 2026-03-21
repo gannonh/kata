@@ -20,6 +20,8 @@ import { LRUTTLCache } from "./cache";
 import { fetchWithRetryTimed, fetchWithRetry, classifyError, type RateLimitInfo } from "./http";
 import { normalizeQuery, toDedupeKey, detectFreshness } from "./url-utils";
 import { formatSearchResults, type SearchResultFormatted, type FormatSearchOptions } from "./format";
+import { resolveSearchProvider, getBraveApiKey, braveHeaders, getTavilyApiKey } from "./provider.js";
+import { normalizeTavilyResult, mapFreshnessToTavily, type TavilySearchResponse } from "./tavily.js";
 
 // =============================================================================
 // Types
@@ -87,6 +89,7 @@ interface SearchDetails {
   originalQuery?: string;
   correctedQuery?: string;
   moreResultsAvailable?: boolean;
+  provider?: string;
   errorKind?: string;
   error?: string;
   retryAfterMs?: number;
@@ -106,18 +109,6 @@ const summarizerCache = new LRUTTLCache<string>({ max: 50, ttlMs: 900_000 });
 // =============================================================================
 // Brave API helpers
 // =============================================================================
-
-function getBraveApiKey(): string {
-  return process.env.BRAVE_API_KEY || "";
-}
-
-function braveHeaders(): Record<string, string> {
-  return {
-    "Accept": "application/json",
-    "Accept-Encoding": "gzip",
-    "X-Subscription-Token": getBraveApiKey(),
-  };
-}
 
 /**
  * Normalize a Brave result into our formatted result type.
@@ -233,12 +224,12 @@ export function registerSearchTool(pi: ExtensionAPI) {
         return { content: [{ type: "text", text: "Search cancelled." }] };
       }
 
-      const apiKey = getBraveApiKey();
-      if (!apiKey) {
+      const provider = resolveSearchProvider();
+      if (!provider) {
         return {
-          content: [{ type: "text", text: "Web search unavailable: BRAVE_API_KEY is not set. Use secure_env_collect to set BRAVE_API_KEY." }],
+          content: [{ type: "text", text: "Web search unavailable: No search API key set. Set BRAVE_API_KEY or TAVILY_API_KEY. Use secure_env_collect to configure." }],
           isError: true,
-          details: { errorKind: "auth_error", error: "BRAVE_API_KEY not set" } satisfies Partial<SearchDetails>,
+          details: { errorKind: "auth_error", error: "No search API key set (BRAVE_API_KEY or TAVILY_API_KEY)" } satisfies Partial<SearchDetails>,
         };
       }
 
@@ -320,82 +311,140 @@ export function registerSearchTool(pi: ExtensionAPI) {
       onUpdate?.({ content: [{ type: "text", text: `Searching for "${params.query}"...` }] });
 
       try {
-        // ------------------------------------------------------------------
-        // Build Brave API request
-        // ------------------------------------------------------------------
-        const url = new URL("https://api.search.brave.com/res/v1/web/search");
-        url.searchParams.append("q", effectiveQuery);
-        url.searchParams.append("count", "10"); // Extra for dedup headroom
-        url.searchParams.append("extra_snippets", "true");
-        url.searchParams.append("text_decorations", "false");
-
-        if (freshness) {
-          url.searchParams.append("freshness", freshness);
-        }
-        if (wantSummary) {
-          url.searchParams.append("summary", "1");
-        }
-
-        // ------------------------------------------------------------------
-        // Execute with timing
-        // ------------------------------------------------------------------
-        let timed;
-        try {
-          timed = await fetchWithRetryTimed(url.toString(), {
-            method: "GET",
-            headers: braveHeaders(),
-            signal,
-          }, 2);
-        } catch (fetchErr) {
-          const classified = classifyError(fetchErr);
-          return {
-            content: [{ type: "text", text: `Search failed: ${classified.message}` }],
-            details: {
-              errorKind: classified.kind,
-              error: classified.message,
-              retryAfterMs: classified.retryAfterMs,
-              query: params.query,
-            } satisfies Partial<SearchDetails>,
-            isError: true,
-          };
-        }
-
-        const data: BraveSearchResponse = await timed.response.json();
-        const rawResults: BraveWebResult[] = data.web?.results ?? [];
-        const summarizerKey: string | undefined = data.summarizer?.key;
-
-        // ------------------------------------------------------------------
-        // Extract spellcheck/correction info
-        // ------------------------------------------------------------------
-        const queryInfo = data.query;
-        const queryCorrected = !!(queryInfo?.altered && queryInfo.altered !== queryInfo.original);
-        const originalQuery = queryCorrected ? (queryInfo?.original ?? params.query) : undefined;
-        const correctedQuery = queryCorrected ? queryInfo?.altered : undefined;
-        const moreResultsAvailable = queryInfo?.more_results_available ?? false;
-
-        // ------------------------------------------------------------------
-        // Normalize, deduplicate, cache
-        // ------------------------------------------------------------------
-        const normalized = rawResults.map(normalizeBraveResult);
-        const deduplicated = deduplicateResults(normalized);
-
-        searchCache.set(cacheKey, {
-          results: deduplicated,
-          summarizerKey,
-          queryCorrected,
-          originalQuery,
-          correctedQuery,
-          moreResultsAvailable,
-        });
-
-        const results = deduplicated.slice(0, count);
-
-        // ------------------------------------------------------------------
-        // Optionally fetch AI summary (best-effort)
-        // ------------------------------------------------------------------
+        let results: SearchResultFormatted[];
         let summaryText: string | undefined;
-        if (wantSummary && summarizerKey) {
-          summaryText = (await fetchSummary(summarizerKey, signal)) ?? undefined;
+        let latencyMs: number | undefined;
+        let rateLimit: RateLimitInfo | undefined;
+        let queryCorrected: boolean | undefined;
+        let originalQuery: string | undefined;
+        let correctedQuery: string | undefined;
+        let moreResultsAvailable: boolean | undefined;
+
+        if (provider === 'tavily') {
+          // ----------------------------------------------------------------
+          // Tavily path
+          // ----------------------------------------------------------------
+          const tavilyBody: Record<string, unknown> = {
+            query: effectiveQuery,
+            max_results: count,
+            include_answer: wantSummary,
+          };
+          const tavilyFreshness = mapFreshnessToTavily(freshness);
+          if (tavilyFreshness) {
+            tavilyBody.time_range = tavilyFreshness;
+          }
+
+          let timed;
+          try {
+            timed = await fetchWithRetryTimed("https://api.tavily.com/search", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${getTavilyApiKey()}`,
+              },
+              body: JSON.stringify(tavilyBody),
+              signal,
+            }, 2);
+          } catch (fetchErr) {
+            const classified = classifyError(fetchErr);
+            return {
+              content: [{ type: "text", text: `Search failed: ${classified.message}` }],
+              details: {
+                errorKind: classified.kind,
+                error: classified.message,
+                retryAfterMs: classified.retryAfterMs,
+                query: params.query,
+                provider: 'tavily',
+              } satisfies Partial<SearchDetails>,
+              isError: true,
+            };
+          }
+
+          const data: TavilySearchResponse = await timed.response.json();
+          const normalized = data.results.map(normalizeTavilyResult);
+          const deduplicated = deduplicateResults(normalized);
+
+          searchCache.set(cacheKey, {
+            results: deduplicated,
+            summarizerKey: undefined,
+            queryCorrected: false,
+            originalQuery: undefined,
+            correctedQuery: undefined,
+            moreResultsAvailable: false,
+          });
+
+          results = deduplicated.slice(0, count);
+          summaryText = (wantSummary && data.answer) ? data.answer : undefined;
+          latencyMs = timed.latencyMs;
+          rateLimit = timed.rateLimit;
+        } else {
+          // ----------------------------------------------------------------
+          // Brave path (existing logic)
+          // ----------------------------------------------------------------
+          const url = new URL("https://api.search.brave.com/res/v1/web/search");
+          url.searchParams.append("q", effectiveQuery);
+          url.searchParams.append("count", "10");
+          url.searchParams.append("extra_snippets", "true");
+          url.searchParams.append("text_decorations", "false");
+
+          if (freshness) {
+            url.searchParams.append("freshness", freshness);
+          }
+          if (wantSummary) {
+            url.searchParams.append("summary", "1");
+          }
+
+          let timed;
+          try {
+            timed = await fetchWithRetryTimed(url.toString(), {
+              method: "GET",
+              headers: braveHeaders(),
+              signal,
+            }, 2);
+          } catch (fetchErr) {
+            const classified = classifyError(fetchErr);
+            return {
+              content: [{ type: "text", text: `Search failed: ${classified.message}` }],
+              details: {
+                errorKind: classified.kind,
+                error: classified.message,
+                retryAfterMs: classified.retryAfterMs,
+                query: params.query,
+                provider: 'brave',
+              } satisfies Partial<SearchDetails>,
+              isError: true,
+            };
+          }
+
+          const data: BraveSearchResponse = await timed.response.json();
+          const rawResults: BraveWebResult[] = data.web?.results ?? [];
+          const summarizerKey: string | undefined = data.summarizer?.key;
+
+          const queryInfo = data.query;
+          queryCorrected = !!(queryInfo?.altered && queryInfo.altered !== queryInfo.original);
+          originalQuery = queryCorrected ? (queryInfo?.original ?? params.query) : undefined;
+          correctedQuery = queryCorrected ? queryInfo?.altered : undefined;
+          moreResultsAvailable = queryInfo?.more_results_available ?? false;
+
+          const normalized = rawResults.map(normalizeBraveResult);
+          const deduplicated = deduplicateResults(normalized);
+
+          searchCache.set(cacheKey, {
+            results: deduplicated,
+            summarizerKey,
+            queryCorrected,
+            originalQuery,
+            correctedQuery,
+            moreResultsAvailable,
+          });
+
+          results = deduplicated.slice(0, count);
+          latencyMs = timed.latencyMs;
+          rateLimit = timed.rateLimit;
+
+          if (wantSummary && summarizerKey) {
+            summaryText = (await fetchSummary(summarizerKey, signal)) ?? undefined;
+          }
         }
 
         // ------------------------------------------------------------------
@@ -427,12 +476,13 @@ export function registerSearchTool(pi: ExtensionAPI) {
           cached: false,
           freshness: freshness || "none",
           hasSummary: !!summaryText,
-          latencyMs: timed.latencyMs,
-          rateLimit: timed.rateLimit,
+          latencyMs,
+          rateLimit,
           queryCorrected,
           originalQuery,
           correctedQuery,
           moreResultsAvailable,
+          provider,
         };
 
         return { content: [{ type: "text", text: content }], details };
