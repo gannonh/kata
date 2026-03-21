@@ -130,7 +130,7 @@ async fn body_json(response: axum::response::Response) -> Value {
 }
 
 #[tokio::test]
-async fn test_get_root_returns_html_dashboard_shell_with_state_sections() {
+async fn test_get_root_returns_html_dashboard_shell_with_structured_sections() {
     let app = test_router();
 
     let response = app
@@ -165,12 +165,40 @@ async fn test_get_root_returns_html_dashboard_shell_with_state_sections() {
         "dashboard shell should include visible product heading"
     );
     assert!(
-        body.contains("running"),
-        "dashboard shell should include running section"
+        body.contains("Running sessions"),
+        "dashboard shell should include running sessions table section"
     );
     assert!(
-        body.contains("retry"),
-        "dashboard shell should include retry diagnostics section"
+        body.contains("Retry queue"),
+        "dashboard shell should include retry queue table section"
+    );
+    assert!(
+        body.contains("Completed issues"),
+        "dashboard shell should include completed issue list section"
+    );
+    assert!(
+        body.contains("Token summary"),
+        "dashboard shell should include token summary section"
+    );
+    assert!(
+        body.contains("Polling"),
+        "dashboard shell should include polling section"
+    );
+    assert!(
+        body.contains("Rate limits"),
+        "dashboard shell should include rate-limit diagnostics section"
+    );
+    assert!(
+        body.contains("id=\\\"polling-next-poll\\\">n/a"),
+        "dashboard shell should initialize next-poll tile with n/a placeholder"
+    );
+    assert!(
+        body.contains("id=\\\"polling-interval\\\">n/a"),
+        "dashboard shell should initialize poll-interval tile with n/a placeholder"
+    );
+    assert!(
+        !body.contains("Live state"),
+        "dashboard shell should no longer expose the raw live-state section"
     );
 }
 

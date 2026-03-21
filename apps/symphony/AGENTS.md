@@ -291,7 +291,7 @@ workflow file (e.g. `0.0.0.0` to bind all interfaces).
 
 | Method | Path                        | Description                                                                                                                                                                      |
 | ------ | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET`  | `/`                         | HTML dashboard — auto-refreshes every 2 seconds. Shows running/retry/claimed/completed counts, token totals, rate limit state, and live JSON state.                              |
+| `GET`  | `/`                         | HTML dashboard — auto-refreshes every 2 seconds. Shows summary cards, running sessions table, retry queue table, completed issue list, token breakdown, polling diagnostics, and collapsible rate-limit JSON. |
 | `GET`  | `/api/v1/state`             | Full orchestrator state as JSON.                                                                                                                                                 |
 | `GET`  | `/api/v1/:issue_identifier` | Per-issue projection. `:issue_identifier` must match the pattern `TEAM-NNN` (uppercase prefix, hyphen, digits). Returns 404 when the issue is not running or in the retry queue. |
 | `POST` | `/api/v1/refresh`           | Request an immediate Linear poll. Requests are coalesced — multiple concurrent POSTs result in one actual refresh. Returns 202.                                                  |
