@@ -756,30 +756,9 @@ export default function (pi: ExtensionAPI) {
           async (t, index) => {
             const workerId = registerWorker(t.agent, t.task, index, params.tasks!.length, batchId);
             const agentStart = Date.now();
+            let result: SingleResult | undefined;
 
-            let result = await runSingleAgent(
-              ctx.cwd,
-              agents,
-              t.agent,
-              t.task,
-              t.cwd,
-              undefined,
-              signal,
-              // Per-task update callback
-              (partial) => {
-                if (partial.details?.results[0]) {
-                  allResults[index] = partial.details.results[0];
-                  emitParallelUpdate();
-                }
-              },
-              makeDetails("parallel"),
-            );
-
-            // Auto-retry failed tasks (likely API rate limit or transient error)
-            const isFailed =
-              result.exitCode !== 0 ||
-              (result.messages.length === 0 && !signal?.aborted);
-            if (isFailed && MAX_RETRIES > 0 && !signal?.aborted) {
+            try {
               result = await runSingleAgent(
                 ctx.cwd,
                 agents,
@@ -788,6 +767,7 @@ export default function (pi: ExtensionAPI) {
                 t.cwd,
                 undefined,
                 signal,
+                // Per-task update callback
                 (partial) => {
                   if (partial.details?.results[0]) {
                     allResults[index] = partial.details.results[0];
@@ -796,13 +776,42 @@ export default function (pi: ExtensionAPI) {
                 },
                 makeDetails("parallel"),
               );
-            }
 
-            elapsedTimes[index] = Date.now() - agentStart;
-            updateWorker(workerId, result.exitCode === 0 ? "completed" : "failed");
-            allResults[index] = result;
-            emitParallelUpdate();
-            return result;
+              // Auto-retry failed tasks (likely API rate limit or transient error)
+              const isFailed =
+                result.exitCode !== 0 ||
+                (result.messages.length === 0 && !signal?.aborted);
+              if (isFailed && MAX_RETRIES > 0 && !signal?.aborted) {
+                result = await runSingleAgent(
+                  ctx.cwd,
+                  agents,
+                  t.agent,
+                  t.task,
+                  t.cwd,
+                  undefined,
+                  signal,
+                  (partial) => {
+                    if (partial.details?.results[0]) {
+                      allResults[index] = partial.details.results[0];
+                      emitParallelUpdate();
+                    }
+                  },
+                  makeDetails("parallel"),
+                );
+              }
+
+              allResults[index] = result;
+              return result;
+            } finally {
+              elapsedTimes[index] = Date.now() - agentStart;
+              const isError = !result ||
+                result.exitCode !== 0 ||
+                result.stopReason === "error" ||
+                result.stopReason === "aborted";
+              updateWorker(workerId, isError ? "failed" : "completed");
+              if (result) allResults[index] = result;
+              emitParallelUpdate();
+            }
           },
         );
 
