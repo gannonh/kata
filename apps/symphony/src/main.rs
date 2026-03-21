@@ -1,5 +1,6 @@
 use std::ffi::OsString;
 use std::future::{pending, Future};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, Once};
 
@@ -270,13 +271,29 @@ fn display_path_with_home_alias(path: &Path) -> String {
     }
 }
 
+fn format_dashboard_url(host: &str, port: u16) -> String {
+    let host = match host.parse::<std::net::IpAddr>() {
+        Ok(std::net::IpAddr::V6(_)) if !host.starts_with('[') => format!("[{host}]"),
+        _ if host.contains(':') && !host.starts_with('[') && !host.ends_with(']') => {
+            format!("[{host}]")
+        }
+        _ => host.to_string(),
+    };
+
+    if port == 0 {
+        format!("http://{host}:<ephemeral>")
+    } else {
+        format!("http://{host}:{port}")
+    }
+}
+
 pub(crate) fn build_startup_banner(
     cli: &Cli,
     config: &ServiceConfig,
     http_binding: Option<&HttpBinding>,
 ) -> String {
     let dashboard = http_binding
-        .map(|binding| format!("http://{}:{}", binding.host, binding.port))
+        .map(|binding| format_dashboard_url(&binding.host, binding.port))
         .unwrap_or_else(|| "disabled".to_string());
 
     let logs = cli
@@ -302,6 +319,9 @@ pub(crate) fn build_startup_banner(
 
 fn print_startup_banner(cli: &Cli, config: &ServiceConfig, http_binding: Option<&HttpBinding>) {
     print!("{}", build_startup_banner(cli, config, http_binding));
+    if let Err(err) = std::io::stdout().flush() {
+        eprintln!("failed to flush startup banner to stdout: {err}");
+    }
 }
 
 pub fn execute_cli(cli: &Cli, deps: &mut dyn BootstrapDeps) -> Result<(), String> {
