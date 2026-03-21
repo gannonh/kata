@@ -467,6 +467,56 @@ fn test_config_validation_rejects_clone_local_with_remote_repo() {
 }
 
 #[test]
+fn test_config_validation_rejects_clone_local_without_repo() {
+    let config = ServiceConfig {
+        tracker: TrackerConfig {
+            kind: Some("linear".to_string()),
+            api_key: Some("test-key".into()),
+            project_slug: Some("my-project".to_string()),
+            ..TrackerConfig::default()
+        },
+        workspace: WorkspaceConfig {
+            strategy: WorkspaceRepoStrategy::CloneLocal,
+            repo: None,
+            ..WorkspaceConfig::default()
+        },
+        ..ServiceConfig::default()
+    };
+
+    let result = validate(&config);
+    assert!(
+        matches!(result, Err(SymphonyError::InvalidWorkflowConfig(ref msg)) if msg.contains("workspace.repo") && msg.contains("clone-local")),
+        "clone-local strategy without repo should fail validation, got: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_config_validation_rejects_clone_local_with_scp_style_remote_repo() {
+    let config = ServiceConfig {
+        tracker: TrackerConfig {
+            kind: Some("linear".to_string()),
+            api_key: Some("test-key".into()),
+            project_slug: Some("my-project".to_string()),
+            ..TrackerConfig::default()
+        },
+        workspace: WorkspaceConfig {
+            strategy: WorkspaceRepoStrategy::CloneLocal,
+            repo: Some("github.example.com:org/repo.git".to_string()),
+            ..WorkspaceConfig::default()
+        },
+        ..ServiceConfig::default()
+    };
+
+    let result = validate(&config);
+    assert!(
+        matches!(result, Err(SymphonyError::InvalidWorkflowConfig(ref msg)) if msg.contains("workspace.git_strategy") && msg.contains("clone-local")),
+        "clone-local strategy with SCP-style remote repo should fail validation, got: {:?}",
+        result
+    );
+}
+
+#[test]
 fn test_config_validation_missing_api_key() {
     let config = ServiceConfig {
         tracker: TrackerConfig {

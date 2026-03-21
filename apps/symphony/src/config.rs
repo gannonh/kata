@@ -669,13 +669,17 @@ pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
     }
 
     if config.workspace.strategy == WorkspaceRepoStrategy::CloneLocal {
-        if let Some(repo) = config.workspace.repo.as_deref() {
-            if repo_is_remote(repo) {
-                return Err(SymphonyError::InvalidWorkflowConfig(
-                    "workspace.git_strategy 'clone-local' requires workspace.repo to be a local path"
-                        .to_string(),
-                ));
-            }
+        let repo = config.workspace.repo.as_deref().ok_or_else(|| {
+            SymphonyError::InvalidWorkflowConfig(
+                "workspace.repo is required when workspace.git_strategy is 'clone-local'"
+                    .to_string(),
+            )
+        })?;
+        if repo_is_remote(repo) {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "workspace.git_strategy 'clone-local' requires workspace.repo to be a local path"
+                    .to_string(),
+            ));
         }
     }
 
