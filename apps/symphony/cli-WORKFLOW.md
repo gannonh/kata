@@ -2,7 +2,8 @@
 tracker:
   kind: linear
   api_key: $LINEAR_API_KEY
-  project_slug: "c7e76979-df58-407a-bf64-09bfccfef9c4"
+  # project_slug: "89d4761fddf0" # Symphony project
+  project_slug: "459f9835e809" # Kata CLI project
   # assignee: alice
   active_states:
     - Todo
