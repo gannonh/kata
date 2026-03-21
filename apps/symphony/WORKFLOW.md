@@ -19,7 +19,7 @@ tracker:
 polling:
   interval_ms: 30000
 workspace:
-  root: ~/symphony-workspaces
+  root: /Volumes/EVO/symphony-workspaces
   repo: /Volumes/EVO/kata/kata-mono
   git_strategy: clone-local
   isolation: local
