@@ -14,6 +14,8 @@ tracker:
     - Done
     - Closed
     - Cancelled
+    - Canceled
+    - Duplicate
 polling:
   interval_ms: 30000
 workspace:
@@ -320,10 +322,12 @@ Use one persistent workpad comment and include task-level progress:
 
 - `Backlog` -> out of scope for this workflow; do not modify.
 - `Todo` -> orchestrator moves to `In Progress` on dispatch; verify then execute.
-- `In Progress` -> active implementation and slice task execution.
+- `In Progress` -> active implementation and slice task execution. After PR
+  publish-proof and required validation gates pass, move to `Agent Review`.
 - `Agent Review` -> address review/bot feedback on the existing PR.
 - `Human Review` -> no coding; wait for approval/rejection.
-- `Merging` -> run merge flow and move slice to `Done`.
+- `Merging` -> run `.codex/skills/land/SKILL.md` merge loop, then move slice
+  to `Done`.
 - `Rework` -> close prior PR, create fresh branch from `origin/{{ workspace.base_branch }}`, restart.
 - `Done` -> terminal state; do nothing.
 
@@ -353,12 +357,15 @@ Use one persistent workpad comment and include task-level progress:
 4. After each child task completion, move that child issue to `Done`.
 5. Maintain one PR for the slice.
 6. Before state transition, ensure workpad Plan/Acceptance/Validation exactly match reality.
+7. After publish-proof and required-check gates pass, move issue state from
+   `In Progress` to `Agent Review`.
 
 ## Step 3: Review and merge
 
 1. In `Agent Review`, address all actionable PR comments (top-level + inline + review summaries), push fixes, rerun validation.
 2. Move to `Human Review` only when no unresolved actionable comments remain and checks are green.
-3. In `Merging`, merge approved PR, then move slice issue to `Done`.
+3. In `Merging`, run `.codex/skills/land/SKILL.md` (do not call `gh pr merge`
+   directly), then move slice issue to `Done`.
 4. Ensure children are already `Done`; if not, resolve before marking slice done.
 
 ## Guardrails
