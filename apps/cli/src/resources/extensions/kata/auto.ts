@@ -27,6 +27,11 @@ import {
   formatCrashInfo,
 } from "./crash-recovery.js";
 import {
+  acquireSessionLock,
+  releaseSessionLock,
+  updateSessionLock,
+} from "./session-lock.js";
+import {
   clearUnitRuntimeRecord,
   formatExecuteTaskRecoveryStatus,
   inspectExecuteTaskDurability,
@@ -223,7 +228,10 @@ export async function stopAuto(
 ): Promise<void> {
   if (!active && !paused) return;
   clearUnitTimeout();
-  if (basePath) clearLock(basePath);
+  if (basePath) {
+    releaseSessionLock(basePath);
+    clearLock(basePath);
+  }
   clearSkillSnapshot();
 
   providerErrorStreak = 0;
@@ -275,7 +283,10 @@ export async function pauseAuto(
 ): Promise<void> {
   if (!active) return;
   clearUnitTimeout();
-  if (basePath) clearLock(basePath);
+  if (basePath) {
+    releaseSessionLock(basePath);
+    clearLock(basePath);
+  }
   active = false;
   paused = true;
   // Preserve: lastUnit, currentUnit, basePath, verbose, cmdCtx,
@@ -385,6 +396,18 @@ export async function startAuto(
       await showSmartEntry(ctx, pi, base);
       return;
     }
+  }
+
+  const lockResult = acquireSessionLock(base);
+  if (!lockResult.acquired) {
+    const pidSuffix = lockResult.existingPid
+      ? ` Existing PID: ${lockResult.existingPid}.`
+      : "";
+    ctx.ui.notify(
+      `Auto-mode start blocked by session lock: ${lockResult.reason}${pidSuffix}`,
+      "error",
+    );
+    return;
   }
 
   active = true;
@@ -1362,6 +1385,13 @@ async function dispatchNextUnit(
   // 16. Lock file
   const sessionFile = ctx.sessionManager.getSessionFile();
   writeLock(basePath, unitType, unitId, completedUnits.length, sessionFile);
+  updateSessionLock(
+    basePath,
+    unitType,
+    unitId,
+    completedUnits.length,
+    sessionFile,
+  );
 
   // 17. Crash recovery + retry diagnostic
   let finalPrompt = prompt;
