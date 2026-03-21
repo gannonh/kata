@@ -1,10 +1,14 @@
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::{Duration as StdDuration, Instant};
 
 use chrono::{Duration, Utc};
 use mockito::{Server, ServerGuard};
 use serde_json::json;
-use tempfile::tempdir;
+use tempfile::{tempdir, NamedTempFile};
 
 use symphony::domain::{
     AgentConfig, AgentEvent, ApiKey, BlockerRef, Issue, ServiceConfig, TrackerConfig,
@@ -14,6 +18,7 @@ use symphony::orchestrator::{
     refresh_channel, Orchestrator, OrchestratorPort, RetryKind, RuntimeEvent, TurnMetrics,
     WorkerCompletion, CONTINUATION_RETRY_DELAY_MS,
 };
+use symphony::workflow_store::WorkflowStore;
 
 #[derive(Default)]
 struct FakePort {
@@ -127,6 +132,109 @@ fn issue(
         created_at: Some(Utc::now() + Duration::seconds(created_at_offset_secs)),
         updated_at: Some(Utc::now()),
     }
+}
+
+fn overwrite_workflow_file(
+    path: &Path,
+    poll_interval_ms: u64,
+    max_concurrent_agents: u32,
+    stall_timeout_ms: u64,
+    prompt_template: &str,
+) {
+    let mut file = File::create(path).expect("workflow file should be writable");
+    writeln!(
+        file,
+        "---\ntracker:\n  kind: linear\n  api_key: test-key\n  project_slug: project\npolling:\n  interval_ms: {poll_interval_ms}\nagent:\n  max_concurrent_agents: {max_concurrent_agents}\ncodex:\n  stall_timeout_ms: {stall_timeout_ms}\n---\n{prompt_template}"
+    )
+    .expect("workflow file should be updated");
+}
+
+fn wait_for_workflow_config(
+    store: &WorkflowStore,
+    expected_poll_interval_ms: u64,
+    expected_max_concurrent_agents: u32,
+    expected_stall_timeout_ms: u64,
+    expected_prompt_fragment: &str,
+) {
+    let deadline = Instant::now() + StdDuration::from_secs(3);
+
+    loop {
+        let (workflow_def, config) = store.effective_config();
+        let matches = config.polling.interval_ms == expected_poll_interval_ms
+            && config.agent.max_concurrent_agents == expected_max_concurrent_agents
+            && config.codex.stall_timeout_ms == expected_stall_timeout_ms
+            && workflow_def
+                .prompt_template
+                .contains(expected_prompt_fragment);
+
+        if matches {
+            return;
+        }
+
+        if Instant::now() >= deadline {
+            panic!(
+                "timed out waiting for workflow reload (poll={}, max_agents={}, stall={}, prompt={:?}); observed poll={}, max_agents={}, stall={}, prompt={:?}",
+                expected_poll_interval_ms,
+                expected_max_concurrent_agents,
+                expected_stall_timeout_ms,
+                expected_prompt_fragment,
+                config.polling.interval_ms,
+                config.agent.max_concurrent_agents,
+                config.codex.stall_timeout_ms,
+                workflow_def.prompt_template
+            );
+        }
+
+        std::thread::sleep(StdDuration::from_millis(50));
+    }
+}
+
+#[test]
+fn test_tick_refreshes_runtime_state_from_workflow_store_reload() {
+    let workflow = NamedTempFile::new().expect("temp workflow should be created");
+    overwrite_workflow_file(workflow.path(), 1000, 1, 60_000, "Prompt v1");
+
+    let workflow_store = Arc::new(
+        WorkflowStore::new(workflow.path())
+            .expect("workflow store should initialize from temp file"),
+    );
+
+    wait_for_workflow_config(&workflow_store, 1000, 1, 60_000, "Prompt v1");
+
+    let mut orchestrator = Orchestrator::new_with_workflow_store(Arc::clone(&workflow_store));
+    let mut port = FakePort::default();
+
+    let initial_tick = orchestrator
+        .tick(&mut port)
+        .expect("initial tick should succeed");
+    assert!(
+        initial_tick.dispatched_issue_ids.is_empty(),
+        "baseline tick should not dispatch without candidates"
+    );
+    assert_eq!(orchestrator.state().max_concurrent_agents, 1);
+    assert_eq!(orchestrator.state().poll_interval_ms, 1000);
+
+    overwrite_workflow_file(workflow.path(), 2222, 4, 90_000, "Prompt v2");
+    wait_for_workflow_config(&workflow_store, 2222, 4, 90_000, "Prompt v2");
+
+    let after_reload_tick = orchestrator
+        .tick(&mut port)
+        .expect("tick after workflow reload should succeed");
+    assert!(
+        after_reload_tick.dispatched_issue_ids.is_empty(),
+        "reload tick should remain non-dispatching without candidates"
+    );
+
+    assert_eq!(
+        orchestrator.state().max_concurrent_agents,
+        4,
+        "tick should sync state.max_concurrent_agents from reloaded workflow config"
+    );
+    assert_eq!(
+        orchestrator.state().poll_interval_ms,
+        2222,
+        "tick should sync state.poll_interval_ms from reloaded workflow config"
+    );
 }
 
 #[test]

@@ -15,6 +15,7 @@ use crate::domain::{
 };
 use crate::error::{Result, SymphonyError};
 use crate::ssh::{self, WorkerHostSelection};
+use crate::workflow_store::WorkflowStore;
 use crate::{path_safety, prompt_builder, workspace};
 
 // ── Standalone Worker Task ──────────────────────────────────────────────
@@ -596,6 +597,7 @@ pub trait OrchestratorPort {
 /// state in this process. State mutation only happens through `&mut self`
 /// methods (startup cleanup, tick, retry handlers).
 pub struct Orchestrator {
+    workflow_store: Option<Arc<WorkflowStore>>,
     config: ServiceConfig,
     state: OrchestratorState,
     events: Vec<RuntimeEvent>,
@@ -618,12 +620,26 @@ pub struct Orchestrator {
 }
 
 impl Orchestrator {
+    pub fn new_with_workflow_store(workflow_store: Arc<WorkflowStore>) -> Self {
+        let (workflow_def, config) = workflow_store.effective_config();
+        Self::from_runtime_config(config, workflow_def.prompt_template, Some(workflow_store))
+    }
+
     pub fn new(config: ServiceConfig, prompt_template: String) -> Self {
+        Self::from_runtime_config(config, prompt_template, None)
+    }
+
+    fn from_runtime_config(
+        config: ServiceConfig,
+        prompt_template: String,
+        workflow_store: Option<Arc<WorkflowStore>>,
+    ) -> Self {
         let poll_interval_ms = config.polling.interval_ms;
         let max_concurrent_agents = config.agent.max_concurrent_agents;
         let (worker_result_tx, worker_result_rx) = tokio::sync::mpsc::unbounded_channel();
 
         Self {
+            workflow_store,
             config,
             state: OrchestratorState {
                 poll_interval_ms,
@@ -649,11 +665,23 @@ impl Orchestrator {
         }
     }
 
+    fn refresh_runtime_config(&mut self) {
+        if let Some(workflow_store) = self.workflow_store.as_ref() {
+            let (workflow_def, config) = workflow_store.effective_config();
+            self.config = config;
+            self.prompt_template = workflow_def.prompt_template;
+        }
+
+        self.state.max_concurrent_agents = self.config.agent.max_concurrent_agents;
+        self.state.poll_interval_ms = self.config.polling.interval_ms;
+    }
+
     pub async fn run(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
         self.startup_cleanup(port)?;
         self.publish_snapshot();
 
         loop {
+            self.refresh_runtime_config();
             let now_ms = Utc::now().timestamp_millis();
             let stall_timeout_ms = self.config.codex.stall_timeout_ms.min(i64::MAX as u64) as i64;
 
@@ -790,6 +818,7 @@ impl Orchestrator {
     }
 
     pub fn startup_cleanup(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
+        self.refresh_runtime_config();
         self.events.push(RuntimeEvent::StartupCleanup);
         tracing::info!(
             phase = "startup_cleanup",
@@ -806,6 +835,7 @@ impl Orchestrator {
     }
 
     pub fn tick(&mut self, port: &mut dyn OrchestratorPort) -> Result<TickResult> {
+        self.refresh_runtime_config();
         self.events.push(RuntimeEvent::Reconcile);
         tracing::info!(phase = "reconcile", "starting orchestrator tick phase");
         self.reconcile_running(port)?;

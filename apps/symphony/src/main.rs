@@ -178,11 +178,8 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
         let tracker_adapter = LinearAdapter::new(tracker_client);
         let mut tracker_port = LinearOrchestratorPort::new(tracker_adapter);
 
-        // Get the prompt template from the workflow store.
-        let (workflow_def, _) = context.workflow_store.effective_config();
-        let prompt_template = workflow_def.prompt_template.clone();
-
-        let mut orchestrator = Orchestrator::new(context.effective_config.clone(), prompt_template);
+        let workflow_store = Arc::new(context.workflow_store);
+        let mut orchestrator = Orchestrator::new_with_workflow_store(Arc::clone(&workflow_store));
 
         let snapshot_handle = orchestrator.create_snapshot_handle();
         let refresh_sender = orchestrator.create_refresh_channel();
@@ -214,9 +211,6 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
                 "HTTP server disabled; running orchestrator-only mode"
             );
         }
-
-        // Keep the watcher-backed store alive for the lifetime of the run.
-        let _workflow_store = context.workflow_store;
 
         run_runtime_until_shutdown(
             &mut orchestrator,
