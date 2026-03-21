@@ -1,10 +1,10 @@
 ---
 name: pull
 description:
-  Pull latest origin/main into the current local branch and resolve merge
-  conflicts (aka update-branch). Use when Codex needs to sync a feature branch
-  with origin, perform a merge-based update (not rebase), and guide conflict
-  resolution best practices.
+  Pull latest origin/<base-branch> into the current local branch and resolve
+  merge conflicts (aka update-branch). Use when Codex needs to sync a feature
+  branch with origin, perform a merge-based update (not rebase), and guide
+  conflict resolution best practices.
 ---
 
 # Pull
@@ -18,20 +18,25 @@ description:
 3. Confirm remotes and branches:
    - Ensure the `origin` remote exists.
    - Ensure the current branch is the one to receive the merge.
-4. Fetch latest refs:
+4. Determine the base branch merge target:
+   - Use a workflow-configured base branch when the task context provides one
+     (for Symphony workflows, this is `workspace.base_branch`).
+   - Default to `main` when no explicit base branch is available.
+   - Shell helper: `base_branch="${BASE_BRANCH:-main}"`.
+5. Fetch latest refs:
    - `git fetch origin`
-5. Sync the remote feature branch first:
+6. Sync the remote feature branch first:
    - `git pull --ff-only origin $(git branch --show-current)`
    - This pulls branch updates made remotely (for example, a GitHub auto-commit)
-     before merging `origin/main`.
-6. Merge in order:
-   - Prefer `git -c merge.conflictstyle=zdiff3 merge origin/main` for clearer
-     conflict context.
-7. If conflicts appear, resolve them (see conflict guidance below), then:
+     before merging `origin/$base_branch`.
+7. Merge in order:
+   - Prefer `git -c merge.conflictstyle=zdiff3 merge "origin/$base_branch"` for
+     clearer conflict context.
+8. If conflicts appear, resolve them (see conflict guidance below), then:
    - `git add <files>`
    - `git commit` (or `git merge --continue` if the merge is paused)
-8. Verify with project checks (follow repo policy in `AGENTS.md`).
-9. Summarize the merge:
+9. Verify with project checks (follow repo policy in `AGENTS.md`).
+10. Summarize the merge:
    - Call out the most challenging conflicts/files and how they were resolved.
    - Note any assumptions or follow-ups.
 
