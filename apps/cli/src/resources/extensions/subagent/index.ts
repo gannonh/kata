@@ -12,6 +12,7 @@
  * Uses JSON mode to capture structured output from subagents.
  */
 
+import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -26,6 +27,8 @@ import {
 import { Container, Markdown, Spacer, Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { type AgentConfig, type AgentScope, discoverAgents } from "./agents.js";
+import { formatElapsed } from "./elapsed.js";
+import { registerWorker, updateWorker } from "./worker-registry.js";
 
 const MAX_PARALLEL_TASKS = 8;
 const MAX_CONCURRENCY = 4;
@@ -614,6 +617,7 @@ export default function (pi: ExtensionAPI) {
       if (params.chain && params.chain.length > 0) {
         const results: SingleResult[] = [];
         let previousOutput = "";
+        const chainStart = Date.now();
 
         for (let i = 0; i < params.chain.length; i++) {
           const step = params.chain[i];
@@ -637,6 +641,7 @@ export default function (pi: ExtensionAPI) {
               }
             : undefined;
 
+          const stepStart = Date.now();
           const result = await runSingleAgent(
             ctx.cwd,
             agents,
@@ -648,6 +653,7 @@ export default function (pi: ExtensionAPI) {
             chainUpdate,
             makeDetails("chain"),
           );
+          const stepElapsed = Date.now() - stepStart;
           results.push(result);
 
           const isError =
@@ -664,7 +670,7 @@ export default function (pi: ExtensionAPI) {
               content: [
                 {
                   type: "text",
-                  text: `Chain stopped at step ${i + 1} (${step.agent}): ${errorMsg}`,
+                  text: `Chain stopped at step ${i + 1} (${step.agent}) after ${formatElapsed(stepElapsed)}: ${errorMsg}`,
                 },
               ],
               details: makeDetails("chain")(results),
@@ -673,13 +679,14 @@ export default function (pi: ExtensionAPI) {
           }
           previousOutput = getFinalOutput(result.messages);
         }
+        const chainElapsed = Date.now() - chainStart;
         return {
           content: [
             {
               type: "text",
               text:
-                getFinalOutput(results[results.length - 1].messages) ||
-                "(no output)",
+                (getFinalOutput(results[results.length - 1].messages) ||
+                "(no output)") + `\n\nChain completed in ${formatElapsed(chainElapsed)}`,
             },
           ],
           details: makeDetails("chain")(results),
@@ -698,8 +705,12 @@ export default function (pi: ExtensionAPI) {
             details: makeDetails("parallel")([]),
           };
 
+        const batchId = randomUUID();
+        const batchStart = Date.now();
+
         // Track all results for streaming updates
         const allResults: SingleResult[] = new Array(params.tasks.length);
+        const elapsedTimes: number[] = new Array(params.tasks.length).fill(0);
 
         // Initialize placeholder results
         for (let i = 0; i < params.tasks.length; i++) {
@@ -743,29 +754,11 @@ export default function (pi: ExtensionAPI) {
           params.tasks,
           MAX_CONCURRENCY,
           async (t, index) => {
-            let result = await runSingleAgent(
-              ctx.cwd,
-              agents,
-              t.agent,
-              t.task,
-              t.cwd,
-              undefined,
-              signal,
-              // Per-task update callback
-              (partial) => {
-                if (partial.details?.results[0]) {
-                  allResults[index] = partial.details.results[0];
-                  emitParallelUpdate();
-                }
-              },
-              makeDetails("parallel"),
-            );
+            const workerId = registerWorker(t.agent, t.task, index, params.tasks!.length, batchId);
+            const agentStart = Date.now();
+            let result: SingleResult | undefined;
 
-            // Auto-retry failed tasks (likely API rate limit or transient error)
-            const isFailed =
-              result.exitCode !== 0 ||
-              (result.messages.length === 0 && !signal?.aborted);
-            if (isFailed && MAX_RETRIES > 0 && !signal?.aborted) {
+            try {
               result = await runSingleAgent(
                 ctx.cwd,
                 agents,
@@ -774,6 +767,7 @@ export default function (pi: ExtensionAPI) {
                 t.cwd,
                 undefined,
                 signal,
+                // Per-task update callback
                 (partial) => {
                   if (partial.details?.results[0]) {
                     allResults[index] = partial.details.results[0];
@@ -782,16 +776,48 @@ export default function (pi: ExtensionAPI) {
                 },
                 makeDetails("parallel"),
               );
-            }
 
-            allResults[index] = result;
-            emitParallelUpdate();
-            return result;
+              // Auto-retry failed tasks (likely API rate limit or transient error)
+              const isFailed =
+                result.exitCode !== 0 ||
+                (result.messages.length === 0 && !signal?.aborted);
+              if (isFailed && MAX_RETRIES > 0 && !signal?.aborted) {
+                result = await runSingleAgent(
+                  ctx.cwd,
+                  agents,
+                  t.agent,
+                  t.task,
+                  t.cwd,
+                  undefined,
+                  signal,
+                  (partial) => {
+                    if (partial.details?.results[0]) {
+                      allResults[index] = partial.details.results[0];
+                      emitParallelUpdate();
+                    }
+                  },
+                  makeDetails("parallel"),
+                );
+              }
+
+              allResults[index] = result;
+              return result;
+            } finally {
+              elapsedTimes[index] = Date.now() - agentStart;
+              const isError = !result ||
+                result.exitCode !== 0 ||
+                result.stopReason === "error" ||
+                result.stopReason === "aborted";
+              updateWorker(workerId, isError ? "failed" : "completed");
+              if (result) allResults[index] = result;
+              emitParallelUpdate();
+            }
           },
         );
 
+        const batchElapsed = Date.now() - batchStart;
         const successCount = results.filter((r) => r.exitCode === 0).length;
-        const summaries = results.map((r) => {
+        const summaries = results.map((r, i) => {
           const isError =
             r.exitCode !== 0 ||
             r.stopReason === "error" ||
@@ -804,13 +830,16 @@ export default function (pi: ExtensionAPI) {
             : getFinalOutput(r.messages);
           const preview =
             output.slice(0, 200) + (output.length > 200 ? "..." : "");
-          return `[${r.agent}] ${r.exitCode === 0 ? "completed" : `failed (exit ${r.exitCode})`}: ${preview || "(no output)"}`;
+          const status = r.exitCode === 0
+            ? `completed in ${formatElapsed(elapsedTimes[i])}`
+            : `failed (exit ${r.exitCode}) after ${formatElapsed(elapsedTimes[i])}`;
+          return `[${r.agent}] ${status}: ${preview || "(no output)"}`;
         });
         return {
           content: [
             {
               type: "text",
-              text: `Parallel: ${successCount}/${results.length} succeeded\n\n${summaries.join("\n\n")}`,
+              text: `Parallel: ${successCount}/${results.length} succeeded in ${formatElapsed(batchElapsed)}\n\n${summaries.join("\n\n")}`,
             },
           ],
           details: makeDetails("parallel")(results),
@@ -818,6 +847,7 @@ export default function (pi: ExtensionAPI) {
       }
 
       if (params.agent && params.task) {
+        const singleStart = Date.now();
         const result = await runSingleAgent(
           ctx.cwd,
           agents,
@@ -829,6 +859,7 @@ export default function (pi: ExtensionAPI) {
           onUpdate,
           makeDetails("single"),
         );
+        const singleElapsed = Date.now() - singleStart;
         const isError =
           result.exitCode !== 0 ||
           result.stopReason === "error" ||
@@ -843,7 +874,7 @@ export default function (pi: ExtensionAPI) {
             content: [
               {
                 type: "text",
-                text: `Agent ${result.stopReason || "failed"}: ${errorMsg}`,
+                text: `Agent ${result.stopReason || "failed"} after ${formatElapsed(singleElapsed)}: ${errorMsg}`,
               },
             ],
             details: makeDetails("single")([result]),
@@ -854,7 +885,7 @@ export default function (pi: ExtensionAPI) {
           content: [
             {
               type: "text",
-              text: getFinalOutput(result.messages) || "(no output)",
+              text: (getFinalOutput(result.messages) || "(no output)") + `\n\nCompleted in ${formatElapsed(singleElapsed)}`,
             },
           ],
           details: makeDetails("single")([result]),
