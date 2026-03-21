@@ -290,6 +290,8 @@ fn test_orchestrator_snapshot_serializes() {
             checking: false,
             next_poll_in_ms: 15_000,
             poll_interval_ms: 30_000,
+            last_poll_at: None,
+            poll_count: 0,
         },
     };
     let json = serde_json::to_string(&snap).unwrap();

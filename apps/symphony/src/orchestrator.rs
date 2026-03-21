@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::future::Future;
 use std::path::Path;
@@ -628,6 +628,8 @@ pub struct Orchestrator {
     /// Normalized running issue state cache used for per-state slot accounting.
     running_issue_states: HashMap<String, String>,
     next_retry_token: u64,
+    poll_count: u64,
+    last_poll_at: Option<DateTime<Utc>>,
     /// Optional shared snapshot handle for HTTP read access.
     snapshot_handle: Option<SnapshotHandle>,
     /// Optional refresh receiver for HTTP control access.
@@ -698,6 +700,8 @@ impl Orchestrator {
             pending_terminal_cleanup: HashMap::new(),
             running_issue_states: HashMap::new(),
             next_retry_token: 0,
+            poll_count: 0,
+            last_poll_at: None,
             snapshot_handle: None,
             refresh_receiver: None,
             worker_result_rx,
@@ -936,6 +940,9 @@ impl Orchestrator {
         port: &mut dyn OrchestratorPort,
         refresh_runtime_config: bool,
     ) -> Result<TickResult> {
+        self.poll_count += 1;
+        self.last_poll_at = Some(Utc::now());
+
         if refresh_runtime_config {
             self.refresh_runtime_config();
         }
@@ -1687,6 +1694,8 @@ impl Orchestrator {
                 checking: false,
                 next_poll_in_ms: self.state.poll_interval_ms as i64,
                 poll_interval_ms: self.state.poll_interval_ms,
+                last_poll_at: self.last_poll_at.map(|t| t.to_rfc3339()),
+                poll_count: self.poll_count,
             },
         }
     }

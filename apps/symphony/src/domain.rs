@@ -464,6 +464,10 @@ pub struct PollingSnapshot {
     pub checking: bool,
     pub next_poll_in_ms: i64,
     pub poll_interval_ms: u64,
+    #[serde(default)]
+    pub last_poll_at: Option<String>,
+    #[serde(default)]
+    pub poll_count: u64,
 }
 
 /// Read-only serializable view of orchestrator state for the HTTP API.

@@ -109,6 +109,8 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
             checking: false,
             next_poll_in_ms: 5_000,
             poll_interval_ms: 30_000,
+            last_poll_at: Some("2026-03-21T12:00:00Z".to_string()),
+            poll_count: 42,
         },
     }
 }
