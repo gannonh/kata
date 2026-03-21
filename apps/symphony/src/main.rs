@@ -310,7 +310,7 @@ pub(crate) fn build_startup_banner(
         .unwrap_or("unknown_project_slug");
 
     format!(
-        "Symphony v{version}\nDashboard: {dashboard}\nLogs: {logs}\nProject: Symphony ({project_slug})\nWorkers: {workers} max concurrent\nPolling: {polling}\n\nPress Ctrl+C to stop.\n",
+        "Symphony v{version}\nDashboard: {dashboard}\nLogs: {logs}\nProject: {project_slug}\nWorkers: {workers} max concurrent\nPolling: {polling}\n\nPress Ctrl+C to stop.\n",
         version = env!("CARGO_PKG_VERSION"),
         workers = config.agent.max_concurrent_agents,
         polling = format_polling_interval(config.polling.interval_ms),
