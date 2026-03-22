@@ -64,6 +64,8 @@ impl ThroughputTracker {
         }
         let window_start = now_ms.saturating_sub(CURRENT_TPS_WINDOW_MS);
         let delta = self.window_token_delta(window_start, now_ms);
+        // Intentionally divide by the fixed 5s window so the dashboard readout
+        // stays stable; this smooths noise but under-reports during warm-up.
         let window_seconds = (CURRENT_TPS_WINDOW_MS as f64) / 1_000.0;
         if window_seconds > 0.0 {
             delta / window_seconds
