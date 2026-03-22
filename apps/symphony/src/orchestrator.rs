@@ -2545,11 +2545,10 @@ fn notification_event_summary(message: &str) -> (String, Option<String>) {
         .and_then(|method| method.as_str())
         .unwrap_or("notification")
         .to_string();
-    let summary = summarize_notification_payload(&name, &parsed).or_else(|| {
-        parsed
-            .get("params")
-            .map(|params| normalize_whitespace(&params.to_string()))
-    });
+    let mut summary = summarize_notification_payload(&name, &parsed);
+    if summary.is_none() && !fallback_message.is_empty() {
+        summary = Some(fallback_message);
+    }
 
     (name, summary)
 }
