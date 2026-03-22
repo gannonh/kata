@@ -2,7 +2,7 @@
 
 Headless orchestrator that polls a Linear project for candidate issues and dispatches parallel agent sessions to work on them autonomously. Manages the full ticket lifecycle — from Todo through implementation, PR creation, automated code review, human review, and merge.
 
-![Symphony HTTP Dashboard](../../assets/symphony-v1.0.0/symphony-web.png)
+![Symphony TUI Dashboard](../../assets/symphony-v1.0.0/symphony-tui.png)
 
 ## Features
 
@@ -19,7 +19,12 @@ Headless orchestrator that polls a Linear project for candidate issues and dispa
 - **HTTP dashboard + JSON API** — live session table with turn/activity/session-token observability, retry queue, polling stats
 - **Terminal dashboard (`--tui`)** — Ratatui observability view for local runs
 
-![Symphony TUI Dashboard](../../assets/symphony-v1.0.0/symphony-tui.png)
+<details>
+<summary>HTTP Dashboard</summary>
+
+<img src="../../assets/symphony-v1.0.0/symphony-web.png" alt="HTTP Dashboard" width="600">
+
+</details>
 
 ## Quick Start
 
