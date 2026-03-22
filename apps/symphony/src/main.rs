@@ -3,6 +3,7 @@ use std::future::{pending, Future};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, Once};
+use std::time::Duration;
 
 use clap::Parser;
 use symphony::domain::{Issue, ServiceConfig};
@@ -11,6 +12,7 @@ use symphony::linear::adapter::{LinearAdapter, TrackerAdapter};
 use symphony::linear::client::LinearClient;
 use symphony::logging;
 use symphony::orchestrator::{Orchestrator, OrchestratorPort};
+use symphony::tui;
 use symphony::workflow_store::WorkflowStore;
 use symphony::{config, error};
 use tracing_appender::non_blocking::WorkerGuard;
@@ -33,6 +35,10 @@ pub struct Cli {
     /// Log file root directory
     #[arg(long)]
     pub logs_root: Option<String>,
+
+    /// Render a live terminal dashboard (Ratatui)
+    #[arg(long)]
+    pub tui: bool,
 }
 
 pub trait BootstrapDeps {
@@ -180,7 +186,13 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
     fn start_orchestrator(&mut self, workflow_path: &Path, cli: &Cli) -> Result<(), String> {
         let context = self.take_or_load_validated_context(workflow_path)?;
         let http_binding = effective_http_binding(&context.effective_config, cli);
-        print_startup_banner(cli, &context.effective_config, http_binding.as_ref());
+        if cli.tui {
+            tui::validate_terminal_for_tui()
+                .map_err(|err| format!("tui preflight failed: {err}"))?;
+        }
+        if !cli.tui {
+            print_startup_banner(cli, &context.effective_config, http_binding.as_ref());
+        }
 
         let workflow_store = Arc::new(context.workflow_store);
         let mut tracker_port = LinearOrchestratorPort::new(Arc::clone(&workflow_store));
@@ -190,8 +202,23 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
         );
 
         let snapshot_handle = orchestrator.create_snapshot_handle();
+        let tui_snapshot_handle = snapshot_handle.clone();
         let refresh_sender = orchestrator.create_refresh_channel();
         let http_state = HttpServerState::new(Arc::new(snapshot_handle), Arc::new(refresh_sender));
+
+        let mut tui_shutdown = None;
+        let mut tui_exit = None;
+        let mut tui_task = None;
+        if cli.tui {
+            let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+            let (exit_tx, exit_rx) = tokio::sync::watch::channel(None::<tui::TuiExitReason>);
+            tui_shutdown = Some(shutdown_tx);
+            tui_exit = Some(exit_rx);
+            tui_task = Some(tokio::spawn(async move {
+                let reason = tui::run_tui(tui_snapshot_handle, shutdown_rx).await;
+                let _ = exit_tx.send(Some(reason));
+            }));
+        }
 
         tracing::info!(
             phase = "startup",
@@ -201,6 +228,7 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
             http_host = http_binding.as_ref().map(|binding| binding.host.as_str()).unwrap_or("n/a"),
             http_port = http_binding.as_ref().map(|binding| binding.port),
             logs_root_configured = cli.logs_root.is_some(),
+            tui_enabled = cli.tui,
 
             "constructed orchestrator runtime"
         );
@@ -220,13 +248,38 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
             );
         }
 
-        run_runtime_until_shutdown(
+        let runtime_result = run_runtime_until_shutdown(
             &mut orchestrator,
             &mut tracker_port,
             workflow_path,
             http_binding,
             http_state,
-        )
+            tui_exit,
+        );
+
+        if let Some(shutdown_tx) = tui_shutdown {
+            let _ = shutdown_tx.send(true);
+        }
+
+        if let Some(task) = tui_task {
+            let handle = tokio::runtime::Handle::try_current()
+                .map_err(|err| format!("missing tokio runtime for tui shutdown: {err}"))?;
+            tokio::task::block_in_place(|| {
+                handle.block_on(async {
+                    match tokio::time::timeout(Duration::from_secs(2), task).await {
+                        Ok(Ok(())) => {}
+                        Ok(Err(err)) => {
+                            tracing::warn!(error = %err, "tui task ended with join error");
+                        }
+                        Err(_) => {
+                            tracing::warn!("timed out waiting for tui task shutdown");
+                        }
+                    }
+                });
+            });
+        }
+
+        runtime_result
     }
 }
 
@@ -393,6 +446,7 @@ fn run_runtime_until_shutdown(
     workflow_path: &Path,
     http_binding: Option<HttpBinding>,
     http_state: HttpServerState,
+    mut tui_exit: Option<tokio::sync::watch::Receiver<Option<tui::TuiExitReason>>>,
 ) -> Result<(), String> {
     let handle = tokio::runtime::Handle::try_current()
         .map_err(|err| format!("missing tokio runtime for orchestrator startup: {err}"))?;
@@ -414,6 +468,19 @@ fn run_runtime_until_shutdown(
                         .map_err(|err| format!("http server failed: {err}"))
                 } else {
                     pending::<Result<(), String>>().await
+                }
+            };
+            let tui_exit_future = async {
+                match tui_exit.as_mut() {
+                    Some(exit_rx) => loop {
+                        if let Some(reason) = *exit_rx.borrow() {
+                            break Some(reason);
+                        }
+                        if exit_rx.changed().await.is_err() {
+                            break Some(tui::TuiExitReason::ShutdownSignal);
+                        }
+                    },
+                    None => pending::<Option<tui::TuiExitReason>>().await,
                 }
             };
 
@@ -451,6 +518,27 @@ fn run_runtime_until_shutdown(
                     );
                     Ok(())
                 }
+                tui_reason = tui_exit_future => {
+                    let Some(tui_reason) = tui_reason else {
+                        return Ok(());
+                    };
+                    match tui_reason {
+                        tui::TuiExitReason::CtrlC | tui::TuiExitReason::ShutdownSignal => {
+                            tracing::info!(
+                                phase = "runtime",
+                                stage = "stopped",
+                                reason = "tui_exit",
+                                workflow_path = %workflow_path.display(),
+                                tui_reason = ?tui_reason,
+                                "tui requested runtime shutdown"
+                            );
+                            Ok(())
+                        }
+                        tui::TuiExitReason::SetupFailed => Err("tui failed to initialize terminal".to_string()),
+                        tui::TuiExitReason::InputError => Err("tui failed while reading terminal input".to_string()),
+                        tui::TuiExitReason::DrawError => Err("tui failed while drawing dashboard".to_string()),
+                    }
+                }
             }
         })
     })
@@ -464,7 +552,7 @@ fn flush_file_logs() {
     }
 }
 
-fn init_tracing(logs_root: Option<&Path>) {
+fn init_tracing(logs_root: Option<&Path>, tui_enabled: bool) {
     static INIT: Once = Once::new();
 
     INIT.call_once(|| {
@@ -485,7 +573,11 @@ fn init_tracing(logs_root: Option<&Path>) {
                         eprintln!(
                             "failed to store file log guard (mutex poisoned): {err}; file logging disabled"
                         );
-                        subscriber_builder.try_init()
+                        if tui_enabled {
+                            subscriber_builder.with_writer(std::io::sink).try_init()
+                        } else {
+                            subscriber_builder.try_init()
+                        }
                     }
                 },
                 Err(err) => {
@@ -493,9 +585,14 @@ fn init_tracing(logs_root: Option<&Path>) {
                         "failed to initialize rotating file logging at {}: {err}",
                         logs_root_path.display()
                     );
-                    subscriber_builder.try_init()
+                    if tui_enabled {
+                        subscriber_builder.with_writer(std::io::sink).try_init()
+                    } else {
+                        subscriber_builder.try_init()
+                    }
                 }
             },
+            None if tui_enabled => subscriber_builder.with_writer(std::io::sink).try_init(),
             None => subscriber_builder.try_init(),
         };
 
@@ -514,7 +611,7 @@ fn run_entrypoint(args: impl IntoIterator<Item = OsString>) -> i32 {
         }
     };
 
-    init_tracing(cli.logs_root.as_deref().map(Path::new));
+    init_tracing(cli.logs_root.as_deref().map(Path::new), cli.tui);
 
     let mut deps = RuntimeBootstrapDeps::default();
 
@@ -542,5 +639,22 @@ async fn main() {
     flush_file_logs();
     if code != 0 {
         std::process::exit(code);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_cli_accepts_tui_flag() {
+        let cli = parse_cli_from(["symphony", "WORKFLOW.md", "--tui"]).expect("cli parse");
+        assert!(cli.tui);
+    }
+
+    #[test]
+    fn parse_cli_defaults_tui_to_false() {
+        let cli = parse_cli_from(["symphony", "WORKFLOW.md"]).expect("cli parse");
+        assert!(!cli.tui);
     }
 }

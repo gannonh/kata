@@ -939,6 +939,24 @@ fn test_streamed_turn_completed_events_update_token_totals_in_real_time() {
     );
 
     let snapshot = orchestrator.snapshot(now_ms + 5_000);
+    let session = snapshot
+        .running_sessions
+        .get("issue-stream-metrics")
+        .expect("running session snapshot should exist for active issue");
+    assert_eq!(
+        session.turn_count, 2,
+        "running session snapshot should track streamed completed turns"
+    );
+    assert_eq!(
+        session.total_tokens, 18,
+        "running session snapshot should track per-session total tokens"
+    );
+    assert_eq!(
+        session.last_activity_at,
+        Some(event_time),
+        "running session snapshot should preserve last activity timestamp"
+    );
+
     let session_info = snapshot
         .running_session_info
         .get("issue-stream-metrics")

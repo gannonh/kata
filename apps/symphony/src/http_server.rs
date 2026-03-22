@@ -10,7 +10,7 @@ use tokio::net::TcpListener;
 
 use crate::domain::{
     CodexTotals, OrchestratorSnapshot, PollingSnapshot, RefreshRequestOutcome, RetrySnapshotEntry,
-    RunAttempt, WorkerSessionInfo,
+    RunAttempt, RunningSessionSnapshot, WorkerSessionInfo,
 };
 use crate::orchestrator::{RefreshSender, SnapshotHandle};
 
@@ -103,6 +103,7 @@ struct StateResponse {
     poll_interval_ms: u64,
     max_concurrent_agents: u32,
     running: std::collections::BTreeMap<String, RunAttempt>,
+    running_sessions: std::collections::BTreeMap<String, RunningSessionSnapshot>,
     running_session_info: std::collections::BTreeMap<String, WorkerSessionInfo>,
     claimed: std::collections::BTreeSet<String>,
     retry_queue: Vec<RetrySnapshotEntry>,
@@ -532,6 +533,7 @@ async fn get_state(State(state): State<HttpServerState>) -> impl IntoResponse {
         poll_interval_ms: snapshot.poll_interval_ms,
         max_concurrent_agents: snapshot.max_concurrent_agents,
         running: snapshot.running,
+        running_sessions: snapshot.running_sessions,
         running_session_info: snapshot.running_session_info,
         claimed: snapshot.claimed,
         retry_queue: snapshot.retry_queue,
