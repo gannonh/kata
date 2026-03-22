@@ -21,6 +21,183 @@ use crate::domain::OrchestratorSnapshot;
 use crate::orchestrator::SnapshotHandle;
 
 const REFRESH_INTERVAL_MS: u64 = 500;
+const CURRENT_TPS_WINDOW_MS: i64 = 5_000;
+const SPARKLINE_WINDOW_MS: i64 = 10 * 60 * 1_000;
+const SPARKLINE_BUCKETS: usize = 24;
+const SPARKLINE_BUCKET_MS: i64 = SPARKLINE_WINDOW_MS / SPARKLINE_BUCKETS as i64;
+const SPARKLINE_BLOCKS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+
+#[derive(Debug, Default)]
+struct ThroughputTracker {
+    token_samples: Vec<(i64, u64)>,
+}
+
+impl ThroughputTracker {
+    fn record_sample(&mut self, timestamp_ms: i64, total_tokens: u64) {
+        match self.token_samples.last_mut() {
+            Some((last_ts, _last_total)) if timestamp_ms < *last_ts => {
+                return;
+            }
+            Some((last_ts, last_total)) if timestamp_ms == *last_ts => {
+                *last_total = (*last_total).max(total_tokens);
+                return;
+            }
+            Some((_, last_total)) if total_tokens < *last_total => {
+                self.token_samples.clear();
+            }
+            _ => {}
+        }
+
+        self.token_samples.push((timestamp_ms, total_tokens));
+        self.trim_old_samples(timestamp_ms);
+    }
+
+    fn throughput_line(&self, now_ms: i64) -> String {
+        let current_tps = self.current_tps(now_ms);
+        let sparkline = self.sparkline(now_ms);
+        format!("Throughput: {current_tps:.1} tps {sparkline}")
+    }
+
+    fn current_tps(&self, now_ms: i64) -> f64 {
+        if self.token_samples.len() < 2 {
+            return 0.0;
+        }
+        let window_start = now_ms.saturating_sub(CURRENT_TPS_WINDOW_MS);
+        let delta = self.window_token_delta(window_start, now_ms);
+        let window_seconds = (CURRENT_TPS_WINDOW_MS as f64) / 1_000.0;
+        if window_seconds > 0.0 {
+            delta / window_seconds
+        } else {
+            0.0
+        }
+    }
+
+    fn sparkline(&self, now_ms: i64) -> String {
+        let bucket_tps = self.bucket_tps(now_ms);
+        let max_tps = bucket_tps
+            .iter()
+            .copied()
+            .fold(0.0_f64, |acc, value| acc.max(value));
+
+        if max_tps <= f64::EPSILON {
+            return std::iter::repeat(SPARKLINE_BLOCKS[0])
+                .take(SPARKLINE_BUCKETS)
+                .collect();
+        }
+
+        bucket_tps
+            .into_iter()
+            .map(|value| {
+                let ratio = (value / max_tps).clamp(0.0, 1.0);
+                let idx = (ratio * (SPARKLINE_BLOCKS.len() as f64 - 1.0)).round() as usize;
+                SPARKLINE_BLOCKS[idx]
+            })
+            .collect()
+    }
+
+    fn bucket_tps(&self, now_ms: i64) -> Vec<f64> {
+        let window_start = now_ms.saturating_sub(SPARKLINE_WINDOW_MS);
+        let mut bucket_tokens = vec![0.0; SPARKLINE_BUCKETS];
+
+        for sample_pair in self.token_samples.windows(2) {
+            let (start_ms, start_total) = sample_pair[0];
+            let (end_ms, end_total) = sample_pair[1];
+
+            if end_ms <= start_ms {
+                continue;
+            }
+            if end_ms <= window_start || start_ms >= now_ms {
+                continue;
+            }
+
+            let interval_tokens = end_total.saturating_sub(start_total) as f64;
+            if interval_tokens <= 0.0 {
+                continue;
+            }
+
+            let interval_start = start_ms.max(window_start);
+            let interval_end = end_ms.min(now_ms);
+            if interval_end <= interval_start {
+                continue;
+            }
+
+            let tokens_per_ms = interval_tokens / (end_ms - start_ms) as f64;
+            let mut cursor = interval_start;
+            while cursor < interval_end {
+                let bucket_index = (((cursor - window_start) / SPARKLINE_BUCKET_MS) as usize)
+                    .min(SPARKLINE_BUCKETS.saturating_sub(1));
+                let bucket_end =
+                    (window_start + ((bucket_index + 1) as i64 * SPARKLINE_BUCKET_MS)).min(now_ms);
+                let segment_end = bucket_end.min(interval_end);
+                if segment_end <= cursor {
+                    break;
+                }
+                let overlap_ms = (segment_end - cursor) as f64;
+                bucket_tokens[bucket_index] += tokens_per_ms * overlap_ms;
+                cursor = segment_end;
+            }
+        }
+
+        let bucket_seconds = (SPARKLINE_BUCKET_MS as f64) / 1_000.0;
+        if bucket_seconds <= 0.0 {
+            return vec![0.0; SPARKLINE_BUCKETS];
+        }
+
+        bucket_tokens
+            .into_iter()
+            .map(|tokens| tokens / bucket_seconds)
+            .collect()
+    }
+
+    fn trim_old_samples(&mut self, now_ms: i64) {
+        if self.token_samples.len() < 2 {
+            return;
+        }
+
+        let cutoff = now_ms.saturating_sub(SPARKLINE_WINDOW_MS);
+        let first_in_window = self
+            .token_samples
+            .iter()
+            .position(|(ts, _)| *ts >= cutoff)
+            .unwrap_or_else(|| self.token_samples.len().saturating_sub(1));
+        let keep_from = first_in_window.saturating_sub(1);
+        if keep_from > 0 {
+            self.token_samples.drain(0..keep_from);
+        }
+    }
+
+    fn window_token_delta(&self, window_start_ms: i64, window_end_ms: i64) -> f64 {
+        if window_end_ms <= window_start_ms {
+            return 0.0;
+        }
+
+        let mut total = 0.0;
+        for sample_pair in self.token_samples.windows(2) {
+            let (start_ms, start_total) = sample_pair[0];
+            let (end_ms, end_total) = sample_pair[1];
+
+            if end_ms <= start_ms {
+                continue;
+            }
+            if end_ms <= window_start_ms || start_ms >= window_end_ms {
+                continue;
+            }
+
+            let overlap_start = start_ms.max(window_start_ms);
+            let overlap_end = end_ms.min(window_end_ms);
+            if overlap_end <= overlap_start {
+                continue;
+            }
+
+            let interval_tokens = end_total.saturating_sub(start_total) as f64;
+            let overlap_ms = (overlap_end - overlap_start) as f64;
+            let interval_ms = (end_ms - start_ms) as f64;
+            total += interval_tokens * (overlap_ms / interval_ms);
+        }
+
+        total
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TuiExitReason {
@@ -63,6 +240,7 @@ pub async fn run_tui(
     let mut ticker = tokio::time::interval(Duration::from_millis(REFRESH_INTERVAL_MS));
     ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
     ticker.tick().await;
+    let mut throughput_tracker = ThroughputTracker::default();
     let exit_reason = loop {
         match ctrl_c_pressed() {
             Ok(true) => break TuiExitReason::CtrlC,
@@ -75,7 +253,12 @@ pub async fn run_tui(
 
         let snapshot = snapshot_handle.read();
         let now = Utc::now();
-        if let Err(err) = terminal.draw(|frame| draw_dashboard(frame, &snapshot, now)) {
+        let now_ms = now.timestamp_millis();
+        throughput_tracker.record_sample(now_ms, snapshot.codex_totals.total_tokens);
+        let throughput_line = throughput_tracker.throughput_line(now_ms);
+        if let Err(err) =
+            terminal.draw(|frame| draw_dashboard(frame, &snapshot, now, &throughput_line))
+        {
             tracing::error!(error = %err, "failed drawing tui frame");
             break TuiExitReason::DrawError;
         }
@@ -155,7 +338,12 @@ fn cleanup_partial_terminal_state() {
     let _ = execute!(stdout, LeaveAlternateScreen);
 }
 
-fn draw_dashboard(frame: &mut Frame, snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) {
+fn draw_dashboard(
+    frame: &mut Frame,
+    snapshot: &OrchestratorSnapshot,
+    now: DateTime<Utc>,
+    throughput_line: &str,
+) {
     let root = Block::default()
         .title("Symphony Dashboard")
         .borders(Borders::ALL);
@@ -165,7 +353,7 @@ fn draw_dashboard(frame: &mut Frame, snapshot: &OrchestratorSnapshot, now: DateT
     let sections = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1),
+            Constraint::Length(2),
             Constraint::Min(8),
             Constraint::Length(7),
             Constraint::Length(7),
@@ -180,7 +368,8 @@ fn draw_dashboard(frame: &mut Frame, snapshot: &OrchestratorSnapshot, now: DateT
         snapshot.completed.len(),
         format_tokens(snapshot.codex_totals.total_tokens)
     );
-    frame.render_widget(Paragraph::new(summary), sections[0]);
+    let summary_lines = vec![Line::from(summary), Line::from(throughput_line.to_string())];
+    frame.render_widget(Paragraph::new(summary_lines), sections[0]);
 
     let running_header = Row::new(vec![
         Cell::from("ID"),
@@ -521,7 +710,57 @@ fn as_f64(value: &serde_json::Value) -> Option<f64> {
 mod tests {
     use super::*;
     use chrono::TimeZone;
+    use ratatui::backend::TestBackend;
     use serde_json::json;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    fn snapshot_fixture(total_tokens: u64) -> OrchestratorSnapshot {
+        OrchestratorSnapshot {
+            poll_interval_ms: REFRESH_INTERVAL_MS,
+            max_concurrent_agents: 1,
+            running: BTreeMap::new(),
+            running_sessions: BTreeMap::new(),
+            running_session_info: BTreeMap::new(),
+            claimed: BTreeSet::new(),
+            retry_queue: Vec::new(),
+            completed: Vec::new(),
+            codex_totals: crate::domain::CodexTotals {
+                input_tokens: 0,
+                output_tokens: 0,
+                total_tokens,
+                seconds_running: 0.0,
+            },
+            codex_rate_limits: None,
+            polling: crate::domain::PollingSnapshot {
+                checking: false,
+                next_poll_in_ms: 0,
+                poll_interval_ms: REFRESH_INTERVAL_MS,
+                last_poll_at: None,
+                poll_count: 0,
+            },
+        }
+    }
+
+    fn render_text(backend: &TestBackend) -> String {
+        let buffer = backend.buffer();
+        let area = buffer.area();
+        let mut lines = Vec::with_capacity(area.height as usize);
+        for y in 0..area.height {
+            let mut line = String::new();
+            for x in 0..area.width {
+                line.push_str(buffer[(x, y)].symbol());
+            }
+            lines.push(line);
+        }
+        lines.join("\n")
+    }
+
+    fn assert_approx_eq(actual: f64, expected: f64, tolerance: f64) {
+        assert!(
+            (actual - expected).abs() <= tolerance,
+            "expected {expected}, got {actual} (tolerance {tolerance})"
+        );
+    }
 
     #[test]
     fn format_age_returns_seconds_ago() {
@@ -574,6 +813,82 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("secondary: 34% used")),
             "expected secondary usage summary, got: {summary:?}"
+        );
+    }
+
+    #[test]
+    fn throughput_tracker_reports_current_tps_from_last_five_seconds() {
+        let mut tracker = ThroughputTracker::default();
+        tracker.record_sample(0, 0);
+        tracker.record_sample(2_500, 50);
+        tracker.record_sample(5_000, 100);
+
+        assert_approx_eq(tracker.current_tps(5_000), 20.0, 0.001);
+    }
+
+    #[test]
+    fn throughput_tracker_renders_flat_sparkline_for_zero_throughput() {
+        let mut tracker = ThroughputTracker::default();
+        tracker.record_sample(0, 42);
+        tracker.record_sample(SPARKLINE_WINDOW_MS, 42);
+
+        let sparkline = tracker.sparkline(SPARKLINE_WINDOW_MS);
+        assert_eq!(sparkline.chars().count(), SPARKLINE_BUCKETS);
+        assert!(sparkline.chars().all(|ch| ch == SPARKLINE_BLOCKS[0]));
+    }
+
+    #[test]
+    fn throughput_tracker_renders_recent_spike_in_last_bucket() {
+        let mut tracker = ThroughputTracker::default();
+        let now_ms = SPARKLINE_WINDOW_MS;
+        tracker.record_sample(now_ms - SPARKLINE_BUCKET_MS, 0);
+        tracker.record_sample(now_ms, 2_500);
+
+        let sparkline = tracker.sparkline(now_ms);
+        let chars: Vec<char> = sparkline.chars().collect();
+        assert_eq!(chars.len(), SPARKLINE_BUCKETS);
+        assert!(
+            chars[..SPARKLINE_BUCKETS - 1]
+                .iter()
+                .all(|ch| *ch == SPARKLINE_BLOCKS[0]),
+            "expected all leading buckets to be flat, got {sparkline}"
+        );
+        assert_eq!(
+            chars[SPARKLINE_BUCKETS - 1],
+            SPARKLINE_BLOCKS[SPARKLINE_BLOCKS.len() - 1]
+        );
+    }
+
+    #[test]
+    fn throughput_tracker_trims_samples_to_window_with_one_preceding_point() {
+        let mut tracker = ThroughputTracker::default();
+        tracker.record_sample(0, 0);
+        tracker.record_sample(1_000, 1);
+        tracker.record_sample(SPARKLINE_WINDOW_MS + 100_000, 2);
+
+        assert_eq!(tracker.token_samples.len(), 2);
+        assert_eq!(tracker.token_samples[0].0, 1_000);
+    }
+
+    #[test]
+    fn draw_dashboard_renders_throughput_row() {
+        let now = Utc
+            .with_ymd_and_hms(2026, 3, 22, 12, 0, 0)
+            .single()
+            .expect("valid fixture timestamp");
+        let snapshot = snapshot_fixture(1_337);
+        let throughput_line = "Throughput: 42.3 tps ▁▂▃▄▅▆▇█";
+
+        let backend = TestBackend::new(120, 30);
+        let mut terminal = Terminal::new(backend).expect("test terminal");
+        terminal
+            .draw(|frame| draw_dashboard(frame, &snapshot, now, throughput_line))
+            .expect("dashboard draw should succeed");
+
+        let rendered = render_text(terminal.backend());
+        assert!(
+            rendered.contains(throughput_line),
+            "expected rendered dashboard to contain throughput line, got:\n{rendered}"
         );
     }
 
