@@ -15,6 +15,7 @@ use crate::domain::{
     TrackerConfig, WorkerSessionInfo, WorkspaceConfig,
 };
 use crate::error::{Result, SymphonyError};
+use crate::session_summary::{compact_session_id, normalize_whitespace, truncate_for_display};
 use crate::ssh::{self, WorkerHostSelection};
 use crate::workflow_store::WorkflowStore;
 use crate::{path_safety, prompt_builder, workspace};
@@ -1777,9 +1778,7 @@ impl Orchestrator {
                         total_tokens: stats.map(|s| s.total_tokens).unwrap_or(0),
                         last_event: stats.and_then(|s| s.last_event.clone()),
                         last_event_message: stats.and_then(|s| s.last_event_message.clone()),
-                        session_id: stats
-                            .and_then(|s| s.session_id.clone())
-                            .or_else(|| self.worker_session_ids.get(issue_id).cloned()),
+                        session_id: stats.and_then(|s| s.session_id.clone()),
                     },
                 )
             })
@@ -2523,7 +2522,7 @@ fn event_summary(event: &AgentEvent) -> (String, Option<String>) {
         name,
         message
             .as_deref()
-            .map(|value| truncate_for_summary(value, 160))
+            .map(|value| truncate_for_display(value, 160))
             .filter(|value| !value.is_empty()),
     )
 }
@@ -2545,10 +2544,11 @@ fn notification_event_summary(message: &str) -> (String, Option<String>) {
         .and_then(|method| method.as_str())
         .unwrap_or("notification")
         .to_string();
-    let mut summary = summarize_notification_payload(&name, &parsed);
-    if summary.is_none() && !fallback_message.is_empty() {
-        summary = Some(fallback_message);
-    }
+    let summary = summarize_notification_payload(&name, &parsed).or_else(|| {
+        parsed
+            .get("params")
+            .map(|params| normalize_whitespace(&params.to_string()))
+    });
 
     (name, summary)
 }
@@ -2703,28 +2703,6 @@ fn integer_like(value: &serde_json::Value) -> Option<u64> {
         serde_json::Value::String(text) => text.trim().parse::<u64>().ok(),
         _ => None,
     }
-}
-
-fn compact_session_id(session_id: &str) -> String {
-    session_id.chars().take(8).collect()
-}
-
-fn normalize_whitespace(value: &str) -> String {
-    value.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
-fn truncate_for_summary(value: &str, max_chars: usize) -> String {
-    let normalized = normalize_whitespace(value);
-    if normalized.chars().count() <= max_chars {
-        return normalized;
-    }
-
-    let mut out = String::new();
-    for ch in normalized.chars().take(max_chars.saturating_sub(1)) {
-        out.push(ch);
-    }
-    out.push('…');
-    out
 }
 
 fn normalize_issue_state(state_name: &str) -> String {
