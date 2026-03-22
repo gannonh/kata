@@ -1291,7 +1291,7 @@ async fn do_start_session(
             "clientInfo": {
                 "name": "symphony-orchestrator",
                 "title": "Symphony Orchestrator",
-                "version": "0.1.0"
+                "version": env!("CARGO_PKG_VERSION")
             }
         }
     });

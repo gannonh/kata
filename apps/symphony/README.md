@@ -2,6 +2,8 @@
 
 Headless orchestrator that polls a Linear project for candidate issues and dispatches parallel agent sessions to work on them autonomously. Manages the full ticket lifecycle — from Todo through implementation, PR creation, automated code review, human review, and merge.
 
+![Symphony TUI Dashboard](../../assets/symphony-v1.0.0/symphony-tui.png)
+
 ## Features
 
 - **Linear integration** — polls for issues, manages state transitions, respects priorities and dependency graphs
@@ -17,27 +19,65 @@ Headless orchestrator that polls a Linear project for candidate issues and dispa
 - **HTTP dashboard + JSON API** — live session table with turn/activity/session-token observability, retry queue, polling stats
 - **Terminal dashboard (`--tui`)** — Ratatui observability view for local runs
 
+<details>
+<summary>HTTP Dashboard</summary>
+
+<img src="../../assets/symphony-v1.0.0/symphony-web.png" alt="HTTP Dashboard" width="600">
+
+</details>
+
+## Installation
+
+### Pre-built binaries
+
+Download from [GitHub Releases](https://github.com/gannonh/kata/releases):
+
+| Platform | Binary |
+|---|---|
+| macOS (Apple Silicon) | `symphony-macos-arm64` |
+| macOS (Intel) | `symphony-macos-x86_64` |
+| Linux (x86_64) | `symphony-linux-x86_64` |
+| Windows (x86_64) | `symphony-windows-x86_64.exe` |
+
+```bash
+# Example: macOS Apple Silicon
+curl -L https://github.com/gannonh/kata/releases/latest/download/symphony-macos-arm64 -o symphony
+chmod +x symphony
+```
+
+### Build from source
+
+Requires [Rust toolchain](https://rustup.rs/):
+
+```bash
+git clone https://github.com/gannonh/kata.git
+cd kata/apps/symphony
+cargo build --release
+# Binary at: target/release/symphony
+```
+
 ## Quick Start
 
 ```bash
-# Build
-cargo build --release
+# 1. Configure
+cp .env.example .env
+# Edit .env with your Linear API key
 
-# Configure
-# Copy docs/WORKFLOW-REFERENCE.md to your project root as WORKFLOW.md
-# and customize the settings (Linear project, repo URL, agent config)
+# 2. Create your workflow
+cp docs/WORKFLOW-REFERENCE.md WORKFLOW.md
+# Edit WORKFLOW.md — set your project slug, repo URL, agent config
 
-# Run
-LINEAR_API_KEY=lin_api_... ./target/release/symphony WORKFLOW.md --port 8080
+# 3. Run
+./target/release/symphony WORKFLOW.md --port 8080
 ```
 
 On startup, Symphony prints a summary banner:
 
 ```
-Symphony v0.1.0
+Symphony v1.0.0
 Dashboard: http://127.0.0.1:8080
 Logs: stdout
-Project: Symphony (89d4761fddf0)
+Project: 89d4761fddf0
 Workers: 3 max concurrent
 Polling: every 30s
 
@@ -121,6 +161,8 @@ Todo → In Progress → Agent Review (bot feedback) → Human Review → Mergin
 | Rework | Human | Agent scraps current approach, starts fresh |
 | Done | Agent | Terminal — PR merged |
 
+![Symphony Linear Project](../../assets/symphony-v1.0.0/symphony-linear.png)
+
 ## Linear Setup
 
 **Important:** Disable Linear's "auto-close parent when all sub-issues are done" automation. Symphony agents move child task issues to Done individually during execution, but the parent slice issue must stay active until the PR is created, reviewed, and merged. If Linear auto-closes the parent, the orchestrator will stop dispatching the agent before the work is complete.
@@ -195,7 +237,7 @@ Auto-refreshes every 2 seconds. JSON API at `/api/v1/state` and `/api/v1/{ISSUE-
 # Build
 cargo build
 
-# Test (280+ tests)
+# Test (290 tests)
 cargo test
 
 # Lint
