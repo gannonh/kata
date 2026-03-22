@@ -16,6 +16,7 @@ pub mod codex;
 pub mod http_server;
 pub mod logging;
 pub mod orchestrator;
+mod session_summary;
 pub mod tui;
 
 // These modules will be implemented in later slices

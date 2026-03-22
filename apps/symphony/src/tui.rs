@@ -19,6 +19,9 @@ use tokio::time::MissedTickBehavior;
 
 use crate::domain::OrchestratorSnapshot;
 use crate::orchestrator::SnapshotHandle;
+use crate::session_summary::{
+    compact_session_id as compact_session_id_value, truncate_for_display,
+};
 
 const REFRESH_INTERVAL_MS: u64 = 500;
 const CURRENT_TPS_WINDOW_MS: i64 = 5_000;
@@ -510,8 +513,8 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
             Cell::from(compact_session_id(session_id)),
             Cell::from(state),
             Cell::from(turn_count.to_string()),
-            Cell::from(truncate_for_cell(last_event.unwrap_or("-"), 32)),
-            Cell::from(truncate_for_cell(last_event_message.unwrap_or("-"), 60)),
+            Cell::from(truncate_for_display(last_event.unwrap_or("-"), 32)),
+            Cell::from(truncate_for_display(last_event_message.unwrap_or("-"), 60)),
             last_activity_cell,
             Cell::from(format_tokens(total_tokens)),
             Cell::from(
@@ -543,7 +546,7 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
 
 fn compact_session_id(session_id: Option<&str>) -> String {
     session_id
-        .map(|value| value.chars().take(8).collect::<String>())
+        .map(compact_session_id_value)
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "-".to_string())
 }
@@ -598,20 +601,6 @@ fn is_stale_session(last_activity: Option<DateTime<Utc>>, now: DateTime<Utc>) ->
     };
 
     (now - last_activity).num_milliseconds() > STALE_ACTIVITY_THRESHOLD_MS
-}
-
-fn truncate_for_cell(value: &str, max_chars: usize) -> String {
-    let normalized = value.split_whitespace().collect::<Vec<_>>().join(" ");
-    if normalized.chars().count() <= max_chars {
-        return normalized;
-    }
-
-    let mut out = String::new();
-    for ch in normalized.chars().take(max_chars.saturating_sub(1)) {
-        out.push(ch);
-    }
-    out.push('…');
-    out
 }
 
 fn retry_rows(snapshot: &OrchestratorSnapshot) -> Vec<Row<'static>> {

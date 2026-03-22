@@ -15,6 +15,7 @@ use crate::domain::{
     TrackerConfig, WorkerSessionInfo, WorkspaceConfig,
 };
 use crate::error::{Result, SymphonyError};
+use crate::session_summary::{compact_session_id, normalize_whitespace, truncate_for_display};
 use crate::ssh::{self, WorkerHostSelection};
 use crate::workflow_store::WorkflowStore;
 use crate::{path_safety, prompt_builder, workspace};
@@ -2523,7 +2524,7 @@ fn event_summary(event: &AgentEvent) -> (String, Option<String>) {
         name,
         message
             .as_deref()
-            .map(|value| truncate_for_summary(value, 160))
+            .map(|value| truncate_for_display(value, 160))
             .filter(|value| !value.is_empty()),
     )
 }
@@ -2704,28 +2705,6 @@ fn integer_like(value: &serde_json::Value) -> Option<u64> {
         serde_json::Value::String(text) => text.trim().parse::<u64>().ok(),
         _ => None,
     }
-}
-
-fn compact_session_id(session_id: &str) -> String {
-    session_id.chars().take(8).collect()
-}
-
-fn normalize_whitespace(value: &str) -> String {
-    value.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
-fn truncate_for_summary(value: &str, max_chars: usize) -> String {
-    let normalized = normalize_whitespace(value);
-    if normalized.chars().count() <= max_chars {
-        return normalized;
-    }
-
-    let mut out = String::new();
-    for ch in normalized.chars().take(max_chars.saturating_sub(1)) {
-        out.push(ch);
-    }
-    out.push('…');
-    out
 }
 
 fn normalize_issue_state(state_name: &str) -> String {
