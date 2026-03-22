@@ -84,6 +84,7 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 | `tracker.kind`            | string   | _(required)_                                               | Must be `"linear"`.                                                                                  |
 | `tracker.api_key`         | string   | _(required)_                                               | Linear personal API key. Supports `$VAR` env-var indirection (e.g. `$LINEAR_API_KEY`). Never logged. |
 | `tracker.project_slug`    | string   | _(required)_                                               | Linear project URL slug (the identifier shown in project URLs). Supports `$VAR` indirection.         |
+| `tracker.workspace_slug`  | string   | `"kata-sh"`                                                | Linear workspace slug used when building dashboard project links (`https://linear.app/<workspace>/project/<slug>`). Supports `$VAR` indirection. |
 | `tracker.endpoint`        | string   | `https://api.linear.app/graphql`                           | Linear GraphQL endpoint. Override for self-hosted Linear.                                            |
 | `tracker.assignee`        | string   | _(none)_                                                   | Filter candidate issues to this Linear username. Supports `$VAR` indirection.                        |
 | `tracker.active_states`   | string[] | `["Todo", "In Progress"]`                                  | Issue states that are eligible for dispatch.                                                         |

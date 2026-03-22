@@ -343,6 +343,25 @@ fn cleanup_partial_terminal_state() {
     let _ = execute!(stdout, LeaveAlternateScreen);
 }
 
+fn build_summary_lines(snapshot: &OrchestratorSnapshot, throughput_line: &str) -> Vec<String> {
+    let mut lines = vec![
+        format!(
+            "Running: {}  Retry: {}  Completed: {}  Tokens: {}",
+            snapshot.running.len(),
+            snapshot.retry_queue.len(),
+            snapshot.completed.len(),
+            format_tokens(snapshot.codex_totals.total_tokens)
+        ),
+        throughput_line.to_string(),
+    ];
+
+    if let Some(project_url) = snapshot.linear_project_url.as_deref() {
+        lines.push(format!("Linear Project: {project_url}"));
+    }
+
+    lines
+}
+
 fn draw_dashboard(
     frame: &mut Frame,
     snapshot: &OrchestratorSnapshot,
@@ -355,10 +374,12 @@ fn draw_dashboard(
     frame.render_widget(root, frame.area());
     let inner = Block::default().borders(Borders::ALL).inner(frame.area());
 
+    let summary_lines_data = build_summary_lines(snapshot, throughput_line);
+    let summary_height = summary_lines_data.len() as u16;
     let sections = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(2),
+            Constraint::Length(summary_height),
             Constraint::Min(8),
             Constraint::Length(7),
             Constraint::Length(7),
@@ -366,14 +387,8 @@ fn draw_dashboard(
         ])
         .split(inner);
 
-    let summary = format!(
-        "Running: {}  Retry: {}  Completed: {}  Tokens: {}",
-        snapshot.running.len(),
-        snapshot.retry_queue.len(),
-        snapshot.completed.len(),
-        format_tokens(snapshot.codex_totals.total_tokens)
-    );
-    let summary_lines = vec![Line::from(summary), Line::from(throughput_line.to_string())];
+    let summary_lines: Vec<Line<'static>> =
+        summary_lines_data.into_iter().map(Line::from).collect();
     frame.render_widget(Paragraph::new(summary_lines), sections[0]);
 
     let running_header = Row::new(vec![
@@ -719,10 +734,14 @@ mod tests {
     use serde_json::json;
     use std::collections::{BTreeMap, BTreeSet};
 
-    fn snapshot_fixture(total_tokens: u64) -> OrchestratorSnapshot {
+    fn snapshot_fixture(
+        total_tokens: u64,
+        linear_project_url: Option<&str>,
+    ) -> OrchestratorSnapshot {
         OrchestratorSnapshot {
             poll_interval_ms: REFRESH_INTERVAL_MS,
             max_concurrent_agents: 1,
+            linear_project_url: linear_project_url.map(ToString::to_string),
             running: BTreeMap::new(),
             running_sessions: BTreeMap::new(),
             running_session_info: BTreeMap::new(),
@@ -822,6 +841,24 @@ mod tests {
     }
 
     #[test]
+    fn build_summary_lines_includes_linear_project_url_when_available() {
+        let snapshot = snapshot_fixture(1_337, Some("https://linear.app/kata-sh/project/symphony"));
+        let throughput_line = "Throughput: 42.3 tps ▁▂▃▄▅▆▇█";
+        let lines = build_summary_lines(&snapshot, throughput_line);
+
+        assert!(
+            lines.iter().any(|line| line == throughput_line),
+            "summary lines should include throughput"
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line == "Linear Project: https://linear.app/kata-sh/project/symphony"),
+            "summary lines should include the linear project URL when configured"
+        );
+    }
+
+    #[test]
     fn throughput_tracker_reports_current_tps_from_last_five_seconds() {
         let mut tracker = ThroughputTracker::default();
         tracker.record_sample(0, 0);
@@ -881,7 +918,7 @@ mod tests {
             .with_ymd_and_hms(2026, 3, 22, 12, 0, 0)
             .single()
             .expect("valid fixture timestamp");
-        let snapshot = snapshot_fixture(1_337);
+        let snapshot = snapshot_fixture(1_337, None);
         let throughput_line = "Throughput: 42.3 tps ▁▂▃▄▅▆▇█";
 
         let backend = TestBackend::new(120, 30);
