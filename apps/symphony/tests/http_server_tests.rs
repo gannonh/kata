@@ -85,6 +85,9 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
                     turn_count: 2,
                     last_activity_at: Some(started_at),
                     total_tokens: 200,
+                    last_event: Some("codex/event/task_started".to_string()),
+                    last_event_message: Some("running cargo test".to_string()),
+                    session_id: Some("session-12345678".to_string()),
                 },
             );
             sessions

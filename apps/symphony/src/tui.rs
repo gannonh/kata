@@ -10,8 +10,8 @@ use crossterm::terminal::{
 };
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
-use ratatui::style::{Modifier, Style};
-use ratatui::text::Line;
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Cell, List, ListItem, Paragraph, Row, Table, Wrap};
 use ratatui::{Frame, Terminal};
 use tokio::sync::watch;
@@ -21,6 +21,7 @@ use crate::domain::OrchestratorSnapshot;
 use crate::orchestrator::SnapshotHandle;
 
 const REFRESH_INTERVAL_MS: u64 = 500;
+const STALE_ACTIVITY_THRESHOLD_MS: i64 = 120_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TuiExitReason {
@@ -183,9 +184,13 @@ fn draw_dashboard(frame: &mut Frame, snapshot: &OrchestratorSnapshot, now: DateT
     frame.render_widget(Paragraph::new(summary), sections[0]);
 
     let running_header = Row::new(vec![
+        Cell::from(""),
         Cell::from("ID"),
+        Cell::from("Session"),
         Cell::from("State"),
         Cell::from("Turn"),
+        Cell::from("Last Event"),
+        Cell::from("Message"),
         Cell::from("Last Activity"),
         Cell::from("Tokens"),
         Cell::from("Host"),
@@ -195,9 +200,13 @@ fn draw_dashboard(frame: &mut Frame, snapshot: &OrchestratorSnapshot, now: DateT
     let running_table = Table::new(
         running_rows,
         [
+            Constraint::Length(2),
+            Constraint::Length(10),
             Constraint::Length(12),
             Constraint::Length(14),
             Constraint::Length(8),
+            Constraint::Length(24),
+            Constraint::Min(16),
             Constraint::Length(14),
             Constraint::Length(12),
             Constraint::Length(10),
@@ -267,16 +276,34 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
             .and_then(|m| m.last_activity_at.as_ref().cloned())
             .or(Some(run.started_at));
         let total_tokens = metrics.map(|m| m.total_tokens).unwrap_or(0);
+        let last_event = metrics.and_then(|m| m.last_event.as_deref());
+        let last_event_message = metrics.and_then(|m| m.last_event_message.as_deref());
+        let session_id = metrics.and_then(|m| m.session_id.as_deref());
+        let stale = is_stale_session(last_activity, now);
         let state = run
             .linear_state
             .as_deref()
             .unwrap_or(run.status.as_str())
             .to_string();
+        let last_activity_text = format_age(last_activity, now);
+        let last_activity_cell = if stale {
+            Cell::from(Span::styled(
+                last_activity_text,
+                Style::default().fg(Color::Red),
+            ))
+        } else {
+            Cell::from(last_activity_text)
+        };
+
         rows.push(Row::new(vec![
+            Cell::from(status_dot(last_event, last_activity, now)),
             Cell::from(run.issue_identifier.clone()),
+            Cell::from(compact_session_id(session_id)),
             Cell::from(state),
             Cell::from(turn_count.to_string()),
-            Cell::from(format_age(last_activity, now)),
+            Cell::from(truncate_for_cell(last_event.unwrap_or("-"), 32)),
+            Cell::from(truncate_for_cell(last_event_message.unwrap_or("-"), 60)),
+            last_activity_cell,
             Cell::from(format_tokens(total_tokens)),
             Cell::from(
                 run.worker_host
@@ -289,7 +316,11 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
 
     if rows.is_empty() {
         rows.push(Row::new(vec![
+            Cell::from(""),
             Cell::from("(none)"),
+            Cell::from(""),
+            Cell::from(""),
+            Cell::from(""),
             Cell::from(""),
             Cell::from(""),
             Cell::from(""),
@@ -299,6 +330,73 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
     }
 
     rows
+}
+
+fn compact_session_id(session_id: Option<&str>) -> String {
+    session_id
+        .map(|value| value.chars().take(8).collect::<String>())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "-".to_string())
+}
+
+fn status_dot(
+    last_event: Option<&str>,
+    last_activity: Option<DateTime<Utc>>,
+    now: DateTime<Utc>,
+) -> Span<'static> {
+    Span::styled(
+        "●",
+        Style::default().fg(status_color(last_event, last_activity, now)),
+    )
+}
+
+fn status_color(
+    last_event: Option<&str>,
+    last_activity: Option<DateTime<Utc>>,
+    now: DateTime<Utc>,
+) -> Color {
+    if last_event.is_none() || is_stale_session(last_activity, now) {
+        return Color::Red;
+    }
+
+    let normalized = last_event
+        .map(|event| event.trim().to_ascii_lowercase())
+        .unwrap_or_default();
+
+    if normalized.contains("turn_completed") || normalized == "turn/completed" {
+        Color::Magenta
+    } else if normalized.contains("token_count") {
+        Color::Yellow
+    } else if normalized.contains("task_started")
+        || normalized.contains("tool_call")
+        || normalized.contains("item/tool/call")
+    {
+        Color::Green
+    } else {
+        Color::Blue
+    }
+}
+
+fn is_stale_session(last_activity: Option<DateTime<Utc>>, now: DateTime<Utc>) -> bool {
+    let Some(last_activity) = last_activity else {
+        return true;
+    };
+
+    (now - last_activity).num_milliseconds() > STALE_ACTIVITY_THRESHOLD_MS
+}
+
+fn truncate_for_cell(value: &str, max_chars: usize) -> String {
+    let normalized = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.chars().count() <= max_chars {
+        return normalized;
+    }
+
+    let mut out = String::new();
+    for ch in normalized.chars().take(max_chars.saturating_sub(1)) {
+        out.push(ch);
+    }
+    out.push('…');
+    out
 }
 
 fn retry_rows(snapshot: &OrchestratorSnapshot) -> Vec<Row<'static>> {
@@ -574,6 +672,53 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("secondary: 34% used")),
             "expected secondary usage summary, got: {summary:?}"
+        );
+    }
+
+    #[test]
+    fn compact_session_id_truncates_to_first_eight_chars() {
+        assert_eq!(
+            compact_session_id(Some("1234567890abcdef")),
+            "12345678".to_string()
+        );
+        assert_eq!(compact_session_id(None), "-".to_string());
+    }
+
+    #[test]
+    fn status_color_respects_event_mapping_and_staleness() {
+        let now = Utc
+            .with_ymd_and_hms(2026, 3, 22, 15, 0, 0)
+            .single()
+            .expect("valid fixture timestamp");
+        let fresh = Utc
+            .with_ymd_and_hms(2026, 3, 22, 14, 59, 30)
+            .single()
+            .expect("valid fixture timestamp");
+        let stale = Utc
+            .with_ymd_and_hms(2026, 3, 22, 14, 55, 0)
+            .single()
+            .expect("valid fixture timestamp");
+
+        assert_eq!(
+            status_color(Some("codex/event/task_started"), Some(fresh), now),
+            Color::Green
+        );
+        assert_eq!(
+            status_color(Some("codex/event/token_count"), Some(fresh), now),
+            Color::Yellow
+        );
+        assert_eq!(
+            status_color(Some("turn_completed"), Some(fresh), now),
+            Color::Magenta
+        );
+        assert_eq!(
+            status_color(Some("notification"), Some(fresh), now),
+            Color::Blue
+        );
+        assert_eq!(status_color(None, Some(fresh), now), Color::Red);
+        assert_eq!(
+            status_color(Some("turn_completed"), Some(stale), now),
+            Color::Red
         );
     }
 
