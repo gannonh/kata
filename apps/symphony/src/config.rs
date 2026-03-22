@@ -408,6 +408,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let workspace_slug = raw_tracker
         .workspace_slug
         .map(|v| resolve_env(&v))
+        .map(|v| v.trim().to_string())
         .filter(|v| !v.is_empty());
 
     let tracker = TrackerConfig {

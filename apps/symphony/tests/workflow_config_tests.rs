@@ -197,6 +197,14 @@ fn test_config_workspace_slug_parse() {
 }
 
 #[test]
+fn test_config_workspace_slug_whitespace_is_treated_as_missing() {
+    let yaml_str = "tracker:\n  workspace_slug: \"   \"";
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("workspace slug should parse");
+    assert_eq!(config.tracker.workspace_slug, None);
+}
+
+#[test]
 #[serial]
 fn test_config_empty_literal_api_key_does_not_use_linear_api_key_fallback() {
     let previous_linear_api_key = std::env::var("LINEAR_API_KEY").ok();
