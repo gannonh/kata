@@ -471,6 +471,17 @@ pub struct CompletedEntry {
     pub completed_at: Option<DateTime<Utc>>,
 }
 
+/// Session-level metrics for a currently running issue.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct RunningSessionSnapshot {
+    #[serde(default)]
+    pub turn_count: u32,
+    #[serde(default)]
+    pub last_activity_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub total_tokens: u64,
+}
+
 /// Polling state for the snapshot.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PollingSnapshot {
@@ -490,6 +501,8 @@ pub struct OrchestratorSnapshot {
     pub poll_interval_ms: u64,
     pub max_concurrent_agents: u32,
     pub running: BTreeMap<String, RunAttempt>,
+    #[serde(default)]
+    pub running_sessions: BTreeMap<String, RunningSessionSnapshot>,
     pub claimed: BTreeSet<String>,
     pub retry_queue: Vec<RetrySnapshotEntry>,
     pub completed: Vec<CompletedEntry>,

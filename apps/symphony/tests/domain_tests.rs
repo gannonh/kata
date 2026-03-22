@@ -255,6 +255,26 @@ fn test_orchestrator_snapshot_serializes() {
             );
             m
         },
+        running_sessions: {
+            let mut m = BTreeMap::new();
+            m.insert(
+                "a-issue".to_string(),
+                RunningSessionSnapshot {
+                    turn_count: 3,
+                    last_activity_at: Some(Utc::now()),
+                    total_tokens: 120,
+                },
+            );
+            m.insert(
+                "z-issue".to_string(),
+                RunningSessionSnapshot {
+                    turn_count: 1,
+                    last_activity_at: Some(Utc::now()),
+                    total_tokens: 40,
+                },
+            );
+            m
+        },
         claimed: {
             let mut s = BTreeSet::new();
             s.insert("c-claim".to_string());
@@ -301,6 +321,7 @@ fn test_orchestrator_snapshot_serializes() {
     assert!(val.get("poll_interval_ms").is_some());
     assert!(val.get("max_concurrent_agents").is_some());
     assert!(val.get("running").is_some());
+    assert!(val.get("running_sessions").is_some());
     assert!(val.get("retry_queue").is_some());
     assert!(val.get("completed").is_some());
     assert!(val.get("codex_totals").is_some());

@@ -8,7 +8,7 @@ use chrono::{TimeZone, Utc};
 use serde_json::{json, Value};
 use symphony::domain::{
     CodexTotals, CompletedEntry, OrchestratorSnapshot, PollingSnapshot, RateLimitInfo,
-    RefreshRequestOutcome, RetrySnapshotEntry, RunAttempt,
+    RefreshRequestOutcome, RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot,
 };
 use symphony::http_server::{build_router, HttpServerState, RefreshControl, SnapshotSource};
 use tower::ServiceExt;
@@ -75,6 +75,18 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
                 },
             );
             running
+        },
+        running_sessions: {
+            let mut sessions = BTreeMap::new();
+            sessions.insert(
+                "issue-123".to_string(),
+                RunningSessionSnapshot {
+                    turn_count: 2,
+                    last_activity_at: Some(started_at),
+                    total_tokens: 200,
+                },
+            );
+            sessions
         },
         claimed: BTreeSet::from(["issue-123".to_string()]),
         retry_queue: vec![RetrySnapshotEntry {

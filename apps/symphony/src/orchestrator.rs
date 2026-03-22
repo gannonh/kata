@@ -11,7 +11,8 @@ use crate::config;
 use crate::domain::{
     AgentEvent, CodexConfig, CodexTotals, CompletedEntry, HooksConfig, Issue, OrchestratorSnapshot,
     OrchestratorState, PollingSnapshot, RateLimitInfo, RefreshRequestOutcome, RetryEntry,
-    RetrySnapshotEntry, RunAttempt, ServiceConfig, TrackerConfig, WorkspaceConfig,
+    RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot, ServiceConfig, TrackerConfig,
+    WorkspaceConfig,
 };
 use crate::error::{Result, SymphonyError};
 use crate::ssh::{self, WorkerHostSelection};
@@ -594,6 +595,13 @@ pub struct RetryContext {
     pub session_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Default)]
+struct RunningSessionStats {
+    turn_count: u32,
+    last_activity_at: Option<DateTime<Utc>>,
+    total_tokens: u64,
+}
+
 #[derive(Debug, Clone)]
 pub enum WorkerCompletion {
     Completed { schedule_continuation: bool },
@@ -629,6 +637,7 @@ pub struct Orchestrator {
     retry_tokens: HashMap<String, String>,
     worker_last_activity_ms: HashMap<String, i64>,
     worker_session_ids: HashMap<String, String>,
+    running_session_stats: HashMap<String, RunningSessionStats>,
     pending_terminal_cleanup: HashMap<String, PendingTerminalCleanup>,
     /// Normalized running issue state cache used for per-state slot accounting.
     running_issue_states: HashMap<String, String>,
@@ -702,6 +711,7 @@ impl Orchestrator {
             retry_tokens: HashMap::new(),
             worker_last_activity_ms: HashMap::new(),
             worker_session_ids: HashMap::new(),
+            running_session_stats: HashMap::new(),
             pending_terminal_cleanup: HashMap::new(),
             running_issue_states: HashMap::new(),
             next_retry_token: 0,
@@ -1207,11 +1217,18 @@ impl Orchestrator {
         }
 
         self.record_worker_activity(issue_id, event_timestamp_ms(event));
+        let event_time = event_timestamp(event);
 
         if let Some(session_id) = event_session_id(event) {
             self.worker_session_ids
                 .insert(issue_id.to_string(), session_id.to_string());
         }
+
+        let session_stats = self
+            .running_session_stats
+            .entry(issue_id.to_string())
+            .or_default();
+        session_stats.last_activity_at = Some(event_time);
 
         if let Some(run_attempt) = self.state.running.get_mut(issue_id) {
             match event {
@@ -1236,6 +1253,8 @@ impl Orchestrator {
             ..
         } = event
         {
+            session_stats.turn_count = session_stats.turn_count.saturating_add(1);
+            session_stats.total_tokens = session_stats.total_tokens.saturating_add(*total_tokens);
             self.apply_turn_metrics(&TurnMetrics {
                 input_tokens: *input_tokens,
                 output_tokens: *output_tokens,
@@ -1275,6 +1294,7 @@ impl Orchestrator {
         self.state.claimed.remove(issue_id);
         self.running_issue_states.remove(issue_id);
         self.worker_last_activity_ms.remove(issue_id);
+        self.running_session_stats.remove(issue_id);
 
         let issue_identifier = run_attempt.issue_identifier.clone();
         let session_id = self.worker_session_ids.remove(issue_id);
@@ -1408,6 +1428,13 @@ impl Orchestrator {
         self.state.claimed.insert(issue.id.clone());
         self.running_issue_states
             .insert(issue.id.clone(), normalize_issue_state(&issue.state));
+        self.running_session_stats
+            .entry(issue.id.clone())
+            .or_insert_with(|| RunningSessionStats {
+                turn_count: 0,
+                last_activity_at: Some(Utc::now()),
+                total_tokens: 0,
+            });
         self.state.retry_attempts.remove(&issue.id);
 
         let workspace_path = Path::new(&workspace_info.path);
@@ -1668,6 +1695,24 @@ impl Orchestrator {
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
+        let running_sessions: BTreeMap<String, RunningSessionSnapshot> = self
+            .state
+            .running
+            .iter()
+            .map(|(issue_id, run_attempt)| {
+                let stats = self.running_session_stats.get(issue_id);
+                (
+                    issue_id.clone(),
+                    RunningSessionSnapshot {
+                        turn_count: stats.map(|s| s.turn_count).unwrap_or(0),
+                        last_activity_at: stats
+                            .and_then(|s| s.last_activity_at.as_ref().cloned())
+                            .or(Some(run_attempt.started_at)),
+                        total_tokens: stats.map(|s| s.total_tokens).unwrap_or(0),
+                    },
+                )
+            })
+            .collect();
 
         let claimed: BTreeSet<String> = self.state.claimed.iter().cloned().collect();
         let mut completed: Vec<CompletedEntry> = self.state.completed.values().cloned().collect();
@@ -1698,6 +1743,7 @@ impl Orchestrator {
             poll_interval_ms: self.state.poll_interval_ms,
             max_concurrent_agents: self.state.max_concurrent_agents,
             running,
+            running_sessions,
             claimed,
             retry_queue,
             completed,
@@ -1918,6 +1964,14 @@ impl Orchestrator {
 
         self.state.running.insert(issue.id.clone(), attempt);
         self.state.claimed.insert(issue.id.clone());
+        self.running_session_stats.insert(
+            issue.id.clone(),
+            RunningSessionStats {
+                turn_count: 0,
+                last_activity_at: Some(Utc::now()),
+                total_tokens: 0,
+            },
+        );
         self.state.retry_attempts.remove(&issue.id);
         self.running_issue_states
             .insert(issue.id.clone(), normalize_issue_state(&issue.state));
@@ -2173,6 +2227,7 @@ impl Orchestrator {
         self.retry_tokens.remove(issue_id);
         self.worker_last_activity_ms.remove(issue_id);
         self.worker_session_ids.remove(issue_id);
+        self.running_session_stats.remove(issue_id);
     }
 
     fn cleanup_workspace(&self, issue: &Issue, workspace_path: &str) {
@@ -2224,6 +2279,7 @@ impl Orchestrator {
         self.retry_tokens.remove(issue_id);
         self.worker_last_activity_ms.remove(issue_id);
         self.worker_session_ids.remove(issue_id);
+        self.running_session_stats.remove(issue_id);
     }
 
     fn active_state_set(&self) -> HashSet<String> {
@@ -2248,6 +2304,10 @@ impl Orchestrator {
 }
 
 fn event_timestamp_ms(event: &AgentEvent) -> i64 {
+    event_timestamp(event).timestamp_millis()
+}
+
+fn event_timestamp(event: &AgentEvent) -> DateTime<Utc> {
     match event {
         AgentEvent::SessionStarted { timestamp, .. }
         | AgentEvent::StartupFailed { timestamp, .. }
@@ -2264,7 +2324,7 @@ fn event_timestamp_ms(event: &AgentEvent) -> i64 {
         | AgentEvent::UnsupportedToolCall { timestamp, .. }
         | AgentEvent::Notification { timestamp, .. }
         | AgentEvent::OtherMessage { timestamp, .. }
-        | AgentEvent::Malformed { timestamp, .. } => timestamp.timestamp_millis(),
+        | AgentEvent::Malformed { timestamp, .. } => *timestamp,
     }
 }
 

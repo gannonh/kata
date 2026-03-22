@@ -27,7 +27,7 @@ cargo build --release
 ## Running
 
 ```sh
-symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--i-understand-that-this-will-be-running-without-the-usual-guardrails]
+symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--tui] [--i-understand-that-this-will-be-running-without-the-usual-guardrails]
 ```
 
 ### CLI Flag Reference
@@ -37,6 +37,7 @@ symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--i-understand-that-thi
 | `WORKFLOW.md` (positional)                                              | path | `WORKFLOW.md` | Path to the WORKFLOW.md configuration file                                                                                           |
 | `--port PORT`                                                           | u16  | _(none)_      | Bind the HTTP dashboard and API on this port. When omitted, no HTTP server is started. Overrides `server.port` in the workflow file. |
 | `--logs-root PATH`                                                      | path | _(none)_      | Directory root for agent log files.                                                                                                  |
+| `--tui`                                                                 | flag | `false`       | Render a Ratatui terminal dashboard. When enabled with no `--logs-root`, stdout logs are suppressed to avoid corrupting the TUI.   |
 | `--i-understand-that-this-will-be-running-without-the-usual-guardrails` | flag | `false`       | Acknowledge that Symphony runs Codex sessions without interactive guardrails.                                                        |
 
 ### Exit Codes
