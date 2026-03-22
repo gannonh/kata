@@ -258,7 +258,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
     <section class="card"><div class="label">retry</div><div class="value" id="retry-count">{retry_count}</div></section>
     <section class="card"><div class="label">claimed</div><div class="value" id="claimed-count">{claimed_count}</div></section>
     <section class="card"><div class="label">completed</div><div class="value" id="completed-count">{completed_count}</div></section>
-    {linear_project_card}
+    <div id="linear-project-card">{linear_project_card}</div>
   </div>
 
   <section class="card section">
@@ -490,6 +490,18 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       }}).join('');
     }}
 
+    function renderLinearProjectCard(url) {{
+      if (!url) {{
+        return '<section class="card"><div class="label">linear project</div><div class="mono muted">n/a</div></section>';
+      }}
+      const escaped = escapeHtml(url);
+      return '<section class="card"><div class="label">linear project</div><div class="mono"><a id="linear-project-link" href="' +
+        escaped +
+        '" target="_blank" rel="noopener noreferrer">' +
+        escaped +
+        '</a></div></section>';
+    }}
+
     function updatePolling(polling) {{
       const poll = polling || {{}};
       document.getElementById('polling-last-poll').textContent = formatDate(poll.last_poll_at);
@@ -525,6 +537,8 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         document.getElementById('retry-count').textContent = retryQueue.length;
         document.getElementById('claimed-count').textContent = (state.claimed || []).length;
         document.getElementById('completed-count').textContent = completed.length;
+        document.getElementById('linear-project-card').innerHTML =
+          renderLinearProjectCard(state.linear_project_url);
         document.getElementById('running-table-body').innerHTML = renderRunningTable(
           running,
           state.running_session_info || {{}}

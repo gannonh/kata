@@ -178,10 +178,15 @@ fn draw_dashboard(frame: &mut Frame, snapshot: &OrchestratorSnapshot, now: DateT
     frame.render_widget(root, frame.area());
     let inner = Block::default().borders(Borders::ALL).inner(frame.area());
 
+    let summary_height: u16 = if snapshot.linear_project_url.is_some() {
+        2
+    } else {
+        1
+    };
     let sections = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(2),
+            Constraint::Length(summary_height),
             Constraint::Min(8),
             Constraint::Length(7),
             Constraint::Length(7),

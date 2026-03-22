@@ -335,7 +335,10 @@ fn test_orchestrator_snapshot_serializes() {
     // Contains expected keys
     assert!(val.get("poll_interval_ms").is_some());
     assert!(val.get("max_concurrent_agents").is_some());
-    assert!(val.get("linear_project_url").is_some());
+    assert_eq!(
+        val.get("linear_project_url").and_then(|v| v.as_str()),
+        Some("https://linear.app/kata-sh/project/symphony")
+    );
     assert!(val.get("running").is_some());
     assert!(val.get("running_sessions").is_some());
     assert!(val.get("running_session_info").is_some());
