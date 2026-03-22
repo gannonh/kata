@@ -5,14 +5,14 @@ Headless orchestrator that polls a Linear project for candidate issues and dispa
 <div align="center">
 
 ### TUI Dashboard
-![TUI Dashboard](../../assets/symphony-v1.0.0/symphony-tui.png)
+<img src="https://raw.githubusercontent.com/gannonh/kata/main/assets/symphony-v1.0.0/symphony-tui.png" alt="TUI Dashboard" width="800">
 
 ### HTTP Dashboard
-![HTTP Dashboard](../../assets/symphony-v1.0.0/symphony-web.png)
-![HTTP Dashboard Detail](../../assets/symphony-v1.0.0/symphony-web2.png)
+<img src="https://raw.githubusercontent.com/gannonh/kata/main/assets/symphony-v1.0.0/symphony-web.png" alt="HTTP Dashboard" width="800">
+<img src="https://raw.githubusercontent.com/gannonh/kata/main/assets/symphony-v1.0.0/symphony-web2.png" alt="HTTP Dashboard Detail" width="800">
 
 ### Linear Integration
-![Linear Project Board](../../assets/symphony-v1.0.0/symphony-linear.png)
+<img src="https://raw.githubusercontent.com/gannonh/kata/main/assets/symphony-v1.0.0/symphony-linear.png" alt="Linear Project Board" width="800">
 
 </div>
 
