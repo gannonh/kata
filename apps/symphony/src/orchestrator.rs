@@ -600,6 +600,9 @@ struct RunningSessionStats {
     turn_count: u32,
     last_activity_at: Option<DateTime<Utc>>,
     total_tokens: u64,
+    last_event: Option<String>,
+    last_event_message: Option<String>,
+    session_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -1261,11 +1264,15 @@ impl Orchestrator {
                 .insert(issue_id.to_string(), session_id.to_string());
         }
 
+        let (last_event, last_event_message) = event_summary(event);
         let session_stats = self
             .running_session_stats
             .entry(issue_id.to_string())
             .or_default();
         session_stats.last_activity_at = Some(event_time);
+        session_stats.last_event = Some(last_event);
+        session_stats.last_event_message = last_event_message;
+        session_stats.session_id = self.worker_session_ids.get(issue_id).cloned();
 
         if let Some(run_attempt) = self.state.running.get_mut(issue_id) {
             match event {
@@ -1490,6 +1497,9 @@ impl Orchestrator {
                 turn_count: 0,
                 last_activity_at: Some(Utc::now()),
                 total_tokens: 0,
+                last_event: None,
+                last_event_message: None,
+                session_id: None,
             });
         self.state.retry_attempts.remove(&issue.id);
 
@@ -1765,6 +1775,11 @@ impl Orchestrator {
                             .and_then(|s| s.last_activity_at)
                             .or(Some(run_attempt.started_at)),
                         total_tokens: stats.map(|s| s.total_tokens).unwrap_or(0),
+                        last_event: stats.and_then(|s| s.last_event.clone()),
+                        last_event_message: stats.and_then(|s| s.last_event_message.clone()),
+                        session_id: stats
+                            .and_then(|s| s.session_id.clone())
+                            .or_else(|| self.worker_session_ids.get(issue_id).cloned()),
                     },
                 )
             })
@@ -2039,6 +2054,9 @@ impl Orchestrator {
                 turn_count: 0,
                 last_activity_at: Some(Utc::now()),
                 total_tokens: 0,
+                last_event: None,
+                last_event_message: None,
+                session_id: None,
             },
         );
         self.state.retry_attempts.remove(&issue.id);
@@ -2426,6 +2444,290 @@ fn event_name(event: &AgentEvent) -> &'static str {
     }
 }
 
+fn event_summary(event: &AgentEvent) -> (String, Option<String>) {
+    let (name, message) = match event {
+        AgentEvent::SessionStarted { session_id, .. } => (
+            event_name(event).to_string(),
+            Some(format!("session {}", compact_session_id(session_id))),
+        ),
+        AgentEvent::StartupFailed { error, .. } => {
+            (event_name(event).to_string(), Some(error.clone()))
+        }
+        AgentEvent::TurnCompleted { message, .. } => (
+            event_name(event).to_string(),
+            Some(
+                message
+                    .clone()
+                    .unwrap_or_else(|| "turn completed".to_string()),
+            ),
+        ),
+        AgentEvent::TurnFailed { error, .. } => {
+            (event_name(event).to_string(), Some(error.clone()))
+        }
+        AgentEvent::TurnCancelled { .. } => (
+            event_name(event).to_string(),
+            Some("turn cancelled".to_string()),
+        ),
+        AgentEvent::TurnEndedWithError { error, .. } => {
+            (event_name(event).to_string(), Some(error.clone()))
+        }
+        AgentEvent::TurnInputRequired { prompt, .. } => (
+            event_name(event).to_string(),
+            prompt
+                .clone()
+                .or_else(|| Some("input required".to_string())),
+        ),
+        AgentEvent::ApprovalAutoApproved { tool_call, .. } => (
+            event_name(event).to_string(),
+            Some(format!("auto-approved {tool_call}")),
+        ),
+        AgentEvent::ApprovalRequired { method, .. } => (
+            event_name(event).to_string(),
+            Some(format!("approval required: {method}")),
+        ),
+        AgentEvent::ToolCallCompleted { tool_name, .. } => (
+            event_name(event).to_string(),
+            Some(format!("completed {tool_name}")),
+        ),
+        AgentEvent::ToolCallFailed { tool_name, .. } => {
+            let message = tool_name
+                .as_ref()
+                .map(|name| format!("tool {name} failed"))
+                .unwrap_or_else(|| "tool call failed".to_string());
+            (event_name(event).to_string(), Some(message))
+        }
+        AgentEvent::ToolInputAutoAnswered { .. } => (
+            event_name(event).to_string(),
+            Some("tool input auto-answered".to_string()),
+        ),
+        AgentEvent::UnsupportedToolCall { tool_name, .. } => (
+            event_name(event).to_string(),
+            Some(format!("unsupported tool {tool_name}")),
+        ),
+        AgentEvent::Notification { message, .. } => notification_event_summary(message),
+        AgentEvent::OtherMessage { raw, .. } => other_message_summary(raw),
+        AgentEvent::Malformed {
+            parse_error,
+            raw_text,
+            ..
+        } => (
+            event_name(event).to_string(),
+            Some(format!(
+                "malformed event: {parse_error}; {}",
+                normalize_whitespace(raw_text)
+            )),
+        ),
+    };
+
+    (
+        name,
+        message
+            .as_deref()
+            .map(|value| truncate_for_summary(value, 160))
+            .filter(|value| !value.is_empty()),
+    )
+}
+
+fn notification_event_summary(message: &str) -> (String, Option<String>) {
+    let fallback_message = normalize_whitespace(message);
+    let parsed = match serde_json::from_str::<serde_json::Value>(message) {
+        Ok(parsed) => parsed,
+        Err(_) => {
+            return (
+                "notification".to_string(),
+                (!fallback_message.is_empty()).then_some(fallback_message),
+            )
+        }
+    };
+
+    let name = parsed
+        .get("method")
+        .and_then(|method| method.as_str())
+        .unwrap_or("notification")
+        .to_string();
+    let summary = summarize_notification_payload(&name, &parsed).or_else(|| {
+        parsed
+            .get("params")
+            .map(|params| normalize_whitespace(&params.to_string()))
+    });
+
+    (name, summary)
+}
+
+fn summarize_notification_payload(name: &str, payload: &serde_json::Value) -> Option<String> {
+    if name.contains("token_count") {
+        let input = first_u64_at_paths(
+            payload,
+            &[
+                &["params", "tokenUsage", "total", "input_tokens"],
+                &["params", "tokenUsage", "total", "inputTokens"],
+                &[
+                    "params",
+                    "msg",
+                    "payload",
+                    "info",
+                    "total_token_usage",
+                    "input_tokens",
+                ],
+            ],
+        );
+        let output = first_u64_at_paths(
+            payload,
+            &[
+                &["params", "tokenUsage", "total", "output_tokens"],
+                &["params", "tokenUsage", "total", "outputTokens"],
+                &[
+                    "params",
+                    "msg",
+                    "payload",
+                    "info",
+                    "total_token_usage",
+                    "output_tokens",
+                ],
+            ],
+        );
+        let total = first_u64_at_paths(
+            payload,
+            &[
+                &["params", "tokenUsage", "total", "total_tokens"],
+                &["params", "tokenUsage", "total", "totalTokens"],
+                &[
+                    "params",
+                    "msg",
+                    "payload",
+                    "info",
+                    "total_token_usage",
+                    "total_tokens",
+                ],
+            ],
+        );
+
+        let mut pieces = Vec::new();
+        if let Some(value) = input {
+            pieces.push(format!("in {value}"));
+        }
+        if let Some(value) = output {
+            pieces.push(format!("out {value}"));
+        }
+        if let Some(value) = total {
+            pieces.push(format!("total {value}"));
+        }
+        if !pieces.is_empty() {
+            return Some(format!("tokens {}", pieces.join(" / ")));
+        }
+    }
+
+    payload
+        .get("params")
+        .and_then(find_preferred_text)
+        .or_else(|| find_preferred_text(payload))
+}
+
+fn other_message_summary(raw: &serde_json::Value) -> (String, Option<String>) {
+    let name = raw
+        .get("method")
+        .and_then(|method| method.as_str())
+        .unwrap_or("other_message")
+        .to_string();
+    let summary = raw
+        .get("params")
+        .and_then(find_preferred_text)
+        .or_else(|| find_preferred_text(raw));
+    (name, summary)
+}
+
+fn find_preferred_text(value: &serde_json::Value) -> Option<String> {
+    const MAX_TEXT_SEARCH_DEPTH: usize = 5;
+    find_preferred_text_with_depth(value, MAX_TEXT_SEARCH_DEPTH)
+}
+
+fn find_preferred_text_with_depth(value: &serde_json::Value, depth: usize) -> Option<String> {
+    if depth == 0 {
+        return None;
+    }
+
+    match value {
+        serde_json::Value::String(text) => {
+            let normalized = normalize_whitespace(text);
+            if normalized.is_empty() {
+                None
+            } else {
+                Some(normalized)
+            }
+        }
+        serde_json::Value::Object(map) => {
+            for key in [
+                "summary",
+                "message",
+                "text",
+                "title",
+                "command",
+                "tool_name",
+                "toolName",
+                "name",
+            ] {
+                if let Some(found) = map
+                    .get(key)
+                    .and_then(|candidate| find_preferred_text_with_depth(candidate, depth - 1))
+                {
+                    return Some(found);
+                }
+            }
+
+            map.values()
+                .find_map(|candidate| find_preferred_text_with_depth(candidate, depth - 1))
+        }
+        serde_json::Value::Array(items) => items
+            .iter()
+            .find_map(|candidate| find_preferred_text_with_depth(candidate, depth - 1)),
+        _ => None,
+    }
+}
+
+fn first_u64_at_paths(value: &serde_json::Value, paths: &[&[&str]]) -> Option<u64> {
+    paths
+        .iter()
+        .find_map(|path| value_at_path(value, path).and_then(integer_like))
+}
+
+fn value_at_path<'a>(value: &'a serde_json::Value, path: &[&str]) -> Option<&'a serde_json::Value> {
+    let mut current = value;
+    for segment in path {
+        current = current.get(segment)?;
+    }
+    Some(current)
+}
+
+fn integer_like(value: &serde_json::Value) -> Option<u64> {
+    match value {
+        serde_json::Value::Number(number) => number.as_u64(),
+        serde_json::Value::String(text) => text.trim().parse::<u64>().ok(),
+        _ => None,
+    }
+}
+
+fn compact_session_id(session_id: &str) -> String {
+    session_id.chars().take(8).collect()
+}
+
+fn normalize_whitespace(value: &str) -> String {
+    value.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn truncate_for_summary(value: &str, max_chars: usize) -> String {
+    let normalized = normalize_whitespace(value);
+    if normalized.chars().count() <= max_chars {
+        return normalized;
+    }
+
+    let mut out = String::new();
+    for ch in normalized.chars().take(max_chars.saturating_sub(1)) {
+        out.push(ch);
+    }
+    out.push('…');
+    out
+}
+
 fn normalize_issue_state(state_name: &str) -> String {
     state_name.trim().to_ascii_lowercase()
 }
@@ -2457,4 +2759,29 @@ fn issue_identifier_sort_key(issue: &Issue) -> (&str, &str) {
 
 pub fn rate_limit_info(data: serde_json::Value) -> RateLimitInfo {
     RateLimitInfo { data }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn find_preferred_text_stops_searching_past_depth_limit() {
+        let nested = json!({
+            "level_1": {
+                "level_2": {
+                    "level_3": {
+                        "level_4": {
+                            "level_5": {
+                                "message": "too deep"
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        assert_eq!(find_preferred_text(&nested), None);
+    }
 }

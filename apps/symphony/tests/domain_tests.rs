@@ -283,6 +283,9 @@ fn test_orchestrator_snapshot_serializes() {
                     turn_count: 3,
                     last_activity_at: Some(Utc::now()),
                     total_tokens: 120,
+                    last_event: None,
+                    last_event_message: None,
+                    session_id: None,
                 },
             );
             m.insert(
@@ -291,6 +294,9 @@ fn test_orchestrator_snapshot_serializes() {
                     turn_count: 1,
                     last_activity_at: Some(Utc::now()),
                     total_tokens: 40,
+                    last_event: None,
+                    last_event_message: None,
+                    session_id: None,
                 },
             );
             m

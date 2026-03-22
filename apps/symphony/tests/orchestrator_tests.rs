@@ -790,6 +790,21 @@ fn test_streamed_event_updates_activity_before_worker_completion() {
             .contains_key("issue-stream-activity"),
         "worker should not be retried while streamed activity is within stall timeout"
     );
+
+    let snapshot = orchestrator.snapshot(now_ms);
+    let session = snapshot
+        .running_sessions
+        .get("issue-stream-activity")
+        .expect("running session snapshot should include stream activity issue");
+    assert_eq!(session.last_event.as_deref(), Some("session_started"));
+    assert_eq!(
+        session.last_event_message.as_deref(),
+        Some("session thread-s")
+    );
+    assert_eq!(
+        session.session_id.as_deref(),
+        Some("thread-stream-1-turn-1")
+    );
 }
 
 #[test]
@@ -854,6 +869,93 @@ fn test_streamed_events_keep_refreshing_stall_detection_window() {
             .retry_attempts
             .contains_key("issue-stream-window"),
         "stalled retry should remain unscheduled when streamed activity continues"
+    );
+}
+
+#[test]
+fn test_streamed_notification_records_event_method_and_message() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let now_ms = 3_000_000;
+    orchestrator.state_mut().running.insert(
+        "issue-notification".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-notification".to_string(),
+            issue_identifier: "SIM-STREAM-3".to_string(),
+            issue_title: None,
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-notification".to_string(),
+            started_at: utc_ms(now_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            linear_state: None,
+        },
+    );
+
+    orchestrator.ingest_agent_event(
+        "issue-notification",
+        &AgentEvent::Notification {
+            timestamp: utc_ms(now_ms - 3_000),
+            codex_app_server_pid: Some("3333".to_string()),
+            message:
+                r#"{"method":"codex/event/task_started","params":{"message":"running cargo test"}}"#
+                    .to_string(),
+        },
+    );
+
+    let snapshot = orchestrator.snapshot(now_ms);
+    let session = snapshot
+        .running_sessions
+        .get("issue-notification")
+        .expect("running session snapshot should include notification issue");
+    assert_eq!(
+        session.last_event.as_deref(),
+        Some("codex/event/task_started")
+    );
+    assert_eq!(
+        session.last_event_message.as_deref(),
+        Some("running cargo test")
+    );
+}
+
+#[test]
+fn test_streamed_tool_call_completed_uses_completed_summary() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let now_ms = 3_500_000;
+    orchestrator.state_mut().running.insert(
+        "issue-tool-call".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-tool-call".to_string(),
+            issue_identifier: "SIM-STREAM-TOOL".to_string(),
+            issue_title: None,
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-tool-call".to_string(),
+            started_at: utc_ms(now_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            linear_state: None,
+        },
+    );
+
+    orchestrator.ingest_agent_event(
+        "issue-tool-call",
+        &AgentEvent::ToolCallCompleted {
+            timestamp: utc_ms(now_ms - 1_000),
+            codex_app_server_pid: Some("4444".to_string()),
+            tool_name: "cargo test".to_string(),
+        },
+    );
+
+    let snapshot = orchestrator.snapshot(now_ms);
+    let session = snapshot
+        .running_sessions
+        .get("issue-tool-call")
+        .expect("running session snapshot should include tool call issue");
+    assert_eq!(session.last_event.as_deref(), Some("tool_call_completed"));
+    assert_eq!(
+        session.last_event_message.as_deref(),
+        Some("completed cargo test")
     );
 }
 

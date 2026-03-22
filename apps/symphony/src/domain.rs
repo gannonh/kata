@@ -534,6 +534,12 @@ pub struct RunningSessionSnapshot {
     pub last_activity_at: Option<DateTime<Utc>>,
     #[serde(default)]
     pub total_tokens: u64,
+    #[serde(default)]
+    pub last_event: Option<String>,
+    #[serde(default)]
+    pub last_event_message: Option<String>,
+    #[serde(default)]
+    pub session_id: Option<String>,
 }
 
 /// Polling state for the snapshot.
