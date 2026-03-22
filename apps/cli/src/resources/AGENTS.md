@@ -28,13 +28,23 @@ apps/cli/
       agents/              — Agent prompt templates (worker, scout, researcher)
       extensions/
         kata/              — Main extension: /kata command, auto-mode, planning, state
+          auto.ts          — Auto-mode loop with session lock integration
+          session-lock.ts  — OS-level exclusive locking for auto-mode sessions
+          repo-identity.ts — Stable SHA-256 repo fingerprint across subdirs/worktrees
+          worktree-resolver.ts — Git worktree path resolution
+          atomic-write.ts  — Crash-safe file writes (rename-into-place)
         browser-tools/     — Playwright-based browser automation
         subagent/          — Spawns child kata processes for parallel work
+          worker-registry.ts — Global registry of active subagent sessions
+          elapsed.ts       — Human-readable elapsed time formatting
         slash-commands/     — create-slash-command, create-extension, audit slash commands
         shared/            — Shared UI components used by multiple extensions
         bg-shell/          — Background shell execution
         context7/          — Context7 library documentation lookup
-        search-the-web/    — Web search via Brave API
+        search-the-web/    — Web search via Brave API + pluggable provider abstraction
+          provider.ts      — Search provider interface and registry
+          tavily.ts        — Tavily search provider implementation
+          native-search.ts — Brave native search (default provider)
         mac-tools/         — macOS-specific utilities
         linear/            — Built-in Linear integration (GraphQL client + tools)
       skills/              — Bundled skills
