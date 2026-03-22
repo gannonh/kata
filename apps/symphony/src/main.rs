@@ -207,12 +207,16 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
         let http_state = HttpServerState::new(Arc::new(snapshot_handle), Arc::new(refresh_sender));
 
         let mut tui_shutdown = None;
+        let mut tui_exit = None;
         let mut tui_task = None;
         if cli.tui {
             let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+            let (exit_tx, exit_rx) = tokio::sync::watch::channel(None::<tui::TuiExitReason>);
             tui_shutdown = Some(shutdown_tx);
+            tui_exit = Some(exit_rx);
             tui_task = Some(tokio::spawn(async move {
-                tui::run_tui(tui_snapshot_handle, shutdown_rx).await;
+                let reason = tui::run_tui(tui_snapshot_handle, shutdown_rx).await;
+                let _ = exit_tx.send(Some(reason));
             }));
         }
 
@@ -250,6 +254,7 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
             workflow_path,
             http_binding,
             http_state,
+            tui_exit,
         );
 
         if let Some(shutdown_tx) = tui_shutdown {
@@ -441,6 +446,7 @@ fn run_runtime_until_shutdown(
     workflow_path: &Path,
     http_binding: Option<HttpBinding>,
     http_state: HttpServerState,
+    mut tui_exit: Option<tokio::sync::watch::Receiver<Option<tui::TuiExitReason>>>,
 ) -> Result<(), String> {
     let handle = tokio::runtime::Handle::try_current()
         .map_err(|err| format!("missing tokio runtime for orchestrator startup: {err}"))?;
@@ -462,6 +468,19 @@ fn run_runtime_until_shutdown(
                         .map_err(|err| format!("http server failed: {err}"))
                 } else {
                     pending::<Result<(), String>>().await
+                }
+            };
+            let tui_exit_future = async {
+                match tui_exit.as_mut() {
+                    Some(exit_rx) => loop {
+                        if let Some(reason) = *exit_rx.borrow() {
+                            break Some(reason);
+                        }
+                        if exit_rx.changed().await.is_err() {
+                            break Some(tui::TuiExitReason::ShutdownSignal);
+                        }
+                    },
+                    None => pending::<Option<tui::TuiExitReason>>().await,
                 }
             };
 
@@ -499,6 +518,27 @@ fn run_runtime_until_shutdown(
                     );
                     Ok(())
                 }
+                tui_reason = tui_exit_future => {
+                    let Some(tui_reason) = tui_reason else {
+                        return Ok(());
+                    };
+                    match tui_reason {
+                        tui::TuiExitReason::CtrlC | tui::TuiExitReason::ShutdownSignal => {
+                            tracing::info!(
+                                phase = "runtime",
+                                stage = "stopped",
+                                reason = "tui_exit",
+                                workflow_path = %workflow_path.display(),
+                                tui_reason = ?tui_reason,
+                                "tui requested runtime shutdown"
+                            );
+                            Ok(())
+                        }
+                        tui::TuiExitReason::SetupFailed => Err("tui failed to initialize terminal".to_string()),
+                        tui::TuiExitReason::InputError => Err("tui failed while reading terminal input".to_string()),
+                        tui::TuiExitReason::DrawError => Err("tui failed while drawing dashboard".to_string()),
+                    }
+                }
             }
         })
     })
@@ -533,7 +573,11 @@ fn init_tracing(logs_root: Option<&Path>, tui_enabled: bool) {
                         eprintln!(
                             "failed to store file log guard (mutex poisoned): {err}; file logging disabled"
                         );
-                        subscriber_builder.try_init()
+                        if tui_enabled {
+                            subscriber_builder.with_writer(std::io::sink).try_init()
+                        } else {
+                            subscriber_builder.try_init()
+                        }
                     }
                 },
                 Err(err) => {
@@ -541,7 +585,11 @@ fn init_tracing(logs_root: Option<&Path>, tui_enabled: bool) {
                         "failed to initialize rotating file logging at {}: {err}",
                         logs_root_path.display()
                     );
-                    subscriber_builder.try_init()
+                    if tui_enabled {
+                        subscriber_builder.with_writer(std::io::sink).try_init()
+                    } else {
+                        subscriber_builder.try_init()
+                    }
                 }
             },
             None if tui_enabled => subscriber_builder.with_writer(std::io::sink).try_init(),

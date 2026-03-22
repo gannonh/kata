@@ -1706,7 +1706,7 @@ impl Orchestrator {
                     RunningSessionSnapshot {
                         turn_count: stats.map(|s| s.turn_count).unwrap_or(0),
                         last_activity_at: stats
-                            .and_then(|s| s.last_activity_at.as_ref().cloned())
+                            .and_then(|s| s.last_activity_at)
                             .or(Some(run_attempt.started_at)),
                         total_tokens: stats.map(|s| s.total_tokens).unwrap_or(0),
                     },

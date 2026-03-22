@@ -22,6 +22,15 @@ use crate::orchestrator::SnapshotHandle;
 
 const REFRESH_INTERVAL_MS: u64 = 500;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TuiExitReason {
+    ShutdownSignal,
+    CtrlC,
+    SetupFailed,
+    InputError,
+    DrawError,
+}
+
 pub fn validate_terminal_for_tui() -> Result<(), String> {
     if !io::stdout().is_terminal() {
         return Err("stdout is not a terminal; --tui requires an interactive terminal".to_string());
@@ -39,26 +48,28 @@ pub fn validate_terminal_for_tui() -> Result<(), String> {
     Ok(())
 }
 
-pub async fn run_tui(snapshot_handle: SnapshotHandle, mut shutdown: watch::Receiver<bool>) {
+pub async fn run_tui(
+    snapshot_handle: SnapshotHandle,
+    mut shutdown: watch::Receiver<bool>,
+) -> TuiExitReason {
     let mut terminal = match setup_terminal() {
         Ok(terminal) => terminal,
         Err(err) => {
             tracing::error!(error = %err, "failed to initialize tui terminal");
-            return;
+            return TuiExitReason::SetupFailed;
         }
     };
 
     let mut ticker = tokio::time::interval(Duration::from_millis(REFRESH_INTERVAL_MS));
     ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
     ticker.tick().await;
-
-    loop {
+    let exit_reason = loop {
         match ctrl_c_pressed() {
-            Ok(true) => break,
+            Ok(true) => break TuiExitReason::CtrlC,
             Ok(false) => {}
             Err(err) => {
                 tracing::warn!(error = %err, "failed reading terminal input for ctrl+c");
-                break;
+                break TuiExitReason::InputError;
             }
         }
 
@@ -66,7 +77,7 @@ pub async fn run_tui(snapshot_handle: SnapshotHandle, mut shutdown: watch::Recei
         let now = Utc::now();
         if let Err(err) = terminal.draw(|frame| draw_dashboard(frame, &snapshot, now)) {
             tracing::error!(error = %err, "failed drawing tui frame");
-            break;
+            break TuiExitReason::DrawError;
         }
 
         tokio::select! {
@@ -75,18 +86,20 @@ pub async fn run_tui(snapshot_handle: SnapshotHandle, mut shutdown: watch::Recei
                 match changed {
                     Ok(()) => {
                         if *shutdown.borrow() {
-                            break;
+                            break TuiExitReason::ShutdownSignal;
                         }
                     }
-                    Err(_) => break,
+                    Err(_) => break TuiExitReason::ShutdownSignal,
                 }
             }
         }
-    }
+    };
 
     if let Err(err) = restore_terminal(&mut terminal) {
         tracing::warn!(error = %err, "failed restoring terminal after tui shutdown");
     }
+
+    exit_reason
 }
 
 fn ctrl_c_pressed() -> io::Result<bool> {
@@ -107,18 +120,39 @@ fn ctrl_c_pressed() -> io::Result<bool> {
 fn setup_terminal() -> io::Result<Terminal<CrosstermBackend<io::Stdout>>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
+    if let Err(err) = execute!(stdout, EnterAlternateScreen) {
+        let _ = disable_raw_mode();
+        return Err(err);
+    }
     let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-    terminal.clear()?;
+    let mut terminal = match Terminal::new(backend) {
+        Ok(terminal) => terminal,
+        Err(err) => {
+            cleanup_partial_terminal_state();
+            return Err(err);
+        }
+    };
+    if let Err(err) = terminal.clear() {
+        cleanup_partial_terminal_state();
+        return Err(err);
+    }
     Ok(terminal)
 }
 
 fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> {
-    disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-    terminal.show_cursor()?;
-    Ok(())
+    let raw_result = disable_raw_mode();
+    let screen_result = execute!(terminal.backend_mut(), LeaveAlternateScreen);
+    let cursor_result = terminal.show_cursor();
+
+    raw_result?;
+    screen_result?;
+    cursor_result
+}
+
+fn cleanup_partial_terminal_state() {
+    let _ = disable_raw_mode();
+    let mut stdout = io::stdout();
+    let _ = execute!(stdout, LeaveAlternateScreen);
 }
 
 fn draw_dashboard(frame: &mut Frame, snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) {
