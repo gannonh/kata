@@ -195,7 +195,7 @@ Auto-refreshes every 2 seconds. JSON API at `/api/v1/state` and `/api/v1/{ISSUE-
 # Build
 cargo build
 
-# Test (280+ tests)
+# Test (290 tests)
 cargo test
 
 # Lint
