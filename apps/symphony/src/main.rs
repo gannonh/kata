@@ -37,12 +37,12 @@ pub struct Cli {
     pub logs_root: Option<String>,
 
     /// Legacy compatibility flag. TUI is now enabled by default.
-    #[arg(long, hide = true, default_value_t = true)]
+    #[arg(long, hide = true)]
     pub tui: bool,
 
     /// Disable the live terminal dashboard (Ratatui)
     #[arg(long)]
-    no_tui: bool,
+    pub no_tui: bool,
 }
 
 pub trait BootstrapDeps {
@@ -293,9 +293,8 @@ where
     T: Into<OsString> + Clone,
 {
     let mut cli = Cli::try_parse_from(args)?;
-    if cli.no_tui {
-        cli.tui = false;
-    }
+    // TUI is enabled by default; --no-tui is the explicit opt-out.
+    cli.tui = !cli.no_tui;
     Ok(cli)
 }
 
