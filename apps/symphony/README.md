@@ -2,19 +2,7 @@
 
 Headless orchestrator that polls a Linear project for candidate issues and dispatches parallel agent sessions to work on them autonomously. Manages the full ticket lifecycle — from Todo through implementation, PR creation, automated code review, human review, and merge.
 
-<div align="center">
-
-### TUI Dashboard
-<img src="https://raw.githubusercontent.com/gannonh/kata/main/assets/symphony-v1.0.0/symphony-tui.png" alt="TUI Dashboard" width="800">
-
-### HTTP Dashboard
-<img src="https://raw.githubusercontent.com/gannonh/kata/main/assets/symphony-v1.0.0/symphony-web.png" alt="HTTP Dashboard" width="800">
-<img src="https://raw.githubusercontent.com/gannonh/kata/main/assets/symphony-v1.0.0/symphony-web2.png" alt="HTTP Dashboard Detail" width="800">
-
-### Linear Integration
-<img src="https://raw.githubusercontent.com/gannonh/kata/main/assets/symphony-v1.0.0/symphony-linear.png" alt="Linear Project Board" width="800">
-
-</div>
+![Symphony HTTP Dashboard](../../assets/symphony-v1.0.0/symphony-web.png)
 
 ## Features
 
@@ -30,6 +18,8 @@ Headless orchestrator that polls a Linear project for candidate issues and dispa
 - **SSH worker pools** — distribute sessions across remote machines
 - **HTTP dashboard + JSON API** — live session table with turn/activity/session-token observability, retry queue, polling stats
 - **Terminal dashboard (`--tui`)** — Ratatui observability view for local runs
+
+![Symphony TUI Dashboard](../../assets/symphony-v1.0.0/symphony-tui.png)
 
 ## Quick Start
 
@@ -48,7 +38,7 @@ LINEAR_API_KEY=lin_api_... ./target/release/symphony WORKFLOW.md --port 8080
 On startup, Symphony prints a summary banner:
 
 ```
-Symphony v0.1.0
+Symphony v1.0.0
 Dashboard: http://127.0.0.1:8080
 Logs: stdout
 Project: Symphony (89d4761fddf0)
@@ -134,6 +124,8 @@ Todo → In Progress → Agent Review (bot feedback) → Human Review → Mergin
 | Merging | Human | Agent merges the approved PR |
 | Rework | Human | Agent scraps current approach, starts fresh |
 | Done | Agent | Terminal — PR merged |
+
+![Symphony Linear Project](../../assets/symphony-v1.0.0/symphony-linear.png)
 
 ## Linear Setup
 
