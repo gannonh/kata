@@ -2,6 +2,20 @@
 
 Headless orchestrator that polls a Linear project for candidate issues and dispatches parallel agent sessions to work on them autonomously. Manages the full ticket lifecycle — from Todo through implementation, PR creation, automated code review, human review, and merge.
 
+<div align="center">
+
+### TUI Dashboard
+![TUI Dashboard](../../assets/symphony-v1.0.0/symphony-tui.png)
+
+### HTTP Dashboard
+![HTTP Dashboard](../../assets/symphony-v1.0.0/symphony-web.png)
+![HTTP Dashboard Detail](../../assets/symphony-v1.0.0/symphony-web2.png)
+
+### Linear Integration
+![Linear Project Board](../../assets/symphony-v1.0.0/symphony-linear.png)
+
+</div>
+
 ## Features
 
 - **Linear integration** — polls for issues, manages state transitions, respects priorities and dependency graphs
