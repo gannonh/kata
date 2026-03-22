@@ -142,6 +142,8 @@ pub struct TrackerConfig {
     pub terminal_states: Vec<String>,
 }
 
+const DEFAULT_LINEAR_WORKSPACE_SLUG: &str = "kata-sh";
+
 impl Default for TrackerConfig {
     fn default() -> Self {
         Self {
@@ -159,6 +161,24 @@ impl Default for TrackerConfig {
                 "Done".to_string(),
             ],
         }
+    }
+}
+
+impl TrackerConfig {
+    /// Build a browser URL for the configured Linear project.
+    ///
+    /// The project slug comes from workflow config (`tracker.project_slug`).
+    /// Workspace slug is currently fixed to Kata's Linear workspace.
+    pub fn linear_project_url(&self) -> Option<String> {
+        let project_slug = self.project_slug.as_deref()?.trim();
+        if project_slug.is_empty() {
+            return None;
+        }
+
+        Some(format!(
+            "https://linear.app/{}/project/{project_slug}",
+            DEFAULT_LINEAR_WORKSPACE_SLUG
+        ))
     }
 }
 
@@ -524,6 +544,8 @@ pub struct PollingSnapshot {
 pub struct OrchestratorSnapshot {
     pub poll_interval_ms: u64,
     pub max_concurrent_agents: u32,
+    #[serde(default)]
+    pub linear_project_url: Option<String>,
     pub running: BTreeMap<String, RunAttempt>,
     #[serde(default)]
     pub running_sessions: BTreeMap<String, RunningSessionSnapshot>,

@@ -155,6 +155,22 @@ fn cleanup_partial_terminal_state() {
     let _ = execute!(stdout, LeaveAlternateScreen);
 }
 
+fn build_summary_lines(snapshot: &OrchestratorSnapshot) -> Vec<String> {
+    let mut lines = vec![format!(
+        "Running: {}  Retry: {}  Completed: {}  Tokens: {}",
+        snapshot.running.len(),
+        snapshot.retry_queue.len(),
+        snapshot.completed.len(),
+        format_tokens(snapshot.codex_totals.total_tokens)
+    )];
+
+    if let Some(project_url) = snapshot.linear_project_url.as_deref() {
+        lines.push(format!("Linear Project: {project_url}"));
+    }
+
+    lines
+}
+
 fn draw_dashboard(frame: &mut Frame, snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) {
     let root = Block::default()
         .title("Symphony Dashboard")
@@ -165,7 +181,7 @@ fn draw_dashboard(frame: &mut Frame, snapshot: &OrchestratorSnapshot, now: DateT
     let sections = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1),
+            Constraint::Length(2),
             Constraint::Min(8),
             Constraint::Length(7),
             Constraint::Length(7),
@@ -173,14 +189,11 @@ fn draw_dashboard(frame: &mut Frame, snapshot: &OrchestratorSnapshot, now: DateT
         ])
         .split(inner);
 
-    let summary = format!(
-        "Running: {}  Retry: {}  Completed: {}  Tokens: {}",
-        snapshot.running.len(),
-        snapshot.retry_queue.len(),
-        snapshot.completed.len(),
-        format_tokens(snapshot.codex_totals.total_tokens)
-    );
-    frame.render_widget(Paragraph::new(summary), sections[0]);
+    let summary_lines: Vec<Line<'static>> = build_summary_lines(snapshot)
+        .into_iter()
+        .map(Line::from)
+        .collect();
+    frame.render_widget(Paragraph::new(summary_lines), sections[0]);
 
     let running_header = Row::new(vec![
         Cell::from("ID"),
@@ -522,6 +535,30 @@ mod tests {
     use super::*;
     use chrono::TimeZone;
     use serde_json::json;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    fn empty_snapshot(linear_project_url: Option<&str>) -> OrchestratorSnapshot {
+        OrchestratorSnapshot {
+            poll_interval_ms: 30_000,
+            max_concurrent_agents: 1,
+            linear_project_url: linear_project_url.map(|value| value.to_string()),
+            running: BTreeMap::new(),
+            running_sessions: BTreeMap::new(),
+            running_session_info: BTreeMap::new(),
+            claimed: BTreeSet::new(),
+            retry_queue: vec![],
+            completed: vec![],
+            codex_totals: Default::default(),
+            codex_rate_limits: None,
+            polling: crate::domain::PollingSnapshot {
+                checking: false,
+                next_poll_in_ms: 30_000,
+                poll_interval_ms: 30_000,
+                last_poll_at: None,
+                poll_count: 0,
+            },
+        }
+    }
 
     #[test]
     fn format_age_returns_seconds_ago() {
@@ -574,6 +611,18 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("secondary: 34% used")),
             "expected secondary usage summary, got: {summary:?}"
+        );
+    }
+
+    #[test]
+    fn build_summary_lines_includes_linear_project_url_when_available() {
+        let snapshot = empty_snapshot(Some("https://linear.app/kata-sh/project/symphony"));
+        let lines = build_summary_lines(&snapshot);
+        assert!(
+            lines
+                .iter()
+                .any(|line| line == "Linear Project: https://linear.app/kata-sh/project/symphony"),
+            "summary lines should include the linear project URL when configured"
         );
     }
 

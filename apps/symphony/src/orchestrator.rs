@@ -1808,6 +1808,7 @@ impl Orchestrator {
         OrchestratorSnapshot {
             poll_interval_ms: self.state.poll_interval_ms,
             max_concurrent_agents: self.state.max_concurrent_agents,
+            linear_project_url: self.config.tracker.linear_project_url(),
             running,
             running_sessions,
             running_session_info,

@@ -137,6 +137,19 @@ fn test_service_config_defaults_match_spec() {
     assert_eq!(cfg.tracker.endpoint, "https://api.linear.app/graphql");
 }
 
+#[test]
+fn test_tracker_linear_project_url_uses_project_slug() {
+    let mut tracker = TrackerConfig::default();
+    tracker.project_slug = Some("symphony".to_string());
+    assert_eq!(
+        tracker.linear_project_url().as_deref(),
+        Some("https://linear.app/kata-sh/project/symphony")
+    );
+
+    tracker.project_slug = None;
+    assert_eq!(tracker.linear_project_url(), None);
+}
+
 // ── ServerConfig default fix (T01 must-have) ───────────────────────────
 
 #[test]
@@ -221,6 +234,7 @@ fn test_orchestrator_snapshot_serializes() {
     let snap = OrchestratorSnapshot {
         poll_interval_ms: 30_000,
         max_concurrent_agents: 5,
+        linear_project_url: Some("https://linear.app/kata-sh/project/symphony".to_string()),
         running: {
             let mut m = BTreeMap::new();
             m.insert(
@@ -321,6 +335,7 @@ fn test_orchestrator_snapshot_serializes() {
     // Contains expected keys
     assert!(val.get("poll_interval_ms").is_some());
     assert!(val.get("max_concurrent_agents").is_some());
+    assert!(val.get("linear_project_url").is_some());
     assert!(val.get("running").is_some());
     assert!(val.get("running_sessions").is_some());
     assert!(val.get("running_session_info").is_some());
