@@ -14,6 +14,8 @@ use crate::domain::{
 };
 use crate::orchestrator::{RefreshSender, SnapshotHandle};
 
+pub const HTTP_PORT_RETRY_LIMIT: u16 = 10;
+
 // ── Traits for testability ─────────────────────────────────────────────
 
 pub trait SnapshotSource: Send + Sync {
@@ -152,18 +154,65 @@ pub fn build_router(state: HttpServerState) -> Router {
 
 pub async fn start_http_server(
     state: HttpServerState,
-    port: u16,
+    listener: TcpListener,
     host: &str,
+    configured_port: u16,
+    bound_port: u16,
 ) -> std::io::Result<()> {
-    let bind_addr = format!("{host}:{port}");
-    let listener = TcpListener::bind(&bind_addr).await?;
     tracing::info!(
         event = "http_server_started",
         host = host,
-        port,
+        configured_port,
+        port = bound_port,
         "HTTP observability server started"
     );
     axum::serve(listener, build_router(state)).await
+}
+
+pub async fn bind_http_listener_with_fallback(
+    host: &str,
+    configured_port: u16,
+    max_port_offset: u16,
+) -> std::io::Result<(TcpListener, u16)> {
+    let mut attempt_port = configured_port;
+    let max_port = configured_port.saturating_add(max_port_offset);
+
+    loop {
+        let bind_addr = format!("{host}:{attempt_port}");
+        match TcpListener::bind(&bind_addr).await {
+            Ok(listener) => {
+                let bound_port = listener.local_addr()?.port();
+                if attempt_port != configured_port {
+                    tracing::warn!(
+                        event = "http_server_port_auto_incremented",
+                        host = host,
+                        configured_port,
+                        bound_port,
+                        retries = attempt_port.saturating_sub(configured_port),
+                        "Configured HTTP port was in use; bound the next available port"
+                    );
+                }
+                return Ok((listener, bound_port));
+            }
+            Err(err)
+                if configured_port != 0
+                    && err.kind() == std::io::ErrorKind::AddrInUse
+                    && attempt_port < max_port =>
+            {
+                tracing::warn!(
+                    event = "http_server_port_in_use_retry",
+                    host = host,
+                    configured_port,
+                    attempted_port = attempt_port,
+                    next_port = attempt_port + 1,
+                    max_port,
+                    "Configured HTTP port is in use; retrying on next port"
+                );
+                attempt_port += 1;
+            }
+            Err(err) => return Err(err),
+        }
+    }
 }
 
 // ── Route Handlers ─────────────────────────────────────────────────────
@@ -722,4 +771,82 @@ fn looks_like_issue_identifier(candidate: &str) -> bool {
         && prefix.chars().all(|c| c.is_ascii_uppercase())
         && !number.is_empty()
         && number.chars().all(|c| c.is_ascii_digit())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::TcpListener as StdTcpListener;
+
+    fn reserve_contiguous_ports(range_width: u16) -> (u16, Vec<StdTcpListener>) {
+        for _ in 0..256 {
+            let first = StdTcpListener::bind(("127.0.0.1", 0))
+                .expect("should bind a seed loopback port for test");
+            let base = first
+                .local_addr()
+                .expect("seed listener should expose local addr")
+                .port();
+
+            if u16::MAX - base < range_width {
+                continue;
+            }
+
+            let mut listeners = vec![first];
+            let mut all_reserved = true;
+            for offset in 1..=range_width {
+                match StdTcpListener::bind(("127.0.0.1", base + offset)) {
+                    Ok(listener) => listeners.push(listener),
+                    Err(_) => {
+                        all_reserved = false;
+                        break;
+                    }
+                }
+            }
+
+            if all_reserved {
+                return (base, listeners);
+            }
+        }
+
+        panic!("failed to reserve contiguous loopback ports for test");
+    }
+
+    #[tokio::test]
+    async fn bind_http_listener_with_fallback_increments_when_configured_port_is_in_use() {
+        // Reserve a full contiguous range first so we know retries are possible,
+        // then keep only the first port occupied.
+        let (configured_port, mut listeners) = reserve_contiguous_ports(HTTP_PORT_RETRY_LIMIT);
+        let occupied = listeners.remove(0);
+        drop(listeners);
+
+        let (listener, bound_port) =
+            bind_http_listener_with_fallback("127.0.0.1", configured_port, HTTP_PORT_RETRY_LIMIT)
+                .await
+                .expect("fallback bind should find an available nearby port");
+
+        assert!(
+            bound_port > configured_port,
+            "bound port should move forward when configured port is taken: configured={configured_port}, bound={bound_port}"
+        );
+        assert!(
+            bound_port <= configured_port.saturating_add(HTTP_PORT_RETRY_LIMIT),
+            "bound port should remain within retry cap: configured={configured_port}, bound={bound_port}"
+        );
+
+        drop(occupied);
+        drop(listener);
+    }
+
+    #[tokio::test]
+    async fn bind_http_listener_with_fallback_errors_after_retry_cap_is_exhausted() {
+        let (configured_port, listeners) = reserve_contiguous_ports(HTTP_PORT_RETRY_LIMIT);
+
+        let err =
+            bind_http_listener_with_fallback("127.0.0.1", configured_port, HTTP_PORT_RETRY_LIMIT)
+                .await
+                .expect_err("binding should fail when configured port and +10 range are occupied");
+        assert_eq!(err.kind(), std::io::ErrorKind::AddrInUse);
+
+        drop(listeners);
+    }
 }
