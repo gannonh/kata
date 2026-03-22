@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'apps/symphony/**'
+  workflow_dispatch:
 
 concurrency:
   group: symphony-release-${{ github.sha }}
