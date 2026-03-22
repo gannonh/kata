@@ -45,7 +45,7 @@ First public release. Symphony is a headless orchestrator that polls Linear for 
 - **Multiple workflow files** — different projects use different workflows. `symphony WORKFLOW.md` vs `symphony cli-WORKFLOW.md`
 - **Slice-aware workflow** — `cli-WORKFLOW.md` supports parent/child issue dispatch with context loading protocol (project → milestone → slice → task plans)
 - **Skills** — bundled Codex skills: linear, commit, push, pull, land, address-comments, fix-ci, debug
-- **Prompt template** — Jinja2/Liquid templates with `{{ issue.identifier }}`, `{{ issue.title }}`, `{{ workspace.base_branch }}`, `{{ attempt }}`
+- **Prompt template** — Liquid templates with `{{ issue.identifier }}`, `{{ issue.title }}`, `{{ workspace.base_branch }}`, `{{ attempt }}`
 
 ### SSH
 
