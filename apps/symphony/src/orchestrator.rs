@@ -2486,7 +2486,7 @@ fn event_summary(event: &AgentEvent) -> (String, Option<String>) {
         ),
         AgentEvent::ToolCallCompleted { tool_name, .. } => (
             event_name(event).to_string(),
-            Some(format!("running {tool_name}")),
+            Some(format!("completed {tool_name}")),
         ),
         AgentEvent::ToolCallFailed { tool_name, .. } => {
             let message = tool_name
@@ -2636,6 +2636,15 @@ fn other_message_summary(raw: &serde_json::Value) -> (String, Option<String>) {
 }
 
 fn find_preferred_text(value: &serde_json::Value) -> Option<String> {
+    const MAX_TEXT_SEARCH_DEPTH: usize = 5;
+    find_preferred_text_with_depth(value, MAX_TEXT_SEARCH_DEPTH)
+}
+
+fn find_preferred_text_with_depth(value: &serde_json::Value, depth: usize) -> Option<String> {
+    if depth == 0 {
+        return None;
+    }
+
     match value {
         serde_json::Value::String(text) => {
             let normalized = normalize_whitespace(text);
@@ -2656,14 +2665,20 @@ fn find_preferred_text(value: &serde_json::Value) -> Option<String> {
                 "toolName",
                 "name",
             ] {
-                if let Some(found) = map.get(key).and_then(find_preferred_text) {
+                if let Some(found) = map
+                    .get(key)
+                    .and_then(|candidate| find_preferred_text_with_depth(candidate, depth - 1))
+                {
                     return Some(found);
                 }
             }
 
-            map.values().find_map(find_preferred_text)
+            map.values()
+                .find_map(|candidate| find_preferred_text_with_depth(candidate, depth - 1))
         }
-        serde_json::Value::Array(items) => items.iter().find_map(find_preferred_text),
+        serde_json::Value::Array(items) => items
+            .iter()
+            .find_map(|candidate| find_preferred_text_with_depth(candidate, depth - 1)),
         _ => None,
     }
 }
@@ -2743,4 +2758,29 @@ fn issue_identifier_sort_key(issue: &Issue) -> (&str, &str) {
 
 pub fn rate_limit_info(data: serde_json::Value) -> RateLimitInfo {
     RateLimitInfo { data }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn find_preferred_text_stops_searching_past_depth_limit() {
+        let nested = json!({
+            "level_1": {
+                "level_2": {
+                    "level_3": {
+                        "level_4": {
+                            "level_5": {
+                                "message": "too deep"
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        assert_eq!(find_preferred_text(&nested), None);
+    }
 }

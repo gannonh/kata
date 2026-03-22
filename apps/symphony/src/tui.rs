@@ -363,7 +363,7 @@ fn status_color(
         .map(|event| event.trim().to_ascii_lowercase())
         .unwrap_or_default();
 
-    if normalized.contains("turn_completed") || normalized == "turn/completed" {
+    if is_turn_completed_event(&normalized) {
         Color::Magenta
     } else if normalized.contains("token_count") {
         Color::Yellow
@@ -375,6 +375,12 @@ fn status_color(
     } else {
         Color::Blue
     }
+}
+
+fn is_turn_completed_event(normalized_event: &str) -> bool {
+    normalized_event.contains("turn_completed")
+        || normalized_event.contains("turn/completed")
+        || (normalized_event.contains("turn") && normalized_event.contains("completed"))
 }
 
 fn is_stale_session(last_activity: Option<DateTime<Utc>>, now: DateTime<Utc>) -> bool {
@@ -709,6 +715,10 @@ mod tests {
         );
         assert_eq!(
             status_color(Some("turn_completed"), Some(fresh), now),
+            Color::Magenta
+        );
+        assert_eq!(
+            status_color(Some("codex/event/turn/completed"), Some(fresh), now),
             Color::Magenta
         );
         assert_eq!(

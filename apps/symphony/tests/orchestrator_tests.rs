@@ -919,6 +919,47 @@ fn test_streamed_notification_records_event_method_and_message() {
 }
 
 #[test]
+fn test_streamed_tool_call_completed_uses_completed_summary() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let now_ms = 3_500_000;
+    orchestrator.state_mut().running.insert(
+        "issue-tool-call".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-tool-call".to_string(),
+            issue_identifier: "SIM-STREAM-TOOL".to_string(),
+            issue_title: None,
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-tool-call".to_string(),
+            started_at: utc_ms(now_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            linear_state: None,
+        },
+    );
+
+    orchestrator.ingest_agent_event(
+        "issue-tool-call",
+        &AgentEvent::ToolCallCompleted {
+            timestamp: utc_ms(now_ms - 1_000),
+            codex_app_server_pid: Some("4444".to_string()),
+            tool_name: "cargo test".to_string(),
+        },
+    );
+
+    let snapshot = orchestrator.snapshot(now_ms);
+    let session = snapshot
+        .running_sessions
+        .get("issue-tool-call")
+        .expect("running session snapshot should include tool call issue");
+    assert_eq!(session.last_event.as_deref(), Some("tool_call_completed"));
+    assert_eq!(
+        session.last_event_message.as_deref(),
+        Some("completed cargo test")
+    );
+}
+
+#[test]
 fn test_streamed_turn_completed_events_update_token_totals_in_real_time() {
     let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let now_ms = 3_000_000;
