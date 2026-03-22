@@ -26,18 +26,42 @@ Headless orchestrator that polls a Linear project for candidate issues and dispa
 
 </details>
 
+## Installation
+
+### Pre-built binary (Linux x86_64)
+
+Download from [GitHub Releases](https://github.com/gannonh/kata/releases):
+
+```bash
+# Download the latest release
+curl -L https://github.com/gannonh/kata/releases/latest/download/symphony -o symphony
+chmod +x symphony
+```
+
+### Build from source (macOS, Linux, Windows)
+
+Requires [Rust toolchain](https://rustup.rs/):
+
+```bash
+git clone https://github.com/gannonh/kata.git
+cd kata/apps/symphony
+cargo build --release
+# Binary at: target/release/symphony
+```
+
 ## Quick Start
 
 ```bash
-# Build
-cargo build --release
+# 1. Configure
+cp .env.example .env
+# Edit .env with your Linear API key
 
-# Configure
-# Copy docs/WORKFLOW-REFERENCE.md to your project root as WORKFLOW.md
-# and customize the settings (Linear project, repo URL, agent config)
+# 2. Create your workflow
+cp docs/WORKFLOW-REFERENCE.md WORKFLOW.md
+# Edit WORKFLOW.md — set your project slug, repo URL, agent config
 
-# Run
-LINEAR_API_KEY=lin_api_... ./target/release/symphony WORKFLOW.md --port 8080
+# 3. Run
+./target/release/symphony WORKFLOW.md --port 8080
 ```
 
 On startup, Symphony prints a summary banner:
@@ -46,7 +70,7 @@ On startup, Symphony prints a summary banner:
 Symphony v1.0.0
 Dashboard: http://127.0.0.1:8080
 Logs: stdout
-Project: Symphony (89d4761fddf0)
+Project: 89d4761fddf0
 Workers: 3 max concurrent
 Polling: every 30s
 
