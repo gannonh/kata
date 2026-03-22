@@ -340,6 +340,15 @@ fn test_startup_terminal_cleanup_clears_runtime_bookkeeping_without_completed_in
             workspace_path: Some("/tmp/workspace-closed".to_string()),
         },
     );
+    orchestrator.state_mut().completed.insert(
+        "issue-closed".to_string(),
+        symphony::domain::CompletedEntry {
+            issue_id: "issue-closed".to_string(),
+            identifier: "SIM-10".to_string(),
+            title: "Issue SIM-10".to_string(),
+            completed_at: Some(Utc::now()),
+        },
+    );
 
     let result = orchestrator.startup_cleanup(&mut port);
     assert!(
