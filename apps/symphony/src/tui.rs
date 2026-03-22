@@ -80,9 +80,7 @@ impl ThroughputTracker {
             .fold(0.0_f64, |acc, value| acc.max(value));
 
         if max_tps <= f64::EPSILON {
-            return std::iter::repeat(SPARKLINE_BLOCKS[0])
-                .take(SPARKLINE_BUCKETS)
-                .collect();
+            return std::iter::repeat_n(SPARKLINE_BLOCKS[0], SPARKLINE_BUCKETS).collect();
         }
 
         bucket_tps
