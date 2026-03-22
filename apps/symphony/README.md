@@ -28,17 +28,24 @@ Headless orchestrator that polls a Linear project for candidate issues and dispa
 
 ## Installation
 
-### Pre-built binary (Linux x86_64)
+### Pre-built binaries
 
 Download from [GitHub Releases](https://github.com/gannonh/kata/releases):
 
+| Platform | Binary |
+|---|---|
+| macOS (Apple Silicon) | `symphony-macos-arm64` |
+| macOS (Intel) | `symphony-macos-x86_64` |
+| Linux (x86_64) | `symphony-linux-x86_64` |
+| Windows (x86_64) | `symphony-windows-x86_64.exe` |
+
 ```bash
-# Download the latest release
-curl -L https://github.com/gannonh/kata/releases/latest/download/symphony -o symphony
+# Example: macOS Apple Silicon
+curl -L https://github.com/gannonh/kata/releases/latest/download/symphony-macos-arm64 -o symphony
 chmod +x symphony
 ```
 
-### Build from source (macOS, Linux, Windows)
+### Build from source
 
 Requires [Rust toolchain](https://rustup.rs/):
 

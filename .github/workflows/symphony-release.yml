@@ -37,12 +37,10 @@ jobs:
             echo "should_release=true" >> $GITHUB_OUTPUT
           fi
 
-  build-and-release:
+  test:
     needs: check-version
     if: needs.check-version.outputs.should_release == 'true'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -57,13 +55,77 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             apps/symphony/target
-          key: ${{ runner.os }}-cargo-release-${{ hashFiles('apps/symphony/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('apps/symphony/Cargo.lock') }}
 
       - name: Run tests
         run: cd apps/symphony && cargo test
 
+      - name: Clippy
+        run: cd apps/symphony && cargo clippy -- -D warnings
+
+  build:
+    needs: [check-version, test]
+    if: needs.check-version.outputs.should_release == 'true'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: symphony-linux-x86_64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact: symphony-macos-arm64
+          - os: macos-13
+            target: x86_64-apple-darwin
+            artifact: symphony-macos-x86_64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: symphony-windows-x86_64.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/symphony/target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-release-${{ hashFiles('apps/symphony/Cargo.lock') }}
+
       - name: Build release binary
-        run: cd apps/symphony && cargo build --release
+        run: cd apps/symphony && cargo build --release --target ${{ matrix.target }}
+
+      - name: Rename binary (Unix)
+        if: runner.os != 'Windows'
+        run: cp apps/symphony/target/${{ matrix.target }}/release/symphony ${{ matrix.artifact }}
+
+      - name: Rename binary (Windows)
+        if: runner.os == 'Windows'
+        run: copy apps\symphony\target\${{ matrix.target }}\release\symphony.exe ${{ matrix.artifact }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    needs: [check-version, build]
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Create Git tag
         run: |
@@ -71,10 +133,19 @@ jobs:
           git tag "symphony-v$VERSION"
           git push origin "symphony-v$VERSION"
 
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: symphony-v${{ needs.check-version.outputs.version }}
           name: Symphony v${{ needs.check-version.outputs.version }}
-          files: apps/symphony/target/release/symphony
+          files: |
+            artifacts/symphony-linux-x86_64/symphony-linux-x86_64
+            artifacts/symphony-macos-arm64/symphony-macos-arm64
+            artifacts/symphony-macos-x86_64/symphony-macos-x86_64
+            artifacts/symphony-windows-x86_64.exe/symphony-windows-x86_64.exe
           generate_release_notes: true
