@@ -1214,7 +1214,9 @@ impl Orchestrator {
                 last_activity_ms,
                 session_tokens: SessionTokenUsage::default(),
             });
-        info.max_turns = max_turns;
+        if info.max_turns == 0 {
+            info.max_turns = max_turns;
+        }
         if info.turn_count == 0 {
             info.turn_count = 1;
         }
@@ -1272,20 +1274,22 @@ impl Orchestrator {
             ..
         } = event
         {
-            if let Some(session_info) = self.worker_session_info.get_mut(issue_id) {
-                session_info.session_tokens.input_tokens = session_info
-                    .session_tokens
-                    .input_tokens
-                    .saturating_add(*input_tokens);
-                session_info.session_tokens.output_tokens = session_info
-                    .session_tokens
-                    .output_tokens
-                    .saturating_add(*output_tokens);
-                session_info.session_tokens.total_tokens = session_info
-                    .session_tokens
-                    .total_tokens
-                    .saturating_add(*total_tokens);
-            }
+            let session_info = self
+                .worker_session_info
+                .get_mut(issue_id)
+                .expect("session info must exist after ensure_worker_session_info");
+            session_info.session_tokens.input_tokens = session_info
+                .session_tokens
+                .input_tokens
+                .saturating_add(*input_tokens);
+            session_info.session_tokens.output_tokens = session_info
+                .session_tokens
+                .output_tokens
+                .saturating_add(*output_tokens);
+            session_info.session_tokens.total_tokens = session_info
+                .session_tokens
+                .total_tokens
+                .saturating_add(*total_tokens);
             self.advance_turn_counter(issue_id);
             self.apply_turn_metrics(&TurnMetrics {
                 input_tokens: *input_tokens,

@@ -207,6 +207,10 @@ async fn test_get_root_returns_html_dashboard_shell_with_structured_sections() {
         "dashboard script should include stale activity highlighting styles/logic"
     );
     assert!(
+        body.contains("lastActivityValue != null ? Number(lastActivityValue) : NaN"),
+        "dashboard script should treat null last_activity_ms as missing instead of coercing to 0"
+    );
+    assert!(
         body.contains("Retry queue"),
         "dashboard shell should include retry queue table section"
     );

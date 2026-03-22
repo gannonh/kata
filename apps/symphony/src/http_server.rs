@@ -395,7 +395,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
           ? String(turnCount) + '/' + (Number.isFinite(maxTurns) && maxTurns > 0 ? String(maxTurns) : '?')
           : 'n/a';
         const lastActivityValue = sessionInfo.last_activity_ms;
-        const lastActivityMs = Number(lastActivityValue);
+        const lastActivityMs = lastActivityValue != null ? Number(lastActivityValue) : NaN;
         const lastActivityAge = Number.isFinite(lastActivityMs) ? Math.max(0, Date.now() - lastActivityMs) : null;
         const lastActivityLabel = lastActivityAge === null ? 'n/a' : formatTimeAgo(lastActivityAge);
         const lastActivityClass = lastActivityAge !== null && lastActivityAge > STALE_ACTIVITY_THRESHOLD_MS
