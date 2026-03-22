@@ -1,7 +1,9 @@
 use std::io;
+use std::io::IsTerminal;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
+use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
@@ -20,6 +22,23 @@ use crate::orchestrator::SnapshotHandle;
 
 const REFRESH_INTERVAL_MS: u64 = 500;
 
+pub fn validate_terminal_for_tui() -> Result<(), String> {
+    if !io::stdout().is_terminal() {
+        return Err("stdout is not a terminal; --tui requires an interactive terminal".to_string());
+    }
+
+    enable_raw_mode().map_err(|err| format!("failed to enable raw mode: {err}"))?;
+    let mut stdout = io::stdout();
+    if let Err(err) = execute!(stdout, EnterAlternateScreen, LeaveAlternateScreen) {
+        let _ = disable_raw_mode();
+        return Err(format!(
+            "failed to enter/leave alternate screen during TUI preflight: {err}"
+        ));
+    }
+    disable_raw_mode().map_err(|err| format!("failed to disable raw mode: {err}"))?;
+    Ok(())
+}
+
 pub async fn run_tui(snapshot_handle: SnapshotHandle, mut shutdown: watch::Receiver<bool>) {
     let mut terminal = match setup_terminal() {
         Ok(terminal) => terminal,
@@ -34,6 +53,15 @@ pub async fn run_tui(snapshot_handle: SnapshotHandle, mut shutdown: watch::Recei
     ticker.tick().await;
 
     loop {
+        match ctrl_c_pressed() {
+            Ok(true) => break,
+            Ok(false) => {}
+            Err(err) => {
+                tracing::warn!(error = %err, "failed reading terminal input for ctrl+c");
+                break;
+            }
+        }
+
         let snapshot = snapshot_handle.read();
         let now = Utc::now();
         if let Err(err) = terminal.draw(|frame| draw_dashboard(frame, &snapshot, now)) {
@@ -59,6 +87,21 @@ pub async fn run_tui(snapshot_handle: SnapshotHandle, mut shutdown: watch::Recei
     if let Err(err) = restore_terminal(&mut terminal) {
         tracing::warn!(error = %err, "failed restoring terminal after tui shutdown");
     }
+}
+
+fn ctrl_c_pressed() -> io::Result<bool> {
+    while event::poll(Duration::from_millis(0))? {
+        if let Event::Key(key_event) = event::read()? {
+            let ctrl_c = key_event.modifiers.contains(KeyModifiers::CONTROL)
+                && key_event.code == KeyCode::Char('c')
+                && matches!(key_event.kind, KeyEventKind::Press | KeyEventKind::Repeat);
+            if ctrl_c {
+                return Ok(true);
+            }
+        }
+    }
+
+    Ok(false)
 }
 
 fn setup_terminal() -> io::Result<Terminal<CrosstermBackend<io::Stdout>>> {
@@ -497,6 +540,17 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("secondary: 34% used")),
             "expected secondary usage summary, got: {summary:?}"
+        );
+    }
+
+    #[test]
+    fn validate_terminal_requires_tty_stdout() {
+        if io::stdout().is_terminal() {
+            return;
+        }
+        assert!(
+            validate_terminal_for_tui().is_err(),
+            "non-interactive stdout should fail tui preflight"
         );
     }
 }

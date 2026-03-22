@@ -186,6 +186,10 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
     fn start_orchestrator(&mut self, workflow_path: &Path, cli: &Cli) -> Result<(), String> {
         let context = self.take_or_load_validated_context(workflow_path)?;
         let http_binding = effective_http_binding(&context.effective_config, cli);
+        if cli.tui {
+            tui::validate_terminal_for_tui()
+                .map_err(|err| format!("tui preflight failed: {err}"))?;
+        }
         if !cli.tui {
             print_startup_banner(cli, &context.effective_config, http_binding.as_ref());
         }
