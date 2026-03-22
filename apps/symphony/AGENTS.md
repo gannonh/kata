@@ -27,7 +27,7 @@ cargo build --release
 ## Running
 
 ```sh
-symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--tui] [--i-understand-that-this-will-be-running-without-the-usual-guardrails]
+symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--tui]
 ```
 
 ### CLI Flag Reference
@@ -35,10 +35,9 @@ symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--tui] [--i-understand-
 | Flag                                                                    | Type | Default       | Description                                                                                                                          |
 | ----------------------------------------------------------------------- | ---- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `WORKFLOW.md` (positional)                                              | path | `WORKFLOW.md` | Path to the WORKFLOW.md configuration file                                                                                           |
-| `--port PORT`                                                           | u16  | _(none)_      | Bind the HTTP dashboard and API on this port. When omitted, no HTTP server is started. Overrides `server.port` in the workflow file. |
+| `--port PORT`                                                           | u16  | `8080`        | Bind the HTTP dashboard and API on this port. Overrides `server.port` in the workflow file.                                         |
 | `--logs-root PATH`                                                      | path | _(none)_      | Directory root for agent log files.                                                                                                  |
 | `--tui`                                                                 | flag | `false`       | Render a Ratatui terminal dashboard. When enabled with no `--logs-root`, stdout logs are suppressed to avoid corrupting the TUI.   |
-| `--i-understand-that-this-will-be-running-without-the-usual-guardrails` | flag | `false`       | Acknowledge that Symphony runs Codex sessions without interactive guardrails.                                                        |
 
 ### Exit Codes
 
@@ -59,6 +58,11 @@ RUST_LOG=symphony=trace,info symphony WORKFLOW.md   # trace symphony, info every
 ```
 
 Default level is `info`.
+
+When `--logs-root` is set, logs write to rotating files under
+`<logs-root>/log/symphony.log` and stdout shows only the startup banner.
+Without `--logs-root`, logs stream to stdout as structured JSON unless `--tui`
+is enabled.
 
 ---
 
@@ -314,12 +318,14 @@ workflow file (e.g. `0.0.0.0` to bind all interfaces).
     "issue-id-123": {
       "issue_id": "issue-id-123",
       "issue_identifier": "ENG-42",
+      "issue_title": "Ship dashboard metrics",
       "status": "running",
       "attempt": 1,
       "error": null,
       "worker_host": null,
       "workspace_path": "/tmp/symphony_workspaces/ENG-42",
-      "started_at": "2026-03-22T15:40:00Z"
+      "started_at": "2026-03-22T15:40:00Z",
+      "linear_state": "In Progress"
     }
   },
   "running_session_info": {
@@ -346,7 +352,14 @@ workflow file (e.g. `0.0.0.0` to bind all interfaces).
       "workspace_path": "/tmp/symphony_workspaces/ENG-99"
     }
   ],
-  "completed": ["issue-id-001", "issue-id-002"],
+  "completed": [
+    {
+      "issue_id": "issue-id-001",
+      "identifier": "ENG-12",
+      "title": "Initial bootstrap",
+      "completed_at": "2026-03-22T15:20:00Z"
+    }
+  ],
   "codex_totals": {
     "total_tokens": 148230,
     "input_tokens": 120000,
@@ -354,7 +367,10 @@ workflow file (e.g. `0.0.0.0` to bind all interfaces).
   },
   "codex_rate_limits": null,
   "polling": {
-    "last_poll_at": 1714000000000,
+    "checking": false,
+    "next_poll_in_ms": 15000,
+    "poll_interval_ms": 30000,
+    "last_poll_at": "2026-03-22T15:45:00Z",
     "poll_count": 12
   }
 }
@@ -367,14 +383,20 @@ workflow file (e.g. `0.0.0.0` to bind all interfaces).
   "issue": {
     "issue_id": "issue-id-123",
     "issue_identifier": "ENG-42",
+    "issue_title": "Ship dashboard metrics",
     "status": "running",
     "attempt": 1,
     "error": null,
     "worker_host": "worker1.example.com",
-    "workspace_path": "/tmp/symphony_workspaces/ENG-42"
+    "workspace_path": "/tmp/symphony_workspaces/ENG-42",
+    "linear_state": "In Progress"
   }
 }
 ```
+
+`running` entries in `/api/v1/state` are serialized `RunAttempt` records.
+Dashboard observability fields (`turn_count`, `max_turns`, `last_activity_ms`,
+`session_tokens`) are provided alongside each run in `running_session_info`.
 
 ### Sample JSON — `POST /api/v1/refresh`
 
@@ -433,9 +455,28 @@ configured `codex.command`).
 
 ---
 
+## Module Map
+
+Core Rust modules:
+
+| Module | Source file | Responsibility |
+| --- | --- | --- |
+| CLI/runtime entrypoint | `src/main.rs` | CLI parsing, startup validation, tracing setup, runtime wiring |
+| Orchestrator loop | `src/orchestrator.rs` | Poll/dispatch loop, retries, worker lifecycle, state snapshots |
+| HTTP dashboard/API | `src/http_server.rs` | `/`, `/api/v1/state`, `/api/v1/:issue_identifier`, refresh endpoint |
+| Terminal dashboard | `src/tui.rs` | Ratatui renderer, keyboard handling, live snapshot display |
+| Workflow/config parser | `src/workflow.rs`, `src/config.rs` | Front-matter parsing, env/tilde resolution, typed config defaults |
+| Domain model | `src/domain.rs` | Shared runtime/config structs (`RunAttempt`, snapshots, worker/session info) |
+| Tracker adapter/client | `src/linear/adapter.rs`, `src/linear/client.rs` | Linear GraphQL fetch/update operations and issue normalization |
+| Workspace + git bootstrap | `src/workspace.rs` | clone/worktree bootstrapping, branch naming, hooks |
+| Codex app-server bridge | `src/codex/app_server.rs` | Session subprocess lifecycle, turn streaming, tool execution |
+| SSH helpers | `src/ssh.rs` | Remote target parsing, command escaping, host selection helpers |
+
+---
+
 ## Testing
 
-Run the full test suite:
+Run the full test suite (280+ tests):
 
 ```sh
 cargo test

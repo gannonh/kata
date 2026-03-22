@@ -14,7 +14,8 @@ Headless orchestrator that polls a Linear project for candidate issues and dispa
 - **Workspace cleanup** — auto-remove workspaces when issues reach terminal state
 - **Rotating log files** — structured JSON logs to disk with rotation via `--logs-root`
 - **SSH worker pools** — distribute sessions across remote machines
-- **HTTP dashboard + JSON API** — live session table, token tracking, retry queue, polling stats
+- **HTTP dashboard + JSON API** — live session table with turn/activity/session-token observability, retry queue, polling stats
+- **Terminal dashboard (`--tui`)** — Ratatui observability view for local runs
 
 ## Quick Start
 
@@ -46,14 +47,15 @@ Press Ctrl+C to stop.
 ## CLI Flags
 
 ```
-symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH]
+symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--tui]
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `WORKFLOW.md` (positional) | `WORKFLOW.md` | Path to the workflow configuration file |
-| `--port PORT` | *(none)* | HTTP dashboard and API port. Overrides `server.port` in config |
+| `--port PORT` | `8080` | HTTP dashboard and API port. Overrides `server.port` in config |
 | `--logs-root PATH` | *(none)* | Directory for rotating log files. Suppresses stdout log streaming |
+| `--tui` | `false` | Render the Ratatui terminal dashboard. When enabled without `--logs-root`, stdout logs are suppressed to keep the TUI clean |
 
 ### Log verbosity
 
@@ -65,7 +67,7 @@ RUST_LOG=debug symphony WORKFLOW.md                   # verbose
 RUST_LOG=symphony=trace,info symphony WORKFLOW.md     # trace symphony, info everything else
 ```
 
-When `--logs-root` is set, logs write to rotating files under `<logs-root>/log/symphony.log` and stdout shows only the startup banner. Without `--logs-root`, logs stream to stdout as structured JSON.
+When `--logs-root` is set, logs write to rotating files under `<logs-root>/log/symphony.log` and stdout shows only the startup banner. Without `--logs-root`, logs stream to stdout as structured JSON unless `--tui` is enabled.
 
 ## Multiple Workflows
 
@@ -160,6 +162,8 @@ server:
   port: 8080
 ```
 
+`workspace.isolation: docker` is currently a preview setting: it is accepted by config parsing and logs a warning, but containerized execution is not implemented yet.
+
 ### Workspace Strategies
 
 | Strategy | Command | Best for |
@@ -177,7 +181,7 @@ The HTTP dashboard at `localhost:<port>` shows:
 
 - **Summary cards** — running, retry, claimed, completed counts
 - **Token summary** — input/output/total token usage
-- **Running sessions table** — identifier, Linear state, status, attempt, elapsed time, workspace, worker host
+- **Running sessions table** — identifier, Linear state, status, attempt, elapsed time, turn count/max turns, last activity age, per-session tokens, workspace, worker host
 - **Retry queue** — pending retries with errors and timing
 - **Completed issues** — ticket identifier, title, completion date
 - **Polling stats** — last poll time, poll count, interval
@@ -191,7 +195,7 @@ Auto-refreshes every 2 seconds. JSON API at `/api/v1/state` and `/api/v1/{ISSUE-
 # Build
 cargo build
 
-# Test (276 tests)
+# Test (280+ tests)
 cargo test
 
 # Lint

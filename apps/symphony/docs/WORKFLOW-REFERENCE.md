@@ -41,6 +41,8 @@ tracker:
 
   # Issue states eligible for dispatch. Issues in these states are candidates
   # for agent work. The orchestrator polls for issues in these states.
+  # Default parser value: ["Todo", "In Progress"].
+  # This template extends that set so the agent can run full review/merge loops.
   active_states:
     - Todo
     - In Progress
@@ -145,6 +147,7 @@ hooks:
 agent:
   # Maximum number of agent sessions running simultaneously.
   # New dispatches are held until a slot opens.
+  # Default parser value: 10.
   max_concurrent_agents: 1
 
   # Maximum turns (Codex interactions) per session before the run is
@@ -165,6 +168,7 @@ agent:
 # Configures the Codex app-server process that runs inside each agent session.
 codex:
   # Command to start Codex. Can be a string (whitespace-split) or list.
+  # Default parser value: `codex app-server`.
   command: codex --config shell_environment_policy.inherit=all --config model_reasoning_effort=xhigh --model gpt-5.3-codex app-server
 
   # Hard timeout per Codex turn in milliseconds (default: 3600000 = 1 hour).
@@ -172,18 +176,23 @@ codex:
 
   # Time (ms) before a non-progressing session is considered stalled.
   # Reset on each agent event. Set high for long builds (e.g. cargo test).
+  # Default parser value: 300000.
   stall_timeout_ms: 900000
 
   # Timeout waiting for Codex process output in milliseconds.
   # read_timeout_ms: 5000
 
-  # Approval policy for sandbox actions. "never" = headless, no human prompts.
+  # Approval policy for sandbox actions.
+  # Default parser value: reject sandbox/rules/MCP elicitations.
+  # `never` enables unattended auto-approval behavior for this workflow.
   approval_policy: never
 
   # Sandbox mode for the agent thread.
+  # Default parser value: workspace-write.
   thread_sandbox: danger-full-access
 
   # Per-turn sandbox policy override.
+  # Default parser value: unset.
   turn_sandbox_policy:
     type: dangerFullAccess
 
@@ -202,6 +211,7 @@ codex:
 # HTTP dashboard and JSON API. Serves live orchestrator state.
 server:
   # Port to bind. Also settable via --port CLI flag (CLI takes precedence).
+  # CLI default is currently 8080.
   port: 8080
 
   # Bind address. Use "0.0.0.0" to expose on all interfaces.
