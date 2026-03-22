@@ -7,7 +7,9 @@ use std::time::Duration;
 
 use clap::Parser;
 use symphony::domain::{Issue, ServiceConfig};
-use symphony::http_server::{start_http_server, HttpServerState};
+use symphony::http_server::{
+    bind_http_listener_with_fallback, start_http_server, HttpServerState, HTTP_PORT_RETRY_LIMIT,
+};
 use symphony::linear::adapter::{LinearAdapter, TrackerAdapter};
 use symphony::linear::client::LinearClient;
 use symphony::logging;
@@ -15,6 +17,7 @@ use symphony::orchestrator::{Orchestrator, OrchestratorPort};
 use symphony::tui;
 use symphony::workflow_store::WorkflowStore;
 use symphony::{config, error};
+use tokio::net::TcpListener;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::EnvFilter;
 
@@ -61,6 +64,14 @@ struct StartupContext {
 pub(crate) struct HttpBinding {
     pub(crate) host: String,
     pub(crate) port: u16,
+}
+
+struct PreparedHttpServer {
+    host: String,
+    configured_port: u16,
+    bound_port: u16,
+    banner_binding: HttpBinding,
+    listener: TcpListener,
 }
 
 struct LinearOrchestratorPort {
@@ -189,13 +200,20 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
 
     fn start_orchestrator(&mut self, workflow_path: &Path, cli: &Cli) -> Result<(), String> {
         let context = self.take_or_load_validated_context(workflow_path)?;
-        let http_binding = effective_http_binding(&context.effective_config, cli);
+        let prepared_http_server =
+            prepare_http_server_binding(effective_http_binding(&context.effective_config, cli))?;
         if cli.tui {
             tui::validate_terminal_for_tui()
                 .map_err(|err| format!("tui preflight failed: {err}"))?;
         }
         if !cli.tui {
-            print_startup_banner(cli, &context.effective_config, http_binding.as_ref());
+            print_startup_banner(
+                cli,
+                &context.effective_config,
+                prepared_http_server
+                    .as_ref()
+                    .map(|server| &server.banner_binding),
+            );
         }
 
         let workflow_store = Arc::new(context.workflow_store);
@@ -228,20 +246,21 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
             phase = "startup",
             stage = "runtime_init",
             workflow_path = %workflow_path.display(),
-            http_enabled = http_binding.is_some(),
-            http_host = http_binding.as_ref().map(|binding| binding.host.as_str()).unwrap_or("n/a"),
-            http_port = http_binding.as_ref().map(|binding| binding.port),
+            http_enabled = prepared_http_server.is_some(),
+            http_host = prepared_http_server.as_ref().map(|server| server.host.as_str()).unwrap_or("n/a"),
+            http_port = prepared_http_server.as_ref().map(|server| server.bound_port),
             logs_root_configured = cli.logs_root.is_some(),
             tui_enabled = cli.tui,
 
             "constructed orchestrator runtime"
         );
 
-        if let Some(binding) = &http_binding {
+        if let Some(server) = &prepared_http_server {
             tracing::info!(
                 event = "http_server_enabled",
-                host = %binding.host,
-                port = binding.port,
+                host = %server.host,
+                configured_port = server.configured_port,
+                port = server.bound_port,
                 "HTTP server binding enabled at startup"
             );
         } else {
@@ -256,7 +275,7 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
             &mut orchestrator,
             &mut tracker_port,
             workflow_path,
-            http_binding,
+            prepared_http_server,
             http_state,
             tui_exit,
         );
@@ -308,6 +327,46 @@ pub(crate) fn effective_http_binding(config: &ServiceConfig, cli: &Cli) -> Optio
         host: config.server.host.clone(),
         port,
     })
+}
+
+fn startup_banner_binding(configured_binding: &HttpBinding, bound_port: u16) -> HttpBinding {
+    HttpBinding {
+        host: configured_binding.host.clone(),
+        port: if configured_binding.port == 0 {
+            0
+        } else {
+            bound_port
+        },
+    }
+}
+
+fn prepare_http_server_binding(
+    configured_binding: Option<HttpBinding>,
+) -> Result<Option<PreparedHttpServer>, String> {
+    let Some(configured_binding) = configured_binding else {
+        return Ok(None);
+    };
+
+    let host = configured_binding.host.clone();
+    let configured_port = configured_binding.port;
+    let runtime = tokio::runtime::Handle::try_current()
+        .map_err(|err| format!("missing tokio runtime for HTTP server bind: {err}"))?;
+    let (listener, bound_port) = tokio::task::block_in_place(|| {
+        runtime.block_on(bind_http_listener_with_fallback(
+            &host,
+            configured_port,
+            HTTP_PORT_RETRY_LIMIT,
+        ))
+    })
+    .map_err(|err| err.to_string())?;
+
+    Ok(Some(PreparedHttpServer {
+        host,
+        configured_port,
+        bound_port,
+        banner_binding: startup_banner_binding(&configured_binding, bound_port),
+        listener,
+    }))
 }
 
 fn format_polling_interval(interval_ms: u64) -> String {
@@ -451,7 +510,7 @@ fn run_runtime_until_shutdown(
     orchestrator: &mut Orchestrator,
     port: &mut dyn OrchestratorPort,
     workflow_path: &Path,
-    http_binding: Option<HttpBinding>,
+    prepared_http_server: Option<PreparedHttpServer>,
     http_state: HttpServerState,
     mut tui_exit: Option<tokio::sync::watch::Receiver<Option<tui::TuiExitReason>>>,
 ) -> Result<(), String> {
@@ -464,13 +523,19 @@ fn run_runtime_until_shutdown(
                 phase = "runtime",
                 stage = "start",
                 workflow_path = %workflow_path.display(),
-                http_enabled = http_binding.is_some(),
+                http_enabled = prepared_http_server.is_some(),
                 "starting orchestrator runtime"
             );
 
             let http_future = async {
-                if let Some(binding) = http_binding {
-                    start_http_server(http_state, binding.port, &binding.host)
+                if let Some(server) = prepared_http_server {
+                    start_http_server(
+                        http_state,
+                        server.listener,
+                        &server.host,
+                        server.configured_port,
+                        server.bound_port,
+                    )
                         .await
                         .map_err(|err| format!("http server failed: {err}"))
                 } else {
@@ -676,5 +741,28 @@ mod tests {
         let cli =
             parse_cli_from(["symphony", "WORKFLOW.md", "--tui", "--no-tui"]).expect("cli parse");
         assert!(!cli.tui);
+    }
+
+    #[test]
+    fn startup_banner_binding_uses_bound_port_when_configured_port_changes() {
+        let configured = HttpBinding {
+            host: "127.0.0.1".to_string(),
+            port: 8080,
+        };
+
+        let banner_binding = startup_banner_binding(&configured, 8081);
+        assert_eq!(banner_binding.host, "127.0.0.1");
+        assert_eq!(banner_binding.port, 8081);
+    }
+
+    #[test]
+    fn startup_banner_binding_keeps_ephemeral_marker_for_zero_port() {
+        let configured = HttpBinding {
+            host: "127.0.0.1".to_string(),
+            port: 0,
+        };
+
+        let banner_binding = startup_banner_binding(&configured, 43123);
+        assert_eq!(banner_binding.port, 0);
     }
 }
