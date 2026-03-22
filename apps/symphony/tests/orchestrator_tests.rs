@@ -280,7 +280,7 @@ fn utc_ms(ms: i64) -> chrono::DateTime<Utc> {
 }
 
 #[test]
-fn test_reconcile_startup_terminal_cleanup_marks_terminal_issues_completed() {
+fn test_reconcile_startup_terminal_cleanup_excludes_terminal_issues_from_completed() {
     let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let mut port = FakePort {
         terminal_issues: vec![issue("issue-closed", "SIM-10", "Done", Some(1), 0)],
@@ -295,8 +295,76 @@ fn test_reconcile_startup_terminal_cleanup_marks_terminal_issues_completed() {
 
     let completed = &orchestrator.state().completed;
     assert!(
-        completed.contains_key("issue-closed"),
-        "startup cleanup must mark terminal tracker issues as completed before first dispatch"
+        !completed.contains_key("issue-closed"),
+        "startup cleanup should not include pre-existing terminal issues in session completed list"
+    );
+}
+
+#[test]
+fn test_startup_terminal_cleanup_clears_runtime_bookkeeping_without_completed_insert() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let mut port = FakePort {
+        terminal_issues: vec![issue("issue-closed", "SIM-10", "Done", Some(1), 0)],
+        ..FakePort::default()
+    };
+
+    orchestrator.state_mut().running.insert(
+        "issue-closed".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-closed".to_string(),
+            issue_identifier: "SIM-10".to_string(),
+            issue_title: Some("Issue SIM-10".to_string()),
+            attempt: Some(2),
+            workspace_path: "/tmp/workspace-closed".to_string(),
+            started_at: Utc::now(),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            linear_state: Some("In Progress".to_string()),
+        },
+    );
+    orchestrator
+        .state_mut()
+        .claimed
+        .insert("issue-closed".to_string());
+    orchestrator.state_mut().retry_attempts.insert(
+        "issue-closed".to_string(),
+        symphony::domain::RetryEntry {
+            issue_id: "issue-closed".to_string(),
+            identifier: "SIM-10".to_string(),
+            attempt: 2,
+            due_at_ms: 42_000,
+            timer_handle: Some("timer-1".to_string()),
+            error: Some("retry pending".to_string()),
+            worker_host: None,
+            workspace_path: Some("/tmp/workspace-closed".to_string()),
+        },
+    );
+
+    let result = orchestrator.startup_cleanup(&mut port);
+    assert!(
+        result.is_ok(),
+        "startup cleanup should run without transport errors: {result:?}"
+    );
+
+    assert!(
+        !orchestrator.state().running.contains_key("issue-closed"),
+        "startup terminal cleanup should clear running bookkeeping"
+    );
+    assert!(
+        !orchestrator.state().claimed.contains("issue-closed"),
+        "startup terminal cleanup should clear claimed bookkeeping"
+    );
+    assert!(
+        !orchestrator
+            .state()
+            .retry_attempts
+            .contains_key("issue-closed"),
+        "startup terminal cleanup should clear retry bookkeeping"
+    );
+    assert!(
+        !orchestrator.state().completed.contains_key("issue-closed"),
+        "startup terminal cleanup should still avoid completed session entries"
     );
 }
 
