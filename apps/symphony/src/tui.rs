@@ -387,10 +387,8 @@ fn draw_dashboard(
         ])
         .split(inner);
 
-    let summary_lines: Vec<Line<'static>> = summary_lines_data
-        .into_iter()
-        .map(Line::from)
-        .collect();
+    let summary_lines: Vec<Line<'static>> =
+        summary_lines_data.into_iter().map(Line::from).collect();
     frame.render_widget(Paragraph::new(summary_lines), sections[0]);
 
     let running_header = Row::new(vec![
