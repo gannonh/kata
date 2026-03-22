@@ -25,7 +25,7 @@ jobs:
         run: git fetch origin main:main
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
 
@@ -91,7 +91,7 @@ jobs:
 
       - name: Setup Node.js
         if: steps.version-check.outputs.should_run == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
 
