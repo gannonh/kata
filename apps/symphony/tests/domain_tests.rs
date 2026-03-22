@@ -138,12 +138,18 @@ fn test_service_config_defaults_match_spec() {
 }
 
 #[test]
-fn test_tracker_linear_project_url_uses_project_slug() {
+fn test_tracker_linear_project_url_uses_project_and_workspace_slug() {
     let mut tracker = TrackerConfig::default();
     tracker.project_slug = Some("symphony".to_string());
     assert_eq!(
         tracker.linear_project_url().as_deref(),
         Some("https://linear.app/kata-sh/project/symphony")
+    );
+
+    tracker.workspace_slug = Some("acme".to_string());
+    assert_eq!(
+        tracker.linear_project_url().as_deref(),
+        Some("https://linear.app/acme/project/symphony")
     );
 
     tracker.project_slug = None;

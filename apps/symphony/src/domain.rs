@@ -137,6 +137,7 @@ pub struct TrackerConfig {
     /// appear in debug/tracing output — `{:?}` on this struct prints `[REDACTED]`.
     pub api_key: Option<ApiKey>,
     pub project_slug: Option<String>,
+    pub workspace_slug: Option<String>,
     pub assignee: Option<String>,
     pub active_states: Vec<String>,
     pub terminal_states: Vec<String>,
@@ -151,6 +152,7 @@ impl Default for TrackerConfig {
             endpoint: "https://api.linear.app/graphql".to_string(),
             api_key: None,
             project_slug: None,
+            workspace_slug: None,
             assignee: None,
             active_states: vec!["Todo".to_string(), "In Progress".to_string()],
             terminal_states: vec![
@@ -168,16 +170,24 @@ impl TrackerConfig {
     /// Build a browser URL for the configured Linear project.
     ///
     /// The project slug comes from workflow config (`tracker.project_slug`).
-    /// Workspace slug is currently fixed to Kata's Linear workspace.
+    /// Workspace slug can come from `tracker.workspace_slug`, with a fallback
+    /// to Kata's default workspace for backward compatibility.
     pub fn linear_project_url(&self) -> Option<String> {
         let project_slug = self.project_slug.as_deref()?.trim();
         if project_slug.is_empty() {
             return None;
         }
+        let workspace_slug = self
+            .workspace_slug
+            .as_deref()
+            .unwrap_or(DEFAULT_LINEAR_WORKSPACE_SLUG)
+            .trim();
+        if workspace_slug.is_empty() {
+            return None;
+        }
 
         Some(format!(
-            "https://linear.app/{}/project/{project_slug}",
-            DEFAULT_LINEAR_WORKSPACE_SLUG
+            "https://linear.app/{workspace_slug}/project/{project_slug}"
         ))
     }
 }

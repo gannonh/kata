@@ -174,6 +174,7 @@ fn escape_html(value: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
+        .replace('\'', "&#x27;")
 }
 
 async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoResponse {

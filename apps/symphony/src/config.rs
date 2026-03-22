@@ -163,6 +163,7 @@ struct RawTrackerConfig {
     endpoint: Option<String>,
     api_key: Option<String>,
     project_slug: Option<String>,
+    workspace_slug: Option<String>,
     assignee: Option<String>,
     active_states: Option<Vec<String>>,
     terminal_states: Option<Vec<String>>,
@@ -404,6 +405,10 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         .project_slug
         .map(|v| resolve_env(&v))
         .filter(|v| !v.is_empty());
+    let workspace_slug = raw_tracker
+        .workspace_slug
+        .map(|v| resolve_env(&v))
+        .filter(|v| !v.is_empty());
 
     let tracker = TrackerConfig {
         kind: raw_tracker.kind,
@@ -412,6 +417,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
             .unwrap_or(defaults.tracker.endpoint.clone()),
         api_key,
         project_slug,
+        workspace_slug,
         assignee,
         active_states: raw_tracker
             .active_states

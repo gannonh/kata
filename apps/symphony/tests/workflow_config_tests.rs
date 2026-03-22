@@ -156,6 +156,7 @@ fn test_config_defaults() {
     assert_eq!(config.tracker.kind, None);
     assert_eq!(config.tracker.api_key, None);
     assert_eq!(config.tracker.project_slug, None);
+    assert_eq!(config.tracker.workspace_slug, None);
     assert_eq!(config.polling.interval_ms, 30_000);
     assert_eq!(config.agent.max_concurrent_agents, 10);
     assert_eq!(config.agent.max_turns, 20);
@@ -185,6 +186,14 @@ fn test_config_env_var_resolution() {
     );
 
     std::env::remove_var("SYMPHONY_TEST_LINEAR_API_KEY");
+}
+
+#[test]
+fn test_config_workspace_slug_parse() {
+    let yaml_str = "tracker:\n  workspace_slug: acme";
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("workspace slug should parse");
+    assert_eq!(config.tracker.workspace_slug.as_deref(), Some("acme"));
 }
 
 #[test]
