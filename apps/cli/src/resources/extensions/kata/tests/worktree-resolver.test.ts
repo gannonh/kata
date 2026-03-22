@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { describe, it } from "node:test";
 
 import { canonicalizeExistingPath } from "../repo-identity.ts";
 import {
