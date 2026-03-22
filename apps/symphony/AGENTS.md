@@ -383,20 +383,19 @@ workflow file (e.g. `0.0.0.0` to bind all interfaces).
   "issue": {
     "issue_id": "issue-id-123",
     "issue_identifier": "ENG-42",
-    "issue_title": "Ship dashboard metrics",
     "status": "running",
     "attempt": 1,
     "error": null,
     "worker_host": "worker1.example.com",
-    "workspace_path": "/tmp/symphony_workspaces/ENG-42",
-    "linear_state": "In Progress"
+    "workspace_path": "/tmp/symphony_workspaces/ENG-42"
   }
 }
 ```
 
-`running` entries in `/api/v1/state` are serialized `RunAttempt` records.
-Dashboard observability fields (`turn_count`, `max_turns`, `last_activity_ms`,
-`session_tokens`) are provided alongside each run in `running_session_info`.
+`running` entries in `/api/v1/state` are serialized `RunAttempt` records (which
+include fields like `issue_title` and `linear_state`). Dashboard observability
+fields (`turn_count`, `max_turns`, `last_activity_ms`, `session_tokens`) are
+provided alongside each run in `running_session_info`.
 
 ### Sample JSON — `POST /api/v1/refresh`
 
