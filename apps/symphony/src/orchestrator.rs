@@ -945,7 +945,7 @@ impl Orchestrator {
         let terminal_issues = port.startup_terminal_issues(&self.config.tracker.terminal_states)?;
 
         for issue in terminal_issues {
-            self.mark_issue_terminal(&issue, None);
+            self.mark_issue_terminal(&issue, None, false);
         }
 
         Ok(())
@@ -1866,7 +1866,7 @@ impl Orchestrator {
 
             let normalized_state = normalize_issue_state(&issue.state);
             if terminal_states.contains(&normalized_state) {
-                self.mark_issue_terminal(&issue, None);
+                self.mark_issue_terminal(&issue, None, true);
                 continue;
             }
 
@@ -2154,7 +2154,11 @@ impl Orchestrator {
                             state = %hidden_state,
                             "retry issue became terminal before active-candidate visibility; marking terminal"
                         );
-                        self.mark_issue_terminal(&hidden_issue, retry.workspace_path.as_deref());
+                        self.mark_issue_terminal(
+                            &hidden_issue,
+                            retry.workspace_path.as_deref(),
+                            true,
+                        );
                         continue;
                     }
                 }
@@ -2171,7 +2175,7 @@ impl Orchestrator {
 
             let normalized_state = normalize_issue_state(&issue.state);
             if self.terminal_state_set().contains(&normalized_state) {
-                self.mark_issue_terminal(&issue, retry.workspace_path.as_deref());
+                self.mark_issue_terminal(&issue, retry.workspace_path.as_deref(), true);
                 continue;
             }
 
@@ -2259,7 +2263,12 @@ impl Orchestrator {
             .to_string()
     }
 
-    fn mark_issue_terminal(&mut self, issue: &Issue, workspace_path_hint: Option<&str>) {
+    fn mark_issue_terminal(
+        &mut self,
+        issue: &Issue,
+        workspace_path_hint: Option<&str>,
+        include_in_completed: bool,
+    ) {
         let issue_id = issue.id.as_str();
 
         if self.config.workspace.cleanup_on_done {
@@ -2298,15 +2307,19 @@ impl Orchestrator {
             }
         }
 
-        self.state.completed.insert(
-            issue_id.to_string(),
-            CompletedEntry {
-                issue_id: issue_id.to_string(),
-                identifier: issue.identifier.clone(),
-                title: issue.title.clone(),
-                completed_at: None,
-            },
-        );
+        if include_in_completed {
+            self.state.completed.insert(
+                issue_id.to_string(),
+                CompletedEntry {
+                    issue_id: issue_id.to_string(),
+                    identifier: issue.identifier.clone(),
+                    title: issue.title.clone(),
+                    completed_at: None,
+                },
+            );
+        } else {
+            self.state.completed.remove(issue_id);
+        }
         self.state.running.remove(issue_id);
         self.state.claimed.remove(issue_id);
         self.state.retry_attempts.remove(issue_id);
