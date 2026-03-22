@@ -331,7 +331,8 @@ fn run_hook(
     let child = cmd.spawn().map_err(SymphonyError::Io)?;
 
     let timeout = Duration::from_millis(timeout_ms);
-    let _child_id = child.id();
+    #[cfg(unix)]
+    let child_id = child.id();
 
     // Use a channel: the wait thread sends the result, main thread waits with timeout
     let (tx, rx) = std::sync::mpsc::channel();
