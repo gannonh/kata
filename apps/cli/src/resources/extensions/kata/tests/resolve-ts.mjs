@@ -7,5 +7,20 @@
 
 import { register } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { after, afterEach, before, beforeEach, describe, it, test } from 'node:test';
+
+// Provide Bun-like test globals when running Node's test runner so legacy tests
+// that use bare `test()` / `describe()` remain executable.
+Object.assign(globalThis, {
+  after,
+  afterAll: after,
+  afterEach,
+  before,
+  beforeAll: before,
+  beforeEach,
+  describe,
+  it,
+  test,
+});
 
 register(new URL('./resolve-ts-hooks.mjs', import.meta.url), pathToFileURL('./'));

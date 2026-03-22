@@ -226,6 +226,18 @@ export function acquireSessionLock(basePath: string): SessionLockResult {
 
   mkdirSync(dirname(lp), { recursive: true });
   cleanupStrayLockFiles(normalizedBasePath);
+  const stateDir = kataStateDir(normalizedBasePath);
+  const lockDir = `${stateDir}.lock`;
+
+  // If the lock directory exists but metadata is missing, lock ownership is
+  // indeterminate. Refuse to acquire to avoid stealing an unknown lock owner.
+  if (existsSync(lockDir) && !readExistingLockData(lp)) {
+    return {
+      acquired: false,
+      reason:
+        "Session lock metadata is missing for an existing lock directory. Refusing to acquire.",
+    };
+  }
 
   const lockData: SessionLockData = {
     pid: process.pid,
@@ -242,8 +254,6 @@ export function acquireSessionLock(basePath: string): SessionLockResult {
   } catch {
     return acquireFallbackLock(normalizedBasePath, lp, lockData);
   }
-
-  const stateDir = kataStateDir(normalizedBasePath);
 
   try {
     mkdirSync(stateDir, { recursive: true });
