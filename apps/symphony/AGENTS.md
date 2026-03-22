@@ -299,7 +299,7 @@ workflow file (e.g. `0.0.0.0` to bind all interfaces).
 
 | Method | Path                        | Description                                                                                                                                                                      |
 | ------ | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET`  | `/`                         | HTML dashboard — auto-refreshes every 2 seconds. Shows summary cards, running sessions table, retry queue table, completed issue list, token breakdown, polling diagnostics, and collapsible rate-limit JSON. |
+| `GET`  | `/`                         | HTML dashboard — auto-refreshes every 2 seconds. Shows summary cards, running sessions table (including turn/max-turns, last activity age, and per-session tokens), retry queue table, completed issue list, token breakdown, polling diagnostics, and collapsible rate-limit JSON. |
 | `GET`  | `/api/v1/state`             | Full orchestrator state as JSON.                                                                                                                                                 |
 | `GET`  | `/api/v1/:issue_identifier` | Per-issue projection. `:issue_identifier` must match the pattern `TEAM-NNN` (uppercase prefix, hyphen, digits). Returns 404 when the issue is not running or in the retry queue. |
 | `POST` | `/api/v1/refresh`           | Request an immediate Linear poll. Requests are coalesced — multiple concurrent POSTs result in one actual refresh. Returns 202.                                                  |
@@ -314,10 +314,24 @@ workflow file (e.g. `0.0.0.0` to bind all interfaces).
     "issue-id-123": {
       "issue_id": "issue-id-123",
       "issue_identifier": "ENG-42",
+      "status": "running",
       "attempt": 1,
       "error": null,
       "worker_host": null,
-      "workspace_path": "/tmp/symphony_workspaces/ENG-42"
+      "workspace_path": "/tmp/symphony_workspaces/ENG-42",
+      "started_at": "2026-03-22T15:40:00Z"
+    }
+  },
+  "running_session_info": {
+    "issue-id-123": {
+      "turn_count": 3,
+      "max_turns": 20,
+      "last_activity_ms": 1760000000000,
+      "session_tokens": {
+        "input_tokens": 1200,
+        "output_tokens": 430,
+        "total_tokens": 1630
+      }
     }
   },
   "claimed": ["issue-id-456"],
@@ -326,7 +340,7 @@ workflow file (e.g. `0.0.0.0` to bind all interfaces).
       "issue_id": "issue-id-789",
       "identifier": "ENG-99",
       "attempt": 2,
-      "retry_after_ms": 1714000000000,
+      "due_in_ms": 30000,
       "error": "stall timeout exceeded",
       "worker_host": null,
       "workspace_path": "/tmp/symphony_workspaces/ENG-99"

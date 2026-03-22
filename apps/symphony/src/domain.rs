@@ -362,6 +362,30 @@ pub struct RunAttempt {
     pub linear_state: Option<String>,
 }
 
+/// Per-session token usage scoped to a single running worker session.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct SessionTokenUsage {
+    #[serde(default)]
+    pub input_tokens: u64,
+    #[serde(default)]
+    pub output_tokens: u64,
+    #[serde(default)]
+    pub total_tokens: u64,
+}
+
+/// Live worker-session diagnostics for dashboard rendering.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct WorkerSessionInfo {
+    #[serde(default)]
+    pub turn_count: u32,
+    #[serde(default)]
+    pub max_turns: u32,
+    #[serde(default)]
+    pub last_activity_ms: Option<i64>,
+    #[serde(default)]
+    pub session_tokens: SessionTokenUsage,
+}
+
 // ── LiveSession (spec §4.1.6) ─────────────────────────────────────────
 
 /// Tracks the active Codex session for a running issue.
@@ -503,6 +527,8 @@ pub struct OrchestratorSnapshot {
     pub running: BTreeMap<String, RunAttempt>,
     #[serde(default)]
     pub running_sessions: BTreeMap<String, RunningSessionSnapshot>,
+    #[serde(default)]
+    pub running_session_info: BTreeMap<String, WorkerSessionInfo>,
     pub claimed: BTreeSet<String>,
     pub retry_queue: Vec<RetrySnapshotEntry>,
     pub completed: Vec<CompletedEntry>,

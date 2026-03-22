@@ -938,14 +938,14 @@ fn test_streamed_turn_completed_events_update_token_totals_in_real_time() {
         "total token count should continue accumulating across streamed turns"
     );
 
-    let snapshot = orchestrator.snapshot(now_ms);
+    let snapshot = orchestrator.snapshot(now_ms + 5_000);
     let session = snapshot
         .running_sessions
         .get("issue-stream-metrics")
         .expect("running session snapshot should exist for active issue");
     assert_eq!(
         session.turn_count, 2,
-        "running session snapshot should track streamed turn count"
+        "running session snapshot should track streamed completed turns"
     );
     assert_eq!(
         session.total_tokens, 18,
@@ -955,6 +955,37 @@ fn test_streamed_turn_completed_events_update_token_totals_in_real_time() {
         session.last_activity_at,
         Some(event_time),
         "running session snapshot should preserve last activity timestamp"
+    );
+
+    let session_info = snapshot
+        .running_session_info
+        .get("issue-stream-metrics")
+        .expect("running session info should exist for active issue");
+
+    assert_eq!(
+        session_info.turn_count, 3,
+        "turn count should advance as streamed turn-completed events are ingested"
+    );
+    assert_eq!(
+        session_info.max_turns, 20,
+        "running session info should retain configured max-turn budget"
+    );
+    assert_eq!(
+        session_info.session_tokens.input_tokens, 12,
+        "session token accounting should accumulate input tokens per running session"
+    );
+    assert_eq!(
+        session_info.session_tokens.output_tokens, 6,
+        "session token accounting should accumulate output tokens per running session"
+    );
+    assert_eq!(
+        session_info.session_tokens.total_tokens, 18,
+        "session token accounting should accumulate total tokens per running session"
+    );
+    assert_eq!(
+        session_info.last_activity_ms,
+        Some(event_time.timestamp_millis()),
+        "last activity should track the most recent streamed event timestamp"
     );
 }
 

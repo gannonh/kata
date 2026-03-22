@@ -11,8 +11,8 @@ use crate::config;
 use crate::domain::{
     AgentEvent, CodexConfig, CodexTotals, CompletedEntry, HooksConfig, Issue, OrchestratorSnapshot,
     OrchestratorState, PollingSnapshot, RateLimitInfo, RefreshRequestOutcome, RetryEntry,
-    RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot, ServiceConfig, TrackerConfig,
-    WorkspaceConfig,
+    RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot, ServiceConfig, SessionTokenUsage,
+    TrackerConfig, WorkerSessionInfo, WorkspaceConfig,
 };
 use crate::error::{Result, SymphonyError};
 use crate::ssh::{self, WorkerHostSelection};
@@ -636,6 +636,7 @@ pub struct Orchestrator {
     events: Vec<RuntimeEvent>,
     retry_tokens: HashMap<String, String>,
     worker_last_activity_ms: HashMap<String, i64>,
+    worker_session_info: HashMap<String, WorkerSessionInfo>,
     worker_session_ids: HashMap<String, String>,
     running_session_stats: HashMap<String, RunningSessionStats>,
     pending_terminal_cleanup: HashMap<String, PendingTerminalCleanup>,
@@ -710,6 +711,7 @@ impl Orchestrator {
             events: vec![],
             retry_tokens: HashMap::new(),
             worker_last_activity_ms: HashMap::new(),
+            worker_session_info: HashMap::new(),
             worker_session_ids: HashMap::new(),
             running_session_stats: HashMap::new(),
             pending_terminal_cleanup: HashMap::new(),
@@ -1204,6 +1206,40 @@ impl Orchestrator {
     pub fn record_worker_activity(&mut self, issue_id: &str, timestamp_ms: i64) {
         self.worker_last_activity_ms
             .insert(issue_id.to_string(), timestamp_ms);
+        if let Some(info) = self.worker_session_info.get_mut(issue_id) {
+            info.last_activity_ms = Some(timestamp_ms);
+        }
+    }
+
+    fn ensure_worker_session_info(&mut self, issue_id: &str) -> &mut WorkerSessionInfo {
+        let max_turns = self.config.agent.max_turns.max(1);
+        let last_activity_ms = self.worker_last_activity_ms.get(issue_id).copied();
+        let info = self
+            .worker_session_info
+            .entry(issue_id.to_string())
+            .or_insert(WorkerSessionInfo {
+                turn_count: 1,
+                max_turns,
+                last_activity_ms,
+                session_tokens: SessionTokenUsage::default(),
+            });
+        if info.max_turns == 0 {
+            info.max_turns = max_turns;
+        }
+        if info.turn_count == 0 {
+            info.turn_count = 1;
+        }
+        if info.last_activity_ms.is_none() {
+            info.last_activity_ms = last_activity_ms;
+        }
+        info
+    }
+
+    fn advance_turn_counter(&mut self, issue_id: &str) {
+        let session_info = self.ensure_worker_session_info(issue_id);
+        let max_turns = session_info.max_turns.max(1);
+        let current = session_info.turn_count.max(1);
+        session_info.turn_count = current.saturating_add(1).min(max_turns);
     }
 
     pub fn ingest_agent_event(&mut self, issue_id: &str, event: &AgentEvent) {
@@ -1216,6 +1252,7 @@ impl Orchestrator {
             return;
         }
 
+        let _ = self.ensure_worker_session_info(issue_id);
         self.record_worker_activity(issue_id, event_timestamp_ms(event));
         let event_time = event_timestamp(event);
 
@@ -1255,6 +1292,23 @@ impl Orchestrator {
         {
             session_stats.turn_count = session_stats.turn_count.saturating_add(1);
             session_stats.total_tokens = session_stats.total_tokens.saturating_add(*total_tokens);
+            let session_info = self
+                .worker_session_info
+                .get_mut(issue_id)
+                .expect("session info must exist after ensure_worker_session_info");
+            session_info.session_tokens.input_tokens = session_info
+                .session_tokens
+                .input_tokens
+                .saturating_add(*input_tokens);
+            session_info.session_tokens.output_tokens = session_info
+                .session_tokens
+                .output_tokens
+                .saturating_add(*output_tokens);
+            session_info.session_tokens.total_tokens = session_info
+                .session_tokens
+                .total_tokens
+                .saturating_add(*total_tokens);
+            self.advance_turn_counter(issue_id);
             self.apply_turn_metrics(&TurnMetrics {
                 input_tokens: *input_tokens,
                 output_tokens: *output_tokens,
@@ -1295,6 +1349,7 @@ impl Orchestrator {
         self.running_issue_states.remove(issue_id);
         self.worker_last_activity_ms.remove(issue_id);
         self.running_session_stats.remove(issue_id);
+        self.worker_session_info.remove(issue_id);
 
         let issue_identifier = run_attempt.issue_identifier.clone();
         let session_id = self.worker_session_ids.remove(issue_id);
@@ -1425,6 +1480,7 @@ impl Orchestrator {
                 linear_state: Some(issue.state.clone()),
             },
         );
+        let _ = self.ensure_worker_session_info(&issue.id);
         self.state.claimed.insert(issue.id.clone());
         self.running_issue_states
             .insert(issue.id.clone(), normalize_issue_state(&issue.state));
@@ -1713,6 +1769,16 @@ impl Orchestrator {
                 )
             })
             .collect();
+        let running_session_info: BTreeMap<String, WorkerSessionInfo> = self
+            .state
+            .running
+            .keys()
+            .filter_map(|issue_id| {
+                self.worker_session_info
+                    .get(issue_id)
+                    .map(|info| (issue_id.clone(), info.clone()))
+            })
+            .collect();
 
         let claimed: BTreeSet<String> = self.state.claimed.iter().cloned().collect();
         let mut completed: Vec<CompletedEntry> = self.state.completed.values().cloned().collect();
@@ -1744,6 +1810,7 @@ impl Orchestrator {
             max_concurrent_agents: self.state.max_concurrent_agents,
             running,
             running_sessions,
+            running_session_info,
             claimed,
             retry_queue,
             completed,
@@ -1963,6 +2030,7 @@ impl Orchestrator {
         };
 
         self.state.running.insert(issue.id.clone(), attempt);
+        let _ = self.ensure_worker_session_info(&issue.id);
         self.state.claimed.insert(issue.id.clone());
         self.running_session_stats.insert(
             issue.id.clone(),
@@ -2226,6 +2294,7 @@ impl Orchestrator {
         self.running_issue_states.remove(issue_id);
         self.retry_tokens.remove(issue_id);
         self.worker_last_activity_ms.remove(issue_id);
+        self.worker_session_info.remove(issue_id);
         self.worker_session_ids.remove(issue_id);
         self.running_session_stats.remove(issue_id);
     }

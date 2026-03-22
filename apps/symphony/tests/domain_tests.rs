@@ -275,6 +275,7 @@ fn test_orchestrator_snapshot_serializes() {
             );
             m
         },
+        running_session_info: BTreeMap::new(),
         claimed: {
             let mut s = BTreeSet::new();
             s.insert("c-claim".to_string());
@@ -322,6 +323,7 @@ fn test_orchestrator_snapshot_serializes() {
     assert!(val.get("max_concurrent_agents").is_some());
     assert!(val.get("running").is_some());
     assert!(val.get("running_sessions").is_some());
+    assert!(val.get("running_session_info").is_some());
     assert!(val.get("retry_queue").is_some());
     assert!(val.get("completed").is_some());
     assert!(val.get("codex_totals").is_some());
