@@ -7,6 +7,10 @@ pub(crate) fn normalize_whitespace(value: &str) -> String {
 }
 
 pub(crate) fn truncate_for_display(value: &str, max_chars: usize) -> String {
+    if max_chars == 0 {
+        return String::new();
+    }
+
     let normalized = normalize_whitespace(value);
     if normalized.chars().count() <= max_chars {
         return normalized;
@@ -47,5 +51,10 @@ mod tests {
             truncate_for_display("running   cargo\n test", 12),
             "running car…"
         );
+    }
+
+    #[test]
+    fn truncate_for_display_returns_empty_for_zero_width() {
+        assert_eq!(truncate_for_display("non-empty", 0), "");
     }
 }

@@ -300,6 +300,18 @@ async fn test_get_api_state_returns_snapshot_projection() {
         payload["running_session_info"]["issue-123"]["session_tokens"]["total_tokens"],
         47
     );
+    assert_eq!(
+        payload["running_sessions"]["issue-123"]["last_event"],
+        "codex/event/task_started"
+    );
+    assert_eq!(
+        payload["running_sessions"]["issue-123"]["last_event_message"],
+        "running cargo test"
+    );
+    assert_eq!(
+        payload["running_sessions"]["issue-123"]["session_id"],
+        "session-12345678"
+    );
     assert_eq!(payload["retry_queue"][0]["identifier"], "SIM-777");
     assert_eq!(payload["codex_totals"]["total_tokens"], 200);
     assert_eq!(payload["codex_rate_limits"]["remaining"], 88);

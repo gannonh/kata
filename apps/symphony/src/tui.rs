@@ -31,6 +31,7 @@ const SPARKLINE_BUCKET_MS: i64 = SPARKLINE_WINDOW_MS / SPARKLINE_BUCKETS as i64;
 const SPARKLINE_BLOCKS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 const STALE_ACTIVITY_THRESHOLD_MS: i64 = 120_000;
 const LAST_EVENT_COLUMN_WIDTH: u16 = 24;
+const MESSAGE_COLUMN_TRUNCATE_WIDTH: usize = 60;
 
 #[derive(Debug, Default)]
 struct ThroughputTracker {
@@ -518,7 +519,10 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
                 last_event.unwrap_or("-"),
                 LAST_EVENT_COLUMN_WIDTH as usize,
             )),
-            Cell::from(truncate_for_display(last_event_message.unwrap_or("-"), 60)),
+            Cell::from(truncate_for_display(
+                last_event_message.unwrap_or("-"),
+                MESSAGE_COLUMN_TRUNCATE_WIDTH,
+            )),
             last_activity_cell,
             Cell::from(format_tokens(total_tokens)),
             Cell::from(

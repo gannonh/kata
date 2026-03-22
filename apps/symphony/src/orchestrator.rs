@@ -1778,9 +1778,7 @@ impl Orchestrator {
                         total_tokens: stats.map(|s| s.total_tokens).unwrap_or(0),
                         last_event: stats.and_then(|s| s.last_event.clone()),
                         last_event_message: stats.and_then(|s| s.last_event_message.clone()),
-                        session_id: stats
-                            .and_then(|s| s.session_id.clone())
-                            .or_else(|| self.worker_session_ids.get(issue_id).cloned()),
+                        session_id: stats.and_then(|s| s.session_id.clone()),
                     },
                 )
             })

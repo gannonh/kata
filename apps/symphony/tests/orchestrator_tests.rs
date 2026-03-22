@@ -1234,6 +1234,15 @@ fn test_snapshot_exposes_running_and_retry_diagnostics() {
         "snapshot should include currently running entries for diagnostics"
     );
 
+    let running_session = snapshot
+        .running_sessions
+        .get("issue-running")
+        .expect("snapshot should include running session diagnostics");
+    assert_eq!(
+        running_session.session_id, None,
+        "running session snapshot should not reuse stale retry context session IDs before new streamed stats arrive"
+    );
+
     let retry_entry = snapshot
         .retry_queue
         .first()
