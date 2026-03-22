@@ -291,7 +291,6 @@ export function acquireSessionLock(basePath: string): SessionLockResult {
 
     if (existingPid && !isPidAlive(existingPid)) {
       try {
-        const lockDir = `${stateDir}.lock`;
         if (existsSync(lockDir)) rmSync(lockDir, { recursive: true, force: true });
         if (existsSync(lp)) unlinkSync(lp);
 
