@@ -255,6 +255,7 @@ fn test_orchestrator_snapshot_serializes() {
             );
             m
         },
+        running_session_info: BTreeMap::new(),
         claimed: {
             let mut s = BTreeSet::new();
             s.insert("c-claim".to_string());

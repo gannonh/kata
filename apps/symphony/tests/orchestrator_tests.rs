@@ -937,6 +937,38 @@ fn test_streamed_turn_completed_events_update_token_totals_in_real_time() {
         18,
         "total token count should continue accumulating across streamed turns"
     );
+
+    let snapshot = orchestrator.snapshot(now_ms + 5_000);
+    let session_info = snapshot
+        .running_session_info
+        .get("issue-stream-metrics")
+        .expect("running session info should exist for active issue");
+
+    assert_eq!(
+        session_info.turn_count, 3,
+        "turn count should advance as streamed turn-completed events are ingested"
+    );
+    assert_eq!(
+        session_info.max_turns, 20,
+        "running session info should retain configured max-turn budget"
+    );
+    assert_eq!(
+        session_info.session_tokens.input_tokens, 12,
+        "session token accounting should accumulate input tokens per running session"
+    );
+    assert_eq!(
+        session_info.session_tokens.output_tokens, 6,
+        "session token accounting should accumulate output tokens per running session"
+    );
+    assert_eq!(
+        session_info.session_tokens.total_tokens, 18,
+        "session token accounting should accumulate total tokens per running session"
+    );
+    assert_eq!(
+        session_info.last_activity_ms,
+        Some(event_time.timestamp_millis()),
+        "last activity should track the most recent streamed event timestamp"
+    );
 }
 
 #[test]

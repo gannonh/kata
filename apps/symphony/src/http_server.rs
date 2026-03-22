@@ -10,7 +10,7 @@ use tokio::net::TcpListener;
 
 use crate::domain::{
     CodexTotals, OrchestratorSnapshot, PollingSnapshot, RefreshRequestOutcome, RetrySnapshotEntry,
-    RunAttempt,
+    RunAttempt, WorkerSessionInfo,
 };
 use crate::orchestrator::{RefreshSender, SnapshotHandle};
 
@@ -103,6 +103,7 @@ struct StateResponse {
     poll_interval_ms: u64,
     max_concurrent_agents: u32,
     running: std::collections::BTreeMap<String, RunAttempt>,
+    running_session_info: std::collections::BTreeMap<String, WorkerSessionInfo>,
     claimed: std::collections::BTreeSet<String>,
     retry_queue: Vec<RetrySnapshotEntry>,
     completed: Vec<crate::domain::CompletedEntry>,
@@ -215,6 +216,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
     th {{ color: #a8b8cc; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }}
     td {{ color: #d7e1ee; }}
     td.mono {{ word-break: break-all; }}
+    .stale-activity {{ color: #fca5a5; font-weight: 600; }}
     .list {{ margin: 0; padding-left: 20px; }}
     .muted {{ color: #94a3b8; }}
     .error {{ margin-top: 12px; color: #fca5a5; }}
@@ -252,13 +254,16 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
             <th>Linear State</th>
             <th>Status</th>
             <th>Attempt</th>
+            <th>Turn</th>
+            <th>Last Activity</th>
             <th>Elapsed</th>
+            <th>Tokens</th>
             <th>Workspace</th>
             <th>Worker host</th>
           </tr>
         </thead>
         <tbody id="running-table-body">
-          <tr><td class="muted" colspan="7">Loading...</td></tr>
+          <tr><td class="muted" colspan="10">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -310,6 +315,8 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
   <p id="refresh-error" class="error" hidden></p>
 
   <script>
+    const STALE_ACTIVITY_THRESHOLD_MS = 120000;
+
     function escapeHtml(value) {{
       return String(value)
         .replace(/&/g, '&amp;')
@@ -333,6 +340,20 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       return sign + seconds + 's';
     }}
 
+    function formatTimeAgo(ms) {{
+      const numeric = Number(ms);
+      if (!Number.isFinite(numeric)) return 'n/a';
+      if (numeric <= 0) return 'just now';
+      const totalSeconds = Math.floor(numeric / 1000);
+      if (totalSeconds < 60) return totalSeconds + 's ago';
+      const totalMinutes = Math.floor(totalSeconds / 60);
+      if (totalMinutes < 60) return totalMinutes + 'm ago';
+      const totalHours = Math.floor(totalMinutes / 60);
+      if (totalHours < 24) return totalHours + 'h ago';
+      const totalDays = Math.floor(totalHours / 24);
+      return totalDays + 'd ago';
+    }}
+
     function formatRetryDelay(ms) {{
       const numeric = Number(ms);
       if (!Number.isFinite(numeric)) return 'n/a';
@@ -352,25 +373,48 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toISOString();
     }}
 
-    function renderRunningTable(running) {{
-      const rows = Object.values(running || {{}}).sort(function(a, b) {{
-        return String(a.issue_identifier || '').localeCompare(String(b.issue_identifier || ''));
+    function renderRunningTable(running, sessionInfoByIssue) {{
+      const rows = Object.entries(running || {{}}).sort(function(a, b) {{
+        return String(a[1].issue_identifier || '').localeCompare(String(b[1].issue_identifier || ''));
       }});
 
       if (rows.length === 0) {{
-        return '<tr><td class="muted" colspan="7">No running sessions.</td></tr>';
+        return '<tr><td class="muted" colspan="10">No running sessions.</td></tr>';
       }}
 
-      return rows.map(function(run) {{
+      return rows.map(function(entry) {{
+        const issueId = entry[0];
+        const run = entry[1];
+        const sessionInfo = (sessionInfoByIssue && sessionInfoByIssue[issueId]) || {{}};
         const startedAt = Date.parse(run.started_at || '');
         const elapsed = Number.isFinite(startedAt) ? formatDuration(Date.now() - startedAt) : 'n/a';
         const attempt = run.attempt ?? 1;
+        const maxTurns = Number(sessionInfo.max_turns);
+        const turnCount = Number(sessionInfo.turn_count);
+        const turnLabel = Number.isFinite(turnCount) && turnCount > 0
+          ? String(turnCount) + '/' + (Number.isFinite(maxTurns) && maxTurns > 0 ? String(maxTurns) : '?')
+          : 'n/a';
+        const lastActivityValue = sessionInfo.last_activity_ms;
+        const lastActivityMs = Number(lastActivityValue);
+        const lastActivityAge = Number.isFinite(lastActivityMs) ? Math.max(0, Date.now() - lastActivityMs) : null;
+        const lastActivityLabel = lastActivityAge === null ? 'n/a' : formatTimeAgo(lastActivityAge);
+        const lastActivityClass = lastActivityAge !== null && lastActivityAge > STALE_ACTIVITY_THRESHOLD_MS
+          ? 'mono stale-activity'
+          : 'mono';
+        const sessionTokens = sessionInfo.session_tokens || {{}};
+        const tokenInput = Number(sessionTokens.input_tokens ?? 0);
+        const tokenOutput = Number(sessionTokens.output_tokens ?? 0);
+        const tokenTotal = Number(sessionTokens.total_tokens ?? 0);
+        const tokenLabel = tokenInput + ' / ' + tokenOutput + ' / ' + tokenTotal;
         return '<tr>' +
           '<td class="mono">' + escapeHtml(run.issue_identifier || '-') + '</td>' +
           '<td>' + escapeHtml(run.linear_state || '-') + '</td>' +
           '<td>' + escapeHtml(run.status || '-') + '</td>' +
           '<td>' + escapeHtml(attempt) + '</td>' +
+          '<td class="mono">' + escapeHtml(turnLabel) + '</td>' +
+          '<td class="' + escapeHtml(lastActivityClass) + '">' + escapeHtml(lastActivityLabel) + '</td>' +
           '<td class="mono">' + escapeHtml(elapsed) + '</td>' +
+          '<td class="mono">' + escapeHtml(tokenLabel) + '</td>' +
           '<td class="mono">' + escapeHtml(run.workspace_path || '-') + '</td>' +
           '<td>' + escapeHtml(run.worker_host || 'local') + '</td>' +
           '</tr>';
@@ -455,7 +499,10 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         document.getElementById('retry-count').textContent = retryQueue.length;
         document.getElementById('claimed-count').textContent = (state.claimed || []).length;
         document.getElementById('completed-count').textContent = completed.length;
-        document.getElementById('running-table-body').innerHTML = renderRunningTable(running);
+        document.getElementById('running-table-body').innerHTML = renderRunningTable(
+          running,
+          state.running_session_info || {{}}
+        );
         document.getElementById('retry-table-body').innerHTML = renderRetryTable(retryQueue);
         document.getElementById('completed-list').innerHTML = renderCompleted(completed);
         document.getElementById('token-input').textContent = state.codex_totals?.input_tokens ?? 0;
@@ -485,6 +532,7 @@ async fn get_state(State(state): State<HttpServerState>) -> impl IntoResponse {
         poll_interval_ms: snapshot.poll_interval_ms,
         max_concurrent_agents: snapshot.max_concurrent_agents,
         running: snapshot.running,
+        running_session_info: snapshot.running_session_info,
         claimed: snapshot.claimed,
         retry_queue: snapshot.retry_queue,
         completed: snapshot.completed,

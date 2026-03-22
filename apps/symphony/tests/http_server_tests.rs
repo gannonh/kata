@@ -8,7 +8,7 @@ use chrono::{TimeZone, Utc};
 use serde_json::{json, Value};
 use symphony::domain::{
     CodexTotals, CompletedEntry, OrchestratorSnapshot, PollingSnapshot, RateLimitInfo,
-    RefreshRequestOutcome, RetrySnapshotEntry, RunAttempt,
+    RefreshRequestOutcome, RetrySnapshotEntry, RunAttempt, SessionTokenUsage, WorkerSessionInfo,
 };
 use symphony::http_server::{build_router, HttpServerState, RefreshControl, SnapshotSource};
 use tower::ServiceExt;
@@ -76,6 +76,19 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
             );
             running
         },
+        running_session_info: BTreeMap::from([(
+            "issue-123".to_string(),
+            WorkerSessionInfo {
+                turn_count: 3,
+                max_turns: 20,
+                last_activity_ms: Some(started_at.timestamp_millis() + 70_000),
+                session_tokens: SessionTokenUsage {
+                    input_tokens: 35,
+                    output_tokens: 12,
+                    total_tokens: 47,
+                },
+            },
+        )]),
         claimed: BTreeSet::from(["issue-123".to_string()]),
         retry_queue: vec![RetrySnapshotEntry {
             issue_id: "issue-777".to_string(),
@@ -178,6 +191,22 @@ async fn test_get_root_returns_html_dashboard_shell_with_structured_sections() {
         "dashboard shell should include running sessions table section"
     );
     assert!(
+        body.contains("<th>Turn</th>"),
+        "running table should include the turn column header"
+    );
+    assert!(
+        body.contains("<th>Last Activity</th>"),
+        "running table should include the last activity column header"
+    );
+    assert!(
+        body.contains("<th>Tokens</th>"),
+        "running table should include the per-session token column header"
+    );
+    assert!(
+        body.contains("stale-activity"),
+        "dashboard script should include stale activity highlighting styles/logic"
+    );
+    assert!(
         body.contains("Retry queue"),
         "dashboard shell should include retry queue table section"
     );
@@ -233,6 +262,14 @@ async fn test_get_api_state_returns_snapshot_projection() {
     assert_eq!(
         payload["running"]["issue-123"]["issue_identifier"],
         "SIM-123"
+    );
+    assert_eq!(
+        payload["running_session_info"]["issue-123"]["turn_count"],
+        3
+    );
+    assert_eq!(
+        payload["running_session_info"]["issue-123"]["session_tokens"]["total_tokens"],
+        47
     );
     assert_eq!(payload["retry_queue"][0]["identifier"], "SIM-777");
     assert_eq!(payload["codex_totals"]["total_tokens"], 200);
