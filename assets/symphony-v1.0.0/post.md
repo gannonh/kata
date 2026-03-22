@@ -1,10 +1,10 @@
-I just shipped something I still can't fully wrap my head around.
+I just shipped a Rust implementation of the OpenAI Symphony spec. It really is mindblowing in a the-future-is-here kind of way watching tickets move across a Linear board from Todo to merged PR; code written, tests passing, review comments addressed, PR landed. From my phone.
 
-Two days ago I had a Rust scaffold with passing tests and zero runtime behavior. Today I'm managing a fleet of autonomous coding agents from my phone. I drag a ticket to "Todo" in Linear, put my phone down, and come back to a merged PR — code written, tests passing, review comments addressed, PR landed. All without touching a keyboard.
+The truly strange (and kind of terrifying) part is watching the system build itself. I'd file a ticket like "add multi-turn sessions" or "build the TUI dashboard," move it to Todo, and watch Symphony pick it up, implement it (In Progress), open a PR, loop through automated code review until every comment was resolved (Agent Review), then wait for my approval (Human Review → Merging). 24 tickets went through this cycle. The orchestrator that manages agents was being built by the agents it manages.
 
-The surreal part: the system built itself. I'd file a ticket — "add multi-turn sessions" or "build the TUI dashboard" — move it to Todo, and watch Symphony pick it up, implement it, open a PR, loop through automated code review until every comment was resolved, then wait for my approval. 24 tickets went through this cycle. The orchestrator that manages agents was being built by the agents it manages.
+After a while the "Human Review" step started to feel like an unnecessary affordance there for no other reason than to prop up my fragile ego. Look, I'm still needed! Someone needs to advance these tickets from Human Review to Merging! No, not really. Truth be told I do have decades of experience writing product specs, but still. This is nuts. Crazy town. Where is this all heading?
 
-This is Kata Symphony v1.0.0 🎵
+Kata Symphony v1.0.0 🎵
 
 A headless orchestrator that turns your Linear backlog into merged PRs — autonomously. High-performance Rust implementation of the [OpenAI spec for multi-agent orchestration](https://github.com/openai/symphony).
 
