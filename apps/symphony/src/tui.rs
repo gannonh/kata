@@ -584,7 +584,9 @@ fn status_color(
     };
     let normalized = last_event.trim().to_ascii_lowercase();
 
-    if is_turn_completed_event(&normalized) {
+    if is_failure_event(&normalized) {
+        Color::Red
+    } else if is_turn_completed_event(&normalized) {
         Color::Magenta
     } else if normalized.contains("token_count") {
         Color::Yellow
@@ -596,6 +598,13 @@ fn status_color(
     } else {
         Color::Blue
     }
+}
+
+fn is_failure_event(normalized_event: &str) -> bool {
+    normalized_event.contains("failed")
+        || normalized_event.contains("error")
+        || normalized_event.contains("cancelled")
+        || normalized_event.contains("canceled")
 }
 
 fn is_turn_completed_event(normalized_event: &str) -> bool {
@@ -1033,6 +1042,14 @@ mod tests {
         assert_eq!(
             status_color(Some("codex/event/turn/completed"), Some(fresh), now),
             Color::Magenta
+        );
+        assert_eq!(
+            status_color(Some("codex/event/tool_call_failed"), Some(fresh), now),
+            Color::Red
+        );
+        assert_eq!(
+            status_color(Some("startup_failed"), Some(fresh), now),
+            Color::Red
         );
         assert_eq!(
             status_color(Some("notification"), Some(fresh), now),
