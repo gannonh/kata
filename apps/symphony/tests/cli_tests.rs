@@ -397,7 +397,7 @@ fn test_logs_root_writes_startup_logs_to_file_and_suppresses_stdout_logs() {
 }
 
 #[test]
-fn test_without_logs_root_keeps_stdout_only_behavior() {
+fn test_without_logs_root_suppresses_stdout_logs_when_tui_defaults_on() {
     let run_dir = tempfile::tempdir().expect("temp dir should be created");
     let missing_workflow = run_dir.path().join("missing-workflow.md");
 
@@ -414,8 +414,43 @@ fn test_without_logs_root_keeps_stdout_only_behavior() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
+        !stdout.contains("starting CLI bootstrap"),
+        "stdout should suppress startup logs when TUI is enabled by default; got: {stdout}"
+    );
+    assert!(
+        !stdout.contains("\"phase\":\"startup\""),
+        "stdout should suppress startup JSON fields when TUI is enabled by default; got: {stdout}"
+    );
+
+    let log_file_path = run_dir.path().join("log").join("symphony.log");
+    assert!(
+        !log_file_path.exists(),
+        "no log file should be created when --logs-root is omitted, found {}",
+        log_file_path.display()
+    );
+}
+
+#[test]
+fn test_without_logs_root_no_tui_streams_stdout_logs() {
+    let run_dir = tempfile::tempdir().expect("temp dir should be created");
+    let missing_workflow = run_dir.path().join("missing-workflow.md");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_symphony"))
+        .current_dir(run_dir.path())
+        .arg(&missing_workflow)
+        .arg("--no-tui")
+        .output()
+        .expect("symphony binary should execute");
+
+    assert!(
+        !output.status.success(),
+        "missing workflow path should still fail startup"
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
         stdout.contains("starting CLI bootstrap"),
-        "stdout should still include startup logs when --logs-root is omitted; got: {stdout}"
+        "stdout should include startup logs when --no-tui is set and --logs-root is omitted; got: {stdout}"
     );
 
     let log_file_path = run_dir.path().join("log").join("symphony.log");
