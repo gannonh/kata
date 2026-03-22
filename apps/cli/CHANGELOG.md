@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.0
+
+### Features
+
+- **Session lock for auto-mode** — OS-level exclusive locking prevents multiple kata processes from running auto-mode concurrently on the same project. Uses `proper-lockfile` for cross-platform file locking with stale lock detection and metadata tracking (PID, hostname, timestamp).
+- **Repo identity** — stable SHA-256 fingerprint for any git repository, consistent across subdirectories and worktrees. Used for session lock isolation and state management.
+- **Worktree resolver** — resolves git worktree paths, finds the main repo from a worktree, and maps paths between worktrees. Enables correct behavior in monorepo worktree setups.
+- **Atomic file writes** — crash-safe file writes using rename-into-place pattern via `atomic-write.ts`. Prevents partial writes on crash or power loss.
+- **Subagent worker registry** — global registry of active subagent sessions for dashboard visibility. Tracks agent name, task, status, start time, and batch ID.
+- **Subagent elapsed timing** — parallel, chain, and single subagent calls now show elapsed time in output. Chain mode shows per-step and total timing. Error messages include elapsed time.
+- **Search provider abstraction** — pluggable search provider layer with Tavily support. `tool-search.ts` and `tool-llm-context.ts` routed through the provider abstraction. Native search extracted to `native-search.ts`.
+
+### Fixes
+
+- **Test suite fixes** — resolved `describe`/`it` not defined errors in repo-identity and worktree-resolver tests (missing `node:test` imports). Fixed session-lock logic to not steal locks when metadata is missing.
+- **Subagent cleanup** — try/finally for worker registry cleanup on abort, consistent stopReason failure detection, cancel dangling timers, fix 59999ms elapsed rounding.
+- **Search provider review fixes** — budgetGrounding math, tool restore, maxUrls, cache, notification improvements.
+
 ## 0.4.1
 
 ### Features
