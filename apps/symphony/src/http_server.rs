@@ -174,6 +174,12 @@ pub async fn bind_http_listener_with_fallback(
     configured_port: u16,
     max_port_offset: u16,
 ) -> std::io::Result<(TcpListener, u16)> {
+    if configured_port == 0 {
+        let listener = TcpListener::bind(format!("{host}:0")).await?;
+        let bound_port = listener.local_addr()?.port();
+        return Ok((listener, bound_port));
+    }
+
     let mut attempt_port = configured_port;
     let max_port = configured_port.saturating_add(max_port_offset);
 
@@ -194,11 +200,7 @@ pub async fn bind_http_listener_with_fallback(
                 }
                 return Ok((listener, bound_port));
             }
-            Err(err)
-                if configured_port != 0
-                    && err.kind() == std::io::ErrorKind::AddrInUse
-                    && attempt_port < max_port =>
-            {
+            Err(err) if err.kind() == std::io::ErrorKind::AddrInUse && attempt_port < max_port => {
                 tracing::warn!(
                     event = "http_server_port_in_use_retry",
                     host = host,
@@ -813,28 +815,53 @@ mod tests {
 
     #[tokio::test]
     async fn bind_http_listener_with_fallback_increments_when_configured_port_is_in_use() {
-        // Reserve a full contiguous range first so we know retries are possible,
-        // then keep only the first port occupied.
-        let (configured_port, mut listeners) = reserve_contiguous_ports(HTTP_PORT_RETRY_LIMIT);
-        let occupied = listeners.remove(0);
-        drop(listeners);
+        const MAX_TEST_ATTEMPTS: usize = 5;
 
-        let (listener, bound_port) =
-            bind_http_listener_with_fallback("127.0.0.1", configured_port, HTTP_PORT_RETRY_LIMIT)
-                .await
-                .expect("fallback bind should find an available nearby port");
+        for attempt in 1..=MAX_TEST_ATTEMPTS {
+            // Reserve a full contiguous range first so retries are possible, then keep
+            // only the configured port occupied while releasing fallback candidates.
+            let (configured_port, mut listeners) = reserve_contiguous_ports(HTTP_PORT_RETRY_LIMIT);
+            let occupied = listeners.remove(0);
+            drop(listeners);
 
-        assert!(
-            bound_port > configured_port,
-            "bound port should move forward when configured port is taken: configured={configured_port}, bound={bound_port}"
+            match bind_http_listener_with_fallback(
+                "127.0.0.1",
+                configured_port,
+                HTTP_PORT_RETRY_LIMIT,
+            )
+            .await
+            {
+                Ok((listener, bound_port)) => {
+                    assert!(
+                        bound_port > configured_port,
+                        "bound port should move forward when configured port is taken: configured={configured_port}, bound={bound_port}"
+                    );
+                    assert!(
+                        bound_port <= configured_port.saturating_add(HTTP_PORT_RETRY_LIMIT),
+                        "bound port should remain within retry cap: configured={configured_port}, bound={bound_port}"
+                    );
+                    drop(occupied);
+                    drop(listener);
+                    return;
+                }
+                Err(err)
+                    if err.kind() == std::io::ErrorKind::AddrInUse
+                        && attempt < MAX_TEST_ATTEMPTS =>
+                {
+                    drop(occupied);
+                }
+                Err(err) => {
+                    drop(occupied);
+                    panic!(
+                        "fallback bind should find an available nearby port (attempt {attempt}/{MAX_TEST_ATTEMPTS}): {err}"
+                    );
+                }
+            }
+        }
+
+        panic!(
+            "fallback bind should find an available nearby port after {MAX_TEST_ATTEMPTS} attempts"
         );
-        assert!(
-            bound_port <= configured_port.saturating_add(HTTP_PORT_RETRY_LIMIT),
-            "bound port should remain within retry cap: configured={configured_port}, bound={bound_port}"
-        );
-
-        drop(occupied);
-        drop(listener);
     }
 
     #[tokio::test]
