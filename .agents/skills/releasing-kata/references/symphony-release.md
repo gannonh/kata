@@ -26,7 +26,7 @@ CI workflow: `symphony-release.yml`
 
 3. **Bump version** in `apps/symphony/Cargo.toml` only
 
-4. **Update `apps/symphony/CHANGELOG.md`** with the new version's changes (create if it doesn't exist)
+4. **Update `apps/cli/CHANGELOG.md`** and `apps/cli/README.md` with the new version's changes
 
 5. **Create release branch and PR**
 

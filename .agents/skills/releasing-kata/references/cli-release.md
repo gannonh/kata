@@ -25,9 +25,12 @@ CI workflow: `cli-release.yml`
 
 3. **Bump version** in `apps/cli/package.json` only
 
-4. **Update `apps/cli/CHANGELOG.md`** with the new version's changes
+4. **Update `apps/cli/CHANGELOG.md`** and `apps/cli/README.md` with the new version's changes
 
-5. **Update `apps/cli/src/resources/AGENTS.md`** with any relevant changes to agent capabilities or instructions
+5. **Update essential documentation:**
+   1. Preferences Reference: `apps/cli/src/resources/extensions/kata/docs/preferences-reference.md` - Documents every preference field, its type, default, and behavior. Update when adding, removing, or renaming a preference field, changing a field's type or default, or changing how a preference affects runtime behavior.
+   2. Preferences Template: `apps/cli/src/resources/extensions/kata/templates/preferences.md` - YAML frontmatter template copied into new projects on init. Update when adding a new field (add with its default), removing a field, or changing a default value. Keep template and reference in sync: every field in the template should be documented in the reference, and vice versa.
+   3. Agent Context: `apps/cli/src/resources/AGENTS.md` - Tells the agent about CLI architecture, directory structure, extensions, and capabilities. Update when adding or removing extensions, commands, or skills; changing directory structure or file roles; changing how the agent interacts with the system; or adding new agent prompt templates.
 
 6. **Create release branch and PR**
 
