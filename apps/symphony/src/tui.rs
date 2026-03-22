@@ -36,6 +36,11 @@ impl ThroughputTracker {
     fn record_sample(&mut self, timestamp_ms: i64, total_tokens: u64) {
         match self.token_samples.last_mut() {
             Some((last_ts, _last_total)) if timestamp_ms < *last_ts => {
+                tracing::warn!(
+                    last_ts = *last_ts,
+                    received_ts = timestamp_ms,
+                    "throughput tracker received out-of-order timestamp; skipping sample"
+                );
                 return;
             }
             Some((last_ts, last_total)) if timestamp_ms == *last_ts => {
