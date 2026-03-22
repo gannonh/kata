@@ -102,6 +102,7 @@ struct ApiError {
 struct StateResponse {
     poll_interval_ms: u64,
     max_concurrent_agents: u32,
+    linear_project_url: Option<String>,
     running: std::collections::BTreeMap<String, RunAttempt>,
     running_sessions: std::collections::BTreeMap<String, RunningSessionSnapshot>,
     running_session_info: std::collections::BTreeMap<String, WorkerSessionInfo>,
@@ -167,6 +168,15 @@ pub async fn start_http_server(
 
 // ── Route Handlers ─────────────────────────────────────────────────────
 
+fn escape_html(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#x27;")
+}
+
 async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoResponse {
     let snapshot = state.snapshot();
 
@@ -182,6 +192,19 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
     } else {
         "no"
     };
+    let linear_project_card = snapshot
+        .linear_project_url
+        .as_deref()
+        .map(|url| {
+            let escaped_url = escape_html(url);
+            format!(
+                r#"<section class="card"><div class="label">linear project</div><div class="mono"><a id="linear-project-link" href="{escaped_url}" target="_blank" rel="noopener noreferrer">{escaped_url}</a></div></section>"#
+            )
+        })
+        .unwrap_or_else(|| {
+            r#"<section class="card"><div class="label">linear project</div><div class="mono muted">n/a</div></section>"#
+                .to_string()
+        });
 
     let rate_limit_block = snapshot
         .codex_rate_limits
@@ -201,6 +224,8 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
   <style>
     :root {{ color-scheme: dark; }}
     body {{ font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; background: #10131a; color: #f1f5f9; margin: 0; padding: 24px; line-height: 1.45; }}
+    a {{ color: #93c5fd; }}
+    a:hover {{ color: #bfdbfe; }}
     h1 {{ margin-top: 0; margin-bottom: 12px; }}
     h2 {{ margin: 0 0 10px; font-size: 18px; }}
     .grid {{ display: grid; gap: 12px; margin-bottom: 16px; }}
@@ -234,6 +259,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
     <section class="card"><div class="label">retry</div><div class="value" id="retry-count">{retry_count}</div></section>
     <section class="card"><div class="label">claimed</div><div class="value" id="claimed-count">{claimed_count}</div></section>
     <section class="card"><div class="label">completed</div><div class="value" id="completed-count">{completed_count}</div></section>
+    <div id="linear-project-card">{linear_project_card}</div>
   </div>
 
   <section class="card section">
@@ -465,6 +491,18 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       }}).join('');
     }}
 
+    function renderLinearProjectCard(url) {{
+      if (!url) {{
+        return '<section class="card"><div class="label">linear project</div><div class="mono muted">n/a</div></section>';
+      }}
+      const escaped = escapeHtml(url);
+      return '<section class="card"><div class="label">linear project</div><div class="mono"><a id="linear-project-link" href="' +
+        escaped +
+        '" target="_blank" rel="noopener noreferrer">' +
+        escaped +
+        '</a></div></section>';
+    }}
+
     function updatePolling(polling) {{
       const poll = polling || {{}};
       document.getElementById('polling-last-poll').textContent = formatDate(poll.last_poll_at);
@@ -500,6 +538,8 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         document.getElementById('retry-count').textContent = retryQueue.length;
         document.getElementById('claimed-count').textContent = (state.claimed || []).length;
         document.getElementById('completed-count').textContent = completed.length;
+        document.getElementById('linear-project-card').innerHTML =
+          renderLinearProjectCard(state.linear_project_url);
         document.getElementById('running-table-body').innerHTML = renderRunningTable(
           running,
           state.running_session_info || {{}}
@@ -532,6 +572,7 @@ async fn get_state(State(state): State<HttpServerState>) -> impl IntoResponse {
     Json(StateResponse {
         poll_interval_ms: snapshot.poll_interval_ms,
         max_concurrent_agents: snapshot.max_concurrent_agents,
+        linear_project_url: snapshot.linear_project_url,
         running: snapshot.running,
         running_sessions: snapshot.running_sessions,
         running_session_info: snapshot.running_session_info,

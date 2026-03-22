@@ -58,6 +58,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
     OrchestratorSnapshot {
         poll_interval_ms: 30_000,
         max_concurrent_agents: 4,
+        linear_project_url: Some("https://linear.app/kata-sh/project/symphony".to_string()),
         running: {
             let mut running = BTreeMap::new();
             running.insert(
@@ -239,6 +240,14 @@ async fn test_get_root_returns_html_dashboard_shell_with_structured_sections() {
         "dashboard shell should include token summary section"
     );
     assert!(
+        body.contains(r#"id="linear-project-link""#),
+        "dashboard shell should include clickable Linear project link in summary section"
+    );
+    assert!(
+        body.contains("https://linear.app/kata-sh/project/symphony"),
+        "dashboard shell should render the configured Linear project URL"
+    );
+    assert!(
         body.contains("Polling"),
         "dashboard shell should include polling section"
     );
@@ -294,6 +303,10 @@ async fn test_get_api_state_returns_snapshot_projection() {
     assert_eq!(payload["retry_queue"][0]["identifier"], "SIM-777");
     assert_eq!(payload["codex_totals"]["total_tokens"], 200);
     assert_eq!(payload["codex_rate_limits"]["remaining"], 88);
+    assert_eq!(
+        payload["linear_project_url"],
+        "https://linear.app/kata-sh/project/symphony"
+    );
     assert_eq!(payload["polling"]["next_poll_in_ms"], 5_000);
 }
 

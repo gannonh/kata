@@ -21,6 +21,7 @@ fn test_config(server: &ServerGuard, assignee: Option<&str>) -> TrackerConfig {
         endpoint: server.url() + "/graphql",
         api_key: Some(ApiKey::new("test-api-key")),
         project_slug: Some("test-proj".to_string()),
+        workspace_slug: None,
         assignee: assignee.map(String::from),
         active_states: vec!["Todo".to_string(), "In Progress".to_string()],
         terminal_states: vec!["Done".to_string(), "Cancelled".to_string()],
@@ -740,6 +741,7 @@ async fn test_error_transport_error() {
         endpoint: "http://192.0.2.1:1/graphql".to_string(), // TEST-NET-1 (RFC 5737) — guaranteed unreachable
         api_key: Some(ApiKey::new("test-key")),
         project_slug: Some("test-proj".to_string()),
+        workspace_slug: None,
         assignee: None,
         active_states: vec!["Todo".to_string()],
         terminal_states: vec![],

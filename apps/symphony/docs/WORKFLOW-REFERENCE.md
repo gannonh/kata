@@ -30,6 +30,10 @@ tracker:
   # https://linear.app/<workspace>/project/<slug>
   project_slug: "89d4761fddf0"
 
+  # Optional: Linear workspace slug for dashboard project links.
+  # When omitted, Symphony falls back to "kata-sh".
+  # workspace_slug: kata-sh
+
   # Optional: Linear GraphQL endpoint. Override for self-hosted Linear.
   # endpoint: https://api.linear.app/graphql
 
