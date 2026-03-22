@@ -35,7 +35,6 @@ Download from [GitHub Releases](https://github.com/gannonh/kata/releases):
 | Platform | Binary |
 |---|---|
 | macOS (Apple Silicon) | `symphony-macos-arm64` |
-| macOS (Intel) | `symphony-macos-x86_64` |
 | Linux (x86_64) | `symphony-linux-x86_64` |
 | Windows (x86_64) | `symphony-windows-x86_64.exe` |
 

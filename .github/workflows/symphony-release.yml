@@ -76,9 +76,6 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact: symphony-macos-arm64
-          - os: macos-13
-            target: x86_64-apple-darwin
-            artifact: symphony-macos-x86_64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact: symphony-windows-x86_64.exe
@@ -147,6 +144,5 @@ jobs:
           files: |
             artifacts/symphony-linux-x86_64/symphony-linux-x86_64
             artifacts/symphony-macos-arm64/symphony-macos-arm64
-            artifacts/symphony-macos-x86_64/symphony-macos-x86_64
             artifacts/symphony-windows-x86_64.exe/symphony-windows-x86_64.exe
           generate_release_notes: true
