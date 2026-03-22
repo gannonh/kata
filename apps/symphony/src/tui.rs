@@ -30,6 +30,7 @@ const SPARKLINE_BUCKETS: usize = 24;
 const SPARKLINE_BUCKET_MS: i64 = SPARKLINE_WINDOW_MS / SPARKLINE_BUCKETS as i64;
 const SPARKLINE_BLOCKS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 const STALE_ACTIVITY_THRESHOLD_MS: i64 = 120_000;
+const LAST_EVENT_COLUMN_WIDTH: u16 = 24;
 
 #[derive(Debug, Default)]
 struct ThroughputTracker {
@@ -417,7 +418,7 @@ fn draw_dashboard(
             Constraint::Length(12),
             Constraint::Length(14),
             Constraint::Length(8),
-            Constraint::Length(24),
+            Constraint::Length(LAST_EVENT_COLUMN_WIDTH),
             Constraint::Min(16),
             Constraint::Length(14),
             Constraint::Length(12),
@@ -513,7 +514,10 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
             Cell::from(compact_session_id(session_id)),
             Cell::from(state),
             Cell::from(turn_count.to_string()),
-            Cell::from(truncate_for_display(last_event.unwrap_or("-"), 32)),
+            Cell::from(truncate_for_display(
+                last_event.unwrap_or("-"),
+                LAST_EVENT_COLUMN_WIDTH as usize,
+            )),
             Cell::from(truncate_for_display(last_event_message.unwrap_or("-"), 60)),
             last_activity_cell,
             Cell::from(format_tokens(total_tokens)),
@@ -567,13 +571,14 @@ fn status_color(
     last_activity: Option<DateTime<Utc>>,
     now: DateTime<Utc>,
 ) -> Color {
-    if last_event.is_none() || is_stale_session(last_activity, now) {
+    if is_stale_session(last_activity, now) {
         return Color::Red;
     }
 
-    let normalized = last_event
-        .map(|event| event.trim().to_ascii_lowercase())
-        .unwrap_or_default();
+    let Some(last_event) = last_event else {
+        return Color::Red;
+    };
+    let normalized = last_event.trim().to_ascii_lowercase();
 
     if is_turn_completed_event(&normalized) {
         Color::Magenta
@@ -940,6 +945,58 @@ mod tests {
             "12345678".to_string()
         );
         assert_eq!(compact_session_id(None), "-".to_string());
+    }
+
+    #[test]
+    fn draw_dashboard_truncates_last_event_at_column_width() {
+        let now = Utc
+            .with_ymd_and_hms(2026, 3, 22, 15, 0, 0)
+            .single()
+            .expect("valid fixture timestamp");
+        let mut snapshot = snapshot_fixture(1_337, None);
+        let issue_id = "issue-1".to_string();
+        let long_event =
+            "codex/event/this event label is definitely much longer than twenty four chars";
+
+        snapshot.running.insert(
+            issue_id.clone(),
+            crate::domain::RunAttempt {
+                issue_id: issue_id.clone(),
+                issue_identifier: "KAT-898".to_string(),
+                issue_title: Some("Refactor helper duplication".to_string()),
+                attempt: None,
+                workspace_path: "/tmp/workspace".to_string(),
+                started_at: now,
+                status: "running".to_string(),
+                error: None,
+                worker_host: None,
+                linear_state: Some("Agent Review".to_string()),
+            },
+        );
+        snapshot.running_sessions.insert(
+            issue_id,
+            crate::domain::RunningSessionSnapshot {
+                turn_count: 3,
+                last_activity_at: Some(now),
+                total_tokens: 4242,
+                last_event: Some(long_event.to_string()),
+                last_event_message: Some("message".to_string()),
+                session_id: Some("1234567890abcdef".to_string()),
+            },
+        );
+
+        let backend = TestBackend::new(160, 30);
+        let mut terminal = Terminal::new(backend).expect("test terminal");
+        terminal
+            .draw(|frame| draw_dashboard(frame, &snapshot, now, "Throughput: 42.3 tps ▁▂▃▄▅▆▇█"))
+            .expect("dashboard draw should succeed");
+
+        let rendered = render_text(terminal.backend());
+        let expected = truncate_for_display(long_event, 24);
+        assert!(
+            rendered.contains(&expected),
+            "expected dashboard output to include truncated last event {expected:?}, got:\n{rendered}"
+        );
     }
 
     #[test]
