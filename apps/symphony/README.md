@@ -17,7 +17,7 @@ Headless orchestrator that polls a Linear project for candidate issues and dispa
 - **Rotating log files** — structured JSON logs to disk with rotation via `--logs-root`
 - **SSH worker pools** — distribute sessions across remote machines
 - **HTTP dashboard + JSON API** — live session table with turn/activity/session-token observability, retry queue, polling stats
-- **Terminal dashboard (`--tui`)** — Ratatui observability view for local runs
+- **Terminal dashboard (default-on)** — Ratatui observability view for local runs; disable with `--no-tui`
 
 <details>
 <summary>HTTP Dashboard</summary>
@@ -86,7 +86,7 @@ Press Ctrl+C to stop.
 ## CLI Flags
 
 ```
-symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--tui]
+symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--no-tui]
 ```
 
 | Flag | Default | Description |
@@ -94,7 +94,9 @@ symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--tui]
 | `WORKFLOW.md` (positional) | `WORKFLOW.md` | Path to the workflow configuration file |
 | `--port PORT` | `8080` | HTTP dashboard and API port. Overrides `server.port` in config |
 | `--logs-root PATH` | *(none)* | Directory for rotating log files. Suppresses stdout log streaming |
-| `--tui` | `false` | Render the Ratatui terminal dashboard. When enabled without `--logs-root`, stdout logs are suppressed to keep the TUI clean |
+| `--no-tui` | `false` | Disable the Ratatui terminal dashboard. Without this flag, TUI is enabled by default |
+
+Legacy compatibility: `--tui` is still accepted as a no-op.
 
 ### Log verbosity
 
@@ -106,7 +108,7 @@ RUST_LOG=debug symphony WORKFLOW.md                   # verbose
 RUST_LOG=symphony=trace,info symphony WORKFLOW.md     # trace symphony, info everything else
 ```
 
-When `--logs-root` is set, logs write to rotating files under `<logs-root>/log/symphony.log` and stdout shows only the startup banner. Without `--logs-root`, logs stream to stdout as structured JSON unless `--tui` is enabled.
+When `--logs-root` is set, logs write to rotating files under `<logs-root>/log/symphony.log` and stdout shows only the startup banner. Without `--logs-root`, stdout logs are suppressed while the default TUI is active; pass `--no-tui` to stream structured JSON logs to stdout instead.
 
 ## Multiple Workflows
 

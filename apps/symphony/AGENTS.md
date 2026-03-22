@@ -27,7 +27,7 @@ cargo build --release
 ## Running
 
 ```sh
-symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--tui]
+symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--no-tui]
 ```
 
 ### CLI Flag Reference
@@ -37,7 +37,7 @@ symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--tui]
 | `WORKFLOW.md` (positional)                                              | path | `WORKFLOW.md` | Path to the WORKFLOW.md configuration file                                                                                           |
 | `--port PORT`                                                           | u16  | `8080`        | Bind the HTTP dashboard and API on this port. Overrides `server.port` in the workflow file.                                         |
 | `--logs-root PATH`                                                      | path | _(none)_      | Directory root for agent log files.                                                                                                  |
-| `--tui`                                                                 | flag | `false`       | Render a Ratatui terminal dashboard. When enabled with no `--logs-root`, stdout logs are suppressed to avoid corrupting the TUI.   |
+| `--no-tui`                                                              | flag | `false`       | Disable the Ratatui terminal dashboard. Without this flag, TUI is enabled by default and stdout logs are suppressed unless logs write to files. |
 
 ### Exit Codes
 
@@ -61,8 +61,8 @@ Default level is `info`.
 
 When `--logs-root` is set, logs write to rotating files under
 `<logs-root>/log/symphony.log` and stdout shows only the startup banner.
-Without `--logs-root`, logs stream to stdout as structured JSON unless `--tui`
-is enabled.
+Without `--logs-root`, stdout logs are suppressed while the default TUI is
+active. Pass `--no-tui` to stream structured JSON logs to stdout instead.
 
 ---
 

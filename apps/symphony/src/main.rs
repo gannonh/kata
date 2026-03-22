@@ -36,9 +36,13 @@ pub struct Cli {
     #[arg(long)]
     pub logs_root: Option<String>,
 
-    /// Render a live terminal dashboard (Ratatui)
-    #[arg(long)]
+    /// Legacy compatibility flag. TUI is now enabled by default.
+    #[arg(long, hide = true, default_value_t = true)]
     pub tui: bool,
+
+    /// Disable the live terminal dashboard (Ratatui)
+    #[arg(long)]
+    no_tui: bool,
 }
 
 pub trait BootstrapDeps {
@@ -288,7 +292,11 @@ where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
 {
-    Cli::try_parse_from(args)
+    let mut cli = Cli::try_parse_from(args)?;
+    if cli.no_tui {
+        cli.tui = false;
+    }
+    Ok(cli)
 }
 
 pub fn resolve_workflow_path(cli: &Cli) -> PathBuf {
@@ -653,8 +661,21 @@ mod tests {
     }
 
     #[test]
-    fn parse_cli_defaults_tui_to_false() {
+    fn parse_cli_defaults_tui_to_true() {
         let cli = parse_cli_from(["symphony", "WORKFLOW.md"]).expect("cli parse");
+        assert!(cli.tui);
+    }
+
+    #[test]
+    fn parse_cli_accepts_no_tui_flag() {
+        let cli = parse_cli_from(["symphony", "WORKFLOW.md", "--no-tui"]).expect("cli parse");
+        assert!(!cli.tui);
+    }
+
+    #[test]
+    fn parse_cli_no_tui_wins_when_both_flags_are_present() {
+        let cli =
+            parse_cli_from(["symphony", "WORKFLOW.md", "--tui", "--no-tui"]).expect("cli parse");
         assert!(!cli.tui);
     }
 }
