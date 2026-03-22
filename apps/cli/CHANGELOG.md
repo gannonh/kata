@@ -17,6 +17,7 @@
 - **Test suite fixes** — resolved `describe`/`it` not defined errors in repo-identity and worktree-resolver tests (missing `node:test` imports). Fixed session-lock logic to not steal locks when metadata is missing.
 - **Subagent cleanup** — try/finally for worker registry cleanup on abort, consistent stopReason failure detection, cancel dangling timers, fix 59999ms elapsed rounding.
 - **Search provider review fixes** — budgetGrounding math, tool restore, maxUrls, cache, notification improvements.
+- **Remove Opus 4.6 context window patch** — upstream pi-ai 0.60.0 now has the correct 1M context window for `claude-opus-4-6`. Removed the runtime patches from `cli.ts` and `kata/index.ts` (KAT-487).
 
 ## 0.4.1
 

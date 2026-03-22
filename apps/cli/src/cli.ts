@@ -75,18 +75,6 @@ if (!isPrintMode) {
 
 const modelRegistry = new ModelRegistry(authStorage)
 
-// TODO(KAT-487): Remove this patch once pi-ai updates models.generated.js.
-// Opus 4.6 context window — upstream pi-ai still has 200K, actual is 1M.
-const OPUS_CONTEXT_PATCHES: Record<string, number> = {
-  'claude-opus-4-6': 1_000_000,
-}
-for (const [modelId, contextWindow] of Object.entries(OPUS_CONTEXT_PATCHES)) {
-  const model = modelRegistry.find('anthropic', modelId)
-  if (model && model.contextWindow < contextWindow) {
-    model.contextWindow = contextWindow
-  }
-}
-
 const settingsManager = SettingsManager.create(agentDir)
 
 // Always ensure defaults: anthropic/claude-sonnet-4-6, thinking off.
