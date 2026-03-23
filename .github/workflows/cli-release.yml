@@ -108,10 +108,26 @@ jobs:
           git tag "cli-v$VERSION"
           git push origin "cli-v$VERSION"
 
+      - name: Extract changelog entry
+        id: changelog
+        run: |
+          VERSION=${{ needs.check-version.outputs.version }}
+          # Extract the section between ## $VERSION and the next ## heading
+          NOTES=$(sed -n "/^## ${VERSION}$/,/^## /{ /^## ${VERSION}$/d; /^## /d; p; }" apps/cli/CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            echo "No changelog entry found for $VERSION, falling back to auto-generated notes"
+            echo "found=false" >> $GITHUB_OUTPUT
+          else
+            # Write to file to preserve newlines
+            echo "$NOTES" > /tmp/release-notes.md
+            echo "found=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2.2.1
         with:
           tag_name: cli-v${{ needs.check-version.outputs.version }}
           name: Kata CLI v${{ needs.check-version.outputs.version }}
-          generate_release_notes: true
+          body_path: ${{ steps.changelog.outputs.found == 'true' && '/tmp/release-notes.md' || '' }}
+          generate_release_notes: ${{ steps.changelog.outputs.found != 'true' }}
           make_latest: false
