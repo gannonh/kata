@@ -17,7 +17,7 @@ All configuration — tracker, workspace, agent, and the prompt template — liv
 ## Prerequisites
 
 - **Linear personal API key** — `LINEAR_API_KEY` in your environment
-- **Codex** — installed and on PATH (`npm install -g @openai/codex`), authenticated via `codex auth` (opens browser for subscription login) or `OPENAI_API_KEY` env var
+- **Codex** — installed and on PATH (`npm install -g @openai/codex`), authenticated by running `codex` once (opens browser for subscription login) or via `OPENAI_API_KEY` env var
 - **Git** — for workspace bootstrapping
 - **Docker** (only for container-isolated workers) — Docker Desktop or Docker Engine running
 
@@ -64,7 +64,7 @@ Edit `.env` with your Linear API key:
 LINEAR_API_KEY=lin_api_...
 ```
 
-For Codex auth, either run `codex auth` (opens browser — works with ChatGPT/API subscriptions) or set `OPENAI_API_KEY` in `.env`.
+For Codex auth, either run `codex` once (opens browser for subscription login) or set `OPENAI_API_KEY` in `.env`.
 
 ### 2. Create a WORKFLOW.md
 
