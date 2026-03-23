@@ -258,7 +258,7 @@ pub struct DockerConfig {
     pub codex_auth: DockerCodexAuth,
     /// Additional environment variables passed to the container.
     pub env: Vec<String>,
-    /// Additional volume mounts (e.g. "~/.ssh:/root/.ssh:ro").
+    /// Additional volume mounts (e.g. "~/.ssh:/home/node/.ssh:ro").
     pub volumes: Vec<String>,
 }
 

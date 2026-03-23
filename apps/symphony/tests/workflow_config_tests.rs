@@ -398,7 +398,7 @@ workspace:
       - FOO=bar
       - BAR=baz
     volumes:
-      - ~/.ssh:/root/.ssh:ro
+      - ~/.ssh:/home/node/.ssh:ro
 "#;
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
     let config = from_workflow(&raw).expect("full docker config should parse");
@@ -412,7 +412,7 @@ workspace:
         vec!["FOO=bar".to_string(), "BAR=baz".to_string()]
     );
     assert_eq!(docker.volumes.len(), 1);
-    assert!(docker.volumes[0].contains(".ssh:/root/.ssh:ro"));
+    assert!(docker.volumes[0].contains(".ssh:/home/node/.ssh:ro"));
 }
 
 #[test]

@@ -16,4 +16,8 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
 
 RUN npm install -g @openai/codex@${CODEX_VERSION}
 
+RUN mkdir -p /workspace && chown -R node:node /workspace
+
+ENV HOME=/home/node
 WORKDIR /workspace
+USER node
