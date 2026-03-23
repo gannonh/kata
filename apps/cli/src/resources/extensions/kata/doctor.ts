@@ -5,6 +5,8 @@ import { loadFile, parsePlan, parseRoadmap, parseSummary, saveFile, parseTaskPla
 import { resolveMilestoneFile, resolveMilestonePath, resolveSliceFile, resolveSlicePath, resolveTaskFile, resolveTaskFiles, resolveTasksDir, milestonesDir, kataRoot, relMilestoneFile, relSliceFile, relTaskFile, relSlicePath, relKataRootFile, resolveKataRootFile } from "./paths.js";
 import { deriveState, isMilestoneComplete } from "./state.js";
 import { loadEffectiveKataPreferences, type KataPreferences } from "./preferences.js";
+import { formatEnvironmentReport, runEnvironmentChecks, type EnvironmentCheckResult } from "./doctor-environment.js";
+import { formatProviderReport, runProviderChecks, type ProviderCheckResult } from "./doctor-providers.js";
 
 export type DoctorSeverity = "info" | "warning" | "error";
 export type DoctorIssueCode =
@@ -39,6 +41,8 @@ export interface DoctorReport {
   basePath: string;
   issues: DoctorIssue[];
   fixesApplied: string[];
+  environment: EnvironmentCheckResult;
+  providers: ProviderCheckResult;
 }
 
 export interface DoctorSummary {
@@ -404,6 +408,11 @@ export function formatDoctorReport(
     if (report.fixesApplied.length > maxIssues) lines.push(`- ...and ${report.fixesApplied.length - maxIssues} more`);
   }
 
+  lines.push("");
+  lines.push(formatEnvironmentReport(report.environment));
+  lines.push("");
+  lines.push(formatProviderReport(report.providers));
+
   return lines.join("\n");
 }
 
@@ -419,6 +428,10 @@ export async function runKataDoctor(basePath: string, options?: { fix?: boolean;
   const issues: DoctorIssue[] = [];
   const fixesApplied: string[] = [];
   const fix = options?.fix === true;
+  const [environment, providers] = await Promise.all([
+    runEnvironmentChecks({ basePath }),
+    runProviderChecks(),
+  ]);
 
   const prefs = loadEffectiveKataPreferences();
   if (prefs) {
@@ -438,7 +451,17 @@ export async function runKataDoctor(basePath: string, options?: { fix?: boolean;
 
   const milestonesPath = milestonesDir(basePath);
   if (!existsSync(milestonesPath)) {
-    return { ok: issues.every(issue => issue.severity !== "error"), basePath, issues, fixesApplied };
+    return {
+      ok:
+        issues.every(issue => issue.severity !== "error") &&
+        environment.ok &&
+        providers.ok,
+      basePath,
+      issues,
+      fixesApplied,
+      environment,
+      providers,
+    };
   }
 
   const requirementsPath = resolveKataRootFile(basePath, "REQUIREMENTS");
@@ -674,10 +697,14 @@ export async function runKataDoctor(basePath: string, options?: { fix?: boolean;
   }
 
   return {
-    ok: issues.every(issue => issue.severity !== "error"),
+    ok:
+      issues.every(issue => issue.severity !== "error") &&
+      environment.ok &&
+      providers.ok,
     basePath,
     issues,
     fixesApplied,
+    environment,
+    providers,
   };
 }
-
