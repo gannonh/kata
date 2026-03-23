@@ -1,0 +1,318 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::path::{Path, PathBuf};
+use std::process::Stdio;
+
+use tokio::process::Command;
+
+use crate::domain::{DockerCodexAuth, DockerConfig, Issue};
+use crate::error::{Result, SymphonyError};
+
+pub type DockerAuthArgs = (Vec<(String, String)>, Vec<String>);
+
+/// Check if Docker daemon is reachable.
+pub async fn is_docker_available() -> bool {
+    Command::new("docker")
+        .args(["info", "--format", "{{.ServerVersion}}"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .await
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+/// Resolve the effective Docker image. If a setup script is configured,
+/// build a derived image with the setup script as a RUN layer.
+pub async fn resolve_image(base_image: &str, setup_script: Option<&str>) -> Result<String> {
+    let Some(setup_script) = setup_script else {
+        return Ok(base_image.to_string());
+    };
+
+    let setup_path = Path::new(setup_script);
+    let setup_content = std::fs::read_to_string(setup_path).map_err(|err| {
+        SymphonyError::DockerImageBuildFailed(format!(
+            "failed to read setup script '{}': {err}",
+            setup_path.display()
+        ))
+    })?;
+
+    let tag = derived_image_tag(base_image, &setup_content);
+    if image_exists(&tag).await {
+        tracing::debug!(tag = %tag, "using cached derived docker image");
+        return Ok(tag);
+    }
+
+    build_derived_image(base_image, &setup_content, &tag).await?;
+    Ok(tag)
+}
+
+/// Compute a deterministic tag for a derived image from setup script content.
+pub fn derived_image_tag(base_image: &str, setup_content: &str) -> String {
+    let mut hasher = DefaultHasher::new();
+    base_image.hash(&mut hasher);
+    setup_content.hash(&mut hasher);
+    format!("symphony-worker-{:016x}", hasher.finish())
+}
+
+/// Compute a deterministic container name from an issue identifier.
+pub fn container_name_from_issue(issue: &Issue) -> String {
+    let mut ident: String = issue
+        .identifier
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' || ch == '.' {
+                ch.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    ident = ident.trim_matches('-').to_string();
+    if ident.is_empty() {
+        "symphony-worker".to_string()
+    } else {
+        format!("symphony-{ident}")
+    }
+}
+
+/// Check if a Docker image exists locally.
+async fn image_exists(tag: &str) -> bool {
+    Command::new("docker")
+        .args(["image", "inspect", tag])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .await
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+/// Build a derived image: base + RUN setup script.
+async fn build_derived_image(base_image: &str, setup_content: &str, tag: &str) -> Result<()> {
+    let build_dir = create_build_dir()?;
+    let dockerfile_path = build_dir.join("Dockerfile");
+    let setup_path = build_dir.join("setup.sh");
+
+    let dockerfile = format!(
+        "FROM {base_image}\nSHELL [\"/bin/sh\", \"-lc\"]\nCOPY setup.sh /tmp/symphony-setup.sh\nRUN chmod +x /tmp/symphony-setup.sh && /tmp/symphony-setup.sh && rm -f /tmp/symphony-setup.sh\n"
+    );
+    std::fs::write(&dockerfile_path, dockerfile).map_err(SymphonyError::Io)?;
+    std::fs::write(&setup_path, setup_content).map_err(SymphonyError::Io)?;
+
+    let output = Command::new("docker")
+        .arg("build")
+        .arg("-t")
+        .arg(tag)
+        .arg("-f")
+        .arg(dockerfile_path.as_os_str())
+        .arg(build_dir.as_os_str())
+        .output()
+        .await
+        .map_err(map_docker_io_error)?;
+
+    let _ = std::fs::remove_dir_all(&build_dir);
+
+    if output.status.success() {
+        tracing::info!(tag = %tag, base_image = %base_image, "built derived docker image");
+        Ok(())
+    } else {
+        let details = command_output_summary(&output.stdout, &output.stderr, output.status.code());
+        Err(SymphonyError::DockerImageBuildFailed(details))
+    }
+}
+
+/// Start a Docker container for a worker session.
+/// Returns the container ID.
+pub async fn start_container(
+    image: &str,
+    issue: &Issue,
+    config: &DockerConfig,
+    env_vars: &[(&str, &str)],
+) -> Result<String> {
+    let (auth_env, auth_mounts) = resolve_codex_auth(config.codex_auth)?;
+    let mut command = Command::new("docker");
+    command
+        .arg("run")
+        .arg("-d")
+        .arg("--rm")
+        .arg("--name")
+        .arg(container_name_from_issue(issue))
+        .arg("-w")
+        .arg("/workspace");
+
+    for (key, value) in env_vars {
+        if !value.is_empty() {
+            command.arg("-e").arg(format!("{key}={value}"));
+        }
+    }
+    for env in &config.env {
+        command.arg("-e").arg(env);
+    }
+    for (key, value) in auth_env {
+        command.arg("-e").arg(format!("{key}={value}"));
+    }
+    for volume in auth_mounts.iter().chain(config.volumes.iter()) {
+        command.arg("-v").arg(volume);
+    }
+
+    let output = command
+        .arg(image)
+        .arg("sleep")
+        .arg("infinity")
+        .output()
+        .await
+        .map_err(map_docker_io_error)?;
+
+    if output.status.success() {
+        let container_id = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if container_id.is_empty() {
+            return Err(SymphonyError::DockerContainerFailed(
+                "docker run succeeded but did not return a container id".to_string(),
+            ));
+        }
+        Ok(container_id)
+    } else {
+        let details = command_output_summary(&output.stdout, &output.stderr, output.status.code());
+        Err(SymphonyError::DockerContainerFailed(format!(
+            "docker run failed: {details}"
+        )))
+    }
+}
+
+/// Stop and remove a Docker container.
+pub async fn stop_container(container_id: &str) -> Result<()> {
+    let output = Command::new("docker")
+        .arg("rm")
+        .arg("-f")
+        .arg(container_id)
+        .output()
+        .await
+        .map_err(map_docker_io_error)?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let details = command_output_summary(&output.stdout, &output.stderr, output.status.code());
+        Err(SymphonyError::DockerContainerFailed(format!(
+            "docker rm -f failed for {container_id}: {details}"
+        )))
+    }
+}
+
+/// Build a `tokio::process::Command` for `docker exec -i <container> sh -lc <cmd>`.
+pub fn exec_command(container_id: &str, cmd: &str) -> Command {
+    let mut command = Command::new("docker");
+    command
+        .arg("exec")
+        .arg("-i")
+        .arg(container_id)
+        .arg("sh")
+        .arg("-lc")
+        .arg(cmd);
+    command
+}
+
+/// Run a command inside the container and wait for completion.
+pub async fn exec_in_container(container_id: &str, cmd: &str) -> Result<String> {
+    let output = exec_command(container_id, cmd)
+        .output()
+        .await
+        .map_err(map_docker_io_error)?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout)
+            .trim_end_matches('\n')
+            .to_string())
+    } else {
+        let details = command_output_summary(&output.stdout, &output.stderr, output.status.code());
+        Err(SymphonyError::DockerContainerFailed(format!(
+            "docker exec failed in {container_id}: {details}"
+        )))
+    }
+}
+
+/// Resolve Codex auth arguments for container start.
+/// Returns (env_vars, volume_mounts) to add to docker run.
+pub fn resolve_codex_auth(auth_mode: DockerCodexAuth) -> Result<DockerAuthArgs> {
+    let api_key = std::env::var("OPENAI_API_KEY")
+        .ok()
+        .filter(|value| !value.trim().is_empty());
+    let auth_json = codex_auth_json_path();
+    let auth_mount = auth_json
+        .as_ref()
+        .map(|path| format!("{}:/root/.codex/auth.json:ro", path.display()));
+
+    match auth_mode {
+        DockerCodexAuth::Auto => {
+            if let Some(api_key) = api_key {
+                Ok((vec![("OPENAI_API_KEY".to_string(), api_key)], vec![]))
+            } else if let Some(mount) = auth_mount {
+                Ok((vec![], vec![mount]))
+            } else {
+                Err(SymphonyError::DockerAuthError(
+                    "Codex auth required: set OPENAI_API_KEY or authenticate via `codex auth`"
+                        .to_string(),
+                ))
+            }
+        }
+        DockerCodexAuth::Mount => {
+            if let Some(mount) = auth_mount {
+                Ok((vec![], vec![mount]))
+            } else {
+                Err(SymphonyError::DockerAuthError(
+                    "docker codex_auth=mount requires ~/.codex/auth.json".to_string(),
+                ))
+            }
+        }
+        DockerCodexAuth::Env => {
+            if let Some(api_key) = api_key {
+                Ok((vec![("OPENAI_API_KEY".to_string(), api_key)], vec![]))
+            } else {
+                Err(SymphonyError::DockerAuthError(
+                    "docker codex_auth=env requires OPENAI_API_KEY".to_string(),
+                ))
+            }
+        }
+    }
+}
+
+fn codex_auth_json_path() -> Option<PathBuf> {
+    let home = std::env::var("HOME").ok()?;
+    let path = Path::new(&home).join(".codex").join("auth.json");
+    path.exists().then_some(path)
+}
+
+fn create_build_dir() -> Result<PathBuf> {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|err| SymphonyError::Other(format!("system clock error: {err}")))?
+        .as_nanos();
+    let dir = std::env::temp_dir().join(format!(
+        "symphony-docker-build-{}-{nanos}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).map_err(SymphonyError::Io)?;
+    Ok(dir)
+}
+
+fn map_docker_io_error(err: std::io::Error) -> SymphonyError {
+    if err.kind() == std::io::ErrorKind::NotFound {
+        SymphonyError::DockerNotAvailable
+    } else {
+        SymphonyError::Io(err)
+    }
+}
+
+fn command_output_summary(stdout: &[u8], stderr: &[u8], status: Option<i32>) -> String {
+    let out = String::from_utf8_lossy(stdout);
+    let err = String::from_utf8_lossy(stderr);
+    let combined = format!("{out}{err}");
+    let trimmed = combined.trim();
+    let message = if trimmed.is_empty() {
+        "no output".to_string()
+    } else {
+        trimmed.chars().take(1_024).collect()
+    };
+    format!("status {}: {}", status.unwrap_or(-1), message)
+}

@@ -104,11 +104,16 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 | `workspace.repo`            | string | _(none)_                      | Repository URL or local path to bootstrap into each newly-created workspace.                                                         |
 | `workspace.git_strategy`    | string | `"auto"`                      | Git bootstrap strategy: `"clone-local"`, `"clone-remote"`, `"worktree"`, or `"auto"` (detect local path vs remote URL).            |
 | `workspace.strategy`        | string | _(deprecated)_                | Legacy alias accepted for backward compatibility: `"clone"` maps to `git_strategy: auto`, `"worktree"` maps to `git_strategy: worktree`. |
-| `workspace.isolation`       | string | `"local"`                     | Workspace runtime isolation model: `"local"` (current behavior) or `"docker"` (accepted but not implemented yet; logs a warning).    |
+| `workspace.isolation`       | string | `"local"`                     | Workspace runtime isolation model: `"local"` or `"docker"` (ephemeral per-issue worker containers).                                    |
 | `workspace.branch_prefix`   | string | `"symphony"`                  | Branch prefix used for auto-created issue branches (`<prefix>/<issue-identifier>`).                                                 |
 | `workspace.clone_branch`    | string | _(none)_                      | Optional source branch for clone-based bootstraps (`clone-local`, `clone-remote`, or `auto` when clone is selected).                |
 | `workspace.base_branch`     | string | `"main"`                      | Base branch used by workflow instructions for merge/rebase/pull targets (for example `origin/{{ workspace.base_branch }}`).          |
 | `workspace.cleanup_on_done` | bool   | `false`                       | Remove the issue workspace when the issue reaches a terminal state. Runs `hooks.before_remove` and ignores cleanup failures.         |
+| `workspace.docker.image`    | string | `"symphony-worker:latest"`    | Base worker image used by Docker isolation mode.                                                                                    |
+| `workspace.docker.setup`    | string | _(none)_                      | Optional setup script path used to build/cache a derived worker image layer.                                                        |
+| `workspace.docker.codex_auth` | string | `"auto"`                    | Docker Codex auth mode: `auto`, `mount`, or `env`.                                                                                 |
+| `workspace.docker.env`      | string[] | `[]`                        | Additional `KEY=value` env entries passed to `docker run`.                                                                          |
+| `workspace.docker.volumes`  | string[] | `[]`                        | Additional bind mounts passed to `docker run`.                                                                                      |
 
 #### `agent` section
 
@@ -453,6 +458,18 @@ The command string is POSIX single-quote-escaped. The remote host must have
 `bash` available and the Codex binary on its `PATH` (or accessible via the
 configured `codex.command`).
 
+### Docker Isolation Lifecycle
+
+When `workspace.isolation: docker` is selected:
+
+1. Symphony verifies Docker daemon availability.
+2. Symphony resolves the worker image and builds a cached derived image when
+   `workspace.docker.setup` is configured.
+3. A per-issue container is started via `docker run --rm -d`.
+4. Repository bootstrap and hooks execute inside the container (`docker exec`).
+5. Codex app-server runs via `docker exec -i <container> sh -lc 'cd /workspace && <codex.command>'`.
+6. Container is removed via `docker rm -f` after session completion.
+
 ---
 
 ## Module Map
@@ -468,6 +485,7 @@ Core Rust modules:
 | Workflow/config parser | `src/workflow.rs`, `src/config.rs` | Front-matter parsing, env/tilde resolution, typed config defaults |
 | Domain model | `src/domain.rs` | Shared runtime/config structs (`RunAttempt`, snapshots, worker/session info) |
 | Tracker adapter/client | `src/linear/adapter.rs`, `src/linear/client.rs` | Linear GraphQL fetch/update operations and issue normalization |
+| Docker runtime helpers | `src/docker.rs` | Docker availability checks, image resolution/build cache, container lifecycle, auth resolution |
 | Workspace + git bootstrap | `src/workspace.rs` | clone/worktree bootstrapping, branch naming, hooks |
 | Codex app-server bridge | `src/codex/app_server.rs` | Session subprocess lifecycle, turn streaming, tool execution |
 | SSH helpers | `src/ssh.rs` | Remote target parsing, command escaping, host selection helpers |

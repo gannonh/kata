@@ -213,6 +213,7 @@ pub struct WorkspaceConfig {
     pub repo: Option<String>,
     pub strategy: WorkspaceRepoStrategy,
     pub isolation: WorkspaceIsolation,
+    pub docker: Option<DockerConfig>,
     pub branch_prefix: String,
     pub clone_branch: Option<String>,
     pub base_branch: Option<String>,
@@ -235,6 +236,44 @@ pub enum WorkspaceIsolation {
     Docker,
 }
 
+/// Codex authentication mode for Docker containers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DockerCodexAuth {
+    /// OPENAI_API_KEY env var if set, else mount auth.json, else error.
+    Auto,
+    /// Force bind-mount of ~/.codex/auth.json (local only).
+    Mount,
+    /// Force OPENAI_API_KEY env var only (cloud deployments).
+    Env,
+}
+
+/// Docker-specific workspace configuration.
+#[derive(Debug, Clone)]
+pub struct DockerConfig {
+    /// Docker image name (e.g. "symphony-worker:latest").
+    pub image: String,
+    /// Optional setup script path, cached as derived image layer.
+    pub setup: Option<String>,
+    /// How to authenticate Codex inside the container.
+    pub codex_auth: DockerCodexAuth,
+    /// Additional environment variables passed to the container.
+    pub env: Vec<String>,
+    /// Additional volume mounts (e.g. "~/.ssh:/root/.ssh:ro").
+    pub volumes: Vec<String>,
+}
+
+impl Default for DockerConfig {
+    fn default() -> Self {
+        Self {
+            image: "symphony-worker:latest".to_string(),
+            setup: None,
+            codex_auth: DockerCodexAuth::Auto,
+            env: vec![],
+            volumes: vec![],
+        }
+    }
+}
+
 impl Default for WorkspaceConfig {
     fn default() -> Self {
         Self {
@@ -242,6 +281,7 @@ impl Default for WorkspaceConfig {
             repo: None,
             strategy: WorkspaceRepoStrategy::Auto,
             isolation: WorkspaceIsolation::Local,
+            docker: None,
             branch_prefix: "symphony".to_string(),
             clone_branch: None,
             base_branch: Some("main".to_string()),
