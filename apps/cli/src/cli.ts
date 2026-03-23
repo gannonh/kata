@@ -152,7 +152,12 @@ if (rawCommand && (PACKAGE_COMMANDS as readonly string[]).includes(rawCommand)) 
     } else if (arg.startsWith('-')) {
       // unknown flag, ignore
     } else {
-      source = arg
+      if (source === undefined) {
+        source = arg
+      } else {
+        console.error(`Error: unexpected argument '${arg}' — only one package source is accepted`)
+        process.exit(1)
+      }
     }
   }
 
