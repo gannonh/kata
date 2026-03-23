@@ -1,9 +1,14 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
-const defaultAgentDir = join(process.env.HOME ?? homedir(), ".kata-cli", "agent");
-const defaultAuthPath = join(defaultAgentDir, "auth.json");
+function getDefaultAgentDir(): string {
+  return join(process.env.HOME ?? homedir(), ".kata-cli", "agent");
+}
+
+function getDefaultAuthPath(): string {
+  return join(getDefaultAgentDir(), "auth.json");
+}
 
 export type ProviderCheckStatus = "pass" | "warn" | "fail" | "info";
 
@@ -103,7 +108,7 @@ function hasStoredCredential(
   if (typeof record.key === "string" && record.key.trim().length > 0) return true;
   if (typeof record.accessToken === "string" && record.accessToken.trim().length > 0) return true;
   if (typeof record.access_token === "string" && record.access_token.trim().length > 0) return true;
-  return Object.keys(record).length > 0;
+  return false;
 }
 
 function buildModelCounts(models: ModelDescriptor[]): Map<string, number> {
@@ -121,6 +126,7 @@ function formatStatus(status: ProviderCheckStatus): string {
 
 async function loadModelRuntime(
   authPath: string,
+  agentDir: string,
 ): Promise<{
   models: ModelDescriptor[];
   defaultProvider: string | null;
@@ -131,7 +137,7 @@ async function loadModelRuntime(
     const pi = await import("@mariozechner/pi-coding-agent");
     const authStorage = pi.AuthStorage.create(authPath);
     const registry = new pi.ModelRegistry(authStorage);
-    const settings = pi.SettingsManager.create(defaultAgentDir);
+    const settings = pi.SettingsManager.create(agentDir);
     const models = registry.getAll().map((model: { provider: string; id: string }) => ({
       provider: model.provider,
       id: model.id,
@@ -157,7 +163,8 @@ export async function runProviderChecks(
   options: RunProviderChecksOptions = {},
 ): Promise<ProviderCheckResult> {
   const env = options.env ?? process.env;
-  const authPath = options.authPath ?? defaultAuthPath;
+  const authPath = options.authPath ?? getDefaultAuthPath();
+  const agentDir = dirname(authPath);
   const checkedAt = options.overrides?.checkedAt ?? new Date().toISOString();
   const authSnapshot = readAuthSnapshot(authPath);
   const authProviders = new Set(
@@ -177,7 +184,7 @@ export async function runProviderChecks(
           defaultModel: options.overrides.defaultModel,
           loadError: null,
         }
-      : await loadModelRuntime(authPath);
+      : await loadModelRuntime(authPath, agentDir);
 
   const models = options.overrides?.models ?? runtime.models;
   const defaultProvider =

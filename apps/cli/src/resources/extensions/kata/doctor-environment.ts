@@ -108,7 +108,8 @@ async function detectGitVersion(): Promise<string | null> {
 async function detectDiskFreeBytes(basePath: string): Promise<number | null> {
   try {
     const fsStats = await statfs(basePath);
-    return fsStats.bavail * fsStats.bsize;
+    const blockSize = fsStats.frsize > 0 ? fsStats.frsize : fsStats.bsize;
+    return fsStats.bavail * blockSize;
   } catch {
     return null;
   }
