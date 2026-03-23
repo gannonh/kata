@@ -19,7 +19,7 @@ custom_instructions: []
 models:
   research: claude-sonnet-4-6
   planning: claude-opus-4-6     # Opus for architectural decisions
-  execution: claude-sonnet-4-6
+  execution: claude-opus-4-6
   completion: claude-sonnet-4-6
   review: claude-sonnet-4-6 
 skill_discovery:
