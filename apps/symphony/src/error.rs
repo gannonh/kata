@@ -92,6 +92,19 @@ pub enum SymphonyError {
     #[error("ssh launch failed: {0}")]
     SshLaunchFailed(String),
 
+    // ── Docker ─────────────────────────────────────────────────────────
+    #[error("docker daemon is not available")]
+    DockerNotAvailable,
+
+    #[error("docker container failed: {0}")]
+    DockerContainerFailed(String),
+
+    #[error("docker image build failed: {0}")]
+    DockerImageBuildFailed(String),
+
+    #[error("docker auth error: {0}")]
+    DockerAuthError(String),
+
     // ── Generic ────────────────────────────────────────────────────────
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),

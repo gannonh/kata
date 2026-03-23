@@ -541,7 +541,7 @@ async fn test_app_server_cwd_rejects_workspace_root() {
     let issue = make_test_issue();
 
     // workspace_path == workspace_root → error
-    let result = app_server::start_session(&config, &issue, root, root, None).await;
+    let result = app_server::start_session(&config, &issue, root, root, None, None).await;
 
     assert!(result.is_err(), "expected error when workspace is the root");
     assert!(
@@ -558,8 +558,15 @@ async fn test_app_server_cwd_rejects_outside_root() {
     let issue = make_test_issue();
 
     // workspace is completely outside root → error
-    let result =
-        app_server::start_session(&config, &issue, outside_dir.path(), root_dir.path(), None).await;
+    let result = app_server::start_session(
+        &config,
+        &issue,
+        outside_dir.path(),
+        root_dir.path(),
+        None,
+        None,
+    )
+    .await;
 
     assert!(
         matches!(result, Err(SymphonyError::InvalidWorkspaceCwd(_))),
@@ -581,7 +588,8 @@ async fn test_app_server_cwd_rejects_symlink_escape() {
 
     // workspace_path is the symlink (resolves outside root) → error
     let result =
-        app_server::start_session(&config, &issue, &symlink_path, root_dir.path(), None).await;
+        app_server::start_session(&config, &issue, &symlink_path, root_dir.path(), None, None)
+            .await;
 
     assert!(
         matches!(result, Err(SymphonyError::InvalidWorkspaceCwd(_))),
@@ -604,9 +612,10 @@ async fn test_app_server_basic_handshake_and_completion() {
 
     let mut collected: Vec<AgentEvent> = Vec::new();
 
-    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
-        .await
-        .expect("start_session should succeed");
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
 
     let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
         collected.push(ev)
@@ -657,9 +666,10 @@ async fn test_app_server_turn_failure() {
 
     let mut collected: Vec<AgentEvent> = Vec::new();
 
-    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
-        .await
-        .expect("start_session should succeed");
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
 
     let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
         collected.push(ev)
@@ -698,9 +708,10 @@ async fn test_turn_completed_with_failed_status_treated_as_failure() {
 
     let mut collected: Vec<AgentEvent> = Vec::new();
 
-    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
-        .await
-        .expect("start_session should succeed");
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
 
     let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
         collected.push(ev)
@@ -751,9 +762,10 @@ async fn test_turn_completed_with_usage_limit_exceeded_surfaces_error_message() 
 
     let mut collected: Vec<AgentEvent> = Vec::new();
 
-    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
-        .await
-        .expect("start_session should succeed");
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
 
     let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
         collected.push(ev)
@@ -819,9 +831,10 @@ async fn test_app_server_turn_cancellation() {
 
     let mut collected: Vec<AgentEvent> = Vec::new();
 
-    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
-        .await
-        .expect("start_session should succeed");
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
 
     let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
         collected.push(ev)
@@ -856,9 +869,10 @@ async fn test_app_server_subprocess_exit() {
     let config = make_codex_config(&script_path);
     let issue = make_test_issue();
 
-    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
-        .await
-        .expect("start_session should succeed");
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
 
     let result = app_server::run_turn(&mut handle, "hello", never_executor, |_| {}).await;
     app_server::stop_session(handle).await.ok();
@@ -887,9 +901,10 @@ async fn test_app_server_partial_line_buffering() {
 
     let mut collected: Vec<AgentEvent> = Vec::new();
 
-    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
-        .await
-        .expect("start_session should succeed");
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
 
     let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
         collected.push(ev)
@@ -954,9 +969,10 @@ async fn test_app_server_auto_approves_command_execution() {
     let issue = make_test_issue();
 
     let mut collected: Vec<AgentEvent> = Vec::new();
-    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
-        .await
-        .expect("start_session should succeed");
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
 
     let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
         collected.push(ev)
@@ -1016,9 +1032,10 @@ async fn test_app_server_rejects_approval_when_not_auto() {
     let issue = make_test_issue();
 
     let mut collected: Vec<AgentEvent> = Vec::new();
-    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
-        .await
-        .expect("start_session should succeed");
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
 
     let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
         collected.push(ev)
@@ -1065,9 +1082,10 @@ async fn test_app_server_auto_approves_mcp_tool_prompts() {
     let issue = make_test_issue();
 
     let mut collected: Vec<AgentEvent> = Vec::new();
-    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
-        .await
-        .expect("start_session should succeed");
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
 
     let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
         collected.push(ev)
@@ -1112,9 +1130,10 @@ async fn test_app_server_non_interactive_freeform_input() {
     let issue = make_test_issue();
 
     let mut collected: Vec<AgentEvent> = Vec::new();
-    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
-        .await
-        .expect("start_session should succeed");
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
 
     let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
         collected.push(ev)
@@ -1162,9 +1181,10 @@ async fn test_app_server_rejects_unsupported_tool_calls() {
     let issue = make_test_issue();
 
     let mut collected: Vec<AgentEvent> = Vec::new();
-    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
-        .await
-        .expect("start_session should succeed");
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
 
     let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
         collected.push(ev)
@@ -1214,9 +1234,10 @@ async fn test_app_server_dispatches_supported_tool_calls() {
     let issue = make_test_issue();
 
     let mut collected: Vec<AgentEvent> = Vec::new();
-    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
-        .await
-        .expect("start_session should succeed");
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
 
     // Inject a mock executor that returns a success response
     let executor = |_query: String, _vars: Value| async move {
@@ -1265,9 +1286,10 @@ async fn test_app_server_emits_tool_call_failed_event() {
     let issue = make_test_issue();
 
     let mut collected: Vec<AgentEvent> = Vec::new();
-    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
-        .await
-        .expect("start_session should succeed");
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
 
     // Inject executor that returns an error
     let executor = |_q: String, _v: Value| async move { Err(SymphonyError::MissingLinearApiToken) };
@@ -1313,9 +1335,10 @@ async fn test_app_server_input_required_hard_failure() {
     let issue = make_test_issue();
 
     let mut collected: Vec<AgentEvent> = Vec::new();
-    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
-        .await
-        .expect("start_session should succeed");
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
 
     let result = app_server::run_turn(&mut handle, "hello", never_executor, |ev| {
         collected.push(ev)
@@ -1361,9 +1384,10 @@ async fn test_token_delta_extraction_absolute_totals() {
     let config = make_codex_config(&script_path);
     let issue = make_test_issue();
 
-    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
-        .await
-        .expect("start_session should succeed");
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
 
     let result = app_server::run_turn(&mut handle, "hello", never_executor, |_| {}).await;
     app_server::stop_session(handle).await.ok();
@@ -1402,9 +1426,10 @@ async fn test_token_delta_zero_on_decrease() {
     let config = make_codex_config(&script_path);
     let issue = make_test_issue();
 
-    let mut handle = app_server::start_session(&config, &issue, &workspace, root_dir.path(), None)
-        .await
-        .expect("start_session should succeed");
+    let mut handle =
+        app_server::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
+            .await
+            .expect("start_session should succeed");
 
     let result = app_server::run_turn(&mut handle, "hello", never_executor, |_| {}).await;
     app_server::stop_session(handle).await.ok();

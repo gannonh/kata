@@ -11,8 +11,9 @@ use serde::Deserialize;
 use serde_yaml::{Mapping, Value};
 
 use crate::domain::{
-    AgentConfig, ApiKey, CodexConfig, HooksConfig, PollingConfig, ServerConfig, ServiceConfig,
-    TrackerConfig, WorkerConfig, WorkspaceConfig, WorkspaceIsolation, WorkspaceRepoStrategy,
+    AgentConfig, ApiKey, CodexConfig, DockerCodexAuth, DockerConfig, HooksConfig, PollingConfig,
+    ServerConfig, ServiceConfig, TrackerConfig, WorkerConfig, WorkspaceConfig, WorkspaceIsolation,
+    WorkspaceRepoStrategy,
 };
 use crate::error::{Result, SymphonyError};
 use crate::repo_url::repo_is_remote;
@@ -183,10 +184,21 @@ struct RawWorkspaceConfig {
     strategy: Option<String>,
     git_strategy: Option<String>,
     isolation: Option<String>,
+    docker: Option<RawDockerConfig>,
     branch_prefix: Option<String>,
     clone_branch: Option<String>,
     base_branch: Option<String>,
     cleanup_on_done: Option<bool>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct RawDockerConfig {
+    image: Option<String>,
+    setup: Option<String>,
+    codex_auth: Option<String>,
+    env: Option<Vec<String>>,
+    volumes: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Default)]
@@ -323,6 +335,17 @@ fn parse_workspace_isolation(value: &str) -> Result<WorkspaceIsolation> {
         "docker" => Ok(WorkspaceIsolation::Docker),
         other => Err(SymphonyError::InvalidWorkflowConfig(format!(
             "workspace.isolation must be 'local' or 'docker' (got '{other}')"
+        ))),
+    }
+}
+
+fn parse_docker_codex_auth(value: &str) -> Result<DockerCodexAuth> {
+    match value {
+        "auto" => Ok(DockerCodexAuth::Auto),
+        "mount" => Ok(DockerCodexAuth::Mount),
+        "env" => Ok(DockerCodexAuth::Env),
+        other => Err(SymphonyError::InvalidWorkflowConfig(format!(
+            "workspace.docker.codex_auth must be 'auto', 'mount', or 'env' (got '{other}')"
         ))),
     }
 }
@@ -471,11 +494,69 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         .map(parse_workspace_isolation)
         .transpose()?
         .unwrap_or(WorkspaceIsolation::Local);
-    if isolation == WorkspaceIsolation::Docker {
-        tracing::warn!(
-            "workspace.isolation is set to 'docker', but docker isolation is not yet implemented"
-        );
-    }
+    let docker = if isolation == WorkspaceIsolation::Docker {
+        let docker_defaults = DockerConfig::default();
+        let raw_docker = raw_workspace.docker.as_ref();
+
+        let image = raw_docker
+            .and_then(|docker| docker.image.as_deref())
+            .map(resolve_env)
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or(docker_defaults.image);
+        let setup = raw_docker
+            .and_then(|docker| docker.setup.as_deref())
+            .map(resolve_env)
+            .and_then(|value| {
+                let trimmed = value.trim();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(expand_tilde(trimmed))
+                }
+            });
+        let codex_auth = raw_docker
+            .and_then(|docker| docker.codex_auth.as_deref())
+            .map(resolve_env)
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .as_deref()
+            .map(parse_docker_codex_auth)
+            .transpose()?
+            .unwrap_or(docker_defaults.codex_auth);
+        let env = raw_docker
+            .and_then(|docker| docker.env.as_ref())
+            .map(|entries| {
+                entries
+                    .iter()
+                    .map(|entry| resolve_env(entry))
+                    .map(|entry| entry.trim().to_string())
+                    .filter(|entry| !entry.is_empty())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let volumes = raw_docker
+            .and_then(|docker| docker.volumes.as_ref())
+            .map(|entries| {
+                entries
+                    .iter()
+                    .map(|entry| resolve_env(entry))
+                    .map(|entry| expand_tilde(entry.trim()))
+                    .filter(|entry| !entry.is_empty())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
+        Some(DockerConfig {
+            image,
+            setup,
+            codex_auth,
+            env,
+            volumes,
+        })
+    } else {
+        None
+    };
     let repo = raw_workspace.repo.and_then(|value| {
         let resolved = resolve_env(&value);
         let trimmed = resolved.trim();
@@ -517,6 +598,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         repo,
         strategy,
         isolation,
+        docker,
         branch_prefix: branch_prefix.trim().to_string(),
         clone_branch,
         base_branch,

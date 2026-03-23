@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  symphony:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.symphony
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../WORKFLOW.md:/app/WORKFLOW.md:ro
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    profiles:
+      - build-only

@@ -116,6 +116,7 @@ pub struct TurnResult {
 /// - `workspace_root`  — workspace root used to validate containment
 /// - `worker_host`     — if `Some(host)`, spawn via SSH on the remote host;
 ///   if `None`, spawn locally (default behaviour)
+/// - `container_id`    — if `Some(id)`, spawn via Docker exec in the container
 ///
 /// # Errors
 /// - `InvalidWorkspaceCwd` — workspace path fails safety checks
@@ -129,12 +130,37 @@ pub async fn start_session(
     workspace_path: &Path,
     workspace_root: &Path,
     worker_host: Option<&str>,
+    container_id: Option<&str>,
 ) -> Result<SessionHandle> {
     let cmd_str = config.command.join(" ");
 
     // ── Step 1 & 2: Validate + Spawn (local or remote) ───────────────
-    let (workspace_str, mut child) = match worker_host {
-        None => {
+    let (workspace_str, mut child) = match (container_id, worker_host) {
+        (Some(container_id), _) => {
+            let workspace_str = workspace_path.to_string_lossy().to_string();
+
+            tracing::info!(
+                container_id = %container_id,
+                issue_id = %issue.id,
+                cmd = %cmd_str,
+                "Spawning Codex via Docker exec"
+            );
+
+            let remote_cmd = format!(
+                "cd {} && {}",
+                crate::ssh::shell_escape(&workspace_str),
+                cmd_str
+            );
+            let child = crate::docker::exec_command(container_id, &remote_cmd)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .map_err(|e| SymphonyError::DockerContainerFailed(e.to_string()))?;
+
+            (workspace_str, child)
+        }
+        (None, None) => {
             // ── Local path (unchanged behaviour) ─────────────────────
             let canonical_workspace = validate_workspace_cwd(workspace_path, workspace_root)?;
             let workspace_str = canonical_workspace.to_string_lossy().to_string();
@@ -163,7 +189,7 @@ pub async fn start_session(
 
             (workspace_str, child)
         }
-        Some(host) => {
+        (None, Some(host)) => {
             // ── Remote path via SSH ───────────────────────────────────
             let workspace_str =
                 crate::ssh::validate_remote_workspace_cwd(&workspace_path.to_string_lossy())?;

@@ -187,10 +187,18 @@ workspace:
   root: ~/symphony-workspaces
   repo: https://github.com/you/repo.git
   git_strategy: auto              # auto, clone-local, clone-remote, worktree
-  isolation: local                # local or docker (docker not yet implemented)
+  isolation: local                # local or docker
   branch_prefix: symphony
   clone_branch: main
   cleanup_on_done: true           # auto-remove workspaces on terminal state
+  docker:
+    image: symphony-worker:latest
+    setup: docker/setups/rust.sh
+    codex_auth: auto              # auto, mount, env
+    env:
+      - CARGO_HOME=/usr/local/cargo
+    volumes:
+      - ~/.ssh:/root/.ssh:ro
 
 agent:
   max_concurrent_agents: 3
@@ -205,8 +213,6 @@ server:
   port: 8080
 ```
 
-`workspace.isolation: docker` is currently a preview setting: it is accepted by config parsing and logs a warning, but containerized execution is not implemented yet.
-
 ### Workspace Strategies
 
 | Strategy | Command | Best for |
@@ -217,6 +223,42 @@ server:
 | `worktree` | `git worktree add` | Monorepo — instant setup, visible in git clients |
 
 **Note:** `clone-local` requires repo and workspace root on the same filesystem (hard links). `worktree` requires repo to be a local path.
+
+## Docker Deployment
+
+Symphony supports container-isolated workers with `workspace.isolation: docker`. The orchestrator starts a disposable worker container per issue, runs Codex via `docker exec -i`, and removes the container when the session finishes.
+
+### Local
+
+```bash
+cd apps/symphony/docker
+cp .env.example .env
+# edit .env with required keys
+docker compose up --build
+```
+
+### VPS
+
+```bash
+git clone https://github.com/gannonh/kata.git
+cd kata/apps/symphony/docker
+cp .env.example .env
+# edit .env
+docker compose up -d --build
+```
+
+### Custom worker images and setup scripts
+
+- Base worker image is `docker/Dockerfile.worker`.
+- `workspace.docker.image` selects the base image tag.
+- `workspace.docker.setup` points to a setup script; Symphony caches a derived image based on setup script content hash.
+- Bundled setup scripts live in `docker/setups/` (`rust.sh`, `python.sh`, `go.sh`, `bun.sh`).
+
+### Docker auth modes
+
+- `codex_auth: auto` uses `OPENAI_API_KEY` when set, otherwise mounts `~/.codex/auth.json`.
+- `codex_auth: mount` requires `~/.codex/auth.json`.
+- `codex_auth: env` requires `OPENAI_API_KEY`.
 
 ## Dashboard
 

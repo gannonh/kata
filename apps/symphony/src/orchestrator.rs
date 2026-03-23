@@ -12,13 +12,13 @@ use crate::domain::{
     AgentEvent, CodexConfig, CodexTotals, CompletedEntry, HooksConfig, Issue, OrchestratorSnapshot,
     OrchestratorState, PollingSnapshot, RateLimitInfo, RefreshRequestOutcome, RetryEntry,
     RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot, ServiceConfig, SessionTokenUsage,
-    TrackerConfig, WorkerSessionInfo, WorkspaceConfig,
+    TrackerConfig, WorkerSessionInfo, WorkspaceConfig, WorkspaceIsolation,
 };
 use crate::error::{Result, SymphonyError};
 use crate::session_summary::{compact_session_id, normalize_whitespace, truncate_for_display};
 use crate::ssh::{self, WorkerHostSelection};
 use crate::workflow_store::WorkflowStore;
-use crate::{path_safety, prompt_builder, workspace};
+use crate::{docker, path_safety, prompt_builder, workspace};
 
 // ── Standalone Worker Task ──────────────────────────────────────────────
 
@@ -224,6 +224,222 @@ async fn run_worker_task(
 ) -> WorkerResult {
     let issue_id = issue.id.clone();
 
+    if config.workspace.isolation == WorkspaceIsolation::Docker {
+        let docker_config = config.workspace.docker.clone().unwrap_or_default();
+
+        if !docker::is_docker_available().await {
+            return WorkerResult {
+                issue_id,
+                completion: WorkerCompletion::Failed {
+                    error: SymphonyError::DockerNotAvailable.to_string(),
+                },
+                events: vec![],
+                metrics: None,
+            };
+        }
+
+        let image =
+            match docker::resolve_image(&docker_config.image, docker_config.setup.as_deref()).await
+            {
+                Ok(image) => image,
+                Err(err) => {
+                    return WorkerResult {
+                        issue_id,
+                        completion: WorkerCompletion::Failed {
+                            error: format!("docker image resolution failed: {err}"),
+                        },
+                        events: vec![],
+                        metrics: None,
+                    };
+                }
+            };
+
+        let env_values: Vec<(&str, String)> = ["LINEAR_API_KEY", "GH_TOKEN", "GITHUB_TOKEN"]
+            .into_iter()
+            .filter_map(|key| {
+                std::env::var(key)
+                    .ok()
+                    .filter(|value| !value.is_empty())
+                    .map(|value| (key, value))
+            })
+            .collect();
+        let env_refs: Vec<(&str, &str)> = env_values
+            .iter()
+            .map(|(key, value)| (*key, value.as_str()))
+            .collect();
+
+        let container_id =
+            match docker::start_container(&image, issue, &docker_config, &env_refs).await {
+                Ok(id) => id,
+                Err(err) => {
+                    return WorkerResult {
+                        issue_id,
+                        completion: WorkerCompletion::Failed {
+                            error: format!("docker container start failed: {err}"),
+                        },
+                        events: vec![],
+                        metrics: None,
+                    };
+                }
+            };
+
+        let docker_result: std::result::Result<(WorkerCompletion, Option<TurnMetrics>), String> =
+            async {
+                workspace::docker_bootstrap_repository(
+                    &container_id,
+                    &config.workspace,
+                    &issue.identifier,
+                )
+                .await
+                .map_err(|err| format!("docker workspace bootstrap failed: {err}"))?;
+
+                if let Some(hook) = &config.hooks.after_create {
+                    workspace::run_hook_in_container(
+                        &container_id,
+                        hook,
+                        issue,
+                        config.hooks.timeout_ms,
+                    )
+                    .await
+                    .map_err(|err| format!("after_create hook failed: {err}"))?;
+                }
+
+                if let Some(hook) = &config.hooks.before_run {
+                    workspace::run_hook_in_container(
+                        &container_id,
+                        hook,
+                        issue,
+                        config.hooks.timeout_ms,
+                    )
+                    .await
+                    .map_err(|err| format!("before_run hook failed: {err}"))?;
+                }
+
+                let prompt = prompt_builder::render_prompt(
+                    &config.prompt_template,
+                    issue,
+                    attempt,
+                    config.workspace.base_branch.as_deref(),
+                )
+                .map_err(|err| format!("prompt rendering failed: {err}"))?;
+
+                let mut session = app_server::start_session(
+                    &config.codex,
+                    issue,
+                    Path::new("/workspace"),
+                    Path::new("/"),
+                    None,
+                    Some(&container_id),
+                )
+                .await
+                .map_err(|err| format!("codex session start failed: {err}"))?;
+
+                tracing::info!(
+                    event = "worker_started",
+                    issue_id = %issue.id,
+                    issue_identifier = %issue.identifier,
+                    session_id = %session.session_id,
+                    workspace_path = "/workspace",
+                    container_id = %container_id,
+                    "docker worker attempt started"
+                );
+
+                let linear_client =
+                    crate::linear::client::LinearClient::new(config.tracker.clone());
+                let graphql_executor = move |query: String, vars: serde_json::Value| {
+                    let client = linear_client.clone();
+                    async move { client.graphql_raw(&query, vars).await }
+                };
+
+                let loop_result = run_codex_turns_in_session(
+                    &mut session,
+                    issue,
+                    prompt,
+                    config.max_turns,
+                    &config.tracker,
+                    graphql_executor,
+                    {
+                        let event_tx = config.event_tx.clone();
+                        let issue_id = issue.id.clone();
+                        move |event| {
+                            let _ = event_tx.send((issue_id.clone(), event));
+                        }
+                    },
+                )
+                .await;
+
+                if let Err(err) = app_server::stop_session(session).await {
+                    tracing::warn!(
+                        issue_id = %issue.id,
+                        issue_identifier = %issue.identifier,
+                        error = %err,
+                        "failed to stop codex session cleanly"
+                    );
+                }
+
+                if let Some(hook) = &config.hooks.after_run {
+                    if let Err(err) = workspace::run_hook_in_container(
+                        &container_id,
+                        hook,
+                        issue,
+                        config.hooks.timeout_ms,
+                    )
+                    .await
+                    {
+                        tracing::warn!(
+                            issue_id = %issue.id,
+                            issue_identifier = %issue.identifier,
+                            error = %err,
+                            "after_run hook failure ignored"
+                        );
+                    }
+                }
+
+                let (completion, metrics) = match loop_result {
+                    Ok(success) => (
+                        WorkerCompletion::Completed {
+                            schedule_continuation: success.schedule_continuation,
+                        },
+                        success.metrics,
+                    ),
+                    Err(failure) => (
+                        WorkerCompletion::Failed {
+                            error: failure.error.to_string(),
+                        },
+                        failure.metrics,
+                    ),
+                };
+
+                Ok((completion, metrics))
+            }
+            .await;
+
+        if let Err(err) = docker::stop_container(&container_id).await {
+            tracing::warn!(
+                issue_id = %issue.id,
+                issue_identifier = %issue.identifier,
+                container_id = %container_id,
+                error = %err,
+                "failed to stop docker container cleanly"
+            );
+        }
+
+        return match docker_result {
+            Ok((completion, metrics)) => WorkerResult {
+                issue_id,
+                completion,
+                events: vec![],
+                metrics,
+            },
+            Err(error) => WorkerResult {
+                issue_id,
+                completion: WorkerCompletion::Failed { error },
+                events: vec![],
+                metrics: None,
+            },
+        };
+    }
+
     // 1. Ensure workspace (create dir + after_create hook)
     let workspace_info =
         match workspace::ensure_workspace_for_issue(issue, &config.workspace, &config.hooks) {
@@ -302,6 +518,7 @@ async fn run_worker_task(
         workspace_path,
         workspace_root,
         worker_host,
+        None,
     )
     .await
     {
@@ -1543,6 +1760,7 @@ impl Orchestrator {
             workspace_path,
             Path::new(&self.config.workspace.root),
             prior_worker_host.as_deref(),
+            None,
         )
         .await
         {

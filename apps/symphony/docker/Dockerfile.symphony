@@ -1,0 +1,19 @@
+FROM rust:slim AS builder
+WORKDIR /build
+
+COPY apps/symphony/Cargo.toml apps/symphony/Cargo.lock ./
+COPY apps/symphony/src ./src
+
+RUN cargo build --release
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+    && apt-get install -y ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://get.docker.com | sh
+
+COPY --from=builder /build/target/release/symphony /usr/local/bin/symphony
+WORKDIR /app
+ENTRYPOINT ["symphony"]
+CMD ["WORKFLOW.md", "--port", "8080"]

@@ -3,8 +3,10 @@
 //! Full implementation in S04/T03. This is the public API skeleton so tests compile.
 
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::time::Duration;
 
+use crate::docker;
 use crate::domain::{HooksConfig, Issue, Workspace, WorkspaceConfig, WorkspaceRepoStrategy};
 use crate::error::{Result, SymphonyError};
 use crate::path_safety;
@@ -253,6 +255,85 @@ fn bootstrap_repository(
     }
 }
 
+/// Bootstrap repository inside a Docker container.
+pub async fn docker_bootstrap_repository(
+    container_id: &str,
+    config: &WorkspaceConfig,
+    issue_identifier: &str,
+) -> Result<()> {
+    let repo = config.repo.as_deref().ok_or_else(|| {
+        SymphonyError::InvalidWorkflowConfig("workspace.repo required for docker isolation".into())
+    })?;
+
+    let branch_name = format!("{}/{}", config.branch_prefix, issue_identifier);
+
+    let clone_cmd = if let Some(clone_branch) = config.clone_branch.as_deref() {
+        format!(
+            "git clone --single-branch --branch {} {} /workspace && cd /workspace && git checkout -b {}",
+            crate::ssh::shell_escape(clone_branch),
+            crate::ssh::shell_escape(repo),
+            crate::ssh::shell_escape(&branch_name),
+        )
+    } else {
+        format!(
+            "git clone {} /workspace && cd /workspace && git checkout -b {}",
+            crate::ssh::shell_escape(repo),
+            crate::ssh::shell_escape(&branch_name),
+        )
+    };
+
+    docker::exec_in_container(container_id, &clone_cmd).await?;
+    Ok(())
+}
+
+/// Run a hook command inside a Docker container.
+pub async fn run_hook_in_container(
+    container_id: &str,
+    hook_cmd: &str,
+    issue: &Issue,
+    timeout_ms: u64,
+) -> Result<()> {
+    let command = format!(
+        "cd /workspace && SYMPHONY_ISSUE_ID={} SYMPHONY_ISSUE_IDENTIFIER={} SYMPHONY_ISSUE_TITLE={} SYMPHONY_WORKSPACE_PATH=/workspace sh -lc {}",
+        crate::ssh::shell_escape(&issue.id),
+        crate::ssh::shell_escape(&issue.identifier),
+        crate::ssh::shell_escape(&issue.title),
+        crate::ssh::shell_escape(hook_cmd),
+    );
+
+    let mut child = docker::exec_command(container_id, &command);
+    child.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+    let output = tokio::time::timeout(Duration::from_millis(timeout_ms), child.output())
+        .await
+        .map_err(|_| SymphonyError::WorkspaceHookTimeout {
+            hook: hook_cmd.to_string(),
+            timeout_ms,
+        })?
+        .map_err(|err| SymphonyError::DockerContainerFailed(err.to_string()))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let combined = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        tracing::warn!(
+            hook = %hook_cmd,
+            container_id = %container_id,
+            status = output.status.code().unwrap_or(-1),
+            output = %truncate_output(&combined, 2048),
+            "docker hook failed"
+        );
+        Err(SymphonyError::WorkspaceHookFailed {
+            hook: hook_cmd.to_string(),
+            status: output.status.code().unwrap_or(-1),
+        })
+    }
+}
+
 /// Remove a worktree checkout from the source repository.
 fn cleanup_worktree_checkout(workspace: &Path, config: &WorkspaceConfig) -> Result<()> {
     if config.strategy != WorkspaceRepoStrategy::Worktree {
@@ -301,8 +382,6 @@ fn run_hook(
     timeout_ms: u64,
     issue: &HookIssueContext,
 ) -> Result<()> {
-    use std::time::Duration;
-
     tracing::info!(
         hook = name,
         workspace = %workspace.display(),
