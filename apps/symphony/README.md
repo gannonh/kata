@@ -115,12 +115,12 @@ symphony WORKFLOW.md
 
 Optional flags:
 
-| Flag | Default | Description |
-|---|---|---|
-| `--port <PORT>` | `8080` | HTTP server port |
-| `--logs-root <PATH>` | *(none)* | Log file root directory |
-| `--no-tui` | | Disable the live terminal dashboard (Ratatui) |
-| `-h, --help` | | Print help |
+| Flag                 | Default  | Description                                   |
+| -------------------- | -------- | --------------------------------------------- |
+| `--port <PORT>`      | `8080`   | HTTP server port                              |
+| `--logs-root <PATH>` | *(none)* | Log file root directory                       |
+| `--no-tui`           |          | Disable the live terminal dashboard (Ratatui) |
+| `-h, --help`         |          | Print help                                    |
 
 Symphony starts polling Linear. Open `http://localhost:8080` for the web dashboard, or watch the built-in terminal dashboard (enabled by default).
 
@@ -137,20 +137,22 @@ Symphony supports two isolation modes for agent workspaces. You choose with `wor
 ```yaml
 workspace:
   isolation: local    # this is the default — you can omit it
-  repo: /path/to/local/repo    # or a remote URL
-  git_strategy: auto
+  repo: /path/to/local/repo
+  git_strategy: worktree
 ```
 
-Workers run as bare processes on your machine. Symphony clones your repo into a subdirectory under `workspace.root` and spawns Codex directly. Fast, simple, no Docker required.
+Workers run as bare processes on your machine. Symphony creates an isolated workspace for each issue and spawns Codex directly. Fast, simple, no Docker required.
 
-**Workspace strategies for local mode:**
+**Recommended: `worktree` strategy.** Git worktrees are instant to create, share the object store with your main repo, and show up in git clients so you can inspect agent work in progress.
 
-| Strategy         | What it does                                                             | Best for                                   |
-| ---------------- | ------------------------------------------------------------------------ | ------------------------------------------ |
-| `auto` (default) | Picks clone-local or clone-remote based on whether repo is a path or URL | General use                                |
-| `clone-local`    | `git clone --local` with hard links                                      | Monorepo on same volume — fast             |
-| `clone-remote`   | `git clone --single-branch`                                              | Remote repos                               |
-| `worktree`       | `git worktree add`                                                       | Monorepo — instant, visible in git clients |
+**All workspace strategies:**
+
+| Strategy                | What it does                                                             | Best for                                                     |
+| ----------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| `worktree` (recommended)| `git worktree add`                                                       | Local repos — instant setup, shared history, visible in git clients |
+| `auto` (default)        | Picks clone-local or clone-remote based on whether repo is a path or URL | When you're not sure                                         |
+| `clone-local`           | `git clone --local` with hard links                                      | Same volume, full isolation from main repo                   |
+| `clone-remote`          | `git clone --single-branch`                                              | Remote repos, CI environments                                |
 
 ### Docker mode
 
