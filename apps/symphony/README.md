@@ -16,8 +16,8 @@ Headless orchestrator that polls a Linear project for candidate issues and dispa
 - **Workspace cleanup** — auto-remove workspaces when issues reach terminal state
 - **Rotating log files** — structured JSON logs to disk with rotation via `--logs-root`
 - **SSH worker pools** — distribute sessions across remote machines
-- **HTTP dashboard + JSON API** — live session table with turn/activity/session-token observability, retry queue, polling stats
-- **Terminal dashboard (default-on)** — Ratatui observability view for local runs; disable with `--no-tui`
+- **HTTP dashboard + JSON API** — live session table with turn/activity/session-token observability, retry queue, polling stats, and a Linear project link in the summary panel
+- **Terminal dashboard (default-on)** — Ratatui observability view with throughput sparkline, color-coded session status dots, and Linear project URL; disable with `--no-tui`
 
 <details>
 <summary>HTTP Dashboard</summary>
@@ -229,6 +229,7 @@ The HTTP dashboard at `localhost:<port>` shows:
 - **Completed issues** — ticket identifier, title, completion date
 - **Polling stats** — last poll time, poll count, interval
 - **Rate limits** — Codex API rate limit data
+- **Linear project link** — direct link card to the configured Linear project
 
 Auto-refreshes every 2 seconds. JSON API at `/api/v1/state` and `/api/v1/{ISSUE-ID}`.
 
@@ -238,7 +239,7 @@ Auto-refreshes every 2 seconds. JSON API at `/api/v1/state` and `/api/v1/{ISSUE-
 # Build
 cargo build
 
-# Test (290 tests)
+# Test (321 tests)
 cargo test
 
 # Lint

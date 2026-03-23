@@ -463,8 +463,8 @@ Core Rust modules:
 | --- | --- | --- |
 | CLI/runtime entrypoint | `src/main.rs` | CLI parsing, startup validation, tracing setup, runtime wiring |
 | Orchestrator loop | `src/orchestrator.rs` | Poll/dispatch loop, retries, worker lifecycle, state snapshots |
-| HTTP dashboard/API | `src/http_server.rs` | `/`, `/api/v1/state`, `/api/v1/:issue_identifier`, refresh endpoint |
-| Terminal dashboard | `src/tui.rs` | Ratatui renderer, keyboard handling, live snapshot display |
+| HTTP dashboard/API | `src/http_server.rs` | `/`, `/api/v1/state`, `/api/v1/:issue_identifier`, refresh endpoint, dashboard Linear project link card |
+| Terminal dashboard | `src/tui.rs` | Ratatui renderer with throughput sparkline, color-coded status dots, keyboard handling, and live snapshot display |
 | Workflow/config parser | `src/workflow.rs`, `src/config.rs` | Front-matter parsing, env/tilde resolution, typed config defaults |
 | Domain model | `src/domain.rs` | Shared runtime/config structs (`RunAttempt`, snapshots, worker/session info) |
 | Tracker adapter/client | `src/linear/adapter.rs`, `src/linear/client.rs` | Linear GraphQL fetch/update operations and issue normalization |
@@ -476,7 +476,7 @@ Core Rust modules:
 
 ## Testing
 
-Run the full test suite (280+ tests):
+Run the full test suite (321 tests):
 
 ```sh
 cargo test
