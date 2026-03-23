@@ -265,6 +265,34 @@ pub async fn docker_bootstrap_repository(
         SymphonyError::InvalidWorkflowConfig("workspace.repo required for docker isolation".into())
     })?;
 
+    let strategy = match config.strategy {
+        WorkspaceRepoStrategy::Auto => {
+            if repo_is_remote(repo) {
+                WorkspaceRepoStrategy::CloneRemote
+            } else {
+                WorkspaceRepoStrategy::CloneLocal
+            }
+        }
+        other => other,
+    };
+
+    match strategy {
+        WorkspaceRepoStrategy::CloneRemote => {}
+        WorkspaceRepoStrategy::CloneLocal => {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "workspace.git_strategy 'clone-local' is not supported with workspace.isolation 'docker'"
+                    .to_string(),
+            ));
+        }
+        WorkspaceRepoStrategy::Worktree => {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "workspace.git_strategy 'worktree' is not supported with workspace.isolation 'docker'"
+                    .to_string(),
+            ));
+        }
+        WorkspaceRepoStrategy::Auto => unreachable!("auto strategy is resolved above"),
+    }
+
     let branch_name = format!("{}/{}", config.branch_prefix, issue_identifier);
 
     let clone_cmd = if let Some(clone_branch) = config.clone_branch.as_deref() {
@@ -302,7 +330,10 @@ pub async fn run_hook_in_container(
     );
 
     let mut child = docker::exec_command(container_id, &command);
-    child.stdout(Stdio::piped()).stderr(Stdio::piped());
+    child
+        .kill_on_drop(true)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
 
     let output = tokio::time::timeout(Duration::from_millis(timeout_ms), child.output())
         .await

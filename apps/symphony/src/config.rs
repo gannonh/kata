@@ -613,6 +613,12 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         max_concurrent_agents_per_host: raw_worker.max_concurrent_agents_per_host,
     };
 
+    if workspace.isolation == WorkspaceIsolation::Docker && !worker.ssh_hosts.is_empty() {
+        return Err(SymphonyError::InvalidWorkflowConfig(
+            "worker.ssh_hosts is not supported with workspace.isolation 'docker'".to_string(),
+        ));
+    }
+
     // ── AgentConfig ───────────────────────────────────────────────────────
     // Normalize max_concurrent_agents_by_state map keys to lowercase and filter
     // out invalid (zero) entries per spec §17.1 ("ignores invalid values").

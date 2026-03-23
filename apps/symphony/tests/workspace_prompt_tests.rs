@@ -1181,3 +1181,35 @@ fn test_render_continuation_prompt_includes_turn_context() {
         "continuation prompt should remind the agent to use existing thread context"
     );
 }
+
+#[tokio::test]
+async fn test_docker_bootstrap_repository_rejects_non_remote_strategies() {
+    let tmp = TempDir::new().unwrap();
+    let local_repo = tmp.path().join("repo");
+    fs::create_dir_all(&local_repo).unwrap();
+
+    let strategies = [
+        WorkspaceRepoStrategy::CloneLocal,
+        WorkspaceRepoStrategy::Worktree,
+    ];
+
+    for strategy in strategies {
+        let mut config = workspace_config(tmp.path());
+        config.isolation = WorkspaceIsolation::Docker;
+        config.repo = Some(local_repo.to_string_lossy().to_string());
+        config.strategy = strategy;
+
+        let err =
+            symphony::workspace::docker_bootstrap_repository("container-id", &config, "KAT-821")
+                .await
+                .expect_err("docker bootstrap should reject non-remote strategies");
+
+        let msg = err.to_string();
+        assert!(
+            msg.contains("is not supported with workspace.isolation 'docker'"),
+            "unexpected error for {:?}: {}",
+            strategy,
+            msg
+        );
+    }
+}

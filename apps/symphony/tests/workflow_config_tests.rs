@@ -458,6 +458,25 @@ workspace:
 }
 
 #[test]
+fn test_docker_isolation_rejects_worker_ssh_hosts() {
+    let yaml_str = r#"
+workspace:
+  isolation: docker
+worker:
+  ssh_hosts:
+    - worker-a
+    - worker-b
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("docker isolation should reject worker.ssh_hosts");
+    assert!(
+        err.to_string()
+            .contains("worker.ssh_hosts is not supported with workspace.isolation 'docker'"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn test_workspace_cleanup_on_done_parses_true_and_false() {
     let yaml_true = r#"
 workspace:

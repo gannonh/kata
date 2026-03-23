@@ -16,4 +16,4 @@ RUN curl -fsSL https://get.docker.com | sh
 COPY --from=builder /build/target/release/symphony /usr/local/bin/symphony
 WORKDIR /app
 ENTRYPOINT ["symphony"]
-CMD ["WORKFLOW.md", "--port", "8080"]
+CMD ["WORKFLOW.md", "--host", "0.0.0.0", "--port", "8080"]

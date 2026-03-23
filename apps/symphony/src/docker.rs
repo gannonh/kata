@@ -307,7 +307,7 @@ fn map_docker_io_error(err: std::io::Error) -> SymphonyError {
 fn command_output_summary(stdout: &[u8], stderr: &[u8], status: Option<i32>) -> String {
     let out = String::from_utf8_lossy(stdout);
     let err = String::from_utf8_lossy(stderr);
-    let combined = format!("{out}{err}");
+    let combined = crate::repo_url::redact_url_credentials(&format!("{out}{err}"));
     let trimmed = combined.trim();
     let message = if trimmed.is_empty() {
         "no output".to_string()
@@ -315,4 +315,27 @@ fn command_output_summary(stdout: &[u8], stderr: &[u8], status: Option<i32>) -> 
         trimmed.chars().take(1_024).collect()
     };
     format!("status {}: {}", status.unwrap_or(-1), message)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_command_output_summary_redacts_credentials() {
+        let summary = command_output_summary(
+            b"fatal: Authentication failed for https://user:token@github.com/org/repo\n",
+            b"",
+            Some(128),
+        );
+
+        assert!(
+            !summary.contains("user:token@"),
+            "summary leaked credentials"
+        );
+        assert!(
+            summary.contains("https://[REDACTED]@github.com/org/repo"),
+            "expected redacted URL in summary, got: {summary}"
+        );
+    }
 }
