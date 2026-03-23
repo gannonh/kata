@@ -1,6 +1,5 @@
-// @ts-expect-error — dagre types are declared for the package root, not the dist path;
-// importing the pre-built browser bundle avoids Bun.build hanging on 30+ CJS file resolution
 import dagre from '@dagrejs/dagre'
+import type { Graph } from '@dagrejs/dagre'
 import type { MermaidGraph, MermaidSubgraph, PositionedGraph, PositionedNode, PositionedEdge, PositionedGroup, Point, RenderOptions } from './types.ts'
 import { estimateTextWidth, FONT_SIZES, FONT_WEIGHTS, NODE_PADDING, GROUP_HEADER_CONTENT_PAD } from './styles.ts'
 import { centerToTopLeft, snapToOrthogonal, clipToDiamondBoundary, clipToCircleBoundary, clipEndpointsToNodes } from './dagre-adapter.ts'
@@ -464,7 +463,7 @@ function estimateNodeSize(id: string, label: string, shape: string): { width: nu
  * allocates space for children plus the subgraph header label.
  */
 function addSubgraphToDagre(
-  g: dagre.graphlib.Graph,
+  g: Graph,
   sg: MermaidSubgraph,
   graph: MermaidGraph,
   parentId?: string,
@@ -564,7 +563,7 @@ function collectSubgraphNodeIds(sg: MermaidSubgraph, out: Set<string>): void {
 // ============================================================================
 
 function extractPositionedGraph(
-  g: dagre.graphlib.Graph,
+  g: Graph,
   graph: MermaidGraph,
   padding: number,
   preComputed?: Map<string, PreComputedSubgraph>,
@@ -831,7 +830,7 @@ function extractPositionedGraph(
  * so no container-relative offset math is needed.
  */
 function extractGroup(
-  g: dagre.graphlib.Graph,
+  g: Graph,
   sg: MermaidSubgraph,
 ): PositionedGroup {
   const dagreNode = g.node(sg.id)

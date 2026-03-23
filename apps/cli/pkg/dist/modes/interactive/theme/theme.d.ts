@@ -1,16 +1,19 @@
 import type { EditorTheme, MarkdownTheme, SelectListTheme } from "@mariozechner/pi-tui";
+import type { SourceInfo } from "../../../core/source-info.js";
 export type ThemeColor = "accent" | "border" | "borderAccent" | "borderMuted" | "success" | "error" | "warning" | "muted" | "dim" | "text" | "thinkingText" | "userMessageText" | "customMessageText" | "customMessageLabel" | "toolTitle" | "toolOutput" | "mdHeading" | "mdLink" | "mdLinkUrl" | "mdCode" | "mdCodeBlock" | "mdCodeBlockBorder" | "mdQuote" | "mdQuoteBorder" | "mdHr" | "mdListBullet" | "toolDiffAdded" | "toolDiffRemoved" | "toolDiffContext" | "syntaxComment" | "syntaxKeyword" | "syntaxFunction" | "syntaxVariable" | "syntaxString" | "syntaxNumber" | "syntaxType" | "syntaxOperator" | "syntaxPunctuation" | "thinkingOff" | "thinkingMinimal" | "thinkingLow" | "thinkingMedium" | "thinkingHigh" | "thinkingXhigh" | "bashMode";
 export type ThemeBg = "selectedBg" | "userMessageBg" | "customMessageBg" | "toolPendingBg" | "toolSuccessBg" | "toolErrorBg";
 type ColorMode = "truecolor" | "256color";
 export declare class Theme {
     readonly name?: string;
     readonly sourcePath?: string;
+    sourceInfo?: SourceInfo;
     private fgColors;
     private bgColors;
     private mode;
     constructor(fgColors: Record<ThemeColor, string | number>, bgColors: Record<ThemeBg, string | number>, mode: ColorMode, options?: {
         name?: string;
         sourcePath?: string;
+        sourceInfo?: SourceInfo;
     });
     fg(color: ThemeColor, text: string): string;
     bg(color: ThemeBg, text: string): string;

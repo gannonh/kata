@@ -252,12 +252,14 @@ function resolveThemeColors(colors, vars = {}) {
 export class Theme {
     name;
     sourcePath;
+    sourceInfo;
     fgColors;
     bgColors;
     mode;
     constructor(fgColors, bgColors, mode, options = {}) {
         this.name = options.name;
         this.sourcePath = options.sourcePath;
+        this.sourceInfo = options.sourceInfo;
         this.mode = mode;
         this.fgColors = new Map();
         for (const [key, value] of Object.entries(fgColors)) {
@@ -535,6 +537,7 @@ function setGlobalTheme(t) {
 }
 let currentThemeName;
 let themeWatcher;
+let themeReloadTimer;
 let onThemeChangeCallback;
 const registeredThemes = new Map();
 export function setRegisteredThemes(themes) {
@@ -596,55 +599,62 @@ export function onThemeChange(callback) {
     onThemeChangeCallback = callback;
 }
 function startThemeWatcher() {
-    // Stop existing watcher if any
-    if (themeWatcher) {
-        themeWatcher.close();
-        themeWatcher = undefined;
-    }
+    stopThemeWatcher();
     // Only watch if it's a custom theme (not built-in)
     if (!currentThemeName || currentThemeName === "dark" || currentThemeName === "light") {
         return;
     }
     const customThemesDir = getCustomThemesDir();
-    const themeFile = path.join(customThemesDir, `${currentThemeName}.json`);
+    const watchedThemeName = currentThemeName;
+    const watchedFileName = `${watchedThemeName}.json`;
+    const themeFile = path.join(customThemesDir, watchedFileName);
     // Only watch if the file exists
     if (!fs.existsSync(themeFile)) {
         return;
     }
+    const scheduleReload = () => {
+        if (themeReloadTimer) {
+            clearTimeout(themeReloadTimer);
+        }
+        themeReloadTimer = setTimeout(() => {
+            themeReloadTimer = undefined;
+            // Ignore stale timers after switching themes or stopping the watcher
+            if (currentThemeName !== watchedThemeName) {
+                return;
+            }
+            // Keep the last successfully loaded theme active if the file is temporarily missing
+            if (!fs.existsSync(themeFile)) {
+                return;
+            }
+            try {
+                // Reload the theme from disk and refresh the registry cache
+                const reloadedTheme = loadThemeFromPath(themeFile);
+                registeredThemes.set(watchedThemeName, reloadedTheme);
+                setGlobalTheme(reloadedTheme);
+                // Notify callback (to invalidate UI)
+                if (onThemeChangeCallback) {
+                    onThemeChangeCallback();
+                }
+            }
+            catch (_error) {
+                // Ignore errors (file might be in invalid state while being edited)
+            }
+        }, 100);
+    };
     try {
-        themeWatcher = fs.watch(themeFile, (eventType) => {
-            if (eventType === "change") {
-                // Debounce rapid changes
-                setTimeout(() => {
-                    try {
-                        // Reload the theme
-                        setGlobalTheme(loadTheme(currentThemeName));
-                        // Notify callback (to invalidate UI)
-                        if (onThemeChangeCallback) {
-                            onThemeChangeCallback();
-                        }
-                    }
-                    catch (_error) {
-                        // Ignore errors (file might be in invalid state while being edited)
-                    }
-                }, 100);
+        themeWatcher = fs.watch(customThemesDir, (_eventType, filename) => {
+            if (currentThemeName !== watchedThemeName) {
+                return;
             }
-            else if (eventType === "rename") {
-                // File was deleted or renamed - fall back to default theme
-                setTimeout(() => {
-                    if (!fs.existsSync(themeFile)) {
-                        currentThemeName = "dark";
-                        setGlobalTheme(loadTheme("dark"));
-                        if (themeWatcher) {
-                            themeWatcher.close();
-                            themeWatcher = undefined;
-                        }
-                        if (onThemeChangeCallback) {
-                            onThemeChangeCallback();
-                        }
-                    }
-                }, 100);
+            if (!filename) {
+                scheduleReload();
+                return;
             }
+            const changedFile = String(filename);
+            if (changedFile !== watchedFileName) {
+                return;
+            }
+            scheduleReload();
         });
     }
     catch (_error) {
@@ -652,6 +662,10 @@ function startThemeWatcher() {
     }
 }
 export function stopThemeWatcher() {
+    if (themeReloadTimer) {
+        clearTimeout(themeReloadTimer);
+        themeReloadTimer = undefined;
+    }
     if (themeWatcher) {
         themeWatcher.close();
         themeWatcher = undefined;
@@ -808,6 +822,12 @@ function getCliHighlightTheme(t) {
 export function highlightCode(code, lang) {
     // Validate language before highlighting to avoid stderr spam from cli-highlight
     const validLang = lang && supportsLanguage(lang) ? lang : undefined;
+    // Skip highlighting when no valid language is specified. cli-highlight's
+    // auto-detection is unreliable and can misidentify prose as AppleScript,
+    // LiveCodeServer, etc., coloring random English words as keywords.
+    if (!validLang) {
+        return code.split("\n").map((line) => theme.fg("mdCodeBlock", line));
+    }
     const opts = {
         language: validLang,
         ignoreIllegals: true,
@@ -908,6 +928,12 @@ export function getMarkdownTheme() {
         highlightCode: (code, lang) => {
             // Validate language before highlighting to avoid stderr spam from cli-highlight
             const validLang = lang && supportsLanguage(lang) ? lang : undefined;
+            // Skip highlighting when no valid language is specified. cli-highlight's
+            // auto-detection is unreliable and can misidentify prose as AppleScript,
+            // LiveCodeServer, etc., coloring random English words as keywords.
+            if (!validLang) {
+                return code.split("\n").map((line) => theme.fg("mdCodeBlock", line));
+            }
             const opts = {
                 language: validLang,
                 ignoreIllegals: true,
