@@ -187,7 +187,7 @@ You just need Docker Desktop (or Docker Engine) running. Symphony talks to the D
 
 Symphony caches the derived image using a hash of the base image name + setup script content. The first build takes time; subsequent runs reuse the cached image.
 
-**Docker auth modes** — how Codex authenticates inside the container:
+**Docker auth modes** — how Codex authenticates inside the container. Interactive browser login is not available inside containers, so `OPENAI_API_KEY` in your `.env` is the simplest path.
 
 | Mode             | What it does                                                                     |
 | ---------------- | -------------------------------------------------------------------------------- |
