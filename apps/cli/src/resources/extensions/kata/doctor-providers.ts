@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 function getDefaultAgentDir(): string {
-  return join(process.env.HOME ?? homedir(), ".kata-cli", "agent");
+  return process.env.KATA_CODING_AGENT_DIR?.trim() || join(process.env.HOME ?? homedir(), ".kata-cli", "agent");
 }
 
 function getDefaultAuthPath(): string {
@@ -42,6 +42,7 @@ interface KnownProvider {
   label: string;
   kind: "llm" | "tool";
   envVar?: string;
+  fallbackEnvVar?: string;
   authKey?: string;
 }
 
@@ -63,28 +64,34 @@ export interface RunProviderChecksOptions {
 }
 
 const LLM_PROVIDERS: KnownProvider[] = [
-  { id: "anthropic", label: "Anthropic", kind: "llm", envVar: "ANTHROPIC_API_KEY" },
-  { id: "openai", label: "OpenAI", kind: "llm", envVar: "OPENAI_API_KEY" },
-  { id: "google", label: "Google", kind: "llm", envVar: "GOOGLE_API_KEY" },
-  { id: "xai", label: "xAI", kind: "llm", envVar: "XAI_API_KEY" },
-  { id: "groq", label: "Groq", kind: "llm", envVar: "GROQ_API_KEY" },
+  { id: "anthropic", label: "Anthropic", kind: "llm", envVar: "KATA_ANTHROPIC_API_KEY", fallbackEnvVar: "ANTHROPIC_API_KEY" },
+  { id: "openai", label: "OpenAI", kind: "llm", envVar: "KATA_OPENAI_API_KEY", fallbackEnvVar: "OPENAI_API_KEY" },
+  { id: "google", label: "Google", kind: "llm", envVar: "KATA_GOOGLE_API_KEY", fallbackEnvVar: "GOOGLE_API_KEY" },
+  { id: "xai", label: "xAI", kind: "llm", envVar: "KATA_XAI_API_KEY", fallbackEnvVar: "XAI_API_KEY" },
+  { id: "groq", label: "Groq", kind: "llm", envVar: "KATA_GROQ_API_KEY", fallbackEnvVar: "GROQ_API_KEY" },
 ];
 
 const TOOL_PROVIDERS: KnownProvider[] = [
-  { id: "brave", label: "Brave Search", kind: "tool", envVar: "BRAVE_API_KEY", authKey: "brave" },
-  { id: "tavily", label: "Tavily Search", kind: "tool", envVar: "TAVILY_API_KEY" },
-  { id: "linear", label: "Linear", kind: "tool", envVar: "LINEAR_API_KEY", authKey: "linear" },
-  { id: "context7", label: "Context7", kind: "tool", envVar: "CONTEXT7_API_KEY", authKey: "context7" },
-  { id: "jina", label: "Jina", kind: "tool", envVar: "JINA_API_KEY", authKey: "jina" },
+  { id: "brave", label: "Brave Search", kind: "tool", envVar: "KATA_BRAVE_API_KEY", fallbackEnvVar: "BRAVE_API_KEY", authKey: "brave" },
+  { id: "tavily", label: "Tavily Search", kind: "tool", envVar: "KATA_TAVILY_API_KEY", fallbackEnvVar: "TAVILY_API_KEY" },
+  { id: "linear", label: "Linear", kind: "tool", envVar: "KATA_LINEAR_API_KEY", fallbackEnvVar: "LINEAR_API_KEY", authKey: "linear" },
+  { id: "context7", label: "Context7", kind: "tool", envVar: "KATA_CONTEXT7_API_KEY", fallbackEnvVar: "CONTEXT7_API_KEY", authKey: "context7" },
+  { id: "jina", label: "Jina", kind: "tool", envVar: "KATA_JINA_API_KEY", fallbackEnvVar: "JINA_API_KEY", authKey: "jina" },
 ];
 
 function safeTrim(value: string | undefined): string {
   return (value ?? "").trim();
 }
 
-function hasEnvCredential(env: NodeJS.ProcessEnv, envVar?: string): boolean {
-  if (!envVar) return false;
-  return safeTrim(env[envVar]).length > 0;
+function hasEnvCredential(
+  env: NodeJS.ProcessEnv,
+  envVar?: string,
+  fallbackEnvVar?: string,
+): boolean {
+  if (!envVar && !fallbackEnvVar) return false;
+  if (envVar && safeTrim(env[envVar]).length > 0) return true;
+  if (fallbackEnvVar && safeTrim(env[fallbackEnvVar]).length > 0) return true;
+  return false;
 }
 
 function readAuthSnapshot(path: string): Record<string, unknown> {
@@ -242,7 +249,11 @@ export async function runProviderChecks(
   }
 
   for (const provider of LLM_PROVIDERS) {
-    const envConfigured = hasEnvCredential(env, provider.envVar);
+    const envConfigured = hasEnvCredential(
+      env,
+      provider.envVar,
+      provider.fallbackEnvVar,
+    );
     const storedConfigured = authProviders.has(provider.authKey ?? provider.id);
     const configured = envConfigured || storedConfigured;
     const modelCount = modelCounts.get(provider.id) ?? 0;
@@ -280,7 +291,11 @@ export async function runProviderChecks(
   }
 
   for (const provider of TOOL_PROVIDERS) {
-    const envConfigured = hasEnvCredential(env, provider.envVar);
+    const envConfigured = hasEnvCredential(
+      env,
+      provider.envVar,
+      provider.fallbackEnvVar,
+    );
     const storedConfigured = authProviders.has(provider.authKey ?? provider.id);
     const configured = envConfigured || storedConfigured;
     checks.push({

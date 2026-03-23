@@ -379,8 +379,15 @@ export function formatDoctorReport(
   });
   const summary = summarizeDoctorIssues(scopedIssues);
   const maxIssues = options?.maxIssues ?? 12;
+  const hasBlockingFailures =
+    summary.errors > 0 || !report.environment.ok || !report.providers.ok;
   const lines: string[] = [];
-  lines.push(options?.title ?? (summary.errors > 0 ? "Kata doctor found blocking issues." : "Kata doctor report."));
+  lines.push(
+    options?.title ??
+      (hasBlockingFailures
+        ? "Kata doctor found blocking issues."
+        : "Kata doctor report."),
+  );
   lines.push(`Scope: ${options?.scope ?? "all milestones"}`);
   lines.push(`Issues: ${summary.total} total · ${summary.errors} error(s) · ${summary.warnings} warning(s) · ${summary.fixable} fixable`);
 

@@ -38,6 +38,28 @@ describe("runProviderChecks", () => {
     );
   });
 
+  it("recognizes KATA-prefixed provider environment aliases", async () => {
+    const result = await runProviderChecks({
+      env: {
+        KATA_ANTHROPIC_API_KEY: "test-key",
+      },
+      overrides: {
+        checkedAt: "2026-03-23T00:00:00.000Z",
+        authProviders: [],
+        models: [{ provider: "anthropic", id: "claude-sonnet-4-6" }],
+        defaultProvider: "anthropic",
+        defaultModel: "claude-sonnet-4-6",
+      },
+    });
+
+    assert.equal(
+      result.checks.some(
+        (check) => check.id === "anthropic_provider" && check.status === "pass",
+      ),
+      true,
+    );
+  });
+
   it("warns when credentials exist but no models are available", async () => {
     const result = await runProviderChecks({
       env: {
@@ -113,21 +135,7 @@ describe("runProviderChecks", () => {
 
   it("resolves default auth path from current HOME at check time", async () => {
     const originalHome = process.env.HOME;
-    const baseline = await runProviderChecks({
-      env: {},
-      overrides: {
-        checkedAt: "2026-03-23T00:00:00.000Z",
-        models: [],
-        defaultProvider: null,
-        defaultModel: null,
-      },
-    });
-
-    const target = baseline.providers.find((provider) => !provider.hasStoredCredential);
-    assert.ok(
-      target,
-      "expected at least one provider without stored credentials to validate HOME path resolution",
-    );
+    const targetProvider = "anthropic";
 
     const tempHome = mkdtempSync(join(process.cwd(), ".tmp-doctor-provider-home-"));
     const tempAgentDir = join(tempHome, ".kata-cli", "agent");
@@ -135,7 +143,7 @@ describe("runProviderChecks", () => {
     writeFileSync(
       join(tempAgentDir, "auth.json"),
       JSON.stringify({
-        [target.provider]: {
+        [targetProvider]: {
           key: "test-key",
         },
       }),
@@ -153,12 +161,50 @@ describe("runProviderChecks", () => {
           defaultModel: null,
         },
       });
-      const provider = result.providers.find((item) => item.provider === target.provider);
+      const provider = result.providers.find((item) => item.provider === targetProvider);
       assert.ok(provider);
       assert.equal(provider.hasStoredCredential, true);
     } finally {
       process.env.HOME = originalHome;
       rmSync(tempHome, { recursive: true, force: true });
+    }
+  });
+
+  it("resolves default auth path from KATA_CODING_AGENT_DIR when set", async () => {
+    const originalAgentDir = process.env.KATA_CODING_AGENT_DIR;
+    const targetProvider = "openai";
+
+    const tempRoot = mkdtempSync(join(process.cwd(), ".tmp-doctor-provider-agent-dir-"));
+    const tempAgentDir = join(tempRoot, "agent");
+    mkdirSync(tempAgentDir, { recursive: true });
+    writeFileSync(
+      join(tempAgentDir, "auth.json"),
+      JSON.stringify({
+        [targetProvider]: {
+          key: "test-key",
+        },
+      }),
+      "utf-8",
+    );
+
+    try {
+      process.env.KATA_CODING_AGENT_DIR = tempAgentDir;
+      const result = await runProviderChecks({
+        env: {},
+        overrides: {
+          checkedAt: "2026-03-23T00:00:00.000Z",
+          models: [],
+          defaultProvider: null,
+          defaultModel: null,
+        },
+      });
+
+      const provider = result.providers.find((item) => item.provider === targetProvider);
+      assert.ok(provider);
+      assert.equal(provider.hasStoredCredential, true);
+    } finally {
+      process.env.KATA_CODING_AGENT_DIR = originalAgentDir;
+      rmSync(tempRoot, { recursive: true, force: true });
     }
   });
 });
