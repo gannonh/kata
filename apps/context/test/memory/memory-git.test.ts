@@ -24,6 +24,14 @@ async function loadMemoryStore(): Promise<Record<string, any> | null> {
   }
 }
 
+async function loadMemoryGit(): Promise<Record<string, any> | null> {
+  try {
+    return await import("../../src/memory/git.js");
+  } catch {
+    return null;
+  }
+}
+
 function getLastCommitMessage(repoDir: string): string {
   return execSync("git log -1 --format=%s", {
     cwd: repoDir,
@@ -127,22 +135,13 @@ describe("memory git audit contract (T01 red-first)", () => {
   });
 
   it("non-git directory returns stable MEMORY_GIT_NOT_REPO error code", async () => {
-    const mod = await loadMemoryStore();
-    expect(mod).not.toBeNull();
+    const gitMod = await loadMemoryGit();
+    expect(gitMod).not.toBeNull();
 
     const nonGitDir = mkdtempSync(join(tmpdir(), "kata-no-git-"));
 
-    const store = mod!.MemoryStore
-      ? new mod!.MemoryStore(nonGitDir)
-      : mod!.createMemoryStore(nonGitDir);
-
     try {
-      await store.remember({
-        content: "Should fail with git error",
-        category: "test",
-        tags: [],
-      });
-      // If no error thrown, the store may return an error result
+      gitMod!.memoryGitCommit("remember", "test", nonGitDir);
       expect.unreachable("Expected an error for non-git directory");
     } catch (err: any) {
       expect(err.code).toBe("MEMORY_GIT_NOT_REPO");
