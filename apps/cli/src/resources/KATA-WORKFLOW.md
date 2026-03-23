@@ -124,25 +124,38 @@ In Linear mode, artifacts are stored as **LinearDocuments** attached to the proj
 
 Use these tools to read and write:
 ```
-kata_read_document(title, { projectId })    → read an artifact by title
-kata_write_document(title, content, { projectId })  → write (upsert) an artifact
+kata_read_document(title, { projectId })    → project-scoped artifact
+kata_read_document(title, { issueId })      → slice-scoped artifact
+kata_write_document(title, content, { projectId })  → write project-scoped artifact
+kata_write_document(title, content, { issueId })    → write slice-scoped artifact
 ```
+
+**Scoping rules — where documents live:**
+
+| Scope          | Documents                                                              | Attachment         |
+| -------------- | ---------------------------------------------------------------------- | ------------------ |
+| Project-level  | `PROJECT`, `REQUIREMENTS`, `DECISIONS`, `M001-ROADMAP`, `M001-CONTEXT`, `M001-RESEARCH`, `M001-SUMMARY` | `{ projectId }`    |
+| Slice-level    | `S01-PLAN`, `S01-RESEARCH`, `S01-SUMMARY`, `S01-UAT`, `S01-REPLAN`, `S01-ASSESSMENT` | `{ issueId }` of the slice issue |
+| Task-level     | `T01-PLAN`, `T01-SUMMARY`                                             | `{ issueId }` of the slice issue |
+
+**Why slice docs use `{ issueId }`:** Slice IDs (S01, S02, ...) reset per milestone. Without scoping to the slice issue, `S01-PLAN` from milestone M001 would collide with `S01-PLAN` from milestone M002. Attaching to the slice issue prevents this.
 
 **Document title format:**
 
-| Artifact           | Title            | Example          |
-| ------------------ | ---------------- | ---------------- |
-| Milestone roadmap  | `M001-ROADMAP`   | `M001-ROADMAP`   |
-| Milestone context  | `M001-CONTEXT`   | `M001-CONTEXT`   |
-| Milestone research | `M001-RESEARCH`  | `M001-RESEARCH`  |
-| Slice plan         | `S01-PLAN`       | `S01-PLAN`       |
-| Slice research     | `S01-RESEARCH`   | `S01-RESEARCH`   |
-| Task plan          | `T01-PLAN`       | `T01-PLAN`       |
-| Task summary       | `T01-SUMMARY`    | `T01-SUMMARY`    |
-| Slice summary      | `S01-SUMMARY`    | `S01-SUMMARY`    |
-| Decisions register | `DECISIONS`      | `DECISIONS`      |
+| Artifact           | Title            | Scope              |
+| ------------------ | ---------------- | ------------------ |
+| Milestone roadmap  | `M001-ROADMAP`   | `{ projectId }`    |
+| Milestone context  | `M001-CONTEXT`   | `{ projectId }`    |
+| Milestone research | `M001-RESEARCH`  | `{ projectId }`    |
+| Milestone summary  | `M001-SUMMARY`   | `{ projectId }`    |
+| Slice plan         | `S01-PLAN`       | `{ issueId }`      |
+| Slice research     | `S01-RESEARCH`   | `{ issueId }`      |
+| Slice summary      | `S01-SUMMARY`    | `{ issueId }`      |
+| Task plan          | `T01-PLAN`       | `{ issueId }`      |
+| Task summary       | `T01-SUMMARY`    | `{ issueId }`      |
+| Decisions register | `DECISIONS`      | `{ projectId }`    |
 
-Titles are unique within the project scope. `kata_write_document` is an upsert — creates on first write, updates on subsequent writes.
+Titles are unique within their scope. `kata_write_document` is an upsert — creates on first write, updates on subsequent writes.
 
 **D028 — markdown normalization:** Linear normalizes document content on write. Use `* ` (asterisk + space) for list bullets, not `- `. Checkboxes use `* [ ]` and `* [x]`. Always accept both when parsing.
 
@@ -449,7 +462,7 @@ The **Don't Hand-Roll** and **Common Pitfalls** sections prevent the most expens
 4. If you made an architectural, pattern, or library decision, append it to `.kata/DECISIONS.md`.
 5. If interrupted or context is getting full, write `continue.md` (see below).
 
-> **Linear mode:** Read the task plan via `kata_read_document("T01-PLAN")`. Append decisions via `kata_write_document("DECISIONS", ...)`. There is no `continue.md` — issue state is the continue protocol (see below).
+> **Linear mode:** Read the task plan via `kata_read_document("T01-PLAN", { issueId: "<slice-issue-uuid>" })`. Append decisions via `kata_write_document("DECISIONS", ...)`. There is no `continue.md` — issue state is the continue protocol (see below).
 
 ### Phase 5: Verify
 
@@ -545,7 +558,7 @@ The one-liner must be substantive: "JWT auth with refresh rotation using jose" n
 
 **Milestone summary:** Updated each time a slice completes. Compresses all slice summaries. This is what gets injected into later slice planning instead of loading many individual summaries.
 
-> **Linear mode:** Write summaries via `kata_write_document("T01-SUMMARY", content)`. After writing, advance the issue state via `kata_update_issue_state(issueId, { phase: "done" })`. Always write the summary AND advance state before context ends.
+> **Linear mode:** Write summaries via `kata_write_document("T01-SUMMARY", content, { issueId: "<slice-issue-uuid>" })`. After writing, advance the issue state via `kata_update_issue_state(issueId, { phase: "done" })`. Always write the summary AND advance state before context ends.
 
 ### Phase 7: Advance
 

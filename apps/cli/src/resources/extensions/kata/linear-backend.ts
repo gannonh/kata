@@ -35,7 +35,7 @@ import { resolveGitRoot, ensureGitRepo } from "./git-utils.js";
 
 // ─── Prompt Constants ─────────────────────────────────────────────────────────
 
-const HARD_RULE = `Hard rule: In Linear mode, never use bash/read/find/rg/git to locate workflow artifacts. Use only kata_read_document/kata_write_document for plan and summary artifacts. Scope: milestone-level docs (ROADMAP, CONTEXT, SUMMARY, DECISIONS) use { projectId }. Task-level docs (T01-PLAN, T01-SUMMARY) use { issueId } scoped to the slice issue — this prevents collisions when multiple slices have a T01.`;
+const HARD_RULE = `Hard rule: In Linear mode, never use bash/read/find/rg/git to locate workflow artifacts. Use only kata_read_document/kata_write_document for plan and summary artifacts. Scope rules — milestone-level docs (M001-ROADMAP, M001-CONTEXT, M001-RESEARCH, M001-SUMMARY, PROJECT, REQUIREMENTS, DECISIONS) use { projectId }. Slice-level docs (S01-PLAN, S01-RESEARCH, S01-SUMMARY, S01-UAT, S01-REPLAN, S01-ASSESSMENT) and task-level docs (T01-PLAN, T01-SUMMARY) BOTH use { issueId } scoped to the slice issue — this prevents collisions when multiple milestones have their own S01, S02, etc.`;
 
 const REFERENCE = `**Reference:** Consult \`KATA-WORKFLOW.md\` (injected into your system prompt) for full operation steps, entity conventions, artifact storage format, and phase transition rules.`;
 
@@ -248,10 +248,26 @@ export class LinearBackend implements KataBackend {
       // Non-fatal: runCreatePr will retry the push if needed
     }
 
+    // Resolve slice issue UUID so we can read slice-scoped documents.
+    // Best-effort: if the API call fails (e.g. invalid key in tests), fall back to project-scoped reads.
+    let sliceScope: DocumentScope | undefined;
+    try {
+      const allSlices = await listKataSlices(this.client, this.config.projectId, this.config.sliceLabelId);
+      const sliceIssue = allSlices.find((s) => {
+        const parsed = parseKataEntityTitle(s.title);
+        return parsed?.kataId === sliceId;
+      });
+      if (sliceIssue) {
+        sliceScope = { issueId: sliceIssue.id };
+      }
+    } catch {
+      // Non-fatal: fall back to project-scoped document reads
+    }
+
     const documents: Record<string, string> = {};
-    const plan = await this.readDocument(`${sliceId}-PLAN`);
+    const plan = await this.readDocument(`${sliceId}-PLAN`, sliceScope);
     if (plan) documents["PLAN"] = plan;
-    const summary = await this.readDocument(`${sliceId}-SUMMARY`);
+    const summary = await this.readDocument(`${sliceId}-SUMMARY`, sliceScope);
     if (summary) documents["SUMMARY"] = summary;
 
     return { branch, documents };
@@ -433,8 +449,9 @@ export class LinearBackend implements KataBackend {
 
   private _buildResearchSliceOps(sid: string): OpsBlock {
     const backendOps = [
-      `6. Write slice research: \`kata_write_document("${sid}-RESEARCH", content)\``,
+      `6. Write slice research (scoped to slice issue): \`kata_write_document("${sid}-RESEARCH", content, { issueId: "<slice-issue-uuid>" })\``,
       `   - Include: Summary, Don't Hand-Roll, Common Pitfalls, Relevant Code, Sources.`,
+      `   - Get the slice issue UUID from \`kata_derive_state\` → \`activeSlice.linearIssueId\` or from \`kata_list_slices\`.`,
     ].join("\n");
 
     return {
@@ -451,16 +468,17 @@ export class LinearBackend implements KataBackend {
 
     const dependencySummaries = [
       `- Check the roadmap for \`depends:[]\` on this slice.`,
-      `- For each dependency, call \`kata_read_document("Sxx-SUMMARY")\`.`,
+      `- For each dependency, call \`kata_read_document("Sxx-SUMMARY", { issueId: "<dependency-slice-issue-uuid>" })\`. Get slice issue UUIDs from \`kata_list_slices\`.`,
     ].join("\n");
 
     const inlinedContext = [
       `## Context Retrieval (read these before proceeding)`,
       ``,
-      `1. Call \`kata_derive_state\` to confirm the active milestone and slice, and obtain \`projectId\`.`,
+      `1. Call \`kata_derive_state\` to confirm the active milestone and slice, and obtain \`projectId\` and the slice issue UUID.`,
       ``,
       `2. Discover available documents:`,
       DISCOVER_PROJECT_DOCS,
+      DISCOVER_SLICE_DOCS,
       ``,
       `3. Read required context:`,
       `   - Call \`kata_read_document("${mid}-ROADMAP")\` — **required**. If null, stop: roadmap is missing.`,
@@ -490,11 +508,12 @@ export class LinearBackend implements KataBackend {
   private _buildPlanSliceOps(sid: string): OpsBlock {
     const backendOps = [
       `10. Idempotency check:`,
-      `    - Call \`kata_read_document("${sid}-PLAN")\`. If it exists, review rather than rewrite.`,
+      `    - Call \`kata_read_document("${sid}-PLAN", { issueId: "<slice-issue-uuid>" })\`. If it exists, review rather than rewrite.`,
       `    - Call \`kata_list_tasks\` for the slice issue. If tasks exist, do NOT create duplicates.`,
-      `11. Write the slice plan: \`kata_write_document("${sid}-PLAN", content)\``,
+      `11. Write the slice plan (scoped to slice issue): \`kata_write_document("${sid}-PLAN", content, { issueId: "<slice-issue-uuid>" })\``,
       `    - Decompose into 1-7 tasks, each fitting one context window.`,
       `    - Each task: title, must-haves (truths, artifacts, key links), steps.`,
+      `    - Slice docs MUST use { issueId } scoped to the slice issue, NOT { projectId }. This prevents S01-PLAN collisions across milestones.`,
       `12. **Self-audit the plan before continuing.** Walk through each check — if any fail, fix the plan before moving on:`,
       `    - **Completion semantics:** If every task were completed exactly as written, the slice goal/demo should actually be true at the claimed proof level.`,
       `    - **Requirement coverage:** Every must-have in the slice maps to at least one task. No must-have is orphaned.`,
@@ -521,22 +540,23 @@ export class LinearBackend implements KataBackend {
 
     const dependencySummaries = [
       `- Check the roadmap for \`depends:[]\` on this slice.`,
-      `- For each dependency, call \`kata_read_document("Sxx-SUMMARY")\`.`,
+      `- For each dependency, call \`kata_read_document("Sxx-SUMMARY", { issueId: "<dependency-slice-issue-uuid>" })\`. Get slice issue UUIDs from \`kata_list_slices\`.`,
     ].join("\n");
 
     const inlinedContext = [
       `## Context Retrieval (read these before proceeding)`,
       ``,
-      `1. Call \`kata_derive_state\` to confirm the active milestone and slice, and obtain \`projectId\`.`,
+      `1. Call \`kata_derive_state\` to confirm the active milestone and slice, and obtain \`projectId\` and the slice issue UUID.`,
       ``,
       `2. Discover available documents:`,
       DISCOVER_PROJECT_DOCS,
+      DISCOVER_SLICE_DOCS,
       ``,
       `3. Read required context:`,
       `   - Call \`kata_read_document("${mid}-ROADMAP")\` — **required**. If null, stop: roadmap is missing.`,
       ``,
       `4. Read optional context (skip if null):`,
-      `   - \`kata_read_document("${sid}-RESEARCH")\``,
+      `   - \`kata_read_document("${sid}-RESEARCH", { issueId: "<slice-issue-uuid>" })\``,
       `   - \`kata_read_document("DECISIONS")\``,
       `   - \`kata_read_document("REQUIREMENTS")\``,
     ].join("\n");
@@ -562,7 +582,7 @@ export class LinearBackend implements KataBackend {
     const backingArtifacts = [
       `## Backing Source Artifacts`,
       `- Task plan: \`${tid}-PLAN\` (scoped to slice issue)`,
-      `- Slice plan: \`${sid}-PLAN\` (project-scoped)`,
+      `- Slice plan: \`${sid}-PLAN\` (scoped to slice issue)`,
       `- Prior task summaries: call \`kata_list_tasks\` then read each completed task's summary`,
     ].join("\n");
 
@@ -613,7 +633,7 @@ export class LinearBackend implements KataBackend {
       `## Slice Plan Excerpt`,
       ``,
       `Read the slice plan for goal, demo, and verification criteria:`,
-      `- Call \`kata_read_document("${sid}-PLAN", { projectId })\``,
+      `- Call \`kata_read_document("${sid}-PLAN", { issueId: "<slice-issue-uuid>" })\``,
     ].join("\n");
 
     const resumeSection = [
@@ -656,10 +676,10 @@ export class LinearBackend implements KataBackend {
   ): OpsBlock {
     const backendOps = [
       `5. Read the slice-summary and UAT templates (if available via \`kata_read_document\`), or use the standard formats.`,
-      `6. Write the slice summary: \`kata_write_document("${sid}-SUMMARY", content)\``,
+      `6. Write the slice summary (scoped to slice issue): \`kata_write_document("${sid}-SUMMARY", content, { issueId: "<slice-issue-uuid>" })\``,
       `   - Synthesize work across all tasks: what was built, key decisions, key files, patterns established.`,
       `   - Fill the requirement-related sections explicitly.`,
-      `7. Write the UAT script: \`kata_write_document("${sid}-UAT", content)\``,
+      `7. Write the UAT script (scoped to slice issue): \`kata_write_document("${sid}-UAT", content, { issueId: "<slice-issue-uuid>" })\``,
       `   - Derive from the slice's must-haves and demo sentence.`,
       `   - Fill the new \`UAT Type\`, \`Requirements Proved By This UAT\`, and \`Not Proven By This UAT\` sections explicitly.`,
       `8. Review task summaries for \`key_decisions\`. Ensure any significant architectural, pattern, or observability decisions are in the \`DECISIONS\` document. If any are missing, append them now via \`kata_write_document("DECISIONS", updatedContent)\`.`,
@@ -693,7 +713,7 @@ export class LinearBackend implements KataBackend {
       ``,
       `3. Read required context:`,
       `   - Call \`kata_read_document("${mid}-ROADMAP")\` — **required**. Needed for success criteria and boundary map.`,
-      `   - Call \`kata_read_document("${sid}-PLAN")\` — **required**. Needed for slice must-haves and verification criteria.`,
+      `   - Call \`kata_read_document("${sid}-PLAN", { issueId: "<slice-issue-uuid>" })\` — **required**. Needed for slice must-haves and verification criteria.`,
       ``,
       `4. Read optional context:`,
       `   - \`kata_read_document("REQUIREMENTS")\``,
@@ -754,9 +774,9 @@ export class LinearBackend implements KataBackend {
       `3. Read required context:`,
       `   - Call \`kata_read_document("${mid}-ROADMAP")\` — **required**.`,
       ``,
-      `4. Read all slice summaries:`,
+      `4. Read all slice summaries (scoped to each slice issue):`,
       `   - Call \`kata_list_slices\` to enumerate all slices in this milestone.`,
-      `   - For each slice, call \`kata_read_document("Sxx-SUMMARY")\`.`,
+      `   - For each slice, call \`kata_read_document("Sxx-SUMMARY", { issueId: "<slice-issue-uuid>" })\`.`,
       ``,
       `5. Read optional context:`,
       `   - \`kata_read_document("REQUIREMENTS")\``,
@@ -785,9 +805,9 @@ export class LinearBackend implements KataBackend {
       `3. Find the blocker:`,
       `   - Call \`kata_list_tasks\` for the slice.`,
       `   - Read task summaries to find which task discovered the blocker.`,
-      `4. Write the replan: \`kata_write_document("${sid}-REPLAN", content)\``,
+      `4. Write the replan (scoped to slice issue): \`kata_write_document("${sid}-REPLAN", content, { issueId: "<slice-issue-uuid>" })\``,
       `   - Describe the blocker, its impact, and the revised task decomposition.`,
-      `5. Rewrite the slice plan: \`kata_write_document("${sid}-PLAN", content)\``,
+      `5. Rewrite the slice plan (scoped to slice issue): \`kata_write_document("${sid}-PLAN", content, { issueId: "<slice-issue-uuid>" })\``,
       `   - Keep all \`[x]\` tasks exactly as they were`,
       `   - Update the \`[ ]\` tasks to address the blocker`,
       `   - Create new task sub-issues if needed via \`kata_create_task\``,
@@ -812,7 +832,7 @@ export class LinearBackend implements KataBackend {
       ``,
       `2. Read required context:`,
       `   - Call \`kata_read_document("${mid}-ROADMAP")\` — **required**.`,
-      `   - Call \`kata_read_document("${sid}-PLAN")\` — **required**.`,
+      `   - Call \`kata_read_document("${sid}-PLAN", { issueId: "<slice-issue-uuid>" })\` — **required**.`,
       ``,
       `3. Read optional context:`,
       `   - \`kata_read_document("DECISIONS")\``,
@@ -835,12 +855,12 @@ export class LinearBackend implements KataBackend {
     const backendOps = [
       `**If the roadmap is still good:**`,
       ``,
-      `Write the assessment: \`kata_write_document("${completedSliceId}-ASSESSMENT", content)\` with a brief confirmation that roadmap coverage still holds after ${completedSliceId}. If requirements exist, explicitly note whether requirement coverage remains sound.`,
+      `Write the assessment (scoped to completed slice issue): \`kata_write_document("${completedSliceId}-ASSESSMENT", content, { issueId: "<completed-slice-issue-uuid>" })\` with a brief confirmation that roadmap coverage still holds after ${completedSliceId}. Get the slice issue UUID from \`kata_list_slices\`. If requirements exist, explicitly note whether requirement coverage remains sound.`,
       ``,
       `**If changes are needed:**`,
       ``,
       `1. Update the roadmap: \`kata_write_document("${mid}-ROADMAP", content)\`. Keep completed slices exactly as they are (\`[x]\`). Update the boundary map, proof strategy, and requirement coverage as needed.`,
-      `2. Write the assessment: \`kata_write_document("${completedSliceId}-ASSESSMENT", content)\` explaining what changed and why — keep it brief and concrete.`,
+      `2. Write the assessment (scoped to completed slice issue): \`kata_write_document("${completedSliceId}-ASSESSMENT", content, { issueId: "<completed-slice-issue-uuid>" })\` explaining what changed and why — keep it brief and concrete.`,
       `3. If requirements changed: \`kata_write_document("REQUIREMENTS", content)\``,
       `4. Commit all remaining uncommitted work:`,
       `   - Stage all changed files: \`git add -A\``,
@@ -865,7 +885,7 @@ export class LinearBackend implements KataBackend {
       ``,
       `2. Read required context:`,
       `   - Call \`kata_read_document("${mid}-ROADMAP")\` — **required**.`,
-      `   - Call \`kata_read_document("${completedSliceId}-SUMMARY")\` — **required**.`,
+      `   - Call \`kata_read_document("${completedSliceId}-SUMMARY", { issueId: "<completed-slice-issue-uuid>" })\` — **required**. Get the slice issue UUID from \`kata_list_slices\`.`,
       ``,
       `3. Read optional context:`,
       `   - \`kata_read_document("PROJECT")\``,
@@ -887,7 +907,7 @@ export class LinearBackend implements KataBackend {
 
   private _buildRunUatOps(sliceId: string): OpsBlock {
     const backendOps = [
-      `Write the UAT result: \`kata_write_document("${sliceId}-UAT-RESULT", content)\``,
+      `Write the UAT result (scoped to slice issue): \`kata_write_document("${sliceId}-UAT-RESULT", content, { issueId: "<slice-issue-uuid>" })\``,
       ``,
       `Use the same markdown format as described for artifact-driven UATs (frontmatter with sliceId, uatType, verdict, date; Checks table; Overall Verdict; Notes).`,
     ].join("\n");
@@ -908,10 +928,10 @@ export class LinearBackend implements KataBackend {
       `1. Call \`kata_derive_state\` to confirm context.`,
       ``,
       `2. Read required context:`,
-      `   - Call \`kata_read_document("${sliceId}-UAT")\` — **required**. Contains the test script.`,
+      `   - Call \`kata_read_document("${sliceId}-UAT", { issueId: "<slice-issue-uuid>" })\` — **required**. Contains the test script. Get the slice issue UUID from \`kata_list_slices\`.`,
       ``,
       `3. Read optional context:`,
-      `   - \`kata_read_document("${sliceId}-SUMMARY")\``,
+      `   - \`kata_read_document("${sliceId}-SUMMARY", { issueId: "<slice-issue-uuid>" })\``,
       `   - \`kata_read_document("PROJECT")\``,
     ].join("\n");
 
