@@ -53,11 +53,17 @@ cargo build --release
 
 ## Quick Start
 
-### 1. Set your API keys
+### 1. Set up your environment
 
 ```bash
-export LINEAR_API_KEY="lin_api_..."
-export OPENAI_API_KEY="sk-..."
+cp .env.example .env
+```
+
+Edit `.env` with your keys:
+
+```
+LINEAR_API_KEY=lin_api_...
+OPENAI_API_KEY=sk-...
 ```
 
 ### 2. Create a WORKFLOW.md
