@@ -295,6 +295,7 @@ async fn run_worker_task(
 
                 if let Some(hook) = &config.hooks.after_create {
                     workspace::run_hook_in_container(
+                        "after_create",
                         &container_id,
                         hook,
                         issue,
@@ -306,6 +307,7 @@ async fn run_worker_task(
 
                 if let Some(hook) = &config.hooks.before_run {
                     workspace::run_hook_in_container(
+                        "before_run",
                         &container_id,
                         hook,
                         issue,
@@ -379,6 +381,7 @@ async fn run_worker_task(
 
                 if let Some(hook) = &config.hooks.after_run {
                     if let Err(err) = workspace::run_hook_in_container(
+                        "after_run",
                         &container_id,
                         hook,
                         issue,

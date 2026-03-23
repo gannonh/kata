@@ -310,12 +310,15 @@ pub async fn docker_bootstrap_repository(
         )
     };
 
-    docker::exec_in_container(container_id, &clone_cmd).await?;
+    docker::exec_in_container(container_id, &clone_cmd)
+        .await
+        .map_err(redact_docker_container_error)?;
     Ok(())
 }
 
 /// Run a hook command inside a Docker container.
 pub async fn run_hook_in_container(
+    hook_name: &str,
     container_id: &str,
     hook_cmd: &str,
     issue: &Issue,
@@ -338,10 +341,12 @@ pub async fn run_hook_in_container(
     let output = tokio::time::timeout(Duration::from_millis(timeout_ms), child.output())
         .await
         .map_err(|_| SymphonyError::WorkspaceHookTimeout {
-            hook: hook_cmd.to_string(),
+            hook: hook_name.to_string(),
             timeout_ms,
         })?
-        .map_err(|err| SymphonyError::DockerContainerFailed(err.to_string()))?;
+        .map_err(|err| {
+            redact_docker_container_error(SymphonyError::DockerContainerFailed(err.to_string()))
+        })?;
 
     if output.status.success() {
         Ok(())
@@ -352,16 +357,25 @@ pub async fn run_hook_in_container(
             String::from_utf8_lossy(&output.stderr)
         );
         tracing::warn!(
-            hook = %hook_cmd,
+            hook = %hook_name,
             container_id = %container_id,
             status = output.status.code().unwrap_or(-1),
             output = %truncate_output(&combined, 2048),
             "docker hook failed"
         );
         Err(SymphonyError::WorkspaceHookFailed {
-            hook: hook_cmd.to_string(),
+            hook: hook_name.to_string(),
             status: output.status.code().unwrap_or(-1),
         })
+    }
+}
+
+fn redact_docker_container_error(err: SymphonyError) -> SymphonyError {
+    match err {
+        SymphonyError::DockerContainerFailed(message) => {
+            SymphonyError::DockerContainerFailed(redact_url_credentials(&message))
+        }
+        other => other,
     }
 }
 

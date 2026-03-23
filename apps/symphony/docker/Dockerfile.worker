@@ -1,4 +1,4 @@
-FROM node:22-slim
+FROM node:22-slim@sha256:99ffed458747321024eb2d8926e4d3d7a799a6d13ea193913f54cec60009bf09
 ARG CODEX_VERSION=0.116.0
 
 RUN apt-get update \

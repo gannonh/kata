@@ -613,10 +613,44 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         max_concurrent_agents_per_host: raw_worker.max_concurrent_agents_per_host,
     };
 
-    if workspace.isolation == WorkspaceIsolation::Docker && !worker.ssh_hosts.is_empty() {
-        return Err(SymphonyError::InvalidWorkflowConfig(
-            "worker.ssh_hosts is not supported with workspace.isolation 'docker'".to_string(),
-        ));
+    if workspace.isolation == WorkspaceIsolation::Docker {
+        if !worker.ssh_hosts.is_empty() {
+            return Err(SymphonyError::InvalidWorkflowConfig(
+                "worker.ssh_hosts is not supported with workspace.isolation 'docker'".to_string(),
+            ));
+        }
+
+        let effective_strategy = match workspace.strategy {
+            WorkspaceRepoStrategy::Auto => {
+                workspace
+                    .repo
+                    .as_deref()
+                    .map_or(WorkspaceRepoStrategy::Auto, |repo| {
+                        if repo_is_remote(repo) {
+                            WorkspaceRepoStrategy::CloneRemote
+                        } else {
+                            WorkspaceRepoStrategy::CloneLocal
+                        }
+                    })
+            }
+            other => other,
+        };
+
+        match effective_strategy {
+            WorkspaceRepoStrategy::CloneRemote | WorkspaceRepoStrategy::Auto => {}
+            WorkspaceRepoStrategy::CloneLocal => {
+                return Err(SymphonyError::InvalidWorkflowConfig(
+                    "workspace.git_strategy 'clone-local' is not supported with workspace.isolation 'docker'"
+                        .to_string(),
+                ));
+            }
+            WorkspaceRepoStrategy::Worktree => {
+                return Err(SymphonyError::InvalidWorkflowConfig(
+                    "workspace.git_strategy 'worktree' is not supported with workspace.isolation 'docker'"
+                        .to_string(),
+                ));
+            }
+        }
     }
 
     // ── AgentConfig ───────────────────────────────────────────────────────

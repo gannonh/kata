@@ -477,6 +477,59 @@ worker:
 }
 
 #[test]
+fn test_docker_isolation_rejects_clone_local_strategy() {
+    let yaml_str = r#"
+workspace:
+  isolation: docker
+  repo: /tmp/local-repo
+  git_strategy: clone-local
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("docker isolation should reject clone-local");
+    assert!(
+        err.to_string().contains(
+            "workspace.git_strategy 'clone-local' is not supported with workspace.isolation 'docker'"
+        ),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn test_docker_isolation_rejects_worktree_strategy() {
+    let yaml_str = r#"
+workspace:
+  isolation: docker
+  repo: /tmp/local-repo
+  strategy: worktree
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("docker isolation should reject worktree");
+    assert!(
+        err.to_string().contains(
+            "workspace.git_strategy 'worktree' is not supported with workspace.isolation 'docker'"
+        ),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn test_docker_isolation_rejects_auto_with_local_repo() {
+    let yaml_str = r#"
+workspace:
+  isolation: docker
+  repo: /tmp/local-repo
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("docker isolation should reject local auto strategy");
+    assert!(
+        err.to_string().contains(
+            "workspace.git_strategy 'clone-local' is not supported with workspace.isolation 'docker'"
+        ),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn test_workspace_cleanup_on_done_parses_true_and_false() {
     let yaml_true = r#"
 workspace:
