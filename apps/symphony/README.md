@@ -73,7 +73,7 @@ cp docs/WORKFLOW-REFERENCE.md WORKFLOW.md
 On startup, Symphony prints a summary banner:
 
 ```
-Symphony v1.0.0
+Symphony v1.0.1
 Dashboard: http://127.0.0.1:8080
 Logs: stdout
 Project: 89d4761fddf0
