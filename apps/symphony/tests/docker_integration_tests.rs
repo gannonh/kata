@@ -2,6 +2,7 @@
 //! Requires Docker daemon running and SYMPHONY_DOCKER_TESTS=1.
 
 use chrono::Utc;
+use serial_test::serial;
 use tokio::process::Command;
 
 use symphony::docker;
@@ -47,6 +48,7 @@ async fn test_docker_available() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_start_and_stop_container() {
     if !docker_tests_enabled() {
         return;
@@ -101,6 +103,7 @@ async fn test_start_and_stop_container() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_exec_in_container() {
     if !docker_tests_enabled() {
         return;
@@ -140,6 +143,7 @@ async fn test_exec_in_container() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_auth_resolution_auto() {
     if !docker_tests_enabled() {
         return;

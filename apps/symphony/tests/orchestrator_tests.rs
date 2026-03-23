@@ -13,6 +13,7 @@ use tempfile::{tempdir, NamedTempFile};
 
 use symphony::domain::{
     AgentConfig, AgentEvent, ApiKey, BlockerRef, Issue, ServiceConfig, TrackerConfig,
+    WorkspaceIsolation,
 };
 use symphony::error::{Result, SymphonyError};
 use symphony::orchestrator::{
@@ -525,6 +526,39 @@ fn test_dispatch_candidate_sorting_and_gating_rules() {
         dispatched,
         vec![highest.id],
         "dispatch must sort by priority/created_at/identifier and gate blocked issues"
+    );
+}
+
+#[test]
+fn test_dispatch_docker_isolation_never_assigns_ssh_worker_host() {
+    let mut config = test_config(1);
+    config.workspace.isolation = WorkspaceIsolation::Docker;
+    config.worker.ssh_hosts = vec!["worker-a".to_string(), "worker-b".to_string()];
+
+    let mut orchestrator = Orchestrator::new(config, String::new());
+    let candidate = issue("issue-docker", "SIM-DOCKER", "In Progress", Some(1), 0);
+    let issue_id = candidate.id.clone();
+
+    let mut port = FakePort {
+        candidate_issues: vec![candidate],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+    assert_eq!(
+        tick.dispatched_issue_ids,
+        vec![issue_id.clone()],
+        "docker candidate should still dispatch"
+    );
+
+    let running = orchestrator
+        .state()
+        .running
+        .get(&issue_id)
+        .expect("run attempt should be tracked");
+    assert!(
+        running.worker_host.is_none(),
+        "docker isolation must not assign SSH worker hosts"
     );
 }
 

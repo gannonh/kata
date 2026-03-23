@@ -2128,6 +2128,10 @@ impl Orchestrator {
     /// - Returns `Remote(host)` with the least-loaded eligible host otherwise.
     /// - Returns `NoneAvailable` when all hosts are at or above the per-host cap.
     fn select_worker_host(&self, preferred: Option<&str>) -> WorkerHostSelection {
+        if self.config.workspace.isolation == WorkspaceIsolation::Docker {
+            return WorkerHostSelection::Local;
+        }
+
         let ssh_hosts = &self.config.worker.ssh_hosts;
         let cap = self
             .config
