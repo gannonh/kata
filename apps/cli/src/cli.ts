@@ -3,6 +3,7 @@ import {
   ModelRegistry,
   SettingsManager,
   SessionManager,
+  DefaultPackageManager,
   createAgentSession,
   InteractiveMode,
   runPrintMode,
@@ -123,6 +124,116 @@ if (!hasConfiguredPackages && !globalPackages.includes(MCP_ADAPTER_PACKAGE)) {
   settingsManager.setPackages([...globalPackages, MCP_ADAPTER_PACKAGE])
 }
 await settingsManager.flush()
+
+// ---------------------------------------------------------------------------
+// Package commands: install, remove, uninstall, update, list
+// ---------------------------------------------------------------------------
+
+const PACKAGE_COMMANDS = ['install', 'remove', 'uninstall', 'update', 'list'] as const
+type PackageCommand = 'install' | 'remove' | 'update' | 'list'
+
+const rawArgs = process.argv.slice(2)
+const rawCommand = rawArgs[0]
+
+if (rawCommand && (PACKAGE_COMMANDS as readonly string[]).includes(rawCommand)) {
+  const command: PackageCommand = rawCommand === 'uninstall' ? 'remove' : rawCommand as PackageCommand
+  const rest = rawArgs.slice(1)
+
+  // Parse flags — skip known flag-value pairs injected by loader.ts
+  let local = false
+  let help = false
+  let source: string | undefined
+  for (let j = 0; j < rest.length; j++) {
+    const arg = rest[j]
+    if (arg === '-h' || arg === '--help') help = true
+    else if (arg === '-l' || arg === '--local') local = true
+    else if (arg === '--mcp-config' || arg === '--model' || arg === '--mode' || arg === '--tools' || arg === '--append-system-prompt' || arg === '--extension') {
+      j++ // skip the value
+    } else if (arg.startsWith('-')) {
+      // unknown flag, ignore
+    } else {
+      source = arg
+    }
+  }
+
+  if (help) {
+    const name = 'kata'
+    switch (command) {
+      case 'install':
+        console.log(`Usage: ${name} install <source> [-l]\n\nInstall a package and add it to settings.\n  -l, --local    Install project-locally`)
+        break
+      case 'remove':
+        console.log(`Usage: ${name} remove <source> [-l]\n\nRemove a package.\n  -l, --local    Remove from project settings`)
+        break
+      case 'update':
+        console.log(`Usage: ${name} update [source]\n\nUpdate installed packages.\nIf <source> is provided, only that package is updated.`)
+        break
+      case 'list':
+        console.log(`Usage: ${name} list\n\nList installed packages.`)
+        break
+    }
+    process.exit(0)
+  }
+
+  const packageManager = new DefaultPackageManager({
+    cwd: process.cwd(),
+    agentDir,
+    settingsManager,
+  })
+
+  try {
+    switch (command) {
+      case 'install': {
+        if (!source) { console.error('Error: source is required'); process.exit(1) }
+        await packageManager.install(source, { local })
+        console.log(`Installed ${source}`)
+        break
+      }
+      case 'remove': {
+        if (!source) { console.error('Error: source is required'); process.exit(1) }
+        await packageManager.remove(source, { local })
+        console.log(`Removed ${source}`)
+        break
+      }
+      case 'update':
+        await packageManager.update(source)
+        console.log(source ? `Updated ${source}` : 'Updated packages')
+        break
+      case 'list': {
+        const gs = settingsManager.getGlobalSettings()
+        const ps = settingsManager.getProjectSettings()
+        const gp = (gs.packages ?? []).map((p: string | { source: string }) => typeof p === 'string' ? p : p.source)
+        const pp = (ps.packages ?? []).map((p: string | { source: string }) => typeof p === 'string' ? p : p.source)
+        if (gp.length > 0) {
+          console.log('User packages:')
+          for (const p of gp) {
+            console.log(`  ${p}`)
+            const path = packageManager.getInstalledPath(p, 'user')
+            if (path) console.log(`    ${path}`)
+          }
+        }
+        if (pp.length > 0) {
+          if (gp.length > 0) console.log()
+          console.log('Project packages:')
+          for (const p of pp) {
+            console.log(`  ${p}`)
+            const path = packageManager.getInstalledPath(p, 'project')
+            if (path) console.log(`    ${path}`)
+          }
+        }
+        if (gp.length === 0 && pp.length === 0) {
+          console.log('No packages installed.')
+        }
+        break
+      }
+    }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error(`Error: ${message}`)
+    process.exit(1)
+  }
+  process.exit(0)
+}
 
 const sessionManager = SessionManager.create(process.cwd(), sessionsDir)
 
