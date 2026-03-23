@@ -1,24 +1,45 @@
 use std::ffi::OsString;
-use std::future::{pending, Future};
-use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, Once};
-use std::time::Duration;
 
 use clap::Parser;
-use symphony::domain::{Issue, ServiceConfig};
+use symphony::domain::ServiceConfig;
+
+#[cfg(not(test))]
+use symphony::orchestrator::OrchestratorPort;
+#[cfg(not(test))]
+use symphony::workflow_store::WorkflowStore;
+#[cfg(not(test))]
+use symphony::{config, error};
+
+#[cfg(not(test))]
+use std::future::{pending, Future};
+#[cfg(not(test))]
+use std::io::Write;
+#[cfg(not(test))]
+use std::sync::{Arc, Mutex, Once};
+#[cfg(not(test))]
+use std::time::Duration;
+#[cfg(not(test))]
+use symphony::domain::Issue;
+#[cfg(not(test))]
 use symphony::http_server::{
     bind_http_listener_with_fallback, start_http_server, HttpServerState, HTTP_PORT_RETRY_LIMIT,
 };
+#[cfg(not(test))]
 use symphony::linear::adapter::{LinearAdapter, TrackerAdapter};
+#[cfg(not(test))]
 use symphony::linear::client::LinearClient;
+#[cfg(not(test))]
 use symphony::logging;
-use symphony::orchestrator::{Orchestrator, OrchestratorPort};
+#[cfg(not(test))]
+use symphony::orchestrator::Orchestrator;
+#[cfg(not(test))]
 use symphony::tui;
-use symphony::workflow_store::WorkflowStore;
-use symphony::{config, error};
+#[cfg(not(test))]
 use tokio::net::TcpListener;
+#[cfg(not(test))]
 use tracing_appender::non_blocking::WorkerGuard;
+#[cfg(not(test))]
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug, Clone)]
@@ -54,6 +75,7 @@ pub trait BootstrapDeps {
     fn start_orchestrator(&mut self, workflow_path: &Path, cli: &Cli) -> Result<(), String>;
 }
 
+#[cfg(not(test))]
 struct StartupContext {
     workflow_path: PathBuf,
     workflow_store: WorkflowStore,
@@ -66,6 +88,7 @@ pub(crate) struct HttpBinding {
     pub(crate) port: u16,
 }
 
+#[cfg(not(test))]
 struct PreparedHttpServer {
     host: String,
     configured_port: u16,
@@ -74,10 +97,12 @@ struct PreparedHttpServer {
     listener: TcpListener,
 }
 
+#[cfg(not(test))]
 struct LinearOrchestratorPort {
     workflow_store: Arc<WorkflowStore>,
 }
 
+#[cfg(not(test))]
 impl LinearOrchestratorPort {
     fn new(workflow_store: Arc<WorkflowStore>) -> Self {
         Self { workflow_store }
@@ -93,6 +118,7 @@ impl LinearOrchestratorPort {
     }
 }
 
+#[cfg(not(test))]
 impl OrchestratorPort for LinearOrchestratorPort {
     fn startup_terminal_issues(&mut self, terminal_states: &[String]) -> error::Result<Vec<Issue>> {
         let adapter = self.tracker_adapter();
@@ -133,11 +159,13 @@ impl OrchestratorPort for LinearOrchestratorPort {
     }
 }
 
+#[cfg(not(test))]
 #[derive(Default)]
 pub struct RuntimeBootstrapDeps {
     startup_context: Option<StartupContext>,
 }
 
+#[cfg(not(test))]
 impl RuntimeBootstrapDeps {
     fn load_startup_context(workflow_path: &Path) -> Result<StartupContext, String> {
         let workflow_store = WorkflowStore::new(workflow_path)
@@ -169,6 +197,7 @@ impl RuntimeBootstrapDeps {
     }
 }
 
+#[cfg(not(test))]
 impl BootstrapDeps for RuntimeBootstrapDeps {
     fn workflow_exists(&mut self, workflow_path: &Path) -> bool {
         workflow_path.is_file()
@@ -321,6 +350,7 @@ pub fn resolve_workflow_path(cli: &Cli) -> PathBuf {
     PathBuf::from(&cli.workflow_path)
 }
 
+#[cfg_attr(test, allow(dead_code))]
 pub(crate) fn effective_http_binding(config: &ServiceConfig, cli: &Cli) -> Option<HttpBinding> {
     let port = cli.port.or(config.server.port)?;
     Some(HttpBinding {
@@ -340,6 +370,7 @@ fn startup_banner_binding(configured_binding: &HttpBinding, bound_port: u16) -> 
     }
 }
 
+#[cfg(not(test))]
 fn prepare_http_server_binding(
     configured_binding: Option<HttpBinding>,
 ) -> Result<Option<PreparedHttpServer>, String> {
@@ -369,6 +400,7 @@ fn prepare_http_server_binding(
     }))
 }
 
+#[cfg_attr(test, allow(dead_code))]
 fn format_polling_interval(interval_ms: u64) -> String {
     if interval_ms.is_multiple_of(1_000) {
         format!("every {}s", interval_ms / 1_000)
@@ -377,6 +409,7 @@ fn format_polling_interval(interval_ms: u64) -> String {
     }
 }
 
+#[cfg_attr(test, allow(dead_code))]
 fn display_path_with_home_alias(path: &Path) -> String {
     let home = match std::env::var("HOME") {
         Ok(home) => PathBuf::from(home),
@@ -390,6 +423,7 @@ fn display_path_with_home_alias(path: &Path) -> String {
     }
 }
 
+#[cfg_attr(test, allow(dead_code))]
 fn format_dashboard_url(host: &str, port: u16) -> String {
     let host = match host.parse::<std::net::IpAddr>() {
         Ok(std::net::IpAddr::V6(_)) if !host.starts_with('[') => format!("[{host}]"),
@@ -406,6 +440,7 @@ fn format_dashboard_url(host: &str, port: u16) -> String {
     }
 }
 
+#[cfg_attr(test, allow(dead_code))]
 pub(crate) fn build_startup_banner(
     cli: &Cli,
     config: &ServiceConfig,
@@ -436,6 +471,7 @@ pub(crate) fn build_startup_banner(
     )
 }
 
+#[cfg(not(test))]
 fn print_startup_banner(cli: &Cli, config: &ServiceConfig, http_binding: Option<&HttpBinding>) {
     print!("{}", build_startup_banner(cli, config, http_binding));
     if let Err(err) = std::io::stdout().flush() {
@@ -475,6 +511,7 @@ pub fn execute_cli(cli: &Cli, deps: &mut dyn BootstrapDeps) -> Result<(), String
     })
 }
 
+#[cfg(not(test))]
 async fn wait_for_shutdown_signal() -> Result<&'static str, String> {
     #[cfg(unix)]
     {
@@ -506,6 +543,7 @@ async fn wait_for_shutdown_signal() -> Result<&'static str, String> {
     }
 }
 
+#[cfg(not(test))]
 fn run_runtime_until_shutdown(
     orchestrator: &mut Orchestrator,
     port: &mut dyn OrchestratorPort,
@@ -616,14 +654,17 @@ fn run_runtime_until_shutdown(
     })
 }
 
+#[cfg(not(test))]
 static FILE_LOG_GUARD: Mutex<Option<WorkerGuard>> = Mutex::new(None);
 
+#[cfg(not(test))]
 fn flush_file_logs() {
     if let Ok(mut guard_slot) = FILE_LOG_GUARD.lock() {
         let _ = guard_slot.take();
     }
 }
 
+#[cfg(not(test))]
 fn init_tracing(logs_root: Option<&Path>, tui_enabled: bool) {
     static INIT: Once = Once::new();
 
@@ -674,6 +715,7 @@ fn init_tracing(logs_root: Option<&Path>, tui_enabled: bool) {
     });
 }
 
+#[cfg(not(test))]
 fn run_entrypoint(args: impl IntoIterator<Item = OsString>) -> i32 {
     let cli = match parse_cli_from(args) {
         Ok(cli) => cli,
@@ -702,6 +744,7 @@ fn run_entrypoint(args: impl IntoIterator<Item = OsString>) -> i32 {
     }
 }
 
+#[cfg(not(test))]
 #[tokio::main]
 async fn main() {
     // Load .env file if present (silently ignore if missing)
