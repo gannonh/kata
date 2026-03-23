@@ -284,7 +284,7 @@ pub fn resolve_codex_auth(auth_mode: DockerCodexAuth) -> Result<DockerAuthArgs> 
                 Ok((vec![], vec![mount]))
             } else {
                 Err(SymphonyError::DockerAuthError(
-                    "Codex auth required: set OPENAI_API_KEY or authenticate via `codex auth`"
+                    "Codex auth required: set OPENAI_API_KEY in your .env file (interactive login is not available inside containers)"
                         .to_string(),
                 ))
             }
