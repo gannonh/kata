@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.1 — TUI/dashboard polish + post-patch verification
+
+### Runtime and UX
+
+- **TUI default-on behavior** — terminal dashboard is enabled by default; `--no-tui` is the explicit opt-out. Legacy `--tui` remains accepted as a no-op for compatibility.
+- **Throughput sparkline** — TUI summary now includes a compact throughput graph for recent token rate changes.
+- **Color-coded status dots** — running-session state indicators use event/staleness-aware colors for faster scanability.
+- **Linear project URL visibility** — TUI summary and HTTP dashboard both surface the configured Linear project link.
+- **Session-only completed list** — startup terminal-issue discovery no longer pollutes the per-session completed issues list.
+- **Startup banner consistency** — banner version line is emitted from the crate package version.
+
+### Verification and docs
+
+- **Quality gate rerun** — validated with `cargo test`, `cargo clippy -- -D warnings`, and `cargo build --release`.
+- **Documentation sync** — refreshed README, AGENTS architecture notes, and WORKFLOW reference to match current CLI/TUI/dashboard behavior.
+
 ## 1.0.0 — MVP Release
 
 First public release. Symphony is a headless orchestrator that polls Linear for issues, dispatches parallel agent sessions, and manages the full ticket lifecycle autonomously.

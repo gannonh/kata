@@ -5,11 +5,10 @@
 #
 # This file serves two purposes:
 #   1. YAML front-matter: parsed by Symphony as runtime configuration
-#   2. Markdown body: rendered as the Jinja2 prompt template for each agent session
+#   2. Markdown body: rendered as the Liquid prompt template for each agent session
 #
-# Symphony watches this file for changes. When `workspace.cleanup_on_done` is
-# false (default), a restart is needed for config changes to take effect.
-# See KAT-815 for dynamic reload support.
+# Symphony watches this file for changes and applies config updates without
+# requiring a process restart.
 #
 # Environment variable indirection: any string value starting with `$` followed
 # by a bare identifier (no `/`, spaces, or `:`) is resolved from the process
