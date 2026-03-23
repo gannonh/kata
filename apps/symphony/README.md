@@ -27,11 +27,11 @@ All configuration — tracker, workspace, agent, and the prompt template — liv
 
 Download from [GitHub Releases](https://github.com/gannonh/kata/releases):
 
-| Platform | Binary |
-|---|---|
-| macOS (Apple Silicon) | `symphony-macos-arm64` |
-| Linux (x86_64) | `symphony-linux-x86_64` |
-| Windows (x86_64) | `symphony-windows-x86_64.exe` |
+| Platform              | Binary                        |
+| --------------------- | ----------------------------- |
+| macOS (Apple Silicon) | `symphony-macos-arm64`        |
+| Linux (x86_64)        | `symphony-linux-x86_64`       |
+| Windows (x86_64)      | `symphony-windows-x86_64.exe` |
 
 ```bash
 # Example: macOS Apple Silicon
@@ -64,9 +64,16 @@ Edit `.env` with your Linear API key:
 LINEAR_API_KEY=lin_api_...
 ```
 
-For Codex auth, either run `codex` once (opens browser for subscription login) or set `OPENAI_API_KEY` in `.env`.
+For Codex auth, either log into Codex CLI locally by running `codex` and authenticating, or set `OPENAI_API_KEY` in `.env`.
 
 ### 2. Create a WORKFLOW.md
+
+This project includes two real workflow files you can use as starting points:
+
+- **[`WORKFLOW.md`](WORKFLOW.md)** — used to develop Symphony itself. Flat ticket model: one issue = one agent session.
+- **[`cli-WORKFLOW.md`](cli-WORKFLOW.md)** — used to develop Kata CLI. Optimized for parent/child issue hierarchies created by the Kata CLI planning tool, with document-loading rules for slices and tasks.
+
+Copy one and adapt it to your project, or start from scratch:
 
 ```yaml
 ---
@@ -129,12 +136,12 @@ Workers run as bare processes on your machine. Symphony clones your repo into a 
 
 **Workspace strategies for local mode:**
 
-| Strategy | What it does | Best for |
-|---|---|---|
-| `auto` (default) | Picks clone-local or clone-remote based on whether repo is a path or URL | General use |
-| `clone-local` | `git clone --local` with hard links | Monorepo on same volume — fast |
-| `clone-remote` | `git clone --single-branch` | Remote repos |
-| `worktree` | `git worktree add` | Monorepo — instant, visible in git clients |
+| Strategy         | What it does                                                             | Best for                                   |
+| ---------------- | ------------------------------------------------------------------------ | ------------------------------------------ |
+| `auto` (default) | Picks clone-local or clone-remote based on whether repo is a path or URL | General use                                |
+| `clone-local`    | `git clone --local` with hard links                                      | Monorepo on same volume — fast             |
+| `clone-remote`   | `git clone --single-branch`                                              | Remote repos                               |
+| `worktree`       | `git worktree add`                                                       | Monorepo — instant, visible in git clients |
 
 ### Docker mode
 
@@ -160,22 +167,22 @@ You just need Docker Desktop (or Docker Engine) running. Symphony talks to the D
 
 **Setup scripts** install language toolchains or extra dependencies on top of the base image. Bundled scripts in `docker/setups/`:
 
-| Script | What it installs |
-|---|---|
-| `bun.sh` | Bun runtime |
-| `python.sh` | Python 3, pip, venv |
-| `rust.sh` | Rust via rustup (stable toolchain) |
-| `go.sh` | Go (version configurable via `GO_VERSION` env var) |
+| Script      | What it installs                                   |
+| ----------- | -------------------------------------------------- |
+| `bun.sh`    | Bun runtime                                        |
+| `python.sh` | Python 3, pip, venv                                |
+| `rust.sh`   | Rust via rustup (stable toolchain)                 |
+| `go.sh`     | Go (version configurable via `GO_VERSION` env var) |
 
 Symphony caches the derived image using a hash of the base image name + setup script content. The first build takes time; subsequent runs reuse the cached image.
 
 **Docker auth modes** — how Codex authenticates inside the container:
 
-| Mode | What it does |
-|---|---|
-| `auto` (default) | Uses `OPENAI_API_KEY` env var if set, otherwise mounts `~/.codex/auth.json` |
-| `env` | Passes `OPENAI_API_KEY` into the container. Fails if not set |
-| `mount` | Bind-mounts `~/.codex/auth.json` into the container. Fails if file doesn't exist |
+| Mode             | What it does                                                                     |
+| ---------------- | -------------------------------------------------------------------------------- |
+| `auto` (default) | Uses `OPENAI_API_KEY` env var if set, otherwise mounts `~/.codex/auth.json`      |
+| `env`            | Passes `OPENAI_API_KEY` into the container. Fails if not set                     |
+| `mount`          | Bind-mounts `~/.codex/auth.json` into the container. Fails if file doesn't exist |
 
 **Extra container config:**
 
@@ -189,6 +196,7 @@ workspace:
 ```
 
 **Limitations of Docker mode:**
+
 - `git_strategy` must be `auto` or `clone-remote` (clone-local and worktree require host filesystem access)
 - `workspace.repo` must be a remote URL (local paths aren't accessible inside the container)
 
@@ -221,15 +229,15 @@ Todo → In Progress → Agent Review → Human Review → Merging → Done
                          └── Rework ←────┘
 ```
 
-| Status | Who sets it | What happens |
-|---|---|---|
-| **Todo** | Human | Issue is queued — Symphony picks it up on the next poll |
-| **In Progress** | Orchestrator | Agent is working — writing code, running tests |
-| **Agent Review** | Agent or Human | Agent addresses PR review comments |
-| **Human Review** | Agent | PR is ready for human approval |
-| **Merging** | Human | Agent merges the approved PR |
-| **Rework** | Human | Agent scraps current approach, starts fresh on a new branch |
-| **Done** | Agent | Terminal — PR merged, workspace cleaned up |
+| Status           | Who sets it    | What happens                                                |
+| ---------------- | -------------- | ----------------------------------------------------------- |
+| **Todo**         | Human          | Issue is queued — Symphony picks it up on the next poll     |
+| **In Progress**  | Orchestrator   | Agent is working — writing code, running tests              |
+| **Agent Review** | Agent or Human | Agent addresses PR review comments                          |
+| **Human Review** | Agent          | PR is ready for human approval                              |
+| **Merging**      | Human          | Agent merges the approved PR                                |
+| **Rework**       | Human          | Agent scraps current approach, starts fresh on a new branch |
+| **Done**         | Agent          | Terminal — PR merged, workspace cleaned up                  |
 
 **Linear setup note:** Disable Linear's "auto-close parent when all sub-issues are done" automation. Symphony agents move child issues to Done during execution, but the parent must stay active until the PR lifecycle completes.
 
@@ -239,12 +247,12 @@ Todo → In Progress → Agent Review → Human Review → Merging → Done
 symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--no-tui]
 ```
 
-| Flag | Default | Description |
-|---|---|---|
-| `WORKFLOW.md` (positional) | `WORKFLOW.md` | Path to the workflow configuration file |
-| `--port PORT` | `8080` | HTTP dashboard and API port |
-| `--logs-root PATH` | *(none)* | Directory for rotating log files |
-| `--no-tui` | `false` | Disable the terminal dashboard; stream JSON logs to stdout instead |
+| Flag                       | Default       | Description                                                        |
+| -------------------------- | ------------- | ------------------------------------------------------------------ |
+| `WORKFLOW.md` (positional) | `WORKFLOW.md` | Path to the workflow configuration file                            |
+| `--port PORT`              | `8080`        | HTTP dashboard and API port                                        |
+| `--logs-root PATH`         | *(none)*      | Directory for rotating log files                                   |
+| `--no-tui`                 | `false`       | Disable the terminal dashboard; stream JSON logs to stdout instead |
 
 ### Log verbosity
 
@@ -260,16 +268,16 @@ All configuration lives in the YAML front-matter of your WORKFLOW.md. See [`docs
 
 ### Key sections
 
-| Section | What it controls |
-|---|---|
-| `tracker` | Linear connection, project, assignee filter, state mappings |
-| `polling` | How often to check for new/changed issues |
-| `workspace` | Where and how workspaces are created, Docker config |
-| `agent` | Concurrency limits, max turns, retry backoff |
-| `codex` | Codex command, timeouts, approval policy, sandbox settings |
-| `hooks` | Shell commands to run at workspace lifecycle points |
-| `worker` | SSH remote worker pool configuration |
-| `server` | HTTP dashboard host and port |
+| Section     | What it controls                                            |
+| ----------- | ----------------------------------------------------------- |
+| `tracker`   | Linear connection, project, assignee filter, state mappings |
+| `polling`   | How often to check for new/changed issues                   |
+| `workspace` | Where and how workspaces are created, Docker config         |
+| `agent`     | Concurrency limits, max turns, retry backoff                |
+| `codex`     | Codex command, timeouts, approval policy, sandbox settings  |
+| `hooks`     | Shell commands to run at workspace lifecycle points         |
+| `worker`    | SSH remote worker pool configuration                        |
+| `server`    | HTTP dashboard host and port                                |
 
 ### Environment variable indirection
 
