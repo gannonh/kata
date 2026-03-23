@@ -145,14 +145,14 @@ Workers run as bare processes on your machine. Symphony creates an isolated work
 
 **Recommended: `worktree` strategy.** Git worktrees are instant to create, share the object store with your main repo, and show up in git clients so you can inspect agent work in progress.
 
-**All workspace strategies:**
+**All `git_strategy` options:**
 
-| Strategy                | What it does                                                             | Best for                                                     |
-| ----------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| `worktree` (recommended)| `git worktree add`                                                       | Local repos — instant setup, shared history, visible in git clients |
-| `auto` (default)        | Picks clone-local or clone-remote based on whether repo is a path or URL | When you're not sure                                         |
-| `clone-local`           | `git clone --local` with hard links                                      | Same volume, full isolation from main repo                   |
-| `clone-remote`          | `git clone --single-branch`                                              | Remote repos, CI environments                                |
+| Strategy                 | What it does                                                             | Best for                                                            |
+| ------------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| `worktree` (recommended) | `git worktree add`                                                       | Local repos — instant setup, shared history, visible in git clients |
+| `auto` (default)         | Picks clone-local or clone-remote based on whether repo is a path or URL | When you're not sure                                                |
+| `clone-local`            | `git clone --local` with hard links                                      | Same volume, full isolation from main repo                          |
+| `clone-remote`           | `git clone --single-branch`                                              | Remote repos, CI environments                                       |
 
 ### Docker mode
 
