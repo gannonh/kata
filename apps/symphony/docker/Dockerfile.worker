@@ -1,4 +1,5 @@
 FROM node:22-slim
+ARG CODEX_VERSION=0.116.0
 
 RUN apt-get update \
     && apt-get install -y git curl ca-certificates \
@@ -13,6 +14,6 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g @openai/codex
+RUN npm install -g @openai/codex@${CODEX_VERSION}
 
 WORKDIR /workspace

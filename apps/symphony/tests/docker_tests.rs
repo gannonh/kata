@@ -50,6 +50,12 @@ fn test_derived_image_tag_changes_with_content() {
 }
 
 #[test]
+fn test_derived_image_tag_matches_stable_known_value() {
+    let tag = derived_image_tag("symphony-worker:latest", "echo hello");
+    assert_eq!(tag, "symphony-worker-6bc92325deeb046b");
+}
+
+#[test]
 #[serial]
 fn test_resolve_codex_auth_auto_with_api_key() {
     let prev_api_key = std::env::var("OPENAI_API_KEY").ok();

@@ -1,5 +1,3 @@
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
@@ -49,10 +47,23 @@ pub async fn resolve_image(base_image: &str, setup_script: Option<&str>) -> Resu
 
 /// Compute a deterministic tag for a derived image from setup script content.
 pub fn derived_image_tag(base_image: &str, setup_content: &str) -> String {
-    let mut hasher = DefaultHasher::new();
-    base_image.hash(&mut hasher);
-    setup_content.hash(&mut hasher);
-    format!("symphony-worker-{:016x}", hasher.finish())
+    const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+    const FNV_PRIME: u64 = 0x100000001b3;
+
+    let mut hash = FNV_OFFSET_BASIS;
+
+    for byte in base_image
+        .as_bytes()
+        .iter()
+        .copied()
+        .chain(std::iter::once(0))
+        .chain(setup_content.as_bytes().iter().copied())
+    {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(FNV_PRIME);
+    }
+
+    format!("symphony-worker-{hash:016x}")
 }
 
 /// Compute a deterministic container name from an issue identifier.
@@ -91,6 +102,7 @@ async fn image_exists(tag: &str) -> bool {
 /// Build a derived image: base + RUN setup script.
 async fn build_derived_image(base_image: &str, setup_content: &str, tag: &str) -> Result<()> {
     let build_dir = create_build_dir()?;
+    let _build_dir_guard = TempBuildDirGuard(build_dir.clone());
     let dockerfile_path = build_dir.join("Dockerfile");
     let setup_path = build_dir.join("setup.sh");
 
@@ -111,8 +123,6 @@ async fn build_derived_image(base_image: &str, setup_content: &str, tag: &str) -
         .await
         .map_err(map_docker_io_error)?;
 
-    let _ = std::fs::remove_dir_all(&build_dir);
-
     if output.status.success() {
         tracing::info!(tag = %tag, base_image = %base_image, "built derived docker image");
         Ok(())
@@ -131,13 +141,25 @@ pub async fn start_container(
     env_vars: &[(&str, &str)],
 ) -> Result<String> {
     let (auth_env, auth_mounts) = resolve_codex_auth(config.codex_auth)?;
+    let container_name = container_name_from_issue(issue);
+
+    // Best-effort cleanup for stale containers from earlier interrupted runs.
+    let _ = Command::new("docker")
+        .arg("rm")
+        .arg("-f")
+        .arg(&container_name)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .await;
+
     let mut command = Command::new("docker");
     command
         .arg("run")
         .arg("-d")
         .arg("--rm")
         .arg("--name")
-        .arg(container_name_from_issue(issue))
+        .arg(&container_name)
         .arg("-w")
         .arg("/workspace");
 
@@ -294,6 +316,14 @@ fn create_build_dir() -> Result<PathBuf> {
     ));
     std::fs::create_dir_all(&dir).map_err(SymphonyError::Io)?;
     Ok(dir)
+}
+
+struct TempBuildDirGuard(PathBuf);
+
+impl Drop for TempBuildDirGuard {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
 }
 
 fn map_docker_io_error(err: std::io::Error) -> SymphonyError {
