@@ -136,6 +136,18 @@ jobs:
         with:
           path: artifacts
 
+      - name: Extract changelog entry
+        id: changelog
+        run: |
+          VERSION=${{ needs.check-version.outputs.version }}
+          NOTES=$(sed -n "/^## ${VERSION}$/,/^## /{ /^## ${VERSION}$/d; /^## /d; p; }" apps/symphony/CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            echo "found=false" >> $GITHUB_OUTPUT
+          else
+            echo "$NOTES" > /tmp/release-notes.md
+            echo "found=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -145,4 +157,5 @@ jobs:
             artifacts/symphony-linux-x86_64/symphony-linux-x86_64
             artifacts/symphony-macos-arm64/symphony-macos-arm64
             artifacts/symphony-windows-x86_64.exe/symphony-windows-x86_64.exe
-          generate_release_notes: true
+          body_path: ${{ steps.changelog.outputs.found == 'true' && '/tmp/release-notes.md' || '' }}
+          generate_release_notes: ${{ steps.changelog.outputs.found != 'true' }}
