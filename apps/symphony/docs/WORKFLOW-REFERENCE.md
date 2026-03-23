@@ -126,6 +126,7 @@ workspace:
   # If omitted, these defaults are applied automatically.
   docker:
     # Base image used for worker containers.
+    # Bundled worker image defaults to non-root user `node` (home `/home/node`).
     # Default: symphony-worker:latest
     image: symphony-worker:latest
 
@@ -134,8 +135,8 @@ workspace:
     # setup: docker/setups/rust.sh
 
     # Codex auth mode inside the worker container:
-    #   - auto  (default): OPENAI_API_KEY if set, else mount ~/.codex/auth.json
-    #   - mount: force mount ~/.codex/auth.json
+    #   - auto  (default): OPENAI_API_KEY if set, else stage host ~/.codex/auth.json and install to $HOME/.codex/auth.json in-container
+    #   - mount: force host ~/.codex/auth.json -> $HOME/.codex/auth.json in-container
     #   - env:   force OPENAI_API_KEY
     # codex_auth: auto
 
@@ -145,7 +146,7 @@ workspace:
 
     # Extra bind mounts passed at `docker run` time.
     # volumes:
-    #   - ~/.ssh:/root/.ssh:ro
+    #   - ~/.ssh:/home/node/.ssh:ro
 
 # ─── Hooks ────────────────────────────────────────────────────────────────────
 # Shell commands run at workspace lifecycle events. All hooks receive these

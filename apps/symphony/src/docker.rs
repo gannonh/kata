@@ -7,6 +7,10 @@ use crate::domain::{DockerCodexAuth, DockerConfig, Issue};
 use crate::error::{Result, SymphonyError};
 
 pub type DockerAuthArgs = (Vec<(String, String)>, Vec<String>);
+const ROOT_USER: &str = "root";
+const ROOT_UID: &str = "0";
+const SETUP_SCRIPT_PATH: &str = "/tmp/symphony-setup.sh";
+const CODEX_AUTH_STAGING_PATH: &str = "/tmp/symphony-codex-auth.json";
 
 /// Check if Docker daemon is reachable.
 pub async fn is_docker_available() -> bool {
@@ -106,9 +110,8 @@ async fn build_derived_image(base_image: &str, setup_content: &str, tag: &str) -
     let dockerfile_path = build_dir.join("Dockerfile");
     let setup_path = build_dir.join("setup.sh");
 
-    let dockerfile = format!(
-        "FROM {base_image}\nSHELL [\"/bin/sh\", \"-lc\"]\nCOPY setup.sh /tmp/symphony-setup.sh\nRUN chmod +x /tmp/symphony-setup.sh && /tmp/symphony-setup.sh && rm -f /tmp/symphony-setup.sh\n"
-    );
+    let base_image_user = image_default_user(base_image).await?;
+    let dockerfile = derived_image_dockerfile(base_image, &base_image_user);
     std::fs::write(&dockerfile_path, dockerfile).map_err(SymphonyError::Io)?;
     std::fs::write(&setup_path, setup_content).map_err(SymphonyError::Io)?;
 
@@ -193,6 +196,14 @@ pub async fn start_container(
                 "docker run succeeded but did not return a container id".to_string(),
             ));
         }
+
+        if !auth_mounts.is_empty() {
+            if let Err(err) = install_mounted_codex_auth(&container_id).await {
+                let _ = stop_container(&container_id).await;
+                return Err(err);
+            }
+        }
+
         Ok(container_id)
     } else {
         let details = command_output_summary(&output.stdout, &output.stderr, output.status.code());
@@ -263,7 +274,7 @@ pub fn resolve_codex_auth(auth_mode: DockerCodexAuth) -> Result<DockerAuthArgs> 
     let auth_json = codex_auth_json_path();
     let auth_mount = auth_json
         .as_ref()
-        .map(|path| format!("{}:/root/.codex/auth.json:ro", path.display()));
+        .map(|path| format!("{}:{CODEX_AUTH_STAGING_PATH}:ro", path.display()));
 
     match auth_mode {
         DockerCodexAuth::Auto => {
@@ -283,7 +294,7 @@ pub fn resolve_codex_auth(auth_mode: DockerCodexAuth) -> Result<DockerAuthArgs> 
                 Ok((vec![], vec![mount]))
             } else {
                 Err(SymphonyError::DockerAuthError(
-                    "docker codex_auth=mount requires ~/.codex/auth.json".to_string(),
+                    "docker codex_auth=mount requires host ~/.codex/auth.json".to_string(),
                 ))
             }
         }
@@ -303,6 +314,194 @@ fn codex_auth_json_path() -> Option<PathBuf> {
     let home = std::env::var("HOME").ok()?;
     let path = Path::new(&home).join(".codex").join("auth.json");
     path.exists().then_some(path)
+}
+
+async fn image_default_user(image: &str) -> Result<String> {
+    if let Ok(user) = inspect_image_default_user(image).await {
+        if user.is_empty() {
+            return Ok(ROOT_USER.to_string());
+        }
+        return Ok(user);
+    }
+
+    let pull_output = Command::new("docker")
+        .args(["pull", image])
+        .output()
+        .await
+        .map_err(map_docker_io_error)?;
+    if !pull_output.status.success() {
+        let details = command_output_summary(
+            &pull_output.stdout,
+            &pull_output.stderr,
+            pull_output.status.code(),
+        );
+        return Err(SymphonyError::DockerImageBuildFailed(format!(
+            "failed to inspect base image '{image}' user and pull fallback failed: {details}"
+        )));
+    }
+
+    let user = inspect_image_default_user(image).await?;
+    if user.is_empty() {
+        Ok(ROOT_USER.to_string())
+    } else {
+        Ok(user)
+    }
+}
+
+async fn inspect_image_default_user(image: &str) -> Result<String> {
+    let output = Command::new("docker")
+        .args(["image", "inspect", "--format", "{{.Config.User}}", image])
+        .output()
+        .await
+        .map_err(map_docker_io_error)?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        let details = command_output_summary(&output.stdout, &output.stderr, output.status.code());
+        Err(SymphonyError::DockerImageBuildFailed(format!(
+            "failed to inspect base image '{image}' user: {details}"
+        )))
+    }
+}
+
+fn derived_image_dockerfile(base_image: &str, base_image_user: &str) -> String {
+    format!(
+        "FROM {base_image}\n\
+SHELL [\"/bin/sh\", \"-lc\"]\n\
+USER {ROOT_USER}\n\
+COPY setup.sh {SETUP_SCRIPT_PATH}\n\
+RUN export HOME=/root && chmod +x {SETUP_SCRIPT_PATH} && {SETUP_SCRIPT_PATH} && rm -f {SETUP_SCRIPT_PATH}\n\
+USER {base_image_user}\n"
+    )
+}
+
+async fn install_mounted_codex_auth(container_id: &str) -> Result<()> {
+    let identity = container_identity(container_id).await?;
+    let script = codex_auth_install_script();
+    let mut command = Command::new("docker");
+    command
+        .arg("exec")
+        .arg("-i")
+        .arg("-u")
+        .arg(ROOT_UID)
+        .arg("-e")
+        .arg(format!("SYMPHONY_RUNTIME_UID={}", identity.uid))
+        .arg("-e")
+        .arg(format!("SYMPHONY_RUNTIME_GID={}", identity.gid));
+    if let Some(home) = identity.home {
+        command
+            .arg("-e")
+            .arg(format!("SYMPHONY_RUNTIME_HOME={home}"));
+    }
+    let output = command
+        .arg(container_id)
+        .arg("sh")
+        .arg("-lc")
+        .arg(script)
+        .output()
+        .await
+        .map_err(map_docker_io_error)?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let details = command_output_summary(&output.stdout, &output.stderr, output.status.code());
+        Err(SymphonyError::DockerAuthError(format!(
+            "failed to install mounted Codex auth in container home: {details}"
+        )))
+    }
+}
+
+#[derive(Debug)]
+struct ContainerIdentity {
+    uid: String,
+    gid: String,
+    home: Option<String>,
+}
+
+async fn container_identity(container_id: &str) -> Result<ContainerIdentity> {
+    let output = exec_in_container(
+        container_id,
+        "printf 'uid=%s\\ngid=%s\\nhome=%s\\n' \"$(id -u)\" \"$(id -g)\" \"${HOME:-}\"",
+    )
+    .await
+    .map_err(|err| {
+        SymphonyError::DockerAuthError(format!(
+            "failed to resolve runtime user identity before auth install: {err}"
+        ))
+    })?;
+
+    let mut uid: Option<String> = None;
+    let mut gid: Option<String> = None;
+    let mut home: Option<String> = None;
+
+    for line in output.lines() {
+        if let Some(value) = line.strip_prefix("uid=") {
+            uid = Some(value.to_string());
+        } else if let Some(value) = line.strip_prefix("gid=") {
+            gid = Some(value.to_string());
+        } else if let Some(value) = line.strip_prefix("home=") {
+            home = Some(value.to_string());
+        }
+    }
+
+    let uid = uid
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            SymphonyError::DockerAuthError(
+                "failed to resolve runtime uid before auth install".to_string(),
+            )
+        })?;
+    let gid = gid
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            SymphonyError::DockerAuthError(
+                "failed to resolve runtime gid before auth install".to_string(),
+            )
+        })?;
+
+    Ok(ContainerIdentity {
+        uid,
+        gid,
+        home: home.filter(|value| !value.trim().is_empty()),
+    })
+}
+
+fn codex_auth_install_script() -> String {
+    format!(
+        "set -eu\n\
+auth_src=\"{CODEX_AUTH_STAGING_PATH}\"\n\
+runtime_uid=\"${{SYMPHONY_RUNTIME_UID:-}}\"\n\
+runtime_gid=\"${{SYMPHONY_RUNTIME_GID:-}}\"\n\
+home_dir=\"${{SYMPHONY_RUNTIME_HOME:-}}\"\n\
+if [ -z \"$home_dir\" ] && [ -n \"$runtime_uid\" ]; then\n\
+  home_dir=\"$(getent passwd \"$runtime_uid\" | cut -d: -f6 2>/dev/null || true)\"\n\
+fi\n\
+if [ -z \"$home_dir\" ] && [ -n \"$runtime_uid\" ]; then\n\
+  home_dir=\"$(grep \"^[^:]*:[^:]*:${{runtime_uid}}:\" /etc/passwd | cut -d: -f6 2>/dev/null || true)\"\n\
+fi\n\
+if [ -z \"$home_dir\" ]; then\n\
+  home_dir=\"${{HOME:-}}\"\n\
+fi\n\
+if [ -z \"$home_dir\" ]; then\n\
+  home_dir=\"$(cd && pwd)\"\n\
+fi\n\
+if [ -z \"$home_dir\" ]; then\n\
+  echo \"failed to resolve container home directory\" >&2\n\
+  exit 1\n\
+fi\n\
+mkdir -p \"$home_dir/.codex\"\n\
+cp \"$auth_src\" \"$home_dir/.codex/auth.json\"\n\
+if [ -n \"$runtime_uid\" ]; then\n\
+  if [ -n \"$runtime_gid\" ]; then\n\
+    chown \"$runtime_uid:$runtime_gid\" \"$home_dir/.codex\" \"$home_dir/.codex/auth.json\"\n\
+  else\n\
+    chown \"$runtime_uid\" \"$home_dir/.codex\" \"$home_dir/.codex/auth.json\"\n\
+  fi\n\
+fi\n\
+chmod 600 \"$home_dir/.codex/auth.json\""
+    )
 }
 
 fn create_build_dir() -> Result<PathBuf> {
@@ -367,5 +566,26 @@ mod tests {
             summary.contains("https://[REDACTED]@github.com/org/repo"),
             "expected redacted URL in summary, got: {summary}"
         );
+    }
+
+    #[test]
+    fn test_derived_image_dockerfile_runs_setup_as_root_then_restores_user() {
+        let dockerfile = derived_image_dockerfile("symphony-worker:latest", "node");
+        assert!(dockerfile.contains("FROM symphony-worker:latest"));
+        assert!(dockerfile.contains("USER root"));
+        assert!(dockerfile.contains("RUN export HOME=/root && chmod +x /tmp/symphony-setup.sh"));
+        assert!(dockerfile.contains("USER node"));
+    }
+
+    #[test]
+    fn test_codex_auth_install_script_uses_dynamic_home_path() {
+        let script = codex_auth_install_script();
+        assert!(script.contains("SYMPHONY_RUNTIME_UID"));
+        assert!(script.contains("SYMPHONY_RUNTIME_HOME"));
+        assert!(script.contains("chown \"$runtime_uid:$runtime_gid\""));
+        assert!(script.contains("${HOME:-}"));
+        assert!(script.contains("getent passwd"));
+        assert!(script.contains(".codex/auth.json"));
+        assert!(!script.contains("/root/.codex/auth.json"));
     }
 }

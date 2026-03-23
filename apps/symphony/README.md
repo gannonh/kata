@@ -198,7 +198,7 @@ workspace:
     env:
       - CARGO_HOME=/usr/local/cargo
     volumes:
-      - ~/.ssh:/root/.ssh:ro
+      - ~/.ssh:/home/node/.ssh:ro
 
 agent:
   max_concurrent_agents: 3
@@ -250,14 +250,15 @@ docker compose up -d --build
 ### Custom worker images and setup scripts
 
 - Base worker image is `docker/Dockerfile.worker`.
+- Default worker runtime user is non-root (`node`, home `/home/node`).
 - `workspace.docker.image` selects the base image tag.
 - `workspace.docker.setup` points to a setup script; Symphony caches a derived image based on setup script content hash.
 - Bundled setup scripts live in `docker/setups/` (`rust.sh`, `python.sh`, `go.sh`, `bun.sh`).
 
 ### Docker auth modes
 
-- `codex_auth: auto` uses `OPENAI_API_KEY` when set, otherwise mounts `~/.codex/auth.json`.
-- `codex_auth: mount` requires `~/.codex/auth.json`.
+- `codex_auth: auto` uses `OPENAI_API_KEY` when set, otherwise stages host `~/.codex/auth.json` and installs it into the container user's `$HOME/.codex/auth.json`.
+- `codex_auth: mount` requires host `~/.codex/auth.json` and installs it into the container user's `$HOME/.codex/auth.json`.
 - `codex_auth: env` requires `OPENAI_API_KEY`.
 
 ## Dashboard

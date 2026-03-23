@@ -87,9 +87,27 @@ fn test_resolve_codex_auth_auto_with_auth_json() {
     let (env_vars, volumes) = resolve_codex_auth(DockerCodexAuth::Auto).unwrap();
     assert!(env_vars.is_empty());
     assert_eq!(volumes.len(), 1);
-    assert!(volumes[0].contains(".codex/auth.json:/root/.codex/auth.json:ro"));
+    assert!(volumes[0].contains(".codex/auth.json:/tmp/symphony-codex-auth.json:ro"));
 
     restore_env("OPENAI_API_KEY", prev_api_key);
+    restore_env("HOME", prev_home);
+}
+
+#[test]
+#[serial]
+fn test_resolve_codex_auth_mount_with_auth_json() {
+    let prev_home = std::env::var("HOME").ok();
+    let home = tempdir().unwrap();
+    let codex_dir = home.path().join(".codex");
+    std::fs::create_dir_all(&codex_dir).unwrap();
+    std::fs::write(codex_dir.join("auth.json"), "{}").unwrap();
+    std::env::set_var("HOME", home.path());
+
+    let (env_vars, volumes) = resolve_codex_auth(DockerCodexAuth::Mount).unwrap();
+    assert!(env_vars.is_empty());
+    assert_eq!(volumes.len(), 1);
+    assert!(volumes[0].contains(".codex/auth.json:/tmp/symphony-codex-auth.json:ro"));
+
     restore_env("HOME", prev_home);
 }
 
