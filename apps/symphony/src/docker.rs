@@ -478,6 +478,9 @@ home_dir=\"${{SYMPHONY_RUNTIME_HOME:-}}\"\n\
 if [ -z \"$home_dir\" ] && [ -n \"$runtime_uid\" ]; then\n\
   home_dir=\"$(getent passwd \"$runtime_uid\" | cut -d: -f6 2>/dev/null || true)\"\n\
 fi\n\
+if [ -z \"$home_dir\" ] && [ -n \"$runtime_uid\" ]; then\n\
+  home_dir=\"$(grep \"^[^:]*:[^:]*:${{runtime_uid}}:\" /etc/passwd | cut -d: -f6 2>/dev/null || true)\"\n\
+fi\n\
 if [ -z \"$home_dir\" ]; then\n\
   home_dir=\"${{HOME:-}}\"\n\
 fi\n\

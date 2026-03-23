@@ -45,6 +45,7 @@ fn non_root_worker_dockerfile() -> &'static str {
     r#"
 FROM alpine:3.20
 RUN adduser -D -u 10001 symphony
+RUN mkdir -p /workspace && chown symphony:symphony /workspace
 ENV HOME=/home/symphony
 WORKDIR /workspace
 USER symphony
@@ -74,11 +75,50 @@ async fn build_image(tag: &str, dockerfile: &str) {
     );
 }
 
-async fn remove_image(tag: &str) {
-    let _ = Command::new("docker")
+fn remove_image_sync(tag: &str) {
+    let _ = std::process::Command::new("docker")
         .args(["rmi", "-f", tag])
-        .output()
-        .await;
+        .output();
+}
+
+struct ImageCleanupGuard {
+    tag: String,
+}
+
+impl ImageCleanupGuard {
+    fn new(tag: impl Into<String>) -> Self {
+        Self { tag: tag.into() }
+    }
+}
+
+impl Drop for ImageCleanupGuard {
+    fn drop(&mut self) {
+        remove_image_sync(&self.tag);
+    }
+}
+
+struct EnvRestoreGuard {
+    key: &'static str,
+    previous: Option<String>,
+}
+
+impl EnvRestoreGuard {
+    fn capture(key: &'static str) -> Self {
+        Self {
+            key,
+            previous: std::env::var(key).ok(),
+        }
+    }
+}
+
+impl Drop for EnvRestoreGuard {
+    fn drop(&mut self) {
+        if let Some(value) = &self.previous {
+            std::env::set_var(self.key, value);
+        } else {
+            std::env::remove_var(self.key);
+        }
+    }
 }
 
 #[tokio::test]
@@ -219,8 +259,9 @@ async fn test_mount_auth_installs_in_non_root_home() {
 
     let tag = unique_identifier("kat-903-non-root-mount");
     build_image(&tag, non_root_worker_dockerfile()).await;
+    let _image_cleanup = ImageCleanupGuard::new(tag.clone());
 
-    let previous_home = std::env::var("HOME").ok();
+    let _home_restore = EnvRestoreGuard::capture("HOME");
     let home = tempdir().expect("temp home should create");
     let codex_dir = home.path().join(".codex");
     std::fs::create_dir_all(&codex_dir).expect("codex dir should create");
@@ -259,14 +300,6 @@ async fn test_mount_auth_installs_in_non_root_home() {
     docker::stop_container(&container_id)
         .await
         .expect("container should stop");
-
-    if let Some(value) = previous_home {
-        std::env::set_var("HOME", value);
-    } else {
-        std::env::remove_var("HOME");
-    }
-
-    remove_image(&tag).await;
 }
 
 #[tokio::test]
@@ -282,8 +315,9 @@ async fn test_env_auth_mode_works_in_non_root_container() {
 
     let tag = unique_identifier("kat-903-non-root-env");
     build_image(&tag, non_root_worker_dockerfile()).await;
+    let _image_cleanup = ImageCleanupGuard::new(tag.clone());
 
-    let previous_api_key = std::env::var("OPENAI_API_KEY").ok();
+    let _api_key_restore = EnvRestoreGuard::capture("OPENAI_API_KEY");
     std::env::set_var("OPENAI_API_KEY", "sk-test-env-mode");
 
     let issue = make_issue(unique_identifier("KAT-903-env"));
@@ -309,14 +343,6 @@ async fn test_env_auth_mode_works_in_non_root_container() {
     docker::stop_container(&container_id)
         .await
         .expect("container should stop");
-
-    if let Some(value) = previous_api_key {
-        std::env::set_var("OPENAI_API_KEY", value);
-    } else {
-        std::env::remove_var("OPENAI_API_KEY");
-    }
-
-    remove_image(&tag).await;
 }
 
 #[tokio::test]
@@ -332,6 +358,7 @@ async fn test_setup_script_runs_as_root_and_restores_non_root_default_user() {
 
     let base_tag = unique_identifier("kat-903-setup-base");
     build_image(&base_tag, non_root_worker_dockerfile()).await;
+    let _base_image_cleanup = ImageCleanupGuard::new(base_tag.clone());
 
     let setup_dir = tempdir().expect("setup tempdir should create");
     let setup_script = setup_dir.path().join("setup.sh");
@@ -351,8 +378,9 @@ async fn test_setup_script_runs_as_root_and_restores_non_root_default_user() {
     )
     .await
     .expect("derived image should build");
+    let _derived_image_cleanup = ImageCleanupGuard::new(derived_image.clone());
 
-    let previous_api_key = std::env::var("OPENAI_API_KEY").ok();
+    let _api_key_restore = EnvRestoreGuard::capture("OPENAI_API_KEY");
     std::env::set_var("OPENAI_API_KEY", "sk-test-setup");
 
     let issue = make_issue(unique_identifier("KAT-903-setup"));
@@ -384,13 +412,4 @@ async fn test_setup_script_runs_as_root_and_restores_non_root_default_user() {
     docker::stop_container(&container_id)
         .await
         .expect("container should stop");
-
-    if let Some(value) = previous_api_key {
-        std::env::set_var("OPENAI_API_KEY", value);
-    } else {
-        std::env::remove_var("OPENAI_API_KEY");
-    }
-
-    remove_image(&derived_image).await;
-    remove_image(&base_tag).await;
 }
