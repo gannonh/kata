@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1
+
+### Features
+
+- **Package commands** — `kata install`, `kata remove`, `kata update`, and `kata list` now work as CLI subcommands. Previously, running `kata update` (as shown in the package update notification) did nothing because Kata bypasses pi's `main()` which handled these commands.
+- **`kata` bin alias** — added `kata` as a bin entry alongside `kata-cli`, so global installs register both commands. The update notification message ("Run `kata update`") now matches the actual CLI command.
+
 ## 0.5.0
 
 ### Features
