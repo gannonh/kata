@@ -99,7 +99,8 @@ workspace:
   # Workspace isolation mode:
   #   - "local" (default): run agent directly on the host
   #   - "docker": run agent in an ephemeral container
-  # Docker is orthogonal to git_strategy — any git strategy works inside a container.
+  # Docker mode requires git_strategy "auto" or "clone-remote" (clone-local and
+  # worktree need host filesystem access). repo must be a remote URL.
   isolation: local
 
   # Prefix for auto-created issue branches: <prefix>/<issue-identifier>
@@ -134,10 +135,12 @@ workspace:
     # content and caches a derived image layer.
     # setup: docker/setups/rust.sh
 
-    # Codex auth mode inside the worker container:
-    #   - auto  (default): OPENAI_API_KEY if set, else stage host ~/.codex/auth.json and install to $HOME/.codex/auth.json in-container
+    # Codex auth mode inside the worker container.
+    # Interactive browser login is not available inside containers —
+    # use OPENAI_API_KEY in .env or mount an existing auth file.
+    #   - auto  (default): OPENAI_API_KEY if set, else stage host ~/.codex/auth.json to $HOME/.codex/auth.json in-container
+    #   - env:   force OPENAI_API_KEY (simplest for Docker)
     #   - mount: force host ~/.codex/auth.json -> $HOME/.codex/auth.json in-container
-    #   - env:   force OPENAI_API_KEY
     # codex_auth: auto
 
     # Extra env vars passed at `docker run` time.
