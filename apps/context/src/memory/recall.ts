@@ -150,7 +150,7 @@ async function recallBruteForce(
   allMemories: MemoryEntry[],
 ): Promise<MemoryRecallResult[]> {
   const batch = [
-    ...allMemories.map((m, i) => ({
+    ...allMemories.map((m) => ({
       symbolId: `${MEMORY_SYMBOL_PREFIX}${m.id}`,
       text: m.content,
       filePath: "<memory>",

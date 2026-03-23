@@ -22,7 +22,7 @@ import type {
   ConsolidateOptions,
 } from "./types.js";
 import { MemoryError, MEMORY_ERROR_CODES } from "./types.js";
-import { isGitRepo, memoryGitCommit } from "./git.js";
+import { memoryGitCommit } from "./git.js";
 
 function serializeFrontmatter(entry: Omit<MemoryEntry, "content">): string {
   const lines: string[] = ["---"];
@@ -42,7 +42,7 @@ function serializeFrontmatter(entry: Omit<MemoryEntry, "content">): string {
 }
 
 function parseFrontmatter(raw: string): {
-  meta: Record<string, any>;
+  meta: Record<string, string | string[]>;
   content: string;
 } {
   const match = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
@@ -50,7 +50,7 @@ function parseFrontmatter(raw: string): {
 
   const yamlBlock = match[1];
   const content = match[2].trimEnd();
-  const meta: Record<string, any> = {};
+  const meta: Record<string, string | string[]> = {};
 
   let currentKey: string | null = null;
   let currentList: string[] | null = null;
@@ -88,14 +88,16 @@ function parseFrontmatter(raw: string): {
 }
 
 function toMemoryEntry(
-  meta: Record<string, any>,
+  meta: Record<string, string | string[]>,
   content: string,
 ): MemoryEntry {
+  const str = (v: string | string[] | undefined): string =>
+    Array.isArray(v) ? v[0] ?? "" : v ?? "";
   return {
-    id: meta.id || "",
-    category: meta.category || "general",
+    id: str(meta.id),
+    category: (str(meta.category) || "general") as import("./types.js").MemoryCategory,
     tags: Array.isArray(meta.tags) ? meta.tags : [],
-    createdAt: meta.createdAt || "",
+    createdAt: str(meta.createdAt),
     sourceRefs: Array.isArray(meta.sourceRefs) ? meta.sourceRefs : [],
     content,
   };

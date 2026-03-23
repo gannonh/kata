@@ -49,10 +49,11 @@ export function memoryGitCommit(
       encoding: "utf-8",
     }).trim();
     return sha;
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
     throw new MemoryError(
       MEMORY_ERROR_CODES.MEMORY_GIT_COMMIT_FAILED,
-      `Git commit failed: ${err.message}`,
+      `Git commit failed: ${message}`,
     );
   }
 }
