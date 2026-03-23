@@ -42,8 +42,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mariozechner/pi-coding-agent": "^0.61.1",
-    "@mariozechner/pi-tui": "^0.61.1",
+    "@mariozechner/pi-coding-agent": "^0.62.0",
+    "@mariozechner/pi-tui": "^0.62.0",
     "@sinclair/typebox": "^0.34.48",
     "playwright": "^1.58.2",
     "proper-lockfile": "^4.1.2"

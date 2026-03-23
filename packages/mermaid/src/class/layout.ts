@@ -1,6 +1,4 @@
-// @ts-expect-error — dagre types are declared for the package root, not the dist path;
-// importing the pre-built browser bundle avoids Bun.build hanging on 30+ CJS file resolution
-import dagre from '@dagrejs/dagre/dist/dagre.js'
+import dagre from '@dagrejs/dagre'
 import type { ClassDiagram, ClassNode, ClassMember, PositionedClassDiagram, PositionedClassNode, PositionedClassRelationship } from './types.ts'
 import type { RenderOptions } from '../types.ts'
 import { estimateTextWidth, estimateMonoTextWidth, FONT_SIZES, FONT_WEIGHTS } from '../styles.ts'

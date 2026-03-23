@@ -4,6 +4,7 @@
 
 # Load full PATH for GUI apps (Fork, Tower, etc.) that don't inherit shell config
 eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null)" || true
+. "$HOME/.cargo/env" 2>/dev/null || true
 export PATH="$HOME/.bun/bin:$PATH"
 
 echo "Running pre-push validation..."
