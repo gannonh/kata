@@ -3,6 +3,7 @@
 
 use chrono::Utc;
 use serial_test::serial;
+use std::os::unix::fs::PermissionsExt;
 use tempfile::tempdir;
 use tokio::process::Command;
 
@@ -223,7 +224,13 @@ async fn test_mount_auth_installs_in_non_root_home() {
     let home = tempdir().expect("temp home should create");
     let codex_dir = home.path().join(".codex");
     std::fs::create_dir_all(&codex_dir).expect("codex dir should create");
-    std::fs::write(codex_dir.join("auth.json"), "{}").expect("auth file should create");
+    let auth_path = codex_dir.join("auth.json");
+    std::fs::write(&auth_path, "{}").expect("auth file should create");
+    let mut permissions = std::fs::metadata(&auth_path)
+        .expect("auth file metadata should exist")
+        .permissions();
+    permissions.set_mode(0o600);
+    std::fs::set_permissions(&auth_path, permissions).expect("auth file permissions should update");
     std::env::set_var("HOME", home.path());
 
     let issue = make_issue(unique_identifier("KAT-903-mount"));

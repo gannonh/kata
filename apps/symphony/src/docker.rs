@@ -8,6 +8,7 @@ use crate::error::{Result, SymphonyError};
 
 pub type DockerAuthArgs = (Vec<(String, String)>, Vec<String>);
 const ROOT_USER: &str = "root";
+const ROOT_UID: &str = "0";
 const SETUP_SCRIPT_PATH: &str = "/tmp/symphony-setup.sh";
 const CODEX_AUTH_STAGING_PATH: &str = "/tmp/symphony-codex-auth.json";
 
@@ -376,10 +377,24 @@ USER {base_image_user}\n"
 }
 
 async fn install_mounted_codex_auth(container_id: &str) -> Result<()> {
+    let identity = container_identity(container_id).await?;
     let script = codex_auth_install_script();
-    let output = Command::new("docker")
+    let mut command = Command::new("docker");
+    command
         .arg("exec")
         .arg("-i")
+        .arg("-u")
+        .arg(ROOT_UID)
+        .arg("-e")
+        .arg(format!("SYMPHONY_RUNTIME_UID={}", identity.uid))
+        .arg("-e")
+        .arg(format!("SYMPHONY_RUNTIME_GID={}", identity.gid));
+    if let Some(home) = identity.home {
+        command
+            .arg("-e")
+            .arg(format!("SYMPHONY_RUNTIME_HOME={home}"));
+    }
+    let output = command
         .arg(container_id)
         .arg("sh")
         .arg("-lc")
@@ -398,13 +413,73 @@ async fn install_mounted_codex_auth(container_id: &str) -> Result<()> {
     }
 }
 
+#[derive(Debug)]
+struct ContainerIdentity {
+    uid: String,
+    gid: String,
+    home: Option<String>,
+}
+
+async fn container_identity(container_id: &str) -> Result<ContainerIdentity> {
+    let output = exec_in_container(
+        container_id,
+        "printf 'uid=%s\\ngid=%s\\nhome=%s\\n' \"$(id -u)\" \"$(id -g)\" \"${HOME:-}\"",
+    )
+    .await
+    .map_err(|err| {
+        SymphonyError::DockerAuthError(format!(
+            "failed to resolve runtime user identity before auth install: {err}"
+        ))
+    })?;
+
+    let mut uid: Option<String> = None;
+    let mut gid: Option<String> = None;
+    let mut home: Option<String> = None;
+
+    for line in output.lines() {
+        if let Some(value) = line.strip_prefix("uid=") {
+            uid = Some(value.to_string());
+        } else if let Some(value) = line.strip_prefix("gid=") {
+            gid = Some(value.to_string());
+        } else if let Some(value) = line.strip_prefix("home=") {
+            home = Some(value.to_string());
+        }
+    }
+
+    let uid = uid
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            SymphonyError::DockerAuthError(
+                "failed to resolve runtime uid before auth install".to_string(),
+            )
+        })?;
+    let gid = gid
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            SymphonyError::DockerAuthError(
+                "failed to resolve runtime gid before auth install".to_string(),
+            )
+        })?;
+
+    Ok(ContainerIdentity {
+        uid,
+        gid,
+        home: home.filter(|value| !value.trim().is_empty()),
+    })
+}
+
 fn codex_auth_install_script() -> String {
     format!(
         "set -eu\n\
 auth_src=\"{CODEX_AUTH_STAGING_PATH}\"\n\
-home_dir=\"${{HOME:-}}\"\n\
+runtime_uid=\"${{SYMPHONY_RUNTIME_UID:-}}\"\n\
+runtime_gid=\"${{SYMPHONY_RUNTIME_GID:-}}\"\n\
+home_dir=\"${{SYMPHONY_RUNTIME_HOME:-}}\"\n\
+if [ -z \"$home_dir\" ] && [ -n \"$runtime_uid\" ]; then\n\
+  home_dir=\"$(getent passwd \"$runtime_uid\" | cut -d: -f6 2>/dev/null || true)\"\n\
+fi\n\
 if [ -z \"$home_dir\" ]; then\n\
-  home_dir=\"$(getent passwd \"$(id -u)\" | cut -d: -f6 2>/dev/null || true)\"\n\
+  home_dir=\"${{HOME:-}}\"\n\
 fi\n\
 if [ -z \"$home_dir\" ]; then\n\
   home_dir=\"$(cd && pwd)\"\n\
@@ -415,6 +490,13 @@ if [ -z \"$home_dir\" ]; then\n\
 fi\n\
 mkdir -p \"$home_dir/.codex\"\n\
 cp \"$auth_src\" \"$home_dir/.codex/auth.json\"\n\
+if [ -n \"$runtime_uid\" ]; then\n\
+  if [ -n \"$runtime_gid\" ]; then\n\
+    chown \"$runtime_uid:$runtime_gid\" \"$home_dir/.codex\" \"$home_dir/.codex/auth.json\"\n\
+  else\n\
+    chown \"$runtime_uid\" \"$home_dir/.codex\" \"$home_dir/.codex/auth.json\"\n\
+  fi\n\
+fi\n\
 chmod 600 \"$home_dir/.codex/auth.json\""
     )
 }
@@ -495,6 +577,9 @@ mod tests {
     #[test]
     fn test_codex_auth_install_script_uses_dynamic_home_path() {
         let script = codex_auth_install_script();
+        assert!(script.contains("SYMPHONY_RUNTIME_UID"));
+        assert!(script.contains("SYMPHONY_RUNTIME_HOME"));
+        assert!(script.contains("chown \"$runtime_uid:$runtime_gid\""));
         assert!(script.contains("${HOME:-}"));
         assert!(script.contains("getent passwd"));
         assert!(script.contains(".codex/auth.json"));
