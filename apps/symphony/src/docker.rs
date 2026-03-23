@@ -371,7 +371,7 @@ fn derived_image_dockerfile(base_image: &str, base_image_user: &str) -> String {
 SHELL [\"/bin/sh\", \"-lc\"]\n\
 USER {ROOT_USER}\n\
 COPY setup.sh {SETUP_SCRIPT_PATH}\n\
-RUN chmod +x {SETUP_SCRIPT_PATH} && {SETUP_SCRIPT_PATH} && rm -f {SETUP_SCRIPT_PATH}\n\
+RUN export HOME=/root && chmod +x {SETUP_SCRIPT_PATH} && {SETUP_SCRIPT_PATH} && rm -f {SETUP_SCRIPT_PATH}\n\
 USER {base_image_user}\n"
     )
 }
@@ -573,7 +573,7 @@ mod tests {
         let dockerfile = derived_image_dockerfile("symphony-worker:latest", "node");
         assert!(dockerfile.contains("FROM symphony-worker:latest"));
         assert!(dockerfile.contains("USER root"));
-        assert!(dockerfile.contains("RUN chmod +x /tmp/symphony-setup.sh"));
+        assert!(dockerfile.contains("RUN export HOME=/root && chmod +x /tmp/symphony-setup.sh"));
         assert!(dockerfile.contains("USER node"));
     }
 
