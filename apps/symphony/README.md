@@ -143,7 +143,7 @@ workspace:
 
 Workers run as bare processes on your machine. Symphony creates an isolated workspace for each issue and spawns Codex directly. Fast, simple, no Docker required.
 
-**Recommended: `worktree` strategy.** Git worktrees are instant to create, share the object store with your main repo, and show up in git clients so you can inspect agent work in progress.
+**Recommended: `worktree` git strategy.** Git worktrees are instant to create, share the object store with your main repo, and show up in git clients so you can inspect agent work in progress.
 
 **All `git_strategy` options:**
 
@@ -213,14 +213,23 @@ workspace:
 
 ## Deploying Symphony on a Server
 
-To run Symphony on a VPS or remote machine (not your laptop), use the provided Docker Compose setup. This runs Symphony itself inside a container, with access to the Docker socket so it can manage worker containers.
+To run Symphony on a VPS or remote machine, use the provided Docker Compose setup. This runs Symphony itself inside a container, with access to the Docker socket so it can manage worker containers.
+
+### Setup
 
 ```bash
-cd apps/symphony/docker
-cp .env.example .env
-# Edit .env with your LINEAR_API_KEY, OPENAI_API_KEY, and optionally GH_TOKEN
+cd apps/symphony
 
-# Start Symphony
+# 1. Create your workflow file (the Compose file mounts apps/symphony/WORKFLOW.md)
+cp WORKFLOW-symphony.md WORKFLOW.md
+# Edit WORKFLOW.md with your project settings
+
+# 2. Set up env vars
+cd docker
+cp .env.example .env
+# Edit .env with your LINEAR_API_KEY and Codex auth
+
+# 3. Start Symphony
 docker compose up -d --build
 
 # View logs
@@ -230,7 +239,9 @@ docker compose logs -f
 docker compose down
 ```
 
-The Compose file mounts your `WORKFLOW.md` and the Docker socket into the Symphony container. Symphony then creates worker containers as peers (not nested containers).
+The Compose file mounts `apps/symphony/WORKFLOW.md` into the container. Edit that file to change your configuration — Symphony watches it for changes and reloads automatically.
+
+The Docker socket is mounted so Symphony can create and manage worker containers as sibling containers (not nested).
 
 ## Ticket Lifecycle
 
