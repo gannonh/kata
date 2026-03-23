@@ -112,6 +112,7 @@ fn workspace_config(root: &Path) -> WorkspaceConfig {
         repo: None,
         strategy: WorkspaceRepoStrategy::Auto,
         isolation: WorkspaceIsolation::Local,
+        docker: None,
         branch_prefix: "symphony".to_string(),
         clone_branch: None,
         base_branch: Some("main".to_string()),
@@ -503,6 +504,7 @@ fn test_workspace_clone_bootstrap_and_branch_creation() {
         repo: Some(source_repo.to_string_lossy().to_string()),
         strategy: WorkspaceRepoStrategy::CloneLocal,
         isolation: WorkspaceIsolation::Local,
+        docker: None,
         branch_prefix: "symphony".to_string(),
         clone_branch: Some("elixir-feature-parity".to_string()),
         base_branch: Some("main".to_string()),
@@ -582,6 +584,7 @@ fn test_workspace_clone_remote_uses_single_branch_behavior() {
         repo: Some(remote_url),
         strategy: WorkspaceRepoStrategy::CloneRemote,
         isolation: WorkspaceIsolation::Local,
+        docker: None,
         branch_prefix: "symphony".to_string(),
         clone_branch: Some("elixir-feature-parity".to_string()),
         base_branch: Some("main".to_string()),
@@ -625,6 +628,7 @@ fn test_workspace_auto_strategy_selects_local_clone_for_local_repo_path() {
         repo: Some(source_repo.to_string_lossy().to_string()),
         strategy: WorkspaceRepoStrategy::Auto,
         isolation: WorkspaceIsolation::Local,
+        docker: None,
         branch_prefix: "symphony".to_string(),
         clone_branch: Some("elixir-feature-parity".to_string()),
         base_branch: Some("main".to_string()),
@@ -670,6 +674,7 @@ fn test_workspace_auto_strategy_selects_remote_clone_for_repo_url() {
         repo: Some(remote_url),
         strategy: WorkspaceRepoStrategy::Auto,
         isolation: WorkspaceIsolation::Local,
+        docker: None,
         branch_prefix: "symphony".to_string(),
         clone_branch: Some("elixir-feature-parity".to_string()),
         base_branch: Some("main".to_string()),
@@ -706,6 +711,7 @@ fn test_workspace_worktree_bootstrap_and_cleanup() {
         repo: Some(source_repo.to_string_lossy().to_string()),
         strategy: WorkspaceRepoStrategy::Worktree,
         isolation: WorkspaceIsolation::Local,
+        docker: None,
         branch_prefix: "symphony".to_string(),
         clone_branch: None,
         base_branch: Some("main".to_string()),
@@ -848,6 +854,7 @@ fn test_workspace_remove_continues_when_worktree_cleanup_fails() {
         repo: Some(source_repo.to_string_lossy().to_string()),
         strategy: WorkspaceRepoStrategy::Worktree,
         isolation: WorkspaceIsolation::Local,
+        docker: None,
         branch_prefix: "symphony".to_string(),
         clone_branch: None,
         base_branch: Some("main".to_string()),
@@ -1173,4 +1180,36 @@ fn test_render_continuation_prompt_includes_turn_context() {
         prompt.contains("already present in this thread"),
         "continuation prompt should remind the agent to use existing thread context"
     );
+}
+
+#[tokio::test]
+async fn test_docker_bootstrap_repository_rejects_non_remote_strategies() {
+    let tmp = TempDir::new().unwrap();
+    let local_repo = tmp.path().join("repo");
+    fs::create_dir_all(&local_repo).unwrap();
+
+    let strategies = [
+        WorkspaceRepoStrategy::CloneLocal,
+        WorkspaceRepoStrategy::Worktree,
+    ];
+
+    for strategy in strategies {
+        let mut config = workspace_config(tmp.path());
+        config.isolation = WorkspaceIsolation::Docker;
+        config.repo = Some(local_repo.to_string_lossy().to_string());
+        config.strategy = strategy;
+
+        let err =
+            symphony::workspace::docker_bootstrap_repository("container-id", &config, "KAT-821")
+                .await
+                .expect_err("docker bootstrap should reject non-remote strategies");
+
+        let msg = err.to_string();
+        assert!(
+            msg.contains("is not supported with workspace.isolation 'docker'"),
+            "unexpected error for {:?}: {}",
+            strategy,
+            msg
+        );
+    }
 }

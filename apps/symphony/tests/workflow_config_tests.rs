@@ -11,8 +11,8 @@ use tempfile::NamedTempFile;
 
 use symphony::config::{from_workflow, validate};
 use symphony::domain::{
-    CodexConfig, ServiceConfig, TrackerConfig, WorkspaceConfig, WorkspaceIsolation,
-    WorkspaceRepoStrategy,
+    CodexConfig, DockerCodexAuth, ServiceConfig, TrackerConfig, WorkspaceConfig,
+    WorkspaceIsolation, WorkspaceRepoStrategy,
 };
 use symphony::error::SymphonyError;
 use symphony::workflow::parse_workflow;
@@ -365,6 +365,168 @@ workspace:
     let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
     let config = from_workflow(&raw).expect("docker isolation should parse");
     assert_eq!(config.workspace.isolation, WorkspaceIsolation::Docker);
+    assert!(config.workspace.docker.is_some());
+}
+
+#[test]
+fn test_docker_isolation_parses_with_defaults() {
+    let yaml_str = r#"
+workspace:
+  isolation: docker
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("docker defaults should parse");
+
+    let docker = config.workspace.docker.expect("docker config should exist");
+    assert_eq!(docker.image, "symphony-worker:latest");
+    assert_eq!(docker.setup, None);
+    assert_eq!(docker.codex_auth, DockerCodexAuth::Auto);
+    assert!(docker.env.is_empty());
+    assert!(docker.volumes.is_empty());
+}
+
+#[test]
+fn test_docker_isolation_parses_full_config() {
+    let yaml_str = r#"
+workspace:
+  isolation: docker
+  docker:
+    image: my-worker:dev
+    setup: docker/setups/rust.sh
+    codex_auth: mount
+    env:
+      - FOO=bar
+      - BAR=baz
+    volumes:
+      - ~/.ssh:/root/.ssh:ro
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("full docker config should parse");
+
+    let docker = config.workspace.docker.expect("docker config should exist");
+    assert_eq!(docker.image, "my-worker:dev");
+    assert_eq!(docker.setup.as_deref(), Some("docker/setups/rust.sh"));
+    assert_eq!(docker.codex_auth, DockerCodexAuth::Mount);
+    assert_eq!(
+        docker.env,
+        vec!["FOO=bar".to_string(), "BAR=baz".to_string()]
+    );
+    assert_eq!(docker.volumes.len(), 1);
+    assert!(docker.volumes[0].contains(".ssh:/root/.ssh:ro"));
+}
+
+#[test]
+fn test_docker_codex_auth_values() {
+    for (value, expected) in [
+        ("auto", DockerCodexAuth::Auto),
+        ("mount", DockerCodexAuth::Mount),
+        ("env", DockerCodexAuth::Env),
+    ] {
+        let yaml_str = format!(
+            r#"
+workspace:
+  isolation: docker
+  docker:
+    codex_auth: {value}
+"#
+        );
+        let raw: serde_yaml::Value = serde_yaml::from_str(&yaml_str).unwrap();
+        let config = from_workflow(&raw).expect("docker codex auth should parse");
+        assert_eq!(
+            config
+                .workspace
+                .docker
+                .expect("docker config should exist")
+                .codex_auth,
+            expected
+        );
+    }
+}
+
+#[test]
+fn test_docker_config_absent_when_local_isolation() {
+    let yaml_str = r#"
+workspace:
+  isolation: local
+  docker:
+    image: ignored
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("local isolation with docker section should parse");
+    assert_eq!(config.workspace.isolation, WorkspaceIsolation::Local);
+    assert!(config.workspace.docker.is_none());
+}
+
+#[test]
+fn test_docker_isolation_rejects_worker_ssh_hosts() {
+    let yaml_str = r#"
+workspace:
+  isolation: docker
+worker:
+  ssh_hosts:
+    - worker-a
+    - worker-b
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("docker isolation should reject worker.ssh_hosts");
+    assert!(
+        err.to_string()
+            .contains("worker.ssh_hosts is not supported with workspace.isolation 'docker'"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn test_docker_isolation_rejects_clone_local_strategy() {
+    let yaml_str = r#"
+workspace:
+  isolation: docker
+  repo: /tmp/local-repo
+  git_strategy: clone-local
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("docker isolation should reject clone-local");
+    assert!(
+        err.to_string().contains(
+            "workspace.git_strategy 'clone-local' is not supported with workspace.isolation 'docker'"
+        ),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn test_docker_isolation_rejects_worktree_strategy() {
+    let yaml_str = r#"
+workspace:
+  isolation: docker
+  repo: /tmp/local-repo
+  strategy: worktree
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("docker isolation should reject worktree");
+    assert!(
+        err.to_string().contains(
+            "workspace.git_strategy 'worktree' is not supported with workspace.isolation 'docker'"
+        ),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn test_docker_isolation_rejects_auto_with_local_repo() {
+    let yaml_str = r#"
+workspace:
+  isolation: docker
+  repo: /tmp/local-repo
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("docker isolation should reject local auto strategy");
+    assert!(
+        err.to_string().contains(
+            "workspace.git_strategy 'clone-local' is not supported with workspace.isolation 'docker'"
+        ),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]

@@ -98,9 +98,9 @@ workspace:
 
   # Workspace isolation mode:
   #   - "local" (default): run agent directly on the host
-  #   - "docker": run agent in an ephemeral container (not yet implemented, see KAT-821)
+  #   - "docker": run agent in an ephemeral container
   # Docker is orthogonal to git_strategy — any git strategy works inside a container.
-  # isolation: local
+  isolation: local
 
   # Prefix for auto-created issue branches: <prefix>/<issue-identifier>
   # Example: symphony/KAT-814
@@ -121,6 +121,31 @@ workspace:
   # When true, runs `before_remove` hook then deletes the workspace directory.
   # Default: false (workspaces persist for debugging).
   # cleanup_on_done: false
+
+  # Docker-specific options (used when `workspace.isolation: docker`).
+  # If omitted, these defaults are applied automatically.
+  docker:
+    # Base image used for worker containers.
+    # Default: symphony-worker:latest
+    image: symphony-worker:latest
+
+    # Optional setup script path on the host. Symphony hashes the script
+    # content and caches a derived image layer.
+    # setup: docker/setups/rust.sh
+
+    # Codex auth mode inside the worker container:
+    #   - auto  (default): OPENAI_API_KEY if set, else mount ~/.codex/auth.json
+    #   - mount: force mount ~/.codex/auth.json
+    #   - env:   force OPENAI_API_KEY
+    # codex_auth: auto
+
+    # Extra env vars passed at `docker run` time.
+    # env:
+    #   - CARGO_HOME=/usr/local/cargo
+
+    # Extra bind mounts passed at `docker run` time.
+    # volumes:
+    #   - ~/.ssh:/root/.ssh:ro
 
 # ─── Hooks ────────────────────────────────────────────────────────────────────
 # Shell commands run at workspace lifecycle events. All hooks receive these
