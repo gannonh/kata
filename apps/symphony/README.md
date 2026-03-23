@@ -110,8 +110,17 @@ The YAML front-matter is configuration. Everything below the `---` is a [Liquid 
 ### 3. Run Symphony
 
 ```bash
-symphony WORKFLOW.md --port 8080
+symphony WORKFLOW.md
 ```
+
+Optional flags:
+
+| Flag | Default | Description |
+|---|---|---|
+| `--port <PORT>` | `8080` | HTTP server port |
+| `--logs-root <PATH>` | *(none)* | Log file root directory |
+| `--no-tui` | | Disable the live terminal dashboard (Ratatui) |
+| `-h, --help` | | Print help |
 
 Symphony starts polling Linear. Open `http://localhost:8080` for the web dashboard, or watch the built-in terminal dashboard (enabled by default).
 
