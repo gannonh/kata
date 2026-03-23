@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.2
+
+### Features
+
+- **Doctor environment & provider diagnostics** — `/kata doctor` now reports environment health (Node version, disk space, git version, OS, shell) and provider validation (configured providers, API key presence, model availability).
+
+### Fixes
+
+- **Linear mode document scoping** — Slice-level documents (`S01-PLAN`, `S01-RESEARCH`, `S01-SUMMARY`, etc.) are now scoped to their slice issue instead of the project. Prevents document collisions when multiple milestones have slices with the same IDs (S01, S02, etc.).
+- **Milestone-aware slice resolution** — `preparePrContext` now matches both slice ID and milestone ID when resolving slice issues, preventing cross-milestone document mixups. Falls back to omitting PR-context docs rather than reading from project scope.
+
 ## 0.5.1
 
 ### Features
