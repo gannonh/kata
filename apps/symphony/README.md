@@ -70,8 +70,8 @@ For Codex auth, either log into Codex CLI locally by running `codex` and authent
 
 This project includes two real workflow files you can use as starting points:
 
-- **[`WORKFLOW.md`](WORKFLOW.md)** — used to develop Symphony itself. Flat ticket model: one issue = one agent session.
-- **[`cli-WORKFLOW.md`](cli-WORKFLOW.md)** — used to develop Kata CLI. Optimized for parent/child issue hierarchies created by the Kata CLI planning tool, with document-loading rules for slices and tasks.
+- **[`WORKFLOW-symphony.md`](WORKFLOW-symphony.md)** — used to develop Symphony itself. Flat ticket model: one issue = one agent session.
+- **[`WORKFLOW-cli.md`](WORKFLOW-cli.md)** — used to develop Kata CLI. Optimized for parent/child issue hierarchies created by the Kata CLI planning tool, with document-loading rules for slices and tasks.
 
 Copy one and adapt it to your project, or start from scratch:
 
