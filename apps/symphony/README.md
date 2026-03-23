@@ -1,30 +1,26 @@
 # Kata Symphony
 
-Headless orchestrator that polls a Linear project for candidate issues and dispatches parallel agent sessions to work on them autonomously. Manages the full ticket lifecycle — from Todo through implementation, PR creation, automated code review, human review, and merge.
+Headless orchestrator that polls a Linear project for issues and dispatches parallel agent sessions to work on them. You run Symphony, point it at a Linear project, and it picks up tickets, clones your repo, runs Codex on each issue, creates PRs, addresses review feedback, and merges — all without human intervention.
 
 ![Symphony TUI Dashboard](../../assets/symphony-v1.0.0/symphony-tui.png)
 
-## Features
+## How It Works
 
-- **Linear integration** — polls for issues, manages state transitions, respects priorities and dependency graphs
-- **Parallel agents** — configurable concurrency with per-state slot limits
-- **Multi-turn sessions** — agents continue on the same Codex thread across turns, preserving conversation history
-- **Full PR lifecycle** — agents create PRs, address review feedback, resolve comment threads, and merge
-- **Real-time event streaming** — events flow from workers to the orchestrator as they happen
-- **Dynamic config reload** — WORKFLOW.md changes take effect without restart
-- **Workspace strategies** — clone-local (fast, hard-links), clone-remote (network), or worktree (lightweight)
-- **Workspace cleanup** — auto-remove workspaces when issues reach terminal state
-- **Rotating log files** — structured JSON logs to disk with rotation via `--logs-root`
-- **SSH worker pools** — distribute sessions across remote machines
-- **HTTP dashboard + JSON API** — live session table with turn/activity/session-token observability, retry queue, polling stats, and a Linear project link in the summary panel
-- **Terminal dashboard (default-on)** — Ratatui observability view with throughput sparkline, color-coded session status dots, and Linear project URL; disable with `--no-tui`
+1. Symphony polls your Linear project for issues in active states (e.g. `Todo`, `In Progress`)
+2. For each issue, it creates an isolated workspace (clone of your repo) and starts a Codex agent session
+3. The agent reads the issue, writes code, runs tests, creates a PR, and handles review feedback
+4. When the issue reaches a terminal state (`Done`, `Closed`), the workspace is cleaned up
+5. Multiple issues run in parallel, up to your configured concurrency limit
 
-<details>
-<summary>HTTP Dashboard</summary>
+All configuration — tracker, workspace, agent, and the prompt template — lives in a single `WORKFLOW.md` file.
 
-<img src="../../assets/symphony-v1.0.0/symphony-web.png" alt="HTTP Dashboard" width="600">
+## Prerequisites
 
-</details>
+- **Linear personal API key** — `LINEAR_API_KEY` in your environment
+- **Codex** — installed and on PATH (`npm install -g @openai/codex`)
+- **OpenAI API key** — `OPENAI_API_KEY` for Codex, or authenticate via `codex auth`
+- **Git** — for workspace bootstrapping
+- **Docker** (only for container-isolated workers) — Docker Desktop or Docker Engine running
 
 ## Installation
 
@@ -57,33 +53,181 @@ cargo build --release
 
 ## Quick Start
 
+### 1. Set your API keys
+
 ```bash
-# 1. Configure
+export LINEAR_API_KEY="lin_api_..."
+export OPENAI_API_KEY="sk-..."
+```
+
+### 2. Create a WORKFLOW.md
+
+```yaml
+---
+tracker:
+  kind: linear
+  api_key: $LINEAR_API_KEY
+  project_slug: your-project-slug    # from your Linear project URL
+
+workspace:
+  root: ~/symphony-workspaces
+  repo: https://github.com/you/your-repo.git
+  branch_prefix: symphony
+  base_branch: main
+  cleanup_on_done: true
+
+agent:
+  max_concurrent_agents: 3
+  max_turns: 20
+
+codex:
+  command: codex app-server
+---
+
+You are working on {{ issue.identifier }}: {{ issue.title }}.
+
+{{ issue.description }}
+
+Work on branch origin/{{ workspace.base_branch }}.
+Complete the task described in the issue.
+```
+
+The YAML front-matter is configuration. Everything below the `---` is a [Liquid template](https://shopify.github.io/liquid/) rendered as the prompt for each agent session, with `{{ issue.* }}` and `{{ workspace.* }}` variables available.
+
+### 3. Run Symphony
+
+```bash
+symphony WORKFLOW.md --port 8080
+```
+
+Symphony starts polling Linear. Open `http://localhost:8080` for the web dashboard, or watch the built-in terminal dashboard (enabled by default).
+
+### 4. Create issues in Linear
+
+Create issues in your Linear project. Set them to `Todo`. Symphony picks them up on the next poll cycle (default: every 30 seconds).
+
+## Two Ways to Run Workers
+
+Symphony supports two isolation modes for agent workspaces. You choose with `workspace.isolation` in your WORKFLOW.md.
+
+### Local mode (default)
+
+```yaml
+workspace:
+  isolation: local    # this is the default — you can omit it
+  repo: /path/to/local/repo    # or a remote URL
+  git_strategy: auto
+```
+
+Workers run as bare processes on your machine. Symphony clones your repo into a subdirectory under `workspace.root` and spawns Codex directly. Fast, simple, no Docker required.
+
+**Workspace strategies for local mode:**
+
+| Strategy | What it does | Best for |
+|---|---|---|
+| `auto` (default) | Picks clone-local or clone-remote based on whether repo is a path or URL | General use |
+| `clone-local` | `git clone --local` with hard links | Monorepo on same volume — fast |
+| `clone-remote` | `git clone --single-branch` | Remote repos |
+| `worktree` | `git worktree add` | Monorepo — instant, visible in git clients |
+
+### Docker mode
+
+```yaml
+workspace:
+  isolation: docker
+  repo: https://github.com/you/your-repo.git    # must be a remote URL
+  docker:
+    image: node:22-bookworm        # base Docker image
+    setup: docker/setups/bun.sh    # optional: script to install extra tooling
+    codex_auth: auto               # how Codex authenticates inside the container
+```
+
+**You don't create or manage containers.** Symphony does everything:
+
+1. Builds a derived Docker image from your base image + setup script (cached by content hash)
+2. Starts a disposable container for each issue (`docker run -d --rm ...`)
+3. Clones your repo inside the container into `/workspace`
+4. Runs Codex inside the container via `docker exec`
+5. Stops and removes the container when the issue is done
+
+You just need Docker Desktop (or Docker Engine) running. Symphony talks to the Docker daemon directly.
+
+**Setup scripts** install language toolchains or extra dependencies on top of the base image. Bundled scripts in `docker/setups/`:
+
+| Script | What it installs |
+|---|---|
+| `bun.sh` | Bun runtime |
+| `python.sh` | Python 3, pip, venv |
+| `rust.sh` | Rust via rustup (stable toolchain) |
+| `go.sh` | Go (version configurable via `GO_VERSION` env var) |
+
+Symphony caches the derived image using a hash of the base image name + setup script content. The first build takes time; subsequent runs reuse the cached image.
+
+**Docker auth modes** — how Codex authenticates inside the container:
+
+| Mode | What it does |
+|---|---|
+| `auto` (default) | Uses `OPENAI_API_KEY` env var if set, otherwise mounts `~/.codex/auth.json` |
+| `env` | Passes `OPENAI_API_KEY` into the container. Fails if not set |
+| `mount` | Bind-mounts `~/.codex/auth.json` into the container. Fails if file doesn't exist |
+
+**Extra container config:**
+
+```yaml
+workspace:
+  docker:
+    env:                              # additional env vars passed to the container
+      - CARGO_HOME=/usr/local/cargo
+    volumes:                          # additional bind mounts
+      - ~/.ssh:/root/.ssh:ro
+```
+
+**Limitations of Docker mode:**
+- `git_strategy` must be `auto` or `clone-remote` (clone-local and worktree require host filesystem access)
+- `workspace.repo` must be a remote URL (local paths aren't accessible inside the container)
+
+## Deploying Symphony on a Server
+
+To run Symphony on a VPS or remote machine (not your laptop), use the provided Docker Compose setup. This runs Symphony itself inside a container, with access to the Docker socket so it can manage worker containers.
+
+```bash
+cd apps/symphony/docker
 cp .env.example .env
-# Edit .env with your Linear API key
+# Edit .env with your LINEAR_API_KEY, OPENAI_API_KEY, and optionally GH_TOKEN
 
-# 2. Create your workflow
-cp docs/WORKFLOW-REFERENCE.md WORKFLOW.md
-# Edit WORKFLOW.md — set your project slug, repo URL, agent config
+# Start Symphony
+docker compose up -d --build
 
-# 3. Run
-./target/release/symphony WORKFLOW.md --port 8080
+# View logs
+docker compose logs -f
+
+# Stop
+docker compose down
 ```
 
-On startup, Symphony prints a summary banner:
+The Compose file mounts your `WORKFLOW.md` and the Docker socket into the Symphony container. Symphony then creates worker containers as peers (not nested containers).
+
+## Ticket Lifecycle
 
 ```
-Symphony v1.0.1
-Dashboard: http://127.0.0.1:8080
-Logs: stdout
-Project: 89d4761fddf0
-Workers: 3 max concurrent
-Polling: every 30s
-
-Press Ctrl+C to stop.
+Todo → In Progress → Agent Review → Human Review → Merging → Done
+                         ↑               |
+                         └── Rework ←────┘
 ```
 
-## CLI Flags
+| Status | Who sets it | What happens |
+|---|---|---|
+| **Todo** | Human | Issue is queued — Symphony picks it up on the next poll |
+| **In Progress** | Orchestrator | Agent is working — writing code, running tests |
+| **Agent Review** | Agent or Human | Agent addresses PR review comments |
+| **Human Review** | Agent | PR is ready for human approval |
+| **Merging** | Human | Agent merges the approved PR |
+| **Rework** | Human | Agent scraps current approach, starts fresh on a new branch |
+| **Done** | Agent | Terminal — PR merged, workspace cleaned up |
+
+**Linear setup note:** Disable Linear's "auto-close parent when all sub-issues are done" automation. Symphony agents move child issues to Done during execution, but the parent must stay active until the PR lifecycle completes.
+
+## CLI Reference
 
 ```
 symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--no-tui]
@@ -92,15 +236,11 @@ symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--no-tui]
 | Flag | Default | Description |
 |---|---|---|
 | `WORKFLOW.md` (positional) | `WORKFLOW.md` | Path to the workflow configuration file |
-| `--port PORT` | `8080` | HTTP dashboard and API port. Overrides `server.port` in config |
-| `--logs-root PATH` | *(none)* | Directory for rotating log files. Suppresses stdout log streaming |
-| `--no-tui` | `false` | Disable the Ratatui terminal dashboard. Without this flag, TUI is enabled by default |
-
-Legacy compatibility: `--tui` is still accepted as a no-op.
+| `--port PORT` | `8080` | HTTP dashboard and API port |
+| `--logs-root PATH` | *(none)* | Directory for rotating log files |
+| `--no-tui` | `false` | Disable the terminal dashboard; stream JSON logs to stdout instead |
 
 ### Log verbosity
-
-Control with `RUST_LOG`:
 
 ```bash
 RUST_LOG=info symphony WORKFLOW.md                    # default
@@ -108,188 +248,80 @@ RUST_LOG=debug symphony WORKFLOW.md                   # verbose
 RUST_LOG=symphony=trace,info symphony WORKFLOW.md     # trace symphony, info everything else
 ```
 
-When `--logs-root` is set, logs write to rotating files under `<logs-root>/log/symphony.log` and stdout shows only the startup banner. Without `--logs-root`, stdout logs are suppressed while the default TUI is active; pass `--no-tui` to stream structured JSON logs to stdout instead.
+## Configuration Reference
 
-## Multiple Workflows
+All configuration lives in the YAML front-matter of your WORKFLOW.md. See [`docs/WORKFLOW-REFERENCE.md`](docs/WORKFLOW-REFERENCE.md) for the complete reference with inline comments.
 
-Symphony reads one workflow file per instance. Use the workflow file as the
-execution contract for each project:
+### Key sections
 
-| Workflow file | Project | Dispatch model |
-|---|---|---|
-| `WORKFLOW.md` | Symphony | Flat tickets (single issue per run) |
-| `cli-WORKFLOW.md` | Kata CLI | Slice-aware parent issue with ordered child tasks and hierarchy docs |
+| Section | What it controls |
+|---|---|
+| `tracker` | Linear connection, project, assignee filter, state mappings |
+| `polling` | How often to check for new/changed issues |
+| `workspace` | Where and how workspaces are created, Docker config |
+| `agent` | Concurrency limits, max turns, retry backoff |
+| `codex` | Codex command, timeouts, approval policy, sandbox settings |
+| `hooks` | Shell commands to run at workspace lifecycle points |
+| `worker` | SSH remote worker pool configuration |
+| `server` | HTTP dashboard host and port |
 
-`WORKFLOW.md` remains the default flat-ticket workflow for Symphony self-build
-work. `cli-WORKFLOW.md` adds parent/child issue awareness and document-loading
-rules for Kata CLI planned slices.
+### Environment variable indirection
 
-Run different projects with different workflows:
-
-```bash
-# Self-build workflow (flat tickets)
-symphony WORKFLOW.md --port 8080
-
-# Kata CLI workflow (slice-aware, parent/child issues)
-symphony cli-WORKFLOW.md --port 8080
-```
-
-If you run both at the same time, use different ports:
-
-```bash
-symphony WORKFLOW.md --port 8080
-symphony cli-WORKFLOW.md --port 8081
-```
-
-Each workflow has its own tracker configuration, workspace settings, and prompt
-template.
-
-## Ticket Lifecycle
-
-```
-Todo → In Progress → Agent Review (bot feedback) → Human Review → Merging → Done
-                                                    ↳ Agent Review (human feedback) ↲
-                                                    ↳ Rework → In Progress
-```
-
-| Status | Set by | What happens |
-|---|---|---|
-| Todo | Human | Queued for agent work |
-| In Progress | Orchestrator | Agent is implementing |
-| Agent Review | Agent/Human | Agent addresses PR review comments |
-| Human Review | Agent | PR is clean, waiting for human approval |
-| Merging | Human | Agent merges the approved PR |
-| Rework | Human | Agent scraps current approach, starts fresh |
-| Done | Agent | Terminal — PR merged |
-
-![Symphony Linear Project](../../assets/symphony-v1.0.0/symphony-linear.png)
-
-## Linear Setup
-
-**Important:** Disable Linear's "auto-close parent when all sub-issues are done" automation. Symphony agents move child task issues to Done individually during execution, but the parent slice issue must stay active until the PR is created, reviewed, and merged. If Linear auto-closes the parent, the orchestrator will stop dispatching the agent before the work is complete.
-
-## Configuration
-
-All configuration lives in a `WORKFLOW.md` file — YAML front-matter for settings, markdown body for the agent prompt template.
-
-See [`docs/WORKFLOW-REFERENCE.md`](docs/WORKFLOW-REFERENCE.md) for the fully documented reference template with all settings.
-
-Key settings:
+Any string value starting with `$` followed by a bare identifier is resolved from the environment at startup:
 
 ```yaml
 tracker:
-  kind: linear
-  api_key: $LINEAR_API_KEY
-  project_slug: "your-project-slug"
-  # assignee: alice              # filter to one user (name, email, or "me")
-
-workspace:
-  root: ~/symphony-workspaces
-  repo: https://github.com/you/repo.git
-  git_strategy: auto              # auto, clone-local, clone-remote, worktree
-  isolation: local                # local or docker
-  branch_prefix: symphony
-  clone_branch: main
-  cleanup_on_done: true           # auto-remove workspaces on terminal state
-  docker:
-    image: symphony-worker:latest
-    setup: docker/setups/rust.sh
-    codex_auth: auto              # auto, mount, env
-    env:
-      - CARGO_HOME=/usr/local/cargo
-    volumes:
-      - ~/.ssh:/home/node/.ssh:ro
-
-agent:
-  max_concurrent_agents: 3
-  max_turns: 20
-
-codex:
-  command: codex app-server
-  stall_timeout_ms: 900000
-  approval_policy: never
-
-server:
-  port: 8080
+  api_key: $LINEAR_API_KEY      # reads LINEAR_API_KEY from env
+  assignee: $SYMPHONY_ASSIGNEE  # reads SYMPHONY_ASSIGNEE from env
 ```
 
-### Workspace Strategies
+### Dynamic reload
 
-| Strategy | Command | Best for |
-|---|---|---|
-| `auto` (default) | Picks based on repo URL vs path | General use |
-| `clone-local` | `git clone --local` | Monorepo on same volume — fast, inherits remotes |
-| `clone-remote` | `git clone --single-branch` | Remote repos, full isolation |
-| `worktree` | `git worktree add` | Monorepo — instant setup, visible in git clients |
+Symphony watches WORKFLOW.md for changes and applies config updates without restart.
 
-**Note:** `clone-local` requires repo and workspace root on the same filesystem (hard links). `worktree` requires repo to be a local path.
+## SSH Remote Workers
 
-## Docker Deployment
+Distribute agent sessions across multiple machines:
 
-Symphony supports container-isolated workers with `workspace.isolation: docker`. The orchestrator starts a disposable worker container per issue, runs Codex via `docker exec -i`, and removes the container when the session finishes.
-
-### Local
-
-```bash
-cd apps/symphony/docker
-cp .env.example .env
-# edit .env with required keys
-docker compose up --build
+```yaml
+worker:
+  ssh_hosts:
+    - worker1.example.com
+    - worker2.example.com:2222
+    - alice@worker3.example.com
+  max_concurrent_agents_per_host: 3
 ```
 
-### VPS
-
-```bash
-git clone https://github.com/gannonh/kata.git
-cd kata/apps/symphony/docker
-cp .env.example .env
-# edit .env
-docker compose up -d --build
-```
-
-### Custom worker images and setup scripts
-
-- Base worker image is `docker/Dockerfile.worker`.
-- Default worker runtime user is non-root (`node`, home `/home/node`).
-- `workspace.docker.image` selects the base image tag.
-- `workspace.docker.setup` points to a setup script; Symphony caches a derived image based on setup script content hash.
-- Bundled setup scripts live in `docker/setups/` (`rust.sh`, `python.sh`, `go.sh`, `bun.sh`).
-
-### Docker auth modes
-
-- `codex_auth: auto` uses `OPENAI_API_KEY` when set, otherwise stages host `~/.codex/auth.json` and installs it into the container user's `$HOME/.codex/auth.json`.
-- `codex_auth: mount` requires host `~/.codex/auth.json` and installs it into the container user's `$HOME/.codex/auth.json`.
-- `codex_auth: env` requires `OPENAI_API_KEY`.
+Each host must have Codex installed and on PATH. Symphony connects via `ssh -T` and spawns Codex remotely. Set `SYMPHONY_SSH_CONFIG` to use a custom SSH config file.
 
 ## Dashboard
 
-The HTTP dashboard at `localhost:<port>` shows:
+### Web dashboard
 
-- **Summary cards** — running, retry, claimed, completed counts
-- **Token summary** — input/output/total token usage
-- **Running sessions table** — identifier, Linear state, status, attempt, elapsed time, turn count/max turns, last activity age, per-session tokens, workspace, worker host
-- **Retry queue** — pending retries with errors and timing
-- **Completed issues** — ticket identifier, title, completion date
-- **Polling stats** — last poll time, poll count, interval
-- **Rate limits** — Codex API rate limit data
-- **Linear project link** — direct link card to the configured Linear project
+Available at `http://localhost:<port>`. Auto-refreshes every 2 seconds.
 
-Auto-refreshes every 2 seconds. JSON API at `/api/v1/state` and `/api/v1/{ISSUE-ID}`.
+Shows: running sessions (with turn count, token usage, last activity), retry queue, completed issues, polling stats, rate limits, and a link to the Linear project.
+
+JSON API at `/api/v1/state` and `/api/v1/{ISSUE-ID}`.
+
+<details>
+<summary>Screenshot</summary>
+
+<img src="../../assets/symphony-v1.0.0/symphony-web.png" alt="HTTP Dashboard" width="600">
+
+</details>
+
+### Terminal dashboard
+
+Enabled by default. Shows a Ratatui-based live view with throughput sparkline and color-coded session status. Disable with `--no-tui` to get JSON log output instead.
 
 ## Development
 
 ```bash
-# Build
-cargo build
-
-# Test (321 tests)
-cargo test
-
-# Lint
-cargo clippy -- -D warnings
-
-# Format
-cargo fmt
+cargo build              # build
+cargo test               # run all tests (321)
+cargo clippy -- -D warnings   # lint (zero warnings enforced)
+cargo fmt                # format
 ```
 
-See [AGENTS.md](AGENTS.md) for full architecture reference, module layout, test harness details, and development conventions.
+See [AGENTS.md](AGENTS.md) for the full architecture reference, module layout, and test harness details.
