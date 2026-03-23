@@ -29,21 +29,21 @@ async function loadMemoryStore(): Promise<Record<string, any> | null> {
   }
 }
 
-/** Mock embedding provider that returns deterministic vectors */
+/** Mock embedding provider that returns deterministic vectors matching EmbeddingProvider interface */
 function createMockEmbeddingProvider() {
-  let callCount = 0;
   return {
-    embed: vi.fn(async (text: string) => {
-      callCount++;
-      // Deterministic vector based on text length for reproducible similarity
-      const len = text.length;
-      return [len * 0.01, len * 0.02, len * 0.03, len * 0.04];
-    }),
-    embedBatch: vi.fn(async (texts: string[]) =>
-      texts.map((t) => {
-        const len = t.length;
-        return [len * 0.01, len * 0.02, len * 0.03, len * 0.04];
-      }),
+    embedBatch: vi.fn(
+      async (
+        batch: Array<{ symbolId: string; text: string; filePath: string }>,
+        _context: { model: string; expectedDimensions: number },
+      ) =>
+        batch.map((item) => {
+          const len = item.text.length;
+          return {
+            symbolId: item.symbolId,
+            embedding: [len * 0.01, len * 0.02, len * 0.03, len * 0.04],
+          };
+        }),
     ),
   };
 }
