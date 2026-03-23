@@ -1,8 +1,8 @@
 FROM rust:slim AS builder
 WORKDIR /build
 
-COPY apps/symphony/Cargo.toml apps/symphony/Cargo.lock ./
-COPY apps/symphony/src ./src
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
 
 RUN cargo build --release
 
