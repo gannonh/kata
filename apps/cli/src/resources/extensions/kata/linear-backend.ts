@@ -136,6 +136,33 @@ export class LinearBackend implements KataBackend {
     return docs.map((d) => d.title);
   }
 
+  // ── Slice Resolution ───────────────────────────────────────────────────
+
+  /**
+   * Resolve a slice's document scope by matching both sliceId and milestoneId.
+   * Returns `{ issueId }` if found, `undefined` if not resolvable.
+   * Matches milestone via `projectMilestone.name` bracket-prefix parsing.
+   * Overridable in tests.
+   */
+  async resolveSliceScope(milestoneId: string, sliceId: string): Promise<DocumentScope | undefined> {
+    try {
+      const allSlices = await listKataSlices(this.client, this.config.projectId, this.config.sliceLabelId);
+      const sliceIssue = allSlices.find((s) => {
+        const parsed = parseKataEntityTitle(s.title);
+        const mParsed = s.projectMilestone
+          ? parseKataEntityTitle(s.projectMilestone.name)
+          : null;
+        return parsed?.kataId === sliceId && mParsed?.kataId === milestoneId;
+      });
+      if (sliceIssue) {
+        return { issueId: sliceIssue.id };
+      }
+    } catch {
+      // Non-fatal: slice-scoped docs will be unavailable
+    }
+    return undefined;
+  }
+
   // ── Lifecycle ─────────────────────────────────────────────────────────
 
   async bootstrap(): Promise<void> {
@@ -248,27 +275,15 @@ export class LinearBackend implements KataBackend {
       // Non-fatal: runCreatePr will retry the push if needed
     }
 
-    // Resolve slice issue UUID so we can read slice-scoped documents.
-    // Best-effort: if the API call fails (e.g. invalid key in tests), fall back to project-scoped reads.
-    let sliceScope: DocumentScope | undefined;
-    try {
-      const allSlices = await listKataSlices(this.client, this.config.projectId, this.config.sliceLabelId);
-      const sliceIssue = allSlices.find((s) => {
-        const parsed = parseKataEntityTitle(s.title);
-        return parsed?.kataId === sliceId;
-      });
-      if (sliceIssue) {
-        sliceScope = { issueId: sliceIssue.id };
-      }
-    } catch {
-      // Non-fatal: fall back to project-scoped document reads
-    }
+    const sliceScope = await this.resolveSliceScope(milestoneId, sliceId);
 
     const documents: Record<string, string> = {};
-    const plan = await this.readDocument(`${sliceId}-PLAN`, sliceScope);
-    if (plan) documents["PLAN"] = plan;
-    const summary = await this.readDocument(`${sliceId}-SUMMARY`, sliceScope);
-    if (summary) documents["SUMMARY"] = summary;
+    if (sliceScope) {
+      const plan = await this.readDocument(`${sliceId}-PLAN`, sliceScope);
+      if (plan) documents["PLAN"] = plan;
+      const summary = await this.readDocument(`${sliceId}-SUMMARY`, sliceScope);
+      if (summary) documents["SUMMARY"] = summary;
+    }
 
     return { branch, documents };
   }

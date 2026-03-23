@@ -74,6 +74,7 @@ describe("LinearBackend.preparePrContext", () => {
 
     try {
       const backend = new LinearBackend(base, TEST_CONFIG);
+      backend.resolveSliceScope = async () => ({ issueId: "fake-slice-issue-id" });
       backend.readDocument = async (name: string) => {
         if (name === "S02-PLAN") return "# S02 Plan\n";
         if (name === "S02-SUMMARY") return "# S02 Summary\n";
