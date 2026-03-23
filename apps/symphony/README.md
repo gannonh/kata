@@ -239,7 +239,7 @@ docker compose logs -f
 docker compose down
 ```
 
-The Compose file mounts `apps/symphony/WORKFLOW.md` into the container. Edit that file to change your configuration — Symphony watches it for changes and reloads automatically.
+The Compose file mounts `apps/symphony/WORKFLOW.md` into the container by default. To use a different file, edit the volume mount in `docker/docker-compose.yml`. Symphony watches the file for changes and reloads automatically.
 
 The Docker socket is mounted so Symphony can create and manage worker containers as sibling containers (not nested).
 
