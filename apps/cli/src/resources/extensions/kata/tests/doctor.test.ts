@@ -148,6 +148,55 @@ async function main(): Promise<void> {
     );
   }
 
+  console.log("\n=== doctor formatting reflects diagnostic failures in header ===");
+  {
+    const text = formatDoctorReport({
+      ok: false,
+      basePath: tmpBase,
+      issues: [],
+      fixesApplied: [],
+      environment: {
+        ok: false,
+        checkedAt: "2026-03-23T00:00:00.000Z",
+        nodeVersion: "18.0.0",
+        minNodeVersion: "20.6.0",
+        gitVersion: "2.45.0",
+        minGitVersion: "2.25.0",
+        diskFreeBytes: 10_000,
+        os: "linux",
+        shell: "/bin/zsh",
+        checks: [
+          {
+            id: "node_version",
+            label: "Node.js",
+            status: "fail",
+            message: "18.0.0 is below required >=20.6.0",
+          },
+        ],
+      },
+      providers: {
+        ok: true,
+        checkedAt: "2026-03-23T00:00:00.000Z",
+        availableModels: 1,
+        defaultModel: "anthropic/claude-sonnet-4-6",
+        checks: [
+          {
+            id: "model_inventory",
+            label: "Model inventory",
+            status: "pass",
+            message: "1 model(s) available",
+          },
+        ],
+        providers: [],
+      },
+    });
+
+    assert(
+      text.includes("Kata doctor found blocking issues."),
+      "header reflects diagnostic failures even when issue list is empty",
+    );
+  }
+
   console.log("\n=== doctor default scope ===");
   {
     const scope = await selectDoctorScope(tmpBase);
