@@ -217,26 +217,39 @@ To run Symphony on a VPS or remote machine, use the provided Docker Compose setu
 
 ### Setup
 
+All commands below run from the `docker/` directory:
+
 ```bash
-cd apps/symphony/docker
+cd docker/
+```
 
-# 1. Configure the workflow
-#    Edit WORKFLOW-docker.md with your project slug and repo URL
+**1. Configure the workflow** — edit `WORKFLOW-docker.md` with your project slug and repo URL:
+
+```bash
 vi WORKFLOW-docker.md
+```
 
-# 2. Set up env vars
+**2. Set up env vars:**
+
+```bash
 cp .env.example .env
-# Edit .env with your LINEAR_API_KEY and Codex auth
+vi .env    # set LINEAR_API_KEY and OPENAI_API_KEY (required for Docker)
+```
 
-# 3. Start Symphony
+**3. Start, monitor, and stop:**
+
+```bash
+# Build and start
 docker compose up -d --build
 
-# View logs
+# View logs (Ctrl+C to stop following)
 docker compose logs -f
 
 # Stop
 docker compose down
 ```
+
+**Web dashboard:** `http://localhost:8080` (or whatever port you set in `WORKFLOW-docker.md`).
 
 Everything lives in the `docker/` directory. [`WORKFLOW-docker.md`](docker/WORKFLOW-docker.md) is a ready-to-edit template pre-configured for Docker isolation. The Compose file mounts it into the container. Symphony watches it for changes and reloads automatically.
 
