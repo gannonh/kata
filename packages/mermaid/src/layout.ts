@@ -1,6 +1,6 @@
 // @ts-expect-error — dagre types are declared for the package root, not the dist path;
 // importing the pre-built browser bundle avoids Bun.build hanging on 30+ CJS file resolution
-import dagre from '@dagrejs/dagre/dist/dagre.js'
+import dagre from '@dagrejs/dagre'
 import type { MermaidGraph, MermaidSubgraph, PositionedGraph, PositionedNode, PositionedEdge, PositionedGroup, Point, RenderOptions } from './types.ts'
 import { estimateTextWidth, FONT_SIZES, FONT_WEIGHTS, NODE_PADDING, GROUP_HEADER_CONTENT_PAD } from './styles.ts'
 import { centerToTopLeft, snapToOrthogonal, clipToDiamondBoundary, clipToCircleBoundary, clipEndpointsToNodes } from './dagre-adapter.ts'
