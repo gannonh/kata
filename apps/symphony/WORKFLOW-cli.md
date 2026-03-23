@@ -361,7 +361,7 @@ Use one persistent workpad comment and include task-level progress:
 
 ## Guardrails
 
-- Keep `apps/symphony/WORKFLOW.md` unchanged for flat Symphony ticket flow.
+- Keep `apps/symphony/WORKFLOW-symphony.md` unchanged for flat Symphony ticket flow.
 - Do not edit issue body for planning/progress tracking; use only one persistent workpad comment.
 - Do not use `Issue.links` or `IssueFilter.identifier` in GraphQL.
 - If blocked by missing required non-GitHub auth/tools, capture blocker in workpad and move per workflow.
