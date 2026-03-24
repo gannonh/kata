@@ -463,10 +463,10 @@ pub async fn run_turn(
     let mut events = vec![session_started];
 
     let mut output_text: Option<String> = None;
-    let read_timeout_ms = handle.stall_timeout_ms.max(handle.read_timeout_ms);
+    let turn_line_timeout_ms = handle.stall_timeout_ms.max(handle.read_timeout_ms);
 
     loop {
-        let line = read_line(&mut handle.stdout_reader, read_timeout_ms).await?;
+        let line = read_line(&mut handle.stdout_reader, turn_line_timeout_ms).await?;
         let Some(parsed) = parse_output_line(&line) else {
             continue;
         };

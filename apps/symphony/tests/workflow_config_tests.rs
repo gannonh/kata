@@ -182,7 +182,7 @@ fn test_agent_backend_pi_with_pi_agent_config() {
 agent:
   backend: pi
 pi_agent:
-  command: "kata --mode rpc"
+  command: "kata"
   model: "anthropic/claude-sonnet-4-6"
   no_session: false
   append_system_prompt: "/tmp/system.md"
@@ -193,10 +193,7 @@ pi_agent:
     let config = from_workflow(&raw).expect("pi backend config should parse");
 
     assert_eq!(config.agent_backend, AgentBackend::Pi);
-    assert_eq!(
-        config.pi_agent.command,
-        vec!["kata".to_string(), "--mode".to_string(), "rpc".to_string()]
-    );
+    assert_eq!(config.pi_agent.command, vec!["kata".to_string()]);
     assert_eq!(
         config.pi_agent.model.as_deref(),
         Some("anthropic/claude-sonnet-4-6")
