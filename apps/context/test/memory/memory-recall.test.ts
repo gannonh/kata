@@ -147,32 +147,40 @@ describe("memory recall contract (T01 red-first)", () => {
   });
 
   it("missing OPENAI_API_KEY returns stable MEMORY_RECALL_MISSING_KEY error", async () => {
-    const recallMod = await loadMemoryRecall();
-    expect(recallMod).not.toBeNull();
-
-    const storeMod = await loadMemoryStore();
-    expect(storeMod).not.toBeNull();
-
-    const store = storeMod!.MemoryStore
-      ? new storeMod!.MemoryStore(repoDir)
-      : storeMod!.createMemoryStore(repoDir);
-
-    await store.remember({
-      content: "Some memory",
-      category: "test",
-      tags: [],
-    });
-
-    // No provider passed — should detect missing key
+    const prevKey = process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
     try {
-      await recallMod!.recallMemories({
-        query: "test",
-        store,
-        // embeddingProvider intentionally omitted
+      const recallMod = await loadMemoryRecall();
+      expect(recallMod).not.toBeNull();
+
+      const storeMod = await loadMemoryStore();
+      expect(storeMod).not.toBeNull();
+
+      const store = storeMod!.MemoryStore
+        ? new storeMod!.MemoryStore(repoDir)
+        : storeMod!.createMemoryStore(repoDir);
+
+      await store.remember({
+        content: "Some memory",
+        category: "learning",
+        tags: [],
       });
-      expect.unreachable("Expected MEMORY_RECALL_MISSING_KEY error");
-    } catch (err: any) {
-      expect(err.code).toBe("MEMORY_RECALL_MISSING_KEY");
+
+      // No provider passed — should detect missing key
+      try {
+        await recallMod!.recallMemories({
+          query: "test",
+          store,
+          // embeddingProvider intentionally omitted
+        });
+        expect.unreachable("Expected MEMORY_RECALL_MISSING_KEY error");
+      } catch (err: any) {
+        expect(err.code).toBe("MEMORY_RECALL_MISSING_KEY");
+      }
+    } finally {
+      if (prevKey !== undefined) {
+        process.env.OPENAI_API_KEY = prevKey;
+      }
     }
   });
 });

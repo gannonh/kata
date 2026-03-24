@@ -94,7 +94,7 @@ describe("memory git audit contract (T01 red-first)", () => {
 
     const entry = await store.remember({
       content: "Temporary fact",
-      category: "temp",
+      category: "learning",
       tags: [],
     });
 

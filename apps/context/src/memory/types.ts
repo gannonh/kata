@@ -12,8 +12,6 @@ export type MemoryCategory =
   | "infrastructure"
   | "design"
   | "general"
-  | "temp"
-  | "test-category"
   | (string & {});
 
 export interface MemoryEntry {
@@ -42,6 +40,7 @@ export interface ConsolidateOptions {
   mergedContent: string;
   category: MemoryCategory;
   tags: string[];
+  sourceRefs?: string[];
 }
 
 export interface MemoryOperationResult {
@@ -54,6 +53,9 @@ export const MEMORY_ERROR_CODES = {
   MEMORY_GIT_NOT_REPO: "MEMORY_GIT_NOT_REPO",
   MEMORY_GIT_COMMIT_FAILED: "MEMORY_GIT_COMMIT_FAILED",
   MEMORY_FILE_NOT_FOUND: "MEMORY_FILE_NOT_FOUND",
+  MEMORY_RECALL_EMPTY: "MEMORY_RECALL_EMPTY",
+  MEMORY_RECALL_MISSING_KEY: "MEMORY_RECALL_MISSING_KEY",
+  MEMORY_CONSOLIDATE_TOO_FEW: "MEMORY_CONSOLIDATE_TOO_FEW",
 } as const;
 
 export class MemoryError extends Error {

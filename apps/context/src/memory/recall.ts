@@ -7,7 +7,7 @@
 
 import type { MemoryStore } from "./store.js";
 import type { MemoryEntry } from "./types.js";
-import { MemoryError } from "./types.js";
+import { MemoryError, MEMORY_ERROR_CODES } from "./types.js";
 import type { EmbeddingProvider } from "../semantic/contracts.js";
 import { getDefaultEmbeddingModel } from "../semantic/embedding.js";
 import type { GraphStore } from "../graph/store.js";
@@ -42,7 +42,7 @@ export async function recallMemories(
   // Check if store has any memories
   const allMemories = await store.list();
   if (allMemories.length === 0) {
-    throw new MemoryError("MEMORY_RECALL_EMPTY", "No memories stored");
+    throw new MemoryError(MEMORY_ERROR_CODES.MEMORY_RECALL_EMPTY, "No memories stored");
   }
 
   // Resolve embedding provider
@@ -50,7 +50,7 @@ export async function recallMemories(
   if (!provider) {
     if (!process.env.OPENAI_API_KEY) {
       throw new MemoryError(
-        "MEMORY_RECALL_MISSING_KEY",
+        MEMORY_ERROR_CODES.MEMORY_RECALL_MISSING_KEY,
         "OPENAI_API_KEY is required for semantic recall when no embeddingProvider is supplied",
       );
     }
@@ -182,8 +182,13 @@ async function recallBruteForce(
 }
 
 function computeL2Distance(a: number[], b: number[]): number {
+  if (a.length !== b.length) {
+    throw new Error(
+      `Embedding dimension mismatch: ${a.length} vs ${b.length}`,
+    );
+  }
   let sum = 0;
-  const len = Math.min(a.length, b.length);
+  const len = a.length;
   for (let i = 0; i < len; i++) {
     const diff = a[i]! - b[i]!;
     sum += diff * diff;

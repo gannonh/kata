@@ -10,7 +10,7 @@
 
 import type { MemoryStore } from "./store.js";
 import type { MemoryEntry } from "./types.js";
-import { MemoryError } from "./types.js";
+import { MemoryError, MEMORY_ERROR_CODES } from "./types.js";
 
 export interface ConsolidateMemoriesOptions {
   ids: string[];
@@ -38,7 +38,7 @@ export async function consolidateMemories(
 
   if (ids.length < 2) {
     throw new MemoryError(
-      "MEMORY_CONSOLIDATE_TOO_FEW",
+      MEMORY_ERROR_CODES.MEMORY_CONSOLIDATE_TOO_FEW,
       "At least 2 memories required for consolidation",
     );
   }
@@ -67,11 +67,13 @@ export async function consolidateMemories(
       .join("\n\n");
   }
 
-  // Collect all unique tags from originals
+  // Collect all unique tags and sourceRefs from originals
   const allTags = new Set<string>();
   allTags.add("consolidated");
+  const allSourceRefs = new Set<string>();
   for (const m of memories) {
     for (const t of m.tags) allTags.add(t);
+    for (const r of m.sourceRefs) allSourceRefs.add(r);
   }
 
   // Use store.consolidate() which handles file operations + git commit
@@ -80,6 +82,7 @@ export async function consolidateMemories(
     mergedContent,
     category: "learning",
     tags: [...allTags],
+    sourceRefs: [...allSourceRefs],
   });
 
   return {

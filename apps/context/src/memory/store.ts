@@ -111,13 +111,21 @@ export class MemoryStore {
   }
 
   private getMemoryDir(): string {
-    const dir = join(this.rootPath, ".kata", "memory");
+    return join(this.rootPath, ".kata", "memory");
+  }
+
+  private ensureMemoryDir(): string {
+    const dir = this.getMemoryDir();
     mkdirSync(dir, { recursive: true });
     return dir;
   }
 
+  private static isValidMemoryId(id: string): boolean {
+    return /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$|^[0-9a-f]{8}$/.test(id);
+  }
+
   async remember(options: RememberOptions): Promise<MemoryEntry> {
-    const memoryDir = this.getMemoryDir();
+    const memoryDir = this.ensureMemoryDir();
     const id = randomUUID().slice(0, 8);
     const createdAt = new Date().toISOString();
 
@@ -148,6 +156,7 @@ export class MemoryStore {
   }
 
   async get(id: string): Promise<MemoryEntry | null> {
+    if (!MemoryStore.isValidMemoryId(id)) return null;
     const filePath = join(this.getMemoryDir(), `${id}.md`);
     if (!existsSync(filePath)) return null;
 
@@ -158,6 +167,7 @@ export class MemoryStore {
 
   async list(filter?: MemoryFilter): Promise<MemoryEntry[]> {
     const memoryDir = this.getMemoryDir();
+    if (!existsSync(memoryDir)) return [];
     const files = readdirSync(memoryDir).filter((f) => f.endsWith(".md"));
     const entries: MemoryEntry[] = [];
 
@@ -176,6 +186,12 @@ export class MemoryStore {
   }
 
   async forget(id: string): Promise<MemoryEntry> {
+    if (!MemoryStore.isValidMemoryId(id)) {
+      throw new MemoryError(
+        MEMORY_ERROR_CODES.MEMORY_FILE_NOT_FOUND,
+        `Invalid memory ID: ${id}`,
+      );
+    }
     const entry = await this.get(id);
     if (!entry) {
       throw new MemoryError(
@@ -196,16 +212,10 @@ export class MemoryStore {
   }
 
   async consolidate(options: ConsolidateOptions): Promise<MemoryEntry> {
-    const memoryDir = this.getMemoryDir();
+    const memoryDir = this.ensureMemoryDir();
     const count = options.memoryIds.length;
 
-    // Delete old memories
-    for (const mid of options.memoryIds) {
-      const filePath = join(memoryDir, `${mid}.md`);
-      if (existsSync(filePath)) unlinkSync(filePath);
-    }
-
-    // Create merged memory
+    // Create merged memory FIRST (before deleting originals)
     const id = randomUUID().slice(0, 8);
     const createdAt = new Date().toISOString();
 
@@ -214,7 +224,7 @@ export class MemoryStore {
       category: options.category,
       tags: options.tags,
       createdAt,
-      sourceRefs: [],
+      sourceRefs: options.sourceRefs ?? [],
       content: options.mergedContent,
     };
 
@@ -224,6 +234,13 @@ export class MemoryStore {
       `${frontmatter}\n${options.mergedContent}\n`,
       "utf-8",
     );
+
+    // Delete old memories AFTER successful write
+    for (const mid of options.memoryIds) {
+      if (!MemoryStore.isValidMemoryId(mid)) continue;
+      const filePath = join(memoryDir, `${mid}.md`);
+      if (existsSync(filePath)) unlinkSync(filePath);
+    }
 
     try {
       memoryGitCommit(

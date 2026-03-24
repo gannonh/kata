@@ -5,7 +5,7 @@
  *   kata-context: <operation> — <description>
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { MemoryError, MEMORY_ERROR_CODES } from "./types.js";
 
 /**
@@ -39,21 +39,21 @@ export function memoryGitCommit(
   const message = `kata-context: ${operation} — ${description}`;
 
   try {
-    execSync("git add .kata/memory/", { cwd: rootDir, stdio: "pipe" });
-    execSync(`git commit -m ${JSON.stringify(message)}`, {
+    execFileSync("git", ["add", ".kata/memory/"], { cwd: rootDir, stdio: "pipe" });
+    execFileSync("git", ["commit", "-m", message], {
       cwd: rootDir,
       stdio: "pipe",
     });
-    const sha = execSync("git rev-parse HEAD", {
+    const sha = execFileSync("git", ["rev-parse", "HEAD"], {
       cwd: rootDir,
       encoding: "utf-8",
     }).trim();
     return sha;
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    const errMessage = err instanceof Error ? err.message : String(err);
     throw new MemoryError(
       MEMORY_ERROR_CODES.MEMORY_GIT_COMMIT_FAILED,
-      `Git commit failed: ${message}`,
+      `Git commit failed: ${errMessage}`,
     );
   }
 }
