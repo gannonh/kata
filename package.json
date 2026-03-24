@@ -128,7 +128,7 @@
     "jotai": "^2.16.0",
     "js-yaml": "^4.1.1",
     "linkify-it": "^5.0.0",
-    "lucide-react": "^0.577.0",
+    "lucide-react": "^1.6.0",
     "marked": "^17.0.1",
     "markitdown-js": "^0.0.14",
     "md-to-slack": "^1.1.7",
