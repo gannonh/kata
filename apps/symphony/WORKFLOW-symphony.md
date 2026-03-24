@@ -35,7 +35,7 @@ agent:
   max_turns: 20
 pi_agent:
   command: node /Volumes/EVO/kata/kata-mono.worktrees/wt-cli/apps/cli/dist/loader.js
-  model: anthropic/claude-opus-4-6
+  model: openai-codex/gpt-5.3-codex
   stall_timeout_ms: 900000
 server:
   port: 8080
