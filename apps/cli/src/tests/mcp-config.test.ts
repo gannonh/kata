@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import { mergeMcpConfigs, resolveEffectiveMcpConfigPath } from "../mcp-config.ts";
 
@@ -63,6 +63,52 @@ test("resolveEffectiveMcpConfigPath returns global config when no project config
     assert.equal(result.configPath, globalPath);
     assert.equal(result.usedProjectConfig, false);
     assert.equal(result.projectConfigPath, null);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("resolveEffectiveMcpConfigPath merges approved project config when global config is missing", async () => {
+  const tmp = mkdtempSync(join(tmpdir(), "kata-mcp-no-global-"));
+  const agentDir = join(tmp, "agent");
+  const appRoot = join(tmp, ".kata-cli");
+  const cwd = join(tmp, "project");
+  const projectMcpDir = join(cwd, ".kata-cli");
+  mkdirSync(agentDir, { recursive: true });
+  mkdirSync(projectMcpDir, { recursive: true });
+
+  writeFileSync(
+    join(projectMcpDir, "mcp.json"),
+    JSON.stringify(
+      {
+        imports: ["cursor"],
+        settings: { projectFlag: true },
+        mcpServers: {
+          projectOnly: { command: "node", args: ["x"] },
+        },
+      },
+      null,
+      2,
+    ),
+  );
+
+  try {
+    const result = await resolveEffectiveMcpConfigPath({
+      agentDir,
+      appRoot,
+      cwd,
+      confirmProjectMcpUse: async () => true,
+      isInteractive: false,
+    });
+
+    assert.equal(result.usedProjectConfig, true);
+    assert.equal(result.configPath, join(agentDir, "mcp.effective.json"));
+    assert.equal(result.projectConfigPath, join(projectMcpDir, "mcp.json"));
+
+    const merged = JSON.parse(readFileSync(result.configPath, "utf-8"));
+    assert.deepEqual(merged.imports, ["cursor"]);
+    assert.equal(merged.settings.projectFlag, true);
+    assert.ok(merged.mcpServers.projectOnly, "project-only server preserved");
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -130,7 +176,8 @@ test("resolveEffectiveMcpConfigPath merges approved project config and persists 
     assert.ok(existsSync(consentPath), "consent file persisted after approval");
     const consent = JSON.parse(readFileSync(consentPath, "utf-8"));
     assert.equal(consent.version, 1);
-    assert.equal(consent.projects[join(projectMcpDir, "mcp.json")], "approved");
+    const expectedConsentKey = resolve(join(projectMcpDir, "mcp.json"));
+    assert.equal(consent.projects[expectedConsentKey], "approved");
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -201,6 +248,112 @@ test("resolveEffectiveMcpConfigPath skips project config in non-interactive mode
     assert.equal(result.usedProjectConfig, false);
     assert.equal(result.configPath, join(agentDir, "mcp.json"));
     assert.equal(existsSync(join(appRoot, "project-mcp-consent.json")), false);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("resolveEffectiveMcpConfigPath falls back to global config when project config is invalid JSON", async () => {
+  const tmp = mkdtempSync(join(tmpdir(), "kata-mcp-invalid-project-"));
+  const agentDir = join(tmp, "agent");
+  const appRoot = join(tmp, ".kata-cli");
+  const cwd = join(tmp, "project");
+  const projectMcpDir = join(cwd, ".kata-cli");
+  mkdirSync(agentDir, { recursive: true });
+  mkdirSync(projectMcpDir, { recursive: true });
+
+  const globalPath = join(agentDir, "mcp.json");
+  writeFileSync(globalPath, JSON.stringify({ imports: [], settings: {}, mcpServers: {} }, null, 2));
+  writeFileSync(join(projectMcpDir, "mcp.json"), "{ invalid json", "utf-8");
+
+  try {
+    const result = await resolveEffectiveMcpConfigPath({
+      agentDir,
+      appRoot,
+      cwd,
+      isInteractive: false,
+    });
+    assert.equal(result.usedProjectConfig, false);
+    assert.equal(result.configPath, globalPath);
+    assert.equal(result.projectConfigPath, null);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("resolveEffectiveMcpConfigPath falls back to global config when writing effective file fails", async () => {
+  const tmp = mkdtempSync(join(tmpdir(), "kata-mcp-write-fail-"));
+  const agentDir = join(tmp, "agent");
+  const appRoot = join(tmp, ".kata-cli");
+  const cwd = join(tmp, "project");
+  const projectMcpDir = join(cwd, ".kata-cli");
+  mkdirSync(agentDir, { recursive: true });
+  mkdirSync(projectMcpDir, { recursive: true });
+
+  const globalPath = join(agentDir, "mcp.json");
+  writeFileSync(globalPath, JSON.stringify({ imports: [], settings: {}, mcpServers: {} }, null, 2));
+  writeFileSync(
+    join(projectMcpDir, "mcp.json"),
+    JSON.stringify({ imports: ["cursor"], settings: {}, mcpServers: {} }, null, 2),
+  );
+  mkdirSync(join(agentDir, "mcp.effective.json"), { recursive: true });
+
+  try {
+    const result = await resolveEffectiveMcpConfigPath({
+      agentDir,
+      appRoot,
+      cwd,
+      confirmProjectMcpUse: async () => true,
+      isInteractive: false,
+    });
+    assert.equal(result.usedProjectConfig, false);
+    assert.equal(result.configPath, globalPath);
+    assert.equal(result.projectConfigPath, null);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("resolveEffectiveMcpConfigPath does not rewrite unchanged effective config", async () => {
+  const tmp = mkdtempSync(join(tmpdir(), "kata-mcp-no-rewrite-"));
+  const agentDir = join(tmp, "agent");
+  const appRoot = join(tmp, ".kata-cli");
+  const cwd = join(tmp, "project");
+  const projectMcpDir = join(cwd, ".kata-cli");
+  mkdirSync(agentDir, { recursive: true });
+  mkdirSync(projectMcpDir, { recursive: true });
+
+  writeFileSync(
+    join(agentDir, "mcp.json"),
+    JSON.stringify({ imports: ["claude-code"], settings: {}, mcpServers: {} }, null, 2),
+  );
+  writeFileSync(
+    join(projectMcpDir, "mcp.json"),
+    JSON.stringify({ imports: ["cursor"], settings: {}, mcpServers: {} }, null, 2),
+  );
+
+  try {
+    const first = await resolveEffectiveMcpConfigPath({
+      agentDir,
+      appRoot,
+      cwd,
+      confirmProjectMcpUse: async () => true,
+      isInteractive: false,
+    });
+    const before = statSync(first.configPath).mtimeMs;
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 25));
+
+    const second = await resolveEffectiveMcpConfigPath({
+      agentDir,
+      appRoot,
+      cwd,
+      isInteractive: false,
+    });
+    const after = statSync(second.configPath).mtimeMs;
+
+    assert.equal(second.usedProjectConfig, true);
+    assert.equal(first.configPath, second.configPath);
+    assert.equal(after, before);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

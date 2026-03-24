@@ -108,12 +108,9 @@ export async function resolveEffectiveMcpConfigPath(
 
   const effectiveConfigPath = join(options.agentDir, EFFECTIVE_MCP_CONFIG_FILE);
   const effectiveConfig = mergeMcpConfigs(globalConfig, projectConfig);
+  const serializedEffectiveConfig = `${JSON.stringify(effectiveConfig, null, 2)}\n`;
   try {
-    writeFileSync(
-      effectiveConfigPath,
-      `${JSON.stringify(effectiveConfig, null, 2)}\n`,
-      "utf-8",
-    );
+    writeIfChanged(effectiveConfigPath, serializedEffectiveConfig);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     stderr.write(
@@ -244,4 +241,16 @@ function asObject(value: unknown): JsonObject {
 
 function isObject(value: unknown): value is JsonObject {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function writeIfChanged(path: string, nextContent: string): void {
+  if (existsSync(path)) {
+    try {
+      const currentContent = readFileSync(path, "utf-8");
+      if (currentContent === nextContent) return;
+    } catch {
+      // Fall through and overwrite unreadable/invalid content.
+    }
+  }
+  writeFileSync(path, nextContent, "utf-8");
 }
