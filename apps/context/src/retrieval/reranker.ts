@@ -52,8 +52,9 @@ export function rerankResults(
           ? w.semantic
           : w.memory;
 
-    // Recency weight is applied uniformly (no file mtime data here)
-    const combinedScore = normScore * strategyWeight + w.recency * 0.5;
+    // Note: recency weight is omitted until per-item mtime data is available.
+    // Adding a flat constant for every item would not differentiate rankings.
+    const combinedScore = normScore * strategyWeight;
     combined.push({ item, combinedScore });
   }
 

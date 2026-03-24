@@ -92,8 +92,9 @@ describe("Watcher", () => {
     await watcher.stop();
 
     const changeEvents = events.filter((e) => e.type === "change");
+    // Normalize to forward slashes for cross-platform compatibility
     const hasKataPath = changeEvents.some((e) =>
-      e.files?.some((f) => f.includes(".kata/")),
+      e.files?.some((f) => f.replace(/\\/g, "/").includes(".kata/")),
     );
     expect(hasKataPath).toBe(false);
   });

@@ -5,6 +5,8 @@
  * for the multi-strategy retrieval orchestrator.
  */
 
+import type { SymbolKind } from "../types.js";
+
 // ── Retrieval strategy ──
 
 export type RetrievalStrategy = "structural" | "semantic" | "memory";
@@ -24,6 +26,8 @@ export interface RetrievalItem {
   score: number;
   /** Estimated token count */
   estimatedTokens: number;
+  /** Symbol kind for structural/semantic items — used for kind filtering */
+  kind?: SymbolKind;
 }
 
 // ── Strategy status ──
@@ -77,5 +81,5 @@ export interface CombinedRetrievalOptions {
   /** Custom ranking weights */
   weights?: Partial<RankingWeights>;
   /** Filter by symbol kind */
-  kinds?: string[];
+  kinds?: SymbolKind[];
 }

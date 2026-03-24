@@ -48,6 +48,8 @@ export function createWatcher(
   let fsWatcher: FSWatcher | null = null;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let pendingFiles: Set<string> = new Set();
+  /** Files that arrived while a reindex was in progress; processed after current run completes. */
+  let queuedDuringReindex: Set<string> = new Set();
   let reindexing = false;
 
   function emit(event: WatcherEvent): void {
@@ -57,7 +59,11 @@ export function createWatcher(
   }
 
   async function triggerReindex(files: string[]): Promise<void> {
-    if (reindexing) return;
+    if (reindexing) {
+      // Queue these files for a follow-up pass after the current reindex finishes.
+      for (const f of files) queuedDuringReindex.add(f);
+      return;
+    }
     reindexing = true;
 
     emit({
@@ -68,7 +74,9 @@ export function createWatcher(
 
     const start = performance.now();
     try {
-      indexProject(resolve(rootDir), { config });
+      // Force a full re-index so that uncommitted (dirty) file changes on disk
+      // are always picked up, not just committed-history changes.
+      indexProject(resolve(rootDir), { config, full: true });
       const durationMs = Math.round(performance.now() - start);
       emit({
         type: "reindex-done",
@@ -88,6 +96,12 @@ export function createWatcher(
       });
     } finally {
       reindexing = false;
+      // If new files accumulated while we were indexing, schedule another pass.
+      if (queuedDuringReindex.size > 0) {
+        const nextFiles = [...queuedDuringReindex];
+        queuedDuringReindex = new Set();
+        void triggerReindex(nextFiles);
+      }
     }
   }
 
@@ -153,6 +167,7 @@ export function createWatcher(
         debounceTimer = null;
       }
       pendingFiles.clear();
+      queuedDuringReindex.clear();
       if (fsWatcher) {
         await fsWatcher.close();
         fsWatcher = null;

@@ -2,15 +2,26 @@
  * Combined retrieval contract tests — S04/T01
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { rerankResults } from "../../src/retrieval/reranker.js";
 import { assembleBudget, estimateTokens } from "../../src/retrieval/budget.js";
+import { combinedRetrieval } from "../../src/retrieval/combined.js";
 import type {
   RetrievalItem,
   CombinedRetrievalResult,
+  CombinedRetrievalInput,
   RetrievalDiagnostics,
 } from "../../src/retrieval/types.js";
 import { DEFAULT_RANKING_WEIGHTS } from "../../src/retrieval/types.js";
+
+// Top-level mocks required by combinedRetrieval orchestrator tests
+vi.mock("../../src/graph/queries.js", () => ({
+  dependents: vi.fn().mockReturnValue(null),
+}));
+
+vi.mock("../../src/search/semantic.js", () => ({
+  semanticSearch: vi.fn().mockRejectedValue(new Error("no vector index")),
+}));
 
 // ── Helper factories ──
 
@@ -153,5 +164,104 @@ describe("Retrieval Types", () => {
     expect(result.diagnostics.perStrategy.structural.status).toBe("ok");
     expect(result.diagnostics.perStrategy.semantic.status).toBe("skipped");
     expect(result.diagnostics.perStrategy.memory.status).toBe("failed");
+  });
+});
+
+describe("combinedRetrieval orchestrator", () => {
+  const SHARED_ID = "shared-sym";
+
+  function makeSymbol(id: string, source = "function foo() {}") {
+    return {
+      id,
+      name: "foo",
+      kind: "function" as import("../../src/types.js").SymbolKind,
+      filePath: "src/foo.ts",
+      lineStart: 1,
+      lineEnd: 3,
+      source,
+      signature: "function foo()",
+      docstring: null,
+      exported: true,
+      summary: null,
+      lastIndexedAt: new Date().toISOString(),
+      gitSha: null,
+    };
+  }
+
+  function makeStoreMock(symId = "struct-1") {
+    return {
+      ftsSearch: vi.fn().mockReturnValue([makeSymbol(symId)]),
+      close: vi.fn(),
+    };
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("aggregates structural hits, skips missing memoryStore, reports failed semantic", async () => {
+    const store = makeStoreMock("struct-1");
+    const { dependents } = await import("../../src/graph/queries.js");
+    vi.mocked(dependents).mockReturnValue(null);
+
+    // semanticSearch is already mocked at module top to reject — no override needed
+
+    const input: CombinedRetrievalInput = {
+      query: "foo function",
+      store: store as unknown as import("../../src/graph/store.js").GraphStore,
+      // memoryStore intentionally absent → strategy should be "skipped"
+      config: { rootDir: "/tmp", excludes: [], extensions: [] } as unknown as import("../../src/types.js").Config,
+      options: { budget: 4000, topK: 10 },
+    };
+
+    const result = await combinedRetrieval(input);
+
+    // Structural produced at least one hit
+    expect(result.diagnostics.perStrategy.structural.status).toBe("ok");
+    expect(result.diagnostics.perStrategy.structural.hits).toBeGreaterThan(0);
+
+    // Memory was skipped (no store)
+    expect(result.diagnostics.perStrategy.memory.status).toBe("skipped");
+
+    // Semantic failed
+    expect(result.diagnostics.perStrategy.semantic.status).toBe("failed");
+    expect(result.diagnostics.perStrategy.semantic.error).toBeTruthy();
+
+    // Budget fields are populated
+    expect(result.diagnostics.budgetTotal).toBe(4000);
+    expect(result.diagnostics.budgetUsed).toBeGreaterThanOrEqual(0);
+    expect(result.diagnostics.totalTimeMs).toBeGreaterThanOrEqual(0);
+
+    // Items array reflects deduplication (all from structural here)
+    expect(result.items.length).toBeGreaterThan(0);
+  });
+
+  it("deduplicates items across strategies keeping highest score", async () => {
+    const store = makeStoreMock(SHARED_ID);
+    const { dependents } = await import("../../src/graph/queries.js");
+    vi.mocked(dependents).mockReturnValue(null);
+
+    // Override semantic to return the same ID with a higher score
+    const { semanticSearch } = await import("../../src/search/semantic.js");
+    vi.mocked(semanticSearch).mockResolvedValue([
+      {
+        symbol: makeSymbol(SHARED_ID, "function shared() {}") as any,
+        score: 0.9,
+        distance: 0.1,
+      },
+    ]);
+
+    const input: CombinedRetrievalInput = {
+      query: "shared",
+      store: store as unknown as import("../../src/graph/store.js").GraphStore,
+      config: { rootDir: "/tmp", excludes: [], extensions: [] } as unknown as import("../../src/types.js").Config,
+      options: { budget: 4000 },
+    };
+
+    const result = await combinedRetrieval(input);
+
+    // Should only appear once after dedup
+    const occurrences = result.items.filter((i) => i.id === SHARED_ID);
+    expect(occurrences).toHaveLength(1);
   });
 });

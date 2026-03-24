@@ -24,6 +24,7 @@ import type {
   RetrievalDiagnostics,
 } from "./types.js";
 import { DEFAULT_RANKING_WEIGHTS } from "./types.js";
+import type { SymbolKind } from "../types.js";
 
 const DEFAULT_BUDGET = 4000;
 const DEFAULT_TOP_K = 20;
@@ -49,10 +50,12 @@ export async function combinedRetrieval(
   const topK = options?.topK ?? DEFAULT_TOP_K;
   const weights = { ...DEFAULT_RANKING_WEIGHTS, ...options?.weights };
 
+  const kinds = options?.kinds && options.kinds.length > 0 ? options.kinds : undefined;
+
   // Run all three strategies in parallel
   const [structuralResult, semanticResult, memoryResult] = await Promise.allSettled([
-    runStructural(query, store, topK),
-    runSemantic(query, store, config, topK, embeddingProvider),
+    runStructural(query, store, topK, kinds),
+    runSemantic(query, store, config, topK, embeddingProvider, kinds),
     runMemory(query, memoryStore, embeddingProvider, store, topK),
   ]);
 
@@ -112,12 +115,25 @@ async function runStructural(
   query: string,
   store: GraphStore,
   topK: number,
+  kinds?: SymbolKind[],
 ): Promise<StrategyResult> {
   const start = performance.now();
   const items: RetrievalItem[] = [];
 
-  // FTS match query to find relevant symbols
-  const matches = store.ftsSearch(query, { limit: topK });
+  // FTS match query to find relevant symbols; apply kind filter when provided
+  // ftsSearch accepts a single kind — run once per kind when filtering, or unfiltered otherwise
+  let matches;
+  if (kinds && kinds.length === 1) {
+    matches = store.ftsSearch(query, { limit: topK, kind: kinds[0] });
+  } else {
+    matches = store.ftsSearch(query, { limit: topK });
+  }
+
+  // Post-filter when multiple kinds are requested
+  if (kinds && kinds.length > 1) {
+    const kindSet = new Set<string>(kinds);
+    matches = matches.filter((s) => kindSet.has(s.kind));
+  }
 
   for (const sym of matches) {
     items.push({
@@ -127,6 +143,7 @@ async function runStructural(
       provenance: "structural",
       score: 1.0, // raw score, reranker will normalize
       estimatedTokens: estimateTokens(sym.source),
+      kind: sym.kind,
     });
 
     // Also include direct dependents/dependencies for context
@@ -141,6 +158,7 @@ async function runStructural(
             provenance: "structural",
             score: 0.5,
             estimatedTokens: estimateTokens(dep.symbol.source),
+            kind: dep.symbol.kind,
           });
         }
       }
@@ -156,29 +174,34 @@ async function runSemantic(
   config: Config,
   topK: number,
   provider?: EmbeddingProvider,
+  kinds?: SymbolKind[],
 ): Promise<StrategyResult> {
   const start = performance.now();
 
-  try {
-    const results = await semanticSearch(query, store, config, {
-      topK,
-      provider,
-    });
+  // Semantic search may fail (no API key, empty index) — let errors propagate
+  // so extractDiagnostic() records status: "failed" correctly.
+  const results = await semanticSearch(query, store, config, {
+    topK,
+    provider,
+  });
 
-    const items: RetrievalItem[] = results.map((r) => ({
-      id: r.symbol.id,
-      content: r.symbol.source,
-      source: `${r.symbol.filePath}:${r.symbol.lineStart}-${r.symbol.lineEnd}`,
-      provenance: "semantic" as const,
-      score: r.score,
-      estimatedTokens: estimateTokens(r.symbol.source),
-    }));
-
-    return { items, timeMs: Math.round(performance.now() - start) };
-  } catch (err: unknown) {
-    // Semantic may fail (no API key, empty index) — that's ok
-    throw err;
+  let filtered = results;
+  if (kinds && kinds.length > 0) {
+    const kindSet = new Set<string>(kinds);
+    filtered = results.filter((r) => kindSet.has(r.symbol.kind));
   }
+
+  const items: RetrievalItem[] = filtered.map((r) => ({
+    id: r.symbol.id,
+    content: r.symbol.source,
+    source: `${r.symbol.filePath}:${r.symbol.lineStart}-${r.symbol.lineEnd}`,
+    provenance: "semantic" as const,
+    score: r.score,
+    estimatedTokens: estimateTokens(r.symbol.source),
+    kind: r.symbol.kind,
+  }));
+
+  return { items, timeMs: Math.round(performance.now() - start) };
 }
 
 async function runMemory(
@@ -194,29 +217,27 @@ async function runMemory(
     return { items: [], timeMs: 0 };
   }
 
-  try {
-    const results = await recallMemories({
-      query,
-      store: memoryStore,
-      embeddingProvider: provider,
-      graphStore,
-      topK,
-    });
+  // Let unexpected errors from recallMemories propagate so extractDiagnostic()
+  // can record status: "failed". The only silent-skip is when memoryStore is
+  // absent (handled above).
+  const results = await recallMemories({
+    query,
+    store: memoryStore,
+    embeddingProvider: provider,
+    graphStore,
+    topK,
+  });
 
-    const items: RetrievalItem[] = results.map((r) => ({
-      id: r.memory.id,
-      content: r.memory.content,
-      source: `memory:${r.memory.id}`,
-      provenance: "memory" as const,
-      score: r.similarity,
-      estimatedTokens: estimateTokens(r.memory.content),
-    }));
+  const items: RetrievalItem[] = results.map((r) => ({
+    id: r.memory.id,
+    content: r.memory.content,
+    source: `memory:${r.memory.id}`,
+    provenance: "memory" as const,
+    score: r.similarity,
+    estimatedTokens: estimateTokens(r.memory.content),
+  }));
 
-    return { items, timeMs: Math.round(performance.now() - start) };
-  } catch {
-    // Memory may fail (empty store, no provider) — that's ok
-    return { items: [], timeMs: Math.round(performance.now() - start) };
-  }
+  return { items, timeMs: Math.round(performance.now() - start) };
 }
 
 // ── Helpers ──

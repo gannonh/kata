@@ -1208,11 +1208,13 @@ program
   .description("Watch for file changes and trigger incremental re-indexing")
   .argument("[path]", "Project root path", ".")
   .option("--debounce <ms>", "Debounce window in milliseconds", "300")
-  .action(async (pathArg: string, cmdOpts: Record<string, string>) => {
-    const outputOpts = getOutputOptions(program);
+  .option("--json", "Output structured JSON")
+  .option("--quiet", "Suppress all output")
+  .action(async (pathArg: string, _opts: Record<string, string>, cmd: Command) => {
+    const outputOpts = getOutputOptions(cmd);
     const rootPath = resolve(pathArg);
     const config = loadConfig(rootPath);
-    const debounceMs = parseInt(cmdOpts.debounce ?? "300", 10);
+    const debounceMs = parseInt((cmd.opts() as Record<string, string>).debounce ?? "300", 10);
 
     const watcher = createWatcher(rootPath, config, { debounceMs });
 
@@ -1245,6 +1247,8 @@ program
 
     // Handle SIGINT/SIGTERM for graceful shutdown
     const shutdown = async () => {
+      process.off("SIGINT", shutdown);
+      process.off("SIGTERM", shutdown);
       await watcher.stop();
       process.exit(0);
     };
@@ -1272,12 +1276,15 @@ program
   .argument("<query>", "Natural language task description")
   .option("--budget <tokens>", "Token budget for the result", "4000")
   .option("--kind <kind>", "Filter by symbol kind")
-  .action(async (query: string, cmdOpts: Record<string, string>) => {
-    const outputOpts = getOutputOptions(program);
+  .option("--json", "Output structured JSON")
+  .option("--quiet", "Minimal output (content only)")
+  .action(async (query: string, _opts: Record<string, string>, cmd: Command) => {
+    const outputOpts = getOutputOptions(cmd);
     const rootPath = resolve(".");
     const config = loadConfig(rootPath);
     const dbPath = getDbPath(program, rootPath);
-    const budget = parseInt(cmdOpts.budget ?? "4000", 10);
+    const cmdOptsTyped = cmd.opts() as Record<string, string>;
+    const budget = parseInt(cmdOptsTyped.budget ?? "4000", 10);
 
     if (!existsSync(dbPath)) {
       if (outputOpts.json) {
@@ -1304,7 +1311,7 @@ program
         config,
         options: {
           budget,
-          kinds: cmdOpts.kind ? [cmdOpts.kind] : undefined,
+          kinds: cmdOptsTyped.kind ? [cmdOptsTyped.kind as SymbolKind] : undefined,
         },
       });
 
@@ -1360,16 +1367,15 @@ program
           ]),
         );
       }
-
-      store.close();
     } catch (err) {
-      store.close();
       if (outputOpts.json) {
         console.log(JSON.stringify({ error: true, message: err instanceof Error ? err.message : String(err) }));
       } else {
         console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
       }
       process.exit(1);
+    } finally {
+      store.close();
     }
   });
 
