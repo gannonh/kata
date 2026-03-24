@@ -1,23 +1,68 @@
 # Kata Symphony
 
-Headless orchestrator that polls a Linear project for issues and dispatches parallel agent sessions to work on them. You run Symphony, point it at a Linear project, and it picks up tickets, clones your repo, runs Codex on each issue, creates PRs, addresses review feedback, and merges — all without human intervention.
+Headless orchestrator that polls a Linear project for issues and dispatches parallel agent sessions to work on them. You run Symphony, point it at a Linear project, and it picks up tickets, clones your repo, runs an agent on each issue, creates PRs, addresses review feedback, and merges — all without human intervention.
 
 ![Symphony TUI Dashboard](../../assets/symphony-v1.0.0/symphony-tui.png)
 
 ## How It Works
 
 1. Symphony polls your Linear project for issues in active states (e.g. `Todo`, `In Progress`)
-2. For each issue, it creates an isolated workspace (clone of your repo) and starts a Codex agent session
+2. For each issue, it creates an isolated workspace (clone of your repo) and starts an agent session
 3. The agent reads the issue, writes code, runs tests, creates a PR, and handles review feedback
 4. When the issue reaches a terminal state (`Done`, `Closed`), the workspace is cleaned up
 5. Multiple issues run in parallel, up to your configured concurrency limit
 
 All configuration — tracker, workspace, agent, and the prompt template — lives in a single `WORKFLOW.md` file.
 
+## Agent Backends
+
+Symphony supports two agent backends. Choose with `agent.backend` in your WORKFLOW.md.
+
+| Backend | Config value | What it runs | Models |
+|---|---|---|---|
+| **Kata CLI** | `kata-cli` (aliases: `kata`, `pi`) | Kata CLI in RPC mode | Any model supported by pi-ai: Anthropic, OpenAI, Google, Mistral, Bedrock, Azure |
+| **Codex** | `codex` | OpenAI Codex app-server | OpenAI Codex models |
+
+### Kata CLI backend (recommended)
+
+```yaml
+agent:
+  backend: kata-cli
+  max_concurrent_agents: 3
+  max_turns: 20
+
+kata_agent:                # alias: pi_agent
+  command: kata            # or: npx @kata-sh/cli
+  model: anthropic/claude-sonnet-4-6
+  stall_timeout_ms: 300000
+```
+
+**Prerequisites:**
+- **Kata CLI** — `npm install -g @kata-sh/cli`, or use `npx @kata-sh/cli` as the command
+- **Provider auth** — either run `kata` interactively once to log in via browser, or set the provider's API key in your environment (e.g. `ANTHROPIC_API_KEY`)
+
+### Codex backend
+
+```yaml
+agent:
+  backend: codex
+  max_concurrent_agents: 3
+  max_turns: 20
+
+codex:
+  command: codex app-server
+  stall_timeout_ms: 900000
+  approval_policy: never
+```
+
+**Prerequisites:**
+- **Codex** — `npm install -g @openai/codex`
+- **Auth** — run `codex` once to log in via browser, or set `OPENAI_API_KEY`
+
 ## Prerequisites
 
 - **Linear personal API key** — `LINEAR_API_KEY` in your environment
-- **Codex** — installed and on PATH (`npm install -g @openai/codex`), authenticated by running `codex` once (opens browser for subscription login) or via `OPENAI_API_KEY` env var
+- **Agent backend** — Kata CLI or Codex (see above)
 - **Git** — for workspace bootstrapping
 - **Docker** (only for container-isolated workers) — Docker Desktop or Docker Engine running
 
@@ -64,7 +109,9 @@ Edit `.env` with your Linear API key:
 LINEAR_API_KEY=lin_api_...
 ```
 
-For Codex auth, either log into Codex CLI locally by running `codex` and authenticating, or set `OPENAI_API_KEY` in `.env`.
+For agent auth, either:
+- **Kata CLI backend:** run `kata` once to log in, or set your provider's API key (e.g. `ANTHROPIC_API_KEY`)
+- **Codex backend:** run `codex` once to log in, or set `OPENAI_API_KEY`
 
 ### 2. Create a WORKFLOW.md
 
@@ -90,11 +137,13 @@ workspace:
   cleanup_on_done: true
 
 agent:
+  backend: kata-cli
   max_concurrent_agents: 3
   max_turns: 20
 
-codex:
-  command: codex app-server
+kata_agent:
+  command: kata
+  model: anthropic/claude-sonnet-4-6
 ---
 
 You are working on {{ issue.identifier }}: {{ issue.title }}.
@@ -141,7 +190,7 @@ workspace:
   git_strategy: worktree
 ```
 
-Workers run as bare processes on your machine. Symphony creates an isolated workspace for each issue and spawns Codex directly. Fast, simple, no Docker required.
+Workers run as bare processes on your machine. Symphony creates an isolated workspace for each issue and spawns the agent directly. Fast, simple, no Docker required.
 
 **Recommended: `worktree` git strategy.** Git worktrees are instant to create, share the object store with your main repo, and show up in git clients so you can inspect agent work in progress.
 
@@ -163,7 +212,7 @@ workspace:
   docker:
     image: node:22-bookworm        # base Docker image
     setup: docker/setups/bun.sh    # optional: script to install extra tooling
-    codex_auth: auto               # how Codex authenticates inside the container
+    codex_auth: auto               # how the agent authenticates inside the container
 ```
 
 **You don't create or manage containers.** Symphony does everything:
@@ -171,7 +220,7 @@ workspace:
 1. Builds a derived Docker image from your base image + setup script (cached by content hash)
 2. Starts a disposable container for each issue (`docker run -d --rm ...`)
 3. Clones your repo inside the container into `/workspace`
-4. Runs Codex inside the container via `docker exec`
+4. Runs the agent inside the container via `docker exec`
 5. Stops and removes the container when the issue is done
 
 You just need Docker Desktop (or Docker Engine) running. Symphony talks to the Docker daemon directly.
@@ -187,7 +236,7 @@ You just need Docker Desktop (or Docker Engine) running. Symphony talks to the D
 
 Symphony caches the derived image using a hash of the base image name + setup script content. The first build takes time; subsequent runs reuse the cached image.
 
-**Docker auth modes** — how Codex authenticates inside the container. Interactive browser login is not available inside containers, so `OPENAI_API_KEY` in your `.env` is the simplest path.
+**Docker auth modes** — how the agent authenticates inside the container. Interactive browser login is not available inside containers, so an API key in your `.env` is the simplest path.
 
 | Mode             | What it does                                                                     |
 | ---------------- | -------------------------------------------------------------------------------- |
@@ -233,7 +282,7 @@ vi WORKFLOW-docker.md
 
 ```bash
 cp .env.example .env
-vi .env    # set LINEAR_API_KEY and OPENAI_API_KEY (required for Docker)
+vi .env    # set LINEAR_API_KEY and agent auth key (required for Docker)
 ```
 
 **3. Start, monitor, and stop:**
@@ -302,16 +351,17 @@ All configuration lives in the YAML front-matter of your WORKFLOW.md. See [`docs
 
 ### Key sections
 
-| Section     | What it controls                                            |
-| ----------- | ----------------------------------------------------------- |
-| `tracker`   | Linear connection, project, assignee filter, state mappings |
-| `polling`   | How often to check for new/changed issues                   |
-| `workspace` | Where and how workspaces are created, Docker config         |
-| `agent`     | Concurrency limits, max turns, retry backoff                |
-| `codex`     | Codex command, timeouts, approval policy, sandbox settings  |
-| `hooks`     | Shell commands to run at workspace lifecycle points         |
-| `worker`    | SSH remote worker pool configuration                        |
-| `server`    | HTTP dashboard host and port                                |
+| Section                  | What it controls                                                         |
+| ------------------------ | ------------------------------------------------------------------------ |
+| `tracker`                | Linear connection, project, assignee filter, state mappings              |
+| `polling`                | How often to check for new/changed issues                                |
+| `workspace`              | Where and how workspaces are created, Docker config                      |
+| `agent`                  | Backend selection, concurrency limits, max turns, retry backoff          |
+| `kata_agent` / `pi_agent`| Kata CLI backend config: command, model, timeouts                       |
+| `codex`                  | Codex backend config: command, timeouts, approval policy, sandbox        |
+| `hooks`                  | Shell commands to run at workspace lifecycle points                      |
+| `worker`                 | SSH remote worker pool configuration                                     |
+| `server`                 | HTTP dashboard host and port                                             |
 
 ### Environment variable indirection
 
@@ -340,7 +390,7 @@ worker:
   max_concurrent_agents_per_host: 3
 ```
 
-Each host must have Codex installed and on PATH. Symphony connects via `ssh -T` and spawns Codex remotely. Set `SYMPHONY_SSH_CONFIG` to use a custom SSH config file.
+Each host must have the agent backend (Kata CLI or Codex) installed and on PATH. Symphony connects via `ssh -T` and spawns the agent remotely. Set `SYMPHONY_SSH_CONFIG` to use a custom SSH config file.
 
 ## Dashboard
 
@@ -367,7 +417,7 @@ Enabled by default. Shows a Ratatui-based live view with throughput sparkline an
 
 ```bash
 cargo build              # build
-cargo test               # run all tests (321)
+cargo test               # run all tests
 cargo clippy -- -D warnings   # lint (zero warnings enforced)
 cargo fmt                # format
 ```

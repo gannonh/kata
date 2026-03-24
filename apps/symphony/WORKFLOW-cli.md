@@ -31,6 +31,7 @@ workspace:
 hooks:
   timeout_ms: 120000
 agent:
+  backend: codex              # "codex" or "kata-cli" (alias: kata, pi)
   max_concurrent_agents: 3
   max_turns: 20
 codex:
