@@ -57,7 +57,7 @@ jobs:
         run: bun install
 
       - name: Rebuild native addons
-        run: cd apps/context && npm rebuild better-sqlite3
+        run: cd apps/context && npm rebuild better-sqlite3 tree-sitter
 
       - name: Run Turborepo validation
         run: bunx turbo run lint typecheck test --affected
