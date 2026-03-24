@@ -60,15 +60,6 @@ fn next_command_id(prefix: &str) -> String {
     format!("{prefix}-{}-{n}", Utc::now().timestamp_millis())
 }
 
-fn resolve_model_for_state(config: &PiAgentConfig, issue_state: &str) -> Option<String> {
-    let state_key = issue_state.trim().to_lowercase();
-    config
-        .model_by_state
-        .get(&state_key)
-        .cloned()
-        .or_else(|| config.model.clone())
-}
-
 fn build_command_parts(
     config: &PiAgentConfig,
     workspace_path: &str,
@@ -89,7 +80,7 @@ fn build_command_parts(
     if config.no_session {
         parts.push("--no-session".to_string());
     }
-    if let Some(model) = resolve_model_for_state(config, issue_state) {
+    if let Some(model) = config.model_for_state(issue_state) {
         parts.push("--model".to_string());
         parts.push(model);
     }
@@ -749,12 +740,12 @@ fn expand_path_no_symlinks(path: &Path) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_command_parts, resolve_model_for_state};
+    use super::build_command_parts;
     use crate::domain::PiAgentConfig;
     use std::collections::HashMap;
 
     #[test]
-    fn resolve_model_for_state_prefers_state_override_then_default() {
+    fn pi_agent_config_model_for_state_prefers_state_override_then_default() {
         let mut config = PiAgentConfig {
             model: Some("anthropic/claude-opus-4-6".to_string()),
             ..PiAgentConfig::default()
@@ -765,11 +756,11 @@ mod tests {
         )]);
 
         assert_eq!(
-            resolve_model_for_state(&config, "Agent Review").as_deref(),
+            config.model_for_state("Agent Review").as_deref(),
             Some("anthropic/claude-sonnet-4-6")
         );
         assert_eq!(
-            resolve_model_for_state(&config, "In Progress").as_deref(),
+            config.model_for_state("In Progress").as_deref(),
             Some("anthropic/claude-opus-4-6")
         );
     }

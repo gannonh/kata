@@ -424,7 +424,7 @@ fn draw_dashboard(
             Constraint::Min(16),
             Constraint::Length(14),
             Constraint::Length(12),
-            Constraint::Length(20),
+            Constraint::Min(20),
             Constraint::Length(10),
         ],
     )

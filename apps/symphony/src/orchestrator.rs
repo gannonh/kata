@@ -108,13 +108,7 @@ fn backend_stall_timeout_ms(config: &ServiceConfig, backend: AgentBackend) -> i6
 }
 
 fn effective_pi_model_for_issue(config: &ServiceConfig, issue: &Issue) -> Option<String> {
-    let state_key = issue.state.trim().to_lowercase();
-    config
-        .pi_agent
-        .model_by_state
-        .get(&state_key)
-        .cloned()
-        .or_else(|| config.pi_agent.model.clone())
+    config.pi_agent.model_for_state(&issue.state)
 }
 
 fn should_continue_issue_in_session(issue: &Issue, tracker_config: &TrackerConfig) -> bool {

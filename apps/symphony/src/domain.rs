@@ -403,6 +403,20 @@ impl Default for PiAgentConfig {
     }
 }
 
+impl PiAgentConfig {
+    /// Resolve the effective model for a Linear issue state.
+    ///
+    /// Looks up a lowercase/trimmed state key in `model_by_state` first,
+    /// then falls back to the default `model`.
+    pub fn model_for_state(&self, issue_state: &str) -> Option<String> {
+        let state_key = issue_state.trim().to_lowercase();
+        self.model_by_state
+            .get(&state_key)
+            .cloned()
+            .or_else(|| self.model.clone())
+    }
+}
+
 /// Hooks configuration (spec §5.3.4).
 #[derive(Debug, Clone)]
 pub struct HooksConfig {
