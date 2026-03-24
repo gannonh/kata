@@ -1,13 +1,19 @@
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 
 type JsonObject = Record<string, unknown>;
-type ProjectMcpConsent = "approved" | "denied";
+type ProjectMcpConsentStatus = "approved" | "denied";
 
 const PROJECT_MCP_CONSENT_VERSION = 1;
 const PROJECT_MCP_CONSENT_FILE = "project-mcp-consent.json";
 const EFFECTIVE_MCP_CONFIG_FILE = "mcp.effective.json";
+
+interface ProjectMcpConsent {
+  status: ProjectMcpConsentStatus;
+  hash?: string;
+}
 
 interface ProjectMcpConsentStore {
   version: number;
@@ -73,13 +79,16 @@ export async function resolveEffectiveMcpConfigPath(
     loadMcpConfig(globalConfigPath, "global", stderr, false) ?? {};
   const projectConfig = loadMcpConfig(projectConfigPath, "project", stderr, true);
   if (!projectConfig) return fallback;
+  const projectConfigHash = hashObject(projectConfig);
 
   const consentPath = join(options.appRoot, PROJECT_MCP_CONSENT_FILE);
   const consentStore = loadProjectMcpConsentStore(consentPath, stderr);
   const consentKey = resolve(projectConfigPath);
   let consent = consentStore.projects[consentKey];
+  const consentMatchesProjectConfig =
+    consent?.status === "approved" && consent.hash === projectConfigHash;
 
-  if (!consent) {
+  if (!consentMatchesProjectConfig && consent?.status !== "denied") {
     let approved: boolean | null = null;
     if (options.confirmProjectMcpUse) {
       approved = await options.confirmProjectMcpUse(projectConfigPath);
@@ -87,7 +96,7 @@ export async function resolveEffectiveMcpConfigPath(
       options.isInteractive ??
       Boolean(process.stdin.isTTY && process.stdout.isTTY)
     ) {
-      approved = await promptForProjectMcpUse(projectConfigPath);
+      approved = await promptForProjectMcpUse(projectConfigPath, stderr);
     }
 
     if (approved === null) {
@@ -97,12 +106,14 @@ export async function resolveEffectiveMcpConfigPath(
       return fallback;
     }
 
-    consent = approved ? "approved" : "denied";
+    consent = approved
+      ? { status: "approved", hash: projectConfigHash }
+      : { status: "denied" };
     consentStore.projects[consentKey] = consent;
     saveProjectMcpConsentStore(consentPath, consentStore, stderr);
   }
 
-  if (consent !== "approved") {
+  if (consent?.status !== "approved" || consent.hash !== projectConfigHash) {
     return fallback;
   }
 
@@ -164,7 +175,17 @@ function loadProjectMcpConsentStore(
     const normalizedProjects: Record<string, ProjectMcpConsent> = {};
     for (const [key, value] of Object.entries(projects)) {
       if (value === "approved" || value === "denied") {
-        normalizedProjects[key] = value;
+        normalizedProjects[key] = { status: value };
+        continue;
+      }
+
+      const consent = asObject(value);
+      if (consent.status === "approved" || consent.status === "denied") {
+        const normalizedConsent: ProjectMcpConsent = { status: consent.status };
+        if (typeof consent.hash === "string") {
+          normalizedConsent.hash = consent.hash;
+        }
+        normalizedProjects[key] = normalizedConsent;
       }
     }
 
@@ -200,11 +221,14 @@ function saveProjectMcpConsentStore(
   }
 }
 
-async function promptForProjectMcpUse(projectConfigPath: string): Promise<boolean> {
-  process.stderr.write(
+async function promptForProjectMcpUse(
+  projectConfigPath: string,
+  stderr: Pick<NodeJS.WriteStream, "write"> = process.stderr,
+): Promise<boolean> {
+  stderr.write(
     `[kata] Project-local MCP config detected: ${projectConfigPath}\n`,
   );
-  process.stderr.write(
+  stderr.write(
     "[kata] Trust this file before Kata starts MCP servers from this project.\n",
   );
 
@@ -253,4 +277,10 @@ function writeIfChanged(path: string, nextContent: string): void {
     }
   }
   writeFileSync(path, nextContent, "utf-8");
+}
+
+function hashObject(value: JsonObject): string {
+  return createHash("sha256")
+    .update(JSON.stringify(value))
+    .digest("hex");
 }

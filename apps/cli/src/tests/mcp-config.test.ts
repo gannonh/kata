@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -177,7 +178,72 @@ test("resolveEffectiveMcpConfigPath merges approved project config and persists 
     const consent = JSON.parse(readFileSync(consentPath, "utf-8"));
     assert.equal(consent.version, 1);
     const expectedConsentKey = resolve(join(projectMcpDir, "mcp.json"));
-    assert.equal(consent.projects[expectedConsentKey], "approved");
+    const expectedConsentHash = createHash("sha256")
+      .update(
+        JSON.stringify(
+          JSON.parse(readFileSync(join(projectMcpDir, "mcp.json"), "utf-8")),
+        ),
+      )
+      .digest("hex");
+    assert.deepEqual(consent.projects[expectedConsentKey], {
+      status: "approved",
+      hash: expectedConsentHash,
+    });
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("resolveEffectiveMcpConfigPath requires reconfirmation after approved project config changes", async () => {
+  const tmp = mkdtempSync(join(tmpdir(), "kata-mcp-reconfirm-"));
+  const agentDir = join(tmp, "agent");
+  const appRoot = join(tmp, ".kata-cli");
+  const cwd = join(tmp, "project");
+  const projectMcpDir = join(cwd, ".kata-cli");
+  mkdirSync(agentDir, { recursive: true });
+  mkdirSync(projectMcpDir, { recursive: true });
+
+  writeFileSync(
+    join(agentDir, "mcp.json"),
+    JSON.stringify({ imports: [], settings: {}, mcpServers: {} }, null, 2),
+  );
+  const projectConfigPath = join(projectMcpDir, "mcp.json");
+  writeFileSync(
+    projectConfigPath,
+    JSON.stringify({ imports: ["cursor"], settings: {}, mcpServers: {} }, null, 2),
+  );
+
+  let promptCount = 0;
+  const confirm = async () => {
+    promptCount += 1;
+    return true;
+  };
+
+  try {
+    const first = await resolveEffectiveMcpConfigPath({
+      agentDir,
+      appRoot,
+      cwd,
+      confirmProjectMcpUse: confirm,
+      isInteractive: false,
+    });
+    assert.equal(first.usedProjectConfig, true);
+    assert.equal(promptCount, 1);
+
+    writeFileSync(
+      projectConfigPath,
+      JSON.stringify({ imports: ["cursor", "vscode"], settings: {}, mcpServers: {} }, null, 2),
+    );
+
+    const second = await resolveEffectiveMcpConfigPath({
+      agentDir,
+      appRoot,
+      cwd,
+      confirmProjectMcpUse: confirm,
+      isInteractive: false,
+    });
+    assert.equal(second.usedProjectConfig, true);
+    assert.equal(promptCount, 2);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

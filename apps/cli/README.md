@@ -368,7 +368,7 @@ Merge rules:
 - `settings`: shallow-merged, project-local wins on collisions
 - `imports`: concatenated (`global` then `project-local`)
 
-On first use of a project's local MCP config, Kata asks for one-time confirmation before trusting and loading it.
+On first use of a project's local MCP config, Kata asks for confirmation before trusting and loading it. If the project's `mcp.json` content changes later, Kata asks again.
 
 ### Importing existing configs
 
