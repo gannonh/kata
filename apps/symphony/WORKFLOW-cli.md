@@ -40,8 +40,8 @@ kata_agent:
   command: node /Volumes/EVO/kata/kata-mono.worktrees/wt-cli/apps/cli/dist/loader.js
   model: anthropic/claude-opus-4-6
   model_by_state:
-    Agent Review: anthropic/claude-sonnet-4-6
-    Merging: anthropic/claude-sonnet-4-6
+    Agent Review: anthropic/claude-opus-4-6
+    Merging: anthropic/claude-opus-4-6
   stall_timeout_ms: 900000
 codex:
   command: codex --config shell_environment_policy.inherit=all --config model_reasoning_effort=xhigh --model gpt-5.3-codex app-server
