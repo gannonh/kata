@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0
+
+### Features
+
+- **Project-level MCP server configuration** — Projects can now define local MCP servers in `<project>/.kata-cli/mcp.json`. On startup, Kata merges global and project-local configs: `mcpServers` and `settings` are project-preferred, `imports` are concatenated. First use per project requires one-time consent, persisted at `~/.kata-cli/project-mcp-consent.json`. The resolved config is written to `~/.kata-cli/agent/mcp.effective.json`.
+- **RPC mode and cwd override** — Kata CLI now supports `--mode rpc` and `--cwd` arguments, enabling embedding as a backend for Symphony's pi-agent runtime.
+
 ## 0.5.2
 
 ### Features
