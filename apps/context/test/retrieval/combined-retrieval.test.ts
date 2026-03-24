@@ -5,11 +5,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { rerankResults } from "../../src/retrieval/reranker.js";
 import { assembleBudget, estimateTokens } from "../../src/retrieval/budget.js";
-import { combinedRetrieval } from "../../src/retrieval/combined.js";
+import { combinedRetrieval, type CombinedRetrievalInput } from "../../src/retrieval/combined.js";
 import type {
   RetrievalItem,
   CombinedRetrievalResult,
-  CombinedRetrievalInput,
   RetrievalDiagnostics,
 } from "../../src/retrieval/types.js";
 import { DEFAULT_RANKING_WEIGHTS } from "../../src/retrieval/types.js";
