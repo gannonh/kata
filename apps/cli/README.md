@@ -353,6 +353,23 @@ mcp({ connect: "linear" })
 
 OAuth servers (Linear, etc.) open a browser window for authorization on first connect. Tokens are cached for subsequent sessions.
 
+### Project-local MCP config
+
+Kata also supports project-local MCP config at `<project-root>/.kata-cli/mcp.json`.
+
+At startup, Kata merges:
+
+- global `~/.kata-cli/agent/mcp.json`
+- project-local `<cwd>/.kata-cli/mcp.json`
+
+Merge rules:
+
+- `mcpServers`: merged by server name, project-local wins on collisions
+- `settings`: shallow-merged, project-local wins on collisions
+- `imports`: concatenated (`global` then `project-local`)
+
+On first use of a project's local MCP config, Kata asks for confirmation before trusting and loading it. If the project's `mcp.json` content changes later, Kata asks again.
+
 ### Importing existing configs
 
 Pull in MCP configs from other tools:
