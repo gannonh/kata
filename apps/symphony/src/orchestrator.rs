@@ -101,7 +101,7 @@ fn is_active_state(state_name: &str, tracker_config: &TrackerConfig) -> bool {
 
 fn backend_stall_timeout_ms(config: &ServiceConfig, backend: AgentBackend) -> i64 {
     let timeout = match backend {
-        AgentBackend::Pi => config.pi_agent.stall_timeout_ms,
+        AgentBackend::KataCli => config.pi_agent.stall_timeout_ms,
         AgentBackend::Codex => config.codex.stall_timeout_ms,
     };
     timeout.min(i64::MAX as u64) as i64
@@ -502,7 +502,7 @@ async fn run_worker_task(
 
                         loop_result
                     }
-                    AgentBackend::Pi => {
+                    AgentBackend::KataCli => {
                         let mut session = rpc_bridge::start_session(
                             &config.pi_agent,
                             issue,
@@ -516,7 +516,7 @@ async fn run_worker_task(
 
                         tracing::info!(
                             event = "worker_started",
-                            backend = "pi",
+                            backend = "kata-cli",
                             issue_id = %issue.id,
                             issue_identifier = %issue.identifier,
                             session_id = %session.session_id,
@@ -764,7 +764,7 @@ async fn run_worker_task(
 
             loop_result
         }
-        AgentBackend::Pi => {
+        AgentBackend::KataCli => {
             let mut session = match rpc_bridge::start_session(
                 &config.pi_agent,
                 issue,
@@ -797,7 +797,7 @@ async fn run_worker_task(
 
             tracing::info!(
                 event = "worker_started",
-                backend = "pi",
+                backend = "kata-cli",
                 issue_id = %issue_id,
                 issue_identifier = %issue.identifier,
                 session_id = %session.session_id,
@@ -2067,7 +2067,7 @@ impl Orchestrator {
 
                 loop_result
             }
-            AgentBackend::Pi => {
+            AgentBackend::KataCli => {
                 let mut session = match rpc_bridge::start_session(
                     &self.config.pi_agent,
                     issue,
@@ -2093,7 +2093,7 @@ impl Orchestrator {
 
                 tracing::info!(
                     event = "worker_started",
-                    backend = "pi",
+                    backend = "kata-cli",
                     issue_id = %issue.id,
                     issue_identifier = %issue.identifier,
                     session_id = %session.session_id,

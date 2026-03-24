@@ -16,7 +16,7 @@ for distributing agent sessions across multiple machines.
 - A Linear personal API key (`LINEAR_API_KEY`)
 - Agent runtime binary reachable on `PATH`:
   - Codex backend: `codex app-server`
-  - Pi backend: `kata --mode rpc`
+  - Kata CLI backend (`kata-cli` / `kata` / `pi`): `kata --mode rpc`
 
 Build the release binary:
 
@@ -125,7 +125,7 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 | `agent.max_concurrent_agents`          | u32                | `10`     | Global cap on simultaneously running agent sessions.                                                                           |
 | `agent.max_turns`                      | u32                | `20`     | Maximum prompt turns per session attempt before the worker run ends.                                                           |
 | `agent.max_retry_backoff_ms`           | u64                | `300000` | Maximum exponential back-off delay (ms) between retries.                                                                       |
-| `agent.backend`                        | string             | `"codex"`| Runtime backend: `"codex"` (Codex app-server) or `"pi"` (Kata RPC).                                                           |
+| `agent.backend`                        | string             | `"codex"`| Runtime backend: `"codex"` (Codex app-server) or `"kata-cli"` (aliases: `"kata"`, `"pi"`) for Kata RPC.                   |
 | `agent.max_concurrent_agents_by_state` | map\<string, u32\> | `{}`     | Per-Linear-state concurrency caps. Keys are lowercased state names; zero or negative values are silently ignored (spec §17.1). |
 
 #### `codex` section
@@ -140,16 +140,16 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 | `codex.read_timeout_ms`     | u64                | `5000`                    | Timeout waiting for Codex process output (ms).                                                                           |
 | `codex.stall_timeout_ms`    | u64                | `300000`                  | Time before a non-progressing session is considered stalled (5 min default).                                             |
 
-#### `pi_agent` section
+#### `kata_agent` section (`pi_agent` alias)
 
-| Field                           | Type               | Default  | Description                                                                                               |
-| ------------------------------- | ------------------ | -------- | --------------------------------------------------------------------------------------------------------- |
-| `pi_agent.command`              | string or string[] | `["kata"]` | Pi agent executable and base args. Symphony appends `--mode rpc --cwd <workspace>`.                    |
-| `pi_agent.model`                | string             | _(none)_ | Optional model override passed as `--model`.                                                             |
-| `pi_agent.no_session`           | bool               | `true`   | Pass `--no-session` to disable persistent session storage.                                               |
-| `pi_agent.append_system_prompt` | string             | _(none)_ | Optional path passed via `--append-system-prompt`.                                                       |
-| `pi_agent.read_timeout_ms`      | u64                | `5000`   | Timeout waiting for pi agent process output (ms).                                                        |
-| `pi_agent.stall_timeout_ms`     | u64                | `300000` | Time before a non-progressing pi session is considered stalled (5 min default).                         |
+| Field                             | Type               | Default  | Description                                                                                               |
+| --------------------------------- | ------------------ | -------- | --------------------------------------------------------------------------------------------------------- |
+| `kata_agent.command` (`pi_agent.command`)              | string or string[] | `["kata"]` | Kata CLI executable and base args. Symphony appends `--mode rpc --cwd <workspace>`.                    |
+| `kata_agent.model` (`pi_agent.model`)                  | string             | _(none)_ | Optional model override passed as `--model`.                                                             |
+| `kata_agent.no_session` (`pi_agent.no_session`)        | bool               | `true`   | Pass `--no-session` to disable persistent session storage.                                               |
+| `kata_agent.append_system_prompt` (`pi_agent.append_system_prompt`) | string             | _(none)_ | Optional path passed via `--append-system-prompt`.                                                       |
+| `kata_agent.read_timeout_ms` (`pi_agent.read_timeout_ms`)      | u64                | `5000`   | Timeout waiting for Kata CLI process output (ms).                                                        |
+| `kata_agent.stall_timeout_ms` (`pi_agent.stall_timeout_ms`)     | u64                | `300000` | Time before a non-progressing Kata CLI session is considered stalled (5 min default).                   |
 
 #### `hooks` section
 
@@ -471,7 +471,7 @@ symphony WORKFLOW.md
 Symphony connects via `ssh -T [-F config] -p <port> <host> bash -lc '<command>'`.
 The command string is POSIX single-quote-escaped. The remote host must have
 `bash` available and the configured runtime binary on its `PATH`
-(`codex.command` for codex backend, `pi_agent.command` for pi backend).
+(`codex.command` for codex backend, `kata_agent.command` / `pi_agent.command` for Kata CLI backend).
 
 ### Docker Isolation Lifecycle
 

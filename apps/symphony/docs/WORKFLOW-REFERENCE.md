@@ -233,9 +233,9 @@ codex:
   turn_sandbox_policy:
     type: dangerFullAccess
 
-# ─── Pi Agent (Kata RPC) ──────────────────────────────────────────────────────
-# Configures Kata RPC runtime (used when `agent.backend: pi`).
-pi_agent:
+# ─── Kata Agent (Kata RPC) ────────────────────────────────────────────────────
+# Configures Kata RPC runtime (used when `agent.backend: kata-cli`; aliases: kata, pi).
+kata_agent:  # alias: pi_agent
   # Command used to launch Kata RPC. Can be a string or list.
   # Symphony appends --mode rpc --cwd <workspace> automatically.
   # Default parser value: `kata`
