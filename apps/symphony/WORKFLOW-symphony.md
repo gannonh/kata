@@ -31,7 +31,7 @@ hooks:
   timeout_ms: 120000
 agent:
   backend: kata-cli
-  max_concurrent_agents: 3
+  max_concurrent_agents: 4
   max_turns: 20
 kata_agent:
   command: node /Volumes/EVO/kata/kata-mono.worktrees/wt-cli/apps/cli/dist/loader.js

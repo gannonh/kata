@@ -105,10 +105,6 @@ fn test_config(max_concurrent_agents: u32) -> ServiceConfig {
         max_concurrent_agents,
         max_turns: 20,
         max_retry_backoff_ms: 60_000,
-        max_concurrent_agents_by_state: HashMap::from([
-            ("todo".to_string(), 1_u32),
-            ("in progress".to_string(), 1_u32),
-        ]),
     };
     config
 }

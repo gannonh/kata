@@ -24,7 +24,7 @@ use crate::repo_url::repo_is_remote;
 /// - coerce all mapping keys to `Value::String`
 /// - drop mapping entries whose value is `Value::Null`
 ///
-/// Note: only `agent.max_concurrent_agents_by_state` map keys are lowercased
+/// Note: only `pi_agent.model_by_state` map keys are lowercased
 /// (done separately in `from_workflow`).  General key casing is NOT changed.
 fn normalize_keys(val: Value) -> Value {
     match val {
@@ -215,7 +215,6 @@ struct RawAgentConfig {
     max_concurrent_agents: Option<u32>,
     max_turns: Option<u32>,
     max_retry_backoff_ms: Option<u64>,
-    max_concurrent_agents_by_state: Option<HashMap<String, u32>>,
 }
 
 #[derive(Deserialize, Default)]
@@ -704,17 +703,6 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     }
 
     // ── AgentConfig ───────────────────────────────────────────────────────
-    // Normalize max_concurrent_agents_by_state map keys to lowercase and filter
-    // out invalid (zero) entries per spec §17.1 ("ignores invalid values").
-    // Negative values are already rejected by the `u32` type at deserialization time.
-    let by_state: HashMap<String, u32> = raw_agent
-        .max_concurrent_agents_by_state
-        .unwrap_or_default()
-        .into_iter()
-        .filter(|(_, v)| *v > 0)
-        .map(|(k, v)| (k.to_lowercase(), v))
-        .collect();
-
     let agent = AgentConfig {
         max_concurrent_agents: raw_agent
             .max_concurrent_agents
@@ -723,7 +711,6 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         max_retry_backoff_ms: raw_agent
             .max_retry_backoff_ms
             .unwrap_or(defaults.agent.max_retry_backoff_ms),
-        max_concurrent_agents_by_state: by_state,
     };
 
     // ── CodexConfig ───────────────────────────────────────────────────────

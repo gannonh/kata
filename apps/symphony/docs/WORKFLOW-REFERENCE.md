@@ -194,8 +194,7 @@ agent:
   #   - codex: launch Codex app-server
   backend: kata-cli
 
-  # Deprecated: per-state concurrency caps. Accepted but ignored in future versions.
-  # max_concurrent_agents_by_state: {}
+
 
 # ─── Codex ────────────────────────────────────────────────────────────────────
 # Configures the Codex app-server process (used when `agent.backend: codex`).
