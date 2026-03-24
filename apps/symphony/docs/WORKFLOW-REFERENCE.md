@@ -194,11 +194,8 @@ agent:
   #   - codex: launch Codex app-server
   backend: kata-cli
 
-  # Per-state concurrency caps. Keys are Linear state names (case-insensitive).
-  # Limits how many agents can work on issues in a specific state simultaneously.
-  # max_concurrent_agents_by_state:
-  #   In Progress: 3
-  #   Merging: 1
+  # Deprecated: per-state concurrency caps. Accepted but ignored in future versions.
+  # max_concurrent_agents_by_state: {}
 
 # ─── Codex ────────────────────────────────────────────────────────────────────
 # Configures the Codex app-server process (used when `agent.backend: codex`).

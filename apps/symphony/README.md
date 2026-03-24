@@ -369,19 +369,6 @@ If a state isn't listed, the default `model` is used.
 
 The active model is visible in both the TUI and web dashboard.
 
-### Per-state concurrency limits
-
-You can limit how many issues in a given state are dispatched to workers simultaneously. For example, allow up to 2 implementation sessions but only 1 merge at a time:
-
-```yaml
-agent:
-  max_concurrent_agents: 3                 # total cap across all states
-  max_concurrent_agents_by_state:          # keys are Linear state names (case-insensitive)
-    In Progress: 2
-    Merging: 1
-```
-
-Issues that exceed the per-state cap wait in the queue until a slot opens.
 
 ## CLI Reference
 
