@@ -194,12 +194,11 @@ agent:
   #   - codex: launch Codex app-server
   backend: kata-cli
 
-  # Per-state concurrency caps. Keys are lowercased state names.
+  # Per-state concurrency caps. Keys are Linear state names (case-insensitive).
   # Limits how many agents can work on issues in a specific state simultaneously.
-  # Example: allow 3 "in progress" but only 1 "merging" at a time.
   # max_concurrent_agents_by_state:
-  #   in progress: 3
-  #   merging: 1
+  #   In Progress: 3
+  #   Merging: 1
 
 # ─── Codex ────────────────────────────────────────────────────────────────────
 # Configures the Codex app-server process (used when `agent.backend: codex`).
@@ -243,6 +242,12 @@ kata_agent:  # alias: pi_agent
 
   # Model passed via `--model`. Format: provider/model-id or just model-id.
   model: anthropic/claude-opus-4-6
+
+  # Per-state model overrides. Keys are Linear state names (case-insensitive).
+  # If a state isn't listed, falls back to `model` above.
+  # model_by_state:
+  #   Agent Review: anthropic/claude-sonnet-4-6
+  #   Merging: anthropic/claude-sonnet-4-6
 
   # Whether to pass `--no-session` to Kata (default: true).
   no_session: true
