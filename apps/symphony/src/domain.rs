@@ -312,7 +312,6 @@ pub struct AgentConfig {
     pub max_concurrent_agents: u32,
     pub max_turns: u32,
     pub max_retry_backoff_ms: u64,
-    pub max_concurrent_agents_by_state: HashMap<String, u32>,
 }
 
 impl Default for AgentConfig {
@@ -321,7 +320,6 @@ impl Default for AgentConfig {
             max_concurrent_agents: 10,
             max_turns: 20,
             max_retry_backoff_ms: 300_000,
-            max_concurrent_agents_by_state: HashMap::new(),
         }
     }
 }

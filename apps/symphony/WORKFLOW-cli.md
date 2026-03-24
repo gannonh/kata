@@ -3,7 +3,8 @@ tracker:
   kind: linear
   api_key: $LINEAR_API_KEY
   # project_slug: "89d4761fddf0" # Symphony project
-  project_slug: "459f9835e809" # Kata CLI project
+  # project_slug: "459f9835e809" # Kata CLI project
+  project_slug: "127406e46986" #Context project
   # assignee: alice
   active_states:
     - Todo
@@ -25,14 +26,23 @@ workspace:
   git_strategy: worktree
   isolation: local
   cleanup_on_done: true
-  branch_prefix: cli
+  # branch_prefix: cli
+  branch_prefix: context
   clone_branch: main
   base_branch: main
 hooks:
   timeout_ms: 120000
 agent:
-  max_concurrent_agents: 3
+  backend: kata-cli              # "codex" or "kata-cli" (aliases: kata, pi)
+  max_concurrent_agents: 4
   max_turns: 20
+kata_agent:
+  command: node /Volumes/EVO/kata/kata-mono.worktrees/wt-cli/apps/cli/dist/loader.js
+  model: anthropic/claude-opus-4-6
+  model_by_state:
+    Agent Review: anthropic/claude-opus-4-6
+    Merging: anthropic/claude-opus-4-6
+  stall_timeout_ms: 900000
 codex:
   command: codex --config shell_environment_policy.inherit=all --config model_reasoning_effort=xhigh --model gpt-5.3-codex app-server
   stall_timeout_ms: 900000

@@ -126,7 +126,7 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 | `agent.max_turns`                      | u32                | `20`     | Maximum prompt turns per session attempt before the worker run ends.                                                           |
 | `agent.max_retry_backoff_ms`           | u64                | `300000` | Maximum exponential back-off delay (ms) between retries.                                                                       |
 | `agent.backend`                        | string             | `"codex"`| Runtime backend: `"codex"` (Codex app-server) or `"kata-cli"` (aliases: `"kata"`, `"pi"`) for Kata RPC.                   |
-| `agent.max_concurrent_agents_by_state` | map\<string, u32\> | `{}`     | Per-Linear-state concurrency caps. Keys are lowercased state names; zero or negative values are silently ignored (spec §17.1). |
+
 
 #### `codex` section
 
@@ -240,9 +240,6 @@ agent:
   max_concurrent_agents: 5
   max_turns: 30
   max_retry_backoff_ms: 120000
-  max_concurrent_agents_by_state:
-    in progress: 3
-    todo: 2
 
 codex:
   command: [codex, app-server]

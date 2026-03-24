@@ -35,12 +35,13 @@ workspace:
 hooks:
   timeout_ms: 120000
 agent:
+  backend: kata-cli            # "kata-cli" (aliases: kata, pi) or "codex"
   max_concurrent_agents: 3
   max_turns: 20
-codex:
-  command: codex app-server
-  stall_timeout_ms: 900000
-  approval_policy: never
+kata_agent:
+  command: kata
+  model: anthropic/claude-sonnet-4-6
+  stall_timeout_ms: 300000
 server:
   port: 8080
   host: "0.0.0.0"
