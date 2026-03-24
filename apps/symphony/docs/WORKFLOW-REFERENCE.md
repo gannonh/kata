@@ -502,11 +502,13 @@ mutation AttachURL($issueId: String!, $url: String!, $title: String) {
 ## Step 1: Start/continue execution (Todo or In Progress)
 
 1. Find or create a single persistent scratchpad comment for the issue:
-    - Search existing comments for a marker header: `## Codex Workpad`.
-    - Ignore resolved comments while searching; only active/unresolved comments are eligible to be reused as the live workpad.
-    - If found, reuse that comment; do not create a new workpad comment.
-    - If not found, create one workpad comment and use it for all updates.
-    - Persist the workpad comment ID and only write progress updates to that ID.
+    - List comments first; never create a new workpad before reading the existing comment list.
+    - Match candidates by marker header: `## Codex Workpad` (case-sensitive) at the start of a markdown heading line.
+    - Treat only active/unresolved comments as reusable live candidates.
+    - Deterministic selection rule when multiple active candidates exist: reuse the most recently updated candidate and keep its comment ID fixed for the run.
+    - Do **not** create a new workpad if any active candidate exists.
+    - If no active candidate exists but resolved/archived workpads exist, create exactly one new workpad comment.
+    - Persist the chosen workpad comment ID immediately and use only that ID for all subsequent updates in this run.
 2. If arriving from `Todo`, do not delay on additional status transitions: the issue should already be `In Progress` before this step begins.
 3. Immediately reconcile the workpad before new edits:
     - Check off items that are already done.
