@@ -7,13 +7,6 @@
 import type { RetrievalItem, RankingWeights } from "./types.js";
 import { DEFAULT_RANKING_WEIGHTS } from "./types.js";
 
-interface ScoredCandidate {
-  item: RetrievalItem;
-  rawScore: number;
-  /** File modification recency score 0-1 (not used here, placeholder) */
-  recencyScore: number;
-}
-
 /**
  * Rerank retrieval items using configurable per-strategy weights.
  *

@@ -10,7 +10,7 @@ import type { GraphStore } from "../graph/store.js";
 import type { Config } from "../types.js";
 import type { MemoryStore } from "../memory/store.js";
 import type { EmbeddingProvider } from "../semantic/contracts.js";
-import { dependents, dependencies, resolveSymbol } from "../graph/queries.js";
+import { dependents } from "../graph/queries.js";
 import { semanticSearch } from "../search/semantic.js";
 import { recallMemories } from "../memory/recall.js";
 import { rerankResults } from "./reranker.js";
