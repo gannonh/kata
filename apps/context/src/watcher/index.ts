@@ -21,10 +21,9 @@ const DEFAULT_DEBOUNCE_MS = 300;
 
 /** Paths always ignored to prevent self-trigger loops */
 const ALWAYS_IGNORED = [
-  "**/.kata/index/**",
-  "**/.kata/memory/**",
-  "**/node_modules/**",
-  "**/.git/**",
+  /(^|[/\\])\.kata[/\\]/,
+  /(^|[/\\])node_modules[/\\]/,
+  /(^|[/\\])\.git[/\\]/,
 ];
 
 export { type Watcher, type WatcherOptions, type WatcherEvent } from "./types.js";
@@ -39,7 +38,11 @@ export function createWatcher(
 ): Watcher {
   const debounceMs = options?.debounceMs ?? DEFAULT_DEBOUNCE_MS;
   const extraIgnored = options?.ignorePaths ?? [];
-  const ignored = [...ALWAYS_IGNORED, ...config.excludes.map(e => `**/${e}/**`), ...extraIgnored];
+  const ignored: Array<RegExp | string> = [
+    ...ALWAYS_IGNORED,
+    ...config.excludes.map(e => `**/${e}/**`),
+    ...extraIgnored,
+  ];
 
   const handlers: WatcherEventHandler[] = [];
   let fsWatcher: FSWatcher | null = null;
