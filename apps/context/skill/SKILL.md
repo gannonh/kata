@@ -1,11 +1,11 @@
 ---
 name: kata-context
-description: Structural and semantic codebase intelligence — index TypeScript and Python repos into a knowledge graph with vector embeddings, query symbol dependencies, run semantic search by intent, search code patterns, and fuzzy-find symbols. Use when you need to understand code structure, find what depends on a symbol, trace dependencies, search by meaning ("find authentication handling"), search for code patterns, or find symbols by name.
+description: Structural and semantic codebase intelligence with persistent memory — index TypeScript and Python repos into a knowledge graph with vector embeddings, query symbol dependencies, run semantic search by intent, search code patterns, fuzzy-find symbols, and persist/recall agent memories with git audit trail. Use when you need to understand code structure, find what depends on a symbol, trace dependencies, search by meaning, search for code patterns, find symbols by name, or remember/recall project decisions, patterns, and learnings.
 ---
 
 # kata-context
 
-Structural and semantic codebase intelligence for AI coding agents. Indexes TypeScript and Python repositories into a SQLite knowledge graph with optional vector embeddings, then exposes graph queries, semantic search, pattern search, and fuzzy symbol lookup via CLI commands.
+Structural and semantic codebase intelligence with persistent memory for AI coding agents. Indexes TypeScript and Python repositories into a SQLite knowledge graph with optional vector embeddings, then exposes graph queries, semantic search, pattern search, fuzzy symbol lookup, and durable memory operations via CLI commands. Every memory mutation produces a git commit for audit trail.
 
 ## When to Use
 
@@ -18,12 +18,16 @@ Use `kata-context` when you need to:
 - **Search for patterns** — grep for TODOs, error handling patterns, specific API calls
 - **Find symbols by name** — fuzzy-match when you know part of a symbol or file name
 - **Check index health** — see how many symbols/edges are indexed, when last indexed
+- **Remember decisions** — persist project decisions, patterns, and learnings as durable memories
+- **Recall by meaning** — semantically search stored memories by natural language query
+- **Forget memories** — remove outdated or incorrect memories
+- **Consolidate** — merge related memories into a single distilled entry
 
 ## Prerequisites
 
 - **Node.js** ≥ 20
 - **ripgrep** (`rg`) — required for the `grep` command. Install via `brew install ripgrep` or your package manager. All other commands work without it.
-- **OPENAI_API_KEY** — required for `search` (semantic search) and for generating embeddings during `index`. Set in your environment.
+- **OPENAI_API_KEY** — required for `search` (semantic search), `recall` (semantic memory recall), and for generating embeddings during `index`. Set in your environment.
 
 ## Quick Start
 
@@ -48,7 +52,7 @@ kata-context grep "TODO|FIXME"
 kata-context find "user service"
 ```
 
-Always run `index` first — all other commands query the indexed knowledge graph.
+Always run `index` first — graph and search commands need an indexed database. Memory commands (`remember`, `recall`, `forget`, `consolidate`) work independently of the index — they store memories as markdown files in `.kata/memory/`.
 
 ## Global Options
 
@@ -295,6 +299,122 @@ Semantic Search: "authentication handling"
 | `SEMANTIC_OPENAI_MISSING_KEY` | `OPENAI_API_KEY` not set | Set the environment variable |
 | `SEMANTIC_SEARCH_MODEL_MISMATCH` | Config model differs from indexed model | Re-index with `kata-context index . --full` |
 
+### `kata-context remember <content>`
+
+Store a persistent memory entry as a markdown file with YAML frontmatter in `.kata/memory/`. Each mutation produces a git commit for audit trail.
+
+Use `remember` to persist decisions, patterns, learnings, and architecture notes that should survive across sessions. Prefer `remember` over ad-hoc notes — memories are searchable via `recall`.
+
+```bash
+kata-context remember "Always use snake_case for DB columns"
+kata-context remember "Auth uses JWT with 1h expiry" --category decision --tags "auth,jwt"
+kata-context remember "Retry with exponential backoff for API calls" --category pattern --source "src/api.ts"
+kata-context remember "SQLite FTS5 requires rebuild after schema changes" --json
+```
+
+**Options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--category <cat>` | Category: `decision`, `pattern`, `learning`, `architecture`, etc. | `learning` |
+| `--tags <tags>` | Comma-separated tags for filtering | (none) |
+| `--source <refs>` | Comma-separated source file references | (none) |
+
+**Output (JSON):**
+```json
+{
+  "id": "a1b2c3d4",
+  "category": "decision",
+  "tags": ["auth", "jwt"],
+  "createdAt": "2026-03-23T10:00:00.000Z",
+  "sourceRefs": [],
+  "content": "Auth uses JWT with 1h expiry"
+}
+```
+
+**Output (quiet):** Memory ID only (e.g., `a1b2c3d4`).
+
+### `kata-context recall <query>`
+
+Semantically search stored memories by natural language query. Embeds the query and finds nearest memory vectors by similarity. Requires `OPENAI_API_KEY`.
+
+Use `recall` when you need to find previously stored decisions, patterns, or learnings — e.g., "what did we decide about auth?", "database patterns", "error handling approach".
+
+```bash
+kata-context recall "authentication decisions"
+kata-context recall "database patterns" --top-k 3
+kata-context recall "error handling" --category pattern --json
+```
+
+**Options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--top-k <n>` | Number of results to return | `5` |
+| `--category <cat>` | Filter results by memory category | all categories |
+
+**Output (JSON):**
+```json
+{
+  "query": "authentication decisions",
+  "results": [
+    {
+      "rank": 1,
+      "id": "a1b2c3d4",
+      "similarity": 0.8734,
+      "distance": 0.1449,
+      "category": "decision",
+      "tags": ["auth", "jwt"],
+      "content": "Auth uses JWT with 1h expiry"
+    }
+  ],
+  "totalResults": 1
+}
+```
+
+**Output (quiet):** `<id>: <truncated content>` per line.
+
+**Error handling:**
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `MEMORY_RECALL_EMPTY` | No memories stored | Use `remember` to store some memories first |
+| `MEMORY_RECALL_MISSING_KEY` | `OPENAI_API_KEY` not set | Set the environment variable |
+
+### `kata-context forget <id>`
+
+Delete a memory entry by its ID.
+
+```bash
+kata-context forget a1b2c3d4
+kata-context forget a1b2c3d4 --json
+```
+
+**Output (JSON):**
+```json
+{ "id": "a1b2c3d4", "deleted": true }
+```
+
+### `kata-context consolidate <ids...>`
+
+Merge multiple related memories into a single distilled entry. The originals are deleted and a new consolidated memory is created. Requires at least 2 memory IDs.
+
+```bash
+kata-context consolidate a1b2c3d4 e5f6g7h8
+kata-context consolidate a1b2c3d4 e5f6g7h8 i9j0k1l2 --json
+```
+
+**Output (JSON):**
+```json
+{
+  "id": "m3n4o5p6",
+  "mergedCount": 2,
+  "category": "learning",
+  "tags": ["consolidated", "auth"],
+  "content": "[decision] Auth uses JWT...\n\n[pattern] Retry with backoff..."
+}
+```
+
 ### `kata-context find <query>`
 
 Fuzzy search for symbols and files by name using FTS5 full-text search.
@@ -335,7 +455,9 @@ kata-context find "app" --limit 5 --json
 5. **Use `--json` for parsing.** When chaining commands or processing output programmatically, always use `--json`.
 6. **Use `--quiet` for scripting.** When you only need a list of names or paths, `--quiet` gives clean output.
 7. **Re-index after significant changes.** The index is a snapshot — re-index when files have changed.
-8. **Set `OPENAI_API_KEY` for semantic features.** Without it, `index` still works (structural only) but `search` won't.
+8. **Set `OPENAI_API_KEY` for semantic features.** Without it, `index` still works (structural only) but `search` and `recall` won't.
+9. **Use `remember` for durable knowledge.** Persist decisions, patterns, and learnings. They survive across sessions and are searchable via `recall`.
+10. **Memory has a git audit trail.** Every `remember`, `forget`, and `consolidate` creates a git commit in the project repo. Use `git log` to see memory mutation history.
 
 ## Troubleshooting
 
@@ -348,6 +470,10 @@ kata-context find "app" --limit 5 --json
 | `Symbol not found` | Symbol name doesn't match any indexed symbol | Check spelling, use `find` to search by partial name |
 | `ripgrep (rg) is not installed` | `grep` command requires ripgrep | Install: `brew install ripgrep` or `apt install ripgrep` |
 | `path does not exist` | The specified project path doesn't exist | Check the path argument to `index` |
+| `MEMORY_RECALL_EMPTY` | No memories stored yet | Use `remember` to store memories first |
+| `MEMORY_RECALL_MISSING_KEY` | `OPENAI_API_KEY` not set for recall | Set the environment variable |
+| `MEMORY_FILE_NOT_FOUND` | Memory ID doesn't exist | Check the ID with `recall` or list memories |
+| `MEMORY_CONSOLIDATE_TOO_FEW` | Need at least 2 IDs to consolidate | Provide 2+ memory IDs |
 
 ## Exit Codes
 
