@@ -1,253 +1,49 @@
 ---
-# ═══════════════════════════════════════════════════════════════════════════════
-# Symphony WORKFLOW.md — Orchestrator Configuration + Agent Prompt Template
-# ═══════════════════════════════════════════════════════════════════════════════
-#
-# This file serves two purposes:
-#   1. YAML front-matter: parsed by Symphony as runtime configuration
-#   2. Markdown body: rendered as the Liquid prompt template for each agent session
-#
-# Symphony watches this file for changes and applies config updates without
-# requiring a process restart.
-#
-# Environment variable indirection: any string value starting with `$` followed
-# by a bare identifier (no `/`, spaces, or `:`) is resolved from the process
-# environment at startup. Example: `$LINEAR_API_KEY` reads env var LINEAR_API_KEY.
-# Unset variables resolve to empty string with a warning.
-# ═══════════════════════════════════════════════════════════════════════════════
-
-# ─── Tracker ──────────────────────────────────────────────────────────────────
-# Configures which issue tracker to poll and how to filter issues.
 tracker:
-  # Tracker backend. Currently only "linear" is supported.
   kind: linear
-
-  # Linear personal API key. Use $VAR indirection to avoid committing secrets.
   api_key: $LINEAR_API_KEY
-
-  # Linear project URL slug or slugId. Found in the project URL:
-  # https://linear.app/<workspace>/project/<slug>
   project_slug: "89d4761fddf0"
-
-  # Optional: Linear workspace slug for dashboard project links.
-  # When omitted, Symphony falls back to "kata-sh".
-  # workspace_slug: kata-sh
-
-  # Optional: Linear GraphQL endpoint. Override for self-hosted Linear.
-  # endpoint: https://api.linear.app/graphql
-
-  # Optional: filter candidate issues to this Linear username.
-  # When set, only issues assigned to this user are dispatched.
-  # When omitted, ALL issues in the project matching active_states are eligible.
-  # Supports $VAR indirection.
   # assignee: alice
-
-  # Issue states eligible for dispatch. Issues in these states are candidates
-  # for agent work. The orchestrator polls for issues in these states.
-  # Default parser value: ["Todo", "In Progress"].
-  # This template extends that set so the agent can run full review/merge loops.
   active_states:
     - Todo
     - In Progress
     - Agent Review
     - Merging
     - Rework
-
-  # Issue states that mark work as complete. Issues reaching these states are
-  # removed from the running/retry sets and counted as completed.
   terminal_states:
     - Closed
     - Cancelled
     - Canceled
     - Duplicate
     - Done
-
-# ─── Polling ──────────────────────────────────────────────────────────────────
-# Controls how frequently Symphony polls the tracker for new/changed issues.
 polling:
-  # Milliseconds between poll cycles. Lower = more responsive, more API calls.
   interval_ms: 30000
-
-# ─── Workspace ────────────────────────────────────────────────────────────────
-# Configures how agent workspaces are created and managed.
-# Each dispatched issue gets its own workspace directory.
 workspace:
-  # Root directory for all workspaces. Each issue gets a subdirectory.
-  # Supports ~ tilde expansion and $VAR indirection.
-  root: ~/symphony-workspaces
-
-  # Repository to bootstrap into each workspace. Can be:
-  #   - A remote URL (https:// or git@): cloned from the remote
-  #   - A local path: cloned locally (fast, hard-links .git objects)
-  # Supports $VAR indirection and ~ tilde expansion.
   repo: https://github.com/gannonh/kata.git
-
-  # Git bootstrap strategy (replaces the old `strategy` field):
-  #   - "auto" (default): clone-remote if repo is a URL, clone-local if repo is a local path
-  #   - "clone-local": `git clone --local <path> .` — fast (hard-links), inherits remotes
-  #   - "clone-remote": `git clone <url> . --single-branch` — full network clone
-  #   - "worktree": `git worktree add` from the source repo
-  #     - Requires `repo` to be a local path
-  #     - Lightweight — shares .git objects with source
-  #     - Cleanup runs `git worktree remove`
-  #
-  # The old `strategy: clone | worktree` field is still accepted with a
-  # deprecation warning. `clone` maps to `auto`, `worktree` stays `worktree`.
-  # If both `strategy` and `git_strategy` are set, `git_strategy` wins.
-  git_strategy: auto
-
-  # Workspace isolation mode:
-  #   - "local" (default): run agent directly on the host
-  #   - "docker": run agent in an ephemeral container
-  # Docker mode requires git_strategy "auto" or "clone-remote" (clone-local and
-  # worktree need host filesystem access). repo must be a remote URL.
-  isolation: local
-
-  # Prefix for auto-created issue branches: <prefix>/<issue-identifier>
-  # Example: symphony/KAT-814
+  isolation: docker
+  cleanup_on_done: true
   branch_prefix: symphony
-
-  # Branch to clone/base off for clone-based strategies.
-  # When set, clone uses `--branch <clone_branch>`.
-  # When omitted, clone uses the repo's default branch.
-  # Supports $VAR indirection.
-  clone_branch: main
-
-  # Base branch for workflow merge/rebase/pull operations.
-  # Prompt instructions can reference this as `{{ workspace.base_branch }}`.
-  # Default: main.
   base_branch: main
-
-  # Whether to auto-remove workspaces when their issue reaches a terminal state.
-  # When true, runs `before_remove` hook then deletes the workspace directory.
-  # Default: false (workspaces persist for debugging).
-  # cleanup_on_done: false
-
-  # Docker-specific options (used when `workspace.isolation: docker`).
-  # If omitted, these defaults are applied automatically.
   docker:
-    # Base image used for worker containers.
-    # Bundled worker image defaults to non-root user `node` (home `/home/node`).
-    # Default: symphony-worker:latest
-    image: symphony-worker:latest
-
-    # Optional setup script path on the host. Symphony hashes the script
-    # content and caches a derived image layer.
-    # setup: docker/setups/rust.sh
-
-    # Codex auth mode inside the worker container.
-    # Interactive browser login is not available inside containers —
-    # use OPENAI_API_KEY in .env or mount an existing auth file.
-    #   - auto  (default): OPENAI_API_KEY if set, else stage host ~/.codex/auth.json to $HOME/.codex/auth.json in-container
-    #   - env:   force OPENAI_API_KEY (simplest for Docker)
-    #   - mount: force host ~/.codex/auth.json -> $HOME/.codex/auth.json in-container
-    # codex_auth: auto
-
-    # Extra env vars passed at `docker run` time.
+    image: node:22-bookworm
+    # setup: ../docker/setups/bun.sh    # uncomment to add extra tooling
+    codex_auth: auto
     # env:
     #   - CARGO_HOME=/usr/local/cargo
-
-    # Extra bind mounts passed at `docker run` time.
     # volumes:
-    #   - ~/.ssh:/home/node/.ssh:ro
-
-# ─── Hooks ────────────────────────────────────────────────────────────────────
-# Shell commands run at workspace lifecycle events. All hooks receive these
-# environment variables:
-#   SYMPHONY_ISSUE_ID          — Linear issue UUID
-#   SYMPHONY_ISSUE_IDENTIFIER  — e.g. KAT-814
-#   SYMPHONY_ISSUE_TITLE       — issue title text
-#   SYMPHONY_WORKSPACE_PATH    — absolute path to the workspace directory
+    #   - ~/.ssh:/root/.ssh:ro
 hooks:
-  # Timeout for each hook invocation in milliseconds.
   timeout_ms: 120000
-
-  # Run after workspace directory is created (after git bootstrap).
-  # after_create: echo "Workspace created for $SYMPHONY_ISSUE_IDENTIFIER"
-
-  # Run before the Codex session starts.
-  # before_run: echo "Starting session"
-
-  # Run after the Codex session ends (success or failure).
-  # after_run: echo "Session complete"
-
-  # Run before workspace directory is removed (cleanup_on_done or manual).
-  # before_remove: echo "Cleaning up $SYMPHONY_ISSUE_IDENTIFIER"
-
-# ─── Agent ────────────────────────────────────────────────────────────────────
-# Controls agent session behavior and concurrency.
 agent:
-  # Maximum number of agent sessions running simultaneously.
-  # New dispatches are held until a slot opens.
-  # Default parser value: 10.
-  max_concurrent_agents: 1
-
-  # Maximum turns (Codex interactions) per session before the run is
-  # considered stalled. Each turn is one request/response cycle.
+  max_concurrent_agents: 3
   max_turns: 20
-
-  # Maximum exponential back-off delay (ms) between retries on failure.
-  # max_retry_backoff_ms: 300000
-
-  # Per-state concurrency caps. Keys are lowercased state names.
-  # Limits how many agents can work on issues in a specific state simultaneously.
-  # Example: allow 3 "in progress" but only 1 "merging" at a time.
-  # max_concurrent_agents_by_state:
-  #   in progress: 3
-  #   merging: 1
-
-# ─── Codex ────────────────────────────────────────────────────────────────────
-# Configures the Codex app-server process that runs inside each agent session.
 codex:
-  # Command to start Codex. Can be a string (whitespace-split) or list.
-  # Default parser value: `codex app-server`.
-  command: codex --config shell_environment_policy.inherit=all --config model_reasoning_effort=xhigh --model gpt-5.3-codex app-server
-
-  # Hard timeout per Codex turn in milliseconds (default: 3600000 = 1 hour).
-  # turn_timeout_ms: 3600000
-
-  # Time (ms) before a non-progressing session is considered stalled.
-  # Reset on each agent event. Set high for long builds (e.g. cargo test).
-  # Default parser value: 300000.
+  command: codex app-server
   stall_timeout_ms: 900000
-
-  # Timeout waiting for Codex process output in milliseconds.
-  # read_timeout_ms: 5000
-
-  # Approval policy for sandbox actions.
-  # Default parser value: reject sandbox/rules/MCP elicitations.
-  # `never` enables unattended auto-approval behavior for this workflow.
   approval_policy: never
-
-  # Sandbox mode for the agent thread.
-  # Default parser value: workspace-write.
-  thread_sandbox: danger-full-access
-
-  # Per-turn sandbox policy override.
-  # Default parser value: unset.
-  turn_sandbox_policy:
-    type: dangerFullAccess
-
-# ─── Worker (SSH) ─────────────────────────────────────────────────────────────
-# Distribute agent sessions across remote SSH hosts.
-# When ssh_hosts is empty (default), all sessions run locally.
-# worker:
-#   ssh_hosts:
-#     - worker1.example.com            # default port 22
-#     - worker2.example.com:2222       # custom port
-#     - alice@worker3.example.com      # custom user
-#     - "[::1]:2222"                   # IPv6 with port
-#   max_concurrent_agents_per_host: 3
-
-# ─── Server ───────────────────────────────────────────────────────────────────
-# HTTP dashboard and JSON API. Serves live orchestrator state.
 server:
-  # Port to bind. Also settable via --port CLI flag (CLI takes precedence).
-  # CLI default is currently 8080.
   port: 8080
-
-  # Bind address. Use "0.0.0.0" to expose on all interfaces.
-  host: "127.0.0.1"
+  host: "0.0.0.0"
 ---
 
 You are working on a Linear ticket `{{ issue.identifier }}`
@@ -259,7 +55,6 @@ Continuation context:
 - Resume from the current workspace state instead of restarting from scratch.
 - Do not repeat already-completed investigation or validation unless needed for new code changes.
 - Do not end the turn while the issue remains in an active state unless you are blocked by missing required permissions/secrets.
-
   {% endif %}
 
 Issue context:
@@ -432,18 +227,29 @@ mutation AttachURL($issueId: String!, $url: String!, $title: String) {
 - `push`: keep remote branch current and publish updates.
 - `pull`: keep branch updated before handoff. Use `origin/{{ workspace.base_branch }}` as the upstream.
 - `land`: when ticket reaches `Merging`, explicitly open and follow `.codex/skills/land/SKILL.md`, which includes the `land` loop.
+- `address-comments`: **MANDATORY when issue is in `Agent Review`.** Read `.codex/skills/address-comments/SKILL.md` and follow its steps to fetch PR comments, address each thread, resolve threads, and push fixes.
+- `fix-ci`: when CI checks fail on a PR, read `.codex/skills/fix-ci/SKILL.md` and follow its steps to diagnose and fix GitHub Actions failures.
 
 ## Status map
 
 - `Backlog` -> out of scope for this workflow; do not modify.
 - `Todo` -> queued; the orchestrator moves this to `In Progress` on dispatch. Verify state is `In Progress` before active work.
-  - Special case: if a PR is already attached, treat as feedback/rework loop (run full PR feedback sweep, address or explicitly push back, revalidate, return to `Human Review`).
-- `In Progress` -> implementation actively underway.
-- `Agent Review` -> PR feedback needs to be addressed. Run the full PR feedback sweep protocol, make targeted fixes, push to existing branch, then move to `Human Review`.
-- `Human Review` -> PR is attached and validated; waiting on human approval. Do not code or change ticket content.
+  - Special case: if a PR is already attached, move the issue to `Agent Review` and run the full PR feedback sweep (address or explicitly push back on each comment, revalidate, push updates, then return to `Human Review`).
+- `In Progress` -> implementation actively underway. After opening a PR, move to `Agent Review` (not `Human Review`).
+- `Agent Review` -> PR feedback needs addressing. Run full PR feedback sweep, make targeted fixes, push to existing branch. When no unresolved actionable threads remain, move to `Human Review`.
+- `Human Review` -> PR is attached, validated, and all bot/review feedback addressed; waiting on human approval. Do not code or change ticket content.
 - `Merging` -> approved by human; execute the `land` skill flow (do not call `gh pr merge` directly).
-- `Rework` -> reviewer requested changes; planning + implementation required.
+- `Rework` -> reviewer rejected the current approach; close the current PR and restart from a fresh branch.
 - `Done` -> terminal state; no further action required.
+
+### Full lifecycle
+
+```
+Todo -> In Progress -> Agent Review (auto, address bot feedback) -> Human Review
+                                                                    -> (human approves) -> Merging -> Done
+                                                                    -> (human requests changes) -> Agent Review -> Human Review
+                                                                    -> (human rejects approach) -> Rework -> In Progress
+```
 
 ## Step 0: Determine current ticket state and route
 
@@ -455,7 +261,7 @@ mutation AttachURL($issueId: String!, $url: String!, $title: String) {
    - `Todo` -> orchestrator already moved to `In Progress`; verify state, then ensure bootstrap workpad comment exists (create if missing), then start execution flow.
      - If PR is already attached, start by reviewing all open PR comments and deciding required changes vs explicit pushback responses.
    - `In Progress` -> continue execution flow from current scratchpad comment.
-   - `Agent Review` -> run full PR feedback sweep protocol: read all PR comments (human and bot), address each actionable comment with code fix or justified pushback, push to existing branch, then move to `Human Review`.
+   - `Agent Review` -> open and follow `.codex/skills/address-comments/SKILL.md`. Fetch PR comments, address each thread, resolve threads, push fixes. When no unresolved actionable threads remain, move to `Human Review`.
    - `Human Review` -> wait and poll for decision/review updates.
    - `Merging` -> on entry, open and follow `.codex/skills/land/SKILL.md`; do not call `gh pr merge` directly.
    - `Rework` -> run rework flow.
@@ -571,7 +377,7 @@ Use this only when completion is blocked by missing required tools or missing au
     - Confirm every required ticket-provided validation/test-plan item is explicitly marked complete in the workpad.
     - Repeat this check-address-verify loop until no outstanding comments remain and checks are fully passing.
     - Re-open and refresh the workpad before state transition so `Plan`, `Acceptance Criteria`, and `Validation` exactly match completed work.
-12. Only then move issue to `Human Review`.
+12. Only then move issue to `Agent Review` to trigger the automated feedback sweep. Do NOT move directly to `Human Review` — the agent review loop will handle that after all feedback is addressed.
     - Exception: if blocked by missing required non-GitHub tools/auth per the blocked-access escape hatch, move to `Human Review` with the blocker brief and explicit unblock actions.
 13. For `Todo` tickets that already had a PR attached at kickoff:
     - Ensure all existing PR feedback was reviewed and resolved, including inline review comments (code changes or explicit, justified pushback response).
@@ -582,10 +388,11 @@ Use this only when completion is blocked by missing required tools or missing au
 
 1. When the issue is in `Human Review`, do not code or change ticket content.
 2. Poll for updates as needed, including GitHub PR review comments from humans and bots.
-3. If review feedback requires changes, move the issue to `Rework` and follow the rework flow.
-4. If approved, human moves the issue to `Merging`.
-5. When the issue is in `Merging`, open and follow `.codex/skills/land/SKILL.md`, then run the `land` skill in a loop until the PR is merged. Do not call `gh pr merge` directly.
-6. After merge is complete, move the issue to `Done`.
+3. If review feedback requires changes, move the issue to `Agent Review` and run the full PR feedback sweep loop.
+4. If review feedback rejects the current approach and requires a reset, move the issue to `Rework` and follow the rework flow.
+5. If approved, human moves the issue to `Merging`.
+6. When the issue is in `Merging`, open and follow `.codex/skills/land/SKILL.md`, then run the `land` skill in a loop until the PR is merged. Do not call `gh pr merge` directly.
+7. After merge is complete, move the issue to `Done`.
 
 ## Step 4: Rework handling
 

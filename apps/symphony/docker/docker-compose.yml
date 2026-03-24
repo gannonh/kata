@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   symphony:
     build:
@@ -7,7 +5,7 @@ services:
       dockerfile: docker/Dockerfile.symphony
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ../WORKFLOW.md:/app/WORKFLOW.md:ro
+      - ./WORKFLOW-docker.md:/app/WORKFLOW.md:ro
     env_file:
       - .env
     ports:

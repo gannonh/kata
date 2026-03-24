@@ -185,8 +185,8 @@ This workflow is for Kata CLI planned execution and dispatches a **slice issue**
 Before implementation starts, load context in this exact order:
 
 1. Child issues (`issue.children`) to discover task list and ordering.
-2. Slice issue documents (`issue.documents`) to read task-level plans (`T0N-PLAN`).
-3. Project documents (`project.documents`) to read `PROJECT`, `REQUIREMENTS`, `S0N-PLAN`, `S0N-RESEARCH`.
+2. Slice issue documents (`issue.documents`) to read slice-scoped docs (`S0N-PLAN`, `S0N-RESEARCH`, `T0N-PLAN`, `T0N-SUMMARY`). Slice and task docs are attached to the slice issue, not the project — this prevents ID collisions across milestones.
+3. Project documents (`project.documents`) to read project-scoped docs (`PROJECT`, `REQUIREMENTS`, `DECISIONS`, `M00N-CONTEXT`, `M00N-ROADMAP`).
 4. Milestone context via `issue.projectMilestone` to get the milestone name, then find `M00N-CONTEXT` and `M00N-ROADMAP` in the project documents (milestone docs are attached to the project, not the milestone entity).
 
 Preferred query patterns:
@@ -361,7 +361,7 @@ Use one persistent workpad comment and include task-level progress:
 
 ## Guardrails
 
-- Keep `apps/symphony/WORKFLOW.md` unchanged for flat Symphony ticket flow.
+- Keep `apps/symphony/WORKFLOW-symphony.md` unchanged for flat Symphony ticket flow.
 - Do not edit issue body for planning/progress tracking; use only one persistent workpad comment.
 - Do not use `Issue.links` or `IssueFilter.identifier` in GraphQL.
 - If blocked by missing required non-GitHub auth/tools, capture blocker in workpad and move per workflow.

@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.0.2 — Docker fixes, README overhaul, non-root workers
+
+### Docker
+
+- **Dockerfile.symphony fixes** — added OpenSSL dev libs to builder stage, pinned `rust:slim-bookworm` to match runtime glibc, removed invalid `--host` CLI flag from CMD, added `--no-tui` for headless container operation
+- **Docker Compose fixes** — fixed COPY paths for compose build context, removed obsolete `version` key, workflow file now mounts from docker/ directory
+- **WORKFLOW-docker.md** — new ready-to-edit template pre-configured for Docker isolation, lives in docker/ directory alongside .env and compose file
+- **Docker auth error message** — now tells users to set `OPENAI_API_KEY` instead of referencing non-existent `codex auth` command (interactive login unavailable in containers)
+- **Non-root worker containers (KAT-903)** — worker image runs as dedicated non-root user (`node`) by default, auth mount resolves container home path dynamically instead of hardcoding `/root`, setup scripts run as root then restore non-root default user
+
+### Documentation
+
+- **README rewrite** — separated three deployment modes (local, Docker-isolated workers, server deployment), added prerequisites section, explicit quick start with .env.example, clear Docker mode explanation ("you don't manage containers"), CLI flags table
+- **WORKFLOW-REFERENCE.md** — corrected Docker git_strategy constraints (only auto/clone-remote), clarified auth modes for containers
+- **WORKFLOW-cli.md** — fixed Linear document scoping for slice docs (attached to slice issue, not project) to prevent namespace collisions across milestones
+- **Workflow file renames** — `WORKFLOW.md` → `WORKFLOW-symphony.md`, `cli-WORKFLOW.md` → `WORKFLOW-cli.md`
+
+### Fixes
+
+- **go.sh setup script** — fixed checksum verification (Go doesn't serve per-file .sha256 URLs, now fetches from JSON release API)
+
 ## 1.0.1 — TUI/dashboard polish + post-patch verification
 
 ### Runtime and UX

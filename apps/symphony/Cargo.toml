@@ -1,6 +1,6 @@
 [package]
 name = "symphony"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2021"
 description = "Symphony orchestrator — polls Linear, dispatches Codex agent sessions"
 license = "MIT"
