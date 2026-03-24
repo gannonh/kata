@@ -242,7 +242,10 @@ async fn read_stats_response(
             ));
         }
 
-        let line = read_line(reader, remaining_ms.min(2_000)).await?;
+        let line = match read_line(reader, remaining_ms.min(2_000)).await {
+            Ok(line) => line,
+            Err(_) => continue,
+        };
         let Some(parsed) = parse_output_line(&line) else {
             continue;
         };
@@ -291,7 +294,10 @@ async fn wait_for_handshake(
             ));
         }
 
-        let line = read_line(reader, remaining_ms.min(2_000)).await?;
+        let line = match read_line(reader, remaining_ms.min(2_000)).await {
+            Ok(line) => line,
+            Err(_) => continue,
+        };
         let Some(parsed) = parse_output_line(&line) else {
             continue;
         };
