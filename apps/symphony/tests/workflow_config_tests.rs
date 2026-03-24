@@ -11,7 +11,7 @@ use tempfile::NamedTempFile;
 
 use symphony::config::{from_workflow, validate};
 use symphony::domain::{
-    CodexConfig, DockerCodexAuth, ServiceConfig, TrackerConfig, WorkspaceConfig,
+    AgentBackend, CodexConfig, DockerCodexAuth, ServiceConfig, TrackerConfig, WorkspaceConfig,
     WorkspaceIsolation, WorkspaceRepoStrategy,
 };
 use symphony::error::SymphonyError;
@@ -167,6 +167,61 @@ fn test_config_defaults() {
     assert_eq!(config.workspace.clone_branch, None);
     assert_eq!(config.workspace.base_branch.as_deref(), Some("main"));
     assert!(!config.workspace.cleanup_on_done);
+    assert_eq!(config.agent_backend, AgentBackend::Codex);
+    assert_eq!(config.pi_agent.command, vec!["kata".to_string()]);
+    assert_eq!(config.pi_agent.model, None);
+    assert!(config.pi_agent.no_session);
+    assert_eq!(config.pi_agent.append_system_prompt, None);
+    assert_eq!(config.pi_agent.read_timeout_ms, 5_000);
+    assert_eq!(config.pi_agent.stall_timeout_ms, 300_000);
+}
+
+#[test]
+fn test_agent_backend_pi_with_pi_agent_config() {
+    let yaml_str = r#"
+agent:
+  backend: pi
+pi_agent:
+  command: "kata --mode rpc"
+  model: "anthropic/claude-sonnet-4-6"
+  no_session: false
+  append_system_prompt: "/tmp/system.md"
+  read_timeout_ms: 1200
+  stall_timeout_ms: 90000
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("pi backend config should parse");
+
+    assert_eq!(config.agent_backend, AgentBackend::Pi);
+    assert_eq!(
+        config.pi_agent.command,
+        vec!["kata".to_string(), "--mode".to_string(), "rpc".to_string()]
+    );
+    assert_eq!(
+        config.pi_agent.model.as_deref(),
+        Some("anthropic/claude-sonnet-4-6")
+    );
+    assert!(!config.pi_agent.no_session);
+    assert_eq!(
+        config.pi_agent.append_system_prompt.as_deref(),
+        Some("/tmp/system.md")
+    );
+    assert_eq!(config.pi_agent.read_timeout_ms, 1200);
+    assert_eq!(config.pi_agent.stall_timeout_ms, 90_000);
+}
+
+#[test]
+fn test_agent_backend_invalid_value_errors() {
+    let yaml_str = r#"
+agent:
+  backend: unknown
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("unknown backend should fail");
+    assert!(
+        err.to_string().contains("agent.backend"),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]

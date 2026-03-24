@@ -88,6 +88,9 @@ pub enum SymphonyError {
     #[error("codex turn input required")]
     TurnInputRequired,
 
+    #[error("pi-agent error: {0}")]
+    PiAgentError(String),
+
     // ── SSH ────────────────────────────────────────────────────────────
     #[error("ssh launch failed: {0}")]
     SshLaunchFailed(String),

@@ -11,9 +11,9 @@ use serde::Deserialize;
 use serde_yaml::{Mapping, Value};
 
 use crate::domain::{
-    AgentConfig, ApiKey, CodexConfig, DockerCodexAuth, DockerConfig, HooksConfig, PollingConfig,
-    ServerConfig, ServiceConfig, TrackerConfig, WorkerConfig, WorkspaceConfig, WorkspaceIsolation,
-    WorkspaceRepoStrategy,
+    AgentBackend, AgentConfig, ApiKey, CodexConfig, DockerCodexAuth, DockerConfig, HooksConfig,
+    PiAgentConfig, PollingConfig, ServerConfig, ServiceConfig, TrackerConfig, WorkerConfig,
+    WorkspaceConfig, WorkspaceIsolation, WorkspaceRepoStrategy,
 };
 use crate::error::{Result, SymphonyError};
 use crate::repo_url::repo_is_remote;
@@ -211,6 +211,7 @@ struct RawWorkerConfig {
 #[derive(Deserialize, Default)]
 #[serde(default)]
 struct RawAgentConfig {
+    backend: Option<String>,
     max_concurrent_agents: Option<u32>,
     max_turns: Option<u32>,
     max_retry_backoff_ms: Option<u64>,
@@ -228,6 +229,17 @@ struct RawCodexConfig {
     thread_sandbox: Option<String>,
     turn_sandbox_policy: Option<Value>,
     turn_timeout_ms: Option<u64>,
+    read_timeout_ms: Option<u64>,
+    stall_timeout_ms: Option<u64>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct RawPiAgentConfig {
+    command: Option<Value>,
+    model: Option<String>,
+    no_session: Option<bool>,
+    append_system_prompt: Option<String>,
     read_timeout_ms: Option<u64>,
     stall_timeout_ms: Option<u64>,
 }
@@ -288,7 +300,7 @@ fn yaml_to_json(val: Value) -> Result<serde_json::Value> {
 /// Accepts either a whitespace-split string (`"codex app-server"`) or an
 /// explicit list (`["codex", "app-server"]`).  Returns `InvalidWorkflowConfig`
 /// for any other shape.
-fn parse_codex_command(val: Value) -> Result<Vec<String>> {
+fn parse_command_value(val: Value, field_name: &str) -> Result<Vec<String>> {
     match val {
         Value::String(s) if s.is_empty() => Ok(vec![]),
         Value::String(s) => Ok(s.split_whitespace().map(|p| p.to_string()).collect()),
@@ -297,14 +309,18 @@ fn parse_codex_command(val: Value) -> Result<Vec<String>> {
             .map(|v| match v {
                 Value::String(s) => Ok(s),
                 other => Err(SymphonyError::InvalidWorkflowConfig(format!(
-                    "codex.command list elements must be strings, got: {other:?}"
+                    "{field_name} list elements must be strings, got: {other:?}"
                 ))),
             })
             .collect(),
         other => Err(SymphonyError::InvalidWorkflowConfig(format!(
-            "codex.command must be a string or list of strings, got: {other:?}"
+            "{field_name} must be a string or list of strings, got: {other:?}"
         ))),
     }
+}
+
+fn parse_codex_command(val: Value) -> Result<Vec<String>> {
+    parse_command_value(val, "codex.command")
 }
 
 fn parse_workspace_git_strategy(value: &str) -> Result<WorkspaceRepoStrategy> {
@@ -394,6 +410,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let raw_worker: RawWorkerConfig = extract_section(&normalized, "worker")?;
     let raw_agent: RawAgentConfig = extract_section(&normalized, "agent")?;
     let raw_codex: RawCodexConfig = extract_section(&normalized, "codex")?;
+    let raw_pi_agent: RawPiAgentConfig = extract_section(&normalized, "pi_agent")?;
     let raw_hooks: RawHooksConfig = extract_section(&normalized, "hooks")?;
     let raw_server: RawServerConfig = extract_section(&normalized, "server")?;
 
@@ -713,6 +730,52 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
             .unwrap_or(defaults.codex.stall_timeout_ms),
     };
 
+    // ── PiAgentConfig ───────────────────────────────────────────────────
+    let pi_agent_command = match raw_pi_agent.command {
+        Some(val) => parse_command_value(val, "pi_agent.command")?,
+        None => defaults.pi_agent.command.clone(),
+    };
+    let pi_agent_model = raw_pi_agent
+        .model
+        .map(|value| resolve_env(&value))
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    let pi_agent_append_system_prompt = raw_pi_agent
+        .append_system_prompt
+        .map(|value| resolve_env(&value))
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    let pi_agent = PiAgentConfig {
+        command: pi_agent_command,
+        model: pi_agent_model,
+        no_session: raw_pi_agent
+            .no_session
+            .unwrap_or(defaults.pi_agent.no_session),
+        append_system_prompt: pi_agent_append_system_prompt,
+        read_timeout_ms: raw_pi_agent
+            .read_timeout_ms
+            .unwrap_or(defaults.pi_agent.read_timeout_ms),
+        stall_timeout_ms: raw_pi_agent
+            .stall_timeout_ms
+            .unwrap_or(defaults.pi_agent.stall_timeout_ms),
+    };
+
+    // ── AgentBackend ───────────────────────────────────────────────────
+    let agent_backend = raw_agent
+        .backend
+        .map(|value| resolve_env(&value))
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty())
+        .map(|value| match value.as_str() {
+            "pi" => Ok(AgentBackend::Pi),
+            "codex" => Ok(AgentBackend::Codex),
+            other => Err(SymphonyError::InvalidWorkflowConfig(format!(
+                "agent.backend must be 'pi' or 'codex' (got '{other}')"
+            ))),
+        })
+        .transpose()?
+        .unwrap_or(defaults.agent_backend);
+
     // ── HooksConfig ───────────────────────────────────────────────────────
     let hooks = HooksConfig {
         after_create: raw_hooks.after_create,
@@ -735,6 +798,8 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         worker,
         agent,
         codex,
+        pi_agent,
+        agent_backend,
         hooks,
         server,
     })
@@ -782,10 +847,15 @@ pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
         }
     }
 
-    // codex.command must be non-empty
-    if config.codex.command.is_empty() {
+    // backend-specific command requirements
+    if config.agent_backend == AgentBackend::Codex && config.codex.command.is_empty() {
         return Err(SymphonyError::InvalidWorkflowConfig(
-            "codex.command is required".to_string(),
+            "codex.command is required when agent.backend is 'codex'".to_string(),
+        ));
+    }
+    if config.agent_backend == AgentBackend::Pi && config.pi_agent.command.is_empty() {
+        return Err(SymphonyError::InvalidWorkflowConfig(
+            "pi_agent.command is required when agent.backend is 'pi'".to_string(),
         ));
     }
 
