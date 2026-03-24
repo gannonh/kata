@@ -1,6 +1,28 @@
 # Changelog
 
-## 1.0.2 — Docker fixes, README overhaul, non-root workers
+## 1.1.0 — Kata CLI backend, per-state model selection, docs overhaul
+
+### Kata CLI Backend (KAT-902, KAT-912)
+
+- **Multi-model agent backend** — new `agent.backend: kata-cli` (aliases: `kata`, `pi`) spawns Kata CLI in RPC mode, enabling any model supported by pi-ai (Anthropic, OpenAI, Google, Mistral, Bedrock, Azure)
+- **`kata_agent` config section** (alias: `pi_agent`) — configure command, model, timeouts for the Kata CLI backend
+- **Codex backend preserved** — `agent.backend: codex` continues to work unchanged; both backends coexist
+- **Backend rename** — `AgentBackend::Pi` → `AgentBackend::KataCli`; YAML accepts `kata-cli`, `kata`, `pi`
+
+### Per-state Model Selection (KAT-914)
+
+- **`model_by_state`** — assign different models to different Linear workflow states (e.g. Opus for implementation, Sonnet for review)
+- **Model column in TUI and web dashboard** — active model visible for each running session
+- **Centralized model resolver** — `PiAgentConfig::model_for_state()` ensures orchestrator display and RPC launch stay in sync
+
+### RPC Bridge Fixes
+
+- **Handshake timeout fix** — polling loops continue on chunk timeouts instead of failing when Kata CLI takes >2s to start
+- **EOF/IO error propagation** — `read_poll_line` helper distinguishes timeouts from subprocess crashes; EOF and IO errors propagate immediately instead of hot-spinning until deadline
+
+### Removed
+
+- **`max_concurrent_agents_by_state`** — removed from code, config, tests, and docs (feature had no valid use case)
 
 ### Docker
 
