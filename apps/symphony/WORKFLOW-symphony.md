@@ -32,6 +32,11 @@ hooks:
 agent:
   max_concurrent_agents: 3
   max_turns: 20
+  backend: codex              # "codex" (legacy) or "pi" (Kata CLI, recommended for new setups)
+pi_agent:
+  command: kata
+  model: anthropic/claude-sonnet-4-6
+  stall_timeout_ms: 900000
 codex:
   command: codex --config shell_environment_policy.inherit=all --config model_reasoning_effort=xhigh --model gpt-5.3-codex app-server
   stall_timeout_ms: 900000
