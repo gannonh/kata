@@ -69,13 +69,12 @@ test("resolveEffectiveMcpConfigPath returns global config when no project config
   }
 });
 
-test("resolveEffectiveMcpConfigPath merges approved project config when global config is missing", async () => {
+test("resolveEffectiveMcpConfigPath merges approved project config on first run when agentDir is missing", async () => {
   const tmp = mkdtempSync(join(tmpdir(), "kata-mcp-no-global-"));
   const agentDir = join(tmp, "agent");
   const appRoot = join(tmp, ".kata-cli");
   const cwd = join(tmp, "project");
   const projectMcpDir = join(cwd, ".kata-cli");
-  mkdirSync(agentDir, { recursive: true });
   mkdirSync(projectMcpDir, { recursive: true });
 
   writeFileSync(
@@ -94,6 +93,8 @@ test("resolveEffectiveMcpConfigPath merges approved project config when global c
   );
 
   try {
+    assert.equal(existsSync(agentDir), false);
+
     const result = await resolveEffectiveMcpConfigPath({
       agentDir,
       appRoot,
@@ -105,6 +106,7 @@ test("resolveEffectiveMcpConfigPath merges approved project config when global c
     assert.equal(result.usedProjectConfig, true);
     assert.equal(result.configPath, join(agentDir, "mcp.effective.json"));
     assert.equal(result.projectConfigPath, join(projectMcpDir, "mcp.json"));
+    assert.equal(existsSync(agentDir), true);
 
     const merged = JSON.parse(readFileSync(result.configPath, "utf-8"));
     assert.deepEqual(merged.imports, ["cursor"]);

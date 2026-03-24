@@ -121,6 +121,7 @@ export async function resolveEffectiveMcpConfigPath(
   const effectiveConfig = mergeMcpConfigs(globalConfig, projectConfig);
   const serializedEffectiveConfig = `${JSON.stringify(effectiveConfig, null, 2)}\n`;
   try {
+    mkdirSync(dirname(effectiveConfigPath), { recursive: true });
     writeIfChanged(effectiveConfigPath, serializedEffectiveConfig);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
