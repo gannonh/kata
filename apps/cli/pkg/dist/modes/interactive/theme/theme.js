@@ -252,14 +252,12 @@ function resolveThemeColors(colors, vars = {}) {
 export class Theme {
     name;
     sourcePath;
-    sourceInfo;
     fgColors;
     bgColors;
     mode;
     constructor(fgColors, bgColors, mode, options = {}) {
         this.name = options.name;
         this.sourcePath = options.sourcePath;
-        this.sourceInfo = options.sourceInfo;
         this.mode = mode;
         this.fgColors = new Map();
         for (const [key, value] of Object.entries(fgColors)) {
@@ -822,12 +820,6 @@ function getCliHighlightTheme(t) {
 export function highlightCode(code, lang) {
     // Validate language before highlighting to avoid stderr spam from cli-highlight
     const validLang = lang && supportsLanguage(lang) ? lang : undefined;
-    // Skip highlighting when no valid language is specified. cli-highlight's
-    // auto-detection is unreliable and can misidentify prose as AppleScript,
-    // LiveCodeServer, etc., coloring random English words as keywords.
-    if (!validLang) {
-        return code.split("\n").map((line) => theme.fg("mdCodeBlock", line));
-    }
     const opts = {
         language: validLang,
         ignoreIllegals: true,
@@ -928,12 +920,6 @@ export function getMarkdownTheme() {
         highlightCode: (code, lang) => {
             // Validate language before highlighting to avoid stderr spam from cli-highlight
             const validLang = lang && supportsLanguage(lang) ? lang : undefined;
-            // Skip highlighting when no valid language is specified. cli-highlight's
-            // auto-detection is unreliable and can misidentify prose as AppleScript,
-            // LiveCodeServer, etc., coloring random English words as keywords.
-            if (!validLang) {
-                return code.split("\n").map((line) => theme.fg("mdCodeBlock", line));
-            }
             const opts = {
                 language: validLang,
                 ignoreIllegals: true,
