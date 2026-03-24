@@ -327,7 +327,12 @@ Use one persistent workpad comment and include task-level progress:
 0. Before ANY other action, read `.codex/skills/linear/SKILL.md` and keep it in context.
 1. Fetch the issue by explicit ticket ID.
 2. Route by state.
-3. Ensure one active unresolved `## Codex Workpad` comment exists and reuse it.
+3. Ensure workpad reuse is deterministic:
+   - list comments before creating anything,
+   - match `## Codex Workpad` heading candidates (case-sensitive, at the start of a markdown heading line),
+   - reuse the most recently updated active/unresolved candidate when one exists,
+   - create exactly one new workpad when no active candidate exists (even if resolved/archived workpads exist),
+   - persist that chosen comment ID for all further updates.
 4. Check if a PR already exists for the current branch and whether it is closed/merged.
    - If closed/merged, create a fresh branch from `origin/{{ workspace.base_branch }}` and restart.
 
