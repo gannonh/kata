@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",
+    "chokidar": "^5.0.0",
     "commander": "^14.0.3",
     "sqlite-vec": "^0.1.7",
     "tree-sitter": "^0.25.0",

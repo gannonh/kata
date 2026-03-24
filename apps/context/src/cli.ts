@@ -46,6 +46,9 @@ import {
 import { MemoryStore, MemoryError } from "./memory/index.js";
 import { recallMemories } from "./memory/recall.js";
 import { consolidateMemories } from "./memory/consolidate.js";
+import { createWatcher } from "./watcher/index.js";
+import { combinedRetrieval } from "./retrieval/combined.js";
+import type { CombinedRetrievalResult } from "./retrieval/types.js";
 
 // ── Version ──
 
@@ -1191,6 +1194,178 @@ program
       }
       if (outputOpts.json) {
         console.log(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+      } else {
+        console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      process.exit(1);
+    }
+  });
+
+// ── Watch command ──
+
+program
+  .command("watch")
+  .description("Watch for file changes and trigger incremental re-indexing")
+  .argument("[path]", "Project root path", ".")
+  .option("--debounce <ms>", "Debounce window in milliseconds", "300")
+  .action(async (pathArg: string, cmdOpts: Record<string, string>) => {
+    const outputOpts = getOutputOptions(program);
+    const rootPath = resolve(pathArg);
+    const config = loadConfig(rootPath);
+    const debounceMs = parseInt(cmdOpts.debounce ?? "300", 10);
+
+    const watcher = createWatcher(rootPath, config, { debounceMs });
+
+    watcher.on((event) => {
+      if (outputOpts.quiet) return; // suppress in quiet mode
+
+      if (outputOpts.json) {
+        console.log(JSON.stringify(event));
+      } else {
+        const ts = event.timestamp.replace("T", " ").replace(/\.\d+Z$/, "");
+        switch (event.type) {
+          case "start":
+            console.log(`[${ts}] Watching ${rootPath}`);
+            break;
+          case "change":
+            console.log(`[${ts}] Changed: ${event.files?.join(", ")}`);
+            break;
+          case "reindex-start":
+            console.log(`[${ts}] Re-indexing ${event.files?.length ?? 0} files...`);
+            break;
+          case "reindex-done":
+            console.log(`[${ts}] Re-index done (${event.durationMs}ms)`);
+            break;
+          case "error":
+            console.error(`[${ts}] Error [${event.errorCode}]: ${event.error}`);
+            break;
+        }
+      }
+    });
+
+    // Handle SIGINT/SIGTERM for graceful shutdown
+    const shutdown = async () => {
+      await watcher.stop();
+      process.exit(0);
+    };
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
+
+    try {
+      await watcher.start();
+      // Keep process alive — watcher is persistent
+    } catch (err) {
+      if (outputOpts.json) {
+        console.log(JSON.stringify({ error: true, message: err instanceof Error ? err.message : String(err) }));
+      } else {
+        console.error(`Watch failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      process.exit(1);
+    }
+  });
+
+// ── Get command (combined retrieval) ──
+
+program
+  .command("get")
+  .description("Get combined context bundle from structural, semantic, and memory retrieval")
+  .argument("<query>", "Natural language task description")
+  .option("--budget <tokens>", "Token budget for the result", "4000")
+  .option("--kind <kind>", "Filter by symbol kind")
+  .action(async (query: string, cmdOpts: Record<string, string>) => {
+    const outputOpts = getOutputOptions(program);
+    const rootPath = resolve(".");
+    const config = loadConfig(rootPath);
+    const dbPath = getDbPath(program, rootPath);
+    const budget = parseInt(cmdOpts.budget ?? "4000", 10);
+
+    if (!existsSync(dbPath)) {
+      if (outputOpts.json) {
+        console.log(JSON.stringify({ error: true, message: "No index found. Run `kata context index` first." }));
+      } else {
+        console.error("No index found. Run `kata context index` first.");
+      }
+      process.exit(1);
+    }
+
+    const store = new GraphStore(dbPath);
+    let memoryStore: MemoryStore | undefined;
+    try {
+      memoryStore = new MemoryStore(rootPath);
+    } catch {
+      // Memory store optional
+    }
+
+    try {
+      const result: CombinedRetrievalResult = await combinedRetrieval({
+        query,
+        store,
+        memoryStore,
+        config,
+        options: {
+          budget,
+          kinds: cmdOpts.kind ? [cmdOpts.kind] : undefined,
+        },
+      });
+
+      if (outputOpts.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else if (outputOpts.quiet) {
+        // Quiet: raw content blocks only
+        for (const item of result.items) {
+          console.log(item.content);
+        }
+      } else {
+        // Human-readable: sections grouped by provenance
+        const grouped = new Map<string, typeof result.items>();
+        for (const item of result.items) {
+          const group = grouped.get(item.provenance) ?? [];
+          group.push(item);
+          grouped.set(item.provenance, group);
+        }
+
+        const provenanceOrder = ["structural", "semantic", "memory"];
+        const labels: Record<string, string> = {
+          structural: "Structural",
+          semantic: "Semantic",
+          memory: "Memory",
+        };
+
+        for (const prov of provenanceOrder) {
+          const items = grouped.get(prov);
+          if (!items || items.length === 0) continue;
+
+          console.log(formatHeader(`${labels[prov]} (${items.length} items)`));
+          for (const item of items) {
+            console.log(`  ${item.source}`);
+            const preview = item.content.split("\n").slice(0, 3).join("\n    ");
+            console.log(`    ${preview}`);
+            console.log();
+          }
+        }
+
+        // Diagnostics summary
+        const d = result.diagnostics;
+        console.log(formatHeader("Diagnostics"));
+        console.log(
+          formatKeyValue([
+            ["Budget", `${d.budgetUsed}/${d.budgetTotal} tokens`],
+            ["Time", `${d.totalTimeMs}ms`],
+            [
+              "Strategies",
+              Object.entries(d.perStrategy)
+                .map(([k, v]) => `${k}: ${v.status} (${v.hits} hits, ${v.timeMs}ms)`)
+                .join(", "),
+            ],
+          ]),
+        );
+      }
+
+      store.close();
+    } catch (err) {
+      store.close();
+      if (outputOpts.json) {
+        console.log(JSON.stringify({ error: true, message: err instanceof Error ? err.message : String(err) }));
       } else {
         console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
       }

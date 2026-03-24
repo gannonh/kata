@@ -459,6 +459,97 @@ kata-context find "app" --limit 5 --json
 9. **Use `remember` for durable knowledge.** Persist decisions, patterns, and learnings. They survive across sessions and are searchable via `recall`.
 10. **Memory has a git audit trail.** Every `remember`, `forget`, and `consolidate` creates a git commit in the project repo. Use `git log` to see memory mutation history.
 
+## Watch Mode
+
+### `kata-context watch [path]`
+
+Monitor source files and automatically re-index on changes.
+
+```bash
+# Start watching (human-readable events)
+kata-context watch .
+
+# JSON event stream (NDJSON)
+kata-context watch . --json
+
+# Custom debounce window
+kata-context watch . --debounce 500
+
+# Quiet mode (no event output, background operation)
+kata-context watch . --quiet
+```
+
+**Options:**
+- `--debounce <ms>` — Debounce window in milliseconds (default: 300)
+- `--json` — Output events as NDJSON (one JSON object per line)
+- `--quiet` — Suppress event output
+
+**Events emitted:**
+- `start` — Watcher initialized and ready
+- `change` — File changes detected (includes file list)
+- `reindex-start` — Incremental re-indexing triggered
+- `reindex-done` — Re-indexing completed (includes duration)
+- `error` — Error during watch/reindex (includes error code)
+
+**Error codes:** `WATCH_INIT_FAILED`, `WATCH_REINDEX_FAILED`, `WATCH_PROVIDER_ERROR`
+
+Stop with `Ctrl+C` (SIGINT) — the watcher shuts down cleanly.
+
+## Combined Retrieval
+
+### `kata-context get "<query>" [--budget N]`
+
+Get an integrated context bundle assembled from structural, semantic, and memory retrieval within a token budget.
+
+```bash
+# Default budget (4000 tokens)
+kata-context get "implement rate limiting"
+
+# Custom budget
+kata-context get "authentication handler" --budget 8000
+
+# Filter by symbol kind
+kata-context get "error handling" --kind function
+
+# JSON output with full diagnostics
+kata-context get "implement rate limiting" --json
+
+# Quiet mode (raw content only)
+kata-context get "implement rate limiting" --quiet
+```
+
+**Options:**
+- `--budget <tokens>` — Token budget for results (default: 4000)
+- `--kind <kind>` — Filter by symbol kind (function, class, etc.)
+- `--json` — Full JSON output including diagnostics envelope
+- `--quiet` — Raw content blocks only
+
+**How it works:**
+1. Runs structural (FTS + graph), semantic (vector search), and memory (recall) strategies in parallel
+2. Deduplicates overlapping results by symbol ID
+3. Reranks with configurable weights (structural 0.4, semantic 0.3, recency 0.15, memory 0.15)
+4. Assembles results within the token budget (greedy fill from top-ranked)
+5. Returns items with provenance labels (structural/semantic/memory)
+
+**JSON output includes a diagnostics envelope:**
+```json
+{
+  "items": [...],
+  "diagnostics": {
+    "perStrategy": {
+      "structural": { "status": "ok", "hits": 5, "timeMs": 12 },
+      "semantic": { "status": "ok", "hits": 3, "timeMs": 145 },
+      "memory": { "status": "skipped", "hits": 0, "timeMs": 0 }
+    },
+    "budgetUsed": 3800,
+    "budgetTotal": 4000,
+    "totalTimeMs": 158
+  }
+}
+```
+
+**Degraded modes:** If semantic fails (no API key), structural + memory results are still returned. If memory store is empty, it's skipped. Per-strategy status in diagnostics shows what happened.
+
 ## Troubleshooting
 
 | Error | Cause | Fix |
@@ -474,6 +565,11 @@ kata-context find "app" --limit 5 --json
 | `MEMORY_RECALL_MISSING_KEY` | `OPENAI_API_KEY` not set for recall | Set the environment variable |
 | `MEMORY_FILE_NOT_FOUND` | Memory ID doesn't exist | Check the ID with `recall` or list memories |
 | `MEMORY_CONSOLIDATE_TOO_FEW` | Need at least 2 IDs to consolidate | Provide 2+ memory IDs |
+| `WATCH_INIT_FAILED` | Watcher couldn't start | Check path exists and permissions |
+| `WATCH_REINDEX_FAILED` | Re-index failed during watch | Check disk space and DB access |
+| `WATCH_PROVIDER_ERROR` | API provider error during re-index | Check API keys and connectivity |
+| Empty `get` results | No matching data | Run `index` first, check `OPENAI_API_KEY` for semantic results |
+| Budget too small | Budget can't fit any results | Increase `--budget` value |
 
 ## Exit Codes
 
