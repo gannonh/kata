@@ -55,6 +55,7 @@ ratatui = "0.29"
 # Regex for sanitization
 regex = "1"
 dotenvy = "0.15.7"
+shell-words = "1"
 
 [dev-dependencies]
 tempfile = "3"

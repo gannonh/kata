@@ -516,6 +516,42 @@ test("cli.ts injects mcp-config flag into extension runtime", () => {
   );
 });
 
+test("cli.ts supports rpc mode and cwd override for Symphony RPC embedding", () => {
+  const cliSrc = readFileSync(join(projectRoot, "src", "cli.ts"), "utf-8");
+  assert.ok(
+    cliSrc.includes("val === 'json' || val === 'text' || val === 'rpc'"),
+    "cli.ts accepts --mode rpc in parseCliFlags",
+  );
+  assert.ok(
+    cliSrc.includes("arg === '--cwd' && i + 1 < argv.length"),
+    "cli.ts parses --cwd flag",
+  );
+  assert.ok(
+    cliSrc.includes("if (cliFlags.cwd)"),
+    "cli.ts applies cwd override",
+  );
+  assert.ok(
+    cliSrc.includes("process.chdir(cliFlags.cwd)"),
+    "cli.ts calls process.chdir for --cwd",
+  );
+});
+
+test("cli.ts routes --mode rpc through runRpcMode", () => {
+  const cliSrc = readFileSync(join(projectRoot, "src", "cli.ts"), "utf-8");
+  assert.ok(
+    cliSrc.includes("if (cliFlags.mode === 'rpc')"),
+    "cli.ts has explicit rpc mode branch",
+  );
+  assert.ok(
+    cliSrc.includes("const { runRpcMode } = await import('@mariozechner/pi-coding-agent')"),
+    "cli.ts lazily imports runRpcMode",
+  );
+  assert.ok(
+    cliSrc.includes("await runRpcMode(session)"),
+    "cli.ts invokes runRpcMode(session)",
+  );
+});
+
 test("loader.ts injects --mcp-config into process.argv", () => {
   const loaderSrc = readFileSync(join(projectRoot, "src", "loader.ts"), "utf-8");
   assert.ok(

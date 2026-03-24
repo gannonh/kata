@@ -17,6 +17,7 @@ pub mod codex;
 pub mod http_server;
 pub mod logging;
 pub mod orchestrator;
+pub mod pi_agent;
 mod session_summary;
 pub mod tui;
 

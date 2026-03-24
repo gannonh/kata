@@ -1,11 +1,12 @@
 # Symphony
 
 Symphony is a headless orchestrator that polls a Linear project for candidate
-issues and dispatches each one to a Codex agent session running in an isolated
-workspace. It tracks concurrency limits, retries failures with exponential
-back-off, reconciles issue state on each poll cycle, and optionally exposes a
-live HTTP dashboard and JSON API for observability. SSH remote worker pools are
-supported for distributing agent sessions across multiple machines.
+issues and dispatches each one to an agent session running in an isolated
+workspace. It supports both Codex app-server and Kata RPC (`agent.backend`),
+tracks concurrency limits, retries failures with exponential back-off,
+reconciles issue state on each poll cycle, and optionally exposes a live HTTP
+dashboard and JSON API for observability. SSH remote worker pools are supported
+for distributing agent sessions across multiple machines.
 
 ---
 
@@ -13,7 +14,9 @@ supported for distributing agent sessions across multiple machines.
 
 - **Rust stable toolchain** (install via [rustup](https://rustup.rs/))
 - A Linear personal API key (`LINEAR_API_KEY`)
-- A Codex binary reachable on `PATH` (default command: `codex app-server`)
+- Agent runtime binary reachable on `PATH`:
+  - Codex backend: `codex app-server`
+  - Pi backend: `kata --mode rpc`
 
 Build the release binary:
 
@@ -120,8 +123,9 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 | Field                                  | Type               | Default  | Description                                                                                                                    |
 | -------------------------------------- | ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `agent.max_concurrent_agents`          | u32                | `10`     | Global cap on simultaneously running agent sessions.                                                                           |
-| `agent.max_turns`                      | u32                | `20`     | Maximum Codex turns per session before the run is considered stalled.                                                          |
+| `agent.max_turns`                      | u32                | `20`     | Maximum prompt turns per session attempt before the worker run ends.                                                           |
 | `agent.max_retry_backoff_ms`           | u64                | `300000` | Maximum exponential back-off delay (ms) between retries.                                                                       |
+| `agent.backend`                        | string             | `"codex"`| Runtime backend: `"codex"` (Codex app-server) or `"pi"` (Kata RPC).                                                           |
 | `agent.max_concurrent_agents_by_state` | map\<string, u32\> | `{}`     | Per-Linear-state concurrency caps. Keys are lowercased state names; zero or negative values are silently ignored (spec §17.1). |
 
 #### `codex` section
@@ -136,13 +140,24 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 | `codex.read_timeout_ms`     | u64                | `5000`                    | Timeout waiting for Codex process output (ms).                                                                           |
 | `codex.stall_timeout_ms`    | u64                | `300000`                  | Time before a non-progressing session is considered stalled (5 min default).                                             |
 
+#### `pi_agent` section
+
+| Field                           | Type               | Default  | Description                                                                                               |
+| ------------------------------- | ------------------ | -------- | --------------------------------------------------------------------------------------------------------- |
+| `pi_agent.command`              | string or string[] | `["kata"]` | Pi agent executable and base args. Symphony appends `--mode rpc --cwd <workspace>`.                    |
+| `pi_agent.model`                | string             | _(none)_ | Optional model override passed as `--model`.                                                             |
+| `pi_agent.no_session`           | bool               | `true`   | Pass `--no-session` to disable persistent session storage.                                               |
+| `pi_agent.append_system_prompt` | string             | _(none)_ | Optional path passed via `--append-system-prompt`.                                                       |
+| `pi_agent.read_timeout_ms`      | u64                | `5000`   | Timeout waiting for pi agent process output (ms).                                                        |
+| `pi_agent.stall_timeout_ms`     | u64                | `300000` | Time before a non-progressing pi session is considered stalled (5 min default).                         |
+
 #### `hooks` section
 
 | Field                 | Type   | Default  | Description                                                          |
 | --------------------- | ------ | -------- | -------------------------------------------------------------------- |
 | `hooks.after_create`  | string | _(none)_ | Shell command run after the workspace is created.                    |
-| `hooks.before_run`    | string | _(none)_ | Shell command run before the Codex session starts.                   |
-| `hooks.after_run`     | string | _(none)_ | Shell command run after the Codex session ends (success or failure). |
+| `hooks.before_run`    | string | _(none)_ | Shell command run before the agent session starts.                   |
+| `hooks.after_run`     | string | _(none)_ | Shell command run after the agent session ends (success or failure). |
 | `hooks.before_remove` | string | _(none)_ | Shell command run before the workspace is removed.                   |
 | `hooks.timeout_ms`    | u64    | `60000`  | Timeout for each hook invocation (ms).                               |
 
@@ -455,8 +470,8 @@ symphony WORKFLOW.md
 
 Symphony connects via `ssh -T [-F config] -p <port> <host> bash -lc '<command>'`.
 The command string is POSIX single-quote-escaped. The remote host must have
-`bash` available and the Codex binary on its `PATH` (or accessible via the
-configured `codex.command`).
+`bash` available and the configured runtime binary on its `PATH`
+(`codex.command` for codex backend, `pi_agent.command` for pi backend).
 
 ### Docker Isolation Lifecycle
 
@@ -467,7 +482,8 @@ When `workspace.isolation: docker` is selected:
    `workspace.docker.setup` is configured.
 3. A per-issue container is started via `docker run --rm -d`.
 4. Repository bootstrap and hooks execute inside the container (`docker exec`).
-5. Codex app-server runs via `docker exec -i <container> sh -lc 'cd /workspace && <codex.command>'`.
+5. Agent runtime runs via `docker exec -i <container> sh -lc 'cd /workspace && <runtime command>'`
+   where runtime command is backend-dependent (`<codex.command>` or Kata RPC).
 6. Container is removed via `docker rm -f` after session completion.
 
 ---
@@ -488,6 +504,9 @@ Core Rust modules:
 | Docker runtime helpers | `src/docker.rs` | Docker availability checks, image resolution/build cache, container lifecycle, auth resolution |
 | Workspace + git bootstrap | `src/workspace.rs` | clone/worktree bootstrapping, branch naming, hooks |
 | Codex app-server bridge | `src/codex/app_server.rs` | Session subprocess lifecycle, turn streaming, tool execution |
+| Pi RPC bridge | `src/pi_agent/rpc_bridge.rs` | Kata RPC subprocess lifecycle, turn streaming, token stats integration |
+| Pi protocol types | `src/pi_agent/protocol.rs` | Pi RPC command/response/event serde models |
+| Pi token accounting | `src/pi_agent/token_accounting.rs` | Cumulative token stats to per-turn delta tracking |
 | SSH helpers | `src/ssh.rs` | Remote target parsing, command escaping, host selection helpers |
 
 ---

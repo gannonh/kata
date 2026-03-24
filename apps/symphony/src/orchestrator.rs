@@ -9,12 +9,14 @@ use std::time::Duration;
 use crate::codex::app_server;
 use crate::config;
 use crate::domain::{
-    AgentEvent, CodexConfig, CodexTotals, CompletedEntry, HooksConfig, Issue, OrchestratorSnapshot,
-    OrchestratorState, PollingSnapshot, RateLimitInfo, RefreshRequestOutcome, RetryEntry,
-    RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot, ServiceConfig, SessionTokenUsage,
-    TrackerConfig, WorkerSessionInfo, WorkspaceConfig, WorkspaceIsolation,
+    AgentBackend, AgentEvent, CodexConfig, CodexTotals, CompletedEntry, HooksConfig, Issue,
+    OrchestratorSnapshot, OrchestratorState, PiAgentConfig, PollingSnapshot, RateLimitInfo,
+    RefreshRequestOutcome, RetryEntry, RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot,
+    ServiceConfig, SessionTokenUsage, TrackerConfig, WorkerSessionInfo, WorkspaceConfig,
+    WorkspaceIsolation,
 };
 use crate::error::{Result, SymphonyError};
+use crate::pi_agent::rpc_bridge;
 use crate::session_summary::{compact_session_id, normalize_whitespace, truncate_for_display};
 use crate::ssh::{self, WorkerHostSelection};
 use crate::workflow_store::WorkflowStore;
@@ -28,6 +30,8 @@ struct WorkerTaskConfig {
     workspace: WorkspaceConfig,
     hooks: HooksConfig,
     codex: CodexConfig,
+    pi_agent: PiAgentConfig,
+    agent_backend: AgentBackend,
     max_turns: u32,
     tracker: TrackerConfig,
     prompt_template: String,
@@ -52,22 +56,28 @@ struct SessionTurnLoopFailure {
     metrics: Option<TurnMetrics>,
 }
 
-fn accumulate_turn_metrics(metrics: &mut Option<TurnMetrics>, turn: &app_server::TurnResult) {
+fn accumulate_turn_metrics(
+    metrics: &mut Option<TurnMetrics>,
+    input_tokens: u64,
+    output_tokens: u64,
+    total_tokens: u64,
+    rate_limits: Option<serde_json::Value>,
+) {
     match metrics {
         Some(total) => {
-            total.input_tokens = total.input_tokens.saturating_add(turn.input_tokens);
-            total.output_tokens = total.output_tokens.saturating_add(turn.output_tokens);
-            total.total_tokens = total.total_tokens.saturating_add(turn.total_tokens);
-            if let Some(rate_limits) = turn.rate_limits.clone() {
+            total.input_tokens = total.input_tokens.saturating_add(input_tokens);
+            total.output_tokens = total.output_tokens.saturating_add(output_tokens);
+            total.total_tokens = total.total_tokens.saturating_add(total_tokens);
+            if let Some(rate_limits) = rate_limits {
                 total.rate_limits = Some(rate_limits);
             }
         }
         None => {
             *metrics = Some(TurnMetrics {
-                input_tokens: turn.input_tokens,
-                output_tokens: turn.output_tokens,
-                total_tokens: turn.total_tokens,
-                rate_limits: turn.rate_limits.clone(),
+                input_tokens,
+                output_tokens,
+                total_tokens,
+                rate_limits,
             });
         }
     }
@@ -87,6 +97,14 @@ fn is_active_state(state_name: &str, tracker_config: &TrackerConfig) -> bool {
         .active_states
         .iter()
         .any(|state| normalize_issue_state(state) == normalized)
+}
+
+fn backend_stall_timeout_ms(config: &ServiceConfig, backend: AgentBackend) -> i64 {
+    let timeout = match backend {
+        AgentBackend::Pi => config.pi_agent.stall_timeout_ms,
+        AgentBackend::Codex => config.codex.stall_timeout_ms,
+    };
+    timeout.min(i64::MAX as u64) as i64
 }
 
 fn should_continue_issue_in_session(issue: &Issue, tracker_config: &TrackerConfig) -> bool {
@@ -157,7 +175,107 @@ where
 
         match run_result {
             Ok(turn_result) => {
-                accumulate_turn_metrics(&mut metrics, &turn_result);
+                accumulate_turn_metrics(
+                    &mut metrics,
+                    turn_result.input_tokens,
+                    turn_result.output_tokens,
+                    turn_result.total_tokens,
+                    turn_result.rate_limits.clone(),
+                );
+            }
+            Err(err) => {
+                return Err(SessionTurnLoopFailure {
+                    error: err,
+                    events: observed_events,
+                    metrics,
+                });
+            }
+        }
+
+        if turn_number >= capped_max_turns {
+            break;
+        }
+
+        match check_issue_still_active(&current_issue, &issue_state_client, tracker_config).await {
+            IssueCheck::Continue(refreshed) => {
+                current_issue = refreshed;
+                turn_number = turn_number.saturating_add(1);
+            }
+            IssueCheck::Done(_refreshed) => {
+                schedule_continuation = false;
+                break;
+            }
+            IssueCheck::Error(err) => {
+                let event = AgentEvent::Notification {
+                    timestamp: Utc::now(),
+                    codex_app_server_pid: None,
+                    message: format!(
+                        "inter-turn issue refresh failed for {} ({}): {}",
+                        current_issue.identifier, current_issue.id, err
+                    ),
+                };
+                stream_event(event.clone());
+                observed_events.push(event);
+                tracing::warn!(
+                    issue_id = %current_issue.id,
+                    issue_identifier = %current_issue.identifier,
+                    error = %err,
+                    "failed to refresh issue state between worker turns; ending session-level turn loop"
+                );
+                break;
+            }
+        }
+    }
+
+    Ok(SessionTurnLoopSuccess {
+        events: observed_events,
+        metrics,
+        schedule_continuation,
+    })
+}
+
+async fn run_pi_turns_in_session<EventCallback>(
+    session: &mut rpc_bridge::SessionHandle,
+    issue: &Issue,
+    initial_prompt: String,
+    max_turns: u32,
+    tracker_config: &TrackerConfig,
+    mut stream_event: EventCallback,
+) -> std::result::Result<SessionTurnLoopSuccess, SessionTurnLoopFailure>
+where
+    EventCallback: FnMut(AgentEvent) + Send,
+{
+    let capped_max_turns = max_turns.max(1);
+    let mut turn_number: u32 = 1;
+    let mut current_issue = issue.clone();
+    let issue_state_client = crate::linear::client::LinearClient::new(tracker_config.clone());
+    let mut observed_events: Vec<AgentEvent> = Vec::new();
+    let mut metrics: Option<TurnMetrics> = None;
+    let mut schedule_continuation = true;
+    let mut initial_prompt = Some(initial_prompt);
+
+    loop {
+        let prompt = if turn_number == 1 {
+            initial_prompt.take().unwrap_or_default()
+        } else {
+            prompt_builder::render_continuation_prompt(turn_number, capped_max_turns)
+        };
+
+        let run_result = rpc_bridge::run_turn(session, &prompt, |event| {
+            stream_event(event.clone());
+            observed_events.push(event);
+        })
+        .await;
+
+        match run_result {
+            Ok(turn_result) => {
+                accumulate_turn_metrics(
+                    &mut metrics,
+                    turn_result.input_tokens,
+                    turn_result.output_tokens,
+                    turn_result.total_tokens,
+                    turn_result.rate_limits.clone(),
+                );
             }
             Err(err) => {
                 return Err(SessionTurnLoopFailure {
@@ -325,59 +443,116 @@ async fn run_worker_task(
                 )
                 .map_err(|err| format!("prompt rendering failed: {err}"))?;
 
-                let mut session = app_server::start_session(
-                    &config.codex,
-                    issue,
-                    Path::new("/workspace"),
-                    Path::new("/"),
-                    None,
-                    Some(&container_id),
-                )
-                .await
-                .map_err(|err| format!("codex session start failed: {err}"))?;
+                let loop_result = match config.agent_backend {
+                    AgentBackend::Codex => {
+                        let mut session = app_server::start_session(
+                            &config.codex,
+                            issue,
+                            Path::new("/workspace"),
+                            Path::new("/"),
+                            None,
+                            Some(&container_id),
+                        )
+                        .await
+                        .map_err(|err| format!("codex session start failed: {err}"))?;
 
-                tracing::info!(
-                    event = "worker_started",
-                    issue_id = %issue.id,
-                    issue_identifier = %issue.identifier,
-                    session_id = %session.session_id,
-                    workspace_path = "/workspace",
-                    container_id = %container_id,
-                    "docker worker attempt started"
-                );
+                        tracing::info!(
+                            event = "worker_started",
+                            backend = "codex",
+                            issue_id = %issue.id,
+                            issue_identifier = %issue.identifier,
+                            session_id = %session.session_id,
+                            workspace_path = "/workspace",
+                            container_id = %container_id,
+                            "docker worker attempt started"
+                        );
 
-                let linear_client =
-                    crate::linear::client::LinearClient::new(config.tracker.clone());
-                let graphql_executor = move |query: String, vars: serde_json::Value| {
-                    let client = linear_client.clone();
-                    async move { client.graphql_raw(&query, vars).await }
-                };
+                        let linear_client =
+                            crate::linear::client::LinearClient::new(config.tracker.clone());
+                        let graphql_executor = move |query: String, vars: serde_json::Value| {
+                            let client = linear_client.clone();
+                            async move { client.graphql_raw(&query, vars).await }
+                        };
 
-                let loop_result = run_codex_turns_in_session(
-                    &mut session,
-                    issue,
-                    prompt,
-                    config.max_turns,
-                    &config.tracker,
-                    graphql_executor,
-                    {
-                        let event_tx = config.event_tx.clone();
-                        let issue_id = issue.id.clone();
-                        move |event| {
-                            let _ = event_tx.send((issue_id.clone(), event));
+                        let loop_result = run_codex_turns_in_session(
+                            &mut session,
+                            issue,
+                            prompt.clone(),
+                            config.max_turns,
+                            &config.tracker,
+                            graphql_executor,
+                            {
+                                let event_tx = config.event_tx.clone();
+                                let issue_id = issue.id.clone();
+                                move |event| {
+                                    let _ = event_tx.send((issue_id.clone(), event));
+                                }
+                            },
+                        )
+                        .await;
+
+                        if let Err(err) = app_server::stop_session(session).await {
+                            tracing::warn!(
+                                issue_id = %issue.id,
+                                issue_identifier = %issue.identifier,
+                                error = %err,
+                                "failed to stop codex session cleanly"
+                            );
                         }
-                    },
-                )
-                .await;
 
-                if let Err(err) = app_server::stop_session(session).await {
-                    tracing::warn!(
-                        issue_id = %issue.id,
-                        issue_identifier = %issue.identifier,
-                        error = %err,
-                        "failed to stop codex session cleanly"
-                    );
-                }
+                        loop_result
+                    }
+                    AgentBackend::Pi => {
+                        let mut session = rpc_bridge::start_session(
+                            &config.pi_agent,
+                            issue,
+                            Path::new("/workspace"),
+                            Path::new("/"),
+                            None,
+                            Some(&container_id),
+                        )
+                        .await
+                        .map_err(|err| format!("pi session start failed: {err}"))?;
+
+                        tracing::info!(
+                            event = "worker_started",
+                            backend = "pi",
+                            issue_id = %issue.id,
+                            issue_identifier = %issue.identifier,
+                            session_id = %session.session_id,
+                            workspace_path = "/workspace",
+                            container_id = %container_id,
+                            "docker worker attempt started"
+                        );
+
+                        let loop_result = run_pi_turns_in_session(
+                            &mut session,
+                            issue,
+                            prompt,
+                            config.max_turns,
+                            &config.tracker,
+                            {
+                                let event_tx = config.event_tx.clone();
+                                let issue_id = issue.id.clone();
+                                move |event| {
+                                    let _ = event_tx.send((issue_id.clone(), event));
+                                }
+                            },
+                        )
+                        .await;
+
+                        if let Err(err) = rpc_bridge::stop_session(session).await {
+                            tracing::warn!(
+                                issue_id = %issue.id,
+                                issue_identifier = %issue.identifier,
+                                error = %err,
+                                "failed to stop pi session cleanly"
+                            );
+                        }
+
+                        loop_result
+                    }
+                };
 
                 if let Some(hook) = &config.hooks.after_run {
                     if let Err(err) = workspace::run_hook_in_container(
@@ -513,79 +688,150 @@ async fn run_worker_task(
         }
     };
 
-    // 4. Start Codex session
     let workspace_root = Path::new(&config.workspace.root);
-    let mut session = match app_server::start_session(
-        &config.codex,
-        issue,
-        workspace_path,
-        workspace_root,
-        worker_host,
-        None,
-    )
-    .await
-    {
-        Ok(session) => session,
-        Err(err) => {
-            tracing::error!(
-                event = "worker_session_start_failed",
+    let loop_result = match config.agent_backend {
+        AgentBackend::Codex => {
+            let mut session = match app_server::start_session(
+                &config.codex,
+                issue,
+                workspace_path,
+                workspace_root,
+                worker_host,
+                None,
+            )
+            .await
+            {
+                Ok(session) => session,
+                Err(err) => {
+                    tracing::error!(
+                        event = "worker_session_start_failed",
+                        issue_id = %issue_id,
+                        issue_identifier = %issue.identifier,
+                        error = %err,
+                        "codex session start failed"
+                    );
+                    return WorkerResult {
+                        issue_id,
+                        completion: WorkerCompletion::Failed {
+                            error: format!("codex session start failed: {err}"),
+                        },
+                        events: vec![],
+                        metrics: None,
+                    };
+                }
+            };
+
+            tracing::info!(
+                event = "worker_started",
+                backend = "codex",
                 issue_id = %issue_id,
                 issue_identifier = %issue.identifier,
-                error = %err,
-                "codex session start failed"
+                session_id = %session.session_id,
+                workspace_path = %workspace_info.path,
+                "worker attempt started"
             );
-            return WorkerResult {
-                issue_id,
-                completion: WorkerCompletion::Failed {
-                    error: format!("codex session start failed: {err}"),
-                },
-                events: vec![],
-                metrics: None,
+
+            let linear_client = crate::linear::client::LinearClient::new(config.tracker.clone());
+            let graphql_executor = move |query: String, vars: serde_json::Value| {
+                let client = linear_client.clone();
+                async move { client.graphql_raw(&query, vars).await }
             };
+
+            let loop_result = run_codex_turns_in_session(
+                &mut session,
+                issue,
+                prompt.clone(),
+                config.max_turns,
+                &config.tracker,
+                graphql_executor,
+                {
+                    let event_tx = config.event_tx.clone();
+                    let issue_id = issue.id.clone();
+                    move |event| {
+                        let _ = event_tx.send((issue_id.clone(), event));
+                    }
+                },
+            )
+            .await;
+
+            if let Err(err) = app_server::stop_session(session).await {
+                tracing::warn!(
+                    issue_id = %issue_id,
+                    error = %err,
+                    "failed to stop codex session cleanly"
+                );
+            }
+
+            loop_result
+        }
+        AgentBackend::Pi => {
+            let mut session = match rpc_bridge::start_session(
+                &config.pi_agent,
+                issue,
+                workspace_path,
+                workspace_root,
+                worker_host,
+                None,
+            )
+            .await
+            {
+                Ok(session) => session,
+                Err(err) => {
+                    tracing::error!(
+                        event = "worker_session_start_failed",
+                        issue_id = %issue_id,
+                        issue_identifier = %issue.identifier,
+                        error = %err,
+                        "pi session start failed"
+                    );
+                    return WorkerResult {
+                        issue_id,
+                        completion: WorkerCompletion::Failed {
+                            error: format!("pi session start failed: {err}"),
+                        },
+                        events: vec![],
+                        metrics: None,
+                    };
+                }
+            };
+
+            tracing::info!(
+                event = "worker_started",
+                backend = "pi",
+                issue_id = %issue_id,
+                issue_identifier = %issue.identifier,
+                session_id = %session.session_id,
+                workspace_path = %workspace_info.path,
+                "worker attempt started"
+            );
+
+            let loop_result = run_pi_turns_in_session(
+                &mut session,
+                issue,
+                prompt,
+                config.max_turns,
+                &config.tracker,
+                {
+                    let event_tx = config.event_tx.clone();
+                    let issue_id = issue.id.clone();
+                    move |event| {
+                        let _ = event_tx.send((issue_id.clone(), event));
+                    }
+                },
+            )
+            .await;
+
+            if let Err(err) = rpc_bridge::stop_session(session).await {
+                tracing::warn!(
+                    issue_id = %issue_id,
+                    error = %err,
+                    "failed to stop pi session cleanly"
+                );
+            }
+
+            loop_result
         }
     };
-
-    tracing::info!(
-        event = "worker_started",
-        issue_id = %issue_id,
-        issue_identifier = %issue.identifier,
-        session_id = %session.session_id,
-        workspace_path = %workspace_info.path,
-        "worker attempt started"
-    );
-
-    // 5. Run up to max_turns within the same session.
-    let linear_client = crate::linear::client::LinearClient::new(config.tracker.clone());
-    let graphql_executor = move |query: String, vars: serde_json::Value| {
-        let client = linear_client.clone();
-        async move { client.graphql_raw(&query, vars).await }
-    };
-
-    let loop_result = run_codex_turns_in_session(
-        &mut session,
-        issue,
-        prompt,
-        config.max_turns,
-        &config.tracker,
-        graphql_executor,
-        {
-            let event_tx = config.event_tx.clone();
-            let issue_id = issue.id.clone();
-            move |event| {
-                let _ = event_tx.send((issue_id.clone(), event));
-            }
-        },
-    )
-    .await;
-
-    // 6. Stop session
-    if let Err(err) = app_server::stop_session(session).await {
-        tracing::warn!(
-            issue_id = %issue_id,
-            error = %err,
-            "failed to stop codex session cleanly"
-        );
-    }
 
     // 7. After-run hook
     let _ = workspace::run_after_run_hook_for_issue(workspace_path, &config.hooks, issue);
@@ -981,7 +1227,7 @@ impl Orchestrator {
 
                 let now_ms = Utc::now().timestamp_millis();
                 let stall_timeout_ms =
-                    self.config.codex.stall_timeout_ms.min(i64::MAX as u64) as i64;
+                    backend_stall_timeout_ms(&self.config, self.config.agent_backend);
 
                 self.detect_stalled_workers(now_ms, stall_timeout_ms);
 
@@ -1096,6 +1342,8 @@ impl Orchestrator {
                 workspace: self.config.workspace.clone(),
                 hooks: self.config.hooks.clone(),
                 codex: self.config.codex.clone(),
+                pi_agent: self.config.pi_agent.clone(),
+                agent_backend: self.config.agent_backend,
                 max_turns: self.config.agent.max_turns,
                 tracker: self.config.tracker.clone(),
                 prompt_template: self.prompt_template.clone(),
@@ -1437,6 +1685,7 @@ impl Orchestrator {
 
     fn ensure_worker_session_info(&mut self, issue_id: &str) -> &mut WorkerSessionInfo {
         let max_turns = self.config.agent.max_turns.max(1);
+        let stall_timeout_ms = backend_stall_timeout_ms(&self.config, self.config.agent_backend);
         let last_activity_ms = self.worker_last_activity_ms.get(issue_id).copied();
         let info = self
             .worker_session_info
@@ -1444,11 +1693,15 @@ impl Orchestrator {
             .or_insert(WorkerSessionInfo {
                 turn_count: 1,
                 max_turns,
+                stall_timeout_ms,
                 last_activity_ms,
                 session_tokens: SessionTokenUsage::default(),
             });
         if info.max_turns == 0 {
             info.max_turns = max_turns;
+        }
+        if info.stall_timeout_ms <= 0 {
+            info.stall_timeout_ms = stall_timeout_ms;
         }
         if info.turn_count == 0 {
             info.turn_count = 1;
@@ -1757,48 +2010,119 @@ impl Orchestrator {
             }
         };
 
-        let mut session = match app_server::start_session(
-            &self.config.codex,
-            issue,
-            workspace_path,
-            Path::new(&self.config.workspace.root),
-            prior_worker_host.as_deref(),
-            None,
-        )
-        .await
-        {
-            Ok(session) => session,
-            Err(err) => {
-                self.handle_worker_completion(
-                    &issue.id,
-                    WorkerCompletion::Failed {
-                        error: err.to_string(),
-                    },
-                    Utc::now().timestamp_millis(),
+        let loop_result = match self.config.agent_backend {
+            AgentBackend::Codex => {
+                let mut session = match app_server::start_session(
+                    &self.config.codex,
+                    issue,
+                    workspace_path,
+                    Path::new(&self.config.workspace.root),
+                    prior_worker_host.as_deref(),
+                    None,
+                )
+                .await
+                {
+                    Ok(session) => session,
+                    Err(err) => {
+                        self.handle_worker_completion(
+                            &issue.id,
+                            WorkerCompletion::Failed {
+                                error: err.to_string(),
+                            },
+                            Utc::now().timestamp_millis(),
+                        );
+                        return Err(err);
+                    }
+                };
+
+                tracing::info!(
+                    event = "worker_started",
+                    backend = "codex",
+                    issue_id = %issue.id,
+                    issue_identifier = %issue.identifier,
+                    session_id = %session.session_id,
+                    workspace_path = %workspace_info.path,
+                    "worker attempt started"
                 );
-                return Err(err);
+
+                let loop_result = run_codex_turns_in_session(
+                    &mut session,
+                    issue,
+                    prompt.clone(),
+                    self.config.agent.max_turns,
+                    &self.config.tracker,
+                    graphql_executor.clone(),
+                    |_event| {},
+                )
+                .await;
+
+                if let Err(err) = app_server::stop_session(session).await {
+                    tracing::warn!(
+                        issue_id = %issue.id,
+                        issue_identifier = %issue.identifier,
+                        error = %err,
+                        "failed to stop codex session cleanly"
+                    );
+                }
+
+                loop_result
+            }
+            AgentBackend::Pi => {
+                let mut session = match rpc_bridge::start_session(
+                    &self.config.pi_agent,
+                    issue,
+                    workspace_path,
+                    Path::new(&self.config.workspace.root),
+                    prior_worker_host.as_deref(),
+                    None,
+                )
+                .await
+                {
+                    Ok(session) => session,
+                    Err(err) => {
+                        self.handle_worker_completion(
+                            &issue.id,
+                            WorkerCompletion::Failed {
+                                error: err.to_string(),
+                            },
+                            Utc::now().timestamp_millis(),
+                        );
+                        return Err(err);
+                    }
+                };
+
+                tracing::info!(
+                    event = "worker_started",
+                    backend = "pi",
+                    issue_id = %issue.id,
+                    issue_identifier = %issue.identifier,
+                    session_id = %session.session_id,
+                    workspace_path = %workspace_info.path,
+                    "worker attempt started"
+                );
+
+                let loop_result = run_pi_turns_in_session(
+                    &mut session,
+                    issue,
+                    prompt,
+                    self.config.agent.max_turns,
+                    &self.config.tracker,
+                    |_event| {},
+                )
+                .await;
+
+                if let Err(err) = rpc_bridge::stop_session(session).await {
+                    tracing::warn!(
+                        issue_id = %issue.id,
+                        issue_identifier = %issue.identifier,
+                        error = %err,
+                        "failed to stop pi session cleanly"
+                    );
+                }
+
+                loop_result
             }
         };
-
-        tracing::info!(
-            event = "worker_started",
-            issue_id = %issue.id,
-            issue_identifier = %issue.identifier,
-            session_id = %session.session_id,
-            workspace_path = %workspace_info.path,
-            "worker attempt started"
-        );
-
-        let loop_result = run_codex_turns_in_session(
-            &mut session,
-            issue,
-            prompt,
-            self.config.agent.max_turns,
-            &self.config.tracker,
-            graphql_executor,
-            |_event| {},
-        )
-        .await;
 
         let observed_events = match &loop_result {
             Ok(success) => &success.events,
@@ -1807,15 +2131,6 @@ impl Orchestrator {
 
         for event in observed_events {
             self.ingest_agent_event(&issue.id, event);
-        }
-
-        if let Err(err) = app_server::stop_session(session).await {
-            tracing::warn!(
-                issue_id = %issue.id,
-                issue_identifier = %issue.identifier,
-                error = %err,
-                "failed to stop codex session cleanly"
-            );
         }
 
         let _ = workspace::run_after_run_hook_for_issue(workspace_path, &self.config.hooks, issue);
@@ -1846,16 +2161,21 @@ impl Orchestrator {
     }
 
     pub fn detect_stalled_workers(&mut self, now_ms: i64, stall_timeout_ms: i64) {
-        if stall_timeout_ms <= 0 {
-            return;
-        }
-
         let running_issue_ids: Vec<String> = self.state.running.keys().cloned().collect();
 
         for issue_id in running_issue_ids {
             let Some(run_attempt) = self.state.running.get(&issue_id).cloned() else {
                 continue;
             };
+            let per_session_stall_timeout_ms = self
+                .worker_session_info
+                .get(&issue_id)
+                .map(|info| info.stall_timeout_ms)
+                .filter(|timeout| *timeout > 0)
+                .unwrap_or(stall_timeout_ms);
+            if per_session_stall_timeout_ms <= 0 {
+                continue;
+            }
 
             let last_activity_ms = self
                 .worker_last_activity_ms
@@ -1864,7 +2184,7 @@ impl Orchestrator {
                 .unwrap_or_else(|| run_attempt.started_at.timestamp_millis());
 
             let elapsed_ms = now_ms.saturating_sub(last_activity_ms);
-            if elapsed_ms <= stall_timeout_ms {
+            if elapsed_ms <= per_session_stall_timeout_ms {
                 continue;
             }
 
@@ -1876,7 +2196,7 @@ impl Orchestrator {
                 issue_identifier = %run_attempt.issue_identifier,
                 session_id = session_id.as_deref().unwrap_or("n/a"),
                 elapsed_ms,
-                stall_timeout_ms,
+                stall_timeout_ms = per_session_stall_timeout_ms,
                 "detected stalled worker; scheduling failure retry"
             );
 
@@ -1890,7 +2210,7 @@ impl Orchestrator {
             self.handle_worker_completion(
                 &issue_id,
                 WorkerCompletion::Failed {
-                    error: format!("stalled for {elapsed_ms}ms without codex activity"),
+                    error: format!("stalled for {elapsed_ms}ms without agent activity"),
                 },
                 now_ms,
             );

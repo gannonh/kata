@@ -110,6 +110,8 @@ fn test_service_config_defaults_match_spec() {
         worker: WorkerConfig::default(),
         agent: AgentConfig::default(),
         codex: CodexConfig::default(),
+        pi_agent: PiAgentConfig::default(),
+        agent_backend: AgentBackend::default(),
         hooks: HooksConfig::default(),
         server: ServerConfig::default(),
     };
@@ -126,6 +128,9 @@ fn test_service_config_defaults_match_spec() {
     assert_eq!(cfg.codex.turn_timeout_ms, 3_600_000);
     assert_eq!(cfg.codex.read_timeout_ms, 5_000);
     assert_eq!(cfg.codex.stall_timeout_ms, 300_000);
+    assert_eq!(cfg.pi_agent.read_timeout_ms, 5_000);
+    assert_eq!(cfg.pi_agent.stall_timeout_ms, 300_000);
+    assert_eq!(cfg.agent_backend, AgentBackend::Codex);
 
     // Hooks §5.3.4
     assert_eq!(cfg.hooks.timeout_ms, 60_000);

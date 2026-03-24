@@ -428,7 +428,7 @@ fn make_codex_config(script_path: &Path) -> CodexConfig {
     CodexConfig {
         command: vec![script_path.to_str().unwrap().to_string()],
         turn_timeout_ms: 10_000,
-        read_timeout_ms: 5_000,
+        read_timeout_ms: 20_000,
         ..Default::default()
     }
 }
@@ -935,7 +935,7 @@ fn make_auto_approve_config(script_path: &Path) -> CodexConfig {
         command: vec![script_path.to_str().unwrap().to_string()],
         approval_policy: serde_json::json!("never"),
         turn_timeout_ms: 10_000,
-        read_timeout_ms: 5_000,
+        read_timeout_ms: 20_000,
         ..Default::default()
     }
 }

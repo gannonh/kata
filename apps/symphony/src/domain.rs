@@ -124,6 +124,8 @@ pub struct ServiceConfig {
     pub worker: WorkerConfig,
     pub agent: AgentConfig,
     pub codex: CodexConfig,
+    pub pi_agent: PiAgentConfig,
+    pub agent_backend: AgentBackend,
     pub hooks: HooksConfig,
     pub server: ServerConfig,
 }
@@ -360,6 +362,44 @@ impl Default for CodexConfig {
     }
 }
 
+/// Which runtime backend to use for agent sessions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AgentBackend {
+    Pi,
+    #[default]
+    Codex,
+}
+
+/// Pi-agent (Kata RPC) runtime configuration.
+#[derive(Debug, Clone)]
+pub struct PiAgentConfig {
+    /// Command and arguments to launch pi-agent.
+    pub command: Vec<String>,
+    /// Optional model identifier passed via `--model`.
+    pub model: Option<String>,
+    /// Whether to pass `--no-session`.
+    pub no_session: bool,
+    /// Optional file path passed via `--append-system-prompt`.
+    pub append_system_prompt: Option<String>,
+    /// Timeout for stdout reads.
+    pub read_timeout_ms: u64,
+    /// Timeout for stalled sessions (no activity).
+    pub stall_timeout_ms: u64,
+}
+
+impl Default for PiAgentConfig {
+    fn default() -> Self {
+        Self {
+            command: vec!["kata".to_string()],
+            model: None,
+            no_session: true,
+            append_system_prompt: None,
+            read_timeout_ms: 5_000,
+            stall_timeout_ms: 300_000,
+        }
+    }
+}
+
 /// Hooks configuration (spec §5.3.4).
 #[derive(Debug, Clone)]
 pub struct HooksConfig {
@@ -450,6 +490,8 @@ pub struct WorkerSessionInfo {
     pub turn_count: u32,
     #[serde(default)]
     pub max_turns: u32,
+    #[serde(skip)]
+    pub stall_timeout_ms: i64,
     #[serde(default)]
     pub last_activity_ms: Option<i64>,
     #[serde(default)]
