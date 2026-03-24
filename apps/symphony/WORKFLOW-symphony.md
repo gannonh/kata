@@ -37,8 +37,8 @@ kata_agent:
   command: node /Volumes/EVO/kata/kata-mono.worktrees/wt-cli/apps/cli/dist/loader.js
   model: anthropic/claude-opus-4-6
   model_by_state:
-    agent review: anthropic/claude-sonnet-4-6
-    merging: anthropic/claude-sonnet-4-6
+    Agent Review: anthropic/claude-sonnet-4-6
+    Merging: anthropic/claude-sonnet-4-6
   stall_timeout_ms: 900000
 server:
   port: 8080

@@ -339,17 +339,17 @@ query { teams { nodes { name states { nodes { name type } } } } }
 
 Symphony's default state configuration assumes this common Linear workflow:
 
-| State | Type | Symphony role |
-|---|---|---|
-| `Todo` | active | Queued for dispatch |
-| `In Progress` | active | Agent is implementing |
-| `Agent Review` | active | Agent addresses PR feedback |
-| `Human Review` | active | Waiting for human approval |
-| `Merging` | active | Agent merges the PR |
-| `Rework` | active | Agent restarts from scratch |
-| `Done` | terminal | Work complete |
-| `Closed` | terminal | Closed without completion |
-| `Cancelled` | terminal | Cancelled |
+| State          | Type     | Symphony role               |
+| -------------- | -------- | --------------------------- |
+| `Todo`         | active   | Queued for dispatch         |
+| `In Progress`  | active   | Agent is implementing       |
+| `Agent Review` | active   | Agent addresses PR feedback |
+| `Human Review` | active   | Waiting for human approval  |
+| `Merging`      | active   | Agent merges the PR         |
+| `Rework`       | active   | Agent restarts from scratch |
+| `Done`         | terminal | Work complete               |
+| `Closed`       | terminal | Closed without completion   |
+| `Cancelled`    | terminal | Cancelled                   |
 
 If your Linear team uses different state names, update `active_states` and `terminal_states` in your WORKFLOW.md to match. State matching is case-insensitive.
 
@@ -360,12 +360,12 @@ When using the Kata CLI backend, you can assign different models to different wo
 ```yaml
 kata_agent:
   model: anthropic/claude-opus-4-6          # default for all states
-  model_by_state:
-    agent review: anthropic/claude-sonnet-4-6
-    merging: anthropic/claude-sonnet-4-6
+  model_by_state:                           # keys are Linear state names (case-insensitive)
+    Agent Review: anthropic/claude-sonnet-4-6
+    Merging: anthropic/claude-sonnet-4-6
 ```
 
-State names are matched case-insensitively and must match your Linear workflow states. If a state isn't listed in `model_by_state`, the default `model` is used.
+If a state isn't listed, the default `model` is used.
 
 The active model is visible in both the TUI and web dashboard.
 
@@ -376,9 +376,9 @@ Similarly, you can limit how many agents work on issues in a specific state:
 ```yaml
 agent:
   max_concurrent_agents: 3
-  max_concurrent_agents_by_state:
-    in progress: 2
-    merging: 1
+  max_concurrent_agents_by_state:          # keys are Linear state names (case-insensitive)
+    In Progress: 2
+    Merging: 1
 ```
 
 This prevents, for example, multiple merge attempts running simultaneously.
