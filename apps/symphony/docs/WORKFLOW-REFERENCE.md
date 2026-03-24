@@ -183,11 +183,16 @@ agent:
   max_concurrent_agents: 1
 
   # Maximum turns (Codex interactions) per session before the run is
-  # considered stalled. Each turn is one request/response cycle.
+  # considered complete for a single worker attempt.
   max_turns: 20
 
   # Maximum exponential back-off delay (ms) between retries on failure.
   # max_retry_backoff_ms: 300000
+
+  # Runtime backend for worker sessions.
+  #   - codex (default): launch `codex app-server`
+  #   - pi: launch Kata CLI in RPC mode
+  # backend: codex
 
   # Per-state concurrency caps. Keys are lowercased state names.
   # Limits how many agents can work on issues in a specific state simultaneously.
@@ -197,7 +202,7 @@ agent:
   #   merging: 1
 
 # ─── Codex ────────────────────────────────────────────────────────────────────
-# Configures the Codex app-server process that runs inside each agent session.
+# Configures the Codex app-server process (used when `agent.backend: codex`).
 codex:
   # Command to start Codex. Can be a string (whitespace-split) or list.
   # Default parser value: `codex app-server`.
@@ -227,6 +232,31 @@ codex:
   # Default parser value: unset.
   turn_sandbox_policy:
     type: dangerFullAccess
+
+# ─── Pi Agent (Kata RPC) ──────────────────────────────────────────────────────
+# Configures Kata RPC runtime (used when `agent.backend: pi`).
+pi_agent:
+  # Command used to launch Kata RPC. Can be a string or list.
+  # Symphony appends --mode rpc --cwd <workspace> automatically.
+  # Default parser value: `kata`
+  # command: kata
+
+  # Optional model override passed via `--model`.
+  # model: anthropic/claude-sonnet-4-6
+
+  # Whether to pass `--no-session` to Kata (default: true).
+  # no_session: true
+
+  # Optional file path passed via `--append-system-prompt`.
+  # append_system_prompt: /absolute/path/to/prompt.md
+
+  # Timeout waiting for stdout lines in milliseconds.
+  # Default parser value: 5000.
+  # read_timeout_ms: 5000
+
+  # Time (ms) before a non-progressing session is considered stalled.
+  # Default parser value: 300000.
+  # stall_timeout_ms: 300000
 
 # ─── Worker (SSH) ─────────────────────────────────────────────────────────────
 # Distribute agent sessions across remote SSH hosts.

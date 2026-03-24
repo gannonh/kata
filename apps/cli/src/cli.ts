@@ -18,11 +18,12 @@ import { loadStoredEnvKeys, runWizardIfNeeded } from './wizard.js'
 // ---------------------------------------------------------------------------
 
 interface CliFlags {
-  mode?: 'json' | 'text'
+  mode?: 'json' | 'text' | 'rpc'
   print?: boolean
   noSession?: boolean
   model?: string
   tools?: string
+  cwd?: string
   appendSystemPrompt?: string
   messages: string[]
 }
@@ -34,7 +35,7 @@ function parseCliFlags(argv: string[]): CliFlags {
     const arg = argv[i]
     if (arg === '--mode' && i + 1 < argv.length) {
       const val = argv[++i]
-      if (val === 'json' || val === 'text') result.mode = val
+      if (val === 'json' || val === 'text' || val === 'rpc') result.mode = val
     } else if (arg === '-p' || arg === '--print') {
       result.print = true
     } else if (arg === '--no-session') {
@@ -45,6 +46,8 @@ function parseCliFlags(argv: string[]): CliFlags {
       result.tools = argv[++i]
     } else if (arg === '--append-system-prompt' && i + 1 < argv.length) {
       result.appendSystemPrompt = argv[++i]
+    } else if (arg === '--cwd' && i + 1 < argv.length) {
+      result.cwd = argv[++i]
     } else if (arg === '--extension' && i + 1 < argv.length) {
       i++ // handled by loader.ts
     } else if (arg === '--no-extensions') {
@@ -61,6 +64,12 @@ function parseCliFlags(argv: string[]): CliFlags {
 
 const cliFlags = parseCliFlags(process.argv.slice(2))
 const isPrintMode = cliFlags.mode === 'json' || cliFlags.mode === 'text' || cliFlags.print
+const isRpcMode = cliFlags.mode === 'rpc'
+
+// Apply --cwd before any path-dependent initialization.
+if (cliFlags.cwd) {
+  process.chdir(cliFlags.cwd)
+}
 
 // ---------------------------------------------------------------------------
 // Auth, model registry, settings
@@ -70,7 +79,7 @@ const authStorage = AuthStorage.create(authFilePath)
 loadStoredEnvKeys(authStorage)
 
 // Skip interactive wizard in print/json mode — subagents can't do TTY prompts
-if (!isPrintMode) {
+if (!isPrintMode && !isRpcMode) {
   await runWizardIfNeeded(authStorage)
 }
 
@@ -147,7 +156,7 @@ if (rawCommand && (PACKAGE_COMMANDS as readonly string[]).includes(rawCommand)) 
     const arg = rest[j]
     if (arg === '-h' || arg === '--help') help = true
     else if (arg === '-l' || arg === '--local') local = true
-    else if (arg === '--mcp-config' || arg === '--model' || arg === '--mode' || arg === '--tools' || arg === '--append-system-prompt' || arg === '--extension') {
+    else if (arg === '--mcp-config' || arg === '--model' || arg === '--mode' || arg === '--tools' || arg === '--append-system-prompt' || arg === '--extension' || arg === '--cwd') {
       j++ // skip the value
     } else if (arg.startsWith('-')) {
       // unknown flag, ignore
@@ -246,10 +255,10 @@ const sessionManager = SessionManager.create(process.cwd(), sessionsDir)
 // Resource loader — read --append-system-prompt before reload
 // ---------------------------------------------------------------------------
 
-// Skip resource syncing in print mode — subagent processes inherit the
+// Skip resource syncing in print/rpc mode — child processes inherit the
 // already-synced ~/.kata-cli/agent/ from the parent. Running initResources()
-// concurrently from multiple subagents causes ENOENT race conditions.
-if (!isPrintMode) {
+// concurrently from multiple workers causes ENOENT race conditions.
+if (!isPrintMode && !isRpcMode) {
   initResources(agentDir)
 }
 
@@ -300,7 +309,28 @@ if (extensionsResult.errors.length > 0) {
 // Mode routing
 // ---------------------------------------------------------------------------
 
-if (isPrintMode) {
+if (cliFlags.mode === 'rpc') {
+  // Apply --model override if provided
+  if (cliFlags.model) {
+    const match = modelRegistry.getAll().find(
+      (m) => `${m.provider}/${m.id}` === cliFlags.model || m.id === cliFlags.model
+    )
+    if (match) {
+      await session.setModel(match)
+    }
+  }
+
+  // Apply --tools override if provided
+  if (cliFlags.tools) {
+    const toolNames = cliFlags.tools.split(',').map((t: string) => t.trim()).filter(Boolean)
+    if (toolNames.length > 0) {
+      session.setActiveToolsByName(toolNames)
+    }
+  }
+
+  const { runRpcMode } = await import('@mariozechner/pi-coding-agent')
+  await runRpcMode(session)
+} else if (isPrintMode) {
   if (cliFlags.messages.length === 0) {
     process.stderr.write('[kata] --print/--mode requires a message argument\n')
     process.exit(2)

@@ -98,6 +98,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
             WorkerSessionInfo {
                 turn_count: 3,
                 max_turns: 20,
+                stall_timeout_ms: 0,
                 last_activity_ms: Some(started_at.timestamp_millis() + 70_000),
                 session_tokens: SessionTokenUsage {
                     input_tokens: 35,
