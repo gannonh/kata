@@ -36,6 +36,7 @@ agent:
 kata_agent:
   command: node /Volumes/EVO/kata/kata-mono.worktrees/wt-cli/apps/cli/dist/loader.js
   model: openai-codex/gpt-5.3-codex
+  # model: anthropic/claude-opus-4-6
   stall_timeout_ms: 900000
 server:
   port: 8080
