@@ -327,6 +327,62 @@ Todo → In Progress → Agent Review → Human Review → Merging → Done
 
 **Linear setup note:** Disable Linear's "auto-close parent when all sub-issues are done" automation. Symphony agents move child issues to Done during execution, but the parent must stay active until the PR lifecycle completes.
 
+### Linear workflow states
+
+The state names in `active_states`, `terminal_states`, `max_concurrent_agents_by_state`, and `model_by_state` must match the workflow state names configured in your Linear team. These are not fixed — every Linear team can have different states.
+
+To see your team's states, go to **Linear → Settings → Teams → [your team] → Workflow** or query the API:
+
+```graphql
+query { teams { nodes { name states { nodes { name type } } } } }
+```
+
+Symphony's default state configuration assumes this common Linear workflow:
+
+| State | Type | Symphony role |
+|---|---|---|
+| `Todo` | active | Queued for dispatch |
+| `In Progress` | active | Agent is implementing |
+| `Agent Review` | active | Agent addresses PR feedback |
+| `Human Review` | active | Waiting for human approval |
+| `Merging` | active | Agent merges the PR |
+| `Rework` | active | Agent restarts from scratch |
+| `Done` | terminal | Work complete |
+| `Closed` | terminal | Closed without completion |
+| `Cancelled` | terminal | Cancelled |
+
+If your Linear team uses different state names, update `active_states` and `terminal_states` in your WORKFLOW.md to match. State matching is case-insensitive.
+
+### Per-state model selection
+
+When using the Kata CLI backend, you can assign different models to different workflow states. This lets you use expensive models for implementation and cheaper/faster models for mechanical tasks like addressing review comments or merging.
+
+```yaml
+kata_agent:
+  model: anthropic/claude-opus-4-6          # default for all states
+  model_by_state:
+    agent review: anthropic/claude-sonnet-4-6
+    merging: anthropic/claude-sonnet-4-6
+```
+
+State names are matched case-insensitively and must match your Linear workflow states. If a state isn't listed in `model_by_state`, the default `model` is used.
+
+The active model is visible in both the TUI and web dashboard.
+
+### Per-state concurrency limits
+
+Similarly, you can limit how many agents work on issues in a specific state:
+
+```yaml
+agent:
+  max_concurrent_agents: 3
+  max_concurrent_agents_by_state:
+    in progress: 2
+    merging: 1
+```
+
+This prevents, for example, multiple merge attempts running simultaneously.
+
 ## CLI Reference
 
 ```
