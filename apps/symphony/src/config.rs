@@ -323,6 +323,29 @@ fn parse_codex_command(val: Value) -> Result<Vec<String>> {
     parse_command_value(val, "codex.command")
 }
 
+fn parse_pi_agent_command(val: Value) -> Result<Vec<String>> {
+    match val {
+        Value::String(s) if s.is_empty() => Ok(vec![]),
+        Value::String(s) => shell_words::split(&s).map_err(|err| {
+            SymphonyError::InvalidWorkflowConfig(format!(
+                "pi_agent.command string could not be parsed: {err}"
+            ))
+        }),
+        Value::Sequence(seq) => seq
+            .into_iter()
+            .map(|v| match v {
+                Value::String(s) => Ok(s),
+                other => Err(SymphonyError::InvalidWorkflowConfig(format!(
+                    "pi_agent.command list elements must be strings, got: {other:?}"
+                ))),
+            })
+            .collect(),
+        other => Err(SymphonyError::InvalidWorkflowConfig(format!(
+            "pi_agent.command must be a string or list of strings, got: {other:?}"
+        ))),
+    }
+}
+
 fn parse_workspace_git_strategy(value: &str) -> Result<WorkspaceRepoStrategy> {
     match value {
         "clone-local" => Ok(WorkspaceRepoStrategy::CloneLocal),
@@ -732,7 +755,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
 
     // ── PiAgentConfig ───────────────────────────────────────────────────
     let pi_agent_command = match raw_pi_agent.command {
-        Some(val) => parse_command_value(val, "pi_agent.command")?,
+        Some(val) => parse_pi_agent_command(val)?,
         None => defaults.pi_agent.command.clone(),
     };
     let pi_agent_model = raw_pi_agent
@@ -984,6 +1007,31 @@ mod tests {
         let val = Value::String(String::new());
         let cmd = parse_codex_command(val).unwrap();
         assert!(cmd.is_empty());
+    }
+
+    #[test]
+    fn parse_pi_agent_command_string_shell_words() {
+        let val = Value::String(
+            "\"/tmp/kata cli/kata\" --mode rpc --model \"anthropic/claude sonnet\"".to_string(),
+        );
+        let cmd = parse_pi_agent_command(val).unwrap();
+        assert_eq!(
+            cmd,
+            vec![
+                "/tmp/kata cli/kata",
+                "--mode",
+                "rpc",
+                "--model",
+                "anthropic/claude sonnet",
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_pi_agent_command_list() {
+        let val: Value = serde_yaml::from_str("- kata\n- --mode\n- rpc").unwrap();
+        let cmd = parse_pi_agent_command(val).unwrap();
+        assert_eq!(cmd, vec!["kata", "--mode", "rpc"]);
     }
 
     #[test]

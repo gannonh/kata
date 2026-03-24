@@ -490,6 +490,8 @@ pub struct WorkerSessionInfo {
     pub turn_count: u32,
     #[serde(default)]
     pub max_turns: u32,
+    #[serde(skip)]
+    pub stall_timeout_ms: i64,
     #[serde(default)]
     pub last_activity_ms: Option<i64>,
     #[serde(default)]

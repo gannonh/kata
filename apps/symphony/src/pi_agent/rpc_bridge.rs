@@ -457,7 +457,7 @@ pub async fn run_turn(
     let session_started = AgentEvent::SessionStarted {
         timestamp: Utc::now(),
         codex_app_server_pid: handle.pid.clone(),
-        session_id: format!("{}-{turn_id}", handle.session_id),
+        session_id: handle.session_id.clone(),
     };
     event_callback(session_started.clone());
     let mut events = vec![session_started];

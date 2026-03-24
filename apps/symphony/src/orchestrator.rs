@@ -99,6 +99,14 @@ fn is_active_state(state_name: &str, tracker_config: &TrackerConfig) -> bool {
         .any(|state| normalize_issue_state(state) == normalized)
 }
 
+fn backend_stall_timeout_ms(config: &ServiceConfig, backend: AgentBackend) -> i64 {
+    let timeout = match backend {
+        AgentBackend::Pi => config.pi_agent.stall_timeout_ms,
+        AgentBackend::Codex => config.codex.stall_timeout_ms,
+    };
+    timeout.min(i64::MAX as u64) as i64
+}
+
 fn should_continue_issue_in_session(issue: &Issue, tracker_config: &TrackerConfig) -> bool {
     issue.assigned_to_worker
         && is_active_state(&issue.state, tracker_config)
@@ -1218,11 +1226,8 @@ impl Orchestrator {
                 self.refresh_runtime_config();
 
                 let now_ms = Utc::now().timestamp_millis();
-                let backend_stall_timeout = match self.config.agent_backend {
-                    AgentBackend::Pi => self.config.pi_agent.stall_timeout_ms,
-                    AgentBackend::Codex => self.config.codex.stall_timeout_ms,
-                };
-                let stall_timeout_ms = backend_stall_timeout.min(i64::MAX as u64) as i64;
+                let stall_timeout_ms =
+                    backend_stall_timeout_ms(&self.config, self.config.agent_backend);
 
                 self.detect_stalled_workers(now_ms, stall_timeout_ms);
 
@@ -1680,6 +1685,7 @@ impl Orchestrator {
 
     fn ensure_worker_session_info(&mut self, issue_id: &str) -> &mut WorkerSessionInfo {
         let max_turns = self.config.agent.max_turns.max(1);
+        let stall_timeout_ms = backend_stall_timeout_ms(&self.config, self.config.agent_backend);
         let last_activity_ms = self.worker_last_activity_ms.get(issue_id).copied();
         let info = self
             .worker_session_info
@@ -1687,11 +1693,15 @@ impl Orchestrator {
             .or_insert(WorkerSessionInfo {
                 turn_count: 1,
                 max_turns,
+                stall_timeout_ms,
                 last_activity_ms,
                 session_tokens: SessionTokenUsage::default(),
             });
         if info.max_turns == 0 {
             info.max_turns = max_turns;
+        }
+        if info.stall_timeout_ms <= 0 {
+            info.stall_timeout_ms = stall_timeout_ms;
         }
         if info.turn_count == 0 {
             info.turn_count = 1;
@@ -2151,16 +2161,21 @@ impl Orchestrator {
     }
 
     pub fn detect_stalled_workers(&mut self, now_ms: i64, stall_timeout_ms: i64) {
-        if stall_timeout_ms <= 0 {
-            return;
-        }
-
         let running_issue_ids: Vec<String> = self.state.running.keys().cloned().collect();
 
         for issue_id in running_issue_ids {
             let Some(run_attempt) = self.state.running.get(&issue_id).cloned() else {
                 continue;
             };
+            let per_session_stall_timeout_ms = self
+                .worker_session_info
+                .get(&issue_id)
+                .map(|info| info.stall_timeout_ms)
+                .filter(|timeout| *timeout > 0)
+                .unwrap_or(stall_timeout_ms);
+            if per_session_stall_timeout_ms <= 0 {
+                continue;
+            }
 
             let last_activity_ms = self
                 .worker_last_activity_ms
@@ -2169,7 +2184,7 @@ impl Orchestrator {
                 .unwrap_or_else(|| run_attempt.started_at.timestamp_millis());
 
             let elapsed_ms = now_ms.saturating_sub(last_activity_ms);
-            if elapsed_ms <= stall_timeout_ms {
+            if elapsed_ms <= per_session_stall_timeout_ms {
                 continue;
             }
 
@@ -2181,7 +2196,7 @@ impl Orchestrator {
                 issue_identifier = %run_attempt.issue_identifier,
                 session_id = session_id.as_deref().unwrap_or("n/a"),
                 elapsed_ms,
-                stall_timeout_ms,
+                stall_timeout_ms = per_session_stall_timeout_ms,
                 "detected stalled worker; scheduling failure retry"
             );
 
@@ -2195,7 +2210,7 @@ impl Orchestrator {
             self.handle_worker_completion(
                 &issue_id,
                 WorkerCompletion::Failed {
-                    error: format!("stalled for {elapsed_ms}ms without codex activity"),
+                    error: format!("stalled for {elapsed_ms}ms without agent activity"),
                 },
                 now_ms,
             );
