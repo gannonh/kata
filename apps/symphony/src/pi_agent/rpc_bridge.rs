@@ -136,6 +136,28 @@ async fn read_line(
     }
 }
 
+/// Poll for a line with a chunk timeout. Returns:
+/// - `Ok(Some(line))` on successful read
+/// - `Ok(None)` on timeout (caller should retry)
+/// - `Err(...)` on EOF or I/O error (caller should propagate)
+async fn read_poll_line(
+    reader: &mut BufReader<tokio::process::ChildStdout>,
+    timeout_ms: u64,
+) -> Result<Option<String>> {
+    let mut line = String::new();
+    let read_fut = reader.read_line(&mut line);
+    match tokio::time::timeout(Duration::from_millis(timeout_ms), read_fut).await {
+        Ok(Ok(0)) => Err(SymphonyError::PiAgentError(
+            "pi-agent stdout closed unexpectedly".to_string(),
+        )),
+        Ok(Ok(_)) => Ok(Some(line)),
+        Ok(Err(err)) => Err(SymphonyError::PiAgentError(format!(
+            "failed to read pi-agent stdout: {err}"
+        ))),
+        Err(_) => Ok(None), // chunk timeout — caller should retry
+    }
+}
+
 fn parse_output_line(line: &str) -> Option<RpcOutputLine> {
     let trimmed = line.trim();
     if trimmed.is_empty() {
@@ -242,9 +264,8 @@ async fn read_stats_response(
             ));
         }
 
-        let line = match read_line(reader, remaining_ms.min(2_000)).await {
-            Ok(line) => line,
-            Err(_) => continue,
+        let Some(line) = read_poll_line(reader, remaining_ms.min(2_000)).await? else {
+            continue;
         };
         let Some(parsed) = parse_output_line(&line) else {
             continue;
@@ -294,9 +315,8 @@ async fn wait_for_handshake(
             ));
         }
 
-        let line = match read_line(reader, remaining_ms.min(2_000)).await {
-            Ok(line) => line,
-            Err(_) => continue,
+        let Some(line) = read_poll_line(reader, remaining_ms.min(2_000)).await? else {
+            continue;
         };
         let Some(parsed) = parse_output_line(&line) else {
             continue;

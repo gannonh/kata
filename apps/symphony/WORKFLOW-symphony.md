@@ -34,7 +34,7 @@ agent:
   max_concurrent_agents: 4
   max_turns: 20
 kata_agent:
-  command: node /Volumes/EVO/kata/kata-mono.worktrees/wt-cli/apps/cli/dist/loader.js
+  command: kata
   model: anthropic/claude-opus-4-6
   model_by_state:
     Agent Review: anthropic/claude-sonnet-4-6
