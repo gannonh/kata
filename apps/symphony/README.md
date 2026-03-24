@@ -18,10 +18,10 @@ All configuration — tracker, workspace, agent, and the prompt template — liv
 
 Symphony supports two agent backends. Choose with `agent.backend` in your WORKFLOW.md.
 
-| Backend | Config value | What it runs | Models |
-|---|---|---|---|
-| **Kata CLI** | `kata-cli` (aliases: `kata`, `pi`) | Kata CLI in RPC mode | Any model supported by pi-ai: Anthropic, OpenAI, Google, Mistral, Bedrock, Azure |
-| **Codex** | `codex` | OpenAI Codex app-server | OpenAI Codex models |
+| Backend      | Config value                       | What it runs            | Models                                                                           |
+| ------------ | ---------------------------------- | ----------------------- | -------------------------------------------------------------------------------- |
+| **Kata CLI** | `kata-cli` (aliases: `kata`, `pi`) | Kata CLI in RPC mode    | Any model supported by pi-ai: Anthropic, OpenAI, Google, Mistral, Bedrock, Azure |
+| **Codex**    | `codex`                            | OpenAI Codex app-server | OpenAI Codex models                                                              |
 
 ### Kata CLI backend (recommended)
 
@@ -38,6 +38,7 @@ kata_agent:                # alias: pi_agent
 ```
 
 **Prerequisites:**
+
 - **Kata CLI** — `npm install -g @kata-sh/cli`, or use `npx @kata-sh/cli` as the command
 - **Provider auth** — either run `kata` interactively once to log in via browser, or set the provider's API key in your environment (e.g. `ANTHROPIC_API_KEY`)
 
@@ -56,6 +57,7 @@ codex:
 ```
 
 **Prerequisites:**
+
 - **Codex** — `npm install -g @openai/codex`
 - **Auth** — run `codex` once to log in via browser, or set `OPENAI_API_KEY`
 
@@ -110,6 +112,7 @@ LINEAR_API_KEY=lin_api_...
 ```
 
 For agent auth, either:
+
 - **Kata CLI backend:** run `kata` once to log in, or set your provider's API key (e.g. `ANTHROPIC_API_KEY`)
 - **Codex backend:** run `codex` once to log in, or set `OPENAI_API_KEY`
 
@@ -351,17 +354,17 @@ All configuration lives in the YAML front-matter of your WORKFLOW.md. See [`docs
 
 ### Key sections
 
-| Section                  | What it controls                                                         |
-| ------------------------ | ------------------------------------------------------------------------ |
-| `tracker`                | Linear connection, project, assignee filter, state mappings              |
-| `polling`                | How often to check for new/changed issues                                |
-| `workspace`              | Where and how workspaces are created, Docker config                      |
-| `agent`                  | Backend selection, concurrency limits, max turns, retry backoff          |
-| `kata_agent` / `pi_agent`| Kata CLI backend config: command, model, timeouts                       |
-| `codex`                  | Codex backend config: command, timeouts, approval policy, sandbox        |
-| `hooks`                  | Shell commands to run at workspace lifecycle points                      |
-| `worker`                 | SSH remote worker pool configuration                                     |
-| `server`                 | HTTP dashboard host and port                                             |
+| Section                   | What it controls                                                  |
+| ------------------------- | ----------------------------------------------------------------- |
+| `tracker`                 | Linear connection, project, assignee filter, state mappings       |
+| `polling`                 | How often to check for new/changed issues                         |
+| `workspace`               | Where and how workspaces are created, Docker config               |
+| `agent`                   | Backend selection, concurrency limits, max turns, retry backoff   |
+| `kata_agent` / `pi_agent` | Kata CLI backend config: command, model, timeouts                 |
+| `codex`                   | Codex backend config: command, timeouts, approval policy, sandbox |
+| `hooks`                   | Shell commands to run at workspace lifecycle points               |
+| `worker`                  | SSH remote worker pool configuration                              |
+| `server`                  | HTTP dashboard host and port                                      |
 
 ### Environment variable indirection
 

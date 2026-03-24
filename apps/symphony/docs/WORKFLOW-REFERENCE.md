@@ -190,9 +190,9 @@ agent:
   # max_retry_backoff_ms: 300000
 
   # Runtime backend for worker sessions.
-  #   - codex (default): launch `codex app-server`
-  #   - pi: launch Kata CLI in RPC mode
-  # backend: codex
+  #   - kata-cli (aliases: kata, pi): launch Kata CLI in RPC mode
+  #   - codex: launch Codex app-server
+  backend: kata-cli
 
   # Per-state concurrency caps. Keys are lowercased state names.
   # Limits how many agents can work on issues in a specific state simultaneously.
@@ -239,24 +239,24 @@ kata_agent:  # alias: pi_agent
   # Command used to launch Kata RPC. Can be a string or list.
   # Symphony appends --mode rpc --cwd <workspace> automatically.
   # Default parser value: `kata`
-  # command: kata
+  command: kata
 
-  # Optional model override passed via `--model`.
-  # model: anthropic/claude-sonnet-4-6
+  # Model passed via `--model`. Format: provider/model-id or just model-id.
+  model: anthropic/claude-sonnet-4-6
 
   # Whether to pass `--no-session` to Kata (default: true).
-  # no_session: true
+  no_session: true
 
   # Optional file path passed via `--append-system-prompt`.
   # append_system_prompt: /absolute/path/to/prompt.md
 
   # Timeout waiting for stdout lines in milliseconds.
   # Default parser value: 5000.
-  # read_timeout_ms: 5000
+  read_timeout_ms: 5000
 
   # Time (ms) before a non-progressing session is considered stalled.
   # Default parser value: 300000.
-  # stall_timeout_ms: 300000
+  stall_timeout_ms: 300000
 
 # ─── Worker (SSH) ─────────────────────────────────────────────────────────────
 # Distribute agent sessions across remote SSH hosts.
