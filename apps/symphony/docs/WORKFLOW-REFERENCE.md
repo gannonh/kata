@@ -239,10 +239,10 @@ kata_agent:  # alias: pi_agent
   # Command used to launch Kata RPC. Can be a string or list.
   # Symphony appends --mode rpc --cwd <workspace> automatically.
   # Default parser value: `kata`
-  command: kata
+  command: kata # or: npx @kata-sh/cli
 
   # Model passed via `--model`. Format: provider/model-id or just model-id.
-  model: anthropic/claude-sonnet-4-6
+  model: anthropic/claude-opus-4-6
 
   # Whether to pass `--no-session` to Kata (default: true).
   no_session: true
