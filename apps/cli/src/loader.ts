@@ -3,6 +3,7 @@ import { fileURLToPath } from "url";
 import { dirname, resolve, join } from "path";
 import { existsSync, readFileSync } from "fs";
 import { agentDir, appRoot } from "./app-paths.js";
+import { resolveEffectiveMcpConfigPath } from "./mcp-config.js";
 
 // pkg/ is a shim directory: contains kata's piConfig (package.json) and pi's
 // theme assets (dist/modes/interactive/theme/) without a src/ directory.
@@ -109,11 +110,16 @@ process.env.KATA_BUNDLED_EXTENSION_PATHS = [
   join(agentDir, "extensions", "get-secrets-from-user.ts"),
 ].join(":");
 
-// KATA_MCP_CONFIG_PATH — absolute path to Kata's MCP config file.
+// KATA_MCP_CONFIG_PATH — absolute path to the effective MCP config file.
+// If <cwd>/.kata-cli/mcp.json exists and is approved for this project, we merge it
+// with ~/.kata-cli/agent/mcp.json (project wins collisions) and point the adapter
+// at the merged file. Otherwise we fall back to ~/.kata-cli/agent/mcp.json.
 // pi-mcp-adapter reads --mcp-config from process.argv directly (before session_start fires).
-// We inject it here so the adapter uses ~/.kata-cli/agent/mcp.json instead of the
-// default ~/.pi/agent/mcp.json.
-const mcpConfigPath = join(agentDir, "mcp.json");
+const { configPath: mcpConfigPath } = await resolveEffectiveMcpConfigPath({
+  agentDir,
+  appRoot,
+  cwd: process.cwd(),
+});
 process.env.KATA_MCP_CONFIG_PATH = mcpConfigPath;
 const hasMcpConfigArg = process.argv.some(
   (arg) => arg === "--mcp-config" || arg.startsWith("--mcp-config="),
