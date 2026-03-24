@@ -73,6 +73,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
                     status: "running".to_string(),
                     error: None,
                     worker_host: Some("worker-a".to_string()),
+                    model: None,
                     linear_state: None,
                 },
             );

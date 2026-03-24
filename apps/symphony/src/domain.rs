@@ -375,8 +375,10 @@ pub enum AgentBackend {
 pub struct PiAgentConfig {
     /// Command and arguments to launch pi-agent.
     pub command: Vec<String>,
-    /// Optional model identifier passed via `--model`.
+    /// Optional default model identifier passed via `--model`.
     pub model: Option<String>,
+    /// Optional per-Linear-state model overrides (lowercased state names).
+    pub model_by_state: HashMap<String, String>,
     /// Whether to pass `--no-session`.
     pub no_session: bool,
     /// Optional file path passed via `--append-system-prompt`.
@@ -392,6 +394,7 @@ impl Default for PiAgentConfig {
         Self {
             command: vec!["kata".to_string()],
             model: None,
+            model_by_state: HashMap::new(),
             no_session: true,
             append_system_prompt: None,
             read_timeout_ms: 5_000,
@@ -467,6 +470,9 @@ pub struct RunAttempt {
     pub error: Option<String>,
     #[serde(default)]
     pub worker_host: Option<String>,
+    /// Effective model selected for this run attempt (backend-dependent).
+    #[serde(default)]
+    pub model: Option<String>,
     /// Linear issue state at dispatch time (e.g. "In Progress", "Agent Review").
     #[serde(default)]
     pub linear_state: Option<String>,

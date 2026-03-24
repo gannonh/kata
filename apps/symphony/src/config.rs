@@ -238,6 +238,7 @@ struct RawCodexConfig {
 struct RawPiAgentConfig {
     command: Option<Value>,
     model: Option<String>,
+    model_by_state: Option<HashMap<String, String>>,
     no_session: Option<bool>,
     append_system_prompt: Option<String>,
     read_timeout_ms: Option<u64>,
@@ -778,6 +779,18 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         .map(|value| resolve_env(&value))
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
+    let pi_agent_model_by_state: HashMap<String, String> = selected_agent_config
+        .model_by_state
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(state, model)| {
+            (
+                state.trim().to_lowercase(),
+                resolve_env(&model).trim().to_string(),
+            )
+        })
+        .filter(|(state, model)| !state.is_empty() && !model.is_empty())
+        .collect();
     let pi_agent_append_system_prompt = selected_agent_config
         .append_system_prompt
         .map(|value| resolve_env(&value))
@@ -786,6 +799,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let pi_agent = PiAgentConfig {
         command: pi_agent_command,
         model: pi_agent_model,
+        model_by_state: pi_agent_model_by_state,
         no_session: selected_agent_config
             .no_session
             .unwrap_or(defaults.pi_agent.no_session),
