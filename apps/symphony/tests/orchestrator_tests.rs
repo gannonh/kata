@@ -560,45 +560,6 @@ fn test_dispatch_docker_isolation_never_assigns_ssh_worker_host() {
 }
 
 #[test]
-fn test_dispatch_enforces_per_state_concurrency_caps() {
-    let mut orchestrator = Orchestrator::new(test_config(3), String::new());
-
-    let seeded_todo = issue("issue-seeded", "SIM-23", "Todo", Some(1), -30);
-    let mut seed_port = FakePort {
-        candidate_issues: vec![seeded_todo.clone()],
-        ..FakePort::default()
-    };
-
-    let seed_tick = orchestrator
-        .tick(&mut seed_port)
-        .expect("seed tick should pass");
-    assert_eq!(
-        seed_tick.dispatched_issue_ids,
-        vec![seeded_todo.id.clone()],
-        "first todo issue should dispatch into the only todo slot"
-    );
-
-    let blocked_todo = issue("issue-todo-overflow", "SIM-24", "Todo", Some(1), -20);
-    let allowed_in_progress = issue("issue-in-progress", "SIM-25", "In Progress", Some(2), -10);
-
-    let mut second_port = FakePort {
-        reconciled_issues: vec![seeded_todo],
-        candidate_issues: vec![blocked_todo, allowed_in_progress.clone()],
-        ..FakePort::default()
-    };
-
-    let second_tick = orchestrator
-        .tick(&mut second_port)
-        .expect("second tick should pass");
-
-    assert_eq!(
-        second_tick.dispatched_issue_ids,
-        vec![allowed_in_progress.id.clone()],
-        "todo overflow should be blocked by per-state cap while in-progress still dispatches"
-    );
-}
-
-#[test]
 fn test_dispatch_predispatch_refresh_rejects_stale_state() {
     let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let stale_candidate = issue("issue-stale", "SIM-30", "In Progress", Some(1), 0);

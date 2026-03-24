@@ -423,6 +423,37 @@ tracker:
 
 Symphony watches WORKFLOW.md for changes and applies config updates without restart.
 
+## Lifecycle Hooks
+
+Shell commands that run at workspace lifecycle events. Work with all git strategies and Docker mode.
+
+```yaml
+hooks:
+  after_create: ./scripts/setup-workspace.sh
+  before_run: echo "Starting $SYMPHONY_ISSUE_IDENTIFIER"
+  after_run: ./scripts/collect-artifacts.sh
+  before_remove: tar czf /tmp/$SYMPHONY_ISSUE_IDENTIFIER.tar.gz $SYMPHONY_WORKSPACE_PATH
+  timeout_ms: 120000
+```
+
+| Hook | When it runs |
+|---|---|
+| `after_create` | After workspace directory is created and repo is bootstrapped |
+| `before_run` | Before the agent session starts |
+| `after_run` | After the agent session ends (success or failure) |
+| `before_remove` | Before workspace is deleted (when `cleanup_on_done: true`) |
+
+All hooks receive these environment variables:
+
+| Variable | Example |
+|---|---|
+| `SYMPHONY_ISSUE_ID` | Linear issue UUID |
+| `SYMPHONY_ISSUE_IDENTIFIER` | `KAT-911` |
+| `SYMPHONY_ISSUE_TITLE` | Issue title text |
+| `SYMPHONY_WORKSPACE_PATH` | `/Volumes/EVO/symphony-workspaces/KAT-911` |
+
+Hooks run in the workspace directory. If a hook fails, `after_create` and `before_run` abort the worker attempt (the issue retries). `after_run` failures are logged but don't affect the session result.
+
 ## SSH Remote Workers
 
 Distribute agent sessions across multiple machines:
