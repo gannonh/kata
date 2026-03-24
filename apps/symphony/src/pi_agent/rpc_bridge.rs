@@ -60,7 +60,11 @@ fn next_command_id(prefix: &str) -> String {
     format!("{prefix}-{}-{n}", Utc::now().timestamp_millis())
 }
 
-fn build_command_parts(config: &PiAgentConfig, workspace_path: &str) -> Result<Vec<String>> {
+fn build_command_parts(
+    config: &PiAgentConfig,
+    workspace_path: &str,
+    issue_state: &str,
+) -> Result<Vec<String>> {
     if config.command.is_empty() {
         return Err(SymphonyError::PiAgentError(
             "pi_agent.command cannot be empty".to_string(),
@@ -76,9 +80,9 @@ fn build_command_parts(config: &PiAgentConfig, workspace_path: &str) -> Result<V
     if config.no_session {
         parts.push("--no-session".to_string());
     }
-    if let Some(model) = config.model.as_deref() {
+    if let Some(model) = config.model_for_state(issue_state) {
         parts.push("--model".to_string());
-        parts.push(model.to_string());
+        parts.push(model);
     }
     if let Some(path) = config.append_system_prompt.as_deref() {
         parts.push("--append-system-prompt".to_string());
@@ -325,10 +329,10 @@ pub async fn start_session(
     container_id: Option<&str>,
 ) -> Result<SessionHandle> {
     let command_parts = match (container_id, worker_host) {
-        (Some(_), _) => build_command_parts(config, "/workspace")?,
+        (Some(_), _) => build_command_parts(config, "/workspace", &issue.state)?,
         _ => {
             let workspace_for_args = workspace_path.to_string_lossy().to_string();
-            build_command_parts(config, &workspace_for_args)?
+            build_command_parts(config, &workspace_for_args, &issue.state)?
         }
     };
 
@@ -732,4 +736,50 @@ fn expand_path_no_symlinks(path: &Path) -> PathBuf {
         }
     }
     normalized
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_command_parts;
+    use crate::domain::PiAgentConfig;
+    use std::collections::HashMap;
+
+    #[test]
+    fn pi_agent_config_model_for_state_prefers_state_override_then_default() {
+        let mut config = PiAgentConfig {
+            model: Some("anthropic/claude-opus-4-6".to_string()),
+            ..PiAgentConfig::default()
+        };
+        config.model_by_state = HashMap::from([(
+            "agent review".to_string(),
+            "anthropic/claude-sonnet-4-6".to_string(),
+        )]);
+
+        assert_eq!(
+            config.model_for_state("Agent Review").as_deref(),
+            Some("anthropic/claude-sonnet-4-6")
+        );
+        assert_eq!(
+            config.model_for_state("In Progress").as_deref(),
+            Some("anthropic/claude-opus-4-6")
+        );
+    }
+
+    #[test]
+    fn build_command_parts_uses_state_selected_model() {
+        let mut config = PiAgentConfig {
+            command: vec!["kata".to_string()],
+            model: Some("anthropic/claude-opus-4-6".to_string()),
+            ..PiAgentConfig::default()
+        };
+        config.model_by_state = HashMap::from([(
+            "merging".to_string(),
+            "anthropic/claude-sonnet-4-6".to_string(),
+        )]);
+
+        let parts = build_command_parts(&config, "/tmp/workspace", "Merging")
+            .expect("command should build");
+        let joined = parts.join(" ");
+        assert!(joined.contains("--model anthropic/claude-sonnet-4-6"));
+    }
 }

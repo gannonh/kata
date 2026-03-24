@@ -336,12 +336,13 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
             <th>Last Activity</th>
             <th>Elapsed</th>
             <th>Tokens</th>
+            <th>Model</th>
             <th>Workspace</th>
             <th>Worker host</th>
           </tr>
         </thead>
         <tbody id="running-table-body">
-          <tr><td class="muted" colspan="10">Loading...</td></tr>
+          <tr><td class="muted" colspan="11">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -457,7 +458,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       }});
 
       if (rows.length === 0) {{
-        return '<tr><td class="muted" colspan="10">No running sessions.</td></tr>';
+        return '<tr><td class="muted" colspan="11">No running sessions.</td></tr>';
       }}
 
       return rows.map(function(entry) {{
@@ -493,6 +494,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
           '<td class="' + escapeHtml(lastActivityClass) + '">' + escapeHtml(lastActivityLabel) + '</td>' +
           '<td class="mono">' + escapeHtml(elapsed) + '</td>' +
           '<td class="mono">' + escapeHtml(tokenLabel) + '</td>' +
+          '<td class="mono">' + escapeHtml(run.model || '-') + '</td>' +
           '<td class="mono">' + escapeHtml(run.workspace_path || '-') + '</td>' +
           '<td>' + escapeHtml(run.worker_host || 'local') + '</td>' +
           '</tr>';

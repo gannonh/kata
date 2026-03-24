@@ -407,6 +407,7 @@ fn draw_dashboard(
         Cell::from("Message"),
         Cell::from("Last Activity"),
         Cell::from("Tokens"),
+        Cell::from("Model"),
         Cell::from("Host"),
     ])
     .style(Style::default().add_modifier(Modifier::BOLD));
@@ -423,6 +424,7 @@ fn draw_dashboard(
             Constraint::Min(16),
             Constraint::Length(14),
             Constraint::Length(12),
+            Constraint::Min(20),
             Constraint::Length(10),
         ],
     )
@@ -525,6 +527,7 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
             )),
             last_activity_cell,
             Cell::from(format_tokens(total_tokens)),
+            Cell::from(run.model.clone().unwrap_or_else(|| "-".to_string())),
             Cell::from(
                 run.worker_host
                     .as_deref()
@@ -538,6 +541,7 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
         rows.push(Row::new(vec![
             Cell::from(""),
             Cell::from("(none)"),
+            Cell::from(""),
             Cell::from(""),
             Cell::from(""),
             Cell::from(""),
@@ -983,6 +987,7 @@ mod tests {
                 status: "running".to_string(),
                 error: None,
                 worker_host: None,
+                model: None,
                 linear_state: Some("Agent Review".to_string()),
             },
         );

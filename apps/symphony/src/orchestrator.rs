@@ -107,6 +107,10 @@ fn backend_stall_timeout_ms(config: &ServiceConfig, backend: AgentBackend) -> i6
     timeout.min(i64::MAX as u64) as i64
 }
 
+fn effective_pi_model_for_issue(config: &ServiceConfig, issue: &Issue) -> Option<String> {
+    config.pi_agent.model_for_state(&issue.state)
+}
+
 fn should_continue_issue_in_session(issue: &Issue, tracker_config: &TrackerConfig) -> bool {
     issue.assigned_to_worker
         && is_active_state(&issue.state, tracker_config)
@@ -1958,6 +1962,11 @@ impl Orchestrator {
                 status: "running".to_string(),
                 error: None,
                 worker_host: prior_worker_host.clone(),
+                model: if self.config.agent_backend == AgentBackend::KataCli {
+                    effective_pi_model_for_issue(&self.config, issue)
+                } else {
+                    None
+                },
                 linear_state: Some(issue.state.clone()),
             },
         );
@@ -2586,6 +2595,11 @@ impl Orchestrator {
             status: "scheduled".to_string(),
             error: None,
             worker_host,
+            model: if self.config.agent_backend == AgentBackend::KataCli {
+                effective_pi_model_for_issue(&self.config, issue)
+            } else {
+                None
+            },
             linear_state: Some(issue.state.clone()),
         };
 
