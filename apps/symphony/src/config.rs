@@ -433,11 +433,20 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let raw_worker: RawWorkerConfig = extract_section(&normalized, "worker")?;
     let raw_agent: RawAgentConfig = extract_section(&normalized, "agent")?;
     let raw_codex: RawCodexConfig = extract_section(&normalized, "codex")?;
+    let raw_kata_agent: RawPiAgentConfig = extract_section(&normalized, "kata_agent")?;
     let raw_pi_agent: RawPiAgentConfig = extract_section(&normalized, "pi_agent")?;
     let raw_hooks: RawHooksConfig = extract_section(&normalized, "hooks")?;
     let raw_server: RawServerConfig = extract_section(&normalized, "server")?;
 
     let defaults = ServiceConfig::default();
+    let has_kata_agent_section = normalized.get("kata_agent").is_some();
+    let has_pi_agent_section = normalized.get("pi_agent").is_some();
+
+    if has_kata_agent_section && has_pi_agent_section {
+        return Err(SymphonyError::InvalidWorkflowConfig(
+            "config must set only one of 'kata_agent' or 'pi_agent'".to_string(),
+        ));
+    }
 
     // ── TrackerConfig ─────────────────────────────────────────────────────
     // Resolve $VAR references in api_key; on empty result try LINEAR_API_KEY
@@ -753,17 +762,23 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
             .unwrap_or(defaults.codex.stall_timeout_ms),
     };
 
-    // ── PiAgentConfig ───────────────────────────────────────────────────
-    let pi_agent_command = match raw_pi_agent.command {
+    // ── Kata/Pi agent config ───────────────────────────────────────────
+    let selected_agent_config = if has_kata_agent_section {
+        raw_kata_agent
+    } else {
+        raw_pi_agent
+    };
+
+    let pi_agent_command = match selected_agent_config.command {
         Some(val) => parse_pi_agent_command(val)?,
         None => defaults.pi_agent.command.clone(),
     };
-    let pi_agent_model = raw_pi_agent
+    let pi_agent_model = selected_agent_config
         .model
         .map(|value| resolve_env(&value))
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
-    let pi_agent_append_system_prompt = raw_pi_agent
+    let pi_agent_append_system_prompt = selected_agent_config
         .append_system_prompt
         .map(|value| resolve_env(&value))
         .map(|value| value.trim().to_string())
@@ -771,14 +786,14 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let pi_agent = PiAgentConfig {
         command: pi_agent_command,
         model: pi_agent_model,
-        no_session: raw_pi_agent
+        no_session: selected_agent_config
             .no_session
             .unwrap_or(defaults.pi_agent.no_session),
         append_system_prompt: pi_agent_append_system_prompt,
-        read_timeout_ms: raw_pi_agent
+        read_timeout_ms: selected_agent_config
             .read_timeout_ms
             .unwrap_or(defaults.pi_agent.read_timeout_ms),
-        stall_timeout_ms: raw_pi_agent
+        stall_timeout_ms: selected_agent_config
             .stall_timeout_ms
             .unwrap_or(defaults.pi_agent.stall_timeout_ms),
     };
@@ -790,10 +805,10 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         .map(|value| value.trim().to_ascii_lowercase())
         .filter(|value| !value.is_empty())
         .map(|value| match value.as_str() {
-            "pi" => Ok(AgentBackend::Pi),
+            "kata-cli" | "kata" | "pi" => Ok(AgentBackend::KataCli),
             "codex" => Ok(AgentBackend::Codex),
             other => Err(SymphonyError::InvalidWorkflowConfig(format!(
-                "agent.backend must be 'pi' or 'codex' (got '{other}')"
+                "agent.backend must be 'kata-cli' (aliases: 'kata', 'pi') or 'codex' (got '{other}')"
             ))),
         })
         .transpose()?
@@ -876,9 +891,9 @@ pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
             "codex.command is required when agent.backend is 'codex'".to_string(),
         ));
     }
-    if config.agent_backend == AgentBackend::Pi && config.pi_agent.command.is_empty() {
+    if config.agent_backend == AgentBackend::KataCli && config.pi_agent.command.is_empty() {
         return Err(SymphonyError::InvalidWorkflowConfig(
-            "pi_agent.command is required when agent.backend is 'pi'".to_string(),
+            "kata_agent.command (alias: pi_agent.command) is required when agent.backend is 'kata-cli' (aliases: 'kata', 'pi')".to_string(),
         ));
     }
 
