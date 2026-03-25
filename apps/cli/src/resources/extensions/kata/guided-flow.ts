@@ -499,6 +499,8 @@ async function buildDiscussSlicePrompt(
  * /kata discuss — show a picker of non-done slices and run a slice interview.
  * Loops back to the picker after each discussion so the user can chain
  * multiple slice interviews in one session.
+ *
+ * Uses createBackend() so it works in both file and Linear modes.
  */
 export async function showDiscuss(
   ctx: ExtensionCommandContext,
@@ -514,16 +516,17 @@ export async function showDiscuss(
     return;
   }
 
-  // Guard: no .kata/ project
-  if (!existsSync(join(basePath, ".kata"))) {
-    ctx.ui.notify(
-      "No Kata project found. Run /kata to start one first.",
-      "warning",
-    );
+  // ── Bootstrap via backend (handles file vs Linear mode) ──
+  let backend: Awaited<ReturnType<typeof createBackend>>;
+  try {
+    backend = await createBackend(basePath);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    ctx.ui.notify(`Backend init failed: ${msg}`, "error");
     return;
   }
 
-  const state = await deriveState(basePath);
+  const state = await backend.deriveState();
 
   // Guard: no active milestone
   if (!state.activeMilestone) {
@@ -537,9 +540,8 @@ export async function showDiscuss(
   const mid = state.activeMilestone.id;
   const milestoneTitle = state.activeMilestone.title;
 
-  // Guard: no roadmap yet
-  const roadmapFile = resolveMilestoneFile(basePath, mid, "ROADMAP");
-  const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
+  // Guard: no roadmap yet — read via backend (works in both file and Linear mode)
+  const roadmapContent = await backend.readDocument(`${mid}-ROADMAP`);
   if (!roadmapContent) {
     ctx.ui.notify(
       "No roadmap yet for this milestone. Run /kata to plan first.",
@@ -590,6 +592,248 @@ export async function showDiscuss(
 
     // Wait for the discuss session to finish, then loop back to the picker
     await ctx.waitForIdle();
+  }
+}
+
+// ─── Plan Flow ────────────────────────────────────────────────────────────────
+
+/**
+ * /kata plan — interactive ad-hoc planning decoupled from sequential execution.
+ * Users can plan milestone roadmaps, plan specific slices, or plan the next
+ * pending slice without being forced into immediate execution afterward.
+ *
+ * Uses createBackend() so it works in both file and Linear modes.
+ */
+export async function showPlan(
+  ctx: ExtensionCommandContext,
+  pi: ExtensionAPI,
+  basePath: string,
+): Promise<void> {
+  const modeGate = getWorkflowEntrypointGuard("plan");
+  if (!modeGate.allow) {
+    ctx.ui.notify(
+      modeGate.notice ?? "Workflow mode is not supported here.",
+      modeGate.noticeLevel,
+    );
+    return;
+  }
+
+  // ── Bootstrap via backend (handles file vs Linear mode) ──
+  let backend: Awaited<ReturnType<typeof createBackend>>;
+  try {
+    backend = await createBackend(basePath);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    ctx.ui.notify(`Backend init failed: ${msg}`, "error");
+    return;
+  }
+
+  const state = await backend.deriveState();
+
+  if (state.phase === "blocked") {
+    ctx.ui.notify(
+      `Blocked: ${state.blockers?.join(", ")}. Fix and run /kata plan.`,
+      "warning",
+    );
+    return;
+  }
+
+  // ── No active milestone → offer to create one ──
+  if (!state.activeMilestone) {
+    const milestoneIds = findMilestoneIds(basePath);
+    const nextId = `M${String(milestoneIds.length + 1).padStart(3, "0")}`;
+
+    const choice = await showNextAction(ctx as any, {
+      title: "Kata — Plan",
+      summary: ["No active milestone."],
+      actions: [
+        {
+          id: "new_milestone",
+          label: "Plan new milestone",
+          description: `Create and plan ${nextId}.`,
+          recommended: true,
+        },
+      ],
+      notYetMessage: "Run /kata plan when ready.",
+    });
+
+    if (choice === "new_milestone") {
+      dispatchWorkflow(
+        ctx,
+        pi,
+        backend.buildDiscussPrompt(nextId, `New milestone ${nextId}.`),
+        "kata-plan",
+        "plan",
+      );
+    }
+    return;
+  }
+
+  const mid = state.activeMilestone.id;
+  const milestoneTitle = state.activeMilestone.title;
+
+  // ── Check for roadmap ──
+  const roadmapContent = await backend.readDocument(`${mid}-ROADMAP`);
+
+  if (!roadmapContent) {
+    // No roadmap → offer to plan the milestone roadmap
+    const choice = await showNextAction(ctx as any, {
+      title: `Kata — Plan ${mid}`,
+      summary: [`${mid}: ${milestoneTitle} — no roadmap yet.`],
+      actions: [
+        {
+          id: "plan_roadmap",
+          label: "Plan milestone roadmap",
+          description: "Decompose the milestone into slices.",
+          recommended: true,
+        },
+      ],
+      notYetMessage: "Run /kata plan when ready.",
+    });
+
+    if (choice === "plan_roadmap") {
+      dispatchWorkflow(
+        ctx,
+        pi,
+        loadPrompt("guided-plan-milestone", {
+          milestoneId: mid,
+          milestoneTitle,
+        }),
+        "kata-plan",
+        "plan",
+      );
+    }
+    return;
+  }
+
+  // ── Roadmap exists — offer slice planning options ──
+  const roadmap = parseRoadmap(roadmapContent);
+  const pendingSlices = roadmap.slices.filter((s) => !s.done);
+
+  if (pendingSlices.length === 0) {
+    ctx.ui.notify("All slices are complete — nothing to plan.", "info");
+    return;
+  }
+
+  // Check which slices already have plans
+  const unplannedSlices: typeof pendingSlices = [];
+  for (const s of pendingSlices) {
+    const hasPlan = await backend.readDocument(`${s.id}-PLAN`);
+    if (!hasPlan) unplannedSlices.push(s);
+  }
+
+  const actions: Array<{
+    id: string;
+    label: string;
+    description: string;
+    recommended?: boolean;
+  }> = [];
+
+  if (unplannedSlices.length > 0) {
+    // Shortcut: plan the next unplanned slice
+    const next = unplannedSlices[0];
+    actions.push({
+      id: `plan_next`,
+      label: `Plan ${next.id}: ${next.title}`,
+      description: "Plan the next unplanned slice.",
+      recommended: true,
+    });
+  }
+
+  // Offer to pick any pending slice
+  if (pendingSlices.length > 1) {
+    actions.push({
+      id: "pick_slice",
+      label: "Pick a slice to plan",
+      description: `Choose from ${pendingSlices.length} pending slices.`,
+      recommended: actions.length === 0,
+    });
+  }
+
+  // Always offer re-planning the roadmap
+  actions.push({
+    id: "replan_roadmap",
+    label: "Re-plan milestone roadmap",
+    description: "Revise the slice decomposition.",
+  });
+
+  const choice = await showNextAction(ctx as any, {
+    title: `Kata — Plan ${mid}`,
+    summary: [
+      `${mid}: ${milestoneTitle}`,
+      `${pendingSlices.length} pending slice(s), ${unplannedSlices.length} unplanned.`,
+    ],
+    actions,
+    notYetMessage: "Run /kata plan when ready.",
+  });
+
+  if (choice === "not_yet") return;
+
+  if (choice === "plan_next" && unplannedSlices.length > 0) {
+    const next = unplannedSlices[0];
+    dispatchWorkflow(
+      ctx,
+      pi,
+      loadPrompt("guided-plan-slice", {
+        milestoneId: mid,
+        sliceId: next.id,
+        sliceTitle: next.title,
+      }),
+      "kata-plan",
+      "plan",
+    );
+    return;
+  }
+
+  if (choice === "pick_slice") {
+    // Sub-picker for which slice
+    const sliceActions = pendingSlices.map((s, i) => ({
+      id: s.id,
+      label: `${s.id}: ${s.title}`,
+      description: unplannedSlices.some((u) => u.id === s.id)
+        ? "unplanned"
+        : "has plan — re-plan",
+      recommended: i === 0,
+    }));
+
+    const sliceChoice = await showNextAction(ctx as any, {
+      title: `Kata — Pick slice to plan`,
+      summary: [`${mid}: ${milestoneTitle}`],
+      actions: sliceActions,
+      notYetMessage: "Run /kata plan when ready.",
+    });
+
+    if (sliceChoice === "not_yet") return;
+
+    const chosen = pendingSlices.find((s) => s.id === sliceChoice);
+    if (!chosen) return;
+
+    dispatchWorkflow(
+      ctx,
+      pi,
+      loadPrompt("guided-plan-slice", {
+        milestoneId: mid,
+        sliceId: chosen.id,
+        sliceTitle: chosen.title,
+      }),
+      "kata-plan",
+      "plan",
+    );
+    return;
+  }
+
+  if (choice === "replan_roadmap") {
+    dispatchWorkflow(
+      ctx,
+      pi,
+      loadPrompt("guided-plan-milestone", {
+        milestoneId: mid,
+        milestoneTitle,
+      }),
+      "kata-plan",
+      "plan",
+    );
+    return;
   }
 }
 
