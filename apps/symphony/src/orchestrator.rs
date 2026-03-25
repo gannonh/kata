@@ -1074,6 +1074,10 @@ struct RunningSessionStats {
     last_event: Option<String>,
     last_event_message: Option<String>,
     session_id: Option<String>,
+    /// Name of the tool currently executing (set on tool_start, cleared on tool_end).
+    current_tool_name: Option<String>,
+    /// Short preview of arguments for the currently executing tool.
+    current_tool_args_preview: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -1687,6 +1691,8 @@ impl Orchestrator {
                 stall_timeout_ms,
                 last_activity_ms,
                 session_tokens: SessionTokenUsage::default(),
+                current_tool_name: None,
+                current_tool_args_preview: None,
             });
         if info.max_turns == 0 {
             info.max_turns = max_turns;
@@ -1740,6 +1746,28 @@ impl Orchestrator {
         session_stats.last_event = Some(last_event);
         session_stats.last_event_message = last_event_message;
         session_stats.session_id = self.worker_session_ids.get(issue_id).cloned();
+
+        // Track current tool activity from events.
+        let tool_activity = extract_tool_activity(event);
+        match tool_activity {
+            ToolActivity::Started { name, args_preview } => {
+                session_stats.current_tool_name = Some(name.clone());
+                session_stats.current_tool_args_preview = args_preview.clone();
+                if let Some(info) = self.worker_session_info.get_mut(issue_id) {
+                    info.current_tool_name = Some(name);
+                    info.current_tool_args_preview = args_preview;
+                }
+            }
+            ToolActivity::Ended => {
+                session_stats.current_tool_name = None;
+                session_stats.current_tool_args_preview = None;
+                if let Some(info) = self.worker_session_info.get_mut(issue_id) {
+                    info.current_tool_name = None;
+                    info.current_tool_args_preview = None;
+                }
+            }
+            ToolActivity::None => {}
+        }
 
         if let Some(run_attempt) = self.state.running.get_mut(issue_id) {
             match event {
@@ -1972,6 +2000,8 @@ impl Orchestrator {
                 last_event: None,
                 last_event_message: None,
                 session_id: None,
+                current_tool_name: None,
+                current_tool_args_preview: None,
             });
         self.state.retry_attempts.remove(&issue.id);
 
@@ -2318,6 +2348,9 @@ impl Orchestrator {
                         last_event: stats.and_then(|s| s.last_event.clone()),
                         last_event_message: stats.and_then(|s| s.last_event_message.clone()),
                         session_id: stats.and_then(|s| s.session_id.clone()),
+                        current_tool_name: stats.and_then(|s| s.current_tool_name.clone()),
+                        current_tool_args_preview: stats
+                            .and_then(|s| s.current_tool_args_preview.clone()),
                     },
                 )
             })
@@ -2579,6 +2612,8 @@ impl Orchestrator {
                 last_event: None,
                 last_event_message: None,
                 session_id: None,
+                current_tool_name: None,
+                current_tool_args_preview: None,
             },
         );
         self.state.retry_attempts.remove(&issue.id);
@@ -3274,6 +3309,114 @@ pub fn rate_limit_info(data: serde_json::Value) -> RateLimitInfo {
     RateLimitInfo { data }
 }
 
+// ── Tool activity extraction ──────────────────────────────────────────
+
+/// Represents the current tool activity state derived from an agent event.
+enum ToolActivity {
+    /// A tool started executing.
+    Started {
+        name: String,
+        args_preview: Option<String>,
+    },
+    /// A tool finished executing.
+    Ended,
+    /// Event is unrelated to tool activity.
+    None,
+}
+
+/// Maximum length for the tool args preview string.
+const TOOL_ARGS_PREVIEW_MAX_LEN: usize = 120;
+
+/// Extract tool activity information from an agent event.
+///
+/// Handles both Codex backend events (ToolCallCompleted/Failed) and
+/// pi-agent RPC events (Notification messages with tool_start/tool_end prefixes).
+fn extract_tool_activity(event: &AgentEvent) -> ToolActivity {
+    match event {
+        // Codex backend: tool calls complete in a single event (no start/end separation).
+        // We don't set "started" for these since they arrive post-completion.
+        AgentEvent::ToolCallCompleted { .. }
+        | AgentEvent::ToolCallFailed { .. }
+        | AgentEvent::UnsupportedToolCall { .. }
+        | AgentEvent::TurnCompleted { .. }
+        | AgentEvent::TurnFailed { .. }
+        | AgentEvent::TurnCancelled { .. }
+        | AgentEvent::TurnEndedWithError { .. } => ToolActivity::Ended,
+
+        // Pi-agent RPC: tool execution events arrive as Notification messages.
+        AgentEvent::Notification { message, .. } => parse_tool_notification(message),
+
+        _ => ToolActivity::None,
+    }
+}
+
+/// Parse a pi-agent notification message for tool activity.
+///
+/// Messages follow the format:
+/// - `"tool_start: <name> <args_json>"` — tool began executing
+/// - `"tool_end: <name>"` — tool finished successfully
+/// - `"tool_error: <name>"` — tool finished with error
+fn parse_tool_notification(message: &str) -> ToolActivity {
+    if let Some(rest) = message.strip_prefix("tool_start: ") {
+        let (name, args) = match rest.find(' ') {
+            Some(pos) => (&rest[..pos], Some(&rest[pos + 1..])),
+            None => (rest, None),
+        };
+        let args_preview = args.map(|a| {
+            let preview = build_tool_args_preview(a);
+            truncate_for_display(&preview, TOOL_ARGS_PREVIEW_MAX_LEN)
+        });
+        ToolActivity::Started {
+            name: name.to_string(),
+            args_preview,
+        }
+    } else if message.starts_with("tool_end: ") || message.starts_with("tool_error: ") {
+        ToolActivity::Ended
+    } else {
+        ToolActivity::None
+    }
+}
+
+/// Build a human-readable preview of tool arguments from a JSON string.
+///
+/// For common tools, extracts the most meaningful argument:
+/// - `bash`: shows the command
+/// - `read`/`write`/`edit`: shows the path
+/// - `browser_navigate`: shows the URL
+/// - Others: shows a compact summary of top-level keys
+fn build_tool_args_preview(args_json: &str) -> String {
+    let parsed: serde_json::Value = match serde_json::from_str(args_json) {
+        Ok(v) => v,
+        Err(_) => return args_json.chars().filter(|c| !c.is_control()).collect(),
+    };
+
+    let obj = match parsed.as_object() {
+        Some(o) => o,
+        None => return args_json.to_string(),
+    };
+
+    // Extract the most meaningful field for common tools
+    if let Some(cmd) = obj.get("command").and_then(|v| v.as_str()) {
+        return cmd.to_string();
+    }
+    if let Some(path) = obj.get("path").and_then(|v| v.as_str()) {
+        return path.to_string();
+    }
+    if let Some(url) = obj.get("url").and_then(|v| v.as_str()) {
+        return url.to_string();
+    }
+    if let Some(query) = obj.get("query").and_then(|v| v.as_str()) {
+        return query.to_string();
+    }
+
+    // Fallback: show keys
+    let keys: Vec<&str> = obj.keys().map(|k| k.as_str()).collect();
+    if keys.is_empty() {
+        return "{}".to_string();
+    }
+    keys.join(", ")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3296,5 +3439,108 @@ mod tests {
         });
 
         assert_eq!(find_preferred_text(&nested), None);
+    }
+
+    #[test]
+    fn parse_tool_notification_start_with_args() {
+        let msg = r#"tool_start: bash {"command":"cargo test","timeout":60}"#;
+        match parse_tool_notification(msg) {
+            ToolActivity::Started { name, args_preview } => {
+                assert_eq!(name, "bash");
+                assert_eq!(args_preview.unwrap(), "cargo test");
+            }
+            other => panic!("expected Started, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn parse_tool_notification_start_no_args() {
+        match parse_tool_notification("tool_start: read") {
+            ToolActivity::Started { name, args_preview } => {
+                assert_eq!(name, "read");
+                assert!(args_preview.is_none());
+            }
+            other => panic!("expected Started, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn parse_tool_notification_end() {
+        assert!(matches!(
+            parse_tool_notification("tool_end: bash"),
+            ToolActivity::Ended
+        ));
+    }
+
+    #[test]
+    fn parse_tool_notification_error() {
+        assert!(matches!(
+            parse_tool_notification("tool_error: bash"),
+            ToolActivity::Ended
+        ));
+    }
+
+    #[test]
+    fn parse_tool_notification_unrelated() {
+        assert!(matches!(
+            parse_tool_notification("some other message"),
+            ToolActivity::None
+        ));
+    }
+
+    #[test]
+    fn build_tool_args_preview_extracts_command() {
+        let preview = build_tool_args_preview(r#"{"command":"cargo test --release"}"#);
+        assert_eq!(preview, "cargo test --release");
+    }
+
+    #[test]
+    fn build_tool_args_preview_extracts_path() {
+        let preview = build_tool_args_preview(r#"{"path":"src/main.rs","offset":10}"#);
+        assert_eq!(preview, "src/main.rs");
+    }
+
+    #[test]
+    fn build_tool_args_preview_fallback_to_keys() {
+        let preview = build_tool_args_preview("{\"selector\":\"btn\",\"text\":\"click\"}");
+        assert_eq!(preview, "selector, text");
+    }
+
+    #[test]
+    fn build_tool_args_preview_invalid_json() {
+        let preview = build_tool_args_preview("not json");
+        assert_eq!(preview, "not json");
+    }
+
+    #[test]
+    fn build_tool_args_preview_strips_control_chars_on_invalid_json() {
+        let preview = build_tool_args_preview("bad\x00json\nwith\tcontrol");
+        assert_eq!(preview, "badjsonwithcontrol"); // all control chars stripped
+    }
+
+    #[test]
+    fn extract_tool_activity_clears_on_turn_completed() {
+        let event = AgentEvent::TurnCompleted {
+            timestamp: chrono::Utc::now(),
+            codex_app_server_pid: None,
+            turn_id: "t1".to_string(),
+            message: None,
+            input_tokens: 0,
+            output_tokens: 0,
+            total_tokens: 0,
+            rate_limits: None,
+        };
+        assert!(matches!(extract_tool_activity(&event), ToolActivity::Ended));
+    }
+
+    #[test]
+    fn extract_tool_activity_clears_on_turn_failed() {
+        let event = AgentEvent::TurnFailed {
+            timestamp: chrono::Utc::now(),
+            codex_app_server_pid: None,
+            turn_id: "t1".to_string(),
+            error: "crash".to_string(),
+        };
+        assert!(matches!(extract_tool_activity(&event), ToolActivity::Ended));
     }
 }

@@ -90,6 +90,8 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
                     last_event: Some("codex/event/task_started".to_string()),
                     last_event_message: Some("running cargo test".to_string()),
                     session_id: Some("session-12345678".to_string()),
+                    current_tool_name: None,
+                    current_tool_args_preview: None,
                 },
             );
             sessions
@@ -106,6 +108,8 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
                     output_tokens: 12,
                     total_tokens: 47,
                 },
+                current_tool_name: None,
+                current_tool_args_preview: None,
             },
         )]),
         claimed: BTreeSet::from(["issue-123".to_string()]),

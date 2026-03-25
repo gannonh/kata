@@ -331,6 +331,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
             <th>Identifier</th>
             <th>Linear State</th>
             <th>Status</th>
+            <th>Activity</th>
             <th>Attempt</th>
             <th>Turn</th>
             <th>Last Activity</th>
@@ -342,7 +343,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
           </tr>
         </thead>
         <tbody id="running-table-body">
-          <tr><td class="muted" colspan="11">Loading...</td></tr>
+          <tr><td class="muted" colspan="12">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -458,7 +459,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       }});
 
       if (rows.length === 0) {{
-        return '<tr><td class="muted" colspan="11">No running sessions.</td></tr>';
+        return '<tr><td class="muted" colspan="12">No running sessions.</td></tr>';
       }}
 
       return rows.map(function(entry) {{
@@ -485,10 +486,14 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         const tokenOutput = Number(sessionTokens.output_tokens ?? 0);
         const tokenTotal = Number(sessionTokens.total_tokens ?? 0);
         const tokenLabel = tokenInput + ' / ' + tokenOutput + ' / ' + tokenTotal;
+        const toolName = sessionInfo.current_tool_name || '';
+        const toolArgs = sessionInfo.current_tool_args_preview || '';
+        const activityLabel = toolName ? 'tool: ' + toolName + (toolArgs ? ' (' + toolArgs + ')' : '') : '-';
         return '<tr>' +
           '<td class="mono">' + escapeHtml(run.issue_identifier || '-') + '</td>' +
           '<td>' + escapeHtml(run.linear_state || '-') + '</td>' +
           '<td>' + escapeHtml(run.status || '-') + '</td>' +
+          '<td class="mono">' + escapeHtml(activityLabel) + '</td>' +
           '<td>' + escapeHtml(attempt) + '</td>' +
           '<td class="mono">' + escapeHtml(turnLabel) + '</td>' +
           '<td class="' + escapeHtml(lastActivityClass) + '">' + escapeHtml(lastActivityLabel) + '</td>' +
