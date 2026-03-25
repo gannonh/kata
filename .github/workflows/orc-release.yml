@@ -88,7 +88,7 @@ jobs:
         id: changelog
         run: |
           VERSION=${{ needs.check-version.outputs.version }}
-          NOTES=$(sed -n "/^## ${VERSION}$/,/^## /{ /^## ${VERSION}$/d; /^## /d; p; }" apps/orchestrator/CHANGELOG.md)
+          NOTES=$(sed -n "/^## ${VERSION}/,/^## /{ /^## ${VERSION}/d; /^## /d; p; }" apps/orchestrator/CHANGELOG.md)
           if [ -z "$NOTES" ]; then
             echo "found=false" >> $GITHUB_OUTPUT
           else

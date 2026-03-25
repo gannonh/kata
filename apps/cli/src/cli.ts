@@ -7,6 +7,7 @@ import {
   createAgentSession,
   InteractiveMode,
   runPrintMode,
+  initTheme,
 } from '@mariozechner/pi-coding-agent'
 import { readFileSync } from 'node:fs'
 import { agentDir, sessionsDir, authFilePath } from './app-paths.js'
@@ -133,6 +134,13 @@ if (!hasConfiguredPackages && !globalPackages.includes(MCP_ADAPTER_PACKAGE)) {
   settingsManager.setPackages([...globalPackages, MCP_ADAPTER_PACKAGE])
 }
 await settingsManager.flush()
+
+// ---------------------------------------------------------------------------
+// Theme — must be initialized before any extension or MCP adapter accesses it.
+// pi-coding-agent's main() does this internally, but cli.ts bypasses main().
+// No file watcher needed for non-interactive (print/RPC) modes.
+// ---------------------------------------------------------------------------
+initTheme(settingsManager.getTheme(), !isPrintMode && !isRpcMode)
 
 // ---------------------------------------------------------------------------
 // Package commands: install, remove, uninstall, update, list

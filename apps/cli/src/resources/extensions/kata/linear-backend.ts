@@ -62,6 +62,7 @@ export interface LinearBackendConfig {
 export class LinearBackend implements KataBackend {
   readonly basePath: string;
   readonly gitRoot: string;
+  readonly isLinearMode = true;
   private client: LinearClient;
   private config: LinearBackendConfig;
 

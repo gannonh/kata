@@ -2,8 +2,8 @@
 tracker:
   kind: linear
   api_key: $LINEAR_API_KEY
-  project_slug: "89d4761fddf0"
-  # assignee: alice
+  project_slug: my-project
+  # assignee: alice                    # Optional: filter to a specific user
   active_states:
     - Todo
     - In Progress
@@ -19,8 +19,8 @@ tracker:
 polling:
   interval_ms: 30000
 workspace:
-  root: /Volumes/EVO/symphony-workspaces
-  repo: /Volumes/EVO/kata/kata-mono
+  root: ~/symphony-workspaces
+  repo: /path/to/your/repo
   git_strategy: worktree
   isolation: local
   cleanup_on_done: true
@@ -30,19 +30,15 @@ workspace:
 hooks:
   timeout_ms: 120000
 agent:
-  max_concurrent_agents: 3
+  backend: kata-cli
+  max_concurrent_agents: 4
   max_turns: 20
-  backend: codex              # "codex" (legacy) or "pi" (Kata CLI, recommended for new setups)
-codex:
-  command: codex --config shell_environment_policy.inherit=all --config model_reasoning_effort=xhigh --model gpt-5.3-codex app-server
-  stall_timeout_ms: 900000
-  approval_policy: never
-  thread_sandbox: danger-full-access
-  turn_sandbox_policy:
-    type: dangerFullAccess
-pi_agent:
+kata_agent:
   command: kata
-  model: anthropic/claude-sonnet-4-6
+  model: anthropic/claude-opus-4-6
+  model_by_state:
+    Agent Review: anthropic/claude-sonnet-4-6
+    Merging: anthropic/claude-sonnet-4-6
   stall_timeout_ms: 900000
 server:
   port: 8080

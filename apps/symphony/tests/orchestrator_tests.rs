@@ -105,10 +105,6 @@ fn test_config(max_concurrent_agents: u32) -> ServiceConfig {
         max_concurrent_agents,
         max_turns: 20,
         max_retry_backoff_ms: 60_000,
-        max_concurrent_agents_by_state: HashMap::from([
-            ("todo".to_string(), 1_u32),
-            ("in progress".to_string(), 1_u32),
-        ]),
     };
     config
 }
@@ -560,45 +556,6 @@ fn test_dispatch_docker_isolation_never_assigns_ssh_worker_host() {
     assert!(
         running.worker_host.is_none(),
         "docker isolation must not assign SSH worker hosts"
-    );
-}
-
-#[test]
-fn test_dispatch_enforces_per_state_concurrency_caps() {
-    let mut orchestrator = Orchestrator::new(test_config(3), String::new());
-
-    let seeded_todo = issue("issue-seeded", "SIM-23", "Todo", Some(1), -30);
-    let mut seed_port = FakePort {
-        candidate_issues: vec![seeded_todo.clone()],
-        ..FakePort::default()
-    };
-
-    let seed_tick = orchestrator
-        .tick(&mut seed_port)
-        .expect("seed tick should pass");
-    assert_eq!(
-        seed_tick.dispatched_issue_ids,
-        vec![seeded_todo.id.clone()],
-        "first todo issue should dispatch into the only todo slot"
-    );
-
-    let blocked_todo = issue("issue-todo-overflow", "SIM-24", "Todo", Some(1), -20);
-    let allowed_in_progress = issue("issue-in-progress", "SIM-25", "In Progress", Some(2), -10);
-
-    let mut second_port = FakePort {
-        reconciled_issues: vec![seeded_todo],
-        candidate_issues: vec![blocked_todo, allowed_in_progress.clone()],
-        ..FakePort::default()
-    };
-
-    let second_tick = orchestrator
-        .tick(&mut second_port)
-        .expect("second tick should pass");
-
-    assert_eq!(
-        second_tick.dispatched_issue_ids,
-        vec![allowed_in_progress.id.clone()],
-        "todo overflow should be blocked by per-state cap while in-progress still dispatches"
     );
 }
 
@@ -1210,6 +1167,72 @@ fn test_streamed_turn_completed_events_update_token_totals_in_real_time() {
 }
 
 #[test]
+fn test_event_count_increments_on_ingest() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let now_ms = 3_250_000;
+    let issue_id = "issue-event-count";
+    orchestrator.state_mut().running.insert(
+        issue_id.to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: issue_id.to_string(),
+            issue_identifier: "SIM-EVENT-COUNT".to_string(),
+            issue_title: None,
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-event-count".to_string(),
+            started_at: utc_ms(now_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: None,
+        },
+    );
+
+    orchestrator.ingest_agent_event(
+        issue_id,
+        &AgentEvent::Notification {
+            timestamp: utc_ms(now_ms - 3_000),
+            codex_app_server_pid: Some("9999".to_string()),
+            message: "step started".to_string(),
+        },
+    );
+    orchestrator.ingest_agent_event(
+        issue_id,
+        &AgentEvent::TurnCompleted {
+            timestamp: utc_ms(now_ms - 2_000),
+            codex_app_server_pid: Some("9999".to_string()),
+            turn_id: "turn-1".to_string(),
+            message: None,
+            input_tokens: 4,
+            output_tokens: 2,
+            total_tokens: 6,
+            rate_limits: None,
+        },
+    );
+    orchestrator.ingest_agent_event(
+        issue_id,
+        &AgentEvent::TurnFailed {
+            timestamp: utc_ms(now_ms - 1_000),
+            codex_app_server_pid: Some("9999".to_string()),
+            turn_id: "turn-2".to_string(),
+            error: "boom".to_string(),
+        },
+    );
+
+    assert_eq!(
+        orchestrator.state().codex_totals.event_count,
+        3,
+        "event_count should increment for every ingested event variant"
+    );
+
+    let snapshot = orchestrator.snapshot(now_ms);
+    assert_eq!(
+        snapshot.codex_totals.event_count, 3,
+        "snapshot should expose the event counter"
+    );
+}
+
+#[test]
 fn test_late_streamed_event_after_completion_is_ignored() {
     let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let now_ms = 4_000_000;
@@ -1262,6 +1285,11 @@ fn test_late_streamed_event_after_completion_is_ignored() {
         orchestrator.state().codex_totals.total_tokens,
         0,
         "late streamed events for completed issues should be ignored"
+    );
+    assert_eq!(
+        orchestrator.state().codex_totals.event_count,
+        0,
+        "ignored events should not increment the event counter"
     );
 }
 
