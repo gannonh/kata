@@ -1527,19 +1527,6 @@ impl Orchestrator {
                 continue;
             }
 
-            let state_key = normalize_issue_state(&refreshed_issue.state);
-            if !self.state_slot_available(&state_key) {
-                tracing::debug!(
-                    phase = "dispatch",
-                    reason = "slot_full",
-                    issue_id = %refreshed_issue.id,
-                    issue_identifier = %refreshed_issue.identifier,
-                    state = %state_key,
-                    "state concurrency slots exhausted"
-                );
-                continue;
-            }
-
             // Select an SSH host (or local) for this fresh dispatch.
             let host_selection = self.select_worker_host(None);
             if matches!(host_selection, WorkerHostSelection::NoneAvailable) {
@@ -1732,6 +1719,8 @@ impl Orchestrator {
             );
             return;
         }
+
+        self.state.codex_totals.event_count = self.state.codex_totals.event_count.saturating_add(1);
 
         let _ = self.ensure_worker_session_info(issue_id);
         self.record_worker_activity(issue_id, event_timestamp_ms(event));
@@ -2513,7 +2502,7 @@ impl Orchestrator {
             return false;
         }
 
-        self.state_slot_available(&normalized_state)
+        true
     }
 
     fn todo_issue_blocked_by_non_terminal(&self, issue: &Issue) -> bool {
@@ -2536,31 +2525,6 @@ impl Orchestrator {
         self.state
             .max_concurrent_agents
             .saturating_sub(self.state.running.len() as u32)
-    }
-
-    fn state_slot_available(&self, state_key: &str) -> bool {
-        let limit = self
-            .config
-            .agent
-            .max_concurrent_agents_by_state
-            .get(state_key)
-            .copied()
-            .unwrap_or(self.state.max_concurrent_agents);
-
-        self.running_issue_count_for_state(state_key) < limit
-    }
-
-    fn running_issue_count_for_state(&self, state_key: &str) -> u32 {
-        self.state
-            .running
-            .keys()
-            .filter(|issue_id| {
-                self.running_issue_states
-                    .get(*issue_id)
-                    .map(|running_state| running_state == state_key)
-                    .unwrap_or(false)
-            })
-            .count() as u32
     }
 
     fn retry_delay_ms(&self, retry_kind: RetryKind, attempt: u32) -> i64 {

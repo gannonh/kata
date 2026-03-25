@@ -36,13 +36,35 @@ const MESSAGE_COLUMN_TRUNCATE_WIDTH: usize = 60;
 #[derive(Debug, Default)]
 struct ThroughputTracker {
     token_samples: Vec<(i64, u64)>,
+    event_samples: Vec<(i64, u64)>,
 }
 
 impl ThroughputTracker {
-    fn record_sample(&mut self, timestamp_ms: i64, total_tokens: u64) {
-        match self.token_samples.last_mut() {
+    fn record_sample(&mut self, timestamp_ms: i64, total_tokens: u64, total_events: u64) {
+        Self::record_counter_sample(
+            &mut self.token_samples,
+            timestamp_ms,
+            total_tokens,
+            "tokens",
+        );
+        Self::record_counter_sample(
+            &mut self.event_samples,
+            timestamp_ms,
+            total_events,
+            "events",
+        );
+    }
+
+    fn record_counter_sample(
+        samples: &mut Vec<(i64, u64)>,
+        timestamp_ms: i64,
+        total_value: u64,
+        sample_name: &str,
+    ) {
+        match samples.last_mut() {
             Some((last_ts, _last_total)) if timestamp_ms < *last_ts => {
                 tracing::warn!(
+                    sample = sample_name,
                     last_ts = *last_ts,
                     received_ts = timestamp_ms,
                     "throughput tracker received out-of-order timestamp; skipping sample"
@@ -50,31 +72,50 @@ impl ThroughputTracker {
                 return;
             }
             Some((last_ts, last_total)) if timestamp_ms == *last_ts => {
-                *last_total = (*last_total).max(total_tokens);
+                *last_total = (*last_total).max(total_value);
                 return;
             }
-            Some((_, last_total)) if total_tokens < *last_total => {
-                self.token_samples.clear();
+            Some((_, last_total)) if total_value < *last_total => {
+                samples.clear();
             }
             _ => {}
         }
 
-        self.token_samples.push((timestamp_ms, total_tokens));
-        self.trim_old_samples(timestamp_ms);
+        samples.push((timestamp_ms, total_value));
+        Self::trim_samples(samples, timestamp_ms);
     }
 
     fn throughput_line(&self, now_ms: i64) -> String {
         let current_tps = self.current_tps(now_ms);
+        if current_tps > f64::EPSILON {
+            let sparkline = self.sparkline(now_ms);
+            return format!("Throughput: {current_tps:.1} tps {sparkline}");
+        }
+
+        let event_rate = self.event_rate(now_ms);
+        if event_rate > f64::EPSILON {
+            let sparkline = self.sparkline_for_samples(now_ms, &self.event_samples);
+            return format!("Throughput: {event_rate:.1} eps {sparkline}");
+        }
+
         let sparkline = self.sparkline(now_ms);
-        format!("Throughput: {current_tps:.1} tps {sparkline}")
+        format!("Throughput: 0.0 tps {sparkline}")
     }
 
     fn current_tps(&self, now_ms: i64) -> f64 {
-        if self.token_samples.len() < 2 {
+        self.rate_for_samples(now_ms, &self.token_samples)
+    }
+
+    fn event_rate(&self, now_ms: i64) -> f64 {
+        self.rate_for_samples(now_ms, &self.event_samples)
+    }
+
+    fn rate_for_samples(&self, now_ms: i64, samples: &[(i64, u64)]) -> f64 {
+        if samples.len() < 2 {
             return 0.0;
         }
         let window_start = now_ms.saturating_sub(CURRENT_TPS_WINDOW_MS);
-        let delta = self.window_token_delta(window_start, now_ms);
+        let delta = self.window_delta(samples, window_start, now_ms);
         // Intentionally divide by the fixed 5s window so the dashboard readout
         // stays stable; this smooths noise but under-reports during warm-up.
         let window_seconds = (CURRENT_TPS_WINDOW_MS as f64) / 1_000.0;
@@ -86,31 +127,35 @@ impl ThroughputTracker {
     }
 
     fn sparkline(&self, now_ms: i64) -> String {
-        let bucket_tps = self.bucket_tps(now_ms);
-        let max_tps = bucket_tps
+        self.sparkline_for_samples(now_ms, &self.token_samples)
+    }
+
+    fn sparkline_for_samples(&self, now_ms: i64, samples: &[(i64, u64)]) -> String {
+        let bucket_rates = self.bucket_rates(now_ms, samples);
+        let max_rate = bucket_rates
             .iter()
             .copied()
             .fold(0.0_f64, |acc, value| acc.max(value));
 
-        if max_tps <= f64::EPSILON {
+        if max_rate <= f64::EPSILON {
             return std::iter::repeat_n(SPARKLINE_BLOCKS[0], SPARKLINE_BUCKETS).collect();
         }
 
-        bucket_tps
+        bucket_rates
             .into_iter()
             .map(|value| {
-                let ratio = (value / max_tps).clamp(0.0, 1.0);
+                let ratio = (value / max_rate).clamp(0.0, 1.0);
                 let idx = (ratio * (SPARKLINE_BLOCKS.len() as f64 - 1.0)).round() as usize;
                 SPARKLINE_BLOCKS[idx]
             })
             .collect()
     }
 
-    fn bucket_tps(&self, now_ms: i64) -> Vec<f64> {
+    fn bucket_rates(&self, now_ms: i64, samples: &[(i64, u64)]) -> Vec<f64> {
         let window_start = now_ms.saturating_sub(SPARKLINE_WINDOW_MS);
-        let mut bucket_tokens = vec![0.0; SPARKLINE_BUCKETS];
+        let mut bucket_totals = vec![0.0; SPARKLINE_BUCKETS];
 
-        for sample_pair in self.token_samples.windows(2) {
+        for sample_pair in samples.windows(2) {
             let (start_ms, start_total) = sample_pair[0];
             let (end_ms, end_total) = sample_pair[1];
 
@@ -121,8 +166,8 @@ impl ThroughputTracker {
                 continue;
             }
 
-            let interval_tokens = end_total.saturating_sub(start_total) as f64;
-            if interval_tokens <= 0.0 {
+            let interval_total = end_total.saturating_sub(start_total) as f64;
+            if interval_total <= 0.0 {
                 continue;
             }
 
@@ -132,7 +177,7 @@ impl ThroughputTracker {
                 continue;
             }
 
-            let tokens_per_ms = interval_tokens / (end_ms - start_ms) as f64;
+            let total_per_ms = interval_total / (end_ms - start_ms) as f64;
             let mut cursor = interval_start;
             while cursor < interval_end {
                 let bucket_index = (((cursor - window_start) / SPARKLINE_BUCKET_MS) as usize)
@@ -144,7 +189,7 @@ impl ThroughputTracker {
                     break;
                 }
                 let overlap_ms = (segment_end - cursor) as f64;
-                bucket_tokens[bucket_index] += tokens_per_ms * overlap_ms;
+                bucket_totals[bucket_index] += total_per_ms * overlap_ms;
                 cursor = segment_end;
             }
         }
@@ -154,36 +199,40 @@ impl ThroughputTracker {
             return vec![0.0; SPARKLINE_BUCKETS];
         }
 
-        bucket_tokens
+        bucket_totals
             .into_iter()
-            .map(|tokens| tokens / bucket_seconds)
+            .map(|bucket_total| bucket_total / bucket_seconds)
             .collect()
     }
 
-    fn trim_old_samples(&mut self, now_ms: i64) {
-        if self.token_samples.len() < 2 {
+    fn trim_samples(samples: &mut Vec<(i64, u64)>, now_ms: i64) {
+        if samples.len() < 2 {
             return;
         }
 
         let cutoff = now_ms.saturating_sub(SPARKLINE_WINDOW_MS);
-        let first_in_window = self
-            .token_samples
+        let first_in_window = samples
             .iter()
             .position(|(ts, _)| *ts >= cutoff)
-            .unwrap_or_else(|| self.token_samples.len().saturating_sub(1));
+            .unwrap_or_else(|| samples.len().saturating_sub(1));
         let keep_from = first_in_window.saturating_sub(1);
         if keep_from > 0 {
-            self.token_samples.drain(0..keep_from);
+            samples.drain(0..keep_from);
         }
     }
 
-    fn window_token_delta(&self, window_start_ms: i64, window_end_ms: i64) -> f64 {
+    fn window_delta(
+        &self,
+        samples: &[(i64, u64)],
+        window_start_ms: i64,
+        window_end_ms: i64,
+    ) -> f64 {
         if window_end_ms <= window_start_ms {
             return 0.0;
         }
 
         let mut total = 0.0;
-        for sample_pair in self.token_samples.windows(2) {
+        for sample_pair in samples.windows(2) {
             let (start_ms, start_total) = sample_pair[0];
             let (end_ms, end_total) = sample_pair[1];
 
@@ -200,10 +249,10 @@ impl ThroughputTracker {
                 continue;
             }
 
-            let interval_tokens = end_total.saturating_sub(start_total) as f64;
+            let interval_total = end_total.saturating_sub(start_total) as f64;
             let overlap_ms = (overlap_end - overlap_start) as f64;
             let interval_ms = (end_ms - start_ms) as f64;
-            total += interval_tokens * (overlap_ms / interval_ms);
+            total += interval_total * (overlap_ms / interval_ms);
         }
 
         total
@@ -265,7 +314,11 @@ pub async fn run_tui(
         let snapshot = snapshot_handle.read();
         let now = Utc::now();
         let now_ms = now.timestamp_millis();
-        throughput_tracker.record_sample(now_ms, snapshot.codex_totals.total_tokens);
+        throughput_tracker.record_sample(
+            now_ms,
+            snapshot.codex_totals.total_tokens,
+            snapshot.codex_totals.event_count,
+        );
         let throughput_line = throughput_tracker.throughput_line(now_ms);
         if let Err(err) =
             terminal.draw(|frame| draw_dashboard(frame, &snapshot, now, &throughput_line))
@@ -867,6 +920,7 @@ mod tests {
                 input_tokens: 0,
                 output_tokens: 0,
                 total_tokens,
+                event_count: 0,
                 seconds_running: 0.0,
             },
             codex_rate_limits: None,
@@ -1088,18 +1142,19 @@ mod tests {
     #[test]
     fn throughput_tracker_reports_current_tps_from_last_five_seconds() {
         let mut tracker = ThroughputTracker::default();
-        tracker.record_sample(0, 0);
-        tracker.record_sample(2_500, 50);
-        tracker.record_sample(5_000, 100);
+        tracker.record_sample(0, 0, 0);
+        tracker.record_sample(2_500, 50, 0);
+        tracker.record_sample(5_000, 100, 0);
 
         assert_approx_eq(tracker.current_tps(5_000), 20.0, 0.001);
+        assert_approx_eq(tracker.event_rate(5_000), 0.0, 0.001);
     }
 
     #[test]
     fn throughput_tracker_renders_flat_sparkline_for_zero_throughput() {
         let mut tracker = ThroughputTracker::default();
-        tracker.record_sample(0, 42);
-        tracker.record_sample(SPARKLINE_WINDOW_MS, 42);
+        tracker.record_sample(0, 42, 0);
+        tracker.record_sample(SPARKLINE_WINDOW_MS, 42, 0);
 
         let sparkline = tracker.sparkline(SPARKLINE_WINDOW_MS);
         assert_eq!(sparkline.chars().count(), SPARKLINE_BUCKETS);
@@ -1110,8 +1165,8 @@ mod tests {
     fn throughput_tracker_renders_recent_spike_in_last_bucket() {
         let mut tracker = ThroughputTracker::default();
         let now_ms = SPARKLINE_WINDOW_MS;
-        tracker.record_sample(now_ms - SPARKLINE_BUCKET_MS, 0);
-        tracker.record_sample(now_ms, 2_500);
+        tracker.record_sample(now_ms - SPARKLINE_BUCKET_MS, 0, 0);
+        tracker.record_sample(now_ms, 2_500, 0);
 
         let sparkline = tracker.sparkline(now_ms);
         let chars: Vec<char> = sparkline.chars().collect();
@@ -1129,14 +1184,56 @@ mod tests {
     }
 
     #[test]
+    fn throughput_tracker_event_based_activity_with_zero_tokens() {
+        let mut tracker = ThroughputTracker::default();
+        tracker.record_sample(0, 42, 0);
+        tracker.record_sample(2_500, 42, 50);
+        tracker.record_sample(5_000, 42, 100);
+
+        let throughput = tracker.throughput_line(5_000);
+        assert!(
+            throughput.contains(" eps "),
+            "expected eps fallback when token tps is zero, got {throughput}"
+        );
+        let sparkline = throughput.split_whitespace().last().unwrap_or_default();
+        assert!(
+            sparkline.chars().any(|ch| ch != SPARKLINE_BLOCKS[0]),
+            "expected event-based sparkline activity, got {throughput}"
+        );
+        assert_approx_eq(tracker.current_tps(5_000), 0.0, 0.001);
+        assert_approx_eq(tracker.event_rate(5_000), 20.0, 0.001);
+    }
+
+    #[test]
+    fn throughput_tracker_prefers_token_tps_when_available() {
+        let mut tracker = ThroughputTracker::default();
+        tracker.record_sample(0, 0, 0);
+        tracker.record_sample(5_000, 100, 200);
+
+        let throughput = tracker.throughput_line(5_000);
+        assert!(
+            throughput.contains(" tps "),
+            "expected token throughput label when token deltas exist, got {throughput}"
+        );
+        assert!(
+            !throughput.contains(" eps "),
+            "token throughput should take precedence over event fallback"
+        );
+        assert_approx_eq(tracker.current_tps(5_000), 20.0, 0.001);
+        assert_approx_eq(tracker.event_rate(5_000), 40.0, 0.001);
+    }
+
+    #[test]
     fn throughput_tracker_trims_samples_to_window_with_one_preceding_point() {
         let mut tracker = ThroughputTracker::default();
-        tracker.record_sample(0, 0);
-        tracker.record_sample(1_000, 1);
-        tracker.record_sample(SPARKLINE_WINDOW_MS + 100_000, 2);
+        tracker.record_sample(0, 0, 0);
+        tracker.record_sample(1_000, 1, 1);
+        tracker.record_sample(SPARKLINE_WINDOW_MS + 100_000, 2, 2);
 
         assert_eq!(tracker.token_samples.len(), 2);
         assert_eq!(tracker.token_samples[0].0, 1_000);
+        assert_eq!(tracker.event_samples.len(), 2);
+        assert_eq!(tracker.event_samples[0].0, 1_000);
     }
 
     #[test]

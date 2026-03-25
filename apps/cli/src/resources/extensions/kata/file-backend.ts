@@ -107,6 +107,7 @@ function parseDocName(name: string): ParsedDocName {
 export class FileBackend implements KataBackend {
   readonly basePath: string;
   readonly gitRoot: string;
+  readonly isLinearMode = false;
 
   constructor(basePath: string) {
     this.basePath = basePath;

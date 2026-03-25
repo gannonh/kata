@@ -1,1 +1,8 @@
 .env
+
+# User workflow files (contain local paths, API keys, credentials)
+WORKFLOW.md
+WORKFLOW-cli.md
+WORKFLOW-*.md
+!docs/WORKFLOW-*.md
+!docs/WORKFLOW-REFERENCE.md
