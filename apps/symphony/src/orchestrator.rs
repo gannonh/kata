@@ -3337,7 +3337,11 @@ fn extract_tool_activity(event: &AgentEvent) -> ToolActivity {
         // We don't set "started" for these since they arrive post-completion.
         AgentEvent::ToolCallCompleted { .. }
         | AgentEvent::ToolCallFailed { .. }
-        | AgentEvent::UnsupportedToolCall { .. } => ToolActivity::Ended,
+        | AgentEvent::UnsupportedToolCall { .. }
+        | AgentEvent::TurnCompleted { .. }
+        | AgentEvent::TurnFailed { .. }
+        | AgentEvent::TurnCancelled { .. }
+        | AgentEvent::TurnEndedWithError { .. } => ToolActivity::Ended,
 
         // Pi-agent RPC: tool execution events arrive as Notification messages.
         AgentEvent::Notification { message, .. } => parse_tool_notification(message),
@@ -3383,7 +3387,7 @@ fn parse_tool_notification(message: &str) -> ToolActivity {
 fn build_tool_args_preview(args_json: &str) -> String {
     let parsed: serde_json::Value = match serde_json::from_str(args_json) {
         Ok(v) => v,
-        Err(_) => return args_json.to_string(),
+        Err(_) => return args_json.chars().filter(|c| !c.is_control()).collect(),
     };
 
     let obj = match parsed.as_object() {
@@ -3506,5 +3510,37 @@ mod tests {
     fn build_tool_args_preview_invalid_json() {
         let preview = build_tool_args_preview("not json");
         assert_eq!(preview, "not json");
+    }
+
+    #[test]
+    fn build_tool_args_preview_strips_control_chars_on_invalid_json() {
+        let preview = build_tool_args_preview("bad\x00json\nwith\tcontrol");
+        assert_eq!(preview, "badjsonwithcontrol"); // all control chars stripped
+    }
+
+    #[test]
+    fn extract_tool_activity_clears_on_turn_completed() {
+        let event = AgentEvent::TurnCompleted {
+            timestamp: chrono::Utc::now(),
+            codex_app_server_pid: None,
+            turn_id: "t1".to_string(),
+            message: None,
+            input_tokens: 0,
+            output_tokens: 0,
+            total_tokens: 0,
+            rate_limits: None,
+        };
+        assert!(matches!(extract_tool_activity(&event), ToolActivity::Ended));
+    }
+
+    #[test]
+    fn extract_tool_activity_clears_on_turn_failed() {
+        let event = AgentEvent::TurnFailed {
+            timestamp: chrono::Utc::now(),
+            codex_app_server_pid: None,
+            turn_id: "t1".to_string(),
+            error: "crash".to_string(),
+        };
+        assert!(matches!(extract_tool_activity(&event), ToolActivity::Ended));
     }
 }
