@@ -38,6 +38,8 @@ fn make_issue(identifier: String) -> Issue {
         assigned_to_worker: true,
         created_at: Some(Utc::now()),
         updated_at: Some(Utc::now()),
+        children_count: 0,
+        parent_identifier: None,
     }
 }
 

@@ -728,6 +728,19 @@ pub fn normalize_issue(raw: &Value, assignee_filter: Option<&AssigneeFilter>) ->
     let created_at = parse_datetime(obj.get("createdAt"));
     let updated_at = parse_datetime(obj.get("updatedAt"));
 
+    // Extract children count and parent identifier for slice/task detection
+    let children_count = obj
+        .get("children")
+        .and_then(|c| c.get("nodes"))
+        .and_then(|n| n.as_array())
+        .map(|a| a.len() as u32)
+        .unwrap_or(0);
+    let parent_identifier = obj
+        .get("parent")
+        .and_then(|p| p.get("identifier"))
+        .and_then(|v| v.as_str())
+        .map(String::from);
+
     Some(Issue {
         id,
         identifier,
@@ -743,6 +756,8 @@ pub fn normalize_issue(raw: &Value, assignee_filter: Option<&AssigneeFilter>) ->
         assigned_to_worker: assigned,
         created_at,
         updated_at,
+        children_count,
+        parent_identifier,
     })
 }
 

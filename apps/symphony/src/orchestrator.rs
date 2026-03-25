@@ -1349,6 +1349,10 @@ impl Orchestrator {
             let attempt = d.attempt;
             let worker_host = d.worker_host.clone();
             let tx = self.worker_result_tx.clone();
+
+            // Resolve per-state prompt if configured, falling back to monolith template
+            let prompt_template = self.resolve_prompt_for_issue(&issue);
+
             let task_config = WorkerTaskConfig {
                 workspace: self.config.workspace.clone(),
                 hooks: self.config.hooks.clone(),
@@ -1357,7 +1361,7 @@ impl Orchestrator {
                 agent_backend: self.config.agent_backend,
                 max_turns: self.config.agent.max_turns,
                 tracker: self.config.tracker.clone(),
-                prompt_template: self.prompt_template.clone(),
+                prompt_template,
                 event_tx: self.worker_event_tx.clone(),
             };
 
@@ -2359,6 +2363,45 @@ impl Orchestrator {
     ///
     /// Called after every material state change in the runtime loop.
     /// No-op if `create_snapshot_handle()` was never called.
+    /// Resolve the prompt template for an issue, using per-state prompts if
+    /// configured, otherwise falling back to the monolith prompt_template.
+    fn resolve_prompt_for_issue(&self, issue: &Issue) -> String {
+        if let Some(prompts) = &self.config.prompts {
+            let workflow_dir = self
+                .workflow_store
+                .as_ref()
+                .map(|ws| ws.workflow_dir().to_path_buf())
+                .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+            match prompt_builder::resolve_per_state_prompt(prompts, &issue.state, &workflow_dir) {
+                Ok(Some(template)) => {
+                    tracing::debug!(
+                        issue_id = %issue.id,
+                        issue_state = %issue.state,
+                        "resolved per-state prompt template"
+                    );
+                    return template;
+                }
+                Ok(None) => {
+                    tracing::debug!(
+                        issue_id = %issue.id,
+                        issue_state = %issue.state,
+                        "no per-state prompt for state; using monolith template"
+                    );
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        issue_id = %issue.id,
+                        issue_state = %issue.state,
+                        error = %err,
+                        "failed to resolve per-state prompt; falling back to monolith template"
+                    );
+                }
+            }
+        }
+        self.prompt_template.clone()
+    }
+
     pub fn publish_snapshot(&self) {
         if let Some(handle) = &self.snapshot_handle {
             let snapshot = self.snapshot(Utc::now().timestamp_millis());

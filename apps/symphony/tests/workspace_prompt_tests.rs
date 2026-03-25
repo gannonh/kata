@@ -147,6 +147,8 @@ fn make_test_issue(identifier: &str) -> Issue {
         assigned_to_worker: true,
         created_at: None,
         updated_at: None,
+        children_count: 0,
+        parent_identifier: None,
     }
 }
 
@@ -1000,6 +1002,8 @@ fn make_full_issue() -> Issue {
         assigned_to_worker: true,
         created_at: Some("2025-01-15T10:30:00Z".parse::<DateTime<Utc>>().unwrap()),
         updated_at: Some("2025-02-20T14:00:00Z".parse::<DateTime<Utc>>().unwrap()),
+        children_count: 0,
+        parent_identifier: None,
     }
 }
 
@@ -1079,6 +1083,8 @@ fn test_render_prompt_none_fields() {
         assigned_to_worker: true,
         created_at: None,
         updated_at: None,
+        children_count: 0,
+        parent_identifier: None,
     };
     let template = "Desc: [{{ issue.description }}] Branch: [{{ issue.branch_name }}]";
 

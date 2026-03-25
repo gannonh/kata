@@ -148,6 +148,13 @@ impl WorkflowStore {
     /// If the read lock is poisoned (another thread panicked while holding the
     /// write lock), the last-written value is recovered and returned rather
     /// than propagating a panic.
+    /// Return the parent directory of the workflow file.
+    ///
+    /// Prompt file paths in `prompts.by_state` are resolved relative to this.
+    pub fn workflow_dir(&self) -> &Path {
+        self.path.parent().unwrap_or(Path::new("."))
+    }
+
     pub fn effective_config(&self) -> EffectiveConfig {
         match self.inner.read() {
             Ok(guard) => guard.clone(),

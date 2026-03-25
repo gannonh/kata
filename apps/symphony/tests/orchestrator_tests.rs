@@ -131,6 +131,8 @@ fn issue(
         assigned_to_worker: true,
         created_at: Some(Utc::now() + Duration::seconds(created_at_offset_secs)),
         updated_at: Some(Utc::now()),
+        children_count: 0,
+        parent_identifier: None,
     }
 }
 
