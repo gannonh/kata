@@ -123,7 +123,7 @@ fn test_parse_workflow_non_map_yaml() {
 
 #[test]
 fn test_repo_workflow_requires_publish_gate_before_human_review() {
-    let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("WORKFLOW-symphony.md");
+    let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/WORKFLOW-symphony.md");
     let def = parse_workflow(&workflow_path)
         .expect("repo WORKFLOW.md should parse for publish-gate contract assertions");
 
