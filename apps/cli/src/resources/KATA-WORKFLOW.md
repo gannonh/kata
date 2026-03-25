@@ -833,8 +833,9 @@ Auto-mode runs fresh context windows in a loop until the slice is complete. Each
 3. If `phase: "blocked"`, surface `blockers[]` to the user and stop.
 4. If `phase: "executing"` or `phase: "verifying"`:
    - Get `activeTask.id` and `activeTask.title` from the result.
-   - Call `kata_read_document` with the task plan title (e.g. `T01-PLAN`) to load the contract.
-   - If no plan doc exists (null result), the planning phase did not complete correctly. Stop and surface the error.
+   - Load the task issue via `linear_get_issue(<task-uuid>)` and use `issue.description` as the task plan contract.
+   - Backward-compatible fallback: if task `description` is empty, call `kata_read_document` with the task plan title (e.g. `T01-PLAN`).
+   - If both description and fallback plan doc are empty, planning did not complete correctly. Stop and surface the error.
 
 ### During execution
 
@@ -844,10 +845,10 @@ Auto-mode runs fresh context windows in a loop until the slice is complete. Each
 
 ### At the end of every session (before context window closes)
 
-1. **Write the task summary** — call `kata_write_document` with the task summary content.
+1. **Write the task summary** — post an issue comment on the task via `linear_add_comment`.
 2. **Advance the task state** — call `kata_update_issue_state` with `phase: "done"`.
 3. If this was the last task in the slice:
-   - Write the slice summary via `kata_write_document`.
+   - Write the slice summary as a comment on the slice issue via `linear_add_comment`.
    - Advance the slice issue via `kata_update_issue_state(sliceIssueId, { phase: "done" })`.
 
 **Never finish a session without writing the summary and advancing the issue state.**
@@ -877,9 +878,11 @@ All Kata-specific tools use the `kata_` prefix.
 
 | Tool                    | Description                                                                                       |
 | ----------------------- | ------------------------------------------------------------------------------------------------- |
-| `kata_write_document`   | Write (upsert) a Kata artifact as a LinearDocument. Takes `title` and `content`.                  |
-| `kata_read_document`    | Read a Kata artifact document by title. Returns document with content, or `null` if not found.    |
+| `kata_write_document`   | Write (upsert) a Kata artifact as a LinearDocument. Use for milestone/project artifacts (`ROADMAP`, `CONTEXT`, `DECISIONS`, `PROJECT`, `REQUIREMENTS`, milestone summaries). |
+| `kata_read_document`    | Read a Kata artifact document by title. Returns document with content, or `null` if not found. Use as fallback for legacy slice/task plan docs when issue descriptions are empty. |
 | `kata_list_documents`   | List all Kata artifact documents in the attachment scope.                                         |
+
+> Slice plans (`Sxx-PLAN`) and task plans (`Txx-PLAN`) should now live in issue descriptions, not LinearDocuments. Slice/task summaries should be issue comments (`linear_add_comment`).
 
 ### Entity Creation
 
