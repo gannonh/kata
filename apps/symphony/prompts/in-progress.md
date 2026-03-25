@@ -11,17 +11,16 @@ This issue is a **Kata-planned slice** with {{ issue.children_count }} child tas
 
 Before implementation starts, load context in this exact order:
 
-1. **Child issues** — discover task list and ordering. Sort by task prefix (`T01`, `T02`, ...) when present; otherwise by issue number ascending.
-2. **Slice issue documents** — read slice-scoped docs (`S0N-PLAN`, `S0N-RESEARCH`, `T0N-PLAN`, `T0N-SUMMARY`). These are attached to the slice issue, not the project.
-3. **Project documents** — read project-scoped docs (`PROJECT`, `REQUIREMENTS`, `DECISIONS`, `M00N-CONTEXT`, `M00N-ROADMAP`).
-4. **Milestone context** via `issue.projectMilestone` — find `M00N-CONTEXT` and `M00N-ROADMAP` in project documents.
+1. **Child issues** — fetch all child sub-issues to discover task list and ordering. Sort by task prefix (`T01`, `T02`, ...) when present; otherwise by issue number ascending. **Each child issue's description IS the task plan** — read it to understand what to implement.
+2. **This issue's description** — the slice plan with goal, must-haves, and task overview.
+3. **Project documents** — read project-scoped docs (`DECISIONS`, `M00N-CONTEXT`, `M00N-ROADMAP`) if needed for broader context.
 
 ### Execution flow
 
 1. Build ordered task list from child issues.
 2. For each task in order:
-   - Read the task plan document (`T0N-PLAN`).
-   - Execute the implementation steps.
+   - Read the child issue description (this is the task plan — it contains steps, must-haves, and verification criteria).
+   - Execute the implementation steps described in the description.
    - Run validation for that task.
    - Commit with task reference in the message.
    - Move the child issue to `Done`.
@@ -45,9 +44,9 @@ Use this structure (filled with real data from loaded context, NOT placeholders)
 
 ### Plan
 
-- [ ] 1\. Load context hierarchy
-- [ ] 2\. Execute T01 per T01-PLAN
-- [ ] 3\. Execute T02 per T02-PLAN
+- [ ] 1\. Load child issues and read their descriptions
+- [ ] 2\. Execute T01 per its issue description
+- [ ] 3\. Execute T02 per its issue description
 - [ ] 4\. Run validation gates
 - [ ] 5\. Push and open PR
 
@@ -69,11 +68,11 @@ Use this structure (filled with real data from loaded context, NOT placeholders)
 {% elsif issue.parent_identifier %}
 ## Task execution mode
 
-This issue is a **Kata task** under parent slice {{ issue.parent_identifier }}. Load your task plan document and execute it.
+This issue is a **Kata task** under parent slice {{ issue.parent_identifier }}. Your issue description IS the task plan.
 
-1. Read the task plan document (`T0N-PLAN`) from the parent slice issue's documents.
-2. Execute the implementation steps described in the plan.
-3. Run validation as described in the plan's must-haves.
+1. Read this issue's description — it contains the steps, must-haves, and verification criteria.
+2. Execute the implementation steps described in the description.
+3. Run validation as described in the must-haves.
 4. Commit with task reference in the message.
 
 {% else %}

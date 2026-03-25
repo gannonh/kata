@@ -124,8 +124,7 @@ fn test_parse_workflow_non_map_yaml() {
 #[test]
 fn test_repo_workflow_requires_publish_gate_before_agent_review() {
     // The publish-gate contract now lives in the per-state prompt file
-    let prompt_path =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("prompts/in-progress.md");
+    let prompt_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("prompts/in-progress.md");
     let content = std::fs::read_to_string(&prompt_path)
         .expect("prompts/in-progress.md should exist for publish-gate contract assertions");
 
@@ -146,8 +145,7 @@ fn test_repo_workflow_requires_publish_gate_before_agent_review() {
 #[test]
 fn test_repo_workflow_example_uses_per_state_prompts() {
     let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/WORKFLOW-symphony.md");
-    let def = parse_workflow(&workflow_path)
-        .expect("example WORKFLOW-symphony.md should parse");
+    let def = parse_workflow(&workflow_path).expect("example WORKFLOW-symphony.md should parse");
 
     // When using per-state prompts, the body after --- should be empty or minimal
     // The config should have a prompts section

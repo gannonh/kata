@@ -1224,9 +1224,9 @@ async fn test_docker_bootstrap_repository_rejects_non_remote_strategies() {
 
 #[test]
 fn test_resolve_per_state_prompt_reads_and_concatenates_files() {
+    use std::collections::HashMap;
     use symphony::domain::PromptsConfig;
     use symphony::prompt_builder::resolve_per_state_prompt;
-    use std::collections::HashMap;
 
     let dir = tempfile::tempdir().unwrap();
     let dir_path = dir.path();
@@ -1237,9 +1237,7 @@ fn test_resolve_per_state_prompt_reads_and_concatenates_files() {
 
     let config = PromptsConfig {
         shared: Some("shared.md".to_string()),
-        by_state: HashMap::from([
-            ("in progress".to_string(), "in-progress.md".to_string()),
-        ]),
+        by_state: HashMap::from([("in progress".to_string(), "in-progress.md".to_string())]),
         default: None,
     };
 
@@ -1247,16 +1245,25 @@ fn test_resolve_per_state_prompt_reads_and_concatenates_files() {
         .expect("should resolve")
         .expect("should find state mapping");
 
-    assert!(result.contains("SHARED CONTEXT"), "should include shared content");
-    assert!(result.contains("DO THE WORK"), "should include state content");
-    assert!(result.contains("---"), "should have separator between shared and state");
+    assert!(
+        result.contains("SHARED CONTEXT"),
+        "should include shared content"
+    );
+    assert!(
+        result.contains("DO THE WORK"),
+        "should include state content"
+    );
+    assert!(
+        result.contains("---"),
+        "should have separator between shared and state"
+    );
 }
 
 #[test]
 fn test_resolve_per_state_prompt_uses_default_for_unmapped_state() {
+    use std::collections::HashMap;
     use symphony::domain::PromptsConfig;
     use symphony::prompt_builder::resolve_per_state_prompt;
-    use std::collections::HashMap;
 
     let dir = tempfile::tempdir().unwrap();
     let dir_path = dir.path();
@@ -1278,9 +1285,9 @@ fn test_resolve_per_state_prompt_uses_default_for_unmapped_state() {
 
 #[test]
 fn test_resolve_per_state_prompt_returns_none_when_no_mapping_and_no_default() {
+    use std::collections::HashMap;
     use symphony::domain::PromptsConfig;
     use symphony::prompt_builder::resolve_per_state_prompt;
-    use std::collections::HashMap;
 
     let config = PromptsConfig {
         shared: None,
@@ -1295,9 +1302,9 @@ fn test_resolve_per_state_prompt_returns_none_when_no_mapping_and_no_default() {
 
 #[test]
 fn test_resolve_per_state_prompt_without_shared_returns_state_only() {
+    use std::collections::HashMap;
     use symphony::domain::PromptsConfig;
     use symphony::prompt_builder::resolve_per_state_prompt;
-    use std::collections::HashMap;
 
     let dir = tempfile::tempdir().unwrap();
     let dir_path = dir.path();
@@ -1306,9 +1313,7 @@ fn test_resolve_per_state_prompt_without_shared_returns_state_only() {
 
     let config = PromptsConfig {
         shared: None,
-        by_state: HashMap::from([
-            ("agent review".to_string(), "review.md".to_string()),
-        ]),
+        by_state: HashMap::from([("agent review".to_string(), "review.md".to_string())]),
         default: None,
     };
 
@@ -1317,14 +1322,17 @@ fn test_resolve_per_state_prompt_without_shared_returns_state_only() {
         .expect("should find state mapping");
 
     assert_eq!(result, "REVIEW ONLY");
-    assert!(!result.contains("---"), "no separator when no shared content");
+    assert!(
+        !result.contains("---"),
+        "no separator when no shared content"
+    );
 }
 
 #[test]
 fn test_resolve_per_state_prompt_state_matching_is_case_insensitive() {
+    use std::collections::HashMap;
     use symphony::domain::PromptsConfig;
     use symphony::prompt_builder::resolve_per_state_prompt;
-    use std::collections::HashMap;
 
     let dir = tempfile::tempdir().unwrap();
     let dir_path = dir.path();
@@ -1333,9 +1341,7 @@ fn test_resolve_per_state_prompt_state_matching_is_case_insensitive() {
 
     let config = PromptsConfig {
         shared: None,
-        by_state: HashMap::from([
-            ("merging".to_string(), "merge.md".to_string()),
-        ]),
+        by_state: HashMap::from([("merging".to_string(), "merge.md".to_string())]),
         default: None,
     };
 
