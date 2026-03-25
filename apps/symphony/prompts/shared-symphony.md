@@ -64,7 +64,7 @@ Use the built-in Linear tools (`linear_get_issue`, `linear_list_workflow_states`
 
 ## Workpad protocol
 
-Maintain a single persistent `## Codex Workpad` comment on the issue as the source of truth for progress.
+Maintain a single persistent `## Agent Workpad` comment on the issue as the source of truth for progress.
 
 - **Load all context BEFORE creating or updating the workpad.** Read the issue description, child tasks, attached plan documents, and AGENTS.md first.
 - List comments before creating; reuse the most recently updated active/unresolved candidate.

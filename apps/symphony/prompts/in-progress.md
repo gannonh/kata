@@ -31,7 +31,7 @@ Before implementation starts, load context in this exact order:
 Use this structure (filled with real data from loaded context, NOT placeholders):
 
 ````md
-## Codex Workpad
+## Agent Workpad
 
 ```text
 <host>:<abs-workdir>@<short-sha>
