@@ -1720,6 +1720,8 @@ impl Orchestrator {
             return;
         }
 
+        self.state.codex_totals.event_count = self.state.codex_totals.event_count.saturating_add(1);
+
         let _ = self.ensure_worker_session_info(issue_id);
         self.record_worker_activity(issue_id, event_timestamp_ms(event));
         let event_time = event_timestamp(event);

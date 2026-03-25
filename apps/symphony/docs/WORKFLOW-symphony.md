@@ -2,8 +2,8 @@
 tracker:
   kind: linear
   api_key: $LINEAR_API_KEY
-  project_slug: "89d4761fddf0"
-  # assignee: alice
+  project_slug: my-project
+  # assignee: alice                    # Optional: filter to a specific user
   active_states:
     - Todo
     - In Progress
@@ -19,8 +19,8 @@ tracker:
 polling:
   interval_ms: 30000
 workspace:
-  root: /Volumes/EVO/symphony-workspaces
-  repo: /Volumes/EVO/kata/kata-mono
+  root: ~/symphony-workspaces
+  repo: /path/to/your/repo
   git_strategy: worktree
   isolation: local
   cleanup_on_done: true
