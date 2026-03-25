@@ -548,6 +548,8 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
         let last_event = metrics.and_then(|m| m.last_event.as_deref());
         let last_event_message = metrics.and_then(|m| m.last_event_message.as_deref());
         let session_id = metrics.and_then(|m| m.session_id.as_deref());
+        let current_tool_name = metrics.and_then(|m| m.current_tool_name.as_deref());
+        let current_tool_args = metrics.and_then(|m| m.current_tool_args_preview.as_deref());
         let stale = is_stale_session(last_activity, now);
         let state = run
             .linear_state
@@ -575,7 +577,7 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
                 LAST_EVENT_COLUMN_WIDTH as usize,
             )),
             Cell::from(truncate_for_display(
-                last_event_message.unwrap_or("-"),
+                &format_activity_message(current_tool_name, current_tool_args, last_event_message),
                 MESSAGE_COLUMN_TRUNCATE_WIDTH,
             )),
             last_activity_cell,
@@ -614,6 +616,22 @@ fn compact_session_id(session_id: Option<&str>) -> String {
         .map(compact_session_id_value)
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "-".to_string())
+}
+
+/// Format the activity message for display, preferring current tool info when available.
+fn format_activity_message(
+    current_tool_name: Option<&str>,
+    current_tool_args: Option<&str>,
+    fallback_message: Option<&str>,
+) -> String {
+    if let Some(tool) = current_tool_name {
+        match current_tool_args {
+            Some(args) if !args.is_empty() => format!("tool: {tool} ({args})"),
+            _ => format!("tool: {tool}"),
+        }
+    } else {
+        fallback_message.unwrap_or("-").to_string()
+    }
 }
 
 fn status_dot(
@@ -1054,6 +1072,8 @@ mod tests {
                 last_event: Some(long_event.to_string()),
                 last_event_message: Some("message".to_string()),
                 session_id: Some("1234567890abcdef".to_string()),
+                current_tool_name: None,
+                current_tool_args_preview: None,
             },
         );
 

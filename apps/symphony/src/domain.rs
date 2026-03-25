@@ -514,6 +514,12 @@ pub struct WorkerSessionInfo {
     pub last_activity_ms: Option<i64>,
     #[serde(default)]
     pub session_tokens: SessionTokenUsage,
+    /// Name of the tool currently executing (set on tool_start, cleared on tool_end).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_tool_name: Option<String>,
+    /// Short preview of the arguments for the currently executing tool.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_tool_args_preview: Option<String>,
 }
 
 // ── LiveSession (spec §4.1.6) ─────────────────────────────────────────
@@ -642,6 +648,12 @@ pub struct RunningSessionSnapshot {
     pub last_event_message: Option<String>,
     #[serde(default)]
     pub session_id: Option<String>,
+    /// Name of the tool currently executing (set on tool_start, cleared on tool_end).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_tool_name: Option<String>,
+    /// Short preview of the arguments for the currently executing tool.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_tool_args_preview: Option<String>,
 }
 
 /// Polling state for the snapshot.
