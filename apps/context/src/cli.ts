@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-console */
 
 /**
  * kata-context CLI entry point.
@@ -42,6 +43,12 @@ import {
   formatSemanticDiagnostics,
   type OutputOptions,
 } from "./formatters.js";
+import { MemoryStore, MemoryError } from "./memory/index.js";
+import { recallMemories } from "./memory/recall.js";
+import { consolidateMemories } from "./memory/consolidate.js";
+import { createWatcher } from "./watcher/index.js";
+import { combinedRetrieval } from "./retrieval/combined.js";
+import type { CombinedRetrievalResult } from "./retrieval/types.js";
 
 // ── Version ──
 
@@ -204,7 +211,7 @@ program
 program
   .command("status")
   .description("Show knowledge graph statistics")
-  .action((_opts: unknown, cmd: Command) => {
+  .action(async (_opts: unknown, cmd: Command) => {
     const outputOpts = getOutputOptions(cmd);
     const dbPath = getDbPath(cmd);
 
@@ -227,10 +234,20 @@ program
         const stats = store.getStats();
         const lastSha = store.getLastIndexedSha();
 
+        // Count memories
+        let memoryCount = 0;
+        try {
+          const memStore = new MemoryStore(process.cwd());
+          memoryCount = (await memStore.list()).length;
+        } catch {
+          // Memory dir may not exist yet
+        }
+
         const jsonData = {
           symbols: stats.symbols,
           edges: stats.edges,
           files: stats.files,
+          memories: memoryCount,
           lastIndexedSha: lastSha,
           dbPath,
         };
@@ -239,6 +256,7 @@ program
           `${stats.symbols} symbols`,
           `${stats.edges} edges`,
           `${stats.files} files`,
+          `${memoryCount} memories`,
         ];
 
         const humanFn = () => {
@@ -249,6 +267,7 @@ program
               ["Symbols", stats.symbols],
               ["Edges", stats.edges],
               ["Files", stats.files],
+              ["Memories", memoryCount],
               ["Last indexed SHA", lastSha ?? "(none)"],
               ["Database", dbPath],
             ]),
@@ -888,6 +907,475 @@ program
         console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
       }
       process.exit(1);
+    }
+  });
+
+// ── remember command ──
+
+program
+  .command("remember")
+  .argument("<content>", "Memory content to store")
+  .option("--category <cat>", "Category: decision, pattern, learning", "learning")
+  .option("--tags <tags>", "Comma-separated tags")
+  .option("--source <refs>", "Source file references")
+  .option("--json", "Output structured JSON")
+  .option("--quiet", "Minimal output")
+  .description("Store a persistent memory entry")
+  .action(async (content: string, opts: { category?: string; tags?: string; source?: string }, cmd: Command) => {
+    const outputOpts = getOutputOptions(cmd);
+    const rootPath = process.cwd();
+
+    try {
+      const store = new MemoryStore(rootPath);
+      const entry = await store.remember({
+        content,
+        category: opts.category ?? "learning",
+        tags: opts.tags ? opts.tags.split(",").map((t) => t.trim()) : [],
+        sourceRefs: opts.source ? opts.source.split(",").map((s) => s.trim()) : [],
+      });
+
+      const jsonData = {
+        id: entry.id,
+        category: entry.category,
+        tags: entry.tags,
+        createdAt: entry.createdAt,
+        sourceRefs: entry.sourceRefs,
+        content: entry.content,
+      };
+
+      const quietLines = [entry.id];
+
+      const humanFn = () => {
+        const lines: string[] = [];
+        lines.push(formatHeader("Memory Stored"));
+        lines.push(
+          formatKeyValue([
+            ["ID", entry.id],
+            ["Category", entry.category],
+            ["Tags", entry.tags.join(", ") || "(none)"],
+            ["Created", entry.createdAt],
+          ]),
+        );
+        return lines.join("\n");
+      };
+
+      output(jsonData, quietLines, humanFn, outputOpts);
+    } catch (err) {
+      if (err instanceof MemoryError) {
+        if (outputOpts.json) {
+          console.log(JSON.stringify({ error: true, code: err.code, message: err.message, hint: `Memory operation failed: ${err.code}` }));
+        } else {
+          console.error(`Error: ${err.message}`);
+        }
+        process.exit(1);
+      }
+      if (outputOpts.json) {
+        console.log(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+      } else {
+        console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      process.exit(1);
+    }
+  });
+
+// ── recall command ──
+
+program
+  .command("recall")
+  .argument("<query>", "Natural language recall query")
+  .option("--top-k <n>", "Number of results", "5")
+  .option("--category <cat>", "Filter by category")
+  .option("--json", "Output structured JSON")
+  .option("--quiet", "Minimal output")
+  .description("Recall memories by semantic similarity")
+  .action(async (query: string, opts: { topK?: string; category?: string }, cmd: Command) => {
+    const outputOpts = getOutputOptions(cmd);
+    const rootPath = process.cwd();
+    const dbPath = getDbPath(cmd, rootPath);
+
+    try {
+      const memStore = new MemoryStore(rootPath);
+      const topK = opts.topK ? parseInt(opts.topK, 10) : 5;
+
+      let graphStore: GraphStore | undefined;
+      if (existsSync(dbPath)) {
+        graphStore = new GraphStore(dbPath);
+      }
+
+      try {
+        const results = await recallMemories({
+          query,
+          store: memStore,
+          topK,
+          graphStore,
+        });
+
+        // Post-filter by category if specified
+        const filtered = opts.category
+          ? results.filter((r) => r.memory.category === opts.category)
+          : results;
+
+        const jsonData = {
+          query,
+          results: filtered.map((r, idx) => ({
+            rank: idx + 1,
+            id: r.memory.id,
+            similarity: r.similarity,
+            distance: r.distance,
+            category: r.memory.category,
+            tags: r.memory.tags,
+            content: r.memory.content,
+          })),
+          totalResults: filtered.length,
+        };
+
+        const quietLines = filtered.map(
+          (r) => `${r.memory.id}: ${r.memory.content.slice(0, 60).replace(/\n/g, " ")}`,
+        );
+
+        const humanFn = () => {
+          const lines: string[] = [];
+          lines.push(formatHeader(`Recall: "${query}"`));
+          if (filtered.length === 0) {
+            lines.push("  No matching memories found.");
+          } else {
+            lines.push(
+              formatTable(
+                ["#", "Score", "ID", "Category", "Tags", "Content"],
+                filtered.map((r, idx) => [
+                  String(idx + 1),
+                  r.similarity.toFixed(4),
+                  r.memory.id,
+                  r.memory.category,
+                  r.memory.tags.join(",") || "-",
+                  r.memory.content.slice(0, 40).replace(/\n/g, " "),
+                ]),
+              ),
+            );
+          }
+          return lines.join("\n");
+        };
+
+        output(jsonData, quietLines, humanFn, outputOpts);
+      } finally {
+        graphStore?.close();
+      }
+    } catch (err) {
+      if (err instanceof MemoryError) {
+        if (outputOpts.json) {
+          console.log(JSON.stringify({ error: true, code: err.code, message: err.message, hint: `Memory recall failed: ${err.code}` }));
+        } else {
+          console.error(`Error: ${err.message}`);
+        }
+        process.exit(1);
+      }
+      if (err instanceof SemanticDomainError) {
+        const hint = semanticRemediationForCode(err.code);
+        if (outputOpts.json) {
+          console.log(JSON.stringify({ error: true, code: err.code, message: err.message, hint }));
+        } else {
+          console.error(`Error: ${err.message}`);
+          if (hint) console.error(`Hint: ${hint}`);
+        }
+        process.exit(1);
+      }
+      if (outputOpts.json) {
+        console.log(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+      } else {
+        console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      process.exit(1);
+    }
+  });
+
+// ── forget command ──
+
+program
+  .command("forget")
+  .argument("<id>", "Memory ID to remove")
+  .option("--json", "Output structured JSON")
+  .option("--quiet", "Minimal output")
+  .description("Delete a memory entry by ID")
+  .action(async (id: string, _opts: unknown, cmd: Command) => {
+    const outputOpts = getOutputOptions(cmd);
+    const rootPath = process.cwd();
+
+    try {
+      const store = new MemoryStore(rootPath);
+      const entry = await store.forget(id);
+
+      const jsonData = {
+        id: entry.id,
+        deleted: true,
+      };
+
+      const quietLines = [entry.id];
+
+      const humanFn = () => {
+        const lines: string[] = [];
+        lines.push(formatHeader("Memory Deleted"));
+        lines.push(
+          formatKeyValue([
+            ["ID", entry.id],
+            ["Category", entry.category],
+          ]),
+        );
+        return lines.join("\n");
+      };
+
+      output(jsonData, quietLines, humanFn, outputOpts);
+    } catch (err) {
+      if (err instanceof MemoryError) {
+        if (outputOpts.json) {
+          console.log(JSON.stringify({ error: true, code: err.code, message: err.message, hint: `Memory forget failed: ${err.code}` }));
+        } else {
+          console.error(`Error: ${err.message}`);
+        }
+        process.exit(1);
+      }
+      if (outputOpts.json) {
+        console.log(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+      } else {
+        console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      process.exit(1);
+    }
+  });
+
+// ── consolidate command ──
+
+program
+  .command("consolidate")
+  .argument("<ids...>", "Memory IDs to consolidate")
+  .option("--json", "Output structured JSON")
+  .option("--quiet", "Minimal output")
+  .description("Merge multiple memories into one")
+  .action(async (ids: string[], _opts: unknown, cmd: Command) => {
+    const outputOpts = getOutputOptions(cmd);
+    const rootPath = process.cwd();
+
+    try {
+      const store = new MemoryStore(rootPath);
+      const result = await consolidateMemories({ ids, store });
+
+      const jsonData = {
+        id: result.entry.id,
+        mergedCount: result.mergedCount,
+        category: result.entry.category,
+        tags: result.entry.tags,
+        content: result.entry.content,
+      };
+
+      const quietLines = [result.entry.id];
+
+      const humanFn = () => {
+        const lines: string[] = [];
+        lines.push(formatHeader("Memories Consolidated"));
+        lines.push(
+          formatKeyValue([
+            ["New ID", result.entry.id],
+            ["Merged", `${result.mergedCount} memories`],
+            ["Category", result.entry.category],
+            ["Tags", result.entry.tags.join(", ")],
+          ]),
+        );
+        return lines.join("\n");
+      };
+
+      output(jsonData, quietLines, humanFn, outputOpts);
+    } catch (err) {
+      if (err instanceof MemoryError) {
+        if (outputOpts.json) {
+          console.log(JSON.stringify({ error: true, code: err.code, message: err.message, hint: `Consolidation failed: ${err.code}` }));
+        } else {
+          console.error(`Error: ${err.message}`);
+        }
+        process.exit(1);
+      }
+      if (outputOpts.json) {
+        console.log(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+      } else {
+        console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      process.exit(1);
+    }
+  });
+
+// ── Watch command ──
+
+program
+  .command("watch")
+  .description("Watch for file changes and trigger incremental re-indexing")
+  .argument("[path]", "Project root path", ".")
+  .option("--debounce <ms>", "Debounce window in milliseconds", "300")
+  .option("--json", "Output structured JSON")
+  .option("--quiet", "Suppress all output")
+  .action(async (pathArg: string, _opts: Record<string, string>, cmd: Command) => {
+    const outputOpts = getOutputOptions(cmd);
+    const rootPath = resolve(pathArg);
+    const config = loadConfig(rootPath);
+    const debounceMs = parseInt((cmd.opts() as Record<string, string>).debounce ?? "300", 10);
+
+    const watcher = createWatcher(rootPath, config, { debounceMs });
+
+    watcher.on((event) => {
+      if (outputOpts.quiet) return; // suppress in quiet mode
+
+      if (outputOpts.json) {
+        console.log(JSON.stringify(event));
+      } else {
+        const ts = event.timestamp.replace("T", " ").replace(/\.\d+Z$/, "");
+        switch (event.type) {
+          case "start":
+            console.log(`[${ts}] Watching ${rootPath}`);
+            break;
+          case "change":
+            console.log(`[${ts}] Changed: ${event.files?.join(", ")}`);
+            break;
+          case "reindex-start":
+            console.log(`[${ts}] Re-indexing ${event.files?.length ?? 0} files...`);
+            break;
+          case "reindex-done":
+            console.log(`[${ts}] Re-index done (${event.durationMs}ms)`);
+            break;
+          case "error":
+            console.error(`[${ts}] Error [${event.errorCode}]: ${event.error}`);
+            break;
+        }
+      }
+    });
+
+    // Handle SIGINT/SIGTERM for graceful shutdown
+    const shutdown = async () => {
+      process.off("SIGINT", shutdown);
+      process.off("SIGTERM", shutdown);
+      await watcher.stop();
+      process.exit(0);
+    };
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
+
+    try {
+      await watcher.start();
+      // Keep process alive — watcher is persistent
+    } catch (err) {
+      if (outputOpts.json) {
+        console.log(JSON.stringify({ error: true, message: err instanceof Error ? err.message : String(err) }));
+      } else {
+        console.error(`Watch failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      process.exit(1);
+    }
+  });
+
+// ── Get command (combined retrieval) ──
+
+program
+  .command("get")
+  .description("Get combined context bundle from structural, semantic, and memory retrieval")
+  .argument("<query>", "Natural language task description")
+  .option("--budget <tokens>", "Token budget for the result", "4000")
+  .option("--kind <kind>", "Filter by symbol kind")
+  .option("--json", "Output structured JSON")
+  .option("--quiet", "Minimal output (content only)")
+  .action(async (query: string, _opts: Record<string, string>, cmd: Command) => {
+    const outputOpts = getOutputOptions(cmd);
+    const rootPath = resolve(".");
+    const config = loadConfig(rootPath);
+    const dbPath = getDbPath(program, rootPath);
+    const cmdOptsTyped = cmd.opts() as Record<string, string>;
+    const budget = parseInt(cmdOptsTyped.budget ?? "4000", 10);
+
+    if (!existsSync(dbPath)) {
+      if (outputOpts.json) {
+        console.log(JSON.stringify({ error: true, message: "No index found. Run `kata context index` first." }));
+      } else {
+        console.error("No index found. Run `kata context index` first.");
+      }
+      process.exit(1);
+    }
+
+    const store = new GraphStore(dbPath);
+    let memoryStore: MemoryStore | undefined;
+    try {
+      memoryStore = new MemoryStore(rootPath);
+    } catch {
+      // Memory store optional
+    }
+
+    try {
+      const result: CombinedRetrievalResult = await combinedRetrieval({
+        query,
+        store,
+        memoryStore,
+        config,
+        options: {
+          budget,
+          kinds: cmdOptsTyped.kind ? [cmdOptsTyped.kind as SymbolKind] : undefined,
+        },
+      });
+
+      if (outputOpts.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else if (outputOpts.quiet) {
+        // Quiet: raw content blocks only
+        for (const item of result.items) {
+          console.log(item.content);
+        }
+      } else {
+        // Human-readable: sections grouped by provenance
+        const grouped = new Map<string, typeof result.items>();
+        for (const item of result.items) {
+          const group = grouped.get(item.provenance) ?? [];
+          group.push(item);
+          grouped.set(item.provenance, group);
+        }
+
+        const provenanceOrder = ["structural", "semantic", "memory"];
+        const labels: Record<string, string> = {
+          structural: "Structural",
+          semantic: "Semantic",
+          memory: "Memory",
+        };
+
+        for (const prov of provenanceOrder) {
+          const items = grouped.get(prov);
+          if (!items || items.length === 0) continue;
+
+          console.log(formatHeader(`${labels[prov]} (${items.length} items)`));
+          for (const item of items) {
+            console.log(`  ${item.source}`);
+            const preview = item.content.split("\n").slice(0, 3).join("\n    ");
+            console.log(`    ${preview}`);
+            console.log();
+          }
+        }
+
+        // Diagnostics summary
+        const d = result.diagnostics;
+        console.log(formatHeader("Diagnostics"));
+        console.log(
+          formatKeyValue([
+            ["Budget", `${d.budgetUsed}/${d.budgetTotal} tokens`],
+            ["Time", `${d.totalTimeMs}ms`],
+            [
+              "Strategies",
+              Object.entries(d.perStrategy)
+                .map(([k, v]) => `${k}: ${v.status} (${v.hits} hits, ${v.timeMs}ms)`)
+                .join(", "),
+            ],
+          ]),
+        );
+      }
+    } catch (err) {
+      if (outputOpts.json) {
+        console.log(JSON.stringify({ error: true, message: err instanceof Error ? err.message : String(err) }));
+      } else {
+        console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      process.exit(1);
+    } finally {
+      store.close();
     }
   });
 

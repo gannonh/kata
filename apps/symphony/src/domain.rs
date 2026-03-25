@@ -312,7 +312,6 @@ pub struct AgentConfig {
     pub max_concurrent_agents: u32,
     pub max_turns: u32,
     pub max_retry_backoff_ms: u64,
-    pub max_concurrent_agents_by_state: HashMap<String, u32>,
 }
 
 impl Default for AgentConfig {
@@ -321,7 +320,6 @@ impl Default for AgentConfig {
             max_concurrent_agents: 10,
             max_turns: 20,
             max_retry_backoff_ms: 300_000,
-            max_concurrent_agents_by_state: HashMap::new(),
         }
     }
 }
@@ -375,8 +373,10 @@ pub enum AgentBackend {
 pub struct PiAgentConfig {
     /// Command and arguments to launch pi-agent.
     pub command: Vec<String>,
-    /// Optional model identifier passed via `--model`.
+    /// Optional default model identifier passed via `--model`.
     pub model: Option<String>,
+    /// Optional per-Linear-state model overrides (lowercased state names).
+    pub model_by_state: HashMap<String, String>,
     /// Whether to pass `--no-session`.
     pub no_session: bool,
     /// Optional file path passed via `--append-system-prompt`.
@@ -392,11 +392,26 @@ impl Default for PiAgentConfig {
         Self {
             command: vec!["kata".to_string()],
             model: None,
+            model_by_state: HashMap::new(),
             no_session: true,
             append_system_prompt: None,
             read_timeout_ms: 5_000,
             stall_timeout_ms: 300_000,
         }
+    }
+}
+
+impl PiAgentConfig {
+    /// Resolve the effective model for a Linear issue state.
+    ///
+    /// Looks up a lowercase/trimmed state key in `model_by_state` first,
+    /// then falls back to the default `model`.
+    pub fn model_for_state(&self, issue_state: &str) -> Option<String> {
+        let state_key = issue_state.trim().to_lowercase();
+        self.model_by_state
+            .get(&state_key)
+            .cloned()
+            .or_else(|| self.model.clone())
     }
 }
 
@@ -467,6 +482,9 @@ pub struct RunAttempt {
     pub error: Option<String>,
     #[serde(default)]
     pub worker_host: Option<String>,
+    /// Effective model selected for this run attempt (backend-dependent).
+    #[serde(default)]
+    pub model: Option<String>,
     /// Linear issue state at dispatch time (e.g. "In Progress", "Agent Review").
     #[serde(default)]
     pub linear_state: Option<String>,
@@ -558,6 +576,8 @@ pub struct CodexTotals {
     pub input_tokens: u64,
     pub output_tokens: u64,
     pub total_tokens: u64,
+    #[serde(default)]
+    pub event_count: u64,
     pub seconds_running: f64,
 }
 

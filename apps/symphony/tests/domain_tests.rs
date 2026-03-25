@@ -184,6 +184,7 @@ fn test_run_attempt_construction_and_serialization() {
         status: "running".into(),
         error: None,
         worker_host: None,
+        model: None,
         linear_state: None,
     };
     let json = serde_json::to_string(&ra).unwrap();
@@ -260,6 +261,7 @@ fn test_orchestrator_snapshot_serializes() {
                     status: "running".into(),
                     error: None,
                     worker_host: None,
+                    model: None,
                     linear_state: None,
                 },
             );
@@ -275,6 +277,7 @@ fn test_orchestrator_snapshot_serializes() {
                     status: "running".into(),
                     error: None,
                     worker_host: None,
+                    model: None,
                     linear_state: None,
                 },
             );

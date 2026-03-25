@@ -126,7 +126,7 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 | `agent.max_turns`                      | u32                | `20`     | Maximum prompt turns per session attempt before the worker run ends.                                                           |
 | `agent.max_retry_backoff_ms`           | u64                | `300000` | Maximum exponential back-off delay (ms) between retries.                                                                       |
 | `agent.backend`                        | string             | `"codex"`| Runtime backend: `"codex"` (Codex app-server) or `"kata-cli"` (aliases: `"kata"`, `"pi"`) for Kata RPC.                   |
-| `agent.max_concurrent_agents_by_state` | map\<string, u32\> | `{}`     | Per-Linear-state concurrency caps. Keys are lowercased state names; zero or negative values are silently ignored (spec §17.1). |
+
 
 #### `codex` section
 
@@ -145,7 +145,8 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 | Field                             | Type               | Default  | Description                                                                                               |
 | --------------------------------- | ------------------ | -------- | --------------------------------------------------------------------------------------------------------- |
 | `kata_agent.command` (`pi_agent.command`)              | string or string[] | `["kata"]` | Kata CLI executable and base args. Symphony appends `--mode rpc --cwd <workspace>`.                    |
-| `kata_agent.model` (`pi_agent.model`)                  | string             | _(none)_ | Optional model override passed as `--model`.                                                             |
+| `kata_agent.model` (`pi_agent.model`)                  | string             | _(none)_ | Optional default model override passed as `--model`.                                                     |
+| `kata_agent.model_by_state` (`pi_agent.model_by_state`) | map<string, string> | `{}`    | Optional per-Linear-state model overrides. Keys are lowercased state names; falls back to `model`.      |
 | `kata_agent.no_session` (`pi_agent.no_session`)        | bool               | `true`   | Pass `--no-session` to disable persistent session storage.                                               |
 | `kata_agent.append_system_prompt` (`pi_agent.append_system_prompt`) | string             | _(none)_ | Optional path passed via `--append-system-prompt`.                                                       |
 | `kata_agent.read_timeout_ms` (`pi_agent.read_timeout_ms`)      | u64                | `5000`   | Timeout waiting for Kata CLI process output (ms).                                                        |
@@ -239,9 +240,6 @@ agent:
   max_concurrent_agents: 5
   max_turns: 30
   max_retry_backoff_ms: 120000
-  max_concurrent_agents_by_state:
-    in progress: 3
-    todo: 2
 
 codex:
   command: [codex, app-server]

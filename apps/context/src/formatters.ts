@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Output formatters for the kata-context CLI.
  *

@@ -111,7 +111,7 @@ jobs:
             echo "found=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-          NOTES=$(sed -n "/^## ${VERSION}$/,/^## /{ /^## ${VERSION}$/d; /^## /d; p; }" "$CHANGELOG")
+          NOTES=$(sed -n "/^## ${VERSION}/,/^## /{ /^## ${VERSION}/d; /^## /d; p; }" "$CHANGELOG")
           if [ -z "$NOTES" ]; then
             echo "found=false" >> $GITHUB_OUTPUT
           else

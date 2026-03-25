@@ -113,7 +113,7 @@ jobs:
         run: |
           VERSION=${{ needs.check-version.outputs.version }}
           # Extract the section between ## $VERSION and the next ## heading
-          NOTES=$(sed -n "/^## ${VERSION}$/,/^## /{ /^## ${VERSION}$/d; /^## /d; p; }" apps/cli/CHANGELOG.md)
+          NOTES=$(sed -n "/^## ${VERSION}/,/^## /{ /^## ${VERSION}/d; /^## /d; p; }" apps/cli/CHANGELOG.md)
           if [ -z "$NOTES" ]; then
             echo "No changelog entry found for $VERSION, falling back to auto-generated notes"
             echo "found=false" >> $GITHUB_OUTPUT

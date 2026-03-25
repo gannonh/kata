@@ -1,10 +1,10 @@
 ---
 version: 1
 workflow:
-  mode: file
+  mode: linear
 linear:
   teamKey: KAT
-  projectId: 456a576d-53f7-46db-9af8-c8db0b2a140c
+  projectId: 1e6685a4-c088-491d-b44a-1199ebe2d64c
 pr:
   enabled: true
   auto_create: true
@@ -17,11 +17,11 @@ avoid_skills: []
 skill_rules: []
 custom_instructions: []
 models:
-  research: gpt-5.3-codex
-  planning: gpt-5.3-codex     
-  execution: gpt-5.3-codex
-  completion: gpt-5.3-codex
-  review: gpt-5.3-codex
+  research: claude-sonnet-4-6
+  planning: claude-opus-4-6     # Opus for architectural decisions
+  execution: claude-sonnet-4-6
+  completion: claude-sonnet-4-6
+  review: claude-sonnet-4-6
 auto_supervisor:
   soft_timeout_minutes: 15
   idle_timeout_minutes: 8

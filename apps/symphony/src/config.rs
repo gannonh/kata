@@ -24,7 +24,7 @@ use crate::repo_url::repo_is_remote;
 /// - coerce all mapping keys to `Value::String`
 /// - drop mapping entries whose value is `Value::Null`
 ///
-/// Note: only `agent.max_concurrent_agents_by_state` map keys are lowercased
+/// Note: only `pi_agent.model_by_state` map keys are lowercased
 /// (done separately in `from_workflow`).  General key casing is NOT changed.
 fn normalize_keys(val: Value) -> Value {
     match val {
@@ -215,7 +215,6 @@ struct RawAgentConfig {
     max_concurrent_agents: Option<u32>,
     max_turns: Option<u32>,
     max_retry_backoff_ms: Option<u64>,
-    max_concurrent_agents_by_state: Option<HashMap<String, u32>>,
 }
 
 #[derive(Deserialize, Default)]
@@ -238,6 +237,7 @@ struct RawCodexConfig {
 struct RawPiAgentConfig {
     command: Option<Value>,
     model: Option<String>,
+    model_by_state: Option<HashMap<String, String>>,
     no_session: Option<bool>,
     append_system_prompt: Option<String>,
     read_timeout_ms: Option<u64>,
@@ -703,17 +703,6 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     }
 
     // ── AgentConfig ───────────────────────────────────────────────────────
-    // Normalize max_concurrent_agents_by_state map keys to lowercase and filter
-    // out invalid (zero) entries per spec §17.1 ("ignores invalid values").
-    // Negative values are already rejected by the `u32` type at deserialization time.
-    let by_state: HashMap<String, u32> = raw_agent
-        .max_concurrent_agents_by_state
-        .unwrap_or_default()
-        .into_iter()
-        .filter(|(_, v)| *v > 0)
-        .map(|(k, v)| (k.to_lowercase(), v))
-        .collect();
-
     let agent = AgentConfig {
         max_concurrent_agents: raw_agent
             .max_concurrent_agents
@@ -722,7 +711,6 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         max_retry_backoff_ms: raw_agent
             .max_retry_backoff_ms
             .unwrap_or(defaults.agent.max_retry_backoff_ms),
-        max_concurrent_agents_by_state: by_state,
     };
 
     // ── CodexConfig ───────────────────────────────────────────────────────
@@ -778,6 +766,18 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         .map(|value| resolve_env(&value))
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
+    let pi_agent_model_by_state: HashMap<String, String> = selected_agent_config
+        .model_by_state
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(state, model)| {
+            (
+                state.trim().to_lowercase(),
+                resolve_env(&model).trim().to_string(),
+            )
+        })
+        .filter(|(state, model)| !state.is_empty() && !model.is_empty())
+        .collect();
     let pi_agent_append_system_prompt = selected_agent_config
         .append_system_prompt
         .map(|value| resolve_env(&value))
@@ -786,6 +786,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let pi_agent = PiAgentConfig {
         command: pi_agent_command,
         model: pi_agent_model,
+        model_by_state: pi_agent_model_by_state,
         no_session: selected_agent_config
             .no_session
             .unwrap_or(defaults.pi_agent.no_session),
