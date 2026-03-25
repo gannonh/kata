@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.0
+
+### Features
+
+- **`/kata plan` command** — New interactive command for ad-hoc planning decoupled from execution. Plan milestone roadmaps, plan specific slices, or plan the next pending slice without being forced into the sequential execute-after-plan flow.
+- **`/kata discuss` Linear mode support** — Fixed `/kata discuss` which was broken in Linear mode. Now uses the backend abstraction instead of file-based state derivation.
+
+### Fixes
+
+- **RPC mode theme initialization** — `initTheme()` is now called before mode routing in `cli.ts`, fixing "Theme not initialized" errors when MCP adapter connects in RPC mode (KAT-915).
+
 ## 0.6.0
 
 ### Features
