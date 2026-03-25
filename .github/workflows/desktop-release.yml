@@ -272,7 +272,7 @@ jobs:
           echo "Found notarized artifacts for ${{ matrix.arch }}"
 
       - name: Upload macOS artifacts
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: macos-${{ matrix.arch }}
           # IMPORTANT: Only upload this job's specific architecture files
@@ -378,7 +378,7 @@ jobs:
           fi
 
       - name: Upload Windows artifacts
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: windows-x64
           path: |
@@ -479,7 +479,7 @@ jobs:
           fi
 
       - name: Upload Linux artifacts
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: linux-x64
           path: |
