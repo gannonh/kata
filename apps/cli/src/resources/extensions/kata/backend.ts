@@ -64,6 +64,8 @@ export interface KataBackend {
   readonly basePath: string;
   /** Git repository root (may differ from basePath in monorepos). */
   readonly gitRoot: string;
+  /** Whether this backend uses Linear as the backing store. */
+  readonly isLinearMode: boolean;
 
   deriveState(): Promise<KataState>;
   /** Clear cached state so the next deriveState() fetches fresh data. No-op if not cached. */
@@ -72,6 +74,12 @@ export interface KataBackend {
   writeDocument(name: string, content: string, scope?: DocumentScope): Promise<void>;
   documentExists(name: string, scope?: DocumentScope): Promise<boolean>;
   listDocuments(scope?: DocumentScope): Promise<string[]>;
+
+  /**
+   * Resolve a slice's document scope (for Linear: { issueId }, for file: undefined).
+   * Used to correctly scope readDocument calls for slice-level docs (S##-PLAN, etc.).
+   */
+  resolveSliceScope?(milestoneId: string, sliceId: string): Promise<DocumentScope | undefined>;
 
   /** Async — FileBackend reads files to inline, LinearBackend may need API lookups. */
   buildPrompt(phase: Phase, state: KataState, options?: PromptOptions): Promise<string>;

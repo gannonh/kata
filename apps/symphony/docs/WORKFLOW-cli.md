@@ -2,10 +2,8 @@
 tracker:
   kind: linear
   api_key: $LINEAR_API_KEY
-  # project_slug: "89d4761fddf0" # Symphony project
-  # project_slug: "459f9835e809" # Kata CLI project
-  project_slug: "127406e46986" #Context project
-  # assignee: alice
+  project_slug: my-project           # Your Linear project slug
+  # assignee: alice                   # Optional: filter to a specific user
   active_states:
     - Todo
     - In Progress
@@ -21,13 +19,12 @@ tracker:
 polling:
   interval_ms: 30000
 workspace:
-  root: /Volumes/EVO/symphony-workspaces
-  repo: /Volumes/EVO/kata/kata-mono
+  root: ~/symphony-workspaces
+  repo: /path/to/your/repo
   git_strategy: worktree
   isolation: local
   cleanup_on_done: true
-  # branch_prefix: cli
-  branch_prefix: context
+  branch_prefix: symphony
   clone_branch: main
   base_branch: main
 hooks:
@@ -37,7 +34,7 @@ agent:
   max_concurrent_agents: 4
   max_turns: 20
 kata_agent:
-  command: node /Volumes/EVO/kata/kata-mono.worktrees/wt-cli/apps/cli/dist/loader.js
+  command: kata
   model: anthropic/claude-opus-4-6
   model_by_state:
     Agent Review: anthropic/claude-opus-4-6

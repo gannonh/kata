@@ -79,6 +79,7 @@ The main extension registers the `/kata` slash command with subcommands:
 - `/kata status` — Progress dashboard
 - `/kata queue` — View/manage work queue
 - `/kata discuss` — Discuss gray areas before planning
+- `/kata plan` — Ad-hoc planning (milestone roadmap, slice plans) without entering execution
 - `/kata prefs [global|project|status]` — Manage preferences
 - `/kata pr [status|create|review|address|merge]` — PR lifecycle management
 - `/kata doctor [audit|fix|heal]` — Diagnose and fix project state
