@@ -208,6 +208,30 @@ function findMilestoneIds(basePath: string): string[] {
   }
 }
 
+/**
+ * Derive milestone IDs from backend state registry.
+ * Works in both file and Linear modes — unlike findMilestoneIds which
+ * only reads the local filesystem.
+ */
+function milestoneIdsFromRegistry(state: import("./types.js").KataState): string[] {
+  return state.registry
+    .map((e) => e.id)
+    .filter((id) => /^M\d+$/.test(id))
+    .sort();
+}
+
+/**
+ * Compute the next milestone ID from state registry.
+ */
+function nextMilestoneId(state: import("./types.js").KataState): string {
+  const ids = milestoneIdsFromRegistry(state);
+  const maxNum = ids.reduce((max, id) => {
+    const n = parseInt(id.slice(1), 10);
+    return n > max ? n : max;
+  }, 0);
+  return `M${String(maxNum + 1).padStart(3, "0")}`;
+}
+
 // ─── Queue ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -416,62 +440,99 @@ async function buildDiscussSlicePrompt(
   sid: string,
   sTitle: string,
   base: string,
+  backend?: import("./backend.js").KataBackend,
 ): Promise<string> {
   const inlined: string[] = [];
 
-  // Roadmap — always included so the agent sees surrounding slices
-  const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
-  const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
-  const roadmapContent = roadmapPath ? await loadFile(roadmapPath) : null;
-  if (roadmapContent) {
-    inlined.push(
-      `### Milestone Roadmap\nSource: \`${roadmapRel}\`\n\n${roadmapContent.trim()}`,
-    );
-  }
+  if (backend) {
+    // ── Backend-aware path (works in both file and Linear modes) ──
+    const roadmapContent = await backend.readDocument(`${mid}-ROADMAP`);
+    if (roadmapContent) {
+      inlined.push(`### Milestone Roadmap\n\n${roadmapContent.trim()}`);
+    }
 
-  // Milestone context — understanding the full milestone intent
-  const contextPath = resolveMilestoneFile(base, mid, "CONTEXT");
-  const contextRel = relMilestoneFile(base, mid, "CONTEXT");
-  const contextContent = contextPath ? await loadFile(contextPath) : null;
-  if (contextContent) {
-    inlined.push(
-      `### Milestone Context\nSource: \`${contextRel}\`\n\n${contextContent.trim()}`,
-    );
-  }
+    const contextContent = await backend.readDocument(`${mid}-CONTEXT`);
+    if (contextContent) {
+      inlined.push(`### Milestone Context\n\n${contextContent.trim()}`);
+    }
 
-  // Milestone research — technical grounding
-  const researchPath = resolveMilestoneFile(base, mid, "RESEARCH");
-  const researchRel = relMilestoneFile(base, mid, "RESEARCH");
-  const researchContent = researchPath ? await loadFile(researchPath) : null;
-  if (researchContent) {
-    inlined.push(
-      `### Milestone Research\nSource: \`${researchRel}\`\n\n${researchContent.trim()}`,
-    );
-  }
+    const researchContent = await backend.readDocument(`${mid}-RESEARCH`);
+    if (researchContent) {
+      inlined.push(`### Milestone Research\n\n${researchContent.trim()}`);
+    }
 
-  // Decisions — architectural context that constrains this slice
-  const decisionsPath = resolveKataRootFile(base, "DECISIONS");
-  if (existsSync(decisionsPath)) {
-    const decisionsContent = await loadFile(decisionsPath);
+    const decisionsContent = await backend.readDocument("DECISIONS");
     if (decisionsContent) {
+      inlined.push(`### Decisions Register\n\n${decisionsContent.trim()}`);
+    }
+
+    // Completed slice summaries
+    if (roadmapContent) {
+      const roadmap = parseRoadmap(roadmapContent);
+      for (const s of roadmap.slices) {
+        if (!s.done || s.id === sid) continue;
+        const scope = backend.resolveSliceScope
+          ? await backend.resolveSliceScope(mid, s.id)
+          : undefined;
+        const summaryContent = await backend.readDocument(`${s.id}-SUMMARY`, scope);
+        if (summaryContent) {
+          inlined.push(`### ${s.id} Summary (completed)\n\n${summaryContent.trim()}`);
+        }
+      }
+    }
+  } else {
+    // ── Legacy filesystem path (fallback when no backend provided) ──
+    const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
+    const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
+    const roadmapContent = roadmapPath ? await loadFile(roadmapPath) : null;
+    if (roadmapContent) {
       inlined.push(
-        `### Decisions Register\nSource: \`${relKataRootFile("DECISIONS")}\`\n\n${decisionsContent.trim()}`,
+        `### Milestone Roadmap\nSource: \`${roadmapRel}\`\n\n${roadmapContent.trim()}`,
       );
     }
-  }
 
-  // Completed slice summaries — what was already built that this slice builds on
-  if (roadmapContent) {
-    const roadmap = parseRoadmap(roadmapContent);
-    for (const s of roadmap.slices) {
-      if (!s.done || s.id === sid) continue;
-      const summaryPath = resolveSliceFile(base, mid, s.id, "SUMMARY");
-      const summaryRel = relSliceFile(base, mid, s.id, "SUMMARY");
-      const summaryContent = summaryPath ? await loadFile(summaryPath) : null;
-      if (summaryContent) {
+    const contextPath = resolveMilestoneFile(base, mid, "CONTEXT");
+    const contextRel = relMilestoneFile(base, mid, "CONTEXT");
+    const contextContent = contextPath ? await loadFile(contextPath) : null;
+    if (contextContent) {
+      inlined.push(
+        `### Milestone Context\nSource: \`${contextRel}\`\n\n${contextContent.trim()}`,
+      );
+    }
+
+    const researchPath = resolveMilestoneFile(base, mid, "RESEARCH");
+    const researchRel = relMilestoneFile(base, mid, "RESEARCH");
+    const researchContent = researchPath ? await loadFile(researchPath) : null;
+    if (researchContent) {
+      inlined.push(
+        `### Milestone Research\nSource: \`${researchRel}\`\n\n${researchContent.trim()}`,
+      );
+    }
+
+    const decisionsPath = resolveKataRootFile(base, "DECISIONS");
+    if (existsSync(decisionsPath)) {
+      const decisionsContent = await loadFile(decisionsPath);
+      if (decisionsContent) {
         inlined.push(
-          `### ${s.id} Summary (completed)\nSource: \`${summaryRel}\`\n\n${summaryContent.trim()}`,
+          `### Decisions Register\nSource: \`${relKataRootFile("DECISIONS")}\`\n\n${decisionsContent.trim()}`,
         );
+      }
+    }
+
+    const roadmapPath2 = resolveMilestoneFile(base, mid, "ROADMAP");
+    const roadmapContent2 = roadmapPath2 ? await loadFile(roadmapPath2) : null;
+    if (roadmapContent2) {
+      const roadmap = parseRoadmap(roadmapContent2);
+      for (const s of roadmap.slices) {
+        if (!s.done || s.id === sid) continue;
+        const summaryPath = resolveSliceFile(base, mid, s.id, "SUMMARY");
+        const summaryRel = relSliceFile(base, mid, s.id, "SUMMARY");
+        const summaryContent = summaryPath ? await loadFile(summaryPath) : null;
+        if (summaryContent) {
+          inlined.push(
+            `### ${s.id} Summary (completed)\nSource: \`${summaryRel}\`\n\n${summaryContent.trim()}`,
+          );
+        }
       }
     }
   }
@@ -481,17 +542,45 @@ async function buildDiscussSlicePrompt(
       ? `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`
       : `## Inlined Context\n\n_(no context files found yet — go in blind and ask broad questions)_`;
 
-  const sliceDirAbsPath = join(base, ".kata", "milestones", mid, "slices", sid);
-  const contextAbsPath = join(sliceDirAbsPath, `${sid}-CONTEXT.md`);
+  // Build output instructions based on backend mode
+  let outputInstructions: string;
+  if (backend?.isLinearMode) {
+    outputInstructions = [
+      `**CRITICAL: Linear mode — do NOT write local files, do NOT run mkdir, do NOT run git commit for planning artifacts.**`,
+      ``,
+      `Once the user is ready to wrap up:`,
+      `1. Read the slice context template at \`~/.kata-cli/agent/extensions/kata/templates/slice-context.md\``,
+      `2. Resolve the slice issue UUID: call \`kata_list_slices\` to find the issue for ${sid} under milestone ${mid}`,
+      `3. Write the context document: \`kata_write_document("${sid}-CONTEXT", content, { issueId: "<slice-issue-uuid>" })\``,
+      `4. Say exactly: "${sid} context written." — nothing else.`,
+    ].join("\n");
+  } else {
+    const sliceDirAbsPath = join(base, ".kata", "milestones", mid, "slices", sid);
+    const contextAbsPath = join(sliceDirAbsPath, `${sid}-CONTEXT.md`);
+    outputInstructions = [
+      `Once the user is ready to wrap up:`,
+      ``,
+      `1. Read the slice context template at \`~/.kata-cli/agent/extensions/kata/templates/slice-context.md\``,
+      `2. \`mkdir -p ${sliceDirAbsPath}\``,
+      `3. Write \`${contextAbsPath}\` — use the template structure, filling in:`,
+      `   - **Goal** — one sentence: what this slice delivers`,
+      `   - **Why this Slice** — why now, what it unblocks`,
+      `   - **Scope / In Scope** — what was confirmed in scope during the interview`,
+      `   - **Scope / Out of Scope** — what was explicitly deferred or excluded`,
+      `   - **Constraints** — anything the user flagged as a hard constraint`,
+      `   - **Integration Points** — what this slice consumes and produces`,
+      `   - **Open Questions** — anything still unresolved, with current thinking`,
+      `4. Commit: \`git -C ${base} add ${contextAbsPath} && git -C ${base} commit -m "docs(${mid}/${sid}): slice context from discuss"\``,
+      `5. Say exactly: \`"${sid} context written."\` — nothing else.`,
+    ].join("\n");
+  }
 
   return loadPrompt("guided-discuss-slice", {
     milestoneId: mid,
     sliceId: sid,
     sliceTitle: sTitle,
     inlinedContext,
-    sliceDirAbsPath,
-    contextAbsPath,
-    projectRoot: base,
+    outputInstructions,
   });
 }
 
@@ -587,6 +676,7 @@ export async function showDiscuss(
       chosen.id,
       chosen.title,
       basePath,
+      backend,
     );
     if (!dispatchWorkflow(ctx, pi, prompt, "kata-discuss", "discuss")) return;
 
@@ -640,8 +730,7 @@ export async function showPlan(
 
   // ── No active milestone → offer to create one ──
   if (!state.activeMilestone) {
-    const milestoneIds = findMilestoneIds(basePath);
-    const nextId = `M${String(milestoneIds.length + 1).padStart(3, "0")}`;
+    const nextId = nextMilestoneId(state);
 
     const choice = await showNextAction(ctx as any, {
       title: "Kata — Plan",
@@ -715,10 +804,13 @@ export async function showPlan(
     return;
   }
 
-  // Check which slices already have plans
+  // Check which slices already have plans (use slice scope in Linear mode)
   const unplannedSlices: typeof pendingSlices = [];
   for (const s of pendingSlices) {
-    const hasPlan = await backend.readDocument(`${s.id}-PLAN`);
+    const scope = backend.resolveSliceScope
+      ? await backend.resolveSliceScope(mid, s.id)
+      : undefined;
+    const hasPlan = await backend.readDocument(`${s.id}-PLAN`, scope);
     if (!hasPlan) unplannedSlices.push(s);
   }
 
@@ -917,9 +1009,8 @@ export async function showSmartEntry(
       return;
     }
 
-    const milestoneIds = findMilestoneIds(basePath);
-    const nextId = `M${String(milestoneIds.length + 1).padStart(3, "0")}`;
-    const isFirst = milestoneIds.length === 0;
+    const nextId = nextMilestoneId(state);
+    const isFirst = state.registry.length === 0;
 
     if (isFirst) {
       // First ever — skip wizard, just ask directly
@@ -998,8 +1089,7 @@ export async function showSmartEntry(
     });
 
     if (choice === "new_milestone") {
-      const milestoneIds = findMilestoneIds(basePath);
-      const nextId = `M${String(milestoneIds.length + 1).padStart(3, "0")}`;
+      const nextId = nextMilestoneId(state);
 
       pendingAutoStart = { ctx, pi, basePath, milestoneId: nextId };
       if (
@@ -1259,6 +1349,7 @@ export async function showSmartEntry(
             sliceId,
             sliceTitle,
             basePath,
+            backend,
           ),
           "kata-run",
           "smart-entry",
