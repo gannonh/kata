@@ -128,6 +128,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
             input_tokens: 120,
             output_tokens: 80,
             total_tokens: 200,
+            event_count: 55,
             seconds_running: 42.5,
         },
         codex_rate_limits: Some(RateLimitInfo {

@@ -1167,6 +1167,72 @@ fn test_streamed_turn_completed_events_update_token_totals_in_real_time() {
 }
 
 #[test]
+fn test_event_count_increments_on_ingest() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let now_ms = 3_250_000;
+    let issue_id = "issue-event-count";
+    orchestrator.state_mut().running.insert(
+        issue_id.to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: issue_id.to_string(),
+            issue_identifier: "SIM-EVENT-COUNT".to_string(),
+            issue_title: None,
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-event-count".to_string(),
+            started_at: utc_ms(now_ms - 300_000),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: None,
+        },
+    );
+
+    orchestrator.ingest_agent_event(
+        issue_id,
+        &AgentEvent::Notification {
+            timestamp: utc_ms(now_ms - 3_000),
+            codex_app_server_pid: Some("9999".to_string()),
+            message: "step started".to_string(),
+        },
+    );
+    orchestrator.ingest_agent_event(
+        issue_id,
+        &AgentEvent::TurnCompleted {
+            timestamp: utc_ms(now_ms - 2_000),
+            codex_app_server_pid: Some("9999".to_string()),
+            turn_id: "turn-1".to_string(),
+            message: None,
+            input_tokens: 4,
+            output_tokens: 2,
+            total_tokens: 6,
+            rate_limits: None,
+        },
+    );
+    orchestrator.ingest_agent_event(
+        issue_id,
+        &AgentEvent::TurnFailed {
+            timestamp: utc_ms(now_ms - 1_000),
+            codex_app_server_pid: Some("9999".to_string()),
+            turn_id: "turn-2".to_string(),
+            error: "boom".to_string(),
+        },
+    );
+
+    assert_eq!(
+        orchestrator.state().codex_totals.event_count,
+        3,
+        "event_count should increment for every ingested event variant"
+    );
+
+    let snapshot = orchestrator.snapshot(now_ms);
+    assert_eq!(
+        snapshot.codex_totals.event_count, 3,
+        "snapshot should expose the event counter"
+    );
+}
+
+#[test]
 fn test_late_streamed_event_after_completion_is_ignored() {
     let mut orchestrator = Orchestrator::new(test_config(2), String::new());
     let now_ms = 4_000_000;
@@ -1219,6 +1285,11 @@ fn test_late_streamed_event_after_completion_is_ignored() {
         orchestrator.state().codex_totals.total_tokens,
         0,
         "late streamed events for completed issues should be ignored"
+    );
+    assert_eq!(
+        orchestrator.state().codex_totals.event_count,
+        0,
+        "ignored events should not increment the event counter"
     );
 }
 

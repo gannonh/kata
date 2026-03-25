@@ -576,6 +576,8 @@ pub struct CodexTotals {
     pub input_tokens: u64,
     pub output_tokens: u64,
     pub total_tokens: u64,
+    #[serde(default)]
+    pub event_count: u64,
     pub seconds_running: f64,
 }
 
