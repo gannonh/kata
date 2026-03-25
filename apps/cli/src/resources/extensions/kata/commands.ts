@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { deriveState } from "./state.js";
 import type { KataState } from "./types.js";
 import { KataDashboardOverlay } from "./dashboard-overlay.js";
-import { showSmartEntry, showQueue, showDiscuss } from "./guided-flow.js";
+import { showSmartEntry, showQueue, showDiscuss, showPlan } from "./guided-flow.js";
 import { startAuto, stopAuto, isAutoActive, isAutoPaused, setStepActive } from "./auto.js";
 import type { KataBackend } from "./backend.js";
 import { createBackend } from "./backend-factory.js";
@@ -212,7 +212,7 @@ function describeSkillResolution(
 export function registerKataCommand(pi: ExtensionAPI): void {
   pi.registerCommand("kata", {
     description:
-      "Kata — Kata Workflow: /kata step|auto|stop|status|queue|discuss|prefs|doctor|pr",
+      "Kata — Kata Workflow: /kata step|auto|stop|status|queue|discuss|plan|prefs|doctor|pr",
 
     getArgumentCompletions: (prefix: string) => {
       const subcommands = [
@@ -222,6 +222,7 @@ export function registerKataCommand(pi: ExtensionAPI): void {
         "status",
         "queue",
         "discuss",
+        "plan",
         "prefs",
         "doctor",
         "pr",
@@ -312,6 +313,11 @@ export function registerKataCommand(pi: ExtensionAPI): void {
 
       if (trimmed === "discuss") {
         await showDiscuss(ctx, pi, process.cwd());
+        return;
+      }
+
+      if (trimmed === "plan") {
+        await showPlan(ctx, pi, process.cwd());
         return;
       }
 
@@ -413,7 +419,7 @@ export function registerKataCommand(pi: ExtensionAPI): void {
       }
 
       ctx.ui.notify(
-        `Unknown: /kata ${trimmed}. Use /kata step, /kata auto, /kata stop, /kata status, /kata queue, /kata discuss, /kata prefs [global|project|status], /kata doctor [audit|fix|heal] [M###/S##], or /kata pr [status|create|review|address|merge].`,
+        `Unknown: /kata ${trimmed}. Use /kata step, /kata auto, /kata stop, /kata status, /kata queue, /kata discuss, /kata plan, /kata prefs [global|project|status], /kata doctor [audit|fix|heal] [M###/S##], or /kata pr [status|create|review|address|merge].`,
         "warning",
       );
     },

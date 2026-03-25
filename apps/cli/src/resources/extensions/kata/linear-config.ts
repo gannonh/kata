@@ -76,6 +76,7 @@ export type WorkflowEntrypoint =
   | "smart-entry"
   | "queue"
   | "discuss"
+  | "plan"
   | "status"
   | "dashboard"
   | "auto"
@@ -393,6 +394,15 @@ function buildLinearEntrypointGuard(
         allow: true,
         noticeLevel: "info",
         notice: "Running in Linear mode. Discussion artifacts stored in Linear.",
+        protocol,
+      };
+    case "plan":
+      return {
+        mode: "linear",
+        isLinearMode: true,
+        allow: true,
+        noticeLevel: "info",
+        notice: "Running in Linear mode. Planning artifacts stored in Linear.",
         protocol,
       };
     case "status":

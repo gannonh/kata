@@ -43,17 +43,4 @@ If the user wants to keep going, keep asking. Stop when they say wrap up.
 
 ## Output
 
-Once the user is ready to wrap up:
-
-1. Read the slice context template at `~/.kata-cli/agent/extensions/kata/templates/slice-context.md`
-2. `mkdir -p {{sliceDirAbsPath}}`
-3. Write `{{contextAbsPath}}` — use the template structure, filling in:
-   - **Goal** — one sentence: what this slice delivers
-   - **Why this Slice** — why now, what it unblocks
-   - **Scope / In Scope** — what was confirmed in scope during the interview
-   - **Scope / Out of Scope** — what was explicitly deferred or excluded
-   - **Constraints** — anything the user flagged as a hard constraint
-   - **Integration Points** — what this slice consumes and produces
-   - **Open Questions** — anything still unresolved, with current thinking
-4. Commit: `git -C {{projectRoot}} add {{contextAbsPath}} && git -C {{projectRoot}} commit -m "docs({{milestoneId}}/{{sliceId}}): slice context from discuss"`
-5. Say exactly: `"{{sliceId}} context written."` — nothing else.
+{{outputInstructions}}
