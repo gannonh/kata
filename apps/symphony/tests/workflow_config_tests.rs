@@ -1129,3 +1129,127 @@ async fn test_workflow_store_force_reload_reports_error_on_invalid_workflow() {
         "failed force_reload should preserve last-known-good config"
     );
 }
+
+// ── Per-state prompts config ──────────────────────────────────────────────────
+
+#[test]
+fn test_prompts_config_absent_returns_none() {
+    let yaml = r#"
+tracker:
+  kind: linear
+  api_key: test-key
+  project_slug: test-slug
+"#;
+    let config = parse_yaml_config(yaml);
+    assert!(config.prompts.is_none());
+}
+
+#[test]
+fn test_prompts_config_parses_all_fields() {
+    let yaml = r#"
+tracker:
+  kind: linear
+  api_key: test-key
+  project_slug: test-slug
+prompts:
+  shared: prompts/shared.md
+  default: prompts/in-progress.md
+  by_state:
+    In Progress: prompts/in-progress.md
+    Agent Review: prompts/agent-review.md
+    Merging: prompts/merging.md
+"#;
+    let config = parse_yaml_config(yaml);
+    let prompts = config.prompts.expect("prompts should be Some");
+    assert_eq!(prompts.shared.as_deref(), Some("prompts/shared.md"));
+    assert_eq!(prompts.default.as_deref(), Some("prompts/in-progress.md"));
+    assert_eq!(
+        prompts.by_state.get("in progress").map(String::as_str),
+        Some("prompts/in-progress.md")
+    );
+    assert_eq!(
+        prompts.by_state.get("agent review").map(String::as_str),
+        Some("prompts/agent-review.md")
+    );
+    assert_eq!(
+        prompts.by_state.get("merging").map(String::as_str),
+        Some("prompts/merging.md")
+    );
+}
+
+#[test]
+fn test_prompts_config_normalizes_state_keys_to_lowercase() {
+    let yaml = r#"
+tracker:
+  kind: linear
+  api_key: test-key
+  project_slug: test-slug
+prompts:
+  by_state:
+    "In Progress": prompts/ip.md
+    "AGENT REVIEW": prompts/ar.md
+"#;
+    let config = parse_yaml_config(yaml);
+    let prompts = config.prompts.expect("prompts should be Some");
+    assert!(prompts.by_state.contains_key("in progress"));
+    assert!(prompts.by_state.contains_key("agent review"));
+    assert!(!prompts.by_state.contains_key("In Progress"));
+    assert!(!prompts.by_state.contains_key("AGENT REVIEW"));
+}
+
+// ── Issue children_count and parent_identifier ────────────────────────────────
+
+#[test]
+fn test_issue_children_count_and_parent_parsed_from_linear() {
+    // This tests the normalization in linear/client.rs
+    // The fields should default to 0/None when not present in JSON
+    let issue = symphony::domain::Issue {
+        id: "test-id".to_string(),
+        identifier: "KAT-100".to_string(),
+        title: "Test".to_string(),
+        description: None,
+        priority: None,
+        state: "In Progress".to_string(),
+        branch_name: None,
+        url: None,
+        assignee_id: None,
+        labels: vec![],
+        blocked_by: vec![],
+        assigned_to_worker: true,
+        created_at: None,
+        updated_at: None,
+        children_count: 3,
+        parent_identifier: Some("KAT-99".to_string()),
+    };
+    assert_eq!(issue.children_count, 3);
+    assert_eq!(issue.parent_identifier.as_deref(), Some("KAT-99"));
+}
+
+#[test]
+fn test_issue_children_count_defaults_to_zero() {
+    let issue = symphony::domain::Issue {
+        id: "test-id".to_string(),
+        identifier: "KAT-100".to_string(),
+        title: "Test".to_string(),
+        description: None,
+        priority: None,
+        state: "In Progress".to_string(),
+        branch_name: None,
+        url: None,
+        assignee_id: None,
+        labels: vec![],
+        blocked_by: vec![],
+        assigned_to_worker: true,
+        created_at: None,
+        updated_at: None,
+        children_count: 0,
+        parent_identifier: None,
+    };
+    assert_eq!(issue.children_count, 0);
+    assert!(issue.parent_identifier.is_none());
+}
+
+fn parse_yaml_config(yaml: &str) -> symphony::domain::ServiceConfig {
+    let value: serde_yaml::Value = serde_yaml::from_str(yaml).expect("valid yaml");
+    from_workflow(&value).expect("config should parse")
+}

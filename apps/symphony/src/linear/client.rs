@@ -60,6 +60,15 @@ query SymphonyLinearPoll($projectSlug: String!, $stateNames: [String!]!, $first:
           }
         }
       }
+      children {
+        nodes {
+          id
+          identifier
+        }
+      }
+      parent {
+        identifier
+      }
       createdAt
       updatedAt
     }
@@ -104,6 +113,15 @@ query SymphonyLinearIssuesById($ids: [ID!]!, $first: Int!, $relationFirst: Int!)
             }
           }
         }
+      }
+      children {
+        nodes {
+          id
+          identifier
+        }
+      }
+      parent {
+        identifier
       }
       createdAt
       updatedAt

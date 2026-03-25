@@ -1,6 +1,6 @@
 ## Your job: Address PR feedback
 
-The issue is in `Agent Review`. A PR exists. Your job is to read all PR comments, address each one, push fixes, and move to `Human Review` when done.
+The issue is in `Agent Review`. A PR exists. Your job is to read all PR comments, address each one, push fixes, and move to `Human Review` when there is real feedback and it has all been addressed.
 
 Read `.codex/skills/address-comments/SKILL.md` if available and follow its steps.
 
@@ -18,6 +18,12 @@ Read `.codex/skills/address-comments/SKILL.md` if available and follow its steps
 5. Re-run validation after feedback-driven changes and push updates.
 6. Repeat until there are no outstanding actionable comments.
 
+### No comments yet — do NOT advance
+
+If there are **zero** PR comments and **zero** reviews, it means reviewers haven't had time to look at the PR yet. This is normal — review agents or humans may still be spinning up.
+
+**Do NOT move to `Human Review` when there are no comments.** Leave the issue in `Agent Review`. The orchestrator will dispatch another session later when comments arrive. End the turn without changing state.
+
 ### CI check gate
 
 - Confirm PR checks are passing (green) after the latest changes.
@@ -25,15 +31,17 @@ Read `.codex/skills/address-comments/SKILL.md` if available and follow its steps
 
 ### State transition
 
-When **all** of these are true:
+Move to `Human Review` only when **all** of these are true:
+- At least one review or comment exists on the PR (someone has actually reviewed it)
 - No unresolved actionable PR comments remain
 - PR checks are green
 - Workpad reflects completed status
 
-Move issue to `Human Review`.
+If no reviews or comments exist yet, **do not change state**. End the turn and let the orchestrator retry later.
 
 ### Guardrails
 
 - Do not start new implementation work — only address existing feedback.
 - If review feedback rejects the entire approach, move to `Rework` instead of `Human Review`.
 - Push to the existing branch; do not create a new PR.
+- Do not treat "no comments" as "all comments addressed" — those are different states.
