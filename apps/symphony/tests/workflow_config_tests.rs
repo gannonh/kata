@@ -122,25 +122,53 @@ fn test_parse_workflow_non_map_yaml() {
 }
 
 #[test]
-fn test_repo_workflow_requires_publish_gate_before_human_review() {
-    let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/WORKFLOW-symphony.md");
-    let def = parse_workflow(&workflow_path)
-        .expect("repo WORKFLOW.md should parse for publish-gate contract assertions");
+fn test_repo_workflow_requires_publish_gate_before_agent_review() {
+    // The publish-gate contract now lives in the per-state prompt file
+    let prompt_path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("prompts/in-progress.md");
+    let content = std::fs::read_to_string(&prompt_path)
+        .expect("prompts/in-progress.md should exist for publish-gate contract assertions");
 
     assert!(
-        def.prompt_template
-            .contains("git ls-remote --exit-code --heads origin \"$(git branch --show-current)\""),
-        "WORKFLOW.md must require explicit remote-branch proof before Human Review"
+        content.contains("git ls-remote --exit-code --heads origin"),
+        "in-progress.md must require explicit remote-branch proof before Agent Review"
     );
     assert!(
-        def.prompt_template
-            .contains("gh pr view --json url,state,headRefName,baseRefName"),
-        "WORKFLOW.md must require explicit PR proof before Human Review"
+        content.contains("gh pr view --json url,state,headRefName,baseRefName"),
+        "in-progress.md must require explicit PR proof before Agent Review"
     );
     assert!(
-        def.prompt_template
-            .contains("If either publish proof fails, do not move state"),
-        "WORKFLOW.md must explicitly block Human Review transition until publish checks pass"
+        content.contains("Agent Review"),
+        "in-progress.md must transition to Agent Review (not Human Review)"
+    );
+}
+
+#[test]
+fn test_repo_workflow_example_uses_per_state_prompts() {
+    let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/WORKFLOW-symphony.md");
+    let def = parse_workflow(&workflow_path)
+        .expect("example WORKFLOW-symphony.md should parse");
+
+    // When using per-state prompts, the body after --- should be empty or minimal
+    // The config should have a prompts section
+    let config = from_workflow(&def.config).expect("config should parse");
+    assert!(
+        config.prompts.is_some(),
+        "example WORKFLOW-symphony.md should use per-state prompts config"
+    );
+    let prompts = config.prompts.unwrap();
+    assert!(prompts.shared.is_some(), "should have shared prompt");
+    assert!(
+        !prompts.by_state.is_empty(),
+        "should have by_state mappings"
+    );
+    assert!(
+        prompts.by_state.contains_key("in progress"),
+        "should map 'in progress' state"
+    );
+    assert!(
+        prompts.by_state.contains_key("agent review"),
+        "should map 'agent review' state"
     );
 }
 

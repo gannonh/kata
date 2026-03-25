@@ -120,10 +120,22 @@ For agent auth, either:
 
 This project includes two example workflow files you can use as starting points:
 
-- **[`docs/WORKFLOW-symphony.md`](docs/WORKFLOW-symphony.md)** — flat ticket model: one issue = one agent session. Good for standalone tickets.
-- **[`docs/WORKFLOW-cli.md`](docs/WORKFLOW-cli.md)** — optimized for parent/child issue hierarchies created by the Kata CLI planning tool, with document-loading rules for slices and tasks.
+- **[`docs/WORKFLOW-symphony.md`](docs/WORKFLOW-symphony.md)** — configured for the Symphony project (Rust/Cargo).
+- **[`docs/WORKFLOW-cli.md`](docs/WORKFLOW-cli.md)** — configured for the Kata CLI project (TypeScript/Bun).
 
-Copy one to your project root as `WORKFLOW.md` and customize it. The root `WORKFLOW.md` is gitignored since it contains local paths and credentials.
+Both use **per-state prompt injection** — the orchestrator selects a focused prompt based on the issue's Linear state instead of sending one giant prompt. The `prompts/` directory contains the prompt files:
+
+| File | When used | Job |
+|------|-----------|-----|
+| `prompts/shared-*.md` | Every dispatch | Repo context, Linear tools, workpad protocol |
+| `prompts/in-progress.md` | `Todo`, `In Progress` | Implement, test, push, open PR → Agent Review |
+| `prompts/agent-review.md` | `Agent Review` | Address PR comments → Human Review |
+| `prompts/merging.md` | `Merging` | Land the PR → Done |
+| `prompts/rework.md` | `Rework` | Close PR, fresh start |
+
+The `in-progress.md` prompt automatically detects issue shape — flat tickets, Kata-planned slices (parent with children), and individual tasks — so one workflow handles both flat and hierarchical execution.
+
+Copy an example to your project root as `WORKFLOW.md` and customize the `shared-*.md` file for your repo. The root `WORKFLOW.md` is gitignored since it contains local paths and credentials.
 
 Copy one and adapt it to your project, or start from scratch:
 

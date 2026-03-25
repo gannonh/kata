@@ -33,17 +33,15 @@ No description provided.
 
 ## Repository context
 
-<!-- ⚠️  Customize this section for your project. Example:
+This is the **kata-mono** monorepo. The Symphony crate lives at `apps/symphony/`.
 
-This is the **my-app** repository.
+- Build: `cd apps/symphony && cargo build`
+- Test: `cd apps/symphony && cargo test`
+- Lint: `cd apps/symphony && cargo clippy -- -D warnings`
+- Format check: `cd apps/symphony && cargo fmt --check`
+- Base branch: `{{ workspace.base_branch }}`. All merges, rebases, and PR base targets use this branch.
 
-- Build: `npm run build`
-- Test: `npm test`
-- Lint: `npm run lint`
-- Base branch: `{{ workspace.base_branch }}`.
-
-Read `AGENTS.md` for architecture reference.
--->
+Read `apps/symphony/AGENTS.md` for full architecture reference, module map, and test harness layout.
 
 ## Linear tools
 

@@ -279,6 +279,42 @@ server:
 
   # Bind address. Use "0.0.0.0" to expose on all interfaces.
   host: "127.0.0.1"
+
+# ─── Prompts (per-state prompt injection) ─────────────────────────────────────
+# Optional. When configured, the orchestrator selects a prompt template based on
+# the issue's Linear state at dispatch time instead of using the markdown body
+# below the --- delimiter. Each file is a Liquid template with access to
+# {{ issue.* }}, {{ attempt }}, and {{ workspace.base_branch }}.
+#
+# File paths are resolved relative to this WORKFLOW.md file's directory.
+#
+# When this section is absent, the entire markdown body after --- is used as
+# the prompt for all states (backward compatible with existing workflows).
+#
+# The shared file is prepended to every state-specific prompt, separated by ---.
+# State keys are matched case-insensitively.
+#
+# Template variables available in per-state prompts:
+#   {{ issue.identifier }}        — e.g. "KAT-928"
+#   {{ issue.title }}             — issue title
+#   {{ issue.state }}             — current Linear state name
+#   {{ issue.labels }}            — comma-separated label names
+#   {{ issue.description }}       — issue body (may be empty)
+#   {{ issue.url }}               — Linear issue URL
+#   {{ issue.children_count }}    — number of child sub-issues (0 for flat tickets)
+#   {{ issue.parent_identifier }} — parent issue identifier (nil for non-sub-issues)
+#   {{ attempt }}                 — retry attempt number (nil on first dispatch)
+#   {{ workspace.base_branch }}   — configured base branch (default: "main")
+#
+# prompts:
+#   shared: prompts/shared.md
+#   by_state:
+#     Todo: prompts/in-progress.md
+#     In Progress: prompts/in-progress.md
+#     Agent Review: prompts/agent-review.md
+#     Merging: prompts/merging.md
+#     Rework: prompts/rework.md
+#   default: prompts/in-progress.md
 ---
 
 You are working on a Linear ticket `{{ issue.identifier }}`
