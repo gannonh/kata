@@ -118,10 +118,12 @@ For agent auth, either:
 
 ### 2. Create a WORKFLOW.md
 
-This project includes two real workflow files you can use as starting points:
+This project includes two example workflow files you can use as starting points:
 
-- **[`WORKFLOW-symphony.md`](WORKFLOW-symphony.md)** — used to develop Symphony itself. Flat ticket model: one issue = one agent session.
-- **[`WORKFLOW-cli.md`](WORKFLOW-cli.md)** — used to develop Kata CLI. Optimized for parent/child issue hierarchies created by the Kata CLI planning tool, with document-loading rules for slices and tasks.
+- **[`docs/WORKFLOW-symphony.md`](docs/WORKFLOW-symphony.md)** — flat ticket model: one issue = one agent session. Good for standalone tickets.
+- **[`docs/WORKFLOW-cli.md`](docs/WORKFLOW-cli.md)** — optimized for parent/child issue hierarchies created by the Kata CLI planning tool, with document-loading rules for slices and tasks.
+
+Copy one to your project root as `WORKFLOW.md` and customize it. The root `WORKFLOW.md` is gitignored since it contains local paths and credentials.
 
 Copy one and adapt it to your project, or start from scratch:
 
