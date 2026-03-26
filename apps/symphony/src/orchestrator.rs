@@ -1350,11 +1350,15 @@ impl Orchestrator {
             let worker_host = d.worker_host.clone();
             let tx = self.worker_result_tx.clone();
 
-            // Resolve per-state prompt if configured, falling back to monolith template.
-            // NOTE: issue.state reflects the pre-dispatch state (e.g. "Todo" before the
-            // orchestrator moves it to "In Progress"). The example configs map both
-            // "Todo" and "In Progress" to the same prompt file to handle this correctly.
-            let prompt_template = self.resolve_prompt_for_issue(&issue);
+            // Resolve per-state prompt using the post-dispatch state from
+            // running_issue_states (set during dispatch_issue), falling back to
+            // issue.state if not yet tracked.
+            let effective_state = self
+                .running_issue_states
+                .get(&issue.id)
+                .cloned()
+                .unwrap_or_else(|| issue.state.clone());
+            let prompt_template = self.resolve_prompt_for_state(&effective_state);
 
             let task_config = WorkerTaskConfig {
                 workspace: self.config.workspace.clone(),
@@ -1449,6 +1453,7 @@ impl Orchestrator {
     ) -> Result<TickResult> {
         self.poll_count += 1;
         self.last_poll_at = Some(Utc::now());
+        self.blocked_issues.clear();
 
         if refresh_runtime_config {
             self.refresh_runtime_config();
@@ -2366,9 +2371,9 @@ impl Orchestrator {
     ///
     /// Called after every material state change in the runtime loop.
     /// No-op if `create_snapshot_handle()` was never called.
-    /// Resolve the prompt template for an issue, using per-state prompts if
-    /// configured, otherwise falling back to the monolith prompt_template.
-    fn resolve_prompt_for_issue(&self, issue: &Issue) -> String {
+    /// Resolve the prompt template for a given issue state, using per-state
+    /// prompts if configured, otherwise falling back to the monolith prompt_template.
+    fn resolve_prompt_for_state(&self, issue_state: &str) -> String {
         if let Some(prompts) = &self.config.prompts {
             let workflow_dir = self
                 .workflow_store
@@ -2376,26 +2381,23 @@ impl Orchestrator {
                 .map(|ws| ws.workflow_dir().to_path_buf())
                 .unwrap_or_else(|| std::path::PathBuf::from("."));
 
-            match prompt_builder::resolve_per_state_prompt(prompts, &issue.state, &workflow_dir) {
+            match prompt_builder::resolve_per_state_prompt(prompts, issue_state, &workflow_dir) {
                 Ok(Some(template)) => {
                     tracing::debug!(
-                        issue_id = %issue.id,
-                        issue_state = %issue.state,
+                        issue_state = %issue_state,
                         "resolved per-state prompt template"
                     );
                     return template;
                 }
                 Ok(None) => {
                     tracing::debug!(
-                        issue_id = %issue.id,
-                        issue_state = %issue.state,
+                        issue_state = %issue_state,
                         "no per-state prompt for state; using monolith template"
                     );
                 }
                 Err(err) => {
                     tracing::warn!(
-                        issue_id = %issue.id,
-                        issue_state = %issue.state,
+                        issue_state = %issue_state,
                         error = %err,
                         "failed to resolve per-state prompt; falling back to monolith template"
                     );
