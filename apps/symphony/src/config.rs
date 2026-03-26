@@ -840,19 +840,26 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     };
 
     // ── PromptsConfig ─────────────────────────────────────────────────────
-    let prompts = if raw_prompts.shared.is_some()
-        || raw_prompts.by_state.is_some()
-        || raw_prompts.default.is_some()
-    {
+    let trim_path = |v: Option<String>| -> Option<String> {
+        v.map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+    };
+    let shared = trim_path(raw_prompts.shared);
+    let default = trim_path(raw_prompts.default);
+    let by_state: HashMap<String, String> = raw_prompts
+        .by_state
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|(k, v)| {
+            let key = k.trim().to_ascii_lowercase();
+            let path = v.trim().to_string();
+            (!key.is_empty() && !path.is_empty()).then_some((key, path))
+        })
+        .collect();
+    let prompts = if shared.is_some() || !by_state.is_empty() || default.is_some() {
         Some(PromptsConfig {
-            shared: raw_prompts.shared,
-            by_state: raw_prompts
-                .by_state
-                .unwrap_or_default()
-                .into_iter()
-                .map(|(k, v)| (k.trim().to_ascii_lowercase(), v))
-                .collect(),
-            default: raw_prompts.default,
+            shared,
+            by_state,
+            default,
         })
     } else {
         None

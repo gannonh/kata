@@ -77,6 +77,36 @@ pub fn render_prompt(
 ///
 /// Returns the concatenated prompt template string, or `None` if the state
 /// has no mapping and no default is configured.
+/// Read a prompt file, ensuring the resolved path stays within `workflow_dir`.
+///
+/// Prevents path traversal via absolute paths or `..` escapes in YAML config.
+fn read_prompt_file(workflow_dir: &Path, configured_path: &str, label: &str) -> Result<String> {
+    let base = workflow_dir.canonicalize().map_err(|e| {
+        SymphonyError::TemplateParseError(format!(
+            "failed to resolve workflow dir {}: {e}",
+            workflow_dir.display()
+        ))
+    })?;
+    let candidate = base.join(configured_path);
+    let canonical = candidate.canonicalize().map_err(|e| {
+        SymphonyError::TemplateParseError(format!(
+            "failed to read {label} prompt {}: {e}",
+            candidate.display()
+        ))
+    })?;
+    if !canonical.starts_with(&base) {
+        return Err(SymphonyError::TemplateParseError(format!(
+            "{label} prompt path escapes workflow dir: {configured_path}",
+        )));
+    }
+    std::fs::read_to_string(&canonical).map_err(|e| {
+        SymphonyError::TemplateParseError(format!(
+            "failed to read {label} prompt {}: {e}",
+            canonical.display()
+        ))
+    })
+}
+
 pub fn resolve_per_state_prompt(
     prompts_config: &PromptsConfig,
     issue_state: &str,
@@ -94,25 +124,12 @@ pub fn resolve_per_state_prompt(
         return Ok(None);
     };
 
-    // Read the state-specific prompt file
-    let state_file = workflow_dir.join(state_path);
-    let state_content = std::fs::read_to_string(&state_file).map_err(|e| {
-        SymphonyError::TemplateParseError(format!(
-            "failed to read state prompt {}: {e}",
-            state_file.display()
-        ))
-    })?;
+    // Read the state-specific prompt file (path-confined to workflow dir)
+    let state_content = read_prompt_file(workflow_dir, state_path, "state")?;
 
     // Read shared prompt if configured
     let shared_content = if let Some(shared_path) = &prompts_config.shared {
-        let shared_file = workflow_dir.join(shared_path);
-        let content = std::fs::read_to_string(&shared_file).map_err(|e| {
-            SymphonyError::TemplateParseError(format!(
-                "failed to read shared prompt {}: {e}",
-                shared_file.display()
-            ))
-        })?;
-        Some(content)
+        Some(read_prompt_file(workflow_dir, shared_path, "shared")?)
     } else {
         None
     };
