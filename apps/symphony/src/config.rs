@@ -261,6 +261,7 @@ struct RawHooksConfig {
 struct RawServerConfig {
     port: Option<u16>,
     host: Option<String>,
+    public_url: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -853,6 +854,11 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let server = ServerConfig {
         port: raw_server.port,
         host: raw_server.host.unwrap_or(defaults.server.host.clone()),
+        public_url: raw_server
+            .public_url
+            .map(|value| resolve_env(&value))
+            .map(|value| value.trim().trim_end_matches('/').to_string())
+            .filter(|value| !value.is_empty()),
     };
 
     // ── PromptsConfig ─────────────────────────────────────────────────────

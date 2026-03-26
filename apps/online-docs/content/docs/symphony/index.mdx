@@ -27,3 +27,24 @@ workspace:
 ```
 
 When enabled, Symphony runs the `before_remove` hook first, then removes the workspace (including `git worktree remove` for worktree strategy). Cleanup failures are logged and do not stop orchestration.
+
+## Slack Notifications
+
+Symphony can emit Slack webhook notifications for key orchestration events (`stalled`, `failed`, `human_review`, `rework`).
+
+```yaml
+notifications:
+  slack:
+    webhook_url: $SLACK_WEBHOOK_URL
+    events: [human_review, stalled, failed, rework]
+
+server:
+  # Optional: only used for Slack "Dashboard:" links
+  public_url: https://symphony.example.com
+```
+
+Notes:
+
+- Notifications are fire-and-forget and non-fatal (delivery errors do not stop orchestration).
+- `notifications.slack.webhook_url` must be non-empty when the `notifications.slack` block is present.
+- If `server.public_url` is omitted, notifications are still sent but without a dashboard link.

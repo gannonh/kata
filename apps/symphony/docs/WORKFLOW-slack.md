@@ -32,6 +32,9 @@ kata_agent:
 server:
   host: 127.0.0.1
   port: 8080
+  # Optional public URL used in Slack "Dashboard:" links.
+  # When omitted, notifications are sent without a dashboard link.
+  public_url: https://symphony.example.com
 
 notifications:
   slack:

@@ -974,6 +974,11 @@ pub fn refresh_channel() -> (RefreshSender, RefreshReceiver) {
 
 pub const CONTINUATION_RETRY_DELAY_MS: i64 = 1_000;
 pub const FAILURE_RETRY_BASE_MS: i64 = 10_000;
+/// Marker included in stall-induced failure strings.
+///
+/// `detect_stalled_workers` appends this marker to synthetic failure messages,
+/// and `handle_worker_completion` checks for it to suppress duplicate `failed`
+/// Slack notifications when the worker has already emitted a `stalled` event.
 const STALL_FAILURE_MARKER: &str = "without agent activity";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1230,8 +1235,11 @@ impl Orchestrator {
     fn dashboard_url(&self) -> Option<String> {
         self.config
             .server
-            .port
-            .map(|port| format!("http://{}:{port}", self.config.server.host))
+            .public_url
+            .as_deref()
+            .map(str::trim)
+            .filter(|url| !url.is_empty())
+            .map(|url| url.trim_end_matches('/').to_string())
     }
 
     fn queue_slack_notification(

@@ -202,7 +202,28 @@ fn test_config_defaults() {
     assert_eq!(config.pi_agent.append_system_prompt, None);
     assert_eq!(config.pi_agent.read_timeout_ms, 5_000);
     assert_eq!(config.pi_agent.stall_timeout_ms, 300_000);
+    assert_eq!(config.server.public_url, None);
     assert!(config.notifications.is_none());
+}
+
+#[test]
+fn test_server_public_url_parses_and_trims_trailing_slash() {
+    let yaml_str = r#"
+server:
+  host: 0.0.0.0
+  port: 8080
+  public_url: "https://symphony.example.com/"
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("server config should parse");
+
+    assert_eq!(config.server.host, "0.0.0.0");
+    assert_eq!(config.server.port, Some(8080));
+    assert_eq!(
+        config.server.public_url.as_deref(),
+        Some("https://symphony.example.com")
+    );
 }
 
 #[test]

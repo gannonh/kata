@@ -141,6 +141,7 @@ fn test_service_config_defaults_match_spec() {
 
     // Server §13.7
     assert_eq!(cfg.server.host, "127.0.0.1");
+    assert!(cfg.server.public_url.is_none());
 
     // Tracker §5.3.1
     assert_eq!(cfg.tracker.endpoint, "https://api.linear.app/graphql");
@@ -172,6 +173,7 @@ fn test_server_config_default_host() {
     let cfg = ServerConfig::default();
     assert_eq!(cfg.host, "127.0.0.1");
     assert!(cfg.port.is_none());
+    assert!(cfg.public_url.is_none());
 }
 
 // ── Runtime entity construction (T01+T02) ──────────────────────────────

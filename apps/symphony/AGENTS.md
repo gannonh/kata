@@ -175,10 +175,11 @@ All hooks receive these environment variables:
 
 #### `server` section
 
-| Field         | Type   | Default       | Description                                                                     |
-| ------------- | ------ | ------------- | ------------------------------------------------------------------------------- |
-| `server.port` | u16    | _(none)_      | HTTP server port. Equivalent to `--port` on the CLI; `--port` takes precedence. |
-| `server.host` | string | `"127.0.0.1"` | HTTP server bind address.                                                       |
+| Field               | Type   | Default       | Description                                                                     |
+| ------------------- | ------ | ------------- | ------------------------------------------------------------------------------- |
+| `server.port`       | u16    | _(none)_      | HTTP server port. Equivalent to `--port` on the CLI; `--port` takes precedence. |
+| `server.host`       | string | `"127.0.0.1"` | HTTP server bind address.                                                       |
+| `server.public_url` | string | _(none)_      | Optional external dashboard URL included in Slack notification payloads.        |
 
 #### `notifications` section
 
@@ -189,7 +190,7 @@ Optional. Configure outbound webhook notifications for events requiring human at
 | `notifications.slack.webhook_url`  | string   | _(none)_  | Slack incoming webhook URL. Supports `$VAR` env-var indirection.                               |
 | `notifications.slack.events`       | string[] | `[]`      | Event filters. Supported values: `human_review`, `stalled`, `failed`, `rework` (lowercased). Empty list means no notifications are sent. |
 
-When omitted, notifications are disabled.
+When omitted, notifications are disabled. Slack `Dashboard:` links are included only when `server.public_url` is configured.
 
 #### `prompts` section (per-state prompt injection)
 

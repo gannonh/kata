@@ -497,6 +497,7 @@ impl Default for HooksConfig {
 pub struct ServerConfig {
     pub port: Option<u16>,
     pub host: String,
+    pub public_url: Option<String>,
 }
 
 impl Default for ServerConfig {
@@ -504,6 +505,7 @@ impl Default for ServerConfig {
         Self {
             port: None,
             host: "127.0.0.1".to_string(),
+            public_url: None,
         }
     }
 }

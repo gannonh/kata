@@ -65,7 +65,7 @@ pub async fn send_slack_notification(
     let normalized_event = normalize_event_type(event_type);
     let payload = SlackWebhookPayload {
         text: format_slack_message(
-            &normalized_event,
+            event_type,
             issue_identifier,
             issue_title,
             message,
