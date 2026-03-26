@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+import { describe, test, expect, beforeEach, afterEach } from 'vitest'
 import { resolveSearchProvider, getTavilyApiKey, getBraveApiKey, braveHeaders } from '../provider.js'
 
 describe('provider', () => {
