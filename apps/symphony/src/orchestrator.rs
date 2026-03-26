@@ -16,6 +16,7 @@ use crate::domain::{
     WorkspaceIsolation,
 };
 use crate::error::{Result, SymphonyError};
+use crate::notifications;
 use crate::pi_agent::rpc_bridge;
 use crate::session_summary::{compact_session_id, normalize_whitespace, truncate_for_display};
 use crate::ssh::{self, WorkerHostSelection};
@@ -1225,6 +1226,73 @@ impl Orchestrator {
         self.state.poll_interval_ms = self.config.polling.interval_ms;
     }
 
+    fn dashboard_url(&self) -> Option<String> {
+        self.config
+            .server
+            .port
+            .map(|port| format!("http://{}:{port}", self.config.server.host))
+    }
+
+    fn queue_slack_notification(
+        &self,
+        event_type: &str,
+        issue_identifier: &str,
+        issue_title: &str,
+        message: &str,
+    ) {
+        let Some(slack_config) = self
+            .config
+            .notifications
+            .as_ref()
+            .and_then(|notifications| notifications.slack.as_ref())
+            .cloned()
+        else {
+            return;
+        };
+
+        if !notifications::should_notify(&slack_config, event_type) {
+            return;
+        }
+
+        let issue_identifier = issue_identifier.to_string();
+        let issue_title = issue_title.to_string();
+        let event_type = event_type.to_string();
+        let message = message.to_string();
+        let dashboard_url = self.dashboard_url();
+
+        if let Ok(runtime_handle) = tokio::runtime::Handle::try_current() {
+            runtime_handle.spawn(async move {
+                if let Err(err) = notifications::send_slack_notification(
+                    &slack_config,
+                    &event_type,
+                    &issue_identifier,
+                    &issue_title,
+                    &message,
+                    dashboard_url.as_deref(),
+                )
+                .await
+                {
+                    tracing::warn!(
+                        event = "notification_failed",
+                        issue_id = %issue_identifier,
+                        event_type = %event_type,
+                        error = %err,
+                        webhook_url = "[REDACTED]",
+                        "failed to send Slack notification"
+                    );
+                }
+            });
+        } else {
+            tracing::warn!(
+                event = "notification_failed",
+                issue_id = %issue_identifier,
+                event_type = %event_type,
+                error = "tokio runtime unavailable",
+                "skipping Slack notification because no tokio runtime is active"
+            );
+        }
+    }
+
     pub async fn run(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
         self.startup_cleanup(port)?;
         self.publish_snapshot();
@@ -1983,6 +2051,20 @@ impl Orchestrator {
                     error: error.clone(),
                 });
 
+                let issue_title = run_attempt
+                    .issue_title
+                    .clone()
+                    .unwrap_or_else(|| issue_identifier.clone());
+                let is_stall_failure = error.contains("without agent activity");
+                if !is_stall_failure {
+                    self.queue_slack_notification(
+                        "failed",
+                        &issue_identifier,
+                        &issue_title,
+                        "Agent failed during execution.",
+                    );
+                }
+
                 Some(self.schedule_retry_with_context(
                     issue_id,
                     &issue_identifier,
@@ -2289,6 +2371,17 @@ impl Orchestrator {
                 elapsed_ms,
             });
 
+            let issue_title = run_attempt
+                .issue_title
+                .clone()
+                .unwrap_or_else(|| run_attempt.issue_identifier.clone());
+            self.queue_slack_notification(
+                "stalled",
+                &run_attempt.issue_identifier,
+                &issue_title,
+                &format!("No activity for {} seconds.", elapsed_ms / 1000),
+            );
+
             self.handle_worker_completion(
                 &issue_id,
                 WorkerCompletion::Failed {
@@ -2527,6 +2620,26 @@ impl Orchestrator {
             visible_issue_ids.insert(issue.id.clone());
 
             let normalized_state = normalize_issue_state(&issue.state);
+            let previous_state = self.running_issue_states.get(&issue.id).cloned();
+
+            if previous_state.as_deref() != Some(normalized_state.as_str()) {
+                if normalized_state == "human review" {
+                    self.queue_slack_notification(
+                        "human_review",
+                        &issue.identifier,
+                        &issue.title,
+                        "Moved to Human Review — PR ready for review.",
+                    );
+                } else if normalized_state == "rework" {
+                    self.queue_slack_notification(
+                        "rework",
+                        &issue.identifier,
+                        &issue.title,
+                        "Moved to Rework — changes requested.",
+                    );
+                }
+            }
+
             if terminal_states.contains(&normalized_state) {
                 self.mark_issue_terminal(&issue, None, true);
                 continue;
