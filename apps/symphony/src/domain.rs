@@ -34,6 +34,12 @@ pub struct Issue {
     pub created_at: Option<DateTime<Utc>>,
     #[serde(default)]
     pub updated_at: Option<DateTime<Utc>>,
+    /// Number of child sub-issues (0 for flat tickets, >0 for slices).
+    #[serde(default)]
+    pub children_count: u32,
+    /// Parent issue identifier (e.g. "KAT-928") if this is a sub-issue.
+    #[serde(default)]
+    pub parent_identifier: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -125,6 +131,21 @@ pub struct WorkflowDefinition {
 
 // ── Service Config (spec §4.1.3 + §5.3) ───────────────────────────────
 
+/// Per-state prompt configuration.
+///
+/// When present, the orchestrator selects a prompt template based on the
+/// issue's Linear state at dispatch time instead of using the monolithic
+/// `prompt_template` body.
+#[derive(Debug, Clone, Default)]
+pub struct PromptsConfig {
+    /// Shared context prepended to every state-specific prompt.
+    pub shared: Option<String>,
+    /// Map of normalized state name → prompt template content.
+    pub by_state: HashMap<String, String>,
+    /// Fallback template for states not in `by_state`.
+    pub default: Option<String>,
+}
+
 /// Top-level typed runtime config derived from WorkflowDefinition.config.
 #[derive(Debug, Clone, Default)]
 pub struct ServiceConfig {
@@ -138,6 +159,7 @@ pub struct ServiceConfig {
     pub agent_backend: AgentBackend,
     pub hooks: HooksConfig,
     pub server: ServerConfig,
+    pub prompts: Option<PromptsConfig>,
 }
 
 /// Tracker configuration (spec §5.3.1).

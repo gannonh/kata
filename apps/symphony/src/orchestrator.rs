@@ -1349,6 +1349,17 @@ impl Orchestrator {
             let attempt = d.attempt;
             let worker_host = d.worker_host.clone();
             let tx = self.worker_result_tx.clone();
+
+            // Resolve per-state prompt using the post-dispatch state from
+            // running_issue_states (set during dispatch_issue), falling back to
+            // issue.state if not yet tracked.
+            let effective_state = self
+                .running_issue_states
+                .get(&issue.id)
+                .cloned()
+                .unwrap_or_else(|| issue.state.clone());
+            let prompt_template = self.resolve_prompt_for_state(&effective_state);
+
             let task_config = WorkerTaskConfig {
                 workspace: self.config.workspace.clone(),
                 hooks: self.config.hooks.clone(),
@@ -1357,7 +1368,7 @@ impl Orchestrator {
                 agent_backend: self.config.agent_backend,
                 max_turns: self.config.agent.max_turns,
                 tracker: self.config.tracker.clone(),
-                prompt_template: self.prompt_template.clone(),
+                prompt_template,
                 event_tx: self.worker_event_tx.clone(),
             };
 
@@ -1442,6 +1453,7 @@ impl Orchestrator {
     ) -> Result<TickResult> {
         self.poll_count += 1;
         self.last_poll_at = Some(Utc::now());
+        self.blocked_issues.clear();
 
         if refresh_runtime_config {
             self.refresh_runtime_config();
@@ -1496,11 +1508,11 @@ impl Orchestrator {
         let mut blocked_entries: Vec<crate::domain::BlockedIssueEntry> = vec![];
 
         // First pass: identify all dependency-blocked candidates so the blocked list
-        // is complete regardless of slot availability. Without this, candidates that
-        // happen to appear after slot exhaustion would be silently omitted from the
-        // blocked_issues list, making the dashboard/TUI under-report blocked work.
+        // is complete regardless of slot availability. Uses is_candidate_for_blocked_check
+        // instead of should_dispatch_issue because should_dispatch_issue rejects on
+        // slot exhaustion — blocked issues need to show even when all slots are full.
         for candidate in &sorted_candidates {
-            if !self.should_dispatch_issue(candidate) {
+            if !self.is_candidate_for_blocked_check(candidate) {
                 continue;
             }
             let (dep_blocked, blocker_ids) =
@@ -2359,6 +2371,42 @@ impl Orchestrator {
     ///
     /// Called after every material state change in the runtime loop.
     /// No-op if `create_snapshot_handle()` was never called.
+    /// Resolve the prompt template for a given issue state, using per-state
+    /// prompts if configured, otherwise falling back to the monolith prompt_template.
+    fn resolve_prompt_for_state(&self, issue_state: &str) -> String {
+        if let Some(prompts) = &self.config.prompts {
+            let workflow_dir = self
+                .workflow_store
+                .as_ref()
+                .map(|ws| ws.workflow_dir().to_path_buf())
+                .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+            match prompt_builder::resolve_per_state_prompt(prompts, issue_state, &workflow_dir) {
+                Ok(Some(template)) => {
+                    tracing::debug!(
+                        issue_state = %issue_state,
+                        "resolved per-state prompt template"
+                    );
+                    return template;
+                }
+                Ok(None) => {
+                    tracing::debug!(
+                        issue_state = %issue_state,
+                        "no per-state prompt for state; using monolith template"
+                    );
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        issue_state = %issue_state,
+                        error = %err,
+                        "failed to resolve per-state prompt; falling back to monolith template"
+                    );
+                }
+            }
+        }
+        self.prompt_template.clone()
+    }
+
     pub fn publish_snapshot(&self) {
         if let Some(handle) = &self.snapshot_handle {
             let snapshot = self.snapshot(Utc::now().timestamp_millis());
@@ -2545,6 +2593,26 @@ impl Orchestrator {
         }
 
         ssh::select_worker_host(ssh_hosts, &load, cap, preferred)
+    }
+
+    /// Like `should_dispatch_issue` but without slot availability or claimed/running
+    /// checks. Used by the first pass to identify blocked candidates for the TUI
+    /// regardless of whether there are free slots or the issue is already queued.
+    fn is_candidate_for_blocked_check(&self, issue: &Issue) -> bool {
+        if !issue_has_required_fields(issue) {
+            return false;
+        }
+        if !issue.assigned_to_worker {
+            return false;
+        }
+        let normalized_state = normalize_issue_state(&issue.state);
+        if self.terminal_state_set().contains(&normalized_state) {
+            return false;
+        }
+        if !self.active_state_set().contains(&normalized_state) {
+            return false;
+        }
+        true
     }
 
     fn should_dispatch_issue(&self, issue: &Issue) -> bool {

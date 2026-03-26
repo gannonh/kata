@@ -4,8 +4,9 @@
 //! serialization, then renders the template in strict mode (unknown
 //! variables produce errors).
 
-use crate::domain::Issue;
+use crate::domain::{Issue, PromptsConfig};
 use crate::error::{Result, SymphonyError};
+use std::path::Path;
 
 /// Render a Liquid template with `issue`, `attempt`, and `workspace` variables.
 ///
@@ -64,6 +65,82 @@ pub fn render_prompt(
     compiled
         .render(&globals)
         .map_err(|e| SymphonyError::TemplateRenderError(e.to_string()))
+}
+
+/// Resolve a per-state prompt template by reading prompt files and concatenating
+/// shared + state-specific content.
+///
+/// - `prompts_config`: the parsed `PromptsConfig` from YAML
+/// - `issue_state`: the issue's current Linear state (e.g. "In Progress")
+/// - `workflow_dir`: directory containing the WORKFLOW.md file (prompt paths
+///   are resolved relative to this)
+///
+/// Returns the concatenated prompt template string, or `None` if the state
+/// has no mapping and no default is configured.
+/// Read a prompt file, ensuring the resolved path stays within `workflow_dir`.
+///
+/// Prevents path traversal via absolute paths or `..` escapes in YAML config.
+fn read_prompt_file(workflow_dir: &Path, configured_path: &str, label: &str) -> Result<String> {
+    let base = workflow_dir.canonicalize().map_err(|e| {
+        SymphonyError::TemplateParseError(format!(
+            "failed to resolve workflow dir {}: {e}",
+            workflow_dir.display()
+        ))
+    })?;
+    let candidate = base.join(configured_path);
+    let canonical = candidate.canonicalize().map_err(|e| {
+        SymphonyError::TemplateParseError(format!(
+            "failed to read {label} prompt {}: {e}",
+            candidate.display()
+        ))
+    })?;
+    if !canonical.starts_with(&base) {
+        return Err(SymphonyError::TemplateParseError(format!(
+            "{label} prompt path escapes workflow dir: {configured_path}",
+        )));
+    }
+    std::fs::read_to_string(&canonical).map_err(|e| {
+        SymphonyError::TemplateParseError(format!(
+            "failed to read {label} prompt {}: {e}",
+            canonical.display()
+        ))
+    })
+}
+
+pub fn resolve_per_state_prompt(
+    prompts_config: &PromptsConfig,
+    issue_state: &str,
+    workflow_dir: &Path,
+) -> Result<Option<String>> {
+    let normalized_state = issue_state.trim().to_ascii_lowercase();
+
+    // Find the state-specific prompt path
+    let state_path = prompts_config
+        .by_state
+        .get(&normalized_state)
+        .or(prompts_config.default.as_ref());
+
+    let Some(state_path) = state_path else {
+        return Ok(None);
+    };
+
+    // Read the state-specific prompt file (path-confined to workflow dir)
+    let state_content = read_prompt_file(workflow_dir, state_path, "state")?;
+
+    // Read shared prompt if configured
+    let shared_content = if let Some(shared_path) = &prompts_config.shared {
+        Some(read_prompt_file(workflow_dir, shared_path, "shared")?)
+    } else {
+        None
+    };
+
+    // Concatenate: shared + separator + state-specific
+    let template = match shared_content {
+        Some(shared) => format!("{shared}\n\n---\n\n{state_content}"),
+        None => state_content,
+    };
+
+    Ok(Some(template))
 }
 
 /// Build a concise continuation prompt for turn 2+ in a multi-turn session.

@@ -12,8 +12,8 @@ use serde_yaml::{Mapping, Value};
 
 use crate::domain::{
     AgentBackend, AgentConfig, ApiKey, CodexConfig, DockerCodexAuth, DockerConfig, HooksConfig,
-    PiAgentConfig, PollingConfig, ServerConfig, ServiceConfig, TrackerConfig, WorkerConfig,
-    WorkspaceConfig, WorkspaceIsolation, WorkspaceRepoStrategy,
+    PiAgentConfig, PollingConfig, PromptsConfig, ServerConfig, ServiceConfig, TrackerConfig,
+    WorkerConfig, WorkspaceConfig, WorkspaceIsolation, WorkspaceRepoStrategy,
 };
 use crate::error::{Result, SymphonyError};
 use crate::repo_url::repo_is_remote;
@@ -261,6 +261,14 @@ struct RawServerConfig {
     host: Option<String>,
 }
 
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct RawPromptsConfig {
+    shared: Option<String>,
+    by_state: Option<HashMap<String, String>>,
+    default: Option<String>,
+}
+
 // ── Section extraction helper ─────────────────────────────────────────────────
 
 fn extract_section<T>(normalized: &Value, section: &str) -> Result<T>
@@ -437,6 +445,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let raw_pi_agent: RawPiAgentConfig = extract_section(&normalized, "pi_agent")?;
     let raw_hooks: RawHooksConfig = extract_section(&normalized, "hooks")?;
     let raw_server: RawServerConfig = extract_section(&normalized, "server")?;
+    let raw_prompts: RawPromptsConfig = extract_section(&normalized, "prompts")?;
 
     let defaults = ServiceConfig::default();
     let has_kata_agent_section = normalized.get("kata_agent").is_some();
@@ -830,6 +839,32 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         host: raw_server.host.unwrap_or(defaults.server.host.clone()),
     };
 
+    // ── PromptsConfig ─────────────────────────────────────────────────────
+    let trim_path = |v: Option<String>| -> Option<String> {
+        v.map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+    };
+    let shared = trim_path(raw_prompts.shared);
+    let default = trim_path(raw_prompts.default);
+    let by_state: HashMap<String, String> = raw_prompts
+        .by_state
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|(k, v)| {
+            let key = k.trim().to_ascii_lowercase();
+            let path = v.trim().to_string();
+            (!key.is_empty() && !path.is_empty()).then_some((key, path))
+        })
+        .collect();
+    let prompts = if shared.is_some() || !by_state.is_empty() || default.is_some() {
+        Some(PromptsConfig {
+            shared,
+            by_state,
+            default,
+        })
+    } else {
+        None
+    };
+
     Ok(ServiceConfig {
         tracker,
         polling,
@@ -841,6 +876,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         agent_backend,
         hooks,
         server,
+        prompts,
     })
 }
 

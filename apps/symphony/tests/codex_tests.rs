@@ -421,6 +421,8 @@ fn make_test_issue() -> Issue {
         assigned_to_worker: true,
         created_at: None,
         updated_at: None,
+        children_count: 0,
+        parent_identifier: None,
     }
 }
 

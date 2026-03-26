@@ -142,6 +142,16 @@ impl WorkflowStore {
 
     /// Return a snapshot of the current `(WorkflowDefinition, ServiceConfig)`.
     ///
+    /// Return the parent directory of the workflow file.
+    ///
+    /// Prompt file paths in `prompts.by_state` are resolved relative to this.
+    pub fn workflow_dir(&self) -> &Path {
+        self.path.parent().unwrap_or(Path::new("."))
+    }
+
+    /// Return a snapshot of the current effective config (workflow definition
+    /// + service config).
+    ///
     /// The snapshot is a clone — callers can inspect it freely without holding
     /// a lock.  This method is safe to call from both sync and async contexts.
     ///

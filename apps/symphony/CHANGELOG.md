@@ -1,5 +1,46 @@
 # Changelog
 
+## 1.2.0 — Per-state prompts, dependency ordering, live tool activity
+
+### Per-State Prompt Injection
+
+- **State-driven prompt selection** — orchestrator selects a focused prompt based on the issue's Linear state at dispatch time instead of sending one monolithic prompt. Agents receive only the instructions relevant to their current job.
+- **`prompts` config section** — configure `shared`, `by_state`, and `default` prompt file paths in WORKFLOW.md frontmatter. Files are resolved relative to the workflow file.
+- **Issue shape detection** — `in-progress.md` prompt uses `children_count` and `parent_identifier` to auto-detect flat tickets, Kata-planned slices, and individual tasks. One workflow handles all three.
+- **Project-specific shared prompts** — `shared-symphony.md` (Rust/Cargo) and `shared-cli.md` (TypeScript/Bun) with repo-specific build/test/lint commands.
+- **Backward compatible** — without a `prompts` section, the full markdown body after `---` is used as before.
+- **Agent Review empty-comments guard** — agents don't advance to Human Review when no PR comments exist yet (reviewers may not have spun up).
+
+### Issue Dependency Ordering (KAT-927)
+
+- **Generalized blocker check** — `is_blocked_by_dependency()` replaces the Todo-only `todo_issue_blocked_by_non_terminal()`. Issues in any active state with non-terminal blockers are held in the queue.
+- **Circular dependency detection** — direct A↔B cycles detected and logged as warnings; neither issue dispatched.
+- **Cross-project blockers** — blockers with unknown state (cross-project) treated as non-blocking with a log warning.
+- **Blocked section in TUI** — new "Blocked" section between Running Sessions and Retry Queue shows blocked issues with their blocker identifiers.
+- **Blocked in HTTP dashboard and API** — `blocked` array in `/api/v1/state` JSON and HTML dashboard table.
+
+### Live Tool Activity Stream (KAT-926)
+
+- **Structured tool notification parsing** — `notification_event_summary()` parses `tool_start:`, `tool_end:`, `tool_error:` prefixed messages from the RPC bridge into structured event names and `<tool>: <args_preview>` messages.
+- **Tool activity colors in TUI** — `tool_start` → green, `tool_end` → blue, `tool_error` → red status dots.
+
+### Linear Query Enrichment
+
+- **`children_count` and `parent_identifier`** on `Issue` — candidate and by-ID queries now fetch `children.nodes` and `parent.identifier` for issue shape detection.
+
+### Workflow Management
+
+- **Workflow files gitignored** — `WORKFLOW.md` and `WORKFLOW-*.md` at root are gitignored (contain local paths/credentials). Example workflows in `docs/`.
+- **Plans in issue descriptions** — slice and task plans stored in Linear issue descriptions instead of separate LinearDocuments. Summaries as issue comments.
+- **Workpad protocol improved** — agents must load all context before creating workpad; placeholder content forbidden.
+- **Agent Review state transition fixed** — execution phase moves to Agent Review (not Human Review); section headers and instructions aligned.
+
+### Documentation
+
+- **WORKFLOW-REFERENCE.md** — added `prompts` config section with all template variables; removed stale monolith prompt body.
+- **AGENTS.md** — added `prompts` config section, `prompt_builder` module in module map.
+- **README** — updated with per-state prompt explanation and prompt file table.
+
 ## 1.1.0 — Kata CLI backend, per-state model selection, docs overhaul
 
 ### Kata CLI Backend (KAT-902, KAT-912)

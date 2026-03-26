@@ -122,25 +122,51 @@ fn test_parse_workflow_non_map_yaml() {
 }
 
 #[test]
-fn test_repo_workflow_requires_publish_gate_before_human_review() {
-    let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/WORKFLOW-symphony.md");
-    let def = parse_workflow(&workflow_path)
-        .expect("repo WORKFLOW.md should parse for publish-gate contract assertions");
+fn test_repo_workflow_requires_publish_gate_before_agent_review() {
+    // The publish-gate contract now lives in the per-state prompt file
+    let prompt_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("prompts/in-progress.md");
+    let content = std::fs::read_to_string(&prompt_path)
+        .expect("prompts/in-progress.md should exist for publish-gate contract assertions");
 
     assert!(
-        def.prompt_template
-            .contains("git ls-remote --exit-code --heads origin \"$(git branch --show-current)\""),
-        "WORKFLOW.md must require explicit remote-branch proof before Human Review"
+        content.contains("git ls-remote --exit-code --heads origin"),
+        "in-progress.md must require explicit remote-branch proof before Agent Review"
     );
     assert!(
-        def.prompt_template
-            .contains("gh pr view --json url,state,headRefName,baseRefName"),
-        "WORKFLOW.md must require explicit PR proof before Human Review"
+        content.contains("gh pr view --json url,state,headRefName,baseRefName"),
+        "in-progress.md must require explicit PR proof before Agent Review"
     );
     assert!(
-        def.prompt_template
-            .contains("If either publish proof fails, do not move state"),
-        "WORKFLOW.md must explicitly block Human Review transition until publish checks pass"
+        content.contains("Agent Review"),
+        "in-progress.md must transition to Agent Review (not Human Review)"
+    );
+}
+
+#[test]
+fn test_repo_workflow_example_uses_per_state_prompts() {
+    let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/WORKFLOW-symphony.md");
+    let def = parse_workflow(&workflow_path).expect("example WORKFLOW-symphony.md should parse");
+
+    // When using per-state prompts, the body after --- should be empty or minimal
+    // The config should have a prompts section
+    let config = from_workflow(&def.config).expect("config should parse");
+    assert!(
+        config.prompts.is_some(),
+        "example WORKFLOW-symphony.md should use per-state prompts config"
+    );
+    let prompts = config.prompts.unwrap();
+    assert!(prompts.shared.is_some(), "should have shared prompt");
+    assert!(
+        !prompts.by_state.is_empty(),
+        "should have by_state mappings"
+    );
+    assert!(
+        prompts.by_state.contains_key("in progress"),
+        "should map 'in progress' state"
+    );
+    assert!(
+        prompts.by_state.contains_key("agent review"),
+        "should map 'agent review' state"
     );
 }
 
@@ -1128,4 +1154,180 @@ async fn test_workflow_store_force_reload_reports_error_on_invalid_workflow() {
         Some("good-key"),
         "failed force_reload should preserve last-known-good config"
     );
+}
+
+// ── Per-state prompts config ──────────────────────────────────────────────────
+
+#[test]
+fn test_prompts_config_absent_returns_none() {
+    let yaml = r#"
+tracker:
+  kind: linear
+  api_key: test-key
+  project_slug: test-slug
+"#;
+    let config = parse_yaml_config(yaml);
+    assert!(config.prompts.is_none());
+}
+
+#[test]
+fn test_prompts_config_parses_all_fields() {
+    let yaml = r#"
+tracker:
+  kind: linear
+  api_key: test-key
+  project_slug: test-slug
+prompts:
+  shared: prompts/shared.md
+  default: prompts/in-progress.md
+  by_state:
+    In Progress: prompts/in-progress.md
+    Agent Review: prompts/agent-review.md
+    Merging: prompts/merging.md
+"#;
+    let config = parse_yaml_config(yaml);
+    let prompts = config.prompts.expect("prompts should be Some");
+    assert_eq!(prompts.shared.as_deref(), Some("prompts/shared.md"));
+    assert_eq!(prompts.default.as_deref(), Some("prompts/in-progress.md"));
+    assert_eq!(
+        prompts.by_state.get("in progress").map(String::as_str),
+        Some("prompts/in-progress.md")
+    );
+    assert_eq!(
+        prompts.by_state.get("agent review").map(String::as_str),
+        Some("prompts/agent-review.md")
+    );
+    assert_eq!(
+        prompts.by_state.get("merging").map(String::as_str),
+        Some("prompts/merging.md")
+    );
+}
+
+#[test]
+fn test_prompts_config_normalizes_state_keys_to_lowercase() {
+    let yaml = r#"
+tracker:
+  kind: linear
+  api_key: test-key
+  project_slug: test-slug
+prompts:
+  by_state:
+    "In Progress": prompts/ip.md
+    "AGENT REVIEW": prompts/ar.md
+"#;
+    let config = parse_yaml_config(yaml);
+    let prompts = config.prompts.expect("prompts should be Some");
+    assert!(prompts.by_state.contains_key("in progress"));
+    assert!(prompts.by_state.contains_key("agent review"));
+    assert!(!prompts.by_state.contains_key("In Progress"));
+    assert!(!prompts.by_state.contains_key("AGENT REVIEW"));
+}
+
+// ── Issue children_count and parent_identifier ────────────────────────────────
+
+#[test]
+fn test_issue_children_count_and_parent_parsed_from_linear() {
+    // This tests the normalization in linear/client.rs
+    // The fields should default to 0/None when not present in JSON
+    let issue = symphony::domain::Issue {
+        id: "test-id".to_string(),
+        identifier: "KAT-100".to_string(),
+        title: "Test".to_string(),
+        description: None,
+        priority: None,
+        state: "In Progress".to_string(),
+        branch_name: None,
+        url: None,
+        assignee_id: None,
+        labels: vec![],
+        blocked_by: vec![],
+        assigned_to_worker: true,
+        created_at: None,
+        updated_at: None,
+        children_count: 3,
+        parent_identifier: Some("KAT-99".to_string()),
+    };
+    assert_eq!(issue.children_count, 3);
+    assert_eq!(issue.parent_identifier.as_deref(), Some("KAT-99"));
+}
+
+#[test]
+fn test_issue_children_count_defaults_to_zero() {
+    let issue = symphony::domain::Issue {
+        id: "test-id".to_string(),
+        identifier: "KAT-100".to_string(),
+        title: "Test".to_string(),
+        description: None,
+        priority: None,
+        state: "In Progress".to_string(),
+        branch_name: None,
+        url: None,
+        assignee_id: None,
+        labels: vec![],
+        blocked_by: vec![],
+        assigned_to_worker: true,
+        created_at: None,
+        updated_at: None,
+        children_count: 0,
+        parent_identifier: None,
+    };
+    assert_eq!(issue.children_count, 0);
+    assert!(issue.parent_identifier.is_none());
+}
+
+fn parse_yaml_config(yaml: &str) -> symphony::domain::ServiceConfig {
+    let value: serde_yaml::Value = serde_yaml::from_str(yaml).expect("valid yaml");
+    from_workflow(&value).expect("config should parse")
+}
+
+#[test]
+fn test_prompts_config_filters_empty_and_whitespace_paths() {
+    let yaml = r#"
+tracker:
+  kind: linear
+  api_key: test-key
+  project_slug: test-slug
+prompts:
+  shared: "   "
+  default: ""
+  by_state:
+    In Progress: "  prompts/ip.md  "
+    Agent Review: ""
+"#;
+    let config = parse_yaml_config(yaml);
+    let prompts = config
+        .prompts
+        .expect("prompts should be Some (ip.md is non-empty)");
+    assert!(
+        prompts.shared.is_none(),
+        "whitespace-only shared should be None"
+    );
+    assert!(prompts.default.is_none(), "empty default should be None");
+    assert_eq!(
+        prompts.by_state.len(),
+        1,
+        "empty Agent Review path should be filtered"
+    );
+    assert_eq!(
+        prompts.by_state.get("in progress").map(String::as_str),
+        Some("prompts/ip.md"),
+        "in progress path should be trimmed"
+    );
+}
+
+#[test]
+fn test_prompts_config_all_empty_returns_none() {
+    let yaml = r#"
+tracker:
+  kind: linear
+  api_key: test-key
+  project_slug: test-slug
+prompts:
+  shared: ""
+  default: "  "
+  by_state:
+    In Progress: ""
+"#;
+    let config = parse_yaml_config(yaml);
+    assert!(config.prompts.is_none(), "all-empty prompts should be None");
 }

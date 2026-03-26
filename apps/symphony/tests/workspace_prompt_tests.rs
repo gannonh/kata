@@ -147,6 +147,8 @@ fn make_test_issue(identifier: &str) -> Issue {
         assigned_to_worker: true,
         created_at: None,
         updated_at: None,
+        children_count: 0,
+        parent_identifier: None,
     }
 }
 
@@ -1000,6 +1002,8 @@ fn make_full_issue() -> Issue {
         assigned_to_worker: true,
         created_at: Some("2025-01-15T10:30:00Z".parse::<DateTime<Utc>>().unwrap()),
         updated_at: Some("2025-02-20T14:00:00Z".parse::<DateTime<Utc>>().unwrap()),
+        children_count: 0,
+        parent_identifier: None,
     }
 }
 
@@ -1079,6 +1083,8 @@ fn test_render_prompt_none_fields() {
         assigned_to_worker: true,
         created_at: None,
         updated_at: None,
+        children_count: 0,
+        parent_identifier: None,
     };
     let template = "Desc: [{{ issue.description }}] Branch: [{{ issue.branch_name }}]";
 
@@ -1212,4 +1218,188 @@ async fn test_docker_bootstrap_repository_rejects_non_remote_strategies() {
             msg
         );
     }
+}
+
+// ── Per-state prompt resolution ───────────────────────────────────────────────
+
+#[test]
+fn test_resolve_per_state_prompt_reads_and_concatenates_files() {
+    use std::collections::HashMap;
+    use symphony::domain::PromptsConfig;
+    use symphony::prompt_builder::resolve_per_state_prompt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let dir_path = dir.path();
+
+    // Write shared and state-specific files
+    std::fs::write(dir_path.join("shared.md"), "SHARED CONTEXT").unwrap();
+    std::fs::write(dir_path.join("in-progress.md"), "DO THE WORK").unwrap();
+
+    let config = PromptsConfig {
+        shared: Some("shared.md".to_string()),
+        by_state: HashMap::from([("in progress".to_string(), "in-progress.md".to_string())]),
+        default: None,
+    };
+
+    let result = resolve_per_state_prompt(&config, "In Progress", dir_path)
+        .expect("should resolve")
+        .expect("should find state mapping");
+
+    assert!(
+        result.contains("SHARED CONTEXT"),
+        "should include shared content"
+    );
+    assert!(
+        result.contains("DO THE WORK"),
+        "should include state content"
+    );
+    assert!(
+        result.contains("---"),
+        "should have separator between shared and state"
+    );
+}
+
+#[test]
+fn test_resolve_per_state_prompt_uses_default_for_unmapped_state() {
+    use std::collections::HashMap;
+    use symphony::domain::PromptsConfig;
+    use symphony::prompt_builder::resolve_per_state_prompt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let dir_path = dir.path();
+
+    std::fs::write(dir_path.join("default.md"), "DEFAULT PROMPT").unwrap();
+
+    let config = PromptsConfig {
+        shared: None,
+        by_state: HashMap::new(),
+        default: Some("default.md".to_string()),
+    };
+
+    let result = resolve_per_state_prompt(&config, "Some Random State", dir_path)
+        .expect("should resolve")
+        .expect("should fall back to default");
+
+    assert!(result.contains("DEFAULT PROMPT"));
+}
+
+#[test]
+fn test_resolve_per_state_prompt_returns_none_when_no_mapping_and_no_default() {
+    use std::collections::HashMap;
+    use symphony::domain::PromptsConfig;
+    use symphony::prompt_builder::resolve_per_state_prompt;
+
+    let config = PromptsConfig {
+        shared: None,
+        by_state: HashMap::new(),
+        default: None,
+    };
+
+    let result = resolve_per_state_prompt(&config, "In Progress", std::path::Path::new("."))
+        .expect("should not error");
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_resolve_per_state_prompt_without_shared_returns_state_only() {
+    use std::collections::HashMap;
+    use symphony::domain::PromptsConfig;
+    use symphony::prompt_builder::resolve_per_state_prompt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let dir_path = dir.path();
+
+    std::fs::write(dir_path.join("review.md"), "REVIEW ONLY").unwrap();
+
+    let config = PromptsConfig {
+        shared: None,
+        by_state: HashMap::from([("agent review".to_string(), "review.md".to_string())]),
+        default: None,
+    };
+
+    let result = resolve_per_state_prompt(&config, "Agent Review", dir_path)
+        .expect("should resolve")
+        .expect("should find state mapping");
+
+    assert_eq!(result, "REVIEW ONLY");
+    assert!(
+        !result.contains("---"),
+        "no separator when no shared content"
+    );
+}
+
+#[test]
+fn test_resolve_per_state_prompt_state_matching_is_case_insensitive() {
+    use std::collections::HashMap;
+    use symphony::domain::PromptsConfig;
+    use symphony::prompt_builder::resolve_per_state_prompt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let dir_path = dir.path();
+
+    std::fs::write(dir_path.join("merge.md"), "MERGE IT").unwrap();
+
+    let config = PromptsConfig {
+        shared: None,
+        by_state: HashMap::from([("merging".to_string(), "merge.md".to_string())]),
+        default: None,
+    };
+
+    // State comes as "Merging" from Linear but config key is "merging"
+    let result = resolve_per_state_prompt(&config, "Merging", dir_path)
+        .expect("should resolve")
+        .expect("should match case-insensitively");
+
+    assert!(result.contains("MERGE IT"));
+}
+
+#[test]
+fn test_resolve_per_state_prompt_rejects_path_traversal() {
+    use std::collections::HashMap;
+    use symphony::domain::PromptsConfig;
+    use symphony::prompt_builder::resolve_per_state_prompt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let dir_path = dir.path();
+
+    // Create a file outside the workflow dir
+    let parent = dir_path.parent().unwrap();
+    std::fs::write(parent.join("secret.md"), "SHOULD NOT READ").unwrap();
+
+    let config = PromptsConfig {
+        shared: None,
+        by_state: HashMap::from([("in progress".to_string(), "../secret.md".to_string())]),
+        default: None,
+    };
+
+    let result = resolve_per_state_prompt(&config, "In Progress", dir_path);
+    assert!(
+        result.is_err(),
+        "path traversal should be rejected, got: {:?}",
+        result
+    );
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("escapes workflow dir"),
+        "error should mention escaping, got: {err}"
+    );
+}
+
+#[test]
+fn test_resolve_per_state_prompt_rejects_absolute_path() {
+    use std::collections::HashMap;
+    use symphony::domain::PromptsConfig;
+    use symphony::prompt_builder::resolve_per_state_prompt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let dir_path = dir.path();
+
+    let config = PromptsConfig {
+        shared: None,
+        by_state: HashMap::from([("in progress".to_string(), "/etc/passwd".to_string())]),
+        default: None,
+    };
+
+    let result = resolve_per_state_prompt(&config, "In Progress", dir_path);
+    assert!(result.is_err(), "absolute path should be rejected");
 }

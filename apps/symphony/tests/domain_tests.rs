@@ -26,6 +26,8 @@ fn test_issue_json_round_trip() {
         assigned_to_worker: true,
         created_at: Some(Utc::now()),
         updated_at: Some(Utc::now()),
+        children_count: 0,
+        parent_identifier: None,
     };
 
     let json = serde_json::to_string(&issue).unwrap();
@@ -114,6 +116,7 @@ fn test_service_config_defaults_match_spec() {
         agent_backend: AgentBackend::default(),
         hooks: HooksConfig::default(),
         server: ServerConfig::default(),
+        prompts: None,
     };
 
     // Polling §5.3.2

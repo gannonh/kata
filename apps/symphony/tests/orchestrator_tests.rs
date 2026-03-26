@@ -131,6 +131,8 @@ fn issue(
         assigned_to_worker: true,
         created_at: Some(Utc::now() + Duration::seconds(created_at_offset_secs)),
         updated_at: Some(Utc::now()),
+        children_count: 0,
+        parent_identifier: None,
     }
 }
 
@@ -3293,4 +3295,42 @@ fn test_snapshot_includes_blocked_issues() {
     );
     assert_eq!(snapshot.blocked[0].identifier, "SIM-90");
     assert_eq!(snapshot.blocked[0].blocker_identifiers, vec!["SIM-89"]);
+}
+
+#[test]
+fn test_blocked_issues_cleared_on_tick_start() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let mut port = FakePort {
+        candidate_issues: vec![],
+        ..Default::default()
+    };
+
+    // First tick: set up a blocked issue
+    let mut blocked = issue("issue-blocked", "SIM-50", "Todo", Some(0), 0);
+    blocked.blocked_by.push(BlockerRef {
+        id: Some("blocker-id".to_string()),
+        identifier: Some("SIM-49".to_string()),
+        state: Some("In Progress".to_string()),
+    });
+    port.candidate_issues = vec![blocked];
+    let _ = orchestrator.tick(&mut port);
+
+    // Verify blocked was collected
+    let snap1 = orchestrator.snapshot(0);
+    assert_eq!(
+        snap1.blocked.len(),
+        1,
+        "first tick should collect blocked issue"
+    );
+
+    // Second tick: no candidates (simulating empty result)
+    port.candidate_issues = vec![];
+    let _ = orchestrator.tick(&mut port);
+
+    // Verify blocked was cleared
+    let snap2 = orchestrator.snapshot(0);
+    assert!(
+        snap2.blocked.is_empty(),
+        "blocked should be cleared at tick start, not carry over from previous tick"
+    );
 }

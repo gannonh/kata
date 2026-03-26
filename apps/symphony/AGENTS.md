@@ -180,6 +180,36 @@ All hooks receive these environment variables:
 | `server.port` | u16    | _(none)_      | HTTP server port. Equivalent to `--port` on the CLI; `--port` takes precedence. |
 | `server.host` | string | `"127.0.0.1"` | HTTP server bind address.                                                       |
 
+#### `prompts` section (per-state prompt injection)
+
+Optional. When configured, the orchestrator selects a prompt template based on the issue's Linear state instead of using the monolithic markdown body after `---`.
+
+| Field              | Type              | Default    | Description                                                                                              |
+| ------------------ | ----------------- | ---------- | -------------------------------------------------------------------------------------------------------- |
+| `prompts.shared`   | string            | _(none)_   | Path to shared context file, prepended to every state-specific prompt. Relative to WORKFLOW.md directory. |
+| `prompts.by_state` | map<string,string> | `{}`      | Map of Linear state name → prompt file path. State matching is case-insensitive.                         |
+| `prompts.default`  | string            | _(none)_   | Fallback prompt file for states not listed in `by_state`.                                                |
+
+When `prompts` is absent, the markdown body after `---` is used as the prompt for all states (backward compatible).
+
+Example:
+
+```yaml
+prompts:
+  shared: prompts/shared-symphony.md
+  by_state:
+    Todo: prompts/in-progress.md
+    In Progress: prompts/in-progress.md
+    Agent Review: prompts/agent-review.md
+    Merging: prompts/merging.md
+    Rework: prompts/rework.md
+  default: prompts/in-progress.md
+```
+
+Template variables available: `{{ issue.identifier }}`, `{{ issue.title }}`, `{{ issue.state }}`, `{{ issue.labels }}`, `{{ issue.description }}`, `{{ issue.url }}`, `{{ issue.children_count }}`, `{{ issue.parent_identifier }}`, `{{ attempt }}`, `{{ workspace.base_branch }}`.
+
+The `in-progress.md` prompt uses `{% if issue.children_count > 0 %}` to detect Kata-planned slices vs flat tickets, eliminating the need for separate workflow files.
+
 ### Minimal Working Example
 
 ```markdown
@@ -505,6 +535,7 @@ Core Rust modules:
 | Pi RPC bridge | `src/pi_agent/rpc_bridge.rs` | Kata RPC subprocess lifecycle, turn streaming, token stats integration |
 | Pi protocol types | `src/pi_agent/protocol.rs` | Pi RPC command/response/event serde models |
 | Pi token accounting | `src/pi_agent/token_accounting.rs` | Cumulative token stats to per-turn delta tracking |
+| Prompt builder | `src/prompt_builder.rs` | Liquid template rendering, per-state prompt resolution from files |
 | SSH helpers | `src/ssh.rs` | Remote target parsing, command escaping, host selection helpers |
 
 ---

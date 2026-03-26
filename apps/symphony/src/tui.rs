@@ -437,7 +437,8 @@ fn draw_dashboard(
     let summary_height = summary_lines_data.len() as u16;
     let has_blocked = !snapshot.blocked.is_empty();
     let blocked_height = if has_blocked {
-        (snapshot.blocked.len() as u16 + 2).min(7)
+        // borders (2) + header (1) + data rows
+        (snapshot.blocked.len() as u16 + 3).min(8)
     } else {
         0
     };
