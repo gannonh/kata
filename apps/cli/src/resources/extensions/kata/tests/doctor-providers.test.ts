@@ -135,6 +135,7 @@ describe("runProviderChecks", () => {
 
   it("resolves default auth path from current HOME at check time", async () => {
     const originalHome = process.env.HOME;
+    const originalAgentDir = process.env.KATA_CODING_AGENT_DIR;
     const targetProvider = "anthropic";
 
     const tempHome = mkdtempSync(join(process.cwd(), ".tmp-doctor-provider-home-"));
@@ -152,6 +153,7 @@ describe("runProviderChecks", () => {
 
     try {
       process.env.HOME = tempHome;
+      delete process.env.KATA_CODING_AGENT_DIR;
       const result = await runProviderChecks({
         env: {},
         overrides: {
@@ -166,6 +168,7 @@ describe("runProviderChecks", () => {
       assert.equal(provider.hasStoredCredential, true);
     } finally {
       process.env.HOME = originalHome;
+      process.env.KATA_CODING_AGENT_DIR = originalAgentDir;
       rmSync(tempHome, { recursive: true, force: true });
     }
   });

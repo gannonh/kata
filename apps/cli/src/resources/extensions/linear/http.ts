@@ -199,8 +199,8 @@ function isRetryable(error: unknown): boolean {
   }
   if (error instanceof LinearGraphQLError) {
     // GraphQL-level rate-limit or server errors should be retried.
-    // classifyError() identifies these via extensions.code / message patterns.
-    const classified = classifyError(error);
+    // classifyLinearError() identifies these via extensions.code / message patterns.
+    const classified = classifyLinearError(error);
     return classified.kind === "rate_limited" || classified.kind === "server_error";
   }
   if (error instanceof TypeError) return (error as TypeError).message.includes("fetch");

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.1
+
+### Fixes
+
+- **Linear error retry classification crash** — Fixed a runtime error in Linear HTTP retry handling where `isRetryable()` called a non-existent classifier (`classifyError`), which could surface as `classifyError is not defined` on auth/error paths.
+- **Doctor provider HOME-path test isolation** — Stabilized the provider diagnostics test by explicitly clearing and restoring `KATA_CODING_AGENT_DIR` in the HOME-resolution test to avoid environment leakage between test contexts.
+
 ## 0.7.0
 
 ### Features
