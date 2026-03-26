@@ -1495,6 +1495,33 @@ impl Orchestrator {
         let mut dispatched_issues = vec![];
         let mut blocked_entries: Vec<crate::domain::BlockedIssueEntry> = vec![];
 
+        // First pass: identify all dependency-blocked candidates so the blocked list
+        // is complete regardless of slot availability. Without this, candidates that
+        // happen to appear after slot exhaustion would be silently omitted from the
+        // blocked_issues list, making the dashboard/TUI under-report blocked work.
+        for candidate in &sorted_candidates {
+            if !self.should_dispatch_issue(candidate) {
+                continue;
+            }
+            let (dep_blocked, blocker_ids) =
+                self.is_blocked_by_dependency(candidate, &sorted_candidates, &candidate_ids);
+            if dep_blocked {
+                blocked_entries.push(crate::domain::BlockedIssueEntry {
+                    issue_id: candidate.id.clone(),
+                    identifier: candidate.identifier.clone(),
+                    title: candidate.title.clone(),
+                    state: candidate.state.clone(),
+                    blocker_identifiers: blocker_ids,
+                });
+            }
+        }
+
+        // Second pass: dispatch non-blocked candidates until slots are exhausted.
+        let blocked_ids: std::collections::HashSet<&str> = blocked_entries
+            .iter()
+            .map(|e| e.issue_id.as_str())
+            .collect();
+
         for candidate in &sorted_candidates {
             if self.available_slots() == 0 {
                 tracing::debug!(
@@ -1516,17 +1543,8 @@ impl Orchestrator {
                 continue;
             }
 
-            // Check dependency blockers (applies to all active states)
-            let (dep_blocked, blocker_ids) =
-                self.is_blocked_by_dependency(candidate, &sorted_candidates, &candidate_ids);
-            if dep_blocked {
-                blocked_entries.push(crate::domain::BlockedIssueEntry {
-                    issue_id: candidate.id.clone(),
-                    identifier: candidate.identifier.clone(),
-                    title: candidate.title.clone(),
-                    state: candidate.state.clone(),
-                    blocker_identifiers: blocker_ids,
-                });
+            // Skip dependency-blocked candidates (already collected above)
+            if blocked_ids.contains(candidate.id.as_str()) {
                 continue;
             }
 
@@ -2570,8 +2588,9 @@ impl Orchestrator {
     /// with a warning, since Symphony cannot resolve them.
     ///
     /// When `candidate_ids` is provided, direct circular dependencies (A↔B)
-    /// are detected: if this issue blocks a candidate that also blocks this
-    /// issue, both are considered blocked and a warning is logged.
+    /// are detected and a warning is logged for observability. Note that the
+    /// circular detection itself does not cause blocking — both issues are
+    /// already blocked individually by the non-terminal blocker check above.
     fn is_blocked_by_dependency(
         &self,
         issue: &Issue,
@@ -2615,12 +2634,15 @@ impl Orchestrator {
             blocking_identifiers.push(blocker_id);
         }
 
-        // Check for direct circular dependencies (A↔B)
+        // Detect direct circular dependencies (A↔B) for observability.
+        // NOTE: This block is purely informational — it does NOT cause blocking.
+        // Both issues are already blocked naturally by the logic above: when A is
+        // processed it sees B as a non-terminal blocker, and vice versa. The warning
+        // simply makes circular relationships visible in logs for operators.
         if !blocking_identifiers.is_empty() {
             for blocker in &issue.blocked_by {
                 if let Some(blocker_issue_id) = &blocker.id {
                     if candidate_ids.contains(blocker_issue_id) {
-                        // Check if the blocker also has this issue as a blocker
                         if let Some(blocker_issue) =
                             all_issues.iter().find(|i| i.id == *blocker_issue_id)
                         {
@@ -2633,7 +2655,8 @@ impl Orchestrator {
                                     event = "circular_dependency_detected",
                                     issue_a = %issue.identifier,
                                     issue_b = %blocker_issue.identifier,
-                                    "circular dependency detected; both issues will be blocked"
+                                    "circular dependency detected between issues (both are \
+                                     already blocked individually by the non-terminal blocker check above)"
                                 );
                             }
                         }
