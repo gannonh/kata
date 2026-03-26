@@ -114,6 +114,28 @@ fn resolve_env(val: &str) -> String {
     val.to_string()
 }
 
+fn validate_public_url(value: &str) -> Result<String> {
+    let parsed = reqwest::Url::parse(value).map_err(|err| {
+        SymphonyError::InvalidWorkflowConfig(format!(
+            "server.public_url must be a valid absolute URL: {err}"
+        ))
+    })?;
+
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err(SymphonyError::InvalidWorkflowConfig(
+            "server.public_url must use http or https".to_string(),
+        ));
+    }
+
+    if parsed.host_str().is_none() {
+        return Err(SymphonyError::InvalidWorkflowConfig(
+            "server.public_url must include a host".to_string(),
+        ));
+    }
+
+    Ok(value.to_string())
+}
+
 // ── Tilde expansion ───────────────────────────────────────────────────────────
 
 /// Expand a leading `~` to `$HOME`.
@@ -851,14 +873,18 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     };
 
     // ── ServerConfig ──────────────────────────────────────────────────────
+    let public_url = raw_server
+        .public_url
+        .map(|value| resolve_env(&value))
+        .map(|value| value.trim().trim_end_matches('/').to_string())
+        .filter(|value| !value.is_empty())
+        .map(|value| validate_public_url(&value))
+        .transpose()?;
+
     let server = ServerConfig {
         port: raw_server.port,
         host: raw_server.host.unwrap_or(defaults.server.host.clone()),
-        public_url: raw_server
-            .public_url
-            .map(|value| resolve_env(&value))
-            .map(|value| value.trim().trim_end_matches('/').to_string())
-            .filter(|value| !value.is_empty()),
+        public_url,
     };
 
     // ── PromptsConfig ─────────────────────────────────────────────────────

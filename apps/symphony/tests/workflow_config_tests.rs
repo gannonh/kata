@@ -227,6 +227,21 @@ server:
 }
 
 #[test]
+fn test_server_public_url_rejects_malformed_or_relative_values() {
+    for public_url in ["not-a-url", "/dashboard", "ftp://example.com"] {
+        let yaml_str =
+            format!("server:\n  host: 0.0.0.0\n  port: 8080\n  public_url: \"{public_url}\"\n");
+        let raw: serde_yaml::Value = serde_yaml::from_str(&yaml_str).unwrap();
+        let err = from_workflow(&raw).expect_err("invalid server.public_url should fail parsing");
+
+        assert!(
+            matches!(err, SymphonyError::InvalidWorkflowConfig(ref msg) if msg.contains("server.public_url")),
+            "expected invalid public_url error for '{public_url}', got: {err}"
+        );
+    }
+}
+
+#[test]
 fn test_agent_backend_kata_cli_with_kata_agent_config() {
     let yaml_str = r#"
 agent:
