@@ -20,6 +20,7 @@ export interface LinearPageInfo {
 
 export type ProjectState = "planned" | "started" | "paused" | "completed" | "canceled" | "backlog";
 export type LinearPriority = 0 | 1 | 2 | 3 | 4;
+export type LinearIssueRelationKind = "blocks" | "blocked_by" | "relates_to" | "duplicate";
 
 // =============================================================================
 // Entities
@@ -82,6 +83,22 @@ export interface LinearLabel {
   parentId?: string;
 }
 
+export interface LinearIssueRelationIssueRef {
+  id: string;
+  identifier: string;
+  title: string;
+  state?: LinearWorkflowState | null;
+}
+
+export interface LinearIssueRelation {
+  id: string;
+  type: LinearIssueRelationKind;
+  direction: "outbound" | "inbound";
+  issue: LinearIssueRelationIssueRef;
+  relatedIssue: LinearIssueRelationIssueRef;
+  otherIssue: LinearIssueRelationIssueRef;
+}
+
 export interface LinearIssue {
   id: string;
   identifier: string;
@@ -97,6 +114,8 @@ export interface LinearIssue {
   children: { nodes: Array<{ id: string; identifier: string; title: string; state: LinearWorkflowState }> };
   project?: { id: string; name: string } | null;
   projectMilestone?: { id: string; name: string } | null;
+  relations?: LinearIssueRelation[];
+  blockedBy?: LinearIssueRelationIssueRef[];
   createdAt: string;
   updatedAt: string;
 }
@@ -238,6 +257,12 @@ export interface IssueFilter {
   labelIds?: string[];
   assigneeId?: string;
   first?: number;
+}
+
+export interface IssueRelationCreateInput {
+  issueId: string;
+  relatedIssueId: string;
+  type: LinearIssueRelationKind;
 }
 
 export interface LabelCreateInput {

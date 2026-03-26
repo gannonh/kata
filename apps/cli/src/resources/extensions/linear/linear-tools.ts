@@ -306,6 +306,42 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
   });
 
   pi.registerTool({
+    name: "linear_create_relation",
+    label: "Linear: Create Relation",
+    description: "Create an issue relation (blocks, blocked_by, relates_to, duplicate).",
+    promptSnippet: "Create an issue relation between two issues.",
+    parameters: Type.Object({
+      issueId: Type.String({ description: "UUID of the source issue" }),
+      relatedIssueId: Type.String({ description: "UUID of the related issue" }),
+      type: Type.Union(
+        [
+          Type.Literal("blocks"),
+          Type.Literal("blocked_by"),
+          Type.Literal("relates_to"),
+          Type.Literal("duplicate"),
+        ],
+        { description: "Relation type" }
+      ),
+    }),
+    async execute(_id, params) {
+      return run(() => client.createRelation(params));
+    },
+  });
+
+  pi.registerTool({
+    name: "linear_list_relations",
+    label: "Linear: List Relations",
+    description: "List all relations for an issue (outbound and inbound) with normalized direction.",
+    promptSnippet: "List all relations for an issue.",
+    parameters: Type.Object({
+      issueId: Type.String({ description: "Issue UUID" }),
+    }),
+    async execute(_id, params) {
+      return run(() => client.listRelations(params.issueId));
+    },
+  });
+
+  pi.registerTool({
     name: "linear_update_issue",
     label: "Linear: Update Issue",
     description: "Update an issue's title, description, state, labels, priority, assignee, parent, project, or milestone.",

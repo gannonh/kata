@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.7.1
+## 0.8.0
+
+### Features
+
+- **Issue relation support in built-in Linear tools (KAT-952)** — Added `linear_create_relation` and `linear_list_relations` for `blocks`, `blocked_by`, `relates_to`, and `duplicate` relationships. `linear_get_issue` responses now include normalized `relations` and a derived `blockedBy` array for dependency-aware consumers.
 
 ### Fixes
 
