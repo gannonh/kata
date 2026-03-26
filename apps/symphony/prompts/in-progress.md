@@ -23,7 +23,7 @@ Before implementation starts, load context in this exact order:
    - Execute the implementation steps described in the description.
    - Run validation for that task.
    - Commit with task reference in the message.
-   - Move the child issue to `Done`.
+   - Move the child issue directly to `Done`. Do NOT move it to `Todo`, `In Progress`, or any other intermediate state — only `Backlog` → `Done`. Moving tasks to intermediate states causes the orchestrator to dispatch them as separate workers.
 3. Keep one PR for the entire slice branch.
 
 ### Workpad format for slices
