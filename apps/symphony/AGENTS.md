@@ -188,7 +188,7 @@ Optional. Configure outbound webhook notifications for events requiring human at
 | Field                              | Type     | Default   | Description                                                                                     |
 | ---------------------------------- | -------- | --------- | ----------------------------------------------------------------------------------------------- |
 | `notifications.slack.webhook_url`  | string   | _(none)_  | Slack incoming webhook URL. Supports `$VAR` env-var indirection.                               |
-| `notifications.slack.events`       | string[] | `[]`      | Event filters. Supported values: `human_review`, `stalled`, `failed`, `rework` (lowercased). Empty list means no notifications are sent. |
+| `notifications.slack.events`       | string[] | `[]`      | Event filters. Supported values: `human_review`, `stalled`, `failed`, `rework` (case-insensitive; normalized to lowercase). Empty list means no notifications are sent. |
 
 When omitted, notifications are disabled. Slack `Dashboard:` links are included only when `server.public_url` is configured.
 

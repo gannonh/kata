@@ -977,8 +977,8 @@ pub const FAILURE_RETRY_BASE_MS: i64 = 10_000;
 /// Marker included in stall-induced failure strings.
 ///
 /// `detect_stalled_workers` appends this marker to synthetic failure messages,
-/// and `handle_worker_completion` checks for it to suppress duplicate `failed`
-/// Slack notifications when the worker has already emitted a `stalled` event.
+/// and `handle_worker_completion` checks for it so stall-induced failures are
+/// not treated as generic `failed` notification events.
 const STALL_FAILURE_MARKER: &str = "without agent activity";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

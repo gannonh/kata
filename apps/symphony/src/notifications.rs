@@ -84,7 +84,7 @@ pub async fn send_slack_notification(
         .json(&payload)
         .send()
         .await
-        .map_err(|err| anyhow!("Slack notification request failed: {err}"))?;
+        .map_err(|err| anyhow!(sanitize_request_error(&err)))?;
 
     let status = response.status();
     if !status.is_success() {
@@ -117,6 +117,22 @@ pub fn is_supported_slack_event(event_type: &str) -> bool {
     SUPPORTED_SLACK_EVENTS
         .iter()
         .any(|supported| *supported == normalized)
+}
+
+fn sanitize_request_error(err: &reqwest::Error) -> String {
+    let category = if err.is_timeout() {
+        "timeout"
+    } else if err.is_connect() {
+        "connect"
+    } else if err.is_request() {
+        "request"
+    } else if err.is_status() {
+        "status"
+    } else {
+        "transport"
+    };
+
+    format!("Slack notification request failed ({category} error)")
 }
 
 fn normalize_event_type(event_type: &str) -> String {
@@ -247,5 +263,29 @@ mod tests {
 
         assert!(result.is_err(), "HTTP errors should return Err");
         mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_notification_request_error_message_does_not_include_webhook_url() {
+        let webhook_url = "http://127.0.0.1:1/webhook";
+        let config = SlackConfig {
+            webhook_url: webhook_url.to_string(),
+            events: vec!["failed".to_string()],
+        };
+
+        let err = send_slack_notification(
+            &config,
+            "failed",
+            "KAT-920",
+            "Worker crashed",
+            "Agent failed after max retries",
+            None,
+        )
+        .await
+        .expect_err("unreachable endpoint should return an error");
+
+        let err_text = err.to_string();
+        assert!(!err_text.contains(webhook_url));
+        assert!(err_text.contains("Slack notification request failed"));
     }
 }

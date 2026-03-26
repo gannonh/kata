@@ -297,7 +297,7 @@ server:
 #     # Event filters (lowercased internally):
 #     #   human_review — issue moved to Human Review during reconcile
 #     #   stalled      — worker exceeded stall timeout
-#     #   failed       — non-stall worker failure with retry scheduled
+#     #   failed       — non-stall worker failure during execution
 #     #   rework       — issue moved to Rework during reconcile
 #     # Empty list means no notifications are sent.
 #     events:
