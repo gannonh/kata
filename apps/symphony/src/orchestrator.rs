@@ -1388,19 +1388,20 @@ impl Orchestrator {
             if let Some(attempt) = self.state.running.get_mut(&d.issue.id) {
                 attempt.status = "running".to_string();
             }
-            let issue = d.issue.clone();
+            let mut issue = d.issue.clone();
             let attempt = d.attempt;
             let worker_host = d.worker_host.clone();
             let tx = self.worker_result_tx.clone();
 
-            // Resolve per-state prompt using the post-dispatch state from
-            // running_issue_states (set during dispatch_issue), falling back to
-            // issue.state if not yet tracked.
+            // Use the post-dispatch state (after Todo→In Progress transition) so
+            // the multi-turn loop's between-turn check compares against the actual
+            // dispatched state, not the stale pre-transition state.
             let effective_state = self
                 .running_issue_states
                 .get(&issue.id)
                 .cloned()
                 .unwrap_or_else(|| issue.state.clone());
+            issue.state = effective_state.clone();
             let prompt_template = self.resolve_prompt_for_state(&effective_state);
 
             let task_config = WorkerTaskConfig {

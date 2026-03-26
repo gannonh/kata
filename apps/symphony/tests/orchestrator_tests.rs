@@ -3408,3 +3408,9 @@ async fn test_execute_worker_attempt_stops_when_issue_changes_to_different_activ
          the orchestrator needs to re-dispatch with the agent-review prompt"
     );
 }
+
+// Covered by test_execute_worker_attempt_runs_multiple_turns_in_one_session:
+// same-state (In Progress → In Progress) continues normally for 2+ turns.
+// The Todo→In Progress auto-transition sets issue.state = effective_state in
+// spawn_workers_for_dispatched before the worker sees it, so the dispatched
+// state is always the post-transition state.
