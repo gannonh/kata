@@ -225,21 +225,27 @@ describe("restoreEnvVar", () => {
     const key = "KATA_TEST_RESTORE_ENV_VAR";
     const saved = process.env[key];
 
-    process.env[key] = "temp";
-    restoreEnvVar(key, undefined);
+    try {
+      process.env[key] = "temp";
+      restoreEnvVar(key, undefined);
 
-    assert.equal(process.env[key], undefined);
-    restoreEnvVar(key, saved);
+      assert.equal(process.env[key], undefined);
+    } finally {
+      restoreEnvVar(key, saved);
+    }
   });
 
   it("restores env var when original value exists", () => {
     const key = "KATA_TEST_RESTORE_ENV_VAR";
     const saved = process.env[key];
 
-    process.env[key] = "temp";
-    restoreEnvVar(key, "original");
+    try {
+      process.env[key] = "temp";
+      restoreEnvVar(key, "original");
 
-    assert.equal(process.env[key], "original");
-    restoreEnvVar(key, saved);
+      assert.equal(process.env[key], "original");
+    } finally {
+      restoreEnvVar(key, saved);
+    }
   });
 });
