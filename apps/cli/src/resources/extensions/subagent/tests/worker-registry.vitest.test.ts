@@ -104,7 +104,7 @@ describe("worker-registry", () => {
   describe("reset", () => {
     it("clears all workers", () => {
       registerWorker("scout", "Task", 0, 1, "batch-8");
-      expect(getActiveWorkers().length > 0).toBe(true);
+      expect(getActiveWorkers().length).toBeGreaterThan(0);
       resetWorkerRegistry();
       expect(getActiveWorkers().length).toBe(0);
       expect(hasActiveWorkers()).toBe(false);
