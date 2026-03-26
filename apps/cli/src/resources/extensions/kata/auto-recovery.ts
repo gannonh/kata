@@ -5,7 +5,7 @@
  * Extracted from auto.ts to enable isolated testing. No pi SDK imports.
  */
 
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   existsSync,
   mkdirSync,
@@ -137,12 +137,12 @@ export function writeBlockerPlaceholder(
 ): string | null {
   const absPath = resolveExpectedArtifactPath(unitType, unitId, base);
   if (!absPath) return null;
-  const dir = absPath.substring(0, absPath.lastIndexOf("/"));
+  const dir = dirname(absPath);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const content = [
     `# BLOCKER — auto-mode recovery failed`,
     ``,
-    `Unit \`${unitType}\` for \`${unitId}\` failed to produce this artifact after idle recovery exhausted all retries.`,
+    `Unit \`${unitType}\` for \`${unitId}\` failed to produce this artifact during auto-mode recovery.`,
     ``,
     `**Reason**: ${reason}`,
     ``,
