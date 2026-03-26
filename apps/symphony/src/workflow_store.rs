@@ -142,12 +142,6 @@ impl WorkflowStore {
 
     /// Return a snapshot of the current `(WorkflowDefinition, ServiceConfig)`.
     ///
-    /// The snapshot is a clone — callers can inspect it freely without holding
-    /// a lock.  This method is safe to call from both sync and async contexts.
-    ///
-    /// If the read lock is poisoned (another thread panicked while holding the
-    /// write lock), the last-written value is recovered and returned rather
-    /// than propagating a panic.
     /// Return the parent directory of the workflow file.
     ///
     /// Prompt file paths in `prompts.by_state` are resolved relative to this.
@@ -155,6 +149,15 @@ impl WorkflowStore {
         self.path.parent().unwrap_or(Path::new("."))
     }
 
+    /// Return a snapshot of the current effective config (workflow definition
+    /// + service config).
+    ///
+    /// The snapshot is a clone — callers can inspect it freely without holding
+    /// a lock.  This method is safe to call from both sync and async contexts.
+    ///
+    /// If the read lock is poisoned (another thread panicked while holding the
+    /// write lock), the last-written value is recovered and returned rather
+    /// than propagating a panic.
     pub fn effective_config(&self) -> EffectiveConfig {
         match self.inner.read() {
             Ok(guard) => guard.clone(),

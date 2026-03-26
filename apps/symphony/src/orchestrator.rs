@@ -1350,7 +1350,10 @@ impl Orchestrator {
             let worker_host = d.worker_host.clone();
             let tx = self.worker_result_tx.clone();
 
-            // Resolve per-state prompt if configured, falling back to monolith template
+            // Resolve per-state prompt if configured, falling back to monolith template.
+            // NOTE: issue.state reflects the pre-dispatch state (e.g. "Todo" before the
+            // orchestrator moves it to "In Progress"). The example configs map both
+            // "Todo" and "In Progress" to the same prompt file to handle this correctly.
             let prompt_template = self.resolve_prompt_for_issue(&issue);
 
             let task_config = WorkerTaskConfig {
