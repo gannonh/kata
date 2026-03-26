@@ -12,8 +12,9 @@ use serde_yaml::{Mapping, Value};
 
 use crate::domain::{
     AgentBackend, AgentConfig, ApiKey, CodexConfig, DockerCodexAuth, DockerConfig, HooksConfig,
-    PiAgentConfig, PollingConfig, PromptsConfig, ServerConfig, ServiceConfig, TrackerConfig,
-    WorkerConfig, WorkspaceConfig, WorkspaceIsolation, WorkspaceRepoStrategy,
+    NotificationsConfig, PiAgentConfig, PollingConfig, PromptsConfig, ServerConfig, ServiceConfig,
+    SlackConfig, TrackerConfig, WorkerConfig, WorkspaceConfig, WorkspaceIsolation,
+    WorkspaceRepoStrategy,
 };
 use crate::error::{Result, SymphonyError};
 use crate::repo_url::repo_is_remote;
@@ -269,6 +270,19 @@ struct RawPromptsConfig {
     default: Option<String>,
 }
 
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct RawNotificationsConfig {
+    slack: Option<RawSlackConfig>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct RawSlackConfig {
+    webhook_url: Option<String>,
+    events: Option<Vec<String>>,
+}
+
 // ── Section extraction helper ─────────────────────────────────────────────────
 
 fn extract_section<T>(normalized: &Value, section: &str) -> Result<T>
@@ -446,6 +460,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let raw_hooks: RawHooksConfig = extract_section(&normalized, "hooks")?;
     let raw_server: RawServerConfig = extract_section(&normalized, "server")?;
     let raw_prompts: RawPromptsConfig = extract_section(&normalized, "prompts")?;
+    let raw_notifications: RawNotificationsConfig = extract_section(&normalized, "notifications")?;
 
     let defaults = ServiceConfig::default();
     let has_kata_agent_section = normalized.get("kata_agent").is_some();
@@ -865,6 +880,30 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         None
     };
 
+    // ── NotificationsConfig ───────────────────────────────────────────────
+    let slack = raw_notifications.slack.and_then(|raw| {
+        let webhook_url = raw
+            .webhook_url
+            .map(|value| resolve_env(&value))
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())?;
+
+        let events = raw
+            .events
+            .unwrap_or_default()
+            .into_iter()
+            .map(|event| event.trim().to_ascii_lowercase())
+            .filter(|event| !event.is_empty())
+            .collect::<Vec<_>>();
+
+        Some(SlackConfig {
+            webhook_url,
+            events,
+        })
+    });
+
+    let notifications = slack.map(|slack| NotificationsConfig { slack: Some(slack) });
+
     Ok(ServiceConfig {
         tracker,
         polling,
@@ -877,6 +916,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         hooks,
         server,
         prompts,
+        notifications,
     })
 }
 

@@ -117,6 +117,7 @@ fn test_service_config_defaults_match_spec() {
         hooks: HooksConfig::default(),
         server: ServerConfig::default(),
         prompts: None,
+        notifications: None,
     };
 
     // Polling §5.3.2

@@ -280,6 +280,25 @@ server:
   # Bind address. Use "0.0.0.0" to expose on all interfaces.
   host: "127.0.0.1"
 
+# ─── Notifications ─────────────────────────────────────────────────────────────
+# Optional webhook notifications for events that need human attention.
+# Supports Slack incoming webhooks today.
+# notifications:
+#   slack:
+#     # Webhook URL or $ENV_VAR reference.
+#     webhook_url: $SLACK_WEBHOOK_URL
+#
+#     # Event filters (lowercased internally):
+#     #   human_review — issue moved to Human Review during reconcile
+#     #   stalled      — worker exceeded stall timeout
+#     #   failed       — worker failed and retry scheduled
+#     #   rework       — issue moved to Rework during reconcile
+#     events:
+#       - human_review
+#       - stalled
+#       - failed
+#       - rework
+
 # ─── Prompts (per-state prompt injection) ─────────────────────────────────────
 # Optional. When configured, the orchestrator selects a prompt template based on
 # the issue's Linear state at dispatch time instead of using the markdown body

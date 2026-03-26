@@ -16,6 +16,7 @@ pub mod workspace;
 pub mod codex;
 pub mod http_server;
 pub mod logging;
+pub mod notifications;
 pub mod orchestrator;
 pub mod pi_agent;
 mod session_summary;

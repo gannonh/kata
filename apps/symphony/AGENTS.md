@@ -180,6 +180,17 @@ All hooks receive these environment variables:
 | `server.port` | u16    | _(none)_      | HTTP server port. Equivalent to `--port` on the CLI; `--port` takes precedence. |
 | `server.host` | string | `"127.0.0.1"` | HTTP server bind address.                                                       |
 
+#### `notifications` section
+
+Optional. Configure outbound webhook notifications for events requiring human attention.
+
+| Field                              | Type     | Default   | Description                                                                                     |
+| ---------------------------------- | -------- | --------- | ----------------------------------------------------------------------------------------------- |
+| `notifications.slack.webhook_url`  | string   | _(none)_  | Slack incoming webhook URL. Supports `$VAR` env-var indirection.                               |
+| `notifications.slack.events`       | string[] | `[]`      | Event filters. Supported values: `human_review`, `stalled`, `failed`, `rework` (lowercased). |
+
+When omitted, notifications are disabled.
+
 #### `prompts` section (per-state prompt injection)
 
 Optional. When configured, the orchestrator selects a prompt template based on the issue's Linear state instead of using the monolithic markdown body after `---`.

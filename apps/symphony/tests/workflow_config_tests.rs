@@ -15,6 +15,7 @@ use symphony::domain::{
     WorkspaceIsolation, WorkspaceRepoStrategy,
 };
 use symphony::error::SymphonyError;
+use symphony::notifications::should_notify;
 use symphony::workflow::parse_workflow;
 use symphony::workflow_store::WorkflowStore;
 
@@ -201,6 +202,7 @@ fn test_config_defaults() {
     assert_eq!(config.pi_agent.append_system_prompt, None);
     assert_eq!(config.pi_agent.read_timeout_ms, 5_000);
     assert_eq!(config.pi_agent.stall_timeout_ms, 300_000);
+    assert!(config.notifications.is_none());
 }
 
 #[test]
@@ -348,6 +350,138 @@ fn test_config_env_var_resolution() {
     );
 
     std::env::remove_var("SYMPHONY_TEST_LINEAR_API_KEY");
+}
+
+#[test]
+fn test_notifications_config_parses_all_fields() {
+    let yaml_str = r#"
+notifications:
+  slack:
+    webhook_url: https://hooks.slack.com/services/T000/B000/abc123
+    events:
+      - human_review
+      - stalled
+      - failed
+      - rework
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("notifications config should parse");
+
+    let notifications = config
+        .notifications
+        .as_ref()
+        .expect("notifications should be present");
+    let slack = notifications
+        .slack
+        .as_ref()
+        .expect("slack config should be present");
+
+    assert_eq!(
+        slack.webhook_url,
+        "https://hooks.slack.com/services/T000/B000/abc123"
+    );
+    assert_eq!(
+        slack.events,
+        vec!["human_review", "stalled", "failed", "rework"]
+    );
+}
+
+#[test]
+fn test_notifications_config_absent_returns_none() {
+    let yaml_str = r#"
+tracker:
+  kind: linear
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("config should parse without notifications");
+
+    assert!(
+        config.notifications.is_none(),
+        "notifications should be None for backward compatibility"
+    );
+}
+
+#[test]
+#[serial]
+fn test_notifications_config_resolves_env_var_in_webhook_url() {
+    std::env::set_var(
+        "SYMPHONY_TEST_SLACK_WEBHOOK_URL",
+        "https://hooks.slack.com/services/T111/B111/envtoken",
+    );
+
+    let yaml_str = r#"
+notifications:
+  slack:
+    webhook_url: $SYMPHONY_TEST_SLACK_WEBHOOK_URL
+    events:
+      - stalled
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("notifications env var should resolve");
+
+    let slack = config
+        .notifications
+        .as_ref()
+        .and_then(|notifications| notifications.slack.as_ref())
+        .expect("slack config should exist");
+
+    assert_eq!(
+        slack.webhook_url,
+        "https://hooks.slack.com/services/T111/B111/envtoken"
+    );
+
+    std::env::remove_var("SYMPHONY_TEST_SLACK_WEBHOOK_URL");
+}
+
+#[test]
+fn test_notifications_config_normalizes_event_names() {
+    let yaml_str = r#"
+notifications:
+  slack:
+    webhook_url: https://hooks.slack.com/services/T000/B000/abc123
+    events:
+      - Human_Review
+      - STALLED
+      - Failed
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("notifications config should parse");
+
+    let slack = config
+        .notifications
+        .as_ref()
+        .and_then(|notifications| notifications.slack.as_ref())
+        .expect("slack config should exist");
+
+    assert_eq!(
+        slack.events,
+        vec!["human_review", "stalled", "failed"],
+        "event names should be normalized to lowercase"
+    );
+}
+
+#[test]
+fn test_should_notify_filters_by_event_list() {
+    let yaml_str = r#"
+notifications:
+  slack:
+    webhook_url: https://hooks.slack.com/services/T000/B000/abc123
+    events:
+      - stalled
+      - rework
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("notifications config should parse");
+
+    let slack = config
+        .notifications
+        .as_ref()
+        .and_then(|notifications| notifications.slack.as_ref())
+        .expect("slack config should exist");
+
+    assert!(should_notify(slack, "stalled"));
+    assert!(should_notify(slack, "ReWork"));
+    assert!(!should_notify(slack, "failed"));
 }
 
 #[test]
