@@ -735,28 +735,26 @@ export class LinearClient {
   }
 
   async listRelations(issueId: string): Promise<LinearIssueRelation[]> {
-    try {
-      const data = await this.graphql<{
-        issue:
-          | {
-              relations?: { nodes?: unknown[] } | unknown[];
-              inverseRelations?: { nodes?: unknown[] } | unknown[];
-            }
-          | null;
-      }>(`
-        query ListIssueRelations($id: String!) {
-          issue(id: $id) {
-            ${LinearClient.ISSUE_RELATION_FIELDS}
+    const data = await this.graphql<{
+      issue:
+        | {
+            relations?: { nodes?: unknown[] } | unknown[];
+            inverseRelations?: { nodes?: unknown[] } | unknown[];
           }
+        | null;
+    }>(`
+      query ListIssueRelations($id: String!) {
+        issue(id: $id) {
+          ${LinearClient.ISSUE_RELATION_FIELDS}
         }
-      `, { id: issueId });
+      }
+    `, { id: issueId });
 
-      if (!data.issue) return [];
-      return this.normalizeRelations(data.issue as LinearIssue);
-    } catch (err) {
-      if (this.isNotFound(err)) return [];
-      throw err;
+    if (!data.issue) {
+      throw new LinearGraphQLError(`Issue not found: ${issueId}`, []);
     }
+
+    return this.normalizeRelations(data.issue as LinearIssue);
   }
 
   private normalizeRelationType(type: string): "blocks" | "relates_to" | "duplicate" {

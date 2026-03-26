@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { LinearClient } from "../linear-client.ts";
+import { LinearGraphQLError } from "../http.ts";
 
 describe("LinearClient relation helpers", () => {
   it("listRelations queries relations directly instead of delegating to getIssue", async () => {
@@ -33,5 +34,17 @@ describe("LinearClient relation helpers", () => {
     assert.equal(normalize("mystery_relation"), "relates_to");
     assert.equal(normalize(""), "relates_to");
     assert.equal(normalize("blocks"), "blocks");
+  });
+
+  it("throws for missing issues instead of returning an empty relation list", async () => {
+    const client = new LinearClient("test-key", "https://example.invalid/graphql");
+
+    (client as unknown as { graphql: (query: string, vars?: Record<string, unknown>) => Promise<unknown> }).graphql =
+      async (_query: string, vars?: Record<string, unknown>) => {
+        assert.deepEqual(vars, { id: "missing-issue" });
+        throw new LinearGraphQLError("Issue not found", []);
+      };
+
+    await assert.rejects(() => client.listRelations("missing-issue"));
   });
 });
