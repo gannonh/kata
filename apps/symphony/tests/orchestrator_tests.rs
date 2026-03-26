@@ -3334,3 +3334,77 @@ fn test_blocked_issues_cleared_on_tick_start() {
         "blocked should be cleared at tick start, not carry over from previous tick"
     );
 }
+
+#[tokio::test]
+async fn test_execute_worker_attempt_stops_when_issue_changes_to_different_active_state() {
+    let mut server = Server::new_async().await;
+    let issue = issue(
+        "issue-state-change",
+        "SIM-STATECHANGE",
+        "In Progress",
+        Some(1),
+        0,
+    );
+
+    // After turn 1, the issue moved to "Agent Review" — still active, but different state
+    let _state_lookup = server
+        .mock("POST", "/graphql")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::to_string(&state_lookup_response(
+                &issue.id,
+                &issue.identifier,
+                "Agent Review",
+                None,
+            ))
+            .expect("state response should serialize"),
+        )
+        .expect(1)
+        .create_async()
+        .await;
+
+    let scripts_dir = tempdir().expect("scripts dir should be created");
+    let workspace_root = tempdir().expect("workspace root should be created");
+    let prompt_log = scripts_dir.path().join("prompts.log");
+    let script = write_script(
+        scripts_dir.path(),
+        "codex.sh",
+        &script_two_successful_turns(&prompt_log),
+    );
+
+    let mut config = make_worker_config(&server, &script, workspace_root.path(), 5);
+    // Add "Agent Review" to active states so it's recognized as active
+    config
+        .tracker
+        .active_states
+        .push("Agent Review".to_string());
+
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let result = orchestrator
+        .execute_worker_attempt(
+            &issue,
+            "First prompt {{ issue.identifier }}",
+            Some(1),
+            |_query, _vars| async { Ok(serde_json::json!({ "data": {} })) },
+        )
+        .await;
+
+    assert!(
+        result.is_ok(),
+        "worker should stop cleanly when issue changes to a different active state"
+    );
+
+    let prompt_lines: Vec<String> = std::fs::read_to_string(&prompt_log)
+        .expect("prompt log should exist")
+        .lines()
+        .map(|line| line.to_string())
+        .collect();
+    assert_eq!(
+        prompt_lines.len(),
+        1,
+        "state change from In Progress to Agent Review should stop after turn 1 — \
+         the orchestrator needs to re-dispatch with the agent-review prompt"
+    );
+}
