@@ -1283,7 +1283,7 @@ impl Orchestrator {
                 {
                     tracing::warn!(
                         event = "notification_failed",
-                        issue_id = %issue_identifier,
+                        issue_identifier = %issue_identifier,
                         event_type = %event_type,
                         error = %err,
                         webhook_url = "[REDACTED]",
@@ -1294,7 +1294,7 @@ impl Orchestrator {
         } else {
             tracing::warn!(
                 event = "notification_failed",
-                issue_id = %issue_identifier,
+                issue_identifier = %issue_identifier,
                 event_type = %event_type,
                 error = "tokio runtime unavailable",
                 "skipping Slack notification because no tokio runtime is active"

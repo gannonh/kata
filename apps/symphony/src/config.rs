@@ -919,11 +919,10 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
 
             for event in &events {
                 if !notifications::is_supported_slack_event(event) {
-                    tracing::warn!(
-                        event_name = %event,
-                        supported_events = ?notifications::SUPPORTED_SLACK_EVENTS,
-                        "unrecognized notifications.slack.events value"
-                    );
+                    return Err(SymphonyError::InvalidWorkflowConfig(format!(
+                        "notifications.slack.events contains unsupported value '{event}'. Supported values: {}",
+                        notifications::SUPPORTED_SLACK_EVENTS.join(", ")
+                    )));
                 }
             }
 

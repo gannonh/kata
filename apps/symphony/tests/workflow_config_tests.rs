@@ -504,6 +504,25 @@ notifications:
 }
 
 #[test]
+fn test_notifications_config_unknown_event_returns_error() {
+    let yaml_str = r#"
+notifications:
+  slack:
+    webhook_url: https://hooks.slack.com/services/T000/B000/abc123
+    events:
+      - stalled
+      - typo_event
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("unknown notifications event should fail parsing");
+
+    assert!(
+        matches!(err, SymphonyError::InvalidWorkflowConfig(ref msg) if msg.contains("unsupported value 'typo_event'")),
+        "expected invalid notifications event error, got: {err}"
+    );
+}
+
+#[test]
 fn test_should_notify_filters_by_event_list() {
     let yaml_str = r#"
 notifications:
