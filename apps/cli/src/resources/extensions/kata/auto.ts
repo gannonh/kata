@@ -110,6 +110,8 @@ import { makeUI, GLYPH, INDENT } from "../shared/ui.js";
 import { resolveModelSwitch, computeSupervisorTimeouts } from "./auto-helpers.js";
 export { resolveModelSwitch, computeSupervisorTimeouts } from "./auto-helpers.js";
 export type { ModelSwitchResult } from "./auto-helpers.js";
+import { deriveUnitType, deriveUnitId, peekNext } from "./auto-dispatch.js";
+export { deriveUnitType, deriveUnitId, peekNext } from "./auto-dispatch.js";
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -579,33 +581,6 @@ export async function handleAgentEnd(
 
 // ─── Progress Widget ──────────────────────────────────────────────────────
 
-
-function peekNext(unitType: string, state: KataState): string {
-  const sid = state.activeSlice?.id ?? "";
-  switch (unitType) {
-    case "research-milestone":
-      return "plan milestone roadmap";
-    case "plan-milestone":
-      return "research first slice";
-    case "research-slice":
-      return `plan ${sid}`;
-    case "plan-slice":
-      return "execute first task";
-    case "execute-task":
-      return `continue ${sid}`;
-    case "complete-slice":
-      return "reassess roadmap";
-    case "replan-slice":
-      return `re-execute ${sid}`;
-    case "reassess-roadmap":
-      return "advance to next slice";
-    case "run-uat":
-      return "reassess roadmap";
-    default:
-      return "";
-  }
-}
-
 /** Right-align helper: build a line with left content and right content. */
 function rightAlign(left: string, right: string, width: number): string {
   const leftVis = visibleWidth(left);
@@ -880,42 +855,6 @@ async function resolveDispatchOptions(
   }
 
   return options;
-}
-
-function deriveUnitType(state: KataState, options: PromptOptions): string {
-  if (options.uatSliceId) return "run-uat";
-  if (options.reassessSliceId) return "reassess-roadmap";
-  if (options.dispatchResearch === "milestone") return "research-milestone";
-  if (options.dispatchResearch === "slice") return "research-slice";
-  switch (state.phase) {
-    case "pre-planning":
-      return "plan-milestone";
-    case "planning":
-      return "plan-slice";
-    case "executing":
-    case "verifying":
-      return "execute-task";
-    case "summarizing":
-      return "complete-slice";
-    case "completing-milestone":
-      return "complete-milestone";
-    case "replanning-slice":
-      return "replan-slice";
-    default:
-      return `unknown-${state.phase}`;
-  }
-}
-
-function deriveUnitId(state: KataState, options?: PromptOptions): string {
-  const mid = state.activeMilestone?.id ?? "unknown";
-  // UAT and reassessment target the *previous* (completed) slice, not the
-  // now-active one. Use the dispatch option IDs when available so the unit
-  // key correctly identifies the work being done.
-  const sid = options?.uatSliceId ?? options?.reassessSliceId ?? state.activeSlice?.id;
-  const tid = state.activeTask?.id;
-  if (tid && sid && !options?.uatSliceId && !options?.reassessSliceId) return `${mid}/${sid}/${tid}`;
-  if (sid) return `${mid}/${sid}`;
-  return mid;
 }
 
 // ─── PR Gate Helper ───────────────────────────────────────────────────────────
