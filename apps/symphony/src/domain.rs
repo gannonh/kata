@@ -48,6 +48,16 @@ pub struct BlockerRef {
     pub state: Option<String>,
 }
 
+/// A blocked issue entry for the orchestrator snapshot.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockedIssueEntry {
+    pub issue_id: String,
+    pub identifier: String,
+    pub title: String,
+    pub state: String,
+    pub blocker_identifiers: Vec<String>,
+}
+
 // ── ApiKey ─────────────────────────────────────────────────────────────
 
 /// A redacted API-key value.
@@ -684,6 +694,8 @@ pub struct OrchestratorSnapshot {
     pub claimed: BTreeSet<String>,
     pub retry_queue: Vec<RetrySnapshotEntry>,
     pub completed: Vec<CompletedEntry>,
+    #[serde(default)]
+    pub blocked: Vec<BlockedIssueEntry>,
     pub codex_totals: CodexTotals,
     pub codex_rate_limits: Option<RateLimitInfo>,
     pub polling: PollingSnapshot,

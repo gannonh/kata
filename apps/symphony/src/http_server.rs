@@ -110,6 +110,7 @@ struct StateResponse {
     running_session_info: std::collections::BTreeMap<String, WorkerSessionInfo>,
     claimed: std::collections::BTreeSet<String>,
     retry_queue: Vec<RetrySnapshotEntry>,
+    blocked: Vec<crate::domain::BlockedIssueEntry>,
     completed: Vec<crate::domain::CompletedEntry>,
     codex_totals: CodexTotals,
     codex_rate_limits: Option<serde_json::Value>,
@@ -369,6 +370,23 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
     </div>
   </section>
 
+  <section class="card section" id="blocked-section" style="display:none">
+    <h2 style="color:#e6a817">Blocked issues</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>State</th>
+            <th>Blocked by</th>
+          </tr>
+        </thead>
+        <tbody id="blocked-table-body"></tbody>
+      </table>
+    </div>
+  </section>
+
   <section class="card section">
     <h2>Completed issues</h2>
     <ul id="completed-list" class="list">
@@ -603,6 +621,21 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
           state.running_session_info || {{}}
         );
         document.getElementById('retry-table-body').innerHTML = renderRetryTable(retryQueue);
+
+        const blocked = state.blocked || [];
+        const blockedSection = document.getElementById('blocked-section');
+        if (blocked.length > 0) {{
+          blockedSection.style.display = '';
+          document.getElementById('blocked-table-body').innerHTML = blocked.map(function(entry) {{
+            return '<tr><td>' + escapeHtml(entry.identifier) + '</td>'
+              + '<td>' + escapeHtml(entry.title || '') + '</td>'
+              + '<td>' + escapeHtml(entry.state || '') + '</td>'
+              + '<td>' + escapeHtml((entry.blocker_identifiers || []).join(', ')) + '</td></tr>';
+          }}).join('');
+        }} else {{
+          blockedSection.style.display = 'none';
+        }}
+
         document.getElementById('completed-list').innerHTML = renderCompleted(completed);
         document.getElementById('token-input').textContent = state.codex_totals?.input_tokens ?? 0;
         document.getElementById('token-output').textContent = state.codex_totals?.output_tokens ?? 0;
@@ -636,6 +669,7 @@ async fn get_state(State(state): State<HttpServerState>) -> impl IntoResponse {
         running_session_info: snapshot.running_session_info,
         claimed: snapshot.claimed,
         retry_queue: snapshot.retry_queue,
+        blocked: snapshot.blocked,
         completed: snapshot.completed,
         codex_totals: snapshot.codex_totals,
         codex_rate_limits: snapshot.codex_rate_limits.map(|r| r.data),

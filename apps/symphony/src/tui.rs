@@ -435,11 +435,18 @@ fn draw_dashboard(
 
     let summary_lines_data = build_summary_lines(snapshot, throughput_line);
     let summary_height = summary_lines_data.len() as u16;
+    let has_blocked = !snapshot.blocked.is_empty();
+    let blocked_height = if has_blocked {
+        (snapshot.blocked.len() as u16 + 2).min(7)
+    } else {
+        0
+    };
     let sections = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(summary_height),
             Constraint::Min(8),
+            Constraint::Length(blocked_height),
             Constraint::Length(7),
             Constraint::Length(7),
             Constraint::Length(2),
@@ -489,6 +496,47 @@ fn draw_dashboard(
     );
     frame.render_widget(running_table, sections[1]);
 
+    // Blocked section (between Running and Retry)
+    if has_blocked {
+        let blocked_header = Row::new(vec![
+            Cell::from("ID"),
+            Cell::from("State"),
+            Cell::from("Blocked By"),
+        ])
+        .style(
+            Style::default()
+                .add_modifier(Modifier::BOLD)
+                .fg(Color::Yellow),
+        );
+        let blocked_rows: Vec<Row<'static>> = snapshot
+            .blocked
+            .iter()
+            .map(|entry| {
+                Row::new(vec![
+                    Cell::from(entry.identifier.clone()),
+                    Cell::from(entry.state.clone()),
+                    Cell::from(entry.blocker_identifiers.join(", ")),
+                ])
+            })
+            .collect();
+        let blocked_table = Table::new(
+            blocked_rows,
+            [
+                Constraint::Length(12),
+                Constraint::Length(14),
+                Constraint::Min(20),
+            ],
+        )
+        .header(blocked_header)
+        .block(
+            Block::default()
+                .title("Blocked")
+                .title_style(Style::default().fg(Color::Yellow))
+                .borders(Borders::ALL),
+        );
+        frame.render_widget(blocked_table, sections[2]);
+    }
+
     let retry_header = Row::new(vec![
         Cell::from("ID"),
         Cell::from("Attempt"),
@@ -510,12 +558,12 @@ fn draw_dashboard(
     )
     .header(retry_header)
     .block(Block::default().title("Retry Queue").borders(Borders::ALL));
-    frame.render_widget(retry_table, sections[2]);
+    frame.render_widget(retry_table, sections[3]);
 
     let completed_items = completed_items(snapshot);
     let completed_list =
         List::new(completed_items).block(Block::default().title("Completed").borders(Borders::ALL));
-    frame.render_widget(completed_list, sections[3]);
+    frame.render_widget(completed_list, sections[4]);
 
     let polling_last = snapshot
         .polling
@@ -533,7 +581,7 @@ fn draw_dashboard(
     let rate_summary = rate_summary(snapshot, now);
     let footer = Paragraph::new(vec![Line::from(polling_line), Line::from(rate_summary)])
         .wrap(Wrap { trim: true });
-    frame.render_widget(footer, sections[4]);
+    frame.render_widget(footer, sections[5]);
 }
 
 fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<'static>> {
@@ -941,6 +989,7 @@ mod tests {
                 event_count: 0,
                 seconds_running: 0.0,
             },
+            blocked: Vec::new(),
             codex_rate_limits: None,
             polling: crate::domain::PollingSnapshot {
                 checking: false,

@@ -1117,6 +1117,8 @@ pub struct Orchestrator {
     worker_session_info: HashMap<String, WorkerSessionInfo>,
     worker_session_ids: HashMap<String, String>,
     running_session_stats: HashMap<String, RunningSessionStats>,
+    /// Blocked issues from the latest dispatch phase.
+    blocked_issues: Vec<crate::domain::BlockedIssueEntry>,
     pending_terminal_cleanup: HashMap<String, PendingTerminalCleanup>,
     /// Normalized running issue state cache used for per-state slot accounting.
     running_issue_states: HashMap<String, String>,
@@ -1192,6 +1194,7 @@ impl Orchestrator {
             worker_session_info: HashMap::new(),
             worker_session_ids: HashMap::new(),
             running_session_stats: HashMap::new(),
+            blocked_issues: Vec::new(),
             pending_terminal_cleanup: HashMap::new(),
             running_issue_states: HashMap::new(),
             next_retry_token: 0,
@@ -1485,10 +1488,14 @@ impl Orchestrator {
         tracing::info!(phase = "dispatch", "starting orchestrator tick phase");
 
         let candidates = port.fetch_candidate_issues()?;
+        let sorted_candidates = self.sort_issues_for_dispatch(candidates);
+        let candidate_ids: std::collections::HashSet<String> =
+            sorted_candidates.iter().map(|i| i.id.clone()).collect();
         let mut dispatched_issue_ids = vec![];
         let mut dispatched_issues = vec![];
+        let mut blocked_entries: Vec<crate::domain::BlockedIssueEntry> = vec![];
 
-        for candidate in self.sort_issues_for_dispatch(candidates) {
+        for candidate in &sorted_candidates {
             if self.available_slots() == 0 {
                 tracing::debug!(
                     phase = "dispatch",
@@ -1498,7 +1505,7 @@ impl Orchestrator {
                 break;
             }
 
-            if !self.should_dispatch_issue(&candidate) {
+            if !self.should_dispatch_issue(candidate) {
                 tracing::debug!(
                     phase = "dispatch",
                     reason = "blocked",
@@ -1506,6 +1513,20 @@ impl Orchestrator {
                     issue_identifier = %candidate.identifier,
                     "candidate rejected before refresh"
                 );
+                continue;
+            }
+
+            // Check dependency blockers (applies to all active states)
+            let (dep_blocked, blocker_ids) =
+                self.is_blocked_by_dependency(candidate, &sorted_candidates, &candidate_ids);
+            if dep_blocked {
+                blocked_entries.push(crate::domain::BlockedIssueEntry {
+                    issue_id: candidate.id.clone(),
+                    identifier: candidate.identifier.clone(),
+                    title: candidate.title.clone(),
+                    state: candidate.state.clone(),
+                    blocker_identifiers: blocker_ids,
+                });
                 continue;
             }
 
@@ -1554,6 +1575,9 @@ impl Orchestrator {
                 worker_host,
             });
         }
+
+        // Store blocked issues for snapshot visibility
+        self.blocked_issues = blocked_entries;
 
         Ok(TickResult {
             dispatched_issue_ids,
@@ -2397,6 +2421,7 @@ impl Orchestrator {
             linear_project_url: self.config.tracker.linear_project_url(),
             running,
             running_sessions,
+            blocked: self.blocked_issues.clone(),
             running_session_info,
             claimed,
             retry_queue,
@@ -2523,9 +2548,8 @@ impl Orchestrator {
             return false;
         }
 
-        if self.todo_issue_blocked_by_non_terminal(issue) {
-            return false;
-        }
+        // NOTE: blocker checks are done at the dispatch loop level via
+        // is_blocked_by_dependency() which needs access to all candidates.
 
         if self.state.claimed.contains(&issue.id) || self.state.running.contains_key(&issue.id) {
             return false;
@@ -2538,20 +2562,98 @@ impl Orchestrator {
         true
     }
 
-    fn todo_issue_blocked_by_non_terminal(&self, issue: &Issue) -> bool {
-        if normalize_issue_state(&issue.state) != "todo" {
-            return false;
+    /// Returns `true` if the issue has at least one non-terminal blocker,
+    /// meaning it should not be dispatched. Applies to **all** active states
+    /// (not just Todo).
+    ///
+    /// Cross-project blockers (state = None) are treated as **non-blocking**
+    /// with a warning, since Symphony cannot resolve them.
+    ///
+    /// When `candidate_ids` is provided, direct circular dependencies (A↔B)
+    /// are detected: if this issue blocks a candidate that also blocks this
+    /// issue, both are considered blocked and a warning is logged.
+    fn is_blocked_by_dependency(
+        &self,
+        issue: &Issue,
+        all_issues: &[Issue],
+        candidate_ids: &std::collections::HashSet<String>,
+    ) -> (bool, Vec<String>) {
+        if issue.blocked_by.is_empty() {
+            return (false, vec![]);
         }
 
         let terminal_states = self.terminal_state_set();
+        let mut blocking_identifiers: Vec<String> = Vec::new();
 
-        issue.blocked_by.iter().any(|blocker| {
-            blocker
-                .state
-                .as_ref()
-                .map(|state| !terminal_states.contains(&normalize_issue_state(state)))
-                .unwrap_or(true)
-        })
+        for blocker in &issue.blocked_by {
+            let blocker_state = match &blocker.state {
+                Some(s) => s,
+                None => {
+                    // Cross-project blocker — unknown state, treat as non-blocking
+                    let blocker_id = blocker.identifier.as_deref().unwrap_or("unknown");
+                    tracing::warn!(
+                        event = "cross_project_blocker_ignored",
+                        issue_id = %issue.id,
+                        issue_identifier = %issue.identifier,
+                        blocker_identifier = %blocker_id,
+                        "blocker has no state info (cross-project?); treating as non-blocking"
+                    );
+                    continue;
+                }
+            };
+
+            if terminal_states.contains(&normalize_issue_state(blocker_state)) {
+                continue; // blocker resolved
+            }
+
+            // Non-terminal blocker — this issue is blocked
+            let blocker_id = blocker
+                .identifier
+                .as_deref()
+                .unwrap_or("unknown")
+                .to_string();
+            blocking_identifiers.push(blocker_id);
+        }
+
+        // Check for direct circular dependencies (A↔B)
+        if !blocking_identifiers.is_empty() {
+            for blocker in &issue.blocked_by {
+                if let Some(blocker_issue_id) = &blocker.id {
+                    if candidate_ids.contains(blocker_issue_id) {
+                        // Check if the blocker also has this issue as a blocker
+                        if let Some(blocker_issue) =
+                            all_issues.iter().find(|i| i.id == *blocker_issue_id)
+                        {
+                            let reverse_blocked = blocker_issue
+                                .blocked_by
+                                .iter()
+                                .any(|b| b.id.as_deref() == Some(&issue.id));
+                            if reverse_blocked {
+                                tracing::warn!(
+                                    event = "circular_dependency_detected",
+                                    issue_a = %issue.identifier,
+                                    issue_b = %blocker_issue.identifier,
+                                    "circular dependency detected; both issues will be blocked"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let blocked = !blocking_identifiers.is_empty();
+        if blocked {
+            tracing::info!(
+                event = "dispatch_blocked_by_dependency",
+                issue_id = %issue.id,
+                issue_identifier = %issue.identifier,
+                blocker_identifiers = ?blocking_identifiers,
+                "issue blocked by non-terminal dependencies; skipping dispatch"
+            );
+        }
+
+        (blocked, blocking_identifiers)
     }
 
     fn available_slots(&self) -> u32 {
