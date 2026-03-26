@@ -1352,3 +1352,54 @@ fn test_resolve_per_state_prompt_state_matching_is_case_insensitive() {
 
     assert!(result.contains("MERGE IT"));
 }
+
+#[test]
+fn test_resolve_per_state_prompt_rejects_path_traversal() {
+    use std::collections::HashMap;
+    use symphony::domain::PromptsConfig;
+    use symphony::prompt_builder::resolve_per_state_prompt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let dir_path = dir.path();
+
+    // Create a file outside the workflow dir
+    let parent = dir_path.parent().unwrap();
+    std::fs::write(parent.join("secret.md"), "SHOULD NOT READ").unwrap();
+
+    let config = PromptsConfig {
+        shared: None,
+        by_state: HashMap::from([("in progress".to_string(), "../secret.md".to_string())]),
+        default: None,
+    };
+
+    let result = resolve_per_state_prompt(&config, "In Progress", dir_path);
+    assert!(
+        result.is_err(),
+        "path traversal should be rejected, got: {:?}",
+        result
+    );
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("escapes workflow dir"),
+        "error should mention escaping, got: {err}"
+    );
+}
+
+#[test]
+fn test_resolve_per_state_prompt_rejects_absolute_path() {
+    use std::collections::HashMap;
+    use symphony::domain::PromptsConfig;
+    use symphony::prompt_builder::resolve_per_state_prompt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let dir_path = dir.path();
+
+    let config = PromptsConfig {
+        shared: None,
+        by_state: HashMap::from([("in progress".to_string(), "/etc/passwd".to_string())]),
+        default: None,
+    };
+
+    let result = resolve_per_state_prompt(&config, "In Progress", dir_path);
+    assert!(result.is_err(), "absolute path should be rejected");
+}

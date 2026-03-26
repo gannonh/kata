@@ -1279,3 +1279,55 @@ fn parse_yaml_config(yaml: &str) -> symphony::domain::ServiceConfig {
     let value: serde_yaml::Value = serde_yaml::from_str(yaml).expect("valid yaml");
     from_workflow(&value).expect("config should parse")
 }
+
+#[test]
+fn test_prompts_config_filters_empty_and_whitespace_paths() {
+    let yaml = r#"
+tracker:
+  kind: linear
+  api_key: test-key
+  project_slug: test-slug
+prompts:
+  shared: "   "
+  default: ""
+  by_state:
+    In Progress: "  prompts/ip.md  "
+    Agent Review: ""
+"#;
+    let config = parse_yaml_config(yaml);
+    let prompts = config
+        .prompts
+        .expect("prompts should be Some (ip.md is non-empty)");
+    assert!(
+        prompts.shared.is_none(),
+        "whitespace-only shared should be None"
+    );
+    assert!(prompts.default.is_none(), "empty default should be None");
+    assert_eq!(
+        prompts.by_state.len(),
+        1,
+        "empty Agent Review path should be filtered"
+    );
+    assert_eq!(
+        prompts.by_state.get("in progress").map(String::as_str),
+        Some("prompts/ip.md"),
+        "in progress path should be trimmed"
+    );
+}
+
+#[test]
+fn test_prompts_config_all_empty_returns_none() {
+    let yaml = r#"
+tracker:
+  kind: linear
+  api_key: test-key
+  project_slug: test-slug
+prompts:
+  shared: ""
+  default: "  "
+  by_state:
+    In Progress: ""
+"#;
+    let config = parse_yaml_config(yaml);
+    assert!(config.prompts.is_none(), "all-empty prompts should be None");
+}
