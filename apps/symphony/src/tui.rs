@@ -1111,6 +1111,7 @@ mod tests {
                 worker_host: None,
                 model: None,
                 linear_state: Some("Agent Review".to_string()),
+                issue_url: None,
             },
         );
         snapshot.running_sessions.insert(

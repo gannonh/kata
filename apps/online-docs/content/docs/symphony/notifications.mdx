@@ -1,0 +1,138 @@
+---
+title: Notifications
+description: Slack webhook notifications for Symphony orchestration events.
+---
+
+# Notifications
+
+Symphony can send webhook notifications to Slack when events need human attention — issues moved to Human Review, agents stalled, agents failed, or issues moved to Rework.
+
+## Slack App Setup
+
+You need a Slack app with an incoming webhook URL. This takes about 2 minutes.
+
+### Step 1: Create a Slack App
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) and sign in to your workspace
+2. Click **Create New App**
+3. Choose **From scratch** (not "From a manifest")
+4. Enter an app name (e.g. "Symphony Notifications") and select your workspace
+5. Click **Create App**
+
+### Step 2: Enable Incoming Webhooks
+
+1. In the left sidebar under **Features**, click **Incoming Webhooks**
+2. Toggle **Activate Incoming Webhooks** to **On**
+3. Scroll down and click **Add New Webhook to Workspace**
+4. Select the channel where you want notifications (e.g. `#symphony` or `#engineering`)
+5. Click **Allow**
+
+### Step 3: Copy the Webhook URL
+
+After authorizing, you'll see your new webhook URL in the list. It starts with `https://hooks.slack.com/services/` followed by three path segments. Copy this URL — you'll need it for the Symphony configuration.
+
+### Step 4: Set the Environment Variable
+
+Add the webhook URL to your environment. **Never put it directly in your WORKFLOW.md** — use environment variable indirection.
+
+```bash
+# In your .env file or shell profile:
+export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+```
+
+## Symphony Configuration
+
+Add the `notifications` block to your WORKFLOW.md front-matter:
+
+```yaml
+notifications:
+  slack:
+    webhook_url: $SLACK_WEBHOOK_URL
+    events:
+      - in_progress
+      - agent_review
+      - human_review
+      - merging
+      - rework
+      - done
+      - stalled
+      - failed
+```
+
+That's the minimum. No other sections are required for notifications to work. Messages automatically include a clickable link to the Linear issue.
+
+## Events
+
+### State Transitions
+
+| Event | Trigger | Icon |
+|-------|---------|------|
+| `todo` | Issue moved to Todo | 📋 |
+| `in_progress` | Agent started working | 🔧 |
+| `agent_review` | Agent opened PR, addressing bot review | 🤖 |
+| `human_review` | PR ready for human approval | 👀 |
+| `merging` | Human approved, agent merging | 🔀 |
+| `rework` | Human requested changes | 🔁 |
+| `done` | Issue complete | ✅ |
+| `closed` | Issue closed | 🔒 |
+| `cancelled` | Issue cancelled | ❌ |
+
+### Runtime Events
+
+| Event | Trigger | Icon |
+|-------|---------|------|
+| `stalled` | Agent exceeded stall timeout with no output | ⚠️ |
+| `failed` | Agent failed after exhausting max retries | 🚨 |
+
+### Wildcard
+
+Use `all` to subscribe to every event:
+
+```yaml
+events:
+  - all
+```
+
+Only events listed in `events` trigger notifications. An empty list means no notifications are sent. Unknown event names are rejected at startup.
+
+## Message Format
+
+Each notification includes:
+
+- **Emoji indicator** — visual event type
+- **Clickable issue link** — links directly to the Linear issue
+- **Issue title** — what the issue is about
+- **Context message** — what happened (e.g. "Moved to Agent Review (was In Progress).")
+
+## Behavior
+
+- **Fire-and-forget** — notifications are dispatched as async tasks and never block the orchestrator loop
+- **Non-fatal** — delivery failures are logged as warnings; the orchestrator continues normally
+- **Webhook URL redaction** — webhook URLs are never written to logs; request errors are sanitized to category labels (timeout, connect, request, status, transport)
+- **`$ENV_VAR` support** — `webhook_url` supports environment variable indirection
+
+## Troubleshooting
+
+**Notifications not firing:**
+- Check that the `notifications` section is present in your WORKFLOW.md front-matter
+- Verify `SLACK_WEBHOOK_URL` is set in your environment
+- Check Symphony logs for `notification_sent` or `notification_failed` events
+
+**"Unknown event" error at startup:**
+- Supported events are: `human_review`, `stalled`, `failed`, `rework`
+- Event names are case-insensitive but must match one of the supported values
+
+**Messages not appearing in Slack:**
+- Test the webhook URL directly: `curl -X POST -H 'Content-type: application/json' --data '{"text":"test"}' $SLACK_WEBHOOK_URL`
+- Check that the Slack app is still installed in your workspace
+- Verify the webhook hasn't been revoked (check **Incoming Webhooks** in your Slack app settings)
+
+## Observability
+
+```bash
+# Successful notifications
+grep "notification_sent" symphony.log
+
+# Failed notifications  
+grep "notification_failed" symphony.log
+```

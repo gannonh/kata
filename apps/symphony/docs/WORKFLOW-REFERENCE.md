@@ -190,7 +190,7 @@ agent:
   # max_retry_backoff_ms: 300000
 
   # Runtime backend for worker sessions.
-  #   - kata-cli (aliases: kata, pi): launch Kata CLI in RPC mode
+  #   - kata-cli (alias: kata): launch Kata CLI in RPC mode
   #   - codex: launch Codex app-server
   backend: kata-cli
 
@@ -229,7 +229,7 @@ codex:
     type: dangerFullAccess
 
 # ─── Kata Agent (Kata RPC) ────────────────────────────────────────────────────
-# Configures Kata RPC runtime (used when `agent.backend: kata-cli`; aliases: kata, pi).
+# Configures Kata RPC runtime (used when `agent.backend: kata-cli`; alias: kata).
 kata_agent:  # alias: pi_agent
   # Command used to launch Kata RPC. Can be a string or list.
   # Symphony appends --mode rpc --cwd <workspace> automatically.
@@ -280,31 +280,30 @@ server:
   # Bind address. Use "0.0.0.0" to expose on all interfaces.
   host: "127.0.0.1"
 
-  # Optional public base URL included in Slack notification payloads as
-  # `Dashboard: <public_url>`. Trailing slash is trimmed.
-  # Keep this externally reachable (for example through a tunnel, ingress,
-  # reverse proxy, or production hostname).
-  # public_url: https://symphony.example.com
-
 # ─── Notifications ─────────────────────────────────────────────────────────────
-# Optional webhook notifications for events that need human attention.
-# Supports Slack incoming webhooks today.
+# Optional webhook notifications for issue state transitions and runtime events.
+# Messages include a clickable link to the Linear issue.
 # notifications:
 #   slack:
 #     # Webhook URL or $ENV_VAR reference.
 #     webhook_url: $SLACK_WEBHOOK_URL
 #
-#     # Event filters (lowercased internally):
-#     #   human_review — issue moved to Human Review during reconcile
-#     #   stalled      — worker exceeded stall timeout
-#     #   failed       — non-stall worker failure during execution
-#     #   rework       — issue moved to Rework during reconcile
+#     # Event filters (case-insensitive, normalized to lowercase):
+#     #
+#     # State transitions:
+#     #   todo, in_progress, agent_review, human_review,
+#     #   merging, rework, done, closed, cancelled
+#     #
+#     # Runtime events:
+#     #   stalled  — worker exceeded stall timeout
+#     #   failed   — non-stall worker failure during execution
+#     #
+#     # Wildcard:
+#     #   all      — subscribe to every event
+#     #
 #     # Empty list means no notifications are sent.
 #     events:
-#       - human_review
-#       - stalled
-#       - failed
-#       - rework
+#       - all
 
 # ─── Prompts (per-state prompt injection) ─────────────────────────────────────
 # Optional. When configured, the orchestrator selects a prompt template based on

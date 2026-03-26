@@ -1,0 +1,60 @@
+---
+title: Agent Backends
+description: Configure Kata CLI or Codex as Symphony's agent backend.
+---
+
+# Agent Backends
+
+Symphony supports two agent backends. Choose with `agent.backend` in your WORKFLOW.md.
+
+## Kata CLI (recommended)
+
+```yaml
+agent:
+  backend: kata-cli    # alias: kata
+  max_concurrent_agents: 3
+  max_turns: 20
+
+kata_agent:              # alias: pi_agent
+  command: kata
+  model: anthropic/claude-sonnet-4-6
+  stall_timeout_ms: 300000
+```
+
+**Prerequisites:**
+
+- **Kata CLI** — `npm install -g @kata-sh/cli`, or use `npx @kata-sh/cli` as the command
+- **Provider auth** — run `kata` interactively once to log in, or set the provider's API key (e.g. `ANTHROPIC_API_KEY`)
+
+### Per-State Model Selection
+
+Assign different models to different Linear workflow states:
+
+```yaml
+kata_agent:
+  model: anthropic/claude-opus-4-6           # default for all states
+  model_by_state:
+    Agent Review: anthropic/claude-sonnet-4-6  # cheaper for review
+    Merging: anthropic/claude-sonnet-4-6       # mechanical task
+```
+
+The active model is visible in both the TUI and web dashboard.
+
+## Codex
+
+```yaml
+agent:
+  backend: codex
+  max_concurrent_agents: 3
+  max_turns: 20
+
+codex:
+  command: codex app-server
+  stall_timeout_ms: 900000
+  approval_policy: never
+```
+
+**Prerequisites:**
+
+- **Codex** — `npm install -g @openai/codex`
+- **Auth** — run `codex` once to log in, or set `OPENAI_API_KEY`

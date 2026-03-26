@@ -1,0 +1,99 @@
+---
+title: Deployment
+description: Run Symphony locally, with Docker isolation, or on a server.
+---
+
+# Deployment
+
+Symphony supports three deployment modes.
+
+## Local Mode (default)
+
+Workers run as bare processes on your machine.
+
+```yaml
+workspace:
+  isolation: local
+  repo: /path/to/local/repo
+  git_strategy: worktree    # recommended for local repos
+```
+
+```bash
+symphony WORKFLOW.md --port 8080
+```
+
+**Git strategies:**
+
+| Strategy | Best for |
+|----------|----------|
+| `worktree` (recommended) | Local repos — instant setup, shared history |
+| `auto` (default) | Auto-detects based on repo URL vs path |
+| `clone-local` | Same volume, full isolation from main repo |
+| `clone-remote` | Remote repos, CI environments |
+
+## Docker Isolation
+
+Each issue gets an ephemeral container. Symphony manages the full container lifecycle.
+
+```yaml
+workspace:
+  isolation: docker
+  repo: https://github.com/you/repo.git    # must be remote URL
+  docker:
+    image: node:22-bookworm
+    setup: docker/setups/bun.sh             # optional tooling install
+    codex_auth: auto
+```
+
+You don't create or manage containers. Symphony:
+
+1. Builds a derived image from your base + setup script (cached by content hash)
+2. Starts a disposable container per issue
+3. Clones your repo inside the container
+4. Runs the agent via `docker exec`
+5. Removes the container when done
+
+**Setup scripts** install toolchains on top of the base image. Bundled scripts: `bun.sh`, `python.sh`, `rust.sh`, `go.sh`.
+
+## Server Deployment (Docker Compose)
+
+Run Symphony itself in a container on a VPS:
+
+```bash
+cd docker/
+cp .env.example .env
+# Edit .env with LINEAR_API_KEY and agent auth
+docker compose up -d --build
+```
+
+The Compose file mounts the Docker socket so Symphony can manage worker containers as siblings.
+
+Web dashboard: `http://localhost:8080`
+
+## SSH Remote Workers
+
+Distribute sessions across multiple machines:
+
+```yaml
+worker:
+  ssh_hosts:
+    - worker1.example.com
+    - worker2.example.com:2222
+    - alice@worker3.example.com
+  max_concurrent_agents_per_host: 3
+```
+
+Each host needs the agent backend installed and on PATH. Symphony connects via `ssh -T`. Set `SYMPHONY_SSH_CONFIG` for custom SSH config.
+
+## CLI Reference
+
+```
+symphony [WORKFLOW.md] [--port PORT] [--logs-root PATH] [--no-tui]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `WORKFLOW.md` | `WORKFLOW.md` | Path to workflow config |
+| `--port` | `8080` | HTTP dashboard port |
+| `--logs-root` | *(none)* | Rotating log file directory |
+| `--no-tui` | | Disable terminal dashboard |

@@ -1275,22 +1275,13 @@ impl Orchestrator {
         self.state.poll_interval_ms = self.config.polling.interval_ms;
     }
 
-    fn dashboard_url(&self) -> Option<String> {
-        self.config
-            .server
-            .public_url
-            .as_deref()
-            .map(str::trim)
-            .filter(|url| !url.is_empty())
-            .map(|url| url.trim_end_matches('/').to_string())
-    }
-
     fn queue_slack_notification(
         &self,
         event_type: &str,
         issue_identifier: &str,
         issue_title: &str,
         message: &str,
+        issue_url: Option<&str>,
     ) {
         let Some(slack_config) = self
             .config
@@ -1310,7 +1301,7 @@ impl Orchestrator {
         let issue_title = issue_title.to_string();
         let event_type = event_type.to_string();
         let message = message.to_string();
-        let dashboard_url = self.dashboard_url();
+        let issue_url = issue_url.map(String::from);
 
         if let Ok(runtime_handle) = tokio::runtime::Handle::try_current() {
             runtime_handle.spawn(async move {
@@ -1320,7 +1311,7 @@ impl Orchestrator {
                     &issue_identifier,
                     &issue_title,
                     &message,
-                    dashboard_url.as_deref(),
+                    issue_url.as_deref(),
                 )
                 .await
                 {
@@ -2023,7 +2014,8 @@ impl Orchestrator {
             return None;
         };
         self.state.claimed.remove(issue_id);
-        self.running_issue_states.remove(issue_id);
+        // Keep running_issue_states until reconciliation — needed for
+        // state-change notification detection on the next poll cycle.
         self.worker_last_activity_ms.remove(issue_id);
         self.running_session_stats.remove(issue_id);
         self.worker_session_info.remove(issue_id);
@@ -2115,6 +2107,7 @@ impl Orchestrator {
                         &issue_identifier,
                         &issue_title,
                         "Agent failed during execution.",
+                        run_attempt.issue_url.as_deref(),
                     );
                 }
 
@@ -2174,6 +2167,7 @@ impl Orchestrator {
                     None
                 },
                 linear_state: Some(issue.state.clone()),
+                issue_url: issue.url.clone(),
             },
         );
         let _ = self.ensure_worker_session_info(&issue.id);
@@ -2433,6 +2427,7 @@ impl Orchestrator {
                 &run_attempt.issue_identifier,
                 &issue_title,
                 &format!("No activity for {} seconds.", elapsed_ms / 1000),
+                run_attempt.issue_url.as_deref(),
             );
 
             self.handle_worker_completion(
@@ -2677,21 +2672,17 @@ impl Orchestrator {
 
             if let Some(previous_state) = previous_state.as_deref() {
                 if previous_state != normalized_state.as_str() {
-                    if normalized_state == "human review" {
-                        self.queue_slack_notification(
-                            "human_review",
-                            &issue.identifier,
-                            &issue.title,
-                            "Moved to Human Review — PR ready for review.",
-                        );
-                    } else if normalized_state == "rework" {
-                        self.queue_slack_notification(
-                            "rework",
-                            &issue.identifier,
-                            &issue.title,
-                            "Moved to Rework — changes requested.",
-                        );
-                    }
+                    // Convert normalized state (e.g. "human review") to event name
+                    // (e.g. "human_review") by replacing spaces with underscores.
+                    let event_name = normalized_state.replace(' ', "_");
+                    let message = format!("Moved to {} (was {}).", issue.state, previous_state,);
+                    self.queue_slack_notification(
+                        &event_name,
+                        &issue.identifier,
+                        &issue.title,
+                        &message,
+                        issue.url.as_deref(),
+                    );
                 }
             }
 
@@ -2959,6 +2950,7 @@ impl Orchestrator {
                 None
             },
             linear_state: Some(issue.state.clone()),
+            issue_url: issue.url.clone(),
         };
 
         self.state.running.insert(issue.id.clone(), attempt);
