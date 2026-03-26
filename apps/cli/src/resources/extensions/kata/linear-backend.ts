@@ -540,7 +540,8 @@ export class LinearBackend implements KataBackend {
 
     const dependencySummaries = [
       `- Check the roadmap for \`depends:[]\` on this slice.`,
-      `- For each dependency, call \`kata_read_document("Sxx-SUMMARY", { issueId: "<dependency-slice-issue-uuid>" })\`. Get slice issue UUIDs from \`kata_list_slices\`.`,
+      `- For each dependency, call \`linear_get_issue("<dependency-slice-issue-uuid>")\` and inspect issue.comments for summary evidence (primary path).`,
+      `- Backward-compatible fallback: if no summary comment is present, call \`kata_read_document("Sxx-SUMMARY", { issueId: "<dependency-slice-issue-uuid>" })\`. Get slice issue UUIDs from \`kata_list_slices\`.`,
     ].join("\n");
 
     const inlinedContext = [
@@ -613,7 +614,8 @@ export class LinearBackend implements KataBackend {
 
     const dependencySummaries = [
       `- Check the roadmap for \`depends:[]\` on this slice.`,
-      `- For each dependency, call \`kata_read_document("Sxx-SUMMARY", { issueId: "<dependency-slice-issue-uuid>" })\`. Get slice issue UUIDs from \`kata_list_slices\`.`,
+      `- For each dependency, call \`linear_get_issue("<dependency-slice-issue-uuid>")\` and inspect issue.comments for summary evidence (primary path).`,
+      `- Backward-compatible fallback: if no summary comment is present, call \`kata_read_document("Sxx-SUMMARY", { issueId: "<dependency-slice-issue-uuid>" })\`. Get slice issue UUIDs from \`kata_list_slices\`.`,
     ].join("\n");
 
     const inlinedContext = [
