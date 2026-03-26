@@ -111,16 +111,33 @@ fn effective_pi_model_for_issue(config: &ServiceConfig, issue: &Issue) -> Option
     config.pi_agent.model_for_state(&issue.state)
 }
 
-fn should_continue_issue_in_session(issue: &Issue, tracker_config: &TrackerConfig) -> bool {
+/// Determine whether a multi-turn session should continue after a turn completes.
+///
+/// Returns `true` only if:
+/// - The issue is still assigned to this worker
+/// - The issue is in an active (non-terminal) state
+/// - The issue state has NOT changed from the state it was dispatched with
+///
+/// A state change (e.g. In Progress → Agent Review) means the orchestrator
+/// should end this session and dispatch a new one with the appropriate per-state
+/// prompt. Without this check, the multi-turn loop continues with a stale prompt
+/// and the agent never receives the instructions for the new state.
+fn should_continue_issue_in_session(
+    issue: &Issue,
+    tracker_config: &TrackerConfig,
+    dispatched_state: &str,
+) -> bool {
     issue.assigned_to_worker
         && is_active_state(&issue.state, tracker_config)
         && !is_terminal_state(&issue.state, tracker_config)
+        && normalize_issue_state(&issue.state) == normalize_issue_state(dispatched_state)
 }
 
 async fn check_issue_still_active(
     issue: &Issue,
     client: &crate::linear::client::LinearClient,
     tracker_config: &TrackerConfig,
+    dispatched_state: &str,
 ) -> IssueCheck {
     match client
         .fetch_issue_states_by_ids(std::slice::from_ref(&issue.id))
@@ -128,9 +145,21 @@ async fn check_issue_still_active(
     {
         Ok(issues) => match issues.first() {
             Some(refreshed) => {
-                if should_continue_issue_in_session(refreshed, tracker_config) {
+                if should_continue_issue_in_session(refreshed, tracker_config, dispatched_state) {
                     IssueCheck::Continue(refreshed.clone())
                 } else {
+                    if is_active_state(&refreshed.state, tracker_config)
+                        && normalize_issue_state(&refreshed.state)
+                            != normalize_issue_state(dispatched_state)
+                    {
+                        tracing::info!(
+                            issue_id = %refreshed.id,
+                            issue_identifier = %refreshed.identifier,
+                            dispatched_state = %dispatched_state,
+                            current_state = %refreshed.state,
+                            "issue state changed during session; ending session for re-dispatch with new prompt"
+                        );
+                    }
                     IssueCheck::Done(refreshed.clone())
                 }
             }
@@ -200,7 +229,14 @@ where
             break;
         }
 
-        match check_issue_still_active(&current_issue, &issue_state_client, tracker_config).await {
+        match check_issue_still_active(
+            &current_issue,
+            &issue_state_client,
+            tracker_config,
+            &issue.state,
+        )
+        .await
+        {
             IssueCheck::Continue(refreshed) => {
                 current_issue = refreshed;
                 turn_number = turn_number.saturating_add(1);
@@ -294,7 +330,14 @@ where
             break;
         }
 
-        match check_issue_still_active(&current_issue, &issue_state_client, tracker_config).await {
+        match check_issue_still_active(
+            &current_issue,
+            &issue_state_client,
+            tracker_config,
+            &issue.state,
+        )
+        .await
+        {
             IssueCheck::Continue(refreshed) => {
                 current_issue = refreshed;
                 turn_number = turn_number.saturating_add(1);
@@ -1345,19 +1388,20 @@ impl Orchestrator {
             if let Some(attempt) = self.state.running.get_mut(&d.issue.id) {
                 attempt.status = "running".to_string();
             }
-            let issue = d.issue.clone();
+            let mut issue = d.issue.clone();
             let attempt = d.attempt;
             let worker_host = d.worker_host.clone();
             let tx = self.worker_result_tx.clone();
 
-            // Resolve per-state prompt using the post-dispatch state from
-            // running_issue_states (set during dispatch_issue), falling back to
-            // issue.state if not yet tracked.
+            // Use the post-dispatch state (after Todo→In Progress transition) so
+            // the multi-turn loop's between-turn check compares against the actual
+            // dispatched state, not the stale pre-transition state.
             let effective_state = self
                 .running_issue_states
                 .get(&issue.id)
                 .cloned()
                 .unwrap_or_else(|| issue.state.clone());
+            issue.state = effective_state.clone();
             let prompt_template = self.resolve_prompt_for_state(&effective_state);
 
             let task_config = WorkerTaskConfig {

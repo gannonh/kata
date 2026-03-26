@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.1 — Fix multi-turn session continuing after state change
+
+### Critical Fix
+
+- **Multi-turn session now ends when issue state changes** — when an agent moves an issue from one active state to another (e.g. `In Progress` → `Agent Review`), the session now ends so the orchestrator can re-dispatch with the correct per-state prompt. Previously the multi-turn loop continued with the stale prompt because both states were "active," which could lead to the agent taking unauthorized actions (like merging a PR) after running out of meaningful work.
+
 ## 1.2.0 — Per-state prompts, dependency ordering, live tool activity
 
 ### Per-State Prompt Injection
