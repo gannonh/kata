@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'bun:test'
+import { describe, test, expect } from 'vitest'
 import { normalizeTavilyResult, publishedDateToAge, mapFreshnessToTavily } from '../tavily.js'
 import type { TavilyResult } from '../tavily.js'
 
