@@ -17,6 +17,7 @@ use crate::domain::{
     WorkspaceRepoStrategy,
 };
 use crate::error::{Result, SymphonyError};
+use crate::notifications;
 use crate::repo_url::repo_is_remote;
 
 // ── Key normalization and null-dropping ───────────────────────────────────────
@@ -882,11 +883,21 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
 
     // ── NotificationsConfig ───────────────────────────────────────────────
     let slack = raw_notifications.slack.and_then(|raw| {
+        let webhook_was_configured = raw.webhook_url.is_some();
         let webhook_url = raw
             .webhook_url
             .map(|value| resolve_env(&value))
             .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())?;
+            .filter(|value| !value.is_empty());
+
+        let Some(webhook_url) = webhook_url else {
+            if webhook_was_configured {
+                tracing::warn!(
+                    "notifications.slack.webhook_url resolved to empty; Slack notifications are disabled"
+                );
+            }
+            return None;
+        };
 
         let events = raw
             .events
@@ -895,6 +906,22 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
             .map(|event| event.trim().to_ascii_lowercase())
             .filter(|event| !event.is_empty())
             .collect::<Vec<_>>();
+
+        if events.is_empty() {
+            tracing::warn!(
+                "notifications.slack.events is empty; no Slack notifications will be sent"
+            );
+        }
+
+        for event in &events {
+            if !notifications::is_supported_slack_event(event) {
+                tracing::warn!(
+                    event_name = %event,
+                    supported_events = ?notifications::SUPPORTED_SLACK_EVENTS,
+                    "unrecognized notifications.slack.events value"
+                );
+            }
+        }
 
         Some(SlackConfig {
             webhook_url,

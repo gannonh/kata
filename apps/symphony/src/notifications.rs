@@ -1,7 +1,13 @@
 use anyhow::{anyhow, Result};
 use serde::Serialize;
+use std::time::Duration;
 
 use crate::domain::SlackConfig;
+
+pub const SUPPORTED_SLACK_EVENTS: &[&str] = &["human_review", "stalled", "failed", "rework"];
+
+const SLACK_CONNECT_TIMEOUT_SECS: u64 = 5;
+const SLACK_REQUEST_TIMEOUT_SECS: u64 = 10;
 
 #[derive(Debug, Serialize)]
 struct SlackWebhookPayload {
@@ -67,7 +73,13 @@ pub async fn send_slack_notification(
         ),
     };
 
-    let response = reqwest::Client::new()
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(SLACK_CONNECT_TIMEOUT_SECS))
+        .timeout(Duration::from_secs(SLACK_REQUEST_TIMEOUT_SECS))
+        .build()
+        .map_err(|err| anyhow!("failed to build Slack notification HTTP client: {err}"))?;
+
+    let response = client
         .post(&config.webhook_url)
         .json(&payload)
         .send()
@@ -76,7 +88,10 @@ pub async fn send_slack_notification(
 
     let status = response.status();
     if !status.is_success() {
-        let body = response.text().await.unwrap_or_default();
+        let body = match response.text().await {
+            Ok(text) => text,
+            Err(err) => format!("[response body unreadable: {err}]"),
+        };
         let truncated_body: String = body.chars().take(240).collect();
         return Err(anyhow!(
             "Slack notification HTTP {}: {}",
@@ -95,6 +110,13 @@ pub async fn send_slack_notification(
     );
 
     Ok(())
+}
+
+pub fn is_supported_slack_event(event_type: &str) -> bool {
+    let normalized = normalize_event_type(event_type);
+    SUPPORTED_SLACK_EVENTS
+        .iter()
+        .any(|supported| *supported == normalized)
 }
 
 fn normalize_event_type(event_type: &str) -> String {
@@ -126,6 +148,13 @@ mod tests {
         assert!(should_notify(&config, "stalled"));
         assert!(should_notify(&config, "HUMAN_REVIEW"));
         assert!(!should_notify(&config, "failed"));
+    }
+
+    #[test]
+    fn test_is_supported_slack_event() {
+        assert!(is_supported_slack_event("failed"));
+        assert!(is_supported_slack_event("Human_Review"));
+        assert!(!is_supported_slack_event("staleled"));
     }
 
     #[tokio::test]

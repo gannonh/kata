@@ -1113,6 +1113,62 @@ async fn test_notification_fires_on_rework_transition() {
     mock.assert_async().await;
 }
 
+#[tokio::test]
+async fn test_notification_does_not_fire_without_prior_state_snapshot() {
+    let mut server = Server::new_async().await;
+    let mock = server
+        .mock("POST", "/webhook")
+        .with_status(200)
+        .expect(0)
+        .create_async()
+        .await;
+
+    let mut config = with_slack_notifications(
+        test_config(2),
+        format!("{}/webhook", server.url()),
+        &["human_review"],
+    );
+    config
+        .tracker
+        .active_states
+        .extend(["Human Review".to_string()]);
+
+    let mut orchestrator = Orchestrator::new(config, String::new());
+    orchestrator.state_mut().running.insert(
+        "issue-human-review-initial".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-human-review-initial".to_string(),
+            issue_identifier: "SIM-HR-INITIAL".to_string(),
+            issue_title: Some("Human review issue".to_string()),
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-hr-initial".to_string(),
+            started_at: Utc::now(),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: Some("Human Review".to_string()),
+        },
+    );
+
+    let mut reconcile_port = FakePort {
+        reconciled_issues: vec![issue(
+            "issue-human-review-initial",
+            "SIM-HR-INITIAL",
+            "Human Review",
+            Some(1),
+            0,
+        )],
+        ..FakePort::default()
+    };
+    orchestrator
+        .tick(&mut reconcile_port)
+        .expect("reconcile tick should succeed");
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    mock.assert_async().await;
+}
+
 #[test]
 fn test_streamed_event_updates_activity_before_worker_completion() {
     let mut orchestrator = Orchestrator::new(test_config(2), String::new());

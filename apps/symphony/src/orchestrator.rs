@@ -974,6 +974,7 @@ pub fn refresh_channel() -> (RefreshSender, RefreshReceiver) {
 
 pub const CONTINUATION_RETRY_DELAY_MS: i64 = 1_000;
 pub const FAILURE_RETRY_BASE_MS: i64 = 10_000;
+const STALL_FAILURE_MARKER: &str = "without agent activity";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RetryKind {
@@ -2055,7 +2056,7 @@ impl Orchestrator {
                     .issue_title
                     .clone()
                     .unwrap_or_else(|| issue_identifier.clone());
-                let is_stall_failure = error.contains("without agent activity");
+                let is_stall_failure = error.contains(STALL_FAILURE_MARKER);
                 if !is_stall_failure {
                     self.queue_slack_notification(
                         "failed",
@@ -2385,7 +2386,7 @@ impl Orchestrator {
             self.handle_worker_completion(
                 &issue_id,
                 WorkerCompletion::Failed {
-                    error: format!("stalled for {elapsed_ms}ms without agent activity"),
+                    error: format!("stalled for {elapsed_ms}ms {STALL_FAILURE_MARKER}"),
                 },
                 now_ms,
             );
@@ -2622,21 +2623,23 @@ impl Orchestrator {
             let normalized_state = normalize_issue_state(&issue.state);
             let previous_state = self.running_issue_states.get(&issue.id).cloned();
 
-            if previous_state.as_deref() != Some(normalized_state.as_str()) {
-                if normalized_state == "human review" {
-                    self.queue_slack_notification(
-                        "human_review",
-                        &issue.identifier,
-                        &issue.title,
-                        "Moved to Human Review — PR ready for review.",
-                    );
-                } else if normalized_state == "rework" {
-                    self.queue_slack_notification(
-                        "rework",
-                        &issue.identifier,
-                        &issue.title,
-                        "Moved to Rework — changes requested.",
-                    );
+            if let Some(previous_state) = previous_state.as_deref() {
+                if previous_state != normalized_state.as_str() {
+                    if normalized_state == "human review" {
+                        self.queue_slack_notification(
+                            "human_review",
+                            &issue.identifier,
+                            &issue.title,
+                            "Moved to Human Review — PR ready for review.",
+                        );
+                    } else if normalized_state == "rework" {
+                        self.queue_slack_notification(
+                            "rework",
+                            &issue.identifier,
+                            &issue.title,
+                            "Moved to Rework — changes requested.",
+                        );
+                    }
                 }
             }
 
