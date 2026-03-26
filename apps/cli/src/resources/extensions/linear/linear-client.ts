@@ -452,63 +452,7 @@ export class LinearClient {
   // Issues (including sub-issues via parentId)
   // ===========================================================================
 
-  private static readonly ISSUE_FIELDS = `
-    id
-    identifier
-    title
-    description
-    priority
-    estimate
-    url
-    createdAt
-    updatedAt
-    state {
-      id
-      name
-      type
-      color
-      position
-    }
-    assignee {
-      id
-      name
-      email
-      displayName
-    }
-    labels {
-      nodes {
-        id
-        name
-        color
-      }
-    }
-    parent {
-      id
-      identifier
-      title
-    }
-    children {
-      nodes {
-        id
-        identifier
-        title
-        state {
-          id
-          name
-          type
-          color
-          position
-        }
-      }
-    }
-    project {
-      id
-      name
-    }
-    projectMilestone {
-      id
-      name
-    }
+  private static readonly ISSUE_RELATION_FIELDS = `
     relations {
       nodes {
         id
@@ -569,6 +513,66 @@ export class LinearClient {
         }
       }
     }
+  `;
+
+  private static readonly ISSUE_FIELDS = `
+    id
+    identifier
+    title
+    description
+    priority
+    estimate
+    url
+    createdAt
+    updatedAt
+    state {
+      id
+      name
+      type
+      color
+      position
+    }
+    assignee {
+      id
+      name
+      email
+      displayName
+    }
+    labels {
+      nodes {
+        id
+        name
+        color
+      }
+    }
+    parent {
+      id
+      identifier
+      title
+    }
+    children {
+      nodes {
+        id
+        identifier
+        title
+        state {
+          id
+          name
+          type
+          color
+          position
+        }
+      }
+    }
+    project {
+      id
+      name
+    }
+    projectMilestone {
+      id
+      name
+    }
+    ${LinearClient.ISSUE_RELATION_FIELDS}
   `;
 
   async createIssue(input: IssueCreateInput): Promise<LinearIssue> {
@@ -731,17 +735,44 @@ export class LinearClient {
   }
 
   async listRelations(issueId: string): Promise<LinearIssueRelation[]> {
-    const issue = await this.getIssue(issueId);
-    return issue?.relations ?? [];
+    try {
+      const data = await this.graphql<{
+        issue:
+          | {
+              relations?: { nodes?: unknown[] } | unknown[];
+              inverseRelations?: { nodes?: unknown[] } | unknown[];
+            }
+          | null;
+      }>(`
+        query ListIssueRelations($id: String!) {
+          issue(id: $id) {
+            ${LinearClient.ISSUE_RELATION_FIELDS}
+          }
+        }
+      `, { id: issueId });
+
+      if (!data.issue) return [];
+      return this.normalizeRelations(data.issue as LinearIssue);
+    } catch (err) {
+      if (this.isNotFound(err)) return [];
+      throw err;
+    }
   }
 
   private normalizeRelationType(type: string): "blocks" | "relates_to" | "duplicate" {
-    const normalized = (type ?? "").toLowerCase();
+    const normalized = (type ?? "").toLowerCase().trim();
+    if (normalized === "blocks") return "blocks";
     if (normalized === "duplicate") return "duplicate";
-    if (normalized === "related" || normalized === "relatedto" || normalized === "relates_to") {
+    if (
+      normalized === "related"
+      || normalized === "relatedto"
+      || normalized === "relates_to"
+      || normalized === "relatesto"
+      || normalized === "relates-to"
+    ) {
       return "relates_to";
     }
-    return "blocks";
+    return "relates_to";
   }
 
   private relationIssueRef(input: unknown): LinearIssueRelationIssueRef {
