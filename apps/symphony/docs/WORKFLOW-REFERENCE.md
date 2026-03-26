@@ -280,6 +280,32 @@ server:
   # Bind address. Use "0.0.0.0" to expose on all interfaces.
   host: "127.0.0.1"
 
+  # Optional public base URL included in Slack notification payloads as
+  # `Dashboard: <public_url>`. Trailing slash is trimmed.
+  # Keep this externally reachable (for example through a tunnel, ingress,
+  # reverse proxy, or production hostname).
+  # public_url: https://symphony.example.com
+
+# ─── Notifications ─────────────────────────────────────────────────────────────
+# Optional webhook notifications for events that need human attention.
+# Supports Slack incoming webhooks today.
+# notifications:
+#   slack:
+#     # Webhook URL or $ENV_VAR reference.
+#     webhook_url: $SLACK_WEBHOOK_URL
+#
+#     # Event filters (lowercased internally):
+#     #   human_review — issue moved to Human Review during reconcile
+#     #   stalled      — worker exceeded stall timeout
+#     #   failed       — non-stall worker failure during execution
+#     #   rework       — issue moved to Rework during reconcile
+#     # Empty list means no notifications are sent.
+#     events:
+#       - human_review
+#       - stalled
+#       - failed
+#       - rework
+
 # ─── Prompts (per-state prompt injection) ─────────────────────────────────────
 # Optional. When configured, the orchestrator selects a prompt template based on
 # the issue's Linear state at dispatch time instead of using the markdown body

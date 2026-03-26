@@ -12,10 +12,12 @@ use serde_yaml::{Mapping, Value};
 
 use crate::domain::{
     AgentBackend, AgentConfig, ApiKey, CodexConfig, DockerCodexAuth, DockerConfig, HooksConfig,
-    PiAgentConfig, PollingConfig, PromptsConfig, ServerConfig, ServiceConfig, TrackerConfig,
-    WorkerConfig, WorkspaceConfig, WorkspaceIsolation, WorkspaceRepoStrategy,
+    NotificationsConfig, PiAgentConfig, PollingConfig, PromptsConfig, ServerConfig, ServiceConfig,
+    SlackConfig, TrackerConfig, WorkerConfig, WorkspaceConfig, WorkspaceIsolation,
+    WorkspaceRepoStrategy,
 };
 use crate::error::{Result, SymphonyError};
+use crate::notifications;
 use crate::repo_url::repo_is_remote;
 
 // ── Key normalization and null-dropping ───────────────────────────────────────
@@ -110,6 +112,28 @@ fn resolve_env(val: &str) -> String {
         };
     }
     val.to_string()
+}
+
+fn validate_public_url(value: &str) -> Result<String> {
+    let parsed = reqwest::Url::parse(value).map_err(|err| {
+        SymphonyError::InvalidWorkflowConfig(format!(
+            "server.public_url must be a valid absolute URL: {err}"
+        ))
+    })?;
+
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err(SymphonyError::InvalidWorkflowConfig(
+            "server.public_url must use http or https".to_string(),
+        ));
+    }
+
+    if parsed.host_str().is_none() {
+        return Err(SymphonyError::InvalidWorkflowConfig(
+            "server.public_url must include a host".to_string(),
+        ));
+    }
+
+    Ok(value.to_string())
 }
 
 // ── Tilde expansion ───────────────────────────────────────────────────────────
@@ -259,6 +283,7 @@ struct RawHooksConfig {
 struct RawServerConfig {
     port: Option<u16>,
     host: Option<String>,
+    public_url: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -267,6 +292,19 @@ struct RawPromptsConfig {
     shared: Option<String>,
     by_state: Option<HashMap<String, String>>,
     default: Option<String>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct RawNotificationsConfig {
+    slack: Option<RawSlackConfig>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct RawSlackConfig {
+    webhook_url: Option<String>,
+    events: Option<Vec<String>>,
 }
 
 // ── Section extraction helper ─────────────────────────────────────────────────
@@ -446,6 +484,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let raw_hooks: RawHooksConfig = extract_section(&normalized, "hooks")?;
     let raw_server: RawServerConfig = extract_section(&normalized, "server")?;
     let raw_prompts: RawPromptsConfig = extract_section(&normalized, "prompts")?;
+    let raw_notifications: RawNotificationsConfig = extract_section(&normalized, "notifications")?;
 
     let defaults = ServiceConfig::default();
     let has_kata_agent_section = normalized.get("kata_agent").is_some();
@@ -834,9 +873,18 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     };
 
     // ── ServerConfig ──────────────────────────────────────────────────────
+    let public_url = raw_server
+        .public_url
+        .map(|value| resolve_env(&value))
+        .map(|value| value.trim().trim_end_matches('/').to_string())
+        .filter(|value| !value.is_empty())
+        .map(|value| validate_public_url(&value))
+        .transpose()?;
+
     let server = ServerConfig {
         port: raw_server.port,
         host: raw_server.host.unwrap_or(defaults.server.host.clone()),
+        public_url,
     };
 
     // ── PromptsConfig ─────────────────────────────────────────────────────
@@ -865,6 +913,54 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         None
     };
 
+    // ── NotificationsConfig ───────────────────────────────────────────────
+    let slack = match raw_notifications.slack {
+        None => None,
+        Some(raw) => {
+            let webhook_url = raw
+                .webhook_url
+                .map(|value| resolve_env(&value))
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| {
+                    SymphonyError::InvalidWorkflowConfig(
+                        "notifications.slack.webhook_url must be non-empty when notifications.slack is configured"
+                            .to_string(),
+                    )
+                })?;
+
+            let events = raw
+                .events
+                .unwrap_or_default()
+                .into_iter()
+                .map(|event| event.trim().to_ascii_lowercase())
+                .filter(|event| !event.is_empty())
+                .collect::<Vec<_>>();
+
+            if events.is_empty() {
+                tracing::warn!(
+                    "notifications.slack.events is empty; no Slack notifications will be sent"
+                );
+            }
+
+            for event in &events {
+                if !notifications::is_supported_slack_event(event) {
+                    return Err(SymphonyError::InvalidWorkflowConfig(format!(
+                        "notifications.slack.events contains unsupported value '{event}'. Supported values: {}",
+                        notifications::SUPPORTED_SLACK_EVENTS.join(", ")
+                    )));
+                }
+            }
+
+            Some(SlackConfig {
+                webhook_url,
+                events,
+            })
+        }
+    };
+
+    let notifications = slack.map(|slack| NotificationsConfig { slack: Some(slack) });
+
     Ok(ServiceConfig {
         tracker,
         polling,
@@ -877,6 +973,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         hooks,
         server,
         prompts,
+        notifications,
     })
 }
 

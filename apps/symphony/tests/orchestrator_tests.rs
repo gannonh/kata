@@ -12,8 +12,8 @@ use serde_json::json;
 use tempfile::{tempdir, NamedTempFile};
 
 use symphony::domain::{
-    AgentConfig, AgentEvent, ApiKey, BlockerRef, Issue, ServiceConfig, TrackerConfig,
-    WorkspaceIsolation,
+    AgentConfig, AgentEvent, ApiKey, BlockerRef, Issue, NotificationsConfig, ServiceConfig,
+    SlackConfig, TrackerConfig, WorkspaceIsolation,
 };
 use symphony::error::{Result, SymphonyError};
 use symphony::orchestrator::{
@@ -107,6 +107,32 @@ fn test_config(max_concurrent_agents: u32) -> ServiceConfig {
         max_retry_backoff_ms: 60_000,
     };
     config
+}
+
+fn with_slack_notifications(
+    mut config: ServiceConfig,
+    webhook_url: String,
+    events: &[&str],
+) -> ServiceConfig {
+    config.notifications = Some(NotificationsConfig {
+        slack: Some(SlackConfig {
+            webhook_url,
+            events: events.iter().map(|event| (*event).to_string()).collect(),
+        }),
+    });
+    config
+}
+
+async fn wait_for_mock_match(mock: &mockito::Mock) {
+    let deadline = Instant::now() + StdDuration::from_secs(1);
+    while Instant::now() < deadline {
+        if mock.matched() {
+            return;
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+    }
+
+    mock.assert_async().await;
 }
 
 fn issue(
@@ -814,6 +840,338 @@ fn test_stall_detection_schedules_forced_retry() {
         stalled_event,
         "stalled worker path should emit worker_stalled diagnostic event"
     );
+}
+
+#[tokio::test]
+async fn test_notification_fires_on_worker_stall() {
+    let mut server = Server::new_async().await;
+    let mock = server
+        .mock("POST", "/webhook")
+        .match_header("content-type", "application/json")
+        .match_body(mockito::Matcher::Regex("Event: stalled".to_string()))
+        .with_status(200)
+        .expect(1)
+        .create_async()
+        .await;
+
+    let config = with_slack_notifications(
+        test_config(2),
+        format!("{}/webhook", server.url()),
+        &["stalled"],
+    );
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    orchestrator.state_mut().running.insert(
+        "issue-stalled-notify".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-stalled-notify".to_string(),
+            issue_identifier: "SIM-STALL".to_string(),
+            issue_title: Some("Stalled issue".to_string()),
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-stalled-notify".to_string(),
+            started_at: Utc::now(),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: None,
+        },
+    );
+
+    let now_ms = 200_000;
+    orchestrator.record_worker_activity("issue-stalled-notify", now_ms - 31_000);
+    orchestrator.detect_stalled_workers(now_ms, 30_000);
+
+    wait_for_mock_match(&mock).await;
+}
+
+#[tokio::test]
+async fn test_notification_fires_on_terminal_failure() {
+    let mut server = Server::new_async().await;
+    let mock = server
+        .mock("POST", "/webhook")
+        .match_body(mockito::Matcher::Regex("Event: failed".to_string()))
+        .with_status(200)
+        .expect(1)
+        .create_async()
+        .await;
+
+    let config = with_slack_notifications(
+        test_config(2),
+        format!("{}/webhook", server.url()),
+        &["failed"],
+    );
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    orchestrator.state_mut().running.insert(
+        "issue-failed-notify".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-failed-notify".to_string(),
+            issue_identifier: "SIM-FAIL".to_string(),
+            issue_title: Some("Failure issue".to_string()),
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-failed-notify".to_string(),
+            started_at: Utc::now(),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: None,
+        },
+    );
+
+    orchestrator.handle_worker_completion(
+        "issue-failed-notify",
+        WorkerCompletion::Failed {
+            error: "agent crashed".to_string(),
+        },
+        400_000,
+    );
+
+    wait_for_mock_match(&mock).await;
+}
+
+#[tokio::test]
+async fn test_notification_skips_unconfigured_events() {
+    let mut server = Server::new_async().await;
+    let mock = server
+        .mock("POST", "/webhook")
+        .with_status(200)
+        .expect(0)
+        .create_async()
+        .await;
+
+    let config = with_slack_notifications(
+        test_config(2),
+        format!("{}/webhook", server.url()),
+        &["stalled"],
+    );
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    orchestrator.state_mut().running.insert(
+        "issue-failed-silent".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-failed-silent".to_string(),
+            issue_identifier: "SIM-SILENT".to_string(),
+            issue_title: Some("Failure issue".to_string()),
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-failed-silent".to_string(),
+            started_at: Utc::now(),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: None,
+        },
+    );
+
+    orchestrator.handle_worker_completion(
+        "issue-failed-silent",
+        WorkerCompletion::Failed {
+            error: "agent crashed".to_string(),
+        },
+        450_000,
+    );
+
+    wait_for_mock_match(&mock).await;
+}
+
+#[tokio::test]
+async fn test_notification_failure_does_not_block_orchestrator() {
+    let mut server = Server::new_async().await;
+    let mock = server
+        .mock("POST", "/webhook")
+        .with_status(500)
+        .with_body("boom")
+        .expect(1)
+        .create_async()
+        .await;
+
+    let config = with_slack_notifications(
+        test_config(2),
+        format!("{}/webhook", server.url()),
+        &["failed"],
+    );
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    orchestrator.state_mut().running.insert(
+        "issue-failure-non-fatal".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-failure-non-fatal".to_string(),
+            issue_identifier: "SIM-NONFATAL".to_string(),
+            issue_title: Some("Failure issue".to_string()),
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-failure-non-fatal".to_string(),
+            started_at: Utc::now(),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: None,
+        },
+    );
+
+    orchestrator.handle_worker_completion(
+        "issue-failure-non-fatal",
+        WorkerCompletion::Failed {
+            error: "agent crashed".to_string(),
+        },
+        500_000,
+    );
+
+    wait_for_mock_match(&mock).await;
+
+    assert!(
+        orchestrator
+            .state()
+            .retry_attempts
+            .contains_key("issue-failure-non-fatal"),
+        "notification HTTP failure must not block failure retry scheduling"
+    );
+}
+
+#[tokio::test]
+async fn test_notification_fires_on_human_review_transition() {
+    let mut server = Server::new_async().await;
+    let mock = server
+        .mock("POST", "/webhook")
+        .match_body(mockito::Matcher::Regex("Event: human_review".to_string()))
+        .with_status(200)
+        .expect(1)
+        .create_async()
+        .await;
+
+    let mut config = with_slack_notifications(
+        test_config(2),
+        format!("{}/webhook", server.url()),
+        &["human_review"],
+    );
+    config
+        .tracker
+        .active_states
+        .extend(["Agent Review".to_string()]);
+
+    let mut orchestrator = Orchestrator::new(config, String::new());
+    let candidate = issue("issue-human-review", "SIM-HR", "In Progress", Some(1), 0);
+
+    let mut dispatch_port = FakePort {
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+    orchestrator
+        .tick(&mut dispatch_port)
+        .expect("dispatch tick should succeed");
+
+    let mut reconcile_port = FakePort {
+        reconciled_issues: vec![issue(
+            "issue-human-review",
+            "SIM-HR",
+            "Human Review",
+            Some(1),
+            0,
+        )],
+        ..FakePort::default()
+    };
+    orchestrator
+        .tick(&mut reconcile_port)
+        .expect("reconcile tick should succeed");
+
+    wait_for_mock_match(&mock).await;
+}
+
+#[tokio::test]
+async fn test_notification_fires_on_rework_transition() {
+    let mut server = Server::new_async().await;
+    let mock = server
+        .mock("POST", "/webhook")
+        .match_body(mockito::Matcher::Regex("Event: rework".to_string()))
+        .with_status(200)
+        .expect(1)
+        .create_async()
+        .await;
+
+    let mut config = with_slack_notifications(
+        test_config(2),
+        format!("{}/webhook", server.url()),
+        &["rework"],
+    );
+    config.tracker.active_states.extend(["Rework".to_string()]);
+
+    let mut orchestrator = Orchestrator::new(config, String::new());
+    let candidate = issue("issue-rework", "SIM-RW", "In Progress", Some(1), 0);
+
+    let mut dispatch_port = FakePort {
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+    orchestrator
+        .tick(&mut dispatch_port)
+        .expect("dispatch tick should succeed");
+
+    let mut reconcile_port = FakePort {
+        reconciled_issues: vec![issue("issue-rework", "SIM-RW", "Rework", Some(1), 0)],
+        ..FakePort::default()
+    };
+    orchestrator
+        .tick(&mut reconcile_port)
+        .expect("reconcile tick should succeed");
+
+    wait_for_mock_match(&mock).await;
+}
+
+#[tokio::test]
+async fn test_notification_does_not_fire_without_prior_state_snapshot() {
+    let mut server = Server::new_async().await;
+    let mock = server
+        .mock("POST", "/webhook")
+        .with_status(200)
+        .expect(0)
+        .create_async()
+        .await;
+
+    let mut config = with_slack_notifications(
+        test_config(2),
+        format!("{}/webhook", server.url()),
+        &["human_review"],
+    );
+    config
+        .tracker
+        .active_states
+        .extend(["Human Review".to_string()]);
+
+    let mut orchestrator = Orchestrator::new(config, String::new());
+    orchestrator.state_mut().running.insert(
+        "issue-human-review-initial".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-human-review-initial".to_string(),
+            issue_identifier: "SIM-HR-INITIAL".to_string(),
+            issue_title: Some("Human review issue".to_string()),
+            attempt: Some(1),
+            workspace_path: "/tmp/workspace-hr-initial".to_string(),
+            started_at: Utc::now(),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: Some("Human Review".to_string()),
+        },
+    );
+
+    let mut reconcile_port = FakePort {
+        reconciled_issues: vec![issue(
+            "issue-human-review-initial",
+            "SIM-HR-INITIAL",
+            "Human Review",
+            Some(1),
+            0,
+        )],
+        ..FakePort::default()
+    };
+    orchestrator
+        .tick(&mut reconcile_port)
+        .expect("reconcile tick should succeed");
+
+    wait_for_mock_match(&mock).await;
 }
 
 #[test]

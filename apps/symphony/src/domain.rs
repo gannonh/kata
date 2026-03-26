@@ -146,6 +146,28 @@ pub struct PromptsConfig {
     pub default: Option<String>,
 }
 
+/// Notification configuration.
+#[derive(Debug, Clone, Default)]
+pub struct NotificationsConfig {
+    pub slack: Option<SlackConfig>,
+}
+
+/// Slack webhook configuration.
+#[derive(Clone)]
+pub struct SlackConfig {
+    pub webhook_url: String,
+    pub events: Vec<String>,
+}
+
+impl fmt::Debug for SlackConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SlackConfig")
+            .field("webhook_url", &"[REDACTED]")
+            .field("events", &self.events)
+            .finish()
+    }
+}
+
 /// Top-level typed runtime config derived from WorkflowDefinition.config.
 #[derive(Debug, Clone, Default)]
 pub struct ServiceConfig {
@@ -160,6 +182,7 @@ pub struct ServiceConfig {
     pub hooks: HooksConfig,
     pub server: ServerConfig,
     pub prompts: Option<PromptsConfig>,
+    pub notifications: Option<NotificationsConfig>,
 }
 
 /// Tracker configuration (spec §5.3.1).
@@ -474,6 +497,7 @@ impl Default for HooksConfig {
 pub struct ServerConfig {
     pub port: Option<u16>,
     pub host: String,
+    pub public_url: Option<String>,
 }
 
 impl Default for ServerConfig {
@@ -481,6 +505,7 @@ impl Default for ServerConfig {
         Self {
             port: None,
             host: "127.0.0.1".to_string(),
+            public_url: None,
         }
     }
 }
