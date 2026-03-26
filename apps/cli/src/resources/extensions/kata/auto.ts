@@ -69,30 +69,14 @@ import {
 import { join } from "node:path";
 import {
   existsSync,
-  mkdirSync,
   readFileSync,
-  writeFileSync,
 } from "node:fs";
 import {
   kataRoot,
   resolveMilestoneFile,
   resolveSliceFile,
-  resolveSlicePath,
-  resolveMilestonePath,
-  resolveDir,
-  resolveTasksDir,
-  resolveTaskFiles,
-  relMilestoneFile,
-  relSliceFile,
-  relSlicePath,
-  relMilestonePath,
-  milestonesDir,
-  buildMilestoneFileName,
-  buildSliceFileName,
-  buildTaskFileName,
 } from "./paths.js";
 import {
-  loadFile,
   parseRoadmap,
   parsePlan,
 } from "./files.js";
@@ -100,7 +84,6 @@ import { unitVerb, unitPhaseLabel } from "./unit-display.js";
 import { formatDuration } from "./markdown-utils.js";
 import {
   autoCommitCurrentBranch,
-  ensureSliceBranch,
   switchToMain,
   mergeSliceToMain,
 } from "./worktree.ts";
@@ -110,6 +93,12 @@ import { makeUI, GLYPH, INDENT } from "../shared/ui.js";
 import { resolveModelSwitch, computeSupervisorTimeouts } from "./auto-helpers.js";
 export { resolveModelSwitch, computeSupervisorTimeouts } from "./auto-helpers.js";
 export type { ModelSwitchResult } from "./auto-helpers.js";
+import { deriveUnitType, deriveUnitId, peekNext } from "./auto-dispatch.js";
+export { deriveUnitType, deriveUnitId, peekNext } from "./auto-dispatch.js";
+import { providerBackoffMs, skipExecuteTask, resolveExpectedArtifactPath, writeBlockerPlaceholder, diagnoseExpectedArtifact } from "./auto-recovery.js";
+export { skipExecuteTask, resolveExpectedArtifactPath, writeBlockerPlaceholder } from "./auto-recovery.js";
+import { ensurePreconditions } from "./auto-transitions.js";
+export { ensurePreconditions } from "./auto-transitions.js";
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -468,11 +457,6 @@ export async function startAuto(
 
 // ─── Agent End Handler ────────────────────────────────────────────────────────
 
-/** Backoff delay in ms: 5s, 10s, 20s, 40s, 60s, 60s, ... */
-function providerBackoffMs(attempt: number): number {
-  return Math.min(5000 * Math.pow(2, attempt), 60_000);
-}
-
 /**
  * Handle a provider/network error during auto-mode.
  * Retries with exponential backoff up to MAX_PROVIDER_RETRIES before pausing.
@@ -578,33 +562,6 @@ export async function handleAgentEnd(
 }
 
 // ─── Progress Widget ──────────────────────────────────────────────────────
-
-
-function peekNext(unitType: string, state: KataState): string {
-  const sid = state.activeSlice?.id ?? "";
-  switch (unitType) {
-    case "research-milestone":
-      return "plan milestone roadmap";
-    case "plan-milestone":
-      return "research first slice";
-    case "research-slice":
-      return `plan ${sid}`;
-    case "plan-slice":
-      return "execute first task";
-    case "execute-task":
-      return `continue ${sid}`;
-    case "complete-slice":
-      return "reassess roadmap";
-    case "replan-slice":
-      return `re-execute ${sid}`;
-    case "reassess-roadmap":
-      return "advance to next slice";
-    case "run-uat":
-      return "reassess roadmap";
-    default:
-      return "";
-  }
-}
 
 /** Right-align helper: build a line with left content and right content. */
 function rightAlign(left: string, right: string, width: number): string {
@@ -880,42 +837,6 @@ async function resolveDispatchOptions(
   }
 
   return options;
-}
-
-function deriveUnitType(state: KataState, options: PromptOptions): string {
-  if (options.uatSliceId) return "run-uat";
-  if (options.reassessSliceId) return "reassess-roadmap";
-  if (options.dispatchResearch === "milestone") return "research-milestone";
-  if (options.dispatchResearch === "slice") return "research-slice";
-  switch (state.phase) {
-    case "pre-planning":
-      return "plan-milestone";
-    case "planning":
-      return "plan-slice";
-    case "executing":
-    case "verifying":
-      return "execute-task";
-    case "summarizing":
-      return "complete-slice";
-    case "completing-milestone":
-      return "complete-milestone";
-    case "replanning-slice":
-      return "replan-slice";
-    default:
-      return `unknown-${state.phase}`;
-  }
-}
-
-function deriveUnitId(state: KataState, options?: PromptOptions): string {
-  const mid = state.activeMilestone?.id ?? "unknown";
-  // UAT and reassessment target the *previous* (completed) slice, not the
-  // now-active one. Use the dispatch option IDs when available so the unit
-  // key correctly identifies the work being done.
-  const sid = options?.uatSliceId ?? options?.reassessSliceId ?? state.activeSlice?.id;
-  const tid = state.activeTask?.id;
-  if (tid && sid && !options?.uatSliceId && !options?.reassessSliceId) return `${mid}/${sid}/${tid}`;
-  if (sid) return `${mid}/${sid}`;
-  return mid;
 }
 
 // ─── PR Gate Helper ───────────────────────────────────────────────────────────
@@ -1570,66 +1491,6 @@ async function dispatchNextUnit(
   }
 }
 
-// ─── Preconditions ────────────────────────────────────────────────────────────
-
-/**
- * Ensure directories, branches, and other prerequisites exist before
- * dispatching a unit. The LLM should never need to mkdir or git checkout.
- */
-function ensurePreconditions(
-  unitType: string,
-  unitId: string,
-  base: string,
-  _state: KataState,
-): void {
-  const parts = unitId.split("/");
-  const mid = parts[0]!;
-
-  // Always ensure milestone dir exists
-  const mDir = resolveMilestonePath(base, mid);
-  if (!mDir) {
-    const newDir = join(milestonesDir(base), mid);
-    mkdirSync(join(newDir, "slices"), { recursive: true });
-  }
-
-  // For slice-level units, ensure slice dir exists
-  if (parts.length >= 2) {
-    const sid = parts[1]!;
-
-    // Re-resolve milestone path after potential creation
-    const mDirResolved = resolveMilestonePath(base, mid);
-    if (mDirResolved) {
-      const slicesDir = join(mDirResolved, "slices");
-      const sDir = resolveDir(slicesDir, sid);
-      if (!sDir) {
-        // Create slice dir with bare ID
-        const newSliceDir = join(slicesDir, sid);
-        mkdirSync(join(newSliceDir, "tasks"), { recursive: true });
-      } else {
-        // Ensure tasks/ subdir exists
-        const tasksDir = join(slicesDir, sDir, "tasks");
-        if (!existsSync(tasksDir)) {
-          mkdirSync(tasksDir, { recursive: true });
-        }
-      }
-    }
-  }
-
-  if (
-    [
-      "research-slice",
-      "plan-slice",
-      "execute-task",
-      "complete-slice",
-      "replan-slice",
-    ].includes(unitType) &&
-    parts.length >= 2
-  ) {
-    const sid = parts[1]!;
-    ensureSliceBranch(base, mid, sid);
-  }
-}
-
 // ─── Diagnostics ──────────────────────────────────────────────────────────────
 
 async function emitObservabilityWarnings(
@@ -1910,161 +1771,4 @@ async function recoverTimedOutUnit(
   return "paused";
 }
 
-/**
- * Write skip artifacts for a stuck execute-task: a blocker task summary and
- * the [x] checkbox in the slice plan. Returns true if artifacts were written.
- */
-export function skipExecuteTask(
-  base: string,
-  mid: string,
-  sid: string,
-  tid: string,
-  status: { summaryExists: boolean; taskChecked: boolean },
-  reason: string,
-  maxAttempts: number,
-): boolean {
-  // Write a blocker task summary if missing.
-  if (!status.summaryExists) {
-    const tasksDir = resolveTasksDir(base, mid, sid);
-    const sDir = resolveSlicePath(base, mid, sid);
-    const targetDir = tasksDir ?? (sDir ? join(sDir, "tasks") : null);
-    if (!targetDir) return false;
-    if (!existsSync(targetDir)) mkdirSync(targetDir, { recursive: true });
-    const summaryPath = join(targetDir, buildTaskFileName(tid, "SUMMARY"));
-    const content = [
-      `# BLOCKER — task skipped by auto-mode recovery`,
-      ``,
-      `Task \`${tid}\` in slice \`${sid}\` (milestone \`${mid}\`) failed to complete after ${reason} recovery exhausted ${maxAttempts} attempts.`,
-      ``,
-      `This placeholder was written by auto-mode so the pipeline can advance.`,
-      `Review this task manually and replace this file with a real summary.`,
-    ].join("\n");
-    writeFileSync(summaryPath, content, "utf-8");
-  }
 
-  // Mark [x] in the slice plan if not already checked.
-  if (!status.taskChecked) {
-    const planAbs = resolveSliceFile(base, mid, sid, "PLAN");
-    if (planAbs && existsSync(planAbs)) {
-      const planContent = readFileSync(planAbs, "utf-8");
-      const escapedTid = tid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const re = new RegExp(`^(- \\[) \\] (\\*\\*${escapedTid}:)`, "m");
-      if (re.test(planContent)) {
-        writeFileSync(planAbs, planContent.replace(re, "$1x] $2"), "utf-8");
-      }
-    }
-  }
-
-  return true;
-}
-
-/**
- * Resolve the expected artifact for a non-execute-task unit to an absolute path.
- * Returns null for unit types that don't produce a single file (execute-task,
- * complete-slice, replan-slice).
- */
-export function resolveExpectedArtifactPath(
-  unitType: string,
-  unitId: string,
-  base: string,
-): string | null {
-  const parts = unitId.split("/");
-  const mid = parts[0]!;
-  const sid = parts[1];
-  switch (unitType) {
-    case "research-milestone": {
-      const dir = resolveMilestonePath(base, mid);
-      return dir ? join(dir, buildMilestoneFileName(mid, "RESEARCH")) : null;
-    }
-    case "plan-milestone": {
-      const dir = resolveMilestonePath(base, mid);
-      return dir ? join(dir, buildMilestoneFileName(mid, "ROADMAP")) : null;
-    }
-    case "research-slice": {
-      const dir = resolveSlicePath(base, mid, sid!);
-      return dir ? join(dir, buildSliceFileName(sid!, "RESEARCH")) : null;
-    }
-    case "plan-slice": {
-      const dir = resolveSlicePath(base, mid, sid!);
-      return dir ? join(dir, buildSliceFileName(sid!, "PLAN")) : null;
-    }
-    case "reassess-roadmap": {
-      const dir = resolveSlicePath(base, mid, sid!);
-      return dir ? join(dir, buildSliceFileName(sid!, "ASSESSMENT")) : null;
-    }
-    case "run-uat": {
-      const dir = resolveSlicePath(base, mid, sid!);
-      return dir ? join(dir, buildSliceFileName(sid!, "UAT-RESULT")) : null;
-    }
-    case "complete-milestone": {
-      const dir = resolveMilestonePath(base, mid);
-      return dir ? join(dir, buildMilestoneFileName(mid, "SUMMARY")) : null;
-    }
-    default:
-      return null;
-  }
-}
-
-/**
- * Write a placeholder artifact so the pipeline can advance past a stuck unit.
- * Returns the relative path written, or null if the path couldn't be resolved.
- */
-export function writeBlockerPlaceholder(
-  unitType: string,
-  unitId: string,
-  base: string,
-  reason: string,
-): string | null {
-  const absPath = resolveExpectedArtifactPath(unitType, unitId, base);
-  if (!absPath) return null;
-  const dir = absPath.substring(0, absPath.lastIndexOf("/"));
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const content = [
-    `# BLOCKER — auto-mode recovery failed`,
-    ``,
-    `Unit \`${unitType}\` for \`${unitId}\` failed to produce this artifact after idle recovery exhausted all retries.`,
-    ``,
-    `**Reason**: ${reason}`,
-    ``,
-    `This placeholder was written by auto-mode so the pipeline can advance.`,
-    `Review and replace this file before relying on downstream artifacts.`,
-  ].join("\n");
-  writeFileSync(absPath, content, "utf-8");
-  return diagnoseExpectedArtifact(unitType, unitId, base);
-}
-
-function diagnoseExpectedArtifact(
-  unitType: string,
-  unitId: string,
-  base: string,
-): string | null {
-  const parts = unitId.split("/");
-  const mid = parts[0];
-  const sid = parts[1];
-  switch (unitType) {
-    case "research-milestone":
-      return `${relMilestoneFile(base, mid!, "RESEARCH")} (milestone research)`;
-    case "plan-milestone":
-      return `${relMilestoneFile(base, mid!, "ROADMAP")} (milestone roadmap)`;
-    case "research-slice":
-      return `${relSliceFile(base, mid!, sid!, "RESEARCH")} (slice research)`;
-    case "plan-slice":
-      return `${relSliceFile(base, mid!, sid!, "PLAN")} (slice plan)`;
-    case "execute-task": {
-      const tid = parts[2];
-      return `Task ${tid} marked [x] in ${relSliceFile(base, mid!, sid!, "PLAN")} + summary written`;
-    }
-    case "complete-slice":
-      return `Slice ${sid} marked [x] in ${relMilestoneFile(base, mid!, "ROADMAP")} + summary written`;
-    case "replan-slice":
-      return `${relSliceFile(base, mid!, sid!, "REPLAN")} + updated ${relSliceFile(base, mid!, sid!, "PLAN")}`;
-    case "reassess-roadmap":
-      return `${relSliceFile(base, mid!, sid!, "ASSESSMENT")} (roadmap reassessment)`;
-    case "run-uat":
-      return `${relSliceFile(base, mid!, sid!, "UAT-RESULT")} (UAT result)`;
-    case "complete-milestone":
-      return `${relMilestoneFile(base, mid!, "SUMMARY")} (milestone summary)`;
-    default:
-      return null;
-  }
-}
