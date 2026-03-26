@@ -582,7 +582,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       milestoneId: Type.Optional(Type.String({ description: "Linear ProjectMilestone UUID to attach this slice to" })),
       sliceLabelId: Type.Optional(Type.String({ description: "Label UUID for kata:slice (from kata_ensure_labels)" })),
       taskLabelId: Type.Optional(Type.String({ description: "Label UUID for kata:task (from kata_ensure_labels); used to complete the KataLabelSet" })),
-      description: Type.Optional(Type.String({ description: "Slice description (markdown)" })),
+      description: Type.Optional(Type.String({ description: "Slice description (markdown). Use this for the canonical Sxx plan content." })),
       initialPhase: Type.Optional(
         Type.Union(
           [
@@ -640,7 +640,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       sliceIssueId: Type.String({ description: "Linear issue UUID of the parent slice issue" }),
       sliceLabelId: Type.Optional(Type.String({ description: "Label UUID for kata:slice (from kata_ensure_labels); used to complete the KataLabelSet" })),
       taskLabelId: Type.Optional(Type.String({ description: "Label UUID for kata:task (from kata_ensure_labels)" })),
-      description: Type.Optional(Type.String({ description: "Task description (markdown)" })),
+      description: Type.Optional(Type.String({ description: "Task description (markdown). Use this for the canonical Txx plan content." })),
       initialPhase: Type.Optional(
         Type.Union(
           [

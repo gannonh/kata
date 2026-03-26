@@ -239,7 +239,12 @@ describe("LinearBackend execute task prompt", () => {
     assert.match(p, /KATA-WORKFLOW\.md/);
   });
 
-  it("reads T01-PLAN", async () => {
+  it("uses task issue description as primary task plan source", async () => {
+    const p = await b.buildPrompt("executing", makeState());
+    assert.match(p, /linear_get_issue\("<task-uuid>"\)/i);
+  });
+
+  it("keeps T01-PLAN fallback for backward compatibility", async () => {
     const p = await b.buildPrompt("executing", makeState());
     assert.match(p, /T01-PLAN/i);
   });
@@ -295,6 +300,12 @@ describe("LinearBackend plan slice prompt", () => {
     assert.match(p, /kata_create_task/);
   });
 
+  it("writes slice plan via linear_update_issue description", async () => {
+    const state = makeState({ phase: "planning", activeSlice: { id: "S02", title: "Second Slice" } });
+    const p = await b.buildPrompt("planning", state);
+    assert.match(p, /linear_update_issue\(\{ id: "<slice-issue-uuid>", description: content \}\)/);
+  });
+
   it("references kata_update_issue_state", async () => {
     const state = makeState({ phase: "planning", activeSlice: { id: "S02", title: "Second Slice" } });
     const p = await b.buildPrompt("planning", state);
@@ -333,9 +344,10 @@ describe("LinearBackend complete slice prompt", () => {
     assert.match(p, /S01-PLAN/i);
   });
 
-  it("references kata_update_issue_state", async () => {
+  it("does not advance slice directly to done", async () => {
     const p = await b.buildPrompt("summarizing", makeState({ phase: "summarizing" }));
-    assert.match(p, /kata_update_issue_state/);
+    assert.doesNotMatch(p, /kata_update_issue_state\(\{ issueId: "<slice-uuid>", phase: "done" \}\)/);
+    assert.match(p, /Do NOT advance the slice to done directly/i);
   });
 
   it("references kata_list_tasks", async () => {
@@ -346,6 +358,12 @@ describe("LinearBackend complete slice prompt", () => {
   it("writes UAT", async () => {
     const p = await b.buildPrompt("summarizing", makeState({ phase: "summarizing" }));
     assert.match(p, /S01-UAT/);
+  });
+
+  it("writes slice summary via linear_add_comment", async () => {
+    const p = await b.buildPrompt("summarizing", makeState({ phase: "summarizing" }));
+    assert.match(p, /linear_add_comment\(\{ issueId: "<slice-issue-uuid>", body: content \}\)/);
+    assert.match(p, /<!-- KATA:S01-SUMMARY -->/);
   });
 });
 

@@ -192,9 +192,10 @@ This workflow is for Kata CLI planned execution and dispatches a **slice issue**
 Before implementation starts, load context in this exact order:
 
 1. Child issues (`issue.children`) to discover task list and ordering.
-2. Slice issue documents (`issue.documents`) to read slice-scoped docs (`S0N-PLAN`, `S0N-RESEARCH`, `T0N-PLAN`, `T0N-SUMMARY`). Slice and task docs are attached to the slice issue, not the project — this prevents ID collisions across milestones.
-3. Project documents (`project.documents`) to read project-scoped docs (`PROJECT`, `REQUIREMENTS`, `DECISIONS`, `M00N-CONTEXT`, `M00N-ROADMAP`).
-4. Milestone context via `issue.projectMilestone` to get the milestone name, then find `M00N-CONTEXT` and `M00N-ROADMAP` in the project documents (milestone docs are attached to the project, not the milestone entity).
+2. Slice issue + child task issue descriptions to read plans (`S0N-PLAN` in slice description, `T0N-PLAN` in task description). Use slice/task documents only as backward-compatible fallback when descriptions are empty.
+3. Slice issue documents (`issue.documents`) for remaining slice-scoped docs (`S0N-RESEARCH`, `S0N-UAT`, optional legacy summaries/plans).
+4. Project documents (`project.documents`) to read project-scoped docs (`PROJECT`, `REQUIREMENTS`, `DECISIONS`, `M00N-CONTEXT`, `M00N-ROADMAP`).
+5. Milestone context via `issue.projectMilestone` to get the milestone name, then find `M00N-CONTEXT` and `M00N-ROADMAP` in the project documents (milestone docs are attached to the project, not the milestone entity).
 
 Preferred query patterns:
 
