@@ -546,7 +546,7 @@ export class LinearBackend implements KataBackend {
     return {
       backendRules: HARD_RULE,
       backendOps,
-      backendMustComplete: `**You MUST write the ${sid} plan into the slice issue description before finishing.**\n\n${REFERENCE}`
+      backendMustComplete: `**You MUST write the ${sid} plan into the slice issue description before finishing.**\n\n${REFERENCE}`,
     };
   }
 
