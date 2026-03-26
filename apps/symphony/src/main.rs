@@ -247,9 +247,13 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
 
         let workflow_store = Arc::new(context.workflow_store);
         let mut tracker_port = LinearOrchestratorPort::new(Arc::clone(&workflow_store));
+        let server_port_override = prepared_http_server
+            .as_ref()
+            .map(|server| server.bound_port)
+            .or(cli.port);
         let mut orchestrator = Orchestrator::new_with_workflow_store_and_port_override(
             Arc::clone(&workflow_store),
-            cli.port,
+            server_port_override,
         );
 
         let snapshot_handle = orchestrator.create_snapshot_handle();

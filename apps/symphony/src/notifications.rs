@@ -102,7 +102,7 @@ pub async fn send_slack_notification(
 
     tracing::info!(
         event = "notification_sent",
-        issue_id = %issue_identifier,
+        issue_identifier = %issue_identifier,
         event_type = %normalized_event,
         webhook_status = status.as_u16(),
         webhook_url = "[REDACTED]",

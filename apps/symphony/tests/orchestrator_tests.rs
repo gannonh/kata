@@ -123,6 +123,18 @@ fn with_slack_notifications(
     config
 }
 
+async fn wait_for_mock_match(mock: &mockito::Mock) {
+    let deadline = Instant::now() + StdDuration::from_secs(1);
+    while Instant::now() < deadline {
+        if mock.matched() {
+            return;
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+    }
+
+    mock.assert_async().await;
+}
+
 fn issue(
     id: &str,
     identifier: &str,
@@ -870,8 +882,7 @@ async fn test_notification_fires_on_worker_stall() {
     orchestrator.record_worker_activity("issue-stalled-notify", now_ms - 31_000);
     orchestrator.detect_stalled_workers(now_ms, 30_000);
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-    mock.assert_async().await;
+    wait_for_mock_match(&mock).await;
 }
 
 #[tokio::test]
@@ -917,8 +928,7 @@ async fn test_notification_fires_on_terminal_failure() {
         400_000,
     );
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-    mock.assert_async().await;
+    wait_for_mock_match(&mock).await;
 }
 
 #[tokio::test]
@@ -963,8 +973,7 @@ async fn test_notification_skips_unconfigured_events() {
         450_000,
     );
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-    mock.assert_async().await;
+    wait_for_mock_match(&mock).await;
 }
 
 #[tokio::test]
@@ -1010,8 +1019,7 @@ async fn test_notification_failure_does_not_block_orchestrator() {
         500_000,
     );
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-    mock.assert_async().await;
+    wait_for_mock_match(&mock).await;
 
     assert!(
         orchestrator
@@ -1068,8 +1076,7 @@ async fn test_notification_fires_on_human_review_transition() {
         .tick(&mut reconcile_port)
         .expect("reconcile tick should succeed");
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-    mock.assert_async().await;
+    wait_for_mock_match(&mock).await;
 }
 
 #[tokio::test]
@@ -1109,8 +1116,7 @@ async fn test_notification_fires_on_rework_transition() {
         .tick(&mut reconcile_port)
         .expect("reconcile tick should succeed");
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-    mock.assert_async().await;
+    wait_for_mock_match(&mock).await;
 }
 
 #[tokio::test]
@@ -1165,8 +1171,7 @@ async fn test_notification_does_not_fire_without_prior_state_snapshot() {
         .tick(&mut reconcile_port)
         .expect("reconcile tick should succeed");
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-    mock.assert_async().await;
+    wait_for_mock_match(&mock).await;
 }
 
 #[test]

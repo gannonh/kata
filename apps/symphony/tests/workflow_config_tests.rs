@@ -402,8 +402,27 @@ tracker:
 }
 
 #[test]
+fn test_notifications_config_invalid_webhook_returns_error() {
+    let yaml_str = r#"
+notifications:
+  slack:
+    webhook_url: ""
+    events:
+      - stalled
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let err = from_workflow(&raw).expect_err("empty webhook URL should be invalid");
+
+    assert!(
+        matches!(err, SymphonyError::InvalidWorkflowConfig(ref msg) if msg.contains("notifications.slack.webhook_url")),
+        "expected invalid webhook URL error, got: {err}"
+    );
+}
+
+#[test]
 #[serial]
 fn test_notifications_config_resolves_env_var_in_webhook_url() {
+    let previous = std::env::var("SYMPHONY_TEST_SLACK_WEBHOOK_URL").ok();
     std::env::set_var(
         "SYMPHONY_TEST_SLACK_WEBHOOK_URL",
         "https://hooks.slack.com/services/T111/B111/envtoken",
@@ -430,7 +449,10 @@ notifications:
         "https://hooks.slack.com/services/T111/B111/envtoken"
     );
 
-    std::env::remove_var("SYMPHONY_TEST_SLACK_WEBHOOK_URL");
+    match previous {
+        Some(value) => std::env::set_var("SYMPHONY_TEST_SLACK_WEBHOOK_URL", value),
+        None => std::env::remove_var("SYMPHONY_TEST_SLACK_WEBHOOK_URL"),
+    }
 }
 
 #[test]
