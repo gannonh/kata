@@ -77,7 +77,6 @@ import {
   resolveSliceFile,
 } from "./paths.js";
 import {
-  loadFile,
   parseRoadmap,
   parsePlan,
 } from "./files.js";
