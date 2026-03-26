@@ -12,7 +12,7 @@ import {
   resolveDir,
   milestonesDir,
 } from "./paths.js";
-import { ensureSliceBranch } from "./worktree.ts";
+import { ensureSliceBranch as defaultEnsureSliceBranch } from "./worktree.ts";
 import type { KataState } from "./types.js";
 
 /** Unit types that require a slice-level branch checkout. */
@@ -24,6 +24,12 @@ const SLICE_BRANCH_UNITS = [
   "replan-slice",
 ] as const;
 
+/** Options for overriding dependencies in tests. */
+export interface EnsurePreconditionsOptions {
+  /** Override ensureSliceBranch for testing (default: real implementation). */
+  ensureSliceBranch?: (base: string, mid: string, sid: string) => void;
+}
+
 /**
  * Ensure directories, branches, and other prerequisites exist before
  * dispatching a unit. The LLM should never need to mkdir or git checkout.
@@ -33,7 +39,9 @@ export function ensurePreconditions(
   unitId: string,
   base: string,
   _state: KataState,
+  options?: EnsurePreconditionsOptions,
 ): void {
+  const ensureSliceBranch = options?.ensureSliceBranch ?? defaultEnsureSliceBranch;
   const parts = unitId.split("/");
   const mid = parts[0]!;
 

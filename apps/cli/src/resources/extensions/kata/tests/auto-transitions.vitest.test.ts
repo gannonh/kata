@@ -8,20 +8,12 @@ import {
   rmSync,
 } from "node:fs";
 import type { KataState } from "../types.js";
-
-// Mock ensureSliceBranch before importing the module under test
-vi.mock("../worktree.ts", () => ({
-  ensureSliceBranch: vi.fn(),
-}));
-
 import { ensurePreconditions } from "../auto-transitions.js";
-import { ensureSliceBranch } from "../worktree.ts";
-
-const mockedEnsureSliceBranch = vi.mocked(ensureSliceBranch);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 let tmpBase: string;
+let mockEnsureSliceBranch: ReturnType<typeof vi.fn>;
 
 function makeState(): KataState {
   return {
@@ -41,11 +33,18 @@ function setupKataDir(): string {
   return tmpBase;
 }
 
+/** Call ensurePreconditions with the mock injected. */
+function callEnsure(unitType: string, unitId: string, base: string, state: KataState) {
+  return ensurePreconditions(unitType, unitId, base, state, {
+    ensureSliceBranch: mockEnsureSliceBranch,
+  });
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("ensurePreconditions", () => {
   beforeEach(() => {
-    mockedEnsureSliceBranch.mockReset();
+    mockEnsureSliceBranch = vi.fn();
   });
 
   afterEach(() => {
@@ -59,7 +58,7 @@ describe("ensurePreconditions", () => {
     // Ensure .kata/milestones exists but M001 doesn't
     mkdirSync(join(base, ".kata", "milestones"), { recursive: true });
 
-    ensurePreconditions("plan-milestone", "M001", base, makeState());
+    callEnsure("plan-milestone", "M001", base, makeState());
 
     expect(existsSync(join(base, ".kata", "milestones", "M001", "slices"))).toBe(true);
   });
@@ -69,7 +68,7 @@ describe("ensurePreconditions", () => {
     mkdirSync(join(base, ".kata", "milestones", "M001", "slices"), { recursive: true });
 
     expect(() => {
-      ensurePreconditions("plan-milestone", "M001", base, makeState());
+      callEnsure("plan-milestone", "M001", base, makeState());
     }).not.toThrow();
   });
 
@@ -77,7 +76,7 @@ describe("ensurePreconditions", () => {
     const base = setupKataDir();
     mkdirSync(join(base, ".kata", "milestones", "M001", "slices"), { recursive: true });
 
-    ensurePreconditions("plan-slice", "M001/S01", base, makeState());
+    callEnsure("plan-slice", "M001/S01", base, makeState());
 
     expect(existsSync(join(base, ".kata", "milestones", "M001", "slices", "S01", "tasks"))).toBe(true);
   });
@@ -87,7 +86,7 @@ describe("ensurePreconditions", () => {
     // Create slice dir without tasks/
     mkdirSync(join(base, ".kata", "milestones", "M001", "slices", "S01"), { recursive: true });
 
-    ensurePreconditions("execute-task", "M001/S01/T01", base, makeState());
+    callEnsure("execute-task", "M001/S01/T01", base, makeState());
 
     expect(existsSync(join(base, ".kata", "milestones", "M001", "slices", "S01", "tasks"))).toBe(true);
   });
@@ -98,7 +97,7 @@ describe("ensurePreconditions", () => {
     mkdirSync(tasksDir, { recursive: true });
 
     expect(() => {
-      ensurePreconditions("execute-task", "M001/S01/T01", base, makeState());
+      callEnsure("execute-task", "M001/S01/T01", base, makeState());
     }).not.toThrow();
 
     expect(existsSync(tasksDir)).toBe(true);
@@ -108,72 +107,72 @@ describe("ensurePreconditions", () => {
     const base = setupKataDir();
     mkdirSync(join(base, ".kata", "milestones", "M001", "slices", "S01", "tasks"), { recursive: true });
 
-    ensurePreconditions("research-slice", "M001/S01", base, makeState());
+    callEnsure("research-slice", "M001/S01", base, makeState());
 
-    expect(mockedEnsureSliceBranch).toHaveBeenCalledWith(base, "M001", "S01");
+    expect(mockEnsureSliceBranch).toHaveBeenCalledWith(base, "M001", "S01");
   });
 
   it("calls ensureSliceBranch for plan-slice", () => {
     const base = setupKataDir();
     mkdirSync(join(base, ".kata", "milestones", "M001", "slices", "S01", "tasks"), { recursive: true });
 
-    ensurePreconditions("plan-slice", "M001/S01", base, makeState());
+    callEnsure("plan-slice", "M001/S01", base, makeState());
 
-    expect(mockedEnsureSliceBranch).toHaveBeenCalledWith(base, "M001", "S01");
+    expect(mockEnsureSliceBranch).toHaveBeenCalledWith(base, "M001", "S01");
   });
 
   it("calls ensureSliceBranch for execute-task", () => {
     const base = setupKataDir();
     mkdirSync(join(base, ".kata", "milestones", "M001", "slices", "S01", "tasks"), { recursive: true });
 
-    ensurePreconditions("execute-task", "M001/S01/T01", base, makeState());
+    callEnsure("execute-task", "M001/S01/T01", base, makeState());
 
-    expect(mockedEnsureSliceBranch).toHaveBeenCalledWith(base, "M001", "S01");
+    expect(mockEnsureSliceBranch).toHaveBeenCalledWith(base, "M001", "S01");
   });
 
   it("calls ensureSliceBranch for complete-slice", () => {
     const base = setupKataDir();
     mkdirSync(join(base, ".kata", "milestones", "M001", "slices", "S01", "tasks"), { recursive: true });
 
-    ensurePreconditions("complete-slice", "M001/S01", base, makeState());
+    callEnsure("complete-slice", "M001/S01", base, makeState());
 
-    expect(mockedEnsureSliceBranch).toHaveBeenCalledWith(base, "M001", "S01");
+    expect(mockEnsureSliceBranch).toHaveBeenCalledWith(base, "M001", "S01");
   });
 
   it("calls ensureSliceBranch for replan-slice", () => {
     const base = setupKataDir();
     mkdirSync(join(base, ".kata", "milestones", "M001", "slices", "S01", "tasks"), { recursive: true });
 
-    ensurePreconditions("replan-slice", "M001/S01", base, makeState());
+    callEnsure("replan-slice", "M001/S01", base, makeState());
 
-    expect(mockedEnsureSliceBranch).toHaveBeenCalledWith(base, "M001", "S01");
+    expect(mockEnsureSliceBranch).toHaveBeenCalledWith(base, "M001", "S01");
   });
 
   it("does NOT call ensureSliceBranch for plan-milestone", () => {
     const base = setupKataDir();
     mkdirSync(join(base, ".kata", "milestones", "M001", "slices"), { recursive: true });
 
-    ensurePreconditions("plan-milestone", "M001", base, makeState());
+    callEnsure("plan-milestone", "M001", base, makeState());
 
-    expect(mockedEnsureSliceBranch).not.toHaveBeenCalled();
+    expect(mockEnsureSliceBranch).not.toHaveBeenCalled();
   });
 
   it("does NOT call ensureSliceBranch for research-milestone", () => {
     const base = setupKataDir();
     mkdirSync(join(base, ".kata", "milestones", "M001", "slices"), { recursive: true });
 
-    ensurePreconditions("research-milestone", "M001", base, makeState());
+    callEnsure("research-milestone", "M001", base, makeState());
 
-    expect(mockedEnsureSliceBranch).not.toHaveBeenCalled();
+    expect(mockEnsureSliceBranch).not.toHaveBeenCalled();
   });
 
   it("does NOT call ensureSliceBranch for complete-milestone", () => {
     const base = setupKataDir();
     mkdirSync(join(base, ".kata", "milestones", "M001", "slices"), { recursive: true });
 
-    ensurePreconditions("complete-milestone", "M001", base, makeState());
+    callEnsure("complete-milestone", "M001", base, makeState());
 
-    expect(mockedEnsureSliceBranch).not.toHaveBeenCalled();
+    expect(mockEnsureSliceBranch).not.toHaveBeenCalled();
   });
 
   it("does NOT call ensureSliceBranch for reassess-roadmap with milestone-only ID", () => {
@@ -181,28 +180,28 @@ describe("ensurePreconditions", () => {
     mkdirSync(join(base, ".kata", "milestones", "M001", "slices"), { recursive: true });
 
     // reassess-roadmap is NOT in the slice branch units list
-    ensurePreconditions("reassess-roadmap", "M001", base, makeState());
+    callEnsure("reassess-roadmap", "M001", base, makeState());
 
-    expect(mockedEnsureSliceBranch).not.toHaveBeenCalled();
+    expect(mockEnsureSliceBranch).not.toHaveBeenCalled();
   });
 
   it("creates deeply nested structure for task-level unitId", () => {
     const base = setupKataDir();
     mkdirSync(join(base, ".kata", "milestones"), { recursive: true });
 
-    ensurePreconditions("execute-task", "M001/S02/T03", base, makeState());
+    callEnsure("execute-task", "M001/S02/T03", base, makeState());
 
     expect(existsSync(join(base, ".kata", "milestones", "M001", "slices", "S02", "tasks"))).toBe(true);
-    expect(mockedEnsureSliceBranch).toHaveBeenCalledWith(base, "M001", "S02");
+    expect(mockEnsureSliceBranch).toHaveBeenCalledWith(base, "M001", "S02");
   });
 
   it("handles run-uat with slice-level unitId (not in SLICE_BRANCH_UNITS)", () => {
     const base = setupKataDir();
     mkdirSync(join(base, ".kata", "milestones", "M001", "slices", "S01", "tasks"), { recursive: true });
 
-    ensurePreconditions("run-uat", "M001/S01", base, makeState());
+    callEnsure("run-uat", "M001/S01", base, makeState());
 
     // run-uat is NOT in SLICE_BRANCH_UNITS, so no branch checkout
-    expect(mockedEnsureSliceBranch).not.toHaveBeenCalled();
+    expect(mockEnsureSliceBranch).not.toHaveBeenCalled();
   });
 });
