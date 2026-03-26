@@ -5,8 +5,7 @@
  * and the hasActiveWorkers() status check.
  */
 
-import { describe, it, beforeEach } from "bun:test";
-import assert from "node:assert/strict";
+import { describe, it, beforeEach, expect } from 'vitest'
 import {
   registerWorker,
   updateWorker,
@@ -24,15 +23,15 @@ describe("worker-registry", () => {
   describe("registration", () => {
     it("registers a worker with correct fields", () => {
       const id = registerWorker("scout", "Explore codebase", 0, 3, "batch-1");
-      assert.ok(id.startsWith("worker-"), "worker ID has correct prefix");
+      expect(id.startsWith("worker-")).toBe(true);
       const workers = getActiveWorkers();
-      assert.strictEqual(workers.length, 1);
-      assert.strictEqual(workers[0].agent, "scout");
-      assert.strictEqual(workers[0].task, "Explore codebase");
-      assert.strictEqual(workers[0].status, "running");
-      assert.strictEqual(workers[0].index, 0);
-      assert.strictEqual(workers[0].batchSize, 3);
-      assert.strictEqual(workers[0].batchId, "batch-1");
+      expect(workers.length).toBe(1);
+      expect(workers[0].agent).toBe("scout");
+      expect(workers[0].task).toBe("Explore codebase");
+      expect(workers[0].status).toBe("running");
+      expect(workers[0].index).toBe(0);
+      expect(workers[0].batchSize).toBe(3);
+      expect(workers[0].batchId).toBe("batch-1");
     });
   });
 
@@ -43,14 +42,14 @@ describe("worker-registry", () => {
       registerWorker("worker", "Task C", 2, 3, "batch-2");
 
       const workers = getActiveWorkers();
-      assert.strictEqual(workers.length, 3);
-      assert.ok(hasActiveWorkers());
+      expect(workers.length).toBe(3);
+      expect(hasActiveWorkers()).toBe(true);
 
       const batches = getWorkerBatches();
-      assert.strictEqual(batches.size, 1);
+      expect(batches.size).toBe(1);
       const batch = batches.get("batch-2");
-      assert.ok(batch !== undefined);
-      assert.strictEqual(batch!.length, 3);
+      expect(batch).toBeDefined();
+      expect(batch!.length).toBe(3);
     });
   });
 
@@ -62,11 +61,11 @@ describe("worker-registry", () => {
       updateWorker(id1, "completed");
       const workers = getActiveWorkers();
       const w1 = workers.find((w) => w.id === id1);
-      assert.strictEqual(w1?.status, "completed");
+      expect(w1?.status).toBe("completed");
 
       const w2 = workers.find((w) => w.id === id2);
-      assert.strictEqual(w2?.status, "running");
-      assert.ok(hasActiveWorkers());
+      expect(w2?.status).toBe("running");
+      expect(hasActiveWorkers()).toBe(true);
     });
   });
 
@@ -75,7 +74,7 @@ describe("worker-registry", () => {
       const id = registerWorker("scout", "Task A", 0, 1, "batch-4");
       updateWorker(id, "failed");
       const workers = getActiveWorkers();
-      assert.strictEqual(workers[0].status, "failed");
+      expect(workers[0].status).toBe("failed");
     });
   });
 
@@ -86,9 +85,9 @@ describe("worker-registry", () => {
       registerWorker("researcher", "Task C", 0, 1, "batch-6");
 
       const batches = getWorkerBatches();
-      assert.strictEqual(batches.size, 2);
-      assert.strictEqual(batches.get("batch-5")!.length, 2);
-      assert.strictEqual(batches.get("batch-6")!.length, 1);
+      expect(batches.size).toBe(2);
+      expect(batches.get("batch-5")!.length).toBe(2);
+      expect(batches.get("batch-6")!.length).toBe(1);
     });
   });
 
@@ -98,24 +97,24 @@ describe("worker-registry", () => {
       const id2 = registerWorker("worker", "Task B", 1, 2, "batch-7");
       updateWorker(id1, "completed");
       updateWorker(id2, "completed");
-      assert.ok(!hasActiveWorkers());
+      expect(hasActiveWorkers()).toBe(false);
     });
   });
 
   describe("reset", () => {
     it("clears all workers", () => {
       registerWorker("scout", "Task", 0, 1, "batch-8");
-      assert.ok(getActiveWorkers().length > 0);
+      expect(getActiveWorkers().length).toBeGreaterThan(0);
       resetWorkerRegistry();
-      assert.strictEqual(getActiveWorkers().length, 0);
-      assert.ok(!hasActiveWorkers());
+      expect(getActiveWorkers().length).toBe(0);
+      expect(hasActiveWorkers()).toBe(false);
     });
   });
 
   describe("update non-existent worker", () => {
     it("is a no-op and does not throw", () => {
       updateWorker("nonexistent-id", "completed");
-      assert.strictEqual(getActiveWorkers().length, 0);
+      expect(getActiveWorkers().length).toBe(0);
     });
   });
 });
