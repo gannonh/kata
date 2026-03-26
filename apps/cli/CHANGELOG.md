@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.0
+
+### Features
+
+- **Issue relation support in built-in Linear tools (KAT-952)** — Added `linear_create_relation` and `linear_list_relations` for `blocks`, `blocked_by`, `relates_to`, and `duplicate` relationships. `linear_get_issue` responses now include normalized `relations` and a derived `blockedBy` array for dependency-aware consumers.
+
+### Fixes
+
+- **Linear error retry classification crash** — Fixed a runtime error in Linear HTTP retry handling where `isRetryable()` called a non-existent classifier (`classifyError`), which could surface as `classifyError is not defined` on auth/error paths.
+- **Doctor provider HOME-path test isolation** — Stabilized the provider diagnostics test by explicitly clearing and restoring `KATA_CODING_AGENT_DIR` in the HOME-resolution test to avoid environment leakage between test contexts.
+
 ## 0.7.0
 
 ### Features

@@ -31,14 +31,17 @@ export class LinearHttpError extends Error {
 /** Structured error for GraphQL-level failures (HTTP 200 but errors in body). */
 export class LinearGraphQLError extends Error {
   readonly errors: Array<{ message: string; extensions?: Record<string, unknown> }>;
+  readonly statusCode?: number;
 
   constructor(
     message: string,
     errors: Array<{ message: string; extensions?: Record<string, unknown> }>,
+    statusCode?: number,
   ) {
     super(message);
     this.name = "LinearGraphQLError";
     this.errors = errors;
+    this.statusCode = statusCode;
     Object.setPrototypeOf(this, LinearGraphQLError.prototype);
   }
 }
@@ -108,14 +111,20 @@ export function classifyLinearError(err: unknown): ClassifiedError {
 
     const extCode = String(extensions.code ?? "").toUpperCase();
     const extType = String(extensions.type ?? "").toLowerCase();
-    const extStatus = Number(extensions.statusCode ?? NaN);
+    const extensionStatus = Number(
+      extensions.statusCode
+      ?? extensions.httpStatus
+      ?? extensions.status
+      ?? NaN,
+    );
+    const statusCode = Number.isFinite(extensionStatus) ? extensionStatus : err.statusCode;
     const lowerMsg = firstMsg.toLowerCase();
 
     if (
-      extCode === "RATELIMITED" ||
-      extType === "ratelimited" ||
-      extStatus === 429 ||
-      lowerMsg.includes("rate limit")
+      extCode === "RATELIMITED"
+      || extType === "ratelimited"
+      || statusCode === 429
+      || lowerMsg.includes("rate limit")
     ) {
       // Linear's documented rate-limit info is in HTTP headers (X-RateLimit-Requests-Reset),
       // not in a GraphQL extensions.meta.rateLimitResult field. Try the undocumented path
@@ -131,6 +140,19 @@ export function classifyLinearError(err: unknown): ClassifiedError {
         message: `Rate limited: ${firstMsg}`,
         retryAfterMs,
       };
+    }
+
+    if (statusCode === 401 || statusCode === 403) {
+      return {
+        kind: "auth_error",
+        message: `Authentication error: ${firstMsg}. Use secure_env_collect to set LINEAR_API_KEY.`,
+      };
+    }
+    if (statusCode === 404) {
+      return { kind: "not_found", message: firstMsg };
+    }
+    if (typeof statusCode === "number" && statusCode >= 500) {
+      return { kind: "server_error", message: `Server error (HTTP ${statusCode}): ${firstMsg}` };
     }
 
     // Check for common GraphQL error patterns
@@ -199,8 +221,8 @@ function isRetryable(error: unknown): boolean {
   }
   if (error instanceof LinearGraphQLError) {
     // GraphQL-level rate-limit or server errors should be retried.
-    // classifyError() identifies these via extensions.code / message patterns.
-    const classified = classifyError(error);
+    // classifyLinearError() identifies these via extensions.code / message patterns.
+    const classified = classifyLinearError(error);
     return classified.kind === "rate_limited" || classified.kind === "server_error";
   }
   if (error instanceof TypeError) return (error as TypeError).message.includes("fetch");
@@ -259,7 +281,7 @@ export async function fetchWithRetry(
             : [];
 
         if (errors.length > 0) {
-          throw new LinearGraphQLError(errors[0].message, errors);
+          throw new LinearGraphQLError(errors[0].message, errors, response.status);
         }
 
         throw new LinearHttpError(

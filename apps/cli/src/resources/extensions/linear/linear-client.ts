@@ -32,6 +32,9 @@ import type {
   IssueCreateInput,
   IssueUpdateInput,
   IssueFilter,
+  IssueRelationCreateInput,
+  LinearIssueRelation,
+  LinearIssueRelationIssueRef,
   LabelCreateInput,
   DocumentCreateInput,
   DocumentUpdateInput,
@@ -449,6 +452,69 @@ export class LinearClient {
   // Issues (including sub-issues via parentId)
   // ===========================================================================
 
+  private static readonly ISSUE_RELATION_FIELDS = `
+    relations {
+      nodes {
+        id
+        type
+        issue {
+          id
+          identifier
+          title
+          state {
+            id
+            name
+            type
+            color
+            position
+          }
+        }
+        relatedIssue {
+          id
+          identifier
+          title
+          state {
+            id
+            name
+            type
+            color
+            position
+          }
+        }
+      }
+    }
+    inverseRelations {
+      nodes {
+        id
+        type
+        issue {
+          id
+          identifier
+          title
+          state {
+            id
+            name
+            type
+            color
+            position
+          }
+        }
+        relatedIssue {
+          id
+          identifier
+          title
+          state {
+            id
+            name
+            type
+            color
+            position
+          }
+        }
+      }
+    }
+  `;
+
   private static readonly ISSUE_FIELDS = `
     id
     identifier
@@ -506,6 +572,7 @@ export class LinearClient {
       id
       name
     }
+    ${LinearClient.ISSUE_RELATION_FIELDS}
   `;
 
   async createIssue(input: IssueCreateInput): Promise<LinearIssue> {
@@ -605,11 +672,160 @@ export class LinearClient {
     return this.normalizeIssue(data.issueUpdate.issue);
   }
 
-  /** Normalize issue labels from connection format to flat array. */
+  private relationTypeToLinear(type: IssueRelationCreateInput["type"]): "blocks" | "related" | "duplicate" {
+    if (type === "duplicate") return "duplicate";
+    if (type === "relates_to") return "related";
+    return "blocks";
+  }
+
+  async createRelation(input: IssueRelationCreateInput): Promise<LinearIssueRelation> {
+    const isBlockedBy = input.type === "blocked_by";
+    const linearType = this.relationTypeToLinear(input.type);
+    const issueId = isBlockedBy ? input.relatedIssueId : input.issueId;
+    const relatedIssueId = isBlockedBy ? input.issueId : input.relatedIssueId;
+
+    const data = await this.graphql<{
+      issueRelationCreate: {
+        success: boolean;
+        issueRelation: {
+          id: string;
+          type: string;
+          issue: LinearIssueRelationIssueRef;
+          relatedIssue: LinearIssueRelationIssueRef;
+        };
+      };
+    }>(`
+      mutation CreateIssueRelation($input: IssueRelationCreateInput!) {
+        issueRelationCreate(input: $input) {
+          success
+          issueRelation {
+            id
+            type
+            issue { id identifier title }
+            relatedIssue { id identifier title }
+          }
+        }
+      }
+    `, {
+      input: {
+        issueId,
+        relatedIssueId,
+        type: linearType,
+      },
+    });
+
+    this.assertSuccess("issueRelationCreate", data.issueRelationCreate.success);
+
+    const raw = data.issueRelationCreate.issueRelation;
+    const normalizedType = this.normalizeRelationType(raw.type);
+    const direction: "outbound" | "inbound" = input.type === "blocked_by" ? "inbound" : "outbound";
+    const relationType = direction === "inbound" && normalizedType === "blocks" ? "blocked_by" : normalizedType;
+
+    const issueRef = this.relationIssueRef(raw.issue);
+    const relatedRef = this.relationIssueRef(raw.relatedIssue);
+
+    return {
+      id: raw.id,
+      type: relationType,
+      direction,
+      issue: issueRef,
+      relatedIssue: relatedRef,
+      otherIssue: direction === "outbound" ? relatedRef : issueRef,
+    };
+  }
+
+  async listRelations(issueId: string): Promise<LinearIssueRelation[]> {
+    const data = await this.graphql<{
+      issue:
+        | {
+            relations?: { nodes?: unknown[] } | unknown[];
+            inverseRelations?: { nodes?: unknown[] } | unknown[];
+          }
+        | null;
+    }>(`
+      query ListIssueRelations($id: String!) {
+        issue(id: $id) {
+          ${LinearClient.ISSUE_RELATION_FIELDS}
+        }
+      }
+    `, { id: issueId });
+
+    if (!data.issue) {
+      throw new LinearGraphQLError(`Issue not found: ${issueId}`, []);
+    }
+
+    return this.normalizeRelations(data.issue as LinearIssue);
+  }
+
+  private normalizeRelationType(type: string): "blocks" | "relates_to" | "duplicate" {
+    const normalized = (type ?? "").toLowerCase().trim();
+    if (normalized === "blocks") return "blocks";
+    if (normalized === "duplicate") return "duplicate";
+    if (
+      normalized === "related"
+      || normalized === "relatedto"
+      || normalized === "relates_to"
+      || normalized === "relatesto"
+      || normalized === "relates-to"
+    ) {
+      return "relates_to";
+    }
+    return "relates_to";
+  }
+
+  private relationIssueRef(input: unknown): LinearIssueRelationIssueRef {
+    const value = (input ?? {}) as Partial<LinearIssueRelationIssueRef>;
+    return {
+      id: value.id ?? "",
+      identifier: value.identifier ?? "",
+      title: value.title ?? "",
+      state: value.state ?? null,
+    };
+  }
+
+  private normalizeRelations(issue: LinearIssue): LinearIssueRelation[] {
+    const outboundRaw = (issue as unknown as { relations?: { nodes?: unknown[] } | unknown[] }).relations;
+    const inboundRaw = (issue as unknown as { inverseRelations?: { nodes?: unknown[] } | unknown[] }).inverseRelations;
+    const outbound = Array.isArray(outboundRaw) ? outboundRaw : (outboundRaw?.nodes ?? []);
+    const inbound = Array.isArray(inboundRaw) ? inboundRaw : (inboundRaw?.nodes ?? []);
+
+    const mapRelation = (raw: unknown, direction: "outbound" | "inbound"): LinearIssueRelation => {
+      const item = raw as {
+        id?: string;
+        type?: string;
+        issue?: unknown;
+        relatedIssue?: unknown;
+      };
+      const issueRef = this.relationIssueRef(item.issue);
+      const relatedRef = this.relationIssueRef(item.relatedIssue);
+      const otherIssue = direction === "outbound" ? relatedRef : issueRef;
+      const baseType = this.normalizeRelationType(item.type ?? "");
+      const type = direction === "inbound" && baseType === "blocks" ? "blocked_by" : baseType;
+      return {
+        id: item.id ?? "",
+        type,
+        direction,
+        issue: issueRef,
+        relatedIssue: relatedRef,
+        otherIssue,
+      };
+    };
+
+    return [
+      ...outbound.map((item) => mapRelation(item, "outbound")),
+      ...inbound.map((item) => mapRelation(item, "inbound")),
+    ];
+  }
+
+  /** Normalize issue labels from connection format to flat array and include relation helpers. */
   private normalizeIssue(issue: LinearIssue): LinearIssue {
     const raw = issue.labels as unknown as { nodes?: LinearLabel[] } | LinearLabel[];
     const labels = Array.isArray(raw) ? raw : (raw?.nodes ?? []);
-    return { ...issue, labels };
+    const relations = this.normalizeRelations(issue);
+    const blockedBy = relations
+      .filter((relation) => relation.type === "blocked_by")
+      .map((relation) => relation.otherIssue);
+    return { ...issue, labels, relations, blockedBy };
   }
 
   // ===========================================================================

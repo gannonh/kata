@@ -5,6 +5,14 @@ import { describe, it } from "node:test";
 
 import { formatProviderReport, runProviderChecks } from "../doctor-providers.ts";
 
+function restoreEnvVar(key: string, original: string | undefined): void {
+  if (original === undefined) {
+    delete process.env[key];
+    return;
+  }
+  process.env[key] = original;
+}
+
 describe("runProviderChecks", () => {
   it("reports configured provider models as pass", async () => {
     const result = await runProviderChecks({
@@ -135,6 +143,7 @@ describe("runProviderChecks", () => {
 
   it("resolves default auth path from current HOME at check time", async () => {
     const originalHome = process.env.HOME;
+    const originalAgentDir = process.env.KATA_CODING_AGENT_DIR;
     const targetProvider = "anthropic";
 
     const tempHome = mkdtempSync(join(process.cwd(), ".tmp-doctor-provider-home-"));
@@ -152,6 +161,7 @@ describe("runProviderChecks", () => {
 
     try {
       process.env.HOME = tempHome;
+      delete process.env.KATA_CODING_AGENT_DIR;
       const result = await runProviderChecks({
         env: {},
         overrides: {
@@ -165,7 +175,8 @@ describe("runProviderChecks", () => {
       assert.ok(provider);
       assert.equal(provider.hasStoredCredential, true);
     } finally {
-      process.env.HOME = originalHome;
+      restoreEnvVar("HOME", originalHome);
+      restoreEnvVar("KATA_CODING_AGENT_DIR", originalAgentDir);
       rmSync(tempHome, { recursive: true, force: true });
     }
   });
@@ -203,8 +214,38 @@ describe("runProviderChecks", () => {
       assert.ok(provider);
       assert.equal(provider.hasStoredCredential, true);
     } finally {
-      process.env.KATA_CODING_AGENT_DIR = originalAgentDir;
+      restoreEnvVar("KATA_CODING_AGENT_DIR", originalAgentDir);
       rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("restoreEnvVar", () => {
+  it("deletes env var when original value is undefined", () => {
+    const key = "KATA_TEST_RESTORE_ENV_VAR";
+    const saved = process.env[key];
+
+    try {
+      process.env[key] = "temp";
+      restoreEnvVar(key, undefined);
+
+      assert.equal(process.env[key], undefined);
+    } finally {
+      restoreEnvVar(key, saved);
+    }
+  });
+
+  it("restores env var when original value exists", () => {
+    const key = "KATA_TEST_RESTORE_ENV_VAR";
+    const saved = process.env[key];
+
+    try {
+      process.env[key] = "temp";
+      restoreEnvVar(key, "original");
+
+      assert.equal(process.env[key], "original");
+    } finally {
+      restoreEnvVar(key, saved);
     }
   });
 });
