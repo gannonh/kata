@@ -1500,11 +1500,11 @@ impl Orchestrator {
         let mut blocked_entries: Vec<crate::domain::BlockedIssueEntry> = vec![];
 
         // First pass: identify all dependency-blocked candidates so the blocked list
-        // is complete regardless of slot availability. Without this, candidates that
-        // happen to appear after slot exhaustion would be silently omitted from the
-        // blocked_issues list, making the dashboard/TUI under-report blocked work.
+        // is complete regardless of slot availability. Uses is_candidate_for_blocked_check
+        // instead of should_dispatch_issue because should_dispatch_issue rejects on
+        // slot exhaustion — blocked issues need to show even when all slots are full.
         for candidate in &sorted_candidates {
-            if !self.should_dispatch_issue(candidate) {
+            if !self.is_candidate_for_blocked_check(candidate) {
                 continue;
             }
             let (dep_blocked, blocker_ids) =
@@ -2588,6 +2588,26 @@ impl Orchestrator {
         }
 
         ssh::select_worker_host(ssh_hosts, &load, cap, preferred)
+    }
+
+    /// Like `should_dispatch_issue` but without slot availability or claimed/running
+    /// checks. Used by the first pass to identify blocked candidates for the TUI
+    /// regardless of whether there are free slots or the issue is already queued.
+    fn is_candidate_for_blocked_check(&self, issue: &Issue) -> bool {
+        if !issue_has_required_fields(issue) {
+            return false;
+        }
+        if !issue.assigned_to_worker {
+            return false;
+        }
+        let normalized_state = normalize_issue_state(&issue.state);
+        if self.terminal_state_set().contains(&normalized_state) {
+            return false;
+        }
+        if !self.active_state_set().contains(&normalized_state) {
+            return false;
+        }
+        true
     }
 
     fn should_dispatch_issue(&self, issue: &Issue) -> bool {
