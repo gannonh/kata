@@ -343,6 +343,7 @@ fn test_orchestrator_snapshot_serializes() {
                 completed_at: Some(Utc::now()),
             },
         ],
+        blocked: vec![],
         codex_totals: CodexTotals::default(),
         codex_rate_limits: None,
         polling: PollingSnapshot {

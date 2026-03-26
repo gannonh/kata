@@ -3114,3 +3114,183 @@ async fn test_execute_worker_attempt_stops_when_issue_unassigned_between_turns()
         "unassigned stop should not enqueue continuation retry"
     );
 }
+
+// ── T01: Generalized blocker + circular dependency tests ──────────────
+
+#[test]
+fn test_blocked_issue_in_progress_not_dispatched() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+
+    let mut blocked = issue("issue-blocked", "SIM-50", "In Progress", Some(1), 0);
+    blocked.blocked_by.push(BlockerRef {
+        id: Some("issue-blocker".to_string()),
+        identifier: Some("SIM-49".to_string()),
+        state: Some("In Progress".to_string()),
+    });
+
+    let unblocked = issue("issue-ok", "SIM-51", "Todo", Some(2), 0);
+
+    let mut port = FakePort {
+        candidate_issues: vec![blocked.clone(), unblocked.clone()],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+    assert_eq!(
+        tick.dispatched_issue_ids,
+        vec![unblocked.id],
+        "In Progress issue with non-terminal blocker must not dispatch"
+    );
+}
+
+#[test]
+fn test_blocked_issue_with_terminal_blocker_dispatched() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+
+    let mut candidate = issue("issue-unblocked", "SIM-52", "Todo", Some(1), 0);
+    candidate.blocked_by.push(BlockerRef {
+        id: Some("issue-done".to_string()),
+        identifier: Some("SIM-48".to_string()),
+        state: Some("Done".to_string()),
+    });
+
+    let mut port = FakePort {
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+    assert_eq!(
+        tick.dispatched_issue_ids,
+        vec![candidate.id],
+        "issue with terminal blocker should dispatch normally"
+    );
+}
+
+#[test]
+fn test_blocked_issue_in_agent_review_not_dispatched() {
+    let mut config = test_config(2);
+    config
+        .tracker
+        .active_states
+        .push("Agent Review".to_string());
+    let mut orchestrator = Orchestrator::new(config, String::new());
+
+    let mut blocked = issue("issue-ar", "SIM-53", "Agent Review", Some(1), 0);
+    blocked.blocked_by.push(BlockerRef {
+        id: Some("issue-dep".to_string()),
+        identifier: Some("SIM-47".to_string()),
+        state: Some("Todo".to_string()),
+    });
+
+    let mut port = FakePort {
+        candidate_issues: vec![blocked.clone()],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+    assert!(
+        tick.dispatched_issue_ids.is_empty(),
+        "Agent Review issue with non-terminal blocker must not dispatch"
+    );
+}
+
+#[test]
+fn test_circular_dependency_blocks_both_issues() {
+    let mut orchestrator = Orchestrator::new(test_config(5), String::new());
+
+    let mut issue_a = issue("issue-a", "SIM-60", "Todo", Some(1), 0);
+    issue_a.blocked_by.push(BlockerRef {
+        id: Some("issue-b".to_string()),
+        identifier: Some("SIM-61".to_string()),
+        state: Some("Todo".to_string()),
+    });
+
+    let mut issue_b = issue("issue-b", "SIM-61", "Todo", Some(1), 0);
+    issue_b.blocked_by.push(BlockerRef {
+        id: Some("issue-a".to_string()),
+        identifier: Some("SIM-60".to_string()),
+        state: Some("Todo".to_string()),
+    });
+
+    let mut port = FakePort {
+        candidate_issues: vec![issue_a.clone(), issue_b.clone()],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+    assert!(
+        tick.dispatched_issue_ids.is_empty(),
+        "circular dependency: neither issue should dispatch"
+    );
+}
+
+#[test]
+fn test_cross_project_unknown_blocker_treated_as_non_blocking() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+
+    let mut candidate = issue("issue-cross", "SIM-70", "Todo", Some(1), 0);
+    candidate.blocked_by.push(BlockerRef {
+        id: Some("ext-issue".to_string()),
+        identifier: Some("EXT-99".to_string()),
+        state: None, // cross-project, unknown state
+    });
+
+    let mut port = FakePort {
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+    assert_eq!(
+        tick.dispatched_issue_ids,
+        vec![candidate.id],
+        "cross-project blocker with unknown state should be treated as non-blocking"
+    );
+}
+
+#[test]
+fn test_unblocked_issue_dispatches_normally() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let candidate = issue("issue-free", "SIM-80", "Todo", Some(1), 0);
+
+    let mut port = FakePort {
+        candidate_issues: vec![candidate.clone()],
+        ..FakePort::default()
+    };
+
+    let tick = orchestrator.tick(&mut port).expect("tick should succeed");
+    assert_eq!(
+        tick.dispatched_issue_ids,
+        vec![candidate.id],
+        "issue with no blockers should dispatch normally"
+    );
+}
+
+#[test]
+fn test_snapshot_includes_blocked_issues() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+
+    let mut blocked = issue("issue-snap-blocked", "SIM-90", "Todo", Some(1), 0);
+    blocked.blocked_by.push(BlockerRef {
+        id: Some("issue-snap-blocker".to_string()),
+        identifier: Some("SIM-89".to_string()),
+        state: Some("In Progress".to_string()),
+    });
+
+    let mut port = FakePort {
+        candidate_issues: vec![blocked.clone()],
+        ..FakePort::default()
+    };
+
+    orchestrator.tick(&mut port).expect("tick should succeed");
+    let snapshot = orchestrator.snapshot(chrono::Utc::now().timestamp_millis());
+
+    assert_eq!(
+        snapshot.blocked.len(),
+        1,
+        "snapshot should have 1 blocked entry"
+    );
+    assert_eq!(snapshot.blocked[0].identifier, "SIM-90");
+    assert_eq!(snapshot.blocked[0].blocker_identifiers, vec!["SIM-89"]);
+}

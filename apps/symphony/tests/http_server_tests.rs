@@ -7,8 +7,8 @@ use axum::http::{Method, Request, StatusCode};
 use chrono::{TimeZone, Utc};
 use serde_json::{json, Value};
 use symphony::domain::{
-    CodexTotals, CompletedEntry, OrchestratorSnapshot, PollingSnapshot, RateLimitInfo,
-    RefreshRequestOutcome, RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot,
+    BlockedIssueEntry, CodexTotals, CompletedEntry, OrchestratorSnapshot, PollingSnapshot,
+    RateLimitInfo, RefreshRequestOutcome, RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot,
     SessionTokenUsage, WorkerSessionInfo,
 };
 use symphony::http_server::{build_router, HttpServerState, RefreshControl, SnapshotSource};
@@ -135,6 +135,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
             event_count: 55,
             seconds_running: 42.5,
         },
+        blocked: vec![],
         codex_rate_limits: Some(RateLimitInfo {
             data: json!({
                 "remaining": 88,
@@ -480,5 +481,66 @@ async fn test_wrong_method_on_known_api_route_returns_json_405_error_envelope() 
             .unwrap_or_default()
             .contains("GET"),
         "405 envelope should include rejected method"
+    );
+}
+
+#[tokio::test]
+async fn test_dashboard_html_includes_blocked_section() {
+    let mut snapshot = fixture_snapshot();
+    snapshot.blocked = vec![BlockedIssueEntry {
+        issue_id: "issue-blocked-1".to_string(),
+        identifier: "SIM-100".to_string(),
+        title: "Blocked task".to_string(),
+        state: "Todo".to_string(),
+        blocker_identifiers: vec!["SIM-99".to_string()],
+    }];
+
+    let source = StaticSnapshotSource { snapshot };
+    let state = HttpServerState::new(Arc::new(source), Arc::new(FakeRefreshControl::default()));
+    let app = build_router(state);
+
+    let req = Request::builder().uri("/").body(Body::empty()).unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let html = String::from_utf8_lossy(&body);
+    assert!(
+        html.contains("Blocked issues"),
+        "dashboard HTML should contain blocked issues section"
+    );
+}
+
+#[tokio::test]
+async fn test_state_json_includes_blocked_array() {
+    let mut snapshot = fixture_snapshot();
+    snapshot.blocked = vec![BlockedIssueEntry {
+        issue_id: "issue-blocked-2".to_string(),
+        identifier: "SIM-200".to_string(),
+        title: "Another blocked".to_string(),
+        state: "In Progress".to_string(),
+        blocker_identifiers: vec!["SIM-198".to_string(), "SIM-199".to_string()],
+    }];
+
+    let source = StaticSnapshotSource { snapshot };
+    let state = HttpServerState::new(Arc::new(source), Arc::new(FakeRefreshControl::default()));
+    let app = build_router(state);
+
+    let req = Request::builder()
+        .uri("/api/v1/state")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let payload: Value = serde_json::from_slice(&body).unwrap();
+
+    let blocked = payload["blocked"]
+        .as_array()
+        .expect("blocked should be an array");
+    assert_eq!(blocked.len(), 1);
+    assert_eq!(blocked[0]["identifier"], "SIM-200");
+    assert_eq!(
+        blocked[0]["blocker_identifiers"].as_array().unwrap().len(),
+        2
     );
 }
