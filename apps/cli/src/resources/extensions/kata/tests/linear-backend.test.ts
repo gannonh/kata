@@ -344,9 +344,10 @@ describe("LinearBackend complete slice prompt", () => {
     assert.match(p, /S01-PLAN/i);
   });
 
-  it("references kata_update_issue_state", async () => {
+  it("does not advance slice directly to done", async () => {
     const p = await b.buildPrompt("summarizing", makeState({ phase: "summarizing" }));
-    assert.match(p, /kata_update_issue_state/);
+    assert.doesNotMatch(p, /kata_update_issue_state\(\{ issueId: "<slice-uuid>", phase: "done" \}\)/);
+    assert.match(p, /Do NOT advance the slice to done directly/i);
   });
 
   it("references kata_list_tasks", async () => {
@@ -362,6 +363,7 @@ describe("LinearBackend complete slice prompt", () => {
   it("writes slice summary via linear_add_comment", async () => {
     const p = await b.buildPrompt("summarizing", makeState({ phase: "summarizing" }));
     assert.match(p, /linear_add_comment\(\{ issueId: "<slice-issue-uuid>", body: content \}\)/);
+    assert.match(p, /<!-- KATA:S01-SUMMARY -->/);
   });
 });
 

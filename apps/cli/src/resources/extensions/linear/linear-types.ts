@@ -113,6 +113,14 @@ export interface LinearDocument {
   updatedAt: string;
 }
 
+export interface LinearComment {
+  id: string;
+  body: string;
+  createdAt: string;
+  updatedAt?: string;
+  url: string;
+}
+
 /**
  * Discriminated union for document attachment targets.
  * A document attaches to exactly one: a project or an issue.

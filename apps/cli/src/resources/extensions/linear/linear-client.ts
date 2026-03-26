@@ -24,6 +24,7 @@ import type {
   LinearWorkflowState,
   LinearUser,
   LinearPageInfo,
+  LinearComment,
   ProjectCreateInput,
   ProjectUpdateInput,
   MilestoneCreateInput,

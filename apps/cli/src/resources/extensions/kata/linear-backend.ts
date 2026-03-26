@@ -27,7 +27,7 @@ import {
   listKataDocuments,
 } from "../linear/linear-documents.js";
 import { listKataSlices, parseKataEntityTitle } from "../linear/linear-entities.js";
-import type { DocumentAttachment } from "../linear/linear-types.js";
+import type { DocumentAttachment, LinearComment } from "../linear/linear-types.js";
 import { ensureGitignore } from "./gitignore.js";
 import { loadPrompt } from "./prompt-loader.js";
 import { buildSkillDiscoveryVars } from "./preferences.js";
@@ -106,12 +106,68 @@ export class LinearBackend implements KataBackend {
     return { projectId: this.config.projectId };
   }
 
+  private parseIssueArtifactName(name: string): { unitId: string; kind: "PLAN" | "SUMMARY" } | null {
+    const match = /^([ST]\d+)-(PLAN|SUMMARY)$/i.exec(name.trim());
+    if (!match) return null;
+    return { unitId: match[1].toUpperCase(), kind: match[2].toUpperCase() as "PLAN" | "SUMMARY" };
+  }
+
+  private async listIssueComments(issueId: string): Promise<LinearComment[]> {
+    const data = await this.client.graphql<{
+      issue: { comments: { nodes: LinearComment[] } | null } | null;
+    }>(`
+      query KataIssueComments($id: String!) {
+        issue(id: $id) {
+          comments(first: 50) {
+            nodes {
+              id
+              body
+              createdAt
+              updatedAt
+              url
+            }
+          }
+        }
+      }
+    `, { id: issueId });
+
+    return data.issue?.comments?.nodes ?? [];
+  }
+
+  private pickLatestSummaryComment(name: string, comments: LinearComment[]): string | null {
+    if (comments.length === 0) return null;
+    const marker = `<!-- KATA:${name.toUpperCase()} -->`;
+
+    const tagged = comments
+      .filter((c) => c.body.includes(marker))
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    if (tagged.length > 0) return tagged[0].body;
+
+    const fallback = comments
+      .filter((c) => c.body.includes(name))
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    if (fallback.length > 0) return fallback[0].body;
+
+    return null;
+  }
+
   async readDocument(name: string, scope?: DocumentScope): Promise<string | null> {
-    const doc = await readKataDocument(
-      this.client,
-      name,
-      this.resolveAttachment(scope),
-    );
+    const attachment = this.resolveAttachment(scope);
+    const issueArtifact = this.parseIssueArtifactName(name);
+
+    if (issueArtifact && "issueId" in attachment) {
+      const issue = await this.client.getIssue(attachment.issueId);
+      if (issueArtifact.kind === "PLAN") {
+        const description = issue?.description?.trim();
+        if (description) return description;
+      } else {
+        const comments = await this.listIssueComments(attachment.issueId);
+        const summary = this.pickLatestSummaryComment(name, comments);
+        if (summary) return summary;
+      }
+    }
+
+    const doc = await readKataDocument(this.client, name, attachment);
     return doc?.content ?? null;
   }
 
@@ -606,6 +662,8 @@ export class LinearBackend implements KataBackend {
     const backendOps = [
       `13. Read the task summary template: \`kata_read_document("task-summary-template")\` or use the standard task-summary format.`,
       `14. Write the task summary as a comment on the task issue: \`linear_add_comment({ issueId: "<task-uuid>", body: content })\``,
+      `   - Prefix summary with marker: \`<!-- KATA:${tid}-SUMMARY -->\` so retries can detect existing summary comments.`,
+      `   - Before posting, call \`linear_get_issue("<task-uuid>")\` and inspect issue.comments; if marker already exists, DO NOT post a duplicate.`,
       `   - Include: what shipped (one-liner), what happened, deviations, files modified, verification result.`,
       `15. Commit your work:`,
       `   - Stage all changed files: \`git add -A\``,
@@ -695,7 +753,8 @@ export class LinearBackend implements KataBackend {
     const backendOps = [
       `5. Read the slice-summary and UAT templates (if available via \`kata_read_document\`), or use the standard formats.`,
       `6. Write the slice summary as a comment on the slice issue: \`linear_add_comment({ issueId: "<slice-issue-uuid>", body: content })\``,
-
+      `   - Prefix summary with marker: \`<!-- KATA:${sid}-SUMMARY -->\` so retries can detect existing summary comments.`,
+      `   - Before posting, call \`linear_get_issue("<slice-issue-uuid>")\` and inspect issue.comments; if marker already exists, DO NOT post a duplicate.`,
       `   - Synthesize work across all tasks: what was built, key decisions, key files, patterns established.`,
       `   - Fill the requirement-related sections explicitly.`,
       `7. Write the UAT script (scoped to slice issue): \`kata_write_document("${sid}-UAT", content, { issueId: "<slice-issue-uuid>" })\``,
@@ -706,13 +765,14 @@ export class LinearBackend implements KataBackend {
       `   - Stage all changed files: \`git add -A\``,
       `   - Commit with message: \`feat(${sid}): complete slice — ${sTitle}\``,
       `   - Do NOT push.`,
-      `10. Advance the slice to done: \`kata_update_issue_state({ issueId: "<slice-uuid>", phase: "done" })\``,
+      `10. Do NOT advance the slice to done directly — slice completion is orchestrator-owned after summarizing.`,
+      `    - Post the slice summary comment and leave state transition handoff to the orchestrator path.`,
     ].join("\n");
 
     return {
       backendRules: HARD_RULE,
       backendOps,
-      backendMustComplete: `**You MUST post a slice summary comment AND advance the slice to done before finishing.**\n\n${REFERENCE}`,
+      backendMustComplete: `**You MUST post a slice summary comment (with marker) before finishing. Do NOT advance the slice to done directly.**\n\n${REFERENCE}`,
     };
   }
 
