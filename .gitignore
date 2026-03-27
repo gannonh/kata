@@ -127,6 +127,21 @@ coverage/
 .kata/debug.log
 
 # Local planning artifacts
+docs/superpowers/
+
 apps/symphony/docs/plans/
 apps/symphony/docs/specs/
+apps/symphony/superpowers/
+
+apps/cli/docs/plans/
+apps/cli/docs/specs/
 apps/cli/docs/superpowers/
+
+apps/electron/docs/plans/
+apps/electron/docs/specs/
+apps/electron/docs/superpowers/
+
+apps/context/docs/plans/
+apps/context/docs/specs/
+apps/context/docs/superpowers/
+
