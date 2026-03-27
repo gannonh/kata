@@ -38,7 +38,7 @@ In Linear mode, **there are no `.kata/` files to read**. State, plans, and artif
 
 2. **Act on `phase`** — see Phase Transitions (Linear Mode) below for the exact action each phase requires.
 
-3. **Read the active task plan** — call `kata_read_document` with the task's plan title (e.g. `T01-PLAN`) to load the task execution contract.
+3. **Read the active task plan** — load the task issue via `linear_get_issue` and use `issue.description` as the task plan. Fallback: if description is empty, call `kata_read_document` with the task plan title (e.g. `T01-PLAN`).
 
 4. **Execute the work** — do the coding/writing/testing described in the task plan.
 
@@ -135,8 +135,9 @@ kata_write_document(title, content, { issueId })    → write slice-scoped artif
 | Scope          | Documents                                                              | Attachment         |
 | -------------- | ---------------------------------------------------------------------- | ------------------ |
 | Project-level  | `PROJECT`, `REQUIREMENTS`, `DECISIONS`, `M001-ROADMAP`, `M001-CONTEXT`, `M001-RESEARCH`, `M001-SUMMARY` | `{ projectId }`    |
-| Slice-level    | `S01-PLAN`, `S01-RESEARCH`, `S01-SUMMARY`, `S01-UAT`, `S01-REPLAN`, `S01-ASSESSMENT` | `{ issueId }` of the slice issue |
-| Task-level     | `T01-PLAN`, `T01-SUMMARY`                                             | `{ issueId }` of the slice issue |
+| Slice-level    | `S01-RESEARCH`, `S01-SUMMARY`, `S01-UAT`, `S01-REPLAN`, `S01-ASSESSMENT` | `{ issueId }` of the slice issue |
+
+**Slice and task plans live in issue descriptions, not LinearDocuments.** Pass the plan content as the `description` parameter when calling `kata_create_slice` or `kata_create_task`. Do not write separate `S01-PLAN` or `T01-PLAN` documents. Task summaries are posted as issue comments via `linear_add_comment`.
 
 **Why slice docs use `{ issueId }`:** Slice IDs (S01, S02, ...) reset per milestone. Without scoping to the slice issue, `S01-PLAN` from milestone M001 would collide with `S01-PLAN` from milestone M002. Attaching to the slice issue prevents this.
 
@@ -148,18 +149,18 @@ kata_write_document(title, content, { issueId })    → write slice-scoped artif
 | Milestone context  | `M001-CONTEXT`   | `{ projectId }`    |
 | Milestone research | `M001-RESEARCH`  | `{ projectId }`    |
 | Milestone summary  | `M001-SUMMARY`   | `{ projectId }`    |
-| Slice plan         | `S01-PLAN`       | `{ issueId }`      |
+| Slice plan         | *(issue description)* | `kata_create_slice({ description })` |
 | Slice research     | `S01-RESEARCH`   | `{ issueId }`      |
 | Slice summary      | `S01-SUMMARY`    | `{ issueId }`      |
-| Task plan          | `T01-PLAN`       | `{ issueId }`      |
-| Task summary       | `T01-SUMMARY`    | `{ issueId }`      |
+| Task plan          | *(issue description)* | `kata_create_task({ description })` |
+| Task summary       | *(issue comment)*    | `linear_add_comment`               |
 | Decisions register | `DECISIONS`      | `{ projectId }`    |
 
 Titles are unique within their scope. `kata_write_document` is an upsert — creates on first write, updates on subsequent writes.
 
 **D028 — markdown normalization:** Linear normalizes document content on write. Use `* ` (asterisk + space) for list bullets, not `- `. Checkboxes use `* [ ]` and `* [x]`. Always accept both when parsing.
 
-**`requirements` field:** `kata_derive_state` returns a `requirements` field. In Linear mode, this is always `undefined`. Derive what needs to be done from the task plan document instead.
+**`requirements` field:** `kata_derive_state` returns a `requirements` field. In Linear mode, this is always `undefined`. Derive what needs to be done from the task's issue description instead.
 
 ---
 
@@ -448,7 +449,7 @@ The **Don't Hand-Roll** and **Common Pitfalls** sections prevent the most expens
 5. Decompose into 1-7 tasks, each fitting one context window.
 6. Each task needs: title, description, steps (3-10), must-haves (observable verification criteria).
 7. Must-haves should reference boundary map contracts — e.g. "exports `generateToken()` as specified in boundary map S01→S02".
-8. Write `PLAN.md` and individual `TNN-PLAN.md` files.
+8. Create tasks via `kata_create_task`, passing the full task plan as the `description` parameter. Similarly, pass the slice plan as `description` when calling `kata_create_slice`. **Do not also write separate `TNN-PLAN` or `SNN-PLAN` LinearDocuments** — the plan lives in the issue description, not in a document.
 
 ### Phase 4: Execute
 
@@ -462,7 +463,7 @@ The **Don't Hand-Roll** and **Common Pitfalls** sections prevent the most expens
 4. If you made an architectural, pattern, or library decision, append it to `.kata/DECISIONS.md`.
 5. If interrupted or context is getting full, write `continue.md` (see below).
 
-> **Linear mode:** Read the task plan via `kata_read_document("T01-PLAN", { issueId: "<slice-issue-uuid>" })`. Append decisions via `kata_write_document("DECISIONS", ...)`. There is no `continue.md` — issue state is the continue protocol (see below).
+> **Linear mode:** Read the task plan from the issue description (`linear_get_issue` → `issue.description`). Backward-compatible fallback: if `description` is empty, call `kata_read_document("T01-PLAN", { issueId })`. Append decisions via `kata_write_document("DECISIONS", ...)`. There is no `continue.md` — issue state is the continue protocol (see below).
 
 ### Phase 5: Verify
 
@@ -558,7 +559,7 @@ The one-liner must be substantive: "JWT auth with refresh rotation using jose" n
 
 **Milestone summary:** Updated each time a slice completes. Compresses all slice summaries. This is what gets injected into later slice planning instead of loading many individual summaries.
 
-> **Linear mode:** Write summaries via `kata_write_document("T01-SUMMARY", content, { issueId: "<slice-issue-uuid>" })`. After writing, advance the issue state via `kata_update_issue_state(issueId, { phase: "done" })`. Always write the summary AND advance state before context ends.
+> **Linear mode:** Post the task summary as an issue comment via `linear_add_comment(issueId, body)`. After posting, advance the issue state via `kata_update_issue_state(issueId, { phase: "done" })`. Always post the summary AND advance state before context ends.
 
 ### Phase 7: Advance
 
@@ -587,8 +588,8 @@ The one-liner must be substantive: "JWT auth with refresh rotation using jose" n
 
 | Phase              | What it means                                              | What to do                                                   |
 | ------------------ | ---------------------------------------------------------- | ------------------------------------------------------------ |
-| `pre-planning`     | Active milestone exists but has no slices                  | Create slices with `kata_create_slice`; write roadmap doc    |
-| `planning`         | Active slice is in backlog/unstarted state; no tasks       | Create tasks with `kata_create_task`; write slice plan doc   |
+| `pre-planning`     | Active milestone exists but has no slices                  | Create slices with `kata_create_slice` (pass slice plan as `description`); write roadmap doc |
+| `planning`         | Active slice is in backlog/unstarted state; no tasks       | Create tasks with `kata_create_task` (pass task plan as `description`)                       |
 | `executing`        | Slice is started; active task exists, none terminal yet    | Read task plan doc, execute work, write summary, advance     |
 | `verifying`        | Slice is started; some but not all tasks are terminal      | Same as `executing` — pick the first non-terminal task       |
 | `summarizing`      | All tasks terminal; slice summary not yet written          | Write slice summary, advance slice to done                   |
@@ -797,10 +798,10 @@ This methodology doc is generic. Project-specific guidance belongs in the milest
 1. Call `kata_derive_state` — no exceptions.
 2. Check `phase` and act per Phase Transitions table.
 3. If `phase: "blocked"`, surface `blockers[]` to user and stop.
-4. If executing/verifying: read the task plan doc, do the work, verify must-haves.
-5. Write task summary doc before session ends.
+4. If executing/verifying: read the task plan from `issue.description`, do the work, verify must-haves.
+5. Post task summary as issue comment (`linear_add_comment`) before session ends.
 6. Advance task issue state to `done`.
-7. If slice complete: write slice summary doc, advance slice to `done`.
+7. If slice complete: post slice summary as comment on slice issue, advance slice to `done`.
 
 ---
 
@@ -878,7 +879,7 @@ All Kata-specific tools use the `kata_` prefix.
 
 | Tool                    | Description                                                                                       |
 | ----------------------- | ------------------------------------------------------------------------------------------------- |
-| `kata_write_document`   | Write (upsert) a Kata artifact as a LinearDocument. Use for milestone/project artifacts (`ROADMAP`, `CONTEXT`, `DECISIONS`, `PROJECT`, `REQUIREMENTS`, milestone summaries). |
+| `kata_write_document`   | Write (upsert) a Kata artifact as a LinearDocument. Use for milestone/project artifacts (`ROADMAP`, `CONTEXT`, `DECISIONS`, `PROJECT`, `REQUIREMENTS`, milestone/slice summaries, slice research). **Do not use for slice/task plans** (those go in issue descriptions) **or task summaries** (those go in issue comments). |
 | `kata_read_document`    | Read a Kata artifact document by title. Returns document with content, or `null` if not found. Use as fallback for legacy slice/task plan docs when issue descriptions are empty. |
 | `kata_list_documents`   | List all Kata artifact documents in the attachment scope.                                         |
 
