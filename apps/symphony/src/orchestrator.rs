@@ -2633,7 +2633,14 @@ impl Orchestrator {
             "session_id": self.worker_session_ids.get(issue_id).cloned(),
         });
 
-        hub.publish(kind, severity, issue_identifier, event_name, payload);
+        hub.publish_with_timestamp(
+            kind,
+            severity,
+            issue_identifier,
+            event_name,
+            payload,
+            event_timestamp(event),
+        );
     }
 
     fn issue_identifier_from_issue_id(&self, issue_id: &str) -> Option<String> {
@@ -3576,7 +3583,7 @@ fn event_kind_for_agent_event(event: &AgentEvent) -> EventKind {
         | AgentEvent::ToolCallFailed { .. }
         | AgentEvent::UnsupportedToolCall { .. }
         | AgentEvent::ToolInputAutoAnswered { .. } => EventKind::Tool,
-        AgentEvent::Notification { message, .. } if tool_notification_name(message).is_some() => {
+        AgentEvent::Notification { message, .. } if parse_tool_notification(message).is_some() => {
             EventKind::Tool
         }
         _ => EventKind::Worker,
@@ -3591,7 +3598,8 @@ fn event_severity_for_agent_event(event: &AgentEvent) -> EventSeverity {
         | AgentEvent::ToolCallFailed { .. }
         | AgentEvent::Malformed { .. } => EventSeverity::Error,
         AgentEvent::Notification { message, .. }
-            if tool_notification_name(message) == Some("tool_error") =>
+            if parse_tool_notification(message)
+                .is_some_and(|notification| notification.event_name == "tool_error") =>
         {
             EventSeverity::Error
         }
@@ -3664,8 +3672,8 @@ fn event_summary(event: &AgentEvent) -> (String, Option<String>) {
             Some(format!("unsupported tool {tool_name}")),
         ),
         AgentEvent::Notification { message, .. } => {
-            if let Some(name) = tool_notification_name(message) {
-                (name.to_string(), tool_notification_summary(message))
+            if let Some(notification) = parse_tool_notification(message) {
+                (notification.event_name.to_string(), notification.summary)
             } else {
                 notification_event_summary(message)
             }
@@ -3691,28 +3699,6 @@ fn event_summary(event: &AgentEvent) -> (String, Option<String>) {
             .map(|value| truncate_for_display(value, 160))
             .filter(|value| !value.is_empty()),
     )
-}
-
-fn tool_notification_name(message: &str) -> Option<&'static str> {
-    if message.starts_with("tool_start:") {
-        Some("tool_start")
-    } else if message.starts_with("tool_end:") {
-        Some("tool_end")
-    } else if message.starts_with("tool_error:") {
-        Some("tool_error")
-    } else {
-        None
-    }
-}
-
-fn tool_notification_summary(message: &str) -> Option<String> {
-    let (_, rest) = message.split_once(':')?;
-    let summary = normalize_whitespace(rest);
-    if summary.is_empty() {
-        None
-    } else {
-        Some(summary)
-    }
 }
 
 fn notification_event_summary(message: &str) -> (String, Option<String>) {
@@ -3944,6 +3930,15 @@ enum ToolActivity {
 /// Maximum length for the tool args preview string.
 const TOOL_ARGS_PREVIEW_MAX_LEN: usize = 120;
 
+/// Parsed representation of a `tool_*` notification message.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedToolNotification {
+    event_name: &'static str,
+    summary: Option<String>,
+    tool_name: Option<String>,
+    args_preview: Option<String>,
+}
+
 /// Extract tool activity information from an agent event.
 ///
 /// Handles both Codex backend events (ToolCallCompleted/Failed) and
@@ -3961,37 +3956,82 @@ fn extract_tool_activity(event: &AgentEvent) -> ToolActivity {
         | AgentEvent::TurnEndedWithError { .. } => ToolActivity::Ended,
 
         // Pi-agent RPC: tool execution events arrive as Notification messages.
-        AgentEvent::Notification { message, .. } => parse_tool_notification(message),
+        AgentEvent::Notification { message, .. } => parse_tool_notification(message)
+            .map_or(ToolActivity::None, tool_activity_from_notification),
 
         _ => ToolActivity::None,
     }
 }
 
-/// Parse a pi-agent notification message for tool activity.
+fn tool_activity_from_notification(notification: ParsedToolNotification) -> ToolActivity {
+    match notification.event_name {
+        "tool_start" => {
+            if let Some(name) = notification.tool_name {
+                ToolActivity::Started {
+                    name,
+                    args_preview: notification.args_preview,
+                }
+            } else {
+                ToolActivity::None
+            }
+        }
+        "tool_end" | "tool_error" => ToolActivity::Ended,
+        _ => ToolActivity::None,
+    }
+}
+
+/// Parse a pi-agent notification message for tool metadata.
 ///
 /// Messages follow the format:
 /// - `"tool_start: <name> <args_json>"` — tool began executing
 /// - `"tool_end: <name>"` — tool finished successfully
 /// - `"tool_error: <name>"` — tool finished with error
-fn parse_tool_notification(message: &str) -> ToolActivity {
-    if let Some(rest) = message.strip_prefix("tool_start: ") {
-        let (name, args) = match rest.find(' ') {
-            Some(pos) => (&rest[..pos], Some(&rest[pos + 1..])),
-            None => (rest, None),
+fn parse_tool_notification(message: &str) -> Option<ParsedToolNotification> {
+    for (prefix, event_name) in [
+        ("tool_start:", "tool_start"),
+        ("tool_end:", "tool_end"),
+        ("tool_error:", "tool_error"),
+    ] {
+        let Some(rest) = message.strip_prefix(prefix) else {
+            continue;
         };
-        let args_preview = args.map(|a| {
-            let preview = build_tool_args_preview(a);
-            truncate_for_display(&preview, TOOL_ARGS_PREVIEW_MAX_LEN)
-        });
-        ToolActivity::Started {
-            name: name.to_string(),
-            args_preview,
+
+        let rest = rest.trim_start();
+        let summary = normalize_whitespace(rest);
+        let summary = (!summary.is_empty()).then_some(summary);
+
+        if event_name == "tool_start" {
+            let mut parts = rest.splitn(2, char::is_whitespace);
+            let tool_name = parts
+                .next()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToString::to_string);
+            let args_preview = parts
+                .next()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(build_tool_args_preview)
+                .map(|preview| truncate_for_display(&preview, TOOL_ARGS_PREVIEW_MAX_LEN));
+
+            return Some(ParsedToolNotification {
+                event_name,
+                summary,
+                tool_name,
+                args_preview,
+            });
         }
-    } else if message.starts_with("tool_end: ") || message.starts_with("tool_error: ") {
-        ToolActivity::Ended
-    } else {
-        ToolActivity::None
+
+        let tool_name = summary.clone();
+        return Some(ParsedToolNotification {
+            event_name,
+            summary,
+            tool_name,
+            args_preview: None,
+        });
     }
+
+    None
 }
 
 /// Build a human-readable preview of tool arguments from a JSON string.
@@ -4084,48 +4124,56 @@ mod tests {
     #[test]
     fn parse_tool_notification_start_with_args() {
         let msg = r#"tool_start: bash {"command":"cargo test","timeout":60}"#;
-        match parse_tool_notification(msg) {
-            ToolActivity::Started { name, args_preview } => {
-                assert_eq!(name, "bash");
-                assert_eq!(args_preview.unwrap(), "cargo test");
-            }
-            other => panic!("expected Started, got {:?}", std::mem::discriminant(&other)),
-        }
+        let parsed = parse_tool_notification(msg).expect("notification should parse");
+
+        assert_eq!(parsed.event_name, "tool_start");
+        assert_eq!(parsed.tool_name.as_deref(), Some("bash"));
+        assert_eq!(parsed.args_preview.as_deref(), Some("cargo test"));
+        assert_eq!(
+            parsed.summary.as_deref(),
+            Some("bash {\"command\":\"cargo test\",\"timeout\":60}")
+        );
     }
 
     #[test]
     fn parse_tool_notification_start_no_args() {
-        match parse_tool_notification("tool_start: read") {
-            ToolActivity::Started { name, args_preview } => {
-                assert_eq!(name, "read");
-                assert!(args_preview.is_none());
-            }
-            other => panic!("expected Started, got {:?}", std::mem::discriminant(&other)),
-        }
+        let parsed =
+            parse_tool_notification("tool_start: read").expect("notification should parse");
+
+        assert_eq!(parsed.event_name, "tool_start");
+        assert_eq!(parsed.tool_name.as_deref(), Some("read"));
+        assert!(parsed.args_preview.is_none());
+        assert_eq!(parsed.summary.as_deref(), Some("read"));
     }
 
     #[test]
     fn parse_tool_notification_end() {
+        let parsed = parse_tool_notification("tool_end: bash").expect("notification should parse");
+
+        assert_eq!(parsed.event_name, "tool_end");
+        assert_eq!(parsed.summary.as_deref(), Some("bash"));
         assert!(matches!(
-            parse_tool_notification("tool_end: bash"),
+            tool_activity_from_notification(parsed),
             ToolActivity::Ended
         ));
     }
 
     #[test]
     fn parse_tool_notification_error() {
+        let parsed =
+            parse_tool_notification("tool_error: bash").expect("notification should parse");
+
+        assert_eq!(parsed.event_name, "tool_error");
+        assert_eq!(parsed.summary.as_deref(), Some("bash"));
         assert!(matches!(
-            parse_tool_notification("tool_error: bash"),
+            tool_activity_from_notification(parsed),
             ToolActivity::Ended
         ));
     }
 
     #[test]
     fn parse_tool_notification_unrelated() {
-        assert!(matches!(
-            parse_tool_notification("some other message"),
-            ToolActivity::None
-        ));
+        assert!(parse_tool_notification("some other message").is_none());
     }
 
     #[test]

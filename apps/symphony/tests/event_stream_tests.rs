@@ -224,6 +224,18 @@ async fn websocket_ping_receives_protocol_pong() {
                 Some(Ok(tokio_tungstenite::tungstenite::Message::Pong(payload))) => {
                     break payload;
                 }
+                Some(Ok(tokio_tungstenite::tungstenite::Message::Text(text))) => {
+                    let envelope: SymphonyEventEnvelope = serde_json::from_str(&text)
+                        .expect("text websocket frame should decode as event envelope");
+                    if envelope.kind != EventKind::Heartbeat {
+                        panic!(
+                            "unexpected non-heartbeat text frame while waiting for pong: {text}"
+                        );
+                    }
+                }
+                Some(Ok(tokio_tungstenite::tungstenite::Message::Binary(_))) => {
+                    panic!("unexpected binary frame while waiting for pong");
+                }
                 Some(Ok(_)) => {}
                 Some(Err(err)) => panic!("unexpected websocket error: {err}"),
                 None => panic!("websocket closed before pong"),
@@ -234,6 +246,32 @@ async fn websocket_ping_receives_protocol_pong() {
     .expect("server should respond to ping with pong");
 
     assert_eq!(pong.to_vec(), ping_payload);
+
+    let quiet_until = tokio::time::Instant::now() + Duration::from_millis(200);
+    loop {
+        let now = tokio::time::Instant::now();
+        if now >= quiet_until {
+            break;
+        }
+
+        let remaining = quiet_until - now;
+        match tokio::time::timeout(remaining, stream.next()).await {
+            Err(_) => break,
+            Ok(Some(Ok(tokio_tungstenite::tungstenite::Message::Text(text)))) => {
+                let envelope: SymphonyEventEnvelope = serde_json::from_str(&text)
+                    .expect("text websocket frame should decode as event envelope");
+                if envelope.kind != EventKind::Heartbeat {
+                    panic!("unexpected non-heartbeat text frame after pong: {text}");
+                }
+            }
+            Ok(Some(Ok(tokio_tungstenite::tungstenite::Message::Binary(_)))) => {
+                panic!("unexpected binary application frame after pong");
+            }
+            Ok(Some(Ok(_))) => continue,
+            Ok(Some(Err(err))) => panic!("unexpected websocket error during quiet period: {err}"),
+            Ok(None) => break,
+        }
+    }
 
     server_task.abort();
 }
