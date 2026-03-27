@@ -11,7 +11,9 @@ use symphony::domain::{
     RateLimitInfo, RefreshRequestOutcome, RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot,
     SessionTokenUsage, WorkerSessionInfo,
 };
-use symphony::http_server::{build_router, HttpServerState, RefreshControl, SnapshotSource};
+use symphony::http_server::{
+    build_router, parse_event_filter_contract, HttpServerState, RefreshControl, SnapshotSource,
+};
 use tower::ServiceExt;
 
 #[derive(Clone)]
@@ -423,6 +425,20 @@ async fn test_post_refresh_reports_queued_then_coalesced_state() {
     assert_eq!(second_payload["queued"], false);
     assert_eq!(second_payload["coalesced"], true);
     assert_eq!(second_payload["pending_requests"], 1);
+}
+
+#[test]
+fn test_event_filter_invalid_type_returns_machine_readable_error() {
+    let err = parse_event_filter_contract(None, Some("worker,wat"), None)
+        .expect_err("unknown event type should fail");
+
+    assert_eq!(err.field, "type");
+    assert_eq!(err.value, "wat");
+    assert!(
+        err.message
+            .contains("Allowed values: snapshot,runtime,worker,tool,heartbeat"),
+        "error should list deterministic allowed values"
+    );
 }
 
 #[tokio::test]

@@ -22,7 +22,7 @@ serde_yaml = "0.9"
 reqwest = { version = "0.12", features = ["json"] }
 
 # HTTP server
-axum = "0.8"
+axum = { version = "0.8", features = ["ws"] }
 
 # Template engine (Liquid-compatible)
 liquid = "0.26"
@@ -56,10 +56,12 @@ ratatui = "0.29"
 regex = "1"
 dotenvy = "0.15.7"
 shell-words = "1"
+futures-util = "0.3"
 
 [dev-dependencies]
 tempfile = "3"
 serial_test = "3"
 mockito = "1"
 tokio-test = "0.4"
+tokio-tungstenite = "0.24"
 tower = { version = "0.5", features = ["util"] }
