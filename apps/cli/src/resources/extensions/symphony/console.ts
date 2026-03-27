@@ -1,0 +1,546 @@
+import type {
+  ExtensionCommandContext,
+  ExtensionContext,
+  ExtensionUIContext,
+} from "@mariozechner/pi-coding-agent";
+import { loadEffectiveKataPreferences } from "../kata/preferences.js";
+import type { SymphonyClient } from "./client.js";
+import { ConsolePanel, type ConsolePanelOptions } from "./console-panel.js";
+import {
+  buildConsolePanelStateFromSnapshot,
+  createEmptyConsolePanelState,
+  resolveConsolePosition,
+  type ConsolePanelState,
+} from "./console-state.js";
+import {
+  isEscalationEvent,
+  type SymphonyClientLifecycleEvent,
+  type SymphonyEventEnvelope,
+  type SymphonyEventKind,
+  type SymphonyOrchestratorState,
+} from "./types.js";
+
+export type SymphonyConsoleContext = ExtensionContext | ExtensionCommandContext;
+
+export interface ConsoleManager {
+  isActive(): boolean;
+  getState(): ConsolePanelState;
+  setContext(ctx: SymphonyConsoleContext): void;
+  open(ctx: SymphonyConsoleContext): Promise<void>;
+  close(ctx?: SymphonyConsoleContext): void;
+  toggle(ctx: SymphonyConsoleContext): Promise<"opened" | "closed">;
+  refresh(ctx?: SymphonyConsoleContext): Promise<void>;
+  dispose(ctx?: SymphonyConsoleContext): void;
+}
+
+export interface ConsolePanelController {
+  update(state: ConsolePanelState): void;
+  setPosition(position: "below-output" | "above-status"): void;
+  close(): void;
+  isOpen(): boolean;
+}
+
+export interface ConsoleManagerOptions {
+  now?: () => number;
+  panelFactory?: (
+    ui: ExtensionUIContext,
+    options: ConsolePanelOptions,
+  ) => ConsolePanelController;
+  loadPreferences?: typeof loadEffectiveKataPreferences;
+}
+
+export interface ConsoleEventTransition {
+  nextState: ConsolePanelState;
+  refreshFromServer: boolean;
+  signal?:
+    | "console_escalation_displayed"
+    | "console_escalation_cleared"
+    | "console_snapshot_applied";
+}
+
+const CONSOLE_STREAM_KINDS: SymphonyEventKind[] = [
+  "snapshot",
+  "runtime",
+  "worker",
+  "heartbeat",
+  "escalation_created",
+  "escalation_responded",
+  "escalation_timed_out",
+  "escalation_cancelled",
+];
+
+export function createConsoleManager(
+  client: SymphonyClient,
+  options: ConsoleManagerOptions = {},
+): ConsoleManager {
+  return new SymphonyConsoleManager(client, options);
+}
+
+export function applyConsoleEventTransition(
+  state: ConsolePanelState,
+  event: SymphonyEventEnvelope,
+  now: () => number = Date.now,
+): ConsoleEventTransition {
+  const nowMs = now();
+
+  if (event.kind === "heartbeat") {
+    return {
+      nextState: {
+        ...state,
+        lastUpdateAt: nowMs,
+      },
+      refreshFromServer: false,
+    };
+  }
+
+  if (event.kind === "snapshot" && looksLikeSnapshot(event.payload)) {
+    return {
+      nextState: buildConsolePanelStateFromSnapshot(event.payload, {
+        now,
+        previous: state,
+        connectionStatus: state.connectionStatus,
+        connectionUrl: state.connectionUrl,
+      }),
+      refreshFromServer: false,
+      signal: "console_snapshot_applied",
+    };
+  }
+
+  if (event.event === "escalation_created" && isEscalationEvent(event)) {
+    const existing = state.escalations.find(
+      (entry) => entry.requestId === event.payload.request_id,
+    );
+
+    if (existing) {
+      return {
+        nextState: {
+          ...state,
+          lastUpdateAt: nowMs,
+        },
+        refreshFromServer: false,
+      };
+    }
+
+    const waitingSince = Date.parse(event.payload.created_at);
+    const issueIdentifier = event.payload.issue_identifier;
+    const matchingWorker = state.workers.find(
+      (worker) => worker.identifier === issueIdentifier,
+    );
+
+    const questionPreview = summarizeEscalationPayload(event.payload.payload);
+
+    return {
+      nextState: {
+        ...state,
+        lastUpdateAt: nowMs,
+        escalations: [
+          ...state.escalations,
+          {
+            requestId: event.payload.request_id,
+            issueId: event.payload.issue_id,
+            issueIdentifier,
+            issueTitle: matchingWorker?.issueTitle ?? issueIdentifier,
+            questionPreview,
+            waitingSince: Number.isFinite(waitingSince) ? waitingSince : nowMs,
+            timeoutMs: event.payload.timeout_ms,
+          },
+        ],
+      },
+      refreshFromServer: true,
+      signal: "console_escalation_displayed",
+    };
+  }
+
+  if (
+    event.event === "escalation_responded" ||
+    event.event === "escalation_timed_out" ||
+    event.event === "escalation_cancelled"
+  ) {
+    const requestId = extractRequestId(event.payload);
+    if (!requestId) {
+      return {
+        nextState: {
+          ...state,
+          lastUpdateAt: nowMs,
+        },
+        refreshFromServer: true,
+      };
+    }
+
+    return {
+      nextState: {
+        ...state,
+        lastUpdateAt: nowMs,
+        escalations: state.escalations.filter((entry) => entry.requestId !== requestId),
+      },
+      refreshFromServer: true,
+      signal: "console_escalation_cleared",
+    };
+  }
+
+  if (event.kind === "worker" || event.kind === "runtime") {
+    return {
+      nextState: {
+        ...state,
+        lastUpdateAt: nowMs,
+      },
+      refreshFromServer: true,
+    };
+  }
+
+  return {
+    nextState: {
+      ...state,
+      lastUpdateAt: nowMs,
+    },
+    refreshFromServer: false,
+  };
+}
+
+class SymphonyConsoleManager implements ConsoleManager {
+  private readonly now: () => number;
+  private readonly panelFactory: (
+    ui: ExtensionUIContext,
+    options: ConsolePanelOptions,
+  ) => ConsolePanelController;
+  private readonly loadPreferences: typeof loadEffectiveKataPreferences;
+
+  private active = false;
+  private state = createEmptyConsolePanelState("");
+  private context: SymphonyConsoleContext | null = null;
+  private panel: ConsolePanelController | null = null;
+  private streamAbortController: AbortController | null = null;
+  private refreshPromise: Promise<void> | null = null;
+  private connectedOnce = false;
+
+  constructor(
+    private readonly client: SymphonyClient,
+    options: ConsoleManagerOptions,
+  ) {
+    this.now = options.now ?? Date.now;
+    this.panelFactory = options.panelFactory ?? ((ui, panelOptions) => new ConsolePanel(ui, panelOptions));
+    this.loadPreferences = options.loadPreferences ?? loadEffectiveKataPreferences;
+  }
+
+  isActive(): boolean {
+    return this.active;
+  }
+
+  getState(): ConsolePanelState {
+    return { ...this.state };
+  }
+
+  setContext(ctx: SymphonyConsoleContext): void {
+    this.context = ctx;
+  }
+
+  async open(ctx: SymphonyConsoleContext): Promise<void> {
+    this.context = ctx;
+    if (this.active) {
+      return;
+    }
+
+    const position = resolveConsolePosition(
+      this.loadPreferences(process.cwd())?.preferences.symphony?.console_position,
+    );
+
+    const connectionUrl = this.resolveConnectionUrl();
+
+    this.state = {
+      ...createEmptyConsolePanelState(connectionUrl),
+      connectionStatus: "reconnecting",
+      message: "Waiting for Symphony event stream…",
+    };
+
+    this.ensurePanel(position);
+    this.active = true;
+    this.render();
+    this.notify("console_panel_opened", "info");
+
+    await this.refresh();
+    this.startStreamLoop();
+  }
+
+  close(ctx?: SymphonyConsoleContext): void {
+    if (ctx) {
+      this.context = ctx;
+    }
+
+    if (!this.active && !this.panel?.isOpen()) {
+      return;
+    }
+
+    this.active = false;
+    this.connectedOnce = false;
+    this.streamAbortController?.abort();
+    this.streamAbortController = null;
+
+    this.panel?.close();
+    this.panel = null;
+    this.notify("console_panel_closed", "info");
+  }
+
+  async toggle(ctx: SymphonyConsoleContext): Promise<"opened" | "closed"> {
+    if (this.active) {
+      this.close(ctx);
+      return "closed";
+    }
+
+    await this.open(ctx);
+    return "opened";
+  }
+
+  async refresh(ctx?: SymphonyConsoleContext): Promise<void> {
+    if (ctx) {
+      this.context = ctx;
+    }
+
+    if (!this.active) {
+      return;
+    }
+
+    if (this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    this.refreshPromise = this.performRefresh().finally(() => {
+      this.refreshPromise = null;
+    });
+
+    return this.refreshPromise;
+  }
+
+  dispose(ctx?: SymphonyConsoleContext): void {
+    this.close(ctx);
+  }
+
+  private ensurePanel(position: "below-output" | "above-status"): void {
+    const ctx = this.context;
+    if (!ctx) {
+      throw new Error("Cannot open Symphony console without an active context.");
+    }
+
+    if (!this.panel) {
+      this.panel = this.panelFactory(ctx.ui, {
+        position,
+      });
+      return;
+    }
+
+    this.panel.setPosition(position);
+  }
+
+  private render(): void {
+    if (!this.panel) {
+      return;
+    }
+
+    this.panel.update(this.state);
+  }
+
+  private resolveConnectionUrl(): string {
+    try {
+      return this.client.getConnectionConfig().url;
+    } catch {
+      return this.state.connectionUrl;
+    }
+  }
+
+  private async performRefresh(): Promise<void> {
+    try {
+      const snapshot = await this.client.getState();
+      this.state = buildConsolePanelStateFromSnapshot(snapshot, {
+        now: this.now,
+        previous: this.state,
+        connectionStatus: "connected",
+        connectionUrl: this.resolveConnectionUrl(),
+      });
+      this.connectedOnce = true;
+      this.render();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.state = {
+        ...this.state,
+        connectionStatus: "disconnected",
+        error: `Symphony connection failed: ${message}`,
+      };
+      this.render();
+    }
+  }
+
+  private startStreamLoop(): void {
+    this.streamAbortController?.abort();
+
+    const controller = new AbortController();
+    this.streamAbortController = controller;
+
+    const run = async () => {
+      try {
+        for await (const event of this.client.watchEvents(
+          { type: CONSOLE_STREAM_KINDS },
+          {
+            signal: controller.signal,
+            reconnectAttempts: 10,
+            reconnectDelayMs: 1_000,
+            onLifecycle: (lifecycleEvent) => {
+              this.handleLifecycleEvent(lifecycleEvent);
+            },
+          },
+        )) {
+          await this.consumeEvent(event);
+        }
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        const message = error instanceof Error ? error.message : String(error);
+        this.state = {
+          ...this.state,
+          connectionStatus: "disconnected",
+          error: `Console stream disconnected: ${message}`,
+        };
+        this.render();
+      }
+    };
+
+    void run();
+  }
+
+  private async consumeEvent(event: SymphonyEventEnvelope): Promise<void> {
+    if (!this.active) {
+      return;
+    }
+
+    const transition = applyConsoleEventTransition(this.state, event, this.now);
+    this.state = transition.nextState;
+
+    if (transition.signal === "console_escalation_displayed") {
+      this.notify("console_escalation_displayed", "warning");
+    }
+
+    this.render();
+
+    if (transition.refreshFromServer) {
+      await this.refresh();
+    }
+  }
+
+  private handleLifecycleEvent(event: SymphonyClientLifecycleEvent): void {
+    if (!this.active) {
+      return;
+    }
+
+    const nowMs = this.now();
+
+    if (event.type === "symphony_client_connected") {
+      const shouldEmitReconnect = this.connectedOnce;
+      this.state = {
+        ...this.state,
+        connectionStatus: "connected",
+        connectionUrl: event.details.url,
+        lastUpdateAt: nowMs,
+        error: undefined,
+      };
+      this.connectedOnce = true;
+      this.render();
+
+      if (shouldEmitReconnect) {
+        this.notify("console_stream_reconnected", "info");
+      }
+      return;
+    }
+
+    if (event.type === "symphony_client_reconnecting") {
+      this.state = {
+        ...this.state,
+        connectionStatus: "reconnecting",
+        connectionUrl: event.details.url,
+        lastUpdateAt: nowMs,
+      };
+      this.render();
+      return;
+    }
+
+    if (event.type === "symphony_client_disconnected") {
+      this.state = {
+        ...this.state,
+        connectionStatus: "disconnected",
+        connectionUrl: event.details.url,
+        lastUpdateAt: nowMs,
+      };
+      this.render();
+    }
+  }
+
+  private notify(message: string, type: "info" | "warning" | "error" = "info"): void {
+    this.context?.ui.notify(message, type);
+  }
+}
+
+function extractRequestId(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const requestId = (payload as Record<string, unknown>).request_id;
+  if (typeof requestId !== "string" || requestId.length === 0) {
+    return null;
+  }
+
+  return requestId;
+}
+
+function summarizeEscalationPayload(payload: unknown): string {
+  if (typeof payload === "string") {
+    return truncate(payload, 160);
+  }
+
+  if (Array.isArray(payload)) {
+    return truncate(JSON.stringify(payload), 160);
+  }
+
+  if (payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    const prompt =
+      typeof record.question === "string"
+        ? record.question
+        : typeof record.prompt === "string"
+          ? record.prompt
+          : typeof record.preview === "string"
+            ? record.preview
+            : JSON.stringify(record);
+    return truncate(prompt, 160);
+  }
+
+  return "Operator response requested";
+}
+
+function looksLikeSnapshot(value: unknown): value is SymphonyOrchestratorState {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const payload = value as Record<string, unknown>;
+  return (
+    typeof payload.poll_interval_ms === "number" &&
+    typeof payload.max_concurrent_agents === "number" &&
+    typeof payload.running === "object" &&
+    Array.isArray(payload.retry_queue) &&
+    Array.isArray(payload.completed) &&
+    typeof payload.codex_totals === "object" &&
+    typeof payload.polling === "object"
+  );
+}
+
+function truncate(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  if (maxLength <= 1) {
+    return value.slice(0, maxLength);
+  }
+
+  return `${value.slice(0, maxLength - 1)}…`;
+}

@@ -1,22 +1,48 @@
-import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionCommandContext,
+} from "@mariozechner/pi-coding-agent";
+import { Key } from "@mariozechner/pi-tui";
 import { createSymphonyClient } from "./client.js";
 import { registerSymphonyCommand } from "./command.js";
+import { createConsoleManager } from "./console.js";
 import { EscalationQueue } from "./escalation.js";
 import { registerSymphonyTools } from "./tools.js";
 import { isEscalationEvent } from "./types.js";
 
 export default function (pi: ExtensionAPI): void {
   const client = createSymphonyClient();
+  const consoleManager = createConsoleManager(client);
 
-  registerSymphonyCommand(pi, client);
+  registerSymphonyCommand(pi, client, consoleManager);
   registerSymphonyTools(pi, client);
 
-  let abortController: AbortController | null = null;
+  let escalationAbortController: AbortController | null = null;
+
+  pi.registerShortcut(Key.ctrlAlt("s"), {
+    description: "Refresh Symphony console panel",
+    handler: async (ctx) => {
+      consoleManager.setContext(ctx as unknown as ExtensionCommandContext);
+
+      if (!consoleManager.isActive()) {
+        ctx.ui.notify(
+          "Symphony console is not active. Run /symphony console first.",
+          "warning",
+        );
+        return;
+      }
+
+      await consoleManager.refresh(ctx as unknown as ExtensionCommandContext);
+      ctx.ui.notify("Symphony console refreshed.", "info");
+    },
+  });
 
   pi.on("session_start", async (_event, ctx) => {
-    abortController?.abort();
+    consoleManager.setContext(ctx as unknown as ExtensionCommandContext);
+
+    escalationAbortController?.abort();
     const controller = new AbortController();
-    abortController = controller;
+    escalationAbortController = controller;
 
     const queue = new EscalationQueue(
       client,
@@ -31,7 +57,9 @@ export default function (pi: ExtensionAPI): void {
           { signal: controller.signal, reconnectAttempts: 5, reconnectDelayMs: 1_000 },
         )) {
           if (isEscalationEvent(event)) {
-            queue.enqueue(event);
+            if (!consoleManager.isActive()) {
+              queue.enqueue(event);
+            }
             continue;
           }
 
@@ -40,13 +68,19 @@ export default function (pi: ExtensionAPI): void {
             if (requestId) {
               queue.removeByRequestId(requestId);
             }
-            ctx.ui.notify("Escalation timed out — worker continued without answer.", "warning");
+
+            if (!consoleManager.isActive()) {
+              ctx.ui.notify("Escalation timed out — worker continued without answer.", "warning");
+            }
           } else if (event.event === "escalation_cancelled") {
             const requestId = extractRequestId(event.payload);
             if (requestId) {
               queue.removeByRequestId(requestId);
             }
-            ctx.ui.notify("Escalation cancelled.", "warning");
+
+            if (!consoleManager.isActive()) {
+              ctx.ui.notify("Escalation cancelled.", "warning");
+            }
           }
         }
       } catch (error) {
@@ -63,9 +97,10 @@ export default function (pi: ExtensionAPI): void {
     })();
   });
 
-  pi.on("session_shutdown", async () => {
-    abortController?.abort();
-    abortController = null;
+  pi.on("session_shutdown", async (_event, ctx) => {
+    escalationAbortController?.abort();
+    escalationAbortController = null;
+    consoleManager.dispose(ctx as unknown as ExtensionCommandContext);
   });
 }
 

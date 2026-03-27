@@ -7,7 +7,16 @@ import {
   createEmptyConsolePanelState,
   resolveConsolePosition,
 } from "../console-state.js";
-import type { SymphonyOrchestratorState } from "../types.js";
+import {
+  applyConsoleEventTransition,
+  createConsoleManager,
+} from "../console.js";
+import {
+  parseSymphonyCommand,
+  registerSymphonyCommand,
+} from "../command.js";
+import type { SymphonyClient } from "../client.js";
+import type { SymphonyEventEnvelope, SymphonyOrchestratorState } from "../types.js";
 
 
 describe("console-state", () => {
@@ -187,5 +196,246 @@ describe("symphony console preference parsing", () => {
 
       rmSync(tempDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("console event transitions", () => {
+  it("tracks escalation lifecycle and refresh signals", () => {
+    const base = createEmptyConsolePanelState("http://127.0.0.1:8080");
+
+    const escalationCreated: SymphonyEventEnvelope = {
+      version: "v1",
+      sequence: 10,
+      timestamp: new Date(10_000).toISOString(),
+      kind: "escalation_created",
+      severity: "warn",
+      issue: "KAT-1304",
+      event: "escalation_created",
+      payload: {
+        request_id: "req-10",
+        issue_id: "issue-10",
+        issue_identifier: "KAT-1304",
+        method: "ask_user_questions",
+        payload: { question: "Can this ship now?" },
+        created_at: new Date(8_000).toISOString(),
+        timeout_ms: 120_000,
+      },
+    };
+
+    const created = applyConsoleEventTransition(base, escalationCreated, () => 12_000);
+    expect(created.signal).toBe("console_escalation_displayed");
+    expect(created.refreshFromServer).toBe(true);
+    expect(created.nextState.escalations).toHaveLength(1);
+
+    const timedOut: SymphonyEventEnvelope = {
+      version: "v1",
+      sequence: 11,
+      timestamp: new Date(13_000).toISOString(),
+      kind: "escalation_timed_out",
+      severity: "warn",
+      issue: "KAT-1304",
+      event: "escalation_timed_out",
+      payload: {
+        request_id: "req-10",
+      },
+    };
+
+    const cleared = applyConsoleEventTransition(created.nextState, timedOut, () => 13_000);
+    expect(cleared.signal).toBe("console_escalation_cleared");
+    expect(cleared.nextState.escalations).toHaveLength(0);
+  });
+
+  it("marks worker/runtime events for server refresh", () => {
+    const base = createEmptyConsolePanelState("http://127.0.0.1:8080");
+
+    const workerEvent: SymphonyEventEnvelope = {
+      version: "v1",
+      sequence: 2,
+      timestamp: new Date(1_000).toISOString(),
+      kind: "worker",
+      severity: "info",
+      issue: "KAT-1304",
+      event: "worker_progress",
+      payload: { summary: "step complete" },
+    };
+
+    const transition = applyConsoleEventTransition(base, workerEvent, () => 2_000);
+    expect(transition.refreshFromServer).toBe(true);
+    expect(transition.nextState.lastUpdateAt).toBe(2_000);
+  });
+});
+
+describe("symphony console command routing", () => {
+  it("parses console command variants", () => {
+    expect(parseSymphonyCommand("console")).toEqual({
+      type: "console",
+      mode: "toggle",
+    });
+
+    expect(parseSymphonyCommand("console off")).toEqual({
+      type: "console",
+      mode: "off",
+    });
+
+    expect(parseSymphonyCommand("console refresh")).toEqual({
+      type: "console",
+      mode: "refresh",
+    });
+  });
+
+  it("routes console commands through the console manager", async () => {
+    const registerCommand = vi.fn();
+    const pi = {
+      registerCommand,
+    } as any;
+
+    const client: SymphonyClient = {
+      getConnectionConfig: () => ({
+        url: "http://127.0.0.1:8080",
+        origin: "preferences",
+      }),
+      getState: async () => {
+        throw new Error("unused");
+      },
+      getPendingEscalations: async () => [],
+      respondToEscalation: async () => ({ ok: true, status: 200 }),
+      watchEvents: async function* () {
+        return;
+      },
+    };
+
+    const manager = {
+      isActive: vi.fn(() => false),
+      getState: vi.fn(() => createEmptyConsolePanelState("http://127.0.0.1:8080")),
+      setContext: vi.fn(),
+      open: vi.fn(),
+      close: vi.fn(),
+      toggle: vi.fn(async () => "opened" as const),
+      refresh: vi.fn(),
+      dispose: vi.fn(),
+    };
+
+    registerSymphonyCommand(pi, client, manager as any);
+
+    const commandConfig = registerCommand.mock.calls[0][1];
+    const notify = vi.fn();
+    const ctx = {
+      ui: {
+        notify,
+      },
+    } as any;
+
+    await commandConfig.handler("console", ctx);
+    expect(manager.toggle).toHaveBeenCalledTimes(1);
+
+    await commandConfig.handler("console off", ctx);
+    expect(manager.close).toHaveBeenCalledTimes(1);
+
+    manager.isActive.mockReturnValue(true);
+    await commandConfig.handler("console refresh", ctx);
+    expect(manager.refresh).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ConsoleManager", () => {
+  it("handles reconnect lifecycle and refreshes state from server", async () => {
+    const notifications: string[] = [];
+
+    const stateSnapshot: SymphonyOrchestratorState = {
+      poll_interval_ms: 30_000,
+      max_concurrent_agents: 4,
+      running: {},
+      retry_queue: [],
+      completed: [],
+      codex_totals: {
+        input_tokens: 0,
+        output_tokens: 0,
+        total_tokens: 0,
+      },
+      polling: {
+        checking: false,
+        next_poll_in_ms: 10_000,
+        poll_interval_ms: 30_000,
+      },
+      pending_escalations: [],
+    };
+
+    const client: SymphonyClient = {
+      getConnectionConfig: () => ({
+        url: "http://127.0.0.1:8080",
+        origin: "preferences",
+      }),
+      getState: async () => stateSnapshot,
+      getPendingEscalations: async () => [],
+      respondToEscalation: async () => ({ ok: true, status: 200 }),
+      watchEvents: async function* (_filter, options) {
+        options?.onLifecycle?.({
+          type: "symphony_client_connected",
+          details: {
+            url: "http://127.0.0.1:8080",
+            origin: "preferences",
+            connected: true,
+          },
+        });
+
+        yield {
+          version: "v1",
+          sequence: 1,
+          timestamp: new Date(10_000).toISOString(),
+          kind: "heartbeat",
+          severity: "info",
+          issue: null,
+          event: "heartbeat",
+          payload: {
+            connected_clients: 1,
+          },
+        };
+
+        options?.onLifecycle?.({
+          type: "symphony_client_reconnecting",
+          details: {
+            url: "http://127.0.0.1:8080",
+            origin: "preferences",
+            connected: false,
+            reconnecting: true,
+            attempt: 1,
+          },
+        });
+
+        options?.onLifecycle?.({
+          type: "symphony_client_connected",
+          details: {
+            url: "http://127.0.0.1:8080",
+            origin: "preferences",
+            connected: true,
+            attempt: 1,
+          },
+        });
+      },
+    };
+
+    const manager = createConsoleManager(client, {
+      panelFactory: () => ({
+        update: () => undefined,
+        setPosition: () => undefined,
+        close: () => undefined,
+        isOpen: () => true,
+      }),
+    });
+
+    const ctx = {
+      ui: {
+        notify: (message: string) => notifications.push(message),
+      },
+    } as any;
+
+    await manager.open(ctx);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(manager.getState().connectionStatus).toBe("connected");
+    expect(notifications).toContain("console_panel_opened");
+    expect(notifications).toContain("console_stream_reconnected");
+
+    manager.dispose(ctx);
   });
 });

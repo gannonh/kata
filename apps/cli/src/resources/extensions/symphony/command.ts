@@ -7,6 +7,7 @@ import type {
 } from "@mariozechner/pi-coding-agent";
 import { loadEffectiveKataPreferences } from "../kata/preferences.js";
 import type { SymphonyClient } from "./client.js";
+import type { ConsoleManager } from "./console.js";
 import { runConfigEditor } from "./config-editor.js";
 import {
   parseWorkflowConfig,
@@ -40,6 +41,10 @@ export type SymphonyCommandAction =
   | {
       type: "config";
       workflowPathArg?: string;
+    }
+  | {
+      type: "console";
+      mode: "toggle" | "off" | "refresh";
     };
 
 export interface SymphonyCommandSink {
@@ -71,6 +76,24 @@ export function parseSymphonyCommand(input: string): SymphonyCommandAction {
       type: "config",
       ...(workflowPathArg ? { workflowPathArg } : {}),
     };
+  }
+
+  if (tokens[0] === "console") {
+    const modeToken = tokens[1]?.toLowerCase();
+
+    if (!modeToken) {
+      return { type: "console", mode: "toggle" };
+    }
+
+    if (modeToken === "off" || modeToken === "close") {
+      return { type: "console", mode: "off" };
+    }
+
+    if (modeToken === "refresh") {
+      return { type: "console", mode: "refresh" };
+    }
+
+    return { type: "usage" };
   }
 
   if (tokens[0] === "watch") {
@@ -115,7 +138,7 @@ export async function executeSymphonyCommand(
       return;
     }
 
-    if (action.type === "config") {
+    if (action.type === "config" || action.type === "console") {
       sink.info(renderSymphonyUsage());
       return;
     }
@@ -156,14 +179,18 @@ export async function executeSymphonyCommand(
   }
 }
 
-export function registerSymphonyCommand(pi: ExtensionAPI, client: SymphonyClient): void {
+export function registerSymphonyCommand(
+  pi: ExtensionAPI,
+  client: SymphonyClient,
+  consoleManager?: ConsoleManager,
+): void {
   pi.registerCommand("symphony", {
-    description: "Symphony operator workflows: status, watch, config",
+    description: "Symphony operator workflows: status, watch, config, console",
     getArgumentCompletions(prefix: string) {
       const tokens = tokenize(prefix);
 
       if (tokens.length <= 1) {
-        const options = ["status", "watch", "config"];
+        const options = ["status", "watch", "config", "console"];
         const query = tokens[0] ?? "";
         return options
           .filter((option) => option.startsWith(query))
@@ -185,6 +212,14 @@ export function registerSymphonyCommand(pi: ExtensionAPI, client: SymphonyClient
         return [{ value: "config WORKFLOW.md", label: "config [WORKFLOW.md]" }];
       }
 
+      if (tokens[0] === "console" && tokens.length <= 2) {
+        return [
+          { value: "console", label: "console" },
+          { value: "console off", label: "console off" },
+          { value: "console refresh", label: "console refresh" },
+        ];
+      }
+
       return [];
     },
     handler: async (args, ctx) => {
@@ -192,6 +227,42 @@ export function registerSymphonyCommand(pi: ExtensionAPI, client: SymphonyClient
 
       if (action.type === "config") {
         await executeSymphonyConfigCommand(action, client, ctx);
+        return;
+      }
+
+      if (action.type === "console") {
+        if (!consoleManager) {
+          ctx.ui.notify(
+            "Symphony console manager is unavailable in this session.",
+            "error",
+          );
+          return;
+        }
+
+        if (action.mode === "off") {
+          consoleManager.close(ctx);
+          return;
+        }
+
+        if (action.mode === "refresh") {
+          if (!consoleManager.isActive()) {
+            ctx.ui.notify(
+              "Symphony console is not active. Run /symphony console first.",
+              "warning",
+            );
+            return;
+          }
+          await consoleManager.refresh(ctx);
+          ctx.ui.notify("Symphony console refreshed.", "info");
+          return;
+        }
+
+        const result = await consoleManager.toggle(ctx);
+        if (result === "opened") {
+          ctx.ui.notify("Symphony console opened.", "info");
+        } else {
+          ctx.ui.notify("Symphony console closed.", "info");
+        }
         return;
       }
 
