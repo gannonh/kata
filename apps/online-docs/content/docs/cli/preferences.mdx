@@ -1,18 +1,108 @@
 ---
 title: Preferences
-description: Configure CLI behavior through the preferences system.
+description: Configure Kata CLI behavior, workflow mode, models, PR lifecycle, and Symphony connection.
 ---
 
 # Preferences
 
-## Configuration File
+Kata reads configuration from two locations, merged at runtime (project wins on conflict):
 
-The CLI reads configuration from a local file. Settings control default agent, workflow mode, verbosity, and extension loading.
+| Scope | Path |
+|-------|------|
+| **Global** | `~/.kata-cli/preferences.md` |
+| **Project** | `.kata/preferences.md` |
 
-Placeholder: configuration file format and location will be documented here.
+Settings live in YAML frontmatter. The body below the frontmatter is informational — Kata only reads the YAML block.
 
-## Available Settings
+## Core Fields
 
-Settings are organized by category: general, agent, workflow, and extensions.
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `version` | number | `1` | Schema version |
+| `workflow.mode` | string | `linear` | Workflow mode (only `linear` is supported) |
+| `linear.teamKey` | string | — | Linear team key (e.g. `KAT`) |
+| `linear.projectId` | string | — | Linear project UUID |
 
-Placeholder: full settings reference will be documented here.
+## Model Selection
+
+Per-stage model overrides for auto-mode, step mode, and PR review.
+
+```yaml
+models:
+  research: claude-sonnet-4-6
+  planning: claude-opus-4-6
+  execution: claude-sonnet-4-6
+  completion: claude-sonnet-4-6
+  review: claude-sonnet-4-6
+```
+
+Omit any key to use the currently active model. The `review` key controls which model PR reviewer subagents use.
+
+## PR Lifecycle
+
+```yaml
+pr:
+  enabled: true
+  auto_create: true
+  base_branch: main
+  review_on_create: false
+  linear_link: false
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `pr.enabled` | `false` | Activate PR lifecycle. Requires `gh` CLI. |
+| `pr.auto_create` | `false` | Auto-create PR after slice completes in auto-mode |
+| `pr.base_branch` | `main` | Target branch for PRs |
+| `pr.review_on_create` | `false` | Auto-run parallel review after PR creation |
+| `pr.linear_link` | `false` | Include `Closes KAT-N` references in PR body |
+
+## Symphony
+
+```yaml
+symphony:
+  url: http://localhost:8080
+```
+
+Sets the base URL for the [Symphony](/docs/symphony) orchestration server. Required for `/symphony` commands and `symphony_*` agent tools.
+
+Can also be set via environment variables: `KATA_SYMPHONY_URL` (highest priority) or `SYMPHONY_URL`. The preferences field takes priority over environment variables.
+
+## Skills
+
+```yaml
+always_use_skills:
+  - /path/to/skill/SKILL.md
+prefer_skills: []
+avoid_skills: []
+skill_rules:
+  - when: task involves authentication
+    use:
+      - clerk
+skill_discovery: suggest   # auto | suggest | off
+```
+
+| Field | Description |
+|-------|-------------|
+| `always_use_skills` | Skills loaded whenever relevant |
+| `prefer_skills` | Soft defaults preferred when relevant |
+| `avoid_skills` | Skills avoided unless clearly needed |
+| `skill_rules` | Situational routing with `when` trigger |
+| `skill_discovery` | `auto` (apply automatically), `suggest` (identify but don't install), `off` |
+
+## Auto Supervisor
+
+```yaml
+auto_supervisor:
+  model: claude-sonnet-4-6
+  soft_timeout_minutes: 20
+  idle_timeout_minutes: 10
+  hard_timeout_minutes: 30
+```
+
+Configures the auto-mode supervisor that monitors agent progress and enforces timeouts.
+
+## Inspecting Configuration
+
+- `/kata prefs status` — shows active mode, Linear binding, and validation state
+- `/kata pr status` — shows PR lifecycle configuration and current branch/PR state
