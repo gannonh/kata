@@ -179,7 +179,7 @@ Kata includes a first-class Symphony client surface for live operator workflows.
 
 ### Configure connection
 
-Set `symphony.url` in `.kata/preferences.md` (preferred) or `SYMPHONY_URL` in your environment.
+Set `symphony.url` in `.kata/preferences.md` (preferred) or `KATA_SYMPHONY_URL` / `SYMPHONY_URL` in your environment (`KATA_SYMPHONY_URL` takes precedence when both are set).
 
 ```yaml
 symphony:

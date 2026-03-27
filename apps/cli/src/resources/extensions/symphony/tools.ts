@@ -321,6 +321,7 @@ export function registerSymphonyTools(pi: ExtensionAPI, client: SymphonyClient):
           },
         ],
         details: makeToolDetails(client, { connected: false }),
+        isError: true,
       };
     },
     renderCall(_args, theme) {
@@ -356,6 +357,7 @@ export function registerSymphonyTools(pi: ExtensionAPI, client: SymphonyClient):
           },
         ],
         details: makeToolDetails(client, { connected: false }),
+        isError: true,
       };
     },
     renderCall(args, theme) {

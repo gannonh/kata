@@ -9,6 +9,7 @@ import {
 } from "./types.js";
 
 const DEFAULT_URL_ENV_KEY = "SYMPHONY_URL";
+const FALLBACK_URL_ENV_KEY = "KATA_SYMPHONY_URL";
 
 export interface ResolveSymphonyConfigOptions {
   preferences?: Pick<KataPreferences, "symphony"> | null;
@@ -22,9 +23,7 @@ export function resolveSymphonyConfig(
   const env = options.env ?? process.env;
   const envVarName = options.envVarName ?? DEFAULT_URL_ENV_KEY;
 
-  const prefCandidate =
-    normalizeCandidate(options.preferences?.symphony?.url) ??
-    normalizeCandidate(env.KATA_SYMPHONY_URL);
+  const prefCandidate = normalizeCandidate(options.preferences?.symphony?.url);
   if (prefCandidate) {
     return {
       url: normalizeAndValidateUrl(prefCandidate, "preferences"),
@@ -32,7 +31,9 @@ export function resolveSymphonyConfig(
     };
   }
 
-  const envCandidate = normalizeCandidate(env[envVarName]);
+  const envCandidate =
+    normalizeCandidate(env[FALLBACK_URL_ENV_KEY]) ??
+    normalizeCandidate(env[envVarName]);
   if (envCandidate) {
     return {
       url: normalizeAndValidateUrl(envCandidate, "env"),
@@ -41,10 +42,10 @@ export function resolveSymphonyConfig(
   }
 
   throw new SymphonyError(
-    "Symphony URL is not configured. Set `symphony.url` in preferences or set SYMPHONY_URL.",
+    `Symphony URL is not configured. Set \`symphony.url\` in preferences or set ${FALLBACK_URL_ENV_KEY} / ${envVarName}.`,
     {
       code: "config_missing",
-      reason: "missing symphony.url and SYMPHONY_URL",
+      reason: `missing symphony.url and ${FALLBACK_URL_ENV_KEY}/${envVarName}`,
     },
   );
 }

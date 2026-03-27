@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { SymphonyHttpClient } from "../client.js";
-import type { SymphonyConnectionConfig, SymphonyEventEnvelope } from "../types.js";
+import type {
+  SymphonyClientLifecycleEvent,
+  SymphonyConnectionConfig,
+  SymphonyEventEnvelope,
+} from "../types.js";
 import type { SymphonyWebSocketLike } from "../stream.js";
 
 class MockWebSocket implements SymphonyWebSocketLike {
@@ -199,13 +203,51 @@ describe("SymphonyHttpClient", () => {
       },
     ];
 
+    const lifecycle: SymphonyClientLifecycleEvent[] = [];
     const client = makeClient();
     const events = await collectEvents(
-      client.watchEvents({ issue: "KAT-920" }, { timeoutMs: 5_000 }),
+      client.watchEvents(
+        { issue: "KAT-920" },
+        {
+          timeoutMs: 5_000,
+          onLifecycle: (event) => {
+            lifecycle.push(event);
+          },
+        },
+      ),
     );
 
     expect(events.map((event) => event.sequence)).toEqual([1, 2]);
     expect(MockWebSocket.openedUrls).toHaveLength(2);
+
+    const connectedAttempts = lifecycle
+      .filter((event) => event.type === "symphony_client_connected")
+      .map((event) => event.details.attempt);
+    expect(connectedAttempts).toEqual([0, 1]);
+  });
+
+  it("does not reconnect for non-retryable application close codes", async () => {
+    MockWebSocket.openedUrls = [];
+    MockWebSocket.scripts = [
+      (socket) => {
+        socket.emitOpen();
+        socket.emitClose(4001, "auth_failed", false);
+      },
+    ];
+
+    const client = makeClient();
+
+    await expect(
+      collectEvents(client.watchEvents({ issue: "KAT-920" }, { timeoutMs: 2_000 })),
+    ).rejects.toMatchObject({
+      code: "stream_closed",
+      context: expect.objectContaining({
+        status: 4001,
+        retryable: false,
+      }),
+    });
+
+    expect(MockWebSocket.openedUrls).toHaveLength(1);
   });
 
   it("raises decode_error when stream payload is malformed", async () => {

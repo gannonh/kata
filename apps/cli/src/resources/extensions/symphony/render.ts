@@ -100,7 +100,7 @@ export function renderSymphonyWatchSummary(
 export function renderSymphonyCommandError(error: SymphonyError): string {
   switch (error.code) {
     case "config_missing":
-      return `${error.code}: ${error.message}\nHint: configure symphony.url in preferences or set SYMPHONY_URL.`;
+      return `${error.code}: ${error.message}\nHint: configure symphony.url in preferences or set KATA_SYMPHONY_URL / SYMPHONY_URL.`;
     case "config_invalid":
       return `${error.code}: ${error.message}\nHint: use an http(s) URL for Symphony.`;
     case "connection_failed":

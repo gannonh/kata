@@ -33,6 +33,35 @@ describe("resolveSymphonyConfig", () => {
     });
   });
 
+  it("uses KATA_SYMPHONY_URL when preferences are unset", () => {
+    const resolved = resolveSymphonyConfig({
+      preferences: {},
+      env: {
+        KATA_SYMPHONY_URL: "https://kata-symphony.internal:9443/",
+      },
+    });
+
+    expect(resolved).toEqual({
+      url: "https://kata-symphony.internal:9443",
+      origin: "env",
+    });
+  });
+
+  it("prefers KATA_SYMPHONY_URL over SYMPHONY_URL", () => {
+    const resolved = resolveSymphonyConfig({
+      preferences: {},
+      env: {
+        KATA_SYMPHONY_URL: "https://kata-preferred.example.com",
+        SYMPHONY_URL: "https://fallback.example.com",
+      },
+    });
+
+    expect(resolved).toEqual({
+      url: "https://kata-preferred.example.com",
+      origin: "env",
+    });
+  });
+
   it("prefers symphony.url over SYMPHONY_URL", () => {
     const resolved = resolveSymphonyConfig({
       preferences: {

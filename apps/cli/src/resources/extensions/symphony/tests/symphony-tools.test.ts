@@ -157,6 +157,8 @@ describe("registerSymphonyTools", () => {
     expect(steerPayload.code).toBe("capability_unavailable");
     expect(steerPayload.capability).toBe("steer");
 
+    expect(logsResult.isError).toBe(true);
+    expect(steerResult.isError).toBe(true);
     expect(logsResult.details.capabilities.logs.available).toBe(false);
     expect(steerResult.details.capabilities.steer.available).toBe(false);
   });

@@ -82,6 +82,7 @@ export async function* streamSymphonyEvents(
 
     socket.onopen = () => {
       open = true;
+      const successfulAttempt = reconnectAttempt;
       reconnectAttempt = 0;
       options.onLifecycle?.({
         type: "symphony_client_connected",
@@ -90,7 +91,7 @@ export async function* streamSymphonyEvents(
           origin: options.connection.origin,
           connected: true,
           endpoint: wsUrl,
-          attempt: reconnectAttempt,
+          attempt: successfulAttempt,
         },
       });
       wakeWaiter();
@@ -490,7 +491,7 @@ function openSocket(
 }
 
 function shouldReconnect(closeCode: number): boolean {
-  return RETRYABLE_CLOSE_CODES.has(closeCode) || closeCode >= 4000;
+  return RETRYABLE_CLOSE_CODES.has(closeCode);
 }
 
 function safeClose(
