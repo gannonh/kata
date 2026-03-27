@@ -6,3 +6,7 @@ WORKFLOW-cli.md
 WORKFLOW-*.md
 !docs/WORKFLOW-*.md
 !docs/WORKFLOW-REFERENCE.md
+
+# Local planning artifacts
+docs/plans/
+docs/specs/
