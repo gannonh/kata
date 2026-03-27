@@ -7,8 +7,8 @@ export default defineConfig({
     testTimeout: 30_000,
     coverage: {
       provider: 'v8',
+      all: false,
       reporter: ['text', 'lcov'],
-      include: ['src/**/*.ts'],
       exclude: ['src/**/*.test.ts', 'src/**/*.vitest.test.ts', 'src/**/*.d.ts', 'dist/**'],
     },
   },
