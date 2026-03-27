@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { CONFIG_FIELD_DEFINITIONS, type ConfigEditorModel } from "./config-model.js";
-import { applyModelToConfig } from "./config-parser.js";
+import { applyModelToConfig, readPath } from "./config-parser.js";
 
 const VALID_NOTIFICATION_EVENTS = new Set([
   "todo",
@@ -225,17 +225,6 @@ function assertPromptPaths(
       });
     }
   }
-}
-
-function readPath(root: Record<string, unknown>, path: string[]): unknown {
-  let current: unknown = root;
-  for (const segment of path) {
-    if (!current || typeof current !== "object" || Array.isArray(current)) {
-      return undefined;
-    }
-    current = (current as Record<string, unknown>)[segment];
-  }
-  return current;
 }
 
 function toOptionalString(value: unknown): string | null {

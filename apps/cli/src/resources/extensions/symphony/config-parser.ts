@@ -188,7 +188,7 @@ function parseYamlObject(frontmatter: string): Record<string, unknown> {
   }
 }
 
-function readPath(root: Record<string, unknown>, path: string[]): unknown {
+export function readPath(root: Record<string, unknown>, path: string[]): unknown {
   let current: unknown = root;
   for (const segment of path) {
     if (!current || typeof current !== "object" || Array.isArray(current)) {
@@ -219,13 +219,18 @@ function coerceFieldValue(
   }
 
   if (definition.type === "boolean") {
+    if (value === undefined || value === null || value === "") {
+      return definition.required ? false : null;
+    }
+
     if (typeof value === "boolean") return value;
     if (typeof value === "string") {
       const lowered = value.trim().toLowerCase();
       if (lowered === "true") return true;
       if (lowered === "false") return false;
     }
-    return false;
+
+    return definition.required ? false : null;
   }
 
   if (definition.type === "enum") {
@@ -265,6 +270,20 @@ function normalizeFieldValueForWrite(field: ConfigField): unknown {
   }
 
   if (field.type === "boolean") {
+    if (field.value === null || field.value === undefined || field.value === "") {
+      return field.required ? false : undefined;
+    }
+
+    if (typeof field.value === "boolean") {
+      return field.value;
+    }
+
+    if (typeof field.value === "string") {
+      const lowered = field.value.trim().toLowerCase();
+      if (lowered === "true") return true;
+      if (lowered === "false") return false;
+    }
+
     return !!field.value;
   }
 

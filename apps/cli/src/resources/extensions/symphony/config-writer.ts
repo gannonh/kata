@@ -5,6 +5,7 @@ import {
   applyModelToConfig,
   extractWorkflowSegments,
   parseWorkflowConfig,
+  readPath,
 } from "./config-parser.js";
 
 export interface WorkflowWriteResult {
@@ -76,11 +77,12 @@ export function patchFrontmatterWithConfig(
 function patchYamlPath(lines: string[], path: string[], value: unknown): void {
   let rangeStart = 0;
   let rangeEnd = lines.length;
-  let parentIndent = -2;
+  let indentStep = detectDefaultIndentStep(lines);
+  let parentIndent = -indentStep;
 
   for (let index = 0; index < path.length - 1; index += 1) {
     const segment = path[index];
-    const indent = parentIndent + 2;
+    const indent = parentIndent + indentStep;
     let keyLine = findKeyLine(lines, rangeStart, rangeEnd, indent, segment);
 
     if (keyLine === -1) {
@@ -90,13 +92,17 @@ function patchYamlPath(lines: string[], path: string[], value: unknown): void {
     }
 
     const blockEnd = findBlockEnd(lines, keyLine, indent, rangeEnd);
+    const childIndentStep =
+      detectChildIndentStep(lines, keyLine, blockEnd, indent) ?? indentStep;
+
     rangeStart = keyLine + 1;
     rangeEnd = blockEnd;
     parentIndent = indent;
+    indentStep = childIndentStep;
   }
 
   const key = path[path.length - 1];
-  const indent = parentIndent + 2;
+  const indent = parentIndent + indentStep;
   const keyLine = findKeyLine(lines, rangeStart, rangeEnd, indent, key);
 
   if (value === undefined) {
@@ -107,7 +113,7 @@ function patchYamlPath(lines: string[], path: string[], value: unknown): void {
     return;
   }
 
-  let replacement = buildYamlBlock(key, indent, value);
+  let replacement = buildYamlBlock(key, indent, indentStep, value);
 
   if (keyLine >= 0) {
     const blockEnd = findBlockEnd(lines, keyLine, indent, rangeEnd);
@@ -124,11 +130,18 @@ function patchYamlPath(lines: string[], path: string[], value: unknown): void {
   lines.splice(rangeEnd, 0, ...replacement);
 }
 
-function buildYamlBlock(key: string, indent: number, value: unknown): string[] {
+function buildYamlBlock(
+  key: string,
+  indent: number,
+  indentStep: number,
+  value: unknown,
+): string[] {
   const keyPrefix = `${spaces(indent)}${key}:`;
 
   if (Array.isArray(value)) {
-    const items = value.map((entry) => `${spaces(indent + 2)}- ${serializeScalar(entry)}`);
+    const items = value.map(
+      (entry) => `${spaces(indent + indentStep)}- ${serializeScalar(entry)}`,
+    );
     return items.length > 0 ? [keyPrefix, ...items] : [`${keyPrefix} []`];
   }
 
@@ -149,6 +162,46 @@ function serializeScalar(value: unknown): string {
   }).trim();
 
   return serialized.includes("\n") ? JSON.stringify(String(value)) : serialized;
+}
+
+function detectDefaultIndentStep(lines: string[]): number {
+  let minIndent = Number.POSITIVE_INFINITY;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    const indent = line.match(/^\s*/)?.[0].length ?? 0;
+    if (indent > 0) {
+      minIndent = Math.min(minIndent, indent);
+    }
+  }
+
+  return Number.isFinite(minIndent) ? minIndent : 2;
+}
+
+function detectChildIndentStep(
+  lines: string[],
+  start: number,
+  end: number,
+  parentIndent: number,
+): number | null {
+  for (let index = start + 1; index < end; index += 1) {
+    const line = lines[index];
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    const indent = line.match(/^\s*/)?.[0].length ?? 0;
+    if (indent > parentIndent) {
+      return indent - parentIndent;
+    }
+
+    if (indent <= parentIndent) {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 function findKeyLine(
@@ -197,17 +250,6 @@ function spaces(length: number): string {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function readPath(root: Record<string, unknown>, path: string[]): unknown {
-  let current: unknown = root;
-  for (const segment of path) {
-    if (!current || typeof current !== "object" || Array.isArray(current)) {
-      return undefined;
-    }
-    current = (current as Record<string, unknown>)[segment];
-  }
-  return current;
 }
 
 function extractInlineComment(line: string): string | null {

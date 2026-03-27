@@ -142,11 +142,17 @@ export class ConfigEditor {
     }
 
     if (field.type === "boolean") {
-      const selected = await this.ui.select(this.renderFieldPrompt(field), [
-        "true",
-        "false",
-      ]);
+      const choices = field.required ? ["true", "false"] : ["(unset)", "true", "false"];
+      const selected = await this.ui.select(this.renderFieldPrompt(field), choices);
       if (!selected) return null;
+
+      if (selected === "(unset)") {
+        return {
+          ...field,
+          value: null,
+        };
+      }
+
       return {
         ...field,
         value: selected === "true",

@@ -63,6 +63,37 @@ describe("parseWorkflowConfig", () => {
     expect(secondPass.workflow.body).toEqual(firstPass.workflow.body);
   });
 
+  it("does not materialize optional booleans that were absent in source yaml", () => {
+    const fixture = [
+      "---",
+      "tracker:",
+      "  kind: linear",
+      "  api_key: $LINEAR_API_KEY",
+      "  project_slug: demo",
+      "workspace:",
+      "  root: /tmp/workspaces",
+      "  repo: /tmp/repo",
+      "agent:",
+      "  max_concurrent_agents: 3",
+      "kata_agent:",
+      "  command: kata",
+      "---",
+      "prompt body",
+    ].join("\n");
+
+    const model = parseWorkflowConfig(fixture);
+    const config = applyModelToConfig(model);
+
+    expect((config.workspace as Record<string, unknown>).cleanup_on_done).toBeUndefined();
+    expect((config.kata_agent as Record<string, unknown>).no_session).toBeUndefined();
+
+    setField(model, "kata_agent", "no_session", false);
+    const withExplicitFalse = applyModelToConfig(model);
+    expect((withExplicitFalse.kata_agent as Record<string, unknown>).no_session).toBe(
+      false,
+    );
+  });
+
   it("reports YAML parse errors with line numbers", () => {
     const invalid = `---\ntracker:\n  kind: linear\n  api_key: [unterminated\n---\nbody`;
 
@@ -304,6 +335,33 @@ describe("config-writer", () => {
     expect(updated).toContain("api_key: $LINEAR_API_KEY # keep me");
     expect(updated).toContain("max_concurrent_agents: 5");
     expect(updated).toContain("# Prompt body\nYou are an agent.");
+  });
+
+  it("updates nested keys in 4-space-indented yaml without duplicating fields", () => {
+    const fixture = [
+      "---",
+      "tracker:",
+      "    kind: linear",
+      "    api_key: $LINEAR_API_KEY",
+      "    project_slug: demo",
+      "workspace:",
+      "    root: /tmp/workspaces",
+      "    repo: /tmp/repo",
+      "    git_strategy: auto",
+      "agent:",
+      "    max_concurrent_agents: 3",
+      "    max_turns: 20",
+      "---",
+      "prompt body",
+    ].join("\n");
+
+    const model = parseWorkflowConfig(fixture);
+    setField(model, "agent", "max_turns", 25);
+
+    const updated = renderUpdatedWorkflowContent(fixture, model).content;
+
+    expect(updated).toContain("    max_turns: 25");
+    expect(updated.match(/max_turns:/g)?.length ?? 0).toBe(1);
   });
 });
 
