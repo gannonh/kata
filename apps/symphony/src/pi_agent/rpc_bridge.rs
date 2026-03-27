@@ -330,7 +330,25 @@ async fn handle_escalation_ui_request(
                 latency_ms,
             });
         }
-        Ok(Err(_)) | Err(_) => {
+        Ok(Err(_)) => {
+            if let Some(fallback) = default_ui_fallback_response(id, &method) {
+                let payload = serde_json::to_value(&fallback).map_err(|err| {
+                    SymphonyError::PiAgentError(format!(
+                        "failed to encode ui fallback response: {err}"
+                    ))
+                })?;
+                write_ui_response_value(&mut handle.stdin, payload).await?;
+            }
+
+            event_callback(AgentEvent::EscalationCancelled {
+                timestamp: Utc::now(),
+                issue_id: handle.issue_id.clone(),
+                issue_identifier: handle.issue_identifier.clone(),
+                request_id,
+                reason: "response_channel_closed".to_string(),
+            });
+        }
+        Err(_) => {
             if let Some(fallback) = default_ui_fallback_response(id, &method) {
                 let payload = serde_json::to_value(&fallback).map_err(|err| {
                     SymphonyError::PiAgentError(format!(

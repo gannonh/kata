@@ -107,6 +107,14 @@ fn extension_ui_response_helpers() {
     assert_eq!(merged["id"], "req-3");
     assert_eq!(merged["confirmed"], true);
     assert_eq!(merged["value"], "yes");
+
+    let reserved = ExtensionUIResponse::from_payload(
+        "req-4".to_string(),
+        json!({"type": "spoofed", "id": "spoofed", "confirmed": false}),
+    );
+    assert_eq!(reserved["type"], "extension_ui_response");
+    assert_eq!(reserved["id"], "req-4");
+    assert_eq!(reserved["confirmed"], false);
 }
 
 #[test]
@@ -452,6 +460,76 @@ async fn rpc_bridge_escalation_times_out_and_falls_back() {
             symphony::domain::AgentEvent::EscalationTimedOut { .. }
         )),
         "EscalationTimedOut should be emitted"
+    );
+
+    rpc_bridge::stop_session(handle)
+        .await
+        .expect("stop_session succeeds");
+}
+
+#[tokio::test]
+async fn rpc_bridge_escalation_channel_close_emits_cancelled() {
+    let scripts_dir = tempfile::tempdir().expect("scripts dir");
+    let root_dir = tempfile::tempdir().expect("root dir");
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("workspace");
+
+    let script_path = write_script(
+        scripts_dir.path(),
+        "fake-kata-escalation-channel-closed.sh",
+        SCRIPT_ESCALATION_RPC,
+    );
+    let config = PiAgentConfig {
+        command: vec![script_path.to_string_lossy().to_string()],
+        read_timeout_ms: 5_000,
+        stall_timeout_ms: 10_000,
+        ..PiAgentConfig::default()
+    };
+
+    let issue = make_test_issue();
+    let (escalation_tx, mut escalation_rx) = tokio::sync::mpsc::unbounded_channel();
+
+    let mut handle = rpc_bridge::start_session(
+        &config,
+        &issue,
+        &workspace,
+        root_dir.path(),
+        rpc_bridge::StartSessionOptions {
+            worker_host: None,
+            container_id: None,
+            escalation_tx,
+            escalation_timeout_ms: 5_000,
+        },
+    )
+    .await
+    .expect("start_session succeeds");
+
+    let mut events = Vec::new();
+    let turn_task = tokio::spawn(async move {
+        rpc_bridge::run_turn(&mut handle, "hello", |event| events.push(event))
+            .await
+            .map(|turn| (turn, events, handle))
+    });
+
+    let dispatch = escalation_rx
+        .recv()
+        .await
+        .expect("escalation dispatch should be emitted");
+    drop(dispatch.response_tx);
+
+    let (turn, events, handle) = turn_task
+        .await
+        .expect("join run_turn task")
+        .expect("run_turn should complete with fallback");
+
+    assert_eq!(turn.output_text.as_deref(), Some("resumed"));
+    assert!(
+        events.iter().any(|event| matches!(
+            event,
+            symphony::domain::AgentEvent::EscalationCancelled { reason, .. }
+                if reason == "response_channel_closed"
+        )),
+        "EscalationCancelled should be emitted when response channel closes"
     );
 
     rpc_bridge::stop_session(handle)

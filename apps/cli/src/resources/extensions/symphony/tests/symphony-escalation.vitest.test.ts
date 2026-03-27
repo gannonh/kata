@@ -152,8 +152,17 @@ describe("symphony escalation helpers", () => {
 
   it("queues multiple escalations and processes sequentially", async () => {
     const processingOrder: string[] = [];
-    showInterviewRoundMock.mockImplementation(async (questions: unknown[]) => {
-      processingOrder.push((questions[0] as { id: string }).id);
+    let releaseFirstInterview: (() => void) | null = null;
+    const firstInterviewDeferred = new Promise<void>((resolve) => {
+      releaseFirstInterview = resolve;
+    });
+
+    let interviewCalls = 0;
+    showInterviewRoundMock.mockImplementation(async () => {
+      interviewCalls += 1;
+      if (interviewCalls === 1) {
+        await firstInterviewDeferred;
+      }
       return {
         endInterview: false,
         answers: {
@@ -198,12 +207,147 @@ describe("symphony escalation helpers", () => {
     queue.enqueue(envelopeB);
 
     await vi.waitFor(() => {
-      expect(processingOrder).toContain("esc-a");
-      expect(processingOrder).toContain("esc-b");
+      expect(showInterviewRoundMock).toHaveBeenCalledTimes(1);
+    });
+    expect(processingOrder).toEqual([]);
+
+    releaseFirstInterview?.();
+
+    await vi.waitFor(() => {
+      expect(processingOrder).toEqual(["esc-a", "esc-b"]);
+      expect(showInterviewRoundMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("continues draining queue when one escalation fails", async () => {
+    let callCount = 0;
+    showInterviewRoundMock.mockImplementation(async () => {
+      callCount += 1;
+      if (callCount === 1) {
+        throw new Error("simulated failure");
+      }
+      return {
+        endInterview: false,
+        answers: {
+          response: {
+            selected: "Provide guidance",
+            notes: "recovered",
+          },
+        },
+      };
     });
 
-    const escAIndex = processingOrder.indexOf("esc-a");
-    const escBIndex = processingOrder.indexOf("esc-b");
-    expect(escAIndex).toBeLessThan(escBIndex);
+    const respondToEscalation = vi
+      .fn<SymphonyClient["respondToEscalation"]>()
+      .mockResolvedValue({ ok: true, status: 200 });
+
+    const client = makeClient({ respondToEscalation });
+    const ctx = makeCtx();
+    const queue = new EscalationQueue(client, ctx, "operator-1");
+
+    queue.enqueue({
+      version: "v1",
+      sequence: 1,
+      timestamp: new Date().toISOString(),
+      kind: "escalation_created",
+      severity: "info",
+      event: "escalation_created",
+      payload: makeEscalationEvent({ request_id: "esc-fail" }),
+    } as SymphonyEventEnvelope & { payload: EscalationEvent });
+
+    queue.enqueue({
+      version: "v1",
+      sequence: 2,
+      timestamp: new Date().toISOString(),
+      kind: "escalation_created",
+      severity: "info",
+      event: "escalation_created",
+      payload: makeEscalationEvent({ request_id: "esc-ok" }),
+    } as SymphonyEventEnvelope & { payload: EscalationEvent });
+
+    await vi.waitFor(() => {
+      expect(respondToEscalation).toHaveBeenCalledWith(
+        "esc-ok",
+        expect.any(Object),
+        "operator-1",
+      );
+    });
+
+    expect((ctx.ui.notify as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
+      "Escalation handling failed: simulated failure",
+      "error",
+    );
+  });
+
+  it("removes queued escalations by request id", async () => {
+    let releaseFirstInterview: (() => void) | null = null;
+    const firstInterviewDeferred = new Promise<void>((resolve) => {
+      releaseFirstInterview = resolve;
+    });
+
+    let callCount = 0;
+    showInterviewRoundMock.mockImplementation(async () => {
+      callCount += 1;
+      if (callCount === 1) {
+        await firstInterviewDeferred;
+      }
+      return {
+        endInterview: false,
+        answers: {
+          response: {
+            selected: "Provide guidance",
+            notes: "done",
+          },
+        },
+      };
+    });
+
+    const respondToEscalation = vi
+      .fn<SymphonyClient["respondToEscalation"]>()
+      .mockResolvedValue({ ok: true, status: 200 });
+    const client = makeClient({ respondToEscalation });
+    const ctx = makeCtx();
+    const queue = new EscalationQueue(client, ctx, "operator-1");
+
+    const envelopeA = {
+      version: "v1",
+      sequence: 1,
+      timestamp: new Date().toISOString(),
+      kind: "escalation_created",
+      severity: "info",
+      event: "escalation_created",
+      payload: makeEscalationEvent({ request_id: "esc-a" }),
+    } as SymphonyEventEnvelope & { payload: EscalationEvent };
+
+    const envelopeB = {
+      version: "v1",
+      sequence: 2,
+      timestamp: new Date().toISOString(),
+      kind: "escalation_created",
+      severity: "info",
+      event: "escalation_created",
+      payload: makeEscalationEvent({ request_id: "esc-b" }),
+    } as SymphonyEventEnvelope & { payload: EscalationEvent };
+
+    queue.enqueue(envelopeA);
+    queue.enqueue(envelopeB);
+
+    await vi.waitFor(() => {
+      expect(showInterviewRoundMock).toHaveBeenCalledTimes(1);
+    });
+
+    expect(queue.removeByRequestId("esc-b")).toBe(true);
+    expect(queue.removeByRequestId("esc-b")).toBe(false);
+
+    releaseFirstInterview?.();
+
+    await vi.waitFor(() => {
+      expect(respondToEscalation).toHaveBeenCalledTimes(1);
+      expect(respondToEscalation).toHaveBeenCalledWith(
+        "esc-a",
+        expect.any(Object),
+        "operator-1",
+      );
+    });
   });
 });

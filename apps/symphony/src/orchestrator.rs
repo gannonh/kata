@@ -1213,8 +1213,7 @@ impl EscalationRegistry {
                 .expect("escalation registry mutex poisoned");
 
             if let Some(entry) = state.pending.remove(request_id) {
-                state.resolved.insert(request_id.to_string());
-                Some(entry)
+                entry
             } else if state.resolved.contains(request_id) {
                 return EscalationResolveResult::AlreadyResolved;
             } else {
@@ -1222,11 +1221,12 @@ impl EscalationRegistry {
             }
         };
 
-        let Some(entry) = entry else {
-            return EscalationResolveResult::NotFound;
-        };
-
         if entry.response_tx.send(response).is_ok() {
+            let mut state = self
+                .state
+                .lock()
+                .expect("escalation registry mutex poisoned");
+            state.resolved.insert(request_id.to_string());
             EscalationResolveResult::Resolved
         } else {
             EscalationResolveResult::NotFound
@@ -2342,6 +2342,17 @@ impl Orchestrator {
         now_ms: i64,
     ) -> Option<String> {
         let Some(_existing_attempt) = self.state.running.get(issue_id).cloned() else {
+            let cancelled_requests = self.escalation_registry.cancel_for_issue(issue_id);
+            for request in cancelled_requests {
+                tracing::warn!(
+                    event = "escalation_cancelled",
+                    issue_id = %request.issue_id,
+                    request_id = %request.id,
+                    reason = "worker_already_released",
+                    "cleaned pending escalation for completed worker"
+                );
+            }
+
             if self.config.workspace.cleanup_on_done {
                 if let Some(pending) = self.pending_terminal_cleanup.remove(issue_id) {
                     self.cleanup_workspace(&pending.issue, &pending.workspace_path);

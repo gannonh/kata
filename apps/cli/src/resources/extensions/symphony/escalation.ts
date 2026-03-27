@@ -177,6 +177,19 @@ export class EscalationQueue {
     void this.process();
   }
 
+  removeByRequestId(requestId: string): boolean {
+    const index = this.queue.findIndex(
+      (entry) => entry.payload.request_id === requestId,
+    );
+
+    if (index < 0) {
+      return false;
+    }
+
+    this.queue.splice(index, 1);
+    return true;
+  }
+
   private async process(): Promise<void> {
     if (this.processing) return;
     this.processing = true;
@@ -185,7 +198,22 @@ export class EscalationQueue {
       while (this.queue.length > 0) {
         const current = this.queue.shift();
         if (!current) continue;
-        await handleEscalation(current.payload, this.client, this.ctx, this.responderId);
+
+        try {
+          await handleEscalation(
+            current.payload,
+            this.client,
+            this.ctx,
+            this.responderId,
+          );
+        } catch (error) {
+          this.ctx.ui.notify(
+            error instanceof Error
+              ? `Escalation handling failed: ${error.message}`
+              : "Escalation handling failed.",
+            "error",
+          );
+        }
       }
     } finally {
       this.processing = false;

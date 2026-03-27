@@ -35,8 +35,16 @@ export default function (pi: ExtensionAPI): void {
           }
 
           if (event.event === "escalation_timed_out") {
+            const requestId = extractRequestId(event.payload);
+            if (requestId) {
+              queue.removeByRequestId(requestId);
+            }
             ctx.ui.notify("Escalation timed out — worker continued without answer.", "warning");
           } else if (event.event === "escalation_cancelled") {
+            const requestId = extractRequestId(event.payload);
+            if (requestId) {
+              queue.removeByRequestId(requestId);
+            }
             ctx.ui.notify("Escalation cancelled.", "warning");
           }
         }
@@ -51,4 +59,15 @@ export default function (pi: ExtensionAPI): void {
     abortController?.abort();
     abortController = null;
   });
+}
+
+function extractRequestId(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const requestId = (payload as Record<string, unknown>).request_id;
+  return typeof requestId === "string" && requestId.length > 0
+    ? requestId
+    : null;
 }

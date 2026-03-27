@@ -3938,6 +3938,55 @@ async fn test_escalation_registry_resolve_round_trip() {
 }
 
 #[tokio::test]
+async fn test_escalation_registry_resolve_not_found_when_receiver_dropped() {
+    let registry = EscalationRegistry::default();
+    let (tx, rx) = tokio::sync::oneshot::channel::<EscalationResponse>();
+    let request = escalation_request("esc-dropped", "issue-dropped");
+
+    registry.register(request.clone(), tx);
+    drop(rx);
+
+    let response = EscalationResponse {
+        request_id: request.id.clone(),
+        response: json!({"confirmed": true}),
+        responder_id: Some("operator-1".to_string()),
+        responded_at: Utc::now(),
+    };
+
+    let first = registry.resolve(&request.id, response.clone());
+    assert!(matches!(first, EscalationResolveResult::NotFound));
+
+    let second = registry.resolve(&request.id, response);
+    assert!(matches!(second, EscalationResolveResult::NotFound));
+}
+
+#[tokio::test]
+async fn test_handle_worker_completion_cleans_pending_escalations_for_released_issue() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let registry = orchestrator.escalation_registry();
+
+    let request = escalation_request("esc-released", "issue-released");
+    let (tx, rx) = tokio::sync::oneshot::channel::<EscalationResponse>();
+    registry.register(request, tx);
+    assert_eq!(registry.pending_snapshot().len(), 1);
+
+    let result = orchestrator.handle_worker_completion(
+        "issue-released",
+        WorkerCompletion::Completed {
+            schedule_continuation: false,
+        },
+        Utc::now().timestamp_millis(),
+    );
+
+    assert!(result.is_none());
+    assert!(registry.pending_snapshot().is_empty());
+    assert!(
+        rx.await.is_err(),
+        "cleanup should drop pending escalation sender"
+    );
+}
+
+#[tokio::test]
 async fn test_escalation_registry_cancel_for_issue_cleans_up() {
     let registry = EscalationRegistry::default();
 

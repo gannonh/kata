@@ -143,8 +143,42 @@ export class SymphonyHttpClient implements SymphonyClient {
       );
     }
 
-    const payload = (await response.json()) as { pending?: SymphonyPendingEscalation[] };
-    return Array.isArray(payload.pending) ? payload.pending : [];
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new SymphonyError("Failed to decode Symphony escalations response.", {
+        code: "decode_error",
+        endpoint,
+        origin: connection.origin,
+        reason: "invalid_json",
+      });
+    }
+
+    if (!isRecord(payload)) {
+      throw new SymphonyError("Failed to decode Symphony escalations response.", {
+        code: "decode_error",
+        endpoint,
+        origin: connection.origin,
+        reason: "invalid_root",
+      });
+    }
+
+    const pending = payload.pending;
+    if (pending === undefined) {
+      return [];
+    }
+
+    if (!Array.isArray(pending)) {
+      throw new SymphonyError("Failed to decode Symphony escalations response.", {
+        code: "decode_error",
+        endpoint,
+        origin: connection.origin,
+        reason: "invalid_shape",
+      });
+    }
+
+    return pending as SymphonyPendingEscalation[];
   }
 
   async respondToEscalation(

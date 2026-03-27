@@ -618,8 +618,8 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
         let session_id = metrics.and_then(|m| m.session_id.as_deref());
         let current_tool_name = metrics.and_then(|m| m.current_tool_name.as_deref());
         let current_tool_args = metrics.and_then(|m| m.current_tool_args_preview.as_deref());
-        let stale = is_stale_session(last_activity, now);
         let escalation = pending_by_issue.get(issue_id.as_str()).copied();
+        let stale = escalation.is_none() && is_stale_session(last_activity, now);
         let state = if escalation.is_some() {
             format!(
                 "⚠ {}",
@@ -648,8 +648,14 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
             format_activity_message(current_tool_name, current_tool_args, last_event_message)
         };
 
+        let status_last_activity = if escalation.is_some() {
+            Some(now)
+        } else {
+            last_activity
+        };
+
         let mut row = Row::new(vec![
-            Cell::from(status_dot(last_event, last_activity, now)),
+            Cell::from(status_dot(last_event, status_last_activity, now)),
             Cell::from(run.issue_identifier.clone()),
             Cell::from(compact_session_id(session_id)),
             Cell::from(state),
