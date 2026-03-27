@@ -1,4 +1,8 @@
 {{preamble}}
+<!-- NOTE: This prompt contains file-mode references (.kata/milestones/, .kata/STATE.md, etc.)
+     that are not yet ported to Linear mode. The /kata queue entrypoint is blocked in Linear mode
+     via the entrypoint guard. This prompt only fires in file-mode, which has been removed.
+     TODO: Port queue prompt to Linear when /kata queue gets Linear support. -->
 
 Say exactly: "What do you want to add?" — nothing else. Wait for the user's answer.
 
