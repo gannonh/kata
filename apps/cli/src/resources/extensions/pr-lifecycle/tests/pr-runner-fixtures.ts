@@ -28,12 +28,12 @@ export const PLAN_CONTENT = `# S01: Test Slice
 
 /** Minimal SUMMARY content that satisfies `parseSummary()` expectations. */
 export const SUMMARY_CONTENT = `---
-one_liner: Test summary
+id: S01
 ---
 
 # S01 Summary
 
-Test summary content.
+**Test summary content.**
 `;
 
 // ─── Command transcript types ─────────────────────────────────────────────────
@@ -55,7 +55,7 @@ export interface MockRuntimeOptions {
    * Scripted command responses. Each entry maps a command prefix to a
    * response string (stdout) or an Error to throw.
    *
-   * Commands are matched by `command.startsWith(entry.command)`.
+   * Commands are matched by `command.includes(entry.match)` (substring match).
    * First match wins.
    */
   commands?: Array<{
