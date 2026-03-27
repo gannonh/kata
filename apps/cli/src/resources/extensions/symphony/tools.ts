@@ -4,7 +4,9 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { SymphonyClient } from "./client.js";
 import {
   isSymphonyError,
+  SymphonyError,
   type SymphonyCapabilityDetails,
+  type SymphonyConfigOrigin,
   type SymphonyConnectionDetails,
   type SymphonyToolCapabilities,
   type SymphonyToolDetails,
@@ -29,14 +31,16 @@ function buildCapabilities(): SymphonyToolCapabilities {
   return {
     status: capabilityAvailable(),
     watch: capabilityAvailable(),
-    logs: capabilityUnavailable("logs endpoint not available in this Symphony slice"),
+    logs: capabilityUnavailable(
+      "logs endpoint is not available yet in Symphony server",
+    ),
     steer: capabilityUnavailable(
-      "steer endpoint not available in this Symphony slice",
+      "steer endpoint is not available yet in Symphony server",
     ),
   };
 }
 
-function buildConnection(client: SymphonyClient): SymphonyConnectionDetails {
+function getConnectionFromClient(client: SymphonyClient): SymphonyConnectionDetails {
   const config = client.getConnectionConfig();
   return {
     url: config.url,
@@ -46,10 +50,62 @@ function buildConnection(client: SymphonyClient): SymphonyConnectionDetails {
   };
 }
 
-function makeToolDetails(client: SymphonyClient): SymphonyToolDetails {
+function getFallbackConnection(
+  error?: unknown,
+): SymphonyConnectionDetails {
+  const symphonyError = isSymphonyError(error) ? error : null;
+
+  const origin =
+    (symphonyError?.context.origin as SymphonyConfigOrigin | undefined) ??
+    "preferences";
+
   return {
-    connection: buildConnection(client),
+    url: symphonyError?.context.endpoint ?? "",
+    origin,
+    connected: false,
+    ...(symphonyError?.context.endpoint
+      ? { endpoint: symphonyError.context.endpoint }
+      : {}),
+  };
+}
+
+function makeToolDetails(
+  client: SymphonyClient,
+  options: {
+    error?: unknown;
+    connected?: boolean;
+  } = {},
+): SymphonyToolDetails {
+  let baseConnection: SymphonyConnectionDetails;
+
+  if (options.error) {
+    baseConnection = getFallbackConnection(options.error);
+  } else {
+    try {
+      baseConnection = getConnectionFromClient(client);
+    } catch (error) {
+      baseConnection = getFallbackConnection(error);
+    }
+  }
+
+  return {
+    connection: {
+      ...baseConnection,
+      connected: options.connected ?? baseConnection.connected,
+    },
     capabilities: buildCapabilities(),
+  };
+}
+
+function capabilityUnavailablePayload(
+  capability: "logs" | "steer",
+  message: string,
+) {
+  return {
+    ok: false,
+    code: "capability_unavailable",
+    capability,
+    message,
   };
 }
 
@@ -58,22 +114,37 @@ export function registerSymphonyTools(pi: ExtensionAPI, client: SymphonyClient):
     name: "symphony_status",
     label: "Symphony Status",
     description:
-      "Fetch current Symphony worker/queue state from /api/v1/state.",
+      "Fetch live Symphony worker/queue state from /api/v1/state.",
     parameters: Type.Object({}, { additionalProperties: false }),
     async execute() {
       try {
         const state = await client.getState();
+        const runningWorkers = Object.keys(state.running ?? {}).length;
+        const retryQueue = state.retry_queue?.length ?? 0;
+        const completed = state.completed?.length ?? 0;
+
         return {
           content: [
             {
               type: "text" as const,
-              text: JSON.stringify(state, null, 2),
+              text: JSON.stringify(
+                {
+                  ok: true,
+                  summary: {
+                    runningWorkers,
+                    retryQueue,
+                    completed,
+                  },
+                  state,
+                },
+                null,
+                2,
+              ),
             },
           ],
           details: makeToolDetails(client),
         };
       } catch (error) {
-        const details = makeToolDetails(client);
         if (isSymphonyError(error)) {
           return {
             content: [
@@ -82,20 +153,27 @@ export function registerSymphonyTools(pi: ExtensionAPI, client: SymphonyClient):
                 text: `${error.code}: ${error.message}`,
               },
             ],
-            details,
+            details: makeToolDetails(client, { error, connected: false }),
             isError: true,
           };
         }
 
-        const message = error instanceof Error ? error.message : String(error);
+        const fallback = new SymphonyError(
+          error instanceof Error ? error.message : String(error),
+          {
+            code: "connection_failed",
+            reason: "status_execution_failed",
+          },
+        );
+
         return {
           content: [
             {
               type: "text" as const,
-              text: `connection_failed: ${message}`,
+              text: `${fallback.code}: ${fallback.message}`,
             },
           ],
-          details,
+          details: makeToolDetails(client, { error: fallback, connected: false }),
           isError: true,
         };
       }
@@ -109,24 +187,36 @@ export function registerSymphonyTools(pi: ExtensionAPI, client: SymphonyClient):
     name: "symphony_watch",
     label: "Symphony Watch",
     description:
-      "Watch issue-scoped Symphony events from /api/v1/events.",
-    parameters: Type.Object({
-      issue: Type.String({ description: "Issue identifier, e.g. KAT-920" }),
-      maxEvents: Type.Optional(
-        Type.Number({ description: "Maximum events to collect (default 20)" }),
-      ),
-      timeoutMs: Type.Optional(
-        Type.Number({ description: "Watch timeout in milliseconds (default 20000)" }),
-      ),
-    }),
+      "Watch issue-scoped Symphony event stream from /api/v1/events.",
+    parameters: Type.Object(
+      {
+        issue: Type.String({ description: "Issue identifier, e.g. KAT-920" }),
+        maxEvents: Type.Optional(
+          Type.Number({ description: "Maximum events to capture (default 25)" }),
+        ),
+        timeoutMs: Type.Optional(
+          Type.Number({ description: "Watch timeout in milliseconds (default 30000)" }),
+        ),
+      },
+      { additionalProperties: false },
+    ),
     async execute(_toolCallId, params) {
       try {
+        const maxEvents =
+          typeof params.maxEvents === "number" && params.maxEvents > 0
+            ? params.maxEvents
+            : 25;
+        const timeoutMs =
+          typeof params.timeoutMs === "number" && params.timeoutMs > 0
+            ? params.timeoutMs
+            : 30_000;
+
         const events: unknown[] = [];
         const iterator = client.watchEvents(
           { issue: params.issue },
           {
-            maxEvents: params.maxEvents,
-            timeoutMs: params.timeoutMs,
+            maxEvents,
+            timeoutMs,
           },
         );
 
@@ -140,8 +230,11 @@ export function registerSymphonyTools(pi: ExtensionAPI, client: SymphonyClient):
               type: "text" as const,
               text: JSON.stringify(
                 {
+                  ok: true,
                   issue: params.issue,
                   received: events.length,
+                  timeoutMs,
+                  maxEvents,
                   events,
                 },
                 null,
@@ -152,7 +245,6 @@ export function registerSymphonyTools(pi: ExtensionAPI, client: SymphonyClient):
           details: makeToolDetails(client),
         };
       } catch (error) {
-        const details = makeToolDetails(client);
         if (isSymphonyError(error)) {
           return {
             content: [
@@ -161,20 +253,27 @@ export function registerSymphonyTools(pi: ExtensionAPI, client: SymphonyClient):
                 text: `${error.code}: ${error.message}`,
               },
             ],
-            details,
+            details: makeToolDetails(client, { error, connected: false }),
             isError: true,
           };
         }
 
-        const message = error instanceof Error ? error.message : String(error);
+        const fallback = new SymphonyError(
+          error instanceof Error ? error.message : String(error),
+          {
+            code: "stream_closed",
+            reason: "watch_execution_failed",
+          },
+        );
+
         return {
           content: [
             {
               type: "text" as const,
-              text: `stream_closed: ${message}`,
+              text: `${fallback.code}: ${fallback.message}`,
             },
           ],
-          details,
+          details: makeToolDetails(client, { error: fallback, connected: false }),
           isError: true,
         };
       }
@@ -194,21 +293,34 @@ export function registerSymphonyTools(pi: ExtensionAPI, client: SymphonyClient):
     name: "symphony_logs",
     label: "Symphony Logs",
     description:
-      "Reserved tool surface for Symphony log retrieval. Returns deterministic capability status until endpoint is available.",
-    parameters: Type.Object({
-      issue: Type.Optional(
-        Type.String({ description: "Issue identifier to scope logs" }),
-      ),
-    }),
+      "Capability-safe placeholder for future Symphony log retrieval endpoint.",
+    parameters: Type.Object(
+      {
+        issue: Type.Optional(
+          Type.String({ description: "Issue identifier to scope log retrieval" }),
+        ),
+        limit: Type.Optional(
+          Type.Number({ description: "Optional line limit for future endpoint" }),
+        ),
+      },
+      { additionalProperties: false },
+    ),
     async execute() {
       return {
         content: [
           {
             type: "text" as const,
-            text: "capability_unavailable: Symphony logs endpoint is not available yet.",
+            text: JSON.stringify(
+              capabilityUnavailablePayload(
+                "logs",
+                "Symphony log retrieval endpoint is unavailable in this server version.",
+              ),
+              null,
+              2,
+            ),
           },
         ],
-        details: makeToolDetails(client),
+        details: makeToolDetails(client, { connected: false }),
       };
     },
     renderCall(_args, theme) {
@@ -220,20 +332,30 @@ export function registerSymphonyTools(pi: ExtensionAPI, client: SymphonyClient):
     name: "symphony_steer",
     label: "Symphony Steer",
     description:
-      "Reserved tool surface for Symphony steering commands. Returns deterministic capability status until endpoint is available.",
-    parameters: Type.Object({
-      issue: Type.String({ description: "Issue identifier to steer" }),
-      instruction: Type.String({ description: "Steering instruction" }),
-    }),
+      "Capability-safe placeholder for future Symphony steering endpoint.",
+    parameters: Type.Object(
+      {
+        issue: Type.String({ description: "Issue identifier to steer" }),
+        instruction: Type.String({ description: "Steering instruction payload" }),
+      },
+      { additionalProperties: false },
+    ),
     async execute() {
       return {
         content: [
           {
             type: "text" as const,
-            text: "capability_unavailable: Symphony steer endpoint is not available yet.",
+            text: JSON.stringify(
+              capabilityUnavailablePayload(
+                "steer",
+                "Symphony steer endpoint is unavailable in this server version.",
+              ),
+              null,
+              2,
+            ),
           },
         ],
-        details: makeToolDetails(client),
+        details: makeToolDetails(client, { connected: false }),
       };
     },
     renderCall(args, theme) {
