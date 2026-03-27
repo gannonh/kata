@@ -52,9 +52,10 @@ class MockWebSocket implements SymphonyWebSocketLike {
 
 function makeClient(options: {
   fetchImpl?: typeof fetch;
+  connectionUrl?: string;
 } = {}): SymphonyHttpClient {
   const config: SymphonyConnectionConfig = {
-    url: "http://localhost:8080",
+    url: options.connectionUrl ?? "http://localhost:8080",
     origin: "preferences",
   };
 
@@ -178,6 +179,21 @@ describe("SymphonyHttpClient", () => {
     expect(MockWebSocket.openedUrls[0]).toContain("issue=KAT-920");
     expect(MockWebSocket.openedUrls[0]).toContain("type=worker%2Ctool");
     expect(MockWebSocket.openedUrls[0]).toContain("severity=warn%2Cerror");
+  });
+
+  it("preserves base-path prefixes when composing events URLs", async () => {
+    MockWebSocket.openedUrls = [];
+    MockWebSocket.scripts = [
+      (socket) => {
+        socket.emitOpen();
+        socket.emitClose(1000, "done", true);
+      },
+    ];
+
+    const client = makeClient({ connectionUrl: "http://localhost:8080/symphony" });
+    await collectEvents(client.watchEvents({ issue: "KAT-920" }, { timeoutMs: 2_000 }));
+
+    expect(MockWebSocket.openedUrls[0]).toContain("/symphony/api/v1/events");
   });
 
   it("reconnects on retryable close codes", async () => {

@@ -329,7 +329,7 @@ export function buildSymphonyEventsUrl(
   connection: SymphonyConnectionConfig,
   filter: SymphonyEventFilter,
 ): string {
-  const base = new URL("/api/v1/events", ensureTrailingSlash(connection.url));
+  const base = new URL("api/v1/events", ensureTrailingSlash(connection.url));
 
   const issue = toQueryValue(filter.issue, (value) => value.toUpperCase());
   const type = toQueryValue(filter.type);
