@@ -25,7 +25,7 @@ CI workflow: `cli-release.yml`
 
 3. **Bump version** in `apps/cli/package.json` only
 
-4. **Update `apps/cli/CHANGELOG.md`** and `apps/cli/README.md` with the new version's changes
+4. **Update `apps/cli/CHANGELOG.md`** and `apps/cli/README.md` and `apps/cli/AGENTS.md` with the new version's changes
 
 5. **Update essential documentation:**
    1. Preferences Reference: `apps/cli/src/resources/extensions/kata/docs/preferences-reference.md` - Documents every preference field, its type, default, and behavior. Update when adding, removing, or renaming a preference field, changing a field's type or default, or changing how a preference affects runtime behavior.
@@ -36,7 +36,7 @@ CI workflow: `cli-release.yml`
 
    ```bash
    git checkout -b release/cli-vX.Y.Z
-   git add apps/cli/package.json apps/cli/CHANGELOG.md
+   git add apps/cli/package.json apps/cli/CHANGELOG.md apps/cli/README.md apps/cli/AGENTS.md
    git commit -m "chore(release): bump cli to X.Y.Z"
    git push -u origin release/cli-vX.Y.Z
    gh pr create --title "CLI vX.Y.Z" --body "CLI release vX.Y.Z"
