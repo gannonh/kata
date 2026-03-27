@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.9.0
+
+### Breaking Changes
+
+- **File mode removed** — `workflow.mode: "file"` is no longer supported. Setting it produces a clear error directing users to switch to `"linear"`. The `FileBackend`, file-based state derivation, auto-transitions, doctor, auto-recovery, observability-validator, and workspace-index modules have all been deleted (~15K lines removed).
+- **`/kata doctor` removed** — the doctor command and all related diagnostics (`doctor-environment.ts`, `doctor-providers.ts`) have been removed along with file-mode.
+
+### Features
+
+- **Enriched `/kata plan` command** — The plan picker now presents state-dependent options across 5 states: (A) no milestones, (B) active milestone without roadmap, (C) active milestone with pending slices, (D) all slices complete, (E) all milestones complete. New planning operations: add a slice to an existing roadmap, resequence slices, revise the full roadmap, and freeform planning discussion.
+- **4 new prompt templates** — `guided-add-slice.md`, `guided-resequence-slices.md`, `guided-revise-roadmap.md`, `guided-discuss-planning.md` with Linear-only enforcement and state promotion guards.
+- **Plan mode does not promote issue state** — All guided plan prompts now include explicit "Do NOT call `kata_update_issue_state`" instructions. Auto-mode plan prompts retain state advancement.
+- **Vitest test infrastructure** — Vitest added as the target test runner for new tests (`*.vitest.test.ts` pattern). Dual-runner coexistence with bun via `--path-ignore-patterns`. v8 coverage provider configured with `all: false` for accurate reporting.
+- **Testing policy** — Established in `AGENTS.md`: new tests must use Vitest; existing bun tests migrate when their source files are touched.
+- **Task plans in issue descriptions** — Slice and task plans now live in Linear issue descriptions instead of separate LinearDocuments. Task summaries are posted as issue comments via `linear_add_comment`.
+
+### Fixes
+
+- **Stale file-mode references cleaned** — Removed `.kata/DECISIONS.md`, `.kata/REQUIREMENTS.md`, `.kata/STATE.md`, and `.kata/milestones/` references from 8 prompt templates. Replaced with `kata_read_document`/`kata_write_document` Linear API calls.
+- **Stale JSDoc comments** — Removed `FileBackend` references from `backend.ts`, `phase-recipes.ts`, and `git-utils.ts`.
+- **`guided-discuss-milestone.md` ported to Linear** — Was still instructing the agent to "write in the milestone directory". Now uses `kata_write_document`.
+- **Queue prompt deprecation noted** — `queue.md` is entirely file-mode-only and the entrypoint is blocked in Linear mode. Added deprecation comment for future Linear port.
+
+### Tests
+
+- **`auto-dispatch.vitest.test.ts`** — 39 tests for `deriveUnitType`, `deriveUnitId`, and `peekNext` decision logic extracted from `auto.ts`.
+- **`prompt-templates.vitest.test.ts`** — 15 tests covering template loading, variable substitution, state promotion guards, and Linear-mode compliance for all guided plan prompts.
+- **`show-plan.vitest.test.ts`** — 6 tests verifying `showPlan()` presents correct options for all 5 states plus the blocked state.
+
+### Docs
+
+- **KATA-WORKFLOW.md consolidated to Linear-only** — Reduced from ~895 to ~550 lines. All file-mode conditional blocks, `STATE.md` references, and continue-here protocol removed.
+
+### Dependencies
+
+- **pi-coding-agent** `0.62.0` → `0.63.1` — multi-edit support in edit tool, compaction fixes, auth resolution improvements, sessionDir settings support. No breaking changes for Kata extensions.
+
 ## 0.8.0
 
 ### Features

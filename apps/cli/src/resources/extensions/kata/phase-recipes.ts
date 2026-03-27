@@ -1,9 +1,8 @@
 /**
  * Phase Recipes — the shared declaration of WHAT each workflow phase reads and writes.
  *
- * This is the single source of truth that both FileBackend and LinearBackend
- * renderers consume. Tests enforce that both implementations match the recipes
- * declared here.
+ * This is the single source of truth that LinearBackend renderers consume.
+ * Tests enforce that the implementation matches the recipes declared here.
  *
  * A recipe is a data structure, not an abstraction layer. It declares:
  * - Required document reads (fail if missing)

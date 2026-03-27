@@ -1,5 +1,5 @@
 /**
- * Shared git utilities used by both FileBackend and LinearBackend.
+ * Shared git utilities for the Kata workflow.
  */
 
 import { execSync } from "node:child_process";

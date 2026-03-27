@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kata Skill System — Discovery, Preferences &amp; Injection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'Fira Code', 'SF Mono', Consolas, monospace;
+
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --surface2: #eef0f4;
+  --surface-elevated: #ffffff;
+  --border: rgba(0, 0, 0, 0.07);
+  --border-bright: rgba(0, 0, 0, 0.14);
+  --text: #1a1d26;
+  --text-dim: #6b7280;
+
+  --pi: #0369a1;
+  --pi-dim: rgba(3, 105, 161, 0.06);
+  --kata: #b45309;
+  --kata-dim: rgba(180, 83, 9, 0.06);
+  --discover: #059669;
+  --discover-dim: rgba(5, 150, 105, 0.06);
+  --pref: #7e22ce;
+  --pref-dim: rgba(126, 34, 206, 0.06);
+  --inject: #be123c;
+  --inject-dim: rgba(190, 18, 60, 0.06);
+  --file: #475569;
+  --file-dim: rgba(71, 85, 105, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12141a;
+    --surface: #1a1d26;
+    --surface2: #22262f;
+    --surface-elevated: #262a35;
+    --border: rgba(255, 255, 255, 0.06);
+    --border-bright: rgba(255, 255, 255, 0.12);
+    --text: #e2e4e9;
+    --text-dim: #8b8f9a;
+
+    --pi: #38bdf8;
+    --pi-dim: rgba(56, 189, 248, 0.08);
+    --kata: #fbbf24;
+    --kata-dim: rgba(251, 191, 36, 0.08);
+    --discover: #34d399;
+    --discover-dim: rgba(52, 211, 153, 0.08);
+    --pref: #c084fc;
+    --pref-dim: rgba(192, 132, 252, 0.08);
+    --inject: #fda4af;
+    --inject-dim: rgba(253, 164, 175, 0.08);
+    --file: #94a3b8;
+    --file-dim: rgba(148, 163, 184, 0.08);
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  padding: 40px;
+  background-image:
+    radial-gradient(at 15% 10%, var(--pi-dim) 0%, transparent 50%),
+    radial-gradient(at 85% 70%, var(--kata-dim) 0%, transparent 50%);
+}
+
+.wrap {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 0 40px;
+}
+.main { min-width: 0; }
+
+.toc {
+  position: sticky; top: 24px; align-self: start;
+  padding: 14px 0; grid-row: 1 / -1;
+  max-height: calc(100dvh - 48px); overflow-y: auto;
+}
+.toc::-webkit-scrollbar { width: 3px; }
+.toc::-webkit-scrollbar-thumb { background: var(--surface-elevated); border-radius: 2px; }
+.toc-title {
+  font-family: var(--font-mono);
+  font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 2px;
+  color: var(--text-dim);
+  padding: 0 0 10px; margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.toc a {
+  display: block; font-size: 11px; color: var(--text-dim);
+  text-decoration: none; padding: 4px 8px; border-radius: 5px;
+  border-left: 2px solid transparent; transition: all 0.15s;
+  line-height: 1.4; margin-bottom: 1px;
+}
+.toc a:hover { color: var(--text); background: var(--surface2); }
+.toc a.active { color: var(--text); border-left-color: var(--pi); }
+
+@media (max-width: 1000px) {
+  .wrap { grid-template-columns: 1fr; }
+  body { padding: 20px; }
+  .toc {
+    position: sticky; top: 0; z-index: 200;
+    max-height: none; display: flex; gap: 4px; align-items: center;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    padding: 10px 0; margin: 0 -20px; padding-left: 20px; padding-right: 20px;
+    grid-row: auto;
+  }
+  .toc::-webkit-scrollbar { display: none; }
+  .toc-title { display: none; }
+  .toc a {
+    white-space: nowrap; flex-shrink: 0;
+    border-left: none; border-bottom: 2px solid transparent;
+    border-radius: 4px 4px 0 0; padding: 6px 10px; font-size: 10px;
+  }
+  .toc a.active { border-left: none; border-bottom-color: var(--pi); background: var(--surface); }
+  .main { padding-top: 20px; }
+  .sec-head { scroll-margin-top: 52px; }
+}
+
+h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 8px; }
+.subtitle { color: var(--text-dim); font-size: 15px; margin-bottom: 40px; }
+
+.sec-head {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  padding: 8px 12px; border-radius: 6px;
+  margin: 48px 0 20px;
+  display: flex; align-items: center; gap: 8px;
+}
+.sec-head::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.sec-head--pi { color: var(--pi); background: var(--pi-dim); }
+.sec-head--kata { color: var(--kata); background: var(--kata-dim); }
+.sec-head--pref { color: var(--pref); background: var(--pref-dim); }
+.sec-head--discover { color: var(--discover); background: var(--discover-dim); }
+.sec-head--inject { color: var(--inject); background: var(--inject-dim); }
+
+h3 { font-size: 17px; font-weight: 600; margin: 20px 0 10px; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px 22px; margin-bottom: 12px;
+  animation: fadeUp 0.4s ease-out both;
+}
+.card--hero {
+  background: color-mix(in srgb, var(--surface) 93%, var(--pi) 7%);
+  border-color: color-mix(in srgb, var(--border) 50%, var(--pi) 50%);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+}
+.card--recessed {
+  background: color-mix(in srgb, var(--bg) 70%, var(--surface) 30%);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.03);
+}
+.card--pi { border-left: 3px solid var(--pi); }
+.card--kata { border-left: 3px solid var(--kata); }
+.card--pref { border-left: 3px solid var(--pref); }
+.card--discover { border-left: 3px solid var(--discover); }
+.card--inject { border-left: 3px solid var(--inject); }
+
+.card__label {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1.2px;
+  margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+}
+.card__label::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+.flow-arrow { display: flex; justify-content: center; padding: 4px 0; }
+.flow-arrow svg { display: block; }
+
+code {
+  font-family: var(--font-mono); font-size: 12px;
+  background: var(--surface2); padding: 1px 5px; border-radius: 3px;
+}
+
+.dir-tree {
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.7;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 18px; white-space: pre;
+  overflow-x: auto; margin: 12px 0;
+}
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0; }
+th {
+  font-family: var(--font-mono); font-size: 10px;
+  text-transform: uppercase; letter-spacing: 1px;
+  text-align: left; padding: 8px 12px;
+  border-bottom: 2px solid var(--border-bright); color: var(--text-dim);
+}
+td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+tr:hover td { background: var(--surface2); }
+
+.tag {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-family: var(--font-mono); font-size: 10px;
+  padding: 2px 7px; border-radius: 4px;
+}
+.tag--pi { background: var(--pi-dim); color: var(--pi); border: 1px solid color-mix(in srgb, var(--pi) 20%, transparent); }
+.tag--kata { background: var(--kata-dim); color: var(--kata); border: 1px solid color-mix(in srgb, var(--kata) 20%, transparent); }
+.tag--pref { background: var(--pref-dim); color: var(--pref); border: 1px solid color-mix(in srgb, var(--pref) 20%, transparent); }
+.tag--discover { background: var(--discover-dim); color: var(--discover); border: 1px solid color-mix(in srgb, var(--discover) 20%, transparent); }
+
+.callout {
+  background: var(--surface2); border-left: 3px solid var(--text-dim);
+  border-radius: 0 6px 6px 0; padding: 12px 16px; margin: 12px 0;
+  font-size: 13px;
+}
+
+p { margin-bottom: 10px; font-size: 14px; }
+ul { margin: 8px 0; padding-left: 20px; font-size: 13px; }
+li { margin-bottom: 4px; }
+.dim { color: var(--text-dim); }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) { .card { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="toc" id="toc">
+  <div class="toc-title">Skills</div>
+  <a href="#overview">Overview</a>
+  <a href="#sources">Skill Sources</a>
+  <a href="#discovery">Pi Discovery</a>
+  <a href="#bundled">Kata Bundled Skills</a>
+  <a href="#preferences">Kata Preferences</a>
+  <a href="#auto-discovery">Auto-mode Discovery</a>
+  <a href="#prompt">System Prompt Assembly</a>
+  <a href="#runtime">Runtime Behavior</a>
+</nav>
+
+<div class="main">
+<h1>Kata Skill System</h1>
+<p class="subtitle">Three layers of skill management — pi framework discovery, Kata preference policy, and auto-mode hot discovery — all converging in the system prompt</p>
+
+<!-- ═══ OVERVIEW ═══ -->
+<div id="overview" class="sec-head sec-head--pi">Overview — Three Mechanisms</div>
+
+<div class="card card--hero">
+  <div class="card__label" style="color: var(--pi)">The big picture</div>
+  <p>Skills are <code>SKILL.md</code> files with YAML frontmatter (name + description) and markdown instructions. They are <strong>never loaded into context automatically</strong> — only their names, descriptions, and file paths are listed in the system prompt. The agent uses <code>read</code> to load a skill's content on demand when the task matches.</p>
+
+  <table>
+    <thead><tr><th>Mechanism</th><th>Owner</th><th>What it does</th><th>When it fires</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong><code>&lt;available_skills&gt;</code></strong></td>
+        <td><span class="tag tag--pi">pi framework</span></td>
+        <td>Discovers all skills from disk, injects name + description + path into system prompt</td>
+        <td>Every session, at system prompt build time</td>
+      </tr>
+      <tr>
+        <td><strong>Kata Skill Preferences</strong></td>
+        <td><span class="tag tag--kata">Kata extension</span></td>
+        <td>Adds policy layer: "always use X, prefer Y, avoid Z" with resolved paths</td>
+        <td>Every session, in <code>before_agent_start</code> hook</td>
+      </tr>
+      <tr>
+        <td><strong>Newly Discovered Skills</strong></td>
+        <td><span class="tag tag--kata">Kata extension</span></td>
+        <td>Detects skills installed mid-run, injects them into subsequent sessions</td>
+        <td>Auto-mode only, rare (only when agent installs a skill during execution)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="callout">
+  <strong>Key principle:</strong> Skill file contents are never injected into the system prompt. Only paths and descriptions are listed. The agent reads skill files on demand via the <code>read</code> tool. This keeps the system prompt lean — skill files can be 1000+ lines and there can be dozens of them.
+</div>
+
+<!-- ═══ SOURCES ═══ -->
+<div id="sources" class="sec-head sec-head--discover">Skill Sources — Where Skills Live</div>
+
+<div class="card card--discover">
+  <div class="card__label" style="color: var(--discover)">Filesystem locations scanned by pi</div>
+
+<div class="dir-tree">~/.kata-cli/agent/skills/          <span class="dim">← User/global skills (Kata's agent dir)</span>
+├── debug-like-expert/
+│   ├── SKILL.md                    <span class="dim">← Bundled by Kata (synced from src/resources/skills/)</span>
+│   └── references/
+├── frontend-design/
+│   └── SKILL.md                    <span class="dim">← Bundled by Kata</span>
+├── swiftui/
+│   └── SKILL.md                    <span class="dim">← Bundled by Kata</span>
+├── pull-requests/
+│   └── SKILL.md                    <span class="dim">← User-installed</span>
+└── ... any other installed skills
+
+~/.agents/skills/                   <span class="dim">← Cross-harness global dir (shared with Claude Code, etc.)</span>
+
+.kata-cli/skills/                   <span class="dim">← Project-local skills (in project root)</span>
+
+.agents/skills/                     <span class="dim">← Cross-harness project dir (in cwd + ancestors up to repo root)</span></div>
+
+  <p class="dim" style="font-size: 12px;">Pi scans these in order. First skill found for a given name wins. Symlink dedup prevents the same file from loading twice.</p>
+</div>
+
+<div class="card card--recessed card--discover">
+  <div class="card__label" style="color: var(--discover)">Skill file structure</div>
+  <p>A valid skill needs a directory with a <code>SKILL.md</code> file containing YAML frontmatter:</p>
+<div class="dir-tree">my-skill/
+├── SKILL.md              <span class="dim">← Required: frontmatter (name + description) + instructions</span>
+├── scripts/              <span class="dim">← Optional: helper scripts</span>
+├── references/           <span class="dim">← Optional: detailed docs loaded on demand</span>
+└── commands/             <span class="dim">← Optional: slash command templates</span></div>
+  <p class="dim" style="font-size: 12px;">The <code>name</code> field must match the parent directory. The <code>description</code> field determines when the agent selects the skill — it's the only thing visible in the system prompt.</p>
+</div>
+
+<!-- ═══ DISCOVERY ═══ -->
+<div id="discovery" class="sec-head sec-head--pi">Pi Framework Discovery — loadSkills()</div>
+
+<div class="card card--pi">
+  <div class="card__label" style="color: var(--pi)">system-prompt.ts · skills.ts</div>
+  <p>At startup, pi calls <code>loadSkills()</code> which scans all skill directories, deduplicates by name (first wins) and by realpath (symlinks), validates frontmatter, and returns a <code>Skill[]</code> array.</p>
+  <p>Then <code>buildSystemPrompt()</code> calls <code>formatSkillsForPrompt(skills)</code> which produces the XML block:</p>
+
+<div class="dir-tree" style="font-size: 11px; line-height: 1.6;">&lt;available_skills&gt;
+  &lt;skill&gt;
+    &lt;name&gt;debug-like-expert&lt;/name&gt;
+    &lt;description&gt;Deep analysis debugging mode for complex issues...&lt;/description&gt;
+    &lt;location&gt;/Users/you/.kata-cli/agent/skills/debug-like-expert/SKILL.md&lt;/location&gt;
+  &lt;/skill&gt;
+  &lt;skill&gt;
+    &lt;name&gt;frontend-design&lt;/name&gt;
+    &lt;description&gt;Create distinctive, production-grade frontend interfaces...&lt;/description&gt;
+    &lt;location&gt;/Users/you/.kata-cli/agent/skills/frontend-design/SKILL.md&lt;/location&gt;
+  &lt;/skill&gt;
+  &lt;!-- ... every skill from all scanned directories ... --&gt;
+&lt;/available_skills&gt;</div>
+
+  <p class="dim" style="font-size: 12px;">This XML block is appended to pi's base system prompt <em>before</em> Kata's <code>before_agent_start</code> hook fires. It contains every skill from every source — bundled, user-installed, project-local, and cross-harness.</p>
+</div>
+
+<div class="callout">
+  <strong>Gating:</strong> Pi only injects the <code>&lt;available_skills&gt;</code> block if the <code>read</code> tool is available. Without <code>read</code>, the agent can't load skill files, so listing them would be useless noise.
+</div>
+
+<!-- ═══ BUNDLED ═══ -->
+<div id="bundled" class="sec-head sec-head--kata">Kata Bundled Skills — Sync on Launch</div>
+
+<div class="card card--kata">
+  <div class="card__label" style="color: var(--kata)">resource-loader.ts</div>
+  <p>On every Kata launch, the resource loader copies bundled skills from the CLI package into the user's agent directory:</p>
+
+  <table>
+    <thead><tr><th>Source (in CLI package)</th><th>Destination</th></tr></thead>
+    <tbody>
+      <tr><td><code>src/resources/skills/debug-like-expert/</code></td><td><code>~/.kata-cli/agent/skills/debug-like-expert/</code></td></tr>
+      <tr><td><code>src/resources/skills/frontend-design/</code></td><td><code>~/.kata-cli/agent/skills/frontend-design/</code></td></tr>
+      <tr><td><code>src/resources/skills/swiftui/</code></td><td><code>~/.kata-cli/agent/skills/swiftui/</code></td></tr>
+    </tbody>
+  </table>
+
+  <p>Uses <code>cpSync(src, dest, { recursive: true, force: true })</code> — always overwrites so skill updates land on next launch.</p>
+  <p class="dim" style="font-size: 12px;">These skills end up in the same directory pi scans, so they appear in <code>&lt;available_skills&gt;</code> automatically. Kata also hardcodes them in the <code>system.md</code> skills table as a redundant hint.</p>
+</div>
+
+<div class="card card--recessed card--kata">
+  <div class="card__label" style="color: var(--kata)">system.md Skills table (redundant hint)</div>
+  <p>The <code>system.md</code> prompt template contains a hardcoded table listing the 3 bundled skills with trigger descriptions. This is a <strong>redundant reinforcement</strong> — the same skills are already in <code>&lt;available_skills&gt;</code> from pi's discovery. The table provides more specific trigger guidance than the generic description field.</p>
+  <table>
+    <thead><tr><th>Trigger</th><th>Skill</th></tr></thead>
+    <tbody>
+      <tr><td>Frontend UI — web components, pages, dashboards, React/HTML/CSS, styling</td><td><code>frontend-design/SKILL.md</code></td></tr>
+      <tr><td>macOS or iOS apps — SwiftUI, Xcode, App Store</td><td><code>swiftui/SKILL.md</code></td></tr>
+      <tr><td>Debugging — complex bugs, root-cause investigation after standard approaches fail</td><td><code>debug-like-expert/SKILL.md</code></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══ PREFERENCES ═══ -->
+<div id="preferences" class="sec-head sec-head--pref">Kata Skill Preferences — Policy Layer</div>
+
+<div class="card card--pref">
+  <div class="card__label" style="color: var(--pref)">preferences.ts · .kata/preferences.md</div>
+  <p>Users can configure skill selection policy in <code>.kata/preferences.md</code> (project) and/or <code>~/.kata-cli/agent/preferences.md</code> (global). This adds a <strong>priority layer</strong> on top of pi's discovery — it doesn't replace it.</p>
+
+  <h3>Preference fields</h3>
+  <table>
+    <thead><tr><th>Field</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td><code>always_use_skills</code></td><td>Load and follow when the task matches — don't treat as a vague suggestion</td></tr>
+      <tr><td><code>prefer_skills</code></td><td>Prefer over other skills when relevant</td></tr>
+      <tr><td><code>avoid_skills</code></td><td>Skip unless clearly needed</td></tr>
+      <tr><td><code>skill_rules</code></td><td>Situational: <code>when: "releasing"</code> → <code>use: [releasing-kata]</code></td></tr>
+      <tr><td><code>custom_instructions</code></td><td>Freeform instructions appended to the block</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Path resolution</h3>
+  <p><code>resolveAllSkillReferences()</code> resolves each skill reference at session start:</p>
+  <ul>
+    <li><strong>Absolute path</strong> — checked directly (<code>/Volumes/.../SKILL.md</code>)</li>
+    <li><strong>Absolute directory</strong> — looks for <code>SKILL.md</code> inside (<code>/Volumes/.../releasing-kata/</code>)</li>
+    <li><strong>Tilde path</strong> — expanded from <code>~/</code> (<code>~/.agents/skills/pull-requests/SKILL.md</code>)</li>
+    <li><strong>Bare name</strong> — scanned in all known skill directories (<code>pull-requests</code>)</li>
+    <li>Unresolved references produce a warning in the system prompt</li>
+  </ul>
+
+  <h3>What gets injected</h3>
+  <p><code>renderPreferencesForSystemPrompt()</code> produces:</p>
+<div class="dir-tree" style="font-size: 11px; line-height: 1.6;">## Kata Skill Preferences
+- Treat these as explicit skill-selection policy for Kata work.
+- If a listed skill exists and is relevant, load and follow it instead of treating it as a vague suggestion.
+- Current user instructions still override these defaults.
+- Always use these skills when relevant:
+  - /Volumes/EVO/kata/kata-mono/.agents/skills/releasing-kata/SKILL.md
+  - /Users/gannonhall/.agents/skills/pull-requests/SKILL.md</div>
+
+  <p class="dim" style="font-size: 12px;">Again — only paths are injected, not content. The agent uses <code>read</code> on the path when it decides the task matches.</p>
+</div>
+
+<!-- ═══ AUTO-MODE DISCOVERY ═══ -->
+<div id="auto-discovery" class="sec-head sec-head--discover">Auto-mode Hot Discovery</div>
+
+<div class="card card--discover">
+  <div class="card__label" style="color: var(--discover)">skill-discovery.ts · auto.ts</div>
+  <p>Handles the rare case where the agent itself installs a new skill during auto-mode execution (e.g., via <code>pi install</code>). Subsequent auto-mode sessions need to see the new skill without a full restart.</p>
+
+  <h3>Lifecycle</h3>
+  <table>
+    <thead><tr><th>Event</th><th>Action</th><th>Code</th></tr></thead>
+    <tbody>
+      <tr><td><code>/kata auto</code> starts</td><td>Snapshot current skill directory listing</td><td><code>snapshotSkills()</code></td></tr>
+      <tr><td>Each new auto-mode session</td><td>Diff current listing against snapshot</td><td><code>detectNewSkills()</code></td></tr>
+      <tr><td>New skill found</td><td>Parse its <code>SKILL.md</code> frontmatter</td><td><code>parseSkillFrontmatter()</code></td></tr>
+      <tr><td>Inject into system prompt</td><td>Append XML block</td><td><code>formatSkillsXml()</code></td></tr>
+      <tr><td><code>/kata stop</code></td><td>Clear snapshot</td><td><code>clearSkillSnapshot()</code></td></tr>
+    </tbody>
+  </table>
+
+  <p>If new skills are detected, the following is appended to the system prompt:</p>
+<div class="dir-tree" style="font-size: 11px; line-height: 1.6;">&lt;newly_discovered_skills&gt;
+The following skills were installed during this auto-mode session.
+Use the read tool to load a skill's file when the task matches its description.
+
+  &lt;skill&gt;
+    &lt;name&gt;my-new-skill&lt;/name&gt;
+    &lt;description&gt;Does something useful&lt;/description&gt;
+    &lt;location&gt;/Users/you/.kata-cli/agent/skills/my-new-skill/SKILL.md&lt;/location&gt;
+  &lt;/skill&gt;
+&lt;/newly_discovered_skills&gt;</div>
+
+  <p class="dim" style="font-size: 12px;">Controlled by the <code>skill_discovery</code> preference (<code>auto</code> | <code>off</code>). When <code>off</code>, the snapshot is never taken and this mechanism is disabled.</p>
+</div>
+
+<!-- ═══ SYSTEM PROMPT ASSEMBLY ═══ -->
+<div id="prompt" class="sec-head sec-head--inject">System Prompt Assembly — Final Layout</div>
+
+<div class="card card--hero" style="--hero-accent: var(--inject);">
+  <div class="card__label" style="color: var(--inject)">Complete system prompt structure</div>
+  <p>All three skill mechanisms converge in a single system prompt. Here's the exact order:</p>
+
+<div class="dir-tree" style="font-size: 11px; line-height: 1.8;"><strong style="color: var(--pi)">┌─ Pi base system prompt ─────────────────────────────────────┐</strong>
+│  Tool instructions, model guidelines, pi documentation       │
+│                                                               │
+│  <strong>&lt;available_skills&gt;</strong>                   <span class="tag tag--pi" style="font-size: 9px;">pi framework</span>     │
+│    Every skill from all directories                           │
+│    (name + description + path only)                           │
+│  &lt;/available_skills&gt;                                         │
+<strong style="color: var(--pi)">└───────────────────────────────────────────────────────────────┘</strong>
+
+<strong style="color: var(--kata)">┌─ [SYSTEM CONTEXT — Kata] ───────────────────────────────────┐</strong>
+│                                                               │
+│  <strong>system.md</strong>                            <span class="tag tag--kata" style="font-size: 9px;">Kata extension</span>    │
+│    Agent identity, hard rules, skills table (redundant hint), │
+│    commands, execution heuristics, playbooks                  │
+│                                                               │
+│  <strong>## Workflow Mode</strong>                     <span class="tag tag--kata" style="font-size: 9px;">dynamic string</span>   │
+│    "mode: linear — Follow Linear mode instructions..."        │
+│                                                               │
+│  <strong>## Kata Skill Preferences</strong>            <span class="tag tag--pref" style="font-size: 9px;">preferences.md</span>  │
+│    always_use: [path1, path2]                                 │
+│    prefer: [path3]                                            │
+│    avoid: [path4]                                             │
+│    skill_rules: [{when: ..., use: ...}]                       │
+│                                                               │
+│  <strong>&lt;newly_discovered_skills&gt;</strong>             <span class="tag tag--discover" style="font-size: 9px;">auto-mode only</span>  │
+│    Skills installed during current auto-mode run (if any)     │
+│  &lt;/newly_discovered_skills&gt;                                  │
+│                                                               │
+│  <strong>KATA-WORKFLOW.md</strong>                     <span class="tag tag--kata" style="font-size: 9px;">workflow protocol</span> │
+│    ~550 lines: hierarchy, artifacts, phases, formats, etc.    │
+│                                                               │
+<strong style="color: var(--kata)">└───────────────────────────────────────────────────────────────┘</strong></div>
+</div>
+
+<!-- ═══ RUNTIME ═══ -->
+<div id="runtime" class="sec-head sec-head--pi">Runtime Behavior — How the Agent Uses Skills</div>
+
+<div class="card card--pi">
+  <div class="card__label" style="color: var(--pi)">Agent decision loop</div>
+  <p>The agent sees all three skill blocks in its system prompt. When a user request arrives, it:</p>
+  <ol style="font-size: 13px; padding-left: 20px;">
+    <li><strong>Scans <code>&lt;available_skills&gt;</code></strong> — matches the task against skill descriptions</li>
+    <li><strong>Checks Kata Skill Preferences</strong> — if a matching skill is in <code>always_use</code> or <code>prefer</code>, it takes priority; if in <code>avoid</code>, it's deprioritized</li>
+    <li><strong>Calls <code>read</code></strong> on the skill's <code>&lt;location&gt;</code> path to load the full SKILL.md content</li>
+    <li><strong>Follows the skill's instructions</strong> to execute the task</li>
+  </ol>
+  <p class="dim" style="font-size: 12px;">If a skill references relative paths (e.g., <code>./references/api.md</code>), the agent resolves them against the skill directory. The skill is a self-contained capability package — instructions, scripts, references, and templates all live in its directory.</p>
+</div>
+
+<div class="card card--recessed card--pi">
+  <div class="card__label" style="color: var(--text-dim)">What does NOT happen</div>
+  <ul>
+    <li><strong>Skills are never auto-loaded</strong> — the agent decides when to read a skill based on task match</li>
+    <li><strong>Skill content is never in the system prompt</strong> — only names, descriptions, and paths</li>
+    <li><strong>Preferences don't override pi's discovery</strong> — they add policy on top of it</li>
+    <li><strong>New skill discovery is not general hot-reload</strong> — it only catches skills added to <code>~/.kata-cli/agent/skills/</code> during the current auto-mode session, not edits to existing skills</li>
+  </ul>
+</div>
+
+</div><!-- /main -->
+</div><!-- /wrap -->
+
+<script>
+(function() {
+  const toc = document.getElementById('toc');
+  const links = toc.querySelectorAll('a');
+  const sections = [];
+  links.forEach(link => {
+    const id = link.getAttribute('href').slice(1);
+    const el = document.getElementById(id);
+    if (el) sections.push({ id, el, link });
+  });
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const match = sections.find(s => s.el === entry.target);
+        if (match) {
+          match.link.classList.add('active');
+          if (window.innerWidth <= 1000) {
+            match.link.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        }
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+  sections.forEach(s => observer.observe(s.el));
+  links.forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const id = link.getAttribute('href').slice(1);
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        history.replaceState(null, '', '#' + id);
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>

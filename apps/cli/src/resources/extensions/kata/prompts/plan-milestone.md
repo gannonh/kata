@@ -10,7 +10,7 @@ All relevant context has been preloaded below — start working immediately with
 
 Then:
 1. Read the template at `~/.kata-cli/agent/extensions/kata/templates/roadmap.md`
-2. Read `.kata/REQUIREMENTS.md` if it exists. Treat **Active** requirements as the capability contract for planning. If it does not exist, continue in legacy compatibility mode but explicitly note that requirement coverage is operating without a contract.
+2. Read the `REQUIREMENTS` document via `kata_read_document("REQUIREMENTS")` if it exists. Treat **Active** requirements as the capability contract for planning. If it does not exist, continue in legacy compatibility mode but explicitly note that requirement coverage is operating without a contract.
 3. If a `Kata Skill Preferences` block is present in system context, use it to decide which skills to load and follow during planning, without overriding required roadmap formatting
 4. Create the roadmap: decompose into demoable vertical slices — as many as the work needs, no more
 5. Order by risk (high-risk first)
@@ -23,7 +23,7 @@ Then:
 - Product-facing milestones should cover launchability, primary user loop, continuity, and failure visibility when relevant.
 - A slice may support multiple requirements, but should not exist with no requirement justification unless it is clearly enabling work for a mapped requirement.
 - Include a compact coverage summary in the roadmap so omissions are mechanically visible.
-- If `.kata/REQUIREMENTS.md` exists and an Active requirement has no credible path, surface that clearly. Do not silently ignore orphaned Active requirements.
+- If a `REQUIREMENTS` document exists and an Active requirement has no credible path, surface that clearly. Do not silently ignore orphaned Active requirements.
 
 ## Planning Doctrine
 

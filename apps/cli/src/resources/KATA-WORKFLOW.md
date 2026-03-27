@@ -5,13 +5,14 @@
 > **When to read this:** At the start of any session working on Kata-managed work, or when told `read @KATA-WORKFLOW.md`.
 >
 > **After reading this:**
-> - Call `kata_derive_state` to find out what's next. Do not read local `.kata/` milestone artifacts — workflow state lives in Linear.
+>
+> - Call `kata_derive_state` to find out what's next.
 
 ---
 
 ## Quick Start: "What's next?"
 
-State, plans, and artifacts live in Linear. Always start here:
+Derive current project state:
 
 1. **Call `kata_derive_state` (no arguments)** — returns a `KataState` JSON telling you:
    - `phase` — what stage of work the project is in right now
@@ -31,8 +32,6 @@ State, plans, and artifacts live in Linear. Always start here:
 
 6. **Advance the issue state** — call `kata_update_issue_state` to mark the task done.
 
-**Do not read or write local `.kata/` milestone artifacts. Do not create local milestone directories. Never use shell/file-search tools (`bash`, `find`, `rg`, `git`) to look for or create `*-PLAN`/`*-SUMMARY` artifacts on disk in Linear mode. Never run `mkdir` for `.kata/` artifact paths. All artifacts are stored via `kata_write_document` and `kata_read_document`.**
-
 ---
 
 ## The Hierarchy
@@ -47,24 +46,24 @@ Milestone  →  a shippable version (4-10 slices)
 
 ### Entity Mapping
 
-| Kata Concept   | Linear Entity          | Notes                                             |
-| -------------- | ---------------------- | ------------------------------------------------- |
-| Milestone      | ProjectMilestone       | Attached to the configured project                |
-| Slice          | Issue (parent)         | In the configured team; has milestone set         |
-| Task           | Sub-issue              | Child of the slice issue                          |
-| Artifact       | LinearDocument         | Attached to project or slice issue                |
-| Workflow state | Issue state            | `backlog→planning→executing→verifying→done`       |
-| Labels         | Issue labels           | `kata:milestone`, `kata:slice`, `kata:task`       |
+| Kata Concept   | Linear Entity    | Notes                                       |
+| -------------- | ---------------- | ------------------------------------------- |
+| Milestone      | ProjectMilestone | Attached to the configured project          |
+| Slice          | Issue (parent)   | In the configured team; has milestone set   |
+| Task           | Sub-issue        | Child of the slice issue                    |
+| Artifact       | LinearDocument   | Attached to project or slice issue          |
+| Workflow state | Issue state      | `backlog→planning→executing→verifying→done` |
+| Labels         | Issue labels     | `kata:milestone`, `kata:slice`, `kata:task` |
 
 ### Entity Title Convention (D021)
 
-All Kata entities in Linear use a bracket prefix. The regex is `/^\[([A-Z]\d+)\] (.+)$/`.
+All Kata entities use a bracket prefix. The regex is `/^\[([A-Z]\d+)\] (.+)$/`.
 
-| Entity    | Format               | Example                         |
-| --------- | -------------------- | ------------------------------- |
-| Milestone | `[M001] Title`       | `[M001] Auth & Session Layer`   |
-| Slice     | `[S01] Title`        | `[S01] JWT Token Foundation`    |
-| Task      | `[T01] Title`        | `[T01] Core types and helpers`  |
+| Entity    | Format         | Example                        |
+| --------- | -------------- | ------------------------------ |
+| Milestone | `[M001] Title` | `[M001] Auth & Session Layer`  |
+| Slice     | `[S01] Title`  | `[S01] JWT Token Foundation`   |
+| Task      | `[T01] Title`  | `[T01] Core types and helpers` |
 
 When calling `kata_create_milestone`, `kata_create_slice`, or `kata_create_task`, pass only the human-readable title (e.g. `"Auth & Session Layer"`) — the tool automatically adds the bracket prefix.
 
@@ -75,6 +74,7 @@ When calling `kata_create_milestone`, `kata_create_slice`, or `kata_create_task`
 In Linear mode, artifacts are stored as **LinearDocuments** attached to the project or slice issue. The same formats apply — same markdown structure, same content — but stored via API instead of files.
 
 Use these tools to read and write:
+
 ```
 kata_read_document(title, { projectId })    → project-scoped artifact
 kata_read_document(title, { issueId })      → slice-scoped artifact
@@ -84,33 +84,33 @@ kata_write_document(title, content, { issueId })    → write slice-scoped artif
 
 **Scoping rules — where documents live:**
 
-| Scope          | Documents                                                              | Attachment         |
-| -------------- | ---------------------------------------------------------------------- | ------------------ |
-| Project-level  | `PROJECT`, `REQUIREMENTS`, `DECISIONS`, `M001-ROADMAP`, `M001-CONTEXT`, `M001-RESEARCH`, `M001-SUMMARY` | `{ projectId }`    |
-| Slice-level    | `S01-RESEARCH`, `S01-SUMMARY`, `S01-UAT`, `S01-REPLAN`, `S01-ASSESSMENT` | `{ issueId }` of the slice issue |
+| Scope         | Documents                                                                                               | Attachment                       |
+| ------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Project-level | `PROJECT`, `REQUIREMENTS`, `DECISIONS`, `M001-ROADMAP`, `M001-CONTEXT`, `M001-RESEARCH`, `M001-SUMMARY` | `{ projectId }`                  |
+| Slice-level   | `S01-RESEARCH`, `S01-SUMMARY`, `S01-UAT`, `S01-REPLAN`, `S01-ASSESSMENT`                                | `{ issueId }` of the slice issue |
 
-**Slice and task plans live in issue descriptions, not LinearDocuments.** Pass the plan content as the `description` parameter when calling `kata_create_slice` or `kata_create_task`. Do not write separate `S01-PLAN` or `T01-PLAN` documents. Task summaries are posted as issue comments via `linear_add_comment`.
+**Slice and task plans live in issue descriptions, not LinearDocuments.** Pass the plan content as the `description` parameter when calling `kata_create_slice` or `kata_create_task`. Task summaries are posted as issue comments via `linear_add_comment`.
 
 **Why slice docs use `{ issueId }`:** Slice IDs (S01, S02, ...) reset per milestone. Without scoping to the slice issue, `S01-PLAN` from milestone M001 would collide with `S01-PLAN` from milestone M002. Attaching to the slice issue prevents this.
 
 **Document title format:**
 
-| Artifact           | Title            | Scope              |
-| ------------------ | ---------------- | ------------------ |
-| Milestone roadmap  | `M001-ROADMAP`   | `{ projectId }`    |
-| Milestone context  | `M001-CONTEXT`   | `{ projectId }`    |
-| Milestone research | `M001-RESEARCH`  | `{ projectId }`    |
-| Milestone summary  | `M001-SUMMARY`   | `{ projectId }`    |
+| Artifact           | Title                 | Scope                                |
+| ------------------ | --------------------- | ------------------------------------ |
+| Milestone roadmap  | `M001-ROADMAP`        | `{ projectId }`                      |
+| Milestone context  | `M001-CONTEXT`        | `{ projectId }`                      |
+| Milestone research | `M001-RESEARCH`       | `{ projectId }`                      |
+| Milestone summary  | `M001-SUMMARY`        | `{ projectId }`                      |
 | Slice plan         | *(issue description)* | `kata_create_slice({ description })` |
-| Slice research     | `S01-RESEARCH`   | `{ issueId }`      |
-| Slice summary      | `S01-SUMMARY`    | `{ issueId }`      |
-| Task plan          | *(issue description)* | `kata_create_task({ description })` |
-| Task summary       | *(issue comment)*    | `linear_add_comment`               |
-| Decisions register | `DECISIONS`      | `{ projectId }`    |
+| Slice research     | `S01-RESEARCH`        | `{ issueId }`                        |
+| Slice summary      | `S01-SUMMARY`         | `{ issueId }`                        |
+| Task plan          | *(issue description)* | `kata_create_task({ description })`  |
+| Task summary       | *(issue comment)*     | `linear_add_comment`                 |
+| Decisions register | `DECISIONS`           | `{ projectId }`                      |
 
 Titles are unique within their scope. `kata_write_document` is an upsert — creates on first write, updates on subsequent writes.
 
-**D028 — markdown normalization:** Linear normalizes document content on write. Use `* ` (asterisk + space) for list bullets, not `- `. Checkboxes use `* [ ]` and `* [x]`. Always accept both when parsing.
+**D028 — markdown normalization:** Linear normalizes document content on write. Use `*` (asterisk + space) for list bullets, not `-`. Checkboxes use `* [ ]` and `* [x]`. Always accept both when parsing.
 
 **`requirements` field:** `kata_derive_state` returns a `requirements` field. In Linear mode, this is always `undefined`. Derive what needs to be done from the task's issue description instead.
 
@@ -172,6 +172,7 @@ Consumes from S01:
 ```
 
 The boundary map is a **planning artifact** — not runnable code. It:
+
 - Forces upfront thinking about slice boundaries before implementation
 - Gives downstream slices a concrete target to code against
 - Enables deterministic verification that slices actually connect
@@ -280,6 +281,7 @@ Critical wiring between artifacts:
 ```
 
 **Rules:**
+
 - **Append-only** — rows are never edited or removed. To reverse a decision, add a new row that supersedes it (reference the old ID).
 - **#** — Sequential ID (`D001`, `D002`, ...), never reused.
 - **When** — Where the decision was made: `M001`, `M001/S01`, or `M001/S01/T02`.
@@ -365,6 +367,7 @@ For slice planning:
 Verification must prove outcomes, not effort.
 
 Verification ladder:
+
 1. Static (exports, wiring, no stubs)
 2. Command (tests/build/lint)
 3. Behavioral (runtime/browser/API)
@@ -396,16 +399,16 @@ After each completed unit, derive fresh state and move to the next active unit f
 
 ### Phase Transitions
 
-| Phase                  | Meaning                                                   | Required action |
-| ---------------------- | --------------------------------------------------------- | --------------- |
-| `pre-planning`         | Active milestone exists but roadmap/slices not established | Write roadmap + create slice issues |
-| `planning`             | Active slice needs task decomposition                      | Write slice plan + create task issues |
-| `executing`            | Active task exists and needs implementation                | Execute + verify + summarize task |
+| Phase                  | Meaning                                                    | Required action                              |
+| ---------------------- | ---------------------------------------------------------- | -------------------------------------------- |
+| `pre-planning`         | Active milestone exists but roadmap/slices not established | Write roadmap + create slice issues          |
+| `planning`             | Active slice needs task decomposition                      | Write slice plan + create task issues        |
+| `executing`            | Active task exists and needs implementation                | Execute + verify + summarize task            |
 | `verifying`            | Some tasks done, others pending                            | Continue execution on next non-terminal task |
-| `summarizing`          | All tasks terminal, slice wrap-up pending                  | Write slice summary/UAT + advance slice |
-| `completing-milestone` | All slices complete                                        | Write milestone summary |
-| `complete`             | All milestones complete                                    | Report completion |
-| `blocked`              | Missing config/auth/API issue                              | Surface blockers, stop until fixed |
+| `summarizing`          | All tasks terminal, slice wrap-up pending                  | Write slice summary/UAT + advance slice      |
+| `completing-milestone` | All slices complete                                        | Write milestone summary                      |
+| `complete`             | All milestones complete                                    | Report completion                            |
+| `blocked`              | Missing config/auth/API issue                              | Surface blockers, stop until fixed           |
 
 `verifying` is operationally the same as `executing`: pick the first non-terminal task and continue.
 
@@ -444,7 +447,7 @@ When planning or executing a task, load relevant prior context:
 4. Keep injected summary context bounded (~2500 tokens target).
 5. If dependency context is too large, drop least-relevant/oldest summaries first.
 
-Use `kata_read_document` to load summaries.
+Use `kata_read_document` to load summaries
 ---
 
 ## Project-Specific Context
@@ -517,34 +520,34 @@ All Kata-specific tools use the `kata_` prefix.
 
 ### State and Navigation
 
-| Tool                    | Description                                                                                       |
-| ----------------------- | ------------------------------------------------------------------------------------------------- |
-| `kata_derive_state`     | Derive full KataState from Linear API. Returns `phase`, `activeMilestone`, `activeSlice`, `activeTask`, `progress`, `blockers`. Call first at every session start. |
-| `kata_list_milestones`  | List all milestones (ProjectMilestones) on the configured project.                                |
-| `kata_list_slices`      | List slice issues (parent issues with `kata:slice` label) for a given milestone.                  |
-| `kata_list_tasks`       | List task sub-issues for a given slice issue.                                                     |
+| Tool                   | Description                                                                                                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `kata_derive_state`    | Derive full KataState from Linear API. Returns `phase`, `activeMilestone`, `activeSlice`, `activeTask`, `progress`, `blockers`. Call first at every session start. |
+| `kata_list_milestones` | List all milestones (ProjectMilestones) on the configured project.                                                                                                 |
+| `kata_list_slices`     | List slice issues (parent issues with `kata:slice` label) for a given milestone.                                                                                   |
+| `kata_list_tasks`      | List task sub-issues for a given slice issue.                                                                                                                      |
 
 ### Issue State Advancement
 
-| Tool                       | Description                                                                                      |
-| -------------------------- | ------------------------------------------------------------------------------------------------ |
-| `kata_update_issue_state`  | Advance a Linear issue to the workflow state for a given Kata phase. Takes `issueId` and `phase`. |
+| Tool                      | Description                                                                                       |
+| ------------------------- | ------------------------------------------------------------------------------------------------- |
+| `kata_update_issue_state` | Advance a Linear issue to the workflow state for a given Kata phase. Takes `issueId` and `phase`. |
 
 ### Document Storage
 
-| Tool                    | Description                                                                                       |
-| ----------------------- | ------------------------------------------------------------------------------------------------- |
-| `kata_write_document`   | Write (upsert) a Kata artifact as a LinearDocument. Use for milestone/project artifacts (`ROADMAP`, `CONTEXT`, `DECISIONS`, `PROJECT`, `REQUIREMENTS`, milestone/slice summaries, slice research). **Do not use for slice/task plans** (those go in issue descriptions) **or task summaries** (those go in issue comments). |
-| `kata_read_document`    | Read a Kata artifact document by title. Returns document with content, or `null` if not found. Use as fallback for legacy slice/task plan docs when issue descriptions are empty. |
-| `kata_list_documents`   | List all Kata artifact documents in the attachment scope.                                         |
+| Tool                  | Description                                                                                                                                                                                                                                                                                                                 |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kata_write_document` | Write (upsert) a Kata artifact as a LinearDocument. Use for milestone/project artifacts (`ROADMAP`, `CONTEXT`, `DECISIONS`, `PROJECT`, `REQUIREMENTS`, milestone/slice summaries, slice research). **Do not use for slice/task plans** (those go in issue descriptions) **or task summaries** (those go in issue comments). |
+| `kata_read_document`  | Read a Kata artifact document by title. Returns document with content, or `null` if not found. Use as fallback for legacy slice/task plan docs when issue descriptions are empty.                                                                                                                                           |
+| `kata_list_documents` | List all Kata artifact documents in the attachment scope.                                                                                                                                                                                                                                                                   |
 
 > Slice plans (`Sxx-PLAN`) and task plans (`Txx-PLAN`) should now live in issue descriptions, not LinearDocuments. Slice/task summaries should be issue comments (`linear_add_comment`).
 
 ### Entity Creation
 
-| Tool                    | Description                                                                                       |
-| ----------------------- | ------------------------------------------------------------------------------------------------- |
-| `kata_create_milestone` | Create a new milestone. Pass human-readable title; bracket prefix is added automatically.         |
-| `kata_create_slice`     | Create a new slice issue with the `kata:slice` label and milestone assignment.                    |
-| `kata_create_task`      | Create a new task sub-issue under a slice.                                                        |
-| `kata_ensure_labels`    | Ensure the required Kata labels exist in the team.                                                |
+| Tool                    | Description                                                                               |
+| ----------------------- | ----------------------------------------------------------------------------------------- |
+| `kata_create_milestone` | Create a new milestone. Pass human-readable title; bracket prefix is added automatically. |
+| `kata_create_slice`     | Create a new slice issue with the `kata:slice` label and milestone assignment.            |
+| `kata_create_task`      | Create a new task sub-issue under a slice.                                                |
+| `kata_ensure_labels`    | Ensure the required Kata labels exist in the team.                                        |

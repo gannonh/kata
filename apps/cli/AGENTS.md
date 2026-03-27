@@ -26,6 +26,41 @@ This repo uses git worktrees. Each worktree has a **standby branch** (e.g. `wt-c
 - **Default new issue state:** Backlog
 - **Backlog State ID:** `07123b71-708f-4232-b965-67c082e254e7`  
 
+## Testing Policy
+
+This project uses two test runners during an incremental migration from bun:test to Vitest.
+
+### Runners
+
+| Runner | File pattern | Command | Coverage |
+|--------|-------------|---------|----------|
+| Vitest | `*.vitest.test.ts` | `npx vitest run` | `npx vitest run --coverage` (v8 provider, `all: false`) |
+| Bun | `*.test.ts` (excluding `*.vitest.test.ts`) | `bun test --path-ignore-patterns '**/*.vitest.test.ts' src/` | None (legacy, no reliable aggregate coverage) |
+
+The combined `test` script runs both: `bun test --path-ignore-patterns '**/*.vitest.test.ts' src/ && npx vitest run`. The `--path-ignore-patterns` flag prevents bun from picking up `.vitest.test.ts` files (which use vitest-only APIs like `vi.mock` that bun doesn't understand). Turborepo's `test` task exercises both runners.
+
+### Migration Policy
+
+**Vitest is the target runner. Bun tests are legacy.**
+
+- **New test files** must use Vitest (`*.vitest.test.ts`, import from `vitest`).
+- **Existing bun test files must be migrated to Vitest when their source code is touched.** If you modify a source file and a bun-runner test file covers it, migrate that test file to Vitest as part of the same change. "Touched" means substantive logic changes — not comment typos or auto-formatter passes.
+- **Migration is mechanical:** rename `.test.ts` → `.vitest.test.ts`, replace `import { ... } from "node:test"` with `import { ... } from "vitest"`, replace `node:assert/strict` assertions with Vitest `expect()` API. Test logic rarely needs to change.
+- If a bun test file covers multiple source files and only one was touched, migrate the entire test file anyway — the migration unit is the test file, not the source file.
+
+### Coverage
+
+- Vitest coverage is configured with `all: false` — it only reports files actually imported during tests, not the entire `src/` tree.
+- Run `npx vitest run --coverage` to see current coverage. The aggregate reflects only Vitest-runner tests.
+- As tests migrate from bun to Vitest, the coverage scope grows automatically.
+- The bun runner has `--coverage` but does not produce reliable aggregate output for this codebase. Do not rely on it.
+
+### Conventions
+
+- Test files live next to the source they test (in `tests/` subdirectories within each extension).
+- Use `describe`/`it`/`expect` from `vitest` — not `node:test` or `node:assert`.
+- Bun runner stays in the `test` script until zero non-Vitest `.test.ts` files remain. At that point, drop bun from the test script entirely.
+
 ## Pi architecture
 
 Use when:
