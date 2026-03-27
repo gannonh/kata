@@ -138,6 +138,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
             oldest_entry_at: Some(started_at),
             newest_entry_at: Some(started_at),
         },
+        supervisor: symphony::domain::SupervisorSnapshot::default(),
         codex_totals: CodexTotals {
             input_tokens: 120,
             output_tokens: 80,

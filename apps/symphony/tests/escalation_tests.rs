@@ -51,6 +51,7 @@ fn empty_snapshot() -> OrchestratorSnapshot {
         blocked: vec![],
         pending_escalations: vec![],
         shared_context: SharedContextSummary::default(),
+        supervisor: symphony::domain::SupervisorSnapshot::default(),
         codex_totals: CodexTotals {
             input_tokens: 0,
             output_tokens: 0,

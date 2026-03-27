@@ -1038,6 +1038,7 @@ mod tests {
             },
             blocked: Vec::new(),
             shared_context: crate::domain::SharedContextSummary::default(),
+            supervisor: crate::domain::SupervisorSnapshot::default(),
             codex_rate_limits: None,
             polling: crate::domain::PollingSnapshot {
                 checking: false,
