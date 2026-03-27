@@ -26,6 +26,8 @@ models:
     review: claude-sonnet-4-6 
 skill_discovery: auto
 auto_supervisor: {}
+symphony:
+    url: http://localhost:8080
 
 ---
 

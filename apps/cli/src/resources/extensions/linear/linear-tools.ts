@@ -18,6 +18,7 @@ import {
   listKataTasks,
   listKataMilestones,
   getLinearStateForKataPhase,
+  normalizeMarkdownContent,
 } from "./linear-entities.js";
 import {
   writeKataDocument,
@@ -274,7 +275,13 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       priority: Type.Optional(Type.Integer({ minimum: 0, maximum: 4, description: "Priority: 0=none, 1=urgent, 2=high, 3=medium, 4=low" })),
       estimate: Type.Optional(Type.Number({ description: "Issue estimate" })),
     }),
-    async execute(_id, params) { return run(() => client.createIssue(params)); },
+    async execute(_id, params) {
+      const input = { ...params };
+      if (input.description !== undefined) {
+        input.description = normalizeMarkdownContent(input.description);
+      }
+      return run(() => client.createIssue(input));
+    },
   });
 
   pi.registerTool({
@@ -360,7 +367,11 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       estimate: Type.Optional(Type.Number({ description: "New estimate" })),
     }),
     async execute(_id, params) {
-      const { id, ...input } = params;
+      const { id, ...rest } = params;
+      const input = { ...rest };
+      if (input.description !== undefined) {
+        input.description = normalizeMarkdownContent(input.description);
+      }
       return run(() => client.updateIssue(id, input));
     },
   });
@@ -444,7 +455,9 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       issueId: Type.String({ description: "Issue UUID to comment on" }),
       body: Type.String({ description: "Comment body (markdown supported)" }),
     }),
-    async execute(_id, params) { return run(() => client.createComment(params.issueId, params.body)); },
+    async execute(_id, params) {
+      return run(() => client.createComment(params.issueId, normalizeMarkdownContent(params.body)));
+    },
   });
 
   pi.registerTool({
@@ -481,7 +494,13 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       icon: Type.Optional(Type.String({ description: "Document icon emoji" })),
       color: Type.Optional(Type.String({ description: "Document color hex" })),
     }),
-    async execute(_id, params) { return run(() => client.createDocument(params)); },
+    async execute(_id, params) {
+      const input = { ...params };
+      if (input.content !== undefined) {
+        input.content = normalizeMarkdownContent(input.content);
+      }
+      return run(() => client.createDocument(input));
+    },
   });
 
   pi.registerTool({
@@ -534,7 +553,11 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       color: Type.Optional(Type.String({ description: "New color hex" })),
     }),
     async execute(_id, params) {
-      const { id, ...input } = params;
+      const { id, ...rest } = params;
+      const input = { ...rest };
+      if (input.content !== undefined) {
+        input.content = normalizeMarkdownContent(input.content);
+      }
       return run(() => client.updateDocument(id, input));
     },
   });
@@ -780,7 +803,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       const attachment: DocumentAttachment = hasProject
         ? { projectId: params.projectId! }
         : { issueId: params.issueId! };
-      return run(() => writeKataDocument(client, params.title, params.content, attachment));
+      return run(() => writeKataDocument(client, params.title, normalizeMarkdownContent(params.content), attachment));
     },
   });
 

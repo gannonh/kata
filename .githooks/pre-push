@@ -7,7 +7,22 @@ eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null)" || true
 . "$HOME/.cargo/env" 2>/dev/null || true
 export PATH="$HOME/.bun/bin:$PATH"
 
-echo "Running pre-push validation..."
+# Pin Node 22 (matches CI and .node-version). Native addons (better-sqlite3,
+# tree-sitter) don't compile on Node 23, and Vitest runs under Node.
+if [ -d "$HOME/.nvm/versions/node" ]; then
+  NODE22=$(ls -d "$HOME/.nvm/versions/node/v22"* 2>/dev/null | sort -V | tail -1)
+  if [ -n "$NODE22" ]; then
+    export PATH="$NODE22/bin:$PATH"
+  fi
+fi
+
+echo "Running pre-push validation... (node $(node --version))"
+
+# Rebuild native addons if needed (matches CI's "Rebuild native addons" step).
+# Vitest runs under Node (not Bun), so better-sqlite3 must be compiled for
+# the active Node version. This is fast when already up-to-date.
+(cd apps/context && npm rebuild better-sqlite3 tree-sitter 2>/dev/null) || true
+
 bunx turbo run lint typecheck test --affected
 
 if [ $? -ne 0 ]; then

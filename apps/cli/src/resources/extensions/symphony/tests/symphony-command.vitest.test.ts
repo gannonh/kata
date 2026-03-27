@@ -67,7 +67,7 @@ function makeEvent(sequence: number, event: string): SymphonyEventEnvelope {
 }
 
 describe("parseSymphonyCommand", () => {
-  it("parses status and watch commands", () => {
+  it("parses status, watch, and config commands", () => {
     expect(parseSymphonyCommand("status")).toEqual({ type: "status" });
 
     expect(
@@ -77,6 +77,18 @@ describe("parseSymphonyCommand", () => {
       issue: "KAT-920",
       maxEvents: 3,
       timeoutMs: 2000,
+    });
+
+    expect(parseSymphonyCommand("config")).toEqual({ type: "config" });
+    expect(parseSymphonyCommand("config ./WORKFLOW.md")).toEqual({
+      type: "config",
+      workflowPathArg: "./WORKFLOW.md",
+    });
+    expect(
+      parseSymphonyCommand("config ~/Library/Mobile Documents/WORKFLOW.md"),
+    ).toEqual({
+      type: "config",
+      workflowPathArg: "~/Library/Mobile Documents/WORKFLOW.md",
     });
   });
 

@@ -97,22 +97,17 @@ describe(
     beforeAll(async () => {
       client = new LinearClient(API_KEY!);
 
-      // Resolve team and project — prefer env vars over API lookup for speed
-      const envTeamId = process.env.LINEAR_TEAM_ID;
-      const envProjectId = process.env.LINEAR_PROJECT_ID;
+      // Resolve team
+      const teams = await client.listTeams();
+      assert.ok(teams.length > 0, "workspace has at least one team");
+      teamId = teams[0].id;
 
-      if (envTeamId && envProjectId) {
-        teamId = envTeamId;
-        projectId = envProjectId;
-      } else {
-        const teams = await client.listTeams();
-        assert.ok(teams.length > 0, "workspace has at least one team");
-        teamId = envTeamId ?? teams[0].id;
-
-        const projects = await client.listProjects({ teamId });
-        assert.ok(projects.length > 0, "team has at least one project");
-        projectId = envProjectId ?? projects[0].id;
-      }
+      // Create an ephemeral test project — never pollute real projects
+      const project = await client.createProject({
+        name: `Test Document Storage ${Date.now()}`,
+        teamIds: [teamId],
+      });
+      projectId = project.id;
 
       // Create a throwaway issue to serve as the issue-level attachment target
       testIssue = await client.createIssue({
@@ -310,14 +305,17 @@ describe(
         }
       });
 
-      // Delete the throwaway issue
-      if (testIssue) {
+      // Delete the throwaway issue, then the test project
+      for (const [name, fn] of [
+        ["test issue", () => (testIssue ? client.deleteIssue(testIssue.id) : Promise.resolve())] as const,
+        ["test project", () => (projectId ? client.deleteProject(projectId) : Promise.resolve())] as const,
+      ]) {
         try {
-          await client.deleteIssue(testIssue.id);
+          await fn();
         } catch (e) {
           const msg = (e as Error).message ?? String(e);
           if (!msg.toLowerCase().includes("not found") && !msg.includes("Entity not found")) {
-            console.log(`  Cleanup failed for test issue ${testIssue.id}: ${msg}`);
+            console.log(`  Cleanup failed for ${name}: ${msg}`);
           }
         }
       }

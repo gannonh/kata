@@ -7,6 +7,26 @@ description: WORKFLOW.md configuration reference for Symphony.
 
 All Symphony configuration lives in the YAML front-matter of a `WORKFLOW.md` file. Everything below the `---` is the prompt template (a Liquid template rendered per agent session).
 
+## GUI Editor (`/symphony config`)
+
+Kata CLI includes a guided editor for WORKFLOW frontmatter:
+
+- Run `/symphony config` to edit the default workflow path
+- Run `/symphony config <path>` to edit a specific file
+- Path resolution order: explicit path argument → `symphony.workflow_path` preference → `./WORKFLOW.md`
+
+The editor groups fields by section (`tracker`, `workspace`, `agent`, `kata_agent`, `notifications`, `prompts`, `server`, `hooks`, `worker`) and uses type-aware controls:
+
+- Text input for strings
+- Number input for integer fields
+- Enum pickers for values like `backend`, `git_strategy`, `isolation`, `codex_auth`
+- Boolean toggles for flags like `cleanup_on_done` and `no_session`
+- Multi-line string-array editing for fields like `events`, `ssh_hosts`, and Docker lists
+
+Before saving, validation checks required fields, enum values, numeric ranges, and common invalid combinations (for example `worktree` + remote repo, or `docker` + `clone-local`).
+
+Save writes only the frontmatter block, preserving the markdown prompt body and existing YAML comments.
+
 ## Minimal Example
 
 ```yaml

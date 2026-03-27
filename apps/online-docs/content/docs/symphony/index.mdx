@@ -64,6 +64,41 @@ symphony WORKFLOW.md --port 8080
 
 Symphony starts polling Linear. Open `http://localhost:8080` for the web dashboard, or watch the built-in terminal dashboard (enabled by default).
 
+## Kata CLI Integration
+
+Kata CLI ships a built-in Symphony client extension. When `symphony.url` is configured in [preferences](/docs/cli/preferences), the following are available:
+
+### Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `/symphony status` | Fetch live worker/queue state from `GET /api/v1/state` |
+| `/symphony watch KAT-920` | Stream live events for an issue from `GET /api/v1/events` |
+| `/symphony watch KAT-920 --max-events 10` | Stop after 10 events |
+| `/symphony watch KAT-920 --timeout-ms 60000` | Watch for up to 60 seconds |
+
+### Agent Tools
+
+The extension also exposes tools the agent can call programmatically:
+
+| Tool | Description |
+|------|-------------|
+| `symphony_status` | Returns orchestrator state as structured JSON |
+| `symphony_watch` | Streams issue events, returns structured array |
+| `symphony_logs` | Placeholder — not yet available |
+| `symphony_steer` | Placeholder — not yet available |
+
+### Configuration
+
+Set the Symphony URL in `.kata/preferences.md`:
+
+```yaml
+symphony:
+  url: http://localhost:8080
+```
+
+Or via environment variables: `KATA_SYMPHONY_URL` or `SYMPHONY_URL`.
+
 ## Ticket Lifecycle
 
 ```

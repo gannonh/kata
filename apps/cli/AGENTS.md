@@ -37,7 +37,7 @@ This project uses two test runners during an incremental migration from bun:test
 | Vitest | `*.vitest.test.ts` | `npx vitest run` | `npx vitest run --coverage` (v8 provider, `all: false`) |
 | Bun | `*.test.ts` (excluding `*.vitest.test.ts`) | `bun test --path-ignore-patterns '**/*.vitest.test.ts' src/` | None (legacy, no reliable aggregate coverage) |
 
-The combined `test` script runs both: `bun test --path-ignore-patterns '**/*.vitest.test.ts' src/ && npx vitest run`. The `--path-ignore-patterns` flag prevents bun from picking up `.vitest.test.ts` files (which use vitest-only APIs like `vi.mock` that bun doesn't understand). Turborepo's `test` task exercises both runners.
+The combined `test` script runs both: `bun test --path-ignore-patterns '**/*.vitest.test.ts' src/ && npx vitest run --coverage`. The `--path-ignore-patterns` flag prevents bun from picking up `.vitest.test.ts` files (which use vitest-only APIs like `vi.mock` that bun doesn't understand). Turborepo's `test` task exercises both runners and enforces coverage thresholds.
 
 ### Migration Policy
 
@@ -50,9 +50,14 @@ The combined `test` script runs both: `bun test --path-ignore-patterns '**/*.vit
 
 ### Coverage
 
-- Vitest coverage is configured with `all: false` — it only reports files actually imported during tests, not the entire `src/` tree.
-- Run `npx vitest run --coverage` to see current coverage. The aggregate reflects only Vitest-runner tests.
-- As tests migrate from bun to Vitest, the coverage scope grows automatically.
+**Enforced thresholds (CI gate):** Lines ≥55%, Branches ≥55%, Functions ≥55%.
+
+These thresholds are configured in `vitest.config.ts` under `coverage.thresholds` and enforced on every `bun run test` invocation (which chains `npx vitest run --coverage`). Turborepo's `test` task runs this same script, so any PR that drops coverage below thresholds fails the CI `validate` job.
+
+**Scope:** Coverage is measured over a scoped set of directly-tested source modules (listed in `coverage.include` in `vitest.config.ts`), not the entire `src/` tree. This prevents transitive imports from untested code dragging down the aggregate. As new Vitest tests are added, their source modules should be added to the `coverage.include` list.
+
+**Local check:** Run `npx vitest run --coverage` to see current coverage with threshold pass/fail output. Threshold violations surface as non-zero exit code with explicit "Coverage threshold not met" messages.
+
 - The bun runner has `--coverage` but does not produce reliable aggregate output for this codebase. Do not rely on it.
 
 ### Conventions

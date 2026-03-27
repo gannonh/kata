@@ -77,6 +77,7 @@ export interface KataLinearPreferences {
 
 export interface KataSymphonyPreferences {
   url?: string;
+  workflow_path?: string;
 }
 
 export interface KataPrPreferences {
@@ -1031,6 +1032,20 @@ function normalizeSymphonyPreferences(value: unknown): {
         errors.push("symphony.url must not be empty");
       } else {
         normalized.url = trimmed;
+      }
+    }
+  }
+
+  const rawWorkflowPath = (value as Record<string, unknown>).workflow_path;
+  if (rawWorkflowPath !== undefined) {
+    if (typeof rawWorkflowPath !== "string") {
+      errors.push("symphony.workflow_path must be a string");
+    } else {
+      const trimmed = rawWorkflowPath.trim();
+      if (!trimmed) {
+        errors.push("symphony.workflow_path must not be empty");
+      } else {
+        normalized.workflow_path = trimmed;
       }
     }
   }

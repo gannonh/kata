@@ -1,5 +1,19 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, isAbsolute, join, resolve } from "node:path";
+import type {
+  ExtensionAPI,
+  ExtensionCommandContext,
+} from "@mariozechner/pi-coding-agent";
+import { loadEffectiveKataPreferences } from "../kata/preferences.js";
 import type { SymphonyClient } from "./client.js";
+import { runConfigEditor } from "./config-editor.js";
+import {
+  parseWorkflowConfig,
+  WorkflowConfigParseError,
+} from "./config-parser.js";
+import { validateConfigModel } from "./config-validator.js";
+import { writeWorkflowConfigFile } from "./config-writer.js";
 import {
   renderSymphonyCommandError,
   renderSymphonyStatus,
@@ -22,6 +36,10 @@ export type SymphonyCommandAction =
       issue: string;
       maxEvents?: number;
       timeoutMs?: number;
+    }
+  | {
+      type: "config";
+      workflowPathArg?: string;
     };
 
 export interface SymphonyCommandSink {
@@ -45,6 +63,14 @@ export function parseSymphonyCommand(input: string): SymphonyCommandAction {
 
   if (tokens[0] === "status") {
     return { type: "status" };
+  }
+
+  if (tokens[0] === "config") {
+    const workflowPathArg = input.trim().slice("config".length).trim();
+    return {
+      type: "config",
+      ...(workflowPathArg ? { workflowPathArg } : {}),
+    };
   }
 
   if (tokens[0] === "watch") {
@@ -89,6 +115,11 @@ export async function executeSymphonyCommand(
       return;
     }
 
+    if (action.type === "config") {
+      sink.info(renderSymphonyUsage());
+      return;
+    }
+
     const timeoutMs =
       action.timeoutMs ?? options.defaultWatchTimeoutMs ?? DEFAULT_WATCH_TIMEOUT_MS;
     const maxEvents =
@@ -127,12 +158,12 @@ export async function executeSymphonyCommand(
 
 export function registerSymphonyCommand(pi: ExtensionAPI, client: SymphonyClient): void {
   pi.registerCommand("symphony", {
-    description: "Symphony operator workflows: status and watch",
+    description: "Symphony operator workflows: status, watch, config",
     getArgumentCompletions(prefix: string) {
       const tokens = tokenize(prefix);
 
       if (tokens.length <= 1) {
-        const options = ["status", "watch"];
+        const options = ["status", "watch", "config"];
         const query = tokens[0] ?? "";
         return options
           .filter((option) => option.startsWith(query))
@@ -150,10 +181,19 @@ export function registerSymphonyCommand(pi: ExtensionAPI, client: SymphonyClient
         ];
       }
 
+      if (tokens[0] === "config" && tokens.length <= 2) {
+        return [{ value: "config WORKFLOW.md", label: "config [WORKFLOW.md]" }];
+      }
+
       return [];
     },
     handler: async (args, ctx) => {
       const action = parseSymphonyCommand(args);
+
+      if (action.type === "config") {
+        await executeSymphonyConfigCommand(action, client, ctx);
+        return;
+      }
 
       await executeSymphonyCommand(
         action,
@@ -169,6 +209,94 @@ export function registerSymphonyCommand(pi: ExtensionAPI, client: SymphonyClient
       );
     },
   });
+}
+
+export async function executeSymphonyConfigCommand(
+  action: Extract<SymphonyCommandAction, { type: "config" }>,
+  client: SymphonyClient,
+  ctx: ExtensionCommandContext,
+): Promise<void> {
+  const resolvedPath = resolveWorkflowPath(action.workflowPathArg, process.cwd());
+
+  if (!resolvedPath.ok) {
+    ctx.ui.notify(resolvedPath.message, "error");
+    return;
+  }
+
+  const workflowPath = resolvedPath.path;
+  let content: string;
+  try {
+    content = readFileSync(workflowPath, "utf-8");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    ctx.ui.notify(`Unable to read ${workflowPath}: ${message}`, "error");
+    return;
+  }
+
+  let model;
+  try {
+    model = parseWorkflowConfig(content, { filePath: workflowPath });
+  } catch (error) {
+    if (error instanceof WorkflowConfigParseError) {
+      const lineInfo = error.line ? ` (line ${error.line})` : "";
+      ctx.ui.notify(`Failed to parse YAML frontmatter${lineInfo}: ${error.message}`, "error");
+      return;
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+    ctx.ui.notify(`Failed to parse ${workflowPath}: ${message}`, "error");
+    return;
+  }
+
+  ctx.ui.notify(`config_editor_opened: ${workflowPath}`, "info");
+
+  const editorResult = await runConfigEditor(
+    model,
+    {
+      select: (title, options) => ctx.ui.select(title, options),
+      input: (title, placeholder) => ctx.ui.input(title, placeholder),
+      confirm: (title, message) => ctx.ui.confirm(title, message),
+      editor: (title, prefill) => ctx.ui.editor(title, prefill),
+      notify: (message, type) => ctx.ui.notify(message, type),
+    },
+    {
+      workflowPath,
+      connectionStatus: resolveConnectionStatus(client),
+    },
+  );
+
+  if (editorResult.type === "cancelled") {
+    ctx.ui.notify("Config editor cancelled.", "warning");
+    return;
+  }
+
+  const validationIssues = validateConfigModel(editorResult.model, {
+    workflowDir: dirname(workflowPath),
+  });
+
+  if (validationIssues.length > 0) {
+    const summary = validationIssues
+      .slice(0, 20)
+      .map((issue) => `- ${issue.path}: ${issue.message}`)
+      .join("\n");
+
+    ctx.ui.notify(`config_editor_validation_failed\n${summary}`, "error");
+    return;
+  }
+
+  try {
+    writeWorkflowConfigFile(workflowPath, editorResult.model);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    ctx.ui.notify(`Failed to write ${workflowPath}: ${message}`, "error");
+    return;
+  }
+
+  const diffLines = editorResult.changes.slice(0, 20).join("\n");
+  ctx.ui.notify(
+    `config_editor_saved: ${workflowPath}\n${editorResult.changes.length} change(s)\n${diffLines}`,
+    "info",
+  );
 }
 
 function tokenize(input: string): string[] {
@@ -217,4 +345,63 @@ function parseWatchFlags(tokens: string[]):
     ...(timeoutMs ? { timeoutMs } : {}),
     ...(maxEvents ? { maxEvents } : {}),
   };
+}
+
+function resolveConnectionStatus(client: SymphonyClient): string {
+  try {
+    const config = client.getConnectionConfig();
+    return `${config.url} (${config.origin})`;
+  } catch {
+    return "not configured";
+  }
+}
+
+export function resolveWorkflowPath(
+  workflowPathArg: string | undefined,
+  cwd: string,
+  preferences: ReturnType<typeof loadEffectiveKataPreferences>["preferences"] | null =
+    loadEffectiveKataPreferences(cwd)?.preferences ?? null,
+): { ok: true; path: string } | { ok: false; message: string } {
+  if (workflowPathArg) {
+    const explicit = toAbsolutePath(workflowPathArg, cwd);
+    if (!existsSync(explicit)) {
+      return {
+        ok: false,
+        message: `Workflow file not found: ${explicit}`,
+      };
+    }
+    return { ok: true, path: explicit };
+  }
+
+  const configuredPath = preferences?.symphony?.workflow_path;
+  if (configuredPath) {
+    const preferred = toAbsolutePath(configuredPath, cwd);
+    if (!existsSync(preferred)) {
+      return {
+        ok: false,
+        message: `Configured symphony.workflow_path does not exist: ${preferred}`,
+      };
+    }
+    return { ok: true, path: preferred };
+  }
+
+  const localDefault = join(cwd, "WORKFLOW.md");
+  if (existsSync(localDefault)) {
+    return { ok: true, path: localDefault };
+  }
+
+  return {
+    ok: false,
+    message:
+      "No WORKFLOW.md path is known. Pass `/symphony config <path>` or set `symphony.workflow_path` in preferences.",
+  };
+}
+
+function toAbsolutePath(target: string, cwd: string): string {
+  const expanded =
+    target === "~" || target.startsWith("~/")
+      ? join(homedir(), target === "~" ? "" : target.slice(2))
+      : target;
+
+  return isAbsolute(expanded) ? expanded : resolve(cwd, expanded);
 }
