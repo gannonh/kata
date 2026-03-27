@@ -131,6 +131,7 @@ Kata workflow state is Linear-backed: milestones, slices, tasks, plans, and summ
 |---------|-------------|
 | `/mcp` | Show MCP server status and tools |
 | `/gh` | GitHub helper — issues, PRs, labels, milestones, status |
+| `/symphony` | Symphony operator workflows (`status`, `watch <issue>`) |
 | `/subagent` | List available subagents |
 | `/export` | Export session to HTML file |
 | `/share` | Share session as a secret GitHub gist |
@@ -164,12 +165,45 @@ budget_ceiling: 50.00
 |---------|-----------------|
 | `models.*` | Per-phase model selection (Opus for planning, Sonnet for execution, `review` for PR reviewer subagents, etc.) |
 | `pr.*` | PR lifecycle settings (see [PR Mode](#pr-mode)) |
+| `symphony.url` | Base URL for Symphony server (e.g. `http://127.0.0.1:8080`) |
 | `skill_discovery` | `auto` / `suggest` / `off` — how Kata finds and applies skills |
 | `auto_supervisor.*` | Timeout thresholds for auto-mode supervision |
 | `budget_ceiling` | USD ceiling — auto mode pauses when reached |
 | `uat_dispatch` | Enable automatic UAT runs after slice completion |
 | `always_use_skills` | Skills to always load when relevant |
 | `skill_rules` | Situational rules for skill routing |
+
+## Symphony Extension
+
+Kata includes a first-class Symphony client surface for live operator workflows.
+
+### Configure connection
+
+Set `symphony.url` in `.kata/preferences.md` (preferred) or `KATA_SYMPHONY_URL` / `SYMPHONY_URL` in your environment (`KATA_SYMPHONY_URL` takes precedence when both are set).
+
+```yaml
+symphony:
+  url: http://127.0.0.1:8080
+```
+
+### Operator commands
+
+- `/symphony status` — fetches live worker/queue state from `GET /api/v1/state`
+- `/symphony watch KAT-920` — streams live issue-scoped events from `GET /api/v1/events?issue=KAT-920`
+
+Optional watch flags:
+
+- `--max-events <n>`
+- `--timeout-ms <ms>`
+
+### Agent tools
+
+- `symphony_status`
+- `symphony_watch`
+- `symphony_logs` (capability-safe placeholder)
+- `symphony_steer` (capability-safe placeholder)
+
+Tool responses include connection metadata (`details.connection`) and capability metadata (`details.capabilities`).
 
 ## PR Mode
 
@@ -238,6 +272,7 @@ The local `.kata/` directory is still used for runtime metadata (preferences, ac
 Kata comes with extensions for:
 
 - **Linear** — Built-in project management with 40 native tools (issues, projects, documents, labels)
+- **Symphony** — Live worker observability surface (`/symphony`, `symphony_*` tools)
 - **Browser automation** — Playwright-based interaction with web pages
 - **Subagents** — Spawn parallel Kata processes for independent tasks
 - **Background shell** — Long-running processes (servers, watchers, builds)

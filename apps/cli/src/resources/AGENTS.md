@@ -47,6 +47,7 @@ apps/cli/
           native-search.ts — Brave native search (default provider)
         mac-tools/         — macOS-specific utilities
         linear/            — Built-in Linear integration (GraphQL client + tools)
+        symphony/          — Symphony client extension (/symphony + symphony_* tools)
       skills/              — Bundled skills
   pkg/
     package.json           — piConfig shim (name: "kata", configDir: ".kata-cli")
@@ -82,6 +83,20 @@ The main extension registers the `/kata` slash command with subcommands:
 - `/kata plan` — Enriched planning mode (plan next slice, pick slice, add slice, resequence slices, revise roadmap, discuss planning)
 - `/kata prefs [global|project|status]` — Manage preferences
 - `/kata pr [status|create|review|address|merge]` — PR lifecycle management
+
+## The /symphony Command
+
+The Symphony extension registers `/symphony` with operator-facing subcommands:
+
+- `/symphony status` — Fetch live worker and queue state from Symphony (`/api/v1/state`)
+- `/symphony watch <issue>` — Stream issue-scoped live events (`/api/v1/events?issue=...`)
+
+The extension also exposes model tools:
+
+- `symphony_status`
+- `symphony_watch`
+- `symphony_logs` (capability placeholder)
+- `symphony_steer` (capability placeholder)
 
 ## Project State
 

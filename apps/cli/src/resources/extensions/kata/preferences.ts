@@ -75,6 +75,10 @@ export interface KataLinearPreferences {
   projectId?: string;
 }
 
+export interface KataSymphonyPreferences {
+  url?: string;
+}
+
 export interface KataPrPreferences {
   enabled?: boolean;
   auto_create?: boolean;
@@ -94,6 +98,7 @@ export interface KataPreferences {
   skill_discovery?: SkillDiscoveryMode;
   workflow?: KataWorkflowPreferences;
   linear?: KataLinearPreferences;
+  symphony?: KataSymphonyPreferences;
   pr?: KataPrPreferences;
   auto_supervisor?: AutoSupervisorConfig;
   uat_dispatch?: boolean;
@@ -766,6 +771,14 @@ function mergePreferences(
           },
         }
       : {}),
+    ...(base.symphony || override.symphony
+      ? {
+          symphony: {
+            ...(base.symphony ?? {}),
+            ...(override.symphony ?? {}),
+          },
+        }
+      : {}),
     ...(base.pr || override.pr
       ? {
           pr: {
@@ -823,6 +836,16 @@ function validatePreferences(preferences: KataPreferences): {
   }
   if (normalizedLinear.value) {
     validated.linear = normalizedLinear.value;
+  }
+
+  const normalizedSymphony = normalizeSymphonyPreferences(
+    preferences.symphony,
+  );
+  if (normalizedSymphony.errors.length > 0) {
+    errors.push(...normalizedSymphony.errors);
+  }
+  if (normalizedSymphony.value) {
+    validated.symphony = normalizedSymphony.value;
   }
 
   const normalizedPr = normalizePrPreferences(preferences.pr);
@@ -977,6 +1000,38 @@ function normalizeLinearPreferences(value: unknown): {
     const trimmed = raw.trim();
     if (trimmed) {
       normalized[key] = trimmed;
+    }
+  }
+
+  return {
+    value: Object.keys(normalized).length > 0 ? normalized : undefined,
+    errors,
+  };
+}
+
+function normalizeSymphonyPreferences(value: unknown): {
+  value?: KataSymphonyPreferences;
+  errors: string[];
+} {
+  if (value === undefined) return { errors: [] };
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { errors: ["symphony must be an object"] };
+  }
+
+  const normalized: KataSymphonyPreferences = {};
+  const errors: string[] = [];
+
+  const rawUrl = (value as Record<string, unknown>).url;
+  if (rawUrl !== undefined) {
+    if (typeof rawUrl !== "string") {
+      errors.push("symphony.url must be a string");
+    } else {
+      const trimmed = rawUrl.trim();
+      if (!trimmed) {
+        errors.push("symphony.url must not be empty");
+      } else {
+        normalized.url = trimmed;
+      }
     }
   }
 
