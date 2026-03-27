@@ -416,6 +416,7 @@ All configuration lives in the YAML front-matter of your WORKFLOW.md. See [`docs
 | ------------------------- | ----------------------------------------------------------------- |
 | `tracker`                 | Linear connection, project, assignee filter, state mappings       |
 | `polling`                 | How often to check for new/changed issues                         |
+| `shared_context`          | Ephemeral cross-worker context retention (TTL + max entries)      |
 | `workspace`               | Where and how workspaces are created, Docker config               |
 | `agent`                   | Backend selection, concurrency limits, max turns, retry backoff   |
 | `kata_agent` / `pi_agent` | Kata CLI backend config: command, model, timeouts                 |
@@ -438,6 +439,32 @@ tracker:
 ### Dynamic reload
 
 Symphony watches WORKFLOW.md for changes and applies config updates without restart.
+
+## Inter-worker Shared Context
+
+Symphony includes an **ephemeral shared context store** for cross-worker coordination.
+Workers automatically receive the most relevant recent entries (project + matching labels)
+in their prompt preamble, so follow-up workers can reuse decisions and avoid conflicts.
+
+Properties:
+
+- In-memory only (restarts intentionally clear it)
+- Configurable TTL (`shared_context.ttl_ms`, default 24h)
+- Configurable cap (`shared_context.max_entries`, default 100)
+- Automatic expiry pruning on every poll cycle
+
+HTTP API:
+
+- `POST /api/v1/context` — write `{ author_issue, scope, content, ttl_ms? }`
+- `GET /api/v1/context` — list current entries (optional `?scope=project,label:backend`)
+- `DELETE /api/v1/context/{id}` — delete one entry
+- `DELETE /api/v1/context?scope=...` — clear by scope (or all when omitted)
+
+Events emitted on `/api/v1/events`:
+
+- `event=shared_context_written`
+- `event=shared_context_read`
+- `event=shared_context_expired`
 
 ## Lifecycle Hooks
 
@@ -514,13 +541,17 @@ Each host must have the agent backend (Kata CLI or Codex) installed and on PATH.
 
 Available at `http://localhost:<port>`. Auto-refreshes every 2 seconds.
 
-Shows: running sessions (with turn count, token usage, last activity), retry queue, completed issues, polling stats, rate limits, and a link to the Linear project.
+Shows: running sessions (with turn count, token usage, last activity), retry queue, shared context table (author/scope/preview/age/TTL), completed issues, polling stats, rate limits, and a link to the Linear project.
 
 HTTP surfaces:
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/v1/state` | Full orchestrator snapshot JSON |
+| `GET /api/v1/state` | Full orchestrator snapshot JSON (includes `pending_escalations` and `shared_context` summary) |
+| `GET /api/v1/context` | List active shared context entries (optional `scope` filter) |
+| `POST /api/v1/context` | Write a shared context entry |
+| `DELETE /api/v1/context/{id}` | Delete a specific shared context entry |
+| `DELETE /api/v1/context` | Clear shared context (optionally by `scope`) |
 | `GET /api/v1/escalations` | Pending escalation list for polling clients |
 | `POST /api/v1/escalations/{REQUEST-ID}/respond` | Resolve a pending escalation (`200`/`404`/`409`) |
 | `GET /api/v1/{ISSUE-ID}` | Per-issue running/retry projection |

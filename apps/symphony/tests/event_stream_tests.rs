@@ -109,6 +109,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
         }],
         blocked: vec![],
         pending_escalations: vec![],
+        shared_context: symphony::domain::SharedContextSummary::default(),
         codex_totals: CodexTotals::default(),
         codex_rate_limits: None,
         polling: PollingSnapshot {

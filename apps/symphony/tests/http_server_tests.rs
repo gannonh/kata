@@ -7,9 +7,9 @@ use axum::http::{Method, Request, StatusCode};
 use chrono::{TimeZone, Utc};
 use serde_json::{json, Value};
 use symphony::domain::{
-    BlockedIssueEntry, CodexTotals, CompletedEntry, OrchestratorSnapshot, PollingSnapshot,
-    RateLimitInfo, RefreshRequestOutcome, RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot,
-    SessionTokenUsage, WorkerSessionInfo,
+    BlockedIssueEntry, CodexTotals, CompletedEntry, EventKind, OrchestratorSnapshot,
+    PollingSnapshot, RateLimitInfo, RefreshRequestOutcome, RetrySnapshotEntry, RunAttempt,
+    RunningSessionSnapshot, SessionTokenUsage, SharedContextSummary, WorkerSessionInfo,
 };
 use symphony::http_server::{
     build_router, parse_event_filter_contract, HttpServerState, RefreshControl, SnapshotSource,
@@ -132,6 +132,12 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
             completed_at: Some(chrono::Utc::now()),
         }],
         pending_escalations: vec![],
+        shared_context: SharedContextSummary {
+            total_entries: 1,
+            entries_by_scope: BTreeMap::from([("project".to_string(), 1)]),
+            oldest_entry_at: Some(started_at),
+            newest_entry_at: Some(started_at),
+        },
         codex_totals: CodexTotals {
             input_tokens: 120,
             output_tokens: 80,
@@ -245,6 +251,10 @@ async fn test_get_root_returns_html_dashboard_shell_with_structured_sections() {
         "dashboard shell should include retry queue table section"
     );
     assert!(
+        body.contains("Shared Context"),
+        "dashboard shell should include shared context section"
+    );
+    assert!(
         body.contains("Completed issues"),
         "dashboard shell should include completed issue list section"
     );
@@ -326,6 +336,7 @@ async fn test_get_api_state_returns_snapshot_projection() {
         "session-12345678"
     );
     assert_eq!(payload["retry_queue"][0]["identifier"], "SIM-777");
+    assert_eq!(payload["shared_context"]["total_entries"], 1);
     assert_eq!(payload["codex_totals"]["total_tokens"], 200);
     assert_eq!(payload["codex_rate_limits"]["remaining"], 88);
     assert_eq!(
@@ -429,6 +440,232 @@ async fn test_post_refresh_reports_queued_then_coalesced_state() {
     assert_eq!(second_payload["pending_requests"], 1);
 }
 
+#[tokio::test]
+async fn test_context_post_get_and_delete_round_trip() {
+    let app = test_router();
+
+    let post_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/context")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&json!({
+                        "author_issue": "KAT-920",
+                        "scope": "project",
+                        "content": "Decision: use zod schemas",
+                    }))
+                    .expect("request body should serialize"),
+                ))
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond to context post");
+
+    assert_eq!(post_response.status(), StatusCode::CREATED);
+    let post_payload = body_json(post_response).await;
+    let entry_id = post_payload["id"]
+        .as_str()
+        .expect("response should include entry id")
+        .to_string();
+
+    let get_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/v1/context")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond to context get");
+
+    assert_eq!(get_response.status(), StatusCode::OK);
+    let get_payload = body_json(get_response).await;
+    let entries = get_payload["entries"]
+        .as_array()
+        .expect("entries should be an array");
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0]["id"], entry_id);
+    assert_eq!(entries[0]["author_issue"], "KAT-920");
+    assert_eq!(entries[0]["scope"]["type"], "project");
+
+    let delete_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::DELETE)
+                .uri(&format!("/api/v1/context/{entry_id}"))
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond to context delete");
+
+    assert_eq!(delete_response.status(), StatusCode::OK);
+    let delete_payload = body_json(delete_response).await;
+    assert_eq!(delete_payload["deleted"], 1);
+
+    let get_after_delete = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/v1/context")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond to context get");
+
+    let payload_after_delete = body_json(get_after_delete).await;
+    assert_eq!(
+        payload_after_delete["entries"]
+            .as_array()
+            .expect("entries should remain an array")
+            .len(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn test_context_scope_filter_and_clear_endpoint() {
+    let app = test_router();
+
+    for payload in [
+        json!({
+            "author_issue": "KAT-920",
+            "scope": "project",
+            "content": "Global decision",
+        }),
+        json!({
+            "author_issue": "KAT-921",
+            "scope": "label:backend",
+            "content": "Backend-specific decision",
+        }),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/context")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&payload).expect("request body should serialize"),
+                    ))
+                    .expect("request should build"),
+            )
+            .await
+            .expect("router should respond");
+        assert_eq!(response.status(), StatusCode::CREATED);
+    }
+
+    let filtered = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/v1/context?scope=label:backend")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+    assert_eq!(filtered.status(), StatusCode::OK);
+    let filtered_payload = body_json(filtered).await;
+    assert_eq!(
+        filtered_payload["entries"]
+            .as_array()
+            .expect("entries should be an array")
+            .len(),
+        1
+    );
+    assert_eq!(filtered_payload["entries"][0]["scope"]["value"], "backend");
+
+    let cleared = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::DELETE)
+                .uri("/api/v1/context?scope=project")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+    assert_eq!(cleared.status(), StatusCode::OK);
+    let cleared_payload = body_json(cleared).await;
+    assert_eq!(cleared_payload["deleted"], 1);
+
+    let remaining = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/v1/context?scope=label:backend")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+    assert_eq!(remaining.status(), StatusCode::OK);
+    let remaining_payload = body_json(remaining).await;
+    assert_eq!(
+        remaining_payload["entries"]
+            .as_array()
+            .expect("entries should be an array")
+            .len(),
+        1,
+        "scoped clear should preserve non-matching entries"
+    );
+}
+
+#[tokio::test]
+async fn test_context_post_publishes_shared_context_written_event() {
+    let state = HttpServerState::new(
+        Arc::new(StaticSnapshotSource {
+            snapshot: fixture_snapshot(),
+        }),
+        Arc::new(FakeRefreshControl::default()),
+        symphony::orchestrator::EscalationRegistry::default(),
+    );
+    let mut events = state.event_hub().subscribe();
+    let app = build_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/context")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&json!({
+                        "author_issue": "KAT-921",
+                        "scope": "label:backend",
+                        "content": "Pattern: keep schema in one module",
+                    }))
+                    .expect("request body should serialize"),
+                ))
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let envelope = tokio::time::timeout(std::time::Duration::from_secs(1), events.recv())
+        .await
+        .expect("event should arrive before timeout")
+        .expect("event should decode");
+
+    assert_eq!(envelope.kind, EventKind::SharedContextWritten);
+    assert_eq!(envelope.event, "shared_context_written");
+    assert_eq!(envelope.payload["author_issue"], "KAT-921");
+    assert_eq!(envelope.payload["scope"], "label:backend");
+}
+
 #[test]
 fn test_event_filter_invalid_type_returns_machine_readable_error() {
     let err = parse_event_filter_contract(None, Some("worker,wat"), None)
@@ -436,9 +673,9 @@ fn test_event_filter_invalid_type_returns_machine_readable_error() {
 
     assert_eq!(err.field, "type");
     assert_eq!(err.value, "wat");
+    let allowed_values = format!("Allowed values: {}", EventKind::variants().join(","));
     assert!(
-        err.message
-            .contains("Allowed values: snapshot,runtime,worker,tool,heartbeat"),
+        err.message.contains(&allowed_values),
         "error should list deterministic allowed values"
     );
 }

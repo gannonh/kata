@@ -243,6 +243,32 @@ escalation:
 }
 
 #[test]
+fn test_shared_context_max_entries_zero_is_not_normalized() {
+    let yaml_str = r#"
+tracker:
+  kind: linear
+  api_key: test-key
+  project_slug: test-project
+shared_context:
+  max_entries: 0
+"#;
+
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("workflow config should parse");
+
+    assert_eq!(
+        config.shared_context.max_entries, 0,
+        "from_workflow should preserve explicit zero values for validation"
+    );
+
+    let err = validate(&config).expect_err("shared_context.max_entries=0 must fail validation");
+    assert!(
+        matches!(err, SymphonyError::InvalidWorkflowConfig(ref msg) if msg.contains("shared_context.max_entries must be greater than 0")),
+        "expected shared_context.max_entries validation failure, got: {err}"
+    );
+}
+
+#[test]
 fn test_server_public_url_parses_and_trims_trailing_slash() {
     let yaml_str = r#"
 server:

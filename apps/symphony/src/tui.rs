@@ -417,6 +417,13 @@ fn build_summary_lines(snapshot: &OrchestratorSnapshot, throughput_line: &str) -
         format_tokens(snapshot.codex_totals.total_tokens)
     ));
 
+    if snapshot.shared_context.total_entries > 0 {
+        counts.push(format!(
+            "Context: {} entries",
+            snapshot.shared_context.total_entries
+        ));
+    }
+
     let mut lines = vec![counts.join("  |  "), throughput_line.to_string()];
 
     if let Some(project_url) = snapshot.linear_project_url.as_deref() {
@@ -1024,6 +1031,7 @@ mod tests {
                 seconds_running: 0.0,
             },
             blocked: Vec::new(),
+            shared_context: crate::domain::SharedContextSummary::default(),
             codex_rate_limits: None,
             polling: crate::domain::PollingSnapshot {
                 checking: false,
@@ -1240,6 +1248,21 @@ mod tests {
                 .iter()
                 .any(|line| line == "Linear Project: https://linear.app/kata-sh/project/symphony"),
             "summary lines should include the linear project URL when configured"
+        );
+    }
+
+    #[test]
+    fn build_summary_lines_adds_context_count_when_present() {
+        let mut snapshot = snapshot_fixture(42, None);
+        snapshot.shared_context.total_entries = 5;
+
+        let lines = build_summary_lines(&snapshot, "Throughput: 0.0 tps ▁▁▁▁▁▁▁▁");
+        assert!(
+            lines
+                .first()
+                .map(|line| line.contains("Context: 5 entries"))
+                .unwrap_or(false),
+            "summary line should include shared context count when entries exist"
         );
     }
 

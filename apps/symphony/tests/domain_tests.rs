@@ -118,6 +118,7 @@ fn test_service_config_defaults_match_spec() {
         server: ServerConfig::default(),
         prompts: None,
         notifications: None,
+        shared_context: SharedContextConfig::default(),
     };
 
     // Polling §5.3.2
@@ -146,6 +147,10 @@ fn test_service_config_defaults_match_spec() {
 
     // Tracker §5.3.1
     assert_eq!(cfg.tracker.endpoint, "https://api.linear.app/graphql");
+
+    // Shared context defaults
+    assert_eq!(cfg.shared_context.ttl_ms, 86_400_000);
+    assert_eq!(cfg.shared_context.max_entries, 100);
 }
 
 #[test]
@@ -375,6 +380,7 @@ fn test_orchestrator_snapshot_serializes() {
         ],
         blocked: vec![],
         pending_escalations: vec![],
+        shared_context: symphony::domain::SharedContextSummary::default(),
         codex_totals: CodexTotals::default(),
         codex_rate_limits: None,
         polling: PollingSnapshot {
@@ -401,6 +407,7 @@ fn test_orchestrator_snapshot_serializes() {
     assert!(val.get("pending_escalations").is_some());
     assert!(val.get("retry_queue").is_some());
     assert!(val.get("completed").is_some());
+    assert!(val.get("shared_context").is_some());
     assert!(val.get("codex_totals").is_some());
     assert!(val.get("polling").is_some());
     // Retry queue has our entry

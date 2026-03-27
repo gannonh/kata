@@ -24,6 +24,17 @@ pub fn render_prompt(
     attempt: Option<u32>,
     workspace_base_branch: Option<&str>,
 ) -> Result<String> {
+    render_prompt_with_shared_context(template, issue, attempt, workspace_base_branch, "")
+}
+
+/// Render a Liquid template with optional shared context preamble content.
+pub fn render_prompt_with_shared_context(
+    template: &str,
+    issue: &Issue,
+    attempt: Option<u32>,
+    workspace_base_branch: Option<&str>,
+    shared_context: &str,
+) -> Result<String> {
     // 1. Parse the template
     let parser = liquid::ParserBuilder::with_stdlib()
         .build()
@@ -59,6 +70,10 @@ pub fn render_prompt(
     globals.insert(
         "workspace".into(),
         liquid_core::model::Value::Object(workspace_obj),
+    );
+    globals.insert(
+        "shared_context".into(),
+        liquid_core::model::Value::scalar(shared_context.to_string()),
     );
 
     // 4. Render (liquid-rs is strict by default — unknown variables error)

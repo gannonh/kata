@@ -266,7 +266,8 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
             orchestrator.escalation_registry(),
             event_hub,
             symphony::http_server::EventStreamConfig::default(),
-        );
+        )
+        .with_shared_context_store(orchestrator.shared_context_store());
 
         let mut tui_shutdown = None;
         let mut tui_exit = None;

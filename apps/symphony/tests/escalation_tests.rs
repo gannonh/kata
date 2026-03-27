@@ -7,7 +7,7 @@ use chrono::Utc;
 use serde_json::{json, Value};
 use symphony::domain::{
     CodexTotals, EscalationRequest, EscalationResponse, OrchestratorSnapshot, PollingSnapshot,
-    RefreshRequestOutcome,
+    RefreshRequestOutcome, SharedContextSummary,
 };
 use symphony::http_server::{build_router, HttpServerState, RefreshControl, SnapshotSource};
 use symphony::orchestrator::{EscalationRegistry, EscalationResolveResult};
@@ -50,6 +50,7 @@ fn empty_snapshot() -> OrchestratorSnapshot {
         completed: vec![],
         blocked: vec![],
         pending_escalations: vec![],
+        shared_context: SharedContextSummary::default(),
         codex_totals: CodexTotals {
             input_tokens: 0,
             output_tokens: 0,

@@ -13,8 +13,8 @@ use serde_yaml::{Mapping, Value};
 use crate::domain::{
     AgentBackend, AgentConfig, ApiKey, CodexConfig, DockerCodexAuth, DockerConfig, HooksConfig,
     NotificationsConfig, PiAgentConfig, PollingConfig, PromptsConfig, ServerConfig, ServiceConfig,
-    SlackConfig, TrackerConfig, WorkerConfig, WorkspaceConfig, WorkspaceIsolation,
-    WorkspaceRepoStrategy,
+    SharedContextConfig, SlackConfig, TrackerConfig, WorkerConfig, WorkspaceConfig,
+    WorkspaceIsolation, WorkspaceRepoStrategy,
 };
 use crate::error::{Result, SymphonyError};
 use crate::notifications;
@@ -309,6 +309,13 @@ struct RawNotificationsConfig {
 
 #[derive(Deserialize, Default)]
 #[serde(default)]
+struct RawSharedContextConfig {
+    ttl_ms: Option<u64>,
+    max_entries: Option<usize>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
 struct RawSlackConfig {
     webhook_url: Option<String>,
     events: Option<Vec<String>>,
@@ -493,6 +500,8 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let raw_server: RawServerConfig = extract_section(&normalized, "server")?;
     let raw_prompts: RawPromptsConfig = extract_section(&normalized, "prompts")?;
     let raw_notifications: RawNotificationsConfig = extract_section(&normalized, "notifications")?;
+    let raw_shared_context: RawSharedContextConfig =
+        extract_section(&normalized, "shared_context")?;
 
     let defaults = ServiceConfig::default();
     let has_kata_agent_section = normalized.get("kata_agent").is_some();
@@ -973,6 +982,15 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
 
     let notifications = slack.map(|slack| NotificationsConfig { slack: Some(slack) });
 
+    let shared_context = SharedContextConfig {
+        ttl_ms: raw_shared_context
+            .ttl_ms
+            .unwrap_or(defaults.shared_context.ttl_ms),
+        max_entries: raw_shared_context
+            .max_entries
+            .unwrap_or(defaults.shared_context.max_entries),
+    };
+
     Ok(ServiceConfig {
         tracker,
         polling,
@@ -986,6 +1004,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         server,
         prompts,
         notifications,
+        shared_context,
     })
 }
 
@@ -1078,6 +1097,18 @@ pub fn validate(config: &ServiceConfig) -> Result<ValidatedServiceConfig> {
                     .to_string(),
             ));
         }
+    }
+
+    if config.shared_context.ttl_ms == 0 {
+        return Err(SymphonyError::InvalidWorkflowConfig(
+            "shared_context.ttl_ms must be greater than 0".to_string(),
+        ));
+    }
+
+    if config.shared_context.max_entries == 0 {
+        return Err(SymphonyError::InvalidWorkflowConfig(
+            "shared_context.max_entries must be greater than 0".to_string(),
+        ));
     }
 
     Ok(ValidatedServiceConfig(config.clone()))
