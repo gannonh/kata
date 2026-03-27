@@ -123,9 +123,9 @@ test("loader sets all 4 KATA_ env vars and PI_PACKAGE_DIR", async () => {
     "loader sets KATA_BUNDLED_EXTENSION_PATHS",
   );
 
-  // Verify all 11 extension entry points are referenced in loader
+  // Verify all bundled extension entry points are referenced in loader.
   // Loader uses join() calls like join(agentDir, 'extensions', 'kata', 'index.ts')
-  // so we check for the distinguishing directory name of each extension
+  // so we check for the distinguishing directory name of each extension.
   const extNames = [
     '"kata"',
     '"bg-shell"',
@@ -134,6 +134,10 @@ test("loader sets all 4 KATA_ env vars and PI_PACKAGE_DIR", async () => {
     '"search-the-web"',
     '"slash-commands"',
     '"subagent"',
+    '"mac-tools"',
+    '"linear"',
+    '"symphony"',
+    '"pr-lifecycle"',
     '"ask-user-questions.ts"',
     '"get-secrets-from-user.ts"',
   ];
@@ -178,6 +182,10 @@ test("initResources syncs extensions, agents, and AGENTS.md to target dir", asyn
     assert.ok(
       existsSync(join(fakeAgentDir, "extensions", "subagent", "index.ts")),
       "subagent synced",
+    );
+    assert.ok(
+      existsSync(join(fakeAgentDir, "extensions", "symphony", "index.ts")),
+      "symphony extension synced",
     );
 
     // Agents synced
