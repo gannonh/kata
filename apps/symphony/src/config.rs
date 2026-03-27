@@ -976,8 +976,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
             .unwrap_or(defaults.shared_context.ttl_ms),
         max_entries: raw_shared_context
             .max_entries
-            .unwrap_or(defaults.shared_context.max_entries)
-            .max(1),
+            .unwrap_or(defaults.shared_context.max_entries),
     };
 
     Ok(ServiceConfig {

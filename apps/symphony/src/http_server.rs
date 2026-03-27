@@ -21,7 +21,9 @@ use crate::domain::{
 };
 use crate::event_stream::EventHub;
 use crate::orchestrator::{RefreshSender, SnapshotHandle};
-use crate::shared_context::{ContextEntryDraft, SharedContextStore};
+use crate::shared_context::{
+    ContextEntryDraft, SharedContextStore, MAX_SHARED_CONTEXT_CONTENT_CHARS,
+};
 
 pub const HTTP_PORT_RETRY_LIMIT: u16 = 10;
 
@@ -1115,16 +1117,19 @@ async fn post_context(
             .into_response();
     }
 
-    if content_len > 500 {
+    if content_len > MAX_SHARED_CONTEXT_CONTENT_CHARS {
         return (
             StatusCode::BAD_REQUEST,
             Json(ApiErrorEnvelope {
                 error: ApiError {
                     code: "invalid_content",
-                    message: "shared context content must be 500 characters or fewer".to_string(),
+                    message: format!(
+                        "shared context content must be {} characters or fewer",
+                        MAX_SHARED_CONTEXT_CONTENT_CHARS
+                    ),
                     status: StatusCode::BAD_REQUEST.as_u16(),
                     details: Some(serde_json::json!({
-                        "max_chars": 500,
+                        "max_chars": MAX_SHARED_CONTEXT_CONTENT_CHARS,
                         "actual_chars": content_len,
                     })),
                 },

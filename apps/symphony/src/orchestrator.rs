@@ -1,9 +1,10 @@
 use chrono::{DateTime, Utc};
+use regex::Regex;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::future::Future;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, LazyLock, RwLock};
 use std::time::Duration;
 
 use crate::codex::app_server;
@@ -24,6 +25,11 @@ use crate::shared_context::SharedContextStore;
 use crate::ssh::{self, WorkerHostSelection};
 use crate::workflow_store::WorkflowStore;
 use crate::{docker, path_safety, prompt_builder, workspace};
+
+static SHARED_CONTEXT_PLACEHOLDER_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\{\{\s*shared_context\s*\}\}")
+        .expect("shared_context placeholder regex must compile")
+});
 
 // ── Standalone Worker Task ──────────────────────────────────────────────
 
@@ -1287,10 +1293,19 @@ impl Orchestrator {
             self.config.server.port = Some(port);
         }
 
-        self.shared_context_store.update_settings(
-            self.config.shared_context.ttl_ms,
-            self.config.shared_context.max_entries,
-        );
+        if self.config.shared_context.ttl_ms > 0 && self.config.shared_context.max_entries > 0 {
+            self.shared_context_store.update_settings(
+                self.config.shared_context.ttl_ms,
+                self.config.shared_context.max_entries,
+            );
+        } else {
+            tracing::warn!(
+                event = "shared_context_config_invalid",
+                ttl_ms = self.config.shared_context.ttl_ms,
+                max_entries = self.config.shared_context.max_entries,
+                "skipping shared context store settings update because workflow config is invalid"
+            );
+        }
 
         self.state.max_concurrent_agents = self.config.agent.max_concurrent_agents;
         self.state.poll_interval_ms = self.config.polling.interval_ms;
@@ -2728,7 +2743,7 @@ impl Orchestrator {
     }
 
     fn ensure_shared_context_placeholder(prompt_template: String) -> String {
-        if prompt_template.contains("shared_context") {
+        if SHARED_CONTEXT_PLACEHOLDER_RE.is_match(&prompt_template) {
             return prompt_template;
         }
 
@@ -2758,7 +2773,13 @@ impl Orchestrator {
 
     fn build_shared_context_block_for_issue(&self, issue: &Issue) -> String {
         let scopes = Self::shared_context_scopes_for_issue(issue);
-        let entries = self.shared_context_store.read(&scopes);
+        let entries: Vec<_> = self
+            .shared_context_store
+            .read(&scopes)
+            .into_iter()
+            .filter(|entry| entry.author_issue != issue.identifier)
+            .take(10)
+            .collect();
 
         if let Some(hub) = &self.event_hub {
             hub.publish(
@@ -2784,7 +2805,7 @@ impl Orchestrator {
             String::new(),
         ];
 
-        for entry in entries.into_iter().take(10) {
+        for entry in entries {
             let age = Self::format_shared_context_age(now, entry.created_at);
             lines.push(format!(
                 "- [{}] ({age}, {}): {}",

@@ -3864,11 +3864,17 @@ async fn test_execute_worker_attempt_shared_context_is_injected_into_prompt() {
         .map(|line| line.to_string())
         .collect();
 
+    let first_prompt = prompt_lines.first().cloned().unwrap_or_default();
     assert!(
-        prompt_lines
-            .first()
-            .map(|line| line.contains("Decision: using Zod for validation"))
-            .unwrap_or(false),
+        first_prompt.contains("## Shared Context from Other Workers"),
+        "first worker prompt should include the shared-context header"
+    );
+    assert!(
+        first_prompt.contains("[KAT-920]"),
+        "first worker prompt should preserve shared-context author attribution"
+    );
+    assert!(
+        first_prompt.contains("Decision: using Zod for validation"),
         "first worker prompt should include the shared context decision"
     );
 }

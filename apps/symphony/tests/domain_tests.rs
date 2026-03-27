@@ -146,6 +146,10 @@ fn test_service_config_defaults_match_spec() {
 
     // Tracker §5.3.1
     assert_eq!(cfg.tracker.endpoint, "https://api.linear.app/graphql");
+
+    // Shared context defaults
+    assert_eq!(cfg.shared_context.ttl_ms, 86_400_000);
+    assert_eq!(cfg.shared_context.max_entries, 100);
 }
 
 #[test]
@@ -400,6 +404,7 @@ fn test_orchestrator_snapshot_serializes() {
     assert!(val.get("running_session_info").is_some());
     assert!(val.get("retry_queue").is_some());
     assert!(val.get("completed").is_some());
+    assert!(val.get("shared_context").is_some());
     assert!(val.get("codex_totals").is_some());
     assert!(val.get("polling").is_some());
     // Retry queue has our entry

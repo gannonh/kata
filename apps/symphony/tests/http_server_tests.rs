@@ -584,6 +584,7 @@ async fn test_context_scope_filter_and_clear_endpoint() {
     assert_eq!(filtered_payload["entries"][0]["scope"]["value"], "backend");
 
     let cleared = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method(Method::DELETE)
@@ -596,6 +597,27 @@ async fn test_context_scope_filter_and_clear_endpoint() {
     assert_eq!(cleared.status(), StatusCode::OK);
     let cleared_payload = body_json(cleared).await;
     assert_eq!(cleared_payload["deleted"], 1);
+
+    let remaining = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/v1/context?scope=label:backend")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+    assert_eq!(remaining.status(), StatusCode::OK);
+    let remaining_payload = body_json(remaining).await;
+    assert_eq!(
+        remaining_payload["entries"]
+            .as_array()
+            .expect("entries should be an array")
+            .len(),
+        1,
+        "scoped clear should preserve non-matching entries"
+    );
 }
 
 #[tokio::test]

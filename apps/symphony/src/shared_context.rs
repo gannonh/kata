@@ -51,16 +51,17 @@ impl SharedContextStore {
     }
 
     pub fn update_settings(&self, default_ttl_ms: u64, max_entries: usize) {
+        let max_entries = max_entries.max(1);
         {
             let mut settings = self
                 .settings
                 .write()
                 .expect("shared context settings lock poisoned");
             settings.default_ttl_ms = default_ttl_ms;
-            settings.max_entries = max_entries.max(1);
+            settings.max_entries = max_entries;
         }
         let mut entries = self.entries.write().expect("shared context lock poisoned");
-        self.enforce_max_entries(&mut entries);
+        Self::enforce_max_entries(&mut entries, max_entries);
     }
 
     pub fn write(&self, draft: ContextEntryDraft) -> String {
@@ -73,6 +74,7 @@ impl SharedContextStore {
             .read()
             .expect("shared context settings lock poisoned");
         let ttl_ms = draft.ttl_ms.unwrap_or(settings.default_ttl_ms).max(1);
+        let max_entries = settings.max_entries;
         let content = truncate_chars(&draft.content, MAX_SHARED_CONTEXT_CONTENT_CHARS);
         let author_issue = draft.author_issue.trim();
 
@@ -91,7 +93,7 @@ impl SharedContextStore {
 
         let mut entries = self.entries.write().expect("shared context lock poisoned");
         entries.push(entry.clone());
-        self.enforce_max_entries(&mut entries);
+        Self::enforce_max_entries(&mut entries, max_entries);
 
         entry
     }
@@ -209,12 +211,8 @@ impl SharedContextStore {
         }
     }
 
-    fn enforce_max_entries(&self, entries: &mut Vec<ContextEntry>) {
-        let max_entries = self
-            .settings
-            .read()
-            .expect("shared context settings lock poisoned")
-            .max_entries;
+    fn enforce_max_entries(entries: &mut Vec<ContextEntry>, max_entries: usize) {
+        let max_entries = max_entries.max(1);
         if entries.len() <= max_entries {
             return;
         }
