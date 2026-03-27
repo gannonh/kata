@@ -21,7 +21,7 @@ echo "Running pre-push validation... (node $(node --version))"
 # Rebuild native addons if needed (matches CI's "Rebuild native addons" step).
 # Vitest runs under Node (not Bun), so better-sqlite3 must be compiled for
 # the active Node version. This is fast when already up-to-date.
-(cd apps/context && npm rebuild better-sqlite3 2>/dev/null) || true
+(cd apps/context && npm rebuild better-sqlite3 tree-sitter 2>/dev/null) || true
 
 bunx turbo run lint typecheck test --affected
 

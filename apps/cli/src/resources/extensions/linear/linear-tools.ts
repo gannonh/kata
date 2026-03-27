@@ -275,7 +275,13 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       priority: Type.Optional(Type.Integer({ minimum: 0, maximum: 4, description: "Priority: 0=none, 1=urgent, 2=high, 3=medium, 4=low" })),
       estimate: Type.Optional(Type.Number({ description: "Issue estimate" })),
     }),
-    async execute(_id, params) { return run(() => client.createIssue(params)); },
+    async execute(_id, params) {
+      const input = { ...params };
+      if (input.description !== undefined) {
+        input.description = normalizeMarkdownContent(input.description);
+      }
+      return run(() => client.createIssue(input));
+    },
   });
 
   pi.registerTool({
@@ -488,7 +494,13 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       icon: Type.Optional(Type.String({ description: "Document icon emoji" })),
       color: Type.Optional(Type.String({ description: "Document color hex" })),
     }),
-    async execute(_id, params) { return run(() => client.createDocument(params)); },
+    async execute(_id, params) {
+      const input = { ...params };
+      if (input.content !== undefined) {
+        input.content = normalizeMarkdownContent(input.content);
+      }
+      return run(() => client.createDocument(input));
+    },
   });
 
   pi.registerTool({
@@ -541,7 +553,11 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       color: Type.Optional(Type.String({ description: "New color hex" })),
     }),
     async execute(_id, params) {
-      const { id, ...input } = params;
+      const { id, ...rest } = params;
+      const input = { ...rest };
+      if (input.content !== undefined) {
+        input.content = normalizeMarkdownContent(input.content);
+      }
       return run(() => client.updateDocument(id, input));
     },
   });

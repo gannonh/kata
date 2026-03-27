@@ -119,7 +119,7 @@ describe("integration: performance", () => {
     expect(elapsed).toBeLessThan(100);
   });
 
-  it("grep search completes in <500ms on fixture set", async () => {
+  it("grep search completes in <1000ms on fixture set", async () => {
     const start = performance.now();
 
     await grepSearch("import", TS_FIXTURES);

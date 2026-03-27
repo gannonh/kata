@@ -635,9 +635,8 @@ describe("runCreatePr — linearConfig paths", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("falls through gracefully when linearConfig dynamic import fails", async () => {
-    // The mock is set up, so this tests that the try/catch around linearConfig
-    // processing doesn't break the flow when documents are pre-provided
+  it("skips linear cross-linking when workflowMode is not linear", async () => {
+    // Validates graceful flow when linear mode is disabled (workflowMode: "file")
     const rt = createMockRuntime({
       branch: "kata/apps-cli/M001/S01",
       commands: [

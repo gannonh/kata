@@ -66,7 +66,7 @@ symphony:
 
 Sets the base URL for the [Symphony](/docs/symphony) orchestration server. Required for `/symphony` commands and `symphony_*` agent tools.
 
-Can also be set via environment variables: `KATA_SYMPHONY_URL` (highest priority) or `SYMPHONY_URL`. The preferences field takes priority over environment variables.
+Precedence order: (1) `symphony.url` in preferences, (2) `KATA_SYMPHONY_URL` environment variable, (3) `SYMPHONY_URL` environment variable.
 
 ## Skills
 
