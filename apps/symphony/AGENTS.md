@@ -366,6 +366,7 @@ workflow file (e.g. `0.0.0.0` to bind all interfaces).
 | ------ | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET`  | `/`                         | HTML dashboard — auto-refreshes every 2 seconds. Shows summary cards, running sessions table (including turn/max-turns, last activity age, and per-session tokens), retry queue table, completed issue list, token breakdown, polling diagnostics, and collapsible rate-limit JSON. |
 | `GET`  | `/api/v1/state`             | Full orchestrator state as JSON.                                                                                                                                                 |
+| `GET`  | `/api/v1/events`            | WebSocket event stream of `SymphonyEventEnvelope` values. Supports server-side query filters (`issue`, `type`, `severity`), emits snapshot bootstrap + heartbeat envelopes, and enforces backpressure close policy. |
 | `GET`  | `/api/v1/:issue_identifier` | Per-issue projection. `:issue_identifier` must match the pattern `TEAM-NNN` (uppercase prefix, hyphen, digits). Returns 404 when the issue is not running or in the retry queue. |
 | `POST` | `/api/v1/refresh`           | Request an immediate Linear poll. Requests are coalesced — multiple concurrent POSTs result in one actual refresh. Returns 202.                                                  |
 
@@ -536,7 +537,7 @@ Core Rust modules:
 | --- | --- | --- |
 | CLI/runtime entrypoint | `src/main.rs` | CLI parsing, startup validation, tracing setup, runtime wiring |
 | Orchestrator loop | `src/orchestrator.rs` | Poll/dispatch loop, retries, worker lifecycle, state snapshots |
-| HTTP dashboard/API | `src/http_server.rs` | `/`, `/api/v1/state`, `/api/v1/:issue_identifier`, refresh endpoint, dashboard Linear project link card |
+| HTTP dashboard/API | `src/http_server.rs` | `/`, `/api/v1/state`, `/api/v1/events` websocket stream, `/api/v1/:issue_identifier`, refresh endpoint, dashboard Linear project link card |
 | Terminal dashboard | `src/tui.rs` | Ratatui renderer with throughput sparkline, color-coded status dots, keyboard handling, and live snapshot display |
 | Workflow/config parser | `src/workflow.rs`, `src/config.rs` | Front-matter parsing, env/tilde resolution, typed config defaults |
 | Domain model | `src/domain.rs` | Shared runtime/config structs (`RunAttempt`, snapshots, worker/session info) |

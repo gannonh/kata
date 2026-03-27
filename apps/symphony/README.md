@@ -515,7 +515,38 @@ Available at `http://localhost:<port>`. Auto-refreshes every 2 seconds.
 
 Shows: running sessions (with turn count, token usage, last activity), retry queue, completed issues, polling stats, rate limits, and a link to the Linear project.
 
-JSON API at `/api/v1/state` and `/api/v1/{ISSUE-ID}`.
+HTTP surfaces:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/v1/state` | Full orchestrator snapshot JSON |
+| `GET /api/v1/{ISSUE-ID}` | Per-issue running/retry projection |
+| `POST /api/v1/refresh` | Queue an immediate poll tick |
+| `GET /api/v1/events` | Live websocket stream (`SymphonyEventEnvelope`) |
+
+### Event stream quick check (`/api/v1/events`)
+
+Use [`websocat`](https://github.com/vi/websocat) to verify live worker/runtime traffic:
+
+```bash
+websocat "ws://127.0.0.1:8080/api/v1/events?issue=KAT-920&type=worker,tool&severity=info"
+```
+
+Filter semantics are **OR within each field** and **AND across fields**:
+
+- `issue=KAT-920,KAT-921` → either issue
+- `type=worker,tool` → either event kind
+- `severity=warn,error` → either severity
+- Combined query requires all provided field filters to match
+
+Connection diagnostics are emitted as structured logs/counters:
+
+- `event=ws_client_connected`
+- `event=ws_client_disconnected`
+- `event=ws_event_dropped`
+- `event=ws_heartbeat_sent`
+
+Disconnect reasons are explicit (`backpressure`, `server_shutdown`, `client_closed`, `protocol_error`).
 
 <details>
 <summary>Screenshot</summary>
