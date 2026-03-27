@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { resolveWorkflowPath } from "../command.js";
 import { runConfigEditor } from "../config-editor.js";
 import {
   applyModelToConfig,
@@ -22,6 +23,8 @@ import {
   renderFieldChoice,
   renderSectionChoice,
 } from "../config-render.js";
+import { validateConfigModel } from "../config-validator.js";
+import { renderUpdatedWorkflowContent } from "../config-writer.js";
 
 const workflowReferencePath = fileURLToPath(
   new URL("../../../../../../symphony/docs/WORKFLOW-REFERENCE.md", import.meta.url),
@@ -237,4 +240,113 @@ function createScriptedUi(steps: readonly ScriptedStep[]) {
       // no-op for tests
     },
   };
+}
+
+describe("config-validator", () => {
+  it("catches required, enum, and compatibility validation errors", () => {
+    const source = readFileSync(workflowReferencePath, "utf-8");
+    const model = parseWorkflowConfig(source);
+
+    setField(model, "tracker", "api_key", "");
+    setField(model, "agent", "backend", "invalid-backend");
+    setField(model, "workspace", "git_strategy", "worktree");
+    setField(model, "workspace", "repo", "https://github.com/example/repo.git");
+
+    const issues = validateConfigModel(model);
+    expect(issues.some((issue) => issue.path === "tracker.api_key")).toBe(true);
+    expect(issues.some((issue) => issue.path === "agent.backend")).toBe(true);
+    expect(issues.some((issue) => issue.path === "workspace.git_strategy")).toBe(
+      true,
+    );
+  });
+
+  it("accepts valid configs", () => {
+    const source = readFileSync(workflowReferencePath, "utf-8");
+    const model = parseWorkflowConfig(source);
+
+    setField(model, "workspace", "repo", "/tmp/local-repo");
+    setField(model, "workspace", "git_strategy", "worktree");
+    setField(model, "notifications", "slack.webhook_url", "https://hooks.slack.com/services/x/y/z");
+    setField(model, "notifications", "slack.events", ["all"]);
+
+    const issues = validateConfigModel(model);
+    expect(issues).toEqual([]);
+  });
+});
+
+describe("config-writer", () => {
+  it("preserves prompt body and yaml comments when updating frontmatter", () => {
+    const fixture = [
+      "---",
+      "tracker:",
+      "  # tracker kind comment",
+      "  kind: linear",
+      "  api_key: $LINEAR_API_KEY # keep me",
+      "  project_slug: demo",
+      "workspace:",
+      "  root: /tmp/workspaces",
+      "  repo: /tmp/repo",
+      "  git_strategy: auto",
+      "agent:",
+      "  max_concurrent_agents: 3",
+      "  max_turns: 20",
+      "---",
+      "# Prompt body",
+      "You are an agent.",
+    ].join("\n");
+
+    const model = parseWorkflowConfig(fixture);
+    setField(model, "agent", "max_concurrent_agents", 5);
+
+    const updated = renderUpdatedWorkflowContent(fixture, model).content;
+
+    expect(updated).toContain("# tracker kind comment");
+    expect(updated).toContain("api_key: $LINEAR_API_KEY # keep me");
+    expect(updated).toContain("max_concurrent_agents: 5");
+    expect(updated).toContain("# Prompt body\nYou are an agent.");
+  });
+});
+
+describe("resolveWorkflowPath", () => {
+  it("resolves in argument -> preference -> cwd order", () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "symphony-path-resolve-"));
+
+    try {
+      const explicitPath = join(tempDir, "explicit.md");
+      const prefPath = join(tempDir, "pref.md");
+      const cwdPath = join(tempDir, "WORKFLOW.md");
+      writeFileSync(explicitPath, "---\ntracker:\n  kind: linear\n---\n", "utf-8");
+      writeFileSync(prefPath, "---\ntracker:\n  kind: linear\n---\n", "utf-8");
+      writeFileSync(cwdPath, "---\ntracker:\n  kind: linear\n---\n", "utf-8");
+
+      const fromArg = resolveWorkflowPath(explicitPath, tempDir, {
+        symphony: { workflow_path: prefPath },
+      });
+      expect(fromArg).toEqual({ ok: true, path: explicitPath });
+
+      const fromPreference = resolveWorkflowPath(undefined, tempDir, {
+        symphony: { workflow_path: prefPath },
+      });
+      expect(fromPreference).toEqual({ ok: true, path: prefPath });
+
+      const fromCwd = resolveWorkflowPath(undefined, tempDir, null);
+      expect(fromCwd).toEqual({ ok: true, path: cwdPath });
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+});
+
+function setField(
+  model: ReturnType<typeof parseWorkflowConfig>,
+  sectionKey: string,
+  fieldKey: string,
+  value: unknown,
+): void {
+  const section = model.sections.find((candidate) => candidate.key === sectionKey);
+  if (!section) throw new Error(`Section not found: ${sectionKey}`);
+
+  const field = section.fields.find((candidate) => candidate.key === fieldKey);
+  if (!field) throw new Error(`Field not found: ${sectionKey}.${fieldKey}`);
+  field.value = value;
 }
