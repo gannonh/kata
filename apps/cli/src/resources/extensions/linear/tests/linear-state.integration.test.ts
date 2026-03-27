@@ -54,14 +54,17 @@ describe(
     beforeAll(async () => {
       client = new LinearClient(API_KEY!);
 
-      // Resolve team and project — same pattern as entity-hierarchy integration test
+      // Resolve team
       const teams = await client.listTeams();
       assert.ok(teams.length > 0, "workspace has at least one team");
       teamId = teams[0].id;
 
-      const projects = await client.listProjects({ teamId });
-      assert.ok(projects.length > 0, "team has at least one project");
-      projectId = projects[0].id;
+      // Create an ephemeral test project — never pollute real projects
+      const project = await client.createProject({
+        name: `Test Linear State ${testTag}`,
+        teamIds: [teamId],
+      });
+      projectId = project.id;
 
       // Provision labels
       labelSet = await ensureKataLabels(client, teamId);
@@ -247,30 +250,25 @@ describe(
     // =========================================================================
 
     afterAll(async () => {
-      // Cleanup order: task → slice → milestone (reverse creation order)
+      // Cleanup order: task → slice → milestone → project (reverse creation order)
       // Labels are NOT deleted — they are idempotent and shared across runs
-      const results = await Promise.allSettled([
-        taskIssue ? client.deleteIssue(taskIssue.id) : Promise.resolve(),
-      ]);
+      const cleanupSteps: Array<[string, () => Promise<unknown>]> = [
+        ["task issue", () => (taskIssue ? client.deleteIssue(taskIssue.id) : Promise.resolve())],
+        ["slice issue", () => (sliceIssue ? client.deleteIssue(sliceIssue.id) : Promise.resolve())],
+        ["milestone", () => (milestone ? client.deleteMilestone(milestone.id) : Promise.resolve())],
+        ["test project", () => (projectId ? client.deleteProject(projectId) : Promise.resolve())],
+      ];
 
-      // Wait for task delete before slice delete (parent constraint)
-      await Promise.allSettled([
-        sliceIssue ? client.deleteIssue(sliceIssue.id) : Promise.resolve(),
-      ]);
-
-      await Promise.allSettled([
-        milestone ? client.deleteMilestone(milestone.id) : Promise.resolve(),
-      ]);
-
-      // Log any unexpected cleanup failures (not "not found")
-      results.forEach((result, i) => {
-        if (result.status === "rejected") {
-          const msg = (result.reason as Error).message ?? String(result.reason);
+      for (const [name, fn] of cleanupSteps) {
+        try {
+          await fn();
+        } catch (e) {
+          const msg = (e as Error).message ?? String(e);
           if (!msg.toLowerCase().includes("not found") && !msg.includes("Entity not found")) {
-            console.log(`  Cleanup failed for item ${i}: ${msg}`);
+            console.log(`  Cleanup failed for ${name}: ${msg}`);
           }
         }
-      });
+      }
     });
   }
 );

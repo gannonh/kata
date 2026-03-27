@@ -18,6 +18,7 @@ import {
   listKataTasks,
   listKataMilestones,
   getLinearStateForKataPhase,
+  normalizeMarkdownContent,
 } from "./linear-entities.js";
 import {
   writeKataDocument,
@@ -360,7 +361,11 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       estimate: Type.Optional(Type.Number({ description: "New estimate" })),
     }),
     async execute(_id, params) {
-      const { id, ...input } = params;
+      const { id, ...rest } = params;
+      const input = { ...rest };
+      if (input.description !== undefined) {
+        input.description = normalizeMarkdownContent(input.description);
+      }
       return run(() => client.updateIssue(id, input));
     },
   });
@@ -444,7 +449,9 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       issueId: Type.String({ description: "Issue UUID to comment on" }),
       body: Type.String({ description: "Comment body (markdown supported)" }),
     }),
-    async execute(_id, params) { return run(() => client.createComment(params.issueId, params.body)); },
+    async execute(_id, params) {
+      return run(() => client.createComment(params.issueId, normalizeMarkdownContent(params.body)));
+    },
   });
 
   pi.registerTool({
@@ -780,7 +787,7 @@ export function registerLinearTools(pi: ExtensionAPI, client: LinearClient) {
       const attachment: DocumentAttachment = hasProject
         ? { projectId: params.projectId! }
         : { issueId: params.issueId! };
-      return run(() => writeKataDocument(client, params.title, params.content, attachment));
+      return run(() => writeKataDocument(client, params.title, normalizeMarkdownContent(params.content), attachment));
     },
   });
 
