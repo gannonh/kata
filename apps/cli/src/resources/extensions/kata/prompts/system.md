@@ -49,7 +49,6 @@ Titles live inside file content (headings, frontmatter), not in file or director
   PROJECT.md          (living doc — what the project is right now)
   DECISIONS.md        (append-only register of architectural and pattern decisions)
   QUEUE.md            (append-only log of queued milestones via /kata queue)
-  STATE.md
   milestones/
     M001/
       M001-CONTEXT.md
@@ -79,7 +78,6 @@ Titles live inside file content (headings, frontmatter), not in file or director
 - Each slice gets its own git branch: `kata/<scope>/M001/S01` (legacy `kata/M001/S01` remains compatible during transition)
 - Slices are squash-merged to main when complete
 - Summaries compress prior work — read them instead of re-reading all task details
-- `STATE.md` is the quick-glance status file — keep it updated after changes
 
 ### Artifact Templates
 
