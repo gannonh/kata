@@ -12,7 +12,7 @@
 
 ## Quick Start: "What's next?"
 
-Derive current project stateL:
+Derive current project state:
 
 1. **Call `kata_derive_state` (no arguments)** — returns a `KataState` JSON telling you:
    - `phase` — what stage of work the project is in right now

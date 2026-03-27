@@ -104,7 +104,8 @@ function makeRoadmap(options: {
 function capturedActionIds(): string[] {
   const call = mockShowNextAction.mock.calls[0];
   if (!call) return [];
-  const opts = call[1] as { actions?: Array<{ id: string }> };
+  const opts = call[1] as { actions?: Array<{ id: string }> } | undefined;
+  if (!opts) return [];
   return (opts.actions || []).map((action) => action.id);
 }
 
