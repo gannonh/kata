@@ -263,6 +263,7 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
         let http_state = HttpServerState::with_event_stream(
             Arc::new(snapshot_handle),
             Arc::new(refresh_sender),
+            orchestrator.escalation_registry(),
             event_hub,
             symphony::http_server::EventStreamConfig::default(),
         );

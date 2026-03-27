@@ -239,6 +239,13 @@ struct RawAgentConfig {
     max_concurrent_agents: Option<u32>,
     max_turns: Option<u32>,
     max_retry_backoff_ms: Option<u64>,
+    escalation_timeout_ms: Option<u64>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct RawEscalationConfig {
+    timeout_ms: Option<u64>,
 }
 
 #[derive(Deserialize, Default)]
@@ -478,6 +485,7 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
     let raw_workspace: RawWorkspaceConfig = extract_section(&normalized, "workspace")?;
     let raw_worker: RawWorkerConfig = extract_section(&normalized, "worker")?;
     let raw_agent: RawAgentConfig = extract_section(&normalized, "agent")?;
+    let raw_escalation: RawEscalationConfig = extract_section(&normalized, "escalation")?;
     let raw_codex: RawCodexConfig = extract_section(&normalized, "codex")?;
     let raw_kata_agent: RawPiAgentConfig = extract_section(&normalized, "kata_agent")?;
     let raw_pi_agent: RawPiAgentConfig = extract_section(&normalized, "pi_agent")?;
@@ -759,6 +767,10 @@ pub fn from_workflow(config: &Value) -> Result<ServiceConfig> {
         max_retry_backoff_ms: raw_agent
             .max_retry_backoff_ms
             .unwrap_or(defaults.agent.max_retry_backoff_ms),
+        escalation_timeout_ms: raw_agent
+            .escalation_timeout_ms
+            .or(raw_escalation.timeout_ms)
+            .unwrap_or(defaults.agent.escalation_timeout_ms),
     };
 
     // ── CodexConfig ───────────────────────────────────────────────────────

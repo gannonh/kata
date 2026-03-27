@@ -7,7 +7,7 @@ use symphony::pi_agent::protocol::{
 };
 use symphony::pi_agent::rpc_bridge;
 use symphony::pi_agent::token_accounting::TokenTracker;
-use symphony::{domain::Issue, domain::PiAgentConfig};
+use symphony::{domain::EscalationResponse, domain::Issue, domain::PiAgentConfig};
 
 #[test]
 fn serialize_prompt_command() {
@@ -98,6 +98,15 @@ fn extension_ui_response_helpers() {
     assert_eq!(reject.id, "req-2");
     assert_eq!(reject.cancelled, None);
     assert_eq!(reject.confirmed, Some(false));
+
+    let merged = ExtensionUIResponse::from_payload(
+        "req-3".to_string(),
+        json!({"confirmed": true, "value": "yes"}),
+    );
+    assert_eq!(merged["type"], "extension_ui_response");
+    assert_eq!(merged["id"], "req-3");
+    assert_eq!(merged["confirmed"], true);
+    assert_eq!(merged["value"], "yes");
 }
 
 #[test]
@@ -209,6 +218,29 @@ while read -r line; do
 done
 "#;
 
+const SCRIPT_ESCALATION_RPC: &str = r#"#!/bin/bash
+set -euo pipefail
+
+read -r line # get_state
+echo '{"type":"response","command":"get_state","success":true,"data":{"sessionId":"sess-escalation"}}'
+
+while read -r line; do
+  if [[ "$line" == *'"type":"prompt"'* ]]; then
+    echo '{"type":"response","command":"prompt","success":true}'
+    echo '{"type":"extension_ui_request","id":"req-ask","method":"ask_user_questions","questions":[{"id":"q1","header":"Choice","question":"Pick one","options":[{"label":"A","description":"Alpha"}]}]}'
+    read -r ui_response
+    if [[ "$ui_response" == *'"extension_ui_response"'* ]]; then
+      echo '{"type":"message_end","message":{"content":[{"type":"text","text":"resumed"}]}}'
+      echo '{"type":"agent_end","messages":[]}'
+    fi
+  elif [[ "$line" == *'"type":"get_session_stats"'* ]]; then
+    echo '{"type":"response","command":"get_session_stats","success":true,"data":{"session_id":"sess-escalation","tokens":{"input":7,"output":3,"total":10}}}'
+  elif [[ "$line" == *'"type":"abort"'* ]]; then
+    exit 0
+  fi
+done
+"#;
+
 #[tokio::test]
 async fn rpc_bridge_start_turn_stop_smoke() {
     let scripts_dir = tempfile::tempdir().expect("scripts dir");
@@ -226,10 +258,21 @@ async fn rpc_bridge_start_turn_stop_smoke() {
 
     let issue = make_test_issue();
 
-    let mut handle =
-        rpc_bridge::start_session(&config, &issue, &workspace, root_dir.path(), None, None)
-            .await
-            .expect("start_session succeeds");
+    let (escalation_tx, _escalation_rx) = tokio::sync::mpsc::unbounded_channel();
+    let mut handle = rpc_bridge::start_session(
+        &config,
+        &issue,
+        &workspace,
+        root_dir.path(),
+        rpc_bridge::StartSessionOptions {
+            worker_host: None,
+            container_id: None,
+            escalation_tx,
+            escalation_timeout_ms: 60_000,
+        },
+    )
+    .await
+    .expect("start_session succeeds");
 
     let mut events = Vec::new();
     let turn = rpc_bridge::run_turn(&mut handle, "hello", |event| events.push(event))
@@ -245,6 +288,170 @@ async fn rpc_bridge_start_turn_stop_smoke() {
             .iter()
             .any(|event| matches!(event, symphony::domain::AgentEvent::TurnCompleted { .. })),
         "TurnCompleted event should be emitted"
+    );
+
+    rpc_bridge::stop_session(handle)
+        .await
+        .expect("stop_session succeeds");
+}
+
+#[tokio::test]
+async fn rpc_bridge_escalation_holds_and_resumes_with_response() {
+    let scripts_dir = tempfile::tempdir().expect("scripts dir");
+    let root_dir = tempfile::tempdir().expect("root dir");
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("workspace");
+
+    let script_path = write_script(
+        scripts_dir.path(),
+        "fake-kata-escalation.sh",
+        SCRIPT_ESCALATION_RPC,
+    );
+    let config = PiAgentConfig {
+        command: vec![script_path.to_string_lossy().to_string()],
+        read_timeout_ms: 5_000,
+        stall_timeout_ms: 10_000,
+        ..PiAgentConfig::default()
+    };
+
+    let issue = make_test_issue();
+    let (escalation_tx, mut escalation_rx) = tokio::sync::mpsc::unbounded_channel();
+
+    let mut handle = rpc_bridge::start_session(
+        &config,
+        &issue,
+        &workspace,
+        root_dir.path(),
+        rpc_bridge::StartSessionOptions {
+            worker_host: None,
+            container_id: None,
+            escalation_tx,
+            escalation_timeout_ms: 5_000,
+        },
+    )
+    .await
+    .expect("start_session succeeds");
+
+    let (turn, captured_events) = {
+        let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let events_for_callback = std::sync::Arc::clone(&events);
+        let turn_future = rpc_bridge::run_turn(&mut handle, "hello", move |event| {
+            events_for_callback.lock().expect("events lock").push(event);
+        });
+        tokio::pin!(turn_future);
+
+        let dispatch = loop {
+            tokio::select! {
+                maybe_dispatch = escalation_rx.recv() => {
+                    break maybe_dispatch.expect("expected escalation dispatch");
+                }
+                result = &mut turn_future => {
+                    panic!("turn finished before escalation dispatch: {result:?}");
+                }
+            }
+        };
+
+        assert_eq!(dispatch.request.method, "ask_user_questions");
+
+        dispatch
+            .response_tx
+            .send(EscalationResponse {
+                request_id: dispatch.request.id.clone(),
+                response: json!({
+                    "response": [
+                        {
+                            "id": "q1",
+                            "selected": "A",
+                            "notes": "operator answer"
+                        }
+                    ]
+                }),
+                responder_id: Some("operator-1".to_string()),
+                responded_at: chrono::Utc::now(),
+            })
+            .expect("response should be accepted");
+
+        let turn = turn_future
+            .await
+            .expect("turn should complete after escalation response");
+        let captured_events = events.lock().expect("events lock").clone();
+        (turn, captured_events)
+    };
+
+    assert_eq!(turn.output_text.as_deref(), Some("resumed"));
+    assert!(
+        captured_events.iter().any(|event| matches!(
+            event,
+            symphony::domain::AgentEvent::EscalationCreated { .. }
+        )),
+        "EscalationCreated should be emitted"
+    );
+    assert!(
+        captured_events.iter().any(|event| matches!(
+            event,
+            symphony::domain::AgentEvent::EscalationResponded { .. }
+        )),
+        "EscalationResponded should be emitted"
+    );
+
+    rpc_bridge::stop_session(handle)
+        .await
+        .expect("stop_session succeeds");
+}
+
+#[tokio::test]
+async fn rpc_bridge_escalation_times_out_and_falls_back() {
+    let scripts_dir = tempfile::tempdir().expect("scripts dir");
+    let root_dir = tempfile::tempdir().expect("root dir");
+    let workspace = root_dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("workspace");
+
+    let script_path = write_script(
+        scripts_dir.path(),
+        "fake-kata-escalation-timeout.sh",
+        SCRIPT_ESCALATION_RPC,
+    );
+    let config = PiAgentConfig {
+        command: vec![script_path.to_string_lossy().to_string()],
+        read_timeout_ms: 5_000,
+        stall_timeout_ms: 10_000,
+        ..PiAgentConfig::default()
+    };
+
+    let issue = make_test_issue();
+    let (escalation_tx, mut escalation_rx) = tokio::sync::mpsc::unbounded_channel();
+
+    let mut handle = rpc_bridge::start_session(
+        &config,
+        &issue,
+        &workspace,
+        root_dir.path(),
+        rpc_bridge::StartSessionOptions {
+            worker_host: None,
+            container_id: None,
+            escalation_tx,
+            escalation_timeout_ms: 50,
+        },
+    )
+    .await
+    .expect("start_session succeeds");
+
+    let mut events = Vec::new();
+    let turn = rpc_bridge::run_turn(&mut handle, "hello", |event| events.push(event))
+        .await
+        .expect("run_turn should complete with timeout fallback");
+
+    let _ = escalation_rx
+        .try_recv()
+        .expect("escalation should still be dispatched");
+
+    assert_eq!(turn.output_text.as_deref(), Some("resumed"));
+    assert!(
+        events.iter().any(|event| matches!(
+            event,
+            symphony::domain::AgentEvent::EscalationTimedOut { .. }
+        )),
+        "EscalationTimedOut should be emitted"
     );
 
     rpc_bridge::stop_session(handle)

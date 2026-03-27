@@ -1,11 +1,54 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 import { createSymphonyClient } from "./client.js";
 import { registerSymphonyCommand } from "./command.js";
+import { EscalationQueue } from "./escalation.js";
 import { registerSymphonyTools } from "./tools.js";
+import { isEscalationEvent } from "./types.js";
 
 export default function (pi: ExtensionAPI): void {
   const client = createSymphonyClient();
 
   registerSymphonyCommand(pi, client);
   registerSymphonyTools(pi, client);
+
+  let abortController: AbortController | null = null;
+
+  pi.on("session_start", async (_event, ctx) => {
+    abortController?.abort();
+    abortController = new AbortController();
+
+    const queue = new EscalationQueue(
+      client,
+      ctx as unknown as ExtensionCommandContext,
+      "kata-cli",
+    );
+
+    (async () => {
+      try {
+        for await (const event of client.watchEvents(
+          { type: ["escalation_created", "escalation_timed_out", "escalation_cancelled"] },
+          { signal: abortController?.signal, reconnectAttempts: 5, reconnectDelayMs: 1_000 },
+        )) {
+          if (isEscalationEvent(event)) {
+            queue.enqueue(event);
+            continue;
+          }
+
+          if (event.event === "escalation_timed_out") {
+            ctx.ui.notify("Escalation timed out — worker continued without answer.", "warning");
+          } else if (event.event === "escalation_cancelled") {
+            ctx.ui.notify("Escalation cancelled.", "warning");
+          }
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        ctx.ui.notify(`Symphony escalation listener disconnected: ${message}`, "warning");
+      }
+    })();
+  });
+
+  pi.on("session_shutdown", async () => {
+    abortController?.abort();
+    abortController = null;
+  });
 }

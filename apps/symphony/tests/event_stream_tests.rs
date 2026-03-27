@@ -108,6 +108,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
             completed_at: Some(Utc::now()),
         }],
         blocked: vec![],
+        pending_escalations: vec![],
         codex_totals: CodexTotals::default(),
         codex_rate_limits: None,
         polling: PollingSnapshot {
@@ -133,6 +134,7 @@ async fn spawn_server(
             snapshot: fixture_snapshot(),
         }),
         Arc::new(NoopRefreshControl),
+        symphony::orchestrator::EscalationRegistry::default(),
         event_hub,
         config,
     );

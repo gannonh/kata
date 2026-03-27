@@ -12,12 +12,20 @@ import {
   type SymphonyEventEnvelope,
   type SymphonyEventFilter,
   type SymphonyOrchestratorState,
+  type SymphonyPendingEscalation,
   type SymphonyWatchOptions,
 } from "./types.js";
 
 export interface SymphonyClient {
   getConnectionConfig(): SymphonyConnectionConfig;
   getState(signal?: AbortSignal): Promise<SymphonyOrchestratorState>;
+  getPendingEscalations(signal?: AbortSignal): Promise<SymphonyPendingEscalation[]>;
+  respondToEscalation(
+    requestId: string,
+    response: unknown,
+    responderId?: string,
+    signal?: AbortSignal,
+  ): Promise<{ ok: boolean; status: number }>;
   watchEvents(
     filter: SymphonyEventFilter,
     options?: SymphonyWatchOptions,
@@ -96,6 +104,89 @@ export class SymphonyHttpClient implements SymphonyClient {
     }
 
     return decodeState(payload, connection, endpoint);
+  }
+
+  async getPendingEscalations(signal?: AbortSignal): Promise<SymphonyPendingEscalation[]> {
+    const connection = this.getConnectionConfig();
+    const endpoint = buildEndpoint(connection.url, "/api/v1/escalations");
+
+    let response: Response;
+    try {
+      response = await this.fetchImpl(endpoint, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        signal,
+      });
+    } catch (error) {
+      throw normalizeTransportError(error, {
+        code: "connection_failed",
+        endpoint,
+        origin: connection.origin,
+        reason: "fetch_failed",
+        retryable: true,
+      });
+    }
+
+    if (!response.ok) {
+      throw new SymphonyError(
+        `Symphony escalation listing failed with HTTP ${response.status}.`,
+        {
+          code: "connection_failed",
+          endpoint,
+          origin: connection.origin,
+          status: response.status,
+          reason: "http_error",
+          retryable: response.status >= 500,
+        },
+      );
+    }
+
+    const payload = (await response.json()) as { pending?: SymphonyPendingEscalation[] };
+    return Array.isArray(payload.pending) ? payload.pending : [];
+  }
+
+  async respondToEscalation(
+    requestId: string,
+    responsePayload: unknown,
+    responderId?: string,
+    signal?: AbortSignal,
+  ): Promise<{ ok: boolean; status: number }> {
+    const connection = this.getConnectionConfig();
+    const endpoint = buildEndpoint(
+      connection.url,
+      `/api/v1/escalations/${encodeURIComponent(requestId)}/respond`,
+    );
+
+    let response: Response;
+    try {
+      response = await this.fetchImpl(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          response: responsePayload,
+          ...(responderId ? { responder_id: responderId } : {}),
+        }),
+        signal,
+      });
+    } catch (error) {
+      throw normalizeTransportError(error, {
+        code: "connection_failed",
+        endpoint,
+        origin: connection.origin,
+        reason: "fetch_failed",
+        retryable: true,
+      });
+    }
+
+    return {
+      ok: response.ok,
+      status: response.status,
+    };
   }
 
   async *watchEvents(
@@ -204,6 +295,9 @@ function decodeState(
       : undefined,
     blocked: Array.isArray(obj.blocked)
       ? (obj.blocked as Array<Record<string, unknown>>)
+      : undefined,
+    pending_escalations: Array.isArray(obj.pending_escalations)
+      ? (obj.pending_escalations as SymphonyPendingEscalation[])
       : undefined,
   };
 }

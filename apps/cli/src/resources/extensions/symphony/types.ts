@@ -5,7 +5,11 @@ export type SymphonyEventKind =
   | "runtime"
   | "worker"
   | "tool"
-  | "heartbeat";
+  | "heartbeat"
+  | "escalation_created"
+  | "escalation_responded"
+  | "escalation_timed_out"
+  | "escalation_cancelled";
 
 export type SymphonyEventSeverity = "debug" | "info" | "warn" | "error";
 
@@ -60,6 +64,37 @@ export interface SymphonyEventEnvelope {
   issue?: string | null;
   event: string;
   payload: unknown;
+}
+
+export interface EscalationEvent {
+  request_id: string;
+  issue_id: string;
+  issue_identifier: string;
+  method: string;
+  payload: unknown;
+  created_at: string;
+  timeout_ms: number;
+}
+
+export interface EscalationResponsePayload {
+  response: unknown;
+  responder_id?: string;
+}
+
+export function isEscalationEvent(
+  event: SymphonyEventEnvelope,
+): event is SymphonyEventEnvelope & { payload: EscalationEvent } {
+  if (event.event !== "escalation_created") return false;
+  if (!event.payload || typeof event.payload !== "object") return false;
+  const payload = event.payload as Record<string, unknown>;
+  return (
+    typeof payload.request_id === "string" &&
+    typeof payload.issue_id === "string" &&
+    typeof payload.issue_identifier === "string" &&
+    typeof payload.method === "string" &&
+    typeof payload.created_at === "string" &&
+    typeof payload.timeout_ms === "number"
+  );
 }
 
 export interface SymphonyEventFilter {
@@ -123,11 +158,22 @@ export interface SymphonyTokenTotals {
   seconds_running?: number;
 }
 
+export interface SymphonyPendingEscalation {
+  request_id: string;
+  issue_id: string;
+  issue_identifier: string;
+  method: string;
+  preview: string;
+  created_at: string;
+  timeout_ms: number;
+}
+
 export interface SymphonyOrchestratorState {
   poll_interval_ms: number;
   max_concurrent_agents: number;
   running: Record<string, SymphonyRunAttempt>;
   retry_queue: SymphonyRetryQueueEntry[];
+  pending_escalations?: SymphonyPendingEscalation[];
   completed: SymphonyCompletedEntry[];
   codex_totals: SymphonyTokenTotals;
   polling: SymphonyPollingSnapshot;
@@ -154,6 +200,7 @@ export interface SymphonyCapabilityDetails {
 export interface SymphonyToolCapabilities {
   status: SymphonyCapabilityDetails;
   watch: SymphonyCapabilityDetails;
+  respond: SymphonyCapabilityDetails;
   logs: SymphonyCapabilityDetails;
   steer: SymphonyCapabilityDetails;
 }

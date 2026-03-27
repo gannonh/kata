@@ -127,6 +127,7 @@ fn test_service_config_defaults_match_spec() {
     assert_eq!(cfg.agent.max_concurrent_agents, 10);
     assert_eq!(cfg.agent.max_turns, 20);
     assert_eq!(cfg.agent.max_retry_backoff_ms, 300_000);
+    assert_eq!(cfg.agent.escalation_timeout_ms, 300_000);
 
     // Codex §5.3.6
     assert_eq!(cfg.codex.turn_timeout_ms, 3_600_000);
@@ -373,6 +374,7 @@ fn test_orchestrator_snapshot_serializes() {
             },
         ],
         blocked: vec![],
+        pending_escalations: vec![],
         codex_totals: CodexTotals::default(),
         codex_rate_limits: None,
         polling: PollingSnapshot {
@@ -396,6 +398,7 @@ fn test_orchestrator_snapshot_serializes() {
     assert!(val.get("running").is_some());
     assert!(val.get("running_sessions").is_some());
     assert!(val.get("running_session_info").is_some());
+    assert!(val.get("pending_escalations").is_some());
     assert!(val.get("retry_queue").is_some());
     assert!(val.get("completed").is_some());
     assert!(val.get("codex_totals").is_some());
@@ -433,6 +436,47 @@ fn test_orchestrator_snapshot_serializes() {
         completed_json.contains("\"title\":\"Done issue Z\""),
         "completed should contain title field"
     );
+}
+
+#[test]
+fn test_escalation_request_response_round_trip() {
+    let request = EscalationRequest {
+        id: "esc-100".to_string(),
+        issue_id: "issue-100".to_string(),
+        issue_identifier: "KAT-100".to_string(),
+        method: "ask_user_questions".to_string(),
+        payload: serde_json::json!({
+            "questions": [
+                {
+                    "id": "approach",
+                    "header": "Approach",
+                    "question": "Choose implementation strategy",
+                    "options": [
+                        { "label": "A", "description": "Option A" }
+                    ]
+                }
+            ]
+        }),
+        created_at: Utc::now(),
+        timeout_ms: 300_000,
+    };
+
+    let encoded_request = serde_json::to_string(&request).unwrap();
+    let decoded_request: EscalationRequest = serde_json::from_str(&encoded_request).unwrap();
+    assert_eq!(decoded_request.id, "esc-100");
+    assert_eq!(decoded_request.method, "ask_user_questions");
+
+    let response = EscalationResponse {
+        request_id: request.id.clone(),
+        response: serde_json::json!({ "cancelled": false, "value": "A" }),
+        responder_id: Some("operator-7".to_string()),
+        responded_at: Utc::now(),
+    };
+
+    let encoded_response = serde_json::to_string(&response).unwrap();
+    let decoded_response: EscalationResponse = serde_json::from_str(&encoded_response).unwrap();
+    assert_eq!(decoded_response.request_id, "esc-100");
+    assert_eq!(decoded_response.responder_id.as_deref(), Some("operator-7"));
 }
 
 // ── AgentEvent enum (T01+T02 must-have) ───────────────────────────────
@@ -493,6 +537,42 @@ fn test_agent_event_variants() {
             codex_app_server_pid: None,
             tool_name: "unknown_tool".into(),
         },
+        AgentEvent::EscalationCreated {
+            timestamp: Utc::now(),
+            issue_id: "issue-1".into(),
+            issue_identifier: "KAT-1".into(),
+            request: EscalationRequest {
+                id: "esc-1".into(),
+                issue_id: "issue-1".into(),
+                issue_identifier: "KAT-1".into(),
+                method: "ask_user_questions".into(),
+                payload: serde_json::json!({"questions": []}),
+                created_at: Utc::now(),
+                timeout_ms: 300_000,
+            },
+        },
+        AgentEvent::EscalationResponded {
+            timestamp: Utc::now(),
+            issue_id: "issue-1".into(),
+            issue_identifier: "KAT-1".into(),
+            request_id: "esc-1".into(),
+            responder_id: Some("operator-1".into()),
+            latency_ms: 42,
+        },
+        AgentEvent::EscalationTimedOut {
+            timestamp: Utc::now(),
+            issue_id: "issue-1".into(),
+            issue_identifier: "KAT-1".into(),
+            request_id: "esc-2".into(),
+            timeout_ms: 60_000,
+        },
+        AgentEvent::EscalationCancelled {
+            timestamp: Utc::now(),
+            issue_id: "issue-1".into(),
+            issue_identifier: "KAT-1".into(),
+            request_id: "esc-3".into(),
+            reason: "worker_exited".into(),
+        },
         AgentEvent::Notification {
             timestamp: Utc::now(),
             codex_app_server_pid: None,
@@ -510,7 +590,7 @@ fn test_agent_event_variants() {
             parse_error: "expected json".into(),
         },
     ];
-    assert_eq!(events.len(), 12);
+    assert_eq!(events.len(), 16);
     for event in &events {
         let debug = format!("{:?}", event);
         assert!(!debug.is_empty());

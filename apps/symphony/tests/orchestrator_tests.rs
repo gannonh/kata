@@ -12,13 +12,14 @@ use serde_json::json;
 use tempfile::{tempdir, NamedTempFile};
 
 use symphony::domain::{
-    AgentConfig, AgentEvent, ApiKey, BlockerRef, Issue, NotificationsConfig, ServiceConfig,
-    SlackConfig, TrackerConfig, WorkspaceIsolation,
+    AgentConfig, AgentEvent, ApiKey, BlockerRef, EscalationRequest, EscalationResponse, Issue,
+    NotificationsConfig, ServiceConfig, SlackConfig, TrackerConfig, WorkspaceIsolation,
 };
 use symphony::error::{Result, SymphonyError};
 use symphony::orchestrator::{
-    refresh_channel, Orchestrator, OrchestratorPort, RetryContext, RetryKind, RuntimeEvent,
-    TurnMetrics, WorkerCompletion, CONTINUATION_RETRY_DELAY_MS,
+    refresh_channel, EscalationRegistry, EscalationResolveResult, Orchestrator, OrchestratorPort,
+    RetryContext, RetryKind, RuntimeEvent, TurnMetrics, WorkerCompletion,
+    CONTINUATION_RETRY_DELAY_MS,
 };
 use symphony::workflow_store::WorkflowStore;
 
@@ -105,6 +106,7 @@ fn test_config(max_concurrent_agents: u32) -> ServiceConfig {
         max_concurrent_agents,
         max_turns: 20,
         max_retry_backoff_ms: 60_000,
+        escalation_timeout_ms: 300_000,
     };
     config
 }
@@ -3797,3 +3799,87 @@ async fn test_execute_worker_attempt_stops_when_issue_changes_to_different_activ
 // The Todo→In Progress auto-transition sets issue.state = effective_state in
 // spawn_workers_for_dispatched before the worker sees it, so the dispatched
 // state is always the post-transition state.
+
+fn escalation_request(id: &str, issue_id: &str) -> EscalationRequest {
+    EscalationRequest {
+        id: id.to_string(),
+        issue_id: issue_id.to_string(),
+        issue_identifier: "KAT-1161".to_string(),
+        method: "ask_user_questions".to_string(),
+        payload: json!({
+            "questions": [
+                {
+                    "id": "q1",
+                    "question": "Pick one"
+                }
+            ]
+        }),
+        created_at: Utc::now(),
+        timeout_ms: 30_000,
+    }
+}
+
+#[tokio::test]
+async fn test_escalation_registry_resolve_round_trip() {
+    let registry = EscalationRegistry::default();
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let request = escalation_request("esc-1", "issue-1");
+
+    registry.register(request.clone(), tx);
+    assert_eq!(registry.pending_snapshot().len(), 1);
+
+    let response = EscalationResponse {
+        request_id: request.id.clone(),
+        response: json!({"confirmed": true}),
+        responder_id: Some("operator-1".to_string()),
+        responded_at: Utc::now(),
+    };
+
+    let result = registry.resolve(&request.id, response.clone());
+    assert!(matches!(result, EscalationResolveResult::Resolved));
+
+    let delivered = rx.await.expect("response should be delivered");
+    assert_eq!(delivered.request_id, request.id);
+    assert!(registry.pending_snapshot().is_empty());
+
+    let duplicate = registry.resolve(&request.id, response);
+    assert!(matches!(
+        duplicate,
+        EscalationResolveResult::AlreadyResolved
+    ));
+}
+
+#[tokio::test]
+async fn test_escalation_registry_cancel_for_issue_cleans_up() {
+    let registry = EscalationRegistry::default();
+
+    let (tx_a1, rx_a1) = tokio::sync::oneshot::channel();
+    let (tx_a2, rx_a2) = tokio::sync::oneshot::channel();
+    let (tx_b1, _rx_b1) = tokio::sync::oneshot::channel();
+
+    let req_a1 = escalation_request("esc-a1", "issue-a");
+    let req_a2 = escalation_request("esc-a2", "issue-a");
+    let req_b1 = escalation_request("esc-b1", "issue-b");
+
+    registry.register(req_a1.clone(), tx_a1);
+    registry.register(req_a2.clone(), tx_a2);
+    registry.register(req_b1.clone(), tx_b1);
+
+    let cancelled = registry.cancel_for_issue("issue-a");
+    assert_eq!(cancelled.len(), 2);
+    assert!(cancelled.iter().any(|entry| entry.id == req_a1.id));
+    assert!(cancelled.iter().any(|entry| entry.id == req_a2.id));
+
+    let pending = registry.pending_snapshot();
+    assert_eq!(pending.len(), 1);
+    assert_eq!(pending[0].request_id, req_b1.id);
+
+    assert!(
+        rx_a1.await.is_err(),
+        "cancel should drop sender for issue-a"
+    );
+    assert!(
+        rx_a2.await.is_err(),
+        "cancel should drop sender for issue-a"
+    );
+}

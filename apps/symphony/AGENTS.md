@@ -125,6 +125,7 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 | `agent.max_concurrent_agents`          | u32                | `10`     | Global cap on simultaneously running agent sessions.                                                                           |
 | `agent.max_turns`                      | u32                | `20`     | Maximum prompt turns per session attempt before the worker run ends.                                                           |
 | `agent.max_retry_backoff_ms`           | u64                | `300000` | Maximum exponential back-off delay (ms) between retries.                                                                       |
+| `agent.escalation_timeout_ms`          | u64                | `300000` | Timeout (ms) to wait for a human escalation response before falling back to auto-cancel/reject behavior.                      |
 | `agent.backend`                        | string             | `"codex"`| Runtime backend: `"codex"` (Codex app-server) or `"kata-cli"` (alias: `"kata"`) for Kata RPC.                             |
 
 
@@ -367,6 +368,8 @@ workflow file (e.g. `0.0.0.0` to bind all interfaces).
 | `GET`  | `/`                         | HTML dashboard — auto-refreshes every 2 seconds. Shows summary cards, running sessions table (including turn/max-turns, last activity age, and per-session tokens), retry queue table, completed issue list, token breakdown, polling diagnostics, and collapsible rate-limit JSON. |
 | `GET`  | `/api/v1/state`             | Full orchestrator state as JSON.                                                                                                                                                 |
 | `GET`  | `/api/v1/events`            | WebSocket event stream of `SymphonyEventEnvelope` values. Supports server-side query filters (`issue`, `type`, `severity`), emits snapshot bootstrap + heartbeat envelopes, and enforces backpressure close policy. |
+| `GET`  | `/api/v1/escalations`       | Returns pending escalation requests (`pending_escalations`) for polling clients.                                                                                                |
+| `POST` | `/api/v1/escalations/:request_id/respond` | Resolves a pending escalation. Body: `{ "response": <json>, "responder_id"?: "..." }`. Returns `200`, `404` (missing/expired), or `409` (already resolved). |
 | `GET`  | `/api/v1/:issue_identifier` | Per-issue projection. `:issue_identifier` must match the pattern `TEAM-NNN` (uppercase prefix, hyphen, digits). Returns 404 when the issue is not running or in the retry queue. |
 | `POST` | `/api/v1/refresh`           | Request an immediate Linear poll. Requests are coalesced — multiple concurrent POSTs result in one actual refresh. Returns 202.                                                  |
 
@@ -469,6 +472,34 @@ provided alongside each run in `running_session_info`.
 }
 ```
 
+### Escalation lifecycle (`/api/v1/events` + `/api/v1/escalations`)
+
+Escalations are emitted as typed event envelopes:
+`escalation_created`, `escalation_responded`, `escalation_timed_out`, and
+`escalation_cancelled`.
+
+Example `escalation_created` payload:
+
+```json
+{
+  "version": "v1",
+  "sequence": 128,
+  "timestamp": "2026-03-27T12:00:00Z",
+  "kind": "escalation_created",
+  "severity": "info",
+  "issue": "KAT-1161",
+  "event": "escalation_created",
+  "payload": {
+    "request_id": "escalation-1743076800000-1",
+    "issue_id": "8f1...",
+    "issue_identifier": "KAT-1161",
+    "method": "ask_user_questions",
+    "preview": "Pick one option",
+    "timeout_ms": 300000
+  }
+}
+```
+
 ---
 
 ## SSH Remote Workers
@@ -537,7 +568,7 @@ Core Rust modules:
 | --- | --- | --- |
 | CLI/runtime entrypoint | `src/main.rs` | CLI parsing, startup validation, tracing setup, runtime wiring |
 | Orchestrator loop | `src/orchestrator.rs` | Poll/dispatch loop, retries, worker lifecycle, state snapshots |
-| HTTP dashboard/API | `src/http_server.rs` | `/`, `/api/v1/state`, `/api/v1/events` websocket stream, `/api/v1/:issue_identifier`, refresh endpoint, dashboard Linear project link card |
+| HTTP dashboard/API | `src/http_server.rs` | `/`, `/api/v1/state`, `/api/v1/events` websocket stream, `/api/v1/escalations`, `/api/v1/escalations/:request_id/respond`, `/api/v1/:issue_identifier`, refresh endpoint, dashboard Linear project link card |
 | Terminal dashboard | `src/tui.rs` | Ratatui renderer with throughput sparkline, color-coded status dots, keyboard handling, and live snapshot display |
 | Workflow/config parser | `src/workflow.rs`, `src/config.rs` | Front-matter parsing, env/tilde resolution, typed config defaults |
 | Domain model | `src/domain.rs` | Shared runtime/config structs (`RunAttempt`, snapshots, worker/session info) |

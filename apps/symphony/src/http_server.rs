@@ -15,12 +15,14 @@ use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 
 use crate::domain::{
-    CodexTotals, EventFilter, EventKind, EventSeverity, OrchestratorSnapshot, PollingSnapshot,
-    RefreshRequestOutcome, RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot,
+    CodexTotals, EventFilter, EventKind, EventSeverity, OrchestratorSnapshot, PendingEscalation,
+    PollingSnapshot, RefreshRequestOutcome, RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot,
     SymphonyEventEnvelope, WorkerSessionInfo,
 };
 use crate::event_stream::EventHub;
-use crate::orchestrator::{RefreshSender, SnapshotHandle};
+use crate::orchestrator::{
+    EscalationRegistry, EscalationResolveResult, RefreshSender, SnapshotHandle,
+};
 
 pub const HTTP_PORT_RETRY_LIMIT: u16 = 10;
 
@@ -113,6 +115,7 @@ pub struct EventStreamCounterSnapshot {
 pub struct HttpServerState {
     snapshot_source: Arc<dyn SnapshotSource>,
     refresh_control: Arc<dyn RefreshControl>,
+    escalation_registry: EscalationRegistry,
     event_hub: EventHub,
     event_stream_config: EventStreamConfig,
     event_stream_counters: Arc<EventStreamCounters>,
@@ -123,10 +126,12 @@ impl HttpServerState {
     pub fn new(
         snapshot_source: Arc<dyn SnapshotSource>,
         refresh_control: Arc<dyn RefreshControl>,
+        escalation_registry: EscalationRegistry,
     ) -> Self {
         Self::with_event_stream(
             snapshot_source,
             refresh_control,
+            escalation_registry,
             EventHub::default_hub(),
             EventStreamConfig::default(),
         )
@@ -135,12 +140,14 @@ impl HttpServerState {
     pub fn with_event_stream(
         snapshot_source: Arc<dyn SnapshotSource>,
         refresh_control: Arc<dyn RefreshControl>,
+        escalation_registry: EscalationRegistry,
         event_hub: EventHub,
         event_stream_config: EventStreamConfig,
     ) -> Self {
         Self {
             snapshot_source,
             refresh_control,
+            escalation_registry,
             event_hub,
             event_stream_config,
             event_stream_counters: Arc::new(EventStreamCounters::default()),
@@ -154,6 +161,27 @@ impl HttpServerState {
 
     pub fn request_refresh(&self) -> RefreshRequestOutcome {
         self.refresh_control.request_refresh()
+    }
+
+    pub fn resolve_escalation(
+        &self,
+        request_id: &str,
+        response: serde_json::Value,
+        responder_id: Option<String>,
+    ) -> EscalationResolveResult {
+        self.escalation_registry.resolve(
+            request_id,
+            crate::domain::EscalationResponse {
+                request_id: request_id.to_string(),
+                response,
+                responder_id,
+                responded_at: Utc::now(),
+            },
+        )
+    }
+
+    pub fn pending_escalations(&self) -> Vec<PendingEscalation> {
+        self.escalation_registry.pending_snapshot()
     }
 
     pub fn event_hub(&self) -> EventHub {
@@ -236,6 +264,7 @@ struct StateResponse {
     claimed: std::collections::BTreeSet<String>,
     retry_queue: Vec<RetrySnapshotEntry>,
     blocked: Vec<crate::domain::BlockedIssueEntry>,
+    pending_escalations: Vec<PendingEscalation>,
     completed: Vec<crate::domain::CompletedEntry>,
     codex_totals: CodexTotals,
     codex_rate_limits: Option<serde_json::Value>,
@@ -256,6 +285,18 @@ struct IssueProjection {
     error: Option<String>,
     worker_host: Option<String>,
     workspace_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct EscalationRespondRequest {
+    response: serde_json::Value,
+    #[serde(default)]
+    responder_id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct EscalationPendingResponse {
+    pending: Vec<PendingEscalation>,
 }
 
 #[derive(Debug, Serialize)]
@@ -349,6 +390,11 @@ pub fn build_router(state: HttpServerState) -> Router {
         .route("/", get(get_dashboard))
         .route("/api/v1/state", get(get_state))
         .route("/api/v1/events", get(get_events))
+        .route("/api/v1/escalations", get(get_escalations))
+        .route(
+            "/api/v1/escalations/{request_id}/respond",
+            post(post_escalation_respond),
+        )
         .route("/api/v1/{issue_identifier}", get(get_issue))
         .route("/api/v1/refresh", post(post_refresh))
         .fallback(api_not_found)
@@ -436,6 +482,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
     let snapshot = state.snapshot();
 
     let running_count = snapshot.running.len();
+    let escalation_count = snapshot.pending_escalations.len();
     let retry_count = snapshot.retry_queue.len();
     let completed_count = snapshot.completed.len();
     let claimed_count = snapshot.claimed.len();
@@ -511,6 +558,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
   <h1>Symphony Dashboard</h1>
   <div class="grid summary-grid">
     <section class="card"><div class="label">running</div><div class="value" id="running-count">{running_count}</div></section>
+    <section class="card"><div class="label">escalations</div><div class="value" id="escalation-count">{escalation_count}</div></section>
     <section class="card"><div class="label">retry</div><div class="value" id="retry-count">{retry_count}</div></section>
     <section class="card"><div class="label">claimed</div><div class="value" id="claimed-count">{claimed_count}</div></section>
     <section class="card"><div class="label">completed</div><div class="value" id="completed-count">{completed_count}</div></section>
@@ -548,6 +596,26 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         </thead>
         <tbody id="running-table-body">
           <tr><td class="muted" colspan="12">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card section">
+    <h2>Pending Escalations</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Issue</th>
+            <th>Method</th>
+            <th>Question Preview</th>
+            <th>Waiting</th>
+            <th>Timeout</th>
+          </tr>
+        </thead>
+        <tbody id="escalation-table-body">
+          <tr><td class="muted" colspan="5">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -727,6 +795,46 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
       }}).join('');
     }}
 
+    function renderEscalationTable(escalations, running) {{
+      const rows = Array.isArray(escalations) ? escalations.slice() : [];
+      const runningRows = running && typeof running === 'object' ? Object.values(running) : [];
+
+      rows.sort(function(a, b) {{
+        return Date.parse(a.created_at || '') - Date.parse(b.created_at || '');
+      }});
+
+      if (rows.length === 0) {{
+        return '<tr><td class="muted" colspan="5">No pending escalations.</td></tr>';
+      }}
+
+      return rows.map(function(entry) {{
+        const createdAt = Date.parse(entry.created_at || '');
+        const waitingMs = Number.isFinite(createdAt) ? Math.max(0, Date.now() - createdAt) : null;
+        const timeoutMs = Number(entry.timeout_ms ?? 0);
+        const remainingMs = timeoutMs > 0 && waitingMs !== null ? Math.max(0, timeoutMs - waitingMs) : null;
+        const timeoutLabel = remainingMs === null
+          ? 'n/a'
+          : (remainingMs === 0 ? 'expired' : ('expires in ' + formatDuration(remainingMs)));
+
+        const label = entry.issue_identifier || entry.issue_id || '-';
+        const relatedRun = runningRows.find(function(run) {{
+          return run && run.issue_id === entry.issue_id;
+        }});
+        const issueUrl = relatedRun && typeof relatedRun.issue_url === 'string' ? relatedRun.issue_url : null;
+        const issueCell = issueUrl
+          ? '⚠️ <a href="' + escapeHtml(issueUrl) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + '</a>'
+          : '⚠️ ' + escapeHtml(label);
+
+        return '<tr>' +
+          '<td class="mono">' + issueCell + '</td>' +
+          '<td class="mono">' + escapeHtml(entry.method || '-') + '</td>' +
+          '<td>' + escapeHtml(entry.preview || '-') + '</td>' +
+          '<td class="mono">' + escapeHtml(waitingMs === null ? 'n/a' : formatTimeAgo(waitingMs)) + '</td>' +
+          '<td class="mono">' + escapeHtml(timeoutLabel) + '</td>' +
+          '</tr>';
+      }}).join('');
+    }}
+
     function renderRetryTable(retryQueue) {{
       const rows = Array.isArray(retryQueue) ? retryQueue.slice() : [];
 
@@ -810,10 +918,12 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
         if (!response.ok) throw new Error('state fetch failed: ' + response.status);
         const state = await response.json();
         const running = state.running || {{}};
+        const pendingEscalations = state.pending_escalations || [];
         const retryQueue = state.retry_queue || [];
         const completed = state.completed || [];
 
         document.getElementById('running-count').textContent = Object.keys(running).length;
+        document.getElementById('escalation-count').textContent = pendingEscalations.length;
         document.getElementById('retry-count').textContent = retryQueue.length;
         document.getElementById('claimed-count').textContent = (state.claimed || []).length;
         document.getElementById('completed-count').textContent = completed.length;
@@ -823,6 +933,7 @@ async fn get_dashboard(State(state): State<HttpServerState>) -> impl IntoRespons
           running,
           state.running_session_info || {{}}
         );
+        document.getElementById('escalation-table-body').innerHTML = renderEscalationTable(pendingEscalations, running);
         document.getElementById('retry-table-body').innerHTML = renderRetryTable(retryQueue);
 
         const blocked = state.blocked || [];
@@ -873,11 +984,42 @@ async fn get_state(State(state): State<HttpServerState>) -> impl IntoResponse {
         claimed: snapshot.claimed,
         retry_queue: snapshot.retry_queue,
         blocked: snapshot.blocked,
+        pending_escalations: snapshot.pending_escalations,
         completed: snapshot.completed,
         codex_totals: snapshot.codex_totals,
         codex_rate_limits: snapshot.codex_rate_limits.map(|r| r.data),
         polling: snapshot.polling,
     })
+}
+
+async fn get_escalations(State(state): State<HttpServerState>) -> impl IntoResponse {
+    Json(EscalationPendingResponse {
+        pending: state.pending_escalations(),
+    })
+}
+
+async fn post_escalation_respond(
+    Path(request_id): Path<String>,
+    State(state): State<HttpServerState>,
+    Json(body): Json<EscalationRespondRequest>,
+) -> impl IntoResponse {
+    let result = state.resolve_escalation(&request_id, body.response, body.responder_id);
+
+    match result {
+        EscalationResolveResult::Resolved => {
+            (StatusCode::OK, Json(serde_json::json!({ "ok": true }))).into_response()
+        }
+        EscalationResolveResult::NotFound => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "escalation_not_found" })),
+        )
+            .into_response(),
+        EscalationResolveResult::AlreadyResolved => (
+            StatusCode::CONFLICT,
+            Json(serde_json::json!({ "error": "escalation_already_resolved" })),
+        )
+            .into_response(),
+    }
 }
 
 async fn get_events(

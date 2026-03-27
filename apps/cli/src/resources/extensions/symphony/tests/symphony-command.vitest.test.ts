@@ -44,6 +44,8 @@ function createClient(overrides: Partial<SymphonyClient>): SymphonyClient {
         poll_interval_ms: 30_000,
       },
     }),
+    getPendingEscalations: async () => [],
+    respondToEscalation: async () => ({ ok: true, status: 200 }),
     watchEvents: async function* (_filter, _options) {
       return;
     },

@@ -11,8 +11,9 @@ use std::time::Duration;
 use chrono::Utc;
 use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::sync::{mpsc::UnboundedSender, oneshot};
 
-use crate::domain::{AgentEvent, Issue, PiAgentConfig};
+use crate::domain::{AgentEvent, EscalationRequest, EscalationResponse, Issue, PiAgentConfig};
 use crate::error::{Result, SymphonyError};
 use crate::path_safety;
 use crate::pi_agent::protocol::{
@@ -26,6 +27,12 @@ const MAX_STREAM_LOG_BYTES: usize = 1_000;
 const SHUTDOWN_GRACE_MS: u64 = 3_000;
 
 static COMMAND_COUNTER: AtomicU64 = AtomicU64::new(1);
+
+/// Escalation dispatch payload emitted by the RPC bridge.
+pub struct EscalationDispatch {
+    pub request: EscalationRequest,
+    pub response_tx: oneshot::Sender<EscalationResponse>,
+}
 
 /// Opaque handle to a running pi-agent subprocess session.
 pub struct SessionHandle {
@@ -41,6 +48,8 @@ pub struct SessionHandle {
     issue_identifier: String,
     read_timeout_ms: u64,
     stall_timeout_ms: u64,
+    escalation_timeout_ms: u64,
+    escalation_tx: UnboundedSender<EscalationDispatch>,
     token_tracker: TokenTracker,
 }
 
@@ -201,21 +210,54 @@ fn extract_session_id(response: &RpcResponse) -> Option<String> {
         })
 }
 
+fn is_auto_respond_method(method: &str) -> bool {
+    matches!(
+        method,
+        "notify" | "setStatus" | "setWidget" | "setTitle" | "set_editor_text"
+    )
+}
+
+fn default_ui_fallback_response(id: String, method: &str) -> Option<ExtensionUIResponse> {
+    if is_auto_respond_method(method) {
+        return None;
+    }
+
+    Some(match method {
+        "confirm" => ExtensionUIResponse::reject(id),
+        _ => ExtensionUIResponse::cancel(id),
+    })
+}
+
+async fn write_ui_response_value(
+    stdin: &mut tokio::process::ChildStdin,
+    payload: Value,
+) -> Result<()> {
+    let mut line = serde_json::to_string(&payload).map_err(|err| {
+        SymphonyError::PiAgentError(format!("failed to encode ui response: {err}"))
+    })?;
+    line.push('\n');
+    stdin
+        .write_all(line.as_bytes())
+        .await
+        .map_err(|err| SymphonyError::PiAgentError(format!("failed to write stdin: {err}")))?;
+    stdin
+        .flush()
+        .await
+        .map_err(|err| SymphonyError::PiAgentError(format!("failed to flush stdin: {err}")))?;
+    Ok(())
+}
+
 async fn maybe_respond_extension_ui(
     stdin: &mut tokio::process::ChildStdin,
     id: String,
     method: String,
 ) {
-    let response = match method.as_str() {
-        "notify" | "setStatus" | "setWidget" | "setTitle" | "set_editor_text" => return,
-        "confirm" => ExtensionUIResponse::reject(id),
-        _ => ExtensionUIResponse::cancel(id),
+    let Some(response) = default_ui_fallback_response(id, &method) else {
+        return;
     };
 
-    if let Ok(mut line) = serde_json::to_string(&response) {
-        line.push('\n');
-        let _ = stdin.write_all(line.as_bytes()).await;
-        let _ = stdin.flush().await;
+    if let Ok(payload) = serde_json::to_value(&response) {
+        let _ = write_ui_response_value(stdin, payload).await;
     }
 }
 
@@ -229,6 +271,86 @@ fn maybe_extract_text(message: &Value) -> Option<String> {
         }
     }
     None
+}
+
+async fn handle_escalation_ui_request(
+    handle: &mut SessionHandle,
+    event_callback: &mut (impl FnMut(AgentEvent) + Send),
+    id: String,
+    method: String,
+    payload: Value,
+) -> Result<()> {
+    let request_id = next_command_id("escalation");
+    let request = EscalationRequest {
+        id: request_id.clone(),
+        issue_id: handle.issue_id.clone(),
+        issue_identifier: handle.issue_identifier.clone(),
+        method: method.clone(),
+        payload,
+        created_at: Utc::now(),
+        timeout_ms: handle.escalation_timeout_ms,
+    };
+
+    let created_event = AgentEvent::EscalationCreated {
+        timestamp: Utc::now(),
+        issue_id: handle.issue_id.clone(),
+        issue_identifier: handle.issue_identifier.clone(),
+        request: request.clone(),
+    };
+    event_callback(created_event);
+
+    let (response_tx, response_rx) = oneshot::channel::<EscalationResponse>();
+    handle
+        .escalation_tx
+        .send(EscalationDispatch {
+            request: request.clone(),
+            response_tx,
+        })
+        .map_err(|_| {
+            SymphonyError::PiAgentError("failed to enqueue escalation request".to_string())
+        })?;
+
+    let timeout = Duration::from_millis(handle.escalation_timeout_ms.max(1));
+    match tokio::time::timeout(timeout, response_rx).await {
+        Ok(Ok(response)) => {
+            let payload = ExtensionUIResponse::from_payload(id, response.response);
+            write_ui_response_value(&mut handle.stdin, payload).await?;
+
+            let latency_ms = Utc::now()
+                .signed_duration_since(request.created_at)
+                .num_milliseconds()
+                .max(0) as u64;
+
+            event_callback(AgentEvent::EscalationResponded {
+                timestamp: Utc::now(),
+                issue_id: handle.issue_id.clone(),
+                issue_identifier: handle.issue_identifier.clone(),
+                request_id,
+                responder_id: response.responder_id,
+                latency_ms,
+            });
+        }
+        Ok(Err(_)) | Err(_) => {
+            if let Some(fallback) = default_ui_fallback_response(id, &method) {
+                let payload = serde_json::to_value(&fallback).map_err(|err| {
+                    SymphonyError::PiAgentError(format!(
+                        "failed to encode ui fallback response: {err}"
+                    ))
+                })?;
+                write_ui_response_value(&mut handle.stdin, payload).await?;
+            }
+
+            event_callback(AgentEvent::EscalationTimedOut {
+                timestamp: Utc::now(),
+                issue_id: handle.issue_id.clone(),
+                issue_identifier: handle.issue_identifier.clone(),
+                request_id,
+                timeout_ms: handle.escalation_timeout_ms,
+            });
+        }
+    }
+
+    Ok(())
 }
 
 fn decode_session_stats(data: Value) -> Result<SessionStats> {
@@ -345,16 +467,33 @@ async fn wait_for_handshake(
     }
 }
 
+/// Runtime options for launching a pi-agent session.
+pub struct StartSessionOptions {
+    pub worker_host: Option<String>,
+    pub container_id: Option<String>,
+    pub escalation_tx: UnboundedSender<EscalationDispatch>,
+    pub escalation_timeout_ms: u64,
+}
+
 /// Start a pi-agent session process for an issue.
 pub async fn start_session(
     config: &PiAgentConfig,
     issue: &Issue,
     workspace_path: &Path,
     workspace_root: &Path,
-    worker_host: Option<&str>,
-    container_id: Option<&str>,
+    options: StartSessionOptions,
 ) -> Result<SessionHandle> {
-    let command_parts = match (container_id, worker_host) {
+    let StartSessionOptions {
+        worker_host,
+        container_id,
+        escalation_tx,
+        escalation_timeout_ms,
+    } = options;
+
+    let container_id_ref = container_id.as_deref();
+    let worker_host_ref = worker_host.as_deref();
+
+    let command_parts = match (container_id_ref, worker_host_ref) {
         (Some(_), _) => build_command_parts(config, "/workspace", &issue.state)?,
         _ => {
             let workspace_for_args = workspace_path.to_string_lossy().to_string();
@@ -362,7 +501,7 @@ pub async fn start_session(
         }
     };
 
-    let (workspace_str, mut child) = match (container_id, worker_host) {
+    let (workspace_str, mut child) = match (container_id_ref, worker_host_ref) {
         (Some(container_id), _) => {
             let workspace_str = workspace_path.to_string_lossy().to_string();
             let remote_cmd = format!(
@@ -464,6 +603,8 @@ pub async fn start_session(
         issue_identifier: issue.identifier.clone(),
         read_timeout_ms: config.read_timeout_ms,
         stall_timeout_ms: config.stall_timeout_ms,
+        escalation_timeout_ms,
+        escalation_tx,
         token_tracker: TokenTracker::new(),
     })
 }
@@ -608,8 +749,13 @@ pub async fn run_turn(
                 event_callback(event.clone());
                 events.push(event);
             }
-            RpcOutputLine::ExtensionUIRequest { id, method, .. } => {
-                maybe_respond_extension_ui(&mut handle.stdin, id, method).await;
+            RpcOutputLine::ExtensionUIRequest { id, method, extra } => {
+                if is_auto_respond_method(&method) {
+                    continue;
+                }
+
+                handle_escalation_ui_request(handle, &mut event_callback, id, method, extra)
+                    .await?;
             }
             RpcOutputLine::MessageUpdate { message } | RpcOutputLine::MessageEnd { message } => {
                 if let Some(text) = maybe_extract_text(&message) {
