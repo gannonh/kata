@@ -187,6 +187,7 @@ fn test_config_defaults() {
     assert_eq!(config.polling.interval_ms, 30_000);
     assert_eq!(config.agent.max_concurrent_agents, 10);
     assert_eq!(config.agent.max_turns, 20);
+    assert_eq!(config.agent.escalation_timeout_ms, 300_000);
     assert_eq!(config.workspace.repo, None);
     assert_eq!(config.workspace.strategy, WorkspaceRepoStrategy::Auto);
     assert_eq!(config.workspace.isolation, WorkspaceIsolation::Local);
@@ -204,6 +205,41 @@ fn test_config_defaults() {
     assert_eq!(config.pi_agent.stall_timeout_ms, 300_000);
     assert_eq!(config.server.public_url, None);
     assert!(config.notifications.is_none());
+}
+
+#[test]
+fn test_escalation_timeout_parses_from_agent_field() {
+    let yaml_str = r#"
+agent:
+  escalation_timeout_ms: 120000
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("agent escalation timeout should parse");
+    assert_eq!(config.agent.escalation_timeout_ms, 120_000);
+}
+
+#[test]
+fn test_escalation_timeout_parses_from_escalation_section() {
+    let yaml_str = r#"
+escalation:
+  timeout_ms: 90000
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("escalation timeout section should parse");
+    assert_eq!(config.agent.escalation_timeout_ms, 90_000);
+}
+
+#[test]
+fn test_agent_escalation_timeout_precedence_over_escalation_section() {
+    let yaml_str = r#"
+agent:
+  escalation_timeout_ms: 75000
+escalation:
+  timeout_ms: 90000
+"#;
+    let raw: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let config = from_workflow(&raw).expect("agent field should win");
+    assert_eq!(config.agent.escalation_timeout_ms, 75_000);
 }
 
 #[test]

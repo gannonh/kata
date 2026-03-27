@@ -64,6 +64,40 @@ pub struct BlockedIssueEntry {
     pub blocker_identifiers: Vec<String>,
 }
 
+/// A worker escalation request emitted when human input is required.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EscalationRequest {
+    pub id: String,
+    pub issue_id: String,
+    pub issue_identifier: String,
+    pub method: String,
+    pub payload: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+    pub timeout_ms: u64,
+}
+
+/// Operator response payload routed back to a waiting worker escalation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EscalationResponse {
+    pub request_id: String,
+    pub response: serde_json::Value,
+    #[serde(default)]
+    pub responder_id: Option<String>,
+    pub responded_at: DateTime<Utc>,
+}
+
+/// Snapshot-safe view of currently pending escalations.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PendingEscalation {
+    pub request_id: String,
+    pub issue_id: String,
+    pub issue_identifier: String,
+    pub method: String,
+    pub preview: String,
+    pub created_at: DateTime<Utc>,
+    pub timeout_ms: u64,
+}
+
 // ── Shared context contract (M002/S06) ──────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -132,6 +166,10 @@ pub enum EventKind {
     Worker,
     Tool,
     Heartbeat,
+    EscalationCreated,
+    EscalationResponded,
+    EscalationTimedOut,
+    EscalationCancelled,
     SharedContextWritten,
     SharedContextExpired,
 }
@@ -144,6 +182,10 @@ impl EventKind {
             "worker" => Some(Self::Worker),
             "tool" => Some(Self::Tool),
             "heartbeat" => Some(Self::Heartbeat),
+            "escalation_created" => Some(Self::EscalationCreated),
+            "escalation_responded" => Some(Self::EscalationResponded),
+            "escalation_timed_out" => Some(Self::EscalationTimedOut),
+            "escalation_cancelled" => Some(Self::EscalationCancelled),
             "shared_context_written" => Some(Self::SharedContextWritten),
             "shared_context_expired" => Some(Self::SharedContextExpired),
             _ => None,
@@ -157,6 +199,10 @@ impl EventKind {
             Self::Worker => "worker",
             Self::Tool => "tool",
             Self::Heartbeat => "heartbeat",
+            Self::EscalationCreated => "escalation_created",
+            Self::EscalationResponded => "escalation_responded",
+            Self::EscalationTimedOut => "escalation_timed_out",
+            Self::EscalationCancelled => "escalation_cancelled",
             Self::SharedContextWritten => "shared_context_written",
             Self::SharedContextExpired => "shared_context_expired",
         }
@@ -169,6 +215,10 @@ impl EventKind {
             "worker",
             "tool",
             "heartbeat",
+            "escalation_created",
+            "escalation_responded",
+            "escalation_timed_out",
+            "escalation_cancelled",
             "shared_context_written",
             "shared_context_expired",
         ]
@@ -599,6 +649,7 @@ pub struct AgentConfig {
     pub max_concurrent_agents: u32,
     pub max_turns: u32,
     pub max_retry_backoff_ms: u64,
+    pub escalation_timeout_ms: u64,
 }
 
 impl Default for AgentConfig {
@@ -607,6 +658,7 @@ impl Default for AgentConfig {
             max_concurrent_agents: 10,
             max_turns: 20,
             max_retry_backoff_ms: 300_000,
+            escalation_timeout_ms: 300_000,
         }
     }
 }
@@ -991,6 +1043,8 @@ pub struct OrchestratorSnapshot {
     #[serde(default)]
     pub blocked: Vec<BlockedIssueEntry>,
     #[serde(default)]
+    pub pending_escalations: Vec<PendingEscalation>,
+    #[serde(default)]
     pub shared_context: SharedContextSummary,
     pub codex_totals: CodexTotals,
     pub codex_rate_limits: Option<RateLimitInfo>,
@@ -1088,6 +1142,34 @@ pub enum AgentEvent {
         timestamp: DateTime<Utc>,
         codex_app_server_pid: Option<String>,
         tool_name: String,
+    },
+    EscalationCreated {
+        timestamp: DateTime<Utc>,
+        issue_id: String,
+        issue_identifier: String,
+        request: EscalationRequest,
+    },
+    EscalationResponded {
+        timestamp: DateTime<Utc>,
+        issue_id: String,
+        issue_identifier: String,
+        request_id: String,
+        responder_id: Option<String>,
+        latency_ms: u64,
+    },
+    EscalationTimedOut {
+        timestamp: DateTime<Utc>,
+        issue_id: String,
+        issue_identifier: String,
+        request_id: String,
+        timeout_ms: u64,
+    },
+    EscalationCancelled {
+        timestamp: DateTime<Utc>,
+        issue_id: String,
+        issue_identifier: String,
+        request_id: String,
+        reason: String,
     },
     Notification {
         timestamp: DateTime<Utc>,

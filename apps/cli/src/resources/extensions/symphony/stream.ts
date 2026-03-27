@@ -451,7 +451,11 @@ function asEventKind(value: unknown): SymphonyEventKind | null {
     value === "runtime" ||
     value === "worker" ||
     value === "tool" ||
-    value === "heartbeat"
+    value === "heartbeat" ||
+    value === "escalation_created" ||
+    value === "escalation_responded" ||
+    value === "escalation_timed_out" ||
+    value === "escalation_cancelled"
   ) {
     return value;
   }

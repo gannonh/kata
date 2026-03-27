@@ -12,13 +12,15 @@ use serde_json::json;
 use tempfile::{tempdir, NamedTempFile};
 
 use symphony::domain::{
-    AgentConfig, AgentEvent, ApiKey, BlockerRef, ContextScope, Issue, NotificationsConfig,
-    ServiceConfig, SlackConfig, TrackerConfig, WorkspaceIsolation,
+    AgentConfig, AgentEvent, ApiKey, BlockerRef, ContextScope, EscalationRequest,
+    EscalationResponse, Issue, NotificationsConfig, ServiceConfig, SlackConfig, TrackerConfig,
+    WorkspaceIsolation,
 };
 use symphony::error::{Result, SymphonyError};
 use symphony::orchestrator::{
-    refresh_channel, Orchestrator, OrchestratorPort, RetryContext, RetryKind, RuntimeEvent,
-    TurnMetrics, WorkerCompletion, CONTINUATION_RETRY_DELAY_MS,
+    refresh_channel, EscalationRegistry, EscalationResolveResult, Orchestrator, OrchestratorPort,
+    RetryContext, RetryKind, RuntimeEvent, TurnMetrics, WorkerCompletion,
+    CONTINUATION_RETRY_DELAY_MS,
 };
 use symphony::shared_context::ContextEntryDraft;
 use symphony::workflow_store::WorkflowStore;
@@ -106,6 +108,7 @@ fn test_config(max_concurrent_agents: u32) -> ServiceConfig {
         max_concurrent_agents,
         max_turns: 20,
         max_retry_backoff_ms: 60_000,
+        escalation_timeout_ms: 300_000,
     };
     config
 }
@@ -2322,8 +2325,8 @@ fn test_snapshot_handle_reflects_retry_queue_for_api_use() {
     assert_eq!(entry.error.as_deref(), Some("timeout"));
 }
 
-#[test]
-fn test_reconcile_non_active_state_stops_run_without_cleanup() {
+#[tokio::test]
+async fn test_reconcile_non_active_state_stops_run_without_cleanup() {
     // Issue is running but its tracker state has moved to a non-active, non-terminal
     // state (e.g. "In Review" — not in active_states ["Todo", "In Progress"] and not
     // in terminal_states ["Done", "Canceled"]).
@@ -2350,6 +2353,12 @@ fn test_reconcile_non_active_state_stops_run_without_cleanup() {
         .state_mut()
         .running
         .insert("issue-non-active".to_string(), attempt);
+
+    let registry = orchestrator.escalation_registry();
+    let request = escalation_request("esc-non-active", "issue-non-active");
+    let (tx, rx) = tokio::sync::oneshot::channel::<EscalationResponse>();
+    registry.register(request, tx);
+    assert_eq!(registry.pending_snapshot().len(), 1);
 
     assert!(
         orchestrator
@@ -2383,6 +2392,71 @@ fn test_reconcile_non_active_state_stops_run_without_cleanup() {
             .completed
             .contains_key("issue-non-active"),
         "non-terminal state stop must not add issue to completed (no cleanup semantic)"
+    );
+
+    assert!(
+        registry.pending_snapshot().is_empty(),
+        "release path must clear pending escalations"
+    );
+    assert!(
+        rx.await.is_err(),
+        "release path should drop pending escalation sender"
+    );
+}
+
+#[tokio::test]
+async fn test_reconcile_terminal_state_cleans_pending_escalations() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+
+    orchestrator.state_mut().running.insert(
+        "issue-terminal".to_string(),
+        symphony::domain::RunAttempt {
+            issue_id: "issue-terminal".to_string(),
+            issue_identifier: "SIM-98".to_string(),
+            issue_title: Some("Issue SIM-98".to_string()),
+            attempt: Some(1),
+            workspace_path: "/tmp/ws-terminal".to_string(),
+            started_at: Utc::now(),
+            status: "running".to_string(),
+            error: None,
+            worker_host: None,
+            model: None,
+            linear_state: Some("In Progress".to_string()),
+            issue_url: None,
+        },
+    );
+
+    let registry = orchestrator.escalation_registry();
+    let request = escalation_request("esc-terminal", "issue-terminal");
+    let (tx, rx) = tokio::sync::oneshot::channel::<EscalationResponse>();
+    registry.register(request, tx);
+    assert_eq!(registry.pending_snapshot().len(), 1);
+
+    let mut port = FakePort {
+        reconciled_issues: vec![issue("issue-terminal", "SIM-98", "Done", Some(1), 0)],
+        ..FakePort::default()
+    };
+
+    orchestrator.tick(&mut port).expect("tick should succeed");
+
+    assert!(
+        !orchestrator.state().running.contains_key("issue-terminal"),
+        "terminal reconcile should remove running attempt"
+    );
+    assert!(
+        orchestrator
+            .state()
+            .completed
+            .contains_key("issue-terminal"),
+        "terminal reconcile should keep issue in completed"
+    );
+    assert!(
+        registry.pending_snapshot().is_empty(),
+        "terminal path must clear pending escalations"
+    );
+    assert!(
+        rx.await.is_err(),
+        "terminal cleanup should drop pending escalation sender"
     );
 }
 
@@ -3884,3 +3958,212 @@ async fn test_execute_worker_attempt_shared_context_is_injected_into_prompt() {
 // The Todo→In Progress auto-transition sets issue.state = effective_state in
 // spawn_workers_for_dispatched before the worker sees it, so the dispatched
 // state is always the post-transition state.
+
+fn escalation_request(id: &str, issue_id: &str) -> EscalationRequest {
+    EscalationRequest {
+        id: id.to_string(),
+        issue_id: issue_id.to_string(),
+        issue_identifier: "KAT-1161".to_string(),
+        method: "ask_user_questions".to_string(),
+        payload: json!({
+            "questions": [
+                {
+                    "id": "q1",
+                    "question": "Pick one"
+                }
+            ]
+        }),
+        created_at: Utc::now(),
+        timeout_ms: 30_000,
+    }
+}
+
+#[tokio::test]
+async fn test_escalation_registry_resolve_round_trip() {
+    let registry = EscalationRegistry::default();
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let request = escalation_request("esc-1", "issue-1");
+
+    registry.register(request.clone(), tx);
+    assert_eq!(registry.pending_snapshot().len(), 1);
+
+    let response = EscalationResponse {
+        request_id: request.id.clone(),
+        response: json!({"confirmed": true}),
+        responder_id: Some("operator-1".to_string()),
+        responded_at: Utc::now(),
+    };
+
+    let result = registry.resolve(&request.id, response.clone());
+    assert!(matches!(result, EscalationResolveResult::Resolved));
+
+    let delivered = rx.await.expect("response should be delivered");
+    assert_eq!(delivered.request_id, request.id);
+    assert!(registry.pending_snapshot().is_empty());
+
+    let duplicate = registry.resolve(&request.id, response);
+    assert!(matches!(
+        duplicate,
+        EscalationResolveResult::AlreadyResolved
+    ));
+}
+
+#[tokio::test]
+async fn test_escalation_registry_resolved_cache_is_bounded() {
+    let registry = EscalationRegistry::default();
+
+    for idx in 0..1_100 {
+        let request = escalation_request(&format!("esc-{idx}"), "issue-bounded");
+        let (tx, rx) = tokio::sync::oneshot::channel::<EscalationResponse>();
+        registry.register(request.clone(), tx);
+
+        let response = EscalationResponse {
+            request_id: request.id.clone(),
+            response: json!({"index": idx}),
+            responder_id: Some("operator-1".to_string()),
+            responded_at: Utc::now(),
+        };
+
+        let result = registry.resolve(&request.id, response);
+        assert!(matches!(result, EscalationResolveResult::Resolved));
+        rx.await.expect("response should be delivered");
+    }
+
+    let oldest = registry.resolve(
+        "esc-0",
+        EscalationResponse {
+            request_id: "esc-0".to_string(),
+            response: json!({"confirmed": true}),
+            responder_id: Some("operator-1".to_string()),
+            responded_at: Utc::now(),
+        },
+    );
+    assert!(matches!(oldest, EscalationResolveResult::NotFound));
+
+    let newest = registry.resolve(
+        "esc-1099",
+        EscalationResponse {
+            request_id: "esc-1099".to_string(),
+            response: json!({"confirmed": true}),
+            responder_id: Some("operator-1".to_string()),
+            responded_at: Utc::now(),
+        },
+    );
+    assert!(matches!(newest, EscalationResolveResult::AlreadyResolved));
+}
+
+#[tokio::test]
+async fn test_escalation_registry_resolve_not_found_when_receiver_dropped() {
+    let registry = EscalationRegistry::default();
+    let (tx, rx) = tokio::sync::oneshot::channel::<EscalationResponse>();
+    let request = escalation_request("esc-dropped", "issue-dropped");
+
+    registry.register(request.clone(), tx);
+    drop(rx);
+
+    let response = EscalationResponse {
+        request_id: request.id.clone(),
+        response: json!({"confirmed": true}),
+        responder_id: Some("operator-1".to_string()),
+        responded_at: Utc::now(),
+    };
+
+    let first = registry.resolve(&request.id, response.clone());
+    assert!(matches!(first, EscalationResolveResult::NotFound));
+
+    let second = registry.resolve(&request.id, response);
+    assert!(matches!(second, EscalationResolveResult::NotFound));
+}
+
+#[tokio::test]
+async fn test_handle_worker_completion_cleans_pending_escalations_for_released_issue() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let registry = orchestrator.escalation_registry();
+
+    let request = escalation_request("esc-released", "issue-released");
+    let (tx, rx) = tokio::sync::oneshot::channel::<EscalationResponse>();
+    registry.register(request, tx);
+    assert_eq!(registry.pending_snapshot().len(), 1);
+
+    let result = orchestrator.handle_worker_completion(
+        "issue-released",
+        WorkerCompletion::Completed {
+            schedule_continuation: false,
+        },
+        Utc::now().timestamp_millis(),
+    );
+
+    assert!(result.is_none());
+    assert!(registry.pending_snapshot().is_empty());
+    assert!(
+        rx.await.is_err(),
+        "cleanup should drop pending escalation sender"
+    );
+}
+
+#[tokio::test]
+async fn test_ingest_agent_event_cleans_pending_escalation_for_non_running_issue() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let registry = orchestrator.escalation_registry();
+
+    let request = escalation_request("esc-timeout", "issue-timeout");
+    let issue_id = request.issue_id.clone();
+    let issue_identifier = request.issue_identifier.clone();
+    let request_id = request.id.clone();
+
+    let (tx, rx) = tokio::sync::oneshot::channel::<EscalationResponse>();
+    registry.register(request, tx);
+    assert_eq!(registry.pending_snapshot().len(), 1);
+
+    orchestrator.ingest_agent_event(
+        &issue_id,
+        &AgentEvent::EscalationTimedOut {
+            timestamp: Utc::now(),
+            issue_id: issue_id.clone(),
+            issue_identifier,
+            request_id,
+            timeout_ms: 30_000,
+        },
+    );
+
+    assert!(registry.pending_snapshot().is_empty());
+    assert!(
+        rx.await.is_err(),
+        "cleanup should drop pending escalation sender"
+    );
+}
+
+#[tokio::test]
+async fn test_escalation_registry_cancel_for_issue_cleans_up() {
+    let registry = EscalationRegistry::default();
+
+    let (tx_a1, rx_a1) = tokio::sync::oneshot::channel();
+    let (tx_a2, rx_a2) = tokio::sync::oneshot::channel();
+    let (tx_b1, _rx_b1) = tokio::sync::oneshot::channel();
+
+    let req_a1 = escalation_request("esc-a1", "issue-a");
+    let req_a2 = escalation_request("esc-a2", "issue-a");
+    let req_b1 = escalation_request("esc-b1", "issue-b");
+
+    registry.register(req_a1.clone(), tx_a1);
+    registry.register(req_a2.clone(), tx_a2);
+    registry.register(req_b1.clone(), tx_b1);
+
+    let cancelled = registry.cancel_for_issue("issue-a");
+    assert_eq!(cancelled.len(), 2);
+    assert!(cancelled.iter().any(|entry| entry.id == req_a1.id));
+    assert!(cancelled.iter().any(|entry| entry.id == req_a2.id));
+
+    let pending = registry.pending_snapshot();
+    assert_eq!(pending.len(), 1);
+    assert_eq!(pending[0].request_id, req_b1.id);
+
+    assert!(
+        rx_a1.await.is_err(),
+        "cancel should drop sender for issue-a"
+    );
+    assert!(
+        rx_a2.await.is_err(),
+        "cancel should drop sender for issue-a"
+    );
+}

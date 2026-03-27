@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { registerSymphonyTools } from "../tools.js";
 import type { SymphonyClient } from "../client.js";
@@ -33,6 +33,8 @@ function makeClient(overrides: Partial<SymphonyClient> = {}): SymphonyClient {
         poll_interval_ms: 30_000,
       },
     }),
+    getPendingEscalations: async () => [],
+    respondToEscalation: async () => ({ ok: true, status: 200 }),
     watchEvents: async function* () {
       return;
     },
@@ -71,6 +73,7 @@ describe("registerSymphonyTools", () => {
     const tools = registerWithClient(makeClient());
     expect([...tools.keys()].sort()).toEqual([
       "symphony_logs",
+      "symphony_respond",
       "symphony_status",
       "symphony_steer",
       "symphony_watch",
@@ -78,11 +81,13 @@ describe("registerSymphonyTools", () => {
 
     const status = tools.get("symphony_status")!;
     const watch = tools.get("symphony_watch")!;
+    const respond = tools.get("symphony_respond")!;
     const logs = tools.get("symphony_logs")!;
     const steer = tools.get("symphony_steer")!;
 
     expect(status.parameters.additionalProperties).toBe(false);
     expect(watch.parameters.additionalProperties).toBe(false);
+    expect(respond.parameters.additionalProperties).toBe(false);
     expect(logs.parameters.additionalProperties).toBe(false);
     expect(steer.parameters.additionalProperties).toBe(false);
   });
@@ -131,6 +136,37 @@ describe("registerSymphonyTools", () => {
     expect(payload.ok).toBe(true);
     expect(payload.received).toBe(2);
     expect(payload.events).toHaveLength(2);
+  });
+
+  it("executes symphony_respond and returns structured status", async () => {
+    const respondToEscalation = vi
+      .fn<SymphonyClient["respondToEscalation"]>()
+      .mockResolvedValue({ ok: true, status: 200 });
+
+    const tools = registerWithClient(
+      makeClient({
+        respondToEscalation,
+      }),
+    );
+
+    const respondTool = tools.get("symphony_respond")!;
+    const result = await respondTool.execute(
+      "call-respond",
+      { request_id: "esc-1", response: { confirmed: true }, responder_id: "op-1" },
+      undefined,
+      undefined,
+      {},
+    );
+
+    expect(result.isError).toBe(false);
+    expect(respondToEscalation).toHaveBeenCalledWith(
+      "esc-1",
+      { confirmed: true },
+      "op-1",
+    );
+
+    const payload = JSON.parse(result.content[0].text);
+    expect(payload).toMatchObject({ ok: true, request_id: "esc-1", status: 200 });
   });
 
   it("returns deterministic capability_unavailable payloads for logs and steer", async () => {

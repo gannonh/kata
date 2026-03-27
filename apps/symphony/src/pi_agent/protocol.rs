@@ -229,4 +229,34 @@ impl ExtensionUIResponse {
             value: None,
         }
     }
+
+    /// Build a response envelope from an arbitrary payload.
+    ///
+    /// If `payload` is an object, keys are merged into the top-level response
+    /// object, excluding reserved envelope keys (`type`, `id`). Otherwise payload
+    /// is emitted under `value`.
+    pub fn from_payload(id: String, payload: Value) -> Value {
+        let mut object = serde_json::Map::new();
+
+        match payload {
+            Value::Object(map) => {
+                for (key, value) in map {
+                    if key != "type" && key != "id" {
+                        object.insert(key, value);
+                    }
+                }
+            }
+            other => {
+                object.insert("value".to_string(), other);
+            }
+        }
+
+        object.insert(
+            "type".to_string(),
+            Value::String("extension_ui_response".to_string()),
+        );
+        object.insert("id".to_string(), Value::String(id));
+
+        Value::Object(object)
+    }
 }

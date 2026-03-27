@@ -131,6 +131,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
             title: "Completed issue".to_string(),
             completed_at: Some(chrono::Utc::now()),
         }],
+        pending_escalations: vec![],
         shared_context: SharedContextSummary {
             total_entries: 1,
             entries_by_scope: BTreeMap::from([("project".to_string(), 1)]),
@@ -168,6 +169,7 @@ fn test_router() -> axum::Router {
             snapshot: fixture_snapshot(),
         }),
         Arc::new(FakeRefreshControl::default()),
+        symphony::orchestrator::EscalationRegistry::default(),
     );
 
     build_router(state)
@@ -627,6 +629,7 @@ async fn test_context_post_publishes_shared_context_written_event() {
             snapshot: fixture_snapshot(),
         }),
         Arc::new(FakeRefreshControl::default()),
+        symphony::orchestrator::EscalationRegistry::default(),
     );
     let mut events = state.event_hub().subscribe();
     let app = build_router(state);
@@ -670,11 +673,9 @@ fn test_event_filter_invalid_type_returns_machine_readable_error() {
 
     assert_eq!(err.field, "type");
     assert_eq!(err.value, "wat");
+    let allowed_values = format!("Allowed values: {}", EventKind::variants().join(","));
     assert!(
-        err.message
-            .contains(
-                "Allowed values: snapshot,runtime,worker,tool,heartbeat,shared_context_written,shared_context_expired",
-            ),
+        err.message.contains(&allowed_values),
         "error should list deterministic allowed values"
     );
 }
@@ -776,7 +777,11 @@ async fn test_dashboard_html_includes_blocked_section() {
     }];
 
     let source = StaticSnapshotSource { snapshot };
-    let state = HttpServerState::new(Arc::new(source), Arc::new(FakeRefreshControl::default()));
+    let state = HttpServerState::new(
+        Arc::new(source),
+        Arc::new(FakeRefreshControl::default()),
+        symphony::orchestrator::EscalationRegistry::default(),
+    );
     let app = build_router(state);
 
     let req = Request::builder().uri("/").body(Body::empty()).unwrap();
@@ -802,7 +807,11 @@ async fn test_state_json_includes_blocked_array() {
     }];
 
     let source = StaticSnapshotSource { snapshot };
-    let state = HttpServerState::new(Arc::new(source), Arc::new(FakeRefreshControl::default()));
+    let state = HttpServerState::new(
+        Arc::new(source),
+        Arc::new(FakeRefreshControl::default()),
+        symphony::orchestrator::EscalationRegistry::default(),
+    );
     let app = build_router(state);
 
     let req = Request::builder()
@@ -823,4 +832,64 @@ async fn test_state_json_includes_blocked_array() {
         blocked[0]["blocker_identifiers"].as_array().unwrap().len(),
         2
     );
+}
+
+#[tokio::test]
+async fn test_escalation_dashboard_section_renders() {
+    let app = test_router();
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = body_text(response).await;
+    assert!(body.contains("Pending Escalations"));
+    assert!(body.contains("escalation-table-body"));
+}
+
+#[tokio::test]
+async fn test_escalation_endpoints_return_empty_or_not_found_when_unknown() {
+    let app = test_router();
+
+    let list_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/v1/escalations")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+
+    assert_eq!(list_response.status(), StatusCode::OK);
+    let list_payload = body_json(list_response).await;
+    assert_eq!(list_payload, json!({"pending": []}));
+
+    let respond_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/escalations/missing/respond")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({"response": {"confirmed": true}}).to_string(),
+                ))
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+
+    assert_eq!(respond_response.status(), StatusCode::NOT_FOUND);
+    let respond_payload = body_json(respond_response).await;
+    assert_eq!(respond_payload, json!({"error": "escalation_not_found"}));
 }

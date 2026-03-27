@@ -403,22 +403,28 @@ fn cleanup_partial_terminal_state() {
 }
 
 fn build_summary_lines(snapshot: &OrchestratorSnapshot, throughput_line: &str) -> Vec<String> {
-    let mut primary_summary = format!(
-        "Running: {}  Retry: {}  Completed: {}  Tokens: {}",
-        snapshot.running.len(),
-        snapshot.retry_queue.len(),
-        snapshot.completed.len(),
+    let mut counts = vec![format!("Running: {}", snapshot.running.len())];
+    if !snapshot.pending_escalations.is_empty() {
+        counts.push(format!(
+            "Escalations: {}",
+            snapshot.pending_escalations.len()
+        ));
+    }
+    counts.push(format!("Retry: {}", snapshot.retry_queue.len()));
+    counts.push(format!("Completed: {}", snapshot.completed.len()));
+    counts.push(format!(
+        "Tokens: {}",
         format_tokens(snapshot.codex_totals.total_tokens)
-    );
+    ));
 
     if snapshot.shared_context.total_entries > 0 {
-        primary_summary.push_str(&format!(
-            "  Context: {} entries",
+        counts.push(format!(
+            "Context: {} entries",
             snapshot.shared_context.total_entries
         ));
     }
 
-    let mut lines = vec![primary_summary, throughput_line.to_string()];
+    let mut lines = vec![counts.join("  |  "), throughput_line.to_string()];
 
     if let Some(project_url) = snapshot.linear_project_url.as_deref() {
         lines.push(format!("Linear Project: {project_url}"));
@@ -593,6 +599,13 @@ fn draw_dashboard(
 
 fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<'static>> {
     let mut rows = Vec::new();
+    let pending_by_issue: std::collections::HashMap<&str, &crate::domain::PendingEscalation> =
+        snapshot
+            .pending_escalations
+            .iter()
+            .map(|pending| (pending.issue_id.as_str(), pending))
+            .collect();
+
     for (issue_id, run) in &snapshot.running {
         let metrics = snapshot.running_sessions.get(issue_id);
         let turn_count = metrics.map(|m| m.turn_count).unwrap_or(0);
@@ -605,12 +618,19 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
         let session_id = metrics.and_then(|m| m.session_id.as_deref());
         let current_tool_name = metrics.and_then(|m| m.current_tool_name.as_deref());
         let current_tool_args = metrics.and_then(|m| m.current_tool_args_preview.as_deref());
-        let stale = is_stale_session(last_activity, now);
-        let state = run
-            .linear_state
-            .as_deref()
-            .unwrap_or(run.status.as_str())
-            .to_string();
+        let escalation = pending_by_issue.get(issue_id.as_str()).copied();
+        let stale = escalation.is_none() && is_stale_session(last_activity, now);
+        let state = if escalation.is_some() {
+            format!(
+                "⚠ {}",
+                run.linear_state.as_deref().unwrap_or(run.status.as_str())
+            )
+        } else {
+            run.linear_state
+                .as_deref()
+                .unwrap_or(run.status.as_str())
+                .to_string()
+        };
         let last_activity_text = format_age(last_activity, now);
         let last_activity_cell = if stale {
             Cell::from(Span::styled(
@@ -621,8 +641,21 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
             Cell::from(last_activity_text)
         };
 
-        rows.push(Row::new(vec![
-            Cell::from(status_dot(last_event, last_activity, now)),
+        let activity_message = if let Some(pending) = escalation {
+            let waiting = format_age(Some(pending.created_at), now);
+            format!("⚠ escalation: \"{}\" ({waiting})", pending.preview)
+        } else {
+            format_activity_message(current_tool_name, current_tool_args, last_event_message)
+        };
+
+        let status_last_activity = if escalation.is_some() {
+            Some(now)
+        } else {
+            last_activity
+        };
+
+        let mut row = Row::new(vec![
+            Cell::from(status_dot(last_event, status_last_activity, now)),
             Cell::from(run.issue_identifier.clone()),
             Cell::from(compact_session_id(session_id)),
             Cell::from(state),
@@ -632,7 +665,7 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
                 LAST_EVENT_COLUMN_WIDTH as usize,
             )),
             Cell::from(truncate_for_display(
-                &format_activity_message(current_tool_name, current_tool_args, last_event_message),
+                &activity_message,
                 MESSAGE_COLUMN_TRUNCATE_WIDTH,
             )),
             last_activity_cell,
@@ -644,7 +677,13 @@ fn running_rows(snapshot: &OrchestratorSnapshot, now: DateTime<Utc>) -> Vec<Row<
                     .map(str::to_string)
                     .unwrap_or_else(|| "local".to_string()),
             ),
-        ]));
+        ]);
+
+        if escalation.is_some() {
+            row = row.style(Style::default().fg(Color::Yellow));
+        }
+
+        rows.push(row);
     }
 
     if rows.is_empty() {
@@ -989,6 +1028,7 @@ mod tests {
             claimed: BTreeSet::new(),
             retry_queue: Vec::new(),
             completed: Vec::new(),
+            pending_escalations: Vec::new(),
             codex_totals: crate::domain::CodexTotals {
                 input_tokens: 0,
                 output_tokens: 0,

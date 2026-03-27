@@ -52,6 +52,7 @@ fn orchestrator_config() -> ServiceConfig {
         max_concurrent_agents: 1,
         max_turns: 1,
         max_retry_backoff_ms: 60_000,
+        escalation_timeout_ms: 300_000,
     };
     config
 }

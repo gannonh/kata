@@ -1,20 +1,21 @@
 use chrono::{DateTime, Utc};
 use regex::Regex;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::future::Future;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, LazyLock, RwLock};
+use std::sync::{Arc, LazyLock, Mutex, RwLock};
 use std::time::Duration;
 
 use crate::codex::app_server;
 use crate::config;
 use crate::domain::{
     AgentBackend, AgentEvent, CodexConfig, CodexTotals, CompletedEntry, ContextEntry, ContextScope,
-    EventKind, EventSeverity, HooksConfig, Issue, OrchestratorSnapshot, OrchestratorState,
-    PiAgentConfig, PollingSnapshot, RateLimitInfo, RefreshRequestOutcome, RetryEntry,
-    RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot, ServiceConfig, SessionTokenUsage,
-    TrackerConfig, WorkerSessionInfo, WorkspaceConfig, WorkspaceIsolation,
+    EscalationRequest, EscalationResponse, EventKind, EventSeverity, HooksConfig, Issue,
+    OrchestratorSnapshot, OrchestratorState, PendingEscalation, PiAgentConfig, PollingSnapshot,
+    RateLimitInfo, RefreshRequestOutcome, RetryEntry, RetrySnapshotEntry, RunAttempt,
+    RunningSessionSnapshot, ServiceConfig, SessionTokenUsage, TrackerConfig, WorkerSessionInfo,
+    WorkspaceConfig, WorkspaceIsolation,
 };
 use crate::error::{Result, SymphonyError};
 use crate::event_stream::EventHub;
@@ -46,6 +47,8 @@ struct WorkerTaskConfig {
     prompt_template: String,
     shared_context: String,
     event_tx: tokio::sync::mpsc::UnboundedSender<(String, AgentEvent)>,
+    escalation_tx: tokio::sync::mpsc::UnboundedSender<rpc_bridge::EscalationDispatch>,
+    escalation_timeout_ms: u64,
 }
 
 enum IssueCheck {
@@ -566,8 +569,12 @@ async fn run_worker_task(
                             issue,
                             Path::new("/workspace"),
                             Path::new("/"),
-                            None,
-                            Some(&container_id),
+                            rpc_bridge::StartSessionOptions {
+                                worker_host: None,
+                                container_id: Some(container_id.clone()),
+                                escalation_tx: config.escalation_tx.clone(),
+                                escalation_timeout_ms: config.escalation_timeout_ms,
+                            },
                         )
                         .await
                         .map_err(|err| format!("pi session start failed: {err}"))?;
@@ -829,8 +836,12 @@ async fn run_worker_task(
                 issue,
                 workspace_path,
                 workspace_root,
-                worker_host,
-                None,
+                rpc_bridge::StartSessionOptions {
+                    worker_host: worker_host.map(ToString::to_string),
+                    container_id: None,
+                    escalation_tx: config.escalation_tx.clone(),
+                    escalation_timeout_ms: config.escalation_timeout_ms,
+                },
             )
             .await
             {
@@ -1147,6 +1158,214 @@ pub enum WorkerCompletion {
     Failed { error: String },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EscalationResolveResult {
+    Resolved,
+    NotFound,
+    AlreadyResolved,
+}
+
+struct EscalationEntry {
+    request: EscalationRequest,
+    response_tx: tokio::sync::oneshot::Sender<EscalationResponse>,
+}
+
+const ESCALATION_RESOLVED_CACHE_CAPACITY: usize = 1_024;
+
+#[derive(Default)]
+struct ResolvedEscalationCache {
+    ids: HashSet<String>,
+    order: VecDeque<String>,
+}
+
+impl ResolvedEscalationCache {
+    fn contains(&self, request_id: &str) -> bool {
+        self.ids.contains(request_id)
+    }
+
+    fn insert(&mut self, request_id: String) {
+        if self.ids.contains(&request_id) {
+            return;
+        }
+
+        self.ids.insert(request_id.clone());
+        self.order.push_back(request_id);
+
+        while self.order.len() > ESCALATION_RESOLVED_CACHE_CAPACITY {
+            if let Some(evicted) = self.order.pop_front() {
+                self.ids.remove(&evicted);
+            }
+        }
+    }
+
+    fn remove(&mut self, request_id: &str) {
+        if !self.ids.remove(request_id) {
+            return;
+        }
+
+        if let Some(position) = self.order.iter().position(|entry| entry == request_id) {
+            self.order.remove(position);
+        }
+    }
+}
+
+#[derive(Default)]
+struct EscalationRegistryState {
+    pending: HashMap<String, EscalationEntry>,
+    resolved: ResolvedEscalationCache,
+}
+
+#[derive(Clone, Default)]
+pub struct EscalationRegistry {
+    state: Arc<Mutex<EscalationRegistryState>>,
+}
+
+impl EscalationRegistry {
+    pub fn register(
+        &self,
+        request: EscalationRequest,
+        response_tx: tokio::sync::oneshot::Sender<EscalationResponse>,
+    ) {
+        let mut state = self
+            .state
+            .lock()
+            .expect("escalation registry mutex poisoned");
+        state.resolved.remove(&request.id);
+        state.pending.insert(
+            request.id.clone(),
+            EscalationEntry {
+                request,
+                response_tx,
+            },
+        );
+    }
+
+    pub fn resolve(
+        &self,
+        request_id: &str,
+        response: EscalationResponse,
+    ) -> EscalationResolveResult {
+        let entry = {
+            let mut state = self
+                .state
+                .lock()
+                .expect("escalation registry mutex poisoned");
+
+            if let Some(entry) = state.pending.remove(request_id) {
+                entry
+            } else if state.resolved.contains(request_id) {
+                return EscalationResolveResult::AlreadyResolved;
+            } else {
+                return EscalationResolveResult::NotFound;
+            }
+        };
+
+        if entry.response_tx.send(response).is_ok() {
+            let mut state = self
+                .state
+                .lock()
+                .expect("escalation registry mutex poisoned");
+            state.resolved.insert(request_id.to_string());
+            EscalationResolveResult::Resolved
+        } else {
+            EscalationResolveResult::NotFound
+        }
+    }
+
+    pub fn remove(&self, request_id: &str) -> bool {
+        let mut state = self
+            .state
+            .lock()
+            .expect("escalation registry mutex poisoned");
+        state.pending.remove(request_id).is_some()
+    }
+
+    pub fn cancel_for_issue(&self, issue_id: &str) -> Vec<EscalationRequest> {
+        let mut state = self
+            .state
+            .lock()
+            .expect("escalation registry mutex poisoned");
+
+        let ids_to_remove: Vec<String> = state
+            .pending
+            .iter()
+            .filter_map(|(request_id, entry)| {
+                if entry.request.issue_id == issue_id {
+                    Some(request_id.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let mut cancelled = Vec::with_capacity(ids_to_remove.len());
+        for request_id in ids_to_remove {
+            if let Some(entry) = state.pending.remove(&request_id) {
+                cancelled.push(entry.request);
+            }
+        }
+
+        cancelled
+    }
+
+    pub fn pending_snapshot(&self) -> Vec<PendingEscalation> {
+        let state = self
+            .state
+            .lock()
+            .expect("escalation registry mutex poisoned");
+
+        let mut pending: Vec<PendingEscalation> = state
+            .pending
+            .values()
+            .map(|entry| PendingEscalation {
+                request_id: entry.request.id.clone(),
+                issue_id: entry.request.issue_id.clone(),
+                issue_identifier: entry.request.issue_identifier.clone(),
+                method: entry.request.method.clone(),
+                preview: escalation_preview(&entry.request.payload),
+                created_at: entry.request.created_at,
+                timeout_ms: entry.request.timeout_ms,
+            })
+            .collect();
+
+        pending.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+        pending
+    }
+}
+
+fn escalation_preview(payload: &serde_json::Value) -> String {
+    let preview = payload
+        .get("questions")
+        .and_then(|questions| questions.as_array())
+        .and_then(|questions| questions.first())
+        .and_then(|question| {
+            question
+                .get("question")
+                .and_then(|question_text| question_text.as_str())
+                .or_else(|| {
+                    question
+                        .get("prompt")
+                        .and_then(|question_text| question_text.as_str())
+                })
+        })
+        .map(str::to_string)
+        .or_else(|| {
+            payload
+                .get("question")
+                .and_then(|value| value.as_str())
+                .map(str::to_string)
+        })
+        .or_else(|| {
+            payload
+                .get("prompt")
+                .and_then(|value| value.as_str())
+                .map(str::to_string)
+        })
+        .unwrap_or_else(|| truncate_for_display(&payload.to_string(), 120));
+
+    truncate_for_display(&preview, 120)
+}
+
 pub trait OrchestratorPort {
     fn startup_terminal_issues(&mut self, terminal_states: &[String]) -> Result<Vec<Issue>>;
 
@@ -1200,6 +1419,11 @@ pub struct Orchestrator {
     worker_event_rx: tokio::sync::mpsc::UnboundedReceiver<(String, AgentEvent)>,
     /// Sender half cloned into each spawned worker task for event streaming.
     worker_event_tx: tokio::sync::mpsc::UnboundedSender<(String, AgentEvent)>,
+    /// Channel for receiving escalation registrations from RPC bridge sessions.
+    worker_escalation_rx: tokio::sync::mpsc::UnboundedReceiver<rpc_bridge::EscalationDispatch>,
+    /// Sender half cloned into each spawned worker task for escalation registration.
+    worker_escalation_tx: tokio::sync::mpsc::UnboundedSender<rpc_bridge::EscalationDispatch>,
+    escalation_registry: EscalationRegistry,
     /// Shared ephemeral cross-worker context store.
     shared_context_store: SharedContextStore,
     /// The prompt template from the WORKFLOW.md body, used to render per-issue prompts.
@@ -1240,6 +1464,7 @@ impl Orchestrator {
         let shared_context_max_entries = config.shared_context.max_entries;
         let (worker_result_tx, worker_result_rx) = tokio::sync::mpsc::unbounded_channel();
         let (worker_event_tx, worker_event_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (worker_escalation_tx, worker_escalation_rx) = tokio::sync::mpsc::unbounded_channel();
 
         Self {
             workflow_store,
@@ -1274,6 +1499,9 @@ impl Orchestrator {
             worker_result_tx,
             worker_event_rx,
             worker_event_tx,
+            worker_escalation_rx,
+            worker_escalation_tx,
+            escalation_registry: EscalationRegistry::default(),
             shared_context_store: SharedContextStore::new(
                 shared_context_ttl_ms,
                 shared_context_max_entries,
@@ -1427,6 +1655,16 @@ impl Orchestrator {
                         self.publish_snapshot();
                     }
                 },
+                escalation = self.worker_escalation_rx.recv() => {
+                    if let Some(dispatch) = escalation {
+                        self.handle_escalation_dispatch(dispatch);
+                        self.publish_snapshot();
+                    }
+                    while let Ok(dispatch) = self.worker_escalation_rx.try_recv() {
+                        self.handle_escalation_dispatch(dispatch);
+                        self.publish_snapshot();
+                    }
+                },
                 result = self.worker_result_rx.recv() => {
                     if let Some(result) = result {
                         self.drain_ready_worker_events();
@@ -1522,6 +1760,8 @@ impl Orchestrator {
                 prompt_template,
                 shared_context,
                 event_tx: self.worker_event_tx.clone(),
+                escalation_tx: self.worker_escalation_tx.clone(),
+                escalation_timeout_ms: self.config.agent.escalation_timeout_ms,
             };
 
             tokio::spawn(async move {
@@ -1576,6 +1816,42 @@ impl Orchestrator {
             drained = drained.saturating_add(1);
         }
         drained
+    }
+
+    fn handle_escalation_dispatch(&mut self, dispatch: rpc_bridge::EscalationDispatch) {
+        let request_id = dispatch.request.id.clone();
+        self.escalation_registry
+            .register(dispatch.request.clone(), dispatch.response_tx);
+
+        tracing::info!(
+            event = "escalation_registered",
+            issue_id = %dispatch.request.issue_id,
+            issue_identifier = %dispatch.request.issue_identifier,
+            request_id = %request_id,
+            method = %dispatch.request.method,
+            "registered pending escalation"
+        );
+    }
+
+    pub fn resolve_escalation(
+        &self,
+        request_id: &str,
+        response: serde_json::Value,
+        responder_id: Option<String>,
+    ) -> EscalationResolveResult {
+        let escalation_response = EscalationResponse {
+            request_id: request_id.to_string(),
+            response,
+            responder_id,
+            responded_at: Utc::now(),
+        };
+
+        self.escalation_registry
+            .resolve(request_id, escalation_response)
+    }
+
+    pub fn escalation_registry(&self) -> EscalationRegistry {
+        self.escalation_registry.clone()
     }
 
     pub fn startup_cleanup(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
@@ -1932,6 +2208,15 @@ impl Orchestrator {
     }
 
     pub fn ingest_agent_event(&mut self, issue_id: &str, event: &AgentEvent) {
+        if let Some(request_id) = match event {
+            AgentEvent::EscalationResponded { request_id, .. }
+            | AgentEvent::EscalationTimedOut { request_id, .. }
+            | AgentEvent::EscalationCancelled { request_id, .. } => Some(request_id.as_str()),
+            _ => None,
+        } {
+            let _ = self.escalation_registry.remove(request_id);
+        }
+
         if !self.state.running.contains_key(issue_id) {
             tracing::debug!(
                 issue_id = %issue_id,
@@ -1999,6 +2284,55 @@ impl Orchestrator {
             }
         }
 
+        match event {
+            AgentEvent::EscalationCreated { request, .. } => {
+                tracing::info!(
+                    event = "escalation_created",
+                    issue_id = %request.issue_id,
+                    request_id = %request.id,
+                    method = %request.method,
+                    "worker escalation created"
+                );
+            }
+            AgentEvent::EscalationResponded {
+                request_id,
+                responder_id,
+                latency_ms,
+                ..
+            } => {
+                tracing::info!(
+                    event = "escalation_responded",
+                    request_id = %request_id,
+                    responder = %responder_id.as_deref().unwrap_or("operator"),
+                    latency_ms,
+                    "worker escalation answered"
+                );
+            }
+            AgentEvent::EscalationTimedOut {
+                request_id,
+                timeout_ms,
+                ..
+            } => {
+                tracing::warn!(
+                    event = "escalation_timed_out",
+                    request_id = %request_id,
+                    timeout_ms,
+                    "worker escalation timed out"
+                );
+            }
+            AgentEvent::EscalationCancelled {
+                request_id, reason, ..
+            } => {
+                tracing::warn!(
+                    event = "escalation_cancelled",
+                    request_id = %request_id,
+                    reason = %reason,
+                    "worker escalation cancelled"
+                );
+            }
+            _ => {}
+        }
+
         if let AgentEvent::TurnCompleted {
             input_tokens,
             output_tokens,
@@ -2046,13 +2380,45 @@ impl Orchestrator {
         );
     }
 
+    fn cancel_pending_escalations_for_issue(&mut self, issue_id: &str, reason: &str) {
+        let cancelled_requests = self.escalation_registry.cancel_for_issue(issue_id);
+        if cancelled_requests.is_empty() {
+            return;
+        }
+
+        let issue_is_running = self.state.running.contains_key(issue_id);
+
+        for request in cancelled_requests {
+            if issue_is_running {
+                let event = AgentEvent::EscalationCancelled {
+                    timestamp: Utc::now(),
+                    issue_id: request.issue_id.clone(),
+                    issue_identifier: request.issue_identifier.clone(),
+                    request_id: request.id.clone(),
+                    reason: reason.to_string(),
+                };
+                self.ingest_agent_event(issue_id, &event);
+            } else {
+                tracing::warn!(
+                    event = "escalation_cancelled",
+                    issue_id = %request.issue_id,
+                    request_id = %request.id,
+                    reason = %reason,
+                    "cleaned pending escalation for released worker"
+                );
+            }
+        }
+    }
+
     pub fn handle_worker_completion(
         &mut self,
         issue_id: &str,
         completion: WorkerCompletion,
         now_ms: i64,
     ) -> Option<String> {
-        let Some(run_attempt) = self.state.running.remove(issue_id) else {
+        let Some(_existing_attempt) = self.state.running.get(issue_id).cloned() else {
+            self.cancel_pending_escalations_for_issue(issue_id, "worker_already_released");
+
             if self.config.workspace.cleanup_on_done {
                 if let Some(pending) = self.pending_terminal_cleanup.remove(issue_id) {
                     self.cleanup_workspace(&pending.issue, &pending.workspace_path);
@@ -2062,6 +2428,10 @@ impl Orchestrator {
             }
             return None;
         };
+
+        self.cancel_pending_escalations_for_issue(issue_id, "worker_exited");
+
+        let run_attempt = self.state.running.remove(issue_id)?;
         self.state.claimed.remove(issue_id);
         // Keep running_issue_states until reconciliation — needed for
         // state-change notification detection on the next poll cycle.
@@ -2337,8 +2707,12 @@ impl Orchestrator {
                     issue,
                     workspace_path,
                     Path::new(&self.config.workspace.root),
-                    prior_worker_host.as_deref(),
-                    None,
+                    rpc_bridge::StartSessionOptions {
+                        worker_host: prior_worker_host.clone(),
+                        container_id: None,
+                        escalation_tx: self.worker_escalation_tx.clone(),
+                        escalation_timeout_ms: self.config.agent.escalation_timeout_ms,
+                    },
                 )
                 .await
                 {
@@ -2677,10 +3051,49 @@ impl Orchestrator {
         let kind = event_kind_for_agent_event(event);
         let severity = event_severity_for_agent_event(event);
 
-        let payload = serde_json::json!({
-            "summary": summary,
-            "session_id": self.worker_session_ids.get(issue_id).cloned(),
-        });
+        let payload = match event {
+            AgentEvent::EscalationCreated { request, .. } => serde_json::json!({
+                "request_id": request.id.clone(),
+                "issue_id": request.issue_id.clone(),
+                "issue_identifier": request.issue_identifier.clone(),
+                "method": request.method.clone(),
+                "payload": request.payload.clone(),
+                "created_at": request.created_at,
+                "timeout_ms": request.timeout_ms,
+                "summary": summary,
+            }),
+            AgentEvent::EscalationResponded {
+                request_id,
+                responder_id,
+                latency_ms,
+                ..
+            } => serde_json::json!({
+                "request_id": request_id.clone(),
+                "responder_id": responder_id.clone(),
+                "latency_ms": latency_ms,
+                "summary": summary,
+            }),
+            AgentEvent::EscalationTimedOut {
+                request_id,
+                timeout_ms,
+                ..
+            } => serde_json::json!({
+                "request_id": request_id.clone(),
+                "timeout_ms": timeout_ms,
+                "summary": summary,
+            }),
+            AgentEvent::EscalationCancelled {
+                request_id, reason, ..
+            } => serde_json::json!({
+                "request_id": request_id.clone(),
+                "reason": reason.clone(),
+                "summary": summary,
+            }),
+            _ => serde_json::json!({
+                "summary": summary,
+                "session_id": self.worker_session_ids.get(issue_id).cloned(),
+            }),
+        };
 
         hub.publish_with_timestamp(
             kind,
@@ -3013,6 +3426,7 @@ impl Orchestrator {
             running,
             running_sessions,
             blocked: self.blocked_issues.clone(),
+            pending_escalations: self.escalation_registry.pending_snapshot(),
             shared_context: self.shared_context_store.summary(),
             running_session_info,
             claimed,
@@ -3572,6 +3986,8 @@ impl Orchestrator {
     ) {
         let issue_id = issue.id.as_str();
 
+        self.cancel_pending_escalations_for_issue(issue_id, "issue_terminal");
+
         if self.config.workspace.cleanup_on_done {
             let workspace_path = self
                 .state
@@ -3674,6 +4090,8 @@ impl Orchestrator {
     }
 
     fn release_issue(&mut self, issue_id: &str) {
+        self.cancel_pending_escalations_for_issue(issue_id, "issue_released");
+
         self.state.running.remove(issue_id);
         self.state.claimed.remove(issue_id);
         self.state.retry_attempts.remove(issue_id);
@@ -3724,6 +4142,10 @@ fn event_timestamp(event: &AgentEvent) -> DateTime<Utc> {
         | AgentEvent::ToolCallFailed { timestamp, .. }
         | AgentEvent::ToolInputAutoAnswered { timestamp, .. }
         | AgentEvent::UnsupportedToolCall { timestamp, .. }
+        | AgentEvent::EscalationCreated { timestamp, .. }
+        | AgentEvent::EscalationResponded { timestamp, .. }
+        | AgentEvent::EscalationTimedOut { timestamp, .. }
+        | AgentEvent::EscalationCancelled { timestamp, .. }
         | AgentEvent::Notification { timestamp, .. }
         | AgentEvent::OtherMessage { timestamp, .. }
         | AgentEvent::Malformed { timestamp, .. } => *timestamp,
@@ -3752,6 +4174,10 @@ fn event_name(event: &AgentEvent) -> &'static str {
         AgentEvent::ToolCallFailed { .. } => "tool_call_failed",
         AgentEvent::ToolInputAutoAnswered { .. } => "tool_input_auto_answered",
         AgentEvent::UnsupportedToolCall { .. } => "unsupported_tool_call",
+        AgentEvent::EscalationCreated { .. } => "escalation_created",
+        AgentEvent::EscalationResponded { .. } => "escalation_responded",
+        AgentEvent::EscalationTimedOut { .. } => "escalation_timed_out",
+        AgentEvent::EscalationCancelled { .. } => "escalation_cancelled",
         AgentEvent::Notification { .. } => "notification",
         AgentEvent::OtherMessage { .. } => "other_message",
         AgentEvent::Malformed { .. } => "malformed",
@@ -3764,6 +4190,10 @@ fn event_kind_for_agent_event(event: &AgentEvent) -> EventKind {
         | AgentEvent::ToolCallFailed { .. }
         | AgentEvent::UnsupportedToolCall { .. }
         | AgentEvent::ToolInputAutoAnswered { .. } => EventKind::Tool,
+        AgentEvent::EscalationCreated { .. } => EventKind::EscalationCreated,
+        AgentEvent::EscalationResponded { .. } => EventKind::EscalationResponded,
+        AgentEvent::EscalationTimedOut { .. } => EventKind::EscalationTimedOut,
+        AgentEvent::EscalationCancelled { .. } => EventKind::EscalationCancelled,
         AgentEvent::Notification { message, .. } if parse_tool_notification(message).is_some() => {
             EventKind::Tool
         }
@@ -3784,9 +4214,10 @@ fn event_severity_for_agent_event(event: &AgentEvent) -> EventSeverity {
         {
             EventSeverity::Error
         }
-        AgentEvent::TurnCancelled { .. } | AgentEvent::UnsupportedToolCall { .. } => {
-            EventSeverity::Warn
-        }
+        AgentEvent::TurnCancelled { .. }
+        | AgentEvent::UnsupportedToolCall { .. }
+        | AgentEvent::EscalationTimedOut { .. }
+        | AgentEvent::EscalationCancelled { .. } => EventSeverity::Warn,
         AgentEvent::OtherMessage { .. } => EventSeverity::Debug,
         _ => EventSeverity::Info,
     }
@@ -3851,6 +4282,43 @@ fn event_summary(event: &AgentEvent) -> (String, Option<String>) {
         AgentEvent::UnsupportedToolCall { tool_name, .. } => (
             event_name(event).to_string(),
             Some(format!("unsupported tool {tool_name}")),
+        ),
+        AgentEvent::EscalationCreated { request, .. } => (
+            event_name(event).to_string(),
+            Some(format!(
+                "{} needs input: {}",
+                request.issue_identifier,
+                truncate_for_display(&request.method, 80)
+            )),
+        ),
+        AgentEvent::EscalationResponded {
+            request_id,
+            responder_id,
+            latency_ms,
+            ..
+        } => (
+            event_name(event).to_string(),
+            Some(format!(
+                "request {request_id} responded by {} in {}ms",
+                responder_id.as_deref().unwrap_or("operator"),
+                latency_ms
+            )),
+        ),
+        AgentEvent::EscalationTimedOut {
+            request_id,
+            timeout_ms,
+            ..
+        } => (
+            event_name(event).to_string(),
+            Some(format!(
+                "request {request_id} timed out after {timeout_ms}ms"
+            )),
+        ),
+        AgentEvent::EscalationCancelled {
+            request_id, reason, ..
+        } => (
+            event_name(event).to_string(),
+            Some(format!("request {request_id} cancelled: {reason}")),
         ),
         AgentEvent::Notification { message, .. } => {
             if let Some(notification) = parse_tool_notification(message) {

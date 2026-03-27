@@ -203,6 +203,10 @@ agent:
   # Maximum exponential back-off delay (ms) between retries on failure.
   # max_retry_backoff_ms: 300000
 
+  # Timeout (ms) to wait for a human escalation response before the worker
+  # falls back to auto-cancel/reject behavior.
+  # escalation_timeout_ms: 300000
+
   # Runtime backend for worker sessions.
   #   - kata-cli (alias: kata): launch Kata CLI in RPC mode
   #   - codex: launch Codex app-server
@@ -294,10 +298,13 @@ server:
   # Bind address. Use "0.0.0.0" to expose on all interfaces.
   host: "127.0.0.1"
 
-# ─── Event Stream WebSocket Contract (S01) ───────────────────────────────────
-# Endpoint: GET /api/v1/events
+# ─── Event Stream WebSocket Contract (S01 + S03 escalation events) ───────────
+# Endpoints:
+#   GET  /api/v1/events
+#   GET  /api/v1/escalations
+#   POST /api/v1/escalations/:request_id/respond
 #
-# Query params (all optional):
+# Query params for /api/v1/events (all optional):
 #   issue=KAT-920,KAT-921
 #   type=worker,tool
 #   severity=info,error
@@ -322,7 +329,9 @@ server:
 #   "version": "v1",
 #   "sequence": 42,
 #   "timestamp": "2026-03-27T02:00:00Z",
-#   "kind": "worker",            # snapshot | runtime | worker | tool | heartbeat
+#   "kind": "worker",            # snapshot | runtime | worker | tool | heartbeat |
+#                                # escalation_created | escalation_responded |
+#                                # escalation_timed_out | escalation_cancelled
 #   "severity": "info",          # debug | info | warn | error
 #   "issue": "KAT-920",          # optional issue identifier
 #   "event": "worker_completed", # stable event name
@@ -335,8 +344,13 @@ server:
 #   3) Slow consumers are disconnected with close reason `backpressure`
 #   4) Graceful shutdown uses close reason `server_shutdown`
 #
-# Example:
-#   websocat "ws://127.0.0.1:8080/api/v1/events?issue=KAT-920&type=worker,tool&severity=info"
+# Example websocket query:
+#   websocat "ws://127.0.0.1:8080/api/v1/events?issue=KAT-920&type=worker,tool,escalation_created&severity=info"
+#
+# Example escalation response:
+#   curl -sS -X POST "http://127.0.0.1:8080/api/v1/escalations/escalation-123/respond" \
+#     -H 'content-type: application/json' \
+#     -d '{"response":{"confirmed":true},"responder_id":"operator-1"}'
 
 # ─── Notifications ─────────────────────────────────────────────────────────────
 # Optional webhook notifications for issue state transitions and runtime events.

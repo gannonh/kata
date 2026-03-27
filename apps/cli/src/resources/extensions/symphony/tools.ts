@@ -31,6 +31,7 @@ function buildCapabilities(): SymphonyToolCapabilities {
   return {
     status: capabilityAvailable(),
     watch: capabilityAvailable(),
+    respond: capabilityAvailable(),
     logs: capabilityUnavailable(
       "logs endpoint is not available yet in Symphony server",
     ),
@@ -283,6 +284,92 @@ export function registerSymphonyTools(pi: ExtensionAPI, client: SymphonyClient):
       return new Text(
         theme.fg("toolTitle", theme.bold("symphony_watch ")) +
           theme.fg("accent", issue),
+        0,
+        0,
+      );
+    },
+  });
+
+  pi.registerTool({
+    name: "symphony_respond",
+    label: "Symphony Respond",
+    description:
+      "Respond to a pending Symphony escalation via /api/v1/escalations/:id/respond.",
+    parameters: Type.Object(
+      {
+        request_id: Type.String({ description: "Escalation request id" }),
+        response: Type.Unknown({ description: "Arbitrary extension_ui_response payload" }),
+        responder_id: Type.Optional(
+          Type.String({ description: "Optional responder identifier" }),
+        ),
+      },
+      { additionalProperties: false },
+    ),
+    async execute(_toolCallId, params) {
+      try {
+        const result = await client.respondToEscalation(
+          params.request_id,
+          params.response,
+          params.responder_id,
+        );
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  ok: result.ok,
+                  request_id: params.request_id,
+                  status: result.status,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+          details: makeToolDetails(client, { connected: result.ok }),
+          isError: !result.ok,
+        };
+      } catch (error) {
+        if (isSymphonyError(error)) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `${error.code}: ${error.message}`,
+              },
+            ],
+            details: makeToolDetails(client, { error, connected: false }),
+            isError: true,
+          };
+        }
+
+        const fallback = new SymphonyError(
+          error instanceof Error ? error.message : String(error),
+          {
+            code: "connection_failed",
+            reason: "respond_execution_failed",
+          },
+        );
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `${fallback.code}: ${fallback.message}`,
+            },
+          ],
+          details: makeToolDetails(client, { error: fallback, connected: false }),
+          isError: true,
+        };
+      }
+    },
+    renderCall(args, theme) {
+      const requestId = typeof args.request_id === "string" ? args.request_id : "?";
+      return new Text(
+        theme.fg("toolTitle", theme.bold("symphony_respond ")) +
+          theme.fg("accent", requestId),
         0,
         0,
       );

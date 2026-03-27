@@ -30,6 +30,7 @@ agent:
   backend: kata-cli
   max_concurrent_agents: 3
   max_turns: 20
+  escalation_timeout_ms: 300000
 
 kata_agent:                # alias: pi_agent
   command: kata            # or: npx @kata-sh/cli
@@ -546,11 +547,13 @@ HTTP surfaces:
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/v1/state` | Full orchestrator snapshot JSON (includes `shared_context` summary) |
+| `GET /api/v1/state` | Full orchestrator snapshot JSON (includes `pending_escalations` and `shared_context` summary) |
 | `GET /api/v1/context` | List active shared context entries (optional `scope` filter) |
 | `POST /api/v1/context` | Write a shared context entry |
 | `DELETE /api/v1/context/{id}` | Delete a specific shared context entry |
 | `DELETE /api/v1/context` | Clear shared context (optionally by `scope`) |
+| `GET /api/v1/escalations` | Pending escalation list for polling clients |
+| `POST /api/v1/escalations/{REQUEST-ID}/respond` | Resolve a pending escalation (`200`/`404`/`409`) |
 | `GET /api/v1/{ISSUE-ID}` | Per-issue running/retry projection |
 | `POST /api/v1/refresh` | Queue an immediate poll tick |
 | `GET /api/v1/events` | Live websocket stream (`SymphonyEventEnvelope`) |
@@ -560,7 +563,7 @@ HTTP surfaces:
 Use [`websocat`](https://github.com/vi/websocat) to verify live worker/runtime traffic:
 
 ```bash
-websocat "ws://127.0.0.1:8080/api/v1/events?issue=KAT-920&type=worker,tool&severity=info"
+websocat "ws://127.0.0.1:8080/api/v1/events?issue=KAT-920&type=worker,tool,escalation_created&severity=info"
 ```
 
 Filter semantics are **OR within each field** and **AND across fields**:
@@ -578,6 +581,16 @@ Connection diagnostics are emitted as structured logs/counters:
 - `event=ws_heartbeat_sent`
 
 Disconnect reasons are explicit (`backpressure`, `server_shutdown`, `client_closed`, `protocol_error`).
+
+### Escalation lifecycle (S03)
+
+When a worker emits an interactive `extension_ui_request`, Symphony now:
+
+1. Emits `escalation_created` on `/api/v1/events`
+2. Exposes the request in `/api/v1/escalations` and dashboard/TUI pending lists
+3. Waits for a client to `POST /api/v1/escalations/{request_id}/respond`
+4. Emits `escalation_responded` on success, or `escalation_timed_out`/`escalation_cancelled` on fallback paths
+5. Forwards the response to the waiting worker, which resumes the same session (no restart)
 
 <details>
 <summary>Screenshot</summary>
