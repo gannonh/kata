@@ -588,6 +588,101 @@ cargo clippy -- -D warnings
 
 ---
 
+## Debugging Worker Sessions (Kata CLI Logs)
+
+When Symphony dispatches a worker using the `kata-cli` backend, each session
+writes a JSONL log to `~/.kata-cli/sessions/`. The filename includes the
+session UUID:
+
+```
+~/.kata-cli/sessions/2026-03-27T21-33-04-452Z_38a5b485-06db-441d-86e5-b359d3d860e2.jsonl
+```
+
+### Finding session logs
+
+```bash
+# List recent sessions (newest first)
+ls -lt ~/.kata-cli/sessions/*.jsonl | head -10
+
+# Find sessions for a specific issue
+grep -l "KAT-1317" ~/.kata-cli/sessions/*.jsonl
+```
+
+### Key fields to inspect
+
+Each line is a JSON object with a `type` field. The most useful:
+
+| Type | What to look for |
+|------|-----------------|
+| `session` | First line — contains `id`, `cwd` (workspace path) |
+| `message` (role=user) | Prompts sent to the model — check if the initial prompt and continuations are correct |
+| `message` (role=assistant) | Model responses — check `content` (empty = problem), `stopReason`, `errorMessage` |
+
+### Common problems
+
+**Empty assistant responses with `stopReason: "error"`:**
+
+```bash
+# Check for model API errors (rate limits, auth failures)
+python3 -c "
+import json, sys
+for line in open(sys.argv[1]):
+    d = json.loads(line)
+    if d.get('type') == 'message':
+        msg = d.get('message', {})
+        if msg.get('stopReason') == 'error':
+            print(f'ERROR: {msg.get(\"errorMessage\", \"unknown\")}')
+        elif msg.get('role') == 'assistant' and not msg.get('content'):
+            print(f'EMPTY response (stop={msg.get(\"stopReason\")})')
+" ~/.kata-cli/sessions/<session-file>.jsonl
+```
+
+If every turn shows `stopReason: "error"` with a rate limit message, the
+multi-turn loop is burning turns against a rate limit wall (see KAT-1466).
+
+**Continuation turns with no real work:**
+
+```bash
+# Count continuation vs initial prompts
+grep -c "Continuation guidance" <session-file>.jsonl
+```
+
+If continuation count equals `max_turns - 1` and all assistant responses are
+empty, the agent never did any work. Check the first assistant response for
+errors.
+
+**Checking what model/provider was used:**
+
+```bash
+# Extract model info from assistant messages
+python3 -c "
+import json, sys
+for line in open(sys.argv[1]):
+    d = json.loads(line)
+    msg = d.get('message', {})
+    if msg.get('role') == 'assistant' and msg.get('model'):
+        print(f'model={msg[\"model\"]} provider={msg.get(\"provider\",\"?\")} stop={msg.get(\"stopReason\",\"?\")}')
+        break
+" ~/.kata-cli/sessions/<session-file>.jsonl
+```
+
+### Symphony-side logs
+
+Symphony's own structured logs (via `RUST_LOG`) show the orchestrator
+perspective. Cross-reference with session logs using the issue identifier:
+
+```bash
+# Symphony sees the worker lifecycle
+grep "KAT-1317" symphony.log | grep "event="
+
+# Key events: worker_dispatched, worker_completed, worker_failed, worker_stalled
+```
+
+The TUI and HTTP dashboard show live worker state, but model API errors
+(rate limits, auth failures) are not currently surfaced there (see KAT-1467).
+Check session JSONL logs when a worker appears to be running but producing
+no output.
+
 ## Development
 
 See **[AGENTS.md](AGENTS.md)** for:

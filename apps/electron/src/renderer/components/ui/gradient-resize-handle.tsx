@@ -24,7 +24,7 @@ export function GradientResizeHandle({ className, headerHeight = 50 }: GradientR
   const { ref, handlers, gradientStyle } = useResizeGradient()
 
   return (
-    <ResizablePrimitive.PanelResizeHandle
+    <ResizablePrimitive.Separator
       className={cn(
         // 1px visual width, touch area extends via absolute positioning
         "relative flex w-px items-center justify-center",
@@ -57,6 +57,6 @@ export function GradientResizeHandle({ className, headerHeight = 50 }: GradientR
           style={gradientStyle}
         />
       </div>
-    </ResizablePrimitive.PanelResizeHandle>
+    </ResizablePrimitive.Separator>
   )
 }
