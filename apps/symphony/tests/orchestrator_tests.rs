@@ -347,6 +347,7 @@ fn test_startup_terminal_cleanup_clears_runtime_bookkeeping_without_completed_in
             worker_host: None,
             model: None,
             linear_state: Some("In Progress".to_string()),
+            issue_url: None,
         },
     );
     orchestrator
@@ -809,6 +810,7 @@ fn test_stall_detection_schedules_forced_retry() {
             worker_host: None,
             model: None,
             linear_state: None,
+            issue_url: None,
         },
     );
 
@@ -848,7 +850,7 @@ async fn test_notification_fires_on_worker_stall() {
     let mock = server
         .mock("POST", "/webhook")
         .match_header("content-type", "application/json")
-        .match_body(mockito::Matcher::Regex("Event: stalled".to_string()))
+        .match_body(mockito::Matcher::Regex("No activity".to_string()))
         .with_status(200)
         .expect(1)
         .create_async()
@@ -875,6 +877,7 @@ async fn test_notification_fires_on_worker_stall() {
             worker_host: None,
             model: None,
             linear_state: None,
+            issue_url: None,
         },
     );
 
@@ -890,7 +893,7 @@ async fn test_notification_fires_on_terminal_failure() {
     let mut server = Server::new_async().await;
     let mock = server
         .mock("POST", "/webhook")
-        .match_body(mockito::Matcher::Regex("Event: failed".to_string()))
+        .match_body(mockito::Matcher::Regex("failed".to_string()))
         .with_status(200)
         .expect(1)
         .create_async()
@@ -917,6 +920,7 @@ async fn test_notification_fires_on_terminal_failure() {
             worker_host: None,
             model: None,
             linear_state: None,
+            issue_url: None,
         },
     );
 
@@ -962,6 +966,7 @@ async fn test_notification_skips_unconfigured_events() {
             worker_host: None,
             model: None,
             linear_state: None,
+            issue_url: None,
         },
     );
 
@@ -1008,6 +1013,7 @@ async fn test_notification_failure_does_not_block_orchestrator() {
             worker_host: None,
             model: None,
             linear_state: None,
+            issue_url: None,
         },
     );
 
@@ -1035,7 +1041,7 @@ async fn test_notification_fires_on_human_review_transition() {
     let mut server = Server::new_async().await;
     let mock = server
         .mock("POST", "/webhook")
-        .match_body(mockito::Matcher::Regex("Event: human_review".to_string()))
+        .match_body(mockito::Matcher::Regex("Human Review".to_string()))
         .with_status(200)
         .expect(1)
         .create_async()
@@ -1084,7 +1090,7 @@ async fn test_notification_fires_on_rework_transition() {
     let mut server = Server::new_async().await;
     let mock = server
         .mock("POST", "/webhook")
-        .match_body(mockito::Matcher::Regex("Event: rework".to_string()))
+        .match_body(mockito::Matcher::Regex("Rework".to_string()))
         .with_status(200)
         .expect(1)
         .create_async()
@@ -1154,6 +1160,7 @@ async fn test_notification_does_not_fire_without_prior_state_snapshot() {
             worker_host: None,
             model: None,
             linear_state: Some("Human Review".to_string()),
+            issue_url: None,
         },
     );
 
@@ -1193,6 +1200,7 @@ fn test_streamed_event_updates_activity_before_worker_completion() {
             worker_host: None,
             model: None,
             linear_state: None,
+            issue_url: None,
         },
     );
 
@@ -1257,6 +1265,7 @@ fn test_streamed_events_keep_refreshing_stall_detection_window() {
             worker_host: None,
             model: None,
             linear_state: None,
+            issue_url: None,
         },
     );
 
@@ -1322,6 +1331,7 @@ fn test_streamed_notification_records_event_method_and_message() {
             worker_host: None,
             model: None,
             linear_state: None,
+            issue_url: None,
         },
     );
 
@@ -1369,6 +1379,7 @@ fn test_streamed_tool_call_completed_uses_completed_summary() {
             worker_host: None,
             model: None,
             linear_state: None,
+            issue_url: None,
         },
     );
 
@@ -1411,6 +1422,7 @@ fn test_streamed_turn_completed_events_update_token_totals_in_real_time() {
             worker_host: None,
             model: None,
             linear_state: None,
+            issue_url: None,
         },
     );
 
@@ -1545,6 +1557,7 @@ fn test_event_count_increments_on_ingest() {
             worker_host: None,
             model: None,
             linear_state: None,
+            issue_url: None,
         },
     );
 
@@ -1612,6 +1625,7 @@ fn test_late_streamed_event_after_completion_is_ignored() {
             worker_host: None,
             model: None,
             linear_state: None,
+            issue_url: None,
         },
     );
 
@@ -1717,6 +1731,7 @@ fn test_snapshot_exposes_running_and_retry_diagnostics() {
             worker_host: Some("worker-a".to_string()),
             model: None,
             linear_state: None,
+            issue_url: None,
         },
     );
 
@@ -1794,6 +1809,7 @@ fn test_worker_completion_schedules_continuation_retry_with_session_context() {
             worker_host: Some("worker-b".to_string()),
             model: None,
             linear_state: None,
+            issue_url: None,
         },
     );
 
@@ -1886,6 +1902,7 @@ fn test_worker_completion_without_continuation_does_not_queue_retry() {
             worker_host: None,
             model: None,
             linear_state: None,
+            issue_url: None,
         },
     );
 
@@ -1939,6 +1956,7 @@ fn test_worker_failure_preserves_attempt_and_backoff_cap() {
             worker_host: Some("worker-c".to_string()),
             model: None,
             linear_state: None,
+            issue_url: None,
         },
     );
 
@@ -2325,6 +2343,7 @@ fn test_reconcile_non_active_state_stops_run_without_cleanup() {
         worker_host: None,
         model: None,
         linear_state: None,
+        issue_url: None,
     };
     orchestrator
         .state_mut()
@@ -2443,6 +2462,7 @@ fn test_terminal_state_cleanup_removes_workspace_when_enabled() {
         worker_host: None,
         model: None,
         linear_state: None,
+        issue_url: None,
     };
     orchestrator
         .state_mut()
@@ -2493,6 +2513,7 @@ fn test_terminal_state_cleanup_preserves_workspace_when_disabled() {
         worker_host: None,
         model: None,
         linear_state: None,
+        issue_url: None,
     };
     orchestrator
         .state_mut()
@@ -2552,6 +2573,7 @@ fn test_terminal_state_cleanup_runs_before_remove_hook() {
         worker_host: None,
         model: None,
         linear_state: None,
+        issue_url: None,
     };
     orchestrator
         .state_mut()
@@ -2613,6 +2635,7 @@ fn test_terminal_state_cleanup_defers_until_worker_completion() {
             worker_host: None,
             model: None,
             linear_state: None,
+            issue_url: None,
         },
     );
     orchestrator.schedule_retry_with_context(
@@ -2768,6 +2791,7 @@ fn test_terminal_state_cleanup_removes_worktree_checkout_when_enabled() {
         worker_host: None,
         model: None,
         linear_state: None,
+        issue_url: None,
     };
     orchestrator
         .state_mut()
@@ -2827,6 +2851,7 @@ fn test_terminal_state_cleanup_failure_is_non_fatal() {
         worker_host: None,
         model: None,
         linear_state: None,
+        issue_url: None,
     };
     orchestrator
         .state_mut()

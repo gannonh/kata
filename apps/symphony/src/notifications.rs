@@ -4,14 +4,48 @@ use std::time::Duration;
 
 use crate::domain::SlackConfig;
 
-pub const SUPPORTED_SLACK_EVENTS: &[&str] = &["human_review", "stalled", "failed", "rework"];
+pub const SUPPORTED_SLACK_EVENTS: &[&str] = &[
+    // State transitions
+    "todo",
+    "in_progress",
+    "agent_review",
+    "human_review",
+    "merging",
+    "rework",
+    "done",
+    "closed",
+    "cancelled",
+    "canceled",
+    // Runtime events
+    "stalled",
+    "failed",
+    // Wildcard
+    "all",
+];
 
 const SLACK_CONNECT_TIMEOUT_SECS: u64 = 5;
 const SLACK_REQUEST_TIMEOUT_SECS: u64 = 10;
 
 #[derive(Debug, Serialize)]
-struct SlackWebhookPayload {
+struct SlackBlock {
+    #[serde(rename = "type")]
+    block_type: String,
+    text: SlackBlockText,
+}
+
+#[derive(Debug, Serialize)]
+struct SlackBlockText {
+    #[serde(rename = "type")]
+    text_type: String,
     text: String,
+}
+
+#[derive(Debug, Serialize)]
+struct SlackWebhookPayload {
+    /// Fallback text for notifications/accessibility
+    text: String,
+    /// Block Kit blocks with mrkdwn support for rich formatting
+    blocks: Vec<SlackBlock>,
 }
 
 pub fn should_notify(config: &SlackConfig, event_type: &str) -> bool {
@@ -24,7 +58,7 @@ pub fn should_notify(config: &SlackConfig, event_type: &str) -> bool {
         .events
         .iter()
         .map(|event| normalize_event_type(event))
-        .any(|event| event == normalized)
+        .any(|event| event == "all" || event == normalized)
 }
 
 pub fn format_slack_message(
@@ -32,22 +66,20 @@ pub fn format_slack_message(
     issue_identifier: &str,
     issue_title: &str,
     message: &str,
-    dashboard_url: Option<&str>,
+    issue_url: Option<&str>,
 ) -> String {
     let normalized_event = normalize_event_type(event_type);
     let icon = event_icon(&normalized_event);
 
-    let mut lines = vec![
-        format!("{icon} {issue_identifier} — {issue_title}"),
-        format!("Event: {normalized_event}"),
-        message.trim().to_string(),
-    ];
+    // Use Slack mrkdwn link for the issue identifier when URL is available
+    let issue_ref = match issue_url.map(str::trim).filter(|u| !u.is_empty()) {
+        Some(url) => format!("<{url}|{issue_identifier}>"),
+        None => issue_identifier.to_string(),
+    };
 
-    if let Some(url) = dashboard_url.map(str::trim).filter(|url| !url.is_empty()) {
-        lines.push(format!("Dashboard: {url}"));
-    }
-
-    lines.join("\n")
+    let line1 = format!("{icon} {issue_ref} — {issue_title}");
+    let line2 = message.trim();
+    format!("{line1}\n{line2}")
 }
 
 pub async fn send_slack_notification(
@@ -56,21 +88,37 @@ pub async fn send_slack_notification(
     issue_identifier: &str,
     issue_title: &str,
     message: &str,
-    dashboard_url: Option<&str>,
+    issue_url: Option<&str>,
 ) -> Result<()> {
     if !should_notify(config, event_type) {
         return Ok(());
     }
 
     let normalized_event = normalize_event_type(event_type);
+    let mrkdwn_text = format_slack_message(
+        event_type,
+        issue_identifier,
+        issue_title,
+        message,
+        issue_url,
+    );
+    // Fallback text without mrkdwn for notifications/accessibility
+    let fallback = format!(
+        "{} {} — {} — {}",
+        event_icon(&normalized_event),
+        issue_identifier,
+        issue_title,
+        message.trim(),
+    );
     let payload = SlackWebhookPayload {
-        text: format_slack_message(
-            event_type,
-            issue_identifier,
-            issue_title,
-            message,
-            dashboard_url,
-        ),
+        text: fallback,
+        blocks: vec![SlackBlock {
+            block_type: "section".to_string(),
+            text: SlackBlockText {
+                text_type: "mrkdwn".to_string(),
+                text: mrkdwn_text,
+            },
+        }],
     };
 
     let client = reqwest::Client::builder()
@@ -141,10 +189,17 @@ fn normalize_event_type(event_type: &str) -> String {
 
 fn event_icon(event_type: &str) -> &'static str {
     match event_type {
-        "human_review" => "🔔",
+        "todo" => "📋",
+        "in_progress" => "🔧",
+        "agent_review" => "🤖",
+        "human_review" => "👀",
+        "merging" => "🔀",
+        "rework" => "🔁",
+        "done" => "✅",
+        "closed" => "🔒",
+        "cancelled" | "canceled" => "❌",
         "stalled" => "⚠️",
         "failed" => "🚨",
-        "rework" => "🔁",
         _ => "🔔",
     }
 }
@@ -167,6 +222,34 @@ mod tests {
     }
 
     #[test]
+    fn test_should_notify_wildcard_all() {
+        let config = SlackConfig {
+            webhook_url: "https://hooks.slack.test/mock".to_string(),
+            events: vec!["all".to_string()],
+        };
+        assert!(should_notify(&config, "stalled"));
+        assert!(should_notify(&config, "in_progress"));
+        assert!(should_notify(&config, "done"));
+
+        // Capitalised "All" in config should also work
+        let config_upper = SlackConfig {
+            webhook_url: "https://hooks.slack.test/mock".to_string(),
+            events: vec!["All".to_string()],
+        };
+        assert!(should_notify(&config_upper, "failed"));
+    }
+
+    #[test]
+    fn test_should_notify_canceled_alias() {
+        let config = SlackConfig {
+            webhook_url: "https://hooks.slack.test/mock".to_string(),
+            events: vec!["canceled".to_string()],
+        };
+        assert!(should_notify(&config, "canceled"));
+        assert!(should_notify(&config, "Canceled"));
+    }
+
+    #[test]
     fn test_is_supported_slack_event() {
         assert!(is_supported_slack_event("failed"));
         assert!(is_supported_slack_event("Human_Review"));
@@ -180,9 +263,8 @@ mod tests {
             .mock("POST", "/webhook")
             .match_header("content-type", "application/json")
             .match_body(mockito::Matcher::Regex("KAT-928".to_string()))
-            .match_body(mockito::Matcher::Regex("Event: human_review".to_string()))
             .match_body(mockito::Matcher::Regex(
-                "Dashboard: http://127.0.0.1:8080".to_string(),
+                "linear.app/kata-sh/issue/kat-928".to_string(),
             ))
             .with_status(200)
             .create_async()
@@ -199,7 +281,7 @@ mod tests {
             "KAT-928",
             "Fix sparkline",
             "PR ready for review.",
-            Some("http://127.0.0.1:8080"),
+            Some("https://linear.app/kata-sh/issue/kat-928"),
         )
         .await
         .expect("notification should be delivered");

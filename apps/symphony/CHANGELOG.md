@@ -1,10 +1,22 @@
 # Changelog
 
-## 1.2.1 — Fix multi-turn session continuing after state change
+## 1.3.0 — Slack notifications, session state-change fix
+
+### Slack Webhook Notifications (KAT-925)
+
+- **`notifications` config section** — configure outbound Slack webhook notifications in WORKFLOW.md frontmatter.
+- **All state transitions** — notifications for every issue state change: `todo`, `in_progress`, `agent_review`, `human_review`, `merging`, `rework`, `done`, `closed`, `cancelled`. Plus runtime events: `stalled`, `failed`. Use `all` to subscribe to everything.
+- **Linear issue links** — messages include a clickable link to the Linear issue.
+- **Fire-and-forget dispatch** — notifications are spawned as async tasks; failures are logged as warnings but never block the orchestrator.
+- **Event filtering** — `notifications.slack.events` controls which events trigger messages. Unknown event names are rejected at config parse time.
+- **Webhook URL redaction** — webhook URLs are never logged; request errors are sanitized to category labels (timeout/connect/request/status/transport).
+- **`$ENV_VAR` support** — `webhook_url` supports environment variable indirection (e.g. `$SLACK_WEBHOOK_URL`).
+- **Example workflow** — `docs/WORKFLOW-slack.md` provides a complete workflow template with notifications config.
 
 ### Critical Fix
 
 - **Multi-turn session now ends when issue state changes** — when an agent moves an issue from one active state to another (e.g. `In Progress` → `Agent Review`), the session now ends so the orchestrator can re-dispatch with the correct per-state prompt. Previously the multi-turn loop continued with the stale prompt because both states were "active," which could lead to the agent taking unauthorized actions (like merging a PR) after running out of meaningful work.
+- **Post-transition dispatched state** — the multi-turn loop now compares against the effective post-transition state (e.g. `In Progress` after `Todo` → `In Progress`), not the stale pre-transition state. Prevents false session stops on the normal Todo auto-transition.
 
 ## 1.2.0 — Per-state prompts, dependency ordering, live tool activity
 

@@ -1,50 +1,83 @@
 ---
 title: Symphony
-description: Rust binary for multi-agent orchestration.
+description: Headless orchestrator that dispatches parallel agent sessions from a Linear project.
 ---
 
 # Symphony
 
-## Overview
+Symphony is a headless orchestrator that polls a Linear project for issues and dispatches parallel agent sessions to work on them. You run Symphony, point it at a Linear project, and it picks up tickets, clones your repo, runs an agent on each issue, creates PRs, addresses review feedback, and merges — all without human intervention.
 
-Symphony (`@kata/symphony`) is a Rust binary that coordinates multiple agents across tasks. It handles scheduling, resource allocation, and inter-agent communication.
+## How It Works
 
-## Architecture
+1. Symphony polls your Linear project for issues in active states (e.g. `Todo`, `In Progress`)
+2. For each issue, it creates an isolated workspace (clone or worktree of your repo) and starts an agent session
+3. The agent reads the issue, writes code, runs tests, creates a PR, and handles review feedback
+4. When the issue reaches a terminal state (`Done`, `Closed`), the workspace is cleaned up
+5. Multiple issues run in parallel, up to your configured concurrency limit
 
-Symphony compiles to a standalone binary. It communicates with the rest of the monorepo through a well-defined IPC interface.
+All configuration — tracker, workspace, agent, notifications, and the prompt template — lives in a single `WORKFLOW.md` file.
 
-## Usage
+## Agent Backends
 
-Symphony is invoked through the CLI or directly as a binary. See the monorepo's `apps/symphony/` directory for build instructions.
+Symphony supports two agent backends:
 
-## Workspace Cleanup
+| Backend | Config value | What it runs | Models |
+|---------|-------------|--------------|--------|
+| **Kata CLI** | `kata-cli` (alias: `kata`) | Kata CLI in RPC mode | Any model supported by pi-ai: Anthropic, OpenAI, Google, Mistral, Bedrock, Azure |
+| **Codex** | `codex` | OpenAI Codex app-server | OpenAI Codex models |
 
-Symphony can automatically clean up per-issue workspaces when an issue reaches a terminal state (`Done`, `Canceled`, etc.).
+## Installation
 
-```yaml
-workspace:
-  cleanup_on_done: true # default: false
+### Pre-built binaries
+
+Download from [GitHub Releases](https://github.com/gannonh/kata/releases):
+
+| Platform | Binary |
+|----------|--------|
+| macOS (Apple Silicon) | `symphony-macos-arm64` |
+| Linux (x86_64) | `symphony-linux-x86_64` |
+| Windows (x86_64) | `symphony-windows-x86_64.exe` |
+
+### Build from source
+
+Requires [Rust toolchain](https://rustup.rs/):
+
+```bash
+git clone https://github.com/gannonh/kata.git
+cd kata/apps/symphony
+cargo build --release
+# Binary at: target/release/symphony
 ```
 
-When enabled, Symphony runs the `before_remove` hook first, then removes the workspace (including `git worktree remove` for worktree strategy). Cleanup failures are logged and do not stop orchestration.
+## Quick Start
 
-## Slack Notifications
+```bash
+# 1. Set up environment
+cp .env.example .env
+# Edit .env with LINEAR_API_KEY and agent auth
 
-Symphony can emit Slack webhook notifications for key orchestration events (`stalled`, `failed`, `human_review`, `rework`).
+# 2. Create a WORKFLOW.md (see Configuration)
 
-```yaml
-notifications:
-  slack:
-    webhook_url: $SLACK_WEBHOOK_URL
-    events: [human_review, stalled, failed, rework]
-
-server:
-  # Optional: only used for Slack "Dashboard:" links
-  public_url: https://symphony.example.com
+# 3. Run
+symphony WORKFLOW.md --port 8080
 ```
 
-Notes:
+Symphony starts polling Linear. Open `http://localhost:8080` for the web dashboard, or watch the built-in terminal dashboard (enabled by default).
 
-- Notifications are fire-and-forget and non-fatal (delivery errors do not stop orchestration).
-- `notifications.slack.webhook_url` must be non-empty when the `notifications.slack` block is present.
-- If `server.public_url` is omitted, notifications are still sent but without a dashboard link.
+## Ticket Lifecycle
+
+```
+Todo → In Progress → Agent Review → Human Review → Merging → Done
+                         ↑               |
+                         └── Rework ←────┘
+```
+
+| Status | Who sets it | What happens |
+|--------|------------|--------------|
+| **Todo** | Human | Issue is queued — Symphony picks it up on the next poll |
+| **In Progress** | Orchestrator | Agent is working — writing code, running tests |
+| **Agent Review** | Agent | Agent addresses PR review comments |
+| **Human Review** | Agent | PR is ready for human approval |
+| **Merging** | Human | Agent merges the approved PR |
+| **Rework** | Human | Agent scraps current approach, starts fresh |
+| **Done** | Agent | Terminal — PR merged, workspace cleaned up |

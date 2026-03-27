@@ -125,7 +125,7 @@ is at `docs/WORKFLOW-REFERENCE.md`. Copy it to your project root as
 | `agent.max_concurrent_agents`          | u32                | `10`     | Global cap on simultaneously running agent sessions.                                                                           |
 | `agent.max_turns`                      | u32                | `20`     | Maximum prompt turns per session attempt before the worker run ends.                                                           |
 | `agent.max_retry_backoff_ms`           | u64                | `300000` | Maximum exponential back-off delay (ms) between retries.                                                                       |
-| `agent.backend`                        | string             | `"codex"`| Runtime backend: `"codex"` (Codex app-server) or `"kata-cli"` (aliases: `"kata"`, `"pi"`) for Kata RPC.                   |
+| `agent.backend`                        | string             | `"codex"`| Runtime backend: `"codex"` (Codex app-server) or `"kata-cli"` (alias: `"kata"`) for Kata RPC.                             |
 
 
 #### `codex` section
@@ -179,7 +179,7 @@ All hooks receive these environment variables:
 | ------------------- | ------ | ------------- | ------------------------------------------------------------------------------- |
 | `server.port`       | u16    | _(none)_      | HTTP server port. Equivalent to `--port` on the CLI; `--port` takes precedence. |
 | `server.host`       | string | `"127.0.0.1"` | HTTP server bind address.                                                       |
-| `server.public_url` | string | _(none)_      | Optional external dashboard URL included in Slack notification payloads.        |
+| `server.public_url` | string | _(none)_      | Optional external dashboard URL (reserved for future use).                      |
 
 #### `notifications` section
 
@@ -188,9 +188,9 @@ Optional. Configure outbound webhook notifications for events requiring human at
 | Field                              | Type     | Default   | Description                                                                                     |
 | ---------------------------------- | -------- | --------- | ----------------------------------------------------------------------------------------------- |
 | `notifications.slack.webhook_url`  | string   | _(none)_  | Slack incoming webhook URL. Supports `$VAR` env-var indirection.                               |
-| `notifications.slack.events`       | string[] | `[]`      | Event filters. Supported values: `human_review`, `stalled`, `failed`, `rework` (case-insensitive; normalized to lowercase). Empty list means no notifications are sent. |
+| `notifications.slack.events`       | string[] | `[]`      | Event filters. State transitions: `todo`, `in_progress`, `agent_review`, `human_review`, `merging`, `rework`, `done`, `closed`, `cancelled`. Runtime events: `stalled`, `failed`. Use `all` for everything. Case-insensitive. Empty list means no notifications. |
 
-When omitted, notifications are disabled. Slack `Dashboard:` links are included only when `server.public_url` is configured.
+When omitted, notifications are disabled. Messages include a clickable link to the Linear issue.
 
 #### `prompts` section (per-state prompt injection)
 

@@ -75,6 +75,7 @@ fn fixture_snapshot() -> OrchestratorSnapshot {
                     worker_host: Some("worker-a".to_string()),
                     model: None,
                     linear_state: None,
+                    issue_url: None,
                 },
             );
             running

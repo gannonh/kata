@@ -192,11 +192,32 @@ fn test_run_attempt_construction_and_serialization() {
         worker_host: None,
         model: None,
         linear_state: None,
+        issue_url: None,
     };
     let json = serde_json::to_string(&ra).unwrap();
     let deser: RunAttempt = serde_json::from_str(&json).unwrap();
     assert_eq!(deser.issue_id, "id-1");
     assert!(deser.attempt.is_none());
+}
+
+#[test]
+fn test_run_attempt_deserializes_when_issue_url_missing() {
+    let json = r#"{
+        "issue_id":"id-legacy",
+        "issue_identifier":"PROJ-LEGACY",
+        "issue_title":null,
+        "attempt":null,
+        "workspace_path":"/tmp/ws",
+        "started_at":"2026-01-01T00:00:00Z",
+        "status":"running",
+        "error":null,
+        "worker_host":null,
+        "model":null,
+        "linear_state":null
+    }"#;
+    let deser: RunAttempt = serde_json::from_str(json).unwrap();
+    assert_eq!(deser.issue_id, "id-legacy");
+    assert_eq!(deser.issue_url, None);
 }
 
 #[test]
@@ -269,6 +290,7 @@ fn test_orchestrator_snapshot_serializes() {
                     worker_host: None,
                     model: None,
                     linear_state: None,
+                    issue_url: None,
                 },
             );
             m.insert(
@@ -285,6 +307,7 @@ fn test_orchestrator_snapshot_serializes() {
                     worker_host: None,
                     model: None,
                     linear_state: None,
+                    issue_url: None,
                 },
             );
             m

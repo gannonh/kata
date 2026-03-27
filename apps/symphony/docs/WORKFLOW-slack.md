@@ -32,18 +32,19 @@ kata_agent:
 server:
   host: 127.0.0.1
   port: 8080
-  # Optional public URL used in Slack "Dashboard:" links.
-  # When omitted, notifications are sent without a dashboard link.
-  public_url: https://symphony.example.com
 
 notifications:
   slack:
     webhook_url: $SLACK_WEBHOOK_URL
     events:
+      - in_progress
+      - agent_review
       - human_review
+      - merging
+      - rework
+      - done
       - stalled
       - failed
-      - rework
 
 prompts:
   shared: prompts/shared-symphony.md

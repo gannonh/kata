@@ -20,7 +20,7 @@ Symphony supports two agent backends. Choose with `agent.backend` in your WORKFL
 
 | Backend      | Config value                       | What it runs            | Models                                                                           |
 | ------------ | ---------------------------------- | ----------------------- | -------------------------------------------------------------------------------- |
-| **Kata CLI** | `kata-cli` (aliases: `kata`, `pi`) | Kata CLI in RPC mode    | Any model supported by pi-ai: Anthropic, OpenAI, Google, Mistral, Bedrock, Azure |
+| **Kata CLI** | `kata-cli` (alias: `kata`) | Kata CLI in RPC mode    | Any model supported by pi-ai: Anthropic, OpenAI, Google, Mistral, Bedrock, Azure |
 | **Codex**    | `codex`                            | OpenAI Codex app-server | OpenAI Codex models                                                              |
 
 ### Kata CLI backend (recommended)
@@ -421,6 +421,7 @@ All configuration lives in the YAML front-matter of your WORKFLOW.md. See [`docs
 | `codex`                   | Codex backend config: command, timeouts, approval policy, sandbox |
 | `hooks`                   | Shell commands to run at workspace lifecycle points               |
 | `worker`                  | SSH remote worker pool configuration                              |
+| `notifications`           | Slack webhook notifications for events needing human attention    |
 | `server`                  | HTTP dashboard host and port                                      |
 
 ### Environment variable indirection
@@ -467,6 +468,29 @@ All hooks receive these environment variables:
 | `SYMPHONY_WORKSPACE_PATH` | `/Volumes/EVO/symphony-workspaces/KAT-911` |
 
 Hooks run in the workspace directory. If a hook fails, `after_create` and `before_run` abort the worker attempt (the issue retries). `after_run` failures are logged but don't affect the session result.
+
+## Slack Notifications
+
+Symphony can send webhook notifications to Slack on any issue state transition or runtime event.
+
+```yaml
+notifications:
+  slack:
+    webhook_url: $SLACK_WEBHOOK_URL
+    events:
+      - in_progress      # agent started working
+      - agent_review     # agent opened PR, ready for bot review
+      - human_review     # PR ready for human approval
+      - merging          # human approved, agent merging
+      - rework           # human requested changes
+      - done             # issue complete
+      - stalled          # agent exceeded stall timeout
+      - failed           # agent failed after max retries
+```
+
+Use `all` to subscribe to every event. Messages include a clickable link to the Linear issue. Notification failures are logged as warnings but never block the orchestrator.
+
+See [`docs/WORKFLOW-slack.md`](docs/WORKFLOW-slack.md) for a complete workflow template with notifications configured.
 
 ## SSH Remote Workers
 

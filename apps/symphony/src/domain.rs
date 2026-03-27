@@ -545,6 +545,9 @@ pub struct RunAttempt {
     /// Linear issue state at dispatch time (e.g. "In Progress", "Agent Review").
     #[serde(default)]
     pub linear_state: Option<String>,
+    /// Linear issue URL for notifications.
+    #[serde(default)]
+    pub issue_url: Option<String>,
 }
 
 /// Per-session token usage scoped to a single running worker session.
