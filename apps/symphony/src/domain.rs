@@ -81,29 +81,18 @@ impl ContextScope {
             return Some(Self::Project);
         }
 
-        if let Some(raw) = normalized
-            .strip_prefix("milestone:")
-            .or_else(|| normalized.strip_prefix("Milestone:"))
-        {
-            let id = raw.trim();
-            if !id.is_empty() {
-                return Some(Self::Milestone(id.to_string()));
-            }
+        let (raw_kind, raw_value) = normalized.split_once(':')?;
+        let kind = raw_kind.trim().to_ascii_lowercase();
+        let raw_value = raw_value.trim();
+        if raw_value.is_empty() {
             return None;
         }
 
-        if let Some(raw) = normalized
-            .strip_prefix("label:")
-            .or_else(|| normalized.strip_prefix("Label:"))
-        {
-            let label = raw.trim();
-            if !label.is_empty() {
-                return Some(Self::Label(label.to_ascii_lowercase()));
-            }
-            return None;
+        match kind.as_str() {
+            "milestone" => Some(Self::Milestone(raw_value.to_string())),
+            "label" => Some(Self::Label(raw_value.to_ascii_lowercase())),
+            _ => None,
         }
-
-        None
     }
 
     pub fn as_scope_key(&self) -> String {
@@ -143,6 +132,8 @@ pub enum EventKind {
     Worker,
     Tool,
     Heartbeat,
+    SharedContextWritten,
+    SharedContextExpired,
 }
 
 impl EventKind {
@@ -153,6 +144,8 @@ impl EventKind {
             "worker" => Some(Self::Worker),
             "tool" => Some(Self::Tool),
             "heartbeat" => Some(Self::Heartbeat),
+            "shared_context_written" => Some(Self::SharedContextWritten),
+            "shared_context_expired" => Some(Self::SharedContextExpired),
             _ => None,
         }
     }
@@ -164,11 +157,21 @@ impl EventKind {
             Self::Worker => "worker",
             Self::Tool => "tool",
             Self::Heartbeat => "heartbeat",
+            Self::SharedContextWritten => "shared_context_written",
+            Self::SharedContextExpired => "shared_context_expired",
         }
     }
 
     pub fn variants() -> &'static [&'static str] {
-        &["snapshot", "runtime", "worker", "tool", "heartbeat"]
+        &[
+            "snapshot",
+            "runtime",
+            "worker",
+            "tool",
+            "heartbeat",
+            "shared_context_written",
+            "shared_context_expired",
+        ]
     }
 }
 
@@ -395,6 +398,7 @@ pub struct ServiceConfig {
     pub server: ServerConfig,
     pub prompts: Option<PromptsConfig>,
     pub notifications: Option<NotificationsConfig>,
+    pub shared_context: SharedContextConfig,
 }
 
 /// Tracker configuration (spec §5.3.1).
@@ -471,6 +475,22 @@ impl Default for PollingConfig {
     fn default() -> Self {
         Self {
             interval_ms: 30_000,
+        }
+    }
+}
+
+/// Shared context configuration (M002/S06).
+#[derive(Debug, Clone)]
+pub struct SharedContextConfig {
+    pub ttl_ms: u64,
+    pub max_entries: usize,
+}
+
+impl Default for SharedContextConfig {
+    fn default() -> Self {
+        Self {
+            ttl_ms: 86_400_000,
+            max_entries: 100,
         }
     }
 }
@@ -940,6 +960,18 @@ pub struct PollingSnapshot {
     pub poll_count: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SharedContextSummary {
+    #[serde(default)]
+    pub total_entries: usize,
+    #[serde(default)]
+    pub entries_by_scope: BTreeMap<String, usize>,
+    #[serde(default)]
+    pub oldest_entry_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub newest_entry_at: Option<DateTime<Utc>>,
+}
+
 /// Read-only serializable view of orchestrator state for the HTTP API.
 /// Uses `BTreeMap` for deterministic JSON key ordering.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -958,6 +990,8 @@ pub struct OrchestratorSnapshot {
     pub completed: Vec<CompletedEntry>,
     #[serde(default)]
     pub blocked: Vec<BlockedIssueEntry>,
+    #[serde(default)]
+    pub shared_context: SharedContextSummary,
     pub codex_totals: CodexTotals,
     pub codex_rate_limits: Option<RateLimitInfo>,
     pub polling: PollingSnapshot,

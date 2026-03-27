@@ -1,10 +1,10 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::sync::{Arc, RwLock};
 
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::domain::{ContextEntry, ContextScope};
+use crate::domain::{ContextEntry, ContextScope, SharedContextSummary};
 
 pub const DEFAULT_SHARED_CONTEXT_TTL_MS: u64 = 86_400_000;
 pub const DEFAULT_SHARED_CONTEXT_MAX_ENTRIES: usize = 100;
@@ -175,6 +175,38 @@ impl SharedContextStore {
             .read()
             .expect("shared context lock poisoned")
             .len()
+    }
+
+    pub fn summary(&self) -> SharedContextSummary {
+        self.prune_expired();
+        let entries = self.entries.read().expect("shared context lock poisoned");
+
+        let mut entries_by_scope: BTreeMap<String, usize> = BTreeMap::new();
+        let mut oldest_entry_at: Option<DateTime<Utc>> = None;
+        let mut newest_entry_at: Option<DateTime<Utc>> = None;
+
+        for entry in entries.iter() {
+            *entries_by_scope
+                .entry(entry.scope.as_scope_key())
+                .or_insert(0usize) += 1;
+
+            oldest_entry_at = match oldest_entry_at {
+                Some(current) if current <= entry.created_at => Some(current),
+                _ => Some(entry.created_at),
+            };
+
+            newest_entry_at = match newest_entry_at {
+                Some(current) if current >= entry.created_at => Some(current),
+                _ => Some(entry.created_at),
+            };
+        }
+
+        SharedContextSummary {
+            total_entries: entries.len(),
+            entries_by_scope,
+            oldest_entry_at,
+            newest_entry_at,
+        }
     }
 
     fn enforce_max_entries(&self, entries: &mut Vec<ContextEntry>) {

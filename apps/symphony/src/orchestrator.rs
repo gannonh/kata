@@ -9,11 +9,11 @@ use std::time::Duration;
 use crate::codex::app_server;
 use crate::config;
 use crate::domain::{
-    AgentBackend, AgentEvent, CodexConfig, CodexTotals, CompletedEntry, ContextScope, EventKind,
-    EventSeverity, HooksConfig, Issue, OrchestratorSnapshot, OrchestratorState, PiAgentConfig,
-    PollingSnapshot, RateLimitInfo, RefreshRequestOutcome, RetryEntry, RetrySnapshotEntry,
-    RunAttempt, RunningSessionSnapshot, ServiceConfig, SessionTokenUsage, TrackerConfig,
-    WorkerSessionInfo, WorkspaceConfig, WorkspaceIsolation,
+    AgentBackend, AgentEvent, CodexConfig, CodexTotals, CompletedEntry, ContextEntry, ContextScope,
+    EventKind, EventSeverity, HooksConfig, Issue, OrchestratorSnapshot, OrchestratorState,
+    PiAgentConfig, PollingSnapshot, RateLimitInfo, RefreshRequestOutcome, RetryEntry,
+    RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot, ServiceConfig, SessionTokenUsage,
+    TrackerConfig, WorkerSessionInfo, WorkspaceConfig, WorkspaceIsolation,
 };
 use crate::error::{Result, SymphonyError};
 use crate::event_stream::EventHub;
@@ -1230,6 +1230,8 @@ impl Orchestrator {
     ) -> Self {
         let poll_interval_ms = config.polling.interval_ms;
         let max_concurrent_agents = config.agent.max_concurrent_agents;
+        let shared_context_ttl_ms = config.shared_context.ttl_ms;
+        let shared_context_max_entries = config.shared_context.max_entries;
         let (worker_result_tx, worker_result_rx) = tokio::sync::mpsc::unbounded_channel();
         let (worker_event_tx, worker_event_rx) = tokio::sync::mpsc::unbounded_channel();
 
@@ -1266,7 +1268,10 @@ impl Orchestrator {
             worker_result_tx,
             worker_event_rx,
             worker_event_tx,
-            shared_context_store: SharedContextStore::default(),
+            shared_context_store: SharedContextStore::new(
+                shared_context_ttl_ms,
+                shared_context_max_entries,
+            ),
             prompt_template,
         }
     }
@@ -1281,6 +1286,11 @@ impl Orchestrator {
         if let Some(port) = self.server_port_override {
             self.config.server.port = Some(port);
         }
+
+        self.shared_context_store.update_settings(
+            self.config.shared_context.ttl_ms,
+            self.config.shared_context.max_entries,
+        );
 
         self.state.max_concurrent_agents = self.config.agent.max_concurrent_agents;
         self.state.poll_interval_ms = self.config.polling.interval_ms;
@@ -1584,6 +1594,15 @@ impl Orchestrator {
 
         if refresh_runtime_config {
             self.refresh_runtime_config();
+        }
+
+        let pruned_entries = self.prune_expired_shared_context(Utc::now());
+        if pruned_entries > 0 {
+            tracing::info!(
+                event = "shared_context_pruned",
+                pruned_entries,
+                "pruned expired shared context entries"
+            );
         }
 
         self.emit_runtime_event(RuntimeEvent::Reconcile);
@@ -2740,6 +2759,21 @@ impl Orchestrator {
     fn build_shared_context_block_for_issue(&self, issue: &Issue) -> String {
         let scopes = Self::shared_context_scopes_for_issue(issue);
         let entries = self.shared_context_store.read(&scopes);
+
+        if let Some(hub) = &self.event_hub {
+            hub.publish(
+                EventKind::Runtime,
+                EventSeverity::Debug,
+                Some(issue.identifier.clone()),
+                "shared_context_read",
+                serde_json::json!({
+                    "reader_issue": issue.identifier,
+                    "entries_count": entries.len(),
+                    "scopes": scopes.iter().map(ContextScope::as_scope_key).collect::<Vec<_>>(),
+                }),
+            );
+        }
+
         if entries.is_empty() {
             return String::new();
         }
@@ -2759,6 +2793,44 @@ impl Orchestrator {
         }
 
         lines.join("\n")
+    }
+
+    fn shared_context_preview(content: &str) -> String {
+        truncate_for_display(content, 120)
+    }
+
+    fn publish_shared_context_expired_event(&self, entry: &ContextEntry, now: DateTime<Utc>) {
+        let Some(hub) = &self.event_hub else {
+            return;
+        };
+
+        let age_ms = now
+            .signed_duration_since(entry.created_at)
+            .num_milliseconds()
+            .max(0);
+
+        hub.publish_with_timestamp(
+            EventKind::SharedContextExpired,
+            EventSeverity::Info,
+            Some(entry.author_issue.clone()),
+            "shared_context_expired",
+            serde_json::json!({
+                "entry_id": entry.id,
+                "author_issue": entry.author_issue,
+                "scope": entry.scope.as_scope_key(),
+                "age_ms": age_ms,
+                "preview": Self::shared_context_preview(&entry.content),
+            }),
+            now,
+        );
+    }
+
+    fn prune_expired_shared_context(&mut self, now: DateTime<Utc>) -> usize {
+        let expired_entries = self.shared_context_store.prune_expired_entries_at(now);
+        for entry in &expired_entries {
+            self.publish_shared_context_expired_event(entry, now);
+        }
+        expired_entries.len()
     }
 
     /// Create a shared snapshot handle for concurrent HTTP reads.
@@ -2920,6 +2992,7 @@ impl Orchestrator {
             running,
             running_sessions,
             blocked: self.blocked_issues.clone(),
+            shared_context: self.shared_context_store.summary(),
             running_session_info,
             claimed,
             retry_queue,

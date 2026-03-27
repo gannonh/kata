@@ -118,6 +118,7 @@ fn test_service_config_defaults_match_spec() {
         server: ServerConfig::default(),
         prompts: None,
         notifications: None,
+        shared_context: SharedContextConfig::default(),
     };
 
     // Polling §5.3.2
@@ -373,6 +374,7 @@ fn test_orchestrator_snapshot_serializes() {
             },
         ],
         blocked: vec![],
+        shared_context: symphony::domain::SharedContextSummary::default(),
         codex_totals: CodexTotals::default(),
         codex_rate_limits: None,
         polling: PollingSnapshot {
