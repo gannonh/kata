@@ -1,28 +1,35 @@
 use chrono::{DateTime, Utc};
+use regex::Regex;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::future::Future;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, LazyLock, RwLock};
 use std::time::Duration;
 
 use crate::codex::app_server;
 use crate::config;
 use crate::domain::{
-    AgentBackend, AgentEvent, CodexConfig, CodexTotals, CompletedEntry, EventKind, EventSeverity,
-    HooksConfig, Issue, OrchestratorSnapshot, OrchestratorState, PiAgentConfig, PollingSnapshot,
-    RateLimitInfo, RefreshRequestOutcome, RetryEntry, RetrySnapshotEntry, RunAttempt,
-    RunningSessionSnapshot, ServiceConfig, SessionTokenUsage, TrackerConfig, WorkerSessionInfo,
-    WorkspaceConfig, WorkspaceIsolation,
+    AgentBackend, AgentEvent, CodexConfig, CodexTotals, CompletedEntry, ContextEntry, ContextScope,
+    EventKind, EventSeverity, HooksConfig, Issue, OrchestratorSnapshot, OrchestratorState,
+    PiAgentConfig, PollingSnapshot, RateLimitInfo, RefreshRequestOutcome, RetryEntry,
+    RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot, ServiceConfig, SessionTokenUsage,
+    TrackerConfig, WorkerSessionInfo, WorkspaceConfig, WorkspaceIsolation,
 };
 use crate::error::{Result, SymphonyError};
 use crate::event_stream::EventHub;
 use crate::notifications;
 use crate::pi_agent::rpc_bridge;
 use crate::session_summary::{compact_session_id, normalize_whitespace, truncate_for_display};
+use crate::shared_context::SharedContextStore;
 use crate::ssh::{self, WorkerHostSelection};
 use crate::workflow_store::WorkflowStore;
 use crate::{docker, path_safety, prompt_builder, workspace};
+
+static SHARED_CONTEXT_PLACEHOLDER_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\{\{\s*shared_context\s*\}\}")
+        .expect("shared_context placeholder regex must compile")
+});
 
 // ── Standalone Worker Task ──────────────────────────────────────────────
 
@@ -37,6 +44,7 @@ struct WorkerTaskConfig {
     max_turns: u32,
     tracker: TrackerConfig,
     prompt_template: String,
+    shared_context: String,
     event_tx: tokio::sync::mpsc::UnboundedSender<(String, AgentEvent)>,
 }
 
@@ -484,11 +492,12 @@ async fn run_worker_task(
                     .map_err(|err| format!("before_run hook failed: {err}"))?;
                 }
 
-                let prompt = prompt_builder::render_prompt(
+                let prompt = prompt_builder::render_prompt_with_shared_context(
                     &config.prompt_template,
                     issue,
                     attempt,
                     config.workspace.base_branch.as_deref(),
+                    &config.shared_context,
                 )
                 .map_err(|err| format!("prompt rendering failed: {err}"))?;
 
@@ -712,11 +721,12 @@ async fn run_worker_task(
     }
 
     // 3. Render prompt
-    let prompt = match prompt_builder::render_prompt(
+    let prompt = match prompt_builder::render_prompt_with_shared_context(
         &config.prompt_template,
         issue,
         attempt,
         config.workspace.base_branch.as_deref(),
+        &config.shared_context,
     ) {
         Ok(prompt) => prompt,
         Err(err) => {
@@ -1190,6 +1200,8 @@ pub struct Orchestrator {
     worker_event_rx: tokio::sync::mpsc::UnboundedReceiver<(String, AgentEvent)>,
     /// Sender half cloned into each spawned worker task for event streaming.
     worker_event_tx: tokio::sync::mpsc::UnboundedSender<(String, AgentEvent)>,
+    /// Shared ephemeral cross-worker context store.
+    shared_context_store: SharedContextStore,
     /// The prompt template from the WORKFLOW.md body, used to render per-issue prompts.
     prompt_template: String,
 }
@@ -1224,6 +1236,8 @@ impl Orchestrator {
     ) -> Self {
         let poll_interval_ms = config.polling.interval_ms;
         let max_concurrent_agents = config.agent.max_concurrent_agents;
+        let shared_context_ttl_ms = config.shared_context.ttl_ms;
+        let shared_context_max_entries = config.shared_context.max_entries;
         let (worker_result_tx, worker_result_rx) = tokio::sync::mpsc::unbounded_channel();
         let (worker_event_tx, worker_event_rx) = tokio::sync::mpsc::unbounded_channel();
 
@@ -1260,6 +1274,10 @@ impl Orchestrator {
             worker_result_tx,
             worker_event_rx,
             worker_event_tx,
+            shared_context_store: SharedContextStore::new(
+                shared_context_ttl_ms,
+                shared_context_max_entries,
+            ),
             prompt_template,
         }
     }
@@ -1273,6 +1291,20 @@ impl Orchestrator {
 
         if let Some(port) = self.server_port_override {
             self.config.server.port = Some(port);
+        }
+
+        if self.config.shared_context.ttl_ms > 0 && self.config.shared_context.max_entries > 0 {
+            self.shared_context_store.update_settings(
+                self.config.shared_context.ttl_ms,
+                self.config.shared_context.max_entries,
+            );
+        } else {
+            tracing::warn!(
+                event = "shared_context_config_invalid",
+                ttl_ms = self.config.shared_context.ttl_ms,
+                max_entries = self.config.shared_context.max_entries,
+                "skipping shared context store settings update because workflow config is invalid"
+            );
         }
 
         self.state.max_concurrent_agents = self.config.agent.max_concurrent_agents;
@@ -1474,7 +1506,10 @@ impl Orchestrator {
                 .cloned()
                 .unwrap_or_else(|| issue.state.clone());
             issue.state = effective_state.clone();
-            let prompt_template = self.resolve_prompt_for_state(&effective_state);
+            let prompt_template = Self::ensure_shared_context_placeholder(
+                self.resolve_prompt_for_state(&effective_state),
+            );
+            let shared_context = self.build_shared_context_block_for_issue(&issue);
 
             let task_config = WorkerTaskConfig {
                 workspace: self.config.workspace.clone(),
@@ -1485,6 +1520,7 @@ impl Orchestrator {
                 max_turns: self.config.agent.max_turns,
                 tracker: self.config.tracker.clone(),
                 prompt_template,
+                shared_context,
                 event_tx: self.worker_event_tx.clone(),
             };
 
@@ -1573,6 +1609,15 @@ impl Orchestrator {
 
         if refresh_runtime_config {
             self.refresh_runtime_config();
+        }
+
+        let pruned_entries = self.prune_expired_shared_context(Utc::now());
+        if pruned_entries > 0 {
+            tracing::info!(
+                event = "shared_context_pruned",
+                pruned_entries,
+                "pruned expired shared context entries"
+            );
         }
 
         self.emit_runtime_event(RuntimeEvent::Reconcile);
@@ -2206,11 +2251,15 @@ impl Orchestrator {
             return Err(err);
         }
 
-        let prompt = match prompt_builder::render_prompt(
-            prompt_template,
+        let prompt_template = Self::ensure_shared_context_placeholder(prompt_template.to_string());
+        let shared_context = self.build_shared_context_block_for_issue(issue);
+
+        let prompt = match prompt_builder::render_prompt_with_shared_context(
+            &prompt_template,
             issue,
             attempt,
             self.config.workspace.base_branch.as_deref(),
+            &shared_context,
         ) {
             Ok(prompt) => prompt,
             Err(err) => {
@@ -2674,6 +2723,137 @@ impl Orchestrator {
         &mut self.state
     }
 
+    pub fn shared_context_store(&self) -> SharedContextStore {
+        self.shared_context_store.clone()
+    }
+
+    fn shared_context_scopes_for_issue(issue: &Issue) -> Vec<ContextScope> {
+        let mut scopes = vec![ContextScope::Project];
+
+        for label in &issue.labels {
+            let normalized = label.trim().to_ascii_lowercase();
+            if !normalized.is_empty() {
+                scopes.push(ContextScope::Label(normalized));
+            }
+        }
+
+        scopes.sort();
+        scopes.dedup();
+        scopes
+    }
+
+    fn ensure_shared_context_placeholder(prompt_template: String) -> String {
+        if SHARED_CONTEXT_PLACEHOLDER_RE.is_match(&prompt_template) {
+            return prompt_template;
+        }
+
+        format!("{{{{ shared_context }}}}\n\n{prompt_template}")
+    }
+
+    fn format_shared_context_age(now: DateTime<Utc>, created_at: DateTime<Utc>) -> String {
+        let age_seconds = now.signed_duration_since(created_at).num_seconds().max(0) as u64;
+
+        if age_seconds < 60 {
+            return format!("{age_seconds}s ago");
+        }
+
+        let age_minutes = age_seconds / 60;
+        if age_minutes < 60 {
+            return format!("{age_minutes}m ago");
+        }
+
+        let age_hours = age_minutes / 60;
+        if age_hours < 24 {
+            return format!("{age_hours}h ago");
+        }
+
+        let age_days = age_hours / 24;
+        format!("{age_days}d ago")
+    }
+
+    fn build_shared_context_block_for_issue(&self, issue: &Issue) -> String {
+        let scopes = Self::shared_context_scopes_for_issue(issue);
+        let entries: Vec<_> = self
+            .shared_context_store
+            .read(&scopes)
+            .into_iter()
+            .filter(|entry| entry.author_issue != issue.identifier)
+            .take(10)
+            .collect();
+
+        if let Some(hub) = &self.event_hub {
+            hub.publish(
+                EventKind::Runtime,
+                EventSeverity::Debug,
+                Some(issue.identifier.clone()),
+                "shared_context_read",
+                serde_json::json!({
+                    "reader_issue": issue.identifier,
+                    "entries_count": entries.len(),
+                    "scopes": scopes.iter().map(ContextScope::as_scope_key).collect::<Vec<_>>(),
+                }),
+            );
+        }
+
+        if entries.is_empty() {
+            return String::new();
+        }
+
+        let now = Utc::now();
+        let mut lines = vec![
+            "## Shared Context from Other Workers".to_string(),
+            String::new(),
+        ];
+
+        for entry in entries {
+            let age = Self::format_shared_context_age(now, entry.created_at);
+            lines.push(format!(
+                "- [{}] ({age}, {}): {}",
+                entry.author_issue, entry.scope, entry.content
+            ));
+        }
+
+        lines.join("\n")
+    }
+
+    fn shared_context_preview(content: &str) -> String {
+        truncate_for_display(content, 120)
+    }
+
+    fn publish_shared_context_expired_event(&self, entry: &ContextEntry, now: DateTime<Utc>) {
+        let Some(hub) = &self.event_hub else {
+            return;
+        };
+
+        let age_ms = now
+            .signed_duration_since(entry.created_at)
+            .num_milliseconds()
+            .max(0);
+
+        hub.publish_with_timestamp(
+            EventKind::SharedContextExpired,
+            EventSeverity::Info,
+            Some(entry.author_issue.clone()),
+            "shared_context_expired",
+            serde_json::json!({
+                "entry_id": entry.id,
+                "author_issue": entry.author_issue,
+                "scope": entry.scope.as_scope_key(),
+                "age_ms": age_ms,
+                "preview": Self::shared_context_preview(&entry.content),
+            }),
+            now,
+        );
+    }
+
+    fn prune_expired_shared_context(&mut self, now: DateTime<Utc>) -> usize {
+        let expired_entries = self.shared_context_store.prune_expired_entries_at(now);
+        for entry in &expired_entries {
+            self.publish_shared_context_expired_event(entry, now);
+        }
+        expired_entries.len()
+    }
+
     /// Create a shared snapshot handle for concurrent HTTP reads.
     ///
     /// The handle is pre-loaded with the current snapshot. The orchestrator
@@ -2833,6 +3013,7 @@ impl Orchestrator {
             running,
             running_sessions,
             blocked: self.blocked_issues.clone(),
+            shared_context: self.shared_context_store.summary(),
             running_session_info,
             claimed,
             retry_queue,

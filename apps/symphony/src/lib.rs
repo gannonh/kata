@@ -13,6 +13,8 @@ pub mod repo_url;
 pub mod ssh;
 pub mod workspace;
 
+pub mod shared_context;
+
 pub mod codex;
 pub mod event_stream;
 pub mod http_server;

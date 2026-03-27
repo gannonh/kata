@@ -57,6 +57,7 @@ regex = "1"
 dotenvy = "0.15.7"
 shell-words = "1"
 futures-util = "0.3"
+uuid = { version = "1", features = ["v4", "serde"] }
 
 [dev-dependencies]
 tempfile = "3"

@@ -68,6 +68,20 @@ polling:
   # Milliseconds between poll cycles. Lower = more responsive, more API calls.
   interval_ms: 30000
 
+# ─── Shared Context (Inter-worker coordination, M002/S06) ───────────────────
+# Ephemeral in-memory context entries shared across worker sessions.
+# Restarts clear this store by design.
+shared_context:
+  # Default TTL for new context entries in milliseconds.
+  # Entries older than ttl_ms are pruned automatically each poll cycle.
+  # Default: 86400000 (24h)
+  ttl_ms: 86400000
+
+  # Maximum number of entries retained in memory.
+  # When exceeded, the oldest entries are evicted first.
+  # Default: 100
+  max_entries: 100
+
 # ─── Workspace ────────────────────────────────────────────────────────────────
 # Configures how agent workspaces are created and managed.
 # Each dispatched issue gets its own workspace directory.
