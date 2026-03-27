@@ -1,6 +1,6 @@
 {
   "name": "@kata-sh/cli",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Kata CLI coding agent",
   "license": "MIT",
   "private": false,
@@ -44,7 +44,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mariozechner/pi-coding-agent": "^0.62.0",
+    "@mariozechner/pi-coding-agent": "^0.63.1",
     "@mariozechner/pi-tui": "^0.62.0",
     "@sinclair/typebox": "^0.34.48",
     "playwright": "^1.58.2",
