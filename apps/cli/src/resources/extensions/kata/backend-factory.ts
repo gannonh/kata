@@ -1,23 +1,22 @@
 /**
- * Backend factory — returns FileBackend or LinearBackend based on preferences.
+ * Backend factory — creates the LinearBackend.
  *
  * Separate file to avoid circular imports: backend.ts defines the interface,
- * this file imports both implementations.
+ * this file imports the implementation.
  */
 
 import type { KataBackend } from "./backend.js";
 import {
-  isLinearMode,
   loadEffectiveLinearProjectConfig,
   resolveConfiguredLinearTeamId,
 } from "./linear-config.js";
+import { loadEffectiveKataPreferences } from "./preferences.js";
 import { LinearClient } from "../linear/linear-client.js";
 import { ensureKataLabels } from "../linear/linear-entities.js";
-import { FileBackend } from "./file-backend.js";
 import { LinearBackend } from "./linear-backend.js";
 
 /**
- * Create the appropriate backend for the current workflow mode.
+ * Create the Linear backend.
  *
  * Async because LinearBackend config resolution requires API calls
  * (team ID resolution, label set lookup).
@@ -25,11 +24,8 @@ import { LinearBackend } from "./linear-backend.js";
  * Called once at the start of auto-mode or step-mode.
  */
 export async function createBackend(basePath: string): Promise<KataBackend> {
-  if (!isLinearMode()) {
-    return new FileBackend(basePath);
-  }
-
-  const config = loadEffectiveLinearProjectConfig();
+  const loadedPreferences = loadEffectiveKataPreferences(basePath);
+  const config = loadEffectiveLinearProjectConfig(loadedPreferences);
   const apiKey = process.env.KATA_LINEAR_API_KEY ?? process.env.LINEAR_API_KEY;
   if (!apiKey) {
     throw new Error("LINEAR_API_KEY is not set. Set it in your environment to use Linear mode (KATA_LINEAR_API_KEY or LINEAR_API_KEY).");
@@ -46,7 +42,10 @@ export async function createBackend(basePath: string): Promise<KataBackend> {
   let lastError: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const teamResolution = await resolveConfiguredLinearTeamId(client);
+      const teamResolution = await resolveConfiguredLinearTeamId(
+        client,
+        loadedPreferences,
+      );
       if (!teamResolution.teamId) {
         throw new Error(teamResolution.error ?? "Linear team could not be resolved. Check linear.teamId or linear.teamKey in preferences.");
       }

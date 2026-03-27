@@ -64,14 +64,14 @@ test("buildLinearReferencesSection returns empty string for undefined", () => {
 
 // ─── composePRBody integration (Linear references parameter) ──────────────────
 
+const MINIMAL_PLAN = `# S99: Minimal Plan\n\n## Must-Haves\n\n- Keep PR body structured\n\n## Tasks\n\n- [ ] **T01: Write body** \`est:10m\`\n  Compose the PR body.\n`;
+
 test("composePRBody includes Linear Issues section when linearReferences provided", async () => {
-  // Import composePRBody — this tests the extended signature
   const { composePRBody } = await import("../../pr-lifecycle/pr-body-composer.js");
 
-  // Use a non-existent slice path so we get fallback content, but can still
-  // verify the Linear references section is appended
   const body = await composePRBody("M999", "S99", "/tmp/nonexistent-kata-project", {
     linearReferences: ["KAT-42"],
+    linearDocuments: { PLAN: MINIMAL_PLAN },
   });
 
   assert.match(body, /## Linear Issues/, "body must include Linear Issues section");
@@ -83,6 +83,7 @@ test("composePRBody does not include Linear section when linearReferences is emp
 
   const body = await composePRBody("M999", "S99", "/tmp/nonexistent-kata-project", {
     linearReferences: [],
+    linearDocuments: { PLAN: MINIMAL_PLAN },
   });
 
   assert.doesNotMatch(body, /## Linear Issues/, "body must not include Linear Issues section when empty");
@@ -136,10 +137,14 @@ test("advanceSliceIssueState returns ok:false when issueUpdate success is false"
   assert.ok(result.error, "error field must be set");
 });
 
-test("composePRBody does not include Linear section when no options provided", async () => {
+test("composePRBody throws when PLAN artifact is missing", async () => {
   const { composePRBody } = await import("../../pr-lifecycle/pr-body-composer.js");
 
-  const body = await composePRBody("M999", "S99", "/tmp/nonexistent-kata-project");
-
-  assert.doesNotMatch(body, /## Linear Issues/, "body must not include Linear Issues section by default");
+  await assert.rejects(
+    () =>
+      composePRBody("M999", "S99", "/tmp/nonexistent-kata-project", {
+        linearDocuments: {},
+      }),
+    /Missing required PR artifact: S99-PLAN/,
+  );
 });

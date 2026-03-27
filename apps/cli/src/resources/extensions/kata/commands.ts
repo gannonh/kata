@@ -8,10 +8,10 @@ import type {
   ExtensionAPI,
   ExtensionCommandContext,
 } from "@mariozechner/pi-coding-agent";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { deriveState } from "./state.js";
 import type { KataState } from "./types.js";
 import { KataDashboardOverlay } from "./dashboard-overlay.js";
 import { showSmartEntry, showQueue, showDiscuss, showPlan } from "./guided-flow.js";
@@ -42,54 +42,9 @@ import {
   type LinearConfigValidationResult,
   type ValidateLinearProjectConfigOptions,
 } from "./linear-config.js";
-import { loadFile, saveFile } from "./files.js";
 import { getCurrentBranch } from "../pr-lifecycle/gh-utils.js";
 import { getPRNumber } from "../pr-lifecycle/pr-merge-utils.js";
-import {
-  formatDoctorIssuesForPrompt,
-  formatDoctorReport,
-  runKataDoctor,
-  selectDoctorScope,
-  filterDoctorIssues,
-} from "./doctor.js";
 import { loadPrompt } from "./prompt-loader.js";
-
-function dispatchDoctorHeal(
-  ctx: ExtensionCommandContext,
-  pi: ExtensionAPI,
-  scope: string | undefined,
-  reportText: string,
-  structuredIssues: string,
-): boolean {
-  const gate = getWorkflowEntrypointGuard("doctor-heal");
-  if (!gate.allow) {
-    ctx.ui.notify(gate.notice ?? "Workflow mode is not supported here.", gate.noticeLevel);
-    return false;
-  }
-  if (!gate.protocol.path) {
-    ctx.ui.notify(
-      `Could not load ${gate.protocol.documentName} for ${gate.mode} mode.`,
-      "error",
-    );
-    return false;
-  }
-
-  const workflow = readFileSync(gate.protocol.path, "utf-8");
-  const prompt = loadPrompt("doctor-heal", {
-    doctorSummary: reportText,
-    structuredIssues,
-    scopeLabel: scope ?? "active milestone / blocking scope",
-    doctorCommandSuffix: scope ? ` ${scope}` : "",
-  });
-
-  const content = `Read the following Kata workflow protocol and execute exactly.\n\n${workflow}\n\n## Your Task\n\n${prompt}`;
-
-  pi.sendMessage(
-    { customType: "kata-doctor-heal", content, display: false },
-    { triggerTurn: true },
-  );
-  return true;
-}
 
 export interface PrefsStatusReport {
   level: "info" | "warning";
@@ -212,7 +167,7 @@ function describeSkillResolution(
 export function registerKataCommand(pi: ExtensionAPI): void {
   pi.registerCommand("kata", {
     description:
-      "Kata — Kata Workflow: /kata step|auto|stop|status|queue|discuss|plan|prefs|doctor|pr",
+      "Kata — Kata Workflow: /kata step|auto|stop|status|queue|discuss|plan|prefs|pr",
 
     getArgumentCompletions: (prefix: string) => {
       const subcommands = [
@@ -224,7 +179,6 @@ export function registerKataCommand(pi: ExtensionAPI): void {
         "discuss",
         "plan",
         "prefs",
-        "doctor",
         "pr",
       ];
       const parts = prefix.trim().split(/\s+/);
@@ -249,19 +203,6 @@ export function registerKataCommand(pi: ExtensionAPI): void {
           .map((cmd) => ({ value: `prefs ${cmd}`, label: cmd }));
       }
 
-      if (parts[0] === "doctor") {
-        const modePrefix = parts[1] ?? "";
-        const modes = ["fix", "heal", "audit"];
-
-        if (parts.length <= 2) {
-          return modes
-            .filter((cmd) => cmd.startsWith(modePrefix))
-            .map((cmd) => ({ value: `doctor ${cmd}`, label: cmd }));
-        }
-
-        return [];
-      }
-
       if (parts[0] === "pr" && parts.length <= 2) {
         const subPrefix = parts[1] ?? "";
         return getPrSubcommandCompletions(subPrefix).map((c) => ({
@@ -283,11 +224,6 @@ export function registerKataCommand(pi: ExtensionAPI): void {
 
       if (trimmed === "prefs" || trimmed.startsWith("prefs ")) {
         await handlePrefs(trimmed.replace(/^prefs\s*/, "").trim(), ctx);
-        return;
-      }
-
-      if (trimmed === "doctor" || trimmed.startsWith("doctor ")) {
-        await handleDoctor(trimmed.replace(/^doctor\s*/, "").trim(), ctx, pi);
         return;
       }
 
@@ -419,7 +355,7 @@ export function registerKataCommand(pi: ExtensionAPI): void {
       }
 
       ctx.ui.notify(
-        `Unknown: /kata ${trimmed}. Use /kata step, /kata auto, /kata stop, /kata status, /kata queue, /kata discuss, /kata plan, /kata prefs [global|project|status], /kata doctor [audit|fix|heal] [M###/S##], or /kata pr [status|create|review|address|merge].`,
+        `Unknown: /kata ${trimmed}. Use /kata step, /kata auto, /kata stop, /kata status, /kata queue, /kata discuss, /kata plan, /kata prefs [global|project|status], or /kata pr [status|create|review|address|merge].`,
         "warning",
       );
     },
@@ -442,8 +378,12 @@ async function handleStatus(ctx: ExtensionCommandContext): Promise<void> {
   try {
     const statusBackend = await createBackend(basePath);
     state = await statusBackend.deriveState();
-  } catch {
-    state = await deriveState(basePath);
+  } catch (err) {
+    ctx.ui.notify(
+      `Kata status failed: ${err instanceof Error ? err.message : String(err)}`,
+      "error",
+    );
+    return;
   }
 
   if (state.registry.length === 0) {
@@ -596,102 +536,38 @@ async function handlePr(
   );
 }
 
-async function handleDoctor(
-  args: string,
-  ctx: ExtensionCommandContext,
-  pi: ExtensionAPI,
-): Promise<void> {
-  const modeGate = getWorkflowEntrypointGuard("doctor");
-  if (!modeGate.allow) {
-    ctx.ui.notify(
-      modeGate.notice ?? "Workflow mode is not supported here.",
-      modeGate.noticeLevel,
-    );
-    return;
-  }
-
-  const trimmed = args.trim();
-  const parts = trimmed ? trimmed.split(/\s+/) : [];
-  const mode =
-    parts[0] === "fix" || parts[0] === "heal" || parts[0] === "audit"
-      ? parts[0]
-      : "doctor";
-  const requestedScope = mode === "doctor" ? parts[0] : parts[1];
-  const scope = await selectDoctorScope(process.cwd(), requestedScope);
-  const effectiveScope = mode === "audit" ? requestedScope : scope;
-  const report = await runKataDoctor(process.cwd(), {
-    fix: mode === "fix" || mode === "heal",
-    scope: effectiveScope,
-  });
-
-  const reportText = formatDoctorReport(report, {
-    scope: effectiveScope,
-    includeWarnings: mode === "audit",
-    maxIssues: mode === "audit" ? 50 : 12,
-    title:
-      mode === "audit"
-        ? "Kata doctor audit."
-        : mode === "heal"
-          ? "Kata doctor heal prep."
-          : undefined,
-  });
-
-  ctx.ui.notify(reportText, report.ok ? "info" : "warning");
-
-  if (mode === "heal") {
-    const unresolved = filterDoctorIssues(report.issues, {
-      scope: effectiveScope,
-      includeWarnings: true,
-    });
-    const actionable = unresolved.filter(
-      (issue) =>
-        issue.severity === "error" ||
-        issue.code === "all_tasks_done_missing_slice_uat" ||
-        issue.code === "slice_checked_missing_uat",
-    );
-    if (actionable.length === 0) {
-      ctx.ui.notify(
-        "Doctor heal found nothing actionable to hand off to the LLM.",
-        "info",
-      );
-      return;
-    }
-
-    const structuredIssues = formatDoctorIssuesForPrompt(actionable);
-    const dispatched = dispatchDoctorHeal(
-      ctx,
-      pi,
-      effectiveScope,
-      reportText,
-      structuredIssues,
-    );
-    if (dispatched) {
-      ctx.ui.notify(
-        `Doctor heal dispatched ${actionable.length} issue(s) to the LLM.`,
-        "info",
-      );
-    }
-  }
-}
-
 async function ensurePreferencesFile(
   path: string,
   ctx: ExtensionCommandContext,
   scope: "global" | "project",
 ): Promise<void> {
   if (!existsSync(path)) {
-    const template = await loadFile(
-      join(
-        dirname(fileURLToPath(import.meta.url)),
-        "templates",
-        "preferences.md",
-      ),
+    const templatePath = join(
+      dirname(fileURLToPath(import.meta.url)),
+      "templates",
+      "preferences.md",
     );
-    if (!template) {
+
+    let template: string;
+    try {
+      template = await readFile(templatePath, "utf-8");
+    } catch {
       ctx.ui.notify("Could not load Kata preferences template.", "error");
       return;
     }
-    await saveFile(path, template);
+
+    try {
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, template, "utf-8");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      process.stderr.write(
+        `[kata] failed to write preferences file at ${path}: ${message}\n`,
+      );
+      ctx.ui.notify(`Could not write preferences file at ${path}: ${message}`, "error");
+      return;
+    }
+
     ctx.ui.notify(`Created ${scope} Kata skill preferences at ${path}`, "info");
   } else {
     ctx.ui.notify(

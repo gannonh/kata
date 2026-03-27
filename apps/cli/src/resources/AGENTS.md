@@ -79,33 +79,20 @@ The main extension registers the `/kata` slash command with subcommands:
 - `/kata status` — Progress dashboard
 - `/kata queue` — View/manage work queue
 - `/kata discuss` — Discuss gray areas before planning
-- `/kata plan` — Ad-hoc planning (milestone roadmap, slice plans) without entering execution
+- `/kata plan` — Enriched planning mode (plan next slice, pick slice, add slice, resequence slices, revise roadmap, discuss planning)
 - `/kata prefs [global|project|status]` — Manage preferences
 - `/kata pr [status|create|review|address|merge]` — PR lifecycle management
-- `/kata doctor [audit|fix|heal]` — Diagnose and fix project state
 
 ## Project State
 
-Kata stores project state in `.kata/` at the project root:
+Kata workflow state is Linear-backed in this codebase:
 
-```
-.kata/
-  STATE.md              — Dashboard (read first)
-  DECISIONS.md          — Append-only decisions register
-  PROJECT.md            — Project description
-  REQUIREMENTS.md       — Requirements tracking
-  milestones/
-    M001/
-      M001-ROADMAP.md   — Milestone plan with slices
-      M001-SUMMARY.md   — Milestone rollup
-      slices/
-        S01/
-          S01-PLAN.md    — Task decomposition
-          S01-SUMMARY.md — Slice summary
-          tasks/
-            T01-PLAN.md
-            T01-SUMMARY.md
-```
+- Milestones → Linear project milestones (`[M###]`)
+- Slices → Linear parent issues (`[S##]`)
+- Tasks → Linear sub-issues (`[T##]`)
+- Artifacts (roadmaps, context, research, summaries, decisions) → Linear documents/comments
+
+The local `.kata/` directory remains for runtime metadata (preferences, activity logs, metrics), not as the source of truth for workflow artifacts.
 
 ## PR Lifecycle
 

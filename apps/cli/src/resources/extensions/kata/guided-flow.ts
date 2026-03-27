@@ -1,9 +1,8 @@
 /**
  * Kata Guided Flow — Smart Entry Wizard
  *
- * One function: showSmartEntry(). Reads state from disk, shows a contextual
- * wizard via showNextAction(), and dispatches through KATA-WORKFLOW.md.
- * No execution state, no hooks, no tools — the LLM does the rest.
+ * Contextual command entry points for /kata.
+ * Linear mode only — no filesystem artifact fallbacks.
  */
 
 import type {
@@ -12,41 +11,28 @@ import type {
   ExtensionCommandContext,
 } from "@mariozechner/pi-coding-agent";
 import { showNextAction } from "../shared/next-action-ui.js";
-import { loadFile, parseRoadmap } from "./files.js";
+import { parseRoadmap } from "./files.js";
 import { loadPrompt } from "./prompt-loader.js";
-import { deriveState } from "./state.js";
 import { startAuto } from "./auto.js";
 import { createBackend } from "./backend-factory.js";
 import { readCrashLock, clearLock, formatCrashInfo } from "./crash-recovery.js";
-import {
-  kataRoot,
-  milestonesDir,
-  resolveMilestoneFile,
-  resolveSliceFile,
-  resolveSlicePath,
-  resolveKataRootFile,
-  relKataRootFile,
-  relMilestoneFile,
-  relSliceFile,
-  relSlicePath,
-} from "./paths.js";
-import { join } from "node:path";
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { execSync } from "node:child_process";
-import { ensureGitignore, ensurePreferences } from "./gitignore.js";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { loadEffectiveKataPreferences } from "./preferences.js";
 import { enablePrPreferencesInContent } from "./pr-preferences-content.js";
 import {
   getWorkflowEntrypointGuard,
   type WorkflowEntrypoint,
 } from "./linear-config.js";
+import type { KataBackend } from "./backend.js";
+import type {
+  KataState,
+  RoadmapSliceEntry,
+} from "./types.js";
 
-// ─── PR onboarding helpers ────────────────────────────────────────────────────
+// ─── PR onboarding helpers ─────────────────────────────────────────────────
 
-/**
- * Returns true if the current git repo has a GitHub remote (origin contains github.com).
- * Never throws — returns false on any error.
- */
 function detectGithubRemote(basePath: string): boolean {
   try {
     const url = execSync("git remote get-url origin", {
@@ -60,13 +46,6 @@ function detectGithubRemote(basePath: string): boolean {
   }
 }
 
-/**
- * Enables the PR lifecycle in project preferences by setting `pr.enabled: true`.
- * Never throws — logs nothing on error. Returns:
- * - "enabled" when preferences were updated
- * - "already-enabled" when no change was needed
- * - "failed" when preferences could not be updated safely
- */
 function enablePrPreferences(basePath: string): "enabled" | "already-enabled" | "failed" {
   const preferencesPath = join(basePath, ".kata", "preferences.md");
   try {
@@ -77,48 +56,35 @@ function enablePrPreferences(basePath: string): "enabled" | "already-enabled" | 
     writeFileSync(preferencesPath, transformed.content, "utf-8");
     return "enabled";
   } catch {
-    // Best-effort — guided-flow never throws on preference write failure
     return "failed";
   }
 }
 
-// ─── Auto-start after discuss ─────────────────────────────────────────────────
+// ─── Auto-start after discuss ──────────────────────────────────────────────
 
-/** Stashed context + flag for auto-starting after discuss phase completes */
 let pendingAutoStart: {
   ctx: ExtensionCommandContext;
   pi: ExtensionAPI;
   basePath: string;
-  milestoneId: string; // the milestone being discussed
+  milestoneId: string;
 } | null = null;
 
-/** Called from agent_end to check if auto-mode should start after discuss */
 export async function checkAutoStartAfterDiscuss(): Promise<boolean> {
   if (!pendingAutoStart) return false;
 
   const { ctx, pi, basePath, milestoneId } = pendingAutoStart;
 
-  // Don't fire until the discuss phase has actually produced artifacts.
-  // agent_end fires after every LLM turn, including the initial "What do you
-  // want to build?" response — we need to wait for the full conversation to
-  // complete and the LLM to write the milestone context.
-  let created: boolean;
+  let created = false;
   try {
-    const checkBackend = await createBackend(basePath);
-    created = await checkBackend.checkMilestoneCreated(milestoneId);
+    const backend = await createBackend(basePath);
+    created = await backend.checkMilestoneCreated(milestoneId);
   } catch {
-    // Backend creation or API call failed (e.g. Linear unavailable, config
-    // incomplete). Treat as "not yet created" — the hook will retry on the
-    // next agent_end event.
     return false;
   }
-  if (!created) return false;
 
+  if (!created) return false;
   pendingAutoStart = null;
 
-  // Ask the user whether to start auto-mode — don't assume they want it.
-  // This was previously an unconditional startAuto() call, which caused
-  // auto-mode to fire without explicit user opt-in after every discuss phase.
   const choice = await showNextAction(ctx as any, {
     title: `Kata — ${milestoneId} Ready`,
     summary: [`Context written for ${milestoneId}. Ready to plan and execute.`],
@@ -146,19 +112,12 @@ export async function checkAutoStartAfterDiscuss(): Promise<boolean> {
       );
     }
   }
+
   return true;
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 type UIContext = ExtensionContext;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Read the active workflow protocol and dispatch it to the LLM with a contextual note.
- * This is the only way the wizard triggers work — everything else is the LLM's job.
- */
 function dispatchWorkflow(
   ctx: UIContext,
   pi: ExtensionAPI,
@@ -168,7 +127,10 @@ function dispatchWorkflow(
 ): boolean {
   const gate = getWorkflowEntrypointGuard(entrypoint);
   if (!gate.allow) {
-    ctx.ui.notify(gate.notice ?? "Workflow mode is not supported here.", gate.noticeLevel);
+    ctx.ui.notify(
+      gate.notice ?? "Workflow mode is not supported here.",
+      gate.noticeLevel,
+    );
     return false;
   }
   if (!gate.protocol.path) {
@@ -180,7 +142,6 @@ function dispatchWorkflow(
   }
 
   const workflow = readFileSync(gate.protocol.path, "utf-8");
-
   pi.sendMessage(
     {
       customType,
@@ -192,38 +153,14 @@ function dispatchWorkflow(
   return true;
 }
 
-
-function findMilestoneIds(basePath: string): string[] {
-  const dir = milestonesDir(basePath);
-  try {
-    return readdirSync(dir, { withFileTypes: true })
-      .filter((d) => d.isDirectory())
-      .map((d) => {
-        const match = d.name.match(/^(M\d+)/);
-        return match ? match[1] : d.name;
-      })
-      .sort();
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Derive milestone IDs from backend state registry.
- * Works in both file and Linear modes — unlike findMilestoneIds which
- * only reads the local filesystem.
- */
-function milestoneIdsFromRegistry(state: import("./types.js").KataState): string[] {
+function milestoneIdsFromRegistry(state: KataState): string[] {
   return state.registry
     .map((e) => e.id)
     .filter((id) => /^M\d+$/.test(id))
     .sort();
 }
 
-/**
- * Compute the next milestone ID from state registry.
- */
-function nextMilestoneId(state: import("./types.js").KataState): string {
+function nextMilestoneId(state: KataState): string {
   const ids = milestoneIdsFromRegistry(state);
   const maxNum = ids.reduce((max, id) => {
     const n = parseInt(id.slice(1), 10);
@@ -232,27 +169,61 @@ function nextMilestoneId(state: import("./types.js").KataState): string {
   return `M${String(maxNum + 1).padStart(3, "0")}`;
 }
 
-// ─── Queue ─────────────────────────────────────────────────────────────────────
+function getSliceDisplayStatus(
+  state: KataState,
+  slice: RoadmapSliceEntry,
+  _idx: number,
+): "done" | "active" | "pending" {
+  if (slice.done) return "done";
+  if (state.activeSlice?.id === slice.id) return "active";
+  return "pending";
+}
 
-/**
- * Queue future milestones via conversational intake.
- *
- * Safe to run while auto-mode is executing — only writes to future milestone
- * directories (which auto-mode won't touch until it reaches them) and appends
- * to project.md / queue.md.
- *
- * The flow:
- * 1. Build context about all existing milestones (complete, active, pending)
- * 2. Dispatch the queue prompt — LLM discusses with the user, assesses scope
- * 3. LLM writes CONTEXT.md files for new milestones (no roadmaps — JIT)
- * 4. Auto-mode picks them up naturally when it advances past current work
- *
- * Root durable artifacts use uppercase names like PROJECT.md and QUEUE.md.
- */
+async function buildPlanningContext(
+  state: KataState,
+  backend: KataBackend,
+  milestoneId: string,
+): Promise<string> {
+  const milestoneTitle = state.activeMilestone?.title ?? milestoneId;
+  const parts: string[] = [
+    `Active milestone: ${milestoneId} — ${milestoneTitle}`,
+    `Phase: ${state.phase}`,
+  ];
+
+  const roadmapContent = await backend.readDocument(`${milestoneId}-ROADMAP`);
+  if (!roadmapContent) {
+    parts.push("Roadmap: not created yet.");
+  } else {
+    const roadmap = parseRoadmap(roadmapContent);
+    const total = roadmap.slices.length;
+    const done = roadmap.slices.filter((s) => s.done).length;
+    const pending = total - done;
+
+    parts.push(`Roadmap summary: ${done}/${total} slices complete, ${pending} pending.`);
+    parts.push("Slices:");
+    for (let i = 0; i < roadmap.slices.length; i++) {
+      const slice = roadmap.slices[i]!;
+      const status = getSliceDisplayStatus(state, slice, i);
+      const dep = slice.depends.length > 0 ? ` depends:[${slice.depends.join(",")}]` : "";
+      parts.push(`- ${slice.id}: ${slice.title} (${status}, risk:${slice.risk}${dep})`);
+    }
+  }
+
+  if (state.blockers && state.blockers.length > 0) {
+    parts.push(`Blockers: ${state.blockers.join("; ")}`);
+  } else {
+    parts.push("Blockers: none");
+  }
+
+  return parts.join("\n");
+}
+
+// ─── Queue ──────────────────────────────────────────────────────────────────
+
 export async function showQueue(
   ctx: ExtensionCommandContext,
-  pi: ExtensionAPI,
-  basePath: string,
+  _pi: ExtensionAPI,
+  _basePath: string,
 ): Promise<void> {
   const modeGate = getWorkflowEntrypointGuard("queue");
   if (!modeGate.allow) {
@@ -263,276 +234,49 @@ export async function showQueue(
     return;
   }
 
-  // ── Ensure .kata/ exists ─────────────────────────────────────────────
-  const kataDir = kataRoot(basePath);
-  if (!existsSync(kataDir)) {
-    ctx.ui.notify(
-      "No Kata project found. Run /kata to start one first.",
-      "warning",
-    );
-    return;
-  }
-
-  const state = await deriveState(basePath);
-  const milestoneIds = findMilestoneIds(basePath);
-
-  if (milestoneIds.length === 0) {
-    ctx.ui.notify(
-      "No milestones exist yet. Run /kata to create the first one.",
-      "warning",
-    );
-    return;
-  }
-
-  // ── Build existing milestones context for the prompt ────────────────
-  const existingContext = await buildExistingMilestonesContext(
-    basePath,
-    milestoneIds,
-    state,
-  );
-
-  // ── Determine next milestone ID ─────────────────────────────────────
-  const maxNum = milestoneIds.reduce((max, id) => {
-    const num = parseInt(id.replace(/^M/, ""), 10);
-    return num > max ? num : max;
-  }, 0);
-  const nextId = `M${String(maxNum + 1).padStart(3, "0")}`;
-  const nextIdPlus1 = `M${String(maxNum + 2).padStart(3, "0")}`;
-
-  // ── Build preamble ──────────────────────────────────────────────────
-  const activePart = state.activeMilestone
-    ? `Currently executing: ${state.activeMilestone.id} — ${state.activeMilestone.title} (phase: ${state.phase}).`
-    : "No milestone currently active.";
-
-  const pendingCount = state.registry.filter(
-    (m) => m.status === "pending",
-  ).length;
-  const completeCount = state.registry.filter(
-    (m) => m.status === "complete",
-  ).length;
-
-  const preamble = [
-    `Queuing new work onto an existing Kata project.`,
-    activePart,
-    `${completeCount} milestone(s) complete, ${pendingCount} pending.`,
-    `Next available milestone ID: ${nextId}.`,
-  ].join(" ");
-
-  // ── Dispatch the queue prompt ───────────────────────────────────────
-  const prompt = loadPrompt("queue", {
-    preamble,
-    nextId,
-    nextIdPlus1,
-    existingMilestonesContext: existingContext,
-  });
-
-  pi.sendMessage(
-    {
-      customType: "kata-queue",
-      content: prompt,
-      display: false,
-    },
-    { triggerTurn: true },
-  );
+  ctx.ui.notify("/kata queue is not yet available in Linear mode.", "warning");
 }
 
-/**
- * Build a context block describing all existing milestones for the queue prompt.
- * Gives the LLM enough information to dedup, sequence, and dependency-check.
- */
-async function buildExistingMilestonesContext(
-  basePath: string,
-  milestoneIds: string[],
-  state: import("./types.js").kataState,
-): Promise<string> {
-  const sections: string[] = [];
+// ─── Discuss ────────────────────────────────────────────────────────────────
 
-  // Include PROJECT.md if it exists — it has the milestone sequence and project description
-  const projectPath = resolveKataRootFile(basePath, "PROJECT");
-  if (existsSync(projectPath)) {
-    const projectContent = await loadFile(projectPath);
-    if (projectContent) {
-      sections.push(
-        `### Project Overview\nSource: \`${relKataRootFile("PROJECT")}\`\n\n${projectContent.trim()}`,
-      );
-    }
-  }
-
-  // Include DECISIONS.md if it exists — architectural decisions inform new milestone scoping
-  const decisionsPath = resolveKataRootFile(basePath, "DECISIONS");
-  if (existsSync(decisionsPath)) {
-    const decisionsContent = await loadFile(decisionsPath);
-    if (decisionsContent) {
-      sections.push(
-        `### Decisions Register\nSource: \`${relKataRootFile("DECISIONS")}\`\n\n${decisionsContent.trim()}`,
-      );
-    }
-  }
-
-  // For each milestone, include context and status
-  for (const mid of milestoneIds) {
-    const registryEntry = state.registry.find((m) => m.id === mid);
-    const status = registryEntry?.status ?? "unknown";
-    const title = registryEntry?.title ?? mid;
-
-    const parts: string[] = [];
-    parts.push(`### ${mid}: ${title}\n**Status:** ${status}`);
-
-    // Include context file — this is the primary content for understanding scope
-    const contextFile = resolveMilestoneFile(basePath, mid, "CONTEXT");
-    if (contextFile) {
-      const content = await loadFile(contextFile);
-      if (content) {
-        parts.push(`\n**Context:**\n${content.trim()}`);
-      }
-    }
-
-    // For completed milestones, include the summary if it exists
-    if (status === "complete") {
-      const summaryFile = resolveMilestoneFile(basePath, mid, "SUMMARY");
-      if (summaryFile) {
-        const content = await loadFile(summaryFile);
-        if (content) {
-          parts.push(`\n**Summary:**\n${content.trim()}`);
-        }
-      }
-    }
-
-    // For active/pending milestones, include the roadmap if it exists
-    // (shows what's planned but not yet built)
-    if (status === "active" || status === "pending") {
-      const roadmapFile = resolveMilestoneFile(basePath, mid, "ROADMAP");
-      if (roadmapFile) {
-        const content = await loadFile(roadmapFile);
-        if (content) {
-          parts.push(`\n**Roadmap:**\n${content.trim()}`);
-        }
-      }
-    }
-
-    sections.push(parts.join("\n"));
-  }
-
-  // Include queue log if it exists — shows what's been queued before
-  const queuePath = resolveKataRootFile(basePath, "QUEUE");
-  if (existsSync(queuePath)) {
-    const queueContent = await loadFile(queuePath);
-    if (queueContent) {
-      sections.push(
-        `### Previous Queue Entries\nSource: \`${relKataRootFile("QUEUE")}\`\n\n${queueContent.trim()}`,
-      );
-    }
-  }
-
-  return sections.join("\n\n---\n\n");
-}
-
-// ─── Discuss Flow ─────────────────────────────────────────────────────────────
-
-/**
- * Build a rich inlined-context prompt for discussing a specific slice.
- * Preloads roadmap, milestone context, research, decisions, and completed
- * slice summaries so the agent can ask grounded UX/behaviour questions
- * without wasting a turn reading files.
- */
 async function buildDiscussSlicePrompt(
   mid: string,
   sid: string,
   sTitle: string,
-  base: string,
-  backend?: import("./backend.js").KataBackend,
+  backend: KataBackend,
 ): Promise<string> {
   const inlined: string[] = [];
 
-  if (backend) {
-    // ── Backend-aware path (works in both file and Linear modes) ──
-    const roadmapContent = await backend.readDocument(`${mid}-ROADMAP`);
-    if (roadmapContent) {
-      inlined.push(`### Milestone Roadmap\n\n${roadmapContent.trim()}`);
-    }
+  const roadmapContent = await backend.readDocument(`${mid}-ROADMAP`);
+  if (roadmapContent) {
+    inlined.push(`### Milestone Roadmap\n\n${roadmapContent.trim()}`);
+  }
 
-    const contextContent = await backend.readDocument(`${mid}-CONTEXT`);
-    if (contextContent) {
-      inlined.push(`### Milestone Context\n\n${contextContent.trim()}`);
-    }
+  const contextContent = await backend.readDocument(`${mid}-CONTEXT`);
+  if (contextContent) {
+    inlined.push(`### Milestone Context\n\n${contextContent.trim()}`);
+  }
 
-    const researchContent = await backend.readDocument(`${mid}-RESEARCH`);
-    if (researchContent) {
-      inlined.push(`### Milestone Research\n\n${researchContent.trim()}`);
-    }
+  const researchContent = await backend.readDocument(`${mid}-RESEARCH`);
+  if (researchContent) {
+    inlined.push(`### Milestone Research\n\n${researchContent.trim()}`);
+  }
 
-    const decisionsContent = await backend.readDocument("DECISIONS");
-    if (decisionsContent) {
-      inlined.push(`### Decisions Register\n\n${decisionsContent.trim()}`);
-    }
+  const decisionsContent = await backend.readDocument("DECISIONS");
+  if (decisionsContent) {
+    inlined.push(`### Decisions Register\n\n${decisionsContent.trim()}`);
+  }
 
-    // Completed slice summaries
-    if (roadmapContent) {
-      const roadmap = parseRoadmap(roadmapContent);
-      for (const s of roadmap.slices) {
-        if (!s.done || s.id === sid) continue;
-        const scope = backend.resolveSliceScope
-          ? await backend.resolveSliceScope(mid, s.id)
-          : undefined;
-        const summaryContent = await backend.readDocument(`${s.id}-SUMMARY`, scope);
-        if (summaryContent) {
-          inlined.push(`### ${s.id} Summary (completed)\n\n${summaryContent.trim()}`);
-        }
-      }
-    }
-  } else {
-    // ── Legacy filesystem path (fallback when no backend provided) ──
-    const roadmapPath = resolveMilestoneFile(base, mid, "ROADMAP");
-    const roadmapRel = relMilestoneFile(base, mid, "ROADMAP");
-    const roadmapContent = roadmapPath ? await loadFile(roadmapPath) : null;
-    if (roadmapContent) {
-      inlined.push(
-        `### Milestone Roadmap\nSource: \`${roadmapRel}\`\n\n${roadmapContent.trim()}`,
-      );
-    }
-
-    const contextPath = resolveMilestoneFile(base, mid, "CONTEXT");
-    const contextRel = relMilestoneFile(base, mid, "CONTEXT");
-    const contextContent = contextPath ? await loadFile(contextPath) : null;
-    if (contextContent) {
-      inlined.push(
-        `### Milestone Context\nSource: \`${contextRel}\`\n\n${contextContent.trim()}`,
-      );
-    }
-
-    const researchPath = resolveMilestoneFile(base, mid, "RESEARCH");
-    const researchRel = relMilestoneFile(base, mid, "RESEARCH");
-    const researchContent = researchPath ? await loadFile(researchPath) : null;
-    if (researchContent) {
-      inlined.push(
-        `### Milestone Research\nSource: \`${researchRel}\`\n\n${researchContent.trim()}`,
-      );
-    }
-
-    const decisionsPath = resolveKataRootFile(base, "DECISIONS");
-    if (existsSync(decisionsPath)) {
-      const decisionsContent = await loadFile(decisionsPath);
-      if (decisionsContent) {
-        inlined.push(
-          `### Decisions Register\nSource: \`${relKataRootFile("DECISIONS")}\`\n\n${decisionsContent.trim()}`,
-        );
-      }
-    }
-
-    const roadmapPath2 = resolveMilestoneFile(base, mid, "ROADMAP");
-    const roadmapContent2 = roadmapPath2 ? await loadFile(roadmapPath2) : null;
-    if (roadmapContent2) {
-      const roadmap = parseRoadmap(roadmapContent2);
-      for (const s of roadmap.slices) {
-        if (!s.done || s.id === sid) continue;
-        const summaryPath = resolveSliceFile(base, mid, s.id, "SUMMARY");
-        const summaryRel = relSliceFile(base, mid, s.id, "SUMMARY");
-        const summaryContent = summaryPath ? await loadFile(summaryPath) : null;
-        if (summaryContent) {
-          inlined.push(
-            `### ${s.id} Summary (completed)\nSource: \`${summaryRel}\`\n\n${summaryContent.trim()}`,
-          );
-        }
+  if (roadmapContent) {
+    const roadmap = parseRoadmap(roadmapContent);
+    for (const s of roadmap.slices) {
+      if (!s.done || s.id === sid) continue;
+      const scope = backend.resolveSliceScope
+        ? await backend.resolveSliceScope(mid, s.id)
+        : undefined;
+      const summaryContent = await backend.readDocument(`${s.id}-SUMMARY`, scope);
+      if (summaryContent) {
+        inlined.push(`### ${s.id} Summary (completed)\n\n${summaryContent.trim()}`);
       }
     }
   }
@@ -540,40 +284,17 @@ async function buildDiscussSlicePrompt(
   const inlinedContext =
     inlined.length > 0
       ? `## Inlined Context (preloaded — do not re-read these files)\n\n${inlined.join("\n\n---\n\n")}`
-      : `## Inlined Context\n\n_(no context files found yet — go in blind and ask broad questions)_`;
+      : `## Inlined Context\n\n_(no context files found yet — ask broad grounding questions first)_`;
 
-  // Build output instructions based on backend mode
-  let outputInstructions: string;
-  if (backend?.isLinearMode) {
-    outputInstructions = [
-      `**CRITICAL: Linear mode — do NOT write local files, do NOT run mkdir, do NOT run git commit for planning artifacts.**`,
-      ``,
-      `Once the user is ready to wrap up:`,
-      `1. Read the slice context template at \`~/.kata-cli/agent/extensions/kata/templates/slice-context.md\``,
-      `2. Resolve the slice issue UUID: call \`kata_list_slices\` to find the issue for ${sid} under milestone ${mid}`,
-      `3. Write the context document: \`kata_write_document("${sid}-CONTEXT", content, { issueId: "<slice-issue-uuid>" })\``,
-      `4. Say exactly: "${sid} context written." — nothing else.`,
-    ].join("\n");
-  } else {
-    const sliceDirAbsPath = join(base, ".kata", "milestones", mid, "slices", sid);
-    const contextAbsPath = join(sliceDirAbsPath, `${sid}-CONTEXT.md`);
-    outputInstructions = [
-      `Once the user is ready to wrap up:`,
-      ``,
-      `1. Read the slice context template at \`~/.kata-cli/agent/extensions/kata/templates/slice-context.md\``,
-      `2. \`mkdir -p ${sliceDirAbsPath}\``,
-      `3. Write \`${contextAbsPath}\` — use the template structure, filling in:`,
-      `   - **Goal** — one sentence: what this slice delivers`,
-      `   - **Why this Slice** — why now, what it unblocks`,
-      `   - **Scope / In Scope** — what was confirmed in scope during the interview`,
-      `   - **Scope / Out of Scope** — what was explicitly deferred or excluded`,
-      `   - **Constraints** — anything the user flagged as a hard constraint`,
-      `   - **Integration Points** — what this slice consumes and produces`,
-      `   - **Open Questions** — anything still unresolved, with current thinking`,
-      `4. Commit: \`git -C ${base} add ${contextAbsPath} && git -C ${base} commit -m "docs(${mid}/${sid}): slice context from discuss"\``,
-      `5. Say exactly: \`"${sid} context written."\` — nothing else.`,
-    ].join("\n");
-  }
+  const outputInstructions = [
+    "**CRITICAL: Linear mode only — do NOT write local files, do NOT run mkdir, do NOT run git commit for planning artifacts.**",
+    "",
+    "Once the user is ready to wrap up:",
+    "1. Read the slice context template at `~/.kata-cli/agent/extensions/kata/templates/slice-context.md`",
+    `2. Resolve the slice issue UUID via \`kata_list_slices\` for ${mid}/${sid}`,
+    `3. Write the context doc: \`kata_write_document("${sid}-CONTEXT", content, { issueId: "<slice-issue-uuid>" })\``,
+    `4. Say exactly: "${sid} context written." — nothing else.`,
+  ].join("\n");
 
   return loadPrompt("guided-discuss-slice", {
     milestoneId: mid,
@@ -584,13 +305,6 @@ async function buildDiscussSlicePrompt(
   });
 }
 
-/**
- * /kata discuss — show a picker of non-done slices and run a slice interview.
- * Loops back to the picker after each discussion so the user can chain
- * multiple slice interviews in one session.
- *
- * Uses createBackend() so it works in both file and Linear modes.
- */
 export async function showDiscuss(
   ctx: ExtensionCommandContext,
   pi: ExtensionAPI,
@@ -605,7 +319,6 @@ export async function showDiscuss(
     return;
   }
 
-  // ── Bootstrap via backend (handles file vs Linear mode) ──
   let backend: Awaited<ReturnType<typeof createBackend>>;
   try {
     backend = await createBackend(basePath);
@@ -616,38 +329,27 @@ export async function showDiscuss(
   }
 
   const state = await backend.deriveState();
-
-  // Guard: no active milestone
   if (!state.activeMilestone) {
-    ctx.ui.notify(
-      "No active milestone. Run /kata to create one first.",
-      "warning",
-    );
+    ctx.ui.notify("No active milestone. Run /kata to create one first.", "warning");
     return;
   }
 
   const mid = state.activeMilestone.id;
   const milestoneTitle = state.activeMilestone.title;
 
-  // Guard: no roadmap yet — read via backend (works in both file and Linear mode)
   const roadmapContent = await backend.readDocument(`${mid}-ROADMAP`);
   if (!roadmapContent) {
-    ctx.ui.notify(
-      "No roadmap yet for this milestone. Run /kata to plan first.",
-      "warning",
-    );
+    ctx.ui.notify("No roadmap yet for this milestone. Run /kata plan first.", "warning");
     return;
   }
 
   const roadmap = parseRoadmap(roadmapContent);
   const pendingSlices = roadmap.slices.filter((s) => !s.done);
-
   if (pendingSlices.length === 0) {
     ctx.ui.notify("All slices are complete — nothing to discuss.", "info");
     return;
   }
 
-  // Loop: show picker, dispatch discuss, repeat until "not_yet"
   while (true) {
     const actions = pendingSlices.map((s, i) => ({
       id: s.id,
@@ -660,7 +362,7 @@ export async function showDiscuss(
       title: "Kata — Discuss a slice",
       summary: [
         `${mid}: ${milestoneTitle}`,
-        "Pick a slice to interview. Context file will be written when done.",
+        "Pick a slice to interview. Context is saved to a Linear document.",
       ],
       actions,
       notYetMessage: "Run /kata discuss when ready.",
@@ -671,29 +373,15 @@ export async function showDiscuss(
     const chosen = pendingSlices.find((s) => s.id === choice);
     if (!chosen) return;
 
-    const prompt = await buildDiscussSlicePrompt(
-      mid,
-      chosen.id,
-      chosen.title,
-      basePath,
-      backend,
-    );
+    const prompt = await buildDiscussSlicePrompt(mid, chosen.id, chosen.title, backend);
     if (!dispatchWorkflow(ctx, pi, prompt, "kata-discuss", "discuss")) return;
 
-    // Wait for the discuss session to finish, then loop back to the picker
     await ctx.waitForIdle();
   }
 }
 
-// ─── Plan Flow ────────────────────────────────────────────────────────────────
+// ─── Plan ───────────────────────────────────────────────────────────────────
 
-/**
- * /kata plan — interactive ad-hoc planning decoupled from sequential execution.
- * Users can plan milestone roadmaps, plan specific slices, or plan the next
- * pending slice without being forced into immediate execution afterward.
- *
- * Uses createBackend() so it works in both file and Linear modes.
- */
 export async function showPlan(
   ctx: ExtensionCommandContext,
   pi: ExtensionAPI,
@@ -708,7 +396,6 @@ export async function showPlan(
     return;
   }
 
-  // ── Bootstrap via backend (handles file vs Linear mode) ──
   let backend: Awaited<ReturnType<typeof createBackend>>;
   try {
     backend = await createBackend(basePath);
@@ -719,7 +406,6 @@ export async function showPlan(
   }
 
   const state = await backend.deriveState();
-
   if (state.phase === "blocked") {
     ctx.ui.notify(
       `Blocked: ${state.blockers?.join(", ")}. Fix and run /kata plan.`,
@@ -728,16 +414,15 @@ export async function showPlan(
     return;
   }
 
-  // ── No active milestone → offer to create one ──
-  if (!state.activeMilestone) {
+  // State A: no milestones
+  if (!state.activeMilestone && state.registry.length === 0) {
     const nextId = nextMilestoneId(state);
-
     const choice = await showNextAction(ctx as any, {
       title: "Kata — Plan",
-      summary: ["No active milestone."],
+      summary: ["No milestones yet."],
       actions: [
         {
-          id: "new_milestone",
+          id: "plan_new_milestone",
           label: "Plan new milestone",
           description: `Create and plan ${nextId}.`,
           recommended: true,
@@ -746,7 +431,7 @@ export async function showPlan(
       notYetMessage: "Run /kata plan when ready.",
     });
 
-    if (choice === "new_milestone") {
+    if (choice === "plan_new_milestone") {
       dispatchWorkflow(
         ctx,
         pi,
@@ -758,29 +443,106 @@ export async function showPlan(
     return;
   }
 
-  const mid = state.activeMilestone.id;
-  const milestoneTitle = state.activeMilestone.title;
+  // State E: all milestones complete (can have no active milestone)
+  if (state.phase === "complete") {
+    const nextId = nextMilestoneId(state);
+    const discussionMilestone =
+      state.activeMilestone ?? state.registry[state.registry.length - 1] ?? null;
+    const discussionMilestoneId = discussionMilestone?.id ?? nextId;
+    const discussionMilestoneTitle =
+      discussionMilestone?.title ?? "Completed milestones";
 
-  // ── Check for roadmap ──
-  const roadmapContent = await backend.readDocument(`${mid}-ROADMAP`);
+    const currentState = discussionMilestone
+      ? await buildPlanningContext(state, backend, discussionMilestone.id)
+      : [
+          "All milestones are complete.",
+          `Completed milestones: ${state.registry.length}.`,
+          state.blockers && state.blockers.length > 0
+            ? `Blockers: ${state.blockers.join(", ")}`
+            : "Blockers: none.",
+        ].join("\n");
 
-  if (!roadmapContent) {
-    // No roadmap → offer to plan the milestone roadmap
     const choice = await showNextAction(ctx as any, {
-      title: `Kata — Plan ${mid}`,
-      summary: [`${mid}: ${milestoneTitle} — no roadmap yet.`],
+      title: "Kata — Plan",
+      summary: ["All milestones are complete."],
       actions: [
         {
-          id: "plan_roadmap",
-          label: "Plan milestone roadmap",
-          description: "Decompose the milestone into slices.",
+          id: "plan_new_milestone",
+          label: "Plan new milestone",
+          description: `Create and plan ${nextId}.`,
           recommended: true,
+        },
+        {
+          id: "discuss_planning",
+          label: "Discuss planning",
+          description: "Freeform planning discussion.",
         },
       ],
       notYetMessage: "Run /kata plan when ready.",
     });
 
-    if (choice === "plan_roadmap") {
+    if (choice === "plan_new_milestone") {
+      dispatchWorkflow(
+        ctx,
+        pi,
+        backend.buildDiscussPrompt(nextId, `New milestone ${nextId}.`),
+        "kata-plan",
+        "plan",
+      );
+      return;
+    }
+
+    if (choice === "discuss_planning") {
+      dispatchWorkflow(
+        ctx,
+        pi,
+        loadPrompt("guided-discuss-planning", {
+          milestoneId: discussionMilestoneId,
+          milestoneTitle: discussionMilestoneTitle,
+          currentState,
+        }),
+        "kata-plan",
+        "plan",
+      );
+    }
+    return;
+  }
+
+  const mid = state.activeMilestone?.id;
+  const milestoneTitle = state.activeMilestone?.title;
+  if (!mid || !milestoneTitle) {
+    ctx.ui.notify("No active milestone. Run /kata to continue.", "warning");
+    return;
+  }
+
+  const roadmapContent = await backend.readDocument(`${mid}-ROADMAP`);
+
+  // State B: active milestone, no roadmap
+  if (!roadmapContent) {
+    const currentState = await buildPlanningContext(state, backend, mid);
+    const choice = await showNextAction(ctx as any, {
+      title: `Kata — Plan ${mid}`,
+      summary: [
+        `${mid}: ${milestoneTitle}`,
+        "No roadmap exists yet for this milestone.",
+      ],
+      actions: [
+        {
+          id: "plan_milestone_roadmap",
+          label: "Plan milestone roadmap",
+          description: "Decompose this milestone into slices.",
+          recommended: true,
+        },
+        {
+          id: "discuss_planning",
+          label: "Discuss planning",
+          description: "Freeform planning discussion before making changes.",
+        },
+      ],
+      notYetMessage: "Run /kata plan when ready.",
+    });
+
+    if (choice === "plan_milestone_roadmap") {
       dispatchWorkflow(
         ctx,
         pi,
@@ -791,29 +553,133 @@ export async function showPlan(
         "kata-plan",
         "plan",
       );
+      return;
+    }
+
+    if (choice === "discuss_planning") {
+      dispatchWorkflow(
+        ctx,
+        pi,
+        loadPrompt("guided-discuss-planning", {
+          milestoneId: mid,
+          milestoneTitle,
+          currentState,
+        }),
+        "kata-plan",
+        "plan",
+      );
     }
     return;
   }
 
-  // ── Roadmap exists — offer slice planning options ──
   const roadmap = parseRoadmap(roadmapContent);
   const pendingSlices = roadmap.slices.filter((s) => !s.done);
 
+  const unplannedSlices = (
+    await Promise.all(
+      pendingSlices.map(async (slice) => {
+        const scope = backend.resolveSliceScope
+          ? await backend.resolveSliceScope(mid, slice.id)
+          : undefined;
+        const hasPlan = await backend.documentExists(`${slice.id}-PLAN`, scope);
+        return hasPlan ? null : slice;
+      }),
+    )
+  ).filter((slice): slice is RoadmapSliceEntry => slice !== null);
+
+  const currentState = await buildPlanningContext(state, backend, mid);
+
+  // State D: all slices complete in active milestone
   if (pendingSlices.length === 0) {
-    ctx.ui.notify("All slices are complete — nothing to plan.", "info");
+    const nextId = nextMilestoneId(state);
+    const choice = await showNextAction(ctx as any, {
+      title: `Kata — Plan ${mid}`,
+      summary: [
+        `${mid}: ${milestoneTitle}`,
+        "All slices in this milestone are complete.",
+      ],
+      actions: [
+        {
+          id: "plan_new_milestone",
+          label: "Plan new milestone",
+          description: `Create and plan ${nextId}.`,
+          recommended: true,
+        },
+        {
+          id: "add_slice",
+          label: "Add slices to current milestone",
+          description: "Add new slices to this milestone roadmap.",
+        },
+        {
+          id: "revise_roadmap",
+          label: "Revise milestone roadmap",
+          description: "Reshape scope and slice structure.",
+        },
+        {
+          id: "discuss_planning",
+          label: "Discuss planning",
+          description: "Freeform planning discussion.",
+        },
+      ],
+      notYetMessage: "Run /kata plan when ready.",
+    });
+
+    if (choice === "plan_new_milestone") {
+      dispatchWorkflow(
+        ctx,
+        pi,
+        backend.buildDiscussPrompt(nextId, `New milestone ${nextId}.`),
+        "kata-plan",
+        "plan",
+      );
+      return;
+    }
+
+    if (choice === "add_slice") {
+      dispatchWorkflow(
+        ctx,
+        pi,
+        loadPrompt("guided-add-slice", {
+          milestoneId: mid,
+          milestoneTitle,
+        }),
+        "kata-plan",
+        "plan",
+      );
+      return;
+    }
+
+    if (choice === "revise_roadmap") {
+      dispatchWorkflow(
+        ctx,
+        pi,
+        loadPrompt("guided-revise-roadmap", {
+          milestoneId: mid,
+          milestoneTitle,
+        }),
+        "kata-plan",
+        "plan",
+      );
+      return;
+    }
+
+    if (choice === "discuss_planning") {
+      dispatchWorkflow(
+        ctx,
+        pi,
+        loadPrompt("guided-discuss-planning", {
+          milestoneId: mid,
+          milestoneTitle,
+          currentState,
+        }),
+        "kata-plan",
+        "plan",
+      );
+    }
     return;
   }
 
-  // Check which slices already have plans (use slice scope in Linear mode)
-  const unplannedSlices: typeof pendingSlices = [];
-  for (const s of pendingSlices) {
-    const scope = backend.resolveSliceScope
-      ? await backend.resolveSliceScope(mid, s.id)
-      : undefined;
-    const hasPlan = await backend.readDocument(`${s.id}-PLAN`, scope);
-    if (!hasPlan) unplannedSlices.push(s);
-  }
-
+  // State C: active milestone has roadmap + pending slices
   const actions: Array<{
     id: string;
     label: string;
@@ -822,17 +688,15 @@ export async function showPlan(
   }> = [];
 
   if (unplannedSlices.length > 0) {
-    // Shortcut: plan the next unplanned slice
-    const next = unplannedSlices[0];
+    const nextSlice = unplannedSlices[0]!;
     actions.push({
-      id: `plan_next`,
-      label: `Plan ${next.id}: ${next.title}`,
-      description: "Plan the next unplanned slice.",
+      id: "plan_next_unplanned",
+      label: `Plan next unplanned slice (${nextSlice.id})`,
+      description: `${nextSlice.id}: ${nextSlice.title}`,
       recommended: true,
     });
   }
 
-  // Offer to pick any pending slice
   if (pendingSlices.length > 1) {
     actions.push({
       id: "pick_slice",
@@ -842,12 +706,33 @@ export async function showPlan(
     });
   }
 
-  // Always offer re-planning the roadmap
-  actions.push({
-    id: "replan_roadmap",
-    label: "Re-plan milestone roadmap",
-    description: "Revise the slice decomposition.",
-  });
+  actions.push(
+    {
+      id: "add_slice",
+      label: "Add a new slice",
+      description: "Append a new slice to this milestone roadmap.",
+    },
+    {
+      id: "resequence_slices",
+      label: "Resequence slices",
+      description: "Reorder slices and dependencies.",
+    },
+    {
+      id: "revise_roadmap",
+      label: "Revise milestone roadmap",
+      description: "Broader roadmap revision across slices/scope.",
+    },
+    {
+      id: "plan_new_milestone",
+      label: "Plan new milestone",
+      description: "Define a subsequent milestone now.",
+    },
+    {
+      id: "discuss_planning",
+      label: "Discuss planning",
+      description: "Freeform planning discussion.",
+    },
+  );
 
   const choice = await showNextAction(ctx as any, {
     title: `Kata — Plan ${mid}`,
@@ -861,15 +746,15 @@ export async function showPlan(
 
   if (choice === "not_yet") return;
 
-  if (choice === "plan_next" && unplannedSlices.length > 0) {
-    const next = unplannedSlices[0];
+  if (choice === "plan_next_unplanned" && unplannedSlices.length > 0) {
+    const nextSlice = unplannedSlices[0]!;
     dispatchWorkflow(
       ctx,
       pi,
       loadPrompt("guided-plan-slice", {
         milestoneId: mid,
-        sliceId: next.id,
-        sliceTitle: next.title,
+        sliceId: nextSlice.id,
+        sliceTitle: nextSlice.title,
       }),
       "kata-plan",
       "plan",
@@ -878,18 +763,17 @@ export async function showPlan(
   }
 
   if (choice === "pick_slice") {
-    // Sub-picker for which slice
-    const sliceActions = pendingSlices.map((s, i) => ({
-      id: s.id,
-      label: `${s.id}: ${s.title}`,
-      description: unplannedSlices.some((u) => u.id === s.id)
+    const sliceActions = pendingSlices.map((slice, i) => ({
+      id: slice.id,
+      label: `${slice.id}: ${slice.title}`,
+      description: unplannedSlices.some((s) => s.id === slice.id)
         ? "unplanned"
-        : "has plan — re-plan",
+        : "has plan — replan",
       recommended: i === 0,
     }));
 
     const sliceChoice = await showNextAction(ctx as any, {
-      title: `Kata — Pick slice to plan`,
+      title: "Kata — Pick slice to plan",
       summary: [`${mid}: ${milestoneTitle}`],
       actions: sliceActions,
       notYetMessage: "Run /kata plan when ready.",
@@ -897,16 +781,16 @@ export async function showPlan(
 
     if (sliceChoice === "not_yet") return;
 
-    const chosen = pendingSlices.find((s) => s.id === sliceChoice);
-    if (!chosen) return;
+    const picked = pendingSlices.find((s) => s.id === sliceChoice);
+    if (!picked) return;
 
     dispatchWorkflow(
       ctx,
       pi,
       loadPrompt("guided-plan-slice", {
         milestoneId: mid,
-        sliceId: chosen.id,
-        sliceTitle: chosen.title,
+        sliceId: picked.id,
+        sliceTitle: picked.title,
       }),
       "kata-plan",
       "plan",
@@ -914,11 +798,11 @@ export async function showPlan(
     return;
   }
 
-  if (choice === "replan_roadmap") {
+  if (choice === "add_slice") {
     dispatchWorkflow(
       ctx,
       pi,
-      loadPrompt("guided-plan-milestone", {
+      loadPrompt("guided-add-slice", {
         milestoneId: mid,
         milestoneTitle,
       }),
@@ -927,13 +811,64 @@ export async function showPlan(
     );
     return;
   }
+
+  if (choice === "resequence_slices") {
+    dispatchWorkflow(
+      ctx,
+      pi,
+      loadPrompt("guided-resequence-slices", {
+        milestoneId: mid,
+        milestoneTitle,
+      }),
+      "kata-plan",
+      "plan",
+    );
+    return;
+  }
+
+  if (choice === "revise_roadmap") {
+    dispatchWorkflow(
+      ctx,
+      pi,
+      loadPrompt("guided-revise-roadmap", {
+        milestoneId: mid,
+        milestoneTitle,
+      }),
+      "kata-plan",
+      "plan",
+    );
+    return;
+  }
+
+  if (choice === "plan_new_milestone") {
+    const nextId = nextMilestoneId(state);
+    dispatchWorkflow(
+      ctx,
+      pi,
+      backend.buildDiscussPrompt(nextId, `New milestone ${nextId}.`),
+      "kata-plan",
+      "plan",
+    );
+    return;
+  }
+
+  if (choice === "discuss_planning") {
+    dispatchWorkflow(
+      ctx,
+      pi,
+      loadPrompt("guided-discuss-planning", {
+        milestoneId: mid,
+        milestoneTitle,
+        currentState,
+      }),
+      "kata-plan",
+      "plan",
+    );
+  }
 }
 
-// ─── Smart Entry Point ────────────────────────────────────────────────────────
+// ─── Smart Entry ────────────────────────────────────────────────────────────
 
-/**
- * The one wizard. Reads state, shows contextual options, dispatches into the workflow doc.
- */
 export async function showSmartEntry(
   ctx: ExtensionCommandContext,
   pi: ExtensionAPI,
@@ -948,7 +883,6 @@ export async function showSmartEntry(
     return;
   }
 
-  // ── Bootstrap via backend (handles file vs Linear mode) ──
   let backend: Awaited<ReturnType<typeof createBackend>>;
   try {
     backend = await createBackend(basePath);
@@ -959,7 +893,6 @@ export async function showSmartEntry(
     return;
   }
 
-  // Check for crash from previous auto-mode session
   const crashLock = readCrashLock(basePath);
   if (crashLock) {
     clearLock(basePath);
@@ -980,6 +913,7 @@ export async function showSmartEntry(
         },
       ],
     });
+
     if (resume === "resume") {
       await startAuto(ctx, pi, basePath, false);
       return;
@@ -987,7 +921,6 @@ export async function showSmartEntry(
   }
 
   const state = await backend.deriveState();
-
   if (state.phase === "blocked") {
     ctx.ui.notify(
       `Blocked: ${state.blockers?.join(", ")}. Fix and run /kata.`,
@@ -997,11 +930,7 @@ export async function showSmartEntry(
   }
 
   if (!state.activeMilestone) {
-    // Guard: if a discuss session is already in flight, don't re-inject the prompt.
-    // Both /kata and /kata auto reach this branch when no milestone exists yet.
-    // Without this guard, every subsequent /kata call overwrites pendingAutoStart
-    // and fires another dispatchWorkflow, resetting the conversation mid-interview.
-    if (pendingAutoStart) {
+    if (pendingAutoStart?.basePath === basePath) {
       ctx.ui.notify(
         "Discussion already in progress — answer the question above to continue.",
         "info",
@@ -1013,52 +942,47 @@ export async function showSmartEntry(
     const isFirst = state.registry.length === 0;
 
     if (isFirst) {
-      // First ever — skip wizard, just ask directly
       pendingAutoStart = { ctx, pi, basePath, milestoneId: nextId };
       if (
         !dispatchWorkflow(
           ctx,
           pi,
-          backend.buildDiscussPrompt(
-            nextId,
-            `New project, milestone ${nextId}.`,
-          ),
+          backend.buildDiscussPrompt(nextId, `New project, milestone ${nextId}.`),
           "kata-run",
           "smart-entry",
         )
       ) {
         pendingAutoStart = null;
-        return;
       }
-    } else {
-      const choice = await showNextAction(ctx as any, {
-        title: "Kata — Kata Workflow",
-        summary: ["No active milestone."],
-        actions: [
-          {
-            id: "new_milestone",
-            label: "Create next milestone",
-            description: "Define what to build next.",
-            recommended: true,
-          },
-        ],
-        notYetMessage: "Run /kata when ready.",
-      });
+      return;
+    }
 
-      if (choice === "new_milestone") {
-        pendingAutoStart = { ctx, pi, basePath, milestoneId: nextId };
-        if (
-          !dispatchWorkflow(
-            ctx,
-            pi,
-            backend.buildDiscussPrompt(nextId, `New milestone ${nextId}.`),
-            "kata-run",
-            "smart-entry",
-          )
-        ) {
-          pendingAutoStart = null;
-          return;
-        }
+    const choice = await showNextAction(ctx as any, {
+      title: "Kata — Kata Workflow",
+      summary: ["No active milestone."],
+      actions: [
+        {
+          id: "new_milestone",
+          label: "Create next milestone",
+          description: "Define what to build next.",
+          recommended: true,
+        },
+      ],
+      notYetMessage: "Run /kata when ready.",
+    });
+
+    if (choice === "new_milestone") {
+      pendingAutoStart = { ctx, pi, basePath, milestoneId: nextId };
+      if (
+        !dispatchWorkflow(
+          ctx,
+          pi,
+          backend.buildDiscussPrompt(nextId, `New milestone ${nextId}.`),
+          "kata-run",
+          "smart-entry",
+        )
+      ) {
+        pendingAutoStart = null;
       }
     }
     return;
@@ -1067,7 +991,6 @@ export async function showSmartEntry(
   const milestoneId = state.activeMilestone.id;
   const milestoneTitle = state.activeMilestone.title;
 
-  // ── All milestones complete → New milestone ──────────────────────────
   if (state.phase === "complete") {
     const choice = await showNextAction(ctx as any, {
       title: `Kata — ${milestoneId}: ${milestoneTitle}`,
@@ -1090,7 +1013,6 @@ export async function showSmartEntry(
 
     if (choice === "new_milestone") {
       const nextId = nextMilestoneId(state);
-
       pendingAutoStart = { ctx, pi, basePath, milestoneId: nextId };
       if (
         !dispatchWorkflow(
@@ -1102,29 +1024,22 @@ export async function showSmartEntry(
         )
       ) {
         pendingAutoStart = null;
-        return;
       }
-    } else if (choice === "status") {
+      return;
+    }
+
+    if (choice === "status") {
       const { fireStatusViaCommand } = await import("./commands.js");
       await fireStatusViaCommand(ctx);
     }
     return;
   }
 
-  // ── No active slice ──────────────────────────────────────────────────
   if (!state.activeSlice) {
-    const roadmapFile = resolveMilestoneFile(basePath, milestoneId, "ROADMAP");
-    const hasRoadmap = !!(roadmapFile && (await loadFile(roadmapFile)));
+    const hasRoadmap = await backend.documentExists(`${milestoneId}-ROADMAP`);
 
     if (!hasRoadmap) {
-      // No roadmap → discuss or plan
-      const contextFile = resolveMilestoneFile(
-        basePath,
-        milestoneId,
-        "CONTEXT",
-      );
-      const hasContext = !!(contextFile && (await loadFile(contextFile)));
-
+      const hasContext = await backend.documentExists(`${milestoneId}-CONTEXT`);
       const actions = [
         {
           id: "plan",
@@ -1157,102 +1072,104 @@ export async function showSmartEntry(
       });
 
       if (choice === "plan") {
-        if (
-          !dispatchWorkflow(
-            ctx,
-            pi,
-            loadPrompt("guided-plan-milestone", {
-              milestoneId,
-              milestoneTitle,
-            }),
-            "kata-run",
-            "smart-entry",
-          )
-        )
-          return;
-      } else if (choice === "discuss") {
-        if (
-          !dispatchWorkflow(
-            ctx,
-            pi,
-            loadPrompt("guided-discuss-milestone", {
-              milestoneId,
-              milestoneTitle,
-            }),
-            "kata-run",
-            "smart-entry",
-          )
-        )
-          return;
+        dispatchWorkflow(
+          ctx,
+          pi,
+          loadPrompt("guided-plan-milestone", {
+            milestoneId,
+            milestoneTitle,
+          }),
+          "kata-run",
+          "smart-entry",
+        );
+        return;
       }
-    } else {
-      // Roadmap exists — either blocked or ready for auto
-      // ── PR onboarding check ────────────────────────────────────────
-      const hasGithubRemote = detectGithubRemote(basePath);
-      const effectivePrefs = loadEffectiveKataPreferences();
-      const prEnabled = effectivePrefs?.preferences?.pr?.enabled === true;
-      const { getPrOnboardingRecommendation } = await import("./pr-command.js");
-      const prRecommendation = getPrOnboardingRecommendation(prEnabled, hasGithubRemote);
 
-      const summaryLines = ["Roadmap exists. Ready to execute."];
-      if (prRecommendation) summaryLines.push(prRecommendation);
-
-      const actions = [
-        {
-          id: "auto",
-          label: "Go auto",
-          description:
-            "Execute everything automatically until milestone complete.",
-          recommended: true,
-        },
-        ...(prRecommendation && hasGithubRemote && !prEnabled
-          ? [
-              {
-                id: "setup_pr",
-                label: "Set up PR lifecycle",
-                description:
-                  "Enable PR creation, review, and merge for this project.",
-              },
-            ]
-          : []),
-        {
-          id: "status",
-          label: "View status",
-          description: "See milestone progress and blockers.",
-        },
-      ];
-
-      const choice = await showNextAction(ctx as any, {
-        title: `Kata — ${milestoneId}: ${milestoneTitle}`,
-        summary: summaryLines,
-        actions,
-        notYetMessage: "Run /kata status for details.",
-      });
-
-      if (choice === "auto") {
-        await startAuto(ctx, pi, basePath, false);
-      } else if (choice === "setup_pr") {
-        const enableResult = enablePrPreferences(basePath);
-        if (enableResult === "enabled") {
-          ctx.ui.notify(
-            "PR lifecycle enabled. Set auto_create, base_branch, and review_on_create in .kata/preferences.md as needed.",
-            "info",
-          );
-        } else if (enableResult === "already-enabled") {
-          ctx.ui.notify(
-            "PR lifecycle is already enabled in .kata/preferences.md.",
-            "info",
-          );
-        } else {
-          ctx.ui.notify(
-            "Could not update .kata/preferences.md automatically. Please set pr.enabled: true manually.",
-            "warning",
-          );
-        }
-      } else if (choice === "status") {
-        const { fireStatusViaCommand } = await import("./commands.js");
-        await fireStatusViaCommand(ctx);
+      if (choice === "discuss") {
+        dispatchWorkflow(
+          ctx,
+          pi,
+          loadPrompt("guided-discuss-milestone", {
+            milestoneId,
+            milestoneTitle,
+          }),
+          "kata-run",
+          "smart-entry",
+        );
       }
+      return;
+    }
+
+    const hasGithubRemote = detectGithubRemote(basePath);
+    const effectivePrefs = loadEffectiveKataPreferences();
+    const prEnabled = effectivePrefs?.preferences?.pr?.enabled === true;
+    const { getPrOnboardingRecommendation } = await import("./pr-command.js");
+    const prRecommendation = getPrOnboardingRecommendation(prEnabled, hasGithubRemote);
+
+    const summaryLines = ["Roadmap exists. Ready to execute."];
+    if (prRecommendation) summaryLines.push(prRecommendation);
+
+    const actions = [
+      {
+        id: "auto",
+        label: "Go auto",
+        description:
+          "Execute everything automatically until milestone complete.",
+        recommended: true,
+      },
+      ...(prRecommendation && hasGithubRemote && !prEnabled
+        ? [
+            {
+              id: "setup_pr",
+              label: "Set up PR lifecycle",
+              description:
+                "Enable PR creation, review, and merge for this project.",
+            },
+          ]
+        : []),
+      {
+        id: "status",
+        label: "View status",
+        description: "See milestone progress and blockers.",
+      },
+    ];
+
+    const choice = await showNextAction(ctx as any, {
+      title: `Kata — ${milestoneId}: ${milestoneTitle}`,
+      summary: summaryLines,
+      actions,
+      notYetMessage: "Run /kata status for details.",
+    });
+
+    if (choice === "auto") {
+      await startAuto(ctx, pi, basePath, false);
+      return;
+    }
+
+    if (choice === "setup_pr") {
+      const enableResult = enablePrPreferences(basePath);
+      if (enableResult === "enabled") {
+        ctx.ui.notify(
+          "PR lifecycle enabled. Set auto_create, base_branch, and review_on_create in .kata/preferences.md as needed.",
+          "info",
+        );
+      } else if (enableResult === "already-enabled") {
+        ctx.ui.notify(
+          "PR lifecycle is already enabled in .kata/preferences.md.",
+          "info",
+        );
+      } else {
+        ctx.ui.notify(
+          "Could not update .kata/preferences.md automatically. Please set pr.enabled: true manually.",
+          "warning",
+        );
+      }
+      return;
+    }
+
+    if (choice === "status") {
+      const { fireStatusViaCommand } = await import("./commands.js");
+      await fireStatusViaCommand(ctx);
     }
     return;
   }
@@ -1260,22 +1177,12 @@ export async function showSmartEntry(
   const sliceId = state.activeSlice.id;
   const sliceTitle = state.activeSlice.title;
 
-  // ── Slice needs planning ─────────────────────────────────────────────
   if (state.phase === "planning") {
-    const contextFile = resolveSliceFile(
-      basePath,
-      milestoneId,
-      sliceId,
-      "CONTEXT",
-    );
-    const researchFile = resolveSliceFile(
-      basePath,
-      milestoneId,
-      sliceId,
-      "RESEARCH",
-    );
-    const hasContext = !!(contextFile && (await loadFile(contextFile)));
-    const hasResearch = !!(researchFile && (await loadFile(researchFile)));
+    const sliceScope = backend.resolveSliceScope
+      ? await backend.resolveSliceScope(milestoneId, sliceId)
+      : undefined;
+    const hasContext = await backend.documentExists(`${sliceId}-CONTEXT`, sliceScope);
+    const hasResearch = await backend.documentExists(`${sliceId}-RESEARCH`, sliceScope);
 
     const actions = [
       {
@@ -1309,76 +1216,64 @@ export async function showSmartEntry(
       },
     ];
 
-    const summaryParts = [];
+    const summaryParts: string[] = [];
     if (hasContext) summaryParts.push("context ✓");
     if (hasResearch) summaryParts.push("research ✓");
-    const summaryLine =
-      summaryParts.length > 0
-        ? `${sliceId}: ${sliceTitle} (${summaryParts.join(", ")})`
-        : `${sliceId}: ${sliceTitle} — ready for planning.`;
 
     const choice = await showNextAction(ctx as any, {
       title: `Kata — ${milestoneId} / ${sliceId}: ${sliceTitle}`,
-      summary: [summaryLine],
+      summary: [
+        summaryParts.length > 0
+          ? `${sliceId}: ${sliceTitle} (${summaryParts.join(", ")})`
+          : `${sliceId}: ${sliceTitle} — ready for planning.`,
+      ],
       actions,
       notYetMessage: "Run /kata when ready.",
     });
 
     if (choice === "plan") {
-      if (
-        !dispatchWorkflow(
-          ctx,
-          pi,
-          loadPrompt("guided-plan-slice", {
-            milestoneId,
-            sliceId,
-            sliceTitle,
-          }),
-          "kata-run",
-          "smart-entry",
-        )
-      )
-        return;
-    } else if (choice === "discuss") {
-      if (
-        !dispatchWorkflow(
-          ctx,
-          pi,
-          await buildDiscussSlicePrompt(
-            milestoneId,
-            sliceId,
-            sliceTitle,
-            basePath,
-            backend,
-          ),
-          "kata-run",
-          "smart-entry",
-        )
-      )
-        return;
-    } else if (choice === "research") {
-      if (
-        !dispatchWorkflow(
-          ctx,
-          pi,
-          loadPrompt("guided-research-slice", {
-            milestoneId,
-            sliceId,
-            sliceTitle,
-          }),
-          "kata-run",
-          "smart-entry",
-        )
-      )
-        return;
-    } else if (choice === "status") {
+      dispatchWorkflow(
+        ctx,
+        pi,
+        loadPrompt("guided-plan-slice", {
+          milestoneId,
+          sliceId,
+          sliceTitle,
+        }),
+        "kata-run",
+        "smart-entry",
+      );
+      return;
+    }
+
+    if (choice === "discuss") {
+      const prompt = await buildDiscussSlicePrompt(milestoneId, sliceId, sliceTitle, backend);
+      dispatchWorkflow(ctx, pi, prompt, "kata-run", "smart-entry");
+      return;
+    }
+
+    if (choice === "research") {
+      dispatchWorkflow(
+        ctx,
+        pi,
+        loadPrompt("guided-research-slice", {
+          milestoneId,
+          sliceId,
+          sliceTitle,
+        }),
+        "kata-run",
+        "smart-entry",
+      );
+      return;
+    }
+
+    if (choice === "status") {
       const { fireStatusViaCommand } = await import("./commands.js");
       await fireStatusViaCommand(ctx);
     }
     return;
   }
 
-  // ── All tasks done → Complete slice ──────────────────────────────────
   if (state.phase === "summarizing") {
     const choice = await showNextAction(ctx as any, {
       title: `Kata — ${milestoneId} / ${sliceId}: ${sliceTitle}`,
@@ -1388,76 +1283,58 @@ export async function showSmartEntry(
           id: "complete",
           label: `Complete ${sliceId}`,
           description:
-            "Write slice summary, UAT, mark done, and squash-merge to main.",
+            "Write summary/UAT, mark done, and finish the slice lifecycle.",
           recommended: true,
         },
         {
           id: "status",
           label: "View status",
-          description: "Review tasks before completing.",
+          description: "Review progress before completing.",
         },
       ],
       notYetMessage: "Run /kata when ready.",
     });
 
     if (choice === "complete") {
-      if (
-        !dispatchWorkflow(
-          ctx,
-          pi,
-          loadPrompt("guided-complete-slice", {
-            milestoneId,
-            sliceId,
-            sliceTitle,
-          }),
-          "kata-run",
-          "smart-entry",
-        )
-      )
-        return;
-    } else if (choice === "status") {
+      dispatchWorkflow(
+        ctx,
+        pi,
+        loadPrompt("guided-complete-slice", {
+          milestoneId,
+          sliceId,
+          sliceTitle,
+        }),
+        "kata-run",
+        "smart-entry",
+      );
+      return;
+    }
+
+    if (choice === "status") {
       const { fireStatusViaCommand } = await import("./commands.js");
       await fireStatusViaCommand(ctx);
     }
     return;
   }
 
-  // ── Active task → Execute ────────────────────────────────────────────
   if (state.activeTask) {
     const taskId = state.activeTask.id;
     const taskTitle = state.activeTask.title;
 
-    const continueFile = resolveSliceFile(
-      basePath,
-      milestoneId,
-      sliceId,
-      "CONTINUE",
-    );
-    const sDir = resolveSlicePath(basePath, milestoneId, sliceId);
-    const hasInterrupted =
-      !!(continueFile && (await loadFile(continueFile))) ||
-      !!(sDir && (await loadFile(join(sDir, "continue.md"))));
-
     const choice = await showNextAction(ctx as any, {
       title: `Kata — ${milestoneId} / ${sliceId}: ${sliceTitle}`,
-      summary: [
-        hasInterrupted
-          ? `Resuming: ${taskId} — ${taskTitle}`
-          : `Next: ${taskId} — ${taskTitle}`,
-      ],
+      summary: [`Next: ${taskId} — ${taskTitle}`],
       actions: [
         {
           id: "execute",
-          label: hasInterrupted ? `Resume ${taskId}` : `Execute ${taskId}`,
-          description: hasInterrupted
-            ? "Continue from where you left off."
-            : `Start working on "${taskTitle}".`,
+          label: `Execute ${taskId}`,
+          description: `Start working on "${taskTitle}".`,
           recommended: true,
         },
         {
           id: "auto",
           label: "Go auto",
-          description: "Execute this and all remaining tasks automatically.",
+          description: "Execute this and remaining tasks automatically.",
         },
         {
           id: "status",
@@ -1474,45 +1351,29 @@ export async function showSmartEntry(
     }
 
     if (choice === "execute") {
-      if (hasInterrupted) {
-        if (
-          !dispatchWorkflow(
-            ctx,
-            pi,
-            loadPrompt("guided-resume-task", {
-              milestoneId,
-              sliceId,
-            }),
-            "kata-run",
-            "smart-entry",
-          )
-        )
-          return;
-      } else {
-        if (
-          !dispatchWorkflow(
-            ctx,
-            pi,
-            loadPrompt("guided-execute-task", {
-              milestoneId,
-              sliceId,
-              taskId,
-              taskTitle,
-            }),
-            "kata-run",
-            "smart-entry",
-          )
-        )
-          return;
-      }
-    } else if (choice === "status") {
+      const promptName = state.phase === "verifying" ? "guided-resume-task" : "guided-execute-task";
+      dispatchWorkflow(
+        ctx,
+        pi,
+        loadPrompt(promptName, {
+          milestoneId,
+          sliceId,
+          taskId,
+          taskTitle,
+        }),
+        "kata-run",
+        "smart-entry",
+      );
+      return;
+    }
+
+    if (choice === "status") {
       const { fireStatusViaCommand } = await import("./commands.js");
       await fireStatusViaCommand(ctx);
     }
     return;
   }
 
-  // ── Fallback: show status ────────────────────────────────────────────
   const { fireStatusViaCommand } = await import("./commands.js");
   await fireStatusViaCommand(ctx);
 }

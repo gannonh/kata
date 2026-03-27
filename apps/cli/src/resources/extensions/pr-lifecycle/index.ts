@@ -149,7 +149,7 @@ export default function (pi: ExtensionAPI): void {
       sliceId?: string;
       cwd?: string;
     }, _signal: unknown, _onUpdate: unknown, ctx: ExtensionContext) {
-      // Build Linear cross-linking config when applicable
+      // Build Linear config when available (used for cross-linking and PR body artifact loading)
       let linearConfig: PrCreateOptions["linearConfig"];
       try {
         const effectivePrefs = loadEffectiveKataPreferences();
@@ -157,13 +157,9 @@ export default function (pi: ExtensionAPI): void {
         const config = loadEffectiveLinearProjectConfig(effectivePrefs);
         const apiKey = process.env.LINEAR_API_KEY;
 
-        if (
-          shouldCrossLink(prPrefs, config.workflowMode) &&
-          apiKey &&
-          config.linear.projectId
-        ) {
+        if (config.workflowMode === "linear" && apiKey && config.linear.projectId) {
           linearConfig = {
-            prPrefs: prPrefs!,
+            prPrefs: prPrefs ?? {},
             workflowMode: config.workflowMode,
             projectId: config.linear.projectId,
             apiKey,

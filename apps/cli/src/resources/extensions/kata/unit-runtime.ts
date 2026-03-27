@@ -1,13 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import {
-  kataRoot,
-  relSliceFile,
-  relTaskFile,
-  resolveSliceFile,
-  resolveTaskFile,
-} from "./paths.ts";
-import { loadFile, parseTaskPlanMustHaves, countMustHavesMentionedInSummary } from "./files.ts";
+import { kataRoot } from "./paths.ts";
 
 export type UnitRuntimePhase =
   | "dispatched"
@@ -17,16 +10,6 @@ export type UnitRuntimePhase =
   | "finalized"
   | "paused"
   | "skipped";
-
-export interface ExecuteTaskRecoveryStatus {
-  planPath: string;
-  summaryPath: string;
-  summaryExists: boolean;
-  taskChecked: boolean;
-  nextActionAdvanced: boolean;
-  mustHaveCount: number;
-  mustHavesMentionedInSummary: number;
-}
 
 export interface AutoUnitRuntimeRecord {
   version: 1;
@@ -40,7 +23,7 @@ export interface AutoUnitRuntimeRecord {
   lastProgressAt: number;
   progressCount: number;
   lastProgressKind: string;
-  recovery?: ExecuteTaskRecoveryStatus;
+  recovery?: unknown;
   recoveryAttempts?: number;
   lastRecoveryReason?: "idle" | "hard";
 }
@@ -97,67 +80,4 @@ export function readUnitRuntimeRecord(basePath: string, unitType: string, unitId
 export function clearUnitRuntimeRecord(basePath: string, unitType: string, unitId: string): void {
   const path = runtimePath(basePath, unitType, unitId);
   if (existsSync(path)) unlinkSync(path);
-}
-
-export async function inspectExecuteTaskDurability(
-  basePath: string,
-  unitId: string,
-): Promise<ExecuteTaskRecoveryStatus | null> {
-  const [mid, sid, tid] = unitId.split("/");
-  if (!mid || !sid || !tid) return null;
-
-  const planAbs = resolveSliceFile(basePath, mid, sid, "PLAN");
-  const summaryAbs = resolveTaskFile(basePath, mid, sid, tid, "SUMMARY");
-  const stateAbs = join(kataRoot(basePath), "STATE.md");
-
-  const planPath = relSliceFile(basePath, mid, sid, "PLAN");
-  const summaryPath = relTaskFile(basePath, mid, sid, tid, "SUMMARY");
-
-  const planContent = planAbs ? await loadFile(planAbs) : null;
-  const stateContent = existsSync(stateAbs) ? readFileSync(stateAbs, "utf-8") : "";
-  const summaryExists = !!(summaryAbs && existsSync(summaryAbs));
-
-  const escapedTid = tid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const taskChecked = !!planContent && new RegExp(`^- \\[[xX]\\] \\*\\*${escapedTid}:`, "m").test(planContent);
-  const nextActionAdvanced = !new RegExp(`Execute ${tid}\\b`).test(stateContent);
-
-  // Must-have coverage: load task plan and count mentions in summary
-  let mustHaveCount = 0;
-  let mustHavesMentionedInSummary = 0;
-
-  const taskPlanAbs = resolveTaskFile(basePath, mid, sid, tid, "PLAN");
-  if (taskPlanAbs) {
-    const taskPlanContent = await loadFile(taskPlanAbs);
-    if (taskPlanContent) {
-      const mustHaves = parseTaskPlanMustHaves(taskPlanContent);
-      mustHaveCount = mustHaves.length;
-      if (mustHaveCount > 0 && summaryExists && summaryAbs) {
-        const summaryContent = await loadFile(summaryAbs);
-        if (summaryContent) {
-          mustHavesMentionedInSummary = countMustHavesMentionedInSummary(mustHaves, summaryContent);
-        }
-      }
-    }
-  }
-
-  return {
-    planPath,
-    summaryPath,
-    summaryExists,
-    taskChecked,
-    nextActionAdvanced,
-    mustHaveCount,
-    mustHavesMentionedInSummary,
-  };
-}
-
-export function formatExecuteTaskRecoveryStatus(status: ExecuteTaskRecoveryStatus): string {
-  const missing = [] as string[];
-  if (!status.summaryExists) missing.push(`summary missing (${status.summaryPath})`);
-  if (!status.taskChecked) missing.push(`task checkbox unchecked in ${status.planPath}`);
-  if (!status.nextActionAdvanced) missing.push("state next action still points at the timed-out task");
-  if (status.mustHaveCount > 0 && status.mustHavesMentionedInSummary < status.mustHaveCount) {
-    missing.push(`must-have gap: ${status.mustHavesMentionedInSummary} of ${status.mustHaveCount} must-haves addressed in summary`);
-  }
-  return missing.length > 0 ? missing.join("; ") : "all durable task artifacts present";
 }
