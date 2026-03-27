@@ -50,6 +50,7 @@ export default function (pi: ExtensionAPI): void {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        console.error("[symphony] escalation watch error:", error);
         ctx.ui.notify(`Symphony escalation listener disconnected: ${message}`, "warning");
       }
     })();

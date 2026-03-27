@@ -3987,6 +3987,38 @@ async fn test_handle_worker_completion_cleans_pending_escalations_for_released_i
 }
 
 #[tokio::test]
+async fn test_ingest_agent_event_cleans_pending_escalation_for_non_running_issue() {
+    let mut orchestrator = Orchestrator::new(test_config(2), String::new());
+    let registry = orchestrator.escalation_registry();
+
+    let request = escalation_request("esc-timeout", "issue-timeout");
+    let issue_id = request.issue_id.clone();
+    let issue_identifier = request.issue_identifier.clone();
+    let request_id = request.id.clone();
+
+    let (tx, rx) = tokio::sync::oneshot::channel::<EscalationResponse>();
+    registry.register(request, tx);
+    assert_eq!(registry.pending_snapshot().len(), 1);
+
+    orchestrator.ingest_agent_event(
+        &issue_id,
+        &AgentEvent::EscalationTimedOut {
+            timestamp: Utc::now(),
+            issue_id: issue_id.clone(),
+            issue_identifier,
+            request_id,
+            timeout_ms: 30_000,
+        },
+    );
+
+    assert!(registry.pending_snapshot().is_empty());
+    assert!(
+        rx.await.is_err(),
+        "cleanup should drop pending escalation sender"
+    );
+}
+
+#[tokio::test]
 async fn test_escalation_registry_cancel_for_issue_cleans_up() {
     let registry = EscalationRegistry::default();
 

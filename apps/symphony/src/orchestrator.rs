@@ -2169,6 +2169,15 @@ impl Orchestrator {
     }
 
     pub fn ingest_agent_event(&mut self, issue_id: &str, event: &AgentEvent) {
+        if let Some(request_id) = match event {
+            AgentEvent::EscalationResponded { request_id, .. }
+            | AgentEvent::EscalationTimedOut { request_id, .. }
+            | AgentEvent::EscalationCancelled { request_id, .. } => Some(request_id.as_str()),
+            _ => None,
+        } {
+            let _ = self.escalation_registry.remove(request_id);
+        }
+
         if !self.state.running.contains_key(issue_id) {
             tracing::debug!(
                 issue_id = %issue_id,
@@ -2252,7 +2261,6 @@ impl Orchestrator {
                 latency_ms,
                 ..
             } => {
-                let _ = self.escalation_registry.remove(request_id);
                 tracing::info!(
                     event = "escalation_responded",
                     request_id = %request_id,
@@ -2266,7 +2274,6 @@ impl Orchestrator {
                 timeout_ms,
                 ..
             } => {
-                let _ = self.escalation_registry.remove(request_id);
                 tracing::warn!(
                     event = "escalation_timed_out",
                     request_id = %request_id,
@@ -2277,7 +2284,6 @@ impl Orchestrator {
             AgentEvent::EscalationCancelled {
                 request_id, reason, ..
             } => {
-                let _ = self.escalation_registry.remove(request_id);
                 tracing::warn!(
                     event = "escalation_cancelled",
                     request_id = %request_id,
