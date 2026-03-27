@@ -259,7 +259,13 @@ impl BootstrapDeps for RuntimeBootstrapDeps {
         let snapshot_handle = orchestrator.create_snapshot_handle();
         let tui_snapshot_handle = snapshot_handle.clone();
         let refresh_sender = orchestrator.create_refresh_channel();
-        let http_state = HttpServerState::new(Arc::new(snapshot_handle), Arc::new(refresh_sender));
+        let event_hub = orchestrator.create_event_hub();
+        let http_state = HttpServerState::with_event_stream(
+            Arc::new(snapshot_handle),
+            Arc::new(refresh_sender),
+            event_hub,
+            symphony::http_server::EventStreamConfig::default(),
+        );
 
         let mut tui_shutdown = None;
         let mut tui_exit = None;

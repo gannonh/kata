@@ -9,13 +9,14 @@ use std::time::Duration;
 use crate::codex::app_server;
 use crate::config;
 use crate::domain::{
-    AgentBackend, AgentEvent, CodexConfig, CodexTotals, CompletedEntry, HooksConfig, Issue,
-    OrchestratorSnapshot, OrchestratorState, PiAgentConfig, PollingSnapshot, RateLimitInfo,
-    RefreshRequestOutcome, RetryEntry, RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot,
-    ServiceConfig, SessionTokenUsage, TrackerConfig, WorkerSessionInfo, WorkspaceConfig,
-    WorkspaceIsolation,
+    AgentBackend, AgentEvent, CodexConfig, CodexTotals, CompletedEntry, EventKind, EventSeverity,
+    HooksConfig, Issue, OrchestratorSnapshot, OrchestratorState, PiAgentConfig, PollingSnapshot,
+    RateLimitInfo, RefreshRequestOutcome, RetryEntry, RetrySnapshotEntry, RunAttempt,
+    RunningSessionSnapshot, ServiceConfig, SessionTokenUsage, TrackerConfig, WorkerSessionInfo,
+    WorkspaceConfig, WorkspaceIsolation,
 };
 use crate::error::{Result, SymphonyError};
+use crate::http_server::EventHub;
 use crate::notifications;
 use crate::pi_agent::rpc_bridge;
 use crate::session_summary::{compact_session_id, normalize_whitespace, truncate_for_display};
@@ -1177,6 +1178,8 @@ pub struct Orchestrator {
     last_poll_at: Option<DateTime<Utc>>,
     /// Optional shared snapshot handle for HTTP read access.
     snapshot_handle: Option<SnapshotHandle>,
+    /// Optional shared event hub for websocket stream publication.
+    event_hub: Option<EventHub>,
     /// Optional refresh receiver for HTTP control access.
     refresh_receiver: Option<RefreshReceiver>,
     /// Channel for receiving results from spawned worker tasks.
@@ -1251,6 +1254,7 @@ impl Orchestrator {
             poll_count: 0,
             last_poll_at: None,
             snapshot_handle: None,
+            event_hub: None,
             refresh_receiver: None,
             worker_result_rx,
             worker_result_tx,
@@ -1420,7 +1424,7 @@ impl Orchestrator {
                                 event = "refresh_requested",
                                 "HTTP refresh request woke orchestrator loop; triggering immediate tick"
                             );
-                            self.events.push(RuntimeEvent::RefreshRequested);
+                            self.emit_runtime_event(RuntimeEvent::RefreshRequested);
                             tick_requested = true;
                         }
                     }
@@ -1539,7 +1543,7 @@ impl Orchestrator {
     }
 
     pub fn startup_cleanup(&mut self, port: &mut dyn OrchestratorPort) -> Result<()> {
-        self.events.push(RuntimeEvent::StartupCleanup);
+        self.emit_runtime_event(RuntimeEvent::StartupCleanup);
         tracing::info!(
             phase = "startup_cleanup",
             "running startup terminal cleanup"
@@ -1571,11 +1575,11 @@ impl Orchestrator {
             self.refresh_runtime_config();
         }
 
-        self.events.push(RuntimeEvent::Reconcile);
+        self.emit_runtime_event(RuntimeEvent::Reconcile);
         tracing::info!(phase = "reconcile", "starting orchestrator tick phase");
         self.reconcile_running(port)?;
 
-        self.events.push(RuntimeEvent::Validate);
+        self.emit_runtime_event(RuntimeEvent::Validate);
         tracing::info!(phase = "validate", "starting orchestrator tick phase");
 
         if let Err(err) = config::validate(&self.config) {
@@ -1585,7 +1589,7 @@ impl Orchestrator {
                 error = %err,
                 "dispatch skipped due to invalid effective config"
             );
-            self.events.push(RuntimeEvent::ValidationSkippedDispatch);
+            self.emit_runtime_event(RuntimeEvent::ValidationSkippedDispatch);
             return Ok(TickResult {
                 dispatched_issue_ids: vec![],
                 dispatched_issues: vec![],
@@ -1600,7 +1604,7 @@ impl Orchestrator {
                 error = %err,
                 "dispatch skipped due to preflight validation failure"
             );
-            self.events.push(RuntimeEvent::ValidationSkippedDispatch);
+            self.emit_runtime_event(RuntimeEvent::ValidationSkippedDispatch);
             return Ok(TickResult {
                 dispatched_issue_ids: vec![],
                 dispatched_issues: vec![],
@@ -1608,7 +1612,7 @@ impl Orchestrator {
             });
         }
 
-        self.events.push(RuntimeEvent::Dispatch);
+        self.emit_runtime_event(RuntimeEvent::Dispatch);
         tracing::info!(phase = "dispatch", "starting orchestrator tick phase");
 
         let candidates = port.fetch_candidate_issues()?;
@@ -1800,7 +1804,7 @@ impl Orchestrator {
             "queued issue retry"
         );
 
-        self.events.push(RuntimeEvent::RetryScheduled {
+        self.emit_runtime_event(RuntimeEvent::RetryScheduled {
             issue_id: issue_id.to_string(),
             attempt,
             due_at_ms,
@@ -1825,7 +1829,7 @@ impl Orchestrator {
                 "ignored stale retry timer firing"
             );
 
-            self.events.push(RuntimeEvent::RetryIgnoredStale {
+            self.emit_runtime_event(RuntimeEvent::RetryIgnoredStale {
                 issue_id: issue_id.to_string(),
                 token: token.to_string(),
             });
@@ -1896,6 +1900,7 @@ impl Orchestrator {
 
         let _ = self.ensure_worker_session_info(issue_id);
         self.record_worker_activity(issue_id, event_timestamp_ms(event));
+        self.publish_agent_event_to_hub(issue_id, event);
         let event_time = event_timestamp(event);
 
         if let Some(session_id) = event_session_id(event) {
@@ -2053,7 +2058,7 @@ impl Orchestrator {
                     "worker attempt completed"
                 );
 
-                self.events.push(RuntimeEvent::WorkerCompleted {
+                self.emit_runtime_event(RuntimeEvent::WorkerCompleted {
                     issue_id: issue_id.to_string(),
                     issue_identifier: issue_identifier.clone(),
                     session_id,
@@ -2089,7 +2094,7 @@ impl Orchestrator {
                     "worker attempt failed; scheduling failure retry"
                 );
 
-                self.events.push(RuntimeEvent::WorkerFailed {
+                self.emit_runtime_event(RuntimeEvent::WorkerFailed {
                     issue_id: issue_id.to_string(),
                     issue_identifier: issue_identifier.clone(),
                     session_id,
@@ -2411,7 +2416,7 @@ impl Orchestrator {
                 "detected stalled worker; scheduling failure retry"
             );
 
-            self.events.push(RuntimeEvent::WorkerStalled {
+            self.emit_runtime_event(RuntimeEvent::WorkerStalled {
                 issue_id: issue_id.clone(),
                 issue_identifier: run_attempt.issue_identifier.clone(),
                 session_id,
@@ -2474,6 +2479,183 @@ impl Orchestrator {
         );
     }
 
+    fn emit_runtime_event(&mut self, event: RuntimeEvent) {
+        self.publish_runtime_event_to_hub(&event);
+        self.events.push(event);
+    }
+
+    fn publish_runtime_event_to_hub(&self, event: &RuntimeEvent) {
+        let Some(hub) = &self.event_hub else {
+            return;
+        };
+
+        let (kind, severity, issue, event_name, payload) = match event {
+            RuntimeEvent::StartupCleanup => (
+                EventKind::Runtime,
+                EventSeverity::Info,
+                None,
+                "startup_cleanup",
+                serde_json::json!({}),
+            ),
+            RuntimeEvent::Reconcile => (
+                EventKind::Runtime,
+                EventSeverity::Debug,
+                None,
+                "reconcile",
+                serde_json::json!({}),
+            ),
+            RuntimeEvent::Validate => (
+                EventKind::Runtime,
+                EventSeverity::Debug,
+                None,
+                "validate",
+                serde_json::json!({}),
+            ),
+            RuntimeEvent::Dispatch => (
+                EventKind::Runtime,
+                EventSeverity::Info,
+                None,
+                "dispatch",
+                serde_json::json!({}),
+            ),
+            RuntimeEvent::ValidationSkippedDispatch => (
+                EventKind::Runtime,
+                EventSeverity::Warn,
+                None,
+                "validation_skipped_dispatch",
+                serde_json::json!({}),
+            ),
+            RuntimeEvent::RetryScheduled {
+                issue_id,
+                attempt,
+                due_at_ms,
+                token,
+                retry_kind,
+            } => (
+                EventKind::Runtime,
+                EventSeverity::Info,
+                self.issue_identifier_from_issue_id(issue_id),
+                "retry_scheduled",
+                serde_json::json!({
+                    "issue_id": issue_id,
+                    "attempt": attempt,
+                    "due_at_ms": due_at_ms,
+                    "token": token,
+                    "retry_kind": format!("{:?}", retry_kind).to_ascii_lowercase(),
+                }),
+            ),
+            RuntimeEvent::RetryIgnoredStale { issue_id, token } => (
+                EventKind::Runtime,
+                EventSeverity::Debug,
+                self.issue_identifier_from_issue_id(issue_id),
+                "retry_ignored_stale",
+                serde_json::json!({
+                    "issue_id": issue_id,
+                    "token": token,
+                }),
+            ),
+            RuntimeEvent::WorkerCompleted {
+                issue_id,
+                issue_identifier,
+                session_id,
+            } => (
+                EventKind::Worker,
+                EventSeverity::Info,
+                Some(issue_identifier.clone()),
+                "worker_completed",
+                serde_json::json!({
+                    "issue_id": issue_id,
+                    "session_id": session_id,
+                }),
+            ),
+            RuntimeEvent::WorkerFailed {
+                issue_id,
+                issue_identifier,
+                session_id,
+                error,
+            } => (
+                EventKind::Worker,
+                EventSeverity::Error,
+                Some(issue_identifier.clone()),
+                "worker_failed",
+                serde_json::json!({
+                    "issue_id": issue_id,
+                    "session_id": session_id,
+                    "error": truncate_for_display(error, 160),
+                }),
+            ),
+            RuntimeEvent::WorkerStalled {
+                issue_id,
+                issue_identifier,
+                session_id,
+                elapsed_ms,
+            } => (
+                EventKind::Worker,
+                EventSeverity::Warn,
+                Some(issue_identifier.clone()),
+                "worker_stalled",
+                serde_json::json!({
+                    "issue_id": issue_id,
+                    "session_id": session_id,
+                    "elapsed_ms": elapsed_ms,
+                }),
+            ),
+            RuntimeEvent::RefreshRequested => (
+                EventKind::Runtime,
+                EventSeverity::Info,
+                None,
+                "refresh_requested",
+                serde_json::json!({}),
+            ),
+            RuntimeEvent::RefreshCoalesced => (
+                EventKind::Runtime,
+                EventSeverity::Debug,
+                None,
+                "refresh_coalesced",
+                serde_json::json!({}),
+            ),
+        };
+
+        hub.publish(kind, severity, issue, event_name, payload);
+    }
+
+    fn publish_agent_event_to_hub(&self, issue_id: &str, event: &AgentEvent) {
+        let Some(hub) = &self.event_hub else {
+            return;
+        };
+
+        let (event_name, summary) = event_summary(event);
+        let issue_identifier = self.issue_identifier_from_issue_id(issue_id);
+        let kind = event_kind_for_agent_event(event);
+        let severity = event_severity_for_agent_event(event);
+
+        let payload = serde_json::json!({
+            "summary": summary,
+            "session_id": self.worker_session_ids.get(issue_id).cloned(),
+        });
+
+        hub.publish(kind, severity, issue_identifier, event_name, payload);
+    }
+
+    fn issue_identifier_from_issue_id(&self, issue_id: &str) -> Option<String> {
+        self.state
+            .running
+            .get(issue_id)
+            .map(|attempt| attempt.issue_identifier.clone())
+            .or_else(|| {
+                self.state
+                    .completed
+                    .get(issue_id)
+                    .map(|entry| entry.identifier.clone())
+            })
+            .or_else(|| {
+                self.state
+                    .retry_attempts
+                    .get(issue_id)
+                    .map(|entry| entry.identifier.clone())
+            })
+    }
+
     pub fn events(&self) -> &[RuntimeEvent] {
         &self.events
     }
@@ -2496,6 +2678,18 @@ impl Orchestrator {
         let handle = SnapshotHandle::new(snapshot);
         self.snapshot_handle = Some(handle.clone());
         handle
+    }
+
+    /// Create and attach an event hub for websocket publication.
+    pub fn create_event_hub(&mut self) -> EventHub {
+        let hub = EventHub::default_hub();
+        self.event_hub = Some(hub.clone());
+        hub
+    }
+
+    /// Attach an existing event hub.
+    pub fn attach_event_hub(&mut self, hub: EventHub) {
+        self.event_hub = Some(hub);
     }
 
     /// Create a refresh control channel.
@@ -3370,6 +3564,38 @@ fn event_name(event: &AgentEvent) -> &'static str {
         AgentEvent::Notification { .. } => "notification",
         AgentEvent::OtherMessage { .. } => "other_message",
         AgentEvent::Malformed { .. } => "malformed",
+    }
+}
+
+fn event_kind_for_agent_event(event: &AgentEvent) -> EventKind {
+    match event {
+        AgentEvent::ToolCallCompleted { .. }
+        | AgentEvent::ToolCallFailed { .. }
+        | AgentEvent::UnsupportedToolCall { .. }
+        | AgentEvent::ToolInputAutoAnswered { .. } => EventKind::Tool,
+        AgentEvent::Notification { message, .. }
+            if message.starts_with("tool_start:")
+                || message.starts_with("tool_end:")
+                || message.starts_with("tool_error:") =>
+        {
+            EventKind::Tool
+        }
+        _ => EventKind::Worker,
+    }
+}
+
+fn event_severity_for_agent_event(event: &AgentEvent) -> EventSeverity {
+    match event {
+        AgentEvent::StartupFailed { .. }
+        | AgentEvent::TurnFailed { .. }
+        | AgentEvent::TurnEndedWithError { .. }
+        | AgentEvent::ToolCallFailed { .. }
+        | AgentEvent::Malformed { .. } => EventSeverity::Error,
+        AgentEvent::TurnCancelled { .. } | AgentEvent::UnsupportedToolCall { .. } => {
+            EventSeverity::Warn
+        }
+        AgentEvent::OtherMessage { .. } => EventSeverity::Debug,
+        _ => EventSeverity::Info,
     }
 }
 
