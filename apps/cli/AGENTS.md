@@ -35,9 +35,9 @@ This project uses two test runners during an incremental migration from bun:test
 | Runner | File pattern | Command | Coverage |
 |--------|-------------|---------|----------|
 | Vitest | `*.vitest.test.ts` | `npx vitest run` | `npx vitest run --coverage` (v8 provider, `all: false`) |
-| Bun | `*.test.ts` (excluding `*.vitest.test.ts`) | `bun test src/` | None (legacy, no reliable aggregate coverage) |
+| Bun | `*.test.ts` (excluding `*.vitest.test.ts`) | `bun test --path-ignore-patterns '**/*.vitest.test.ts' src/` | None (legacy, no reliable aggregate coverage) |
 
-The combined `test` script runs both: `bun test src/ && npx vitest run`. Turborepo's `test` task exercises both runners.
+The combined `test` script runs both: `bun test --path-ignore-patterns '**/*.vitest.test.ts' src/ && npx vitest run`. The `--path-ignore-patterns` flag prevents bun from picking up `.vitest.test.ts` files (which use vitest-only APIs like `vi.mock` that bun doesn't understand). Turborepo's `test` task exercises both runners.
 
 ### Migration Policy
 
