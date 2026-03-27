@@ -15,7 +15,8 @@ export default function (pi: ExtensionAPI): void {
 
   pi.on("session_start", async (_event, ctx) => {
     abortController?.abort();
-    abortController = new AbortController();
+    const controller = new AbortController();
+    abortController = controller;
 
     const queue = new EscalationQueue(
       client,
@@ -27,7 +28,7 @@ export default function (pi: ExtensionAPI): void {
       try {
         for await (const event of client.watchEvents(
           { type: ["escalation_created", "escalation_timed_out", "escalation_cancelled"] },
-          { signal: abortController?.signal, reconnectAttempts: 5, reconnectDelayMs: 1_000 },
+          { signal: controller.signal, reconnectAttempts: 5, reconnectDelayMs: 1_000 },
         )) {
           if (isEscalationEvent(event)) {
             queue.enqueue(event);
@@ -49,6 +50,12 @@ export default function (pi: ExtensionAPI): void {
           }
         }
       } catch (error) {
+        const aborted =
+          controller.signal.aborted || (error instanceof Error && error.name === "AbortError");
+        if (aborted) {
+          return;
+        }
+
         const message = error instanceof Error ? error.message : String(error);
         console.error("[symphony] escalation watch error:", error);
         ctx.ui.notify(`Symphony escalation listener disconnected: ${message}`, "warning");

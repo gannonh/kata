@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use regex::Regex;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::future::Future;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -1170,10 +1170,49 @@ struct EscalationEntry {
     response_tx: tokio::sync::oneshot::Sender<EscalationResponse>,
 }
 
+const ESCALATION_RESOLVED_CACHE_CAPACITY: usize = 1_024;
+
+#[derive(Default)]
+struct ResolvedEscalationCache {
+    ids: HashSet<String>,
+    order: VecDeque<String>,
+}
+
+impl ResolvedEscalationCache {
+    fn contains(&self, request_id: &str) -> bool {
+        self.ids.contains(request_id)
+    }
+
+    fn insert(&mut self, request_id: String) {
+        if self.ids.contains(&request_id) {
+            return;
+        }
+
+        self.ids.insert(request_id.clone());
+        self.order.push_back(request_id);
+
+        while self.order.len() > ESCALATION_RESOLVED_CACHE_CAPACITY {
+            if let Some(evicted) = self.order.pop_front() {
+                self.ids.remove(&evicted);
+            }
+        }
+    }
+
+    fn remove(&mut self, request_id: &str) {
+        if !self.ids.remove(request_id) {
+            return;
+        }
+
+        if let Some(position) = self.order.iter().position(|entry| entry == request_id) {
+            self.order.remove(position);
+        }
+    }
+}
+
 #[derive(Default)]
 struct EscalationRegistryState {
     pending: HashMap<String, EscalationEntry>,
-    resolved: HashSet<String>,
+    resolved: ResolvedEscalationCache,
 }
 
 #[derive(Clone, Default)]
@@ -2341,6 +2380,36 @@ impl Orchestrator {
         );
     }
 
+    fn cancel_pending_escalations_for_issue(&mut self, issue_id: &str, reason: &str) {
+        let cancelled_requests = self.escalation_registry.cancel_for_issue(issue_id);
+        if cancelled_requests.is_empty() {
+            return;
+        }
+
+        let issue_is_running = self.state.running.contains_key(issue_id);
+
+        for request in cancelled_requests {
+            if issue_is_running {
+                let event = AgentEvent::EscalationCancelled {
+                    timestamp: Utc::now(),
+                    issue_id: request.issue_id.clone(),
+                    issue_identifier: request.issue_identifier.clone(),
+                    request_id: request.id.clone(),
+                    reason: reason.to_string(),
+                };
+                self.ingest_agent_event(issue_id, &event);
+            } else {
+                tracing::warn!(
+                    event = "escalation_cancelled",
+                    issue_id = %request.issue_id,
+                    request_id = %request.id,
+                    reason = %reason,
+                    "cleaned pending escalation for released worker"
+                );
+            }
+        }
+    }
+
     pub fn handle_worker_completion(
         &mut self,
         issue_id: &str,
@@ -2348,16 +2417,7 @@ impl Orchestrator {
         now_ms: i64,
     ) -> Option<String> {
         let Some(_existing_attempt) = self.state.running.get(issue_id).cloned() else {
-            let cancelled_requests = self.escalation_registry.cancel_for_issue(issue_id);
-            for request in cancelled_requests {
-                tracing::warn!(
-                    event = "escalation_cancelled",
-                    issue_id = %request.issue_id,
-                    request_id = %request.id,
-                    reason = "worker_already_released",
-                    "cleaned pending escalation for completed worker"
-                );
-            }
+            self.cancel_pending_escalations_for_issue(issue_id, "worker_already_released");
 
             if self.config.workspace.cleanup_on_done {
                 if let Some(pending) = self.pending_terminal_cleanup.remove(issue_id) {
@@ -2369,17 +2429,7 @@ impl Orchestrator {
             return None;
         };
 
-        let cancelled_requests = self.escalation_registry.cancel_for_issue(issue_id);
-        for request in cancelled_requests {
-            let event = AgentEvent::EscalationCancelled {
-                timestamp: Utc::now(),
-                issue_id: request.issue_id.clone(),
-                issue_identifier: request.issue_identifier.clone(),
-                request_id: request.id.clone(),
-                reason: "worker_exited".to_string(),
-            };
-            self.ingest_agent_event(issue_id, &event);
-        }
+        self.cancel_pending_escalations_for_issue(issue_id, "worker_exited");
 
         let run_attempt = self.state.running.remove(issue_id)?;
         self.state.claimed.remove(issue_id);
@@ -2652,7 +2702,6 @@ impl Orchestrator {
                 loop_result
             }
             AgentBackend::KataCli => {
-                let (escalation_tx, _escalation_rx) = tokio::sync::mpsc::unbounded_channel();
                 let mut session = match rpc_bridge::start_session(
                     &self.config.pi_agent,
                     issue,
@@ -2661,7 +2710,7 @@ impl Orchestrator {
                     rpc_bridge::StartSessionOptions {
                         worker_host: prior_worker_host.clone(),
                         container_id: None,
-                        escalation_tx,
+                        escalation_tx: self.worker_escalation_tx.clone(),
                         escalation_timeout_ms: self.config.agent.escalation_timeout_ms,
                     },
                 )
@@ -3937,6 +3986,8 @@ impl Orchestrator {
     ) {
         let issue_id = issue.id.as_str();
 
+        self.cancel_pending_escalations_for_issue(issue_id, "issue_terminal");
+
         if self.config.workspace.cleanup_on_done {
             let workspace_path = self
                 .state
@@ -4039,6 +4090,8 @@ impl Orchestrator {
     }
 
     fn release_issue(&mut self, issue_id: &str) {
+        self.cancel_pending_escalations_for_issue(issue_id, "issue_released");
+
         self.state.running.remove(issue_id);
         self.state.claimed.remove(issue_id);
         self.state.retry_attempts.remove(issue_id);
