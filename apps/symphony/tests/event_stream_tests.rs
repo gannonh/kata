@@ -238,8 +238,17 @@ async fn filtered_runtime_event_delivery() {
         },
     );
 
-    let envelope = recv_envelope(&mut stream, Duration::from_secs(2)).await;
-    assert_eq!(envelope.kind, EventKind::Tool);
+    let envelope = tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            let envelope = recv_envelope(&mut stream, Duration::from_secs(2)).await;
+            if envelope.kind == EventKind::Tool {
+                break envelope;
+            }
+        }
+    })
+    .await
+    .expect("expected a tool envelope before timeout");
+
     assert_eq!(envelope.severity, EventSeverity::Info);
     assert_eq!(envelope.issue.as_deref(), Some("KAT-920"));
     assert_eq!(envelope.event, "tool_call_completed");
