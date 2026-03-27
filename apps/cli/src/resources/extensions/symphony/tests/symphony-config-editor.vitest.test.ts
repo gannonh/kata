@@ -111,6 +111,31 @@ describe("parseWorkflowConfig", () => {
     );
   });
 
+  it("preserves malformed numeric and boolean scalars as raw values", () => {
+    const fixture = [
+      "---",
+      "tracker:",
+      "  kind: linear",
+      "  api_key: $LINEAR_API_KEY",
+      "  project_slug: demo",
+      "workspace:",
+      "  root: /tmp/workspaces",
+      "  repo: /tmp/repo",
+      "  cleanup_on_done: maybe",
+      "agent:",
+      "  max_concurrent_agents: 3",
+      "  max_turns: foo",
+      "---",
+      "prompt body",
+    ].join("\n");
+
+    const model = parseWorkflowConfig(fixture);
+    const config = applyModelToConfig(model);
+
+    expect((config.workspace as Record<string, unknown>).cleanup_on_done).toBe("maybe");
+    expect((config.agent as Record<string, unknown>).max_turns).toBe("foo");
+  });
+
   it("reports YAML parse errors with line numbers", () => {
     const invalid = `---\ntracker:\n  kind: linear\n  api_key: [unterminated\n---\nbody`;
 
@@ -463,6 +488,89 @@ describe("config-writer", () => {
 
     expect(updated).toContain("    max_turns: 25");
     expect(updated.match(/max_turns:/g)?.length ?? 0).toBe(1);
+  });
+
+  it("preserves sibling comments when replacing scalar values", () => {
+    const fixture = [
+      "---",
+      "tracker:",
+      "  kind: linear",
+      "  api_key: $LINEAR_API_KEY",
+      "  project_slug: demo",
+      "workspace:",
+      "  root: /tmp/workspaces",
+      "  repo: /tmp/repo",
+      "  git_strategy: auto",
+      "  # explains cleanup_on_done",
+      "  cleanup_on_done: true",
+      "---",
+      "prompt body",
+    ].join("\n");
+
+    const model = parseWorkflowConfig(fixture);
+    setField(model, "workspace", "git_strategy", "worktree");
+
+    const updated = renderUpdatedWorkflowContent(fixture, model).content;
+
+    expect(updated).toContain("git_strategy: worktree");
+    expect(updated).toContain("# explains cleanup_on_done");
+    expect(updated).toContain("cleanup_on_done: true");
+  });
+
+  it("preserves malformed scalars when updating unrelated fields", () => {
+    const fixture = [
+      "---",
+      "tracker:",
+      "  kind: linear",
+      "  api_key: $LINEAR_API_KEY",
+      "  project_slug: demo",
+      "workspace:",
+      "  root: /tmp/workspaces",
+      "  repo: /tmp/repo",
+      "  cleanup_on_done: maybe",
+      "agent:",
+      "  max_concurrent_agents: 3",
+      "  max_turns: foo",
+      "---",
+      "prompt body",
+    ].join("\n");
+
+    const model = parseWorkflowConfig(fixture);
+    setField(model, "agent", "max_concurrent_agents", 5);
+
+    const updated = renderUpdatedWorkflowContent(fixture, model).content;
+
+    expect(updated).toContain("max_concurrent_agents: 5");
+    expect(updated).toContain("max_turns: foo");
+    expect(updated).toContain("cleanup_on_done: maybe");
+  });
+
+  it("preserves BOM and CRLF newline style when rewriting frontmatter", () => {
+    const fixture =
+      "\uFEFF" +
+      [
+        "---",
+        "tracker:",
+        "  kind: linear",
+        "  api_key: $LINEAR_API_KEY",
+        "  project_slug: demo",
+        "workspace:",
+        "  root: C:/tmp/workspaces",
+        "  repo: C:/tmp/repo",
+        "agent:",
+        "  max_concurrent_agents: 3",
+        "---",
+        "prompt body",
+      ].join("\r\n");
+
+    const model = parseWorkflowConfig(fixture);
+    setField(model, "agent", "max_concurrent_agents", 4);
+
+    const updated = renderUpdatedWorkflowContent(fixture, model).content;
+
+    expect(updated.startsWith("\uFEFF")).toBe(true);
+    expect(updated).toContain("\r\n");
+    expect(updated.replace(/\r\n/g, "")).not.toContain("\n");
   });
 });
 

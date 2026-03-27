@@ -211,26 +211,39 @@ function coerceFieldValue(
 
   if (definition.type === "number") {
     if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (typeof value === "string" && value.trim().length > 0) {
-      const parsed = Number(value);
-      return Number.isFinite(parsed) ? parsed : null;
+
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed.length === 0) return null;
+
+      const parsed = Number(trimmed);
+      return Number.isFinite(parsed) ? parsed : value;
     }
-    return null;
+
+    if (value === undefined || value === null) return null;
+    return value;
   }
 
   if (definition.type === "boolean") {
-    if (value === undefined || value === null || value === "") {
+    if (value === undefined || value === null) {
       return definition.required ? false : null;
     }
 
     if (typeof value === "boolean") return value;
+
     if (typeof value === "string") {
-      const lowered = value.trim().toLowerCase();
+      const trimmed = value.trim();
+      if (trimmed.length === 0) {
+        return definition.required ? false : null;
+      }
+
+      const lowered = trimmed.toLowerCase();
       if (lowered === "true") return true;
       if (lowered === "false") return false;
+      return value;
     }
 
-    return definition.required ? false : null;
+    return value;
   }
 
   if (definition.type === "enum") {
@@ -264,9 +277,19 @@ function normalizeFieldValueForWrite(field: ConfigField): unknown {
       return undefined;
     }
 
-    const numeric =
-      typeof field.value === "number" ? field.value : Number(String(field.value));
-    return Number.isFinite(numeric) ? numeric : undefined;
+    if (typeof field.value === "number" && Number.isFinite(field.value)) {
+      return field.value;
+    }
+
+    if (typeof field.value === "string") {
+      const trimmed = field.value.trim();
+      if (trimmed.length === 0) return undefined;
+
+      const parsed = Number(trimmed);
+      return Number.isFinite(parsed) ? parsed : field.value;
+    }
+
+    return field.value;
   }
 
   if (field.type === "boolean") {
@@ -279,12 +302,18 @@ function normalizeFieldValueForWrite(field: ConfigField): unknown {
     }
 
     if (typeof field.value === "string") {
-      const lowered = field.value.trim().toLowerCase();
+      const trimmed = field.value.trim();
+      if (trimmed.length === 0) {
+        return field.required ? false : undefined;
+      }
+
+      const lowered = trimmed.toLowerCase();
       if (lowered === "true") return true;
       if (lowered === "false") return false;
+      return field.value;
     }
 
-    return !!field.value;
+    return field.value;
   }
 
   if (field.type === "string[]") {

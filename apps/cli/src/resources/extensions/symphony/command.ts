@@ -66,12 +66,10 @@ export function parseSymphonyCommand(input: string): SymphonyCommandAction {
   }
 
   if (tokens[0] === "config") {
-    if (tokens.length > 2) {
-      return { type: "usage" };
-    }
+    const workflowPathArg = input.trim().slice("config".length).trim();
     return {
       type: "config",
-      ...(tokens[1] ? { workflowPathArg: tokens[1] } : {}),
+      ...(workflowPathArg ? { workflowPathArg } : {}),
     };
   }
 

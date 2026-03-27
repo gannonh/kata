@@ -45,11 +45,17 @@ export function replaceWorkflowFrontmatter(
   frontmatter: string,
 ): string {
   const segments = extractWorkflowSegments(content);
-  const normalizedFrontmatter = frontmatter.endsWith("\n")
-    ? frontmatter.slice(0, -1)
-    : frontmatter;
+  const hasBom = content.startsWith("\uFEFF");
+  const newline = detectPreferredNewline(content);
 
-  return `---\n${normalizedFrontmatter}\n---${segments.body.length > 0 ? `\n${segments.body}` : "\n"}`;
+  const normalizedFrontmatter = frontmatter
+    .replace(/\r?\n$/, "")
+    .replace(/\r?\n/g, newline);
+
+  const prefix = hasBom ? "\uFEFF" : "";
+  return `${prefix}---${newline}${normalizedFrontmatter}${newline}---${
+    segments.body.length > 0 ? `${newline}${segments.body}` : newline
+  }`;
 }
 
 export function patchFrontmatterWithConfig(
@@ -237,15 +243,32 @@ function findBlockEnd(
   for (let index = startIndex + 1; index < hardEnd; index += 1) {
     const line = lines[index];
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
+    if (!trimmed) continue;
 
     const lineIndent = line.match(/^\s*/)?.[0].length ?? 0;
+
+    if (trimmed.startsWith("#")) {
+      if (lineIndent <= indent) {
+        return index;
+      }
+      continue;
+    }
+
     if (lineIndent <= indent) {
       return index;
     }
   }
 
   return hardEnd;
+}
+
+function detectPreferredNewline(content: string): "\r\n" | "\n" {
+  const firstNewline = content.indexOf("\n");
+  if (firstNewline > 0 && content[firstNewline - 1] === "\r") {
+    return "\r\n";
+  }
+
+  return "\n";
 }
 
 function spaces(length: number): string {

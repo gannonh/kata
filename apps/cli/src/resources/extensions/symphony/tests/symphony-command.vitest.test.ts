@@ -82,6 +82,12 @@ describe("parseSymphonyCommand", () => {
       type: "config",
       workflowPathArg: "./WORKFLOW.md",
     });
+    expect(
+      parseSymphonyCommand("config ~/Library/Mobile Documents/WORKFLOW.md"),
+    ).toEqual({
+      type: "config",
+      workflowPathArg: "~/Library/Mobile Documents/WORKFLOW.md",
+    });
   });
 
   it("falls back to usage on invalid watch syntax", () => {
