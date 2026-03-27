@@ -18,9 +18,8 @@ Full documentation for `~/.kata-cli/preferences.md` (global) and `.kata/preferen
 - `version`: schema version. Start at `1`.
 
 - `workflow`: workflow-mode configuration.
-  - `workflow.mode`: `file` or `linear`.
-    - `file` keeps Kata's existing file-backed milestone/slice/task workflow.
-    - `linear` opts the project into the Linear-backed workflow slices in M002.
+  - `workflow.mode`: `linear`.
+    - File mode has been removed; all Kata workflow state is Linear-backed.
 
 - `linear`: Linear binding configuration used when `workflow.mode: linear`.
   - `linear.teamId`: optional Linear team UUID.
@@ -64,16 +63,7 @@ Full documentation for `~/.kata-cli/preferences.md` (global) and `.kata/preferen
 
 Run `/kata prefs status` to see the active workflow mode, which preferences file is currently winning, and whether a Linear binding is ready.
 
-Typical file-mode output:
-
-```text
-Kata prefs status
-mode: file
-effective preferences: /path/to/project/.kata/preferences.md (project)
-linear: inactive (file mode)
-```
-
-Typical Linear-mode output:
+Typical output:
 
 ```text
 Kata prefs status
@@ -137,18 +127,6 @@ Opus for planning (where architectural decisions matter most), Sonnet for everyt
 ---
 
 ## Example Variations
-
-**File-mode — minimal skill routing:**
-
-```yaml
----
-version: 1
-workflow:
-  mode: file
-prefer_skills:
-  - verification-before-completion
----
-```
 
 **Linear-mode — project bound to Linear:**
 

@@ -1,9 +1,8 @@
 /**
  * Kata Auto Mode — Fresh Session Per Unit
  *
- * Unified dispatch loop backed by KataBackend. No isLinearMode() forks.
- * The backend (FileBackend or LinearBackend) handles mode-specific state
- * derivation, prompt building, and document I/O.
+ * Unified dispatch loop backed by KataBackend.
+ * The backend handles state derivation, prompt building, and document I/O.
  */
 
 import type {
@@ -33,8 +32,6 @@ import {
 } from "./session-lock.js";
 import {
   clearUnitRuntimeRecord,
-  formatExecuteTaskRecoveryStatus,
-  inspectExecuteTaskDurability,
   readUnitRuntimeRecord,
   writeUnitRuntimeRecord,
 } from "./unit-runtime.js";
@@ -49,12 +46,6 @@ import {
 } from "./pr-auto.js";
 import { initDebugLog, closeDebugLog, dlog } from "./debug-log.js";
 import { runCreatePr } from "../pr-lifecycle/pr-runner.js";
-import {
-  validatePlanBoundary,
-  validateExecuteBoundary,
-  validateCompleteBoundary,
-  formatValidationIssues,
-} from "./observability-validator.js";
 import { getWorkflowEntrypointGuard } from "./linear-config.js";
 import { snapshotSkills, clearSkillSnapshot } from "./skill-discovery.js";
 import {
@@ -67,19 +58,7 @@ import {
   formatTokenCount,
 } from "./metrics.js";
 import { join } from "node:path";
-import {
-  existsSync,
-  readFileSync,
-} from "node:fs";
-import {
-  kataRoot,
-  resolveMilestoneFile,
-  resolveSliceFile,
-} from "./paths.js";
-import {
-  parseRoadmap,
-  parsePlan,
-} from "./files.js";
+import { kataRoot } from "./paths.js";
 import { unitVerb, unitPhaseLabel } from "./unit-display.js";
 import { formatDuration } from "./markdown-utils.js";
 import {
@@ -95,10 +74,7 @@ export { resolveModelSwitch, computeSupervisorTimeouts } from "./auto-helpers.js
 export type { ModelSwitchResult } from "./auto-helpers.js";
 import { deriveUnitType, deriveUnitId, peekNext } from "./auto-dispatch.js";
 export { deriveUnitType, deriveUnitId, peekNext } from "./auto-dispatch.js";
-import { providerBackoffMs, skipExecuteTask, resolveExpectedArtifactPath, writeBlockerPlaceholder, diagnoseExpectedArtifact } from "./auto-recovery.js";
-export { skipExecuteTask, resolveExpectedArtifactPath, writeBlockerPlaceholder } from "./auto-recovery.js";
-import { ensurePreconditions } from "./auto-transitions.js";
-export { ensurePreconditions } from "./auto-transitions.js";
+const providerBackoffMs = [5000, 10000, 30000];
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -718,48 +694,8 @@ let cachedSliceProgress: {
   activeSliceTasks: { done: number; total: number } | null;
 } | null = null;
 
-function updateSliceProgressCache(
-  base: string,
-  mid: string,
-  activeSid?: string,
-): void {
-  try {
-    const roadmapFile = resolveMilestoneFile(base, mid, "ROADMAP");
-    if (!roadmapFile) return;
-    const content = readFileSync(roadmapFile, "utf-8");
-    const roadmap = parseRoadmap(content);
-
-    let activeSliceTasks: { done: number; total: number } | null = null;
-    if (activeSid) {
-      try {
-        const planFile = resolveSliceFile(base, mid, activeSid, "PLAN");
-        if (planFile && existsSync(planFile)) {
-          const planContent = readFileSync(planFile, "utf-8");
-          const plan = parsePlan(planContent);
-          activeSliceTasks = {
-            done: plan.tasks.filter((t) => t.done).length,
-            total: plan.tasks.length,
-          };
-        }
-      } catch {
-        // Non-fatal — just omit task count
-      }
-    }
-
-    cachedSliceProgress = {
-      done: roadmap.slices.filter((s) => s.done).length,
-      total: roadmap.slices.length,
-      milestoneId: mid,
-      activeSliceTasks,
-    };
-  } catch {
-    // Non-fatal — widget just won't show progress bar
-  }
-}
-
 /**
  * Update the cached slice progress from KataState.progress if available.
- * Used when the backend provides progress data directly (e.g., LinearBackend).
  */
 function updateSliceProgressFromState(
   state: KataState,
@@ -1170,8 +1106,6 @@ async function dispatchNextUnit(
 
   ctx.ui.notify(`Auto-mode: ${unitType} — ${unitId}`, "info");
 
-  await emitObservabilityWarnings(ctx, unitType, unitId);
-
   // 7. Stuck detection
   if (lastUnit && lastUnit.type === unitType && lastUnit.id === unitId) {
     retryCount++;
@@ -1189,10 +1123,9 @@ async function dispatchNextUnit(
       }
       saveActivityLog(ctx, basePath, lastUnit.type, lastUnit.id);
 
-      const expected = diagnoseExpectedArtifact(unitType, unitId, basePath);
       await stopAuto(ctx, pi);
       ctx.ui.notify(
-        `Stuck: ${unitType} ${unitId} fired ${retryCount + 1} times. Expected artifact not found.${expected ? `\n   Expected: ${expected}` : ""}\n   Check .kata/ and activity logs.`,
+        `Stuck: ${unitType} ${unitId} fired ${retryCount + 1} times without durable progress. Check Linear artifacts and activity logs.`,
         "error",
       );
       return;
@@ -1290,22 +1223,11 @@ async function dispatchNextUnit(
   // 13. Status + progress widget
   ctx.ui.setStatus("kata-auto", "auto");
   if (mid) {
-    // Try file-based cache first (works for FileBackend), fall back to state.progress
-    updateSliceProgressCache(basePath, mid, state.activeSlice?.id);
-    if (!cachedSliceProgress) {
-      updateSliceProgressFromState(state, mid);
-    }
+    updateSliceProgressFromState(state, mid);
   }
   updateProgressWidget(ctx, unitType, unitId, state);
 
-  // 14. ensurePreconditions — file-mode creates directories and branches
-  try {
-    ensurePreconditions(unitType, unitId, basePath, state);
-  } catch {
-    /* non-fatal */
-  }
-
-  // 15. Fresh session
+  // 14. Fresh session
   const result = await cmdCtx!.newSession();
   if (result.cancelled) {
     await stopAuto(ctx, pi);
@@ -1493,36 +1415,6 @@ async function dispatchNextUnit(
 
 // ─── Diagnostics ──────────────────────────────────────────────────────────────
 
-async function emitObservabilityWarnings(
-  ctx: ExtensionContext,
-  unitType: string,
-  unitId: string,
-): Promise<void> {
-  const parts = unitId.split("/");
-  const mid = parts[0];
-  const sid = parts[1];
-  const tid = parts[2];
-
-  if (!mid || !sid) return;
-
-  let issues = [] as Awaited<ReturnType<typeof validatePlanBoundary>>;
-
-  if (unitType === "plan-slice") {
-    issues = await validatePlanBoundary(basePath, mid, sid);
-  } else if (unitType === "execute-task" && tid) {
-    issues = await validateExecuteBoundary(basePath, mid, sid, tid);
-  } else if (unitType === "complete-slice") {
-    issues = await validateCompleteBoundary(basePath, mid, sid);
-  }
-
-  if (issues.length === 0) return;
-
-  ctx.ui.notify(
-    `Observability check (${unitType}) found ${issues.length} warning${issues.length === 1 ? "" : "s"}:\n${formatValidationIssues(issues)}`,
-    "warning",
-  );
-}
-
 async function recoverTimedOutUnit(
   ctx: ExtensionContext,
   pi: ExtensionAPI,
@@ -1535,162 +1427,6 @@ async function recoverTimedOutUnit(
   const runtime = readUnitRuntimeRecord(basePath, unitType, unitId);
   const recoveryAttempts = runtime?.recoveryAttempts ?? 0;
   const maxRecoveryAttempts = reason === "idle" ? 2 : 1;
-
-  if (unitType === "execute-task") {
-    const status = await inspectExecuteTaskDurability(basePath, unitId);
-    if (!status) return "paused";
-
-    writeUnitRuntimeRecord(basePath, unitType, unitId, currentUnit.startedAt, {
-      recovery: status,
-    });
-
-    const durableComplete =
-      status.summaryExists && status.taskChecked && status.nextActionAdvanced;
-    if (durableComplete) {
-      writeUnitRuntimeRecord(
-        basePath,
-        unitType,
-        unitId,
-        currentUnit.startedAt,
-        {
-          phase: "finalized",
-          recovery: status,
-        },
-      );
-      ctx.ui.notify(
-        `${reason === "idle" ? "Idle" : "Timeout"} recovery: ${unitType} ${unitId} already completed on disk. Continuing auto-mode.`,
-        "info",
-      );
-      await dispatchNextUnit(ctx, pi);
-      return "recovered";
-    }
-
-    if (recoveryAttempts < maxRecoveryAttempts) {
-      const isEscalation = recoveryAttempts > 0;
-      writeUnitRuntimeRecord(
-        basePath,
-        unitType,
-        unitId,
-        currentUnit.startedAt,
-        {
-          phase: "recovered",
-          recovery: status,
-          recoveryAttempts: recoveryAttempts + 1,
-          lastRecoveryReason: reason,
-          lastProgressAt: Date.now(),
-          progressCount: (runtime?.progressCount ?? 0) + 1,
-          lastProgressKind:
-            reason === "idle" ? "idle-recovery-retry" : "hard-recovery-retry",
-        },
-      );
-
-      const steeringLines = isEscalation
-        ? [
-            `**FINAL ${reason === "idle" ? "IDLE" : "HARD TIMEOUT"} RECOVERY — last chance before this task is skipped.**`,
-            `You are still executing ${unitType} ${unitId}.`,
-            `Recovery attempt ${recoveryAttempts + 1} of ${maxRecoveryAttempts}.`,
-            `Current durability status: ${formatExecuteTaskRecoveryStatus(status)}.`,
-            "You MUST finish the durable output NOW, even if incomplete.",
-            "Write the task summary with whatever you have accomplished so far.",
-            "Mark the task [x] in the plan. Commit your work.",
-            "A partial summary is infinitely better than no summary.",
-          ]
-        : [
-            `**${reason === "idle" ? "IDLE" : "HARD TIMEOUT"} RECOVERY — do not stop.**`,
-            `You are still executing ${unitType} ${unitId}.`,
-            `Recovery attempt ${recoveryAttempts + 1} of ${maxRecoveryAttempts}.`,
-            `Current durability status: ${formatExecuteTaskRecoveryStatus(status)}.`,
-            "Do not keep exploring.",
-            "Immediately finish the required durable output for this unit.",
-            "If full completion is impossible, write the partial artifact/state needed for recovery and make the blocker explicit.",
-          ];
-
-      pi.sendMessage(
-        {
-          customType: "kata-auto-timeout-recovery",
-          display: verbose,
-          content: steeringLines.join("\n"),
-        },
-        { triggerTurn: true, deliverAs: "steer" },
-      );
-      ctx.ui.notify(
-        `${reason === "idle" ? "Idle" : "Timeout"} recovery: steering ${unitType} ${unitId} to finish durable output (attempt ${recoveryAttempts + 1}/${maxRecoveryAttempts}).`,
-        "warning",
-      );
-      return "recovered";
-    }
-
-    // Retries exhausted — write missing durable artifacts and advance.
-    const diagnostic = formatExecuteTaskRecoveryStatus(status);
-    const [mid, sid, tid] = unitId.split("/");
-    const skipped =
-      mid && sid && tid
-        ? skipExecuteTask(
-            basePath,
-            mid,
-            sid,
-            tid,
-            status,
-            reason,
-            maxRecoveryAttempts,
-          )
-        : false;
-
-    if (skipped) {
-      writeUnitRuntimeRecord(
-        basePath,
-        unitType,
-        unitId,
-        currentUnit.startedAt,
-        {
-          phase: "skipped",
-          recovery: status,
-          recoveryAttempts: recoveryAttempts + 1,
-          lastRecoveryReason: reason,
-        },
-      );
-      ctx.ui.notify(
-        `${unitType} ${unitId} skipped after ${maxRecoveryAttempts} recovery attempts (${diagnostic}). Blocker artifacts written. Advancing pipeline.`,
-        "warning",
-      );
-      await dispatchNextUnit(ctx, pi);
-      return "recovered";
-    }
-
-    // Fallback: couldn't write skip artifacts — pause as before.
-    writeUnitRuntimeRecord(basePath, unitType, unitId, currentUnit.startedAt, {
-      phase: "paused",
-      recovery: status,
-      recoveryAttempts: recoveryAttempts + 1,
-      lastRecoveryReason: reason,
-    });
-    ctx.ui.notify(
-      `${reason === "idle" ? "Idle" : "Timeout"} recovery check for ${unitType} ${unitId}: ${diagnostic}`,
-      "warning",
-    );
-    return "paused";
-  }
-
-  const expected =
-    diagnoseExpectedArtifact(unitType, unitId, basePath) ??
-    "required durable artifact";
-
-  // Check if the artifact already exists on disk — agent may have written it
-  // without signaling completion.
-  const artifactPath = resolveExpectedArtifactPath(unitType, unitId, basePath);
-  if (artifactPath && existsSync(artifactPath)) {
-    writeUnitRuntimeRecord(basePath, unitType, unitId, currentUnit.startedAt, {
-      phase: "finalized",
-      recoveryAttempts: recoveryAttempts + 1,
-      lastRecoveryReason: reason,
-    });
-    ctx.ui.notify(
-      `${reason === "idle" ? "Idle" : "Timeout"} recovery: ${unitType} ${unitId} artifact already exists on disk. Advancing.`,
-      "info",
-    );
-    await dispatchNextUnit(ctx, pi);
-    return "recovered";
-  }
 
   if (recoveryAttempts < maxRecoveryAttempts) {
     const isEscalation = recoveryAttempts > 0;
@@ -1706,23 +1442,18 @@ async function recoverTimedOutUnit(
 
     const steeringLines = isEscalation
       ? [
-          `**FINAL ${reason === "idle" ? "IDLE" : "HARD TIMEOUT"} RECOVERY — last chance before skip.**`,
+          `**FINAL ${reason === "idle" ? "IDLE" : "HARD TIMEOUT"} RECOVERY — last chance before pause.**`,
           `You are still executing ${unitType} ${unitId}.`,
-          `Recovery attempt ${recoveryAttempts + 1} of ${maxRecoveryAttempts} — next failure skips this unit.`,
-          `Expected durable output: ${expected}.`,
-          "You MUST write the artifact file NOW, even if incomplete.",
-          "Write whatever you have — partial research, preliminary findings, best-effort analysis.",
-          "A partial artifact is infinitely better than no artifact.",
-          "If you are truly blocked, write the file with a BLOCKER section explaining why.",
+          `Recovery attempt ${recoveryAttempts + 1} of ${maxRecoveryAttempts}.`,
+          "Immediately finish and persist durable outputs in Linear documents/issues.",
+          "If full completion is impossible, write a partial artifact and explicitly describe the blocker.",
         ]
       : [
           `**${reason === "idle" ? "IDLE" : "HARD TIMEOUT"} RECOVERY — stay in auto-mode.**`,
           `You are still executing ${unitType} ${unitId}.`,
           `Recovery attempt ${recoveryAttempts + 1} of ${maxRecoveryAttempts}.`,
-          `Expected durable output: ${expected}.`,
-          "Stop broad exploration.",
-          "Write the required artifact now.",
-          "If blocked, write the partial artifact and explicitly record the blocker instead of going silent.",
+          "Stop broad exploration and write the required durable output now.",
+          "If blocked, record the blocker explicitly instead of going silent.",
         ];
 
     pi.sendMessage(
@@ -1733,36 +1464,14 @@ async function recoverTimedOutUnit(
       },
       { triggerTurn: true, deliverAs: "steer" },
     );
+
     ctx.ui.notify(
-      `${reason === "idle" ? "Idle" : "Timeout"} recovery: steering ${unitType} ${unitId} to produce ${expected} (attempt ${recoveryAttempts + 1}/${maxRecoveryAttempts}).`,
+      `${reason === "idle" ? "Idle" : "Timeout"} recovery: steering ${unitType} ${unitId} (attempt ${recoveryAttempts + 1}/${maxRecoveryAttempts}).`,
       "warning",
     );
     return "recovered";
   }
 
-  // Retries exhausted — write a blocker placeholder and advance the pipeline
-  const placeholder = writeBlockerPlaceholder(
-    unitType,
-    unitId,
-    basePath,
-    `${reason} recovery exhausted ${maxRecoveryAttempts} attempts without producing the artifact.`,
-  );
-
-  if (placeholder) {
-    writeUnitRuntimeRecord(basePath, unitType, unitId, currentUnit.startedAt, {
-      phase: "skipped",
-      recoveryAttempts: recoveryAttempts + 1,
-      lastRecoveryReason: reason,
-    });
-    ctx.ui.notify(
-      `${unitType} ${unitId} skipped after ${maxRecoveryAttempts} recovery attempts. Blocker placeholder written to ${placeholder}. Advancing pipeline.`,
-      "warning",
-    );
-    await dispatchNextUnit(ctx, pi);
-    return "recovered";
-  }
-
-  // Fallback: couldn't resolve artifact path — pause as before.
   writeUnitRuntimeRecord(basePath, unitType, unitId, currentUnit.startedAt, {
     phase: "paused",
     recoveryAttempts: recoveryAttempts + 1,
@@ -1770,5 +1479,3 @@ async function recoverTimedOutUnit(
   });
   return "paused";
 }
-
-

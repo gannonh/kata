@@ -22,16 +22,16 @@ function makeLoadedPreferences(
   };
 }
 
-test("workflow helpers default safely to file mode", () => {
-  assert.equal(getWorkflowMode(null), "file");
-  assert.equal(isLinearMode(null), false);
+test("workflow helpers default to linear mode", () => {
+  assert.equal(getWorkflowMode(null), "linear");
+  assert.equal(isLinearMode(null), true);
   assert.equal(getLinearTeamId(null), null);
   assert.equal(getLinearTeamKey(null), null);
   assert.equal(getLinearProjectId(null), null);
 
   const config = loadEffectiveLinearProjectConfig(null);
-  assert.equal(config.workflowMode, "file");
-  assert.equal(config.isLinearMode, false);
+  assert.equal(config.workflowMode, "linear");
+  assert.equal(config.isLinearMode, true);
   assert.equal(config.path, null);
   assert.deepEqual(config.linear, {
     teamId: null,
@@ -69,17 +69,12 @@ test("workflow helpers read normalized Linear config from effective preferences"
   });
 });
 
-test("validateLinearProjectConfig skips validation outside Linear mode", async () => {
-  const result = await validateLinearProjectConfig({
-    loadedPreferences: makeLoadedPreferences({ workflow: { mode: "file" } }),
-    apiKey: "",
-  });
-
-  assert.equal(result.status, "skipped");
-  assert.equal(result.ok, true);
-  assert.equal(result.mode, "file");
-  assert.equal(result.apiKeyPresent, false);
-  assert.deepEqual(result.diagnostics, []);
+test("file mode preference is rejected with clear error", () => {
+  const loaded = makeLoadedPreferences({ workflow: { mode: "file" as any } });
+  assert.throws(
+    () => loadEffectiveLinearProjectConfig(loaded),
+    /File mode has been removed/i,
+  );
 });
 
 test("validateLinearProjectConfig reports missing LINEAR_API_KEY", async () => {

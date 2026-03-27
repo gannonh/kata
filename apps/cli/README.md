@@ -91,7 +91,7 @@ Each slice flows through phases automatically:
 - **Complete** writes the summary, UAT script, marks the roadmap, and commits
 - **Reassess** checks if the roadmap still makes sense given what was learned
 
-In file workflow mode, planning state lives in `.kata/` at the project root — human-readable markdown files that track milestones, slices, tasks, decisions, and progress. In Linear workflow mode, those same artifacts are stored in Linear issues/documents instead.
+Kata workflow state is Linear-backed: milestones, slices, tasks, plans, and summaries are stored in Linear issues/documents.
 
 ## Commands
 
@@ -106,9 +106,9 @@ In file workflow mode, planning state lives in `.kata/` at the project root — 
 | `/kata status` | Progress dashboard |
 | `/kata queue` | View/manage milestone queue |
 | `/kata discuss` | Discuss gray areas before planning |
+| `/kata plan` | Enriched planning mode (plan/pick/add/resequence/revise/discuss) |
 | `/kata prefs` | Manage preferences (global/project) |
 | `/kata pr` | PR lifecycle (create, review, address, merge) |
-| `/kata doctor` | Diagnose and fix project state |
 | `/audit` | Audit the codebase against a goal, writes report to `.kata/audits/` |
 
 ### Session & model
@@ -224,28 +224,14 @@ In both cases, auto-mode pauses at the slice boundary. It never merges automatic
 
 ## Project State
 
-Kata stores all planning artifacts in `.kata/` at the project root:
+Kata workflow artifacts are stored in Linear:
 
-```
-.kata/
-  STATE.md                — Quick-glance dashboard
-  PROJECT.md              — What the project is (living doc)
-  DECISIONS.md            — Append-only architecture decisions
-  REQUIREMENTS.md         — Requirements tracking
-  milestones/
-    M001/
-      M001-ROADMAP.md     — Slices with risk levels and dependencies
-      M001-SUMMARY.md     — Milestone rollup
-      slices/
-        S01/
-          S01-PLAN.md     — Tasks with must-haves and estimates
-          S01-SUMMARY.md  — What was built, what changed
-          tasks/
-            T01-PLAN.md   — Steps, verification, files touched
-            T01-SUMMARY.md
-```
+- Milestones → Linear project milestones (`[M###]`)
+- Slices → Linear parent issues (`[S##]`)
+- Tasks → Linear sub-issues (`[T##]`)
+- Roadmaps, context, research, summaries, decisions → Linear documents/comments
 
-Everything is markdown. You can read it, edit it, or use it as context for other tools.
+The local `.kata/` directory is still used for runtime metadata (preferences, activity logs, metrics), but planning state is Linear-backed.
 
 ## Bundled Tools
 
@@ -298,7 +284,7 @@ Once configured, Kata can manage your Linear workspace conversationally:
 
 ### Linear workflow mode
 
-Beyond ad-hoc Linear operations, Kata can use Linear as the **backing store for its entire planning methodology**. Instead of `.kata/` files on disk, milestones, slices, tasks, plans, and summaries all live as Linear entities and documents.
+Beyond ad-hoc Linear operations, Kata uses Linear as the **backing store for its planning methodology**. Milestones, slices, tasks, plans, and summaries live as Linear entities/documents.
 
 In Linear workflow mode:
 - Milestones → Linear project milestones

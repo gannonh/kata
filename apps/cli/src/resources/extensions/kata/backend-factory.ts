@@ -1,23 +1,21 @@
 /**
- * Backend factory — returns FileBackend or LinearBackend based on preferences.
+ * Backend factory — creates the LinearBackend.
  *
  * Separate file to avoid circular imports: backend.ts defines the interface,
- * this file imports both implementations.
+ * this file imports the implementation.
  */
 
 import type { KataBackend } from "./backend.js";
 import {
-  isLinearMode,
   loadEffectiveLinearProjectConfig,
   resolveConfiguredLinearTeamId,
 } from "./linear-config.js";
 import { LinearClient } from "../linear/linear-client.js";
 import { ensureKataLabels } from "../linear/linear-entities.js";
-import { FileBackend } from "./file-backend.js";
 import { LinearBackend } from "./linear-backend.js";
 
 /**
- * Create the appropriate backend for the current workflow mode.
+ * Create the Linear backend.
  *
  * Async because LinearBackend config resolution requires API calls
  * (team ID resolution, label set lookup).
@@ -25,10 +23,6 @@ import { LinearBackend } from "./linear-backend.js";
  * Called once at the start of auto-mode or step-mode.
  */
 export async function createBackend(basePath: string): Promise<KataBackend> {
-  if (!isLinearMode()) {
-    return new FileBackend(basePath);
-  }
-
   const config = loadEffectiveLinearProjectConfig();
   const apiKey = process.env.KATA_LINEAR_API_KEY ?? process.env.LINEAR_API_KEY;
   if (!apiKey) {
