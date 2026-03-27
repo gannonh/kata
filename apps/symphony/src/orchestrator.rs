@@ -16,7 +16,7 @@ use crate::domain::{
     WorkspaceConfig, WorkspaceIsolation,
 };
 use crate::error::{Result, SymphonyError};
-use crate::http_server::EventHub;
+use crate::event_stream::EventHub;
 use crate::notifications;
 use crate::pi_agent::rpc_bridge;
 use crate::session_summary::{compact_session_id, normalize_whitespace, truncate_for_display};
@@ -2681,6 +2681,10 @@ impl Orchestrator {
 
     /// Create and attach an event hub for websocket publication.
     pub fn create_event_hub(&mut self) -> EventHub {
+        if let Some(hub) = &self.event_hub {
+            return hub.clone();
+        }
+
         let hub = EventHub::default_hub();
         self.event_hub = Some(hub.clone());
         hub
@@ -4052,6 +4056,29 @@ mod tests {
         });
 
         assert_eq!(find_preferred_text(&nested), None);
+    }
+
+    #[tokio::test]
+    async fn create_event_hub_is_idempotent() {
+        let mut orchestrator = Orchestrator::new(Default::default(), "prompt".to_string());
+        let first = orchestrator.create_event_hub();
+        let mut first_rx = first.subscribe();
+
+        let second = orchestrator.create_event_hub();
+        second.publish(
+            EventKind::Worker,
+            EventSeverity::Info,
+            Some("KAT-1".to_string()),
+            "worker_started",
+            serde_json::json!({ "attempt": 1 }),
+        );
+
+        let envelope = tokio::time::timeout(std::time::Duration::from_secs(1), first_rx.recv())
+            .await
+            .expect("first receiver should observe events from second hub")
+            .expect("event should decode");
+
+        assert_eq!(envelope.event, "worker_started");
     }
 
     #[test]

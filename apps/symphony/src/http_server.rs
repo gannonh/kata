@@ -19,6 +19,7 @@ use crate::domain::{
     RefreshRequestOutcome, RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot,
     SymphonyEventEnvelope, WorkerSessionInfo,
 };
+use crate::event_stream::EventHub;
 use crate::orchestrator::{RefreshSender, SnapshotHandle};
 
 pub const HTTP_PORT_RETRY_LIMIT: u16 = 10;
@@ -67,64 +68,10 @@ impl RefreshControl for RefreshSender {
 
 // ── Event hub + HTTP server state ──────────────────────────────────────
 
-const DEFAULT_EVENT_HUB_CAPACITY: usize = 512;
 const DEFAULT_WS_HEARTBEAT_INTERVAL_MS: u64 = 5_000;
 const DEFAULT_WS_CLIENT_QUEUE_CAPACITY: usize = 64;
 const DEFAULT_WS_BACKPRESSURE_DROP_THRESHOLD: u64 = 1;
 const WS_CLOSE_ENQUEUE_TIMEOUT_MS: u64 = 1_000;
-
-#[derive(Clone)]
-pub struct EventHub {
-    sender: tokio::sync::broadcast::Sender<SymphonyEventEnvelope>,
-    next_sequence: Arc<AtomicU64>,
-}
-
-impl EventHub {
-    pub fn new(capacity: usize) -> Self {
-        let (sender, _) = tokio::sync::broadcast::channel(capacity.max(1));
-        Self {
-            sender,
-            next_sequence: Arc::new(AtomicU64::new(0)),
-        }
-    }
-
-    pub fn default_hub() -> Self {
-        Self::new(DEFAULT_EVENT_HUB_CAPACITY)
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<SymphonyEventEnvelope> {
-        self.sender.subscribe()
-    }
-
-    pub fn next_sequence(&self) -> u64 {
-        self.next_sequence.fetch_add(1, Ordering::SeqCst) + 1
-    }
-
-    pub fn send(&self, envelope: SymphonyEventEnvelope) {
-        let _ = self.sender.send(envelope);
-    }
-
-    pub fn publish(
-        &self,
-        kind: EventKind,
-        severity: EventSeverity,
-        issue: Option<String>,
-        event: impl Into<String>,
-        payload: serde_json::Value,
-    ) -> SymphonyEventEnvelope {
-        let envelope = SymphonyEventEnvelope::new(
-            self.next_sequence(),
-            Utc::now(),
-            kind,
-            severity,
-            issue,
-            event,
-            payload,
-        );
-        self.send(envelope.clone());
-        envelope
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct EventStreamConfig {
@@ -382,7 +329,7 @@ impl WsCloseReason {
                 reason: "server_shutdown".into(),
             },
             Self::ProtocolError => CloseFrame {
-                code: close_code::ERROR,
+                code: close_code::PROTOCOL,
                 reason: "protocol_error".into(),
             },
         }
@@ -1053,7 +1000,6 @@ async fn handle_events_socket(socket: WebSocket, state: HttpServerState, filter:
                             client_id,
                             payload.to_vec(),
                             &mut dropped_count,
-                            config.backpressure_drop_threshold,
                         ) {
                             close_reason = WsCloseReason::Backpressure;
                             break;
@@ -1207,17 +1153,25 @@ fn enqueue_pong(
     client_id: u64,
     payload: Vec<u8>,
     dropped_count: &mut u64,
-    drop_threshold: u64,
 ) -> bool {
-    enqueue_outbound(
-        state,
-        outbound_tx,
-        client_id,
-        OutboundMessage::Pong(payload),
-        dropped_count,
-        drop_threshold,
-        "queue_full_pong",
-    )
+    match outbound_tx.try_send(OutboundMessage::Pong(payload)) {
+        Ok(()) => true,
+        Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+            *dropped_count = dropped_count.saturating_add(1);
+            let global_dropped = state.increment_dropped(1);
+            tracing::warn!(
+                event = "ws_event_dropped",
+                client_id,
+                reason = "queue_full_pong",
+                dropped_total = *dropped_count,
+                dropped_global = global_dropped,
+                should_close = true,
+                "websocket pong frame dropped; closing connection"
+            );
+            false
+        }
+        Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => false,
+    }
 }
 
 fn enqueue_outbound(
@@ -1294,10 +1248,7 @@ fn parse_issue_filter(raw: Option<&str>) -> Result<BTreeSet<String>, EventFilter
         }
 
         let normalized = trimmed.to_ascii_uppercase();
-        let valid = normalized
-            .chars()
-            .all(|ch| ch.is_ascii_uppercase() || ch.is_ascii_digit() || ch == '-');
-        if !valid {
+        if !looks_like_issue_identifier(&normalized) {
             return Err(EventFilterError {
                 field: "issue",
                 value: token.to_string(),

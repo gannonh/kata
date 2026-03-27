@@ -14,6 +14,7 @@ pub mod ssh;
 pub mod workspace;
 
 pub mod codex;
+pub mod event_stream;
 pub mod http_server;
 pub mod logging;
 pub mod notifications;

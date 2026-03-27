@@ -441,6 +441,31 @@ fn test_event_filter_invalid_type_returns_machine_readable_error() {
     );
 }
 
+#[test]
+fn test_event_filter_issue_requires_team_number_shape() {
+    let err = parse_event_filter_contract(Some("KAT--1"), None, None)
+        .expect_err("malformed issue identifier should fail");
+
+    assert_eq!(err.field, "issue");
+    assert_eq!(err.value, "KAT--1");
+    assert!(
+        err.message.contains("expected TEAM-123 style identifier"),
+        "error should explain required issue identifier shape"
+    );
+}
+
+#[test]
+fn test_event_filter_issue_normalizes_valid_identifier() {
+    let filter = parse_event_filter_contract(Some("kat-1149"), None, None)
+        .expect("valid issue identifier should parse");
+
+    assert_eq!(
+        filter.issues,
+        BTreeSet::from(["KAT-1149".to_string()]),
+        "issue filters should be normalized to uppercase"
+    );
+}
+
 #[tokio::test]
 async fn test_unknown_api_path_returns_json_404_error_envelope() {
     let app = test_router();

@@ -10,8 +10,9 @@ use symphony::domain::{
     PollingSnapshot, RetrySnapshotEntry, RunAttempt, RunningSessionSnapshot, SymphonyEventEnvelope,
     WorkerSessionInfo,
 };
+use symphony::event_stream::EventHub;
 use symphony::http_server::{
-    build_router, EventHub, EventStreamConfig, HttpServerState, RefreshControl, SnapshotSource,
+    build_router, EventStreamConfig, HttpServerState, RefreshControl, SnapshotSource,
 };
 use symphony::orchestrator::Orchestrator;
 use tokio::net::TcpListener;
