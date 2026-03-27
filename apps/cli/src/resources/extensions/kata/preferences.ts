@@ -16,6 +16,19 @@ const LEGACY_PROJECT_PREFERENCES_PATH = join(
   PROJECT_PREFERENCES_DIR,
   "PREFERENCES.md",
 );
+
+function getProjectPreferencePaths(basePath: string): {
+  dir: string;
+  canonicalPath: string;
+  legacyPath: string;
+} {
+  const dir = join(basePath, ".kata");
+  return {
+    dir,
+    canonicalPath: join(dir, "preferences.md"),
+    legacyPath: join(dir, "PREFERENCES.md"),
+  };
+}
 const SKILL_ACTIONS = new Set(["use", "prefer", "avoid"]);
 
 export interface KataSkillRule {
@@ -126,15 +139,19 @@ export function loadGlobalKataPreferences(): LoadedKataPreferences | null {
   );
 }
 
-export function loadProjectKataPreferences(): LoadedKataPreferences | null {
-  const path = resolveProjectPreferencesPath();
+export function loadProjectKataPreferences(
+  basePath: string = process.cwd(),
+): LoadedKataPreferences | null {
+  const path = resolveProjectPreferencesPath(basePath);
   if (!path) return null;
   return loadPreferencesFile(path, "project");
 }
 
-export function loadEffectiveKataPreferences(): LoadedKataPreferences | null {
+export function loadEffectiveKataPreferences(
+  basePath: string = process.cwd(),
+): LoadedKataPreferences | null {
   const globalPreferences = loadGlobalKataPreferences();
-  const projectPreferences = loadProjectKataPreferences();
+  const projectPreferences = loadProjectKataPreferences(basePath);
 
   if (!globalPreferences && !projectPreferences) return null;
   if (!globalPreferences) return projectPreferences;
@@ -402,20 +419,21 @@ export function renderPreferencesForSystemPrompt(
   return lines.join("\n");
 }
 
-function resolveProjectPreferencesPath(): string | null {
-  if (!existsSync(PROJECT_PREFERENCES_DIR)) return null;
+function resolveProjectPreferencesPath(basePath: string): string | null {
+  const { dir, canonicalPath, legacyPath } = getProjectPreferencePaths(basePath);
+  if (!existsSync(dir)) return null;
 
   try {
-    const entries = new Set(readdirSync(PROJECT_PREFERENCES_DIR));
-    if (entries.has("preferences.md")) return PROJECT_PREFERENCES_PATH;
-    if (entries.has("PREFERENCES.md")) return LEGACY_PROJECT_PREFERENCES_PATH;
+    const entries = new Set(readdirSync(dir));
+    if (entries.has("preferences.md")) return canonicalPath;
+    if (entries.has("PREFERENCES.md")) return legacyPath;
   } catch {
     // Fall through to direct existence checks below.
   }
 
-  if (existsSync(PROJECT_PREFERENCES_PATH)) return PROJECT_PREFERENCES_PATH;
-  if (existsSync(LEGACY_PROJECT_PREFERENCES_PATH)) {
-    return LEGACY_PROJECT_PREFERENCES_PATH;
+  if (existsSync(canonicalPath)) return canonicalPath;
+  if (existsSync(legacyPath)) {
+    return legacyPath;
   }
   return null;
 }
@@ -925,6 +943,7 @@ function normalizeWorkflowPreferences(value: unknown): {
 
   if (mode === "file") {
     return {
+      value: { mode: mode as WorkflowMode },
       errors: [
         'workflow.mode "file" has been removed. Set workflow.mode to "linear".',
       ],

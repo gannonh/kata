@@ -246,6 +246,16 @@ export async function runCreatePr(options: PrCreateOptions): Promise<PrCreateRes
     }
   }
 
+  // Ensure we have at least a PLAN artifact before composing.
+  if (!linearDocuments?.PLAN) {
+    return {
+      ok: false,
+      phase: "artifact-error",
+      error: `Missing required Linear artifact: ${sliceId}-PLAN`,
+      hint: `Create or fetch ${sliceId}-PLAN before creating a PR.`,
+    };
+  }
+
   // ── Compose PR body ──────────────────────────────────────────────────────────
 
   let body: string;

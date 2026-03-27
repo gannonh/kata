@@ -383,10 +383,6 @@ export async function showDiscuss(
 
 // ─── Plan ───────────────────────────────────────────────────────────────────
 
-function doneCountInRegistry(registrySlices: SliceRegistryEntry[]): number {
-  return registrySlices.filter((s) => s.status === "complete").length;
-}
-
 export async function showPlan(
   ctx: ExtensionCommandContext,
   pi: ExtensionAPI,

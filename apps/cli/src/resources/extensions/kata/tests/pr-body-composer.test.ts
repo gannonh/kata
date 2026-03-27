@@ -47,20 +47,15 @@ test("composePRBody output contains markdown headings", async () => {
   assert.ok(result.includes("## Must-Haves"));
 });
 
-test("composePRBody output references must-haves or task titles", async () => {
+test("composePRBody output references parsed must-haves and tasks", async () => {
   const result = await composePRBody("M001", "S01", process.cwd(), {
     linearDocuments: { PLAN: MINIMAL_SLICE_PLAN, SUMMARY: MINIMAL_SUMMARY },
   });
 
-  const hasExpectedContent =
-    result.includes("PR body contains slice goal") ||
-    result.includes("Do the thing") ||
-    result.includes("PR Creation");
-
-  assert.ok(
-    hasExpectedContent,
-    `result should reference slice must-have text or task title, got:\n${result}`,
-  );
+  assert.ok(result.includes("## Must-Haves"));
+  assert.ok(result.includes("- PR body contains slice goal"));
+  assert.ok(result.includes("## Tasks"));
+  assert.ok(result.includes("- T01: Do the thing"));
 });
 
 test("composePRBody works for arbitrary slice IDs", async () => {
@@ -72,5 +67,8 @@ test("composePRBody works for arbitrary slice IDs", async () => {
 
   assert.equal(typeof result, "string", "result should be a string for M002/S03");
   assert.ok(result.length > 0, "result should be non-empty for M002/S03");
-  assert.ok(result.includes("S03"), "result should reference slice id/title");
+  assert.ok(result.includes("## Must-Haves"));
+  assert.ok(result.includes("- Works for M002/S03"));
+  assert.ok(result.includes("## Tasks"));
+  assert.ok(result.includes("- T01: Some task"));
 });

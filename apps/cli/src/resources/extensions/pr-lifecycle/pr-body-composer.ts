@@ -12,7 +12,7 @@ export interface ComposePRBodyOptions {
    * Pre-fetched Linear artifact content.
    * Keys: "PLAN", "SUMMARY".
    */
-  linearDocuments?: Record<string, string>;
+  linearDocuments: Record<string, string>;
 }
 
 /**
@@ -23,23 +23,25 @@ export async function composePRBody(
   _milestoneId: string,
   sliceId: string,
   _cwd: string,
-  options?: ComposePRBodyOptions,
+  options: ComposePRBodyOptions,
 ): Promise<string> {
-  const effectivePlanContent = options?.linearDocuments?.["PLAN"] ?? null;
-  const effectiveSummaryContent = options?.linearDocuments?.["SUMMARY"] ?? null;
+  const effectivePlanContent = options.linearDocuments["PLAN"];
+  if (!effectivePlanContent) {
+    throw new Error(`Missing required PR artifact: ${sliceId}-PLAN`);
+  }
+
+  const effectiveSummaryContent = options.linearDocuments["SUMMARY"] ?? null;
 
   let sliceTitle = `${sliceId}: (no slice plan found)`;
   let mustHaves: string[] = [];
   let resolvedTaskTitles: string[] = [];
 
-  if (effectivePlanContent) {
-    const plan = parsePlan(effectivePlanContent);
-    sliceTitle = plan.title
-      ? `${plan.id ? `${plan.id}: ` : ""}${plan.title}`
-      : sliceTitle;
-    mustHaves = plan.mustHaves ?? [];
-    resolvedTaskTitles = plan.tasks.map((task) => `${task.id}: ${task.title}`);
-  }
+  const plan = parsePlan(effectivePlanContent);
+  sliceTitle = plan.title
+    ? `${plan.id ? `${plan.id}: ` : ""}${plan.title}`
+    : sliceTitle;
+  mustHaves = plan.mustHaves ?? [];
+  resolvedTaskTitles = plan.tasks.map((task) => `${task.id}: ${task.title}`);
 
   let oneLiner: string | null = null;
   if (effectiveSummaryContent) {
@@ -62,11 +64,10 @@ export async function composePRBody(
     sections.push("## Tasks\n- (see slice plan for details)");
   }
 
-  const linearSection = buildLinearReferencesSection(options?.linearReferences);
+  const linearSection = buildLinearReferencesSection(options.linearReferences);
   if (linearSection) {
     sections.push(linearSection);
   }
 
-  const body = sections.join("\n\n");
-  return body || `## ${sliceTitle}\n\nNo slice artifacts found.`;
+  return sections.join("\n\n");
 }

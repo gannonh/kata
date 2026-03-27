@@ -10,6 +10,7 @@ import {
   loadEffectiveLinearProjectConfig,
   resolveConfiguredLinearTeamId,
 } from "./linear-config.js";
+import { loadEffectiveKataPreferences } from "./preferences.js";
 import { LinearClient } from "../linear/linear-client.js";
 import { ensureKataLabels } from "../linear/linear-entities.js";
 import { LinearBackend } from "./linear-backend.js";
@@ -23,7 +24,8 @@ import { LinearBackend } from "./linear-backend.js";
  * Called once at the start of auto-mode or step-mode.
  */
 export async function createBackend(basePath: string): Promise<KataBackend> {
-  const config = loadEffectiveLinearProjectConfig();
+  const loadedPreferences = loadEffectiveKataPreferences(basePath);
+  const config = loadEffectiveLinearProjectConfig(loadedPreferences);
   const apiKey = process.env.KATA_LINEAR_API_KEY ?? process.env.LINEAR_API_KEY;
   if (!apiKey) {
     throw new Error("LINEAR_API_KEY is not set. Set it in your environment to use Linear mode (KATA_LINEAR_API_KEY or LINEAR_API_KEY).");
@@ -40,7 +42,10 @@ export async function createBackend(basePath: string): Promise<KataBackend> {
   let lastError: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const teamResolution = await resolveConfiguredLinearTeamId(client);
+      const teamResolution = await resolveConfiguredLinearTeamId(
+        client,
+        loadedPreferences,
+      );
       if (!teamResolution.teamId) {
         throw new Error(teamResolution.error ?? "Linear team could not be resolved. Check linear.teamId or linear.teamKey in preferences.");
       }

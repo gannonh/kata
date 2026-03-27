@@ -556,8 +556,18 @@ async function ensurePreferencesFile(
       return;
     }
 
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, template, "utf-8");
+    try {
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, template, "utf-8");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      process.stderr.write(
+        `[kata] failed to write preferences file at ${path}: ${message}\n`,
+      );
+      ctx.ui.notify(`Could not write preferences file at ${path}: ${message}`, "error");
+      return;
+    }
+
     ctx.ui.notify(`Created ${scope} Kata skill preferences at ${path}`, "info");
   } else {
     ctx.ui.notify(
