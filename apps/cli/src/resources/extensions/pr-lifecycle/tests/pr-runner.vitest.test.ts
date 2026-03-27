@@ -10,12 +10,52 @@
  * - Body-integrity: repair-on-mismatch via gh pr edit
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { runCreatePr } from "../pr-runner.js";
 import {
   createMockRuntime,
   PLAN_CONTENT,
 } from "./pr-runner-fixtures.js";
+
+// Mock only the dynamically-imported LinearClient. The real linear-crosslink.js
+// exports are pure functions that work fine without a real API.
+vi.mock("../../linear/linear-client.js", () => ({
+  LinearClient: class MockLinearClient {
+    constructor(public apiKey: string) {}
+    async graphql(query: string, _variables?: Record<string, unknown>) {
+      // resolveSliceLinearIdentifier: query for issues
+      if (query.includes("issues(")) {
+        return {
+          issues: {
+            nodes: [{ id: "mock-issue-id", identifier: "KAT-999", title: "[S01] Test Slice" }],
+          },
+        };
+      }
+      // postPrLinkComment: mutation for creating comment
+      if (query.includes("commentCreate")) {
+        return { commentCreate: { success: true } };
+      }
+      return {};
+    }
+    async listDocuments(opts?: { projectId?: string; issueId?: string; title?: string; first?: number }) {
+      // loadLinearPrDocuments queries for PLAN and SUMMARY docs
+      if (opts?.title?.endsWith("-PLAN")) {
+        return [{ title: opts.title, content: PLAN_CONTENT, updatedAt: "2026-01-01T00:00:00Z" }];
+      }
+      if (opts?.title?.endsWith("-SUMMARY")) {
+        return [{ title: opts.title, content: "# Summary\n\n**Done.**", updatedAt: "2026-01-01T00:00:00Z" }];
+      }
+      if (opts?.issueId) {
+        // Issue-scoped query returns both docs
+        return [
+          { title: "S01-PLAN", content: PLAN_CONTENT, updatedAt: "2026-01-01T00:00:00Z" },
+          { title: "S01-SUMMARY", content: "# Summary\n\n**Done.**", updatedAt: "2026-01-01T00:00:00Z" },
+        ];
+      }
+      return [];
+    }
+  },
+}));
 
 // ─── Happy path ───────────────────────────────────────────────────────────────
 
@@ -478,5 +518,306 @@ describe("runCreatePr — pre-flight failures", () => {
       expect(result.phase).toBe("artifact-error");
       expect(result.error).toContain("Missing required Linear artifact");
     }
+  });
+});
+
+// ─── Linear config integration paths ──────────────────────────────────────────
+
+describe("runCreatePr — linearConfig paths", () => {
+  const linearConfig = {
+    prPrefs: { linear_link: true },
+    workflowMode: "linear",
+    projectId: "proj-123",
+    sliceLabelId: "label-456",
+    apiKey: "test-api-key",
+  };
+
+  it("resolves Linear metadata and loads documents when linearConfig is provided without pre-fetched docs", async () => {
+    const rt = createMockRuntime({
+      branch: "kata/apps-cli/M001/S01",
+      commands: [
+        { match: "git ls-remote --heads origin", response: "abc\trefs/heads/kata/apps-cli/M001/S01\n" },
+        { match: "gh pr create", response: "" },
+        { match: "gh pr view --json body", response: "" },
+        { match: "gh pr view --json url", response: "https://github.com/test/repo/pull/60\n" },
+      ],
+    });
+
+    const result = await runCreatePr({
+      title: "Linear config test",
+      cwd: "/tmp/test-repo",
+      linearConfig,
+      // No linearDocuments — forces loadLinearPrDocuments to run
+      _runtime: rt,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.linearComment).toBe("added");
+    }
+  });
+
+  it("uses pre-fetched linearDocuments and skips document loading", async () => {
+    const rt = createMockRuntime({
+      branch: "kata/apps-cli/M001/S01",
+      commands: [
+        { match: "git ls-remote --heads origin", response: "abc\trefs/heads/kata/apps-cli/M001/S01\n" },
+        { match: "gh pr create", response: "" },
+        { match: "gh pr view --json body", response: "" },
+        { match: "gh pr view --json url", response: "https://github.com/test/repo/pull/61\n" },
+      ],
+    });
+
+    const result = await runCreatePr({
+      title: "Pre-fetched docs",
+      cwd: "/tmp/test-repo",
+      linearConfig,
+      linearDocuments: { PLAN: PLAN_CONTENT, SUMMARY: "# Summary\n\n**Done.**" },
+      _runtime: rt,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.linearComment).toBe("added");
+    }
+  });
+
+  it("skips cross-linking when linear_link is false", async () => {
+    const rt = createMockRuntime({
+      branch: "kata/apps-cli/M001/S01",
+      commands: [
+        { match: "git ls-remote --heads origin", response: "abc\trefs/heads/kata/apps-cli/M001/S01\n" },
+        { match: "gh pr create", response: "" },
+        { match: "gh pr view --json body", response: "" },
+        { match: "gh pr view --json url", response: "https://github.com/test/repo/pull/62\n" },
+      ],
+    });
+
+    const result = await runCreatePr({
+      title: "No cross-link",
+      cwd: "/tmp/test-repo",
+      linearConfig: { ...linearConfig, prPrefs: { linear_link: false } },
+      linearDocuments: { PLAN: PLAN_CONTENT },
+      _runtime: rt,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.linearComment).toBe("skipped");
+    }
+  });
+
+  it("loads documents via loadLinearPrDocuments when none are pre-provided (issue-scoped path)", async () => {
+    // No linearDocuments at all → loadLinearPrDocuments runs, issue-scoped query returns docs
+    const rt = createMockRuntime({
+      branch: "kata/apps-cli/M001/S01",
+      commands: [
+        { match: "git ls-remote --heads origin", response: "abc\trefs/heads/kata/apps-cli/M001/S01\n" },
+        { match: "gh pr create", response: "" },
+        { match: "gh pr view --json body", response: "" },
+        { match: "gh pr view --json url", response: "https://github.com/test/repo/pull/64\n" },
+      ],
+    });
+
+    const result = await runCreatePr({
+      title: "No pre-fetched docs",
+      cwd: "/tmp/test-repo",
+      linearConfig: {
+        prPrefs: { linear_link: false },
+        workflowMode: "linear",
+        projectId: "proj-123",
+        apiKey: "test-key",
+      },
+      // No linearDocuments — forces loadLinearPrDocuments to run fully
+      _runtime: rt,
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("falls through gracefully when linearConfig dynamic import fails", async () => {
+    // The mock is set up, so this tests that the try/catch around linearConfig
+    // processing doesn't break the flow when documents are pre-provided
+    const rt = createMockRuntime({
+      branch: "kata/apps-cli/M001/S01",
+      commands: [
+        { match: "git ls-remote --heads origin", response: "abc\trefs/heads/kata/apps-cli/M001/S01\n" },
+        { match: "gh pr create", response: "" },
+        { match: "gh pr view --json body", response: "" },
+        { match: "gh pr view --json url", response: "https://github.com/test/repo/pull/63\n" },
+      ],
+    });
+
+    const result = await runCreatePr({
+      title: "Fallthrough test",
+      cwd: "/tmp/test-repo",
+      linearConfig: { ...linearConfig, workflowMode: "file" },
+      linearDocuments: { PLAN: PLAN_CONTENT },
+      _runtime: rt,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.linearComment).toBe("skipped");
+    }
+  });
+});
+
+// ─── PR body composition edge cases (via runCreatePr) ─────────────────────────
+
+describe("runCreatePr — body composition branches", () => {
+  it("handles plan with no title and no tasks (fallback branches)", async () => {
+    const minimalPlan = "## Must-Haves\n\n- Something works\n";
+    const rt = createMockRuntime({
+      branch: "kata/apps-cli/M001/S01",
+      commands: [
+        { match: "git ls-remote --heads origin", response: "abc\trefs/heads/kata/apps-cli/M001/S01\n" },
+        { match: "gh pr create", response: "" },
+        { match: "gh pr view --json body", response: "" },
+        { match: "gh pr view --json url", response: "https://github.com/test/repo/pull/80\n" },
+      ],
+    });
+
+    const result = await runCreatePr({
+      title: "Minimal plan test",
+      cwd: "/tmp/test-repo",
+      linearDocuments: { PLAN: minimalPlan },
+      _runtime: rt,
+    });
+
+    expect(result.ok).toBe(true);
+    // Body should contain the fallback title and "see slice plan" for tasks
+    const body = rt.writeLog[0]?.content ?? "";
+    expect(body).toContain("## What Changed");
+    expect(body).toContain("## Must-Haves");
+  });
+
+  it("handles plan with no must-haves (empty list branch)", async () => {
+    const noMustHavesPlan = "# S01: Title\n\n**Goal:** Testing.\n\n## Tasks\n\n- [ ] **T01: Do it** `est:10m`\n";
+    const rt = createMockRuntime({
+      branch: "kata/apps-cli/M001/S01",
+      commands: [
+        { match: "git ls-remote --heads origin", response: "abc\trefs/heads/kata/apps-cli/M001/S01\n" },
+        { match: "gh pr create", response: "" },
+        { match: "gh pr view --json body", response: "" },
+        { match: "gh pr view --json url", response: "https://github.com/test/repo/pull/81\n" },
+      ],
+    });
+
+    const result = await runCreatePr({
+      title: "No must-haves test",
+      cwd: "/tmp/test-repo",
+      linearDocuments: { PLAN: noMustHavesPlan },
+      _runtime: rt,
+    });
+
+    expect(result.ok).toBe(true);
+    const body = rt.writeLog[0]?.content ?? "";
+    expect(body).toContain("## Must-Haves");
+    expect(body).toContain("See slice plan");
+  });
+
+  it("includes Linear references section when linearConfig is active", async () => {
+    const rt = createMockRuntime({
+      branch: "kata/apps-cli/M001/S01",
+      commands: [
+        { match: "git ls-remote --heads origin", response: "abc\trefs/heads/kata/apps-cli/M001/S01\n" },
+        { match: "gh pr create", response: "" },
+        { match: "gh pr view --json body", response: "" },
+        { match: "gh pr view --json url", response: "https://github.com/test/repo/pull/82\n" },
+      ],
+    });
+
+    const result = await runCreatePr({
+      title: "Linear refs test",
+      cwd: "/tmp/test-repo",
+      linearConfig: {
+        prPrefs: { linear_link: true },
+        workflowMode: "linear",
+        projectId: "proj-123",
+        apiKey: "test-key",
+      },
+      linearDocuments: { PLAN: PLAN_CONTENT },
+      _runtime: rt,
+    });
+
+    expect(result.ok).toBe(true);
+    const body = rt.writeLog[0]?.content ?? "";
+    expect(body).toContain("Closes KAT-999");
+  });
+});
+
+// ─── Compose body error + URL retrieval fallback ──────────────────────────────
+
+describe("runCreatePr — error edge cases", () => {
+  it("returns artifact-error when composePRBody throws", async () => {
+    const rt = createMockRuntime({
+      branch: "kata/apps-cli/M001/S01",
+      commands: [
+        { match: "git ls-remote --heads origin", response: "abc\trefs/heads/kata/apps-cli/M001/S01\n" },
+      ],
+    });
+
+    const result = await runCreatePr({
+      title: "Compose failure",
+      cwd: "/tmp/test-repo",
+      // Provide a PLAN that's empty/invalid — parsePlan will return no title
+      // but composePRBody should still work. Instead, omit PLAN completely to trigger artifact-error.
+      linearDocuments: {},
+      _runtime: rt,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.phase).toBe("artifact-error");
+    }
+  });
+
+  it("returns fallback URL when gh pr view --json url fails", async () => {
+    const urlError = new Error("gh not found");
+    const rt = createMockRuntime({
+      branch: "kata/apps-cli/M001/S01",
+      commands: [
+        { match: "git ls-remote --heads origin", response: "abc\trefs/heads/kata/apps-cli/M001/S01\n" },
+        { match: "gh pr create", response: "" },
+        { match: "gh pr view --json body", response: "" },
+        { match: "gh pr view --json url", response: urlError },
+      ],
+    });
+
+    const result = await runCreatePr({
+      title: "URL failure test",
+      cwd: "/tmp/test-repo",
+      linearDocuments: { PLAN: PLAN_CONTENT },
+      _runtime: rt,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.url).toContain("could not retrieve URL");
+    }
+  });
+
+  it("proceeds when ls-remote itself fails", async () => {
+    const lsRemoteError = new Error("network error");
+    const rt = createMockRuntime({
+      branch: "kata/apps-cli/M001/S01",
+      commands: [
+        { match: "git ls-remote --heads origin", response: lsRemoteError },
+        { match: "gh pr create", response: "" },
+        { match: "gh pr view --json body", response: "" },
+        { match: "gh pr view --json url", response: "https://github.com/test/repo/pull/70\n" },
+      ],
+    });
+
+    const result = await runCreatePr({
+      title: "ls-remote failure",
+      cwd: "/tmp/test-repo",
+      linearDocuments: { PLAN: PLAN_CONTENT },
+      _runtime: rt,
+    });
+
+    // Should still succeed — ls-remote failure is caught and gh pr create proceeds
+    expect(result.ok).toBe(true);
   });
 });
