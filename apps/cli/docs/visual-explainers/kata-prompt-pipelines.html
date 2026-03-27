@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kata Prompt Pipelines — Auto · Step · Plan · Discuss</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&family=Fragment+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font-body: 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-mono: 'Fragment Mono', 'SF Mono', Consolas, monospace;
+
+  --bg: #faf8f5;
+  --surface: #ffffff;
+  --surface2: #f3f0eb;
+  --surface-elevated: #fff9f5;
+  --border: rgba(0, 0, 0, 0.07);
+  --border-bright: rgba(0, 0, 0, 0.14);
+  --text: #1c1917;
+  --text-dim: #78716c;
+
+  --auto: #0369a1;
+  --auto-dim: rgba(3, 105, 161, 0.07);
+  --step: #7e22ce;
+  --step-dim: rgba(126, 34, 206, 0.07);
+  --plan: #b45309;
+  --plan-dim: rgba(180, 83, 9, 0.07);
+  --discuss: #0f766e;
+  --discuss-dim: rgba(15, 118, 110, 0.07);
+  --shared: #6b7280;
+  --shared-dim: rgba(107, 114, 128, 0.06);
+  --prompt: #be123c;
+  --prompt-dim: rgba(190, 18, 60, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171412;
+    --surface: #211d1a;
+    --surface2: #2a2521;
+    --surface-elevated: #302a25;
+    --border: rgba(255, 255, 255, 0.06);
+    --border-bright: rgba(255, 255, 255, 0.12);
+    --text: #e7e5e4;
+    --text-dim: #a8a29e;
+
+    --auto: #38bdf8;
+    --auto-dim: rgba(56, 189, 248, 0.1);
+    --step: #c084fc;
+    --step-dim: rgba(192, 132, 252, 0.1);
+    --plan: #fbbf24;
+    --plan-dim: rgba(251, 191, 36, 0.1);
+    --discuss: #5eead4;
+    --discuss-dim: rgba(94, 234, 212, 0.1);
+    --shared: #9ca3af;
+    --shared-dim: rgba(156, 163, 175, 0.08);
+    --prompt: #fda4af;
+    --prompt-dim: rgba(253, 164, 175, 0.08);
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  padding: 40px;
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.wrap {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 0 40px;
+}
+.main { min-width: 0; }
+
+/* ── TOC ── */
+.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  padding: 14px 0;
+  grid-row: 1 / -1;
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+}
+.toc::-webkit-scrollbar { width: 3px; }
+.toc::-webkit-scrollbar-thumb { background: var(--surface-elevated); border-radius: 2px; }
+
+.toc-title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  padding: 0 0 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.toc a {
+  display: block;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 5px;
+  border-left: 2px solid transparent;
+  transition: all 0.15s;
+  line-height: 1.4;
+  margin-bottom: 1px;
+}
+.toc a:hover { color: var(--text); background: var(--surface2); }
+.toc a.active { color: var(--text); border-left-color: var(--auto); }
+
+@media (max-width: 1000px) {
+  .wrap { grid-template-columns: 1fr; padding-top: 0; }
+  body { padding-top: 0; }
+  .toc {
+    position: sticky; top: 0; z-index: 200;
+    max-height: none; display: flex; gap: 4px; align-items: center;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    padding: 10px 0; margin: 0 -40px; padding-left: 40px; padding-right: 40px;
+    grid-row: auto;
+  }
+  .toc::-webkit-scrollbar { display: none; }
+  .toc-title { display: none; }
+  .toc a {
+    white-space: nowrap; flex-shrink: 0;
+    border-left: none; border-bottom: 2px solid transparent;
+    border-radius: 4px 4px 0 0; padding: 6px 10px; font-size: 10px;
+  }
+  .toc a.active { border-left: none; border-bottom-color: var(--auto); background: var(--surface); }
+  .main { padding-top: 20px; }
+  .sec-head { scroll-margin-top: 52px; }
+}
+
+/* ── Typography ── */
+h1 {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+.subtitle {
+  color: var(--text-dim);
+  font-size: 16px;
+  margin-bottom: 40px;
+}
+.sec-head {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin: 48px 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sec-head::before {
+  content: '';
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.sec-head--shared { color: var(--shared); background: var(--shared-dim); }
+.sec-head--auto { color: var(--auto); background: var(--auto-dim); }
+.sec-head--step { color: var(--step); background: var(--step-dim); }
+.sec-head--plan { color: var(--plan); background: var(--plan-dim); }
+.sec-head--discuss { color: var(--discuss); background: var(--discuss-dim); }
+
+h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 24px 0 12px;
+}
+
+/* ── Cards ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 22px;
+  margin-bottom: 12px;
+  position: relative;
+  animation: fadeUp 0.4s ease-out both;
+}
+.card--hero {
+  background: color-mix(in srgb, var(--surface) 92%, var(--auto) 8%);
+  border-color: color-mix(in srgb, var(--border) 50%, var(--auto) 50%);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+}
+.card--recessed {
+  background: color-mix(in srgb, var(--bg) 70%, var(--surface) 30%);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
+}
+.card__label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.card__label::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Color-coded borders */
+.card--auto { border-left: 3px solid var(--auto); }
+.card--step { border-left: 3px solid var(--step); }
+.card--plan { border-left: 3px solid var(--plan); }
+.card--discuss { border-left: 3px solid var(--discuss); }
+.card--shared { border-left: 3px solid var(--shared); }
+.card--prompt { border-left: 3px solid var(--prompt); }
+
+/* ── Flow arrow ── */
+.flow-arrow {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0;
+}
+.flow-arrow svg { display: block; }
+
+/* ── Prompt tag ── */
+.prompt-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--prompt-dim);
+  color: var(--prompt);
+  border: 1px solid color-mix(in srgb, var(--prompt) 20%, transparent);
+}
+
+/* ── Data grid ── */
+.data-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* ── Pipeline row ── */
+.pipeline {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+.pipeline__step {
+  flex: 1;
+  min-width: 140px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+.pipeline__step strong {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.pipeline__arrow {
+  display: flex;
+  align-items: center;
+  color: var(--text-dim);
+  font-size: 18px;
+  padding: 0 2px;
+}
+
+/* ── Code inline ── */
+code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--surface2);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* ── Table ── */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 12px 0;
+}
+th {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 2px solid var(--border-bright);
+  color: var(--text-dim);
+}
+td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+tr:hover td { background: var(--surface2); }
+
+/* ── Misc ── */
+p { margin-bottom: 10px; font-size: 14px; }
+ul { margin: 8px 0; padding-left: 20px; font-size: 13px; }
+li { margin-bottom: 4px; }
+.dim { color: var(--text-dim); }
+.mono { font-family: var(--font-mono); }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card { animation: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="toc" id="toc">
+  <div class="toc-title">Pipelines</div>
+  <a href="#shared">Shared Foundation</a>
+  <a href="#auto">Auto Mode</a>
+  <a href="#step">Step Mode</a>
+  <a href="#plan">Plan Mode</a>
+  <a href="#discuss">Discuss Mode</a>
+  <a href="#prompts">Prompt Inventory</a>
+</nav>
+
+<div class="main">
+<h1>Kata Prompt Pipelines</h1>
+<p class="subtitle">How prompts flow from user command to LLM context across the four execution modes</p>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="shared" class="sec-head sec-head--shared">Shared Foundation — Every Session</div>
+
+<div class="card card--hero" style="animation-delay: 0.05s">
+  <div class="card__label" style="color: var(--shared)">before_agent_start hook · index.ts</div>
+  <p>Fires once at session start for any project with a <code>.kata/</code> directory. Builds the system prompt by concatenating these blocks in order:</p>
+
+  <div class="pipeline">
+    <div class="pipeline__step">
+      <strong style="color: var(--shared)">1. System Prompt</strong>
+      <span class="prompt-tag">system.md</span><br>
+      Agent identity, hard rules, skills table, commands, execution heuristics, playbooks
+    </div>
+    <div class="pipeline__arrow">→</div>
+    <div class="pipeline__step">
+      <strong style="color: var(--shared)">2. Workflow Mode</strong>
+      <code>"mode: linear"</code><br>
+      Appended when entrypoint guard has a notice
+    </div>
+    <div class="pipeline__arrow">→</div>
+    <div class="pipeline__step">
+      <strong style="color: var(--shared)">3. Preferences</strong>
+      Skill preferences block from <code>.kata/preferences.md</code>, resolved skill paths, warnings
+    </div>
+    <div class="pipeline__arrow">→</div>
+    <div class="pipeline__step">
+      <strong style="color: var(--shared)">4. New Skills</strong>
+      XML block for skills installed during current auto-mode session (if any)
+    </div>
+    <div class="pipeline__arrow">→</div>
+    <div class="pipeline__step">
+      <strong style="color: var(--shared)">5. Workflow Protocol</strong>
+      <span class="prompt-tag">KATA-WORKFLOW.md</span><br>
+      Full ~550-line workflow doc: hierarchy, artifacts, phases, formats, git strategy, auto-mode contract
+    </div>
+  </div>
+
+  <p class="dim" style="font-size: 12px; margin-top: 8px;">
+    Result: <code>event.systemPrompt + "\n\n[SYSTEM CONTEXT — Kata]\n\n" + system.md + workflowMode + preferences + newSkills + KATA-WORKFLOW.md</code>
+  </p>
+</div>
+
+<div class="card card--recessed card--shared">
+  <div class="card__label" style="color: var(--shared)">Key constraint</div>
+  <p><strong>KATA-WORKFLOW.md is always in the system prompt.</strong> No execution mode needs to re-send it. Auto-mode prompts reference it via <em>"Consult KATA-WORKFLOW.md (injected into your system prompt)"</em>. Guided flow prompts say <em>"Follow the Kata Workflow protocol in your system prompt."</em></p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="auto" class="sec-head sec-head--auto">Auto Mode — /kata auto</div>
+
+<div class="card card--auto">
+  <div class="card__label" style="color: var(--auto)">Entry · commands.ts → auto.ts</div>
+  <p>User runs <code>/kata auto</code>. The dispatch loop runs fresh sessions until the milestone is complete.</p>
+</div>
+
+<div class="flow-arrow"><svg width="2" height="16"><line x1="1" y1="0" x2="1" y2="16" stroke="var(--auto)" stroke-width="2" stroke-dasharray="3,3"/></svg></div>
+
+<div class="card card--auto">
+  <div class="card__label" style="color: var(--auto)">Step 1 — State derivation</div>
+  <p><code>backend.deriveState()</code> → calls <code>deriveLinearState()</code> via Linear API. Returns <code>KataState</code> with <code>phase</code>, <code>activeMilestone</code>, <code>activeSlice</code>, <code>activeTask</code>.</p>
+</div>
+
+<div class="flow-arrow"><svg width="2" height="16"><line x1="1" y1="0" x2="1" y2="16" stroke="var(--auto)" stroke-width="2" stroke-dasharray="3,3"/></svg></div>
+
+<div class="card card--auto">
+  <div class="card__label" style="color: var(--auto)">Step 2 — Dispatch routing</div>
+  <p><code>resolveDispatchOptions()</code> checks for UAT, reassessment, and research overrides. <code>deriveUnitType(state, options)</code> maps the phase to a unit type:</p>
+  <table>
+    <thead><tr><th>Phase</th><th>Unit Type</th><th>Auto-mode Prompt</th></tr></thead>
+    <tbody>
+      <tr><td>pre-planning</td><td>plan-milestone</td><td><span class="prompt-tag">plan-milestone.md</span></td></tr>
+      <tr><td>planning</td><td>plan-slice</td><td><span class="prompt-tag">plan-slice.md</span></td></tr>
+      <tr><td>executing / verifying</td><td>execute-task</td><td><span class="prompt-tag">execute-task.md</span></td></tr>
+      <tr><td>summarizing</td><td>complete-slice</td><td><span class="prompt-tag">complete-slice.md</span></td></tr>
+      <tr><td>completing-milestone</td><td>complete-milestone</td><td><span class="prompt-tag">complete-milestone.md</span></td></tr>
+      <tr><td>replanning-slice</td><td>replan-slice</td><td><span class="prompt-tag">replan-slice.md</span></td></tr>
+    </tbody>
+  </table>
+  <p class="dim" style="font-size: 12px;">Override routes: <span class="prompt-tag">research-milestone.md</span> <span class="prompt-tag">research-slice.md</span> <span class="prompt-tag">reassess-roadmap.md</span> <span class="prompt-tag">run-uat.md</span></p>
+</div>
+
+<div class="flow-arrow"><svg width="2" height="16"><line x1="1" y1="0" x2="1" y2="16" stroke="var(--auto)" stroke-width="2" stroke-dasharray="3,3"/></svg></div>
+
+<div class="card card--auto">
+  <div class="card__label" style="color: var(--auto)">Step 3 — Prompt building</div>
+  <p><code>backend.buildPrompt(phase, state, options)</code> on <code>LinearBackend</code> builds a self-contained prompt. Each prompt template gets <code>{{variable}}</code> substitution with:</p>
+  <ul>
+    <li>Inlined context: roadmap, slice plan, task plan, summaries — preloaded from Linear documents and issue descriptions</li>
+    <li>Backend rules: "CRITICAL: Do NOT create local <code>.kata/</code> files. Use <code>kata_write_document</code>..."</li>
+    <li>Reference line: <em>"Consult KATA-WORKFLOW.md (injected into your system prompt)"</em></li>
+    <li>Must-complete instruction specific to the unit type</li>
+  </ul>
+  <p class="dim" style="font-size: 12px;">Auto-mode prompts <strong>do advance issue state</strong> — they include <code>kata_update_issue_state</code> instructions.</p>
+</div>
+
+<div class="flow-arrow"><svg width="2" height="16"><line x1="1" y1="0" x2="1" y2="16" stroke="var(--auto)" stroke-width="2" stroke-dasharray="3,3"/></svg></div>
+
+<div class="card card--auto">
+  <div class="card__label" style="color: var(--auto)">Step 4 — Dispatch</div>
+  <p><code>pi.sendMessage({ customType: "kata-auto", content: finalPrompt })</code> with <code>{ triggerTurn: true }</code>. The prompt may be prepended with crash recovery context or retry diagnostics.</p>
+  <p class="dim" style="font-size: 12px;">Supervisors (soft timeout, hard timeout, idle watchdog) run in parallel. On session end, activity log is saved, issue state is advanced, and the loop restarts with fresh context.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="step" class="sec-head sec-head--step">Step Mode — /kata step (or bare /kata)</div>
+
+<div class="card card--step">
+  <div class="card__label" style="color: var(--step)">Entry · commands.ts</div>
+  <p>User runs <code>/kata step</code> or <code>/kata</code> (with an active milestone). Executes one unit in the current session — no loop, no fresh context.</p>
+</div>
+
+<div class="flow-arrow"><svg width="2" height="16"><line x1="1" y1="0" x2="1" y2="16" stroke="var(--step)" stroke-width="2" stroke-dasharray="3,3"/></svg></div>
+
+<div class="card card--step">
+  <div class="card__label" style="color: var(--step)">Pipeline — same as auto, single pass</div>
+  <ol style="font-size: 13px; padding-left: 18px;">
+    <li><code>createBackend(cwd)</code> → <code>backend.deriveState()</code></li>
+    <li>If <code>phase === "blocked"</code> → notify and stop</li>
+    <li>If <code>phase === "complete"</code> or no active milestone → fall through to <code>showSmartEntry()</code></li>
+    <li>Ensure slice branch (<code>ensureSliceBranch</code>) for slice-scoped phases</li>
+    <li><code>backend.buildPrompt(phase, state)</code> — <strong>same prompt templates as auto-mode</strong></li>
+    <li>Apply model preference via <code>resolveModelForUnit(unitType)</code></li>
+    <li><code>pi.sendMessage({ customType: "kata-step", content: prompt })</code></li>
+  </ol>
+  <p class="dim" style="font-size: 12px;">No dispatch options (no UAT/reassess/research overrides). No supervisors. No crash recovery. No retry loop. Just one shot.</p>
+</div>
+
+<div class="card card--recessed card--step">
+  <div class="card__label" style="color: var(--step)">Prompts loaded</div>
+  <p>Identical to auto-mode — <code>LinearBackend.buildPrompt()</code> selects the same template based on phase. The only difference is the delivery mechanism (<code>kata-step</code> customType, no loop).</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="plan" class="sec-head sec-head--plan">Plan Mode — /kata plan</div>
+
+<div class="card card--plan">
+  <div class="card__label" style="color: var(--plan)">Entry · commands.ts → guided-flow.ts showPlan()</div>
+  <p>User runs <code>/kata plan</code>. Shows a state-dependent option picker, then dispatches via <code>dispatchWorkflow()</code>.</p>
+</div>
+
+<div class="flow-arrow"><svg width="2" height="16"><line x1="1" y1="0" x2="1" y2="16" stroke="var(--plan)" stroke-width="2" stroke-dasharray="3,3"/></svg></div>
+
+<div class="card card--plan">
+  <div class="card__label" style="color: var(--plan)">State machine — 5 states</div>
+  <table>
+    <thead><tr><th>State</th><th>Condition</th><th>Options Presented</th></tr></thead>
+    <tbody>
+      <tr><td><strong>A</strong></td><td>No milestones</td><td>Plan new milestone</td></tr>
+      <tr><td><strong>B</strong></td><td>Active milestone, no roadmap</td><td>Plan milestone roadmap, Discuss planning</td></tr>
+      <tr><td><strong>C</strong></td><td>Roadmap + pending slices</td><td>Plan next unplanned slice, Pick a slice, Add slice, Resequence, Revise roadmap, Plan new milestone, Discuss planning</td></tr>
+      <tr><td><strong>D</strong></td><td>All slices complete</td><td>Plan new milestone, Add slices, Revise roadmap, Discuss planning</td></tr>
+      <tr><td><strong>E</strong></td><td>All milestones complete</td><td>Plan new milestone, Discuss planning</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="flow-arrow"><svg width="2" height="16"><line x1="1" y1="0" x2="1" y2="16" stroke="var(--plan)" stroke-width="2" stroke-dasharray="3,3"/></svg></div>
+
+<div class="card card--plan">
+  <div class="card__label" style="color: var(--plan)">Prompt dispatch</div>
+  <p><code>dispatchWorkflow(ctx, pi, note)</code> sends a user message:</p>
+  <p style="font-family: var(--font-mono); font-size: 12px; background: var(--surface2); padding: 10px; border-radius: 6px; margin: 8px 0;">
+    "Follow the Kata Workflow protocol in your system prompt.\n\n## Your Task\n\n" + <em>guided prompt content</em>
+  </p>
+  <p>The guided prompt is selected by the user's choice:</p>
+  <table>
+    <thead><tr><th>User Choice</th><th>Guided Prompt</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td>Plan new milestone</td><td><span class="prompt-tag">guided-discuss-milestone.md</span></td><td>via <code>backend.buildDiscussPrompt()</code></td></tr>
+      <tr><td>Plan milestone roadmap</td><td><span class="prompt-tag">guided-plan-milestone.md</span></td><td>via <code>loadPrompt()</code></td></tr>
+      <tr><td>Plan next/pick slice</td><td><span class="prompt-tag">guided-plan-slice.md</span></td><td>via <code>loadPrompt()</code></td></tr>
+      <tr><td>Add a new slice</td><td><span class="prompt-tag">guided-add-slice.md</span></td><td>via <code>loadPrompt()</code></td></tr>
+      <tr><td>Resequence slices</td><td><span class="prompt-tag">guided-resequence-slices.md</span></td><td>via <code>loadPrompt()</code></td></tr>
+      <tr><td>Revise roadmap</td><td><span class="prompt-tag">guided-revise-roadmap.md</span></td><td>via <code>loadPrompt()</code></td></tr>
+      <tr><td>Discuss planning</td><td><span class="prompt-tag">guided-discuss-planning.md</span></td><td>via <code>loadPrompt()</code> with <code>{{currentState}}</code></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="card card--recessed card--plan">
+  <div class="card__label" style="color: var(--plan)">Critical difference from auto</div>
+  <p>All guided plan prompts contain: <strong>"Do NOT call <code>kata_update_issue_state</code>."</strong> Planning mode creates artifacts only — it does not advance execution state. Auto-mode plan prompts (same phase, different template) <em>do</em> advance state.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="discuss" class="sec-head sec-head--discuss">Discuss Mode — /kata discuss</div>
+
+<div class="card card--discuss">
+  <div class="card__label" style="color: var(--discuss)">Entry · commands.ts → guided-flow.ts showDiscuss()</div>
+  <p>User runs <code>/kata discuss</code>. Shows a slice picker (from the active milestone's roadmap), then dispatches a focused context interview for that slice.</p>
+</div>
+
+<div class="flow-arrow"><svg width="2" height="16"><line x1="1" y1="0" x2="1" y2="16" stroke="var(--discuss)" stroke-width="2" stroke-dasharray="3,3"/></svg></div>
+
+<div class="card card--discuss">
+  <div class="card__label" style="color: var(--discuss)">Context preloading</div>
+  <p><code>buildDiscussSlicePrompt()</code> reads from Linear and inlines:</p>
+  <ul>
+    <li>Milestone roadmap (<code>M001-ROADMAP</code>)</li>
+    <li>Milestone context (<code>M001-CONTEXT</code>)</li>
+    <li>Milestone research (<code>M001-RESEARCH</code>)</li>
+    <li>Decisions register (<code>DECISIONS</code>)</li>
+    <li>Summaries from completed dependency slices</li>
+  </ul>
+  <p class="dim" style="font-size: 12px;">All context is inlined into the prompt so the agent starts with full awareness and doesn't need to re-read documents.</p>
+</div>
+
+<div class="flow-arrow"><svg width="2" height="16"><line x1="1" y1="0" x2="1" y2="16" stroke="var(--discuss)" stroke-width="2" stroke-dasharray="3,3"/></svg></div>
+
+<div class="card card--discuss">
+  <div class="card__label" style="color: var(--discuss)">Prompt dispatch</div>
+  <p>Via <code>dispatchWorkflow()</code> → same mechanism as Plan mode:</p>
+  <p style="font-family: var(--font-mono); font-size: 12px; background: var(--surface2); padding: 10px; border-radius: 6px; margin: 8px 0;">
+    "Follow the Kata Workflow protocol in your system prompt.\n\n## Your Task\n\n" + <span class="prompt-tag">guided-discuss-slice.md</span> + inlined context + output instructions
+  </p>
+  <p>Output instructions tell the agent to write <code>S01-CONTEXT</code> via <code>kata_write_document</code> scoped to the slice issue.</p>
+</div>
+
+<div class="card card--recessed card--discuss">
+  <div class="card__label" style="color: var(--discuss)">Loop behavior</div>
+  <p>After the agent finishes the discussion, <code>showDiscuss()</code> loops back to the slice picker — the user can discuss another slice or exit. Each discuss dispatch waits for the agent to go idle via <code>ctx.waitForIdle()</code>.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="prompts" class="sec-head sec-head--shared">Prompt Inventory</div>
+
+<div class="card card--shared">
+  <div class="card__label" style="color: var(--shared)">All prompt templates · prompts/*.md</div>
+
+  <h3>Always injected (system prompt)</h3>
+  <table>
+    <thead><tr><th>Template</th><th>Purpose</th><th>Delivery</th></tr></thead>
+    <tbody>
+      <tr><td><span class="prompt-tag">system.md</span></td><td>Agent identity, rules, heuristics, playbooks</td><td>System prompt via <code>before_agent_start</code></td></tr>
+      <tr><td><span class="prompt-tag">KATA-WORKFLOW.md</span></td><td>Full workflow protocol (hierarchy, artifacts, phases, formats)</td><td>System prompt via <code>before_agent_start</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Auto-mode prompts (via <code>LinearBackend.buildPrompt()</code>)</h3>
+  <table>
+    <thead><tr><th>Template</th><th>Phase</th><th>Key behavior</th></tr></thead>
+    <tbody>
+      <tr><td><span class="prompt-tag">discuss.md</span></td><td>New milestone creation</td><td>Full discuss flow with backend ops</td></tr>
+      <tr><td><span class="prompt-tag">research-milestone.md</span></td><td>Override</td><td>Codebase + tech research</td></tr>
+      <tr><td><span class="prompt-tag">plan-milestone.md</span></td><td>pre-planning</td><td>Roadmap decomposition, <strong>advances state</strong></td></tr>
+      <tr><td><span class="prompt-tag">research-slice.md</span></td><td>Override</td><td>Slice-focused research</td></tr>
+      <tr><td><span class="prompt-tag">plan-slice.md</span></td><td>planning</td><td>Task decomposition, <strong>advances state</strong></td></tr>
+      <tr><td><span class="prompt-tag">execute-task.md</span></td><td>executing / verifying</td><td>Implementation + verification</td></tr>
+      <tr><td><span class="prompt-tag">complete-slice.md</span></td><td>summarizing</td><td>Summary + UAT + roadmap update</td></tr>
+      <tr><td><span class="prompt-tag">complete-milestone.md</span></td><td>completing-milestone</td><td>Milestone summary</td></tr>
+      <tr><td><span class="prompt-tag">replan-slice.md</span></td><td>replanning-slice</td><td>Slice replan after blocker</td></tr>
+      <tr><td><span class="prompt-tag">reassess-roadmap.md</span></td><td>Override</td><td>Post-slice roadmap reassessment</td></tr>
+      <tr><td><span class="prompt-tag">run-uat.md</span></td><td>Override</td><td>User acceptance testing</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Guided prompts (via <code>dispatchWorkflow()</code> → user message)</h3>
+  <table>
+    <thead><tr><th>Template</th><th>Triggered by</th><th>Key behavior</th></tr></thead>
+    <tbody>
+      <tr><td><span class="prompt-tag">guided-discuss-milestone.md</span></td><td>/kata (new project), /kata plan → new milestone</td><td>Milestone context interview</td></tr>
+      <tr><td><span class="prompt-tag">guided-discuss-slice.md</span></td><td>/kata discuss → pick slice</td><td>Slice context interview, inlined docs</td></tr>
+      <tr><td><span class="prompt-tag">guided-discuss-planning.md</span></td><td>/kata plan → Discuss planning</td><td>Freeform planning talk with state snapshot</td></tr>
+      <tr><td><span class="prompt-tag">guided-plan-milestone.md</span></td><td>/kata plan → Plan roadmap, /kata (smart entry)</td><td>Roadmap creation, <strong>no state advance</strong></td></tr>
+      <tr><td><span class="prompt-tag">guided-plan-slice.md</span></td><td>/kata plan → Plan slice</td><td>Task decomposition, <strong>no state advance</strong></td></tr>
+      <tr><td><span class="prompt-tag">guided-add-slice.md</span></td><td>/kata plan → Add slice</td><td>Append slice to roadmap, <strong>no state advance</strong></td></tr>
+      <tr><td><span class="prompt-tag">guided-resequence-slices.md</span></td><td>/kata plan → Resequence</td><td>Reorder slices + deps, <strong>no state advance</strong></td></tr>
+      <tr><td><span class="prompt-tag">guided-revise-roadmap.md</span></td><td>/kata plan → Revise roadmap</td><td>Full roadmap revision, <strong>no state advance</strong></td></tr>
+      <tr><td><span class="prompt-tag">guided-execute-task.md</span></td><td>/kata (smart entry, active task)</td><td>Task execution in interactive session</td></tr>
+      <tr><td><span class="prompt-tag">guided-complete-slice.md</span></td><td>/kata (smart entry, all tasks done)</td><td>Slice completion in interactive session</td></tr>
+      <tr><td><span class="prompt-tag">guided-research-slice.md</span></td><td>/kata (smart entry, pre-plan)</td><td>Slice research before planning</td></tr>
+      <tr><td><span class="prompt-tag">guided-resume-task.md</span></td><td>/kata (smart entry, interrupted)</td><td>Resume interrupted task</td></tr>
+    </tbody>
+  </table>
+
+  <h3>PR prompts (via <code>/kata pr</code>)</h3>
+  <table>
+    <thead><tr><th>Template</th><th>Subcommand</th></tr></thead>
+    <tbody>
+      <tr><td><span class="prompt-tag">pr-create.md</span></td><td>/kata pr create</td></tr>
+      <tr><td><span class="prompt-tag">pr-review.md</span></td><td>/kata pr review</td></tr>
+      <tr><td><span class="prompt-tag">pr-address.md</span></td><td>/kata pr address</td></tr>
+      <tr><td><span class="prompt-tag">pr-merge.md</span></td><td>/kata pr merge</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Other</h3>
+  <table>
+    <thead><tr><th>Template</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><span class="prompt-tag">queue.md</span></td><td>/kata queue (file-mode only, entrypoint blocked in Linear mode)</td></tr>
+    </tbody>
+  </table>
+</div>
+
+</div><!-- /main -->
+</div><!-- /wrap -->
+
+<script>
+(function() {
+  const toc = document.getElementById('toc');
+  const links = toc.querySelectorAll('a');
+  const sections = [];
+  links.forEach(link => {
+    const id = link.getAttribute('href').slice(1);
+    const el = document.getElementById(id);
+    if (el) sections.push({ id, el, link });
+  });
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const match = sections.find(s => s.el === entry.target);
+        if (match) {
+          match.link.classList.add('active');
+          if (window.innerWidth <= 1000) {
+            match.link.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        }
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+  sections.forEach(s => observer.observe(s.el));
+  links.forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const id = link.getAttribute('href').slice(1);
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        history.replaceState(null, '', '#' + id);
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>
