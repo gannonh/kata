@@ -173,18 +173,10 @@ function nextMilestoneId(state: KataState): string {
 function getSliceDisplayStatus(
   state: KataState,
   slice: RoadmapSliceEntry,
-  idx: number,
+  _idx: number,
 ): "done" | "active" | "pending" {
   if (slice.done) return "done";
   if (state.activeSlice?.id === slice.id) return "active";
-
-  const currentSlice = state.activeSlice
-    ? state.registry.find((m) => m.id === state.activeMilestone?.id)?.slices?.find(
-        (s) => s.id === state.activeSlice?.id,
-      )
-    : null;
-
-  if (currentSlice && idx > 0 && !slice.done) return "pending";
   return "pending";
 }
 

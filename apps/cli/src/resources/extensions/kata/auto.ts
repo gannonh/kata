@@ -445,7 +445,10 @@ export async function handleProviderError(
   if (!active || !cmdCtx) return;
 
   providerErrorStreak++;
-  const delayMs = providerBackoffMs(providerErrorStreak - 1);
+  const backoffIndex = providerErrorStreak - 1;
+  const delayMs =
+    providerBackoffMs[backoffIndex] ??
+    providerBackoffMs[providerBackoffMs.length - 1]!;
   const delaySec = Math.round(delayMs / 1000);
 
   dlog("provider-error", {
