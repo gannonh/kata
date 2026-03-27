@@ -133,19 +133,10 @@ function dispatchWorkflow(
     );
     return false;
   }
-  if (!gate.protocol.path) {
-    ctx.ui.notify(
-      `Could not load ${gate.protocol.documentName} for ${gate.mode} mode.`,
-      "error",
-    );
-    return false;
-  }
-
-  const workflow = readFileSync(gate.protocol.path, "utf-8");
   pi.sendMessage(
     {
       customType,
-      content: `Read the following Kata workflow protocol and execute exactly.\n\n${workflow}\n\n## Your Task\n\n${note}`,
+      content: `Follow the Kata Workflow protocol in your system prompt.\n\n## Your Task\n\n${note}`,
       display: false,
     },
     { triggerTurn: true },
