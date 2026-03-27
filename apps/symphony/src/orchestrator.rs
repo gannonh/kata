@@ -1548,7 +1548,8 @@ impl Orchestrator {
         let terminal_issues = port.startup_terminal_issues(&self.config.tracker.terminal_states)?;
 
         for issue in terminal_issues {
-            self.mark_issue_terminal(&issue, None, false);
+            let workspace_path_hint = self.default_workspace_path_for_issue(&issue);
+            self.mark_issue_terminal(&issue, Some(workspace_path_hint.as_str()), false);
         }
 
         Ok(())

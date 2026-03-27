@@ -119,7 +119,8 @@ workspace:
   base_branch: main
 
   # Whether to auto-remove workspaces when their issue reaches a terminal state.
-  # When true, runs `before_remove` hook then deletes the workspace directory.
+  # When true, runs `before_remove` hook then deletes the workspace directory,
+  # including startup cleanup for issues that were already terminal while Symphony was stopped.
   # Default: false (workspaces persist for debugging).
   # cleanup_on_done: false
 
